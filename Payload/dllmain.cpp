@@ -25,7 +25,7 @@ struct ServerConfig {
     std::wstring MapName;
     std::wstring FullModePath;
     unsigned int Port;
-    bool NumPlayersToStartAt;
+    int NumPlayersToStartAt;
 };
 
 static ServerConfig Config{};
@@ -88,8 +88,64 @@ SafetyHookInline TickFlush = {};
 
 std::vector<APlayerController*> playerControllersPossessed = std::vector<APlayerController*>();
 
+int NumPlayersJoined = 0;
+
+float PlayerJoinTimerSelectFuck = -1.0f;
+
+bool DidProcFlow = false;
+
+float StartMatchTimer = -1.0f;
+
+int NumPlayersSelectedRole = 0;
+
+bool DidProcStartMatch = false;
+
+bool canStartMatch = false;
+
+
 void TickFlushHook(UNetDriver* NetDriver, float DeltaTime) {
     if (listening && NetDriver && UWorld::GetWorld()) {
+        //std::cout << DeltaTime << std::endl;
+
+        if (!DidProcFlow && NumPlayersJoined >= Config.NumPlayersToStartAt) {
+            DidProcFlow = true;
+
+            std::cout << "All players connected, beginning role selection flow!" << std::endl;
+
+            PlayerJoinTimerSelectFuck = 5.0f;
+        }
+
+
+        if (PlayerJoinTimerSelectFuck > 0.0f) {
+            PlayerJoinTimerSelectFuck -= DeltaTime;
+
+            if (PlayerJoinTimerSelectFuck <= 0.0f) {
+
+                for (int i = SDK::UObject::GObjects->Num() - 1; i >= 0; i--)
+                {
+                    SDK::UObject* Obj = SDK::UObject::GObjects->GetByIndex(i);
+
+                    if (!Obj)
+                        continue;
+
+                    if (Obj->IsDefaultObject())
+                        continue;
+
+                    if (Obj->IsA(APBPlayerController::StaticClass()))
+                    {
+                        if (((APBPlayerController*)Obj)->CanSelectRole()) {
+                            std::cout << "Selecting role..." << std::endl;
+                            ((APBPlayerController*)Obj)->ClientSelectRole();
+                        }
+                        else {
+                            std::cout << "CANT SELECT ROLE WEE WOO WEE WOO" << std::endl;
+                        }
+                    }
+                }
+
+            }
+        }
+
         UWorld::GetWorld()->NetDriver = NetDriver;
         NetDriver->World = UWorld::GetWorld();
 
@@ -199,7 +255,8 @@ void TickFlushHook(UNetDriver* NetDriver, float DeltaTime) {
         }
     }
 
-    if (GetAsyncKeyState(VK_F7) && amServer) {
+    if (canStartMatch && !DidProcStartMatch) {
+        DidProcStartMatch = true;
         /*
         ((APBGameState*)((APBGameMode*)UWorld::GetWorld()->AuthorityGameMode)->PBGameState)->PlayerJoinsGameMatch((APBPlayerState*)GetLastOfType(APBPlayerState::StaticClass(), false));
         ((APBGameState*)((APBGameMode*)UWorld::GetWorld()->AuthorityGameMode)->PBGameState)->K2_StartRoleSelection();
@@ -211,11 +268,6 @@ void TickFlushHook(UNetDriver* NetDriver, float DeltaTime) {
         ((APBGameMode*)UWorld::GetWorld()->AuthorityGameMode)->ModeRuleSetting.RespawnWaveIntervalTime = 1;
                 */
         ((APBGameMode*)UWorld::GetWorld()->AuthorityGameMode)->StartMatch();
-
-
-        while (GetAsyncKeyState(VK_F7)) {
-
-        }
     }
 
     if (GetAsyncKeyState(VK_F8) && amServer) {
@@ -241,54 +293,6 @@ void TickFlushHook(UNetDriver* NetDriver, float DeltaTime) {
         }
 
         while (GetAsyncKeyState(VK_F8)) {
-
-        }
-    }
-
-    if (GetAsyncKeyState(VK_F9) && amServer) {
-        for (int i = SDK::UObject::GObjects->Num() - 1; i >= 0; i--)
-        {
-            SDK::UObject* Obj = SDK::UObject::GObjects->GetByIndex(i);
-
-            if (!Obj)
-                continue;
-
-            if (Obj->IsDefaultObject())
-                continue;
-
-            if (Obj->IsA(APBPlayerController::StaticClass()))
-            {
-                ((APBPlayerController*)Obj)->K2_PawnReplicatedPossess();
-                ((APBPlayerController*)Obj)->NotifyStopKillCamera();
-                ((APBPlayerController*)Obj)->StopKillCamera();
-                ((APBPlayerController*)Obj)->StopThirdPersonCamera();
-            }
-        }
-
-        while (GetAsyncKeyState(VK_F9)) {
-
-        }
-    }
-
-    if (GetAsyncKeyState(VK_F10) && amServer) {
-        for (int i = SDK::UObject::GObjects->Num() - 1; i >= 0; i--)
-        {
-            SDK::UObject* Obj = SDK::UObject::GObjects->GetByIndex(i);
-
-            if (!Obj)
-                continue;
-
-            if (Obj->IsDefaultObject())
-                continue;
-
-            if (Obj->IsA(APBPlayerController::StaticClass()))
-            {
-                std::cout << Obj->GetFullName() << std::endl;
-                ((APBPlayerController*)Obj)->Possess(((APBPlayerController*)Obj)->Pawn);
-            }
-        }
-
-        while (GetAsyncKeyState(VK_F10)) {
 
         }
     }
@@ -334,11 +338,7 @@ char ViewportShitHook(__int64 a1, float a2) {
 
 //__int64 *__fastcall sub_141561A60(__int64 a1, __int64 *a2, unsigned __int64 a3, unsigned __int8 a4)
 
-int NumPlayersSelectedRole = 0;
-
 SafetyHookInline ProcessEvent;
-
-bool canStartMatch = false;
 
 bool AllowedToRespawn = false;
 
@@ -367,6 +367,8 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
 
         if (!canStartMatch && NumPlayersSelectedRole >= Config.NumPlayersToStartAt) {
             canStartMatch = true;
+
+            //((APBGameMode*)UWorld::GetWorld()->AuthorityGameMode)->StartMatch();
         }
     }
 
@@ -408,11 +410,27 @@ __int64 HudFunctionThatCrashesTheGameHook(__int64 a1, __int64 a2) {
     return 0;
 }
 
+void ConnectToMatch() {
+    UPBGameInstance* GameInstance = (UPBGameInstance*)UWorld::GetWorld()->OwningGameInstance;
+
+    GameInstance->ShowLoadingScreen(false, true);
+
+    UPBLocalPlayer* LocalPlayer = (UPBLocalPlayer*)(UWorld::GetWorld()->OwningGameInstance->LocalPlayers[0]);
+
+    LocalPlayer->GoToRange(0.0f);
+
+    UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"travel 73.130.167.222", nullptr);
+
+    GameInstance->ShowLoadingScreen(true, true);
+}
+
 SafetyHookInline ProcessEventClient;
 
 void ProcessEventHookClient(UObject* Object, UFunction* Function, void* Parms) {
-    if (Function->GetFullName().contains("HasItem")) {
+    if (Function->GetFullName().contains("OnConnectMatchServerTimeOut")) {
         std::cout << "[PE] " << Object->GetFullName() << " - " << Function->GetFullName() << std::endl;
+
+        ConnectToMatch();
     }
 
     return ProcessEventClient.call(Object, Function, Parms);
@@ -455,6 +473,49 @@ char ActorNeedsLoadHook(UObject* a1) {
     return 1;
 }
 
+SafetyHookInline OnFireWeaponHook;
+
+void* OnFireWeapon(APBWeapon* Weapon) {
+    if ((uintptr_t)_ReturnAddress() - BaseAddress != 0x1608B31) {
+        return nullptr;
+    }
+    else {
+        return OnFireWeaponHook.call<void*>(Weapon);
+    }
+}
+
+SafetyHookInline PostLoginHook;
+
+void* PostLogin(AGameMode* GameMode, APBPlayerController* SpawnedPlayerController) {
+    void* Ret = PostLoginHook.call<void*>(GameMode, SpawnedPlayerController);
+    
+    NumPlayersJoined++;
+
+    std::cout << "Player Connected!" << std::endl;
+
+    return Ret;
+}
+
+SafetyHookInline IsDedicatedServerHook;
+
+bool IsDedicatedServer(void* WorldContextOrSomething) {
+    return true;
+}
+
+SafetyHookInline IsServerHook;
+
+bool IsServer(void* WorldContextOrSomething) {
+    return true;
+}
+
+SafetyHookInline IsStandaloneHook;
+
+bool IsStandalone(void* WorldContextOrSomething) {
+    return false;
+}
+
+//3326CE0
+
 void InitServerHooks() {
     NotifyActorDestroyed = safetyhook::create_inline((void*)(BaseAddress + 0x33403E0), NotifyActorDestroyedHook);
     NotifyAcceptingConnection = safetyhook::create_inline((void*)(BaseAddress + 0x36CDC90), NotifyAcceptingConnectionHook);
@@ -463,6 +524,13 @@ void InitServerHooks() {
     ProcessEvent = safetyhook::create_inline((void*)(BaseAddress + 0x1BCBE40), ProcessEventHook);
     ObjectNeedsLoad = safetyhook::create_inline((void*)(BaseAddress + 0x1B7B710), ObjectNeedsLoadHook);
     ActorNeedsLoad = safetyhook::create_inline((void*)(BaseAddress + 0x3124E70), ActorNeedsLoadHook);
+    OnFireWeaponHook = safetyhook::create_inline((void*)(BaseAddress + 0x1610500), OnFireWeapon);
+    PostLoginHook = safetyhook::create_inline((void*)(BaseAddress + 0x32903B0), PostLogin);
+    IsDedicatedServerHook = safetyhook::create_inline((void*)(BaseAddress + 0x33266F0), IsDedicatedServer);
+    IsServerHook = safetyhook::create_inline((void*)(BaseAddress + 0x3326C60), IsServer);
+    IsStandaloneHook = safetyhook::create_inline((void*)(BaseAddress + 0x3326CE0), IsStandalone);
+
+    //1610500
 
     //GameEngineTick = safetyhook::create_inline((void*)(BaseAddress + 0x350b3a0), GameEngineTickHook);
     //HudFunctionThatCrashesTheGame = safetyhook::create_inline((void*)(BaseAddress + 0x180B060), HudFunctionThatCrashesTheGameHook);
@@ -477,9 +545,9 @@ void InitClientHook() {
 }
 
 void LoadConfig() {
-    Config.FullModePath = L"/Game/Online/GameMode/BP_PBGameMode_Rush_PVE_Easy.BP_PBGameMode_Rush_PVE_Easy_C";
-    Config.MapName = L"DataCenter";
-    Config.NumPlayersToStartAt = 1;
+    Config.FullModePath = L"/Game/Online/GameMode/PBGameMode_Capture_BP.PBGameMode_Capture_BP_C";
+    Config.MapName = L"Warehouse";
+    Config.NumPlayersToStartAt = 2;
     Config.Port = 7777;
 }
 
@@ -513,6 +581,8 @@ void MainThread() {
 
         LoadConfig();
 
+        UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"t.maxfps 128", nullptr);
+
         std::wstring cmd = L"open " + Config.MapName + L"?game=" + Config.FullModePath;
 
         UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), cmd.c_str(), nullptr); //
@@ -521,6 +591,25 @@ void MainThread() {
 
         while (!UWorld::GetWorld()) {
 
+        }
+
+        for (int i = SDK::UObject::GObjects->Num() - 1; i >= 0; i--)
+        {
+            SDK::UObject* Obj = SDK::UObject::GObjects->GetByIndex(i);
+
+            if (!Obj)
+                continue;
+
+            if (Obj->IsDefaultObject())
+                continue;
+
+            if (Obj->IsA(ULevelStreaming::StaticClass()))
+            {
+                std::cout << Obj->GetFullName() << std::endl;
+
+                ((ULevelStreaming*)(Obj))->SetShouldBeLoaded(true);
+                ((ULevelStreaming*)(Obj))->SetShouldBeVisible(true);
+            }
         }
 
         libReplicate = new LibReplicate(LibReplicate::EReplicationMode::Minimal, (void*)(BaseAddress + 0x91AEB0), (void*)(BaseAddress + 0x33A66D0), (void*)(BaseAddress + 0x31F44F0), (void*)(BaseAddress + 0x31F0070), (void*)(BaseAddress + 0x18F1810), (void*)(BaseAddress + 0x18E5490), (void*)(BaseAddress + 0x36CDCE0), (void*)(BaseAddress + 0x366ADB0), (void*)(BaseAddress + 0x31DA270), (void*)(BaseAddress + 0x33DF330), (void*)(BaseAddress + 0x2fefbd0), (void*)(BaseAddress + 0x3506320));
@@ -575,16 +664,18 @@ void MainThread() {
             }
         }
 
-        Sleep(5 * 1000);
+        /*
+        Sleep(10 * 1000);
 
-        //UCommonActivatableWidget* widget = nullptr;
-        //reinterpret_cast<UPBMainMenuManager_BP_C*>(getObjectsOfClass(UPBMainMenuManager_BP_C::StaticClass(), false).back())->GetTopMenuWidget(&widget);
-        //widget->SetVisibility(ESlateVisibility::Hidden);
-        //widget->DeactivateWidget();
+        UCommonActivatableWidget* widget = nullptr;
+        reinterpret_cast<UPBMainMenuManager_BP_C*>(getObjectsOfClass(UPBMainMenuManager_BP_C::StaticClass(), false).back())->GetTopMenuWidget(&widget);
+        widget->SetVisibility(ESlateVisibility::Hidden);
+        widget->DeactivateWidget();
 
         //reinterpret_cast<UUMG_MainMenuLayout_C*>(getObjectsOfClass(UUMG_MainMenuLayout_C::StaticClass(), false).back())->OnJoinGame();
 
-        //UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"open 127.0.0.1", nullptr);
+        UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"open 73.130.167.222", nullptr);
+        */
 
         //UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"open 127.0.0.1", nullptr);
     }
