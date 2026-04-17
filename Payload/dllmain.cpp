@@ -1,4 +1,7 @@
-// dllmain.cpp : Defines the entry point for the DLL application.
+// ======================================================
+//  SECTION 1 — INCLUDES & HEADERS
+// ======================================================
+
 #include <thread>
 #include <Windows.h>
 #include "SDK.hpp"
@@ -8,17 +11,54 @@
 #include "json.hpp"
 #include <iostream>
 #include <fstream>
-
 #include "libreplicate.h"
+#include <mutex>
+#include <chrono>
+#include <iomanip>
+#include <filesystem>
+#include <random>
 
 using namespace SDK;
 
-static LibReplicate* libReplicate;
+
+// ======================================================
+//  SECTION 2 — LOGGING SYSTEM
+// ======================================================
+
+// Helper function to get current timestamp for log file naming
+std::string CurrentTimestamp()
+{
+    auto now = std::chrono::system_clock::now();
+    std::time_t t = std::chrono::system_clock::to_time_t(now);
+
+    std::tm tm{};
+    localtime_s(&tm, &t);
+
+    std::ostringstream oss;
+    oss << std::put_time(&tm, "%Y%m%d_%H%M%S");
+    return oss.str();
+}
+
+std::string LogFilePath;
+std::mutex LogMutex;
+
+// Initializes the logging system and output to wrapper
+void Log(const std::string& msg)
+{
+    std::cout << msg << std::endl;
+}
+
+// ======================================================
+//  SECTION 3 — GLOBAL VARIABLES AND FORWARD DECLARATIONS
+// ======================================================
+
+SafetyHookInline MessageBoxWHook;
 
 uintptr_t BaseAddress = 0x0;
 
-bool listening = false;
+static LibReplicate* libReplicate;
 
+bool listening = false;
 bool amServer = false;
 
 struct ServerConfig {
@@ -30,6 +70,11 @@ struct ServerConfig {
 };
 
 static ServerConfig Config{};
+
+
+// ======================================================
+//  SECTION 4 — UTILITY HELPERS
+// ======================================================
 
 std::vector<UObject*> getObjectsOfClass(UClass* theClass, bool includeDefault) {
     std::vector<UObject*> ret = std::vector<UObject*>();
@@ -73,43 +118,73 @@ UObject* GetLastOfType(UClass* theClass, bool includeDefault) {
     return nullptr;
 }
 
+
+// ======================================================
+//  SECTION 5 — UNREAL ENGINE HELPERS
+// ======================================================
+
 void EnableUnrealConsole() {
-    SDK::UInputSettings::GetDefaultObj()->ConsoleKeys[0].KeyName = SDK::UKismetStringLibrary::Conv_StringToName(L"F2");
+    SDK::UInputSettings::GetDefaultObj()->ConsoleKeys[0].KeyName =
+        SDK::UKismetStringLibrary::Conv_StringToName(L"F2");
 
     /* Creates a new UObject of class-type specified by Engine->ConsoleClass */
-    SDK::UObject* NewObject = SDK::UGameplayStatics::SpawnObject(UEngine::GetEngine()->ConsoleClass, UEngine::GetEngine()->GameViewport);
+    SDK::UObject* NewObject =
+        SDK::UGameplayStatics::SpawnObject(
+            UEngine::GetEngine()->ConsoleClass,
+            UEngine::GetEngine()->GameViewport
+        );
 
     /* The Object we created is a subclass of UConsole, so this cast is **safe**. */
-    UEngine::GetEngine()->GameViewport->ViewportConsole = static_cast<SDK::UConsole*>(NewObject);
+    UEngine::GetEngine()->GameViewport->ViewportConsole =
+        static_cast<SDK::UConsole*>(NewObject);
 
     std::cout << "[DEBUG] Unreal Console => F2" << std::endl;
 }
 
-SafetyHookInline TickFlush = {};
+void ConnectToMatch() {
+    UPBGameInstance* GameInstance =
+        (UPBGameInstance*)UWorld::GetWorld()->OwningGameInstance;
+
+    GameInstance->ShowLoadingScreen(false, true);
+
+    UPBLocalPlayer* LocalPlayer =
+        (UPBLocalPlayer*)(UWorld::GetWorld()->OwningGameInstance->LocalPlayers[0]);
+
+    LocalPlayer->GoToRange(0.0f);
+
+    UKismetSystemLibrary::ExecuteConsoleCommand(
+        UWorld::GetWorld(), L"travel 127.0.0.1", nullptr
+    );
+
+    GameInstance->ShowLoadingScreen(true, true);
+}
+
+
+// ======================================================
+//  SECTION 6 — REPLICATION SYSTEM GLOBALS
+// ======================================================
 
 std::vector<APlayerController*> playerControllersPossessed = std::vector<APlayerController*>();
 
 int NumPlayersJoined = 0;
-
 float PlayerJoinTimerSelectFuck = -1.0f;
-
 bool DidProcFlow = false;
-
 float StartMatchTimer = -1.0f;
-
 int NumPlayersSelectedRole = 0;
-
 bool DidProcStartMatch = false;
-
 bool canStartMatch = false;
-
 int NumExpectedPlayers = -1;
-
 float MatchStartCountdown = -1.0f;
+
+std::unordered_map<APBPlayerController*, bool> PlayerRespawnAllowedMap{};
+// ======================================================
+//  SECTION 7 — HOOK DETOURS (ENGINE HOOKS)
+// ======================================================
+
+SafetyHookInline TickFlush = {};
 
 void TickFlushHook(UNetDriver* NetDriver, float DeltaTime) {
     if (listening && NetDriver && UWorld::GetWorld()) {
-        //std::cout << DeltaTime << std::endl;
 
         if (PlayerJoinTimerSelectFuck > 0.0f) {
             PlayerJoinTimerSelectFuck -= DeltaTime;
@@ -188,27 +263,6 @@ void TickFlushHook(UNetDriver* NetDriver, float DeltaTime) {
             }
         }
 
-        /*
-        for (int i = 0; i < SDK::UObject::GObjects->Num(); i++)
-        {
-            SDK::UObject* Obj = SDK::UObject::GObjects->GetByIndex(i);
-
-            if (!Obj)
-                continue;
-
-            if (Obj->HasTypeFlag(EClassCastFlags::PlayerController) && !Obj->IsDefaultObject()) {
-                PlayerControllers.push_back((void*)Obj);
-                continue;
-            }
-
-            if (Obj->HasTypeFlag(EClassCastFlags::Actor) && !((AActor*)Obj)->bActorIsBeingDestroyed && !Obj->IsDefaultObject() && ((AActor*)Obj)->RemoteRole != ENetRole::ROLE_None) {
-                LibReplicate::FActorInfo ActorInfo = LibReplicate::FActorInfo((void*)Obj, ((AActor*)Obj)->bNetTemporary);
-
-                ActorInfos.push_back(ActorInfo);
-            }
-        }
-        */
-
         std::vector<LibReplicate::FPlayerControllerInfo> PlayerControllerInfos = std::vector<LibReplicate::FPlayerControllerInfo>();
 
         for (void* PlayerController : PlayerControllers) {
@@ -235,10 +289,11 @@ void TickFlushHook(UNetDriver* NetDriver, float DeltaTime) {
         }
 
         if (ActorInfos.size() > 0 && CastConnections.size() > 0) {
-            //std::cout << "TRYING TO REPLICATE" << std::endl;
             if (NetDriver) {
                 libReplicate->CallFromTickFlushHook(ActorInfos, PlayerControllerInfos, CastConnections, ActorName, NetDriver);
-                *(int*)(&NetDriver + 0x420) = *(int*)(&NetDriver + 0x420) + 1;
+
+                int* counter = reinterpret_cast<int*>(reinterpret_cast<char*>(NetDriver) + 0x420);
+                *counter = *counter + 1;
             }
         }
     }
@@ -287,16 +342,7 @@ void TickFlushHook(UNetDriver* NetDriver, float DeltaTime) {
 
     if (canStartMatch && !DidProcStartMatch) {
         DidProcStartMatch = true;
-        /*
-        ((APBGameState*)((APBGameMode*)UWorld::GetWorld()->AuthorityGameMode)->PBGameState)->PlayerJoinsGameMatch((APBPlayerState*)GetLastOfType(APBPlayerState::StaticClass(), false));
-        ((APBGameState*)((APBGameMode*)UWorld::GetWorld()->AuthorityGameMode)->PBGameState)->K2_StartRoleSelection();
-        */
-        //((UPBWorldManagerV2*)GetLastOfType(UPBWorldManagerV2::StaticClass(), false))->FinishLoadSubLevel();
-        /*
-        ((APBGameMode*)UWorld::GetWorld()->AuthorityGameMode)->ModeRuleSetting.bAllowQuickRespawn = true;
-        ((APBGameMode*)UWorld::GetWorld()->AuthorityGameMode)->ModeRuleSetting.QuickRespawnCoolDownTime = 0.1f;
-        ((APBGameMode*)UWorld::GetWorld()->AuthorityGameMode)->ModeRuleSetting.RespawnWaveIntervalTime = 1;
-                */
+
         ((APBGameMode*)UWorld::GetWorld()->AuthorityGameMode)->StartMatch();
     }
 
@@ -325,6 +371,11 @@ void TickFlushHook(UNetDriver* NetDriver, float DeltaTime) {
     return TickFlush.call(NetDriver, DeltaTime);
 }
 
+
+// ======================================================
+//  SECTION 8 — HOOK DETOURS (GAMEPLAY HOOKS)
+// ======================================================
+
 SafetyHookInline NotifyActorDestroyed = {};
 
 bool NotifyActorDestroyedHook(UWorld* World, AActor* Actor, bool SomeShit, bool SomeShit2) {
@@ -341,8 +392,6 @@ bool NotifyActorDestroyedHook(UWorld* World, AActor* Actor, bool SomeShit, bool 
 
 SafetyHookInline NotifyAcceptingConnection = {};
 
-SafetyHookInline NotifyAboutSomeShitImTooTiredToLookup = {};
-
 __int64 NotifyAcceptingConnectionHook(UObject* obj) {
     return 1;
 }
@@ -355,19 +404,7 @@ char NotifyControlMessageHook(unsigned __int64 ScuffedShit, __int64 a2, uint8_t 
     return NotifyControlMessage.call<char>(ScuffedShit, a2, a3, a4);
 }
 
-SafetyHookInline ViewportShit = {};
-
-char ViewportShitHook(__int64 a1, float a2) {
-    return 1;
-}
-
-//__int64 *__fastcall sub_141561A60(__int64 a1, __int64 *a2, unsigned __int64 a3, unsigned __int8 a4)
-
 SafetyHookInline ProcessEvent;
-
-bool AllowedToRespawn = false;
-
-std::unordered_map<APBPlayerController*, bool> PlayerRespawnAllowedMap{};
 
 void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
     if (Function->GetFullName().contains("QuickRespawn")) {
@@ -376,7 +413,7 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
         PlayerRespawnAllowedMap[PBPlayerController] = true;
     }
 
-    if (Function->GetFullName().contains("ServerRestartPlayer") ) {
+    if (Function->GetFullName().contains("ServerRestartPlayer")) {
         APBPlayerController* PBPlayerController = (APBPlayerController*)Object;
 
         if (PlayerRespawnAllowedMap.contains(PBPlayerController) && PlayerRespawnAllowedMap[PBPlayerController] == false) {
@@ -385,18 +422,13 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
         }
     }
 
-    //ReceivePossess
-
     if (Function->GetFullName().contains("ServerConfirmRoleSelection")) {
         NumPlayersSelectedRole++;
 
         if (!canStartMatch && NumPlayersSelectedRole >= NumExpectedPlayers) {
             canStartMatch = true;
-
-            //((APBGameMode*)UWorld::GetWorld()->AuthorityGameMode)->StartMatch();
         }
     }
-
 
     if (Function->GetFullName().contains("ReadyToMatchIntro_WaitingToStart")) {
         if (!canStartMatch) {
@@ -410,47 +442,51 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
         APBPlayerController* PBPlayerController = (APBPlayerController*)Object;
 
         PlayerRespawnAllowedMap[PBPlayerController] = false;
-        //std::cout << "[PE] " << Object->GetFullName() << " - " << Function->GetFullName() << std::endl;
     }
 
     if (Function->GetFullName().contains("PlayerCanRestart")) {
-        //std::cout << "YEPPERS WE CAN RESTART" << std::endl;
-        // 
-        ((Params::GameModeBase_PlayerCanRestart*)Parms)->ReturnValue = ((AGameModeBase*)Object)->HasMatchStarted();
-        // 
-        //((Params::GameModeBase_PlayerCanRestart*)Parms)->ReturnValue = ((AGameModeBase*)Object)->HasMatchStarted();
-        /*
-        if (!((AGameModeBase*)Object)->HasMatchStarted()) {
-            if (!((APBPlayerController*)((Params::GameModeBase_PlayerCanRestart*)Parms)->Player)->bShowSelectRole) {
-                ((APBPlayerController*)((Params::GameModeBase_PlayerCanRestart*)Parms)->Player)->ClientSelectRole();
-            }
-        }
-        */
+        ((Params::GameModeBase_PlayerCanRestart*)Parms)->ReturnValue =
+            ((AGameModeBase*)Object)->HasMatchStarted();
         return;
     }
 
     return ProcessEvent.call(Object, Function, Parms);
 }
 
-SafetyHookInline HudFunctionThatCrashesTheGame;
+SafetyHookInline PostLoginHook;
 
-__int64 HudFunctionThatCrashesTheGameHook(__int64 a1, __int64 a2) {
-    return 0;
+void* PostLogin(AGameMode* GameMode, APBPlayerController* PC)
+{
+    void* Ret = PostLoginHook.call<void*>(GameMode, PC);
+
+    NumPlayersJoined++;
+
+    std::cout << "Player Connected!" << std::endl;
+
+    // Force first-life respawn fix
+    if (PC && PC->Pawn)
+    {
+        PC->ServerSuicide(0);   // triggers respawn
+    }
+
+    return Ret;
 }
 
-void ConnectToMatch() {
-    UPBGameInstance* GameInstance = (UPBGameInstance*)UWorld::GetWorld()->OwningGameInstance;
+SafetyHookInline OnFireWeaponHook;
 
-    GameInstance->ShowLoadingScreen(false, true);
-
-    UPBLocalPlayer* LocalPlayer = (UPBLocalPlayer*)(UWorld::GetWorld()->OwningGameInstance->LocalPlayers[0]);
-
-    LocalPlayer->GoToRange(0.0f);
-
-    UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"travel 204.12.195.98", nullptr);
-
-    GameInstance->ShowLoadingScreen(true, true);
+void* OnFireWeapon(APBWeapon* Weapon) {
+    if ((uintptr_t)_ReturnAddress() - BaseAddress != 0x1608B31) {
+        return nullptr;
+    }
+    else {
+        return OnFireWeaponHook.call<void*>(Weapon);
+    }
 }
+
+
+// ======================================================
+//  SECTION 9 — HOOK DETOURS (CLIENT HOOKS)
+// ======================================================
 
 SafetyHookInline ProcessEventClient;
 
@@ -462,6 +498,44 @@ void ProcessEventHookClient(UObject* Object, UFunction* Function, void* Parms) {
     }
 
     return ProcessEventClient.call(Object, Function, Parms);
+}
+
+SafetyHookInline ClientDeathCrash;
+
+__int64 ClientDeathCrashHook(__int64 a1) {
+    return 0;
+}
+
+
+// ======================================================
+//  SECTION 10 — HOOK DETOURS (MISC HOOKS)
+// ======================================================
+
+SafetyHookInline ObjectNeedsLoad;
+
+char ObjectNeedsLoadHook(UObject* a1) {
+    return 1;
+}
+
+SafetyHookInline ActorNeedsLoad;
+
+char ActorNeedsLoadHook(UObject* a1) {
+    return 1;
+}
+
+int WINAPI MessageBoxW_Detour(HWND hWnd, LPCWSTR lpText, LPCWSTR lpCaption, UINT uType)
+{
+    if (lpText && wcsstr(lpText, L"Roboto"))
+    {
+        return IDOK;
+    }
+    return MessageBoxWHook.call<int>(hWnd, lpText, lpCaption, uType);
+}
+
+SafetyHookInline HudFunctionThatCrashesTheGame;
+
+__int64 HudFunctionThatCrashesTheGameHook(__int64 a1, __int64 a2) {
+    return 0;
 }
 
 SafetyHookInline GameEngineTick;
@@ -483,47 +557,6 @@ __int64 GameEngineTickHook(APlayerController* a1,
     return GameEngineTick.call<__int64>(a1, a2, a3, a4);
 }
 
-SafetyHookInline ClientDeathCrash;
-
-__int64 ClientDeathCrashHook(__int64 a1) {
-    return 0;
-}
-
-SafetyHookInline ObjectNeedsLoad;
-
-char ObjectNeedsLoadHook(UObject* a1) {
-    return 1;
-}
-
-SafetyHookInline ActorNeedsLoad;
-
-char ActorNeedsLoadHook(UObject* a1) {
-    return 1;
-}
-
-SafetyHookInline OnFireWeaponHook;
-
-void* OnFireWeapon(APBWeapon* Weapon) {
-    if ((uintptr_t)_ReturnAddress() - BaseAddress != 0x1608B31) {
-        return nullptr;
-    }
-    else {
-        return OnFireWeaponHook.call<void*>(Weapon);
-    }
-}
-
-SafetyHookInline PostLoginHook;
-
-void* PostLogin(AGameMode* GameMode, APBPlayerController* SpawnedPlayerController) {
-    void* Ret = PostLoginHook.call<void*>(GameMode, SpawnedPlayerController);
-    
-    NumPlayersJoined++;
-
-    std::cout << "Player Connected!" << std::endl;
-
-    return Ret;
-}
-
 SafetyHookInline IsDedicatedServerHook;
 
 bool IsDedicatedServer(void* WorldContextOrSomething) {
@@ -541,8 +574,20 @@ SafetyHookInline IsStandaloneHook;
 bool IsStandalone(void* WorldContextOrSomething) {
     return false;
 }
+// ======================================================
+//  SECTION 11 — HOOK INITIALIZATION
+// ======================================================
 
-//3326CE0
+void InitMessageBoxHook()
+{
+    HMODULE user32 = GetModuleHandleA("user32.dll");
+    if (!user32) return;
+
+    void* addr = GetProcAddress(user32, "MessageBoxW");
+    if (!addr) return;
+
+    MessageBoxWHook = safetyhook::create_inline(addr, MessageBoxW_Detour);
+}
 
 void InitServerHooks() {
     NotifyActorDestroyed = safetyhook::create_inline((void*)(BaseAddress + 0x33403E0), NotifyActorDestroyedHook);
@@ -557,14 +602,6 @@ void InitServerHooks() {
     IsDedicatedServerHook = safetyhook::create_inline((void*)(BaseAddress + 0x33266F0), IsDedicatedServer);
     IsServerHook = safetyhook::create_inline((void*)(BaseAddress + 0x3326C60), IsServer);
     IsStandaloneHook = safetyhook::create_inline((void*)(BaseAddress + 0x3326CE0), IsStandalone);
-
-    //1610500
-
-    //GameEngineTick = safetyhook::create_inline((void*)(BaseAddress + 0x350b3a0), GameEngineTickHook);
-    //HudFunctionThatCrashesTheGame = safetyhook::create_inline((void*)(BaseAddress + 0x180B060), HudFunctionThatCrashesTheGameHook);
-
-    //NotifyAboutSomeShitImTooTiredToLookup = safetyhook::create_inline((void*)(BaseAddress + 0x91D770), NotifyAcceptingConnectionHook);
-    //ViewportShit = safetyhook::create_inline((void*)(BaseAddress + 0x33E0420), ViewportShitHook);
 }
 
 void InitClientHook() {
@@ -572,163 +609,293 @@ void InitClientHook() {
     ClientDeathCrash = safetyhook::create_inline((void*)(BaseAddress + 0x16abe10), ClientDeathCrashHook);
 }
 
-#include <random>
 
-const std::vector<const wchar_t*> Maps = { L"CircularX", L"DataCenter", L"Dusty", L"GangesRiver", L"Oriolus", L"RelayStation", L"Warehouse", L"MiniFarm", L"Museum", L"OSS" };
+// ======================================================
+//  SECTION 12 — SERVER CONFIGURATION
+// ======================================================
+// Set up the dll to get values from the wrapper
+std::string GetCmdValue(const std::string& key)
+{
+    std::string cmd = GetCommandLineA();
+    size_t pos = cmd.find(key);
+    if (pos == std::string::npos)
+        return "";
 
-void LoadConfig() {
-    Config.IsPvE = std::string(GetCommandLineA()).contains("-pve");
+    pos += key.length();
+    size_t end = cmd.find(" ", pos);
+    if (end == std::string::npos)
+        end = cmd.length();
 
-    Config.FullModePath = Config.IsPvE ? L"/Game/Online/GameMode/BP_PBGameMode_Rush_PVE_Hard.BP_PBGameMode_Rush_PVE_Hard_C" : L"/Game/Online/GameMode/PBGameMode_Rush_BP.PBGameMode_Rush_BP_C";
-    
-    std::mt19937 rng(std::random_device{}());
-
-    std::uniform_int_distribution<> dist(0, Maps.size());
-    
-    Config.MapName = Maps[dist(rng)];
-    Config.Port = 7777;
-    if (Config.IsPvE) {
-        Config.MinPlayersToStart = 1;
-    }
-    else {
-        Config.MinPlayersToStart = 2;
-    }
+    return cmd.substr(pos, end - pos);
 }
 
-bool hidden = false;
+void LoadConfig()
+{
+    std::string cmd = GetCommandLineA();
 
-const wchar_t* LocalURL = L"http://127.0.0.1:8000\0";
+    // PvE flag
+    Config.IsPvE = cmd.find("-pve") != std::string::npos;
 
-void MainThread() {
-    AllocConsole();
-    FILE* Dummy;
-    freopen_s(&Dummy, "CONOUT$", "w", stdout);
-    freopen_s(&Dummy, "CONIN$", "r", stdin);
-
-    BaseAddress = (uintptr_t)GetModuleHandleA(nullptr);
-
-    UC::FMemory::Init((void*)(BaseAddress + 0x18f4350));
-
-    if (std::string(GetCommandLineA()).contains("-server")) {
-        amServer = true;
+    // Map
+    std::string mapArg = GetCmdValue("-map=");
+    if (!mapArg.empty())
+    {
+        Config.MapName = std::wstring(mapArg.begin(), mapArg.end());
+    }
+    else
+    {
+        // fallback to something safe
+        Config.MapName = L"Warehouse";
     }
 
-    while (!UWorld::GetWorld()) {
-        if (amServer) {
-            *(__int8*)(BaseAddress + 0x5ce2404) = 0;
-            *(__int8*)(BaseAddress + 0x5ce2405) = 1;
+    // Mode
+    std::string modeArg = GetCmdValue("-mode=");
+    if (!modeArg.empty())
+    {
+        Config.FullModePath = std::wstring(modeArg.begin(), modeArg.end());
+    }
+    else
+    {
+        // fallback based on PvE
+        Config.FullModePath = Config.IsPvE
+            ? L"/Game/Online/GameMode/BP_PBGameMode_Rush_PVE_Hard.BP_PBGameMode_Rush_PVE_Hard_C"
+            : L"/Game/Online/GameMode/PBGameMode_Rush_BP.PBGameMode_Rush_BP_C";
+    }
+
+    // Port
+    std::string portArg = GetCmdValue("-port=");
+    if (!portArg.empty())
+    {
+        Config.Port = std::stoi(portArg);
+    }
+    else
+    {
+        Config.Port = 7777;
+    }
+
+    // Min players (still used in TickFlush)
+    Config.MinPlayersToStart = Config.IsPvE ? 1 : 2;
+}
+
+// ======================================================
+//  SECTION 13 — SERVER STARTUP AND COMMAND RELATED LOGIC
+// ======================================================
+
+void StartServer()
+{
+    Log("[SERVER] Starting server...");
+
+    LoadConfig();
+
+    Log("[SERVER] Map loaded: " + std::string(Config.MapName.begin(), Config.MapName.end()));
+    Log("[SERVER] Mode: " + std::string(Config.FullModePath.begin(), Config.FullModePath.end()));
+    Log("[SERVER] Port: " + std::to_string(Config.Port));
+
+    std::wstring openCmd = L"open " + Config.MapName + L"?game=" + Config.FullModePath;
+    Log("[SERVER] Executing open command");
+
+    UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), openCmd.c_str(), nullptr);
+
+    Log("[SERVER] Waiting for world to load...");
+    Sleep(8000);
+
+    UEngine* Engine = UEngine::GetEngine();
+    UWorld* World = UWorld::GetWorld();
+
+    if (!World)
+    {
+        Log("[ERROR] World is NULL after map load!");
+        return;
+    }
+
+    Log("[SERVER] Forcing streaming levels to load...");
+
+    for (int i = SDK::UObject::GObjects->Num() - 1; i >= 0; i--)
+    {
+        SDK::UObject* Obj = SDK::UObject::GObjects->GetByIndex(i);
+
+        if (!Obj)
+            continue;
+
+        if (Obj->IsDefaultObject())
+            continue;
+
+        if (Obj->IsA(ULevelStreaming::StaticClass()))
+        {
+            ULevelStreaming* LS = (ULevelStreaming*)Obj;
+
+            LS->SetShouldBeLoaded(true);
+            LS->SetShouldBeVisible(true);
+
+            Log("[SERVER] Streaming level loaded: " + std::string(Obj->GetFullName()));
         }
     }
 
-    if (amServer) {
-        InitServerHooks();
+    if (!libReplicate)
+    {
+        Log("[ERROR] libReplicate is null before CreateNetDriver!");
+        return;
+    }
 
-        LoadConfig();
+    Log("[SERVER] Creating NetDriver...");
+    FName name = UKismetStringLibrary::Conv_StringToName(L"GameNetDriver");
+    libReplicate->CreateNetDriver(Engine, World, &name);
 
-        UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"t.maxfps 30", nullptr);
+    UIpNetDriver* NetDriver = (UIpNetDriver*)GetLastOfType(UIpNetDriver::StaticClass(), false);
 
-        std::wstring cmd = L"open " + Config.MapName + L"?game=" + Config.FullModePath;
+    if (!NetDriver)
+    {
+        Log("[ERROR] NetDriver not found after CreateNetDriver!");
+        return;
+    }
 
-        UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), cmd.c_str(), nullptr); //
+    Log("[SERVER] NetDriver created successfully.");
 
-        Sleep(8 * 1000);
+    World->NetDriver = NetDriver;
+
+    Log("[SERVER] Calling Listen()...");
+    libReplicate->Listen(NetDriver, World, LibReplicate::EJoinMode::Open, Config.Port);
+
+    listening = true;
+
+    Log("[SERVER] Server is now listening.");
+}
+// ======================================================
+//  SECTION 14 — CLIENT LOGIC
+// ======================================================
+
+void InitClientArmory()
+{
+    for (UObject* obj : getObjectsOfClass(UPBArmoryManager::StaticClass(), false)) {
+        UPBArmoryManager* DefaultConfig = (UPBArmoryManager*)obj;
+
+        std::ifstream items("DT_ItemType.json");
+        nlohmann::json itemJson = nlohmann::json::parse(items);
+
+        for (auto& [ItemId, _] : itemJson[0]["Rows"].items()) {
+            std::string aString = std::string(ItemId.c_str());
+            std::wstring wString = std::wstring(aString.begin(), aString.end());
+
+            if (DefaultConfig->DefaultConfig)
+                DefaultConfig->DefaultConfig->OwnedItems.Add(UKismetStringLibrary::Conv_StringToName(wString.c_str()));
+
+            FPBItem item{};
+            item.ID = UKismetStringLibrary::Conv_StringToName(wString.c_str());
+            item.Count = 1;
+            item.bIsNew = false;
+
+            DefaultConfig->Armorys.OwnedItems.Add(item);
+        }
+    }
+}
+// ======================================================
+//  SECTION 15 — MAIN THREAD (ENTRY LOGIC)
+// ======================================================
+
+void MainThread()
+{
+    std::cout << "[BOOT] DLL injected, starting..." << std::endl;
+    try
+    {
+        //Calms down the ui font missing panic
+        InitMessageBoxHook();
+
+        BaseAddress = (uintptr_t)GetModuleHandleA(nullptr);
+
+        UC::FMemory::Init((void*)(BaseAddress + 0x18f4350));
+
+        if (std::string(GetCommandLineA()).contains("-server")) {
+            amServer = true;
+        }
 
         while (!UWorld::GetWorld()) {
-
+            if (amServer) {
+                *(__int8*)(BaseAddress + 0x5ce2404) = 0;
+                *(__int8*)(BaseAddress + 0x5ce2405) = 1;
+            }
         }
 
-        for (int i = SDK::UObject::GObjects->Num() - 1; i >= 0; i--)
+        if (amServer)
         {
-            SDK::UObject* Obj = SDK::UObject::GObjects->GetByIndex(i);
+            InitServerHooks();
+            Log("[SERVER] Hooks installed.");
 
-            if (!Obj)
-                continue;
+            // Heartbeat thread
+            std::thread([]() {
+                while (true)
+                {
+                    std::cout << "[HEARTBEAT]" << std::endl;
+                    Sleep(5000); // 5 seconds
+                }
+                }).detach();
 
-            if (Obj->IsDefaultObject())
-                continue;
+            // Wait for world
+            Log("[SERVER] Waiting for UWorld...");
+            while (!UWorld::GetWorld())
+                Sleep(10);
+            Log("[SERVER] UWorld is ready.");
 
-            if (Obj->IsA(ULevelStreaming::StaticClass()))
-            {
-                std::cout << Obj->GetFullName() << std::endl;
+            //Initialize LibReplicate exactly like original code
+            libReplicate = new LibReplicate(
+                LibReplicate::EReplicationMode::Minimal,
+                (void*)(BaseAddress + 0x91AEB0),
+                (void*)(BaseAddress + 0x33A66D0),
+                (void*)(BaseAddress + 0x31F44F0),
+                (void*)(BaseAddress + 0x31F0070),
+                (void*)(BaseAddress + 0x18F1810),
+                (void*)(BaseAddress + 0x18E5490),
+                (void*)(BaseAddress + 0x36CDCE0),
+                (void*)(BaseAddress + 0x366ADB0),
+                (void*)(BaseAddress + 0x31DA270),
+                (void*)(BaseAddress + 0x33DF330),
+                (void*)(BaseAddress + 0x2fefbd0),
+                (void*)(BaseAddress + 0x3506320)
+            );
+            Log("[SERVER] LibReplicate initialized.");
 
-                ((ULevelStreaming*)(Obj))->SetShouldBeLoaded(true);
-                ((ULevelStreaming*)(Obj))->SetShouldBeVisible(true);
-            }
+            StartServer();
         }
 
-        libReplicate = new LibReplicate(LibReplicate::EReplicationMode::Minimal, (void*)(BaseAddress + 0x91AEB0), (void*)(BaseAddress + 0x33A66D0), (void*)(BaseAddress + 0x31F44F0), (void*)(BaseAddress + 0x31F0070), (void*)(BaseAddress + 0x18F1810), (void*)(BaseAddress + 0x18E5490), (void*)(BaseAddress + 0x36CDCE0), (void*)(BaseAddress + 0x366ADB0), (void*)(BaseAddress + 0x31DA270), (void*)(BaseAddress + 0x33DF330), (void*)(BaseAddress + 0x2fefbd0), (void*)(BaseAddress + 0x3506320));
-    
-        UEngine* Engine = UEngine::GetEngine();
-        UWorld* World = UWorld::GetWorld();
+        else {
+            EnableUnrealConsole();
 
-        FName name = UKismetStringLibrary::Conv_StringToName(L"GameNetDriver");
+            InitClientHook();
 
-        libReplicate->CreateNetDriver(Engine, World, &name);
+            //*(const wchar_t***)(BaseAddress + 0x5C63C88) = &LocalURL;
 
-        UIpNetDriver* NetDriver = (UIpNetDriver*)GetLastOfType(UIpNetDriver::StaticClass(), false);
+            InitClientArmory();
 
-        std::cout << NetDriver->GetFullName() << std::endl;
-        
-        World->NetDriver = NetDriver;
+            /*
+            Sleep(10 * 1000);
 
-        libReplicate->Listen((void*)NetDriver, (void*)World, LibReplicate::EJoinMode::Open, Config.Port);
+            UCommonActivatableWidget* widget = nullptr;
+            reinterpret_cast<UPBMainMenuManager_BP_C*>(getObjectsOfClass(UPBMainMenuManager_BP_C::StaticClass(), false).back())->GetTopMenuWidget(&widget);
+            widget->SetVisibility(ESlateVisibility::Hidden);
+            widget->DeactivateWidget();
 
-        World->NetDriver = NetDriver;
+            UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"open 73.130.167.222", nullptr);
+            */
 
-        listening = true;
+            //UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"open 127.0.0.1", nullptr);
+        }
     }
-    else {
-        EnableUnrealConsole();
-
-        InitClientHook();
-
-        //*(const wchar_t***)(BaseAddress + 0x5C63C88) = &LocalURL;
-
-
-        for (UObject* obj : getObjectsOfClass(UPBArmoryManager::StaticClass(), false)) {
-            UPBArmoryManager* DefaultConfig = (UPBArmoryManager*)obj;
-
-            std::ifstream items("DT_ItemType.json");
-            nlohmann::json itemJson = nlohmann::json::parse(items);
-
-            for (auto& [ItemId, _] : itemJson[0]["Rows"].items()) {
-                std::string aString = std::string(ItemId.c_str());
-
-                std::wstring wString = std::wstring(aString.begin(), aString.end());
-                if(DefaultConfig->DefaultConfig)
-                    DefaultConfig->DefaultConfig->OwnedItems.Add(UKismetStringLibrary::Conv_StringToName(wString.c_str()));
-
-                FPBItem item{};
-
-                item.ID = UKismetStringLibrary::Conv_StringToName(wString.c_str());
-                item.Count = 1;
-                item.bIsNew = false;
-
-                DefaultConfig->Armorys.OwnedItems.Add(item);
-            }
-        }
-
-        /*
-        Sleep(10 * 1000);
-
-        UCommonActivatableWidget* widget = nullptr;
-        reinterpret_cast<UPBMainMenuManager_BP_C*>(getObjectsOfClass(UPBMainMenuManager_BP_C::StaticClass(), false).back())->GetTopMenuWidget(&widget);
-        widget->SetVisibility(ESlateVisibility::Hidden);
-        widget->DeactivateWidget();
-
-        //reinterpret_cast<UUMG_MainMenuLayout_C*>(getObjectsOfClass(UUMG_MainMenuLayout_C::StaticClass(), false).back())->OnJoinGame();
-
-        UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"open 73.130.167.222", nullptr);
-        */
-
-        //UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), L"open 127.0.0.1", nullptr);
+    catch (...)
+    {
+        std::cout << "[ERROR] Unhandled exception in MainThread!" << std::endl;
+        std::cout << "Press ENTER to exit..." << std::endl;
+        std::cin.get();
     }
 }
 
-BOOL APIENTRY DllMain( HMODULE hModule,
-                       DWORD  ul_reason_for_call,
-                       LPVOID lpReserved
-                     )
+
+// ======================================================
+//  SECTION 16 — DLL ENTRY POINT
+// ======================================================
+
+BOOL APIENTRY DllMain(HMODULE hModule,
+    DWORD  ul_reason_for_call,
+    LPVOID lpReserved
+)
 {
     if (ul_reason_for_call == DLL_PROCESS_ATTACH) {
         std::thread t(MainThread);
@@ -738,4 +905,3 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 
     return TRUE;
 }
-
