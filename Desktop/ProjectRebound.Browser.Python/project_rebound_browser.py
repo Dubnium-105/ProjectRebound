@@ -5,6 +5,7 @@ import os
 import queue
 import socket
 import subprocess
+import sys
 import threading
 import time
 import tkinter as tk
@@ -31,6 +32,8 @@ class AppConfig:
     map_name: str = "Warehouse"
     mode: str = "pve"
     max_players: int = 8
+    use_udp_proxy: bool = False
+    proxy_client_port: int = 17777
 
 
 class ApiError(RuntimeError):
@@ -55,6 +58,12 @@ class ApiClient:
     def confirm_host_probe(self, probe_id: str, nonce: str) -> dict:
         return self.post(f"/v1/host-probes/{probe_id}/confirm", {"nonce": nonce})
 
+    def create_nat_binding(self, local_port: int, role: str, room_id: str | None = None) -> dict:
+        return self.post("/v1/nat/bindings", {"localPort": local_port, "role": role, "roomId": room_id})
+
+    def confirm_nat_binding(self, binding_token: str) -> dict:
+        return self.post(f"/v1/nat/bindings/{binding_token}/confirm", {})
+
     def create_room(self, payload: dict) -> dict:
         return self.post("/v1/rooms", payload)
 
@@ -67,6 +76,12 @@ class ApiClient:
 
     def join_room(self, room_id: str, version: str) -> dict:
         return self.post(f"/v1/rooms/{room_id}/join", {"version": version})
+
+    def create_punch_ticket(self, room_id: str, join_ticket: str, binding_token: str, client_local_endpoint: str) -> dict:
+        return self.post(
+            f"/v1/rooms/{room_id}/punch-tickets",
+            {"joinTicket": join_ticket, "bindingToken": binding_token, "clientLocalEndpoint": client_local_endpoint},
+        )
 
     def create_match_ticket(self, payload: dict) -> dict:
         return self.post("/v1/matchmaking/tickets", payload)
@@ -198,12 +213,16 @@ class BrowserApp(tk.Tk):
         self.mode_var = tk.StringVar(value=self.config_data.mode)
         self.port_var = tk.IntVar(value=self.config_data.port)
         self.max_players_var = tk.IntVar(value=self.config_data.max_players)
+        self.use_proxy_var = tk.BooleanVar(value=self.config_data.use_udp_proxy)
+        self.proxy_client_port_var = tk.IntVar(value=self.config_data.proxy_client_port)
 
         self._field(room_box, "Name", self.room_name_var, 0, 0, width=24)
         self._field(room_box, "Map", self.map_var, 0, 2, width=16)
         self._field(room_box, "Mode", self.mode_var, 0, 4, width=10)
         self._field(room_box, "Port", self.port_var, 0, 6, width=8)
         self._field(room_box, "Max", self.max_players_var, 0, 8, width=8)
+        ttk.Checkbutton(room_box, text="Use UDP Proxy", variable=self.use_proxy_var).grid(row=1, column=0, sticky="w", padx=4, pady=4)
+        self._field(room_box, "Client Proxy", self.proxy_client_port_var, 1, 2, width=8)
 
         buttons = ttk.Frame(room_box)
         buttons.grid(row=0, column=10, sticky="e", padx=(12, 0))
@@ -278,6 +297,8 @@ class BrowserApp(tk.Tk):
             map_name=self.map_var.get().strip() or "Warehouse",
             mode=self.mode_var.get().strip() or "pve",
             max_players=int(self.max_players_var.get()),
+            use_udp_proxy=bool(self.use_proxy_var.get()),
+            proxy_client_port=int(self.proxy_client_port_var.get()),
         )
 
     def initialize(self) -> None:
@@ -307,12 +328,19 @@ class BrowserApp(tk.Tk):
 
     def create_room(self) -> None:
         self.ensure_ready_for_launch()
-        self.set_status("Probing host UDP port...")
-        probe = self.run_host_probe()
+        probe = None
+        binding = None
+        if self.config_data.use_udp_proxy:
+            self.set_status("Registering host UDP proxy binding...")
+            binding = self.run_nat_binding(self.config_data.port, "host")
+        else:
+            self.set_status("Probing host UDP port...")
+            probe = self.run_host_probe()
         self.set_status("Creating room...")
         created = self.api.create_room(
             {
-                "probeId": probe["probeId"],
+                "probeId": probe["probeId"] if probe else None,
+                "bindingToken": binding["bindingToken"] if binding else None,
                 "name": self.config_data.room_name,
                 "region": self.config_data.region,
                 "map": self.config_data.map_name,
@@ -331,11 +359,19 @@ class BrowserApp(tk.Tk):
         if not self.selected_room:
             raise RuntimeError("Select a room first.")
         join = self.api.join_room(self.selected_room["roomId"], self.config_data.version)
-        self.start_client(join["connect"])
-        self.set_status(f"Launching client for {join['connect']}.")
+        if self.config_data.use_udp_proxy:
+            self.start_client_proxy(self.selected_room["roomId"], join["joinTicket"])
+            connect = f"127.0.0.1:{self.config_data.proxy_client_port}"
+            self.start_client(connect)
+            self.set_status(f"Launching client through local proxy {connect}.")
+        else:
+            self.start_client(join["connect"])
+            self.set_status(f"Launching client for {join['connect']}.")
 
     def quick_match(self) -> None:
         self.ensure_ready_for_launch()
+        if self.config_data.use_udp_proxy:
+            raise RuntimeError("Quick Match with UDP Proxy is not wired yet. Create a proxy room first, then join it from another client.")
         self.set_status("Probing host UDP port for quick match...")
         probe = self.run_host_probe()
         ticket = self.api.create_match_ticket(
@@ -381,12 +417,41 @@ class BrowserApp(tk.Tk):
             try:
                 data, _ = sock.recvfrom(2048)
             except socket.timeout as exc:
-                raise RuntimeError("UDP probe timed out. Check firewall and port forwarding.") from exc
+                target = f"{probe.get('publicIp', 'unknown')}:{probe.get('port', port)}"
+                raise RuntimeError(
+                    f"UDP probe timed out. Backend sent the probe to {target}. "
+                    "Check VPN/proxy, firewall, CGNAT, and port forwarding."
+                ) from exc
         nonce = data.decode("utf-8", errors="replace")
         if nonce != probe["nonce"]:
             raise RuntimeError("UDP probe nonce mismatch.")
         self.api.confirm_host_probe(probe["probeId"], nonce)
         return probe
+
+    def run_nat_binding(self, local_port: int, role: str) -> dict:
+        self.config_data = self.read_form()
+        self.api.configure(self.config_data.backend_url, self.config_data.access_token)
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind(("", local_port))
+            sock.settimeout(1)
+            created = self.api.create_nat_binding(local_port, role)
+            server = (created.get("udpHost") or parse.urlparse(self.config_data.backend_url).hostname, int(created["udpPort"]))
+            packet = json.dumps({"type": "nat-binding", "token": created["bindingToken"], "localPort": local_port}).encode("utf-8")
+            deadline = time.time() + 8
+            while time.time() < deadline:
+                sock.sendto(packet, server)
+                try:
+                    data, _ = sock.recvfrom(2048)
+                except socket.timeout:
+                    continue
+                try:
+                    response = json.loads(data.decode("utf-8"))
+                except (UnicodeDecodeError, json.JSONDecodeError):
+                    continue
+                if response.get("token") == created["bindingToken"]:
+                    return self.api.confirm_nat_binding(created["bindingToken"])
+        raise RuntimeError("UDP rendezvous timed out. Check server UDP 5001 and local firewall.")
 
     def start_client(self, connect: str) -> None:
         exe = find_file(self.config_data.game_directory, "ProjectBoundarySteam-Win64-Shipping.exe")
@@ -394,9 +459,32 @@ class BrowserApp(tk.Tk):
             raise RuntimeError("ProjectBoundarySteam-Win64-Shipping.exe was not found under the game directory.")
         subprocess.Popen([exe, f"-match={connect}"], cwd=str(Path(exe).parent), creationflags=self.creation_flags())
 
+    def start_client_proxy(self, room_id: str, join_ticket: str) -> None:
+        proxy = Path(__file__).with_name("project_rebound_udp_proxy.py")
+        args = [
+            sys.executable,
+            str(proxy),
+            "client",
+            "--backend",
+            self.config_data.backend_url,
+            "--access-token",
+            self.config_data.access_token,
+            "--room-id",
+            room_id,
+            "--join-ticket",
+            join_ticket,
+            "--listen-port",
+            str(self.config_data.proxy_client_port),
+        ]
+        subprocess.Popen(args, cwd=str(proxy.parent), creationflags=self.creation_flags())
+        time.sleep(1)
+
     def start_host(self, room: dict, host_token: str) -> None:
         wrapper = find_file(self.config_data.game_directory, "ProjectReboundServerWrapper.exe")
         backend = backend_for_game(self.config_data.backend_url)
+        game_port = self.config_data.port + 1 if self.config_data.use_udp_proxy else int(room.get("port", self.config_data.port))
+        if self.config_data.use_udp_proxy:
+            self.start_host_proxy(room["roomId"], host_token, game_port)
         if wrapper:
             args = [
                 wrapper,
@@ -407,7 +495,7 @@ class BrowserApp(tk.Tk):
                 f"-mode={room.get('mode', self.config_data.mode)}",
                 f"-servername={sanitize_arg(room.get('name', self.config_data.room_name))}",
                 f"-serverregion={room.get('region', self.config_data.region)}",
-                f"-port={room.get('port', self.config_data.port)}",
+                f"-port={game_port}",
             ]
             subprocess.Popen(args, cwd=str(Path(wrapper).parent), creationflags=self.creation_flags())
             return
@@ -427,11 +515,31 @@ class BrowserApp(tk.Tk):
             f"-mode={self.mode_to_path(room.get('mode', self.config_data.mode))}",
             f"-servername={sanitize_arg(room.get('name', self.config_data.room_name))}",
             f"-serverregion={room.get('region', self.config_data.region)}",
-            f"-port={room.get('port', self.config_data.port)}",
+            f"-port={game_port}",
         ]
         if room.get("mode", self.config_data.mode).lower() == "pve":
             args.append("-pve")
         subprocess.Popen(args, cwd=str(Path(exe).parent), creationflags=self.creation_flags())
+
+    def start_host_proxy(self, room_id: str, host_token: str, game_port: int) -> None:
+        proxy = Path(__file__).with_name("project_rebound_udp_proxy.py")
+        args = [
+            sys.executable,
+            str(proxy),
+            "host",
+            "--backend",
+            self.config_data.backend_url,
+            "--room-id",
+            room_id,
+            "--host-token",
+            host_token,
+            "--public-port",
+            str(self.config_data.port),
+            "--game-port",
+            str(game_port),
+        ]
+        subprocess.Popen(args, cwd=str(proxy.parent), creationflags=self.creation_flags())
+        time.sleep(1)
 
     def ensure_ready_for_launch(self) -> None:
         self.config_data = self.read_form()

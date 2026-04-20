@@ -90,4 +90,38 @@ public static class RoomOperations
             LastSeenAt = now
         };
     }
+
+    public static Room CreateRoomFromEndpoint(
+        Guid hostPlayerId,
+        string endpoint,
+        int port,
+        string hostToken,
+        string name,
+        string region,
+        string map,
+        string mode,
+        string version,
+        int maxPlayers)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return new Room
+        {
+            RoomId = Guid.NewGuid(),
+            HostPlayerId = hostPlayerId,
+            HostTokenHash = TokenService.Hash(hostToken),
+            Name = string.IsNullOrWhiteSpace(name) ? "ProjectRebound Room" : name.Trim(),
+            Region = string.IsNullOrWhiteSpace(region) ? "CN" : region.Trim(),
+            Map = string.IsNullOrWhiteSpace(map) ? "Warehouse" : map.Trim(),
+            Mode = string.IsNullOrWhiteSpace(mode) ? "pve" : mode.Trim(),
+            Version = string.IsNullOrWhiteSpace(version) ? "dev" : version.Trim(),
+            Endpoint = endpoint,
+            Port = port,
+            MaxPlayers = Math.Clamp(maxPlayers, 1, 128),
+            PlayerCount = 1,
+            ServerState = "Forming",
+            State = RoomState.Open,
+            CreatedAt = now,
+            LastSeenAt = now
+        };
+    }
 }

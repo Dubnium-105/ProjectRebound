@@ -17,6 +17,7 @@
 - 时间：API 使用 ISO 8601 UTC；SQLite 内部把 `DateTimeOffset` 转成 Unix milliseconds 存储，避免 SQLite provider 无法翻译时间比较查询。
 - 认证：除 `GET /v1/rooms`、`GET /v1/rooms/{roomId}`、`GET /v1/servers` 和旧 `/server/status` 外，写操作使用 `Authorization: Bearer <player_token>`。
 - 网络模型：V1 只做公网直连。没有 NAT 打洞、Relay、主机迁移；主机掉线则本局结束。
+- 实验性 UDP Proxy：当前原型增加了本地 UDP 小代理路径。服务器只做 UDP rendezvous 和 punch ticket 信令，不转发游戏包；GUI 勾选 `Use UDP Proxy` 后启用。
 
 ## 2. 最小闭环
 
@@ -40,6 +41,80 @@
 - `LegacyServer`: legacy `/server/status` 兼容记录
 
 ## 4. API
+
+### POST /v1/nat/bindings
+
+创建一次 UDP rendezvous 绑定。客户端随后必须从同一个 UDP socket 向后端 UDP rendezvous 端口发送包含 `bindingToken` 的 JSON 包，后端据此记录观察到的公网 UDP endpoint。
+
+Request:
+
+```json
+{ "localPort": 7777, "role": "host", "roomId": null }
+```
+
+Response:
+
+```json
+{
+  "bindingToken": "token",
+  "udpHost": "match.example.com",
+  "udpPort": 5001,
+  "expiresAt": "2026-04-20T08:35:00Z"
+}
+```
+
+### POST /v1/nat/bindings/{bindingToken}/confirm
+
+确认后端已经观察到 UDP 包，返回公网 UDP endpoint。
+
+```json
+{
+  "bindingToken": "token",
+  "publicIp": "1.2.3.4",
+  "publicPort": 53000,
+  "localPort": 7777,
+  "role": "host",
+  "roomId": null,
+  "expiresAt": "2026-04-20T08:35:00Z"
+}
+```
+
+### POST /v1/rooms/{roomId}/punch-tickets
+
+加入者拿到 `joinTicket` 后创建 punch ticket。后端把 client NAT binding 和 room host endpoint 组成一次打洞会话。
+
+Request:
+
+```json
+{
+  "joinTicket": "join-token",
+  "bindingToken": "client-nat-binding-token",
+  "clientLocalEndpoint": "127.0.0.1:17777"
+}
+```
+
+Response:
+
+```json
+{
+  "ticketId": "uuid",
+  "state": "Pending",
+  "nonce": "token",
+  "hostEndpoint": "1.2.3.4:7777",
+  "hostLocalEndpoint": null,
+  "clientEndpoint": "5.6.7.8:53000",
+  "clientLocalEndpoint": "127.0.0.1:17777",
+  "expiresAt": "2026-04-20T08:35:00Z"
+}
+```
+
+### GET /v1/rooms/{roomId}/punch-tickets?hostToken=...
+
+主机 proxy 轮询待打洞的 client endpoint。
+
+### POST /v1/rooms/{roomId}/punch-tickets/{ticketId}/complete
+
+预留完成上报接口。当前 proxy 原型主要靠持续 punch 和 UDP 转发工作，完成上报不作为连接前置条件。
 
 ### POST /v1/auth/guest
 

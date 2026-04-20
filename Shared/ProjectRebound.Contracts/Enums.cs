@@ -41,3 +41,12 @@ public enum MatchTicketState
     Canceled,
     Expired
 }
+
+public enum PunchTicketState
+{
+    Pending,
+    Active,
+    Completed,
+    Expired,
+    Failed
+}

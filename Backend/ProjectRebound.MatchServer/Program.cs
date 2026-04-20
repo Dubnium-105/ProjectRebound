@@ -15,6 +15,8 @@ builder.Services.Configure<MatchServerOptions>(builder.Configuration.GetSection(
 builder.Services.AddDbContext<MatchServerDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("MatchServer")));
 builder.Services.AddSingleton<UdpProbeSender>();
+builder.Services.AddSingleton<NatTraversalStore>();
+builder.Services.AddHostedService<UdpRendezvousService>();
 builder.Services.AddHostedService<RoomLifecycleService>();
 builder.Services.AddHostedService<MatchmakingService>();
 builder.Services.AddEndpointsApiExplorer();
@@ -141,10 +143,71 @@ app.MapPost("/v1/host-probes/{probeId:guid}/confirm", async (
     return Results.Ok(new HostProbeResponse(probe.ProbeId, probe.Status, probe.PublicIp, probe.Port, probe.ExpiresAt));
 });
 
+app.MapPost("/v1/nat/bindings", async (
+    CreateNatBindingRequest request,
+    HttpContext http,
+    NatTraversalStore nat,
+    Microsoft.Extensions.Options.IOptions<MatchServerOptions> options,
+    MatchServerDbContext db) =>
+{
+    var player = await http.GetBearerPlayerAsync(db);
+    if (player is null)
+    {
+        return AuthExtensions.UnauthorizedError();
+    }
+
+    if (request.LocalPort is < 1 or > 65535)
+    {
+        return BadRequest("VALIDATION_ERROR", "localPort must be between 1 and 65535");
+    }
+
+    var binding = nat.CreateBinding(
+        player.PlayerId,
+        request.LocalPort,
+        request.Role,
+        request.RoomId,
+        DateTimeOffset.UtcNow.AddSeconds(options.Value.NatBindingSeconds));
+
+    return Results.Ok(new CreateNatBindingResponse(
+        binding.BindingToken,
+        http.Request.Host.Host,
+        options.Value.UdpRendezvousPort,
+        binding.ExpiresAt));
+});
+
+app.MapPost("/v1/nat/bindings/{bindingToken}/confirm", async (
+    string bindingToken,
+    HttpContext http,
+    NatTraversalStore nat,
+    MatchServerDbContext db) =>
+{
+    var player = await http.GetBearerPlayerAsync(db);
+    if (player is null)
+    {
+        return AuthExtensions.UnauthorizedError();
+    }
+
+    var binding = nat.GetBinding(bindingToken, player.PlayerId);
+    if (binding is null)
+    {
+        return Results.Json(new ApiError("NAT_BINDING_NOT_READY", "No UDP rendezvous packet has been observed for this binding."), statusCode: 409);
+    }
+
+    return Results.Ok(new ConfirmNatBindingResponse(
+        binding.BindingToken,
+        binding.PublicIp!,
+        binding.PublicPort!.Value,
+        binding.LocalPort,
+        binding.Role,
+        binding.RoomId,
+        binding.ExpiresAt));
+});
+
 app.MapPost("/v1/rooms", async (
     CreateRoomRequest request,
     HttpContext http,
     MatchServerDbContext db,
+    NatTraversalStore nat,
     Microsoft.Extensions.Options.IOptions<MatchServerOptions> options,
     CancellationToken cancellationToken) =>
 {
@@ -155,27 +218,57 @@ app.MapPost("/v1/rooms", async (
     }
 
     var now = DateTimeOffset.UtcNow;
-    var probe = await db.HostProbes.FirstOrDefaultAsync(x =>
-        x.ProbeId == request.ProbeId &&
-        x.PlayerId == player.PlayerId &&
-        x.Status == HostProbeStatus.Succeeded &&
-        x.ExpiresAt > now, cancellationToken);
-    if (probe is null)
-    {
-        return Results.Json(new ApiError("HOST_PROBE_REQUIRED", "A fresh successful host probe is required before creating a room."), statusCode: 409);
-    }
-
     var hostToken = TokenService.NewToken();
-    var room = RoomOperations.CreateRoomFromProbe(
-        player.PlayerId,
-        probe,
-        hostToken,
-        request.Name,
-        request.Region,
-        request.Map,
-        request.Mode,
-        request.Version,
-        request.MaxPlayers);
+    Room room;
+    if (!string.IsNullOrWhiteSpace(request.BindingToken))
+    {
+        var binding = nat.GetBinding(request.BindingToken, player.PlayerId);
+        if (binding is null)
+        {
+            return Results.Json(new ApiError("NAT_BINDING_REQUIRED", "A fresh successful NAT binding is required before creating a proxy room."), statusCode: 409);
+        }
+
+        var endpoint = $"{binding.PublicIp}:{binding.PublicPort}";
+        room = RoomOperations.CreateRoomFromEndpoint(
+            player.PlayerId,
+            endpoint,
+            binding.PublicPort!.Value,
+            hostToken,
+            request.Name,
+            request.Region,
+            request.Map,
+            request.Mode,
+            request.Version,
+            request.MaxPlayers);
+    }
+    else
+    {
+        if (request.ProbeId is null)
+        {
+            return Results.Json(new ApiError("HOST_PROBE_REQUIRED", "A fresh successful host probe is required before creating a room."), statusCode: 409);
+        }
+
+        var probe = await db.HostProbes.FirstOrDefaultAsync(x =>
+            x.ProbeId == request.ProbeId &&
+            x.PlayerId == player.PlayerId &&
+            x.Status == HostProbeStatus.Succeeded &&
+            x.ExpiresAt > now, cancellationToken);
+        if (probe is null)
+        {
+            return Results.Json(new ApiError("HOST_PROBE_REQUIRED", "A fresh successful host probe is required before creating a room."), statusCode: 409);
+        }
+
+        room = RoomOperations.CreateRoomFromProbe(
+            player.PlayerId,
+            probe,
+            hostToken,
+            request.Name,
+            request.Region,
+            request.Map,
+            request.Mode,
+            request.Version,
+            request.MaxPlayers);
+    }
 
     db.Rooms.Add(room);
     await db.SaveChangesAsync(cancellationToken);
@@ -311,6 +404,96 @@ app.MapPost("/v1/rooms/{roomId:guid}/leave", async (
 
     var updated = await query.ExecuteUpdateAsync(x => x.SetProperty(p => p.Status, RoomPlayerStatus.Left), cancellationToken);
     return Results.Ok(new { ok = true, updated });
+});
+
+app.MapPost("/v1/rooms/{roomId:guid}/punch-tickets", async (
+    Guid roomId,
+    CreatePunchTicketRequest request,
+    HttpContext http,
+    MatchServerDbContext db,
+    NatTraversalStore nat,
+    Microsoft.Extensions.Options.IOptions<MatchServerOptions> options,
+    CancellationToken cancellationToken) =>
+{
+    var player = await http.GetBearerPlayerAsync(db);
+    if (player is null)
+    {
+        return AuthExtensions.UnauthorizedError();
+    }
+
+    var room = await db.Rooms.AsNoTracking().FirstOrDefaultAsync(x => x.RoomId == roomId, cancellationToken);
+    if (room is null || room.HostPlayerId is null)
+    {
+        return Results.NotFound(new ApiError("NOT_FOUND", "Room was not found."));
+    }
+
+    if (!RoomOperations.IsJoinable(room))
+    {
+        return await EndpointHelpers.NotFoundRoomAsync(roomId, db);
+    }
+
+    var joinTicketHash = TokenService.Hash(request.JoinTicket);
+    var reservation = await db.RoomPlayers.AsNoTracking().FirstOrDefaultAsync(x =>
+        x.RoomId == roomId &&
+        x.PlayerId == player.PlayerId &&
+        x.JoinTicketHash == joinTicketHash &&
+        (x.Status == RoomPlayerStatus.Reserved || x.Status == RoomPlayerStatus.Joined) &&
+        x.ExpiresAt > DateTimeOffset.UtcNow, cancellationToken);
+    if (reservation is null)
+    {
+        return Results.Json(new ApiError("JOIN_TICKET_REQUIRED", "A fresh join ticket is required before creating a punch ticket."), statusCode: 409);
+    }
+
+    var binding = nat.GetBinding(request.BindingToken, player.PlayerId);
+    if (binding is null)
+    {
+        return Results.Json(new ApiError("NAT_BINDING_REQUIRED", "A fresh successful client NAT binding is required."), statusCode: 409);
+    }
+
+    var ticket = nat.CreatePunchTicket(
+        room.RoomId,
+        room.HostPlayerId.Value,
+        player.PlayerId,
+        room.Endpoint,
+        null,
+        $"{binding.PublicIp}:{binding.PublicPort}",
+        request.ClientLocalEndpoint,
+        TimeSpan.FromSeconds(options.Value.PunchTicketSeconds));
+
+    return Results.Ok(ToPunchTicketResponse(ticket));
+});
+
+app.MapGet("/v1/rooms/{roomId:guid}/punch-tickets", async (
+    Guid roomId,
+    string hostToken,
+    MatchServerDbContext db,
+    NatTraversalStore nat,
+    CancellationToken cancellationToken) =>
+{
+    var room = await db.Rooms.AsNoTracking().FirstOrDefaultAsync(x => x.RoomId == roomId, cancellationToken);
+    if (room is null || room.HostPlayerId is null)
+    {
+        return Results.NotFound(new ApiError("NOT_FOUND", "Room was not found."));
+    }
+
+    if (!TokenService.FixedTimeEquals(room.HostTokenHash, TokenService.Hash(hostToken)))
+    {
+        return Results.Json(new ApiError("FORBIDDEN", "Host token is invalid."), statusCode: 403);
+    }
+
+    var tickets = nat.GetHostTickets(roomId, room.HostPlayerId.Value)
+        .Select(ToPunchTicketResponse)
+        .ToList();
+    return Results.Ok(new ListPunchTicketsResponse(tickets));
+});
+
+app.MapPost("/v1/rooms/{roomId:guid}/punch-tickets/{ticketId:guid}/complete", (
+    Guid roomId,
+    Guid ticketId,
+    NatTraversalStore nat) =>
+{
+    nat.Complete(ticketId);
+    return Results.Ok(new { ok = true });
 });
 
 app.MapPost("/v1/rooms/{roomId:guid}/heartbeat", async (
@@ -593,4 +776,17 @@ static async Task<IResult> UpdateRoomLifecycleAsync(
     room.LastSeenAt = DateTimeOffset.UtcNow;
     await db.SaveChangesAsync(cancellationToken);
     return Results.Ok(EndpointHelpers.ToSummary(room));
+}
+
+static PunchTicketResponse ToPunchTicketResponse(PunchTicket ticket)
+{
+    return new PunchTicketResponse(
+        ticket.TicketId,
+        ticket.State,
+        ticket.Nonce,
+        ticket.HostEndpoint,
+        ticket.HostLocalEndpoint,
+        ticket.ClientEndpoint,
+        ticket.ClientLocalEndpoint,
+        ticket.ExpiresAt);
 }
