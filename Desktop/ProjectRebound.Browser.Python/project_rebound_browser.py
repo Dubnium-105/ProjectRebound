@@ -109,24 +109,28 @@ class ApiClient:
             headers["Authorization"] = f"Bearer {self.access_token}"
 
         req = request.Request(f"{self.backend_url}{path}", data=body, headers=headers, method=method)
+        append_gui_log(f"API {method} {path}")
         try:
             with request.urlopen(req, timeout=15) as response:
                 raw = response.read().decode("utf-8")
+                append_gui_log(f"API {method} {path} -> {response.status}")
                 return json.loads(raw) if raw else {}
         except error.HTTPError as exc:
             raw = exc.read().decode("utf-8", errors="replace")
+            append_gui_log(f"API {method} {path} -> HTTP {exc.code}: {raw}")
             try:
                 details = json.loads(raw)
                 if "code" in details and "message" in details:
-                    raise ApiError(f"{details['code']}: {details['message']}") from exc
+                    raise ApiError(f"{details['code']} during {method} {path}: {details['message']}") from exc
                 if "error" in details:
                     err = details["error"]
-                    raise ApiError(f"{err.get('code', exc.code)}: {err.get('message', raw)}") from exc
+                    raise ApiError(f"{err.get('code', exc.code)} during {method} {path}: {err.get('message', raw)}") from exc
             except json.JSONDecodeError:
                 pass
-            raise ApiError(f"HTTP {exc.code}: {raw}") from exc
+            raise ApiError(f"HTTP {exc.code} during {method} {path}: {raw}") from exc
         except error.URLError as exc:
-            raise ApiError(f"Backend is not reachable: {exc.reason}") from exc
+            append_gui_log(f"API {method} {path} -> unreachable: {exc.reason}")
+            raise ApiError(f"Backend is not reachable during {method} {path}: {exc.reason}") from exc
 
 
 def load_config() -> AppConfig:
@@ -466,13 +470,17 @@ class BrowserApp(tk.Tk):
         self.ensure_ready_for_launch()
         if not self.selected_room:
             raise RuntimeError("Select a room first.")
+        self.set_status("Reserving room slot...")
         join = self.api.join_room(self.selected_room["roomId"], self.config_data.version)
         if self.config_data.use_udp_proxy:
+            self.set_status("Starting local UDP proxy...")
             self.start_client_proxy(self.selected_room["roomId"], join["joinTicket"])
             connect = f"127.0.0.1:{self.config_data.proxy_client_port}"
+            self.set_status("Launching game client...")
             self.start_client(connect)
             self.set_status(f"Launching client through local proxy {connect}.")
         else:
+            self.set_status("Launching game client...")
             self.start_client(join["connect"])
             self.set_status(f"Launching client for {join['connect']}.")
 

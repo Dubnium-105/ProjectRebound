@@ -43,9 +43,9 @@ class ApiClient:
                 return json.loads(raw) if raw else {}
         except error.HTTPError as exc:
             raw = exc.read().decode("utf-8", errors="replace")
-            raise ApiError(f"HTTP {exc.code}: {raw}") from exc
+            raise ApiError(f"HTTP {exc.code} during {method} {path}: {raw}") from exc
         except error.URLError as exc:
-            raise ApiError(f"Backend is not reachable: {exc.reason}") from exc
+            raise ApiError(f"Backend is not reachable during {method} {path}: {exc.reason}") from exc
 
 
 def parse_endpoint(endpoint: str) -> tuple[str, int]:
