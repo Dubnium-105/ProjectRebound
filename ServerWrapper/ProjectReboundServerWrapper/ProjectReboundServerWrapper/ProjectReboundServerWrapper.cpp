@@ -31,8 +31,10 @@ bool OfflineMode = false;
 const std::string DEFAULT_BACKEND = "ax48735790k.vicp.fun:3000";
 
 std::atomic<bool> ServerRunning = false;
+std::atomic<bool> HeartbeatSeen = false;
 int g_ConsecutiveFailures = 0;
 std::chrono::steady_clock::time_point g_LastFailureTime;
+std::chrono::steady_clock::time_point g_ServerLaunchTime;
 const int MAX_FAILURES = 3;
 const auto FAILURE_RESET_WINDOW = std::chrono::minutes(1);
 
@@ -345,6 +347,7 @@ void PipeReader(HANDLE pipe)
         // Detect heartbeat
         if (msg.find("[HEARTBEAT]") != std::string::npos) {
             lastHeartbeatTime = std::chrono::steady_clock::now();
+            HeartbeatSeen = true;
 			g_ConsecutiveFailures = 0;  //Clear counter on successful heartbeat
             LauncherLog("Heartbeat received");
         }
@@ -391,7 +394,8 @@ BOOL WINAPI ConsoleHandler(DWORD ctrlType)
 void StartWatchdog()
 {
     std::thread([]() {
-        const auto timeout = std::chrono::seconds(10);
+        const auto startupTimeout = std::chrono::seconds(120);
+        const auto heartbeatTimeout = std::chrono::seconds(30);
 
         while (ServerRunning)
         {
@@ -406,10 +410,13 @@ void StartWatchdog()
             }
 
             auto now = std::chrono::steady_clock::now();
+            auto timeout = HeartbeatSeen ? heartbeatTimeout : startupTimeout;
 
             if (now - lastHeartbeatTime > timeout)
             {
-                LauncherLog("Heartbeat timeout — server frozen.");
+                LauncherLog(HeartbeatSeen
+                    ? "Heartbeat timeout — server frozen."
+                    : "Startup timeout — server did not finish initialization.");
 
                 LastMap = CurrentMap;
                 CurrentMap = PickRandomMapAvoidingLast();
@@ -459,6 +466,9 @@ void LaunchServer()
     }
     LastMap = CurrentMap;
     LauncherLog("Launching server process...");
+    HeartbeatSeen = false;
+    lastHeartbeatTime = std::chrono::steady_clock::now();
+    g_ServerLaunchTime = lastHeartbeatTime;
 
     // Create pipes
     SECURITY_ATTRIBUTES sa{ sizeof(SECURITY_ATTRIBUTES), NULL, TRUE };
@@ -567,6 +577,9 @@ void LaunchServer()
 
             if (code != STILL_ACTIVE)
             {
+                if (!ServerRunning)
+                    return;
+
                 LauncherLog("Server exited — rotating map.");
 
                 ServerRunning = false;

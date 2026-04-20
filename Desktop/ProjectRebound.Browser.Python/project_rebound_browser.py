@@ -247,6 +247,10 @@ def backend_for_game(backend_url: str) -> str:
     if parsed.hostname:
         if parsed.port:
             return f"{parsed.hostname}:{parsed.port}"
+        if parsed.scheme == "http":
+            return f"{parsed.hostname}:80"
+        if parsed.scheme == "https":
+            return f"{parsed.hostname}:443"
         return parsed.hostname
     return backend_url.replace("http://", "").replace("https://", "").rstrip("/")
 
@@ -774,7 +778,7 @@ class BrowserApp(tk.Tk):
             "echo [Launcher] Starting dedicated server wrapper...",
             "start \"\" /MIN " + quote_bat(wrapper_exe) + (" " + wrapper_tail if wrapper_tail else ""),
             "echo [Launcher] Waiting for wrapper to initialize...",
-            "timeout /t 2 >nul",
+            "timeout /t 20 >nul",
             "echo [Launcher] Launching game client...",
             "start \"\" "
             + quote_bat(game_exe)
