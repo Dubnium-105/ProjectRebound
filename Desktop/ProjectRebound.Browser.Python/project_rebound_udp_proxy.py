@@ -155,7 +155,7 @@ class Peer:
 
 
 def run_host(args: argparse.Namespace) -> None:
-    api = ApiClient(args.backend)
+    api = ApiClient(args.backend, args.access_token)
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(("", args.public_port))
@@ -169,6 +169,7 @@ def run_host(args: argparse.Namespace) -> None:
     relay_endpoint = (relay.get("relayHost") or backend_host(args.backend), int(relay["relayPort"]))
     relay_packet = relay_register_packet(relay["sessionId"], "host", relay["secret"])
     relay_registered = False
+    log(f"host relay allocation received: session={relay['sessionId']} relay={relay_endpoint[0]}:{relay_endpoint[1]}")
 
     def poll() -> None:
         while not stop.is_set():
@@ -219,7 +220,10 @@ def run_host(args: argparse.Namespace) -> None:
 
             packet = parse_json_packet(data)
             if packet and packet.get("type") == RELAY_REGISTERED:
-                relay_registered = bool(packet.get("ok"))
+                ok = bool(packet.get("ok"))
+                if ok != relay_registered:
+                    log(f"host relay registration {'accepted' if ok else 'rejected'}")
+                relay_registered = ok
                 continue
 
             if is_punch_packet(data):
@@ -271,6 +275,7 @@ def run_client(args: argparse.Namespace) -> None:
     relay_packet = relay_register_packet(relay["sessionId"], "client", relay["secret"])
     relay_registered = False
     relay_active = False
+    log(f"client relay allocation received: session={relay['sessionId']} relay={relay_endpoint[0]}:{relay_endpoint[1]}")
     game_endpoint: tuple[str, int] | None = None
     sock.settimeout(0.05)
     log(
@@ -314,7 +319,10 @@ def run_client(args: argparse.Namespace) -> None:
 
         packet = parse_json_packet(data)
         if packet and packet.get("type") == RELAY_REGISTERED:
-            relay_registered = bool(packet.get("ok"))
+            ok = bool(packet.get("ok"))
+            if ok != relay_registered:
+                log(f"client relay registration {'accepted' if ok else 'rejected'}")
+            relay_registered = ok
             continue
 
         if is_punch_packet(data):
@@ -348,6 +356,7 @@ def main() -> None:
 
     host = sub.add_parser("host")
     host.add_argument("--backend", required=True)
+    host.add_argument("--access-token", required=True)
     host.add_argument("--room-id", required=True)
     host.add_argument("--host-token", required=True)
     host.add_argument("--public-port", type=int, required=True)
@@ -363,10 +372,14 @@ def main() -> None:
 
     args = parser.parse_args()
     setup_log(args.mode)
-    if args.mode == "host":
-        run_host(args)
-    else:
-        run_client(args)
+    try:
+        if args.mode == "host":
+            run_host(args)
+        else:
+            run_client(args)
+    except Exception as exc:
+        log(f"fatal proxy error: {exc}")
+        raise
 
 
 if __name__ == "__main__":
