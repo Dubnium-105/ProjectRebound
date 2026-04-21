@@ -19,14 +19,15 @@
 - Windows Python GUI：`Desktop/ProjectRebound.Browser.Python`
 - 游戏本体、server wrapper、payload
 
-V1 网络模型仍然是玩家主机公网直连。Linux 骨干服务只负责身份、房间列表、UDP probe、匹配和心跳，不承载每局游戏流量。
+V1 网络模型优先使用玩家主机公网直连 / UDP 打洞。Linux 骨干服务负责身份、房间列表、UDP probe、匹配和心跳；当 P2P 打洞失败时，可启用最小 UDP relay 兜底转发游戏 UDP 包。
 
 ## 2. 前置假设
 
 - Debian 12 或 Debian 13 x64 VPS。
 - 服务器有 sudo 权限。
 - 对外开放 TCP `80`；以后启用 HTTPS 时开放 TCP `443`。
-- 如果启用 GUI 的 `Use UDP Proxy`，还需要对外开放 UDP `5001`，供 NAT rendezvous 使用。该端口只收发少量打洞信令，不转发游戏流量。
+- 如果启用 GUI 的 `Use UDP Proxy`，还需要对外开放 UDP `5001`，供 NAT rendezvous 使用。
+- 如果启用最小 UDP relay 兜底，还需要对外开放 UDP `5002`。该端口会在 P2P 失败时转发游戏 UDP 包，服务器带宽会随玩家流量增长。
 - 玩家当主机时，玩家机器需要开放并转发游戏 UDP 端口，例如 `7777/udp`。
 - 当前 C++ `Payload` 更适合 HTTP `host:port` 上报。正式启用 HTTPS 前，建议先补 WinHTTP TLS 支持，或让游戏侧继续使用 `http://host:80`。
 
@@ -277,6 +278,7 @@ curl -fsS http://YOUR_DOMAIN_OR_SERVER_IP/health
 sudo ufw allow OpenSSH
 sudo ufw allow 80/tcp
 sudo ufw allow 5001/udp
+sudo ufw allow 5002/udp
 sudo ufw enable
 sudo ufw status
 ```
@@ -289,7 +291,7 @@ sudo ufw allow 443/tcp
 
 不要把 Kestrel 的 `5000` 端口暴露到公网。systemd 已经让后端只监听 `127.0.0.1:5000`。
 
-如果不使用 UDP Proxy，可以不开放 UDP `5001`。如果使用 UDP Proxy，Nginx 不处理 UDP `5001`，该 UDP 端口由 `ProjectRebound.MatchServer` 的后台 rendezvous service 直接监听。
+如果不使用 UDP Proxy，可以不开放 UDP `5001` 和 `5002`。如果使用 UDP Proxy，Nginx 不处理 UDP `5001/5002`，这两个 UDP 端口由 `ProjectRebound.MatchServer` 的后台 service 直接监听。`5001` 用于 rendezvous；`5002` 用于 P2P 失败后的最小 relay 兜底。
 
 ## 11. 冒烟测试
 
@@ -349,10 +351,11 @@ A 机器：
 3. A 创建房间时，GUI 会先向服务器 UDP `5001` 做 rendezvous，然后启动本地 `project_rebound_udp_proxy.py host`。
 4. A 的游戏服务端会被启动在 `Port + 1`，例如 `7778`；公网 `7777` 由 proxy 监听。
 5. B 加入房间时，GUI 会启动本地 `project_rebound_udp_proxy.py client`，并把游戏客户端启动为 `-LogicServerURL=http://127.0.0.1:8000 -match=127.0.0.1:<Client Proxy>`。
-6. 服务器只负责交换双方公网 UDP endpoint 和 punch ticket，不转发游戏包。
-7. 对于端口受限 NAT，client proxy 收到 host punch 包后会把后续游戏包发往实际收到的 host endpoint，而不是只依赖 rendezvous 阶段观察到的 endpoint。
+6. 服务器先交换双方公网 UDP endpoint 和 punch ticket，双方优先尝试 P2P 打洞。
+7. 如果 client proxy 在短时间内没有收到 host punch 包，会自动切到服务器 UDP `5002` relay 兜底。
+8. 对于端口受限 NAT，client proxy 收到 host punch 包后会把后续游戏包发往实际收到的 host endpoint，而不是只依赖 rendezvous 阶段观察到的 endpoint。
 
-当前 UDP Proxy 是快速原型，主要验证受限 NAT 下的直连打洞链路。它不保证 symmetric NAT / 严格 CGNAT 成功，也暂未接入快速匹配。
+当前 UDP Proxy 是快速原型，主要验证受限 NAT 下的直连打洞链路。对于 symmetric NAT / 严格 CGNAT，P2P 可能失败，此时会使用最小 UDP relay 兜底；relay 会消耗服务器上下行带宽。
 
 B 机器：
 
@@ -674,6 +677,33 @@ sudo tcpdump -ni any udp port 5001
 ```
 
 如果抓不到包，问题在服务器外侧防火墙、云安全组、路由或 Windows 出站网络。如果抓得到包但 GUI 没有响应，查看后端日志是否有 `UDP rendezvous packet failed`。
+
+### UDP Relay 兜底失败
+
+如果 P2P 打洞失败，GUI 的 UDP proxy 会自动尝试服务器 relay。确认服务器 UDP `5002` 已监听并放行：
+
+```bash
+sudo ss -lunp | grep 5002
+sudo ufw allow 5002/udp
+sudo tcpdump -ni any udp port 5002
+```
+
+日志里应能看到：
+
+```text
+UDP relay service listening on 0.0.0.0:5002
+```
+
+云厂商安全组也要放行 `5002/udp`。Nginx 不代理这个 UDP 端口。
+
+可以用仓库里的脚本单独验证 relay：
+
+```powershell
+Tools\NatPunchTest\run-host.bat --backend http://YOUR_DOMAIN_OR_SERVER_IP --port 27777 --relay
+Tools\NatPunchTest\run-client.bat --backend http://YOUR_DOMAIN_OR_SERVER_IP --room-id ROOM_ID_FROM_HOST --port 27778 --relay
+```
+
+看到 `PASS: received pong` 表示 relay 控制面和 UDP 转发面都可用。
 
 ### 房间创建成功但别人连不上
 

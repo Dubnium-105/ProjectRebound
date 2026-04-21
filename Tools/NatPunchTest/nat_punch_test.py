@@ -13,6 +13,8 @@ from urllib import error, parse, request
 
 
 PUNCH_MAGIC = "PRB_PUNCH_V1"
+RELAY_REGISTER = "PRB_RELAY_REGISTER_V1"
+RELAY_REGISTERED = "PRB_RELAY_REGISTERED_V1"
 TEST_MAGIC = "PRB_NAT_TEST_V1"
 
 
@@ -129,7 +131,17 @@ def test_pong(packet: dict) -> bytes:
     )
 
 
+def relay_register_packet(session_id: str, role: str, secret: str) -> bytes:
+    return json_packet({"type": RELAY_REGISTER, "sessionId": session_id, "role": role, "secret": secret})
+
+
 def login_guest(api: ApiClient, display_name: str) -> ApiClient:
+    try:
+        health = api.get("/health")
+        log(f"backend health ok: {health}")
+    except Exception as exc:
+        raise ApiError(f"backend health check failed for {api.backend}: {exc}") from exc
+
     response = api.post(
         "/v1/auth/guest",
         {
@@ -202,6 +214,23 @@ def create_host_room(args: argparse.Namespace, api: ApiClient, binding_token: st
     return HostRoom(created["roomId"], created["hostToken"], room["endpoint"])
 
 
+def create_relay_allocation(
+    api: ApiClient,
+    room_id: str,
+    role: str,
+    host_token: str | None = None,
+    join_ticket: str | None = None,
+) -> dict:
+    return api.post(
+        "/v1/relay/allocations",
+        {"roomId": room_id, "role": role, "hostToken": host_token, "joinTicket": join_ticket},
+    )
+
+
+def relay_endpoint(api: ApiClient, allocation: dict) -> tuple[str, int]:
+    return (allocation.get("relayHost") or backend_host(api.backend), int(allocation["relayPort"]))
+
+
 def run_host(args: argparse.Namespace, ready_queue: queue.Queue[HostRoom] | None = None, stop_event: threading.Event | None = None) -> int:
     stop = stop_event or threading.Event()
     api = login_guest(ApiClient(args.backend), args.display_name)
@@ -217,6 +246,14 @@ def run_host(args: argparse.Namespace, ready_queue: queue.Queue[HostRoom] | None
         ready_queue.put(room)
 
     threading.Thread(target=heartbeat_loop, args=(api, room.room_id, room.host_token, stop), daemon=True).start()
+    relay_target: tuple[str, int] | None = None
+    relay_packet = b""
+    relay_registered = False
+    if args.relay:
+        relay = create_relay_allocation(api, room.room_id, "host", host_token=room.host_token)
+        relay_target = relay_endpoint(api, relay)
+        relay_packet = relay_register_packet(relay["sessionId"], "host", relay["secret"])
+        log(f"host relay allocation: relay={relay_target[0]}:{relay_target[1]}")
 
     peers: dict[tuple[str, int], Peer] = {}
     nonce_to_peer: dict[str, Peer] = {}
@@ -240,8 +277,10 @@ def run_host(args: argparse.Namespace, ready_queue: queue.Queue[HostRoom] | None
 
     started = time.time()
     last_punch = 0.0
+    last_relay_register = 0.0
     last_stats = time.time()
     punch_rx = 0
+    relay_rx = 0
     ping_rx = 0
     pong_tx = 0
     try:
@@ -256,16 +295,27 @@ def run_host(args: argparse.Namespace, ready_queue: queue.Queue[HostRoom] | None
                     sock.sendto(punch_packet(peer.ticket_id, peer.nonce, "host"), peer.endpoint)
                 last_punch = now
 
+            if relay_target is not None and now - last_relay_register > 2:
+                sock.sendto(relay_packet, relay_target)
+                last_relay_register = now
+
             try:
                 data, source = sock.recvfrom(65535)
             except socket.timeout:
                 if time.time() - last_stats > 5:
-                    log(f"host stats: peers={len(peers)} punch_rx={punch_rx} ping_rx={ping_rx} pong_tx={pong_tx}")
+                    log(
+                        f"host stats: peers={len(peers)} punch_rx={punch_rx} relay_registered={relay_registered} "
+                        f"relay_rx={relay_rx} ping_rx={ping_rx} pong_tx={pong_tx}"
+                    )
                     last_stats = time.time()
                 continue
 
             packet = decode_json_packet(data)
             if not packet:
+                continue
+
+            if packet.get("type") == RELAY_REGISTERED:
+                relay_registered = bool(packet.get("ok"))
                 continue
 
             if packet.get("type") == PUNCH_MAGIC:
@@ -279,6 +329,8 @@ def run_host(args: argparse.Namespace, ready_queue: queue.Queue[HostRoom] | None
                 continue
 
             if packet.get("type") == TEST_MAGIC and packet.get("kind") == "ping":
+                if relay_target is not None and source == relay_target:
+                    relay_rx += 1
                 ping_rx += 1
                 sock.sendto(test_pong(packet), source)
                 pong_tx += 1
@@ -314,13 +366,24 @@ def run_client(args: argparse.Namespace) -> int:
     host_endpoint = parse_endpoint(ticket["hostEndpoint"])
     ticket_id = ticket["ticketId"]
     nonce = ticket["nonce"]
+    relay_target: tuple[str, int] | None = None
+    relay_packet = b""
+    relay_registered = False
+    if args.relay:
+        relay = create_relay_allocation(api, args.room_id, "client", join_ticket=join["joinTicket"])
+        relay_target = relay_endpoint(api, relay)
+        relay_packet = relay_register_packet(relay["sessionId"], "client", relay["secret"])
+        log(f"client relay allocation: relay={relay_target[0]}:{relay_target[1]}")
     log(f"punch ticket created: ticketId={ticket_id} hostEndpoint={ticket['hostEndpoint']}")
 
     started = time.time()
     last_punch = 0.0
     last_ping = 0.0
+    last_relay_register = 0.0
+    last_stats = time.time()
     sequence = 0
     punch_rx = 0
+    relay_rx = 0
     ping_tx = 0
     while time.time() - started <= args.timeout:
         now = time.time()
@@ -328,11 +391,26 @@ def run_client(args: argparse.Namespace) -> int:
             sock.sendto(punch_packet(ticket_id, nonce, "client"), host_endpoint)
             last_punch = now
 
+        if relay_target is not None and now - last_relay_register > 2:
+            sock.sendto(relay_packet, relay_target)
+            last_relay_register = now
+
         if now - last_ping > 0.5:
             sequence += 1
-            sock.sendto(test_ping(ticket_id, nonce, sequence), host_endpoint)
+            payload = test_ping(ticket_id, nonce, sequence)
+            if relay_target is not None:
+                sock.sendto(payload, relay_target)
+            else:
+                sock.sendto(payload, host_endpoint)
             ping_tx += 1
             last_ping = now
+
+        if now - last_stats > 5:
+            log(
+                f"client stats: host={host_endpoint[0]}:{host_endpoint[1]} "
+                f"punch_rx={punch_rx} relay_registered={relay_registered} relay_rx={relay_rx} ping_tx={ping_tx}"
+            )
+            last_stats = now
 
         try:
             data, source = sock.recvfrom(65535)
@@ -343,17 +421,23 @@ def run_client(args: argparse.Namespace) -> int:
         if not packet:
             continue
 
+        if packet.get("type") == RELAY_REGISTERED:
+            relay_registered = bool(packet.get("ok"))
+            continue
+
         if packet.get("type") == PUNCH_MAGIC:
             punch_rx += 1
             host_endpoint = source
             continue
 
         if packet.get("type") == TEST_MAGIC and packet.get("kind") == "pong":
+            if relay_target is not None and source == relay_target:
+                relay_rx += 1
             elapsed_ms = int((time.time() - float(packet.get("sentAt", time.time()))) * 1000)
             log(
                 f"PASS: received pong sequence={packet.get('sequence')} "
                 f"from {source[0]}:{source[1]} after {elapsed_ms}ms "
-                f"(punch_rx={punch_rx}, ping_tx={ping_tx})"
+                f"(punch_rx={punch_rx}, relay_rx={relay_rx}, ping_tx={ping_tx})"
             )
             try:
                 api.post(f"/v1/rooms/{args.room_id}/punch-tickets/{ticket_id}/complete", {})
@@ -363,7 +447,10 @@ def run_client(args: argparse.Namespace) -> int:
             return 0
 
     sock.close()
-    log(f"FAIL: no pong within {args.timeout}s (punch_rx={punch_rx}, ping_tx={ping_tx})")
+    log(
+        f"FAIL: no pong within {args.timeout}s (punch_rx={punch_rx}, relay_rx={relay_rx}, ping_tx={ping_tx}). "
+        "Backend rendezvous succeeded, but UDP data did not complete."
+    )
     return 2
 
 
@@ -411,12 +498,14 @@ def build_parser() -> argparse.ArgumentParser:
     host.add_argument("--map", default="Warehouse")
     host.add_argument("--mode", default="pve")
     host.add_argument("--max-players", type=int, default=8)
+    host.add_argument("--relay", action="store_true", help="Register with UDP relay and answer relay pings")
 
     client = sub.add_parser("client", help="Run the client side on machine B")
     add_common(client)
     client.add_argument("--room-id", required=True)
     client.add_argument("--port", type=int, default=27778)
     client.add_argument("--display-name", default="NatTestClient")
+    client.add_argument("--relay", action="store_true", help="Send test ping through UDP relay instead of direct P2P")
 
     loopback = sub.add_parser("loopback", help="Run host and client in one process for local smoke testing")
     add_common(loopback)
@@ -427,6 +516,7 @@ def build_parser() -> argparse.ArgumentParser:
     loopback.add_argument("--map", default="Warehouse")
     loopback.add_argument("--mode", default="pve")
     loopback.add_argument("--max-players", type=int, default=8)
+    loopback.add_argument("--relay", action="store_true", help="Send loopback test ping through UDP relay")
 
     return parser
 

@@ -16,8 +16,8 @@
 - 基础路径：`/v1`
 - 时间：API 使用 ISO 8601 UTC；SQLite 内部把 `DateTimeOffset` 转成 Unix milliseconds 存储，避免 SQLite provider 无法翻译时间比较查询。
 - 认证：除 `GET /v1/rooms`、`GET /v1/rooms/{roomId}`、`GET /v1/servers` 和旧 `/server/status` 外，写操作使用 `Authorization: Bearer <player_token>`。
-- 网络模型：V1 只做公网直连。没有 NAT 打洞、Relay、主机迁移；主机掉线则本局结束。
-- 实验性 UDP Proxy：当前原型增加了本地 UDP 小代理路径。服务器只做 UDP rendezvous 和 punch ticket 信令，不转发游戏包；GUI 勾选 `Use UDP Proxy` 后启用。
+- 网络模型：V1 优先公网直连 / UDP 打洞；主机掉线则本局结束；主机迁移仍保留为未来接口。
+- 实验性 UDP Proxy：当前原型增加了本地 UDP 小代理路径。服务器提供 UDP rendezvous、punch ticket 信令，并在 P2P 失败时提供最小 UDP relay 兜底；GUI 勾选 `Use UDP Proxy` 后启用。
 
 ## 2. 最小闭环
 
@@ -115,6 +115,45 @@ Response:
 ### POST /v1/rooms/{roomId}/punch-tickets/{ticketId}/complete
 
 预留完成上报接口。当前 proxy 原型主要靠持续 punch 和 UDP 转发工作，完成上报不作为连接前置条件。
+
+### POST /v1/relay/allocations
+
+为本地 UDP proxy 分配最小 relay 凭据。host 侧使用 `hostToken`；client 侧必须先 `join` 房间并使用新鲜 `joinTicket`。随后 proxy 从同一个 UDP socket 向 `relayHost:relayPort` 发送注册包：
+
+```json
+{
+  "type": "PRB_RELAY_REGISTER_V1",
+  "sessionId": "uuid",
+  "role": "host",
+  "secret": "secret"
+}
+```
+
+Request:
+
+```json
+{
+  "roomId": "uuid",
+  "role": "client",
+  "hostToken": null,
+  "joinTicket": "join-token"
+}
+```
+
+Response:
+
+```json
+{
+  "sessionId": "uuid",
+  "role": "client",
+  "secret": "secret",
+  "relayHost": "match.example.com",
+  "relayPort": 5002,
+  "expiresAt": "2026-04-20T08:35:00Z"
+}
+```
+
+Relay 只转发 UDP datagram：host 发来的包转发给同房间已注册 client；client 发来的包转发给已注册 host。Relay 不解析游戏协议，也不负责主机迁移。
 
 ### POST /v1/auth/guest
 
@@ -267,7 +306,7 @@ Response:
 ### 保留接口
 
 - `POST /v1/rooms/{roomId}/host-migration/*`：V1 返回 `501 NOT_IMPLEMENTED`。
-- `POST /v1/relay/allocations`：V1 返回 `501 NOT_IMPLEMENTED`。
+- `/v1/relay/allocations` 已实现最小 UDP relay 分配；复杂 TURN/多区域 relay 仍保留给后续版本。
 
 ## 5. 生命周期
 

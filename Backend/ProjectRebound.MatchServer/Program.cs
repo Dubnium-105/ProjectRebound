@@ -16,7 +16,9 @@ builder.Services.AddDbContext<MatchServerDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("MatchServer")));
 builder.Services.AddSingleton<UdpProbeSender>();
 builder.Services.AddSingleton<NatTraversalStore>();
+builder.Services.AddSingleton<RelayStore>();
 builder.Services.AddHostedService<UdpRendezvousService>();
+builder.Services.AddHostedService<UdpRelayService>();
 builder.Services.AddHostedService<RoomLifecycleService>();
 builder.Services.AddHostedService<MatchmakingService>();
 builder.Services.AddEndpointsApiExplorer();
@@ -34,7 +36,7 @@ app.MapGet("/health", () => Results.Ok(new
 {
     ok = true,
     service = "ProjectRebound.MatchServer",
-    build = "join-reservation-sqlite-now-fix-20260421"
+    build = "udp-relay-fallback-20260421"
 }));
 
 app.MapPost("/v1/auth/guest", async (GuestAuthRequest request, MatchServerDbContext db) =>
@@ -742,8 +744,85 @@ app.MapGet("/v1/servers", async (MatchServerDbContext db, CancellationToken canc
 app.MapPost("/v1/rooms/{roomId:guid}/host-migration/{**rest}", () =>
     Results.Json(new ApiError("NOT_IMPLEMENTED", "Host migration is reserved for a future version."), statusCode: 501));
 
-app.MapPost("/v1/relay/allocations", () =>
-    Results.Json(new ApiError("NOT_IMPLEMENTED", "Relay allocation is reserved for a future version."), statusCode: 501));
+app.MapPost("/v1/relay/allocations", async (
+    CreateRelayAllocationRequest request,
+    HttpContext http,
+    MatchServerDbContext db,
+    RelayStore relay,
+    Microsoft.Extensions.Options.IOptions<MatchServerOptions> options,
+    CancellationToken cancellationToken) =>
+{
+    var player = await http.GetBearerPlayerAsync(db);
+    if (player is null)
+    {
+        return AuthExtensions.UnauthorizedError();
+    }
+
+    var role = NormalizeText(request.Role, "", 16).ToLowerInvariant();
+    if (role is not "host" and not "client")
+    {
+        return BadRequest("VALIDATION_ERROR", "role must be host or client.");
+    }
+
+    var room = await db.Rooms.AsNoTracking().FirstOrDefaultAsync(x => x.RoomId == request.RoomId, cancellationToken);
+    if (room is null || room.HostPlayerId is null)
+    {
+        return Results.NotFound(new ApiError("NOT_FOUND", "Room was not found."));
+    }
+
+    if (!RoomOperations.IsJoinable(room))
+    {
+        return await EndpointHelpers.NotFoundRoomAsync(request.RoomId, db);
+    }
+
+    var expiresAt = DateTimeOffset.UtcNow.AddSeconds(options.Value.RelayAllocationSeconds);
+    RelayAllocation allocation;
+    if (role == "host")
+    {
+        if (room.HostPlayerId != player.PlayerId)
+        {
+            return Results.Json(new ApiError("FORBIDDEN", "Only the host player can allocate a host relay endpoint."), statusCode: 403);
+        }
+
+        if (string.IsNullOrWhiteSpace(request.HostToken) ||
+            !TokenService.FixedTimeEquals(room.HostTokenHash, TokenService.Hash(request.HostToken)))
+        {
+            return Results.Json(new ApiError("FORBIDDEN", "Host token is invalid."), statusCode: 403);
+        }
+
+        allocation = relay.CreateHostAllocation(room.RoomId, player.PlayerId, expiresAt);
+    }
+    else
+    {
+        if (string.IsNullOrWhiteSpace(request.JoinTicket))
+        {
+            return Results.Json(new ApiError("JOIN_TICKET_REQUIRED", "A fresh join ticket is required before allocating relay."), statusCode: 409);
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var joinTicketHash = TokenService.Hash(request.JoinTicket);
+        var reservation = await db.RoomPlayers.AsNoTracking().FirstOrDefaultAsync(x =>
+            x.RoomId == room.RoomId &&
+            x.PlayerId == player.PlayerId &&
+            x.JoinTicketHash == joinTicketHash &&
+            (x.Status == RoomPlayerStatus.Reserved || x.Status == RoomPlayerStatus.Joined) &&
+            x.ExpiresAt > now, cancellationToken);
+        if (reservation is null)
+        {
+            return Results.Json(new ApiError("JOIN_TICKET_REQUIRED", "A fresh join ticket is required before allocating relay."), statusCode: 409);
+        }
+
+        allocation = relay.CreateClientAllocation(room.RoomId, room.HostPlayerId.Value, player.PlayerId, expiresAt);
+    }
+
+    return Results.Ok(new CreateRelayAllocationResponse(
+        allocation.SessionId,
+        allocation.Role,
+        allocation.Secret,
+        http.Request.Host.Host,
+        options.Value.UdpRelayPort,
+        allocation.ExpiresAt));
+});
 
 await app.RunAsync();
 

@@ -12,6 +12,8 @@ from urllib import error, parse, request
 
 
 MAGIC = "PRB_PUNCH_V1"
+RELAY_REGISTER = "PRB_RELAY_REGISTER_V1"
+RELAY_REGISTERED = "PRB_RELAY_REGISTERED_V1"
 LOG_PATH: Path | None = None
 
 
@@ -87,6 +89,34 @@ def punch_packet(ticket_id: str, nonce: str, role: str) -> bytes:
 def is_punch_packet(data: bytes) -> bool:
     if not data.startswith(b"{"):
         return False
+
+
+def parse_json_packet(data: bytes) -> dict | None:
+    if not data.startswith(b"{"):
+        return None
+    try:
+        return json.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None
+
+
+def relay_register_packet(session_id: str, role: str, secret: str) -> bytes:
+    return json.dumps(
+        {"type": RELAY_REGISTER, "sessionId": session_id, "role": role, "secret": secret}
+    ).encode("utf-8")
+
+
+def create_relay_allocation(
+    api: ApiClient,
+    role: str,
+    room_id: str,
+    host_token: str | None = None,
+    join_ticket: str | None = None,
+) -> dict:
+    return api.post(
+        "/v1/relay/allocations",
+        {"roomId": room_id, "role": role, "hostToken": host_token, "joinTicket": join_ticket},
+    )
     try:
         return json.loads(data.decode("utf-8")).get("type") == MAGIC
     except (UnicodeDecodeError, json.JSONDecodeError):
@@ -135,6 +165,10 @@ def run_host(args: argparse.Namespace) -> None:
     peers: dict[tuple[str, int], Peer] = {}
     last_peer: tuple[str, int] | None = None
     stop = threading.Event()
+    relay = create_relay_allocation(api, "host", args.room_id, host_token=args.host_token)
+    relay_endpoint = (relay.get("relayHost") or backend_host(args.backend), int(relay["relayPort"]))
+    relay_packet = relay_register_packet(relay["sessionId"], "host", relay["secret"])
+    relay_registered = False
 
     def poll() -> None:
         while not stop.is_set():
@@ -149,11 +183,16 @@ def run_host(args: argparse.Namespace) -> None:
             time.sleep(1)
 
     threading.Thread(target=poll, daemon=True).start()
-    log(f"host proxy listening on UDP {args.public_port}, forwarding to {game_endpoint[0]}:{game_endpoint[1]}")
+    log(
+        f"host proxy listening on UDP {args.public_port}, forwarding to {game_endpoint[0]}:{game_endpoint[1]}, "
+        f"relay={relay_endpoint[0]}:{relay_endpoint[1]}"
+    )
     try:
         last_punch = 0.0
+        last_relay_register = 0.0
         last_stats = time.time()
         punch_rx = 0
+        relay_rx = 0
         game_rx = 0
         game_tx = 0
         while True:
@@ -163,12 +202,24 @@ def run_host(args: argparse.Namespace) -> None:
                     sock.sendto(punch_packet(peer.ticket_id, peer.nonce, "host"), peer.endpoint)
                 last_punch = now
 
+            if now - last_relay_register > 2:
+                sock.sendto(relay_packet, relay_endpoint)
+                last_relay_register = now
+
             try:
                 data, source = sock.recvfrom(65535)
             except socket.timeout:
                 if time.time() - last_stats > 5:
-                    log(f"host proxy stats: peers={len(peers)} punch_rx={punch_rx} game_from_peer={game_rx} game_to_peer={game_tx}")
+                    log(
+                        f"host proxy stats: peers={len(peers)} punch_rx={punch_rx} relay_registered={relay_registered} "
+                        f"relay_rx={relay_rx} game_from_peer={game_rx} game_to_peer={game_tx}"
+                    )
                     last_stats = time.time()
+                continue
+
+            packet = parse_json_packet(data)
+            if packet and packet.get("type") == RELAY_REGISTERED:
+                relay_registered = bool(packet.get("ok"))
                 continue
 
             if is_punch_packet(data):
@@ -184,8 +235,12 @@ def run_host(args: argparse.Namespace) -> None:
                         sock.sendto(data, target)
                         game_tx += 1
             else:
-                last_peer = source
-                peers.setdefault(source, Peer(source, "", ""))
+                if source == relay_endpoint:
+                    relay_rx += 1
+                    last_peer = source
+                else:
+                    last_peer = source
+                    peers.setdefault(source, Peer(source, "", ""))
                 sock.sendto(data, game_endpoint)
                 game_rx += 1
     finally:
@@ -211,13 +266,24 @@ def run_client(args: argparse.Namespace) -> None:
     host_endpoint = parse_endpoint(ticket["hostEndpoint"])
     nonce = ticket["nonce"]
     ticket_id = ticket["ticketId"]
+    relay = create_relay_allocation(api, "client", args.room_id, join_ticket=args.join_ticket)
+    relay_endpoint = (relay.get("relayHost") or backend_host(args.backend), int(relay["relayPort"]))
+    relay_packet = relay_register_packet(relay["sessionId"], "client", relay["secret"])
+    relay_registered = False
+    relay_active = False
     game_endpoint: tuple[str, int] | None = None
     sock.settimeout(0.05)
-    log(f"client proxy listening on 127.0.0.1:{args.listen_port}, punching {ticket['hostEndpoint']}")
+    log(
+        f"client proxy listening on 127.0.0.1:{args.listen_port}, punching {ticket['hostEndpoint']}, "
+        f"relay={relay_endpoint[0]}:{relay_endpoint[1]}"
+    )
 
+    started = time.time()
     last_punch = 0.0
+    last_relay_register = 0.0
     last_stats = time.time()
     punch_rx = 0
+    relay_rx = 0
     game_from_local = 0
     game_from_host = 0
     while True:
@@ -226,26 +292,51 @@ def run_client(args: argparse.Namespace) -> None:
             sock.sendto(punch_packet(ticket_id, nonce, "client"), host_endpoint)
             last_punch = now
 
+        if now - last_relay_register > 2:
+            sock.sendto(relay_packet, relay_endpoint)
+            last_relay_register = now
+
+        if not relay_active and punch_rx == 0 and now - started > args.relay_fallback_after:
+            relay_active = True
+            log("client proxy enabling UDP relay fallback; no peer punch was received in time")
+
         try:
             data, source = sock.recvfrom(65535)
         except socket.timeout:
             if time.time() - last_stats > 5:
                 log(
                     f"client proxy stats: host={host_endpoint[0]}:{host_endpoint[1]} "
-                    f"punch_rx={punch_rx} game_from_local={game_from_local} game_from_host={game_from_host}"
+                    f"punch_rx={punch_rx} relay_registered={relay_registered} relay_active={relay_active} "
+                    f"relay_rx={relay_rx} game_from_local={game_from_local} game_from_host={game_from_host}"
                 )
                 last_stats = time.time()
             continue
 
+        packet = parse_json_packet(data)
+        if packet and packet.get("type") == RELAY_REGISTERED:
+            relay_registered = bool(packet.get("ok"))
+            continue
+
         if is_punch_packet(data):
+            if source == relay_endpoint:
+                continue
             host_endpoint = source
             punch_rx += 1
+            if relay_active:
+                relay_active = False
+                log("client proxy disabling UDP relay fallback; peer punch is now working")
             continue
 
         if source[0] in {"127.0.0.1", "::1"} or source[0].startswith("127."):
             game_endpoint = source
             sock.sendto(data, host_endpoint)
+            if relay_registered and relay_active:
+                sock.sendto(data, relay_endpoint)
             game_from_local += 1
+        elif source == relay_endpoint and game_endpoint is not None:
+            sock.sendto(data, game_endpoint)
+            relay_rx += 1
+            game_from_host += 1
         elif game_endpoint is not None:
             sock.sendto(data, game_endpoint)
             game_from_host += 1
@@ -268,6 +359,7 @@ def main() -> None:
     client.add_argument("--room-id", required=True)
     client.add_argument("--join-ticket", required=True)
     client.add_argument("--listen-port", type=int, required=True)
+    client.add_argument("--relay-fallback-after", type=float, default=8.0)
 
     args = parser.parse_args()
     setup_log(args.mode)

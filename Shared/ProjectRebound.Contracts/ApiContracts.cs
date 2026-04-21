@@ -120,3 +120,12 @@ public sealed record PunchTicketResponse(
     DateTimeOffset ExpiresAt);
 
 public sealed record ListPunchTicketsResponse(IReadOnlyList<PunchTicketResponse> Items);
+
+public sealed record CreateRelayAllocationRequest(Guid RoomId, string Role, string? HostToken, string? JoinTicket);
+public sealed record CreateRelayAllocationResponse(
+    Guid SessionId,
+    string Role,
+    string Secret,
+    string RelayHost,
+    int RelayPort,
+    DateTimeOffset ExpiresAt);

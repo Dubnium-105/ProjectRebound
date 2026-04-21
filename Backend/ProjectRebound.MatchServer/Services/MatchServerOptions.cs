@@ -10,6 +10,8 @@ public sealed class MatchServerOptions
     public int MatchTicketSeconds { get; set; } = 120;
     public int EndedRoomRetentionMinutes { get; set; } = 30;
     public int UdpRendezvousPort { get; set; } = 5001;
+    public int UdpRelayPort { get; set; } = 5002;
     public int NatBindingSeconds { get; set; } = 120;
     public int PunchTicketSeconds { get; set; } = 120;
+    public int RelayAllocationSeconds { get; set; } = 1800;
 }
