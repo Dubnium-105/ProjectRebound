@@ -616,6 +616,7 @@ int main()
     LauncherLog("Logging to: " + logPath);
     LauncherLog("Wrapper started.");
     LoadCommandLineConfig();
+    LauncherLog("Configured UDP port: " + std::to_string(ServerPort));
 
     // Start input thread (setmap, setmode, restart, killserver, etc.)
     std::thread(InputThread).detach();

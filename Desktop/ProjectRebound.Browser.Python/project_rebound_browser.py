@@ -693,6 +693,7 @@ class BrowserApp(tk.Tk):
         exe_dir = game_exe_dir(self.config_data.game_directory)
         if exe_dir:
             self.ensure_payload_files(exe_dir)
+            self.ensure_wrapper_file(exe_dir)
         wrapper = str(exe_dir / "ProjectReboundServerWrapper.exe") if exe_dir and (exe_dir / "ProjectReboundServerWrapper.exe").exists() else find_file(self.config_data.game_directory, "ProjectReboundServerWrapper.exe")
         backend = backend_for_game(self.config_data.backend_url)
         game_port = self.config_data.port + 1 if self.config_data.use_udp_proxy else int(room.get("port", self.config_data.port))
@@ -815,6 +816,24 @@ class BrowserApp(tk.Tk):
         game_exe = wrapper_cwd / "ProjectBoundarySteam-Win64-Shipping.exe"
         wrapper_exe = wrapper_cwd / "ProjectReboundServerWrapper.exe"
         wrapper_tail = subprocess.list2cmdline(wrapper_args[1:])
+        readiness_command = (
+            "powershell -NoProfile -ExecutionPolicy Bypass -Command "
+            "\"$started=Get-Date; "
+            "$deadline=$started.AddSeconds(90); "
+            "$ready=$false; "
+            "while((Get-Date) -lt $deadline){ "
+            "$log=Get-ChildItem -Path 'logs\\log-*.txt' -ErrorAction SilentlyContinue | "
+            "Where-Object { $_.LastWriteTime -ge $started } | "
+            "Sort-Object LastWriteTime -Descending | Select-Object -First 1; "
+            "if($log){ "
+            "$text=Get-Content -Path $log.FullName -Tail 100 -ErrorAction SilentlyContinue; "
+            "if($text -match 'Server is now listening|Heartbeat received|\\[HEARTBEAT\\]'){ $ready=$true; break } "
+            "} "
+            "Start-Sleep -Seconds 2 "
+            "}; "
+            "if($ready){ Write-Host '[Launcher] Server readiness confirmed.'; exit 0 } "
+            "Write-Host '[Launcher] ERROR: server did not become ready within 90 seconds.'; exit 1\""
+        )
 
         lines = [
             "@echo off",
@@ -839,14 +858,20 @@ class BrowserApp(tk.Tk):
             "start \"Project Rebound Host UDP Proxy\" /MIN " + subprocess.list2cmdline(proxy_args),
             "echo [Launcher] Waiting for proxy to initialize...",
             "timeout /t 2 >nul",
-            "echo [Launcher] Starting dedicated server wrapper...",
+            f"echo [Launcher] Starting dedicated server wrapper on UDP {game_port}...",
             "start \"\" /MIN " + quote_bat(wrapper_exe) + (" " + wrapper_tail if wrapper_tail else ""),
-            "echo [Launcher] Waiting for wrapper to initialize...",
-            "timeout /t 20 >nul",
+            "echo [Launcher] Waiting for game server to listen...",
+            readiness_command,
+            "if errorlevel 1 goto server_not_ready",
             "echo [Launcher] Launching game client...",
             "start \"\" "
             + quote_bat(game_exe)
             + f" -LogicServerURL={self.config_data.logic_server_url} -match=127.0.0.1:{game_port} -debuglog",
+            "goto launcher_done",
+            ":server_not_ready",
+            "echo [Launcher] Client was not launched because the dedicated server was not ready.",
+            "echo [Launcher] Check the newest logs\\log-*.txt for map load or port errors.",
+            ":launcher_done",
             "echo.",
             "echo [Launcher] All systems running. DO NOT CLOSE THIS WINDOW.",
             "echo Closing this window may shut down child consoles depending on Windows settings.",
@@ -885,6 +910,30 @@ class BrowserApp(tk.Tk):
                 append_gui_log(f"Copied {source} -> {target}")
             else:
                 append_gui_log(f"Payload file already current: {target}")
+
+    def ensure_wrapper_file(self, exe_dir: Path) -> None:
+        root = repo_root()
+        source = latest_existing([
+            root / "ServerWrapper" / "ProjectReboundServerWrapper" / "x64" / "Release" / "ProjectReboundServerWrapper.exe",
+            root / "ServerWrapper" / "ProjectReboundServerWrapper" / "ProjectReboundServerWrapper" / "x64" / "Release" / "ProjectReboundServerWrapper.exe",
+        ])
+        if source is None:
+            append_gui_log("Built ProjectReboundServerWrapper.exe was not found; using existing wrapper from game directory.")
+            return
+
+        target = exe_dir / "ProjectReboundServerWrapper.exe"
+        should_copy = not target.exists() or source.stat().st_mtime > target.stat().st_mtime or source.stat().st_size != target.stat().st_size
+        if should_copy:
+            try:
+                shutil.copy2(source, target)
+            except PermissionError as exc:
+                raise RuntimeError(
+                    "Could not update ProjectReboundServerWrapper.exe. "
+                    "Close existing wrapper/server/game launcher windows and try again."
+                ) from exc
+            append_gui_log(f"Copied {source} -> {target}")
+        else:
+            append_gui_log(f"Wrapper already current: {target}")
 
     def start_host_proxy(self, room_id: str, host_token: str, game_port: int) -> None:
         proxy = Path(__file__).with_name("project_rebound_udp_proxy.py")
