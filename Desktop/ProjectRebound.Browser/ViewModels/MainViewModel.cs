@@ -12,6 +12,7 @@ namespace ProjectRebound.Browser.ViewModels;
 
 public sealed class MainViewModel : INotifyPropertyChanged
 {
+    private static readonly string[] LaunchModeOptions = ["quiet", "debug"];
     private readonly ConfigStore _configStore = new();
     private readonly ApiClient _api = new();
     private readonly UdpProbeListener _udpProbeListener = new();
@@ -27,6 +28,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public ObservableCollection<RoomSummary> Rooms { get; } = [];
+    public IReadOnlyList<string> LaunchModes => LaunchModeOptions;
 
     public ICommand SaveCommand { get; }
     public ICommand BrowseGameDirectoryCommand { get; }
@@ -81,6 +83,16 @@ public sealed class MainViewModel : INotifyPropertyChanged
         set { _config.Port = value; OnPropertyChanged(); }
     }
 
+    public string LaunchMode
+    {
+        get => NormalizeLaunchMode(_config.LaunchMode);
+        set
+        {
+            _config.LaunchMode = NormalizeLaunchMode(value);
+            OnPropertyChanged();
+        }
+    }
+
     public string RoomName
     {
         get => _roomName;
@@ -120,12 +132,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public async Task InitializeAsync()
     {
         _config = await _configStore.LoadAsync();
+        _config.LaunchMode = NormalizeLaunchMode(_config.LaunchMode);
         OnPropertyChanged(nameof(BackendUrl));
         OnPropertyChanged(nameof(GameDirectory));
         OnPropertyChanged(nameof(DisplayName));
         OnPropertyChanged(nameof(Region));
         OnPropertyChanged(nameof(Version));
         OnPropertyChanged(nameof(Port));
+        OnPropertyChanged(nameof(LaunchMode));
 
         await EnsureLoggedInAsync();
         await RefreshRoomsAsync();
@@ -198,7 +212,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 MaxPlayers));
 
             var room = await _api.GetRoomAsync(created.RoomId);
-            _gameLauncher.StartHost(GameDirectory, BackendUrl, room, created.HostToken);
+            _gameLauncher.StartHost(GameDirectory, BackendUrl, room, created.HostToken, IsDebugLaunchMode());
             Status = $"Room {room.Name} created and host launched.";
             await RefreshRoomsAsync();
         });
@@ -216,7 +230,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             await EnsureGameDirectoryAsync();
             var join = await _api.JoinRoomAsync(SelectedRoom.RoomId, Version);
-            _gameLauncher.StartClient(GameDirectory, join.Connect);
+            _gameLauncher.StartClient(GameDirectory, join.Connect, IsDebugLaunchMode());
             Status = $"Launching client for {join.Connect}.";
         });
     }
@@ -245,7 +259,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
                 if (state.State == MatchTicketState.HostAssigned && state.Room is not null && !string.IsNullOrWhiteSpace(state.HostToken))
                 {
-                    _gameLauncher.StartHost(GameDirectory, BackendUrl, state.Room, state.HostToken);
+                    _gameLauncher.StartHost(GameDirectory, BackendUrl, state.Room, state.HostToken, IsDebugLaunchMode());
                     Status = $"You are host for room {state.Room.Name}.";
                     await RefreshRoomsAsync();
                     return;
@@ -253,7 +267,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
                 if (state.State == MatchTicketState.Matched && !string.IsNullOrWhiteSpace(state.Connect))
                 {
-                    _gameLauncher.StartClient(GameDirectory, state.Connect);
+                    _gameLauncher.StartClient(GameDirectory, state.Connect, IsDebugLaunchMode());
                     Status = $"Matched. Launching client for {state.Connect}.";
                     return;
                 }
@@ -311,5 +325,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
+    private bool IsDebugLaunchMode()
+    {
+        return string.Equals(NormalizeLaunchMode(_config.LaunchMode), "debug", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeLaunchMode(string? value)
+    {
+        return string.Equals(value, "debug", StringComparison.OrdinalIgnoreCase) ? "debug" : "quiet";
     }
 }

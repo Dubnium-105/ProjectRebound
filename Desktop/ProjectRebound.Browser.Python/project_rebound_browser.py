@@ -38,6 +38,7 @@ class AppConfig:
     use_udp_proxy: bool = False
     proxy_client_port: int = 17777
     logic_server_url: str = "http://127.0.0.1:8000"
+    launch_mode: str = os.environ.get("PR_LAUNCH_MODE", "quiet")
 
 
 class ApiError(RuntimeError):
@@ -146,6 +147,9 @@ def load_config() -> AppConfig:
         data = json.load(file)
     defaults = asdict(AppConfig())
     defaults.update(data)
+    env_launch_mode = os.environ.get("PR_LAUNCH_MODE", "").strip().lower()
+    if env_launch_mode in {"quiet", "debug"}:
+        defaults["launch_mode"] = env_launch_mode
     return AppConfig(**defaults)
 
 
@@ -314,11 +318,20 @@ class BrowserApp(tk.Tk):
         self.display_name_var = tk.StringVar(value=self.config_data.display_name)
         self.region_var = tk.StringVar(value=self.config_data.region)
         self.version_var = tk.StringVar(value=self.config_data.version)
+        self.launch_mode_var = tk.StringVar(value=self.config_data.launch_mode)
 
         self._field(settings, "Backend", self.backend_var, 0, 0, width=42)
         self._field(settings, "Display", self.display_name_var, 0, 2, width=20)
         self._field(settings, "Region", self.region_var, 0, 4, width=10)
         self._field(settings, "Version", self.version_var, 0, 6, width=10)
+        ttk.Label(settings, text="Launch").grid(row=0, column=8, sticky="w", padx=(0, 4), pady=4)
+        ttk.Combobox(
+            settings,
+            textvariable=self.launch_mode_var,
+            values=("quiet", "debug"),
+            width=8,
+            state="readonly",
+        ).grid(row=0, column=9, sticky="ew", padx=(0, 8), pady=4)
         self._field(settings, "Game Dir", self.game_dir_var, 1, 0, width=64)
         ttk.Button(settings, text="Browse", command=self.browse_game_dir).grid(row=1, column=2, sticky="ew", padx=4, pady=4)
         ttk.Button(settings, text="Save / Login", command=lambda: self.run_background(self.save_and_login)).grid(row=1, column=3, sticky="ew", padx=4, pady=4)
@@ -424,7 +437,18 @@ class BrowserApp(tk.Tk):
             use_udp_proxy=bool(self.use_proxy_var.get()),
             proxy_client_port=int(self.proxy_client_port_var.get()),
             logic_server_url=self.logic_server_url_var.get().strip() or "http://127.0.0.1:8000",
+            launch_mode=self._normalize_launch_mode(self.launch_mode_var.get()),
         )
+
+    @staticmethod
+    def _normalize_launch_mode(value: str) -> str:
+        mode = (value or "").strip().lower()
+        if mode not in {"quiet", "debug"}:
+            return "quiet"
+        return mode
+
+    def is_debug_mode(self) -> bool:
+        return self._normalize_launch_mode(self.config_data.launch_mode) == "debug"
 
     def initialize(self) -> None:
         self.save_and_login()
@@ -587,7 +611,18 @@ class BrowserApp(tk.Tk):
         if not exe:
             raise RuntimeError("ProjectBoundarySteam-Win64-Shipping.exe was not found under the game directory.")
         self.ensure_payload_files(Path(exe).parent)
-        self.launch_client_via_batch(exe, connect)
+        if self.is_debug_mode():
+            self.launch_client_via_batch(exe, connect)
+            return
+
+        self.ensure_fake_login_server()
+        args = [
+            exe,
+            f"-LogicServerURL={self.config_data.logic_server_url}",
+            f"-match={connect}",
+        ]
+        append_gui_log("Launching client directly (quiet): " + subprocess.list2cmdline(args))
+        subprocess.Popen(args, cwd=str(Path(exe).parent), creationflags=self.client_creation_flags())
 
     def launch_client_via_batch(self, exe: str, connect: str) -> None:
         backend_dir = find_directory_near(self.config_data.game_directory, "BoundaryMetaServer-main")
@@ -610,13 +645,17 @@ class BrowserApp(tk.Tk):
                 "timeout /t 5 >nul",
             ])
 
+        client_args = f"-LogicServerURL={self.config_data.logic_server_url} -match={connect}"
+        if self.is_debug_mode():
+            client_args += " -debuglog"
+
         lines.extend([
             "if not exist " + quote_bat(Path(exe).parent / "dxgi.dll") + " echo [Launcher] WARNING: dxgi.dll is missing next to the game exe.",
             "if not exist " + quote_bat(Path(exe).parent / "Payload.dll") + " echo [Launcher] WARNING: Payload.dll is missing next to the game exe.",
             "echo [Launcher] Launching game client...",
             (
                 f"start \"\" /D {quote_bat(Path(exe).parent)} {quote_bat(exe)} "
-                f"-LogicServerURL={self.config_data.logic_server_url} -match={connect} -debuglog"
+                f"{client_args}"
             ),
             "echo.",
             "echo [Launcher] Client launch requested.",
@@ -716,7 +755,6 @@ class BrowserApp(tk.Tk):
         self.ensure_fake_login_server()
         args = [
             exe,
-            "-log",
             "-server",
             "-nullrhi",
             f"-online={backend}",
@@ -728,6 +766,8 @@ class BrowserApp(tk.Tk):
             f"-serverregion={room.get('region', self.config_data.region)}",
             f"-port={game_port}",
         ]
+        if self.is_debug_mode():
+            args.insert(1, "-log")
         if room.get("mode", self.config_data.mode).lower() == "pve":
             args.append("-pve")
         append_gui_log("Launching server exe: " + subprocess.list2cmdline(args))
@@ -791,6 +831,41 @@ class BrowserApp(tk.Tk):
         return args
 
     def launch_host_via_batch(self, wrapper_args: list[str], room_id: str, host_token: str, game_port: int, wrapper_cwd: Path) -> None:
+        if not self.is_debug_mode():
+            self.ensure_fake_login_server()
+            proxy = Path(__file__).with_name("project_rebound_udp_proxy.py")
+            proxy_args = [
+                sys.executable,
+                str(proxy),
+                "host",
+                "--backend",
+                self.config_data.backend_url,
+                "--access-token",
+                self.config_data.access_token,
+                "--room-id",
+                room_id,
+                "--host-token",
+                host_token,
+                "--public-port",
+                str(self.config_data.port),
+                "--game-port",
+                str(game_port),
+            ]
+            append_gui_log("Launching host proxy (quiet): " + subprocess.list2cmdline(proxy_args))
+            subprocess.Popen(proxy_args, cwd=str(proxy.parent), creationflags=self.creation_flags())
+            append_gui_log("Launching wrapper (quiet): " + subprocess.list2cmdline(wrapper_args))
+            subprocess.Popen(wrapper_args, cwd=str(wrapper_cwd), creationflags=self.creation_flags())
+            time.sleep(2)
+            game_exe = wrapper_cwd / "ProjectBoundarySteam-Win64-Shipping.exe"
+            client_args = [
+                str(game_exe),
+                f"-LogicServerURL={self.config_data.logic_server_url}",
+                f"-match=127.0.0.1:{game_port}",
+            ]
+            append_gui_log("Launching local host client (quiet): " + subprocess.list2cmdline(client_args))
+            subprocess.Popen(client_args, cwd=str(wrapper_cwd), creationflags=self.client_creation_flags())
+            return
+
         backend_dir = find_directory_near(self.config_data.game_directory, "BoundaryMetaServer-main")
         node = find_file_near(self.config_data.game_directory, "node.exe")
         if not backend_dir or not node:
@@ -1012,16 +1087,17 @@ class BrowserApp(tk.Tk):
             return "/Game/Online/GameMode/PBGameMode_Rush_BP.PBGameMode_Rush_BP_C"
         return "/Game/Online/GameMode/BP_PBGameMode_Rush_PVE_Normal.BP_PBGameMode_Rush_PVE_Normal_C"
 
-    @staticmethod
-    def creation_flags() -> int:
-        return getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
+    def creation_flags(self) -> int:
+        if self.is_debug_mode():
+            return getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
+        return getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
-    @staticmethod
-    def client_creation_flags() -> int:
-        return 0
+    def client_creation_flags(self) -> int:
+        if self.is_debug_mode():
+            return 0
+        return getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
-    @staticmethod
-    def login_server_creation_flags() -> int:
+    def login_server_creation_flags(self) -> int:
         return getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 

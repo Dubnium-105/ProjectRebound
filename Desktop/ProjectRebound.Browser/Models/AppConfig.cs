@@ -9,4 +9,5 @@ public sealed class AppConfig
     public string Version { get; set; } = "dev";
     public int Port { get; set; } = 7777;
     public string AccessToken { get; set; } = "";
+    public string LaunchMode { get; set; } = "quiet";
 }

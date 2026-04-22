@@ -41,7 +41,14 @@
             <Button Grid.Row="1" Grid.Column="2" Margin="0,0,12,0" Content="Browse" Command="{Binding BrowseGameDirectoryCommand}" />
             <Button Grid.Row="1" Grid.Column="3" Margin="0,0,12,0" Content="Save / Login" Command="{Binding SaveCommand}" />
             <TextBlock Grid.Row="1" Grid.Column="4" Text="Version" VerticalAlignment="Center" />
-            <TextBox Grid.Row="1" Grid.Column="5" Margin="8,0,0,0" Text="{Binding Version, UpdateSourceTrigger=PropertyChanged}" />
+            <StackPanel Grid.Row="1" Grid.Column="5" Margin="8,0,0,0" Orientation="Horizontal">
+                <TextBox Width="68" Margin="0,0,10,0" Text="{Binding Version, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Text="Launch" VerticalAlignment="Center" Margin="0,0,6,0" />
+                <ComboBox Width="86"
+                          ItemsSource="{Binding LaunchModes}"
+                          SelectedItem="{Binding LaunchMode, UpdateSourceTrigger=PropertyChanged}"
+                          IsReadOnly="True" />
+            </StackPanel>
         </Grid>
 
         <Grid Grid.Row="1" Margin="0,0,0,12">
