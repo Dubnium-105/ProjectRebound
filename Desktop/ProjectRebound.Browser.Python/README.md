@@ -14,6 +14,42 @@ or double-click:
 Desktop\ProjectRebound.Browser.Python\run_browser.bat
 ```
 
+## Build portable distribution (EXE + runtime)
+
+From repo root:
+
+```powershell
+cd Desktop\ProjectRebound.Browser.Python
+.\build_portable.ps1
+```
+
+默认会自动构建以下 Release x64 本地工程并收集到分发包：
+
+- `dxgi\dxgi.vcxproj`
+- `Payload\Payload.vcxproj`
+- `ServerWrapper\ProjectReboundServerWrapper\ProjectReboundServerWrapper\ProjectReboundServerWrapper.vcxproj`
+
+如果当前机器没有 C++ 构建环境，可临时跳过本地工程构建：
+
+```powershell
+.\build_portable.ps1 -SkipNativeBuild
+```
+
+Output folder:
+
+```text
+Desktop\ProjectRebound.Browser.Python\portable\ProjectReboundBrowserPortable
+```
+
+Main files in the package:
+
+- `ProjectReboundBrowser.exe` (desktop GUI)
+- `ProjectReboundUdpProxy.exe` (UDP proxy helper)
+- Python runtime files produced by PyInstaller (`python*.dll`, `.pyd`, etc.)
+- `runtime\dxgi.dll`, `runtime\Payload.dll`, `runtime\ProjectReboundServerWrapper.exe` (if found in local build outputs)
+
+You can zip `ProjectReboundBrowserPortable` directly for distribution.
+
 ## Notes
 
 - Start the backend first: `dotnet run --project Backend\ProjectRebound.MatchServer\ProjectRebound.MatchServer.csproj`
@@ -27,6 +63,7 @@ Desktop\ProjectRebound.Browser.Python\run_browser.bat
 - Client game launch intentionally does not use `CREATE_NEW_CONSOLE`; proxy and wrapper still open their own consoles for logs.
 - Create Room launches `ProjectReboundServerWrapper.exe` when it can find it under the configured game directory.
 - This Python prototype is the current recommended GUI path; the WPF prototype remains in the repo but is not the active target.
+- In packaged EXE mode, the browser first looks for helper artifacts in `runtime\` next to `ProjectReboundBrowser.exe`, then falls back to repo build outputs.
 
 ## Experimental UDP Proxy
 
