@@ -18,6 +18,7 @@ from urllib import error, parse, request
 
 APP_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / "ProjectReboundBrowser"
 CONFIG_PATH = APP_DIR / "config-python.json"
+ROOM_HINTS_PATH = APP_DIR / "room-hints.json"
 GUI_LOG_PATH = APP_DIR / "browser-launch.log"
 LAUNCH_DIR = APP_DIR / "launchers"
 HARD_CODED_BACKEND_URL = "http://43.240.193.246"
@@ -224,6 +225,68 @@ def endpoint_key(room: dict) -> str:
     return str(room.get("endpoint") or "").strip().lower()
 
 
+def room_signature(room: dict) -> tuple[str, str, str, str, str]:
+    return (
+        str(room.get("name") or "").strip().lower(),
+        str(room.get("region") or "").strip().lower(),
+        str(room.get("map") or "").strip().lower(),
+        str(room.get("mode") or "").strip().lower(),
+        str(room.get("port") or "").strip().lower(),
+    )
+
+
+def room_hint_lookup_key(room: dict) -> str:
+    endpoint = endpoint_key(room)
+    if endpoint:
+        return "endpoint:" + endpoint
+    return "signature:" + "|".join(room_signature(room))
+
+
+def find_room_hint(room: dict, room_hints: dict[str, dict]) -> dict | None:
+    endpoint = endpoint_key(room)
+    if endpoint:
+        hinted = room_hints.get("endpoint:" + endpoint)
+        if hinted is not None:
+            return hinted
+    signature = room_signature(room)
+    if any(signature):
+        hinted = room_hints.get("signature:" + "|".join(signature))
+        if hinted is None:
+            return None
+        cached_at = float(hinted.get("cachedAt") or 0.0)
+        return hinted if time.time() - cached_at <= 1800 else None
+    return None
+
+
+def build_room_hint(room: dict) -> dict | None:
+    room_id = room.get("roomId")
+    if not room_id:
+        return None
+    return {
+        "roomId": str(room_id),
+        "name": room.get("name") or "",
+        "region": room.get("region") or "",
+        "map": room.get("map") or "",
+        "mode": room.get("mode") or "",
+        "version": room.get("version") or "",
+        "endpoint": room.get("endpoint") or "",
+        "port": safe_int(room.get("port"), 0),
+        "lastSeenAt": room.get("lastSeenAt") or "",
+        "cachedAt": time.time(),
+    }
+
+
+def apply_room_hint(room: dict, hint: dict) -> dict:
+    hinted = dict(room)
+    hinted["roomId"] = hint.get("roomId")
+    hinted["version"] = hint.get("version") or hinted.get("version") or ""
+    hinted["matchEndpoint"] = hint.get("endpoint") or hinted.get("endpoint") or ""
+    hinted["matchPort"] = safe_int(hint.get("port"), safe_int(hinted.get("port"), 0))
+    if hinted.get("source") == "Legacy":
+        hinted["source"] = "Both"
+    return hinted
+
+
 def normalize_match_room(room: dict) -> dict:
     normalized = dict(room)
     normalized["source"] = "MatchServer"
@@ -234,13 +297,14 @@ def normalize_legacy_room(server: dict) -> dict:
     port = safe_int(server.get("port"), 7777)
     endpoint = str(server.get("endpoint") or "").strip()
     ip = str(server.get("ip") or "").strip()
+    room_id = server.get("roomId")
     if not endpoint and ip:
         endpoint = f"{ip}:{port}"
     if not ip and ":" in endpoint:
         ip = endpoint.rsplit(":", 1)[0]
 
     return {
-        "source": "Legacy",
+        "source": "Both" if room_id else "Legacy",
         "name": server.get("name") or "未知",
         "region": server.get("region") or "??",
         "map": server.get("map") or "未知",
@@ -251,14 +315,20 @@ def normalize_legacy_room(server: dict) -> dict:
         "endpoint": endpoint,
         "ip": ip,
         "port": port,
+        "roomId": room_id,
+        "version": server.get("version") or "",
+        "matchEndpoint": server.get("matchEndpoint") or "",
+        "transport": server.get("transport") or "",
         "lastSeenAt": server.get("lastSeenAt") or "",
         "legacyRaw": server,
     }
 
 
-def merge_room_sources(match_rooms: list[dict], legacy_rooms: list[dict]) -> list[dict]:
+def merge_room_sources(match_rooms: list[dict], legacy_rooms: list[dict], room_hints: dict[str, dict] | None = None) -> list[dict]:
     merged: list[dict] = []
     by_endpoint: dict[str, dict] = {}
+    by_signature: dict[tuple[str, str, str, str, str], dict] = {}
+    room_hints = room_hints or {}
 
     for room in match_rooms:
         normalized = normalize_match_room(room)
@@ -266,11 +336,16 @@ def merge_room_sources(match_rooms: list[dict], legacy_rooms: list[dict]) -> lis
         key = endpoint_key(normalized)
         if key:
             by_endpoint[key] = normalized
+        signature = room_signature(normalized)
+        if any(signature):
+            by_signature[signature] = normalized
 
     for server in legacy_rooms:
         legacy = normalize_legacy_room(server)
         key = endpoint_key(legacy)
         existing = by_endpoint.get(key) if key else None
+        if existing is None:
+            existing = by_signature.get(room_signature(legacy))
         if existing is not None:
             existing["source"] = "Both"
             existing["legacyRaw"] = legacy.get("legacyRaw", server)
@@ -278,6 +353,11 @@ def merge_room_sources(match_rooms: list[dict], legacy_rooms: list[dict]) -> lis
             for field in ("name", "region", "map", "mode", "state", "lastSeenAt"):
                 if not existing.get(field) and legacy.get(field):
                     existing[field] = legacy[field]
+            continue
+
+        hinted = find_room_hint(legacy, room_hints)
+        if hinted is not None:
+            merged.append(apply_room_hint(legacy, hinted))
             continue
         merged.append(legacy)
 
@@ -304,6 +384,28 @@ STATE_LABELS = {
     "Starting": "启动中",
     "Unknown": "未知",
 }
+STATE_LABELS["CountdownToStart"] = "倒计时中"
+STATE_LABELS["RoleSelection"] = "选角中"
+
+MATCH_PHASE_STATE_MAP = {
+    "InvalidState": "Open",
+    "RoleSelection": "RoleSelection",
+    "CountdownToStart": "CountdownToStart",
+    "InProgress": "InGame",
+}
+
+
+def display_room_state(room: dict) -> str:
+    text = str(room.get("state") or "")
+    server_state = str(room.get("serverState") or "")
+    source = str(room.get("source") or "")
+
+    if source in {"MatchServer", "Both"} and server_state:
+        phase = MATCH_PHASE_STATE_MAP.get(server_state, server_state)
+        if phase and phase not in {"Open", "Starting"}:
+            text = phase
+
+    return display_state(text)
 
 
 def display_source(value: object) -> str:
@@ -336,6 +438,23 @@ def save_config(config: AppConfig) -> None:
     APP_DIR.mkdir(parents=True, exist_ok=True)
     with CONFIG_PATH.open("w", encoding="utf-8") as file:
         json.dump(asdict(config), file, indent=2)
+
+
+def load_room_hints() -> dict[str, dict]:
+    if not ROOM_HINTS_PATH.exists():
+        return {}
+    try:
+        with ROOM_HINTS_PATH.open("r", encoding="utf-8") as file:
+            data = json.load(file)
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def save_room_hints(hints: dict[str, dict]) -> None:
+    APP_DIR.mkdir(parents=True, exist_ok=True)
+    with ROOM_HINTS_PATH.open("w", encoding="utf-8") as file:
+        json.dump(hints, file, indent=2, ensure_ascii=False)
 
 
 def append_gui_log(message: str) -> None:
@@ -510,6 +629,7 @@ class BrowserApp(tk.Tk):
         self.ui_queue: queue.Queue[tuple[str, object]] = queue.Queue()
         self.selected_room: dict | None = None
         self.rooms: list[dict] = []
+        self.room_hints: dict[str, dict] = load_room_hints()
         self.host_heartbeat_stop: threading.Event | None = None
         self.host_heartbeat_thread: threading.Thread | None = None
         self.legacy_heartbeat_stop: threading.Event | None = None
@@ -682,6 +802,23 @@ class BrowserApp(tk.Tk):
         save_config(self.config_data)
         self.set_status(f"已登录为 {auth.get('displayName', self.config_data.display_name)}。")
 
+    def remember_match_rooms(self, rooms: list[dict]) -> None:
+        updated = False
+        for room in rooms:
+            hint = build_room_hint(room)
+            if hint is None:
+                continue
+            endpoint = endpoint_key(room)
+            if endpoint:
+                self.room_hints["endpoint:" + endpoint] = hint
+                updated = True
+            signature = room_signature(room)
+            if any(signature):
+                self.room_hints["signature:" + "|".join(signature)] = hint
+                updated = True
+        if updated:
+            save_room_hints(self.room_hints)
+
     def refresh_rooms(self) -> None:
         self.config_data = self.read_form()
         self.api.configure(self.config_data.backend_url, self.config_data.access_token)
@@ -696,6 +833,7 @@ class BrowserApp(tk.Tk):
             items = result.get("items", [])
             if isinstance(items, list):
                 match_rooms = items
+                self.remember_match_rooms(match_rooms)
         except Exception as exc:
             append_gui_log(f"MatchServer room refresh failed: {exc}")
             errors.append(f"P2P服务器刷新失败：{exc}")
@@ -706,7 +844,7 @@ class BrowserApp(tk.Tk):
             append_gui_log(f"Legacy room refresh failed: {exc}")
             errors.append(f"中心服务器刷新失败：{exc}")
 
-        rooms = merge_room_sources(match_rooms, legacy_rooms)
+        rooms = merge_room_sources(match_rooms, legacy_rooms, self.room_hints)
         self.ui_queue.put(("rooms", rooms))
         status = f"已加载 {len(rooms)} 个房间：P2P服务器 {len(match_rooms)} 个，中心服务器 {len(legacy_rooms)} 个。"
         if errors:
@@ -737,17 +875,39 @@ class BrowserApp(tk.Tk):
             }
         )
         room = self.api.get_room(created["roomId"])
+        self.remember_match_rooms([room])
         self.start_host(room, created["hostToken"])
         self.set_status(f"已创建房间 {room.get('name')} 并启动主机。")
         self.refresh_rooms()
 
     def join_selected_room(self) -> None:
+        proxy_pref = self.read_form().use_udp_proxy
         if not self.selected_room:
             raise RuntimeError("请先选择一个房间。")
+
+        if self.is_legacy_only_room(self.selected_room) and proxy_pref:
+            self.ensure_ready_for_launch()
+            resolved_room = self.resolve_match_room_for_proxy_join(self.selected_room)
+            if resolved_room is None:
+                raise RuntimeError("Selected room only exists in the legacy listing; MatchServer roomId could not be resolved for UDP proxy join.")
+            append_gui_log(
+                "Resolved legacy-only room to MatchServer room: "
+                + json.dumps(
+                    {
+                        "selected_endpoint": self.selected_room.get("endpoint"),
+                        "selected_name": self.selected_room.get("name"),
+                        "resolved_room_id": resolved_room.get("roomId"),
+                        "resolved_endpoint": resolved_room.get("endpoint"),
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            self.selected_room = resolved_room
 
         if self.is_legacy_only_room(self.selected_room):
             self.ensure_ready_for_launch(require_match_login=False)
             connect = str(self.selected_room.get("endpoint") or "").strip()
+            append_gui_log(f"Joining legacy-only room directly: endpoint={connect}")
             if not connect:
                 raise RuntimeError("选中的中心服务器缺少连接地址。")
             self.set_status("正在启动中心服务器游戏客户端...")
@@ -759,13 +919,18 @@ class BrowserApp(tk.Tk):
         self.set_status("正在预留房间席位...")
         join = self.api.join_room(self.selected_room["roomId"], self.config_data.version)
         if self.config_data.use_udp_proxy:
+            connect = f"127.0.0.1:{self.config_data.proxy_client_port}"
+            append_gui_log(
+                f"Joining room via UDP proxy: roomId={self.selected_room['roomId']} "
+                f"joinTicket={join['joinTicket']} localProxy={connect}"
+            )
             self.set_status("正在启动本地 UDP 代理...")
             self.start_client_proxy(self.selected_room["roomId"], join["joinTicket"])
-            connect = f"127.0.0.1:{self.config_data.proxy_client_port}"
             self.set_status("正在启动游戏客户端...")
             self.start_client(connect)
             self.set_status("已请求通过本地代理启动游戏客户端。")
         else:
+            append_gui_log(f"Joining room directly: roomId={self.selected_room['roomId']} connect={join['connect']}")
             self.set_status("正在启动游戏客户端...")
             self.start_client(join["connect"])
             self.set_status("已请求启动游戏客户端。")
@@ -866,6 +1031,7 @@ class BrowserApp(tk.Tk):
         if not backend_dir or not node:
             raise RuntimeError("在游戏目录下未找到 nodejs/node.exe 或 BoundaryMetaServer-main。")
 
+        append_gui_log(f"Preparing client launcher with -match={connect}")
         lines = [
             "@echo off",
             "title Project Rebound Client Launcher",
@@ -955,8 +1121,37 @@ class BrowserApp(tk.Tk):
             "--listen-port",
             str(self.config_data.proxy_client_port),
         ]
+        append_gui_log("Starting client UDP proxy: " + subprocess.list2cmdline(args))
         subprocess.Popen(args, cwd=str(launcher_cwd), creationflags=self.creation_flags())
         time.sleep(1)
+
+    def resolve_match_room_for_proxy_join(self, selected_room: dict) -> dict | None:
+        try:
+            result = self.api.list_rooms(self.config_data.region, self.config_data.version)
+        except Exception as exc:
+            append_gui_log(f"Failed to resolve legacy room via MatchServer listing: {exc}")
+            hinted = find_room_hint(selected_room, self.room_hints)
+            return apply_room_hint(selected_room, hinted) if hinted is not None else None
+
+        items = result.get("items")
+        if not isinstance(items, list):
+            return None
+
+        match_rooms = [normalize_match_room(item) for item in items if isinstance(item, dict)]
+        selected_endpoint = endpoint_key(selected_room)
+        selected_signature = room_signature(selected_room)
+
+        if selected_endpoint:
+            for room in match_rooms:
+                if endpoint_key(room) == selected_endpoint and room.get("roomId"):
+                    return room
+
+        for room in match_rooms:
+            if room_signature(room) == selected_signature and room.get("roomId"):
+                return room
+
+        hinted = find_room_hint(selected_room, self.room_hints)
+        return apply_room_hint(selected_room, hinted) if hinted is not None else None
 
     def start_host(self, room: dict, host_token: str) -> None:
         exe_dir = game_exe_dir(self.config_data.game_directory)
@@ -971,14 +1166,14 @@ class BrowserApp(tk.Tk):
             if self.config_data.use_udp_proxy:
                 self.launch_host_via_batch(args, room["roomId"], host_token, game_port, exe_dir or Path(wrapper).parent)
                 self.start_host_heartbeat(room, host_token)
-                self.start_legacy_heartbeat(room)
+                self.start_legacy_heartbeat(room, host_token)
                 return
             self.ensure_fake_login_server()
             wrapper_cwd = str(exe_dir or Path(wrapper).parent)
             append_gui_log("Launching wrapper: " + subprocess.list2cmdline(args) + f" cwd={wrapper_cwd}")
             subprocess.Popen(args, cwd=wrapper_cwd, creationflags=self.creation_flags())
             self.start_host_heartbeat(room, host_token)
-            self.start_legacy_heartbeat(room)
+            self.start_legacy_heartbeat(room, host_token)
             return
 
         exe = find_file(self.config_data.game_directory, "ProjectBoundarySteam-Win64-Shipping.exe")
@@ -1004,7 +1199,7 @@ class BrowserApp(tk.Tk):
         append_gui_log("Launching server exe: " + subprocess.list2cmdline(args))
         subprocess.Popen(args, cwd=str(Path(exe).parent), creationflags=self.creation_flags())
         self.start_host_heartbeat(room, host_token)
-        self.start_legacy_heartbeat(room)
+        self.start_legacy_heartbeat(room, host_token)
 
     def stop_host_heartbeat(self) -> None:
         if self.host_heartbeat_stop is not None:
@@ -1052,7 +1247,7 @@ class BrowserApp(tk.Tk):
         self.host_heartbeat_thread = thread
         thread.start()
 
-    def start_legacy_heartbeat(self, room: dict) -> None:
+    def start_legacy_heartbeat(self, room: dict, host_token: str | None = None) -> None:
         self.stop_legacy_heartbeat()
 
         stop_event = threading.Event()
@@ -1067,6 +1262,13 @@ class BrowserApp(tk.Tk):
             "playerCount": max(1, safe_int(room.get("playerCount"), 1)),
             "serverState": "Hosting",
         }
+        if self.config_data.use_udp_proxy and room.get("roomId") and host_token:
+            payload["roomId"] = room.get("roomId")
+            payload["hostToken"] = host_token
+            payload["version"] = room.get("version") or self.config_data.version
+            append_gui_log(
+                f"Legacy heartbeat will include P2P correlation fields: roomId={payload['roomId']} version={payload['version']}"
+            )
 
         def worker() -> None:
             api = LegacyListClient()
@@ -1323,7 +1525,7 @@ class BrowserApp(tk.Tk):
                     room.get("mode", ""),
                     room.get("playerCount", 0),
                     room.get("maxPlayers", 0),
-                    display_state(room.get("state", "")),
+                    display_room_state(room),
                     room.get("lastSeenAt", ""),
                 ),
             )

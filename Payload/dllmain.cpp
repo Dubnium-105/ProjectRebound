@@ -98,6 +98,7 @@ bool RoomStartReportSucceeded = false;
 bool RoomStartReportInFlight = false;
 std::mutex RoomStartReportMutex;
 void ReportRoomStartedIfNeeded();
+bool DisableBackendRoomStartPromotion = true;
 
 static ServerConfig Config{};
 
@@ -377,6 +378,17 @@ bool SendRoomLifecycleStart(const std::string& backend)
 
 void ReportRoomStartedIfNeeded()
 {
+    if (DisableBackendRoomStartPromotion)
+    {
+        static bool loggedSkip = false;
+        if (!loggedSkip)
+        {
+            std::cout << "[ONLINE] Skipping /start lifecycle promotion for backend compatibility." << std::endl;
+            loggedSkip = true;
+        }
+        return;
+    }
+
     if (OnlineBackendAddress.empty() || HostRoomId.empty() || HostToken.empty())
         return;
 
@@ -518,6 +530,16 @@ bool IsLateJoinPlayer(APBPlayerController* PC)
     return PC && LateJoinPlayers.find(PC) != LateJoinPlayers.end();
 }
 
+bool IsSpectatorPawn(APawn* Pawn)
+{
+    return Pawn && Pawn->IsA(ASpectatorPawn::StaticClass());
+}
+
+bool HasPlayableLateJoinPawn(APBPlayerController* PC)
+{
+    return PC && PC->Pawn && !IsSpectatorPawn(PC->Pawn);
+}
+
 void QueueLateJoinPlayer(APBPlayerController* PC)
 {
     if (!PC)
@@ -541,11 +563,72 @@ void SendLateJoinClientStart(APBPlayerController* PC)
     PC->ClientSelectRole();
 }
 
+void PrepareLateJoinRespawn(APBPlayerController* PC)
+{
+    if (!PC)
+        return;
+
+    PlayerRespawnAllowedMap[PC] = true;
+    PC->ServerSetSpectatorWaiting(false);
+    PC->ClientSetSpectatorWaiting(false);
+    PC->SetIgnoreMoveInput(false);
+    PC->SetIgnoreLookInput(false);
+    PC->ClientIgnoreMoveInput(false);
+    PC->ClientIgnoreLookInput(false);
+
+    if (PC->Pawn && IsSpectatorPawn(PC->Pawn))
+    {
+        std::cout << "[LATEJOIN] Clearing spectator pawn before playable spawn: "
+            << PC->Pawn->GetFullName() << std::endl;
+        PC->ExitObserverState();
+        PC->UnPossess();
+    }
+}
+
+void FinalizeLateJoinSpawn(APBPlayerController* PC)
+{
+    if (!HasPlayableLateJoinPawn(PC))
+        return;
+
+    PlayerRespawnAllowedMap[PC] = true;
+    PC->ServerSetSpectatorWaiting(false);
+    PC->ClientSetSpectatorWaiting(false);
+    PC->SetIgnoreMoveInput(false);
+    PC->SetIgnoreLookInput(false);
+    PC->ClientIgnoreMoveInput(false);
+    PC->ClientIgnoreLookInput(false);
+    PC->ExitObserverState();
+
+    if (PC->Pawn)
+    {
+        if (PC->Pawn->Controller != (AController*)PC)
+        {
+            std::cout << "[LATEJOIN] Forcing possess on spawned pawn: "
+                << PC->Pawn->GetFullName() << std::endl;
+            PC->Possess(PC->Pawn);
+        }
+
+        PC->Pawn->ForceNetUpdate();
+    }
+
+    PC->ForceNetUpdate();
+    PC->ClientReadyAtStartSpot();
+    PC->NotifyGameStarted();
+    PC->ClientGotoState(UKismetStringLibrary::Conv_StringToName(L"Playing"));
+    PC->ClientRestart(PC->Pawn);
+    PC->ClientRetryClientRestart(PC->Pawn);
+    PC->ServerAcknowledgePossession(PC->Pawn);
+
+    std::cout << "[LATEJOIN] Finalized playable possession: "
+        << PC->Pawn->GetFullName() << std::endl;
+}
+
 void RequestLateJoinSpawn(APBPlayerController* PC, FLateJoinInfo& Info)
 {
     if (!PC)
         return;
 
+    PrepareLateJoinRespawn(PC);
     PlayerRespawnAllowedMap[PC] = true;
     APBGameMode* GameMode = GetPBGameMode();
 
@@ -586,8 +669,9 @@ void TickLateJoinPlayers(float DeltaTime)
 
         Info.ElapsedSeconds += DeltaTime;
 
-        if (Info.State == ELateJoinState::RoleConfirmed && Info.SpawnAttempts > 0 && PC->Pawn)
+        if (Info.State == ELateJoinState::RoleConfirmed && Info.SpawnAttempts > 0 && HasPlayableLateJoinPawn(PC))
         {
+            FinalizeLateJoinSpawn(PC);
             Info.State = ELateJoinState::Spawned;
             std::cout << "[LATEJOIN] Spawn complete for late join player." << std::endl;
             it = LateJoinPlayers.erase(it);
@@ -934,6 +1018,14 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
         if (!canStartMatch) {
             return;
         }
+    }
+
+    if (Function->GetFullName().contains("ServerHaveNoInput")) {
+        std::cout << "[INPUT] Server flagged no input on " << Object->GetFullName() << std::endl;
+    }
+
+    if (Function->GetFullName().contains("ServerHasInput")) {
+        std::cout << "[INPUT] Server received input from " << Object->GetFullName() << std::endl;
     }
 
     if (Function->GetFullName().contains("ClientBeKilled")) {
