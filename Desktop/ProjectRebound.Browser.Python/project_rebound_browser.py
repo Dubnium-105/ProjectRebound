@@ -21,6 +21,7 @@ CONFIG_PATH = APP_DIR / "config-python.json"
 GUI_LOG_PATH = APP_DIR / "browser-launch.log"
 LAUNCH_DIR = APP_DIR / "launchers"
 HARD_CODED_BACKEND_URL = "http://43.240.193.246"
+DEFAULT_LEGACY_LIST_URL = "http://ax48735790k.vicp.fun:3000"
 # 来源：ServerWrapper MapList（仅保留非 pveBug 项）与 SetMode 支持值
 ROOM_MAP_OPTIONS = (
     "OSS",
@@ -35,13 +36,14 @@ ROOM_MODE_OPTIONS = ("pve", "pvp")
 @dataclass
 class AppConfig:
     backend_url: str = HARD_CODED_BACKEND_URL
+    legacy_list_url: str = DEFAULT_LEGACY_LIST_URL
     game_directory: str = ""
-    display_name: str = os.environ.get("USERNAME", "Player")
+    display_name: str = os.environ.get("USERNAME", "玩家")
     region: str = "CN"
     version: str = "dev"
     port: int = 7777
     access_token: str = ""
-    room_name: str = "ProjectRebound Room"
+    room_name: str = "ProjectRebound 房间"
     map_name: str = "Warehouse"
     mode: str = "pve"
     max_players: int = 8
@@ -137,16 +139,177 @@ class ApiClient:
             try:
                 details = json.loads(raw)
                 if "code" in details and "message" in details:
-                    raise ApiError(f"{details['code']} during {method} {path}: {details['message']}") from exc
+                    raise ApiError(f"调用 {method} {path} 时返回 {details['code']}：{details['message']}") from exc
                 if "error" in details:
                     err = details["error"]
-                    raise ApiError(f"{err.get('code', exc.code)} during {method} {path}: {err.get('message', raw)}") from exc
+                    raise ApiError(f"调用 {method} {path} 时返回 {err.get('code', exc.code)}：{err.get('message', raw)}") from exc
             except json.JSONDecodeError:
                 pass
-            raise ApiError(f"HTTP {exc.code} during {method} {path}: {raw}") from exc
+            raise ApiError(f"调用 {method} {path} 时 HTTP {exc.code}：{raw}") from exc
         except error.URLError as exc:
             append_gui_log(f"API {method} {path} -> unreachable: {exc.reason}")
-            raise ApiError(f"Backend is not reachable during {method} {path}: {exc.reason}") from exc
+            raise ApiError(f"调用 {method} {path} 时无法连接后端：{exc.reason}") from exc
+
+
+class LegacyListClient:
+    def __init__(self) -> None:
+        self.base_url = normalize_legacy_base_url(DEFAULT_LEGACY_LIST_URL)
+
+    def configure(self, legacy_list_url: str) -> None:
+        self.base_url = normalize_legacy_base_url(legacy_list_url)
+
+    def list_servers(self) -> list[dict]:
+        data = self._send("GET", "/servers")
+        if isinstance(data, list):
+            return [item for item in data if isinstance(item, dict)]
+        if isinstance(data, dict):
+            items = data.get("items") or data.get("servers")
+            if isinstance(items, list):
+                return [item for item in items if isinstance(item, dict)]
+        return []
+
+    def heartbeat_server(self, payload: dict) -> dict:
+        data = self._send("POST", "/server/status", payload)
+        return data if isinstance(data, dict) else {}
+
+    def _send(self, method: str, path: str, payload: dict | None = None) -> object:
+        body = None
+        headers = {"Accept": "application/json"}
+        if payload is not None:
+            body = json.dumps(payload).encode("utf-8")
+            headers["Content-Type"] = "application/json"
+
+        url = f"{self.base_url}{path}"
+        req = request.Request(url, data=body, headers=headers, method=method)
+        append_gui_log(f"Legacy API {method} {url}")
+        try:
+            with request.urlopen(req, timeout=10) as response:
+                raw = response.read().decode("utf-8", errors="replace")
+                append_gui_log(f"Legacy API {method} {url} -> {response.status}")
+                if not raw:
+                    return {}
+                try:
+                    return json.loads(raw)
+                except json.JSONDecodeError as exc:
+                    if method == "POST":
+                        return {}
+                    raise ApiError(f"中心服务器接口在 {method} {path} 时返回了无效 JSON：{raw}") from exc
+        except error.HTTPError as exc:
+            raw = exc.read().decode("utf-8", errors="replace")
+            append_gui_log(f"Legacy API {method} {url} -> HTTP {exc.code}: {raw}")
+            raise ApiError(f"中心服务器接口在 {method} {path} 时 HTTP {exc.code}：{raw}") from exc
+        except error.URLError as exc:
+            append_gui_log(f"Legacy API {method} {url} -> unreachable: {exc.reason}")
+            raise ApiError(f"调用中心服务器接口 {method} {path} 时无法连接：{exc.reason}") from exc
+
+
+def normalize_legacy_base_url(value: str) -> str:
+    raw = (value or DEFAULT_LEGACY_LIST_URL).strip()
+    if not raw.lower().startswith(("http://", "https://")):
+        raw = "http://" + raw
+    raw = raw.rstrip("/")
+    if raw.lower().endswith("/servers"):
+        raw = raw[:-len("/servers")]
+    return raw.rstrip("/") or DEFAULT_LEGACY_LIST_URL
+
+
+def safe_int(value: object, fallback: int = 0) -> int:
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return fallback
+
+
+def endpoint_key(room: dict) -> str:
+    return str(room.get("endpoint") or "").strip().lower()
+
+
+def normalize_match_room(room: dict) -> dict:
+    normalized = dict(room)
+    normalized["source"] = "MatchServer"
+    return normalized
+
+
+def normalize_legacy_room(server: dict) -> dict:
+    port = safe_int(server.get("port"), 7777)
+    endpoint = str(server.get("endpoint") or "").strip()
+    ip = str(server.get("ip") or "").strip()
+    if not endpoint and ip:
+        endpoint = f"{ip}:{port}"
+    if not ip and ":" in endpoint:
+        ip = endpoint.rsplit(":", 1)[0]
+
+    return {
+        "source": "Legacy",
+        "name": server.get("name") or "未知",
+        "region": server.get("region") or "??",
+        "map": server.get("map") or "未知",
+        "mode": server.get("mode") or "未知",
+        "playerCount": safe_int(server.get("playerCount"), 0),
+        "maxPlayers": server.get("maxPlayers") or "",
+        "state": server.get("serverState") or server.get("state") or "Unknown",
+        "endpoint": endpoint,
+        "ip": ip,
+        "port": port,
+        "lastSeenAt": server.get("lastSeenAt") or "",
+        "legacyRaw": server,
+    }
+
+
+def merge_room_sources(match_rooms: list[dict], legacy_rooms: list[dict]) -> list[dict]:
+    merged: list[dict] = []
+    by_endpoint: dict[str, dict] = {}
+
+    for room in match_rooms:
+        normalized = normalize_match_room(room)
+        merged.append(normalized)
+        key = endpoint_key(normalized)
+        if key:
+            by_endpoint[key] = normalized
+
+    for server in legacy_rooms:
+        legacy = normalize_legacy_room(server)
+        key = endpoint_key(legacy)
+        existing = by_endpoint.get(key) if key else None
+        if existing is not None:
+            existing["source"] = "Both"
+            existing["legacyRaw"] = legacy.get("legacyRaw", server)
+            existing["legacyEndpoint"] = legacy.get("endpoint")
+            for field in ("name", "region", "map", "mode", "state", "lastSeenAt"):
+                if not existing.get(field) and legacy.get(field):
+                    existing[field] = legacy[field]
+            continue
+        merged.append(legacy)
+
+    return merged
+
+
+SOURCE_LABELS = {
+    "MatchServer": "P2P",
+    "Legacy": "中心",
+    "Both": "双来源",
+}
+
+STATE_LABELS = {
+    "Canceled": "已取消",
+    "Expired": "已过期",
+    "Failed": "失败",
+    "HostAssigned": "已分配主机",
+    "Hosting": "开服中",
+    "Matched": "匹配成功",
+    "Ready": "就绪",
+    "Unknown": "未知",
+}
+
+
+def display_source(value: object) -> str:
+    text = str(value or "")
+    return SOURCE_LABELS.get(text, text)
+
+
+def display_state(value: object) -> str:
+    text = str(value or "")
+    return STATE_LABELS.get(text, text)
 
 
 def load_config() -> AppConfig:
@@ -157,6 +320,7 @@ def load_config() -> AppConfig:
     defaults = asdict(AppConfig())
     defaults.update(data)
     defaults["backend_url"] = HARD_CODED_BACKEND_URL
+    defaults["legacy_list_url"] = normalize_legacy_base_url(str(defaults.get("legacy_list_url") or DEFAULT_LEGACY_LIST_URL))
     map_name = str(defaults.get("map_name") or ROOM_MAP_OPTIONS[0])
     mode = str(defaults.get("mode") or ROOM_MODE_OPTIONS[0])
     defaults["map_name"] = map_name if map_name in ROOM_MAP_OPTIONS else ROOM_MAP_OPTIONS[0]
@@ -322,14 +486,14 @@ def proxy_launcher() -> tuple[list[str], Path]:
 
     proxy_script = Path(__file__).with_name("project_rebound_udp_proxy.py")
     if not proxy_script.exists():
-        raise RuntimeError("project_rebound_udp_proxy.py was not found next to project_rebound_browser.py.")
+        raise RuntimeError("未在 project_rebound_browser.py 旁找到 project_rebound_udp_proxy.py。")
     return [sys.executable, str(proxy_script)], proxy_script.parent
 
 
 class BrowserApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
-        self.title("ProjectRebound Browser - Python Prototype")
+        self.title("ProjectRebound 浏览器 - Python 原型")
         self.geometry("1120x700")
         self.minsize(980, 620)
 
@@ -337,11 +501,15 @@ class BrowserApp(tk.Tk):
         self.config_data.backend_url = HARD_CODED_BACKEND_URL
         self.api = ApiClient()
         self.api.configure(self.config_data.backend_url, self.config_data.access_token)
+        self.legacy_api = LegacyListClient()
+        self.legacy_api.configure(self.config_data.legacy_list_url)
         self.ui_queue: queue.Queue[tuple[str, object]] = queue.Queue()
         self.selected_room: dict | None = None
         self.rooms: list[dict] = []
         self.host_heartbeat_stop: threading.Event | None = None
         self.host_heartbeat_thread: threading.Thread | None = None
+        self.legacy_heartbeat_stop: threading.Event | None = None
+        self.legacy_heartbeat_thread: threading.Thread | None = None
 
         self._build_ui()
         self.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -352,22 +520,24 @@ class BrowserApp(tk.Tk):
         root = ttk.Frame(self, padding=12)
         root.pack(fill=tk.BOTH, expand=True)
 
-        settings = ttk.LabelFrame(root, text="Settings", padding=8)
+        settings = ttk.LabelFrame(root, text="设置", padding=8)
         settings.pack(fill=tk.X)
 
         self.game_dir_var = tk.StringVar(value=self.config_data.game_directory)
         self.display_name_var = tk.StringVar(value=self.config_data.display_name)
         self.region_var = tk.StringVar(value=self.config_data.region)
         self.version_var = tk.StringVar(value=self.config_data.version)
+        self.legacy_list_url_var = tk.StringVar(value=self.config_data.legacy_list_url)
 
-        self._field(settings, "Display", self.display_name_var, 0, 0, width=20)
-        self._field(settings, "Region", self.region_var, 0, 2, width=10)
-        self._field(settings, "Version", self.version_var, 0, 4, width=10)
-        self._field(settings, "Game Dir", self.game_dir_var, 1, 0, width=64)
-        ttk.Button(settings, text="Browse", command=self.browse_game_dir).grid(row=1, column=2, sticky="ew", padx=4, pady=4)
-        ttk.Button(settings, text="Save / Login", command=lambda: self.run_background(self.save_and_login)).grid(row=1, column=3, sticky="ew", padx=4, pady=4)
+        self._field(settings, "昵称", self.display_name_var, 0, 0, width=20)
+        self._field(settings, "区域", self.region_var, 0, 2, width=10)
+        self._field(settings, "版本", self.version_var, 0, 4, width=10)
+        self._field(settings, "游戏目录", self.game_dir_var, 1, 0, width=64)
+        ttk.Button(settings, text="浏览", command=self.browse_game_dir).grid(row=1, column=2, sticky="ew", padx=4, pady=4)
+        ttk.Button(settings, text="保存并登录", command=lambda: self.run_background(self.save_and_login)).grid(row=1, column=3, sticky="ew", padx=4, pady=4)
+        self._field(settings, "中心服务器地址", self.legacy_list_url_var, 2, 0, width=64)
 
-        room_box = ttk.LabelFrame(root, text="Room", padding=8)
+        room_box = ttk.LabelFrame(root, text="房间", padding=8)
         room_box.pack(fill=tk.X, pady=(10, 0))
 
         self.room_name_var = tk.StringVar(value=self.config_data.room_name)
@@ -381,42 +551,42 @@ class BrowserApp(tk.Tk):
         self.proxy_client_port_var = tk.IntVar(value=self.config_data.proxy_client_port)
         self.logic_server_url_var = tk.StringVar(value=self.config_data.logic_server_url)
 
-        self._field(room_box, "Name", self.room_name_var, 0, 0, width=24)
-        self._combo_field(room_box, "Map", self.map_var, list(ROOM_MAP_OPTIONS), 0, 2, width=14)
-        self._combo_field(room_box, "Mode", self.mode_var, list(ROOM_MODE_OPTIONS), 0, 4, width=10)
-        self._field(room_box, "Port", self.port_var, 0, 6, width=8)
-        self._field(room_box, "Max", self.max_players_var, 0, 8, width=8)
-        ttk.Checkbutton(room_box, text="Use UDP Proxy", variable=self.use_proxy_var).grid(row=1, column=0, sticky="w", padx=4, pady=4)
-        self._field(room_box, "Client Proxy", self.proxy_client_port_var, 1, 2, width=8)
-        self._field(room_box, "Logic URL", self.logic_server_url_var, 1, 4, width=32)
+        self._field(room_box, "房间名", self.room_name_var, 0, 0, width=24)
+        self._combo_field(room_box, "地图", self.map_var, list(ROOM_MAP_OPTIONS), 0, 2, width=14)
+        self._combo_field(room_box, "模式", self.mode_var, list(ROOM_MODE_OPTIONS), 0, 4, width=10)
+        self._field(room_box, "端口", self.port_var, 0, 6, width=8)
+        self._field(room_box, "人数上限", self.max_players_var, 0, 8, width=8)
+        ttk.Checkbutton(room_box, text="使用 UDP 代理", variable=self.use_proxy_var).grid(row=1, column=0, sticky="w", padx=4, pady=4)
+        self._field(room_box, "客户端代理端口", self.proxy_client_port_var, 1, 2, width=8)
+        self._field(room_box, "逻辑服地址", self.logic_server_url_var, 1, 4, width=32)
 
         buttons = ttk.Frame(room_box)
         buttons.grid(row=0, column=10, sticky="e", padx=(12, 0))
-        ttk.Button(buttons, text="Refresh", command=lambda: self.run_background(self.refresh_rooms)).pack(side=tk.LEFT, padx=4)
-        ttk.Button(buttons, text="Create", command=lambda: self.run_background(self.create_room)).pack(side=tk.LEFT, padx=4)
-        ttk.Button(buttons, text="Join", command=lambda: self.run_background(self.join_selected_room)).pack(side=tk.LEFT, padx=4)
-        ttk.Button(buttons, text="Quick Match", command=lambda: self.run_background(self.quick_match)).pack(side=tk.LEFT, padx=4)
+        ttk.Button(buttons, text="刷新", command=lambda: self.run_background(self.refresh_rooms)).pack(side=tk.LEFT, padx=4)
+        ttk.Button(buttons, text="创建", command=lambda: self.run_background(self.create_room)).pack(side=tk.LEFT, padx=4)
+        ttk.Button(buttons, text="加入", command=lambda: self.run_background(self.join_selected_room)).pack(side=tk.LEFT, padx=4)
+        ttk.Button(buttons, text="快速匹配", command=lambda: self.run_background(self.quick_match)).pack(side=tk.LEFT, padx=4)
 
-        columns = ("name", "region", "map", "mode", "players", "max", "state", "endpoint", "last")
+        columns = ("source", "name", "region", "map", "mode", "players", "max", "state", "last")
         self.tree = ttk.Treeview(root, columns=columns, show="headings", selectmode="browse")
         self.tree.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
         headings = {
-            "name": ("Name", 220),
-            "region": ("Region", 80),
-            "map": ("Map", 130),
-            "mode": ("Mode", 120),
-            "players": ("Players", 80),
-            "max": ("Max", 60),
-            "state": ("State", 100),
-            "endpoint": ("Endpoint", 160),
-            "last": ("Last Seen", 170),
+            "source": ("来源", 90),
+            "name": ("名称", 220),
+            "region": ("区域", 80),
+            "map": ("地图", 130),
+            "mode": ("模式", 120),
+            "players": ("人数", 80),
+            "max": ("上限", 60),
+            "state": ("状态", 100),
+            "last": ("最后在线", 170),
         }
         for column, (title, width) in headings.items():
             self.tree.heading(column, text=title)
             self.tree.column(column, width=width, anchor=tk.W)
         self.tree.bind("<<TreeviewSelect>>", self.on_room_selected)
 
-        self.status_var = tk.StringVar(value="Ready.")
+        self.status_var = tk.StringVar(value="就绪。")
         ttk.Label(root, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W, padding=6).pack(fill=tk.X, pady=(10, 0))
 
     def _field(self, parent: tk.Misc, label: str, variable: tk.Variable, row: int, column: int, width: int) -> None:
@@ -443,7 +613,7 @@ class BrowserApp(tk.Tk):
                     self._render_rooms(payload)  # type: ignore[arg-type]
                 elif kind == "error":
                     self.status_var.set(str(payload))
-                    messagebox.showerror("ProjectRebound Browser", str(payload))
+                    messagebox.showerror("ProjectRebound 浏览器", str(payload))
         except queue.Empty:
             pass
         self.after(100, self._drain_queue)
@@ -462,6 +632,7 @@ class BrowserApp(tk.Tk):
 
     def on_close(self) -> None:
         self.stop_host_heartbeat()
+        self.stop_legacy_heartbeat()
         self.destroy()
 
     def read_form(self) -> AppConfig:
@@ -469,13 +640,14 @@ class BrowserApp(tk.Tk):
         selected_mode = self.mode_var.get().strip()
         return AppConfig(
             backend_url=HARD_CODED_BACKEND_URL,
+            legacy_list_url=normalize_legacy_base_url(self.legacy_list_url_var.get()),
             game_directory=self.game_dir_var.get().strip(),
-            display_name=self.display_name_var.get().strip() or "Player",
+            display_name=self.display_name_var.get().strip() or "玩家",
             region=self.region_var.get().strip() or "CN",
             version=self.version_var.get().strip() or "dev",
             port=int(self.port_var.get()),
             access_token=self.config_data.access_token,
-            room_name=self.room_name_var.get().strip() or "ProjectRebound Room",
+            room_name=self.room_name_var.get().strip() or "ProjectRebound 房间",
             map_name=selected_map if selected_map in ROOM_MAP_OPTIONS else ROOM_MAP_OPTIONS[0],
             mode=selected_mode if selected_mode in ROOM_MODE_OPTIONS else ROOM_MODE_OPTIONS[0],
             max_players=int(self.max_players_var.get()),
@@ -485,41 +657,69 @@ class BrowserApp(tk.Tk):
         )
 
     def initialize(self) -> None:
-        self.save_and_login()
+        try:
+            self.save_and_login()
+        except Exception as exc:
+            append_gui_log(f"Initial MatchServer login failed: {exc}")
+            self.set_status(f"P2P中继登录失败；仍可刷新中心服务器：{exc}")
         self.refresh_rooms()
 
     def save_and_login(self) -> None:
         self.config_data = self.read_form()
         self.api.configure(self.config_data.backend_url, "")
-        self.set_status("Logging in...")
+        self.set_status("正在登录...")
         auth = self.api.login_guest(
             self.config_data.display_name,
             self.config_data.access_token if self.config_data.access_token else None,
         )
         self.config_data.access_token = auth["accessToken"]
         self.api.configure(self.config_data.backend_url, self.config_data.access_token)
+        self.legacy_api.configure(self.config_data.legacy_list_url)
         save_config(self.config_data)
-        self.set_status(f"Logged in as {auth.get('displayName', self.config_data.display_name)}.")
+        self.set_status(f"已登录为 {auth.get('displayName', self.config_data.display_name)}。")
 
     def refresh_rooms(self) -> None:
         self.config_data = self.read_form()
         self.api.configure(self.config_data.backend_url, self.config_data.access_token)
-        self.set_status("Refreshing rooms...")
-        result = self.api.list_rooms(self.config_data.region, self.config_data.version)
-        self.ui_queue.put(("rooms", result.get("items", [])))
-        self.set_status(f"Loaded {len(result.get('items', []))} rooms.")
+        self.legacy_api.configure(self.config_data.legacy_list_url)
+        self.set_status("正在刷新房间列表...")
+        match_rooms: list[dict] = []
+        legacy_rooms: list[dict] = []
+        errors: list[str] = []
+
+        try:
+            result = self.api.list_rooms(self.config_data.region, self.config_data.version)
+            items = result.get("items", [])
+            if isinstance(items, list):
+                match_rooms = items
+        except Exception as exc:
+            append_gui_log(f"MatchServer room refresh failed: {exc}")
+            errors.append(f"P2P服务器刷新失败：{exc}")
+
+        try:
+            legacy_rooms = self.legacy_api.list_servers()
+        except Exception as exc:
+            append_gui_log(f"Legacy room refresh failed: {exc}")
+            errors.append(f"中心服务器刷新失败：{exc}")
+
+        rooms = merge_room_sources(match_rooms, legacy_rooms)
+        self.ui_queue.put(("rooms", rooms))
+        status = f"已加载 {len(rooms)} 个房间：P2P服务器 {len(match_rooms)} 个，中心服务器 {len(legacy_rooms)} 个。"
+        if errors:
+            status += " 错误：" + " | ".join(errors)
+        self.set_status(status)
 
     def create_room(self) -> None:
         self.ensure_ready_for_launch()
         probe = None
         binding = None
         if self.config_data.use_udp_proxy:
-            self.set_status("Registering host UDP proxy binding...")
+            self.set_status("正在注册主机 UDP 代理绑定...")
             binding = self.run_nat_binding(self.config_data.port, "host")
         else:
-            self.set_status("Probing host UDP port...")
+            self.set_status("正在探测主机 UDP 端口...")
             probe = self.run_host_probe()
-        self.set_status("Creating room...")
+        self.set_status("正在创建房间...")
         created = self.api.create_room(
             {
                 "probeId": probe["probeId"] if probe else None,
@@ -534,32 +734,43 @@ class BrowserApp(tk.Tk):
         )
         room = self.api.get_room(created["roomId"])
         self.start_host(room, created["hostToken"])
-        self.set_status(f"Created room {room.get('name')} and launched host.")
+        self.set_status(f"已创建房间 {room.get('name')} 并启动主机。")
         self.refresh_rooms()
 
     def join_selected_room(self) -> None:
-        self.ensure_ready_for_launch()
         if not self.selected_room:
-            raise RuntimeError("Select a room first.")
-        self.set_status("Reserving room slot...")
+            raise RuntimeError("请先选择一个房间。")
+
+        if self.is_legacy_only_room(self.selected_room):
+            self.ensure_ready_for_launch(require_match_login=False)
+            connect = str(self.selected_room.get("endpoint") or "").strip()
+            if not connect:
+                raise RuntimeError("选中的中心服务器缺少连接地址。")
+            self.set_status("正在启动中心服务器游戏客户端...")
+            self.start_client(connect)
+            self.set_status("已请求启动中心服务器游戏客户端。")
+            return
+
+        self.ensure_ready_for_launch()
+        self.set_status("正在预留房间席位...")
         join = self.api.join_room(self.selected_room["roomId"], self.config_data.version)
         if self.config_data.use_udp_proxy:
-            self.set_status("Starting local UDP proxy...")
+            self.set_status("正在启动本地 UDP 代理...")
             self.start_client_proxy(self.selected_room["roomId"], join["joinTicket"])
             connect = f"127.0.0.1:{self.config_data.proxy_client_port}"
-            self.set_status("Launching game client...")
+            self.set_status("正在启动游戏客户端...")
             self.start_client(connect)
-            self.set_status(f"Launching client through local proxy {connect}.")
+            self.set_status("已请求通过本地代理启动游戏客户端。")
         else:
-            self.set_status("Launching game client...")
+            self.set_status("正在启动游戏客户端...")
             self.start_client(join["connect"])
-            self.set_status(f"Launching client for {join['connect']}.")
+            self.set_status("已请求启动游戏客户端。")
 
     def quick_match(self) -> None:
         self.ensure_ready_for_launch()
         if self.config_data.use_udp_proxy:
-            raise RuntimeError("Quick Match with UDP Proxy is not wired yet. Create a proxy room first, then join it from another client.")
-        self.set_status("Probing host UDP port for quick match...")
+            raise RuntimeError("快速匹配暂未接入 UDP 代理。请先创建代理房间，再从另一台客户端加入。")
+        self.set_status("正在为快速匹配探测主机 UDP 端口...")
         probe = self.run_host_probe()
         ticket = self.api.create_match_ticket(
             {
@@ -577,20 +788,20 @@ class BrowserApp(tk.Tk):
         for _ in range(70):
             time.sleep(2)
             state = self.api.get_match_ticket(ticket_id)
-            self.set_status(f"Matchmaking: {state.get('state')}.")
+            self.set_status(f"匹配状态：{display_state(state.get('state'))}。")
             if state.get("state") == "HostAssigned" and state.get("room") and state.get("hostToken"):
                 self.start_host(state["room"], state["hostToken"])
-                self.set_status(f"You are host for {state['room'].get('name')}.")
+                self.set_status(f"你已成为房间 {state['room'].get('name')} 的主机。")
                 self.refresh_rooms()
                 return
             if state.get("state") == "Matched" and state.get("connect"):
                 self.start_client(state["connect"])
-                self.set_status(f"Matched. Launching client for {state['connect']}.")
+                self.set_status("匹配成功，已请求启动游戏客户端。")
                 return
             if state.get("state") in {"Failed", "Canceled", "Expired"}:
-                self.set_status(f"Matchmaking ended: {state.get('failureReason') or state.get('state')}.")
+                self.set_status(f"匹配结束：{state.get('failureReason') or display_state(state.get('state'))}。")
                 return
-        self.set_status("Matchmaking timed out.")
+        self.set_status("匹配超时。")
 
     def run_host_probe(self) -> dict:
         self.config_data = self.read_form()
@@ -604,14 +815,12 @@ class BrowserApp(tk.Tk):
             try:
                 data, _ = sock.recvfrom(2048)
             except socket.timeout as exc:
-                target = f"{probe.get('publicIp', 'unknown')}:{probe.get('port', port)}"
                 raise RuntimeError(
-                    f"UDP probe timed out. Backend sent the probe to {target}. "
-                    "Check VPN/proxy, firewall, CGNAT, and port forwarding."
+                    "UDP 探测超时。后端已发送探测包，但本机没有收到。请检查 VPN/代理、防火墙、CGNAT 和端口转发。"
                 ) from exc
         nonce = data.decode("utf-8", errors="replace")
         if nonce != probe["nonce"]:
-            raise RuntimeError("UDP probe nonce mismatch.")
+            raise RuntimeError("UDP 探测 nonce 不匹配。")
         self.api.confirm_host_probe(probe["probeId"], nonce)
         return probe
 
@@ -638,12 +847,12 @@ class BrowserApp(tk.Tk):
                     continue
                 if response.get("token") == created["bindingToken"]:
                     return self.api.confirm_nat_binding(created["bindingToken"])
-        raise RuntimeError(f"UDP rendezvous timed out. Sent to {server[0]}:{server[1]}. Check server UDP 5001, cloud security group, and local firewall.")
+        raise RuntimeError("UDP 打洞超时。请检查服务器 UDP 5001、云安全组和本机防火墙。")
 
     def start_client(self, connect: str) -> None:
         exe = find_file(self.config_data.game_directory, "ProjectBoundarySteam-Win64-Shipping.exe")
         if not exe:
-            raise RuntimeError("ProjectBoundarySteam-Win64-Shipping.exe was not found under the game directory.")
+            raise RuntimeError("在游戏目录下未找到 ProjectBoundarySteam-Win64-Shipping.exe。")
         self.ensure_payload_files(Path(exe).parent)
         self.launch_client_via_batch(exe, connect)
 
@@ -651,7 +860,7 @@ class BrowserApp(tk.Tk):
         backend_dir = find_directory_near(self.config_data.game_directory, "BoundaryMetaServer-main")
         node = find_file_near(self.config_data.game_directory, "node.exe")
         if not backend_dir or not node:
-            raise RuntimeError("nodejs/node.exe or BoundaryMetaServer-main was not found under the game directory.")
+            raise RuntimeError("在游戏目录下未找到 nodejs/node.exe 或 BoundaryMetaServer-main。")
 
         lines = [
             "@echo off",
@@ -704,8 +913,7 @@ class BrowserApp(tk.Tk):
         backend_dir = find_directory_near(self.config_data.game_directory, "BoundaryMetaServer-main")
         if not node or not backend_dir:
             raise RuntimeError(
-                "Local fake login server is not running, and nodejs/node.exe or "
-                "BoundaryMetaServer-main was not found under the game directory."
+                "本地假登录服务未运行，且游戏目录下未找到 nodejs/node.exe 或 BoundaryMetaServer-main。"
             )
 
         args = [node, "index.js"]
@@ -725,7 +933,7 @@ class BrowserApp(tk.Tk):
                 return
             time.sleep(0.25)
 
-        raise RuntimeError(f"Fake login server did not become reachable at {host}:{port}.")
+        raise RuntimeError(f"本地假登录服务未能在 {host}:{port} 启动。")
 
     def start_client_proxy(self, room_id: str, join_ticket: str) -> None:
         launcher, launcher_cwd = proxy_launcher()
@@ -759,17 +967,19 @@ class BrowserApp(tk.Tk):
             if self.config_data.use_udp_proxy:
                 self.launch_host_via_batch(args, room["roomId"], host_token, game_port, exe_dir or Path(wrapper).parent)
                 self.start_host_heartbeat(room, host_token)
+                self.start_legacy_heartbeat(room)
                 return
             self.ensure_fake_login_server()
             wrapper_cwd = str(exe_dir or Path(wrapper).parent)
             append_gui_log("Launching wrapper: " + subprocess.list2cmdline(args) + f" cwd={wrapper_cwd}")
             subprocess.Popen(args, cwd=wrapper_cwd, creationflags=self.creation_flags())
             self.start_host_heartbeat(room, host_token)
+            self.start_legacy_heartbeat(room)
             return
 
         exe = find_file(self.config_data.game_directory, "ProjectBoundarySteam-Win64-Shipping.exe")
         if not exe:
-            raise RuntimeError("Neither ProjectReboundServerWrapper.exe nor ProjectBoundarySteam-Win64-Shipping.exe was found.")
+            raise RuntimeError("未找到 ProjectReboundServerWrapper.exe 或 ProjectBoundarySteam-Win64-Shipping.exe。")
         self.ensure_fake_login_server()
         args = [
             exe,
@@ -790,12 +1000,19 @@ class BrowserApp(tk.Tk):
         append_gui_log("Launching server exe: " + subprocess.list2cmdline(args))
         subprocess.Popen(args, cwd=str(Path(exe).parent), creationflags=self.creation_flags())
         self.start_host_heartbeat(room, host_token)
+        self.start_legacy_heartbeat(room)
 
     def stop_host_heartbeat(self) -> None:
         if self.host_heartbeat_stop is not None:
             self.host_heartbeat_stop.set()
         self.host_heartbeat_stop = None
         self.host_heartbeat_thread = None
+
+    def stop_legacy_heartbeat(self) -> None:
+        if self.legacy_heartbeat_stop is not None:
+            self.legacy_heartbeat_stop.set()
+        self.legacy_heartbeat_stop = None
+        self.legacy_heartbeat_thread = None
 
     def start_host_heartbeat(self, room: dict, host_token: str) -> None:
         self.stop_host_heartbeat()
@@ -831,6 +1048,49 @@ class BrowserApp(tk.Tk):
         self.host_heartbeat_thread = thread
         thread.start()
 
+    def start_legacy_heartbeat(self, room: dict) -> None:
+        self.stop_legacy_heartbeat()
+
+        stop_event = threading.Event()
+        self.legacy_heartbeat_stop = stop_event
+        legacy_url = self.config_data.legacy_list_url
+        payload = {
+            "name": room.get("name") or self.config_data.room_name,
+            "region": room.get("region") or self.config_data.region,
+            "mode": room.get("mode") or self.config_data.mode,
+            "map": room.get("map") or self.config_data.map_name,
+            "port": safe_int(room.get("port"), self.config_data.port),
+            "playerCount": max(1, safe_int(room.get("playerCount"), 1)),
+            "serverState": "Hosting",
+        }
+
+        def worker() -> None:
+            api = LegacyListClient()
+            api.configure(legacy_url)
+            append_gui_log(f"Starting legacy list heartbeat to {normalize_legacy_base_url(legacy_url)}")
+            success_logged = False
+            failure_reported = False
+            while not stop_event.is_set():
+                delay = 5
+                try:
+                    response = api.heartbeat_server(payload)
+                    delay = safe_int(response.get("nextHeartbeatSeconds"), 5)
+                    if not success_logged:
+                        append_gui_log("Legacy list heartbeat is active.")
+                        success_logged = True
+                except Exception as exc:
+                    append_gui_log(f"Legacy list heartbeat failed: {exc}")
+                    if not failure_reported:
+                        self.set_status(f"中心服务器心跳失败：{exc}")
+                        failure_reported = True
+                delay = max(2, min(delay, 10))
+                stop_event.wait(delay)
+            append_gui_log("Legacy list heartbeat stopped.")
+
+        thread = threading.Thread(target=worker, daemon=True)
+        self.legacy_heartbeat_thread = thread
+        thread.start()
+
     def wrapper_args(self, wrapper: str, room: dict, host_token: str, backend: str, game_port: int, exe_dir: Path | None) -> list[str]:
         args = [
             wrapper,
@@ -851,7 +1111,7 @@ class BrowserApp(tk.Tk):
         backend_dir = find_directory_near(self.config_data.game_directory, "BoundaryMetaServer-main")
         node = find_file_near(self.config_data.game_directory, "node.exe")
         if not backend_dir or not node:
-            raise RuntimeError("nodejs/node.exe or BoundaryMetaServer-main was not found under the game directory.")
+            raise RuntimeError("在游戏目录下未找到 nodejs/node.exe 或 BoundaryMetaServer-main。")
 
         launcher, launcher_cwd = proxy_launcher()
         proxy_args = [
@@ -959,7 +1219,7 @@ class BrowserApp(tk.Tk):
 
         missing = [name for name, source in sources.items() if source is None]
         if missing:
-            raise RuntimeError("Built payload files were not found: " + ", ".join(missing))
+            raise RuntimeError("未找到已构建的载荷文件：" + ", ".join(missing))
 
         for name, source in sources.items():
             assert source is not None
@@ -989,8 +1249,7 @@ class BrowserApp(tk.Tk):
                 shutil.copy2(source, target)
             except PermissionError as exc:
                 raise RuntimeError(
-                    "Could not update ProjectReboundServerWrapper.exe. "
-                    "Close existing wrapper/server/game launcher windows and try again."
+                    "无法更新 ProjectReboundServerWrapper.exe。请关闭现有的包装器、服务器或游戏启动窗口后重试。"
                 ) from exc
             append_gui_log(f"Copied {source} -> {target}")
         else:
@@ -1017,17 +1276,18 @@ class BrowserApp(tk.Tk):
         subprocess.Popen(args, cwd=str(launcher_cwd), creationflags=self.creation_flags())
         time.sleep(1)
 
-    def ensure_ready_for_launch(self) -> None:
+    def ensure_ready_for_launch(self, require_match_login: bool = True) -> None:
         self.config_data = self.read_form()
-        if not self.config_data.access_token:
+        self.legacy_api.configure(self.config_data.legacy_list_url)
+        if require_match_login and not self.config_data.access_token:
             self.save_and_login()
         if not self.config_data.game_directory or not os.path.isdir(self.config_data.game_directory):
-            raise RuntimeError("Set a valid game directory first.")
+            raise RuntimeError("请先设置有效的游戏目录。")
         save_config(self.config_data)
 
     def browse_game_dir(self) -> None:
         selected = filedialog.askdirectory(
-            title="Select Project Boundary game directory",
+            title="选择 Project Boundary 游戏目录",
             initialdir=self.game_dir_var.get() or os.getcwd(),
         )
         if selected:
@@ -1052,17 +1312,21 @@ class BrowserApp(tk.Tk):
                 tk.END,
                 iid=str(index),
                 values=(
+                    display_source(room.get("source", "")),
                     room.get("name", ""),
                     room.get("region", ""),
                     room.get("map", ""),
                     room.get("mode", ""),
                     room.get("playerCount", 0),
                     room.get("maxPlayers", 0),
-                    room.get("state", ""),
-                    room.get("endpoint", ""),
+                    display_state(room.get("state", "")),
                     room.get("lastSeenAt", ""),
                 ),
             )
+
+    @staticmethod
+    def is_legacy_only_room(room: dict) -> bool:
+        return room.get("source") == "Legacy" and not room.get("roomId")
 
     @staticmethod
     def mode_to_path(mode: str) -> str:

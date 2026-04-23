@@ -160,6 +160,38 @@ std::string CurrentTimestamp()
     return oss.str();
 }
 
+std::string WideToUtf8(const std::wstring& value)
+{
+    if (value.empty())
+        return {};
+
+    const int required = WideCharToMultiByte(
+        CP_UTF8,
+        0,
+        value.data(),
+        static_cast<int>(value.size()),
+        nullptr,
+        0,
+        nullptr,
+        nullptr);
+
+    if (required <= 0)
+        return {};
+
+    std::string result(static_cast<std::size_t>(required), '\0');
+    WideCharToMultiByte(
+        CP_UTF8,
+        0,
+        value.data(),
+        static_cast<int>(value.size()),
+        result.data(),
+        required,
+        nullptr,
+        nullptr);
+
+    return result;
+}
+
 std::ofstream logFile;
 
 
@@ -209,7 +241,7 @@ std::string PickRandomMapAvoidingLast()
         return LastMap;
 
     static std::mt19937 rng(std::random_device{}());
-    std::uniform_int_distribution<> dist(0, candidates.size() - 1);
+    std::uniform_int_distribution<std::size_t> dist(0, candidates.size() - 1);
 
     return candidates[dist(rng)];
 }
@@ -857,8 +889,8 @@ bool LaunchServerLocked()
     ServerRunning.store(false);
     LauncherLog("Launching server process...");
     HeartbeatSeen = false;
-    lastHeartbeatTime = std::chrono::steady_clock::now();
-    g_ServerLaunchTime = lastHeartbeatTime;
+    g_ServerLaunchTime = std::chrono::steady_clock::now();
+    ResetHeartbeatClock();
 
     SECURITY_ATTRIBUTES sa{ sizeof(SECURITY_ATTRIBUTES), NULL, TRUE };
     HANDLE readPipe = NULL;
@@ -956,7 +988,7 @@ bool LaunchServerLocked()
         &pi))
     {
         LauncherLog("Failed to launch server! GetLastError=" + std::to_string(GetLastError()));
-        LauncherLog("Command line: " + std::string(cmd.begin(), cmd.end()));
+        LauncherLog("Command line: " + WideToUtf8(cmd));
         CloseHandle(readPipe);
         CloseHandle(writePipe);
         g_ServerState.store(ServerState::Stopped);
