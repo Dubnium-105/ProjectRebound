@@ -323,7 +323,7 @@ app.MapGet("/v1/rooms", async (
     }
     else
     {
-        query = query.Where(x => x.State == RoomState.Open || x.State == RoomState.Starting);
+        query = query.Where(x => x.State == RoomState.Open || x.State == RoomState.Starting || x.State == RoomState.InGame);
     }
 
     var total = await query.CountAsync(cancellationToken);

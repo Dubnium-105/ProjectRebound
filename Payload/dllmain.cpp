@@ -13,6 +13,7 @@
 #include <fstream>
 #include "libreplicate.h"
 #include <mutex>
+#include <unordered_map>
 #include <chrono>
 #include <iomanip>
 #include <filesystem>
@@ -91,6 +92,12 @@ std::string MatchIP = "";
 //Auto connect checks
 bool LoginCompleted = false;
 bool ReadyToAutoconnect = false;
+int MatchReconnectAttempts = 0;
+
+bool RoomStartReportSucceeded = false;
+bool RoomStartReportInFlight = false;
+std::mutex RoomStartReportMutex;
+void ReportRoomStartedIfNeeded();
 
 static ServerConfig Config{};
 
@@ -252,17 +259,8 @@ nlohmann::json BuildRoomHeartbeatPayload()
     return payload;
 }
 
-//Send Message to Backend HTTP Helper
-void SendServerStatus(const std::string& backend)
+bool PostJsonToBackend(const std::string& backend, const std::string& path, const nlohmann::json& payload)
 {
-    bool useRoomHeartbeat = !HostRoomId.empty() && !HostToken.empty();
-    nlohmann::json payload = useRoomHeartbeat ? BuildRoomHeartbeatPayload() : BuildServerStatusPayload();
-    if (!useRoomHeartbeat && !HostRoomId.empty())
-    {
-        payload["roomId"] = HostRoomId;
-        payload["hostToken"] = HostToken;
-    }
-
     std::string body = payload.dump();
     std::string cleanBackend = StripHttpScheme(backend);
 
@@ -274,14 +272,11 @@ void SendServerStatus(const std::string& backend)
     if (colon == std::string::npos)
     {
         std::cout << "[ONLINE] Invalid backend address format." << std::endl;
-        return;
+        return false;
     }
 
     std::string host = cleanBackend.substr(0, colon);
     std::string port = cleanBackend.substr(colon + 1);
-    std::string path = useRoomHeartbeat
-        ? "/v1/rooms/" + HostRoomId + "/heartbeat"
-        : "/server/status";
 
     HINTERNET hSession = WinHttpOpen(L"BoundaryDLL/1.0",
         WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
@@ -289,7 +284,7 @@ void SendServerStatus(const std::string& backend)
         WINHTTP_NO_PROXY_BYPASS, 0);
 
     if (!hSession)
-        return;
+        return false;
 
     std::wstring whost(host.begin(), host.end());
     INTERNET_PORT wport = (INTERNET_PORT)std::stoi(port);
@@ -298,7 +293,7 @@ void SendServerStatus(const std::string& backend)
     if (!hConnect)
     {
         WinHttpCloseHandle(hSession);
-        return;
+        return false;
     }
 
     HINTERNET hRequest = WinHttpOpenRequest(
@@ -314,7 +309,7 @@ void SendServerStatus(const std::string& backend)
     {
         WinHttpCloseHandle(hConnect);
         WinHttpCloseHandle(hSession);
-        return;
+        return false;
     }
 
     BOOL bResults = WinHttpSendRequest(
@@ -326,14 +321,81 @@ void SendServerStatus(const std::string& backend)
         (DWORD)body.size(),
         0);
 
-    if (bResults)
-        WinHttpReceiveResponse(hRequest, NULL);
+    bool ok = false;
+    if (bResults && WinHttpReceiveResponse(hRequest, NULL))
+    {
+        DWORD statusCode = 0;
+        DWORD statusCodeSize = sizeof(statusCode);
+        if (WinHttpQueryHeaders(
+            hRequest,
+            WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+            WINHTTP_HEADER_NAME_BY_INDEX,
+            &statusCode,
+            &statusCodeSize,
+            WINHTTP_NO_HEADER_INDEX))
+        {
+            ok = statusCode >= 200 && statusCode < 300;
+        }
+    }
 
     WinHttpCloseHandle(hRequest);
     WinHttpCloseHandle(hConnect);
     WinHttpCloseHandle(hSession);
 
-    std::cout << "[ONLINE] Sent " << path << ": " << body << std::endl;
+    std::cout << "[ONLINE] Sent " << path << ": " << body << " ok=" << ok << std::endl;
+    return ok;
+}
+
+//Send Message to Backend HTTP Helper
+void SendServerStatus(const std::string& backend)
+{
+    bool useRoomHeartbeat = !HostRoomId.empty() && !HostToken.empty();
+    nlohmann::json payload = useRoomHeartbeat ? BuildRoomHeartbeatPayload() : BuildServerStatusPayload();
+    if (!useRoomHeartbeat && !HostRoomId.empty())
+    {
+        payload["roomId"] = HostRoomId;
+        payload["hostToken"] = HostToken;
+    }
+
+    std::string path = useRoomHeartbeat
+        ? "/v1/rooms/" + HostRoomId + "/heartbeat"
+        : "/server/status";
+
+    PostJsonToBackend(backend, path, payload);
+}
+
+bool SendRoomLifecycleStart(const std::string& backend)
+{
+    if (HostRoomId.empty() || HostToken.empty())
+        return false;
+
+    nlohmann::json payload = {
+        { "hostToken", HostToken }
+    };
+    return PostJsonToBackend(backend, "/v1/rooms/" + HostRoomId + "/start", payload);
+}
+
+void ReportRoomStartedIfNeeded()
+{
+    if (OnlineBackendAddress.empty() || HostRoomId.empty() || HostToken.empty())
+        return;
+
+    {
+        std::lock_guard<std::mutex> lock(RoomStartReportMutex);
+        if (RoomStartReportSucceeded || RoomStartReportInFlight)
+            return;
+
+        RoomStartReportInFlight = true;
+    }
+
+    std::string backend = OnlineBackendAddress;
+    std::thread([backend]()
+        {
+            bool ok = SendRoomLifecycleStart(backend);
+            std::lock_guard<std::mutex> lock(RoomStartReportMutex);
+            RoomStartReportSucceeded = ok;
+            RoomStartReportInFlight = false;
+        }).detach();
 }
 
 // ======================================================
@@ -359,6 +421,12 @@ void EnableUnrealConsole() {
 }
 
 void ConnectToMatch() {
+    if (MatchIP.empty())
+    {
+        ClientLog("[CLIENT] Reconnect requested but no -match target is configured.");
+        return;
+    }
+
     UPBGameInstance* GameInstance =
         (UPBGameInstance*)UWorld::GetWorld()->OwningGameInstance;
 
@@ -369,8 +437,11 @@ void ConnectToMatch() {
 
     LocalPlayer->GoToRange(0.0f);
 
+    std::wstring travelCmd = L"travel " + std::wstring(MatchIP.begin(), MatchIP.end());
+    ClientLog("[CLIENT] Reconnecting to match: " + MatchIP);
+
     UKismetSystemLibrary::ExecuteConsoleCommand(
-        UWorld::GetWorld(), L"travel 127.0.0.1", nullptr
+        UWorld::GetWorld(), travelCmd.c_str(), nullptr
     );
 
     GameInstance->ShowLoadingScreen(true, true);
@@ -394,6 +465,175 @@ int NumExpectedPlayers = -1;
 float MatchStartCountdown = -1.0f;
 
 std::unordered_map<APBPlayerController*, bool> PlayerRespawnAllowedMap{};
+
+enum class ELateJoinState
+{
+    PendingRoleSelection,
+    RoleConfirmed,
+    Spawned,
+    TimedOut
+};
+
+struct FLateJoinInfo
+{
+    ELateJoinState State = ELateJoinState::PendingRoleSelection;
+    float ElapsedSeconds = 0.0f;
+    int SpawnAttempts = 0;
+    bool ClientStartSent = false;
+};
+
+std::unordered_map<APBPlayerController*, FLateJoinInfo> LateJoinPlayers{};
+
+APBGameState* GetPBGameState()
+{
+    UWorld* World = UWorld::GetWorld();
+    if (!World || !World->AuthorityGameMode || !World->AuthorityGameMode->GameState)
+        return nullptr;
+
+    return (APBGameState*)World->AuthorityGameMode->GameState;
+}
+
+APBGameMode* GetPBGameMode()
+{
+    UWorld* World = UWorld::GetWorld();
+    if (!World || !World->AuthorityGameMode)
+        return nullptr;
+
+    return (APBGameMode*)World->AuthorityGameMode;
+}
+
+bool IsRoundCurrentlyInProgress()
+{
+    APBGameState* GameState = GetPBGameState();
+    return GameState && GameState->IsRoundInProgress();
+}
+
+bool IsLateJoinWindowOpen()
+{
+    return DidProcStartMatch || IsRoundCurrentlyInProgress();
+}
+
+bool IsLateJoinPlayer(APBPlayerController* PC)
+{
+    return PC && LateJoinPlayers.find(PC) != LateJoinPlayers.end();
+}
+
+void QueueLateJoinPlayer(APBPlayerController* PC)
+{
+    if (!PC)
+        return;
+
+    LateJoinPlayers[PC] = FLateJoinInfo{};
+    PlayerRespawnAllowedMap[PC] = true;
+    std::cout << "[LATEJOIN] Queued player for in-progress join: " << PC->GetFullName() << std::endl;
+}
+
+void SendLateJoinClientStart(APBPlayerController* PC)
+{
+    if (!PC)
+        return;
+
+    std::cout << "[LATEJOIN] Sending in-progress match state and role selection." << std::endl;
+    PC->ClientStartOnlineGame();
+    PC->ClientMatchHasStarted();
+    PC->ClientRoundHasStarted();
+    PC->NotifyGameStarted();
+    PC->ClientSelectRole();
+}
+
+void RequestLateJoinSpawn(APBPlayerController* PC, FLateJoinInfo& Info)
+{
+    if (!PC)
+        return;
+
+    PlayerRespawnAllowedMap[PC] = true;
+    APBGameMode* GameMode = GetPBGameMode();
+
+    if (Info.SpawnAttempts == 0 && GameMode)
+    {
+        TArray<AController*> Controllers{};
+        Controllers.Add((AController*)PC);
+        std::cout << "[LATEJOIN] RestartPlayers for late join player." << std::endl;
+        GameMode->RestartPlayers(Controllers);
+    }
+    else if (Info.SpawnAttempts == 1)
+    {
+        std::cout << "[LATEJOIN] RestartPlayers did not produce a pawn; trying ServerQuickRespawn." << std::endl;
+        PC->ServerQuickRespawn();
+    }
+    else if (Info.SpawnAttempts == 2)
+    {
+        std::cout << "[LATEJOIN] Quick respawn did not produce a pawn; trying ServerSuicide fallback." << std::endl;
+        PC->ServerSuicide(0);
+    }
+
+    Info.SpawnAttempts++;
+    Info.ElapsedSeconds = 0.0f;
+}
+
+void TickLateJoinPlayers(float DeltaTime)
+{
+    for (auto it = LateJoinPlayers.begin(); it != LateJoinPlayers.end();)
+    {
+        APBPlayerController* PC = it->first;
+        FLateJoinInfo& Info = it->second;
+
+        if (!PC)
+        {
+            it = LateJoinPlayers.erase(it);
+            continue;
+        }
+
+        Info.ElapsedSeconds += DeltaTime;
+
+        if (Info.State == ELateJoinState::RoleConfirmed && Info.SpawnAttempts > 0 && PC->Pawn)
+        {
+            Info.State = ELateJoinState::Spawned;
+            std::cout << "[LATEJOIN] Spawn complete for late join player." << std::endl;
+            it = LateJoinPlayers.erase(it);
+            continue;
+        }
+
+        if (Info.State == ELateJoinState::PendingRoleSelection)
+        {
+            if (!Info.ClientStartSent && Info.ElapsedSeconds >= 1.0f)
+            {
+                SendLateJoinClientStart(PC);
+                Info.ClientStartSent = true;
+                Info.ElapsedSeconds = 0.0f;
+            }
+            else if (Info.ClientStartSent && Info.ElapsedSeconds >= 30.0f)
+            {
+                Info.State = ELateJoinState::TimedOut;
+                std::cout << "[LATEJOIN] Timed out waiting for role selection." << std::endl;
+            }
+        }
+        else if (Info.State == ELateJoinState::RoleConfirmed)
+        {
+            if (Info.SpawnAttempts == 0 || Info.ElapsedSeconds >= 2.0f)
+            {
+                if (Info.SpawnAttempts < 3)
+                {
+                    RequestLateJoinSpawn(PC, Info);
+                }
+                else
+                {
+                    Info.State = ELateJoinState::TimedOut;
+                    std::cout << "[LATEJOIN] Timed out spawning late join player." << std::endl;
+                }
+            }
+        }
+
+        if (Info.State == ELateJoinState::TimedOut)
+        {
+            it = LateJoinPlayers.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+}
 // ======================================================
 //  SECTION 7 — HOOK DETOURS (ENGINE HOOKS)
 // ======================================================
@@ -513,10 +753,13 @@ void TickFlushHook(UNetDriver* NetDriver, float DeltaTime) {
                 *counter = *counter + 1;
             }
         }
+
+        TickLateJoinPlayers(DeltaTime);
     }
 
-    if (!((APBGameState*)(UWorld::GetWorld()->AuthorityGameMode->GameState))->IsRoundInProgress()) {
-        if (((APBGameState*)(UWorld::GetWorld()->AuthorityGameMode->GameState))->RoundState.ToString().contains("InvalidState")) {
+    APBGameState* CurrentGameState = GetPBGameState();
+    if (CurrentGameState && !CurrentGameState->IsRoundInProgress()) {
+        if (CurrentGameState->RoundState.ToString().contains("InvalidState")) {
 
             if (NumPlayersJoined >= Config.MinPlayersToStart) {
                 if (!DidProcFlow) {
@@ -548,7 +791,7 @@ void TickFlushHook(UNetDriver* NetDriver, float DeltaTime) {
             }
         }
 
-        if (((APBGameState*)(UWorld::GetWorld()->AuthorityGameMode->GameState))->RoundState.ToString().contains("CountdownToStart")) {
+        if (CurrentGameState->RoundState.ToString().contains("CountdownToStart")) {
 
             for (UNetConnection* pc : NetDriver->ClientConnections) {
                 if (pc->PlayerController && pc->PlayerController->Pawn)
@@ -561,6 +804,7 @@ void TickFlushHook(UNetDriver* NetDriver, float DeltaTime) {
         DidProcStartMatch = true;
 
         ((APBGameMode*)UWorld::GetWorld()->AuthorityGameMode)->StartMatch();
+        ReportRoomStartedIfNeeded();
     }
 
     if (GetAsyncKeyState(VK_F8) && amServer) {
@@ -639,7 +883,46 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
         }
     }
 
+    if (Function->GetFullName().contains("CanPlayerSelectRole")) {
+        auto* RoleParms = (Params::PBGameMode_CanPlayerSelectRole*)Parms;
+        if (RoleParms && IsLateJoinPlayer(RoleParms->Player)) {
+            RoleParms->ReturnValue = true;
+            return;
+        }
+    }
+
+    if (Function->GetFullName().contains("CanSelectRole")) {
+        APBPlayerController* PBPlayerController = Object && Object->IsA(APBPlayerController::StaticClass())
+            ? (APBPlayerController*)Object
+            : nullptr;
+
+        if (IsLateJoinPlayer(PBPlayerController)) {
+            auto* RoleParms = (Params::PBPlayerController_CanSelectRole*)Parms;
+            if (RoleParms) {
+                RoleParms->ReturnValue = true;
+                return;
+            }
+        }
+    }
+
     if (Function->GetFullName().contains("ServerConfirmRoleSelection")) {
+        APBPlayerController* PBPlayerController = Object && Object->IsA(APBPlayerController::StaticClass())
+            ? (APBPlayerController*)Object
+            : nullptr;
+
+        if (IsLateJoinPlayer(PBPlayerController)) {
+            ProcessEvent.call(Object, Function, Parms);
+
+            auto it = LateJoinPlayers.find(PBPlayerController);
+            if (it != LateJoinPlayers.end()) {
+                it->second.State = ELateJoinState::RoleConfirmed;
+                it->second.ElapsedSeconds = 0.0f;
+                it->second.SpawnAttempts = 0;
+                std::cout << "[LATEJOIN] Role confirmed; scheduling single-player spawn." << std::endl;
+            }
+            return;
+        }
+
         NumPlayersSelectedRole++;
 
         if (!canStartMatch && NumPlayersSelectedRole >= NumExpectedPlayers) {
@@ -679,6 +962,13 @@ void* PostLogin(AGameMode* GameMode, APBPlayerController* PC)
     NumPlayersJoined++;
 
     std::cout << "Player Connected!" << std::endl;
+
+    if (PC && IsLateJoinWindowOpen())
+    {
+        QueueLateJoinPlayer(PC);
+        ReportRoomStartedIfNeeded();
+        return Ret;
+    }
 
     // Force first-life respawn fix
     if (PC && PC->Pawn)
@@ -743,7 +1033,16 @@ void ProcessEventHookClient(UObject* Object, UFunction* Function, void* Parms) {
     if (Function->GetFullName().contains("OnConnectMatchServerTimeOut")) {
         ClientLog("[PE] " + std::string(Object->GetFullName()) + " - " + std::string(Function->GetFullName()));
 
-        ConnectToMatch();
+        if (MatchReconnectAttempts < 2)
+        {
+            MatchReconnectAttempts++;
+            ClientLog("[CLIENT] Match connect timeout; retry " + std::to_string(MatchReconnectAttempts) + "/2.");
+            ConnectToMatch();
+        }
+        else
+        {
+            ClientLog("[CLIENT] Match connect timeout retry limit reached; keeping current screen.");
+        }
     }
 
     return ProcessEventClient.call(Object, Function, Parms);
@@ -1151,6 +1450,7 @@ void AutoConnectToMatchFromCmdline()
             // Connect to match
             std::wstring wcmd = L"open " + std::wstring(MatchIP.begin(), MatchIP.end());
             ClientLog("[CLIENT] Auto-connecting to match: " + MatchIP);
+            MatchReconnectAttempts = 0;
 
             UKismetSystemLibrary::ExecuteConsoleCommand(
                 UWorld::GetWorld(),
@@ -1235,6 +1535,11 @@ void MainThread()
                 {
                     int pc = GetCurrentPlayerCount();
                     std::cout << "[HEARTBEAT] PlayerCount = " << pc << std::endl;
+
+                    if (IsRoundCurrentlyInProgress())
+                    {
+                        ReportRoomStartedIfNeeded();
+                    }
 
                     if (!OnlineBackendAddress.empty())
                     {

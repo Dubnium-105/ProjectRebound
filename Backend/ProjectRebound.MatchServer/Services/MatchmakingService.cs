@@ -110,7 +110,7 @@ public sealed class MatchmakingService(
     private static async Task<Room?> FindOpenRoomAsync(MatchServerDbContext db, MatchTicket ticket, CancellationToken cancellationToken)
     {
         var query = db.Rooms
-            .Where(x => (x.State == RoomState.Open || x.State == RoomState.Starting) &&
+            .Where(x => (x.State == RoomState.Open || x.State == RoomState.Starting || x.State == RoomState.InGame) &&
                 x.Region == ticket.Region &&
                 x.Version == ticket.Version &&
                 x.HostPlayerId != ticket.PlayerId);

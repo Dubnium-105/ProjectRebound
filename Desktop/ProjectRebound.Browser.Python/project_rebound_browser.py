@@ -292,12 +292,16 @@ SOURCE_LABELS = {
 
 STATE_LABELS = {
     "Canceled": "已取消",
+    "Ended": "已结束",
     "Expired": "已过期",
     "Failed": "失败",
     "HostAssigned": "已分配主机",
     "Hosting": "开服中",
+    "InGame": "游戏中",
     "Matched": "匹配成功",
+    "Open": "开放",
     "Ready": "就绪",
+    "Starting": "启动中",
     "Unknown": "未知",
 }
 

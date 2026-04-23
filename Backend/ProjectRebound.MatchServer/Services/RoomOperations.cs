@@ -8,7 +8,7 @@ public static class RoomOperations
 {
     public static bool IsJoinable(Room room)
     {
-        return room.State is RoomState.Open or RoomState.Starting;
+        return room.State is RoomState.Open or RoomState.Starting or RoomState.InGame;
     }
 
     public static async Task<int> ActiveReservationCountAsync(MatchServerDbContext db, Guid roomId)
