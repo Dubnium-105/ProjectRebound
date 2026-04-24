@@ -44,6 +44,7 @@ public sealed class Room
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset LastSeenAt { get; set; }
     public string? EndedReason { get; set; }
+    public string? HostLoadoutSnapshotJson { get; set; }
 }
 
 public sealed class RoomPlayer
@@ -55,6 +56,7 @@ public sealed class RoomPlayer
     public RoomPlayerStatus Status { get; set; } = RoomPlayerStatus.Reserved;
     public DateTimeOffset JoinedAt { get; set; }
     public DateTimeOffset ExpiresAt { get; set; }
+    public string? LoadoutSnapshotJson { get; set; }
 }
 
 public sealed class MatchTicket
@@ -76,6 +78,7 @@ public sealed class MatchTicket
     public string? FailureReason { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset ExpiresAt { get; set; }
+    public string? LoadoutSnapshotJson { get; set; }
 }
 
 public sealed class LegacyServer

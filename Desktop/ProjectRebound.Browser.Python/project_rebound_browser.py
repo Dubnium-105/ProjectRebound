@@ -21,6 +21,8 @@ CONFIG_PATH = APP_DIR / "config-python.json"
 ROOM_HINTS_PATH = APP_DIR / "room-hints.json"
 GUI_LOG_PATH = APP_DIR / "browser-launch.log"
 LAUNCH_DIR = APP_DIR / "launchers"
+LOADOUT_EXPORT_PATH = APP_DIR / "loadout-export-v1.json"
+LOADOUT_LAUNCH_PATH = LAUNCH_DIR / "loadout-launch-v1.json"
 HARD_CODED_BACKEND_URL = "http://43.240.193.246"
 DEFAULT_LEGACY_LIST_URL = "http://ax48735790k.vicp.fun:3000"
 # 来源：ServerWrapper MapList（仅保留非 pveBug 项）与 SetMode 支持值
@@ -91,8 +93,11 @@ class ApiClient:
         query = parse.urlencode({"region": region, "version": version})
         return self.get(f"/v1/rooms?{query}")
 
-    def join_room(self, room_id: str, version: str) -> dict:
-        return self.post(f"/v1/rooms/{room_id}/join", {"version": version})
+    def join_room(self, room_id: str, version: str, loadout_snapshot: dict | None = None) -> dict:
+        payload: dict[str, object] = {"version": version}
+        if loadout_snapshot is not None:
+            payload["loadoutSnapshot"] = loadout_snapshot
+        return self.post(f"/v1/rooms/{room_id}/join", payload)
 
     def create_punch_ticket(self, room_id: str, join_ticket: str, binding_token: str, client_local_endpoint: str) -> dict:
         return self.post(
@@ -455,6 +460,37 @@ def save_room_hints(hints: dict[str, dict]) -> None:
     APP_DIR.mkdir(parents=True, exist_ok=True)
     with ROOM_HINTS_PATH.open("w", encoding="utf-8") as file:
         json.dump(hints, file, indent=2, ensure_ascii=False)
+
+
+def normalize_loadout_snapshot(snapshot: object) -> dict | None:
+    return snapshot if isinstance(snapshot, dict) else None
+
+
+def load_loadout_snapshot() -> dict | None:
+    if not LOADOUT_EXPORT_PATH.exists():
+        return None
+    try:
+        with LOADOUT_EXPORT_PATH.open("r", encoding="utf-8") as file:
+            return normalize_loadout_snapshot(json.load(file))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def write_launch_loadout_snapshot(snapshot: object | None) -> Path | None:
+    normalized = normalize_loadout_snapshot(snapshot)
+    if normalized is None:
+        try:
+            LOADOUT_LAUNCH_PATH.unlink()
+        except FileNotFoundError:
+            pass
+        except OSError:
+            append_gui_log(f"Failed to clear stale launch loadout snapshot: {LOADOUT_LAUNCH_PATH}")
+        return None
+
+    LAUNCH_DIR.mkdir(parents=True, exist_ok=True)
+    with LOADOUT_LAUNCH_PATH.open("w", encoding="utf-8") as file:
+        json.dump(normalized, file, indent=2, ensure_ascii=False)
+    return LOADOUT_LAUNCH_PATH
 
 
 def append_gui_log(message: str) -> None:
@@ -853,6 +889,7 @@ class BrowserApp(tk.Tk):
 
     def create_room(self) -> None:
         self.ensure_ready_for_launch()
+        local_loadout_snapshot = self.get_current_loadout_snapshot()
         probe = None
         binding = None
         if self.config_data.use_udp_proxy:
@@ -872,11 +909,16 @@ class BrowserApp(tk.Tk):
                 "mode": self.config_data.mode,
                 "version": self.config_data.version,
                 "maxPlayers": self.config_data.max_players,
+                "loadoutSnapshot": local_loadout_snapshot,
             }
         )
         room = self.api.get_room(created["roomId"])
         self.remember_match_rooms([room])
-        self.start_host(room, created["hostToken"])
+        self.start_host(
+            room,
+            created["hostToken"],
+            normalize_loadout_snapshot(created.get("loadoutSnapshot")) or local_loadout_snapshot,
+        )
         self.set_status(f"已创建房间 {room.get('name')} 并启动主机。")
         self.refresh_rooms()
 
@@ -906,18 +948,21 @@ class BrowserApp(tk.Tk):
 
         if self.is_legacy_only_room(self.selected_room):
             self.ensure_ready_for_launch(require_match_login=False)
+            local_loadout_snapshot = self.get_current_loadout_snapshot()
             connect = str(self.selected_room.get("endpoint") or "").strip()
             append_gui_log(f"Joining legacy-only room directly: endpoint={connect}")
             if not connect:
                 raise RuntimeError("选中的中心服务器缺少连接地址。")
             self.set_status("正在启动中心服务器游戏客户端...")
-            self.start_client(connect)
+            self.start_client(connect, local_loadout_snapshot)
             self.set_status("已请求启动中心服务器游戏客户端。")
             return
 
         self.ensure_ready_for_launch()
         self.set_status("正在预留房间席位...")
-        join = self.api.join_room(self.selected_room["roomId"], self.config_data.version)
+        local_loadout_snapshot = self.get_current_loadout_snapshot()
+        join = self.api.join_room(self.selected_room["roomId"], self.config_data.version, local_loadout_snapshot)
+        launch_snapshot = normalize_loadout_snapshot(join.get("loadoutSnapshot")) or local_loadout_snapshot
         if self.config_data.use_udp_proxy:
             connect = f"127.0.0.1:{self.config_data.proxy_client_port}"
             append_gui_log(
@@ -927,12 +972,12 @@ class BrowserApp(tk.Tk):
             self.set_status("正在启动本地 UDP 代理...")
             self.start_client_proxy(self.selected_room["roomId"], join["joinTicket"])
             self.set_status("正在启动游戏客户端...")
-            self.start_client(connect)
+            self.start_client(connect, launch_snapshot)
             self.set_status("已请求通过本地代理启动游戏客户端。")
         else:
             append_gui_log(f"Joining room directly: roomId={self.selected_room['roomId']} connect={join['connect']}")
             self.set_status("正在启动游戏客户端...")
-            self.start_client(join["connect"])
+            self.start_client(join["connect"], launch_snapshot)
             self.set_status("已请求启动游戏客户端。")
 
     def quick_match(self) -> None:
@@ -940,6 +985,7 @@ class BrowserApp(tk.Tk):
         if self.config_data.use_udp_proxy:
             raise RuntimeError("快速匹配暂未接入 UDP 代理。请先创建代理房间，再从另一台客户端加入。")
         self.set_status("正在为快速匹配探测主机 UDP 端口...")
+        local_loadout_snapshot = self.get_current_loadout_snapshot()
         probe = self.run_host_probe()
         ticket = self.api.create_match_ticket(
             {
@@ -951,20 +997,22 @@ class BrowserApp(tk.Tk):
                 "probeId": probe["probeId"],
                 "roomName": self.config_data.room_name,
                 "maxPlayers": self.config_data.max_players,
+                "loadoutSnapshot": local_loadout_snapshot,
             }
         )
         ticket_id = ticket["ticketId"]
         for _ in range(70):
             time.sleep(2)
             state = self.api.get_match_ticket(ticket_id)
+            launch_snapshot = normalize_loadout_snapshot(state.get("loadoutSnapshot")) or local_loadout_snapshot
             self.set_status(f"匹配状态：{display_state(state.get('state'))}。")
             if state.get("state") == "HostAssigned" and state.get("room") and state.get("hostToken"):
-                self.start_host(state["room"], state["hostToken"])
+                self.start_host(state["room"], state["hostToken"], launch_snapshot)
                 self.set_status(f"你已成为房间 {state['room'].get('name')} 的主机。")
                 self.refresh_rooms()
                 return
             if state.get("state") == "Matched" and state.get("connect"):
-                self.start_client(state["connect"])
+                self.start_client(state["connect"], launch_snapshot)
                 self.set_status("匹配成功，已请求启动游戏客户端。")
                 return
             if state.get("state") in {"Failed", "Canceled", "Expired"}:
@@ -1018,11 +1066,32 @@ class BrowserApp(tk.Tk):
                     return self.api.confirm_nat_binding(created["bindingToken"])
         raise RuntimeError("UDP 打洞超时。请检查服务器 UDP 5001、云安全组和本机防火墙。")
 
-    def start_client(self, connect: str) -> None:
+    def get_current_loadout_snapshot(self) -> dict | None:
+        snapshot = load_loadout_snapshot()
+        if snapshot is None:
+            append_gui_log(
+                f"No local loadout snapshot found at {LOADOUT_EXPORT_PATH}; launch will fall back to the game's default loadout."
+            )
+            self.set_status("未找到本地配装快照，将使用游戏默认配装。")
+        else:
+            append_gui_log(f"Loaded local loadout snapshot from {LOADOUT_EXPORT_PATH}")
+        return snapshot
+
+    def prepare_launch_loadout_snapshot(self, snapshot: dict | None = None) -> None:
+        effective_snapshot = normalize_loadout_snapshot(snapshot) or load_loadout_snapshot()
+        written = write_launch_loadout_snapshot(effective_snapshot)
+        if written is None:
+            append_gui_log("No launch loadout snapshot prepared; Payload will fall back to the game's default loadout.")
+            self.set_status("未找到本地配装快照，将使用游戏默认配装。")
+            return
+        append_gui_log(f"Prepared launch loadout snapshot: {written}")
+
+    def start_client(self, connect: str, launch_snapshot: dict | None = None) -> None:
         exe = find_file(self.config_data.game_directory, "ProjectBoundarySteam-Win64-Shipping.exe")
         if not exe:
             raise RuntimeError("在游戏目录下未找到 ProjectBoundarySteam-Win64-Shipping.exe。")
         self.ensure_payload_files(Path(exe).parent)
+        self.prepare_launch_loadout_snapshot(launch_snapshot)
         self.launch_client_via_batch(exe, connect)
 
     def launch_client_via_batch(self, exe: str, connect: str) -> None:
@@ -1153,11 +1222,12 @@ class BrowserApp(tk.Tk):
         hinted = find_room_hint(selected_room, self.room_hints)
         return apply_room_hint(selected_room, hinted) if hinted is not None else None
 
-    def start_host(self, room: dict, host_token: str) -> None:
+    def start_host(self, room: dict, host_token: str, launch_snapshot: dict | None = None) -> None:
         exe_dir = game_exe_dir(self.config_data.game_directory)
         if exe_dir:
             self.ensure_payload_files(exe_dir)
             self.ensure_wrapper_file(exe_dir)
+        self.prepare_launch_loadout_snapshot(launch_snapshot)
         wrapper = str(exe_dir / "ProjectReboundServerWrapper.exe") if exe_dir and (exe_dir / "ProjectReboundServerWrapper.exe").exists() else find_file(self.config_data.game_directory, "ProjectReboundServerWrapper.exe")
         backend = backend_for_game(self.config_data.backend_url)
         game_port = self.config_data.port + 1 if self.config_data.use_udp_proxy else int(room.get("port", self.config_data.port))

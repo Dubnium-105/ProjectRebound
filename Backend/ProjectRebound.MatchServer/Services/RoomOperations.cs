@@ -24,7 +24,8 @@ public static class RoomOperations
         MatchServerDbContext db,
         Room room,
         Guid playerId,
-        TimeSpan ttl)
+        TimeSpan ttl,
+        string? loadoutSnapshotJson = null)
     {
         var now = DateTimeOffset.UtcNow;
         var existing = await db.RoomPlayers.FirstOrDefaultAsync(x =>
@@ -39,6 +40,7 @@ public static class RoomOperations
             existing.Status = RoomPlayerStatus.Reserved;
             existing.JoinedAt = now;
             existing.ExpiresAt = now.Add(ttl);
+            existing.LoadoutSnapshotJson = loadoutSnapshotJson ?? existing.LoadoutSnapshotJson;
             return (existing, joinTicket);
         }
 
@@ -50,7 +52,8 @@ public static class RoomOperations
             JoinTicketHash = TokenService.Hash(joinTicket),
             Status = RoomPlayerStatus.Reserved,
             JoinedAt = now,
-            ExpiresAt = now.Add(ttl)
+            ExpiresAt = now.Add(ttl),
+            LoadoutSnapshotJson = loadoutSnapshotJson
         };
 
         db.RoomPlayers.Add(reservation);
@@ -66,7 +69,8 @@ public static class RoomOperations
         string map,
         string mode,
         string version,
-        int maxPlayers)
+        int maxPlayers,
+        string? hostLoadoutSnapshotJson = null)
     {
         var now = DateTimeOffset.UtcNow;
         var endpoint = $"{probe.PublicIp}:{probe.Port}";
@@ -88,7 +92,8 @@ public static class RoomOperations
             ServerState = "Forming",
             State = RoomState.Open,
             CreatedAt = now,
-            LastSeenAt = now
+            LastSeenAt = now,
+            HostLoadoutSnapshotJson = hostLoadoutSnapshotJson
         };
     }
 
@@ -102,7 +107,8 @@ public static class RoomOperations
         string map,
         string mode,
         string version,
-        int maxPlayers)
+        int maxPlayers,
+        string? hostLoadoutSnapshotJson = null)
     {
         var now = DateTimeOffset.UtcNow;
         return new Room
@@ -122,7 +128,8 @@ public static class RoomOperations
             ServerState = "Forming",
             State = RoomState.Open,
             CreatedAt = now,
-            LastSeenAt = now
+            LastSeenAt = now,
+            HostLoadoutSnapshotJson = hostLoadoutSnapshotJson
         };
     }
 }

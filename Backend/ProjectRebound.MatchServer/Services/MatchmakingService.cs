@@ -55,7 +55,12 @@ public sealed class MatchmakingService(
                 continue;
             }
 
-            var (_, joinTicket) = await RoomOperations.ReserveJoinAsync(db, room, ticket.PlayerId, TimeSpan.FromSeconds(cfg.JoinTicketSeconds));
+            var (_, joinTicket) = await RoomOperations.ReserveJoinAsync(
+                db,
+                room,
+                ticket.PlayerId,
+                TimeSpan.FromSeconds(cfg.JoinTicketSeconds),
+                ticket.LoadoutSnapshotJson);
             ticket.State = MatchTicketState.Matched;
             ticket.AssignedRoomId = room.RoomId;
             ticket.JoinTicketPlain = joinTicket;
@@ -93,7 +98,8 @@ public sealed class MatchmakingService(
                 ticket.Map ?? "Warehouse",
                 ticket.Mode ?? "pve",
                 ticket.Version,
-                ticket.MaxPlayers);
+                ticket.MaxPlayers,
+                ticket.LoadoutSnapshotJson);
 
             room.State = RoomState.Starting;
             db.Rooms.Add(room);

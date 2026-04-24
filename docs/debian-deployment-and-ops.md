@@ -424,7 +424,7 @@ sudo cp -a /tmp/projectrebound-matchserver-next/. "/opt/projectrebound/releases/
 sudo chown -R projectrebound:projectrebound "/opt/projectrebound/releases/${RELEASE}"
 
 if [ -n "${CURRENT}" ]; then
-  sudo ln -sfn "${CURRENT}" /opt/projectrebound/previous
+  ln -sfn "${CURRENT}" /opt/projectrebound/previous
 fi
 
 sudo ln -sfn "/opt/projectrebound/releases/${RELEASE}" /opt/projectrebound/current
