@@ -1469,7 +1469,7 @@ class BrowserApp(tk.Tk):
                 shutil.copy2(source, target)
                 append_gui_log(f"Copied {source} -> {target}")
             else:
-                append_gui_log(f"Payload file already current: {target}")
+                append_gui_log(f"Payload file already current: {target} (source {source})")
 
     def ensure_wrapper_file(self, exe_dir: Path) -> None:
         root = repo_root()

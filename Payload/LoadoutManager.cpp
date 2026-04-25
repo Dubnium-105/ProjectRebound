@@ -1,23 +1,25 @@
 // ======================================================
-//  LoadoutManager implementation
+//  LoadoutManager — 装备快照/导出/运行时实现
 // ======================================================
 //
-//  Loadout flow overview:
-//    1. Preload snapshot sidecar JSON from disk during startup.
-//    2. Observe menu/save/customization events and export fresh snapshots.
-//    3. Observe runtime ProcessEvent traffic on both client and server.
-//    4. Apply snapshot data back into live characters/weapons when safe.
-//    5. Use scoped weapon-definition overrides only around the exact native
-//       calls that need them, then restore state immediately.
+//  装备流程概述：
+//    1. 启动时从磁盘预加载 sidecar JSON 快照
+//    2. 监听菜单/存档/自定义事件，导出最新快照
+//    3. 监听运行时 ProcessEvent 流量（客户端与服务端）
+//    4. 在安全时机将快照数据回写到活跃角色/武器
+//    5. 仅在需要覆盖的原生调用前后使用作用域武器定义覆盖，
+//       调用后立即恢复状态
 //
-//  Relationship to dllmain.cpp:
-//    - dllmain.cpp owns hook registration and long-lived manager lifetime.
-//    - This file owns the loadout pipeline detail, state machines, and
-//      diagnostics so the hook layer remains readable.
+//  与其他系统的关系：
+//    - dllmain.cpp：拥有 Hook 注册和管理器生命周期，
+//      本文件拥有装备管线细节、状态机和诊断逻辑
+//    - LateJoinManager：通过 OnRoleSelectionConfirmed 回调
+//      介入角色确认后的装备覆盖
+//    - 外部 Hook 层：仅作为薄转发层调用本文件的公有门面
 //
-//  Maintenance rule:
-//    Keep behavior changes inside this translation unit whenever possible.
-//    Hook sites should stay as thin forwarders into the public facade.
+//  维护规则：
+//    尽量将行为变更限制在本翻译单元内，
+//    Hook 层应保持为薄转发器。
 
 #include "LoadoutManager.h"
 
@@ -25,6 +27,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -56,13 +59,27 @@ class LoadoutManager::Impl
 {
 };
 
-// Internal detail namespace:
-//   The old loadout pipeline now lives here as private implementation detail.
-//   The public LoadoutManager methods below are the only supported entry points
-//   for the rest of Payload.
+// 内部实现命名空间：
+//   旧的装备管线现在作为私有实现细节存在于此命名空间中。
+//   下方的 LoadoutManager 公有方法是 Payload 其余部分的唯一支持入口。
 namespace LoadoutManagerDetail
 {
     using json = nlohmann::json;
+
+    // =====================================================================
+    //  内部类型 — 待处理角色选择上下文
+    // =====================================================================
+
+    struct PendingRoleSelectionContext
+    {
+        std::string RoleId;
+        bool IsAuthoritative = false;
+        std::chrono::steady_clock::time_point ConfirmedAt{};
+    };
+
+    // =====================================================================
+    //  内部类型 — 全局单例状态
+    // =====================================================================
 
     struct State
     {
@@ -86,8 +103,10 @@ namespace LoadoutManagerDetail
         APBCharacter* LastObservedCharacter = nullptr;
         std::unordered_map<APBCharacter*, int> ServerLiveApplyAttempts;
         std::unordered_set<APBCharacter*> ServerLiveApplyComplete;
+        std::unordered_map<APBPlayerController*, PendingRoleSelectionContext> PendingRoleSelections;
         std::unordered_map<APBWeapon*, std::string> WeaponVisualRefreshSignatures;
         std::unordered_map<APBWeapon*, std::string> WeaponInitOverrideSignatures;
+        std::unordered_set<std::string> WeaponLiveMismatchLogs;
         std::unordered_set<std::string> WeaponQueryOverrideLogs;
         std::unordered_set<std::string> WeaponDefinitionOverrideLogs;
         std::unordered_set<std::string> WeaponDefinitionOverrideFailureLogs;
@@ -95,11 +114,16 @@ namespace LoadoutManagerDetail
         std::string LastMenuSelectedRoleId;
     };
 
+    // @brief 供外部调用的全局单例状态引用
     State& GetState()
     {
         static State StateInstance;
         return StateInstance;
     }
+
+    // =====================================================================
+    //  基础工具 — 字符串转换 / 空值判断
+    // =====================================================================
 
     std::wstring ToWide(const std::string& value)
     {
@@ -142,6 +166,11 @@ namespace LoadoutManagerDetail
         return UKismetStringLibrary::Conv_StringToName(wideValue.c_str());
     }
 
+    // =====================================================================
+    //  角色选择上下文 — 菜单记住 / 待处理 / 清理
+    // =====================================================================
+
+    // @brief 记住菜单中最后选择的角色（字符串版本）
     void RememberMenuSelectedRole(const std::string& roleId)
     {
         const std::string normalizedRoleId = NormalizeRoleId(roleId);
@@ -155,6 +184,7 @@ namespace LoadoutManagerDetail
         state.LastMenuSelectedRoleId = normalizedRoleId;
     }
 
+    // @brief 记住菜单中最后选择的角色（FName 版本）
     void RememberMenuSelectedRole(const FName& roleId)
     {
         if (IsBlankName(roleId))
@@ -165,6 +195,7 @@ namespace LoadoutManagerDetail
         RememberMenuSelectedRole(NameToString(roleId));
     }
 
+    // @brief 获取已记住的菜单角色 ID
     std::string GetRememberedMenuSelectedRoleId()
     {
         State& state = GetState();
@@ -178,27 +209,7 @@ namespace LoadoutManagerDetail
     bool HasWeaponConfig(const FPBWeaponNetworkConfig& config);
     std::string ResolveCharacterRoleId(APBCharacter* character);
 
-    std::string GetSnapshotSelectedRoleId(const json& snapshot)
-    {
-        if (!snapshot.is_object())
-        {
-            return "";
-        }
-
-        return snapshot.value("selectedRoleId", "");
-    }
-
-    bool IsRoleAllowedBySnapshotSelection(const json& snapshot, const std::string& roleId)
-    {
-        if (roleId.empty())
-        {
-            return false;
-        }
-
-        const std::string selectedRoleId = GetSnapshotSelectedRoleId(snapshot);
-        return selectedRoleId.empty() || roleId == selectedRoleId;
-    }
-
+    // @brief 获取本地 AppData 根目录（ProjectReboundBrowser）
     std::filesystem::path GetAppDataRoot()
     {
         char* appData = nullptr;
@@ -215,16 +226,23 @@ namespace LoadoutManagerDetail
         return std::filesystem::current_path() / "ProjectReboundBrowser";
     }
 
+    // @brief 获取装备导出快照路径
     std::filesystem::path GetExportSnapshotPath()
     {
         return GetAppDataRoot() / "loadout-export-v1.json";
     }
 
+    // @brief 获取启动器注入的装备快照路径
     std::filesystem::path GetLaunchSnapshotPath()
     {
         return GetAppDataRoot() / "launchers" / "loadout-launch-v1.json";
     }
 
+    // =====================================================================
+    //  运行时查询 — 对象查找 / 玩家角色 / 存档状态
+    // =====================================================================
+
+    // @brief 生成 UTC 时间戳字符串（ISO 8601）
     std::string BuildUtcTimestamp()
     {
         const auto now = std::chrono::system_clock::now();
@@ -238,12 +256,14 @@ namespace LoadoutManagerDetail
         return stream.str();
     }
 
+    // @brief 获取运行时 FieldModManager 对象
     UPBFieldModManager* GetFieldModManager()
     {
         UObject* object = GetLastOfType(UPBFieldModManager::StaticClass(), false);
         return object ? static_cast<UPBFieldModManager*>(object) : nullptr;
     }
 
+    // @brief 获取本地玩家控制器
     APBPlayerController* GetLocalPlayerController()
     {
         UWorld* world = UWorld::GetWorld();
@@ -264,6 +284,7 @@ namespace LoadoutManagerDetail
         return nullptr;
     }
 
+    // @brief 获取本地玩家角色
     APBCharacter* GetLocalCharacter()
     {
         APBPlayerController* playerController = GetLocalPlayerController();
@@ -275,6 +296,7 @@ namespace LoadoutManagerDetail
         return nullptr;
     }
 
+    // @brief 解析本地玩家优先角色 ID（按多来源回退）
     std::string GetLocalPlayerPreferredRoleId()
     {
         APBPlayerController* playerController = GetLocalPlayerController();
@@ -336,6 +358,132 @@ namespace LoadoutManagerDetail
         return nullptr;
     }
 
+    // @brief 通过角色实例反查对应的 PlayerController
+    APBPlayerController* FindPlayerControllerForCharacter(APBCharacter* character)
+    {
+        if (!character)
+        {
+            return nullptr;
+        }
+
+        for (UObject* object : getObjectsOfClass(APBPlayerController::StaticClass(), false))
+        {
+            APBPlayerController* playerController = static_cast<APBPlayerController*>(object);
+            if (GetControllerCharacter(playerController) == character)
+            {
+                return playerController;
+            }
+        }
+
+        return nullptr;
+    }
+
+    // @brief 记录待处理的角色确认上下文（用于首生武器匹配）
+    void RememberPendingRoleSelection(APBPlayerController* playerController, const std::string& roleId, bool isAuthoritative)
+    {
+        const std::string normalizedRoleId = NormalizeRoleId(roleId);
+        if (!playerController || normalizedRoleId.empty())
+        {
+            return;
+        }
+
+        bool changed = false;
+        {
+            State& state = GetState();
+            std::scoped_lock lock(state.Mutex);
+            PendingRoleSelectionContext& context = state.PendingRoleSelections[playerController];
+            changed =
+                context.RoleId != normalizedRoleId ||
+                context.IsAuthoritative != isAuthoritative;
+            context.RoleId = normalizedRoleId;
+            context.IsAuthoritative = isAuthoritative;
+            context.ConfirmedAt = std::chrono::steady_clock::now();
+        }
+
+        if (changed)
+        {
+            ClientLog("[LOADOUT] Armed pending spawn role context (" +
+                std::string(isAuthoritative ? "server" : "client") + ") for " +
+                playerController->GetFullName() + ": role=" + normalizedRoleId);
+        }
+    }
+
+    // @brief 查询指定控制器当前待处理的角色 ID
+    std::string GetPendingRoleIdForController(APBPlayerController* playerController)
+    {
+        if (!playerController)
+        {
+            return "";
+        }
+
+        State& state = GetState();
+        std::scoped_lock lock(state.Mutex);
+        auto existing = state.PendingRoleSelections.find(playerController);
+        if (existing == state.PendingRoleSelections.end())
+        {
+            return "";
+        }
+
+        return existing->second.RoleId;
+    }
+
+    // @brief 清理失效/已完成的待处理角色上下文
+    void PrunePendingRoleSelections()
+    {
+        std::unordered_set<APBPlayerController*> liveControllers;
+        std::unordered_map<APBPlayerController*, std::string> resolvedLiveRoles;
+        for (UObject* object : getObjectsOfClass(APBPlayerController::StaticClass(), false))
+        {
+            APBPlayerController* playerController = static_cast<APBPlayerController*>(object);
+            if (!playerController)
+            {
+                continue;
+            }
+
+            liveControllers.insert(playerController);
+
+            APBCharacter* character = GetControllerCharacter(playerController);
+            const std::string resolvedRoleId = ResolveCharacterRoleId(character);
+            if (!resolvedRoleId.empty())
+            {
+                resolvedLiveRoles[playerController] = resolvedRoleId;
+            }
+        }
+
+        std::vector<std::pair<APBPlayerController*, std::string>> resolvedContexts;
+        {
+            State& state = GetState();
+            std::scoped_lock lock(state.Mutex);
+            for (auto it = state.PendingRoleSelections.begin(); it != state.PendingRoleSelections.end();)
+            {
+                const APBPlayerController* playerController = it->first;
+                if (!playerController || !liveControllers.contains(it->first))
+                {
+                    it = state.PendingRoleSelections.erase(it);
+                    continue;
+                }
+
+                auto resolvedRole = resolvedLiveRoles.find(it->first);
+                if (resolvedRole != resolvedLiveRoles.end() &&
+                    (!it->second.RoleId.empty() && it->second.RoleId == resolvedRole->second))
+                {
+                    resolvedContexts.push_back({ it->first, resolvedRole->second });
+                    it = state.PendingRoleSelections.erase(it);
+                    continue;
+                }
+
+                ++it;
+            }
+        }
+
+        for (const auto& [playerController, resolvedRoleId] : resolvedContexts)
+        {
+            ClientLog("[LOADOUT] Cleared pending spawn role context after live role resolved: " +
+                playerController->GetFullName() + " -> " + resolvedRoleId);
+        }
+    }
+
+    // @brief 获取服务端当前玩家角色集合（去重）
     std::vector<APBCharacter*> GetServerPlayerCharacters()
     {
         std::vector<APBCharacter*> characters;
@@ -357,6 +505,7 @@ namespace LoadoutManagerDetail
         return characters;
     }
 
+    // @brief 判断本地存档/归档是否已完成加载
     bool HasArchiveLoaded()
     {
         APBPlayerController* playerController = GetLocalPlayerController();
@@ -368,6 +517,7 @@ namespace LoadoutManagerDetail
         return LoginCompleted && GetFieldModManager() != nullptr;
     }
 
+    // @brief 判断是否启用不安全菜单应用开关（调试用途）
     bool IsUnsafeMenuApplyEnabled()
     {
         static const bool enabled = []() -> bool
@@ -391,6 +541,7 @@ namespace LoadoutManagerDetail
         return enabled;
     }
 
+    // @brief 判断菜单展示角色是否已就绪
     bool HasDisplayCharactersReady()
     {
         for (UObject* object : getObjectsOfClass(APBDisplayCharacter::StaticClass(), false))
@@ -405,6 +556,7 @@ namespace LoadoutManagerDetail
         return false;
     }
 
+    // @brief 判断菜单侧应用快照的前置条件是否满足
     bool IsMenuApplyReady()
     {
         UPBFieldModManager* fieldModManager = GetFieldModManager();
@@ -420,6 +572,10 @@ namespace LoadoutManagerDetail
 
         return HasDisplayCharactersReady();
     }
+
+    // =====================================================================
+    //  JSON 序列化 — 网络配置 ↔ JSON 互转
+    // =====================================================================
 
     json EmptyInventoryJson()
     {
@@ -988,6 +1144,11 @@ namespace LoadoutManagerDetail
         return "";
     }
 
+    // =====================================================================
+    //  快照捕获与导出 — 菜单侧采集 / 磁盘写入 / 延迟加载
+    // =====================================================================
+
+    // @brief 从菜单当前状态捕获完整装备快照
     json CaptureSnapshotFromMenu()
     {
         UPBFieldModManager* fieldModManager = GetFieldModManager();
@@ -1117,6 +1278,7 @@ namespace LoadoutManagerDetail
         };
     }
 
+    // @brief 立即导出快照到磁盘并更新内存态
     bool ExportSnapshotNow(const std::string& reason)
     {
         json snapshot = CaptureSnapshotFromMenu();
@@ -1149,6 +1311,7 @@ namespace LoadoutManagerDetail
         return true;
     }
 
+    // @brief 确保快照已从启动器或本地导出文件加载
     void EnsureSnapshotLoaded()
     {
         State& state = GetState();
@@ -1202,6 +1365,7 @@ namespace LoadoutManagerDetail
         ClientLog("[LOADOUT] Loaded snapshot from " + source);
     }
 
+    // @brief 启动阶段调用的快照预加载入口
     void PreloadSnapshot()
     {
         EnsureSnapshotLoaded();
@@ -1236,6 +1400,7 @@ namespace LoadoutManagerDetail
         return inventories;
     }
 
+    // @brief 将快照中的背包/武器配置应用到 FieldModManager
     bool ApplySnapshotToFieldModManager(const json& snapshot)
     {
         UPBFieldModManager* fieldModManager = GetFieldModManager();
@@ -1299,6 +1464,10 @@ namespace LoadoutManagerDetail
         return true;
     }
 
+    // =====================================================================
+    //  快照应用 — FieldModManager / 实时角色 / 武器配置解析
+    // =====================================================================
+
     bool HasLauncherConfig(const FPBLauncherNetworkConfig& config)
     {
         return !IsBlankName(config.ID) || !IsBlankName(config.SkinID);
@@ -1314,6 +1483,7 @@ namespace LoadoutManagerDetail
         return !IsBlankName(config.MobilityModuleID);
     }
 
+    // @brief 从快照中解析角色配置（支持 roleId / selectedRole / 首项回退）
     bool TryResolveRoleConfig(const json& snapshot, const std::string& roleId, FPBRoleNetworkConfig& outConfig)
     {
         json roleJson;
@@ -1369,6 +1539,10 @@ namespace LoadoutManagerDetail
         InventoryFromJson(roleJson.value("inventory", EmptyInventoryJson()), outConfig.InventoryData);
         return true;
     }
+
+    // =====================================================================
+    //  配置比较 — 各网络配置类型的判等
+    // =====================================================================
 
     bool WeaponPartConfigEquals(const FPBWeaponPartNetworkConfig& left, const FPBWeaponPartNetworkConfig& right)
     {
@@ -1454,6 +1628,10 @@ namespace LoadoutManagerDetail
     {
         return NameToString(left.MobilityModuleID) == NameToString(right.MobilityModuleID);
     }
+
+    // =====================================================================
+    //  运行时辅助 — 角色 ID 解析 / 武器列表 / 描述 / 签名
+    // =====================================================================
 
     void MarkActorForReplication(AActor* actor)
     {
@@ -1655,6 +1833,10 @@ namespace LoadoutManagerDetail
 
         return candidates;
     }
+
+    // =====================================================================
+    //  武器定义覆盖 — 数据表查找 / PartSlot 读写 / 作用域上下文
+    // =====================================================================
 
     template<typename TObjectType>
     TObjectType* LoadSoftObjectPtrBlocking(const TSoftObjectPtr<TObjectType>& softPtr)
@@ -2657,6 +2839,10 @@ namespace LoadoutManagerDetail
         }
     }
 
+    // =====================================================================
+    //  武器定义覆盖 — 作用域 Begin/End / ProcessEvent Hook 驱动
+    // =====================================================================
+
     bool BeginScopedWeaponDefinitionOverride(const FPBWeaponNetworkConfig& targetConfig, const std::string& source)
     {
         WeaponDefinitionOverrideContext context{};
@@ -2693,6 +2879,7 @@ namespace LoadoutManagerDetail
         RestoreWeaponDefinitionOverrideContext(context);
     }
 
+    // @brief 在 ProcessEvent 前按函数类型开启作用域武器定义覆盖
     bool BeginProcessEventWeaponDefinitionOverride(UObject* object, const std::string& functionName, void* parms)
     {
         if (!object)
@@ -2858,6 +3045,7 @@ namespace LoadoutManagerDetail
         return BeginScopedWeaponDefinitionOverride(targetConfig, source);
     }
 
+    // @brief 结束并恢复 ProcessEvent 作用域武器定义覆盖
     void EndProcessEventWeaponDefinitionOverride()
     {
         EndScopedWeaponDefinitionOverride();
@@ -3252,7 +3440,7 @@ namespace LoadoutManagerDetail
 
     bool TryResolveSnapshotWeaponConfigByRoleAndWeaponId(const json& snapshot, const std::string& roleId, const std::string& weaponId, FPBWeaponNetworkConfig& outConfig)
     {
-        if (roleId.empty() || weaponId.empty() || !IsRoleAllowedBySnapshotSelection(snapshot, roleId))
+        if (roleId.empty() || weaponId.empty())
         {
             return false;
         }
@@ -3266,14 +3454,110 @@ namespace LoadoutManagerDetail
         return TryGetRoleWeaponConfigByWeaponId(roleConfig, weaponId, outConfig);
     }
 
+    bool TryResolveSnapshotWeaponConfigFromPendingRoleSelections(
+        const json& snapshot,
+        APBWeapon* weapon,
+        const FPBWeaponNetworkConfig& incoming,
+        std::string& outRoleId,
+        FPBWeaponNetworkConfig& outConfig)
+    {
+        outRoleId.clear();
+
+        std::vector<std::string> roleCandidates;
+        auto pushUniqueRole = [&](const std::string& roleId)
+        {
+            const std::string normalizedRoleId = NormalizeRoleId(roleId);
+            if (normalizedRoleId.empty())
+            {
+                return;
+            }
+
+            if (std::find(roleCandidates.begin(), roleCandidates.end(), normalizedRoleId) == roleCandidates.end())
+            {
+                roleCandidates.push_back(normalizedRoleId);
+            }
+        };
+
+        APBCharacter* ownerCharacter = nullptr;
+        if (weapon)
+        {
+            try
+            {
+                ownerCharacter = weapon->GetPawnOwner();
+            }
+            catch (...)
+            {
+                ownerCharacter = nullptr;
+            }
+        }
+
+        if (APBPlayerController* ownerController = FindPlayerControllerForCharacter(ownerCharacter))
+        {
+            pushUniqueRole(GetPendingRoleIdForController(ownerController));
+        }
+
+        if (!amServer)
+        {
+            pushUniqueRole(GetPendingRoleIdForController(GetLocalPlayerController()));
+        }
+
+        {
+            State& state = GetState();
+            std::scoped_lock lock(state.Mutex);
+            for (const auto& [_, context] : state.PendingRoleSelections)
+            {
+                pushUniqueRole(context.RoleId);
+            }
+        }
+
+        int bestScore = 0;
+        bool found = false;
+        std::string bestRoleId;
+        FPBWeaponNetworkConfig bestConfig{};
+
+        for (const std::string& roleId : roleCandidates)
+        {
+            FPBRoleNetworkConfig roleConfig{};
+            if (!TryResolveRoleConfig(snapshot, roleId, roleConfig))
+            {
+                continue;
+            }
+
+            FPBWeaponNetworkConfig candidateConfig{};
+            if (!TryGetRoleWeaponConfigForInit(roleConfig, incoming, weapon, candidateConfig))
+            {
+                continue;
+            }
+
+            const int score = ScoreWeaponSnapshotMatch(candidateConfig, incoming, weapon);
+            if (score <= bestScore)
+            {
+                continue;
+            }
+
+            bestScore = score;
+            bestRoleId = roleId;
+            bestConfig = candidateConfig;
+            found = true;
+        }
+
+        if (!found)
+        {
+            return false;
+        }
+
+        outRoleId = bestRoleId;
+        outConfig = bestConfig;
+        return true;
+    }
+
     bool TryResolveSnapshotWeaponConfigForInit(const json& snapshot, APBWeapon* weapon, const FPBWeaponNetworkConfig& incoming, std::string& outRoleId, FPBWeaponNetworkConfig& outConfig)
     {
         outRoleId.clear();
-        const std::string selectedRoleId = GetSnapshotSelectedRoleId(snapshot);
 
         auto tryRole = [&](const std::string& roleId) -> bool
         {
-            if (roleId.empty() || !IsRoleAllowedBySnapshotSelection(snapshot, roleId))
+            if (roleId.empty())
             {
                 return false;
             }
@@ -3315,6 +3599,11 @@ namespace LoadoutManagerDetail
             }
         }
 
+        if (TryResolveSnapshotWeaponConfigFromPendingRoleSelections(snapshot, weapon, incoming, outRoleId, outConfig))
+        {
+            return true;
+        }
+
         if (tryRole(ResolveCharacterRoleId(ownerCharacter)))
         {
             return true;
@@ -3325,39 +3614,6 @@ namespace LoadoutManagerDetail
             if (tryRole(GetLocalPlayerPreferredRoleId()))
             {
                 return true;
-            }
-        }
-
-        // Avoid fighting the menu preview path. Selected-role fallback is only safe once
-        // we are in a spawned match context or running on the authoritative server.
-        if (!amServer && !GetLocalCharacter())
-        {
-            return false;
-        }
-
-        if (tryRole(selectedRoleId))
-        {
-            return true;
-        }
-
-        if (!amServer)
-        {
-            return false;
-        }
-
-        if (selectedRoleId.empty() && snapshot.contains("roles") && snapshot["roles"].is_array())
-        {
-            for (const auto& role : snapshot["roles"])
-            {
-                if (!role.is_object())
-                {
-                    continue;
-                }
-
-                if (tryRole(role.value("roleId", "")))
-                {
-                    return true;
-                }
             }
         }
 
@@ -3392,6 +3648,11 @@ namespace LoadoutManagerDetail
         return state.WeaponQueryOverrideLogs.insert(signature).second;
     }
 
+    // =====================================================================
+    //  实时武器应用 — InitWeapon 覆盖 / ProcessEvent 结果覆盖
+    // =====================================================================
+
+    // @brief 按快照覆写 PBWeapon.InitWeapon 输入配置
     void MaybeOverrideInitWeaponConfig(UObject* object, const std::string& functionName, void* parms)
     {
         if (!object || !parms || !object->IsA(APBWeapon::StaticClass()) || !functionName.contains("PBWeapon.InitWeapon"))
@@ -3443,6 +3704,7 @@ namespace LoadoutManagerDetail
         }
     }
 
+    // @brief 按快照覆写武器查询/生成相关 ProcessEvent 返回值
     void MaybeOverrideProcessEventResult(UObject* object, const std::string& functionName, void* parms)
     {
         if (!object || !parms)
@@ -3536,35 +3798,18 @@ namespace LoadoutManagerDetail
             return;
         }
 
-        const FPBWeaponNetworkConfig previousConfig = spawnedWeapon->GetPBWeaponPartSaveConfig();
-        const bool definitionOverrideActive = BeginScopedWeaponDefinitionOverride(targetConfig, "spawned-reinit");
-
-        spawnedWeapon->PartNetworkConfig = targetConfig;
-        spawnedWeapon->InitWeapon(targetConfig, false);
-        spawnedWeapon->PartNetworkConfig = targetConfig;
-        spawnedWeapon->OnRep_PartNetworkConfig();
-        spawnedWeapon->PartNetworkConfig = targetConfig;
-        spawnedWeapon->InitWeapon(targetConfig, true);
-        spawnedWeapon->PartNetworkConfig = targetConfig;
-        std::string nativeMutationSummary;
-        ApplyNativeWeaponPartState(spawnedWeapon, targetConfig, previousConfig, &nativeMutationSummary);
-        RefreshWeaponRuntimeVisualsOnce(spawnedWeapon, targetConfig);
-
         if (ShouldLogWeaponQueryOverride("fieldmod-spawn", roleId, weaponId, targetConfig))
         {
+            const FPBWeaponNetworkConfig liveConfig = spawnedWeapon->PartNetworkConfig;
             const FPBWeaponNetworkConfig nativeSaveConfig = spawnedWeapon->GetPBWeaponPartSaveConfig();
-            ClientLog("[LOADOUT] Reinitialized spawned weapon from snapshot for role " + roleId +
-                ", weapon " + weaponId + ": previousParts=[" + DescribeWeaponParts(previousConfig) +
+            ClientLog("[LOADOUT] SpawnWeapon completed under pre-spawn override for role " + roleId +
+                ", weapon " + weaponId + ": liveParts=[" + DescribeWeaponParts(liveConfig) +
                 "] targetParts=[" + DescribeWeaponParts(targetConfig) +
                 "] nativeSaveParts=[" + DescribeWeaponParts(nativeSaveConfig) +
                 "] slotMap=[" + DescribeWeaponSlotMap(spawnedWeapon) +
                 "] attachedParts=[" + DescribeAttachedWeaponParts(spawnedWeapon) +
-                "] nativeMutations=[" + nativeMutationSummary + "]");
-        }
-
-        if (definitionOverrideActive)
-        {
-            EndScopedWeaponDefinitionOverride();
+                "] liveMatchesTarget=" + (WeaponConfigEquals(liveConfig, targetConfig) ? "true" : "false") +
+                "] nativeMatchesTarget=" + (WeaponConfigEquals(nativeSaveConfig, targetConfig) ? "true" : "false") + "]");
         }
     }
 
@@ -3740,6 +3985,22 @@ namespace LoadoutManagerDetail
         return nullptr;
     }
 
+    APBWeapon* GetWeaponByPreferredIndex(APBCharacter* character, int preferredWeaponIndex)
+    {
+        if (!character || preferredWeaponIndex < 0)
+        {
+            return nullptr;
+        }
+
+        const std::vector<APBWeapon*> weapons = GetCharacterWeaponList(character);
+        if (preferredWeaponIndex >= static_cast<int>(weapons.size()))
+        {
+            return nullptr;
+        }
+
+        return weapons[preferredWeaponIndex];
+    }
+
     void RefreshWeaponRuntimeVisuals(APBWeapon* weapon)
     {
         if (!weapon)
@@ -3786,7 +4047,37 @@ namespace LoadoutManagerDetail
         return true;
     }
 
-    bool ApplyWeaponConfig(APBCharacter* character, const FPBWeaponNetworkConfig& config, int preferredWeaponIndex, bool& outChanged)
+    bool ShouldLogLiveWeaponMismatch(
+        APBWeapon* weapon,
+        const std::string& label,
+        const FPBWeaponNetworkConfig& expectedConfig,
+        const FPBWeaponNetworkConfig& liveConfig,
+        const FPBWeaponNetworkConfig& nativeSaveConfig,
+        bool matchedByIdentity)
+    {
+        if (!weapon)
+        {
+            return true;
+        }
+
+        std::ostringstream key;
+        key << reinterpret_cast<std::uintptr_t>(weapon)
+            << "|" << label
+            << "|" << BuildWeaponConfigSignature(expectedConfig)
+            << "|" << BuildWeaponConfigSignature(liveConfig)
+            << "|" << BuildWeaponConfigSignature(nativeSaveConfig)
+            << "|" << (matchedByIdentity ? "identity" : "slot");
+
+        State& state = GetState();
+        std::scoped_lock lock(state.Mutex);
+        return state.WeaponLiveMismatchLogs.insert(key.str()).second;
+    }
+
+    // =====================================================================
+    //  实时角色应用 — 快照 → 活跃角色/武器/配件/机动模块
+    // =====================================================================
+
+    bool InspectLiveWeaponConfig(APBCharacter* character, const FPBWeaponNetworkConfig& config, int preferredWeaponIndex, const char* label)
     {
         if (!HasWeaponConfig(config))
         {
@@ -3794,48 +4085,41 @@ namespace LoadoutManagerDetail
         }
 
         APBWeapon* targetWeapon = FindWeaponForConfig(character, config, preferredWeaponIndex);
+        const bool matchedByIdentity = targetWeapon != nullptr;
+        if (!targetWeapon)
+        {
+            targetWeapon = GetWeaponByPreferredIndex(character, preferredWeaponIndex);
+        }
+
         if (!targetWeapon)
         {
             return false;
         }
 
+        const FPBWeaponNetworkConfig liveConfig = targetWeapon->PartNetworkConfig;
         const FPBWeaponNetworkConfig liveSaveConfig = targetWeapon->GetPBWeaponPartSaveConfig();
         const bool slotMapMatchesConfig = DoesWeaponSlotMapMatchConfig(targetWeapon, config);
-        if (WeaponConfigEquals(targetWeapon->PartNetworkConfig, config) &&
+        if (WeaponConfigEquals(liveConfig, config) &&
             (WeaponConfigEquals(liveSaveConfig, config) || slotMapMatchesConfig))
         {
             RefreshWeaponRuntimeVisualsOnce(targetWeapon, config);
             return true;
         }
 
-        const FPBWeaponNetworkConfig previousConfig = targetWeapon->PartNetworkConfig;
-        const bool definitionOverrideActive = BeginScopedWeaponDefinitionOverride(config, "live-apply");
-
-        targetWeapon->PartNetworkConfig = config;
-        targetWeapon->InitWeapon(config, false);
-        targetWeapon->PartNetworkConfig = config;
-        targetWeapon->OnRep_PartNetworkConfig();
-        targetWeapon->PartNetworkConfig = config;
-        targetWeapon->InitWeapon(config, true);
-        targetWeapon->PartNetworkConfig = config;
-        std::string nativeMutationSummary;
-        ApplyNativeWeaponPartState(targetWeapon, config, liveSaveConfig, &nativeMutationSummary);
-        RefreshWeaponRuntimeVisualsOnce(targetWeapon, config);
-        const FPBWeaponNetworkConfig nativeSaveConfig = targetWeapon->GetPBWeaponPartSaveConfig();
-        outChanged = true;
-        ClientLog("[LOADOUT] Applied weapon config: previous={" + DescribeWeaponConfig(previousConfig) +
-            "} previousParts=[" + DescribeWeaponParts(previousConfig) +
-            "] target={" + DescribeWeaponConfig(config) + "} targetParts=[" + DescribeWeaponParts(config) +
-            "] nativeSaveParts=[" + DescribeWeaponParts(nativeSaveConfig) +
-            "] slotMap=[" + DescribeWeaponSlotMap(targetWeapon) +
-            "] attachedParts=[" + DescribeAttachedWeaponParts(targetWeapon) +
-            "] nativeMutations=[" + nativeMutationSummary + "]");
-
-        if (definitionOverrideActive)
+        if (ShouldLogLiveWeaponMismatch(targetWeapon, label, config, liveConfig, liveSaveConfig, matchedByIdentity))
         {
-            EndScopedWeaponDefinitionOverride();
+            ClientLog("[LOADOUT] Live weapon mismatch remains on spawned actor (" + std::string(label) +
+                "): expected={" + DescribeWeaponConfig(config) +
+                "} expectedParts=[" + DescribeWeaponParts(config) +
+                "] live={" + DescribeWeaponConfig(liveConfig) +
+                "} liveParts=[" + DescribeWeaponParts(liveConfig) +
+                "] nativeSaveParts=[" + DescribeWeaponParts(liveSaveConfig) +
+                "] slotMap=[" + DescribeWeaponSlotMap(targetWeapon) +
+                "] attachedParts=[" + DescribeAttachedWeaponParts(targetWeapon) +
+                "] matchedByIdentity=" + (matchedByIdentity ? "true" : "false") + "]");
         }
-        return true;
+
+        return false;
     }
 
     bool ApplyLauncherConfig(APBLauncher* launcher, const FPBLauncherNetworkConfig& config, bool& outChanged)
@@ -3940,12 +4224,12 @@ namespace LoadoutManagerDetail
             return "character";
         }
 
-        if (HasWeaponConfig(roleConfig.FirstWeaponPartData) && !FindWeaponForConfig(character, roleConfig.FirstWeaponPartData, 0))
+        if (HasWeaponConfig(roleConfig.FirstWeaponPartData) && !GetWeaponByPreferredIndex(character, 0))
         {
             missing.push_back("firstWeapon");
         }
 
-        if (HasWeaponConfig(roleConfig.SecondWeaponPartData) && !FindWeaponForConfig(character, roleConfig.SecondWeaponPartData, 1))
+        if (HasWeaponConfig(roleConfig.SecondWeaponPartData) && !GetWeaponByPreferredIndex(character, 1))
         {
             missing.push_back("secondWeapon");
         }
@@ -4009,24 +4293,18 @@ namespace LoadoutManagerDetail
             return false;
         }
 
-        const bool wantsFirstWeapon = HasWeaponConfig(roleConfig.FirstWeaponPartData);
-        const bool wantsSecondWeapon = HasWeaponConfig(roleConfig.SecondWeaponPartData);
-        if (!wantsFirstWeapon && !wantsSecondWeapon)
+        int requiredWeaponCount = 0;
+        if (HasWeaponConfig(roleConfig.FirstWeaponPartData))
         {
-            return true;
+            requiredWeaponCount++;
         }
 
-        if (wantsFirstWeapon && FindWeaponForConfig(character, roleConfig.FirstWeaponPartData, 0))
+        if (HasWeaponConfig(roleConfig.SecondWeaponPartData))
         {
-            return true;
+            requiredWeaponCount++;
         }
 
-        if (wantsSecondWeapon && FindWeaponForConfig(character, roleConfig.SecondWeaponPartData, 1))
-        {
-            return true;
-        }
-
-        return false;
+        return static_cast<int>(GetCharacterWeaponList(character).size()) >= requiredWeaponCount;
     }
 
     std::string BuildLiveApplyDebugSummary(APBCharacter* character, const json& snapshot)
@@ -4053,6 +4331,7 @@ namespace LoadoutManagerDetail
         return stream.str();
     }
 
+    // @brief 将快照应用到已出生的实时角色对象
     bool ApplySnapshotToLiveCharacter(APBCharacter* character, const json& snapshot)
     {
         if (!character)
@@ -4069,12 +4348,14 @@ namespace LoadoutManagerDetail
 
         if (!IsLiveCharacterReadyForConfig(character, roleConfig))
         {
-            ClientLog("[LOADOUT] Live snapshot waiting for weapon target. " + BuildLiveApplyDebugSummary(character, snapshot));
+            ClientLog("[LOADOUT] Live snapshot waiting for spawned weapon actors. " + BuildLiveApplyDebugSummary(character, snapshot));
             return false;
         }
 
         bool changed = false;
         bool ready = true;
+        const bool firstWeaponMatches = InspectLiveWeaponConfig(character, roleConfig.FirstWeaponPartData, 0, "firstWeapon");
+        const bool secondWeaponMatches = InspectLiveWeaponConfig(character, roleConfig.SecondWeaponPartData, 1, "secondWeapon");
 
         if (!CharacterConfigEquals(character->CharacterSkinConfig, roleConfig.CharacterData))
         {
@@ -4088,18 +4369,22 @@ namespace LoadoutManagerDetail
             changed = true;
         }
 
-        ready = ApplyWeaponConfig(character, roleConfig.FirstWeaponPartData, 0, changed) && ready;
-        ready = ApplyWeaponConfig(character, roleConfig.SecondWeaponPartData, 1, changed) && ready;
         ready = ApplyMeleeConfig(character->CurrentMeleeWeapon, roleConfig.MeleeWeaponData, changed) && ready;
 
         const bool leftLauncherReady = ApplyLauncherConfig(character->CurrentLeftLauncher, roleConfig.LeftLauncherData, changed);
         const bool rightLauncherReady = ApplyLauncherConfig(character->CurrentRightLauncher, roleConfig.RightLauncherData, changed);
         const bool mobilityReady = ApplyMobilityConfig(character, roleConfig.MobilityModuleData, changed);
         const std::string optionalMissing = GetMissingOptionalLiveTargets(character, roleConfig);
+        const bool weaponMismatchRemains = !firstWeaponMatches || !secondWeaponMatches;
 
         if (ready)
         {
-            if (!optionalMissing.empty() && (!leftLauncherReady || !rightLauncherReady || !mobilityReady))
+            if (weaponMismatchRemains)
+            {
+                ClientLog("[LOADOUT] Applied live snapshot non-weapon fields to role " + NameToString(roleConfig.CharacterID) +
+                    "; weapon mismatch remains on spawned actors.");
+            }
+            else if (!optionalMissing.empty() && (!leftLauncherReady || !rightLauncherReady || !mobilityReady))
             {
                 ClientLog("[LOADOUT] Applied live snapshot core fields to role " + NameToString(roleConfig.CharacterID) +
                     "; optional targets pending " + optionalMissing);
@@ -4118,6 +4403,7 @@ namespace LoadoutManagerDetail
         return ready;
     }
 
+    // @brief 判断当前回合状态是否允许执行实时快照应用
     bool IsRuntimeRoundReadyForLiveApply(APBCharacter* character)
     {
         if (!character || character->Inventory.Num() <= 0)
@@ -4150,6 +4436,11 @@ namespace LoadoutManagerDetail
         return false;
     }
 
+    // =====================================================================
+    //  服务端 Tick — 权威快照应用驱动
+    // =====================================================================
+
+    // @brief 服务端周期驱动：尝试对所有玩家角色执行权威快照应用
     void ServerTick()
     {
         if (!amServer)
@@ -4169,6 +4460,7 @@ namespace LoadoutManagerDetail
             state.NextServerTickAt = now + std::chrono::seconds(1);
         }
 
+        PrunePendingRoleSelections();
         EnsureSnapshotLoaded();
 
         json snapshotCopy;
@@ -4225,6 +4517,11 @@ namespace LoadoutManagerDetail
         }
     }
 
+    // =====================================================================
+    //  客户端 Worker Tick — 异步导出 / 菜单应用 / 实时应用驱动
+    // =====================================================================
+
+    // @brief 通知菜单构建完成，启动初始捕获/应用窗口
     void NotifyMenuConstructed()
     {
         State& state = GetState();
@@ -4234,6 +4531,7 @@ namespace LoadoutManagerDetail
         state.InitialMenuCaptureComplete = false;
     }
 
+    // @brief 调度一次延迟异步快照导出
     void TriggerAsyncExport(const std::string& reason, int delayMs)
     {
         State& state = GetState();
@@ -4244,6 +4542,7 @@ namespace LoadoutManagerDetail
         state.NextWorkerTickAt = {};
     }
 
+    // @brief 客户端周期驱动：菜单应用、实时应用与导出调度
     void WorkerTick()
     {
         const auto now = std::chrono::steady_clock::now();
@@ -4265,6 +4564,7 @@ namespace LoadoutManagerDetail
             state.NextWorkerTickAt = now + std::chrono::milliseconds(250);
         }
 
+        PrunePendingRoleSelections();
         EnsureSnapshotLoaded();
 
         json snapshotCopy;
@@ -4389,7 +4689,7 @@ namespace LoadoutManagerDetail
 }
 
 // =====================================================================
-//  Construction / lifetime
+//  构造 / 生命周期
 // =====================================================================
 
 LoadoutManager::LoadoutManager()
@@ -4402,37 +4702,61 @@ LoadoutManager::LoadoutManager(LoadoutManager&&) noexcept = default;
 LoadoutManager& LoadoutManager::operator=(LoadoutManager&&) noexcept = default;
 
 // =====================================================================
-//  Public facade - startup/menu signals
+//  公有接口 — 启动 / 菜单信号
 // =====================================================================
 
+// @brief 从磁盘预加载持久化的装备快照
 void LoadoutManager::PreloadSnapshot()
 {
     LoadoutManagerDetail::PreloadSnapshot();
 }
 
+// @brief 通知管理器主菜单已构建完成
 void LoadoutManager::NotifyMenuConstructed()
 {
     LoadoutManagerDetail::NotifyMenuConstructed();
 }
 
+// @brief 记住菜单中最后显式选择的角色
 void LoadoutManager::RememberMenuSelectedRole(const FName& roleId)
 {
     LoadoutManagerDetail::RememberMenuSelectedRole(roleId);
 }
 
+// @brief 从已确认的运行时角色选择中设置待处理的出生角色上下文
+void LoadoutManager::OnRoleSelectionConfirmed(APBPlayerController* playerController, const FName& roleId, bool isAuthoritative)
+{
+    if (!playerController || LoadoutManagerDetail::IsBlankName(roleId))
+    {
+        return;
+    }
+
+    LoadoutManagerDetail::RememberPendingRoleSelection(
+        playerController,
+        LoadoutManagerDetail::NameToString(roleId),
+        isAuthoritative);
+}
+
 // =====================================================================
-//  Public facade - ProcessEvent hook bridge
+//  公有接口 — ProcessEvent Hook 桥接
 // =====================================================================
 
+// @brief 客户端 ProcessEvent pre-hook 入口。
+//  1. 覆盖 InitWeapon 参数中的武器配置
+//  2. 开启作用域武器定义覆盖，使原始 ProcessEvent 看到临时修改
 void LoadoutManager::OnClientProcessEventPre(UObject* object, const std::string& functionName, void* parms)
 {
     LoadoutManagerDetail::MaybeOverrideInitWeaponConfig(object, functionName, parms);
 
-    // Keep the scoped definition override on the "pre" side so the original
-    // ProcessEvent sees the temporary weapon-definition mutations in place.
+    // 在 "pre" 侧保持作用域定义覆盖，使原始 ProcessEvent 执行时
+    // 能看到临时的武器定义修改
     LoadoutManagerDetail::BeginProcessEventWeaponDefinitionOverride(object, functionName, parms);
 }
 
+// @brief 客户端 ProcessEvent post-hook 入口。
+//  1. 覆盖 GetWeaponNetworkConfig/SpawnWeapon 的返回值
+//  2. 恢复作用域武器定义覆盖
+//  3. 根据事件类型调度异步快照导出
 void LoadoutManager::OnClientProcessEventPost(UObject* object, const std::string& functionName, void* parms)
 {
     LoadoutManagerDetail::MaybeOverrideProcessEventResult(object, functionName, parms);
@@ -4466,15 +4790,17 @@ void LoadoutManager::OnClientProcessEventPost(UObject* object, const std::string
     }
 }
 
+// @brief 服务端 ProcessEvent pre-hook 入口。与客户端路径对称。
 void LoadoutManager::OnServerProcessEventPre(UObject* object, const std::string& functionName, void* parms)
 {
     LoadoutManagerDetail::MaybeOverrideInitWeaponConfig(object, functionName, parms);
 
-    // Hook callers must invoke the paired Post method after the original
-    // ProcessEvent so the temporary definition override is restored promptly.
+    // Hook 调用方必须在原始 ProcessEvent 之后调用配对的 Post 方法，
+    // 以便及时恢复临时的武器定义覆盖
     LoadoutManagerDetail::BeginProcessEventWeaponDefinitionOverride(object, functionName, parms);
 }
 
+// @brief 服务端 ProcessEvent post-hook 入口。恢复作用域覆盖。
 void LoadoutManager::OnServerProcessEventPost(UObject* object, const std::string& functionName, void* parms)
 {
     LoadoutManagerDetail::MaybeOverrideProcessEventResult(object, functionName, parms);
@@ -4482,14 +4808,16 @@ void LoadoutManager::OnServerProcessEventPost(UObject* object, const std::string
 }
 
 // =====================================================================
-//  Public facade - worker/tick bridge
+//  公有接口 — Worker/Tick 桥接
 // =====================================================================
 
+// @brief 推进客户端侧异步导出/应用工作
 void LoadoutManager::TickClient()
 {
     LoadoutManagerDetail::WorkerTick();
 }
 
+// @brief 推进服务端侧权威应用工作
 void LoadoutManager::TickServer()
 {
     LoadoutManagerDetail::ServerTick();

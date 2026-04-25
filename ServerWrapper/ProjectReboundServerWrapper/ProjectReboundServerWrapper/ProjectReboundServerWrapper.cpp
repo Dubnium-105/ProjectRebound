@@ -814,6 +814,8 @@ void StartExitWatcher(HANDLE processHandle, uint64_t generation)
 {
     std::thread([processHandle, generation]() {
         WaitForSingleObject(processHandle, INFINITE);
+        DWORD exitCode = 0;
+        const bool haveExitCode = GetExitCodeProcess(processHandle, &exitCode) != FALSE;
         CloseHandle(processHandle);
 
         if (g_WrapperShuttingDown.load())
@@ -825,7 +827,8 @@ void StartExitWatcher(HANDLE processHandle, uint64_t generation)
         if (g_ServerState.load() != ServerState::Running)
             return;
 
-        LauncherLog("Server exited unexpectedly.");
+        LauncherLog("Server exited unexpectedly." +
+            std::string(haveExitCode ? " exitCode=" + std::to_string(exitCode) : " exitCode=<unavailable>"));
         RequestRestart(true, "process exit");
         }).detach();
 }

@@ -51,6 +51,7 @@ std::string CurrentTimestamp()
 
 std::string LogFilePath;
 std::mutex LogMutex;
+HMODULE gPayloadModule = nullptr;
 
 // Initializes the logging system and output to wrapper
 void Log(const std::string& msg)
@@ -811,6 +812,12 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
         APBPlayerController* PBPlayerController = Object && Object->IsA(APBPlayerController::StaticClass())
             ? (APBPlayerController*)Object
             : nullptr;
+        auto* ConfirmParms = static_cast<Params::PBPlayerController_ServerConfirmRoleSelection*>(Parms);
+
+        if (gLoadoutManager && PBPlayerController && ConfirmParms)
+        {
+            gLoadoutManager->OnRoleSelectionConfirmed(PBPlayerController, ConfirmParms->InRoleID, true);
+        }
 
         if (gLateJoinManager && gLateJoinManager->IsLateJoinPlayer(PBPlayerController)) {
             // Execute original function first
@@ -952,6 +959,18 @@ void ProcessEventHookClient(UObject* Object, UFunction* Function, void* Parms) {
         {
             if (gLoadoutManager)
                 gLoadoutManager->RememberMenuSelectedRole(refreshParms->InCharacterID);
+        }
+    }
+
+    if (functionName.contains("ServerConfirmRoleSelection"))
+    {
+        APBPlayerController* PBPlayerController = Object && Object->IsA(APBPlayerController::StaticClass())
+            ? static_cast<APBPlayerController*>(Object)
+            : nullptr;
+        auto* confirmParms = static_cast<Params::PBPlayerController_ServerConfirmRoleSelection*>(Parms);
+        if (gLoadoutManager && PBPlayerController && confirmParms)
+        {
+            gLoadoutManager->OnRoleSelectionConfirmed(PBPlayerController, confirmParms->InRoleID, false);
         }
     }
 
@@ -1433,7 +1452,16 @@ void AutoConnectToMatchFromCmdline()
 
 void MainThread()
 {
-    ClientLog("[BOOT] DLL injected, starting...");
+    char modulePath[MAX_PATH]{};
+    const DWORD modulePathLength =
+        gPayloadModule ? GetModuleFileNameA(gPayloadModule, modulePath, MAX_PATH) : 0;
+    std::ostringstream bootBanner;
+    bootBanner << "[BOOT] DLL injected, starting... build=" << __DATE__ << " " << __TIME__;
+    if (modulePathLength > 0)
+    {
+        bootBanner << " module=" << modulePath;
+    }
+    ClientLog(bootBanner.str());
     try
     {
         //Calms down the ui font missing panic
@@ -1593,6 +1621,7 @@ BOOL APIENTRY DllMain(HMODULE hModule,
 )
 {
     if (ul_reason_for_call == DLL_PROCESS_ATTACH) {
+        gPayloadModule = hModule;
         std::thread t(MainThread);
 
         t.detach();
