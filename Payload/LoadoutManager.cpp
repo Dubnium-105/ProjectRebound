@@ -93,13 +93,19 @@ namespace LoadoutManagerDetail
         bool InitialMenuCaptureComplete = false;
         bool InGameThreadTick = false;
         bool ExportScheduled = false;
+        bool PendingPreSpawnFieldModApply = false;
         int LiveApplyAttempts = 0;
         std::chrono::steady_clock::time_point MenuSeenAt{};
         std::chrono::steady_clock::time_point NextWorkerTickAt{};
         std::chrono::steady_clock::time_point ExportDueAt{};
         std::chrono::steady_clock::time_point NextLiveApplyAt{};
         std::chrono::steady_clock::time_point NextServerTickAt{};
+        std::chrono::steady_clock::time_point NextPreSpawnFieldModApplyAt{};
+        std::chrono::steady_clock::time_point LastPreSpawnFieldModApplyAt{};
         std::string PendingExportReason;
+        std::string PendingPreSpawnFieldModApplyReason;
+        std::string LastPreSpawnFieldModApplyFailure;
+        APBPlayerController* PendingPreSpawnFieldModApplyController = nullptr;
         APBCharacter* LastObservedCharacter = nullptr;
         std::unordered_map<APBCharacter*, int> ServerLiveApplyAttempts;
         std::unordered_set<APBCharacter*> ServerLiveApplyComplete;
@@ -132,7 +138,20 @@ namespace LoadoutManagerDetail
 
     std::string NameToString(const FName& value)
     {
-        return value.ToString();
+        if (value.ComparisonIndex <= 0)
+        {
+            return "None";
+        }
+
+        // 只过滤明显损坏的 FName。运行时合法名字的索引可能远高于 60000，
+        // 之前的阈值会把快照里解析出的角色/武器/皮肤名全部误判成 None。
+        if (value.ComparisonIndex > 10000000 || value.Number < 0 || value.Number > 1000000)
+        {
+            return "None";
+        }
+
+        const std::string text = value.ToString();
+        return text.empty() ? "None" : text;
     }
 
     bool IsBlankText(const std::string& text)
@@ -147,7 +166,7 @@ namespace LoadoutManagerDetail
 
     bool CanSafelyResolveLoadedObjectName(const FName& value)
     {
-        return value.ComparisonIndex > 0 && value.ComparisonIndex < 1000000 && value.Number < 1024;
+        return value.ComparisonIndex > 0 && value.ComparisonIndex < 10000000 && value.Number >= 0 && value.Number < 1000000;
     }
 
     std::string NormalizeRoleId(const std::string& roleId)
@@ -206,8 +225,10 @@ namespace LoadoutManagerDetail
     bool TryResolveRoleConfig(const json& snapshot, const std::string& roleId, FPBRoleNetworkConfig& outConfig);
     bool TryResolveSnapshotWeaponConfigByRoleAndWeaponId(const json& snapshot, const std::string& roleId, const std::string& weaponId, FPBWeaponNetworkConfig& outConfig);
     bool TryResolveSnapshotWeaponConfigForInit(const json& snapshot, APBWeapon* weapon, const FPBWeaponNetworkConfig& incoming, std::string& outResolvedRoleId, FPBWeaponNetworkConfig& outConfig);
+    bool TryGetRoleWeaponConfigForInit(const FPBRoleNetworkConfig& roleConfig, const FPBWeaponNetworkConfig& incoming, APBWeapon* weapon, FPBWeaponNetworkConfig& outConfig);
     bool HasWeaponConfig(const FPBWeaponNetworkConfig& config);
     std::string ResolveCharacterRoleId(APBCharacter* character);
+    std::string ResolveLiveCharacterRoleId(APBCharacter* character);
 
     // @brief 获取本地 AppData 根目录（ProjectReboundBrowser）
     std::filesystem::path GetAppDataRoot()
@@ -305,6 +326,25 @@ namespace LoadoutManagerDetail
             return "";
         }
 
+        APBPlayerState* playerState = playerController->PBPlayerState;
+        if (playerState)
+        {
+            if (!IsBlankName(playerState->SelectedCharacterID))
+            {
+                return NameToString(playerState->SelectedCharacterID);
+            }
+
+            if (!IsBlankName(playerState->UsageCharacterID))
+            {
+                return NameToString(playerState->UsageCharacterID);
+            }
+
+            if (!IsBlankName(playerState->PossessedCharacterId))
+            {
+                return NameToString(playerState->PossessedCharacterId);
+            }
+        }
+
         if (playerController->PBCharacter)
         {
             const std::string roleId = ResolveCharacterRoleId(playerController->PBCharacter);
@@ -312,27 +352,6 @@ namespace LoadoutManagerDetail
             {
                 return roleId;
             }
-        }
-
-        APBPlayerState* playerState = playerController->PBPlayerState;
-        if (!playerState)
-        {
-            return "";
-        }
-
-        if (!IsBlankName(playerState->SelectedCharacterID))
-        {
-            return NameToString(playerState->SelectedCharacterID);
-        }
-
-        if (!IsBlankName(playerState->UsageCharacterID))
-        {
-            return NameToString(playerState->UsageCharacterID);
-        }
-
-        if (!IsBlankName(playerState->PossessedCharacterId))
-        {
-            return NameToString(playerState->PossessedCharacterId);
         }
 
         return "";
@@ -356,6 +375,35 @@ namespace LoadoutManagerDetail
         }
 
         return nullptr;
+    }
+
+    bool IsCharacterInSpawnAssemblyWindow(APBCharacter* character)
+    {
+        if (!character)
+        {
+            return false;
+        }
+
+        const auto* raw = reinterpret_cast<const std::uint8_t*>(character);
+        const auto* readyPtr = reinterpret_cast<const bool*>(raw + offsetof(APBCharacter, bReadyInStartSpot));
+        return !*readyPtr;
+    }
+
+    bool IsCharacterAlive(APBCharacter* character)
+    {
+        if (!character)
+        {
+            return false;
+        }
+
+        try
+        {
+            return character->IsAlive();
+        }
+        catch (...)
+        {
+            return false;
+        }
     }
 
     // @brief 通过角色实例反查对应的 PlayerController
@@ -431,7 +479,7 @@ namespace LoadoutManagerDetail
     void PrunePendingRoleSelections()
     {
         std::unordered_set<APBPlayerController*> liveControllers;
-        std::unordered_map<APBPlayerController*, std::string> resolvedLiveRoles;
+        std::vector<std::pair<APBPlayerController*, std::string>> stabilizedControllers;
         for (UObject* object : getObjectsOfClass(APBPlayerController::StaticClass(), false))
         {
             APBPlayerController* playerController = static_cast<APBPlayerController*>(object);
@@ -441,33 +489,24 @@ namespace LoadoutManagerDetail
             }
 
             liveControllers.insert(playerController);
-
-            APBCharacter* character = GetControllerCharacter(playerController);
-            const std::string resolvedRoleId = ResolveCharacterRoleId(character);
-            if (!resolvedRoleId.empty())
-            {
-                resolvedLiveRoles[playerController] = resolvedRoleId;
-            }
         }
 
-        std::vector<std::pair<APBPlayerController*, std::string>> resolvedContexts;
         {
             State& state = GetState();
             std::scoped_lock lock(state.Mutex);
             for (auto it = state.PendingRoleSelections.begin(); it != state.PendingRoleSelections.end();)
             {
-                const APBPlayerController* playerController = it->first;
-                if (!playerController || !liveControllers.contains(it->first))
+                APBPlayerController* playerController = it->first;
+                if (!playerController || liveControllers.find(it->first) == liveControllers.end())
                 {
                     it = state.PendingRoleSelections.erase(it);
                     continue;
                 }
 
-                auto resolvedRole = resolvedLiveRoles.find(it->first);
-                if (resolvedRole != resolvedLiveRoles.end() &&
-                    (!it->second.RoleId.empty() && it->second.RoleId == resolvedRole->second))
+                APBCharacter* character = GetControllerCharacter(playerController);
+                if (character && IsCharacterAlive(character) && !IsCharacterInSpawnAssemblyWindow(character))
                 {
-                    resolvedContexts.push_back({ it->first, resolvedRole->second });
+                    stabilizedControllers.push_back({ playerController, ResolveLiveCharacterRoleId(character) });
                     it = state.PendingRoleSelections.erase(it);
                     continue;
                 }
@@ -476,10 +515,11 @@ namespace LoadoutManagerDetail
             }
         }
 
-        for (const auto& [playerController, resolvedRoleId] : resolvedContexts)
+        for (const auto& [playerController, actualRoleId] : stabilizedControllers)
         {
-            ClientLog("[LOADOUT] Cleared pending spawn role context after live role resolved: " +
-                playerController->GetFullName() + " -> " + resolvedRoleId);
+            ClientLog("[LOADOUT] Cleared pending spawn role context after live character stabilized: " +
+                playerController->GetFullName() + " -> " +
+                (actualRoleId.empty() ? std::string("<unknown>") : actualRoleId));
         }
     }
 
@@ -493,7 +533,7 @@ namespace LoadoutManagerDetail
         {
             APBPlayerController* playerController = static_cast<APBPlayerController*>(object);
             APBCharacter* character = GetControllerCharacter(playerController);
-            if (!character || seen.contains(character))
+            if (!character || seen.find(character) != seen.end())
             {
                 continue;
             }
@@ -1092,7 +1132,7 @@ namespace LoadoutManagerDetail
         return false;
     }
 
-    std::string ResolvePreferredSelectedRoleId(UPBFieldModManager* fieldModManager, const json& existingSnapshot, const std::unordered_map<std::string, json>& rolesById)
+    std::string ResolvePreferredSelectedRoleId(UPBFieldModManager* fieldModManager, const std::unordered_map<std::string, json>& rolesById)
     {
         auto resolveCandidate = [&](const std::string& candidate) -> std::string
         {
@@ -1102,7 +1142,7 @@ namespace LoadoutManagerDetail
                 return "";
             }
 
-            if (!rolesById.empty() && !rolesById.contains(normalizedRoleId))
+            if (!rolesById.empty() && rolesById.find(normalizedRoleId) == rolesById.end())
             {
                 return "";
             }
@@ -1118,22 +1158,14 @@ namespace LoadoutManagerDetail
             }
         }
 
-        if (const std::string localPlayerRoleId = resolveCandidate(GetLocalPlayerPreferredRoleId()); !localPlayerRoleId.empty())
-        {
-            return localPlayerRoleId;
-        }
-
         if (const std::string rememberedRoleId = resolveCandidate(GetRememberedMenuSelectedRoleId()); !rememberedRoleId.empty())
         {
             return rememberedRoleId;
         }
 
-        if (existingSnapshot.is_object())
+        if (const std::string localPlayerRoleId = resolveCandidate(GetLocalPlayerPreferredRoleId()); !localPlayerRoleId.empty())
         {
-            if (const std::string snapshotRoleId = resolveCandidate(existingSnapshot.value("selectedRoleId", "")); !snapshotRoleId.empty())
-            {
-                return snapshotRoleId;
-            }
+            return localPlayerRoleId;
         }
 
         if (rolesById.size() == 1)
@@ -1224,14 +1256,15 @@ namespace LoadoutManagerDetail
                 continue;
             }
 
-            if (!rolesById.contains(roleId))
+            if (rolesById.find(roleId) == rolesById.end())
             {
                 rolesById[roleId] = EmptyRoleJson(roleId);
             }
 
             rolesById[roleId]["inventory"] = InventoryToJson(pair.Value());
 
-            const bool capturedFromDisplay = rolesCapturedFromDisplay.contains(roleId) && rolesCapturedFromDisplay[roleId];
+            const auto capturedFromDisplayIt = rolesCapturedFromDisplay.find(roleId);
+            const bool capturedFromDisplay = capturedFromDisplayIt != rolesCapturedFromDisplay.end() && capturedFromDisplayIt->second;
             FName firstWeaponId{};
             FName secondWeaponId{};
             if (TryGetInventoryItemForSlot(pair.Value(), EPBCharacterSlotType::FirstWeapon, firstWeaponId) &&
@@ -1266,14 +1299,11 @@ namespace LoadoutManagerDetail
             return {};
         }
 
-        const std::string selectedRoleId = ResolvePreferredSelectedRoleId(fieldModManager, existingSnapshot, rolesById);
-
         return json{
             { "schemaVersion", 1 },
             { "savedAtUtc", BuildUtcTimestamp() },
             { "gameVersion", "unknown" },
             { "source", "payload" },
-            { "selectedRoleId", selectedRoleId },
             { "roles", roles }
         };
     }
@@ -1300,11 +1330,6 @@ namespace LoadoutManagerDetail
             state.Snapshot = snapshot;
             state.SnapshotAvailable = true;
             state.PendingLiveApply = true;
-            const std::string selectedRoleId = NormalizeRoleId(snapshot.value("selectedRoleId", ""));
-            if (!selectedRoleId.empty())
-            {
-                state.LastMenuSelectedRoleId = selectedRoleId;
-            }
         }
 
         ClientLog("[LOADOUT] Exported local snapshot (" + reason + ") -> " + exportPath.string());
@@ -1350,16 +1375,13 @@ namespace LoadoutManagerDetail
             return;
         }
 
+        loadedSnapshot.erase("selectedRoleId");
+
         {
             std::scoped_lock lock(state.Mutex);
             state.Snapshot = loadedSnapshot;
             state.SnapshotAvailable = true;
             state.PendingLiveApply = true;
-            const std::string selectedRoleId = NormalizeRoleId(loadedSnapshot.value("selectedRoleId", ""));
-            if (!selectedRoleId.empty())
-            {
-                state.LastMenuSelectedRoleId = selectedRoleId;
-            }
         }
 
         ClientLog("[LOADOUT] Loaded snapshot from " + source);
@@ -1446,11 +1468,7 @@ namespace LoadoutManagerDetail
             }
         }
 
-        std::string targetRoleId = NormalizeRoleId(snapshot.value("selectedRoleId", ""));
-        if (targetRoleId.empty())
-        {
-            targetRoleId = NormalizeRoleId(originalRoleId);
-        }
+        std::string targetRoleId = NormalizeRoleId(originalRoleId);
         if (targetRoleId.empty())
         {
             targetRoleId = GetRememberedMenuSelectedRoleId();
@@ -1462,6 +1480,159 @@ namespace LoadoutManagerDetail
 
         ClientLog("[LOADOUT] Applied snapshot inventory to FieldModManager. Live actors will receive remaining cosmetic fields once spawned.");
         return true;
+    }
+
+    bool ApplySnapshotToPreSpawnInventoryState(const json& snapshot, APBPlayerController* preferredController, std::string& outDetail)
+    {
+        const auto inventories = BuildInventoryListFromSnapshot(snapshot);
+        if (inventories.empty())
+        {
+            outDetail = "snapshot-inventories-empty";
+            return false;
+        }
+
+        APBPlayerController* playerController = preferredController;
+        if (!playerController)
+        {
+            playerController = GetLocalPlayerController();
+        }
+        if (!playerController)
+        {
+            outDetail = "target-player-controller-missing";
+            return false;
+        }
+
+        APBPlayerState* playerState = playerController->PBPlayerState;
+        int pushedRoleCount = 0;
+        int refreshedRoleCount = 0;
+
+        for (const auto& [roleId, inventory] : inventories)
+        {
+            const FName roleName = NameFromString(roleId);
+            if (IsBlankName(roleName))
+            {
+                continue;
+            }
+
+            playerController->ServerPreOrderInventory(roleName, inventory);
+            ++pushedRoleCount;
+
+            if (playerState)
+            {
+                playerState->ClientRefreshRolePreOrderingInventory(roleName, inventory);
+                playerState->ClientRefreshRoleEquippingInventory(roleName, inventory);
+                ++refreshedRoleCount;
+            }
+        }
+
+        if (pushedRoleCount <= 0)
+        {
+            outDetail = "no-valid-role-inventories";
+            return false;
+        }
+
+        outDetail =
+            "controller=" + playerController->GetFullName() + ", " +
+            "roles=" + std::to_string(pushedRoleCount) +
+            ", refreshed=" + std::to_string(refreshedRoleCount) +
+            (playerState ? "" : ", playerState=missing");
+        return true;
+    }
+
+    bool TryApplySnapshotToFieldModManagerForPreSpawn(const char* reason, APBPlayerController* preferredController = nullptr)
+    {
+        const auto now = std::chrono::steady_clock::now();
+        const std::string queuedReason = (reason && *reason) ? reason : "pre-spawn";
+        bool shouldLogQueued = false;
+        State& state = GetState();
+        {
+            std::scoped_lock lock(state.Mutex);
+
+            if (state.LastPreSpawnFieldModApplyAt.time_since_epoch().count() != 0 &&
+                now - state.LastPreSpawnFieldModApplyAt < std::chrono::milliseconds(500))
+            {
+                return false;
+            }
+
+            shouldLogQueued =
+                !state.PendingPreSpawnFieldModApply ||
+                state.PendingPreSpawnFieldModApplyReason != queuedReason;
+
+            state.PendingPreSpawnFieldModApply = true;
+            state.NextPreSpawnFieldModApplyAt = now;
+            state.NextWorkerTickAt = {};
+            state.PendingPreSpawnFieldModApplyReason = queuedReason;
+            if (preferredController)
+            {
+                state.PendingPreSpawnFieldModApplyController = preferredController;
+            }
+        }
+
+        if (shouldLogQueued)
+        {
+            ClientLog("[LOADOUT] Queued pre-spawn snapshot inventory apply: " + queuedReason +
+                (preferredController ? " controller=" + preferredController->GetFullName() : ""));
+        }
+
+        return true;
+    }
+
+    void DrainPendingPreSpawnInventoryApply(const json& snapshot)
+    {
+        const auto now = std::chrono::steady_clock::now();
+        bool shouldTryApply = false;
+        std::string reason;
+        APBPlayerController* targetController = nullptr;
+
+        {
+            State& state = GetState();
+            std::scoped_lock lock(state.Mutex);
+            shouldTryApply =
+                state.PendingPreSpawnFieldModApply &&
+                now >= state.NextPreSpawnFieldModApplyAt;
+            reason = state.PendingPreSpawnFieldModApplyReason;
+            targetController = state.PendingPreSpawnFieldModApplyController;
+        }
+
+        if (!shouldTryApply)
+        {
+            return;
+        }
+
+        std::string detail;
+        const bool applied = ApplySnapshotToPreSpawnInventoryState(snapshot, targetController, detail);
+
+        State& state = GetState();
+        std::scoped_lock lock(state.Mutex);
+        if (applied)
+        {
+            state.PendingPreSpawnFieldModApply = false;
+            state.PendingPreSpawnFieldModApplyReason.clear();
+            state.PendingPreSpawnFieldModApplyController = nullptr;
+            state.LastPreSpawnFieldModApplyFailure.clear();
+            state.NextPreSpawnFieldModApplyAt = {};
+            state.LastPreSpawnFieldModApplyAt = std::chrono::steady_clock::now();
+
+            ClientLog("[LOADOUT] Applied snapshot inventory to pre-spawn state: " +
+                (reason.empty() ? std::string("pre-spawn") : reason) +
+                " (" + detail + ")");
+            return;
+        }
+
+        if (detail.empty())
+        {
+            detail = "unknown";
+        }
+
+        if (state.LastPreSpawnFieldModApplyFailure != detail)
+        {
+            ClientLog("[LOADOUT] Pre-spawn snapshot inventory apply waiting (" +
+                (reason.empty() ? std::string("pre-spawn") : reason) +
+                "): " + detail);
+            state.LastPreSpawnFieldModApplyFailure = detail;
+        }
+
+        state.NextPreSpawnFieldModApplyAt = std::chrono::steady_clock::now() + std::chrono::milliseconds(250);
     }
 
     // =====================================================================
@@ -1505,18 +1676,13 @@ namespace LoadoutManagerDetail
 
             if (!roleJson.is_object())
             {
-                const std::string selectedRoleId = snapshot.value("selectedRoleId", "");
-                for (const auto& role : snapshot["roles"])
+                if (roleId.empty() && snapshot["roles"].size() == 1 && snapshot["roles"][0].is_object())
                 {
-                    if (role.is_object() && role.value("roleId", "") == selectedRoleId)
-                    {
-                        roleJson = role;
-                        break;
-                    }
+                    roleJson = snapshot["roles"][0];
                 }
             }
 
-            if (!roleJson.is_object() && !snapshot["roles"].empty())
+            if (!roleJson.is_object() && roleId.empty() && snapshot["roles"].size() == 1 && snapshot["roles"][0].is_object())
             {
                 roleJson = snapshot["roles"][0];
             }
@@ -1651,6 +1817,40 @@ namespace LoadoutManagerDetail
             return "";
         }
 
+        APBPlayerState* playerState = character->PBPlayerState;
+        if (playerState)
+        {
+            if (!IsBlankName(playerState->SelectedCharacterID))
+            {
+                return NameToString(playerState->SelectedCharacterID);
+            }
+
+            if (!IsBlankName(playerState->UsageCharacterID))
+            {
+                return NameToString(playerState->UsageCharacterID);
+            }
+
+            if (!IsBlankName(playerState->PossessedCharacterId))
+            {
+                return NameToString(playerState->PossessedCharacterId);
+            }
+        }
+
+        if (!IsBlankName(character->CharacterID))
+        {
+            return NameToString(character->CharacterID);
+        }
+
+        return "";
+    }
+
+    std::string ResolveLiveCharacterRoleId(APBCharacter* character)
+    {
+        if (!character)
+        {
+            return "";
+        }
+
         if (!IsBlankName(character->CharacterID))
         {
             return NameToString(character->CharacterID);
@@ -1664,14 +1864,14 @@ namespace LoadoutManagerDetail
                 return NameToString(playerState->PossessedCharacterId);
             }
 
-            if (!IsBlankName(playerState->SelectedCharacterID))
-            {
-                return NameToString(playerState->SelectedCharacterID);
-            }
-
             if (!IsBlankName(playerState->UsageCharacterID))
             {
                 return NameToString(playerState->UsageCharacterID);
+            }
+
+            if (!IsBlankName(playerState->SelectedCharacterID))
+            {
+                return NameToString(playerState->SelectedCharacterID);
             }
         }
 
@@ -2377,12 +2577,55 @@ namespace LoadoutManagerDetail
             return false;
         }
 
-        if (TryResolveSnapshotWeaponConfigForInit(snapshot, weapon, weapon->PartNetworkConfig, outRoleId, outConfig))
+        APBCharacter* ownerCharacter = nullptr;
+        try
+        {
+            ownerCharacter = weapon->GetPawnOwner();
+        }
+        catch (...)
+        {
+            ownerCharacter = nullptr;
+        }
+
+        auto tryLiveRole = [&](const FPBWeaponNetworkConfig& candidateIncoming) -> bool
+        {
+            const std::string liveRoleId = ResolveLiveCharacterRoleId(ownerCharacter);
+            if (liveRoleId.empty())
+            {
+                return false;
+            }
+
+            FPBRoleNetworkConfig roleConfig{};
+            if (!TryResolveRoleConfig(snapshot, liveRoleId, roleConfig))
+            {
+                return false;
+            }
+
+            if (!TryGetRoleWeaponConfigForInit(roleConfig, candidateIncoming, weapon, outConfig))
+            {
+                return false;
+            }
+
+            outRoleId = liveRoleId;
+            return true;
+        };
+
+        if (tryLiveRole(weapon->PartNetworkConfig))
         {
             return true;
         }
 
         const FPBWeaponNetworkConfig nativeSaveConfig = weapon->GetPBWeaponPartSaveConfig();
+        if (tryLiveRole(nativeSaveConfig))
+        {
+            return true;
+        }
+
+        if (TryResolveSnapshotWeaponConfigForInit(snapshot, weapon, weapon->PartNetworkConfig, outRoleId, outConfig))
+        {
+            return true;
+        }
+
         return TryResolveSnapshotWeaponConfigForInit(snapshot, weapon, nativeSaveConfig, outRoleId, outConfig);
     }
 
@@ -2891,14 +3134,9 @@ namespace LoadoutManagerDetail
         const bool isCustomizeGetWeapon = functionName.contains("PBCustomizeManager.GetWeaponNetworkConfig");
         const bool isFieldModSpawnWeapon = functionName.contains("PBFieldModManager.SpawnWeapon");
         const bool isWeaponInit = functionName.contains("PBWeapon.InitWeapon");
-        const bool isWeaponOnRep = functionName.contains("PBWeapon.OnRep_PartNetworkConfig");
-        const bool isWeaponInitComplete = functionName.contains("PBWeapon.K2_InitSimulatedPartsComplete");
-        const bool isWeaponNotifyEquipFinished = functionName.contains("PBWeapon.NotifyEquipFinished");
-        const bool isWeaponRefreshSkin = functionName.contains("PBWeapon.K2_RefreshSkin");
         const bool isCharacterAddWeapon = functionName.contains("PBCharacter.AddWeapon");
         const bool isCharacterEquipPendingWeapon = functionName.contains("PBCharacter.EquipPendingWeapon");
         if (!isFieldModGetWeapon && !isCustomizeGetWeapon && !isFieldModSpawnWeapon && !isWeaponInit &&
-            !isWeaponOnRep && !isWeaponInitComplete && !isWeaponNotifyEquipFinished && !isWeaponRefreshSkin &&
             !isCharacterAddWeapon && !isCharacterEquipPendingWeapon)
         {
             return false;
@@ -2995,34 +3233,14 @@ namespace LoadoutManagerDetail
 
             source = "process-weapon-init";
         }
-        else if (isWeaponOnRep || isWeaponInitComplete || isWeaponNotifyEquipFinished || isWeaponRefreshSkin)
+        else if (isCharacterAddWeapon || isCharacterEquipPendingWeapon)
         {
-            APBWeapon* weapon = object->IsA(APBWeapon::StaticClass()) ? static_cast<APBWeapon*>(object) : nullptr;
-            std::string resolvedRoleId;
-            if (!weapon || !TryResolveSnapshotWeaponConfigForLiveWeapon(snapshotCopy, weapon, resolvedRoleId, targetConfig))
+            APBCharacter* character = object->IsA(APBCharacter::StaticClass()) ? static_cast<APBCharacter*>(object) : nullptr;
+            if (!character || !IsCharacterInSpawnAssemblyWindow(character))
             {
                 return false;
             }
 
-            if (isWeaponOnRep)
-            {
-                source = "process-weapon-onrep";
-            }
-            else if (isWeaponInitComplete)
-            {
-                source = "process-weapon-init-complete";
-            }
-            else if (isWeaponNotifyEquipFinished)
-            {
-                source = "process-weapon-equip-finished";
-            }
-            else
-            {
-                source = "process-weapon-refresh-skin";
-            }
-        }
-        else
-        {
             APBWeapon* weapon = nullptr;
             if (isCharacterAddWeapon && parms)
             {
@@ -3040,6 +3258,10 @@ namespace LoadoutManagerDetail
             {
                 return false;
             }
+        }
+        else
+        {
+            return false;
         }
 
         return BeginScopedWeaponDefinitionOverride(targetConfig, source);
@@ -4102,13 +4324,12 @@ namespace LoadoutManagerDetail
         if (WeaponConfigEquals(liveConfig, config) &&
             (WeaponConfigEquals(liveSaveConfig, config) || slotMapMatchesConfig))
         {
-            RefreshWeaponRuntimeVisualsOnce(targetWeapon, config);
             return true;
         }
 
         if (ShouldLogLiveWeaponMismatch(targetWeapon, label, config, liveConfig, liveSaveConfig, matchedByIdentity))
         {
-            ClientLog("[LOADOUT] Live weapon mismatch remains on spawned actor (" + std::string(label) +
+            ClientLog("[LOADOUT] Spawned weapon differs from snapshot, but runtime weapon correction is disabled (" + std::string(label) +
                 "): expected={" + DescribeWeaponConfig(config) +
                 "} expectedParts=[" + DescribeWeaponParts(config) +
                 "] live={" + DescribeWeaponConfig(liveConfig) +
@@ -4119,7 +4340,7 @@ namespace LoadoutManagerDetail
                 "] matchedByIdentity=" + (matchedByIdentity ? "true" : "false") + "]");
         }
 
-        return false;
+        return true;
     }
 
     bool ApplyLauncherConfig(APBLauncher* launcher, const FPBLauncherNetworkConfig& config, bool& outChanged)
@@ -4309,7 +4530,7 @@ namespace LoadoutManagerDetail
 
     std::string BuildLiveApplyDebugSummary(APBCharacter* character, const json& snapshot)
     {
-        const std::string roleId = ResolveCharacterRoleId(character);
+        const std::string roleId = ResolveLiveCharacterRoleId(character);
         std::ostringstream stream;
         stream << "character=" << (character ? NameToString(character->CharacterID) : "<null>")
             << ", resolvedRole=" << roleId;
@@ -4340,7 +4561,7 @@ namespace LoadoutManagerDetail
         }
 
         FPBRoleNetworkConfig roleConfig{};
-        const std::string roleId = ResolveCharacterRoleId(character);
+        const std::string roleId = ResolveLiveCharacterRoleId(character);
         if (!TryResolveRoleConfig(snapshot, roleId, roleConfig))
         {
             return false;
@@ -4356,6 +4577,8 @@ namespace LoadoutManagerDetail
         bool ready = true;
         const bool firstWeaponMatches = InspectLiveWeaponConfig(character, roleConfig.FirstWeaponPartData, 0, "firstWeapon");
         const bool secondWeaponMatches = InspectLiveWeaponConfig(character, roleConfig.SecondWeaponPartData, 1, "secondWeapon");
+        (void)firstWeaponMatches;
+        (void)secondWeaponMatches;
 
         if (!CharacterConfigEquals(character->CharacterSkinConfig, roleConfig.CharacterData))
         {
@@ -4406,7 +4629,7 @@ namespace LoadoutManagerDetail
     // @brief 判断当前回合状态是否允许执行实时快照应用
     bool IsRuntimeRoundReadyForLiveApply(APBCharacter* character)
     {
-        if (!character || character->Inventory.Num() <= 0)
+        if (!character || character->Inventory.Num() <= 0 || !IsCharacterAlive(character))
         {
             return false;
         }
@@ -4475,6 +4698,8 @@ namespace LoadoutManagerDetail
             snapshotCopy = state.Snapshot;
         }
 
+        DrainPendingPreSpawnInventoryApply(snapshotCopy);
+
         constexpr int maxServerApplyAttempts = 20;
         for (APBCharacter* character : GetServerPlayerCharacters())
         {
@@ -4487,7 +4712,7 @@ namespace LoadoutManagerDetail
             {
                 State& state = GetState();
                 std::scoped_lock lock(state.Mutex);
-                if (state.ServerLiveApplyComplete.contains(character))
+                if (state.ServerLiveApplyComplete.find(character) != state.ServerLiveApplyComplete.end())
                 {
                     continue;
                 }
@@ -4621,6 +4846,7 @@ namespace LoadoutManagerDetail
                 liveApplyAttempt = state.LiveApplyAttempts;
                 state.NextLiveApplyAt = now + std::chrono::seconds(5);
             }
+
             shouldTryScheduledExport = state.ExportScheduled && now >= state.ExportDueAt;
             exportReason = state.PendingExportReason;
         }
@@ -4646,6 +4872,11 @@ namespace LoadoutManagerDetail
             State& state = GetState();
             std::scoped_lock lock(state.Mutex);
             state.InitialMenuCaptureComplete = true;
+        }
+
+        if (snapshotAvailable)
+        {
+            DrainPendingPreSpawnInventoryApply(snapshotCopy);
         }
 
         if (shouldTryLiveApply && ApplySnapshotToLiveCharacter(localCharacter, snapshotCopy))
@@ -4735,6 +4966,10 @@ void LoadoutManager::OnRoleSelectionConfirmed(APBPlayerController* playerControl
         playerController,
         LoadoutManagerDetail::NameToString(roleId),
         isAuthoritative);
+
+    LoadoutManagerDetail::TryApplySnapshotToFieldModManagerForPreSpawn(
+        isAuthoritative ? "role-confirmed-server" : "role-confirmed-client",
+        playerController);
 }
 
 // =====================================================================
@@ -4746,6 +4981,21 @@ void LoadoutManager::OnRoleSelectionConfirmed(APBPlayerController* playerControl
 //  2. 开启作用域武器定义覆盖，使原始 ProcessEvent 看到临时修改
 void LoadoutManager::OnClientProcessEventPre(UObject* object, const std::string& functionName, void* parms)
 {
+    if (functionName.contains("OnRestartInStartSpot"))
+    {
+        APBPlayerController* playerController = nullptr;
+        if (parms)
+        {
+            auto* restartParms = static_cast<Params::PBFieldModManager_OnRestartInStartSpot*>(parms);
+            if (restartParms && restartParms->InController && restartParms->InController->IsA(APBPlayerController::StaticClass()))
+            {
+                playerController = static_cast<APBPlayerController*>(restartParms->InController);
+            }
+        }
+
+        LoadoutManagerDetail::TryApplySnapshotToFieldModManagerForPreSpawn("restart-in-start-spot-client", playerController);
+    }
+
     LoadoutManagerDetail::MaybeOverrideInitWeaponConfig(object, functionName, parms);
 
     // 在 "pre" 侧保持作用域定义覆盖，使原始 ProcessEvent 执行时
@@ -4793,6 +5043,21 @@ void LoadoutManager::OnClientProcessEventPost(UObject* object, const std::string
 // @brief 服务端 ProcessEvent pre-hook 入口。与客户端路径对称。
 void LoadoutManager::OnServerProcessEventPre(UObject* object, const std::string& functionName, void* parms)
 {
+    if (functionName.contains("OnRestartInStartSpot"))
+    {
+        APBPlayerController* playerController = nullptr;
+        if (parms)
+        {
+            auto* restartParms = static_cast<Params::PBFieldModManager_OnRestartInStartSpot*>(parms);
+            if (restartParms && restartParms->InController && restartParms->InController->IsA(APBPlayerController::StaticClass()))
+            {
+                playerController = static_cast<APBPlayerController*>(restartParms->InController);
+            }
+        }
+
+        LoadoutManagerDetail::TryApplySnapshotToFieldModManagerForPreSpawn("restart-in-start-spot-server", playerController);
+    }
+
     LoadoutManagerDetail::MaybeOverrideInitWeaponConfig(object, functionName, parms);
 
     // Hook 调用方必须在原始 ProcessEvent 之后调用配对的 Post 方法，
