@@ -1005,9 +1005,10 @@ bool LaunchServerLocked()
 
     STARTUPINFOW si{};
     si.cb = sizeof(si);
-    si.dwFlags = STARTF_USESTDHANDLES;
+    si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
     si.hStdOutput = writePipe;
     si.hStdError = writePipe;
+    si.wShowWindow = SW_HIDE;
 
     PROCESS_INFORMATION pi{};
 
@@ -1032,7 +1033,7 @@ bool LaunchServerLocked()
 
     std::wstring cmd =
         L"\"" + wGameExe + L"\" "
-        L"-log -server -nullrhi "
+        L"-log -server -nullrhi -nosplash -NoWindow "
         L"-map=" + std::wstring(CurrentMap.begin(), CurrentMap.end()) + L" "
         L"-mode=" + std::wstring(modePath.begin(), modePath.end()) + L" "
         L"-port=" + std::to_wstring(serverPort) + L" "
@@ -1072,7 +1073,7 @@ bool LaunchServerLocked()
         NULL,
         NULL,
         TRUE,
-        0,
+        CREATE_NO_WINDOW | DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
         NULL,
         NULL,
         &si,
