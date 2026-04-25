@@ -1132,50 +1132,6 @@ namespace LoadoutManagerDetail
         return false;
     }
 
-    std::string ResolvePreferredSelectedRoleId(UPBFieldModManager* fieldModManager, const std::unordered_map<std::string, json>& rolesById)
-    {
-        auto resolveCandidate = [&](const std::string& candidate) -> std::string
-        {
-            const std::string normalizedRoleId = NormalizeRoleId(candidate);
-            if (normalizedRoleId.empty())
-            {
-                return "";
-            }
-
-            if (!rolesById.empty() && rolesById.find(normalizedRoleId) == rolesById.end())
-            {
-                return "";
-            }
-
-            return normalizedRoleId;
-        };
-
-        if (fieldModManager)
-        {
-            if (const std::string selectedRoleId = resolveCandidate(NameToString(fieldModManager->GetSelectCharacterID())); !selectedRoleId.empty())
-            {
-                return selectedRoleId;
-            }
-        }
-
-        if (const std::string rememberedRoleId = resolveCandidate(GetRememberedMenuSelectedRoleId()); !rememberedRoleId.empty())
-        {
-            return rememberedRoleId;
-        }
-
-        if (const std::string localPlayerRoleId = resolveCandidate(GetLocalPlayerPreferredRoleId()); !localPlayerRoleId.empty())
-        {
-            return localPlayerRoleId;
-        }
-
-        if (rolesById.size() == 1)
-        {
-            return rolesById.begin()->first;
-        }
-
-        return "";
-    }
-
     // =====================================================================
     //  快照捕获与导出 — 菜单侧采集 / 磁盘写入 / 延迟加载
     // =====================================================================
@@ -1469,6 +1425,12 @@ namespace LoadoutManagerDetail
         }
 
         std::string targetRoleId = NormalizeRoleId(originalRoleId);
+        if (targetRoleId.empty())
+        {
+            // 优先使用局内已确认的待处理角色（PendingRoleSelections），
+            // 避免复活时回退到菜单中旧的选择覆盖玩家当前角色。
+            targetRoleId = GetPendingRoleIdForController(playerController);
+        }
         if (targetRoleId.empty())
         {
             targetRoleId = GetRememberedMenuSelectedRoleId();
@@ -4961,6 +4923,10 @@ void LoadoutManager::OnRoleSelectionConfirmed(APBPlayerController* playerControl
     {
         return;
     }
+
+    // 同步更新菜单记住的角色，使 ApplySnapshotToFieldModManager 的回退逻辑
+    // 在复活后也能拿到玩家局内最新确认的角色，而非停留在菜单旧值。
+    LoadoutManagerDetail::RememberMenuSelectedRole(roleId);
 
     LoadoutManagerDetail::RememberPendingRoleSelection(
         playerController,

@@ -14,8 +14,21 @@ LOADOUT_LAUNCH_PATH = LAUNCH_DIR / "loadout-launch-v1.json"
 DEFAULT_FALLBACK_STATUS = "未找到本地配装快照，将使用游戏默认配装。"
 
 
+def _strip_transient_fields(snapshot: dict) -> dict:
+    """移除快照中不属于配装定义的瞬态字段。
+
+    selectedRoleId 是 UI 侧的瞬态选择，不应随配装持久化或传递到后端，
+    否则复活流程可能错误地用它覆盖玩家局内的角色选择。
+    """
+    snapshot.pop("selectedRoleId", None)
+    return snapshot
+
+
 def normalize_loadout_snapshot(snapshot: object) -> dict | None:
-    return snapshot if isinstance(snapshot, dict) else None
+    if not isinstance(snapshot, dict):
+        return None
+    _strip_transient_fields(snapshot)
+    return snapshot
 
 
 def coalesce_loadout_snapshot(*snapshots: object) -> dict | None:
@@ -39,7 +52,10 @@ def load_loadout_snapshot() -> dict | None:
         return None
     try:
         with LOADOUT_EXPORT_PATH.open("r", encoding="utf-8") as file:
-            return normalize_loadout_snapshot(json.load(file))
+            snapshot = json.load(file)
+        if isinstance(snapshot, dict):
+            snapshot.pop("selectedRoleId", None)
+        return normalize_loadout_snapshot(snapshot)
     except (OSError, json.JSONDecodeError):
         return None
 
