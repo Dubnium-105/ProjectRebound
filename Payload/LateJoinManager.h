@@ -103,7 +103,7 @@ public:
     // @brief ServerConfirmRoleSelection 拦截后的状态推进。
     //        调用方应先检查 IsLateJoinPlayer()，若为 true 则：
     //          1. 执行原始 ProcessEvent.call(Object, Function, Parms)
-    //          2. 调用 LoadoutExportManager::MaybeOverrideProcessEventResult
+    //          2. 调用 LoadoutManager::OnServerProcessEventPost
     //          3. 调用本方法
     //          4. return 跳过正常计数逻辑
     // @param PC 角色确认的 PlayerController

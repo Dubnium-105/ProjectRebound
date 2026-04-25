@@ -13,7 +13,7 @@
 //    - PlayerRespawnAllowedMap：与 Respawn/Death 系统共享，
 //      LateJoin 设置为 true 允许重生，ClientBeKilled 设置为 false 阻止重生
 //    - DidProcStartMatch：由匹配流程设置，LateJoin 只读取
-//    - LoadoutExportManager：通过回调介入角色确认后的装备覆盖
+//    - LoadoutManager：通过回调介入角色确认后的装备覆盖
 
 #include "LateJoinManager.h"
 #include "SDK.hpp"
