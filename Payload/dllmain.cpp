@@ -12,6 +12,7 @@
 #include <iostream>
 #include <fstream>
 #include "libreplicate.h"
+#include "LateJoinManager.h"
 #include <mutex>
 #include <unordered_map>
 #include <unordered_set>
@@ -499,23 +500,11 @@ float ReplicationFlushAccumulator = 0.0f;
 std::unordered_map<APBPlayerController*, bool> PlayerRespawnAllowedMap{};
 std::unordered_set<APBPlayerController*> PlayersConfirmedRole{};
 
-enum class ELateJoinState
-{
-    PendingRoleSelection,
-    RoleConfirmed,
-    Spawned,
-    TimedOut
-};
+// LateJoinManager instance
+// Constructed later in MainThread after dependencies are ready
+static LateJoinManager* gLateJoinManager = nullptr;
 
-struct FLateJoinInfo
-{
-    ELateJoinState State = ELateJoinState::PendingRoleSelection;
-    float ElapsedSeconds = 0.0f;
-    int SpawnAttempts = 0;
-    bool ClientStartSent = false;
-};
-
-std::unordered_map<APBPlayerController*, FLateJoinInfo> LateJoinPlayers{};
+// Helpers used by TickFlushHook and other non-LateJoin logic
 
 APBGameState* GetPBGameState()
 {
@@ -539,205 +528,6 @@ bool IsRoundCurrentlyInProgress()
 {
     APBGameState* GameState = GetPBGameState();
     return GameState && GameState->IsRoundInProgress();
-}
-
-bool IsLateJoinWindowOpen()
-{
-    return DidProcStartMatch || IsRoundCurrentlyInProgress();
-}
-
-bool IsLateJoinPlayer(APBPlayerController* PC)
-{
-    return PC && LateJoinPlayers.find(PC) != LateJoinPlayers.end();
-}
-
-bool IsSpectatorPawn(APawn* Pawn)
-{
-    return Pawn && Pawn->IsA(ASpectatorPawn::StaticClass());
-}
-
-bool HasPlayableLateJoinPawn(APBPlayerController* PC)
-{
-    return PC && PC->Pawn && !IsSpectatorPawn(PC->Pawn);
-}
-
-void QueueLateJoinPlayer(APBPlayerController* PC)
-{
-    if (!PC)
-        return;
-
-    LateJoinPlayers[PC] = FLateJoinInfo{};
-    PlayerRespawnAllowedMap[PC] = true;
-    std::cout << "[LATEJOIN] Queued player for in-progress join: " << PC->GetFullName() << std::endl;
-}
-
-void SendLateJoinClientStart(APBPlayerController* PC)
-{
-    if (!PC)
-        return;
-
-    std::cout << "[LATEJOIN] Sending in-progress match state and role selection." << std::endl;
-    PC->ClientStartOnlineGame();
-    PC->ClientMatchHasStarted();
-    PC->ClientRoundHasStarted();
-    PC->NotifyGameStarted();
-    PC->ClientSelectRole();
-}
-
-void PrepareLateJoinRespawn(APBPlayerController* PC)
-{
-    if (!PC)
-        return;
-
-    PlayerRespawnAllowedMap[PC] = true;
-    PC->ServerSetSpectatorWaiting(false);
-    PC->ClientSetSpectatorWaiting(false);
-    PC->SetIgnoreMoveInput(false);
-    PC->SetIgnoreLookInput(false);
-    PC->ClientIgnoreMoveInput(false);
-    PC->ClientIgnoreLookInput(false);
-
-    if (PC->Pawn && IsSpectatorPawn(PC->Pawn))
-    {
-        std::cout << "[LATEJOIN] Clearing spectator pawn before playable spawn: "
-            << PC->Pawn->GetFullName() << std::endl;
-        PC->ExitObserverState();
-        PC->UnPossess();
-    }
-}
-
-void FinalizeLateJoinSpawn(APBPlayerController* PC)
-{
-    if (!HasPlayableLateJoinPawn(PC))
-        return;
-
-    PlayerRespawnAllowedMap[PC] = true;
-    PC->ServerSetSpectatorWaiting(false);
-    PC->ClientSetSpectatorWaiting(false);
-    PC->SetIgnoreMoveInput(false);
-    PC->SetIgnoreLookInput(false);
-    PC->ClientIgnoreMoveInput(false);
-    PC->ClientIgnoreLookInput(false);
-    PC->ExitObserverState();
-
-    if (PC->Pawn)
-    {
-        if (PC->Pawn->Controller != (AController*)PC)
-        {
-            std::cout << "[LATEJOIN] Forcing possess on spawned pawn: "
-                << PC->Pawn->GetFullName() << std::endl;
-            PC->Possess(PC->Pawn);
-        }
-
-        PC->Pawn->ForceNetUpdate();
-    }
-
-    PC->ForceNetUpdate();
-    PC->ClientReadyAtStartSpot();
-    PC->NotifyGameStarted();
-    PC->ClientGotoState(UKismetStringLibrary::Conv_StringToName(L"Playing"));
-    PC->ClientRestart(PC->Pawn);
-    PC->ClientRetryClientRestart(PC->Pawn);
-    PC->ServerAcknowledgePossession(PC->Pawn);
-
-    std::cout << "[LATEJOIN] Finalized playable possession: "
-        << PC->Pawn->GetFullName() << std::endl;
-}
-
-void RequestLateJoinSpawn(APBPlayerController* PC, FLateJoinInfo& Info)
-{
-    if (!PC)
-        return;
-
-    PrepareLateJoinRespawn(PC);
-    PlayerRespawnAllowedMap[PC] = true;
-    APBGameMode* GameMode = GetPBGameMode();
-
-    if (Info.SpawnAttempts == 0 && GameMode)
-    {
-        TArray<AController*> Controllers{};
-        Controllers.Add((AController*)PC);
-        std::cout << "[LATEJOIN] RestartPlayers for late join player." << std::endl;
-        GameMode->RestartPlayers(Controllers);
-    }
-    else if (Info.SpawnAttempts == 1)
-    {
-        std::cout << "[LATEJOIN] RestartPlayers did not produce a pawn; trying ServerQuickRespawn." << std::endl;
-        PC->ServerQuickRespawn();
-    }
-    else if (Info.SpawnAttempts == 2)
-    {
-        std::cout << "[LATEJOIN] Quick respawn did not produce a pawn; trying ServerSuicide fallback." << std::endl;
-        PC->ServerSuicide(0);
-    }
-
-    Info.SpawnAttempts++;
-    Info.ElapsedSeconds = 0.0f;
-}
-
-void TickLateJoinPlayers(float DeltaTime)
-{
-    for (auto it = LateJoinPlayers.begin(); it != LateJoinPlayers.end();)
-    {
-        APBPlayerController* PC = it->first;
-        FLateJoinInfo& Info = it->second;
-
-        if (!PC)
-        {
-            it = LateJoinPlayers.erase(it);
-            continue;
-        }
-
-        Info.ElapsedSeconds += DeltaTime;
-
-        if (Info.State == ELateJoinState::RoleConfirmed && Info.SpawnAttempts > 0 && HasPlayableLateJoinPawn(PC))
-        {
-            FinalizeLateJoinSpawn(PC);
-            Info.State = ELateJoinState::Spawned;
-            std::cout << "[LATEJOIN] Spawn complete for late join player." << std::endl;
-            it = LateJoinPlayers.erase(it);
-            continue;
-        }
-
-        if (Info.State == ELateJoinState::PendingRoleSelection)
-        {
-            if (!Info.ClientStartSent && Info.ElapsedSeconds >= 1.0f)
-            {
-                SendLateJoinClientStart(PC);
-                Info.ClientStartSent = true;
-                Info.ElapsedSeconds = 0.0f;
-            }
-            else if (Info.ClientStartSent && Info.ElapsedSeconds >= 30.0f)
-            {
-                Info.State = ELateJoinState::TimedOut;
-                std::cout << "[LATEJOIN] Timed out waiting for role selection." << std::endl;
-            }
-        }
-        else if (Info.State == ELateJoinState::RoleConfirmed)
-        {
-            if (Info.SpawnAttempts == 0 || Info.ElapsedSeconds >= 2.0f)
-            {
-                if (Info.SpawnAttempts < 3)
-                {
-                    RequestLateJoinSpawn(PC, Info);
-                }
-                else
-                {
-                    Info.State = ELateJoinState::TimedOut;
-                    std::cout << "[LATEJOIN] Timed out spawning late join player." << std::endl;
-                }
-            }
-        }
-
-        if (Info.State == ELateJoinState::TimedOut)
-        {
-            it = LateJoinPlayers.erase(it);
-        }
-        else
-        {
-            ++it;
-        }
-    }
 }
 // ======================================================
 //  SECTION 7 — HOOK DETOURS (ENGINE HOOKS)
@@ -868,7 +658,9 @@ void TickFlushHook(UNetDriver* NetDriver, float DeltaTime) {
             }
         }
 
-        TickLateJoinPlayers(DeltaTime);
+        // Drive LateJoin state machine
+        if (gLateJoinManager)
+            gLateJoinManager->Tick(DeltaTime);
     }
 
     APBGameState* CurrentGameState = GetPBGameState();
@@ -1016,44 +808,26 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
         }
     }
 
-    if (functionName.contains("CanPlayerSelectRole")) {
-        auto* RoleParms = (Params::PBGameMode_CanPlayerSelectRole*)Parms;
-        if (RoleParms && IsLateJoinPlayer(RoleParms->Player)) {
-            RoleParms->ReturnValue = true;
-            return;
-        }
+    // LateJoin: role-selection interception (CanPlayerSelectRole / CanSelectRole)
+    if (gLateJoinManager && gLateJoinManager->OnProcessEvent(Object, functionName, Parms))
+    {
+        // Already handled by LateJoinManager
+        return;
     }
 
-    if (functionName.contains("CanSelectRole")) {
-        APBPlayerController* PBPlayerController = Object && Object->IsA(APBPlayerController::StaticClass())
-            ? (APBPlayerController*)Object
-            : nullptr;
-
-        if (IsLateJoinPlayer(PBPlayerController)) {
-            auto* RoleParms = (Params::PBPlayerController_CanSelectRole*)Parms;
-            if (RoleParms) {
-                RoleParms->ReturnValue = true;
-                return;
-            }
-        }
-    }
-
+    // LateJoin: ServerConfirmRoleSelection
+    // Must call original ProcessEvent first, then advance LateJoin state
     if (functionName.contains("ServerConfirmRoleSelection")) {
         APBPlayerController* PBPlayerController = Object && Object->IsA(APBPlayerController::StaticClass())
             ? (APBPlayerController*)Object
             : nullptr;
 
-        if (IsLateJoinPlayer(PBPlayerController)) {
+        if (gLateJoinManager && gLateJoinManager->IsLateJoinPlayer(PBPlayerController)) {
+            // Execute original function first
             ProcessEvent.call(Object, Function, Parms);
             LoadoutExportManager::MaybeOverrideProcessEventResult(Object, functionName, Parms);
-
-            auto it = LateJoinPlayers.find(PBPlayerController);
-            if (it != LateJoinPlayers.end()) {
-                it->second.State = ELateJoinState::RoleConfirmed;
-                it->second.ElapsedSeconds = 0.0f;
-                it->second.SpawnAttempts = 0;
-                std::cout << "[LATEJOIN] Role confirmed; scheduling single-player spawn." << std::endl;
-            }
+            // Advance LateJoin state to RoleConfirmed
+            gLateJoinManager->OnRoleConfirmed(PBPlayerController);
             return;
         }
 
@@ -1127,10 +901,10 @@ void* PostLogin(AGameMode* GameMode, APBPlayerController* PC)
 
     std::cout << "Player Connected!" << std::endl;
 
-    if (PC && IsLateJoinWindowOpen())
+    // LateJoin detection
+    if (gLateJoinManager && gLateJoinManager->OnPostLogin(GameMode, PC))
     {
-        QueueLateJoinPlayer(PC);
-        ReportRoomStartedIfNeeded();
+        // Handled as LateJoin player; skip normal first-life flow
         return Ret;
     }
 
@@ -5970,6 +5744,14 @@ void MainThread()
                 (void*)(BaseAddress + 0x3506320)
             );
             Log("[SERVER] LibReplicate initialized.");
+
+            // Initialize LateJoinManager
+            gLateJoinManager = new LateJoinManager(
+                DidProcStartMatch,
+                PlayerRespawnAllowedMap,
+                ReportRoomStartedIfNeeded
+            );
+            Log("[SERVER] LateJoinManager initialized.");
 
             StartServer();
 

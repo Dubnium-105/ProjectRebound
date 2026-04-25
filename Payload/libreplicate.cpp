@@ -63,7 +63,7 @@ void LibReplicate::Listen(void* NetDriver, void* World, EJoinMode InitialJoinMod
 
 	*Error = FString();
 
-	this-InitListenFuncPtr(NetDriver, World, URL, false, Error);
+	this->InitListenFuncPtr(NetDriver, World, URL, false, Error);
 
 	this->SetWorldFuncPtr(NetDriver, World);
 }
