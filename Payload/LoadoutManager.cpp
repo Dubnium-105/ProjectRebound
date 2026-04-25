@@ -1918,6 +1918,13 @@ namespace LoadoutManagerDetail
         return fuzzyMatch;
     }
 
+    bool TryFindPartSlotNameMapValuePointer(
+        TMap<EPBPartSlotType, FName>& map,
+        EPBPartSlotType slotType,
+        FName** outValue);
+    bool TryReadPartSlotNameValue(FName* valuePtr, FName& outValue);
+    bool TryWritePartSlotNameValue(FName* valuePtr, const FName& value);
+
     bool UpdatePartSlotNameMapEntry(TMap<EPBPartSlotType, FName>& map, EPBPartSlotType slotType, const FName& targetValue, std::string* outPreviousValue = nullptr)
     {
         if (IsBlankName(targetValue))
@@ -1925,29 +1932,30 @@ namespace LoadoutManagerDetail
             return false;
         }
 
-        for (auto& pair : map)
+        FName* currentValuePtr = nullptr;
+        if (!TryFindPartSlotNameMapValuePointer(map, slotType, &currentValuePtr))
         {
-            if (pair.Key() != slotType)
-            {
-                continue;
-            }
-
-            const std::string previousValue = NameToString(pair.Value());
-            if (outPreviousValue)
-            {
-                *outPreviousValue = previousValue;
-            }
-
-            if (previousValue == NameToString(targetValue))
-            {
-                return false;
-            }
-
-            pair.Value() = targetValue;
-            return true;
+            return false;
         }
 
-        return false;
+        FName previousValueName{};
+        if (!TryReadPartSlotNameValue(currentValuePtr, previousValueName))
+        {
+            return false;
+        }
+
+        const std::string previousValue = NameToString(previousValueName);
+        if (outPreviousValue)
+        {
+            *outPreviousValue = previousValue;
+        }
+
+        if (previousValueName == targetValue)
+        {
+            return false;
+        }
+
+        return TryWritePartSlotNameValue(currentValuePtr, targetValue);
     }
 
     struct PartSlotNameBackup
@@ -1955,6 +1963,110 @@ namespace LoadoutManagerDetail
         EPBPartSlotType SlotType{};
         FName PreviousValue{};
     };
+
+    // Some live weapon-definition assets expose Unreal container state that is
+    // readable most of the time but can transiently point at invalid memory
+    // during load/replication. Keep raw TMap traversal behind tiny guarded
+    // helpers so a bad native container degrades to "skip override" instead of
+    // crashing the whole client/server.
+    bool TryFindPartSlotNameMapValuePointer(
+        TMap<EPBPartSlotType, FName>& map,
+        EPBPartSlotType slotType,
+        FName** outValue)
+    {
+        if (outValue)
+        {
+            *outValue = nullptr;
+        }
+
+        __try
+        {
+            if (!map.IsValid())
+            {
+                return false;
+            }
+
+            const int32 numAllocated = map.NumAllocated();
+            const int32 numElements = map.Num();
+            if (numAllocated <= 0 || numAllocated > 512 || numElements < 0 || numElements > numAllocated)
+            {
+                return false;
+            }
+
+            const auto& allocationFlags = map.GetAllocationFlags();
+            if (!allocationFlags.IsValid() || allocationFlags.Num() < numAllocated)
+            {
+                return false;
+            }
+
+            for (int32 index = 0; index < numAllocated; ++index)
+            {
+                if (!map.IsValidIndex(index))
+                {
+                    continue;
+                }
+
+                auto& pair = map[index];
+                if (pair.Key() != slotType)
+                {
+                    continue;
+                }
+
+                if (outValue)
+                {
+                    *outValue = &pair.Value();
+                }
+                return true;
+            }
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER)
+        {
+            if (outValue)
+            {
+                *outValue = nullptr;
+            }
+        }
+
+        return false;
+    }
+
+    bool TryReadPartSlotNameValue(FName* valuePtr, FName& outValue)
+    {
+        if (!valuePtr)
+        {
+            return false;
+        }
+
+        __try
+        {
+            outValue = *valuePtr;
+            return true;
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER)
+        {
+        }
+
+        return false;
+    }
+
+    bool TryWritePartSlotNameValue(FName* valuePtr, const FName& value)
+    {
+        if (!valuePtr)
+        {
+            return false;
+        }
+
+        __try
+        {
+            *valuePtr = value;
+            return true;
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER)
+        {
+        }
+
+        return false;
+    }
 
     bool UpdatePartSlotNameMapEntryWithBackup(
         TMap<EPBPartSlotType, FName>& map,
@@ -1968,50 +2080,48 @@ namespace LoadoutManagerDetail
             return false;
         }
 
-        for (auto& pair : map)
+        FName* currentValuePtr = nullptr;
+        if (!TryFindPartSlotNameMapValuePointer(map, slotType, &currentValuePtr))
         {
-            if (pair.Key() != slotType)
-            {
-                continue;
-            }
-
-            const std::string previousValue = NameToString(pair.Value());
-            if (outPreviousValue)
-            {
-                *outPreviousValue = previousValue;
-            }
-
-            if (previousValue == NameToString(targetValue))
-            {
-                return false;
-            }
-
-            if (backups)
-            {
-                backups->push_back({ slotType, pair.Value() });
-            }
-
-            pair.Value() = targetValue;
-            return true;
+            return false;
         }
 
-        return false;
+        FName previousValueName{};
+        if (!TryReadPartSlotNameValue(currentValuePtr, previousValueName))
+        {
+            return false;
+        }
+
+        const std::string previousValue = NameToString(previousValueName);
+        if (outPreviousValue)
+        {
+            *outPreviousValue = previousValue;
+        }
+
+        if (previousValueName == targetValue)
+        {
+            return false;
+        }
+
+        if (backups)
+        {
+            backups->push_back({ slotType, previousValueName });
+        }
+
+        return TryWritePartSlotNameValue(currentValuePtr, targetValue);
     }
 
     void RestorePartSlotNameMapEntries(TMap<EPBPartSlotType, FName>& map, const std::vector<PartSlotNameBackup>& backups)
     {
         for (auto it = backups.rbegin(); it != backups.rend(); ++it)
         {
-            for (auto& pair : map)
+            FName* currentValuePtr = nullptr;
+            if (!TryFindPartSlotNameMapValuePointer(map, it->SlotType, &currentValuePtr))
             {
-                if (pair.Key() != it->SlotType)
-                {
-                    continue;
-                }
-
-                pair.Value() = it->PreviousValue;
-                break;
+                continue;
             }
+
+            TryWritePartSlotNameValue(currentValuePtr, it->PreviousValue);
         }
     }
 
