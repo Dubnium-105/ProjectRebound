@@ -893,6 +893,18 @@ void* PostLogin(AGameMode* GameMode, APBPlayerController* PC)
 
     std::cout << "Player Connected!" << std::endl;
 
+    // Set player name from PlayerState (Steam name) using ChangeName
+    if (PC && PC->PlayerState && GameMode)
+    {
+        FString playerName = PC->PlayerState->GetPlayerName();
+        if (!playerName.IsEmpty())
+        {
+            std::string nameStr = playerName.ToString();
+            std::cout << "Setting player name: " << nameStr << std::endl;
+            GameMode->ChangeName(PC, playerName, true);
+        }
+    }
+
     // LateJoin detection
     if (gLateJoinManager && gLateJoinManager->OnPostLogin(GameMode, PC))
     {
