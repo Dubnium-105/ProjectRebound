@@ -13,6 +13,7 @@
 #include <iostream>
 #include <fstream>
 #include "libreplicate.h"
+#include "LateJoinManager.h"
 #include <mutex>
 #include <chrono>
 #include <iomanip>
@@ -395,6 +396,36 @@ int NumExpectedPlayers = -1;
 float MatchStartCountdown = -1.0f;
 
 std::unordered_map<APBPlayerController*, bool> PlayerRespawnAllowedMap{};
+
+// LateJoinManager instance
+// Constructed later in MainThread after dependencies are ready
+static LateJoinManager* gLateJoinManager = nullptr;
+
+// Helpers used by TickFlushHook and LateJoinManager
+
+APBGameState* GetPBGameState()
+{
+    UWorld* World = UWorld::GetWorld();
+    if (!World || !World->AuthorityGameMode || !World->AuthorityGameMode->GameState)
+        return nullptr;
+
+    return (APBGameState*)World->AuthorityGameMode->GameState;
+}
+
+APBGameMode* GetPBGameMode()
+{
+    UWorld* World = UWorld::GetWorld();
+    if (!World || !World->AuthorityGameMode)
+        return nullptr;
+
+    return (APBGameMode*)World->AuthorityGameMode;
+}
+
+bool IsRoundCurrentlyInProgress()
+{
+    APBGameState* GameState = GetPBGameState();
+    return GameState && GameState->IsRoundInProgress();
+}
 // ======================================================
 //  SECTION 7 — HOOK DETOURS (ENGINE HOOKS)
 // ======================================================
@@ -512,10 +543,15 @@ void TickFlushHook(UNetDriver* NetDriver, float DeltaTime) {
                 *counter = *counter + 1;
             }
         }
+
+        // Drive LateJoin state machine
+        if (gLateJoinManager)
+            gLateJoinManager->Tick(DeltaTime);
     }
 
-    if (!((APBGameState*)(UWorld::GetWorld()->AuthorityGameMode->GameState))->IsRoundInProgress()) {
-        if (((APBGameState*)(UWorld::GetWorld()->AuthorityGameMode->GameState))->RoundState.ToString().contains("InvalidState")) {
+    APBGameState* CurrentGameState = GetPBGameState();
+    if (CurrentGameState && !CurrentGameState->IsRoundInProgress()) {
+        if (CurrentGameState->RoundState.ToString().contains("InvalidState")) {
 
             if (NumPlayersJoined >= Config.MinPlayersToStart) {
                 if (!DidProcFlow) {
@@ -547,7 +583,7 @@ void TickFlushHook(UNetDriver* NetDriver, float DeltaTime) {
             }
         }
 
-        if (((APBGameState*)(UWorld::GetWorld()->AuthorityGameMode->GameState))->RoundState.ToString().contains("CountdownToStart")) {
+        if (CurrentGameState->RoundState.ToString().contains("CountdownToStart")) {
 
             for (UNetConnection* pc : NetDriver->ClientConnections) {
                 if (pc->PlayerController && pc->PlayerController->Pawn)
@@ -627,13 +663,15 @@ char NotifyControlMessageHook(unsigned __int64 ScuffedShit, __int64 a2, uint8_t 
 SafetyHookInline ProcessEvent;
 
 void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
-    if (Function->GetFullName().contains("QuickRespawn")) {
+    const std::string functionName = Function ? std::string(Function->GetFullName()) : "";
+
+    if (functionName.contains("QuickRespawn")) {
         APBPlayerController* PBPlayerController = (APBPlayerController*)Object;
 
         PlayerRespawnAllowedMap[PBPlayerController] = true;
     }
 
-    if (Function->GetFullName().contains("ServerRestartPlayer")) {
+    if (functionName.contains("ServerRestartPlayer")) {
         APBPlayerController* PBPlayerController = (APBPlayerController*)Object;
 
         if (PlayerRespawnAllowedMap.contains(PBPlayerController) && PlayerRespawnAllowedMap[PBPlayerController] == false) {
@@ -642,7 +680,28 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
         }
     }
 
-    if (Function->GetFullName().contains("ServerConfirmRoleSelection")) {
+    // LateJoin: role-selection interception (CanPlayerSelectRole / CanSelectRole)
+    if (gLateJoinManager && gLateJoinManager->OnProcessEvent(Object, functionName, Parms))
+    {
+        // Already handled by LateJoinManager
+        return;
+    }
+
+    // LateJoin: ServerConfirmRoleSelection
+    // Must call original ProcessEvent first, then advance LateJoin state
+    if (functionName.contains("ServerConfirmRoleSelection")) {
+        APBPlayerController* PBPlayerController = Object && Object->IsA(APBPlayerController::StaticClass())
+            ? (APBPlayerController*)Object
+            : nullptr;
+
+        if (gLateJoinManager && gLateJoinManager->IsLateJoinPlayer(PBPlayerController)) {
+            // Execute original function first
+            ProcessEvent.call(Object, Function, Parms);
+            // Advance LateJoin state to RoleConfirmed
+            gLateJoinManager->OnRoleConfirmed(PBPlayerController);
+            return;
+        }
+
         NumPlayersSelectedRole++;
 
         if (!canStartMatch && NumPlayersSelectedRole >= NumExpectedPlayers) {
@@ -650,13 +709,13 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
         }
     }
 
-    if (Function->GetFullName().contains("ReadyToMatchIntro_WaitingToStart")) {
+    if (functionName.contains("ReadyToMatchIntro_WaitingToStart")) {
         if (!canStartMatch) {
             return;
         }
     }
 
-    if (Function->GetFullName().contains("ClientBeKilled")) {
+    if (functionName.contains("ClientBeKilled")) {
         std::cout << "Intercepted Player Kill!" << std::endl;
 
         APBPlayerController* PBPlayerController = (APBPlayerController*)Object;
@@ -664,7 +723,7 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
         PlayerRespawnAllowedMap[PBPlayerController] = false;
     }
 
-    if (Function->GetFullName().contains("PlayerCanRestart")) {
+    if (functionName.contains("PlayerCanRestart")) {
         ((Params::GameModeBase_PlayerCanRestart*)Parms)->ReturnValue =
             ((AGameModeBase*)Object)->HasMatchStarted();
         return;
@@ -682,6 +741,13 @@ void* PostLogin(AGameMode* GameMode, APBPlayerController* PC)
     NumPlayersJoined++;
 
     std::cout << "Player Connected!" << std::endl;
+
+    // LateJoin detection
+    if (gLateJoinManager && gLateJoinManager->OnPostLogin(GameMode, PC))
+    {
+        // Handled as LateJoin player; skip normal first-life flow
+        return Ret;
+    }
 
     // Force first-life respawn fix
     if (PC && PC->Pawn)
@@ -1227,6 +1293,14 @@ void MainThread()
                 (void*)(BaseAddress + 0x3506320)
             );
             Log("[SERVER] LibReplicate initialized.");
+
+            // Initialize LateJoinManager
+            gLateJoinManager = new LateJoinManager(
+                DidProcStartMatch,
+                PlayerRespawnAllowedMap,
+                nullptr  // ReportRoomStarted callback — can be wired later
+            );
+            Log("[SERVER] LateJoinManager initialized.");
 
             StartServer();
 
