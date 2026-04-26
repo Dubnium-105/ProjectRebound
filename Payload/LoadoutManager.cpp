@@ -4637,6 +4637,17 @@ namespace LoadoutManagerDetail
         {
             State& state = GetState();
             std::scoped_lock lock(state.Mutex);
+
+            // If a pre-spawn apply is pending, bypass the 1-second throttle
+            // to ensure ServerPreOrderInventory is applied before Pawn creation.
+            // This is critical for initial-join deferred-spawn: role confirmation
+            // queues a pre-spawn apply, and the LateJoinManager may attempt to
+            // spawn the Pawn within the same second.
+            if (state.PendingPreSpawnFieldModApply)
+            {
+                state.NextServerTickAt = now;
+            }
+
             if (now < state.NextServerTickAt)
             {
                 return;
