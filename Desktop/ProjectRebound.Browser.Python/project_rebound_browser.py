@@ -597,10 +597,12 @@ def game_exe_dir(game_directory: str) -> Path | None:
 
 
 def latest_existing(paths: list[Path]) -> Path | None:
-    existing = [path for path in paths if path.exists()]
-    if not existing:
-        return None
-    return max(existing, key=lambda path: path.stat().st_mtime)
+    """Return the first existing path from *paths*.
+
+    候选路径列表即为优先级列表：项目级编译输出目录优先于解决方案级拷贝目录，
+    因为 MSBuild 的拷贝操作会更新 mtime，导致按 mtime 选择时可能误选旧内容。
+    """
+    return next((path for path in paths if path.exists()), None)
 
 
 def proxy_launcher() -> tuple[list[str], Path]:
@@ -1449,11 +1451,13 @@ class BrowserApp(tk.Tk):
                 runtime_artifacts_dir() / "dxgi.dll",
                 root / "dxgi" / "x64" / "Release" / "dxgi.dll",
                 root / "dxgi" / "dxgi" / "x64" / "Release" / "dxgi.dll",
+                root / "x64" / "Release" / "dxgi.dll",
             ]),
             "Payload.dll": latest_existing([
                 runtime_artifacts_dir() / "Payload.dll",
                 root / "Payload" / "x64" / "Release" / "Payload.dll",
                 root / "Payload" / "Payload" / "x64" / "Release" / "Payload.dll",
+                root / "x64" / "Release" / "Payload.dll",
             ]),
         }
 
@@ -1477,6 +1481,7 @@ class BrowserApp(tk.Tk):
             runtime_artifacts_dir() / "ProjectReboundServerWrapper.exe",
             root / "ServerWrapper" / "ProjectReboundServerWrapper" / "x64" / "Release" / "ProjectReboundServerWrapper.exe",
             root / "ServerWrapper" / "ProjectReboundServerWrapper" / "ProjectReboundServerWrapper" / "x64" / "Release" / "ProjectReboundServerWrapper.exe",
+            root / "x64" / "Release" / "ProjectReboundServerWrapper.exe",
         ])
         if source is None:
             append_gui_log("Built ProjectReboundServerWrapper.exe was not found; using existing wrapper from game directory.")
