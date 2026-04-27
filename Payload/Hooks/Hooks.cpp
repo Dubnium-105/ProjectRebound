@@ -11,7 +11,7 @@
 #include "../Libs/json.hpp"
 #include "../Replication/libreplicate.h"
 #include "../ServerLogic/LateJoinManager.h"
-#include "../LoadoutManager.h"
+#include "../Loadout/LoadoutManager.h"
 #include "../Config/Config.h"
 #include "../Debug/Debug.h"
 #include "../ServerLogic/ServerLogic.h"

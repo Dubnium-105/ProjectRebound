@@ -41,16 +41,16 @@
 #include <utility>
 #include <vector>
 
-#include "SDK.hpp"
-#include "SDK/Engine_parameters.hpp"
-#include "SDK/ProjectBoundary_parameters.hpp"
-#include "Libs/json.hpp"
+#include "../SDK.hpp"
+#include "../SDK/Engine_parameters.hpp"
+#include "../SDK/ProjectBoundary_parameters.hpp"
+#include "../Libs/json.hpp"
 
 using namespace SDK;
 
 std::vector<UObject*> getObjectsOfClass(UClass* theClass, bool includeDefault);
 UObject* GetLastOfType(UClass* theClass, bool includeDefault);
-#include "Debug/Debug.h"
+#include "../Debug/Debug.h"
 
 extern bool LoginCompleted;
 extern bool amServer;

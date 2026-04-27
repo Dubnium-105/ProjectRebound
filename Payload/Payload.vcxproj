@@ -148,17 +148,17 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="framework.h" />
-    <ClInclude Include="CommandFramework.h" />
-    <ClInclude Include="LoadoutManager.h" />
+    <ClInclude Include="Communication\CommandFramework.h" />
+    <ClInclude Include="Loadout\LoadoutManager.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ClientLogic\ClientLogic.cpp" />
     <ClCompile Include="Config\Config.cpp" />
     <ClCompile Include="Debug\Debug.cpp" />
     <ClCompile Include="dllmain.cpp" />
-    <ClCompile Include="CommandFramework.cpp" />
+    <ClCompile Include="Communication\CommandFramework.cpp" />
     <ClCompile Include="Hooks\Hooks.cpp" />
-    <ClCompile Include="LoadoutManager.cpp" />
+    <ClCompile Include="Loadout\LoadoutManager.cpp" />
     <ClCompile Include="Network\NetDriverAccess.cpp" />
     <ClCompile Include="Network\Network.cpp" />
     <ClCompile Include="Replication\libreplicate.cpp" />

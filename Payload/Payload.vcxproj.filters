@@ -16,6 +16,12 @@
     <Filter Include="safetyhook">
       <UniqueIdentifier>{d20c55c4-be16-4397-8447-83ec7e9e0d87}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Communication">
+      <UniqueIdentifier>{a1b2c3d4-e5f6-7890-abcd-ef1234567890}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Loadout">
+      <UniqueIdentifier>{b2c3d4e5-f6a7-8901-bcde-f12345678901}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -24,11 +30,11 @@
     <ClInclude Include="LateJoinManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="LoadoutManager.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="Loadout\LoadoutManager.h">
+      <Filter>Loadout</Filter>
     </ClInclude>
-    <ClInclude Include="CommandFramework.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="Communication\CommandFramework.h">
+      <Filter>Communication</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -38,11 +44,11 @@
     <ClCompile Include="LateJoinManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="LoadoutManager.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="Loadout\LoadoutManager.cpp">
+      <Filter>Loadout</Filter>
     </ClCompile>
-    <ClCompile Include="CommandFramework.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="Communication\CommandFramework.cpp">
+      <Filter>Communication</Filter>
     </ClCompile>
     <ClCompile Include="SDK\Basic.cpp">
       <Filter>Source Files</Filter>
