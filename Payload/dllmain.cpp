@@ -34,7 +34,7 @@ uintptr_t BaseAddress = 0x0;
 LibReplicate* libReplicate = nullptr; // was static in original, but extern needed by other modules
 HMODULE gPayloadModule = nullptr;
 static CommandFramework* g_CmdFramework = nullptr;
-static LoadoutManager* gLoadoutManager = nullptr;
+LoadoutManager* gLoadoutManager = nullptr;
 static std::mutex MatchIPMutex;
 
 void OnJoinFromPipe(const std::string& ip, const std::string& token)
