@@ -301,8 +301,18 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
 {
     const std::string functionName = Function ? std::string(Function->GetFullName()) : "";
 
+    // 用 ProcessEvent 作为 tick 来源（原设计中缺少 GameThread tick hook）
     if (gLoadoutManager)
+    {
+        static auto nextTick = std::chrono::steady_clock::now();
+        const auto now = std::chrono::steady_clock::now();
+        if (now >= nextTick)
+        {
+            nextTick = now + std::chrono::seconds(1);
+            gLoadoutManager->TickServer();
+        }
         gLoadoutManager->OnServerProcessEventPre(Object, functionName, Parms);
+    }
 
     if (functionName.contains("QuickRespawn"))
     {
@@ -493,6 +503,18 @@ static SafetyHookInline ProcessEventClient;
 
 void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
 {
+    // 用 ProcessEvent 作为 tick 来源（原设计中缺少 GameThread tick hook）
+    if (gLoadoutManager)
+    {
+        static auto nextTick = std::chrono::steady_clock::now();
+        const auto now = std::chrono::steady_clock::now();
+        if (now >= nextTick)
+        {
+            nextTick = now + std::chrono::milliseconds(250);
+            gLoadoutManager->TickClient();
+        }
+    }
+
     // TEMP LOGIN DEBUG DUMP (GameInstance only)
     // if (Object && Object->IsA(UPBGameInstance::StaticClass()))
     //{
@@ -532,7 +554,12 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
         ConnectToMatch();
     }
 
-    return ProcessEventClient.call(Object, Function, Parms);
+    // 先执行原始 ProcessEvent，确保游戏状态已更新
+    ProcessEventClient.call(Object, Function, Parms);
+
+    // 在游戏状态更新后触发导出
+    if (gLoadoutManager && Function)
+        gLoadoutManager->OnClientProcessEventPost(Object, Function->GetFullName(), Parms);
 }
 
 static SafetyHookInline ClientDeathCrash;
