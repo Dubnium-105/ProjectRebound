@@ -1,79 +1,76 @@
-// Main application window
-import { TextEdit, LineEdit, Button, VerticalBox, HorizontalBox, GroupBox, Switch } from "std-widgets.slint";
+// ======================================================
+//  MAIN WINDOW – RESPONSIVE THREE‑COLUMN LAYOUT
+// ======================================================
+import { HorizontalBox, VerticalBox } from "std-widgets.slint";
+import { SideBar } from "sidebar.slint";
+import { AppState } from "app_state.slint";
+import { ServerConsolePage, ServerConfigPage, ServerStatusPage } from "pages.slint";
 
 export component AppWindow inherits Window {
-    width: 800px;
+    preferred-width: 1440px;     // 默认宽度，用户可拖拽
+    min-width: 900px;            // 避免窗口过窄
     height: 600px;
+    icon: @image-url("servericon.png");
+    title: "Project Boundary Server Launcher";
 
-    in-out property <string> console_text;
-    callback send_command(string);
     callback get-new-log() -> string;
     callback get-log-length() -> int;
+    callback send_command(string);
     callback start_server();
-
-    // Auto-scroll toggle (default on)
-    in-out property <bool> auto-scroll: true;
 
     Timer {
         interval: 200ms;
         running: true;
         triggered => {
-            root.console_text = get-new-log();
-            if root.auto-scroll {
-                let text-len: int = get-log-length();
-                output.set-selection-offsets(text-len, text-len);
-            }
+            AppState.console_text = root.get-new-log();
+            AppState.log-length = root.get-log-length();
         }
     }
 
-    VerticalBox {
-        spacing: 8px;
+    HorizontalBox {
+        spacing: 4px;                     // 防止边框粘连
 
-        GroupBox {
-            title: "Console Output";
-            height: 450px;
+        // ===== COLUMN 1: Fixed Sidebar =====
+        Rectangle {
+            width: 200px;
+            height: 100%;
+            border-width: 1px;
+            border-color: #87a4bed1;
+            border-radius: 4px;
 
-            output := TextEdit {
-                text: root.console_text;
-                read-only: true;
-                wrap: word-wrap;
+            VerticalBox {
+                side-bar := SideBar {
+                    model: ["Server Config", "Server Status"];
+                }
             }
         }
 
-        HorizontalBox {
-            spacing: 8px;
-            height: 40px;
+        // ===== COLUMN 2: Flexible Page Area =====
+        Rectangle {
+            horizontal-stretch: 1;        // 自动缩放，与右侧平分剩余宽度
+            height: 100%;
+            border-width: 1px;
+            border-color: #87a4bed1;
+            border-radius: 4px;
 
-            input := LineEdit {
-                placeholder-text: "Enter command...";
-                // Trigger send when Enter is pressed
-                accepted => {
-                    root.send_command(input.text);
-                    input.text = "";
-                }
+            VerticalBox {
+                if (side-bar.current-item == 0): ServerConfigPage { }
+                if (side-bar.current-item == 1): ServerStatusPage { }
             }
+        }
 
-            Button {
-                text: "Send";
-                clicked => {
-                    root.send_command(input.text);
-                    input.text = "";
-                }
-            }
+        // ===== COLUMN 3: Flexible Console =====
+        Rectangle {
+            horizontal-stretch: 1;        // 自动缩放，与中间平分剩余宽度
+            height: 100%;
+            border-width: 1px;
+            border-color: #87a4bed1;
+            border-radius: 4px;
 
-            Button {
-                text: "Start Server";
-                clicked => {
-                    root.start_server();
-                }
-            }
-
-            // Auto-scroll toggle switch
-            switch := Switch {
-                text: "Auto-scroll";
-                checked: root.auto-scroll;
-                toggled => {
-                    root.auto-scroll = !root.auto-scroll;
+            VerticalBox {
+                ServerConsolePage {
+                    send_command(cmd) => { root.send_command(cmd); }
+                    start_server => { root.start_server(); }
                 }
             }
         }

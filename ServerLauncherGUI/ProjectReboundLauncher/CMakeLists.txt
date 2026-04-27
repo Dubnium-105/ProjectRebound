@@ -21,6 +21,7 @@ add_executable(my_application
     src/wrapper.cpp
     src/initcli.cpp
     src/initgui.cpp
+    resources.rc
 )
 
 # 改为 Windows 子系统，不自动创建控制台
