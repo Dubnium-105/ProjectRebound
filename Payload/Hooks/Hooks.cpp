@@ -11,6 +11,7 @@
 #include "../Libs/json.hpp"
 #include "../Replication/libreplicate.h"
 #include "../ServerLogic/LateJoinManager.h"
+#include "../LoadoutManager.h"
 #include "../Config/Config.h"
 #include "../Debug/Debug.h"
 #include "../ServerLogic/ServerLogic.h"
@@ -19,6 +20,8 @@
 
 extern uintptr_t BaseAddress;
 extern LibReplicate* libReplicate;
+class LoadoutManager;
+extern LoadoutManager* gLoadoutManager;
 
 using namespace SDK;
 
@@ -298,6 +301,9 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
 {
     const std::string functionName = Function ? std::string(Function->GetFullName()) : "";
 
+    if (gLoadoutManager)
+        gLoadoutManager->OnServerProcessEventPre(Object, functionName, Parms);
+
     if (functionName.contains("QuickRespawn"))
     {
         APBPlayerController *PBPlayerController = (APBPlayerController *)Object;
@@ -330,26 +336,81 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
         APBPlayerController *PBPlayerController = Object && Object->IsA(APBPlayerController::StaticClass())
                                                       ? (APBPlayerController *)Object
                                                       : nullptr;
+        auto *ConfirmParms = static_cast<Params::PBPlayerController_ServerConfirmRoleSelection *>(Parms);
 
+        QueuePendingPlayerNameUpdate(PBPlayerController);
+
+        if (gLoadoutManager && PBPlayerController && ConfirmParms)
+        {
+            gLoadoutManager->OnRoleSelectionConfirmed(PBPlayerController, ConfirmParms->InRoleID, true);
+        }
+
+        // Late join player: execute original + advance state, skip match-start counting
         if (gLateJoinManager && gLateJoinManager->IsLateJoinPlayer(PBPlayerController))
         {
-            // Execute original function first
             ProcessEvent.call(Object, Function, Parms);
-            // Advance LateJoin state to RoleConfirmed
+            if (gLoadoutManager)
+                gLoadoutManager->OnServerProcessEventPost(Object, functionName, Parms);
             gLateJoinManager->OnRoleConfirmed(PBPlayerController);
             return;
         }
 
-        NumPlayersSelectedRole++;
-
-        if (!canStartMatch && NumPlayersSelectedRole >= NumExpectedPlayers)
+        // Initial join player in deferred-spawn flow: execute original + advance state,
+        // but ALSO count towards match start (unlike late join)
+        if (gLateJoinManager && gLateJoinManager->IsInitialJoinPlayer(PBPlayerController))
         {
-            canStartMatch = true;
+            ProcessEvent.call(Object, Function, Parms);
+            if (gLoadoutManager)
+                gLoadoutManager->OnServerProcessEventPost(Object, functionName, Parms);
+            gLateJoinManager->OnRoleConfirmed(PBPlayerController);
+
+            if (PBPlayerController)
+            {
+                const auto [_, inserted] = PlayersConfirmedRole.insert(PBPlayerController);
+                if (inserted)
+                {
+                    NumPlayersSelectedRole = static_cast<int>(PlayersConfirmedRole.size());
+                    std::cout << "[MATCH] Role confirmed by (initial-join) "
+                        << PBPlayerController->GetFullName()
+                        << " (" << NumPlayersSelectedRole << "/" << NumExpectedPlayers << ")" << std::endl;
+                }
+
+                if (!canStartMatch && NumExpectedPlayers > 0 && NumPlayersSelectedRole >= NumExpectedPlayers)
+                {
+                    canStartMatch = true;
+                    StartMatchTimer = -1.0f;
+                }
+            }
+            return;
+        }
+
+        if (PBPlayerController)
+        {
+            const auto [_, inserted] = PlayersConfirmedRole.insert(PBPlayerController);
+            if (inserted)
+            {
+                NumPlayersSelectedRole = static_cast<int>(PlayersConfirmedRole.size());
+                std::cout << "[MATCH] Role confirmed by "
+                    << PBPlayerController->GetFullName()
+                    << " (" << NumPlayersSelectedRole << "/" << NumExpectedPlayers << ")" << std::endl;
+            }
+            else
+            {
+                std::cout << "[MATCH] Ignoring duplicate role confirmation from "
+                    << PBPlayerController->GetFullName() << std::endl;
+            }
+
+            if (!canStartMatch && NumExpectedPlayers > 0 && NumPlayersSelectedRole >= NumExpectedPlayers)
+            {
+                canStartMatch = true;
+                StartMatchTimer = -1.0f;
+            }
         }
     }
 
     if (functionName.contains("ReadyToMatchIntro_WaitingToStart"))
     {
+        ApplyPendingPlayerNameUpdates("ReadyToMatchIntro_WaitingToStart");
         if (!canStartMatch)
         {
             return;
@@ -392,10 +453,19 @@ void *PostLogin(AGameMode *GameMode, APBPlayerController *PC)
         return Ret;
     }
 
-    // Force first-life respawn fix
+    // Initial join: defer Pawn creation to LateJoinManager's delayed-spawn flow.
+    // This ensures weapons are created AFTER role confirmation (when loadout
+    // inventory is already applied), fixing the loadout switching issue.
+    if (gLateJoinManager)
+    {
+        gLateJoinManager->QueueInitialJoinPlayer(GameMode, PC);
+        return Ret;
+    }
+
+    // Fallback: if LateJoinManager is not available, use the old immediate-respawn path
     if (PC && PC->Pawn)
     {
-        PC->ServerSuicide(0); // triggers respawn
+        PC->ServerSuicide(0);   // triggers respawn
     }
 
     return Ret;

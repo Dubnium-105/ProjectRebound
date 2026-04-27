@@ -4,6 +4,7 @@
 #include <fstream>
 #include <filesystem>
 #include <iostream>
+#include <mutex>
 
 #include "SDK.hpp"
 #include "Network/NetDriverAccess.h"

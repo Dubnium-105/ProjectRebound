@@ -9,6 +9,7 @@
 #include <iostream>
 #include <string>
 #include <chrono>
+#include <mutex>
 #include <thread>
 #include <Windows.h>
 #include <winhttp.h>
@@ -83,17 +84,9 @@ nlohmann::json BuildRoomHeartbeatPayload()
     return payload;
 }
 
-// Send Message to Backend HTTP Helper
-void SendServerStatus(const std::string &backend)
+// Generic HTTP POST helper
+bool PostJsonToBackend(const std::string &backend, const std::string &path, const nlohmann::json &payload)
 {
-    bool useRoomHeartbeat = !HostRoomId.empty() && !HostToken.empty();
-    nlohmann::json payload = useRoomHeartbeat ? BuildRoomHeartbeatPayload() : BuildServerStatusPayload();
-    if (!useRoomHeartbeat && !HostRoomId.empty())
-    {
-        payload["roomId"] = HostRoomId;
-        payload["hostToken"] = HostToken;
-    }
-
     std::string body = payload.dump();
     std::string cleanBackend = StripHttpScheme(backend);
 
@@ -105,14 +98,11 @@ void SendServerStatus(const std::string &backend)
     if (colon == std::string::npos)
     {
         std::cout << "[ONLINE] Invalid backend address format." << std::endl;
-        return;
+        return false;
     }
 
     std::string host = cleanBackend.substr(0, colon);
     std::string port = cleanBackend.substr(colon + 1);
-    std::string path = useRoomHeartbeat
-                           ? "/v1/rooms/" + HostRoomId + "/heartbeat"
-                           : "/server/status";
 
     HINTERNET hSession = WinHttpOpen(L"BoundaryDLL/1.0",
                                      WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
@@ -120,7 +110,7 @@ void SendServerStatus(const std::string &backend)
                                      WINHTTP_NO_PROXY_BYPASS, 0);
 
     if (!hSession)
-        return;
+        return false;
 
     std::wstring whost(host.begin(), host.end());
     INTERNET_PORT wport = (INTERNET_PORT)std::stoi(port);
@@ -129,7 +119,7 @@ void SendServerStatus(const std::string &backend)
     if (!hConnect)
     {
         WinHttpCloseHandle(hSession);
-        return;
+        return false;
     }
 
     HINTERNET hRequest = WinHttpOpenRequest(
@@ -145,7 +135,7 @@ void SendServerStatus(const std::string &backend)
     {
         WinHttpCloseHandle(hConnect);
         WinHttpCloseHandle(hSession);
-        return;
+        return false;
     }
 
     BOOL bResults = WinHttpSendRequest(
@@ -165,6 +155,75 @@ void SendServerStatus(const std::string &backend)
     WinHttpCloseHandle(hSession);
 
     std::cout << "[ONLINE] Sent " << path << ": " << body << std::endl;
+    return bResults;
+}
+
+// Send Message to Backend HTTP Helper
+void SendServerStatus(const std::string &backend)
+{
+    bool useRoomHeartbeat = !HostRoomId.empty() && !HostToken.empty();
+    nlohmann::json payload = useRoomHeartbeat ? BuildRoomHeartbeatPayload() : BuildServerStatusPayload();
+    if (!useRoomHeartbeat && !HostRoomId.empty())
+    {
+        payload["roomId"] = HostRoomId;
+        payload["hostToken"] = HostToken;
+    }
+
+    std::string path = useRoomHeartbeat
+                           ? "/v1/rooms/" + HostRoomId + "/heartbeat"
+                           : "/server/status";
+
+    PostJsonToBackend(backend, path, payload);
+}
+
+bool SendRoomLifecycleStart(const std::string &backend)
+{
+    if (HostRoomId.empty() || HostToken.empty())
+        return false;
+
+    nlohmann::json payload = {
+        { "hostToken", HostToken }
+    };
+    return PostJsonToBackend(backend, "/v1/rooms/" + HostRoomId + "/start", payload);
+}
+
+static bool RoomStartReportSucceeded = false;
+static bool RoomStartReportInFlight = false;
+static std::mutex RoomStartReportMutex;
+static bool DisableBackendRoomStartPromotion = true;
+
+void ReportRoomStartedIfNeeded()
+{
+    if (DisableBackendRoomStartPromotion)
+    {
+        static bool loggedSkip = false;
+        if (!loggedSkip)
+        {
+            std::cout << "[ONLINE] Skipping /start lifecycle promotion for backend compatibility." << std::endl;
+            loggedSkip = true;
+        }
+        return;
+    }
+
+    if (OnlineBackendAddress.empty() || HostRoomId.empty() || HostToken.empty())
+        return;
+
+    {
+        std::lock_guard<std::mutex> lock(RoomStartReportMutex);
+        if (RoomStartReportSucceeded || RoomStartReportInFlight)
+            return;
+
+        RoomStartReportInFlight = true;
+    }
+
+    std::string backend = OnlineBackendAddress;
+    std::thread([backend]()
+        {
+            bool ok = SendRoomLifecycleStart(backend);
+            std::lock_guard<std::mutex> lock(RoomStartReportMutex);
+            RoomStartReportSucceeded = ok;
+            RoomStartReportInFlight = false;
+        }).detach();
 }
 
 // 心跳线程（原本在 MainThread 中启动）
