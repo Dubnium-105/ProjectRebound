@@ -46,10 +46,10 @@ DWORD g_ServerPid = 0;
 //Config constants
 const std::string DEFAULT_BACKEND = "ax48735790k.vicp.fun:3000";
 std::string CurrentMap = "Warehouse";
-std::string CurrentMode = "pvp";
+std::string CurrentMode = "pve";
 std::string LastMap = "";
 std::string CurrentDifficulty = "normal";
-std::string OnlineBackend = DEFAULT_BACKEND;
+std::string OnlineBackend = "";
 std::string ServerName = "DefaultServer";
 std::string ServerRegion = "CN";
 std::string HostRoomId = "";
@@ -237,14 +237,13 @@ struct MapInfo {
 };
 
 // List of maps with their PVE bug status
-const std::array<MapInfo, 11> MapList{ {
+const std::array<MapInfo, 11> MapList{ {    
     { "OSS",         false },
     { "MiniFarm",    false },
     { "Warehouse",   false },
     { "Dusty",       true  },
     { "DataCenter",  false },
     { "CircularX",   false },
-    { "Interior_C",  true  },
     { "Museum_art",  true  },
     { "RelayStation",true  },
     { "Oriolus",     true  },
@@ -273,8 +272,8 @@ std::string PickRandomMapAvoidingLast()
 
     for (const auto& m : MapList)
     {
-        if (m.pveBug || m.name == LastMap)
-            continue;
+        if (m.name == LastMap) continue;
+        if (CurrentMode == "pve" && m.pveBug) continue;
 
         ++eligibleCount;
         if (std::uniform_int_distribution<size_t>(1, eligibleCount)(rng) == 1)
@@ -319,7 +318,7 @@ void SetMap(const std::string& name)
     }
 
     const MapInfo& map = MapList[it->second];
-    if (map.pveBug)
+    if (map.pveBug && CurrentMode == "pve")
     {
         LauncherLog("Map '" + name + "' is forbidden due to PVE bug.");
         return;

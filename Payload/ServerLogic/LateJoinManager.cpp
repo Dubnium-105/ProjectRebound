@@ -16,9 +16,9 @@
 //    - LoadoutManager：通过回调介入角色确认后的装备覆盖
 
 #include "LateJoinManager.h"
-#include "SDK.hpp"
-#include "SDK/Engine_parameters.hpp"
-#include "SDK/ProjectBoundary_parameters.hpp"
+#include "../SDK.hpp"
+#include "../SDK/Engine_parameters.hpp"
+#include "../SDK/ProjectBoundary_parameters.hpp"
 #include <iostream>
 
 using namespace SDK;
