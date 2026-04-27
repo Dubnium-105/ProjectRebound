@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import ctypes
+import ctypes.wintypes
 import json
 import os
 import queue
@@ -10,6 +12,7 @@ import sys
 import threading
 import time
 import tkinter as tk
+from uuid import uuid4
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
@@ -17,7 +20,6 @@ from urllib import error, parse, request
 
 from browser_loadout import (
     APP_DIR,
-    LAUNCH_DIR,
     coalesce_loadout_snapshot,
     load_current_loadout_snapshot,
     prepare_launch_loadout_snapshot,
@@ -473,16 +475,6 @@ def append_gui_log(message: str) -> None:
         file.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {message}\n")
 
 
-def quote_bat(value: str | Path) -> str:
-    return '"' + str(value).replace('"', '""') + '"'
-
-
-def write_batch(name: str, lines: list[str]) -> Path:
-    LAUNCH_DIR.mkdir(parents=True, exist_ok=True)
-    path = LAUNCH_DIR / name
-    path.write_text("\r\n".join(lines) + "\r\n", encoding="utf-8")
-    append_gui_log(f"Wrote launcher batch: {path}")
-    return path
 
 
 def repo_root() -> Path:
@@ -647,6 +639,10 @@ class BrowserApp(tk.Tk):
         self.legacy_heartbeat_stop: threading.Event | None = None
         self.legacy_heartbeat_thread: threading.Thread | None = None
 
+        self._pipe_name = f"ProjectRebound_{uuid4().hex[:8]}"
+        self._pipe_client: PipeClient | None = None
+        self._pipe_connected = False
+
         self._build_ui()
         self.protocol("WM_DELETE_WINDOW", self.on_close)
         self.after(100, self._drain_queue)
@@ -702,6 +698,7 @@ class BrowserApp(tk.Tk):
         ttk.Button(buttons, text="创建", command=lambda: self.run_background(self.create_room)).pack(side=tk.LEFT, padx=4)
         ttk.Button(buttons, text="加入", command=lambda: self.run_background(self.join_selected_room)).pack(side=tk.LEFT, padx=4)
         ttk.Button(buttons, text="快速匹配", command=lambda: self.run_background(self.quick_match)).pack(side=tk.LEFT, padx=4)
+        ttk.Button(buttons, text="重连", command=lambda: self.run_background(self.reconnect_to_selected_room)).pack(side=tk.LEFT, padx=4)
 
         columns = ("source", "name", "region", "map", "mode", "players", "max", "state", "last")
         self.tree = ttk.Treeview(root, columns=columns, show="headings", selectmode="browse")
@@ -747,6 +744,10 @@ class BrowserApp(tk.Tk):
                     self.status_var.set(str(payload))
                 elif kind == "rooms":
                     self._render_rooms(payload)  # type: ignore[arg-type]
+                elif kind == "pipe_status":
+                    self._pipe_connected = bool(payload)
+                    status_text = "已连接游戏" if payload else "游戏未连接"
+                    append_gui_log(f"[Pipe] {status_text}")
                 elif kind == "error":
                     self.status_var.set(str(payload))
                     messagebox.showerror("ProjectRebound 浏览器", str(payload))
@@ -769,6 +770,9 @@ class BrowserApp(tk.Tk):
     def on_close(self) -> None:
         self.stop_host_heartbeat()
         self.stop_legacy_heartbeat()
+        if self._pipe_client is not None:
+            self._pipe_client.stop()
+            self._pipe_client = None
         self.destroy()
 
     def read_form(self) -> AppConfig:
@@ -1052,52 +1056,117 @@ class BrowserApp(tk.Tk):
     def prepare_launch_loadout_snapshot(self, snapshot: dict | None = None) -> None:
         prepare_launch_loadout_snapshot(snapshot, append_gui_log, self.set_status)
 
-    def start_client(self, connect: str, launch_snapshot: dict | None = None) -> None:
+    def start_client(self, connect: str, launch_snapshot: dict | None = None, pipe_name: str | None = None) -> None:
         exe = find_file(self.config_data.game_directory, "ProjectBoundarySteam-Win64-Shipping.exe")
         if not exe:
             raise RuntimeError("在游戏目录下未找到 ProjectBoundarySteam-Win64-Shipping.exe。")
         self.ensure_payload_files(Path(exe).parent)
         self.prepare_launch_loadout_snapshot(launch_snapshot)
-        self.launch_client_via_batch(exe, connect)
+        actual_pipe = pipe_name or self._pipe_name
+        self.launch_client_via_batch(exe, connect, actual_pipe)
+        threading.Thread(target=self._connect_pipe_after_launch, daemon=True).start()
 
-    def launch_client_via_batch(self, exe: str, connect: str) -> None:
+    def launch_client_via_batch(self, exe: str, connect: str, pipe_name: str | None = None) -> None:
         backend_dir = find_directory_near(self.config_data.game_directory, "BoundaryMetaServer-main")
         node = find_file_near(self.config_data.game_directory, "node.exe")
         if not backend_dir or not node:
             raise RuntimeError("在游戏目录下未找到 nodejs/node.exe 或 BoundaryMetaServer-main。")
 
-        append_gui_log(f"Preparing client launcher with -match={connect}")
-        lines = [
-            "@echo off",
-            "title Project Rebound Client Launcher",
-            "echo [Launcher] Starting fake login server...",
+        pipe_clause = f" -pipe={pipe_name}" if pipe_name else ""
+        append_gui_log(f"Launching client with -match={connect}{pipe_clause}")
+
+        self.ensure_fake_login_server()
+
+        exe_parent = Path(exe).parent
+        self._check_dll_warnings(exe_parent)
+
+        args: list[str] = [
+            exe,
+            f"-LogicServerURL={self.config_data.logic_server_url}",
+            f"-match={connect}",
+            "-debuglog",
         ]
-        endpoint = logic_server_endpoint(self.config_data.logic_server_url)
-        if endpoint and is_local_host(endpoint[0]) and is_tcp_open(endpoint[0], endpoint[1]):
-            lines.append(f"echo [Launcher] Fake login server already reachable at {endpoint[0]}:{endpoint[1]}.")
+        if pipe_name:
+            args.append(f"-pipe={pipe_name}")
+
+        append_gui_log("Launching game client: " + subprocess.list2cmdline(args))
+        subprocess.Popen(args, cwd=str(exe_parent), creationflags=self.creation_flags())
+
+    def _connect_pipe_after_launch(self) -> None:
+        time.sleep(10)
+        for attempt in range(5):
+            if self._pipe_connected:
+                return
+            append_gui_log(f"[Pipe] Attempting to connect (attempt {attempt + 1}/5)...")
+            if self._ensure_pipe_connected():
+                self.ui_queue.put(("pipe_status", True))
+                return
+            time.sleep(3)
+        append_gui_log("[Pipe] Failed to connect to game after 5 attempts.")
+
+    def _ensure_pipe_connected(self) -> bool:
+        if self._pipe_connected and self._pipe_client is not None:
+            return True
+        if self._pipe_client is None:
+            self._pipe_client = PipeClient(self._pipe_name, log_callback=append_gui_log)
+        if self._pipe_client.is_connected():
+            self._pipe_connected = True
+            return True
+        if self._pipe_client.connect(timeout_ms=5000):
+            self._pipe_client.start(heartbeat_interval=10)
+            self._pipe_connected = True
+            append_gui_log(f"[Pipe] Connected to game on {self._pipe_name}")
+            return True
+        self._pipe_connected = False
+        return False
+
+    def reconnect_to_selected_room(self) -> None:
+        if not self.selected_room:
+            raise RuntimeError("请先选择一个房间。")
+        self.ensure_ready_for_launch()
+
+        proxy_pref = self.config_data.use_udp_proxy
+        if self.is_legacy_only_room(self.selected_room) and proxy_pref:
+            resolved_room = self.resolve_match_room_for_proxy_join(self.selected_room)
+            if resolved_room is None:
+                raise RuntimeError("Selected room only exists in the legacy listing; MatchServer roomId could not be resolved.")
+            append_gui_log(
+                "Resolved legacy-only room to MatchServer room: "
+                + json.dumps(
+                    {"selected_endpoint": self.selected_room.get("endpoint"), "resolved_room_id": resolved_room.get("roomId")},
+                    ensure_ascii=False,
+                )
+            )
+            self.selected_room = resolved_room
+
+        if self.is_legacy_only_room(self.selected_room):
+            connect = str(self.selected_room.get("endpoint") or "").strip()
+            if not connect:
+                raise RuntimeError("选中的中心服务器缺少连接地址。")
         else:
-            lines.extend([
-                f'start "" /B /D {quote_bat(backend_dir)} {quote_bat(node)} ' + quote_bat("index.js"),
-                "echo [Launcher] Waiting for login server to initialize...",
-                "timeout /t 5 >nul",
-            ])
+            local_loadout_snapshot = self.get_current_loadout_snapshot()
+            join = self.api.join_room(self.selected_room["roomId"], self.config_data.version, local_loadout_snapshot)
+            if proxy_pref:
+                self.start_client_proxy(self.selected_room["roomId"], join["joinTicket"])
+                connect = f"127.0.0.1:{self.config_data.proxy_client_port}"
+            else:
+                connect = join["connect"]
 
-        lines.extend([
-            "if not exist " + quote_bat(Path(exe).parent / "dxgi.dll") + " echo [Launcher] WARNING: dxgi.dll is missing next to the game exe.",
-            "if not exist " + quote_bat(Path(exe).parent / "Payload.dll") + " echo [Launcher] WARNING: Payload.dll is missing next to the game exe.",
-            "echo [Launcher] Launching game client...",
-            (
-                f"start \"\" /D {quote_bat(Path(exe).parent)} {quote_bat(exe)} "
-                f"-LogicServerURL={self.config_data.logic_server_url} -match={connect} -debuglog"
-            ),
-            "echo.",
-            "echo [Launcher] Client launch requested.",
-            "echo This window can be closed after the game has started.",
-        ])
+        if not self._pipe_connected:
+            self.set_status("正在连接游戏管道...")
+            if not self._ensure_pipe_connected():
+                raise RuntimeError("无法连接到正在运行的游戏。请确认游戏已通过本浏览器启动且仍在运行。")
 
-        batch = write_batch("launch-client.bat", lines)
-        append_gui_log(f"Launching client batch: {batch}")
-        subprocess.Popen(["cmd.exe", "/c", str(batch)], creationflags=self.creation_flags())
+        self.set_status(f"正在发送重连指令：{connect}")
+        if self._pipe_client is None:
+            self._pipe_connected = False
+            raise RuntimeError("发送重连指令失败，管道未初始化。")
+        ok = self._pipe_client.send_command("join", {"ip": connect, "token": ""})
+        if not ok:
+            self._pipe_connected = False
+            raise RuntimeError("发送重连指令失败，管道可能已断开。")
+        append_gui_log(f"[Reconnect] Sent join command: {connect}")
+        self.set_status(f"已发送重连指令：{connect}")
 
     def ensure_fake_login_server(self) -> None:
         endpoint = logic_server_endpoint(self.config_data.logic_server_url)
@@ -1139,6 +1208,47 @@ class BrowserApp(tk.Tk):
             time.sleep(0.25)
 
         raise RuntimeError(f"本地假登录服务未能在 {host}:{port} 启动。")
+
+    @staticmethod
+    def _wait_for_server_ready(wrapper_cwd: Path, deadline_seconds: int = 90) -> bool:
+        started = time.time()
+        deadline = started + deadline_seconds
+        logs_dir = wrapper_cwd / "logs"
+        while time.time() < deadline:
+            log_files = sorted(
+                [p for p in logs_dir.glob("log-*.txt") if p.stat().st_mtime >= started],
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+            if log_files:
+                newest = log_files[0]
+                try:
+                    tail = newest.read_text(encoding="utf-8", errors="replace")
+                    lines_slice = tail.splitlines()[-100:]
+                    text = "\n".join(lines_slice)
+                except Exception:
+                    text = ""
+                if any(
+                    marker in text
+                    for marker in (
+                        "Server is now listening",
+                        "Heartbeat received",
+                        "[HEARTBEAT]",
+                    )
+                ):
+                    append_gui_log("[Launcher] Server readiness confirmed.")
+                    return True
+            time.sleep(2)
+        append_gui_log(
+            f"[Launcher] ERROR: server did not become ready within {deadline_seconds} seconds."
+        )
+        return False
+
+    @staticmethod
+    def _check_dll_warnings(exe_dir: Path) -> None:
+        for dll in ("dxgi.dll", "Payload.dll"):
+            if not (exe_dir / dll).exists():
+                append_gui_log(f"[Launcher] WARNING: {dll} is missing next to the game exe.")
 
     def start_client_proxy(self, room_id: str, join_ticket: str) -> None:
         launcher, launcher_cwd = proxy_launcher()
@@ -1355,6 +1465,9 @@ class BrowserApp(tk.Tk):
         if not backend_dir or not node:
             raise RuntimeError("在游戏目录下未找到 nodejs/node.exe 或 BoundaryMetaServer-main。")
 
+        self.ensure_fake_login_server()
+        self._check_dll_warnings(wrapper_cwd)
+
         launcher, launcher_cwd = proxy_launcher()
         proxy_args = [
             *launcher,
@@ -1373,76 +1486,31 @@ class BrowserApp(tk.Tk):
             str(game_port),
         ]
 
-        game_exe = wrapper_cwd / "ProjectBoundarySteam-Win64-Shipping.exe"
-        wrapper_exe = wrapper_cwd / "ProjectReboundServerWrapper.exe"
-        wrapper_tail = subprocess.list2cmdline(wrapper_args[1:])
-        readiness_command = (
-            "powershell -NoProfile -ExecutionPolicy Bypass -Command "
-            "\"$started=Get-Date; "
-            "$deadline=$started.AddSeconds(90); "
-            "$ready=$false; "
-            "while((Get-Date) -lt $deadline){ "
-            "$log=Get-ChildItem -Path 'logs\\log-*.txt' -ErrorAction SilentlyContinue | "
-            "Where-Object { $_.LastWriteTime -ge $started } | "
-            "Sort-Object LastWriteTime -Descending | Select-Object -First 1; "
-            "if($log){ "
-            "$text=Get-Content -Path $log.FullName -Tail 100 -ErrorAction SilentlyContinue; "
-            "if($text -match 'Server is now listening|Heartbeat received|\\[HEARTBEAT\\]'){ $ready=$true; break } "
-            "} "
-            "Start-Sleep -Seconds 2 "
-            "}; "
-            "if($ready){ Write-Host '[Launcher] Server readiness confirmed.'; exit 0 } "
-            "Write-Host '[Launcher] ERROR: server did not become ready within 90 seconds.'; exit 1\""
-        )
+        append_gui_log("Starting UDP proxy: " + subprocess.list2cmdline(proxy_args))
+        subprocess.Popen(proxy_args, cwd=str(launcher_cwd), creationflags=self.creation_flags())
+        time.sleep(2)
 
-        lines = [
-            "@echo off",
-            "title Project Rebound Host Launcher",
-            "pushd " + quote_bat(wrapper_cwd),
-            "echo [Launcher] Starting fake login server...",
-        ]
-        endpoint = logic_server_endpoint(self.config_data.logic_server_url)
-        if endpoint and is_local_host(endpoint[0]) and is_tcp_open(endpoint[0], endpoint[1]):
-            lines.append(f"echo [Launcher] Fake login server already reachable at {endpoint[0]}:{endpoint[1]}.")
+        append_gui_log(f"Starting dedicated server wrapper on UDP {game_port}...")
+        append_gui_log("Launching wrapper: " + subprocess.list2cmdline(wrapper_args) + f" cwd={wrapper_cwd}")
+        subprocess.Popen(wrapper_args, cwd=str(wrapper_cwd), creationflags=self.creation_flags())
+
+        if self._wait_for_server_ready(wrapper_cwd):
+            game_exe = wrapper_cwd / "ProjectBoundarySteam-Win64-Shipping.exe"
+            game_args: list[str] = [
+                str(game_exe),
+                f"-LogicServerURL={self.config_data.logic_server_url}",
+                f"-match=127.0.0.1:{game_port}",
+                "-debuglog",
+            ]
+            append_gui_log("Launching game client: " + subprocess.list2cmdline(game_args))
+            subprocess.Popen(game_args, cwd=str(wrapper_cwd), creationflags=self.creation_flags())
         else:
-            lines.extend([
-                f'start "" /B /D {quote_bat(backend_dir)} {quote_bat(node)} ' + quote_bat("index.js"),
-                "echo [Launcher] Waiting for login server to initialize...",
-                "timeout /t 5 >nul",
-            ])
-
-        lines.extend([
-            "if not exist dxgi.dll echo [Launcher] WARNING: dxgi.dll is missing next to the game exe.",
-            "if not exist Payload.dll echo [Launcher] WARNING: Payload.dll is missing next to the game exe.",
-            "echo [Launcher] Starting UDP proxy...",
-            "start \"Project Rebound Host UDP Proxy\" /MIN " + subprocess.list2cmdline(proxy_args),
-            "echo [Launcher] Waiting for proxy to initialize...",
-            "timeout /t 2 >nul",
-            f"echo [Launcher] Starting dedicated server wrapper on UDP {game_port}...",
-            "start \"\" /MIN " + quote_bat(wrapper_exe) + (" " + wrapper_tail if wrapper_tail else ""),
-            "echo [Launcher] Waiting for game server to listen...",
-            readiness_command,
-            "if errorlevel 1 goto server_not_ready",
-            "echo [Launcher] Launching game client...",
-            "start \"\" "
-            + quote_bat(game_exe)
-            + f" -LogicServerURL={self.config_data.logic_server_url} -match=127.0.0.1:{game_port} -debuglog",
-            "goto launcher_done",
-            ":server_not_ready",
-            "echo [Launcher] Client was not launched because the dedicated server was not ready.",
-            "echo [Launcher] Check the newest logs\\log-*.txt for map load or port errors.",
-            ":launcher_done",
-            "echo.",
-            "echo [Launcher] All systems running. DO NOT CLOSE THIS WINDOW.",
-            "echo Closing this window may shut down child consoles depending on Windows settings.",
-            "echo.",
-            "pause >nul",
-            "popd",
-        ])
-
-        batch = write_batch("launch-host.bat", lines)
-        append_gui_log(f"Launching host batch: {batch}")
-        subprocess.Popen(["cmd.exe", "/c", str(batch)], creationflags=self.creation_flags())
+            append_gui_log(
+                "[Launcher] Client was not launched because the dedicated server was not ready."
+            )
+            append_gui_log(
+                "[Launcher] Check the newest logs\\log-*.txt for map load or port errors."
+            )
 
     def ensure_payload_files(self, exe_dir: Path) -> None:
         root = repo_root()
@@ -1590,6 +1658,153 @@ class BrowserApp(tk.Tk):
     @staticmethod
     def login_server_creation_flags() -> int:
         return getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+
+class PipeClient:
+    """Windows named pipe client for CommandFramework protocol.
+
+    Protocol: <CMD>\\t<JSON>\\n
+    """
+
+    _GENERIC_READ = 0x80000000
+    _GENERIC_WRITE = 0x40000000
+    _OPEN_EXISTING = 3
+    _INVALID_HANDLE_VALUE = ctypes.wintypes.HANDLE(-1).value
+
+    def __init__(self, pipe_name: str, log_callback=None):
+        self._pipe_path = f"\\\\.\\pipe\\{pipe_name}"
+        self._handle = None
+        self._running = False
+        self._on_response = None
+        self._log = log_callback or (lambda msg: None)
+        self._reader_thread: threading.Thread | None = None
+        self._hb_thread: threading.Thread | None = None
+
+    def set_on_response(self, callback):
+        """Set callback(cmd: str, args: dict) for received responses."""
+        self._on_response = callback
+
+    def connect(self, timeout_ms: int = 10000) -> bool:
+        """Block until connected or timeout (milliseconds)."""
+        kernel32 = ctypes.windll.kernel32
+        deadline = time.time() + timeout_ms / 1000.0
+
+        while time.time() < deadline:
+            remaining_ms = max(int((deadline - time.time()) * 1000), 100)
+
+            if not kernel32.WaitNamedPipeW(self._pipe_path, remaining_ms):
+                time.sleep(0.5)
+                continue
+
+            h = kernel32.CreateFileW(
+                self._pipe_path,
+                self._GENERIC_READ | self._GENERIC_WRITE,
+                0,
+                None,
+                self._OPEN_EXISTING,
+                0,
+                None,
+            )
+
+            if h != self._INVALID_HANDLE_VALUE:
+                self._handle = h
+                self._log(f"[PipeClient] Connected to {self._pipe_path}")
+                return True
+
+            time.sleep(0.5)
+
+        return False
+
+    def send_command(self, cmd: str, args: dict | None = None) -> bool:
+        """Send a command line to the DLL. Returns True on success."""
+        if self._handle is None:
+            return False
+
+        if args is None:
+            args = {}
+        line = f"{cmd}\t{json.dumps(args, ensure_ascii=False)}\n"
+        data = line.encode("utf-8")
+
+        written = ctypes.wintypes.DWORD(0)
+        ok = ctypes.windll.kernel32.WriteFile(
+            self._handle,
+            data,
+            len(data),
+            ctypes.byref(written),
+            None,
+        )
+
+        return ok != 0 and written.value == len(data)
+
+    def start(self, heartbeat_interval: float = 10.0) -> None:
+        """Start the reader thread and heartbeat thread."""
+        if self._running:
+            return
+        self._running = True
+        self._reader_thread = threading.Thread(target=self._reader_loop, daemon=True)
+        self._reader_thread.start()
+        self._hb_thread = threading.Thread(
+            target=self._heartbeat_loop, args=(heartbeat_interval,), daemon=True
+        )
+        self._hb_thread.start()
+
+    def stop(self) -> None:
+        """Stop all threads and close the pipe."""
+        self._running = False
+        if self._handle is not None:
+            ctypes.windll.kernel32.CloseHandle(self._handle)
+            self._handle = None
+
+    def is_connected(self) -> bool:
+        return self._handle is not None
+
+    def _reader_loop(self) -> None:
+        buf = ctypes.create_string_buffer(4096)
+        line_buf = ""
+
+        while self._running and self._handle is not None:
+            read = ctypes.wintypes.DWORD(0)
+            ok = ctypes.windll.kernel32.ReadFile(
+                self._handle,
+                buf,
+                ctypes.sizeof(buf) - 1,
+                ctypes.byref(read),
+                None,
+            )
+
+            if not ok or read.value == 0:
+                self._log("[PipeClient] Reader: pipe closed or error.")
+                self._handle = None
+                break
+
+            raw = buf.value[: read.value]
+            try:
+                line_buf += raw.decode("utf-8")
+            except UnicodeDecodeError:
+                line_buf += raw.decode("utf-8", errors="replace")
+
+            while "\n" in line_buf:
+                idx = line_buf.index("\n")
+                line = line_buf[:idx].rstrip("\r")
+                line_buf = line_buf[idx + 1 :]
+
+                if line and "\t" in line:
+                    parts = line.split("\t", 1)
+                    cmd = parts[0]
+                    try:
+                        resp_args = json.loads(parts[1]) if len(parts) > 1 else {}
+                    except json.JSONDecodeError:
+                        resp_args = {}
+                    if self._on_response:
+                        self._on_response(cmd, resp_args)
+
+    def _heartbeat_loop(self, interval: float) -> None:
+        while self._running:
+            time.sleep(interval)
+            if not self._running:
+                break
+            if not self.send_command("ping"):
+                self._log("[PipeClient] Heartbeat ping failed.")
 
 
 if __name__ == "__main__":

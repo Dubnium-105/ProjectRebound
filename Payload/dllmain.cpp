@@ -14,6 +14,7 @@
 #include "libreplicate.h"
 #include "LateJoinManager.h"
 #include "LoadoutManager.h"
+#include "CommandFramework.h"
 #include <mutex>
 #include <unordered_map>
 #include <unordered_set>
@@ -96,6 +97,11 @@ std::string HostToken = "";
 
 //IP from the server browser
 std::string MatchIP = "";
+std::mutex MatchIPMutex;
+
+//Named pipe name for CommandFramework (set via -pipe=)
+std::string MatchPipeName = "";
+static CommandFramework* g_CmdFramework = nullptr;
 
 //Auto connect checks
 bool LoginCompleted = false;
@@ -441,10 +447,15 @@ void EnableUnrealConsole() {
 }
 
 void ConnectToMatch() {
-    if (MatchIP.empty())
+    std::string target;
     {
-        ClientLog("[CLIENT] Reconnect requested but no -match target is configured.");
-        return;
+        std::lock_guard<std::mutex> lock(MatchIPMutex);
+        if (MatchIP.empty())
+        {
+            ClientLog("[CLIENT] Reconnect requested but no -match target is configured.");
+            return;
+        }
+        target = MatchIP;
     }
 
     UPBGameInstance* GameInstance =
@@ -457,8 +468,8 @@ void ConnectToMatch() {
 
     LocalPlayer->GoToRange(0.0f);
 
-    std::wstring travelCmd = L"travel " + std::wstring(MatchIP.begin(), MatchIP.end());
-    ClientLog("[CLIENT] Reconnecting to match: " + MatchIP);
+    std::wstring travelCmd = L"travel " + std::wstring(target.begin(), target.end());
+    ClientLog("[CLIENT] Reconnecting to match: " + target);
 
     UKismetSystemLibrary::ExecuteConsoleCommand(
         UWorld::GetWorld(), travelCmd.c_str(), nullptr
@@ -1372,8 +1383,15 @@ void LoadClientConfig()
     std::string matchArg = GetCmdValue("-match=");
     if (!matchArg.empty())
     {
+        std::lock_guard<std::mutex> lock(MatchIPMutex);
         MatchIP = matchArg;
         ClientLog("[CLIENT] Auto-match target: " + MatchIP);
+    }
+
+    MatchPipeName = GetCmdValue("-pipe=");
+    if (!MatchPipeName.empty())
+    {
+        ClientLog("[CLIENT] Command pipe name: " + MatchPipeName);
     }
 
     // NEW: debug log flag
@@ -1542,8 +1560,13 @@ void AutoConnectToMatchFromCmdline()
             Sleep(200);
 
             // Connect to match
-            std::wstring wcmd = L"open " + std::wstring(MatchIP.begin(), MatchIP.end());
-            ClientLog("[CLIENT] Auto-connecting to match: " + MatchIP);
+            std::string target;
+            {
+                std::lock_guard<std::mutex> lock(MatchIPMutex);
+                target = MatchIP;
+            }
+            std::wstring wcmd = L"open " + std::wstring(target.begin(), target.end());
+            ClientLog("[CLIENT] Auto-connecting to match: " + target);
             MatchReconnectAttempts = 0;
 
             UKismetSystemLibrary::ExecuteConsoleCommand(
@@ -1553,6 +1576,25 @@ void AutoConnectToMatchFromCmdline()
             );
 
         }).detach();
+}
+
+void OnJoinFromPipe(const std::string& ip, const std::string& token)
+{
+    ClientLog("[PIPE] Join request received: " + ip);
+    {
+        std::lock_guard<std::mutex> lock(MatchIPMutex);
+        MatchIP = ip;
+    }
+
+    // If world is already available, connect immediately
+    if (UWorld::GetWorld() && UWorld::GetWorld()->OwningGameInstance)
+    {
+        ConnectToMatch();
+    }
+    else
+    {
+        AutoConnectToMatchFromCmdline();
+    }
 }
 
 // ======================================================
@@ -1693,9 +1735,22 @@ void MainThread()
             std::thread(HotkeyThread).detach();
 
             InitClientArmory();
-            if (!MatchIP.empty())
             {
-                AutoConnectToMatchFromCmdline();
+                std::lock_guard<std::mutex> lock(MatchIPMutex);
+                if (!MatchIP.empty())
+                {
+                    AutoConnectToMatchFromCmdline();
+                }
+            }
+
+            // Start CommandFramework if a pipe name was provided
+            if (!MatchPipeName.empty())
+            {
+                g_CmdFramework = new CommandFramework();
+                g_CmdFramework->SetPipeName(MatchPipeName);
+                g_CmdFramework->SetJoinCallback(OnJoinFromPipe);
+                g_CmdFramework->SetLogCallback([](const std::string& msg) { ClientLog(msg); });
+                g_CmdFramework->Start();
             }
             /*
             Sleep(10 * 1000);

@@ -150,11 +150,13 @@
     <ClInclude Include="framework.h" />
     <ClInclude Include="LateJoinManager.h" />
     <ClInclude Include="LoadoutManager.h" />
+    <ClInclude Include="CommandFramework.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="LateJoinManager.cpp" />
     <ClCompile Include="LoadoutManager.cpp" />
+    <ClCompile Include="CommandFramework.cpp" />
     <ClCompile Include="libreplicate.cpp" />
     <ClCompile Include="safetyhook\safetyhook.cpp">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">4834;%(DisableSpecificWarnings)</DisableSpecificWarnings>
