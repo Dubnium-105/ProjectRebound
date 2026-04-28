@@ -811,6 +811,16 @@ class BrowserApp(tk.Tk):
         self.console_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         console_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
+        # Debug command input
+        input_frame = ttk.Frame(console_frame)
+        input_frame.pack(fill=tk.X, pady=(4, 0))
+        ttk.Label(input_frame, text="命令", font=("", 9)).pack(side=tk.LEFT, padx=(0, 4))
+        self.debug_input_var = tk.StringVar()
+        self.debug_input_entry = ttk.Entry(input_frame, textvariable=self.debug_input_var, font=("Consolas", 10))
+        self.debug_input_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 4))
+        self.debug_input_entry.bind("<Return>", lambda e: self._send_debug_command())
+        ttk.Button(input_frame, text="发送", command=self._send_debug_command, width=6).pack(side=tk.RIGHT)
+
         self.status_var = tk.StringVar(value="就绪。")
         ttk.Label(root, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W, padding=6).pack(fill=tk.X, pady=(10, 0))
 
@@ -877,6 +887,40 @@ class BrowserApp(tk.Tk):
         self.console_text.configure(state=tk.NORMAL)
         self.console_text.delete("1.0", tk.END)
         self.console_text.configure(state=tk.DISABLED)
+
+    def _send_debug_command(self) -> None:
+        """Send debug command via pipe to the game process."""
+        text = self.debug_input_var.get().strip()
+        if not text:
+            return
+
+        self.debug_input_var.set("")
+
+        # Echo command in console
+        self._append_console(f"> {text}")
+
+        if not self._pipe_connected or self._pipe_client is None:
+            self._append_console("(未连接到游戏进程)")
+            return
+
+        # Build JSON payload: raw JSON if starts with '{', else wrap as chat command
+        if text.startswith("{"):
+            try:
+                args = json.loads(text)
+            except json.JSONDecodeError as e:
+                self._append_console(f"JSON 解析错误: {e}")
+                return
+        else:
+            args = {"action": "chat", "msg": text}
+
+        ok = self._pipe_client.send_command("debug", args)
+        if not ok:
+            self._append_console("(发送失败)")
+
+    def _on_pipe_debug_response(self, cmd: str, args: dict) -> None:
+        """Handle pipe responses, routing debug_ack to the console."""
+        if cmd == "debug_ack":
+            self.ui_queue.put(("console", json.dumps(args, ensure_ascii=False, indent=2) if isinstance(args, dict) else str(args)))
 
     def run_background(self, func) -> None:
         def worker() -> None:
@@ -1230,6 +1274,7 @@ class BrowserApp(tk.Tk):
             return True
         if self._pipe_client is None:
             self._pipe_client = PipeClient(self._pipe_name, log_callback=append_gui_log)
+            self._pipe_client.set_on_response(self._on_pipe_debug_response)
         if self._pipe_client.is_connected():
             self._pipe_connected = True
             return True

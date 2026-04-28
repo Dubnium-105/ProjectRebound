@@ -82,6 +82,12 @@ public:
     // @brief 注入日志回调
     void SetLogCallback(LogCallback cb);
 
+    // @brief 注入 debug 命令回调。收到 debug 命令时调用，传入 JSON 参数，
+    //        回调返回的 JSON 通过 SendResponse("debug_ack", ...) 回复。
+    // @param cb 回调签名：nlohmann::json(const nlohmann::json&)
+    using DebugCallback = std::function<nlohmann::json(const nlohmann::json&)>;
+    void SetDebugCallback(DebugCallback cb);
+
     // ------------------------------------------------------------------
     //  生命周期
     // ------------------------------------------------------------------
@@ -164,6 +170,7 @@ private:
 
     JoinCallback onJoin;    // join 命令回调
     LogCallback  onLog;     // 日志回调
+    DebugCallback onDebug;  // debug 命令回调
 
     // ------------------------------------------------------------------
     //  安全描述符 — NULL DACL 允许任意进程连接

@@ -1,5 +1,6 @@
 // Debug.cpp
 #include "Debug.h"
+#include "DebugTool.h"
 #include "../SDK.hpp"
 #include "../SDK/Engine_parameters.hpp"
 #include "../SDK/ProjectBoundary_parameters.hpp"
@@ -275,6 +276,39 @@ void HotkeyThread()
             }
             Sleep(300);
         }
+        Sleep(10);
+    }
+}
+
+void HotkeyThreadWithDebugTool()
+{
+    while (true)
+    {
+        if (GetAsyncKeyState(VK_F5) & 0x8000)
+        {
+            DebugDumpSubsystemsToFile();
+            DebugDumpWeaponPartsToFile();
+            ClientLog("[CLIENT] Dumped subsystems and weapon parts to file");
+            Sleep(300);
+        }
+
+        if (GetAsyncKeyState(VK_F9) & 0x8000)
+        {
+            UPBLocalPlayer* LP = nullptr;
+            auto* GI = UWorld::GetWorld()->OwningGameInstance;
+
+            if (GI && GI->LocalPlayers.Num() > 0)
+            {
+                LP = (UPBLocalPlayer*)GI->LocalPlayers[0];
+                if (LP)
+                {
+                    ClientLog("[CLIENT] Auto-enter Shooting Range...");
+                    LP->GoToRange(0.0f);
+                }
+            }
+            Sleep(300);
+        }
+
         Sleep(10);
     }
 }

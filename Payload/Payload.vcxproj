@@ -149,12 +149,14 @@
   <ItemGroup>
     <ClInclude Include="framework.h" />
     <ClInclude Include="Communication\CommandFramework.h" />
+    <ClInclude Include="Debug\DebugTool.h" />
     <ClInclude Include="Loadout\LoadoutManager.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ClientLogic\ClientLogic.cpp" />
     <ClCompile Include="Config\Config.cpp" />
     <ClCompile Include="Debug\Debug.cpp" />
+    <ClCompile Include="Debug\DebugTool.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="Communication\CommandFramework.cpp" />
     <ClCompile Include="Hooks\Hooks.cpp" />

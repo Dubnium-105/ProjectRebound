@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using System.Windows.Forms;
 using System.Windows.Input;
 using ProjectRebound.Browser.Models;
@@ -16,6 +17,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly ApiClient _api = new();
     private readonly UdpProbeListener _udpProbeListener = new();
     private readonly GameLauncher _gameLauncher = new();
+    private readonly PipeClient _pipeClient = new();
     private AppConfig _config = new();
     private RoomSummary? _selectedRoom;
     private string _status = "Ready.";
@@ -23,6 +25,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string _map = "Warehouse";
     private string _mode = "pve";
     private int _maxPlayers = 8;
+    private string _pipeName = $"ProjectRebound_{Guid.NewGuid():N}"[..16];
+    private string _consoleInput = "";
+    private bool _isPipeConnected;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -34,6 +39,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand CreateRoomCommand { get; }
     public ICommand JoinRoomCommand { get; }
     public ICommand QuickMatchCommand { get; }
+    public ICommand SendDebugCommand { get; }
+    public ICommand ClearConsoleCommand { get; }
 
     public MainViewModel()
     {
@@ -43,6 +50,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         CreateRoomCommand = new AsyncRelayCommand(CreateRoomAsync);
         JoinRoomCommand = new AsyncRelayCommand(JoinSelectedRoomAsync, () => SelectedRoom is not null);
         QuickMatchCommand = new AsyncRelayCommand(QuickMatchAsync);
+        SendDebugCommand = new AsyncRelayCommand(SendDebugAsync);
+        ClearConsoleCommand = new RelayCommand(() => ConsoleOutputText = "");
     }
 
     public string BackendUrl
@@ -115,6 +124,26 @@ public sealed class MainViewModel : INotifyPropertyChanged
     {
         get => _status;
         set { _status = value; OnPropertyChanged(); }
+    }
+
+    private string _consoleOutputText = "";
+
+    public string ConsoleOutputText
+    {
+        get => _consoleOutputText;
+        set { _consoleOutputText = value; OnPropertyChanged(); }
+    }
+
+    public string ConsoleInput
+    {
+        get => _consoleInput;
+        set { _consoleInput = value; OnPropertyChanged(); }
+    }
+
+    public bool IsPipeConnected
+    {
+        get => _isPipeConnected;
+        set { _isPipeConnected = value; OnPropertyChanged(); }
     }
 
     public async Task InitializeAsync()
@@ -216,8 +245,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             await EnsureGameDirectoryAsync();
             var join = await _api.JoinRoomAsync(SelectedRoom.RoomId, Version);
-            _gameLauncher.StartClient(GameDirectory, join.Connect);
+            _gameLauncher.StartClient(GameDirectory, join.Connect, _pipeName);
             Status = $"Launching client for {join.Connect}.";
+            _ = ConnectPipeAfterLaunchAsync();
         });
     }
 
@@ -253,8 +283,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
                 if (state.State == MatchTicketState.Matched && !string.IsNullOrWhiteSpace(state.Connect))
                 {
-                    _gameLauncher.StartClient(GameDirectory, state.Connect);
+                    _gameLauncher.StartClient(GameDirectory, state.Connect, _pipeName);
                     Status = $"Matched. Launching client for {state.Connect}.";
+                    _ = ConnectPipeAfterLaunchAsync();
                     return;
                 }
 
@@ -306,6 +337,70 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             Status = ex.Message;
         }
+    }
+
+    private async Task SendDebugAsync()
+    {
+        var input = ConsoleInput?.Trim();
+        if (string.IsNullOrEmpty(input))
+            return;
+
+        ConsoleInput = "";
+        ConsoleOutputText += $"> {input}\n";
+
+        if (!_pipeClient.IsConnected)
+        {
+            ConsoleOutputText += "(not connected to game process)\n";
+            return;
+        }
+
+        try
+        {
+            string json;
+            if (input.StartsWith('{'))
+            {
+                json = input;
+            }
+            else
+            {
+                json = JsonSerializer.Serialize(new { action = "chat", msg = input });
+            }
+
+            var response = await _pipeClient.SendCommandAsync("debug", json);
+            ConsoleOutputText += $"{response}\n";
+        }
+        catch (Exception ex)
+        {
+            ConsoleOutputText += $"Error: {ex.Message}\n";
+            IsPipeConnected = false;
+        }
+    }
+
+    private async Task ConnectPipeAfterLaunchAsync()
+    {
+        // Give the game process time to start and create the pipe
+        for (var i = 0; i < 8; i++)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(2));
+            try
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                if (await _pipeClient.ConnectAsync(_pipeName, cts.Token))
+                {
+                    IsPipeConnected = true;
+                    Status = $"Pipe connected ({_pipeName}).";
+                    ConsoleOutputText += "--- Connected to game process ---\n";
+                    return;
+                }
+            }
+            catch
+            {
+                // Retry
+            }
+        }
+
+        Status = "Pipe connection failed after retries.";
+        ConsoleOutputText += "--- Failed to connect to game process ---\n";
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)

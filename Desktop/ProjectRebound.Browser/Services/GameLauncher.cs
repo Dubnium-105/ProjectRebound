@@ -6,7 +6,7 @@ namespace ProjectRebound.Browser.Services;
 
 public sealed class GameLauncher
 {
-    public Process StartClient(string gameDirectory, string connect)
+    public Process StartClient(string gameDirectory, string connect, string? pipeName = null)
     {
         var exe = FindRequiredFile(gameDirectory, "ProjectBoundarySteam-Win64-Shipping.exe");
         var startInfo = new ProcessStartInfo(exe)
@@ -15,6 +15,8 @@ public sealed class GameLauncher
             UseShellExecute = false
         };
         startInfo.ArgumentList.Add($"-match={connect}");
+        if (!string.IsNullOrEmpty(pipeName))
+            startInfo.ArgumentList.Add($"-pipe={pipeName}");
         return Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start game client.");
     }
 

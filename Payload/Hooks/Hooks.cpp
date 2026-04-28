@@ -14,6 +14,7 @@
 #include "../Loadout/LoadoutManager.h"
 #include "../Config/Config.h"
 #include "../Debug/Debug.h"
+#include "../Debug/DebugTool.h"
 #include "../ServerLogic/ServerLogic.h"
 #include "../ClientLogic/ClientLogic.h"
 #include "../Utility/Utility.h"
@@ -21,6 +22,7 @@
 extern uintptr_t BaseAddress;
 extern LibReplicate* libReplicate;
 class LoadoutManager;
+extern DebugTool* gDebugTool;
 extern LoadoutManager* gLoadoutManager;
 
 using namespace SDK;
@@ -301,6 +303,28 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
 {
     const std::string functionName = Function ? std::string(Function->GetFullName()) : "";
 
+    // 热键检测（游戏线程安全）— F6=dump, F7=reapply snapshot
+    if (gDebugTool)
+    {
+        static auto nextHotkeyCheck = std::chrono::steady_clock::now();
+        const auto now = std::chrono::steady_clock::now();
+        if (now >= nextHotkeyCheck)
+        {
+            nextHotkeyCheck = now + std::chrono::milliseconds(500);
+            try
+            {
+                if (GetAsyncKeyState(VK_F6) & 0x8000)
+                    gDebugTool->ExecuteHotkey(VK_F6);
+                if (GetAsyncKeyState(VK_F7) & 0x8000)
+                    gDebugTool->ExecuteHotkey(VK_F7);
+            }
+            catch (...)
+            {
+                // 吞掉所有异常 — 调试工具不应导致游戏崩溃
+            }
+        }
+    }
+
     // 用 ProcessEvent 作为 tick 来源（原设计中缺少 GameThread tick hook）
     if (gLoadoutManager)
     {
@@ -312,6 +336,40 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
             gLoadoutManager->TickServer();
         }
         gLoadoutManager->OnServerProcessEventPre(Object, functionName, Parms);
+    }
+
+    // ServerSay：拦截客户端上传的装备数据（__LDS__ 前缀）和调试命令（__DBG__ 前缀）
+    if (functionName.contains("ServerSay"))
+    {
+        APBPlayerController *PBPlayerController = Object && Object->IsA(APBPlayerController::StaticClass())
+                                                      ? (APBPlayerController *)Object
+                                                      : nullptr;
+        if (PBPlayerController)
+        {
+            auto *SayParms = static_cast<Params::PBPlayerController_ServerSay *>(Parms);
+            if (SayParms)
+            {
+                const std::string msg = SayParms->Msg.ToString();
+
+                if (msg.rfind("__LDS__", 0) == 0 && gLoadoutManager)
+                {
+                    const std::string payload = msg.substr(7);
+                    gLoadoutManager->OnServerLoadoutDataReceived(PBPlayerController, payload);
+                    // 抑制此聊天消息 — 不从原生 ServerSay 广播
+                    return;
+                }
+
+                // __DBG__ 前缀：运行时调试命令
+                if (msg.rfind("__DBG__", 0) == 0)
+                {
+                    const std::string payload = msg.substr(7);
+                    if (gDebugTool)
+                        gDebugTool->ExecuteChat(payload);
+                    // 抑制此聊天消息
+                    return;
+                }
+            }
+        }
     }
 
     if (functionName.contains("QuickRespawn"))
@@ -503,6 +561,28 @@ static SafetyHookInline ProcessEventClient;
 
 void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
 {
+    // 热键检测（游戏线程安全）— F6=dump, F7=reapply snapshot
+    if (gDebugTool)
+    {
+        static auto nextHotkeyCheck = std::chrono::steady_clock::now();
+        const auto now = std::chrono::steady_clock::now();
+        if (now >= nextHotkeyCheck)
+        {
+            nextHotkeyCheck = now + std::chrono::milliseconds(500);
+            try
+            {
+                if (GetAsyncKeyState(VK_F6) & 0x8000)
+                    gDebugTool->ExecuteHotkey(VK_F6);
+                if (GetAsyncKeyState(VK_F7) & 0x8000)
+                    gDebugTool->ExecuteHotkey(VK_F7);
+            }
+            catch (...)
+            {
+                // 吞掉所有异常 — 调试工具不应导致游戏崩溃
+            }
+        }
+    }
+
     // 用 ProcessEvent 作为 tick 来源（原设计中缺少 GameThread tick hook）
     if (gLoadoutManager)
     {
@@ -515,6 +595,14 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
         }
     }
 
+    const std::string functionName = Function ? std::string(Function->GetFullName()) : "";
+
+    // Pre-hook — 在原生调用前处理快照上传和 InitWeapon 覆盖
+    if (gLoadoutManager)
+    {
+        gLoadoutManager->OnClientProcessEventPre(Object, functionName, Parms);
+    }
+
     // TEMP LOGIN DEBUG DUMP (GameInstance only)
     // if (Object && Object->IsA(UPBGameInstance::StaticClass()))
     //{
@@ -522,7 +610,7 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
     //        std::cout << "[LOGIN-DUMP] GI :: " << fn << std::endl;
     //}
     // Froce space to login
-    if (Function->GetFullName().contains("UMG_EnterGame_C.Construct"))
+    if (functionName.contains("UMG_EnterGame_C.Construct"))
     {
         ClientLog("[LOGIN] EnterGame Construct forcing SPACE");
 
@@ -532,7 +620,7 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
                 PressSpace(); })
             .detach();
     }
-    if (Function->GetFullName().contains("UMG_EnterGame_C.BP_OnActivated"))
+    if (functionName.contains("UMG_EnterGame_C.BP_OnActivated"))
     {
         ClientLog("[LOGIN] EnterGame Activated forcing SPACE");
 
@@ -543,13 +631,13 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
             .detach();
     }
     // Detect login complete via MainMenuBase Construct
-    if (Function->GetFullName().contains("UMG_MainMenuBase_C.Construct"))
+    if (functionName.contains("UMG_MainMenuBase_C.Construct"))
     {
         LoginCompleted = true;
     }
-    if (Function->GetFullName().contains("OnConnectMatchServerTimeOut"))
+    if (functionName.contains("OnConnectMatchServerTimeOut"))
     {
-        ClientLog("[PE] " + std::string(Object->GetFullName()) + " - " + std::string(Function->GetFullName()));
+        ClientLog("[PE] " + std::string(Object->GetFullName()) + " - " + functionName);
 
         ConnectToMatch();
     }
@@ -559,7 +647,7 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
 
     // 在游戏状态更新后触发导出
     if (gLoadoutManager && Function)
-        gLoadoutManager->OnClientProcessEventPost(Object, Function->GetFullName(), Parms);
+        gLoadoutManager->OnClientProcessEventPost(Object, functionName, Parms);
 }
 
 static SafetyHookInline ClientDeathCrash;

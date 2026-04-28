@@ -76,25 +76,99 @@
             </StackPanel>
         </Grid>
 
-        <DataGrid Grid.Row="2"
-                  AutoGenerateColumns="False"
-                  CanUserAddRows="False"
-                  IsReadOnly="True"
-                  ItemsSource="{Binding Rooms}"
-                  SelectedItem="{Binding SelectedRoom}"
-                  SelectionMode="Single">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" />
-                <DataGridTextColumn Header="Region" Binding="{Binding Region}" Width="90" />
-                <DataGridTextColumn Header="Map" Binding="{Binding Map}" Width="130" />
-                <DataGridTextColumn Header="Mode" Binding="{Binding Mode}" Width="150" />
-                <DataGridTextColumn Header="Players" Binding="{Binding PlayerCount}" Width="80" />
-                <DataGridTextColumn Header="Max" Binding="{Binding MaxPlayers}" Width="60" />
-                <DataGridTextColumn Header="State" Binding="{Binding State}" Width="110" />
-                <DataGridTextColumn Header="Endpoint" Binding="{Binding Endpoint}" Width="150" />
-                <DataGridTextColumn Header="Last Seen" Binding="{Binding LastSeenAt}" Width="180" />
-            </DataGrid.Columns>
-        </DataGrid>
+        <Grid Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="2*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" MinHeight="120" />
+            </Grid.RowDefinitions>
+
+            <DataGrid Grid.Row="0"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False"
+                      IsReadOnly="True"
+                      ItemsSource="{Binding Rooms}"
+                      SelectedItem="{Binding SelectedRoom}"
+                      SelectionMode="Single">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" />
+                    <DataGridTextColumn Header="Region" Binding="{Binding Region}" Width="90" />
+                    <DataGridTextColumn Header="Map" Binding="{Binding Map}" Width="130" />
+                    <DataGridTextColumn Header="Mode" Binding="{Binding Mode}" Width="150" />
+                    <DataGridTextColumn Header="Players" Binding="{Binding PlayerCount}" Width="80" />
+                    <DataGridTextColumn Header="Max" Binding="{Binding MaxPlayers}" Width="60" />
+                    <DataGridTextColumn Header="State" Binding="{Binding State}" Width="110" />
+                    <DataGridTextColumn Header="Endpoint" Binding="{Binding Endpoint}" Width="150" />
+                    <DataGridTextColumn Header="Last Seen" Binding="{Binding LastSeenAt}" Width="180" />
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <GridSplitter Grid.Row="1" Height="4" HorizontalAlignment="Stretch" Background="#CCCCCC" />
+
+            <!-- Console panel -->
+            <Grid Grid.Row="2" Margin="0,6,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <DockPanel Grid.Row="0" Margin="0,0,0,4">
+                    <TextBlock Text="Console" FontWeight="Bold" VerticalAlignment="Center" />
+                    <Ellipse Width="8" Height="8" Margin="8,0,4,0" VerticalAlignment="Center">
+                        <Ellipse.Style>
+                            <Style TargetType="Ellipse">
+                                <Setter Property="Fill" Value="Red" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsPipeConnected}" Value="True">
+                                        <Setter Property="Fill" Value="LimeGreen" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Ellipse.Style>
+                    </Ellipse>
+                    <TextBlock FontSize="11" Foreground="Gray" VerticalAlignment="Center" Margin="0,0,12,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text" Value="pipe: disconnected" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsPipeConnected}" Value="True">
+                                        <Setter Property="Text" Value="pipe: connected" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <Button Content="Clear" Width="50" HorizontalAlignment="Right" Command="{Binding ClearConsoleCommand}" />
+                </DockPanel>
+
+                <TextBox Grid.Row="1"
+                         IsReadOnly="True"
+                         VerticalScrollBarVisibility="Auto"
+                         TextWrapping="Wrap"
+                         FontFamily="Consolas"
+                         FontSize="12"
+                         Text="{Binding ConsoleOutputText, Mode=OneWay}"
+                         TextChanged="ConsoleOutput_TextChanged"
+                         Background="#1E1E1E"
+                         Foreground="#D4D4D4"
+                         BorderBrush="#555555" />
+
+                <TextBox Grid.Row="2"
+                         Margin="0,4,0,0"
+                         FontFamily="Consolas"
+                         FontSize="12"
+                         Text="{Binding ConsoleInput, UpdateSourceTrigger=PropertyChanged}"
+                         Background="#252526"
+                         Foreground="#D4D4D4"
+                         BorderBrush="#555555"
+                         CaretBrush="#D4D4D4">
+                    <TextBox.InputBindings>
+                        <KeyBinding Key="Enter" Command="{Binding SendDebugCommand}" />
+                    </TextBox.InputBindings>
+                </TextBox>
+            </Grid>
+        </Grid>
 
         <Border Grid.Row="3" Margin="0,12,0,0" Padding="10" BorderBrush="#CCCCCC" BorderThickness="1">
             <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />

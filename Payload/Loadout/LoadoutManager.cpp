@@ -65,6 +65,20 @@ namespace LoadoutManagerDetail
     };
 
     // =====================================================================
+    //  按玩家快照 — 服务端为每个 PlayerController 独立存储装备数据
+    // =====================================================================
+
+    struct PerPlayerSnapshot
+    {
+        json Snapshot;       // 该玩家确认的角色快照数据（单角色 JSON）
+        std::string RoleId;  // 该玩家确认的角色 ID
+        bool HasArrived = false;
+        bool Applied = false;
+        bool InventoryPushed = false;
+        std::chrono::steady_clock::time_point ArrivedAt{};
+    };
+
+    // =====================================================================
     //  全局状态 — 精简版（从 ~21 字段缩减到 ~10 字段）
     // =====================================================================
 
@@ -83,6 +97,8 @@ namespace LoadoutManagerDetail
         std::string PendingExportReason;
         std::string LastMenuSelectedRoleId;
         std::unordered_map<APBPlayerController*, PendingRoleSelectionContext> PendingRoleSelections;
+        std::unordered_map<APBPlayerController*, PerPlayerSnapshot> PerPlayerSnapshots;
+        std::unordered_map<std::string, json> PendingClientSnapshots;  // roleId → 客户端待上传快照
     };
 
     State& GetState()
@@ -465,8 +481,7 @@ namespace LoadoutManagerDetail
             { "roleId", roleId },
             { "inventory", EmptyInventoryJson() },
             { "characterData", EmptyCharacterJson() },
-            { "firstWeapon", EmptyWeaponJson() },
-            { "secondWeapon", EmptyWeaponJson() },
+            { "weaponConfigs", json::object() },
             { "meleeWeapon", EmptyMeleeJson() },
             { "leftLauncher", EmptyLauncherJson() },
             { "rightLauncher", EmptyLauncherJson() },
@@ -715,8 +730,7 @@ namespace LoadoutManagerDetail
             { "roleId", NameToString(config.CharacterID) },
             { "inventory", InventoryToJson(inventoryOverride ? *inventoryOverride : config.InventoryData) },
             { "characterData", CharacterToJson(config.CharacterData) },
-            { "firstWeapon", WeaponToJson(config.FirstWeaponPartData) },
-            { "secondWeapon", WeaponToJson(config.SecondWeaponPartData) },
+            { "weaponConfigs", json::object() },
             { "meleeWeapon", MeleeToJson(config.MeleeWeaponData) },
             { "leftLauncher", LauncherToJson(config.LeftLauncherData) },
             { "rightLauncher", LauncherToJson(config.RightLauncherData) },
@@ -748,42 +762,6 @@ namespace LoadoutManagerDetail
         return !IsBlankName(config.MobilityModuleID);
     }
 
-    bool HasWeaponPartConfigData(const FPBWeaponPartNetworkConfig& config)
-    {
-        return !IsBlankName(config.WeaponPartID) ||
-            !IsBlankName(config.WeaponPartSkinID) ||
-            !IsBlankName(config.WeaponPartSpecialSkinID) ||
-            !IsBlankName(config.WeaponPartSkinPaintingID);
-    }
-
-    bool WeaponPartConfigEquals(const FPBWeaponPartNetworkConfig& a, const FPBWeaponPartNetworkConfig& b)
-    {
-        return NameToString(a.WeaponPartID) == NameToString(b.WeaponPartID) &&
-            NameToString(a.WeaponPartSkinID) == NameToString(b.WeaponPartSkinID) &&
-            NameToString(a.WeaponPartSpecialSkinID) == NameToString(b.WeaponPartSpecialSkinID) &&
-            NameToString(a.WeaponPartSkinPaintingID) == NameToString(b.WeaponPartSkinPaintingID);
-    }
-
-    bool WeaponConfigEquals(const FPBWeaponNetworkConfig& a, const FPBWeaponNetworkConfig& b)
-    {
-        if (NameToString(a.WeaponID) != NameToString(b.WeaponID))
-            return false;
-        if (NameToString(a.WeaponClassID) != NameToString(b.WeaponClassID))
-            return false;
-        if (NameToString(a.OrnamentID) != NameToString(b.OrnamentID))
-            return false;
-        if (a.WeaponPartConfigs.Num() != b.WeaponPartConfigs.Num())
-            return false;
-
-        for (int i = 0; i < a.WeaponPartConfigs.Num(); ++i)
-        {
-            if (!WeaponPartConfigEquals(a.WeaponPartConfigs[i], b.WeaponPartConfigs[i]))
-                return false;
-        }
-
-        return true;
-    }
-
     bool TryGetInventoryItemForSlot(const FPBInventoryNetworkConfig& inventory, EPBCharacterSlotType slotType, FName& outItemId)
     {
         const int count = (std::min)(inventory.CharacterSlots.Num(), inventory.InventoryItems.Num());
@@ -797,125 +775,6 @@ namespace LoadoutManagerDetail
         }
 
         return false;
-    }
-
-    bool RoleWeaponJsonHasConfig(const json& role, const char* key)
-    {
-        if (!role.contains(key) || !role[key].is_object())
-        {
-            return false;
-        }
-
-        const json& weapon = role[key];
-        const bool hasIdentity =
-            !weapon.value("weaponId", "").empty() ||
-            !weapon.value("weaponClassId", "").empty() ||
-            !weapon.value("ornamentId", "").empty();
-        const bool hasParts = weapon.contains("parts") && weapon["parts"].is_array() && !weapon["parts"].empty();
-        return hasIdentity || hasParts;
-    }
-
-    bool TryGetWeaponPartConfigForSlotLocal(const FPBWeaponNetworkConfig& config, EPBPartSlotType slotType, FPBWeaponPartNetworkConfig& outConfig)
-    {
-        const int count = (std::min)(config.WeaponPartSlotTypeArray.Num(), config.WeaponPartConfigs.Num());
-        for (int index = 0; index < count; ++index)
-        {
-            if (config.WeaponPartSlotTypeArray[index] == slotType)
-            {
-                outConfig = config.WeaponPartConfigs[index];
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    void FillBlankWeaponPartFieldsFromFallback(FPBWeaponPartNetworkConfig& target, const FPBWeaponPartNetworkConfig& fallback)
-    {
-        if (IsBlankName(target.WeaponPartID) && !IsBlankName(fallback.WeaponPartID))
-        {
-            target.WeaponPartID = fallback.WeaponPartID;
-        }
-
-        if (IsBlankName(target.WeaponPartSkinID) && !IsBlankName(fallback.WeaponPartSkinID))
-        {
-            target.WeaponPartSkinID = fallback.WeaponPartSkinID;
-        }
-
-        if (IsBlankName(target.WeaponPartSpecialSkinID) && !IsBlankName(fallback.WeaponPartSpecialSkinID))
-        {
-            target.WeaponPartSpecialSkinID = fallback.WeaponPartSpecialSkinID;
-        }
-
-        if (IsBlankName(target.WeaponPartSkinPaintingID) && !IsBlankName(fallback.WeaponPartSkinPaintingID))
-        {
-            target.WeaponPartSkinPaintingID = fallback.WeaponPartSkinPaintingID;
-        }
-    }
-
-    void MergeWeaponConfigPreferPrimary(FPBWeaponNetworkConfig& primary, const FPBWeaponNetworkConfig& fallback)
-    {
-        if (IsBlankName(primary.WeaponID) && !IsBlankName(fallback.WeaponID))
-        {
-            primary.WeaponID = fallback.WeaponID;
-        }
-
-        if (IsBlankName(primary.WeaponClassID) && !IsBlankName(fallback.WeaponClassID))
-        {
-            primary.WeaponClassID = fallback.WeaponClassID;
-        }
-
-        if (IsBlankName(primary.OrnamentID) && !IsBlankName(fallback.OrnamentID))
-        {
-            primary.OrnamentID = fallback.OrnamentID;
-        }
-
-        for (int i = 0; i < primary.WeaponPartConfigs.Num(); ++i)
-        {
-            FPBWeaponPartNetworkConfig fallbackPart{};
-            if (TryGetWeaponPartConfigForSlotLocal(fallback, primary.WeaponPartSlotTypeArray[i], fallbackPart))
-            {
-                FillBlankWeaponPartFieldsFromFallback(primary.WeaponPartConfigs[i], fallbackPart);
-            }
-        }
-
-        for (int i = 0; i < fallback.WeaponPartSlotTypeArray.Num(); ++i)
-        {
-            FPBWeaponPartNetworkConfig existing{};
-            if (!TryGetWeaponPartConfigForSlotLocal(primary, fallback.WeaponPartSlotTypeArray[i], existing))
-            {
-                primary.WeaponPartSlotTypeArray.Add(fallback.WeaponPartSlotTypeArray[i]);
-                primary.WeaponPartConfigs.Add(fallback.WeaponPartConfigs[i]);
-            }
-        }
-    }
-
-    void SetRoleWeaponJson(json& role, const char* key, const FPBWeaponNetworkConfig& weaponConfig, bool isFromDisplayCharacter)
-    {
-        if (!role.contains(key))
-        {
-            role[key] = EmptyWeaponJson();
-        }
-
-        if (isFromDisplayCharacter)
-        {
-            role[key] = WeaponToJson(weaponConfig);
-        }
-        else if (HasWeaponConfig(weaponConfig))
-        {
-            FPBWeaponNetworkConfig existing{};
-            WeaponFromJson(role[key], existing);
-
-            if (!HasWeaponConfig(existing))
-            {
-                role[key] = WeaponToJson(weaponConfig);
-            }
-            else
-            {
-                MergeWeaponConfigPreferPrimary(existing, weaponConfig);
-                role[key] = WeaponToJson(existing);
-            }
-        }
     }
 
     // =====================================================================
@@ -971,33 +830,27 @@ namespace LoadoutManagerDetail
             return false;
         }
 
-        // 优先从 weaponConfigs map 精确匹配
+        // 从 weaponConfigs map 精确匹配（唯一查找来源）
         if (role.contains("weaponConfigs") && role["weaponConfigs"].is_object())
         {
             const json& weaponConfigs = role["weaponConfigs"];
+
+            // 1) 按 weaponId 精确匹配
             if (weaponConfigs.contains(configId) && weaponConfigs[configId].is_object())
             {
                 WeaponFromJson(weaponConfigs[configId], outConfig);
                 return HasWeaponConfig(outConfig);
             }
-        }
 
-        // 回退到 firstWeapon / secondWeapon
-        for (const char* key : { "firstWeapon", "secondWeapon" })
-        {
-            if (!role.contains(key) || !role[key].is_object())
+            // 2) 按 weaponClassId 遍历匹配
+            for (auto it = weaponConfigs.begin(); it != weaponConfigs.end(); ++it)
             {
-                continue;
-            }
-
-            const std::string keyWeaponId = role[key].value("weaponId", "");
-            const std::string keyClassId = role[key].value("weaponClassId", "");
-            if (keyWeaponId == configId || keyClassId == configId || keyWeaponId.empty())
-            {
-                WeaponFromJson(role[key], outConfig);
-                if (HasWeaponConfig(outConfig))
+                if (!it.value().is_object()) continue;
+                const std::string classId = it.value().value("weaponClassId", "");
+                if (classId == configId)
                 {
-                    return true;
+                    WeaponFromJson(it.value(), outConfig);
+                    return HasWeaponConfig(outConfig);
                 }
             }
         }
@@ -1105,7 +958,11 @@ namespace LoadoutManagerDetail
                     }
                     else
                     {
-                        MergeWeaponConfigPreferPrimary(outConfigs[liveWeaponId], liveConfig);
+                        // 活跃角色数据优先于 FieldModManager 缓存
+                        if (HasWeaponConfig(liveConfig))
+                        {
+                            outConfigs[liveWeaponId] = liveConfig;
+                        }
                     }
                 }
 
@@ -1159,7 +1016,6 @@ namespace LoadoutManagerDetail
         }
 
         std::unordered_map<std::string, json> rolesById;
-        std::unordered_map<std::string, bool> rolesCapturedFromDisplay;
         if (existingSnapshot.contains("roles") && existingSnapshot["roles"].is_array())
         {
             for (const auto& role : existingSnapshot["roles"])
@@ -1194,17 +1050,34 @@ namespace LoadoutManagerDetail
 
             const std::string roleId = NameToString(displayCharacter->RoleConfig.CharacterID);
             json roleJson = RoleToJson(displayCharacter->RoleConfig, inventoryPtr);
-            if (displayCharacter->DisplayFirstWeapon)
+
+            // 从 DisplayCharacter 捕获武器配件到 weaponConfigs
+            if (!roleJson.contains("weaponConfigs") || !roleJson["weaponConfigs"].is_object())
             {
-                SetRoleWeaponJson(roleJson, "firstWeapon", displayCharacter->DisplayFirstWeapon->WeaponPartConfig, true);
+                roleJson["weaponConfigs"] = json::object();
             }
-            if (displayCharacter->DisplaySecondWeapon)
+            if (displayCharacter->DisplayFirstWeapon &&
+                HasWeaponConfig(displayCharacter->DisplayFirstWeapon->WeaponPartConfig))
             {
-                SetRoleWeaponJson(roleJson, "secondWeapon", displayCharacter->DisplaySecondWeapon->WeaponPartConfig, true);
+                const FPBWeaponNetworkConfig& config = displayCharacter->DisplayFirstWeapon->WeaponPartConfig;
+                const std::string weaponId = NameToString(config.WeaponID);
+                if (!weaponId.empty() && weaponId != "None")
+                {
+                    roleJson["weaponConfigs"][weaponId] = WeaponToJson(config);
+                }
+            }
+            if (displayCharacter->DisplaySecondWeapon &&
+                HasWeaponConfig(displayCharacter->DisplaySecondWeapon->WeaponPartConfig))
+            {
+                const FPBWeaponNetworkConfig& config = displayCharacter->DisplaySecondWeapon->WeaponPartConfig;
+                const std::string weaponId = NameToString(config.WeaponID);
+                if (!weaponId.empty() && weaponId != "None")
+                {
+                    roleJson["weaponConfigs"][weaponId] = WeaponToJson(config);
+                }
             }
 
             rolesById[roleId] = roleJson;
-            rolesCapturedFromDisplay[roleId] = true;
         }
 
         for (auto& pair : fieldModManager->CharacterPreOrderingInventoryConfigs)
@@ -1222,31 +1095,7 @@ namespace LoadoutManagerDetail
 
             rolesById[roleId]["inventory"] = InventoryToJson(pair.Value());
 
-            const auto capturedFromDisplayIt = rolesCapturedFromDisplay.find(roleId);
-            const bool capturedFromDisplay = capturedFromDisplayIt != rolesCapturedFromDisplay.end() && capturedFromDisplayIt->second;
-            FName firstWeaponId{};
-            FName secondWeaponId{};
-            if (TryGetInventoryItemForSlot(pair.Value(), EPBCharacterSlotType::FirstWeapon, firstWeaponId) &&
-                (!capturedFromDisplay || !RoleWeaponJsonHasConfig(rolesById[roleId], "firstWeapon")))
-            {
-                SetRoleWeaponJson(rolesById[roleId], "firstWeapon", fieldModManager->GetWeaponNetworkConfig(pair.Key(), firstWeaponId), false);
-            }
-            else if (TryGetInventoryItemForSlot(pair.Value(), EPBCharacterSlotType::FirstWeapon, firstWeaponId))
-            {
-                SetRoleWeaponJson(rolesById[roleId], "firstWeapon", fieldModManager->GetWeaponNetworkConfig(pair.Key(), firstWeaponId), false);
-            }
-
-            if (TryGetInventoryItemForSlot(pair.Value(), EPBCharacterSlotType::SecondWeapon, secondWeaponId) &&
-                (!capturedFromDisplay || !RoleWeaponJsonHasConfig(rolesById[roleId], "secondWeapon")))
-            {
-                SetRoleWeaponJson(rolesById[roleId], "secondWeapon", fieldModManager->GetWeaponNetworkConfig(pair.Key(), secondWeaponId), false);
-            }
-            else if (TryGetInventoryItemForSlot(pair.Value(), EPBCharacterSlotType::SecondWeapon, secondWeaponId))
-            {
-                SetRoleWeaponJson(rolesById[roleId], "secondWeapon", fieldModManager->GetWeaponNetworkConfig(pair.Key(), secondWeaponId), false);
-            }
-
-            // 收集该角色所有武器的配件配置（主副武器 + 活跃角色持有的武器）
+            // 收集该角色所有武器的配件配置
             std::unordered_map<std::string, FPBWeaponNetworkConfig> weaponConfigs;
             CollectWeaponConfigsForRole(fieldModManager, pair.Key(), rolesById[roleId], weaponConfigs);
             if (!weaponConfigs.empty())
@@ -1267,7 +1116,7 @@ namespace LoadoutManagerDetail
         }
 
         return json{
-            { "schemaVersion", 1 },
+            { "schemaVersion", 2 },
             { "savedAtUtc", BuildUtcTimestamp() },
             { "gameVersion", "unknown" },
             { "source", "payload" },
@@ -1368,9 +1217,6 @@ namespace LoadoutManagerDetail
                     }
                     weaponJson["parts"] = partsArray;
                 }
-
-                if (wi == 0) role["firstWeapon"] = weaponJson;
-                else         role["secondWeapon"] = weaponJson;
 
                 // weaponConfigs map — 用 FName 规范化 key 以与查找侧对齐
                 if (!role.contains("weaponConfigs")) role["weaponConfigs"] = json::object();
@@ -1523,6 +1369,32 @@ namespace LoadoutManagerDetail
 
         loadedSnapshot.erase("selectedRoleId");
 
+        // 兼容旧版 v1 快照：将残留的 firstWeapon/secondWeapon 迁移到 weaponConfigs
+        if (loadedSnapshot.contains("roles") && loadedSnapshot["roles"].is_array())
+        {
+            for (auto& role : loadedSnapshot["roles"])
+            {
+                if (!role.is_object()) continue;
+                if (!role.contains("weaponConfigs") || !role["weaponConfigs"].is_object())
+                {
+                    role["weaponConfigs"] = json::object();
+                }
+                for (const char* key : { "firstWeapon", "secondWeapon" })
+                {
+                    if (role.contains(key) && role[key].is_object() &&
+                        !role[key].value("weaponId", "").empty())
+                    {
+                        const std::string wid = NameToString(NameFromString(role[key].value("weaponId", "")));
+                        if (!wid.empty() && wid != "None" && !role["weaponConfigs"].contains(wid))
+                        {
+                            role["weaponConfigs"][wid] = role[key];
+                        }
+                        role.erase(key);
+                    }
+                }
+            }
+        }
+
         {
             std::scoped_lock lock(state.Mutex);
             state.Snapshot = loadedSnapshot;
@@ -1536,6 +1408,77 @@ namespace LoadoutManagerDetail
     void PreloadSnapshot()
     {
         EnsureSnapshotLoaded();
+    }
+
+    // =====================================================================
+    //  从全局快照中提取单个角色的数据（用于按玩家分发）
+    // =====================================================================
+
+    json ExtractSingleRoleFromSnapshot(const json& snapshot, const std::string& roleId)
+    {
+        json result;
+        result["schemaVersion"] = snapshot.value("schemaVersion", 1);
+        result["roles"] = json::array();
+
+        if (!snapshot.contains("roles") || !snapshot["roles"].is_array())
+        {
+            return result;
+        }
+
+        for (const auto& role : snapshot["roles"])
+        {
+            if (!role.is_object()) continue;
+            if (role.value("roleId", "") == roleId)
+            {
+                result["roles"].push_back(role);
+                return result;
+            }
+        }
+
+        // 回退：使用第一个角色（非空角色 ID 优先）
+        for (const auto& role : snapshot["roles"])
+        {
+            if (!role.is_object()) continue;
+            const std::string fallbackId = role.value("roleId", "");
+            if (!fallbackId.empty())
+            {
+                result["roles"].push_back(role);
+                return result;
+            }
+        }
+
+        return result;  // 未找到匹配角色
+    }
+
+    void StorePerPlayerSnapshot(APBPlayerController* playerController, const json& roleSnapshot, const std::string& roleId)
+    {
+        if (!playerController) return;
+
+        State& state = GetState();
+        std::scoped_lock lock(state.Mutex);
+
+        PerPlayerSnapshot& perPlayer = state.PerPlayerSnapshots[playerController];
+        perPlayer.Snapshot = roleSnapshot;
+        perPlayer.RoleId = roleId;
+        perPlayer.HasArrived = true;
+        perPlayer.Applied = false;
+        perPlayer.InventoryPushed = false;
+        perPlayer.ArrivedAt = std::chrono::steady_clock::now();
+    }
+
+    json* GetPerPlayerSnapshot(APBPlayerController* playerController)
+    {
+        if (!playerController) return nullptr;
+
+        State& state = GetState();
+        std::scoped_lock lock(state.Mutex);
+
+        auto it = state.PerPlayerSnapshots.find(playerController);
+        if (it != state.PerPlayerSnapshots.end() && it->second.HasArrived)
+        {
+            return &it->second.Snapshot;
+        }
+        return nullptr;
     }
 
     // =====================================================================
@@ -1683,7 +1626,6 @@ namespace LoadoutManagerDetail
             return false;
         }
 
-        const json* firstRole = nullptr;
         for (const auto& role : snapshot["roles"])
         {
             if (!role.is_object())
@@ -1696,276 +1638,12 @@ namespace LoadoutManagerDetail
                 outConfig.CharacterID = NameFromString(roleId);
                 InventoryFromJson(role.value("inventory", EmptyInventoryJson()), outConfig.InventoryData);
                 CharacterFromJson(role.value("characterData", EmptyCharacterJson()), outConfig.CharacterData);
-                WeaponFromJson(role.value("firstWeapon", EmptyWeaponJson()), outConfig.FirstWeaponPartData);
-                WeaponFromJson(role.value("secondWeapon", EmptyWeaponJson()), outConfig.SecondWeaponPartData);
                 MeleeFromJson(role.value("meleeWeapon", EmptyMeleeJson()), outConfig.MeleeWeaponData);
                 LauncherFromJson(role.value("leftLauncher", EmptyLauncherJson()), outConfig.LeftLauncherData);
                 LauncherFromJson(role.value("rightLauncher", EmptyLauncherJson()), outConfig.RightLauncherData);
                 MobilityFromJson(role.value("mobilityModule", EmptyMobilityJson()), outConfig.MobilityModuleData);
                 return true;
             }
-
-            if (!firstRole)
-            {
-                firstRole = &role;
-            }
-        }
-
-        if (!roleId.empty() && firstRole)
-        {
-            const std::string fallbackRoleId = (*firstRole).value("roleId", "");
-            outConfig.CharacterID = NameFromString(fallbackRoleId);
-            InventoryFromJson((*firstRole).value("inventory", EmptyInventoryJson()), outConfig.InventoryData);
-            CharacterFromJson((*firstRole).value("characterData", EmptyCharacterJson()), outConfig.CharacterData);
-            WeaponFromJson((*firstRole).value("firstWeapon", EmptyWeaponJson()), outConfig.FirstWeaponPartData);
-            WeaponFromJson((*firstRole).value("secondWeapon", EmptyWeaponJson()), outConfig.SecondWeaponPartData);
-            MeleeFromJson((*firstRole).value("meleeWeapon", EmptyMeleeJson()), outConfig.MeleeWeaponData);
-            LauncherFromJson((*firstRole).value("leftLauncher", EmptyLauncherJson()), outConfig.LeftLauncherData);
-            LauncherFromJson((*firstRole).value("rightLauncher", EmptyLauncherJson()), outConfig.RightLauncherData);
-            MobilityFromJson((*firstRole).value("mobilityModule", EmptyMobilityJson()), outConfig.MobilityModuleData);
-            return true;
-        }
-
-        return false;
-    }
-
-    bool TryResolveSnapshotWeaponConfigByRoleAndWeaponId(const json& snapshot, const std::string& roleId, const std::string& weaponId, FPBWeaponNetworkConfig& outConfig)
-    {
-        if (!snapshot.contains("roles") || !snapshot["roles"].is_array())
-        {
-            return false;
-        }
-
-        for (const auto& role : snapshot["roles"])
-        {
-            if (!role.is_object() || role.value("roleId", "") != roleId)
-            {
-                continue;
-            }
-
-            for (const char* key : { "firstWeapon", "secondWeapon" })
-            {
-                if (!role.contains(key) || !role[key].is_object())
-                {
-                    continue;
-                }
-
-                const std::string configWeaponId = role[key].value("weaponId", "");
-                const std::string configWeaponClassId = role[key].value("weaponClassId", "");
-                if (configWeaponId == weaponId || configWeaponClassId == weaponId)
-                {
-                    WeaponFromJson(role[key], outConfig);
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    // =====================================================================
-    //  武器评分和匹配 — 用于从快照中选择最佳匹配的武器配置
-    // =====================================================================
-
-    int ScoreWeaponSnapshotMatch(const FPBWeaponNetworkConfig& config, const FPBWeaponNetworkConfig& incoming, APBWeapon* weapon)
-    {
-        int score = 0;
-
-        if (!IsBlankName(config.WeaponID) && !IsBlankName(incoming.WeaponID) && NameToString(config.WeaponID) == NameToString(incoming.WeaponID))
-        {
-            score += 10;
-        }
-
-        if (!IsBlankName(config.WeaponClassID) && !IsBlankName(incoming.WeaponClassID) && NameToString(config.WeaponClassID) == NameToString(incoming.WeaponClassID))
-        {
-            score += 5;
-        }
-
-        if (weapon)
-        {
-            const FPBWeaponNetworkConfig liveConfig = weapon->PartNetworkConfig;
-            if (!IsBlankName(config.WeaponID) && !IsBlankName(liveConfig.WeaponID) && NameToString(config.WeaponID) == NameToString(liveConfig.WeaponID))
-            {
-                score += 8;
-            }
-            if (!IsBlankName(config.WeaponClassID) && !IsBlankName(liveConfig.WeaponClassID) && NameToString(config.WeaponClassID) == NameToString(liveConfig.WeaponClassID))
-            {
-                score += 4;
-            }
-        }
-
-        if (config.WeaponPartConfigs.Num() > 0)
-        {
-            score += 2;
-        }
-
-        return score;
-    }
-
-    bool TryGetRoleWeaponConfigForInit(const FPBRoleNetworkConfig& roleConfig, const FPBWeaponNetworkConfig& incoming, APBWeapon* weapon, FPBWeaponNetworkConfig& outConfig)
-    {
-        const int firstScore = ScoreWeaponSnapshotMatch(roleConfig.FirstWeaponPartData, incoming, weapon);
-        const int secondScore = ScoreWeaponSnapshotMatch(roleConfig.SecondWeaponPartData, incoming, weapon);
-
-        if (firstScore <= 0 && secondScore <= 0)
-        {
-            return false;
-        }
-
-        outConfig = firstScore >= secondScore ? roleConfig.FirstWeaponPartData : roleConfig.SecondWeaponPartData;
-        return true;
-    }
-
-    bool TryGetRoleWeaponConfigByWeaponId(const FPBRoleNetworkConfig& roleConfig, const std::string& weaponId, FPBWeaponNetworkConfig& outConfig)
-    {
-        const std::string firstId = NameToString(roleConfig.FirstWeaponPartData.WeaponID);
-        const std::string firstClassId = NameToString(roleConfig.FirstWeaponPartData.WeaponClassID);
-        const std::string secondId = NameToString(roleConfig.SecondWeaponPartData.WeaponID);
-        const std::string secondClassId = NameToString(roleConfig.SecondWeaponPartData.WeaponClassID);
-
-        if (firstId == weaponId || firstClassId == weaponId)
-        {
-            outConfig = roleConfig.FirstWeaponPartData;
-            return true;
-        }
-
-        if (secondId == weaponId || secondClassId == weaponId)
-        {
-            outConfig = roleConfig.SecondWeaponPartData;
-            return true;
-        }
-
-        return false;
-    }
-
-    bool TryResolveWeaponConfigForRole(const json& snapshot, const std::string& roleId, const FPBWeaponNetworkConfig& incoming, APBWeapon* weapon, FPBWeaponNetworkConfig& outConfig)
-    {
-        if (roleId.empty())
-        {
-            return false;
-        }
-
-        FPBRoleNetworkConfig roleConfig{};
-        if (!TryResolveRoleConfig(snapshot, roleId, roleConfig))
-        {
-            return false;
-        }
-
-        return TryGetRoleWeaponConfigForInit(roleConfig, incoming, weapon, outConfig);
-    }
-
-    bool TryResolveSnapshotWeaponConfigFromPendingRoles(const json& snapshot, const FPBWeaponNetworkConfig& incoming, APBWeapon* weapon, std::string& outRoleId, FPBWeaponNetworkConfig& outConfig)
-    {
-        // 收集所有待处理的角色选择（复制到锁外处理）
-        std::vector<std::pair<std::string, bool>> pendingRoles; // {roleId, isAuthoritative}
-        {
-            State& state = GetState();
-            std::scoped_lock lock(state.Mutex);
-            for (const auto& [controller, context] : state.PendingRoleSelections)
-            {
-                if (!context.RoleId.empty())
-                {
-                    pendingRoles.push_back({ context.RoleId, context.IsAuthoritative });
-                }
-            }
-        }
-
-        int bestScore = 0;
-        for (const auto& [roleId, isAuthoritative] : pendingRoles)
-        {
-            FPBWeaponNetworkConfig candidate{};
-            if (!TryResolveWeaponConfigForRole(snapshot, roleId, incoming, weapon, candidate))
-            {
-                continue;
-            }
-
-            const int score = ScoreWeaponSnapshotMatch(candidate, incoming, weapon);
-            if (score > bestScore)
-            {
-                bestScore = score;
-                outConfig = candidate;
-                outRoleId = roleId;
-            }
-        }
-
-        return bestScore > 0;
-    }
-
-    bool TryResolveSnapshotWeaponConfigForInit(const json& snapshot, APBWeapon* weapon, const FPBWeaponNetworkConfig& incoming, std::string& outResolvedRoleId, FPBWeaponNetworkConfig& outConfig)
-    {
-        if (!weapon)
-        {
-            return false;
-        }
-
-        APBCharacter* character = nullptr;
-        for (UObject* object : getObjectsOfClass(APBCharacter::StaticClass(), false))
-        {
-            APBCharacter* candidate = static_cast<APBCharacter*>(object);
-            if (!candidate)
-            {
-                continue;
-            }
-
-            for (int i = 0; i < candidate->Inventory.Num(); ++i)
-            {
-                if (candidate->Inventory[i] == weapon)
-                {
-                    character = candidate;
-                    break;
-                }
-            }
-
-            if (character)
-            {
-                break;
-            }
-        }
-
-        std::string roleId;
-        if (character)
-        {
-            roleId = ResolveLiveCharacterRoleId(character);
-            if (roleId.empty())
-            {
-                roleId = ResolveCharacterRoleId(character);
-            }
-        }
-
-        // 1) 优先：扫描所有待处理角色选择，评分匹配最佳武器配置
-        //    解决了 dedicated server 无本地玩家、多玩家同时加入竞态等问题
-        if (TryResolveSnapshotWeaponConfigFromPendingRoles(snapshot, incoming, weapon, outResolvedRoleId, outConfig))
-        {
-            return true;
-        }
-
-        // 2) 回退：武器持有者的角色
-        if (!roleId.empty() && TryResolveWeaponConfigForRole(snapshot, roleId, incoming, weapon, outConfig))
-        {
-            outResolvedRoleId = roleId;
-            return true;
-        }
-
-        // 3) 回退：本地玩家控制器的待处理角色
-        if (roleId.empty())
-        {
-            APBPlayerController* playerController = GetLocalPlayerController();
-            roleId = GetPendingRoleIdForController(playerController);
-            if (!roleId.empty() && TryResolveWeaponConfigForRole(snapshot, roleId, incoming, weapon, outConfig))
-            {
-                outResolvedRoleId = roleId;
-                return true;
-            }
-        }
-
-        // 4) 回退：本地首选角色 / 记住的菜单角色
-        if (roleId.empty()) { roleId = GetLocalPlayerPreferredRoleId(); }
-        if (roleId.empty()) { roleId = GetRememberedMenuSelectedRoleId(); }
-
-        if (!roleId.empty() && TryResolveWeaponConfigForRole(snapshot, roleId, incoming, weapon, outConfig))
-        {
-            outResolvedRoleId = roleId;
-            return true;
         }
 
         return false;
@@ -1973,46 +1651,41 @@ namespace LoadoutManagerDetail
 
     // =====================================================================
     //  InitWeapon 参数覆盖 — 在武器初始化前将快照配件配置写入参数
-    //  仅覆写 ProcessEvent 参数结构体的 InPartSaved 字段，不修改任何数据表
     // =====================================================================
 
     void MaybeOverrideInitWeaponConfig(UObject* object, const std::string& functionName, void* parms)
     {
-        if (!object || !parms || !object->IsA(APBWeapon::StaticClass()))
+        if (!object || !parms)
         {
             return;
         }
 
-        // 临时诊断：记录所有包含 "Init" 或 "Weapon" 的 APBWeapon ProcessEvent 调用
-        // 以确认 InitWeapon 的实际函数名格式
-        static int diagCount = 0;
-        if (diagCount < 20 && (functionName.find("Init") != std::string::npos ||
-            functionName.find("Weapon") != std::string::npos ||
-            functionName.find("Part") != std::string::npos ||
-            functionName.find("Skin") != std::string::npos))
-        {
-            ++diagCount;
-            ClientLog("[LOADOUT-DIAG] APBWeapon PE: " + functionName);
-        }
-
-        if (functionName.find("PBWeapon.InitWeapon") == std::string::npos &&
-            functionName.find("InitWeapon") == std::string::npos)
+        // 总是确认 APBWeapon 类型
+        if (!object->IsA(APBWeapon::StaticClass()))
         {
             return;
         }
 
-        EnsureSnapshotLoaded();
-
-        json snapshotCopy;
+        // 诊断：记录所有 APBWeapon PE 调用以确认函数名格式
+        static int totalDiagCount = 0;
+        if (totalDiagCount < 5)
         {
-            State& state = GetState();
-            std::scoped_lock lock(state.Mutex);
-            if (!state.SnapshotAvailable)
-            {
-                return;
-            }
-            snapshotCopy = state.Snapshot;
+            ++totalDiagCount;
+            ClientLog("[LOADOUT-DIAG] APBWeapon PE #" + std::to_string(totalDiagCount) +
+                ": " + functionName);
         }
+
+        // 精确匹配 InitWeapon（排除 K2_/BP_ 变体）
+        const bool isInitWeapon =
+            functionName.find("InitWeapon") != std::string::npos &&
+            functionName.find("K2_InitWeapon") == std::string::npos &&
+            functionName.find("BP_InitWeapon") == std::string::npos;
+        if (!isInitWeapon)
+        {
+            return;
+        }
+
+        ClientLog("[LOADOUT-DIAG] InitWeapon matched: " + functionName);
 
         APBWeapon* weapon = static_cast<APBWeapon*>(object);
         auto* initParms = static_cast<Params::PBWeapon_InitWeapon*>(parms);
@@ -2021,31 +1694,90 @@ namespace LoadoutManagerDetail
         const std::string weaponId = NameToString(previousConfig.WeaponID);
         const std::string classId = NameToString(previousConfig.WeaponClassID);
 
-        std::string resolvedRoleId;
+        // 查找持有该武器的角色对应的 PlayerController
+        APBPlayerController* owningController = nullptr;
+        for (UObject* obj : getObjectsOfClass(APBCharacter::StaticClass(), false))
+        {
+            APBCharacter* candidate = static_cast<APBCharacter*>(obj);
+            if (!candidate) continue;
+            for (int i = 0; i < candidate->Inventory.Num(); ++i)
+            {
+                if (candidate->Inventory[i] == weapon)
+                {
+                    owningController = FindPlayerControllerForCharacter(candidate);
+                    break;
+                }
+            }
+            if (owningController) break;
+        }
+
+        // 按玩家查找快照配置
         FPBWeaponNetworkConfig targetConfig{};
-        if (!TryResolveSnapshotWeaponConfigForInit(snapshotCopy, weapon, previousConfig, resolvedRoleId, targetConfig))
+        bool found = false;
+
+        if (owningController)
         {
-            ClientLog("[LOADOUT] InitWeapon: no snapshot config for weapon=" + weaponId +
-                " class=" + classId);
-            return;
+            json* perPlayerSnapshot = GetPerPlayerSnapshot(owningController);
+            if (perPlayerSnapshot && perPlayerSnapshot->contains("roles") &&
+                (*perPlayerSnapshot)["roles"].is_array() && !(*perPlayerSnapshot)["roles"].empty())
+            {
+                const json& roleJson = (*perPlayerSnapshot)["roles"][0];
+
+                // 优先 weaponId 精确匹配
+                if (!weaponId.empty() && weaponId != "None")
+                {
+                    found = TryResolveWeaponConfigFromSnapshot(roleJson, weaponId, targetConfig);
+                }
+                // 备选 classId 匹配
+                if (!found && !classId.empty() && classId != "None")
+                {
+                    found = TryResolveWeaponConfigFromSnapshot(roleJson, classId, targetConfig);
+                }
+            }
         }
 
-        if (!HasWeaponConfig(targetConfig))
+        // 回退：全局快照（用于无按玩家数据时的主机场景）
+        if (!found)
+        {
+            json snapshotCopy;
+            {
+                State& state = GetState();
+                std::scoped_lock lock(state.Mutex);
+                if (!state.SnapshotAvailable) return;
+                snapshotCopy = state.Snapshot;
+            }
+
+            // 在全局快照中遍历角色，按 weaponConfigs map 匹配
+            if (snapshotCopy.contains("roles") && snapshotCopy["roles"].is_array())
+            {
+                for (const auto& role : snapshotCopy["roles"])
+                {
+                    if (!role.is_object()) continue;
+
+                    if (!weaponId.empty() && weaponId != "None")
+                    {
+                        found = TryResolveWeaponConfigFromSnapshot(role, weaponId, targetConfig);
+                    }
+                    if (!found && !classId.empty() && classId != "None")
+                    {
+                        found = TryResolveWeaponConfigFromSnapshot(role, classId, targetConfig);
+                    }
+                    if (found) break;
+                }
+            }
+        }
+
+        if (!found || !HasWeaponConfig(targetConfig))
         {
             return;
         }
-
-        // 始终覆写 — 即使字符串比较相同，FName 实例或 TArray 内部指针可能不同，
-        // 导致原生 InitWeapon 在比较时认为配置未变化而跳过视觉更新
-        const bool configDiffers = !WeaponConfigEquals(previousConfig, targetConfig);
 
         initParms->InPartSaved = targetConfig;
         weapon->PartNetworkConfig = targetConfig;
 
         ClientLog("[LOADOUT] InitWeapon: overrode parts for weapon=" + weaponId +
-            " class=" + classId + " role=" + resolvedRoleId +
-            " parts=" + std::to_string(targetConfig.WeaponPartConfigs.Num()) +
-            (configDiffers ? "" : " (was already matching by string compare)"));
+            " class=" + classId +
+            " parts=" + std::to_string(targetConfig.WeaponPartConfigs.Num()));
     }
 
     // =====================================================================
@@ -2249,8 +1981,7 @@ namespace LoadoutManagerDetail
             MarkActorForReplication(character);
             changed = true;
 
-            // 武器配装 — 按 Inventory 索引直接映射 first/second weapon
-            // 备选：weaponConfigs map 精确匹配
+            // 武器配装 — 仅从 weaponConfigs map 按 weaponId/classId 查找
             static int diagCount = 0;
             const int inventoryCount = character->Inventory.Num();
             for (int i = 0; i < inventoryCount; ++i)
@@ -2267,43 +1998,16 @@ namespace LoadoutManagerDetail
                 FPBWeaponNetworkConfig matchedConfig{};
                 bool found = false;
 
-                // 1) 索引 0 → firstWeapon, 索引 1 → secondWeapon（直接映射）
-                if (i == 0 && HasWeaponConfig(roleConfig.FirstWeaponPartData))
+                // 1) weaponId 精确匹配
+                if (roleJson && !liveWeaponId.empty() && liveWeaponId != "None")
                 {
-                    matchedConfig = roleConfig.FirstWeaponPartData;
-                    found = true;
-                }
-                else if (i == 1 && HasWeaponConfig(roleConfig.SecondWeaponPartData))
-                {
-                    matchedConfig = roleConfig.SecondWeaponPartData;
-                    found = true;
+                    found = TryResolveWeaponConfigFromSnapshot(*roleJson, liveWeaponId, matchedConfig);
                 }
 
-                // 2) weaponConfigs map 精确匹配（备选）
-                if (!found && roleJson)
+                // 2) weaponClassId 匹配
+                if (!found && roleJson && !liveClassId.empty() && liveClassId != "None")
                 {
-                    if (!liveWeaponId.empty() && liveWeaponId != "None")
-                    {
-                        found = TryResolveWeaponConfigFromSnapshot(*roleJson, liveWeaponId, matchedConfig);
-                    }
-                    if (!found && !liveClassId.empty() && liveClassId != "None")
-                    {
-                        found = TryResolveWeaponConfigFromSnapshot(*roleJson, liveClassId, matchedConfig);
-                    }
-                }
-
-                // 3) 评分回退
-                if (!found)
-                {
-                    const int firstScore = ScoreWeaponSnapshotMatch(roleConfig.FirstWeaponPartData, weapon->PartNetworkConfig, weapon);
-                    const int secondScore = ScoreWeaponSnapshotMatch(roleConfig.SecondWeaponPartData, weapon->PartNetworkConfig, weapon);
-                    if (firstScore > 0 || secondScore > 0)
-                    {
-                        matchedConfig = firstScore >= secondScore
-                            ? roleConfig.FirstWeaponPartData
-                            : roleConfig.SecondWeaponPartData;
-                        found = true;
-                    }
+                    found = TryResolveWeaponConfigFromSnapshot(*roleJson, liveClassId, matchedConfig);
                 }
 
                 if (found && HasWeaponConfig(matchedConfig))
@@ -2377,6 +2081,38 @@ namespace LoadoutManagerDetail
         if (PreSpawnApply(snapshotCopy, playerController, detail))
         {
             ClientLog("[LOADOUT] Pre-spawn inventory pushed: " + detail);
+        }
+    }
+
+    // =====================================================================
+    //  客户端快照上传 — 在确认角色选择前将本地快照存入共享存储
+    //                   供同进程服务端在 ServerConfirmRoleSelection 中读取
+    // =====================================================================
+
+    void UploadClientSnapshotForRole(const std::string& roleId)
+    {
+        if (roleId.empty()) return;
+
+        State& state = GetState();
+        json snapshotCopy;
+        {
+            std::scoped_lock lock(state.Mutex);
+            if (!state.SnapshotAvailable) return;
+            snapshotCopy = state.Snapshot;
+        }
+
+        json roleSnapshot = ExtractSingleRoleFromSnapshot(snapshotCopy, roleId);
+        if (!roleSnapshot.contains("roles") || !roleSnapshot["roles"].is_array() ||
+            roleSnapshot["roles"].empty())
+        {
+            return;
+        }
+
+        roleSnapshot["roleId"] = roleId;  // 在顶层标注角色 ID 供服务端解析
+
+        {
+            std::scoped_lock lock(state.Mutex);
+            state.PendingClientSnapshots[roleId] = std::move(roleSnapshot);
         }
     }
 
@@ -2521,27 +2257,40 @@ namespace LoadoutManagerDetail
     {
         State& state = GetState();
 
-        if (!state.SnapshotAvailable)
-        {
-            return;
-        }
-
-        json snapshotCopy;
+        // 复制按玩家快照列表（锁外操作）
+        std::vector<std::pair<APBPlayerController*, PerPlayerSnapshot>> pendingApplies;
         {
             std::scoped_lock lock(state.Mutex);
-            snapshotCopy = state.Snapshot;
+            for (auto& [controller, perPlayer] : state.PerPlayerSnapshots)
+            {
+                if (perPlayer.HasArrived && !perPlayer.Applied)
+                {
+                    pendingApplies.push_back({ controller, perPlayer });
+                }
+            }
         }
 
-        for (UObject* object : getObjectsOfClass(APBPlayerController::StaticClass(), false))
+        for (auto& [playerController, perPlayer] : pendingApplies)
         {
-            APBPlayerController* playerController = static_cast<APBPlayerController*>(object);
             APBCharacter* character = GetControllerCharacter(playerController);
             if (!character || character->Inventory.Num() <= 0 || !IsCharacterAlive(character))
             {
                 continue;
             }
 
-            PostSpawnApply(character, snapshotCopy);
+            std::string roleId = perPlayer.RoleId;
+            if (PostSpawnApply(character, perPlayer.Snapshot))
+            {
+                std::scoped_lock lock(state.Mutex);
+                auto it = state.PerPlayerSnapshots.find(playerController);
+                if (it != state.PerPlayerSnapshots.end())
+                {
+                    it->second.Applied = true;
+                }
+
+                ClientLog("[LOADOUT] Server applied loadout for player=" +
+                    playerController->GetFullName() + " role=" + roleId);
+            }
         }
     }
 }
@@ -2586,12 +2335,46 @@ void LoadoutManager::OnRoleSelectionConfirmed(APBPlayerController* playerControl
         return;
     }
 
+    const std::string roleIdStr = LoadoutManagerDetail::NameToString(roleId);
+
     LoadoutManagerDetail::RememberMenuSelectedRole(roleId);
     LoadoutManagerDetail::RememberPendingRoleSelection(
         playerController,
-        LoadoutManagerDetail::NameToString(roleId),
+        roleIdStr,
         isAuthoritative);
 
+    LoadoutManagerDetail::EnsureSnapshotLoaded();
+
+    // 按玩家存储快照 — 从全局快照中提取该玩家的角色数据
+    {
+        LoadoutManagerDetail::State& state = LoadoutManagerDetail::GetState();
+        std::scoped_lock lock(state.Mutex);
+
+        // 检查是否有客户端预先上传的数据（监听服务器同进程场景）
+        auto pendingIt = state.PendingClientSnapshots.find(roleIdStr);
+        if (pendingIt != state.PendingClientSnapshots.end())
+        {
+            LoadoutManagerDetail::PerPlayerSnapshot& perPlayer = state.PerPlayerSnapshots[playerController];
+            perPlayer.Snapshot = std::move(pendingIt->second);
+            perPlayer.RoleId = roleIdStr;
+            perPlayer.HasArrived = true;
+            state.PendingClientSnapshots.erase(pendingIt);
+        }
+        else if (state.SnapshotAvailable)
+        {
+            // 从全局快照提取该角色的数据
+            nlohmann::json roleSnapshot = LoadoutManagerDetail::ExtractSingleRoleFromSnapshot(state.Snapshot, roleIdStr);
+            if (roleSnapshot.contains("roles") && roleSnapshot["roles"].is_array() && !roleSnapshot["roles"].empty())
+            {
+                LoadoutManagerDetail::PerPlayerSnapshot& perPlayer = state.PerPlayerSnapshots[playerController];
+                perPlayer.Snapshot = std::move(roleSnapshot);
+                perPlayer.RoleId = roleIdStr;
+                perPlayer.HasArrived = true;
+            }
+        }
+    }
+
+    // 推送该角色的库存物品
     LoadoutManagerDetail::PushPreSpawnInventory(playerController);
 }
 
@@ -2602,6 +2385,17 @@ void LoadoutManager::OnRoleSelectionConfirmed(APBPlayerController* playerControl
 
 void LoadoutManager::OnClientProcessEventPre(UObject* object, const std::string& functionName, void* parms)
 {
+    // 客户端确认角色前上传本地快照，供同进程服务端读取
+    if (functionName.find("ServerConfirmRoleSelection") != std::string::npos)
+    {
+        auto* confirmParms = static_cast<Params::PBPlayerController_ServerConfirmRoleSelection*>(parms);
+        if (confirmParms)
+        {
+            LoadoutManagerDetail::UploadClientSnapshotForRole(
+                LoadoutManagerDetail::NameToString(confirmParms->InRoleID));
+        }
+    }
+
     // 复活时重新推送出生前库存
     if (functionName.find("OnRestartInStartSpot") != std::string::npos)
     {
@@ -2690,4 +2484,40 @@ void LoadoutManager::TickClient()
 void LoadoutManager::TickServer()
 {
     LoadoutManagerDetail::ServerTick();
+}
+
+void LoadoutManager::OnServerLoadoutDataReceived(APBPlayerController* playerController, const std::string& jsonPayload)
+{
+    if (!playerController || jsonPayload.empty())
+    {
+        return;
+    }
+
+    try
+    {
+        nlohmann::json payload = nlohmann::json::parse(jsonPayload, nullptr, false);
+        if (payload.is_discarded() || !payload.is_object())
+        {
+            ClientLog("[LOADOUT] OnServerLoadoutDataReceived: invalid JSON from " +
+                playerController->GetFullName());
+            return;
+        }
+
+        const std::string roleId = payload.value("roleId", "");
+        if (roleId.empty())
+        {
+            return;
+        }
+
+        LoadoutManagerDetail::StorePerPlayerSnapshot(playerController, payload, roleId);
+
+        // 客户端数据到达后立即推送库存
+        LoadoutManagerDetail::PushPreSpawnInventory(playerController);
+
+        ClientLog("[LOADOUT] Received client loadout for player=" +
+            playerController->GetFullName() + " role=" + roleId);
+    }
+    catch (...)
+    {
+    }
 }

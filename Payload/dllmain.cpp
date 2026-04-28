@@ -19,6 +19,7 @@
 
 #include "Config/Config.h"
 #include "Debug/Debug.h"
+#include "Debug/DebugTool.h"
 #include "ServerLogic/ServerLogic.h"
 #include "ClientLogic/ClientLogic.h"
 #include "Hooks/Hooks.h"
@@ -35,6 +36,7 @@ LibReplicate* libReplicate = nullptr; // was static in original, but extern need
 HMODULE gPayloadModule = nullptr;
 static CommandFramework* g_CmdFramework = nullptr;
 LoadoutManager* gLoadoutManager = nullptr;
+DebugTool* gDebugTool = nullptr;
 static std::mutex MatchIPMutex;
 
 void OnJoinFromPipe(const std::string& ip, const std::string& token)
@@ -80,6 +82,12 @@ void MainThread()
         if (!gLoadoutManager)
         {
             gLoadoutManager = new LoadoutManager();
+        }
+
+        // Initialize DebugTool (shared between client and server)
+        if (!gDebugTool)
+        {
+            gDebugTool = new DebugTool();
         }
 
         while (!UWorld::GetWorld())
@@ -162,7 +170,7 @@ void MainThread()
             // Only start the hotkey thread if the -debug flag is present
             if (std::string(GetCommandLineA()).find("-debug") != std::string::npos)
             {
-                std::thread(HotkeyThread).detach();
+                std::thread(HotkeyThreadWithDebugTool).detach();
             }
 
             InitClientArmory();
@@ -178,6 +186,11 @@ void MainThread()
                 g_CmdFramework->SetPipeName(MatchPipeName);
                 g_CmdFramework->SetJoinCallback(OnJoinFromPipe);
                 g_CmdFramework->SetLogCallback([](const std::string& msg) { ClientLog(msg); });
+                g_CmdFramework->SetDebugCallback([](const nlohmann::json& args) {
+                    if (gDebugTool)
+                        return gDebugTool->ExecuteJson(args);
+                    return nlohmann::json{{"ok", false}, {"error", "DebugTool not initialized"}};
+                });
                 g_CmdFramework->Start();
             }
             /*

@@ -102,6 +102,10 @@ public:
     // @brief 推进服务端侧权威应用工作。
     void TickServer();
 
+    // @brief 服务端接收客户端上传的角色装备数据（通过 ServerSay 通道）。
+    //        解析 JSON 载荷并将该玩家的快照存入按控制器索引的存储。
+    void OnServerLoadoutDataReceived(SDK::APBPlayerController* playerController, const std::string& jsonPayload);
+
 private:
     // PIMPL 将 JSON 相关状态、线程局部细节和大型辅助结构
     // 从公有头文件中隔离出来。

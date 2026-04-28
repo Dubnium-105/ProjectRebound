@@ -12,6 +12,7 @@ void ClientLog(const std::string& msg);
 void InitDebugConsole();
 void EnableUnrealConsole();
 void HotkeyThread();
+void HotkeyThreadWithDebugTool();  // 扩展热键：F5=dump, F6=state, F7=reapply, F9=range
 void DebugLocateSubsystems();
 void DebugDumpSubsystemsToFile();
 void DebugDumpWeaponPartsToFile();

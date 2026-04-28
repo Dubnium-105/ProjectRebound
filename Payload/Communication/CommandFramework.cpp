@@ -61,6 +61,11 @@ void CommandFramework::SetLogCallback(LogCallback cb)
     onLog = std::move(cb);
 }
 
+void CommandFramework::SetDebugCallback(DebugCallback cb)
+{
+    onDebug = std::move(cb);
+}
+
 // =====================================================================
 //  生命周期
 // =====================================================================
@@ -358,6 +363,21 @@ void CommandFramework::Dispatch(const std::string& cmd, const nlohmann::json& ar
         nlohmann::json ack;
         ack["status"] = "ok";
         SendResponse("join_ack", ack);
+    }
+    else if (cmd == "debug")
+    {
+        if (onDebug)
+        {
+            nlohmann::json result = onDebug(args);
+            SendResponse("debug_ack", result);
+        }
+        else
+        {
+            nlohmann::json resp;
+            resp["ok"] = false;
+            resp["error"] = "no debug handler registered";
+            SendResponse("debug_ack", resp);
+        }
     }
     else
     {

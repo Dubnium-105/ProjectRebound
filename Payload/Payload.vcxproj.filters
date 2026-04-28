@@ -33,6 +33,9 @@
     <ClInclude Include="Loadout\LoadoutManager.h">
       <Filter>Loadout</Filter>
     </ClInclude>
+    <ClInclude Include="Debug\DebugTool.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="Communication\CommandFramework.h">
       <Filter>Communication</Filter>
     </ClInclude>
@@ -93,6 +96,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Debug\Debug.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Debug\DebugTool.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Hooks\Hooks.cpp">

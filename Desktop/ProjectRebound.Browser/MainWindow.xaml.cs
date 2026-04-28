@@ -24,4 +24,10 @@ public partial class MainWindow : Window
             _viewModel.Status = $"Startup failed: {ex.Message}";
         }
     }
+
+    private void ConsoleOutput_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.TextBox tb)
+            tb.ScrollToEnd();
+    }
 }

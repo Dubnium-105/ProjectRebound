@@ -1,6 +1,7 @@
 // Utility.cpp
 #include "Utility.h"
 #include <Windows.h>
+#include "../SDK.hpp"
 #include "../SDK/Engine_parameters.hpp"
 
 std::vector<SDK::UObject *> getObjectsOfClass(SDK::UClass *theClass, bool includeDefault)
@@ -59,4 +60,33 @@ void PressSpace()
     // Key up
     input.ki.dwFlags = KEYEVENTF_KEYUP;
     SendInput(1, &input, sizeof(INPUT));
+}
+
+SDK::UPBFieldModManager* GetFieldModManager()
+{
+    SDK::UObject* object = GetLastOfType(SDK::UPBFieldModManager::StaticClass(), false);
+    return object ? static_cast<SDK::UPBFieldModManager*>(object) : nullptr;
+}
+
+SDK::APBPlayerController* GetLocalPlayerController()
+{
+    SDK::UWorld* world = SDK::UWorld::GetWorld();
+    if (!world || !world->OwningGameInstance)
+        return nullptr;
+
+    for (SDK::UObject* object : getObjectsOfClass(SDK::APBPlayerController::StaticClass(), false))
+    {
+        SDK::APBPlayerController* pc = static_cast<SDK::APBPlayerController*>(object);
+        if (pc && pc->PBGameInstance == world->OwningGameInstance)
+            return pc;
+    }
+    return nullptr;
+}
+
+SDK::APBCharacter* GetLocalCharacter()
+{
+    SDK::APBPlayerController* pc = GetLocalPlayerController();
+    if (pc && pc->PBCharacter)
+        return pc->PBCharacter;
+    return nullptr;
 }
