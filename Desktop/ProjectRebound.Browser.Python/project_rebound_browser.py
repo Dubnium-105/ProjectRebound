@@ -48,7 +48,6 @@ class AppConfig:
     use_udp_proxy: bool = False
     proxy_client_port: int = 17777
     logic_server_url: str = "http://127.0.0.1:8000"
-    metaserver_url: str = "http://127.0.0.1:8000"
 
 
 class ApiError(RuntimeError):
@@ -156,14 +155,17 @@ def load_config() -> AppConfig:
     with CONFIG_PATH.open("r", encoding="utf-8") as file:
         data = json.load(file)
     defaults = asdict(AppConfig())
-    defaults.update(data)
+    # 仅保留 AppConfig 中存在的字段，忽略旧配置中的遗留键
+    valid_keys = set(defaults.keys())
+    filtered = {k: v for k, v in data.items() if k in valid_keys}
+    defaults.update(filtered)
     defaults["backend_url"] = HARD_CODED_BACKEND_URL
     map_name = str(defaults.get("map_name") or ROOM_MAP_OPTIONS[0])
     mode = str(defaults.get("mode") or ROOM_MODE_OPTIONS[0])
     defaults["map_name"] = map_name if map_name in ROOM_MAP_OPTIONS else ROOM_MAP_OPTIONS[0]
     defaults["mode"] = mode if mode in ROOM_MODE_OPTIONS else ROOM_MODE_OPTIONS[0]
-    # 保持向后兼容：如果旧配置没有 metaserver_url，使用默认值
-    defaults.setdefault("metaserver_url", AppConfig.metaserver_url)
+    # 保持向后兼容：如果旧配置没有 logic_server_url，使用默认值
+    defaults.setdefault("logic_server_url", AppConfig.logic_server_url)
     return AppConfig(**defaults)
 
 
@@ -362,7 +364,6 @@ class BrowserApp(tk.Tk):
         self.display_name_var = tk.StringVar(value=self.config_data.display_name)
         self.region_var = tk.StringVar(value=self.config_data.region)
         self.version_var = tk.StringVar(value=self.config_data.version)
-        self.metaserver_url_var = tk.StringVar(value=self.config_data.metaserver_url)
 
         self._field(settings, "Display", self.display_name_var, 0, 0, width=20)
         self._field(settings, "Region", self.region_var, 0, 2, width=10)
@@ -370,7 +371,6 @@ class BrowserApp(tk.Tk):
         self._field(settings, "Game Dir", self.game_dir_var, 1, 0, width=64)
         ttk.Button(settings, text="Browse", command=self.browse_game_dir).grid(row=1, column=2, sticky="ew", padx=4, pady=4)
         ttk.Button(settings, text="Save / Login", command=lambda: self.run_background(self.save_and_login)).grid(row=1, column=3, sticky="ew", padx=4, pady=4)
-        self._field(settings, "Metaserver URL", self.metaserver_url_var, 2, 0, width=64)
 
         room_box = ttk.LabelFrame(root, text="Room", padding=8)
         room_box.pack(fill=tk.X, pady=(10, 0))
@@ -487,7 +487,6 @@ class BrowserApp(tk.Tk):
             use_udp_proxy=bool(self.use_proxy_var.get()),
             proxy_client_port=int(self.proxy_client_port_var.get()),
             logic_server_url=self.logic_server_url_var.get().strip() or "http://127.0.0.1:8000",
-            metaserver_url=self.metaserver_url_var.get().strip() or "http://127.0.0.1:8000",
         )
 
     def initialize(self) -> None:
@@ -660,22 +659,22 @@ class BrowserApp(tk.Tk):
         ]
 
         # Metaserver 可达性检测（仅本地 URL 时检测）
-        ms_endpoint = logic_server_endpoint(self.config_data.metaserver_url)
+        ms_endpoint = logic_server_endpoint(self.config_data.logic_server_url)
         if ms_endpoint and is_local_host(ms_endpoint[0]):
             ms_host, ms_port = ms_endpoint
             lines.extend([
                 "echo [Launcher] Checking metaserver at " + f"{ms_host}:{ms_port}...",
-                f"powershell -NoProfile -Command \"try {{ $r=Invoke-WebRequest -Uri '{self.config_data.metaserver_url}/api/health' -TimeoutSec 3 -UseBasicParsing; exit 0 }} catch {{ exit 1 }}\"",
+                f"powershell -NoProfile -Command \"try {{ $r=Invoke-WebRequest -Uri '{self.config_data.logic_server_url}/api/health' -TimeoutSec 3 -UseBasicParsing; exit 0 }} catch {{ exit 1 }}\"",
                 "if errorlevel 1 (",
-                f"    echo [Launcher] WARNING: Metaserver is not reachable at {self.config_data.metaserver_url}",
+                f"    echo [Launcher] WARNING: Metaserver is not reachable at {self.config_data.logic_server_url}",
                 "    echo [Launcher] Please run start-metaserver.bat in the BoundaryMetaServer folder first.",
                 "    echo [Launcher] The game client will still launch, but loadout functionality may be limited.",
                 ") else (",
-                f"    echo [Launcher] Metaserver is reachable at {self.config_data.metaserver_url}",
+                f"    echo [Launcher] Metaserver is reachable at {self.config_data.logic_server_url}",
                 ")",
             ])
         else:
-            lines.append(f"echo [Launcher] Metaserver URL is remote ({self.config_data.metaserver_url}), skipping local health check.")
+            lines.append(f"echo [Launcher] Metaserver URL is remote ({self.config_data.logic_server_url}), skipping local health check.")
 
         lines.extend([
             "if not exist " + quote_bat(Path(exe).parent / "dxgi.dll") + " echo [Launcher] WARNING: dxgi.dll is missing next to the game exe.",
@@ -700,12 +699,12 @@ class BrowserApp(tk.Tk):
         返回 True 表示 metaserver 可达。不可达时弹窗警告，返回 False。
         metaserver 负责：物品定义查询、配装存储/校验、原生 GetPlayerArchiveV2 协议。
         """
-        endpoint = logic_server_endpoint(self.config_data.metaserver_url)
+        endpoint = logic_server_endpoint(self.config_data.logic_server_url)
         if endpoint is None:
-            append_gui_log(f"Metaserver URL is not parseable: {self.config_data.metaserver_url}")
+            append_gui_log(f"Metaserver URL is not parseable: {self.config_data.logic_server_url}")
             messagebox.showwarning(
                 "Metaserver Unreachable",
-                f"Metaserver URL is not parseable:\n{self.config_data.metaserver_url}\n\n"
+                f"Metaserver URL is not parseable:\n{self.config_data.logic_server_url}\n\n"
                 "配装修验和原生协议将不可用。请手动启动 metaserver。",
             )
             return False
@@ -716,21 +715,21 @@ class BrowserApp(tk.Tk):
         if is_tcp_open(host, port):
             # 再尝试 HTTP 健康检查
             try:
-                req = request.Request(f"{self.config_data.metaserver_url.rstrip('/')}/api/health")
+                req = request.Request(f"{self.config_data.logic_server_url.rstrip('/')}/api/health")
                 req.add_header("Accept", "application/json")
                 with request.urlopen(req, timeout=3) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
                     if data.get("status") == "ok":
-                        append_gui_log(f"Metaserver is healthy at {self.config_data.metaserver_url}")
+                        append_gui_log(f"Metaserver is healthy at {self.config_data.logic_server_url}")
                         return True
             except Exception:
                 pass
             append_gui_log(f"Metaserver TCP port {host}:{port} is open but HTTP health check failed")
 
-        append_gui_log(f"Metaserver is NOT reachable at {self.config_data.metaserver_url}")
+        append_gui_log(f"Metaserver is NOT reachable at {self.config_data.logic_server_url}")
         messagebox.showwarning(
             "Metaserver Not Running",
-            f"Metaserver is not reachable at:\n{self.config_data.metaserver_url}\n\n"
+            f"Metaserver is not reachable at:\n{self.config_data.logic_server_url}\n\n"
             f"请先运行 BoundaryMetaServer 目录下的 start-metaserver.bat 启动 metaserver。\n\n"
             f"配装和原生协议功能需要 metaserver 运行。",
         )
@@ -904,22 +903,22 @@ class BrowserApp(tk.Tk):
         ]
 
         # Metaserver 可达性检测（仅本地 URL 时检测）
-        ms_endpoint = logic_server_endpoint(self.config_data.metaserver_url)
+        ms_endpoint = logic_server_endpoint(self.config_data.logic_server_url)
         if ms_endpoint and is_local_host(ms_endpoint[0]):
             ms_host, ms_port = ms_endpoint
             lines.extend([
                 "echo [Launcher] Checking metaserver at " + f"{ms_host}:{ms_port}...",
-                f"powershell -NoProfile -Command \"try {{ $r=Invoke-WebRequest -Uri '{self.config_data.metaserver_url}/api/health' -TimeoutSec 3 -UseBasicParsing; exit 0 }} catch {{ exit 1 }}\"",
+                f"powershell -NoProfile -Command \"try {{ $r=Invoke-WebRequest -Uri '{self.config_data.logic_server_url}/api/health' -TimeoutSec 3 -UseBasicParsing; exit 0 }} catch {{ exit 1 }}\"",
                 "if errorlevel 1 (",
-                f"    echo [Launcher] WARNING: Metaserver is not reachable at {self.config_data.metaserver_url}",
+                f"    echo [Launcher] WARNING: Metaserver is not reachable at {self.config_data.logic_server_url}",
                 "    echo [Launcher] Please run start-metaserver.bat in the BoundaryMetaServer folder first.",
                 "    echo [Launcher] The host will still start, but loadout functionality may be limited.",
                 ") else (",
-                f"    echo [Launcher] Metaserver is reachable at {self.config_data.metaserver_url}",
+                f"    echo [Launcher] Metaserver is reachable at {self.config_data.logic_server_url}",
                 ")",
             ])
         else:
-            lines.append(f"echo [Launcher] Metaserver URL is remote ({self.config_data.metaserver_url}), skipping local health check.")
+            lines.append(f"echo [Launcher] Metaserver URL is remote ({self.config_data.logic_server_url}), skipping local health check.")
 
         lines.extend([
             "if not exist dxgi.dll echo [Launcher] WARNING: dxgi.dll is missing next to the game exe.",

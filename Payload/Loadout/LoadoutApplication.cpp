@@ -15,9 +15,12 @@
 
 using namespace SDK;
 
-// 前向声明（来自 LoadoutManager 或其他模块）
-extern std::vector<UObject*> getObjectsOfClass(UObject* theClass, bool includeDefault);
-extern UObject* GetLastOfType(UObject* theClass, bool includeDefault);
+// 前向声明 — UClass* 签名与 Debug.cpp 一致
+extern std::vector<UObject*> getObjectsOfClass(UClass* theClass, bool includeDefault);
+extern UObject* GetLastOfType(UClass* theClass, bool includeDefault);
+
+// 全局变量声明（定义在 dllmain.cpp）
+extern bool amServer;
 
 namespace LoadoutApplication
 {
@@ -30,6 +33,7 @@ namespace LoadoutApplication
     UPBFieldModManager* GetFieldModManager()
     {
         UObject* object = GetLastOfType(UPBFieldModManager::StaticClass(), false);
+        return object ? static_cast<UPBFieldModManager*>(object) : nullptr;
         return object ? static_cast<UPBFieldModManager*>(object) : nullptr;
     }
 
@@ -161,10 +165,9 @@ namespace LoadoutApplication
 
     void PushPreSpawnInventory(APBPlayerController* playerController)
     {
-        // 注意：此函数需要 snapshot。实际调用由 LoadoutManager 通过 OnRoleSelectionConfirmed 传入。
+        // 注意：实际库存推送由 LoadoutManager::OnRoleSelectionConfirmed 完成。
         // 此函数保留为兼容性简写。
         if (!playerController) return;
-        extern bool amServer;
         if (!amServer) return;
     }
 

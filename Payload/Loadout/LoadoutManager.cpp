@@ -141,12 +141,12 @@ namespace
     }
 
     // 降级：从本地磁盘加载快照（metaserver 不可用时使用）
-    void EnsureLocalSnapshotLoaded(LoadoutManager::Impl* impl)
+    void EnsureLocalSnapshotLoaded(nlohmann::json& localSnapshot, bool& localSnapshotAvailable)
     {
-        if (impl->localSnapshotAvailable) return;
+        if (localSnapshotAvailable) return;
 
         // 优先级：custom > launch > export
-        const auto appDataRoot = GetAppDataRoot ? GetAppDataRoot() : GetExportSnapshotPath().parent_path();
+        const auto appDataRoot = GetExportSnapshotPath().parent_path();
         const auto customPath = appDataRoot / "custom-loadout-v1.json";
         const auto launchPath = appDataRoot / "launchers" / "loadout-launch-v1.json";
         const auto exportPath = appDataRoot / "loadout-export-v1.json";
@@ -169,8 +169,8 @@ namespace
         if (loaded.is_object())
         {
             loaded.erase("selectedRoleId");
-            impl->localSnapshot = loaded;
-            impl->localSnapshotAvailable = true;
+            localSnapshot = loaded;
+            localSnapshotAvailable = true;
         }
     }
 }
@@ -197,7 +197,7 @@ void LoadoutManager::PreloadSnapshot()
     else
     {
         ClientLog("[LOADOUT] Metaserver not available — falling back to local snapshot");
-        EnsureLocalSnapshotLoaded(impl_.get());
+        EnsureLocalSnapshotLoaded(impl_->localSnapshot, impl_->localSnapshotAvailable);
     }
 }
 
@@ -297,7 +297,7 @@ void LoadoutManager::OnRoleSelectionConfirmed(APBPlayerController* playerControl
     // 降级：使用本地快照
     if (!fromMetaserver)
     {
-        EnsureLocalSnapshotLoaded(impl_.get());
+        EnsureLocalSnapshotLoaded(impl_->localSnapshot, impl_->localSnapshotAvailable);
         if (impl_->localSnapshotAvailable)
         {
             loadoutJson = ExtractSingleRoleFromSnapshot(impl_->localSnapshot, roleIdStr);

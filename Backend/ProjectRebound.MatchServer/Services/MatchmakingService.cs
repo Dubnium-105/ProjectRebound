@@ -55,12 +55,7 @@ public sealed class MatchmakingService(
                 continue;
             }
 
-            var (_, joinTicket) = await RoomOperations.ReserveJoinAsync(
-                db,
-                room,
-                ticket.PlayerId,
-                TimeSpan.FromSeconds(cfg.JoinTicketSeconds),
-                ticket.LoadoutSnapshotJson);
+            var (_, joinTicket) = await RoomOperations.ReserveJoinAsync(db, room, ticket.PlayerId, TimeSpan.FromSeconds(cfg.JoinTicketSeconds));
             ticket.State = MatchTicketState.Matched;
             ticket.AssignedRoomId = room.RoomId;
             ticket.JoinTicketPlain = joinTicket;
@@ -98,8 +93,7 @@ public sealed class MatchmakingService(
                 ticket.Map ?? "Warehouse",
                 ticket.Mode ?? "pve",
                 ticket.Version,
-                ticket.MaxPlayers,
-                ticket.LoadoutSnapshotJson);
+                ticket.MaxPlayers);
 
             room.State = RoomState.Starting;
             db.Rooms.Add(room);
@@ -116,7 +110,7 @@ public sealed class MatchmakingService(
     private static async Task<Room?> FindOpenRoomAsync(MatchServerDbContext db, MatchTicket ticket, CancellationToken cancellationToken)
     {
         var query = db.Rooms
-            .Where(x => (x.State == RoomState.Open || x.State == RoomState.Starting || x.State == RoomState.InGame) &&
+            .Where(x => (x.State == RoomState.Open || x.State == RoomState.Starting) &&
                 x.Region == ticket.Region &&
                 x.Version == ticket.Version &&
                 x.HostPlayerId != ticket.PlayerId);
