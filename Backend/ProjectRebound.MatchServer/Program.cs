@@ -1,5 +1,3 @@
-using System.Data;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using ProjectRebound.Contracts;
@@ -31,7 +29,6 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<MatchServerDbContext>();
     await db.Database.EnsureCreatedAsync();
-    await EnsureCompatibilitySchemaAsync(db);
     await db.Database.ExecuteSqlRawAsync("PRAGMA journal_mode=WAL;");
 }
 
@@ -229,7 +226,6 @@ app.MapPost("/v1/rooms", async (
 
     var now = DateTimeOffset.UtcNow;
     var hostToken = TokenService.NewToken();
-    var loadoutSnapshotJson = SerializeLoadoutSnapshot(request.LoadoutSnapshot);
     Room room;
     if (!string.IsNullOrWhiteSpace(request.BindingToken))
     {
@@ -250,8 +246,7 @@ app.MapPost("/v1/rooms", async (
             request.Map,
             request.Mode,
             request.Version,
-            request.MaxPlayers,
-            loadoutSnapshotJson);
+            request.MaxPlayers);
     }
     else
     {
@@ -279,17 +274,12 @@ app.MapPost("/v1/rooms", async (
             request.Map,
             request.Mode,
             request.Version,
-            request.MaxPlayers,
-            loadoutSnapshotJson);
+            request.MaxPlayers);
     }
 
     db.Rooms.Add(room);
     await db.SaveChangesAsync(cancellationToken);
-    return Results.Ok(new CreateRoomResponse(
-        room.RoomId,
-        hostToken,
-        options.Value.HeartbeatSeconds,
-        DeserializeLoadoutSnapshot(room.HostLoadoutSnapshotJson)));
+    return Results.Ok(new CreateRoomResponse(room.RoomId, hostToken, options.Value.HeartbeatSeconds));
 });
 
 app.MapGet("/v1/rooms", async (
@@ -333,7 +323,7 @@ app.MapGet("/v1/rooms", async (
     }
     else
     {
-        query = query.Where(x => x.State == RoomState.Open || x.State == RoomState.Starting || x.State == RoomState.InGame);
+        query = query.Where(x => x.State == RoomState.Open || x.State == RoomState.Starting);
     }
 
     var total = await query.CountAsync(cancellationToken);
@@ -390,18 +380,9 @@ app.MapPost("/v1/rooms/{roomId:guid}/join", async (
         return Results.Json(new ApiError("ROOM_FULL", "Room is full."), statusCode: 409);
     }
 
-    var (reservation, joinTicket) = await RoomOperations.ReserveJoinAsync(
-        db,
-        room,
-        player.PlayerId,
-        TimeSpan.FromSeconds(options.Value.JoinTicketSeconds),
-        SerializeLoadoutSnapshot(request.LoadoutSnapshot));
+    var (reservation, joinTicket) = await RoomOperations.ReserveJoinAsync(db, room, player.PlayerId, TimeSpan.FromSeconds(options.Value.JoinTicketSeconds));
     await db.SaveChangesAsync(cancellationToken);
-    return Results.Ok(new JoinRoomResponse(
-        room.Endpoint,
-        joinTicket,
-        reservation.ExpiresAt,
-        DeserializeLoadoutSnapshot(reservation.LoadoutSnapshotJson)));
+    return Results.Ok(new JoinRoomResponse(room.Endpoint, joinTicket, reservation.ExpiresAt));
 });
 
 app.MapPost("/v1/rooms/{roomId:guid}/leave", async (
@@ -619,17 +600,12 @@ app.MapPost("/v1/matchmaking/tickets", async (
         MaxPlayers = Math.Clamp(request.MaxPlayers, 1, 128),
         State = MatchTicketState.Waiting,
         CreatedAt = now,
-        ExpiresAt = now.AddSeconds(options.Value.MatchTicketSeconds),
-        LoadoutSnapshotJson = SerializeLoadoutSnapshot(request.LoadoutSnapshot)
+        ExpiresAt = now.AddSeconds(options.Value.MatchTicketSeconds)
     };
 
     db.MatchTickets.Add(ticket);
     await db.SaveChangesAsync(cancellationToken);
-    return Results.Ok(new CreateMatchTicketResponse(
-        ticket.TicketId,
-        ticket.State,
-        ticket.ExpiresAt,
-        DeserializeLoadoutSnapshot(ticket.LoadoutSnapshotJson)));
+    return Results.Ok(new CreateMatchTicketResponse(ticket.TicketId, ticket.State, ticket.ExpiresAt));
 });
 
 app.MapGet("/v1/matchmaking/tickets/{ticketId:guid}", async (
@@ -671,8 +647,7 @@ app.MapGet("/v1/matchmaking/tickets/{ticketId:guid}", async (
         connect,
         ticket.JoinTicketPlain,
         ticket.FailureReason,
-        ticket.ExpiresAt,
-        DeserializeLoadoutSnapshot(ticket.LoadoutSnapshotJson)));
+        ticket.ExpiresAt));
 });
 
 app.MapDelete("/v1/matchmaking/tickets/{ticketId:guid}", async (
@@ -899,73 +874,4 @@ static PunchTicketResponse ToPunchTicketResponse(PunchTicket ticket)
         ticket.ClientEndpoint,
         ticket.ClientLocalEndpoint,
         ticket.ExpiresAt);
-}
-
-static string? SerializeLoadoutSnapshot(JsonElement? snapshot)
-{
-    if (snapshot is null)
-    {
-        return null;
-    }
-
-    var value = snapshot.Value;
-    return value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined ? null : value.GetRawText();
-}
-
-static JsonElement? DeserializeLoadoutSnapshot(string? snapshotJson)
-{
-    if (string.IsNullOrWhiteSpace(snapshotJson))
-    {
-        return null;
-    }
-
-    using var document = JsonDocument.Parse(snapshotJson);
-    return document.RootElement.Clone();
-}
-
-static async Task EnsureCompatibilitySchemaAsync(MatchServerDbContext db)
-{
-    await EnsureTextColumnAsync(db, "Rooms", "HostLoadoutSnapshotJson");
-    await EnsureTextColumnAsync(db, "RoomPlayers", "LoadoutSnapshotJson");
-    await EnsureTextColumnAsync(db, "MatchTickets", "LoadoutSnapshotJson");
-}
-
-static async Task EnsureTextColumnAsync(MatchServerDbContext db, string tableName, string columnName)
-{
-    if (!IsSafeSqlIdentifier(tableName) || !IsSafeSqlIdentifier(columnName))
-    {
-        throw new InvalidOperationException("Unsafe schema identifier.");
-    }
-
-    var connection = db.Database.GetDbConnection();
-    if (connection.State != ConnectionState.Open)
-    {
-        await connection.OpenAsync();
-    }
-
-    await using var command = connection.CreateCommand();
-    command.CommandText = $"PRAGMA table_info({tableName});";
-
-    await using var reader = await command.ExecuteReaderAsync();
-    while (await reader.ReadAsync())
-    {
-        if (string.Equals(reader.GetString(1), columnName, StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
-    }
-
-#pragma warning disable EF1002
-    await db.Database.ExecuteSqlRawAsync($"ALTER TABLE {tableName} ADD COLUMN {columnName} TEXT;");
-#pragma warning restore EF1002
-}
-
-static bool IsSafeSqlIdentifier(string value)
-{
-    if (string.IsNullOrWhiteSpace(value))
-    {
-        return false;
-    }
-
-    return value.All(ch => char.IsAsciiLetterOrDigit(ch) || ch == '_');
 }

@@ -1,5 +1,3 @@
-using System.Text.Json;
-
 namespace ProjectRebound.Contracts;
 
 public sealed record ApiError(string Code, string Message, object? Details = null);
@@ -20,10 +18,9 @@ public sealed record CreateRoomRequest(
     string Mode,
     string Version,
     int MaxPlayers,
-    string? BindingToken = null,
-    JsonElement? LoadoutSnapshot = null);
+    string? BindingToken = null);
 
-public sealed record CreateRoomResponse(Guid RoomId, string HostToken, int HeartbeatSeconds, JsonElement? LoadoutSnapshot = null);
+public sealed record CreateRoomResponse(Guid RoomId, string HostToken, int HeartbeatSeconds);
 
 public sealed record RoomSummary(
     Guid RoomId,
@@ -44,8 +41,8 @@ public sealed record RoomSummary(
 
 public sealed record PagedRoomsResponse(IReadOnlyList<RoomSummary> Items, int Page, int PageSize, int Total);
 
-public sealed record JoinRoomRequest(string? Version, JsonElement? LoadoutSnapshot = null);
-public sealed record JoinRoomResponse(string Connect, string JoinTicket, DateTimeOffset ExpiresAt, JsonElement? LoadoutSnapshot = null);
+public sealed record JoinRoomRequest(string? Version);
+public sealed record JoinRoomResponse(string Connect, string JoinTicket, DateTimeOffset ExpiresAt);
 
 public sealed record LeaveRoomRequest(string? JoinTicket);
 
@@ -61,10 +58,9 @@ public sealed record CreateMatchTicketRequest(
     bool CanHost,
     Guid? ProbeId,
     string? RoomName,
-    int MaxPlayers,
-    JsonElement? LoadoutSnapshot = null);
+    int MaxPlayers);
 
-public sealed record CreateMatchTicketResponse(Guid TicketId, MatchTicketState State, DateTimeOffset ExpiresAt, JsonElement? LoadoutSnapshot = null);
+public sealed record CreateMatchTicketResponse(Guid TicketId, MatchTicketState State, DateTimeOffset ExpiresAt);
 
 public sealed record MatchTicketResponse(
     Guid TicketId,
@@ -75,8 +71,7 @@ public sealed record MatchTicketResponse(
     string? Connect,
     string? JoinTicket,
     string? FailureReason,
-    DateTimeOffset ExpiresAt,
-    JsonElement? LoadoutSnapshot = null);
+    DateTimeOffset ExpiresAt);
 
 public sealed record LegacyServerStatusRequest(
     string Name,

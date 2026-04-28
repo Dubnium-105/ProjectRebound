@@ -151,6 +151,9 @@
     <ClInclude Include="Communication\CommandFramework.h" />
     <ClInclude Include="Debug\DebugTool.h" />
     <ClInclude Include="Loadout\LoadoutManager.h" />
+    <ClInclude Include="Loadout\LoadoutSerializer.h" />
+    <ClInclude Include="Loadout\LoadoutApplication.h" />
+    <ClInclude Include="Loadout\MetaserverClient.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ClientLogic\ClientLogic.cpp" />
@@ -161,6 +164,9 @@
     <ClCompile Include="Communication\CommandFramework.cpp" />
     <ClCompile Include="Hooks\Hooks.cpp" />
     <ClCompile Include="Loadout\LoadoutManager.cpp" />
+    <ClCompile Include="Loadout\LoadoutSerializer.cpp" />
+    <ClCompile Include="Loadout\LoadoutApplication.cpp" />
+    <ClCompile Include="Loadout\MetaserverClient.cpp" />
     <ClCompile Include="Network\NetDriverAccess.cpp" />
     <ClCompile Include="Network\Network.cpp" />
     <ClCompile Include="Replication\libreplicate.cpp" />

@@ -338,7 +338,8 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
         gLoadoutManager->OnServerProcessEventPre(Object, functionName, Parms);
     }
 
-    // ServerSay：拦截客户端上传的装备数据（__LDS__ 前缀）和调试命令（__DBG__ 前缀）
+    // ServerSay：拦截调试命令（__DBG__ 前缀）
+    // __LDS__ 负载通道已移除 — 配装数据现在通过 metaserver HTTP API 获取
     if (functionName.contains("ServerSay"))
     {
         APBPlayerController *PBPlayerController = Object && Object->IsA(APBPlayerController::StaticClass())
@@ -350,14 +351,6 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
             if (SayParms)
             {
                 const std::string msg = SayParms->Msg.ToString();
-
-                if (msg.rfind("__LDS__", 0) == 0 && gLoadoutManager)
-                {
-                    const std::string payload = msg.substr(7);
-                    gLoadoutManager->OnServerLoadoutDataReceived(PBPlayerController, payload);
-                    // 抑制此聊天消息 — 不从原生 ServerSay 广播
-                    return;
-                }
 
                 // __DBG__ 前缀：运行时调试命令
                 if (msg.rfind("__DBG__", 0) == 0)
@@ -583,25 +576,7 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
         }
     }
 
-    // 用 ProcessEvent 作为 tick 来源（原设计中缺少 GameThread tick hook）
-    if (gLoadoutManager)
-    {
-        static auto nextTick = std::chrono::steady_clock::now();
-        const auto now = std::chrono::steady_clock::now();
-        if (now >= nextTick)
-        {
-            nextTick = now + std::chrono::milliseconds(250);
-            gLoadoutManager->TickClient();
-        }
-    }
-
     const std::string functionName = Function ? std::string(Function->GetFullName()) : "";
-
-    // Pre-hook — 在原生调用前处理快照上传和 InitWeapon 覆盖
-    if (gLoadoutManager)
-    {
-        gLoadoutManager->OnClientProcessEventPre(Object, functionName, Parms);
-    }
 
     // TEMP LOGIN DEBUG DUMP (GameInstance only)
     // if (Object && Object->IsA(UPBGameInstance::StaticClass()))
@@ -644,10 +619,6 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
 
     // 先执行原始 ProcessEvent，确保游戏状态已更新
     ProcessEventClient.call(Object, Function, Parms);
-
-    // 在游戏状态更新后触发导出
-    if (gLoadoutManager && Function)
-        gLoadoutManager->OnClientProcessEventPost(Object, functionName, Parms);
 }
 
 static SafetyHookInline ClientDeathCrash;
