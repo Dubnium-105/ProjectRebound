@@ -9,6 +9,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import tkinter as tk
@@ -617,6 +618,75 @@ def proxy_launcher() -> tuple[list[str], Path]:
     return [sys.executable, str(proxy_script)], proxy_script.parent
 
 
+class ProcessManager:
+    """Manages subprocess lifecycle and captures stdout/stderr for inline display.
+
+    Uses temporary files instead of pipes so that native (C++) child processes
+    continue to use line-buffered output — pipes would trigger full buffering
+    and make output invisible until the buffer fills.
+    """
+
+    def __init__(self, on_output) -> None:
+        self._processes: list[subprocess.Popen[bytes]] = []
+        self._temp_files: list[str] = []
+        self._on_output = on_output  # callable(label: str, line: str)
+
+    def launch(self, args: list[str], cwd: str | None = None, label: str = "") -> subprocess.Popen[bytes]:
+        out_file = tempfile.NamedTemporaryFile(prefix="prb_", suffix=".log", delete=False)
+        out_path = out_file.name
+        self._temp_files.append(out_path)
+        tag = label or Path(args[0]).name
+
+        # Pass a file object so that the child writes to a real file — the C
+        # runtime stays line-buffered (or unbuffered) instead of switching to
+        # full buffering as it would for a pipe.  Merge stderr into stdout.
+        proc = subprocess.Popen(
+            args,
+            cwd=cwd,
+            stdin=subprocess.PIPE,
+            stdout=out_file,
+            stderr=subprocess.STDOUT,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        out_file.close()  # parent side; child still holds the inherited handle
+        self._processes.append(proc)
+
+        def _tail() -> None:
+            time.sleep(0.3)
+            try:
+                with open(out_path, "r", encoding="utf-8", errors="replace") as fh:
+                    while True:
+                        line = fh.readline()
+                        if line:
+                            self._on_output(tag, line.rstrip("\r\n"))
+                            continue
+                        if proc.poll() is not None:
+                            for remaining in fh:
+                                if remaining:
+                                    self._on_output(tag, remaining.rstrip("\r\n"))
+                            break
+                        time.sleep(0.1)
+            except OSError:
+                pass
+
+        threading.Thread(target=_tail, daemon=True).start()
+        return proc
+
+    def terminate_all(self) -> None:
+        for proc in self._processes:
+            try:
+                proc.terminate()
+            except (OSError, ProcessLookupError):
+                pass
+        self._processes.clear()
+        for path in self._temp_files:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+        self._temp_files.clear()
+
+
 class BrowserApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
@@ -642,6 +712,8 @@ class BrowserApp(tk.Tk):
         self._pipe_name = f"ProjectRebound_{uuid4().hex[:8]}"
         self._pipe_client: PipeClient | None = None
         self._pipe_connected = False
+        self.process_manager = ProcessManager(self._on_process_output)
+        self._console_ring: list[str] = []  # thread-safe ring buffer for recent output
 
         self._build_ui()
         self.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -719,6 +791,26 @@ class BrowserApp(tk.Tk):
             self.tree.column(column, width=width, anchor=tk.W)
         self.tree.bind("<<TreeviewSelect>>", self.on_room_selected)
 
+        console_frame = ttk.LabelFrame(root, text="控制台输出", padding=4)
+        console_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
+        console_toolbar = ttk.Frame(console_frame)
+        console_toolbar.pack(fill=tk.X)
+        ttk.Button(console_toolbar, text="清空", command=self._clear_console).pack(side=tk.RIGHT)
+        self.console_text = tk.Text(
+            console_frame,
+            wrap=tk.WORD,
+            state=tk.DISABLED,
+            bg="#1e1e1e",
+            fg="#d4d4d4",
+            insertbackground="#d4d4d4",
+            font=("Consolas", 9),
+            height=8,
+        )
+        console_scroll = ttk.Scrollbar(console_frame, orient=tk.VERTICAL, command=self.console_text.yview)
+        self.console_text.configure(yscrollcommand=console_scroll.set)
+        self.console_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        console_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
         self.status_var = tk.StringVar(value="就绪。")
         ttk.Label(root, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W, padding=6).pack(fill=tk.X, pady=(10, 0))
 
@@ -737,9 +829,13 @@ class BrowserApp(tk.Tk):
         )
 
     def _drain_queue(self) -> None:
+        processed = 0
+        max_per_cycle = 50
+        console_batch: list[str] = []
         try:
-            while True:
+            while processed < max_per_cycle:
                 kind, payload = self.ui_queue.get_nowait()
+                processed += 1
                 if kind == "status":
                     self.status_var.set(str(payload))
                 elif kind == "rooms":
@@ -751,12 +847,36 @@ class BrowserApp(tk.Tk):
                 elif kind == "error":
                     self.status_var.set(str(payload))
                     messagebox.showerror("ProjectRebound 浏览器", str(payload))
+                elif kind == "console":
+                    console_batch.append(str(payload))
         except queue.Empty:
             pass
-        self.after(100, self._drain_queue)
+        if console_batch:
+            self._append_console("\n".join(console_batch))
+        self.after(50, self._drain_queue)
 
     def set_status(self, text: str) -> None:
         self.ui_queue.put(("status", text))
+
+    def _on_process_output(self, label: str, line: str) -> None:
+        self._console_ring.append(f"[{label}] {line}")
+        if len(self._console_ring) > 200:
+            self._console_ring = self._console_ring[-100:]
+        self.ui_queue.put(("console", f"[{label}] {line}"))
+
+    def _append_console(self, text: str) -> None:
+        self.console_text.configure(state=tk.NORMAL)
+        self.console_text.insert(tk.END, text + "\n")
+        line_count = int(self.console_text.index("end-1c").split(".")[0])
+        if line_count > 5000:
+            self.console_text.delete("1.0", f"{line_count - 5000}.0")
+        self.console_text.see(tk.END)
+        self.console_text.configure(state=tk.DISABLED)
+
+    def _clear_console(self) -> None:
+        self.console_text.configure(state=tk.NORMAL)
+        self.console_text.delete("1.0", tk.END)
+        self.console_text.configure(state=tk.DISABLED)
 
     def run_background(self, func) -> None:
         def worker() -> None:
@@ -770,6 +890,7 @@ class BrowserApp(tk.Tk):
     def on_close(self) -> None:
         self.stop_host_heartbeat()
         self.stop_legacy_heartbeat()
+        self.process_manager.terminate_all()
         if self._pipe_client is not None:
             self._pipe_client.stop()
             self._pipe_client = None
@@ -1090,7 +1211,7 @@ class BrowserApp(tk.Tk):
             args.append(f"-pipe={pipe_name}")
 
         append_gui_log("Launching game client: " + subprocess.list2cmdline(args))
-        subprocess.Popen(args, cwd=str(exe_parent), creationflags=self.creation_flags())
+        subprocess.Popen(args, cwd=str(exe_parent), creationflags=self.client_creation_flags())
 
     def _connect_pipe_after_launch(self) -> None:
         time.sleep(10)
@@ -1209,35 +1330,46 @@ class BrowserApp(tk.Tk):
 
         raise RuntimeError(f"本地假登录服务未能在 {host}:{port} 启动。")
 
-    @staticmethod
-    def _wait_for_server_ready(wrapper_cwd: Path, deadline_seconds: int = 90) -> bool:
-        started = time.time()
-        deadline = started + deadline_seconds
+    def _wait_for_server_ready(self, wrapper_cwd: Path, launched_at: float, deadline_seconds: int = 90) -> bool:
+        deadline = launched_at + deadline_seconds
         logs_dir = wrapper_cwd / "logs"
+        last_status = 0
         while time.time() < deadline:
+            elapsed = int(time.time() - launched_at)
+            if elapsed - last_status >= 5:
+                self.set_status(f"等待服务器就绪... (已等待 {elapsed}s / {deadline_seconds}s)")
+                last_status = elapsed
+
+            # Check wrapper log files.
             log_files = sorted(
-                [p for p in logs_dir.glob("log-*.txt") if p.stat().st_mtime >= started],
+                [p for p in logs_dir.glob("log-*.txt") if p.stat().st_mtime >= launched_at],
                 key=lambda p: p.stat().st_mtime,
                 reverse=True,
             )
+            log_text = ""
             if log_files:
-                newest = log_files[0]
                 try:
-                    tail = newest.read_text(encoding="utf-8", errors="replace")
-                    lines_slice = tail.splitlines()[-100:]
-                    text = "\n".join(lines_slice)
+                    tail = log_files[0].read_text(encoding="utf-8", errors="replace")
+                    log_text = "\n".join(tail.splitlines()[-100:])
                 except Exception:
-                    text = ""
-                if any(
-                    marker in text
-                    for marker in (
-                        "Server is now listening",
-                        "Heartbeat received",
-                        "[HEARTBEAT]",
-                    )
-                ):
-                    append_gui_log("[Launcher] Server readiness confirmed.")
-                    return True
+                    pass
+
+            # Check captured stdout (ring buffer, thread-safe).
+            recent = "\n".join(self._console_ring)
+
+            check = log_text + "\n" + recent
+            if any(
+                marker in check
+                for marker in (
+                    "Calling Listen()",
+                    "NetDriver created successfully",
+                    "Server is now listening",
+                    "[HEARTBEAT]",
+                )
+            ):
+                append_gui_log("[Launcher] Server readiness confirmed.")
+                self.set_status("服务器就绪，正在启动游戏客户端...")
+                return True
             time.sleep(2)
         append_gui_log(
             f"[Launcher] ERROR: server did not become ready within {deadline_seconds} seconds."
@@ -1267,7 +1399,7 @@ class BrowserApp(tk.Tk):
             str(self.config_data.proxy_client_port),
         ]
         append_gui_log("Starting client UDP proxy: " + subprocess.list2cmdline(args))
-        subprocess.Popen(args, cwd=str(launcher_cwd), creationflags=self.creation_flags())
+        self.process_manager.launch(args, cwd=str(launcher_cwd), label="UDP Proxy")
         time.sleep(1)
 
     def resolve_match_room_for_proxy_join(self, selected_room: dict) -> dict | None:
@@ -1317,7 +1449,7 @@ class BrowserApp(tk.Tk):
             self.ensure_fake_login_server()
             wrapper_cwd = str(exe_dir or Path(wrapper).parent)
             append_gui_log("Launching wrapper: " + subprocess.list2cmdline(args) + f" cwd={wrapper_cwd}")
-            subprocess.Popen(args, cwd=wrapper_cwd, creationflags=self.creation_flags())
+            self.process_manager.launch(args, cwd=wrapper_cwd, label="Wrapper")
             self.start_host_heartbeat(room, host_token)
             self.start_legacy_heartbeat(room, host_token)
             return
@@ -1331,6 +1463,8 @@ class BrowserApp(tk.Tk):
             "-log",
             "-server",
             "-nullrhi",
+            "-nosplash",
+            "-NoWindow",
             f"-online={backend}",
             f"-roomid={room['roomId']}",
             f"-hosttoken={host_token}",
@@ -1343,7 +1477,7 @@ class BrowserApp(tk.Tk):
         if room.get("mode", self.config_data.mode).lower() == "pve":
             args.append("-pve")
         append_gui_log("Launching server exe: " + subprocess.list2cmdline(args))
-        subprocess.Popen(args, cwd=str(Path(exe).parent), creationflags=self.creation_flags())
+        self.process_manager.launch(args, cwd=str(Path(exe).parent), label="Server")
         self.start_host_heartbeat(room, host_token)
         self.start_legacy_heartbeat(room, host_token)
 
@@ -1487,30 +1621,36 @@ class BrowserApp(tk.Tk):
         ]
 
         append_gui_log("Starting UDP proxy: " + subprocess.list2cmdline(proxy_args))
-        subprocess.Popen(proxy_args, cwd=str(launcher_cwd), creationflags=self.creation_flags())
+        self.process_manager.launch(proxy_args, cwd=str(launcher_cwd), label="UDP Proxy")
         time.sleep(2)
 
         append_gui_log(f"Starting dedicated server wrapper on UDP {game_port}...")
         append_gui_log("Launching wrapper: " + subprocess.list2cmdline(wrapper_args) + f" cwd={wrapper_cwd}")
-        subprocess.Popen(wrapper_args, cwd=str(wrapper_cwd), creationflags=self.creation_flags())
+        self.process_manager.launch(wrapper_args, cwd=str(wrapper_cwd), label="Wrapper")
+        wrapper_launched_at = time.time()
 
-        if self._wait_for_server_ready(wrapper_cwd):
-            game_exe = wrapper_cwd / "ProjectBoundarySteam-Win64-Shipping.exe"
-            game_args: list[str] = [
-                str(game_exe),
-                f"-LogicServerURL={self.config_data.logic_server_url}",
-                f"-match=127.0.0.1:{game_port}",
-                "-debuglog",
-            ]
-            append_gui_log("Launching game client: " + subprocess.list2cmdline(game_args))
-            subprocess.Popen(game_args, cwd=str(wrapper_cwd), creationflags=self.creation_flags())
-        else:
-            append_gui_log(
-                "[Launcher] Client was not launched because the dedicated server was not ready."
-            )
-            append_gui_log(
-                "[Launcher] Check the newest logs\\log-*.txt for map load or port errors."
-            )
+        def _wait_and_launch_client():
+            if self._wait_for_server_ready(wrapper_cwd, wrapper_launched_at):
+                game_exe = wrapper_cwd / "ProjectBoundarySteam-Win64-Shipping.exe"
+                game_args: list[str] = [
+                    str(game_exe),
+                    f"-LogicServerURL={self.config_data.logic_server_url}",
+                    f"-match=127.0.0.1:{game_port}",
+                    "-debuglog",
+                ]
+                append_gui_log("Launching game client: " + subprocess.list2cmdline(game_args))
+                subprocess.Popen(game_args, cwd=str(wrapper_cwd), creationflags=self.client_creation_flags())
+                self.set_status(f"房间已创建，游戏客户端已启动。")
+            else:
+                append_gui_log(
+                    "[Launcher] Client was not launched because the dedicated server was not ready."
+                )
+                append_gui_log(
+                    "[Launcher] Check the newest logs\\log-*.txt for map load or port errors."
+                )
+                self.set_status("服务器启动超时，请检查控制台输出中的日志。")
+
+        threading.Thread(target=_wait_and_launch_client, daemon=True).start()
 
     def ensure_payload_files(self, exe_dir: Path) -> None:
         root = repo_root()
@@ -1586,7 +1726,7 @@ class BrowserApp(tk.Tk):
             "--game-port",
             str(game_port),
         ]
-        subprocess.Popen(args, cwd=str(launcher_cwd), creationflags=self.creation_flags())
+        self.process_manager.launch(args, cwd=str(launcher_cwd), label="UDP Proxy")
         time.sleep(1)
 
     def ensure_ready_for_launch(self, require_match_login: bool = True) -> None:
@@ -1649,7 +1789,7 @@ class BrowserApp(tk.Tk):
 
     @staticmethod
     def creation_flags() -> int:
-        return getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
+        return getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
     @staticmethod
     def client_creation_flags() -> int:
