@@ -77,4 +77,20 @@ namespace LoadoutSerializer
     json RoleFromCustomLoadout(const json& entry);
     bool LoadCustomLoadoutConfig(json& outSnapshot);
     std::filesystem::path GetCustomLoadoutPath();
+
+    // ---- 格式适配（metaserver 新格式 → 结构化格式） ----
+    // 检测是否为 metaserver 新 flat 格式（包含 primaryWeapon / _weaponArchiveRaw），
+    // 若是则转换为结构化格式（inventory + weaponConfigs + characterData + ...）。
+    // 若已是结构化格式则原样返回。
+    json NormalizeLoadoutFormat(const json& loadoutOrRole);
+
+    // ---- 武器存档 hex 解码 ----
+    // 解码 _weaponArchiveRaw（hex 编码的 protobuf）为 { weaponId: { parts: [...] } } 映射。
+    // 解码失败返回空 object。
+    json DecodeWeaponArchiveRaw(const std::string& hexPayload);
+
+    // ---- 皮肤 token 映射 ----
+    // 将 _skinToken 映射到角色 JSON 的 characterData 字段。
+    // 同时将 _ornamentId 应用到所有武器的 ornamentId。
+    void ApplySkinAndOrnament(json& roleJson, const std::string& skinToken, const std::string& ornamentId);
 }

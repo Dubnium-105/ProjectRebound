@@ -258,8 +258,14 @@ void LoadoutManager::OnRoleSelectionConfirmed(APBPlayerController* playerControl
                     }
                 }
             }
+            // 格式归一化：转换 metaserver 新 flat 格式为结构化格式
+            snapshot = NormalizeLoadoutFormat(snapshot);
 
-            if (!snapshot["roles"].empty())
+            if (!snapshot.contains("roles") || !snapshot["roles"].is_array() || snapshot["roles"].empty())
+            {
+                ClientLog("[LOADOUT] Normalized loadout has no valid roles");
+            }
+            else
             {
                 // 校验
                 auto validation = impl_->metaserver.ValidateLoadout(snapshot);
@@ -284,10 +290,15 @@ void LoadoutManager::OnRoleSelectionConfirmed(APBPlayerController* playerControl
             auto roleLoadout = impl_->metaserver.GetPlayerRoleLoadout(impl_->playerId, roleIdStr);
             if (roleLoadout.has_value())
             {
+                // 归一化：单角色数据也可能是新 flat 格式
+                nlohmann::json normalized = NormalizeLoadoutFormat(roleLoadout.value());
                 nlohmann::json snapshot;
                 snapshot["schemaVersion"] = 2;
                 snapshot["source"] = "metaserver";
-                snapshot["roles"] = nlohmann::json::array({ *roleLoadout });
+                if (normalized.contains("roles") && normalized["roles"].is_array())
+                    snapshot["roles"] = normalized["roles"];
+                else
+                    snapshot["roles"] = nlohmann::json::array({ normalized });
                 loadoutJson = snapshot;
                 fromMetaserver = true;
             }

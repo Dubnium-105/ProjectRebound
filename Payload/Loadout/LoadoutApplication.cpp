@@ -34,7 +34,6 @@ namespace LoadoutApplication
     {
         UObject* object = GetLastOfType(UPBFieldModManager::StaticClass(), false);
         return object ? static_cast<UPBFieldModManager*>(object) : nullptr;
-        return object ? static_cast<UPBFieldModManager*>(object) : nullptr;
     }
 
     APBPlayerController* GetLocalPlayerController()
