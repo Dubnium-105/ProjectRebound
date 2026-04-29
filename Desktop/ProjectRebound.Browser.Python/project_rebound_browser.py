@@ -20,11 +20,21 @@ APP_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / "ProjectReboundBro
 CONFIG_PATH = APP_DIR / "config-python.json"
 GUI_LOG_PATH = APP_DIR / "browser-launch.log"
 LAUNCH_DIR = APP_DIR / "launchers"
+HARD_CODED_BACKEND_URL = "http://43.240.193.246"
+# 来源：ServerWrapper MapList（仅保留非 pveBug 项）与 SetMode 支持值
+ROOM_MAP_OPTIONS = (
+    "OSS",
+    "MiniFarm",
+    "Warehouse",
+    "DataCenter",
+    "CircularX",
+)
+ROOM_MODE_OPTIONS = ("pve", "pvp")
 
 
 @dataclass
 class AppConfig:
-    backend_url: str = "http://127.0.0.1:5000"
+    backend_url: str = HARD_CODED_BACKEND_URL
     game_directory: str = ""
     display_name: str = os.environ.get("USERNAME", "Player")
     region: str = "CN"
@@ -38,7 +48,6 @@ class AppConfig:
     use_udp_proxy: bool = False
     proxy_client_port: int = 17777
     logic_server_url: str = "http://127.0.0.1:8000"
-    launch_mode: str = os.environ.get("PR_LAUNCH_MODE", "quiet")
 
 
 class ApiError(RuntimeError):
@@ -47,7 +56,7 @@ class ApiError(RuntimeError):
 
 class ApiClient:
     def __init__(self) -> None:
-        self.backend_url = "http://127.0.0.1:5000"
+        self.backend_url = HARD_CODED_BACKEND_URL
         self.access_token = ""
 
     def configure(self, backend_url: str, access_token: str) -> None:
@@ -147,9 +156,11 @@ def load_config() -> AppConfig:
         data = json.load(file)
     defaults = asdict(AppConfig())
     defaults.update(data)
-    env_launch_mode = os.environ.get("PR_LAUNCH_MODE", "").strip().lower()
-    if env_launch_mode in {"quiet", "debug"}:
-        defaults["launch_mode"] = env_launch_mode
+    defaults["backend_url"] = HARD_CODED_BACKEND_URL
+    map_name = str(defaults.get("map_name") or ROOM_MAP_OPTIONS[0])
+    mode = str(defaults.get("mode") or ROOM_MODE_OPTIONS[0])
+    defaults["map_name"] = map_name if map_name in ROOM_MAP_OPTIONS else ROOM_MAP_OPTIONS[0]
+    defaults["mode"] = mode if mode in ROOM_MODE_OPTIONS else ROOM_MODE_OPTIONS[0]
     return AppConfig(**defaults)
 
 
@@ -179,6 +190,16 @@ def write_batch(name: str, lines: list[str]) -> Path:
 
 def repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
+
+
+def runtime_base_dir() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
+
+
+def runtime_artifacts_dir() -> Path:
+    return runtime_base_dir() / "runtime"
 
 
 def find_file(root: str, file_name: str) -> str | None:
@@ -285,6 +306,26 @@ def latest_existing(paths: list[Path]) -> Path | None:
     return max(existing, key=lambda path: path.stat().st_mtime)
 
 
+def proxy_launcher() -> tuple[list[str], Path]:
+    if getattr(sys, "frozen", False):
+        base = runtime_base_dir()
+        candidates = [
+            base / "ProjectReboundUdpProxy.exe",
+            base / "project_rebound_udp_proxy.exe",
+        ]
+        proxy_exe = next((path for path in candidates if path.exists()), None)
+        if proxy_exe is None:
+            raise RuntimeError(
+                "project_rebound_udp_proxy 可执行文件未找到。请确认分发目录包含 ProjectReboundUdpProxy.exe。"
+            )
+        return [str(proxy_exe)], proxy_exe.parent
+
+    proxy_script = Path(__file__).with_name("project_rebound_udp_proxy.py")
+    if not proxy_script.exists():
+        raise RuntimeError("project_rebound_udp_proxy.py was not found next to project_rebound_browser.py.")
+    return [sys.executable, str(proxy_script)], proxy_script.parent
+
+
 class BrowserApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
@@ -293,6 +334,7 @@ class BrowserApp(tk.Tk):
         self.minsize(980, 620)
 
         self.config_data = load_config()
+        self.config_data.backend_url = HARD_CODED_BACKEND_URL
         self.api = ApiClient()
         self.api.configure(self.config_data.backend_url, self.config_data.access_token)
         self.ui_queue: queue.Queue[tuple[str, object]] = queue.Queue()
@@ -313,25 +355,14 @@ class BrowserApp(tk.Tk):
         settings = ttk.LabelFrame(root, text="Settings", padding=8)
         settings.pack(fill=tk.X)
 
-        self.backend_var = tk.StringVar(value=self.config_data.backend_url)
         self.game_dir_var = tk.StringVar(value=self.config_data.game_directory)
         self.display_name_var = tk.StringVar(value=self.config_data.display_name)
         self.region_var = tk.StringVar(value=self.config_data.region)
         self.version_var = tk.StringVar(value=self.config_data.version)
-        self.launch_mode_var = tk.StringVar(value=self.config_data.launch_mode)
 
-        self._field(settings, "Backend", self.backend_var, 0, 0, width=42)
-        self._field(settings, "Display", self.display_name_var, 0, 2, width=20)
-        self._field(settings, "Region", self.region_var, 0, 4, width=10)
-        self._field(settings, "Version", self.version_var, 0, 6, width=10)
-        ttk.Label(settings, text="Launch").grid(row=0, column=8, sticky="w", padx=(0, 4), pady=4)
-        ttk.Combobox(
-            settings,
-            textvariable=self.launch_mode_var,
-            values=("quiet", "debug"),
-            width=8,
-            state="readonly",
-        ).grid(row=0, column=9, sticky="ew", padx=(0, 8), pady=4)
+        self._field(settings, "Display", self.display_name_var, 0, 0, width=20)
+        self._field(settings, "Region", self.region_var, 0, 2, width=10)
+        self._field(settings, "Version", self.version_var, 0, 4, width=10)
         self._field(settings, "Game Dir", self.game_dir_var, 1, 0, width=64)
         ttk.Button(settings, text="Browse", command=self.browse_game_dir).grid(row=1, column=2, sticky="ew", padx=4, pady=4)
         ttk.Button(settings, text="Save / Login", command=lambda: self.run_background(self.save_and_login)).grid(row=1, column=3, sticky="ew", padx=4, pady=4)
@@ -340,8 +371,10 @@ class BrowserApp(tk.Tk):
         room_box.pack(fill=tk.X, pady=(10, 0))
 
         self.room_name_var = tk.StringVar(value=self.config_data.room_name)
-        self.map_var = tk.StringVar(value=self.config_data.map_name)
-        self.mode_var = tk.StringVar(value=self.config_data.mode)
+        current_map = self.config_data.map_name if self.config_data.map_name in ROOM_MAP_OPTIONS else ROOM_MAP_OPTIONS[0]
+        current_mode = self.config_data.mode if self.config_data.mode in ROOM_MODE_OPTIONS else ROOM_MODE_OPTIONS[0]
+        self.map_var = tk.StringVar(value=current_map)
+        self.mode_var = tk.StringVar(value=current_mode)
         self.port_var = tk.IntVar(value=self.config_data.port)
         self.max_players_var = tk.IntVar(value=self.config_data.max_players)
         self.use_proxy_var = tk.BooleanVar(value=self.config_data.use_udp_proxy)
@@ -349,8 +382,8 @@ class BrowserApp(tk.Tk):
         self.logic_server_url_var = tk.StringVar(value=self.config_data.logic_server_url)
 
         self._field(room_box, "Name", self.room_name_var, 0, 0, width=24)
-        self._field(room_box, "Map", self.map_var, 0, 2, width=16)
-        self._field(room_box, "Mode", self.mode_var, 0, 4, width=10)
+        self._combo_field(room_box, "Map", self.map_var, list(ROOM_MAP_OPTIONS), 0, 2, width=14)
+        self._combo_field(room_box, "Mode", self.mode_var, list(ROOM_MODE_OPTIONS), 0, 4, width=10)
         self._field(room_box, "Port", self.port_var, 0, 6, width=8)
         self._field(room_box, "Max", self.max_players_var, 0, 8, width=8)
         ttk.Checkbutton(room_box, text="Use UDP Proxy", variable=self.use_proxy_var).grid(row=1, column=0, sticky="w", padx=4, pady=4)
@@ -386,9 +419,19 @@ class BrowserApp(tk.Tk):
         self.status_var = tk.StringVar(value="Ready.")
         ttk.Label(root, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W, padding=6).pack(fill=tk.X, pady=(10, 0))
 
-    def _field(self, parent: ttk.Frame, label: str, variable: tk.Variable, row: int, column: int, width: int) -> None:
+    def _field(self, parent: tk.Misc, label: str, variable: tk.Variable, row: int, column: int, width: int) -> None:
         ttk.Label(parent, text=label).grid(row=row, column=column, sticky="w", padx=(0, 4), pady=4)
         ttk.Entry(parent, textvariable=variable, width=width).grid(row=row, column=column + 1, sticky="ew", padx=(0, 8), pady=4)
+
+    def _combo_field(self, parent: tk.Misc, label: str, variable: tk.StringVar, values: list[str], row: int, column: int, width: int) -> None:
+        ttk.Label(parent, text=label).grid(row=row, column=column, sticky="w", padx=(0, 4), pady=4)
+        ttk.Combobox(parent, textvariable=variable, values=values, state="readonly", width=width).grid(
+            row=row,
+            column=column + 1,
+            sticky="ew",
+            padx=(0, 8),
+            pady=4,
+        )
 
     def _drain_queue(self) -> None:
         try:
@@ -422,8 +465,10 @@ class BrowserApp(tk.Tk):
         self.destroy()
 
     def read_form(self) -> AppConfig:
+        selected_map = self.map_var.get().strip()
+        selected_mode = self.mode_var.get().strip()
         return AppConfig(
-            backend_url=self.backend_var.get().strip() or "http://127.0.0.1:5000",
+            backend_url=HARD_CODED_BACKEND_URL,
             game_directory=self.game_dir_var.get().strip(),
             display_name=self.display_name_var.get().strip() or "Player",
             region=self.region_var.get().strip() or "CN",
@@ -431,24 +476,13 @@ class BrowserApp(tk.Tk):
             port=int(self.port_var.get()),
             access_token=self.config_data.access_token,
             room_name=self.room_name_var.get().strip() or "ProjectRebound Room",
-            map_name=self.map_var.get().strip() or "Warehouse",
-            mode=self.mode_var.get().strip() or "pve",
+            map_name=selected_map if selected_map in ROOM_MAP_OPTIONS else ROOM_MAP_OPTIONS[0],
+            mode=selected_mode if selected_mode in ROOM_MODE_OPTIONS else ROOM_MODE_OPTIONS[0],
             max_players=int(self.max_players_var.get()),
             use_udp_proxy=bool(self.use_proxy_var.get()),
             proxy_client_port=int(self.proxy_client_port_var.get()),
             logic_server_url=self.logic_server_url_var.get().strip() or "http://127.0.0.1:8000",
-            launch_mode=self._normalize_launch_mode(self.launch_mode_var.get()),
         )
-
-    @staticmethod
-    def _normalize_launch_mode(value: str) -> str:
-        mode = (value or "").strip().lower()
-        if mode not in {"quiet", "debug"}:
-            return "quiet"
-        return mode
-
-    def is_debug_mode(self) -> bool:
-        return self._normalize_launch_mode(self.config_data.launch_mode) == "debug"
 
     def initialize(self) -> None:
         self.save_and_login()
@@ -611,18 +645,7 @@ class BrowserApp(tk.Tk):
         if not exe:
             raise RuntimeError("ProjectBoundarySteam-Win64-Shipping.exe was not found under the game directory.")
         self.ensure_payload_files(Path(exe).parent)
-        if self.is_debug_mode():
-            self.launch_client_via_batch(exe, connect)
-            return
-
-        self.ensure_fake_login_server()
-        args = [
-            exe,
-            f"-LogicServerURL={self.config_data.logic_server_url}",
-            f"-match={connect}",
-        ]
-        append_gui_log("Launching client directly (quiet): " + subprocess.list2cmdline(args))
-        subprocess.Popen(args, cwd=str(Path(exe).parent), creationflags=self.client_creation_flags())
+        self.launch_client_via_batch(exe, connect)
 
     def launch_client_via_batch(self, exe: str, connect: str) -> None:
         backend_dir = find_directory_near(self.config_data.game_directory, "BoundaryMetaServer-main")
@@ -645,17 +668,13 @@ class BrowserApp(tk.Tk):
                 "timeout /t 5 >nul",
             ])
 
-        client_args = f"-LogicServerURL={self.config_data.logic_server_url} -match={connect}"
-        if self.is_debug_mode():
-            client_args += " -debuglog"
-
         lines.extend([
             "if not exist " + quote_bat(Path(exe).parent / "dxgi.dll") + " echo [Launcher] WARNING: dxgi.dll is missing next to the game exe.",
             "if not exist " + quote_bat(Path(exe).parent / "Payload.dll") + " echo [Launcher] WARNING: Payload.dll is missing next to the game exe.",
             "echo [Launcher] Launching game client...",
             (
                 f"start \"\" /D {quote_bat(Path(exe).parent)} {quote_bat(exe)} "
-                f"{client_args}"
+                f"-LogicServerURL={self.config_data.logic_server_url} -match={connect} -debuglog"
             ),
             "echo.",
             "echo [Launcher] Client launch requested.",
@@ -709,10 +728,9 @@ class BrowserApp(tk.Tk):
         raise RuntimeError(f"Fake login server did not become reachable at {host}:{port}.")
 
     def start_client_proxy(self, room_id: str, join_ticket: str) -> None:
-        proxy = Path(__file__).with_name("project_rebound_udp_proxy.py")
+        launcher, launcher_cwd = proxy_launcher()
         args = [
-            sys.executable,
-            str(proxy),
+            *launcher,
             "client",
             "--backend",
             self.config_data.backend_url,
@@ -725,7 +743,7 @@ class BrowserApp(tk.Tk):
             "--listen-port",
             str(self.config_data.proxy_client_port),
         ]
-        subprocess.Popen(args, cwd=str(proxy.parent), creationflags=self.creation_flags())
+        subprocess.Popen(args, cwd=str(launcher_cwd), creationflags=self.creation_flags())
         time.sleep(1)
 
     def start_host(self, room: dict, host_token: str) -> None:
@@ -755,6 +773,7 @@ class BrowserApp(tk.Tk):
         self.ensure_fake_login_server()
         args = [
             exe,
+            "-log",
             "-server",
             "-nullrhi",
             f"-online={backend}",
@@ -766,8 +785,6 @@ class BrowserApp(tk.Tk):
             f"-serverregion={room.get('region', self.config_data.region)}",
             f"-port={game_port}",
         ]
-        if self.is_debug_mode():
-            args.insert(1, "-log")
         if room.get("mode", self.config_data.mode).lower() == "pve":
             args.append("-pve")
         append_gui_log("Launching server exe: " + subprocess.list2cmdline(args))
@@ -831,50 +848,14 @@ class BrowserApp(tk.Tk):
         return args
 
     def launch_host_via_batch(self, wrapper_args: list[str], room_id: str, host_token: str, game_port: int, wrapper_cwd: Path) -> None:
-        if not self.is_debug_mode():
-            self.ensure_fake_login_server()
-            proxy = Path(__file__).with_name("project_rebound_udp_proxy.py")
-            proxy_args = [
-                sys.executable,
-                str(proxy),
-                "host",
-                "--backend",
-                self.config_data.backend_url,
-                "--access-token",
-                self.config_data.access_token,
-                "--room-id",
-                room_id,
-                "--host-token",
-                host_token,
-                "--public-port",
-                str(self.config_data.port),
-                "--game-port",
-                str(game_port),
-            ]
-            append_gui_log("Launching host proxy (quiet): " + subprocess.list2cmdline(proxy_args))
-            subprocess.Popen(proxy_args, cwd=str(proxy.parent), creationflags=self.creation_flags())
-            append_gui_log("Launching wrapper (quiet): " + subprocess.list2cmdline(wrapper_args))
-            subprocess.Popen(wrapper_args, cwd=str(wrapper_cwd), creationflags=self.creation_flags())
-            time.sleep(2)
-            game_exe = wrapper_cwd / "ProjectBoundarySteam-Win64-Shipping.exe"
-            client_args = [
-                str(game_exe),
-                f"-LogicServerURL={self.config_data.logic_server_url}",
-                f"-match=127.0.0.1:{game_port}",
-            ]
-            append_gui_log("Launching local host client (quiet): " + subprocess.list2cmdline(client_args))
-            subprocess.Popen(client_args, cwd=str(wrapper_cwd), creationflags=self.client_creation_flags())
-            return
-
         backend_dir = find_directory_near(self.config_data.game_directory, "BoundaryMetaServer-main")
         node = find_file_near(self.config_data.game_directory, "node.exe")
         if not backend_dir or not node:
             raise RuntimeError("nodejs/node.exe or BoundaryMetaServer-main was not found under the game directory.")
 
-        proxy = Path(__file__).with_name("project_rebound_udp_proxy.py")
+        launcher, launcher_cwd = proxy_launcher()
         proxy_args = [
-            sys.executable,
-            str(proxy),
+            *launcher,
             "host",
             "--backend",
             self.config_data.backend_url,
@@ -965,10 +946,12 @@ class BrowserApp(tk.Tk):
         root = repo_root()
         sources = {
             "dxgi.dll": latest_existing([
+                runtime_artifacts_dir() / "dxgi.dll",
                 root / "dxgi" / "x64" / "Release" / "dxgi.dll",
                 root / "dxgi" / "dxgi" / "x64" / "Release" / "dxgi.dll",
             ]),
             "Payload.dll": latest_existing([
+                runtime_artifacts_dir() / "Payload.dll",
                 root / "Payload" / "x64" / "Release" / "Payload.dll",
                 root / "Payload" / "Payload" / "x64" / "Release" / "Payload.dll",
             ]),
@@ -991,6 +974,7 @@ class BrowserApp(tk.Tk):
     def ensure_wrapper_file(self, exe_dir: Path) -> None:
         root = repo_root()
         source = latest_existing([
+            runtime_artifacts_dir() / "ProjectReboundServerWrapper.exe",
             root / "ServerWrapper" / "ProjectReboundServerWrapper" / "x64" / "Release" / "ProjectReboundServerWrapper.exe",
             root / "ServerWrapper" / "ProjectReboundServerWrapper" / "ProjectReboundServerWrapper" / "x64" / "Release" / "ProjectReboundServerWrapper.exe",
         ])
@@ -1013,10 +997,9 @@ class BrowserApp(tk.Tk):
             append_gui_log(f"Wrapper already current: {target}")
 
     def start_host_proxy(self, room_id: str, host_token: str, game_port: int) -> None:
-        proxy = Path(__file__).with_name("project_rebound_udp_proxy.py")
+        launcher, launcher_cwd = proxy_launcher()
         args = [
-            sys.executable,
-            str(proxy),
+            *launcher,
             "host",
             "--backend",
             self.config_data.backend_url,
@@ -1031,7 +1014,7 @@ class BrowserApp(tk.Tk):
             "--game-port",
             str(game_port),
         ]
-        subprocess.Popen(args, cwd=str(proxy.parent), creationflags=self.creation_flags())
+        subprocess.Popen(args, cwd=str(launcher_cwd), creationflags=self.creation_flags())
         time.sleep(1)
 
     def ensure_ready_for_launch(self) -> None:
@@ -1087,17 +1070,16 @@ class BrowserApp(tk.Tk):
             return "/Game/Online/GameMode/PBGameMode_Rush_BP.PBGameMode_Rush_BP_C"
         return "/Game/Online/GameMode/BP_PBGameMode_Rush_PVE_Normal.BP_PBGameMode_Rush_PVE_Normal_C"
 
-    def creation_flags(self) -> int:
-        if self.is_debug_mode():
-            return getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
-        return getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    @staticmethod
+    def creation_flags() -> int:
+        return getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
 
-    def client_creation_flags(self) -> int:
-        if self.is_debug_mode():
-            return 0
-        return getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    @staticmethod
+    def client_creation_flags() -> int:
+        return 0
 
-    def login_server_creation_flags(self) -> int:
+    @staticmethod
+    def login_server_creation_flags() -> int:
         return getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 

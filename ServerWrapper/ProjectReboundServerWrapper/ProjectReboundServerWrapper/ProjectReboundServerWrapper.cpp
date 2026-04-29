@@ -1,50 +1,169 @@
-﻿#include <windows.h>
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <thread>
-#include <chrono>
-#include <iomanip>
-#include <filesystem>
-#include <random>
-#pragma comment(lib, "ws2_32.lib")
-
+﻿// ======================================================
+//  INCLUDES AND GLOBALS
+// ======================================================
 
 #define NOMINMAX
 
-HANDLE g_ServerProcess = NULL;
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <windows.h>
 
+#include <atomic>
+#include <array>
+#include <cctype>
+#include <chrono>
+#include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <mutex>
+#include <random>
+#include <sstream>
+#include <string>
+#include <string_view>
+#include <thread>
+#include <unordered_map>
+#include <vector>
+#include <functional>
+#include "json.hpp"
+using json = nlohmann::json;
+
+#pragma comment(lib, "ws2_32.lib")
+
+enum class ServerState
+{
+    Stopped,
+    Starting,
+    Running,
+    Stopping,
+    Restarting
+};
+
+HANDLE g_ServerProcess = NULL;
+DWORD g_ServerPid = 0;
+
+//Config constants
+const std::string DEFAULT_BACKEND = "ax48735790k.vicp.fun:3000";
 std::string CurrentMap = "Warehouse";
-std::string CurrentMode = "pve";
+std::string CurrentMode = "pvp";
 std::string LastMap = "";
 std::string CurrentDifficulty = "normal";
-std::string OnlineBackend = "";
+std::string OnlineBackend = DEFAULT_BACKEND;
 std::string ServerName = "DefaultServer";
 std::string ServerRegion = "CN";
 std::string HostRoomId = "";
 std::string HostToken = "";
 std::string GameExePath = ".\\ProjectBoundarySteam-Win64-Shipping.exe";
-int ServerPort = 7777;
-
+int g_ServerPort = 7777;
+int g_ExternalPort = g_ServerPort;
 bool OfflineMode = false;
+bool UseDX11 = false;
 
-const std::string DEFAULT_BACKEND = "ax48735790k.vicp.fun:3000";
-
+//Lifecycle Management
+std::mutex g_ServerMutex;
+std::mutex g_LogMutex;
 std::atomic<bool> ServerRunning = false;
 std::atomic<bool> HeartbeatSeen = false;
-int g_ConsecutiveFailures = 0;
+std::atomic<bool> g_WrapperShuttingDown = false;
+std::atomic<ServerState> g_ServerState{ ServerState::Stopped };
+std::atomic<uint64_t> g_ServerGeneration{ 0 };
+std::atomic<int> g_ConsecutiveFailures{ 0 };
+std::atomic<uint64_t> g_LastHeartbeatTickMs{ 0 };
+
 std::chrono::steady_clock::time_point g_LastFailureTime;
 std::chrono::steady_clock::time_point g_ServerLaunchTime;
 const int MAX_FAILURES = 3;
 const auto FAILURE_RESET_WINDOW = std::chrono::minutes(1);
 
-//Forward Declaration
 void LauncherLog(const std::string& msg);
 void LaunchServer();
+void RestartServer();
+void KillServer();
 std::string GetCmdValue(const std::string& key);
 void LoadCommandLineConfig();
 
-std::chrono::steady_clock::time_point lastHeartbeatTime;
+bool LaunchServerLocked();
+bool StopServerLocked();
+void RequestRestart(bool rotateMap, const std::string& reason);
+void PipeReader(HANDLE pipe, uint64_t generation);
+void StartWatchdog(HANDLE processHandle, uint64_t generation);
+void StartExitWatcher(HANDLE processHandle, uint64_t generation);
+
+void SaveConfigFile();
+bool LoadConfigFile();
+
+struct Command
+{
+    std::string name;
+    std::string help;
+    std::function<void(const std::string& args)> handler;
+};
+
+std::vector<Command> g_Commands;
+std::unordered_map<std::string, size_t> g_CommandIndex;
+
+std::string NormalizeKey(std::string_view value)
+{
+    std::string normalized;
+    normalized.reserve(value.size());
+
+    for (unsigned char ch : value)
+        normalized.push_back(static_cast<char>(std::tolower(ch)));
+
+    return normalized;
+}
+
+void RegisterCommand(const std::string& name,
+    const std::string& help,
+    std::function<void(const std::string&)> handler)
+{
+    const size_t index = g_Commands.size();
+    g_Commands.push_back({ name, help, std::move(handler) });
+    g_CommandIndex.emplace(g_Commands.back().name, index);
+}
+
+// ======================================================
+//  UTILITY FUNCTIONS
+// ======================================================
+
+uint64_t SteadyNowMs()
+{
+    return static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count());
+}
+
+void ResetHeartbeatClock()
+{
+    g_LastHeartbeatTickMs.store(SteadyNowMs());
+}
+
+bool HasHeartbeatTimedOut(std::chrono::seconds timeout)
+{
+    const uint64_t last = g_LastHeartbeatTickMs.load();
+    const uint64_t now = SteadyNowMs();
+    return now > last + static_cast<uint64_t>(timeout.count()) * 1000ULL;
+}
+
+HANDLE DuplicateProcessHandle(HANDLE source)
+{
+    HANDLE duplicated = NULL;
+    if (!DuplicateHandle(
+        GetCurrentProcess(),
+        source,
+        GetCurrentProcess(),
+        &duplicated,
+        0,
+        FALSE,
+        DUPLICATE_SAME_ACCESS))
+    {
+        LauncherLog("DuplicateHandle failed. GetLastError=" + std::to_string(GetLastError()));
+        return NULL;
+    }
+
+    return duplicated;
+}
 
 std::string CurrentTimestamp()
 {
@@ -61,59 +180,84 @@ std::string CurrentTimestamp()
 
 std::ofstream logFile;
 
-//Set the maplist for PVP and PVE
-std::vector<std::string> Maps = {
-    "CircularX", "DataCenter", "Dusty", "GangesRiver", "Oriolus",
-    "RelayStation", "Warehouse", "MiniFarm", "Museum", "OSS"
-};
+const char* ServerStateToString(ServerState state)
+{
+    switch (state)
+    {
+    case ServerState::Running:
+        return "Running";
+    case ServerState::Starting:
+        return "Starting";
+    case ServerState::Stopping:
+        return "Stopping";
+    case ServerState::Restarting:
+        return "Restarting";
+    case ServerState::Stopped:
+    default:
+        return "Stopped";
+    }
+}
 
-std::vector<std::string> PvEMaps = {
-    "CircularX", "DataCenter", "Warehouse", "MiniFarm", "OSS"
-};
+
+// ======================================================
+//  MAP LISTS AND MAP LOGIC
+// ======================================================
 
 struct MapInfo {
-    std::string name;
+    std::string_view name;
     bool pveBug;
 };
 
-std::vector<MapInfo> MapList = {
-    {"OSS", false},
-    {"MiniFarm", false},
-    {"Warehouse", false},
-    {"Dusty", true},
-    {"DataCenter", false},
-    {"CircularX", false},
-    {"Interior_C", true},
-    {"Museum_art", true},
-    {"RelayStation", true},
-    {"Oriolus", true},
-    {"GangesRiver", true}
-};
+const std::array<MapInfo, 11> MapList{ {
+    { "OSS",         false },
+    { "MiniFarm",    false },
+    { "Warehouse",   false },
+    { "Dusty",       true  },
+    { "DataCenter",  false },
+    { "CircularX",   false },
+    { "Interior_C",  true  },
+    { "Museum_art",  true  },
+    { "RelayStation",true  },
+    { "Oriolus",     true  },
+    { "GangesRiver", true  }
+} };
+
+
+std::unordered_map<std::string, size_t> BuildMapLookup()
+{
+    std::unordered_map<std::string, size_t> lookup;
+    lookup.reserve(MapList.size());
+
+    for (size_t index = 0; index < MapList.size(); ++index)
+        lookup.emplace(NormalizeKey(MapList[index].name), index);
+
+    return lookup;
+}
+
+const std::unordered_map<std::string, size_t> g_MapLookup = BuildMapLookup();
 
 std::string PickRandomMapAvoidingLast()
 {
-    std::vector<std::string> candidates;
+    static std::mt19937 rng(std::random_device{}());
+    size_t eligibleCount = 0;
+    std::string selected = LastMap;
 
-    // Build list of allowed maps (no PVEbug)
     for (const auto& m : MapList)
     {
-        if (!m.pveBug && m.name != LastMap)
-            candidates.push_back(m.name);
+        if (m.pveBug || m.name == LastMap)
+            continue;
+
+        ++eligibleCount;
+        if (std::uniform_int_distribution<size_t>(1, eligibleCount)(rng) == 1)
+            selected.assign(m.name);
     }
 
-    if (candidates.empty())
-    {
-        // fallback: if everything is forbidden or only 1 map exists
+    if (eligibleCount == 0)
         return LastMap;
-    }
 
-    static std::mt19937 rng(std::random_device{}());
-    std::uniform_int_distribution<> dist(0, candidates.size() - 1);
-
-    return candidates[dist(rng)];
+    return selected;
 }
 
-//Console commands
 void PrintMapList()
 {
     LauncherLog("=== Available Maps ===");
@@ -129,29 +273,37 @@ void PrintMapList()
     LauncherLog("======================");
 }
 
+
+// ======================================================
+//  CONFIGURATION COMMANDS
+// ======================================================
+
 void SetMap(const std::string& name)
 {
-    for (const auto& m : MapList)
-    {
-        if (_stricmp(m.name.c_str(), name.c_str()) == 0)
-        {
-            if (m.pveBug)
-            {
-                LauncherLog("Map '" + name + "' is forbidden due to PVE bug.");
-                return;
-            }
+    std::lock_guard<std::mutex> lock(g_ServerMutex);
 
-            CurrentMap = m.name;
-            LauncherLog("Map set to: " + CurrentMap);
-            return;
-        }
+    const auto it = g_MapLookup.find(NormalizeKey(name));
+    if (it == g_MapLookup.end())
+    {
+        LauncherLog("Unknown map: " + name);
+        return;
     }
 
-    LauncherLog("Unknown map: " + name);
+    const MapInfo& map = MapList[it->second];
+    if (map.pveBug)
+    {
+        LauncherLog("Map '" + name + "' is forbidden due to PVE bug.");
+        return;
+    }
+
+    CurrentMap.assign(map.name);
+    LauncherLog("Map set to: " + CurrentMap);
 }
 
 void SetMode(const std::string& mode)
 {
+    std::lock_guard<std::mutex> lock(g_ServerMutex);
+
     if (_stricmp(mode.c_str(), "pvp") == 0)
     {
         CurrentMode = "pvp";
@@ -170,6 +322,8 @@ void SetMode(const std::string& mode)
 
 void SetDifficulty(const std::string& diff)
 {
+    std::lock_guard<std::mutex> lock(g_ServerMutex);
+
     if (_stricmp(diff.c_str(), "easy") == 0)
     {
         CurrentDifficulty = "easy";
@@ -191,40 +345,343 @@ void SetDifficulty(const std::string& diff)
     }
 }
 
+void InitCommands()
+{
+    g_Commands.reserve(16);
+    g_CommandIndex.reserve(16);
+
+    RegisterCommand("maplist", "Show all maps", [](const std::string& args) {
+        PrintMapList();
+        });
+
+    RegisterCommand("setmap", "setmap <name>", [](const std::string& args) {
+        SetMap(args);
+        });
+
+    RegisterCommand("setmode", "setmode <pvp|pve>", [](const std::string& args) {
+        SetMode(args);
+        });
+
+    RegisterCommand("difficulty", "difficulty <easy|normal|hard>", [](const std::string& args) {
+        SetDifficulty(args);
+        });
+
+    RegisterCommand("killserver", "Kill the running server", [](const std::string& args) {
+        KillServer();
+        });
+
+    RegisterCommand("restart", "Restart the server", [](const std::string& args) {
+        RestartServer();
+        });
+
+    RegisterCommand("online", "online [backend]", [](const std::string& args) {
+        std::lock_guard<std::mutex> lock(g_ServerMutex);
+        if (args.empty())
+            OnlineBackend = DEFAULT_BACKEND;
+        else
+            OnlineBackend = args;
+        OfflineMode = false;
+        LauncherLog("Online mode enabled. Backend = " + OnlineBackend);
+        });
+
+    RegisterCommand("offline", "Disable backend", [](const std::string& args) {
+        std::lock_guard<std::mutex> lock(g_ServerMutex);
+        OfflineMode = true;
+        LauncherLog("Offline mode enabled.");
+        });
+
+    RegisterCommand("servername", "servername <name>", [](const std::string& args) {
+        std::lock_guard<std::mutex> lock(g_ServerMutex);
+        ServerName = args;
+        LauncherLog("Server name set to: " + ServerName);
+        });
+
+    RegisterCommand("serverregion", "serverregion <region>", [](const std::string& args) {
+        std::lock_guard<std::mutex> lock(g_ServerMutex);
+        ServerRegion = args;
+        LauncherLog("Server region set to: " + ServerRegion);
+        });
+
+    RegisterCommand("setport", "setport <1-65535>", [](const std::string& args) {
+        try {
+            int p = std::stoi(args);
+            if (p < 1 || p > 65535)
+                LauncherLog("Invalid port.");
+            else {
+                std::lock_guard<std::mutex> lock(g_ServerMutex);
+                g_ServerPort = p;
+                LauncherLog("Server port set to: " + std::to_string(p));
+            }
+        }
+        catch (...) {
+            LauncherLog("Invalid port format.");
+        }
+        });
+
+    RegisterCommand("setexternal", "setexternal <1-65535>", [](const std::string& args) {
+        try {
+            int p = std::stoi(args);
+            if (p < 1 || p > 65535)
+                LauncherLog("Invalid external port.");
+            else {
+                std::lock_guard<std::mutex> lock(g_ServerMutex);
+                g_ExternalPort = p;
+                LauncherLog("External port set to: " + std::to_string(p));
+            }
+        }
+        catch (...) {
+            LauncherLog("Invalid external port format.");
+        }
+        });
+
+    RegisterCommand("saveconfig", "Save current settings to serverconfig.json", [](const std::string& args) {
+        SaveConfigFile();
+        LauncherLog("Configuration saved.");
+        });
+
+    RegisterCommand("reloadconfig", "Reload settings from serverconfig.json", [](const std::string& args) {
+        if (LoadConfigFile())
+            LauncherLog("Configuration reloaded.");
+        else
+            LauncherLog("Failed to reload configuration.");
+        });
+
+    RegisterCommand("status", "Show current server status", [](const std::string& args) {
+        const ServerState state = g_ServerState.load();
+        LauncherLog("=== Server Status ===");
+        LauncherLog("Map: " + CurrentMap);
+        LauncherLog("Mode: " + CurrentMode);
+        LauncherLog("Difficulty: " + CurrentDifficulty);
+        LauncherLog("Server Name: " + ServerName);
+        LauncherLog("Region: " + ServerRegion);
+        LauncherLog("Port: " + std::to_string(g_ServerPort));
+        LauncherLog("External Port: " + std::to_string(g_ExternalPort));
+        LauncherLog("Backend: " + (OfflineMode ? "Offline" : OnlineBackend));
+        LauncherLog("State: " + std::string(ServerStateToString(state)));
+        });
+
+    RegisterCommand("help", "Show all commands", [](const std::string& args) {
+        LauncherLog("Available commands:");
+        for (auto& c : g_Commands)
+            std::cout << "  " << c.name << " - " << c.help << std::endl;
+        });
+}
+void InputThread()
+{
+    while (true)
+    {
+        std::string line;
+        std::getline(std::cin, line);
+
+        if (line.empty())
+            continue;
+
+        std::string cmd, args;
+        size_t space = line.find(' ');
+        if (space == std::string::npos)
+        {
+            cmd = line;
+            args = "";
+        }
+        else
+        {
+            cmd = line.substr(0, space);
+            args = line.substr(space + 1);
+        }
+
+        const auto commandIt = g_CommandIndex.find(cmd);
+        if (commandIt != g_CommandIndex.end())
+        {
+            g_Commands[commandIt->second].handler(args);
+            continue;
+        }
+
+        LauncherLog("Unknown command. Type 'help' for list.");
+    }
+}
+
+// ======================================================
+//  LOGGING SYSTEM
+// ======================================================
+
+void LauncherLog(const std::string& msg)
+{
+    std::string line = "[Launcher] " + msg;
+    std::lock_guard<std::mutex> lock(g_LogMutex);
+
+    logFile << line << std::endl;
+    logFile.flush();
+    std::cout << line << std::endl;
+}
+
+// ======================================================
+//  CONFIG FILE LOADING AND SAVING
+// ======================================================
+
+bool LoadConfigFile()
+{
+    std::lock_guard<std::mutex> lock(g_ServerMutex);
+
+    const std::string path = "serverconfig.json";
+
+    if (!std::filesystem::exists(path))
+        return false;
+
+    std::ifstream f(path);
+    if (!f.is_open())
+        return false;
+
+    json j;
+    try {
+        f >> j;
+    }
+    catch (...) {
+        LauncherLog("Config file exists but is invalid JSON.");
+        return false;
+    }
+
+    if (j.contains("map") && j["map"].is_string())
+        CurrentMap = j["map"];
+
+    if (j.contains("mode") && j["mode"].is_string())
+        CurrentMode = j["mode"];
+
+    if (j.contains("difficulty") && j["difficulty"].is_string())
+        CurrentDifficulty = j["difficulty"];
+
+    if (j.contains("serverName") && j["serverName"].is_string())
+        ServerName = j["serverName"];
+
+    if (j.contains("serverRegion") && j["serverRegion"].is_string())
+        ServerRegion = j["serverRegion"];
+
+    if (j.contains("port") && j["port"].is_number_integer())
+        g_ServerPort = j["port"];
+
+    if (j.contains("externalPort") && j["externalPort"].is_number_integer())
+        g_ExternalPort = j["externalPort"];
+
+    if (j.contains("backend") && j["backend"].is_string())
+        OnlineBackend = j["backend"];
+
+    if (j.contains("offline") && j["offline"].is_boolean())
+        OfflineMode = j["offline"];
+
+    if (j.contains("dx11") && j["dx11"].is_boolean())
+        UseDX11 = j["dx11"];
+
+    LauncherLog("Loaded configuration from serverconfig.json");
+    return true;
+}
+
+void SaveConfigFile()
+{
+    std::lock_guard<std::mutex> lock(g_ServerMutex);
+
+    json j;
+    j["map"] = CurrentMap;
+    j["mode"] = CurrentMode;
+    j["difficulty"] = CurrentDifficulty;
+    j["serverName"] = ServerName;
+    j["serverRegion"] = ServerRegion;
+    j["port"] = g_ServerPort;
+    j["externalPort"] = g_ExternalPort;
+    j["backend"] = OnlineBackend;
+    j["offline"] = OfflineMode;
+    j["dx11"] = UseDX11;
+
+    std::ofstream f("serverconfig.json");
+    f << j.dump(4);
+
+    LauncherLog("Saved configuration to serverconfig.json");
+}
+
+
+// ======================================================
+//  SERVER LIFECYCLE
+// ======================================================
+
+bool StopServerLocked()
+{
+    if (!g_ServerProcess)
+    {
+        g_ServerPid = 0;
+        ServerRunning.store(false);
+        g_ServerState.store(ServerState::Stopped);
+        return true;
+    }
+
+    LauncherLog("Stopping server...");
+    g_ServerState.store(ServerState::Stopping);
+    ServerRunning.store(false);
+
+    g_ServerGeneration.fetch_add(1);
+
+    HANDLE process = g_ServerProcess;
+    DWORD exitCode = 0;
+
+    if (GetExitCodeProcess(process, &exitCode) && exitCode == STILL_ACTIVE)
+    {
+        if (!TerminateProcess(process, 0))
+        {
+            LauncherLog("TerminateProcess failed. GetLastError=" + std::to_string(GetLastError()));
+            return false;
+        }
+    }
+
+    const DWORD waitResult = WaitForSingleObject(process, 5000);
+    if (waitResult != WAIT_OBJECT_0)
+    {
+        LauncherLog("ERROR: timed out waiting for server process to exit.");
+        return false;
+    }
+
+    CloseHandle(process);
+    g_ServerProcess = NULL;
+    g_ServerPid = 0;
+    g_ServerState.store(ServerState::Stopped);
+    return true;
+}
+
 void KillServer()
 {
-    if (g_ServerProcess)
-    {
-        LauncherLog("Killing server...");
-        TerminateProcess(g_ServerProcess, 0);
-        CloseHandle(g_ServerProcess);
-        g_ServerProcess = NULL;
-        ServerRunning = false;
-    }
-    else
-    {
-        LauncherLog("No server to kill.");
-        ServerRunning = false;
-    }
+    std::lock_guard<std::mutex> lock(g_ServerMutex);
+    StopServerLocked();
 }
 
 void RestartServer()
 {
-	//Check if mutiple failures happen within the reset window
+    RequestRestart(false, "manual restart");
+}
+
+void RequestRestart(bool rotateMap, const std::string& reason)
+{
+    if (g_WrapperShuttingDown.load())
+        return;
+
+    std::lock_guard<std::mutex> lock(g_ServerMutex);
+
+    const ServerState state = g_ServerState.load();
+    if (state == ServerState::Starting ||
+        state == ServerState::Stopping ||
+        state == ServerState::Restarting)
+    {
+        LauncherLog("Restart ignored: server lifecycle transition already in progress.");
+        return;
+    }
+
     auto now = std::chrono::steady_clock::now();
-    if (now - g_LastFailureTime < FAILURE_RESET_WINDOW) {
-        g_ConsecutiveFailures++;
-    }
-    else {
+    if (now - g_LastFailureTime < FAILURE_RESET_WINDOW)
+        ++g_ConsecutiveFailures;
+    else
         g_ConsecutiveFailures = 1;
-    }
     g_LastFailureTime = now;
 
-	// Exceed max failures, stop auto-restart and alert user
-    if (g_ConsecutiveFailures >= MAX_FAILURES) {
-        LauncherLog("CRITICAL: Server failed to start 3 times in 1 minute. Stopping auto-restart.");
+    if (g_ConsecutiveFailures.load() >= MAX_FAILURES)
+    {
+        LauncherLog("CRITICAL: Server failed to restart 3 times in 1 minute. Stopping auto-restart.");
         MessageBoxA(NULL,
-            "Server failed to start repeatedly.\n"
+            "Server failed to restart repeatedly.\n"
             "Possible reasons:\n"
             "- The configured UDP port is occupied by another program.\n"
             "- Map file missing or corrupt.\n"
@@ -232,108 +689,38 @@ void RestartServer()
             "Please check the logs and restart the launcher manually.",
             "Project Boundary Server Wrapper",
             MB_OK | MB_ICONERROR);
-        ServerRunning = false;
-        g_ConsecutiveFailures = 0; //reset counter
+        g_ServerState.store(ServerState::Stopped);
+        ServerRunning.store(false);
+        g_ConsecutiveFailures = 0;
         return;
     }
 
-    LauncherLog("Restarting server...");
-    KillServer();
-    Sleep(500);
-    LaunchServer();
-}
+    g_ServerState.store(ServerState::Restarting);
+    LauncherLog("Restarting server (" + reason + ")...");
 
-
-void InputThread()
-{
-    while (true)
+    if (rotateMap)
     {
-        std::string cmd;
-        std::getline(std::cin, cmd);
-
-        if (cmd == "maplist")
-        {
-            PrintMapList();
-        }
-        else if (cmd.rfind("setmap ", 0) == 0)
-        {
-            SetMap(cmd.substr(7));
-        }
-        else if (cmd.rfind("setmode ", 0) == 0)
-        {
-            SetMode(cmd.substr(8));
-        }
-        else if (cmd == "killserver")
-        {
-            KillServer();
-        }
-        else if (cmd == "restart")
-        {
-            RestartServer();
-        }
-        else if (cmd.rfind("difficulty ", 0) == 0)
-        {
-            std::string diff = cmd.substr(11);
-            SetDifficulty(diff);
-        }
-        else if (cmd == "online")
-        {
-            OnlineBackend = DEFAULT_BACKEND;
-            OfflineMode = false;
-            LauncherLog("Online mode enabled. Backend = " + OnlineBackend);
-        }
-        else if (cmd.rfind("online ", 0) == 0)
-        {
-            OnlineBackend = cmd.substr(7);
-            OfflineMode = false;
-            LauncherLog("Online mode enabled. Backend = " + OnlineBackend);
-        }
-        else if (cmd == "offline")
-        {
-            OfflineMode = true;
-            LauncherLog("Offline mode enabled. Server will not contact backend.");
-        }
-        else if (cmd.rfind("servername ", 0) == 0)
-        {
-            ServerName = cmd.substr(11);
-            LauncherLog("Server name set to: " + ServerName);
-        }
-        else if (cmd.rfind("serverregion ", 0) == 0)
-        {
-            ServerRegion = cmd.substr(13);
-            LauncherLog("Server region set to: " + ServerRegion);
-        }
-        else
-        {
-            LauncherLog("Unknown command.");
-        }
+        LastMap = CurrentMap;
+        CurrentMap = PickRandomMapAvoidingLast();
+        LauncherLog("Auto-rotating map to: " + CurrentMap);
     }
+
+    if (!StopServerLocked())
+        return;
+
+    if (!LaunchServerLocked())
+        LauncherLog("ERROR: restart failed.");
 }
 
-//Random map picker as default
-std::string PickRandom(const std::vector<std::string>& list)
-{
-    static std::mt19937 rng(std::random_device{}());
-    std::uniform_int_distribution<> dist(0, list.size() - 1);
-    return list[dist(rng)];
-}
 
-void LauncherLog(const std::string& msg)
-{
-    std::string line = "[Launcher] " + msg;
+// ======================================================
+//  PROCESS I/O AND WATCHDOGS
+// ======================================================
 
-    // Write to log file
-    logFile << line << std::endl;
-    logFile.flush();
-
-    // Write to console
-    std::cout << line << std::endl;
-}
-
-void PipeReader(HANDLE pipe)
+void PipeReader(HANDLE pipe, uint64_t generation)
 {
     char buffer[4096];
-    DWORD bytesRead;
+    DWORD bytesRead = 0;
 
     while (true)
     {
@@ -341,33 +728,31 @@ void PipeReader(HANDLE pipe)
             break;
 
         buffer[bytesRead] = '\0';
-
         std::string msg(buffer);
 
         // Detect heartbeat
-        if (msg.find("[HEARTBEAT]") != std::string::npos) {
-            lastHeartbeatTime = std::chrono::steady_clock::now();
+        if (msg.find("[HEARTBEAT]") != std::string::npos && generation == g_ServerGeneration.load())
+        {
+            ResetHeartbeatClock();
             HeartbeatSeen = true;
-			g_ConsecutiveFailures = 0;  //Clear counter on successful heartbeat
+            g_ConsecutiveFailures = 0;
             LauncherLog("Heartbeat received");
         }
 
-        // Write raw game output
+        std::lock_guard<std::mutex> lock(g_LogMutex);
         logFile << msg;
         logFile.flush();
-
-        // Also print to wrapper console
         std::cout << msg;
     }
+
+    CloseHandle(pipe);
     LauncherLog("PipeReader thread ended.");
-    ServerRunning = false;
 }
 
 void HideGameWindow(DWORD pid)
 {
     HWND hwnd = NULL;
 
-    // Find the window belonging to the server process
     while ((hwnd = FindWindowExW(NULL, hwnd, NULL, NULL)) != NULL)
     {
         DWORD windowPID = 0;
@@ -382,55 +767,76 @@ void HideGameWindow(DWORD pid)
 
 BOOL WINAPI ConsoleHandler(DWORD ctrlType)
 {
-    // Kill the server if wrapper is closing
-    if (g_ServerProcess)
-    {
-        TerminateProcess(g_ServerProcess, 0);
-    }
+    (void)ctrlType;
+    g_WrapperShuttingDown.store(true);
 
-    return FALSE; // allow normal Ctrl+C behavior
+    std::lock_guard<std::mutex> lock(g_ServerMutex);
+    StopServerLocked();
+
+    return FALSE;
 }
 
-void StartWatchdog()
+void StartWatchdog(HANDLE processHandle, uint64_t generation)
 {
-    std::thread([]() {
+    std::thread([processHandle, generation]() {
         const auto startupTimeout = std::chrono::seconds(120);
         const auto heartbeatTimeout = std::chrono::seconds(30);
 
-        while (ServerRunning)
+        while (true)
         {
+            if (g_WrapperShuttingDown.load())
+                break;
+
+            if (generation != g_ServerGeneration.load())
+                break;
+
+            if (g_ServerState.load() != ServerState::Running)
+                break;
+
             DWORD code = 0;
-            GetExitCodeProcess(g_ServerProcess, &code);
+            if (!GetExitCodeProcess(processHandle, &code) || code != STILL_ACTIVE)
+                break;
 
-            // If process is dead, exit watcher will restart it
-            if (code != STILL_ACTIVE)
-            {
-                LauncherLog("Watchdog: server exited, skipping timeout restart.");
-                return;
-            }
-
-            auto now = std::chrono::steady_clock::now();
-            auto timeout = HeartbeatSeen ? heartbeatTimeout : startupTimeout;
-
-            if (now - lastHeartbeatTime > timeout)
+            if (HasHeartbeatTimedOut(HeartbeatSeen ? heartbeatTimeout : startupTimeout))
             {
                 LauncherLog(HeartbeatSeen
                     ? "Heartbeat timeout — server frozen."
                     : "Startup timeout — server did not finish initialization.");
 
-                LastMap = CurrentMap;
-                CurrentMap = PickRandomMapAvoidingLast();
-
-                LauncherLog("Auto-rotating map to: " + CurrentMap);
-
-                RestartServer();
-                return;
+                RequestRestart(true, HeartbeatSeen ? "heartbeat timeout" : "startup timeout");
+                break;
             }
 
             Sleep(1000);
         }
+
+        CloseHandle(processHandle);
         }).detach();
 }
+
+void StartExitWatcher(HANDLE processHandle, uint64_t generation)
+{
+    std::thread([processHandle, generation]() {
+        WaitForSingleObject(processHandle, INFINITE);
+        CloseHandle(processHandle);
+
+        if (g_WrapperShuttingDown.load())
+            return;
+
+        if (generation != g_ServerGeneration.load())
+            return;
+
+        if (g_ServerState.load() != ServerState::Running)
+            return;
+
+        LauncherLog("Server exited unexpectedly.");
+        RequestRestart(true, "process exit");
+        }).detach();
+}
+
+// ======================================================
+//  PORT CHECKING
+// ======================================================
 
 bool IsPortAvailable(int port, bool useTCP = false)
 {
@@ -458,24 +864,57 @@ bool IsPortAvailable(int port, bool useTCP = false)
     return result != SOCKET_ERROR;
 }
 
-void LaunchServer()
+
+// ======================================================
+//  SERVER LAUNCHING
+// ======================================================
+
+bool LaunchServerLocked()
 {
-    if (!IsPortAvailable(ServerPort)) {
-        LauncherLog("ERROR: UDP Port " + std::to_string(ServerPort) + " is already in use!");
-        return;
+    if (g_WrapperShuttingDown.load())
+        return false;
+
+    const ServerState state = g_ServerState.load();
+    if (state == ServerState::Starting || state == ServerState::Running)
+    {
+        LauncherLog("Launch ignored: server is already starting or running.");
+        return false;
     }
-    LastMap = CurrentMap;
+
+    int serverPort = g_ServerPort;
+    if (!IsPortAvailable(serverPort)) {
+        LauncherLog("ERROR: UDP Port " + std::to_string(serverPort) + " is already in use!");
+        g_ServerState.store(ServerState::Stopped);
+        ServerRunning.store(false);
+        return false;
+    }
+
+    g_ServerState.store(ServerState::Starting);
+    ServerRunning.store(false);
     LauncherLog("Launching server process...");
     HeartbeatSeen = false;
-    lastHeartbeatTime = std::chrono::steady_clock::now();
-    g_ServerLaunchTime = lastHeartbeatTime;
+    ResetHeartbeatClock();  // updates g_LastHeartbeatTickMs
+    g_ServerLaunchTime = std::chrono::steady_clock::now();
 
-    // Create pipes
     SECURITY_ATTRIBUTES sa{ sizeof(SECURITY_ATTRIBUTES), NULL, TRUE };
-    HANDLE readPipe, writePipe;
+    HANDLE readPipe = NULL;
+    HANDLE writePipe = NULL;
 
-    CreatePipe(&readPipe, &writePipe, &sa, 0);
-    SetHandleInformation(readPipe, HANDLE_FLAG_INHERIT, 0);
+    if (!CreatePipe(&readPipe, &writePipe, &sa, 0))
+    {
+        LauncherLog("CreatePipe failed. GetLastError=" + std::to_string(GetLastError()));
+        g_ServerState.store(ServerState::Stopped);
+        return false;
+    }
+
+    if (!SetHandleInformation(readPipe, HANDLE_FLAG_INHERIT, 0))
+    {
+        LauncherLog("SetHandleInformation failed. GetLastError=" + std::to_string(GetLastError()));
+        CloseHandle(readPipe);
+        CloseHandle(writePipe);
+        g_ServerState.store(ServerState::Stopped);
+        return false;
+    }
 
     STARTUPINFOW si{};
     si.cb = sizeof(si);
@@ -485,7 +924,6 @@ void LaunchServer()
 
     PROCESS_INFORMATION pi{};
 
-    // Build mode path
     std::string modePath;
 
     if (CurrentMode == "pve")
@@ -504,22 +942,25 @@ void LaunchServer()
 
     // Build command line
     std::wstring wGameExe(GameExePath.begin(), GameExePath.end());
+
     std::wstring cmd =
         L"\"" + wGameExe + L"\" "
         L"-log -server -nullrhi "
         L"-map=" + std::wstring(CurrentMap.begin(), CurrentMap.end()) + L" "
         L"-mode=" + std::wstring(modePath.begin(), modePath.end()) + L" "
-        L"-port=" + std::to_wstring(ServerPort) + L" "
+        L"-port=" + std::to_wstring(serverPort) + L" "
+        L"-external=" + std::to_wstring(g_ExternalPort) + L" "
         + (CurrentMode == "pve" ? L"-pve " : L"");
 
-    // Add server name
+    if (UseDX11)
+        cmd += L"-dx11 ";
+
     std::wstring wName(ServerName.begin(), ServerName.end());
     cmd += L"-servername=" + wName + L" ";
 
-    // Add server region
     std::wstring wRegion(ServerRegion.begin(), ServerRegion.end());
     cmd += L"-serverregion=" + wRegion + L" ";
-    // Add Backend server
+
     if (!OfflineMode && !OnlineBackend.empty())
     {
         std::wstring wOnline(OnlineBackend.begin(), OnlineBackend.end());
@@ -552,85 +993,85 @@ void LaunchServer()
     {
         LauncherLog("Failed to launch server! GetLastError=" + std::to_string(GetLastError()));
         LauncherLog("Command line: " + std::string(cmd.begin(), cmd.end()));
-        return;
+        CloseHandle(readPipe);
+        CloseHandle(writePipe);
+        g_ServerState.store(ServerState::Stopped);
+        return false;
     }
 
-    g_ServerProcess = pi.hProcess;
     CloseHandle(writePipe);
+    CloseHandle(pi.hThread);
 
-    // Pipe reader
-    std::thread reader(PipeReader, readPipe);
-    reader.detach();
+    g_ServerProcess = pi.hProcess;
+    g_ServerPid = pi.dwProcessId;
+
+    const uint64_t generation = g_ServerGeneration.fetch_add(1) + 1;
+    ResetHeartbeatClock();
+
+    ServerRunning.store(true);
+    g_ServerState.store(ServerState::Running);
+
+    std::thread(PipeReader, readPipe, generation).detach();
+
+    HANDLE watchdogHandle = DuplicateProcessHandle(pi.hProcess);
+    if (watchdogHandle)
+        StartWatchdog(watchdogHandle, generation);
+
+    HANDLE exitWatcherHandle = DuplicateProcessHandle(pi.hProcess);
+    if (exitWatcherHandle)
+        StartExitWatcher(exitWatcherHandle, generation);
 
     LauncherLog("Server launched. PID = " + std::to_string(pi.dwProcessId));
 
-    Sleep(500);
-
-
-    // Exit watcher
-    std::thread([=]() {
-        while (true)
-        {
-            DWORD code = 0;
-            if (!GetExitCodeProcess(g_ServerProcess, &code))
-                break;
-
-            if (code != STILL_ACTIVE)
-            {
-                if (!ServerRunning)
-                    return;
-
-                LauncherLog("Server exited — rotating map.");
-
-                ServerRunning = false;
-
-                LastMap = CurrentMap;
-                CurrentMap = PickRandomMapAvoidingLast();
-
-                RestartServer();
-                return;
-            }
-
-            Sleep(1000);
-        }
-        }).detach();
-
     HideGameWindow(pi.dwProcessId);
     LauncherLog("Server window hidden.");
-    ServerRunning = true;
-    StartWatchdog();
+    return true;
 }
+
+void LaunchServer()
+{
+    std::lock_guard<std::mutex> lock(g_ServerMutex);
+    LaunchServerLocked();
+}
+
+
+// ======================================================
+//  MAIN ENTRY POINT
+// ======================================================
 
 int main()
 {
-    lastHeartbeatTime = std::chrono::steady_clock::now();
+    ResetHeartbeatClock();
+    LoadCommandLineConfig();
+    ResetHeartbeatClock();
     SetConsoleCtrlHandler(ConsoleHandler, TRUE);
 
-    // Create logs folder
     std::filesystem::create_directory("logs");
 
-    // Build timestamped log file
     std::string logPath = "logs/log-" + CurrentTimestamp() + ".txt";
     logFile.open(logPath, std::ios::app);
 
     LauncherLog("Logging to: " + logPath);
     LauncherLog("Wrapper started.");
     LoadCommandLineConfig();
-    LauncherLog("Configured UDP port: " + std::to_string(ServerPort));
+    LauncherLog("Configured UDP port: " + std::to_string(g_ServerPort));
 
-    // Start input thread (setmap, setmode, restart, killserver, etc.)
+    if (!LoadConfigFile())
+    {
+        LauncherLog("No config found. Creating default serverconfig.json...");
+        SaveConfigFile();
+    }
+
+    InitCommands();
     std::thread(InputThread).detach();
 
-    // Launch the server using CURRENT map + mode
     LaunchServer();
 
-    // Main thread just idles forever
     while (true)
     {
         Sleep(1000);
     }
 }
-
 std::string GetCmdValue(const std::string& key)
 {
     std::string cmd = GetCommandLineA();
@@ -650,7 +1091,9 @@ void LoadCommandLineConfig()
 {
     std::string portArg = GetCmdValue("-port=");
     if (!portArg.empty())
-        ServerPort = std::stoi(portArg);
+        g_ServerPort = std::stoi(portArg);
+
+    g_ExternalPort = g_ServerPort;
 
     std::string mapArg = GetCmdValue("-map=");
     if (!mapArg.empty())
@@ -698,3 +1141,4 @@ void LoadCommandLineConfig()
     if (!gameExeArg.empty())
         GameExePath = gameExeArg;
 }
+

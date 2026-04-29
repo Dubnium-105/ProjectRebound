@@ -144,10 +144,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="NetDriverAccess.h" />
     <ClInclude Include="framework.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp" />
+    <ClCompile Include="NetDriverAccess.cpp" />
     <ClCompile Include="libreplicate.cpp" />
     <ClCompile Include="safetyhook\safetyhook.cpp" />
     <ClCompile Include="safetyhook\Zydis.c" />

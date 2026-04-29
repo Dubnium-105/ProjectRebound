@@ -5,6 +5,7 @@
 #include <thread>
 #include <Windows.h>
 #include "SDK.hpp"
+#include "NetDriverAccess.h"
 #include "SDK/Engine_parameters.hpp"
 #include "SDK/ProjectBoundary_parameters.hpp"
 #include "safetyhook/safetyhook.hpp"
@@ -70,6 +71,7 @@ std::ofstream clientLogFile;
 struct ServerConfig {
     std::wstring MapName;
     std::wstring FullModePath;
+    unsigned int ExternalPort;
     unsigned int Port;
     bool IsPvE;
     int MinPlayersToStart;
@@ -208,7 +210,7 @@ nlohmann::json BuildServerStatusPayload()
         { "region",       Config.ServerRegion },
         { "mode",         mode },
         { "map",          map },
-        { "port",         Config.Port },
+        { "port",         Config.ExternalPort },
         { "playerCount",  playerCount },
         { "serverState",  state }
     };
@@ -401,6 +403,7 @@ SafetyHookInline TickFlush = {};
 
 void TickFlushHook(UNetDriver* NetDriver, float DeltaTime) {
     if (listening && NetDriver && UWorld::GetWorld()) {
+        NetDriverAccess::Observe(NetDriver, UWorld::GetWorld(), NetDriverAccess::Source::HookArgument);
 
         if (PlayerJoinTimerSelectFuck > 0.0f) {
             PlayerJoinTimerSelectFuck -= DeltaTime;
@@ -431,9 +434,6 @@ void TickFlushHook(UNetDriver* NetDriver, float DeltaTime) {
 
             }
         }
-
-        UWorld::GetWorld()->NetDriver = NetDriver;
-        NetDriver->World = UWorld::GetWorld();
 
         std::vector<LibReplicate::FActorInfo> ActorInfos = std::vector<LibReplicate::FActorInfo>();
         std::vector<UNetConnection*> Connections = std::vector<UNetConnection*>();
@@ -615,7 +615,11 @@ __int64 NotifyAcceptingConnectionHook(UObject* obj) {
 SafetyHookInline NotifyControlMessage = {};
 
 char NotifyControlMessageHook(unsigned __int64 ScuffedShit, __int64 a2, uint8_t a3, __int64 a4) {
-    UWorld::GetWorld()->NetDriver = (UIpNetDriver*)GetLastOfType(UIpNetDriver::StaticClass(), false);
+    if (UWorld* World = UWorld::GetWorld()) {
+        if (UNetDriver* ActiveNetDriver = NetDriverAccess::Resolve()) {
+            NetDriverAccess::Observe(ActiveNetDriver, World, NetDriverAccess::Source::Cached);
+        }
+    }
 
     return NotifyControlMessage.call<char>(ScuffedShit, a2, a3, a4);
 }
@@ -707,6 +711,12 @@ void* OnFireWeapon(APBWeapon* Weapon) {
 SafetyHookInline ProcessEventClient;
 
 void ProcessEventHookClient(UObject* Object, UFunction* Function, void* Parms) {
+    // TEMP LOGIN DEBUG DUMP (GameInstance only)
+    //if (Object && Object->IsA(UPBGameInstance::StaticClass()))
+    //{
+    //    std::string fn = Function->GetFullName();
+    //        std::cout << "[LOGIN-DUMP] GI :: " << fn << std::endl;
+    //}
     //Froce space to login
     if (Function->GetFullName().contains("UMG_EnterGame_C.Construct"))
     {
@@ -914,6 +924,21 @@ void LoadConfig()
     {
         Config.Port = 7777;
     }
+
+    // External port
+    std::string externalArg = GetCmdValue("-external=");
+    if (!externalArg.empty())
+    {
+        Config.ExternalPort = std::stoi(externalArg);
+    }
+    else
+    {
+        Config.ExternalPort = Config.Port;  // default same as internal
+    }
+
+    Log("[SERVER] External port: " + std::to_string(Config.ExternalPort));
+
+
     //Name
     std::string serverNameArg = GetCmdValue("-servername=");
     if (!serverNameArg.empty())
@@ -1034,7 +1059,7 @@ void StartServer()
     FName name = UKismetStringLibrary::Conv_StringToName(L"GameNetDriver");
     libReplicate->CreateNetDriver(Engine, World, &name);
 
-    UIpNetDriver* NetDriver = (UIpNetDriver*)GetLastOfType(UIpNetDriver::StaticClass(), false);
+    UIpNetDriver* NetDriver = reinterpret_cast<UIpNetDriver*>(NetDriverAccess::Resolve());
 
     if (!NetDriver)
     {
@@ -1042,12 +1067,17 @@ void StartServer()
         return;
     }
 
+    NetDriverAccess::Observe(NetDriver, World, NetDriverAccess::Source::ObjectScan);
     Log("[SERVER] NetDriver created successfully.");
-
-    World->NetDriver = NetDriver;
 
     Log("[SERVER] Calling Listen()...");
     libReplicate->Listen(NetDriver, World, LibReplicate::EJoinMode::Open, Config.Port);
+    NetDriverAccess::Observe(NetDriver, World, NetDriverAccess::Source::World);
+
+    NetDriverAccess::Snapshot snapshot{};
+    if (NetDriverAccess::TryGetSnapshot(snapshot, false)) {
+        Log("[SERVER] NetDriver exposed via source: " + std::string(NetDriverAccess::ToString(snapshot.LastSource)));
+    }
 
     listening = true;
 

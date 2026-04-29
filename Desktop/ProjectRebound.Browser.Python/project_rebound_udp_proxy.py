@@ -89,6 +89,10 @@ def punch_packet(ticket_id: str, nonce: str, role: str) -> bytes:
 def is_punch_packet(data: bytes) -> bool:
     if not data.startswith(b"{"):
         return False
+    try:
+        return json.loads(data.decode("utf-8")).get("type") == MAGIC
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return False
 
 
 def parse_json_packet(data: bytes) -> dict | None:
@@ -117,10 +121,6 @@ def create_relay_allocation(
         "/v1/relay/allocations",
         {"roomId": room_id, "role": role, "hostToken": host_token, "joinTicket": join_ticket},
     )
-    try:
-        return json.loads(data.decode("utf-8")).get("type") == MAGIC
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        return False
 
 
 def register_binding(api: ApiClient, sock: socket.socket, local_port: int, role: str, room_id: str | None = None) -> dict:
