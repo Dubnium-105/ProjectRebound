@@ -129,3 +129,25 @@ public sealed record CreateRelayAllocationResponse(
     string RelayHost,
     int RelayPort,
     DateTimeOffset ExpiresAt);
+
+// ---- MetaServer Matchmaking Backend (Section 2.2) ----
+
+public sealed record MatchmakingEnqueueRequest(
+    string UserId,
+    string RegionId,
+    string GameMode,
+    object? QosData = null);
+
+public sealed record MatchmakingEnqueueResponse(
+    Guid TicketId,
+    string Status);
+
+public sealed record MatchmakingStatusResponse(
+    Guid TicketId,
+    string Status,
+    string? ServerIp,
+    int? ServerPort);
+
+public sealed record MatchmakingCancelResponse(
+    Guid TicketId,
+    string Status);

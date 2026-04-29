@@ -40,6 +40,7 @@ public sealed class Room
     public int MaxPlayers { get; set; }
     public int PlayerCount { get; set; }
     public string? ServerState { get; set; }
+    public string? HostLoadoutSnapshotJson { get; set; }
     public RoomState State { get; set; } = RoomState.Open;
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset LastSeenAt { get; set; }
@@ -52,6 +53,7 @@ public sealed class RoomPlayer
     public Guid RoomId { get; set; }
     public Guid PlayerId { get; set; }
     public string JoinTicketHash { get; set; } = "";
+    public string? LoadoutSnapshotJson { get; set; }
     public RoomPlayerStatus Status { get; set; } = RoomPlayerStatus.Reserved;
     public DateTimeOffset JoinedAt { get; set; }
     public DateTimeOffset ExpiresAt { get; set; }

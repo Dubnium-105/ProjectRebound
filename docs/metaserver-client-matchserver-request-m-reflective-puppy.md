@@ -340,3 +340,83 @@ PlayerRoleDatas.push({
 → 运行 tools/analyze-logs.js --latest
 → 确认 0 个未知 RPC
 ```
+
+---
+
+## 9. 实现状态
+
+### 9.1 Payload C++ 变更（已完成）
+
+#### 文件修改
+
+| 文件 | 变更 |
+|------|------|
+| `Payload/Loadout/LoadoutSerializer.h` | 新增 `NormalizeLoadoutFormat()`、`DecodeWeaponArchiveRaw()`、`ApplySkinAndOrnament()` 声明 |
+| `Payload/Loadout/LoadoutSerializer.cpp` | 新增 ~250 行：格式归一化、最小 protobuf 解码器、皮肤/装饰品映射 |
+| `Payload/Loadout/LoadoutManager.cpp` | `OnRoleSelectionConfirmed()` 调用 `NormalizeLoadoutFormat()` 统一处理新旧格式 |
+| `Payload/Loadout/LoadoutApplication.cpp` | 修复 `GetFieldModManager()` 重复 return 语句 |
+
+#### NormalizeLoadoutFormat
+
+检测 metaserver 返回数据的格式并统一转换为结构化格式：
+
+- **检测新格式**：检查是否存在 `primaryWeapon` 或 `_weaponArchiveRaw` 键
+- **槽位映射**：`primaryWeapon`→FirstWeapon, `secondaryWeapon`→SecondWeapon, `meleeWeapon`→MeleeWeapon, `leftPod`/`leftLauncher`→LeftPod, `rightPod`/`rightLauncher`→RightPod, `mobilityModule`→Mobility
+- **武器配件**：从 `_weaponArchiveRaw` hex protobuf 解码 → `weaponConfigs`
+- **皮肤/装饰品**：`_skinToken`→characterData, `_ornamentId`→weapon ornament
+- **向后兼容**：若已是结构化格式则原样返回
+
+#### DecodeWeaponArchiveRaw
+
+最小 protobuf wire-format 解码器，无需依赖 protobuf 库：
+
+- 解析 varint 标签和长度前缀
+- 遍历 `WeaponArchivePayload` → `WeaponConfig` → `WeaponPartSlot` 三层嵌套
+- 输出 `{ weaponId: { parts: [{slotType, weaponPartId, ...}] } }` JSON
+- 对未知 PartOrigin 字段安全跳过
+
+#### 数据流
+
+```
+MetaServer HTTP API 响应（新旧格式均可）
+  → NormalizeLoadoutFormat() 归一化
+  → ValidateLoadout() / FilterLoadout()
+  → PreSpawnApply() / PostSpawnApply()
+```
+
+### 9.2 Matchmaking Backend（已完成）
+
+#### 新增端点
+
+| 方法 | 路径 | 请求 | 响应 |
+|------|------|------|------|
+| `POST` | `/matchmaking/enqueue` | `{ userId, regionId, gameMode, qosData? }` | `{ ticketId, status: "queued" }` |
+| `GET` | `/matchmaking/status/{ticketId}` | — | `{ ticketId, status, serverIp?, serverPort? }` |
+| `POST` | `/matchmaking/cancel/{ticketId}` | — | `{ ticketId, status: "cancelled" }` |
+
+状态映射：`Waiting`→`"queued"`, `Matched`/`HostAssigned`→`"found"`, `Canceled`→`"cancelled"`, `Expired`→`"timeout"`
+
+#### 实现文件
+
+| 文件 | 变更 |
+|------|------|
+| `Shared/ProjectRebound.Contracts/ApiContracts.cs` | 新增 `MatchmakingEnqueueRequest`、`MatchmakingEnqueueResponse`、`MatchmakingStatusResponse`、`MatchmakingCancelResponse` 记录类型 |
+| `Backend/ProjectRebound.MatchServer/Program.cs` | 新增 3 个端点，复用现有 `MatchTicket` 实体和 `MatchmakingService` 后台匹配逻辑 |
+
+#### 匹配流程
+
+1. MetaServer 调用 `POST /matchmaking/enqueue` → 创建 `MatchTicket`（`CanHost=false`）→ 加入 `MatchmakingService` 轮询队列
+2. `MatchmakingService` 定时匹配 `Waiting` 状态 tickets 到已有 `Room` 或为新 host-capable ticket 创建 `Room`
+3. MetaServer 轮询 `GET /matchmaking/status/{ticketId}` → 状态为 `"found"` 时返回 `serverIp`:`serverPort`
+4. 客户端连接 MatchServer 游戏端口
+
+### 9.3 待后续实现
+
+| 优先级 | 项目 | 说明 |
+|--------|------|------|
+| P1 | UDP QoS (0x59/0x95) | MatchServer 当前无 UDP QoS 响应；需在 C# 中添加 UDP socket 监听 :9000 |
+| P1 | MetaServer StartUnityMatchmaking 改造 | MetaServer 不在本 repo 中；需在 BoundaryMetaServer 项目中对接 `/matchmaking/enqueue` |
+| P1 | MetaServer QueryUnityMatchmaking 改造 | 同上，轮询 `/matchmaking/status/{ticketId}` 并返回结果给客户端 |
+| P2 | MetaServer GetPlayerArchiveV2 增强 | 返回 `_weaponArchiveRaw`、`_skinToken`、`_ornamentId` 字段 |
+| P2 | TCP 游戏协议 | MatchServer TCP :9000 handler 当前为占位，需实现完整 GameServer |
+| P3 | 皮肤/装饰品同步 | SkinPayload 数据经 MetaServer→MatchServer→游戏内传递 |

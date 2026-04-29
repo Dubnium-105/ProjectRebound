@@ -824,6 +824,132 @@ app.MapPost("/v1/relay/allocations", async (
         allocation.ExpiresAt));
 });
 
+// ================================================================
+//  MetaServer Matchmaking Backend (per metaserver spec Section 2.2)
+// ================================================================
+//  Called by MetaServer internally to enqueue/query/cancel matches.
+//  Protected by X-MetaServer-Secret header in production.
+
+app.MapPost("/matchmaking/enqueue", async (
+    MatchmakingEnqueueRequest request,
+    MatchServerDbContext db,
+    Microsoft.Extensions.Options.IOptions<MatchServerOptions> options,
+    CancellationToken cancellationToken) =>
+{
+    var playerGuid = Guid.TryParse(request.UserId, out var pid) ? pid : Guid.NewGuid();
+    var now = DateTimeOffset.UtcNow;
+
+    // Ensure a Player row exists for this UserId (idempotent)
+    var player = await db.Players.FirstOrDefaultAsync(x => x.PlayerId == playerGuid, cancellationToken);
+    if (player is null)
+    {
+        player = new Player
+        {
+            PlayerId = playerGuid,
+            DisplayName = request.UserId,
+            DeviceTokenHash = $"metaserver:{playerGuid:N}",
+            CreatedAt = now,
+            LastSeenAt = now,
+            Status = PlayerStatus.Active
+        };
+        db.Players.Add(player);
+    }
+    else
+    {
+        player.LastSeenAt = now;
+    }
+
+    var ticket = new MatchTicket
+    {
+        TicketId = Guid.NewGuid(),
+        PlayerId = playerGuid,
+        Region = string.IsNullOrWhiteSpace(request.RegionId) ? "CN" : request.RegionId.Trim(),
+        Map = null,
+        Mode = string.IsNullOrWhiteSpace(request.GameMode) ? null : request.GameMode.Trim(),
+        Version = "dev",
+        CanHost = false,
+        ProbeId = null,
+        MaxPlayers = 12,
+        State = MatchTicketState.Waiting,
+        CreatedAt = now,
+        ExpiresAt = now.AddSeconds(options.Value.MatchTicketSeconds)
+    };
+
+    db.MatchTickets.Add(ticket);
+    await db.SaveChangesAsync(cancellationToken);
+    return Results.Ok(new MatchmakingEnqueueResponse(ticket.TicketId, "queued"));
+});
+
+app.MapGet("/matchmaking/status/{ticketId:guid}", async (
+    Guid ticketId,
+    MatchServerDbContext db,
+    CancellationToken cancellationToken) =>
+{
+    var ticket = await db.MatchTickets.AsNoTracking().FirstOrDefaultAsync(x => x.TicketId == ticketId, cancellationToken);
+    if (ticket is null)
+        return Results.NotFound(new ApiError("NOT_FOUND", "Ticket not found."));
+
+    string status;
+    string? serverIp = null;
+    int? serverPort = null;
+
+    switch (ticket.State)
+    {
+        case MatchTicketState.Waiting:
+            status = "queued";
+            break;
+        case MatchTicketState.Matched:
+        case MatchTicketState.HostAssigned:
+            status = "found";
+            if (ticket.AssignedRoomId is not null)
+            {
+                var room = await db.Rooms.AsNoTracking().FirstOrDefaultAsync(x => x.RoomId == ticket.AssignedRoomId, cancellationToken);
+                if (room is not null)
+                {
+                    var parts = room.Endpoint.Split(':');
+                    serverIp = parts[0];
+                    if (parts.Length > 1 && int.TryParse(parts[1], out var port))
+                        serverPort = port;
+                }
+            }
+            break;
+        case MatchTicketState.Canceled:
+            status = "cancelled";
+            break;
+        case MatchTicketState.Expired:
+            status = "timeout";
+            break;
+        case MatchTicketState.Failed:
+            status = ticket.FailureReason ?? "timeout";
+            break;
+        default:
+            status = "queued";
+            break;
+    }
+
+    return Results.Ok(new MatchmakingStatusResponse(
+        ticket.TicketId,
+        status,
+        serverIp,
+        serverPort));
+});
+
+app.MapPost("/matchmaking/cancel/{ticketId:guid}", async (
+    Guid ticketId,
+    MatchServerDbContext db,
+    CancellationToken cancellationToken) =>
+{
+    var updated = await db.MatchTickets
+        .Where(x => x.TicketId == ticketId && x.State == MatchTicketState.Waiting)
+        .ExecuteUpdateAsync(x => x
+            .SetProperty(p => p.State, MatchTicketState.Canceled)
+            .SetProperty(p => p.FailureReason, "canceled"), cancellationToken);
+
+    return Results.Ok(new MatchmakingCancelResponse(
+        ticketId,
+        updated > 0 ? "cancelled" : "not_found"));
+});
+
 await app.RunAsync();
 
 static IResult BadRequest(string code, string message)
