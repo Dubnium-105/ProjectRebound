@@ -30,7 +30,7 @@ MatchServer 运行在 `204.12.195.98:9000`，同时处理 UDP（QoS 延迟测量
 
 ---
 
-## 1. UDP QoS 协议（必须实现）
+## 1. UDP QoS 协议（已完成 — Go 实现）
 
 ### 协议格式（已逆向）
 
@@ -58,6 +58,25 @@ udp.on('message', (msg, info) => {
 ```
 
 QoS 用于客户端测量到各区域服务器的延迟，选择最优匹配区域。
+
+### Go 实现
+
+`matchserver/internal/udp/qos.go` — `QoSService` goroutine，单 goroutine ReadFromUDP 循环，无状态无锁：
+
+```go
+func (s *QoSService) run(ctx context.Context) {
+    buf := make([]byte, 1500)
+    for {
+        n, remote, _ := s.conn.ReadFromUDP(buf)
+        if n < 11 || buf[0] != 0x59 { continue }
+        resp := make([]byte, 2+n-11)
+        resp[0] = 0x95
+        resp[1] = 0x00
+        copy(resp[2:], buf[11:n])
+        s.conn.WriteToUDP(resp, remote)
+    }
+}
+```
 
 ---
 
@@ -402,6 +421,8 @@ MetaServer HTTP API 响应（新旧格式均可）
 |------|------|
 | `Shared/ProjectRebound.Contracts/ApiContracts.cs` | 新增 `MatchmakingEnqueueRequest`、`MatchmakingEnqueueResponse`、`MatchmakingStatusResponse`、`MatchmakingCancelResponse` 记录类型 |
 | `Backend/ProjectRebound.MatchServer/Program.cs` | 新增 3 个端点，复用现有 `MatchTicket` 实体和 `MatchmakingService` 后台匹配逻辑 |
+| **Go**: `matchserver/internal/http/metaserver_handler.go` | `handleMetaServerEnqueue/Status/Cancel` 完整实现 |
+| **Go**: `matchserver/internal/matchmaking/metaserver_matcher.go` | `MetaServerMatcher` goroutine: 分组凑齐→选主机→建 relay→上报 |
 
 #### 匹配流程
 
@@ -414,9 +435,30 @@ MetaServer HTTP API 响应（新旧格式均可）
 
 | 优先级 | 项目 | 说明 |
 |--------|------|------|
-| P1 | UDP QoS (0x59/0x95) | MatchServer 当前无 UDP QoS 响应；需在 C# 中添加 UDP socket 监听 :9000 |
+| ~~P1~~ | ~~UDP QoS (0x59/0x95)~~ | **已完成** — Go MatchServer 实现了 `:9000/udp` QoSService goroutine，单 goroutine ReadFromUDP 循环，`0x59`→`0x95 0x00` echo，无状态无锁。 |
 | P1 | MetaServer StartUnityMatchmaking 改造 | MetaServer 不在本 repo 中；需在 BoundaryMetaServer 项目中对接 `/matchmaking/enqueue` |
 | P1 | MetaServer QueryUnityMatchmaking 改造 | 同上，轮询 `/matchmaking/status/{ticketId}` 并返回结果给客户端 |
 | P2 | MetaServer GetPlayerArchiveV2 增强 | 返回 `_weaponArchiveRaw`、`_skinToken`、`_ornamentId` 字段 |
-| P2 | TCP 游戏协议 | MatchServer TCP :9000 handler 当前为占位，需实现完整 GameServer |
+| P2 | TCP 游戏协议 | 不在 Go MatchServer 范围——Go 只做匹配协调 + 中继，游戏在玩家主机上运行 |
 | P3 | 皮肤/装饰品同步 | SkinPayload 数据经 MetaServer→MatchServer→游戏内传递 |
+
+### 9.4 Go 重构状态（2026-04-29）
+
+MatchServer 已用 Go 重写（`matchserver/`），替代 C# .NET 8 实现：
+
+| 功能 | 状态 |
+|------|------|
+| HTTP API（全部 v1 端点 + MetaServer） | 已完成 |
+| UDP Rendezvous `:5001` | 已完成 |
+| UDP Relay `:5002`（含 Worker Pool + 弱网 zstd 压缩） | 已完成 |
+| UDP QoS `:9000` (0x59/0x95) | 已完成 |
+| P2P Matchmaker (2s ticker) | 已完成 |
+| MetaServer Matchmaker（分组→选主机→建 relay→上报） | 已完成 |
+| Lifecycle Sweeper (5s ticker) | 已完成 |
+| Relay QoS Metrics (10s ticker, 自动开关压缩) | 已完成 |
+| 优雅关闭 (signal.NotifyContext + WaitGroup) | 已完成 |
+
+Go 二进制 11 MB，零运行时依赖。构建命令：
+```bash
+cd matchserver && go build -ldflags="-s -w" -o matchserver ./cmd/matchserver/
+```

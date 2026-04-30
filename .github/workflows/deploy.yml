@@ -1,0 +1,46 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: matchserver
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Build (Linux amd64)
+        run: GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o matchserver ./cmd/matchserver/
+
+      - name: Install SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+      - name: Upload binary to VPS
+        run: |
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/deploy_key \
+            matchserver \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/matchserver-new
+
+      - name: Upload deploy script to VPS
+        run: |
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/deploy_key \
+            deploy/deploy.sh \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/deploy.sh
+
+      - name: Run deploy script
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/deploy_key \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            "sudo bash /tmp/deploy.sh"

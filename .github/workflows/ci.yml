@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  go-build:
+    name: Go Build & Vet
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: matchserver
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build (Linux amd64)
+        run: GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o matchserver ./cmd/matchserver/
+
+      - name: Upload binary artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: matchserver-linux-amd64
+          path: matchserver/matchserver
+          retention-days: 7
+
+  go-test:
+    name: Go Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: matchserver
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Test
+        run: go test ./...
+
+  dotnet-build:
+    name: .NET Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
