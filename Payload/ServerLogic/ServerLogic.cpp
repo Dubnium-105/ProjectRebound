@@ -2,12 +2,14 @@
 #include "ServerLogic.h"
 #include "../Config/Config.h"
 #include "../Debug/Debug.h"
+#include "../Network/Network.h"
 #include "../Network/NetDriverAccess.h"
 #include "../ServerLogic/LateJoinManager.h"
 #include "../Replication/libreplicate.h"
 #include "../SDK/Engine_parameters.hpp"
 #include "../SDK/ProjectBoundary_parameters.hpp"
 #include <Windows.h>
+#include <atomic>
 #include <iostream>
 #include <thread>
 #include <chrono>
@@ -16,6 +18,36 @@ using namespace SDK;
 
 extern LibReplicate *libReplicate;
 extern uintptr_t BaseAddress;
+
+namespace
+{
+    constexpr DWORD HeartbeatFreshnessMs = 15000;
+    constexpr DWORD MatchEndExitDelayMs = 12000;
+
+    std::atomic<bool> gServerShutdownRequested{false};
+    std::atomic<bool> gRoomStartReported{false};
+    std::atomic<bool> gRoomEndReported{false};
+    std::atomic<ULONGLONG> gLastServerGameTickMs{0};
+
+    void DelayedExitAfterMatchEnd(std::string reason)
+    {
+        Sleep(MatchEndExitDelayMs);
+
+        listening = false;
+
+        if (!gRoomEndReported.exchange(true) &&
+            !OnlineBackendAddress.empty() &&
+            !HostRoomId.empty() &&
+            !HostToken.empty())
+        {
+            SendRoomLifecycleEvent(OnlineBackendAddress, "end");
+        }
+
+        std::cout << "[SERVER_EXIT] reason=" << reason << std::endl;
+        Sleep(250);
+        ExitProcess(0);
+    }
+}
 
 // ======================================================
 //  SECTION 6 — REPLICATION SYSTEM GLOBALS (moved to ServerLogic)
@@ -80,6 +112,58 @@ int GetCurrentPlayerCount()
         return -1;
 
     return GS->PlayerArray.Num();
+}
+
+void NoteServerGameTick()
+{
+    gLastServerGameTickMs.store(GetTickCount64(), std::memory_order_release);
+}
+
+bool IsServerHeartbeatHealthy()
+{
+    if (gServerShutdownRequested.load(std::memory_order_acquire) || !listening)
+        return false;
+
+    const ULONGLONG lastTick = gLastServerGameTickMs.load(std::memory_order_acquire);
+    return lastTick != 0 && GetTickCount64() <= lastTick + HeartbeatFreshnessMs;
+}
+
+bool IsServerShutdownRequested()
+{
+    return gServerShutdownRequested.load(std::memory_order_acquire);
+}
+
+bool IsTerminalRoundState(const std::string &roundState)
+{
+    return roundState.contains("ShowingMatchResult") ||
+           roundState.contains("MatchEnding") ||
+           roundState.contains("WaitingToEndGame");
+}
+
+void HandleServerMatchStarted()
+{
+    if (gRoomStartReported.exchange(true))
+        return;
+
+    std::cout << "[SERVER_LIFECYCLE] match_started" << std::endl;
+
+    if (!OnlineBackendAddress.empty() && !HostRoomId.empty() && !HostToken.empty())
+        SendRoomLifecycleEvent(OnlineBackendAddress, "start");
+}
+
+void HandleServerMatchEndSignal(const char *reason)
+{
+    if (gServerShutdownRequested.exchange(true))
+        return;
+
+    listening = false;
+
+    const std::string shutdownReason = reason && reason[0] ? reason : "match_end";
+    std::cout << "[SERVER_LIFECYCLE] match_end_detected reason=" << shutdownReason << std::endl;
+
+    // Keep the hook path lightweight: let the engine finish the current event,
+    // then end the backend room and terminate from a detached worker.
+    std::thread(DelayedExitAfterMatchEnd, shutdownReason).detach();
 }
 
 // ======================================================

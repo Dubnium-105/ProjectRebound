@@ -59,6 +59,8 @@ void MainThread()
                 *reinterpret_cast<__int8*>(BaseAddress + GameOffsets::Memory::ServerModeFlag0) = 0;
                 *reinterpret_cast<__int8*>(BaseAddress + GameOffsets::Memory::ServerModeFlag1) = 1;
             }
+
+            Sleep(10);
         }
 
         // DebugLocateSubsystems();

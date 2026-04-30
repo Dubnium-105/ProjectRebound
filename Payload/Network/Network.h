@@ -7,4 +7,5 @@ nlohmann::json BuildServerStatusPayload();
 nlohmann::json BuildRoomHeartbeatPayload();
 std::string StripHttpScheme(const std::string &backend);
 void SendServerStatus(const std::string &backend);
+bool SendRoomLifecycleEvent(const std::string &backend, const std::string &lifecycleAction);
 void StartHeartbeatThread();

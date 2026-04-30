@@ -41,7 +41,10 @@ namespace
         ServerConfirmRoleSelection,
         ReadyToMatchIntroWaitingToStart,
         ClientBeKilled,
-        PlayerCanRestart
+        PlayerCanRestart,
+        MatchHasEnded,
+        StartMatchEnding,
+        StartShowingMatchResult
     };
 
     enum class EClientProcessEventKind
@@ -107,6 +110,12 @@ namespace
             return EServerProcessEventKind::ClientBeKilled;
         if (functionName.contains("PlayerCanRestart"))
             return EServerProcessEventKind::PlayerCanRestart;
+        if (functionName.contains("K2_MatchHasEnded"))
+            return EServerProcessEventKind::MatchHasEnded;
+        if (functionName.contains("K2_StartMatchEnding"))
+            return EServerProcessEventKind::StartMatchEnding;
+        if (functionName.contains("K2_StartShowingMatchResult"))
+            return EServerProcessEventKind::StartShowingMatchResult;
 
         return EServerProcessEventKind::None;
     }
@@ -306,6 +315,13 @@ static SafetyHookInline TickFlush = {};
 
 void TickFlushHook(UNetDriver *NetDriver, float DeltaTime)
 {
+    NoteServerGameTick();
+
+    if (IsServerShutdownRequested())
+    {
+        return TickFlush.call(NetDriver, DeltaTime);
+    }
+
     UWorld* World = UWorld::GetWorld();
 
     if (listening && NetDriver && World)
@@ -347,6 +363,12 @@ void TickFlushHook(UNetDriver *NetDriver, float DeltaTime)
     if (CurrentGameState && !CurrentGameState->IsRoundInProgress())
     {
         const std::string RoundState = CurrentGameState->RoundState.ToString();
+
+        if (DidProcStartMatch && IsTerminalRoundState(RoundState))
+        {
+            std::string reason = "round_state_" + RoundState;
+            HandleServerMatchEndSignal(reason.c_str());
+        }
 
         if (RoundState.contains("InvalidState"))
         {
@@ -407,6 +429,7 @@ void TickFlushHook(UNetDriver *NetDriver, float DeltaTime)
             if (CurrentWorld->AuthorityGameMode)
             {
                 ((APBGameMode *)CurrentWorld->AuthorityGameMode)->StartMatch();
+                HandleServerMatchStarted();
             }
         }
     }
@@ -471,6 +494,19 @@ static SafetyHookInline ProcessEvent;
 void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
 {
     const FCachedProcessEventInfo& EventInfo = GetProcessEventInfo(Function);
+
+    if (EventInfo.ServerKind == EServerProcessEventKind::MatchHasEnded)
+    {
+        HandleServerMatchEndSignal("process_event_match_has_ended");
+    }
+    else if (EventInfo.ServerKind == EServerProcessEventKind::StartMatchEnding)
+    {
+        HandleServerMatchEndSignal("process_event_start_match_ending");
+    }
+    else if (EventInfo.ServerKind == EServerProcessEventKind::StartShowingMatchResult)
+    {
+        HandleServerMatchEndSignal("process_event_start_showing_match_result");
+    }
 
     if (EventInfo.ServerKind == EServerProcessEventKind::QuickRespawn)
     {

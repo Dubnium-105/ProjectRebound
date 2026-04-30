@@ -16,6 +16,106 @@
 
 using namespace SDK;
 
+namespace
+{
+    bool BuildHttpTarget(const std::string &backend, std::string &host, INTERNET_PORT &port)
+    {
+        std::string cleanBackend = StripHttpScheme(backend);
+
+        size_t slash = cleanBackend.find('/');
+        if (slash != std::string::npos)
+            cleanBackend = cleanBackend.substr(0, slash);
+
+        size_t colon = cleanBackend.find(':');
+        if (colon == std::string::npos)
+        {
+            std::cout << "[ONLINE] Invalid backend address format." << std::endl;
+            return false;
+        }
+
+        host = cleanBackend.substr(0, colon);
+        std::string portText = cleanBackend.substr(colon + 1);
+
+        try
+        {
+            int parsedPort = std::stoi(portText);
+            if (parsedPort <= 0 || parsedPort > 65535)
+                return false;
+
+            port = static_cast<INTERNET_PORT>(parsedPort);
+            return true;
+        }
+        catch (...)
+        {
+            std::cout << "[ONLINE] Invalid backend port." << std::endl;
+            return false;
+        }
+    }
+
+    bool SendJsonPost(const std::string &backend, const std::string &path, const nlohmann::json &payload, const char *logPrefix)
+    {
+        std::string host;
+        INTERNET_PORT port = 0;
+        if (!BuildHttpTarget(backend, host, port))
+            return false;
+
+        const std::string body = payload.dump();
+
+        HINTERNET hSession = WinHttpOpen(L"BoundaryDLL/1.0",
+                                         WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+                                         WINHTTP_NO_PROXY_NAME,
+                                         WINHTTP_NO_PROXY_BYPASS, 0);
+        if (!hSession)
+            return false;
+
+        WinHttpSetTimeouts(hSession, 3000, 3000, 3000, 3000);
+
+        std::wstring whost(host.begin(), host.end());
+        HINTERNET hConnect = WinHttpConnect(hSession, whost.c_str(), port, 0);
+        if (!hConnect)
+        {
+            WinHttpCloseHandle(hSession);
+            return false;
+        }
+
+        std::wstring wpath(path.begin(), path.end());
+        HINTERNET hRequest = WinHttpOpenRequest(
+            hConnect,
+            L"POST",
+            wpath.c_str(),
+            NULL,
+            WINHTTP_NO_REFERER,
+            WINHTTP_DEFAULT_ACCEPT_TYPES,
+            0);
+
+        if (!hRequest)
+        {
+            WinHttpCloseHandle(hConnect);
+            WinHttpCloseHandle(hSession);
+            return false;
+        }
+
+        BOOL ok = WinHttpSendRequest(
+            hRequest,
+            L"Content-Type: application/json",
+            -1,
+            (LPVOID)body.c_str(),
+            (DWORD)body.size(),
+            (DWORD)body.size(),
+            0);
+
+        if (ok)
+            ok = WinHttpReceiveResponse(hRequest, NULL);
+
+        WinHttpCloseHandle(hRequest);
+        WinHttpCloseHandle(hConnect);
+        WinHttpCloseHandle(hSession);
+
+        std::cout << logPrefix << (ok ? " Sent " : " Failed ") << path << ": " << body << std::endl;
+        return ok == TRUE;
+    }
+}
+
 // ======================================================
 //  SECTION 4 — UTILITY HELPERS (network related)
 // ======================================================
@@ -94,77 +194,23 @@ void SendServerStatus(const std::string &backend)
         payload["hostToken"] = HostToken;
     }
 
-    std::string body = payload.dump();
-    std::string cleanBackend = StripHttpScheme(backend);
-
-    size_t slash = cleanBackend.find('/');
-    if (slash != std::string::npos)
-        cleanBackend = cleanBackend.substr(0, slash);
-
-    size_t colon = cleanBackend.find(':');
-    if (colon == std::string::npos)
-    {
-        std::cout << "[ONLINE] Invalid backend address format." << std::endl;
-        return;
-    }
-
-    std::string host = cleanBackend.substr(0, colon);
-    std::string port = cleanBackend.substr(colon + 1);
     std::string path = useRoomHeartbeat
                            ? "/v1/rooms/" + HostRoomId + "/heartbeat"
                            : "/server/status";
 
-    HINTERNET hSession = WinHttpOpen(L"BoundaryDLL/1.0",
-                                     WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
-                                     WINHTTP_NO_PROXY_NAME,
-                                     WINHTTP_NO_PROXY_BYPASS, 0);
+    SendJsonPost(backend, path, payload, "[ONLINE]");
+}
 
-    if (!hSession)
-        return;
+bool SendRoomLifecycleEvent(const std::string &backend, const std::string &lifecycleAction)
+{
+    if (HostRoomId.empty() || HostToken.empty())
+        return false;
 
-    std::wstring whost(host.begin(), host.end());
-    INTERNET_PORT wport = (INTERNET_PORT)std::stoi(port);
+    nlohmann::json payload = {
+        {"hostToken", HostToken}};
 
-    HINTERNET hConnect = WinHttpConnect(hSession, whost.c_str(), wport, 0);
-    if (!hConnect)
-    {
-        WinHttpCloseHandle(hSession);
-        return;
-    }
-
-    HINTERNET hRequest = WinHttpOpenRequest(
-        hConnect,
-        L"POST",
-        std::wstring(path.begin(), path.end()).c_str(),
-        NULL,
-        WINHTTP_NO_REFERER,
-        WINHTTP_DEFAULT_ACCEPT_TYPES,
-        0);
-
-    if (!hRequest)
-    {
-        WinHttpCloseHandle(hConnect);
-        WinHttpCloseHandle(hSession);
-        return;
-    }
-
-    BOOL bResults = WinHttpSendRequest(
-        hRequest,
-        L"Content-Type: application/json",
-        -1,
-        (LPVOID)body.c_str(),
-        (DWORD)body.size(),
-        (DWORD)body.size(),
-        0);
-
-    if (bResults)
-        WinHttpReceiveResponse(hRequest, NULL);
-
-    WinHttpCloseHandle(hRequest);
-    WinHttpCloseHandle(hConnect);
-    WinHttpCloseHandle(hSession);
-
-    std::cout << "[ONLINE] Sent " << path << ": " << body << std::endl;
+    std::string path = "/v1/rooms/" + HostRoomId + "/" + lifecycleAction;
+    return SendJsonPost(backend, path, payload, "[LIFECYCLE]");
 }
 
 // 心跳线程（原本在 MainThread 中启动）
@@ -173,23 +219,34 @@ void StartHeartbeatThread()
     std::thread([]()
                 {
         // Wait until Gamestate is Valid
-        while (!UWorld::GetWorld() ||
+        while (!IsServerShutdownRequested() &&
+            (!UWorld::GetWorld() ||
             !UWorld::GetWorld()->AuthorityGameMode ||
-            !UWorld::GetWorld()->AuthorityGameMode->GameState)
+            !UWorld::GetWorld()->AuthorityGameMode->GameState))
         {
             Sleep(100);
         }
-        while (true)
+        while (!IsServerShutdownRequested())
         {
-            int pc = GetCurrentPlayerCount();
-            std::cout << "[HEARTBEAT] PlayerCount = " << pc << std::endl;
-
-            if (!OnlineBackendAddress.empty())
+            if (IsServerHeartbeatHealthy())
             {
-                SendServerStatus(OnlineBackendAddress);
+                int pc = GetCurrentPlayerCount();
+                std::cout << "[HEARTBEAT] PlayerCount = " << pc << std::endl;
+
+                if (!OnlineBackendAddress.empty())
+                {
+                    SendServerStatus(OnlineBackendAddress);
+                }
+            }
+            else
+            {
+                std::cout << "[HEALTH] Heartbeat suppressed: game tick is stale or shutdown is pending." << std::endl;
             }
 
             Sleep(5000);
-        } })
+
+        }
+
+        std::cout << "[HEALTH] Heartbeat thread stopped." << std::endl; })
         .detach();
 }
