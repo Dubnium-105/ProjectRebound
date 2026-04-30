@@ -369,3 +369,8 @@ MigrationBackup/
 FodyWeavers.xsd
 /ServerLauncherGUI/ProjectReboundLauncher/build
 /ServerLauncherGUI/ProjectReboundLauncher/resource
+matchserver/matchserver.db
+matchserver/matchserver.db-shm
+matchserver/matchserver.db-wal
+matchserver/matchserver.exe
+.vscode/settings.json
