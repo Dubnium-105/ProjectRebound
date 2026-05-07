@@ -1,0 +1,25 @@
+[Unit]
+Description=ProjectRebound Go MatchServer
+After=network.target
+
+[Service]
+Type=simple
+User=projectrebound
+Group=projectrebound
+WorkingDirectory=/opt/projectrebound/matchserver
+ExecStart=/opt/projectrebound/matchserver/matchserver --config /etc/projectrebound/matchserver.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+
+Environment=MATCHSERVER_DATABASE_PATH=/var/lib/projectrebound/matchserver.db
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/projectrebound /var/log/projectrebound
+ReadOnlyPaths=/etc/projectrebound /opt/projectrebound/matchserver
+
+[Install]
+WantedBy=multi-user.target
