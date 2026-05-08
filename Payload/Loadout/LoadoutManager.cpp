@@ -14,18 +14,16 @@
 #include "LoadoutManager.h"
 #include "LoadoutSerializer.h"
 #include "LoadoutApplication.h"
+#include "MetaserverClient.h"
 
 #include <Windows.h>
 
 #include <algorithm>
-#include <chrono>
+#include <cctype>
 #include <cstdint>
 #include <cstdlib>
-#include <filesystem>
-#include <fstream>
-#include <iostream>
 #include <mutex>
-#include <sstream>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -36,6 +34,7 @@
 #include "../SDK/ProjectBoundary_parameters.hpp"
 #include "../Libs/json.hpp"
 #include "../Debug/Debug.h"
+#include "../Config/Config.h"
 
 using namespace SDK;
 using namespace LoadoutSerializer;
@@ -66,9 +65,10 @@ public:
     std::mutex mutex;
     std::unordered_map<APBPlayerController*, PerPlayerSnapshot> perPlayerSnapshots;
 
-    // ---- 本地快照（配装数据源） ----
-    nlohmann::json localSnapshot;
-    bool localSnapshotAvailable = false;
+    // In-match loadout bridge to BoundaryMetaServer.
+    LoadoutMetaserver::MetaserverClient metaserver;
+    bool metaserverChecked = false;
+    bool metaserverAvailable = false;
 };
 
 // =====================================================================
@@ -90,52 +90,188 @@ LoadoutManager& LoadoutManager::operator=(LoadoutManager&&) noexcept = default;
 
 namespace
 {
-    std::filesystem::path GetExportSnapshotPath()
+    constexpr const char* kDefaultMetaserverUrl = "http://127.0.0.1:8000";
+    constexpr const char* kFallbackPlayerId = "76561198211631084";
+
+    std::string TrimAscii(std::string value)
     {
-        char* appData = nullptr;
-        size_t len = 0;
-        if (_dupenv_s(&appData, &len, "APPDATA") == 0 && appData && *appData)
-        {
-            auto result = std::filesystem::path(appData) / "ProjectReboundBrowser" / "loadout-export-v1.json";
-            free(appData);
-            return result;
-        }
-        free(appData);
-        return std::filesystem::current_path() / "ProjectReboundBrowser" / "loadout-export-v1.json";
+        auto isSpace = [](unsigned char ch) { return std::isspace(ch) != 0; };
+        value.erase(value.begin(), std::find_if(value.begin(), value.end(), [&](char ch) {
+            return !isSpace(static_cast<unsigned char>(ch));
+        }));
+        value.erase(std::find_if(value.rbegin(), value.rend(), [&](char ch) {
+            return !isSpace(static_cast<unsigned char>(ch));
+        }).base(), value.end());
+        return value;
     }
 
-    // 从本地磁盘加载快照
-    void EnsureLocalSnapshotLoaded(nlohmann::json& localSnapshot, bool& localSnapshotAvailable)
+    std::string ToLowerAscii(std::string value)
     {
-        if (localSnapshotAvailable) return;
+        std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
+            return static_cast<char>(std::tolower(ch));
+        });
+        return value;
+    }
 
-        // 优先级：custom > launch > export
-        const auto appDataRoot = GetExportSnapshotPath().parent_path();
-        const auto customPath = appDataRoot / "custom-loadout-v1.json";
-        const auto launchPath = appDataRoot / "launchers" / "loadout-launch-v1.json";
-        const auto exportPath = appDataRoot / "loadout-export-v1.json";
+    std::string GetEnvValue(const char* name)
+    {
+        char* raw = nullptr;
+        size_t len = 0;
+        std::string value;
+        if (_dupenv_s(&raw, &len, name) == 0 && raw)
+        {
+            value = raw;
+        }
+        free(raw);
+        return TrimAscii(value);
+    }
 
-        nlohmann::json loaded;
-        if (LoadCustomLoadoutConfig(loaded))
+    std::string ResolveMetaserverBaseUrl()
+    {
+        std::string url = TrimAscii(GetCmdValue("-LogicServerURL="));
+        if (url.empty()) url = GetEnvValue("PROJECT_REBOUND_METASERVER_URL");
+        if (url.empty()) url = kDefaultMetaserverUrl;
+        return url;
+    }
+
+    bool LooksLikePlayerId(const std::string& value)
+    {
+        if (value.empty() || value == "None" || value.size() > 128) return false;
+        for (unsigned char ch : value)
         {
-            ClientLog("[LOADOUT] Using custom loadout");
+            if (std::isspace(ch) || ch == '{' || ch == '}' || ch == '"' || ch == '\'') return false;
         }
-        else if (ReadJsonFile(launchPath, loaded))
+        return true;
+    }
+
+    std::string FindPlayerIdInJson(const nlohmann::json& value)
+    {
+        if (value.is_string())
         {
-            ClientLog("[LOADOUT] Using launch snapshot");
-            try { std::filesystem::remove(launchPath); } catch (...) {}
+            const std::string candidate = TrimAscii(value.get<std::string>());
+            return LooksLikePlayerId(candidate) ? candidate : "";
         }
-        else if (ReadJsonFile(exportPath, loaded))
+        if (value.is_array())
         {
-            ClientLog("[LOADOUT] Using export snapshot");
+            for (const auto& entry : value)
+            {
+                const std::string found = FindPlayerIdInJson(entry);
+                if (!found.empty()) return found;
+            }
+            return "";
+        }
+        if (!value.is_object()) return "";
+
+        static const std::vector<std::string> preferredKeys = {
+            "playerid", "player_id", "userid", "user_id", "steamid", "steam_id",
+            "uniqueid", "unique_id", "uniquenetid", "platformid", "platform_id", "id"
+        };
+
+        for (auto it = value.begin(); it != value.end(); ++it)
+        {
+            const std::string key = ToLowerAscii(it.key());
+            if (std::find(preferredKeys.begin(), preferredKeys.end(), key) == preferredKeys.end()) continue;
+
+            const std::string found = FindPlayerIdInJson(it.value());
+            if (!found.empty()) return found;
         }
 
-        if (loaded.is_object())
+        for (auto it = value.begin(); it != value.end(); ++it)
         {
-            loaded.erase("selectedRoleId");
-            localSnapshot = loaded;
-            localSnapshotAvailable = true;
+            const std::string found = FindPlayerIdInJson(it.value());
+            if (!found.empty()) return found;
         }
+        return "";
+    }
+
+    std::string ResolvePlayerId(APBPlayerController* playerController)
+    {
+        if (playerController && playerController->PlayerState &&
+            playerController->PlayerState->IsA(APBPlayerState::StaticClass()))
+        {
+            auto* playerState = static_cast<APBPlayerState*>(playerController->PlayerState);
+            const std::string raw = TrimAscii(playerState->PlatformUniqueIDJsonString.ToString());
+            if (!raw.empty())
+            {
+                const auto parsed = nlohmann::json::parse(raw, nullptr, false);
+                if (!parsed.is_discarded())
+                {
+                    const std::string found = FindPlayerIdInJson(parsed);
+                    if (!found.empty()) return found;
+                }
+                if (LooksLikePlayerId(raw)) return raw;
+            }
+        }
+        return kFallbackPlayerId;
+    }
+
+    bool SnapshotHasRole(const nlohmann::json& snapshot)
+    {
+        return snapshot.is_object() &&
+            snapshot.contains("roles") &&
+            snapshot["roles"].is_array() &&
+            !snapshot["roles"].empty();
+    }
+
+    nlohmann::json WrapSingleRoleSnapshot(nlohmann::json role, const std::string& roleId)
+    {
+        if (!role.is_object()) return nlohmann::json();
+        if (!role.contains("roleId") || role.value("roleId", "").empty())
+        {
+            role["roleId"] = roleId;
+        }
+
+        nlohmann::json snapshot;
+        snapshot["schemaVersion"] = 2;
+        snapshot["source"] = "metaserver";
+        snapshot["roles"] = nlohmann::json::array({ role });
+        return snapshot;
+    }
+
+    nlohmann::json BuildSingleRoleSnapshot(const nlohmann::json& payload, const std::string& roleId)
+    {
+        if (!payload.is_object()) return nlohmann::json();
+
+        nlohmann::json effectivePayload = payload;
+        if (payload.contains("loadoutSnapshot") && payload["loadoutSnapshot"].is_object())
+        {
+            effectivePayload = payload["loadoutSnapshot"];
+            if (!effectivePayload.contains("roleId") || effectivePayload.value("roleId", "").empty())
+            {
+                effectivePayload["roleId"] = payload.value("roleId", roleId);
+            }
+        }
+
+        nlohmann::json normalized = NormalizeLoadoutFormat(effectivePayload);
+        if (!normalized.is_object()) return nlohmann::json();
+
+        if (normalized.contains("roles"))
+        {
+            nlohmann::json roleSnapshot = ExtractSingleRoleFromSnapshot(normalized, roleId);
+            return SnapshotHasRole(roleSnapshot) ? roleSnapshot : nlohmann::json();
+        }
+
+        const std::string normalizedRoleId = normalized.value("roleId", "");
+        if (!normalizedRoleId.empty() && normalizedRoleId != roleId)
+        {
+            return nlohmann::json();
+        }
+        return WrapSingleRoleSnapshot(std::move(normalized), roleId);
+    }
+
+    void EnsureMetaserverConfigured(
+        LoadoutMetaserver::MetaserverClient& metaserver,
+        bool& checked,
+        bool& available)
+    {
+        if (checked) return;
+        metaserver.SetBaseUrl(ResolveMetaserverBaseUrl());
+        available = metaserver.IsAvailable();
+        checked = true;
+
+        ClientLog(std::string("[LOADOUT] Metaserver ") +
+            (available ? "available: " : "unavailable: ") +
+            metaserver.BaseUrl());
     }
 }
 
@@ -150,11 +286,10 @@ void LoadoutManager::PreloadSnapshot()
     AGameStateBase* GS = World->GameState;
     if (!GS || !GS->HasAuthority()) return;
 
-    EnsureLocalSnapshotLoaded(impl_->localSnapshot, impl_->localSnapshotAvailable);
-    if (impl_->localSnapshotAvailable)
-        ClientLog("[LOADOUT] Local snapshot loaded");
-    else
-        ClientLog("[LOADOUT] No local snapshot available");
+    EnsureMetaserverConfigured(
+        impl_->metaserver,
+        impl_->metaserverChecked,
+        impl_->metaserverAvailable);
 }
 
 void LoadoutManager::NotifyMenuConstructed()
@@ -174,25 +309,41 @@ void LoadoutManager::RememberMenuSelectedRole(const FName& roleId)
 
 void LoadoutManager::OnRoleSelectionConfirmed(APBPlayerController* playerController, const FName& roleId, bool isAuthoritative)
 {
+    (void)isAuthoritative;
     if (!playerController || !playerController->HasAuthority()) return;
     if (IsBlankName(roleId)) return;
 
     const std::string roleIdStr = NameToString(roleId);
+    const std::string playerId = ResolvePlayerId(playerController);
     ClientLog("[LOADOUT] Role confirmed: player=" + playerController->GetFullName() +
-        " role=" + roleIdStr);
+        " playerId=" + playerId + " role=" + roleIdStr);
 
-    // 从本地快照获取配装
-    EnsureLocalSnapshotLoaded(impl_->localSnapshot, impl_->localSnapshotAvailable);
-    if (!impl_->localSnapshotAvailable)
+    // Fetch the authoritative role loadout from BoundaryMetaServer.
+    EnsureMetaserverConfigured(
+        impl_->metaserver,
+        impl_->metaserverChecked,
+        impl_->metaserverAvailable);
+
+    std::optional<nlohmann::json> payload = impl_->metaserver.GetPlayerRoleLoadout(playerId, roleIdStr);
+    if (!payload || !payload->is_object())
     {
-        ClientLog("[LOADOUT] No loadout data available");
+        ClientLog("[LOADOUT] Role endpoint miss, trying player loadout: playerId=" + playerId +
+            " role=" + roleIdStr);
+        payload = impl_->metaserver.GetPlayerLoadout(playerId);
+    }
+
+    if (!payload || !payload->is_object())
+    {
+        ClientLog("[LOADOUT] No metaserver loadout data available: playerId=" + playerId +
+            " role=" + roleIdStr);
         return;
     }
 
-    nlohmann::json loadoutJson = ExtractSingleRoleFromSnapshot(impl_->localSnapshot, roleIdStr);
-    if (!loadoutJson.is_object())
+    nlohmann::json loadoutJson = BuildSingleRoleSnapshot(*payload, roleIdStr);
+    if (!SnapshotHasRole(loadoutJson))
     {
-        ClientLog("[LOADOUT] No loadout data for role " + roleIdStr);
+        ClientLog("[LOADOUT] No metaserver loadout data for role: playerId=" + playerId +
+            " role=" + roleIdStr);
         return;
     }
 

@@ -7,6 +7,7 @@
 #include <Windows.h>
 #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -543,21 +544,60 @@ namespace LoadoutSerializer
 
     static bool IsNewFlatRoleFormat(const json& role)
     {
-        return role.contains("primaryWeapon") || role.contains("_weaponArchiveRaw");
+        return role.contains("primaryWeapon") ||
+            role.contains("secondaryWeapon") ||
+            role.contains("_weaponArchiveRaw") ||
+            role.contains("_weaponArchives") ||
+            role.contains("leftPylon") ||
+            role.contains("rightPylon");
     }
 
     static json NormalizeSingleRole(const json& role)
     {
         const std::string roleId = role.value("roleId", "");
 
+        if (role.contains("loadoutSnapshot") && role["loadoutSnapshot"].is_object())
+        {
+            json snapshotRole = role["loadoutSnapshot"];
+            if (!snapshotRole.contains("roleId") || snapshotRole.value("roleId", "").empty())
+                snapshotRole["roleId"] = roleId;
+            if (snapshotRole.contains("roles"))
+            {
+                const json single = ExtractSingleRoleFromSnapshot(snapshotRole, roleId);
+                if (single.contains("roles") && single["roles"].is_array() && !single["roles"].empty())
+                    return single["roles"][0];
+            }
+            return NormalizeSingleRole(snapshotRole);
+        }
+
         // 如果不是新格式，原样返回
         if (!IsNewFlatRoleFormat(role)) return role;
 
         // 解析 _weaponArchiveRaw → weaponConfigs
         json weaponConfigs = json::object();
+        auto mergeWeaponConfigs = [&](const json& decoded) {
+            if (!decoded.is_object()) return;
+            for (auto it = decoded.begin(); it != decoded.end(); ++it)
+            {
+                if (it.value().is_object()) weaponConfigs[it.key()] = it.value();
+            }
+        };
+
+        if (role.contains("weaponConfigs") && role["weaponConfigs"].is_object())
+        {
+            mergeWeaponConfigs(role["weaponConfigs"]);
+        }
+        if (role.contains("_weaponArchives") && role["_weaponArchives"].is_object())
+        {
+            for (const auto& archiveEntry : role["_weaponArchives"].items())
+            {
+                if (archiveEntry.value().is_string())
+                    mergeWeaponConfigs(DecodeWeaponArchiveRaw(archiveEntry.value().get<std::string>()));
+            }
+        }
         if (role.contains("_weaponArchiveRaw") && role["_weaponArchiveRaw"].is_string())
         {
-            weaponConfigs = DecodeWeaponArchiveRaw(role["_weaponArchiveRaw"].get<std::string>());
+            mergeWeaponConfigs(DecodeWeaponArchiveRaw(role["_weaponArchiveRaw"].get<std::string>()));
         }
 
         // 构建 inventory slots
@@ -570,8 +610,19 @@ namespace LoadoutSerializer
         const std::string primary = role.value("primaryWeapon", "");
         const std::string secondary = role.value("secondaryWeapon", "");
         const std::string meleeId = role.value("meleeWeapon", "");
-        const std::string leftId = role.value("leftPod", role.value("leftLauncher", ""));
-        const std::string rightId = role.value("rightPod", role.value("rightLauncher", ""));
+        auto firstStringValue = [&](const char* first, const char* second, const char* third) {
+            for (const char* key : { first, second, third })
+            {
+                if (role.contains(key) && role[key].is_string())
+                {
+                    const std::string value = role[key].get<std::string>();
+                    if (!value.empty()) return value;
+                }
+            }
+            return std::string();
+        };
+        const std::string leftId = firstStringValue("leftPod", "leftLauncher", "leftPylon");
+        const std::string rightId = firstStringValue("rightPod", "rightLauncher", "rightPylon");
         const std::string mobilityId = role.value("mobilityModule", "");
 
         pushSlot(static_cast<int>(SDK::EPBCharacterSlotType::FirstWeapon), primary);
@@ -722,6 +773,129 @@ namespace LoadoutSerializer
         return true;
     }
 
+    static bool SkipWireValue(const uint8_t* data, size_t size, size_t& offset, uint32_t wireType)
+    {
+        bool ok = false;
+        switch (wireType)
+        {
+        case 0:
+            ReadVarint(data, size, offset, ok);
+            return ok;
+        case 1:
+            if (offset + 8 > size) return false;
+            offset += 8;
+            return true;
+        case 2:
+        {
+            const uint32_t length = ReadVarint(data, size, offset, ok);
+            if (!ok || offset + length > size) return false;
+            offset += length;
+            return true;
+        }
+        case 5:
+            if (offset + 4 > size) return false;
+            offset += 4;
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    static json ParseWeaponPartSlot(const uint8_t* data, size_t size)
+    {
+        size_t offset = 0;
+        int slotIndex = -1;
+        std::string partId;
+
+        while (offset < size)
+        {
+            bool ok = false;
+            const uint32_t tag = ReadVarint(data, size, offset, ok);
+            if (!ok) break;
+
+            const uint32_t fieldNumber = tag >> 3;
+            const uint32_t wireType = tag & 0x07;
+
+            if (fieldNumber == 1 && wireType == 0)
+            {
+                slotIndex = static_cast<int>(ReadVarint(data, size, offset, ok));
+                if (!ok) break;
+            }
+            else if (fieldNumber == 2 && wireType == 2)
+            {
+                const uint32_t length = ReadVarint(data, size, offset, ok);
+                if (!ok || offset + length > size) break;
+                partId.assign(reinterpret_cast<const char*>(data + offset), length);
+                offset += length;
+            }
+            else if (!SkipWireValue(data, size, offset, wireType))
+            {
+                break;
+            }
+        }
+
+        if (slotIndex < 0 || partId.empty()) return json();
+
+        json part;
+        part["slotType"] = slotIndex;
+        part["weaponPartId"] = partId;
+        part["weaponPartSkinId"] = "PartOri";
+        part["weaponPartSkinPaintingId"] = "PTOriginal";
+        part["weaponPartSpecialSkinId"] = "None";
+        return part;
+    }
+
+    static json ParseWeaponArchiveMessage(const uint8_t* data, size_t size)
+    {
+        size_t offset = 0;
+        std::string weaponId;
+        json partsArray = json::array();
+
+        while (offset < size)
+        {
+            bool ok = false;
+            const uint32_t tag = ReadVarint(data, size, offset, ok);
+            if (!ok) break;
+
+            const uint32_t fieldNumber = tag >> 3;
+            const uint32_t wireType = tag & 0x07;
+
+            if (fieldNumber == 1 && wireType == 2)
+            {
+                const uint32_t length = ReadVarint(data, size, offset, ok);
+                if (!ok || offset + length > size) break;
+                weaponId.assign(reinterpret_cast<const char*>(data + offset), length);
+                offset += length;
+            }
+            else if (fieldNumber == 2 && wireType == 2)
+            {
+                const uint32_t length = ReadVarint(data, size, offset, ok);
+                if (!ok || offset + length > size) break;
+                json part = ParseWeaponPartSlot(data + offset, length);
+                if (part.is_object()) partsArray.push_back(part);
+                offset += length;
+            }
+            else if (!SkipWireValue(data, size, offset, wireType))
+            {
+                break;
+            }
+        }
+
+        if (weaponId.empty()) return json();
+
+        json weaponConfig = EmptyWeaponJson();
+        weaponConfig["weaponId"] = weaponId;
+        weaponConfig["parts"] = partsArray;
+        return weaponConfig;
+    }
+
+    static void MergeDecodedWeaponConfig(json& weaponConfigs, const json& weaponConfig)
+    {
+        if (!weaponConfig.is_object()) return;
+        const std::string weaponId = weaponConfig.value("weaponId", "");
+        if (!weaponId.empty()) weaponConfigs[weaponId] = weaponConfig;
+    }
+
     json DecodeWeaponArchiveRaw(const std::string& hexPayload)
     {
         json weaponConfigs = json::object();
@@ -730,6 +904,47 @@ namespace LoadoutSerializer
         std::vector<uint8_t> data;
         if (!HexToBytes(hexPayload, data)) return weaponConfigs;
 
+        {
+            size_t requestOffset = 0;
+            const size_t requestSize = data.size();
+            while (requestOffset < requestSize)
+            {
+                bool ok = false;
+                const uint32_t tag = ReadVarint(data.data(), requestSize, requestOffset, ok);
+                if (!ok) break;
+
+                const uint32_t fieldNumber = tag >> 3;
+                const uint32_t wireType = tag & 0x07;
+
+                if (wireType == 2)
+                {
+                    const uint32_t length = ReadVarint(data.data(), requestSize, requestOffset, ok);
+                    if (!ok || requestOffset + length > requestSize) break;
+
+                    if (fieldNumber == 2 || fieldNumber == 3)
+                    {
+                        MergeDecodedWeaponConfig(
+                            weaponConfigs,
+                            ParseWeaponArchiveMessage(data.data() + requestOffset, length));
+                    }
+                    requestOffset += length;
+                }
+                else if (!SkipWireValue(data.data(), requestSize, requestOffset, wireType))
+                {
+                    break;
+                }
+            }
+
+            if (weaponConfigs.empty())
+            {
+                MergeDecodedWeaponConfig(
+                    weaponConfigs,
+                    ParseWeaponArchiveMessage(data.data(), data.size()));
+            }
+            return weaponConfigs;
+        }
+
+#if 0
         size_t offset = 0;
         const size_t size = data.size();
 
@@ -886,6 +1101,7 @@ namespace LoadoutSerializer
         }
 
         return weaponConfigs;
+#endif
     }
 
     // =====================================================================
