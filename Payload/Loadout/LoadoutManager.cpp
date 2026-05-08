@@ -1,21 +1,17 @@
 // ======================================================
-//  LoadoutManager — 配装管理器（服务端权威版本）
+//  LoadoutManager — 配装管理器（网络角色感知 + 本地快照驱动）
 // ======================================================
 //
 //  数据流：
-//    1. 服务端 OnRoleSelectionConfirmed →
-//       从 metaserver HTTP 获取配装 →
-//       校验 → 存储按玩家快照 → 推送库存
-//    2. 服务端 TickServer →
-//       轮询待应用快照 → PostSpawnApply 权威应用
-//    3. 服务端 OnServerProcessEventPre →
-//       复活时重新推送库存
+//    1. PreloadSnapshot → 加载本地快照文件（custom > launch > export）
+//    2. OnRoleSelectionConfirmed → 从快照提取角色配装 → 推送库存
+//    3. TickServer → 轮询待应用快照 → PostSpawnApply 权威应用
+//    4. OnServerProcessEventPre → 复活时重新推送库存
 //
-//  客户端 ProcessEvent 钩子均已移除 — 游戏客户端通过
-//  metaserver 原生 GetPlayerArchiveV2 协议获取配装数据。
+//  游戏客户端通过原生 GetPlayerArchiveV2 协议从 metaserver 获取
+//  默认配装，Payload 用本地快照覆盖/修改服务端库存。
 
 #include "LoadoutManager.h"
-#include "MetaserverClient.h"
 #include "LoadoutSerializer.h"
 #include "LoadoutApplication.h"
 
@@ -49,19 +45,14 @@ std::vector<UObject*> getObjectsOfClass(UClass* theClass, bool includeDefault);
 UObject* GetLastOfType(UClass* theClass, bool includeDefault);
 
 extern bool LoginCompleted;
-extern bool amServer;
 
 // =====================================================================
 //  Impl — 内部状态
 // =====================================================================
 
-class MetaserverClient;
-
 class LoadoutManager::Impl
 {
 public:
-    MetaserverClient metaserver;
-
     // ---- 按玩家快照存储 ----
     struct PerPlayerSnapshot
     {
@@ -75,18 +66,9 @@ public:
     std::mutex mutex;
     std::unordered_map<APBPlayerController*, PerPlayerSnapshot> perPlayerSnapshots;
 
-    // ---- 兼容：本地快照缓存（降级路径） ----
+    // ---- 本地快照（配装数据源） ----
     nlohmann::json localSnapshot;
     bool localSnapshotAvailable = false;
-
-    // ---- metaserver 连接状态 ----
-    bool metaserverChecked = false;
-    bool metaserverAvailable = false;
-
-    // ---- 玩家 ID（从游戏状态推断） ----
-    std::string playerId;
-
-    Impl() : metaserver("http://127.0.0.1:8000") {}
 };
 
 // =====================================================================
@@ -108,24 +90,6 @@ LoadoutManager& LoadoutManager::operator=(LoadoutManager&&) noexcept = default;
 
 namespace
 {
-    std::string BuildUtcTimestamp()
-    {
-        const auto now = std::chrono::system_clock::now();
-        const std::time_t tv = std::chrono::system_clock::to_time_t(now);
-        std::tm utc{};
-        gmtime_s(&utc, &tv);
-        std::ostringstream ss;
-        ss << std::put_time(&utc, "%Y-%m-%dT%H:%M:%SZ");
-        return ss.str();
-    }
-
-    std::string GetDefaultPlayerId()
-    {
-        // 尝试从环境变量或已知位置获取玩家 ID
-        // 默认使用固定 ID（与 metaserver 的 TEMP_USER_ID 一致）
-        return "76561198211631084";
-    }
-
     std::filesystem::path GetExportSnapshotPath()
     {
         char* appData = nullptr;
@@ -140,7 +104,7 @@ namespace
         return std::filesystem::current_path() / "ProjectReboundBrowser" / "loadout-export-v1.json";
     }
 
-    // 降级：从本地磁盘加载快照（metaserver 不可用时使用）
+    // 从本地磁盘加载快照
     void EnsureLocalSnapshotLoaded(nlohmann::json& localSnapshot, bool& localSnapshotAvailable)
     {
         if (localSnapshotAvailable) return;
@@ -154,16 +118,16 @@ namespace
         nlohmann::json loaded;
         if (LoadCustomLoadoutConfig(loaded))
         {
-            ClientLog("[LOADOUT] Using custom loadout (metaserver unavailable)");
+            ClientLog("[LOADOUT] Using custom loadout");
         }
         else if (ReadJsonFile(launchPath, loaded))
         {
-            ClientLog("[LOADOUT] Using launch snapshot (metaserver unavailable)");
+            ClientLog("[LOADOUT] Using launch snapshot");
             try { std::filesystem::remove(launchPath); } catch (...) {}
         }
         else if (ReadJsonFile(exportPath, loaded))
         {
-            ClientLog("[LOADOUT] Using export snapshot (metaserver unavailable)");
+            ClientLog("[LOADOUT] Using export snapshot");
         }
 
         if (loaded.is_object())
@@ -181,34 +145,26 @@ namespace
 
 void LoadoutManager::PreloadSnapshot()
 {
-    if (!amServer) return;
+    UWorld* World = UWorld::GetWorld();
+    if (!World) return;
+    AGameStateBase* GS = World->GameState;
+    if (!GS || !GS->HasAuthority()) return;
 
-    // 初始化玩家 ID
-    impl_->playerId = GetDefaultPlayerId();
-
-    // 检查 metaserver 可用性
-    impl_->metaserverAvailable = impl_->metaserver.IsAvailable();
-    impl_->metaserverChecked = true;
-
-    if (impl_->metaserverAvailable)
-    {
-        ClientLog("[LOADOUT] Metaserver available at http://127.0.0.1:8000");
-    }
+    EnsureLocalSnapshotLoaded(impl_->localSnapshot, impl_->localSnapshotAvailable);
+    if (impl_->localSnapshotAvailable)
+        ClientLog("[LOADOUT] Local snapshot loaded");
     else
-    {
-        ClientLog("[LOADOUT] Metaserver not available — falling back to local snapshot");
-        EnsureLocalSnapshotLoaded(impl_->localSnapshot, impl_->localSnapshotAvailable);
-    }
+        ClientLog("[LOADOUT] No local snapshot available");
 }
 
 void LoadoutManager::NotifyMenuConstructed()
 {
-    // 不再需要 — 客户端通过 metaserver 原生协议获取配装
+    // 不再需要 — 游戏客户端通过原生协议获取配装用于菜单显示
 }
 
 void LoadoutManager::RememberMenuSelectedRole(const FName& roleId)
 {
-    // 不再需要 — 客户端菜单操作由 metaserver UpdateRoleArchiveV2 覆盖
+    // 不再需要 — 菜单操作由游戏原生协议处理
     (void)roleId;
 }
 
@@ -218,107 +174,25 @@ void LoadoutManager::RememberMenuSelectedRole(const FName& roleId)
 
 void LoadoutManager::OnRoleSelectionConfirmed(APBPlayerController* playerController, const FName& roleId, bool isAuthoritative)
 {
-    if (!playerController || !amServer) return;
+    if (!playerController || !playerController->HasAuthority()) return;
     if (IsBlankName(roleId)) return;
 
     const std::string roleIdStr = NameToString(roleId);
     ClientLog("[LOADOUT] Role confirmed: player=" + playerController->GetFullName() +
-        " role=" + roleIdStr + " authoritative=" + (isAuthoritative ? "true" : "false"));
+        " role=" + roleIdStr);
 
-    // 从 metaserver 获取配装数据
-    nlohmann::json loadoutJson;
-    bool fromMetaserver = false;
-
-    if (impl_->metaserverAvailable)
+    // 从本地快照获取配装
+    EnsureLocalSnapshotLoaded(impl_->localSnapshot, impl_->localSnapshotAvailable);
+    if (!impl_->localSnapshotAvailable)
     {
-        // 尝试获取完整 loadout
-        auto fullLoadout = impl_->metaserver.GetPlayerLoadout(impl_->playerId);
-        if (fullLoadout.has_value())
-        {
-            // 转换为标准 snapshot 格式
-            nlohmann::json snapshot;
-            snapshot["schemaVersion"] = 2;
-            snapshot["savedAtUtc"] = BuildUtcTimestamp();
-            snapshot["gameVersion"] = "unknown";
-            snapshot["source"] = "metaserver";
-            snapshot["roles"] = nlohmann::json::array();
-
-            if (fullLoadout->contains("roles") && (*fullLoadout)["roles"].is_object())
-            {
-                for (auto& [rid, roleData] : (*fullLoadout)["roles"].items())
-                {
-                    if (roleData.is_object())
-                    {
-                        nlohmann::json roleEntry = roleData;
-                        if (!roleEntry.contains("roleId"))
-                        {
-                            roleEntry["roleId"] = rid;
-                        }
-                        snapshot["roles"].push_back(roleEntry);
-                    }
-                }
-            }
-            // 格式归一化：转换 metaserver 新 flat 格式为结构化格式
-            snapshot = NormalizeLoadoutFormat(snapshot);
-
-            if (!snapshot.contains("roles") || !snapshot["roles"].is_array() || snapshot["roles"].empty())
-            {
-                ClientLog("[LOADOUT] Normalized loadout has no valid roles");
-            }
-            else
-            {
-                // 校验
-                auto validation = impl_->metaserver.ValidateLoadout(snapshot);
-                if (!validation.warnings.empty())
-                {
-                    for (const auto& w : validation.warnings)
-                        ClientLog("[LOADOUT] Validation warning: " + w);
-                }
-
-                // 过滤不兼容物品
-                loadoutJson = impl_->metaserver.FilterLoadout(snapshot);
-                fromMetaserver = true;
-
-                ClientLog("[LOADOUT] Loaded loadout from metaserver: " +
-                    std::to_string(snapshot["roles"].size()) + " roles");
-            }
-        }
-
-        // 如果完整 loadout 不可用，尝试按角色获取
-        if (!fromMetaserver)
-        {
-            auto roleLoadout = impl_->metaserver.GetPlayerRoleLoadout(impl_->playerId, roleIdStr);
-            if (roleLoadout.has_value())
-            {
-                // 归一化：单角色数据也可能是新 flat 格式
-                nlohmann::json normalized = NormalizeLoadoutFormat(roleLoadout.value());
-                nlohmann::json snapshot;
-                snapshot["schemaVersion"] = 2;
-                snapshot["source"] = "metaserver";
-                if (normalized.contains("roles") && normalized["roles"].is_array())
-                    snapshot["roles"] = normalized["roles"];
-                else
-                    snapshot["roles"] = nlohmann::json::array({ normalized });
-                loadoutJson = snapshot;
-                fromMetaserver = true;
-            }
-        }
+        ClientLog("[LOADOUT] No loadout data available");
+        return;
     }
 
-    // 降级：使用本地快照
-    if (!fromMetaserver)
-    {
-        EnsureLocalSnapshotLoaded(impl_->localSnapshot, impl_->localSnapshotAvailable);
-        if (impl_->localSnapshotAvailable)
-        {
-            loadoutJson = ExtractSingleRoleFromSnapshot(impl_->localSnapshot, roleIdStr);
-            ClientLog("[LOADOUT] Using local snapshot for role " + roleIdStr);
-        }
-    }
-
+    nlohmann::json loadoutJson = ExtractSingleRoleFromSnapshot(impl_->localSnapshot, roleIdStr);
     if (!loadoutJson.is_object())
     {
-        ClientLog("[LOADOUT] No loadout data available for role " + roleIdStr);
+        ClientLog("[LOADOUT] No loadout data for role " + roleIdStr);
         return;
     }
 
@@ -360,22 +234,19 @@ void LoadoutManager::OnRoleSelectionConfirmed(APBPlayerController* playerControl
 void LoadoutManager::OnClientProcessEventPre(UObject* object, const std::string& functionName, void* parms)
 {
     // 客户端 ProcessEvent 钩子已移除。
-    // 游戏客户端现在通过 metaserver 原生 GetPlayerArchiveV2 协议获取配装。
-    // InitWeapon 覆盖已移除 — 原生协议提供了正确的武器配装数据。
+    // 游戏客户端通过原生 GetPlayerArchiveV2 协议获取配装数据。
     (void)object; (void)functionName; (void)parms;
 }
 
 void LoadoutManager::OnClientProcessEventPost(UObject* object, const std::string& functionName, void* parms)
 {
     // 客户端 ProcessEvent 钩子已移除。
-    // 配装变更通过 metaserver UpdateRoleArchiveV2 协议持久化。
+    // 配装变更通过原生 UpdateRoleArchiveV2 协议持久化。
     (void)object; (void)functionName; (void)parms;
 }
 
 void LoadoutManager::OnServerProcessEventPre(UObject* object, const std::string& functionName, void* parms)
 {
-    if (!amServer) return;
-
     // 复活时重新推送库存（仅服务端权威路径）
     if (functionName.find("OnRestartInStartSpot") != std::string::npos)
     {
@@ -390,7 +261,7 @@ void LoadoutManager::OnServerProcessEventPre(UObject* object, const std::string&
             }
         }
 
-        if (playerController)
+        if (playerController && playerController->HasAuthority())
         {
             std::scoped_lock lock(impl_->mutex);
             auto it = impl_->perPlayerSnapshots.find(playerController);
@@ -404,9 +275,6 @@ void LoadoutManager::OnServerProcessEventPre(UObject* object, const std::string&
             }
         }
     }
-
-    // 注意：InitWeapon 覆盖已移除。
-    // metaserver 原生协议提供正确配装数据，不需要运行时覆盖武器初始化参数。
 }
 
 void LoadoutManager::OnServerProcessEventPost(UObject* object, const std::string& functionName, void* parms)
@@ -427,7 +295,10 @@ void LoadoutManager::TickClient()
 
 void LoadoutManager::TickServer()
 {
-    if (!amServer) return;
+    UWorld* World = UWorld::GetWorld();
+    if (!World) return;
+    AGameStateBase* GS = World->GameState;
+    if (!GS || !GS->HasAuthority()) return;
 
     // 复制待应用列表（锁外操作）
     std::vector<std::pair<APBPlayerController*, Impl::PerPlayerSnapshot>> pendingApplies;
@@ -472,6 +343,6 @@ void LoadoutManager::TickServer()
 void LoadoutManager::OnServerLoadoutDataReceived(APBPlayerController* playerController, const std::string& jsonPayload)
 {
     // __LDS__ 聊天通道已弃用。
-    // 配装数据现在通过 metaserver HTTP API 获取，不再通过游戏内聊天通道传输。
+    // 配装数据通过本地快照文件加载，不再通过游戏内聊天通道传输。
     (void)playerController; (void)jsonPayload;
 }

@@ -39,9 +39,6 @@
     <ClInclude Include="Loadout\LoadoutApplication.h">
       <Filter>Loadout</Filter>
     </ClInclude>
-    <ClInclude Include="Loadout\MetaserverClient.h">
-      <Filter>Loadout</Filter>
-    </ClInclude>
     <ClInclude Include="Debug\DebugTool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -63,9 +60,6 @@
       <Filter>Loadout</Filter>
     </ClCompile>
     <ClCompile Include="Loadout\LoadoutApplication.cpp">
-      <Filter>Loadout</Filter>
-    </ClCompile>
-    <ClCompile Include="Loadout\MetaserverClient.cpp">
       <Filter>Loadout</Filter>
     </ClCompile>
     <ClCompile Include="Communication\CommandFramework.cpp">

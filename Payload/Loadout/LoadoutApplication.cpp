@@ -19,9 +19,6 @@ using namespace SDK;
 extern std::vector<UObject*> getObjectsOfClass(UClass* theClass, bool includeDefault);
 extern UObject* GetLastOfType(UClass* theClass, bool includeDefault);
 
-// 全局变量声明（定义在 dllmain.cpp）
-extern bool amServer;
-
 namespace LoadoutApplication
 {
     using namespace LoadoutSerializer;
@@ -167,7 +164,7 @@ namespace LoadoutApplication
         // 注意：实际库存推送由 LoadoutManager::OnRoleSelectionConfirmed 完成。
         // 此函数保留为兼容性简写。
         if (!playerController) return;
-        if (!amServer) return;
+        if (!playerController->HasAuthority()) return;
     }
 
     // =====================================================================

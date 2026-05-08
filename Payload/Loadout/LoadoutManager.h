@@ -1,22 +1,25 @@
 #pragma once
 
 // ======================================================
-//  LoadoutManager — 配装管理器（服务端权威版本）
+//  LoadoutManager — 配装管理器（网络角色感知 + 本地快照驱动）
 // ======================================================
 //
 //  职责：
-//    服务端从 metaserver 获取配装数据，权威校验并应用到游戏实体。
-//    客户端侧 Hook 已移除 — 游戏通过 metaserver 原生协议
-//    (GetPlayerArchiveV2) 获取配装，不再需要客户端注入/覆盖。
+//    通过 HasAuthority()/IsLocallyControlled() 判断网络角色，
+//    服务端权威从本地快照文件加载配装并应用到游戏实体，
+//    Listen Server 下本地控制 Pawn 同时走客户端视觉路径。
+//    游戏客户端通过原生 GetPlayerArchiveV2 协议从 metaserver 获取
+//    默认配装，Payload 用本地快照覆盖服务端库存。
 //
 //  使用方式：
-//    1. 在 Payload 启动时构造实例，仅服务端启用
-//    2. 从 Hook 层转发服务端 ProcessEvent pre 和角色确认信号
+//    1. 在 Payload 启动时构造实例，网络角色自动感知
+//    2. 从 Hook 层转发 ProcessEvent pre 和角色确认信号
 //    3. 从 Worker/Tick Hook 转发 TickServer()
 //
 //  设计原则：
-//    - Metaserver 是配装存储和物品定义的权威源
-//    - Payload 仅做服务端权威应用，不做客户端修改
+//    - 本地快照文件是配装配置的权威源（custom > launch > export）
+//    - HasAuthority() 判定服务端权威操作，IsLocallyControlled() 判定本地视觉路径
+//    - 不再依赖 -server 命令行标志或 metaserver HTTP API
 //    - 还原原生游戏体验
 
 #include <memory>

@@ -336,6 +336,16 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
             gLoadoutManager->TickServer();
         }
         gLoadoutManager->OnServerProcessEventPre(Object, functionName, Parms);
+
+        // Listen Server: 本地控制 Pawn 同时走客户端视觉路径
+        if (Object && Object->IsA(APawn::StaticClass()))
+        {
+            APawn* pawn = static_cast<APawn*>(Object);
+            if (pawn->IsLocallyControlled())
+            {
+                gLoadoutManager->OnClientProcessEventPre(Object, functionName, Parms);
+            }
+        }
     }
 
     // ServerSay：拦截调试命令（__DBG__ 前缀）
