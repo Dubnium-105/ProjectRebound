@@ -1,0 +1,30 @@
+http_addr: ":5000"
+udp_rendezvous_port: 5001
+udp_relay_port: 5002
+udp_qos_port: 9000
+
+database:
+  path: matchserver.db
+
+matchserver:
+  heartbeat_seconds: 5
+  stale_after_seconds: 15
+  host_lost_after_seconds: 45
+  host_probe_seconds: 60
+  join_ticket_seconds: 90
+  match_ticket_seconds: 120
+  ended_room_retention_minutes: 30
+  nat_binding_seconds: 120
+  punch_ticket_seconds: 120
+  relay_allocation_seconds: 1800
+  metaserver_target_player_count: 12
+  metaserver_match_timeout_seconds: 300
+
+relay:
+  compression: "auto"
+  force_compression: false
+  compression_loss_threshold: 0.05
+  compression_rtt_threshold_ms: 200
+
+logging:
+  level: info
