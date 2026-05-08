@@ -20,5 +20,5 @@ jobs:
       - name: Build Contracts
         run: dotnet build Shared/ProjectRebound.Contracts/ProjectRebound.Contracts.csproj --configuration Release
 
-      - name: Build Browser
-        run: dotnet build Desktop/ProjectRebound.Browser/ProjectRebound.Browser.csproj --configuration Release
+      # ProjectRebound.Browser is a Windows-only WPF/WinForms app
+      # and cannot be built on Linux. Skipped in CI.
