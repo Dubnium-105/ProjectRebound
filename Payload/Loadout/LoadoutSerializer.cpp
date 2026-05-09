@@ -544,6 +544,7 @@ namespace LoadoutSerializer
 
     static bool IsNewFlatRoleFormat(const json& role)
     {
+        // metaserver REST 单角色接口返回的是扁平槽位字段，而不是游戏内结构化 role。
         return role.contains("primaryWeapon") ||
             role.contains("secondaryWeapon") ||
             role.contains("_weaponArchiveRaw") ||
@@ -558,6 +559,8 @@ namespace LoadoutSerializer
 
         if (role.contains("loadoutSnapshot") && role["loadoutSnapshot"].is_object())
         {
+            // 兼容 REST 外层包装：{ roleId, loadoutSnapshot }。
+            // loadoutSnapshot 可能本身就是完整 roles snapshot，也可能是单角色。
             json snapshotRole = role["loadoutSnapshot"];
             if (!snapshotRole.contains("roleId") || snapshotRole.value("roleId", "").empty())
                 snapshotRole["roleId"] = roleId;
@@ -573,7 +576,8 @@ namespace LoadoutSerializer
         // 如果不是新格式，原样返回
         if (!IsNewFlatRoleFormat(role)) return role;
 
-        // 解析 _weaponArchiveRaw → weaponConfigs
+        // 汇总所有可用的 weaponConfigs。新 metaserver 会按武器保存 _weaponArchives，
+        // 老数据仍可能只有一个 _weaponArchiveRaw，因此这里按顺序合并。
         json weaponConfigs = json::object();
         auto mergeWeaponConfigs = [&](const json& decoded) {
             if (!decoded.is_object()) return;
@@ -589,6 +593,7 @@ namespace LoadoutSerializer
         }
         if (role.contains("_weaponArchives") && role["_weaponArchives"].is_object())
         {
+            // _weaponArchives 是 { weaponId: rawHex }，避免后一次武器更新覆盖前一把武器。
             for (const auto& archiveEntry : role["_weaponArchives"].items())
             {
                 if (archiveEntry.value().is_string())
@@ -597,6 +602,7 @@ namespace LoadoutSerializer
         }
         if (role.contains("_weaponArchiveRaw") && role["_weaponArchiveRaw"].is_string())
         {
+            // 兼容旧字段：单个 rawHex，通常来自早期 UpdateWeaponArchiveV2 保存逻辑。
             mergeWeaponConfigs(DecodeWeaponArchiveRaw(role["_weaponArchiveRaw"].get<std::string>()));
         }
 
@@ -611,6 +617,7 @@ namespace LoadoutSerializer
         const std::string secondary = role.value("secondaryWeapon", "");
         const std::string meleeId = role.value("meleeWeapon", "");
         auto firstStringValue = [&](const char* first, const char* second, const char* third) {
+            // 同一槽位在不同 metaserver 版本里可能叫 Pod、Launcher 或 Pylon。
             for (const char* key : { first, second, third })
             {
                 if (role.contains(key) && role[key].is_string())
@@ -775,6 +782,7 @@ namespace LoadoutSerializer
 
     static bool SkipWireValue(const uint8_t* data, size_t size, size_t& offset, uint32_t wireType)
     {
+        // 最小 protobuf reader：只需要跳过未知字段，避免把 schema 扩展解析崩。
         bool ok = false;
         switch (wireType)
         {
@@ -803,6 +811,7 @@ namespace LoadoutSerializer
 
     static json ParseWeaponPartSlot(const uint8_t* data, size_t size)
     {
+        // PartSlot: field 1 = SlotId(varint), field 2 = PartId(string), field 3 = Ornament(message)。
         size_t offset = 0;
         int slotIndex = -1;
         std::string partId;
@@ -847,6 +856,8 @@ namespace LoadoutSerializer
 
     static json ParseWeaponArchiveMessage(const uint8_t* data, size_t size)
     {
+        // WeaponArchiveV2 / 旧 WeaponConfig 共用字段 1 weaponId、字段 2 parts。
+        // 皮肤和 ornament 由外层 token 字段继续处理，这里只抽取配件槽位。
         size_t offset = 0;
         std::string weaponId;
         json partsArray = json::array();
@@ -891,6 +902,7 @@ namespace LoadoutSerializer
 
     static void MergeDecodedWeaponConfig(json& weaponConfigs, const json& weaponConfig)
     {
+        // raw 里带 weaponId，用它做 map key，后续再通过 NameFromString 归一成 UE FName。
         if (!weaponConfig.is_object()) return;
         const std::string weaponId = weaponConfig.value("weaponId", "");
         if (!weaponId.empty()) weaponConfigs[weaponId] = weaponConfig;
@@ -898,6 +910,9 @@ namespace LoadoutSerializer
 
     json DecodeWeaponArchiveRaw(const std::string& hexPayload)
     {
+        // 支持两类 raw：
+        //   1. UpdateWeaponArchiveV2Request: field 1 RoleId, field 3 WeaponArchive。
+        //   2. 早期聚合格式: field 1 roleId, repeated field 2 WeaponConfig。
         json weaponConfigs = json::object();
         if (hexPayload.empty()) return weaponConfigs;
 
@@ -905,6 +920,7 @@ namespace LoadoutSerializer
         if (!HexToBytes(hexPayload, data)) return weaponConfigs;
 
         {
+            // 先按请求包解析顶层字段；未命中时再把整段当成单个 WeaponArchive 兼容处理。
             size_t requestOffset = 0;
             const size_t requestSize = data.size();
             while (requestOffset < requestSize)

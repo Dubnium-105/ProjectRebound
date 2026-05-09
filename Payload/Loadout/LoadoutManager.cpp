@@ -1,15 +1,16 @@
 // ======================================================
-//  LoadoutManager — 配装管理器（网络角色感知 + 本地快照驱动）
+//  LoadoutManager — 配装管理器（原生大厅流程 + 局内 metaserver 桥接）
 // ======================================================
 //
 //  数据流：
-//    1. PreloadSnapshot → 加载本地快照文件（custom > launch > export）
-//    2. OnRoleSelectionConfirmed → 从快照提取角色配装 → 推送库存
-//    3. TickServer → 轮询待应用快照 → PostSpawnApply 权威应用
-//    4. OnServerProcessEventPre → 复活时重新推送库存
+//    1. PreloadSnapshot → 服务端初始化 metaserver REST 客户端
+//    2. OnRoleSelectionConfirmed → 按 playerId + roleId 拉取角色配装
+//    3. PreSpawnApply → 出生前推送角色库存
+//    4. TickServer → 轮询待应用快照 → PostSpawnApply 权威应用
+//    5. OnServerProcessEventPre → 复活时重新推送库存
 //
 //  游戏客户端通过原生 GetPlayerArchiveV2 协议从 metaserver 获取
-//  默认配装，Payload 用本地快照覆盖/修改服务端库存。
+//  默认配装；Payload 只在局内服务端路径读取同一份 metaserver 数据并应用到实体。
 
 #include "LoadoutManager.h"
 #include "LoadoutSerializer.h"
@@ -65,7 +66,7 @@ public:
     std::mutex mutex;
     std::unordered_map<APBPlayerController*, PerPlayerSnapshot> perPlayerSnapshots;
 
-    // In-match loadout bridge to BoundaryMetaServer.
+    // ---- 局内 metaserver 桥接状态 ----
     LoadoutMetaserver::MetaserverClient metaserver;
     bool metaserverChecked = false;
     bool metaserverAvailable = false;
@@ -90,6 +91,10 @@ LoadoutManager& LoadoutManager::operator=(LoadoutManager&&) noexcept = default;
 
 namespace
 {
+    // -----------------------------------------------------------------
+    //  metaserver 配置 / 玩家身份解析
+    // -----------------------------------------------------------------
+
     constexpr const char* kDefaultMetaserverUrl = "http://127.0.0.1:8000";
     constexpr const char* kFallbackPlayerId = "76561198211631084";
 
@@ -128,6 +133,7 @@ namespace
 
     std::string ResolveMetaserverBaseUrl()
     {
+        // 专用服优先读取启动器传入的 LogicServerURL，便于与已有 metaserver 复用同一地址。
         std::string url = TrimAscii(GetCmdValue("-LogicServerURL="));
         if (url.empty()) url = GetEnvValue("PROJECT_REBOUND_METASERVER_URL");
         if (url.empty()) url = kDefaultMetaserverUrl;
@@ -186,6 +192,8 @@ namespace
 
     std::string ResolvePlayerId(APBPlayerController* playerController)
     {
+        // 原生登录流程会把平台身份放在 PlayerState 的 JSON 字符串里。
+        // metaserver 侧完成真实绑定前，仍保留固定 ID 作为调试回退。
         if (playerController && playerController->PlayerState &&
             playerController->PlayerState->IsA(APBPlayerState::StaticClass()))
         {
@@ -215,6 +223,7 @@ namespace
 
     nlohmann::json WrapSingleRoleSnapshot(nlohmann::json role, const std::string& roleId)
     {
+        // 应用层仍消费 roles 数组，这里把 REST 单角色返回包成同一套 snapshot 形状。
         if (!role.is_object()) return nlohmann::json();
         if (!role.contains("roleId") || role.value("roleId", "").empty())
         {
@@ -230,6 +239,8 @@ namespace
 
     nlohmann::json BuildSingleRoleSnapshot(const nlohmann::json& payload, const std::string& roleId)
     {
+        // REST 可能返回 flat role、structured role、完整 loadout 或 loadoutSnapshot 包装。
+        // 统一交给 LoadoutSerializer 归一化，再裁剪成当前确认的单角色。
         if (!payload.is_object()) return nlohmann::json();
 
         nlohmann::json effectivePayload = payload;
@@ -264,6 +275,7 @@ namespace
         bool& checked,
         bool& available)
     {
+        // 只在服务端首次使用时探测一次，后续请求仍会按需尝试，避免 health 失败后永久短路。
         if (checked) return;
         metaserver.SetBaseUrl(ResolveMetaserverBaseUrl());
         available = metaserver.IsAvailable();
@@ -318,7 +330,7 @@ void LoadoutManager::OnRoleSelectionConfirmed(APBPlayerController* playerControl
     ClientLog("[LOADOUT] Role confirmed: player=" + playerController->GetFullName() +
         " playerId=" + playerId + " role=" + roleIdStr);
 
-    // Fetch the authoritative role loadout from BoundaryMetaServer.
+    // 从 BoundaryMetaServer 拉取本局权威角色配装。
     EnsureMetaserverConfigured(
         impl_->metaserver,
         impl_->metaserverChecked,
@@ -494,6 +506,6 @@ void LoadoutManager::TickServer()
 void LoadoutManager::OnServerLoadoutDataReceived(APBPlayerController* playerController, const std::string& jsonPayload)
 {
     // __LDS__ 聊天通道已弃用。
-    // 配装数据通过本地快照文件加载，不再通过游戏内聊天通道传输。
+    // 配装数据通过 metaserver REST 拉取，不再通过游戏内聊天通道传输。
     (void)playerController; (void)jsonPayload;
 }

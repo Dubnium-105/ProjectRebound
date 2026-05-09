@@ -1,3 +1,12 @@
+// ======================================================
+//  MetaserverClient - WinHTTP 实现
+// ======================================================
+//
+//  数据流：
+//    1. LoadoutManager 传入 metaserver baseUrl。
+//    2. 本模块拼接 /api/loadout/* REST 路径并执行 GET。
+//    3. 返回 nlohmann::json，由 LoadoutSerializer 适配为游戏内结构。
+
 #include "MetaserverClient.h"
 
 #include <Windows.h>
@@ -12,8 +21,13 @@
 
 namespace LoadoutMetaserver
 {
+    // =====================================================================
+    //  内部工具
+    // =====================================================================
+
     namespace
     {
+        // WinHTTP 使用裸 HINTERNET 句柄，封装成 RAII 避免异常/早退时泄漏。
         struct WinHttpHandle
         {
             HINTERNET Handle = nullptr;
@@ -28,6 +42,7 @@ namespace LoadoutMetaserver
             explicit operator bool() const { return Handle != nullptr; }
         };
 
+        // WinHTTP API 使用 UTF-16，外部配置和 HTTP path 保持 UTF-8 字符串。
         std::wstring ToWide(const std::string& value)
         {
             if (value.empty()) return L"";
@@ -48,6 +63,7 @@ namespace LoadoutMetaserver
 
         std::string NormalizeBaseUrl(std::string baseUrl)
         {
+            // 命令行参数可能带引号，也可能只给 host:port，这里统一成无尾斜杠 URL。
             baseUrl = Trim(std::move(baseUrl));
             if (baseUrl.size() >= 2 &&
                 ((baseUrl.front() == '"' && baseUrl.back() == '"') ||
@@ -64,6 +80,7 @@ namespace LoadoutMetaserver
 
         std::string UrlEncodePathSegment(const std::string& value)
         {
+            // playerId / roleId 属于 path segment，只编码单段，避免误处理分隔符。
             static const char* hex = "0123456789ABCDEF";
             std::string encoded;
             for (unsigned char ch : value)
@@ -85,6 +102,7 @@ namespace LoadoutMetaserver
 
         bool CrackUrl(const std::string& url, std::wstring& host, INTERNET_PORT& port, std::wstring& path, bool& secure)
         {
+            // 交给 WinHTTP 解析协议、端口和 path，避免手写 URL 拆分规则。
             const std::wstring wideUrl = ToWide(url);
             URL_COMPONENTS components{};
             components.dwStructSize = sizeof(components);
@@ -109,6 +127,10 @@ namespace LoadoutMetaserver
         }
     }
 
+    // =====================================================================
+    //  公有接口
+    // =====================================================================
+
     MetaserverClient::MetaserverClient(std::string baseUrl)
     {
         SetBaseUrl(std::move(baseUrl));
@@ -126,6 +148,7 @@ namespace LoadoutMetaserver
 
     bool MetaserverClient::IsAvailable() const
     {
+        // health 只作为启动期提示，不阻断后续 loadout 请求。
         auto health = GetJson("/api/health");
         return health && health->is_object() && health->value("status", "") == "ok";
     }
@@ -142,6 +165,8 @@ namespace LoadoutMetaserver
 
     std::optional<nlohmann::json> MetaserverClient::GetJson(const std::string& path) const
     {
+        // 所有请求都是短连接同步 GET。角色选择发生在服务端确认阶段，
+        // 这里宁可快速失败，也不阻塞游戏线程太久。
         std::wstring host;
         INTERNET_PORT port = 0;
         std::wstring requestPath;
