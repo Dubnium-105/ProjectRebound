@@ -153,6 +153,7 @@
     <ClInclude Include="Loadout\LoadoutManager.h" />
     <ClInclude Include="Loadout\LoadoutSerializer.h" />
     <ClInclude Include="Loadout\LoadoutApplication.h" />
+    <ClInclude Include="Loadout\LoadoutShowroomApplication.h" />
     <ClInclude Include="Loadout\MetaserverClient.h" />
   </ItemGroup>
   <ItemGroup>
@@ -166,6 +167,7 @@
     <ClCompile Include="Loadout\LoadoutManager.cpp" />
     <ClCompile Include="Loadout\LoadoutSerializer.cpp" />
     <ClCompile Include="Loadout\LoadoutApplication.cpp" />
+    <ClCompile Include="Loadout\LoadoutShowroomApplication.cpp" />
     <ClCompile Include="Loadout\MetaserverClient.cpp" />
     <ClCompile Include="Network\NetDriverAccess.cpp" />
     <ClCompile Include="Network\Network.cpp" />

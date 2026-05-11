@@ -1,6 +1,7 @@
 // Hooks.cpp
 #include "Hooks.h"
 #include <Windows.h>
+#include <chrono>
 #include <iostream>
 #include <thread>
 #include "../SDK.hpp"
@@ -588,6 +589,18 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
 
     const std::string functionName = Function ? std::string(Function->GetFullName()) : "";
 
+    if (gLoadoutManager)
+    {
+        static auto nextClientTick = std::chrono::steady_clock::now();
+        const auto now = std::chrono::steady_clock::now();
+        if (now >= nextClientTick)
+        {
+            nextClientTick = now + std::chrono::seconds(1);
+            gLoadoutManager->TickClient();
+        }
+        gLoadoutManager->OnClientProcessEventPre(Object, functionName, Parms);
+    }
+
     // TEMP LOGIN DEBUG DUMP (GameInstance only)
     // if (Object && Object->IsA(UPBGameInstance::StaticClass()))
     //{
@@ -629,6 +642,11 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
 
     // 先执行原始 ProcessEvent，确保游戏状态已更新
     ProcessEventClient.call(Object, Function, Parms);
+
+    if (gLoadoutManager)
+    {
+        gLoadoutManager->OnClientProcessEventPost(Object, functionName, Parms);
+    }
 }
 
 static SafetyHookInline ClientDeathCrash;

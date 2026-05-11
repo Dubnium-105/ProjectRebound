@@ -184,11 +184,19 @@ namespace LoadoutSerializer
 
     json RoleToJson(const FPBRoleNetworkConfig& config, const FPBInventoryNetworkConfig* inventoryOverride)
     {
+        json weaponConfigs = json::object();
+        const std::string firstWeaponId = NameToString(config.FirstWeaponPartData.WeaponID);
+        const std::string secondWeaponId = NameToString(config.SecondWeaponPartData.WeaponID);
+        if (!IsBlankText(firstWeaponId) && HasWeaponConfig(config.FirstWeaponPartData))
+            weaponConfigs[firstWeaponId] = WeaponToJson(config.FirstWeaponPartData);
+        if (!IsBlankText(secondWeaponId) && HasWeaponConfig(config.SecondWeaponPartData))
+            weaponConfigs[secondWeaponId] = WeaponToJson(config.SecondWeaponPartData);
+
         return json{
             { "roleId", NameToString(config.CharacterID) },
             { "inventory", InventoryToJson(inventoryOverride ? *inventoryOverride : config.InventoryData) },
             { "characterData", CharacterToJson(config.CharacterData) },
-            { "weaponConfigs", json::object() },
+            { "weaponConfigs", weaponConfigs },
             { "meleeWeapon", MeleeToJson(config.MeleeWeaponData) },
             { "leftLauncher", LauncherToJson(config.LeftLauncherData) },
             { "rightLauncher", LauncherToJson(config.RightLauncherData) },
@@ -364,6 +372,7 @@ namespace LoadoutSerializer
             if (!role.is_object()) continue;
             if (role.value("roleId", "") == roleId)
             {
+                outConfig = FPBRoleNetworkConfig{};
                 outConfig.CharacterID = NameFromString(roleId);
                 InventoryFromJson(role.value("inventory", EmptyInventoryJson()), outConfig.InventoryData);
                 CharacterFromJson(role.value("characterData", EmptyCharacterJson()), outConfig.CharacterData);
@@ -371,6 +380,22 @@ namespace LoadoutSerializer
                 LauncherFromJson(role.value("leftLauncher", EmptyLauncherJson()), outConfig.LeftLauncherData);
                 LauncherFromJson(role.value("rightLauncher", EmptyLauncherJson()), outConfig.RightLauncherData);
                 MobilityFromJson(role.value("mobilityModule", EmptyMobilityJson()), outConfig.MobilityModuleData);
+
+                auto resolveWeaponSlot = [&](EPBCharacterSlotType slotType, FPBWeaponNetworkConfig& outWeapon) {
+                    FName itemId{};
+                    if (!TryGetInventoryItemForSlot(outConfig.InventoryData, slotType, itemId)) return;
+
+                    const std::string itemIdText = NameToString(itemId);
+                    if (!TryResolveWeaponConfigFromSnapshot(role, itemIdText, outWeapon))
+                    {
+                        outWeapon = FPBWeaponNetworkConfig{};
+                        outWeapon.WeaponID = itemId;
+                    }
+                    if (IsBlankName(outWeapon.WeaponID)) outWeapon.WeaponID = itemId;
+                };
+
+                resolveWeaponSlot(EPBCharacterSlotType::FirstWeapon, outConfig.FirstWeaponPartData);
+                resolveWeaponSlot(EPBCharacterSlotType::SecondWeapon, outConfig.SecondWeaponPartData);
                 return true;
             }
         }
@@ -576,6 +601,24 @@ namespace LoadoutSerializer
         // 如果不是新格式，原样返回
         if (!IsNewFlatRoleFormat(role)) return role;
 
+        auto itemIdValue = [&](const json& source, const char* key) -> std::string {
+            if (!source.contains(key)) return std::string();
+            const json& value = source[key];
+            if (value.is_string()) return value.get<std::string>();
+            if (value.is_object())
+            {
+                for (const char* nestedKey : { "id", "mobilityModuleId", "weaponId" })
+                {
+                    if (value.contains(nestedKey) && value[nestedKey].is_string())
+                    {
+                        const std::string nestedValue = value[nestedKey].get<std::string>();
+                        if (!nestedValue.empty()) return nestedValue;
+                    }
+                }
+            }
+            return std::string();
+        };
+
         // 汇总所有可用的 weaponConfigs。新 metaserver 会按武器保存 _weaponArchives，
         // 老数据仍可能只有一个 _weaponArchiveRaw，因此这里按顺序合并。
         json weaponConfigs = json::object();
@@ -608,36 +651,51 @@ namespace LoadoutSerializer
 
         // 构建 inventory slots
         json slots = json::array();
-        auto pushSlot = [&](int slotType, const std::string& itemId) {
-            if (!itemId.empty() && itemId != "None")
-                slots.push_back({ { "slotType", slotType }, { "itemId", itemId } });
+        if (role.contains("inventory") && role["inventory"].is_object() &&
+            role["inventory"].contains("slots") && role["inventory"]["slots"].is_array())
+        {
+            for (const auto& entry : role["inventory"]["slots"])
+            {
+                if (entry.is_object()) slots.push_back(entry);
+            }
+        }
+
+        auto upsertSlot = [&](int slotType, const std::string& itemId) {
+            if (itemId.empty() || itemId == "None") return;
+            for (auto& slot : slots)
+            {
+                if (!slot.is_object()) continue;
+                if (slot.value("slotType", 0) == slotType)
+                {
+                    slot["itemId"] = itemId;
+                    return;
+                }
+            }
+            slots.push_back({ { "slotType", slotType }, { "itemId", itemId } });
         };
 
-        const std::string primary = role.value("primaryWeapon", "");
-        const std::string secondary = role.value("secondaryWeapon", "");
-        const std::string meleeId = role.value("meleeWeapon", "");
+        const std::string primary = itemIdValue(role, "primaryWeapon");
+        const std::string secondary = itemIdValue(role, "secondaryWeapon");
+        const std::string meleeId = itemIdValue(role, "meleeWeapon");
         auto firstStringValue = [&](const char* first, const char* second, const char* third) {
             // 同一槽位在不同 metaserver 版本里可能叫 Pod、Launcher 或 Pylon。
             for (const char* key : { first, second, third })
             {
-                if (role.contains(key) && role[key].is_string())
-                {
-                    const std::string value = role[key].get<std::string>();
-                    if (!value.empty()) return value;
-                }
+                const std::string value = itemIdValue(role, key);
+                if (!value.empty()) return value;
             }
             return std::string();
         };
         const std::string leftId = firstStringValue("leftPod", "leftLauncher", "leftPylon");
         const std::string rightId = firstStringValue("rightPod", "rightLauncher", "rightPylon");
-        const std::string mobilityId = role.value("mobilityModule", "");
+        const std::string mobilityId = itemIdValue(role, "mobilityModule");
 
-        pushSlot(static_cast<int>(SDK::EPBCharacterSlotType::FirstWeapon), primary);
-        pushSlot(static_cast<int>(SDK::EPBCharacterSlotType::SecondWeapon), secondary);
-        pushSlot(static_cast<int>(SDK::EPBCharacterSlotType::MeleeWeapon), meleeId);
-        pushSlot(static_cast<int>(SDK::EPBCharacterSlotType::LeftPod), leftId);
-        pushSlot(static_cast<int>(SDK::EPBCharacterSlotType::RightPod), rightId);
-        pushSlot(static_cast<int>(SDK::EPBCharacterSlotType::Mobility), mobilityId);
+        upsertSlot(static_cast<int>(SDK::EPBCharacterSlotType::FirstWeapon), primary);
+        upsertSlot(static_cast<int>(SDK::EPBCharacterSlotType::SecondWeapon), secondary);
+        upsertSlot(static_cast<int>(SDK::EPBCharacterSlotType::MeleeWeapon), meleeId);
+        upsertSlot(static_cast<int>(SDK::EPBCharacterSlotType::LeftPod), leftId);
+        upsertSlot(static_cast<int>(SDK::EPBCharacterSlotType::RightPod), rightId);
+        upsertSlot(static_cast<int>(SDK::EPBCharacterSlotType::Mobility), mobilityId);
 
         // 确保 primaryWeapon / secondaryWeapon 的 weaponConfigs 键名与 inventory 中的一致
         // DecodeWeaponArchiveRaw 返回的键可能是 weaponId 格式，需要匹配
@@ -672,6 +730,16 @@ namespace LoadoutSerializer
         json result = EmptyRoleJson(roleId);
         result["inventory"]["slots"] = slots;
         result["weaponConfigs"] = normalizedWeaponConfigs;
+        if (role.contains("characterData") && role["characterData"].is_object())
+            result["characterData"] = role["characterData"];
+        if (role.contains("meleeWeapon") && role["meleeWeapon"].is_object())
+            result["meleeWeapon"] = role["meleeWeapon"];
+        if (role.contains("leftLauncher") && role["leftLauncher"].is_object())
+            result["leftLauncher"] = role["leftLauncher"];
+        if (role.contains("rightLauncher") && role["rightLauncher"].is_object())
+            result["rightLauncher"] = role["rightLauncher"];
+        if (role.contains("mobilityModule") && role["mobilityModule"].is_object())
+            result["mobilityModule"] = role["mobilityModule"];
 
         // melee / launcher / mobility
         if (!meleeId.empty() && meleeId != "None")

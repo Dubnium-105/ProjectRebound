@@ -163,9 +163,27 @@ namespace LoadoutMetaserver
         return GetJson("/api/loadout/" + UrlEncodePathSegment(playerId) + "/" + UrlEncodePathSegment(roleId));
     }
 
+    bool MetaserverClient::PutPlayerLoadout(const std::string& playerId, const nlohmann::json& snapshot) const
+    {
+        const std::string body = snapshot.dump();
+        auto response = RequestJson(
+            L"PUT",
+            "/api/loadout/" + UrlEncodePathSegment(playerId),
+            &body);
+        return response.has_value();
+    }
+
     std::optional<nlohmann::json> MetaserverClient::GetJson(const std::string& path) const
     {
-        // 所有请求都是短连接同步 GET。角色选择发生在服务端确认阶段，
+        return RequestJson(L"GET", path, nullptr);
+    }
+
+    std::optional<nlohmann::json> MetaserverClient::RequestJson(
+        const std::wstring& method,
+        const std::string& path,
+        const std::string* jsonBody) const
+    {
+        // 所有请求都是短连接同步 HTTP。角色选择发生在服务端确认阶段，
         // 这里宁可快速失败，也不阻塞游戏线程太久。
         std::wstring host;
         INTERNET_PORT port = 0;
@@ -190,7 +208,7 @@ namespace LoadoutMetaserver
         const DWORD flags = secure ? WINHTTP_FLAG_SECURE : 0;
         WinHttpHandle request(WinHttpOpenRequest(
             connection.Handle,
-            L"GET",
+            method.c_str(),
             requestPath.c_str(),
             nullptr,
             WINHTTP_NO_REFERER,
@@ -199,13 +217,19 @@ namespace LoadoutMetaserver
         if (!request) return std::nullopt;
 
         static constexpr wchar_t acceptHeader[] = L"Accept: application/json\r\n";
+        static constexpr wchar_t jsonHeader[] = L"Content-Type: application/json\r\nAccept: application/json\r\n";
+        const wchar_t* headers = jsonBody ? jsonHeader : acceptHeader;
+        const DWORD bodySize = jsonBody ? static_cast<DWORD>(jsonBody->size()) : 0;
+        void* bodyData = jsonBody && bodySize > 0
+            ? const_cast<char*>(jsonBody->data())
+            : WINHTTP_NO_REQUEST_DATA;
         if (!WinHttpSendRequest(
             request.Handle,
-            acceptHeader,
+            headers,
             static_cast<DWORD>(-1),
-            WINHTTP_NO_REQUEST_DATA,
-            0,
-            0,
+            bodyData,
+            bodySize,
+            bodySize,
             0))
         {
             return std::nullopt;

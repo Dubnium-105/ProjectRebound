@@ -30,10 +30,15 @@ namespace LoadoutMetaserver
         // ---- loadout REST 读取 ----
         std::optional<nlohmann::json> GetPlayerLoadout(const std::string& playerId) const;
         std::optional<nlohmann::json> GetPlayerRoleLoadout(const std::string& playerId, const std::string& roleId) const;
+        bool PutPlayerLoadout(const std::string& playerId, const nlohmann::json& snapshot) const;
 
     private:
-        // ---- 内部 GET + JSON 解析 ----
+        // ---- 内部 HTTP + JSON 解析 ----
         std::optional<nlohmann::json> GetJson(const std::string& path) const;
+        std::optional<nlohmann::json> RequestJson(
+            const std::wstring& method,
+            const std::string& path,
+            const std::string* jsonBody) const;
 
         std::string baseUrl_;
     };
