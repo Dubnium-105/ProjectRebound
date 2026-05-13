@@ -116,13 +116,82 @@ bool LoadConfigFile();
 //  LOGGING SYSTEM
 // ======================================================
 
+// The single ofstream that backs all wrapper-side logging.  Both LauncherLog
+// and the PipeReader (server stdout) write into this stream.
 std::ofstream logFile;
 
+// Absolute or relative path of the currently-open log file, set once during
+// InitWrapperCore and updated on every rotation so EnsureLogOpen can stat it.
+std::string g_CurrentLogPath;
+
+// Monotonically-increasing sequence number appended to the log stem on each
+// rotation (e.g. log-20260513_120000_2.txt).  Starts at 1 (the initial file
+// has no suffix).
+int g_LogSequence = 1;
+
+// Rotate to a new file once the current one reaches 1 MB so that a single
+// long-running server instance does not produce an unbounded log file.
+constexpr std::streamsize kMaxLogSize = 1024 * 1024; // 1 MB
+
+// EnsureLogOpen -----------------------------------------------------------
+// Called before every write while g_LogMutex is already held.  Stats the
+// current log file; if it has grown past kMaxLogSize the current stream is
+// closed and a new file is opened with an incremented numeric suffix.
+//
+// Naming convention:
+//   logs/log-20260513_120000.txt        ← initial file  (seq 1, no suffix)
+//   logs/log-20260513_120000_2.txt      ← first rotation
+//   logs/log-20260513_120000_3.txt      ← second rotation
+//   ...
+void EnsureLogOpen()
+{
+    if (!logFile.is_open())
+        return;
+
+    // Flush any buffered data before stat'ing so the size is accurate.
+    logFile.flush();
+
+    std::error_code ec;
+    auto size = std::filesystem::file_size(g_CurrentLogPath, ec);
+    if (ec || size < kMaxLogSize)
+        return; // File does not exist (unlikely) or is still under the limit.
+
+    // --- Rotation --------------------------------------------------------
+    // Derive the new filename from the current one by inserting "_N" before
+    // the extension.  std::filesystem::path handles the parsing.
+    std::filesystem::path p(g_CurrentLogPath);          // e.g. logs/log-20260513_120000.txt
+    std::string stem = p.stem().string();                // "log-20260513_120000"
+    std::string ext  = p.extension().string();           // ".txt"
+
+    ++g_LogSequence;
+    std::string newPath =
+        (p.parent_path() / (stem + "_" + std::to_string(g_LogSequence) + ext)).string();
+
+    // Close the over-size file and open the successor.
+    logFile.close();
+    logFile.open(newPath, std::ios::app);
+    g_CurrentLogPath = newPath;
+
+    // Write the rotation notice directly (avoid LauncherLog to prevent
+    // recursion through EnsureLogOpen).
+    std::string rotMsg =
+        "[Launcher] Log rotated (seq " + std::to_string(g_LogSequence) + "): " + newPath;
+    logFile << rotMsg << std::endl;
+    logFile.flush();
+    std::cout << rotMsg << std::endl;
+    if (g_ExternalLogCallback)
+        g_ExternalLogCallback(rotMsg + "\n");
+}
+
+// LauncherLog -------------------------------------------------------------
+// Thread-safe log sink for wrapper-originated messages.  Every line is
+// prefixed with "[Launcher]" and written to both the on-disk log and stdout.
 void LauncherLog(const std::string &msg)
 {
     std::string line = "[Launcher] " + msg;
     {
         std::lock_guard<std::mutex> lock(g_LogMutex);
+        EnsureLogOpen(); // Rotate the underlying file if it crossed 1 MB.
         logFile << line << std::endl;
         logFile.flush();
         std::cout << line << std::endl;
@@ -131,6 +200,35 @@ void LauncherLog(const std::string &msg)
     {
         g_ExternalLogCallback(line + "\n");
     }
+}
+
+// StartTimestampLogger ----------------------------------------------------
+// Spawns a detached background thread that writes a compact wall-clock
+// timestamp ("%y%m%d%H%M%S" → e.g. "260513143025") into the log every 30
+// seconds.  This gives every log line an implicit time reference without
+// bloating individual entries.
+void StartTimestampLogger()
+{
+    std::thread([]() {
+        while (!g_WrapperShuttingDown.load())
+        {
+            // Sleep in 1-second slices so we can react to shutdown promptly.
+            for (int i = 0; i < 30 && !g_WrapperShuttingDown.load(); ++i)
+                Sleep(1000);
+
+            if (g_WrapperShuttingDown.load())
+                break;
+
+            auto now = std::chrono::system_clock::now();
+            std::time_t t = std::chrono::system_clock::to_time_t(now);
+            std::tm tm{};
+            localtime_s(&tm, &t);
+
+            std::ostringstream oss;
+            oss << std::put_time(&tm, "%y%m%d%H%M%S");
+            LauncherLog("[TIMESTAMP] " + oss.str());
+        }
+    }).detach();
 }
 
 // ======================================================
@@ -293,9 +391,10 @@ std::string PickRandomMapAvoidingLast()
     size_t eligibleCount = 0;
     std::string selected = LastMap;
 
+    const bool isPvp = CurrentMode == "pvp";
     for (const auto &m : MapList)
     {
-        if (m.pveBug || m.name == LastMap)
+        if ((m.pveBug && !isPvp) || m.name == LastMap)
             continue;
 
         ++eligibleCount;
@@ -742,18 +841,23 @@ bool StopServerLocked()
             LauncherLog("TerminateProcess failed. GetLastError=" + std::to_string(GetLastError()));
             return false;
         }
-    }
 
-    const DWORD waitResult = WaitForSingleObject(process, 5000);
-    if (waitResult != WAIT_OBJECT_0)
-    {
-        LauncherLog("ERROR: timed out waiting for server process to exit.");
-        g_ServerState.store(ServerState::Running);
-        ServerRunning.store(true);
-        return false;
+        // Background cleanup: if the zombie survives 1 second,
+        // escalate to taskkill.  Runs on its own thread so the
+        // wrapper never blocks.
+        DWORD pid = g_ServerPid;
+        std::thread([process, pid]() {
+            if (WaitForSingleObject(process, 1000) == WAIT_TIMEOUT)
+            {
+                LauncherLog("Escalating: taskkill /F /T /PID " + std::to_string(pid));
+                std::string cmd = "taskkill /F /T /PID " + std::to_string(pid);
+                system(cmd.c_str());
+            }
+            CloseHandle(process);
+        }).detach();
+        process = NULL;  // ownership transferred to cleanup thread
     }
-
-    CloseHandle(process);
+    if (process) CloseHandle(process);
     g_ServerProcess = NULL;
     g_ServerPid = 0;
     g_ServerState.store(ServerState::Stopped);
@@ -866,6 +970,7 @@ void PipeReader(HANDLE pipe, uint64_t generation)
             LauncherLog("Server reported expected lifecycle exit");
         }
         std::lock_guard<std::mutex> lock(g_LogMutex);
+        EnsureLogOpen(); // Rotate if the log crossed 1 MB since the last write.
         logFile << msg;
         logFile.flush();
         std::cout << msg;
@@ -1192,9 +1297,13 @@ void InitWrapperCore()
 
     std::string logPath = "logs/log-" + CurrentTimestamp() + ".txt";
     logFile.open(logPath, std::ios::app);
+    g_CurrentLogPath = logPath; // Remember path so EnsureLogOpen can stat it for rotation.
 
     LauncherLog("Logging to: " + logPath);
     LauncherLog("Wrapper started.");
+
+    // Begin periodic wall-clock timestamps every 30 s.
+    StartTimestampLogger();
     LoadCommandLineConfig();
     LauncherLog("Configured UDP port: " + std::to_string(g_ServerPort));
 
