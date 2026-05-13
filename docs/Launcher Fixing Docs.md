@@ -1,16 +1,116 @@
 # Launcher (Side-Mounted Pod) Fixing Documentation
 
-## Overview
+## Section 1 — Current State (2026-05-07)
 
-This document chronicles the complete journey of debugging and fixing the LeftLauncher/RightLauncher (side-mounted pod) system on a Dedicated Server built from a client-only game binary. The game (Project Boundary) was originally designed for ListenServer/P2P, and we forced it into Dedicated Server mode via DLL injection and hooks.
+### Files Involved
 
-**Core file modified**: `Payload/Hooks/Hooks.cpp`
+| File | Role |
+|------|------|
+| `Utility/LauncherFix.h` | Declares 3 handler functions |
+| `Utility/LauncherFix.cpp` | All launcher + projectile fix logic (~200 active lines) |
+| `Hooks/Hooks.cpp` | Calls LauncherFix from ProcessEvent hooks |
+| `Replication/libreplicate.cpp` | Channel close fix for destroyed actors |
 
-**Total lines added**: ~120 (across server and client ProcessEvent hooks)
+### What Works (Verified)
+
+| Feature | Status |
+|---------|:------:|
+| All Delay-type launchers (smoke, impulse, HE/CQB, EMP) — full fire cycle | ✅ |
+| Launcher deploy/fire/undeploy animations | ✅ |
+| Reload progress bar | ✅ |
+| Projectile spawning + flight + impact | ✅ |
+| Explosion visual effects (HE, EMP, Impulse) | ✅ |
+| Smoke effects (Squid variant) | ✅ |
+| No dud projectiles (async BP timer duplicates blocked) | ✅ |
+| No server crash on empty-clip fire | ✅ |
+| Snapshot launcher — fake projectile mesh (K2_ASingleAmmoReloaded) | ✅ |
+| Deploy-type aim line hidden on Standby/Undeploy | ✅ |
+
+### How It Works (Active Fixes in LauncherFix.cpp)
+
+**1. State Machine Fix** — `OnRep_PendingState` handler:
+- Forces `CurrentState = PendingState` (native handler skips this when `!IsLocallyControlled`)
+- Calls the corresponding `K2_` BP function for each state transition
+- Clears `bIsFiring`, `bPendingFiring`, `BurstCounter`, `bIsFireControlEnabled` at Standby(0) and Ready(3)
+
+**2. Dud ServerFiring Block** — Both client-side (before sending RPC) and server-side (before processing RPC):
+- Checks `AmmoInClip == 0 && !HasInfiniteAmmo()` → blocks the call
+- Prevents the BP's 0.25s async retrigger timer from sending empty-clip fire requests
+
+**3. Projectile Explosion Visuals** — `OnRep_Exploded` handler:
+- When `bExploded == 1`, forces `MulticastExplode()` on the client
+- Works around the BP handler's `IsLocallyControlled` check that skips visual effects on DS client
+
+**4. Channel Close in LibReplicate**:
+- `CallFromTickFlushHook` now processes `ChannelsToClose` queue at the start of each tick
+- Properly notifies clients when server-side actors are destroyed
+
+**5. Deploy-type Aim Line Cleanup**:
+- Calls `ProjectilePathTracer->OnHidden_Event()` during Standby(0) and Undeploying(2)
+- Server may skip Undeploy state (collapses 2→0 in same tick), so both states are covered
+
+**6. Snapshot Fake Projectile Mesh**:
+- Calls `K2_ASingleAmmoReloaded()` during Reloading(4)
+- Only snapshot and motion-sensor launchers override this (shows "loaded round" indicator)
+- Parent default is a no-op, safe to call on all launcher types
+
+### Debug Section
+
+All diagnostic code lives under `#if 0` at the bottom of `LauncherFix.cpp`. Change to `#if 1` to re-enable:
+
+| Function | Purpose |
+|----------|---------|
+| `DebugDumpComponents` | Prints all component names on a launcher (identify blocking meshes) |
+| `DebugLogServerFiringDirection` | Logs Origin/ShootDir from ServerFiring params |
+| `DebugOverrideShootDir` | Overrides ShootDir with Controller rotation |
+| `DebugLogReadyExtended` | Logs all K2_Ready state fields (BurstCount, Role, etc.) |
 
 ---
 
-## Phase 0: Problem Description
+## Section 2 — Known Issues & Attempted Fixes
+
+### Issue: Motion Sensor (Deploy-type) — Model Blocks View
+**Symptom**: Pressing fire on motion sensor launcher causes a gun barrel mesh to appear in the player's face. Switching weapons makes it disappear. Launcher models also appear at world origin (0,0,0) due to broken native mesh attachment.
+
+**Attempted fixes**:
+- `SetVisibility(false)` on Mesh1P/ArmMesh1P — native code re-shows them during fire flow
+- `SetHiddenInGame(true)` — same problem, native code un-hides
+- `SetWorldScale3D({0,0,0})` — same
+- `SetActorHiddenInGame(true)` — **causes stack overflow** (triggers ProcessEvent → our hook → calls it again → infinite recursion)
+
+**Status**: Deferred. Will revisit when Pak mod debugging allows direct component identification. Workaround: switching weapons clears the stuck model.
+
+### Issue: Motion Sensor — Projectile Direction Corrupted
+**Symptom**: After using the motion sensor once, ALL subsequent launcher projectiles fly to the right, regardless of aim direction. Direction values in logs appear correct.
+
+**Attempted fixes**:
+- Deactivated `FireRocoil` (Deploy BP's recoil component) — didn't help
+- Set `FireRocoil->OwningPawn = nullptr` — didn't help
+- Stopped calling `K2_Fired` for Deploy-type launchers (avoids `FireRocoil->AddForce`) — didn't help
+- Changed `Origin` override from eye position (was causing spawn-inside-character collision with deployed arm) to using `GetAdjustedAim` origin — didn't help
+- Removed `Origin` override entirely (only override `ShootDir`) — didn't help
+
+**Root cause hypothesis**: The motion sensor projectile's `K2_StartScan` spawns a `PBMotionScanActor_BP` (scanLine) on the client (because `UKismetSystemLibrary::IsDedicatedServer()` returns false on the client process). This scan actor has `Radius=1000` and may create a collision volume near the player. Or the deployed mechanical arm (`ArmMesh1P`) has collision that projectiles hit.
+
+**Status**: Deferred. Direction values from Controller rotation are correct. The issue is not the direction vector but something physically blocking/intercepting projectiles after spawn.
+
+### Issue: Snapshot / Motion Sensor — Second Shot Muzzle Flash Missing
+**Symptom**: First shot has muzzle flash VFX. Subsequent shots do not. Projectile renders correctly but no gunfire visual.
+
+**Attempted fixes**: Force-called `K2_Fired()` + `K2_SimuilateFire()` in ServerFiring handler. This worked but caused the FireRocoil corruption for Deploy types. With the Deploy-type K2_Fired skip, the fix was reverted.
+
+**Status**: The K2_Ready state shows all flags clear (bIsFiring=0, etc.) but the BP still doesn't call ServerFiring for subsequent shots on snapshot/motion-sensor. Root cause unknown — likely a BP-specific condition we can't see in the decompiled output.
+
+### Issue: Smoke Grenade (non-Squid) — Deploys on Self
+**Symptom**: Regular smoke launcher (`APBSmokeGrenadeLauncher_BP`) has `bEnableBurst=true` (3-round burst). Each burst round fires in quick succession. Projectile deploys smoke on the player instead of traveling.
+
+**Status**: Not investigated. Burst mode interaction with projectile velocity setup is suspected.
+
+---
+
+## Section 3 — Research History
+
+### Phase 0: Problem Description
 
 ### Symptoms (Before Any Fix)
 - LeftLauncher and RightLauncher fire the first shot correctly (server processes it)
