@@ -9,12 +9,15 @@
 
 extern std::mutex LogMutex;
 extern std::string LogFilePath;
+extern bool ServerDebugLogEnabled;
 extern bool ClientDebugLogEnabled;
 extern std::ofstream clientLogFile;
 
 std::string CurrentTimestamp();
-void Log(const std::string &msg);
+void ServerLog(const std::string &msg);
+void ServerDebugLog(const std::string &msg);
 void ClientLog(const std::string &msg);
+void ClientDebugLog(const std::string &msg);
 void InitDebugConsole();
 void EnableUnrealConsole();
 void DebugLocateSubsystems();

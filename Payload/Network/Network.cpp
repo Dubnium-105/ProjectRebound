@@ -54,6 +54,11 @@ namespace
 
     bool SendJsonPost(const std::string &backend, const std::string &path, const nlohmann::json &payload, const char *logPrefix)
     {
+        if (IsServerShutdownRequested()) {
+            OutputDebugStringA("[EXIT-GUARD] SendJsonPost skipped (shutdown)\n");
+            return false;
+        }
+
         std::string host;
         INTERNET_PORT port = 0;
         if (!BuildHttpTarget(backend, host, port))
@@ -158,7 +163,8 @@ nlohmann::json BuildServerStatusPayload()
         {"map", map},
         {"port", Config.ExternalPort},
         {"playerCount", playerCount},
-        {"serverState", state}};
+        {"serverState", state},
+        {"serverId", Config.ServerUniqueId}};
 
     return payload;
 }

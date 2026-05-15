@@ -54,7 +54,7 @@ void ConnectToMatch()
         std::lock_guard<std::mutex> lock(MatchIPMutex);
         if (MatchIP.empty())
         {
-            ClientLog("[CLIENT] Reconnect requested but no -match target is configured.");
+            ClientDebugLog("[CLIENT] Reconnect requested but no -match target is configured.");
             return;
         }
         target = MatchIP;
@@ -71,7 +71,7 @@ void ConnectToMatch()
     LocalPlayer->GoToRange(0.0f);
 
     std::wstring travelCmd = L"travel " + std::wstring(target.begin(), target.end());
-    ClientLog("[CLIENT] Reconnecting to match: " + target);
+    ClientDebugLog("[CLIENT] Reconnecting to match: " + target);
 
     UKismetSystemLibrary::ExecuteConsoleCommand(
         UWorld::GetWorld(), travelCmd.c_str(), nullptr);
@@ -108,7 +108,7 @@ void AutoConnectToMatchFromCmdline()
 
                     if (LP)
                     {
-                        ClientLog("[CLIENT] Auto-enter Shooting Range...");
+                        ClientDebugLog("[CLIENT] Auto-enter Shooting Range...");
                         LP->GoToRange(0.0f);
                     }
 
@@ -132,12 +132,12 @@ void AutoConnectToMatchFromCmdline()
 
                     if (target.empty())
                     {
-                        ClientLog("[CLIENT] Auto-connect requested but no -match target is configured.");
+                        ClientDebugLog("[CLIENT] Auto-connect requested but no -match target is configured.");
                         return;
                     }
 
                     std::wstring wcmd = L"open " + std::wstring(target.begin(), target.end());
-                    ClientLog("[CLIENT] Auto-connecting to match: " + target);
+                    ClientDebugLog("[CLIENT] Auto-connecting to match: " + target);
 
                     UKismetSystemLibrary::ExecuteConsoleCommand(
                         UWorld::GetWorld(),

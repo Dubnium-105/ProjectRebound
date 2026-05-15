@@ -113,6 +113,9 @@ public:
     // @param DeltaTime 帧间隔时间（秒）
     void Tick(float DeltaTime);
 
+    // @brief PvE intro fix — force late-join spawn pipeline for first-life player.
+    void ForceFirstLifeSpawn(SDK::APBPlayerController* PC);
+
     // @brief 查询指定 PC 是否为中途加入玩家（供其他系统判断）
     bool IsLateJoinPlayer(SDK::APBPlayerController* PC) const;
 

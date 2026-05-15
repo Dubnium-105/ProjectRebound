@@ -19,7 +19,7 @@
 #include "../SDK.hpp"
 #include "../SDK/Engine_parameters.hpp"
 #include "../SDK/ProjectBoundary_parameters.hpp"
-#include <iostream>
+#include "../Debug/Debug.h"
 
 using namespace SDK;
 
@@ -119,7 +119,19 @@ void LateJoinManager::OnRoleConfirmed(APBPlayerController* PC)
         it->second.State = ELateJoinState::RoleConfirmed;
         it->second.ElapsedSeconds = 0.0f;
         it->second.SpawnAttempts = 0;
-        std::cout << "[LATEJOIN] Role confirmed; scheduling single-player spawn." << std::endl;
+        ServerDebugLog("[LATEJOIN] Role confirmed; scheduling single-player spawn.");
+    }
+}
+
+void LateJoinManager::ForceFirstLifeSpawn(APBPlayerController* PC)
+{
+    if (!PC) return;
+    QueueLateJoinPlayer(PC);
+    auto it = LateJoinPlayers.find(PC);
+    if (it != LateJoinPlayers.end()) {
+        it->second.State = ELateJoinState::RoleConfirmed;
+        it->second.ElapsedSeconds = 0.0f;
+        ServerDebugLog(std::string("[LATEJOIN] ForceFirstLifeSpawn: ") + PC->GetFullName());
     }
 }
 
@@ -150,7 +162,7 @@ void LateJoinManager::Tick(float DeltaTime)
         {
             FinalizeLateJoinSpawn(PC);
             Info.State = ELateJoinState::Spawned;
-            std::cout << "[LATEJOIN] Spawn complete for late join player." << std::endl;
+            ServerDebugLog("[LATEJOIN] Spawn complete for late join player.");
             it = LateJoinPlayers.erase(it);
             continue;
         }
@@ -169,7 +181,7 @@ void LateJoinManager::Tick(float DeltaTime)
             else if (Info.ClientStartSent && Info.ElapsedSeconds >= ROLE_SELECTION_TIMEOUT)
             {
                 Info.State = ELateJoinState::TimedOut;
-                std::cout << "[LATEJOIN] Timed out waiting for role selection." << std::endl;
+                ServerDebugLog("[LATEJOIN] Timed out waiting for role selection.");
             }
         }
         // ---- Phase 2: 角色已确认，尝试生成 Pawn ----
@@ -185,7 +197,7 @@ void LateJoinManager::Tick(float DeltaTime)
                 else
                 {
                     Info.State = ELateJoinState::TimedOut;
-                    std::cout << "[LATEJOIN] Timed out spawning late join player." << std::endl;
+                    ServerDebugLog("[LATEJOIN] Timed out spawning late join player.");
                 }
             }
         }
@@ -267,7 +279,7 @@ void LateJoinManager::QueueLateJoinPlayer(APBPlayerController* PC)
 
     LateJoinPlayers[PC] = FLateJoinInfo{};
     PlayerRespawnAllowedMap[PC] = true;
-    std::cout << "[LATEJOIN] Queued player for in-progress join: " << PC->GetFullName() << std::endl;
+    ServerDebugLog(std::string("[LATEJOIN] Queued player for in-progress join: ") + PC->GetFullName());
 }
 
 // @brief 向中途加入客户端发送"比赛已开始"的完整通知序列
@@ -277,7 +289,7 @@ void LateJoinManager::SendLateJoinClientStart(APBPlayerController* PC)
     if (!PC)
         return;
 
-    std::cout << "[LATEJOIN] Sending in-progress match state and role selection." << std::endl;
+    ServerDebugLog("[LATEJOIN] Sending in-progress match state and role selection.");
     PC->ClientStartOnlineGame();
     PC->ClientMatchHasStarted();
     PC->ClientRoundHasStarted();
@@ -303,8 +315,7 @@ void LateJoinManager::PrepareLateJoinRespawn(APBPlayerController* PC)
     // 如果当前是旁观者 Pawn → 退出观察模式并释放
     if (PC->Pawn && IsSpectatorPawn(PC->Pawn))
     {
-        std::cout << "[LATEJOIN] Clearing spectator pawn before playable spawn: "
-            << PC->Pawn->GetFullName() << std::endl;
+        ServerDebugLog(std::string("[LATEJOIN] Clearing spectator pawn before playable spawn: ") + PC->Pawn->GetFullName());
         PC->ExitObserverState();
         PC->UnPossess();
     }
@@ -332,8 +343,7 @@ void LateJoinManager::FinalizeLateJoinSpawn(APBPlayerController* PC)
     {
         if (PC->Pawn->Controller != (AController*)PC)
         {
-            std::cout << "[LATEJOIN] Forcing possess on spawned pawn: "
-                << PC->Pawn->GetFullName() << std::endl;
+            ServerDebugLog(std::string("[LATEJOIN] Forcing possess on spawned pawn: ") + PC->Pawn->GetFullName());
             PC->Possess(PC->Pawn);
         }
 
@@ -349,8 +359,7 @@ void LateJoinManager::FinalizeLateJoinSpawn(APBPlayerController* PC)
     PC->ClientRetryClientRestart(PC->Pawn);
     PC->ServerAcknowledgePossession(PC->Pawn);
 
-    std::cout << "[LATEJOIN] Finalized playable possession: "
-        << PC->Pawn->GetFullName() << std::endl;
+    ServerDebugLog(std::string("[LATEJOIN] Finalized playable possession: ") + PC->Pawn->GetFullName());
 }
 
 // @brief 执行生成尝试（3 级回退策略）
@@ -372,19 +381,19 @@ void LateJoinManager::RequestLateJoinSpawn(APBPlayerController* PC, FLateJoinInf
         // 第 1 次：通过 GameMode 的标准 RestartPlayers 生成
         TArray<AController*> Controllers{};
         Controllers.Add((AController*)PC);
-        std::cout << "[LATEJOIN] RestartPlayers for late join player." << std::endl;
+        ServerDebugLog("[LATEJOIN] RestartPlayers for late join player.");
         GameMode->RestartPlayers(Controllers);
     }
     else if (Info.SpawnAttempts == 1)
     {
         // 第 2 次：RestartPlayers 未生效，尝试 ServerQuickRespawn
-        std::cout << "[LATEJOIN] RestartPlayers did not produce a pawn; trying ServerQuickRespawn." << std::endl;
+        ServerDebugLog("[LATEJOIN] RestartPlayers did not produce a pawn; trying ServerQuickRespawn.");
         PC->ServerQuickRespawn();
     }
     else if (Info.SpawnAttempts == 2)
     {
         // 第 3 次：QuickRespawn 也未生效，用 ServerSuicide 触发重生链
-        std::cout << "[LATEJOIN] Quick respawn did not produce a pawn; trying ServerSuicide fallback." << std::endl;
+        ServerDebugLog("[LATEJOIN] Quick respawn did not produce a pawn; trying ServerSuicide fallback.");
         PC->ServerSuicide(0);
     }
 

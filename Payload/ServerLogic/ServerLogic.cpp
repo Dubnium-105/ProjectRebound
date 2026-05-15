@@ -43,9 +43,12 @@ namespace
             SendRoomLifecycleEvent(OnlineBackendAddress, "end");
         }
 
-        std::cout << "[SERVER_EXIT] reason=" << reason << std::endl;
+        OutputDebugStringA("[SERVER_EXIT] reason=");
+        OutputDebugStringA(reason.c_str());
+        OutputDebugStringA("[SERVER_EXIT] Calling TerminateProcess...\n");
+
         Sleep(250);
-        ExitProcess(0);
+        TerminateProcess(GetCurrentProcess(), 0);
     }
 }
 
@@ -145,7 +148,7 @@ void HandleServerMatchStarted()
     if (gRoomStartReported.exchange(true))
         return;
 
-    std::cout << "[SERVER_LIFECYCLE] match_started" << std::endl;
+    ServerLog("[SERVER_LIFECYCLE] match_started");
 
     if (!OnlineBackendAddress.empty() && !HostRoomId.empty() && !HostToken.empty())
         SendRoomLifecycleEvent(OnlineBackendAddress, "start");
@@ -159,7 +162,7 @@ void HandleServerMatchEndSignal(const char *reason)
     listening = false;
 
     const std::string shutdownReason = reason && reason[0] ? reason : "match_end";
-    std::cout << "[SERVER_LIFECYCLE] match_end_detected reason=" << shutdownReason << std::endl;
+    ServerLog("[SERVER_LIFECYCLE] match_end_detected reason=" + shutdownReason);
 
     // Keep the hook path lightweight: let the engine finish the current event,
     // then end the backend room and terminate from a detached worker.
@@ -172,20 +175,20 @@ void HandleServerMatchEndSignal(const char *reason)
 
 void StartServer()
 {
-    Log("[SERVER] Starting server...");
+    ServerLog("[SERVER] Starting server...");
 
     LoadConfig();
 
-    Log("[SERVER] Map loaded: " + std::string(Config.MapName.begin(), Config.MapName.end()));
-    Log("[SERVER] Mode: " + std::string(Config.FullModePath.begin(), Config.FullModePath.end()));
-    Log("[SERVER] Port: " + std::to_string(Config.Port));
+    ServerLog("[SERVER] Map loaded: " + std::string(Config.MapName.begin(), Config.MapName.end()));
+    ServerLog("[SERVER] Mode: " + std::string(Config.FullModePath.begin(), Config.FullModePath.end()));
+    ServerLog("[SERVER] Port: " + std::to_string(Config.Port));
 
     std::wstring openCmd = L"open " + Config.MapName + L"?game=" + Config.FullModePath;
-    Log("[SERVER] Executing open command");
+    ServerLog("[SERVER] Executing open command");
 
     UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), openCmd.c_str(), nullptr);
 
-    Log("[SERVER] Waiting for world to load...");
+    ServerLog("[SERVER] Waiting for world to load...");
     Sleep(8000);
 
     UEngine *Engine = UEngine::GetEngine();
@@ -193,11 +196,11 @@ void StartServer()
 
     if (!World)
     {
-        Log("[ERROR] World is NULL after map load!");
+        ServerLog("[ERROR] World is NULL after map load!");
         return;
     }
 
-    Log("[SERVER] Forcing streaming levels to load...");
+    ServerLog("[SERVER] Forcing streaming levels to load...");
 
     for (int i = SDK::UObject::GObjects->Num() - 1; i >= 0; i--)
     {
@@ -216,17 +219,17 @@ void StartServer()
             LS->SetShouldBeLoaded(true);
             LS->SetShouldBeVisible(true);
 
-            Log("[SERVER] Streaming level loaded: " + std::string(Obj->GetFullName()));
+            ServerLog("[SERVER] Streaming level loaded: " + std::string(Obj->GetFullName()));
         }
     }
 
     if (!libReplicate)
     {
-        Log("[ERROR] libReplicate is null before CreateNetDriver!");
+        ServerLog("[ERROR] libReplicate is null before CreateNetDriver!");
         return;
     }
 
-    Log("[SERVER] Creating NetDriver...");
+    ServerLog("[SERVER] Creating NetDriver...");
     FName name = UKismetStringLibrary::Conv_StringToName(L"GameNetDriver");
     libReplicate->CreateNetDriver(Engine, World, &name);
 
@@ -234,24 +237,24 @@ void StartServer()
 
     if (!NetDriver)
     {
-        Log("[ERROR] NetDriver not found after CreateNetDriver!");
+        ServerLog("[ERROR] NetDriver not found after CreateNetDriver!");
         return;
     }
 
     NetDriverAccess::Observe(NetDriver, World, NetDriverAccess::Source::ObjectScan);
-    Log("[SERVER] NetDriver created successfully.");
+    ServerLog("[SERVER] NetDriver created successfully.");
 
-    Log("[SERVER] Calling Listen()...");
+    ServerLog("[SERVER] Calling Listen()...");
     libReplicate->Listen(NetDriver, World, LibReplicate::EJoinMode::Open, Config.Port);
     NetDriverAccess::Observe(NetDriver, World, NetDriverAccess::Source::World);
 
     NetDriverAccess::Snapshot snapshot{};
     if (NetDriverAccess::TryGetSnapshot(snapshot, false))
     {
-        Log("[SERVER] NetDriver exposed via source: " + std::string(NetDriverAccess::ToString(snapshot.LastSource)));
+        ServerLog("[SERVER] NetDriver exposed via source: " + std::string(NetDriverAccess::ToString(snapshot.LastSource)));
     }
 
     listening = true;
 
-    Log("[SERVER] Server is now listening.");
+    ServerLog("[SERVER] Server is now listening.");
 }

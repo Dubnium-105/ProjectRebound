@@ -23,6 +23,11 @@
 #include "../ServerLogic/ServerLogic.h"
 #include "../ClientLogic/ClientLogic.h"
 #include "../Utility/Utility.h"
+#include "../Utility/LauncherFix.h"
+#include "../Utility/UIFix.h"
+#include "../Utility/UserNameFix.h"
+#include "../Utility/PVECamFix.h"
+#include "../Loadout/LoadoutFix.h"
 
 extern uintptr_t BaseAddress;
 extern LibReplicate* libReplicate;
@@ -186,12 +191,12 @@ namespace
                 auto* PlayerController = static_cast<APBPlayerController*>(Obj);
                 if (PlayerController->CanSelectRole())
                 {
-                    std::cout << "Selecting role..." << std::endl;
+                    ServerDebugLog("Selecting role...");
                     PlayerController->ClientSelectRole();
                 }
                 else
                 {
-                    std::cout << "CANT SELECT ROLE WEE WOO WEE WOO" << std::endl;
+                    ServerDebugLog("CANT SELECT ROLE WEE WOO WEE WOO");
                 }
             }
         }
@@ -294,7 +299,7 @@ namespace
         *spec.Storage = safetyhook::create_inline(GameOffsets::Resolve(BaseAddress, spec.Offset), spec.Detour);
         if (!static_cast<bool>(*spec.Storage))
         {
-            Log("[HOOK] Failed to install " + std::string(spec.Name));
+            ServerLog("[HOOK] Failed to install " + std::string(spec.Name));
         }
     }
 
@@ -317,6 +322,9 @@ static SafetyHookInline TickFlush = {};
 void TickFlushHook(UNetDriver *NetDriver, float DeltaTime)
 {
     NoteServerGameTick();
+
+    UserNameFix_DrainPending();
+    PVECamFix_Tick(NetDriver, DeltaTime);
 
     if (IsServerShutdownRequested())
     {
@@ -369,6 +377,7 @@ void TickFlushHook(UNetDriver *NetDriver, float DeltaTime)
         {
             std::string reason = "round_state_" + RoundState;
             HandleServerMatchEndSignal(reason.c_str());
+            return TickFlush.call(NetDriver, DeltaTime);
         }
 
         if (RoundState.contains("InvalidState"))
@@ -399,7 +408,7 @@ void TickFlushHook(UNetDriver *NetDriver, float DeltaTime)
                         {
                             DidProcFlow = true;
 
-                            std::cout << "All players connected, beginning role selection flow!" << std::endl;
+                            ServerDebugLog("All players connected, beginning role selection flow!");
 
                             PlayerJoinTimerSelectFuck = 5.0f;
 
@@ -524,7 +533,7 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
 
         if (respawnAllowed != PlayerRespawnAllowedMap.end() && !respawnAllowed->second)
         {
-            std::cout << "Denied restart!" << std::endl;
+            ServerDebugLog("Denied restart!");
             return;
         }
     }
@@ -572,7 +581,7 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
 
     if (EventInfo.ServerKind == EServerProcessEventKind::ClientBeKilled)
     {
-        std::cout << "Intercepted Player Kill!" << std::endl;
+        ServerDebugLog("Intercepted Player Kill!");
 
         APBPlayerController *PBPlayerController = (APBPlayerController *)Object;
 
@@ -586,6 +595,13 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
         return;
     }
 
+    // --- Launcher event handling (delegated to LauncherFix) ---
+    if (Object && Object->IsA(APBLauncher::StaticClass()))
+    {
+        if (HandleLauncherServerEvent(Object, Function, Parms, EventInfo.FullName))
+            return;
+    }
+
     return ProcessEvent.call(Object, Function, Parms);
 }
 
@@ -597,7 +613,9 @@ void *PostLogin(AGameMode *GameMode, APBPlayerController *PC)
 
     NumPlayersJoined++;
 
-    std::cout << "Player Connected!" << std::endl;
+    ServerDebugLog("[POST-LOGIN] Player #" + std::to_string(NumPlayersJoined) + " connected");
+
+    UserNameFix_OnPostLogin(GameMode, PC);
 
     // LateJoin detection
     if (gLateJoinManager && gLateJoinManager->OnPostLogin(GameMode, PC))
@@ -648,7 +666,7 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
     // Froce space to login
     if (EventInfo.ClientKind == EClientProcessEventKind::EnterGameConstruct)
     {
-        ClientLog("[LOGIN] EnterGame Construct forcing SPACE");
+        ClientDebugLog("[LOGIN] EnterGame Construct forcing SPACE");
 
         std::thread([]()
                     {
@@ -659,7 +677,7 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
 
     if (EventInfo.ClientKind == EClientProcessEventKind::EnterGameActivated)
     {
-        ClientLog("[LOGIN] EnterGame Activated forcing SPACE");
+        ClientDebugLog("[LOGIN] EnterGame Activated forcing SPACE");
 
         std::thread([]()
                     {
@@ -671,18 +689,47 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
     // Detect login complete via MainMenuBase Construct
     if (EventInfo.ClientKind == EClientProcessEventKind::MainMenuConstruct)
     {
-        LoginCompleted = true;
+        if (!LoginCompleted)
+        {
+            LoginCompleted = true;
+            LoadoutFix_FetchAndLog();
+        }
     }
 
     if (EventInfo.ClientKind == EClientProcessEventKind::ConnectMatchServerTimeout)
     {
         const std::string objectName = Object ? std::string(Object->GetFullName()) : "NULL";
-        ClientLog("[PE] " + objectName + " - " + EventInfo.FullName);
+        ClientDebugLog("[PE] " + objectName + " - " + EventInfo.FullName);
 
         ConnectToMatch();
     }
 
-    return ProcessEventClient.call(Object, Function, Parms);
+    // --- Launcher event handling (delegated to LauncherFix) ---
+    if (Object && Object->IsA(APBLauncher::StaticClass()))
+    {
+        if (HandleLauncherClientEvent(Object, Function, Parms, EventInfo.FullName))
+            return;
+    }
+
+    // --- Projectile event handling (delegated to LauncherFix) ---
+    if (Object && Object->IsA(APBProjectile::StaticClass()))
+    {
+        HandleProjectileClientEvent(Object, EventInfo.FullName);
+    }
+
+    // --- Sprint shake diagnostic (UIFix) ---
+    if (Object && Object->IsA(APBCharacter::StaticClass()))
+    {
+        HandleUICharacterClientEvent(Object, Function, Parms, EventInfo.FullName);
+    }
+
+    // --- Equip error swallow (LoadoutFix) ---
+    HandleEquipErrorSwallow(Object, Function, Parms, EventInfo.FullName);
+
+    ProcessEventClient.call(Object, Function, Parms);
+
+    // After BP callback ran, flush any pending equip display refresh
+    LoadoutFix_FlushRefresh();
 }
 
 static SafetyHookInline ClientDeathCrash;
@@ -742,7 +789,7 @@ __int64 GameEngineTickHook(APlayerController *a1,
 
     if (flip)
     {
-        std::cout << "NO TICKY" << std::endl;
+        ServerDebugLog("NO TICKY");
         return 0;
     }
 

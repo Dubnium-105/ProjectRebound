@@ -1,0 +1,209 @@
+You’ve actually landed on the core of how Boundary wires “what the player owns” → “what the match uses”. The three structs you just pasted are the glue.
+
+1. What these three structs represent
+
+FPBInventoryNetworkConfig
+
+struct FPBInventoryNetworkConfig
+{
+    TArray<EPBCharacterSlotType> CharacterSlots;
+    TArray<FName>                InventoryItems;
+};
+
+Meaning: “For this character/role, in slot X, equip item Y.”
+
+Layout: CharacterSlots[i] and InventoryItems[i] are parallel arrays. Index i is:slot type → item FName.
+
+So if CharacterSlots = [Head, Body, Charm] and InventoryItems = ["HAT_01", "ARMOR_02", "CHARM_CAT"], that’s the per‑slot cosmetic/field‑mod inventory for that role.
+
+FPBRoleNetworkConfig
+
+struct FPBRoleNetworkConfig
+{
+    FName                         CharacterID;
+    FPBCharacterNetworkConfig     CharacterData;
+    FPBWeaponNetworkConfig        FirstWeaponPartData;
+    FPBWeaponNetworkConfig        SecondWeaponPartData;
+    FPBMeleeWeaponNetworkConfig   MeleeWeaponData;
+    FPBLauncherNetworkConfig      LeftLauncherData;
+    FPBLauncherNetworkConfig      RightLauncherData;
+    FPBMobilityModuleNetworkConfig MobilityModuleData;
+    FPBInventoryNetworkConfig     InventoryData;
+};
+
+Meaning: “This is the full loadout for one role.”
+
+It bundles:
+
+Which character (CharacterID, CharacterData)
+
+Primary/secondary weapon configs (FirstWeaponPartData, SecondWeaponPartData)
+
+Melee, launchers, mobility module
+
+InventoryData → the FPBInventoryNetworkConfig above.
+
+This is the thing that actually describes a role’s complete kit as seen by the match.
+
+FPBFieldModRoleGameSavedNetworkConfig
+
+struct FPBFieldModRoleGameSavedNetworkConfig
+{
+    TArray<FName>                    RoleArray;
+    TArray<FPBInventoryNetworkConfig> RoleInventoryNetworkConfigArray;
+};
+
+Meaning: “Saved per‑role inventory configs for the account.”
+
+RoleArray[i] corresponds to RoleInventoryNetworkConfigArray[i].So: role ID → its FPBInventoryNetworkConfig.
+
+This is what gets written/read by the “field mod” system when it persists your per‑role inventory between sessions.
+
+2. Where this plugs into the classes you found
+
+UPBFieldModManager
+
+class UPBFieldModManager : public UWorldSubsystem
+{
+    TMap<FName, FPBInventoryNetworkConfig> CharacterPreOrderingInventoryConfigs;
+    TMap<FName, FPBCharacterInventoryStatus> CharacterInventoryStatus;
+
+    FName GetEquippingItemIDInSlotType(EPBCharacterSlotType InSlotType);
+    FName GetPreOrderingItemIDInSlotType(EPBCharacterSlotType InSlotType);
+    FPBWeaponNetworkConfig GetWeaponNetworkConfig(FName InRoleID, FName InWeaponID);
+    void K2_CaptureSelectRoleWeapons();
+    void SavePreOrderGameSaved();
+    APBWeapon* SpawnWeapon(FName InRoleID, FName InWeaponID);
+    ...
+};
+
+This is the runtime owner of the inventory/loadout state:
+
+CharacterPreOrderingInventoryConfigs is basically a map:RoleID → FPBInventoryNetworkConfig.
+
+SavePreOrderGameSaved() is where FPBFieldModRoleGameSavedNetworkConfig gets written to the save object.
+
+GetWeaponNetworkConfig and SpawnWeapon use the weapon/network configs (FPBWeaponNetworkConfig, etc.) to actually spawn the weapons with the right parts.
+
+The “select” events (SelectCharacter, SelectInventoryItem, etc.) are the UI/logic layer that manipulates these configs.
+
+UPBWeaponPartManager
+
+class UPBWeaponPartManager : public UGameInstanceSubsystem
+{
+    TMap<APBWeapon*, FWeaponSlotPartInfo> WeaponSlotMap;
+    TArray<UClass*> CachedWeaponPartClassArray;
+
+    TArray<UPartDataHolderComponent*> GetWeaponSlotArray(const APBWeapon* InWeapon);
+    TMap<EPBPartSlotType, UPartDataHolderComponent*> GetWeaponSlotPartMap(const APBWeapon* InWeapon);
+    TSubclassOf<UPartDataHolderComponent> GetPartClassByID(const FName& InPartID) const;
+};
+
+This is how weapon part IDs from FPBWeaponNetworkConfig get turned into actual components/parts on the weapon.
+
+When you feed it a FName part ID, GetPartClassByID gives you the component class to attach.
+
+UPBArmoryManager
+
+You already saw:
+
+HasItem(FName InItemID)
+
+IsPartnerItem(FName ItemId)
+
+GetCoin(), GetUnlockPoint()
+
+This is the ownership/unlock layer: “does this account own item X?” Your DLL’s InitClientArmory() is brute‑forcing ownership by stuffing everything into OwnedItems.
+
+3. How Boundary’s loadout flow looks (in your terms)
+
+Putting it together:
+
+Account / login side (your Node server):
+
+You have roles.txt and inventory JSON.
+
+Conceptually, for each role you can build:
+
+A FPBRoleNetworkConfig (full kit), or at minimum
+
+A FPBInventoryNetworkConfig (field mods / inventory per slot).
+
+Logic / menu side (in‑game, via DLL):
+
+UPBArmoryManager says “these items exist and are owned”.
+
+UPBFieldModManager holds:
+
+CharacterPreOrderingInventoryConfigs[RoleID] = FPBInventoryNetworkConfig→ what the UI shows as your equipped items per slot.
+
+It can also save/load FPBFieldModRoleGameSavedNetworkConfig for persistence.
+
+Match side:
+
+When a role is selected and a match starts, the game builds a FPBRoleNetworkConfig for that role.
+
+That struct is what gets replicated / used to spawn:
+
+Character
+
+Weapons (via UPBWeaponPartManager + FPBWeaponNetworkConfig)
+
+Melee, launchers, mobility, inventory.
+
+4. What you actually need to do to “pipe loadouts from login server to DLL”
+
+You don’t need to find PBRoleComponent to make this work. You already have the important pieces.
+
+On the DLL side, the concrete steps look like:
+
+Get the UPBFieldModManager instanceUse your getObjectsOfClass helper once the world is ready:
+
+auto objs = getObjectsOfClass(UPBFieldModManager::StaticClass(), false);
+auto* FieldModMgr = objs.empty() ? nullptr : (UPBFieldModManager*)objs.back();
+
+Build FPBInventoryNetworkConfig from your login/roles dataFor each role ID you care about:
+
+FPBInventoryNetworkConfig inv{};
+// For each slot in your roles.txt:
+inv.CharacterSlots.Add(EPBCharacterSlotType::Head);
+inv.InventoryItems.Add(UKismetStringLibrary::Conv_StringToName(L"HAT_01"));
+// ...repeat for all slots...
+
+Inject into CharacterPreOrderingInventoryConfigs
+
+FName RoleID = UKismetStringLibrary::Conv_StringToName(L"ROLE_ASSAULT");
+FieldModMgr->CharacterPreOrderingInventoryConfigs.Add(RoleID, inv);
+
+Now, from the game’s perspective, that role has that inventory config pre‑ordered/equipped.
+
+(Optional) Mirror into the saved config structIf you want it to persist via the game’s own save system, find where FPBFieldModRoleGameSavedNetworkConfig is used (likely in some “GameSaved” or “Profile” object) and populate:
+
+FPBFieldModRoleGameSavedNetworkConfig saved{};
+saved.RoleArray.Add(RoleID);
+saved.RoleInventoryNetworkConfigArray.Add(inv);
+// assign this to whatever save object FieldModManager uses before SavePreOrderGameSaved()
+
+Weapons / partsWhen you want to control weapon parts:
+
+Build FPBWeaponNetworkConfig for each weapon (you’ll find that struct in structs.cpp too).
+
+Use UPBWeaponPartManager::GetPartClassByID to resolve part IDs.
+
+Make sure your FPBRoleNetworkConfig for that role has FirstWeaponPartData / SecondWeaponPartData filled.
+
+5. Direct answer to your underlying question
+
+Boundary uses FPBRoleNetworkConfig as the “full role loadout” struct.
+
+Inventory/field‑mods per role are carried in FPBInventoryNetworkConfig, stored in:
+
+UPBFieldModManager::CharacterPreOrderingInventoryConfigs at runtime, and
+
+FPBFieldModRoleGameSavedNetworkConfig for persistence.
+
+Weapons and parts are resolved via UPBWeaponPartManager and the various *WeaponNetworkConfig structs.
+
+Your login server’s roles.txt/inventory should be mapped into those structs and written into UPBFieldModManager (and optionally the save object) from the DLL once the world and subsystems are live.
+
+If you want, next step we can sketch a tiny “from JSON → FPBInventoryNetworkConfig” function that you can drop straight into your DLL.

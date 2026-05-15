@@ -24,6 +24,7 @@
 #include "Hooks/Hooks.h"
 #include "Network/Network.h"
 #include "Utility/Utility.h"
+#include "Utility/UserNameFix.h"
 
 using namespace SDK;
 // ======================================================
@@ -38,7 +39,7 @@ void OnJoinFromPipe(const std::string& ip, const std::string& token)
 {
     (void)token;
 
-    ClientLog("[PIPE] Join request received: " + ip);
+    ClientDebugLog("[PIPE] Join request received: " + ip);
     {
         std::lock_guard<std::mutex> lock(MatchIPMutex);
         MatchIP = ip;
@@ -60,7 +61,7 @@ void OnJoinFromPipe(const std::string& ip, const std::string& token)
 
 void MainThread()
 {
-    ClientLog("[BOOT] DLL injected, starting...");
+    ClientDebugLog("[BOOT] DLL injected, starting...");
     try
     {
         // Calms down the ui font missing panic
@@ -92,13 +93,13 @@ void MainThread()
         if (amServer)
         {
             InitServerHooks();
-            Log("[SERVER] Hooks installed.");
+            ServerLog("[SERVER] Hooks installed.");
 
             // Wait for world
-            Log("[SERVER] Waiting for UWorld...");
+            ServerLog("[SERVER] Waiting for UWorld...");
             while (!UWorld::GetWorld())
                 Sleep(10);
-            Log("[SERVER] UWorld is ready.");
+            ServerLog("[SERVER] UWorld is ready.");
 
             // Initialize LibReplicate exactly like original code
             libReplicate = new LibReplicate(
@@ -115,7 +116,7 @@ void MainThread()
                 GameOffsets::Resolve(BaseAddress, GameOffsets::LibReplicate::SetWorld),
                 GameOffsets::Resolve(BaseAddress, GameOffsets::LibReplicate::CallPreReplication),
                 GameOffsets::Resolve(BaseAddress, GameOffsets::LibReplicate::SendClientAdjustment));
-            Log("[SERVER] LibReplicate initialized.");
+            ServerLog("[SERVER] LibReplicate initialized.");
 
             // Initialize LateJoinManager
             gLateJoinManager = new LateJoinManager(
@@ -123,7 +124,7 @@ void MainThread()
                 PlayerRespawnAllowedMap,
                 nullptr // ReportRoomStarted callback — can be wired later
             );
-            Log("[SERVER] LateJoinManager initialized.");
+            ServerLog("[SERVER] LateJoinManager initialized.");
 
             StartServer();
 
@@ -165,7 +166,7 @@ void MainThread()
                 g_CmdFramework = new CommandFramework();
                 g_CmdFramework->SetPipeName(MatchPipeName);
                 g_CmdFramework->SetJoinCallback(OnJoinFromPipe);
-                g_CmdFramework->SetLogCallback([](const std::string& msg) { ClientLog(msg); });
+                g_CmdFramework->SetLogCallback([](const std::string& msg) { ClientDebugLog(msg); });
                 g_CmdFramework->Start();
             }
 
@@ -194,8 +195,8 @@ void MainThread()
     }
     catch (...)
     {
-        std::cout << "[ERROR] Unhandled exception in MainThread!" << std::endl;
-        std::cout << "Press ENTER to exit..." << std::endl;
+        ServerLog("[ERROR] Unhandled exception in MainThread!");
+        ServerLog("Press ENTER to exit...");
         std::cin.get();
     }
 }

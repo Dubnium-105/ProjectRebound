@@ -90,21 +90,21 @@ void LoadConfig()
         Config.ExternalPort = Config.Port; // default same as internal
     }
 
-    Log("[SERVER] External port: " + std::to_string(Config.ExternalPort));
+    ServerLog("[SERVER] External port: " + std::to_string(Config.ExternalPort));
 
     // Name
     std::string serverNameArg = GetCmdValue("-servername=");
     if (!serverNameArg.empty())
     {
         Config.ServerName = serverNameArg;
-        Log("[SERVER] Server name: " + serverNameArg);
+        ServerLog("[SERVER] Server name: " + serverNameArg);
     }
     // Region
     std::string serverRegionArg = GetCmdValue("-serverregion=");
     if (!serverRegionArg.empty())
     {
         Config.ServerRegion = serverRegionArg;
-        Log("[SERVER] Server region: " + serverRegionArg);
+        ServerLog("[SERVER] Server region: " + serverRegionArg);
     }
     // Min players (still used in TickFlush)
     Config.MinPlayersToStart = Config.IsPvE ? 1 : 2;
@@ -114,21 +114,28 @@ void LoadConfig()
     if (!onlineArg.empty())
     {
         OnlineBackendAddress = onlineArg;
-        std::cout << "[SERVER] Online backend: " << OnlineBackendAddress << std::endl;
+        ServerLog("[SERVER] Online backend: " + OnlineBackendAddress);
     }
 
     std::string roomIdArg = GetCmdValue("-roomid=");
     if (!roomIdArg.empty())
     {
         HostRoomId = roomIdArg;
-        Log("[SERVER] Host room id: " + HostRoomId);
+        ServerLog("[SERVER] Host room id: " + HostRoomId);
     }
 
     std::string hostTokenArg = GetCmdValue("-hosttoken=");
     if (!hostTokenArg.empty())
     {
         HostToken = hostTokenArg;
-        Log("[SERVER] Host token received.");
+        ServerLog("[SERVER] Host token received.");
+    }
+
+    std::string serverIdArg = GetCmdValue("-serverid=");
+    if (!serverIdArg.empty())
+    {
+        Config.ServerUniqueId = serverIdArg;
+        ServerLog("[SERVER] Server ID: " + serverIdArg);
     }
 }
 
@@ -141,17 +148,23 @@ void LoadClientConfig()
             std::lock_guard<std::mutex> lock(MatchIPMutex);
             MatchIP = matchArg;
         }
-        ClientLog("[CLIENT] Auto-match target: " + matchArg);
+        ClientDebugLog("[CLIENT] Auto-match target: " + matchArg);
     }
 
     MatchPipeName = GetCmdValue("-pipe=");
     if (!MatchPipeName.empty())
     {
-        ClientLog("[CLIENT] Command pipe name: " + MatchPipeName);
+        ClientDebugLog("[CLIENT] Command pipe name: " + MatchPipeName);
     }
 
-    // NEW: debug log flag
-    if (std::string(GetCommandLineA()).find("-debuglog") != std::string::npos)
+    // Diagnostic log flags — gate non-essential output behind explicit opt-in.
+    // -serverdebuglog  enables ServerDebugLog() output (diagnostic server-side logs)
+    // -clientdebuglog  enables ClientDebugLog() output (diagnostic client-side logs)
+    if (std::string(GetCommandLineA()).find("-serverdebuglog") != std::string::npos)
+    {
+        ServerDebugLogEnabled = true;
+    }
+    if (std::string(GetCommandLineA()).find("-clientdebuglog") != std::string::npos)
     {
         ClientDebugLogEnabled = true;
     }

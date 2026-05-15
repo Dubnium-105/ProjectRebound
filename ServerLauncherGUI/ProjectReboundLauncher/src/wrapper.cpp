@@ -8,8 +8,11 @@
 #include <winsock2.h>
 #include <windows.h>
 #include <ws2tcpip.h>
+#include <winhttp.h>
 
 #include "headers/json.hpp"
+
+#pragma comment(lib, "winhttp.lib")
 #include <array>
 #include <atomic>
 #include <cctype>
@@ -72,6 +75,7 @@ std::string ServerName = "DefaultServer";
 std::string ServerRegion = "CN";
 std::string HostRoomId = "";
 std::string HostToken = "";
+std::string ServerUniqueId = "";        // persisted in serverId.json
 std::string GameExePath = "..\\ProjectBoundarySteam-Win64-Shipping.exe";
 int g_ServerPort = 7777;
 int g_ExternalPort = g_ServerPort;
@@ -415,9 +419,9 @@ void PrintMapList()
     for (const auto &m : MapList)
     {
         if (m.pveBug)
-            std::cout << m.name << "  [FORBIDDEN: PVE BUG]" << std::endl;
+            LauncherLog(std::string(m.name) + "  [FORBIDDEN: PVE BUG]");
         else
-            std::cout << m.name << std::endl;
+            LauncherLog(std::string(m.name));
     }
 
     LauncherLog("======================");
@@ -607,7 +611,7 @@ void InitCommands()
     RegisterCommand("help", "Show all commands", [](const std::string &args) {
         LauncherLog("Available commands:");
         for (auto &c : g_Commands)
-            std::cout << "  " << c.name << " - " << c.help << std::endl;
+            LauncherLog("  " + c.name + " - " + c.help);
     });
 }
 
@@ -717,6 +721,10 @@ void LoadCommandLineConfig()
     std::string hostTokenArg = GetCmdValue("-hosttoken=");
     if (!hostTokenArg.empty())
         HostToken = hostTokenArg;
+
+    std::string serverIdArg = GetCmdValue("-serverid=");
+    if (!serverIdArg.empty())
+        ServerUniqueId = serverIdArg;
 
     std::string gameExeArg = GetCmdValue("-gameexe=");
     if (!gameExeArg.empty())
@@ -833,31 +841,21 @@ bool StopServerLocked()
 
     HANDLE process = g_ServerProcess;
     DWORD exitCode = 0;
+    DWORD pid = g_ServerPid;
 
     if (GetExitCodeProcess(process, &exitCode) && exitCode == STILL_ACTIVE)
     {
-        if (!TerminateProcess(process, 0))
-        {
-            LauncherLog("TerminateProcess failed. GetLastError=" + std::to_string(GetLastError()));
-            return false;
-        }
+        LauncherLog("Terminating server process (PID " + std::to_string(pid) + ")...");
+        TerminateProcess(process, 0);
 
-        // Background cleanup: if the zombie survives 1 second,
-        // escalate to taskkill.  Runs on its own thread so the
-        // wrapper never blocks.
-        DWORD pid = g_ServerPid;
-        std::thread([process, pid]() {
-            if (WaitForSingleObject(process, 1000) == WAIT_TIMEOUT)
-            {
-                LauncherLog("Escalating: taskkill /F /T /PID " + std::to_string(pid));
-                std::string cmd = "taskkill /F /T /PID " + std::to_string(pid);
-                system(cmd.c_str());
-            }
-            CloseHandle(process);
-        }).detach();
-        process = NULL;  // ownership transferred to cleanup thread
+        if (WaitForSingleObject(process, 1000) == WAIT_TIMEOUT)
+        {
+            LauncherLog("Escalating: taskkill /F /T /PID " + std::to_string(pid));
+            std::string cmd = "taskkill /F /T /PID " + std::to_string(pid);
+            system(cmd.c_str());
+        }
     }
-    if (process) CloseHandle(process);
+    CloseHandle(process);
     g_ServerProcess = NULL;
     g_ServerPid = 0;
     g_ServerState.store(ServerState::Stopped);
@@ -1019,6 +1017,9 @@ void StartWatchdog(HANDLE processHandle, uint64_t generation)
     std::thread([processHandle, generation]() {
         const auto startupTimeout = std::chrono::seconds(120);
         const auto heartbeatTimeout = std::chrono::seconds(30);
+        const auto serverListCheck  = std::chrono::minutes(20);
+
+        auto lastServerListCheck = std::chrono::steady_clock::now();
 
         while (true)
         {
@@ -1034,6 +1035,93 @@ void StartWatchdog(HANDLE processHandle, uint64_t generation)
             DWORD code = 0;
             if (!GetExitCodeProcess(processHandle, &code) || code != STILL_ACTIVE)
                 break;
+
+            // Every 20 minutes, ask the backend whether we're still listed.
+            // If our heartbeat stopped reaching the backend, it removes us
+            // after 15 s — this check catches that and force-restarts.
+            auto now = std::chrono::steady_clock::now();
+            if (!OfflineMode && !OnlineBackend.empty()
+                && now - lastServerListCheck >= serverListCheck)
+            {
+                lastServerListCheck = now;
+
+                std::string host;
+                INTERNET_PORT port = 0;
+                // Parse host:port from OnlineBackend
+                {
+                    std::string backend = OnlineBackend;
+                    // strip http:// prefix if present
+                    if (backend.rfind("http://", 0) == 0)
+                        backend = backend.substr(7);
+                    else if (backend.rfind("https://", 0) == 0)
+                        backend = backend.substr(8);
+                    size_t slash = backend.find('/');
+                    if (slash != std::string::npos)
+                        backend = backend.substr(0, slash);
+                    size_t colon = backend.find(':');
+                    if (colon != std::string::npos)
+                    {
+                        host = backend.substr(0, colon);
+                        try { port = (INTERNET_PORT)std::stoi(backend.substr(colon + 1)); }
+                        catch (...) { port = 80; }
+                    }
+                    else { host = backend; port = 80; }
+                }
+
+                HINTERNET hSession = WinHttpOpen(L"BoundaryWrapper/1.0",
+                    WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+                    WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+                if (hSession)
+                {
+                    WinHttpSetTimeouts(hSession, 5000, 5000, 5000, 5000);
+                    std::wstring whost(host.begin(), host.end());
+                    HINTERNET hConnect = WinHttpConnect(hSession, whost.c_str(), port, 0);
+                    if (hConnect)
+                    {
+                        HINTERNET hReq = WinHttpOpenRequest(hConnect, L"GET", L"/servers",
+                            NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, 0);
+                        if (hReq)
+                        {
+                            if (WinHttpSendRequest(hReq, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
+                                    WINHTTP_NO_REQUEST_DATA, 0, 0, 0) &&
+                                WinHttpReceiveResponse(hReq, NULL))
+                            {
+                                std::string body;
+                                DWORD bytes = 0;
+                                char buf[2048];
+                                while (WinHttpReadData(hReq, buf, sizeof(buf) - 1, &bytes) && bytes > 0)
+                                {
+                                    buf[bytes] = '\0';
+                                    body.append(buf, bytes);
+                                }
+                                try
+                                {
+                                    auto list = json::parse(body);
+                                    bool found = false;
+                                    for (auto &s : list)
+                                    {
+                                        if (s.value("serverId", "") == ServerUniqueId)
+                                        { found = true; break; }
+                                    }
+                                    if (!found)
+                                    {
+                                        LauncherLog("Server NOT found on backend server list — restarting.");
+                                        WinHttpCloseHandle(hReq);
+                                        WinHttpCloseHandle(hConnect);
+                                        WinHttpCloseHandle(hSession);
+                                        RequestRestart(true, "server list missing");
+                                        break;
+                                    }
+                                }
+                                catch (...) { /* parse error — ignore */ }
+                            }
+                            WinHttpCloseHandle(hReq);
+                        }
+                        WinHttpCloseHandle(hConnect);
+                    }
+                    WinHttpCloseHandle(hSession);
+                }
+            }
 
             if (HasHeartbeatTimedOut(HeartbeatSeen ? heartbeatTimeout : startupTimeout))
             {
@@ -1235,6 +1323,12 @@ bool LaunchServerLocked()
         cmd += L"-hosttoken=" + wHostToken + L" ";
     }
 
+    if (!ServerUniqueId.empty())
+    {
+        std::wstring wServerId(ServerUniqueId.begin(), ServerUniqueId.end());
+        cmd += L"-serverid=" + wServerId + L" ";
+    }
+
     if (!CreateProcessW(NULL, cmd.data(), NULL, NULL, TRUE,
                         CREATE_NO_WINDOW | DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP, NULL, NULL, &si, &pi))
     {
@@ -1285,6 +1379,39 @@ void LaunchServer()
 //  MAIN ENTRY POINT
 // ======================================================
 
+// Load or generate a persistent unique server identifier.  Stored in
+// serverId.json alongside the wrapper executable so it survives restarts.
+void InitServerUniqueId()
+{
+    const std::string path = "serverId.json";
+    if (std::filesystem::exists(path))
+    {
+        std::ifstream f(path);
+        json j;
+        try { f >> j; ServerUniqueId = j.value("serverId", ""); } catch (...) {}
+        f.close();
+    }
+
+    if (ServerUniqueId.empty())
+    {
+        // Generate a short, human-readable unique ID: 8 hex digits
+        std::mt19937 rng(std::random_device{}());
+        std::uniform_int_distribution<> dist(0, 15);
+        const char hex[] = "0123456789abcdef";
+        ServerUniqueId.reserve(8);
+        for (int i = 0; i < 8; ++i)
+            ServerUniqueId.push_back(hex[dist(rng)]);
+
+        json j;
+        j["serverId"] = ServerUniqueId;
+        std::ofstream of(path);
+        of << j.dump(4);
+        of.close();
+    }
+
+    LauncherLog("Server Unique ID: " + ServerUniqueId);
+}
+
 // InitWrapperCore – load config, open log, initialise command system
 
 void InitWrapperCore()
@@ -1292,6 +1419,7 @@ void InitWrapperCore()
     ResetHeartbeatClock();
     LoadCommandLineConfig();
     ResetHeartbeatClock();
+    InitServerUniqueId();
 
     std::filesystem::create_directory("logs");
 

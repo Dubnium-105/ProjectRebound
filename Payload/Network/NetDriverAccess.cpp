@@ -5,6 +5,7 @@
 
 #include "NetDriverAccess.h"
 #include "../SDK.hpp"
+#include "../ServerLogic/ServerLogic.h"
 
 namespace {
 std::atomic<SDK::UNetDriver*> g_cachedNetDriver{ nullptr };
@@ -13,6 +14,10 @@ std::atomic<int> g_lastSource{ static_cast<int>(NetDriverAccess::Source::None) }
 
 SDK::UNetDriver* ScanForNetDriver()
 {
+    if (IsServerShutdownRequested()) {
+        OutputDebugStringA("[EXIT-GUARD] ScanForNetDriver skipped (shutdown)\n");
+        return nullptr;
+    }
     if (!SDK::UObject::GObjects) {
         return nullptr;
     }

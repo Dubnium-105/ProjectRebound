@@ -1,157 +1,3 @@
-// Debug.cpp
-// LogManager — single worker thread drains a lock-free-ish queue and writes
-// to stdout.  All four log functions push into this queue; the thread does
-// the actual I/O so the game thread never blocks on pipe writes.
-#include "Debug.h"
-#include "../Utility/Utility.h"
-#include <iostream>
-#include <chrono>
-#include <deque>
-#include <iomanip>
-#include <mutex>
-#include <condition_variable>
-#include <sstream>
-#include <filesystem>
-#include <thread>
-#include <Windows.h>
-#include <cstdio>
-#include "../SDK.hpp"
-#include "../SDK/Engine_parameters.hpp"
-#include "../SDK/ProjectBoundary_parameters.hpp"
-
-using namespace SDK;
-
-// ---- globals ---------------------------------------------------------------
-
-std::mutex LogMutex;
-std::string LogFilePath;
-bool ServerDebugLogEnabled = false;
-bool ClientDebugLogEnabled = false;
-std::ofstream clientLogFile;
-
-// ---- LogManager (thread + queue) ------------------------------------------
-
-namespace
-{
-    struct LogEntry
-    {
-        std::string msg;
-        bool immediate;  // flush right after this entry (ServerLog / ClientLog)
-    };
-
-    std::deque<LogEntry> g_Queue;
-    std::mutex g_QueueMutex;
-    std::condition_variable g_QueueCv;
-    std::thread g_Worker;
-    bool g_WorkerRunning = false;
-
-    void WorkerLoop()
-    {
-        std::deque<LogEntry> local;
-        int sinceFlush = 0;
-
-        while (true)
-        {
-            // Drain the shared queue into a local deque.
-            {
-                std::unique_lock<std::mutex> lock(g_QueueMutex);
-                g_QueueCv.wait(lock, [] {
-                    return !g_Queue.empty() || !g_WorkerRunning;
-                });
-
-                if (g_Queue.empty() && !g_WorkerRunning)
-                    return;
-
-                local.swap(g_Queue);
-            }
-
-            // Write entries from local deque.
-            for (auto &entry : local)
-            {
-                std::cout << entry.msg << "\n";
-                ++sinceFlush;
-
-                if (entry.immediate || sinceFlush >= 30)
-                {
-                    std::cout << std::flush;
-                    sinceFlush = 0;
-                }
-            }
-            local.clear();
-        }
-    }
-
-    void EnsureLogThread()
-    {
-        if (!g_WorkerRunning)
-        {
-            g_WorkerRunning = true;
-            g_Worker = std::thread(WorkerLoop);
-        }
-    }
-
-    void ShutdownLogThread()
-    {
-        {
-            std::lock_guard<std::mutex> lock(g_QueueMutex);
-            g_WorkerRunning = false;
-        }
-        g_QueueCv.notify_one();
-        if (g_Worker.joinable())
-            g_Worker.join();
-    }
-
-    void PushEntry(const std::string &msg, bool immediate)
-    {
-        EnsureLogThread();
-        {
-            std::lock_guard<std::mutex> lock(g_QueueMutex);
-            g_Queue.push_back({msg, immediate});
-        }
-        g_QueueCv.notify_one();
-    }
-}
-
-// ---- timestamp helper ------------------------------------------------------
-
-std::string CurrentTimestamp()
-{
-    auto now = std::chrono::system_clock::now();
-    std::time_t t = std::chrono::system_clock::to_time_t(now);
-    std::tm tm{};
-    localtime_s(&tm, &t);
-    std::ostringstream oss;
-    oss << std::put_time(&tm, "%Y%m%d_%H%M%S");
-    return oss.str();
-}
-
-// ---- public API ------------------------------------------------------------
-
-void ServerLog(const std::string &msg)
-{
-    PushEntry(msg, true);  // always-on, immediate flush
-}
-
-void ServerDebugLog(const std::string &msg)
-{
-    if (!ServerDebugLogEnabled) return;
-    PushEntry(msg, false); // diagnostic, batch flush
-}
-
-void ClientLog(const std::string &msg)
-{
-    PushEntry(msg, true);  // always-on client, immediate flush
-}
-
-void ClientDebugLog(const std::string &msg)
-{
-    if (!ClientDebugLogEnabled) return;
-
-    PushEntry(msg, false); // diagnostic, batch flush
-
-    if (clientLogFile.is_open())
-        clientLogFile << msg << "\n";
-}
 void InitDebugConsole()
 {
     AllocConsole();
@@ -167,7 +13,7 @@ void InitDebugConsole()
     std::wcout.clear();
     std::cout.clear();
 
-    ClientLog("[DEBUG] Console initialized");
+    std::cout << "[DEBUG] Console initialized" << std::endl;
 }
 
 void EnableUnrealConsole()
@@ -190,21 +36,30 @@ void EnableUnrealConsole()
 
 void DebugLocateSubsystems()
 {
-    ClientDebugLog("Locating Subsystems");
+    std::cout << "\nLocating Subsystems\n";
 
+    // Armory Manager
     auto armories = getObjectsOfClass(UPBArmoryManager::StaticClass(), false);
-    ClientDebugLog(armories.empty() ? "[MISSING] UPBArmoryManager"
-        : ("[FOUND] UPBArmoryManager at " + std::to_string(reinterpret_cast<uintptr_t>(armories.back()))));
+    if (!armories.empty())
+        std::cout << "[FOUND] UPBArmoryManager at " << armories.back() << std::endl;
+    else
+        std::cout << "[MISSING] UPBArmoryManager" << std::endl;
 
+    // Field Mod Manager
     auto fieldMods = getObjectsOfClass(UPBFieldModManager::StaticClass(), false);
-    ClientDebugLog(fieldMods.empty() ? "[MISSING] UPBFieldModManager"
-        : ("[FOUND] UPBFieldModManager at " + std::to_string(reinterpret_cast<uintptr_t>(fieldMods.back()))));
+    if (!fieldMods.empty())
+        std::cout << "[FOUND] UPBFieldModManager at " << fieldMods.back() << std::endl;
+    else
+        std::cout << "[MISSING] UPBFieldModManager" << std::endl;
 
+    // Weapon Part Manager
     auto partMgrs = getObjectsOfClass(UPBWeaponPartManager::StaticClass(), false);
-    ClientDebugLog(partMgrs.empty() ? "[MISSING] UPBWeaponPartManager"
-        : ("[FOUND] UPBWeaponPartManager at " + std::to_string(reinterpret_cast<uintptr_t>(partMgrs.back()))));
+    if (!partMgrs.empty())
+        std::cout << "[FOUND] UPBWeaponPartManager at " << partMgrs.back() << std::endl;
+    else
+        std::cout << "[MISSING] UPBWeaponPartManager" << std::endl;
 
-    ClientDebugLog("END PHASE 1.1");
+    std::cout << "END PHASE 1.1\n\n";
 }
 
 void DebugDumpSubsystemsToFile()

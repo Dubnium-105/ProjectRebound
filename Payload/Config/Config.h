@@ -13,6 +13,7 @@ struct ServerConfig
     int MinPlayersToStart;
     std::string ServerName;
     std::string ServerRegion;
+    std::string ServerUniqueId;
 };
 
 // Central server ip

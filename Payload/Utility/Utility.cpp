@@ -1,11 +1,18 @@
 // Utility.cpp
 #include "Utility.h"
+#include "../ServerLogic/ServerLogic.h"
 #include <Windows.h>
+#include <iostream>
 #include "../SDK/Engine_parameters.hpp"
 
 std::vector<SDK::UObject *> getObjectsOfClass(SDK::UClass *theClass, bool includeDefault)
 {
     std::vector<SDK::UObject *> ret = std::vector<SDK::UObject *>();
+
+    if (IsServerShutdownRequested()) {
+        OutputDebugStringA("[EXIT-GUARD] getObjectsOfClass skipped (shutdown)\n");
+        return ret;
+    }
 
     for (int i = 0; i < SDK::UObject::GObjects->Num(); i++)
     {
@@ -28,6 +35,11 @@ std::vector<SDK::UObject *> getObjectsOfClass(SDK::UClass *theClass, bool includ
 
 SDK::UObject *GetLastOfType(SDK::UClass *theClass, bool includeDefault)
 {
+    if (IsServerShutdownRequested()) {
+        OutputDebugStringA("[EXIT-GUARD] GetLastOfType skipped (shutdown)\n");
+        return nullptr;
+    }
+
     for (int i = SDK::UObject::GObjects->Num() - 1; i >= 0; i--)
     {
         SDK::UObject *Obj = SDK::UObject::GObjects->GetByIndex(i);
