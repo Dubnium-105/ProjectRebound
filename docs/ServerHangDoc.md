@@ -72,9 +72,11 @@ payload.7FFA0393F061:
 
 | 修改 | 目的 |
 |------|------|
-| `StopServerLocked` 去掉 5s WaitForSingleObject | 不在锁内等僵尸进程 |
-| 异步降级线程：1 秒后 `taskkill /F /T` | 僵尸进程保底清理 |
-| 不确认旧进程死亡即启动新进程 | 重启流程不依赖旧进程 exit 信号 |
+| `StopServerLocked`: `TerminateProcess` → 等 1 秒 → 升级 `taskkill /F /T` | 快速杀正常进程，僵尸升级到内核级强杀 |
+| 30 分钟硬限制重启 | 防心跳线程 pipe 阻塞导致假活 |
+| Watchdog 每 20 分钟查 Backend `/servers` 列表 | 如果服务器不在列表上（心跳中断 >15s）立即重启 |
+| `InitServerUniqueId()` 生成持久化 8 位 hex ID | 跨重启唯一标识，用于 Backend 查活 |
+| `LaunchServerLocked` 传递 `-serverid=` 给 DLL | DLL 心跳上报 serverId |
 
 ---
 
