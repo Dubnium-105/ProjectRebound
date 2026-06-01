@@ -29,7 +29,34 @@ namespace LoadoutShowroomApplication
         bool forceRefresh,
         const std::string& reason);
 
+    bool ApplySnapshotToInventoryActor(
+        SDK::APBDisplayActor* displayActor,
+        const json& snapshot,
+        const std::string& roleId,
+        const std::string& itemId,
+        bool refresh);
+
+    SDK::APBDisplayCharacter* ApplySnapshotToDisplayCharacterActor(
+        SDK::APBDisplayCharacter* displayCharacter,
+        const json& snapshot,
+        const std::string& roleId,
+        bool allowReplacement);
+
+    bool ApplySnapshotToCharacterSlot(
+        const json& snapshot,
+        const std::string& roleId,
+        SDK::EPBCharacterSlotType slotType,
+        bool refresh);
+
+    SDK::APBDisplayActor* ApplySnapshotToCharacterSlotActor(
+        SDK::APBDisplayCharacter* displayCharacter,
+        const json& snapshot,
+        const std::string& roleId,
+        SDK::EPBCharacterSlotType slotType,
+        bool refresh);
+
     bool SpawnInventoryPreview(
         const std::string& roleId,
-        const std::string& itemId);
+        const std::string& itemId,
+        const json* snapshot = nullptr);
 }

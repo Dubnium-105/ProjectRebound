@@ -18,8 +18,31 @@
 
 using namespace SDK;
 
+extern "C" void PayloadPushClientProcessEventSuppression();
+extern "C" void PayloadPopClientProcessEventSuppression();
+
 namespace LoadoutSerializer
 {
+    namespace
+    {
+        class ScopedClientProcessEventSuppression
+        {
+        public:
+            ScopedClientProcessEventSuppression()
+            {
+                PayloadPushClientProcessEventSuppression();
+            }
+
+            ~ScopedClientProcessEventSuppression()
+            {
+                PayloadPopClientProcessEventSuppression();
+            }
+
+            ScopedClientProcessEventSuppression(const ScopedClientProcessEventSuppression&) = delete;
+            ScopedClientProcessEventSuppression& operator=(const ScopedClientProcessEventSuppression&) = delete;
+        };
+    }
+
     // =====================================================================
     //  基础工具
     // =====================================================================
@@ -51,6 +74,7 @@ namespace LoadoutSerializer
     {
         if (value.empty()) return FName();
         const std::wstring wideValue = ToWide(value);
+        ScopedClientProcessEventSuppression suppressProcessEventHooks;
         return UKismetStringLibrary::Conv_StringToName(wideValue.c_str());
     }
 

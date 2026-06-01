@@ -562,9 +562,27 @@ void *OnFireWeapon(APBWeapon *Weapon)
 // ======================================================
 
 static SafetyHookInline ProcessEventClient;
+static thread_local int gClientProcessEventSuppressionDepth = 0;
+
+extern "C" void PayloadPushClientProcessEventSuppression()
+{
+    ++gClientProcessEventSuppressionDepth;
+}
+
+extern "C" void PayloadPopClientProcessEventSuppression()
+{
+    if (gClientProcessEventSuppressionDepth > 0)
+        --gClientProcessEventSuppressionDepth;
+}
 
 void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
 {
+    if (gClientProcessEventSuppressionDepth > 0)
+    {
+        ProcessEventClient.call(Object, Function, Parms);
+        return;
+    }
+
     // 热键检测（游戏线程安全）— F6=dump, F7=reapply snapshot
     if (gDebugTool)
     {
