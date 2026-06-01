@@ -382,3 +382,9 @@ FodyWeavers.xsd
 *.exp
 *.lib
 *.tlog
+
+# Matchserver local runtime files
+matchserver/matchserver.db
+matchserver/matchserver.db-shm
+matchserver/matchserver.db-wal
+matchserver/matchserver.exe

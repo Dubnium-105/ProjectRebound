@@ -6,7 +6,7 @@ namespace ProjectRebound.Browser.Services;
 
 public sealed class GameLauncher
 {
-    public Process StartClient(string gameDirectory, string connect)
+    public Process StartClient(string gameDirectory, string connect, bool debugMode)
     {
         var exe = FindRequiredFile(gameDirectory, "ProjectBoundarySteam-Win64-Shipping.exe");
         var startInfo = new ProcessStartInfo(exe)
@@ -14,6 +14,7 @@ public sealed class GameLauncher
             WorkingDirectory = Path.GetDirectoryName(exe) ?? gameDirectory,
             UseShellExecute = false
         };
+        ApplyLaunchVisibility(startInfo, debugMode);
         startInfo.ArgumentList.Add($"-match={connect}");
         return Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start game client.");
     }
@@ -22,7 +23,8 @@ public sealed class GameLauncher
         string gameDirectory,
         string backendUrl,
         RoomSummary room,
-        string hostToken)
+        string hostToken,
+        bool debugMode)
     {
         var wrapper = FindFile(gameDirectory, "ProjectReboundServerWrapper.exe");
         if (wrapper is not null)
@@ -32,6 +34,7 @@ public sealed class GameLauncher
                 WorkingDirectory = Path.GetDirectoryName(wrapper) ?? gameDirectory,
                 UseShellExecute = false
             };
+            ApplyLaunchVisibility(startInfo, debugMode);
 
             startInfo.ArgumentList.Add($"-online={BackendForGame(backendUrl)}");
             startInfo.ArgumentList.Add($"-roomid={room.RoomId}");
@@ -50,7 +53,11 @@ public sealed class GameLauncher
             WorkingDirectory = Path.GetDirectoryName(exe) ?? gameDirectory,
             UseShellExecute = false
         };
-        direct.ArgumentList.Add("-log");
+        ApplyLaunchVisibility(direct, debugMode);
+        if (debugMode)
+        {
+            direct.ArgumentList.Add("-log");
+        }
         direct.ArgumentList.Add("-server");
         direct.ArgumentList.Add("-nullrhi");
         direct.ArgumentList.Add($"-online={BackendForGame(backendUrl)}");
@@ -67,6 +74,17 @@ public sealed class GameLauncher
         }
 
         return Process.Start(direct) ?? throw new InvalidOperationException("Failed to start host game.");
+    }
+
+    private static void ApplyLaunchVisibility(ProcessStartInfo startInfo, bool debugMode)
+    {
+        if (debugMode)
+        {
+            return;
+        }
+
+        startInfo.CreateNoWindow = true;
+        startInfo.WindowStyle = ProcessWindowStyle.Hidden;
     }
 
     private static string BackendForGame(string backendUrl)
