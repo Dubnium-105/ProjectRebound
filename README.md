@@ -2,14 +2,14 @@
 
 Community dedicated-server project for Boundary. Injects a DLL into the last shipping game client exe to pull out the existing ListenServer Logic, to build a somehow working Dedicated Server.
 
-Based on [SyST3MDeV/ProjectRebound](https://github.com/SyST3MDeV/ProjectRebound) by **gwog** — massive thanks to the original author for making this possible.
 On the client side, we use the developer reserved -LogicServerURL= parameter to redirect to our custom made LoginMetaServer
 Also includes a ServerLauncher, which manages the server lifecycle.
 Helped by a backend server to collect all the servers and display a Server List.
 
-> **Note:** This project's documentation is still a work in progress, and the codebase is
-> undergoing a refactor to improve readability. If you love this game and want to help build
-> a community server, we welcome any and all contributors!
+Based on [SyST3MDeV/ProjectRebound](https://github.com/SyST3MDeV/ProjectRebound) by **gwog** — massive thanks to the original author for making this possible.
+
+> **Note:** This project's documentation is still a work in progress, and the codebase is undergoing a refactor to improve readability. 
+>If you love this game and want to help on the development, we welcome any and all contributors!
 >
 > Join us on Discord: [discord.gg/chaitea](https://discord.gg/chaitea)
 
