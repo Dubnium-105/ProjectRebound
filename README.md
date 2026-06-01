@@ -9,7 +9,9 @@ Helped by a backend server to collect all the servers and display a Server List.
 
 Based on [SyST3MDeV/ProjectRebound](https://github.com/SyST3MDeV/ProjectRebound) by **gwog** — massive thanks to the original author for making this possible.
 
-> **Note:** This project's documentation is still a work in progress, and the codebase is undergoing a refactor to improve readability. 
+Designed to work with [LinchenFur/rust-boundary-tool-box](https://github.com/LinchenFur/rust-boundary-tool-box).  Currently use the ToolBox for one-click launch; a standalone launch guide will be added later.
+
+> **Note:** This project and it's documentation is still a work in progress, and the codebase is undergoing a refactor to improve readability. 
 >If you love this game and want to help on the development, we welcome any and all contributors!
 >
 > Join us on Discord: [discord.gg/chaitea](https://discord.gg/chaitea)
