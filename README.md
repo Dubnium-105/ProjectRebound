@@ -3,6 +3,7 @@
 Community dedicated-server project for Boundary. Injects a DLL into the last shipping game client exe to pull out the existing ListenServer Logic, to build a somehow working Dedicated Server.
 
 On the client side, we use the developer reserved -LogicServerURL= parameter to redirect to our custom made LoginMetaServer
+
 Also includes a ServerLauncher, which manages the server lifecycle.
 Helped by a backend server to collect all the servers and display a Server List.
 
