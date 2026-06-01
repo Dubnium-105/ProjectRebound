@@ -367,10 +367,18 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
-/ServerLauncherGUI/ProjectReboundLauncher/build
-/ServerLauncherGUI/ProjectReboundLauncher/resource
-matchserver/matchserver.db
-matchserver/matchserver.db-shm
-matchserver/matchserver.db-wal
-matchserver/matchserver.exe
+# ServerLauncher build + UI
+/ServerLauncher/build/
+/ServerLauncher/resource/
+
+# Metaserver
+/Metaserver/node_modules/
+
+# VS Code
 .vscode/settings.json
+
+# Additional MSBuild artifacts
+*.recipe
+*.exp
+*.lib
+*.tlog
