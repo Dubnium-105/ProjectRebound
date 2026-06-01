@@ -1,0 +1,148 @@
+// AutoConnect.cpp
+#include "AutoConnect.h"
+#include "../Config/Config.h"
+#include "../Logging/LogManager.h"
+#include "../API/APIInternal.h"
+#include "../SDK/Engine_parameters.hpp"
+#include "../SDK/ProjectBoundary_parameters.hpp"
+#include "../Libs/json.hpp"
+#include <iostream>
+#include <fstream>
+#include <thread>
+#include <Windows.h>
+
+using namespace SDK;
+
+bool LoginCompleted = false;
+bool ReadyToAutoconnect = false;
+
+// ======================================================
+//  Client logic
+// ======================================================
+
+void InitClientArmory()
+{
+    for (UObject *obj : getObjectsOfClass(UPBArmoryManager::StaticClass(), false))
+    {
+        UPBArmoryManager *DefaultConfig = (UPBArmoryManager *)obj;
+
+        std::ifstream items("DT_ItemType.json");
+        nlohmann::json itemJson = nlohmann::json::parse(items);
+
+        for (auto &[ItemId, _] : itemJson[0]["Rows"].items())
+        {
+            std::string aString = std::string(ItemId.c_str());
+            std::wstring wString = std::wstring(aString.begin(), aString.end());
+
+            if (DefaultConfig->DefaultConfig)
+                DefaultConfig->DefaultConfig->OwnedItems.Add(UKismetStringLibrary::Conv_StringToName(wString.c_str()));
+
+            FPBItem item{};
+            item.ID = UKismetStringLibrary::Conv_StringToName(wString.c_str());
+            item.Count = 1;
+            item.bIsNew = false;
+
+            DefaultConfig->Armorys.OwnedItems.Add(item);
+        }
+    }
+}
+
+void ConnectToMatch()
+{
+    std::string target;
+    {
+        std::lock_guard<std::mutex> lock(MatchIPMutex);
+        if (MatchIP.empty())
+        {
+            ClientDebugLog("[CLIENT] Reconnect requested but no -match target is configured.");
+            return;
+        }
+        target = MatchIP;
+    }
+
+    UPBGameInstance *GameInstance =
+        (UPBGameInstance *)UWorld::GetWorld()->OwningGameInstance;
+
+    GameInstance->ShowLoadingScreen(false, true);
+
+    UPBLocalPlayer *LocalPlayer =
+        (UPBLocalPlayer *)(UWorld::GetWorld()->OwningGameInstance->LocalPlayers[0]);
+
+    LocalPlayer->GoToRange(0.0f);
+
+    std::wstring travelCmd = L"travel " + std::wstring(target.begin(), target.end());
+    ClientDebugLog("[CLIENT] Reconnecting to match: " + target);
+
+    UKismetSystemLibrary::ExecuteConsoleCommand(
+        UWorld::GetWorld(), travelCmd.c_str(), nullptr);
+
+    GameInstance->ShowLoadingScreen(true, true);
+}
+
+void AutoConnectToMatchFromCmdline()
+{
+    std::thread([]()
+                {
+                    // Wait for world
+                    while (!UWorld::GetWorld())
+                        Sleep(100);
+
+                    // Wait for GameInstance
+                    while (!UWorld::GetWorld()->OwningGameInstance)
+                        Sleep(100);
+
+                    // Wait for LocalPlayer
+                    while (UWorld::GetWorld()->OwningGameInstance->LocalPlayers.Num() == 0)
+                        Sleep(100);
+
+                    // Wait for login complete
+                    while (!LoginCompleted)
+                        Sleep(100);
+
+                    // Delay to avoid main menu overriding the range transition
+                    Sleep(2000);
+
+                    // Enter Shooting Range
+                    auto *GI = UWorld::GetWorld()->OwningGameInstance;
+                    UPBLocalPlayer *LP = (UPBLocalPlayer *)GI->LocalPlayers[0];
+
+                    if (LP)
+                    {
+                        ClientDebugLog("[CLIENT] Auto-enter Shooting Range...");
+                        LP->GoToRange(0.0f);
+                    }
+
+                    // Give travel a moment to initialize
+                    Sleep(1000);
+
+                    ReadyToAutoconnect = true;
+
+                    // Wait for flag
+                    while (!ReadyToAutoconnect)
+                        Sleep(100);
+
+                    Sleep(200);
+
+                    // Connect to match
+                    std::string target;
+                    {
+                        std::lock_guard<std::mutex> lock(MatchIPMutex);
+                        target = MatchIP;
+                    }
+
+                    if (target.empty())
+                    {
+                        ClientDebugLog("[CLIENT] Auto-connect requested but no -match target is configured.");
+                        return;
+                    }
+
+                    std::wstring wcmd = L"open " + std::wstring(target.begin(), target.end());
+                    ClientDebugLog("[CLIENT] Auto-connecting to match: " + target);
+
+                    UKismetSystemLibrary::ExecuteConsoleCommand(
+                        UWorld::GetWorld(),
+                        wcmd.c_str(),
+                        nullptr);
+                })
+        .detach();
+}

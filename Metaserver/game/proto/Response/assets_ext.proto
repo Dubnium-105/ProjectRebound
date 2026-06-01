@@ -1,0 +1,58 @@
+// Assets service — extended messages from binary
+// WARNING: Field numbers are TENTATIVE. Validate with proxy capture.
+syntax = "proto3";
+package ProjectBoundary;
+
+// --- Newly discovered request/response messages ---
+
+message QueryAssetsInMatchReq {
+    string userId = 1;
+}
+
+message QueryAssetsInMatchResp {
+    string userId = 1;
+    // items field TBD — likely repeated ItemData
+}
+
+// --- Data structures ---
+
+message AvailableCharacterEquipment {
+    string CharacterId = 1;
+    repeated string weapons = 2;
+    repeated string pods = 3;
+    string meleeWeapon = 4;
+    string mobilityModule = 5;
+}
+
+message SkinConfig {
+    string ornament = 1;
+    string specialSlot = 2;
+}
+
+message SuitConfig {
+    string paintItem = 1;
+    string skinItem = 2;
+}
+
+message UserAsset {
+    string itemId = 1;
+}
+
+message WeaponPart {
+    string weaponPartID = 1;
+}
+
+message WeaponConfigV2 {
+    string weaponID = 1;
+    repeated WeaponPart parts = 2;  // field name TBD
+}
+
+message WeaponArchiveDataV2 {
+    string roleID = 1;
+    string PrimaryWeapon = 2;
+    string secondWeapon = 3;
+    string meleeWeapon = 4;
+    string leftPylon = 5;
+    string rightPylon = 6;
+    string mobilityModule = 7;
+}

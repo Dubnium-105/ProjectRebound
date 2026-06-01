@@ -1,0 +1,29 @@
+// Challenge service — challenge/battle pass system
+// WARNING: Field numbers are TENTATIVE. Validate with proxy capture.
+syntax = "proto3";
+package ProjectBoundary;
+
+message EventInfo {
+    string eventId = 1;
+}
+
+message Progress {
+    string challengeGroupId = 1;
+    int32 trigger = 2;
+}
+
+message GetAllChallengeGroupsProgressReq {
+    // no fields found in binary
+}
+
+message GetChallengeGroupsProgressResp {
+    repeated Progress progress = 1;  // field name TBD
+}
+
+message UpdateChallengeGroupsReq {
+    string userId = 1;
+}
+
+message UpdateChallengeGroupsResp {
+    // no fields found in binary
+}

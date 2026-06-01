@@ -1,0 +1,19 @@
+// Feedback / report service
+// WARNING: Field numbers are TENTATIVE. Validate with proxy capture.
+syntax = "proto3";
+package ProjectBoundary;
+
+message CreateReportReq {
+    string complainedUserId = 1;
+    string content = 2;
+}
+
+message CreateReq {
+    string title = 1;
+    string content = 2;
+    string context = 3;
+}
+
+message CreateResp {
+    // no fields found in binary
+}

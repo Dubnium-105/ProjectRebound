@@ -1,0 +1,16 @@
+// Update role archive request — decoded from captured traffic
+// Field mapping verified against protoc --decode_raw
+syntax = "proto3";
+package ProjectBoundary;
+
+message SkinPayload {
+    string TokenId = 1;    // character skin, e.g. "PEACE_TOK-DOS-01"
+    string OrnamentId = 2; // weapon ornament, e.g. "PEACE_ORN-AK_Anime_02"
+}
+
+message UpdateRoleArchiveV2Request {
+    int32 Operation = 1;   // slot index (1=auto, 2-7=specific slot)
+    string RoleId = 2;     // role ID, e.g. "PEACE"
+    string ItemId = 3;     // item ID being equipped
+    optional bytes SkinData = 4;  // skin/ornament payload (SkinPayload sub-message)
+}

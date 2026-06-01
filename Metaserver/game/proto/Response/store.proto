@@ -1,0 +1,48 @@
+// Store service — armory, black market, products
+// WARNING: Field numbers are TENTATIVE. Validate with proxy capture.
+syntax = "proto3";
+package ProjectBoundary;
+
+message BlackMarketProduct {
+    string pool = 1;
+}
+
+message PaymentMethod {
+    // no fields found in binary
+}
+
+message Product {
+    string id = 1;
+}
+
+message PurchaseInArmoryRequest {
+    string productId = 1;
+}
+
+message PurchaseInArmoryResponse {
+    // no fields found in binary
+}
+
+message PurchaseInBlackMarketRequest {
+    string productId = 1;
+}
+
+message PurchaseInBlackMarketResponse {
+    // no fields found in binary
+}
+
+message QueryArmoryRequest {
+    // no fields found in binary
+}
+
+message QueryArmoryResponse {
+    repeated Product products = 1;  // field name TBD
+}
+
+message QueryPersonalBlackMarketRequest {
+    // no fields found in binary
+}
+
+message QueryPersonalBlackMarketResponse {
+    repeated BlackMarketProduct products = 1;  // field name TBD
+}

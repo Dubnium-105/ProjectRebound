@@ -1,0 +1,59 @@
+// Demo/test messages — extracted from game binary strings
+// WARNING: Field numbers are TENTATIVE. Validate with proxy capture.
+syntax = "proto3";
+package ProjectBoundary;
+
+message TestAllTypeReq {
+    int32 i = 1;
+}
+
+message TestAllTypeResp {
+    int32 i = 1;
+}
+
+message demoReq {
+    string userId = 1;
+    string content = 2;
+}
+
+message demoResp {
+    string content = 1;
+}
+
+message echo {
+    string greet = 1;
+}
+
+// Map entry types for testMap messages
+message TestMapAEntry {
+    string key = 1;
+}
+
+message TestMapBEntry {
+    string key = 1;
+    string value = 2;
+}
+
+message TestMapCEntry {
+    string value = 1;
+}
+
+message testMapReq {
+    repeated TestMapAEntry AEntry = 1;
+    repeated TestMapBEntry BEntry = 2;
+    repeated TestMapCEntry CEntry = 3;
+}
+
+message testMapResp {
+    repeated TestMapAEntry AEntry = 1;
+    repeated TestMapBEntry BEntry = 2;
+    repeated TestMapCEntry CEntry = 3;
+}
+
+message testRepeatedAllTypeReq {
+    repeated int32 i = 1;
+}
+
+message testRepeatedAllTypeResp {
+    repeated int32 i = 1;
+}

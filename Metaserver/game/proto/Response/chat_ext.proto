@@ -1,0 +1,83 @@
+// Chat service — full message set from binary
+// WARNING: Field numbers are TENTATIVE. Validate with proxy capture.
+syntax = "proto3";
+package ProjectBoundary;
+
+// --- Chat messages ---
+
+message ChatMessage {
+    string senderName = 1;
+    string content = 2;
+    string sendDate = 3;
+}
+
+// --- Room management ---
+
+message AddMemberReq {
+    string roomId = 1;
+    repeated string members = 2;
+}
+
+message AddMemberResp {
+    // no fields found in binary
+}
+
+message CreateReq {
+    repeated string members = 1;
+}
+
+message CreateResp {
+    string roomId = 1;
+}
+
+message JoinReq {
+    string roomId = 1;
+}
+
+message JoinResp {
+    // no fields found in binary
+}
+
+message LeaveReq {
+    string roomId = 1;
+}
+
+message LeaveResp {
+    // no fields found in binary
+}
+
+message RemoveMemberReq {
+    string roomId = 1;
+    repeated string members = 2;
+}
+
+message RemoveMemberResp {
+    // no fields found in binary
+}
+
+message SendChatMessageReq {
+    string roomId = 1;
+    // chatMessage field TBD
+}
+
+message SendChatMessageResp {
+    // no fields found in binary
+}
+
+// --- Text filter ---
+
+message TextFilterReq {
+    int32 unknown = 1;      // hash/timestamp observed in capture
+    string content = 2;     // text to filter
+}
+
+message TextFilterRes {
+    string text = 1;        // filtered text
+    string res = 2;         // result code
+}
+
+// duplicate name used by some code paths
+message TextFilterResp {
+    string text = 1;
+    string res = 2;
+}

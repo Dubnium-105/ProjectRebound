@@ -1,0 +1,25 @@
+// Account service — extracted from game binary strings
+// WARNING: Field numbers are TENTATIVE (1,2,3...). Validate with proxy capture.
+syntax = "proto3";
+package ProjectBoundary;
+
+message AccountUserIdMapping {
+    string accountId = 1;
+    string userId = 2;
+}
+
+message GetAceIdReq {
+    repeated string userIds = 1;
+}
+
+message GetAceIdResp {
+    repeated string aceIds = 1;
+}
+
+message GetUserIdReq {
+    repeated string accountIds = 1;
+}
+
+message GetUserIdResp {
+    // returns repeated AccountUserIdMapping, structure TBD
+}

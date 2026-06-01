@@ -1,0 +1,53 @@
+// Event service — operating events, notifications, promotions
+// WARNING: Field numbers are TENTATIVE. Validate with proxy capture.
+syntax = "proto3";
+package ProjectBoundary;
+
+message Activity {
+    // no fields found in binary
+}
+
+message ActivityConfig {
+    string type = 1;
+    string content = 2;
+}
+
+message Notification {
+    // no fields found in binary
+}
+
+message NotificationConfig {
+    string language = 1;
+    string title = 2;
+    string content = 3;
+    string background = 4;
+    string additional = 5;
+}
+
+message OperatingEventBaseInfo {
+    string id = 1;
+    string type = 2;
+    string tag = 3;
+    string platform = 4;
+    string region = 5;
+    string timezone = 6;
+    string version = 7;
+    string condition = 8;
+}
+
+message Promotion {
+    // no fields found in binary
+}
+
+message PromotionConfig {
+    string storeId = 1;
+    string itemId = 2;
+}
+
+message QueryOperatingEventReq {
+    // no fields found in binary
+}
+
+message QueryOperatingEventResp {
+    repeated OperatingEventBaseInfo events = 1;  // field name TBD
+}

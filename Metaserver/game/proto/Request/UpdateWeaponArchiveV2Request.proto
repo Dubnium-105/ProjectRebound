@@ -1,0 +1,36 @@
+// UpdateWeaponArchiveV2 request — decoded from captured traffic
+// Verified against protoc --decode_raw
+// Also defines shared WeaponArchiveV2 types used by both request and response
+syntax = "proto3";
+package ProjectBoundary;
+
+message UpdateWeaponArchiveV2Request {
+    string RoleId = 1;
+    WeaponArchiveV2 WeaponArchive = 3;
+}
+
+message WeaponArchiveV2 {
+    string WeaponId = 1;
+    repeated PartSlot Parts = 2;
+    WeaponSkin Skin = 3;
+}
+
+message PartSlot {
+    int32 SlotId = 1;
+    string PartId = 2;
+    PartOrnament Ornament = 3;
+}
+
+message PartOrnament {
+    OrnamentInfo Info = 1;
+}
+
+message OrnamentInfo {
+    string Type = 1;
+    string Id = 2;
+}
+
+message WeaponSkin {
+    OrnamentInfo SkinInfo = 1;
+    string WeaponOrnament = 3;
+}

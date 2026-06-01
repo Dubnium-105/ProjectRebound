@@ -1,0 +1,103 @@
+// Mission/Quest system — daily login, progression, rewards
+// WARNING: Field numbers are TENTATIVE. Validate with proxy capture.
+syntax = "proto3";
+package ProjectBoundary;
+
+message Activity {
+    string activityID = 1;
+}
+
+message ActivityTemplate {
+    string id = 1;
+}
+
+message CumulativeLoginRecord {
+    string id = 1;
+}
+
+message DailyLoginRecord {
+    string id = 1;
+}
+
+message DayRecord {
+    // no fields found in binary
+}
+
+message EventProgress {
+    string eventId = 1;
+}
+
+message LimitLoginRecord {
+    string id = 1;
+}
+
+message Progression {
+    string progressionID = 1;
+    string questID = 2;
+}
+
+message QueryLoginRecordReq {
+    // no fields found in binary
+}
+
+message QueryLoginRecordResp {
+    // no fields found in binary
+}
+
+message QueryProgressReq {
+    // no fields found in binary
+}
+
+message QueryProgressResp {
+    // no fields found in binary
+}
+
+message QueryUserEventsReq {
+    string userId = 1;
+}
+
+message QueryUserEventsResp {
+    repeated string eventIDs = 1;
+}
+
+message Quest {
+    string ID = 1;
+}
+
+message QuestActivitiesInfoReq {
+    // no fields found in binary
+}
+
+message QuestActivitiesInfoResp {
+    // no fields found in binary
+}
+
+message QuestInfo {
+    string questID = 1;
+    string preQuest = 2;
+}
+
+message RefreshDailyActivityReq {
+    string questID = 1;
+}
+
+message RefreshDailyActivityResp {
+    string oldQuestID = 1;
+    string newQuestID = 2;
+}
+
+message Reward {
+    string ID = 1;
+}
+
+message RewardPoint {
+    // no fields found in binary
+}
+
+message SignInReq {
+    // no fields found in binary
+}
+
+message SignInResp {
+    // no fields found in binary
+}

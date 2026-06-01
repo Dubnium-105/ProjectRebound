@@ -1,0 +1,42 @@
+// Matchmaking service — extended messages from binary
+// WARNING: Field numbers are TENTATIVE. Validate with proxy capture.
+syntax = "proto3";
+package ProjectBoundary;
+
+// --- Data structures ---
+
+message MatchmakingPlayerData {
+    string userId = 1;
+}
+
+message MatchmakingQoSData {
+    string regionId = 1;
+}
+
+message UnityMatchmakingRegion {
+    string regionId = 1;
+    string regionName = 2;
+}
+
+// --- New request/response ---
+
+message QueryUnityMatchmakingReq {
+    string ticketId = 1;
+    string userId = 2;
+}
+
+message QueryUnityMatchmakingRes {
+    // no fields found in binary
+}
+
+message StopUnityMatchmakingReq {
+    string ticketId = 1;
+    string userId = 2;
+}
+
+message StopUnityMatchmakingRes {
+    // no fields found in binary
+}
+
+// Extend StartMatchmakingRequest with additional fields found in binary
+// StartUnityMatchmakingReq also carries: modeList, regionIds

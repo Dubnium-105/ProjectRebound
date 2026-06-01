@@ -1,0 +1,91 @@
+// Party service — full message set from binary
+// WARNING: Field numbers are TENTATIVE. Validate with proxy capture.
+syntax = "proto3";
+package ProjectBoundary;
+
+// --- Data structures ---
+
+message PartyMember {
+    string userId = 1;
+    string platform = 2;
+    string platformId = 3;
+    // qosData = 4;  // QoSData type, see matchmaking.proto
+}
+
+message PartyInfo {
+    string partyId = 1;
+    string leaderId = 2;
+    repeated PartyMember members = 3;  // field name TBD
+}
+
+message PartyConfig {
+    // no fields found in binary
+}
+
+message UserState {
+    string userId = 1;
+    string state = 2;
+}
+
+// --- Invitations ---
+
+message AcceptInvitationReq {
+    string partyId = 1;
+}
+
+message AcceptInvitationResp {
+    // no fields found in binary
+}
+
+message SendInvitationReq {
+    string partyId = 1;
+    string recipientId = 2;
+}
+
+message SendInvitationResp {
+    // no fields found in binary
+}
+
+message RejectInvitationReq {
+    string invitorId = 1;
+}
+
+message RejectInvitationResp {
+    // no fields found in binary
+}
+
+// --- Membership ---
+
+message JoinReq {
+    string partyId = 1;
+}
+
+message JoinResp {
+    // no fields found in binary
+}
+
+message LeaveReq {
+    string partyId = 1;
+}
+
+message LeaveResp {
+    // no fields found in binary
+}
+
+message KickReq {
+    string partyId = 1;
+    string targetMemberId = 2;
+}
+
+message KickResp {
+    // no fields found in binary
+}
+
+message PromoteReq {
+    string partyId = 1;
+    string targetMemberId = 2;
+}
+
+message PromoteResp {
+    // no fields found in binary
+}

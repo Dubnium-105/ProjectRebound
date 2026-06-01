@@ -1,0 +1,18 @@
+// PlayerData service — extended messages from binary
+// WARNING: Field numbers are TENTATIVE. Validate with proxy capture.
+syntax = "proto3";
+package ProjectBoundary;
+
+message PlayerDataStatisticsInfo {
+    string key = 1;
+    // value field TBD
+}
+
+message AddDataStatisticsInfoReq {
+    string userId = 1;
+    repeated PlayerDataStatisticsInfo stats = 2;  // field name TBD
+}
+
+message AddDataStatisticsInfoResp {
+    // no fields found in binary
+}

@@ -1,0 +1,12 @@
+// Gameplay service — joining matches
+// WARNING: Field numbers are TENTATIVE. Validate with proxy capture.
+syntax = "proto3";
+package ProjectBoundary;
+
+message PlayerJoinMatchReq {
+    string userId = 1;
+}
+
+message PlayerJoinMatchResp {
+    // no fields found in binary
+}
