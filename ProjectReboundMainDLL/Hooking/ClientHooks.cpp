@@ -8,11 +8,27 @@
 #include "../Client/UIShake.h"
 #include "../Client/AutoConnect.h"
 #include "../API/APIInternal.h"
-#include "../Loadout/LoadoutFix.h"
+#include "../Loadout/LoadoutManager.h"
 #include <Windows.h>
+#include <chrono>
 #include <thread>
 
 using namespace SDK;
+
+extern LoadoutManager* gLoadoutManager;
+
+static thread_local int gClientProcessEventSuppressionDepth = 0;
+
+extern "C" void PayloadPushClientProcessEventSuppression()
+{
+    ++gClientProcessEventSuppressionDepth;
+}
+
+extern "C" void PayloadPopClientProcessEventSuppression()
+{
+    if (gClientProcessEventSuppressionDepth > 0)
+        --gClientProcessEventSuppressionDepth;
+}
 
 // ======================================================
 //  ProcessEventHookClient — client-side dispatch
@@ -20,7 +36,25 @@ using namespace SDK;
 
 void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
 {
+    if (gClientProcessEventSuppressionDepth > 0)
+    {
+        ProcessEventClient.call(Object, Function, Parms);
+        return;
+    }
+
     const FCachedProcessEventInfo& EventInfo = GetProcessEventInfo(Function);
+
+    if (gLoadoutManager)
+    {
+        static auto nextClientTick = std::chrono::steady_clock::now();
+        const auto now = std::chrono::steady_clock::now();
+        if (now >= nextClientTick)
+        {
+            nextClientTick = now + std::chrono::seconds(1);
+            gLoadoutManager->TickClient();
+        }
+        gLoadoutManager->OnClientProcessEventPre(Object, EventInfo.FullName, Parms);
+    }
 
     // Froce space to login
     if (EventInfo.ClientKind == EClientProcessEventKind::EnterGameConstruct)
@@ -51,7 +85,8 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
         if (!LoginCompleted)
         {
             LoginCompleted = true;
-            LoadoutFix_FetchAndLog();
+            if (gLoadoutManager)
+                gLoadoutManager->NotifyMenuConstructed();
         }
     }
 
@@ -82,13 +117,10 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
         HandleUICharacterClientEvent(Object, Function, Parms, EventInfo.FullName);
     }
 
-    // --- Equip error swallow (LoadoutFix) ---
-    HandleEquipErrorSwallow(Object, Function, Parms, EventInfo.FullName);
-
     ProcessEventClient.call(Object, Function, Parms);
 
-    // After BP callback ran, flush any pending equip display refresh
-    LoadoutFix_FlushRefresh();
+    if (gLoadoutManager)
+        gLoadoutManager->OnClientProcessEventPost(Object, EventInfo.FullName, Parms);
 }
 
 // ======================================================

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import os
@@ -14,6 +14,13 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from urllib import error, parse, request
+
+from browser_loadout import (
+    load_current_loadout_snapshot,
+    prepare_launch_loadout_snapshot,
+    set_metaserver_url,
+    with_loadout_snapshot,
+)
 
 
 APP_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / "ProjectReboundBrowser"
@@ -155,12 +162,17 @@ def load_config() -> AppConfig:
     with CONFIG_PATH.open("r", encoding="utf-8") as file:
         data = json.load(file)
     defaults = asdict(AppConfig())
-    defaults.update(data)
+    # 仅保留 AppConfig 中存在的字段，忽略旧配置中的遗留键
+    valid_keys = set(defaults.keys())
+    filtered = {k: v for k, v in data.items() if k in valid_keys}
+    defaults.update(filtered)
     defaults["backend_url"] = HARD_CODED_BACKEND_URL
     map_name = str(defaults.get("map_name") or ROOM_MAP_OPTIONS[0])
     mode = str(defaults.get("mode") or ROOM_MODE_OPTIONS[0])
     defaults["map_name"] = map_name if map_name in ROOM_MAP_OPTIONS else ROOM_MAP_OPTIONS[0]
     defaults["mode"] = mode if mode in ROOM_MODE_OPTIONS else ROOM_MODE_OPTIONS[0]
+    # 保持向后兼容：如果旧配置没有 logic_server_url，使用默认值
+    defaults.setdefault("logic_server_url", AppConfig.logic_server_url)
     return AppConfig(**defaults)
 
 
@@ -467,7 +479,7 @@ class BrowserApp(tk.Tk):
     def read_form(self) -> AppConfig:
         selected_map = self.map_var.get().strip()
         selected_mode = self.mode_var.get().strip()
-        return AppConfig(
+        config = AppConfig(
             backend_url=HARD_CODED_BACKEND_URL,
             game_directory=self.game_dir_var.get().strip(),
             display_name=self.display_name_var.get().strip() or "Player",
@@ -483,6 +495,8 @@ class BrowserApp(tk.Tk):
             proxy_client_port=int(self.proxy_client_port_var.get()),
             logic_server_url=self.logic_server_url_var.get().strip() or "http://127.0.0.1:8000",
         )
+        set_metaserver_url(config.logic_server_url)
+        return config
 
     def initialize(self) -> None:
         self.save_and_login()
@@ -520,18 +534,18 @@ class BrowserApp(tk.Tk):
             self.set_status("Probing host UDP port...")
             probe = self.run_host_probe()
         self.set_status("Creating room...")
-        created = self.api.create_room(
-            {
-                "probeId": probe["probeId"] if probe else None,
-                "bindingToken": binding["bindingToken"] if binding else None,
-                "name": self.config_data.room_name,
-                "region": self.config_data.region,
-                "map": self.config_data.map_name,
-                "mode": self.config_data.mode,
-                "version": self.config_data.version,
-                "maxPlayers": self.config_data.max_players,
-            }
-        )
+        snapshot = load_current_loadout_snapshot(append_gui_log, self.set_status)
+        payload = {
+            "probeId": probe["probeId"] if probe else None,
+            "bindingToken": binding["bindingToken"] if binding else None,
+            "name": self.config_data.room_name,
+            "region": self.config_data.region,
+            "map": self.config_data.map_name,
+            "mode": self.config_data.mode,
+            "version": self.config_data.version,
+            "maxPlayers": self.config_data.max_players,
+        }
+        created = self.api.create_room(with_loadout_snapshot(payload, snapshot))
         room = self.api.get_room(created["roomId"])
         self.start_host(room, created["hostToken"])
         self.set_status(f"Created room {room.get('name')} and launched host.")
@@ -561,18 +575,18 @@ class BrowserApp(tk.Tk):
             raise RuntimeError("Quick Match with UDP Proxy is not wired yet. Create a proxy room first, then join it from another client.")
         self.set_status("Probing host UDP port for quick match...")
         probe = self.run_host_probe()
-        ticket = self.api.create_match_ticket(
-            {
-                "region": self.config_data.region,
-                "map": self.config_data.map_name,
-                "mode": self.config_data.mode,
-                "version": self.config_data.version,
-                "canHost": True,
-                "probeId": probe["probeId"],
-                "roomName": self.config_data.room_name,
-                "maxPlayers": self.config_data.max_players,
-            }
-        )
+        snapshot = load_current_loadout_snapshot(append_gui_log, self.set_status)
+        payload = {
+            "region": self.config_data.region,
+            "map": self.config_data.map_name,
+            "mode": self.config_data.mode,
+            "version": self.config_data.version,
+            "canHost": True,
+            "probeId": probe["probeId"],
+            "roomName": self.config_data.room_name,
+            "maxPlayers": self.config_data.max_players,
+        }
+        ticket = self.api.create_match_ticket(with_loadout_snapshot(payload, snapshot))
         ticket_id = ticket["ticketId"]
         for _ in range(70):
             time.sleep(2)
@@ -644,29 +658,34 @@ class BrowserApp(tk.Tk):
         exe = find_file(self.config_data.game_directory, "ProjectBoundarySteam-Win64-Shipping.exe")
         if not exe:
             raise RuntimeError("ProjectBoundarySteam-Win64-Shipping.exe was not found under the game directory.")
+        snapshot = load_current_loadout_snapshot(append_gui_log, self.set_status)
+        prepare_launch_loadout_snapshot(snapshot, append_gui_log, self.set_status)
         self.ensure_payload_files(Path(exe).parent)
         self.launch_client_via_batch(exe, connect)
 
     def launch_client_via_batch(self, exe: str, connect: str) -> None:
-        backend_dir = find_directory_near(self.config_data.game_directory, "BoundaryMetaServer-main")
-        node = find_file_near(self.config_data.game_directory, "node.exe")
-        if not backend_dir or not node:
-            raise RuntimeError("nodejs/node.exe or BoundaryMetaServer-main was not found under the game directory.")
-
         lines = [
             "@echo off",
             "title Project Rebound Client Launcher",
-            "echo [Launcher] Starting fake login server...",
         ]
-        endpoint = logic_server_endpoint(self.config_data.logic_server_url)
-        if endpoint and is_local_host(endpoint[0]) and is_tcp_open(endpoint[0], endpoint[1]):
-            lines.append(f"echo [Launcher] Fake login server already reachable at {endpoint[0]}:{endpoint[1]}.")
-        else:
+
+        # Metaserver 可达性检测（仅本地 URL 时检测）
+        ms_endpoint = logic_server_endpoint(self.config_data.logic_server_url)
+        if ms_endpoint and is_local_host(ms_endpoint[0]):
+            ms_host, ms_port = ms_endpoint
             lines.extend([
-                f'start "" /B /D {quote_bat(backend_dir)} {quote_bat(node)} ' + quote_bat("index.js"),
-                "echo [Launcher] Waiting for login server to initialize...",
-                "timeout /t 5 >nul",
+                "echo [Launcher] Checking metaserver at " + f"{ms_host}:{ms_port}...",
+                f"powershell -NoProfile -Command \"try {{ $r=Invoke-WebRequest -Uri '{self.config_data.logic_server_url}/api/health' -TimeoutSec 3 -UseBasicParsing; exit 0 }} catch {{ exit 1 }}\"",
+                "if errorlevel 1 (",
+                f"    echo [Launcher] WARNING: Metaserver is not reachable at {self.config_data.logic_server_url}",
+                "    echo [Launcher] Please run start-metaserver.bat in the Metaserver folder first.",
+                "    echo [Launcher] The game client will still launch, but loadout functionality may be limited.",
+                ") else (",
+                f"    echo [Launcher] Metaserver is reachable at {self.config_data.logic_server_url}",
+                ")",
             ])
+        else:
+            lines.append(f"echo [Launcher] Metaserver URL is remote ({self.config_data.logic_server_url}), skipping local health check.")
 
         lines.extend([
             "if not exist " + quote_bat(Path(exe).parent / "dxgi.dll") + " echo [Launcher] WARNING: dxgi.dll is missing next to the game exe.",
@@ -685,47 +704,47 @@ class BrowserApp(tk.Tk):
         append_gui_log(f"Launching client batch: {batch}")
         subprocess.Popen(["cmd.exe", "/c", str(batch)], creationflags=self.creation_flags())
 
-    def ensure_fake_login_server(self) -> None:
+    def check_metaserver(self) -> bool:
+        """检测 metaserver 是否可达（HTTP API 健康检查）。
+
+        返回 True 表示 metaserver 可达。不可达时弹窗警告，返回 False。
+        metaserver 负责：物品定义查询、配装存储/校验、原生 GetPlayerArchiveV2 协议。
+        """
         endpoint = logic_server_endpoint(self.config_data.logic_server_url)
         if endpoint is None:
-            append_gui_log(f"Logic URL is not parseable, skipping fake login autostart: {self.config_data.logic_server_url}")
-            return
+            append_gui_log(f"Metaserver URL is not parseable: {self.config_data.logic_server_url}")
+            messagebox.showwarning(
+                "Metaserver Unreachable",
+                f"Metaserver URL is not parseable:\n{self.config_data.logic_server_url}\n\n"
+                "配装修验和原生协议将不可用。请手动启动 metaserver。",
+            )
+            return False
 
         host, port = endpoint
-        if not is_local_host(host):
-            append_gui_log(f"Logic URL is not local, skipping fake login autostart: {self.config_data.logic_server_url}")
-            return
 
+        # 先尝试 TCP 连通性
         if is_tcp_open(host, port):
-            append_gui_log(f"Fake login server already reachable at {host}:{port}")
-            return
+            # 再尝试 HTTP 健康检查
+            try:
+                req = request.Request(f"{self.config_data.logic_server_url.rstrip('/')}/api/health")
+                req.add_header("Accept", "application/json")
+                with request.urlopen(req, timeout=3) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    if data.get("status") == "ok":
+                        append_gui_log(f"Metaserver is healthy at {self.config_data.logic_server_url}")
+                        return True
+            except Exception:
+                pass
+            append_gui_log(f"Metaserver TCP port {host}:{port} is open but HTTP health check failed")
 
-        node = find_file_near(self.config_data.game_directory, "node.exe")
-        backend_dir = find_directory_near(self.config_data.game_directory, "BoundaryMetaServer-main")
-        if not node or not backend_dir:
-            raise RuntimeError(
-                "Local fake login server is not running, and nodejs/node.exe or "
-                "BoundaryMetaServer-main was not found under the game directory."
-            )
-
-        args = [node, "index.js"]
-        append_gui_log("Starting fake login server: " + subprocess.list2cmdline(args) + f" cwd={backend_dir}")
-        subprocess.Popen(
-            args,
-            cwd=backend_dir,
-            creationflags=self.login_server_creation_flags(),
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+        append_gui_log(f"Metaserver is NOT reachable at {self.config_data.logic_server_url}")
+        messagebox.showwarning(
+            "Metaserver Not Running",
+            f"Metaserver is not reachable at:\n{self.config_data.logic_server_url}\n\n"
+            f"请先运行 Metaserver 目录下的 start-metaserver.bat 启动 metaserver。\n\n"
+            f"配装和原生协议功能需要 metaserver 运行。",
         )
-
-        deadline = time.time() + 6
-        while time.time() < deadline:
-            if is_tcp_open(host, port):
-                append_gui_log(f"Fake login server is ready at {host}:{port}")
-                return
-            time.sleep(0.25)
-
-        raise RuntimeError(f"Fake login server did not become reachable at {host}:{port}.")
+        return False
 
     def start_client_proxy(self, room_id: str, join_ticket: str) -> None:
         launcher, launcher_cwd = proxy_launcher()
@@ -760,7 +779,7 @@ class BrowserApp(tk.Tk):
                 self.launch_host_via_batch(args, room["roomId"], host_token, game_port, exe_dir or Path(wrapper).parent)
                 self.start_host_heartbeat(room, host_token)
                 return
-            self.ensure_fake_login_server()
+            self.check_metaserver()
             wrapper_cwd = str(exe_dir or Path(wrapper).parent)
             append_gui_log("Launching wrapper: " + subprocess.list2cmdline(args) + f" cwd={wrapper_cwd}")
             subprocess.Popen(args, cwd=wrapper_cwd, creationflags=self.creation_flags())
@@ -770,7 +789,7 @@ class BrowserApp(tk.Tk):
         exe = find_file(self.config_data.game_directory, "ProjectBoundarySteam-Win64-Shipping.exe")
         if not exe:
             raise RuntimeError("Neither ProjectReboundServerWrapper.exe nor ProjectBoundarySteam-Win64-Shipping.exe was found.")
-        self.ensure_fake_login_server()
+        self.check_metaserver()
         args = [
             exe,
             "-log",
@@ -848,11 +867,6 @@ class BrowserApp(tk.Tk):
         return args
 
     def launch_host_via_batch(self, wrapper_args: list[str], room_id: str, host_token: str, game_port: int, wrapper_cwd: Path) -> None:
-        backend_dir = find_directory_near(self.config_data.game_directory, "BoundaryMetaServer-main")
-        node = find_file_near(self.config_data.game_directory, "node.exe")
-        if not backend_dir or not node:
-            raise RuntimeError("nodejs/node.exe or BoundaryMetaServer-main was not found under the game directory.")
-
         launcher, launcher_cwd = proxy_launcher()
         proxy_args = [
             *launcher,
@@ -897,17 +911,25 @@ class BrowserApp(tk.Tk):
             "@echo off",
             "title Project Rebound Host Launcher",
             "pushd " + quote_bat(wrapper_cwd),
-            "echo [Launcher] Starting fake login server...",
         ]
-        endpoint = logic_server_endpoint(self.config_data.logic_server_url)
-        if endpoint and is_local_host(endpoint[0]) and is_tcp_open(endpoint[0], endpoint[1]):
-            lines.append(f"echo [Launcher] Fake login server already reachable at {endpoint[0]}:{endpoint[1]}.")
-        else:
+
+        # Metaserver 可达性检测（仅本地 URL 时检测）
+        ms_endpoint = logic_server_endpoint(self.config_data.logic_server_url)
+        if ms_endpoint and is_local_host(ms_endpoint[0]):
+            ms_host, ms_port = ms_endpoint
             lines.extend([
-                f'start "" /B /D {quote_bat(backend_dir)} {quote_bat(node)} ' + quote_bat("index.js"),
-                "echo [Launcher] Waiting for login server to initialize...",
-                "timeout /t 5 >nul",
+                "echo [Launcher] Checking metaserver at " + f"{ms_host}:{ms_port}...",
+                f"powershell -NoProfile -Command \"try {{ $r=Invoke-WebRequest -Uri '{self.config_data.logic_server_url}/api/health' -TimeoutSec 3 -UseBasicParsing; exit 0 }} catch {{ exit 1 }}\"",
+                "if errorlevel 1 (",
+                f"    echo [Launcher] WARNING: Metaserver is not reachable at {self.config_data.logic_server_url}",
+                "    echo [Launcher] Please run start-metaserver.bat in the Metaserver folder first.",
+                "    echo [Launcher] The host will still start, but loadout functionality may be limited.",
+                ") else (",
+                f"    echo [Launcher] Metaserver is reachable at {self.config_data.logic_server_url}",
+                ")",
             ])
+        else:
+            lines.append(f"echo [Launcher] Metaserver URL is remote ({self.config_data.logic_server_url}), skipping local health check.")
 
         lines.extend([
             "if not exist dxgi.dll echo [Launcher] WARNING: dxgi.dll is missing next to the game exe.",
@@ -1078,11 +1100,7 @@ class BrowserApp(tk.Tk):
     def client_creation_flags() -> int:
         return 0
 
-    @staticmethod
-    def login_server_creation_flags() -> int:
-        return getattr(subprocess, "CREATE_NO_WINDOW", 0)
-
-
 if __name__ == "__main__":
     app = BrowserApp()
     app.mainloop()
+

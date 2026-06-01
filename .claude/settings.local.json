@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(msbuild Payload\\\\Payload.vcxproj /p:Configuration=Release /p:Platform=x64 /t:Build /nologo /v:minimal)",
+      "Bash(where msbuild *)",
+      "Read(//c/Program Files/**)",
+      "Bash(\"/c/Program Files \\(x86\\)/Microsoft Visual Studio/18/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe\" \"g:\\\\wksp\\\\boundaries\\\\ProjectRebound\\\\Payload\\\\Payload.vcxproj\" /p:Configuration=Release /p:Platform=x64 /t:Build /nologo /v:minimal)",
+      "Bash(\"/c/Program Files \\(x86\\)/Microsoft Visual Studio/18/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe\" \"g:\\\\wksp\\\\boundaries\\\\ProjectRebound\\\\Payload\\\\Payload.vcxproj\" -p:Configuration=Release -p:Platform=x64 -t:Build -nologo -v:minimal)",
+      "Bash(\"G:/FXXKING SOFTWARES/VSC/MSBuild/Current/Bin/amd64/MSBuild.exe\" \"g:/wksp/boundaries/ProjectRebound/ProjectRebound.sln\" /restore /t:Build /p:Configuration=Release /p:Platform=x64 /m /nologo /v:minimal)",
+      "Bash(MSYS_NO_PATHCONV=1 \"G:/FXXKING SOFTWARES/VSC/MSBuild/Current/Bin/amd64/MSBuild.exe\" \"g:/wksp/boundaries/ProjectRebound/ProjectRebound.sln\" /restore /t:Build /p:Configuration=Release /p:Platform=x64 /m /nologo /v:minimal)",
+      "Bash(python -m py_compile project_rebound_browser.py)",
+      "Bash(git fetch *)",
+      "Bash(git merge *)",
+      "Bash(awk '{print $NF}')",
+      "Bash(git ls-tree *)",
+      "Bash(grep -rn *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git rm *)",
+      "Bash(git checkout *)"
+    ]
+  }
+}

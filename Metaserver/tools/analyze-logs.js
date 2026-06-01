@@ -29,6 +29,34 @@ const LLM_ENABLED = process.argv.includes('--llm');
 const LLM_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 const LLM_MODEL = process.env.LLM_MODEL || 'claude-sonnet-4-6';
 
+function decodeUnpaddedBase64(value) {
+    const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+    if (normalized.length % 4 === 1) return null;
+
+    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
+    try {
+        const decoded = Buffer.from(padded, 'base64').toString('utf8');
+        return decoded || null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function parsePrbRpcPath(rpcPath) {
+    const match = rpcPath.match(/^prb\.([A-Za-z0-9+/_-]+={0,2})\.([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
+    if (!match) return null;
+
+    const steamId = decodeUnpaddedBase64(match[1]);
+    return {
+        pattern: 'prb.<SteamID base64>.<UUID>',
+        prefix: 'prb',
+        steamIdBase64: match[1],
+        steamId,
+        uuid: match[2],
+        isValid: /^\d+$/.test(steamId || ''),
+    };
+}
+
 // =====================================================================
 // Proto schema index — load all existing protos, index by message name
 // =====================================================================
@@ -472,11 +500,20 @@ function generateReport(sessionData, analyses) {
         lines.push('');
         const unknowns = sessionData.filter(m => m.isUnknown);
         for (const m of unknowns) {
+            const prbPath = parsePrbRpcPath(m.rpcPath);
             lines.push(`### \`${m.rpcPath}\``);
             lines.push(`- Direction: ${m.direction}`);
             lines.push(`- MessageId: ${m.msgId}`);
             lines.push(`- Frame size: ${m.frameLen} bytes`);
             lines.push(`- Inner size: ${m.innerLen} bytes`);
+            if (prbPath) {
+                lines.push(`- Pattern: \`${prbPath.pattern}\``);
+                lines.push(`- Prefix: \`${prbPath.prefix}\``);
+                lines.push(`- SteamID Base64: \`${prbPath.steamIdBase64}\``);
+                lines.push(`- SteamID: \`${prbPath.steamId || '(decode failed)'}\``);
+                lines.push(`- UUID: \`${prbPath.uuid}\``);
+                lines.push(`- Notes: dynamic RPCPath; empty inner payload does not imply a missing proto schema.`);
+            }
             lines.push('');
 
             if (m._innerBuf) {
@@ -490,12 +527,12 @@ function generateReport(sessionData, analyses) {
     }
 
     // Schema corrections
-    if (analyses.length > 0) {
+    const analysesWithSuggestions = analyses.filter(a => a.suggestions && a.suggestions.length > 0);
+    if (analysesWithSuggestions.length > 0) {
         lines.push('## Schema Corrections');
         lines.push('');
 
-        for (const a of analyses) {
-            if (!a.suggestions || a.suggestions.length === 0) continue;
+        for (const a of analysesWithSuggestions) {
             lines.push(`### ${a.messageName || 'Unknown'} (\`${a.rpcPath}\`)`);
             lines.push('');
 
@@ -638,9 +675,18 @@ async function main() {
             ? parseDecodeRaw(protocDecodeRaw(msg._innerBuf))
             : [];
 
-        const { issues, suggestions } = messageName
-            ? compareWithSchema(messageName, rawFields, msg._innerBuf)
-            : { issues: ['No schema available'], suggestions: [{ type: 'new_message', messageName: method || msg.rpcPath, fields: rawFields.map(f => ({ num: f.num, suggestedType: inferTypeFromWireType(f.wireType, f.val), suggestedName: guessFieldName(f.val, f.wireType), sampleValue: f.val })) }] };
+        const prbPath = parsePrbRpcPath(msg.rpcPath);
+        let issues;
+        let suggestions;
+        if (prbPath && rawFields.length === 0) {
+            issues = [`Dynamic RPCPath ${prbPath.pattern}: SteamID ${prbPath.steamId || '(decode failed)'}, UUID ${prbPath.uuid}`];
+            suggestions = [];
+        } else if (messageName) {
+            ({ issues, suggestions } = compareWithSchema(messageName, rawFields, msg._innerBuf));
+        } else {
+            issues = ['No schema available'];
+            suggestions = [{ type: 'new_message', messageName: method || msg.rpcPath, fields: rawFields.map(f => ({ num: f.num, suggestedType: inferTypeFromWireType(f.wireType, f.val), suggestedName: guessFieldName(f.val, f.wireType), sampleValue: f.val })) }];
+        }
 
         let llmSuggestions = null;
         if (LLM_ENABLED && suggestions.length > 0) {

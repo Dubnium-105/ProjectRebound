@@ -57,7 +57,7 @@ You can zip `ProjectReboundBrowserPortable` directly for distribution.
 - Create Room and Quick Match require the selected UDP port to be reachable from the backend.
 - Join launches the game with `-LogicServerURL=http://127.0.0.1:8000 -match=ip:port -debuglog` by default. `Logic URL` can be changed in the GUI.
 - Client `-debuglog` writes Payload client logs under the game working directory's `clientlogs/` folder.
-- Before launching the client or host wrapper, the GUI mirrors the working batch launcher: it starts `BoundaryMetaServer-main/index.js` with `nodejs/node.exe` when `Logic URL` points to local `127.0.0.1:8000`, then waits until the fake login server is reachable.
+- Before launching the client or host wrapper, the GUI expects the merged `Metaserver/index.js` service to be reachable when `Logic URL` points to local `127.0.0.1:8000`, then waits until the fake login server is reachable.
 - Client launch and UDP Proxy host launch are now written to `%APPDATA%\ProjectReboundBrowser\launchers\launch-client.bat` / `launch-host.bat` and executed through `cmd.exe`, matching the known-good batch launcher style. The host batch keeps the console open with `pause`, starts fake login, UDP proxy, server wrapper, waits, then starts a normal game client with `-match=127.0.0.1:<game-port>` so the host joins the room it just created.
 - Before launching the game, the GUI copies the built `dxgi.dll` and `Payload.dll` into the game exe directory when needed. These files are required for `-match` and `-debuglog` to do anything.
 - Client game launch intentionally does not use `CREATE_NEW_CONSOLE`; proxy and wrapper still open their own consoles for logs.

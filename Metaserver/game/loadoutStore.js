@@ -123,10 +123,12 @@ class LoadoutStore {
             return value || fallback;
         }
         if (value && typeof value === "object" && !Array.isArray(value)) {
+            if (typeof value.itemId === "string" && value.itemId) return value.itemId;
             if (typeof value.id === "string" && value.id) return value.id;
             if (typeof value.mobilityModuleId === "string" && value.mobilityModuleId) {
                 return value.mobilityModuleId;
             }
+            if (typeof value.weaponId === "string" && value.weaponId) return value.weaponId;
         }
         return fallback;
     }
@@ -157,43 +159,92 @@ class LoadoutStore {
         }
     }
 
-    decodeWeaponArchiveRaw(hex) {
+    toReadableWeaponArchive(archive = {}) {
+        const skin = archive.Skin || {};
+        const skinInfo = skin.SkinInfo || {};
+        return {
+            weaponId: archive.WeaponId || "",
+            parts: (archive.Parts || []).map((part) => {
+                const info = part.Ornament && part.Ornament.Info ? part.Ornament.Info : {};
+                return {
+                    slotId: part.SlotId || 0,
+                    partId: part.PartId || "",
+                    ornamentType: info.Type || "",
+                    ornamentId: info.Id || "",
+                };
+            }),
+            skin: {
+                type: skinInfo.Type || "",
+                id: skinInfo.Id || "",
+                weaponOrnament: skin.WeaponOrnament || "",
+            },
+        };
+    }
+
+    decodeWeaponArchiveEnvelope(hex) {
         if (!hex || typeof hex !== "string") return null;
         try {
-            const ArchiveType = protobuf.loadSync(WEAPON_ARCHIVE_PROTO)
-                .lookupType("ProjectBoundary.UpdateWeaponArchiveV2Request");
-            const decoded = ArchiveType.toObject(ArchiveType.decode(Buffer.from(hex, "hex")), {
-                longs: String,
-                enums: String,
-                bytes: Buffer,
-                defaults: true,
-                arrays: true,
-                objects: true,
-            });
-            const archive = decoded.WeaponArchive || {};
-            const skin = archive.Skin || {};
-            const skinInfo = skin.SkinInfo || {};
-            return {
-                roleId: decoded.RoleId || "",
-                weaponId: archive.WeaponId || "",
-                parts: (archive.Parts || []).map((part) => {
-                    const info = part.Ornament && part.Ornament.Info ? part.Ornament.Info : {};
-                    return {
-                        slotId: part.SlotId || 0,
-                        partId: part.PartId || "",
-                        ornamentType: info.Type || "",
-                        ornamentId: info.Id || "",
-                    };
-                }),
-                skin: {
-                    type: skinInfo.Type || "",
-                    id: skinInfo.Id || "",
-                    weaponOrnament: skin.WeaponOrnament || "",
-                },
-            };
+            const root = protobuf.loadSync(WEAPON_ARCHIVE_PROTO);
+            const WeaponArchiveType = root.lookupType("ProjectBoundary.WeaponArchiveV2");
+            const buffer = Buffer.from(hex, "hex");
+            const reader = protobuf.Reader.create(buffer);
+            const envelope = { roleId: "", archives: [] };
+
+            while (reader.pos < reader.len) {
+                const tag = reader.uint32();
+                const fieldNo = tag >>> 3;
+                const wireType = tag & 7;
+
+                if (fieldNo === 1 && wireType === 2) {
+                    envelope.roleId = reader.string();
+                } else if (fieldNo === 3 && wireType === 2) {
+                    const length = reader.uint32();
+                    const start = reader.pos;
+                    const end = start + length;
+                    const archiveBytes = Buffer.from(reader.buf.subarray(start, end));
+                    reader.pos = end;
+                    const archive = WeaponArchiveType.toObject(WeaponArchiveType.decode(archiveBytes), {
+                        longs: String,
+                        enums: String,
+                        bytes: Buffer,
+                        defaults: true,
+                        arrays: true,
+                        objects: true,
+                    });
+                    envelope.archives.push(archive);
+                } else {
+                    reader.skipType(wireType);
+                }
+            }
+
+            return envelope.archives.length > 0 ? envelope : null;
         } catch (_) {
             return null;
         }
+    }
+
+    decodeWeaponArchiveRaw(hex) {
+        const envelope = this.decodeWeaponArchiveEnvelope(hex);
+        if (!envelope) return null;
+
+        const readableArchives = envelope.archives.map((archive) => this.toReadableWeaponArchive(archive));
+        if (readableArchives.length === 1) {
+            return {
+                roleId: envelope.roleId || "",
+                ...readableArchives[0],
+            };
+        }
+
+        const byWeaponId = {};
+        for (const archive of readableArchives) {
+            if (archive.weaponId) byWeaponId[archive.weaponId] = archive;
+        }
+
+        return {
+            roleId: envelope.roleId || "",
+            weaponArchives: readableArchives,
+            weapons: byWeaponId,
+        };
     }
 
     attachDecodedMetadata(data) {
@@ -287,6 +338,57 @@ class LoadoutStore {
         }
     }
 
+    buildWeaponArchiveBundleRaw(roleId, weaponIds, roleData = {}) {
+        const uniqueWeaponIds = Array.from(new Set((weaponIds || [])
+            .map((weaponId) => this.toFlatItemId(weaponId, null))
+            .filter((weaponId) => !this.isNoneish(weaponId))));
+        if (this.isNoneish(roleId) || uniqueWeaponIds.length === 0) return "";
+
+        const root = protobuf.loadSync(WEAPON_ARCHIVE_PROTO);
+        const WeaponArchiveType = root.lookupType("ProjectBoundary.WeaponArchiveV2");
+        const archivesByWeapon = roleData._weaponArchives && typeof roleData._weaponArchives === "object" && !Array.isArray(roleData._weaponArchives)
+            ? roleData._weaponArchives
+            : {};
+        const legacyEnvelope = this.decodeWeaponArchiveEnvelope(roleData._weaponArchiveRaw);
+        const archiveObjects = [];
+
+        for (const weaponId of uniqueWeaponIds) {
+            let archive = null;
+
+            if (archivesByWeapon[weaponId]) {
+                const envelope = this.decodeWeaponArchiveEnvelope(archivesByWeapon[weaponId]);
+                archive = envelope && envelope.archives.find((candidate) => candidate.WeaponId === weaponId);
+            }
+
+            if (!archive && legacyEnvelope) {
+                archive = legacyEnvelope.archives.find((candidate) => candidate.WeaponId === weaponId);
+            }
+
+            if (!archive) {
+                const defaultEnvelope = this.decodeWeaponArchiveEnvelope(this.buildDefaultWeaponArchiveRaw(roleId, weaponId));
+                archive = defaultEnvelope && defaultEnvelope.archives.find((candidate) => candidate.WeaponId === weaponId);
+            }
+
+            if (archive) archiveObjects.push(archive);
+        }
+
+        if (archiveObjects.length === 0 && roleData._weaponArchiveRaw) {
+            return roleData._weaponArchiveRaw;
+        }
+
+        if (archiveObjects.length === 0) return "";
+
+        const writer = protobuf.Writer.create();
+        writer.uint32(10).string(roleId);
+        for (const archive of archiveObjects) {
+            writer.uint32(26).fork();
+            WeaponArchiveType.encode(WeaponArchiveType.fromObject(archive), writer);
+            writer.ldelim();
+        }
+
+        return Buffer.from(writer.finish()).toString("hex");
+    }
+
     copyArchiveMetadata(target, source) {
         if (!source || typeof source !== "object") return;
         if (source._weaponArchiveRaw) target._weaponArchiveRaw = source._weaponArchiveRaw;
@@ -310,6 +412,11 @@ class LoadoutStore {
         if (weaponId && archives[weaponId]) return archives[weaponId];
         if (Object.keys(archives).length === 0 && roleData._weaponArchiveRaw) return roleData._weaponArchiveRaw;
         return this.buildDefaultWeaponArchiveRaw(roleId, weaponId);
+    }
+
+    getWeaponArchiveRawBundleForRole(roleData, weaponIds = [], roleId = null) {
+        if (!roleData || typeof roleData !== "object") return "";
+        return this.buildWeaponArchiveBundleRaw(roleId, weaponIds, roleData);
     }
 
     getRoleDefinition(roleId) {
@@ -501,10 +608,10 @@ class LoadoutStore {
         if (!data.roles[roleId]) {
             data.roles[roleId] = {};
         }
-        data.roles[roleId].loadoutSnapshot = snapshot;
+        data.roles[roleId].loadoutSnapshot = this.syncStoredSnapshot(snapshot);
 
         if (snapshot) {
-            this.applySnapshotSummary(data.roles[roleId], snapshot);
+            this.applySnapshotSummary(data.roles[roleId], data.roles[roleId].loadoutSnapshot);
         }
 
         this.save(playerId, data);
@@ -598,22 +705,114 @@ class LoadoutStore {
         this.copyArchiveMetadata(target, roleData);
     }
 
+    getSnapshotInventorySlot(snapshot, slotType) {
+        const slots = snapshot && snapshot.inventory && Array.isArray(snapshot.inventory.slots)
+            ? snapshot.inventory.slots
+            : [];
+        const entry = slots.find((slot) => slot && Number(slot.slotType) === slotType);
+        return entry && typeof entry.itemId === "string" && entry.itemId
+            ? entry.itemId
+            : null;
+    }
+
+    cloneSnapshot(snapshot) {
+        if (!snapshot || typeof snapshot !== "object") return {};
+        try {
+            return JSON.parse(JSON.stringify(snapshot));
+        } catch (_) {
+            return { ...snapshot };
+        }
+    }
+
+    setSnapshotInventorySlot(snapshot, slotType, itemId) {
+        if (!snapshot.inventory || typeof snapshot.inventory !== "object" || Array.isArray(snapshot.inventory)) {
+            snapshot.inventory = {};
+        }
+        if (!Array.isArray(snapshot.inventory.slots)) {
+            snapshot.inventory.slots = [];
+        }
+
+        const existing = snapshot.inventory.slots.find((slot) => slot && Number(slot.slotType) === slotType);
+        if (existing) {
+            existing.slotType = slotType;
+            existing.itemId = itemId;
+            return;
+        }
+        snapshot.inventory.slots.push({ slotType, itemId });
+    }
+
+    syncStoredSnapshot(snapshot) {
+        const result = this.cloneSnapshot(snapshot);
+        if (!result || typeof result !== "object") return {};
+
+        const pick = (...values) => {
+            for (const value of values) {
+                const itemId = this.toFlatItemId(value, null);
+                if (!this.isNoneish(itemId)) return itemId;
+            }
+            return null;
+        };
+        const syncSlot = (slotType, itemId, apply) => {
+            if (this.isNoneish(itemId)) return;
+            this.setSnapshotInventorySlot(result, slotType, itemId);
+            apply(itemId);
+        };
+
+        syncSlot(1, pick(this.getSnapshotInventorySlot(result, 1), result.primaryWeapon), (itemId) => {
+            result.primaryWeapon = itemId;
+        });
+        syncSlot(2, pick(this.getSnapshotInventorySlot(result, 2), result.secondaryWeapon), (itemId) => {
+            result.secondaryWeapon = itemId;
+        });
+        syncSlot(3, pick(this.getSnapshotInventorySlot(result, 3), result.leftLauncher, result.leftPylon, result.leftPod), (itemId) => {
+            result.leftLauncher = { id: itemId, skinId: "" };
+            result.leftPylon = itemId;
+            result.leftPod = itemId;
+        });
+        syncSlot(4, pick(this.getSnapshotInventorySlot(result, 4), result.rightLauncher, result.rightPylon, result.rightPod), (itemId) => {
+            result.rightLauncher = { id: itemId, skinId: "" };
+            result.rightPylon = itemId;
+            result.rightPod = itemId;
+        });
+        syncSlot(5, pick(this.getSnapshotInventorySlot(result, 5), result.meleeWeapon), (itemId) => {
+            result.meleeWeapon = { id: itemId, skinId: "" };
+        });
+        syncSlot(6, pick(this.getSnapshotInventorySlot(result, 6), result.mobilityModule), (itemId) => {
+            result.mobilityModule = { mobilityModuleId: itemId };
+        });
+
+        return result;
+    }
+
     applySnapshotSummary(target, snapshot) {
+        snapshot = this.syncStoredSnapshot(snapshot);
         const wc = (snapshot && snapshot.weaponConfigs && typeof snapshot.weaponConfigs === "object")
             ? snapshot.weaponConfigs
             : {};
         const weaponIds = Object.keys(wc);
-        target.primaryWeapon = weaponIds[0] || this.toFlatStringId(snapshot && snapshot.primaryWeapon, null) || target.primaryWeapon || "None";
-        target.secondaryWeapon = weaponIds[1] || this.toFlatStringId(snapshot && snapshot.secondaryWeapon, null) || target.secondaryWeapon || "None";
+        target.primaryWeapon = this.getSnapshotInventorySlot(snapshot, 1)
+            || this.toFlatStringId(snapshot && snapshot.primaryWeapon, null)
+            || weaponIds[0]
+            || target.primaryWeapon
+            || "None";
+        target.secondaryWeapon = this.getSnapshotInventorySlot(snapshot, 2)
+            || this.toFlatStringId(snapshot && snapshot.secondaryWeapon, null)
+            || weaponIds.find((weaponId) => weaponId !== target.primaryWeapon)
+            || target.secondaryWeapon
+            || "None";
 
-        const leftPylon = this.toFlatItemId(snapshot && snapshot.leftLauncher, null)
+        const leftPylon = this.getSnapshotInventorySlot(snapshot, 3)
+            || this.toFlatItemId(snapshot && snapshot.leftLauncher, null)
             || this.toFlatStringId(snapshot && snapshot.leftPylon, null)
             || this.toFlatStringId(snapshot && snapshot.leftPod, null);
-        const rightPylon = this.toFlatItemId(snapshot && snapshot.rightLauncher, null)
+        const rightPylon = this.getSnapshotInventorySlot(snapshot, 4)
+            || this.toFlatItemId(snapshot && snapshot.rightLauncher, null)
             || this.toFlatStringId(snapshot && snapshot.rightPylon, null)
             || this.toFlatStringId(snapshot && snapshot.rightPod, null);
-        const mobilityModule = this.toFlatItemId(snapshot && snapshot.mobilityModule, null);
-        const meleeWeapon = this.toFlatItemId(snapshot && snapshot.meleeWeapon, null);
+        const mobilityModule = this.getSnapshotInventorySlot(snapshot, 6)
+            || this.toFlatItemId(snapshot && snapshot.mobilityModule, null);
+        const meleeWeapon = this.getSnapshotInventorySlot(snapshot, 5)
+            || this.toFlatItemId(snapshot && snapshot.meleeWeapon, null);
 
         if (leftPylon !== null) target.leftPylon = leftPylon;
         if (rightPylon !== null) target.rightPylon = rightPylon;
@@ -624,7 +823,7 @@ class LoadoutStore {
     }
 
     withSnapshotMetadata(roleId, snapshot, roleData) {
-        const result = { ...(snapshot || {}) };
+        const result = this.syncStoredSnapshot(snapshot || {});
         if (!result.roleId && !result.RoleID) result.roleId = roleId;
         this.copyArchiveMetadata(result, roleData);
         const preferredWeaponId = result.primaryWeapon || result.PrimaryWeapon || result.weaponId || null;
@@ -676,12 +875,12 @@ class LoadoutStore {
             }
 
             if (snapshot && snapshot.loadoutSnapshot && typeof snapshot.loadoutSnapshot === "object") {
-                data.roles[roleId].loadoutSnapshot = snapshot.loadoutSnapshot;
-                this.applySnapshotSummary(data.roles[roleId], snapshot.loadoutSnapshot);
+                data.roles[roleId].loadoutSnapshot = this.syncStoredSnapshot(snapshot.loadoutSnapshot);
+                this.applySnapshotSummary(data.roles[roleId], data.roles[roleId].loadoutSnapshot);
                 this.copyArchiveMetadata(data.roles[roleId], snapshot);
             } else if (this.isStructuredRoleSnapshot(snapshot)) {
-                data.roles[roleId].loadoutSnapshot = snapshot;
-                this.applySnapshotSummary(data.roles[roleId], snapshot);
+                data.roles[roleId].loadoutSnapshot = this.syncStoredSnapshot(snapshot);
+                this.applySnapshotSummary(data.roles[roleId], data.roles[roleId].loadoutSnapshot);
             } else {
                 delete data.roles[roleId].loadoutSnapshot;
                 this.applyFlatRoleData(data.roles[roleId], snapshot || {});

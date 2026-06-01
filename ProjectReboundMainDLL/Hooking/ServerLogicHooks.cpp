@@ -13,11 +13,13 @@
 #include "../Server/RoundManager.h"
 #include "../Server/PlayerNaming.h"
 #include "../Server/PvECamera.h"
+#include "../Loadout/LoadoutManager.h"
 
 #include <Windows.h>
 
 extern uintptr_t BaseAddress;
 extern LibReplicate* libReplicate;
+extern LoadoutManager* gLoadoutManager;
 
 using namespace SDK;
 
@@ -165,6 +167,9 @@ void TickFlushHook(UNetDriver *NetDriver, float DeltaTime)
 
     UserNameFix_DrainPending();
     PVECamFix_Tick(NetDriver, DeltaTime);
+
+    if (gLoadoutManager)
+        gLoadoutManager->TickServer();
 
     if (IsServerShutdownRequested())
     {

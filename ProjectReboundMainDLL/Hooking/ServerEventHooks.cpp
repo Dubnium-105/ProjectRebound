@@ -10,10 +10,13 @@
 #include "../Server/LateJoin.h"
 #include "../Server/RoundManager.h"
 #include "../Server/SideMountFixServer.h"
+#include "../Loadout/LoadoutManager.h"
 #include "../SDK/Engine_parameters.hpp"
+#include "../SDK/ProjectBoundary_parameters.hpp"
 
 extern uintptr_t BaseAddress;
 extern LibReplicate* libReplicate;
+extern LoadoutManager* gLoadoutManager;
 
 using namespace SDK;
 
@@ -24,6 +27,9 @@ using namespace SDK;
 void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
 {
     const FCachedProcessEventInfo& EventInfo = GetProcessEventInfo(Function);
+
+    if (gLoadoutManager)
+        gLoadoutManager->OnServerProcessEventPre(Object, EventInfo.FullName, Parms);
 
     if (EventInfo.ServerKind == EServerProcessEventKind::MatchHasEnded)
     {
@@ -72,11 +78,19 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
         APBPlayerController *PBPlayerController = Object && Object->IsA(APBPlayerController::StaticClass())
                                                       ? (APBPlayerController *)Object
                                                       : nullptr;
+        auto *ConfirmParms = static_cast<Params::PBPlayerController_ServerConfirmRoleSelection *>(Parms);
+
+        if (gLoadoutManager && PBPlayerController && ConfirmParms)
+        {
+            gLoadoutManager->OnRoleSelectionConfirmed(PBPlayerController, ConfirmParms->InRoleID, true);
+        }
 
         if (gLateJoinManager && gLateJoinManager->IsLateJoinPlayer(PBPlayerController))
         {
             // Execute original function first
             ProcessEvent.call(Object, Function, Parms);
+            if (gLoadoutManager)
+                gLoadoutManager->OnServerProcessEventPost(Object, EventInfo.FullName, Parms);
             // Advance LateJoin state to RoleConfirmed
             gLateJoinManager->OnRoleConfirmed(PBPlayerController);
             return;
@@ -121,7 +135,10 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
             return;
     }
 
-    return ProcessEvent.call(Object, Function, Parms);
+    ProcessEvent.call(Object, Function, Parms);
+
+    if (gLoadoutManager)
+        gLoadoutManager->OnServerProcessEventPost(Object, EventInfo.FullName, Parms);
 }
 
 // ======================================================

@@ -25,6 +25,7 @@
 #include "../API/ExternalCommandPipe.h"
 #include "../API/APIInternal.h"
 #include "../Server/PlayerNaming.h"
+#include "../Loadout/LoadoutManager.h"
 
 using namespace SDK;
 
@@ -35,6 +36,7 @@ using namespace SDK;
 uintptr_t BaseAddress = 0x0;
 LibReplicate* libReplicate = nullptr; // was static in original, but extern needed by other modules
 ExternalCommandPipe* g_CmdFramework = nullptr;
+LoadoutManager* gLoadoutManager = nullptr;
 
 // ======================================================
 //  Pipe join callback
@@ -98,6 +100,11 @@ void MainThread()
             amServer = true;
         }
 
+        if (!gLoadoutManager)
+        {
+            gLoadoutManager = new LoadoutManager();
+        }
+
         while (!UWorld::GetWorld())
         {
             if (amServer)
@@ -118,6 +125,8 @@ void MainThread()
 
             InitServerHooks();
             ServerLog("[SERVER] Hooks installed.");
+
+            gLoadoutManager->PreloadSnapshot();
 
             // Wait for world
             ServerLog("[SERVER] Waiting for UWorld...");

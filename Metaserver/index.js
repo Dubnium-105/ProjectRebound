@@ -537,11 +537,14 @@ const server = net.createServer((socket) => {
 
         // Return success; the request body is decoded above only for the fields we persist.
 
-        // Test StatusCode=1 (some proto conventions use 1=success)
         Root = protobuf.loadSync("./game/proto/Response/UpdateRoleArchiveV2.proto");
+
         let UpdateRoleArchiveV2Type = Root.lookupType("ProjectBoundary.UpdateRoleArchiveV2Response");
-        let UpdateRoleArchiveV2 = UpdateRoleArchiveV2Type.create({StatusCode: 1});
+
+        let UpdateRoleArchiveV2 = UpdateRoleArchiveV2Type.create({StatusCode: 0});
+
         let ResponseBytes = UpdateRoleArchiveV2Type.encode(UpdateRoleArchiveV2).finish();
+
         socket.write(WrapMessageAndSerialize(MessageId, RPCPath, ResponseBytes));
       }
       else if(RPCPath === "/assets.Assets/GetPlayerArchiveV2"){
@@ -566,7 +569,12 @@ const server = net.createServer((socket) => {
         for (const roleData of playerRoleDatas) {
           const savedRole = roles[roleData.RoleID] || {};
           const defaultSkin = store.getDefaultRoleSkinMetadata(roleData.RoleID);
-          roleData.WeaponArchiveRaw = store.getWeaponArchiveRawForRole(savedRole, roleData.PrimaryWeapon, roleData.RoleID);
+          // Put primary last so singular field-3 decoders keep the legacy primary archive.
+          roleData.WeaponArchiveRaw = store.getWeaponArchiveRawBundleForRole(
+            savedRole,
+            [roleData.SecondWeapon, roleData.PrimaryWeapon],
+            roleData.RoleID
+          );
           roleData.SkinToken = savedRole._skinToken || defaultSkin.skinToken || '';
           roleData.OrnamentId = savedRole._ornamentId || defaultSkin.ornamentId || '';
           if (savedRole._skinData) {
@@ -685,18 +693,10 @@ const server = net.createServer((socket) => {
         socket.write(WrapMessageAndSerialize(MessageId, RPCPath, ResponseBytes));
       }
       else if(RPCPath === "/party.party/Get"){
-        console.log("[RECV] Get Party!");
-
-        const empty = Buffer.alloc(0);
-        socket.write(WrapMessageAndSerialize(MessageId, RPCPath, empty));
+        //console.log("[RECV] Get Party!");
       }
       else if(RPCPath === "/chat.chat/TextFilter"){
-        console.log("[RECV] Text Filter!");
-
-        // Echo back empty success — missing response was causing
-        // LogicServer ErrorCode=-1 timeouts during armory init.
-        const empty = Buffer.alloc(0);
-        socket.write(WrapMessageAndSerialize(MessageId, RPCPath, empty));
+        //console.log("[RECV] Text Filter!");
       }
       else if(RPCPath === "/party.party/SetPresence"){
         //console.log("[RECV] Set Party Presence!");
@@ -1107,8 +1107,8 @@ const matchmakingTCPServer = net.createServer((socket) => {
 app.listen(process.env.PORT || 8000, () => {
     console.log(`mrow :3 - ${process.env.PORT || 8000}`);
 
-    server.listen(6969, () => {
-      console.log(`miau >:3 - ${6969}`);
+    server.listen(6968, () => {
+      console.log(`miau >:3 - ${6968}`);
 
       matchmakingUDPServer.bind(9000);
 

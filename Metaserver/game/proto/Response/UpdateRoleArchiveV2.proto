@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package ProjectBoundary;
 
+// Native game name: assets.UpdateRoleArchiveResp / assets.UpdateWeaponArchiveResp.
+// Success response observed with protoc --decode_raw: field 1 = 0 (hex: 08 00).
 message UpdateRoleArchiveV2Response{
     int32 StatusCode = 1;
 }

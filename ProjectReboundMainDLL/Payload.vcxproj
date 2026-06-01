@@ -148,6 +148,11 @@
   <ItemGroup>
     <ClInclude Include="Core\GameOffsets.h" />
     <ClInclude Include="API\ExternalCommandPipe.h" />
+    <ClInclude Include="Loadout\LoadoutApplication.h" />
+    <ClInclude Include="Loadout\LoadoutManager.h" />
+    <ClInclude Include="Loadout\LoadoutSerializer.h" />
+    <ClInclude Include="Loadout\LoadoutShowroomApplication.h" />
+    <ClInclude Include="Loadout\MetaserverClient.h" />
     <ClInclude Include="framework.h" />
   </ItemGroup>
   <ItemGroup>
@@ -172,7 +177,11 @@
     <ClCompile Include="Client\UIShake.cpp" />
     <ClCompile Include="API\APIInternal.cpp" />
     <ClCompile Include="API\ExternalCommandPipe.cpp" />
-    <ClCompile Include="Loadout\LoadoutFix.cpp" />
+    <ClCompile Include="Loadout\LoadoutApplication.cpp" />
+    <ClCompile Include="Loadout\LoadoutManager.cpp" />
+    <ClCompile Include="Loadout\LoadoutSerializer.cpp" />
+    <ClCompile Include="Loadout\LoadoutShowroomApplication.cpp" />
+    <ClCompile Include="Loadout\MetaserverClient.cpp" />
     <ClCompile Include="Libs\safetyhook.cpp" />
     <ClCompile Include="Libs\Zydis.c" />
     <ClCompile Include="SDK\Basic.cpp" />

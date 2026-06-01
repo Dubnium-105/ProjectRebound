@@ -425,6 +425,79 @@ const PROTO_DECODE_OPTS = {
     oneofs: true,
 };
 
+function toReadableWeaponArchive(archive = {}) {
+    const skin = archive.Skin || {};
+    const skinInfo = skin.SkinInfo || {};
+    return {
+        weaponId: archive.WeaponId || '',
+        parts: (archive.Parts || []).map((part) => {
+            const info = part.Ornament && part.Ornament.Info ? part.Ornament.Info : {};
+            return {
+                slotId: part.SlotId || 0,
+                partId: part.PartId || '',
+                ornamentType: info.Type || '',
+                ornamentId: info.Id || '',
+            };
+        }),
+        skin: {
+            type: skinInfo.Type || '',
+            id: skinInfo.Id || '',
+            weaponOrnament: skin.WeaponOrnament || '',
+        },
+    };
+}
+
+function decodeWeaponArchiveRawForLog(hex) {
+    if (!hex || typeof hex !== 'string') return null;
+    const weaponArchiveType = lookupType('WeaponArchiveV2');
+    if (!weaponArchiveType) return null;
+
+    try {
+        const reader = protobuf.Reader.create(Buffer.from(hex, 'hex'));
+        const roleArchive = { roleId: '', weaponArchives: [] };
+
+        while (reader.pos < reader.len) {
+            const tag = reader.uint32();
+            const fieldNo = tag >>> 3;
+            const wireType = tag & 7;
+
+            if (fieldNo === 1 && wireType === 2) {
+                roleArchive.roleId = reader.string();
+            } else if (fieldNo === 3 && wireType === 2) {
+                const length = reader.uint32();
+                const start = reader.pos;
+                const end = start + length;
+                const archiveBytes = Buffer.from(reader.buf.subarray(start, end));
+                reader.pos = end;
+                const archive = weaponArchiveType.toObject(
+                    weaponArchiveType.decode(archiveBytes),
+                    PROTO_DECODE_OPTS
+                );
+                roleArchive.weaponArchives.push(toReadableWeaponArchive(archive));
+            } else {
+                reader.skipType(wireType);
+            }
+        }
+
+        return roleArchive.weaponArchives.length > 0 ? roleArchive : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function enrichDecodedForLog(rpcPath, decoded) {
+    if (rpcPath !== '/assets.Assets/GetPlayerArchiveV2' || !decoded || !Array.isArray(decoded.PlayerRoleDatas)) {
+        return decoded;
+    }
+
+    for (const roleData of decoded.PlayerRoleDatas) {
+        const parsed = decodeWeaponArchiveRawForLog(roleData.WeaponArchiveRaw);
+        if (parsed) roleData._WeaponArchiveRawParsed = parsed;
+    }
+
+    return decoded;
+}
+
 function tryDecodeMessage(buf, messageName) {
     if (!buf || buf.length === 0) return null;
     const type = lookupType(messageName);
@@ -627,6 +700,7 @@ const proxyServer = net.createServer((clientSock) => {
             innerBytes = wrapper.Message;
             if (rpcInfo && rpcInfo.resInner) {
                 innerDecoded = tryDecodeMessage(innerBytes, rpcInfo.resInner);
+                innerDecoded = enrichDecodedForLog(rpcPath, innerDecoded);
             }
         }
 

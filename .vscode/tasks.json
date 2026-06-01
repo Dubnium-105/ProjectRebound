@@ -1,0 +1,95 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build Solution (Release x64)",
+			"type": "process",
+			"command": "G:\\FXXKING SOFTWARES\\VSC\\MSBuild\\Current\\Bin\\amd64\\MSBuild.exe",
+			"args": [
+				"${workspaceFolder}\\ProjectRebound.sln",
+				"/restore",
+				"/t:Build",
+				"/p:Configuration=Release",
+				"/p:Platform=x64",
+				"/m"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "Build Native (Release x64)",
+			"dependsOrder": "sequence",
+			"dependsOn": [
+				"Build Payload (Release x64)",
+				"Build dxgi (Release x64)",
+				"Build ServerWrapper (Release x64)"
+			]
+		},
+		{
+			"label": "Build Payload (Release x64)",
+			"type": "process",
+			"command": "G:\\FXXKING SOFTWARES\\VSC\\MSBuild\\Current\\Bin\\amd64\\MSBuild.exe",
+			"args": [
+				"${workspaceFolder}\\Payload\\Payload.vcxproj",
+				"/t:Build",
+				"/p:Configuration=Release",
+				"/p:Platform=x64",
+				"/m"
+			],
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "Build dxgi (Release x64)",
+			"type": "process",
+			"command": "G:\\FXXKING SOFTWARES\\VSC\\MSBuild\\Current\\Bin\\amd64\\MSBuild.exe",
+			"args": [
+				"${workspaceFolder}\\dxgi\\dxgi.vcxproj",
+				"/t:Build",
+				"/p:Configuration=Release",
+				"/p:Platform=x64",
+				"/m"
+			],
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "Build ServerWrapper (Release x64)",
+			"type": "process",
+			"command": "G:\\FXXKING SOFTWARES\\VSC\\MSBuild\\Current\\Bin\\amd64\\MSBuild.exe",
+			"args": [
+				"${workspaceFolder}\\ServerWrapper\\ProjectReboundServerWrapper\\ProjectReboundServerWrapper\\ProjectReboundServerWrapper.vcxproj",
+				"/t:Build",
+				"/p:Configuration=Release",
+				"/p:Platform=x64",
+				"/m"
+			],
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "Build MatchServer",
+			"type": "process",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"${workspaceFolder}\\Backend\\ProjectRebound.MatchServer\\ProjectRebound.MatchServer.csproj"
+			],
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "Build Solution (Release x64)",
+			"type": "shell",
+			"command": "G:\\FXXKING SOFTWARES\\VSC\\MSBuild\\Current\\Bin\\amd64\\MSBuild.exe",
+			"args": [
+				"G:\\wksp\\boundaries\\ProjectRebound\\ProjectRebound.sln",
+				"/restore",
+				"/t:Build",
+				"/p:Configuration=Release",
+				"/p:Platform=x64",
+				"/m"
+			],
+			"group": "build"
+		}
+	]
+}

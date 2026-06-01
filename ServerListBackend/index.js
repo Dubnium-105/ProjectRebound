@@ -54,7 +54,9 @@ const server = http.createServer((req, res) => {
                 port,
                 playerCount,
                 serverState,
-                serverId
+                serverId,
+                loadoutSnapshot,
+                hostLoadoutSnapshot
             } = data;
 
             // Clean mode
@@ -83,6 +85,8 @@ const server = http.createServer((req, res) => {
                 playerCount,
                 serverState,
                 serverId: serverId || "",
+                loadoutSnapshot: loadoutSnapshot || null,
+                hostLoadoutSnapshot: hostLoadoutSnapshot || loadoutSnapshot || null,
                 ip,
                 lastHeartbeat: Date.now()
             };
