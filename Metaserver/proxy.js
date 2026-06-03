@@ -594,6 +594,15 @@ const proxyServer = net.createServer((clientSock) => {
     let clientBuf = Buffer.alloc(0);
     let serverBuf = Buffer.alloc(0);
     const msgIdToRPC = new Map(); // track MessageId → RPCPath for response matching
+    const MSGID_DUMP_PATH = path.join(LOG_DIR, 'msgid_map.json');
+
+    function dumpMsgIdMap() {
+        const obj = {};
+        for (const [id, rpc] of msgIdToRPC) { obj[id] = rpc; }
+        try { fs.writeFileSync(MSGID_DUMP_PATH, JSON.stringify(obj, null, 2)); } catch (_) {}
+    }
+    // dump every 5 seconds so Frida can pick up the latest mapping
+    const msgIdDumpTimer = setInterval(dumpMsgIdMap, 5000);
 
     targetSock.connect(TARGET_PORT, TARGET_HOST, () => {
         // pipe is ready

@@ -413,6 +413,9 @@ const server = net.createServer((socket) => {
       const RPCPath = RequestObj.RPCPath;
       const MessageBytes = RequestObj.Message;
 
+      // Log MessageId → RPCPath mapping for Frida reverse engineering
+      console.log(`[MSGID] ${MessageId} = ${RPCPath}`);
+
       if(gateSessions.has(RPCPath)){
         socket.playerId = gateSessions.get(RPCPath);
         console.log(`[SESSION] Bound protobuf socket to player ${socket.playerId}`);
