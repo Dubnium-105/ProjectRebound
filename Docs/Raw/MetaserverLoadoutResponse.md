@@ -247,15 +247,92 @@ K2_OnEquipComplete(ErrorCode=4)            → 吞成 0
 
 ---
 
-## 当前方向：定位缓存填充代码（阶段 1）
+## 响应处理 / 校验链路逆向（2026-06-03）
 
-### 目标
-找 Native 解析 `GetPlayerArchiveV2` 后，往 `RoleConfig` 写数据的代码。
+### 工具链
 
-### 方法
-1. 在 LoadoutFix 的 F8 热键里 log `RoleConfig` 的运行时地址
-2. x64dbg 对该地址设硬件写断点
-3. 退出再进军械库 → `SpawnDisplayCharacter` 写 `RoleConfig` → 断点命中 → Call Stack 显示谁传了 Config
+| 工具 | 用途 |
+|------|------|
+| Frida 17.10 | 动态 Hook、Stalker 指令跟踪、内存扫描 |
+| IDA Pro | 静态反编译、交叉引用 |
+| Cheat Engine | 内存写监控 |
+| x64dbg | 硬件写断点（尝试，不稳定） |
+
+### 关键函数映射
+
+| 函数 | RVA | 作用 |
+|------|-----|------|
+| `sub_9C4780` | `0x9C4780` | **响应派发入口**。r8=MessageId，查哈希表派发 handler |
+| `sub_99E820` | `0x99E820` | **哈希表查找**。被 `sub_9C4780+0xFD` 调用。内部通过 vtable[0x108] 调用 handler |
+| `sub_9C48B0` | `0x9C48B0` | **GetPlayerArchiveV2 handler**。rcx+0x0C=ErrorCode（为 4 时失败） |
+| `sub_9BF020` | `0x9BF020` | **校验函数**。检查 `*(a4+796)!=2 → return 0`。但 **GetPlayerArchiveV2 不经过此路径** |
+| `sub_9B99A0` | `0x9B99A0` | **部分 RPC 的响应处理器**。调用 `sub_9BF020` 校验。间接调用（无 xrefs） |
+| `sub_A49E10` | `0xA49E10` | **GetPlayerArchiveV2 响应处理器**。遍历角色，查缓存，复制条目 |
+| `sub_A3E770` | `0xA3E770` | **条目复制器**。从缓存源条目复制到目标条目，通过 `sub_887BA0` 做 memcpy |
+| `sub_887BA0` | `0x887BA0` | **结构体复制**。`memcpy` 式操作，传播 ErrorCode=4 |
+| `sub_BA0FC0` | `0xBA0FC0` | **ErrorCode 工厂(type=12)**。分配 16 字节，设 `[+0]=vtable, [+8]=12, [+0xC]=4`。间接调用 |
+| `sub_BB4B60` | `0xBB4B60` | **ErrorCode 工厂(type=8)**。同上，type=8, ErrorCode=4 |
+
+### 完整调用链（GetPlayerArchiveV2）
+
+```
+网络字节到达
+  → ResponseWrapper 解码 (ErrorCode=0, Message=<GetPlayerArchiveV2Response>)
+  → sub_9C4780(..., MessageId=2)           [派发入口, r8=2]
+    → +0xFD: call sub_99E820               [哈希表查找]
+      → +0xE1: call [rip+disp]             [handler = 0x9C48B0]
+        → rcx+0x0C = 4 (ErrorCode)         [早已预设，非此处写入]
+  → sub_A49E10                              [响应处理器, 间接调用]
+    → 遍历 PlayerRoleDatas[]
+    → 查缓存 (v7+72 vs v7+116)
+    → 缓存命中: sub_A3E770 → sub_887BA0     [复制已有条目]
+    → 缓存缺失: sub_887BA0(模板)            [从零模板创建条目]
+    → vtable[8] 回调                        [通知处理完成]
+```
+
+### ErrorCode=4 的传播机制
+
+**发现：ErrorCode struct 非新分配，而是从全局模板复制。**
+
+1. `sub_A49E10` 为每个角色创建条目时，调用 `sub_887BA0` 复制模板数据
+2. 模板在 IDA 中为 `xmmword_41CB330`（运行时确认为 UTF-16 字符串 `"Response"`）
+3. BAD struct（ErrorCode=4）通过 `sub_A3E770`→`sub_887BA0` 从已有条目传播
+4. **ErrorCode=4 的原始出处尚未定位**——两个工厂函数 `sub_BA0FC0`/`sub_BB4B60` 均不参与 GetPlayerArchiveV2 路径
+
+### 已排除的假设
+
+| 假设 | 结论 |
+|------|------|
+| RoleConfig 被后续代码覆盖 | ❌ CE 硬件写监控证实：Spawn 后无人再写 RoleConfig |
+| sub_9BF020 参与 GetPlayerArchiveV2 校验 | ❌ Hook 证实：sub_9BF020 未被调用 |
+| ErrorCode=4 由 sub_BA0FC0/sub_BB4B60 创建 | ❌ 进入军械库时这两个工厂均不触发 |
+| 清 handler 入口 ErrorCode=0 可修复 | ❌ Session 8 证实：仅改 ErrorCode 无效 |
+
+### 当前根因假设
+
+**武器 3D 模型在 DLL 修正 RoleConfig 之前已 spawn。**
+- SpawnDisplayCharacter 使用 CDO 默认配置创建武器 actor
+- DLL 的 post-spawn hook 修正了 RoleConfig 数据
+- 但已 spawn 的武器 actor（DisplayFirstWeapon 等）指向的仍是默认模型
+- 后续无人修改 RoleConfig，但武器 actor 也不刷新
+
+### Frida 脚本工具集
+
+位置：`ProjectRebound/Metaserver/tools/`
+
+| 脚本 | 用途 |
+|------|------|
+| `session1_probe_dispatch.js` | 探测 sub_9C4780 函数签名和 MessageId |
+| `session2_scan_calls.js` | 扫描 sub_9C4780 内部 call 指令 |
+| `session3_handler_probe.js` | Hook handler 0x9C48B0，dump 参数和内部调用 |
+| `session4_find_validator.js` | 二分法定位 ErrorCode 变色点 |
+| `session5_pinpoint.js` | Hook sub_99E820 内部每个 call，追踪 ErrorCode 变化 |
+| `session9_diff.js` | 对比 GOOD vs BAD struct 差异 |
+| `session10_hook_factories.js` | Hook ErrorCode 工厂分配器 |
+| `session15_group_calls.js` | 按调用者 RVA 分组 sub_99E820 调用 |
+| `session16_force_pass.js` | 强制 sub_9BF020 返回 1 |
+| `session20_find_chars.js` | 堆扫描找 DisplayCharacter 的 RoleConfig 地址 |
+| `session21_find_field.js` | 综合监控 sub_9BF020 + msgId=2 dispatch |
 
 ---
 
@@ -265,4 +342,4 @@ K2_OnEquipComplete(ErrorCode=4)            → 吞成 0
 - [x] `/party.party/Get` — 加空响应
 - [x] 冲刺 UI 抖动 — CamCache 接管 + 合成正弦波
 - [ ] `UpdateRoleArchiveV2` 换装报错 — 根因是 `OnEquipCharacterSlotDelegate` 广播 ErrorCode=4，走 Delegate 不经过 ProcessEvent
-- [ ] 军械库全默认装备 — 根因是 GetPlayerArchiveV2 被拒，RoleConfig 未被填充
+- [ ] 军械库全默认装备 — 逆向完成 80%：完整调用链已追踪，ErrorCode=4 传播机制已明确，原始源头待定位
