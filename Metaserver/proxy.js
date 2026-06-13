@@ -643,9 +643,41 @@ const proxyServer = net.createServer((clientSock) => {
         logTraffic('req', wrapper, 'RequestWrapper', framedMsg, innerBytes, innerDecoded);
     }
 
-    function processServerFrame(framedMsg) {
-        clientSock.write(framedMsg); // forward
+    // Weapon ID swap table — byte-level replacement (same-length strings)
+    // Using REAL weapon IDs so the game can resolve them to FNames
+    const WEAPON_SWAPS = [
+        { from: "PROBE_RU-AKM",  to: "PROBE_RU-SVD" },   // 12 chars each
+        { from: "PEACE_GSW-AR",  to: "PROBE_GSW-AR" },   // 12 chars each
+        { from: "SNIPER_RU-MOSIN", to: "SNIPER_GSW-AMR" }, // 16 chars each
+    ];
 
+    function modifyArchiveResponse(framedMsg) {
+        // Byte-level find-and-replace in the frame
+        // All swaps are same-length, so we can do this without re-encoding
+        for (const swap of WEAPON_SWAPS) {
+            const fromBuf = Buffer.from(swap.from, 'ascii');
+            const toBuf = Buffer.from(swap.to, 'ascii');
+            if (fromBuf.length !== toBuf.length) {
+                console.log(`[SWAP] WARNING: length mismatch ${swap.from}(${fromBuf.length}) vs ${swap.to}(${toBuf.length})`);
+                continue;
+            }
+            let idx = 0;
+            let count = 0;
+            while ((idx = framedMsg.indexOf(fromBuf, idx)) !== -1) {
+                toBuf.copy(framedMsg, idx);
+                idx += toBuf.length;
+                count++;
+            }
+            if (count > 0) {
+                console.log(`[SWAP] Replaced "${swap.from}" → "${swap.to}" (${count} occurrences)`);
+            }
+        }
+        return framedMsg;
+    }
+
+    function processServerFrame(framedMsg) {
+        // Parse enough to determine if this is GetPlayerArchiveV2
+        // before forwarding, so we can modify the response
         const payload = framedMsg.subarray(4);
 
         // Determine which wrapper type to use
@@ -669,13 +701,25 @@ const proxyServer = net.createServer((clientSock) => {
 
         if (msgId == null) {
             writeLog(`[← RES] Cannot decode any wrapper\n${hexDump(framedMsg)}\n`);
+            clientSock.write(framedMsg); // forward even undecodeable frames
             return;
         }
 
         if (isHandshake(rpcPath)) {
             writeLog(`[← HANDSHAKE ECHO] ${framedMsg.length} bytes\n${hexDump(framedMsg)}\n`);
+            clientSock.write(framedMsg); // forward handshake
             return;
         }
+
+        // === WEAPON SWAP TEST ===
+        // Modify GetPlayerArchiveV2 responses to swap weapon IDs
+        if (rpcPath && rpcPath.includes('GetPlayerArchiveV2')) {
+            modifyArchiveResponse(framedMsg);
+            console.log(`[SWAP] Modified GetPlayerArchiveV2 response`);
+        }
+
+        // Forward to client (AFTER potential modification)
+        clientSock.write(framedMsg);
 
         // Now decode with the correct wrapper
         const rpcInfo = RPC_MAP[rpcPath];
