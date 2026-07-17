@@ -1,0 +1,69 @@
+name: project-rebound-control-plane
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: projectrebound
+      POSTGRES_USER: projectrebound
+      POSTGRES_PASSWORD: projectrebound_dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U projectrebound -d projectrebound"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  control-plane:
+    build:
+      context: ../..
+      dockerfile: deployments/compose/control-plane.Dockerfile
+    environment:
+      CONTROL_PLANE_ENVIRONMENT: development
+      CONTROL_PLANE_HTTP_ADDR: ":8080"
+      DATABASE_URL: "postgres://projectrebound:projectrebound_dev@postgres:5432/projectrebound?sslmode=disable"
+      REDIS_ADDRESS: "redis:6379"
+      CORS_ALLOWED_ORIGINS: "http://localhost,http://127.0.0.1"
+      LOG_LEVEL: debug
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/control-plane", "-healthcheck", "http://127.0.0.1:8080/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    expose:
+      - "8080"
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      control-plane:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  redis-data:

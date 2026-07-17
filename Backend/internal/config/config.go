@@ -1,25 +1,73 @@
 package config
 
 import (
+	"errors"
+	"fmt"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	HTTPAddr          string             `yaml:"http_addr"`
-	UDPRendezvousPort int                `yaml:"udp_rendezvous_port"`
-	UDPRelayPort      int                `yaml:"udp_relay_port"`
-	UDPQoSPort        int                `yaml:"udp_qos_port"`
-	Database          DBConfig           `yaml:"database"`
-	MatchServer       MatchServerConfig  `yaml:"matchserver"`
-	Relay             RelayConfig        `yaml:"relay"`
-	Logging           LogConfig          `yaml:"logging"`
+	Environment       string            `yaml:"environment"`
+	HTTPAddr          string            `yaml:"http_addr"`
+	HTTP              HTTPConfig        `yaml:"http"`
+	UDPRendezvousPort int               `yaml:"udp_rendezvous_port"`
+	UDPRelayPort      int               `yaml:"udp_relay_port"`
+	UDPQoSPort        int               `yaml:"udp_qos_port"`
+	Database          DBConfig          `yaml:"database"`
+	Redis             RedisConfig       `yaml:"redis"`
+	CORS              CORSConfig        `yaml:"cors"`
+	RateLimit         RateLimitConfig   `yaml:"rate_limit"`
+	MatchServer       MatchServerConfig `yaml:"matchserver"`
+	Relay             RelayConfig       `yaml:"relay"`
+	Logging           LogConfig         `yaml:"logging"`
+}
+
+type HTTPConfig struct {
+	Addr                  string `yaml:"addr"`
+	ReadHeaderTimeoutSecs int    `yaml:"read_header_timeout_seconds"`
+	ReadTimeoutSecs       int    `yaml:"read_timeout_seconds"`
+	WriteTimeoutSecs      int    `yaml:"write_timeout_seconds"`
+	IdleTimeoutSecs       int    `yaml:"idle_timeout_seconds"`
+	ShutdownTimeoutSecs   int    `yaml:"shutdown_timeout_seconds"`
+	MaxRequestBodyBytes   int64  `yaml:"max_request_body_bytes"`
+	TrustProxyHeaders     bool   `yaml:"trust_proxy_headers"`
 }
 
 type DBConfig struct {
-	Path string `yaml:"path"`
+	// Path is retained only for the legacy SQLite server during the migration.
+	Path              string `yaml:"path"`
+	URL               string `yaml:"url"`
+	MaxConnections    int32  `yaml:"max_connections"`
+	MinConnections    int32  `yaml:"min_connections"`
+	MaxConnectionMins int    `yaml:"max_connection_lifetime_minutes"`
+	HealthTimeoutSecs int    `yaml:"health_timeout_seconds"`
+}
+
+type RedisConfig struct {
+	Address              string `yaml:"address"`
+	Username             string `yaml:"username"`
+	Password             string `yaml:"password"`
+	DB                   int    `yaml:"db"`
+	PoolSize             int    `yaml:"pool_size"`
+	ConnectTimeoutSecs   int    `yaml:"connect_timeout_seconds"`
+	OperationTimeoutSecs int    `yaml:"operation_timeout_seconds"`
+}
+
+type CORSConfig struct {
+	AllowedOrigins []string `yaml:"allowed_origins"`
+	AllowedHeaders []string `yaml:"allowed_headers"`
+	MaxAgeSeconds  int      `yaml:"max_age_seconds"`
+}
+
+type RateLimitConfig struct {
+	RequestsPerSecond float64 `yaml:"requests_per_second"`
+	Burst             int     `yaml:"burst"`
 }
 
 type MatchServerConfig struct {
@@ -45,16 +93,47 @@ type RelayConfig struct {
 }
 
 type LogConfig struct {
-	Level string `yaml:"level"`
+	Level     string `yaml:"level"`
+	AddSource bool   `yaml:"add_source"`
 }
 
 var Defaults = Config{
-	HTTPAddr:          ":5000",
+	Environment: "development",
+	HTTPAddr:    ":5000",
+	HTTP: HTTPConfig{
+		Addr:                  ":8080",
+		ReadHeaderTimeoutSecs: 5,
+		ReadTimeoutSecs:       15,
+		WriteTimeoutSecs:      30,
+		IdleTimeoutSecs:       60,
+		ShutdownTimeoutSecs:   10,
+		MaxRequestBodyBytes:   1 << 20,
+	},
 	UDPRendezvousPort: 5001,
 	UDPRelayPort:      5002,
 	UDPQoSPort:        9000,
 	Database: DBConfig{
-		Path: "matchserver.db",
+		Path:              "matchserver.db",
+		URL:               "postgres://projectrebound:projectrebound_dev@127.0.0.1:5432/projectrebound?sslmode=disable",
+		MaxConnections:    20,
+		MinConnections:    2,
+		MaxConnectionMins: 30,
+		HealthTimeoutSecs: 2,
+	},
+	Redis: RedisConfig{
+		Address:              "127.0.0.1:6379",
+		PoolSize:             20,
+		ConnectTimeoutSecs:   3,
+		OperationTimeoutSecs: 2,
+	},
+	CORS: CORSConfig{
+		AllowedOrigins: []string{"http://localhost", "http://127.0.0.1"},
+		AllowedHeaders: []string{"Authorization", "Content-Type", "X-Request-Id"},
+		MaxAgeSeconds:  600,
+	},
+	RateLimit: RateLimitConfig{
+		RequestsPerSecond: 25,
+		Burst:             50,
 	},
 	MatchServer: MatchServerConfig{
 		HeartbeatSeconds:              5,
@@ -77,7 +156,8 @@ var Defaults = Config{
 		CompressionRTTThresholdMs: 200,
 	},
 	Logging: LogConfig{
-		Level: "info",
+		Level:     "info",
+		AddSource: false,
 	},
 }
 
@@ -85,19 +165,42 @@ func Load(path string) (*Config, error) {
 	cfg := Defaults
 	data, err := os.ReadFile(path)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return &cfg, nil
+		if !os.IsNotExist(err) {
+			return nil, err
 		}
-		return nil, err
-	}
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, err
+	} else {
+		if err := yaml.Unmarshal(data, &cfg); err != nil {
+			return nil, err
+		}
 	}
 	cfg.applyEnvOverrides()
 	return &cfg, nil
 }
 
 func (c *Config) applyEnvOverrides() {
+	overrideString("CONTROL_PLANE_ENVIRONMENT", &c.Environment)
+	overrideString("CONTROL_PLANE_HTTP_ADDR", &c.HTTP.Addr)
+	overrideString("DATABASE_URL", &c.Database.URL)
+	overrideString("REDIS_ADDRESS", &c.Redis.Address)
+	overrideString("REDIS_USERNAME", &c.Redis.Username)
+	overrideString("REDIS_PASSWORD", &c.Redis.Password)
+	overrideString("LOG_LEVEL", &c.Logging.Level)
+	overrideInt("REDIS_DB", &c.Redis.DB)
+	overrideInt("HTTP_RATE_LIMIT_BURST", &c.RateLimit.Burst)
+	if raw := os.Getenv("HTTP_RATE_LIMIT_RPS"); raw != "" {
+		if value, err := strconv.ParseFloat(raw, 64); err == nil {
+			c.RateLimit.RequestsPerSecond = value
+		}
+	}
+	if raw := os.Getenv("CORS_ALLOWED_ORIGINS"); raw != "" {
+		c.CORS.AllowedOrigins = splitCSV(raw)
+	}
+	if raw := os.Getenv("TRUST_PROXY_HEADERS"); raw != "" {
+		if value, err := strconv.ParseBool(raw); err == nil {
+			c.HTTP.TrustProxyHeaders = value
+		}
+	}
+
 	if v := os.Getenv("MATCHSERVER_HEARTBEAT_SECONDS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			c.MatchServer.HeartbeatSeconds = n
@@ -116,4 +219,94 @@ func (c *Config) applyEnvOverrides() {
 	if v := os.Getenv("MATCHSERVER_DATABASE_PATH"); v != "" {
 		c.Database.Path = v
 	}
+}
+
+func overrideString(name string, target *string) {
+	if value := os.Getenv(name); value != "" {
+		*target = value
+	}
+}
+
+func overrideInt(name string, target *int) {
+	if raw := os.Getenv(name); raw != "" {
+		if value, err := strconv.Atoi(raw); err == nil {
+			*target = value
+		}
+	}
+}
+
+func splitCSV(raw string) []string {
+	parts := strings.Split(raw, ",")
+	values := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if value := strings.TrimSpace(part); value != "" {
+			values = append(values, value)
+		}
+	}
+	return values
+}
+
+func (c *Config) ValidateControlPlane() error {
+	var errs []error
+	if strings.TrimSpace(c.HTTP.Addr) == "" {
+		errs = append(errs, errors.New("http.addr is required"))
+	}
+	if parsed, err := url.Parse(c.Database.URL); err != nil || parsed.Scheme != "postgres" && parsed.Scheme != "postgresql" {
+		errs = append(errs, errors.New("database.url must be a PostgreSQL URL"))
+	}
+	if strings.TrimSpace(c.Redis.Address) == "" {
+		errs = append(errs, errors.New("redis.address is required"))
+	}
+	if c.Database.MaxConnections < 1 {
+		errs = append(errs, errors.New("database.max_connections must be positive"))
+	}
+	if c.Database.MinConnections < 0 || c.Database.MinConnections > c.Database.MaxConnections {
+		errs = append(errs, errors.New("database.min_connections must be between zero and max_connections"))
+	}
+	if c.RateLimit.RequestsPerSecond <= 0 || c.RateLimit.Burst < 1 {
+		errs = append(errs, errors.New("rate_limit values must be positive"))
+	}
+	if c.HTTP.MaxRequestBodyBytes < 1 {
+		errs = append(errs, errors.New("http.max_request_body_bytes must be positive"))
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("invalid control-plane configuration: %w", errors.Join(errs...))
+	}
+	return nil
+}
+
+func (c HTTPConfig) ReadHeaderTimeout() time.Duration {
+	return time.Duration(c.ReadHeaderTimeoutSecs) * time.Second
+}
+
+func (c HTTPConfig) ReadTimeout() time.Duration {
+	return time.Duration(c.ReadTimeoutSecs) * time.Second
+}
+
+func (c HTTPConfig) WriteTimeout() time.Duration {
+	return time.Duration(c.WriteTimeoutSecs) * time.Second
+}
+
+func (c HTTPConfig) IdleTimeout() time.Duration {
+	return time.Duration(c.IdleTimeoutSecs) * time.Second
+}
+
+func (c HTTPConfig) ShutdownTimeout() time.Duration {
+	return time.Duration(c.ShutdownTimeoutSecs) * time.Second
+}
+
+func (c DBConfig) MaxConnectionLifetime() time.Duration {
+	return time.Duration(c.MaxConnectionMins) * time.Minute
+}
+
+func (c DBConfig) HealthTimeout() time.Duration {
+	return time.Duration(c.HealthTimeoutSecs) * time.Second
+}
+
+func (c RedisConfig) ConnectTimeout() time.Duration {
+	return time.Duration(c.ConnectTimeoutSecs) * time.Second
+}
+
+func (c RedisConfig) OperationTimeout() time.Duration {
+	return time.Duration(c.OperationTimeoutSecs) * time.Second
 }

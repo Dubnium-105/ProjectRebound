@@ -1,0 +1,71 @@
+openapi: 3.1.0
+info:
+  title: Project Rebound Game Control Plane API
+  version: 0.1.0
+  description: Public control-plane API. Internal Relay APIs are marked with x-internal.
+servers:
+  - url: https://api.example.com
+paths:
+  /health/live:
+    get:
+      operationId: getLiveness
+      tags: [Health]
+      responses:
+        "200":
+          description: Process is alive.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthSuccess"
+  /health/ready:
+    get:
+      operationId: getReadiness
+      tags: [Health]
+      responses:
+        "200":
+          description: Required dependencies are ready.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthSuccess"
+        "503":
+          description: A required dependency is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+components:
+  schemas:
+    HealthSuccess:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [status]
+          properties:
+            status:
+              type: string
+              enum: [live, ready]
+        request_id:
+          type: string
+          pattern: "^req_[A-Za-z0-9_-]+$"
+    Error:
+      type: object
+      required: [code, message, details]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+    ErrorResponse:
+      type: object
+      required: [error, request_id]
+      properties:
+        error:
+          $ref: "#/components/schemas/Error"
+        request_id:
+          type: string

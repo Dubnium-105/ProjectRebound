@@ -1,0 +1,46 @@
+environment: development
+
+http:
+  addr: ":8080"
+  read_header_timeout_seconds: 5
+  read_timeout_seconds: 15
+  write_timeout_seconds: 30
+  idle_timeout_seconds: 60
+  shutdown_timeout_seconds: 10
+  max_request_body_bytes: 1048576
+  trust_proxy_headers: false
+
+database:
+  # Development-only credentials. Override DATABASE_URL outside local Compose.
+  url: "postgres://projectrebound:projectrebound_dev@127.0.0.1:5432/projectrebound?sslmode=disable"
+  max_connections: 20
+  min_connections: 2
+  max_connection_lifetime_minutes: 30
+  health_timeout_seconds: 2
+
+redis:
+  address: "127.0.0.1:6379"
+  username: ""
+  password: ""
+  db: 0
+  pool_size: 20
+  connect_timeout_seconds: 3
+  operation_timeout_seconds: 2
+
+cors:
+  allowed_origins:
+    - "http://localhost"
+    - "http://127.0.0.1"
+  allowed_headers:
+    - "Authorization"
+    - "Content-Type"
+    - "X-Request-Id"
+  max_age_seconds: 600
+
+rate_limit:
+  requests_per_second: 25
+  burst: 50
+
+logging:
+  level: info
+  add_source: false
