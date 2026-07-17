@@ -41,6 +41,19 @@ rate_limit:
   requests_per_second: 25
   burst: 50
 
+auth:
+  issuer: "game-control-plane"
+  audience: "game-client"
+  access_token_key_id: "access-dev-ephemeral"
+  # Set ACCESS_TOKEN_PRIVATE_KEY_BASE64 in production. Development generates
+  # an ephemeral Ed25519 key at startup and tokens do not survive restarts.
+  access_token_private_key_base64: ""
+  access_token_ttl_minutes: 15
+  refresh_token_ttl_days: 30
+  default_persona_name: "Player"
+  bind_requests_per_minute: 10
+  bind_burst: 5
+
 logging:
   level: info
   add_source: false

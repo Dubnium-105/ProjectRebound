@@ -38,12 +38,19 @@ func TestDocumentHasRequiredOpenAPIShape(t *testing.T) {
 	if document.OpenAPI == "" {
 		t.Fatal("openapi version is missing")
 	}
-	for _, path := range []string{"/health/live", "/health/ready"} {
+	for _, path := range []string{
+		"/v1/auth/bind",
+		"/v1/auth/refresh",
+		"/v1/auth/logout",
+		"/v1/users/me",
+		"/health/live",
+		"/health/ready",
+	} {
 		if _, ok := document.Paths[path]; !ok {
 			t.Errorf("required path %s is missing", path)
 		}
 	}
-	for _, schema := range []string{"HealthSuccess", "Error", "ErrorResponse"} {
+	for _, schema := range []string{"BindRequest", "BindResponse", "RefreshRequest", "MeResponse", "HealthSuccess", "Error", "ErrorResponse"} {
 		if _, ok := document.Components.Schemas[schema]; !ok {
 			t.Errorf("required schema %s is missing", schema)
 		}

@@ -23,6 +23,7 @@ type Config struct {
 	Redis             RedisConfig       `yaml:"redis"`
 	CORS              CORSConfig        `yaml:"cors"`
 	RateLimit         RateLimitConfig   `yaml:"rate_limit"`
+	Auth              AuthConfig        `yaml:"auth"`
 	MatchServer       MatchServerConfig `yaml:"matchserver"`
 	Relay             RelayConfig       `yaml:"relay"`
 	Logging           LogConfig         `yaml:"logging"`
@@ -68,6 +69,18 @@ type CORSConfig struct {
 type RateLimitConfig struct {
 	RequestsPerSecond float64 `yaml:"requests_per_second"`
 	Burst             int     `yaml:"burst"`
+}
+
+type AuthConfig struct {
+	Issuer                      string `yaml:"issuer"`
+	Audience                    string `yaml:"audience"`
+	AccessTokenKeyID            string `yaml:"access_token_key_id"`
+	AccessTokenPrivateKeyBase64 string `yaml:"access_token_private_key_base64"`
+	AccessTokenTTLMinutes       int    `yaml:"access_token_ttl_minutes"`
+	RefreshTokenTTLDays         int    `yaml:"refresh_token_ttl_days"`
+	DefaultPersonaName          string `yaml:"default_persona_name"`
+	BindRequestsPerMinute       int    `yaml:"bind_requests_per_minute"`
+	BindBurst                   int    `yaml:"bind_burst"`
 }
 
 type MatchServerConfig struct {
@@ -135,6 +148,16 @@ var Defaults = Config{
 		RequestsPerSecond: 25,
 		Burst:             50,
 	},
+	Auth: AuthConfig{
+		Issuer:                "game-control-plane",
+		Audience:              "game-client",
+		AccessTokenKeyID:      "access-dev-ephemeral",
+		AccessTokenTTLMinutes: 15,
+		RefreshTokenTTLDays:   30,
+		DefaultPersonaName:    "Player",
+		BindRequestsPerMinute: 10,
+		BindBurst:             5,
+	},
 	MatchServer: MatchServerConfig{
 		HeartbeatSeconds:              5,
 		StaleAfterSeconds:             15,
@@ -185,8 +208,12 @@ func (c *Config) applyEnvOverrides() {
 	overrideString("REDIS_USERNAME", &c.Redis.Username)
 	overrideString("REDIS_PASSWORD", &c.Redis.Password)
 	overrideString("LOG_LEVEL", &c.Logging.Level)
+	overrideString("ACCESS_TOKEN_PRIVATE_KEY_BASE64", &c.Auth.AccessTokenPrivateKeyBase64)
+	overrideString("ACCESS_TOKEN_KEY_ID", &c.Auth.AccessTokenKeyID)
 	overrideInt("REDIS_DB", &c.Redis.DB)
 	overrideInt("HTTP_RATE_LIMIT_BURST", &c.RateLimit.Burst)
+	overrideInt("AUTH_BIND_REQUESTS_PER_MINUTE", &c.Auth.BindRequestsPerMinute)
+	overrideInt("AUTH_BIND_BURST", &c.Auth.BindBurst)
 	if raw := os.Getenv("HTTP_RATE_LIMIT_RPS"); raw != "" {
 		if value, err := strconv.ParseFloat(raw, 64); err == nil {
 			c.RateLimit.RequestsPerSecond = value
@@ -269,6 +296,21 @@ func (c *Config) ValidateControlPlane() error {
 	if c.HTTP.MaxRequestBodyBytes < 1 {
 		errs = append(errs, errors.New("http.max_request_body_bytes must be positive"))
 	}
+	if strings.TrimSpace(c.Auth.Issuer) == "" || strings.TrimSpace(c.Auth.Audience) == "" {
+		errs = append(errs, errors.New("auth issuer and audience are required"))
+	}
+	if strings.TrimSpace(c.Auth.AccessTokenKeyID) == "" {
+		errs = append(errs, errors.New("auth.access_token_key_id is required"))
+	}
+	if c.Auth.AccessTokenTTLMinutes < 1 || c.Auth.RefreshTokenTTLDays < 1 {
+		errs = append(errs, errors.New("auth token lifetimes must be positive"))
+	}
+	if c.Auth.BindRequestsPerMinute < 1 || c.Auth.BindBurst < 1 {
+		errs = append(errs, errors.New("auth bind rate limit values must be positive"))
+	}
+	if strings.EqualFold(c.Environment, "production") && strings.TrimSpace(c.Auth.AccessTokenPrivateKeyBase64) == "" {
+		errs = append(errs, errors.New("ACCESS_TOKEN_PRIVATE_KEY_BASE64 is required in production"))
+	}
 	if len(errs) > 0 {
 		return fmt.Errorf("invalid control-plane configuration: %w", errors.Join(errs...))
 	}
@@ -309,4 +351,12 @@ func (c RedisConfig) ConnectTimeout() time.Duration {
 
 func (c RedisConfig) OperationTimeout() time.Duration {
 	return time.Duration(c.OperationTimeoutSecs) * time.Second
+}
+
+func (c AuthConfig) AccessTokenTTL() time.Duration {
+	return time.Duration(c.AccessTokenTTLMinutes) * time.Minute
+}
+
+func (c AuthConfig) RefreshTokenTTL() time.Duration {
+	return time.Duration(c.RefreshTokenTTLDays) * 24 * time.Hour
 }

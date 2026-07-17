@@ -39,7 +39,7 @@ func NewIPRateLimiter(rate float64, burst int, trustProxy bool) *IPRateLimiter {
 
 func (l *IPRateLimiter) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !l.Allow(clientIP(r, l.trustProxy)) {
+		if !l.Allow(ClientIP(r, l.trustProxy)) {
 			w.Header().Set("Retry-After", "1")
 			api.WriteError(w, r, http.StatusTooManyRequests, "RATE_LIMITED", "Too many requests.", nil)
 			return
@@ -79,7 +79,7 @@ func (l *IPRateLimiter) Allow(key string) bool {
 	return true
 }
 
-func clientIP(r *http.Request, trustProxy bool) string {
+func ClientIP(r *http.Request, trustProxy bool) string {
 	if trustProxy {
 		if forwarded := strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-For"), ",")[0]); net.ParseIP(forwarded) != nil {
 			return forwarded
