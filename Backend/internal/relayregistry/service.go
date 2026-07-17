@@ -289,6 +289,14 @@ func (s *Service) SweepNodes(ctx context.Context) (int64, error) {
 	)
 }
 
+func (s *Service) AvailableRegions(ctx context.Context) ([]string, error) {
+	regions, err := s.repository.AvailableRegions(ctx)
+	if err != nil {
+		return nil, internal(err)
+	}
+	return regions, nil
+}
+
 func (s *Service) AllocateRelay(ctx context.Context, request connection.RelayAllocationRequest) (connection.RelayAllocation, error) {
 	region, err := s.roomDirectory.RelayRegion(ctx, request.RoomID)
 	if err != nil {

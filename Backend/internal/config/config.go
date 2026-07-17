@@ -29,6 +29,7 @@ type Config struct {
 	P2PRoom           P2PRoomConfig       `yaml:"p2p_room"`
 	Connection        ConnectionConfig    `yaml:"connection"`
 	RelayRegistry     RelayRegistryConfig `yaml:"relay_registry"`
+	Update            UpdateConfig        `yaml:"update"`
 	MatchServer       MatchServerConfig   `yaml:"matchserver"`
 	Relay             RelayConfig         `yaml:"relay"`
 	Logging           LogConfig           `yaml:"logging"`
@@ -135,6 +136,21 @@ type RelayRegistryConfig struct {
 	RelayTokenTTLSeconds       int    `yaml:"relay_token_ttl_seconds"`
 	AllocationTTLSeconds       int    `yaml:"allocation_ttl_seconds"`
 	CapacityThresholdPercent   int    `yaml:"capacity_threshold_percent"`
+}
+
+type UpdateConfig struct {
+	Product                 string   `yaml:"product"`
+	ManifestDirectory       string   `yaml:"manifest_directory"`
+	CDNBaseURL              string   `yaml:"cdn_base_url"`
+	SigningKeyID            string   `yaml:"signing_key_id"`
+	SigningPrivateKeyBase64 string   `yaml:"-"`
+	DefaultChannel          string   `yaml:"default_channel"`
+	DefaultArchitecture     string   `yaml:"default_architecture"`
+	MinimumClientVersion    string   `yaml:"minimum_client_version"`
+	RealtimeURL             string   `yaml:"realtime_url"`
+	STUNServers             []string `yaml:"stun_servers"`
+	APIVersion              string   `yaml:"api_version"`
+	ProtocolVersion         int      `yaml:"protocol_version"`
 }
 
 type MatchServerConfig struct {
@@ -255,6 +271,19 @@ var Defaults = Config{
 		AllocationTTLSeconds:     1800,
 		CapacityThresholdPercent: 80,
 	},
+	Update: UpdateConfig{
+		Product:              "project-rebound",
+		ManifestDirectory:    "deployments/updates",
+		CDNBaseURL:           "https://cdn.example.com/project-rebound",
+		SigningKeyID:         "update-dev-ephemeral",
+		DefaultChannel:       "stable",
+		DefaultArchitecture:  "amd64",
+		MinimumClientVersion: "1.0.0",
+		RealtimeURL:          "wss://realtime.example.com/v1/realtime/connect",
+		STUNServers:          []string{"stun:stun.example.com:3478"},
+		APIVersion:           "v1",
+		ProtocolVersion:      1,
+	},
 	MatchServer: MatchServerConfig{
 		HeartbeatSeconds:              5,
 		StaleAfterSeconds:             15,
@@ -323,6 +352,13 @@ func (c *Config) applyEnvOverrides() {
 	overrideString("RELAY_CA_KEY_PEM_BASE64", &c.RelayRegistry.CAPrivateKeyPEMBase64)
 	overrideString("RELAY_TOKEN_KEY_ID", &c.RelayRegistry.RelayTokenKeyID)
 	overrideString("RELAY_TOKEN_PRIVATE_KEY_BASE64", &c.RelayRegistry.RelayTokenPrivateKeyBase64)
+	overrideString("UPDATE_MANIFEST_DIRECTORY", &c.Update.ManifestDirectory)
+	overrideString("UPDATE_CDN_BASE_URL", &c.Update.CDNBaseURL)
+	overrideString("UPDATE_SIGNING_KEY_ID", &c.Update.SigningKeyID)
+	overrideString("UPDATE_SIGNING_PRIVATE_KEY_BASE64", &c.Update.SigningPrivateKeyBase64)
+	overrideString("UPDATE_DEFAULT_CHANNEL", &c.Update.DefaultChannel)
+	overrideString("UPDATE_MINIMUM_CLIENT_VERSION", &c.Update.MinimumClientVersion)
+	overrideString("UPDATE_REALTIME_URL", &c.Update.RealtimeURL)
 	if raw := os.Getenv("HTTP_RATE_LIMIT_RPS"); raw != "" {
 		if value, err := strconv.ParseFloat(raw, 64); err == nil {
 			c.RateLimit.RequestsPerSecond = value
@@ -333,6 +369,9 @@ func (c *Config) applyEnvOverrides() {
 	}
 	if raw := os.Getenv("ADMIN_TRUSTED_CIDRS"); raw != "" {
 		c.Admin.TrustedCIDRs = splitCSV(raw)
+	}
+	if raw := os.Getenv("UPDATE_STUN_SERVERS"); raw != "" {
+		c.Update.STUNServers = splitCSV(raw)
 	}
 	if raw := os.Getenv("TRUST_PROXY_HEADERS"); raw != "" {
 		if value, err := strconv.ParseBool(raw); err == nil {
@@ -465,6 +504,21 @@ func (c *Config) ValidateControlPlane() error {
 			strings.TrimSpace(c.RelayRegistry.CAPrivateKeyPEMBase64) == "" ||
 			strings.TrimSpace(c.RelayRegistry.RelayTokenPrivateKeyBase64) == "") {
 		errs = append(errs, errors.New("relay bootstrap, CA, and signing key environment variables are required in production"))
+	}
+	updateCDNURL, updateCDNErr := url.Parse(c.Update.CDNBaseURL)
+	realtimeURL, realtimeErr := url.Parse(c.Update.RealtimeURL)
+	if strings.TrimSpace(c.Update.Product) == "" || strings.TrimSpace(c.Update.ManifestDirectory) == "" ||
+		strings.TrimSpace(c.Update.SigningKeyID) == "" ||
+		(c.Update.DefaultChannel != "stable" && c.Update.DefaultChannel != "beta") ||
+		strings.TrimSpace(c.Update.DefaultArchitecture) == "" || strings.TrimSpace(c.Update.MinimumClientVersion) == "" ||
+		strings.TrimSpace(c.Update.APIVersion) == "" || c.Update.ProtocolVersion < 1 || len(c.Update.STUNServers) == 0 ||
+		updateCDNErr != nil || updateCDNURL.Host == "" || (updateCDNURL.Scheme != "https" && updateCDNURL.Scheme != "http") ||
+		realtimeErr != nil || realtimeURL.Host == "" || (realtimeURL.Scheme != "wss" && realtimeURL.Scheme != "ws") {
+		errs = append(errs, errors.New("update service configuration is invalid"))
+	}
+	if strings.EqualFold(c.Environment, "production") &&
+		(strings.TrimSpace(c.Update.SigningPrivateKeyBase64) == "" || updateCDNURL.Scheme != "https" || realtimeURL.Scheme != "wss") {
+		errs = append(errs, errors.New("UPDATE_SIGNING_PRIVATE_KEY_BASE64 and secure update URLs are required in production"))
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("invalid control-plane configuration: %w", errors.Join(errs...))

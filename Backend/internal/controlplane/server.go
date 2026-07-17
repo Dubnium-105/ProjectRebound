@@ -23,6 +23,7 @@ import (
 	"github.com/projectrebound/matchserver/internal/p2proom"
 	"github.com/projectrebound/matchserver/internal/player"
 	"github.com/projectrebound/matchserver/internal/relayregistry"
+	updateservice "github.com/projectrebound/matchserver/internal/update"
 )
 
 type Server struct {
@@ -257,6 +258,18 @@ func buildHandler(
 		router.Post("/{node_id}/resume", relayHandler.Resume)
 		router.Post("/{node_id}/revoke", relayHandler.Revoke)
 	})
+	updateService, err := updateservice.NewService(cfg.Update, cfg.Environment, relayService)
+	if err != nil {
+		return nil, nil, fmt.Errorf("initialize update service: %w", err)
+	}
+	if updateService.EphemeralSigner() {
+		logger.Warn("using ephemeral development update-signing key; manifests will not verify after restart")
+	}
+	updateHandler := updateservice.NewHTTPHandler(updateService, logger)
+	router.Get("/v1/updates/check", updateHandler.Check)
+	router.Get("/v1/updates/{platform}/{version}/manifest", updateHandler.Manifest)
+	router.Get("/v1/updates/files/{file_id}", updateHandler.File)
+	router.Get("/v1/client/config", updateHandler.ClientConfig)
 	router.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		api.WriteError(w, r, http.StatusNotFound, "NOT_FOUND", "Resource not found.", nil)
 	})

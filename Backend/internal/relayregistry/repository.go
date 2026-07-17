@@ -309,6 +309,30 @@ func (r *Repository) FailedNodeAllocationIDs(ctx context.Context, limit int) ([]
 	return ids, rows.Err()
 }
 
+func (r *Repository) AvailableRegions(ctx context.Context) ([]string, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT DISTINCT region
+		FROM relay_nodes
+		WHERE state = 'READY'
+		  AND active_allocations < max_allocations
+		  AND current_egress_bps < max_egress_bps
+		ORDER BY region
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var regions []string
+	for rows.Next() {
+		var region string
+		if err := rows.Scan(&region); err != nil {
+			return nil, err
+		}
+		regions = append(regions, region)
+	}
+	return regions, rows.Err()
+}
+
 func (r *Repository) PlanMigration(ctx context.Context, oldAllocationID, migrationID, newAllocationID string, expiresAt, now time.Time, threshold int) (Migration, error) {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {

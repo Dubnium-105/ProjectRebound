@@ -699,6 +699,96 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RelayNodeResponse"
+  /v1/updates/check:
+    get:
+      operationId: checkForClientUpdate
+      tags: [Updates]
+      description: Public metadata endpoint; banned players may also use it because it requires no player token.
+      parameters:
+        - in: query
+          name: platform
+          required: true
+          schema: {type: string, pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"}
+        - in: query
+          name: architecture
+          schema: {type: string, default: amd64}
+        - in: query
+          name: channel
+          schema: {type: string, enum: [stable, beta], default: stable}
+        - in: query
+          name: current_version
+          required: true
+          schema: {type: string, example: 1.0.0}
+      responses:
+        "200":
+          description: Latest compatible release and whether the update is mandatory.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateCheckResponse"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/updates/{platform}/{version}/manifest:
+    get:
+      operationId: getSignedUpdateManifest
+      tags: [Updates]
+      parameters:
+        - in: path
+          name: platform
+          required: true
+          schema: {type: string}
+        - in: path
+          name: version
+          required: true
+          schema: {type: string}
+        - in: query
+          name: architecture
+          schema: {type: string, default: amd64}
+        - in: query
+          name: channel
+          schema: {type: string, enum: [stable, beta], default: stable}
+      responses:
+        "200":
+          description: Deterministically serialized and Ed25519-signed release manifest.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateManifestResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/updates/files/{file_id}:
+    get:
+      operationId: getUpdateFileDownload
+      tags: [Updates]
+      description: Returns CDN/object-storage metadata only; the API never proxies the large file body.
+      parameters:
+        - in: path
+          name: file_id
+          required: true
+          schema: {type: string}
+      responses:
+        "200":
+          description: Immutable CDN download metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateFileResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/client/config:
+    get:
+      operationId: getClientConfiguration
+      tags: [Configuration]
+      description: Returns protocol features and currently available relay regions, never individual relay endpoints.
+      responses:
+        "200":
+          description: Public client bootstrap configuration.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientConfigResponse"
   /health/live:
     get:
       operationId: getLiveness
@@ -1602,6 +1692,132 @@ components:
             state: {type: string, const: CONNECTED}
             selected_path: {type: string, const: UDP_RELAY}
         created_at: {type: string, format: date-time}
+    UpdateFile:
+      type: object
+      additionalProperties: false
+      required: [file_id, path, size, sha256, compression, download_url]
+      properties:
+        file_id: {type: string}
+        path: {type: string}
+        size: {type: integer, format: int64, minimum: 0}
+        sha256: {type: string, pattern: "^[0-9a-f]{64}$"}
+        compression: {type: string, enum: [none, gzip, zstd]}
+        download_url: {type: string, format: uri}
+    SignedUpdateManifest:
+      type: object
+      additionalProperties: false
+      required: [schema_version, product, platform, architecture, channel, version, minimum_supported_version, published_at, files, manifest_hash, signature_algorithm, key_id, signature]
+      properties:
+        schema_version: {type: integer, const: 1}
+        product: {type: string}
+        platform: {type: string}
+        architecture: {type: string}
+        channel: {type: string, enum: [stable, beta]}
+        version: {type: string}
+        minimum_supported_version: {type: string}
+        published_at: {type: string, format: date-time}
+        files:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/UpdateFile"
+        manifest_hash:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+          description: SHA-256 of the deterministic payload excluding manifest_hash and signature.
+        signature_algorithm: {type: string, const: Ed25519}
+        key_id:
+          type: string
+          description: Selects the embedded client public key and permits signing-key rotation.
+        signature:
+          type: string
+          description: Base64 Ed25519 signature over deterministic JSON excluding only this signature field.
+    UpdateCheckResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [product, platform, architecture, channel, current_version, latest_version, minimum_supported_version, update_available, update_required, published_at, manifest_url]
+          properties:
+            product: {type: string}
+            platform: {type: string}
+            architecture: {type: string}
+            channel: {type: string, enum: [stable, beta]}
+            current_version: {type: string}
+            latest_version: {type: string}
+            minimum_supported_version: {type: string}
+            update_available: {type: boolean}
+            update_required: {type: boolean}
+            published_at: {type: string, format: date-time}
+            manifest_url: {type: string}
+        request_id: {type: string}
+    UpdateManifestResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          $ref: "#/components/schemas/SignedUpdateManifest"
+        request_id: {type: string}
+    UpdateFileResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [file_id, size, sha256, download_url]
+          properties:
+            file_id: {type: string}
+            size: {type: integer, format: int64, minimum: 0}
+            sha256: {type: string, pattern: "^[0-9a-f]{64}$"}
+            download_url: {type: string, format: uri}
+        request_id: {type: string}
+    ClientConfigResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [api_version, protocol_version, minimum_client_version, realtime_url, stun_servers, relay, features]
+          properties:
+            api_version: {type: string}
+            protocol_version: {type: integer, minimum: 1}
+            minimum_client_version: {type: string}
+            realtime_url: {type: string, format: uri}
+            stun_servers:
+              type: array
+              items: {type: string}
+            relay:
+              type: object
+              additionalProperties: false
+              required: [available, regions]
+              properties:
+                available: {type: boolean}
+                regions:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [id, available]
+                    properties:
+                      id: {type: string}
+                      available: {type: boolean}
+            features:
+              type: object
+              additionalProperties: false
+              required: [p2p_rooms, relay, dedicated_servers]
+              properties:
+                p2p_rooms: {type: boolean}
+                relay: {type: boolean}
+                dedicated_servers: {type: boolean}
+        request_id: {type: string}
     HealthSuccess:
       type: object
       required: [data, request_id]

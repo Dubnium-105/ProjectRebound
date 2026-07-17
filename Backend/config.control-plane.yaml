@@ -101,6 +101,22 @@ relay_registry:
   allocation_ttl_seconds: 1800
   capacity_threshold_percent: 80
 
+update:
+  product: "project-rebound"
+  # Release descriptors are non-secret JSON files. The Ed25519 private key is
+  # accepted only through UPDATE_SIGNING_PRIVATE_KEY_BASE64.
+  manifest_directory: "deployments/updates"
+  cdn_base_url: "https://cdn.example.com/project-rebound"
+  signing_key_id: "update-dev-ephemeral"
+  default_channel: "stable"
+  default_architecture: "amd64"
+  minimum_client_version: "1.0.0"
+  realtime_url: "wss://realtime.example.com/v1/realtime/connect"
+  stun_servers:
+    - "stun:stun.example.com:3478"
+  api_version: "v1"
+  protocol_version: 1
+
 logging:
   level: info
   add_source: false
