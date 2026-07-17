@@ -46,6 +46,9 @@ func TestDocumentHasRequiredOpenAPIShape(t *testing.T) {
 		"/v1/admin/players",
 		"/v1/admin/players/{player_id}",
 		"/v1/admin/players/{player_id}/revoke-sessions",
+		"/v1/game-servers",
+		"/v1/game-servers/{server_id}",
+		"/v1/game-servers/{server_id}/heartbeat",
 		"/health/live",
 		"/health/ready",
 	} {
@@ -53,7 +56,7 @@ func TestDocumentHasRequiredOpenAPIShape(t *testing.T) {
 			t.Errorf("required path %s is missing", path)
 		}
 	}
-	for _, schema := range []string{"BindRequest", "BindResponse", "RefreshRequest", "MeResponse", "AdminPlayerPatch", "AdminPlayerListResponse", "HealthSuccess", "Error", "ErrorResponse"} {
+	for _, schema := range []string{"BindRequest", "BindResponse", "RefreshRequest", "MeResponse", "AdminPlayerPatch", "AdminPlayerListResponse", "GameServerRegistrationRequest", "GameServerListResponse", "HealthSuccess", "Error", "ErrorResponse"} {
 		if _, ok := document.Components.Schemas[schema]; !ok {
 			t.Errorf("required schema %s is missing", schema)
 		}

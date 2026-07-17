@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -15,17 +16,20 @@ import (
 	"github.com/projectrebound/matchserver/internal/cache"
 	"github.com/projectrebound/matchserver/internal/config"
 	"github.com/projectrebound/matchserver/internal/database"
+	"github.com/projectrebound/matchserver/internal/gameserver"
 	"github.com/projectrebound/matchserver/internal/health"
 	appmiddleware "github.com/projectrebound/matchserver/internal/middleware"
 	"github.com/projectrebound/matchserver/internal/player"
 )
 
 type Server struct {
-	cfg        *config.Config
-	logger     *slog.Logger
-	database   *database.Pool
-	cache      *cache.Client
-	httpServer *http.Server
+	cfg               *config.Config
+	logger            *slog.Logger
+	database          *database.Pool
+	cache             *cache.Client
+	httpServer        *http.Server
+	gameServerSweeper *gameserver.Sweeper
+	background        sync.WaitGroup
 }
 
 func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server, error) {
@@ -56,7 +60,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		cfg.RateLimit.Burst,
 		cfg.HTTP.TrustProxyHeaders,
 	)
-	handler, err := buildHandler(cfg, logger, dbPool, redisClient, limiter)
+	handler, gameServerSweeper, err := buildHandler(cfg, logger, dbPool, redisClient, limiter)
 	if err != nil {
 		_ = redisClient.Close()
 		dbPool.Close()
@@ -64,10 +68,11 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	}
 
 	return &Server{
-		cfg:      cfg,
-		logger:   logger,
-		database: dbPool,
-		cache:    redisClient,
+		cfg:               cfg,
+		logger:            logger,
+		database:          dbPool,
+		cache:             redisClient,
+		gameServerSweeper: gameServerSweeper,
 		httpServer: &http.Server{
 			Addr:              cfg.HTTP.Addr,
 			Handler:           handler,
@@ -85,7 +90,7 @@ func buildHandler(
 	dbPool *database.Pool,
 	redisClient *cache.Client,
 	limiter *appmiddleware.IPRateLimiter,
-) (http.Handler, error) {
+) (http.Handler, *gameserver.Sweeper, error) {
 	router := chi.NewRouter()
 	healthHandler := health.NewHandler([]health.Dependency{
 		{Name: "postgres", Checker: dbPool},
@@ -96,7 +101,7 @@ func buildHandler(
 
 	tokenManager, ephemeralKey, err := auth.NewTokenManager(cfg.Auth, cfg.Environment)
 	if err != nil {
-		return nil, fmt.Errorf("initialize access token signer: %w", err)
+		return nil, nil, fmt.Errorf("initialize access token signer: %w", err)
 	}
 	if ephemeralKey {
 		logger.Warn("using ephemeral development access-token key; tokens will not survive a restart")
@@ -126,14 +131,14 @@ func buildHandler(
 
 	adminAuthenticator, err := admin.NewAuthenticator(cfg.Admin)
 	if err != nil {
-		return nil, fmt.Errorf("initialize administrator authentication: %w", err)
+		return nil, nil, fmt.Errorf("initialize administrator authentication: %w", err)
 	}
 	if !adminAuthenticator.Configured() {
 		logger.Warn("no administrator tokens configured; admin API will reject all requests")
 	}
 	adminNetworkGuard, err := admin.NewNetworkGuard(cfg.Admin.TrustedCIDRs, cfg.HTTP.TrustProxyHeaders)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	adminService := admin.NewService(dbPool.Pool, playerRepository, authRepository, admin.NewRepository())
 	adminHandler := admin.NewHTTPHandler(adminService, logger, cfg.HTTP.TrustProxyHeaders)
@@ -145,16 +150,40 @@ func buildHandler(
 		router.Patch("/players/{player_id}", adminHandler.PatchPlayer)
 		router.Post("/players/{player_id}/revoke-sessions", adminHandler.RevokeSessions)
 	})
+
+	gameServerRegistrationAuth, err := gameserver.NewRegistrationAuthenticator(cfg.GameServer.RegistrationTokenSet)
+	if err != nil {
+		return nil, nil, fmt.Errorf("initialize game server registration authentication: %w", err)
+	}
+	if !gameServerRegistrationAuth.Configured() {
+		logger.Warn("no game server registration tokens configured; registrations will be rejected")
+	}
+	gameServerRepository := gameserver.NewRepository(dbPool.Pool)
+	gameServerService := gameserver.NewService(gameServerRepository, cfg.GameServer)
+	gameServerHandler := gameserver.NewHTTPHandler(gameServerService, logger)
+	router.With(gameServerRegistrationAuth.Middleware).Post("/v1/game-servers", gameServerHandler.Register)
+	router.Get("/v1/game-servers", gameServerHandler.List)
+	router.Get("/v1/game-servers/{server_id}", gameServerHandler.Get)
+	router.Post("/v1/game-servers/{server_id}/heartbeat", gameServerHandler.Heartbeat)
+	router.Delete("/v1/game-servers/{server_id}", gameServerHandler.Deregister)
 	router.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		api.WriteError(w, r, http.StatusNotFound, "NOT_FOUND", "Resource not found.", nil)
 	})
 	router.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
 		api.WriteError(w, r, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed.", nil)
 	})
-	return appmiddleware.Chain(router, cfg, logger, limiter), nil
+	gameServerSweeper := gameserver.NewSweeper(gameServerService, cfg.GameServer.SweepInterval(), logger)
+	return appmiddleware.Chain(router, cfg, logger, limiter), gameServerSweeper, nil
 }
 
 func (s *Server) Run(ctx context.Context) error {
+	runCtx, cancelBackground := context.WithCancel(ctx)
+	defer cancelBackground()
+	s.background.Add(1)
+	go func() {
+		defer s.background.Done()
+		s.gameServerSweeper.Run(runCtx)
+	}()
 	errorCh := make(chan error, 1)
 	go func() {
 		s.logger.Info("control-plane listening", "address", s.cfg.HTTP.Addr)
@@ -163,17 +192,21 @@ func (s *Server) Run(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done():
+		cancelBackground()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), s.cfg.HTTP.ShutdownTimeout())
 		defer cancel()
 		if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
 			return fmt.Errorf("HTTP shutdown: %w", err)
 		}
+		s.background.Wait()
 		err := <-errorCh
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return fmt.Errorf("HTTP server: %w", err)
 		}
 		return nil
 	case err := <-errorCh:
+		cancelBackground()
+		s.background.Wait()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return fmt.Errorf("HTTP server: %w", err)
 		}

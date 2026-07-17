@@ -65,6 +65,15 @@ admin:
     - "::1/128"
     - "fc00::/7"
 
+game_server:
+  # Registration credentials are accepted only through
+  # GAME_SERVER_REGISTRATION_TOKENS="pool_id=high-entropy-token;...".
+  heartbeat_interval_seconds: 15
+  unhealthy_after_seconds: 45
+  offline_after_seconds: 90
+  server_token_ttl_hours: 168
+  sweep_interval_seconds: 5
+
 logging:
   level: info
   add_source: false

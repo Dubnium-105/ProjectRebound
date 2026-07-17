@@ -176,6 +176,119 @@ paths:
           $ref: "#/components/responses/AdminUnauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/game-servers:
+    post:
+      operationId: registerGameServer
+      tags: [Dedicated Servers]
+      security:
+        - gameServerRegistrationToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GameServerRegistrationRequest"
+      responses:
+        "201":
+          description: Server registered and management token issued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameServerRegistrationResponse"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    get:
+      operationId: listGameServers
+      tags: [Dedicated Servers]
+      parameters:
+        - in: query
+          name: region
+          schema: {type: string}
+        - in: query
+          name: mode
+          schema: {type: string}
+        - in: query
+          name: version
+          schema: {type: string}
+        - in: query
+          name: state
+          schema:
+            $ref: "#/components/schemas/GameServerState"
+        - in: query
+          name: cursor
+          schema: {type: string}
+        - in: query
+          name: limit
+          schema: {type: integer, minimum: 1, maximum: 100, default: 50}
+      responses:
+        "200":
+          description: Public server directory.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameServerListResponse"
+  /v1/game-servers/{server_id}:
+    parameters:
+      - $ref: "#/components/parameters/GameServerID"
+    get:
+      operationId: getGameServer
+      tags: [Dedicated Servers]
+      responses:
+        "200":
+          description: Public server status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameServerResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deregisterGameServer
+      tags: [Dedicated Servers]
+      security:
+        - gameServerToken: []
+      responses:
+        "200":
+          description: Server deregistered and management token revoked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameServerDeregistrationResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /v1/game-servers/{server_id}/heartbeat:
+    post:
+      operationId: heartbeatGameServer
+      tags: [Dedicated Servers]
+      security:
+        - gameServerToken: []
+      parameters:
+        - $ref: "#/components/parameters/GameServerID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GameServerHeartbeatRequest"
+      responses:
+        "200":
+          description: Heartbeat accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameServerHeartbeatResponse"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Invalid state transition.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /health/live:
     get:
       operationId: getLiveness
@@ -214,10 +327,24 @@ components:
       type: http
       scheme: bearer
       bearerFormat: Static Admin Token
+    gameServerRegistrationToken:
+      type: http
+      scheme: bearer
+      bearerFormat: Preconfigured Registration Token
+    gameServerToken:
+      type: http
+      scheme: bearer
+      bearerFormat: Opaque Game Server Token
   parameters:
     PlayerID:
       in: path
       name: player_id
+      required: true
+      schema:
+        type: string
+    GameServerID:
+      in: path
+      name: server_id
       required: true
       schema:
         type: string
@@ -458,6 +585,118 @@ components:
               minimum: 0
         request_id:
           type: string
+    GameServerState:
+      type: string
+      enum: [STARTING, READY, RESERVED, RUNNING, DRAINING, UNHEALTHY, OFFLINE]
+    GameServerRegistrationRequest:
+      type: object
+      additionalProperties: false
+      required: [instance_id, display_name, region, mode, version, public_host, public_port, max_players]
+      properties:
+        instance_id: {type: string, maxLength: 128}
+        display_name: {type: string, maxLength: 128}
+        region: {type: string, maxLength: 64}
+        mode: {type: string, maxLength: 64}
+        version: {type: string, maxLength: 64}
+        public_host:
+          type: string
+          description: Public unicast IP address; private and loopback addresses are rejected.
+        public_port: {type: integer, minimum: 1, maximum: 65535}
+        max_players: {type: integer, minimum: 1, maximum: 256}
+    GameServerRegistrationData:
+      type: object
+      required: [server_id, server_token, heartbeat_interval_seconds, token_expires_at]
+      properties:
+        server_id: {type: string}
+        server_token: {type: string}
+        heartbeat_interval_seconds: {type: integer, minimum: 1}
+        token_expires_at: {type: string, format: date-time}
+    GameServerRegistrationResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          $ref: "#/components/schemas/GameServerRegistrationData"
+        request_id: {type: string}
+    GameServerHeartbeatRequest:
+      type: object
+      additionalProperties: false
+      required: [state, player_count]
+      properties:
+        state:
+          type: string
+          enum: [STARTING, READY, RESERVED, RUNNING, DRAINING]
+        player_count: {type: integer, minimum: 0}
+    GameServerEndpoint:
+      type: object
+      required: [host, port]
+      properties:
+        host: {type: string}
+        port: {type: integer, minimum: 1, maximum: 65535}
+    PublicGameServer:
+      type: object
+      description: Whitelisted public fields; management credentials and private endpoints are never included.
+      required: [server_id, display_name, region, mode, version, endpoint, max_players, player_count, state, last_heartbeat_at]
+      properties:
+        server_id: {type: string}
+        display_name: {type: string}
+        region: {type: string}
+        mode: {type: string}
+        version: {type: string}
+        endpoint:
+          $ref: "#/components/schemas/GameServerEndpoint"
+        max_players: {type: integer}
+        player_count: {type: integer}
+        state:
+          $ref: "#/components/schemas/GameServerState"
+        last_heartbeat_at: {type: string, format: date-time}
+    GameServerResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          $ref: "#/components/schemas/PublicGameServer"
+        request_id: {type: string}
+    GameServerListData:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicGameServer"
+        next_cursor: {type: string}
+    GameServerListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          $ref: "#/components/schemas/GameServerListData"
+        request_id: {type: string}
+    GameServerHeartbeatData:
+      type: object
+      required: [server, next_heartbeat_seconds]
+      properties:
+        server:
+          $ref: "#/components/schemas/PublicGameServer"
+        next_heartbeat_seconds: {type: integer, minimum: 1}
+    GameServerHeartbeatResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          $ref: "#/components/schemas/GameServerHeartbeatData"
+        request_id: {type: string}
+    GameServerDeregistrationResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [deregistered]
+          properties:
+            deregistered: {type: boolean}
+        request_id: {type: string}
     HealthSuccess:
       type: object
       required: [data, request_id]

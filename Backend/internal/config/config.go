@@ -25,6 +25,7 @@ type Config struct {
 	RateLimit         RateLimitConfig   `yaml:"rate_limit"`
 	Auth              AuthConfig        `yaml:"auth"`
 	Admin             AdminConfig       `yaml:"admin"`
+	GameServer        GameServerConfig  `yaml:"game_server"`
 	MatchServer       MatchServerConfig `yaml:"matchserver"`
 	Relay             RelayConfig       `yaml:"relay"`
 	Logging           LogConfig         `yaml:"logging"`
@@ -89,6 +90,15 @@ type AdminConfig struct {
 	// from YAML so credentials cannot be committed in configuration files.
 	TokenSet     string   `yaml:"-"`
 	TrustedCIDRs []string `yaml:"trusted_cidrs"`
+}
+
+type GameServerConfig struct {
+	RegistrationTokenSet     string `yaml:"-"`
+	HeartbeatIntervalSeconds int    `yaml:"heartbeat_interval_seconds"`
+	UnhealthyAfterSeconds    int    `yaml:"unhealthy_after_seconds"`
+	OfflineAfterSeconds      int    `yaml:"offline_after_seconds"`
+	ServerTokenTTLHours      int    `yaml:"server_token_ttl_hours"`
+	SweepIntervalSeconds     int    `yaml:"sweep_interval_seconds"`
 }
 
 type MatchServerConfig struct {
@@ -176,6 +186,13 @@ var Defaults = Config{
 			"fc00::/7",
 		},
 	},
+	GameServer: GameServerConfig{
+		HeartbeatIntervalSeconds: 15,
+		UnhealthyAfterSeconds:    45,
+		OfflineAfterSeconds:      90,
+		ServerTokenTTLHours:      168,
+		SweepIntervalSeconds:     5,
+	},
 	MatchServer: MatchServerConfig{
 		HeartbeatSeconds:              5,
 		StaleAfterSeconds:             15,
@@ -229,6 +246,7 @@ func (c *Config) applyEnvOverrides() {
 	overrideString("ACCESS_TOKEN_PRIVATE_KEY_BASE64", &c.Auth.AccessTokenPrivateKeyBase64)
 	overrideString("ACCESS_TOKEN_KEY_ID", &c.Auth.AccessTokenKeyID)
 	overrideString("ADMIN_TOKENS", &c.Admin.TokenSet)
+	overrideString("GAME_SERVER_REGISTRATION_TOKENS", &c.GameServer.RegistrationTokenSet)
 	overrideInt("REDIS_DB", &c.Redis.DB)
 	overrideInt("HTTP_RATE_LIMIT_BURST", &c.RateLimit.Burst)
 	overrideInt("AUTH_BIND_REQUESTS_PER_MINUTE", &c.Auth.BindRequestsPerMinute)
@@ -339,6 +357,15 @@ func (c *Config) ValidateControlPlane() error {
 	if strings.EqualFold(c.Environment, "production") && strings.TrimSpace(c.Admin.TokenSet) == "" {
 		errs = append(errs, errors.New("ADMIN_TOKENS is required in production"))
 	}
+	if c.GameServer.HeartbeatIntervalSeconds < 1 ||
+		c.GameServer.UnhealthyAfterSeconds <= c.GameServer.HeartbeatIntervalSeconds ||
+		c.GameServer.OfflineAfterSeconds <= c.GameServer.UnhealthyAfterSeconds ||
+		c.GameServer.ServerTokenTTLHours < 1 || c.GameServer.SweepIntervalSeconds < 1 {
+		errs = append(errs, errors.New("game_server timing and token settings are invalid"))
+	}
+	if strings.EqualFold(c.Environment, "production") && strings.TrimSpace(c.GameServer.RegistrationTokenSet) == "" {
+		errs = append(errs, errors.New("GAME_SERVER_REGISTRATION_TOKENS is required in production"))
+	}
 	if len(errs) > 0 {
 		return fmt.Errorf("invalid control-plane configuration: %w", errors.Join(errs...))
 	}
@@ -387,4 +414,12 @@ func (c AuthConfig) AccessTokenTTL() time.Duration {
 
 func (c AuthConfig) RefreshTokenTTL() time.Duration {
 	return time.Duration(c.RefreshTokenTTLDays) * 24 * time.Hour
+}
+
+func (c GameServerConfig) ServerTokenTTL() time.Duration {
+	return time.Duration(c.ServerTokenTTLHours) * time.Hour
+}
+
+func (c GameServerConfig) SweepInterval() time.Duration {
+	return time.Duration(c.SweepIntervalSeconds) * time.Second
 }
