@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/projectrebound/matchserver/internal/api"
+	"github.com/projectrebound/matchserver/internal/player"
 )
 
 type principalContextKey uint8
@@ -43,4 +44,19 @@ func RequireAccess(authenticator AccessAuthenticator, logger *slog.Logger) func(
 func PrincipalFromContext(ctx context.Context) *Principal {
 	principal, _ := ctx.Value(principalKey).(*Principal)
 	return principal
+}
+
+func RequireActive(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		principal := PrincipalFromContext(r.Context())
+		if principal == nil {
+			api.WriteError(w, r, http.StatusUnauthorized, CodeUnauthorized, "Authentication is required.", nil)
+			return
+		}
+		if principal.Player.AccountStatus != player.AccountStatusActive {
+			api.WriteError(w, r, http.StatusForbidden, "ACCOUNT_NOT_ACTIVE", "An active account is required.", nil)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }

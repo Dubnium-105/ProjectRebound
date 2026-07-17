@@ -101,6 +101,20 @@ func (r *Repository) RevokeSession(ctx context.Context, executor Executor, sessi
 	return nil
 }
 
+func (r *Repository) RevokePlayerSessions(ctx context.Context, executor Executor, playerID string, now time.Time, reason string) (int64, error) {
+	tag, err := executor.Exec(ctx, `
+		UPDATE auth_sessions
+		SET revoked_at = COALESCE(revoked_at, $2),
+		    revoked_reason = COALESCE(revoked_reason, $3),
+		    last_used_at = $2
+		WHERE player_id = $1 AND revoked_at IS NULL
+	`, playerID, now, reason)
+	if err != nil {
+		return 0, fmt.Errorf("revoke player auth sessions: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
 func (r *Repository) InsertAudit(ctx context.Context, executor Executor, event AuditEvent) error {
 	_, err := executor.Exec(ctx, `
 		INSERT INTO auth_login_audit_logs (

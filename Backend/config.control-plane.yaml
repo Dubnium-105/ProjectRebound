@@ -54,6 +54,17 @@ auth:
   bind_requests_per_minute: 10
   bind_burst: 5
 
+admin:
+  # Admin credentials are accepted only through ADMIN_TOKENS using
+  # "admin_id=high-entropy-token;other_admin=...". They are never read here.
+  trusted_cidrs:
+    - "127.0.0.0/8"
+    - "10.0.0.0/8"
+    - "172.16.0.0/12"
+    - "192.168.0.0/16"
+    - "::1/128"
+    - "fc00::/7"
+
 logging:
   level: info
   add_source: false

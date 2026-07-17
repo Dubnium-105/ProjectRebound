@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/projectrebound/matchserver/internal/admin"
 	"github.com/projectrebound/matchserver/internal/api"
 	"github.com/projectrebound/matchserver/internal/auth"
 	"github.com/projectrebound/matchserver/internal/cache"
@@ -100,10 +101,12 @@ func buildHandler(
 	if ephemeralKey {
 		logger.Warn("using ephemeral development access-token key; tokens will not survive a restart")
 	}
+	authRepository := auth.NewRepository()
+	playerRepository := player.NewRepository()
 	authService := auth.NewService(
 		dbPool.Pool,
-		auth.NewRepository(),
-		player.NewRepository(),
+		authRepository,
+		playerRepository,
 		tokenManager,
 		cfg.Auth,
 		logger,
@@ -119,6 +122,28 @@ func buildHandler(
 		router.Post("/auth/refresh", authHandler.Refresh)
 		router.With(auth.RequireAccess(authService, logger)).Post("/auth/logout", authHandler.Logout)
 		router.With(auth.RequireAccess(authService, logger)).Get("/users/me", authHandler.Me)
+	})
+
+	adminAuthenticator, err := admin.NewAuthenticator(cfg.Admin)
+	if err != nil {
+		return nil, fmt.Errorf("initialize administrator authentication: %w", err)
+	}
+	if !adminAuthenticator.Configured() {
+		logger.Warn("no administrator tokens configured; admin API will reject all requests")
+	}
+	adminNetworkGuard, err := admin.NewNetworkGuard(cfg.Admin.TrustedCIDRs, cfg.HTTP.TrustProxyHeaders)
+	if err != nil {
+		return nil, err
+	}
+	adminService := admin.NewService(dbPool.Pool, playerRepository, authRepository, admin.NewRepository())
+	adminHandler := admin.NewHTTPHandler(adminService, logger, cfg.HTTP.TrustProxyHeaders)
+	router.Route("/v1/admin", func(router chi.Router) {
+		router.Use(adminNetworkGuard.Middleware)
+		router.Use(adminAuthenticator.Middleware)
+		router.Get("/players", adminHandler.ListPlayers)
+		router.Get("/players/{player_id}", adminHandler.GetPlayer)
+		router.Patch("/players/{player_id}", adminHandler.PatchPlayer)
+		router.Post("/players/{player_id}/revoke-sessions", adminHandler.RevokeSessions)
 	})
 	router.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		api.WriteError(w, r, http.StatusNotFound, "NOT_FOUND", "Resource not found.", nil)

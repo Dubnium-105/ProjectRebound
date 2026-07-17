@@ -79,6 +79,103 @@ paths:
                 $ref: "#/components/schemas/MeResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /v1/admin/players:
+    get:
+      operationId: adminListPlayers
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminToken: []
+      parameters:
+        - in: query
+          name: cursor
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - in: query
+          name: account_status
+          schema:
+            $ref: "#/components/schemas/AccountStatus"
+      responses:
+        "200":
+          description: Paginated players.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPlayerListResponse"
+        "401":
+          $ref: "#/components/responses/AdminUnauthorized"
+  /v1/admin/players/{player_id}:
+    parameters:
+      - $ref: "#/components/parameters/PlayerID"
+    get:
+      operationId: adminGetPlayer
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminToken: []
+      responses:
+        "200":
+          description: Player administrative record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPlayerResponse"
+        "401":
+          $ref: "#/components/responses/AdminUnauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: adminPatchPlayer
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminPlayerPatch"
+      responses:
+        "200":
+          description: Updated player and session revocation count.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPlayerPatchResponse"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/AdminUnauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/players/{player_id}/revoke-sessions:
+    post:
+      operationId: adminRevokePlayerSessions
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminToken: []
+      parameters:
+        - $ref: "#/components/parameters/PlayerID"
+      responses:
+        "200":
+          description: All active sessions for the player were revoked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSessionRevocationResponse"
+        "401":
+          $ref: "#/components/responses/AdminUnauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /health/live:
     get:
       operationId: getLiveness
@@ -113,6 +210,17 @@ components:
       type: http
       scheme: bearer
       bearerFormat: EdDSA JWT
+    adminToken:
+      type: http
+      scheme: bearer
+      bearerFormat: Static Admin Token
+  parameters:
+    PlayerID:
+      in: path
+      name: player_id
+      required: true
+      schema:
+        type: string
   responses:
     InvalidRequest:
       description: Invalid request.
@@ -128,6 +236,18 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
     RateLimited:
       description: Per-IP request limit exceeded.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    AdminUnauthorized:
+      description: A dedicated administrator token is required; Player tokens are not accepted.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found or not exposed on this network.
       content:
         application/json:
           schema:
@@ -253,6 +373,89 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/MeData"
+        request_id:
+          type: string
+    AdminPlayer:
+      allOf:
+        - $ref: "#/components/schemas/MeData"
+        - type: object
+          required: [auth_provider, auth_level, updated_at]
+          properties:
+            auth_provider:
+              type: string
+              enum: [steam_client_asserted, steam_ticket, steam_openid]
+            auth_level:
+              type: string
+              enum: [unverified, verified]
+            updated_at:
+              type: string
+              format: date-time
+    AdminPlayerPatch:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        account_status:
+          $ref: "#/components/schemas/AccountStatus"
+        is_vip:
+          type: boolean
+        revoke_sessions:
+          type: boolean
+          default: false
+    AdminPlayerResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          $ref: "#/components/schemas/AdminPlayer"
+        request_id:
+          type: string
+    AdminPlayerListData:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminPlayer"
+        next_cursor:
+          type: string
+    AdminPlayerListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          $ref: "#/components/schemas/AdminPlayerListData"
+        request_id:
+          type: string
+    AdminPlayerPatchData:
+      type: object
+      required: [player, revoked_sessions]
+      properties:
+        player:
+          $ref: "#/components/schemas/AdminPlayer"
+        revoked_sessions:
+          type: integer
+          minimum: 0
+    AdminPlayerPatchResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          $ref: "#/components/schemas/AdminPlayerPatchData"
+        request_id:
+          type: string
+    AdminSessionRevocationResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [revoked_sessions]
+          properties:
+            revoked_sessions:
+              type: integer
+              minimum: 0
         request_id:
           type: string
     HealthSuccess:

@@ -14,4 +14,6 @@ Access Token 是短期 Ed25519 JWT，只包含玩家 ID、session ID、provider�
 | 公开服务器/房间浏览 | 允许 | 可允许 | 后续 Milestone 定义 |
 | 联机写操作 | 允许 | 拒绝 | 拒绝 |
 
+Admin API 不使用此矩阵，也不接受 Player Access Token。它要求独立的静态 Admin Token、可信来源网段，并从公网 Caddy 路由中移除。
+
 Refresh Token 每次使用都会 rotation。旧 Token 对应的 session 行保留为已轮换状态；再次使用旧 Token 会撤销整个 `token_family_id` 下的 session，并记录 `REFRESH_TOKEN_REUSE` 审计事件。

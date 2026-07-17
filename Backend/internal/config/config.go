@@ -24,6 +24,7 @@ type Config struct {
 	CORS              CORSConfig        `yaml:"cors"`
 	RateLimit         RateLimitConfig   `yaml:"rate_limit"`
 	Auth              AuthConfig        `yaml:"auth"`
+	Admin             AdminConfig       `yaml:"admin"`
 	MatchServer       MatchServerConfig `yaml:"matchserver"`
 	Relay             RelayConfig       `yaml:"relay"`
 	Logging           LogConfig         `yaml:"logging"`
@@ -81,6 +82,13 @@ type AuthConfig struct {
 	DefaultPersonaName          string `yaml:"default_persona_name"`
 	BindRequestsPerMinute       int    `yaml:"bind_requests_per_minute"`
 	BindBurst                   int    `yaml:"bind_burst"`
+}
+
+type AdminConfig struct {
+	// TokenSet is loaded only from ADMIN_TOKENS and is deliberately excluded
+	// from YAML so credentials cannot be committed in configuration files.
+	TokenSet     string   `yaml:"-"`
+	TrustedCIDRs []string `yaml:"trusted_cidrs"`
 }
 
 type MatchServerConfig struct {
@@ -158,6 +166,16 @@ var Defaults = Config{
 		BindRequestsPerMinute: 10,
 		BindBurst:             5,
 	},
+	Admin: AdminConfig{
+		TrustedCIDRs: []string{
+			"127.0.0.0/8",
+			"10.0.0.0/8",
+			"172.16.0.0/12",
+			"192.168.0.0/16",
+			"::1/128",
+			"fc00::/7",
+		},
+	},
 	MatchServer: MatchServerConfig{
 		HeartbeatSeconds:              5,
 		StaleAfterSeconds:             15,
@@ -210,6 +228,7 @@ func (c *Config) applyEnvOverrides() {
 	overrideString("LOG_LEVEL", &c.Logging.Level)
 	overrideString("ACCESS_TOKEN_PRIVATE_KEY_BASE64", &c.Auth.AccessTokenPrivateKeyBase64)
 	overrideString("ACCESS_TOKEN_KEY_ID", &c.Auth.AccessTokenKeyID)
+	overrideString("ADMIN_TOKENS", &c.Admin.TokenSet)
 	overrideInt("REDIS_DB", &c.Redis.DB)
 	overrideInt("HTTP_RATE_LIMIT_BURST", &c.RateLimit.Burst)
 	overrideInt("AUTH_BIND_REQUESTS_PER_MINUTE", &c.Auth.BindRequestsPerMinute)
@@ -221,6 +240,9 @@ func (c *Config) applyEnvOverrides() {
 	}
 	if raw := os.Getenv("CORS_ALLOWED_ORIGINS"); raw != "" {
 		c.CORS.AllowedOrigins = splitCSV(raw)
+	}
+	if raw := os.Getenv("ADMIN_TRUSTED_CIDRS"); raw != "" {
+		c.Admin.TrustedCIDRs = splitCSV(raw)
 	}
 	if raw := os.Getenv("TRUST_PROXY_HEADERS"); raw != "" {
 		if value, err := strconv.ParseBool(raw); err == nil {
@@ -310,6 +332,12 @@ func (c *Config) ValidateControlPlane() error {
 	}
 	if strings.EqualFold(c.Environment, "production") && strings.TrimSpace(c.Auth.AccessTokenPrivateKeyBase64) == "" {
 		errs = append(errs, errors.New("ACCESS_TOKEN_PRIVATE_KEY_BASE64 is required in production"))
+	}
+	if len(c.Admin.TrustedCIDRs) == 0 {
+		errs = append(errs, errors.New("admin.trusted_cidrs must not be empty"))
+	}
+	if strings.EqualFold(c.Environment, "production") && strings.TrimSpace(c.Admin.TokenSet) == "" {
+		errs = append(errs, errors.New("ADMIN_TOKENS is required in production"))
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("invalid control-plane configuration: %w", errors.Join(errs...))

@@ -27,3 +27,8 @@ type Player struct {
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }
+
+type AdministrativePatch struct {
+	AccountStatus *AccountStatus
+	IsVIP         *bool
+}
