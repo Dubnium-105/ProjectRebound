@@ -82,6 +82,12 @@ p2p_room:
   sweep_interval_seconds: 5
   maximum_players: 64
 
+connection:
+  session_ttl_seconds: 600
+  sweep_interval_seconds: 5
+  websocket_queue_size: 64
+  websocket_max_message_bytes: 16384
+
 logging:
   level: info
   add_source: false

@@ -482,6 +482,99 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /v1/connections:
+    post:
+      operationId: createConnection
+      tags: [Connections]
+      security:
+        - playerAccessToken: []
+      description: Idempotently creates a host-to-peer session. Joining a P2P room also creates this session automatically.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConnectionCreateRequest"
+      responses:
+        "201":
+          description: Connection created or its active idempotent result returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectionResponse"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Account or active room membership rejected.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/connections/{connection_id}:
+    parameters:
+      - $ref: "#/components/parameters/ConnectionID"
+    get:
+      operationId: getConnection
+      tags: [Connections]
+      security:
+        - playerAccessToken: []
+      description: Returns candidates only to the connection's host or peer.
+      responses:
+        "200":
+          description: Participant-scoped connection state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectionResponse"
+        "403":
+          description: Caller is not a participant.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: closeConnection
+      tags: [Connections]
+      security:
+        - playerAccessToken: []
+      responses:
+        "200":
+          description: Connection closed idempotently.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectionResponse"
+        "403":
+          description: Active account and connection participation are required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/realtime/connect:
+    get:
+      operationId: connectRealtime
+      tags: [Connections]
+      security:
+        - playerAccessToken: []
+      description: Upgrades to an authenticated WebSocket. Access tokens are accepted only in the Authorization header, never in the URL.
+      x-websocket:
+        inbound-message:
+          oneOf:
+            - $ref: "#/components/schemas/ConnectionCandidateEvent"
+            - $ref: "#/components/schemas/ConnectionCheckResultEvent"
+        outbound-message:
+          oneOf:
+            - $ref: "#/components/schemas/ConnectionRealtimeEvent"
+            - $ref: "#/components/schemas/RealtimeErrorEvent"
+      responses:
+        "101":
+          description: WebSocket protocol switched.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /health/live:
     get:
       operationId: getLiveness
@@ -555,6 +648,12 @@ components:
       schema:
         type: string
         minLength: 64
+    ConnectionID:
+      in: path
+      name: connection_id
+      required: true
+      schema:
+        type: string
   responses:
     InvalidRequest:
       description: Invalid request.
@@ -995,6 +1094,136 @@ components:
         data:
           $ref: "#/components/schemas/P2PRoomHeartbeatData"
         request_id: {type: string}
+    ConnectionState:
+      type: string
+      enum: [CREATED, GATHERING_CANDIDATES, CHECKING_DIRECT, ALLOCATING_RELAY, RELAY_BINDING, CONNECTED, FAILED, EXPIRED, CLOSED]
+    ConnectionPath:
+      type: string
+      enum: [LAN, IPV6, UDP_PUNCH, UDP_RELAY, TCP_TLS_RELAY]
+    ConnectionCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [room_id]
+      properties:
+        room_id: {type: string}
+        peer_player_id:
+          type: string
+          description: Required only when the room host creates a connection for a peer.
+    ConnectionCandidate:
+      type: object
+      additionalProperties: false
+      required: [candidate_id, connection_id, player_id, foundation, candidate_type, protocol, address, port, priority, created_at]
+      properties:
+        candidate_id: {type: string}
+        connection_id: {type: string}
+        player_id: {type: string}
+        foundation: {type: string, minLength: 1, maxLength: 64}
+        candidate_type: {type: string, enum: [LAN, IPV6, SRFLX]}
+        protocol: {type: string, enum: [UDP, TCP]}
+        address:
+          type: string
+          description: Participant-only IP candidate; never exposed by the public room directory.
+        port: {type: integer, minimum: 1, maximum: 65535}
+        priority: {type: integer, minimum: 1, maximum: 2147483647}
+        created_at: {type: string, format: date-time}
+    ConnectionCandidateInput:
+      type: object
+      additionalProperties: false
+      required: [connection_id, foundation, candidate_type, protocol, address, port, priority]
+      properties:
+        connection_id: {type: string}
+        foundation: {type: string, minLength: 1, maxLength: 64}
+        candidate_type: {type: string, enum: [LAN, IPV6, SRFLX]}
+        protocol: {type: string, enum: [UDP, TCP]}
+        address: {type: string}
+        port: {type: integer, minimum: 1, maximum: 65535}
+        priority: {type: integer, minimum: 1, maximum: 2147483647}
+    ConnectionData:
+      type: object
+      required: [connection_id, room_id, host_player_id, peer_player_id, state, expires_at, created_at, updated_at, candidates]
+      properties:
+        connection_id: {type: string}
+        room_id: {type: string}
+        host_player_id: {type: string}
+        peer_player_id: {type: string}
+        state:
+          $ref: "#/components/schemas/ConnectionState"
+        selected_path:
+          $ref: "#/components/schemas/ConnectionPath"
+        failure_reason: {type: string}
+        expires_at: {type: string, format: date-time}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        candidates:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConnectionCandidate"
+    ConnectionResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          $ref: "#/components/schemas/ConnectionData"
+        request_id: {type: string}
+    ConnectionEventType:
+      type: string
+      enum:
+        - connection.created
+        - connection.candidate
+        - connection.check_result
+        - connection.path_selected
+        - connection.path_failed
+        - connection.relay_allocated
+        - connection.relay_migrating
+        - connection.relay_migrated
+        - connection.relay_failed
+        - connection.closed
+    ConnectionCandidateEvent:
+      type: object
+      additionalProperties: false
+      required: [type, payload]
+      properties:
+        type: {type: string, const: connection.candidate}
+        payload:
+          $ref: "#/components/schemas/ConnectionCandidateInput"
+    ConnectionCheckResultPayload:
+      type: object
+      additionalProperties: false
+      required: [connection_id, success, path, latency_ms]
+      properties:
+        connection_id: {type: string}
+        success: {type: boolean}
+        path:
+          type: string
+          enum: [LAN, IPV6, UDP_PUNCH]
+        latency_ms: {type: integer, minimum: 0, maximum: 60000}
+        reason: {type: string, maxLength: 128}
+    ConnectionCheckResultEvent:
+      type: object
+      additionalProperties: false
+      required: [type, payload]
+      properties:
+        type: {type: string, const: connection.check_result}
+        payload:
+          $ref: "#/components/schemas/ConnectionCheckResultPayload"
+    ConnectionRealtimeEvent:
+      type: object
+      required: [type, payload, created_at]
+      properties:
+        type:
+          $ref: "#/components/schemas/ConnectionEventType"
+        payload:
+          type: object
+          additionalProperties: true
+        created_at: {type: string, format: date-time}
+    RealtimeErrorEvent:
+      type: object
+      required: [type, payload, created_at]
+      properties:
+        type: {type: string, const: error}
+        payload:
+          $ref: "#/components/schemas/Error"
+        created_at: {type: string, format: date-time}
     HealthSuccess:
       type: object
       required: [data, request_id]

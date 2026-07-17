@@ -1,7 +1,10 @@
 package middleware
 
 import (
+	"bufio"
+	"errors"
 	"log/slog"
+	"net"
 	"net/http"
 	"time"
 
@@ -12,6 +15,20 @@ type responseRecorder struct {
 	http.ResponseWriter
 	status int
 	bytes  int
+}
+
+func (w *responseRecorder) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
+func (w *responseRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hijacker, ok := w.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, errors.New("HTTP response writer does not support hijacking")
+	}
+	connection, buffer, err := hijacker.Hijack()
+	if err == nil && w.status == 0 {
+		w.status = http.StatusSwitchingProtocols
+	}
+	return connection, buffer, err
 }
 
 func (w *responseRecorder) WriteHeader(status int) {

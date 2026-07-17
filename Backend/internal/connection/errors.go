@@ -1,4 +1,4 @@
-package p2proom
+package connection
 
 import (
 	"errors"
@@ -22,10 +22,6 @@ func (e *ServiceError) Error() string {
 
 func (e *ServiceError) Unwrap() error { return e.Cause }
 
-func (e *ServiceError) ErrorDetails() (int, string, string, map[string]any) {
-	return e.Status, e.Code, e.Message, e.Details
-}
-
 func errorDetails(err error) (int, string, string, map[string]any) {
 	var serviceError *ServiceError
 	if errors.As(err, &serviceError) {
@@ -35,17 +31,21 @@ func errorDetails(err error) (int, string, string, map[string]any) {
 }
 
 func invalid(message string, details map[string]any) error {
-	return &ServiceError{Status: 400, Code: "INVALID_REQUEST", Message: message, Details: details}
-}
-
-func conflict(code, message string) error {
-	return &ServiceError{Status: 409, Code: code, Message: message}
+	return &ServiceError{Status: http.StatusBadRequest, Code: "INVALID_REQUEST", Message: message, Details: details}
 }
 
 func forbidden(code, message string) error {
-	return &ServiceError{Status: 403, Code: code, Message: message}
+	return &ServiceError{Status: http.StatusForbidden, Code: code, Message: message}
+}
+
+func conflict(code, message string) error {
+	return &ServiceError{Status: http.StatusConflict, Code: code, Message: message}
+}
+
+func notFound() error {
+	return &ServiceError{Status: http.StatusNotFound, Code: "CONNECTION_NOT_FOUND", Message: "Connection not found."}
 }
 
 func internal(err error) error {
-	return &ServiceError{Status: 500, Code: "INTERNAL_ERROR", Message: "Internal server error.", Cause: err}
+	return &ServiceError{Status: http.StatusInternalServerError, Code: "INTERNAL_ERROR", Message: "Internal server error.", Cause: err}
 }

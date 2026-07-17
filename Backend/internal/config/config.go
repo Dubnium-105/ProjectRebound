@@ -27,6 +27,7 @@ type Config struct {
 	Admin             AdminConfig       `yaml:"admin"`
 	GameServer        GameServerConfig  `yaml:"game_server"`
 	P2PRoom           P2PRoomConfig     `yaml:"p2p_room"`
+	Connection        ConnectionConfig  `yaml:"connection"`
 	MatchServer       MatchServerConfig `yaml:"matchserver"`
 	Relay             RelayConfig       `yaml:"relay"`
 	Logging           LogConfig         `yaml:"logging"`
@@ -108,6 +109,13 @@ type P2PRoomConfig struct {
 	ClosedAfterSeconds       int `yaml:"closed_after_seconds"`
 	SweepIntervalSeconds     int `yaml:"sweep_interval_seconds"`
 	MaximumPlayers           int `yaml:"maximum_players"`
+}
+
+type ConnectionConfig struct {
+	SessionTTLSeconds    int `yaml:"session_ttl_seconds"`
+	SweepIntervalSeconds int `yaml:"sweep_interval_seconds"`
+	WebSocketQueueSize   int `yaml:"websocket_queue_size"`
+	WebSocketMaxBytes    int `yaml:"websocket_max_message_bytes"`
 }
 
 type MatchServerConfig struct {
@@ -209,6 +217,12 @@ var Defaults = Config{
 		SweepIntervalSeconds:     5,
 		MaximumPlayers:           64,
 	},
+	Connection: ConnectionConfig{
+		SessionTTLSeconds:    600,
+		SweepIntervalSeconds: 5,
+		WebSocketQueueSize:   64,
+		WebSocketMaxBytes:    16 * 1024,
+	},
 	MatchServer: MatchServerConfig{
 		HeartbeatSeconds:              5,
 		StaleAfterSeconds:             15,
@@ -267,6 +281,10 @@ func (c *Config) applyEnvOverrides() {
 	overrideInt("HTTP_RATE_LIMIT_BURST", &c.RateLimit.Burst)
 	overrideInt("AUTH_BIND_REQUESTS_PER_MINUTE", &c.Auth.BindRequestsPerMinute)
 	overrideInt("AUTH_BIND_BURST", &c.Auth.BindBurst)
+	overrideInt("CONNECTION_SESSION_TTL_SECONDS", &c.Connection.SessionTTLSeconds)
+	overrideInt("CONNECTION_SWEEP_INTERVAL_SECONDS", &c.Connection.SweepIntervalSeconds)
+	overrideInt("CONNECTION_WEBSOCKET_QUEUE_SIZE", &c.Connection.WebSocketQueueSize)
+	overrideInt("CONNECTION_WEBSOCKET_MAX_MESSAGE_BYTES", &c.Connection.WebSocketMaxBytes)
 	if raw := os.Getenv("HTTP_RATE_LIMIT_RPS"); raw != "" {
 		if value, err := strconv.ParseFloat(raw, 64); err == nil {
 			c.RateLimit.RequestsPerSecond = value
@@ -388,6 +406,10 @@ func (c *Config) ValidateControlPlane() error {
 		c.P2PRoom.SweepIntervalSeconds < 1 || c.P2PRoom.MaximumPlayers < 2 || c.P2PRoom.MaximumPlayers > 64 {
 		errs = append(errs, errors.New("p2p_room timing and capacity settings are invalid"))
 	}
+	if c.Connection.SessionTTLSeconds < 30 || c.Connection.SweepIntervalSeconds < 1 ||
+		c.Connection.WebSocketQueueSize < 1 || c.Connection.WebSocketMaxBytes < 1024 {
+		errs = append(errs, errors.New("connection timing and websocket settings are invalid"))
+	}
 	if len(errs) > 0 {
 		return fmt.Errorf("invalid control-plane configuration: %w", errors.Join(errs...))
 	}
@@ -447,5 +469,13 @@ func (c GameServerConfig) SweepInterval() time.Duration {
 }
 
 func (c P2PRoomConfig) SweepInterval() time.Duration {
+	return time.Duration(c.SweepIntervalSeconds) * time.Second
+}
+
+func (c ConnectionConfig) SessionTTL() time.Duration {
+	return time.Duration(c.SessionTTLSeconds) * time.Second
+}
+
+func (c ConnectionConfig) SweepInterval() time.Duration {
 	return time.Duration(c.SweepIntervalSeconds) * time.Second
 }

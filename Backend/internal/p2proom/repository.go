@@ -86,6 +86,14 @@ func (r *Repository) GetMemberForUpdate(ctx context.Context, tx pgx.Tx, roomID, 
 	`, roomID, playerID))
 }
 
+func (r *Repository) GetMember(ctx context.Context, roomID, playerID string) (Member, error) {
+	return scanMember(r.pool.QueryRow(ctx, `
+		SELECT room_id, player_id, role, status, joined_at, left_at
+		FROM p2p_room_members
+		WHERE room_id = $1 AND player_id = $2
+	`, roomID, playerID))
+}
+
 func (r *Repository) ActivateMember(ctx context.Context, tx pgx.Tx, roomID, playerID string, now time.Time) error {
 	_, err := tx.Exec(ctx, `
 		INSERT INTO p2p_room_members (room_id, player_id, role, status, joined_at)
@@ -142,6 +150,16 @@ func (r *Repository) Start(ctx context.Context, tx pgx.Tx, roomID string, now ti
 	))
 }
 
+func (r *Repository) MarkRunning(ctx context.Context, roomID string, now time.Time) (Room, error) {
+	return scanRoom(r.pool.QueryRow(ctx, `
+		UPDATE p2p_rooms
+		SET state = 'RUNNING', updated_at = $2
+		WHERE id = $1 AND state IN ('LOBBY', 'CONNECTING')
+		RETURNING `+roomColumns,
+		roomID, now,
+	))
+}
+
 func (r *Repository) Close(ctx context.Context, tx pgx.Tx, roomID string, now time.Time) (Room, error) {
 	item, err := scanRoom(tx.QueryRow(ctx, `
 		UPDATE p2p_rooms
@@ -163,8 +181,9 @@ func (r *Repository) Close(ctx context.Context, tx pgx.Tx, roomID string, now ti
 	return item, nil
 }
 
-func (r *Repository) SweepStale(ctx context.Context, now time.Time, staleAfter, closedAfter time.Duration) (int64, error) {
+func (r *Repository) SweepStale(ctx context.Context, now time.Time, staleAfter, closedAfter time.Duration) (int64, []string, error) {
 	var updated int64
+	var closedRoomIDs []string
 	err := r.pool.QueryRow(ctx, `
 		WITH changed AS (
 			UPDATE p2p_rooms
@@ -184,12 +203,13 @@ func (r *Repository) SweepStale(ctx context.Context, now time.Time, staleAfter, 
 			WHERE changed.id = member.room_id AND changed.state = 'CLOSED' AND member.status = 'ACTIVE'
 			RETURNING member.room_id
 		)
-		SELECT COUNT(*) FROM changed
-	`, now, now.Add(-closedAfter), now.Add(-staleAfter)).Scan(&updated)
+		SELECT COUNT(*), COALESCE(array_agg(id) FILTER (WHERE state = 'CLOSED'), ARRAY[]::varchar[])
+		FROM changed
+	`, now, now.Add(-closedAfter), now.Add(-staleAfter)).Scan(&updated, &closedRoomIDs)
 	if err != nil {
-		return 0, fmt.Errorf("sweep P2P rooms: %w", err)
+		return 0, nil, fmt.Errorf("sweep P2P rooms: %w", err)
 	}
-	return updated, nil
+	return updated, closedRoomIDs, nil
 }
 
 const roomColumns = `
