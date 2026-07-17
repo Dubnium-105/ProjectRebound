@@ -58,6 +58,12 @@ func TestDocumentHasRequiredOpenAPIShape(t *testing.T) {
 		"/v1/connections",
 		"/v1/connections/{connection_id}",
 		"/v1/realtime/connect",
+		"/internal/v1/relay-nodes/enroll",
+		"/internal/v1/relay-nodes/{node_id}/certificate/renew",
+		"/internal/v1/relay-nodes/{node_id}",
+		"/internal/v1/relay-nodes/{node_id}/drain",
+		"/internal/v1/relay-nodes/{node_id}/resume",
+		"/internal/v1/relay-nodes/{node_id}/revoke",
 		"/health/live",
 		"/health/ready",
 	} {
@@ -65,7 +71,7 @@ func TestDocumentHasRequiredOpenAPIShape(t *testing.T) {
 			t.Errorf("required path %s is missing", path)
 		}
 	}
-	for _, schema := range []string{"BindRequest", "BindResponse", "RefreshRequest", "MeResponse", "AdminPlayerPatch", "AdminPlayerListResponse", "GameServerRegistrationRequest", "GameServerListResponse", "P2PRoomCreateRequest", "PublicP2PRoom", "P2PRoomListResponse", "ConnectionCreateRequest", "ConnectionData", "ConnectionRealtimeEvent", "HealthSuccess", "Error", "ErrorResponse"} {
+	for _, schema := range []string{"BindRequest", "BindResponse", "RefreshRequest", "MeResponse", "AdminPlayerPatch", "AdminPlayerListResponse", "GameServerRegistrationRequest", "GameServerListResponse", "P2PRoomCreateRequest", "PublicP2PRoom", "P2PRoomListResponse", "ConnectionCreateRequest", "ConnectionData", "ConnectionRealtimeEvent", "ConnectionRelayAllocatedEvent", "RelayEnrollRequest", "RelayNode", "RelayTokenClaims", "HealthSuccess", "Error", "ErrorResponse"} {
 		if _, ok := document.Components.Schemas[schema]; !ok {
 			t.Errorf("required schema %s is missing", schema)
 		}

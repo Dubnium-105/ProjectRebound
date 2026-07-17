@@ -216,6 +216,17 @@ func (s *Service) MarkConnectionEstablished(ctx context.Context, roomID string) 
 	return conflict("INVALID_ROOM_STATE", "Room cannot enter RUNNING from its current state.")
 }
 
+func (s *Service) RelayRegion(ctx context.Context, roomID string) (string, error) {
+	room, err := s.repository.Get(ctx, roomID)
+	if err != nil {
+		return "", mapRoomError(err)
+	}
+	if room.State == StateClosed {
+		return "", conflict("ROOM_CLOSED", "Room is closed.")
+	}
+	return room.Region, nil
+}
+
 func (s *Service) ensureConnection(ctx context.Context, room Room, peerPlayerID string) error {
 	if s.connectionCreator == nil || peerPlayerID == room.HostPlayerID {
 		return nil

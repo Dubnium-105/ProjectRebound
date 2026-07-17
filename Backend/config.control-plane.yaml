@@ -88,6 +88,19 @@ connection:
   websocket_queue_size: 64
   websocket_max_message_bytes: 16384
 
+relay_registry:
+  control_addr: ":9090"
+  heartbeat_interval_seconds: 15
+  unhealthy_after_seconds: 45
+  offline_after_seconds: 90
+  sweep_interval_seconds: 5
+  drain_deadline_seconds: 300
+  certificate_ttl_hours: 24
+  relay_token_key_id: "relay-dev-ephemeral"
+  relay_token_ttl_seconds: 120
+  allocation_ttl_seconds: 1800
+  capacity_threshold_percent: 80
+
 logging:
   level: info
   add_source: false

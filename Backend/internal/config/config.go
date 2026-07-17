@@ -13,24 +13,25 @@ import (
 )
 
 type Config struct {
-	Environment       string            `yaml:"environment"`
-	HTTPAddr          string            `yaml:"http_addr"`
-	HTTP              HTTPConfig        `yaml:"http"`
-	UDPRendezvousPort int               `yaml:"udp_rendezvous_port"`
-	UDPRelayPort      int               `yaml:"udp_relay_port"`
-	UDPQoSPort        int               `yaml:"udp_qos_port"`
-	Database          DBConfig          `yaml:"database"`
-	Redis             RedisConfig       `yaml:"redis"`
-	CORS              CORSConfig        `yaml:"cors"`
-	RateLimit         RateLimitConfig   `yaml:"rate_limit"`
-	Auth              AuthConfig        `yaml:"auth"`
-	Admin             AdminConfig       `yaml:"admin"`
-	GameServer        GameServerConfig  `yaml:"game_server"`
-	P2PRoom           P2PRoomConfig     `yaml:"p2p_room"`
-	Connection        ConnectionConfig  `yaml:"connection"`
-	MatchServer       MatchServerConfig `yaml:"matchserver"`
-	Relay             RelayConfig       `yaml:"relay"`
-	Logging           LogConfig         `yaml:"logging"`
+	Environment       string              `yaml:"environment"`
+	HTTPAddr          string              `yaml:"http_addr"`
+	HTTP              HTTPConfig          `yaml:"http"`
+	UDPRendezvousPort int                 `yaml:"udp_rendezvous_port"`
+	UDPRelayPort      int                 `yaml:"udp_relay_port"`
+	UDPQoSPort        int                 `yaml:"udp_qos_port"`
+	Database          DBConfig            `yaml:"database"`
+	Redis             RedisConfig         `yaml:"redis"`
+	CORS              CORSConfig          `yaml:"cors"`
+	RateLimit         RateLimitConfig     `yaml:"rate_limit"`
+	Auth              AuthConfig          `yaml:"auth"`
+	Admin             AdminConfig         `yaml:"admin"`
+	GameServer        GameServerConfig    `yaml:"game_server"`
+	P2PRoom           P2PRoomConfig       `yaml:"p2p_room"`
+	Connection        ConnectionConfig    `yaml:"connection"`
+	RelayRegistry     RelayRegistryConfig `yaml:"relay_registry"`
+	MatchServer       MatchServerConfig   `yaml:"matchserver"`
+	Relay             RelayConfig         `yaml:"relay"`
+	Logging           LogConfig           `yaml:"logging"`
 }
 
 type HTTPConfig struct {
@@ -116,6 +117,24 @@ type ConnectionConfig struct {
 	SweepIntervalSeconds int `yaml:"sweep_interval_seconds"`
 	WebSocketQueueSize   int `yaml:"websocket_queue_size"`
 	WebSocketMaxBytes    int `yaml:"websocket_max_message_bytes"`
+}
+
+type RelayRegistryConfig struct {
+	ControlAddr                string `yaml:"control_addr"`
+	BootstrapTokenSet          string `yaml:"-"`
+	HeartbeatIntervalSeconds   int    `yaml:"heartbeat_interval_seconds"`
+	UnhealthyAfterSeconds      int    `yaml:"unhealthy_after_seconds"`
+	OfflineAfterSeconds        int    `yaml:"offline_after_seconds"`
+	SweepIntervalSeconds       int    `yaml:"sweep_interval_seconds"`
+	DrainDeadlineSeconds       int    `yaml:"drain_deadline_seconds"`
+	CertificateTTLHours        int    `yaml:"certificate_ttl_hours"`
+	CACertificatePEMBase64     string `yaml:"-"`
+	CAPrivateKeyPEMBase64      string `yaml:"-"`
+	RelayTokenKeyID            string `yaml:"relay_token_key_id"`
+	RelayTokenPrivateKeyBase64 string `yaml:"-"`
+	RelayTokenTTLSeconds       int    `yaml:"relay_token_ttl_seconds"`
+	AllocationTTLSeconds       int    `yaml:"allocation_ttl_seconds"`
+	CapacityThresholdPercent   int    `yaml:"capacity_threshold_percent"`
 }
 
 type MatchServerConfig struct {
@@ -223,6 +242,19 @@ var Defaults = Config{
 		WebSocketQueueSize:   64,
 		WebSocketMaxBytes:    16 * 1024,
 	},
+	RelayRegistry: RelayRegistryConfig{
+		ControlAddr:              ":9090",
+		HeartbeatIntervalSeconds: 15,
+		UnhealthyAfterSeconds:    45,
+		OfflineAfterSeconds:      90,
+		SweepIntervalSeconds:     5,
+		DrainDeadlineSeconds:     300,
+		CertificateTTLHours:      24,
+		RelayTokenKeyID:          "relay-dev-ephemeral",
+		RelayTokenTTLSeconds:     120,
+		AllocationTTLSeconds:     1800,
+		CapacityThresholdPercent: 80,
+	},
 	MatchServer: MatchServerConfig{
 		HeartbeatSeconds:              5,
 		StaleAfterSeconds:             15,
@@ -285,6 +317,12 @@ func (c *Config) applyEnvOverrides() {
 	overrideInt("CONNECTION_SWEEP_INTERVAL_SECONDS", &c.Connection.SweepIntervalSeconds)
 	overrideInt("CONNECTION_WEBSOCKET_QUEUE_SIZE", &c.Connection.WebSocketQueueSize)
 	overrideInt("CONNECTION_WEBSOCKET_MAX_MESSAGE_BYTES", &c.Connection.WebSocketMaxBytes)
+	overrideString("RELAY_CONTROL_ADDR", &c.RelayRegistry.ControlAddr)
+	overrideString("RELAY_BOOTSTRAP_TOKENS", &c.RelayRegistry.BootstrapTokenSet)
+	overrideString("RELAY_CA_CERT_PEM_BASE64", &c.RelayRegistry.CACertificatePEMBase64)
+	overrideString("RELAY_CA_KEY_PEM_BASE64", &c.RelayRegistry.CAPrivateKeyPEMBase64)
+	overrideString("RELAY_TOKEN_KEY_ID", &c.RelayRegistry.RelayTokenKeyID)
+	overrideString("RELAY_TOKEN_PRIVATE_KEY_BASE64", &c.RelayRegistry.RelayTokenPrivateKeyBase64)
 	if raw := os.Getenv("HTTP_RATE_LIMIT_RPS"); raw != "" {
 		if value, err := strconv.ParseFloat(raw, 64); err == nil {
 			c.RateLimit.RequestsPerSecond = value
@@ -410,6 +448,24 @@ func (c *Config) ValidateControlPlane() error {
 		c.Connection.WebSocketQueueSize < 1 || c.Connection.WebSocketMaxBytes < 1024 {
 		errs = append(errs, errors.New("connection timing and websocket settings are invalid"))
 	}
+	if strings.TrimSpace(c.RelayRegistry.ControlAddr) == "" ||
+		c.RelayRegistry.HeartbeatIntervalSeconds < 1 ||
+		c.RelayRegistry.UnhealthyAfterSeconds <= c.RelayRegistry.HeartbeatIntervalSeconds ||
+		c.RelayRegistry.OfflineAfterSeconds <= c.RelayRegistry.UnhealthyAfterSeconds ||
+		c.RelayRegistry.SweepIntervalSeconds < 1 || c.RelayRegistry.DrainDeadlineSeconds < 1 ||
+		c.RelayRegistry.CertificateTTLHours < 1 || c.RelayRegistry.RelayTokenTTLSeconds < 30 ||
+		c.RelayRegistry.AllocationTTLSeconds < c.RelayRegistry.RelayTokenTTLSeconds ||
+		c.RelayRegistry.CapacityThresholdPercent < 1 || c.RelayRegistry.CapacityThresholdPercent > 100 ||
+		strings.TrimSpace(c.RelayRegistry.RelayTokenKeyID) == "" {
+		errs = append(errs, errors.New("relay_registry timing, capacity, certificate, or token settings are invalid"))
+	}
+	if strings.EqualFold(c.Environment, "production") &&
+		(strings.TrimSpace(c.RelayRegistry.BootstrapTokenSet) == "" ||
+			strings.TrimSpace(c.RelayRegistry.CACertificatePEMBase64) == "" ||
+			strings.TrimSpace(c.RelayRegistry.CAPrivateKeyPEMBase64) == "" ||
+			strings.TrimSpace(c.RelayRegistry.RelayTokenPrivateKeyBase64) == "") {
+		errs = append(errs, errors.New("relay bootstrap, CA, and signing key environment variables are required in production"))
+	}
 	if len(errs) > 0 {
 		return fmt.Errorf("invalid control-plane configuration: %w", errors.Join(errs...))
 	}
@@ -478,4 +534,20 @@ func (c ConnectionConfig) SessionTTL() time.Duration {
 
 func (c ConnectionConfig) SweepInterval() time.Duration {
 	return time.Duration(c.SweepIntervalSeconds) * time.Second
+}
+
+func (c RelayRegistryConfig) SweepInterval() time.Duration {
+	return time.Duration(c.SweepIntervalSeconds) * time.Second
+}
+
+func (c RelayRegistryConfig) CertificateTTL() time.Duration {
+	return time.Duration(c.CertificateTTLHours) * time.Hour
+}
+
+func (c RelayRegistryConfig) RelayTokenTTL() time.Duration {
+	return time.Duration(c.RelayTokenTTLSeconds) * time.Second
+}
+
+func (c RelayRegistryConfig) AllocationTTL() time.Duration {
+	return time.Duration(c.AllocationTTLSeconds) * time.Second
 }

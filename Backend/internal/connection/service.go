@@ -29,12 +29,21 @@ type EventPublisher interface {
 	Publish([]string, Event)
 }
 
+type RelayAllocator interface {
+	AllocateRelay(context.Context, RelayAllocationRequest) (RelayAllocation, error)
+}
+
 type Service struct {
 	repository     *Repository
 	roomAuthorizer RoomAuthorizer
 	publisher      EventPublisher
 	config         config.ConnectionConfig
+	relayAllocator RelayAllocator
 	now            func() time.Time
+}
+
+func (s *Service) SetRelayAllocator(allocator RelayAllocator) {
+	s.relayAllocator = allocator
 }
 
 func NewService(repository *Repository, roomAuthorizer RoomAuthorizer, publisher EventPublisher, cfg config.ConnectionConfig) *Service {
@@ -75,6 +84,39 @@ func (s *Service) CloseForRoom(ctx context.Context, roomID, reason string) error
 	for _, item := range items {
 		s.publish(item, Event{Type: "connection.closed", Payload: connectionEventPayload(item), CreatedAt: s.now().UTC()})
 	}
+	return nil
+}
+
+func (s *Service) RelayBound(ctx context.Context, connectionID, allocationID string) error {
+	tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	item, err := s.repository.GetForUpdate(ctx, tx, connectionID)
+	if err != nil {
+		return err
+	}
+	if item.State == StateConnected && item.SelectedPath == PathUDPRelay {
+		return tx.Commit(ctx)
+	}
+	if item.State != StateRelayBinding {
+		return conflict("INVALID_CONNECTION_STATE", "Connection is not binding a relay path.")
+	}
+	item, err = s.repository.UpdateState(ctx, tx, item.ID, StateConnected, PathUDPRelay, "", s.now().UTC())
+	if err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	if err := s.roomAuthorizer.MarkConnectionEstablished(ctx, item.RoomID); err != nil {
+		return err
+	}
+	s.publish(item, Event{Type: "connection.path_selected", Payload: map[string]any{
+		"connection_id": item.ID, "allocation_id": allocationID,
+		"state": item.State, "selected_path": item.SelectedPath,
+	}, CreatedAt: s.now().UTC()})
 	return nil
 }
 
@@ -300,7 +342,50 @@ func (s *Service) ReportCheck(ctx context.Context, actor Actor, input CheckResul
 		eventType = "connection.path_selected"
 	}
 	s.publish(item, Event{Type: eventType, Payload: connectionEventPayload(item), CreatedAt: now})
+	if item.State == StateAllocatingRelay && s.relayAllocator != nil {
+		item = s.allocateRelay(ctx, item)
+	}
 	return item, nil
+}
+
+func (s *Service) allocateRelay(ctx context.Context, item Connection) Connection {
+	allocation, err := s.relayAllocator.AllocateRelay(ctx, RelayAllocationRequest{
+		ConnectionID: item.ID, RoomID: item.RoomID,
+		HostPlayerID: item.HostPlayerID, PeerPlayerID: item.PeerPlayerID,
+	})
+	if err != nil {
+		event := Event{Type: "connection.relay_failed", Payload: map[string]any{
+			"connection_id": item.ID, "code": "RELAY_UNAVAILABLE",
+		}, CreatedAt: s.now().UTC()}
+		s.publish(item, event)
+		return item
+	}
+	tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return item
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	locked, err := s.repository.GetForUpdate(ctx, tx, item.ID)
+	if err != nil || locked.State != StateAllocatingRelay {
+		return item
+	}
+	updated, err := s.repository.UpdateState(ctx, tx, item.ID, StateRelayBinding, PathUDPRelay, "", s.now().UTC())
+	if err != nil || tx.Commit(ctx) != nil {
+		return item
+	}
+	basePayload := map[string]any{
+		"connection_id": item.ID, "allocation_id": allocation.AllocationID,
+		"relay": allocation.Endpoint, "expires_at": allocation.ExpiresAt,
+	}
+	hostPayload := cloneMap(basePayload)
+	hostPayload["relay_token"] = allocation.HostToken
+	peerPayload := cloneMap(basePayload)
+	peerPayload["relay_token"] = allocation.PeerToken
+	if s.publisher != nil {
+		s.publisher.Publish([]string{item.HostPlayerID}, Event{Type: "connection.relay_allocated", Payload: hostPayload, CreatedAt: s.now().UTC()})
+		s.publisher.Publish([]string{item.PeerPlayerID}, Event{Type: "connection.relay_allocated", Payload: peerPayload, CreatedAt: s.now().UTC()})
+	}
+	return updated
 }
 
 func (s *Service) HandleRealtime(ctx context.Context, actor Actor, incoming IncomingEvent) error {
@@ -486,4 +571,12 @@ func truncate(value string, maximum int) string {
 		return value
 	}
 	return string(runes[:maximum])
+}
+
+func cloneMap(source map[string]any) map[string]any {
+	cloned := make(map[string]any, len(source)+1)
+	for key, value := range source {
+		cloned[key] = value
+	}
+	return cloned
 }

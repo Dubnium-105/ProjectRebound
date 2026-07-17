@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package projectrebound.relay.v1;
+
+option go_package = "github.com/projectrebound/matchserver/api/proto;relaycontrolpb";
+
+import "google/protobuf/struct.proto";
+
+// Envelopes use {"type": string, "payload": object}. Node message types are
+// Hello, Heartbeat, CapacityReport, TrafficReport, AllocationOpened,
+// AllocationClosed, RuntimeError, and DrainCompleted. Control message types
+// are ConfigSnapshot, KeysetUpdate, EnterDrain, ExitDrain, RevokeAllocation,
+// CertificateRotation, and Shutdown.
+service RelayControl {
+  rpc Connect(stream google.protobuf.Struct) returns (stream google.protobuf.Struct);
+}

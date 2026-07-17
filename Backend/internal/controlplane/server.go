@@ -22,6 +22,7 @@ import (
 	appmiddleware "github.com/projectrebound/matchserver/internal/middleware"
 	"github.com/projectrebound/matchserver/internal/p2proom"
 	"github.com/projectrebound/matchserver/internal/player"
+	"github.com/projectrebound/matchserver/internal/relayregistry"
 )
 
 type Server struct {
@@ -66,7 +67,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		cfg.RateLimit.Burst,
 		cfg.HTTP.TrustProxyHeaders,
 	)
-	handler, backgroundServices, err := buildHandler(cfg, logger, dbPool, redisClient, limiter)
+	handler, backgroundServices, err := buildHandler(startupCtx, cfg, logger, dbPool, redisClient, limiter)
 	if err != nil {
 		_ = redisClient.Close()
 		dbPool.Close()
@@ -91,6 +92,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 }
 
 func buildHandler(
+	ctx context.Context,
 	cfg *config.Config,
 	logger *slog.Logger,
 	dbPool *database.Pool,
@@ -205,6 +207,56 @@ func buildHandler(
 		router.Delete("/v1/connections/{connection_id}", connectionHandler.Delete)
 		router.Get("/v1/realtime/connect", realtimeHandler.Connect)
 	})
+
+	bootstrapCredentials, err := relayregistry.ParseBootstrapCredentials(cfg.RelayRegistry.BootstrapTokenSet)
+	if err != nil {
+		return nil, nil, fmt.Errorf("initialize relay bootstrap credentials: %w", err)
+	}
+	if len(bootstrapCredentials) == 0 {
+		logger.Warn("no relay bootstrap tokens configured; relay enrollment will be rejected")
+	}
+	relayAuthority, err := relayregistry.NewAuthority(cfg.RelayRegistry, cfg.Environment)
+	if err != nil {
+		return nil, nil, fmt.Errorf("initialize relay certificate authority: %w", err)
+	}
+	if relayAuthority.Ephemeral() {
+		logger.Warn("using ephemeral development relay CA; node certificates will not survive a restart")
+	}
+	relayTokenManager, err := relayregistry.NewRelayTokenManager(cfg.RelayRegistry, cfg.Environment)
+	if err != nil {
+		return nil, nil, fmt.Errorf("initialize relay token signer: %w", err)
+	}
+	if relayTokenManager.Ephemeral() {
+		logger.Warn("using ephemeral development relay-token key; allocations will not survive a restart")
+	}
+	relayRepository := relayregistry.NewRepository(dbPool.Pool)
+	relayService := relayregistry.NewService(
+		relayRepository, relayAuthority, relayTokenManager, p2pRoomService, cfg.RelayRegistry,
+	)
+	if err := relayService.Initialize(ctx, bootstrapCredentials); err != nil {
+		return nil, nil, fmt.Errorf("synchronize relay bootstrap credentials: %w", err)
+	}
+	relayControlHub := relayregistry.NewControlHub()
+	relayService.SetControlPublisher(relayControlHub)
+	relayService.SetConnectionCoordinator(connectionService)
+	connectionService.SetRelayAllocator(relayService)
+	relayControlServer, err := relayregistry.NewControlServer(
+		relayService, relayControlHub, relayAuthority, cfg.RelayRegistry, logger,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("initialize relay control server: %w", err)
+	}
+	relayHandler := relayregistry.NewHTTPHandler(relayService, logger, cfg.HTTP.TrustProxyHeaders)
+	router.Post("/internal/v1/relay-nodes/enroll", relayHandler.Enroll)
+	router.Post("/internal/v1/relay-nodes/{node_id}/certificate/renew", relayHandler.RenewCertificate)
+	router.Route("/internal/v1/relay-nodes", func(router chi.Router) {
+		router.Use(adminNetworkGuard.Middleware)
+		router.Use(adminAuthenticator.Middleware)
+		router.Get("/{node_id}", relayHandler.Get)
+		router.Post("/{node_id}/drain", relayHandler.Drain)
+		router.Post("/{node_id}/resume", relayHandler.Resume)
+		router.Post("/{node_id}/revoke", relayHandler.Revoke)
+	})
 	router.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		api.WriteError(w, r, http.StatusNotFound, "NOT_FOUND", "Resource not found.", nil)
 	})
@@ -214,8 +266,10 @@ func buildHandler(
 	gameServerSweeper := gameserver.NewSweeper(gameServerService, cfg.GameServer.SweepInterval(), logger)
 	p2pRoomSweeper := p2proom.NewSweeper(p2pRoomService, cfg.P2PRoom.SweepInterval(), logger)
 	connectionSweeper := connection.NewSweeper(connectionService, cfg.Connection.SweepInterval(), logger)
+	relaySweeper := relayregistry.NewSweeper(relayService, cfg.RelayRegistry.SweepInterval(), logger)
 	return appmiddleware.Chain(router, cfg, logger, limiter), []backgroundService{
-		gameServerSweeper, p2pRoomSweeper, connectionSweeper, realtimeHub,
+		gameServerSweeper, p2pRoomSweeper, connectionSweeper, relaySweeper,
+		realtimeHub, relayControlServer,
 	}, nil
 }
 

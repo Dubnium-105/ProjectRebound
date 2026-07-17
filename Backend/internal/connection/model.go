@@ -95,6 +95,28 @@ type CheckResultInput struct {
 	Reason       string `json:"reason"`
 }
 
+type RelayAllocationRequest struct {
+	ConnectionID string
+	RoomID       string
+	HostPlayerID string
+	PeerPlayerID string
+}
+
+type RelayEndpoint struct {
+	NodeID   string `json:"node_id"`
+	Protocol string `json:"protocol"`
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+}
+
+type RelayAllocation struct {
+	AllocationID string
+	Endpoint     RelayEndpoint
+	HostToken    string
+	PeerToken    string
+	ExpiresAt    time.Time
+}
+
 type Event struct {
 	Type      string    `json:"type"`
 	Payload   any       `json:"payload"`
