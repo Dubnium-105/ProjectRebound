@@ -26,6 +26,7 @@ type Config struct {
 	Auth              AuthConfig        `yaml:"auth"`
 	Admin             AdminConfig       `yaml:"admin"`
 	GameServer        GameServerConfig  `yaml:"game_server"`
+	P2PRoom           P2PRoomConfig     `yaml:"p2p_room"`
 	MatchServer       MatchServerConfig `yaml:"matchserver"`
 	Relay             RelayConfig       `yaml:"relay"`
 	Logging           LogConfig         `yaml:"logging"`
@@ -101,6 +102,14 @@ type GameServerConfig struct {
 	SweepIntervalSeconds     int    `yaml:"sweep_interval_seconds"`
 }
 
+type P2PRoomConfig struct {
+	HeartbeatIntervalSeconds int `yaml:"heartbeat_interval_seconds"`
+	StaleAfterSeconds        int `yaml:"stale_after_seconds"`
+	ClosedAfterSeconds       int `yaml:"closed_after_seconds"`
+	SweepIntervalSeconds     int `yaml:"sweep_interval_seconds"`
+	MaximumPlayers           int `yaml:"maximum_players"`
+}
+
 type MatchServerConfig struct {
 	HeartbeatSeconds              int `yaml:"heartbeat_seconds"`
 	StaleAfterSeconds             int `yaml:"stale_after_seconds"`
@@ -159,7 +168,7 @@ var Defaults = Config{
 	},
 	CORS: CORSConfig{
 		AllowedOrigins: []string{"http://localhost", "http://127.0.0.1"},
-		AllowedHeaders: []string{"Authorization", "Content-Type", "X-Request-Id"},
+		AllowedHeaders: []string{"Authorization", "Content-Type", "X-Request-Id", "X-Room-Host-Token"},
 		MaxAgeSeconds:  600,
 	},
 	RateLimit: RateLimitConfig{
@@ -192,6 +201,13 @@ var Defaults = Config{
 		OfflineAfterSeconds:      90,
 		ServerTokenTTLHours:      168,
 		SweepIntervalSeconds:     5,
+	},
+	P2PRoom: P2PRoomConfig{
+		HeartbeatIntervalSeconds: 15,
+		StaleAfterSeconds:        45,
+		ClosedAfterSeconds:       90,
+		SweepIntervalSeconds:     5,
+		MaximumPlayers:           64,
 	},
 	MatchServer: MatchServerConfig{
 		HeartbeatSeconds:              5,
@@ -366,6 +382,12 @@ func (c *Config) ValidateControlPlane() error {
 	if strings.EqualFold(c.Environment, "production") && strings.TrimSpace(c.GameServer.RegistrationTokenSet) == "" {
 		errs = append(errs, errors.New("GAME_SERVER_REGISTRATION_TOKENS is required in production"))
 	}
+	if c.P2PRoom.HeartbeatIntervalSeconds < 1 ||
+		c.P2PRoom.StaleAfterSeconds <= c.P2PRoom.HeartbeatIntervalSeconds ||
+		c.P2PRoom.ClosedAfterSeconds <= c.P2PRoom.StaleAfterSeconds ||
+		c.P2PRoom.SweepIntervalSeconds < 1 || c.P2PRoom.MaximumPlayers < 2 || c.P2PRoom.MaximumPlayers > 64 {
+		errs = append(errs, errors.New("p2p_room timing and capacity settings are invalid"))
+	}
 	if len(errs) > 0 {
 		return fmt.Errorf("invalid control-plane configuration: %w", errors.Join(errs...))
 	}
@@ -421,5 +443,9 @@ func (c GameServerConfig) ServerTokenTTL() time.Duration {
 }
 
 func (c GameServerConfig) SweepInterval() time.Duration {
+	return time.Duration(c.SweepIntervalSeconds) * time.Second
+}
+
+func (c P2PRoomConfig) SweepInterval() time.Duration {
 	return time.Duration(c.SweepIntervalSeconds) * time.Second
 }

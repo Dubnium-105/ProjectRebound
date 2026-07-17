@@ -35,6 +35,7 @@ cors:
     - "Authorization"
     - "Content-Type"
     - "X-Request-Id"
+    - "X-Room-Host-Token"
   max_age_seconds: 600
 
 rate_limit:
@@ -73,6 +74,13 @@ game_server:
   offline_after_seconds: 90
   server_token_ttl_hours: 168
   sweep_interval_seconds: 5
+
+p2p_room:
+  heartbeat_interval_seconds: 15
+  stale_after_seconds: 45
+  closed_after_seconds: 90
+  sweep_interval_seconds: 5
+  maximum_players: 64
 
 logging:
   level: info

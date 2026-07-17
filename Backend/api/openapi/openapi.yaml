@@ -289,6 +289,199 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /v1/p2p-rooms:
+    get:
+      operationId: listP2PRooms
+      tags: [P2P Rooms]
+      parameters:
+        - in: query
+          name: region
+          schema: {type: string}
+        - in: query
+          name: mode
+          schema: {type: string}
+        - in: query
+          name: version
+          schema: {type: string}
+        - in: query
+          name: state
+          schema:
+            $ref: "#/components/schemas/P2PRoomState"
+        - in: query
+          name: has_slots
+          schema: {type: boolean}
+        - in: query
+          name: cursor
+          schema: {type: string}
+        - in: query
+          name: limit
+          schema: {type: integer, minimum: 1, maximum: 100, default: 50}
+      responses:
+        "200":
+          description: Public P2P room directory.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/P2PRoomListResponse"
+    post:
+      operationId: createP2PRoom
+      tags: [P2P Rooms]
+      security:
+        - playerAccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/P2PRoomCreateRequest"
+      responses:
+        "201":
+          description: Room created and its one-time host management credential issued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/P2PRoomCreateResponse"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: The authenticated account is not active.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/p2p-rooms/{room_id}:
+    parameters:
+      - $ref: "#/components/parameters/P2PRoomID"
+    get:
+      operationId: getP2PRoom
+      tags: [P2P Rooms]
+      responses:
+        "200":
+          description: Public room state. Network candidates and credentials are never returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/P2PRoomResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: closeP2PRoom
+      tags: [P2P Rooms]
+      security:
+        - playerAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/P2PRoomHostToken"
+      responses:
+        "200":
+          description: Room closed idempotently.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/P2PRoomResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Account or independent host credential rejected.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/p2p-rooms/{room_id}/join:
+    post:
+      operationId: joinP2PRoom
+      tags: [P2P Rooms]
+      security:
+        - playerAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/P2PRoomID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/P2PRoomJoinRequest"
+      responses:
+        "200":
+          description: Membership activated; repeated joins are idempotent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/P2PRoomResponse"
+        "409":
+          description: Room full, not joinable, or client version mismatch.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/p2p-rooms/{room_id}/leave:
+    post:
+      operationId: leaveP2PRoom
+      tags: [P2P Rooms]
+      security:
+        - playerAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/P2PRoomID"
+      responses:
+        "200":
+          description: Membership deactivated; repeated leaves are idempotent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/P2PRoomResponse"
+        "409":
+          description: Host must close the room instead of leaving it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/p2p-rooms/{room_id}/heartbeat:
+    post:
+      operationId: heartbeatP2PRoom
+      tags: [P2P Rooms]
+      security:
+        - playerAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/P2PRoomID"
+        - $ref: "#/components/parameters/P2PRoomHostToken"
+      responses:
+        "200":
+          description: Host heartbeat accepted; a stale room returns to LOBBY.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/P2PRoomHeartbeatResponse"
+        "403":
+          description: Account or independent host credential rejected.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/p2p-rooms/{room_id}/start:
+    post:
+      operationId: startP2PRoom
+      tags: [P2P Rooms]
+      security:
+        - playerAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/P2PRoomID"
+        - $ref: "#/components/parameters/P2PRoomHostToken"
+      responses:
+        "200":
+          description: Room transitioned from LOBBY to CONNECTING.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/P2PRoomResponse"
+        "409":
+          description: Room cannot start from its current state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /health/live:
     get:
       operationId: getLiveness
@@ -348,6 +541,20 @@ components:
       required: true
       schema:
         type: string
+    P2PRoomID:
+      in: path
+      name: room_id
+      required: true
+      schema:
+        type: string
+    P2PRoomHostToken:
+      in: header
+      name: X-Room-Host-Token
+      required: true
+      description: Independent high-entropy room host credential. It is returned only at room creation.
+      schema:
+        type: string
+        minLength: 64
   responses:
     InvalidRequest:
       description: Invalid request.
@@ -696,6 +903,97 @@ components:
           required: [deregistered]
           properties:
             deregistered: {type: boolean}
+        request_id: {type: string}
+    P2PRoomState:
+      type: string
+      enum: [LOBBY, CONNECTING, RUNNING, STALE, CLOSED]
+    P2PRoomCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [display_name, region, mode, version, max_players]
+      properties:
+        display_name: {type: string, minLength: 1, maxLength: 128}
+        region: {type: string, minLength: 1, maxLength: 64}
+        mode: {type: string, minLength: 1, maxLength: 64}
+        version: {type: string, minLength: 1, maxLength: 64}
+        max_players: {type: integer, minimum: 2, maximum: 64}
+    P2PRoomJoinRequest:
+      type: object
+      additionalProperties: false
+      required: [version]
+      properties:
+        version: {type: string, minLength: 1, maxLength: 64}
+    PublicP2PRoom:
+      type: object
+      description: Whitelisted room metadata. Host credentials, IP addresses, NAT details, candidates, and relay data are excluded.
+      required: [room_id, host_player_id, display_name, region, mode, version, max_players, player_count, state, last_heartbeat_at, created_at]
+      properties:
+        room_id: {type: string}
+        host_player_id: {type: string}
+        display_name: {type: string}
+        region: {type: string}
+        mode: {type: string}
+        version: {type: string}
+        max_players: {type: integer, minimum: 2, maximum: 64}
+        player_count: {type: integer, minimum: 0, maximum: 64}
+        state:
+          $ref: "#/components/schemas/P2PRoomState"
+        last_heartbeat_at: {type: string, format: date-time}
+        created_at: {type: string, format: date-time}
+    P2PRoomResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          $ref: "#/components/schemas/PublicP2PRoom"
+        request_id: {type: string}
+    P2PRoomCreateData:
+      type: object
+      required: [room, host_token, heartbeat_interval_seconds]
+      properties:
+        room:
+          $ref: "#/components/schemas/PublicP2PRoom"
+        host_token:
+          type: string
+          minLength: 64
+          description: One-time room host credential. The service persists only its SHA-256 hash.
+        heartbeat_interval_seconds: {type: integer, minimum: 1}
+    P2PRoomCreateResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          $ref: "#/components/schemas/P2PRoomCreateData"
+        request_id: {type: string}
+    P2PRoomListData:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicP2PRoom"
+        next_cursor: {type: string}
+    P2PRoomListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          $ref: "#/components/schemas/P2PRoomListData"
+        request_id: {type: string}
+    P2PRoomHeartbeatData:
+      type: object
+      required: [room, next_heartbeat_seconds]
+      properties:
+        room:
+          $ref: "#/components/schemas/PublicP2PRoom"
+        next_heartbeat_seconds: {type: integer, minimum: 1}
+    P2PRoomHeartbeatResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          $ref: "#/components/schemas/P2PRoomHeartbeatData"
         request_id: {type: string}
     HealthSuccess:
       type: object

@@ -20,6 +20,7 @@ import (
 	"github.com/projectrebound/matchserver/internal/health"
 	appmiddleware "github.com/projectrebound/matchserver/internal/middleware"
 	"github.com/projectrebound/matchserver/internal/player"
+	"github.com/projectrebound/matchserver/internal/p2proom"
 )
 
 type Server struct {
@@ -29,6 +30,7 @@ type Server struct {
 	cache             *cache.Client
 	httpServer        *http.Server
 	gameServerSweeper *gameserver.Sweeper
+	p2pRoomSweeper    *p2proom.Sweeper
 	background        sync.WaitGroup
 }
 
@@ -60,7 +62,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		cfg.RateLimit.Burst,
 		cfg.HTTP.TrustProxyHeaders,
 	)
-	handler, gameServerSweeper, err := buildHandler(cfg, logger, dbPool, redisClient, limiter)
+	handler, gameServerSweeper, p2pRoomSweeper, err := buildHandler(cfg, logger, dbPool, redisClient, limiter)
 	if err != nil {
 		_ = redisClient.Close()
 		dbPool.Close()
@@ -73,6 +75,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		database:          dbPool,
 		cache:             redisClient,
 		gameServerSweeper: gameServerSweeper,
+		p2pRoomSweeper:    p2pRoomSweeper,
 		httpServer: &http.Server{
 			Addr:              cfg.HTTP.Addr,
 			Handler:           handler,
@@ -90,7 +93,7 @@ func buildHandler(
 	dbPool *database.Pool,
 	redisClient *cache.Client,
 	limiter *appmiddleware.IPRateLimiter,
-) (http.Handler, *gameserver.Sweeper, error) {
+) (http.Handler, *gameserver.Sweeper, *p2proom.Sweeper, error) {
 	router := chi.NewRouter()
 	healthHandler := health.NewHandler([]health.Dependency{
 		{Name: "postgres", Checker: dbPool},
@@ -101,7 +104,7 @@ func buildHandler(
 
 	tokenManager, ephemeralKey, err := auth.NewTokenManager(cfg.Auth, cfg.Environment)
 	if err != nil {
-		return nil, nil, fmt.Errorf("initialize access token signer: %w", err)
+		return nil, nil, nil, fmt.Errorf("initialize access token signer: %w", err)
 	}
 	if ephemeralKey {
 		logger.Warn("using ephemeral development access-token key; tokens will not survive a restart")
@@ -131,14 +134,14 @@ func buildHandler(
 
 	adminAuthenticator, err := admin.NewAuthenticator(cfg.Admin)
 	if err != nil {
-		return nil, nil, fmt.Errorf("initialize administrator authentication: %w", err)
+		return nil, nil, nil, fmt.Errorf("initialize administrator authentication: %w", err)
 	}
 	if !adminAuthenticator.Configured() {
 		logger.Warn("no administrator tokens configured; admin API will reject all requests")
 	}
 	adminNetworkGuard, err := admin.NewNetworkGuard(cfg.Admin.TrustedCIDRs, cfg.HTTP.TrustProxyHeaders)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	adminService := admin.NewService(dbPool.Pool, playerRepository, authRepository, admin.NewRepository())
 	adminHandler := admin.NewHTTPHandler(adminService, logger, cfg.HTTP.TrustProxyHeaders)
@@ -153,7 +156,7 @@ func buildHandler(
 
 	gameServerRegistrationAuth, err := gameserver.NewRegistrationAuthenticator(cfg.GameServer.RegistrationTokenSet)
 	if err != nil {
-		return nil, nil, fmt.Errorf("initialize game server registration authentication: %w", err)
+		return nil, nil, nil, fmt.Errorf("initialize game server registration authentication: %w", err)
 	}
 	if !gameServerRegistrationAuth.Configured() {
 		logger.Warn("no game server registration tokens configured; registrations will be rejected")
@@ -166,6 +169,21 @@ func buildHandler(
 	router.Get("/v1/game-servers/{server_id}", gameServerHandler.Get)
 	router.Post("/v1/game-servers/{server_id}/heartbeat", gameServerHandler.Heartbeat)
 	router.Delete("/v1/game-servers/{server_id}", gameServerHandler.Deregister)
+
+	p2pRoomService := p2proom.NewService(p2proom.NewRepository(dbPool.Pool), cfg.P2PRoom)
+	p2pRoomHandler := p2proom.NewHTTPHandler(p2pRoomService, logger)
+	router.Get("/v1/p2p-rooms", p2pRoomHandler.List)
+	router.Get("/v1/p2p-rooms/{room_id}", p2pRoomHandler.Get)
+	router.Group(func(router chi.Router) {
+		router.Use(auth.RequireAccess(authService, logger))
+		router.Use(auth.RequireActive)
+		router.Post("/v1/p2p-rooms", p2pRoomHandler.Create)
+		router.Post("/v1/p2p-rooms/{room_id}/join", p2pRoomHandler.Join)
+		router.Post("/v1/p2p-rooms/{room_id}/leave", p2pRoomHandler.Leave)
+		router.Post("/v1/p2p-rooms/{room_id}/heartbeat", p2pRoomHandler.Heartbeat)
+		router.Post("/v1/p2p-rooms/{room_id}/start", p2pRoomHandler.Start)
+		router.Delete("/v1/p2p-rooms/{room_id}", p2pRoomHandler.Delete)
+	})
 	router.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		api.WriteError(w, r, http.StatusNotFound, "NOT_FOUND", "Resource not found.", nil)
 	})
@@ -173,16 +191,21 @@ func buildHandler(
 		api.WriteError(w, r, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed.", nil)
 	})
 	gameServerSweeper := gameserver.NewSweeper(gameServerService, cfg.GameServer.SweepInterval(), logger)
-	return appmiddleware.Chain(router, cfg, logger, limiter), gameServerSweeper, nil
+	p2pRoomSweeper := p2proom.NewSweeper(p2pRoomService, cfg.P2PRoom.SweepInterval(), logger)
+	return appmiddleware.Chain(router, cfg, logger, limiter), gameServerSweeper, p2pRoomSweeper, nil
 }
 
 func (s *Server) Run(ctx context.Context) error {
 	runCtx, cancelBackground := context.WithCancel(ctx)
 	defer cancelBackground()
-	s.background.Add(1)
+	s.background.Add(2)
 	go func() {
 		defer s.background.Done()
 		s.gameServerSweeper.Run(runCtx)
+	}()
+	go func() {
+		defer s.background.Done()
+		s.p2pRoomSweeper.Run(runCtx)
 	}()
 	errorCh := make(chan error, 1)
 	go func() {

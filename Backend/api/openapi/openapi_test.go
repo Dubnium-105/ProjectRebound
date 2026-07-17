@@ -49,6 +49,12 @@ func TestDocumentHasRequiredOpenAPIShape(t *testing.T) {
 		"/v1/game-servers",
 		"/v1/game-servers/{server_id}",
 		"/v1/game-servers/{server_id}/heartbeat",
+		"/v1/p2p-rooms",
+		"/v1/p2p-rooms/{room_id}",
+		"/v1/p2p-rooms/{room_id}/join",
+		"/v1/p2p-rooms/{room_id}/leave",
+		"/v1/p2p-rooms/{room_id}/heartbeat",
+		"/v1/p2p-rooms/{room_id}/start",
 		"/health/live",
 		"/health/ready",
 	} {
@@ -56,7 +62,7 @@ func TestDocumentHasRequiredOpenAPIShape(t *testing.T) {
 			t.Errorf("required path %s is missing", path)
 		}
 	}
-	for _, schema := range []string{"BindRequest", "BindResponse", "RefreshRequest", "MeResponse", "AdminPlayerPatch", "AdminPlayerListResponse", "GameServerRegistrationRequest", "GameServerListResponse", "HealthSuccess", "Error", "ErrorResponse"} {
+	for _, schema := range []string{"BindRequest", "BindResponse", "RefreshRequest", "MeResponse", "AdminPlayerPatch", "AdminPlayerListResponse", "GameServerRegistrationRequest", "GameServerListResponse", "P2PRoomCreateRequest", "PublicP2PRoom", "P2PRoomListResponse", "HealthSuccess", "Error", "ErrorResponse"} {
 		if _, ok := document.Components.Schemas[schema]; !ok {
 			t.Errorf("required schema %s is missing", schema)
 		}
