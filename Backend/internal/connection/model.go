@@ -15,6 +15,7 @@ const (
 	StateCheckingDirect      State = "CHECKING_DIRECT"
 	StateAllocatingRelay     State = "ALLOCATING_RELAY"
 	StateRelayBinding        State = "RELAY_BINDING"
+	StateMigratingRelay      State = "MIGRATING_RELAY"
 	StateConnected           State = "CONNECTED"
 	StateFailed              State = "FAILED"
 	StateExpired             State = "EXPIRED"
@@ -115,6 +116,11 @@ type RelayAllocation struct {
 	HostToken    string
 	PeerToken    string
 	ExpiresAt    time.Time
+}
+
+type RelayMigration struct {
+	PreviousAllocationID string
+	Allocation           RelayAllocation
 }
 
 type Event struct {

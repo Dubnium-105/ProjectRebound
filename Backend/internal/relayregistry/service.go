@@ -27,7 +27,8 @@ type ControlPublisher interface {
 }
 
 type ConnectionCoordinator interface {
-	RelayBound(context.Context, string, string) error
+	RelayBound(context.Context, string, string, string) error
+	RelayMigrating(context.Context, string, connection.RelayMigration) error
 }
 
 type Service struct {
@@ -182,8 +183,22 @@ func (s *Service) AllocationOpened(ctx context.Context, nodeID, allocationID str
 		}
 		return internal(err)
 	}
+	var migration Migration
+	migration, migrationErr := s.repository.MigrationForNewAllocation(ctx, allocation.ID)
+	if migrationErr != nil && !errors.Is(migrationErr, pgx.ErrNoRows) {
+		return internal(migrationErr)
+	}
+	previousAllocationID := ""
+	if migrationErr == nil {
+		previousAllocationID = migration.OldAllocationID
+	}
 	if s.connectionCoordinator != nil {
-		if err := s.connectionCoordinator.RelayBound(ctx, allocation.ConnectionID, allocation.ID); err != nil {
+		if err := s.connectionCoordinator.RelayBound(ctx, allocation.ConnectionID, allocation.ID, previousAllocationID); err != nil {
+			return internal(err)
+		}
+	}
+	if migrationErr == nil {
+		if err := s.repository.CompleteMigration(ctx, migration.ID, s.now().UTC()); err != nil {
 			return internal(err)
 		}
 	}
@@ -292,13 +307,68 @@ func (s *Service) AllocateRelay(ctx context.Context, request connection.RelayAll
 		}
 		return connection.RelayAllocation{}, internal(err)
 	}
+	return s.presentAllocation(allocation, node)
+}
+
+func (s *Service) MigrateFailedRelays(ctx context.Context) (int, int, error) {
+	allocationIDs, err := s.repository.FailedNodeAllocationIDs(ctx, 100)
+	if err != nil {
+		return 0, 0, err
+	}
+	planned := 0
+	for _, allocationID := range allocationIDs {
+		now := s.now().UTC()
+		_, err := s.repository.PlanMigration(
+			ctx, allocationID, newID("rmig_"), newID("alloc_"),
+			now.Add(s.config.AllocationTTL()), now, s.config.CapacityThresholdPercent,
+		)
+		if errors.Is(err, pgx.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return planned, 0, err
+		}
+		planned++
+	}
+	pending, err := s.repository.PendingMigrations(ctx, 100)
+	if err != nil {
+		return planned, 0, err
+	}
+	dispatched := 0
+	for _, migration := range pending {
+		allocation, err := s.presentAllocation(migration.NewAllocation, migration.NewNode)
+		if err != nil {
+			return planned, dispatched, err
+		}
+		if s.connectionCoordinator == nil {
+			return planned, dispatched, errors.New("relay migration coordinator is unavailable")
+		}
+		if s.controlPublisher != nil {
+			s.controlPublisher.Publish(migration.OldRelayNodeID, ControlMessage{
+				Type: "RevokeAllocation", Payload: map[string]any{"allocation_id": migration.OldAllocationID, "reason": "MIGRATED"},
+			})
+		}
+		if err := s.connectionCoordinator.RelayMigrating(ctx, migration.ConnectionID, connection.RelayMigration{
+			PreviousAllocationID: migration.OldAllocationID, Allocation: allocation,
+		}); err != nil {
+			return planned, dispatched, err
+		}
+		if err := s.repository.MarkMigrationDispatched(ctx, migration.ID, s.now().UTC()); err != nil {
+			return planned, dispatched, err
+		}
+		dispatched++
+	}
+	return planned, dispatched, nil
+}
+
+func (s *Service) presentAllocation(allocation Allocation, node Node) (connection.RelayAllocation, error) {
 	endpoint, ok := chooseEndpoint(node.PublicEndpoints, allocation.Protocol)
 	if !ok {
 		return connection.RelayAllocation{}, unavailable("RELAY_PROTOCOL_UNAVAILABLE", "Scheduled relay has no compatible endpoint.")
 	}
 	baseClaims := RelayClaims{
-		RelayNodeID: node.ID, AllocationID: allocation.ID, ConnectionID: request.ConnectionID,
-		RoomID: request.RoomID, Protocol: allocation.Protocol,
+		RelayNodeID: node.ID, AllocationID: allocation.ID, ConnectionID: allocation.ConnectionID,
+		RoomID: allocation.RoomID, Protocol: allocation.Protocol,
 		MaxBPS: allocation.MaxBPS, MaxPPS: allocation.MaxPPS, MaxTotalBytes: allocation.MaxTotalBytes,
 		AllocationExpiresAt: allocation.ExpiresAt.Unix(),
 	}

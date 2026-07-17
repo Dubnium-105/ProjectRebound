@@ -92,6 +92,23 @@ type Allocation struct {
 	ClosedAt      *time.Time
 }
 
+type Migration struct {
+	ID              string
+	ConnectionID    string
+	RoomID          string
+	OldAllocationID string
+	NewAllocationID string
+	OldRelayNodeID  string
+	NewRelayNodeID  string
+	NewAllocation   Allocation
+	NewNode         Node
+	State           string
+	DispatchedAt    *time.Time
+	CompletedAt     *time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
 type AdminMeta struct {
 	ActorID   string
 	RequestID string

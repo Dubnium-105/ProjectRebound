@@ -570,6 +570,8 @@ paths:
           oneOf:
             - $ref: "#/components/schemas/ConnectionRealtimeEvent"
             - $ref: "#/components/schemas/ConnectionRelayAllocatedEvent"
+            - $ref: "#/components/schemas/ConnectionRelayMigratingEvent"
+            - $ref: "#/components/schemas/ConnectionRelayMigratedEvent"
             - $ref: "#/components/schemas/RealtimeErrorEvent"
       responses:
         "101":
@@ -1233,7 +1235,7 @@ components:
         request_id: {type: string}
     ConnectionState:
       type: string
-      enum: [CREATED, GATHERING_CANDIDATES, CHECKING_DIRECT, ALLOCATING_RELAY, RELAY_BINDING, CONNECTED, FAILED, EXPIRED, CLOSED]
+      enum: [CREATED, GATHERING_CANDIDATES, CHECKING_DIRECT, ALLOCATING_RELAY, RELAY_BINDING, MIGRATING_RELAY, CONNECTED, FAILED, EXPIRED, CLOSED]
     ConnectionPath:
       type: string
       enum: [LAN, IPV6, UDP_PUNCH, UDP_RELAY, TCP_TLS_RELAY]
@@ -1554,6 +1556,51 @@ components:
               type: string
               description: Participant-specific signed token; HOST and PEER receive distinct values.
             expires_at: {type: string, format: date-time}
+        created_at: {type: string, format: date-time}
+    ConnectionRelayMigratingEvent:
+      type: object
+      additionalProperties: false
+      required: [type, payload, created_at]
+      properties:
+        type: {type: string, const: connection.relay_migrating}
+        payload:
+          type: object
+          additionalProperties: false
+          required: [connection_id, previous_allocation_id, allocation_id, relay, relay_token, expires_at]
+          properties:
+            connection_id: {type: string}
+            previous_allocation_id: {type: string}
+            allocation_id: {type: string}
+            relay:
+              type: object
+              additionalProperties: false
+              required: [node_id, protocol, host, port]
+              properties:
+                node_id: {type: string}
+                protocol: {type: string, enum: [udp, tcp_tls]}
+                host: {type: string}
+                port: {type: integer, minimum: 1, maximum: 65535}
+            relay_token:
+              type: string
+              description: Participant-specific replacement token; HOST and PEER receive distinct values.
+            expires_at: {type: string, format: date-time}
+        created_at: {type: string, format: date-time}
+    ConnectionRelayMigratedEvent:
+      type: object
+      additionalProperties: false
+      required: [type, payload, created_at]
+      properties:
+        type: {type: string, const: connection.relay_migrated}
+        payload:
+          type: object
+          additionalProperties: false
+          required: [connection_id, previous_allocation_id, allocation_id, state, selected_path]
+          properties:
+            connection_id: {type: string}
+            previous_allocation_id: {type: string}
+            allocation_id: {type: string}
+            state: {type: string, const: CONNECTED}
+            selected_path: {type: string, const: UDP_RELAY}
         created_at: {type: string, format: date-time}
     HealthSuccess:
       type: object

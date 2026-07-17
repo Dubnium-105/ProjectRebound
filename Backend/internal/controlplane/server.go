@@ -267,8 +267,9 @@ func buildHandler(
 	p2pRoomSweeper := p2proom.NewSweeper(p2pRoomService, cfg.P2PRoom.SweepInterval(), logger)
 	connectionSweeper := connection.NewSweeper(connectionService, cfg.Connection.SweepInterval(), logger)
 	relaySweeper := relayregistry.NewSweeper(relayService, cfg.RelayRegistry.SweepInterval(), logger)
+	relayMigrationSweeper := relayregistry.NewMigrationSweeper(relayService, cfg.RelayRegistry.SweepInterval(), logger)
 	return appmiddleware.Chain(router, cfg, logger, limiter), []backgroundService{
-		gameServerSweeper, p2pRoomSweeper, connectionSweeper, relaySweeper,
+		gameServerSweeper, p2pRoomSweeper, connectionSweeper, relaySweeper, relayMigrationSweeper,
 		realtimeHub, relayControlServer,
 	}, nil
 }

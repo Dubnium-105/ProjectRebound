@@ -168,6 +168,52 @@ func TestConnectionLifecycleAgainstPostgreSQL(t *testing.T) {
 	if err != nil || allocating.State != StateAllocatingRelay {
 		t.Fatalf("relay fallback = %#v, %v", allocating, err)
 	}
+	if _, err := pool.Exec(ctx, "UPDATE connections SET state = 'CONNECTED', selected_path = 'UDP_RELAY' WHERE id = $1", allocating.ID); err != nil {
+		t.Fatal(err)
+	}
+	migrationHostEvents := hub.Subscribe(host.PlayerID)
+	defer migrationHostEvents.Close()
+	migrationPeerEvents := hub.Subscribe(peer.PlayerID)
+	defer migrationPeerEvents.Close()
+	migration := RelayMigration{
+		PreviousAllocationID: "alloc_previous",
+		Allocation: RelayAllocation{
+			AllocationID: "alloc_replacement",
+			Endpoint: RelayEndpoint{
+				NodeID: "relay_replacement", Protocol: "udp", Host: "relay.example.test", Port: 3480,
+			},
+			HostToken: "host-token", PeerToken: "peer-token", ExpiresAt: time.Now().UTC().Add(10 * time.Minute),
+		},
+	}
+	if err := service.RelayMigrating(ctx, allocating.ID, migration); err != nil {
+		t.Fatal(err)
+	}
+	hostMigrationEvent := assertEventType(t, migrationHostEvents, "connection.relay_migrating")
+	peerMigrationEvent := assertEventType(t, migrationPeerEvents, "connection.relay_migrating")
+	hostMigrationPayload, ok := hostMigrationEvent.Payload.(map[string]any)
+	if !ok || hostMigrationPayload["relay_token"] != "host-token" {
+		t.Fatalf("host migration payload = %#v", hostMigrationEvent.Payload)
+	}
+	peerMigrationPayload, ok := peerMigrationEvent.Payload.(map[string]any)
+	if !ok || peerMigrationPayload["relay_token"] != "peer-token" {
+		t.Fatalf("peer migration payload = %#v", peerMigrationEvent.Payload)
+	}
+	if hostMigrationPayload["relay_token"] == peerMigrationPayload["relay_token"] {
+		t.Fatal("relay migration exposed the same participant token to both endpoints")
+	}
+	migrating, err := service.Get(ctx, peer, allocating.ID)
+	if err != nil || migrating.State != StateMigratingRelay {
+		t.Fatalf("migrating connection = %#v, %v", migrating, err)
+	}
+	if err := service.RelayBound(ctx, allocating.ID, migration.Allocation.AllocationID, migration.PreviousAllocationID); err != nil {
+		t.Fatal(err)
+	}
+	assertEventType(t, migrationHostEvents, "connection.relay_migrated")
+	assertEventType(t, migrationPeerEvents, "connection.relay_migrated")
+	migrated, err := service.Get(ctx, peer, allocating.ID)
+	if err != nil || migrated.State != StateConnected || migrated.SelectedPath != PathUDPRelay {
+		t.Fatalf("migrated connection = %#v, %v", migrated, err)
+	}
 	if _, err := pool.Exec(ctx, "UPDATE connections SET expires_at = $2 WHERE id = $1", allocating.ID, time.Now().UTC().Add(-time.Second)); err != nil {
 		t.Fatal(err)
 	}
@@ -209,16 +255,18 @@ func insertConnectionPlayer(t *testing.T, ctx context.Context, pool *pgxpool.Poo
 	return Actor{PlayerID: id, AccountStatus: status}
 }
 
-func assertEventType(t *testing.T, subscription *Subscription, eventType string) {
+func assertEventType(t *testing.T, subscription *Subscription, eventType string) Event {
 	t.Helper()
 	select {
 	case event := <-subscription.Events():
 		if event.Type != eventType {
 			t.Fatalf("event type = %s, want %s", event.Type, eventType)
 		}
+		return event
 	default:
 		t.Fatalf("event %s was not delivered", eventType)
 	}
+	return Event{}
 }
 
 func connectionErrorCode(err error) string {

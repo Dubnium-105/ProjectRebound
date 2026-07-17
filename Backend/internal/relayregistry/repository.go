@@ -278,6 +278,224 @@ func (r *Repository) Schedule(ctx context.Context, allocation Allocation, region
 	return created, node, true, nil
 }
 
+func (r *Repository) FailedNodeAllocationIDs(ctx context.Context, limit int) ([]string, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT allocation.id
+		FROM relay_allocations AS allocation
+		JOIN relay_nodes AS node ON node.id = allocation.relay_node_id
+		JOIN connections AS connection ON connection.id = allocation.connection_id
+		WHERE allocation.state IN ('ALLOCATED', 'BINDING', 'ACTIVE')
+		  AND node.state IN ('UNHEALTHY', 'OFFLINE', 'REVOKED')
+		  AND connection.state NOT IN ('FAILED', 'EXPIRED', 'CLOSED')
+		  AND NOT EXISTS (
+		      SELECT 1 FROM relay_migrations AS migration
+		      WHERE migration.connection_id = allocation.connection_id AND migration.state = 'BINDING'
+		  )
+		ORDER BY allocation.updated_at, allocation.id
+		LIMIT $1
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+func (r *Repository) PlanMigration(ctx context.Context, oldAllocationID, migrationID, newAllocationID string, expiresAt, now time.Time, threshold int) (Migration, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return Migration{}, err
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	oldAllocation, oldNode, err := scanAllocationAndNode(tx.QueryRow(ctx, `
+		SELECT `+prefixedAllocationColumns("allocation")+`, `+prefixedNodeColumns("node")+`
+		FROM relay_allocations AS allocation
+		JOIN relay_nodes AS node ON node.id = allocation.relay_node_id
+		WHERE allocation.id = $1
+		  AND allocation.state IN ('ALLOCATED', 'BINDING', 'ACTIVE')
+		  AND node.state IN ('UNHEALTHY', 'OFFLINE', 'REVOKED')
+		FOR UPDATE OF allocation, node
+	`, oldAllocationID))
+	if err != nil {
+		return Migration{}, err
+	}
+	var activeMigrationID string
+	err = tx.QueryRow(ctx, `
+		SELECT id FROM relay_migrations
+		WHERE connection_id = $1 AND state = 'BINDING'
+	`, oldAllocation.ConnectionID).Scan(&activeMigrationID)
+	if err == nil {
+		return Migration{}, pgx.ErrNoRows
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return Migration{}, err
+	}
+	newNode, err := scanNode(tx.QueryRow(ctx, `
+		SELECT `+nodeColumns+`
+		FROM relay_nodes
+		WHERE state = 'READY' AND id <> $1
+		  AND active_allocations * 100 < max_allocations * $3
+		  AND current_egress_bps * 100 < max_egress_bps * $3
+		  AND $4 = ANY(supported_protocols)
+		ORDER BY (region = $2) DESC,
+		         active_allocations::double precision / max_allocations ASC,
+		         current_egress_bps::double precision / max_egress_bps ASC,
+		         random()
+		FOR UPDATE SKIP LOCKED
+		LIMIT 1
+	`, oldNode.ID, oldNode.Region, threshold, oldAllocation.Protocol))
+	if err != nil {
+		return Migration{}, err
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE relay_allocations
+		SET state = 'FAILED', failure_reason = 'RELAY_NODE_UNAVAILABLE', closed_at = $2, updated_at = $2
+		WHERE id = $1
+	`, oldAllocation.ID, now); err != nil {
+		return Migration{}, err
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE relay_nodes
+		SET active_allocations = GREATEST(active_allocations - 1, 0), updated_at = $2
+		WHERE id = $1
+	`, oldNode.ID, now); err != nil {
+		return Migration{}, err
+	}
+	newAllocation, err := scanAllocation(tx.QueryRow(ctx, `
+		INSERT INTO relay_allocations (
+			id, connection_id, room_id, relay_node_id, state, protocol,
+			max_bps, max_pps, max_total_bytes, expires_at, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, 'ALLOCATED', $5, $6, $7, $8, $9, $10, $10)
+		RETURNING `+allocationColumns,
+		newAllocationID, oldAllocation.ConnectionID, oldAllocation.RoomID, newNode.ID,
+		oldAllocation.Protocol, oldAllocation.MaxBPS, oldAllocation.MaxPPS,
+		oldAllocation.MaxTotalBytes, expiresAt, now,
+	))
+	if err != nil {
+		return Migration{}, err
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE relay_nodes SET active_allocations = active_allocations + 1, updated_at = $2 WHERE id = $1
+	`, newNode.ID, now); err != nil {
+		return Migration{}, err
+	}
+	migration := Migration{
+		ID: migrationID, ConnectionID: oldAllocation.ConnectionID, RoomID: oldAllocation.RoomID,
+		OldAllocationID: oldAllocation.ID, NewAllocationID: newAllocation.ID,
+		OldRelayNodeID: oldNode.ID, NewRelayNodeID: newNode.ID,
+		NewAllocation: newAllocation, NewNode: newNode, State: "BINDING", CreatedAt: now, UpdatedAt: now,
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO relay_migrations (
+			id, connection_id, old_allocation_id, new_allocation_id,
+			old_relay_node_id, new_relay_node_id, state, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, 'BINDING', $7, $7)
+	`, migration.ID, migration.ConnectionID, migration.OldAllocationID, migration.NewAllocationID,
+		migration.OldRelayNodeID, migration.NewRelayNodeID, now); err != nil {
+		return Migration{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Migration{}, err
+	}
+	newNode.ActiveAllocations++
+	migration.NewNode = newNode
+	return migration, nil
+}
+
+func (r *Repository) PendingMigrations(ctx context.Context, limit int) ([]Migration, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, connection_id, old_allocation_id, new_allocation_id,
+		       old_relay_node_id, new_relay_node_id, state,
+		       dispatched_at, completed_at, created_at, updated_at
+		FROM relay_migrations
+		WHERE state = 'BINDING' AND dispatched_at IS NULL
+		ORDER BY created_at, id
+		LIMIT $1
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var migrations []Migration
+	for rows.Next() {
+		migration, err := scanMigration(rows)
+		if err != nil {
+			return nil, err
+		}
+		migrations = append(migrations, migration)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for index := range migrations {
+		allocation, node, err := scanAllocationAndNode(r.pool.QueryRow(ctx, `
+			SELECT `+prefixedAllocationColumns("allocation")+`, `+prefixedNodeColumns("node")+`
+			FROM relay_allocations AS allocation
+			JOIN relay_nodes AS node ON node.id = allocation.relay_node_id
+			WHERE allocation.id = $1
+		`, migrations[index].NewAllocationID))
+		if err != nil {
+			return nil, err
+		}
+		migrations[index].RoomID = allocation.RoomID
+		migrations[index].NewAllocation = allocation
+		migrations[index].NewNode = node
+	}
+	return migrations, nil
+}
+
+func (r *Repository) MarkMigrationDispatched(ctx context.Context, migrationID string, now time.Time) error {
+	_, err := r.pool.Exec(ctx, `
+		UPDATE relay_migrations SET dispatched_at = COALESCE(dispatched_at, $2), updated_at = $2
+		WHERE id = $1 AND state = 'BINDING'
+	`, migrationID, now)
+	return err
+}
+
+func (r *Repository) MigrationForNewAllocation(ctx context.Context, allocationID string) (Migration, error) {
+	return scanMigration(r.pool.QueryRow(ctx, `
+		SELECT id, connection_id, old_allocation_id, new_allocation_id,
+		       old_relay_node_id, new_relay_node_id, state,
+		       dispatched_at, completed_at, created_at, updated_at
+		FROM relay_migrations
+		WHERE new_allocation_id = $1 AND state = 'BINDING'
+	`, allocationID))
+}
+
+func (r *Repository) CompleteMigration(ctx context.Context, migrationID string, now time.Time) error {
+	_, err := r.pool.Exec(ctx, `
+		UPDATE relay_migrations
+		SET state = 'COMPLETED', completed_at = $2, updated_at = $2
+		WHERE id = $1 AND state = 'BINDING'
+	`, migrationID, now)
+	return err
+}
+
+func scanMigration(row pgx.Row) (Migration, error) {
+	var migration Migration
+	var dispatchedAt, completedAt sql.NullTime
+	err := row.Scan(
+		&migration.ID, &migration.ConnectionID, &migration.OldAllocationID, &migration.NewAllocationID,
+		&migration.OldRelayNodeID, &migration.NewRelayNodeID, &migration.State,
+		&dispatchedAt, &completedAt, &migration.CreatedAt, &migration.UpdatedAt,
+	)
+	if dispatchedAt.Valid {
+		migration.DispatchedAt = &dispatchedAt.Time
+	}
+	if completedAt.Valid {
+		migration.CompletedAt = &completedAt.Time
+	}
+	return migration, err
+}
+
 func (r *Repository) getActiveAllocation(ctx context.Context, tx pgx.Tx, connectionID string) (Allocation, Node, error) {
 	row := tx.QueryRow(ctx, `
 		SELECT `+prefixedAllocationColumns("allocation")+`, `+prefixedNodeColumns("node")+`
