@@ -68,6 +68,22 @@ services:
       control-plane:
         condition: service_healthy
 
+  edge-relay:
+    profiles: [relay]
+    build:
+      context: ../..
+      dockerfile: deployments/relay/Dockerfile
+    environment:
+      EDGE_RELAY_BOOTSTRAP_TOKEN: "${EDGE_RELAY_BOOTSTRAP_TOKEN:-}"
+    depends_on:
+      control-plane:
+        condition: service_healthy
+    ports:
+      - "8443:8443/udp"
+    volumes:
+      - relay-data:/edge-relay-data
+
 volumes:
   postgres-data:
   redis-data:
+  relay-data:

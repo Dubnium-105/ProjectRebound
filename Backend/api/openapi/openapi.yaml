@@ -1507,7 +1507,7 @@ components:
     RelayTokenClaims:
       type: object
       additionalProperties: false
-      required: [iss, aud, kid, jti, relay_node_id, allocation_id, connection_id, room_id, endpoint_role, protocol, max_bps, max_pps, max_total_bytes, nbf, exp]
+      required: [iss, aud, kid, jti, relay_node_id, allocation_id, connection_id, room_id, endpoint_role, protocol, max_bps, max_pps, max_total_bytes, nbf, exp, allocation_expires_at]
       properties:
         iss: {type: string, const: game-control-plane}
         aud: {type: string, const: game-relay}
@@ -1524,6 +1524,10 @@ components:
         max_total_bytes: {type: integer, format: int64, minimum: 1}
         nbf: {type: integer, format: int64}
         exp: {type: integer, format: int64}
+        allocation_expires_at:
+          type: integer
+          format: int64
+          description: Allocation lifetime, independent from the shorter token binding window.
     ConnectionRelayAllocatedEvent:
       type: object
       additionalProperties: false

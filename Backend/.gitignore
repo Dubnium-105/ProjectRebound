@@ -1,2 +1,4 @@
 *.db-shm
 *.db-wal
+edge-relay-data/
+edge-relay.exe

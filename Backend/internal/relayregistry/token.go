@@ -15,21 +15,22 @@ import (
 )
 
 type RelayClaims struct {
-	Issuer        string `json:"iss"`
-	Audience      string `json:"aud"`
-	KeyID         string `json:"kid"`
-	TokenID       string `json:"jti"`
-	RelayNodeID   string `json:"relay_node_id"`
-	AllocationID  string `json:"allocation_id"`
-	ConnectionID  string `json:"connection_id"`
-	RoomID        string `json:"room_id"`
-	EndpointRole  string `json:"endpoint_role"`
-	Protocol      string `json:"protocol"`
-	MaxBPS        int64  `json:"max_bps"`
-	MaxPPS        int    `json:"max_pps"`
-	MaxTotalBytes int64  `json:"max_total_bytes"`
-	NotBefore     int64  `json:"nbf"`
-	ExpiresAt     int64  `json:"exp"`
+	Issuer              string `json:"iss"`
+	Audience            string `json:"aud"`
+	KeyID               string `json:"kid"`
+	TokenID             string `json:"jti"`
+	RelayNodeID         string `json:"relay_node_id"`
+	AllocationID        string `json:"allocation_id"`
+	ConnectionID        string `json:"connection_id"`
+	RoomID              string `json:"room_id"`
+	EndpointRole        string `json:"endpoint_role"`
+	Protocol            string `json:"protocol"`
+	MaxBPS              int64  `json:"max_bps"`
+	MaxPPS              int    `json:"max_pps"`
+	MaxTotalBytes       int64  `json:"max_total_bytes"`
+	NotBefore           int64  `json:"nbf"`
+	ExpiresAt           int64  `json:"exp"`
+	AllocationExpiresAt int64  `json:"allocation_expires_at"`
 }
 
 type relayTokenHeader struct {
@@ -131,7 +132,8 @@ func (m *RelayTokenManager) Verify(token, expectedNodeID string) (RelayClaims, e
 		claims.TokenID == "" || claims.RelayNodeID != expectedNodeID || claims.AllocationID == "" || claims.ConnectionID == "" || claims.RoomID == "" ||
 		(claims.EndpointRole != "HOST" && claims.EndpointRole != "PEER") ||
 		(claims.Protocol != "UDP" && claims.Protocol != "TCP_TLS") ||
-		claims.MaxBPS <= 0 || claims.MaxPPS <= 0 || claims.MaxTotalBytes <= 0 || claims.NotBefore > now || claims.ExpiresAt <= now {
+		claims.MaxBPS <= 0 || claims.MaxPPS <= 0 || claims.MaxTotalBytes <= 0 || claims.NotBefore > now || claims.ExpiresAt <= now ||
+		claims.AllocationExpiresAt < claims.ExpiresAt {
 		return RelayClaims{}, errors.New("invalid or expired relay token claims")
 	}
 	return claims, nil

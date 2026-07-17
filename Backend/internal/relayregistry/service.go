@@ -300,10 +300,11 @@ func (s *Service) AllocateRelay(ctx context.Context, request connection.RelayAll
 		RelayNodeID: node.ID, AllocationID: allocation.ID, ConnectionID: request.ConnectionID,
 		RoomID: request.RoomID, Protocol: allocation.Protocol,
 		MaxBPS: allocation.MaxBPS, MaxPPS: allocation.MaxPPS, MaxTotalBytes: allocation.MaxTotalBytes,
+		AllocationExpiresAt: allocation.ExpiresAt.Unix(),
 	}
 	hostClaims := baseClaims
 	hostClaims.EndpointRole = "HOST"
-	hostToken, tokenExpiresAt, err := s.tokenManager.Sign(hostClaims, s.config.RelayTokenTTL())
+	hostToken, _, err := s.tokenManager.Sign(hostClaims, s.config.RelayTokenTTL())
 	if err != nil {
 		return connection.RelayAllocation{}, internal(err)
 	}
@@ -316,7 +317,7 @@ func (s *Service) AllocateRelay(ctx context.Context, request connection.RelayAll
 	return connection.RelayAllocation{
 		AllocationID: allocation.ID,
 		Endpoint:     connection.RelayEndpoint{NodeID: node.ID, Protocol: strings.ToLower(endpoint.Protocol), Host: endpoint.Host, Port: endpoint.Port},
-		HostToken:    hostToken, PeerToken: peerToken, ExpiresAt: tokenExpiresAt,
+		HostToken:    hostToken, PeerToken: peerToken, ExpiresAt: allocation.ExpiresAt,
 	}, nil
 }
 

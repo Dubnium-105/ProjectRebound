@@ -18,6 +18,7 @@ func TestRelayTokenIsSignedScopedAndExpiring(t *testing.T) {
 	base := RelayClaims{
 		RelayNodeID: "relay_a", AllocationID: "alloc_a", ConnectionID: "conn_a", RoomID: "room_a",
 		Protocol: "UDP", MaxBPS: 256000, MaxPPS: 200, MaxTotalBytes: 268435456,
+		AllocationExpiresAt: now.Add(30 * time.Minute).Unix(),
 	}
 	host := base
 	host.EndpointRole = "HOST"
