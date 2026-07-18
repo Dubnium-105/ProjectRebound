@@ -294,3 +294,5 @@ go test ./... -count=1
 - 不把 `.env`、`identity.json`、数据库备份或签名私钥提交 Git。
 
 外部 API 见 `docs/control-plane-external-api.md`，内部与 Relay API 见 `docs/control-plane-internal-api.md`，机器可读契约见 `Backend/api/openapi/openapi.yaml`。
+
+通过 GitHub Actions 构建 GHCR 镜像、配置 staging/production Environment、自动备份部署和回滚的方法见 `docs/cicd.md`。

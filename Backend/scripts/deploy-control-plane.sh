@@ -29,7 +29,11 @@ fi
 compose=("${docker_cmd[@]}" compose --env-file "$env_file" -f "$compose_file")
 if [[ "${ENABLE_MONITORING:-1}" == "1" ]]; then compose+=(--profile monitoring); fi
 "${compose[@]}" config -q
-"${compose[@]}" build --pull control-plane
+if [[ "${DEPLOY_PULL_ONLY:-0}" == "1" ]]; then
+  "${compose[@]}" pull
+else
+  "${compose[@]}" build --pull control-plane
+fi
 "${compose[@]}" up -d --remove-orphans
 
 admin_port="$(sed -n 's/^CONTROL_PLANE_ADMIN_PORT=//p' "$env_file" | tail -n 1)"

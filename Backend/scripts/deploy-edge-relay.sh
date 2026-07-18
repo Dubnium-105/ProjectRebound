@@ -27,7 +27,11 @@ else
 fi
 compose=("${docker_cmd[@]}" compose --env-file "$env_file" -f "$compose_file")
 "${compose[@]}" config -q
-"${compose[@]}" build --pull edge-relay
+if [[ "${DEPLOY_PULL_ONLY:-0}" == "1" ]]; then
+  "${compose[@]}" pull edge-relay
+else
+  "${compose[@]}" build --pull edge-relay
+fi
 "${compose[@]}" up -d --remove-orphans
 
 wait_connected() {
