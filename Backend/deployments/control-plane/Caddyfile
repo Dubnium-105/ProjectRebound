@@ -1,0 +1,29 @@
+{$PUBLIC_API_SITE:http://:80} {
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		-Server
+	}
+
+	# Relay enrollment and certificate renewal are machine-facing endpoints.
+	handle /internal/v1/relay-nodes/enroll {
+		reverse_proxy control-plane:8080
+	}
+	handle /internal/v1/relay-nodes/*/certificate/renew {
+		reverse_proxy control-plane:8080
+	}
+
+	# Administrator, monitoring, and other internal routes are never public.
+	handle /internal/* {
+		respond 404
+	}
+	handle /v1/admin* {
+		respond 404
+	}
+
+	handle {
+		reverse_proxy control-plane:8080
+	}
+}

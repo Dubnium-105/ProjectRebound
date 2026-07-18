@@ -1,0 +1,32 @@
+environment: production
+display_name: relay-hkg-01
+region: hkg
+zone: hkg-1
+provider: self-hosted
+software_version: 0.1.0
+protocol_version: 1
+
+# HTTPS enrollment/API endpoint exposed by Caddy.
+control_plane_url: https://api.example.com
+# Private VPN address is preferred; a public address is acceptable because
+# this port requires TLS 1.3 mutual authentication.
+control_addr: 10.20.0.10:9090
+# The current control-plane mTLS certificate has this fixed DNS SAN. Do not
+# replace it with the IP address used by control_addr.
+control_server_name: control-plane
+
+data_dir: /edge-relay-data
+listen_addr: ":8443"
+metrics_addr: 127.0.0.1:9100
+advertised_endpoints:
+  - protocol: UDP
+    host: 203.0.113.20
+    port: 8443
+supported_protocols: [UDP]
+max_allocations: 1000
+max_egress_bps: 200000000
+heartbeat_seconds: 15
+allocation_idle_seconds: 120
+cookie_ttl_seconds: 30
+max_datagram_bytes: 1280
+ip_packets_per_second: 300

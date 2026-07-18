@@ -4,16 +4,16 @@ services:
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_DB: projectrebound
-      POSTGRES_USER: projectrebound
-      POSTGRES_PASSWORD: projectrebound_dev
+      POSTGRES_DB: "${POSTGRES_DB:-projectrebound}"
+      POSTGRES_USER: "${POSTGRES_USER:-projectrebound}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-projectrebound_dev}"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U projectrebound -d projectrebound"]
       interval: 3s
       timeout: 3s
       retries: 20
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
 
@@ -26,7 +26,7 @@ services:
       timeout: 3s
       retries: 20
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis-data:/data
 
@@ -34,16 +34,29 @@ services:
     build:
       context: ../..
       dockerfile: deployments/compose/control-plane.Dockerfile
+      args:
+        GOPROXY: "${GOPROXY:-https://proxy.golang.org,direct}"
+        GOSUMDB: "${GOSUMDB:-sum.golang.org}"
     environment:
       CONTROL_PLANE_ENVIRONMENT: development
       CONTROL_PLANE_HTTP_ADDR: ":8080"
-      DATABASE_URL: "postgres://projectrebound:projectrebound_dev@postgres:5432/projectrebound?sslmode=disable"
+      DATABASE_URL: "postgres://${POSTGRES_USER:-projectrebound}:${POSTGRES_PASSWORD:-projectrebound_dev}@postgres:5432/${POSTGRES_DB:-projectrebound}?sslmode=disable"
       REDIS_ADDRESS: "redis:6379"
       CORS_ALLOWED_ORIGINS: "http://localhost,http://127.0.0.1"
       AUTH_BIND_REQUESTS_PER_MINUTE: "10"
       RELAY_CONTROL_ADDR: ":9090"
       RELAY_BOOTSTRAP_TOKENS: "${RELAY_BOOTSTRAP_TOKENS:-}"
+      RELAY_CA_CERT_PEM_BASE64: "${RELAY_CA_CERT_PEM_BASE64:-}"
+      RELAY_CA_KEY_PEM_BASE64: "${RELAY_CA_KEY_PEM_BASE64:-}"
+      RELAY_TOKEN_KEY_ID: "${RELAY_TOKEN_KEY_ID:-relay-dev-ephemeral}"
+      RELAY_TOKEN_PRIVATE_KEY_BASE64: "${RELAY_TOKEN_PRIVATE_KEY_BASE64:-}"
+      ACCESS_TOKEN_KEY_ID: "${ACCESS_TOKEN_KEY_ID:-access-dev-ephemeral}"
+      ACCESS_TOKEN_PRIVATE_KEY_BASE64: "${ACCESS_TOKEN_PRIVATE_KEY_BASE64:-}"
+      ADMIN_TOKENS: "${ADMIN_TOKENS:-}"
+      GAME_SERVER_REGISTRATION_TOKENS: "${GAME_SERVER_REGISTRATION_TOKENS:-}"
       UPDATE_MANIFEST_DIRECTORY: "/deployments/updates"
+      UPDATE_SIGNING_KEY_ID: "${UPDATE_SIGNING_KEY_ID:-update-dev-ephemeral}"
+      UPDATE_SIGNING_PRIVATE_KEY_BASE64: "${UPDATE_SIGNING_PRIVATE_KEY_BASE64:-}"
       LOG_LEVEL: debug
     depends_on:
       postgres:
@@ -105,6 +118,9 @@ services:
     build:
       context: ../..
       dockerfile: deployments/relay/Dockerfile
+      args:
+        GOPROXY: "${GOPROXY:-https://proxy.golang.org,direct}"
+        GOSUMDB: "${GOSUMDB:-sum.golang.org}"
     environment:
       EDGE_RELAY_BOOTSTRAP_TOKEN: "${EDGE_RELAY_BOOTSTRAP_TOKEN:-}"
     depends_on:

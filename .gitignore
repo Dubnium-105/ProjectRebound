@@ -372,3 +372,10 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 .vscode/settings.json
+
+# ProjectRebound backend deployment secrets and node-local state
+Backend/deployments/control-plane/.env
+Backend/deployments/edge-relay/.env
+Backend/deployments/edge-relay/config.edge-relay.yaml
+Backend/backups/
+Backend/**/identity.json
