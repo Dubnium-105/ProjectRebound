@@ -258,7 +258,7 @@ func handleJoinRoom(deps *Deps) func(w http.ResponseWriter, r *http.Request) {
 
 		connect := endpoint + ":" + strconv.Itoa(port)
 		writeJSON(w, http.StatusOK, models.JoinRoomResponse{
-			Connect:   connect,
+			Connect:    connect,
 			JoinTicket: joinTicket,
 			ExpiresAt:  expiresAt,
 		})
@@ -320,7 +320,7 @@ func handleHeartbeatRoom(deps *Deps) http.HandlerFunc {
 		)
 
 		writeJSON(w, http.StatusOK, models.RoomHeartbeatResponse{
-			Ok:                  true,
+			Ok:                   true,
 			NextHeartbeatSeconds: deps.Config.MatchServer.HeartbeatSeconds,
 		})
 	}

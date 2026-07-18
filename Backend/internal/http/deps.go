@@ -8,10 +8,10 @@ import (
 )
 
 type Deps struct {
-	DB        *sql.DB
-	Config    *config.Config
-	NatStore  *store.NatTraversalStore
-	RelayStore *store.RelayStore
+	DB          *sql.DB
+	Config      *config.Config
+	NatStore    *store.NatTraversalStore
+	RelayStore  *store.RelayStore
 	ProbeSender ProbeSender
 }
 

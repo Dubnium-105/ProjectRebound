@@ -13,9 +13,9 @@ import (
 )
 
 type Sweeper struct {
-	db      *sql.DB
-	cfg     *config.MatchServerConfig
-	natStore *store.NatTraversalStore
+	db         *sql.DB
+	cfg        *config.MatchServerConfig
+	natStore   *store.NatTraversalStore
 	relayStore *store.RelayStore
 }
 

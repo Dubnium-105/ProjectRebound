@@ -89,8 +89,8 @@ type JoinRoomRequest struct {
 }
 
 type JoinRoomResponse struct {
-	Connect   string    `json:"connect"`
-	JoinTicket string   `json:"joinTicket"`
+	Connect    string    `json:"connect"`
+	JoinTicket string    `json:"joinTicket"`
 	ExpiresAt  time.Time `json:"expiresAt"`
 }
 
@@ -109,7 +109,7 @@ type RoomLifecycleRequest struct {
 }
 
 type RoomHeartbeatResponse struct {
-	Ok                  bool `json:"ok"`
+	Ok                   bool `json:"ok"`
 	NextHeartbeatSeconds int  `json:"nextHeartbeatSeconds"`
 }
 
@@ -156,9 +156,9 @@ type LegacyServerStatusRequest struct {
 }
 
 type LegacyServerStatusResponse struct {
-	Ok                  bool   `json:"ok"`
-	ServerID            string `json:"serverId"`
-	NextHeartbeatSeconds int   `json:"nextHeartbeatSeconds"`
+	Ok                   bool   `json:"ok"`
+	ServerID             string `json:"serverId"`
+	NextHeartbeatSeconds int    `json:"nextHeartbeatSeconds"`
 }
 
 type LegacyServerSummary struct {
@@ -199,31 +199,31 @@ type ConfirmNatBindingResponse struct {
 }
 
 type CreatePunchTicketRequest struct {
-	JoinTicket        string `json:"joinTicket"`
-	BindingToken      string `json:"bindingToken"`
+	JoinTicket          string `json:"joinTicket"`
+	BindingToken        string `json:"bindingToken"`
 	ClientLocalEndpoint string `json:"clientLocalEndpoint"`
 }
 
 type CreatePunchTicketResponse struct {
-	TicketID           string           `json:"ticketId"`
-	State              PunchTicketState `json:"state"`
-	Nonce              string           `json:"nonce"`
-	HostEndpoint       string           `json:"hostEndpoint"`
-	HostLocalEndpoint  string           `json:"hostLocalEndpoint"`
-	ClientEndpoint     string           `json:"clientEndpoint"`
-	ClientLocalEndpoint string          `json:"clientLocalEndpoint"`
-	ExpiresAt          time.Time        `json:"expiresAt"`
+	TicketID            string           `json:"ticketId"`
+	State               PunchTicketState `json:"state"`
+	Nonce               string           `json:"nonce"`
+	HostEndpoint        string           `json:"hostEndpoint"`
+	HostLocalEndpoint   string           `json:"hostLocalEndpoint"`
+	ClientEndpoint      string           `json:"clientEndpoint"`
+	ClientLocalEndpoint string           `json:"clientLocalEndpoint"`
+	ExpiresAt           time.Time        `json:"expiresAt"`
 }
 
 type PunchTicketResponse struct {
-	TicketID           string           `json:"ticketId"`
-	State              PunchTicketState `json:"state"`
-	Nonce              string           `json:"nonce"`
-	HostEndpoint       string           `json:"hostEndpoint"`
-	HostLocalEndpoint  string           `json:"hostLocalEndpoint"`
-	ClientEndpoint     string           `json:"clientEndpoint"`
-	ClientLocalEndpoint string          `json:"clientLocalEndpoint"`
-	ExpiresAt          time.Time        `json:"expiresAt"`
+	TicketID            string           `json:"ticketId"`
+	State               PunchTicketState `json:"state"`
+	Nonce               string           `json:"nonce"`
+	HostEndpoint        string           `json:"hostEndpoint"`
+	HostLocalEndpoint   string           `json:"hostLocalEndpoint"`
+	ClientEndpoint      string           `json:"clientEndpoint"`
+	ClientLocalEndpoint string           `json:"clientLocalEndpoint"`
+	ExpiresAt           time.Time        `json:"expiresAt"`
 }
 
 type ListPunchTicketsResponse struct {
@@ -238,12 +238,12 @@ type CreateRelayAllocationRequest struct {
 }
 
 type CreateRelayAllocationResponse struct {
-	SessionID  string    `json:"sessionId"`
-	Role       string    `json:"role"`
-	Secret     string    `json:"secret"`
-	RelayHost  string    `json:"relayHost"`
-	RelayPort  int       `json:"relayPort"`
-	ExpiresAt  time.Time `json:"expiresAt"`
+	SessionID string    `json:"sessionId"`
+	Role      string    `json:"role"`
+	Secret    string    `json:"secret"`
+	RelayHost string    `json:"relayHost"`
+	RelayPort int       `json:"relayPort"`
+	ExpiresAt time.Time `json:"expiresAt"`
 }
 
 // MetaServer matchmaking contracts

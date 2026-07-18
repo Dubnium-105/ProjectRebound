@@ -23,14 +23,14 @@ type Server struct {
 	db         *sql.DB
 	httpServer *http.Server
 
-	rendezvous *udp.RendezvousService
-	relay      *udp.RelayService
-	qos        *udp.QoSService
+	rendezvous  *udp.RendezvousService
+	relay       *udp.RelayService
+	qos         *udp.QoSService
 	probeSender *udp.ProbeSender
 
-	sweeper            *lifecycle.Sweeper
-	p2pMatcher         *matchmaking.P2PMatcher
-	metaserverMatcher  *matchmaking.MetaServerMatcher
+	sweeper           *lifecycle.Sweeper
+	p2pMatcher        *matchmaking.P2PMatcher
+	metaserverMatcher *matchmaking.MetaServerMatcher
 
 	wg sync.WaitGroup
 }
@@ -61,19 +61,19 @@ func New(cfg *config.Config) (*Server, error) {
 	httppkg.RegisterRoutes(mux, deps)
 
 	return &Server{
-		cfg:        cfg,
-		db:         database,
+		cfg: cfg,
+		db:  database,
 		httpServer: &http.Server{
 			Addr:    cfg.HTTPAddr,
 			Handler: httppkg.WithMiddleware(mux),
 		},
-		rendezvous: udp.NewRendezvousService(natStore),
-		relay:      udp.NewRelayService(relayStore),
-		qos:        udp.NewQoSService(),
-		probeSender: probeSender,
-		sweeper:            lifecycle.New(database, &cfg.MatchServer, natStore, relayStore),
-		p2pMatcher:         matchmaking.NewP2PMatcher(database, &cfg.MatchServer, natStore, relayStore),
-		metaserverMatcher:  matchmaking.NewMetaServerMatcher(database, &cfg.MatchServer, natStore, relayStore),
+		rendezvous:        udp.NewRendezvousService(natStore),
+		relay:             udp.NewRelayService(relayStore),
+		qos:               udp.NewQoSService(),
+		probeSender:       probeSender,
+		sweeper:           lifecycle.New(database, &cfg.MatchServer, natStore, relayStore),
+		p2pMatcher:        matchmaking.NewP2PMatcher(database, &cfg.MatchServer, natStore, relayStore),
+		metaserverMatcher: matchmaking.NewMetaServerMatcher(database, &cfg.MatchServer, natStore, relayStore),
 	}, nil
 }
 

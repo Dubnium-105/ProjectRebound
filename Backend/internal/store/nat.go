@@ -20,17 +20,17 @@ type NatBinding struct {
 }
 
 type PunchTicket struct {
-	TicketID           string
-	RoomID             string
-	HostPlayerID       string
-	ClientPlayerID     string
-	HostEndpoint       string
-	HostLocalEndpoint  string
-	ClientEndpoint     string
+	TicketID            string
+	RoomID              string
+	HostPlayerID        string
+	ClientPlayerID      string
+	HostEndpoint        string
+	HostLocalEndpoint   string
+	ClientEndpoint      string
 	ClientLocalEndpoint string
-	Nonce              string
-	State              models.PunchTicketState
-	ExpiresAt          time.Time
+	Nonce               string
+	State               models.PunchTicketState
+	ExpiresAt           time.Time
 }
 
 type NatTraversalStore struct {

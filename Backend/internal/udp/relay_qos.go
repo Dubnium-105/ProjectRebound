@@ -11,8 +11,8 @@ import (
 )
 
 type RelayQoSMetrics struct {
-	store    *store.RelayStore
-	cfg      *config.RelayConfig
+	store *store.RelayStore
+	cfg   *config.RelayConfig
 }
 
 func NewRelayQoSMetrics(relayStore *store.RelayStore, cfg *config.RelayConfig) *RelayQoSMetrics {

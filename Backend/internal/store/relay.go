@@ -32,9 +32,9 @@ type RelayRoute struct {
 }
 
 type SessionQoS struct {
-	PingSent    int64
-	PingLost    int64
-	AvgRTT      int64
+	PingSent int64
+	PingLost int64
+	AvgRTT   int64
 }
 
 type RelayAllocation struct {

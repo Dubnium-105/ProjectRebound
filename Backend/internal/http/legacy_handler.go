@@ -33,7 +33,7 @@ func handleLegacyServerStatus(deps *Deps) http.HandlerFunc {
 					now.UnixMilli(), req.PlayerCount, req.ServerState, req.RoomID,
 				)
 				writeJSON(w, http.StatusOK, models.LegacyServerStatusResponse{
-					Ok:                  true,
+					Ok:                   true,
 					NextHeartbeatSeconds: deps.Config.MatchServer.HeartbeatSeconds,
 				})
 				return
@@ -62,8 +62,8 @@ func handleLegacyServerStatus(deps *Deps) http.HandlerFunc {
 		)
 
 		writeJSON(w, http.StatusOK, models.LegacyServerStatusResponse{
-			Ok:                  true,
-			ServerID:            serverID,
+			Ok:                   true,
+			ServerID:             serverID,
 			NextHeartbeatSeconds: deps.Config.MatchServer.HeartbeatSeconds,
 		})
 	}

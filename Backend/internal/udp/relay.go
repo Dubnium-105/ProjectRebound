@@ -161,4 +161,3 @@ func (s *RelayService) Shutdown() {
 	}
 	s.wg.Wait()
 }
-

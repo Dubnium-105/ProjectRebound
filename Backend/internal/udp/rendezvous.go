@@ -13,9 +13,9 @@ import (
 )
 
 type RendezvousService struct {
-	store  *store.NatTraversalStore
-	conn   *net.UDPConn
-	wg     sync.WaitGroup
+	store *store.NatTraversalStore
+	conn  *net.UDPConn
+	wg    sync.WaitGroup
 }
 
 func NewRendezvousService(natStore *store.NatTraversalStore) *RendezvousService {
