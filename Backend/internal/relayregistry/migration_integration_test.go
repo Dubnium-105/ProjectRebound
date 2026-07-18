@@ -49,7 +49,7 @@ func TestRelayMigrationLifecycleAgainstPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer pool.Close()
+	t.Cleanup(pool.Close)
 	if err := database.NewMigrator(pool).Up(ctx); err != nil {
 		t.Fatalf("migrate test database: %v", err)
 	}

@@ -179,11 +179,11 @@ func (r *Repository) UpdateState(
 ) (Connection, error) {
 	return scanConnection(tx.QueryRow(ctx, `
 		UPDATE connections
-		SET state = $2,
-		    selected_path = NULLIF($3, ''),
-		    failure_reason = NULLIF($4, ''),
+		SET state = $2::varchar(32),
+		    selected_path = NULLIF($3::varchar(32), ''),
+		    failure_reason = NULLIF($4::varchar(128), ''),
 		    updated_at = $5,
-		    closed_at = CASE WHEN $2 IN ('FAILED', 'EXPIRED', 'CLOSED') THEN COALESCE(closed_at, $5) ELSE closed_at END
+		    closed_at = CASE WHEN $2::varchar(32) IN ('FAILED', 'EXPIRED', 'CLOSED') THEN COALESCE(closed_at, $5) ELSE closed_at END
 		WHERE id = $1
 		RETURNING `+connectionColumns,
 		connectionID, state, selectedPath, failureReason, now,
