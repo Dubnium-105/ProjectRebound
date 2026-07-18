@@ -7,7 +7,7 @@ import (
 	"github.com/projectrebound/matchserver/internal/config"
 )
 
-func Chain(next http.Handler, cfg *config.Config, logger *slog.Logger, limiter *IPRateLimiter) http.Handler {
+func Chain(next http.Handler, cfg *config.Config, logger *slog.Logger, limiter *IPRateLimiter, metrics HTTPMetrics) http.Handler {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
@@ -20,7 +20,7 @@ func Chain(next http.Handler, cfg *config.Config, logger *slog.Logger, limiter *
 	var wrapped http.Handler = handler
 	wrapped = limiter.Middleware(wrapped)
 	wrapped = CORS(cfg.CORS, wrapped)
-	wrapped = AccessLog(logger, wrapped)
+	wrapped = AccessLog(logger, metrics, wrapped)
 	wrapped = Recovery(logger, wrapped)
 	wrapped = RequestID(wrapped)
 	return wrapped

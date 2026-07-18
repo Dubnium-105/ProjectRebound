@@ -8,8 +8,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/projectrebound/matchserver/internal/requestctx"
 )
+
+type HTTPMetrics interface {
+	ObserveHTTP(method, route string, status int, duration time.Duration)
+}
 
 type responseRecorder struct {
 	http.ResponseWriter
@@ -48,7 +53,7 @@ func (w *responseRecorder) Write(data []byte) (int, error) {
 	return n, err
 }
 
-func AccessLog(logger *slog.Logger, next http.Handler) http.Handler {
+func AccessLog(logger *slog.Logger, metrics HTTPMetrics, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		started := time.Now()
 		recorder := &responseRecorder{ResponseWriter: w}
@@ -57,13 +62,18 @@ func AccessLog(logger *slog.Logger, next http.Handler) http.Handler {
 		if status == 0 {
 			status = http.StatusOK
 		}
+		duration := time.Since(started)
+		route := chi.RouteContext(r.Context()).RoutePattern()
+		if metrics != nil {
+			metrics.ObserveHTTP(r.Method, route, status, duration)
+		}
 		logger.InfoContext(r.Context(), "http request",
 			"request_id", requestctx.RequestID(r.Context()),
 			"method", r.Method,
 			"path", r.URL.Path,
 			"status", status,
 			"response_bytes", recorder.bytes,
-			"duration_ms", time.Since(started).Milliseconds(),
+			"duration_ms", duration.Milliseconds(),
 		)
 	})
 }

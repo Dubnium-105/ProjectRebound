@@ -43,7 +43,7 @@ func TestChainReturnsEnvelopeWhenRateLimited(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	handler := Chain(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
-	}), &cfg, logger, limiter)
+	}), &cfg, logger, limiter, nil)
 
 	first := httptest.NewRequest("GET", "/", nil)
 	first.RemoteAddr = "192.0.2.1:1000"

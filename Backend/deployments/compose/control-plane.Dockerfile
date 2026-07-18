@@ -8,6 +8,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/control
 FROM alpine:3.20
 RUN addgroup -S app && adduser -S -G app app
 COPY --from=build /out/control-plane /control-plane
+COPY --from=build /src/deployments/updates /deployments/updates
 USER app
 EXPOSE 8080
 ENTRYPOINT ["/control-plane"]

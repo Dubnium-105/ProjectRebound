@@ -20,6 +20,7 @@ import (
 	"github.com/projectrebound/matchserver/internal/gameserver"
 	"github.com/projectrebound/matchserver/internal/health"
 	appmiddleware "github.com/projectrebound/matchserver/internal/middleware"
+	"github.com/projectrebound/matchserver/internal/observability"
 	"github.com/projectrebound/matchserver/internal/p2proom"
 	"github.com/projectrebound/matchserver/internal/player"
 	"github.com/projectrebound/matchserver/internal/relayregistry"
@@ -101,6 +102,7 @@ func buildHandler(
 	limiter *appmiddleware.IPRateLimiter,
 ) (http.Handler, []backgroundService, error) {
 	router := chi.NewRouter()
+	metrics := observability.NewMetrics(dbPool.Pool)
 	healthHandler := health.NewHandler([]health.Dependency{
 		{Name: "postgres", Checker: dbPool},
 		{Name: "redis", Checker: redisClient},
@@ -125,6 +127,7 @@ func buildHandler(
 		cfg.Auth,
 		logger,
 	)
+	authService.SetMetrics(metrics)
 	authHandler := auth.NewHTTPHandler(authService, logger, cfg.HTTP.TrustProxyHeaders)
 	bindLimiter := appmiddleware.NewIPRateLimiter(
 		float64(cfg.Auth.BindRequestsPerMinute)/60.0,
@@ -159,6 +162,7 @@ func buildHandler(
 		router.Patch("/players/{player_id}", adminHandler.PatchPlayer)
 		router.Post("/players/{player_id}/revoke-sessions", adminHandler.RevokeSessions)
 	})
+	router.With(adminNetworkGuard.Middleware).Get("/internal/metrics", metrics.Handler().ServeHTTP)
 
 	gameServerRegistrationAuth, err := gameserver.NewRegistrationAuthenticator(cfg.GameServer.RegistrationTokenSet)
 	if err != nil {
@@ -240,6 +244,7 @@ func buildHandler(
 	relayControlHub := relayregistry.NewControlHub()
 	relayService.SetControlPublisher(relayControlHub)
 	relayService.SetConnectionCoordinator(connectionService)
+	relayService.SetMetrics(metrics)
 	connectionService.SetRelayAllocator(relayService)
 	relayControlServer, err := relayregistry.NewControlServer(
 		relayService, relayControlHub, relayAuthority, cfg.RelayRegistry, logger,
@@ -281,7 +286,7 @@ func buildHandler(
 	connectionSweeper := connection.NewSweeper(connectionService, cfg.Connection.SweepInterval(), logger)
 	relaySweeper := relayregistry.NewSweeper(relayService, cfg.RelayRegistry.SweepInterval(), logger)
 	relayMigrationSweeper := relayregistry.NewMigrationSweeper(relayService, cfg.RelayRegistry.SweepInterval(), logger)
-	return appmiddleware.Chain(router, cfg, logger, limiter), []backgroundService{
+	return appmiddleware.Chain(router, cfg, logger, limiter, metrics), []backgroundService{
 		gameServerSweeper, p2pRoomSweeper, connectionSweeper, relaySweeper, relayMigrationSweeper,
 		realtimeHub, relayControlServer,
 	}, nil

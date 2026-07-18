@@ -38,6 +38,7 @@ type Service struct {
 	roomDirectory         RoomDirectory
 	controlPublisher      ControlPublisher
 	connectionCoordinator ConnectionCoordinator
+	metrics               interface{ RelayAllocationFailed() }
 	config                config.RelayRegistryConfig
 	now                   func() time.Time
 }
@@ -60,6 +61,8 @@ func (s *Service) SetControlPublisher(publisher ControlPublisher) { s.controlPub
 func (s *Service) SetConnectionCoordinator(coordinator ConnectionCoordinator) {
 	s.connectionCoordinator = coordinator
 }
+
+func (s *Service) SetMetrics(metrics interface{ RelayAllocationFailed() }) { s.metrics = metrics }
 
 func (s *Service) Keyset() Keyset { return s.tokenManager.Keyset() }
 
@@ -297,7 +300,12 @@ func (s *Service) AvailableRegions(ctx context.Context) ([]string, error) {
 	return regions, nil
 }
 
-func (s *Service) AllocateRelay(ctx context.Context, request connection.RelayAllocationRequest) (connection.RelayAllocation, error) {
+func (s *Service) AllocateRelay(ctx context.Context, request connection.RelayAllocationRequest) (result connection.RelayAllocation, resultErr error) {
+	defer func() {
+		if resultErr != nil && s.metrics != nil {
+			s.metrics.RelayAllocationFailed()
+		}
+	}()
 	region, err := s.roomDirectory.RelayRegion(ctx, request.RoomID)
 	if err != nil {
 		return connection.RelayAllocation{}, internal(err)

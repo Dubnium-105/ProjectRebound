@@ -1,0 +1,47 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "HTTP request rate",
+      "targets": [{"expr": "sum(rate(http_requests_total[5m])) by (route, status)", "legendFormat": "{{route}} {{status}}"}],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP P95 latency",
+      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, route))", "legendFormat": "{{route}}"}],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "Active sessions / rooms / relay allocations",
+      "targets": [
+        {"expr": "active_sessions", "legendFormat": "Sessions"},
+        {"expr": "p2p_rooms_active", "legendFormat": "P2P rooms"},
+        {"expr": "relay_allocations_active", "legendFormat": "Relay allocations"}
+      ],
+      "gridPos": {"h": 7, "w": 12, "x": 0, "y": 8}
+    },
+    {
+      "type": "timeseries",
+      "title": "Security and allocation failures",
+      "targets": [
+        {"expr": "rate(auth_bind_failed_total[5m])", "legendFormat": "Bind failures"},
+        {"expr": "rate(refresh_token_reuse_total[5m])", "legendFormat": "Refresh reuse"},
+        {"expr": "rate(relay_allocation_failed_total[5m])", "legendFormat": "Relay allocation failures"}
+      ],
+      "gridPos": {"h": 7, "w": 12, "x": 12, "y": 8}
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 39,
+  "tags": ["project-rebound"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timezone": "browser",
+  "title": "Project Rebound Control Plane",
+  "uid": "project-rebound-control-plane",
+  "version": 1
+}

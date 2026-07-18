@@ -789,6 +789,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ClientConfigResponse"
+  /internal/metrics:
+    get:
+      operationId: getControlPlaneMetrics
+      tags: [Internal Monitoring]
+      x-internal: true
+      description: Prometheus text exposition restricted to trusted private source networks and blocked by the public proxy.
+      responses:
+        "200":
+          description: Control-plane process, HTTP, business, database-pool, and state metrics.
+          content:
+            text/plain:
+              schema: {type: string}
+        "403":
+          description: Source address is outside the trusted private monitoring networks.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /health/live:
     get:
       operationId: getLiveness

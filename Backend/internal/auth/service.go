@@ -24,7 +24,10 @@ type Service struct {
 	config     config.AuthConfig
 	logger     *slog.Logger
 	now        func() time.Time
+	metrics    interface{ RefreshTokenReuse() }
 }
+
+func (s *Service) SetMetrics(metrics interface{ RefreshTokenReuse() }) { s.metrics = metrics }
 
 func NewService(
 	pool *pgxpool.Pool,
@@ -147,6 +150,9 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string, meta Request
 			}
 			if err := tx.Commit(ctx); err != nil {
 				return RefreshResult{}, internalError(fmt.Errorf("commit refresh reuse revocation: %w", err))
+			}
+			if s.metrics != nil {
+				s.metrics.RefreshTokenReuse()
 			}
 			return RefreshResult{}, &ServiceError{
 				Status:  401,

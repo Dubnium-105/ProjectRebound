@@ -68,6 +68,7 @@ func TestDocumentHasRequiredOpenAPIShape(t *testing.T) {
 		"/v1/updates/{platform}/{version}/manifest",
 		"/v1/updates/files/{file_id}",
 		"/v1/client/config",
+		"/internal/metrics",
 		"/health/live",
 		"/health/ready",
 	} {

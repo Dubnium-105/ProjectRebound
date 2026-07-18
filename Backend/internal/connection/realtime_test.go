@@ -37,7 +37,7 @@ func TestRealtimeWebSocketAuthenticatesAndExchangesEvents(t *testing.T) {
 	hub := NewHub(8)
 	service := &realtimeServiceStub{incoming: make(chan IncomingEvent, 1)}
 	realtime := NewRealtimeHandler(service, hub, config.Defaults.CORS, 16*1024, logger)
-	handler := appmiddleware.AccessLog(logger, auth.RequireAccess(accessAuthenticatorStub{}, logger)(auth.RequireActive(http.HandlerFunc(realtime.Connect))))
+	handler := appmiddleware.AccessLog(logger, nil, auth.RequireAccess(accessAuthenticatorStub{}, logger)(auth.RequireActive(http.HandlerFunc(realtime.Connect))))
 	server := httptest.NewServer(handler)
 	defer server.Close()
 

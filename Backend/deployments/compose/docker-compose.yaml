@@ -43,6 +43,7 @@ services:
       AUTH_BIND_REQUESTS_PER_MINUTE: "10"
       RELAY_CONTROL_ADDR: ":9090"
       RELAY_BOOTSTRAP_TOKENS: "${RELAY_BOOTSTRAP_TOKENS:-}"
+      UPDATE_MANIFEST_DIRECTORY: "/deployments/updates"
       LOG_LEVEL: debug
     depends_on:
       postgres:
@@ -57,6 +58,8 @@ services:
     expose:
       - "8080"
       - "9090"
+    volumes:
+      - ../updates:/deployments/updates:ro
 
   caddy:
     image: caddy:2-alpine
@@ -67,6 +70,35 @@ services:
     depends_on:
       control-plane:
         condition: service_healthy
+
+  prometheus:
+    profiles: [monitoring]
+    image: prom/prometheus:v2.55.1
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=15d"]
+    volumes:
+      - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9091:9090"
+    depends_on:
+      control-plane:
+        condition: service_healthy
+
+  grafana:
+    profiles: [monitoring]
+    image: grafana/grafana:11.4.0
+    environment:
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-admin}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-admin}"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - prometheus
 
   edge-relay:
     profiles: [relay]
@@ -87,3 +119,5 @@ volumes:
   postgres-data:
   redis-data:
   relay-data:
+  prometheus-data:
+  grafana-data:
