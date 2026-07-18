@@ -46,7 +46,7 @@ deploy_release() {
   if [[ "$target" == "control-plane" ]]; then
     if ! CONTROL_PLANE_ENV_FILE="$control_env_file" \
       CONTROL_PLANE_IMAGE="$selected_image" \
-      DEPLOY_PULL_ONLY=1 \
+      DEPLOY_SOURCE=ci \
       ENABLE_MONITORING="$enable_monitoring" \
         "$directory/Backend/scripts/deploy-control-plane.sh"; then
       return 1
@@ -61,7 +61,7 @@ deploy_release() {
     chmod 600 "$directory/Backend/deployments/edge-relay/config.edge-relay.yaml"
     if ! EDGE_RELAY_ENV_FILE="$edge_env_file" \
       EDGE_RELAY_IMAGE="$selected_image" \
-      DEPLOY_PULL_ONLY=1 \
+      DEPLOY_SOURCE=ci \
         "$directory/Backend/scripts/deploy-edge-relay.sh"; then
       return 1
     fi

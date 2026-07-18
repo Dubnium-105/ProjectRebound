@@ -7,6 +7,32 @@ deployment_dir="$backend_dir/deployments/edge-relay"
 env_file="${EDGE_RELAY_ENV_FILE:-$deployment_dir/.env}"
 compose_file="$deployment_dir/docker-compose.yaml"
 config_file="$deployment_dir/config.edge-relay.yaml"
+image="${EDGE_RELAY_IMAGE:-}"
+
+deploy_source="${DEPLOY_SOURCE:-auto}"
+if [[ -z "${DEPLOY_SOURCE:-}" && "${DEPLOY_PULL_ONLY:-0}" == "1" ]]; then
+  deploy_source="ci"
+fi
+case "$deploy_source" in
+  auto)
+    if [[ "$image" =~ ^ghcr\.io/[a-z0-9._/-]+:sha-[0-9a-f]{40}$ ]]; then
+      deploy_source="ci"
+    else
+      deploy_source="source"
+    fi
+    ;;
+  ci)
+    [[ "$image" =~ ^ghcr\.io/[a-z0-9._/-]+:sha-[0-9a-f]{40}$ ]] || {
+      echo "DEPLOY_SOURCE=ci requires EDGE_RELAY_IMAGE=ghcr.io/...:sha-<40-char-commit>." >&2
+      exit 1
+    }
+    ;;
+  source) ;;
+  *)
+    echo "DEPLOY_SOURCE must be auto, ci, or source." >&2
+    exit 1
+    ;;
+esac
 
 [[ "$(uname -s)" == "Linux" ]] || { echo "The separated edge stack requires Linux host networking." >&2; exit 1; }
 [[ -f "$config_file" ]] || { echo "Missing $config_file; copy and edit config.edge-relay.yaml.example." >&2; exit 1; }
@@ -27,11 +53,12 @@ else
 fi
 compose=("${docker_cmd[@]}" compose --env-file "$env_file" -f "$compose_file")
 "${compose[@]}" config -q
-if [[ "${DEPLOY_PULL_ONLY:-0}" == "1" ]]; then
+if [[ "$deploy_source" == "ci" ]]; then
   "${compose[@]}" pull edge-relay
 else
   "${compose[@]}" build --pull edge-relay
 fi
+printf 'EDGE_RELAY_DEPLOY_SOURCE source=%s image=%s\n' "$deploy_source" "${image:-local-build}"
 "${compose[@]}" up -d --remove-orphans
 
 wait_connected() {

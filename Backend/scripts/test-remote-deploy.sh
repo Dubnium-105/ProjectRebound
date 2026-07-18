@@ -34,7 +34,7 @@ set -eu
 case "\${BASH_SOURCE[0]}" in
   *${release_two}*) exit 42 ;;
 esac
-test "\${DEPLOY_PULL_ONLY:-}" = "1"
+test "\${DEPLOY_SOURCE:-}" = "ci"
 test -n "\${CONTROL_PLANE_IMAGE:-}"
 EOF
   cat >"$staging/Backend/scripts/verify-control-plane.sh" <<'EOF'

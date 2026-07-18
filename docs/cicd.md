@@ -28,7 +28,7 @@ ghcr.io/<owner>/projectrebound-edge-relay:sha-<40-char-commit>
 
 Pull request 只构建和验证，不登录 GHCR，也不发布镜像。`main` 同时更新 `:main`，tag push 同时发布对应 tag。部署始终使用完整 SHA tag，不使用可移动的 `main` 或 `latest`。镜像附带 OCI metadata 和 GitHub artifact provenance attestation。
 
-容器不会先在一个 job 构建、再在发布 job 重复构建。质量检查通过后，同一个矩阵 job 构建一次并直接推送不可变 SHA 镜像；CD 读取 CI 的 commit SHA，在远端设置 `DEPLOY_PULL_ONLY=1` 并只执行 `docker compose pull`，不会在部署主机重新编译源码。
+容器不会先在一个 job 构建、再在发布 job 重复构建。质量检查通过后，同一个矩阵 job 构建一次并直接推送不可变 SHA 镜像；CD 读取 CI 的 commit SHA，在远端设置 `DEPLOY_SOURCE=ci` 并只执行 `docker compose pull`，不会在部署主机重新编译源码。
 
 ### Deploy
 
@@ -167,6 +167,20 @@ install -m 600 deployments/edge-relay/config.edge-relay.yaml.example \
 6. 分别验证 control-plane 和 edge-relay。
 7. 再选择 `both` 做一次完整 staging 发布。
 8. 验证成功后可把 `ENABLE_STAGING_DEPLOY` 设为 `true`。
+
+Deploy 工作流是生产推荐入口。确需在目标机直接运行底层脚本时，先登录 GHCR，再明确指定 CI 产物：
+
+```bash
+DEPLOY_SOURCE=ci \
+CONTROL_PLANE_IMAGE=ghcr.io/<owner>/projectrebound-control-plane:sha-<40-char-commit> \
+  ./scripts/deploy-control-plane.sh
+
+DEPLOY_SOURCE=ci \
+EDGE_RELAY_IMAGE=ghcr.io/<owner>/projectrebound-edge-relay:sha-<40-char-commit> \
+  ./scripts/deploy-edge-relay.sh
+```
+
+脚本默认 `DEPLOY_SOURCE=auto`：合法 GHCR SHA 镜像自动走 CI 拉取，否则回退到源码构建。生产自动化始终显式使用 `ci`，从而阻止镜像变量缺失时意外在服务器现场构建。
 
 生产发布建议先创建并推送受保护 tag：
 

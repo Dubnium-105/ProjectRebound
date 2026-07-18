@@ -6,6 +6,32 @@ backend_dir="$(CDPATH= cd -- "$script_dir/.." && pwd)"
 deployment_dir="$backend_dir/deployments/control-plane"
 env_file="${CONTROL_PLANE_ENV_FILE:-$deployment_dir/.env}"
 compose_file="$deployment_dir/docker-compose.yaml"
+image="${CONTROL_PLANE_IMAGE:-}"
+
+deploy_source="${DEPLOY_SOURCE:-auto}"
+if [[ -z "${DEPLOY_SOURCE:-}" && "${DEPLOY_PULL_ONLY:-0}" == "1" ]]; then
+  deploy_source="ci"
+fi
+case "$deploy_source" in
+  auto)
+    if [[ "$image" =~ ^ghcr\.io/[a-z0-9._/-]+:sha-[0-9a-f]{40}$ ]]; then
+      deploy_source="ci"
+    else
+      deploy_source="source"
+    fi
+    ;;
+  ci)
+    [[ "$image" =~ ^ghcr\.io/[a-z0-9._/-]+:sha-[0-9a-f]{40}$ ]] || {
+      echo "DEPLOY_SOURCE=ci requires CONTROL_PLANE_IMAGE=ghcr.io/...:sha-<40-char-commit>." >&2
+      exit 1
+    }
+    ;;
+  source) ;;
+  *)
+    echo "DEPLOY_SOURCE must be auto, ci, or source." >&2
+    exit 1
+    ;;
+esac
 
 if [[ ! -f "$env_file" ]]; then
   echo "Missing $env_file. Run scripts/generate-control-plane-env.sh first." >&2
@@ -29,11 +55,12 @@ fi
 compose=("${docker_cmd[@]}" compose --env-file "$env_file" -f "$compose_file")
 if [[ "${ENABLE_MONITORING:-1}" == "1" ]]; then compose+=(--profile monitoring); fi
 "${compose[@]}" config -q
-if [[ "${DEPLOY_PULL_ONLY:-0}" == "1" ]]; then
+if [[ "$deploy_source" == "ci" ]]; then
   "${compose[@]}" pull
 else
   "${compose[@]}" build --pull control-plane
 fi
+printf 'CONTROL_PLANE_DEPLOY_SOURCE source=%s image=%s\n' "$deploy_source" "${image:-local-build}"
 "${compose[@]}" up -d --remove-orphans
 
 admin_port="$(sed -n 's/^CONTROL_PLANE_ADMIN_PORT=//p' "$env_file" | tail -n 1)"

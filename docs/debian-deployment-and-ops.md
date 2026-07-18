@@ -87,16 +87,24 @@ GOPROXY=https://goproxy.cn,direct
 GOSUMDB=sum.golang.org https://sum.golang.google.cn
 ```
 
-## 4. 准备代码
+## 4. 选择发布来源
 
-两类主机均需要仓库源码用于本机构建：
+生产环境推荐使用 GitHub Actions 产出的不可变 GHCR 镜像。CI 为控制面和边缘节点发布 `sha-<40 位提交>` 镜像，Deploy 工作流只向目标机传输 Compose、验证及回滚脚本的小型 release bundle，然后拉取镜像；目标机不需要 Go、编译缓存或永久保存完整 Git 仓库。
+
+两个部署入口都支持 `DEPLOY_SOURCE`：
+
+- `ci`：要求 `CONTROL_PLANE_IMAGE` 或 `EDGE_RELAY_IMAGE` 是 `ghcr.io/...:sha-<40 位提交>`，只拉取 CI 镜像；
+- `source`：使用当前检出的源码执行 Docker Compose/BuildKit 本机构建；
+- `auto`（默认）：检测到合法的 GHCR SHA 镜像时使用 `ci`，否则使用 `source`。
+
+自动 CD 始终显式设置 `DEPLOY_SOURCE=ci`。只在离线开发或排障时使用源码模式；手工源码模式需要检出仓库：
 
 ```bash
 git clone <PROJECT_REPOSITORY_URL> project-rebound
 cd project-rebound/Backend
 ```
 
-也可以在 CI 构建并将 `CONTROL_PLANE_IMAGE`、`EDGE_RELAY_IMAGE` 指向不可变镜像摘要；Compose 文件同时支持本地构建和预置镜像名。
+手工使用私有 GHCR 镜像前先执行 `docker login ghcr.io`。部署账号只需要目标 package 的 `read:packages` 权限。
 
 ## 5. 部署控制面
 
@@ -129,7 +137,9 @@ chmod 600 deployments/control-plane/.env
 ### 5.3 启动与验证
 
 ```bash
-./scripts/deploy-control-plane.sh
+DEPLOY_SOURCE=ci \
+CONTROL_PLANE_IMAGE=ghcr.io/<owner>/projectrebound-control-plane:sha-<40-char-commit> \
+  ./scripts/deploy-control-plane.sh
 ./scripts/verify-control-plane.sh
 ```
 
@@ -138,15 +148,19 @@ chmod 600 deployments/control-plane/.env
 1. 拒绝包含 `CHANGE_ME` 或 `example.com` 的环境文件；
 2. 强制 `.env` 权限为 `600`；
 3. 校验 Compose；
-4. 构建并启动 PostgreSQL、Redis、控制面、Caddy、Prometheus、Grafana；
+4. 拉取 CI 控制面镜像，并启动 PostgreSQL、Redis、控制面、Caddy、Prometheus、Grafana；
 5. 等待 `/health/ready`；
 6. 失败时输出受限的末尾日志并返回非零状态。
 
 不需要本机监控栈时：
 
 ```bash
-ENABLE_MONITORING=0 ./scripts/deploy-control-plane.sh
+ENABLE_MONITORING=0 DEPLOY_SOURCE=ci \
+CONTROL_PLANE_IMAGE=ghcr.io/<owner>/projectrebound-control-plane:sha-<40-char-commit> \
+  ./scripts/deploy-control-plane.sh
 ```
+
+仅在需要从当前检出源码构建时运行 `DEPLOY_SOURCE=source ./scripts/deploy-control-plane.sh`。
 
 查看状态：
 
@@ -197,7 +211,9 @@ chmod 600 deployments/edge-relay/.env
 
 ```bash
 chmod +x scripts/deploy-edge-relay.sh
-./scripts/deploy-edge-relay.sh
+DEPLOY_SOURCE=ci \
+EDGE_RELAY_IMAGE=ghcr.io/<owner>/projectrebound-edge-relay:sha-<40-char-commit> \
+  ./scripts/deploy-edge-relay.sh
 ```
 
 脚本等待 `relay control connected`，随后自动把边缘 `.env` 中的一次性 token 清空，并强制重建容器再次连接。这一步同时验证 `/edge-relay-data/identity.json` 已持久化。不要删除 `project-rebound-edge-relay_edge-relay-data` 卷，否则必须签发新的 Bootstrap Token 重新注册。
@@ -245,17 +261,19 @@ curl -X POST http://127.0.0.1:18080/internal/v1/relay-nodes/NODE_ID/drain \
 
 备份目录权限为 `700`，备份文件为 `600`。将备份加密复制到另一主机/区域，并定期恢复到隔离数据库验证。生产恢复步骤：停止控制面写入、保留当前数据库备份、使用 `pg_restore --single-transaction --clean --if-exists` 恢复到明确数据库、重新运行迁移，然后执行冒烟测试。恢复是破坏性操作，不由自动部署脚本执行。
 
-升级：
+升级推荐通过 GitHub Actions 的 Deploy 工作流完成：选择目标环境和节点，填写已经通过 CI 且仍存在于 GHCR 的完整 commit SHA。工作流会先备份控制面数据库，再拉取同一 SHA 的镜像、执行健康检查，并在失败时恢复上一 release。
+
+必须在主机上手工升级控制面时：
 
 ```bash
 ./scripts/backup-control-plane.sh /srv/project-rebound-backups
-git fetch --all --prune
-git switch <RELEASE_BRANCH_OR_TAG>
-./scripts/deploy-control-plane.sh
+DEPLOY_SOURCE=ci \
+CONTROL_PLANE_IMAGE=ghcr.io/<owner>/projectrebound-control-plane:sha-<40-char-commit> \
+  ./scripts/deploy-control-plane.sh
 ./scripts/verify-control-plane.sh
 ```
 
-边缘节点可逐台 drain、更新源码并运行 `deploy-edge-relay.sh`。回滚应用时切回上一个已验证 tag 并重新部署；只有在迁移不向后兼容且已有恢复计划时才回滚数据库。
+边缘节点可逐台 drain，再使用同一 CI commit SHA 运行 Deploy，或按第 6.3 节以 `DEPLOY_SOURCE=ci` 运行 `./scripts/deploy-edge-relay.sh`。应用回滚时部署仍存在于 GHCR 的上一个已验证 SHA；只有在迁移不向后兼容且已有恢复计划时才回滚数据库。
 
 ## 9. 完整验收
 

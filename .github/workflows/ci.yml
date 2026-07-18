@@ -114,6 +114,9 @@ jobs:
       - name: Test release activation and automatic rollback
         run: Backend/scripts/test-remote-deploy.sh
 
+      - name: Test CI artifact and source deployment modes
+        run: Backend/scripts/test-deploy-source.sh
+
       - name: Generate production-shaped secrets
         run: |
           Backend/scripts/generate-control-plane-env.sh /tmp/projectrebound-control-plane.env

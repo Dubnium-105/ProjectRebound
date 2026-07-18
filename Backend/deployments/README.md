@@ -8,4 +8,4 @@
 - Internal/admin/relay API: `../../docs/control-plane-internal-api.md`
 - GitHub Actions CI/CD: `../../docs/cicd.md`
 
-Generate production secrets with `../scripts/generate-control-plane-env.sh`, deploy the control plane with `../scripts/deploy-control-plane.sh`, and deploy each edge host with `../scripts/deploy-edge-relay.sh`. Concrete `.env`, edge YAML, `identity.json`, and backups are intentionally ignored by Git.
+Generate production secrets with `../scripts/generate-control-plane-env.sh`. Production CD sets `DEPLOY_SOURCE=ci` and supplies an immutable `ghcr.io/...:sha-<commit>` through `CONTROL_PLANE_IMAGE` or `EDGE_RELAY_IMAGE`; the scripts then pull the CI artifact instead of rebuilding on the host. Use `DEPLOY_SOURCE=source` only for an intentional local source build. Concrete `.env`, edge YAML, `identity.json`, and backups are intentionally ignored by Git.
