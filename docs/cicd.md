@@ -17,16 +17,18 @@
 5. .NET 8 Shared Contracts 构建；
 6. actionlint、Shell 语法和 LF 行尾检查；
 7. 密钥生成器、两份 Compose 和 Caddy 配置校验；
-8. 两个容器镜像的 Buildx 构建。
+8. 所有质量检查通过后，各使用一次 Buildx 构建控制面和 Edge Relay 镜像。
 
-main 或 `v*` tag 的所有检查通过后，额外发布：
+普通分支、`main`、`v*` tag 的 push，以及手动运行 CI，都会把这次构建直接发布为可部署的 GHCR CI 产物：
 
 ```text
 ghcr.io/<owner>/projectrebound-control-plane:sha-<40-char-commit>
 ghcr.io/<owner>/projectrebound-edge-relay:sha-<40-char-commit>
 ```
 
-main 同时更新 `:main`，tag push 同时发布对应 tag。部署始终使用完整 SHA tag，不使用可移动的 `main` 或 `latest`。镜像附带 OCI metadata 和 GitHub artifact provenance attestation。
+Pull request 只构建和验证，不登录 GHCR，也不发布镜像。`main` 同时更新 `:main`，tag push 同时发布对应 tag。部署始终使用完整 SHA tag，不使用可移动的 `main` 或 `latest`。镜像附带 OCI metadata 和 GitHub artifact provenance attestation。
+
+容器不会先在一个 job 构建、再在发布 job 重复构建。质量检查通过后，同一个矩阵 job 构建一次并直接推送不可变 SHA 镜像；CD 读取 CI 的 commit SHA，在远端设置 `DEPLOY_PULL_ONLY=1` 并只执行 `docker compose pull`，不会在部署主机重新编译源码。
 
 ### Deploy
 
@@ -43,7 +45,7 @@ main 同时更新 `:main`，tag push 同时发布对应 tag。部署始终使用
 
 ### 2.1 Actions 权限
 
-在 `Settings -> Actions -> General` 保留最小默认权限。工作流顶层只有 `contents: read`；仅镜像发布 job 临时获得：
+在 `Settings -> Actions -> General` 保留最小默认权限。工作流顶层只有 `contents: read`；仅容器构建/发布 job 临时获得：
 
 ```yaml
 packages: write
@@ -157,7 +159,7 @@ install -m 600 deployments/edge-relay/config.edge-relay.yaml.example \
 
 ## 5. 首次发布和部署
 
-1. 合并到 main，等待 `CI and Images` 全绿。
+1. push 到准备部署的分支（首次生产发布通常合并到 main），等待 `CI and Images` 全绿。
 2. 在仓库 Packages 页面确认两个 `sha-<commit>` 镜像存在。
 3. 保持 `ENABLE_STAGING_DEPLOY=false`。
 4. 打开 `Actions -> Deploy -> Run workflow`。
@@ -205,8 +207,8 @@ main 至少要求以下 checks：
 Go backend, PostgreSQL and contracts
 .NET contracts
 Deployment and workflow configuration
-Build control-plane image
-Build edge-relay image
+Build and package control-plane image
+Build and package edge-relay image
 ```
 
 同时启用：
