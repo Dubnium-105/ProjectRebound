@@ -1,668 +1,296 @@
-# ProjectRebound Debian Deployment and Operations
+# ProjectRebound 控制面与边缘节点分离部署手册
 
-生成日期：2026-04-20 | 更新：2026-04-29 (Go 重构)
+本文档对应 `Backend/cmd/control-plane` 和 `Backend/cmd/edge-relay`。旧的 SQLite/systemd MatchServer 部署已经废弃；兼容入口 `Backend/deploy/deploy.sh` 会转到新的控制面部署脚本。
 
-本文档描述如何把 MatchServer 骨干服务部署到 Debian 服务器，以及后续如何日常更新、回滚、备份和做真实联机验证。
-
-## 0. 部署方式选择
-
-项目现有两套后端实现：
-
-| | C# .NET 8 | Go |
-|---|---|---|
-| 源码 | `Backend/ProjectRebound.MatchServer/` | `matchserver/` |
-| 运行时 | ASP.NET Core 8.0 Runtime | 无（静态链接单二进制） |
-| 发布方式 | `dotnet publish` | `go build -ldflags="-s -w"` |
-| 二进制大小 | ~70 MB (self-contained) | ~11 MB |
-| systemd ExecStart | `dotnet .../ProjectRebound.MatchServer.dll` | `/opt/projectrebound/current/matchserver` |
-| 推荐状态 | **遗留，维护模式** | **推荐主线** |
-
-以下 Section 1–3 通用，Section 4 为 Go 部署（推荐），Section 4b 为 C# 部署（遗留参考）。
-
-## 1. 范围
-
-部署对象：
-
-- 后端：`matchserver/`（Go）或 `Backend/ProjectRebound.MatchServer`（C#）
-- 反向代理：Nginx
-- 进程守护：systemd
-- 数据库：SQLite，放在 `/var/lib/projectrebound/projectrebound-matchserver.db`
-
-不部署到 Linux 的部分：
-
-- Windows Python GUI：`Desktop/ProjectRebound.Browser.Python`
-- 游戏本体、server wrapper、payload
-
-V1 网络模型优先使用玩家主机公网直连 / UDP 打洞。Linux 骨干服务负责身份、房间列表、UDP probe、匹配和心跳；当 P2P 打洞失败时，可启用最小 UDP relay 兜底转发游戏 UDP 包。
-
-## 2. 前置假设
-
-- Debian 12 或 Debian 13 x64 VPS。
-- 服务器有 sudo 权限。
-- 对外开放 TCP `80`；以后启用 HTTPS 时开放 TCP `443`。
-- UDP 端口需求：`5001`（NAT rendezvous）、`5002`（UDP relay）、`9000`（QoS 延迟测量）。
-- 玩家当主机时，玩家机器需要开放并转发游戏 UDP 端口，例如 `7777/udp`。
-- 当前 C++ `Payload` 更适合 HTTP `host:port` 上报。正式启用 HTTPS 前，建议先补 WinHTTP TLS 支持，或让游戏侧继续使用 `http://host:80`。
-
-## 3. 服务器目录布局
+## 1. 部署拓扑
 
 ```text
-/opt/projectrebound/
-  current -> /opt/projectrebound/releases/20260429-210000
-  previous -> /opt/projectrebound/releases/20260420-193000
-  releases/
-    20260420-181500/
-    20260429-210000/       # Go 单二进制 + config.yaml
-
-/etc/projectrebound/
-  matchserver.yaml         # Go 配置文件
-
-/var/lib/projectrebound/
-  projectrebound-matchserver.db
-  projectrebound-matchserver.db-shm
-  projectrebound-matchserver.db-wal
-
-/var/backups/projectrebound/
-  projectrebound-matchserver-20260429-210000.db
+客户端 / Dedicated Server
+          |
+       HTTPS/WSS
+          v
+  Control Plane 主机
+  Caddy -> Go Control Plane -> PostgreSQL / Redis
+                  |
+          TLS 1.3 mTLS gRPC :9090
+                  |
+       +----------+----------+
+       v                     v
+ Edge Relay A           Edge Relay B
+ UDP :8443              UDP :8443
 ```
 
-## 4. Go 部署（推荐）
+控制面与边缘节点必须位于不同的 Compose 项目中，可以在不同主机、不同机房运行。边缘节点主动连接控制面，不连接 PostgreSQL、Redis 或 Grafana。
 
-### 4.1 安装系统依赖
+## 2. 主机与端口
 
-Go 后端不需要额外运行时。只需常用工具：
+实测 1 vCPU/1.9 GiB 主机可完成所有功能测试，但 100 VU 同机压测的 HTTP P95 为 941.62 ms，不能满足 200 ms 验收线。正式控制面建议从 4 vCPU、4 GiB 内存、SSD 起步，并在独立主机运行 k6。
+
+控制面入站规则：
+
+| 端口 | 来源 | 用途 |
+| --- | --- | --- |
+| TCP 22 | 运维网段 | SSH |
+| TCP 80/443 | 公网 | Caddy HTTP/HTTPS、WebSocket、Relay 注册 |
+| UDP 443 | 公网 | Caddy HTTP/3，可选 |
+| TCP 9090 | 仅边缘节点网段/VPN | Relay TLS 1.3 mTLS gRPC 控制流 |
+| TCP 18080 | 仅 `127.0.0.1` | 管理 API、直接健康检查、指标 |
+| TCP 5432/6379/9091/3000 | 仅 `127.0.0.1` | PostgreSQL、Redis、Prometheus、Grafana |
+
+边缘节点规则：
+
+| 方向 | 端口 | 用途 |
+| --- | --- | --- |
+| 入站 UDP | 8443，或配置的游戏 Relay 端口 | Relay 数据面 |
+| 入站 TCP | 22，仅运维网段 | SSH |
+| 出站 TCP | 控制面 443 | 首次注册、证书续签 |
+| 出站 TCP | 控制面 9090 | mTLS gRPC 控制流 |
+| 本机 TCP | 127.0.0.1:9100 | Relay Prometheus 指标 |
+
+优先通过 WireGuard、Tailscale 或私有网络开放 9090。必须使用公网时，只允许已知边缘节点地址；该端口本身仍强制双向证书认证。
+
+## 3. Debian 前置准备
+
+控制面和每台边缘节点都执行：
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y curl wget sqlite3 nginx ufw
+sudo apt-get install -y ca-certificates curl git jq openssl docker.io docker-compose
+sudo systemctl enable --now docker
+sudo docker version
+sudo docker compose version
 ```
 
-### 4.2 创建运行用户
+如果安装被异常中断，先确认卡住的 PID 确实属于 apt/dpkg，再依次执行：
 
 ```bash
-sudo useradd --system --home /var/lib/projectrebound --create-home --shell /usr/sbin/nologin projectrebound
-sudo mkdir -p /opt/projectrebound/releases /var/lib/projectrebound /var/backups/projectrebound /etc/projectrebound
-sudo chown -R projectrebound:projectrebound /opt/projectrebound /var/lib/projectrebound /var/backups/projectrebound
+ps -ef | grep -E 'apt|dpkg'
+sudo dpkg --configure -a
+sudo apt-get -f install
+sudo dpkg --audit
 ```
 
-### 4.3 本机构建
+不得在未核对 PID 的情况下批量终止进程。
 
-在 Windows 开发机（Go 已安装）：
+网络无法访问 Docker Hub 时，可选配置可信镜像代理。镜像代理可以看到请求的镜像名和来源 IP，生产环境应使用自建缓存；测试环境若使用第三方代理，需先接受该隐私边界。例如：
 
-```bash
-cd matchserver
-export GOPROXY=https://goproxy.cn,direct
-GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o matchserver ./cmd/matchserver/
-```
-
-上传到服务器：
-
-```bash
-scp matchserver config.yaml user@YOUR_SERVER:/tmp/
-scp deploy/matchserver.service user@YOUR_SERVER:/tmp/
-```
-
-### 4.4 首次部署
-
-```bash
-RELEASE="$(date +%Y%m%d-%H%M%S)"
-sudo mkdir -p "/opt/projectrebound/releases/${RELEASE}"
-sudo cp /tmp/matchserver "/opt/projectrebound/releases/${RELEASE}/"
-sudo cp /tmp/config.yaml "/opt/projectrebound/releases/${RELEASE}/"
-sudo chmod +x "/opt/projectrebound/releases/${RELEASE}/matchserver"
-sudo chown -R projectrebound:projectrebound "/opt/projectrebound/releases/${RELEASE}"
-sudo ln -sfn "/opt/projectrebound/releases/${RELEASE}" /opt/projectrebound/current
-
-# 将配置链接到 /etc/
-sudo cp /tmp/config.yaml /etc/projectrebound/matchserver.yaml
-sudo chown projectrebound:projectrebound /etc/projectrebound/matchserver.yaml
-```
-
-### 4.5 systemd 服务
-
-安装服务文件：
-
-```bash
-sudo cp /tmp/matchserver.service /etc/systemd/system/projectrebound-matchserver.service
-sudo systemctl daemon-reload
-```
-
-服务文件内容（`matchserver/deploy/matchserver.service`）：
-
-```ini
-[Unit]
-Description=ProjectRebound Go MatchServer
-After=network.target
-
-[Service]
-Type=simple
-User=projectrebound
-Group=projectrebound
-WorkingDirectory=/opt/projectrebound/current
-ExecStart=/opt/projectrebound/current/matchserver --config /etc/projectrebound/matchserver.yaml
-Restart=on-failure
-RestartSec=5
-LimitNOFILE=65536
-
-Environment=MATCHSERVER_DATABASE_PATH=/var/lib/projectrebound/matchserver.db
-
-NoNewPrivileges=yes
-ProtectSystem=strict
-ProtectHome=yes
-ReadWritePaths=/var/lib/projectrebound /var/log/projectrebound
-ReadOnlyPaths=/etc/projectrebound /opt/projectrebound/matchserver
-
-[Install]
-WantedBy=multi-user.target
-```
-
-启动：
-
-```bash
-sudo systemctl enable --now projectrebound-matchserver
-sudo systemctl status projectrebound-matchserver
-```
-
-> **与 C# 版本的关键差异**：Go 版本不需要 `dotnet` 运行时，不需要 `ASPNETCORE_ENVIRONMENT`，不使用 `--urls` 参数。配置通过 `--config` 指定 YAML 文件，数据库路径通过 `MATCHSERVER_DATABASE_PATH` 环境变量覆盖。
-
-## 9. Nginx 反向代理
-
-创建站点：
-
-```bash
-sudo nano /etc/nginx/sites-available/projectrebound
-```
-
-内容：
-
-```nginx
-server {
-    listen 80;
-    server_name YOUR_DOMAIN_OR_SERVER_IP;
-
-    location / {
-        proxy_pass http://127.0.0.1:5000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
+```json
+{
+  "registry-mirrors": ["https://docker.m.daocloud.io"]
 }
 ```
 
-启用：
-
-```bash
-sudo ln -s /etc/nginx/sites-available/projectrebound /etc/nginx/sites-enabled/projectrebound
-sudo nginx -t
-sudo systemctl reload nginx
-```
-
-外部健康检查：
-
-```bash
-curl -fsS http://YOUR_DOMAIN_OR_SERVER_IP/health
-```
-
-`X-Forwarded-For` 很重要。后端创建 host probe 时会根据请求来源 IP 推断玩家公网 IP，Nginx 必须把真实来源 IP 传给后端。
-
-## 10. 防火墙
-
-```bash
-sudo ufw allow OpenSSH
-sudo ufw allow 80/tcp
-sudo ufw allow 5001/udp
-sudo ufw allow 5002/udp
-sudo ufw allow 9000/udp
-sudo ufw enable
-sudo ufw status
-```
-
-以后启用 HTTPS：
-
-```bash
-sudo ufw allow 443/tcp
-```
-
-不要把 HTTP `:5000` 端口暴露到公网。systemd 已经让后端只监听 `127.0.0.1:5000`（或 Go 默认配置）。
-
-- `5001/udp` — NAT Rendezvous（UDP Proxy 模式必须）。
-- `5002/udp` — UDP Relay 兜底（P2P 失败时转发游戏包）。
-- `9000/udp` — QoS 延迟测量（客户端 ping 服务器测延迟，用于区域选择）。
-
-Nginx 不代理 UDP 端口，这些由 MatchServer 直接监听。
-
-## 11. 冒烟测试
-
-健康检查：
-
-```bash
-curl -fsS http://YOUR_DOMAIN_OR_SERVER_IP/health
-```
-
-匿名登录：
-
-```bash
-curl -sS -X POST http://YOUR_DOMAIN_OR_SERVER_IP/v1/auth/guest \
-  -H "Content-Type: application/json" \
-  -d '{"displayName":"Smoke","deviceToken":null}'
-```
-
-房间列表：
-
-```bash
-curl -sS "http://YOUR_DOMAIN_OR_SERVER_IP/v1/rooms?region=CN&version=dev"
-```
-
-旧心跳兼容路径：
-
-```bash
-curl -sS -X POST http://YOUR_DOMAIN_OR_SERVER_IP/server/status \
-  -H "Content-Type: application/json" \
-  -d '{"name":"legacy-smoke","endpoint":"127.0.0.1:7777","map":"test","mode":"test","version":"dev","playerCount":0,"maxPlayers":4}'
-```
-
-如果这些都返回 HTTP 200，说明 Nginx、Kestrel、SQLite 初始化和基本 API 都通了。
-
-## 12. 真实联机验证
-
-当前已验证结果（2026-04-21）：
-
-- A 机 Python GUI 创建玩家主机房并进入游戏成功。
-- B 机 Python GUI 加入 A 机房间并进入游戏成功。
-- 实测环境中 P2P 打洞可能不通，但 UDP `5002` relay 兜底可成功。
-- `Tools\NatPunchTest --relay` 已验证 relay ping/pong：
+保存到 `/etc/docker/daemon.json` 后执行 `sudo systemctl restart docker`。Go 模块下载的官方默认值是 `https://proxy.golang.org,direct` 和 `sum.golang.org`；官方端点不可达时，可在 `.env` 中启用已经验证过的备用值：
 
 ```text
-client relay registration accepted observed=...
-PASS: received pong sequence=1 from 43.240.193.246:5002 ...
+GOPROXY=https://goproxy.cn,direct
+GOSUMDB=sum.golang.org https://sum.golang.google.cn
 ```
 
-准备两台 Windows 机器，最好不在同一局域网：
+## 4. 准备代码
 
-- A：玩家主机。
-- B：玩家客户端。
-- 两台都运行 `Desktop/ProjectRebound.Browser.Python/run_browser.bat`。
-- Backend URL 都填 `http://YOUR_DOMAIN_OR_SERVER_IP`。
-- Region、Version 保持一致。
-
-不要在 GUI 里填 `http://YOUR_DOMAIN_OR_SERVER_IP:5000`。按本文档部署时，公网入口是 Nginx 的 `80` 端口；Kestrel 的 `5000` 端口只监听服务器本机 `127.0.0.1`。
-
-A 机器：
-
-1. Windows 防火墙允许游戏 UDP 端口，例如 `7777/udp`。
-2. 如果 A 在路由器后面，转发 `UDP 7777` 到 A 的局域网 IP。
-3. GUI 点创建房间。
-4. 期望：UDP probe 成功，房间创建成功，服务端房间列表出现该房间。
-
-实验性 UDP Proxy 模式：
-
-1. 两台 GUI 都勾选 `Use UDP Proxy`。
-2. A 的 `Port` 仍填公网代理端口，例如 `7777`。
-3. A 创建房间时，GUI 会先向服务器 UDP `5001` 做 rendezvous，然后启动本地 `project_rebound_udp_proxy.py host`。
-4. A 的游戏服务端会被启动在 `Port + 1`，例如 `7778`；公网 `7777` 由 proxy 监听。
-5. B 加入房间时，GUI 会启动本地 `project_rebound_udp_proxy.py client`，并把游戏客户端启动为 `-LogicServerURL=http://127.0.0.1:8000 -match=127.0.0.1:<Client Proxy>`。
-6. 服务器先交换双方公网 UDP endpoint 和 punch ticket，双方优先尝试 P2P 打洞。
-7. 如果 client proxy 在短时间内没有收到 host punch 包，会自动切到服务器 UDP `5002` relay 兜底。
-8. 对于端口受限 NAT，client proxy 收到 host punch 包后会把后续游戏包发往实际收到的 host endpoint，而不是只依赖 rendezvous 阶段观察到的 endpoint。
-
-当前 UDP Proxy 是快速原型，主要验证受限 NAT 下的直连打洞链路。对于 symmetric NAT / 严格 CGNAT，P2P 可能失败，此时会使用最小 UDP relay 兜底；relay 会消耗服务器上下行带宽。
-
-B 机器：
-
-1. GUI 刷新房间列表。
-2. 选择 A 的房间并加入。
-3. 期望：GUI 调 `/v1/rooms/{roomId}/join`，拿到 `connect = ip:port`，启动游戏并传入 `-match=ip:port`。
-
-快速匹配：
-
-1. A 点快速匹配并允许当主机。
-2. B 点快速匹配。
-3. 期望：B 被分配到 A 的房间，或者后端选择可当主机的 ticket 创建房间。
-
-主机掉线：
-
-1. A 创建房间后关闭 wrapper 或游戏进程。
-2. 约 45 秒内房间应变为 ended。
-3. B 刷新后不应再能加入该房间。
-4. 服务端日志不应出现连续异常。
-
-查看服务端日志：
+两类主机均需要仓库源码用于本机构建：
 
 ```bash
-sudo journalctl -u projectrebound-matchserver -f
+git clone <PROJECT_REPOSITORY_URL> project-rebound
+cd project-rebound/Backend
 ```
 
-如果 A 使用直连 probe 模式创建房间时卡在 UDP probe，优先检查 A 的公网 UDP 可达性和端口转发。当前推荐的 `Use UDP Proxy` 模式已经提供 NAT rendezvous，并可在 P2P 失败时用 UDP `5002` relay 兜底。
+也可以在 CI 构建并将 `CONTROL_PLANE_IMAGE`、`EDGE_RELAY_IMAGE` 指向不可变镜像摘要；Compose 文件同时支持本地构建和预置镜像名。
 
-## 13. 日常应用更新 (Go)
+## 5. 部署控制面
 
-开发机构建并上传：
+### 5.1 生成密钥与环境文件
 
 ```bash
-cd matchserver
-GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o matchserver ./cmd/matchserver/
-scp matchserver config.yaml user@YOUR_SERVER:/tmp/
+cd project-rebound/Backend
+chmod +x scripts/*.sh deploy/deploy.sh
+./scripts/generate-control-plane-env.sh
+chmod 600 deployments/control-plane/.env
 ```
 
-服务器切换版本：
+生成器创建相互独立的 Ed25519 Access Token、Relay Token、更新签名密钥，以及十年期 Relay CA。它不会覆盖已有 `.env`，也不会输出密钥正文。
+
+编辑 `deployments/control-plane/.env`：
+
+- 将 `CORS_ALLOWED_ORIGINS` 改成真实客户端来源；多个来源用逗号分隔。
+- 将 `UPDATE_CDN_BASE_URL`、`UPDATE_REALTIME_URL`、`UPDATE_STUN_SERVERS` 改成真实地址。
+- 测试/IP 模式保留 `PUBLIC_API_SITE=http://:80` 和 `PUBLIC_API_HTTP_PORT=8080`。
+- 域名生产模式设置 `PUBLIC_API_SITE=api.example.com`、`PUBLIC_API_HTTP_PORT=80`；DNS A/AAAA 指向控制面并开放 80/443，Caddy 自动申请证书。
+- `RELAY_CONTROL_BIND_IP` 应绑定私网/VPN 地址；只有无法使用私网时才设为 `0.0.0.0`。
+- 密钥 ID 在轮换时必须更新，不能在密钥变化后继续复用旧 ID。
+
+`.env` 必须保留在主机秘密存储中，权限必须为 `600`，不得提交 Git、复制进镜像或写入工单。
+
+### 5.2 更新描述符
+
+按照 `Backend/deployments/updates/README.md` 把非秘密发布描述符放到 `Backend/deployments/updates`。生产模式缺少有效发布描述符或安全更新 URL 时会拒绝启动。大文件必须放在对象存储/CDN，API 仅返回下载元数据。
+
+### 5.3 启动与验证
 
 ```bash
-set -e
-
-RELEASE="$(date +%Y%m%d-%H%M%S)"
-CURRENT="$(readlink -f /opt/projectrebound/current || true)"
-
-if [ ! -f "/tmp/matchserver" ]; then
-  echo "Error: /tmp/matchserver not found. Did scp fail?"
-  exit 1
-fi
-
-sudo mkdir -p "/opt/projectrebound/releases/${RELEASE}"
-sudo cp /tmp/matchserver "/opt/projectrebound/releases/${RELEASE}/"
-sudo cp /tmp/config.yaml "/opt/projectrebound/releases/${RELEASE}/"
-sudo chmod +x "/opt/projectrebound/releases/${RELEASE}/matchserver"
-sudo chown -R projectrebound:projectrebound "/opt/projectrebound/releases/${RELEASE}"
-
-if [ -n "${CURRENT}" ]; then
-  sudo ln -sfn "${CURRENT}" /opt/projectrebound/previous
-fi
-
-sudo ln -sfn "/opt/projectrebound/releases/${RELEASE}" /opt/projectrebound/current
-sudo systemctl restart projectrebound-matchserver
-sudo systemctl status projectrebound-matchserver
-curl -fsS http://127.0.0.1:5000/health
+./scripts/deploy-control-plane.sh
+./scripts/verify-control-plane.sh
 ```
 
-外部再测：
+部署脚本会：
+
+1. 拒绝包含 `CHANGE_ME` 或 `example.com` 的环境文件；
+2. 强制 `.env` 权限为 `600`；
+3. 校验 Compose；
+4. 构建并启动 PostgreSQL、Redis、控制面、Caddy、Prometheus、Grafana；
+5. 等待 `/health/ready`；
+6. 失败时输出受限的末尾日志并返回非零状态。
+
+不需要本机监控栈时：
 
 ```bash
-curl -fsS http://YOUR_DOMAIN_OR_SERVER_IP/health
-curl -sS "http://YOUR_DOMAIN_OR_SERVER_IP/v1/rooms"
+ENABLE_MONITORING=0 ./scripts/deploy-control-plane.sh
 ```
-
-更新期间已有房间会受影响，因为当前是单实例内存后台服务加 SQLite。正式服更新建议先公告维护窗口。
-
-## 14. 回滚
-
-如果更新后冒烟测试失败：
-
-```bash
-PREVIOUS="$(readlink -f /opt/projectrebound/previous)"
-sudo ln -sfn "${PREVIOUS}" /opt/projectrebound/current
-sudo systemctl restart projectrebound-matchserver
-sudo systemctl status projectrebound-matchserver
-curl -fsS http://127.0.0.1:5000/health
-```
-
-回滚应用不会自动回滚 SQLite 数据库。如果新版本引入了数据库结构变更，必须先备份数据库。当前 Go 版本使用 `CREATE TABLE IF NOT EXISTS`（对应 C# `EnsureCreated`）。
-
-## 15. 数据库备份
-
-安装 `sqlite3` 后，可以在线备份 SQLite：
-
-```bash
-BACKUP="/var/backups/projectrebound/projectrebound-matchserver-$(date +%Y%m%d-%H%M%S).db"
-sudo -u projectrebound sqlite3 /var/lib/projectrebound/projectrebound-matchserver.db ".backup '${BACKUP}'"
-sudo ls -lh "${BACKUP}"
-```
-
-不要只复制 `.db` 文件而忽略 `.db-wal` 和 `.db-shm`。当前 SQLite 开启 WAL 时，直接复制单个 `.db` 文件可能拿到不完整数据。优先使用 `.backup`。
-
-建议：
-
-- 每次应用更新前备份一次。
-- 每天定时备份一次。
-- 至少保留最近 7 天。
-- 在另一台机器上定期恢复验证。
-
-## 16. 日常运维命令
 
 查看状态：
 
 ```bash
-sudo systemctl status projectrebound-matchserver
+sudo docker compose --env-file deployments/control-plane/.env \
+  -f deployments/control-plane/docker-compose.yaml --profile monitoring ps
+curl -fsS http://127.0.0.1:18080/health/ready
 ```
 
-实时日志：
+从运维机访问监控：
 
 ```bash
-sudo journalctl -u projectrebound-matchserver -f
+ssh -L 9091:127.0.0.1:9091 -L 3000:127.0.0.1:3000 user@CONTROL_HOST
 ```
 
-最近 200 行日志：
+## 6. 部署第一台边缘节点
+
+### 6.1 在控制面准备一次性凭据
+
+`RELAY_BOOTSTRAP_TOKENS` 的格式为 `credential_id=token`，多个凭据用分号分隔。生成器已经创建第一条。通过秘密管理器把等号右侧 token 值传给对应边缘节点，不要在聊天、日志或命令输出中展示。
+
+每台新边缘节点使用不同 credential ID 和不同随机 token。旧 token 一经注册即在数据库中标记为已消费，不能复用。
+
+### 6.2 配置边缘节点
+
+在边缘主机：
 
 ```bash
-sudo journalctl -u projectrebound-matchserver -n 200 --no-pager
+cd project-rebound/Backend
+cp deployments/edge-relay/.env.example deployments/edge-relay/.env
+cp deployments/edge-relay/config.edge-relay.yaml.example \
+   deployments/edge-relay/config.edge-relay.yaml
+chmod 600 deployments/edge-relay/.env
 ```
 
-重启后端：
+编辑 `.env`，只在首次注册时设置 `EDGE_RELAY_BOOTSTRAP_TOKEN`。编辑 YAML：
+
+- `control_plane_url`：公网 HTTPS API，例如 `https://api.example.com`。
+- `control_addr`：控制面 9090 的私网/VPN地址，例如 `10.20.0.10:9090`。
+- `control_server_name`：保持 `control-plane`。当前 mTLS 服务证书固定包含此 SAN，不应改成 IP。
+- `advertised_endpoints[].host`：客户端实际可达的公网 IP 或域名。
+- `advertised_endpoints[].port`：公网映射后的 UDP 端口。
+- `region`、`zone`、`provider`、容量和带宽：填写该节点真实信息。
+
+分离式边缘 Compose 使用 Linux host networking，因此 `127.0.0.1:9100` 指标可由主机上的 Prometheus/agent 抓取，同时不会暴露到公网。
+
+### 6.3 首次启动
 
 ```bash
-sudo systemctl restart projectrebound-matchserver
+chmod +x scripts/deploy-edge-relay.sh
+./scripts/deploy-edge-relay.sh
 ```
 
-检查 Nginx 配置：
+脚本等待 `relay control connected`，随后自动把边缘 `.env` 中的一次性 token 清空，并强制重建容器再次连接。这一步同时验证 `/edge-relay-data/identity.json` 已持久化。不要删除 `project-rebound-edge-relay_edge-relay-data` 卷，否则必须签发新的 Bootstrap Token 重新注册。
+
+确认监听和本地指标：
 
 ```bash
-sudo nginx -t
+sudo ss -lunp | grep ':8443'
+curl -fsS http://127.0.0.1:9100/metrics
+sudo docker compose --env-file deployments/edge-relay/.env \
+  -f deployments/edge-relay/docker-compose.yaml logs --tail=50 edge-relay
 ```
 
-重载 Nginx：
+在控制面通过回环管理端口查询节点：
 
 ```bash
-sudo systemctl reload nginx
+curl -fsS http://127.0.0.1:18080/internal/v1/relay-nodes/RELAY_NODE_ID \
+  -H 'Authorization: Bearer ADMIN_TOKEN'
 ```
 
-查看监听端口：
+期望状态为 `READY`。
+
+## 7. 添加、下线和恢复边缘节点
+
+添加节点时生成新的高熵 token，将新的 `id=token` 追加到控制面 `RELAY_BOOTSTRAP_TOKENS`，重部署控制面，再按第 6 节部署边缘节点。
+
+计划维护：
 
 ```bash
-ss -lntup
+curl -X POST http://127.0.0.1:18080/internal/v1/relay-nodes/NODE_ID/drain \
+  -H 'Authorization: Bearer ADMIN_TOKEN'
 ```
 
-查看数据库大小：
+确认现有 allocation 排空后停止边缘容器。恢复后调用 `/resume`。证书或节点凭据泄漏时调用 `/revoke`，该操作不可逆；被撤销节点必须使用新身份重新注册。
+
+控制面重建、升级或重启不得更换 `RELAY_CA_*`。只要 CA 和边缘身份卷保持不变，边缘节点会自动重连。Relay CA 轮换需要双 CA/双证书迁移方案，当前版本不能通过直接替换完成无中断轮换。
+
+## 8. 备份、恢复与升级
+
+创建并校验 PostgreSQL custom-format 备份：
 
 ```bash
-sudo du -h /var/lib/projectrebound/projectrebound-matchserver.db*
+./scripts/backup-control-plane.sh /srv/project-rebound-backups
 ```
 
-## 17. 系统更新
+备份目录权限为 `700`，备份文件为 `600`。将备份加密复制到另一主机/区域，并定期恢复到隔离数据库验证。生产恢复步骤：停止控制面写入、保留当前数据库备份、使用 `pg_restore --single-transaction --clean --if-exists` 恢复到明确数据库、重新运行迁移，然后执行冒烟测试。恢复是破坏性操作，不由自动部署脚本执行。
 
-Go 后端是静态链接单二进制，没有运行时依赖。常规系统更新：
+升级：
 
 ```bash
-sudo apt-get update
-sudo apt-get upgrade
-sudo systemctl restart projectrebound-matchserver
+./scripts/backup-control-plane.sh /srv/project-rebound-backups
+git fetch --all --prune
+git switch <RELEASE_BRANCH_OR_TAG>
+./scripts/deploy-control-plane.sh
+./scripts/verify-control-plane.sh
 ```
 
-更新后确认：
+边缘节点可逐台 drain、更新源码并运行 `deploy-edge-relay.sh`。回滚应用时切回上一个已验证 tag 并重新部署；只有在迁移不向后兼容且已有恢复计划时才回滚数据库。
+
+## 9. 完整验收
+
+发布前至少执行：
 
 ```bash
-curl -fsS http://127.0.0.1:5000/health
+cd Backend
+go vet ./...
+go test ./... -count=1
+./scripts/verify-control-plane.sh
 ```
 
-## 18. 常见故障
+然后执行：
 
-### 后端启动失败
+- 真实 PostgreSQL 集成测试和迁移测试；
+- Auth bind/refresh/logout、封禁权限；
+- Dedicated Server 注册/心跳/注销；
+- P2P 创建/加入/离开/启动；
+- WebSocket candidate 交换和 Relay fallback；
+- Relay drain/resume、控制面重建后重连；
+- 更新 Manifest 签名和文件 SHA-256；
+- 备份恢复；
+- 独立 network namespace 中的 `tests/netem/run-relay-matrix.sh`；
+- 独立负载机上的 `tests/load/control-plane.js`。
 
-检查：
+性能验收要求 HTTP P95 `< 200 ms`、HTTP 失败率 `< 1%`、检查成功率 `> 99%`、WebSocket upgrade P95 `< 1 s`。功能成功不等同于性能门槛通过，报告中必须分别给出结果。
 
-```bash
-sudo journalctl -u projectrebound-matchserver -n 200 --no-pager
-sudo ls -lah /opt/projectrebound/current
-sudo ls -lah /var/lib/projectrebound
-```
+## 10. 安全不变量
 
-常见原因：
+- PostgreSQL、Redis、Grafana、Prometheus和直接控制面 HTTP 端口只能绑定回环地址。
+- 公网 Caddy 对 `/v1/admin*` 和 `/internal/*` 返回 404，仅放行 Relay 注册和证书续签。
+- Admin Token 与玩家 Token、Game Server Token、Relay Token 不可互换。
+- Access、Refresh、Admin、Bootstrap、Relay、Game Server Token 和私钥不得进入日志。
+- 边缘节点不拥有数据库或 Redis 凭据，不解析游戏 Payload。
+- 不在生产物理网卡运行 netem；只使用隔离 namespace/veth。
+- 不把 `.env`、`identity.json`、数据库备份或签名私钥提交 Git。
 
-- 二进制没有执行权限：`sudo chmod +x /opt/projectrebound/current/matchserver`。
-- `/var/lib/projectrebound` 没有写权限。
-- 发布目录缺文件（缺少 `config.yaml`）。
-- 旧 SQLite 文件来自不兼容结构。
-- 端口被占用：`ss -lntup | grep -E "5000|5001|5002|9000"`。
-
-### 外网访问失败
-
-检查：
-
-```bash
-curl -fsS http://127.0.0.1:5000/health
-curl -fsS http://YOUR_DOMAIN_OR_SERVER_IP/health
-sudo nginx -t
-sudo ufw status
-```
-
-如果本机 `127.0.0.1:5000` 通，外网不通，优先看 Nginx、UFW、云厂商安全组和 DNS。
-
-### curl /health 正常但 Python GUI 显示 502
-
-优先检查 GUI 的 Backend URL。按本文档部署时应填写：
-
-```text
-http://YOUR_DOMAIN_OR_SERVER_IP
-```
-
-不要填写：
-
-```text
-http://YOUR_DOMAIN_OR_SERVER_IP:5000
-```
-
-然后在服务器上分别测试 GUI 会用到的 API：
-
-```bash
-curl -fsS http://127.0.0.1:5000/health
-curl -fsS http://YOUR_DOMAIN_OR_SERVER_IP/health
-curl -sS -i -X POST http://YOUR_DOMAIN_OR_SERVER_IP/v1/auth/guest \
-  -H "Content-Type: application/json" \
-  -d '{"displayName":"GuiSmoke","deviceToken":null}'
-curl -sS -i "http://YOUR_DOMAIN_OR_SERVER_IP/v1/rooms?region=CN&version=dev"
-```
-
-如果 `/health` 正常但 `POST /v1/auth/guest` 返回 502，查看后端是否在请求时崩溃：
-
-```bash
-sudo journalctl -u projectrebound-matchserver -n 120 --no-pager
-```
-
-如果服务器 curl 全部正常而 GUI 仍显示 502，检查 Windows 上 `%APPDATA%/ProjectReboundBrowser/config-python.json` 里的 `backend_url` 是否仍是旧地址或带 `:5000` 的地址。
-
-### UDP probe 失败
-
-这通常不是 Debian 服务器防火墙问题。后端只是向玩家主机公网 IP 和端口发 UDP nonce。
-
-先查后端实际把 probe 发往哪里：
-
-```bash
-sudo sqlite3 /var/lib/projectrebound/projectrebound-matchserver.db \
-"select publicip, port, status, expiresat from hostprobes order by expiresat desc limit 5;"
-```
-
-如果 `publicip` 是 `127.0.0.1` 或服务器内网地址，检查 Nginx 的 `X-Forwarded-For`。如果 `publicip` 是公网地址但 GUI 仍然超时，说明服务器发出的 UDP 没有到达玩家主机。
-
-检查玩家主机：
-
-- Windows 防火墙是否允许游戏 UDP 端口。
-- 路由器是否转发 UDP 端口到正确 LAN IP。
-- 玩家是否处在运营商 CGNAT 后面。
-- GUI 中端口是否和路由器转发端口一致。
-- 是否开了 VPN、代理、加速器或公司网关。后端会向 HTTP 请求来源 IP 发 UDP；如果 HTTP 走代理出口，UDP 会被发到代理 IP，而不是玩家电脑。
-
-在玩家 Windows 机器上查看当前公网出口：
-
-```powershell
-(Invoke-WebRequest -UseBasicParsing https://api.ipify.org).Content
-```
-
-这个 IP 应该和数据库里的 `publicip` 一致。如果不一致，先关闭 VPN/代理/加速器，或者让 GUI 的后端访问不走代理。
-
-### UDP Proxy rendezvous 失败
-
-如果 GUI 勾选 `Use UDP Proxy` 后提示 `UDP rendezvous timed out`，检查服务器 UDP `5001`：
-
-```bash
-sudo ss -lunp | grep 5001
-sudo ufw status
-sudo journalctl -u projectrebound-matchserver -n 120 --no-pager
-```
-
-云厂商安全组也要放行 `5001/udp`。Nginx 不代理这个 UDP 端口。
-
-期望能看到类似：
-
-```text
-UNCONN 0 0 0.0.0.0:5001 0.0.0.0:* users:(("matchserver",pid=...,fd=...))
-```
-
-日志里也应有：
-
-```text
-udp rendezvous listening port=5001
-```
-
-如果 `ss` 看不到 `5001`：
-
-- 确认服务器已部署包含 UDP Proxy 的版本。
-- 确认 `config.yaml` 或环境变量中 `udp_rendezvous_port` 是 `5001`。
-- 重启服务：`sudo systemctl restart projectrebound-matchserver`。
-
-如果 `ss` 能看到 `5001`，但 GUI 仍超时：
-
-- 放行 Debian 防火墙：`sudo ufw allow 5001/udp`。
-- 放行云厂商安全组 / 防火墙的 `5001/udp` 入站。
-- 确认 GUI 报错里显示的目标是你的服务器公网 IP 或域名，而不是 `127.0.0.1`、内网 IP 或旧地址。
-- 临时关闭 Windows 防火墙或安全软件测试出站 UDP。
-
-可以在服务器上抓包确认 UDP 是否到达：
-
-```bash
-sudo tcpdump -ni any udp port 5001
-```
-
-如果抓不到包，问题在服务器外侧防火墙、云安全组、路由或 Windows 出站网络。如果抓得到包但 GUI 没有响应，查看后端日志是否有 `UDP rendezvous packet failed`。
-
-### UDP Relay 兜底失败
-
-如果 P2P 打洞失败，GUI 的 UDP proxy 会自动尝试服务器 relay。确认服务器 UDP `5002` 已监听并放行：
-
-```bash
-sudo ss -lunp | grep 5002
-sudo ufw allow 5002/udp
-sudo tcpdump -ni any udp port 5002
-```
-
-日志里应能看到：
-
-```text
-udp relay listening port=5002
-udp qos listening port=9000
-```
-
-云厂商安全组也要放行 `5002/udp`。Nginx 不代理这个 UDP 端口。
-
-可以用仓库里的脚本单独验证 relay：
-
-```powershell
-Tools\NatPunchTest\run-host.bat --backend http://YOUR_DOMAIN_OR_SERVER_IP --port 27777 --relay
-Tools\NatPunchTest\run-client.bat --backend http://YOUR_DOMAIN_OR_SERVER_IP --room-id ROOM_ID_FROM_HOST --port 27778 --relay
-```
-
-看到 `PASS: received pong` 表示 relay 控制面和 UDP 转发面都可用。
-
-### 房间创建成功但别人连不上
-
-检查：
-
-- `/v1/rooms` 返回的 `connect` 是否是公网 IP 和正确端口。
-- 客户端是否实际启动了 `-match=ip:port`。
-- 主机游戏进程是否真的监听 UDP 端口。
-- 同一个局域网内测试可能被 NAT loopback 干扰，建议用不同网络测试。
-
-## 19. 参考资料
-
-- Microsoft Learn: Install .NET on Debian: https://learn.microsoft.com/en-us/dotnet/core/install/linux-debian
-- Microsoft Learn: Host ASP.NET Core on Linux with Nginx: https://learn.microsoft.com/aspnet/core/host-and-deploy/linux-nginx
-- Microsoft Learn: dotnet publish: https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-publish
-- Debian Wiki: systemd documentation: https://wiki.debian.org/systemd/documentation
+外部 API 见 `docs/control-plane-external-api.md`，内部与 Relay API 见 `docs/control-plane-internal-api.md`，机器可读契约见 `Backend/api/openapi/openapi.yaml`。

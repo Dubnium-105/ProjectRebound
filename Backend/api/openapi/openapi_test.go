@@ -3,6 +3,7 @@ package openapi_test
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -17,6 +18,36 @@ func TestDocumentValidatesAgainstOpenAPISchema(t *testing.T) {
 	}
 	if err := document.Validate(context.Background()); err != nil {
 		t.Fatalf("validate OpenAPI document: %v", err)
+	}
+}
+
+func TestReferenceDocsCoverEveryHTTPPath(t *testing.T) {
+	contents, err := os.ReadFile("openapi.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document struct {
+		Paths map[string]any `yaml:"paths"`
+	}
+	if err := yaml.Unmarshal(contents, &document); err != nil {
+		t.Fatal(err)
+	}
+	external, err := os.ReadFile("../../../docs/control-plane-external-api.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	internal, err := os.ReadFile("../../../docs/control-plane-internal-api.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path := range document.Paths {
+		target := external
+		if strings.HasPrefix(path, "/internal/") || strings.HasPrefix(path, "/v1/admin/") {
+			target = internal
+		}
+		if !strings.Contains(string(target), path) {
+			t.Errorf("reference documentation does not cover %s", path)
+		}
 	}
 }
 

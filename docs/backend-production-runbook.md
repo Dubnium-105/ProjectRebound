@@ -4,7 +4,7 @@
 
 Run the control plane as a modular monolith behind Caddy or another TLS reverse proxy. PostgreSQL and Redis are private dependencies. Relay nodes initiate outbound HTTPS enrollment and outbound TLS 1.3 mTLS gRPC control connections; the control plane never dials into a relay. Edge relays expose only the configured UDP data port and a loopback-only metrics listener.
 
-The public proxy must deny `/v1/admin*` and `/internal/*`, except the two relay enrollment/certificate-renewal paths already allowed in the supplied Caddy file. `/internal/metrics` is additionally restricted by the control plane to trusted source CIDRs. Do not publish the control-plane HTTP or gRPC ports directly.
+The public proxy must deny `/v1/admin*` and `/internal/*`, except the two relay enrollment/certificate-renewal paths already allowed in the supplied Caddy file. `/internal/metrics` is additionally restricted by the control plane to trusted source CIDRs. Publish direct control-plane HTTP only on loopback. Expose the mTLS gRPC port only on a private/VPN network or restrict it to known relay source addresses.
 
 ## Required production secrets
 
@@ -50,7 +50,8 @@ Store encrypted backups in a separate account/region with retention and immutabi
 Start the local monitoring profile with:
 
 ```text
-docker compose -f Backend/deployments/compose/docker-compose.yaml --profile monitoring up -d
+docker compose --env-file Backend/deployments/control-plane/.env \
+  -f Backend/deployments/control-plane/docker-compose.yaml --profile monitoring up -d
 ```
 
 Prometheus is bound to `127.0.0.1:9091` and Grafana to `127.0.0.1:3000`. Replace the local Grafana password. In production, scrape `/internal/metrics` only from a trusted private monitoring network and scrape each edge relay through a node-local agent on its loopback metrics address.
@@ -68,3 +69,5 @@ Run `Backend/tests/netem/run-relay-matrix.sh` only on an isolated Linux interfac
 ## Deployment smoke test
 
 Validate, in order: liveness; readiness; client config; update check and signature; client bind/refresh/logout; banned-account write rejection; dedicated-server registration/heartbeat; P2P create/join/leave; direct connection; relay fallback; relay node drain/resume; and failure migration. Confirm public responses contain no internal addresses or credentials and confirm the public proxy returns 404 for admin and internal routes.
+
+The complete separated-host procedure is in `docs/debian-deployment-and-ops.md`. Public API usage is in `docs/control-plane-external-api.md`; administrator, relay HTTP, mTLS gRPC, metrics, and UDP interfaces are in `docs/control-plane-internal-api.md`.
