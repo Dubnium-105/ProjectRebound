@@ -17,6 +17,7 @@ import (
 	"net"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/projectrebound/matchserver/internal/config"
@@ -28,6 +29,7 @@ type Authority struct {
 	certificatePEM []byte
 	now            func() time.Time
 	ephemeral      bool
+	serverNames    []string
 }
 
 func NewAuthority(cfg config.RelayRegistryConfig, environment string) (*Authority, error) {
@@ -35,7 +37,7 @@ func NewAuthority(cfg config.RelayRegistryConfig, environment string) (*Authorit
 		if strings.EqualFold(environment, "production") {
 			return nil, errors.New("relay CA certificate and private key are required in production")
 		}
-		return generateDevelopmentAuthority()
+		return generateDevelopmentAuthority(cfg.ServerNames)
 	}
 	certificatePEM, err := decodeBase64(cfg.CACertificatePEMBase64)
 	if err != nil {
@@ -73,10 +75,13 @@ func NewAuthority(cfg config.RelayRegistryConfig, environment string) (*Authorit
 	if err != nil || !stringEqual(publicDER, certificatePublicDER) {
 		return nil, errors.New("relay CA certificate and private key do not match")
 	}
-	return &Authority{certificate: certificate, privateKey: privateKey, certificatePEM: certificatePEM, now: time.Now}, nil
+	return &Authority{
+		certificate: certificate, privateKey: privateKey, certificatePEM: certificatePEM,
+		now: time.Now, serverNames: append([]string(nil), cfg.ServerNames...),
+	}, nil
 }
 
-func generateDevelopmentAuthority() (*Authority, error) {
+func generateDevelopmentAuthority(serverNames []string) (*Authority, error) {
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, err
@@ -99,7 +104,7 @@ func generateDevelopmentAuthority() (*Authority, error) {
 	return &Authority{
 		certificate: certificate, privateKey: privateKey,
 		certificatePEM: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}),
-		now:            time.Now, ephemeral: true,
+		now:            time.Now, ephemeral: true, serverNames: append([]string(nil), serverNames...),
 	}, nil
 }
 
@@ -136,42 +141,76 @@ func (a *Authority) IssueClientCertificate(nodeID, csrPEM string, ttl time.Durat
 }
 
 func (a *Authority) ServerTLSConfig() (*tls.Config, error) {
-	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	serverCertificate, expiresAt, err := a.issueServerCertificate()
 	if err != nil {
 		return nil, err
 	}
+	currentCertificate := &serverCertificate
+	var certificateMu sync.Mutex
+	getCertificate := func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+		certificateMu.Lock()
+		defer certificateMu.Unlock()
+		now := a.now().UTC()
+		if now.Before(expiresAt.Add(-time.Hour)) {
+			return currentCertificate, nil
+		}
+		renewed, renewedExpiry, renewErr := a.issueServerCertificate()
+		if renewErr != nil {
+			if now.Before(expiresAt) {
+				return currentCertificate, nil
+			}
+			return nil, renewErr
+		}
+		currentCertificate = &renewed
+		expiresAt = renewedExpiry
+		return currentCertificate, nil
+	}
+
+	pool := x509.NewCertPool()
+	pool.AddCert(a.certificate)
+	return &tls.Config{
+		MinVersion: tls.VersionTLS13, GetCertificate: getCertificate,
+		ClientCAs: pool, ClientAuth: tls.RequireAndVerifyClientCert,
+	}, nil
+}
+
+func (a *Authority) issueServerCertificate() (tls.Certificate, time.Time, error) {
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return tls.Certificate{}, time.Time{}, err
+	}
 	now := a.now().UTC()
+	expiresAt := now.Add(24 * time.Hour)
+	if a.certificate.NotAfter.Before(expiresAt) {
+		expiresAt = a.certificate.NotAfter
+	}
+	if !expiresAt.After(now.Add(time.Minute)) {
+		return tls.Certificate{}, time.Time{}, errors.New("relay CA certificate is expired or too close to expiry")
+	}
 	template := &x509.Certificate{
 		SerialNumber: randomSerial(), Subject: pkix.Name{CommonName: "control-plane"},
-		NotBefore: now.Add(-time.Minute), NotAfter: now.Add(24 * time.Hour),
+		NotBefore: now.Add(-time.Minute), NotAfter: expiresAt,
 		KeyUsage:    x509.KeyUsageDigitalSignature,
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		DNSNames:    []string{"control-plane", "localhost"},
+		DNSNames:    append([]string(nil), a.serverNames...),
 		IPAddresses: []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")},
 	}
 	der, err := x509.CreateCertificate(rand.Reader, template, a.certificate, publicKey, a.privateKey)
 	if err != nil {
-		return nil, err
+		return tls.Certificate{}, time.Time{}, err
 	}
 	privateDER, err := x509.MarshalPKCS8PrivateKey(privateKey)
 	if err != nil {
-		return nil, err
+		return tls.Certificate{}, time.Time{}, err
 	}
 	serverCertificate, err := tls.X509KeyPair(
 		pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}),
 		pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privateDER}),
 	)
 	if err != nil {
-		return nil, err
+		return tls.Certificate{}, time.Time{}, err
 	}
-	pool := x509.NewCertPool()
-	pool.AddCert(a.certificate)
-	return &tls.Config{
-		MinVersion:   tls.VersionTLS13,
-		Certificates: []tls.Certificate{serverCertificate},
-		ClientCAs:    pool,
-		ClientAuth:   tls.RequireAndVerifyClientCert,
-	}, nil
+	return serverCertificate, expiresAt, nil
 }
 
 func (a *Authority) CACertificatePEM() string { return string(a.certificatePEM) }

@@ -1,0 +1,18 @@
+bindAddr = "0.0.0.0"
+bindPort = 7000
+proxyBindAddr = "0.0.0.0"
+
+transport.tls.force = true
+transport.maxPoolCount = 2
+
+auth.method = "token"
+auth.token = "CHANGE_ME"
+auth.additionalScopes = ["HeartBeats", "NewWorkConns"]
+
+allowPorts = [{ single = 443 }]
+maxPortsPerClient = 1
+detailedErrorsToClient = false
+
+log.to = "console"
+log.level = "info"
+log.disablePrintColor = true

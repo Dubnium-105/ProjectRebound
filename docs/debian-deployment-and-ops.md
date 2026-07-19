@@ -5,22 +5,20 @@
 ## 1. 部署拓扑
 
 ```text
-客户端 / Dedicated Server
-          |
-       HTTPS/WSS
-          v
-  Control Plane 主机
-  Caddy -> Go Control Plane -> PostgreSQL / Redis
-                  |
-          TLS 1.3 mTLS gRPC :9090
-                  |
-       +----------+----------+
-       v                     v
- Edge Relay A           Edge Relay B
- UDP :8443              UDP :8443
+客户端 / Dedicated Server --HTTPS/WSS--> Cloudflare Tunnel --> Control Plane
+                                                            Caddy / Go / DB
+                                                                    ^
+                                                                    |
+Edge Relay A/B --TLS 1.3 mTLS gRPC--> relay.example.com:443（灰云 DNS）
+                                                                    |
+                                                               FRPS 公网网关
+                                                                    |
+                                                          FRPC 独立实例（控制面）
+                                                                    |
+                                                               127.0.0.1:9090
 ```
 
-控制面与边缘节点必须位于不同的 Compose 项目中，可以在不同主机、不同机房运行。边缘节点主动连接控制面，不连接 PostgreSQL、Redis 或 Grafana。
+控制面与边缘节点必须位于不同的 Compose 项目中，可以在不同主机、不同机房运行。边缘节点主动连接控制面，不连接 PostgreSQL、Redis 或 Grafana。控制面没有公网 IPv4 时，Cloudflare Tunnel 继续负责 HTTP API；独立 FRP 网关只做 TCP 字节转发，不终止 mTLS。
 
 ## 2. 主机与端口
 
@@ -31,9 +29,9 @@
 | 端口 | 来源 | 用途 |
 | --- | --- | --- |
 | TCP 22 | 运维网段 | SSH |
-| TCP 80/443 | 公网 | Caddy HTTP/HTTPS、WebSocket、Relay 注册 |
+| TCP 80/443 | 公网或 Cloudflare Tunnel | Caddy HTTP/HTTPS、WebSocket、Relay 注册 |
 | UDP 443 | 公网 | Caddy HTTP/3，可选 |
-| TCP 9090 | 仅边缘节点网段/VPN | Relay TLS 1.3 mTLS gRPC 控制流 |
+| TCP 9090 | 仅 `127.0.0.1` | FRPC 到 Relay TLS 1.3 mTLS gRPC 控制流 |
 | TCP 18080 | 仅 `127.0.0.1` | 管理 API、直接健康检查、指标 |
 | TCP 5432/6379/9091/3000 | 仅 `127.0.0.1` | PostgreSQL、Redis、Prometheus、Grafana |
 
@@ -44,10 +42,10 @@
 | 入站 UDP | 8443，或配置的游戏 Relay 端口 | Relay 数据面 |
 | 入站 TCP | 22，仅运维网段 | SSH |
 | 出站 TCP | 控制面 443 | 首次注册、证书续签 |
-| 出站 TCP | 控制面 9090 | mTLS gRPC 控制流 |
+| 出站 TCP | mTLS 网关 443 | mTLS gRPC 控制流 |
 | 本机 TCP | 127.0.0.1:9100 | Relay Prometheus 指标 |
 
-优先通过 WireGuard、Tailscale 或私有网络开放 9090。必须使用公网时，只允许已知边缘节点地址；该端口本身仍强制双向证书认证。
+公网 mTLS 网关额外开放 TCP 443 给边缘节点，并将 FRPS 控制端口 7000 限制为仅控制面出口地址或两机 VPN 地址可达。mTLS 域名必须使用 Cloudflare DNS Only（灰云）；橙云代理不支持此任意 TCP mTLS 通道。完整配置、systemd 隔离和验收命令见 `Backend/deployments/public-mtls-gateway/README.md`。
 
 ## 3. Debian 前置准备
 
@@ -125,7 +123,8 @@ chmod 600 deployments/control-plane/.env
 - 将 `UPDATE_CDN_BASE_URL`、`UPDATE_REALTIME_URL`、`UPDATE_STUN_SERVERS` 改成真实地址。
 - 测试/IP 模式保留 `PUBLIC_API_SITE=http://:80` 和 `PUBLIC_API_HTTP_PORT=8080`。
 - 域名生产模式设置 `PUBLIC_API_SITE=api.example.com`、`PUBLIC_API_HTTP_PORT=80`；DNS A/AAAA 指向控制面并开放 80/443，Caddy 自动申请证书。
-- `RELAY_CONTROL_BIND_IP` 应绑定私网/VPN 地址；只有无法使用私网时才设为 `0.0.0.0`。
+- 当 FRPC 与控制面同机部署时，`RELAY_CONTROL_BIND_IP` 必须保持为 `127.0.0.1`；只有 FRPC 位于另一台可信私网/VPN 主机时才改为对应私网地址，不应直接绑定 `0.0.0.0`。
+- `RELAY_CONTROL_SERVER_NAMES` 必须包含边缘节点使用的 `control_server_name`，例如 `control-plane,localhost,relay.example.com`。
 - 密钥 ID 在轮换时必须更新，不能在密钥变化后继续复用旧 ID。
 
 `.env` 必须保留在主机秘密存储中，权限必须为 `600`，不得提交 Git、复制进镜像或写入工单。
@@ -199,8 +198,8 @@ chmod 600 deployments/edge-relay/.env
 编辑 `.env`，只在首次注册时设置 `EDGE_RELAY_BOOTSTRAP_TOKEN`。编辑 YAML：
 
 - `control_plane_url`：公网 HTTPS API，例如 `https://api.example.com`。
-- `control_addr`：控制面 9090 的私网/VPN地址，例如 `10.20.0.10:9090`。
-- `control_server_name`：保持 `control-plane`。当前 mTLS 服务证书固定包含此 SAN，不应改成 IP。
+- `control_addr`：稳定的 mTLS 网关地址，例如 `relay.example.com:443`；使用私网/VPN直连时可填写 `10.20.0.10:9090`。
+- `control_server_name`：必须与 `control_addr` 使用的证书域名及控制面 `RELAY_CONTROL_SERVER_NAMES` 一致，例如 `relay.example.com`，不应改成 IP。
 - `advertised_endpoints[].host`：客户端实际可达的公网 IP 或域名。
 - `advertised_endpoints[].port`：公网映射后的 UDP 端口。
 - `region`、`zone`、`provider`、容量和带宽：填写该节点真实信息。
@@ -294,6 +293,7 @@ go test ./... -count=1
 - P2P 创建/加入/离开/启动；
 - WebSocket candidate 交换和 Relay fallback；
 - Relay drain/resume、控制面重建后重连；
+- 公共 DNS 灰云解析、无客户端证书被拒绝、有效中继证书正向 mTLS 握手和服务端证书自动轮换；
 - 更新 Manifest 签名和文件 SHA-256；
 - 备份恢复；
 - 独立 network namespace 中的 `tests/netem/run-relay-matrix.sh`；
@@ -303,7 +303,8 @@ go test ./... -count=1
 
 ## 10. 安全不变量
 
-- PostgreSQL、Redis、Grafana、Prometheus和直接控制面 HTTP 端口只能绑定回环地址。
+- PostgreSQL、Redis、Grafana、Prometheus、直接控制面 HTTP 和 Relay mTLS 后端端口只能绑定回环地址。
+- FRPS 只允许远端代理 TCP 443；控制端口 7000 不向任意公网来源开放，FRPC 必须与已有面板/应用 FRPC 隔离。
 - 公网 Caddy 对 `/v1/admin*` 和 `/internal/*` 返回 404，仅放行 Relay 注册和证书续签。
 - Admin Token 与玩家 Token、Game Server Token、Relay Token 不可互换。
 - Access、Refresh、Admin、Bootstrap、Relay、Game Server Token 和私钥不得进入日志。

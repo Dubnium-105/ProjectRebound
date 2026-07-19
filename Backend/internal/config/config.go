@@ -121,21 +121,22 @@ type ConnectionConfig struct {
 }
 
 type RelayRegistryConfig struct {
-	ControlAddr                string `yaml:"control_addr"`
-	BootstrapTokenSet          string `yaml:"-"`
-	HeartbeatIntervalSeconds   int    `yaml:"heartbeat_interval_seconds"`
-	UnhealthyAfterSeconds      int    `yaml:"unhealthy_after_seconds"`
-	OfflineAfterSeconds        int    `yaml:"offline_after_seconds"`
-	SweepIntervalSeconds       int    `yaml:"sweep_interval_seconds"`
-	DrainDeadlineSeconds       int    `yaml:"drain_deadline_seconds"`
-	CertificateTTLHours        int    `yaml:"certificate_ttl_hours"`
-	CACertificatePEMBase64     string `yaml:"-"`
-	CAPrivateKeyPEMBase64      string `yaml:"-"`
-	RelayTokenKeyID            string `yaml:"relay_token_key_id"`
-	RelayTokenPrivateKeyBase64 string `yaml:"-"`
-	RelayTokenTTLSeconds       int    `yaml:"relay_token_ttl_seconds"`
-	AllocationTTLSeconds       int    `yaml:"allocation_ttl_seconds"`
-	CapacityThresholdPercent   int    `yaml:"capacity_threshold_percent"`
+	ControlAddr                string   `yaml:"control_addr"`
+	ServerNames                []string `yaml:"server_names"`
+	BootstrapTokenSet          string   `yaml:"-"`
+	HeartbeatIntervalSeconds   int      `yaml:"heartbeat_interval_seconds"`
+	UnhealthyAfterSeconds      int      `yaml:"unhealthy_after_seconds"`
+	OfflineAfterSeconds        int      `yaml:"offline_after_seconds"`
+	SweepIntervalSeconds       int      `yaml:"sweep_interval_seconds"`
+	DrainDeadlineSeconds       int      `yaml:"drain_deadline_seconds"`
+	CertificateTTLHours        int      `yaml:"certificate_ttl_hours"`
+	CACertificatePEMBase64     string   `yaml:"-"`
+	CAPrivateKeyPEMBase64      string   `yaml:"-"`
+	RelayTokenKeyID            string   `yaml:"relay_token_key_id"`
+	RelayTokenPrivateKeyBase64 string   `yaml:"-"`
+	RelayTokenTTLSeconds       int      `yaml:"relay_token_ttl_seconds"`
+	AllocationTTLSeconds       int      `yaml:"allocation_ttl_seconds"`
+	CapacityThresholdPercent   int      `yaml:"capacity_threshold_percent"`
 }
 
 type UpdateConfig struct {
@@ -260,6 +261,7 @@ var Defaults = Config{
 	},
 	RelayRegistry: RelayRegistryConfig{
 		ControlAddr:              ":9090",
+		ServerNames:              []string{"control-plane", "localhost"},
 		HeartbeatIntervalSeconds: 15,
 		UnhealthyAfterSeconds:    45,
 		OfflineAfterSeconds:      90,
@@ -347,6 +349,9 @@ func (c *Config) applyEnvOverrides() {
 	overrideInt("CONNECTION_WEBSOCKET_QUEUE_SIZE", &c.Connection.WebSocketQueueSize)
 	overrideInt("CONNECTION_WEBSOCKET_MAX_MESSAGE_BYTES", &c.Connection.WebSocketMaxBytes)
 	overrideString("RELAY_CONTROL_ADDR", &c.RelayRegistry.ControlAddr)
+	if raw := os.Getenv("RELAY_CONTROL_SERVER_NAMES"); raw != "" {
+		c.RelayRegistry.ServerNames = splitCSV(raw)
+	}
 	overrideString("RELAY_BOOTSTRAP_TOKENS", &c.RelayRegistry.BootstrapTokenSet)
 	overrideString("RELAY_CA_CERT_PEM_BASE64", &c.RelayRegistry.CACertificatePEMBase64)
 	overrideString("RELAY_CA_KEY_PEM_BASE64", &c.RelayRegistry.CAPrivateKeyPEMBase64)
@@ -487,7 +492,7 @@ func (c *Config) ValidateControlPlane() error {
 		c.Connection.WebSocketQueueSize < 1 || c.Connection.WebSocketMaxBytes < 1024 {
 		errs = append(errs, errors.New("connection timing and websocket settings are invalid"))
 	}
-	if strings.TrimSpace(c.RelayRegistry.ControlAddr) == "" ||
+	if strings.TrimSpace(c.RelayRegistry.ControlAddr) == "" || len(c.RelayRegistry.ServerNames) == 0 ||
 		c.RelayRegistry.HeartbeatIntervalSeconds < 1 ||
 		c.RelayRegistry.UnhealthyAfterSeconds <= c.RelayRegistry.HeartbeatIntervalSeconds ||
 		c.RelayRegistry.OfflineAfterSeconds <= c.RelayRegistry.UnhealthyAfterSeconds ||

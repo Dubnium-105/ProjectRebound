@@ -64,6 +64,9 @@ func TestSeparatedControlPlaneHasSecureNetworkAndPersistentSecrets(t *testing.T)
 	if len(control.Ports) != 2 || !strings.HasPrefix(control.Ports[0], "127.0.0.1:") {
 		t.Fatalf("direct control-plane HTTP must be loopback-only: %#v", control.Ports)
 	}
+	if control.Ports[1] != "${RELAY_CONTROL_BIND_IP:-127.0.0.1}:${RELAY_CONTROL_PORT:-9090}:9090" {
+		t.Fatalf("relay control endpoint must default to loopback: %#v", control.Ports)
+	}
 	for _, name := range []string{
 		"ACCESS_TOKEN_PRIVATE_KEY_BASE64", "RELAY_CA_CERT_PEM_BASE64", "RELAY_CA_KEY_PEM_BASE64",
 		"RELAY_TOKEN_PRIVATE_KEY_BASE64", "UPDATE_SIGNING_PRIVATE_KEY_BASE64", "ADMIN_TOKENS",

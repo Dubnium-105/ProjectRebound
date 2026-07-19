@@ -9,6 +9,7 @@ import (
 func TestLoadMissingFileAppliesEnvironment(t *testing.T) {
 	t.Setenv("CONTROL_PLANE_HTTP_ADDR", ":9191")
 	t.Setenv("CORS_ALLOWED_ORIGINS", "https://one.example, https://two.example")
+	t.Setenv("RELAY_CONTROL_SERVER_NAMES", "control-plane, relay.example.com")
 
 	cfg, err := Load(filepath.Join(t.TempDir(), "missing.yaml"))
 	if err != nil {
@@ -19,6 +20,9 @@ func TestLoadMissingFileAppliesEnvironment(t *testing.T) {
 	}
 	if len(cfg.CORS.AllowedOrigins) != 2 || cfg.CORS.AllowedOrigins[1] != "https://two.example" {
 		t.Fatalf("AllowedOrigins = %#v", cfg.CORS.AllowedOrigins)
+	}
+	if len(cfg.RelayRegistry.ServerNames) != 2 || cfg.RelayRegistry.ServerNames[1] != "relay.example.com" {
+		t.Fatalf("RelayRegistry.ServerNames = %#v", cfg.RelayRegistry.ServerNames)
 	}
 }
 

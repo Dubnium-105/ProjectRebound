@@ -113,6 +113,47 @@ func TestAuthorityRequiresMutuallyAuthenticatedTLS(t *testing.T) {
 	}
 }
 
+func TestAuthorityRotatesConfiguredServerCertificateBeforeExpiry(t *testing.T) {
+	cfg := config.Defaults.RelayRegistry
+	cfg.ServerNames = []string{"control-plane", "relay.example.com"}
+	authority, err := NewAuthority(cfg, "development")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC().Truncate(time.Second)
+	authority.now = func() time.Time { return now }
+	serverConfig, err := authority.ServerTLSConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstTLSCertificate, err := serverConfig.GetCertificate(&tls.ClientHelloInfo{ServerName: "relay.example.com"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := x509.ParseCertificate(firstTLSCertificate.Certificate[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := first.VerifyHostname("relay.example.com"); err != nil {
+		t.Fatalf("configured relay hostname is missing: %v", err)
+	}
+	firstSerial := first.SerialNumber.String()
+	firstExpiry := first.NotAfter
+
+	now = now.Add(23*time.Hour + 30*time.Minute)
+	secondTLSCertificate, err := serverConfig.GetCertificate(&tls.ClientHelloInfo{ServerName: "relay.example.com"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := x509.ParseCertificate(secondTLSCertificate.Certificate[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.SerialNumber.String() == firstSerial || !second.NotAfter.After(firstExpiry) {
+		t.Fatalf("server certificate was not rotated: first=%s/%v second=%s/%v", firstSerial, firstExpiry, second.SerialNumber, second.NotAfter)
+	}
+}
+
 func testTLSHandshake(serverConfig, clientConfig *tls.Config) error {
 	serverSide, clientSide := net.Pipe()
 	defer serverSide.Close()
