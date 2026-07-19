@@ -20,6 +20,7 @@ printf '%s\n' "$*" >>"${DOCKER_LOG:?}"
 case " $* " in
   *" ps --status running -q edge-relay "*) printf 'fake-container\n' ;;
   *" logs "*) printf 'relay control connected\n' ;;
+  *" inspect -f "*) printf 'true\n' ;;
 esac
 exit 0
 EOF
@@ -73,5 +74,17 @@ PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" \
   EDGE_RELAY_ENV_FILE="$edge_env" DEPLOY_SOURCE=source \
   bash "$test_backend/scripts/deploy-edge-relay.sh" >/dev/null
 grep -q ' build --pull edge-relay$' "$docker_log"
+
+: >"$docker_log"
+PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" EDGE_RELAY_RUNTIME=raw-docker \
+  EDGE_RELAY_ENV_FILE="$edge_env" DEPLOY_SOURCE=ci EDGE_RELAY_IMAGE="$edge_image" \
+  bash "$test_backend/scripts/deploy-edge-relay.sh" >/dev/null
+grep -q "pull $edge_image" "$docker_log"
+grep -q 'volume create project-rebound-edge-relay-data' "$docker_log"
+grep -q -- '--name project-rebound-edge-relay' "$docker_log"
+grep -q -- '--mount type=volume,src=project-rebound-edge-relay-data,dst=/edge-relay-data' "$docker_log"
+! grep -q ' compose ' "$docker_log"
+
+grep -q 'ca-certificates.crt' "$script_dir/../deployments/relay/Dockerfile"
 
 printf 'DEPLOY_SOURCE_TEST_OK\n'

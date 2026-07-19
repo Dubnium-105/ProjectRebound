@@ -58,7 +58,8 @@ deploy_release() {
     fi
   else
     cp "$edge_config_file" "$directory/Backend/deployments/edge-relay/config.edge-relay.yaml"
-    chmod 600 "$directory/Backend/deployments/edge-relay/config.edge-relay.yaml"
+    # The container runs as UID 65532 and must be able to read this non-secret file.
+    chmod 644 "$directory/Backend/deployments/edge-relay/config.edge-relay.yaml"
     if ! EDGE_RELAY_ENV_FILE="$edge_env_file" \
       EDGE_RELAY_IMAGE="$selected_image" \
       DEPLOY_SOURCE=ci \
