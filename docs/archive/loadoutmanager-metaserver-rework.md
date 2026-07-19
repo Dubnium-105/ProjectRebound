@@ -1,5 +1,8 @@
 # LoadoutManager 重做 —— 基于 Metaserver 服务化架构
 
+> [!WARNING]
+> 历史方案稿，包含仓库中已不存在的 `BoundaryMetaServer` 路径，仅用于追溯设计背景。
+
 ## 概述
 
 将 LoadoutManager 从"客户端捕获 + 聊天通道传输 + 本地文件持久化"的 hack 模式，重做为"metaserver 权威服务 + 原生 protobuf 协议 + 服务端权威应用"的架构。

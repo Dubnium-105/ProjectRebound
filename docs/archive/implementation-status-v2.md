@@ -1,5 +1,8 @@
 # ProjectRebound v2 Implementation Status
 
+> [!WARNING]
+> 2026-04 的实现状态快照，仍引用已删除的 C# 后端、SQLite 和旧 Go 目录。请勿用作当前构建或部署依据。
+
 更新时间：2026-04-21
 
 ## 已完成

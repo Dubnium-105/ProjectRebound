@@ -1,5 +1,8 @@
 # ProjectRebound 后端 API 规范 v1
 
+> [!WARNING]
+> 历史兼容规范，已停止维护。当前接口以 [`../control-plane-external-api.md`](../control-plane-external-api.md)、[`../control-plane-internal-api.md`](../control-plane-internal-api.md) 和 `Backend/api/openapi/openapi.yaml` 为准。
+
 > 生成日期：2026-04-20  
 > 目标：提供可玩服务端所需的完整后端接口规范，并兼容当前客户端实现。
 

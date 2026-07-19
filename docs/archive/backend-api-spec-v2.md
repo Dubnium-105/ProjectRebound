@@ -1,5 +1,8 @@
 # ProjectRebound Backend API Spec v2
 
+> [!WARNING]
+> 历史 API 设计稿，包含已退出主线的 guest/SQLite/内嵌 Relay 模型。当前接口以 [`../control-plane-external-api.md`](../control-plane-external-api.md)、[`../control-plane-internal-api.md`](../control-plane-internal-api.md) 和 `Backend/api/openapi/openapi.yaml` 为准。
+
 生成日期：2026-04-20
 
 目标：在保留 v1 专服心跳兼容层的同时，提供“玩家主机房间/匹配”骨干服务。V2 只负责匿名身份、房间、匹配、UDP 可达性探测和连接信息分发；每一局仍由某个玩家机器作为主机承载游戏。

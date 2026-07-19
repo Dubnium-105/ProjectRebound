@@ -263,6 +263,7 @@ UpgradeLog*.XML
 UpgradeLog*.htm
 
 # Python browser packaging temp/output
+Tools/SdkSearch/output/
 Desktop/ProjectRebound.Browser.Python/.packenv/
 Desktop/ProjectRebound.Browser.Python/build/
 Desktop/ProjectRebound.Browser.Python/dist/

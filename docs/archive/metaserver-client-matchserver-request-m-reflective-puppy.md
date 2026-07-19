@@ -1,5 +1,8 @@
 # MatchServer 完整修改方案
 
+> [!WARNING]
+> 历史实施方案，包含旧服务地址、旧端口和已完成/替代的阶段计划，不是当前部署或 API 依据。
+
 ## Context
 
 MatchServer 运行在 `204.12.195.98:9000`，同时处理 UDP（QoS 延迟测量）和 TCP（游戏逻辑）。MetaServer (`127.0.0.1:8000/6968/9000`) 已基本实现大厅/Lobby 功能。MatchServer 需要实现：QoS 响应、匹配后端、游戏 TCP 协议、loadout 同步。

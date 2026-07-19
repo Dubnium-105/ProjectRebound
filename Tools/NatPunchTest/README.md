@@ -1,104 +1,49 @@
-# ProjectRebound NAT Punch Test Scripts
+# ProjectRebound legacy NAT punch test
 
-These scripts test the match server's UDP rendezvous and punch-ticket flow without
-starting the game.
+> [!WARNING]
+> 本工具验证的是旧 Go 单进程兼容入口中的 guest、房间、NAT rendezvous 和内嵌 UDP Relay；它不验证当前独立 Edge Relay，不能作为生产部署验收。
 
-They use only Python's standard library.
+## 适用环境
 
-## Local smoke test
+从 `Backend/` 运行旧兼容入口时，默认地址为：
 
-Run this on one machine against a running match server:
+```text
+HTTP  http://127.0.0.1:5000
+UDP   5001 rendezvous
+UDP   5002 embedded relay
+```
+
+当前 `cmd/control-plane` + `cmd/edge-relay` 分离架构使用不同协议和端口。验证当前架构请改用 `Backend/tests/netem/` 和 `Backend/api/relay-protocol.md`。
+
+## 本机冒烟
 
 ```powershell
 Tools\NatPunchTest\run-loopback.bat --backend http://127.0.0.1:5000
 ```
 
-A passing run ends with:
+成功时以 `PASS: received pong ...` 结束。这只能证明本机兼容 HTTP/UDP 链路，不代表跨 NAT 可达。
 
-```text
-PASS: received pong ...
-```
+## 两机直连测试
 
-This validates the HTTP API, UDP rendezvous port, room creation, room join, punch
-ticket creation, and UDP packet exchange in a local environment. It does not prove
-that two different NATs can reach each other.
-
-## Two-machine test
-
-On machine A:
+主机 A：
 
 ```powershell
-Tools\NatPunchTest\run-host.bat --backend http://YOUR_SERVER:5000 --port 27777
+Tools\NatPunchTest\run-host.bat --backend http://LEGACY_SERVER:5000 --port 27777
 ```
 
-Keep the host process open. By default, the host side does not time out. It
-prints a room id:
-
-```text
-ROOM_ID=...
-```
-
-On machine B:
+记录输出的 `ROOM_ID`。主机 B：
 
 ```powershell
-Tools\NatPunchTest\run-client.bat --backend http://YOUR_SERVER:5000 --room-id ROOM_ID_FROM_A --port 27778
+Tools\NatPunchTest\run-client.bat --backend http://LEGACY_SERVER:5000 --room-id ROOM_ID --port 27778
 ```
 
-A passing client run prints:
+两端增加 `--relay` 可以验证旧内嵌 UDP 5002 Relay。不要把该选项用于当前 Edge Relay。
 
-```text
-PASS: received pong ...
-```
+## 失败含义
 
-## Relay fallback test
+- `UDP rendezvous timed out`：旧 UDP 5001 未往返；
+- `NAT_BINDING_NOT_READY`：兼容后端没有观察到对应 binding；
+- `FAIL: no pong`：打洞、路由或防火墙阻止了数据包；
+- `--relay` 失败：旧 UDP 5002 未运行、被阻断或注册失败。
 
-Use `--relay` on both sides to test the server UDP relay path instead of direct
-peer UDP:
-
-Machine A:
-
-```powershell
-Tools\NatPunchTest\run-host.bat --backend http://YOUR_SERVER --port 27777 --relay
-```
-
-Machine B:
-
-```powershell
-Tools\NatPunchTest\run-client.bat --backend http://YOUR_SERVER --room-id ROOM_ID_FROM_A --port 27778 --relay
-```
-
-This requires UDP `5002` to be open on the Debian server and cloud security
-group. A passing run still ends with:
-
-```text
-PASS: received pong ...
-```
-
-Verified example:
-
-```text
-client relay registration accepted observed=...
-PASS: received pong sequence=1 from 43.240.193.246:5002 ...
-```
-
-## Expected failure meanings
-
-- `UDP rendezvous timed out`: UDP `5001` did not round-trip between the test
-  machine and the match server. Check Debian firewall, cloud security group, and
-  Windows outbound firewall.
-- `HTTP 409 ... NAT_BINDING_NOT_READY`: the backend did not observe the UDP
-  rendezvous packet for that binding.
-- `FAIL: no pong`: HTTP rendezvous and punch-ticket creation worked, but direct
-  peer UDP did not complete. This can mean symmetric NAT, carrier NAT, firewall,
-  or endpoint-dependent filtering.
-- `--relay` still fails with `FAIL: no pong`: UDP `5002` is blocked, the relay
-  service is not running, or one side did not register with the relay.
-
-## Useful server checks
-
-```bash
-sudo ss -lunp | grep 5001
-sudo ss -lunp | grep 5002
-sudo journalctl -u projectrebound-matchserver -f
-sudo tcpdump -ni any "udp port 5001 or udp port 5002"
-```
+脚本仅依赖 Python 标准库。它保留在仓库中是为了兼容回归，不应驱动新的客户端或部署设计。

@@ -1,5 +1,8 @@
 # Game control-plane production runbook
 
+> [!WARNING]
+> 历史运维摘要，已由 [`../debian-deployment-and-ops.md`](../debian-deployment-and-ops.md) 和 [`../cicd.md`](../cicd.md) 取代，请勿按本文执行生产部署。
+
 ## Deployment shape
 
 Run the control plane as a modular monolith behind Caddy or another TLS reverse proxy. PostgreSQL and Redis are private dependencies. Relay nodes initiate outbound HTTPS enrollment and outbound TLS 1.3 mTLS gRPC control connections; the control plane never dials into a relay. Edge relays expose only the configured UDP data port and a loopback-only metrics listener.
