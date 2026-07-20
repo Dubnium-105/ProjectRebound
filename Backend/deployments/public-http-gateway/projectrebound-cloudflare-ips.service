@@ -1,0 +1,15 @@
+[Unit]
+Description=Refresh Cloudflare origin allowlist for ProjectRebound
+After=network-online.target haproxy.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/projectrebound-refresh-cloudflare-ips
+User=root
+Group=root
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/etc/haproxy
+NoNewPrivileges=true

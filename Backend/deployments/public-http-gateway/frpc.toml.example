@@ -1,0 +1,28 @@
+user = "projectrebound-http-origin"
+serverAddr = "GATEWAY_IPV4"
+serverPort = 7001
+loginFailExit = false
+
+transport.wireProtocol = "v2"
+transport.protocol = "quic"
+transport.poolCount = 2
+transport.tcpMuxKeepaliveInterval = 15
+transport.heartbeatInterval = -1
+transport.tls.enable = true
+transport.tcpMux = true
+
+auth.method = "token"
+auth.additionalScopes = ["HeartBeats", "NewWorkConns"]
+auth.tokenSource.type = "file"
+auth.tokenSource.file.path = "/etc/projectrebound-http-frpc/token"
+
+log.to = "console"
+log.level = "info"
+log.disablePrintColor = true
+
+[[proxies]]
+name = "control-http-origin"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = 18081
+remotePort = 18081

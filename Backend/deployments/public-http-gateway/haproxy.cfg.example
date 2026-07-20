@@ -1,0 +1,82 @@
+global
+    log /dev/log local0
+    log /dev/log local1 notice
+    chroot /var/lib/haproxy
+    stats socket /run/haproxy/admin.sock mode 660 level admin expose-fd listeners
+    stats timeout 30s
+    user haproxy
+    group haproxy
+    daemon
+    ca-base /etc/ssl/certs
+    crt-base /etc/ssl/private
+    ssl-default-bind-options ssl-min-ver TLSv1.2 no-tls-tickets
+
+defaults
+    log global
+    mode tcp
+    option dontlognull
+    timeout connect 10s
+    timeout client 1m
+    timeout server 1m
+    timeout tunnel 1h
+
+frontend public_tls_mux
+    bind :443
+    mode tcp
+    option tcplog
+    tcp-request inspect-delay 5s
+    acl sni_relay req.ssl_sni -i RELAY_MTLS_HOST
+    acl sni_boundary req.ssl_sni -i PUBLIC_API_HOST
+    acl from_cloudflare src -f /etc/haproxy/cloudflare-ips.lst
+    tcp-request content reject if sni_boundary !from_cloudflare
+    tcp-request content accept if { req.ssl_hello_type 1 }
+    use_backend relay_mtls if sni_relay
+    use_backend boundary_tls if sni_boundary
+    default_backend reject_tls
+
+backend relay_mtls
+    mode tcp
+    server relay_control 127.0.0.1:9443 check inter 3s fall 2 rise 2
+
+backend boundary_tls
+    mode tcp
+    server boundary_https 127.0.0.1:10443 check inter 3s fall 2 rise 2
+
+backend reject_tls
+    mode tcp
+    server reject 127.0.0.1:1
+
+frontend public_http
+    bind :80
+    mode http
+    option httplog
+    acl from_cloudflare src -f /etc/haproxy/cloudflare-ips.lst
+    acl host_boundary hdr(host) -i PUBLIC_API_HOST
+    acl acme_challenge path_beg /.well-known/acme-challenge/
+    http-request deny deny_status 403 unless from_cloudflare host_boundary
+    http-request redirect scheme https code 301 unless acme_challenge
+    use_backend acme_standalone if acme_challenge
+    default_backend control_http_origin
+
+frontend boundary_https
+    bind 127.0.0.1:10443 ssl crt /etc/haproxy/certs/PUBLIC_API_HOST.pem alpn h2,http/1.1
+    mode http
+    option httplog
+    option forwardfor
+    acl acme_challenge path_beg /.well-known/acme-challenge/
+    http-request set-header X-Forwarded-Proto https
+    http-request set-header X-Forwarded-Host %[req.hdr(Host)]
+    http-request set-header X-Forwarded-For %[req.hdr(CF-Connecting-IP)] if { req.hdr(CF-Connecting-IP) -m found }
+    http-response set-header Strict-Transport-Security "max-age=31536000"
+    use_backend acme_standalone if acme_challenge
+    default_backend control_http_origin
+
+backend acme_standalone
+    mode http
+    server certbot 127.0.0.1:18888
+
+backend control_http_origin
+    mode http
+    option httpchk GET /health/ready
+    http-check expect status 200
+    server control_http 127.0.0.1:18081 check inter 3s fall 3 rise 2

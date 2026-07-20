@@ -68,6 +68,8 @@ Client -> Cloudflare edge -> gateway cloudflared
 
 当前生产网络的实测结论是：控制面 connector 的 10 VU/1 分钟 P95 为 1.05 s；LAX 网关 connector 加独立 QUIC 回源降至 531 ms，错误率均为 0。网关方案改善约 49%，但仍未达到 200 ms 验收线，因此更近的 origin/connector 或控制面迁移仍是最终性能整改项。Quick Tunnel 只用于 A/B，不得作为生产入口。
 
+若 Cloudflare Zero Trust 因账户或支付方式无法开通，可使用普通橙云 HTTP 代理加自建 SNI 网关，不需要 Tunnel。公网网关由 HAProxy 接管 443：`boundary.<DOMAIN>` 终止 HTTPS 后经独立 FRP QUIC 回源，Relay mTLS hostname 则以原始 TLS 透传到回环 FRPS。API origin 只允许 Cloudflare 官方地址段，mTLS 域名保持灰云且允许合法 Relay 直连。Cloudflare SSL 模式必须为 Full (strict)，不得长期使用 Flexible。完整配置和证书续期流程见 `Backend/deployments/public-http-gateway/README.md`。
+
 控制面入站规则：
 
 | 端口 | 来源 | 用途 |
