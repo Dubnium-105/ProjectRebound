@@ -1,9 +1,11 @@
 bindAddr = "0.0.0.0"
 bindPort = 7000
+quicBindPort = 7000
 proxyBindAddr = "0.0.0.0"
 
 transport.tls.force = true
 transport.maxPoolCount = 2
+transport.tcpMuxKeepaliveInterval = 15
 
 auth.method = "token"
 auth.token = "CHANGE_ME"

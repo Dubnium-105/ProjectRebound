@@ -24,6 +24,50 @@ Edge Relay A/B --TLS 1.3 mTLS gRPC--> relay.example.com:443（灰云 DNS）
 
 实测 1 vCPU/1.9 GiB 主机可完成所有功能测试，但 100 VU 同机压测的 HTTP P95 为 941.62 ms，不能满足 200 ms 验收线。正式控制面建议从 4 vCPU、4 GiB 内存、SSD 起步，并在独立主机运行 k6。
 
+### 2.1 Cloudflare Tunnel 传输调优
+
+使用包管理器安装并保持 `cloudflared` 更新。至少使用 `2026.5.2`，使启动流程自动检查 DNS、UDP/QUIC 7844、TCP/HTTP2 7844 和 Cloudflare API；检查结果存在失败时不要继续压测。查看版本和最近一次预检：
+
+```bash
+cloudflared --version
+sudo journalctl -u cloudflared -b --no-pager |
+  grep -Ei 'CONNECTIVITY PRE-CHECKS|precheck|Registered tunnel connection'
+```
+
+Cloudflare 通常推荐 `--protocol auto`，让 connector 优先使用 QUIC 并在 UDP 不可用时回退 HTTP/2。但协议可连接不代表链路质量足够稳定：若日志反复出现 `no recent network activity`、QUIC stream timeout 或 HA 连接数下降，应通过 `systemctl edit --full cloudflared.service` 固定为 HTTP/2，再进行同源 A/B 测试。当前生产控制面经实测使用以下参数：
+
+```text
+cloudflared --no-autoupdate tunnel --protocol http2 --edge-ip-version 4 run --token <TUNNEL_TOKEN>
+```
+
+这里显式使用 IPv4，是因为当前控制面自动 IPv4/IPv6 选路会把连接分散到 LAX/SJC，而 IPv4 能稳定保持四条 LAX HTTP/2 连接。该选择是部署点相关的，迁移网络或机房后必须重新测试，不应直接复制为所有环境的默认值。
+
+修改后至少验证：
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart cloudflared
+sudo systemctl is-active cloudflared
+curl -fsS http://127.0.0.1:20241/metrics |
+  grep -E '^cloudflared_tunnel_(ha_connections|request_errors|server_locations)'
+curl -fsS https://<PUBLIC_API_HOST>/health/ready
+```
+
+`cloudflared_tunnel_ha_connections` 应为 `4`，请求错误应保持为 `0`。从固定的外部负载机重复相同 k6 场景，比较 P50、P95、错误率和 RPS；不要用控制面本机生成的流量代替公网验收。若 connector 长期只能连接远端 PoP，物理 RTT 会成为 Cloudflare Tunnel 参数无法消除的下限，此时应增加更近的 connector/origin，或改用带公网地址的 HTTP 网关。
+
+若采用“公网网关运行 connector、私网控制面运行 origin”的结构，应为 `boundary.<DOMAIN>` 创建独立 named tunnel，并只发布这个 hostname。不要把承载其他域名的共享 tunnel token 直接部署到网关：同一 tunnel 的 replicas 没有固定流量导向保证，新请求可能进入任意就近 replica，且远程 ingress 配置会随 tunnel 一起下发。建议拓扑为：
+
+```text
+Client -> Cloudflare edge -> gateway cloudflared
+       -> gateway loopback-only HTTP origin
+       -> isolated QUIC FRP/WireGuard/Tailscale path
+       -> control-plane 127.0.0.1:18081
+```
+
+回源端口必须只绑定网关回环地址；回源 FRPS/FRPC 要使用独立用户、配置目录、token、systemd unit 和控制端口，不得复用下方 mTLS FRP 实例。先用临时 hostname 做同源 A/B，确认性能和健康检查后再切换 `boundary.<DOMAIN>` 的 published application route。切换后保留旧 connector 至少一个观察窗口作为回退，但不要让共享 tunnel 与专用 tunnel 同时宣告同一个 hostname。
+
+当前生产网络的实测结论是：控制面 connector 的 10 VU/1 分钟 P95 为 1.05 s；LAX 网关 connector 加独立 QUIC 回源降至 531 ms，错误率均为 0。网关方案改善约 49%，但仍未达到 200 ms 验收线，因此更近的 origin/connector 或控制面迁移仍是最终性能整改项。Quick Tunnel 只用于 A/B，不得作为生产入口。
+
 控制面入站规则：
 
 | 端口 | 来源 | 用途 |
@@ -45,7 +89,7 @@ Edge Relay A/B --TLS 1.3 mTLS gRPC--> relay.example.com:443（灰云 DNS）
 | 出站 TCP | mTLS 网关 443 | mTLS gRPC 控制流 |
 | 本机 TCP | 127.0.0.1:9100 | Relay Prometheus 指标 |
 
-公网 mTLS 网关额外开放 TCP 443 给边缘节点，并将 FRPS 控制端口 7000 限制为仅控制面出口地址或两机 VPN 地址可达。mTLS 域名必须使用 Cloudflare DNS Only（灰云）；橙云代理不支持此任意 TCP mTLS 通道。完整配置、systemd 隔离和验收命令见 `Backend/deployments/public-mtls-gateway/README.md`。
+公网 mTLS 网关额外开放 TCP 443 给边缘节点，并将 FRPS 控制端口 TCP/UDP 7000 限制为仅控制面出口地址或两机 VPN 地址可达。mTLS 域名必须使用 Cloudflare DNS Only（灰云）；橙云代理不支持此任意 TCP mTLS 通道。完整配置、systemd 隔离和验收命令见 `Backend/deployments/public-mtls-gateway/README.md`。
 
 ## 3. Debian 前置准备
 

@@ -4,6 +4,10 @@ serverPort = 7000
 loginFailExit = false
 
 transport.wireProtocol = "v2"
+transport.protocol = "quic"
+transport.poolCount = 2
+transport.tcpMuxKeepaliveInterval = 15
+transport.heartbeatInterval = -1
 transport.tls.enable = true
 transport.tcpMux = true
 
