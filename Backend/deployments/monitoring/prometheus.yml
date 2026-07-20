@@ -7,3 +7,7 @@ scrape_configs:
     metrics_path: /internal/metrics
     static_configs:
       - targets: [control-plane:8080]
+
+  - job_name: project-rebound-edge-relay
+    file_sd_configs:
+      - files: [/etc/prometheus/targets/edge-relays.yml]

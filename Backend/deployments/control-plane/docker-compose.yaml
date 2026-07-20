@@ -127,6 +127,7 @@ services:
     command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=15d"]
     volumes:
       - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/targets:/etc/prometheus/targets:ro
       - prometheus-data:/prometheus
     ports:
       - "127.0.0.1:${PROMETHEUS_HOST_PORT:-9091}:9090"
