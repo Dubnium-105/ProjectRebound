@@ -59,6 +59,55 @@ func TestGrafanaDashboardIsValidJSONAndUsesRequiredMetrics(t *testing.T) {
 	}
 }
 
+func TestGrafanaDashboardRepeatsOnlineRelayCards(t *testing.T) {
+	contents, err := os.ReadFile(filepath.Join("grafana", "dashboards", "control-plane.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dashboard struct {
+		Panels []struct {
+			ID              int    `json:"id"`
+			Title           string `json:"title"`
+			Repeat          string `json:"repeat"`
+			RepeatDirection string `json:"repeatDirection"`
+			MaxPerRow       int    `json:"maxPerRow"`
+		} `json:"panels"`
+		Templating struct {
+			List []struct {
+				Name       string `json:"name"`
+				Definition string `json:"definition"`
+				Multi      bool   `json:"multi"`
+				IncludeAll bool   `json:"includeAll"`
+			} `json:"list"`
+		} `json:"templating"`
+	}
+	if err := json.Unmarshal(contents, &dashboard); err != nil {
+		t.Fatal(err)
+	}
+	if len(dashboard.Templating.List) != 1 || dashboard.Templating.List[0].Name != "online_relay" ||
+		!strings.Contains(dashboard.Templating.List[0].Definition, "relay_node_control_connected == 1") ||
+		!dashboard.Templating.List[0].Multi || !dashboard.Templating.List[0].IncludeAll {
+		t.Fatalf("online relay variable is not configured for dynamic expansion: %#v", dashboard.Templating.List)
+	}
+	seenPanelIDs := make(map[int]bool, len(dashboard.Panels))
+	foundRepeatPanel := false
+	for _, panel := range dashboard.Panels {
+		if panel.ID <= 0 || seenPanelIDs[panel.ID] {
+			t.Fatalf("dashboard panel IDs must be stable and unique: %#v", panel)
+		}
+		seenPanelIDs[panel.ID] = true
+		if panel.Repeat == "online_relay" {
+			if panel.RepeatDirection != "h" || panel.MaxPerRow != 3 {
+				t.Fatalf("unexpected repeated relay card layout: %#v", panel)
+			}
+			foundRepeatPanel = true
+		}
+	}
+	if !foundRepeatPanel {
+		t.Fatal("dashboard has no dynamically repeated online relay panel")
+	}
+}
+
 func TestPublicProxyBlocksInternalMetrics(t *testing.T) {
 	contents, err := os.ReadFile(filepath.Join("..", "caddy", "Caddyfile"))
 	if err != nil {

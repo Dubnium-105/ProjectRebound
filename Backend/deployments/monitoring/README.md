@@ -6,6 +6,7 @@ The Edge Relay process intentionally keeps its metrics listener on loopback. Do 
 
 The Grafana provisioning directory installs the `project-rebound-prometheus` data source and the **Project Rebound Operations** dashboard. The dashboard covers:
 
+- a repeated status card for every relay whose mTLS control connection is online; Grafana adds and wraps cards automatically as the online node set changes, while the inventory table continues to show every registered node, including offline and revoked nodes;
 - control-plane HTTP traffic, P95 latency, sessions, rooms, allocations, security failures, database pool and relay registry state;
 - Edge Relay control connectivity, reconnects, allocations, packet forwarding/drops, traffic, invalid tokens and rate limiting;
 - control-plane and relay-host CPU, memory, root filesystem and network throughput when node-exporter jobs use the `project-rebound-node.*` naming convention.
