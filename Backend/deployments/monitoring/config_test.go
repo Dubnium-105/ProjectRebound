@@ -59,7 +59,7 @@ func TestGrafanaDashboardIsValidJSONAndUsesRequiredMetrics(t *testing.T) {
 	}
 }
 
-func TestGrafanaDashboardRepeatsOnlineRelayCards(t *testing.T) {
+func TestGrafanaDashboardRepeatsDynamicServiceAndRelayCards(t *testing.T) {
 	contents, err := os.ReadFile(filepath.Join("grafana", "dashboards", "control-plane.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -84,27 +84,45 @@ func TestGrafanaDashboardRepeatsOnlineRelayCards(t *testing.T) {
 	if err := json.Unmarshal(contents, &dashboard); err != nil {
 		t.Fatal(err)
 	}
-	if len(dashboard.Templating.List) != 1 || dashboard.Templating.List[0].Name != "online_relay" ||
-		!strings.Contains(dashboard.Templating.List[0].Definition, "relay_node_control_connected == 1") ||
-		!dashboard.Templating.List[0].Multi || !dashboard.Templating.List[0].IncludeAll {
+	variables := make(map[string]struct {
+		Definition string
+		Multi      bool
+		IncludeAll bool
+	}, len(dashboard.Templating.List))
+	for _, variable := range dashboard.Templating.List {
+		variables[variable.Name] = struct {
+			Definition string
+			Multi      bool
+			IncludeAll bool
+		}{variable.Definition, variable.Multi, variable.IncludeAll}
+	}
+	onlineRelay, ok := variables["online_relay"]
+	if !ok || !strings.Contains(onlineRelay.Definition, "relay_node_control_connected == 1") ||
+		!onlineRelay.Multi || !onlineRelay.IncludeAll {
 		t.Fatalf("online relay variable is not configured for dynamic expansion: %#v", dashboard.Templating.List)
 	}
+	serviceTarget, ok := variables["service_target"]
+	if !ok || !strings.Contains(serviceTarget.Definition, `up{job="project-rebound-control-plane"}`) ||
+		!strings.Contains(serviceTarget.Definition, "relay_node_control_connected == 1") ||
+		!serviceTarget.Multi || !serviceTarget.IncludeAll {
+		t.Fatalf("service target variable is not configured for dynamic expansion: %#v", dashboard.Templating.List)
+	}
 	seenPanelIDs := make(map[int]bool, len(dashboard.Panels))
-	foundRepeatPanel := false
+	foundRepeatPanels := make(map[string]bool, 2)
 	for _, panel := range dashboard.Panels {
 		if panel.ID <= 0 || seenPanelIDs[panel.ID] {
 			t.Fatalf("dashboard panel IDs must be stable and unique: %#v", panel)
 		}
 		seenPanelIDs[panel.ID] = true
-		if panel.Repeat == "online_relay" {
+		if panel.Repeat == "online_relay" || panel.Repeat == "service_target" {
 			if panel.RepeatDirection != "h" || panel.MaxPerRow != 3 {
 				t.Fatalf("unexpected repeated relay card layout: %#v", panel)
 			}
-			foundRepeatPanel = true
+			foundRepeatPanels[panel.Repeat] = true
 		}
 	}
-	if !foundRepeatPanel {
-		t.Fatal("dashboard has no dynamically repeated online relay panel")
+	if !foundRepeatPanels["online_relay"] || !foundRepeatPanels["service_target"] {
+		t.Fatalf("dashboard is missing a dynamically repeated panel: %#v", foundRepeatPanels)
 	}
 }
 
