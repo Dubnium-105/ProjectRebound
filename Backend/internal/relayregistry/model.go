@@ -76,6 +76,20 @@ type HeartbeatInput struct {
 	CurrentIngressBPS int64
 }
 
+type ListFilter struct {
+	Region   string
+	Zone     string
+	Provider string
+	State    State
+	Cursor   string
+	Limit    int
+}
+
+type ListResult struct {
+	Items      []Node
+	NextCursor string
+}
+
 type Allocation struct {
 	ID            string
 	ConnectionID  string

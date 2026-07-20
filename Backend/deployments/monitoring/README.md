@@ -1,6 +1,6 @@
 # ProjectRebound monitoring
 
-The supplied Prometheus configuration scrapes the control plane internally and discovers Edge Relay targets from `targets/edge-relays.yml`. Keep that file empty when no node-local metrics transport is configured. Each production relay target should carry stable `instance`, `node_id`, `region`, and `environment` labels.
+The supplied Prometheus configuration scrapes the control plane internally and optionally discovers direct Edge Relay targets from `targets/edge-relays.yml`. The control plane already exports inventory, lifecycle, capacity, mTLS connectivity, and relayed `TrafficReport` telemetry for every registered node, so direct scraping is not required for a newly added relay. Keep the discovery file empty when no node-local metrics transport is configured. Direct targets remain useful for troubleshooting and should carry stable `instance`, `node_id`, `region`, and `environment` labels.
 
 The Edge Relay process intentionally keeps its metrics listener on loopback. Do not change `metrics_addr` to a public address. Run a node-local proxy or monitoring agent that reads `127.0.0.1:<metrics-port>` and exposes it only over an authenticated private network such as Tailscale or WireGuard. Prometheus should never scrape relay metrics over the public interface.
 

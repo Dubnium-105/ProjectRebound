@@ -117,6 +117,7 @@ Content-Type: application/json
 
 | 方法 | 路径 | 作用 |
 | --- | --- | --- |
+| GET | `/internal/v1/relay-nodes` | 分页查询全部已注册节点；支持 `region`、`zone`、`provider`、`state`、`cursor`、`limit`，包括离线和已撤销节点 |
 | GET | `/internal/v1/relay-nodes/{node_id}` | 查询 endpoint、容量、负载、证书和状态；不返回凭据 |
 | POST | `/internal/v1/relay-nodes/{node_id}/drain` | `READY -> DRAINING`，停止新 allocation |
 | POST | `/internal/v1/relay-nodes/{node_id}/resume` | 恢复为 `READY` |
@@ -156,7 +157,7 @@ Edge -> Control Plane：
 | `Hello` | `node_id`, `software_version`, `protocol_version` | 必须是连接首包 |
 | `Heartbeat` | `active_allocations`, `current_egress_bps`, `current_ingress_bps` | 租约与负载 |
 | `CapacityReport` | 同负载字段 | 容量更新 |
-| `TrafficReport` | 同流量字段 | 统计更新 |
+| `TrafficReport` | 心跳负载字段，以及 `process_id`、单调递增 `sequence` 和累计 packets/bytes/bind/token/rate-limit/reconnect 计数器 | 复用已认证 mTLS 流更新租约、负载和节点遥测；累计整数使用十进制字符串，避免 `protobuf.Struct` 的浮点精度损失 |
 | `AllocationOpened` | `allocation_id` | allocation 已安装 |
 | `AllocationClosed` | `allocation_id` | allocation 已释放 |
 | `RuntimeError` | 实现定义的非秘密诊断 | 运行错误报告 |
@@ -197,7 +198,7 @@ GET /internal/metrics
 Accept: text/plain
 ```
 
-关键指标包括 HTTP 请求/延迟、bind 成败、session/refresh 重放、P2P 房间、Dedicated Server 状态、Relay 节点/allocation、数据库连接池和 Go runtime。公网 Caddy 必须返回 404。
+关键指标包括 HTTP 请求/延迟、bind 成败、session/refresh 重放、P2P 房间、Dedicated Server 状态、Relay 节点/allocation、数据库连接池和 Go runtime。控制面还为数据库中的每个 Relay 输出 `relay_node_info`、`relay_node_state`、心跳/租约、容量和 mTLS 连接状态；已升级 Relay 通过 `TrafficReport` 额外输出 `relay_node_*_total` 累计遥测。旧版节点无需同步升级，仍会出现在节点清单、状态与租约指标中。公网 Caddy 必须返回 404。
 
 边缘节点：
 

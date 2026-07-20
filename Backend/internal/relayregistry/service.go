@@ -284,6 +284,47 @@ func (s *Service) Get(ctx context.Context, nodeID string) (Node, error) {
 	return node, nil
 }
 
+func (s *Service) List(ctx context.Context, filter ListFilter) (ListResult, error) {
+	if filter.Limit == 0 {
+		filter.Limit = 50
+	}
+	if filter.Limit < 1 || filter.Limit > 100 {
+		return ListResult{}, invalid("Invalid limit.", map[string]any{"limit": "must be between 1 and 100"})
+	}
+	for name, value := range map[string]string{"region": filter.Region, "zone": filter.Zone, "provider": filter.Provider} {
+		if value != "" && !relayLabelPattern.MatchString(value) {
+			return ListResult{}, invalid("Invalid filter.", map[string]any{name: "contains unsupported characters"})
+		}
+	}
+	if filter.Cursor != "" && !strings.HasPrefix(filter.Cursor, "relay_") {
+		return ListResult{}, invalid("Invalid cursor.", nil)
+	}
+	if filter.State != "" && !validNodeState(filter.State) {
+		return ListResult{}, invalid("Invalid state filter.", nil)
+	}
+	filter.Limit++
+	items, err := s.repository.List(ctx, filter)
+	if err != nil {
+		return ListResult{}, internal(err)
+	}
+	nextCursor := ""
+	limit := filter.Limit - 1
+	if len(items) > limit {
+		nextCursor = items[limit-1].ID
+		items = items[:limit]
+	}
+	return ListResult{Items: items, NextCursor: nextCursor}, nil
+}
+
+func validNodeState(state State) bool {
+	switch state {
+	case StateBootstrapping, StateConnecting, StateReady, StateDraining, StateUnhealthy, StateOffline, StateRevoked:
+		return true
+	default:
+		return false
+	}
+}
+
 func (s *Service) SweepNodes(ctx context.Context) (int64, error) {
 	return s.repository.SweepNodes(
 		ctx, s.now().UTC(),

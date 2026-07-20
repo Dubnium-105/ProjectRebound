@@ -9,8 +9,10 @@ import (
 	"io"
 	"log/slog"
 	"math"
+	"strconv"
 	"time"
 
+	"github.com/google/uuid"
 	relaycontrolpb "github.com/projectrebound/matchserver/api/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -20,14 +22,16 @@ import (
 var errRelayShutdown = errors.New("relay shutdown requested")
 
 type ControlClient struct {
-	config   Config
-	identity Identity
-	runtime  *Runtime
-	logger   *slog.Logger
+	config         Config
+	identity       Identity
+	runtime        *Runtime
+	logger         *slog.Logger
+	processID      string
+	reportSequence uint64
 }
 
 func NewControlClient(cfg Config, identity Identity, runtime *Runtime, logger *slog.Logger) *ControlClient {
-	return &ControlClient{config: cfg, identity: identity, runtime: runtime, logger: logger}
+	return &ControlClient{config: cfg, identity: identity, runtime: runtime, logger: logger, processID: uuid.NewString()}
 }
 
 func (c *ControlClient) Run(ctx context.Context) {
@@ -119,8 +123,20 @@ func (c *ControlClient) connectOnce(ctx context.Context) error {
 			}
 		case <-heartbeats.C:
 			active, egress := c.runtime.Snapshot()
-			if err := stream.Send(controlEnvelope("Heartbeat", map[string]any{
+			c.reportSequence++
+			snapshot := c.runtime.metrics.Snapshot()
+			if err := stream.Send(controlEnvelope("TrafficReport", map[string]any{
 				"active_allocations": active, "current_egress_bps": egress, "current_ingress_bps": 0,
+				"process_id": c.processID, "sequence": strconv.FormatUint(c.reportSequence, 10),
+				"packets_received_total":   strconv.FormatUint(snapshot.PacketsReceived, 10),
+				"packets_forwarded_total":  strconv.FormatUint(snapshot.PacketsForwarded, 10),
+				"packets_dropped_total":    strconv.FormatUint(snapshot.PacketsDropped, 10),
+				"bytes_forwarded_total":    strconv.FormatUint(snapshot.BytesForwarded, 10),
+				"bind_success_total":       strconv.FormatUint(snapshot.BindSuccess, 10),
+				"bind_failed_total":        strconv.FormatUint(snapshot.BindFailed, 10),
+				"token_invalid_total":      strconv.FormatUint(snapshot.TokenInvalid, 10),
+				"rate_limit_drops_total":   strconv.FormatUint(snapshot.RateLimitDrops, 10),
+				"control_reconnects_total": strconv.FormatUint(snapshot.ControlReconnects, 10),
 			})); err != nil {
 				return err
 			}

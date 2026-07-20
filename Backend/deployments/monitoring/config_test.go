@@ -52,7 +52,7 @@ func TestGrafanaDashboardIsValidJSONAndUsesRequiredMetrics(t *testing.T) {
 	if err := json.Unmarshal(contents, &dashboard); err != nil {
 		t.Fatal(err)
 	}
-	for _, metric := range []string{"http_requests_total", "http_request_duration_seconds_bucket", "active_sessions", "relay_allocations_active", "refresh_token_reuse_total", "relay_control_connected", "relay_packets_forwarded_total", "node_cpu_seconds_total"} {
+	for _, metric := range []string{"http_requests_total", "http_request_duration_seconds_bucket", "active_sessions", "relay_allocations_active", "refresh_token_reuse_total", "relay_node_control_connected", "relay_node_packets_forwarded_total", "relay_node_state", "node_cpu_seconds_total"} {
 		if !strings.Contains(string(contents), metric) {
 			t.Fatalf("dashboard does not query %s", metric)
 		}

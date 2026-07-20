@@ -3,6 +3,7 @@ package observability
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"runtime"
 	"sort"
@@ -35,7 +36,10 @@ type durationMetric struct {
 }
 
 type Metrics struct {
-	pool *pgxpool.Pool
+	pool               *pgxpool.Pool
+	relayMetricsWriter interface {
+		WritePrometheus(context.Context, io.Writer) error
+	}
 
 	mu            sync.RWMutex
 	httpRequests  map[httpMetricKey]uint64
@@ -92,6 +96,12 @@ func (m *Metrics) RefreshTokenReuse() { m.refreshTokenReuseTotal.Add(1) }
 
 func (m *Metrics) RelayAllocationFailed() { m.relayAllocationFailedTotal.Add(1) }
 
+func (m *Metrics) SetRelayMetricsWriter(writer interface {
+	WritePrometheus(context.Context, io.Writer) error
+}) {
+	m.relayMetricsWriter = writer
+}
+
 func (m *Metrics) Handler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
@@ -99,6 +109,13 @@ func (m *Metrics) Handler() http.Handler {
 		m.writeHTTPMetrics(w)
 		m.writeApplicationCounters(w)
 		m.writeDatabaseGauges(r.Context(), w)
+		scrapeError := int64(0)
+		if m.relayMetricsWriter != nil {
+			if err := m.relayMetricsWriter.WritePrometheus(r.Context(), w); err != nil {
+				scrapeError = 1
+			}
+		}
+		writeGauge(w, "relay_node_metrics_scrape_error", scrapeError)
 	})
 }
 
@@ -176,7 +193,7 @@ func (m *Metrics) writeDatabaseGauges(ctx context.Context, w http.ResponseWriter
 	writeGauge(w, "p2p_rooms_active", activeRooms)
 	writeGauge(w, "relay_allocations_active", activeAllocations)
 	writeStateGauges(w, "game_servers_by_state", []string{"STARTING", "READY", "RESERVED", "RUNNING", "DRAINING", "UNHEALTHY", "OFFLINE"}, gameServers)
-	writeStateGauges(w, "relay_nodes_by_state", []string{"ENROLLING", "READY", "DRAINING", "UNHEALTHY", "OFFLINE", "REVOKED"}, relayNodes)
+	writeStateGauges(w, "relay_nodes_by_state", []string{"BOOTSTRAPPING", "CONNECTING", "READY", "DRAINING", "UNHEALTHY", "OFFLINE", "REVOKED"}, relayNodes)
 	var memory runtime.MemStats
 	runtime.ReadMemStats(&memory)
 	writeGauge(w, "go_goroutines", int64(runtime.NumGoroutine()))

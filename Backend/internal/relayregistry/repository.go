@@ -76,6 +76,36 @@ func (r *Repository) Get(ctx context.Context, nodeID string) (Node, error) {
 	return scanNode(r.pool.QueryRow(ctx, `SELECT `+nodeColumns+` FROM relay_nodes WHERE id = $1`, nodeID))
 }
 
+func (r *Repository) List(ctx context.Context, filter ListFilter) ([]Node, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT `+nodeColumns+`
+		FROM relay_nodes
+		WHERE ($1 = '' OR id > $1)
+		  AND ($2 = '' OR region = $2)
+		  AND ($3 = '' OR zone = $3)
+		  AND ($4 = '' OR provider = $4)
+		  AND ($5 = '' OR state = $5)
+		ORDER BY id
+		LIMIT $6
+	`, filter.Cursor, filter.Region, filter.Zone, filter.Provider, filter.State, filter.Limit)
+	if err != nil {
+		return nil, fmt.Errorf("list relay nodes: %w", err)
+	}
+	defer rows.Close()
+	items := make([]Node, 0, filter.Limit)
+	for rows.Next() {
+		item, err := scanNode(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan listed relay node: %w", err)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate relay nodes: %w", err)
+	}
+	return items, nil
+}
+
 func (r *Repository) AuthenticateNodeToken(ctx context.Context, nodeID string, tokenHash []byte) (Node, error) {
 	return scanNode(r.pool.QueryRow(ctx, `
 		SELECT `+nodeColumns+` FROM relay_nodes

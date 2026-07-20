@@ -28,12 +28,12 @@
     },
     {
       "type": "stat",
-      "title": "Edge relay state",
+      "title": "Registered relay state",
       "datasource": {"type": "prometheus", "uid": "project-rebound-prometheus"},
       "targets": [
-        {"expr": "relay_control_connected", "legendFormat": "Control connected"},
-        {"expr": "relay_active_allocations", "legendFormat": "Active allocations"},
-        {"expr": "relay_control_reconnects_total", "legendFormat": "Reconnects"}
+        {"expr": "count(relay_node_info) or vector(0)", "legendFormat": "Registered"},
+        {"expr": "sum(relay_node_state{state=\"READY\"}) or vector(0)", "legendFormat": "Ready"},
+        {"expr": "sum(relay_node_control_connected) or vector(0)", "legendFormat": "mTLS connected"}
       ],
       "options": {"reduceOptions": {"calcs": ["lastNotNull"], "values": false}, "orientation": "horizontal", "textMode": "auto"},
       "gridPos": {"h": 5, "w": 8, "x": 16, "y": 0}
@@ -69,9 +69,9 @@
       "title": "Relay packet rate",
       "datasource": {"type": "prometheus", "uid": "project-rebound-prometheus"},
       "targets": [
-        {"expr": "rate(relay_packets_received_total[5m])", "legendFormat": "Received"},
-        {"expr": "rate(relay_packets_forwarded_total[5m])", "legendFormat": "Forwarded"},
-        {"expr": "rate(relay_packets_dropped_total[5m])", "legendFormat": "Dropped"}
+        {"expr": "sum by (display_name, region) (rate(relay_node_packets_received_total[5m]))", "legendFormat": "{{display_name}} / {{region}} received"},
+        {"expr": "sum by (display_name, region) (rate(relay_node_packets_forwarded_total[5m]))", "legendFormat": "{{display_name}} / {{region}} forwarded"},
+        {"expr": "sum by (display_name, region) (rate(relay_node_packets_dropped_total[5m]))", "legendFormat": "{{display_name}} / {{region}} dropped"}
       ],
       "fieldConfig": {"defaults": {"unit": "pps"}, "overrides": []},
       "gridPos": {"h": 8, "w": 8, "x": 8, "y": 13}
@@ -81,10 +81,10 @@
       "title": "Relay traffic and validation",
       "datasource": {"type": "prometheus", "uid": "project-rebound-prometheus"},
       "targets": [
-        {"expr": "rate(relay_bytes_forwarded_total[5m]) * 8", "legendFormat": "Forwarded bits/s"},
-        {"expr": "rate(relay_bind_failed_total[5m])", "legendFormat": "Bind failures/s"},
-        {"expr": "rate(relay_token_invalid_total[5m])", "legendFormat": "Invalid tokens/s"},
-        {"expr": "rate(relay_rate_limit_drops_total[5m])", "legendFormat": "Rate-limit drops/s"}
+        {"expr": "sum by (display_name, region) (rate(relay_node_bytes_forwarded_total[5m])) * 8", "legendFormat": "{{display_name}} / {{region}} bits/s"},
+        {"expr": "sum by (display_name, region) (rate(relay_node_bind_failed_total[5m]))", "legendFormat": "{{display_name}} bind failures/s"},
+        {"expr": "sum by (display_name, region) (rate(relay_node_token_invalid_total[5m]))", "legendFormat": "{{display_name}} invalid tokens/s"},
+        {"expr": "sum by (display_name, region) (rate(relay_node_rate_limit_drops_total[5m]))", "legendFormat": "{{display_name}} rate-limit drops/s"}
       ],
       "gridPos": {"h": 8, "w": 8, "x": 16, "y": 13}
     },
@@ -120,10 +120,10 @@
       "gridPos": {"h": 7, "w": 8, "x": 0, "y": 29}
     },
     {
-      "type": "timeseries",
-      "title": "Relay nodes by state",
+      "type": "table",
+      "title": "Registered relay inventory",
       "datasource": {"type": "prometheus", "uid": "project-rebound-prometheus"},
-      "targets": [{"expr": "relay_nodes_by_state", "legendFormat": "{{state}}"}],
+      "targets": [{"expr": "relay_node_state", "legendFormat": "{{display_name}}", "instant": true, "format": "table"}],
       "gridPos": {"h": 7, "w": 8, "x": 8, "y": 29}
     },
     {
@@ -146,5 +146,5 @@
   "timezone": "browser",
   "title": "Project Rebound Operations",
   "uid": "project-rebound-control-plane",
-  "version": 2
+  "version": 3
 }

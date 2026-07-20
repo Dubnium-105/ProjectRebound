@@ -645,6 +645,35 @@ paths:
                 $ref: "#/components/schemas/RelayNodeResponse"
         "404":
           $ref: "#/components/responses/NotFound"
+  /internal/v1/relay-nodes:
+    get:
+      operationId: listRelayNodes
+      tags: [Internal Relay]
+      x-internal: true
+      description: Lists every registered relay node, including offline and revoked nodes, using stable node-ID cursor pagination.
+      security:
+        - adminToken: []
+      parameters:
+        - {in: query, name: region, schema: {type: string}}
+        - {in: query, name: zone, schema: {type: string}}
+        - {in: query, name: provider, schema: {type: string}}
+        - in: query
+          name: state
+          schema:
+            $ref: "#/components/schemas/RelayNodeState"
+        - {in: query, name: cursor, schema: {type: string}}
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+      responses:
+        "200":
+          description: Relay node page. Credentials are never returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RelayNodeListResponse"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /internal/v1/relay-nodes/{node_id}/drain:
     parameters:
       - $ref: "#/components/parameters/RelayNodeID"
@@ -1613,6 +1642,22 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/RelayNode"
+        request_id: {type: string}
+    RelayNodeListData:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RelayNode"
+        next_cursor: {type: string}
+    RelayNodeListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          $ref: "#/components/schemas/RelayNodeListData"
         request_id: {type: string}
     RelayTokenClaims:
       type: object

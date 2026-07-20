@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -128,6 +129,20 @@ func TestRelayRegistryLifecycleAgainstPostgreSQL(t *testing.T) {
 	ready, err := service.Heartbeat(ctx, enrolled.Node.ID, HeartbeatInput{})
 	if err != nil || ready.State != StateReady {
 		t.Fatalf("ready node = %#v, %v", ready, err)
+	}
+	listed, err := service.List(ctx, ListFilter{Region: "hk", State: StateReady, Limit: 1})
+	if err != nil || len(listed.Items) != 1 || listed.Items[0].ID != enrolled.Node.ID {
+		t.Fatalf("listed relay nodes = %#v, %v", listed, err)
+	}
+	telemetry := NewTelemetryStore()
+	telemetry.SetConnected(enrolled.Node.ID, true)
+	var prometheus bytes.Buffer
+	if err := NewRelayMetricsWriter(repository, telemetry).WritePrometheus(ctx, &prometheus); err != nil {
+		t.Fatal(err)
+	}
+	if output := prometheus.String(); !strings.Contains(output, `relay_node_info{node_id="`+enrolled.Node.ID+`"`) ||
+		!strings.Contains(output, `relay_node_control_connected{node_id="`+enrolled.Node.ID) || !strings.Contains(output, "} 1\n") {
+		t.Fatalf("relay node metrics missing inventory or control state: %s", output)
 	}
 
 	insertRelayConnectionFixtures(t, ctx, pool, suffix, roomID, playerIDs, connectionIDs, fixedNow)

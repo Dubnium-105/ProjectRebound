@@ -242,12 +242,14 @@ func buildHandler(
 		return nil, nil, fmt.Errorf("synchronize relay bootstrap credentials: %w", err)
 	}
 	relayControlHub := relayregistry.NewControlHub()
+	relayTelemetry := relayregistry.NewTelemetryStore()
+	metrics.SetRelayMetricsWriter(relayregistry.NewRelayMetricsWriter(relayRepository, relayTelemetry))
 	relayService.SetControlPublisher(relayControlHub)
 	relayService.SetConnectionCoordinator(connectionService)
 	relayService.SetMetrics(metrics)
 	connectionService.SetRelayAllocator(relayService)
 	relayControlServer, err := relayregistry.NewControlServer(
-		relayService, relayControlHub, relayAuthority, cfg.RelayRegistry, logger,
+		relayService, relayControlHub, relayTelemetry, relayAuthority, cfg.RelayRegistry, logger,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("initialize relay control server: %w", err)
@@ -258,6 +260,7 @@ func buildHandler(
 	router.Route("/internal/v1/relay-nodes", func(router chi.Router) {
 		router.Use(adminNetworkGuard.Middleware)
 		router.Use(adminAuthenticator.Middleware)
+		router.Get("/", relayHandler.List)
 		router.Get("/{node_id}", relayHandler.Get)
 		router.Post("/{node_id}/drain", relayHandler.Drain)
 		router.Post("/{node_id}/resume", relayHandler.Resume)

@@ -88,14 +88,15 @@ type ControlServer struct {
 	config     config.RelayRegistryConfig
 	grpcServer *grpc.Server
 	logger     *slog.Logger
+	telemetry  *TelemetryStore
 }
 
-func NewControlServer(service *Service, hub *ControlHub, authority *Authority, cfg config.RelayRegistryConfig, logger *slog.Logger) (*ControlServer, error) {
+func NewControlServer(service *Service, hub *ControlHub, telemetry *TelemetryStore, authority *Authority, cfg config.RelayRegistryConfig, logger *slog.Logger) (*ControlServer, error) {
 	tlsConfig, err := authority.ServerTLSConfig()
 	if err != nil {
 		return nil, fmt.Errorf("create relay control TLS configuration: %w", err)
 	}
-	server := &ControlServer{service: service, hub: hub, config: cfg, logger: logger}
+	server := &ControlServer{service: service, hub: hub, telemetry: telemetry, config: cfg, logger: logger}
 	server.grpcServer = grpc.NewServer(grpc.Creds(credentials.NewTLS(tlsConfig)))
 	relaycontrolpb.RegisterRelayControlServer(server.grpcServer, server)
 	return server, nil
@@ -151,6 +152,8 @@ func (s *ControlServer) Connect(stream relaycontrolpb.RelayControlConnectServer)
 	}
 	subscription := s.hub.Register(nodeID)
 	defer subscription.Close()
+	s.telemetry.SetConnected(nodeID, true)
+	defer s.telemetry.SetConnected(nodeID, false)
 	if err := sendControlMessage(stream, ControlMessage{Type: "ConfigSnapshot", Payload: map[string]any{
 		"config_version":             node.ConfigVersion,
 		"heartbeat_interval_seconds": s.config.HeartbeatIntervalSeconds,
@@ -214,6 +217,14 @@ func (s *ControlServer) handleNodeMessage(ctx context.Context, nodeID string, me
 		})
 		if err != nil {
 			return status.Error(codes.FailedPrecondition, "relay heartbeat rejected")
+		}
+		// TrafficReport existed before detailed counters were standardized. Keep
+		// capacity-only reports compatible and record telemetry when the new
+		// process identity is present.
+		if messageType == "TrafficReport" && stringField(payload, "process_id") != "" {
+			if err := s.telemetry.Record(nodeID, payload, time.Now()); err != nil {
+				return status.Error(codes.InvalidArgument, "invalid relay traffic report")
+			}
 		}
 	case "AllocationOpened":
 		if err := s.service.AllocationOpened(ctx, nodeID, stringField(payload, "allocation_id")); err != nil {

@@ -22,7 +22,30 @@ type Metrics struct {
 	controlReconnects atomic.Uint64
 }
 
+type MetricsSnapshot struct {
+	ActiveAllocations int64
+	PacketsReceived   uint64
+	PacketsForwarded  uint64
+	PacketsDropped    uint64
+	BytesForwarded    uint64
+	BindSuccess       uint64
+	BindFailed        uint64
+	TokenInvalid      uint64
+	RateLimitDrops    uint64
+	ControlReconnects uint64
+}
+
 func NewMetrics() *Metrics { return &Metrics{} }
+
+func (m *Metrics) Snapshot() MetricsSnapshot {
+	return MetricsSnapshot{
+		ActiveAllocations: m.activeAllocations.Load(), PacketsReceived: m.packetsReceived.Load(),
+		PacketsForwarded: m.packetsForwarded.Load(), PacketsDropped: m.packetsDropped.Load(),
+		BytesForwarded: m.bytesForwarded.Load(), BindSuccess: m.bindSuccess.Load(),
+		BindFailed: m.bindFailed.Load(), TokenInvalid: m.tokenInvalid.Load(),
+		RateLimitDrops: m.rateLimitDrops.Load(), ControlReconnects: m.controlReconnects.Load(),
+	}
+}
 
 func (m *Metrics) Handler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

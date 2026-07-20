@@ -204,7 +204,7 @@ chmod 600 deployments/edge-relay/.env
 - `advertised_endpoints[].port`：公网映射后的 UDP 端口。
 - `region`、`zone`、`provider`、容量和带宽：填写该节点真实信息。
 
-分离式边缘 Compose 使用 Linux host networking，因此 `127.0.0.1:9100` 指标可由主机上的 Prometheus/agent 抓取，同时不会暴露到公网。
+分离式边缘 Compose 使用 Linux host networking，因此 `127.0.0.1:9100` 指标可由主机上的 Prometheus/agent 抓取，同时不会暴露到公网。常规监控不要求为每台新节点配置独立抓取链路：Relay 会复用 mTLS 控制流上报累计遥测，控制面的 `/internal/metrics` 统一输出全部注册节点。节点本地 9100 抓取只作为可选的故障诊断增强。
 
 ### 6.3 首次启动
 
@@ -229,6 +229,8 @@ sudo docker compose --env-file deployments/edge-relay/.env \
 在控制面通过回环管理端口查询节点：
 
 ```bash
+curl -fsS 'http://127.0.0.1:18080/internal/v1/relay-nodes?limit=100' \
+  -H 'Authorization: Bearer ADMIN_TOKEN'
 curl -fsS http://127.0.0.1:18080/internal/v1/relay-nodes/RELAY_NODE_ID \
   -H 'Authorization: Bearer ADMIN_TOKEN'
 ```

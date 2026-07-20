@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,6 +19,7 @@ type HTTPService interface {
 	Enroll(context.Context, string, EnrollInput) (EnrollResult, error)
 	RenewCertificate(context.Context, string, string, string) (EnrollResult, error)
 	Get(context.Context, string) (Node, error)
+	List(context.Context, ListFilter) (ListResult, error)
 	Drain(context.Context, string, AdminMeta) (Node, error)
 	Resume(context.Context, string, AdminMeta) (Node, error)
 	Revoke(context.Context, string, AdminMeta) (Node, error)
@@ -128,6 +130,28 @@ func (h *HTTPHandler) Get(w http.ResponseWriter, r *http.Request) {
 	api.WriteData(w, r, 200, resultNode(node))
 }
 
+func (h *HTTPHandler) List(w http.ResponseWriter, r *http.Request) {
+	limit, err := strconv.Atoi(defaultQuery(r.URL.Query().Get("limit"), "50"))
+	if err != nil {
+		api.WriteError(w, r, 400, "INVALID_REQUEST", "Invalid limit.", nil)
+		return
+	}
+	result, err := h.service.List(r.Context(), ListFilter{
+		Region: r.URL.Query().Get("region"), Zone: r.URL.Query().Get("zone"),
+		Provider: r.URL.Query().Get("provider"), State: State(r.URL.Query().Get("state")),
+		Cursor: r.URL.Query().Get("cursor"), Limit: limit,
+	})
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	items := make([]nodeResponse, 0, len(result.Items))
+	for _, item := range result.Items {
+		items = append(items, resultNode(item))
+	}
+	api.WriteData(w, r, 200, map[string]any{"items": items, "next_cursor": result.NextCursor})
+}
+
 func (h *HTTPHandler) Drain(w http.ResponseWriter, r *http.Request) {
 	node, err := h.service.Drain(r.Context(), chi.URLParam(r, "node_id"), h.adminMeta(r))
 	h.writeNodeOperation(w, r, node, err)
@@ -177,6 +201,13 @@ func bearerToken(r *http.Request) string {
 		return ""
 	}
 	return strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
+}
+
+func defaultQuery(value, fallback string) string {
+	if strings.TrimSpace(value) == "" {
+		return fallback
+	}
+	return value
 }
 
 func resultNode(node Node) nodeResponse {
