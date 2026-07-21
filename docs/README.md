@@ -17,9 +17,30 @@
 | --- | --- | --- |
 | CI/CD | [`cicd.md`](cicd.md) | GitHub Environments、GHCR SHA 镜像、自动部署与回滚 |
 | Debian 部署 | [`debian-deployment-and-ops.md`](debian-deployment-and-ops.md) | 控制面和 Edge Relay 分离部署、升级、备份和验收 |
+| V1.1 部署入口 | [`deployment.md`](deployment.md) | 控制面、公网网关与 Edge Relay 的角色边界和发布入口 |
+| V1.1 认证 | [`auth.md`](auth.md) | bind 风控、邀请码、Refresh rotation 与 Session 管理 |
 | 外部 API | [`control-plane-external-api.md`](control-plane-external-api.md) | 客户端、Dedicated Server、P2P、连接与更新 API |
 | 内部 API | [`control-plane-internal-api.md`](control-plane-internal-api.md) | Admin、Relay 注册、mTLS gRPC、指标与 UDP 数据面 |
+| Relay 协议 V2 | [`relay-protocol.md`](relay-protocol.md) | Challenge、Token、认证数据包、MTU 与兼容性 |
+| Relay 迁移 | [`relay-migration.md`](relay-migration.md) | 故障、Drain、幂等迁移和恢复状态机 |
+| 密钥与证书 | [`key-rotation.md`](key-rotation.md) | Relay Token Keyset、mTLS 续期与撤销 |
+| 备份恢复 | [`backup-restore.md`](backup-restore.md) | PostgreSQL、离线密钥、校验和恢复顺序 |
+| 发布回滚 | [`release-and-rollback.md`](release-and-rollback.md) | 不可变镜像、preflight、滚动 Edge 和自动回滚 |
 | 命名管道 | [`command-framework.md`](command-framework.md) | 桌面浏览器与 Payload 的运行时指令协议 |
+
+## V1.1 验收和 Runbook
+
+| 文档 | 用途 |
+| --- | --- |
+| [`v1.1/test-report.md`](v1.1/test-report.md) | Release Gate、自动化结果和未执行的长稳/故障项目 |
+| [`v1.1/restore-test-report.md`](v1.1/restore-test-report.md) | 全新环境恢复演练证据模板 |
+| [`v1.1/release-checklist.md`](v1.1/release-checklist.md) | 候选版本发布签字清单 |
+| [`runbooks/auth-abuse.md`](runbooks/auth-abuse.md) | bind 滥用、Token 重放和邀请码异常 |
+| [`runbooks/relay-outage.md`](runbooks/relay-outage.md) | Relay 离线、容量和迁移故障 |
+| [`runbooks/database-redis-outage.md`](runbooks/database-redis-outage.md) | PostgreSQL/Redis 故障 |
+| [`runbooks/key-compromise.md`](runbooks/key-compromise.md) | Relay Key/证书泄露 |
+| [`runbooks/backup-restore.md`](runbooks/backup-restore.md) | 备份失败和恢复演练 |
+| [`runbooks/chaos-testing.md`](runbooks/chaos-testing.md) | 隔离环境弱网与故障注入 |
 
 ## 组件文档和契约
 
