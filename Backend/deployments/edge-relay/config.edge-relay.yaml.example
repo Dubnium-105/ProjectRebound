@@ -4,7 +4,8 @@ region: hkg
 zone: hkg-1
 provider: self-hosted
 software_version: 0.1.0
-protocol_version: 1
+protocol_version: 2
+accept_protocol_v1: false
 
 # HTTPS enrollment/API endpoint exposed by Caddy.
 control_plane_url: https://api.example.com
@@ -27,6 +28,7 @@ max_allocations: 1000
 max_egress_bps: 200000000
 heartbeat_seconds: 15
 allocation_idle_seconds: 120
-cookie_ttl_seconds: 30
+cookie_ttl_seconds: 10
 max_datagram_bytes: 1280
+max_payload_bytes: 1200
 ip_packets_per_second: 300

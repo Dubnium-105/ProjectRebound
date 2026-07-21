@@ -4,7 +4,8 @@ region: local
 zone: local-1
 provider: local
 software_version: 0.1.0
-protocol_version: 1
+protocol_version: 2
+accept_protocol_v1: false
 control_plane_url: http://control-plane:8080
 control_addr: control-plane:9090
 control_server_name: control-plane
@@ -20,6 +21,7 @@ max_allocations: 1000
 max_egress_bps: 200000000
 heartbeat_seconds: 15
 allocation_idle_seconds: 120
-cookie_ttl_seconds: 30
+cookie_ttl_seconds: 10
 max_datagram_bytes: 1280
+max_payload_bytes: 1200
 ip_packets_per_second: 300

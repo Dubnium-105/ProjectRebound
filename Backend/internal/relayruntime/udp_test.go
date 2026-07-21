@@ -36,7 +36,7 @@ func TestUDPListenerPerformsBindChallenge(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if length != 38 || response[5] != messageChallenge {
+	if length != 58 || response[5] != messageChallenge {
 		t.Fatalf("UDP challenge length/type = %d/%d", length, response[5])
 	}
 	cancel()

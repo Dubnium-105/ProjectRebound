@@ -25,6 +25,8 @@ type OutboundDatagram struct {
 type boundEndpoint struct {
 	address      netip.AddrPort
 	tokenID      string
+	version      byte
+	mtu          uint16
 	key          []byte
 	expiresAt    time.Time
 	packetBucket tokenBucket
@@ -33,17 +35,19 @@ type boundEndpoint struct {
 }
 
 type relayAllocation struct {
-	id            string
-	connectionID  string
-	roomID        string
-	handle        uint64
-	host          *boundEndpoint
-	peer          *boundEndpoint
-	maxTotalBytes int64
-	totalBytes    int64
-	expiresAt     time.Time
-	lastActivity  time.Time
-	opened        bool
+	id              string
+	connectionID    string
+	roomID          string
+	handle          uint64
+	host            *boundEndpoint
+	peer            *boundEndpoint
+	maxTotalBytes   int64
+	totalBytes      int64
+	expiresAt       time.Time
+	lastActivity    time.Time
+	opened          bool
+	protocolVersion byte
+	mtu             uint16
 }
 
 type replayBinding struct {
@@ -120,7 +124,7 @@ func (r *Runtime) ShutdownRequested() <-chan struct{} { return r.shutdown }
 
 func (r *Runtime) Process(packet []byte, address netip.AddrPort) []OutboundDatagram {
 	r.metrics.packetsReceived.Add(1)
-	if len(packet) < 6 || len(packet) > r.config.MaxDatagramBytes || string(packet[:4]) != Magic || packet[4] != ProtocolVersion {
+	if len(packet) < 6 || len(packet) > r.config.MaxDatagramBytes || string(packet[:4]) != Magic || !r.acceptsVersion(packet[4]) {
 		r.drop(false)
 		return nil
 	}
@@ -133,25 +137,49 @@ func (r *Runtime) Process(packet []byte, address netip.AddrPort) []OutboundDatag
 	}
 	switch packet[5] {
 	case messageBind:
-		_, token, err := decodeTokenPacket(packet, messageBind, 0)
-		if err != nil {
-			r.bindFailure(false)
-			return nil
+		var response []byte
+		if packet[4] == ProtocolVersionV1 {
+			_, token, err := decodeV1TokenPacket(packet, messageBind, 0)
+			if err != nil {
+				r.bindFailure(false)
+				return nil
+			}
+			response = encodeChallengeV1(r.cookies.Issue(address, token, now))
+		} else {
+			init, err := decodeBindInitV2(packet)
+			if err != nil || init.RequestedMTU < 1000 || int(init.RequestedMTU) > r.config.MaxPayloadBytes {
+				r.bindFailure(false)
+				return nil
+			}
+			serverNonce := make([]byte, NonceSize)
+			if _, err := rand.Read(serverNonce); err != nil {
+				r.bindFailure(false)
+				return nil
+			}
+			cookie := r.cookies.IssueV2(address, init.ClientNonce, serverNonce, init.Token, init.RequestedMTU, now)
+			response = encodeChallengeV2(serverNonce, cookie, r.cookies.TTL())
 		}
-		cookie := r.cookies.Issue(address, token, now)
-		response := encodeChallenge(cookie)
 		if len(response) > len(packet) {
 			r.bindFailure(false)
 			return nil
 		}
 		return []OutboundDatagram{{Address: address, Packet: response}}
 	case messageBindProof:
-		cookie, tokenBytes, err := decodeTokenPacket(packet, messageBindProof, sha256Size)
-		if err != nil || !r.cookies.Verify(cookie, address, tokenBytes, now) {
+		if packet[4] == ProtocolVersionV1 {
+			cookie, tokenBytes, err := decodeV1TokenPacket(packet, messageBindProof, sha256Size)
+			if err != nil || !r.cookies.Verify(cookie, address, tokenBytes, now) {
+				r.bindFailure(false)
+				return nil
+			}
+			return r.bind(string(tokenBytes), address, now, ProtocolVersionV1, uint16(r.config.MaxPayloadBytes))
+		}
+		proof, err := decodeBindProofV2(packet)
+		if err != nil || proof.RequestedMTU < 1000 || int(proof.RequestedMTU) > r.config.MaxPayloadBytes ||
+			!r.cookies.VerifyV2(proof.Cookie, address, proof.ClientNonce, proof.ServerNonce, proof.Token, proof.RequestedMTU, now) {
 			r.bindFailure(false)
 			return nil
 		}
-		return r.bind(string(tokenBytes), address, now)
+		return r.bind(string(proof.Token), address, now, ProtocolVersion, proof.RequestedMTU)
 	case messageData:
 		return r.forward(packet, address, now)
 	default:
@@ -162,7 +190,7 @@ func (r *Runtime) Process(packet []byte, address netip.AddrPort) []OutboundDatag
 
 const sha256Size = 32
 
-func (r *Runtime) bind(token string, address netip.AddrPort, now time.Time) []OutboundDatagram {
+func (r *Runtime) bind(token string, address netip.AddrPort, now time.Time, version byte, requestedMTU uint16) []OutboundDatagram {
 	claims, err := r.verifier.Verify(token, r.nodeID, now)
 	if err != nil {
 		r.bindFailure(true)
@@ -171,9 +199,9 @@ func (r *Runtime) bind(token string, address netip.AddrPort, now time.Time) []Ou
 	role, _ := parseRole(claims.EndpointRole)
 	if previous, exists := r.usedTokens[claims.TokenID]; exists {
 		item := r.allocations[previous.allocationID]
-		if item != nil && previous.allocationID == claims.AllocationID && previous.role == role && previous.address == address {
+		if item != nil && item.protocolVersion == version && previous.allocationID == claims.AllocationID && previous.role == role && previous.address == address {
 			r.metrics.bindSuccess.Add(1)
-			return []OutboundDatagram{{Address: address, Packet: encodeBindOK(item.handle, role)}}
+			return []OutboundDatagram{{Address: address, Packet: encodeBindOKVersion(version, item.handle, role, item.mtu)}}
 		}
 		r.bindFailure(true)
 		return nil
@@ -193,12 +221,13 @@ func (r *Runtime) bind(token string, address netip.AddrPort, now time.Time) []Ou
 			id: claims.AllocationID, connectionID: claims.ConnectionID, roomID: claims.RoomID,
 			handle: handle, maxTotalBytes: claims.MaxTotalBytes,
 			expiresAt: time.Unix(claims.AllocationExpiresAt, 0).UTC(), lastActivity: now,
+			protocolVersion: version, mtu: requestedMTU,
 		}
 		r.allocations[allocation.id] = allocation
 		r.byHandle[handle] = allocation
 		r.metrics.activeAllocations.Add(1)
 	} else if allocation.connectionID != claims.ConnectionID || allocation.roomID != claims.RoomID ||
-		allocation.maxTotalBytes != claims.MaxTotalBytes {
+		allocation.maxTotalBytes != claims.MaxTotalBytes || allocation.protocolVersion != version {
 		r.bindFailure(true)
 		return nil
 	}
@@ -207,10 +236,14 @@ func (r *Runtime) bind(token string, address netip.AddrPort, now time.Time) []Ou
 		allocation.expiresAt = claimExpiry
 	}
 	endpoint := &boundEndpoint{
-		address: address, tokenID: claims.TokenID, key: deriveDataKey(token),
+		address: address, tokenID: claims.TokenID, version: version, mtu: requestedMTU,
+		key:          deriveDataKeyVersion(token, version),
 		expiresAt:    time.Unix(claims.AllocationExpiresAt, 0).UTC(),
 		packetBucket: newTokenBucket(float64(claims.MaxPPS), float64(claims.MaxPPS), now),
 		byteBucket:   newTokenBucket(float64(claims.MaxBPS)/8, float64(claims.MaxBPS)/8, now),
+	}
+	if requestedMTU < allocation.mtu {
+		allocation.mtu = requestedMTU
 	}
 	if role == RoleHost {
 		if allocation.host != nil {
@@ -234,7 +267,7 @@ func (r *Runtime) bind(token string, address netip.AddrPort, now time.Time) []Ou
 		r.emit(RuntimeEvent{Type: "AllocationOpened", AllocationID: allocation.id})
 	}
 	r.metrics.bindSuccess.Add(1)
-	return []OutboundDatagram{{Address: address, Packet: encodeBindOK(allocation.handle, role)}}
+	return []OutboundDatagram{{Address: address, Packet: encodeBindOKVersion(version, allocation.handle, role, allocation.mtu)}}
 }
 
 func (r *Runtime) forward(packet []byte, source netip.AddrPort, now time.Time) []OutboundDatagram {
@@ -244,7 +277,8 @@ func (r *Runtime) forward(packet []byte, source netip.AddrPort, now time.Time) [
 		return nil
 	}
 	allocation := r.byHandle[decoded.Handle]
-	if allocation == nil || !now.Before(allocation.expiresAt) || now.Sub(allocation.lastActivity) > r.config.AllocationIdleTTL() {
+	if allocation == nil || decoded.Version != allocation.protocolVersion || len(decoded.Payload) > int(allocation.mtu) ||
+		!now.Before(allocation.expiresAt) || now.Sub(allocation.lastActivity) > r.config.AllocationIdleTTL() {
 		r.drop(false)
 		return nil
 	}
@@ -268,10 +302,14 @@ func (r *Runtime) forward(packet []byte, source netip.AddrPort, now time.Time) [
 	allocation.totalBytes += int64(len(decoded.Payload))
 	r.intervalBytes += int64(len(decoded.Payload))
 	allocation.lastActivity = now
-	forwarded := encodeDataPacket(allocation.handle, decoded.Role, decoded.Sequence, recipient.key, decoded.Payload)
+	forwarded := encodeDataPacketVersion(recipient.version, allocation.handle, decoded.Role, decoded.Sequence, recipient.key, decoded.Payload)
 	r.metrics.packetsForwarded.Add(1)
 	r.metrics.bytesForwarded.Add(uint64(len(decoded.Payload)))
 	return []OutboundDatagram{{Address: recipient.address, Packet: forwarded}}
+}
+
+func (r *Runtime) acceptsVersion(version byte) bool {
+	return version == ProtocolVersion || version == ProtocolVersionV1 && r.config.AcceptProtocolV1
 }
 
 func (r *Runtime) RevokeAllocation(allocationID string) { r.closeAllocation(allocationID, true) }

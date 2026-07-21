@@ -3,6 +3,7 @@ package relayruntime
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
@@ -62,9 +63,12 @@ func TestRuntimeCookieBindingAndAuthorizedForwarding(t *testing.T) {
 	if len(challenge) != 1 || len(challenge[0].Packet) > len(bind) || challenge[0].Packet[5] != messageChallenge {
 		t.Fatalf("challenge = %#v", challenge)
 	}
-	badCookie := append([]byte(nil), challenge[0].Packet[6:]...)
-	badCookie[0] ^= 0xff
-	if result := runtime.Process(encodeProofForTest(hostToken, badCookie), hostAddress); len(result) != 0 {
+	if len(runtime.allocations) != 0 || binary.BigEndian.Uint32(challenge[0].Packet[22:26]) != 10_000 {
+		t.Fatalf("challenge allocated state or returned the wrong lifetime: allocations=%d", len(runtime.allocations))
+	}
+	badChallenge := append([]byte(nil), challenge[0].Packet...)
+	badChallenge[6+NonceSize+4] ^= 0xff
+	if result := runtime.Process(encodeProofForTest(hostToken, badChallenge), hostAddress); len(result) != 0 {
 		t.Fatalf("invalid cookie was accepted: %#v", result)
 	}
 	handle := bindForTest(t, runtime, hostToken, hostAddress)
@@ -106,7 +110,7 @@ func TestRuntimeCookieBindingAndAuthorizedForwarding(t *testing.T) {
 	if len(runtime.Process(replay, hostAddress)) != 1 || len(runtime.Process(replay, hostAddress)) != 0 {
 		t.Fatal("data sequence replay was not rejected")
 	}
-	if result := runtime.Process(encodeProofForTest(hostToken, runtime.cookies.Issue(hostAddress, []byte(hostToken), now)), hostAddress); len(result) != 1 {
+	if result := bindWithoutAssertions(runtime, hostToken, hostAddress); len(result) != 1 {
 		t.Fatal("same-address bind retry was not idempotent")
 	}
 	if result := bindWithoutAssertions(runtime, hostToken, otherAddress); len(result) != 0 {
@@ -131,6 +135,26 @@ func TestRuntimeRejectsWrongNodeExpiredAndInvalidRoleTokens(t *testing.T) {
 	}
 	if runtime.metrics.tokenInvalid.Load() != uint64(len(tests)) {
 		t.Fatalf("invalid token metric = %d", runtime.metrics.tokenInvalid.Load())
+	}
+}
+
+func TestRuntimeV1CompatibilityIsExplicitlyOptIn(t *testing.T) {
+	now := time.Date(2026, 7, 17, 12, 0, 0, 0, time.UTC)
+	signer := newTestSigner(t, "relay-key-a")
+	address := netip.MustParseAddrPort("198.51.100.10:50000")
+	token := signer.sign(t, testClaims(now, "v1-host", "HOST", "relay_test", "alloc_v1"))
+	disabled := testRuntime(t, signer, now, func(cfg *Config) {})
+	if output := disabled.Process(encodeBindV1ForTest(token), address); len(output) != 0 {
+		t.Fatal("protocol v1 was accepted by default")
+	}
+	enabled := testRuntime(t, signer, now, func(cfg *Config) { cfg.AcceptProtocolV1 = true })
+	challenge := enabled.Process(encodeBindV1ForTest(token), address)
+	if len(challenge) != 1 || len(challenge[0].Packet) != 38 || challenge[0].Packet[4] != ProtocolVersionV1 {
+		t.Fatalf("v1 challenge = %#v", challenge)
+	}
+	result := enabled.Process(encodeProofV1ForTest(token, challenge[0].Packet[6:]), address)
+	if len(result) != 1 || len(result[0].Packet) != 15 || result[0].Packet[4] != ProtocolVersionV1 {
+		t.Fatalf("v1 bind result = %#v", result)
 	}
 }
 
@@ -284,28 +308,54 @@ func testClaims(now time.Time, tokenID, role, nodeID, allocationID string) Relay
 }
 
 func encodeBindForTest(token string) []byte {
-	packet := make([]byte, 8+len(token))
+	packet := make([]byte, 26+len(token))
 	copy(packet, Magic)
 	packet[4], packet[5] = ProtocolVersion, messageBind
+	clientNonce := sha256.Sum256([]byte(token))
+	copy(packet[6:22], clientNonce[:NonceSize])
+	binary.BigEndian.PutUint16(packet[22:24], 1200)
+	binary.BigEndian.PutUint16(packet[24:26], uint16(len(token)))
+	copy(packet[26:], token)
+	return packet
+}
+
+func encodeBindV1ForTest(token string) []byte {
+	packet := make([]byte, 8+len(token))
+	copy(packet, Magic)
+	packet[4], packet[5] = ProtocolVersionV1, messageBind
 	binary.BigEndian.PutUint16(packet[6:8], uint16(len(token)))
 	copy(packet[8:], token)
 	return packet
 }
 
-func encodeProofForTest(token string, cookie []byte) []byte {
+func encodeProofV1ForTest(token string, cookie []byte) []byte {
 	packet := make([]byte, 40+len(token))
 	copy(packet, Magic)
-	packet[4], packet[5] = ProtocolVersion, messageBindProof
+	packet[4], packet[5] = ProtocolVersionV1, messageBindProof
 	copy(packet[6:38], cookie)
 	binary.BigEndian.PutUint16(packet[38:40], uint16(len(token)))
 	copy(packet[40:], token)
 	return packet
 }
 
+func encodeProofForTest(token string, challenge []byte) []byte {
+	packet := make([]byte, 74+len(token))
+	copy(packet, Magic)
+	packet[4], packet[5] = ProtocolVersion, messageBindProof
+	clientNonce := sha256.Sum256([]byte(token))
+	copy(packet[6:22], clientNonce[:NonceSize])
+	copy(packet[22:38], challenge[6:22])
+	binary.BigEndian.PutUint16(packet[38:40], 1200)
+	copy(packet[40:72], challenge[26:58])
+	binary.BigEndian.PutUint16(packet[72:74], uint16(len(token)))
+	copy(packet[74:], token)
+	return packet
+}
+
 func bindForTest(t *testing.T, runtime *Runtime, token string, address netip.AddrPort) uint64 {
 	t.Helper()
 	output := bindWithoutAssertions(runtime, token, address)
-	if len(output) != 1 || len(output[0].Packet) != 15 || output[0].Packet[5] != messageBindOK {
+	if len(output) != 1 || len(output[0].Packet) != 17 || output[0].Packet[5] != messageBindOK {
 		t.Fatalf("bind result = %#v", output)
 	}
 	return binary.BigEndian.Uint64(output[0].Packet[6:14])
@@ -313,8 +363,8 @@ func bindForTest(t *testing.T, runtime *Runtime, token string, address netip.Add
 
 func bindWithoutAssertions(runtime *Runtime, token string, address netip.AddrPort) []OutboundDatagram {
 	challenge := runtime.Process(encodeBindForTest(token), address)
-	if len(challenge) != 1 || len(challenge[0].Packet) != 38 {
+	if len(challenge) != 1 || len(challenge[0].Packet) != 58 {
 		return nil
 	}
-	return runtime.Process(encodeProofForTest(token, challenge[0].Packet[6:]), address)
+	return runtime.Process(encodeProofForTest(token, challenge[0].Packet), address)
 }

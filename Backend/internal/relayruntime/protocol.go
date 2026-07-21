@@ -5,12 +5,16 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
+	"strconv"
+	"time"
 )
 
 const (
-	ProtocolVersion byte = 1
-	Magic                = "PRLY"
-	DataHeaderSize       = 39
+	ProtocolVersion   byte = 2
+	ProtocolVersionV1 byte = 1
+	Magic                  = "PRLY"
+	DataHeaderSize         = 39
+	NonceSize              = 16
 
 	messageBind      byte = 1
 	messageChallenge byte = 2
@@ -37,28 +41,45 @@ func parseRole(value string) (EndpointRole, bool) {
 	}
 }
 
-func encodeChallenge(cookie []byte) []byte {
+func encodeChallengeV1(cookie []byte) []byte {
 	packet := make([]byte, 6+len(cookie))
 	copy(packet, Magic)
-	packet[4] = ProtocolVersion
+	packet[4] = ProtocolVersionV1
 	packet[5] = messageChallenge
 	copy(packet[6:], cookie)
 	return packet
 }
 
-func encodeBindOK(handle uint64, role EndpointRole) []byte {
-	packet := make([]byte, 15)
+func encodeChallengeV2(serverNonce, cookie []byte, expiresIn time.Duration) []byte {
+	packet := make([]byte, 6+NonceSize+4+sha256.Size)
 	copy(packet, Magic)
-	packet[4] = ProtocolVersion
-	packet[5] = messageBindOK
-	binary.BigEndian.PutUint64(packet[6:14], handle)
-	packet[14] = byte(role)
+	packet[4], packet[5] = ProtocolVersion, messageChallenge
+	copy(packet[6:6+NonceSize], serverNonce)
+	binary.BigEndian.PutUint32(packet[6+NonceSize:10+NonceSize], uint32(expiresIn/time.Millisecond))
+	copy(packet[10+NonceSize:], cookie)
 	return packet
 }
 
-func decodeTokenPacket(packet []byte, expectedType byte, cookieSize int) (cookie, token []byte, err error) {
+func encodeBindOKVersion(version byte, handle uint64, role EndpointRole, mtu uint16) []byte {
+	length := 15
+	if version == ProtocolVersion {
+		length = 17
+	}
+	packet := make([]byte, length)
+	copy(packet, Magic)
+	packet[4] = version
+	packet[5] = messageBindOK
+	binary.BigEndian.PutUint64(packet[6:14], handle)
+	packet[14] = byte(role)
+	if version == ProtocolVersion {
+		binary.BigEndian.PutUint16(packet[15:17], mtu)
+	}
+	return packet
+}
+
+func decodeV1TokenPacket(packet []byte, expectedType byte, cookieSize int) (cookie, token []byte, err error) {
 	base := 8 + cookieSize
-	if len(packet) < base || string(packet[:4]) != Magic || packet[4] != ProtocolVersion || packet[5] != expectedType {
+	if len(packet) < base || string(packet[:4]) != Magic || packet[4] != ProtocolVersionV1 || packet[5] != expectedType {
 		return nil, nil, errors.New("invalid relay token packet")
 	}
 	lengthOffset := 6 + cookieSize
@@ -69,7 +90,54 @@ func decodeTokenPacket(packet []byte, expectedType byte, cookieSize int) (cookie
 	return packet[6:lengthOffset], packet[base:], nil
 }
 
+type bindInitPacket struct {
+	ClientNonce  []byte
+	RequestedMTU uint16
+	Token        []byte
+}
+
+func decodeBindInitV2(packet []byte) (bindInitPacket, error) {
+	const base = 6 + NonceSize + 2 + 2
+	if len(packet) < base || string(packet[:4]) != Magic || packet[4] != ProtocolVersion || packet[5] != messageBind {
+		return bindInitPacket{}, errors.New("invalid relay bind init")
+	}
+	tokenLength := int(binary.BigEndian.Uint16(packet[6+NonceSize+2 : base]))
+	if tokenLength < 1 || len(packet) != base+tokenLength {
+		return bindInitPacket{}, errors.New("invalid relay bind init length")
+	}
+	return bindInitPacket{
+		ClientNonce:  packet[6 : 6+NonceSize],
+		RequestedMTU: binary.BigEndian.Uint16(packet[6+NonceSize : 6+NonceSize+2]),
+		Token:        packet[base:],
+	}, nil
+}
+
+type bindProofPacket struct {
+	ClientNonce  []byte
+	ServerNonce  []byte
+	RequestedMTU uint16
+	Cookie       []byte
+	Token        []byte
+}
+
+func decodeBindProofV2(packet []byte) (bindProofPacket, error) {
+	const base = 6 + NonceSize + NonceSize + 2 + sha256.Size + 2
+	if len(packet) < base || string(packet[:4]) != Magic || packet[4] != ProtocolVersion || packet[5] != messageBindProof {
+		return bindProofPacket{}, errors.New("invalid relay bind proof")
+	}
+	tokenLength := int(binary.BigEndian.Uint16(packet[base-2 : base]))
+	if tokenLength < 1 || len(packet) != base+tokenLength {
+		return bindProofPacket{}, errors.New("invalid relay bind proof length")
+	}
+	return bindProofPacket{
+		ClientNonce: packet[6 : 6+NonceSize], ServerNonce: packet[6+NonceSize : 6+2*NonceSize],
+		RequestedMTU: binary.BigEndian.Uint16(packet[6+2*NonceSize : 8+2*NonceSize]),
+		Cookie:       packet[8+2*NonceSize : 8+2*NonceSize+sha256.Size], Token: packet[base:],
+	}, nil
+}
+
 type dataPacket struct {
+	Version  byte
 	Handle   uint64
 	Role     EndpointRole
 	Sequence uint64
@@ -78,7 +146,8 @@ type dataPacket struct {
 }
 
 func decodeDataPacket(packet []byte) (dataPacket, error) {
-	if len(packet) < DataHeaderSize || string(packet[:4]) != Magic || packet[4] != ProtocolVersion || packet[5] != messageData {
+	if len(packet) < DataHeaderSize || string(packet[:4]) != Magic ||
+		(packet[4] != ProtocolVersion && packet[4] != ProtocolVersionV1) || packet[5] != messageData {
 		return dataPacket{}, errors.New("invalid relay data packet")
 	}
 	role := EndpointRole(packet[14])
@@ -86,15 +155,19 @@ func decodeDataPacket(packet []byte) (dataPacket, error) {
 		return dataPacket{}, errors.New("invalid relay endpoint role")
 	}
 	return dataPacket{
-		Handle: binary.BigEndian.Uint64(packet[6:14]), Role: role,
+		Version: packet[4], Handle: binary.BigEndian.Uint64(packet[6:14]), Role: role,
 		Sequence: binary.BigEndian.Uint64(packet[15:23]), Tag: packet[23:39], Payload: packet[39:],
 	}, nil
 }
 
 func encodeDataPacket(handle uint64, role EndpointRole, sequence uint64, key, payload []byte) []byte {
+	return encodeDataPacketVersion(ProtocolVersion, handle, role, sequence, key, payload)
+}
+
+func encodeDataPacketVersion(version byte, handle uint64, role EndpointRole, sequence uint64, key, payload []byte) []byte {
 	packet := make([]byte, DataHeaderSize+len(payload))
 	copy(packet, Magic)
-	packet[4] = ProtocolVersion
+	packet[4] = version
 	packet[5] = messageData
 	binary.BigEndian.PutUint64(packet[6:14], handle)
 	packet[14] = byte(role)
@@ -116,7 +189,11 @@ func verifyDataTag(key, packet, supplied []byte) bool {
 }
 
 func deriveDataKey(token string) []byte {
+	return deriveDataKeyVersion(token, ProtocolVersion)
+}
+
+func deriveDataKeyVersion(token string, version byte) []byte {
 	mac := hmac.New(sha256.New, []byte(token))
-	mac.Write([]byte("project-rebound-relay-data-v1"))
+	mac.Write([]byte("project-rebound-relay-data-v" + strconv.Itoa(int(version))))
 	return mac.Sum(nil)
 }

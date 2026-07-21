@@ -91,7 +91,7 @@ Content-Type: application/json
 | `display_name` | string | 运维可读名称 |
 | `region`, `zone`, `provider` | string | 调度与资产标签 |
 | `software_version` | string | Relay 版本 |
-| `protocol_version` | integer | 当前必须为 1 |
+| `protocol_version` | integer | V1.1 Edge 必须为 2；客户端 v1 兼容由 Edge 显式开关控制 |
 | `advertised_endpoints` | array | `protocol`, `host`, `port`；客户端真实可达地址 |
 | `supported_protocols` | string[] | 当前包含 `UDP` |
 | `capacity` | object | `max_allocations`, `max_egress_bps` |
@@ -197,10 +197,10 @@ Control Plane -> Edge：
 
 完整二进制格式见 `Backend/api/relay-protocol.md`。摘要：
 
-1. Client 发送带签名 Relay Token 的 `BIND`；
-2. Relay 返回不放大的 HMAC Cookie `CHALLENGE`；
-3. Client 从相同 UDP endpoint 发送 `BIND_PROOF`；
-4. 验证后返回 `BIND_OK` 和 8 字节短 handle；
+1. Client 发送带 `client_nonce`、`requested_mtu` 和签名 Relay Token 的 v2 `BIND_INIT`；
+2. Relay 返回不放大的 `server_nonce + expires_in_ms + HMAC Cookie`；
+3. Client 从相同 UDP endpoint 原样携带 nonce、MTU、Cookie 和 Token 发送 `BIND_PROOF`；
+4. Relay 无状态校验 Cookie，再验签并返回 `BIND_OK`、随机 8 字节 handle 和协商 MTU；
 5. HOST 与 PEER 都绑定后，才转发带 HMAC tag 和 sequence 的 `DATA`。
 
 Relay Token claims 绑定 `allocation_id`、`connection_id`、`relay_node_id`、端点角色、有效期、带宽/PPS/总字节限制和协议版本。数据包不包含任意目标地址，因此只能在同一 allocation 的 HOST 与 PEER 间转发。Relay 不解密游戏 Payload，并丢弃未知 handle、错误角色/来源、无效 tag、重放/窗口外序号、超时或超限包。

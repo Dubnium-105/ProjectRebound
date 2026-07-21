@@ -298,7 +298,7 @@ var Defaults = Config{
 		RealtimeURL:          "wss://realtime.example.com/v1/realtime/connect",
 		STUNServers:          []string{"stun:stun.example.com:3478"},
 		APIVersion:           "v1",
-		ProtocolVersion:      1,
+		ProtocolVersion:      2,
 	},
 	MatchServer: MatchServerConfig{
 		HeartbeatSeconds:              5,

@@ -121,7 +121,7 @@ update:
   stun_servers:
     - "stun:stun.example.com:3478"
   api_version: "v1"
-  protocol_version: 1
+  protocol_version: 2
 
 logging:
   level: info

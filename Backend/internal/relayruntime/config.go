@@ -22,6 +22,7 @@ type Config struct {
 	Provider              string     `yaml:"provider"`
 	SoftwareVersion       string     `yaml:"software_version"`
 	ProtocolVersion       int        `yaml:"protocol_version"`
+	AcceptProtocolV1      bool       `yaml:"accept_protocol_v1"`
 	ControlPlaneURL       string     `yaml:"control_plane_url"`
 	ControlAddr           string     `yaml:"control_addr"`
 	ControlServerName     string     `yaml:"control_server_name"`
@@ -37,6 +38,7 @@ type Config struct {
 	AllocationIdleSeconds int        `yaml:"allocation_idle_seconds"`
 	CookieTTLSeconds      int        `yaml:"cookie_ttl_seconds"`
 	MaxDatagramBytes      int        `yaml:"max_datagram_bytes"`
+	MaxPayloadBytes       int        `yaml:"max_payload_bytes"`
 	IPPacketsPerSecond    int        `yaml:"ip_packets_per_second"`
 }
 
@@ -46,8 +48,8 @@ var DefaultConfig = Config{
 	ControlPlaneURL: "http://control-plane:8080", ControlAddr: "control-plane:9090", ControlServerName: "control-plane",
 	DataDir: "./edge-relay-data", ListenAddr: ":8443", MetricsAddr: "127.0.0.1:9100",
 	SupportedProtocols: []string{"UDP"}, MaxAllocations: 1000, MaxEgressBPS: 200_000_000,
-	HeartbeatSeconds: 15, AllocationIdleSeconds: 120, CookieTTLSeconds: 30,
-	MaxDatagramBytes: 1280, IPPacketsPerSecond: 300,
+	HeartbeatSeconds: 15, AllocationIdleSeconds: 120, CookieTTLSeconds: 10,
+	MaxDatagramBytes: 1280, MaxPayloadBytes: 1200, IPPacketsPerSecond: 300,
 }
 
 func LoadConfig(path string) (Config, error) {
@@ -96,6 +98,12 @@ func applyEdgeEnv(cfg *Config) {
 	if value, err := strconv.ParseInt(os.Getenv("EDGE_RELAY_MAX_EGRESS_BPS"), 10, 64); err == nil && value > 0 {
 		cfg.MaxEgressBPS = value
 	}
+	if value, err := strconv.ParseBool(os.Getenv("EDGE_RELAY_ACCEPT_PROTOCOL_V1")); err == nil {
+		cfg.AcceptProtocolV1 = value
+	}
+	if value, err := strconv.Atoi(os.Getenv("EDGE_RELAY_MAX_PAYLOAD_BYTES")); err == nil && value > 0 {
+		cfg.MaxPayloadBytes = value
+	}
 }
 
 func (c Config) Validate() error {
@@ -117,8 +125,9 @@ func (c Config) Validate() error {
 		}
 	}
 	if c.ProtocolVersion != int(ProtocolVersion) || c.MaxAllocations < 1 || c.MaxEgressBPS < 1 ||
-		c.HeartbeatSeconds < 1 || c.AllocationIdleSeconds < 1 || c.CookieTTLSeconds < 5 ||
-		c.MaxDatagramBytes < DataHeaderSize+1 || c.MaxDatagramBytes > 65507 || c.IPPacketsPerSecond < 1 {
+		c.HeartbeatSeconds < 1 || c.AllocationIdleSeconds < 1 || c.CookieTTLSeconds < 5 || c.CookieTTLSeconds > 15 ||
+		c.MaxPayloadBytes < 1000 || c.MaxPayloadBytes > 1350 ||
+		c.MaxDatagramBytes < DataHeaderSize+c.MaxPayloadBytes || c.MaxDatagramBytes > 65507 || c.IPPacketsPerSecond < 1 {
 		errs = append(errs, errors.New("relay protocol, capacity, timeout, or datagram settings are invalid"))
 	}
 	if len(c.AdvertisedEndpoints) == 0 {
