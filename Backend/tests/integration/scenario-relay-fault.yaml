@@ -1,0 +1,22 @@
+scenario: full
+control_plane_url: http://127.0.0.1:28080
+realtime_url: ws://127.0.0.1:28080/v1/realtime/connect
+clients: 4
+rooms: 2
+relay_connections: 2
+duration: 45s
+request_interval_ms: 500
+setup_concurrency: 1
+auth:
+  refresh_interval: 5s
+room:
+  region: integration
+  mode: relay-fault
+  version: 1.1.0
+traffic:
+  packets_per_second: 5
+  payload_bytes: 128
+  jitter_ms: 5
+failure_injection:
+  disconnect_percent: 0
+  reconnect_delay_seconds: 1

@@ -1,0 +1,76 @@
+rule_files:
+  - v1.1.rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: control-plane dependency alerts fire after their hold periods
+    interval: 1m
+    input_series:
+      - series: postgres_available
+        values: 0x4
+      - series: redis_available
+        values: 0x4
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: PostgreSQLUnavailable
+        exp_alerts:
+          - exp_labels: {severity: critical, service: postgres}
+            exp_annotations:
+              summary: PostgreSQL health queries are failing
+      - eval_time: 2m
+        alertname: RedisUnavailable
+        exp_alerts:
+          - exp_labels: {severity: critical, service: redis}
+            exp_annotations:
+              summary: Redis health probe is failing
+
+  - name: auth and relay replay alerts fire on the first observed replay
+    interval: 1m
+    input_series:
+      - series: auth_refresh_reuse_total
+        values: 0 1 1
+      - series: relay_node_token_replay_total{node_id="relay-a"}
+        values: 0 1 1
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: RefreshTokenReplayDetected
+        exp_alerts:
+          - exp_labels: {severity: critical, service: auth}
+            exp_annotations:
+              summary: Refresh Token reuse was detected
+      - eval_time: 1m
+        alertname: RelayTokenReplayDetected
+        exp_alerts:
+          - exp_labels: {severity: critical, service: relay}
+            exp_annotations:
+              summary: Relay Token replay was detected
+
+  - name: relay availability alert fires and resolves with fleet state
+    interval: 1m
+    input_series:
+      - series: relay_nodes_by_state{state="READY"}
+        values: 0 0 2 2
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: NoRelayAvailable
+        exp_alerts:
+          - exp_labels: {severity: critical, service: relay}
+            exp_annotations:
+              summary: No scheduler-ready Relay node is available
+      - eval_time: 3m
+        alertname: NoRelayAvailable
+        exp_alerts: []
+
+  - name: backup verification alert fires and resolves
+    interval: 1m
+    input_series:
+      - series: projectrebound_backup_verification_success
+        values: 0x7
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: BackupVerificationFailed
+        exp_alerts:
+          - exp_labels: {severity: critical, service: backup}
+            exp_annotations:
+              summary: The latest backup verification failed

@@ -1,0 +1,22 @@
+scenario: full
+control_plane_url: http://127.0.0.1:28080
+realtime_url: ws://127.0.0.1:28080/v1/realtime/connect
+clients: 100
+rooms: 50
+relay_connections: 50
+duration: 90s
+request_interval_ms: 500
+setup_concurrency: 20
+auth:
+  refresh_interval: 30s
+room:
+  region: integration
+  mode: reconnect-storm
+  version: 1.1.0
+traffic:
+  packets_per_second: 2
+  payload_bytes: 128
+  jitter_ms: 5
+failure_injection:
+  disconnect_percent: 100
+  reconnect_delay_seconds: 1

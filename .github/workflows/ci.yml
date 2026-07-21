@@ -115,8 +115,8 @@ jobs:
       - name: Validate shell syntax and line endings
         shell: bash
         run: |
-          bash -n Backend/scripts/*.sh Backend/scripts/backup/*.sh Backend/scripts/release/*.sh Backend/deploy/deploy.sh Backend/tests/netem/run-relay-matrix.sh
-          if grep -IUlr $'\r' Backend/scripts Backend/deploy Backend/tests/netem; then
+          bash -n Backend/scripts/*.sh Backend/scripts/backup/*.sh Backend/scripts/release/*.sh Backend/deploy/deploy.sh Backend/tests/netem/run-relay-matrix.sh Backend/tests/integration/*.sh
+          if grep -IUlr $'\r' Backend/scripts Backend/deploy Backend/tests/netem Backend/tests/integration; then
             echo "CRLF found in Linux shell scripts" >&2
             exit 1
           fi
@@ -153,6 +153,36 @@ jobs:
           docker run --rm --entrypoint /bin/promtool \
             -v "$GITHUB_WORKSPACE/Backend/deployments/monitoring:/etc/prometheus:ro" \
             prom/prometheus:v2.55.1 check config /etc/prometheus/prometheus.yml
+          docker run --rm --entrypoint /bin/promtool \
+            -w /etc/prometheus/alerts \
+            -v "$GITHUB_WORKSPACE/Backend/deployments/monitoring:/etc/prometheus:ro" \
+            prom/prometheus:v2.55.1 test rules v1.1.rules.test.yml
+
+  v11-integration:
+    name: V1.1 disposable control plane and two-Relay integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: Backend/tests/integration/go.mod
+          cache-dependency-path: |
+            Backend/go.sum
+            Backend/tests/integration/go.sum
+
+      - name: Install isolated network fault tools
+        run: sudo apt-get update && sudo apt-get install -y iproute2
+
+      - name: Run real auth, room, WebSocket and Relay UDP flow
+        working-directory: Backend/tests/integration
+        env:
+          V11_INTEGRATION_I_UNDERSTAND: disposable-docker-stack
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+        run: bash ./run-gate.sh
 
       - name: Validate public Caddy policy
         run: |
@@ -163,7 +193,7 @@ jobs:
 
   container-images:
     name: Build and package ${{ matrix.name }} image
-    needs: [backend, contracts, deployment-config]
+    needs: [backend, contracts, deployment-config, v11-integration]
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
