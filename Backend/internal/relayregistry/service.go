@@ -463,6 +463,32 @@ func (s *Service) AllocateRelay(ctx context.Context, request connection.RelayAll
 	return s.presentAllocation(allocation, node)
 }
 
+func (s *Service) RevokeRelay(ctx context.Context, connectionID, reason string) error {
+	allocations, err := s.repository.CloseConnectionAllocations(ctx, strings.TrimSpace(connectionID), s.now().UTC())
+	if err != nil {
+		return err
+	}
+	if s.controlPublisher == nil {
+		return nil
+	}
+	for _, allocation := range allocations {
+		s.controlPublisher.Publish(allocation.RelayNodeID, ControlMessage{Type: "RevokeAllocation", Payload: map[string]any{
+			"allocation_id": allocation.ID,
+			"reason":        truncateReason(reason),
+		}})
+	}
+	return nil
+}
+
+func truncateReason(reason string) string {
+	reason = strings.TrimSpace(reason)
+	runes := []rune(reason)
+	if len(runes) > 128 {
+		return string(runes[:128])
+	}
+	return reason
+}
+
 func (s *Service) MigrateFailedRelays(ctx context.Context) (int, int, error) {
 	now := s.now().UTC()
 	timedOut, err := s.repository.TimedOutMigrations(ctx, now, 100)

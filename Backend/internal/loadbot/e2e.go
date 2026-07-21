@@ -39,12 +39,13 @@ type roomFixture struct {
 }
 
 type relayPair struct {
-	mu      sync.RWMutex
-	host    *relayclient.Client
-	peer    *relayclient.Client
-	retired []*relayclient.Client
-	sockets [2]*websocket.Conn
-	clients [2]*virtualClient
+	mu           sync.RWMutex
+	connectionID string
+	host         *relayclient.Client
+	peer         *relayclient.Client
+	retired      []*relayclient.Client
+	sockets      [2]*websocket.Conn
+	clients      [2]*virtualClient
 }
 
 type eventEnvelope struct {
@@ -110,15 +111,22 @@ func (r *Runner) runEndToEnd(ctx context.Context) {
 	cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	for _, pair := range pairs {
+		if err := r.requestJSON(cleanupCtx, http.MethodDelete, "/v1/connections/"+pair.connectionID,
+			pair.clients[0].access(), nil, nil, nil); err != nil {
+			r.recordFailure("relay_cleanup")
+		} else {
+			r.mu.Lock()
+			r.report.RelayAllocationsClosed++
+			r.mu.Unlock()
+		}
 		pair.close()
 	}
 	for _, room := range rooms {
-		_ = r.requestJSON(cleanupCtx, http.MethodDelete, "/v1/p2p-rooms/"+room.id, room.host.access(),
-			map[string]string{"X-Room-Host-Token": room.hostToken}, nil, nil)
+		if err := r.requestJSON(cleanupCtx, http.MethodDelete, "/v1/p2p-rooms/"+room.id, room.host.access(),
+			map[string]string{"X-Room-Host-Token": room.hostToken}, nil, nil); err != nil {
+			r.recordFailure("room_cleanup")
+		}
 	}
-	r.mu.Lock()
-	r.report.RelayAllocationsClosed = r.report.RelayAllocations
-	r.mu.Unlock()
 }
 
 func (r *Runner) bindClients(ctx context.Context) []*virtualClient {
@@ -280,7 +288,13 @@ func (r *Runner) createRelayPair(ctx context.Context, room roomFixture, index in
 		_ = hostRelay.Close()
 		return nil, err
 	}
-	pair := &relayPair{host: hostRelay, peer: peerRelay, sockets: [2]*websocket.Conn{hostSocket, peerSocket}, clients: [2]*virtualClient{room.host, room.peer}}
+	pair := &relayPair{
+		connectionID: connectionID,
+		host:         hostRelay,
+		peer:         peerRelay,
+		sockets:      [2]*websocket.Conn{hostSocket, peerSocket},
+		clients:      [2]*virtualClient{room.host, room.peer},
+	}
 	r.mu.Lock()
 	r.report.RelayAllocations++
 	r.report.RelayBindSuccess += 2

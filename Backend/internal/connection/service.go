@@ -31,6 +31,7 @@ type EventPublisher interface {
 
 type RelayAllocator interface {
 	AllocateRelay(context.Context, RelayAllocationRequest) (RelayAllocation, error)
+	RevokeRelay(context.Context, string, string) error
 }
 
 type Service struct {
@@ -82,6 +83,11 @@ func (s *Service) CloseForRoom(ctx context.Context, roomID, reason string) error
 		return err
 	}
 	for _, item := range items {
+		if s.relayAllocator != nil {
+			if err := s.relayAllocator.RevokeRelay(ctx, item.ID, reason); err != nil {
+				return err
+			}
+		}
 		s.publish(item, Event{Type: "connection.closed", Payload: connectionEventPayload(item), CreatedAt: s.now().UTC()})
 	}
 	return nil
@@ -253,6 +259,11 @@ func (s *Service) Close(ctx context.Context, actor Actor, connectionID string) (
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return Connection{}, internal(err)
+	}
+	if s.relayAllocator != nil {
+		if err := s.relayAllocator.RevokeRelay(ctx, item.ID, "CLIENT_CLOSED"); err != nil {
+			return Connection{}, internal(err)
+		}
 	}
 	if changed {
 		s.publish(item, Event{Type: "connection.closed", Payload: connectionEventPayload(item), CreatedAt: s.now().UTC()})
@@ -497,6 +508,11 @@ func (s *Service) SweepExpired(ctx context.Context) (int, error) {
 		return 0, err
 	}
 	for _, item := range items {
+		if s.relayAllocator != nil {
+			if err := s.relayAllocator.RevokeRelay(ctx, item.ID, "CONNECTION_EXPIRED"); err != nil {
+				return 0, err
+			}
+		}
 		s.publish(item, Event{Type: "connection.closed", Payload: connectionEventPayload(item), CreatedAt: s.now().UTC()})
 	}
 	return len(items), nil

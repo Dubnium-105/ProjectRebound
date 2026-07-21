@@ -370,6 +370,51 @@ func (r *Repository) AllocationClosed(ctx context.Context, nodeID, allocationID 
 	return tx.Commit(ctx)
 }
 
+func (r *Repository) CloseConnectionAllocations(ctx context.Context, connectionID string, now time.Time) ([]Allocation, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	rows, err := tx.Query(ctx, `
+		UPDATE relay_allocations
+		SET state = 'CLOSED', closed_at = $2, updated_at = $2
+		WHERE connection_id = $1 AND state NOT IN ('CLOSED', 'FAILED')
+		RETURNING `+allocationColumns,
+		connectionID, now,
+	)
+	if err != nil {
+		return nil, err
+	}
+	var allocations []Allocation
+	for rows.Next() {
+		allocation, scanErr := scanAllocation(rows)
+		if scanErr != nil {
+			rows.Close()
+			return nil, scanErr
+		}
+		allocations = append(allocations, allocation)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+	for _, allocation := range allocations {
+		if _, err := tx.Exec(ctx, `
+			UPDATE relay_nodes
+			SET active_allocations = GREATEST(active_allocations - 1, 0), updated_at = $2
+			WHERE id = $1
+		`, allocation.RelayNodeID, now); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return allocations, nil
+}
+
 func (r *Repository) Schedule(ctx context.Context, allocation Allocation, region string, threshold int) (Allocation, Node, bool, error) {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {

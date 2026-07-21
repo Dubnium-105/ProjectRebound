@@ -246,6 +246,24 @@ func TestRelayRegistryLifecycleAgainstPostgreSQL(t *testing.T) {
 	if auditCount < 3 {
 		t.Fatalf("relay state audit count = %d", auditCount)
 	}
+	publisher := &recordedControlPublisher{messages: make(map[string][]ControlMessage)}
+	service.SetControlPublisher(publisher)
+	if err := service.RevokeRelay(ctx, connectionIDs[0], "CONNECTION_CLOSED"); err != nil {
+		t.Fatal(err)
+	}
+	var allocationState string
+	if err := pool.QueryRow(ctx, "SELECT state FROM relay_allocations WHERE id = $1", first.AllocationID).Scan(&allocationState); err != nil || allocationState != "CLOSED" {
+		t.Fatalf("revoked allocation state = %q, %v", allocationState, err)
+	}
+	if messages := publisher.messages[enrolled.Node.ID]; len(messages) != 1 || messages[0].Type != "RevokeAllocation" {
+		t.Fatalf("revoke messages = %#v", messages)
+	}
+	if err := service.RevokeRelay(ctx, connectionIDs[0], "RETRY"); err != nil {
+		t.Fatal(err)
+	}
+	if messages := publisher.messages[enrolled.Node.ID]; len(messages) != 1 {
+		t.Fatalf("idempotent revoke published duplicate messages: %#v", messages)
+	}
 }
 
 func insertRelayConnectionFixtures(

@@ -133,6 +133,10 @@ func (r *Runner) runRequestScenario(ctx context.Context) {
 }
 
 func (r *Runner) runClient(ctx context.Context, id int) {
+	if ctx.Err() != nil {
+		return
+	}
+	r.step(ctx, id)
 	ticker := time.NewTicker(time.Duration(r.cfg.RequestIntervalMS) * time.Millisecond)
 	defer ticker.Stop()
 	for {
