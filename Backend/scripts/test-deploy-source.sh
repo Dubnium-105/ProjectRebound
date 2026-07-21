@@ -28,7 +28,11 @@ cat >"$temporary_dir/bin/curl" <<'EOF'
 #!/usr/bin/env bash
 printf '{"status":"ready"}\n'
 EOF
-chmod +x "$temporary_dir/bin/docker" "$temporary_dir/bin/curl"
+cat >"$temporary_dir/bin/uname" <<'EOF'
+#!/usr/bin/env bash
+printf 'Linux\n'
+EOF
+chmod +x "$temporary_dir/bin/docker" "$temporary_dir/bin/curl" "$temporary_dir/bin/uname"
 
 control_env="$temporary_dir/control.env"
 printf 'CONTROL_PLANE_ADMIN_PORT=18080\n' >"$control_env"
@@ -52,6 +56,13 @@ grep -q ' pull$' "$docker_log"
 
 : >"$docker_log"
 PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" \
+  CONTROL_PLANE_ENV_FILE="$control_env" DEPLOY_SOURCE=ci \
+  CONTROL_PLANE_IMAGE="ghcr.io/example/projectrebound-control-plane:1.1.0" \
+  bash "$test_backend/scripts/deploy-control-plane.sh" >/dev/null
+grep -q ' pull$' "$docker_log"
+
+: >"$docker_log"
+PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" \
   CONTROL_PLANE_ENV_FILE="$control_env" DEPLOY_SOURCE=source \
   bash "$test_backend/scripts/deploy-control-plane.sh" >/dev/null
 grep -q ' build --pull control-plane$' "$docker_log"
@@ -68,6 +79,13 @@ PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" \
   bash "$test_backend/scripts/deploy-edge-relay.sh" >/dev/null
 grep -q ' pull edge-relay$' "$docker_log"
 ! grep -q ' build ' "$docker_log"
+
+: >"$docker_log"
+PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" \
+  EDGE_RELAY_ENV_FILE="$edge_env" DEPLOY_SOURCE=ci \
+  EDGE_RELAY_IMAGE="ghcr.io/example/projectrebound-edge-relay@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" \
+  bash "$test_backend/scripts/deploy-edge-relay.sh" >/dev/null
+grep -q ' pull edge-relay$' "$docker_log"
 
 : >"$docker_log"
 PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" \

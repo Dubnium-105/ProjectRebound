@@ -15,15 +15,15 @@ if [[ -z "${DEPLOY_SOURCE:-}" && "${DEPLOY_PULL_ONLY:-0}" == "1" ]]; then
 fi
 case "$deploy_source" in
   auto)
-    if [[ "$image" =~ ^ghcr\.io/[a-z0-9._/-]+:sha-[0-9a-f]{40}$ ]]; then
+    if [[ "$image" =~ ^ghcr\.io/[a-z0-9._/-]+(@sha256:[0-9a-f]{64}|:(sha-[0-9a-f]{40}|[0-9]+\.[0-9]+\.[0-9]+))$ ]]; then
       deploy_source="ci"
     else
       deploy_source="source"
     fi
     ;;
   ci)
-    [[ "$image" =~ ^ghcr\.io/[a-z0-9._/-]+:sha-[0-9a-f]{40}$ ]] || {
-      echo "DEPLOY_SOURCE=ci requires EDGE_RELAY_IMAGE=ghcr.io/...:sha-<40-char-commit>." >&2
+    [[ "$image" =~ ^ghcr\.io/[a-z0-9._/-]+(@sha256:[0-9a-f]{64}|:(sha-[0-9a-f]{40}|[0-9]+\.[0-9]+\.[0-9]+))$ ]] || {
+      echo "DEPLOY_SOURCE=ci requires an immutable GHCR digest, commit tag, or semantic version." >&2
       exit 1
     }
     ;;
