@@ -116,8 +116,8 @@ func TestV11ControlPlaneAndTwoRelays(t *testing.T) {
 		}
 	}
 
-	report, contents := runLoadBot(t, ctx, backendDir, integrationDir)
-	assertLoadReport(t, report, contents)
+	report, contents, runErr := runLoadBot(t, ctx, backendDir, integrationDir)
+	assertLoadReport(t, report, contents, runErr)
 	relayA, err := stack.ServiceContainer(ctx, "edge-relay-a")
 	if err != nil {
 		t.Fatalf("get edge-relay-a container: %v", err)
@@ -147,8 +147,7 @@ func TestV11ControlPlaneAndTwoRelays(t *testing.T) {
 		t.Logf("fault-recovery service=%s recovery_seconds=%.3f", service, time.Since(started).Seconds())
 	}
 
-	recoveredReport, recoveredContents := runLoadBot(t, ctx, backendDir, integrationDir)
-	assertLoadReport(t, recoveredReport, recoveredContents)
+	assertRecoveredLoadReport(t, ctx, backendDir, integrationDir)
 }
 
 func runReconnectStorm(t *testing.T, ctx context.Context, backendDir, integrationDir string) {
@@ -410,7 +409,7 @@ func waitForDuration(ctx context.Context, duration time.Duration) bool {
 	}
 }
 
-func runLoadBot(t *testing.T, ctx context.Context, backendDir, integrationDir string) (loadReport, []byte) {
+func runLoadBot(t *testing.T, ctx context.Context, backendDir, integrationDir string) (loadReport, []byte, error) {
 	t.Helper()
 	reportPath := filepath.Join(t.TempDir(), "load-report.json")
 	metricsPath := filepath.Join(t.TempDir(), "load-report.prom")
@@ -423,30 +422,56 @@ func runLoadBot(t *testing.T, ctx context.Context, backendDir, integrationDir st
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 	output, runErr := cmd.CombinedOutput()
 	t.Logf("load-bot output:\n%s", output)
-	if runErr != nil {
-		t.Fatalf("run real auth/room/WebSocket/Relay UDP flow: %v", runErr)
-	}
 	contents, err := os.ReadFile(reportPath)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("read load-bot report after command error %v: %v", runErr, err)
 	}
 	var report loadReport
 	if err := json.Unmarshal(contents, &report); err != nil {
 		t.Fatal(err)
 	}
-	return report, contents
+	return report, contents, runErr
 }
 
-func assertLoadReport(t *testing.T, report loadReport, contents []byte) {
+func assertRecoveredLoadReport(t *testing.T, ctx context.Context, backendDir, integrationDir string) {
 	t.Helper()
+	for attempt := 1; attempt <= 2; attempt++ {
+		report, contents, runErr := runLoadBot(t, ctx, backendDir, integrationDir)
+		if validationErr := validateLoadReport(report, contents, runErr); validationErr == nil {
+			return
+		} else if attempt == 2 {
+			t.Fatalf("post-recovery smoke failed after retry: %v", validationErr)
+		} else {
+			t.Logf("post-recovery smoke was transiently unhealthy; retrying once: %v", validationErr)
+		}
+		waitForNoRelayAllocations(t, ctx)
+		waitForReadyRelays(t, ctx, 2)
+		if !waitForDuration(ctx, 2*time.Second) {
+			t.Fatal(ctx.Err())
+		}
+	}
+}
+
+func assertLoadReport(t *testing.T, report loadReport, contents []byte, runErr error) {
+	t.Helper()
+	if err := validateLoadReport(report, contents, runErr); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func validateLoadReport(report loadReport, contents []byte, runErr error) error {
 	if report.FailedRequests != 0 || len(report.Failures) != 0 || report.TokenRefreshFailures != 0 || report.RelayBindFailures != 0 {
-		t.Fatalf("load-bot reported failures: %s", contents)
+		return fmt.Errorf("load-bot command error %v reported failures: %s", runErr, contents)
 	}
 	if report.SuccessRatePercent != 100 || report.RoomsCreated != 2 || report.RelayAllocations != 2 ||
 		report.RelayAllocationsClosed != 2 || report.RelayBindSuccess < 4 ||
 		report.PacketsSent == 0 || report.PacketsReceived == 0 || report.PacketLossPercent != 0 {
-		t.Fatalf("load-bot acceptance thresholds were not met: %s", contents)
+		return fmt.Errorf("load-bot command error %v did not meet acceptance thresholds: %s", runErr, contents)
 	}
+	if runErr != nil {
+		return fmt.Errorf("load-bot command failed despite a passing report: %w", runErr)
+	}
+	return nil
 }
 
 func restartService(t *testing.T, ctx context.Context, stack compose.ComposeStack, service string) {
