@@ -45,6 +45,20 @@ func (s *stubHTTPService) Refresh(context.Context, string, RequestMeta) (Refresh
 
 func (s *stubHTTPService) Logout(context.Context, string) error { return nil }
 
+func (s *stubHTTPService) ListUserSessions(context.Context, string, string) ([]UserSession, error) {
+	return nil, nil
+}
+
+func (s *stubHTTPService) RevokeUserSession(context.Context, string, string) error { return nil }
+
+func (s *stubHTTPService) RevokeOtherUserSessions(context.Context, string, string) (int64, error) {
+	return 0, nil
+}
+
+func (s *stubHTTPService) ListRiskEvents(context.Context, string, string, string, string, bool, int) (RiskEventList, error) {
+	return RiskEventList{}, nil
+}
+
 func (s *stubHTTPService) AuditBindDecodeFailure(context.Context, RequestMeta) {}
 
 func TestBindRejectsClientSuppliedPrivilegeFields(t *testing.T) {

@@ -3,6 +3,7 @@ package auth
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -428,6 +429,9 @@ func (s *Service) AuthenticateAccess(ctx context.Context, accessToken string) (P
 	if item.AccountStatus == player.AccountStatusDeleted {
 		return Principal{}, &ServiceError{Status: 403, Code: CodeAccountDeleted, Message: "Account has been deleted."}
 	}
+	if err := s.repository.TouchSession(ctx, s.pool, session.ID, s.now().UTC()); err != nil {
+		s.logger.WarnContext(ctx, "update authentication session activity", "session_id", session.ID, "error", err)
+	}
 	return Principal{Player: item, SessionID: session.ID}, nil
 }
 
@@ -439,6 +443,89 @@ func (s *Service) Logout(ctx context.Context, sessionID string) error {
 		return internalError(err)
 	}
 	return nil
+}
+
+func (s *Service) ListUserSessions(ctx context.Context, playerID, currentSessionID string) ([]UserSession, error) {
+	if playerID == "" || currentSessionID == "" {
+		return nil, unauthorized("Invalid access token.", nil)
+	}
+	items, err := s.repository.ListPlayerSessions(ctx, s.pool, playerID, s.now().UTC())
+	if err != nil {
+		return nil, internalError(err)
+	}
+	result := make([]UserSession, 0, len(items))
+	for _, item := range items {
+		result = append(result, UserSession{
+			ID: item.ID, DeviceIDSuffix: item.DeviceIDSuffix,
+			IPAddress: maskIPAddress(item.IPAddress), CreatedAt: item.CreatedAt,
+			LastUsedAt: item.LastUsedAt, IsCurrent: item.ID == currentSessionID,
+		})
+	}
+	return result, nil
+}
+
+func (s *Service) RevokeUserSession(ctx context.Context, playerID, sessionID string) error {
+	if playerID == "" || strings.TrimSpace(sessionID) == "" {
+		return invalidRequest("Invalid session ID.", nil)
+	}
+	revoked, err := s.repository.RevokeOwnedSession(ctx, s.pool, playerID, strings.TrimSpace(sessionID), s.now().UTC())
+	if err != nil {
+		return internalError(err)
+	}
+	if !revoked {
+		return &ServiceError{Status: 404, Code: CodeSessionNotFound, Message: "Session not found."}
+	}
+	return nil
+}
+
+func (s *Service) RevokeOtherUserSessions(ctx context.Context, playerID, currentSessionID string) (int64, error) {
+	if playerID == "" || currentSessionID == "" {
+		return 0, unauthorized("Invalid access token.", nil)
+	}
+	revoked, err := s.repository.RevokeOtherSessions(ctx, s.pool, playerID, currentSessionID, s.now().UTC())
+	if err != nil {
+		return 0, internalError(err)
+	}
+	return revoked, nil
+}
+
+func (s *Service) ListRiskEvents(
+	ctx context.Context,
+	cursor, playerID, eventType, severity string,
+	unresolvedOnly bool,
+	limit int,
+) (RiskEventList, error) {
+	if limit == 0 {
+		limit = 50
+	}
+	if limit < 1 || limit > 100 {
+		return RiskEventList{}, invalidRequest("Invalid limit.", map[string]any{"limit": "must be between 1 and 100"})
+	}
+	eventType = strings.ToUpper(strings.TrimSpace(eventType))
+	severity = strings.ToUpper(strings.TrimSpace(severity))
+	if eventType != "" && !validRiskEventTypes[eventType] {
+		return RiskEventList{}, invalidRequest("Invalid risk event type.", nil)
+	}
+	if severity != "" && !validRiskSeverities[severity] {
+		return RiskEventList{}, invalidRequest("Invalid risk severity.", nil)
+	}
+	items, err := s.repository.ListRiskEvents(
+		ctx, s.pool, strings.TrimSpace(cursor), strings.TrimSpace(playerID),
+		eventType, severity, unresolvedOnly, limit+1,
+	)
+	if err != nil {
+		return RiskEventList{}, internalError(err)
+	}
+	nextCursor := ""
+	if len(items) > limit {
+		nextCursor = items[limit-1].ID
+		items = items[:limit]
+	}
+	for index := range items {
+		items[index].IPAddress = maskIPAddress(items[index].IPAddress)
+		items[index].DeviceIDHash = nil
+	}
+	return RiskEventList{Items: items, NextCursor: nextCursor}, nil
 }
 
 func (s *Service) AuditBindDecodeFailure(ctx context.Context, meta RequestMeta) {
@@ -533,6 +620,28 @@ func validSteamIDOrEmpty(steamID string) string {
 		return ""
 	}
 	return steamID
+}
+
+var validRiskEventTypes = map[string]bool{
+	"BIND_RATE_LIMITED": true, "REFRESH_TOKEN_REUSE": true, "MULTI_DEVICE_LOGIN": true,
+	"RAPID_IP_CHANGE": true, "MULTI_ACCOUNT_FROM_DEVICE": true, "MULTI_ACCOUNT_FROM_IP": true,
+	"INVALID_STEAM_ID": true, "INVALID_INVITE_CODE": true, "REVOKED_SESSION_USAGE": true,
+}
+
+var validRiskSeverities = map[string]bool{"LOW": true, "MEDIUM": true, "HIGH": true, "CRITICAL": true}
+
+func maskIPAddress(value string) string {
+	ip := net.ParseIP(value)
+	if ip == nil {
+		return ""
+	}
+	if ipv4 := ip.To4(); ipv4 != nil {
+		return fmt.Sprintf("%d.%d.%d.xxx", ipv4[0], ipv4[1], ipv4[2])
+	}
+	ipv6 := ip.To16()
+	return fmt.Sprintf("%x:%x:%x:%x::",
+		binary.BigEndian.Uint16(ipv6[0:2]), binary.BigEndian.Uint16(ipv6[2:4]),
+		binary.BigEndian.Uint16(ipv6[4:6]), binary.BigEndian.Uint16(ipv6[6:8]))
 }
 
 func sanitizeMeta(meta RequestMeta) RequestMeta {

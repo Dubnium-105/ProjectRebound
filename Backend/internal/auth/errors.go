@@ -12,6 +12,7 @@ const (
 	CodeInvalidInvite      = "INVALID_INVITE_CODE"
 	CodeUnauthorized       = "UNAUTHORIZED"
 	CodeSessionRevoked     = "SESSION_REVOKED"
+	CodeSessionNotFound    = "SESSION_NOT_FOUND"
 	CodeRefreshTokenReused = "REFRESH_TOKEN_REUSED"
 	CodeAccountDeleted     = "ACCOUNT_DELETED"
 	CodeInternalError      = "INTERNAL_ERROR"

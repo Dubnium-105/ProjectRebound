@@ -70,6 +70,10 @@ Content-Type: application/json
 
 创建响应中的明文邀请码是秘密，只出现一次；数据库仅存 SHA-256 哈希。`max_uses` 不得降低到 `used_count` 以下。绑定新 SteamID 时使用行级锁消费名额，因此并发争抢最后一个名额只会有一个事务成功。已有玩家再次 bind 不重复消费邀请码。
 
+### 3.2 认证风险事件
+
+`GET /v1/admin/auth/risk-events` 按 `cursor`、`limit`、`player_id`、`event_type`、`severity` 和 `unresolved_only` 查询认证风险记录。V1.1 只记录和展示，不执行自动封禁。响应不包含 Device ID 哈希，IP 在返回前脱敏；数据库中的事件详情也不得写入 Access Token、Refresh Token 或完整 Authorization Header。
+
 ## 4. Relay HTTP 生命周期 API
 
 ### 4.1 首次注册

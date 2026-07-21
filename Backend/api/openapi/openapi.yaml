@@ -79,6 +79,58 @@ paths:
                 $ref: "#/components/schemas/MeResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /v1/users/me/sessions:
+    get:
+      operationId: listMySessions
+      tags: [Authentication]
+      security:
+        - playerAccessToken: []
+      responses:
+        "200":
+          description: Active sessions owned by the authenticated player. Token hashes and raw device identifiers are excluded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSessionListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /v1/users/me/sessions/{session_id}:
+    delete:
+      operationId: revokeMySession
+      tags: [Authentication]
+      security:
+        - playerAccessToken: []
+      parameters:
+        - in: path
+          name: session_id
+          required: true
+          schema: {type: string, pattern: "^ses_[A-Za-z0-9]+$"}
+      responses:
+        "200":
+          description: The owned session was revoked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSessionRevocationResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/users/me/sessions/revoke-others:
+    post:
+      operationId: revokeMyOtherSessions
+      tags: [Authentication]
+      security:
+        - playerAccessToken: []
+      responses:
+        "200":
+          description: Every active session except the calling session was revoked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserOtherSessionRevocationResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /v1/admin/players:
     get:
       operationId: adminListPlayers
@@ -287,6 +339,43 @@ paths:
                 $ref: "#/components/schemas/InviteCodeResponse"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/auth/risk-events:
+    get:
+      operationId: adminListAuthenticationRiskEvents
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminToken: []
+      parameters:
+        - in: query
+          name: cursor
+          schema: {type: string}
+        - in: query
+          name: limit
+          schema: {type: integer, minimum: 1, maximum: 100, default: 50}
+        - in: query
+          name: player_id
+          schema: {type: string}
+        - in: query
+          name: event_type
+          schema: {$ref: "#/components/schemas/AuthRiskEventType"}
+        - in: query
+          name: severity
+          schema: {$ref: "#/components/schemas/AuthRiskSeverity"}
+        - in: query
+          name: unresolved_only
+          schema: {type: boolean, default: false}
+      responses:
+        "200":
+          description: Authentication risk observations. Device hashes are not exposed and IP addresses are masked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthRiskEventListResponse"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/AdminUnauthorized"
   /v1/game-servers:
     post:
       operationId: registerGameServer
@@ -1204,6 +1293,57 @@ components:
           $ref: "#/components/schemas/MeData"
         request_id:
           type: string
+    UserSession:
+      type: object
+      additionalProperties: false
+      required: [session_id, device_id_suffix, ip_address, created_at, last_used_at, is_current]
+      properties:
+        session_id: {type: string}
+        device_id_suffix:
+          type: string
+          maxLength: 4
+          description: At most the final four characters; the raw device ID is never returned.
+        ip_address:
+          type: string
+          description: Masked network address, for example 192.0.2.xxx.
+        created_at: {type: string, format: date-time}
+        last_used_at:
+          type: [string, "null"]
+          format: date-time
+        is_current: {type: boolean}
+    UserSessionListData:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: {$ref: "#/components/schemas/UserSession"}
+    UserSessionListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/UserSessionListData"}
+        request_id: {type: string}
+    UserSessionRevocationResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [revoked]
+          properties:
+            revoked: {type: boolean, const: true}
+        request_id: {type: string}
+    UserOtherSessionRevocationResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [revoked_sessions]
+          properties:
+            revoked_sessions: {type: integer, minimum: 0}
+        request_id: {type: string}
     AdminPlayer:
       allOf:
         - $ref: "#/components/schemas/MeData"
@@ -1361,6 +1501,42 @@ components:
       required: [data, request_id]
       properties:
         data: {$ref: "#/components/schemas/InviteCodeListData"}
+        request_id: {type: string}
+    AuthRiskEventType:
+      type: string
+      enum: [BIND_RATE_LIMITED, REFRESH_TOKEN_REUSE, MULTI_DEVICE_LOGIN, RAPID_IP_CHANGE, MULTI_ACCOUNT_FROM_DEVICE, MULTI_ACCOUNT_FROM_IP, INVALID_STEAM_ID, INVALID_INVITE_CODE, REVOKED_SESSION_USAGE]
+    AuthRiskSeverity:
+      type: string
+      enum: [LOW, MEDIUM, HIGH, CRITICAL]
+    AuthRiskEvent:
+      type: object
+      additionalProperties: false
+      required: [id, event_type, severity, details, created_at, resolved_at]
+      properties:
+        id: {type: string}
+        player_id: {type: string}
+        steam_id: {type: string}
+        ip_address: {type: string, description: Masked before it is returned.}
+        event_type: {$ref: "#/components/schemas/AuthRiskEventType"}
+        severity: {$ref: "#/components/schemas/AuthRiskSeverity"}
+        details: {type: object, additionalProperties: true}
+        created_at: {type: string, format: date-time}
+        resolved_at:
+          type: [string, "null"]
+          format: date-time
+    AuthRiskEventListData:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: {$ref: "#/components/schemas/AuthRiskEvent"}
+        next_cursor: {type: string}
+    AuthRiskEventListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/AuthRiskEventListData"}
         request_id: {type: string}
     GameServerState:
       type: string

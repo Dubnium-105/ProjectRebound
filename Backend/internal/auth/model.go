@@ -85,6 +85,7 @@ type RiskEvent struct {
 	Severity     string
 	Details      map[string]any
 	CreatedAt    time.Time
+	ResolvedAt   *time.Time
 }
 
 type LoginEvent struct {
@@ -98,4 +99,18 @@ type LoginEvent struct {
 	Result       string
 	FailureCode  string
 	CreatedAt    time.Time
+}
+
+type UserSession struct {
+	ID             string
+	DeviceIDSuffix string
+	IPAddress      string
+	CreatedAt      time.Time
+	LastUsedAt     *time.Time
+	IsCurrent      bool
+}
+
+type RiskEventList struct {
+	Items      []RiskEvent
+	NextCursor string
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/projectrebound/matchserver/internal/api"
 	"github.com/projectrebound/matchserver/internal/middleware"
 	"github.com/projectrebound/matchserver/internal/requestctx"
@@ -17,6 +18,10 @@ type HTTPService interface {
 	Bind(context.Context, BindInput, RequestMeta) (BindResult, error)
 	Refresh(context.Context, string, RequestMeta) (RefreshResult, error)
 	Logout(context.Context, string) error
+	ListUserSessions(context.Context, string, string) ([]UserSession, error)
+	RevokeUserSession(context.Context, string, string) error
+	RevokeOtherUserSessions(context.Context, string, string) (int64, error)
+	ListRiskEvents(context.Context, string, string, string, string, bool, int) (RiskEventList, error)
 	AuditBindDecodeFailure(context.Context, RequestMeta)
 }
 
@@ -74,6 +79,27 @@ type meResponse struct {
 	IsVIP         bool      `json:"is_vip"`
 	LastLoginAt   time.Time `json:"last_login_at"`
 	CreatedAt     time.Time `json:"created_at"`
+}
+
+type userSessionResponse struct {
+	SessionID      string     `json:"session_id"`
+	DeviceIDSuffix string     `json:"device_id_suffix"`
+	IPAddress      string     `json:"ip_address"`
+	CreatedAt      time.Time  `json:"created_at"`
+	LastUsedAt     *time.Time `json:"last_used_at"`
+	IsCurrent      bool       `json:"is_current"`
+}
+
+type riskEventResponse struct {
+	ID         string         `json:"id"`
+	PlayerID   string         `json:"player_id,omitempty"`
+	SteamID    string         `json:"steam_id,omitempty"`
+	IPAddress  string         `json:"ip_address,omitempty"`
+	EventType  string         `json:"event_type"`
+	Severity   string         `json:"severity"`
+	Details    map[string]any `json:"details"`
+	CreatedAt  time.Time      `json:"created_at"`
+	ResolvedAt *time.Time     `json:"resolved_at"`
 }
 
 func (h *HTTPHandler) Bind(w http.ResponseWriter, r *http.Request) {
@@ -149,6 +175,84 @@ func (h *HTTPHandler) Me(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *HTTPHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
+	principal := PrincipalFromContext(r.Context())
+	if principal == nil {
+		api.WriteError(w, r, http.StatusUnauthorized, CodeUnauthorized, "Authentication is required.", nil)
+		return
+	}
+	items, err := h.service.ListUserSessions(r.Context(), principal.Player.ID, principal.SessionID)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	responses := make([]userSessionResponse, 0, len(items))
+	for _, item := range items {
+		responses = append(responses, userSessionResponse{
+			SessionID: item.ID, DeviceIDSuffix: item.DeviceIDSuffix, IPAddress: item.IPAddress,
+			CreatedAt: item.CreatedAt, LastUsedAt: item.LastUsedAt, IsCurrent: item.IsCurrent,
+		})
+	}
+	api.WriteData(w, r, http.StatusOK, map[string]any{"items": responses})
+}
+
+func (h *HTTPHandler) RevokeSession(w http.ResponseWriter, r *http.Request) {
+	principal := PrincipalFromContext(r.Context())
+	if principal == nil {
+		api.WriteError(w, r, http.StatusUnauthorized, CodeUnauthorized, "Authentication is required.", nil)
+		return
+	}
+	if err := h.service.RevokeUserSession(r.Context(), principal.Player.ID, chi.URLParam(r, "session_id")); err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	api.WriteData(w, r, http.StatusOK, map[string]bool{"revoked": true})
+}
+
+func (h *HTTPHandler) RevokeOtherSessions(w http.ResponseWriter, r *http.Request) {
+	principal := PrincipalFromContext(r.Context())
+	if principal == nil {
+		api.WriteError(w, r, http.StatusUnauthorized, CodeUnauthorized, "Authentication is required.", nil)
+		return
+	}
+	revoked, err := h.service.RevokeOtherUserSessions(r.Context(), principal.Player.ID, principal.SessionID)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	api.WriteData(w, r, http.StatusOK, map[string]int64{"revoked_sessions": revoked})
+}
+
+func (h *HTTPHandler) ListRiskEvents(w http.ResponseWriter, r *http.Request) {
+	limit, err := strconv.Atoi(defaultQuery(r.URL.Query().Get("limit"), "50"))
+	if err != nil {
+		api.WriteError(w, r, http.StatusBadRequest, CodeInvalidRequest, "Invalid limit.", nil)
+		return
+	}
+	unresolvedOnly, err := strconv.ParseBool(defaultQuery(r.URL.Query().Get("unresolved_only"), "false"))
+	if err != nil {
+		api.WriteError(w, r, http.StatusBadRequest, CodeInvalidRequest, "Invalid unresolved_only value.", nil)
+		return
+	}
+	result, err := h.service.ListRiskEvents(
+		r.Context(), r.URL.Query().Get("cursor"), r.URL.Query().Get("player_id"),
+		r.URL.Query().Get("event_type"), r.URL.Query().Get("severity"), unresolvedOnly, limit,
+	)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	items := make([]riskEventResponse, 0, len(result.Items))
+	for _, item := range result.Items {
+		items = append(items, riskEventResponse{
+			ID: item.ID, PlayerID: item.PlayerID, SteamID: item.SteamID, IPAddress: item.IPAddress,
+			EventType: item.EventType, Severity: item.Severity, Details: item.Details,
+			CreatedAt: item.CreatedAt, ResolvedAt: item.ResolvedAt,
+		})
+	}
+	api.WriteData(w, r, http.StatusOK, map[string]any{"items": items, "next_cursor": result.NextCursor})
+}
+
 func (h *HTTPHandler) requestMeta(r *http.Request) RequestMeta {
 	return RequestMeta{
 		RequestID: requestctx.RequestID(r.Context()),
@@ -178,4 +282,11 @@ func sessionToResponse(tokens SessionTokens) sessionResponse {
 		RefreshToken:          tokens.RefreshToken,
 		RefreshTokenExpiresAt: tokens.RefreshTokenExpiresAt,
 	}
+}
+
+func defaultQuery(value, fallback string) string {
+	if strings.TrimSpace(value) == "" {
+		return fallback
+	}
+	return value
 }

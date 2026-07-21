@@ -68,6 +68,9 @@
 | POST | `/v1/auth/refresh` | 无 | `refresh_token` | 200 新 Access/Refresh Token；旧 Refresh Token 失效 |
 | POST | `/v1/auth/logout` | Player | 无 | 200 当前 session 撤销 |
 | GET | `/v1/users/me` | Player | 无 | 200 实时玩家状态和权限字段 |
+| GET | `/v1/users/me/sessions` | Player | 无 | 200 当前玩家的有效会话列表 |
+| DELETE | `/v1/users/me/sessions/{session_id}` | Player | Path session ID | 200 撤销属于当前玩家的指定会话 |
+| POST | `/v1/users/me/sessions/revoke-others` | Player | 无 | 200 撤销除调用会话外的全部会话 |
 
 Bind 示例：
 
@@ -86,6 +89,8 @@ Content-Type: application/json
 旧客户端可继续省略两个新增字段。`device_id` 最长 128 字节，只允许可打印 ASCII；它仅用于限流和风险观察，不是可信身份，也不会绕过 SteamID 唯一约束。是否要求邀请码由服务端 `auth.invite_required` 配置决定。绑定超过任一维度限制时返回 `429 AUTH_BIND_RATE_LIMITED`，响应同时包含 `Retry-After` 与 `details.retry_after_seconds`。
 
 不要把 Access/Refresh Token 写入 URL、日志或崩溃报告。Refresh Token 发生重放时，服务端会撤销整个 token family。
+
+会话列表只返回 session ID、Device ID 后四位、创建/最近使用时间、脱敏 IP 和 `is_current`，不会返回 Token 哈希或完整设备标识。删除不属于当前玩家的 session 与不存在的 session 一样返回 404，避免跨账号探测。
 
 ### 3.3 Dedicated Server
 

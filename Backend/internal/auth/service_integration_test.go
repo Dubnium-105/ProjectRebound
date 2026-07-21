@@ -156,6 +156,79 @@ func TestAuthenticationLifecycleAgainstPostgreSQL(t *testing.T) {
 		}
 	})
 
+	t.Run("player manages only owned sessions", func(t *testing.T) {
+		steamID := nextSteamID()
+		createdSteamIDs = append(createdSteamIDs, steamID)
+		first, err := service.Bind(ctx, BindInput{
+			SteamID: steamID, PersonaName: "Session One", DeviceID: "device-one-1111",
+		}, meta)
+		if err != nil {
+			t.Fatal(err)
+		}
+		secondMeta := meta
+		secondMeta.IPAddress = "198.51.100.42"
+		second, err := service.Bind(ctx, BindInput{
+			SteamID: steamID, PersonaName: "Session Two", DeviceID: "device-two-2222",
+		}, secondMeta)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sessions, err := service.ListUserSessions(ctx, second.Player.ID, second.Tokens.SessionID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(sessions) != 2 {
+			t.Fatalf("active sessions = %#v", sessions)
+		}
+		currentCount := 0
+		for _, session := range sessions {
+			if session.IsCurrent {
+				currentCount++
+			}
+			if session.IPAddress != "192.0.2.xxx" && session.IPAddress != "198.51.100.xxx" {
+				t.Fatalf("session contains unmasked IP: %#v", session)
+			}
+			if len(session.DeviceIDSuffix) > 4 {
+				t.Fatalf("session contains full device ID: %#v", session)
+			}
+		}
+		if currentCount != 1 {
+			t.Fatalf("current session count = %d", currentCount)
+		}
+		if err := service.RevokeUserSession(ctx, second.Player.ID, first.Tokens.SessionID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := service.AuthenticateAccess(ctx, first.Tokens.AccessToken); ErrorCode(err) != CodeSessionRevoked {
+			t.Fatalf("revoked session access error = %v", err)
+		}
+		third, err := service.Bind(ctx, BindInput{SteamID: steamID, PersonaName: "Session Three"}, meta)
+		if err != nil {
+			t.Fatal(err)
+		}
+		revoked, err := service.RevokeOtherUserSessions(ctx, second.Player.ID, second.Tokens.SessionID)
+		if err != nil || revoked != 1 {
+			t.Fatalf("revoke others = %d, %v", revoked, err)
+		}
+		if _, err := service.AuthenticateAccess(ctx, second.Tokens.AccessToken); err != nil {
+			t.Fatalf("current session was revoked: %v", err)
+		}
+		if _, err := service.AuthenticateAccess(ctx, third.Tokens.AccessToken); ErrorCode(err) != CodeSessionRevoked {
+			t.Fatalf("other session access error = %v", err)
+		}
+		otherSteamID := nextSteamID()
+		createdSteamIDs = append(createdSteamIDs, otherSteamID)
+		otherPlayer, err := service.Bind(ctx, BindInput{SteamID: otherSteamID, PersonaName: "Other Player"}, meta)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := service.RevokeUserSession(ctx, second.Player.ID, otherPlayer.Tokens.SessionID); ErrorCode(err) != CodeSessionNotFound {
+			t.Fatalf("cross-player session revocation error = %v", err)
+		}
+		if _, err := service.AuthenticateAccess(ctx, otherPlayer.Tokens.AccessToken); err != nil {
+			t.Fatalf("cross-player revocation changed other session: %v", err)
+		}
+	})
+
 	t.Run("rotation reuse and logout revoke sessions", func(t *testing.T) {
 		steamID := nextSteamID()
 		createdSteamIDs = append(createdSteamIDs, steamID)

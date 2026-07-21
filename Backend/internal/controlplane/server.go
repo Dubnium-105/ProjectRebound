@@ -139,6 +139,9 @@ func buildHandler(
 		router.Post("/auth/refresh", authHandler.Refresh)
 		router.With(auth.RequireAccess(authService, logger)).Post("/auth/logout", authHandler.Logout)
 		router.With(auth.RequireAccess(authService, logger)).Get("/users/me", authHandler.Me)
+		router.With(auth.RequireAccess(authService, logger)).Get("/users/me/sessions", authHandler.ListSessions)
+		router.With(auth.RequireAccess(authService, logger)).Delete("/users/me/sessions/{session_id}", authHandler.RevokeSession)
+		router.With(auth.RequireAccess(authService, logger)).Post("/users/me/sessions/revoke-others", authHandler.RevokeOtherSessions)
 	})
 
 	adminAuthenticator, err := admin.NewAuthenticator(cfg.Admin)
@@ -167,6 +170,7 @@ func buildHandler(
 		router.Get("/invite-codes/{id}", inviteHandler.Get)
 		router.Patch("/invite-codes/{id}", inviteHandler.Patch)
 		router.Post("/invite-codes/{id}/revoke", inviteHandler.Revoke)
+		router.Get("/auth/risk-events", authHandler.ListRiskEvents)
 	})
 	router.With(adminNetworkGuard.Middleware).Get("/internal/metrics", metrics.Handler().ServeHTTP)
 
