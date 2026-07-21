@@ -23,6 +23,7 @@ type HTTPService interface {
 	Drain(context.Context, string, DrainInput, AdminMeta) (Node, error)
 	Resume(context.Context, string, AdminMeta) (Node, error)
 	Revoke(context.Context, string, AdminMeta) (Node, error)
+	ActivateSigningKey(context.Context, string, AdminMeta) (Keyset, error)
 }
 
 type HTTPHandler struct {
@@ -181,6 +182,15 @@ func (h *HTTPHandler) Resume(w http.ResponseWriter, r *http.Request) {
 func (h *HTTPHandler) Revoke(w http.ResponseWriter, r *http.Request) {
 	node, err := h.service.Revoke(r.Context(), chi.URLParam(r, "node_id"), h.adminMeta(r))
 	h.writeNodeOperation(w, r, node, err)
+}
+
+func (h *HTTPHandler) ActivateSigningKey(w http.ResponseWriter, r *http.Request) {
+	keyset, err := h.service.ActivateSigningKey(r.Context(), chi.URLParam(r, "key_id"), h.adminMeta(r))
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	api.WriteData(w, r, 200, keyset)
 }
 
 func (h *HTTPHandler) writeNodeOperation(w http.ResponseWriter, r *http.Request, node Node, err error) {

@@ -1,6 +1,9 @@
 package relayregistry
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/base64"
 	"strings"
 	"testing"
 	"time"
@@ -50,5 +53,40 @@ func TestRelayTokenIsSignedScopedAndExpiring(t *testing.T) {
 	manager.now = func() time.Time { return now.Add(3 * time.Minute) }
 	if _, err := manager.Verify(hostToken, "relay_a"); err == nil {
 		t.Fatal("expired token was accepted")
+	}
+}
+
+func TestRelaySigningKeyRotationKeepsPreviousTokensValid(t *testing.T) {
+	_, first, _ := ed25519.GenerateKey(rand.Reader)
+	_, second, _ := ed25519.GenerateKey(rand.Reader)
+	cfg := config.Defaults.RelayRegistry
+	cfg.RelayTokenKeyID = "first"
+	cfg.RelayTokenPrivateKeyBase64 = base64.RawStdEncoding.EncodeToString(first)
+	cfg.RelayTokenRotationKeys = "second=" + base64.RawStdEncoding.EncodeToString(second)
+	manager, err := NewRelayTokenManager(cfg, "production")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 7, 17, 12, 0, 0, 0, time.UTC)
+	manager.now = func() time.Time { return now }
+	claims := RelayClaims{RelayNodeID: "relay_a", AllocationID: "alloc_a", ConnectionID: "conn_a", RoomID: "room_a", EndpointRole: "HOST", Protocol: "UDP", MaxBPS: 1, MaxPPS: 1, MaxTotalBytes: 1, AllocationExpiresAt: now.Add(time.Hour).Unix()}
+	oldToken, _, _ := manager.Sign(claims, time.Minute)
+	before := manager.Keyset()
+	if len(before.Keys) != 2 || before.SignedBy != "first" || before.Signature == "" {
+		t.Fatalf("staged keyset = %#v", before)
+	}
+	if err := manager.Activate("second"); err != nil {
+		t.Fatal(err)
+	}
+	newToken, _, _ := manager.Sign(claims, time.Minute)
+	newClaims, err := manager.Verify(newToken, "relay_a")
+	if err != nil || newClaims.KeyID != "second" {
+		t.Fatalf("new token claims = %#v, %v", newClaims, err)
+	}
+	if _, err := manager.Verify(oldToken, "relay_a"); err != nil {
+		t.Fatalf("previous token was rejected during verify-only window: %v", err)
+	}
+	if manager.Keyset().Version != before.Version+1 || manager.Keyset().SignedBy != "second" {
+		t.Fatal("keyset version did not advance on activation")
 	}
 }

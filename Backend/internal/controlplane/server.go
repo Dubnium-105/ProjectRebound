@@ -276,6 +276,8 @@ func buildHandler(
 		router.Post("/{node_id}/resume", relayHandler.Resume)
 		router.Post("/{node_id}/revoke", relayHandler.Revoke)
 	})
+	router.With(adminNetworkGuard.Middleware, adminAuthenticator.Middleware).
+		Post("/internal/v1/relay-signing-keys/{key_id}/activate", relayHandler.ActivateSigningKey)
 	updateService, err := updateservice.NewService(cfg.Update, cfg.Environment, relayService)
 	if err != nil {
 		return nil, nil, fmt.Errorf("initialize update service: %w", err)

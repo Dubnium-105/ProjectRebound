@@ -142,7 +142,14 @@ func (c *ControlClient) connectOnce(ctx context.Context) error {
 				return err
 			}
 		case event := <-c.runtime.Events():
-			if err := stream.Send(controlEnvelope(event.Type, map[string]any{"allocation_id": event.AllocationID})); err != nil {
+			payload := map[string]any{}
+			if event.AllocationID != "" {
+				payload["allocation_id"] = event.AllocationID
+			}
+			if event.KeysetVersion > 0 {
+				payload["keyset_version"] = event.KeysetVersion
+			}
+			if err := stream.Send(controlEnvelope(event.Type, payload)); err != nil {
 				return err
 			}
 		}

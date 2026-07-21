@@ -151,7 +151,11 @@ type AdminMeta struct {
 }
 
 type Keyset struct {
-	Keys []PublicKey `json:"keys"`
+	Version     int64       `json:"version"`
+	GeneratedAt time.Time   `json:"generated_at"`
+	SignedBy    string      `json:"signed_by"`
+	Keys        []PublicKey `json:"keys"`
+	Signature   string      `json:"signature"`
 }
 
 type PublicKey struct {

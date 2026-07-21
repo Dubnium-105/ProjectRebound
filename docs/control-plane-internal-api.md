@@ -138,6 +138,7 @@ Content-Type: application/json
 | POST | `/internal/v1/relay-nodes/{node_id}/drain` | `READY -> DRAINING`；可选 `{deadline_seconds,migrate_existing}`，空请求默认只停止新 allocation |
 | POST | `/internal/v1/relay-nodes/{node_id}/resume` | 恢复为 `READY` |
 | POST | `/internal/v1/relay-nodes/{node_id}/revoke` | 永久撤销 Node Token/证书身份 |
+| POST | `/internal/v1/relay-signing-keys/{key_id}/activate` | 所有 READY 节点确认 staged Keyset 后激活签名 key |
 
 状态包括 `BOOTSTRAPPING`、`CONNECTING`、`READY`、`DRAINING`、`UNHEALTHY`、`OFFLINE`、`REVOKED`。默认 15 秒心跳，45 秒无心跳转 `UNHEALTHY`，90 秒转 `OFFLINE`。Drain 的 `migrate_existing=false` 保留现有 allocation 到自然结束或 deadline；`true` 使用有界故障迁移状态机逐步迁移；Revoke 不可逆。
 

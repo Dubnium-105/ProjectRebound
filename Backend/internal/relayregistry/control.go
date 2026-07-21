@@ -243,6 +243,10 @@ func (s *ControlServer) handleNodeMessage(ctx context.Context, nodeID string, me
 			return status.Error(codes.FailedPrecondition, "allocation close report rejected")
 		}
 	case "RuntimeError", "DrainCompleted":
+	case "KeysetLoaded":
+		if err := s.service.KeysetLoaded(ctx, nodeID, int64(numberField(payload, "keyset_version"))); err != nil {
+			return status.Error(codes.FailedPrecondition, "relay keyset acknowledgement rejected")
+		}
 	default:
 		return status.Error(codes.InvalidArgument, "unsupported relay node message type")
 	}

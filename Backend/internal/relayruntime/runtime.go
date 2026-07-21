@@ -14,8 +14,9 @@ import (
 )
 
 type RuntimeEvent struct {
-	Type         string
-	AllocationID string
+	Type          string
+	AllocationID  string
+	KeysetVersion int64
 }
 
 type LoadState string
@@ -127,9 +128,15 @@ func NewRuntime(nodeID string, cfg Config, verifier *TokenVerifier, metrics *Met
 	}, nil
 }
 
-func (r *Runtime) Events() <-chan RuntimeEvent      { return r.events }
-func (r *Runtime) Metrics() *Metrics                { return r.metrics }
-func (r *Runtime) UpdateKeyset(keyset Keyset) error { return r.verifier.Update(keyset) }
+func (r *Runtime) Events() <-chan RuntimeEvent { return r.events }
+func (r *Runtime) Metrics() *Metrics           { return r.metrics }
+func (r *Runtime) UpdateKeyset(keyset Keyset) error {
+	if err := r.verifier.Update(keyset); err != nil {
+		return err
+	}
+	r.emit(RuntimeEvent{Type: "KeysetLoaded", KeysetVersion: keyset.Version})
+	return nil
+}
 
 func (r *Runtime) SetDraining(value bool) {
 	r.mu.Lock()

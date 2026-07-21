@@ -68,7 +68,54 @@ func (s *Service) SetMetrics(metrics interface{ RelayAllocationFailed() }) { s.m
 func (s *Service) Keyset() Keyset { return s.tokenManager.Keyset() }
 
 func (s *Service) Initialize(ctx context.Context, credentials []BootstrapCredential) error {
-	return s.repository.SyncBootstrapCredentials(ctx, credentials, s.now().UTC())
+	now := s.now().UTC()
+	if err := s.repository.SyncBootstrapCredentials(ctx, credentials, now); err != nil {
+		return err
+	}
+	if err := s.repository.SyncSigningKeyset(ctx, s.tokenManager.Keyset(), now); err != nil {
+		return err
+	}
+	activeKeyID, err := s.repository.ActiveSigningKeyID(ctx)
+	if err != nil {
+		return err
+	}
+	return s.tokenManager.Activate(activeKeyID)
+}
+
+func (s *Service) KeysetLoaded(ctx context.Context, nodeID string, version int64) error {
+	if version != s.tokenManager.Keyset().Version {
+		return invalid("Relay keyset version is stale.", nil)
+	}
+	return s.repository.RecordKeysetAck(ctx, nodeID, version, s.now().UTC())
+}
+
+func (s *Service) ActivateSigningKey(ctx context.Context, keyID string, meta AdminMeta) (Keyset, error) {
+	if strings.TrimSpace(meta.ActorID) == "" {
+		return Keyset{}, unauthorized("ADMIN_UNAUTHORIZED", "Administrator authentication is required.")
+	}
+	current := s.tokenManager.Keyset()
+	now := s.now().UTC()
+	if err := s.repository.ActivateSigningKey(ctx, keyID, current.Version, now, now.Add(s.config.RelayTokenTTL())); err != nil {
+		if errors.Is(err, ErrKeysetNotAcknowledged) {
+			return Keyset{}, conflict("KEYSET_NOT_ACKNOWLEDGED", "Every READY relay must load the staged keyset before activation.")
+		}
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Keyset{}, notFound()
+		}
+		return Keyset{}, internal(err)
+	}
+	if err := s.tokenManager.Activate(keyID); err != nil {
+		return Keyset{}, conflict("SIGNING_KEY_NOT_STAGED", err.Error())
+	}
+	keyset := s.tokenManager.Keyset()
+	if s.controlPublisher != nil {
+		payload, _ := toMap(keyset)
+		nodes, _ := s.repository.List(ctx, ListFilter{Limit: 10000})
+		for _, node := range nodes {
+			s.controlPublisher.Publish(node.ID, ControlMessage{Type: "KeysetUpdate", Payload: payload})
+		}
+	}
+	return keyset, nil
 }
 
 func (s *Service) Enroll(ctx context.Context, bootstrapToken string, input EnrollInput) (EnrollResult, error) {

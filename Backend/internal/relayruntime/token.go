@@ -36,12 +36,17 @@ type PublicKey struct {
 }
 
 type Keyset struct {
-	Keys []PublicKey `json:"keys"`
+	Version     int64       `json:"version"`
+	GeneratedAt time.Time   `json:"generated_at"`
+	SignedBy    string      `json:"signed_by"`
+	Keys        []PublicKey `json:"keys"`
+	Signature   string      `json:"signature"`
 }
 
 type TokenVerifier struct {
-	mu   sync.RWMutex
-	keys map[string]ed25519.PublicKey
+	mu      sync.RWMutex
+	keys    map[string]ed25519.PublicKey
+	version int64
 }
 
 func NewTokenVerifier(keyset Keyset) (*TokenVerifier, error) {
@@ -71,9 +76,31 @@ func (v *TokenVerifier) Update(keyset Keyset) error {
 		keys[item.KeyID] = ed25519.PublicKey(decoded)
 	}
 	v.mu.Lock()
+	defer v.mu.Unlock()
+	if keyset.Version > 0 {
+		if keyset.Version < v.version || keyset.SignedBy == "" || keyset.Signature == "" {
+			return errors.New("relay keyset version or signature is invalid")
+		}
+		if len(v.keys) > 0 && len(v.keys[keyset.SignedBy]) != ed25519.PublicKeySize {
+			return errors.New("relay keyset signer is not already trusted")
+		}
+		signature, err := base64.RawURLEncoding.DecodeString(keyset.Signature)
+		bodyKeyset := keyset
+		bodyKeyset.Signature = ""
+		body, marshalErr := json.Marshal(bodyKeyset)
+		if err != nil || marshalErr != nil || !ed25519.Verify(keys[keyset.SignedBy], body, signature) {
+			return errors.New("relay keyset signature is invalid")
+		}
+	}
 	v.keys = keys
-	v.mu.Unlock()
+	v.version = keyset.Version
 	return nil
+}
+
+func (v *TokenVerifier) Version() int64 {
+	v.mu.RLock()
+	defer v.mu.RUnlock()
+	return v.version
 }
 
 func (v *TokenVerifier) Verify(token, expectedNodeID string, now time.Time) (RelayClaims, error) {

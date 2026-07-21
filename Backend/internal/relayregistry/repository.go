@@ -13,9 +13,10 @@ import (
 )
 
 var (
-	ErrActiveMigration      = errors.New("relay migration is already active")
-	ErrNoMigrationTarget    = errors.New("no relay migration target is available")
-	ErrMaxMigrationAttempts = errors.New("relay migration attempts exhausted")
+	ErrActiveMigration       = errors.New("relay migration is already active")
+	ErrNoMigrationTarget     = errors.New("no relay migration target is available")
+	ErrMaxMigrationAttempts  = errors.New("relay migration attempts exhausted")
+	ErrKeysetNotAcknowledged = errors.New("relay keyset is not acknowledged by every ready node")
 )
 
 type Repository struct {
@@ -35,6 +36,73 @@ func (r *Repository) SyncBootstrapCredentials(ctx context.Context, credentials [
 		}
 	}
 	return nil
+}
+
+func (r *Repository) SyncSigningKeyset(ctx context.Context, keyset Keyset, now time.Time) error {
+	for _, key := range keyset.Keys {
+		status := "PENDING"
+		if key.KeyID == keyset.SignedBy {
+			status = "ACTIVE"
+		}
+		if _, err := r.pool.Exec(ctx, `
+			INSERT INTO relay_signing_keys (
+				key_id, public_key, encrypted_private_key_reference, status, not_before, created_at
+			) VALUES ($1, $2, $3, $4, $5, $5)
+			ON CONFLICT (key_id) DO UPDATE SET public_key = EXCLUDED.public_key
+		`, key.KeyID, key.PublicKey, "env:RELAY_TOKEN_PRIVATE_KEY", status, now); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Repository) ActiveSigningKeyID(ctx context.Context) (string, error) {
+	var keyID string
+	err := r.pool.QueryRow(ctx, `SELECT key_id FROM relay_signing_keys WHERE status = 'ACTIVE'`).Scan(&keyID)
+	return keyID, err
+}
+
+func (r *Repository) RecordKeysetAck(ctx context.Context, nodeID string, version int64, now time.Time) error {
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO relay_keyset_acks (relay_node_id, keyset_version, acknowledged_at)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (relay_node_id, keyset_version) DO UPDATE SET acknowledged_at = EXCLUDED.acknowledged_at
+	`, nodeID, version, now)
+	return err
+}
+
+func (r *Repository) ActivateSigningKey(ctx context.Context, keyID string, keysetVersion int64, now, verifyUntil time.Time) error {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	var missing int
+	if err := tx.QueryRow(ctx, `
+		SELECT COUNT(*) FROM relay_nodes AS node
+		WHERE node.state = 'READY' AND NOT EXISTS (
+			SELECT 1 FROM relay_keyset_acks AS ack
+			WHERE ack.relay_node_id = node.id AND ack.keyset_version = $1
+		)
+	`, keysetVersion).Scan(&missing); err != nil {
+		return err
+	}
+	if missing > 0 {
+		return ErrKeysetNotAcknowledged
+	}
+	result, err := tx.Exec(ctx, `UPDATE relay_signing_keys SET status = 'VERIFY_ONLY', sign_until = $2, verify_until = $3 WHERE status = 'ACTIVE' AND key_id <> $1`, keyID, now, verifyUntil)
+	if err != nil {
+		return err
+	}
+	_ = result
+	result, err = tx.Exec(ctx, `UPDATE relay_signing_keys SET status = 'ACTIVE', not_before = $2 WHERE key_id = $1 AND status IN ('PENDING', 'ACTIVE')`, keyID, now)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() != 1 {
+		return pgx.ErrNoRows
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *Repository) Enroll(ctx context.Context, bootstrapHash []byte, node Node) error {

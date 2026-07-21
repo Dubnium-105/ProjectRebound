@@ -145,6 +145,7 @@ type RelayRegistryConfig struct {
 	CAPrivateKeyPEMBase64      string   `yaml:"-"`
 	RelayTokenKeyID            string   `yaml:"relay_token_key_id"`
 	RelayTokenPrivateKeyBase64 string   `yaml:"-"`
+	RelayTokenRotationKeys     string   `yaml:"-"`
 	RelayTokenTTLSeconds       int      `yaml:"relay_token_ttl_seconds"`
 	AllocationTTLSeconds       int      `yaml:"allocation_ttl_seconds"`
 	CapacityThresholdPercent   int      `yaml:"capacity_threshold_percent"`
@@ -379,6 +380,7 @@ func (c *Config) applyEnvOverrides() {
 	overrideString("RELAY_CA_KEY_PEM_BASE64", &c.RelayRegistry.CAPrivateKeyPEMBase64)
 	overrideString("RELAY_TOKEN_KEY_ID", &c.RelayRegistry.RelayTokenKeyID)
 	overrideString("RELAY_TOKEN_PRIVATE_KEY_BASE64", &c.RelayRegistry.RelayTokenPrivateKeyBase64)
+	overrideString("RELAY_TOKEN_ROTATION_KEYS", &c.RelayRegistry.RelayTokenRotationKeys)
 	overrideInt("RELAY_MIGRATION_TIMEOUT_SECONDS", &c.RelayRegistry.MigrationTimeoutSeconds)
 	overrideInt("RELAY_MIGRATION_MAX_ATTEMPTS", &c.RelayRegistry.MigrationMaxAttempts)
 	overrideString("UPDATE_MANIFEST_DIRECTORY", &c.Update.ManifestDirectory)
