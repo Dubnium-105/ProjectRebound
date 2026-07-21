@@ -104,6 +104,7 @@ func buildHandler(
 ) (http.Handler, []backgroundService, error) {
 	router := chi.NewRouter()
 	metrics := observability.NewMetrics(dbPool.Pool)
+	metrics.SetRedisProbe(redisClient.Check)
 	healthHandler := health.NewHandler([]health.Dependency{
 		{Name: "postgres", Checker: dbPool},
 		{Name: "redis", Checker: redisClient},
@@ -214,6 +215,7 @@ func buildHandler(
 	realtimeHandler := connection.NewRealtimeHandler(
 		connectionService, realtimeHub, cfg.CORS, cfg.Connection.WebSocketMaxBytes, logger,
 	)
+	realtimeHandler.SetMetrics(metrics)
 	router.With(auth.RequireAccess(authService, logger)).Get("/v1/connections/{connection_id}", connectionHandler.Get)
 	router.Group(func(router chi.Router) {
 		router.Use(auth.RequireAccess(authService, logger))

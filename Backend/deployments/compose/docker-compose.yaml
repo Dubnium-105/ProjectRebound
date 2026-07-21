@@ -94,6 +94,7 @@ services:
     command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=15d"]
     volumes:
       - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/alerts:/etc/prometheus/alerts:ro
       - ../monitoring/targets:/etc/prometheus/targets:ro
       - prometheus-data:/prometheus
     ports:

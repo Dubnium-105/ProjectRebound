@@ -26,6 +26,8 @@ export RESTORE_I_UNDERSTAND=replace-target-database
 scripts/backup/postgres-restore.sh /srv/.../projectrebound-....dump.age
 ```
 
+For alerting, set `BACKUP_METRICS_DIRECTORY=/var/lib/node_exporter/textfile_collector` and enable node-exporter's textfile collector for that directory. Backup, verification, and restore-drill timestamps are written atomically to separate `.prom` files. A failed run updates its status gauge without deleting the previous successful backup timestamp.
+
 恢复顺序：空 PostgreSQL → 数据库 dump → Access/Relay/Manifest 密钥与 Relay CA → Control Plane 非破坏迁移 → 管理员与 player_id 验证 → 旧 Manifest 验签 → Relay 重新连接。内存中的旧 allocation 不恢复，旧 connection 应由过期/关闭任务清理。恢复环境不得提前接入公网流量。
 
 每周在全新隔离环境演练并填写 `docs/v1.1/restore-test-report.md`：备份 ID/hash、开始/结束时间、RTO/RPO、表行数、关键身份/Manifest 验证、Relay 重连、失败项和操作者。仓库中的报告是模板；没有真实执行证据时不得写“恢复成功”。

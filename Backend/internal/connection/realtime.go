@@ -23,6 +23,11 @@ type RealtimeHandler struct {
 	originPatterns []string
 	maxMessageSize int64
 	logger         *slog.Logger
+	metrics        interface{ WebSocketConnected(string) func() }
+}
+
+func (h *RealtimeHandler) SetMetrics(metrics interface{ WebSocketConnected(string) func() }) {
+	h.metrics = metrics
 }
 
 func NewRealtimeHandler(service RealtimeService, hub *Hub, cors config.CORSConfig, maxMessageSize int, logger *slog.Logger) *RealtimeHandler {
@@ -43,6 +48,10 @@ func (h *RealtimeHandler) Connect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer socket.CloseNow()
+	if h.metrics != nil {
+		disconnected := h.metrics.WebSocketConnected(actor.PlayerID)
+		defer disconnected()
+	}
 	socket.SetReadLimit(h.maxMessageSize)
 
 	ctx, cancel := context.WithCancel(context.Background())

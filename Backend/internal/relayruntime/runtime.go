@@ -188,6 +188,7 @@ func (r *Runtime) ShutdownRequested() <-chan struct{} { return r.shutdown }
 
 func (r *Runtime) Process(packet []byte, address netip.AddrPort) []OutboundDatagram {
 	r.metrics.packetsReceived.Add(1)
+	r.metrics.bytesReceived.Add(uint64(len(packet)))
 	if len(packet) < 6 || len(packet) > r.config.MaxDatagramBytes || string(packet[:4]) != Magic || !r.acceptsVersion(packet[4]) {
 		if len(packet) > r.config.MaxDatagramBytes {
 			r.metrics.packetTooLarge.Add(1)
@@ -210,6 +211,7 @@ func (r *Runtime) Process(packet []byte, address netip.AddrPort) []OutboundDatag
 	}
 	switch packet[5] {
 	case messageBind:
+		r.metrics.bindInit.Add(1)
 		var response []byte
 		if packet[4] == ProtocolVersionV1 {
 			_, token, err := decodeV1TokenPacket(packet, messageBind, 0)
@@ -236,19 +238,29 @@ func (r *Runtime) Process(packet []byte, address netip.AddrPort) []OutboundDatag
 			r.bindFailure(false)
 			return nil
 		}
+		r.metrics.bindChallenge.Add(1)
 		return []OutboundDatagram{{Address: address, Packet: response}}
 	case messageBindProof:
 		if packet[4] == ProtocolVersionV1 {
 			cookie, tokenBytes, err := decodeV1TokenPacket(packet, messageBindProof, sha256Size)
-			if err != nil || !r.cookies.Verify(cookie, address, tokenBytes, now) {
+			if err != nil {
+				r.bindFailure(false)
+				return nil
+			}
+			if !r.cookies.Verify(cookie, address, tokenBytes, now) {
+				r.metrics.cookieInvalid.Add(1)
 				r.bindFailure(false)
 				return nil
 			}
 			return r.bind(string(tokenBytes), address, now, ProtocolVersionV1, uint16(r.config.MaxPayloadBytes))
 		}
 		proof, err := decodeBindProofV2(packet)
-		if err != nil || proof.RequestedMTU < 1000 || int(proof.RequestedMTU) > r.config.MaxPayloadBytes ||
-			!r.cookies.VerifyV2(proof.Cookie, address, proof.ClientNonce, proof.ServerNonce, proof.Token, proof.RequestedMTU, now) {
+		if err != nil || proof.RequestedMTU < 1000 || int(proof.RequestedMTU) > r.config.MaxPayloadBytes {
+			r.bindFailure(false)
+			return nil
+		}
+		if !r.cookies.VerifyV2(proof.Cookie, address, proof.ClientNonce, proof.ServerNonce, proof.Token, proof.RequestedMTU, now) {
+			r.metrics.cookieInvalid.Add(1)
 			r.bindFailure(false)
 			return nil
 		}
@@ -444,6 +456,7 @@ func (r *Runtime) updateLoadStateLocked(egressBPS, ingressBPS, packetsPerSecond 
 		float64(packetsPerSecond)*100/float64(r.config.MaxIngressPPS),
 		float64(memory.Alloc)*100/float64(int64(r.config.MaxMemoryMB)*1024*1024),
 	)
+	r.metrics.setLoadRatio(utilization / 100)
 	state := LoadStateNormal
 	if utilization >= float64(r.config.RejectNewThresholdPct) {
 		state = LoadStateRejectNew

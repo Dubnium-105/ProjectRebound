@@ -16,6 +16,7 @@ func TestPrometheusScrapesOnlyInternalControlPlaneMetrics(t *testing.T) {
 		t.Fatal(err)
 	}
 	var config struct {
+		RuleFiles     []string `yaml:"rule_files"`
 		ScrapeConfigs []struct {
 			MetricsPath   string `yaml:"metrics_path"`
 			JobName       string `yaml:"job_name"`
@@ -35,11 +36,91 @@ func TestPrometheusScrapesOnlyInternalControlPlaneMetrics(t *testing.T) {
 		config.ScrapeConfigs[0].StaticConfigs[0].Targets[0] != "control-plane:8080" {
 		t.Fatalf("unexpected Prometheus scrape config: %#v", config)
 	}
+	if len(config.RuleFiles) != 1 || config.RuleFiles[0] != "/etc/prometheus/alerts/*.yml" {
+		t.Fatalf("unexpected Prometheus rule files: %#v", config.RuleFiles)
+	}
 	if config.ScrapeConfigs[1].JobName != "project-rebound-edge-relay" ||
 		len(config.ScrapeConfigs[1].FileSDConfigs) != 1 ||
 		len(config.ScrapeConfigs[1].FileSDConfigs[0].Files) != 1 ||
 		config.ScrapeConfigs[1].FileSDConfigs[0].Files[0] != "/etc/prometheus/targets/edge-relays.yml" {
 		t.Fatalf("unexpected edge relay discovery config: %#v", config.ScrapeConfigs[1])
+	}
+}
+
+func TestV11AlertRulesCoverRequiredFailureModes(t *testing.T) {
+	contents, err := os.ReadFile(filepath.Join("alerts", "v1.1.rules.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rules struct {
+		Groups []struct {
+			Rules []struct {
+				Alert string `yaml:"alert"`
+				Expr  string `yaml:"expr"`
+			} `yaml:"rules"`
+		} `yaml:"groups"`
+	}
+	if err := yaml.Unmarshal(contents, &rules); err != nil {
+		t.Fatal(err)
+	}
+	alerts := make(map[string]string)
+	for _, group := range rules.Groups {
+		for _, rule := range group.Rules {
+			if rule.Alert == "" || rule.Expr == "" {
+				t.Fatalf("alert name and expression are required: %#v", rule)
+			}
+			alerts[rule.Alert] = rule.Expr
+		}
+	}
+	for _, name := range []string{
+		"ControlPlaneAPIHighErrorRate", "ControlPlaneAPIHighP95Latency", "PostgreSQLUnavailable",
+		"DatabasePoolNearlyExhausted", "RedisUnavailable", "BackgroundJobsRepeatedlyFailing", "HostFilesystemLow",
+		"AuthBindRateLimitSpike", "RefreshTokenReplayDetected", "MultiAccountRiskSpike", "InviteCodeFailureSpike",
+		"RelayNodeOffline", "NoRelayAvailable", "RelayRegionCapacityHigh", "RelayInvalidTokenSpike",
+		"RelayTokenReplayDetected", "RelayBindFailureRateHigh", "RelayMemoryGrowing", "RelayMigrationFailureRateHigh",
+		"DailyBackupMissing", "BackupVerificationFailed", "RestoreDrillOverdue",
+	} {
+		if _, ok := alerts[name]; !ok {
+			t.Errorf("required alert %s is missing", name)
+		}
+	}
+}
+
+func TestV11DashboardSetIsVersionedAndValid(t *testing.T) {
+	expected := map[string]bool{
+		"Control Plane Overview": false, "Authentication and Session Security": false,
+		"P2P Rooms and Connections": false, "Relay Fleet Overview": false,
+		"Relay Security": false, "Relay Traffic and Capacity": false,
+		"Database and Redis": false, "Release and Update Status": false,
+	}
+	files, err := filepath.Glob(filepath.Join("grafana", "dashboards", "v1.1-*.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range files {
+		contents, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var dashboard struct {
+			UID    string `json:"uid"`
+			Title  string `json:"title"`
+			Panels []any  `json:"panels"`
+		}
+		if err := json.Unmarshal(contents, &dashboard); err != nil {
+			t.Fatalf("%s: %v", file, err)
+		}
+		if dashboard.UID == "" || len(dashboard.Panels) == 0 {
+			t.Errorf("dashboard %s needs a stable UID and panels", file)
+		}
+		if _, ok := expected[dashboard.Title]; ok {
+			expected[dashboard.Title] = true
+		}
+	}
+	for title, found := range expected {
+		if !found {
+			t.Errorf("required V1.1 dashboard %q is missing", title)
+		}
 	}
 }
 
@@ -134,5 +215,24 @@ func TestPublicProxyBlocksInternalMetrics(t *testing.T) {
 	text := string(contents)
 	if !strings.Contains(text, "handle /internal/*") || !strings.Contains(text, "respond 404") {
 		t.Fatal("Caddy does not block internal endpoints")
+	}
+}
+
+func TestComposeMountsPrometheusAlertRules(t *testing.T) {
+	for _, file := range []string{
+		filepath.Join("..", "control-plane", "docker-compose.yaml"),
+		filepath.Join("..", "compose", "docker-compose.yaml"),
+	} {
+		contents, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var compose map[string]any
+		if err := yaml.Unmarshal(contents, &compose); err != nil {
+			t.Fatalf("%s is invalid YAML: %v", file, err)
+		}
+		if !strings.Contains(string(contents), "../monitoring/alerts:/etc/prometheus/alerts:ro") {
+			t.Errorf("%s does not mount the alert rules", file)
+		}
 	}
 }

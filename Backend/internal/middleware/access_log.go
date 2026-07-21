@@ -16,6 +16,11 @@ type HTTPMetrics interface {
 	ObserveHTTP(method, route string, status int, duration time.Duration)
 }
 
+type activeHTTPMetrics interface {
+	HTTPStarted()
+	HTTPFinished()
+}
+
 type responseRecorder struct {
 	http.ResponseWriter
 	status int
@@ -55,6 +60,10 @@ func (w *responseRecorder) Write(data []byte) (int, error) {
 
 func AccessLog(logger *slog.Logger, metrics HTTPMetrics, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if active, ok := metrics.(activeHTTPMetrics); ok {
+			active.HTTPStarted()
+			defer active.HTTPFinished()
+		}
 		started := time.Now()
 		recorder := &responseRecorder{ResponseWriter: w}
 		next.ServeHTTP(recorder, r)

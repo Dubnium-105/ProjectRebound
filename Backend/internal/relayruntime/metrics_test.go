@@ -15,7 +15,10 @@ func TestMetricsExposeRequiredRelaySeries(t *testing.T) {
 	body := recorder.Body.String()
 	for _, name := range []string{
 		"relay_active_allocations", "relay_packets_received_total", "relay_packets_forwarded_total",
+		"relay_runtime_info", "relay_bind_init_total", "relay_bind_challenge_total", "relay_cookie_invalid_total",
 		"relay_packets_dropped_total", "relay_bytes_forwarded_total", "relay_bind_success_total",
+		"relay_bytes_received_total", "relay_packet_auth_failed_total", "relay_node_load_ratio",
+		"relay_goroutines", "relay_memory_bytes",
 		"relay_bind_failed_total", "relay_token_invalid_total", "relay_rate_limit_drops_total",
 		"relay_token_replay_total", "relay_nat_rebind_total",
 		"relay_packet_authentication_failed_total", "relay_packet_too_large_total", "relay_packet_replay_dropped_total",

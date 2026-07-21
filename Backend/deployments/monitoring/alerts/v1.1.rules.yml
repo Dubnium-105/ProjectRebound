@@ -1,0 +1,142 @@
+groups:
+  - name: project-rebound-control-plane
+    rules:
+      - alert: ControlPlaneAPIHighErrorRate
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / clamp_min(sum(rate(http_requests_total[5m])), 1) > 0.05
+        for: 5m
+        labels: {severity: critical, service: control-plane}
+        annotations:
+          summary: Control Plane API 5xx ratio exceeds 5%
+      - alert: ControlPlaneAPIHighP95Latency
+        expr: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[10m]))) > 0.5
+        for: 10m
+        labels: {severity: warning, service: control-plane}
+        annotations:
+          summary: Control Plane API P95 latency exceeds 500 ms
+      - alert: PostgreSQLUnavailable
+        expr: postgres_available == 0
+        for: 2m
+        labels: {severity: critical, service: postgres}
+        annotations:
+          summary: PostgreSQL health queries are failing
+      - alert: DatabasePoolNearlyExhausted
+        expr: db_pool_in_use_connections / clamp_min(db_pool_open_connections, 1) > 0.85
+        for: 5m
+        labels: {severity: warning, service: postgres}
+        annotations:
+          summary: Database pool utilization exceeds 85%
+      - alert: RedisUnavailable
+        expr: redis_available == 0
+        for: 2m
+        labels: {severity: critical, service: redis}
+        annotations:
+          summary: Redis health probe is failing
+      - alert: BackgroundJobsRepeatedlyFailing
+        expr: increase(background_job_failures_total[15m]) > 3
+        for: 5m
+        labels: {severity: warning, service: control-plane}
+        annotations:
+          summary: Background jobs are repeatedly failing
+      - alert: HostFilesystemLow
+        expr: node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"} < 0.15
+        for: 10m
+        labels: {severity: warning, service: host}
+        annotations:
+          summary: Host filesystem free space is below 15%
+
+  - name: project-rebound-auth
+    rules:
+      - alert: AuthBindRateLimitSpike
+        expr: sum(rate(auth_bind_rate_limited_total[5m])) > 1
+        for: 5m
+        labels: {severity: warning, service: auth}
+        annotations:
+          summary: Authentication bind rate limiting is elevated
+      - alert: RefreshTokenReplayDetected
+        expr: increase(auth_refresh_reuse_total[5m]) > 0
+        labels: {severity: critical, service: auth}
+        annotations:
+          summary: Refresh Token reuse was detected
+      - alert: MultiAccountRiskSpike
+        expr: increase(auth_risk_events_total[15m]) > 10
+        for: 5m
+        labels: {severity: warning, service: auth}
+        annotations:
+          summary: Authentication risk events are increasing abnormally
+      - alert: InviteCodeFailureSpike
+        expr: increase(auth_invite_code_failure_total[10m]) > 10
+        for: 5m
+        labels: {severity: warning, service: auth}
+        annotations:
+          summary: Invite code failures are increasing abnormally
+
+  - name: project-rebound-relay
+    rules:
+      - alert: RelayNodeOffline
+        expr: relay_nodes_by_state{state="OFFLINE"} > 0
+        for: 2m
+        labels: {severity: warning, service: relay}
+        annotations:
+          summary: One or more Relay nodes are offline
+      - alert: NoRelayAvailable
+        expr: sum(relay_nodes_by_state{state="READY"}) < 1
+        for: 1m
+        labels: {severity: critical, service: relay}
+        annotations:
+          summary: No scheduler-ready Relay node is available
+      - alert: RelayRegionCapacityHigh
+        expr: sum by (region) (relay_node_active_allocations) / clamp_min(sum by (region) (relay_node_max_allocations), 1) > 0.8
+        for: 5m
+        labels: {severity: warning, service: relay}
+        annotations:
+          summary: Relay capacity in a region exceeds 80%
+      - alert: RelayInvalidTokenSpike
+        expr: sum(rate(relay_node_token_invalid_total[5m])) > 1
+        for: 5m
+        labels: {severity: warning, service: relay}
+        annotations:
+          summary: Invalid Relay Token traffic is elevated
+      - alert: RelayTokenReplayDetected
+        expr: sum(increase(relay_node_token_replay_total[5m])) > 0
+        labels: {severity: critical, service: relay}
+        annotations:
+          summary: Relay Token replay was detected
+      - alert: RelayBindFailureRateHigh
+        expr: sum(rate(relay_node_bind_failed_total[5m])) / clamp_min(sum(rate(relay_node_bind_init_total[5m])), 1) > 0.1
+        for: 5m
+        labels: {severity: warning, service: relay}
+        annotations:
+          summary: Relay BIND failure ratio exceeds 10%
+      - alert: RelayMemoryGrowing
+        expr: deriv(relay_node_memory_bytes[30m]) > 1048576
+        for: 30m
+        labels: {severity: warning, service: relay}
+        annotations:
+          summary: Relay allocated memory is growing continuously
+      - alert: RelayMigrationFailureRateHigh
+        expr: relay_migration_failed_total / clamp_min(relay_migrations_total, 1) > 0.1
+        for: 5m
+        labels: {severity: warning, service: relay}
+        annotations:
+          summary: Relay migration failure ratio exceeds 10%
+
+  - name: project-rebound-backup
+    rules:
+      - alert: DailyBackupMissing
+        expr: absent(projectrebound_backup_last_success_timestamp_seconds) or time() - projectrebound_backup_last_success_timestamp_seconds > 90000
+        for: 15m
+        labels: {severity: critical, service: backup}
+        annotations:
+          summary: No successful PostgreSQL backup was observed in the last 25 hours
+      - alert: BackupVerificationFailed
+        expr: projectrebound_backup_verification_success == 0
+        for: 5m
+        labels: {severity: critical, service: backup}
+        annotations:
+          summary: The latest backup verification failed
+      - alert: RestoreDrillOverdue
+        expr: absent(projectrebound_restore_drill_last_success_timestamp_seconds) or time() - projectrebound_restore_drill_last_success_timestamp_seconds > 2678400
+        for: 1h
+        labels: {severity: warning, service: backup}
+        annotations:
+          summary: No successful restore drill was observed in the last 31 days

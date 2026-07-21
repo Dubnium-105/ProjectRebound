@@ -40,17 +40,25 @@ type Metrics struct {
 	relayMetricsWriter interface {
 		WritePrometheus(context.Context, io.Writer) error
 	}
+	redisProbe func(context.Context) error
 
-	mu            sync.RWMutex
-	httpRequests  map[httpMetricKey]uint64
-	httpDurations map[durationMetricKey]*durationMetric
+	mu             sync.RWMutex
+	httpRequests   map[httpMetricKey]uint64
+	httpDurations  map[durationMetricKey]*durationMetric
+	redisDuration  *durationMetric
+	seenWebSockets map[string]struct{}
 
+	httpActiveRequests         atomic.Int64
 	authBindTotal              atomic.Uint64
 	authBindFailedTotal        atomic.Uint64
+	authRefreshTotal           atomic.Uint64
+	p2pRoomJoinTotal           atomic.Uint64
 	refreshTokenReuseTotal     atomic.Uint64
 	inviteCodeFailureTotal     atomic.Uint64
 	p2pRoomJoinFailedTotal     atomic.Uint64
 	relayAllocationFailedTotal atomic.Uint64
+	websocketConnectionsActive atomic.Int64
+	websocketReconnectTotal    atomic.Uint64
 	authBindRateLimited        map[string]uint64
 }
 
@@ -58,9 +66,16 @@ func NewMetrics(pool *pgxpool.Pool) *Metrics {
 	return &Metrics{
 		pool: pool, httpRequests: make(map[httpMetricKey]uint64),
 		httpDurations:       make(map[durationMetricKey]*durationMetric),
+		redisDuration:       &durationMetric{Buckets: make([]uint64, len(durationBuckets))},
 		authBindRateLimited: make(map[string]uint64),
+		seenWebSockets:      make(map[string]struct{}),
 	}
 }
+
+func (m *Metrics) SetRedisProbe(probe func(context.Context) error) { m.redisProbe = probe }
+
+func (m *Metrics) HTTPStarted()  { m.httpActiveRequests.Add(1) }
+func (m *Metrics) HTTPFinished() { m.httpActiveRequests.Add(-1) }
 
 func (m *Metrics) ObserveHTTP(method, route string, status int, duration time.Duration) {
 	if route == "" {
@@ -90,9 +105,27 @@ func (m *Metrics) ObserveHTTP(method, route string, status int, duration time.Du
 			m.authBindFailedTotal.Add(1)
 		}
 	}
+	if route == "/v1/auth/refresh" {
+		m.authRefreshTotal.Add(1)
+	}
+	if route == "/v1/p2p-rooms/{room_id}/join" {
+		m.p2pRoomJoinTotal.Add(1)
+	}
 	if route == "/v1/p2p-rooms/{room_id}/join" && status >= http.StatusBadRequest {
 		m.p2pRoomJoinFailedTotal.Add(1)
 	}
+}
+
+func (m *Metrics) WebSocketConnected(playerID string) func() {
+	m.mu.Lock()
+	if _, seen := m.seenWebSockets[playerID]; seen {
+		m.websocketReconnectTotal.Add(1)
+	} else {
+		m.seenWebSockets[playerID] = struct{}{}
+	}
+	m.mu.Unlock()
+	m.websocketConnectionsActive.Add(1)
+	return func() { m.websocketConnectionsActive.Add(-1) }
 }
 
 func (m *Metrics) RefreshTokenReuse() { m.refreshTokenReuseTotal.Add(1) }
@@ -119,6 +152,7 @@ func (m *Metrics) Handler() http.Handler {
 		w.Header().Set("Cache-Control", "no-store")
 		m.writeHTTPMetrics(w)
 		m.writeApplicationCounters(w)
+		m.writeRedisMetrics(r.Context(), w)
 		m.writeDatabaseGauges(r.Context(), w)
 		scrapeError := int64(0)
 		if m.relayMetricsWriter != nil {
@@ -131,6 +165,7 @@ func (m *Metrics) Handler() http.Handler {
 }
 
 func (m *Metrics) writeHTTPMetrics(w http.ResponseWriter) {
+	writeGauge(w, "http_active_requests", m.httpActiveRequests.Load())
 	m.mu.RLock()
 	requestKeys := make([]httpMetricKey, 0, len(m.httpRequests))
 	for key := range m.httpRequests {
@@ -169,10 +204,17 @@ func (m *Metrics) writeHTTPMetrics(w http.ResponseWriter) {
 func (m *Metrics) writeApplicationCounters(w http.ResponseWriter) {
 	writeCounter(w, "auth_bind_total", m.authBindTotal.Load())
 	writeCounter(w, "auth_bind_failed_total", m.authBindFailedTotal.Load())
+	writeCounter(w, "auth_refresh_total", m.authRefreshTotal.Load())
+	writeCounter(w, "auth_refresh_reuse_total", m.refreshTokenReuseTotal.Load())
 	writeCounter(w, "refresh_token_reuse_total", m.refreshTokenReuseTotal.Load())
 	writeCounter(w, "auth_invite_code_failure_total", m.inviteCodeFailureTotal.Load())
 	writeCounter(w, "p2p_room_join_failed_total", m.p2pRoomJoinFailedTotal.Load())
+	writeCounter(w, "p2p_room_join_total", m.p2pRoomJoinTotal.Load())
 	writeCounter(w, "relay_allocation_failed_total", m.relayAllocationFailedTotal.Load())
+	writeGauge(w, "websocket_connections_active", m.websocketConnectionsActive.Load())
+	writeCounter(w, "websocket_reconnect_total", m.websocketReconnectTotal.Load())
+	writeEmptyHistogram(w, "background_job_duration_seconds")
+	writeCounter(w, "background_job_failures_total", 0)
 	m.mu.RLock()
 	dimensions := make([]string, 0, len(m.authBindRateLimited))
 	for dimension := range m.authBindRateLimited {
@@ -187,13 +229,54 @@ func (m *Metrics) writeApplicationCounters(w http.ResponseWriter) {
 	m.mu.RUnlock()
 }
 
+func (m *Metrics) writeRedisMetrics(ctx context.Context, w http.ResponseWriter) {
+	available := int64(0)
+	if m.redisProbe != nil {
+		probeCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		started := time.Now()
+		err := m.redisProbe(probeCtx)
+		cancel()
+		seconds := time.Since(started).Seconds()
+		m.mu.Lock()
+		m.redisDuration.Count++
+		m.redisDuration.Sum += seconds
+		for index, bucket := range durationBuckets {
+			if seconds <= bucket {
+				m.redisDuration.Buckets[index]++
+			}
+		}
+		m.mu.Unlock()
+		if err == nil {
+			available = 1
+		}
+	}
+	writeGauge(w, "redis_available", available)
+	m.mu.RLock()
+	_, _ = fmt.Fprintln(w, "# TYPE redis_operation_duration_seconds histogram")
+	for index, bucket := range durationBuckets {
+		_, _ = fmt.Fprintf(w, "redis_operation_duration_seconds_bucket{operation=%q,le=%q} %d\n", "ping",
+			strconv.FormatFloat(bucket, 'f', -1, 64), m.redisDuration.Buckets[index])
+	}
+	_, _ = fmt.Fprintf(w, "redis_operation_duration_seconds_bucket{operation=%q,le=%q} %d\n", "ping", "+Inf", m.redisDuration.Count)
+	_, _ = fmt.Fprintf(w, "redis_operation_duration_seconds_sum{operation=%q} %g\n", "ping", m.redisDuration.Sum)
+	_, _ = fmt.Fprintf(w, "redis_operation_duration_seconds_count{operation=%q} %d\n", "ping", m.redisDuration.Count)
+	m.mu.RUnlock()
+}
+
 func (m *Metrics) writeDatabaseGauges(ctx context.Context, w http.ResponseWriter) {
 	activeSessions := int64(0)
 	activeRooms := int64(0)
 	activeAllocations := int64(0)
+	inviteUses := int64(0)
+	riskEvents := int64(0)
+	relayMigrations := int64(0)
+	relayMigrationFailures := int64(0)
+	p2pHeartbeatLag := int64(0)
+	gameServerHeartbeatLag := int64(0)
 	gameServers := make(map[string]int64)
 	relayNodes := make(map[string]int64)
 	scrapeError := int64(0)
+	postgresAvailable := int64(0)
 	if m.pool != nil {
 		queryCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
@@ -206,16 +289,42 @@ func (m *Metrics) writeDatabaseGauges(ctx context.Context, w http.ResponseWriter
 		if err := m.pool.QueryRow(queryCtx, "SELECT COUNT(*) FROM relay_allocations WHERE state IN ('ALLOCATED', 'BINDING', 'ACTIVE')").Scan(&activeAllocations); err != nil {
 			scrapeError = 1
 		}
+		queries := []struct {
+			query string
+			value *int64
+		}{
+			{"SELECT COUNT(*) FROM invite_code_uses", &inviteUses},
+			{"SELECT COUNT(*) FROM auth_risk_events", &riskEvents},
+			{"SELECT COUNT(*) FROM relay_migrations", &relayMigrations},
+			{"SELECT COUNT(*) FROM relay_migrations WHERE state = 'FAILED'", &relayMigrationFailures},
+			{"SELECT COALESCE(EXTRACT(EPOCH FROM NOW() - MIN(last_heartbeat_at)), 0)::bigint FROM p2p_rooms WHERE state <> 'CLOSED'", &p2pHeartbeatLag},
+			{"SELECT COALESCE(EXTRACT(EPOCH FROM NOW() - MIN(last_heartbeat_at)), 0)::bigint FROM game_servers WHERE state <> 'OFFLINE'", &gameServerHeartbeatLag},
+		}
+		for _, item := range queries {
+			if err := m.pool.QueryRow(queryCtx, item.query).Scan(item.value); err != nil {
+				scrapeError = 1
+			}
+		}
 		if err := collectStates(queryCtx, m.pool, "SELECT state, COUNT(*) FROM game_servers GROUP BY state", gameServers); err != nil {
 			scrapeError = 1
 		}
 		if err := collectStates(queryCtx, m.pool, "SELECT state, COUNT(*) FROM relay_nodes GROUP BY state", relayNodes); err != nil {
 			scrapeError = 1
 		}
+		if scrapeError == 0 {
+			postgresAvailable = 1
+		}
 	}
 	writeGauge(w, "active_sessions", activeSessions)
+	writeGauge(w, "auth_active_sessions", activeSessions)
+	writeGauge(w, "auth_invite_use_total", inviteUses)
+	writeGauge(w, "auth_risk_events_total", riskEvents)
 	writeGauge(w, "p2p_rooms_active", activeRooms)
+	writeGauge(w, "p2p_room_heartbeat_lag_seconds", p2pHeartbeatLag)
+	writeGauge(w, "game_server_heartbeat_lag_seconds", gameServerHeartbeatLag)
 	writeGauge(w, "relay_allocations_active", activeAllocations)
+	writeGauge(w, "relay_migrations_total", relayMigrations)
+	writeGauge(w, "relay_migration_failed_total", relayMigrationFailures)
 	writeStateGauges(w, "game_servers_by_state", []string{"STARTING", "READY", "RESERVED", "RUNNING", "DRAINING", "UNHEALTHY", "OFFLINE"}, gameServers)
 	writeStateGauges(w, "relay_nodes_by_state", []string{"BOOTSTRAPPING", "CONNECTING", "READY", "DRAINING", "UNHEALTHY", "OFFLINE", "REVOKED"}, relayNodes)
 	var memory runtime.MemStats
@@ -228,8 +337,11 @@ func (m *Metrics) writeDatabaseGauges(ctx context.Context, w http.ResponseWriter
 		_, _ = fmt.Fprintf(w, "database_pool_connections{state=%q} %d\n", "acquired", stats.AcquiredConns())
 		_, _ = fmt.Fprintf(w, "database_pool_connections{state=%q} %d\n", "idle", stats.IdleConns())
 		_, _ = fmt.Fprintf(w, "database_pool_connections{state=%q} %d\n", "total", stats.TotalConns())
+		writeGauge(w, "db_pool_open_connections", int64(stats.TotalConns()))
+		writeGauge(w, "db_pool_in_use_connections", int64(stats.AcquiredConns()))
 	}
 	writeGauge(w, "control_plane_metrics_scrape_error", scrapeError)
+	writeGauge(w, "postgres_available", postgresAvailable)
 }
 
 func collectStates(ctx context.Context, pool *pgxpool.Pool, query string, values map[string]int64) error {
@@ -255,6 +367,10 @@ func writeCounter(w http.ResponseWriter, name string, value uint64) {
 
 func writeGauge(w http.ResponseWriter, name string, value int64) {
 	_, _ = fmt.Fprintf(w, "# TYPE %s gauge\n%s %d\n", name, name, value)
+}
+
+func writeEmptyHistogram(w http.ResponseWriter, name string) {
+	_, _ = fmt.Fprintf(w, "# TYPE %s histogram\n%s_bucket{le=%q} 0\n%s_sum 0\n%s_count 0\n", name, name, "+Inf", name, name)
 }
 
 func writeStateGauges(w http.ResponseWriter, name string, states []string, values map[string]int64) {

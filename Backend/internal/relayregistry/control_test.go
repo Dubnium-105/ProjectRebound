@@ -40,6 +40,10 @@ func TestTelemetryStoreOrdersReportsAndAcceptsProcessReset(t *testing.T) {
 		"bind_success_total": "3", "bind_failed_total": "1",
 		"token_invalid_total": "2", "rate_limit_drops_total": "4",
 		"control_reconnects_total": "5", "load_state": "DEGRADED",
+		"bytes_received_total": "1200", "bind_init_total": "6", "bind_challenge_total": "5",
+		"cookie_invalid_total": "1", "token_replay_total": "2", "packet_auth_failed_total": "3",
+		"packet_replay_total": "4", "packet_too_large_total": "5", "load_ratio": "0.42",
+		"goroutines": "12", "memory_bytes": "4096",
 	}
 	if err := store.Record("relay_a", base, time.Unix(100, 0)); err != nil {
 		t.Fatal(err)
@@ -53,7 +57,8 @@ func TestTelemetryStoreOrdersReportsAndAcceptsProcessReset(t *testing.T) {
 	if err := store.Record("relay_a", stale, time.Unix(101, 0)); err != nil {
 		t.Fatal(err)
 	}
-	if got := store.Snapshot()["relay_a"]; got.Sequence != 2 || got.PacketsReceived != 10 || got.LoadState != "DEGRADED" {
+	if got := store.Snapshot()["relay_a"]; got.Sequence != 2 || got.PacketsReceived != 10 || got.LoadState != "DEGRADED" ||
+		got.BytesReceived != 1200 || got.TokenReplay != 2 || got.LoadRatio != 0.42 || got.MemoryBytes != 4096 {
 		t.Fatalf("stale report replaced current telemetry: %#v", got)
 	}
 	reset := stale

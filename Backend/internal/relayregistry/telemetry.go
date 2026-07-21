@@ -17,15 +17,26 @@ type TrafficTelemetry struct {
 	ReceivedAt        time.Time
 	Connected         bool
 	PacketsReceived   uint64
+	BytesReceived     uint64
 	PacketsForwarded  uint64
 	PacketsDropped    uint64
 	BytesForwarded    uint64
 	BindSuccess       uint64
 	BindFailed        uint64
+	BindInit          uint64
+	BindChallenge     uint64
+	CookieInvalid     uint64
 	TokenInvalid      uint64
+	TokenReplay       uint64
+	PacketAuthFailed  uint64
+	PacketReplay      uint64
+	PacketTooLarge    uint64
 	RateLimitDrops    uint64
 	ControlReconnects uint64
 	LoadState         string
+	LoadRatio         float64
+	Goroutines        uint64
+	MemoryBytes       uint64
 }
 
 type TelemetryStore struct {
@@ -86,6 +97,38 @@ func (s *TelemetryStore) Record(nodeID string, payload map[string]any, receivedA
 		}
 		*field.target = value
 	}
+	optionalFields := []struct {
+		name   string
+		target *uint64
+	}{
+		{"bytes_received_total", &report.BytesReceived},
+		{"bind_init_total", &report.BindInit},
+		{"bind_challenge_total", &report.BindChallenge},
+		{"cookie_invalid_total", &report.CookieInvalid},
+		{"token_replay_total", &report.TokenReplay},
+		{"packet_auth_failed_total", &report.PacketAuthFailed},
+		{"packet_replay_total", &report.PacketReplay},
+		{"packet_too_large_total", &report.PacketTooLarge},
+		{"goroutines", &report.Goroutines},
+		{"memory_bytes", &report.MemoryBytes},
+	}
+	for _, field := range optionalFields {
+		value, present, fieldErr := optionalUint64Field(payload, field.name)
+		if fieldErr != nil {
+			return fieldErr
+		}
+		if present {
+			*field.target = value
+		}
+	}
+	if value, present, fieldErr := optionalFloat64Field(payload, "load_ratio"); fieldErr != nil {
+		return fieldErr
+	} else if present {
+		if value < 0 || value > 10 {
+			return fmt.Errorf("load_ratio is outside the accepted range")
+		}
+		report.LoadRatio = value
+	}
 	s.mu.Lock()
 	current, exists := s.reports[nodeID]
 	if !exists || current.ProcessID != processID || sequence > current.Sequence {
@@ -129,6 +172,36 @@ func uint64Field(payload map[string]any, name string) (uint64, error) {
 	}
 }
 
+func optionalUint64Field(payload map[string]any, name string) (uint64, bool, error) {
+	if _, exists := payload[name]; !exists {
+		return 0, false, nil
+	}
+	value, err := uint64Field(payload, name)
+	return value, true, err
+}
+
+func optionalFloat64Field(payload map[string]any, name string) (float64, bool, error) {
+	value, exists := payload[name]
+	if !exists {
+		return 0, false, nil
+	}
+	switch typed := value.(type) {
+	case string:
+		parsed, err := strconv.ParseFloat(typed, 64)
+		if err != nil || math.IsNaN(parsed) || math.IsInf(parsed, 0) {
+			return 0, true, fmt.Errorf("%s must be a finite number", name)
+		}
+		return parsed, true, nil
+	case float64:
+		if math.IsNaN(typed) || math.IsInf(typed, 0) {
+			return 0, true, fmt.Errorf("%s must be a finite number", name)
+		}
+		return typed, true, nil
+	default:
+		return 0, true, fmt.Errorf("%s must be a finite number", name)
+	}
+}
+
 type RelayMetricsWriter struct {
 	repository *Repository
 	telemetry  *TelemetryStore
@@ -159,11 +232,17 @@ func (m *RelayMetricsWriter) WritePrometheus(ctx context.Context, w io.Writer) e
 	writeMetricType(w, "relay_node_control_connected", "gauge")
 	writeMetricType(w, "relay_node_telemetry_report_age_seconds", "gauge")
 	writeMetricType(w, "relay_node_load_state", "gauge")
+	writeMetricType(w, "relay_node_load_ratio", "gauge")
+	writeMetricType(w, "relay_node_goroutines", "gauge")
+	writeMetricType(w, "relay_node_memory_bytes", "gauge")
 	for _, name := range []string{
 		"relay_node_packets_received_total", "relay_node_packets_forwarded_total",
-		"relay_node_packets_dropped_total", "relay_node_bytes_forwarded_total",
+		"relay_node_packets_dropped_total", "relay_node_bytes_received_total", "relay_node_bytes_forwarded_total",
 		"relay_node_bind_success_total", "relay_node_bind_failed_total",
-		"relay_node_token_invalid_total", "relay_node_rate_limit_drops_total",
+		"relay_node_bind_init_total", "relay_node_bind_challenge_total", "relay_node_cookie_invalid_total",
+		"relay_node_token_invalid_total", "relay_node_token_replay_total",
+		"relay_node_packet_auth_failed_total", "relay_node_packet_replay_dropped_total", "relay_node_packet_too_large_total",
+		"relay_node_rate_limit_drops_total",
 		"relay_node_control_reconnects_total",
 	} {
 		writeMetricType(w, name, "counter")
@@ -197,13 +276,24 @@ func (m *RelayMetricsWriter) WritePrometheus(ctx context.Context, w io.Writer) e
 			continue
 		}
 		_, _ = fmt.Fprintf(w, "relay_node_telemetry_report_age_seconds%s %g\n", labels, nonnegativeSeconds(now.Sub(report.ReceivedAt)))
+		_, _ = fmt.Fprintf(w, "relay_node_load_ratio%s %g\n", labels, report.LoadRatio)
+		_, _ = fmt.Fprintf(w, "relay_node_goroutines%s %d\n", labels, report.Goroutines)
+		_, _ = fmt.Fprintf(w, "relay_node_memory_bytes%s %d\n", labels, report.MemoryBytes)
 		writeNodeCounter(w, "relay_node_packets_received_total", labels, report.PacketsReceived)
+		writeNodeCounter(w, "relay_node_bytes_received_total", labels, report.BytesReceived)
 		writeNodeCounter(w, "relay_node_packets_forwarded_total", labels, report.PacketsForwarded)
 		writeNodeCounter(w, "relay_node_packets_dropped_total", labels, report.PacketsDropped)
 		writeNodeCounter(w, "relay_node_bytes_forwarded_total", labels, report.BytesForwarded)
 		writeNodeCounter(w, "relay_node_bind_success_total", labels, report.BindSuccess)
 		writeNodeCounter(w, "relay_node_bind_failed_total", labels, report.BindFailed)
+		writeNodeCounter(w, "relay_node_bind_init_total", labels, report.BindInit)
+		writeNodeCounter(w, "relay_node_bind_challenge_total", labels, report.BindChallenge)
+		writeNodeCounter(w, "relay_node_cookie_invalid_total", labels, report.CookieInvalid)
 		writeNodeCounter(w, "relay_node_token_invalid_total", labels, report.TokenInvalid)
+		writeNodeCounter(w, "relay_node_token_replay_total", labels, report.TokenReplay)
+		writeNodeCounter(w, "relay_node_packet_auth_failed_total", labels, report.PacketAuthFailed)
+		writeNodeCounter(w, "relay_node_packet_replay_dropped_total", labels, report.PacketReplay)
+		writeNodeCounter(w, "relay_node_packet_too_large_total", labels, report.PacketTooLarge)
 		writeNodeCounter(w, "relay_node_rate_limit_drops_total", labels, report.RateLimitDrops)
 		writeNodeCounter(w, "relay_node_control_reconnects_total", labels, report.ControlReconnects)
 	}

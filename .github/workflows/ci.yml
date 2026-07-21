@@ -105,7 +105,7 @@ jobs:
       - name: Validate shell syntax and line endings
         shell: bash
         run: |
-          bash -n Backend/scripts/*.sh Backend/deploy/deploy.sh Backend/tests/netem/run-relay-matrix.sh
+          bash -n Backend/scripts/*.sh Backend/scripts/backup/*.sh Backend/deploy/deploy.sh Backend/tests/netem/run-relay-matrix.sh
           if grep -IUlr $'\r' Backend/scripts Backend/deploy Backend/tests/netem; then
             echo "CRLF found in Linux shell scripts" >&2
             exit 1
@@ -134,6 +134,12 @@ jobs:
             --profile monitoring config -q
           docker compose --env-file Backend/deployments/edge-relay/.env.example \
             -f Backend/deployments/edge-relay/docker-compose.yaml config -q
+
+      - name: Validate Prometheus configuration and alert expressions
+        run: |
+          docker run --rm --entrypoint /bin/promtool \
+            -v "$GITHUB_WORKSPACE/Backend/deployments/monitoring:/etc/prometheus:ro" \
+            prom/prometheus:v2.55.1 check config /etc/prometheus/prometheus.yml
 
       - name: Validate public Caddy policy
         run: |
