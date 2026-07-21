@@ -88,6 +88,20 @@ func TestAuthenticationLifecycleAgainstPostgreSQL(t *testing.T) {
 		if err != nil || principal.Player.ID != first.Player.ID {
 			t.Fatalf("AuthenticateAccess() = %#v, %v", principal, err)
 		}
+		touchedAt := time.Now().UTC()
+		if _, err := pool.Exec(ctx, "UPDATE auth_sessions SET last_used_at = $2 WHERE id = $1", second.Tokens.SessionID, touchedAt.Add(-10*time.Minute)); err != nil {
+			t.Fatal(err)
+		}
+		if err := NewRepository().TouchSession(ctx, pool, second.Tokens.SessionID, touchedAt); err != nil {
+			t.Fatalf("TouchSession() against PostgreSQL: %v", err)
+		}
+		var lastUsedAt time.Time
+		if err := pool.QueryRow(ctx, "SELECT last_used_at FROM auth_sessions WHERE id = $1", second.Tokens.SessionID).Scan(&lastUsedAt); err != nil {
+			t.Fatal(err)
+		}
+		if lastUsedAt.Before(touchedAt.Add(-time.Second)) {
+			t.Fatalf("last_used_at = %v, want approximately %v", lastUsedAt, touchedAt)
+		}
 		var storedHash []byte
 		if err := pool.QueryRow(ctx, "SELECT refresh_token_hash FROM auth_sessions WHERE id = $1", second.Tokens.SessionID).Scan(&storedHash); err != nil {
 			t.Fatal(err)

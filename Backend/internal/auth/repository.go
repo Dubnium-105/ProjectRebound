@@ -173,7 +173,7 @@ func (r *Repository) TouchSession(ctx context.Context, executor Executor, sessio
 	_, err := executor.Exec(ctx, `
 		UPDATE auth_sessions
 		SET last_used_at = $2
-		WHERE id = $1 AND (last_used_at IS NULL OR last_used_at < $2 - INTERVAL '5 minutes')
+		WHERE id = $1 AND (last_used_at IS NULL OR last_used_at < $2::timestamptz - INTERVAL '5 minutes')
 	`, sessionID, now)
 	if err != nil {
 		return fmt.Errorf("touch auth session: %w", err)
