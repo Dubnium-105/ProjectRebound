@@ -58,24 +58,35 @@ type replayBinding struct {
 	expiresAt    time.Time
 }
 
+type ipRateState struct {
+	bindInit      tokenBucket
+	bindProof     tokenBucket
+	invalidTokens tokenBucket
+	untrusted     tokenBucket
+	bannedUntil   time.Time
+	lastSeen      time.Time
+}
+
 type Runtime struct {
-	mu             sync.Mutex
-	nodeID         string
-	config         Config
-	verifier       *TokenVerifier
-	cookies        *CookieManager
-	metrics        *Metrics
-	allocations    map[string]*relayAllocation
-	byHandle       map[uint64]*relayAllocation
-	usedTokens     map[string]replayBinding
-	ipBuckets      map[netip.Addr]*tokenBucket
-	nodeByteBucket tokenBucket
-	intervalBytes  int64
-	draining       bool
-	now            func() time.Time
-	events         chan RuntimeEvent
-	shutdown       chan struct{}
-	shutdownOnce   sync.Once
+	mu               sync.Mutex
+	nodeID           string
+	config           Config
+	verifier         *TokenVerifier
+	cookies          *CookieManager
+	metrics          *Metrics
+	allocations      map[string]*relayAllocation
+	byHandle         map[uint64]*relayAllocation
+	usedTokens       map[string]replayBinding
+	ipStates         map[netip.Addr]*ipRateState
+	ipAllocations    map[netip.Addr]map[string]int
+	nodeByteBucket   tokenBucket
+	nodePacketBucket tokenBucket
+	intervalBytes    int64
+	draining         bool
+	now              func() time.Time
+	events           chan RuntimeEvent
+	shutdown         chan struct{}
+	shutdownOnce     sync.Once
 }
 
 func NewRuntime(nodeID string, cfg Config, verifier *TokenVerifier, metrics *Metrics) (*Runtime, error) {
@@ -93,9 +104,11 @@ func NewRuntime(nodeID string, cfg Config, verifier *TokenVerifier, metrics *Met
 	return &Runtime{
 		nodeID: nodeID, config: cfg, verifier: verifier, cookies: cookies, metrics: metrics,
 		allocations: make(map[string]*relayAllocation), byHandle: make(map[uint64]*relayAllocation),
-		usedTokens: make(map[string]replayBinding), ipBuckets: make(map[netip.Addr]*tokenBucket),
-		nodeByteBucket: newTokenBucket(float64(cfg.MaxEgressBPS)/8, float64(cfg.MaxEgressBPS)/8, now),
-		now:            time.Now, events: make(chan RuntimeEvent, 256), shutdown: make(chan struct{}),
+		usedTokens: make(map[string]replayBinding), ipStates: make(map[netip.Addr]*ipRateState),
+		ipAllocations:    make(map[netip.Addr]map[string]int),
+		nodeByteBucket:   newTokenBucket(float64(cfg.MaxEgressBPS)/8, float64(cfg.MaxEgressBPS)/8, now),
+		nodePacketBucket: newTokenBucket(float64(cfg.MaxIngressPPS), float64(cfg.MaxIngressPPS), now),
+		now:              time.Now, events: make(chan RuntimeEvent, 256), shutdown: make(chan struct{}),
 	}, nil
 }
 
@@ -135,7 +148,11 @@ func (r *Runtime) Process(packet []byte, address netip.AddrPort) []OutboundDatag
 	now := r.now().UTC()
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if !r.allowIP(address.Addr(), now) {
+	if !r.nodePacketBucket.Allow(1, now) {
+		r.drop(true)
+		return nil
+	}
+	if packet[5] != messageData && !r.allowUnverified(address.Addr(), packet[5], now) {
 		r.drop(true)
 		return nil
 	}
@@ -198,6 +215,7 @@ func (r *Runtime) bind(token string, address netip.AddrPort, now time.Time, vers
 	claims, err := r.verifier.Verify(token, r.nodeID, now)
 	if err != nil {
 		r.bindFailure(true)
+		r.recordInvalidToken(address.Addr(), now)
 		return nil
 	}
 	role, _ := parseRole(claims.EndpointRole)
@@ -228,6 +246,11 @@ func (r *Runtime) bind(token string, address netip.AddrPort, now time.Time, vers
 	}
 	if len(r.usedTokens) >= r.config.MaxTokenReplayEntries {
 		r.tokenReplayFailure()
+		return nil
+	}
+	if r.ipAllocationLimitReached(address.Addr(), claims.AllocationID) {
+		r.bindFailure(false)
+		r.metrics.rateLimitDrops.Add(1)
 		return nil
 	}
 	allocation := r.allocations[claims.AllocationID]
@@ -282,6 +305,7 @@ func (r *Runtime) bind(token string, address netip.AddrPort, now time.Time, vers
 		}
 		allocation.peer = endpoint
 	}
+	r.addIPAllocation(address.Addr(), allocation.id)
 	r.usedTokens[claims.TokenID] = replayBinding{
 		allocationID: allocation.id, role: role, address: address, firstSeenAt: now, expiresAt: endpoint.expiresAt,
 	}
@@ -332,8 +356,12 @@ func (r *Runtime) forward(packet []byte, source netip.AddrPort, now time.Time) [
 		return nil
 	}
 	cost := float64(len(decoded.Payload))
-	if !sender.packetBucket.Allow(1, now) || !sender.byteBucket.Allow(cost, now) ||
-		!r.nodeByteBucket.Allow(cost, now) || allocation.totalBytes+int64(len(decoded.Payload)) > allocation.maxTotalBytes {
+	if allocation.totalBytes+int64(len(decoded.Payload)) > allocation.maxTotalBytes {
+		r.drop(true)
+		r.closeAllocationLocked(allocation.id, true)
+		return nil
+	}
+	if !sender.packetBucket.Allow(1, now) || !sender.byteBucket.Allow(cost, now) || !r.nodeByteBucket.Allow(cost, now) {
 		r.drop(true)
 		return nil
 	}
@@ -368,9 +396,9 @@ func (r *Runtime) Sweep() int {
 			delete(r.usedTokens, tokenID)
 		}
 	}
-	for address, bucket := range r.ipBuckets {
-		if now.Sub(bucket.lastRefill) > 5*time.Minute {
-			delete(r.ipBuckets, address)
+	for address, state := range r.ipStates {
+		if now.Sub(state.lastSeen) > 5*time.Minute {
+			delete(r.ipStates, address)
 		}
 	}
 	return closed
@@ -389,6 +417,13 @@ func (r *Runtime) closeAllocationLocked(allocationID string, notify bool) {
 	}
 	delete(r.allocations, allocationID)
 	delete(r.byHandle, allocation.handle)
+	for _, endpoint := range []*boundEndpoint{allocation.host, allocation.peer} {
+		if endpoint == nil {
+			continue
+		}
+		address := endpoint.address.Addr()
+		r.removeIPAllocation(address, allocation.id)
+	}
 	r.metrics.activeAllocations.Add(-1)
 	if notify && allocation.opened {
 		r.emit(RuntimeEvent{Type: "AllocationClosed", AllocationID: allocation.id})
@@ -398,14 +433,81 @@ func (r *Runtime) closeAllocationLocked(allocationID string, notify bool) {
 	}
 }
 
-func (r *Runtime) allowIP(address netip.Addr, now time.Time) bool {
-	bucket := r.ipBuckets[address]
-	if bucket == nil {
-		created := newTokenBucket(float64(r.config.IPPacketsPerSecond), float64(r.config.IPPacketsPerSecond), now)
-		bucket = &created
-		r.ipBuckets[address] = bucket
+func (r *Runtime) allowUnverified(address netip.Addr, messageType byte, now time.Time) bool {
+	state := r.ipState(address, now)
+	if state == nil || state.bannedUntil.After(now) {
+		return false
 	}
-	return bucket.Allow(1, now)
+	switch messageType {
+	case messageBind:
+		return state.bindInit.Allow(1, now)
+	case messageBindProof:
+		return state.bindProof.Allow(1, now)
+	default:
+		return state.untrusted.Allow(1, now)
+	}
+}
+
+func (r *Runtime) ipState(address netip.Addr, now time.Time) *ipRateState {
+	state := r.ipStates[address]
+	if state != nil {
+		state.lastSeen = now
+		return state
+	}
+	if len(r.ipStates) >= r.config.MaxIPRateStates {
+		return nil
+	}
+	state = &ipRateState{
+		bindInit:      newTokenBucket(float64(r.config.BindInitPerSecond), float64(r.config.BindInitPerSecond), now),
+		bindProof:     newTokenBucket(float64(r.config.BindProofPerSecond), float64(r.config.BindProofPerSecond), now),
+		invalidTokens: newTokenBucket(float64(r.config.InvalidTokensPerMin)/60, float64(r.config.InvalidTokensPerMin), now),
+		untrusted:     newTokenBucket(float64(r.config.IPPacketsPerSecond), float64(r.config.IPPacketsPerSecond), now),
+		lastSeen:      now,
+	}
+	r.ipStates[address] = state
+	return state
+}
+
+func (r *Runtime) recordInvalidToken(address netip.Addr, now time.Time) {
+	state := r.ipState(address, now)
+	if state == nil || !state.invalidTokens.Allow(1, now) {
+		if state != nil {
+			state.bannedUntil = now.Add(r.config.TemporaryBanTTL())
+		}
+		r.metrics.rateLimitDrops.Add(1)
+	}
+}
+
+func (r *Runtime) ipAllocationLimitReached(address netip.Addr, candidateAllocationID string) bool {
+	allocations := r.ipAllocations[address]
+	if allocations[candidateAllocationID] > 0 {
+		return false
+	}
+	return len(allocations) >= r.config.MaxAllocationsPerIP
+}
+
+func (r *Runtime) addIPAllocation(address netip.Addr, allocationID string) {
+	allocations := r.ipAllocations[address]
+	if allocations == nil {
+		allocations = make(map[string]int)
+		r.ipAllocations[address] = allocations
+	}
+	allocations[allocationID]++
+}
+
+func (r *Runtime) removeIPAllocation(address netip.Addr, allocationID string) {
+	allocations := r.ipAllocations[address]
+	if allocations == nil {
+		return
+	}
+	if allocations[allocationID] <= 1 {
+		delete(allocations, allocationID)
+	} else {
+		allocations[allocationID]--
+	}
+	if len(allocations) == 0 {
+		delete(r.ipAllocations, address)
+	}
 }
 
 func (r *Runtime) newHandle() (uint64, error) {

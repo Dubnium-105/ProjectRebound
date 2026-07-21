@@ -27,3 +27,9 @@ The v2 endpoint key is `HMAC-SHA256(relay_token, "project-rebound-relay-data-v2"
 Forwarding begins only after both roles bind. The packet has no destination-address field, so traffic can only move between the two endpoints of one allocation. The relay rejects unknown handles, wrong roles or sources, invalid tags, duplicate/out-of-window sequences, expired/idle allocations, and packets exceeding per-IP, PPS, bandwidth, or total-byte limits.
 
 The negotiated opaque payload MTU is 1000–1350 bytes and defaults to 1200. Oversized packets are dropped without a response. Allocation handles are random non-zero 64-bit values and become invalid immediately when an allocation closes.
+
+## Resource limits
+
+Unverified sources have separate token buckets for `BIND_INIT`, `BIND_PROOF`, malformed traffic, and invalid signed-token attempts. Repeated invalid tokens temporarily ban new handshake traffic from that IP; already authenticated data still passes its endpoint and node buckets. The IP-state table has a hard cardinality cap and idle cleanup. A configurable per-IP limit counts unique allocations, so HOST and PEER behind the same NAT do not count twice for one allocation.
+
+Each endpoint enforces token-claimed PPS and bytes-per-second buckets. Each allocation enforces an absolute expiry, idle timeout, and total-byte ceiling; crossing the total-byte ceiling immediately closes the allocation and invalidates its handle. Node-wide ingress PPS and egress byte buckets protect existing allocations from unbounded aggregate traffic. Cleanup uses the shared sweeper and does not create a goroutine or ticker per allocation.

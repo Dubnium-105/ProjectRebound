@@ -40,6 +40,13 @@ type Config struct {
 	MaxDatagramBytes      int        `yaml:"max_datagram_bytes"`
 	MaxPayloadBytes       int        `yaml:"max_payload_bytes"`
 	IPPacketsPerSecond    int        `yaml:"ip_packets_per_second"`
+	BindInitPerSecond     int        `yaml:"bind_init_per_second"`
+	BindProofPerSecond    int        `yaml:"bind_proof_per_second"`
+	InvalidTokensPerMin   int        `yaml:"invalid_tokens_per_minute"`
+	MaxAllocationsPerIP   int        `yaml:"max_allocations_per_ip"`
+	MaxIPRateStates       int        `yaml:"max_ip_rate_states"`
+	MaxIngressPPS         int        `yaml:"max_ingress_packets_per_second"`
+	TemporaryBanSeconds   int        `yaml:"temporary_ban_seconds"`
 	NATRebindWindowSecs   int        `yaml:"nat_rebind_window_seconds"`
 	MaxTokenReplayEntries int        `yaml:"max_token_replay_entries"`
 }
@@ -53,6 +60,8 @@ var DefaultConfig = Config{
 	HeartbeatSeconds: 15, AllocationIdleSeconds: 120, CookieTTLSeconds: 10,
 	MaxDatagramBytes: 1280, MaxPayloadBytes: 1200, IPPacketsPerSecond: 300,
 	NATRebindWindowSecs: 30, MaxTokenReplayEntries: 4000,
+	BindInitPerSecond: 20, BindProofPerSecond: 10, InvalidTokensPerMin: 30,
+	MaxAllocationsPerIP: 100, MaxIPRateStates: 100_000, MaxIngressPPS: 100_000, TemporaryBanSeconds: 60,
 }
 
 func LoadConfig(path string) (Config, error) {
@@ -113,6 +122,19 @@ func applyEdgeEnv(cfg *Config) {
 	if value, err := strconv.Atoi(os.Getenv("EDGE_RELAY_MAX_TOKEN_REPLAY_ENTRIES")); err == nil && value > 0 {
 		cfg.MaxTokenReplayEntries = value
 	}
+	for name, target := range map[string]*int{
+		"EDGE_RELAY_BIND_INIT_PER_SECOND":           &cfg.BindInitPerSecond,
+		"EDGE_RELAY_BIND_PROOF_PER_SECOND":          &cfg.BindProofPerSecond,
+		"EDGE_RELAY_INVALID_TOKENS_PER_MINUTE":      &cfg.InvalidTokensPerMin,
+		"EDGE_RELAY_MAX_ALLOCATIONS_PER_IP":         &cfg.MaxAllocationsPerIP,
+		"EDGE_RELAY_MAX_IP_RATE_STATES":             &cfg.MaxIPRateStates,
+		"EDGE_RELAY_MAX_INGRESS_PACKETS_PER_SECOND": &cfg.MaxIngressPPS,
+		"EDGE_RELAY_TEMPORARY_BAN_SECONDS":          &cfg.TemporaryBanSeconds,
+	} {
+		if value, err := strconv.Atoi(os.Getenv(name)); err == nil && value > 0 {
+			*target = value
+		}
+	}
 }
 
 func (c Config) Validate() error {
@@ -140,6 +162,10 @@ func (c Config) Validate() error {
 		c.NATRebindWindowSecs < 1 || c.NATRebindWindowSecs > 300 || c.MaxTokenReplayEntries < c.MaxAllocations*2 {
 		errs = append(errs, errors.New("relay protocol, capacity, timeout, or datagram settings are invalid"))
 	}
+	if c.BindInitPerSecond < 1 || c.BindProofPerSecond < 1 || c.InvalidTokensPerMin < 1 ||
+		c.MaxAllocationsPerIP < 1 || c.MaxIPRateStates < 1 || c.MaxIngressPPS < 1 || c.TemporaryBanSeconds < 1 {
+		errs = append(errs, errors.New("relay per-IP and ingress limits must be positive"))
+	}
 	if len(c.AdvertisedEndpoints) == 0 {
 		errs = append(errs, errors.New("at least one advertised endpoint is required"))
 	}
@@ -161,6 +187,9 @@ func (c Config) AllocationIdleTTL() time.Duration {
 func (c Config) CookieTTL() time.Duration { return time.Duration(c.CookieTTLSeconds) * time.Second }
 func (c Config) NATRebindWindow() time.Duration {
 	return time.Duration(c.NATRebindWindowSecs) * time.Second
+}
+func (c Config) TemporaryBanTTL() time.Duration {
+	return time.Duration(c.TemporaryBanSeconds) * time.Second
 }
 
 type Endpoint struct {

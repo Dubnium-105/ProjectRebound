@@ -32,5 +32,12 @@ cookie_ttl_seconds: 10
 max_datagram_bytes: 1280
 max_payload_bytes: 1200
 ip_packets_per_second: 300
+bind_init_per_second: 20
+bind_proof_per_second: 10
+invalid_tokens_per_minute: 30
+max_allocations_per_ip: 100
+max_ip_rate_states: 100000
+max_ingress_packets_per_second: 100000
+temporary_ban_seconds: 60
 nat_rebind_window_seconds: 30
 max_token_replay_entries: 4000

@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"net/netip"
+	"strings"
 	"testing"
 	"time"
 )
@@ -255,9 +256,8 @@ func TestRuntimeRateLimitsTotalBytesAndExpiresInMemoryAllocations(t *testing.T) 
 	if len(runtime.Process(third, hostAddress)) != 0 {
 		t.Fatal("allocation total-byte limit was not applied")
 	}
-	current = current.Add(3 * time.Second)
-	if closed := runtime.Sweep(); closed != 1 || runtime.metrics.activeAllocations.Load() != 0 {
-		t.Fatalf("expired allocation sweep = %d, active = %d", closed, runtime.metrics.activeAllocations.Load())
+	if runtime.metrics.activeAllocations.Load() != 0 {
+		t.Fatal("allocation was not closed immediately after exceeding its total-byte limit")
 	}
 	select {
 	case event := <-runtime.Events():
@@ -267,9 +267,77 @@ func TestRuntimeRateLimitsTotalBytesAndExpiresInMemoryAllocations(t *testing.T) 
 	default:
 		t.Fatal("allocation close was not reported")
 	}
+	current = current.Add(3 * time.Second)
+	if closed := runtime.Sweep(); closed != 0 {
+		t.Fatalf("already closed allocation was swept again: %d", closed)
+	}
 	restarted := testRuntime(t, signer, current, func(cfg *Config) {})
 	if len(restarted.allocations) != 0 || len(restarted.Process(first, hostAddress)) != 0 {
 		t.Fatal("allocation state survived a runtime restart")
+	}
+}
+
+func TestRuntimeSeparatesUnverifiedLimitsAndBoundsIPState(t *testing.T) {
+	now := time.Date(2026, 7, 17, 12, 0, 0, 0, time.UTC)
+	signer := newTestSigner(t, "relay-key-a")
+	runtime := testRuntime(t, signer, now, func(cfg *Config) {
+		cfg.BindInitPerSecond = 2
+		cfg.MaxIPRateStates = 1
+	})
+	token := signer.sign(t, testClaims(now, "limited-init", "HOST", "relay_test", "alloc_init"))
+	packet := encodeBindForTest(token)
+	firstIP := netip.MustParseAddrPort("198.51.100.10:50000")
+	secondIP := netip.MustParseAddrPort("198.51.100.11:50000")
+	if len(runtime.Process(packet, firstIP)) != 1 || len(runtime.Process(packet, firstIP)) != 1 {
+		t.Fatal("bind init allowance was too small")
+	}
+	if len(runtime.Process(packet, firstIP)) != 0 {
+		t.Fatal("bind init rate limit was not enforced")
+	}
+	if len(runtime.Process(packet, secondIP)) != 0 || len(runtime.ipStates) != 1 {
+		t.Fatalf("IP state cardinality was not bounded: %d", len(runtime.ipStates))
+	}
+}
+
+func TestRuntimeTemporarilyBansInvalidTokenFlood(t *testing.T) {
+	now := time.Date(2026, 7, 17, 12, 0, 0, 0, time.UTC)
+	signer := newTestSigner(t, "relay-key-a")
+	runtime := testRuntime(t, signer, now, func(cfg *Config) {
+		cfg.InvalidTokensPerMin = 1
+		cfg.BindInitPerSecond = 10
+		cfg.BindProofPerSecond = 10
+	})
+	address := netip.MustParseAddrPort("198.51.100.10:50000")
+	invalidToken := strings.Repeat("x", 100)
+	if len(bindWithoutAssertions(runtime, invalidToken, address)) != 0 ||
+		len(bindWithoutAssertions(runtime, invalidToken, address)) != 0 {
+		t.Fatal("invalid token unexpectedly bound")
+	}
+	state := runtime.ipStates[address.Addr()]
+	if state == nil || !state.bannedUntil.After(now) {
+		t.Fatal("invalid token flood did not temporarily ban the source")
+	}
+	if len(runtime.Process(encodeBindForTest(invalidToken), address)) != 0 {
+		t.Fatal("temporarily banned source received another challenge")
+	}
+}
+
+func TestRuntimeLimitsUniqueAllocationsPerIP(t *testing.T) {
+	now := time.Date(2026, 7, 17, 12, 0, 0, 0, time.UTC)
+	signer := newTestSigner(t, "relay-key-a")
+	runtime := testRuntime(t, signer, now, func(cfg *Config) { cfg.MaxAllocationsPerIP = 1 })
+	hostAddress := netip.MustParseAddrPort("198.51.100.10:50000")
+	peerAddress := netip.MustParseAddrPort("198.51.100.10:50001")
+	host := signer.sign(t, testClaims(now, "same-ip-host", "HOST", "relay_test", "alloc_same_ip"))
+	peer := signer.sign(t, testClaims(now, "same-ip-peer", "PEER", "relay_test", "alloc_same_ip"))
+	bindForTest(t, runtime, host, hostAddress)
+	bindForTest(t, runtime, peer, peerAddress)
+	other := signer.sign(t, testClaims(now, "same-ip-other", "HOST", "relay_test", "alloc_other"))
+	if result := bindWithoutAssertions(runtime, other, netip.MustParseAddrPort("198.51.100.10:50002")); len(result) != 0 {
+		t.Fatal("per-IP allocation limit was not enforced")
+	}
+	if len(runtime.allocations) != 1 || len(runtime.ipAllocations[hostAddress.Addr()]) != 1 {
+		t.Fatalf("allocations=%d IP allocations=%d", len(runtime.allocations), len(runtime.ipAllocations[hostAddress.Addr()]))
 	}
 }
 
@@ -349,6 +417,7 @@ func testRuntime(t *testing.T, signer testSigner, now time.Time, mutate func(*Co
 	}
 	runtime.now = func() time.Time { return now }
 	runtime.nodeByteBucket = newTokenBucket(float64(cfg.MaxEgressBPS)/8, float64(cfg.MaxEgressBPS)/8, now)
+	runtime.nodePacketBucket = newTokenBucket(float64(cfg.MaxIngressPPS), float64(cfg.MaxIngressPPS), now)
 	return runtime
 }
 
