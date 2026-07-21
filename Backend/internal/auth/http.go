@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,6 +33,8 @@ func NewHTTPHandler(service HTTPService, logger *slog.Logger, trustProxyHeader b
 type bindRequest struct {
 	SteamID     string `json:"steam_id"`
 	PersonaName string `json:"persona_name"`
+	DeviceID    string `json:"device_id,omitempty"`
+	InviteCode  string `json:"invite_code,omitempty"`
 }
 
 type refreshRequest struct {
@@ -80,7 +83,10 @@ func (h *HTTPHandler) Bind(w http.ResponseWriter, r *http.Request) {
 		api.WriteError(w, r, http.StatusBadRequest, CodeInvalidRequest, "Invalid request.", map[string]any{"body": err.Error()})
 		return
 	}
-	result, err := h.service.Bind(r.Context(), BindInput{SteamID: request.SteamID, PersonaName: request.PersonaName}, h.requestMeta(r))
+	result, err := h.service.Bind(r.Context(), BindInput{
+		SteamID: request.SteamID, PersonaName: request.PersonaName,
+		DeviceID: request.DeviceID, InviteCode: request.InviteCode,
+	}, h.requestMeta(r))
 	if err != nil {
 		h.writeError(w, r, err)
 		return
@@ -154,6 +160,11 @@ func (h *HTTPHandler) requestMeta(r *http.Request) RequestMeta {
 
 func (h *HTTPHandler) writeError(w http.ResponseWriter, r *http.Request, err error) {
 	status, code, message, details := ErrorDetails(err)
+	if code == CodeBindRateLimited {
+		if seconds, ok := details["retry_after_seconds"].(int); ok {
+			w.Header().Set("Retry-After", strconv.Itoa(seconds))
+		}
+	}
 	if status >= 500 {
 		h.logger.ErrorContext(r.Context(), "authentication request failed", "code", code, "error", err)
 	}

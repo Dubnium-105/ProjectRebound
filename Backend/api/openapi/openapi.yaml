@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Project Rebound Game Control Plane API
-  version: 0.1.0
+  version: 1.1.0
   description: Public control-plane API. Internal Relay APIs are marked with x-internal.
 servers:
   - url: https://api.example.com
@@ -10,7 +10,7 @@ paths:
     post:
       operationId: bindSteamIdentity
       tags: [Authentication]
-      description: Accepts a client-asserted SteamID. This does not prove Steam account ownership.
+      description: Accepts a client-asserted SteamID. Optional device and invite fields are backwards-compatible; device_id is only a risk signal and does not prove identity.
       requestBody:
         required: true
         content:
@@ -944,7 +944,7 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
     RateLimited:
-      description: Per-IP request limit exceeded.
+      description: A per-IP, per-SteamID, per-device, or combined authentication limit was exceeded. Retry-After is returned for bind limits.
       content:
         application/json:
           schema:
@@ -973,6 +973,15 @@ components:
         persona_name:
           type: string
           maxLength: 64
+        device_id:
+          type: string
+          maxLength: 128
+          pattern: "^[ -~]+$"
+          description: Optional random installation identifier used only as an untrusted risk signal.
+        invite_code:
+          type: string
+          maxLength: 128
+          description: Optional unless the server has auth.invite_required enabled.
     RefreshRequest:
       type: object
       additionalProperties: false

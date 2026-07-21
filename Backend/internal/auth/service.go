@@ -24,10 +24,29 @@ type Service struct {
 	config     config.AuthConfig
 	logger     *slog.Logger
 	now        func() time.Time
-	metrics    interface{ RefreshTokenReuse() }
+	metrics    interface {
+		RefreshTokenReuse()
+		BindRateLimited(string)
+	}
+	bindLimiter *BindLimiter
 }
 
-func (s *Service) SetMetrics(metrics interface{ RefreshTokenReuse() }) { s.metrics = metrics }
+func (s *Service) SetMetrics(metrics interface {
+	RefreshTokenReuse()
+	BindRateLimited(string)
+}) {
+	s.metrics = metrics
+	if s.bindLimiter != nil {
+		s.bindLimiter.SetMetrics(metrics)
+	}
+}
+
+func (s *Service) SetBindLimiter(limiter *BindLimiter) {
+	s.bindLimiter = limiter
+	if limiter != nil && s.metrics != nil {
+		limiter.SetMetrics(s.metrics)
+	}
+}
 
 func NewService(
 	pool *pgxpool.Pool,
@@ -50,7 +69,50 @@ func NewService(
 
 func (s *Service) Bind(ctx context.Context, input BindInput, meta RequestMeta) (BindResult, error) {
 	meta = sanitizeMeta(meta)
+	input.SteamID = strings.TrimSpace(input.SteamID)
+	deviceID := input.DeviceID
+	if strings.TrimSpace(deviceID) == "" {
+		deviceID = meta.DeviceID
+	}
+	deviceID, err := NormalizeDeviceID(deviceID)
+	if err != nil {
+		s.recordFailedAudit(ctx, input.SteamID, "AUTH_BIND_FAILURE", CodeInvalidRequest, meta)
+		return BindResult{}, invalidRequest("Invalid device ID.", map[string]any{"device_id": err.Error()})
+	}
+	meta.DeviceID = deviceID
+	if s.bindLimiter != nil {
+		decision := s.bindLimiter.Check(ctx, BindLimitRequest{
+			IPAddress: meta.IPAddress,
+			SteamID:   input.SteamID,
+			DeviceID:  deviceID,
+		})
+		if !decision.Allowed {
+			retryAfterSeconds := max(1, int((decision.RetryAfter+time.Second-1)/time.Second))
+			s.recordRiskEvent(ctx, RiskEvent{
+				SteamID:      validSteamIDOrEmpty(input.SteamID),
+				DeviceIDHash: HashDeviceID(deviceID),
+				IPAddress:    meta.IPAddress,
+				EventType:    "BIND_RATE_LIMITED",
+				Severity:     "MEDIUM",
+				Details:      map[string]any{"dimension": decision.Dimension, "retry_after_seconds": retryAfterSeconds},
+			}, meta)
+			s.recordFailedAudit(ctx, input.SteamID, "AUTH_BIND_FAILURE", CodeBindRateLimited, meta)
+			return BindResult{}, &ServiceError{
+				Status:  429,
+				Code:    CodeBindRateLimited,
+				Message: "Too many authentication attempts.",
+				Details: map[string]any{"retry_after_seconds": retryAfterSeconds},
+			}
+		}
+	}
 	if err := ValidateSteamID(input.SteamID); err != nil {
+		s.recordRiskEvent(ctx, RiskEvent{
+			DeviceIDHash: HashDeviceID(deviceID),
+			IPAddress:    meta.IPAddress,
+			EventType:    "INVALID_STEAM_ID",
+			Severity:     "LOW",
+			Details:      map[string]any{"validation_error": err.Error()},
+		}, meta)
 		s.recordFailedAudit(ctx, input.SteamID, "AUTH_BIND_FAILURE", CodeInvalidRequest, meta)
 		return BindResult{}, invalidRequest("Invalid SteamID.", map[string]any{"steam_id": err.Error()})
 	}
@@ -102,6 +164,19 @@ func (s *Service) Bind(ctx context.Context, input BindInput, meta RequestMeta) (
 		IPAddress: meta.IPAddress,
 		UserAgent: meta.UserAgent,
 		CreatedAt: now,
+	}); err != nil {
+		return BindResult{}, internalError(err)
+	}
+	if err := s.repository.InsertLoginEvent(ctx, tx, LoginEvent{
+		ID:           NewID("ale_"),
+		PlayerID:     item.ID,
+		SteamID:      item.SteamID,
+		SessionID:    session.ID,
+		DeviceIDHash: session.DeviceIDHash,
+		IPAddress:    meta.IPAddress,
+		UserAgent:    meta.UserAgent,
+		Result:       "SUCCESS",
+		CreatedAt:    now,
 	}); err != nil {
 		return BindResult{}, internalError(err)
 	}
@@ -272,7 +347,8 @@ func (s *Service) newSession(playerID, familyID string, tokenVersion int, meta R
 		RefreshTokenHash: refreshHash,
 		TokenFamilyID:    familyID,
 		TokenVersion:     tokenVersion,
-		DeviceID:         meta.DeviceID,
+		DeviceIDHash:     HashDeviceID(meta.DeviceID),
+		DeviceIDSuffix:   DeviceIDSuffix(meta.DeviceID),
 		IPAddress:        meta.IPAddress,
 		UserAgent:        meta.UserAgent,
 		ExpiresAt:        now.Add(s.config.RefreshTokenTTL()),
@@ -302,9 +378,8 @@ func (s *Service) issueTokens(item player.Player, session Session, rawRefreshTok
 }
 
 func (s *Service) recordFailedAudit(ctx context.Context, steamID, event, failureCode string, meta RequestMeta) {
-	if !steamIDPattern.MatchString(steamID) {
-		steamID = ""
-	}
+	steamID = validSteamIDOrEmpty(steamID)
+	now := s.now().UTC()
 	err := s.repository.InsertAudit(ctx, s.pool, AuditEvent{
 		ID:          NewID("aal_"),
 		SteamID:     steamID,
@@ -314,11 +389,41 @@ func (s *Service) recordFailedAudit(ctx context.Context, steamID, event, failure
 		RequestID:   meta.RequestID,
 		IPAddress:   meta.IPAddress,
 		UserAgent:   meta.UserAgent,
-		CreatedAt:   s.now().UTC(),
+		CreatedAt:   now,
 	})
 	if err != nil {
 		s.logger.ErrorContext(ctx, "write failed authentication audit", "event", event, "error", err)
 	}
+	if err := s.repository.InsertLoginEvent(ctx, s.pool, LoginEvent{
+		ID:           NewID("ale_"),
+		SteamID:      steamID,
+		DeviceIDHash: HashDeviceID(meta.DeviceID),
+		IPAddress:    meta.IPAddress,
+		UserAgent:    meta.UserAgent,
+		Result:       "FAILURE",
+		FailureCode:  failureCode,
+		CreatedAt:    now,
+	}); err != nil {
+		s.logger.ErrorContext(ctx, "write failed login event", "event", event, "error", err)
+	}
+}
+
+func (s *Service) recordRiskEvent(ctx context.Context, event RiskEvent, meta RequestMeta) {
+	event.ID = NewID("are_")
+	event.CreatedAt = s.now().UTC()
+	if event.IPAddress == "" {
+		event.IPAddress = meta.IPAddress
+	}
+	if err := s.repository.InsertRiskEvent(ctx, s.pool, event); err != nil {
+		s.logger.ErrorContext(ctx, "write authentication risk event", "event_type", event.EventType, "error", err)
+	}
+}
+
+func validSteamIDOrEmpty(steamID string) string {
+	if !steamIDPattern.MatchString(steamID) {
+		return ""
+	}
+	return steamID
 }
 
 func sanitizeMeta(meta RequestMeta) RequestMeta {
@@ -327,7 +432,7 @@ func sanitizeMeta(meta RequestMeta) RequestMeta {
 	}
 	meta.RequestID = truncateRunes(strings.TrimSpace(meta.RequestID), 128)
 	meta.UserAgent = truncateRunes(strings.TrimSpace(meta.UserAgent), 512)
-	meta.DeviceID = truncateRunes(strings.TrimSpace(meta.DeviceID), 128)
+	meta.DeviceID = strings.TrimSpace(meta.DeviceID)
 	return meta
 }
 

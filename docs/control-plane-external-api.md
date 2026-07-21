@@ -64,7 +64,7 @@
 
 | 方法 | 路径 | 鉴权 | 请求 | 成功 |
 | --- | --- | --- | --- | --- |
-| POST | `/v1/auth/bind` | 无；按 IP 限流 | 必需 `steam_id`, `persona_name` | 200 Player + Access/Refresh Token + `is_new_player` |
+| POST | `/v1/auth/bind` | 无；按 IP、SteamID、Device ID 及组合维度限流 | 必需 `steam_id`, `persona_name`；可选 `device_id`, `invite_code` | 200 Player + Access/Refresh Token + `is_new_player` |
 | POST | `/v1/auth/refresh` | 无 | `refresh_token` | 200 新 Access/Refresh Token；旧 Refresh Token 失效 |
 | POST | `/v1/auth/logout` | Player | 无 | 200 当前 session 撤销 |
 | GET | `/v1/users/me` | Player | 无 | 200 实时玩家状态和权限字段 |
@@ -77,9 +77,13 @@ Content-Type: application/json
 
 {
   "steam_id": "76561198000000000",
-  "persona_name": "Player"
+  "persona_name": "Player",
+  "device_id": "installation-generated-id",
+  "invite_code": "TEST-ABCD-EFGH"
 }
 ```
+
+旧客户端可继续省略两个新增字段。`device_id` 最长 128 字节，只允许可打印 ASCII；它仅用于限流和风险观察，不是可信身份，也不会绕过 SteamID 唯一约束。是否要求邀请码由服务端 `auth.invite_required` 配置决定。绑定超过任一维度限制时返回 `429 AUTH_BIND_RATE_LIMITED`，响应同时包含 `Retry-After` 与 `details.retry_after_seconds`。
 
 不要把 Access/Refresh Token 写入 URL、日志或崩溃报告。Refresh Token 发生重放时，服务端会撤销整个 token family。
 

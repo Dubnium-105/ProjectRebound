@@ -78,15 +78,24 @@ type RateLimitConfig struct {
 }
 
 type AuthConfig struct {
-	Issuer                      string `yaml:"issuer"`
-	Audience                    string `yaml:"audience"`
-	AccessTokenKeyID            string `yaml:"access_token_key_id"`
-	AccessTokenPrivateKeyBase64 string `yaml:"access_token_private_key_base64"`
-	AccessTokenTTLMinutes       int    `yaml:"access_token_ttl_minutes"`
-	RefreshTokenTTLDays         int    `yaml:"refresh_token_ttl_days"`
-	DefaultPersonaName          string `yaml:"default_persona_name"`
-	BindRequestsPerMinute       int    `yaml:"bind_requests_per_minute"`
-	BindBurst                   int    `yaml:"bind_burst"`
+	Issuer                      string                  `yaml:"issuer"`
+	Audience                    string                  `yaml:"audience"`
+	AccessTokenKeyID            string                  `yaml:"access_token_key_id"`
+	AccessTokenPrivateKeyBase64 string                  `yaml:"access_token_private_key_base64"`
+	AccessTokenTTLMinutes       int                     `yaml:"access_token_ttl_minutes"`
+	RefreshTokenTTLDays         int                     `yaml:"refresh_token_ttl_days"`
+	DefaultPersonaName          string                  `yaml:"default_persona_name"`
+	InviteRequired              bool                    `yaml:"invite_required"`
+	BindRateLimit               AuthBindRateLimitConfig `yaml:"bind_rate_limit"`
+	// Deprecated: retained so existing configuration files continue to load.
+	BindRequestsPerMinute int `yaml:"bind_requests_per_minute"`
+	BindBurst             int `yaml:"bind_burst"`
+}
+
+type AuthBindRateLimitConfig struct {
+	PerIPPerMinute      int `yaml:"per_ip_per_minute"`
+	PerDevicePerMinute  int `yaml:"per_device_per_minute"`
+	PerSteamIDPerMinute int `yaml:"per_steam_id_per_minute"`
 }
 
 type AdminConfig struct {
@@ -226,6 +235,11 @@ var Defaults = Config{
 		AccessTokenTTLMinutes: 15,
 		RefreshTokenTTLDays:   30,
 		DefaultPersonaName:    "Player",
+		BindRateLimit: AuthBindRateLimitConfig{
+			PerIPPerMinute:      5,
+			PerDevicePerMinute:  3,
+			PerSteamIDPerMinute: 3,
+		},
 		BindRequestsPerMinute: 10,
 		BindBurst:             5,
 	},
@@ -344,6 +358,10 @@ func (c *Config) applyEnvOverrides() {
 	overrideInt("HTTP_RATE_LIMIT_BURST", &c.RateLimit.Burst)
 	overrideInt("AUTH_BIND_REQUESTS_PER_MINUTE", &c.Auth.BindRequestsPerMinute)
 	overrideInt("AUTH_BIND_BURST", &c.Auth.BindBurst)
+	overrideInt("AUTH_BIND_PER_IP_PER_MINUTE", &c.Auth.BindRateLimit.PerIPPerMinute)
+	overrideInt("AUTH_BIND_PER_DEVICE_PER_MINUTE", &c.Auth.BindRateLimit.PerDevicePerMinute)
+	overrideInt("AUTH_BIND_PER_STEAM_ID_PER_MINUTE", &c.Auth.BindRateLimit.PerSteamIDPerMinute)
+	overrideBool("AUTH_INVITE_REQUIRED", &c.Auth.InviteRequired)
 	overrideInt("CONNECTION_SESSION_TTL_SECONDS", &c.Connection.SessionTTLSeconds)
 	overrideInt("CONNECTION_SWEEP_INTERVAL_SECONDS", &c.Connection.SweepIntervalSeconds)
 	overrideInt("CONNECTION_WEBSOCKET_QUEUE_SIZE", &c.Connection.WebSocketQueueSize)
@@ -418,6 +436,14 @@ func overrideInt(name string, target *int) {
 	}
 }
 
+func overrideBool(name string, target *bool) {
+	if raw := os.Getenv(name); raw != "" {
+		if value, err := strconv.ParseBool(raw); err == nil {
+			*target = value
+		}
+	}
+}
+
 func splitCSV(raw string) []string {
 	parts := strings.Split(raw, ",")
 	values := make([]string, 0, len(parts))
@@ -461,7 +487,9 @@ func (c *Config) ValidateControlPlane() error {
 	if c.Auth.AccessTokenTTLMinutes < 1 || c.Auth.RefreshTokenTTLDays < 1 {
 		errs = append(errs, errors.New("auth token lifetimes must be positive"))
 	}
-	if c.Auth.BindRequestsPerMinute < 1 || c.Auth.BindBurst < 1 {
+	if c.Auth.BindRequestsPerMinute < 1 || c.Auth.BindBurst < 1 ||
+		c.Auth.BindRateLimit.PerIPPerMinute < 1 || c.Auth.BindRateLimit.PerDevicePerMinute < 1 ||
+		c.Auth.BindRateLimit.PerSteamIDPerMinute < 1 {
 		errs = append(errs, errors.New("auth bind rate limit values must be positive"))
 	}
 	if strings.EqualFold(c.Environment, "production") && strings.TrimSpace(c.Auth.AccessTokenPrivateKeyBase64) == "" {

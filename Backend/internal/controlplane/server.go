@@ -127,15 +127,11 @@ func buildHandler(
 		cfg.Auth,
 		logger,
 	)
+	authService.SetBindLimiter(auth.NewBindLimiter(redisClient, cfg.Auth, logger))
 	authService.SetMetrics(metrics)
 	authHandler := auth.NewHTTPHandler(authService, logger, cfg.HTTP.TrustProxyHeaders)
-	bindLimiter := appmiddleware.NewIPRateLimiter(
-		float64(cfg.Auth.BindRequestsPerMinute)/60.0,
-		cfg.Auth.BindBurst,
-		cfg.HTTP.TrustProxyHeaders,
-	)
 	router.Route("/v1", func(router chi.Router) {
-		router.With(bindLimiter.Middleware).Post("/auth/bind", authHandler.Bind)
+		router.Post("/auth/bind", authHandler.Bind)
 		router.Post("/auth/refresh", authHandler.Refresh)
 		router.With(auth.RequireAccess(authService, logger)).Post("/auth/logout", authHandler.Logout)
 		router.With(auth.RequireAccess(authService, logger)).Get("/users/me", authHandler.Me)

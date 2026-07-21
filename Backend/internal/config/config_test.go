@@ -10,6 +10,8 @@ func TestLoadMissingFileAppliesEnvironment(t *testing.T) {
 	t.Setenv("CONTROL_PLANE_HTTP_ADDR", ":9191")
 	t.Setenv("CORS_ALLOWED_ORIGINS", "https://one.example, https://two.example")
 	t.Setenv("RELAY_CONTROL_SERVER_NAMES", "control-plane, relay.example.com")
+	t.Setenv("AUTH_BIND_PER_IP_PER_MINUTE", "7")
+	t.Setenv("AUTH_INVITE_REQUIRED", "true")
 
 	cfg, err := Load(filepath.Join(t.TempDir(), "missing.yaml"))
 	if err != nil {
@@ -23,6 +25,9 @@ func TestLoadMissingFileAppliesEnvironment(t *testing.T) {
 	}
 	if len(cfg.RelayRegistry.ServerNames) != 2 || cfg.RelayRegistry.ServerNames[1] != "relay.example.com" {
 		t.Fatalf("RelayRegistry.ServerNames = %#v", cfg.RelayRegistry.ServerNames)
+	}
+	if cfg.Auth.BindRateLimit.PerIPPerMinute != 7 || !cfg.Auth.InviteRequired {
+		t.Fatalf("Auth bind config = %#v", cfg.Auth)
 	}
 }
 

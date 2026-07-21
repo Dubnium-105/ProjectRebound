@@ -54,6 +54,8 @@ func TestAuthenticationLifecycleAgainstPostgreSQL(t *testing.T) {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cleanupCancel()
 		for _, steamID := range createdSteamIDs {
+			_, _ = pool.Exec(cleanupCtx, "DELETE FROM auth_risk_events WHERE steam_id = $1 OR player_id IN (SELECT id FROM players WHERE steam_id = $1)", steamID)
+			_, _ = pool.Exec(cleanupCtx, "DELETE FROM auth_login_events WHERE steam_id = $1 OR player_id IN (SELECT id FROM players WHERE steam_id = $1)", steamID)
 			_, _ = pool.Exec(cleanupCtx, "DELETE FROM auth_login_audit_logs WHERE steam_id = $1 OR player_id IN (SELECT id FROM players WHERE steam_id = $1)", steamID)
 			_, _ = pool.Exec(cleanupCtx, "DELETE FROM auth_sessions WHERE player_id IN (SELECT id FROM players WHERE steam_id = $1)", steamID)
 			_, _ = pool.Exec(cleanupCtx, "DELETE FROM players WHERE steam_id = $1", steamID)

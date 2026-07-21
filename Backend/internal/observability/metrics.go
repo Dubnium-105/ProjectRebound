@@ -50,12 +50,14 @@ type Metrics struct {
 	refreshTokenReuseTotal     atomic.Uint64
 	p2pRoomJoinFailedTotal     atomic.Uint64
 	relayAllocationFailedTotal atomic.Uint64
+	authBindRateLimited        map[string]uint64
 }
 
 func NewMetrics(pool *pgxpool.Pool) *Metrics {
 	return &Metrics{
 		pool: pool, httpRequests: make(map[httpMetricKey]uint64),
-		httpDurations: make(map[durationMetricKey]*durationMetric),
+		httpDurations:       make(map[durationMetricKey]*durationMetric),
+		authBindRateLimited: make(map[string]uint64),
 	}
 }
 
@@ -93,6 +95,12 @@ func (m *Metrics) ObserveHTTP(method, route string, status int, duration time.Du
 }
 
 func (m *Metrics) RefreshTokenReuse() { m.refreshTokenReuseTotal.Add(1) }
+
+func (m *Metrics) BindRateLimited(dimension string) {
+	m.mu.Lock()
+	m.authBindRateLimited[dimension]++
+	m.mu.Unlock()
+}
 
 func (m *Metrics) RelayAllocationFailed() { m.relayAllocationFailedTotal.Add(1) }
 
@@ -161,6 +169,18 @@ func (m *Metrics) writeApplicationCounters(w http.ResponseWriter) {
 	writeCounter(w, "refresh_token_reuse_total", m.refreshTokenReuseTotal.Load())
 	writeCounter(w, "p2p_room_join_failed_total", m.p2pRoomJoinFailedTotal.Load())
 	writeCounter(w, "relay_allocation_failed_total", m.relayAllocationFailedTotal.Load())
+	m.mu.RLock()
+	dimensions := make([]string, 0, len(m.authBindRateLimited))
+	for dimension := range m.authBindRateLimited {
+		dimensions = append(dimensions, dimension)
+	}
+	sort.Strings(dimensions)
+	_, _ = fmt.Fprintln(w, "# TYPE auth_bind_rate_limited_total counter")
+	for _, dimension := range dimensions {
+		_, _ = fmt.Fprintf(w, "auth_bind_rate_limited_total{dimension=%q} %d\n",
+			label(dimension), m.authBindRateLimited[dimension])
+	}
+	m.mu.RUnlock()
 }
 
 func (m *Metrics) writeDatabaseGauges(ctx context.Context, w http.ResponseWriter) {

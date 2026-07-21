@@ -52,6 +52,12 @@ auth:
   access_token_ttl_minutes: 15
   refresh_token_ttl_days: 30
   default_persona_name: "Player"
+  invite_required: false
+  bind_rate_limit:
+    per_ip_per_minute: 5
+    per_device_per_minute: 3
+    per_steam_id_per_minute: 3
+  # Deprecated compatibility settings; the v1.1 limiter uses the dimensions above.
   bind_requests_per_minute: 10
   bind_burst: 5
 

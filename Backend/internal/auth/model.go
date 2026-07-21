@@ -12,7 +12,8 @@ type Session struct {
 	RefreshTokenHash    []byte
 	TokenFamilyID       string
 	TokenVersion        int
-	DeviceID            string
+	DeviceIDHash        []byte
+	DeviceIDSuffix      string
 	IPAddress           string
 	UserAgent           string
 	ExpiresAt           time.Time
@@ -35,6 +36,8 @@ type SessionTokens struct {
 type BindInput struct {
 	SteamID     string
 	PersonaName string
+	DeviceID    string
+	InviteCode  string
 }
 
 type RequestMeta struct {
@@ -70,4 +73,29 @@ type AuditEvent struct {
 	IPAddress   string
 	UserAgent   string
 	CreatedAt   time.Time
+}
+
+type RiskEvent struct {
+	ID           string
+	PlayerID     string
+	SteamID      string
+	DeviceIDHash []byte
+	IPAddress    string
+	EventType    string
+	Severity     string
+	Details      map[string]any
+	CreatedAt    time.Time
+}
+
+type LoginEvent struct {
+	ID           string
+	PlayerID     string
+	SteamID      string
+	SessionID    string
+	DeviceIDHash []byte
+	IPAddress    string
+	UserAgent    string
+	Result       string
+	FailureCode  string
+	CreatedAt    time.Time
 }
