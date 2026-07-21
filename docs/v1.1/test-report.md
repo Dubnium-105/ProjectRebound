@@ -2,7 +2,7 @@
 
 报告日期：2026-07-21
 
-候选代码：`main`（最终文档提交前实现/测试提交 `458f36f`）
+候选代码：`main`（集成门禁修复提交 `ed5b2b0`）
 
 总体状态：`NOT_READY`
 
@@ -17,10 +17,11 @@
 | `go test ./... -count=1` | 单元测试、进程内集成测试；无 `TEST_DATABASE_URL` 的本地 PostgreSQL 测试按设计 SKIP | PASS | 约 12.3 秒；所有已运行 package 通过 |
 | `go test ./internal/loadbot ./internal/relayclient ./internal/relayruntime -count=1` | load-bot 配置、协议 V2 客户端、真实 UDP BIND/转发 | PASS | 约 3 秒 |
 | `go test -race ./internal/loadbot ./internal/relayclient ./internal/relayruntime -count=1` | 本机 Race Detector 尝试 | NOT_RUN | Windows 环境缺少 `gcc`，`runtime/cgo` 构建前失败；Linux CI 执行 `go test -race ./...` |
+| `TEST_DATABASE_URL=postgres://…:55432/… TEST_REDIS_ADDRESS=127.0.0.1:56379 go test -race ./... -count=1` | Debian 临时目录、隔离 PostgreSQL 17/Redis 7 容器、全 package Race Detector | PASS | 约 14.3 秒（依赖缓存后）；所有已运行 package 通过，临时容器自动删除 |
 | `staticcheck ./...` | 额外静态检查 | NOT_RUN | 工具未安装 |
 | `golangci-lint run` | 额外静态检查 | NOT_RUN | 工具未安装 |
 
-CI 使用 PostgreSQL 17 与 Redis 7 service container；设置 `TEST_DATABASE_URL` 后会运行 Auth、邀请码、房间、连接、Relay registry/migration 和迁移器的 PostgreSQL 集成测试，设置 `TEST_REDIS_ADDRESS` 后会验证 Redis 限流脚本的原子配额和 TTL。当前仓库没有把 Control Plane、集成式 Worker 和两个 Edge Relay 全部封装成 Testcontainers 测试；这是正式 Integration Gate 的未完成项。
+CI 使用 PostgreSQL 17 与 Redis 7 service container；设置 `TEST_DATABASE_URL` 后会运行 Auth、邀请码、房间、连接、Relay registry/migration 和迁移器的 PostgreSQL 集成测试，设置 `TEST_REDIS_ADDRESS` 后会验证 Redis 限流脚本的原子配额和 TTL。Linux 隔离复现还验证了 PostgreSQL `INET` 掩码、nullable `last_login_at`、协议 V2 节点调度和 Drain `MIGRATING` allocation。当前仓库没有把 Control Plane、集成式 Worker 和两个 Edge Relay 全部封装成 Testcontainers 测试；这是正式 Integration Gate 的未完成项。
 
 ## 安全与功能覆盖
 
