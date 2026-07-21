@@ -159,7 +159,9 @@ func TestAuthenticationLifecycleAgainstPostgreSQL(t *testing.T) {
 	t.Run("rotation reuse and logout revoke sessions", func(t *testing.T) {
 		steamID := nextSteamID()
 		createdSteamIDs = append(createdSteamIDs, steamID)
-		bound, err := service.Bind(ctx, BindInput{SteamID: steamID, PersonaName: "Rotation"}, meta)
+		bound, err := service.Bind(ctx, BindInput{
+			SteamID: steamID, PersonaName: "Rotation", DeviceID: "integration-device-1234",
+		}, meta)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -170,11 +172,44 @@ func TestAuthenticationLifecycleAgainstPostgreSQL(t *testing.T) {
 		if rotated.Tokens.RefreshToken == bound.Tokens.RefreshToken || rotated.Tokens.SessionID == bound.Tokens.SessionID {
 			t.Fatal("refresh token rotation did not replace credentials")
 		}
+		var rotatedDeviceHash []byte
+		if err := pool.QueryRow(ctx, "SELECT device_id_hash FROM auth_sessions WHERE id = $1", rotated.Tokens.SessionID).Scan(&rotatedDeviceHash); err != nil {
+			t.Fatal(err)
+		}
+		if string(rotatedDeviceHash) != string(HashDeviceID("integration-device-1234")) {
+			t.Fatal("refresh without a device header did not inherit the session device hash")
+		}
 		if _, err := service.AuthenticateAccess(ctx, bound.Tokens.AccessToken); ErrorCode(err) != CodeSessionRevoked {
 			t.Fatalf("old access token error = %v", err)
 		}
 		if _, err := service.Refresh(ctx, bound.Tokens.RefreshToken, meta); ErrorCode(err) != CodeRefreshTokenReused {
 			t.Fatalf("refresh reuse error = %v", err)
+		}
+		var reuseRiskEvents, reuseLoginFailures int
+		if err := pool.QueryRow(ctx, `
+			SELECT COUNT(*) FROM auth_risk_events
+			WHERE player_id = $1 AND event_type = 'REFRESH_TOKEN_REUSE'
+		`, bound.Player.ID).Scan(&reuseRiskEvents); err != nil {
+			t.Fatal(err)
+		}
+		if err := pool.QueryRow(ctx, `
+			SELECT COUNT(*) FROM auth_login_events
+			WHERE player_id = $1 AND result = 'FAILURE' AND failure_code = $2
+		`, bound.Player.ID, CodeRefreshTokenReused).Scan(&reuseLoginFailures); err != nil {
+			t.Fatal(err)
+		}
+		if reuseRiskEvents != 1 || reuseLoginFailures != 1 {
+			t.Fatalf("reuse risk events=%d login failures=%d", reuseRiskEvents, reuseLoginFailures)
+		}
+		var leakedTokens int
+		if err := pool.QueryRow(ctx, `
+			SELECT COUNT(*) FROM auth_risk_events
+			WHERE player_id = $1 AND (details::text LIKE '%' || $2 || '%' OR details::text LIKE '%' || $3 || '%')
+		`, bound.Player.ID, bound.Tokens.RefreshToken, rotated.Tokens.RefreshToken).Scan(&leakedTokens); err != nil {
+			t.Fatal(err)
+		}
+		if leakedTokens != 0 {
+			t.Fatal("refresh token plaintext leaked into risk events")
 		}
 		if _, err := service.AuthenticateAccess(ctx, rotated.Tokens.AccessToken); ErrorCode(err) != CodeSessionRevoked {
 			t.Fatalf("rotated family token error = %v", err)

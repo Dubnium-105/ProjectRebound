@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -224,7 +225,14 @@ func (s *Service) Bind(ctx context.Context, input BindInput, meta RequestMeta) (
 
 func (s *Service) Refresh(ctx context.Context, refreshToken string, meta RequestMeta) (RefreshResult, error) {
 	meta = sanitizeMeta(meta)
+	deviceID, err := NormalizeDeviceID(meta.DeviceID)
+	if err != nil {
+		s.recordFailedAudit(ctx, "", "AUTH_REFRESH_FAILURE", CodeInvalidRequest, meta)
+		return RefreshResult{}, invalidRequest("Invalid device ID.", map[string]any{"device_id": err.Error()})
+	}
+	meta.DeviceID = deviceID
 	if !strings.HasPrefix(refreshToken, "rfr_") || len(refreshToken) < 64 {
+		s.recordFailedAudit(ctx, "", "AUTH_REFRESH_FAILURE", CodeUnauthorized, meta)
 		return RefreshResult{}, unauthorized("Invalid refresh token.", nil)
 	}
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -237,6 +245,8 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string, meta Request
 	current, err := s.repository.FindByRefreshTokenForUpdate(ctx, tx, HashRefreshToken(refreshToken))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			_ = tx.Rollback(ctx)
+			s.recordFailedAudit(ctx, "", "AUTH_REFRESH_FAILURE", CodeUnauthorized, meta)
 			return RefreshResult{}, unauthorized("Invalid refresh token.", nil)
 		}
 		return RefreshResult{}, internalError(fmt.Errorf("find refresh session: %w", err))
@@ -259,6 +269,23 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string, meta Request
 			}); err != nil {
 				return RefreshResult{}, internalError(err)
 			}
+			if err := s.repository.InsertRiskEvent(ctx, tx, RiskEvent{
+				ID: NewID("are_"), PlayerID: current.PlayerID,
+				DeviceIDHash: HashDeviceID(meta.DeviceID), IPAddress: meta.IPAddress,
+				EventType: "REFRESH_TOKEN_REUSE", Severity: "HIGH",
+				Details:   map[string]any{"session_id": current.ID, "token_family_id": current.TokenFamilyID},
+				CreatedAt: now,
+			}); err != nil {
+				return RefreshResult{}, internalError(err)
+			}
+			if err := s.repository.InsertLoginEvent(ctx, tx, LoginEvent{
+				ID: NewID("ale_"), PlayerID: current.PlayerID, SessionID: current.ID,
+				DeviceIDHash: HashDeviceID(meta.DeviceID), IPAddress: meta.IPAddress,
+				UserAgent: meta.UserAgent, Result: "FAILURE", FailureCode: CodeRefreshTokenReused,
+				CreatedAt: now,
+			}); err != nil {
+				return RefreshResult{}, internalError(err)
+			}
 			if err := tx.Commit(ctx); err != nil {
 				return RefreshResult{}, internalError(fmt.Errorf("commit refresh reuse revocation: %w", err))
 			}
@@ -271,6 +298,13 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string, meta Request
 				Message: "Refresh token reuse detected; the session family was revoked.",
 			}
 		}
+		_ = tx.Rollback(ctx)
+		s.recordRiskEvent(ctx, RiskEvent{
+			PlayerID: current.PlayerID, DeviceIDHash: HashDeviceID(meta.DeviceID),
+			IPAddress: meta.IPAddress, EventType: "REVOKED_SESSION_USAGE", Severity: "MEDIUM",
+			Details: map[string]any{"session_id": current.ID, "revoked_reason": current.RevokedReason},
+		}, meta)
+		s.recordFailedAudit(ctx, "", "AUTH_REFRESH_FAILURE", CodeSessionRevoked, meta)
 		return RefreshResult{}, &ServiceError{Status: 401, Code: CodeSessionRevoked, Message: "Session has been revoked."}
 	}
 	if !current.ExpiresAt.After(now) {
@@ -280,6 +314,7 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string, meta Request
 		if err := tx.Commit(ctx); err != nil {
 			return RefreshResult{}, internalError(err)
 		}
+		s.recordFailedAudit(ctx, "", "AUTH_REFRESH_FAILURE", CodeUnauthorized, meta)
 		return RefreshResult{}, unauthorized("Refresh token has expired.", nil)
 	}
 
@@ -294,12 +329,17 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string, meta Request
 		if err := tx.Commit(ctx); err != nil {
 			return RefreshResult{}, internalError(err)
 		}
+		s.recordFailedAudit(ctx, item.SteamID, "AUTH_REFRESH_FAILURE", CodeAccountDeleted, meta)
 		return RefreshResult{}, &ServiceError{Status: 403, Code: CodeAccountDeleted, Message: "Account has been deleted."}
 	}
 
 	replacement, rawRefreshToken, err := s.newSession(item.ID, current.TokenFamilyID, current.TokenVersion+1, meta, now)
 	if err != nil {
 		return RefreshResult{}, internalError(err)
+	}
+	if len(replacement.DeviceIDHash) == 0 {
+		replacement.DeviceIDHash = current.DeviceIDHash
+		replacement.DeviceIDSuffix = current.DeviceIDSuffix
 	}
 	if err := s.repository.RotateSession(ctx, tx, current.ID, replacement, now); err != nil {
 		return RefreshResult{}, internalError(err)
@@ -320,6 +360,34 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string, meta Request
 		CreatedAt: now,
 	}); err != nil {
 		return RefreshResult{}, internalError(err)
+	}
+	if err := s.repository.InsertLoginEvent(ctx, tx, LoginEvent{
+		ID: NewID("ale_"), PlayerID: item.ID, SteamID: item.SteamID, SessionID: replacement.ID,
+		DeviceIDHash: replacement.DeviceIDHash, IPAddress: meta.IPAddress,
+		UserAgent: meta.UserAgent, Result: "SUCCESS", CreatedAt: now,
+	}); err != nil {
+		return RefreshResult{}, internalError(err)
+	}
+	if current.IPAddress != "" && meta.IPAddress != "" && current.IPAddress != meta.IPAddress {
+		if err := s.repository.InsertRiskEvent(ctx, tx, RiskEvent{
+			ID: NewID("are_"), PlayerID: item.ID, SteamID: item.SteamID,
+			DeviceIDHash: replacement.DeviceIDHash, IPAddress: meta.IPAddress,
+			EventType: "RAPID_IP_CHANGE", Severity: "MEDIUM",
+			Details: map[string]any{"previous_session_id": current.ID}, CreatedAt: now,
+		}); err != nil {
+			return RefreshResult{}, internalError(err)
+		}
+	}
+	if len(current.DeviceIDHash) > 0 && len(replacement.DeviceIDHash) > 0 &&
+		!bytes.Equal(current.DeviceIDHash, replacement.DeviceIDHash) {
+		if err := s.repository.InsertRiskEvent(ctx, tx, RiskEvent{
+			ID: NewID("are_"), PlayerID: item.ID, SteamID: item.SteamID,
+			DeviceIDHash: replacement.DeviceIDHash, IPAddress: meta.IPAddress,
+			EventType: "MULTI_DEVICE_LOGIN", Severity: "LOW",
+			Details: map[string]any{"previous_session_id": current.ID}, CreatedAt: now,
+		}); err != nil {
+			return RefreshResult{}, internalError(err)
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return RefreshResult{}, internalError(fmt.Errorf("commit refresh transaction: %w", err))
@@ -343,6 +411,11 @@ func (s *Service) AuthenticateAccess(ctx context.Context, accessToken string) (P
 		return Principal{}, unauthorized("Invalid access token.", nil)
 	}
 	if session.RevokedAt != nil {
+		s.recordRiskEvent(ctx, RiskEvent{
+			PlayerID: session.PlayerID, DeviceIDHash: session.DeviceIDHash,
+			EventType: "REVOKED_SESSION_USAGE", Severity: "MEDIUM",
+			Details: map[string]any{"session_id": session.ID, "revoked_reason": session.RevokedReason},
+		}, RequestMeta{})
 		return Principal{}, &ServiceError{Status: 401, Code: CodeSessionRevoked, Message: "Session has been revoked."}
 	}
 	item, err := s.players.GetByID(ctx, s.pool, claims.Subject)
