@@ -1,5 +1,5 @@
 rule_files:
-  - v1.1.rules.yml
+  - ../alerts/v1.1.rules.yml
 
 evaluation_interval: 1m
 
