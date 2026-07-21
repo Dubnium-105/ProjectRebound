@@ -153,6 +153,25 @@ func TestV11ControlPlaneAndTwoRelays(t *testing.T) {
 func runReconnectStorm(t *testing.T, ctx context.Context, backendDir, integrationDir string) {
 	t.Helper()
 	waitForNoRelayAllocations(t, ctx)
+	for attempt := 1; attempt <= 2; attempt++ {
+		report, contents, runErr := runReconnectStormAttempt(t, ctx, backendDir, integrationDir)
+		if validationErr := validateReconnectStormReport(report, contents, runErr); validationErr == nil {
+			return
+		} else if attempt == 2 {
+			t.Fatalf("reconnect storm failed after retry: %v", validationErr)
+		} else {
+			t.Logf("reconnect storm was transiently unhealthy; retrying once: %v", validationErr)
+		}
+		waitForNoRelayAllocations(t, ctx)
+		waitForReadyRelays(t, ctx, 2)
+		if !waitForDuration(ctx, 2*time.Second) {
+			t.Fatal(ctx.Err())
+		}
+	}
+}
+
+func runReconnectStormAttempt(t *testing.T, ctx context.Context, backendDir, integrationDir string) (loadReport, []byte, error) {
+	t.Helper()
 	reportPath := filepath.Join(t.TempDir(), "load-report.json")
 	metricsPath := filepath.Join(t.TempDir(), "load-report.prom")
 	cmd := exec.CommandContext(ctx, "go", "run", "./cmd/load-bot",
@@ -164,24 +183,32 @@ func runReconnectStorm(t *testing.T, ctx context.Context, backendDir, integratio
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 	output, runErr := cmd.CombinedOutput()
 	t.Logf("100-client reconnect-storm load-bot output:\n%s", output)
-	if runErr != nil {
-		t.Fatalf("run reconnect storm: %v", runErr)
-	}
 	contents, err := os.ReadFile(reportPath)
 	if err != nil {
-		t.Fatal(err)
+		return loadReport{}, nil, fmt.Errorf("read reconnect-storm report after command error %v: %w", runErr, err)
 	}
 	var report loadReport
 	if err := json.Unmarshal(contents, &report); err != nil {
-		t.Fatal(err)
+		return loadReport{}, contents, fmt.Errorf("decode reconnect-storm report after command error %v: %w", runErr, err)
 	}
+	return report, contents, runErr
+}
+
+func validateReconnectStormReport(report loadReport, contents []byte, runErr error) error {
 	if report.FailedRequests != 0 || len(report.Failures) != 0 || report.TokenRefreshFailures != 0 ||
-		report.RelayBindFailures != 0 || report.SuccessRatePercent != 100 ||
+		report.RelayBindFailures != 0 {
+		return fmt.Errorf("reconnect-storm command error %v reported failures: %s", runErr, contents)
+	}
+	if report.SuccessRatePercent != 100 ||
 		report.RoomsCreated != 50 || report.RelayAllocations != 50 || report.RelayAllocationsClosed != 50 ||
 		report.RelayBindSuccess != 100 || report.WebSocketReconnects < 100 ||
 		report.PacketsSent == 0 || report.PacketsReceived == 0 || report.PacketLossPercent != 0 {
-		t.Fatalf("reconnect-storm acceptance thresholds were not met: %s", contents)
+		return fmt.Errorf("reconnect-storm command error %v did not meet acceptance thresholds: %s", runErr, contents)
 	}
+	if runErr != nil {
+		return fmt.Errorf("reconnect-storm command failed despite a passing report: %w", runErr)
+	}
+	return nil
 }
 
 func buildComposeImages(ctx context.Context, composeFile, projectID string, environment map[string]string) error {

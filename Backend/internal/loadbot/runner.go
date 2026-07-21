@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"runtime"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -194,7 +195,9 @@ func (r *Runner) requestJSON(ctx context.Context, method, path, accessToken stri
 	}
 	received := 0
 	success := false
+	statusCode := 0
 	if err == nil {
+		statusCode = resp.StatusCode
 		data, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 		received = len(data)
 		_ = resp.Body.Close()
@@ -218,8 +221,36 @@ func (r *Runner) requestJSON(ctx context.Context, method, path, accessToken stri
 		r.report.SuccessfulRequests++
 	} else {
 		r.report.FailedRequests++
+		r.report.Failures[requestFailureCategory(method, path, statusCode)]++
 	}
 	return err
+}
+
+func requestFailureCategory(method, path string, statusCode int) string {
+	route := "other"
+	switch {
+	case path == "/v1/auth/bind":
+		route = "auth_bind"
+	case path == "/v1/auth/refresh":
+		route = "auth_refresh"
+	case path == "/v1/connections":
+		route = "connections"
+	case strings.HasPrefix(path, "/v1/connections/"):
+		route = "connection"
+	case path == "/v1/p2p-rooms":
+		route = "rooms"
+	case strings.HasSuffix(path, "/join"):
+		route = "room_join"
+	case strings.HasSuffix(path, "/heartbeat"):
+		route = "room_heartbeat"
+	case strings.HasPrefix(path, "/v1/p2p-rooms/"):
+		route = "room"
+	}
+	result := "transport"
+	if statusCode > 0 {
+		result = fmt.Sprintf("status_%d", statusCode)
+	}
+	return fmt.Sprintf("http_%s_%s_%s", strings.ToLower(method), route, result)
 }
 
 func (r *Runner) recordFailure(category string) {
