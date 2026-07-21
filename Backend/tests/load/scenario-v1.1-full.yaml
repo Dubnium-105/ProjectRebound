@@ -1,13 +1,14 @@
-scenario: basic
-control_plane_url: http://127.0.0.1:8080
-realtime_url: ws://127.0.0.1:8080/v1/realtime/connect
-clients: 100
-rooms: 30
-relay_connections: 20
-duration: 1h
+scenario: full
+control_plane_url: https://staging-api.example.com
+realtime_url: wss://staging-api.example.com/v1/realtime/connect
+clients: 300
+rooms: 100
+relay_connections: 100
+duration: 6h
 request_interval_ms: 1000
 setup_concurrency: 10
 auth:
+  invite_code: CHANGE_ME_STAGING_INVITE
   refresh_interval: 10m
 room:
   region: test

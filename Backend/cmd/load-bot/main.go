@@ -36,8 +36,13 @@ func main() {
 	}
 	report.WritePrometheus(metrics)
 	_ = metrics.Close()
-	fmt.Printf("scenario=%s clients=%d success=%d failed=%d p50=%.1fms p95=%.1fms p99=%.1fms\n", report.Scenario, report.Clients, report.SuccessfulRequests, report.FailedRequests, report.P50MS, report.P95MS, report.P99MS)
-	if report.FailedRequests > 0 {
+	fmt.Printf("scenario=%s clients=%d duration=%.1fs success=%d failed=%d success_rate=%.3f%% p50=%.1fms p95=%.1fms p99=%.1fms rooms=%d relay_allocations=%d relay_closed=%d relay_bind_success=%d relay_bind_failed=%d migrations=%d/%d packets=%d/%d loss=%.3f%% reconnects=%d refresh_failed=%d memory_delta=%d goroutine_delta=%d\n",
+		report.Scenario, report.Clients, report.DurationSeconds, report.SuccessfulRequests, report.FailedRequests,
+		report.SuccessRatePercent, report.P50MS, report.P95MS, report.P99MS, report.RoomsCreated,
+		report.RelayAllocations, report.RelayAllocationsClosed, report.RelayBindSuccess, report.RelayBindFailures,
+		report.RelayMigrationSuccess, report.RelayMigrationAttempts, report.PacketsReceived, report.PacketsSent,
+		report.PacketLossPercent, report.WebSocketReconnects, report.TokenRefreshFailures, report.MemoryDeltaBytes, report.GoroutineDelta)
+	if report.FailedRequests > 0 || len(report.Failures) > 0 {
 		os.Exit(1)
 	}
 }

@@ -1,0 +1,22 @@
+scenario: soak
+control_plane_url: https://staging-api.example.com
+realtime_url: wss://staging-api.example.com/v1/realtime/connect
+clients: 200
+rooms: 100
+relay_connections: 100
+duration: 24h
+setup_concurrency: 10
+auth:
+  invite_code: CHANGE_ME_STAGING_INVITE
+  refresh_interval: 10m
+room:
+  region: test
+  mode: relay-soak
+  version: 1.1.0
+traffic:
+  packets_per_second: 20
+  payload_bytes: 256
+  jitter_ms: 20
+failure_injection:
+  disconnect_percent: 5
+  reconnect_delay_seconds: 10

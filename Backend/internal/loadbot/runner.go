@@ -7,36 +7,56 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"runtime"
 	"sort"
 	"sync"
 	"time"
 )
 
 type Report struct {
-	Scenario              string    `json:"scenario"`
-	Clients               int       `json:"clients"`
-	StartedAt             time.Time `json:"started_at"`
-	FinishedAt            time.Time `json:"finished_at"`
-	SuccessfulRequests    uint64    `json:"successful_requests"`
-	FailedRequests        uint64    `json:"failed_requests"`
-	P50MS                 float64   `json:"p50_ms"`
-	P95MS                 float64   `json:"p95_ms"`
-	P99MS                 float64   `json:"p99_ms"`
-	WebSocketReconnects   uint64    `json:"websocket_reconnects"`
-	RoomsCreated          uint64    `json:"rooms_created"`
-	RelayBindSuccess      uint64    `json:"relay_bind_success"`
-	RelayMigrationSuccess uint64    `json:"relay_migration_success"`
-	BytesSent             uint64    `json:"bytes_sent"`
-	BytesReceived         uint64    `json:"bytes_received"`
-	TokenRefreshFailures  uint64    `json:"token_refresh_failures"`
+	Scenario               string            `json:"scenario"`
+	Clients                int               `json:"clients"`
+	StartedAt              time.Time         `json:"started_at"`
+	FinishedAt             time.Time         `json:"finished_at"`
+	SuccessfulRequests     uint64            `json:"successful_requests"`
+	FailedRequests         uint64            `json:"failed_requests"`
+	P50MS                  float64           `json:"p50_ms"`
+	P95MS                  float64           `json:"p95_ms"`
+	P99MS                  float64           `json:"p99_ms"`
+	WebSocketReconnects    uint64            `json:"websocket_reconnects"`
+	RoomsCreated           uint64            `json:"rooms_created"`
+	RelayBindSuccess       uint64            `json:"relay_bind_success"`
+	RelayBindFailures      uint64            `json:"relay_bind_failures"`
+	RelayMigrationSuccess  uint64            `json:"relay_migration_success"`
+	RelayMigrationAttempts uint64            `json:"relay_migration_attempts"`
+	PacketsSent            uint64            `json:"packets_sent"`
+	PacketsReceived        uint64            `json:"packets_received"`
+	PacketsDropped         uint64            `json:"packets_dropped"`
+	PacketLossPercent      float64           `json:"packet_loss_percent"`
+	BytesSent              uint64            `json:"bytes_sent"`
+	BytesReceived          uint64            `json:"bytes_received"`
+	TokenRefreshFailures   uint64            `json:"token_refresh_failures"`
+	RelayAllocations       uint64            `json:"relay_allocations"`
+	RelayAllocationsClosed uint64            `json:"relay_allocations_closed"`
+	SuccessRatePercent     float64           `json:"success_rate_percent"`
+	DurationSeconds        float64           `json:"duration_seconds"`
+	StartMemoryBytes       uint64            `json:"start_memory_bytes"`
+	EndMemoryBytes         uint64            `json:"end_memory_bytes"`
+	MemoryDeltaBytes       int64             `json:"memory_delta_bytes"`
+	StartGoroutines        int               `json:"start_goroutines"`
+	EndGoroutines          int               `json:"end_goroutines"`
+	GoroutineDelta         int               `json:"goroutine_delta"`
+	Failures               map[string]uint64 `json:"failures"`
 }
 
 type Runner struct {
-	cfg       Config
-	client    *http.Client
-	mu        sync.Mutex
-	report    Report
-	latencies []time.Duration
+	cfg        Config
+	client     *http.Client
+	mu         sync.Mutex
+	report     Report
+	latencies  []time.Duration
+	migrations map[string]struct{}
+	attempts   map[string]struct{}
 }
 
 func (r Report) WritePrometheus(w io.Writer) {
@@ -47,6 +67,20 @@ func (r Report) WritePrometheus(w io.Writer) {
 	fmt.Fprintf(w, "loadbot_request_latency_milliseconds{quantile=%q} %g\n", "0.99", r.P99MS)
 	fmt.Fprintf(w, "loadbot_bytes_total{direction=%q} %d\n", "sent", r.BytesSent)
 	fmt.Fprintf(w, "loadbot_bytes_total{direction=%q} %d\n", "received", r.BytesReceived)
+	fmt.Fprintf(w, "loadbot_relay_allocations %d\n", r.RelayAllocations)
+	fmt.Fprintf(w, "loadbot_relay_allocations_closed_total %d\n", r.RelayAllocationsClosed)
+	fmt.Fprintf(w, "loadbot_relay_bind_total{result=%q} %d\n", "success", r.RelayBindSuccess)
+	fmt.Fprintf(w, "loadbot_relay_bind_total{result=%q} %d\n", "failed", r.RelayBindFailures)
+	fmt.Fprintf(w, "loadbot_relay_migrations_total{result=%q} %d\n", "attempted", r.RelayMigrationAttempts)
+	fmt.Fprintf(w, "loadbot_relay_migrations_total{result=%q} %d\n", "success", r.RelayMigrationSuccess)
+	fmt.Fprintf(w, "loadbot_relay_packets_total{result=%q} %d\n", "sent", r.PacketsSent)
+	fmt.Fprintf(w, "loadbot_relay_packets_total{result=%q} %d\n", "received", r.PacketsReceived)
+	fmt.Fprintf(w, "loadbot_relay_packets_total{result=%q} %d\n", "dropped", r.PacketsDropped)
+	fmt.Fprintf(w, "loadbot_relay_packet_loss_percent %g\n", r.PacketLossPercent)
+	fmt.Fprintf(w, "loadbot_websocket_reconnects_total %d\n", r.WebSocketReconnects)
+	fmt.Fprintf(w, "loadbot_token_refresh_failures_total %d\n", r.TokenRefreshFailures)
+	fmt.Fprintf(w, "loadbot_memory_delta_bytes %d\n", r.MemoryDeltaBytes)
+	fmt.Fprintf(w, "loadbot_goroutine_delta %d\n", r.GoroutineDelta)
 }
 
 func New(cfg Config) *Runner {
@@ -57,18 +91,45 @@ func (r *Runner) Run(ctx context.Context) Report {
 	duration, _ := time.ParseDuration(r.cfg.Duration)
 	ctx, cancel := context.WithTimeout(ctx, duration)
 	defer cancel()
-	r.report = Report{Scenario: r.cfg.Scenario, Clients: r.cfg.Clients, StartedAt: time.Now().UTC()}
+	var startMemory runtime.MemStats
+	runtime.ReadMemStats(&startMemory)
+	r.report = Report{Scenario: r.cfg.Scenario, Clients: r.cfg.Clients, StartedAt: time.Now().UTC(),
+		StartMemoryBytes: startMemory.Alloc, StartGoroutines: runtime.NumGoroutine(), Failures: make(map[string]uint64)}
+	r.migrations = make(map[string]struct{})
+	r.attempts = make(map[string]struct{})
+	if r.cfg.Scenario == "full" || r.cfg.Scenario == "p2p" || r.cfg.Scenario == "relay" || r.cfg.Scenario == "soak" {
+		r.runEndToEnd(ctx)
+	} else {
+		r.runRequestScenario(ctx)
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.report.FinishedAt = time.Now().UTC()
+	r.report.DurationSeconds = r.report.FinishedAt.Sub(r.report.StartedAt).Seconds()
+	var endMemory runtime.MemStats
+	runtime.ReadMemStats(&endMemory)
+	r.report.EndMemoryBytes = endMemory.Alloc
+	r.report.MemoryDeltaBytes = int64(endMemory.Alloc) - int64(r.report.StartMemoryBytes)
+	r.report.EndGoroutines = runtime.NumGoroutine()
+	r.report.GoroutineDelta = r.report.EndGoroutines - r.report.StartGoroutines
+	total := r.report.SuccessfulRequests + r.report.FailedRequests
+	if total > 0 {
+		r.report.SuccessRatePercent = float64(r.report.SuccessfulRequests) * 100 / float64(total)
+	}
+	if r.report.PacketsSent > 0 {
+		r.report.PacketLossPercent = float64(r.report.PacketsDropped) * 100 / float64(r.report.PacketsSent)
+	}
+	r.finishPercentiles()
+	return r.report
+}
+
+func (r *Runner) runRequestScenario(ctx context.Context) {
 	var wg sync.WaitGroup
 	for id := 0; id < r.cfg.Clients; id++ {
 		wg.Add(1)
 		go func(id int) { defer wg.Done(); r.runClient(ctx, id) }(id)
 	}
 	wg.Wait()
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.report.FinishedAt = time.Now().UTC()
-	r.finishPercentiles()
-	return r.report
 }
 
 func (r *Runner) runClient(ctx context.Context, id int) {
@@ -97,6 +158,10 @@ func (r *Runner) step(ctx context.Context, id int) {
 }
 
 func (r *Runner) request(ctx context.Context, method, path string, body any) {
+	_ = r.requestJSON(ctx, method, path, "", nil, body, nil)
+}
+
+func (r *Runner) requestJSON(ctx context.Context, method, path, accessToken string, headers map[string]string, body, result any) error {
 	var reader io.Reader
 	sent := 0
 	if body != nil {
@@ -106,16 +171,22 @@ func (r *Runner) request(ctx context.Context, method, path string, body any) {
 	}
 	req, err := http.NewRequestWithContext(ctx, method, r.cfg.ControlPlaneURL+path, reader)
 	if err != nil {
-		return
+		return err
 	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
+	}
+	if accessToken != "" {
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+	}
+	for name, value := range headers {
+		req.Header.Set(name, value)
 	}
 	started := time.Now()
 	resp, err := r.client.Do(req)
 	latency := time.Since(started)
 	if err != nil && ctx.Err() != nil {
-		return
+		return ctx.Err()
 	}
 	received := 0
 	success := false
@@ -124,6 +195,15 @@ func (r *Runner) request(ctx context.Context, method, path string, body any) {
 		received = len(data)
 		_ = resp.Body.Close()
 		success = resp.StatusCode >= 200 && resp.StatusCode < 300
+		if success && result != nil {
+			if decodeErr := json.Unmarshal(data, result); decodeErr != nil {
+				success = false
+				err = decodeErr
+			}
+		}
+		if !success && err == nil {
+			err = fmt.Errorf("HTTP %d for %s %s", resp.StatusCode, method, path)
+		}
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -135,6 +215,37 @@ func (r *Runner) request(ctx context.Context, method, path string, body any) {
 	} else {
 		r.report.FailedRequests++
 	}
+	return err
+}
+
+func (r *Runner) recordFailure(category string) {
+	r.mu.Lock()
+	r.report.Failures[category]++
+	r.mu.Unlock()
+}
+
+func (r *Runner) recordMigration(id string) {
+	if id == "" {
+		return
+	}
+	r.mu.Lock()
+	if _, exists := r.migrations[id]; !exists {
+		r.migrations[id] = struct{}{}
+		r.report.RelayMigrationSuccess++
+	}
+	r.mu.Unlock()
+}
+
+func (r *Runner) recordMigrationAttempt(id string) {
+	if id == "" {
+		return
+	}
+	r.mu.Lock()
+	if _, exists := r.attempts[id]; !exists {
+		r.attempts[id] = struct{}{}
+		r.report.RelayMigrationAttempts++
+	}
+	r.mu.Unlock()
 }
 
 func (r *Runner) finishPercentiles() {
