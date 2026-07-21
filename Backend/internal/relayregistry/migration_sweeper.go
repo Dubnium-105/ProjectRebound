@@ -8,6 +8,7 @@ import (
 
 type MigrationService interface {
 	MigrateFailedRelays(context.Context) (int, int, error)
+	MigrateDrainRelays(context.Context) (int, int, error)
 }
 
 type MigrationSweeper struct {
@@ -35,6 +36,14 @@ func (s *MigrationSweeper) Run(ctx context.Context) {
 			}
 			if planned > 0 || dispatched > 0 {
 				s.logger.InfoContext(ctx, "relay migrations processed", "planned", planned, "dispatched", dispatched)
+			}
+			drainPlanned, drainDispatched, err := s.service.MigrateDrainRelays(ctx)
+			if err != nil {
+				s.logger.ErrorContext(ctx, "relay drain migration sweep failed", "error", err)
+				continue
+			}
+			if drainPlanned > 0 || drainDispatched > 0 {
+				s.logger.InfoContext(ctx, "relay drain migrations processed", "planned", drainPlanned, "dispatched", drainDispatched)
 			}
 		}
 	}

@@ -216,6 +216,11 @@ func (s *Service) AllocationOpened(ctx context.Context, nodeID, allocationID str
 		if err := s.repository.CompleteMigration(ctx, migration.ID, s.now().UTC()); err != nil {
 			return internal(err)
 		}
+		if s.controlPublisher != nil {
+			s.controlPublisher.Publish(migration.OldRelayNodeID, ControlMessage{
+				Type: "RevokeAllocation", Payload: map[string]any{"allocation_id": migration.OldAllocationID, "reason": "MIGRATED"},
+			})
+		}
 	}
 	return nil
 }
@@ -233,17 +238,25 @@ func (s *Service) AllocationClosed(ctx context.Context, nodeID, allocationID str
 	return nil
 }
 
-func (s *Service) Drain(ctx context.Context, nodeID string, meta AdminMeta) (Node, error) {
-	deadline := s.now().UTC().Add(time.Duration(s.config.DrainDeadlineSeconds) * time.Second)
-	node, err := s.changeState(ctx, nodeID, StateDraining, &deadline, meta)
+func (s *Service) Drain(ctx context.Context, nodeID string, input DrainInput, meta AdminMeta) (Node, error) {
+	if input.DeadlineSeconds == 0 {
+		input.DeadlineSeconds = s.config.DrainDeadlineSeconds
+	}
+	if input.DeadlineSeconds < 30 || input.DeadlineSeconds > 86400 {
+		return Node{}, invalid("Invalid relay drain deadline.", map[string]any{"deadline_seconds": "must be between 30 and 86400"})
+	}
+	deadline := s.now().UTC().Add(time.Duration(input.DeadlineSeconds) * time.Second)
+	node, err := s.changeState(ctx, nodeID, StateDraining, &deadline, input.MigrateExisting, meta)
 	if err == nil && s.controlPublisher != nil {
-		s.controlPublisher.Publish(nodeID, ControlMessage{Type: "EnterDrain", Payload: map[string]any{"deadline": deadline}})
+		s.controlPublisher.Publish(nodeID, ControlMessage{Type: "EnterDrain", Payload: map[string]any{
+			"deadline": deadline.Format(time.RFC3339Nano), "migrate_existing": input.MigrateExisting,
+		}})
 	}
 	return node, err
 }
 
 func (s *Service) Resume(ctx context.Context, nodeID string, meta AdminMeta) (Node, error) {
-	node, err := s.changeState(ctx, nodeID, StateReady, nil, meta)
+	node, err := s.changeState(ctx, nodeID, StateReady, nil, false, meta)
 	if err == nil && s.controlPublisher != nil {
 		s.controlPublisher.Publish(nodeID, ControlMessage{Type: "ExitDrain", Payload: map[string]any{}})
 	}
@@ -251,14 +264,14 @@ func (s *Service) Resume(ctx context.Context, nodeID string, meta AdminMeta) (No
 }
 
 func (s *Service) Revoke(ctx context.Context, nodeID string, meta AdminMeta) (Node, error) {
-	node, err := s.changeState(ctx, nodeID, StateRevoked, nil, meta)
+	node, err := s.changeState(ctx, nodeID, StateRevoked, nil, false, meta)
 	if err == nil && s.controlPublisher != nil {
 		s.controlPublisher.Publish(nodeID, ControlMessage{Type: "Shutdown", Payload: map[string]any{"reason": "REVOKED"}})
 	}
 	return node, err
 }
 
-func (s *Service) changeState(ctx context.Context, nodeID string, next State, deadline *time.Time, meta AdminMeta) (Node, error) {
+func (s *Service) changeState(ctx context.Context, nodeID string, next State, deadline *time.Time, migrateExisting bool, meta AdminMeta) (Node, error) {
 	if strings.TrimSpace(meta.ActorID) == "" {
 		return Node{}, unauthorized("ADMIN_UNAUTHORIZED", "Administrator authentication is required.")
 	}
@@ -278,7 +291,7 @@ func (s *Service) changeState(ctx context.Context, nodeID string, next State, de
 	if next == StateDraining && node.State != StateReady {
 		return Node{}, conflict("INVALID_RELAY_STATE", "Only READY relay nodes can enter drain.")
 	}
-	updated, err := s.repository.ChangeState(ctx, nodeID, next, deadline, meta, s.now().UTC())
+	updated, err := s.repository.ChangeState(ctx, nodeID, next, deadline, migrateExisting, meta, s.now().UTC())
 	if err != nil {
 		return Node{}, internal(err)
 	}
@@ -451,6 +464,44 @@ func (s *Service) MigrateFailedRelays(ctx context.Context) (int, int, error) {
 		}
 		planned++
 	}
+	return s.dispatchPendingMigrations(ctx, planned)
+}
+
+func (s *Service) MigrateDrainRelays(ctx context.Context) (int, int, error) {
+	allocationIDs, err := s.repository.DrainingNodeAllocationIDs(ctx, 100)
+	if err != nil {
+		return 0, 0, err
+	}
+	planned := 0
+	for _, allocationID := range allocationIDs {
+		now := s.now().UTC()
+		migration, planErr := s.repository.PlanMigration(
+			ctx, allocationID, newID("rmig_"), newID("alloc_"), "RELAY_DRAIN",
+			now.Add(s.config.AllocationTTL()), now, s.config.CapacityThresholdPercent,
+			time.Duration(s.config.MigrationTimeoutSeconds)*time.Second,
+		)
+		if errors.Is(planErr, ErrActiveMigration) {
+			continue
+		}
+		if errors.Is(planErr, ErrNoMigrationTarget) {
+			if err := s.repository.FailAllocation(ctx, migration.OldAllocationID, "RELAY_UNAVAILABLE", now); err != nil {
+				return planned, 0, err
+			}
+			migration.ID = ""
+			if err := s.failMigrationConnection(ctx, migration, "RELAY_UNAVAILABLE"); err != nil {
+				return planned, 0, err
+			}
+			continue
+		}
+		if planErr != nil {
+			return planned, 0, planErr
+		}
+		planned++
+	}
+	return s.dispatchPendingMigrations(ctx, planned)
+}
+
+func (s *Service) dispatchPendingMigrations(ctx context.Context, planned int) (int, int, error) {
 	pending, err := s.repository.PendingMigrations(ctx, 100)
 	if err != nil {
 		return planned, 0, err
@@ -463,11 +514,6 @@ func (s *Service) MigrateFailedRelays(ctx context.Context) (int, int, error) {
 		}
 		if s.connectionCoordinator == nil {
 			return planned, dispatched, errors.New("relay migration coordinator is unavailable")
-		}
-		if s.controlPublisher != nil {
-			s.controlPublisher.Publish(migration.OldRelayNodeID, ControlMessage{
-				Type: "RevokeAllocation", Payload: map[string]any{"allocation_id": migration.OldAllocationID, "reason": "MIGRATED"},
-			})
 		}
 		if err := s.connectionCoordinator.RelayMigrating(ctx, migration.ConnectionID, connection.RelayMigration{
 			MigrationID: migration.ID, PreviousAllocationID: migration.OldAllocationID,
@@ -487,6 +533,9 @@ func (s *Service) MigrateFailedRelays(ctx context.Context) (int, int, error) {
 func (s *Service) failMigrationConnection(ctx context.Context, migration Migration, reason string) error {
 	if s.connectionCoordinator == nil {
 		return errors.New("relay migration coordinator is unavailable")
+	}
+	if err := s.repository.FailConnectionAllocations(ctx, migration.ConnectionID, reason, s.now().UTC()); err != nil {
+		return err
 	}
 	return s.connectionCoordinator.RelayMigrationFailed(ctx, migration.ConnectionID, migration.ID, reason)
 }

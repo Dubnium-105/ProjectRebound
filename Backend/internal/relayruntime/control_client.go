@@ -160,7 +160,12 @@ func (c *ControlClient) handleControlMessage(message *structpb.Struct) error {
 		return errors.New("invalid relay control envelope")
 	}
 	switch messageType {
-	case "ConfigSnapshot", "CertificateRotation":
+	case "ConfigSnapshot":
+		if state, _ := payload["node_state"].(string); state == "DRAINING" {
+			return c.enterDrain(payload)
+		}
+		return nil
+	case "CertificateRotation":
 		return nil
 	case "KeysetUpdate":
 		encoded, err := json.Marshal(payload)
@@ -173,8 +178,7 @@ func (c *ControlClient) handleControlMessage(message *structpb.Struct) error {
 		}
 		return c.runtime.UpdateKeyset(keyset)
 	case "EnterDrain":
-		c.runtime.SetDraining(true)
-		return nil
+		return c.enterDrain(payload)
 	case "ExitDrain":
 		c.runtime.SetDraining(false)
 		return nil
@@ -189,6 +193,20 @@ func (c *ControlClient) handleControlMessage(message *structpb.Struct) error {
 	default:
 		return errors.New("unsupported relay control message")
 	}
+}
+
+func (c *ControlClient) enterDrain(payload map[string]any) error {
+	deadlineValue, _ := payload["deadline"].(string)
+	if deadlineValue == "" {
+		c.runtime.SetDraining(true)
+		return nil
+	}
+	deadline, err := time.Parse(time.RFC3339Nano, deadlineValue)
+	if err != nil {
+		return errors.New("invalid relay drain deadline")
+	}
+	c.runtime.SetDrain(deadline)
+	return nil
 }
 
 func controlEnvelope(messageType string, payload map[string]any) *structpb.Struct {

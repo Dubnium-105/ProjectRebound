@@ -167,9 +167,12 @@ func TestRelayRegistryLifecycleAgainstPostgreSQL(t *testing.T) {
 	}
 
 	meta := AdminMeta{ActorID: "integration-admin", RequestID: "req-integration", IPAddress: "127.0.0.1"}
-	draining, err := service.Drain(ctx, enrolled.Node.ID, meta)
+	draining, err := service.Drain(ctx, enrolled.Node.ID, DrainInput{}, meta)
 	if err != nil || draining.State != StateDraining {
 		t.Fatalf("draining node = %#v, %v", draining, err)
+	}
+	if draining.DrainMigrateExisting {
+		t.Fatal("compatible empty drain request enabled forced migration")
 	}
 	if _, err := service.AllocateRelay(ctx, connection.RelayAllocationRequest{ConnectionID: connectionIDs[1], RoomID: roomID}); relayErrorCode(err) != "RELAY_UNAVAILABLE" {
 		t.Fatalf("draining node accepted allocation: %v", err)

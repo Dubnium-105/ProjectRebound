@@ -341,7 +341,7 @@ func TestRuntimeLimitsUniqueAllocationsPerIP(t *testing.T) {
 	}
 }
 
-func TestRuntimeDrainsWithoutBreakingExistingAllocation(t *testing.T) {
+func TestRuntimeDrainsExistingAllocationAtDeadline(t *testing.T) {
 	now := time.Date(2026, 7, 17, 12, 0, 0, 0, time.UTC)
 	signer := newTestSigner(t, "relay-key-a")
 	runtime := testRuntime(t, signer, now, func(cfg *Config) {})
@@ -361,7 +361,14 @@ func TestRuntimeDrainsWithoutBreakingExistingAllocation(t *testing.T) {
 	if output := runtime.Process(packet, hostAddress); len(output) != 1 {
 		t.Fatal("drain interrupted an existing allocation")
 	}
-	runtime.RevokeAllocation("alloc_a")
+	runtime.SetDrain(now.Add(time.Second))
+	if closed := runtime.Sweep(); closed != 0 {
+		t.Fatalf("allocations closed before drain deadline = %d", closed)
+	}
+	runtime.now = func() time.Time { return now.Add(2 * time.Second) }
+	if closed := runtime.Sweep(); closed != 1 {
+		t.Fatalf("allocations closed at drain deadline = %d", closed)
+	}
 	first, second := <-runtime.Events(), <-runtime.Events()
 	if first.Type != "AllocationClosed" || second.Type != "DrainCompleted" {
 		t.Fatalf("drain completion events = %#v, %#v", first, second)
@@ -435,6 +442,21 @@ func TestRuntimeKeysetUpdatesAndControlShutdown(t *testing.T) {
 	}
 	if output := bindWithoutAssertions(runtime, secondToken, address); len(output) != 1 {
 		t.Fatal("updated keyset was not applied")
+	}
+	drainDeadline := now.Add(10 * time.Minute)
+	if err := control.handleControlMessage(controlEnvelope("EnterDrain", map[string]any{
+		"deadline": drainDeadline.Format(time.RFC3339Nano), "migrate_existing": true,
+	})); err != nil {
+		t.Fatal(err)
+	}
+	if !runtime.draining || !runtime.drainDeadline.Equal(drainDeadline) {
+		t.Fatalf("control drain state = %v / %v", runtime.draining, runtime.drainDeadline)
+	}
+	if err := control.handleControlMessage(controlEnvelope("ExitDrain", map[string]any{})); err != nil {
+		t.Fatal(err)
+	}
+	if runtime.draining || !runtime.drainDeadline.IsZero() {
+		t.Fatal("control exit-drain did not clear the deadline")
 	}
 	if err := control.handleControlMessage(controlEnvelope("Shutdown", map[string]any{})); err != errRelayShutdown {
 		t.Fatalf("shutdown error = %v", err)

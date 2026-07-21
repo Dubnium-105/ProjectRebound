@@ -884,6 +884,16 @@ paths:
       x-internal: true
       security:
         - adminToken: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                deadline_seconds: {type: integer, minimum: 30, maximum: 86400, default: 300}
+                migrate_existing: {type: boolean, default: false}
       responses:
         "200":
           description: Node stopped receiving new allocations; existing allocations remain until expiry or drain deadline.
@@ -1933,7 +1943,7 @@ components:
     RelayNode:
       type: object
       description: Internal operational view. node_token and node_token_hash are intentionally absent.
-      required: [node_id, display_name, region, zone, provider, state, load_state, software_version, protocol_version, public_endpoints, supported_protocols, max_allocations, max_egress_bps, active_allocations, current_egress_bps, current_ingress_bps, certificate_fingerprint, certificate_expires_at, config_version]
+      required: [node_id, display_name, region, zone, provider, state, load_state, software_version, protocol_version, public_endpoints, supported_protocols, max_allocations, max_egress_bps, active_allocations, current_egress_bps, current_ingress_bps, certificate_fingerprint, certificate_expires_at, config_version, drain_migrate_existing]
       properties:
         node_id: {type: string}
         display_name: {type: string}
@@ -1963,6 +1973,7 @@ components:
         last_heartbeat_at: {type: string, format: date-time}
         lease_expires_at: {type: string, format: date-time}
         drain_deadline: {type: string, format: date-time}
+        drain_migrate_existing: {type: boolean}
     RelayEnrollData:
       type: object
       required: [node, node_token, certificate_pem, ca_certificate_pem, certificate_expires_at, relay_token_keyset]

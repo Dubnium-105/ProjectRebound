@@ -255,4 +255,19 @@ func TestRelayMigrationLifecycleAgainstPostgreSQL(t *testing.T) {
 		coordinator.failed[0][2] != "MIGRATION_ATTEMPTS_EXHAUSTED" {
 		t.Fatalf("migration failures = %#v", coordinator.failed)
 	}
+
+	if _, err := pool.Exec(ctx, `
+		UPDATE relay_nodes
+		SET state = 'DRAINING', drain_migrate_existing = TRUE, drain_deadline = $2
+		WHERE id = $1
+	`, newNodeID, now.Add(10*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if planned, dispatched, err := service.MigrateDrainRelays(ctx); err != nil || planned != 1 || dispatched != 1 {
+		t.Fatalf("drain migration sweep = %d/%d, %v", planned, dispatched, err)
+	}
+	last := coordinator.migrations[len(coordinator.migrations)-1]
+	if last.Reason != "RELAY_DRAIN" || last.PreviousRelayNodeID != newNodeID || last.Allocation.Endpoint.NodeID != thirdNodeID {
+		t.Fatalf("drain migration = %#v", last)
+	}
 }

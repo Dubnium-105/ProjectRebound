@@ -20,7 +20,7 @@ type HTTPService interface {
 	RenewCertificate(context.Context, string, string, string) (EnrollResult, error)
 	Get(context.Context, string) (Node, error)
 	List(context.Context, ListFilter) (ListResult, error)
-	Drain(context.Context, string, AdminMeta) (Node, error)
+	Drain(context.Context, string, DrainInput, AdminMeta) (Node, error)
 	Resume(context.Context, string, AdminMeta) (Node, error)
 	Revoke(context.Context, string, AdminMeta) (Node, error)
 }
@@ -55,6 +55,11 @@ type renewRequest struct {
 	CSRPEM string `json:"csr_pem"`
 }
 
+type drainRequest struct {
+	DeadlineSeconds int  `json:"deadline_seconds"`
+	MigrateExisting bool `json:"migrate_existing"`
+}
+
 type nodeResponse struct {
 	NodeID                 string     `json:"node_id"`
 	DisplayName            string     `json:"display_name"`
@@ -78,6 +83,7 @@ type nodeResponse struct {
 	LastHeartbeatAt        *time.Time `json:"last_heartbeat_at,omitempty"`
 	LeaseExpiresAt         *time.Time `json:"lease_expires_at,omitempty"`
 	DrainDeadline          *time.Time `json:"drain_deadline,omitempty"`
+	DrainMigrateExisting   bool       `json:"drain_migrate_existing"`
 }
 
 func (h *HTTPHandler) Enroll(w http.ResponseWriter, r *http.Request) {
@@ -154,7 +160,16 @@ func (h *HTTPHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPHandler) Drain(w http.ResponseWriter, r *http.Request) {
-	node, err := h.service.Drain(r.Context(), chi.URLParam(r, "node_id"), h.adminMeta(r))
+	var request drainRequest
+	if r.ContentLength != 0 {
+		if err := api.DecodeJSON(r, &request); err != nil {
+			api.WriteError(w, r, 400, "INVALID_REQUEST", "Invalid request.", map[string]any{"body": err.Error()})
+			return
+		}
+	}
+	node, err := h.service.Drain(r.Context(), chi.URLParam(r, "node_id"), DrainInput{
+		DeadlineSeconds: request.DeadlineSeconds, MigrateExisting: request.MigrateExisting,
+	}, h.adminMeta(r))
 	h.writeNodeOperation(w, r, node, err)
 }
 
@@ -221,5 +236,6 @@ func resultNode(node Node) nodeResponse {
 		CurrentIngressBPS: node.CurrentIngressBPS, CertificateFingerprint: node.CertificateFingerprint,
 		CertificateExpiresAt: node.CertificateExpiresAt, ConfigVersion: node.ConfigVersion,
 		LastHeartbeatAt: node.LastHeartbeatAt, LeaseExpiresAt: node.LeaseExpiresAt, DrainDeadline: node.DrainDeadline,
+		DrainMigrateExisting: node.DrainMigrateExisting,
 	}
 }

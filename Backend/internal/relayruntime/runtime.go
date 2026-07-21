@@ -95,6 +95,7 @@ type Runtime struct {
 	intervalIngressBytes int64
 	intervalPackets      int64
 	draining             bool
+	drainDeadline        time.Time
 	loadState            LoadState
 	now                  func() time.Time
 	events               chan RuntimeEvent
@@ -133,12 +134,24 @@ func (r *Runtime) UpdateKeyset(keyset Keyset) error { return r.verifier.Update(k
 func (r *Runtime) SetDraining(value bool) {
 	r.mu.Lock()
 	r.draining = value
+	r.drainDeadline = time.Time{}
 	if value {
 		r.setLoadStateLocked(LoadStateDraining)
 	} else {
 		r.setLoadStateLocked(LoadStateNormal)
 	}
 	if value && len(r.allocations) == 0 {
+		r.emit(RuntimeEvent{Type: "DrainCompleted"})
+	}
+	r.mu.Unlock()
+}
+
+func (r *Runtime) SetDrain(deadline time.Time) {
+	r.mu.Lock()
+	r.draining = true
+	r.drainDeadline = deadline.UTC()
+	r.setLoadStateLocked(LoadStateDraining)
+	if len(r.allocations) == 0 {
 		r.emit(RuntimeEvent{Type: "DrainCompleted"})
 	}
 	r.mu.Unlock()
@@ -448,8 +461,9 @@ func (r *Runtime) Sweep() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	closed := 0
+	forceDrain := r.draining && !r.drainDeadline.IsZero() && !now.Before(r.drainDeadline)
 	for id, allocation := range r.allocations {
-		if !now.Before(allocation.expiresAt) || now.Sub(allocation.lastActivity) > r.config.AllocationIdleTTL() {
+		if forceDrain || !now.Before(allocation.expiresAt) || now.Sub(allocation.lastActivity) > r.config.AllocationIdleTTL() {
 			r.closeAllocationLocked(id, true)
 			closed++
 		}

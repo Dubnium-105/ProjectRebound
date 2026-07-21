@@ -39,3 +39,20 @@ connection.relay_migrated | connection.relay_failed
 实时 UDP endpoint 只保存在 Edge 内存中，不写 PostgreSQL。PostgreSQL 保存 connection、节点、allocation、迁移尝试、deadline 和失败原因。数据库唯一索引阻止同一 connection 并发存在多个活动 migration；行锁和条件更新使重复 sweep、重复 BIND 成功以及多个 Control Plane 实例并行执行保持幂等。
 
 V1.1 迁移允许短暂中断，不承诺无损切换、包重传或主机迁移。
+
+## 管理员 Drain
+
+```http
+POST /internal/v1/relay-nodes/{node_id}/drain
+Content-Type: application/json
+
+{"deadline_seconds":600,"migrate_existing":false}
+```
+
+空请求体仍兼容旧调用，使用服务端默认 deadline 且不主动迁移。`migrate_existing=false` 立即停止新调度并允许现有 allocation 自然结束；`true` 使用与故障迁移相同的有界重试状态机逐步迁移现有连接，迁移原因是 `RELAY_DRAIN`。deadline 会通过控制流下发；到期时 Edge 关闭仍残留的 allocation，并上报关闭事件。节点重新连接时，`ConfigSnapshot` 会恢复已持久化的 Drain 状态。
+
+恢复接流量需显式调用：
+
+```http
+POST /internal/v1/relay-nodes/{node_id}/resume
+```

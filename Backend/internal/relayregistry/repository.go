@@ -157,7 +157,7 @@ func (r *Repository) Heartbeat(ctx context.Context, nodeID string, input Heartbe
 	))
 }
 
-func (r *Repository) ChangeState(ctx context.Context, nodeID string, next State, deadline *time.Time, meta AdminMeta, now time.Time) (Node, error) {
+func (r *Repository) ChangeState(ctx context.Context, nodeID string, next State, deadline *time.Time, migrateExisting bool, meta AdminMeta, now time.Time) (Node, error) {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return Node{}, err
@@ -169,10 +169,11 @@ func (r *Repository) ChangeState(ctx context.Context, nodeID string, next State,
 	}
 	updated, err := scanNode(tx.QueryRow(ctx, `
 		UPDATE relay_nodes
-		SET state = $2, drain_deadline = $3, config_version = config_version + 1, updated_at = $4
+		SET state = $2, drain_deadline = $3, drain_migrate_existing = $4,
+		    config_version = config_version + 1, updated_at = $5
 		WHERE id = $1
 		RETURNING `+nodeColumns,
-		nodeID, next, deadline, now,
+		nodeID, next, deadline, migrateExisting, now,
 	))
 	if err != nil {
 		return Node{}, err
@@ -348,6 +349,37 @@ func (r *Repository) FailedNodeAllocationIDs(ctx context.Context, limit int) ([]
 	return ids, rows.Err()
 }
 
+func (r *Repository) DrainingNodeAllocationIDs(ctx context.Context, limit int) ([]string, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT allocation.id
+		FROM relay_allocations AS allocation
+		JOIN relay_nodes AS node ON node.id = allocation.relay_node_id
+		JOIN connections AS connection ON connection.id = allocation.connection_id
+		WHERE allocation.state IN ('ALLOCATED', 'BINDING', 'ACTIVE')
+		  AND node.state = 'DRAINING' AND node.drain_migrate_existing
+		  AND connection.state NOT IN ('FAILED', 'EXPIRED', 'CLOSED')
+		  AND NOT EXISTS (
+		      SELECT 1 FROM relay_migrations AS migration
+		      WHERE migration.connection_id = allocation.connection_id AND migration.state = 'BINDING'
+		  )
+		ORDER BY allocation.updated_at, allocation.id
+		LIMIT $1
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 func (r *Repository) AvailableRegions(ctx context.Context) ([]string, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT DISTINCT region
@@ -393,9 +425,10 @@ func (r *Repository) PlanMigration(
 		JOIN relay_nodes AS node ON node.id = allocation.relay_node_id
 		WHERE allocation.id = $1
 		  AND allocation.state IN ('ALLOCATED', 'BINDING', 'ACTIVE')
-		  AND node.state IN ('UNHEALTHY', 'OFFLINE', 'REVOKED')
+		  AND (node.state IN ('UNHEALTHY', 'OFFLINE', 'REVOKED')
+		       OR ($2 = 'RELAY_DRAIN' AND node.state = 'DRAINING' AND node.drain_migrate_existing))
 		FOR UPDATE OF allocation, node
-	`, oldAllocationID))
+	`, oldAllocationID, reason))
 	if err != nil {
 		return Migration{}, err
 	}
@@ -439,17 +472,19 @@ func (r *Repository) PlanMigration(
 	}
 	if _, err := tx.Exec(ctx, `
 		UPDATE relay_allocations
-		SET state = 'FAILED', failure_reason = 'RELAY_NODE_UNAVAILABLE', closed_at = $2, updated_at = $2
-		WHERE id = $1
-	`, oldAllocation.ID, now); err != nil {
+		SET state = 'FAILED', failure_reason = $3, closed_at = $2, updated_at = $2
+		WHERE id = $1 AND $3 <> 'RELAY_DRAIN'
+	`, oldAllocation.ID, now, reason); err != nil {
 		return Migration{}, err
 	}
-	if _, err := tx.Exec(ctx, `
-		UPDATE relay_nodes
-		SET active_allocations = GREATEST(active_allocations - 1, 0), updated_at = $2
-		WHERE id = $1
-	`, oldNode.ID, now); err != nil {
-		return Migration{}, err
+	if reason != "RELAY_DRAIN" {
+		if _, err := tx.Exec(ctx, `
+			UPDATE relay_nodes
+			SET active_allocations = GREATEST(active_allocations - 1, 0), updated_at = $2
+			WHERE id = $1
+		`, oldNode.ID, now); err != nil {
+			return Migration{}, err
+		}
 	}
 	newAllocation, err := scanAllocation(tx.QueryRow(ctx, `
 		INSERT INTO relay_allocations (
@@ -554,12 +589,65 @@ func (r *Repository) MigrationForNewAllocation(ctx context.Context, allocationID
 }
 
 func (r *Repository) CompleteMigration(ctx context.Context, migrationID string, now time.Time) error {
-	_, err := r.pool.Exec(ctx, `
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	var connectionID, newAllocationID string
+	err = tx.QueryRow(ctx, `
+		SELECT connection_id, new_allocation_id
+		FROM relay_migrations
+		WHERE id = $1 AND state = 'BINDING'
+		FOR UPDATE
+	`, migrationID).Scan(&connectionID, &newAllocationID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return tx.Commit(ctx)
+	}
+	if err != nil {
+		return err
+	}
+	rows, err := tx.Query(ctx, `
+		UPDATE relay_allocations
+		SET state = 'CLOSED', failure_reason = 'MIGRATED', closed_at = COALESCE(closed_at, $3), updated_at = $3
+		WHERE connection_id = $1 AND id <> $2 AND state IN ('ALLOCATED', 'BINDING', 'ACTIVE')
+		RETURNING relay_node_id
+	`, connectionID, newAllocationID, now)
+	if err != nil {
+		return err
+	}
+	var closedNodeIDs []string
+	for rows.Next() {
+		var nodeID string
+		if err := rows.Scan(&nodeID); err != nil {
+			rows.Close()
+			return err
+		}
+		closedNodeIDs = append(closedNodeIDs, nodeID)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	rows.Close()
+	for _, nodeID := range closedNodeIDs {
+		if _, err := tx.Exec(ctx, `
+			UPDATE relay_nodes
+			SET active_allocations = GREATEST(active_allocations - 1, 0), updated_at = $2
+			WHERE id = $1
+		`, nodeID, now); err != nil {
+			return err
+		}
+	}
+	_, err = tx.Exec(ctx, `
 		UPDATE relay_migrations
 		SET state = 'COMPLETED', completed_at = $2, updated_at = $2
 		WHERE id = $1 AND state = 'BINDING'
 	`, migrationID, now)
-	return err
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *Repository) TimedOutMigrations(ctx context.Context, now time.Time, limit int) ([]Migration, error) {
@@ -805,6 +893,47 @@ func (r *Repository) FailAllocation(ctx context.Context, allocationID, reason st
 	return tx.Commit(ctx)
 }
 
+func (r *Repository) FailConnectionAllocations(ctx context.Context, connectionID, reason string, now time.Time) error {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	rows, err := tx.Query(ctx, `
+		UPDATE relay_allocations
+		SET state = 'FAILED', failure_reason = $2, closed_at = COALESCE(closed_at, $3), updated_at = $3
+		WHERE connection_id = $1 AND state IN ('ALLOCATED', 'BINDING', 'ACTIVE')
+		RETURNING relay_node_id
+	`, connectionID, reason, now)
+	if err != nil {
+		return err
+	}
+	var nodeIDs []string
+	for rows.Next() {
+		var nodeID string
+		if err := rows.Scan(&nodeID); err != nil {
+			rows.Close()
+			return err
+		}
+		nodeIDs = append(nodeIDs, nodeID)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	rows.Close()
+	for _, nodeID := range nodeIDs {
+		if _, err := tx.Exec(ctx, `
+			UPDATE relay_nodes
+			SET active_allocations = GREATEST(active_allocations - 1, 0), updated_at = $2
+			WHERE id = $1
+		`, nodeID, now); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
 func scanMigration(row pgx.Row) (Migration, error) {
 	var migration Migration
 	var bindDeadline, dispatchedAt, completedAt sql.NullTime
@@ -845,7 +974,7 @@ const nodeColumns = `
 	protocol_version, public_endpoints, supported_protocols, max_allocations,
 	max_egress_bps, active_allocations, current_egress_bps, current_ingress_bps,
 	certificate_fingerprint, certificate_expires_at, node_token_hash,
-	config_version, last_heartbeat_at, lease_expires_at, drain_deadline,
+	config_version, last_heartbeat_at, lease_expires_at, drain_deadline, drain_migrate_existing,
 	created_at, updated_at
 `
 
@@ -858,7 +987,7 @@ func prefixedNodeColumns(alias string) string {
 	return alias + `.id, ` + alias + `.display_name, ` + alias + `.region, ` + alias + `.zone, ` + alias + `.provider, ` + alias + `.state, ` + alias + `.load_state, ` + alias + `.software_version, ` +
 		alias + `.protocol_version, ` + alias + `.public_endpoints, ` + alias + `.supported_protocols, ` + alias + `.max_allocations, ` + alias + `.max_egress_bps, ` +
 		alias + `.active_allocations, ` + alias + `.current_egress_bps, ` + alias + `.current_ingress_bps, ` + alias + `.certificate_fingerprint, ` + alias + `.certificate_expires_at, ` +
-		alias + `.node_token_hash, ` + alias + `.config_version, ` + alias + `.last_heartbeat_at, ` + alias + `.lease_expires_at, ` + alias + `.drain_deadline, ` + alias + `.created_at, ` + alias + `.updated_at`
+		alias + `.node_token_hash, ` + alias + `.config_version, ` + alias + `.last_heartbeat_at, ` + alias + `.lease_expires_at, ` + alias + `.drain_deadline, ` + alias + `.drain_migrate_existing, ` + alias + `.created_at, ` + alias + `.updated_at`
 }
 
 func prefixedAllocationColumns(alias string) string {
@@ -877,7 +1006,7 @@ func scanNode(row pgx.Row) (Node, error) {
 		&item.ProtocolVersion, &endpoints, &item.SupportedProtocols, &item.MaxAllocations,
 		&item.MaxEgressBPS, &item.ActiveAllocations, &item.CurrentEgressBPS, &item.CurrentIngressBPS,
 		&item.CertificateFingerprint, &item.CertificateExpiresAt, &item.NodeTokenHash,
-		&item.ConfigVersion, &lastHeartbeat, &leaseExpires, &drainDeadline,
+		&item.ConfigVersion, &lastHeartbeat, &leaseExpires, &drainDeadline, &item.DrainMigrateExisting,
 		&item.CreatedAt, &item.UpdatedAt,
 	)
 	if err == nil {
@@ -925,7 +1054,7 @@ func scanAllocationAndNode(row pgx.Row) (Allocation, Node, error) {
 		&node.ProtocolVersion, &endpoints, &node.SupportedProtocols, &node.MaxAllocations,
 		&node.MaxEgressBPS, &node.ActiveAllocations, &node.CurrentEgressBPS, &node.CurrentIngressBPS,
 		&node.CertificateFingerprint, &node.CertificateExpiresAt, &node.NodeTokenHash,
-		&node.ConfigVersion, &lastHeartbeat, &leaseExpires, &drainDeadline,
+		&node.ConfigVersion, &lastHeartbeat, &leaseExpires, &drainDeadline, &node.DrainMigrateExisting,
 		&node.CreatedAt, &node.UpdatedAt,
 	)
 	if err == nil {

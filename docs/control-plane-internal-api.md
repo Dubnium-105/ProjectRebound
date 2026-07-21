@@ -135,11 +135,11 @@ Content-Type: application/json
 | --- | --- | --- |
 | GET | `/internal/v1/relay-nodes` | 分页查询全部已注册节点；支持 `region`、`zone`、`provider`、`state`、`cursor`、`limit`，包括离线和已撤销节点 |
 | GET | `/internal/v1/relay-nodes/{node_id}` | 查询 endpoint、容量、负载、证书和状态；不返回凭据 |
-| POST | `/internal/v1/relay-nodes/{node_id}/drain` | `READY -> DRAINING`，停止新 allocation |
+| POST | `/internal/v1/relay-nodes/{node_id}/drain` | `READY -> DRAINING`；可选 `{deadline_seconds,migrate_existing}`，空请求默认只停止新 allocation |
 | POST | `/internal/v1/relay-nodes/{node_id}/resume` | 恢复为 `READY` |
 | POST | `/internal/v1/relay-nodes/{node_id}/revoke` | 永久撤销 Node Token/证书身份 |
 
-状态包括 `BOOTSTRAPPING`、`CONNECTING`、`READY`、`DRAINING`、`UNHEALTHY`、`OFFLINE`、`REVOKED`。默认 15 秒心跳，45 秒无心跳转 `UNHEALTHY`，90 秒转 `OFFLINE`。Drain 保留现有 allocation 到过期或 deadline；Revoke 不可逆。
+状态包括 `BOOTSTRAPPING`、`CONNECTING`、`READY`、`DRAINING`、`UNHEALTHY`、`OFFLINE`、`REVOKED`。默认 15 秒心跳，45 秒无心跳转 `UNHEALTHY`，90 秒转 `OFFLINE`。Drain 的 `migrate_existing=false` 保留现有 allocation 到自然结束或 deadline；`true` 使用有界故障迁移状态机逐步迁移；Revoke 不可逆。
 
 ## 5. Relay mTLS gRPC 控制流
 
@@ -183,9 +183,9 @@ Control Plane -> Edge：
 
 | Type | 关键 payload | 说明 |
 | --- | --- | --- |
-| `ConfigSnapshot` | `config_version`, `heartbeat_interval_seconds`, `lease_seconds` | 首次连接配置 |
+| `ConfigSnapshot` | `config_version`, `heartbeat_interval_seconds`, `lease_seconds`, `node_state`, drain 字段 | 首次连接配置；节点重连时恢复持久化 Drain |
 | `KeysetUpdate` | Relay Token 公钥集 | 签名密钥轮换 |
-| `EnterDrain` | drain deadline | 停止接受新 allocation |
+| `EnterDrain` | RFC 3339 drain deadline、`migrate_existing` | 停止接受新 allocation |
 | `ExitDrain` | — | 恢复接收 |
 | `RevokeAllocation` | `allocation_id` | 释放指定 allocation |
 | `CertificateRotation` | 轮换提示 | 触发续签流程 |

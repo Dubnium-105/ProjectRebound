@@ -154,11 +154,18 @@ func (s *ControlServer) Connect(stream relaycontrolpb.RelayControlConnectServer)
 	defer subscription.Close()
 	s.telemetry.SetConnected(nodeID, true)
 	defer s.telemetry.SetConnected(nodeID, false)
-	if err := sendControlMessage(stream, ControlMessage{Type: "ConfigSnapshot", Payload: map[string]any{
+	configPayload := map[string]any{
 		"config_version":             node.ConfigVersion,
 		"heartbeat_interval_seconds": s.config.HeartbeatIntervalSeconds,
 		"lease_seconds":              s.config.UnhealthyAfterSeconds,
-	}}); err != nil {
+		"node_state":                 string(node.State),
+		"drain_migrate_existing":     node.DrainMigrateExisting,
+	}
+	if node.DrainDeadline != nil {
+		configPayload["drain_deadline"] = node.DrainDeadline.Format(time.RFC3339Nano)
+		configPayload["deadline"] = node.DrainDeadline.Format(time.RFC3339Nano)
+	}
+	if err := sendControlMessage(stream, ControlMessage{Type: "ConfigSnapshot", Payload: configPayload}); err != nil {
 		return err
 	}
 	keysetPayload, _ := toMap(s.service.Keyset())

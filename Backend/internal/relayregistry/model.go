@@ -53,8 +53,14 @@ type Node struct {
 	LastHeartbeatAt        *time.Time
 	LeaseExpiresAt         *time.Time
 	DrainDeadline          *time.Time
+	DrainMigrateExisting   bool
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
+}
+
+type DrainInput struct {
+	DeadlineSeconds int
+	MigrateExisting bool
 }
 
 type EnrollInput struct {
