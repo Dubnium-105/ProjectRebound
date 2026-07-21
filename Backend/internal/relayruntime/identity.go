@@ -36,7 +36,7 @@ func LoadOrEnroll(ctx context.Context, cfg Config) (Identity, error) {
 	statePath := filepath.Join(cfg.DataDir, "identity.json")
 	identity, err := loadIdentity(statePath)
 	if err == nil {
-		if time.Until(identity.CertificateExpiry) > time.Hour {
+		if !certificateRenewalDue(identity, time.Now().UTC()) {
 			return identity, nil
 		}
 		renewed, renewErr := renewIdentity(ctx, cfg, identity)
@@ -65,6 +65,19 @@ func LoadOrEnroll(ctx context.Context, cfg Config) (Identity, error) {
 		return Identity{}, err
 	}
 	return identity, nil
+}
+
+func certificateRenewalDue(identity Identity, now time.Time) bool {
+	block, _ := pem.Decode([]byte(identity.CertificatePEM))
+	if block == nil {
+		return true
+	}
+	certificate, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return true
+	}
+	lifetime := certificate.NotAfter.Sub(certificate.NotBefore)
+	return !now.Before(certificate.NotAfter.Add(-lifetime / 4))
 }
 
 func loadIdentity(path string) (Identity, error) {

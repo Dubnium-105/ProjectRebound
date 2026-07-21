@@ -6,9 +6,11 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"math"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -20,14 +22,16 @@ import (
 )
 
 var errRelayShutdown = errors.New("relay shutdown requested")
+var errCertificateRotated = errors.New("relay certificate rotated")
 
 type ControlClient struct {
-	config         Config
-	identity       Identity
-	runtime        *Runtime
-	logger         *slog.Logger
-	processID      string
-	reportSequence uint64
+	config          Config
+	identity        Identity
+	runtime         *Runtime
+	logger          *slog.Logger
+	processID       string
+	reportSequence  uint64
+	lastConnectedAt time.Time
 }
 
 func NewControlClient(cfg Config, identity Identity, runtime *Runtime, logger *slog.Logger) *ControlClient {
@@ -37,6 +41,7 @@ func NewControlClient(cfg Config, identity Identity, runtime *Runtime, logger *s
 func (c *ControlClient) Run(ctx context.Context) {
 	backoff := time.Second
 	first := true
+	var disconnectedAt time.Time
 	for ctx.Err() == nil {
 		if !first {
 			c.runtime.metrics.controlReconnects.Add(1)
@@ -46,6 +51,14 @@ func (c *ControlClient) Run(ctx context.Context) {
 		c.runtime.metrics.controlConnected.Store(0)
 		if errors.Is(err, errRelayShutdown) || ctx.Err() != nil {
 			return
+		}
+		if c.lastConnectedAt.After(disconnectedAt) {
+			disconnectedAt = time.Now().UTC()
+		} else if disconnectedAt.IsZero() {
+			disconnectedAt = time.Now().UTC()
+		}
+		if time.Since(disconnectedAt) >= time.Duration(c.config.ControlDisconnectGraceSeconds)*time.Second {
+			c.runtime.SetDraining(true)
 		}
 		c.logger.WarnContext(ctx, "relay control connection ended", "error", err, "retry_in", backoff)
 		timer := time.NewTimer(backoff)
@@ -88,6 +101,7 @@ func (c *ControlClient) connectOnce(ctx context.Context) error {
 		return err
 	}
 	c.runtime.metrics.controlConnected.Store(1)
+	c.lastConnectedAt = time.Now().UTC()
 	c.logger.InfoContext(ctx, "relay control connected", "node_id", c.identity.NodeID)
 
 	received := make(chan *structpb.Struct, 1)
@@ -122,6 +136,20 @@ func (c *ControlClient) connectOnce(ctx context.Context) error {
 				return err
 			}
 		case <-heartbeats.C:
+			if certificateRenewalDue(c.identity, time.Now().UTC()) {
+				renewed, renewErr := renewIdentity(ctx, c.config, c.identity)
+				if renewErr != nil {
+					return fmt.Errorf("renew relay certificate: %w", renewErr)
+				}
+				if err := saveIdentity(filepath.Join(c.config.DataDir, "identity.json"), renewed); err != nil {
+					return err
+				}
+				if err := c.runtime.UpdateKeyset(renewed.Keyset); err != nil {
+					return err
+				}
+				c.identity = renewed
+				return errCertificateRotated
+			}
 			active, egress, ingress := c.runtime.Snapshot()
 			c.reportSequence++
 			snapshot := c.runtime.metrics.Snapshot()
@@ -171,6 +199,7 @@ func (c *ControlClient) handleControlMessage(message *structpb.Struct) error {
 		if state, _ := payload["node_state"].(string); state == "DRAINING" {
 			return c.enterDrain(payload)
 		}
+		c.runtime.SetDraining(false)
 		return nil
 	case "CertificateRotation":
 		return nil

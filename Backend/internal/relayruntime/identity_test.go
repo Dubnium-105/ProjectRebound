@@ -99,6 +99,9 @@ func TestLoadOrEnrollPersistsNodeIdentityAndConsumesBootstrapLocally(t *testing.
 	if _, err := identity.TLSCertificate(); err != nil {
 		t.Fatalf("stored identity certificate: %v", err)
 	}
+	if certificateRenewalDue(identity, now) || !certificateRenewalDue(identity, identity.CertificateExpiry.Add(-2*time.Hour)) {
+		t.Fatal("certificate 25-percent renewal threshold was not enforced")
+	}
 	if _, err := os.Stat(filepath.Join(cfg.DataDir, "identity.json")); err != nil {
 		t.Fatal(err)
 	}

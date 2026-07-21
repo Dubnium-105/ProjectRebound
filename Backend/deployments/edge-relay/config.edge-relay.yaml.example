@@ -27,6 +27,7 @@ supported_protocols: [UDP]
 max_allocations: 1000
 max_egress_bps: 200000000
 heartbeat_seconds: 15
+control_disconnect_grace_seconds: 600
 allocation_idle_seconds: 120
 cookie_ttl_seconds: 10
 max_datagram_bytes: 1280

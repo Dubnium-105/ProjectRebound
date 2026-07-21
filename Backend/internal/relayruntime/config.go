@@ -15,44 +15,45 @@ import (
 )
 
 type Config struct {
-	Environment           string     `yaml:"environment"`
-	DisplayName           string     `yaml:"display_name"`
-	Region                string     `yaml:"region"`
-	Zone                  string     `yaml:"zone"`
-	Provider              string     `yaml:"provider"`
-	SoftwareVersion       string     `yaml:"software_version"`
-	ProtocolVersion       int        `yaml:"protocol_version"`
-	AcceptProtocolV1      bool       `yaml:"accept_protocol_v1"`
-	ControlPlaneURL       string     `yaml:"control_plane_url"`
-	ControlAddr           string     `yaml:"control_addr"`
-	ControlServerName     string     `yaml:"control_server_name"`
-	BootstrapToken        string     `yaml:"-"`
-	DataDir               string     `yaml:"data_dir"`
-	ListenAddr            string     `yaml:"listen_addr"`
-	MetricsAddr           string     `yaml:"metrics_addr"`
-	AdvertisedEndpoints   []Endpoint `yaml:"advertised_endpoints"`
-	SupportedProtocols    []string   `yaml:"supported_protocols"`
-	MaxAllocations        int        `yaml:"max_allocations"`
-	MaxEgressBPS          int64      `yaml:"max_egress_bps"`
-	HeartbeatSeconds      int        `yaml:"heartbeat_seconds"`
-	AllocationIdleSeconds int        `yaml:"allocation_idle_seconds"`
-	CookieTTLSeconds      int        `yaml:"cookie_ttl_seconds"`
-	MaxDatagramBytes      int        `yaml:"max_datagram_bytes"`
-	MaxPayloadBytes       int        `yaml:"max_payload_bytes"`
-	IPPacketsPerSecond    int        `yaml:"ip_packets_per_second"`
-	BindInitPerSecond     int        `yaml:"bind_init_per_second"`
-	BindProofPerSecond    int        `yaml:"bind_proof_per_second"`
-	InvalidTokensPerMin   int        `yaml:"invalid_tokens_per_minute"`
-	MaxAllocationsPerIP   int        `yaml:"max_allocations_per_ip"`
-	MaxIPRateStates       int        `yaml:"max_ip_rate_states"`
-	MaxIngressPPS         int        `yaml:"max_ingress_packets_per_second"`
-	TemporaryBanSeconds   int        `yaml:"temporary_ban_seconds"`
-	MaxIngressMbps        int        `yaml:"max_ingress_mbps"`
-	MaxMemoryMB           int        `yaml:"max_memory_mb"`
-	DegradedThresholdPct  int        `yaml:"degraded_threshold_percent"`
-	RejectNewThresholdPct int        `yaml:"reject_new_threshold_percent"`
-	NATRebindWindowSecs   int        `yaml:"nat_rebind_window_seconds"`
-	MaxTokenReplayEntries int        `yaml:"max_token_replay_entries"`
+	Environment                   string     `yaml:"environment"`
+	DisplayName                   string     `yaml:"display_name"`
+	Region                        string     `yaml:"region"`
+	Zone                          string     `yaml:"zone"`
+	Provider                      string     `yaml:"provider"`
+	SoftwareVersion               string     `yaml:"software_version"`
+	ProtocolVersion               int        `yaml:"protocol_version"`
+	AcceptProtocolV1              bool       `yaml:"accept_protocol_v1"`
+	ControlPlaneURL               string     `yaml:"control_plane_url"`
+	ControlAddr                   string     `yaml:"control_addr"`
+	ControlServerName             string     `yaml:"control_server_name"`
+	BootstrapToken                string     `yaml:"-"`
+	DataDir                       string     `yaml:"data_dir"`
+	ListenAddr                    string     `yaml:"listen_addr"`
+	MetricsAddr                   string     `yaml:"metrics_addr"`
+	AdvertisedEndpoints           []Endpoint `yaml:"advertised_endpoints"`
+	SupportedProtocols            []string   `yaml:"supported_protocols"`
+	MaxAllocations                int        `yaml:"max_allocations"`
+	MaxEgressBPS                  int64      `yaml:"max_egress_bps"`
+	HeartbeatSeconds              int        `yaml:"heartbeat_seconds"`
+	ControlDisconnectGraceSeconds int        `yaml:"control_disconnect_grace_seconds"`
+	AllocationIdleSeconds         int        `yaml:"allocation_idle_seconds"`
+	CookieTTLSeconds              int        `yaml:"cookie_ttl_seconds"`
+	MaxDatagramBytes              int        `yaml:"max_datagram_bytes"`
+	MaxPayloadBytes               int        `yaml:"max_payload_bytes"`
+	IPPacketsPerSecond            int        `yaml:"ip_packets_per_second"`
+	BindInitPerSecond             int        `yaml:"bind_init_per_second"`
+	BindProofPerSecond            int        `yaml:"bind_proof_per_second"`
+	InvalidTokensPerMin           int        `yaml:"invalid_tokens_per_minute"`
+	MaxAllocationsPerIP           int        `yaml:"max_allocations_per_ip"`
+	MaxIPRateStates               int        `yaml:"max_ip_rate_states"`
+	MaxIngressPPS                 int        `yaml:"max_ingress_packets_per_second"`
+	TemporaryBanSeconds           int        `yaml:"temporary_ban_seconds"`
+	MaxIngressMbps                int        `yaml:"max_ingress_mbps"`
+	MaxMemoryMB                   int        `yaml:"max_memory_mb"`
+	DegradedThresholdPct          int        `yaml:"degraded_threshold_percent"`
+	RejectNewThresholdPct         int        `yaml:"reject_new_threshold_percent"`
+	NATRebindWindowSecs           int        `yaml:"nat_rebind_window_seconds"`
+	MaxTokenReplayEntries         int        `yaml:"max_token_replay_entries"`
 }
 
 var DefaultConfig = Config{
@@ -62,7 +63,8 @@ var DefaultConfig = Config{
 	DataDir: "./edge-relay-data", ListenAddr: ":8443", MetricsAddr: "127.0.0.1:9100",
 	SupportedProtocols: []string{"UDP"}, MaxAllocations: 1000, MaxEgressBPS: 200_000_000,
 	HeartbeatSeconds: 15, AllocationIdleSeconds: 120, CookieTTLSeconds: 10,
-	MaxDatagramBytes: 1280, MaxPayloadBytes: 1200, IPPacketsPerSecond: 300,
+	ControlDisconnectGraceSeconds: 600,
+	MaxDatagramBytes:              1280, MaxPayloadBytes: 1200, IPPacketsPerSecond: 300,
 	NATRebindWindowSecs: 30, MaxTokenReplayEntries: 4000,
 	BindInitPerSecond: 20, BindProofPerSecond: 10, InvalidTokensPerMin: 30,
 	MaxAllocationsPerIP: 100, MaxIPRateStates: 100_000, MaxIngressPPS: 100_000, TemporaryBanSeconds: 60,
@@ -128,17 +130,18 @@ func applyEdgeEnv(cfg *Config) {
 		cfg.MaxTokenReplayEntries = value
 	}
 	for name, target := range map[string]*int{
-		"EDGE_RELAY_BIND_INIT_PER_SECOND":           &cfg.BindInitPerSecond,
-		"EDGE_RELAY_BIND_PROOF_PER_SECOND":          &cfg.BindProofPerSecond,
-		"EDGE_RELAY_INVALID_TOKENS_PER_MINUTE":      &cfg.InvalidTokensPerMin,
-		"EDGE_RELAY_MAX_ALLOCATIONS_PER_IP":         &cfg.MaxAllocationsPerIP,
-		"EDGE_RELAY_MAX_IP_RATE_STATES":             &cfg.MaxIPRateStates,
-		"EDGE_RELAY_MAX_INGRESS_PACKETS_PER_SECOND": &cfg.MaxIngressPPS,
-		"EDGE_RELAY_TEMPORARY_BAN_SECONDS":          &cfg.TemporaryBanSeconds,
-		"EDGE_RELAY_MAX_INGRESS_MBPS":               &cfg.MaxIngressMbps,
-		"EDGE_RELAY_MAX_MEMORY_MB":                  &cfg.MaxMemoryMB,
-		"EDGE_RELAY_DEGRADED_THRESHOLD_PERCENT":     &cfg.DegradedThresholdPct,
-		"EDGE_RELAY_REJECT_NEW_THRESHOLD_PERCENT":   &cfg.RejectNewThresholdPct,
+		"EDGE_RELAY_BIND_INIT_PER_SECOND":             &cfg.BindInitPerSecond,
+		"EDGE_RELAY_BIND_PROOF_PER_SECOND":            &cfg.BindProofPerSecond,
+		"EDGE_RELAY_INVALID_TOKENS_PER_MINUTE":        &cfg.InvalidTokensPerMin,
+		"EDGE_RELAY_MAX_ALLOCATIONS_PER_IP":           &cfg.MaxAllocationsPerIP,
+		"EDGE_RELAY_MAX_IP_RATE_STATES":               &cfg.MaxIPRateStates,
+		"EDGE_RELAY_MAX_INGRESS_PACKETS_PER_SECOND":   &cfg.MaxIngressPPS,
+		"EDGE_RELAY_TEMPORARY_BAN_SECONDS":            &cfg.TemporaryBanSeconds,
+		"EDGE_RELAY_MAX_INGRESS_MBPS":                 &cfg.MaxIngressMbps,
+		"EDGE_RELAY_MAX_MEMORY_MB":                    &cfg.MaxMemoryMB,
+		"EDGE_RELAY_DEGRADED_THRESHOLD_PERCENT":       &cfg.DegradedThresholdPct,
+		"EDGE_RELAY_REJECT_NEW_THRESHOLD_PERCENT":     &cfg.RejectNewThresholdPct,
+		"EDGE_RELAY_CONTROL_DISCONNECT_GRACE_SECONDS": &cfg.ControlDisconnectGraceSeconds,
 	} {
 		if value, err := strconv.Atoi(os.Getenv(name)); err == nil && value > 0 {
 			*target = value
@@ -166,6 +169,7 @@ func (c Config) Validate() error {
 	}
 	if c.ProtocolVersion != int(ProtocolVersion) || c.MaxAllocations < 1 || c.MaxEgressBPS < 1 ||
 		c.HeartbeatSeconds < 1 || c.AllocationIdleSeconds < 1 || c.CookieTTLSeconds < 5 || c.CookieTTLSeconds > 15 ||
+		c.ControlDisconnectGraceSeconds < 60 || c.ControlDisconnectGraceSeconds > 3600 ||
 		c.MaxPayloadBytes < 1000 || c.MaxPayloadBytes > 1350 ||
 		c.MaxDatagramBytes < DataHeaderSize+c.MaxPayloadBytes || c.MaxDatagramBytes > 65507 || c.IPPacketsPerSecond < 1 ||
 		c.NATRebindWindowSecs < 1 || c.NATRebindWindowSecs > 300 || c.MaxTokenReplayEntries < c.MaxAllocations*2 {

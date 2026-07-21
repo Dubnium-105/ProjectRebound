@@ -47,6 +47,9 @@ type Node struct {
 	CurrentEgressBPS       int64
 	CurrentIngressBPS      int64
 	CertificateFingerprint string
+	CertificateSerial      string
+	CertificateIssuedAt    time.Time
+	CertificateNotBefore   time.Time
 	CertificateExpiresAt   time.Time
 	NodeTokenHash          []byte
 	ConfigVersion          int64

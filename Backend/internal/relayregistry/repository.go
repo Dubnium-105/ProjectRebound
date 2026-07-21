@@ -143,6 +143,15 @@ func (r *Repository) Enroll(ctx context.Context, bootstrapHash []byte, node Node
 	`, bootstrapID, node.CreatedAt, node.ID); err != nil {
 		return fmt.Errorf("consume relay bootstrap token: %w", err)
 	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO relay_node_credentials (
+			relay_node_id, certificate_serial, certificate_fingerprint,
+			issued_at, not_before, expires_at, last_rotated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $4)
+	`, node.ID, node.CertificateSerial, node.CertificateFingerprint, node.CertificateIssuedAt,
+		node.CertificateNotBefore, node.CertificateExpiresAt); err != nil {
+		return fmt.Errorf("record relay node credential: %w", err)
+	}
 	return tx.Commit(ctx)
 }
 
@@ -187,8 +196,13 @@ func (r *Repository) AuthenticateNodeToken(ctx context.Context, nodeID string, t
 	`, nodeID, tokenHash))
 }
 
-func (r *Repository) RenewCertificate(ctx context.Context, nodeID string, tokenHash []byte, fingerprint string, expiresAt, now time.Time) (Node, error) {
-	return scanNode(r.pool.QueryRow(ctx, `
+func (r *Repository) RenewCertificate(ctx context.Context, nodeID string, tokenHash []byte, fingerprint, serial string, notBefore, expiresAt, now time.Time) (Node, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return Node{}, err
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	node, err := scanNode(tx.QueryRow(ctx, `
 		UPDATE relay_nodes
 		SET certificate_fingerprint = $3, certificate_expires_at = $4,
 		    config_version = config_version + 1, updated_at = $5
@@ -196,6 +210,28 @@ func (r *Repository) RenewCertificate(ctx context.Context, nodeID string, tokenH
 		RETURNING `+nodeColumns,
 		nodeID, tokenHash, fingerprint, expiresAt, now,
 	))
+	if err != nil {
+		return Node{}, err
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE relay_node_credentials
+		SET revoked_at = COALESCE(revoked_at, $2), revocation_reason = COALESCE(revocation_reason, 'ROTATED'), last_rotated_at = $2
+		WHERE relay_node_id = $1 AND revoked_at IS NULL
+	`, nodeID, now); err != nil {
+		return Node{}, err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO relay_node_credentials (
+			relay_node_id, certificate_serial, certificate_fingerprint,
+			issued_at, not_before, expires_at, last_rotated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $4)
+	`, nodeID, serial, fingerprint, now, notBefore, expiresAt); err != nil {
+		return Node{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Node{}, err
+	}
+	return node, nil
 }
 
 func (r *Repository) MarkConnecting(ctx context.Context, nodeID, fingerprint, softwareVersion string, protocolVersion int, now, leaseExpiresAt time.Time) (Node, error) {
@@ -253,6 +289,15 @@ func (r *Repository) ChangeState(ctx context.Context, nodeID string, next State,
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, '')::inet, $9)
 	`, newID("rna_"), nodeID, meta.ActorID, string(next), current.State, updated.State, meta.RequestID, meta.IPAddress, now); err != nil {
 		return Node{}, err
+	}
+	if next == StateRevoked {
+		if _, err := tx.Exec(ctx, `
+			UPDATE relay_node_credentials
+			SET revoked_at = COALESCE(revoked_at, $2), revocation_reason = COALESCE(revocation_reason, 'ADMIN_REVOKED')
+			WHERE relay_node_id = $1 AND revoked_at IS NULL
+		`, nodeID, now); err != nil {
+			return Node{}, err
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return Node{}, err

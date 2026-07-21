@@ -122,6 +122,13 @@ func TestRelayRegistryLifecycleAgainstPostgreSQL(t *testing.T) {
 	if renewed.Node.CertificateFingerprint == enrolled.Node.CertificateFingerprint || renewed.NodeToken != "" {
 		t.Fatal("certificate renewal did not rotate the certificate safely")
 	}
+	var credentialCount, rotatedCount int
+	if err := pool.QueryRow(ctx, `
+		SELECT COUNT(*), COUNT(*) FILTER (WHERE revocation_reason = 'ROTATED')
+		FROM relay_node_credentials WHERE relay_node_id = $1
+	`, enrolled.Node.ID).Scan(&credentialCount, &rotatedCount); err != nil || credentialCount != 2 || rotatedCount != 1 {
+		t.Fatalf("credential history = %d/%d, %v", credentialCount, rotatedCount, err)
+	}
 	connecting, err := service.MarkConnecting(ctx, enrolled.Node.ID, renewed.Node.CertificateFingerprint, "1.0.1", 1)
 	if err != nil || connecting.State != StateConnecting {
 		t.Fatalf("connecting node = %#v, %v", connecting, err)
@@ -227,6 +234,10 @@ func TestRelayRegistryLifecycleAgainstPostgreSQL(t *testing.T) {
 	}
 	if _, err := service.MarkConnecting(ctx, enrolled.Node.ID, renewed.Node.CertificateFingerprint, "1.0.1", 1); relayErrorCode(err) != "RELAY_NODE_UNAUTHORIZED" {
 		t.Fatalf("revoked certificate was accepted: %v", err)
+	}
+	var revokedCount int
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM relay_node_credentials WHERE relay_node_id = $1 AND revocation_reason = 'ADMIN_REVOKED'`, enrolled.Node.ID).Scan(&revokedCount); err != nil || revokedCount != 1 {
+		t.Fatalf("revoked credential count = %d, %v", revokedCount, err)
 	}
 	var auditCount int
 	if err := pool.QueryRow(ctx, "SELECT COUNT(*) FROM relay_node_audit_logs WHERE node_id = $1", enrolled.Node.ID).Scan(&auditCount); err != nil {

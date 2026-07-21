@@ -2,6 +2,8 @@ package relayregistry
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"net/netip"
 	"regexp"
@@ -132,6 +134,10 @@ func (s *Service) Enroll(ctx context.Context, bootstrapToken string, input Enrol
 	if err != nil {
 		return EnrollResult{}, err
 	}
+	serial, notBefore, err := certificateMetadata(certificatePEM)
+	if err != nil {
+		return EnrollResult{}, internal(err)
+	}
 	nodeToken, nodeTokenHash, err := newOpaqueToken("rnt_")
 	if err != nil {
 		return EnrollResult{}, internal(err)
@@ -145,6 +151,7 @@ func (s *Service) Enroll(ctx context.Context, bootstrapToken string, input Enrol
 		PublicEndpoints: input.PublicEndpoints, SupportedProtocols: protocols,
 		MaxAllocations: input.MaxAllocations, MaxEgressBPS: input.MaxEgressBPS,
 		CertificateFingerprint: fingerprint, CertificateExpiresAt: certificateExpiresAt,
+		CertificateSerial: serial, CertificateIssuedAt: now, CertificateNotBefore: notBefore,
 		NodeTokenHash: nodeTokenHash, ConfigVersion: 1, CreatedAt: now, UpdatedAt: now,
 	}
 	if err := s.repository.Enroll(ctx, hashToken(strings.TrimSpace(bootstrapToken)), node); err != nil {
@@ -174,17 +181,34 @@ func (s *Service) RenewCertificate(ctx context.Context, nodeID, nodeToken, csrPE
 	if err != nil {
 		return EnrollResult{}, err
 	}
-	node, err := s.repository.RenewCertificate(ctx, nodeID, hashToken(nodeToken), fingerprint, expiresAt, s.now().UTC())
+	serial, notBefore, err := certificateMetadata(certificatePEM)
+	if err != nil {
+		return EnrollResult{}, internal(err)
+	}
+	now := s.now().UTC()
+	node, err := s.repository.RenewCertificate(ctx, nodeID, hashToken(nodeToken), fingerprint, serial, notBefore, expiresAt, now)
 	if err != nil {
 		return EnrollResult{}, internal(err)
 	}
 	if s.controlPublisher != nil {
-		s.controlPublisher.Publish(nodeID, ControlMessage{Type: "CertificateRotation", Payload: map[string]any{"certificate_expires_at": expiresAt}})
+		s.controlPublisher.Publish(nodeID, ControlMessage{Type: "CertificateRotation", Payload: map[string]any{"certificate_expires_at": expiresAt.Format(time.RFC3339Nano)}})
 	}
 	return EnrollResult{
 		Node: node, CertificatePEM: certificatePEM, CACertificatePEM: s.authority.CACertificatePEM(),
 		CertificateExpiresAt: expiresAt, Keyset: s.tokenManager.Keyset(),
 	}, nil
+}
+
+func certificateMetadata(certificatePEM string) (string, time.Time, error) {
+	block, _ := pem.Decode([]byte(certificatePEM))
+	if block == nil {
+		return "", time.Time{}, errors.New("issued relay certificate PEM is invalid")
+	}
+	certificate, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	return certificate.SerialNumber.Text(16), certificate.NotBefore.UTC(), nil
 }
 
 func (s *Service) MarkConnecting(ctx context.Context, nodeID, fingerprint, softwareVersion string, protocolVersion int) (Node, error) {
