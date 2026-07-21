@@ -89,6 +89,20 @@ func TestRuntimeCookieBindingAndAuthorizedForwarding(t *testing.T) {
 		t.Fatal("two-sided bind did not open the allocation")
 	}
 
+	forgedTag := encodeDataPacket(handle, RoleHost, 2, deriveDataKey(hostToken), []byte("host payload"))
+	forgedTag[24] ^= 0xff
+	if output := runtime.Process(forgedTag, hostAddress); len(output) != 0 {
+		t.Fatal("packet with an invalid authentication tag was forwarded")
+	}
+	reservedFlags := encodeDataPacket(handle, RoleHost, 2, deriveDataKey(hostToken), []byte("host payload"))
+	reservedFlags[15] = 1
+	if output := runtime.Process(reservedFlags, hostAddress); len(output) != 0 {
+		t.Fatal("packet with unsupported flags was forwarded")
+	}
+	oversized := encodeDataPacket(handle, RoleHost, 2, deriveDataKey(hostToken), make([]byte, 1201))
+	if output := runtime.Process(oversized, hostAddress); len(output) != 0 {
+		t.Fatal("packet above the negotiated MTU was forwarded")
+	}
 	hostData = encodeDataPacket(handle, RoleHost, 2, deriveDataKey(hostToken), []byte("host payload"))
 	output := runtime.Process(hostData, hostAddress)
 	if len(output) != 1 || output[0].Address != peerAddress {
@@ -109,6 +123,10 @@ func TestRuntimeCookieBindingAndAuthorizedForwarding(t *testing.T) {
 	replay := encodeDataPacket(handle, RoleHost, 4, deriveDataKey(hostToken), []byte("once"))
 	if len(runtime.Process(replay, hostAddress)) != 1 || len(runtime.Process(replay, hostAddress)) != 0 {
 		t.Fatal("data sequence replay was not rejected")
+	}
+	if runtime.metrics.authenticationFailed.Load() != 1 || runtime.metrics.packetTooLarge.Load() != 1 || runtime.metrics.replayDropped.Load() != 1 {
+		t.Fatalf("authentication_failed=%d too_large=%d replay_dropped=%d",
+			runtime.metrics.authenticationFailed.Load(), runtime.metrics.packetTooLarge.Load(), runtime.metrics.replayDropped.Load())
 	}
 	if result := bindWithoutAssertions(runtime, hostToken, hostAddress); len(result) != 1 {
 		t.Fatal("same-address bind retry was not idempotent")

@@ -19,10 +19,10 @@ A valid signed token binds exactly one `HOST` or `PEER` endpoint. The Relay veri
 
 ```text
 magic[4] | version[1] | type[1] | allocation_handle[8] |
-endpoint_role[1] | sequence[8] | authentication_tag[16] | opaque_payload[n]
+endpoint_role[1] | flags[1] | sequence[8] | authentication_tag[16] | opaque_payload[n]
 ```
 
-The v2 endpoint key is `HMAC-SHA256(relay_token, "project-rebound-relay-data-v2")`. The authentication tag is the first 16 bytes of HMAC-SHA256 over the header excluding the tag plus the opaque payload. The relay authenticates and re-tags packets for the bound recipient without parsing or decrypting game payloads.
+The v2 endpoint key is `HMAC-SHA256(relay_token, "project-rebound-relay-data-v2")`. The authentication tag is the first 16 bytes of HMAC-SHA256 over the header (including flags but excluding the tag) plus the opaque payload. V1.1 requires flags to be zero; packets with unknown flag bits are dropped. The relay authenticates and re-tags packets for the bound recipient without parsing or decrypting game payloads.
 
 Forwarding begins only after both roles bind. The packet has no destination-address field, so traffic can only move between the two endpoints of one allocation. The relay rejects unknown handles, wrong roles or sources, invalid tags, duplicate/out-of-window sequences, expired/idle allocations, and packets exceeding per-IP, PPS, bandwidth, or total-byte limits.
 

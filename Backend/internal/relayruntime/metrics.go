@@ -9,34 +9,40 @@ import (
 )
 
 type Metrics struct {
-	activeAllocations atomic.Int64
-	packetsReceived   atomic.Uint64
-	packetsForwarded  atomic.Uint64
-	packetsDropped    atomic.Uint64
-	bytesForwarded    atomic.Uint64
-	bindSuccess       atomic.Uint64
-	bindFailed        atomic.Uint64
-	tokenInvalid      atomic.Uint64
-	tokenReplay       atomic.Uint64
-	natRebind         atomic.Uint64
-	rateLimitDrops    atomic.Uint64
-	controlConnected  atomic.Int64
-	controlReconnects atomic.Uint64
+	activeAllocations    atomic.Int64
+	packetsReceived      atomic.Uint64
+	packetsForwarded     atomic.Uint64
+	packetsDropped       atomic.Uint64
+	bytesForwarded       atomic.Uint64
+	bindSuccess          atomic.Uint64
+	bindFailed           atomic.Uint64
+	tokenInvalid         atomic.Uint64
+	tokenReplay          atomic.Uint64
+	natRebind            atomic.Uint64
+	authenticationFailed atomic.Uint64
+	packetTooLarge       atomic.Uint64
+	replayDropped        atomic.Uint64
+	rateLimitDrops       atomic.Uint64
+	controlConnected     atomic.Int64
+	controlReconnects    atomic.Uint64
 }
 
 type MetricsSnapshot struct {
-	ActiveAllocations int64
-	PacketsReceived   uint64
-	PacketsForwarded  uint64
-	PacketsDropped    uint64
-	BytesForwarded    uint64
-	BindSuccess       uint64
-	BindFailed        uint64
-	TokenInvalid      uint64
-	TokenReplay       uint64
-	NATRebind         uint64
-	RateLimitDrops    uint64
-	ControlReconnects uint64
+	ActiveAllocations    int64
+	PacketsReceived      uint64
+	PacketsForwarded     uint64
+	PacketsDropped       uint64
+	BytesForwarded       uint64
+	BindSuccess          uint64
+	BindFailed           uint64
+	TokenInvalid         uint64
+	TokenReplay          uint64
+	NATRebind            uint64
+	AuthenticationFailed uint64
+	PacketTooLarge       uint64
+	ReplayDropped        uint64
+	RateLimitDrops       uint64
+	ControlReconnects    uint64
 }
 
 func NewMetrics() *Metrics { return &Metrics{} }
@@ -48,6 +54,8 @@ func (m *Metrics) Snapshot() MetricsSnapshot {
 		BytesForwarded: m.bytesForwarded.Load(), BindSuccess: m.bindSuccess.Load(),
 		BindFailed: m.bindFailed.Load(), TokenInvalid: m.tokenInvalid.Load(),
 		TokenReplay: m.tokenReplay.Load(), NATRebind: m.natRebind.Load(),
+		AuthenticationFailed: m.authenticationFailed.Load(), PacketTooLarge: m.packetTooLarge.Load(),
+		ReplayDropped:  m.replayDropped.Load(),
 		RateLimitDrops: m.rateLimitDrops.Load(), ControlReconnects: m.controlReconnects.Load(),
 	}
 }
@@ -75,6 +83,12 @@ relay_token_invalid_total %d
 relay_token_replay_total %d
 # TYPE relay_nat_rebind_total counter
 relay_nat_rebind_total %d
+# TYPE relay_packet_authentication_failed_total counter
+relay_packet_authentication_failed_total %d
+# TYPE relay_packet_too_large_total counter
+relay_packet_too_large_total %d
+# TYPE relay_packet_replay_dropped_total counter
+relay_packet_replay_dropped_total %d
 # TYPE relay_rate_limit_drops_total counter
 relay_rate_limit_drops_total %d
 # TYPE relay_control_connected gauge
@@ -83,7 +97,8 @@ relay_control_connected %d
 relay_control_reconnects_total %d
 `, m.activeAllocations.Load(), m.packetsReceived.Load(), m.packetsForwarded.Load(),
 			m.packetsDropped.Load(), m.bytesForwarded.Load(), m.bindSuccess.Load(),
-			m.bindFailed.Load(), m.tokenInvalid.Load(), m.tokenReplay.Load(), m.natRebind.Load(), m.rateLimitDrops.Load(),
+			m.bindFailed.Load(), m.tokenInvalid.Load(), m.tokenReplay.Load(), m.natRebind.Load(),
+			m.authenticationFailed.Load(), m.packetTooLarge.Load(), m.replayDropped.Load(), m.rateLimitDrops.Load(),
 			m.controlConnected.Load(), m.controlReconnects.Load())
 	})
 }

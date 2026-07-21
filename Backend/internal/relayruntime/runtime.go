@@ -126,6 +126,9 @@ func (r *Runtime) ShutdownRequested() <-chan struct{} { return r.shutdown }
 func (r *Runtime) Process(packet []byte, address netip.AddrPort) []OutboundDatagram {
 	r.metrics.packetsReceived.Add(1)
 	if len(packet) < 6 || len(packet) > r.config.MaxDatagramBytes || string(packet[:4]) != Magic || !r.acceptsVersion(packet[4]) {
+		if len(packet) > r.config.MaxDatagramBytes {
+			r.metrics.packetTooLarge.Add(1)
+		}
 		r.drop(false)
 		return nil
 	}
@@ -298,8 +301,13 @@ func (r *Runtime) forward(packet []byte, source netip.AddrPort, now time.Time) [
 		return nil
 	}
 	allocation := r.byHandle[decoded.Handle]
-	if allocation == nil || decoded.Version != allocation.protocolVersion || len(decoded.Payload) > int(allocation.mtu) ||
+	if allocation == nil || decoded.Version != allocation.protocolVersion ||
 		!now.Before(allocation.expiresAt) || now.Sub(allocation.lastActivity) > r.config.AllocationIdleTTL() {
+		r.drop(false)
+		return nil
+	}
+	if len(decoded.Payload) > int(allocation.mtu) {
+		r.metrics.packetTooLarge.Add(1)
 		r.drop(false)
 		return nil
 	}
@@ -309,8 +317,17 @@ func (r *Runtime) forward(packet []byte, source netip.AddrPort, now time.Time) [
 	} else {
 		sender, recipient = allocation.peer, allocation.host
 	}
-	if sender == nil || recipient == nil || sender.address != source || !now.Before(sender.expiresAt) || !now.Before(recipient.expiresAt) ||
-		subtle.ConstantTimeCompare(dataAuthenticationTag(sender.key, packet), decoded.Tag) != 1 || !sender.replay.Accept(decoded.Sequence) {
+	if sender == nil || recipient == nil || sender.address != source || !now.Before(sender.expiresAt) || !now.Before(recipient.expiresAt) {
+		r.drop(false)
+		return nil
+	}
+	if subtle.ConstantTimeCompare(dataAuthenticationTag(sender.key, packet), decoded.Tag) != 1 {
+		r.metrics.authenticationFailed.Add(1)
+		r.drop(false)
+		return nil
+	}
+	if !sender.replay.Accept(decoded.Sequence) {
+		r.metrics.replayDropped.Add(1)
 		r.drop(false)
 		return nil
 	}

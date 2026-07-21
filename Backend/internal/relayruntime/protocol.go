@@ -13,7 +13,8 @@ const (
 	ProtocolVersion   byte = 2
 	ProtocolVersionV1 byte = 1
 	Magic                  = "PRLY"
-	DataHeaderSize         = 39
+	DataHeaderSizeV1       = 39
+	DataHeaderSize         = 40
 	NonceSize              = 16
 
 	messageBind      byte = 1
@@ -140,13 +141,14 @@ type dataPacket struct {
 	Version  byte
 	Handle   uint64
 	Role     EndpointRole
+	Flags    byte
 	Sequence uint64
 	Tag      []byte
 	Payload  []byte
 }
 
 func decodeDataPacket(packet []byte) (dataPacket, error) {
-	if len(packet) < DataHeaderSize || string(packet[:4]) != Magic ||
+	if len(packet) < DataHeaderSizeV1 || string(packet[:4]) != Magic ||
 		(packet[4] != ProtocolVersion && packet[4] != ProtocolVersionV1) || packet[5] != messageData {
 		return dataPacket{}, errors.New("invalid relay data packet")
 	}
@@ -154,9 +156,18 @@ func decodeDataPacket(packet []byte) (dataPacket, error) {
 	if role != RoleHost && role != RolePeer {
 		return dataPacket{}, errors.New("invalid relay endpoint role")
 	}
+	if packet[4] == ProtocolVersionV1 {
+		return dataPacket{
+			Version: packet[4], Handle: binary.BigEndian.Uint64(packet[6:14]), Role: role,
+			Sequence: binary.BigEndian.Uint64(packet[15:23]), Tag: packet[23:39], Payload: packet[39:],
+		}, nil
+	}
+	if len(packet) < DataHeaderSize || packet[15] != 0 {
+		return dataPacket{}, errors.New("invalid relay data flags")
+	}
 	return dataPacket{
-		Version: packet[4], Handle: binary.BigEndian.Uint64(packet[6:14]), Role: role,
-		Sequence: binary.BigEndian.Uint64(packet[15:23]), Tag: packet[23:39], Payload: packet[39:],
+		Version: packet[4], Handle: binary.BigEndian.Uint64(packet[6:14]), Role: role, Flags: packet[15],
+		Sequence: binary.BigEndian.Uint64(packet[16:24]), Tag: packet[24:40], Payload: packet[40:],
 	}, nil
 }
 
@@ -165,22 +176,38 @@ func encodeDataPacket(handle uint64, role EndpointRole, sequence uint64, key, pa
 }
 
 func encodeDataPacketVersion(version byte, handle uint64, role EndpointRole, sequence uint64, key, payload []byte) []byte {
-	packet := make([]byte, DataHeaderSize+len(payload))
+	headerSize := DataHeaderSize
+	if version == ProtocolVersionV1 {
+		headerSize = DataHeaderSizeV1
+	}
+	packet := make([]byte, headerSize+len(payload))
 	copy(packet, Magic)
 	packet[4] = version
 	packet[5] = messageData
 	binary.BigEndian.PutUint64(packet[6:14], handle)
 	packet[14] = byte(role)
-	binary.BigEndian.PutUint64(packet[15:23], sequence)
-	copy(packet[39:], payload)
-	copy(packet[23:39], dataAuthenticationTag(key, packet))
+	if version == ProtocolVersionV1 {
+		binary.BigEndian.PutUint64(packet[15:23], sequence)
+		copy(packet[39:], payload)
+		copy(packet[23:39], dataAuthenticationTag(key, packet))
+	} else {
+		packet[15] = 0
+		binary.BigEndian.PutUint64(packet[16:24], sequence)
+		copy(packet[40:], payload)
+		copy(packet[24:40], dataAuthenticationTag(key, packet))
+	}
 	return packet
 }
 
 func dataAuthenticationTag(key, packet []byte) []byte {
 	mac := hmac.New(sha256.New, key)
-	mac.Write(packet[:23])
-	mac.Write(packet[39:])
+	if len(packet) >= DataHeaderSize && packet[4] == ProtocolVersion {
+		mac.Write(packet[:24])
+		mac.Write(packet[40:])
+	} else {
+		mac.Write(packet[:23])
+		mac.Write(packet[39:])
+	}
 	return mac.Sum(nil)[:16]
 }
 
