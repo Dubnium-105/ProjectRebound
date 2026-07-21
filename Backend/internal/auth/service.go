@@ -27,18 +27,29 @@ type Service struct {
 	metrics    interface {
 		RefreshTokenReuse()
 		BindRateLimited(string)
+		InviteCodeFailure()
 	}
 	bindLimiter *BindLimiter
+	invites     interface {
+		Consume(context.Context, pgx.Tx, string, string, string, string, time.Time) error
+	}
 }
 
 func (s *Service) SetMetrics(metrics interface {
 	RefreshTokenReuse()
 	BindRateLimited(string)
+	InviteCodeFailure()
 }) {
 	s.metrics = metrics
 	if s.bindLimiter != nil {
 		s.bindLimiter.SetMetrics(metrics)
 	}
+}
+
+func (s *Service) SetInviteConsumer(consumer interface {
+	Consume(context.Context, pgx.Tx, string, string, string, string, time.Time) error
+}) {
+	s.invites = consumer
 }
 
 func (s *Service) SetBindLimiter(limiter *BindLimiter) {
@@ -140,6 +151,31 @@ func (s *Service) Bind(ctx context.Context, input BindInput, meta RequestMeta) (
 			Status:  403,
 			Code:    CodeAccountDeleted,
 			Message: "Account has been deleted.",
+		}
+	}
+	inviteCode := strings.TrimSpace(input.InviteCode)
+	if isNew && (s.config.InviteRequired || inviteCode != "") {
+		if s.invites == nil {
+			return BindResult{}, internalError(errors.New("invite code service is not configured"))
+		}
+		if err := s.invites.Consume(ctx, tx, inviteCode, item.ID, item.SteamID, meta.IPAddress, now); err != nil {
+			var invalidInvite interface{ InvalidInviteCode() bool }
+			if !errors.As(err, &invalidInvite) || !invalidInvite.InvalidInviteCode() {
+				return BindResult{}, internalError(err)
+			}
+			_ = tx.Rollback(ctx)
+			s.recordRiskEvent(ctx, RiskEvent{
+				SteamID: item.SteamID, PlayerID: "", DeviceIDHash: HashDeviceID(deviceID),
+				IPAddress: meta.IPAddress, EventType: "INVALID_INVITE_CODE", Severity: "LOW",
+				Details: map[string]any{"invite_required": s.config.InviteRequired},
+			}, meta)
+			s.recordFailedAudit(ctx, item.SteamID, "AUTH_BIND_FAILURE", CodeInvalidInvite, meta)
+			if s.metrics != nil {
+				s.metrics.InviteCodeFailure()
+			}
+			return BindResult{}, &ServiceError{
+				Status: 403, Code: CodeInvalidInvite, Message: "A valid invite code is required.",
+			}
 		}
 	}
 

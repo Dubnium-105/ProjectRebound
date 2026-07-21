@@ -19,6 +19,7 @@ import (
 	"github.com/projectrebound/matchserver/internal/database"
 	"github.com/projectrebound/matchserver/internal/gameserver"
 	"github.com/projectrebound/matchserver/internal/health"
+	"github.com/projectrebound/matchserver/internal/invite"
 	appmiddleware "github.com/projectrebound/matchserver/internal/middleware"
 	"github.com/projectrebound/matchserver/internal/observability"
 	"github.com/projectrebound/matchserver/internal/p2proom"
@@ -119,6 +120,8 @@ func buildHandler(
 	}
 	authRepository := auth.NewRepository()
 	playerRepository := player.NewRepository()
+	adminRepository := admin.NewRepository()
+	inviteService := invite.NewService(dbPool.Pool, invite.NewRepository(dbPool.Pool), adminRepository)
 	authService := auth.NewService(
 		dbPool.Pool,
 		authRepository,
@@ -127,6 +130,7 @@ func buildHandler(
 		cfg.Auth,
 		logger,
 	)
+	authService.SetInviteConsumer(inviteService)
 	authService.SetBindLimiter(auth.NewBindLimiter(redisClient, cfg.Auth, logger))
 	authService.SetMetrics(metrics)
 	authHandler := auth.NewHTTPHandler(authService, logger, cfg.HTTP.TrustProxyHeaders)
@@ -148,8 +152,9 @@ func buildHandler(
 	if err != nil {
 		return nil, nil, err
 	}
-	adminService := admin.NewService(dbPool.Pool, playerRepository, authRepository, admin.NewRepository())
+	adminService := admin.NewService(dbPool.Pool, playerRepository, authRepository, adminRepository)
 	adminHandler := admin.NewHTTPHandler(adminService, logger, cfg.HTTP.TrustProxyHeaders)
+	inviteHandler := invite.NewHTTPHandler(inviteService, logger, cfg.HTTP.TrustProxyHeaders)
 	router.Route("/v1/admin", func(router chi.Router) {
 		router.Use(adminNetworkGuard.Middleware)
 		router.Use(adminAuthenticator.Middleware)
@@ -157,6 +162,11 @@ func buildHandler(
 		router.Get("/players/{player_id}", adminHandler.GetPlayer)
 		router.Patch("/players/{player_id}", adminHandler.PatchPlayer)
 		router.Post("/players/{player_id}/revoke-sessions", adminHandler.RevokeSessions)
+		router.Post("/invite-codes", inviteHandler.Create)
+		router.Get("/invite-codes", inviteHandler.List)
+		router.Get("/invite-codes/{id}", inviteHandler.Get)
+		router.Patch("/invite-codes/{id}", inviteHandler.Patch)
+		router.Post("/invite-codes/{id}/revoke", inviteHandler.Revoke)
 	})
 	router.With(adminNetworkGuard.Middleware).Get("/internal/metrics", metrics.Handler().ServeHTTP)
 

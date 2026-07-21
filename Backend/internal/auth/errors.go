@@ -9,6 +9,7 @@ import (
 const (
 	CodeInvalidRequest     = "INVALID_REQUEST"
 	CodeBindRateLimited    = "AUTH_BIND_RATE_LIMITED"
+	CodeInvalidInvite      = "INVALID_INVITE_CODE"
 	CodeUnauthorized       = "UNAUTHORIZED"
 	CodeSessionRevoked     = "SESSION_REVOKED"
 	CodeRefreshTokenReused = "REFRESH_TOKEN_REUSED"

@@ -176,6 +176,117 @@ paths:
           $ref: "#/components/responses/AdminUnauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/invite-codes:
+    post:
+      operationId: adminCreateInviteCode
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InviteCodeCreateRequest"
+      responses:
+        "201":
+          description: Invite metadata and the plaintext code. The code is returned only once.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InviteCodeCreateResponse"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/AdminUnauthorized"
+    get:
+      operationId: adminListInviteCodes
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminToken: []
+      parameters:
+        - in: query
+          name: cursor
+          schema: {type: string}
+        - in: query
+          name: limit
+          schema: {type: integer, minimum: 1, maximum: 100, default: 50}
+      responses:
+        "200":
+          description: Paginated invite metadata. Plaintext codes and hashes are never included.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InviteCodeListResponse"
+        "401":
+          $ref: "#/components/responses/AdminUnauthorized"
+  /v1/admin/invite-codes/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: {type: string, pattern: "^inv_[A-Za-z0-9]+$"}
+    get:
+      operationId: adminGetInviteCode
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminToken: []
+      responses:
+        "200":
+          description: Invite metadata without plaintext or hash.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InviteCodeResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: adminPatchInviteCode
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InviteCodePatchRequest"
+      responses:
+        "200":
+          description: Updated invite metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InviteCodeResponse"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/invite-codes/{id}/revoke:
+    post:
+      operationId: adminRevokeInviteCode
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminToken: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: string, pattern: "^inv_[A-Za-z0-9]+$"}
+      responses:
+        "200":
+          description: Idempotently revoked invite metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InviteCodeResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/game-servers:
     post:
       operationId: registerGameServer
@@ -1176,6 +1287,81 @@ components:
               minimum: 0
         request_id:
           type: string
+    InviteCode:
+      type: object
+      additionalProperties: false
+      required: [id, batch_name, max_uses, used_count, expires_at, enabled, permissions, created_by, created_at, updated_at, revoked_at]
+      properties:
+        id: {type: string}
+        batch_name: {type: string, maxLength: 128}
+        max_uses: {type: integer, minimum: 1}
+        used_count: {type: integer, minimum: 0}
+        expires_at:
+          type: [string, "null"]
+          format: date-time
+        enabled: {type: boolean}
+        permissions: {type: object, additionalProperties: true}
+        created_by: {type: string}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        revoked_at:
+          type: [string, "null"]
+          format: date-time
+    InviteCodeCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [batch_name, max_uses]
+      properties:
+        batch_name: {type: string, minLength: 1, maxLength: 128}
+        max_uses: {type: integer, minimum: 1, maximum: 1000000}
+        expires_at: {type: string, format: date-time}
+        permissions: {type: object, additionalProperties: true}
+    InviteCodePatchRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        batch_name: {type: string, minLength: 1, maxLength: 128}
+        max_uses: {type: integer, minimum: 1, maximum: 1000000}
+        expires_at:
+          type: [string, "null"]
+          format: date-time
+        enabled: {type: boolean}
+        permissions: {type: object, additionalProperties: true}
+    InviteCodeResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/InviteCode"}
+        request_id: {type: string}
+    InviteCodeCreateData:
+      type: object
+      required: [invite_code, code]
+      properties:
+        invite_code: {$ref: "#/components/schemas/InviteCode"}
+        code:
+          type: string
+          description: Plaintext secret returned only by the create operation.
+    InviteCodeCreateResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/InviteCodeCreateData"}
+        request_id: {type: string}
+    InviteCodeListData:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: {$ref: "#/components/schemas/InviteCode"}
+        next_cursor: {type: string}
+    InviteCodeListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/InviteCodeListData"}
+        request_id: {type: string}
     GameServerState:
       type: string
       enum: [STARTING, READY, RESERVED, RUNNING, DRAINING, UNHEALTHY, OFFLINE]

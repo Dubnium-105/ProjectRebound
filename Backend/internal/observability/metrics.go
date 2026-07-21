@@ -48,6 +48,7 @@ type Metrics struct {
 	authBindTotal              atomic.Uint64
 	authBindFailedTotal        atomic.Uint64
 	refreshTokenReuseTotal     atomic.Uint64
+	inviteCodeFailureTotal     atomic.Uint64
 	p2pRoomJoinFailedTotal     atomic.Uint64
 	relayAllocationFailedTotal atomic.Uint64
 	authBindRateLimited        map[string]uint64
@@ -101,6 +102,8 @@ func (m *Metrics) BindRateLimited(dimension string) {
 	m.authBindRateLimited[dimension]++
 	m.mu.Unlock()
 }
+
+func (m *Metrics) InviteCodeFailure() { m.inviteCodeFailureTotal.Add(1) }
 
 func (m *Metrics) RelayAllocationFailed() { m.relayAllocationFailedTotal.Add(1) }
 
@@ -167,6 +170,7 @@ func (m *Metrics) writeApplicationCounters(w http.ResponseWriter) {
 	writeCounter(w, "auth_bind_total", m.authBindTotal.Load())
 	writeCounter(w, "auth_bind_failed_total", m.authBindFailedTotal.Load())
 	writeCounter(w, "refresh_token_reuse_total", m.refreshTokenReuseTotal.Load())
+	writeCounter(w, "auth_invite_code_failure_total", m.inviteCodeFailureTotal.Load())
 	writeCounter(w, "p2p_room_join_failed_total", m.p2pRoomJoinFailedTotal.Load())
 	writeCounter(w, "relay_allocation_failed_total", m.relayAllocationFailedTotal.Load())
 	m.mu.RLock()

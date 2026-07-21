@@ -58,6 +58,18 @@ Content-Type: application/json
 
 `account_status` 为 `ACTIVE`、`BANNED` 或 `DELETED`。更新会写入审计记录；需要立即使现有登录失效时设置 `revoke_sessions=true`，或调用独立的 revoke-sessions 端点。外部工单原因应通过受控审计系统关联，不应把 Token、隐私数据或游戏 Payload 放入请求或日志。
 
+### 3.1 邀请码管理
+
+| 方法 | 路径 | 参数/请求 | 成功 |
+| --- | --- | --- | --- |
+| POST | `/v1/admin/invite-codes` | `batch_name`, `max_uses`；可选 `expires_at`, `permissions` | 创建元数据并仅本次返回明文 `code` |
+| GET | `/v1/admin/invite-codes` | `cursor`, `limit` | 元数据分页列表，不返回明文或哈希 |
+| GET | `/v1/admin/invite-codes/{id}` | Path ID | 单条元数据，不返回明文或哈希 |
+| PATCH | `/v1/admin/invite-codes/{id}` | `batch_name`, `max_uses`, `expires_at`, `enabled`, `permissions` 中至少一个 | 更新后的元数据 |
+| POST | `/v1/admin/invite-codes/{id}/revoke` | 无 | 幂等禁用并记录撤销时间 |
+
+创建响应中的明文邀请码是秘密，只出现一次；数据库仅存 SHA-256 哈希。`max_uses` 不得降低到 `used_count` 以下。绑定新 SteamID 时使用行级锁消费名额，因此并发争抢最后一个名额只会有一个事务成功。已有玩家再次 bind 不重复消费邀请码。
+
 ## 4. Relay HTTP 生命周期 API
 
 ### 4.1 首次注册
