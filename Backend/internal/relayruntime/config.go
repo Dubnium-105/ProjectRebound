@@ -40,6 +40,8 @@ type Config struct {
 	MaxDatagramBytes      int        `yaml:"max_datagram_bytes"`
 	MaxPayloadBytes       int        `yaml:"max_payload_bytes"`
 	IPPacketsPerSecond    int        `yaml:"ip_packets_per_second"`
+	NATRebindWindowSecs   int        `yaml:"nat_rebind_window_seconds"`
+	MaxTokenReplayEntries int        `yaml:"max_token_replay_entries"`
 }
 
 var DefaultConfig = Config{
@@ -50,6 +52,7 @@ var DefaultConfig = Config{
 	SupportedProtocols: []string{"UDP"}, MaxAllocations: 1000, MaxEgressBPS: 200_000_000,
 	HeartbeatSeconds: 15, AllocationIdleSeconds: 120, CookieTTLSeconds: 10,
 	MaxDatagramBytes: 1280, MaxPayloadBytes: 1200, IPPacketsPerSecond: 300,
+	NATRebindWindowSecs: 30, MaxTokenReplayEntries: 4000,
 }
 
 func LoadConfig(path string) (Config, error) {
@@ -104,6 +107,12 @@ func applyEdgeEnv(cfg *Config) {
 	if value, err := strconv.Atoi(os.Getenv("EDGE_RELAY_MAX_PAYLOAD_BYTES")); err == nil && value > 0 {
 		cfg.MaxPayloadBytes = value
 	}
+	if value, err := strconv.Atoi(os.Getenv("EDGE_RELAY_NAT_REBIND_WINDOW_SECONDS")); err == nil && value > 0 {
+		cfg.NATRebindWindowSecs = value
+	}
+	if value, err := strconv.Atoi(os.Getenv("EDGE_RELAY_MAX_TOKEN_REPLAY_ENTRIES")); err == nil && value > 0 {
+		cfg.MaxTokenReplayEntries = value
+	}
 }
 
 func (c Config) Validate() error {
@@ -127,7 +136,8 @@ func (c Config) Validate() error {
 	if c.ProtocolVersion != int(ProtocolVersion) || c.MaxAllocations < 1 || c.MaxEgressBPS < 1 ||
 		c.HeartbeatSeconds < 1 || c.AllocationIdleSeconds < 1 || c.CookieTTLSeconds < 5 || c.CookieTTLSeconds > 15 ||
 		c.MaxPayloadBytes < 1000 || c.MaxPayloadBytes > 1350 ||
-		c.MaxDatagramBytes < DataHeaderSize+c.MaxPayloadBytes || c.MaxDatagramBytes > 65507 || c.IPPacketsPerSecond < 1 {
+		c.MaxDatagramBytes < DataHeaderSize+c.MaxPayloadBytes || c.MaxDatagramBytes > 65507 || c.IPPacketsPerSecond < 1 ||
+		c.NATRebindWindowSecs < 1 || c.NATRebindWindowSecs > 300 || c.MaxTokenReplayEntries < c.MaxAllocations*2 {
 		errs = append(errs, errors.New("relay protocol, capacity, timeout, or datagram settings are invalid"))
 	}
 	if len(c.AdvertisedEndpoints) == 0 {
@@ -149,6 +159,9 @@ func (c Config) AllocationIdleTTL() time.Duration {
 	return time.Duration(c.AllocationIdleSeconds) * time.Second
 }
 func (c Config) CookieTTL() time.Duration { return time.Duration(c.CookieTTLSeconds) * time.Second }
+func (c Config) NATRebindWindow() time.Duration {
+	return time.Duration(c.NATRebindWindowSecs) * time.Second
+}
 
 type Endpoint struct {
 	Protocol string `yaml:"protocol" json:"protocol"`

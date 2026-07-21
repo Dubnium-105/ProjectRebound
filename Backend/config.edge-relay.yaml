@@ -25,3 +25,5 @@ cookie_ttl_seconds: 10
 max_datagram_bytes: 1280
 max_payload_bytes: 1200
 ip_packets_per_second: 300
+nat_rebind_window_seconds: 30
+max_token_replay_entries: 4000

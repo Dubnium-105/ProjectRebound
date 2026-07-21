@@ -17,6 +17,8 @@ type Metrics struct {
 	bindSuccess       atomic.Uint64
 	bindFailed        atomic.Uint64
 	tokenInvalid      atomic.Uint64
+	tokenReplay       atomic.Uint64
+	natRebind         atomic.Uint64
 	rateLimitDrops    atomic.Uint64
 	controlConnected  atomic.Int64
 	controlReconnects atomic.Uint64
@@ -31,6 +33,8 @@ type MetricsSnapshot struct {
 	BindSuccess       uint64
 	BindFailed        uint64
 	TokenInvalid      uint64
+	TokenReplay       uint64
+	NATRebind         uint64
 	RateLimitDrops    uint64
 	ControlReconnects uint64
 }
@@ -43,6 +47,7 @@ func (m *Metrics) Snapshot() MetricsSnapshot {
 		PacketsForwarded: m.packetsForwarded.Load(), PacketsDropped: m.packetsDropped.Load(),
 		BytesForwarded: m.bytesForwarded.Load(), BindSuccess: m.bindSuccess.Load(),
 		BindFailed: m.bindFailed.Load(), TokenInvalid: m.tokenInvalid.Load(),
+		TokenReplay: m.tokenReplay.Load(), NATRebind: m.natRebind.Load(),
 		RateLimitDrops: m.rateLimitDrops.Load(), ControlReconnects: m.controlReconnects.Load(),
 	}
 }
@@ -66,6 +71,10 @@ relay_bind_success_total %d
 relay_bind_failed_total %d
 # TYPE relay_token_invalid_total counter
 relay_token_invalid_total %d
+# TYPE relay_token_replay_total counter
+relay_token_replay_total %d
+# TYPE relay_nat_rebind_total counter
+relay_nat_rebind_total %d
 # TYPE relay_rate_limit_drops_total counter
 relay_rate_limit_drops_total %d
 # TYPE relay_control_connected gauge
@@ -74,7 +83,7 @@ relay_control_connected %d
 relay_control_reconnects_total %d
 `, m.activeAllocations.Load(), m.packetsReceived.Load(), m.packetsForwarded.Load(),
 			m.packetsDropped.Load(), m.bytesForwarded.Load(), m.bindSuccess.Load(),
-			m.bindFailed.Load(), m.tokenInvalid.Load(), m.rateLimitDrops.Load(),
+			m.bindFailed.Load(), m.tokenInvalid.Load(), m.tokenReplay.Load(), m.natRebind.Load(), m.rateLimitDrops.Load(),
 			m.controlConnected.Load(), m.controlReconnects.Load())
 	})
 }

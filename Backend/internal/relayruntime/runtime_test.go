@@ -116,6 +116,43 @@ func TestRuntimeCookieBindingAndAuthorizedForwarding(t *testing.T) {
 	if result := bindWithoutAssertions(runtime, hostToken, otherAddress); len(result) != 0 {
 		t.Fatal("relay token replay from a different endpoint was accepted")
 	}
+	if runtime.metrics.tokenReplay.Load() != 1 {
+		t.Fatalf("token replay metric = %d", runtime.metrics.tokenReplay.Load())
+	}
+}
+
+func TestRuntimeAllowsShortNATPortRebindButRejectsLateOrCrossIPReplay(t *testing.T) {
+	now := time.Date(2026, 7, 17, 12, 0, 0, 0, time.UTC)
+	current := now
+	signer := newTestSigner(t, "relay-key-a")
+	runtime := testRuntime(t, signer, now, func(cfg *Config) { cfg.NATRebindWindowSecs = 30 })
+	runtime.now = func() time.Time { return current }
+	token := signer.sign(t, testClaims(now, "nat-host", "HOST", "relay_test", "alloc_nat"))
+	first := netip.MustParseAddrPort("198.51.100.10:50000")
+	second := netip.MustParseAddrPort("198.51.100.10:50001")
+	late := netip.MustParseAddrPort("198.51.100.10:50002")
+	crossIP := netip.MustParseAddrPort("198.51.100.11:50001")
+	bindForTest(t, runtime, token, first)
+	current = current.Add(5 * time.Second)
+	if result := bindWithoutAssertions(runtime, token, second); len(result) != 1 {
+		t.Fatal("short NAT port rebind was rejected")
+	}
+	if runtime.allocations["alloc_nat"].host.address != second {
+		t.Fatal("NAT rebind did not replace the endpoint")
+	}
+	if result := bindWithoutAssertions(runtime, token, crossIP); len(result) != 0 {
+		t.Fatal("cross-IP token replay was accepted")
+	}
+	current = now.Add(31 * time.Second)
+	if result := bindWithoutAssertions(runtime, token, late); len(result) != 0 {
+		t.Fatal("late NAT rebind was accepted")
+	}
+	if runtime.allocations["alloc_nat"].host.address != second {
+		t.Fatal("rejected rebind changed the endpoint")
+	}
+	if runtime.metrics.natRebind.Load() != 1 || runtime.metrics.tokenReplay.Load() != 2 {
+		t.Fatalf("nat_rebind=%d token_replay=%d", runtime.metrics.natRebind.Load(), runtime.metrics.tokenReplay.Load())
+	}
 }
 
 func TestRuntimeRejectsWrongNodeExpiredAndInvalidRoleTokens(t *testing.T) {

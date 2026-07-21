@@ -11,7 +11,7 @@ All integers are unsigned and big-endian. Datagrams start with `PRLY`, protocol 
 
 The cookie is an HMAC over a domain separator, source IP/port, both nonces, requested MTU, token hash (which covers the allocation claim), and a short time bucket. Relay accepts the current and previous bucket. The challenge has a 5–15 second configured lifetime, is never larger than `BIND_INIT`, and creates no allocation or per-challenge server state. Invalid cookies are silently dropped without a detailed error.
 
-A valid signed token binds exactly one `HOST` or `PEER` endpoint. The Relay verifies signature, issuer, audience, key ID, `jti`, node/allocation/connection identity, endpoint role, protocol, `nbf`/`exp`, and all traffic limits before allocating state.
+A valid signed token binds exactly one `HOST` or `PEER` endpoint. The Relay verifies signature, issuer, audience, key ID, `jti`, node/allocation/connection identity, endpoint role, protocol, `nbf`/`exp`, and all traffic limits before allocating state. A `jti` retry from the same endpoint is idempotent. A newly challenged source port on the same IP may replace the endpoint only during the configured short NAT-rebind window; cross-IP or late reuse is rejected and counted. The in-memory replay cache has both TTL cleanup and a hard entry cap.
 
 ## Data packet
 

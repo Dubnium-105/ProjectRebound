@@ -54,6 +54,7 @@ type replayBinding struct {
 	allocationID string
 	role         EndpointRole
 	address      netip.AddrPort
+	firstSeenAt  time.Time
 	expiresAt    time.Time
 }
 
@@ -203,7 +204,27 @@ func (r *Runtime) bind(token string, address netip.AddrPort, now time.Time, vers
 			r.metrics.bindSuccess.Add(1)
 			return []OutboundDatagram{{Address: address, Packet: encodeBindOKVersion(version, item.handle, role, item.mtu)}}
 		}
-		r.bindFailure(true)
+		if item != nil && item.protocolVersion == version && previous.allocationID == claims.AllocationID &&
+			previous.role == role && previous.address.Addr() == address.Addr() &&
+			now.Sub(previous.firstSeenAt) <= r.config.NATRebindWindow() {
+			endpoint := item.peer
+			if role == RoleHost {
+				endpoint = item.host
+			}
+			if endpoint != nil && endpoint.tokenID == claims.TokenID {
+				endpoint.address = address
+				previous.address = address
+				r.usedTokens[claims.TokenID] = previous
+				r.metrics.natRebind.Add(1)
+				r.metrics.bindSuccess.Add(1)
+				return []OutboundDatagram{{Address: address, Packet: encodeBindOKVersion(version, item.handle, role, item.mtu)}}
+			}
+		}
+		r.tokenReplayFailure()
+		return nil
+	}
+	if len(r.usedTokens) >= r.config.MaxTokenReplayEntries {
+		r.tokenReplayFailure()
 		return nil
 	}
 	allocation := r.allocations[claims.AllocationID]
@@ -259,7 +280,7 @@ func (r *Runtime) bind(token string, address netip.AddrPort, now time.Time, vers
 		allocation.peer = endpoint
 	}
 	r.usedTokens[claims.TokenID] = replayBinding{
-		allocationID: allocation.id, role: role, address: address, expiresAt: endpoint.expiresAt,
+		allocationID: allocation.id, role: role, address: address, firstSeenAt: now, expiresAt: endpoint.expiresAt,
 	}
 	allocation.lastActivity = now
 	if allocation.host != nil && allocation.peer != nil && !allocation.opened {
@@ -396,6 +417,11 @@ func (r *Runtime) bindFailure(invalidToken bool) {
 	if invalidToken {
 		r.metrics.tokenInvalid.Add(1)
 	}
+}
+
+func (r *Runtime) tokenReplayFailure() {
+	r.metrics.bindFailed.Add(1)
+	r.metrics.tokenReplay.Add(1)
 }
 
 func (r *Runtime) drop(rateLimited bool) {
