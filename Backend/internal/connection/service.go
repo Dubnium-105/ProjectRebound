@@ -77,6 +77,13 @@ func (s *Service) EnsureForRoomPeer(ctx context.Context, roomID, hostPlayerID, p
 	return err
 }
 
+// RenewForRoom extends active connection leases atomically with an authenticated
+// room heartbeat. Terminal connections are never resurrected.
+func (s *Service) RenewForRoom(ctx context.Context, tx pgx.Tx, roomID string, now time.Time) error {
+	ttl := s.config.SessionTTL()
+	return s.repository.RenewForRoom(ctx, tx, roomID, now.Add(ttl), now.Add(ttl/2), now)
+}
+
 func (s *Service) CloseForRoom(ctx context.Context, roomID, reason string) error {
 	items, err := s.repository.CloseForRoom(ctx, roomID, truncate(strings.TrimSpace(reason), 128), s.now().UTC())
 	if err != nil {

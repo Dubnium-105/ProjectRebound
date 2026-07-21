@@ -117,7 +117,7 @@ Content-Type: application/json
 | POST | `/v1/p2p-rooms/{room_id}/start` | Active Player + Host Token | `X-Room-Host-Token` | 200 `LOBBY -> CONNECTING` |
 | DELETE | `/v1/p2p-rooms/{room_id}` | Active Player + Host Token | `X-Room-Host-Token` | 200 关闭；重复调用幂等 |
 
-公共房间响应不会返回候选地址、Host Token 或成员秘密。房主不能调用 leave，必须关闭房间。默认 45 秒无房主心跳进入过期处理，90 秒关闭。
+公共房间响应不会返回候选地址、Host Token 或成员秘密。房主不能调用 leave，必须关闭房间。默认 45 秒无房主心跳进入过期处理，90 秒关闭。有效的房主心跳还会在同一数据库事务中续租该房间的所有非终态连接；终态连接不会被恢复。
 
 ### 3.5 连接协调和 WebSocket
 

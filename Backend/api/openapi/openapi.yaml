@@ -649,7 +649,7 @@ paths:
         - $ref: "#/components/parameters/P2PRoomHostToken"
       responses:
         "200":
-          description: Host heartbeat accepted; a stale room returns to LOBBY.
+          description: Host heartbeat accepted; a stale room returns to LOBBY and all non-terminal room connection leases are renewed.
           content:
             application/json:
               schema:

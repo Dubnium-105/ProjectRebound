@@ -217,6 +217,27 @@ func (r *Repository) SweepExpired(ctx context.Context, now time.Time) ([]Connect
 	return items, nil
 }
 
+func (r *Repository) RenewForRoom(
+	ctx context.Context,
+	tx pgx.Tx,
+	roomID string,
+	expiresAt time.Time,
+	renewBefore time.Time,
+	now time.Time,
+) error {
+	_, err := tx.Exec(ctx, `
+		UPDATE connections
+		SET expires_at = $2, updated_at = $4
+		WHERE room_id = $1
+		  AND state NOT IN ('FAILED', 'EXPIRED', 'CLOSED')
+		  AND expires_at < $3
+	`, roomID, expiresAt, renewBefore, now)
+	if err != nil {
+		return fmt.Errorf("renew room connections: %w", err)
+	}
+	return nil
+}
+
 func (r *Repository) CloseForRoom(ctx context.Context, roomID, reason string, now time.Time) ([]Connection, error) {
 	rows, err := r.pool.Query(ctx, `
 		UPDATE connections

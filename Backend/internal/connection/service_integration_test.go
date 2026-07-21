@@ -222,6 +222,48 @@ func TestConnectionLifecycleAgainstPostgreSQL(t *testing.T) {
 	if err != nil || migrated.State != StateConnected || migrated.SelectedPath != PathUDPRelay {
 		t.Fatalf("migrated connection = %#v, %v", migrated, err)
 	}
+	renewalStartedAt := time.Now().UTC()
+	oldExpiry := renewalStartedAt.Add(time.Second)
+	closedExpiry := renewalStartedAt.Add(-time.Hour).Truncate(time.Microsecond)
+	if _, err := pool.Exec(ctx, "UPDATE connections SET expires_at = $2 WHERE id = $1", allocating.ID, oldExpiry); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, "UPDATE connections SET expires_at = $2 WHERE id = $1", connection.ID, closedExpiry); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := roomService.Heartbeat(
+		ctx,
+		p2proom.Actor{PlayerID: host.PlayerID, AccountStatus: host.AccountStatus},
+		room.Room.ID,
+		room.HostToken,
+	); err != nil {
+		t.Fatalf("room heartbeat connection renewal: %v", err)
+	}
+	var renewedExpiry time.Time
+	if err := pool.QueryRow(ctx, "SELECT expires_at FROM connections WHERE id = $1", allocating.ID).Scan(&renewedExpiry); err != nil {
+		t.Fatal(err)
+	}
+	minimumRenewedExpiry := renewalStartedAt.Add(config.Defaults.Connection.SessionTTL()).Add(-time.Second)
+	if renewedExpiry.Before(minimumRenewedExpiry) {
+		t.Fatalf("renewed expires_at = %v, want at least %v", renewedExpiry, minimumRenewedExpiry)
+	}
+	var terminalExpiry time.Time
+	if err := pool.QueryRow(ctx, "SELECT expires_at FROM connections WHERE id = $1", connection.ID).Scan(&terminalExpiry); err != nil {
+		t.Fatal(err)
+	}
+	if !terminalExpiry.Equal(closedExpiry) {
+		t.Fatalf("closed connection expires_at = %v, want unchanged %v", terminalExpiry, closedExpiry)
+	}
+	originalNow := service.now
+	service.now = func() time.Time { return oldExpiry.Add(time.Second) }
+	if _, err := service.SweepExpired(ctx); err != nil {
+		t.Fatalf("sweep after room heartbeat renewal: %v", err)
+	}
+	service.now = originalNow
+	stillConnected, err := service.Get(ctx, peer, allocating.ID)
+	if err != nil || stillConnected.State != StateConnected {
+		t.Fatalf("renewed connection after old expiry = %#v, %v", stillConnected, err)
+	}
 	if _, err := pool.Exec(ctx, "UPDATE connections SET expires_at = $2 WHERE id = $1", allocating.ID, time.Now().UTC().Add(-time.Second)); err != nil {
 		t.Fatal(err)
 	}

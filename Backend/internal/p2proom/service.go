@@ -25,6 +25,7 @@ type Service struct {
 type ConnectionCreator interface {
 	EnsureForRoomPeer(context.Context, string, string, string) error
 	CloseForRoom(context.Context, string, string) error
+	RenewForRoom(context.Context, pgx.Tx, string, time.Time) error
 }
 
 func NewService(repository *Repository, cfg config.P2PRoomConfig) *Service {
@@ -285,7 +286,16 @@ func (s *Service) Heartbeat(ctx context.Context, actor Actor, roomID, hostToken 
 		if room.State == StateClosed {
 			return Room{}, conflict("ROOM_CLOSED", "Room is closed.")
 		}
-		return s.repository.Heartbeat(ctx, tx, room.ID, now)
+		updated, err := s.repository.Heartbeat(ctx, tx, room.ID, now)
+		if err != nil {
+			return Room{}, err
+		}
+		if s.connectionCreator != nil {
+			if err := s.connectionCreator.RenewForRoom(ctx, tx, room.ID, now); err != nil {
+				return Room{}, internal(err)
+			}
+		}
+		return updated, nil
 	})
 }
 
