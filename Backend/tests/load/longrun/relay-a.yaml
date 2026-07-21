@@ -1,0 +1,41 @@
+environment: development
+display_name: longrun-relay-a
+region: longrun
+zone: longrun-a
+provider: isolated-docker
+software_version: 1.1.0
+protocol_version: 2
+accept_protocol_v1: false
+control_plane_url: http://control-plane:8080
+control_addr: control-plane:9090
+control_server_name: control-plane
+data_dir: /edge-relay-data
+listen_addr: ":8443"
+metrics_addr: 127.0.0.1:9100
+advertised_endpoints:
+  - protocol: UDP
+    host: 198.18.21.10
+    port: 8443
+supported_protocols: [UDP]
+max_allocations: 150
+max_egress_bps: 100000000
+heartbeat_seconds: 2
+control_disconnect_grace_seconds: 60
+allocation_idle_seconds: 30
+cookie_ttl_seconds: 5
+max_datagram_bytes: 1280
+max_payload_bytes: 1200
+ip_packets_per_second: 1000
+bind_init_per_second: 500
+bind_proof_per_second: 500
+invalid_tokens_per_minute: 100
+max_allocations_per_ip: 150
+max_ip_rate_states: 2000
+max_ingress_packets_per_second: 50000
+temporary_ban_seconds: 10
+max_ingress_mbps: 100
+max_memory_mb: 512
+degraded_threshold_percent: 70
+reject_new_threshold_percent: 95
+nat_rebind_window_seconds: 30
+max_token_replay_entries: 5000

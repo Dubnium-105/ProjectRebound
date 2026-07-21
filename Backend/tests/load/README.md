@@ -32,7 +32,7 @@ go run ./cmd/load-bot -config tests/load/scenario-v1.1-basic.yaml \
 go run ./cmd/load-bot -config tests/load/scenario-v1.1-full.yaml \
   -report load-report-v1.1-6h.json -prometheus-report load-report-v1.1-6h.prom
 
-# 100 Relay allocations, 24 hours; restart one Relay each hour using the chaos runner
+# 100 Relay allocations, 24 hours; the isolated long-run harness rotates Relays hourly
 go run ./cmd/load-bot -config tests/load/scenario-v1.1-relay-soak.yaml \
   -report load-report-v1.1-relay-24h.json -prometheus-report load-report-v1.1-relay-24h.prom
 
@@ -46,6 +46,8 @@ go run ./cmd/load-bot -config tests/load/scenario-v1.1-relay-failure.yaml \
 ```
 
 Replace the staging URL and invite code before execution. The staging Auth limits must be explicitly sized for controlled setup traffic; do not weaken production limits. Pair the six-hour run with `tests/chaos/run-matrix.sh` for the scheduled Control Plane/Redis restart and `tests/netem/run-relay-matrix.sh` for weak-network cases. During the Relay-failure scenario, target a disposable Relay that carries all 50 allocations; the load-bot itself never terminates infrastructure.
+
+For the complete isolated 3-minute, 1-hour, 6-hour, and 24-hour sequence—including scheduled dependency restarts, hourly Relay rotation, telemetry trend checks, and database residual checks—use the [V1.1 long stability harness](longrun/README.md). It consumes immutable CI images and never targets the production stack.
 
 JSON output includes request success/failure counts and categories, success rate, P50/P95/P99, elapsed duration, room and Relay allocation counts, migrations, reconnects, bytes, Refresh failures, and load-bot process memory/goroutine deltas. Control Plane and Relay memory/goroutine deltas must be exported separately from Prometheus over the same time window.
 

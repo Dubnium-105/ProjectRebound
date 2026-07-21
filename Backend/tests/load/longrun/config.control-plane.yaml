@@ -1,0 +1,3 @@
+relay_registry:
+  relay_token_ttl_seconds: 28800
+  allocation_ttl_seconds: 108000

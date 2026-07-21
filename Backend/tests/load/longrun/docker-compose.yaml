@@ -1,0 +1,127 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: projectrebound
+      POSTGRES_USER: projectrebound
+      POSTGRES_PASSWORD: longrun-isolated-only
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U projectrebound -d projectrebound"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      longrun:
+        ipv4_address: 198.18.21.3
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    volumes:
+      - redis-data:/data
+    networks:
+      longrun:
+        ipv4_address: 198.18.21.4
+
+  control-plane:
+    image: "${V11_CONTROL_PLANE_IMAGE:?V11_CONTROL_PLANE_IMAGE is required}"
+    environment:
+      CONTROL_PLANE_ENVIRONMENT: development
+      CONTROL_PLANE_HTTP_ADDR: ":8080"
+      DATABASE_URL: postgres://projectrebound:longrun-isolated-only@postgres:5432/projectrebound?sslmode=disable
+      REDIS_ADDRESS: redis:6379
+      CORS_ALLOWED_ORIGINS: http://127.0.0.1
+      HTTP_RATE_LIMIT_RPS: "1000"
+      HTTP_RATE_LIMIT_BURST: "2000"
+      AUTH_BIND_PER_IP_PER_MINUTE: "2000"
+      AUTH_BIND_PER_DEVICE_PER_MINUTE: "10"
+      AUTH_BIND_PER_STEAM_ID_PER_MINUTE: "10"
+      AUTH_INVITE_REQUIRED: "false"
+      ACCESS_TOKEN_KEY_ID: longrun-access
+      ACCESS_TOKEN_PRIVATE_KEY_BASE64: "${V11_ACCESS_TOKEN_PRIVATE_KEY_BASE64:?required}"
+      ADMIN_TOKENS: "longrun=${V11_ADMIN_TOKEN:?required}"
+      ADMIN_TRUSTED_CIDRS: 127.0.0.0/8,198.18.21.0/24
+      GAME_SERVER_REGISTRATION_TOKENS: longrun=longrun-game-server-token-0123456789
+      RELAY_CONTROL_ADDR: ":9090"
+      RELAY_CONTROL_SERVER_NAMES: control-plane
+      RELAY_BOOTSTRAP_TOKENS: "relay-a=${V11_RELAY_A_BOOTSTRAP_TOKEN:?required};relay-b=${V11_RELAY_B_BOOTSTRAP_TOKEN:?required}"
+      RELAY_CA_CERT_PEM_BASE64: "${V11_RELAY_CA_CERT_PEM_BASE64:?required}"
+      RELAY_CA_KEY_PEM_BASE64: "${V11_RELAY_CA_KEY_PEM_BASE64:?required}"
+      RELAY_TOKEN_KEY_ID: longrun-relay
+      RELAY_TOKEN_PRIVATE_KEY_BASE64: "${V11_RELAY_TOKEN_PRIVATE_KEY_BASE64:?required}"
+      RELAY_HEARTBEAT_INTERVAL_SECONDS: "2"
+      RELAY_UNHEALTHY_AFTER_SECONDS: "8"
+      RELAY_OFFLINE_AFTER_SECONDS: "15"
+      RELAY_SWEEP_INTERVAL_SECONDS: "1"
+      RELAY_MIGRATION_TIMEOUT_SECONDS: "20"
+      UPDATE_CDN_BASE_URL: https://cdn.invalid/project-rebound
+      UPDATE_SIGNING_KEY_ID: longrun-update
+      UPDATE_SIGNING_PRIVATE_KEY_BASE64: "${V11_UPDATE_SIGNING_PRIVATE_KEY_BASE64:?required}"
+      UPDATE_REALTIME_URL: ws://127.0.0.1:38080/v1/realtime/connect
+      UPDATE_STUN_SERVERS: stun:stun.invalid:3478
+      LOG_LEVEL: warn
+    volumes:
+      - ./config.control-plane.yaml:/config.control-plane.yaml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/control-plane", "-healthcheck", "http://127.0.0.1:8080/health/live"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+    ports:
+      - "127.0.0.1:${V11_CONTROL_HTTP_PORT:-38080}:8080"
+    networks:
+      longrun:
+        ipv4_address: 198.18.21.2
+
+  edge-relay-a:
+    image: "${V11_EDGE_RELAY_IMAGE:?V11_EDGE_RELAY_IMAGE is required}"
+    environment:
+      EDGE_RELAY_BOOTSTRAP_TOKEN: "${V11_RELAY_A_BOOTSTRAP_TOKEN:?required}"
+    volumes:
+      - ./relay-a.yaml:/etc/projectrebound/config.edge-relay.yaml:ro
+      - relay-a-data:/edge-relay-data
+    depends_on:
+      control-plane:
+        condition: service_healthy
+    networks:
+      longrun:
+        ipv4_address: 198.18.21.10
+
+  edge-relay-b:
+    image: "${V11_EDGE_RELAY_IMAGE:?V11_EDGE_RELAY_IMAGE is required}"
+    environment:
+      EDGE_RELAY_BOOTSTRAP_TOKEN: "${V11_RELAY_B_BOOTSTRAP_TOKEN:?required}"
+    volumes:
+      - ./relay-b.yaml:/etc/projectrebound/config.edge-relay.yaml:ro
+      - relay-b-data:/edge-relay-data
+    depends_on:
+      control-plane:
+        condition: service_healthy
+    networks:
+      longrun:
+        ipv4_address: 198.18.21.11
+
+networks:
+  longrun:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 198.18.21.0/24
+
+volumes:
+  postgres-data:
+  redis-data:
+  relay-a-data:
+  relay-b-data:

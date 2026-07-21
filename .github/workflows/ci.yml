@@ -115,11 +115,28 @@ jobs:
       - name: Validate shell syntax and line endings
         shell: bash
         run: |
-          bash -n Backend/scripts/*.sh Backend/scripts/backup/*.sh Backend/scripts/release/*.sh Backend/deploy/deploy.sh Backend/tests/netem/run-relay-matrix.sh Backend/tests/integration/*.sh
-          if grep -IUlr $'\r' Backend/scripts Backend/deploy Backend/tests/netem Backend/tests/integration; then
+          bash -n Backend/scripts/*.sh Backend/scripts/backup/*.sh Backend/scripts/release/*.sh Backend/deploy/deploy.sh Backend/tests/netem/run-relay-matrix.sh Backend/tests/integration/*.sh Backend/tests/load/longrun/*.sh
+          if grep -IUlr $'\r' Backend/scripts Backend/deploy Backend/tests/netem Backend/tests/integration Backend/tests/load/longrun; then
             echo "CRLF found in Linux shell scripts" >&2
             exit 1
           fi
+
+      - name: Validate long stability harness
+        env:
+          V11_CONTROL_PLANE_IMAGE: example.invalid/projectrebound-control-plane:ci
+          V11_EDGE_RELAY_IMAGE: example.invalid/projectrebound-edge-relay:ci
+          V11_LOAD_BOT_IMAGE: example.invalid/projectrebound-load-bot:ci
+          V11_ADMIN_TOKEN: ci-admin-token
+          V11_RELAY_A_BOOTSTRAP_TOKEN: ci-relay-a-token
+          V11_RELAY_B_BOOTSTRAP_TOKEN: ci-relay-b-token
+          V11_ACCESS_TOKEN_PRIVATE_KEY_BASE64: Y2ktYWNjZXNz
+          V11_RELAY_TOKEN_PRIVATE_KEY_BASE64: Y2ktcmVsYXk=
+          V11_UPDATE_SIGNING_PRIVATE_KEY_BASE64: Y2ktdXBkYXRl
+          V11_RELAY_CA_CERT_PEM_BASE64: Y2ktY2VydA==
+          V11_RELAY_CA_KEY_PEM_BASE64: Y2kta2V5
+        run: |
+          python -m py_compile Backend/tests/load/longrun/*.py
+          docker compose -f Backend/tests/load/longrun/docker-compose.yaml config -q
 
       - name: Test release activation and automatic rollback
         run: Backend/scripts/test-remote-deploy.sh
