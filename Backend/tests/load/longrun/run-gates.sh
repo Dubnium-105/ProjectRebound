@@ -122,11 +122,16 @@ chmod 644 "$results_dir/scenarios/preflight-10m.yaml"
 
 wait_ready() {
   local deadline=$((SECONDS + 180))
+  local relay_readiness
   until curl --fail --silent --show-error http://127.0.0.1:38080/health/ready >/dev/null; do
     (( SECONDS < deadline )) || return 1
     sleep 2
   done
-  until [[ "$(curl --fail --silent http://127.0.0.1:38080/internal/metrics | awk '/^relay_node_control_connected/ {sum += $2} END {print sum + 0}')" == "2" ]]; do
+  until relay_readiness="$(curl --fail --silent http://127.0.0.1:38080/internal/metrics | awk '
+    /^relay_node_control_connected\{/ { connected += $NF }
+    /^relay_node_state\{.*state="READY"/ { ready += $NF }
+    END { print (connected == 2 && ready == 2) ? "ready" : "waiting" }
+  ')" && [[ "$relay_readiness" == "ready" ]]; do
     (( SECONDS < deadline )) || return 1
     sleep 2
   done
