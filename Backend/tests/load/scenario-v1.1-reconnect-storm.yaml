@@ -1,0 +1,22 @@
+scenario: full
+control_plane_url: https://staging-api.example.com
+realtime_url: wss://staging-api.example.com/v1/realtime/connect
+clients: 100
+rooms: 50
+relay_connections: 50
+duration: 10m
+setup_concurrency: 10
+auth:
+  invite_code: CHANGE_ME_STAGING_INVITE
+  refresh_interval: 5m
+room:
+  region: test
+  mode: reconnect-storm
+  version: 1.1.0
+traffic:
+  packets_per_second: 10
+  payload_bytes: 256
+  jitter_ms: 20
+failure_injection:
+  disconnect_percent: 100
+  reconnect_delay_seconds: 1

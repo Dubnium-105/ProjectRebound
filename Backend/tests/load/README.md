@@ -24,6 +24,10 @@ Use `scenario: auth-bind` with a staging invite code to exercise concurrent bind
 The standard gates are versioned as:
 
 ```bash
+# 100 clients, 30 rooms, 20 allocations, one hour
+go run ./cmd/load-bot -config tests/load/scenario-v1.1-basic.yaml \
+  -report load-report-v1.1-basic-1h.json -prometheus-report load-report-v1.1-basic-1h.prom
+
 # 300 clients, 100 rooms/allocations, six hours
 go run ./cmd/load-bot -config tests/load/scenario-v1.1-full.yaml \
   -report load-report-v1.1-6h.json -prometheus-report load-report-v1.1-6h.prom
@@ -31,9 +35,17 @@ go run ./cmd/load-bot -config tests/load/scenario-v1.1-full.yaml \
 # 100 Relay allocations, 24 hours; restart one Relay each hour using the chaos runner
 go run ./cmd/load-bot -config tests/load/scenario-v1.1-relay-soak.yaml \
   -report load-report-v1.1-relay-24h.json -prometheus-report load-report-v1.1-relay-24h.prom
+
+# All 100 Relay participants disconnect together and reconnect within 30 seconds.
+go run ./cmd/load-bot -config tests/load/scenario-v1.1-reconnect-storm.yaml \
+  -report load-report-v1.1-reconnect.json -prometheus-report load-report-v1.1-reconnect.prom
+
+# Keep 50 allocations active, then SIGKILL their Relay with the chaos runner.
+go run ./cmd/load-bot -config tests/load/scenario-v1.1-relay-failure.yaml \
+  -report load-report-v1.1-relay-failure.json -prometheus-report load-report-v1.1-relay-failure.prom
 ```
 
-Replace the staging URL and invite code before execution. The staging Auth limits must be explicitly sized for controlled setup traffic; do not weaken production limits. Pair the six-hour run with `tests/chaos/run.sh` for the scheduled Control Plane/Redis restart and `tests/netem/run-relay-matrix.sh` for weak-network cases.
+Replace the staging URL and invite code before execution. The staging Auth limits must be explicitly sized for controlled setup traffic; do not weaken production limits. Pair the six-hour run with `tests/chaos/run-matrix.sh` for the scheduled Control Plane/Redis restart and `tests/netem/run-relay-matrix.sh` for weak-network cases. During the Relay-failure scenario, target a disposable Relay that carries all 50 allocations; the load-bot itself never terminates infrastructure.
 
 JSON output includes request success/failure counts and categories, success rate, P50/P95/P99, elapsed duration, room and Relay allocation counts, migrations, reconnects, bytes, Refresh failures, and load-bot process memory/goroutine deltas. Control Plane and Relay memory/goroutine deltas must be exported separately from Prometheus over the same time window.
 

@@ -37,8 +37,18 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
     env:
       TEST_DATABASE_URL: postgres://projectrebound:ci-postgres-only@127.0.0.1:5432/projectrebound_test?sslmode=disable
+      TEST_REDIS_ADDRESS: 127.0.0.1:6379
     steps:
       - name: Check out repository
         uses: actions/checkout@v6

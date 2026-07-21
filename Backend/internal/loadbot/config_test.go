@@ -13,8 +13,11 @@ func TestV11ScenarioFilesMatchReleaseGates(t *testing.T) {
 		relayConnections int
 		duration         string
 	}{
+		{"scenario-v1.1-basic.yaml", 100, 30, 20, "1h"},
 		{"scenario-v1.1-full.yaml", 300, 100, 100, "6h"},
 		{"scenario-v1.1-relay-soak.yaml", 200, 100, 100, "24h"},
+		{"scenario-v1.1-reconnect-storm.yaml", 100, 50, 50, "10m"},
+		{"scenario-v1.1-relay-failure.yaml", 100, 50, 50, "30m"},
 	}
 	for _, test := range tests {
 		cfg, err := LoadConfig(filepath.Join("..", "..", "tests", "load", test.name))
