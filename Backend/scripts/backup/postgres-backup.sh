@@ -17,6 +17,7 @@ write_backup_status() {
 }
 write_backup_success_time() {
   [[ -n "$metrics_dir" ]] || return 0
+  mkdir -p -- "$metrics_dir"
   local success_file="$metrics_dir/projectrebound-backup-success.prom"
   local success_tmp
   success_tmp="$(mktemp "$metrics_dir/.projectrebound-backup-success.XXXXXX")"
