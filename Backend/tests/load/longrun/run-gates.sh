@@ -10,6 +10,7 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 load_dir="$(cd -- "$script_dir/.." && pwd)"
 project="${V11_LONGRUN_PROJECT:-project-rebound-v11-longrun-$(date -u +%Y%m%d%H%M%S)}"
 results_dir="${V11_LONGRUN_RESULTS_DIR:-${TMPDIR:-/tmp}/$project-results}"
+harness_revision="${V11_LONGRUN_HARNESS_REVISION:-unknown}"
 artifacts_dir="$results_dir/artifacts"
 secrets_file="$results_dir/secrets.env"
 status_file="$results_dir/status.env"
@@ -49,6 +50,7 @@ write_status() {
     printf 'project=%q\n' "$project"
     printf 'updated_at=%q\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     printf 'results_dir=%q\n' "$results_dir"
+    printf 'harness_revision=%q\n' "$harness_revision"
   } >"$temporary"
   mv "$temporary" "$status_file"
 }
@@ -115,8 +117,8 @@ prepare_scenario() {
 prepare_scenario "$load_dir/scenario-v1.1-basic.yaml" "$results_dir/scenarios/basic-1h.yaml"
 prepare_scenario "$load_dir/scenario-v1.1-full.yaml" "$results_dir/scenarios/full-6h.yaml"
 prepare_scenario "$load_dir/scenario-v1.1-relay-soak.yaml" "$results_dir/scenarios/relay-soak-24h.yaml"
-sed 's/^duration: 1h$/duration: 3m/' "$results_dir/scenarios/basic-1h.yaml" >"$results_dir/scenarios/preflight-3m.yaml"
-chmod 644 "$results_dir/scenarios/preflight-3m.yaml"
+sed 's/^duration: 1h$/duration: 10m/' "$results_dir/scenarios/basic-1h.yaml" >"$results_dir/scenarios/preflight-10m.yaml"
+chmod 644 "$results_dir/scenarios/preflight-10m.yaml"
 
 wait_ready() {
   local deadline=$((SECONDS + 180))
@@ -262,15 +264,15 @@ on_error() {
 trap on_error ERR
 
 write_status PREPARING none
-record_event runner_started "$project"
+record_event runner_started "project=$project harness=$harness_revision"
 for image in "$V11_CONTROL_PLANE_IMAGE" "$V11_EDGE_RELAY_IMAGE" "$V11_LOAD_BOT_IMAGE"; do
   if ! docker image inspect "$image" >/dev/null 2>&1; then
     docker pull "$image"
   fi
 done
 
-current_gate=preflight-3m
-run_gate "$current_gate" "$results_dir/scenarios/preflight-3m.yaml" 180 100 30 20
+current_gate=preflight-10m
+run_gate "$current_gate" "$results_dir/scenarios/preflight-10m.yaml" 600 100 30 20
 
 current_gate=basic-1h
 run_gate "$current_gate" "$results_dir/scenarios/basic-1h.yaml" 3600 100 30 20

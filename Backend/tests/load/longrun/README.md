@@ -4,7 +4,7 @@ This harness runs the V1.1 stability gates in an isolated Docker Compose project
 
 The sequence is intentionally fail-fast:
 
-1. three-minute preflight: 100 clients, 30 rooms, 20 Relay allocations;
+1. ten-minute preflight: 100 clients, 30 rooms, 20 Relay allocations;
 2. one-hour basic gate: 100 clients, 30 rooms, 20 Relay allocations;
 3. six-hour full gate: 300 clients, 100 rooms and 100 Relay allocations, with Redis and Control Plane restarted halfway through;
 4. 24-hour Relay soak: 200 clients, 100 rooms and 100 Relay allocations, with Relay A and B restarted alternately every hour.
@@ -19,6 +19,7 @@ export V11_EDGE_RELAY_IMAGE=ghcr.io/owner/projectrebound-edge-relay:sha-<full-co
 export V11_LOAD_BOT_IMAGE=ghcr.io/owner/projectrebound-load-bot:sha-<full-commit>
 export V11_LONGRUN_PROJECT=project-rebound-v11-longrun-$(date -u +%Y%m%d%H%M%S)
 export V11_LONGRUN_RESULTS_DIR=/var/lib/projectrebound-longrun/$V11_LONGRUN_PROJECT
+export V11_LONGRUN_HARNESS_REVISION=<full-commit>
 export V11_LONGRUN_I_UNDERSTAND=isolated-docker-stack
 
 sudo -E ./run-gates.sh
