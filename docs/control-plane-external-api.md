@@ -150,6 +150,7 @@ WebSocket 的 `Authorization` 必须放在 Header，禁止放在查询参数。J
 - `connection.relay_allocated`
 - `connection.relay_migrating`
 - `connection.relay_migrated`
+- `connection.relay_failed`
 - `error`
 
 Relay 分配事件示例：

@@ -138,6 +138,8 @@ type RelayRegistryConfig struct {
 	OfflineAfterSeconds        int      `yaml:"offline_after_seconds"`
 	SweepIntervalSeconds       int      `yaml:"sweep_interval_seconds"`
 	DrainDeadlineSeconds       int      `yaml:"drain_deadline_seconds"`
+	MigrationTimeoutSeconds    int      `yaml:"migration_timeout_seconds"`
+	MigrationMaxAttempts       int      `yaml:"migration_max_attempts"`
 	CertificateTTLHours        int      `yaml:"certificate_ttl_hours"`
 	CACertificatePEMBase64     string   `yaml:"-"`
 	CAPrivateKeyPEMBase64      string   `yaml:"-"`
@@ -281,6 +283,8 @@ var Defaults = Config{
 		OfflineAfterSeconds:      90,
 		SweepIntervalSeconds:     5,
 		DrainDeadlineSeconds:     300,
+		MigrationTimeoutSeconds:  45,
+		MigrationMaxAttempts:     3,
 		CertificateTTLHours:      24,
 		RelayTokenKeyID:          "relay-dev-ephemeral",
 		RelayTokenTTLSeconds:     120,
@@ -375,6 +379,8 @@ func (c *Config) applyEnvOverrides() {
 	overrideString("RELAY_CA_KEY_PEM_BASE64", &c.RelayRegistry.CAPrivateKeyPEMBase64)
 	overrideString("RELAY_TOKEN_KEY_ID", &c.RelayRegistry.RelayTokenKeyID)
 	overrideString("RELAY_TOKEN_PRIVATE_KEY_BASE64", &c.RelayRegistry.RelayTokenPrivateKeyBase64)
+	overrideInt("RELAY_MIGRATION_TIMEOUT_SECONDS", &c.RelayRegistry.MigrationTimeoutSeconds)
+	overrideInt("RELAY_MIGRATION_MAX_ATTEMPTS", &c.RelayRegistry.MigrationMaxAttempts)
 	overrideString("UPDATE_MANIFEST_DIRECTORY", &c.Update.ManifestDirectory)
 	overrideString("UPDATE_CDN_BASE_URL", &c.Update.CDNBaseURL)
 	overrideString("UPDATE_SIGNING_KEY_ID", &c.Update.SigningKeyID)
@@ -525,6 +531,8 @@ func (c *Config) ValidateControlPlane() error {
 		c.RelayRegistry.UnhealthyAfterSeconds <= c.RelayRegistry.HeartbeatIntervalSeconds ||
 		c.RelayRegistry.OfflineAfterSeconds <= c.RelayRegistry.UnhealthyAfterSeconds ||
 		c.RelayRegistry.SweepIntervalSeconds < 1 || c.RelayRegistry.DrainDeadlineSeconds < 1 ||
+		c.RelayRegistry.MigrationTimeoutSeconds < c.RelayRegistry.SweepIntervalSeconds ||
+		c.RelayRegistry.MigrationMaxAttempts < 1 || c.RelayRegistry.MigrationMaxAttempts > 10 ||
 		c.RelayRegistry.CertificateTTLHours < 1 || c.RelayRegistry.RelayTokenTTLSeconds < 30 ||
 		c.RelayRegistry.AllocationTTLSeconds < c.RelayRegistry.RelayTokenTTLSeconds ||
 		c.RelayRegistry.CapacityThresholdPercent < 1 || c.RelayRegistry.CapacityThresholdPercent > 100 ||

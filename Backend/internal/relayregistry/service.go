@@ -27,8 +27,9 @@ type ControlPublisher interface {
 }
 
 type ConnectionCoordinator interface {
-	RelayBound(context.Context, string, string, string) error
+	RelayBound(context.Context, string, string, string, string) error
 	RelayMigrating(context.Context, string, connection.RelayMigration) error
+	RelayMigrationFailed(context.Context, string, string, string) error
 }
 
 type Service struct {
@@ -203,7 +204,11 @@ func (s *Service) AllocationOpened(ctx context.Context, nodeID, allocationID str
 		previousAllocationID = migration.OldAllocationID
 	}
 	if s.connectionCoordinator != nil {
-		if err := s.connectionCoordinator.RelayBound(ctx, allocation.ConnectionID, allocation.ID, previousAllocationID); err != nil {
+		migrationID := ""
+		if migrationErr == nil {
+			migrationID = migration.ID
+		}
+		if err := s.connectionCoordinator.RelayBound(ctx, allocation.ConnectionID, allocation.ID, previousAllocationID, migrationID); err != nil {
 			return internal(err)
 		}
 	}
@@ -375,22 +380,74 @@ func (s *Service) AllocateRelay(ctx context.Context, request connection.RelayAll
 }
 
 func (s *Service) MigrateFailedRelays(ctx context.Context) (int, int, error) {
-	allocationIDs, err := s.repository.FailedNodeAllocationIDs(ctx, 100)
+	now := s.now().UTC()
+	timedOut, err := s.repository.TimedOutMigrations(ctx, now, 100)
+	if err != nil {
+		return 0, 0, err
+	}
+	for _, migration := range timedOut {
+		failed, changed, failErr := s.repository.FailMigrationAttempt(ctx, migration.ID, "BIND_TIMEOUT", now)
+		if failErr != nil {
+			return 0, 0, failErr
+		}
+		if changed && failed.Attempt >= s.config.MigrationMaxAttempts {
+			if err := s.failMigrationConnection(ctx, failed, "MIGRATION_ATTEMPTS_EXHAUSTED"); err != nil {
+				return 0, 0, err
+			}
+		}
+	}
+	retryable, err := s.repository.RetryableFailedMigrations(ctx, s.config.MigrationMaxAttempts, 100)
 	if err != nil {
 		return 0, 0, err
 	}
 	planned := 0
-	for _, allocationID := range allocationIDs {
-		now := s.now().UTC()
-		_, err := s.repository.PlanMigration(
-			ctx, allocationID, newID("rmig_"), newID("alloc_"),
-			now.Add(s.config.AllocationTTL()), now, s.config.CapacityThresholdPercent,
+	for _, previous := range retryable {
+		now = s.now().UTC()
+		_, planErr := s.repository.PlanMigrationRetry(
+			ctx, previous, newID("rmig_"), newID("alloc_"), now.Add(s.config.AllocationTTL()), now,
+			s.config.CapacityThresholdPercent, time.Duration(s.config.MigrationTimeoutSeconds)*time.Second,
+			s.config.MigrationMaxAttempts,
 		)
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(planErr, ErrActiveMigration) {
 			continue
 		}
-		if err != nil {
-			return planned, 0, err
+		if errors.Is(planErr, ErrNoMigrationTarget) || errors.Is(planErr, ErrMaxMigrationAttempts) {
+			if err := s.failMigrationConnection(ctx, previous, "RELAY_UNAVAILABLE"); err != nil {
+				return planned, 0, err
+			}
+			continue
+		}
+		if planErr != nil {
+			return planned, 0, planErr
+		}
+		planned++
+	}
+	allocationIDs, err := s.repository.FailedNodeAllocationIDs(ctx, 100)
+	if err != nil {
+		return planned, 0, err
+	}
+	for _, allocationID := range allocationIDs {
+		now = s.now().UTC()
+		migration, planErr := s.repository.PlanMigration(
+			ctx, allocationID, newID("rmig_"), newID("alloc_"), "RELAY_UNHEALTHY",
+			now.Add(s.config.AllocationTTL()), now, s.config.CapacityThresholdPercent,
+			time.Duration(s.config.MigrationTimeoutSeconds)*time.Second,
+		)
+		if errors.Is(planErr, ErrActiveMigration) {
+			continue
+		}
+		if errors.Is(planErr, ErrNoMigrationTarget) {
+			if err := s.repository.FailAllocation(ctx, migration.OldAllocationID, "RELAY_UNAVAILABLE", now); err != nil {
+				return planned, 0, err
+			}
+			migration.ID = ""
+			if err := s.failMigrationConnection(ctx, migration, "RELAY_UNAVAILABLE"); err != nil {
+				return planned, 0, err
+			}
+			continue
+		}
+		if planErr != nil {
+			return planned, 0, planErr
 		}
 		planned++
 	}
@@ -413,7 +470,9 @@ func (s *Service) MigrateFailedRelays(ctx context.Context) (int, int, error) {
 			})
 		}
 		if err := s.connectionCoordinator.RelayMigrating(ctx, migration.ConnectionID, connection.RelayMigration{
-			PreviousAllocationID: migration.OldAllocationID, Allocation: allocation,
+			MigrationID: migration.ID, PreviousAllocationID: migration.OldAllocationID,
+			PreviousRelayNodeID: migration.OldRelayNodeID, Reason: migration.Reason,
+			Attempt: migration.Attempt, Allocation: allocation,
 		}); err != nil {
 			return planned, dispatched, err
 		}
@@ -423,6 +482,13 @@ func (s *Service) MigrateFailedRelays(ctx context.Context) (int, int, error) {
 		dispatched++
 	}
 	return planned, dispatched, nil
+}
+
+func (s *Service) failMigrationConnection(ctx context.Context, migration Migration, reason string) error {
+	if s.connectionCoordinator == nil {
+		return errors.New("relay migration coordinator is unavailable")
+	}
+	return s.connectionCoordinator.RelayMigrationFailed(ctx, migration.ConnectionID, migration.ID, reason)
 }
 
 func (s *Service) presentAllocation(allocation Allocation, node Node) (connection.RelayAllocation, error) {

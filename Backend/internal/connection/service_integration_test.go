@@ -176,7 +176,8 @@ func TestConnectionLifecycleAgainstPostgreSQL(t *testing.T) {
 	migrationPeerEvents := hub.Subscribe(peer.PlayerID)
 	defer migrationPeerEvents.Close()
 	migration := RelayMigration{
-		PreviousAllocationID: "alloc_previous",
+		MigrationID: "migration_replacement", PreviousAllocationID: "alloc_previous",
+		PreviousRelayNodeID: "relay_previous", Reason: "RELAY_UNHEALTHY", Attempt: 1,
 		Allocation: RelayAllocation{
 			AllocationID: "alloc_replacement",
 			Endpoint: RelayEndpoint{
@@ -191,21 +192,28 @@ func TestConnectionLifecycleAgainstPostgreSQL(t *testing.T) {
 	hostMigrationEvent := assertEventType(t, migrationHostEvents, "connection.relay_migrating")
 	peerMigrationEvent := assertEventType(t, migrationPeerEvents, "connection.relay_migrating")
 	hostMigrationPayload, ok := hostMigrationEvent.Payload.(map[string]any)
-	if !ok || hostMigrationPayload["relay_token"] != "host-token" {
+	if !ok || hostMigrationPayload["migration_id"] != migration.MigrationID || hostMigrationPayload["old_relay_node_id"] != migration.PreviousRelayNodeID {
 		t.Fatalf("host migration payload = %#v", hostMigrationEvent.Payload)
 	}
 	peerMigrationPayload, ok := peerMigrationEvent.Payload.(map[string]any)
-	if !ok || peerMigrationPayload["relay_token"] != "peer-token" {
+	if !ok || peerMigrationPayload["migration_id"] != migration.MigrationID {
 		t.Fatalf("peer migration payload = %#v", peerMigrationEvent.Payload)
 	}
-	if hostMigrationPayload["relay_token"] == peerMigrationPayload["relay_token"] {
+	hostAllocationEvent := assertEventType(t, migrationHostEvents, "connection.relay_allocated")
+	peerAllocationEvent := assertEventType(t, migrationPeerEvents, "connection.relay_allocated")
+	hostAllocationPayload, _ := hostAllocationEvent.Payload.(map[string]any)
+	peerAllocationPayload, _ := peerAllocationEvent.Payload.(map[string]any)
+	if hostAllocationPayload["relay_token"] != "host-token" || peerAllocationPayload["relay_token"] != "peer-token" {
+		t.Fatalf("migration allocation payloads = %#v / %#v", hostAllocationPayload, peerAllocationPayload)
+	}
+	if hostAllocationPayload["relay_token"] == peerAllocationPayload["relay_token"] {
 		t.Fatal("relay migration exposed the same participant token to both endpoints")
 	}
 	migrating, err := service.Get(ctx, peer, allocating.ID)
 	if err != nil || migrating.State != StateMigratingRelay {
 		t.Fatalf("migrating connection = %#v, %v", migrating, err)
 	}
-	if err := service.RelayBound(ctx, allocating.ID, migration.Allocation.AllocationID, migration.PreviousAllocationID); err != nil {
+	if err := service.RelayBound(ctx, allocating.ID, migration.Allocation.AllocationID, migration.PreviousAllocationID, migration.MigrationID); err != nil {
 		t.Fatal(err)
 	}
 	assertEventType(t, migrationHostEvents, "connection.relay_migrated")

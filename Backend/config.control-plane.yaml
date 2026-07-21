@@ -101,6 +101,8 @@ relay_registry:
   offline_after_seconds: 90
   sweep_interval_seconds: 5
   drain_deadline_seconds: 300
+  migration_timeout_seconds: 45
+  migration_max_attempts: 3
   certificate_ttl_hours: 24
   relay_token_key_id: "relay-dev-ephemeral"
   relay_token_ttl_seconds: 120

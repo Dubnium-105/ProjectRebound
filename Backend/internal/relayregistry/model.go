@@ -128,6 +128,10 @@ type Migration struct {
 	NewAllocation   Allocation
 	NewNode         Node
 	State           string
+	Reason          string
+	Attempt         int
+	BindDeadline    *time.Time
+	FailureReason   string
 	DispatchedAt    *time.Time
 	CompletedAt     *time.Time
 	CreatedAt       time.Time

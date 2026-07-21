@@ -16,7 +16,8 @@ import (
 
 type recordedMigrationCoordinator struct {
 	migrations []connection.RelayMigration
-	bound      [][3]string
+	bound      [][4]string
+	failed     [][3]string
 }
 
 func (c *recordedMigrationCoordinator) RelayMigrating(_ context.Context, _ string, migration connection.RelayMigration) error {
@@ -24,8 +25,13 @@ func (c *recordedMigrationCoordinator) RelayMigrating(_ context.Context, _ strin
 	return nil
 }
 
-func (c *recordedMigrationCoordinator) RelayBound(_ context.Context, connectionID, allocationID, previousAllocationID string) error {
-	c.bound = append(c.bound, [3]string{connectionID, allocationID, previousAllocationID})
+func (c *recordedMigrationCoordinator) RelayBound(_ context.Context, connectionID, allocationID, previousAllocationID, migrationID string) error {
+	c.bound = append(c.bound, [4]string{connectionID, allocationID, previousAllocationID, migrationID})
+	return nil
+}
+
+func (c *recordedMigrationCoordinator) RelayMigrationFailed(_ context.Context, connectionID, migrationID, reason string) error {
+	c.failed = append(c.failed, [3]string{connectionID, migrationID, reason})
 	return nil
 }
 
@@ -59,6 +65,7 @@ func TestRelayMigrationLifecycleAgainstPostgreSQL(t *testing.T) {
 	playerIDs := []string{fmt.Sprintf("p_migration_host_%d", suffix), fmt.Sprintf("p_migration_peer_%d", suffix)}
 	roomID := fmt.Sprintf("room_migration_%d", suffix)
 	connectionID := fmt.Sprintf("conn_migration_%d", suffix)
+	timeoutConnectionID := fmt.Sprintf("conn_migration_timeout_%d", suffix)
 	oldNodeID := fmt.Sprintf("relay_old_%d", suffix)
 	newNodeID := fmt.Sprintf("relay_new_%d", suffix)
 	oldAllocationID := fmt.Sprintf("alloc_old_%d", suffix)
@@ -66,10 +73,11 @@ func TestRelayMigrationLifecycleAgainstPostgreSQL(t *testing.T) {
 	t.Cleanup(func() {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cleanupCancel()
-		_, _ = pool.Exec(cleanupCtx, "DELETE FROM relay_migrations WHERE connection_id = $1", connectionID)
-		_, _ = pool.Exec(cleanupCtx, "DELETE FROM relay_allocations WHERE connection_id = $1", connectionID)
+		connectionIDs := []string{connectionID, timeoutConnectionID}
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM relay_migrations WHERE connection_id = ANY($1)", connectionIDs)
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM relay_allocations WHERE connection_id = ANY($1)", connectionIDs)
 		_, _ = pool.Exec(cleanupCtx, "DELETE FROM relay_nodes WHERE id = ANY($1)", nodeIDs)
-		_, _ = pool.Exec(cleanupCtx, "DELETE FROM connections WHERE id = $1", connectionID)
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM connections WHERE id = ANY($1)", connectionIDs)
 		_, _ = pool.Exec(cleanupCtx, "DELETE FROM p2p_rooms WHERE id = $1", roomID)
 		_, _ = pool.Exec(cleanupCtx, "DELETE FROM players WHERE id = ANY($1)", playerIDs)
 	})
@@ -113,11 +121,11 @@ func TestRelayMigrationLifecycleAgainstPostgreSQL(t *testing.T) {
 				protocol_version, public_endpoints, supported_protocols,
 				max_allocations, max_egress_bps, active_allocations,
 				certificate_fingerprint, certificate_expires_at, node_token_hash,
-				last_heartbeat_at, created_at, updated_at
-			) VALUES ($1, $1, $2, 'hk-1', 'integration', $3, '1.0.0', 1, $4, $5,
-			          10, 10000000, $6, $7, $8, $9, $10, $10, $10)
+				last_heartbeat_at, lease_expires_at, created_at, updated_at
+			) VALUES ($1, $1, $2, 'hk-1', 'integration', $3, '1.0.0', 2, $4, $5,
+			          10, 10000000, $6, $7, $8, $9, $10, $11, $10, $10)
 		`, node.id, node.region, node.state, endpoints, []string{"UDP"}, node.active,
-			node.fingerprint, now.Add(time.Hour), hashToken("node-token-"+node.id), now); err != nil {
+			node.fingerprint, now.Add(time.Hour), hashToken("node-token-"+node.id), now, now.Add(time.Hour)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -131,6 +139,7 @@ func TestRelayMigrationLifecycleAgainstPostgreSQL(t *testing.T) {
 	}
 
 	cfg := config.Defaults.RelayRegistry
+	cfg.MigrationMaxAttempts = 2
 	authority, err := NewAuthority(cfg, "development")
 	if err != nil {
 		t.Fatal(err)
@@ -185,5 +194,65 @@ func TestRelayMigrationLifecycleAgainstPostgreSQL(t *testing.T) {
 	}
 	if oldState != "FAILED" || newState != "ACTIVE" || migrationState != "COMPLETED" {
 		t.Fatalf("migration states = old:%s new:%s migration:%s", oldState, newState, migrationState)
+	}
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO connections (
+			id, room_id, host_player_id, peer_player_id, state, selected_path,
+			expires_at, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, 'CONNECTED', 'UDP_RELAY', $5, $6, $6)
+	`, timeoutConnectionID, roomID, playerIDs[0], playerIDs[1], now.Add(10*time.Minute), now); err != nil {
+		t.Fatal(err)
+	}
+	timeoutAllocationID := fmt.Sprintf("alloc_timeout_%d", suffix)
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO relay_allocations (
+			id, connection_id, room_id, relay_node_id, state, protocol,
+			max_bps, max_pps, max_total_bytes, expires_at, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, 'ACTIVE', 'UDP', 256000, 200, 268435456, $5, $6, $6)
+	`, timeoutAllocationID, timeoutConnectionID, roomID, oldNodeID, now.Add(20*time.Minute), now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, "UPDATE relay_nodes SET active_allocations = active_allocations + 1 WHERE id = $1", oldNodeID); err != nil {
+		t.Fatal(err)
+	}
+	if planned, dispatched, err := service.MigrateFailedRelays(ctx); err != nil || planned != 1 || dispatched != 1 {
+		t.Fatalf("timeout migration initial sweep = %d/%d, %v", planned, dispatched, err)
+	}
+	if len(coordinator.migrations) != 2 || coordinator.migrations[1].Attempt != 1 {
+		t.Fatalf("initial timeout migration = %#v", coordinator.migrations)
+	}
+
+	now = now.Add(time.Duration(cfg.MigrationTimeoutSeconds+1) * time.Second)
+	thirdNodeID := fmt.Sprintf("relay_third_%d", suffix)
+	nodeIDs = append(nodeIDs, thirdNodeID)
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO relay_nodes (
+			id, display_name, region, zone, provider, state, software_version,
+			protocol_version, public_endpoints, supported_protocols,
+			max_allocations, max_egress_bps, active_allocations,
+			certificate_fingerprint, certificate_expires_at, node_token_hash,
+			last_heartbeat_at, lease_expires_at, created_at, updated_at
+		) VALUES ($1, $1, 'hk', 'hk-2', 'integration', 'READY', '1.0.0', 2, $2, $3,
+		          10, 10000000, 0, $4, $5, $6, $7, $8, $7, $7)
+	`, thirdNodeID, endpoints, []string{"UDP"}, fmt.Sprintf("%064x", suffix+2),
+		now.Add(time.Hour), hashToken("node-token-"+thirdNodeID), now, now.Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if planned, dispatched, err := service.MigrateFailedRelays(ctx); err != nil || planned != 1 || dispatched != 1 {
+		t.Fatalf("timeout migration retry sweep = %d/%d, %v", planned, dispatched, err)
+	}
+	if len(coordinator.migrations) != 3 || coordinator.migrations[2].Attempt != 2 ||
+		coordinator.migrations[2].Allocation.Endpoint.NodeID != thirdNodeID {
+		t.Fatalf("retry migration = %#v", coordinator.migrations)
+	}
+
+	now = now.Add(time.Duration(cfg.MigrationTimeoutSeconds+1) * time.Second)
+	if planned, dispatched, err := service.MigrateFailedRelays(ctx); err != nil || planned != 0 || dispatched != 0 {
+		t.Fatalf("exhausted migration sweep = %d/%d, %v", planned, dispatched, err)
+	}
+	if len(coordinator.failed) != 1 || coordinator.failed[0][0] != timeoutConnectionID ||
+		coordinator.failed[0][2] != "MIGRATION_ATTEMPTS_EXHAUSTED" {
+		t.Fatalf("migration failures = %#v", coordinator.failed)
 	}
 }

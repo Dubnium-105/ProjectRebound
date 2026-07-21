@@ -119,7 +119,11 @@ type RelayAllocation struct {
 }
 
 type RelayMigration struct {
+	MigrationID          string
 	PreviousAllocationID string
+	PreviousRelayNodeID  string
+	Reason               string
+	Attempt              int
 	Allocation           RelayAllocation
 }
 

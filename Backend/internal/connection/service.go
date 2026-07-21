@@ -87,7 +87,7 @@ func (s *Service) CloseForRoom(ctx context.Context, roomID, reason string) error
 	return nil
 }
 
-func (s *Service) RelayBound(ctx context.Context, connectionID, allocationID, previousAllocationID string) error {
+func (s *Service) RelayBound(ctx context.Context, connectionID, allocationID, previousAllocationID, migrationID string) error {
 	tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
@@ -122,6 +122,7 @@ func (s *Service) RelayBound(ctx context.Context, connectionID, allocationID, pr
 	if wasMigrating {
 		eventType = "connection.relay_migrated"
 		payload["previous_allocation_id"] = previousAllocationID
+		payload["migration_id"] = migrationID
 	}
 	s.publish(item, Event{Type: eventType, Payload: payload, CreatedAt: s.now().UTC()})
 	return nil
@@ -152,7 +153,40 @@ func (s *Service) RelayMigrating(ctx context.Context, connectionID string, migra
 	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
-	s.publishRelayAllocation(item, "connection.relay_migrating", migration.PreviousAllocationID, migration.Allocation)
+	s.publish(item, Event{Type: "connection.relay_migrating", Payload: map[string]any{
+		"connection_id": item.ID, "migration_id": migration.MigrationID,
+		"old_relay_node_id": migration.PreviousRelayNodeID, "previous_allocation_id": migration.PreviousAllocationID,
+		"reason": migration.Reason, "attempt": migration.Attempt,
+	}, CreatedAt: s.now().UTC()})
+	s.publishRelayAllocation(item, "connection.relay_allocated", migration.PreviousAllocationID, migration.MigrationID, migration.Allocation)
+	return nil
+}
+
+func (s *Service) RelayMigrationFailed(ctx context.Context, connectionID, migrationID, reason string) error {
+	tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	item, err := s.repository.GetForUpdate(ctx, tx, connectionID)
+	if err != nil {
+		return err
+	}
+	if item.State == StateFailed || item.State == StateExpired || item.State == StateClosed {
+		return tx.Commit(ctx)
+	}
+	item, err = s.repository.UpdateState(ctx, tx, item.ID, StateFailed, PathUDPRelay, reason, s.now().UTC())
+	if err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	payload := map[string]any{"connection_id": item.ID, "code": reason}
+	if migrationID != "" {
+		payload["migration_id"] = migrationID
+	}
+	s.publish(item, Event{Type: "connection.relay_failed", Payload: payload, CreatedAt: s.now().UTC()})
 	return nil
 }
 
@@ -409,11 +443,11 @@ func (s *Service) allocateRelay(ctx context.Context, item Connection) Connection
 	if err != nil || tx.Commit(ctx) != nil {
 		return item
 	}
-	s.publishRelayAllocation(updated, "connection.relay_allocated", "", allocation)
+	s.publishRelayAllocation(updated, "connection.relay_allocated", "", "", allocation)
 	return updated
 }
 
-func (s *Service) publishRelayAllocation(item Connection, eventType, previousAllocationID string, allocation RelayAllocation) {
+func (s *Service) publishRelayAllocation(item Connection, eventType, previousAllocationID, migrationID string, allocation RelayAllocation) {
 	if s.publisher == nil {
 		return
 	}
@@ -423,6 +457,9 @@ func (s *Service) publishRelayAllocation(item Connection, eventType, previousAll
 	}
 	if previousAllocationID != "" {
 		basePayload["previous_allocation_id"] = previousAllocationID
+	}
+	if migrationID != "" {
+		basePayload["migration_id"] = migrationID
 	}
 	hostPayload := cloneMap(basePayload)
 	hostPayload["relay_token"] = allocation.HostToken

@@ -772,6 +772,7 @@ paths:
             - $ref: "#/components/schemas/ConnectionRelayAllocatedEvent"
             - $ref: "#/components/schemas/ConnectionRelayMigratingEvent"
             - $ref: "#/components/schemas/ConnectionRelayMigratedEvent"
+            - $ref: "#/components/schemas/ConnectionRelayFailedEvent"
             - $ref: "#/components/schemas/RealtimeErrorEvent"
       responses:
         "101":
@@ -2068,6 +2069,8 @@ components:
           properties:
             connection_id: {type: string}
             allocation_id: {type: string}
+            migration_id: {type: string}
+            previous_allocation_id: {type: string}
             relay:
               type: object
               additionalProperties: false
@@ -2091,24 +2094,14 @@ components:
         payload:
           type: object
           additionalProperties: false
-          required: [connection_id, previous_allocation_id, allocation_id, relay, relay_token, expires_at]
+          required: [connection_id, migration_id, old_relay_node_id, previous_allocation_id, reason, attempt]
           properties:
             connection_id: {type: string}
+            migration_id: {type: string}
+            old_relay_node_id: {type: string}
             previous_allocation_id: {type: string}
-            allocation_id: {type: string}
-            relay:
-              type: object
-              additionalProperties: false
-              required: [node_id, protocol, host, port]
-              properties:
-                node_id: {type: string}
-                protocol: {type: string, enum: [udp, tcp_tls]}
-                host: {type: string}
-                port: {type: integer, minimum: 1, maximum: 65535}
-            relay_token:
-              type: string
-              description: Participant-specific replacement token; HOST and PEER receive distinct values.
-            expires_at: {type: string, format: date-time}
+            reason: {type: string, enum: [RELAY_UNHEALTHY, RELAY_DRAIN]}
+            attempt: {type: integer, minimum: 1, maximum: 10}
         created_at: {type: string, format: date-time}
     ConnectionRelayMigratedEvent:
       type: object
@@ -2119,13 +2112,29 @@ components:
         payload:
           type: object
           additionalProperties: false
-          required: [connection_id, previous_allocation_id, allocation_id, state, selected_path]
+          required: [connection_id, migration_id, previous_allocation_id, allocation_id, state, selected_path]
           properties:
             connection_id: {type: string}
+            migration_id: {type: string}
             previous_allocation_id: {type: string}
             allocation_id: {type: string}
             state: {type: string, const: CONNECTED}
             selected_path: {type: string, const: UDP_RELAY}
+        created_at: {type: string, format: date-time}
+    ConnectionRelayFailedEvent:
+      type: object
+      additionalProperties: false
+      required: [type, payload, created_at]
+      properties:
+        type: {type: string, const: connection.relay_failed}
+        payload:
+          type: object
+          additionalProperties: false
+          required: [connection_id, code]
+          properties:
+            connection_id: {type: string}
+            migration_id: {type: string}
+            code: {type: string, enum: [RELAY_UNAVAILABLE, MIGRATION_ATTEMPTS_EXHAUSTED]}
         created_at: {type: string, format: date-time}
     UpdateFile:
       type: object

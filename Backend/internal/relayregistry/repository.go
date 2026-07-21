@@ -12,6 +12,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+var (
+	ErrActiveMigration      = errors.New("relay migration is already active")
+	ErrNoMigrationTarget    = errors.New("no relay migration target is available")
+	ErrMaxMigrationAttempts = errors.New("relay migration attempts exhausted")
+)
+
 type Repository struct {
 	pool *pgxpool.Pool
 }
@@ -271,6 +277,8 @@ func (r *Repository) Schedule(ctx context.Context, allocation Allocation, region
 		FROM relay_nodes
 		WHERE state = 'READY'
 		  AND load_state IN ('NORMAL', 'DEGRADED')
+		  AND protocol_version = 2
+		  AND certificate_expires_at > NOW() AND lease_expires_at > NOW()
 		  AND active_allocations * 100 < max_allocations * $2
 		  AND current_egress_bps * 100 < max_egress_bps * $2
 		  AND $3 = ANY(supported_protocols)
@@ -346,6 +354,8 @@ func (r *Repository) AvailableRegions(ctx context.Context) ([]string, error) {
 		FROM relay_nodes
 		WHERE state = 'READY'
 		  AND load_state IN ('NORMAL', 'DEGRADED')
+		  AND protocol_version = 2
+		  AND certificate_expires_at > NOW() AND lease_expires_at > NOW()
 		  AND active_allocations < max_allocations
 		  AND current_egress_bps < max_egress_bps
 		ORDER BY region
@@ -365,7 +375,13 @@ func (r *Repository) AvailableRegions(ctx context.Context) ([]string, error) {
 	return regions, rows.Err()
 }
 
-func (r *Repository) PlanMigration(ctx context.Context, oldAllocationID, migrationID, newAllocationID string, expiresAt, now time.Time, threshold int) (Migration, error) {
+func (r *Repository) PlanMigration(
+	ctx context.Context,
+	oldAllocationID, migrationID, newAllocationID, reason string,
+	expiresAt, now time.Time,
+	threshold int,
+	bindTimeout time.Duration,
+) (Migration, error) {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return Migration{}, err
@@ -383,13 +399,18 @@ func (r *Repository) PlanMigration(ctx context.Context, oldAllocationID, migrati
 	if err != nil {
 		return Migration{}, err
 	}
+	migration := Migration{
+		ID: migrationID, ConnectionID: oldAllocation.ConnectionID, RoomID: oldAllocation.RoomID,
+		OldAllocationID: oldAllocation.ID, OldRelayNodeID: oldNode.ID,
+		State: "BINDING", Reason: reason, Attempt: 1, CreatedAt: now, UpdatedAt: now,
+	}
 	var activeMigrationID string
 	err = tx.QueryRow(ctx, `
 		SELECT id FROM relay_migrations
 		WHERE connection_id = $1 AND state = 'BINDING'
 	`, oldAllocation.ConnectionID).Scan(&activeMigrationID)
 	if err == nil {
-		return Migration{}, pgx.ErrNoRows
+		return migration, ErrActiveMigration
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return Migration{}, err
@@ -398,6 +419,8 @@ func (r *Repository) PlanMigration(ctx context.Context, oldAllocationID, migrati
 		SELECT `+nodeColumns+`
 		FROM relay_nodes
 		WHERE state = 'READY' AND load_state IN ('NORMAL', 'DEGRADED') AND id <> $1
+		  AND protocol_version = 2
+		  AND certificate_expires_at > NOW() AND lease_expires_at > NOW()
 		  AND active_allocations * 100 < max_allocations * $3
 		  AND current_egress_bps * 100 < max_egress_bps * $3
 		  AND $4 = ANY(supported_protocols)
@@ -409,6 +432,9 @@ func (r *Repository) PlanMigration(ctx context.Context, oldAllocationID, migrati
 		LIMIT 1
 	`, oldNode.ID, oldNode.Region, threshold, oldAllocation.Protocol))
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return migration, ErrNoMigrationTarget
+		}
 		return Migration{}, err
 	}
 	if _, err := tx.Exec(ctx, `
@@ -443,19 +469,20 @@ func (r *Repository) PlanMigration(ctx context.Context, oldAllocationID, migrati
 	`, newNode.ID, now); err != nil {
 		return Migration{}, err
 	}
-	migration := Migration{
-		ID: migrationID, ConnectionID: oldAllocation.ConnectionID, RoomID: oldAllocation.RoomID,
-		OldAllocationID: oldAllocation.ID, NewAllocationID: newAllocation.ID,
-		OldRelayNodeID: oldNode.ID, NewRelayNodeID: newNode.ID,
-		NewAllocation: newAllocation, NewNode: newNode, State: "BINDING", CreatedAt: now, UpdatedAt: now,
-	}
+	bindDeadline := now.Add(bindTimeout)
+	migration.NewAllocationID = newAllocation.ID
+	migration.NewRelayNodeID = newNode.ID
+	migration.NewAllocation = newAllocation
+	migration.NewNode = newNode
+	migration.BindDeadline = &bindDeadline
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO relay_migrations (
 			id, connection_id, old_allocation_id, new_allocation_id,
-			old_relay_node_id, new_relay_node_id, state, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, 'BINDING', $7, $7)
+			old_relay_node_id, new_relay_node_id, state, reason, attempt,
+			bind_deadline, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, 'BINDING', $7, 1, $8, $9, $9)
 	`, migration.ID, migration.ConnectionID, migration.OldAllocationID, migration.NewAllocationID,
-		migration.OldRelayNodeID, migration.NewRelayNodeID, now); err != nil {
+		migration.OldRelayNodeID, migration.NewRelayNodeID, migration.Reason, bindDeadline, now); err != nil {
 		return Migration{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -469,8 +496,8 @@ func (r *Repository) PlanMigration(ctx context.Context, oldAllocationID, migrati
 func (r *Repository) PendingMigrations(ctx context.Context, limit int) ([]Migration, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, connection_id, old_allocation_id, new_allocation_id,
-		       old_relay_node_id, new_relay_node_id, state,
-		       dispatched_at, completed_at, created_at, updated_at
+		       old_relay_node_id, new_relay_node_id, state, reason, attempt,
+		       bind_deadline, failure_reason, dispatched_at, completed_at, created_at, updated_at
 		FROM relay_migrations
 		WHERE state = 'BINDING' AND dispatched_at IS NULL
 		ORDER BY created_at, id
@@ -519,8 +546,8 @@ func (r *Repository) MarkMigrationDispatched(ctx context.Context, migrationID st
 func (r *Repository) MigrationForNewAllocation(ctx context.Context, allocationID string) (Migration, error) {
 	return scanMigration(r.pool.QueryRow(ctx, `
 		SELECT id, connection_id, old_allocation_id, new_allocation_id,
-		       old_relay_node_id, new_relay_node_id, state,
-		       dispatched_at, completed_at, created_at, updated_at
+		       old_relay_node_id, new_relay_node_id, state, reason, attempt,
+		       bind_deadline, failure_reason, dispatched_at, completed_at, created_at, updated_at
 		FROM relay_migrations
 		WHERE new_allocation_id = $1 AND state = 'BINDING'
 	`, allocationID))
@@ -535,14 +562,264 @@ func (r *Repository) CompleteMigration(ctx context.Context, migrationID string, 
 	return err
 }
 
+func (r *Repository) TimedOutMigrations(ctx context.Context, now time.Time, limit int) ([]Migration, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, connection_id, old_allocation_id, new_allocation_id,
+		       old_relay_node_id, new_relay_node_id, state, reason, attempt,
+		       bind_deadline, failure_reason, dispatched_at, completed_at, created_at, updated_at
+		FROM relay_migrations
+		WHERE state = 'BINDING' AND bind_deadline IS NOT NULL AND bind_deadline <= $1
+		ORDER BY bind_deadline, id
+		LIMIT $2
+	`, now, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []Migration
+	for rows.Next() {
+		item, scanErr := scanMigration(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		result = append(result, item)
+	}
+	return result, rows.Err()
+}
+
+func (r *Repository) FailMigrationAttempt(ctx context.Context, migrationID, reason string, now time.Time) (Migration, bool, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return Migration{}, false, err
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	migration, err := scanMigration(tx.QueryRow(ctx, `
+		UPDATE relay_migrations
+		SET state = 'FAILED', failure_reason = $2, updated_at = $3
+		WHERE id = $1 AND state = 'BINDING'
+		RETURNING id, connection_id, old_allocation_id, new_allocation_id,
+		          old_relay_node_id, new_relay_node_id, state, reason, attempt,
+		          bind_deadline, failure_reason, dispatched_at, completed_at, created_at, updated_at
+	`, migrationID, reason, now))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Migration{}, false, nil
+	}
+	if err != nil {
+		return Migration{}, false, err
+	}
+	result, err := tx.Exec(ctx, `
+		UPDATE relay_allocations
+		SET state = 'FAILED', failure_reason = $2, closed_at = COALESCE(closed_at, $3), updated_at = $3
+		WHERE id = $1 AND state IN ('ALLOCATED', 'BINDING', 'ACTIVE')
+	`, migration.NewAllocationID, reason, now)
+	if err != nil {
+		return Migration{}, false, err
+	}
+	if result.RowsAffected() > 0 {
+		if _, err := tx.Exec(ctx, `
+			UPDATE relay_nodes
+			SET active_allocations = GREATEST(active_allocations - 1, 0), updated_at = $2
+			WHERE id = $1
+		`, migration.NewRelayNodeID, now); err != nil {
+			return Migration{}, false, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Migration{}, false, err
+	}
+	return migration, true, nil
+}
+
+func (r *Repository) RetryableFailedMigrations(ctx context.Context, maxAttempts, limit int) ([]Migration, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT migration.id, migration.connection_id, migration.old_allocation_id, migration.new_allocation_id,
+		       migration.old_relay_node_id, migration.new_relay_node_id, migration.state,
+		       migration.reason, migration.attempt, migration.bind_deadline, migration.failure_reason,
+		       migration.dispatched_at, migration.completed_at, migration.created_at, migration.updated_at
+		FROM relay_migrations AS migration
+		JOIN connections AS connection ON connection.id = migration.connection_id
+		WHERE migration.state = 'FAILED' AND migration.failure_reason = 'BIND_TIMEOUT'
+		  AND migration.attempt < $1
+		  AND connection.state NOT IN ('FAILED', 'EXPIRED', 'CLOSED')
+		  AND NOT EXISTS (
+		      SELECT 1 FROM relay_migrations AS later
+		      WHERE later.connection_id = migration.connection_id
+		        AND (later.attempt > migration.attempt OR later.state = 'BINDING')
+		  )
+		ORDER BY migration.updated_at, migration.id
+		LIMIT $2
+	`, maxAttempts, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []Migration
+	for rows.Next() {
+		item, scanErr := scanMigration(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		result = append(result, item)
+	}
+	return result, rows.Err()
+}
+
+func (r *Repository) PlanMigrationRetry(
+	ctx context.Context,
+	previous Migration,
+	migrationID, newAllocationID string,
+	expiresAt, now time.Time,
+	threshold int,
+	bindTimeout time.Duration,
+	maxAttempts int,
+) (Migration, error) {
+	if previous.Attempt >= maxAttempts {
+		return previous, ErrMaxMigrationAttempts
+	}
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return Migration{}, err
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	oldAllocation, oldNode, err := scanAllocationAndNode(tx.QueryRow(ctx, `
+		SELECT `+prefixedAllocationColumns("allocation")+`, `+prefixedNodeColumns("node")+`
+		FROM relay_allocations AS allocation
+		JOIN relay_nodes AS node ON node.id = allocation.relay_node_id
+		WHERE allocation.id = $1 AND allocation.state = 'FAILED'
+		FOR UPDATE OF allocation, node
+	`, previous.NewAllocationID))
+	if err != nil {
+		return Migration{}, err
+	}
+	next := Migration{
+		ID: migrationID, ConnectionID: oldAllocation.ConnectionID, RoomID: oldAllocation.RoomID,
+		OldAllocationID: oldAllocation.ID, OldRelayNodeID: oldNode.ID,
+		State: "BINDING", Reason: previous.Reason, Attempt: previous.Attempt + 1,
+		CreatedAt: now, UpdatedAt: now,
+	}
+	var activeID string
+	err = tx.QueryRow(ctx, `
+		SELECT id FROM relay_migrations WHERE connection_id = $1 AND state = 'BINDING'
+	`, previous.ConnectionID).Scan(&activeID)
+	if err == nil {
+		return next, ErrActiveMigration
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return Migration{}, err
+	}
+	newNode, err := scanNode(tx.QueryRow(ctx, `
+		SELECT `+nodeColumns+`
+		FROM relay_nodes AS candidate
+		WHERE candidate.state = 'READY' AND candidate.load_state IN ('NORMAL', 'DEGRADED')
+		  AND candidate.protocol_version = 2
+		  AND candidate.certificate_expires_at > NOW() AND candidate.lease_expires_at > NOW()
+		  AND candidate.id <> $1
+		  AND NOT EXISTS (
+		      SELECT 1 FROM relay_migrations AS tried
+		      WHERE tried.connection_id = $2 AND tried.new_relay_node_id = candidate.id
+		  )
+		  AND candidate.active_allocations * 100 < candidate.max_allocations * $4
+		  AND candidate.current_egress_bps * 100 < candidate.max_egress_bps * $4
+		  AND $5 = ANY(candidate.supported_protocols)
+		ORDER BY (candidate.region = $3) DESC,
+		         candidate.active_allocations::double precision / candidate.max_allocations ASC,
+		         candidate.current_egress_bps::double precision / candidate.max_egress_bps ASC,
+		         random()
+		FOR UPDATE OF candidate SKIP LOCKED
+		LIMIT 1
+	`, oldNode.ID, previous.ConnectionID, oldNode.Region, threshold, oldAllocation.Protocol))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return next, ErrNoMigrationTarget
+		}
+		return Migration{}, err
+	}
+	newAllocation, err := scanAllocation(tx.QueryRow(ctx, `
+		INSERT INTO relay_allocations (
+			id, connection_id, room_id, relay_node_id, state, protocol,
+			max_bps, max_pps, max_total_bytes, expires_at, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, 'ALLOCATED', $5, $6, $7, $8, $9, $10, $10)
+		RETURNING `+allocationColumns,
+		newAllocationID, oldAllocation.ConnectionID, oldAllocation.RoomID, newNode.ID,
+		oldAllocation.Protocol, oldAllocation.MaxBPS, oldAllocation.MaxPPS,
+		oldAllocation.MaxTotalBytes, expiresAt, now,
+	))
+	if err != nil {
+		return Migration{}, err
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE relay_nodes SET active_allocations = active_allocations + 1, updated_at = $2 WHERE id = $1
+	`, newNode.ID, now); err != nil {
+		return Migration{}, err
+	}
+	bindDeadline := now.Add(bindTimeout)
+	next.NewAllocationID = newAllocation.ID
+	next.NewRelayNodeID = newNode.ID
+	next.NewAllocation = newAllocation
+	next.NewNode = newNode
+	next.BindDeadline = &bindDeadline
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO relay_migrations (
+			id, connection_id, old_allocation_id, new_allocation_id,
+			old_relay_node_id, new_relay_node_id, state, reason, attempt,
+			bind_deadline, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, 'BINDING', $7, $8, $9, $10, $10)
+	`, next.ID, next.ConnectionID, next.OldAllocationID, next.NewAllocationID,
+		next.OldRelayNodeID, next.NewRelayNodeID, next.Reason, next.Attempt, bindDeadline, now); err != nil {
+		return Migration{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Migration{}, err
+	}
+	newNode.ActiveAllocations++
+	next.NewNode = newNode
+	return next, nil
+}
+
+func (r *Repository) FailAllocation(ctx context.Context, allocationID, reason string, now time.Time) error {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	var nodeID string
+	err = tx.QueryRow(ctx, `
+		UPDATE relay_allocations
+		SET state = 'FAILED', failure_reason = $2, closed_at = COALESCE(closed_at, $3), updated_at = $3
+		WHERE id = $1 AND state IN ('ALLOCATED', 'BINDING', 'ACTIVE')
+		RETURNING relay_node_id
+	`, allocationID, reason, now).Scan(&nodeID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return tx.Commit(ctx)
+	}
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE relay_nodes
+		SET active_allocations = GREATEST(active_allocations - 1, 0), updated_at = $2
+		WHERE id = $1
+	`, nodeID, now); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
 func scanMigration(row pgx.Row) (Migration, error) {
 	var migration Migration
-	var dispatchedAt, completedAt sql.NullTime
+	var bindDeadline, dispatchedAt, completedAt sql.NullTime
+	var failureReason sql.NullString
 	err := row.Scan(
 		&migration.ID, &migration.ConnectionID, &migration.OldAllocationID, &migration.NewAllocationID,
-		&migration.OldRelayNodeID, &migration.NewRelayNodeID, &migration.State,
-		&dispatchedAt, &completedAt, &migration.CreatedAt, &migration.UpdatedAt,
+		&migration.OldRelayNodeID, &migration.NewRelayNodeID, &migration.State, &migration.Reason, &migration.Attempt,
+		&bindDeadline, &failureReason, &dispatchedAt, &completedAt, &migration.CreatedAt, &migration.UpdatedAt,
 	)
+	if bindDeadline.Valid {
+		migration.BindDeadline = &bindDeadline.Time
+	}
+	if failureReason.Valid {
+		migration.FailureReason = failureReason.String
+	}
 	if dispatchedAt.Valid {
 		migration.DispatchedAt = &dispatchedAt.Time
 	}
