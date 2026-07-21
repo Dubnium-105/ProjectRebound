@@ -62,6 +62,7 @@ type nodeResponse struct {
 	Zone                   string     `json:"zone"`
 	Provider               string     `json:"provider"`
 	State                  State      `json:"state"`
+	LoadState              LoadState  `json:"load_state"`
 	SoftwareVersion        string     `json:"software_version"`
 	ProtocolVersion        int        `json:"protocol_version"`
 	PublicEndpoints        []Endpoint `json:"public_endpoints"`
@@ -213,7 +214,7 @@ func defaultQuery(value, fallback string) string {
 func resultNode(node Node) nodeResponse {
 	return nodeResponse{
 		NodeID: node.ID, DisplayName: node.DisplayName, Region: node.Region, Zone: node.Zone, Provider: node.Provider,
-		State: node.State, SoftwareVersion: node.SoftwareVersion, ProtocolVersion: node.ProtocolVersion,
+		State: node.State, LoadState: node.LoadState, SoftwareVersion: node.SoftwareVersion, ProtocolVersion: node.ProtocolVersion,
 		PublicEndpoints: node.PublicEndpoints, SupportedProtocols: node.SupportedProtocols,
 		MaxAllocations: node.MaxAllocations, MaxEgressBPS: node.MaxEgressBPS,
 		ActiveAllocations: node.ActiveAllocations, CurrentEgressBPS: node.CurrentEgressBPS,

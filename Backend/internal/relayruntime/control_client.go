@@ -122,11 +122,12 @@ func (c *ControlClient) connectOnce(ctx context.Context) error {
 				return err
 			}
 		case <-heartbeats.C:
-			active, egress := c.runtime.Snapshot()
+			active, egress, ingress := c.runtime.Snapshot()
 			c.reportSequence++
 			snapshot := c.runtime.metrics.Snapshot()
 			if err := stream.Send(controlEnvelope("TrafficReport", map[string]any{
-				"active_allocations": active, "current_egress_bps": egress, "current_ingress_bps": 0,
+				"active_allocations": active, "current_egress_bps": egress, "current_ingress_bps": ingress,
+				"load_state": string(c.runtime.LoadState()),
 				"process_id": c.processID, "sequence": strconv.FormatUint(c.reportSequence, 10),
 				"packets_received_total":   strconv.FormatUint(snapshot.PacketsReceived, 10),
 				"packets_forwarded_total":  strconv.FormatUint(snapshot.PacketsForwarded, 10),

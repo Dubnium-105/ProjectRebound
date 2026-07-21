@@ -141,13 +141,13 @@ func (r *Repository) Heartbeat(ctx context.Context, nodeID string, input Heartbe
 		UPDATE relay_nodes
 		SET state = CASE WHEN state = 'DRAINING' THEN 'DRAINING' ELSE 'READY' END,
 		    active_allocations = $2, current_egress_bps = $3,
-		    current_ingress_bps = $4, last_heartbeat_at = $5,
-		    lease_expires_at = $6, updated_at = $5
+		    current_ingress_bps = $4, load_state = $5, last_heartbeat_at = $6,
+		    lease_expires_at = $7, updated_at = $6
 		WHERE id = $1 AND state <> 'REVOKED'
 		  AND $2 BETWEEN 0 AND max_allocations
 		  AND $3 >= 0 AND $4 >= 0
 		RETURNING `+nodeColumns,
-		nodeID, input.ActiveAllocations, input.CurrentEgressBPS, input.CurrentIngressBPS, now, leaseExpiresAt,
+		nodeID, input.ActiveAllocations, input.CurrentEgressBPS, input.CurrentIngressBPS, input.LoadState, now, leaseExpiresAt,
 	))
 }
 
@@ -270,6 +270,7 @@ func (r *Repository) Schedule(ctx context.Context, allocation Allocation, region
 		SELECT `+nodeColumns+`
 		FROM relay_nodes
 		WHERE state = 'READY'
+		  AND load_state IN ('NORMAL', 'DEGRADED')
 		  AND active_allocations * 100 < max_allocations * $2
 		  AND current_egress_bps * 100 < max_egress_bps * $2
 		  AND $3 = ANY(supported_protocols)
@@ -344,6 +345,7 @@ func (r *Repository) AvailableRegions(ctx context.Context) ([]string, error) {
 		SELECT DISTINCT region
 		FROM relay_nodes
 		WHERE state = 'READY'
+		  AND load_state IN ('NORMAL', 'DEGRADED')
 		  AND active_allocations < max_allocations
 		  AND current_egress_bps < max_egress_bps
 		ORDER BY region
@@ -395,7 +397,7 @@ func (r *Repository) PlanMigration(ctx context.Context, oldAllocationID, migrati
 	newNode, err := scanNode(tx.QueryRow(ctx, `
 		SELECT `+nodeColumns+`
 		FROM relay_nodes
-		WHERE state = 'READY' AND id <> $1
+		WHERE state = 'READY' AND load_state IN ('NORMAL', 'DEGRADED') AND id <> $1
 		  AND active_allocations * 100 < max_allocations * $3
 		  AND current_egress_bps * 100 < max_egress_bps * $3
 		  AND $4 = ANY(supported_protocols)
@@ -562,7 +564,7 @@ func (r *Repository) getActiveAllocation(ctx context.Context, tx pgx.Tx, connect
 }
 
 const nodeColumns = `
-	id, display_name, region, zone, provider, state, software_version,
+	id, display_name, region, zone, provider, state, load_state, software_version,
 	protocol_version, public_endpoints, supported_protocols, max_allocations,
 	max_egress_bps, active_allocations, current_egress_bps, current_ingress_bps,
 	certificate_fingerprint, certificate_expires_at, node_token_hash,
@@ -576,7 +578,7 @@ const allocationColumns = `
 `
 
 func prefixedNodeColumns(alias string) string {
-	return alias + `.id, ` + alias + `.display_name, ` + alias + `.region, ` + alias + `.zone, ` + alias + `.provider, ` + alias + `.state, ` + alias + `.software_version, ` +
+	return alias + `.id, ` + alias + `.display_name, ` + alias + `.region, ` + alias + `.zone, ` + alias + `.provider, ` + alias + `.state, ` + alias + `.load_state, ` + alias + `.software_version, ` +
 		alias + `.protocol_version, ` + alias + `.public_endpoints, ` + alias + `.supported_protocols, ` + alias + `.max_allocations, ` + alias + `.max_egress_bps, ` +
 		alias + `.active_allocations, ` + alias + `.current_egress_bps, ` + alias + `.current_ingress_bps, ` + alias + `.certificate_fingerprint, ` + alias + `.certificate_expires_at, ` +
 		alias + `.node_token_hash, ` + alias + `.config_version, ` + alias + `.last_heartbeat_at, ` + alias + `.lease_expires_at, ` + alias + `.drain_deadline, ` + alias + `.created_at, ` + alias + `.updated_at`
@@ -594,7 +596,7 @@ func scanNode(row pgx.Row) (Node, error) {
 	var leaseExpires sql.NullTime
 	var drainDeadline sql.NullTime
 	err := row.Scan(
-		&item.ID, &item.DisplayName, &item.Region, &item.Zone, &item.Provider, &item.State, &item.SoftwareVersion,
+		&item.ID, &item.DisplayName, &item.Region, &item.Zone, &item.Provider, &item.State, &item.LoadState, &item.SoftwareVersion,
 		&item.ProtocolVersion, &endpoints, &item.SupportedProtocols, &item.MaxAllocations,
 		&item.MaxEgressBPS, &item.ActiveAllocations, &item.CurrentEgressBPS, &item.CurrentIngressBPS,
 		&item.CertificateFingerprint, &item.CertificateExpiresAt, &item.NodeTokenHash,
@@ -642,7 +644,7 @@ func scanAllocationAndNode(row pgx.Row) (Allocation, Node, error) {
 		&allocation.ID, &allocation.ConnectionID, &allocation.RoomID, &allocation.RelayNodeID, &allocation.State, &allocation.Protocol,
 		&allocation.MaxBPS, &allocation.MaxPPS, &allocation.MaxTotalBytes, &allocation.ExpiresAt,
 		&allocation.CreatedAt, &allocation.UpdatedAt, &closedAt,
-		&node.ID, &node.DisplayName, &node.Region, &node.Zone, &node.Provider, &node.State, &node.SoftwareVersion,
+		&node.ID, &node.DisplayName, &node.Region, &node.Zone, &node.Provider, &node.State, &node.LoadState, &node.SoftwareVersion,
 		&node.ProtocolVersion, &endpoints, &node.SupportedProtocols, &node.MaxAllocations,
 		&node.MaxEgressBPS, &node.ActiveAllocations, &node.CurrentEgressBPS, &node.CurrentIngressBPS,
 		&node.CertificateFingerprint, &node.CertificateExpiresAt, &node.NodeTokenHash,

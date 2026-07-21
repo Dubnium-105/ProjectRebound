@@ -32,5 +32,9 @@ max_allocations_per_ip: 100
 max_ip_rate_states: 100000
 max_ingress_packets_per_second: 100000
 temporary_ban_seconds: 60
+max_ingress_mbps: 200
+max_memory_mb: 512
+degraded_threshold_percent: 70
+reject_new_threshold_percent: 85
 nat_rebind_window_seconds: 30
 max_token_replay_entries: 4000

@@ -214,6 +214,7 @@ func (s *ControlServer) handleNodeMessage(ctx context.Context, nodeID string, me
 			ActiveAllocations: int(numberField(payload, "active_allocations")),
 			CurrentEgressBPS:  int64(numberField(payload, "current_egress_bps")),
 			CurrentIngressBPS: int64(numberField(payload, "current_ingress_bps")),
+			LoadState:         LoadState(stringField(payload, "load_state")),
 		})
 		if err != nil {
 			return status.Error(codes.FailedPrecondition, "relay heartbeat rejected")

@@ -47,6 +47,10 @@ type Config struct {
 	MaxIPRateStates       int        `yaml:"max_ip_rate_states"`
 	MaxIngressPPS         int        `yaml:"max_ingress_packets_per_second"`
 	TemporaryBanSeconds   int        `yaml:"temporary_ban_seconds"`
+	MaxIngressMbps        int        `yaml:"max_ingress_mbps"`
+	MaxMemoryMB           int        `yaml:"max_memory_mb"`
+	DegradedThresholdPct  int        `yaml:"degraded_threshold_percent"`
+	RejectNewThresholdPct int        `yaml:"reject_new_threshold_percent"`
 	NATRebindWindowSecs   int        `yaml:"nat_rebind_window_seconds"`
 	MaxTokenReplayEntries int        `yaml:"max_token_replay_entries"`
 }
@@ -62,6 +66,7 @@ var DefaultConfig = Config{
 	NATRebindWindowSecs: 30, MaxTokenReplayEntries: 4000,
 	BindInitPerSecond: 20, BindProofPerSecond: 10, InvalidTokensPerMin: 30,
 	MaxAllocationsPerIP: 100, MaxIPRateStates: 100_000, MaxIngressPPS: 100_000, TemporaryBanSeconds: 60,
+	MaxIngressMbps: 200, MaxMemoryMB: 512, DegradedThresholdPct: 70, RejectNewThresholdPct: 85,
 }
 
 func LoadConfig(path string) (Config, error) {
@@ -130,6 +135,10 @@ func applyEdgeEnv(cfg *Config) {
 		"EDGE_RELAY_MAX_IP_RATE_STATES":             &cfg.MaxIPRateStates,
 		"EDGE_RELAY_MAX_INGRESS_PACKETS_PER_SECOND": &cfg.MaxIngressPPS,
 		"EDGE_RELAY_TEMPORARY_BAN_SECONDS":          &cfg.TemporaryBanSeconds,
+		"EDGE_RELAY_MAX_INGRESS_MBPS":               &cfg.MaxIngressMbps,
+		"EDGE_RELAY_MAX_MEMORY_MB":                  &cfg.MaxMemoryMB,
+		"EDGE_RELAY_DEGRADED_THRESHOLD_PERCENT":     &cfg.DegradedThresholdPct,
+		"EDGE_RELAY_REJECT_NEW_THRESHOLD_PERCENT":   &cfg.RejectNewThresholdPct,
 	} {
 		if value, err := strconv.Atoi(os.Getenv(name)); err == nil && value > 0 {
 			*target = value
@@ -165,6 +174,10 @@ func (c Config) Validate() error {
 	if c.BindInitPerSecond < 1 || c.BindProofPerSecond < 1 || c.InvalidTokensPerMin < 1 ||
 		c.MaxAllocationsPerIP < 1 || c.MaxIPRateStates < 1 || c.MaxIngressPPS < 1 || c.TemporaryBanSeconds < 1 {
 		errs = append(errs, errors.New("relay per-IP and ingress limits must be positive"))
+	}
+	if c.MaxIngressMbps < 1 || c.MaxMemoryMB < 1 || c.DegradedThresholdPct < 1 ||
+		c.RejectNewThresholdPct <= c.DegradedThresholdPct || c.RejectNewThresholdPct > 100 {
+		errs = append(errs, errors.New("relay overload thresholds and capacities are invalid"))
 	}
 	if len(c.AdvertisedEndpoints) == 0 {
 		errs = append(errs, errors.New("at least one advertised endpoint is required"))

@@ -25,6 +25,7 @@ type TrafficTelemetry struct {
 	TokenInvalid      uint64
 	RateLimitDrops    uint64
 	ControlReconnects uint64
+	LoadState         string
 }
 
 type TelemetryStore struct {
@@ -59,6 +60,11 @@ func (s *TelemetryStore) Record(nodeID string, payload map[string]any, receivedA
 		return fmt.Errorf("valid sequence is required")
 	}
 	report := TrafficTelemetry{ProcessID: processID, Sequence: sequence, ReceivedAt: receivedAt.UTC()}
+	report.LoadState = stringField(payload, "load_state")
+	if report.LoadState != "" && report.LoadState != "NORMAL" && report.LoadState != "DEGRADED" &&
+		report.LoadState != "REJECT_NEW" && report.LoadState != "DRAINING" {
+		return fmt.Errorf("invalid relay load_state")
+	}
 	fields := []struct {
 		name   string
 		target *uint64
@@ -152,6 +158,7 @@ func (m *RelayMetricsWriter) WritePrometheus(ctx context.Context, w io.Writer) e
 	writeMetricType(w, "relay_node_lease_remaining_seconds", "gauge")
 	writeMetricType(w, "relay_node_control_connected", "gauge")
 	writeMetricType(w, "relay_node_telemetry_report_age_seconds", "gauge")
+	writeMetricType(w, "relay_node_load_state", "gauge")
 	for _, name := range []string{
 		"relay_node_packets_received_total", "relay_node_packets_forwarded_total",
 		"relay_node_packets_dropped_total", "relay_node_bytes_forwarded_total",
@@ -169,6 +176,11 @@ func (m *RelayMetricsWriter) WritePrometheus(ctx context.Context, w io.Writer) e
 		_, _ = fmt.Fprintf(w, "relay_node_max_allocations%s %d\n", labels, node.MaxAllocations)
 		_, _ = fmt.Fprintf(w, "relay_node_current_egress_bps%s %d\n", labels, node.CurrentEgressBPS)
 		_, _ = fmt.Fprintf(w, "relay_node_current_ingress_bps%s %d\n", labels, node.CurrentIngressBPS)
+		loadState := node.LoadState
+		if loadState == "" {
+			loadState = LoadStateNormal
+		}
+		_, _ = fmt.Fprintf(w, "relay_node_load_state%s 1\n", addMetricLabel(labels, "state", string(loadState)))
 		if node.LastHeartbeatAt != nil {
 			_, _ = fmt.Fprintf(w, "relay_node_heartbeat_age_seconds%s %g\n", labels, nonnegativeSeconds(now.Sub(*node.LastHeartbeatAt)))
 		}

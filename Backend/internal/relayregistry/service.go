@@ -161,6 +161,13 @@ func (s *Service) Heartbeat(ctx context.Context, nodeID string, input HeartbeatI
 	if input.ActiveAllocations < 0 || input.CurrentEgressBPS < 0 || input.CurrentIngressBPS < 0 {
 		return Node{}, invalid("Invalid relay heartbeat.", nil)
 	}
+	if input.LoadState == "" {
+		input.LoadState = LoadStateNormal
+	}
+	if input.LoadState != LoadStateNormal && input.LoadState != LoadStateDegraded &&
+		input.LoadState != LoadStateRejectNew && input.LoadState != LoadStateDraining {
+		return Node{}, invalid("Invalid relay heartbeat load state.", nil)
+	}
 	now := s.now().UTC()
 	node, err := s.repository.Heartbeat(
 		ctx, nodeID, input, now,

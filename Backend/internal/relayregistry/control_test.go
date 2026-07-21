@@ -39,7 +39,7 @@ func TestTelemetryStoreOrdersReportsAndAcceptsProcessReset(t *testing.T) {
 		"packets_dropped_total": "1", "bytes_forwarded_total": "1000",
 		"bind_success_total": "3", "bind_failed_total": "1",
 		"token_invalid_total": "2", "rate_limit_drops_total": "4",
-		"control_reconnects_total": "5",
+		"control_reconnects_total": "5", "load_state": "DEGRADED",
 	}
 	if err := store.Record("relay_a", base, time.Unix(100, 0)); err != nil {
 		t.Fatal(err)
@@ -53,7 +53,7 @@ func TestTelemetryStoreOrdersReportsAndAcceptsProcessReset(t *testing.T) {
 	if err := store.Record("relay_a", stale, time.Unix(101, 0)); err != nil {
 		t.Fatal(err)
 	}
-	if got := store.Snapshot()["relay_a"]; got.Sequence != 2 || got.PacketsReceived != 10 {
+	if got := store.Snapshot()["relay_a"]; got.Sequence != 2 || got.PacketsReceived != 10 || got.LoadState != "DEGRADED" {
 		t.Fatalf("stale report replaced current telemetry: %#v", got)
 	}
 	reset := stale
@@ -71,5 +71,19 @@ func TestTelemetryStoreRejectsImpreciseOrMissingCounters(t *testing.T) {
 	store := NewTelemetryStore()
 	if err := store.Record("relay_a", map[string]any{"process_id": "p", "sequence": "1"}, time.Now()); err == nil {
 		t.Fatal("incomplete telemetry report was accepted")
+	}
+}
+
+func TestTelemetryStoreRejectsInvalidLoadState(t *testing.T) {
+	payload := map[string]any{
+		"process_id": "p", "sequence": "1", "load_state": "OVERLOADED",
+		"packets_received_total": "0", "packets_forwarded_total": "0",
+		"packets_dropped_total": "0", "bytes_forwarded_total": "0",
+		"bind_success_total": "0", "bind_failed_total": "0",
+		"token_invalid_total": "0", "rate_limit_drops_total": "0",
+		"control_reconnects_total": "0",
+	}
+	if err := NewTelemetryStore().Record("relay_a", payload, time.Now()); err == nil {
+		t.Fatal("invalid load state was accepted")
 	}
 }

@@ -20,6 +20,7 @@ func TestMetricsExposeRequiredRelaySeries(t *testing.T) {
 		"relay_token_replay_total", "relay_nat_rebind_total",
 		"relay_packet_authentication_failed_total", "relay_packet_too_large_total", "relay_packet_replay_dropped_total",
 		"relay_control_connected", "relay_control_reconnects_total",
+		"relay_load_state", "relay_load_state_transitions_total",
 	} {
 		if !strings.Contains(body, name) {
 			t.Errorf("metric %s is missing", name)

@@ -247,7 +247,7 @@ func TestRuntimeRateLimitsTotalBytesAndExpiresInMemoryAllocations(t *testing.T) 
 	if len(runtime.Process(refilled, hostAddress)) != 1 {
 		t.Fatal("rate limit did not refill")
 	}
-	_, egressBPS := runtime.Snapshot()
+	_, egressBPS, _ := runtime.Snapshot()
 	if egressBPS != 8 {
 		t.Fatalf("reported egress = %d bps", egressBPS)
 	}
@@ -365,6 +365,51 @@ func TestRuntimeDrainsWithoutBreakingExistingAllocation(t *testing.T) {
 	first, second := <-runtime.Events(), <-runtime.Events()
 	if first.Type != "AllocationClosed" || second.Type != "DrainCompleted" {
 		t.Fatalf("drain completion events = %#v, %#v", first, second)
+	}
+}
+
+func TestRuntimeOverloadStateRejectsOnlyNewAllocations(t *testing.T) {
+	now := time.Date(2026, 7, 17, 12, 0, 0, 0, time.UTC)
+	signer := newTestSigner(t, "relay-key-a")
+	runtime := testRuntime(t, signer, now, func(cfg *Config) {
+		cfg.MaxAllocations = 2
+		cfg.DegradedThresholdPct = 50
+		cfg.RejectNewThresholdPct = 75
+		cfg.MaxMemoryMB = 1_000_000
+		cfg.MaxIngressMbps = 1_000_000
+		cfg.MaxIngressPPS = 1_000_000
+	})
+	firstAddress := netip.MustParseAddrPort("198.51.100.10:50000")
+	firstPeerAddress := netip.MustParseAddrPort("198.51.100.11:50001")
+	firstToken := signer.sign(t, testClaims(now, "overload-a-host", "HOST", "relay_test", "alloc_overload_a"))
+	firstPeerToken := signer.sign(t, testClaims(now, "overload-a-peer", "PEER", "relay_test", "alloc_overload_a"))
+	firstHandle := bindForTest(t, runtime, firstToken, firstAddress)
+	runtime.Snapshot()
+	if runtime.LoadState() != LoadStateDegraded {
+		t.Fatalf("load state after 50%% allocations = %s", runtime.LoadState())
+	}
+	secondToken := signer.sign(t, testClaims(now, "overload-b-host", "HOST", "relay_test", "alloc_overload_b"))
+	bindForTest(t, runtime, secondToken, netip.MustParseAddrPort("198.51.100.12:50002"))
+	runtime.Snapshot()
+	if runtime.LoadState() != LoadStateRejectNew {
+		t.Fatalf("load state at capacity = %s", runtime.LoadState())
+	}
+	thirdToken := signer.sign(t, testClaims(now, "overload-c-host", "HOST", "relay_test", "alloc_overload_c"))
+	if result := bindWithoutAssertions(runtime, thirdToken, netip.MustParseAddrPort("198.51.100.13:50003")); len(result) != 0 {
+		t.Fatal("REJECT_NEW state accepted a new allocation")
+	}
+	bindForTest(t, runtime, firstPeerToken, firstPeerAddress)
+	<-runtime.Events()
+	packet := encodeDataPacket(firstHandle, RoleHost, 1, deriveDataKey(firstToken), []byte("existing"))
+	if output := runtime.Process(packet, firstAddress); len(output) != 1 {
+		t.Fatal("REJECT_NEW state interrupted an existing allocation")
+	}
+	runtime.SetDraining(true)
+	if runtime.LoadState() != LoadStateDraining {
+		t.Fatalf("drain load state = %s", runtime.LoadState())
+	}
+	if runtime.metrics.loadStateTransitions.Load() < 3 {
+		t.Fatalf("load-state transitions = %d", runtime.metrics.loadStateTransitions.Load())
 	}
 }
 

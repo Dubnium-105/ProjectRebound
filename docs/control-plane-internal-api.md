@@ -171,7 +171,7 @@ Edge -> Control Plane：
 | Type | 关键 payload | 说明 |
 | --- | --- | --- |
 | `Hello` | `node_id`, `software_version`, `protocol_version` | 必须是连接首包 |
-| `Heartbeat` | `active_allocations`, `current_egress_bps`, `current_ingress_bps` | 租约与负载 |
+| `Heartbeat` | `active_allocations`, `current_egress_bps`, `current_ingress_bps`, `load_state` | 租约与负载；`load_state` 为 `NORMAL`、`DEGRADED`、`REJECT_NEW` 或 `DRAINING` |
 | `CapacityReport` | 同负载字段 | 容量更新 |
 | `TrafficReport` | 心跳负载字段，以及 `process_id`、单调递增 `sequence` 和累计 packets/bytes/bind/token/rate-limit/reconnect 计数器 | 复用已认证 mTLS 流更新租约、负载和节点遥测；累计整数使用十进制字符串，避免 `protobuf.Struct` 的浮点精度损失 |
 | `AllocationOpened` | `allocation_id` | allocation 已安装 |
@@ -222,7 +222,7 @@ Accept: text/plain
 GET http://127.0.0.1:9100/metrics
 ```
 
-关键指标包括 active allocations、收发/丢弃包数、转发字节、bind 成败、token invalid、rate-limit drop、控制流连接和重连次数。通过节点本地 Prometheus agent 抓取，不得把 9100 暴露公网。
+关键指标包括 active allocations、收发/丢弃包数、转发字节、bind 成败、token invalid、rate-limit drop、控制流连接和重连次数，以及按 `state` 标注的 `relay_load_state` 和状态切换计数。过载状态经 mTLS `TrafficReport` 上报并持久化；调度器不会把新连接或迁移分配到 `REJECT_NEW`/`DRAINING` 节点。通过节点本地 Prometheus agent 抓取，不得把 9100 暴露公网。
 
 ## 8. 内部错误和审计
 

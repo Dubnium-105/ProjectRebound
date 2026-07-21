@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net"
 	"net/netip"
+	goruntime "runtime"
 	"sync"
 	"time"
 )
@@ -16,6 +17,15 @@ type RuntimeEvent struct {
 	Type         string
 	AllocationID string
 }
+
+type LoadState string
+
+const (
+	LoadStateNormal    LoadState = "NORMAL"
+	LoadStateDegraded  LoadState = "DEGRADED"
+	LoadStateRejectNew LoadState = "REJECT_NEW"
+	LoadStateDraining  LoadState = "DRAINING"
+)
 
 type OutboundDatagram struct {
 	Address netip.AddrPort
@@ -68,25 +78,28 @@ type ipRateState struct {
 }
 
 type Runtime struct {
-	mu               sync.Mutex
-	nodeID           string
-	config           Config
-	verifier         *TokenVerifier
-	cookies          *CookieManager
-	metrics          *Metrics
-	allocations      map[string]*relayAllocation
-	byHandle         map[uint64]*relayAllocation
-	usedTokens       map[string]replayBinding
-	ipStates         map[netip.Addr]*ipRateState
-	ipAllocations    map[netip.Addr]map[string]int
-	nodeByteBucket   tokenBucket
-	nodePacketBucket tokenBucket
-	intervalBytes    int64
-	draining         bool
-	now              func() time.Time
-	events           chan RuntimeEvent
-	shutdown         chan struct{}
-	shutdownOnce     sync.Once
+	mu                   sync.Mutex
+	nodeID               string
+	config               Config
+	verifier             *TokenVerifier
+	cookies              *CookieManager
+	metrics              *Metrics
+	allocations          map[string]*relayAllocation
+	byHandle             map[uint64]*relayAllocation
+	usedTokens           map[string]replayBinding
+	ipStates             map[netip.Addr]*ipRateState
+	ipAllocations        map[netip.Addr]map[string]int
+	nodeByteBucket       tokenBucket
+	nodePacketBucket     tokenBucket
+	intervalBytes        int64
+	intervalIngressBytes int64
+	intervalPackets      int64
+	draining             bool
+	loadState            LoadState
+	now                  func() time.Time
+	events               chan RuntimeEvent
+	shutdown             chan struct{}
+	shutdownOnce         sync.Once
 }
 
 func NewRuntime(nodeID string, cfg Config, verifier *TokenVerifier, metrics *Metrics) (*Runtime, error) {
@@ -108,6 +121,7 @@ func NewRuntime(nodeID string, cfg Config, verifier *TokenVerifier, metrics *Met
 		ipAllocations:    make(map[netip.Addr]map[string]int),
 		nodeByteBucket:   newTokenBucket(float64(cfg.MaxEgressBPS)/8, float64(cfg.MaxEgressBPS)/8, now),
 		nodePacketBucket: newTokenBucket(float64(cfg.MaxIngressPPS), float64(cfg.MaxIngressPPS), now),
+		loadState:        LoadStateNormal,
 		now:              time.Now, events: make(chan RuntimeEvent, 256), shutdown: make(chan struct{}),
 	}, nil
 }
@@ -119,18 +133,34 @@ func (r *Runtime) UpdateKeyset(keyset Keyset) error { return r.verifier.Update(k
 func (r *Runtime) SetDraining(value bool) {
 	r.mu.Lock()
 	r.draining = value
+	if value {
+		r.setLoadStateLocked(LoadStateDraining)
+	} else {
+		r.setLoadStateLocked(LoadStateNormal)
+	}
 	if value && len(r.allocations) == 0 {
 		r.emit(RuntimeEvent{Type: "DrainCompleted"})
 	}
 	r.mu.Unlock()
 }
 
-func (r *Runtime) Snapshot() (active int, egressBPS int64) {
+func (r *Runtime) Snapshot() (active int, egressBPS, ingressBPS int64) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	egressBPS = r.intervalBytes * 8 / int64(r.config.HeartbeatSeconds)
+	ingressBPS = r.intervalIngressBytes * 8 / int64(r.config.HeartbeatSeconds)
+	packetsPerSecond := r.intervalPackets / int64(r.config.HeartbeatSeconds)
+	r.updateLoadStateLocked(egressBPS, ingressBPS, packetsPerSecond)
 	r.intervalBytes = 0
-	return len(r.allocations), egressBPS
+	r.intervalIngressBytes = 0
+	r.intervalPackets = 0
+	return len(r.allocations), egressBPS, ingressBPS
+}
+
+func (r *Runtime) LoadState() LoadState {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.loadState
 }
 
 func (r *Runtime) RequestShutdown()                   { r.shutdownOnce.Do(func() { close(r.shutdown) }) }
@@ -148,6 +178,8 @@ func (r *Runtime) Process(packet []byte, address netip.AddrPort) []OutboundDatag
 	now := r.now().UTC()
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.intervalIngressBytes += int64(len(packet))
+	r.intervalPackets++
 	if !r.nodePacketBucket.Allow(1, now) {
 		r.drop(true)
 		return nil
@@ -255,7 +287,7 @@ func (r *Runtime) bind(token string, address netip.AddrPort, now time.Time, vers
 	}
 	allocation := r.allocations[claims.AllocationID]
 	if allocation == nil {
-		if r.draining || len(r.allocations) >= r.config.MaxAllocations {
+		if r.draining || r.loadState == LoadStateRejectNew || len(r.allocations) >= r.config.MaxAllocations {
 			r.bindFailure(false)
 			return nil
 		}
@@ -376,6 +408,37 @@ func (r *Runtime) forward(packet []byte, source netip.AddrPort, now time.Time) [
 
 func (r *Runtime) acceptsVersion(version byte) bool {
 	return version == ProtocolVersion || version == ProtocolVersionV1 && r.config.AcceptProtocolV1
+}
+
+func (r *Runtime) updateLoadStateLocked(egressBPS, ingressBPS, packetsPerSecond int64) {
+	if r.draining {
+		r.setLoadStateLocked(LoadStateDraining)
+		return
+	}
+	var memory goruntime.MemStats
+	goruntime.ReadMemStats(&memory)
+	utilization := max(
+		float64(len(r.allocations))*100/float64(r.config.MaxAllocations),
+		float64(egressBPS)*100/float64(r.config.MaxEgressBPS),
+		float64(ingressBPS)*100/float64(int64(r.config.MaxIngressMbps)*1_000_000),
+		float64(packetsPerSecond)*100/float64(r.config.MaxIngressPPS),
+		float64(memory.Alloc)*100/float64(int64(r.config.MaxMemoryMB)*1024*1024),
+	)
+	state := LoadStateNormal
+	if utilization >= float64(r.config.RejectNewThresholdPct) {
+		state = LoadStateRejectNew
+	} else if utilization >= float64(r.config.DegradedThresholdPct) {
+		state = LoadStateDegraded
+	}
+	r.setLoadStateLocked(state)
+}
+
+func (r *Runtime) setLoadStateLocked(state LoadState) {
+	if r.loadState == state {
+		return
+	}
+	r.loadState = state
+	r.metrics.setLoadState(state)
 }
 
 func (r *Runtime) RevokeAllocation(allocationID string) { r.closeAllocation(allocationID, true) }

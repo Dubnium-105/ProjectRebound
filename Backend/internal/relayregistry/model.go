@@ -4,6 +4,8 @@ import "time"
 
 type State string
 
+type LoadState string
+
 const (
 	StateBootstrapping State = "BOOTSTRAPPING"
 	StateConnecting    State = "CONNECTING"
@@ -12,6 +14,13 @@ const (
 	StateUnhealthy     State = "UNHEALTHY"
 	StateOffline       State = "OFFLINE"
 	StateRevoked       State = "REVOKED"
+)
+
+const (
+	LoadStateNormal    LoadState = "NORMAL"
+	LoadStateDegraded  LoadState = "DEGRADED"
+	LoadStateRejectNew LoadState = "REJECT_NEW"
+	LoadStateDraining  LoadState = "DRAINING"
 )
 
 type Endpoint struct {
@@ -27,6 +36,7 @@ type Node struct {
 	Zone                   string
 	Provider               string
 	State                  State
+	LoadState              LoadState
 	SoftwareVersion        string
 	ProtocolVersion        int
 	PublicEndpoints        []Endpoint
@@ -74,6 +84,7 @@ type HeartbeatInput struct {
 	ActiveAllocations int
 	CurrentEgressBPS  int64
 	CurrentIngressBPS int64
+	LoadState         LoadState
 }
 
 type ListFilter struct {

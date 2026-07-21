@@ -25,6 +25,8 @@ type Metrics struct {
 	rateLimitDrops       atomic.Uint64
 	controlConnected     atomic.Int64
 	controlReconnects    atomic.Uint64
+	loadState            atomic.Int32
+	loadStateTransitions atomic.Uint64
 }
 
 type MetricsSnapshot struct {
@@ -43,6 +45,8 @@ type MetricsSnapshot struct {
 	ReplayDropped        uint64
 	RateLimitDrops       uint64
 	ControlReconnects    uint64
+	LoadState            LoadState
+	LoadStateTransitions uint64
 }
 
 func NewMetrics() *Metrics { return &Metrics{} }
@@ -57,6 +61,7 @@ func (m *Metrics) Snapshot() MetricsSnapshot {
 		AuthenticationFailed: m.authenticationFailed.Load(), PacketTooLarge: m.packetTooLarge.Load(),
 		ReplayDropped:  m.replayDropped.Load(),
 		RateLimitDrops: m.rateLimitDrops.Load(), ControlReconnects: m.controlReconnects.Load(),
+		LoadState: loadStateFromMetric(m.loadState.Load()), LoadStateTransitions: m.loadStateTransitions.Load(),
 	}
 }
 
@@ -100,7 +105,45 @@ relay_control_reconnects_total %d
 			m.bindFailed.Load(), m.tokenInvalid.Load(), m.tokenReplay.Load(), m.natRebind.Load(),
 			m.authenticationFailed.Load(), m.packetTooLarge.Load(), m.replayDropped.Load(), m.rateLimitDrops.Load(),
 			m.controlConnected.Load(), m.controlReconnects.Load())
+		state := loadStateFromMetric(m.loadState.Load())
+		_, _ = fmt.Fprintln(w, "# TYPE relay_load_state gauge")
+		for _, candidate := range []LoadState{LoadStateNormal, LoadStateDegraded, LoadStateRejectNew, LoadStateDraining} {
+			value := 0
+			if candidate == state {
+				value = 1
+			}
+			_, _ = fmt.Fprintf(w, "relay_load_state{state=%q} %d\n", candidate, value)
+		}
+		_, _ = fmt.Fprintf(w, "# TYPE relay_load_state_transitions_total counter\nrelay_load_state_transitions_total %d\n", m.loadStateTransitions.Load())
 	})
+}
+
+func (m *Metrics) setLoadState(state LoadState) {
+	value := int32(0)
+	switch state {
+	case LoadStateDegraded:
+		value = 1
+	case LoadStateRejectNew:
+		value = 2
+	case LoadStateDraining:
+		value = 3
+	}
+	if m.loadState.Swap(value) != value {
+		m.loadStateTransitions.Add(1)
+	}
+}
+
+func loadStateFromMetric(value int32) LoadState {
+	switch value {
+	case 1:
+		return LoadStateDegraded
+	case 2:
+		return LoadStateRejectNew
+	case 3:
+		return LoadStateDraining
+	default:
+		return LoadStateNormal
+	}
 }
 
 func (m *Metrics) RunServer(ctx context.Context, address string) error {

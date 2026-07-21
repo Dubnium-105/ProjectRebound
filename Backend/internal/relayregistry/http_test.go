@@ -7,7 +7,7 @@ import (
 )
 
 func TestPublicNodeResponseDoesNotExposeCredentials(t *testing.T) {
-	node := Node{ID: "relay_a", NodeTokenHash: []byte("credential-hash"), CertificateFingerprint: "fingerprint"}
+	node := Node{ID: "relay_a", LoadState: LoadStateRejectNew, NodeTokenHash: []byte("credential-hash"), CertificateFingerprint: "fingerprint"}
 	encoded, err := json.Marshal(resultNode(node))
 	if err != nil {
 		t.Fatal(err)
@@ -15,5 +15,8 @@ func TestPublicNodeResponseDoesNotExposeCredentials(t *testing.T) {
 	body := string(encoded)
 	if strings.Contains(body, "credential-hash") || strings.Contains(body, "node_token") {
 		t.Fatalf("node response exposed a credential: %s", body)
+	}
+	if !strings.Contains(body, `"load_state":"REJECT_NEW"`) {
+		t.Fatalf("node response omitted load state: %s", body)
 	}
 }

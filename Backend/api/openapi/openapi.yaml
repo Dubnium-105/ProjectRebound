@@ -1932,7 +1932,7 @@ components:
     RelayNode:
       type: object
       description: Internal operational view. node_token and node_token_hash are intentionally absent.
-      required: [node_id, display_name, region, zone, provider, state, software_version, protocol_version, public_endpoints, supported_protocols, max_allocations, max_egress_bps, active_allocations, current_egress_bps, current_ingress_bps, certificate_fingerprint, certificate_expires_at, config_version]
+      required: [node_id, display_name, region, zone, provider, state, load_state, software_version, protocol_version, public_endpoints, supported_protocols, max_allocations, max_egress_bps, active_allocations, current_egress_bps, current_ingress_bps, certificate_fingerprint, certificate_expires_at, config_version]
       properties:
         node_id: {type: string}
         display_name: {type: string}
@@ -1941,6 +1941,7 @@ components:
         provider: {type: string}
         state:
           $ref: "#/components/schemas/RelayNodeState"
+        load_state: {type: string, enum: [NORMAL, DEGRADED, REJECT_NEW, DRAINING]}
         software_version: {type: string}
         protocol_version: {type: integer, minimum: 1}
         public_endpoints:
