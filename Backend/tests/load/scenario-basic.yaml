@@ -1,0 +1,15 @@
+scenario: basic
+control_plane_url: http://127.0.0.1:8080
+realtime_url: ws://127.0.0.1:8080/v1/realtime/connect
+clients: 100
+rooms: 30
+relay_connections: 20
+duration: 1h
+request_interval_ms: 1000
+traffic:
+  packets_per_second: 20
+  payload_bytes: 256
+  jitter_ms: 20
+failure_injection:
+  disconnect_percent: 5
+  reconnect_delay_seconds: 10
