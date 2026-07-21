@@ -286,7 +286,7 @@ func (m *Metrics) writeDatabaseGauges(ctx context.Context, w http.ResponseWriter
 		if err := m.pool.QueryRow(queryCtx, "SELECT COUNT(*) FROM p2p_rooms WHERE state <> 'CLOSED'").Scan(&activeRooms); err != nil {
 			scrapeError = 1
 		}
-		if err := m.pool.QueryRow(queryCtx, "SELECT COUNT(*) FROM relay_allocations WHERE state IN ('ALLOCATED', 'BINDING', 'ACTIVE')").Scan(&activeAllocations); err != nil {
+		if err := m.pool.QueryRow(queryCtx, "SELECT COUNT(*) FROM relay_allocations WHERE state IN ('ALLOCATED', 'BINDING', 'ACTIVE', 'MIGRATING')").Scan(&activeAllocations); err != nil {
 			scrapeError = 1
 		}
 		queries := []struct {

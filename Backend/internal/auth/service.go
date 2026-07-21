@@ -633,6 +633,11 @@ var validRiskSeverities = map[string]bool{"LOW": true, "MEDIUM": true, "HIGH": t
 func maskIPAddress(value string) string {
 	ip := net.ParseIP(value)
 	if ip == nil {
+		if parsed, _, err := net.ParseCIDR(value); err == nil {
+			ip = parsed
+		}
+	}
+	if ip == nil {
 		return ""
 	}
 	if ipv4 := ip.To4(); ipv4 != nil {

@@ -4,7 +4,7 @@ Record UTC timestamps and evidence links for every checked item.
 
 - [ ] Candidate is a reviewed commit on `main`; CI and image provenance succeeded.
 - [ ] Control Plane and Edge Relay image references are immutable and digests are recorded.
-- [ ] Release record includes commit, build time, Go version, protocol 2, and schema 15.
+- [ ] Release record includes commit, build time, Go version, protocol 2, and schema 16.
 - [ ] Production configuration, signing keys, Relay CA, and administrator recovery access were checked without printing secrets.
 - [ ] Encrypted PostgreSQL backup, checksum, off-host copy, and verification succeeded.
 - [ ] `scripts/release/preflight.sh` completed without a skipped critical check.

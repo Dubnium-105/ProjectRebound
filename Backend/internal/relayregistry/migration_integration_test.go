@@ -62,7 +62,11 @@ func TestRelayMigrationLifecycleAgainstPostgreSQL(t *testing.T) {
 
 	suffix := time.Now().UnixNano()
 	now := time.Now().UTC().Truncate(time.Second)
-	playerIDs := []string{fmt.Sprintf("p_migration_host_%d", suffix), fmt.Sprintf("p_migration_peer_%d", suffix)}
+	playerIDs := []string{
+		fmt.Sprintf("p_migration_host_%d", suffix),
+		fmt.Sprintf("p_migration_peer_%d", suffix),
+		fmt.Sprintf("p_migration_timeout_peer_%d", suffix),
+	}
 	roomID := fmt.Sprintf("room_migration_%d", suffix)
 	connectionID := fmt.Sprintf("conn_migration_%d", suffix)
 	timeoutConnectionID := fmt.Sprintf("conn_migration_timeout_%d", suffix)
@@ -170,14 +174,17 @@ func TestRelayMigrationLifecycleAgainstPostgreSQL(t *testing.T) {
 	if _, err := tokenManager.Verify(migration.Allocation.HostToken, newNodeID); err != nil {
 		t.Fatalf("new host token: %v", err)
 	}
-	if messages := publisher.messages[oldNodeID]; len(messages) != 1 || messages[0].Type != "RevokeAllocation" {
-		t.Fatalf("old relay commands = %#v", messages)
+	if messages := publisher.messages[oldNodeID]; len(messages) != 0 {
+		t.Fatalf("old allocation was revoked before replacement BIND completed: %#v", messages)
 	}
 	if planned, dispatched, err := service.MigrateFailedRelays(ctx); err != nil || planned != 0 || dispatched != 0 {
 		t.Fatalf("idempotent migration sweep = %d/%d, %v", planned, dispatched, err)
 	}
 	if err := service.AllocationOpened(ctx, newNodeID, migration.Allocation.AllocationID); err != nil {
 		t.Fatal(err)
+	}
+	if messages := publisher.messages[oldNodeID]; len(messages) != 1 || messages[0].Type != "RevokeAllocation" {
+		t.Fatalf("old relay commands after replacement BIND = %#v", messages)
 	}
 	if len(coordinator.bound) != 1 || coordinator.bound[0][2] != oldAllocationID {
 		t.Fatalf("completed migration binding = %#v", coordinator.bound)
@@ -195,13 +202,12 @@ func TestRelayMigrationLifecycleAgainstPostgreSQL(t *testing.T) {
 	if oldState != "FAILED" || newState != "ACTIVE" || migrationState != "COMPLETED" {
 		t.Fatalf("migration states = old:%s new:%s migration:%s", oldState, newState, migrationState)
 	}
-
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO connections (
 			id, room_id, host_player_id, peer_player_id, state, selected_path,
 			expires_at, created_at, updated_at
 		) VALUES ($1, $2, $3, $4, 'CONNECTED', 'UDP_RELAY', $5, $6, $6)
-	`, timeoutConnectionID, roomID, playerIDs[0], playerIDs[1], now.Add(10*time.Minute), now); err != nil {
+	`, timeoutConnectionID, roomID, playerIDs[0], playerIDs[2], now.Add(10*time.Minute), now); err != nil {
 		t.Fatal(err)
 	}
 	timeoutAllocationID := fmt.Sprintf("alloc_timeout_%d", suffix)

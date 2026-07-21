@@ -4,7 +4,7 @@ Production deployment uses immutable GHCR references: `sha-<40-character commit>
 
 ## Migration policy
 
-V1.1 migrations 000009 through 000015 are Expand/Migrate changes: they add tables, indexes, constraints, and compatible fields. The control-plane migrator serializes startup with a PostgreSQL advisory lock, wraps each migration in a transaction, and rejects the deployment if an already-applied checksum changed. No V1.1 migration drops a table or column. Contract changes are deferred to a later release after old code is retired and a restore drill has passed; normal image rollback therefore does not roll back the database.
+V1.1 migrations 000009 through 000016 are Expand/Migrate changes: they add tables, indexes, constraints, compatible fields, and the non-destructive Relay allocation `MIGRATING` state. The control-plane migrator serializes startup with a PostgreSQL advisory lock, wraps each migration in a transaction, and rejects the deployment if an already-applied checksum changed. No V1.1 migration drops a table or column. Contract changes are deferred to a later release after old code is retired and a restore drill has passed; normal image rollback therefore does not roll back the database.
 
 ## Control Plane release
 

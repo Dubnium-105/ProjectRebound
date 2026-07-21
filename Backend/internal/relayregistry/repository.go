@@ -585,8 +585,11 @@ func (r *Repository) PlanMigration(
 	}
 	if _, err := tx.Exec(ctx, `
 		UPDATE relay_allocations
-		SET state = 'FAILED', failure_reason = $3, closed_at = $2, updated_at = $2
-		WHERE id = $1 AND $3 <> 'RELAY_DRAIN'
+		SET state = CASE WHEN $3 = 'RELAY_DRAIN' THEN 'MIGRATING' ELSE 'FAILED' END,
+		    failure_reason = CASE WHEN $3 = 'RELAY_DRAIN' THEN NULL::varchar ELSE $3::varchar END,
+		    closed_at = CASE WHEN $3 = 'RELAY_DRAIN' THEN NULL::timestamptz ELSE $2::timestamptz END,
+		    updated_at = $2
+		WHERE id = $1
 	`, oldAllocation.ID, now, reason); err != nil {
 		return Migration{}, err
 	}
@@ -723,7 +726,7 @@ func (r *Repository) CompleteMigration(ctx context.Context, migrationID string, 
 	rows, err := tx.Query(ctx, `
 		UPDATE relay_allocations
 		SET state = 'CLOSED', failure_reason = 'MIGRATED', closed_at = COALESCE(closed_at, $3), updated_at = $3
-		WHERE connection_id = $1 AND id <> $2 AND state IN ('ALLOCATED', 'BINDING', 'ACTIVE')
+		WHERE connection_id = $1 AND id <> $2 AND state IN ('ALLOCATED', 'BINDING', 'ACTIVE', 'MIGRATING')
 		RETURNING relay_node_id
 	`, connectionID, newAllocationID, now)
 	if err != nil {
@@ -811,7 +814,7 @@ func (r *Repository) FailMigrationAttempt(ctx context.Context, migrationID, reas
 	result, err := tx.Exec(ctx, `
 		UPDATE relay_allocations
 		SET state = 'FAILED', failure_reason = $2, closed_at = COALESCE(closed_at, $3), updated_at = $3
-		WHERE id = $1 AND state IN ('ALLOCATED', 'BINDING', 'ACTIVE')
+		WHERE id = $1 AND state IN ('ALLOCATED', 'BINDING', 'ACTIVE', 'MIGRATING')
 	`, migration.NewAllocationID, reason, now)
 	if err != nil {
 		return Migration{}, false, err
@@ -987,7 +990,7 @@ func (r *Repository) FailAllocation(ctx context.Context, allocationID, reason st
 	err = tx.QueryRow(ctx, `
 		UPDATE relay_allocations
 		SET state = 'FAILED', failure_reason = $2, closed_at = COALESCE(closed_at, $3), updated_at = $3
-		WHERE id = $1 AND state IN ('ALLOCATED', 'BINDING', 'ACTIVE')
+		WHERE id = $1 AND state IN ('ALLOCATED', 'BINDING', 'ACTIVE', 'MIGRATING')
 		RETURNING relay_node_id
 	`, allocationID, reason, now).Scan(&nodeID)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -1015,7 +1018,7 @@ func (r *Repository) FailConnectionAllocations(ctx context.Context, connectionID
 	rows, err := tx.Query(ctx, `
 		UPDATE relay_allocations
 		SET state = 'FAILED', failure_reason = $2, closed_at = COALESCE(closed_at, $3), updated_at = $3
-		WHERE connection_id = $1 AND state IN ('ALLOCATED', 'BINDING', 'ACTIVE')
+		WHERE connection_id = $1 AND state IN ('ALLOCATED', 'BINDING', 'ACTIVE', 'MIGRATING')
 		RETURNING relay_node_id
 	`, connectionID, reason, now)
 	if err != nil {

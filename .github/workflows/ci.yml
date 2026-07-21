@@ -254,7 +254,7 @@ jobs:
             "image=${IMAGE_NAME}" \
             "image_digest=${IMAGE_DIGEST}" \
             "relay_protocol_version=2" \
-            "database_schema_version=15" \
+            "database_schema_version=16" \
             > "release-record/${{ matrix.name }}.txt"
 
       - name: Upload build record

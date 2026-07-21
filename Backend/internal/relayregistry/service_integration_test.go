@@ -90,7 +90,7 @@ func TestRelayRegistryLifecycleAgainstPostgreSQL(t *testing.T) {
 
 	enrollInput := EnrollInput{
 		DisplayName: "relay-hk-a", Region: "hk", Zone: "hk-1", Provider: "integration",
-		SoftwareVersion: "1.0.0", ProtocolVersion: 1,
+		SoftwareVersion: "1.1.0", ProtocolVersion: 2,
 		PublicEndpoints:    []Endpoint{{Protocol: "UDP", Host: "8.8.8.8", Port: 443}},
 		SupportedProtocols: []string{"UDP"}, MaxAllocations: 10, MaxEgressBPS: 10_000_000,
 		CSRPEM: testCSR(t),
@@ -129,7 +129,7 @@ func TestRelayRegistryLifecycleAgainstPostgreSQL(t *testing.T) {
 	`, enrolled.Node.ID).Scan(&credentialCount, &rotatedCount); err != nil || credentialCount != 2 || rotatedCount != 1 {
 		t.Fatalf("credential history = %d/%d, %v", credentialCount, rotatedCount, err)
 	}
-	connecting, err := service.MarkConnecting(ctx, enrolled.Node.ID, renewed.Node.CertificateFingerprint, "1.0.1", 1)
+	connecting, err := service.MarkConnecting(ctx, enrolled.Node.ID, renewed.Node.CertificateFingerprint, "1.1.0", 2)
 	if err != nil || connecting.State != StateConnecting {
 		t.Fatalf("connecting node = %#v, %v", connecting, err)
 	}

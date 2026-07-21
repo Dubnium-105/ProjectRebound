@@ -2,6 +2,7 @@ package player
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -136,6 +137,7 @@ func (r *Repository) UpsertSteamIdentity(
 
 func scanPlayer(row pgx.Row) (Player, error) {
 	var item Player
+	var lastLoginAt sql.NullTime
 	err := row.Scan(
 		&item.ID,
 		&item.SteamID,
@@ -144,9 +146,12 @@ func scanPlayer(row pgx.Row) (Player, error) {
 		&item.IsVIP,
 		&item.AuthProvider,
 		&item.AuthLevel,
-		&item.LastLoginAt,
+		&lastLoginAt,
 		&item.CreatedAt,
 		&item.UpdatedAt,
 	)
+	if lastLoginAt.Valid {
+		item.LastLoginAt = lastLoginAt.Time
+	}
 	return item, err
 }

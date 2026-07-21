@@ -40,6 +40,8 @@ connection.relay_migrated | connection.relay_failed
 
 V1.1 迁移允许短暂中断，不承诺无损切换、包重传或主机迁移。
 
+强制 Drain 使用 make-before-break：旧 allocation 在数据库中进入 `MIGRATING`，不占用“当前新 allocation”唯一索引但仍计入节点容量；新 allocation 的双方 BIND 完成后旧 allocation 才变为 `CLOSED` 并收到撤销命令。若迁移尝试耗尽，连接和 `MIGRATING` allocation 一并失败清理。
+
 ## 管理员 Drain
 
 ```http
