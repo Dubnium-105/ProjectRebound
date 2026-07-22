@@ -1,5 +1,7 @@
 # V1.1 release checklist
 
+English | [简体中文](release-checklist.zh-CN.md)
+
 Record UTC timestamps and evidence links for every checked item.
 
 - [ ] Candidate is a reviewed commit on `main`; CI and image provenance succeeded.

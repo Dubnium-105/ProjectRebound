@@ -1,44 +1,47 @@
 # ProjectRebound Python Browser Prototype
 
+English | [简体中文](README.zh-CN.md)
+
+
 > [!WARNING]
-> 这是保留用于旧房间/NAT 接口联调和便携打包实验的兼容原型，不是当前生产部署入口。仓库内维护的 .NET 浏览器位于 `Desktop/ProjectRebound.Browser/`。
+> This compatibility prototype is retained for debugging legacy room/NAT APIs and experimenting with portable packaging. It is not an entry point for current production deployments. The maintained .NET browser is under `Desktop/ProjectRebound.Browser/`.
 
-## 当前限制
+## Current limitations
 
-- `project_rebound_browser.py` 仍在代码中固定旧测试后端地址；
-- 游戏启动流程依赖仓库外部的 Boundary MetaServer/Logic Server；
-- UDP Proxy 使用旧 `/v1/nat/*`、`/v1/relay/allocations` 和内嵌 UDP 5001/5002 协议；
-- 它不实现当前独立 Edge Relay 的 cookie/token 数据面协议，也不能替代生产验收。
+- `project_rebound_browser.py` still hard-codes the legacy test-backend address.
+- Game startup depends on a Boundary MetaServer/Logic Server outside this repository.
+- The UDP proxy uses the legacy `/v1/nat/*` and `/v1/relay/allocations` APIs and embedded UDP protocols on ports 5001/5002.
+- It does not implement the current standalone Edge Relay cookie/token data-plane protocol and cannot replace production acceptance testing.
 
-因此，只有在明确维护旧兼容链路时才使用本目录。当前控制面、Edge Relay 和生产部署见 `docs/README.md` 与 `docs/operations/ci-cd.md`。
+Use this directory only when explicitly maintaining legacy compatibility. For the current control plane, Edge Relay, and production deployment, see `docs/README.md` and `docs/operations/ci-cd.md`.
 
-## 运行
+## Run
 
-需要 Python 3.11 和 tkinter：
+Requires Python 3.11 and tkinter:
 
 ```powershell
 python Desktop\ProjectRebound.Browser.Python\project_rebound_browser.py
 ```
 
-也可以运行 `run_browser.bat`。启动游戏前仍需自行提供可用的 Logic Server，并检查源码中的 `HARD_CODED_BACKEND_URL` 是否属于预期测试环境。
+You can also run `run_browser.bat`. Before starting the game, provide an available Logic Server and confirm that `HARD_CODED_BACKEND_URL` in the source points to the intended test environment.
 
-## 便携包
+## Portable package
 
 ```powershell
 cd Desktop\ProjectRebound.Browser.Python
 .\build_portable.ps1
 ```
 
-脚本默认构建并收集 `dxgi`、`Payload` 和 `ProjectReboundServerWrapper` 的 Release x64 产物。缺少本地 C++ 构建环境时可以使用：
+By default, the script builds and collects Release x64 artifacts for `dxgi`, `Payload`, and `ProjectReboundServerWrapper`. Without a native C++ build environment, use:
 
 ```powershell
 .\build_portable.ps1 -SkipNativeBuild
 ```
 
-输出目录为 `portable/ProjectReboundBrowserPortable`，其中可能包含浏览器、UDP Proxy、Python 运行时和 `runtime/` 原生产物。
+The output directory is `portable/ProjectReboundBrowserPortable`. It may contain the browser, UDP proxy, Python runtime, and native artifacts under `runtime/`.
 
-## 实验性 UDP Proxy
+## Experimental UDP Proxy
 
-`project_rebound_udp_proxy.py` 尝试在旧兼容服务上完成 NAT 打洞，并在直连失败后使用旧内嵌 UDP Relay。它只适用于 `Backend/cmd/main.go` 的兼容模式；当前分离式生产拓扑没有暴露这些 UDP 端口。
+`project_rebound_udp_proxy.py` attempts NAT hole punching through the legacy compatibility service and uses the old embedded UDP Relay when the direct connection fails. It applies only to the compatibility mode in `Backend/cmd/main.go`; the current decoupled production topology does not expose these UDP ports.
 
-验证当前 Edge Relay 请使用 `Backend/tests/netem/`、`Backend/api/relay-protocol.md` 和控制面/Edge Relay 集成测试。
+To verify the current Edge Relay, use `Backend/tests/netem/`, `Backend/api/relay-protocol.md`, and the control-plane/Edge Relay integration tests.

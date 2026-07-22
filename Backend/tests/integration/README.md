@@ -1,5 +1,7 @@
 # V1.1 disposable integration gates
 
+English | [简体中文](README.zh-CN.md)
+
 These gates are intentionally separate from the normal Go module. They require a Linux Docker host and create only temporary containers, volumes, networks, keys, players, rooms, and Relay identities.
 
 ## Control Plane, two Relay nodes, weak network, and short fault recovery

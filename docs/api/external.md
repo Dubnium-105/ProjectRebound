@@ -1,18 +1,20 @@
-# ProjectRebound 外部 API
+# ProjectRebound External API
 
-本文档描述客户端、Dedicated Server 和更新器可访问的 API。机器可读的字段类型、长度、枚举和所有响应 Schema 以 `Backend/api/openapi/openapi.yaml` 为准；该文件与路由契约测试一起校验。
+English | [简体中文](external.zh-CN.md)
 
-## 1. 连接约定
+This document describes the APIs accessible to clients, Dedicated Servers, and Updaters. Machine-readable field types, lengths, enumerations, and all response schemas are subject to `Backend/api/openapi/openapi.yaml`; this file is verified with the routing contract test.
 
-- 生产 Base URL：`https://api.example.com`
-- HTTP 请求和响应：`application/json; charset=utf-8`
-- WebSocket：`wss://api.example.com/v1/realtime/connect`
-- 时间：RFC 3339 UTC，例如 `2026-07-18T12:00:00Z`
-- ID：带资源前缀的不透明字符串；客户端不得解析或自行构造。
-- 分页：`cursor` + `limit`，`limit` 范围 1–100，默认 50。
-- 幂等：重复 logout、leave、close、deregister 返回当前最终状态；客户端仍应避免并发重复写入。
+## 1. Connection conventions
 
-成功响应统一为：
+- Production Base URL: `https://api.example.com`
+- HTTP request and response: `application/json; charset=utf-8`
+- WebSocket: `wss://api.example.com/v1/realtime/connect`
+- Time: RFC 3339 UTC, for example `2026-07-18T12:00:00Z`
+- ID: Opaque string with resource prefix; clients must not parse or construct it themselves.
+- Paging: `cursor` + `limit`, `limit` range 1–100, default 50.
+- Idempotency: Repeated logout, leave, close, and deregister operations return the current final state; clients should still avoid concurrent duplicate writes.
+
+The successful response is unified as:
 
 ```json
 {
@@ -21,7 +23,7 @@
 }
 ```
 
-失败响应统一为：
+The failure response is unified as:
 
 ```json
 {
@@ -34,45 +36,45 @@
 }
 ```
 
-客户端可以发送 `X-Request-Id`，但服务端会验证并规范化；排障时以响应中的 `request_id` 为准。请求体上限默认 1 MiB。
+The client can send `X-Request-Id`, but the server will verify and normalize it; when troubleshooting, the `request_id` in the response shall prevail. The request body limit is 1 MiB by default.
 
-## 2. 鉴权类型
+## 2. Authentication types
 
-| 名称 | Header | 获得方式 | 用途 |
+| Name | Header | How to obtain | Use |
 | --- | --- | --- | --- |
-| Player Access Token | `Authorization: Bearer <jwt>` | `/v1/auth/bind` 或 `/refresh` | 玩家写操作、个人资料、连接/WebSocket |
-| Refresh Token | JSON 字段 `refresh_token` | bind/refresh | 轮换 Access Token；每次使用后旧值失效 |
-| Game Server Registration Token | `Authorization: Bearer <token>` | 运维预配置 | 注册 Dedicated Server |
-| Game Server Token | `Authorization: Bearer <token>` | 注册响应，仅返回一次 | 对应 Server 心跳和注销 |
-| Room Host Token | `X-Room-Host-Token: <token>` | 创建房间响应，仅返回一次 | 房主心跳、启动和关闭 |
+| Player Access Token | `Authorization: Bearer <jwt>` |`/v1/auth/bind` or `/refresh`|Player write operations, personal information, connection/WebSocket|
+| Refresh Token | JSON field `refresh_token` | Bind/refresh response | Rotate the Access Token; the previous value expires after each use |
+| Game Server Registration Token | `Authorization: Bearer <token>` | Preconfigured by operators | Register a Dedicated Server |
+| Game Server Token | `Authorization: Bearer <token>` | Registration response; returned only once | Server heartbeat and deregistration |
+| Room Host Token | `X-Room-Host-Token: <token>` | Room-creation response; returned only once | Host heartbeat, start, and shutdown operations |
 
-`account_status=BANNED` 的玩家仍可 bind、refresh、logout 和读取本人资料，但不能执行房间或连接写操作。当前 bind 接受客户端自述的 SteamID，`auth_provider=steam_client_asserted`、`auth_level=unverified`，不能证明 Steam 账户所有权。
+Players at `account_status=BANNED` can still bind, refresh, logout, and read personal data, but cannot perform room or connection write operations. Currently bind accepts the SteamID reported by the client, `auth_provider=steam_client_asserted`, `auth_level=unverified`, which cannot prove Steam account ownership.
 
-## 3. 端点总表
+## 3. Endpoint summary
 
-### 3.1 健康与客户端配置
+### 3.1 Health and client configuration
 
-| 方法 | 路径 | 鉴权 | 成功 | 说明 |
+| Method | Path | Authentication | Success | Description |
 | --- | --- | --- | --- | --- |
-| GET | `/health/live` | 无 | 200 | 进程存活，不检查依赖 |
-| GET | `/health/ready` | 无 | 200/503 | PostgreSQL、Redis 等必需依赖是否可用 |
-| GET | `/v1/client/config` | 无 | 200 | 协议版本、功能开关、STUN、可用 Relay 区域 |
+| GET | `/health/live` | None | 200 | The process is alive; dependencies are not checked |
+| GET | `/health/ready` | None | 200/503 | Required dependencies such as PostgreSQL and Redis are available |
+| GET | `/v1/client/config` | None | 200 | Protocol version, feature flags, STUN, and available Relay regions |
 
-客户端配置不会返回具体 Relay 地址。具体 endpoint 只在 connection 被调度后通过 WebSocket 事件下发。
+Client configuration does not return specific Relay addresses. The specific endpoint is only delivered through WebSocket events after the connection is scheduled.
 
-### 3.2 登录和玩家
+### 3.2 Authentication and players
 
-| 方法 | 路径 | 鉴权 | 请求 | 成功 |
+| Method | Path | Authentication | Request | Success |
 | --- | --- | --- | --- | --- |
-| POST | `/v1/auth/bind` | 无；按 IP、SteamID、Device ID 及组合维度限流 | 必需 `steam_id`, `persona_name`；可选 `device_id`, `invite_code` | 200 Player + Access/Refresh Token + `is_new_player` |
-| POST | `/v1/auth/refresh` | 无 | `refresh_token` | 200 新 Access/Refresh Token；旧 Refresh Token 失效 |
-| POST | `/v1/auth/logout` | Player | 无 | 200 当前 session 撤销 |
-| GET | `/v1/users/me` | Player | 无 | 200 实时玩家状态和权限字段 |
-| GET | `/v1/users/me/sessions` | Player | 无 | 200 当前玩家的有效会话列表 |
-| DELETE | `/v1/users/me/sessions/{session_id}` | Player | Path session ID | 200 撤销属于当前玩家的指定会话 |
-| POST | `/v1/users/me/sessions/revoke-others` | Player | 无 | 200 撤销除调用会话外的全部会话 |
+| POST | `/v1/auth/bind` | None; rate-limited by IP, SteamID, Device ID, and combined dimensions | Required: `steam_id`, `persona_name`; optional: `device_id`, `invite_code` | 200 Player + Access/Refresh Token + `is_new_player` |
+| POST | `/v1/auth/refresh` | None | `refresh_token` | 200 new Access/Refresh Token; the old Refresh Token expires |
+| POST | `/v1/auth/logout` | Player | None | 200 current session revoked |
+| GET | `/v1/users/me` | Player | None | 200 current player status and permission fields |
+| GET | `/v1/users/me/sessions` | Player | None | 200 active sessions for the current player |
+| DELETE | `/v1/users/me/sessions/{session_id}` | Player | Path session ID | 200 specified session revoked |
+| POST | `/v1/users/me/sessions/revoke-others` | Player | None | 200 all sessions except the current session revoked |
 
-Bind 示例：
+Bind example:
 
 ```http
 POST /v1/auth/bind HTTP/1.1
@@ -86,49 +88,49 @@ Content-Type: application/json
 }
 ```
 
-旧客户端可继续省略两个新增字段。`device_id` 最长 128 字节，只允许可打印 ASCII；它仅用于限流和风险观察，不是可信身份，也不会绕过 SteamID 唯一约束。是否要求邀请码由服务端 `auth.invite_required` 配置决定。绑定超过任一维度限制时返回 `429 AUTH_BIND_RATE_LIMITED`，响应同时包含 `Retry-After` 与 `details.retry_after_seconds`。
+Old clients can continue to omit the two new fields. `device_id` is up to 128 bytes long and only printable ASCII is allowed; it is only used for throttling and risk observation, is not a trusted identity, and will not bypass SteamID unique constraints. Whether to require an invitation code is determined by the server `auth.invite_required` configuration. When the binding exceeds the limit of any dimension, `429 AUTH_BIND_RATE_LIMITED` is returned, and the response contains both `Retry-After` and `details.retry_after_seconds`.
 
-不要把 Access/Refresh Token 写入 URL、日志或崩溃报告。Refresh Token 发生重放时，服务端会撤销整个 token family。
+Do not write Access/Refresh Tokens to URLs, logs, or crash reports. When Refresh Token is replayed, the server will revoke the entire token family.
 
-会话列表只返回 session ID、Device ID 后四位、创建/最近使用时间、脱敏 IP 和 `is_current`，不会返回 Token 哈希或完整设备标识。删除不属于当前玩家的 session 与不存在的 session 一样返回 404，避免跨账号探测。
+The session list returns only the session ID, the last four characters of the Device ID, creation and last-used times, a masked IP address, and `is_current`. It never returns token hashes or the complete device identifier. Deleting a session that does not belong to the current player returns the same 404 response as a nonexistent session to prevent cross-account enumeration.
 
 ### 3.3 Dedicated Server
 
-| 方法 | 路径 | 鉴权 | 请求/查询 | 成功 |
+|method|path|Authentication|Request/Query|success|
 | --- | --- | --- | --- | --- |
-| POST | `/v1/game-servers` | Registration Token | `instance_id`, `display_name`, `region`, `mode`, `version`, `public_host`, `public_port`, `max_players` | 201 Server + 一次性 `server_token` |
-| GET | `/v1/game-servers` | 无 | `region`, `mode`, `version`, `state`, `cursor`, `limit` | 200 公共目录 |
-| GET | `/v1/game-servers/{server_id}` | 无 | — | 200 公共状态 |
-| POST | `/v1/game-servers/{server_id}/heartbeat` | 对应 Server Token | `state`, `player_count` | 200 状态与下一次心跳信息 |
-| DELETE | `/v1/game-servers/{server_id}` | 对应 Server Token | — | 200 注销并撤销 token |
+| POST | `/v1/game-servers` | Registration Token | `instance_id`, `display_name`, `region`, `mode`, `version`, `public_host`, `public_port`, `max_players` | 201 Server + one-time `server_token` |
+| GET | `/v1/game-servers` | None | `region`, `mode`, `version`, `state`, `cursor`, `limit` | 200 public directory |
+| GET | `/v1/game-servers/{server_id}` |none| — |200 public status|
+| POST | `/v1/game-servers/{server_id}/heartbeat` |Corresponding Server Token| `state`, `player_count` |200 status and next heartbeat information|
+| DELETE | `/v1/game-servers/{server_id}` | Corresponding Server Token | — | 200 deregister and revoke token |
 
-`instance_id` 注册是幂等的。Server Token 只能管理响应中的 `server_id`。建议每 15 秒心跳；默认 45 秒转 `UNHEALTHY`，90 秒转 `OFFLINE`。公共响应不包含 token hash、内部审计字段或其他服务器秘密。
+`instance_id` registration is idempotent. Server Token can only manage `server_id` in the response. It is recommended to heartbeat every 15 seconds; the default is 45 seconds to `UNHEALTHY` and 90 seconds to `OFFLINE`. Public responses do not contain token hashes, internal audit fields, or other server secrets.
 
-### 3.4 P2P 房间
+### 3.4 P2P Room
 
-| 方法 | 路径 | 鉴权 | 请求/附加 Header | 成功 |
+| Method | Path | Authentication | Request/additional header | Success |
 | --- | --- | --- | --- | --- |
-| GET | `/v1/p2p-rooms` | 无 | `region`, `mode`, `version`, `state`, `has_slots`, `cursor`, `limit` | 200 公共目录 |
-| GET | `/v1/p2p-rooms/{room_id}` | 无 | — | 200 公共房间状态 |
-| POST | `/v1/p2p-rooms` | Active Player | `display_name`, `region`, `mode`, `version`, `max_players` | 201 房间 + 一次性 `host_token` |
-| POST | `/v1/p2p-rooms/{room_id}/join` | Active Player | `version` | 200 加入；重复调用幂等 |
-| POST | `/v1/p2p-rooms/{room_id}/leave` | Active Player | — | 200 离开；重复调用幂等 |
-| POST | `/v1/p2p-rooms/{room_id}/heartbeat` | Active Player + Host Token | `X-Room-Host-Token` | 200 心跳 |
+| GET | `/v1/p2p-rooms` | None | `region`, `mode`, `version`, `state`, `has_slots`, `cursor`, `limit` | 200 public directory |
+| GET | `/v1/p2p-rooms/{room_id}` | None | — | 200 public room status |
+| POST | `/v1/p2p-rooms` | Active Player | `display_name`, `region`, `mode`, `version`, `max_players` | 201 room + one-time `host_token` |
+| POST | `/v1/p2p-rooms/{room_id}/join` | Active Player | `version` | 200 joined; repeated calls are idempotent |
+| POST | `/v1/p2p-rooms/{room_id}/leave` | Active Player | — | 200 left; repeated calls are idempotent |
+| POST | `/v1/p2p-rooms/{room_id}/heartbeat` | Active Player + Host Token | `X-Room-Host-Token` |200 heartbeats|
 | POST | `/v1/p2p-rooms/{room_id}/start` | Active Player + Host Token | `X-Room-Host-Token` | 200 `LOBBY -> CONNECTING` |
-| DELETE | `/v1/p2p-rooms/{room_id}` | Active Player + Host Token | `X-Room-Host-Token` | 200 关闭；重复调用幂等 |
+| DELETE | `/v1/p2p-rooms/{room_id}` | Active Player + Host Token | `X-Room-Host-Token` |200 Close; call idempotent repeatedly|
 
-公共房间响应不会返回候选地址、Host Token 或成员秘密。房主不能调用 leave，必须关闭房间。默认 45 秒无房主心跳进入过期处理，90 秒关闭。有效的房主心跳还会在同一数据库事务中续租该房间的所有非终态连接；终态连接不会被恢复。
+Public room responses do not return candidate addresses, host tokens, or member secrets. The host cannot call leave and must close the room. By default, if there is no host heartbeat for 45 seconds, it will enter the expiration process, and it will be closed after 90 seconds. A valid host heartbeat also renews all non-terminal connections to the room in the same database transaction; final connections are not restored.
 
-### 3.5 连接协调和 WebSocket
+### 3.5 Connection coordination and WebSocket
 
-| 方法 | 路径 | 鉴权 | 请求 | 成功 |
+| Method | Path | Authentication | Request | Success |
 | --- | --- | --- | --- | --- |
-| POST | `/v1/connections` | Active Player | `room_id`, `peer_player_id` | 201 创建或返回现有活动连接 |
-| GET | `/v1/connections/{connection_id}` | Player，必须是参与者 | — | 200 当前状态和对端候选 |
-| DELETE | `/v1/connections/{connection_id}` | Active Player，必须是参与者 | — | 200 关闭 |
+| POST | `/v1/connections` | Active Player | `room_id`, `peer_player_id` |201 Create or return an existing active connection|
+| GET | `/v1/connections/{connection_id}` |Player, must be a participant| — |200 Current status and peer candidates|
+| DELETE | `/v1/connections/{connection_id}` |Active Player, must be a participant| — |200 closed|
 | GET/WSS | `/v1/realtime/connect` | Active Player | WebSocket Upgrade | 101 |
 
-WebSocket 的 `Authorization` 必须放在 Header，禁止放在查询参数。JSON envelope：
+WebSocket's `Authorization` must be placed in the Header and is prohibited from being placed in query parameters. JSON envelope:
 
 ```json
 {
@@ -138,12 +140,12 @@ WebSocket 的 `Authorization` 必须放在 Header，禁止放在查询参数。J
 }
 ```
 
-客户端上行事件：
+Client uplink events:
 
-- `connection.candidate`：提交一个 ICE/NAT candidate。
-- `connection.check_result`：报告直连检查结果和选中的路径。
+- `connection.candidate`: Submit an ICE/NAT candidate.
+- `connection.check_result`: Report direct connection check results and selected paths.
 
-服务端下行事件：
+Server-to-client events:
 
 - `connection.candidate`
 - `connection.check_result`
@@ -153,7 +155,7 @@ WebSocket 的 `Authorization` 必须放在 Header，禁止放在查询参数。J
 - `connection.relay_failed`
 - `error`
 
-Relay 分配事件示例：
+Relay distribution event example:
 
 ```json
 {
@@ -173,43 +175,43 @@ Relay 分配事件示例：
 }
 ```
 
-事件具体字段和枚举见 OpenAPI 中 `Connection*Event`、`ConnectionData`、`RelayTokenClaims`。客户端应按 `connection_id` 幂等处理事件，断线后重新 GET 当前连接状态，不应因重连重复创建房间或连接。
+For the specific fields and enumerations of the event, see `Connection*Event`, `ConnectionData`, and `RelayTokenClaims` in OpenAPI. The client should handle events `connection_id` idempotently, re-GET the current connection status after disconnection, and should not repeatedly create rooms or connections due to reconnection.
 
-### 3.6 更新
+### 3.6 Update
 
-| 方法 | 路径 | 鉴权 | 查询 | 成功 |
+| Method | Path | Authentication | Query | Success |
 | --- | --- | --- | --- | --- |
-| GET | `/v1/updates/check` | 无 | 必需 `platform`, `current_version`；可选 `architecture`, `channel` | 200 最新版本、是否可用/强制 |
-| GET | `/v1/updates/{platform}/{version}/manifest` | 无 | `architecture`, `channel` | 200 Ed25519 签名 Manifest |
-| GET | `/v1/updates/files/{file_id}` | 无 | — | 200 immutable CDN 下载元数据 |
+| GET | `/v1/updates/check` | None | Required: `platform`, `current_version`; optional: `architecture`, `channel` | 200 latest version and whether the update is available/mandatory |
+| GET | `/v1/updates/{platform}/{version}/manifest` | None | `architecture`, `channel` | 200 Ed25519-signed manifest |
+| GET | `/v1/updates/files/{file_id}` | None | — | 200 immutable CDN download metadata |
 
-`channel` 为 `stable` 或 `beta`。Manifest 包含 `schema_version`、产品/平台/架构/频道/版本、最低支持版本、发布时间、文件列表、`manifest_hash`、`signature_algorithm=Ed25519`、`key_id` 和 `signature`。更新器必须：
+`channel` is `stable` or `beta`. Manifest contains `schema_version`, product/platform/architecture/channel/version, minimum supported version, release date, file list, `manifest_hash`, `signature_algorithm=Ed25519`, `key_id` and `signature`. Updaters must:
 
-1. 使用客户端内置且与 `key_id` 对应的公钥验证签名；
-2. 验证 Manifest hash；
-3. 从 CDN 下载；
-4. 校验精确文件大小和 SHA-256；
-5. 任一步失败都不得安装。
+1. Verify the signature using the public key built into the client and corresponding to `key_id`;
+2. Verify manifest hash;
+3. Download from CDN;
+4. Verify exact file size and SHA-256;
+5. Do not install if any step fails.
 
-## 4. HTTP 状态与重试
+## 4. HTTP status and retry
 
-| 状态 | 含义 | 客户端行为 |
+| Status | Meaning | Client behavior |
 | --- | --- | --- |
-| 200/201 | 成功 | 正常处理 envelope |
-| 400 | 格式/字段非法 | 修复请求，不要盲目重试 |
-| 401 | Token 缺失、过期、撤销或不匹配 | refresh 或重新登录/注册 |
-| 403 | 账户状态、参与关系或独立凭据拒绝 | 不重试，提示权限问题 |
-| 404 | 不存在或该网络入口故意隐藏 | 校验 ID/入口 |
-| 409 | 状态冲突、房间满、版本不匹配 | 刷新资源状态后决定 |
-| 429 | 限流 | 使用指数退避和 jitter |
-| 500 | 服务内部错误 | 携带 `request_id` 报告，有限重试 |
-| 503 | 未就绪/依赖异常 | 指数退避，切勿高频轮询 |
+| 200/201 |success|Handle envelope normally|
+| 400 | Invalid format or field | Fix the request; do not retry blindly |
+| 401 | Token is missing, expired, revoked, or mismatched | Refresh the token or authenticate/register again |
+| 403 | Account state, participation, or credential does not permit the operation | Do not retry; show a permission error |
+| 404 | Resource or intentionally hidden route does not exist | Verify the resource ID and endpoint |
+| 409 | State conflict, room full, or version mismatch | Refresh resource state before deciding whether to retry |
+| 429 | Rate limited | Use exponential backoff with jitter |
+| 500 | Internal service error | Report the `request_id`; retry only a limited number of times |
+| 503 | Service not ready or dependency unavailable | Use exponential backoff; do not poll frequently |
 
-只对幂等操作或带明确幂等语义的操作自动重试。推荐退避 250 ms、500 ms、1 s、2 s，上限 5–10 s，并添加随机抖动。
+Only idempotent operations or operations with explicit idempotent semantics are automatically retried. Recommended backoffs are 250 ms, 500 ms, 1 s, 2 s, upper limit 5–10 s, and add random jitter.
 
-## 5. 契约文件
+## 5. Contract documents
 
-- 完整 OpenAPI：`Backend/api/openapi/openapi.yaml`
-- 鉴权矩阵：`Backend/api/openapi/auth-permission-matrix.md`
-- Relay UDP 协议：`Backend/api/relay-protocol.md`
-- 内部 API：`docs/api/internal.md`
+- Complete OpenAPI: `Backend/api/openapi/openapi.yaml`
+- Authentication matrix: `Backend/api/openapi/auth-permission-matrix.md`
+- Relay UDP protocol: `Backend/api/relay-protocol.md`
+- Internal API: `docs/api/internal.md`

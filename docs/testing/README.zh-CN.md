@@ -12,8 +12,8 @@ ProjectRebound 的测试分为四层：
 连续在线长稳不得主动重启健康 Relay。中继故障迁移、证书恢复和弱网注入必须使用独立场景，避免把预期故障时间混入稳态丢包率。
 
 - [V1.1 验收索引](v1.1/README.zh-CN.md)
-- [真实容器联合测试](../../Backend/tests/integration/README.md)
-- [负载测试](../../Backend/tests/load/README.md)
-- [V1.1 长稳 Harness](../../Backend/tests/load/longrun/README.md)
-- [弱网测试](../../Backend/tests/netem/README.md)
-- [故障注入](../../Backend/tests/chaos/README.md)
+- [真实容器联合测试](../../Backend/tests/integration/README.zh-CN.md)
+- [负载测试](../../Backend/tests/load/README.zh-CN.md)
+- [V1.1 长稳 Harness](../../Backend/tests/load/longrun/README.zh-CN.md)
+- [弱网测试](../../Backend/tests/netem/README.zh-CN.md)
+- [故障注入](../../Backend/tests/chaos/README.zh-CN.md)

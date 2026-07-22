@@ -1,26 +1,29 @@
-# 公网 HTTP 网关（无需 Cloudflare Zero Trust）
+# Public HTTP gateway (no Cloudflare Zero Trust required)
 
-当控制面没有公网 IPv4、Cloudflare Tunnel/Zero Trust 无法开通时，可使用已有公网网关承接普通 Cloudflare HTTP 代理流量。HAProxy 在公网 `443` 读取 TLS SNI，将 API HTTPS/WSS 与 Relay mTLS 分流；API 再经独立 FRP QUIC 通道回源。该 HTTP FRP 与 mTLS FRP 必须使用不同的用户、token、配置目录、控制端口和 systemd unit。
+English | [简体中文](README.zh-CN.md)
+
+
+When the control plane has no public IPv4 address and Cloudflare Tunnel/Zero Trust is unavailable, an existing public gateway can accept ordinary Cloudflare-proxied HTTP traffic. HAProxy listens on public port `443`, inspects TLS SNI, and routes API HTTPS/WSS separately from Relay mTLS. The API connection then reaches the control plane through an independent FRP QUIC channel. HTTP FRP and mTLS FRP must use separate users, tokens, configuration directories, control ports, and systemd units.
 
 ```text
-boundary.example.com（橙云） -> HAProxy :443 -> TLS :10443
+boundary.example.com (orange cloud) -> HAProxy :443 -> TLS :10443
   -> HTTP FRPS 127.0.0.1:18081 -> HTTP FRPC -> control 127.0.0.1:18081
 
-relay.example.com（灰云） -> HAProxy :443 -> mTLS FRPS 127.0.0.1:9443
+relay.example.com (DNS only) -> HAProxy :443 -> mTLS FRPS 127.0.0.1:9443
   -> mTLS FRPC -> control 127.0.0.1:19090
 ```
 
-## DNS 与 Cloudflare
+## DNS and Cloudflare
 
-- API hostname 创建指向网关 IPv4 的橙云 A 记录。
-- Relay mTLS hostname 继续使用指向同一 IPv4 的灰云 A 记录。
-- Cloudflare `SSL/TLS > Overview` 必须选择 **Full (strict)**；不得长期使用 Flexible。
-- 网关证书可使用 Let's Encrypt：HAProxy 将 ACME HTTP-01 路径转发给本机 `127.0.0.1:18888` 的 Certbot standalone listener。
-- API 的 80/443 origin 请求仅允许 Cloudflare 官方地址段；Relay mTLS SNI 不受该来源限制。
+- API hostname creates an Orange Cloud A record pointing to the gateway IPv4.
+- Relay mTLS hostname continues to use the gray cloud A record pointing to the same IPv4.
+- In Cloudflare, select **Full (strict)** under `SSL/TLS > Overview`; do not use Flexible mode.
+- Gateway certificates can use Let's Encrypt. HAProxy forwards the ACME HTTP-01 path to the local Certbot standalone listener at `127.0.0.1:18888`.
+- The API's 80/443 origin requests only allow the official Cloudflare address range; Relay mTLS SNI is not restricted by this origin.
 
-## 独立 HTTP FRP
+## Standalone HTTP FRP
 
-网关安装 `frps.toml.example`、`projectrebound-http-frps.service` 到 `/etc/projectrebound-http-frps` 与 `/etc/systemd/system`。生成独立 token：
+Install `frps.toml.example` and `projectrebound-http-frps.service` under `/etc/projectrebound-http-frps` and `/etc/systemd/system`, respectively. Generate a dedicated token:
 
 ```bash
 sudo useradd --system --home /nonexistent --shell /usr/sbin/nologin projectrebound-http-frps
@@ -32,20 +35,20 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now projectrebound-http-frps
 ```
 
-通过秘密通道将相同 token 放到控制面 `/etc/projectrebound-http-frpc/token`，安装 FRPC 模板和 unit。网关只允许控制面出口 IP 访问 TCP/UDP 7001；远端代理端口通过 `proxyBindAddr = "127.0.0.1"` 强制绑定回环。
+Transfer the same token to `/etc/projectrebound-http-frpc/token` on the control plane through a secure channel, then install the FRPC template and unit. The gateway must allow only the control-plane egress IP to reach TCP/UDP 7001. `proxyBindAddr = "127.0.0.1"` forces the remote proxy port to bind only to loopback.
 
-## 443 SNI 迁移
+## 443 SNI migration
 
-现有 mTLS FRPS 必须改为：
+Existing mTLS FRPS must be changed to:
 
 ```toml
 proxyBindAddr = "127.0.0.1"
 allowPorts = [{ single = 9443 }]
 ```
 
-控制面 mTLS FRPC 的代理改为 `remotePort = 9443`。先验证两端 FRP 配置，再让 HAProxy 接管公网 443；最终 Relay 客户端仍连接 `relay.example.com:443`，无需修改。
+Change the control-plane mTLS FRPC proxy to `remotePort = 9443`. Verify the FRP configuration at both ends before allowing HAProxy to take over public port 443. Relay clients continue to connect to `relay.example.com:443` and require no change.
 
-将 `haproxy.cfg.example` 中的 `PUBLIC_API_HOST`、`RELAY_MTLS_HOST` 替换为实际域名。安装 Cloudflare 地址刷新脚本、service 和 timer：
+Replace `PUBLIC_API_HOST` and `RELAY_MTLS_HOST` in `haproxy.cfg.example` with the actual hostnames. Install the Cloudflare address-refresh script, service, and timer:
 
 ```bash
 sudo install -o root -g root -m 0755 refresh-cloudflare-ips.sh /usr/local/sbin/projectrebound-refresh-cloudflare-ips
@@ -55,7 +58,7 @@ sudo systemctl enable --now projectrebound-cloudflare-ips.timer
 sudo systemctl start projectrebound-cloudflare-ips.service
 ```
 
-## TLS 证书
+## TLS certificate
 
 ```bash
 sudo certbot certonly --standalone --non-interactive --agree-tos \
@@ -64,7 +67,7 @@ sudo certbot certonly --standalone --non-interactive --agree-tos \
   -d boundary.example.com
 ```
 
-用仅允许 root 修改的 defaults 文件配置证书域名，再安装 deploy hook：
+Configure the certificate hostname in a root-only defaults file, then install the deployment hook:
 
 ```bash
 printf '%s\n' 'PUBLIC_API_HOST=boundary.example.com' | \
@@ -77,9 +80,9 @@ sudo /etc/letsencrypt/renewal-hooks/deploy/projectrebound-haproxy-cert
 sudo certbot renew --dry-run --no-random-sleep-on-renew
 ```
 
-deploy hook 会将 `fullchain.pem` 与 `privkey.pem` 合并为 HAProxy PEM，并在续期后原子替换、校验配置、热重载 HAProxy。公网 80 端口除 ACME HTTP-01 外只返回 HTTPS 重定向；如果 Cloudflare 被误改为 Flexible，该配置会暴露重定向异常，避免静默使用明文 API 回源。
+After renewal, the deployment hook combines `fullchain.pem` and `privkey.pem` into an HAProxy PEM file, replaces it atomically, validates the configuration, and hot-reloads HAProxy. Public port 80 redirects to HTTPS except for ACME HTTP-01. If Cloudflare is accidentally changed to Flexible mode, this setup exposes a redirect failure instead of silently forwarding the API to the origin over plaintext HTTP.
 
-## 验收
+## Acceptance
 
 ```bash
 sudo haproxy -c -f /etc/haproxy/haproxy.cfg
@@ -89,4 +92,4 @@ sudo ss -lntp | grep -E '127.0.0.1:(9443|10443|18081) '
 curl -fsS https://boundary.example.com/health/ready
 ```
 
-最后检查所有有效 Relay 节点持续在线、遥测不过期、FRPC/FRPS 无新增重连，然后再执行 10/25/50/100 VU 分级压测。
+Finally, confirm that every valid Relay remains continuously online, telemetry stays fresh, and FRPC/FRPS show no new reconnects. Then run staged load tests at 10, 25, 50, and 100 virtual users.

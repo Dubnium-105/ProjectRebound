@@ -1,51 +1,53 @@
-# ProjectRebound CI/CD 使用与配置
+# ProjectRebound CI/CD usage and configuration
 
-本仓库使用 GitHub Actions、GitHub Container Registry（GHCR）、GitHub Environments 和原生 OpenSSH 完成 CI/CD。控制面和 Edge Relay 是两个独立部署目标，可以位于不同主机并使用不同审批人与 Secrets。
+English | [简体中文](ci-cd.zh-CN.md)
 
-## 1. 工作流
+This repository uses GitHub Actions, GitHub Container Registry (GHCR), GitHub Environments and native OpenSSH to complete CI/CD. The control plane and Edge Relay are two independent deployment targets that can be on different hosts and use different approvers and Secrets.
+
+## 1. Workflow
 
 ### CI and Images
 
-文件：`.github/workflows/ci.yml`
+File:`.github/workflows/ci.yml`
 
-每次 push、针对 main 的 pull request 和手动运行都会执行：
+Executed on every push, pull request to main and manual run:
 
-1. Go 格式检查和 `go mod verify`；
-2. `go vet ./...`；
-3. PostgreSQL 17 service container 上的 `go test -race ./...`；
-4. Control Plane 和 Edge Relay 二进制构建；
-5. .NET 8 Shared Contracts 构建；
-6. actionlint、Shell 语法和 LF 行尾检查；
-7. 密钥生成器、两份 Compose 和 Caddy 配置校验；
-8. 所有质量检查通过后，各使用一次 Buildx 构建控制面和 Edge Relay 镜像。
+1. Go format check and `go mod verify`;
+2. `go vet ./...`;
+3. `go test -race ./...` on PostgreSQL 17 service container;
+4. Control Plane and Edge Relay binary build;
+5. .NET 8 Shared Contracts build;
+6. actionlint, Shell syntax and LF end-of-line checking;
+7. Key generator, two copies of Compose and Caddy configuration verification;
+8. After all quality checks pass, use Buildx once to build the control plane and Edge Relay images.
 
-普通分支、`main`、`v*` tag 的 push，以及手动运行 CI，都会把这次构建直接发布为可部署的 GHCR CI 产物：
+Normal branch, push of `main`, `v*` tag, and manual CI operation will directly publish the build as a deployable GHCR CI product:
 
 ```text
 ghcr.io/<owner>/projectrebound-control-plane:sha-<40-char-commit>
 ghcr.io/<owner>/projectrebound-edge-relay:sha-<40-char-commit>
 ```
 
-Pull request 只构建和验证，不登录 GHCR，也不发布镜像。`main` 同时更新 `:main`，tag push 同时发布对应 tag。部署始终使用完整 SHA tag，不使用可移动的 `main` 或 `latest`。镜像附带 OCI metadata 和 GitHub artifact provenance attestation。
+Pull requests only build and verify, do not log in to GHCR, and do not publish images. `main` updates `:main` at the same time, and tag push releases the corresponding tag at the same time. Deployments always use the full SHA tag, not the removable `main` or `latest`. The image comes with OCI metadata and GitHub artifact provenance attestation.
 
-容器不会先在一个 job 构建、再在发布 job 重复构建。质量检查通过后，同一个矩阵 job 构建一次并直接推送不可变 SHA 镜像；CD 读取 CI 的 commit SHA，在远端设置 `DEPLOY_SOURCE=ci` 并只执行 `docker compose pull`，不会在部署主机重新编译源码。
+The container will not be built first in a job and then again in the release job. After passing the quality check, the same matrix job is built once and directly pushes the immutable SHA image; CD reads the commit SHA of CI, sets `DEPLOY_SOURCE=ci` on the remote end and only executes `docker compose pull`, without recompiling the source code on the deployment host.
 
 ### Deploy
 
-文件：`.github/workflows/deploy.yml`
+File:`.github/workflows/deploy.yml`
 
-- main 的 CI 和镜像发布全部成功后，如果仓库变量 `ENABLE_STAGING_DEPLOY=true`，自动部署两个 staging target。
-- `workflow_dispatch` 可以手动选择 `staging`/`production` 和 `control-plane`/`edge-relay`/`both`。
-- production 应通过 GitHub Environment Required Reviewers 审批，并启用 Prevent self-review。
-- 同一环境和 target 的部署使用 concurrency 串行化，不会互相取消。
-- 部署前控制面自动创建 PostgreSQL custom-format 备份。
-- 部署完成后执行健康检查；失败时自动尝试上一 release 和上一镜像。
+- After CI succeeds on `main` and images are published, the two staging targets are deployed automatically when repository variable `ENABLE_STAGING_DEPLOY=true`.
+- `workflow_dispatch` can be manually selected from `staging`/`production` and `control-plane`/`edge-relay`/`both`.
+- production should be approved by GitHub Environment Required Reviewers and have Prevent self-review enabled.
+- Deployments in the same environment and target use concurrency serialization and will not cancel each other.
+- The control plane automatically creates a PostgreSQL custom-format backup before deployment.
+- Perform a health check after the deployment is completed; automatically try the previous release and the previous image if it fails.
 
-## 2. GitHub 仓库设置
+## 2. GitHub repository settings
 
-### 2.1 Actions 权限
+### 2.1 Actions permissions
 
-在 `Settings -> Actions -> General` 保留最小默认权限。工作流顶层只有 `contents: read`；仅容器构建/发布 job 临时获得：
+Leave minimal default permissions at `Settings -> Actions -> General`. There is only `contents: read` at the top level of the workflow; only the container build/release job is temporarily obtained:
 
 ```yaml
 packages: write
@@ -53,11 +55,11 @@ attestations: write
 id-token: write
 ```
 
-不要创建拥有仓库管理权限的 PAT 供镜像发布；发布 job 使用 GitHub 自动生成的 `GITHUB_TOKEN`。
+Do not create a PAT with repository-management permissions for image publication; use the job's automatically generated `GITHUB_TOKEN`.
 
 ### 2.2 Environments
 
-创建四个 Environment：
+Create four Environments:
 
 ```text
 staging-control-plane
@@ -66,64 +68,64 @@ production-control-plane
 production-edge-relay
 ```
 
-production 环境建议配置：
+Recommended configuration for production environment:
 
-- Required reviewers；
-- Prevent self-review；
-- 只允许 main 和受保护的 `v*` tag；
-- 禁止管理员绕过保护规则；
-- Secrets 仅放在对应 Environment，不放在仓库级别。
+- Required reviewers;
+- Prevent self-review;
+- Only main and protected `v*` tags are allowed;
+- Prohibit administrators from bypassing protection rules;
+- Store secrets only in the corresponding Environment, not at repository level.
 
-### 2.3 仓库级变量
+### 2.3 Repository-level variables
 
-| 名称 | 示例 | 说明 |
+| Name | Example | Description |
 | --- | --- | --- |
-| `ENABLE_STAGING_DEPLOY` | `false` | 设为 `true` 才启用 main 自动部署 staging |
+| `ENABLE_STAGING_DEPLOY` | `false` |Set to `true` to enable main automatic deployment staging|
 
-首次配置完成并手动部署成功之前保持 `false`。
+Keep `false` until first configuration is complete and manual deployment succeeds.
 
-## 3. 每个 Environment 的配置
+## 3. Configuration of each Environment
 
-所有目标都设置以下 Variables：
+All targets set the following Variables:
 
-| Variable | 示例 | 说明 |
+| Variable | Example | Description |
 | --- | --- | --- |
-| `DEPLOY_HOST` | `192.0.2.10` | SSH DNS 名或 IPv4；工作流故意不接受未规范化输入 |
-| `DEPLOY_PORT` | `22` | SSH 端口 |
-| `DEPLOY_USER` | `projectrebound` | 无交互部署用户 |
-| `DEPLOY_ROOT` | `/opt/projectrebound-control` | release、current symlink 和备份根目录 |
+| `DEPLOY_HOST` | `192.0.2.10` |SSH DNS name or IPv4; workflow intentionally does not accept unnormalized input|
+| `DEPLOY_PORT` | `22` |SSH port|
+| `DEPLOY_USER` | `projectrebound` |Deploying users without interaction|
+| `DEPLOY_ROOT` | `/opt/projectrebound-control` |release, current symlink and backup root directory|
 
-Control Plane Environment 额外 Variables：
+Control Plane Environment Additional Variables:
 
-| Variable | 示例 |
+| Variable |Example|
 | --- | --- |
 | `CONTROL_PLANE_ENV_FILE` | `/etc/projectrebound/control-plane.env` |
 | `PUBLIC_BASE_URL` | `https://api.example.com` |
 | `ENABLE_MONITORING` | `1` |
 
-Edge Relay Environment 额外 Variables：
+Edge Relay Environment additional variables:
 
-| Variable | 示例 |
+| Variable |Example|
 | --- | --- |
 | `EDGE_RELAY_ENV_FILE` | `/etc/projectrebound/edge-relay.env` |
 | `EDGE_RELAY_CONFIG_FILE` | `/etc/projectrebound/config.edge-relay.yaml` |
 
-每个 Environment 添加以下 Secrets：
+Add the following Secrets to each Environment:
 
-| Secret | 内容 |
+| Secret |content|
 | --- | --- |
-| `SSH_PRIVATE_KEY` | 该目标专用的无口令 Ed25519 deploy key 私钥 |
-| `SSH_KNOWN_HOSTS` | 通过可信带外渠道核对过的目标 host key 行 |
-| `GHCR_USERNAME` | 只读容器账号名 |
-| `GHCR_TOKEN` | 仅有 `read:packages` 的 classic PAT，供远端 Docker pull 私有镜像 |
+| `SSH_PRIVATE_KEY` |Passwordless Ed25519 deploy key private key specific to this target|
+| `SSH_KNOWN_HOSTS` |Target host key row checked through trusted out-of-band channels|
+| `GHCR_USERNAME` |Read-only container account name|
+| `GHCR_TOKEN` |Only the classic PAT of `read:packages` is used for remote Docker pull private images|
 
-不要在工作流中运行未经核验的 `ssh-keyscan`。`SSH_KNOWN_HOSTS` 必须从控制台、云厂商指纹或另一可信通道核对。
+Do not run unverified `ssh-keyscan` in workflows. `SSH_KNOWN_HOSTS` must be verified from the console, cloud vendor fingerprint, or another trusted channel.
 
-如果 GHCR package 是公开的，可以扩展脚本允许匿名 pull；当前默认强制认证，以避免错误配置在部署中途才暴露。
+If the GHCR package is public, the script can be extended to allow anonymous pulls; authentication is currently forced by default to avoid misconfigurations being exposed mid-deployment.
 
-## 4. 远端主机首次准备
+## 4. Remote host preparation for the first time
 
-安装 Docker 和依赖的完整步骤见 `docs/operations/deployment-guide.md`。为每个目标创建独立用户和目录，例如：
+For complete steps to install Docker and dependencies, see `docs/operations/deployment-guide.md`. Create separate users and directories for each target, for example:
 
 ```bash
 sudo useradd --create-home --shell /bin/bash projectrebound
@@ -134,9 +136,9 @@ sudo install -d -o projectrebound -g projectrebound \
 sudo install -d -m 700 -o projectrebound -g projectrebound /etc/projectrebound
 ```
 
-把部署公钥加入 `/home/projectrebound/.ssh/authorized_keys`。推荐仅允许来源于 GitHub-hosted runner 出口经过的 VPN/bastion；公网直接开放 SSH 时必须额外使用防火墙、Fail2ban 和严格的 key-only 登录。
+Add the deployment public key to `/home/projectrebound/.ssh/authorized_keys`. It is recommended to only allow VPN/bastion from the GitHub-hosted runner exit; when directly opening SSH on the public network, additional firewalls, Fail2ban and strict key-only login must be used.
 
-控制面主机生成并编辑持久配置：
+The control plane host generates and edits the persistent configuration:
 
 ```bash
 cd /path/to/checked-out/Backend
@@ -144,7 +146,7 @@ cd /path/to/checked-out/Backend
 chmod 600 /etc/projectrebound/control-plane.env
 ```
 
-Edge 主机准备：
+Edge host preparation:
 
 ```bash
 install -m 600 deployments/edge-relay/.env.example \
@@ -153,22 +155,22 @@ install -m 600 deployments/edge-relay/config.edge-relay.yaml.example \
   /etc/projectrebound/config.edge-relay.yaml
 ```
 
-编辑所有 placeholder。首次 Edge 注册时设置 Bootstrap Token；部署脚本成功后会清空 Edge env 中的 token，并通过重建验证 identity volume。
+Edit all placeholders. Set the Bootstrap Token when registering Edge for the first time; after the deployment script is successful, the token in the Edge env will be cleared and the identity volume will be verified by rebuilding.
 
-部署用户必须能执行 Docker。可以加入 `docker` group，也可以像测试环境一样仅授予无密码 `sudo docker`；后者仍接近 root 权限，应限制 SSH key 和 sudoers command scope。
+The deploying user must be able to execute Docker. You can join the `docker` group, or just grant passwordless `sudo docker` like the test environment; the latter is still close to root privileges and should limit the SSH key and sudoers command scope.
 
-## 5. 首次发布和部署
+## 5. First release and deployment
 
-1. push 到准备部署的分支（首次生产发布通常合并到 main），等待 `CI and Images` 全绿。
-2. 在仓库 Packages 页面确认两个 `sha-<commit>` 镜像存在。
-3. 保持 `ENABLE_STAGING_DEPLOY=false`。
-4. 打开 `Actions -> Deploy -> Run workflow`。
-5. 选择 `staging` 和一个 target；`commit_sha` 留空表示当前所选 ref。
-6. 分别验证 control-plane 和 edge-relay。
-7. 再选择 `both` 做一次完整 staging 发布。
-8. 验证成功后可把 `ENABLE_STAGING_DEPLOY` 设为 `true`。
+1. Push to the branch ready for deployment (the first production release is usually merged into main) and wait for `CI and Images` to be fully green.
+2. Confirm that both `sha-<commit>` images exist on the repository's Packages page.
+3. Keep `ENABLE_STAGING_DEPLOY=false`.
+4. Open `Actions -> Deploy -> Run workflow`.
+5. Select `staging` and a target; `commit_sha` is left blank to indicate the currently selected ref.
+6. Verify control-plane and edge-relay respectively.
+7. Then select `both` to do a complete staging release.
+8. After successful verification, `ENABLE_STAGING_DEPLOY` can be set to `true`.
 
-Deploy 工作流是生产推荐入口。确需在目标机直接运行底层脚本时，先登录 GHCR，再明确指定 CI 产物：
+The Deploy workflow is the recommended entry point for production. If you really need to run the underlying script directly on the target machine, log in to GHCR first, and then explicitly specify the CI product:
 
 ```bash
 DEPLOY_SOURCE=ci \
@@ -180,18 +182,18 @@ EDGE_RELAY_IMAGE=ghcr.io/<owner>/projectrebound-edge-relay:sha-<40-char-commit> 
   ./scripts/deploy-edge-relay.sh
 ```
 
-脚本默认 `DEPLOY_SOURCE=auto`：合法 GHCR SHA 镜像自动走 CI 拉取，否则回退到源码构建。生产自动化始终显式使用 `ci`，从而阻止镜像变量缺失时意外在服务器现场构建。
+The script defaults to `DEPLOY_SOURCE=auto`: legal GHCR SHA images are automatically pulled from CI, otherwise they fall back to source code construction. Production automation always explicitly uses `ci`, preventing accidental live builds on the server if the image variable is missing.
 
-生产发布建议先创建并推送受保护 tag：
+For production releases, it is recommended to create and push protected tags first:
 
 ```bash
 git tag -s v1.0.0 -m "ProjectRebound v1.0.0"
 git push origin v1.0.0
 ```
 
-等待 tag 镜像发布成功，然后手动运行 Deploy，环境选择 `production`，填写该 tag 对应的完整 commit SHA。审批人核对 CI、镜像 digest、数据库备份和变更单后批准。
+Wait for the tag image to be released successfully, then manually run Deploy, select `production` as the environment, and fill in the complete commit SHA corresponding to the tag. The approver checks the CI, image digest, database backup and change order before approving.
 
-## 6. 远端 release 布局
+## 6. Remote release layout
 
 ```text
 /opt/projectrebound-control/
@@ -203,19 +205,19 @@ git push origin v1.0.0
   backups/
 ```
 
-Edge 使用 `current-edge-relay`。部署 bundle 不包含 `.env`、具体 Edge YAML、`identity.json` 或备份。GHCR Token 只通过 SSH stdin 发送给 `docker login --password-stdin`，不会出现在远端命令参数或 bundle 中。
+Edge uses `current-edge-relay`. The deployment bundle does not contain `.env`, specific Edge YAML, `identity.json`, or backups. The GHCR Token is only sent to `docker login --password-stdin` through SSH stdin and will not appear in the remote command parameters or bundle.
 
-工作流不会自动删除旧 release。确认备份和回滚窗口后，由运维人员按明确路径清理。
+The workflow does not automatically delete old releases. After confirming the backup and rollback window, operators may remove them by explicit path.
 
-## 7. 回滚
+## 7. Rollback
 
-部署失败时 `remote-deploy.sh` 自动读取上一 release 的 `.deployed-image` 并尝试恢复。自动回滚也失败时，工作流会明确报告 `ROLLBACK_FAILED`，需要人工处理。
+When deployment fails, `remote-deploy.sh` automatically reads the `.deployed-image` of the previous release and attempts to recover. When automatic rollback also fails, the workflow will clearly report `ROLLBACK_FAILED` and requires manual processing.
 
-主动回滚：手动运行 Deploy，把 `commit_sha` 设置为仍存在于 GHCR 的旧完整 SHA。控制面在切换前仍会备份数据库。应用回滚不能自动撤销数据库迁移；不向后兼容的数据库恢复必须按照生产事故流程执行。
+Active rollback: Run Deploy manually, setting `commit_sha` to the old full SHA that still exists in GHCR. The control plane will still back up the database before switching. Application rollback cannot automatically undo database migration; database recovery that is not backward compatible must be performed according to the production incident process.
 
-## 8. 分支保护建议
+## 8. Branch protection suggestions
 
-main 至少要求以下 checks：
+main requires at least the following checks:
 
 ```text
 Go backend, PostgreSQL and contracts
@@ -225,27 +227,27 @@ Build and package control-plane image
 Build and package edge-relay image
 ```
 
-同时启用：
+Also enabled:
 
-- Require pull request reviews；
-- Require branches to be up to date；
-- Require conversation resolution；
-- 禁止 force push 和 branch deletion；
-- 限制可以创建 `v*` tag 的人员。
+- Require pull request reviews;
+- Require branches to be up to date;
+- Require conversation resolution;
+- Disable force push and branch deletion;
+- Limit who can create the `v*` tag.
 
-Dependabot 每周检查 GitHub Actions major tag 更新。安全要求更高时，应把所有第三方 Action 从 major tag 固定到完整 commit SHA，并通过受控 Dependabot PR 更新。
+Dependabot checks GitHub Actions major tag updates weekly. When security requirements are higher, all third-party actions should be pinned from major tag to full commit SHA and updated via controlled Dependabot PR.
 
-## 9. 故障定位
+## 9. Fault location
 
-- CI Go 失败：先看 PostgreSQL service health，再看具体 package 输出。
-- Compose/Caddy 失败：运行 `Backend/scripts/generate-control-plane-env.sh` 后复现 workflow 中的 config 命令。
-- GHCR push 403：检查 job 的 `packages: write` 和 package/repository 关联。
-- SSH host verification failed：重新通过可信通道核对 host key，不要禁用 `StrictHostKeyChecking`。
-- Remote pull denied：检查 Environment 中 GHCR 账号是否有 `read:packages`。
-- Control deploy failed：查看 workflow 的备份结果、健康检查和 `ROLLBACK_OK/FAILED`。
-- Edge deploy failed：检查 443 enrollment、9090 mTLS 和 UDP advertised endpoint；不要删除 identity volume 作为第一反应。
+- CI Go failure: first check the PostgreSQL service health, and then look at the specific package output.
+- Compose/Caddy failed: The config command in the workflow is reproduced after running `Backend/scripts/generate-control-plane-env.sh`.
+- GHCR push 403: Check the job's `packages: write` and package/repository associations.
+- SSH host verification failed: Recheck the host key through the trusted channel, do not disable `StrictHostKeyChecking`.
+- Remote pull denied: Check whether the GHCR account in Environment has `read:packages`.
+- Control deploy failed: View workflow backup results, health checks, and `ROLLBACK_OK/FAILED`.
+- Edge deploy failed: Check for 443 enrollment, 9090 mTLS and UDP advertised endpoints; do not delete the identity volume as a first reaction.
 
-GitHub 官方参考：
+GitHub official reference:
 
 - https://docs.github.com/actions/tutorials/publish-packages/publish-docker-images
 - https://docs.github.com/actions/reference/workflows-and-actions/deployments-and-environments

@@ -1,5 +1,7 @@
 # Deployment entry points
 
+English | [简体中文](README.zh-CN.md)
+
 - Local all-in-one development: `compose/docker-compose.yaml`
 - Separated control plane: `control-plane/docker-compose.yaml`
 - Separated Linux edge relay: `edge-relay/docker-compose.yaml`

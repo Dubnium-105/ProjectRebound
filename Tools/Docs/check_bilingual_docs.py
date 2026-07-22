@@ -1,59 +1,81 @@
 #!/usr/bin/env python3
-"""Validate registered English/Simplified Chinese Markdown pairs."""
+"""Validate every maintained English/Simplified Chinese Markdown pair."""
 
 from __future__ import annotations
 
 import re
 import sys
 from pathlib import Path
+from urllib.parse import unquote
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-REGISTRY = REPOSITORY_ROOT / "docs" / "bilingual-docs.txt"
 FENCE_PATTERN = re.compile(r"^```([^\r\n`]*)\r?$", re.MULTILINE)
+FENCED_CODE_PATTERN = re.compile(r"^```.*?^```\s*$", re.MULTILINE | re.DOTALL)
 HEADING_PATTERN = re.compile(r"^(#{1,6})\s+", re.MULTILINE)
+LINK_PATTERN = re.compile(r"(?<!!)\[[^\]]+\]\((?P<target>[^)]+)\)")
 
 
 def chinese_sibling(english: Path) -> Path:
     return english.with_name(f"{english.stem}.zh-CN{english.suffix}")
 
 
-def registered_paths() -> list[Path]:
-    paths: list[Path] = []
-    for raw_line in REGISTRY.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
+def english_sibling(chinese: Path) -> Path:
+    return chinese.with_name(chinese.name.removesuffix(".zh-CN.md") + ".md")
+
+
+def maintained_english_docs() -> list[Path]:
+    documents: list[Path] = []
+    for path in REPOSITORY_ROOT.rglob("*.md"):
+        relative = path.relative_to(REPOSITORY_ROOT)
+        if relative.parts[0] in {".git", ".tmp"}:
             continue
-        path = Path(line)
-        if path.is_absolute() or ".." in path.parts or path.suffix != ".md":
-            raise ValueError(f"invalid registry entry: {line}")
-        paths.append(path)
-    return paths
+        if relative.parts[:2] == ("docs", "archive"):
+            continue
+        if not path.name.endswith(".zh-CN.md"):
+            documents.append(path)
+    return sorted(documents)
+
+
+def local_target(markdown: Path, raw_target: str) -> Path | None:
+    target = raw_target.strip().strip("<>").split("#", 1)[0]
+    if not target or target.startswith(("http://", "https://", "mailto:", "#")):
+        return None
+    return (markdown.parent / unquote(target)).resolve()
+
+
+def check_language_preserving_links(markdown: Path, text: str, errors: list[str]) -> None:
+    without_code = FENCED_CODE_PATTERN.sub("", text)
+    is_chinese = markdown.name.endswith(".zh-CN.md")
+    own_translation = english_sibling(markdown) if is_chinese else chinese_sibling(markdown)
+    for match in LINK_PATTERN.finditer(without_code):
+        resolved = local_target(markdown, match.group("target"))
+        if resolved is None or resolved == own_translation.resolve():
+            continue
+        if is_chinese:
+            if resolved.suffix == ".md" and not resolved.name.endswith(".zh-CN.md"):
+                localized = chinese_sibling(resolved)
+                if localized.is_file():
+                    errors.append(
+                        f"Chinese document links to English despite available translation: "
+                        f"{markdown.relative_to(REPOSITORY_ROOT)} -> {resolved.relative_to(REPOSITORY_ROOT)}"
+                    )
+        elif resolved.name.endswith(".zh-CN.md"):
+            errors.append(
+                f"English document links to Chinese translation: "
+                f"{markdown.relative_to(REPOSITORY_ROOT)} -> {resolved.relative_to(REPOSITORY_ROOT)}"
+            )
 
 
 def main() -> int:
     errors: list[str] = []
-    try:
-        entries = registered_paths()
-    except ValueError as error:
-        print(f"BILINGUAL_DOCS_INVALID: {error}", file=sys.stderr)
-        return 1
+    english_documents = maintained_english_docs()
+    expected_chinese = {chinese_sibling(path) for path in english_documents}
 
-    if len(entries) != len(set(entries)):
-        errors.append("docs/bilingual-docs.txt contains duplicate entries")
-
-    registered_english = set(entries)
-    registered_chinese: set[Path] = set()
-
-    for relative_english in entries:
-        relative_chinese = chinese_sibling(relative_english)
-        registered_chinese.add(relative_chinese)
-        english = REPOSITORY_ROOT / relative_english
-        chinese = REPOSITORY_ROOT / relative_chinese
-
-        if not english.is_file():
-            errors.append(f"missing English document: {relative_english}")
-            continue
+    for english in english_documents:
+        chinese = chinese_sibling(english)
+        relative_english = english.relative_to(REPOSITORY_ROOT)
+        relative_chinese = chinese.relative_to(REPOSITORY_ROOT)
         if not chinese.is_file():
             errors.append(f"missing Simplified Chinese document: {relative_chinese}")
             continue
@@ -66,40 +88,31 @@ def main() -> int:
         expected_chinese_switch = f"[English]({relative_english.name}) | 简体中文"
 
         if expected_english_switch not in english_header:
-            errors.append(
-                f"missing or misplaced language switch in {relative_english}"
-            )
+            errors.append(f"missing or misplaced language switch in {relative_english}")
         if expected_chinese_switch not in chinese_header:
-            errors.append(
-                f"missing or misplaced language switch in {relative_chinese}"
-            )
+            errors.append(f"missing or misplaced language switch in {relative_chinese}")
 
-        english_fences = FENCE_PATTERN.findall(english_text)
-        chinese_fences = FENCE_PATTERN.findall(chinese_text)
-        if english_fences != chinese_fences:
-            errors.append(
-                f"fenced-code structure differs: {relative_english} / {relative_chinese}"
-            )
-
+        if FENCE_PATTERN.findall(english_text) != FENCE_PATTERN.findall(chinese_text):
+            errors.append(f"fenced-code structure differs: {relative_english} / {relative_chinese}")
         english_headings = [len(level) for level in HEADING_PATTERN.findall(english_text)]
         chinese_headings = [len(level) for level in HEADING_PATTERN.findall(chinese_text)]
         if english_headings != chinese_headings:
-            errors.append(
-                f"heading structure differs: {relative_english} / {relative_chinese}"
-            )
+            errors.append(f"heading structure differs: {relative_english} / {relative_chinese}")
 
-    docs_root = REPOSITORY_ROOT / "docs"
-    for chinese in docs_root.rglob("*.zh-CN.md"):
-        relative = chinese.relative_to(REPOSITORY_ROOT)
-        if relative not in registered_chinese:
-            errors.append(f"unregistered Simplified Chinese document: {relative}")
+        check_language_preserving_links(english, english_text, errors)
+        check_language_preserving_links(chinese, chinese_text, errors)
 
-    for readme in docs_root.rglob("README.md"):
-        relative = readme.relative_to(REPOSITORY_ROOT)
-        if "archive" in relative.parts:
+    localized_documents: set[Path] = set()
+    for path in REPOSITORY_ROOT.rglob("*.zh-CN.md"):
+        relative = path.relative_to(REPOSITORY_ROOT)
+        if relative.parts[0] in {".git", ".tmp"}:
             continue
-        if relative not in registered_english:
-            errors.append(f"unregistered maintained documentation entry: {relative}")
+        if relative.parts[:2] != ("docs", "archive"):
+            localized_documents.add(path)
+    for chinese in sorted(localized_documents - expected_chinese):
+        errors.append(
+            f"orphan Simplified Chinese document: {chinese.relative_to(REPOSITORY_ROOT)}"
+        )
 
     if errors:
         print("Bilingual documentation errors:", file=sys.stderr)
@@ -107,7 +120,7 @@ def main() -> int:
             print(f"- {error}", file=sys.stderr)
         return 1
 
-    print(f"BILINGUAL_DOCS_OK pairs={len(entries)}")
+    print(f"BILINGUAL_DOCS_OK pairs={len(english_documents)}")
     return 0
 
 

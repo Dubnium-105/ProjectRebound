@@ -1,11 +1,14 @@
 # ProjectRebound legacy NAT punch test
 
+English | [简体中文](README.zh-CN.md)
+
+
 > [!WARNING]
-> 本工具验证的是旧 Go 单进程兼容入口中的 guest、房间、NAT rendezvous 和内嵌 UDP Relay；它不验证当前独立 Edge Relay，不能作为生产部署验收。
+> This tool verifies guest, room, NAT rendezvous, and embedded UDP Relay behavior through the legacy single-process Go compatibility entry point. It does not verify the current standalone Edge Relay and is not a production acceptance test.
 
-## 适用环境
+## Applicable environment
 
-从 `Backend/` 运行旧兼容入口时，默认地址为：
+When the legacy compatibility entry point is run from `Backend/`, the default endpoints are:
 
 ```text
 HTTP  http://127.0.0.1:5000
@@ -13,37 +16,37 @@ UDP   5001 rendezvous
 UDP   5002 embedded relay
 ```
 
-当前 `cmd/control-plane` + `cmd/edge-relay` 分离架构使用不同协议和端口。验证当前架构请改用 `Backend/tests/netem/` 和 `Backend/api/relay-protocol.md`。
+The current `cmd/control-plane` + `cmd/edge-relay` split architecture uses different protocols and ports. To verify it, use `Backend/tests/netem/` and `Backend/api/relay-protocol.md`.
 
-## 本机冒烟
+## Local smoke test
 
 ```powershell
 Tools\NatPunchTest\run-loopback.bat --backend http://127.0.0.1:5000
 ```
 
-成功时以 `PASS: received pong ...` 结束。这只能证明本机兼容 HTTP/UDP 链路，不代表跨 NAT 可达。
+A successful run ends with `PASS: received pong ...`. This proves only that local HTTP/UDP compatibility paths work; it does not prove cross-NAT reachability.
 
-## 两机直连测试
+## Direct connection test between two machines
 
-主机 A：
+Host A:
 
 ```powershell
 Tools\NatPunchTest\run-host.bat --backend http://LEGACY_SERVER:5000 --port 27777
 ```
 
-记录输出的 `ROOM_ID`。主机 B：
+Record the output `ROOM_ID`. On host B:
 
 ```powershell
 Tools\NatPunchTest\run-client.bat --backend http://LEGACY_SERVER:5000 --room-id ROOM_ID --port 27778
 ```
 
-两端增加 `--relay` 可以验证旧内嵌 UDP 5002 Relay。不要把该选项用于当前 Edge Relay。
+Add `--relay` at both ends to verify the legacy embedded UDP Relay on port 5002. Do not use this option for the current Edge Relay.
 
-## 失败含义
+## Failure meaning
 
-- `UDP rendezvous timed out`：旧 UDP 5001 未往返；
-- `NAT_BINDING_NOT_READY`：兼容后端没有观察到对应 binding；
-- `FAIL: no pong`：打洞、路由或防火墙阻止了数据包；
-- `--relay` 失败：旧 UDP 5002 未运行、被阻断或注册失败。
+- `UDP rendezvous timed out`: legacy UDP port 5001 did not complete a round trip.
+- `NAT_BINDING_NOT_READY`: the compatibility backend did not observe the corresponding binding.
+- `FAIL: no pong`: hole punching, routing, or a firewall blocked the packet.
+- `--relay` failure: legacy UDP port 5002 is not running, is blocked, or failed to register.
 
-脚本仅依赖 Python 标准库。它保留在仓库中是为了兼容回归，不应驱动新的客户端或部署设计。
+The script relies only on the Python standard library. It remains in the repository for regression compatibility and should not drive new client or deployment designs.

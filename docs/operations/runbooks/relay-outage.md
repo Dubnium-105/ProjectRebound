@@ -1,5 +1,7 @@
 # Relay outage and migration runbook
 
+English | [简体中文](relay-outage.zh-CN.md)
+
 Trigger on `RelayNodeOffline`, `NoRelayAvailable`, high capacity, BIND failure, memory growth, or migration failure alerts.
 
 1. Stop new Relay releases. Check the dynamic inventory, container state, control connection, heartbeat age, load state, capacity, software/protocol version, certificate expiry, and active allocations. A stale database `READY` row is not proof that the node is online.

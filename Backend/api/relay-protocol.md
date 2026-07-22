@@ -1,5 +1,7 @@
 # Edge Relay UDP protocol v2
 
+English | [简体中文](relay-protocol.zh-CN.md)
+
 All integers are unsigned and big-endian. Datagrams start with `PRLY`, protocol version `2`, and a one-byte message type. Invalid datagrams are dropped without a response. Production defaults to `accept_protocol_v1: false`; the legacy v1 format is available only as a temporary, explicit compatibility mode.
 
 ## Bind challenge

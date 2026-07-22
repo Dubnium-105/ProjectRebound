@@ -1,5 +1,7 @@
 # Edge Relay runtime
 
+English | [简体中文](README.zh-CN.md)
+
 For a relay running on a separate Linux host, use `../edge-relay/docker-compose.yaml` and the complete procedure in `../../../docs/operations/deployment-guide.md`. This directory contains the image definition and protocol runtime assets; the optional relay profile in the development Compose file remains intended only for local integration.
 
 The image contains one statically linked Go binary plus the system CA bundle required for HTTPS enrollment. It does not connect to PostgreSQL, Redis, NATS, or game services. Persistent local state is limited to the node's private key, mTLS certificate, opaque node credential, CA, and relay-token public keyset in `identity.json`.

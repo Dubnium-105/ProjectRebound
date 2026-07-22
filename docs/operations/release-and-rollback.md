@@ -1,5 +1,7 @@
 # V1.1 release and rollback
 
+English | [简体中文](release-and-rollback.zh-CN.md)
+
 Production deployment uses immutable GHCR references: `sha-<40-character commit>`, a release tag such as `1.1.0`, or preferably `@sha256:<digest>`. `latest` is rejected. CI records the Git commit, UTC build time, Go version, image digest, Relay protocol version, and schema version with every image artifact.
 
 ## Migration policy

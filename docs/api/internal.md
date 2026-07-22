@@ -1,48 +1,50 @@
-# ProjectRebound 内部、管理与 Relay API
+# ProjectRebound Internal, Administrative, and Relay API
 
-本文档描述不面向普通游戏客户端的接口：管理员 HTTP API、Relay 注册/续签、mTLS gRPC 控制流、Prometheus 指标和 UDP Relay 数据面。完整 JSON Schema 位于 `Backend/api/openapi/openapi.yaml`，gRPC service 位于 `Backend/api/proto/relay_control.proto`。
+English | [简体中文](internal.zh-CN.md)
 
-## 1. 网络入口和信任边界
+This document describes the interfaces that are not exposed to normal game clients: Admin HTTP API, Relay registration/renewal, mTLS gRPC control flow, Prometheus metrics, and UDP Relay data plane. The complete JSON Schema is located at `Backend/api/openapi/openapi.yaml`, and the gRPC service is located at `Backend/api/proto/relay_control.proto`.
 
-| 接口 | 默认地址 | 调用方 | 防护 |
+## 1. Network entry and trust boundary
+
+| Interface | Default address | Caller | Protection |
 | --- | --- | --- | --- |
-| 管理 HTTP | `127.0.0.1:18080/v1/admin/*` | 运维后台/SSH 隧道 | Admin Token + trusted CIDR |
-| 内部 Relay 管理 HTTP | `127.0.0.1:18080/internal/v1/relay-nodes/*` | 运维后台 | Admin Token + trusted CIDR |
-| Relay 注册/续签 HTTP | 公网 HTTPS `/internal/v1/relay-nodes/enroll`、`.../certificate/renew` | Edge Relay | 一次性 Bootstrap Token 或 Node Token |
-| 控制面指标 | `127.0.0.1:18080/internal/metrics` | Prometheus | trusted CIDR；公网代理返回 404 |
-| Relay 控制流 | 控制面 TCP 9090 | Edge Relay | TLS 1.3 双向证书认证 |
-| Relay 数据面 | Edge UDP 8443 | 游戏端点 | 签名 Relay Token + Cookie Challenge + 数据包 HMAC |
-| Relay 指标 | Edge `127.0.0.1:9100/metrics` | 节点本地 agent | 仅回环监听 |
+| Admin HTTP | `127.0.0.1:18080/v1/admin/*` | Operations backend or SSH tunnel | Admin Token + trusted CIDR |
+| Internal Relay management HTTP | `127.0.0.1:18080/internal/v1/relay-nodes/*` | Operations backend | Admin Token + trusted CIDR |
+| Relay registration/renewal HTTP | Public HTTPS `/internal/v1/relay-nodes/enroll`, `.../certificate/renew` | Edge Relay | One-time Bootstrap Token or Node Token |
+| Control-plane metrics | `127.0.0.1:18080/internal/metrics` | Prometheus | Trusted CIDR; public proxy returns 404 |
+| Relay control channel | Control-plane TCP 9090 | Edge Relay | TLS 1.3 mutual certificate authentication |
+| Relay data plane | Edge UDP 8443 | Game endpoint | Signed Relay Token + Cookie Challenge + packet HMAC |
+| Relay metrics | Edge `127.0.0.1:9100/metrics` | Node-local agent | Loopback only |
 
-公网 Caddy 必须对 `/v1/admin*` 和 `/internal/*` 返回 404，只允许 Relay enroll 和 certificate renew 两条机器接口。源 IP 白名单不能替代 Token，Token 也不能替代网络隔离。
+Public network Caddy must return 404 for `/v1/admin*` and `/internal/*`, and only two machine interfaces, Relay enroll and certificate renew, are allowed. Source IP whitelist cannot replace Token, nor can Token replace network isolation.
 
 ## 2. Admin Token
 
-控制面通过环境变量读取：
+The control plane reads through environment variables:
 
 ```text
 ADMIN_TOKENS=operator=<high-entropy-token>;automation=<another-token>
 ADMIN_TRUSTED_CIDRS=127.0.0.0/8,10.0.0.0/8,...
 ```
 
-请求：
+Request:
 
 ```http
 Authorization: Bearer <admin-token>
 ```
 
-玩家 Access Token 不可用于管理接口。启用 `TRUST_PROXY_HEADERS=true` 时只能把控制面放在受信反向代理之后，禁止让客户端绕过代理直连；否则伪造的转发 Header 可能影响源地址判断。
+Player Access Tokens are not available for use in the management interface. When `TRUST_PROXY_HEADERS=true` is enabled, the control plane can only be placed behind the trusted reverse proxy, and the client is prohibited from bypassing the proxy for direct connection; otherwise, the forged forwarding header may affect the source address determination.
 
-## 3. 玩家管理 API
+## 3. Player Management API
 
-| 方法 | 路径 | 参数/请求 | 成功 |
+| Method | Path | Parameters/request | Success |
 | --- | --- | --- | --- |
-| GET | `/v1/admin/players` | `cursor`, `limit`, `account_status` | 玩家分页列表 |
-| GET | `/v1/admin/players/{player_id}` | Path ID | 完整管理记录 |
-| PATCH | `/v1/admin/players/{player_id}` | 至少一个：`account_status`, `is_vip`, `revoke_sessions` | 更新后的玩家、撤销 session 数 |
-| POST | `/v1/admin/players/{player_id}/revoke-sessions` | 无 | 撤销数量和时间 |
+| GET | `/v1/admin/players` | `cursor`, `limit`, `account_status` | Paginated player list |
+| GET | `/v1/admin/players/{player_id}` | Path ID | Complete administrative record |
+| PATCH | `/v1/admin/players/{player_id}` | At least one of `account_status`, `is_vip`, `revoke_sessions` | Updated player and number of revoked sessions |
+| POST | `/v1/admin/players/{player_id}/revoke-sessions` | None | Revocation count and time |
 
-Patch 示例：
+Patch example:
 
 ```http
 PATCH /v1/admin/players/player_123 HTTP/1.1
@@ -56,27 +58,27 @@ Content-Type: application/json
 }
 ```
 
-`account_status` 为 `ACTIVE`、`BANNED` 或 `DELETED`。更新会写入审计记录；需要立即使现有登录失效时设置 `revoke_sessions=true`，或调用独立的 revoke-sessions 端点。外部工单原因应通过受控审计系统关联，不应把 Token、隐私数据或游戏 Payload 放入请求或日志。
+`account_status` is `ACTIVE`, `BANNED` or `DELETED`. Updates are written to audit records; set `revoke_sessions=true` when an existing login needs to be invalidated immediately, or call the standalone revoke-sessions endpoint. External work order reasons should be correlated through a controlled audit system, and Tokens, private data, or game payloads should not be put into requests or logs.
 
-### 3.1 邀请码管理
+### 3.1 Invitation code management
 
-| 方法 | 路径 | 参数/请求 | 成功 |
+|method|path|parameters/request|success|
 | --- | --- | --- | --- |
-| POST | `/v1/admin/invite-codes` | `batch_name`, `max_uses`；可选 `expires_at`, `permissions` | 创建元数据并仅本次返回明文 `code` |
-| GET | `/v1/admin/invite-codes` | `cursor`, `limit` | 元数据分页列表，不返回明文或哈希 |
-| GET | `/v1/admin/invite-codes/{id}` | Path ID | 单条元数据，不返回明文或哈希 |
-| PATCH | `/v1/admin/invite-codes/{id}` | `batch_name`, `max_uses`, `expires_at`, `enabled`, `permissions` 中至少一个 | 更新后的元数据 |
-| POST | `/v1/admin/invite-codes/{id}/revoke` | 无 | 幂等禁用并记录撤销时间 |
+| POST | `/v1/admin/invite-codes` |`batch_name`, `max_uses`; optional `expires_at`, `permissions`|Create metadata and return plaintext `code` only this time|
+| GET | `/v1/admin/invite-codes` | `cursor`, `limit` |Paginated list of metadata, does not return clear text or hash|
+| GET | `/v1/admin/invite-codes/{id}` | Path ID |Single piece of metadata, no plaintext or hash returned|
+| PATCH | `/v1/admin/invite-codes/{id}` |At least one of `batch_name`, `max_uses`, `expires_at`, `enabled`, `permissions`|Updated metadata|
+| POST | `/v1/admin/invite-codes/{id}/revoke` | None | Idempotently disable and record revocation time |
 
-创建响应中的明文邀请码是秘密，只出现一次；数据库仅存 SHA-256 哈希。`max_uses` 不得降低到 `used_count` 以下。绑定新 SteamID 时使用行级锁消费名额，因此并发争抢最后一个名额只会有一个事务成功。已有玩家再次 bind 不重复消费邀请码。
+The clear text invitation code in the creation response is secret and appears only once; only the SHA-256 hash is stored in the database. `max_uses` shall not be reduced below `used_count`. Row-level locks are used to consume quotas when binding a new SteamID, so only one transaction will succeed in competing for the last quota concurrently. If an existing player binds again, the invitation code will not be consumed again.
 
-### 3.2 认证风险事件
+### 3.2 Authentication risk events
 
-`GET /v1/admin/auth/risk-events` 按 `cursor`、`limit`、`player_id`、`event_type`、`severity` 和 `unresolved_only` 查询认证风险记录。V1.1 只记录和展示，不执行自动封禁。响应不包含 Device ID 哈希，IP 在返回前脱敏；数据库中的事件详情也不得写入 Access Token、Refresh Token 或完整 Authorization Header。
+Use `GET /v1/admin/auth/risk-events` with `cursor`, `limit`, `player_id`, `event_type`, `severity`, and `unresolved_only` to query authentication risk records. V1.1 records and displays these events but does not ban accounts automatically. The response omits the Device ID hash and masks the IP address. Database event details must not contain Access Tokens, Refresh Tokens, or complete Authorization headers.
 
-## 4. Relay HTTP 生命周期 API
+## 4. Relay HTTP lifecycle API
 
-### 4.1 首次注册
+### 4.1 First time registration
 
 ```http
 POST /internal/v1/relay-nodes/enroll
@@ -84,20 +86,20 @@ Authorization: Bearer <one-time-bootstrap-token>
 Content-Type: application/json
 ```
 
-请求字段：
+Request fields:
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Description |
 | --- | --- | --- |
-| `display_name` | string | 运维可读名称 |
-| `region`, `zone`, `provider` | string | 调度与资产标签 |
-| `software_version` | string | Relay 版本 |
-| `protocol_version` | integer | V1.1 Edge 必须为 2；客户端 v1 兼容由 Edge 显式开关控制 |
-| `advertised_endpoints` | array | `protocol`, `host`, `port`；客户端真实可达地址 |
-| `supported_protocols` | string[] | 当前包含 `UDP` |
+| `display_name` | string | Human-readable operations name |
+| `region`, `zone`, `provider` | string |Scheduling and asset tags|
+| `software_version` | string |Relay version|
+| `protocol_version` | integer |V1.1 Edge must be 2; client v1 compatibility is controlled by Edge explicit switch|
+| `advertised_endpoints` | array |`protocol`, `host`, `port`; client’s real reachable address|
+| `supported_protocols` | string[] |Currently contains `UDP`|
 | `capacity` | object | `max_allocations`, `max_egress_bps` |
-| `csr_pem` | string | Edge 本地生成的 Ed25519 CSR |
+| `csr_pem` | string |Ed25519 CSR generated locally by Edge|
 
-成功返回 201：
+Return 201 successfully:
 
 ```json
 {
@@ -113,9 +115,9 @@ Content-Type: application/json
 }
 ```
 
-Bootstrap Token 在成功事务中标记为已消费；`node_token` 仅返回一次，控制面只保存 hash。Edge 将 Node Token、私钥、证书、CA 和验证 keyset 以权限 600 写入持久化 `identity.json`。
+Bootstrap Token is marked as consumed in a successful transaction; `node_token` is returned only once, and the control plane only saves the hash. Edge writes the Node Token, private key, certificate, CA, and verification keyset to persistence `identity.json` with permission 600.
 
-### 4.2 证书续签
+### 4.2 Certificate renewal
 
 ```http
 POST /internal/v1/relay-nodes/{node_id}/certificate/renew
@@ -125,26 +127,26 @@ Content-Type: application/json
 {"csr_pem":"-----BEGIN CERTIFICATE REQUEST-----..."}
 ```
 
-成功返回新证书、CA、过期时间和当前 Relay Token 公钥集。Node ID 和 Node Token 必须对应，已撤销节点不能续签。Edge 默认在证书剩余不足一小时时尝试续签。
+Successfully returns the new certificate, CA, expiration time, and current Relay Token public key set. Node ID and Node Token must correspond. Revoked nodes cannot be renewed. By default, Edge attempts to renew a certificate when less than one hour remains.
 
-### 4.3 查询和运维状态迁移
+### 4.3 Administrative queries and lifecycle transitions
 
-以下接口要求 Admin Token 和 trusted CIDR：
+The following interfaces require Admin Token and trusted CIDR:
 
-| 方法 | 路径 | 作用 |
+| Method | Path | Effect |
 | --- | --- | --- |
-| GET | `/internal/v1/relay-nodes` | 分页查询全部已注册节点；支持 `region`、`zone`、`provider`、`state`、`cursor`、`limit`，包括离线和已撤销节点 |
-| GET | `/internal/v1/relay-nodes/{node_id}` | 查询 endpoint、容量、负载、证书和状态；不返回凭据 |
-| POST | `/internal/v1/relay-nodes/{node_id}/drain` | `READY -> DRAINING`；可选 `{deadline_seconds,migrate_existing}`，空请求默认只停止新 allocation |
-| POST | `/internal/v1/relay-nodes/{node_id}/resume` | 恢复为 `READY` |
-| POST | `/internal/v1/relay-nodes/{node_id}/revoke` | 永久撤销 Node Token/证书身份 |
-| POST | `/internal/v1/relay-signing-keys/{key_id}/activate` | 所有 READY 节点确认 staged Keyset 后激活签名 key |
+| GET | `/internal/v1/relay-nodes` |Paging query for all registered nodes; supports `region`, `zone`, `provider`, `state`, `cursor`, `limit`, including offline and revoked nodes|
+| GET | `/internal/v1/relay-nodes/{node_id}` |Query endpoint, capacity, load, certificates, and status; does not return credentials|
+| POST | `/internal/v1/relay-nodes/{node_id}/drain` |`READY -> DRAINING`; optional `{deadline_seconds,migrate_existing}`, empty request only stops new allocation by default|
+| POST | `/internal/v1/relay-nodes/{node_id}/resume` |Revert to `READY`|
+| POST | `/internal/v1/relay-nodes/{node_id}/revoke` |Permanently revoke Node Token/certificate identity|
+| POST | `/internal/v1/relay-signing-keys/{key_id}/activate` |All READY nodes activate the signature key after confirming the staged Keyset|
 
-状态包括 `BOOTSTRAPPING`、`CONNECTING`、`READY`、`DRAINING`、`UNHEALTHY`、`OFFLINE`、`REVOKED`。默认 15 秒心跳，45 秒无心跳转 `UNHEALTHY`，90 秒转 `OFFLINE`。Drain 的 `migrate_existing=false` 保留现有 allocation 到自然结束或 deadline；`true` 使用有界故障迁移状态机逐步迁移；Revoke 不可逆。
+States include `BOOTSTRAPPING`, `CONNECTING`, `READY`, `DRAINING`, `UNHEALTHY`, `OFFLINE`, and `REVOKED`. The default heartbeat interval is 15 seconds; a node becomes `UNHEALTHY` after 45 seconds without a heartbeat and `OFFLINE` after 90 seconds. Drain with `migrate_existing=false` preserves existing allocations until they end naturally or reach the deadline. When set to `true`, bounded failover migration moves them gradually. Revocation is irreversible.
 
-## 5. Relay mTLS gRPC 控制流
+## 5. Relay mTLS gRPC control flow
 
-服务定义：
+Service definition:
 
 ```protobuf
 service RelayControl {
@@ -153,95 +155,95 @@ service RelayControl {
 }
 ```
 
-连接目标是控制面 TCP 9090。TLS 要求：
+The connection target is control plane TCP 9090. TLS requirements:
 
-- 最低 TLS 1.3；
-- Edge 提交由持久化 Relay CA 签发的客户端证书；
-- 控制面验证证书并以 SHA-256 fingerprint 绑定数据库节点；
-- Edge 使用注册响应中的 CA 验证服务证书；
-- 当前服务证书 DNS SAN 为 `control-plane` 和 `localhost`，分离部署仍应设置 `control_server_name: control-plane`。
+- Minimum TLS 1.3;
+- Edge submits the client certificate signed by the persistent Relay CA;
+- The control plane verifies the certificate and binds the database node with SHA-256 fingerprint;
+- Edge validates the service certificate using the CA in the registration response;
+- Current service certificate DNS SANs are `control-plane` and `localhost`, detached deployments should still set `control_server_name: control-plane`.
 
-所有消息使用同一 envelope：
+All messages use the same envelope:
 
 ```json
 {"type":"Heartbeat","payload":{}}
 ```
 
-Edge -> Control Plane：
+Edge -> Control Plane:
 
-| Type | 关键 payload | 说明 |
+| Type | Key payload | Description |
 | --- | --- | --- |
-| `Hello` | `node_id`, `software_version`, `protocol_version` | 必须是连接首包 |
-| `Heartbeat` | `active_allocations`, `current_egress_bps`, `current_ingress_bps`, `load_state` | 租约与负载；`load_state` 为 `NORMAL`、`DEGRADED`、`REJECT_NEW` 或 `DRAINING` |
-| `CapacityReport` | 同负载字段 | 容量更新 |
-| `TrafficReport` | 心跳负载字段，以及 `process_id`、单调递增 `sequence` 和累计 packets/bytes/bind/token/rate-limit/reconnect 计数器 | 复用已认证 mTLS 流更新租约、负载和节点遥测；累计整数使用十进制字符串，避免 `protobuf.Struct` 的浮点精度损失 |
-| `AllocationOpened` | `allocation_id` | allocation 已安装 |
-| `AllocationClosed` | `allocation_id` | allocation 已释放 |
-| `RuntimeError` | 实现定义的非秘密诊断 | 运行错误报告 |
-| `DrainCompleted` | drain 完成信息 | 排空完成 |
+| `Hello` | `node_id`, `software_version`, `protocol_version` |Must be the first packet of connection|
+| `Heartbeat` | `active_allocations`, `current_egress_bps`, `current_ingress_bps`, `load_state` |Lease and load; `load_state` is `NORMAL`, `DEGRADED`, `REJECT_NEW` or `DRAINING`|
+| `CapacityReport` |Same as load field|capacity update|
+| `TrafficReport` |Heartbeat payload field, as well as `process_id`, monotonically increasing `sequence`, and cumulative packets/bytes/bind/token/rate-limit/reconnect counters|Reuse authenticated mTLS flows to update leases, payloads, and node telemetry; cumulative integers use decimal strings to avoid the floating point precision loss of `protobuf.Struct`|
+| `AllocationOpened` | `allocation_id` |allocation installed|
+| `AllocationClosed` | `allocation_id` |allocation released|
+| `RuntimeError` | Implementation-defined non-secret diagnostics | Runtime error report |
+| `DrainCompleted` | Drain completion message | Drain completed |
 
-Control Plane -> Edge：
+Control Plane -> Edge:
 
-| Type | 关键 payload | 说明 |
+| Type | Key payload | Description |
 | --- | --- | --- |
-| `ConfigSnapshot` | `config_version`, `heartbeat_interval_seconds`, `lease_seconds`, `node_state`, drain 字段 | 首次连接配置；节点重连时恢复持久化 Drain |
-| `KeysetUpdate` | Relay Token 公钥集 | 签名密钥轮换 |
-| `EnterDrain` | RFC 3339 drain deadline、`migrate_existing` | 停止接受新 allocation |
-| `ExitDrain` | — | 恢复接收 |
-| `RevokeAllocation` | `allocation_id` | 释放指定 allocation |
-| `CertificateRotation` | 轮换提示 | 触发续签流程 |
-| `Shutdown` | 原因/deadline | 有序停止 |
+| `ConfigSnapshot` |`config_version`, `heartbeat_interval_seconds`, `lease_seconds`, `node_state`, drain field|First connection configuration; restore persistent drain when node reconnects|
+| `KeysetUpdate` |Relay Token public key set|Signing key rotation|
+| `EnterDrain` | RFC 3339 drain deadline, `migrate_existing` | Stop accepting new allocations |
+| `ExitDrain` | — | Resume accepting allocations |
+| `RevokeAllocation` | `allocation_id` |Release the specified allocation|
+| `CertificateRotation` |rotation tips|Trigger renewal process|
+| `Shutdown` |reason/deadline|orderly stop|
 
-未知 Type 返回 gRPC `InvalidArgument`。证书或节点身份不匹配返回 `Unauthenticated`/`PermissionDenied`。心跳或 allocation 状态不合法返回 `FailedPrecondition`。控制流断开时 Edge 指数退避重连；短时断开不应立即清除仍有效的本地 allocation。
+Unknown Type returned gRPC `InvalidArgument`. Certificate or node identity mismatch returns `Unauthenticated`/`PermissionDenied`. If the heartbeat or allocation status is illegal, `FailedPrecondition` is returned. Edge exponentially backs off reconnection when control flow is disconnected; short disconnections should not immediately clear still valid local allocations.
 
-## 6. Relay UDP 数据面
+## 6. Relay UDP data plane
 
-完整二进制格式见 `Backend/api/relay-protocol.md`。摘要：
+See `Backend/api/relay-protocol.md` for the complete binary format. summary:
 
-1. Client 发送带 `client_nonce`、`requested_mtu` 和签名 Relay Token 的 v2 `BIND_INIT`；
-2. Relay 返回不放大的 `server_nonce + expires_in_ms + HMAC Cookie`；
-3. Client 从相同 UDP endpoint 原样携带 nonce、MTU、Cookie 和 Token 发送 `BIND_PROOF`；
-4. Relay 无状态校验 Cookie，再验签并返回 `BIND_OK`、随机 8 字节 handle 和协商 MTU；
-5. HOST 与 PEER 都绑定后，才转发带 HMAC tag 和 sequence 的 `DATA`。
+1. Client sends v2 `BIND_INIT` with `client_nonce`, `requested_mtu`, and a signed Relay Token;
+2. Relay returns `server_nonce + expires_in_ms + HMAC Cookie` without amplification;
+3. Client sends `BIND_PROOF` from the same UDP endpoint carrying nonce, MTU, Cookie and Token as they are;
+4. Relay stateless verification Cookie, then verify the signature and return `BIND_OK`, random 8-byte handle and negotiated MTU;
+5. After both HOST and PEER are bound, `DATA` with HMAC tag and sequence is forwarded.
 
-Relay Token claims 绑定 `allocation_id`、`connection_id`、`relay_node_id`、端点角色、有效期、带宽/PPS/总字节限制和协议版本。数据包不包含任意目标地址，因此只能在同一 allocation 的 HOST 与 PEER 间转发。Relay 不解密游戏 Payload，并丢弃未知 handle、错误角色/来源、无效 tag、重放/窗口外序号、超时或超限包。
+Relay Token claims binding `allocation_id`, `connection_id`, `relay_node_id`, endpoint role, validity period, bandwidth/PPS/total byte limit and protocol version. The packet does not contain any destination address, so it can only be forwarded between HOST and PEER in the same allocation. Relay does not decrypt the game payload and discards unknown handles, wrong characters/sources, invalid tags, replay/out-of-window serial numbers, timeout or over-limit packets.
 
-## 7. 指标 API
+## 7. Metrics API
 
-控制面：
+Control plane:
 
 ```http
 GET /internal/metrics
 Accept: text/plain
 ```
 
-关键指标包括 HTTP 请求/延迟、bind 成败、session/refresh 重放、P2P 房间、Dedicated Server 状态、Relay 节点/allocation、数据库连接池和 Go runtime。控制面还为数据库中的每个 Relay 输出 `relay_node_info`、`relay_node_state`、心跳/租约、容量和 mTLS 连接状态；已升级 Relay 通过 `TrafficReport` 额外输出 `relay_node_*_total` 累计遥测。旧版节点无需同步升级，仍会出现在节点清单、状态与租约指标中。公网 Caddy 必须返回 404。
+Key metrics include HTTP request/latency, bind success or failure, session/refresh replay, P2P room, Dedicated Server status, Relay node/allocation, database connection pool and Go runtime. The control plane also outputs `relay_node_info`, `relay_node_state`, heartbeat/lease, capacity, and mTLS connection status for each Relay in the database; upgraded Relays additionally output `relay_node_*_total` cumulative telemetry via `TrafficReport`. Older nodes do not need to be upgraded simultaneously and will still appear in the node list, status and lease indicators. Public network Caddy must return 404.
 
-边缘节点：
+Edge node:
 
 ```http
 GET http://127.0.0.1:9100/metrics
 ```
 
-关键指标包括 active allocations、收发/丢弃包数、转发字节、bind 成败、token invalid、rate-limit drop、控制流连接和重连次数，以及按 `state` 标注的 `relay_load_state` 和状态切换计数。过载状态经 mTLS `TrafficReport` 上报并持久化；调度器不会把新连接或迁移分配到 `REJECT_NEW`/`DRAINING` 节点。通过节点本地 Prometheus agent 抓取，不得把 9100 暴露公网。
+Key metrics include active allocations, packets sent/received/dropped, forwarded bytes, bind success or failure, invalid tokens, rate-limit drops, control-channel connection and reconnection counts, `relay_load_state`, and state-transition counts labeled by `state`. Overload status is reported through mTLS `TrafficReport` and persisted; the scheduler will not assign new connections or migrations to `REJECT_NEW` or `DRAINING` nodes. Port 9100 is scraped by a node-local Prometheus agent and must not be exposed publicly.
 
-## 8. 内部错误和审计
+## 8. Internal Errors and Audits
 
-HTTP 错误仍使用统一 `error` + `request_id` envelope。管理写操作、登录、Refresh Token 重放、Relay 注册/续签/状态迁移必须记录结构化审计字段，但不得记录：
+HTTP errors still use the unified `error` + `request_id` envelope. Management write operations, login, Refresh Token replay, Relay registration/renewal/state migration must record structured audit fields, but must not record:
 
-- Access/Refresh/Admin/Game Server/Bootstrap/Node/Relay Token 全文；
-- 私钥、CSR 私钥或完整 `identity.json`；
-- 完整游戏 Payload；
-- 数据库连接 URL 中的密码。
+- Access/Refresh/Admin/Game Server/Bootstrap/Node/Relay Token full text;
+- Private key, CSR private key or complete `identity.json`;
+- Complete game payload;
+- The password in the database connection URL.
 
-排障使用 request ID、actor/resource ID、状态迁移、证书 fingerprint、容器镜像 digest 和时间范围。证书 fingerprint 不是私钥，可以用于身份关联。
+Troubleshoot using request ID, actor/resource ID, state migration, certificate fingerprint, container image digest and time range. The certificate fingerprint is not a private key and can be used for identity association.
 
-## 9. 兼容性与权威契约
+## 9. Compatibility and Authoritative Contract
 
-- HTTP Schema：`Backend/api/openapi/openapi.yaml`
-- gRPC Service：`Backend/api/proto/relay_control.proto`
-- 生成的 Go gRPC binding：`Backend/api/proto/relay_control_grpc.go`
-- UDP v1：`Backend/api/relay-protocol.md`
-- 权限矩阵：`Backend/api/openapi/auth-permission-matrix.md`
+- HTTP schema: `Backend/api/openapi/openapi.yaml`
+- gRPC service: `Backend/api/proto/relay_control.proto`
+- Generated Go gRPC binding: `Backend/api/proto/relay_control_grpc.go`
+- UDP v1: `Backend/api/relay-protocol.md`
+- Permission matrix: `Backend/api/openapi/auth-permission-matrix.md`
 
-新增字段应保持向后兼容；删除/改名、枚举收紧、认证方式改变或二进制包头改变都需要新 API/协议版本。内部路径并不代表可以忽略兼容性，因为边缘节点允许滚动升级。
+Newly added fields should remain backward compatible; deletion/renaming, tightening of enumerations, changes in authentication methods, or changes in binary headers all require new API/protocol versions. The internal path does not mean that compatibility can be ignored, as edge nodes allow rolling upgrades.

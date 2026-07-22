@@ -1,5 +1,7 @@
 # Repeatable chaos scenarios
 
+English | [简体中文](README.zh-CN.md)
+
 Create a disposable Compose deployment using project name `project-rebound-chaos-*`, then run:
 
 ```bash

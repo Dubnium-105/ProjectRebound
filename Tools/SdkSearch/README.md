@@ -1,5 +1,7 @@
 # SDK symbol search
 
+English | [简体中文](README.zh-CN.md)
+
 `find-loadout-symbols.ps1` scans generated C++ SDK files for weapon, role and inventory/loadout symbols. Generated reports are local research artifacts and are intentionally excluded from Git because they contain SDK-version-specific paths and line numbers.
 
 From the repository root:

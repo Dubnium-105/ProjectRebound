@@ -1,19 +1,21 @@
-# Access Token 权限矩阵
+# Access Token permission matrix
 
-`POST /v1/auth/bind` 接受客户端自述的 SteamID，当前 `auth_provider` 固定为 `steam_client_asserted`，`auth_level` 固定为 `unverified`。此流程不证明请求者控制对应 Steam 账号。
+English | [简体中文](auth-permission-matrix.zh-CN.md)
 
-Access Token 是短期 Ed25519 JWT，只包含玩家 ID、session ID、provider、auth level、签发/过期时间和 token version。`account_status` 与 `is_vip` 不写入 Token；需要时始终从 PostgreSQL（或后续的短期 Redis 缓存）读取。
+`POST /v1/auth/bind` accepts the SteamID reported by the client. Currently, `auth_provider` is fixed to `steam_client_asserted` and `auth_level` is fixed to `unverified`. This process does not prove that the requester controls the corresponding Steam account.
 
-| 操作 | ACTIVE | BANNED | DELETED |
+The Access Token is a short-lived Ed25519 JWT containing only the player ID, session ID, provider, authentication level, issue/expiration times, and token version. `account_status` and `is_vip` are not written to the token; they are always read from PostgreSQL, or from a future short-lived Redis cache, when needed.
+
+| Operation | ACTIVE | BANNED | DELETED |
 | --- | --- | --- | --- |
-| bind | 允许 | 允许 | 拒绝 |
-| refresh | 允许 | 允许 | 拒绝并撤销 session |
-| logout | 允许 | 允许 | 已签发 Token 拒绝 |
-| users/me | 允许 | 允许 | 拒绝 |
-| 版本/更新读取 | 允许 | 允许 | 后续 Milestone 定义 |
-| 公开服务器/房间浏览 | 允许 | 可允许 | 后续 Milestone 定义 |
-| 联机写操作 | 允许 | 拒绝 | 拒绝 |
+| Bind | Allow | Allow | Reject |
+| Refresh | Allow | Allow | Reject and revoke session |
+| Logout | Allow | Allow | Issued token is rejected |
+| `users/me` | Allow | Allow | Reject |
+| Version/update reads | Allow | Allow | Defined by a later milestone |
+| Public server/room browsing | Allow | Allow | Defined by a later milestone |
+| Online write operations | Allow | Reject | Reject |
 
-Admin API 不使用此矩阵，也不接受 Player Access Token。它要求独立的静态 Admin Token、可信来源网段，并从公网 Caddy 路由中移除。
+The Admin API does not use this matrix and does not accept Player Access Tokens. It requires a separate static Admin Token, a trusted source network, and exclusion from public Caddy routing.
 
-Refresh Token 每次使用都会 rotation。旧 Token 对应的 session 行保留为已轮换状态；再次使用旧 Token 会撤销整个 `token_family_id` 下的 session，并记录 `REFRESH_TOKEN_REUSE` 审计事件。
+Refresh Tokens rotate on every use. The session row corresponding to the old token remains in a rotated state; reusing the old token revokes every session in the same `token_family_id` and records a `REFRESH_TOKEN_REUSE` audit event.

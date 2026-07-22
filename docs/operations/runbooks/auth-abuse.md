@@ -1,5 +1,7 @@
 # Authentication abuse runbook
 
+English | [简体中文](auth-abuse.zh-CN.md)
+
 Trigger on `AuthBindRateLimitSpike`, `RefreshTokenReplayDetected`, `MultiAccountRiskSpike`, or `InviteCodeFailureSpike`.
 
 1. Record alert time, affected dimension, deployment digest, and request IDs; never copy credentials into the incident.

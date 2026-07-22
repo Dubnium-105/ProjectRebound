@@ -1,92 +1,94 @@
-# V1.1 测试与 Release Gate 报告
+# V1.1 Testing and Release Gate Report
 
-报告日期：2026-07-22
+English | [简体中文](test-report.zh-CN.md)
 
-生产候选：`66cde85a7528781b18e4302289d5d6087364076d`
+Report date: 2026-07-22
 
-房间 TTL 修复：`447e27a`；连续在线策略：`66cde85a`
+Production candidate: `66cde85a7528781b18e4302289d5d6087364076d`
 
-总体状态：`PRODUCTION_DEPLOYED_24H_SOAK_PENDING`
+Room TTL fix: `447e27a`; continuous online policy: `66cde85a`
 
-V1.1 已部署到生产控制面、LAX 和 HGH Relay；CI 的 7 个 job 全部通过。短期功能、安全、弱网、迁移、故障恢复、告警和全新恢复门禁已通过；1 小时和 6 小时容量长稳已通过。正式 24 小时 Relay 连续在线 Soak 尚未按修正后的“不做计划重启”口径完成，因此生产可继续观察，但不得把当前证据标记为完整 24 小时 Release Gate。
+Overall status: `PRODUCTION_DEPLOYED_24H_SOAK_PENDING`
 
-## 自动化质量门禁
+V1.1 has been deployed to the production control plane and the LAX and HGH Relays; all seven CI jobs passed. Short-duration functional, security, impaired-network, migration, fault-recovery, alerting, and restore gates passed, as did the 1-hour and 6-hour capacity soak tests. The official 24-hour continuous-online Relay soak has not yet been completed under the revised "no planned restart" policy, so production observation may continue, but the current evidence must not be presented as a completed 24-hour release gate.
 
-| 命令 | 场景 | 结果 | 实际观察 |
+## Automated quality gates
+
+| Command | Scenario | Result | Actual observation |
 | --- | --- | --- | --- |
-| `gofmt -l .` | 全部 Go 源码格式 | PASS | 无输出 |
-| `go vet ./...` | 全部 Go package 静态检查 | PASS | 无诊断 |
-| `go test ./... -count=1` | 单元与进程内集成测试 | PASS | 本机约 15 秒；所有已运行 package 通过 |
-| `go test ./internal/loadbot -count=20` | load-bot 短周期稳定性回归 | PASS | 修复首个请求等待 ticker 导致的短测偶发空报告 |
-| `TEST_DATABASE_URL=… TEST_REDIS_ADDRESS=… go test -race ./... -count=1` | Linux、PostgreSQL 17、Redis 7、全 package Race Detector | PASS | 约 14.3 秒；临时容器已删除 |
-| `go test -tags=integration ./... -run '^$'` | 独立 Testcontainers 模块编译 | PASS | 无测试执行，仅验证集成门禁可编译 |
-| `promtool test rules v1.1.rules.test.yml` | V1.1 告警 firing/resolved 单元测试 | PASS | PostgreSQL/Redis、Auth/Relay replay、无可用 Relay、备份与恢复告警通过 |
-| `staticcheck ./...` / `golangci-lint run` | 额外静态检查 | NOT_RUN | 当前执行环境未安装；不是仓库既有 CI 门禁 |
+| `gofmt -l .` |All Go source code formats| PASS |No output|
+| `go vet ./...` |All Go packages static checks| PASS |No diagnosis|
+| `go test ./... -count=1` |Unit and in-process integration testing| PASS |About 15 seconds on this machine; all running packages pass|
+| `go test ./internal/loadbot -count=20` |load-bot short-term stability return| PASS |Fix the occasional empty report in short tests caused by the first request waiting for the ticker|
+| `TEST_DATABASE_URL=… TEST_REDIS_ADDRESS=… go test -race ./... -count=1` |Linux, PostgreSQL 17, Redis 7, full package Race Detector| PASS |~14.3 seconds; temporary container deleted|
+| `go test -tags=integration ./... -run '^$'` |Standalone Testcontainers module compilation| PASS |No test execution, only verification that integrated access compiles|
+| `promtool test rules v1.1.rules.test.yml` |V1.1 alarm firing/resolved unit test| PASS |PostgreSQL/Redis, Auth/Relay replay, no available Relay, backup and recovery alarms passed|
+| `staticcheck ./...` / `golangci-lint run` | Additional static checks | NOT_RUN | The tools are not installed in the current environment and are not configured as repository CI gates |
 
-CI 现在将 Testcontainers 门禁作为镜像发布的前置依赖，并在每次运行前显式构建当前源码，避免固定本地镜像标签掩盖代码修改。CI 同时运行 Go race、PostgreSQL/Redis 集成、OpenAPI/部署配置、Prometheus 规则、Shell 语法、文档链接、部署/回滚脚本与镜像 provenance。
+CI now gates Testcontainers as a pre-requisite for image releases and explicitly builds the current source code before each run, avoiding fixed local image tags that obscure code modifications. CI simultaneously runs Go races, PostgreSQL/Redis integration, OpenAPI/deployment configurations, Prometheus rules, shell syntax, documentation links, deployment/rollback scripts and image provenance.
 
-## 真实容器联合测试
+## Real container joint testing
 
-环境：Debian 13、PostgreSQL 17、Redis 7、当前源码 Control Plane（含集成式 Worker）、两个 Edge Relay、隔离网段 `198.18.11.0/24`。最终不含 netem 的组合复跑耗时 330.2 秒并 PASS；同一代码的完整 netem 组合中三个子测试均 PASS。
+Environment: Debian 13, PostgreSQL 17, Redis 7, current source code Control Plane (including integrated Worker), two Edge Relay, isolated network segment `198.18.11.0/24`. The final rerun of the combination without netem took 330.2 seconds and passed; the three subtests in the complete netem combination of the same code all passed.
 
-| 场景 | 客户端 / 房间 / allocation | 结果 |
+| Scenario | Clients/rooms/allocations | Result |
 | --- | --- | --- |
-| 基线全链路 | 4 / 2 / 2，20s | API 32/32，P50 6.8ms、P95 13.5ms、P99 18.0ms；BIND 4/4；UDP 196/196；allocation 2/2 回收；内存 +1,256,736B，goroutine +4 |
-| 集中重连短测 | 100 / 50 / 50，90.6s | API 900/900，P50 4.4ms、P95 8.5ms、P99 77.5ms；BIND 100/100；UDP 8200/8200；200 次 WebSocket 重连；allocation 50/50 回收；内存 +2,476,080B，goroutine +4 |
-| Relay A `SIGKILL` | 4 / 2 / 2，45.2s | API 54/54；迁移 1/1；BIND 6/6；UDP 415/418，故障窗口丢包 0.718%；无无限重试；allocation 清理完成 |
-| Redis 重启 | 短故障 | 2.791s 恢复 READY |
-| PostgreSQL 重启 | 短故障 | 3.608s 恢复 READY，连接池随后完成真实 Auth/房间/Relay 流程 |
-| Control Plane 重启 | 短故障 | 8.648s 内恢复并观察到两台 Relay 的新心跳；随后 API 32/32、BIND 4/4、UDP 196/196 |
+| Baseline full path | 4 / 2 / 2, 20 s | API 32/32, P50 6.8 ms, P95 13.5 ms, P99 18.0 ms; BIND 4/4; UDP 196/196; allocations recycled 2/2; memory +1,256,736 B; goroutines +4 |
+| Synchronized reconnection short test | 100 / 50 / 50, 90.6 s | API 900/900, P50 4.4 ms, P95 8.5 ms, P99 77.5 ms; BIND 100/100; UDP 8200/8200; 200 WebSocket reconnections; allocations recycled 50/50; memory +2,476,080 B; goroutines +4 |
+| Relay A `SIGKILL` | 4 / 2 / 2, 45.2 s | API 54/54; migration 1/1; BIND 6/6; UDP 415/418; failure-window packet loss 0.718%; no infinite retries; allocation cleanup completed |
+|Redis restart|short fault|2.791s recovery READY|
+|PostgreSQL restart|short fault|3.608s restore READY, the connection pool then completes the real Auth/room/Relay process|
+|Control Plane Restart|short fault|Within 8.648s, new heartbeats of two Relays were recovered and observed; then API 32/32, BIND 4/4, UDP 196/196|
 
-Control Plane 重启后的 Relay 判断不再只相信数据库中的旧 READY 状态，而是要求 `last_heartbeat_at` 晚于本次重启，防止测试在 lease 即将过期时误判恢复完成。
+The Relay judgment after Control Plane restart no longer only trusts the old READY status in the database, but requires `last_heartbeat_at` to be later than this restart to prevent the test from misjudging the recovery completion when the lease is about to expire.
 
-## 弱网矩阵
+## Weak network matrix
 
-`tc netem` 只注入到一台 Relay 的容器网络命名空间，并在每个子测试后强制 reset。每个场景持续 20 秒，其中约 8 秒处于注入状态；因此报告中的全场景有效丢包率低于配置的瞬时丢包率。
+`tc netem` is only injected into the container network namespace of one Relay and forces a reset after each subtest. Each scenario lasts 20 seconds, of which approximately 8 seconds are in the injection state; therefore the reported effective packet loss rate for the entire scenario is lower than the configured instantaneous packet loss rate.
 
-| Profile | 注入参数 | API / BIND | UDP 结果 | 判定 |
+| Profile |Inject parameters| API / BIND |UDP results|determination|
 | --- | --- | --- | --- | --- |
-| Mild | 50ms、10ms jitter、1% loss | 32/32；4/4 | 181/182，0.549% | PASS |
-| Moderate | 120ms、30ms、5% loss、2Mbps | 32/32；4/4 | 196/196，本次随机窗口 0% | PASS |
-| Severe | 250ms、80ms、15% loss、3% reorder、256Kbps | 32/32；4/4 | 163/165，1.212% | PASS |
+| Mild | 50 ms, 10 ms jitter, 1% loss | 32/32; 4/4 | 181/182, 0.549% | PASS |
+| Moderate | 120 ms, 30 ms jitter, 5% loss, 2 Mbps | 32/32; 4/4 | 196/196, 0% in this random window | PASS |
+| Severe | 250 ms, 80 ms jitter, 15% loss, 3% reorder, 256 Kbps | 32/32; 4/4 | 163/165, 1.212% | PASS |
 
-## 备份、恢复与告警
+## Backup, recovery and alerting
 
-| Gate | 状态 | 证据 |
+| Gate | State | Evidence |
 | --- | --- | --- |
-| Prometheus 告警规则 | PASS | `promtool test rules` 同时验证 firing 与 resolved |
-| 加密 PostgreSQL 备份/校验 | PASS | custom dump、压缩、age、SHA-256、`pg_restore --list` |
-| 独立密钥恢复 | PASS | Access、Relay、Manifest、Relay CA 独立加密包恢复 |
-| 全新 Control Plane | PASS | 恢复后 `/health/ready` 与管理员 player 查询成功 |
-| 旧 Manifest 连续性 | PASS | 恢复前后归一化请求 ID 后逐字节一致 |
-| Relay 恢复 | PASS | 新 Relay 使用恢复出的 CA/密钥重新注册并进入 READY |
-| 易失状态不复活 | PASS | room CLOSED、connection/allocation FAILED、旧 Relay OFFLINE、活动计数归零 |
+|Prometheus alert rules| PASS |`promtool test rules` simultaneously verifies firing and resolved|
+|Encrypted PostgreSQL backup/verification| PASS |custom dump, compression, age, SHA-256, `pg_restore --list`|
+|Independent key recovery| PASS |Access, Relay, Manifest, Relay CA independent encryption package recovery|
+|New Control Plane| PASS |After recovery, `/health/ready` successfully queried the administrator player.|
+|Old Manifest Continuity| PASS |The normalized request ID before and after recovery is consistent byte by byte.|
+|Relay recovery| PASS |The new Relay uses the recovered CA/key to re-register and enter READY|
+|Volatile state cannot be revived| PASS |room CLOSED, connection/allocation FAILED, old Relay OFFLINE, activity count reset to zero|
 
-完整数值和 SHA-256 见 [恢复演练报告](restore-test-report.md)。
+See [Recovery Exercise Report](restore-test-report.md) for complete values ​​and SHA-256.
 
-## 长稳与正式容量门禁
+## Long-term stability and formal capacity gates
 
-| 场景 | 实际结果 | 状态 |
+| Scenario | Actual results | State |
 | --- | --- | --- |
-| 预检 | 600.3 秒；HTTP 成功率 100%；UDP 零丢包 | PASS |
-| 基础并发 | 3,600.3 秒；HTTP 成功率 100%；P95 5.733 ms；UDP 零丢包 | PASS |
-| 设计上限 | 21,601.0 秒；155,345 个 HTTP 请求，成功率 100%，P95 5.520 ms；UDP 43,170,300 发、43,170,297 收，丢包率 0.00000695%；包含 Redis 和 Control Plane 恢复；无残留 allocation | PASS |
-| 修正后 Relay 连续在线验证 | 601.2 秒；HTTP 4,780/4,780，P95 6.482 ms；UDP 1,170,600/1,170,600；100 次 allocation；控制断链样本 0；无残留 | PASS（10 分钟） |
-| Relay Soak | 100～300 allocation、24 小时；Relay 不做计划重启，仅在确认掉线后恢复 | PENDING_24H |
-| 正式重连风暴 | 100 客户端、10 分钟 | SHORT_PASS；90.6 秒功能门禁通过，未满足正式时长 |
-| 正式 Relay 故障 | 50 allocation、30 分钟 | SHORT_PASS；双 Relay 真实 SIGKILL/迁移通过，未满足正式规模与时长 |
+|Preflight|600.3 seconds; HTTP success rate 100%; UDP zero packet loss| PASS |
+|Basic concurrency|3,600.3 seconds; HTTP success rate 100%; P95 5.733 ms; UDP zero packet loss| PASS |
+|Design upper limit|21,601.0 seconds; 155,345 HTTP requests, 100% success rate, P95 5.520 ms; UDP 43,170,300 sent, 43,170,297 received, packet loss rate 0.00000695%; includes Redis and Control Plane recovery; no residual allocation| PASS |
+|Relay continuous online verification after correction|601.2 seconds; HTTP 4,780/4,780, P95 6.482 ms; UDP 1,170,600/1,170,600; 100 allocations; control broken chain sample 0; no residue|PASS (10 minutes)|
+| Relay Soak |100~300 allocation, 24 hours; Relay does not plan to restart and will only resume after confirming the disconnection.| PENDING_24H |
+| Official reconnection storm | 100 clients, 10 minutes | SHORT_PASS; the 90.6-second functional gate passed, but it did not meet the formal duration requirement |
+|Formal Relay failure|50 allocation, 30 minutes|SHORT_PASS; double Relay real SIGKILL/migration passed, does not meet the official scale and duration|
 
-曾执行一轮 17.1 小时测试，每小时强制重启 Relay，最终 UDP 丢包率为 14.7928%，且没有形成有效迁移证据。该结果证明“周期重启”会主动破坏正在中继的内存态对局，不属于连续在线 Soak。测试策略现已改为健康节点不显式重启、仅在确认掉线后恢复；故障注入另行执行。该轮失败数据保留作为反例，不计入 24 小时门禁。
+A 17.1-hour test forced the Relay to restart every hour. Final UDP packet loss reached 14.7928%, and the run produced no evidence of effective migration. This demonstrates that periodic restarts actively destroy in-memory relay state and do not constitute a continuous-online soak. The strategy now avoids explicit restarts of healthy nodes and attempts recovery only after confirming that a node is offline; fault injection is tested separately. The failed run is retained as a counterexample and excluded from the 24-hour gate.
 
-## Release Gate 结论
+## Release Gate Conclusion
 
-| Gate | 状态 |
+| Gate | State |
 | --- | --- |
 | Auth Gate | PASS |
-| Relay Security Gate | SHORT_PASS；功能/安全与 6h 容量通过，24h 连续在线项待完成 |
-| Migration Gate | SHORT_PASS；真实故障迁移、幂等、恢复 READY 通过 |
-| Key Gate | PASS；自动轮换/证书测试及恢复演练通过 |
-| Operations Gate | PASS；备份恢复、告警、迁移幂等、部署/回滚脚本均有自动化门禁 |
-| Performance Gate | PARTIAL_PASS；1h/6h 通过，修正后 10 分钟连续在线通过，24h 待完成 |
+| Relay Security Gate |SHORT_PASS; function/security and 6h capacity passed, 24h continuous online items to be completed|
+| Migration Gate | SHORT_PASS; real failover migration, idempotency, and recovery to READY passed |
+| Key Gate |PASS; automatic rotation/certificate test and recovery drill passed|
+| Operations Gate | PASS; backup/restore, alerts, migration idempotency, and deployment/rollback scripts all have automated gates |
+| Performance Gate |PARTIAL_PASS; passed in 1h/6h, passed online continuously for 10 minutes after correction, 24h to be completed|
 
-结论：当前生产版本无已知短期发布阻断问题，1 小时和 6 小时门禁通过；正式 24 小时连续在线证据仍待补齐，版本状态保持 `PRODUCTION_DEPLOYED_24H_SOAK_PENDING`。Relay 的权威运行口径见 [连续在线与恢复策略](../../operations/relay-continuity.md)。
+Conclusion: The current production version has no known short-term release blockers, and the 1-hour and 6-hour gates passed. The official 24-hour continuous-online evidence remains incomplete, so version status remains `PRODUCTION_DEPLOYED_24H_SOAK_PENDING`. For the authoritative Relay operating policy, see [Continuous Online and Recovery Strategy](../../operations/relay-continuity.md).

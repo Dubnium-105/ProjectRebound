@@ -1,5 +1,7 @@
 # Load test
 
+English | [简体中文](README.zh-CN.md)
+
 Run against an isolated staging environment with production-like PostgreSQL and Redis pool sizes:
 
 ```powershell

@@ -40,9 +40,9 @@ Language-preserving links are required: an English index links to English docume
 
 ## Scope and exceptions
 
-All current public entry points and cross-component normative guides are registered in [`bilingual-docs.txt`](bilingual-docs.txt) and checked by CI. New public documents must be added to that registry with both files in the same commit.
+Every maintained Markdown document in the repository is discovered automatically and checked by CI, including component README files and implementation-adjacent protocol or test guides. A new English document and its `.zh-CN.md` sibling must be added in the same commit; no registry update is required.
 
-Historical snapshots under `docs/archive/` are frozen and are not translated. Version evidence under `docs/testing/` may preserve the language in which the evidence was recorded, but its index and release conclusion must be bilingual. Implementation-adjacent notes may remain single-language until materially revised; once revised, they should follow this standard or link to a registered bilingual guide.
+Historical snapshots under `docs/archive/` are frozen and are not translated. Locale-independent machine contracts that are not Markdown remain single-source files. Generated dependency and build-cache directories are outside the maintained-document scope.
 
 ## Review checklist
 

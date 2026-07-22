@@ -1,5 +1,7 @@
 # Signed update release descriptors
 
+English | [简体中文](README.zh-CN.md)
+
 Place one non-secret JSON descriptor per release in this directory. At control-plane startup, every `*.json` file is strictly decoded, validated, sorted by file path, assigned immutable CDN URLs, and signed with Ed25519.
 
 The signing private key is never stored here. Supply a 32-byte Ed25519 seed or 64-byte private key through `UPDATE_SIGNING_PRIVATE_KEY_BASE64`. Production startup fails when the key or all release descriptors are missing.

@@ -1,5 +1,7 @@
 # PostgreSQL and Redis outage runbook
 
+English | [简体中文](database-redis-outage.zh-CN.md)
+
 Trigger on `PostgreSQLUnavailable`, `DatabasePoolNearlyExhausted`, `RedisUnavailable`, or repeated background-job failure alerts.
 
 1. Freeze releases and destructive administration. Check host disk/inodes, container state, recent restarts, pool utilization, and dependency latency.

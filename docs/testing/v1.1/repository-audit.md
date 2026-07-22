@@ -1,12 +1,14 @@
-# V1.1 仓库审计
+# V1.1 Repository Audit
 
-审计基线：`af4343a4cdc0b60836a417c182d0c65c0917c197`（`main`）
+English | [简体中文](repository-audit.zh-CN.md)
 
-审计日期：2026-07-21
+Audit baseline: `af4343a4cdc0b60836a417c182d0c65c0917c197` (`main`)
 
-范围：以 `Backend/` 中的 Go 控制面与 Edge Relay 为主，同时检查契约、部署、监控、测试和仓库中的旧后端实现。
+Audit date: 2026-07-21
 
-## 1. 当前目录结构
+Scope: Focus on the Go control plane and Edge Relay in `Backend/`, while checking the old backend implementation in contracts, deployment, monitoring, testing and repositories.
+
+## 1. Current directory structure
 
 ```text
 ProjectRebound/
@@ -38,161 +40,161 @@ ProjectRebound/
 └── Tools/                      # 文档和 NAT 测试工具
 ```
 
-生产镜像只构建 `cmd/control-plane` 和 `cmd/edge-relay`。旧 `cmd/main.go`、SQLite 数据库与相应包仍可编译，但不应作为 V1.1 权威实现继续扩展。
+The production image only builds `cmd/control-plane` and `cmd/edge-relay`. The old `cmd/main.go`, SQLite database and corresponding package can still be compiled, but should not be extended further as the V1.1 authoritative implementation.
 
-## 2. 当前公开 API
+## 2. Current public API
 
-权威路由位于 `internal/controlplane/server.go`，Schema 位于 `api/openapi/openapi.yaml`。
+The authoritative route is located at `internal/controlplane/server.go` and the Schema is located at `api/openapi/openapi.yaml`.
 
-| 领域 | 方法与路径 | 当前鉴权 |
+|field|methods and paths|Current authentication|
 | --- | --- | --- |
-| 健康 | `GET /health/live`, `GET /health/ready` | 无 |
-| 认证 | `POST /v1/auth/bind`, `POST /v1/auth/refresh` | 无；bind 仅有 IP 限流 |
-| 当前玩家 | `POST /v1/auth/logout`, `GET /v1/users/me` | Player Access Token |
-| Dedicated Server | `POST/GET /v1/game-servers`, `GET/DELETE /v1/game-servers/{id}`, `POST .../heartbeat` | 注册 Token、Server Token 或公开读 |
-| P2P 房间 | `GET/POST /v1/p2p-rooms`，查询、加入、离开、心跳、开始、删除 | 公开读；写入要求 Active Player，房主操作另需 Host Token |
-| 连接 | `POST /v1/connections`, `GET/DELETE /v1/connections/{id}` | 参与者 Access Token |
-| 实时 | `GET /v1/realtime/connect` | Access Token + WebSocket Upgrade |
-| 更新 | `/v1/updates/check`, `/v1/updates/{platform}/{version}/manifest`, `/v1/updates/files/{file_id}` | 无 |
-| 客户端配置 | `GET /v1/client/config` | 无 |
+|healthy| `GET /health/live`, `GET /health/ready` |none|
+| Authentication | `POST /v1/auth/bind`, `POST /v1/auth/refresh` | None; bind is rate-limited only by IP |
+|current player| `POST /v1/auth/logout`, `GET /v1/users/me` | Player Access Token |
+| Dedicated Server | `POST/GET /v1/game-servers`, `GET/DELETE /v1/game-servers/{id}`, `POST .../heartbeat` |Register Token, Server Token or read publicly|
+|P2P room|`GET/POST /v1/p2p-rooms`, query, join, leave, heartbeat, start, delete|Public reading; writing requires Active Player, and Host Token is required for host operations.|
+|connect| `POST /v1/connections`, `GET/DELETE /v1/connections/{id}` |Participant Access Token|
+|real time| `GET /v1/realtime/connect` | Access Token + WebSocket Upgrade |
+|renew| `/v1/updates/check`, `/v1/updates/{platform}/{version}/manifest`, `/v1/updates/files/{file_id}` |none|
+|Client configuration| `GET /v1/client/config` |none|
 
-当前缺少 V1.1 的玩家 Session 列表/撤销接口、邀请码接口和认证风险查询接口。`/auth/bind` 请求仅接受 `steam_id`、`persona_name`；未知字段会被拒绝，因此任务书中的可选字段尚不兼容。
+Currently, the V1.1 player session list/revocation interface, invitation code interface and authentication risk query interface are missing. `/auth/bind` requests only accept `steam_id`, `persona_name`; unknown fields will be rejected, so optional fields in the brief are not yet compatible.
 
-## 3. 当前内部与管理 API
+## 3. Current internal and management API
 
-| 接口 | 当前保护和用途 |
+|interface|Current protection and uses|
 | --- | --- |
-| `/v1/admin/players*` | Admin Token + trusted CIDR；查询、修改玩家和撤销全部 Session |
-| `POST /internal/v1/relay-nodes/enroll` | 一次性 Bootstrap Token；签发 Node Token 与证书 |
-| `POST /internal/v1/relay-nodes/{id}/certificate/renew` | Node Token；换新 CSR、证书和 Keyset |
-| `GET /internal/v1/relay-nodes[/...]` | Admin Token + trusted CIDR；动态 Relay 清单 |
-| `POST .../{id}/drain`, `resume`, `revoke` | Admin Token + trusted CIDR；节点状态迁移 |
-| `GET /internal/metrics` | trusted CIDR；Prometheus 抓取 |
-| RelayControl `Connect` | TLS 1.3 mTLS 双向流，TCP 9090（生产经 FRP/SNI 网关暴露） |
-| Edge `/metrics` | 默认 `127.0.0.1:9100`，仅本地监控 agent 抓取 |
+| `/v1/admin/players*` |Admin Token + trusted CIDR; query, modify players and cancel all sessions|
+| `POST /internal/v1/relay-nodes/enroll` |One-time Bootstrap Token; issue Node Token and certificate|
+| `POST /internal/v1/relay-nodes/{id}/certificate/renew` |Node Token; renew CSR, certificate and Keyset|
+| `GET /internal/v1/relay-nodes[/...]` |Admin Token + trusted CIDR; dynamic Relay list|
+| `POST .../{id}/drain`, `resume`, `revoke` |Admin Token + trusted CIDR; node status migration|
+| `GET /internal/metrics` |trusted CIDR; Prometheus crawling|
+| RelayControl `Connect` |TLS 1.3 mTLS bidirectional flow, TCP 9090 (production exposed via FRP/SNI gateway)|
+| Edge `/metrics` |Default `127.0.0.1:9100`, only local monitoring agent capture|
 
-控制流采用 `google.protobuf.Struct` envelope。Edge 上报 `Hello`、`Heartbeat`/`CapacityReport`、`TrafficReport`、allocation 开关事件和运行错误；控制面下发配置、Keyset、Drain、allocation 撤销、证书轮换提示与 Shutdown。
+Control flow uses `google.protobuf.Struct` envelope. Edge reports `Hello`, `Heartbeat`/`CapacityReport`, `TrafficReport`, allocation switch events and running errors; the control plane delivers configuration, Keyset, Drain, allocation revocation, certificate rotation prompt and Shutdown.
 
-## 4. 当前数据库表和迁移
+## 4. Current database tables and migrations
 
-迁移器使用 PostgreSQL advisory lock、每迁移事务、SHA-256 checksum 与 `schema_migrations`，已应用迁移不可静默修改。当前迁移：
+The migrator uses PostgreSQL advisory lock, per-migration transactions, SHA-256 checksum and `schema_migrations`, and applied migrations cannot be modified silently. Current migration:
 
-| 版本 | 主要表/变更 |
+|Version|Main tables/changes|
 | --- | --- |
-| `000001_baseline` | 版本基线 |
+| `000001_baseline` |version baseline|
 | `000002_auth` | `players`, `auth_sessions`, `auth_login_audit_logs` |
 | `000003_admin` | `admin_audit_logs` |
 | `000004_game_servers` | `game_servers` |
 | `000005_p2p_rooms` | `p2p_rooms`, `p2p_room_members` |
 | `000006_connections` | `connections`, `connection_candidates`, `connection_path_checks` |
 | `000007_relay_registry` | `relay_bootstrap_tokens`, `relay_nodes`, `relay_allocations`, `relay_node_audit_logs` |
-| `000008_relay_migrations` | `MIGRATING_RELAY` 状态、allocation 失败原因、`relay_migrations` |
+| `000008_relay_migrations` |`MIGRATING_RELAY` status, allocation failure reason, `relay_migrations`|
 
-尚无 `auth_risk_events`、规范化的 `auth_login_events`、独立 `auth_refresh_tokens`、`invite_codes`、`invite_code_uses`、`relay_node_credentials`、`relay_signing_keys`。`relay_allocations` 没有 bound 时间、close reason 和双向字节持久化字段。更新 Manifest 当前来自部署目录，不存在任务书列出的 `update_releases`/`update_files` 数据库表。
+There are no `auth_risk_events`, standardized `auth_login_events`, independent `auth_refresh_tokens`, `invite_codes`, `invite_code_uses`, `relay_node_credentials`, `relay_signing_keys`. `relay_allocations` has no bound time, close reason and bidirectional byte persistence fields. The update manifest is currently from the deployment directory and the `update_releases`/`update_files` database tables listed in the task book do not exist.
 
-## 5. 当前认证和 Session 流程
+## 5. Current authentication and session process
 
-1. Bind 校验 16～20 位数字 SteamID，规范化 persona name。
-2. 在事务内按唯一 SteamID upsert 玩家；并发 bind 由唯一约束保证只创建一个玩家。
-3. 创建 `auth_sessions` 行，Refresh Token 使用 48 字节安全随机数并只保存 SHA-256。
-4. Access Token 为 Ed25519 JWT，带 player、session、provider、auth level 和 token version。
-5. Refresh 使用 `SELECT ... FOR UPDATE`，创建新 Session 行并将旧行标记 `ROTATED`。
-6. 再用旧 Refresh Token 会撤销整个 `token_family_id`，记录 `REFRESH_TOKEN_REUSE`，而每次 Access 鉴权都会查询 Session，故撤销可立即生效。
-7. Logout 撤销当前 Session；管理员可撤销玩家的全部活动 Session。
+1. Bind verifies the 16-20 digit SteamID and normalizes the persona name.
+2. Upsert player by unique SteamID within the transaction; concurrent bind ensures that only one player is created by the unique constraint.
+3. Create the `auth_sessions` line, Refresh Token uses a 48-byte secure random number and saves only SHA-256.
+4. Access Token is Ed25519 JWT, with player, session, provider, auth level and token version.
+5. Refresh uses `SELECT ... FOR UPDATE`, creates a new Session row and marks the old row as `ROTATED`.
+6. Reusing the old Refresh Token will revoke the entire `token_family_id` and record `REFRESH_TOKEN_REUSE`. The Session will be queried for each Access authentication, so the revocation can take effect immediately.
+7. Logout cancels the current Session; the administrator can cancel all active sessions of the player.
 
-已实现 Refresh rotation/reuse 的核心安全语义。缺口包括：只按 IP 对 bind 使用进程内令牌桶；Redis 未用于认证风控；Device ID 仅从 `X-Device-Id` 读取并以明文存入 Session；没有设备/SteamID/组合维度限流、邀请码、风险事件、失败登录规范表、玩家 Session 管理接口和 IP 脱敏展示。
+The core safety semantics of Refresh Token rotation and reuse detection are implemented. Gaps include an in-process token bucket that rate-limits bind only by IP; no Redis-backed authentication risk controls; Device ID read only from `X-Device-Id` and stored in plaintext in the session; and no per-device, SteamID, or combined-dimension rate limits, invitation codes, risk events, failed-login specification table, player session-management API, or masked-IP display.
 
-## 6. 当前 Relay BIND 协议
+## 6. Current Relay BIND protocol
 
-当前标记为 `ProtocolVersion=1`，但已经实现任务书中多项安全机制：
+The current mark is `ProtocolVersion=1`, but many security mechanisms in the mission book have been implemented:
 
 ```text
 BIND(token) -> CHALLENGE(cookie) -> BIND_PROOF(cookie, token) -> BIND_OK(handle, role)
 ```
 
-- Cookie 为 HMAC，绑定源 IP/端口、Token hash 与当前/上一时间桶；Relay 不保存未验证 challenge 状态。
-- Challenge 固定 38 字节，代码保证不大于 BIND 请求。
-- HOST 与 PEER 都完成 bind 后才转发。
-- DATA 包含随机 64 位 handle、role、64 位 sequence、16 字节 HMAC tag 和不透明 payload。
-- 每端维护 64 位 replay window；重复或窗口外包丢弃。
-- 数据包不携带任意目标地址，无法把 Relay 用作通用 UDP 转发器。
+- Cookie is HMAC, binding source IP/port, Token hash and current/last time bucket; Relay does not save unverified challenge status.
+- Challenge is fixed at 38 bytes, and the code is guaranteed to be no larger than the BIND request.
+- HOST and PEER must complete bind before forwarding.
+- DATA contains random 64-bit handle, role, 64-bit sequence, 16-byte HMAC tag and opaque payload.
+- Each end maintains a 64-bit replay window; duplicates or window outsourcing are discarded.
+- The data packet does not carry any destination address, and Relay cannot be used as a general UDP forwarder.
 
-与目标 V2 的差异：BIND_INIT 没有 client nonce 和 requested MTU；Cookie 间接绑定 Token 而不是显式 allocation/client nonce；没有 v1 兼容开关；默认最大 datagram 为 1280 而不是目标默认 1200；协议名称、数据密钥派生标签和文档均仍为 v1。
+Differences from target V2: BIND_INIT does not have client nonce and requested MTU; Cookie is indirectly bound to the Token instead of explicit allocation/client nonce; there is no v1 compatibility switch; the default maximum datagram is 1280 instead of the target default of 1200; the protocol name, data key derivation label and document are still v1.
 
-## 7. 当前 Relay Token 格式
+## 7. Current Relay Token format
 
-Ed25519 `relay+jwt` 已包含并校验：`iss`、`aud`、`kid`、`jti`、`relay_node_id`、`allocation_id`、`connection_id`、`room_id`、`endpoint_role`、`protocol`、`nbf`、`exp`、`allocation_expires_at`、`max_bps`、`max_pps`、`max_total_bytes`。
+Ed25519 `relay+jwt` includes and validates `iss`, `aud`, `kid`, `jti`, `relay_node_id`, `allocation_id`, `connection_id`, `room_id`, `endpoint_role`, `protocol`, `nbf`, `exp`, `allocation_expires_at`, `max_bps`, `max_pps`, and `max_total_bytes`.
 
-Edge 按 `jti` 缓存 allocation、role、源 endpoint 和过期时间；同 endpoint 重试幂等，不同 endpoint 重用会拒绝。当前不支持 NAT 端口变化后的受控重新 challenge 更新；Keyset 只是无版本、无整体签名的公钥数组。
+Edge caches allocation, role, source endpoint and expiration time according to `jti`; retrying the same endpoint is idempotent, and reusing different endpoints will be rejected. Controlled re-challenge updates after NAT port changes are currently not supported; Keyset is just a public key array without version and without overall signature.
 
-## 8. 当前 Relay 节点注册和控制通道
+## 8. Current Relay node registration and control channel
 
-- Bootstrap Token 只保存 hash，并在成功注册事务中消费。
-- Edge 本地生成 Ed25519 私钥和 CSR；`identity.json` 以 0600 原子保存 Node Token、私钥、证书、CA 和 Keyset。
-- 生产必须显式配置持久 Relay CA、Relay Token 私钥与 Bootstrap Token。
-- Node 证书当前默认有效 24 小时；进程启动时剩余不足 1 小时尝试续签。
-- mTLS 服务校验证书 CA，并在 Hello 时按 fingerprint、有效期和节点状态绑定数据库记录。
-- Revoke 将节点设为 `REVOKED` 并下发 Shutdown；随后续签与 Hello 均被拒绝。
+- Bootstrap Token only saves the hash and consumes it in a successful registration transaction.
+- Edge generates Ed25519 private key and CSR locally; `identity.json` saves Node Token, private key, certificate, CA and Keyset in 0600 atoms.
+- Production must explicitly configure the persistent Relay CA, Relay Token private key, and Bootstrap Token.
+- Node certificates are currently valid for 24 hours by default; there is less than 1 hour left when the process starts to try to renew.
+- The mTLS service verifies the certificate CA and binds the database record according to fingerprint, validity period and node status when Hello.
+- Revoke sets the node to `REVOKED` and issues Shutdown; subsequent renewal and Hello are rejected.
 
-缺口：数据库只在 `relay_nodes` 保存当前 fingerprint/expiry，没有证书序列历史、撤销原因和轮换审计表；证书只在 Edge 启动时续签，没有运行中自动续签调度；没有按证书有效期比例配置阈值。
+Gap: The database only saves the current fingerprint/expiry at `relay_nodes`, and there is no certificate sequence history, revocation reason, and rotation audit table; the certificate is only renewed when Edge starts, and there is no automatic renewal schedule during running; there is no threshold configured in proportion to the certificate validity period.
 
-## 9. 当前故障迁移能力
+## 9. Current failover migration capabilities
 
-节点 sweeper 按心跳/证书期限把节点转为 `UNHEALTHY`/`OFFLINE`，Scheduler 只选择 `READY` 且容量低于阈值的节点。迁移 sweeper 会：
+The node sweeper converts the nodes to `UNHEALTHY`/`OFFLINE` according to the heartbeat/certificate period, and the Scheduler only selects nodes with `READY` and whose capacity is lower than the threshold. Migrating sweeper will:
 
-1. 找到故障节点上的活动 allocation；
-2. 使用数据库唯一索引保证每条 connection 最多一个 `BINDING` migration；
-3. 选择另一 READY 节点并创建新 allocation；
-4. 标记旧 allocation failed，连接进入 `MIGRATING_RELAY`；
-5. 下发旧 allocation 撤销和新的 Relay Token/WebSocket 事件；
-6. 新节点报告 `AllocationOpened` 后完成 migration，并发出 migrated 事件。
+1. Find the active allocation on the failed node;
+2. Use the unique index of the database to ensure that each connection has at most one `BINDING` migration;
+3. Select another READY node and create a new allocation;
+4. Mark the old allocation failed and connect to `MIGRATING_RELAY`;
+5. Send old allocation revocation and new Relay Token/WebSocket events;
+6. After the new node reports `AllocationOpened`, migration is completed and the migrated event is issued.
 
-当前缺少 migration deadline、尝试次数、候选节点历史、最大重试、超时后的下一节点选择和无节点时的明确最终失败闭环。Drain API 请求体不支持自定义 deadline 或 `migrate_existing`，自然 Drain 不主动迁移；Revoke/故障会触发已有迁移 sweeper。
+Currently missing are migration deadline, number of attempts, candidate node history, maximum retries, next node selection after timeout and explicit final failure loop when there are no nodes. The Drain API request body does not support custom deadlines or `migrate_existing`. Naturally, Drain does not actively migrate; Revoke/faults will trigger existing migration sweepers.
 
-## 10. 当前指标和日志
+## 10. Current indicators and logs
 
-控制面已有 HTTP counter/histogram、auth bind 成败、Refresh reuse、房间、服务器、Relay 状态/allocation、数据库池、Go goroutine/内存和 Relay 集中遥测。Edge 已有 allocation、收包/转发/丢包、转发字节、bind 成败、非法 Token、限流丢包和控制通道指标。
+The control plane already exposes HTTP counters/histograms, authentication-bind results, Refresh Token reuse, room and server state, Relay state/allocations, database-pool state, Go goroutine/memory data, and centralized Relay telemetry. Edge nodes expose allocations, packets received/forwarded/dropped, forwarded bytes, bind results, invalid tokens, rate-limit drops, and control-channel metrics.
 
-主要缺口：没有 `http_active_requests`、分维度 auth 限流、风险/邀请码/刷新总量、WebSocket 重连、迁移成败、Redis 延迟、后台任务耗时/失败；Edge 缺少 bind init/challenge、Cookie/Token replay、认证失败、超大包、replay drop、入口字节、节点负载、goroutine 和内存等细分指标。
+Main gaps: no `http_active_requests`; per-dimension authentication rate limits; risk, invitation-code, and Refresh Token totals; WebSocket reconnections; migration outcomes; Redis latency; or background-task duration/failure metrics. Edge nodes lack detailed metrics for bind init/challenge, Cookie or Token replay, authentication failure, oversized packets, replay drops, ingress bytes, node load, goroutines, and memory.
 
-日志使用结构化 `slog`，认证错误只记录错误码/内部 error，未发现主动输出完整 Token 或私钥的代码。仍需在 V1.1 增加专门的秘密扫描测试和日志契约测试。
+The log uses the structured `slog`. Authentication errors only record error codes/internal errors. No codes that actively output the complete Token or private key are found. Special secret scan tests and log contract tests still need to be added in V1.1.
 
-## 11. 当前部署方式
+## 11. Current deployment method
 
-- CI 在 Linux 上执行 gofmt、模块校验、vet、race tests、构建、OpenAPI/Compose/脚本/文档校验，并发布按完整 commit SHA 固定的 control-plane/edge-relay GHCR 镜像和 provenance attestation。
-- CD 可分别部署控制面与边缘节点；使用独立 GitHub Environment、固定 SSH host key 和不可变镜像引用。
-- 控制面 Compose 包含 PostgreSQL、Redis，可选 Prometheus/Grafana；不挂载 Docker Socket。
-- Edge 使用独立 Compose/raw Docker、host networking 和持久 identity volume，不连接 PostgreSQL/Redis。
-- `remote-deploy.sh` 在控制面发布前备份，健康检查失败会尝试上一 release/image。
-- 公网由 Cloudflare HTTP 代理 + HAProxy SNI 网关 + 独立 FRP QUIC 回源；Relay mTLS 使用独立 FRP，配置和服务隔离。
+- CI performs gofmt, module verification, vet, race tests, builds, OpenAPI/Compose/script/documentation verification on Linux, and publishes control-plane/edge-relay GHCR images pinned with full commit SHA and provenance attestation.
+- CD can deploy control plane and edge nodes separately; use independent GitHub Environment, fixed SSH host key and immutable image reference.
+- The control plane Compose includes PostgreSQL, Redis, and optional Prometheus/Grafana; Docker Socket is not mounted.
+- Edge uses standalone Compose/raw Docker, host networking and persistent identity volume, without connecting to PostgreSQL/Redis.
+- `remote-deploy.sh` Back up the control plane before releasing it. If the health check fails, the previous release/image will be tried.
+- The public network is returned to the origin by Cloudflare HTTP proxy + HAProxy SNI gateway + independent FRP QUIC; Relay mTLS uses independent FRP, configuration and service isolation.
 
-缺口：应用启动时自动迁移，没有独立 Expand/Migrate/Contract gate；没有统一 release preflight、数据库 schema/协议/build metadata；镜像仍产生 `main` 浮动标签（部署虽不使用）；备份没有加密、分层保留、异地上传和周期恢复演练；Prometheus 没有版本控制的告警规则。
+Gap: Automatic migration when the application starts, no independent Expand/Migrate/Contract gate; no unified release preflight, database schema/protocol/build metadata; the image still generates `main` floating label (although not used for deployment); backup does not have encryption, hierarchical retention, off-site upload and periodic recovery drills; Prometheus does not have version control alarm rules.
 
-## 12. 与 V1.1 冲突或重叠的旧实现
+## 12. Old implementations that conflict or overlap with V1.1
 
-1. `cmd/main.go` 及 `internal/http|server|db|store|udp|matchmaking|models` 是 SQLite/旧 UDP 单体，与 PostgreSQL 控制面和 Edge Relay 并存；V1.1 不应在两套实现中重复开发。
-2. 根 `config.yaml`、`matchserver.db`、`deploy/` 属于旧部署路径，容易被误认为生产权威入口。
-3. Relay 已具有 V2 目标的大部分包格式和安全语义，却仍公开命名为 v1；直接改版本会破坏已部署客户端，必须用兼容开关和明确迁移策略。
-4. Refresh Token 已实现 rotation/reuse，但数据模型是“每个 refresh 一条 Session”，与计划中的独立 refresh-token 表不同；迁移时应保持现有 Token 立即撤销语义并采用 expand-first。
-5. 当前认证 bind IP 限流位于通用中间件且为单进程内存状态，不能满足多维、Redis 一致和风险审计要求。
-6. 现有迁移能完成单次 Relay 替换，但不满足重试、超时和 Drain 强迁移的完整状态机；不得把现状误报为 Release Gate 已通过。
+1. `cmd/main.go` and `internal/http|server|db|store|udp|matchmaking|models` are SQLite/old UDP monomers that coexist with the PostgreSQL control plane and Edge Relay; V1.1 should not be developed repeatedly in the two sets of implementations.
+2. The roots `config.yaml`, `matchserver.db`, and `deploy/` belong to the old deployment path and can easily be mistaken for the production authoritative entrance.
+3. Relay already has most of the package formats and security semantics of the V2 target, but it is still publicly named v1; directly changing the version will destroy the deployed client, and compatibility switches and clear migration strategies must be used.
+4. Refresh Token has implemented rotation/reuse, but the data model is "one Session per refresh", which is different from the planned independent refresh-token table; the existing Token immediate revocation semantics should be maintained during migration and expand-first should be adopted.
+5. The current authentication-bind IP rate limit is implemented in generic middleware and stored in single-process memory, so it cannot meet multidimensional, Redis-consistency, or risk-audit requirements.
+6. The existing migration can complete a single Relay replacement, but does not meet the complete state machine of retry, timeout and Drain strong migration; the current situation must not be mistakenly reported as the Release Gate has passed.
 
-## 13. 拟修改和新增的文件
+## 13. Documents to be modified and added
 
-以下为当前审计后的预计范围；每个 Milestone 会保持独立提交，并在实现中细化：
+The following is the estimated scope after the current audit; each Milestone will remain independently submitted and refined during implementation:
 
-- 认证与数据库：新增 `migrations/000009_auth_security.sql`，修改 `internal/auth/*`、`internal/config/config.go`、`internal/controlplane/server.go`、`internal/observability/metrics.go`；新增 invite、risk、session、Redis/local limiter 领域文件与测试。
-- API：修改 `api/openapi/openapi.yaml`、权限矩阵、`docs/api/external.md` 和 `docs/api/internal.md`。
-- Relay V2：修改 `internal/relayruntime/{protocol,cookie,token,runtime,config,metrics}.go`、对应测试、`api/relay-protocol.md` 和 edge 示例配置；保留受控 v1 兼容路径。
-- Relay 资源与迁移：新增后续 expand migration，修改 `internal/relayregistry/{model,repository,service,http,migration_sweeper,token,authority,control}.go`、connection 实时事件和集成测试。
-- 密钥/证书：新增 signing key、node credential repository/service、轮换后台任务、Keyset 版本/签名和证书自动续签测试。
-- 测试工具：新增 `cmd/load-bot/`、`internal/loadbot/`、标准场景与报告 Schema；扩展 `tests/load/`。
-- 弱网/故障：新增 `scripts/netem/`、`scripts/chaos/`、`tests/netem/` 场景和 `docs/operations/runbooks/chaos-testing.md`。
-- 备份恢复：新增 Linux `scripts/backup/postgres-{backup,restore}.sh`、校验/保留脚本、systemd timer 示例和恢复演练报告。
-- 监控：拆分/扩展 Grafana dashboards，新增 Prometheus rule files、配置校验与告警测试。
-- 发布：新增 `scripts/release/preflight.sh`、版本/build metadata、迁移 gate、回滚 runbook 和发布清单；调整 CI 镜像/测试矩阵。
-- V1.1 文档：持续维护 `docs/testing/v1.1/` 中的基线、协议、迁移、密钥、备份、测试、发布和最终验收报告。
+- Authentication and database: added `migrations/000009_auth_security.sql`; modified `internal/auth/*`, `internal/config/config.go`, `internal/controlplane/server.go`, and `internal/observability/metrics.go`; added invitation, risk, session, and Redis/local-limiter domain files and tests.
+- API: Modify `api/openapi/openapi.yaml`, permission matrix, `docs/api/external.md` and `docs/api/internal.md`.
+- Relay V2: Modify `internal/relayruntime/{protocol,cookie,token,runtime,config,metrics}.go`, corresponding tests, `api/relay-protocol.md` and edge example configurations; retain controlled v1 compatibility paths.
+- Relay resources and migration: Add subsequent expand migration, modify `internal/relayregistry/{model,repository,service,http,migration_sweeper,token,authority,control}.go`, connection real-time events and integration tests.
+- Key/Certificate: Added signing key, node credential repository/service, rotation background task, Keyset version/signature and certificate automatic renewal test.
+- Testing tools: Added `cmd/load-bot/`, `internal/loadbot/`, standard scenario and report Schema; extended `tests/load/`.
+- Weak network/fault: Added `scripts/netem/`, `scripts/chaos/`, `tests/netem/` scenarios and `docs/operations/runbooks/chaos-testing.md`.
+- Backup and recovery: Added Linux `scripts/backup/postgres-{backup,restore}.sh`, verification/retention script, systemd timer example and recovery drill report.
+- Monitoring: Split/extend Grafana dashboards, add Prometheus rule files, configuration verification and alarm testing.
+- Release: Added `scripts/release/preflight.sh`, version/build metadata, migration gate, rollback runbook and release manifest; adjusted CI image/test matrix.
+- V1.1 Documentation: Ongoing maintenance of baselines, protocols, migrations, keys, backups, testing, releases and final acceptance reports in `docs/testing/v1.1/`.
 
-## 审计结论
+## Audit conclusion
 
-当前实现已覆盖 V1.1 目标中较难的部分基础能力，但尚未达到任务书的完整 Release Gate。实施应复用现有 PostgreSQL 事务、Relay 数据面和迁移骨架，避免重写；优先补齐认证滥用面，再将现有 Relay v1 安全协议以兼容方式升级并补全可观测性、生命周期和运维证据。
+The current implementation covers several of the more difficult foundational capabilities in the V1.1 goal, but has not yet reached the complete release gate in the task specification. Further work should reuse the existing PostgreSQL transactions, Relay data plane, and migration framework; complete authentication-abuse defenses first; then evolve Relay v1 security compatibly and complete observability, lifecycle, and operations evidence.

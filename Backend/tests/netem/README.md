@@ -1,5 +1,7 @@
 # Relay network-impairment tests
 
+English | [简体中文](README.zh-CN.md)
+
 Run only on an isolated Linux test relay or network namespace. The script requires an explicit `NETEM_INTERFACE`, root privileges, and a caller-supplied integration command; it always removes its root qdisc on exit.
 
 ```sh

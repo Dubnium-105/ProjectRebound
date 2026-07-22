@@ -1,8 +1,10 @@
-# ProjectRebound 控制面与边缘节点分离部署手册
+# ProjectRebound Control Plane and Edge Node Separation Deployment Manual
 
-本文档对应 `Backend/cmd/control-plane` 和 `Backend/cmd/edge-relay`。旧的 SQLite/systemd MatchServer 部署已经废弃；兼容入口 `Backend/deploy/deploy.sh` 会转到新的控制面部署脚本。
+English | [简体中文](deployment-guide.zh-CN.md)
 
-## 1. 部署拓扑
+This document corresponds to `Backend/cmd/control-plane` and `Backend/cmd/edge-relay`. The old SQLite/systemd MatchServer deployment has been deprecated; compatibility entry `Backend/deploy/deploy.sh` will go to the new control plane deployment script.
+
+## 1. Deployment topology
 
 ```text
 客户端 / Dedicated Server --HTTPS/WSS--> Cloudflare Tunnel --> Control Plane
@@ -18,15 +20,15 @@ Edge Relay A/B --TLS 1.3 mTLS gRPC--> relay.example.com:443（灰云 DNS）
                                                                127.0.0.1:9090
 ```
 
-控制面与边缘节点必须位于不同的 Compose 项目中，可以在不同主机、不同机房运行。边缘节点主动连接控制面，不连接 PostgreSQL、Redis 或 Grafana。控制面没有公网 IPv4 时，Cloudflare Tunnel 继续负责 HTTP API；独立 FRP 网关只做 TCP 字节转发，不终止 mTLS。
+The control plane and edge nodes must be located in different Compose projects and can run on different hosts and different computer rooms. Edge nodes actively connect to the control plane and do not connect to PostgreSQL, Redis or Grafana. When there is no public IPv4 on the control plane, Cloudflare Tunnel continues to be responsible for the HTTP API; the independent FRP gateway only forwards TCP bytes and does not terminate mTLS.
 
-## 2. 主机与端口
+## 2. Host and port
 
-实测 1 vCPU/1.9 GiB 主机可完成所有功能测试，但 100 VU 同机压测的 HTTP P95 为 941.62 ms，不能满足 200 ms 验收线。正式控制面建议从 4 vCPU、4 GiB 内存、SSD 起步，并在独立主机运行 k6。
+The actual measured 1 vCPU/1.9 GiB host can complete all functional tests, but the HTTP P95 of the 100 VU same-machine stress test is 941.62 ms, which cannot meet the 200 ms acceptance line. The official control plane recommends starting with 4 vCPU, 4 GiB memory, SSD, and running k6 on a standalone host.
 
-### 2.1 Cloudflare Tunnel 传输调优
+### 2.1 Cloudflare Tunnel transmission tuning
 
-使用包管理器安装并保持 `cloudflared` 更新。至少使用 `2026.5.2`，使启动流程自动检查 DNS、UDP/QUIC 7844、TCP/HTTP2 7844 和 Cloudflare API；检查结果存在失败时不要继续压测。查看版本和最近一次预检：
+Use a package manager to install and keep `cloudflared` updated. Use at least `2026.5.2` to enable the startup process to automatically check DNS, UDP/QUIC 7844, TCP/HTTP2 7844 and Cloudflare API; do not continue the stress test if the check results fail. View the version and most recent preflight:
 
 ```bash
 cloudflared --version
@@ -34,15 +36,15 @@ sudo journalctl -u cloudflared -b --no-pager |
   grep -Ei 'CONNECTIVITY PRE-CHECKS|precheck|Registered tunnel connection'
 ```
 
-Cloudflare 通常推荐 `--protocol auto`，让 connector 优先使用 QUIC 并在 UDP 不可用时回退 HTTP/2。但协议可连接不代表链路质量足够稳定：若日志反复出现 `no recent network activity`、QUIC stream timeout 或 HA 连接数下降，应通过 `systemctl edit --full cloudflared.service` 固定为 HTTP/2，再进行同源 A/B 测试。当前生产控制面经实测使用以下参数：
+Cloudflare generally recommends `--protocol auto`, which prefers QUIC and falls back to HTTP/2 when UDP is unavailable. A successful connection alone does not prove that link quality is stable: if logs repeatedly show `no recent network activity`, QUIC stream timeouts, or fewer HA connections, pin the protocol to HTTP/2 with `systemctl edit --full cloudflared.service`, then repeat the same-origin A/B test. After production testing, the current control-plane host uses these parameters:
 
 ```text
 cloudflared --no-autoupdate tunnel --protocol http2 --edge-ip-version 4 run --token <TUNNEL_TOKEN>
 ```
 
-这里显式使用 IPv4，是因为当前控制面自动 IPv4/IPv6 选路会把连接分散到 LAX/SJC，而 IPv4 能稳定保持四条 LAX HTTP/2 连接。该选择是部署点相关的，迁移网络或机房后必须重新测试，不应直接复制为所有环境的默认值。
+IPv4 is explicitly used here because the current automatic IPv4/IPv6 routing on the control plane will disperse the connections to LAX/SJC, while IPv4 can stably maintain four LAX HTTP/2 connections. This selection is deployment point dependent and must be retested after migrating the network or computer room and should not be copied directly as the default for all environments.
 
-修改后至少验证：
+After modification, verify at least:
 
 ```bash
 sudo systemctl daemon-reload
@@ -53,9 +55,9 @@ curl -fsS http://127.0.0.1:20241/metrics |
 curl -fsS https://<PUBLIC_API_HOST>/health/ready
 ```
 
-`cloudflared_tunnel_ha_connections` 应为 `4`，请求错误应保持为 `0`。从固定的外部负载机重复相同 k6 场景，比较 P50、P95、错误率和 RPS；不要用控制面本机生成的流量代替公网验收。若 connector 长期只能连接远端 PoP，物理 RTT 会成为 Cloudflare Tunnel 参数无法消除的下限，此时应增加更近的 connector/origin，或改用带公网地址的 HTTP 网关。
+`cloudflared_tunnel_ha_connections` should be `4` and the request error should remain `0`. Repeat the same k6 scenario from a fixed external load machine, comparing P50, P95, error rate, and RPS; do not use control plane natively generated traffic in lieu of public network acceptance. If the connector can only connect to the remote PoP for a long time, the physical RTT will become a lower limit that cannot be eliminated by the Cloudflare Tunnel parameters. At this time, a closer connector/origin should be added, or an HTTP gateway with a public network address should be used instead.
 
-若采用“公网网关运行 connector、私网控制面运行 origin”的结构，应为 `boundary.<DOMAIN>` 创建独立 named tunnel，并只发布这个 hostname。不要把承载其他域名的共享 tunnel token 直接部署到网关：同一 tunnel 的 replicas 没有固定流量导向保证，新请求可能进入任意就近 replica，且远程 ingress 配置会随 tunnel 一起下发。建议拓扑为：
+If the structure of "the public network gateway runs connector and the private network control plane runs origin" is adopted, an independent named tunnel should be created for `boundary.<DOMAIN>` and only this hostname should be published. Do not deploy shared tunnel tokens hosting other domain names directly to the gateway: replicas of the same tunnel do not have fixed traffic steering guarantees, new requests may enter any nearby replica, and the remote ingress configuration will be delivered along with the tunnel. The recommended topology is:
 
 ```text
 Client -> Cloudflare edge -> gateway cloudflared
@@ -64,38 +66,38 @@ Client -> Cloudflare edge -> gateway cloudflared
        -> control-plane 127.0.0.1:18081
 ```
 
-回源端口必须只绑定网关回环地址；回源 FRPS/FRPC 要使用独立用户、配置目录、token、systemd unit 和控制端口，不得复用下方 mTLS FRP 实例。先用临时 hostname 做同源 A/B，确认性能和健康检查后再切换 `boundary.<DOMAIN>` 的 published application route。切换后保留旧 connector 至少一个观察窗口作为回退，但不要让共享 tunnel 与专用 tunnel 同时宣告同一个 hostname。
+The return-to-origin port must only be bound to the gateway loopback address; the return-to-origin FRPS/FRPC must use independent users, configuration directories, tokens, systemd units, and control ports, and the mTLS FRP instance below must not be reused. First use the temporary hostname to do the same origin A/B, confirm the performance and health check, and then switch to the published application route of `boundary.<DOMAIN>`. After switching, keep at least one observation window of the old connector as a fallback, but do not let the shared tunnel and the dedicated tunnel advertise the same hostname at the same time.
 
-当前生产网络的实测结论是：控制面 connector 的 10 VU/1 分钟 P95 为 1.05 s；LAX 网关 connector 加独立 QUIC 回源降至 531 ms，错误率均为 0。网关方案改善约 49%，但仍未达到 200 ms 验收线，因此更近的 origin/connector 或控制面迁移仍是最终性能整改项。Quick Tunnel 只用于 A/B，不得作为生产入口。
+The actual measurement conclusion of the current production network is: the 10 VU/1 minute P95 of the control plane connector is 1.05 s; the LAX gateway connector plus independent QUIC back-to-source is reduced to 531 ms, and the error rate is 0. The gateway solution has improved by about 49%, but has still not reached the 200 ms acceptance line, so closer origin/connector or control plane migration is still the final performance improvement item. Quick Tunnel is only used for A/B and cannot be used as a production entrance.
 
-若 Cloudflare Zero Trust 因账户或支付方式无法开通，可使用普通橙云 HTTP 代理加自建 SNI 网关，不需要 Tunnel。公网网关由 HAProxy 接管 443：`boundary.<DOMAIN>` 终止 HTTPS 后经独立 FRP QUIC 回源，Relay mTLS hostname 则以原始 TLS 透传到回环 FRPS。API origin 只允许 Cloudflare 官方地址段，mTLS 域名保持灰云且允许合法 Relay 直连。Cloudflare SSL 模式必须为 Full (strict)，不得长期使用 Flexible。完整配置和证书续期流程见 `Backend/deployments/public-http-gateway/README.md`。
+If Cloudflare Zero Trust cannot be activated due to account or payment method, you can use ordinary Orange Cloud HTTP proxy plus self-built SNI gateway, no Tunnel is required. The public network gateway is taken over by HAProxy 443: `boundary.<DOMAIN>` terminates HTTPS and returns to the origin through independent FRP QUIC. Relay mTLS hostname is transparently transmitted to the loopback FRPS with the original TLS. API origin only allows Cloudflare official address range, mTLS domain names remain gray and legal Relay direct connections are allowed. Cloudflare SSL mode must be Full (strict) and Flexible cannot be used permanently. See `Backend/deployments/public-http-gateway/README.md` for the complete configuration and certificate renewal process.
 
-控制面入站规则：
+Control plane inbound rules:
 
-| 端口 | 来源 | 用途 |
+|port|source|use|
 | --- | --- | --- |
-| TCP 22 | 运维网段 | SSH |
-| TCP 80/443 | 公网或 Cloudflare Tunnel | Caddy HTTP/HTTPS、WebSocket、Relay 注册 |
-| UDP 443 | 公网 | Caddy HTTP/3，可选 |
-| TCP 9090 | 仅 `127.0.0.1` | FRPC 到 Relay TLS 1.3 mTLS gRPC 控制流 |
-| TCP 18080 | 仅 `127.0.0.1` | 管理 API、直接健康检查、指标 |
-| TCP 5432/6379/9091/3000 | 仅 `127.0.0.1` | PostgreSQL、Redis、Prometheus、Grafana |
+| TCP 22 | Operations network | SSH |
+| TCP 80/443 |Public network or Cloudflare Tunnel|Caddy HTTP/HTTPS, WebSocket, Relay registration|
+| UDP 443 |Public network|Caddy HTTP/3, optional|
+| TCP 9090 |`127.0.0.1` only|FRPC to Relay TLS 1.3 mTLS gRPC control flow|
+| TCP 18080 |`127.0.0.1` only|Management API, direct health checks, metrics|
+| TCP 5432/6379/9091/3000 | `127.0.0.1` only | PostgreSQL, Redis, Prometheus, Grafana |
 
-边缘节点规则：
+Edge node rules:
 
-| 方向 | 端口 | 用途 |
+|direction|port|use|
 | --- | --- | --- |
-| 入站 UDP | 8443，或配置的游戏 Relay 端口 | Relay 数据面 |
-| 入站 TCP | 22，仅运维网段 | SSH |
-| 出站 TCP | 控制面 443 | 首次注册、证书续签 |
-| 出站 TCP | mTLS 网关 443 | mTLS gRPC 控制流 |
-| 本机 TCP | 127.0.0.1:9100 | Relay Prometheus 指标 |
+|Inbound UDP|8443, or the configured game relay port|Relay data plane|
+| Inbound TCP | 22, operations network only | SSH |
+|Outbound TCP|Control plane 443|First time registration, certificate renewal|
+|Outbound TCP|mTLS Gateway 443|mTLS gRPC control flow|
+|Native TCP| 127.0.0.1:9100 |Relay Prometheus Metrics|
 
-公网 mTLS 网关额外开放 TCP 443 给边缘节点，并将 FRPS 控制端口 TCP/UDP 7000 限制为仅控制面出口地址或两机 VPN 地址可达。mTLS 域名必须使用 Cloudflare DNS Only（灰云）；橙云代理不支持此任意 TCP mTLS 通道。完整配置、systemd 隔离和验收命令见 `Backend/deployments/public-mtls-gateway/README.md`。
+The public network mTLS gateway additionally opens TCP 443 to edge nodes, and limits the FRPS control port TCP/UDP 7000 to only the control plane egress address or the two-machine VPN address. mTLS domains must use Cloudflare DNS Only; Orange Cloud Proxy does not support this arbitrary TCP mTLS channel. See `Backend/deployments/public-mtls-gateway/README.md` for complete configuration, systemd isolation and acceptance commands.
 
-## 3. Debian 前置准备
+## 3. Debian Preparation
 
-控制面和每台边缘节点都执行：
+The control plane and each edge node execute:
 
 ```bash
 sudo apt-get update
@@ -105,7 +107,7 @@ sudo docker version
 sudo docker compose version
 ```
 
-如果安装被异常中断，先确认卡住的 PID 确实属于 apt/dpkg，再依次执行：
+If the installation is interrupted abnormally, first confirm that the stuck PID indeed belongs to apt/dpkg, and then execute the following steps:
 
 ```bash
 ps -ef | grep -E 'apt|dpkg'
@@ -114,9 +116,9 @@ sudo apt-get -f install
 sudo dpkg --audit
 ```
 
-不得在未核对 PID 的情况下批量终止进程。
+Processes must not be killed in bulk without checking the PID.
 
-网络无法访问 Docker Hub 时，可选配置可信镜像代理。镜像代理可以看到请求的镜像名和来源 IP，生产环境应使用自建缓存；测试环境若使用第三方代理，需先接受该隐私边界。例如：
+When the network cannot access Docker Hub, you can optionally configure a trusted image proxy. The mirror proxy can see the requested mirror name and source IP. The production environment should use a self-built cache; if a third-party proxy is used in the test environment, the privacy boundary must be accepted first. For example:
 
 ```json
 {
@@ -124,35 +126,35 @@ sudo dpkg --audit
 }
 ```
 
-保存到 `/etc/docker/daemon.json` 后执行 `sudo systemctl restart docker`。Go 模块下载的官方默认值是 `https://proxy.golang.org,direct` 和 `sum.golang.org`；官方端点不可达时，可在 `.env` 中启用已经验证过的备用值：
+Save to `/etc/docker/daemon.json` and then execute `sudo systemctl restart docker`. The official default values ​​for Go module download are `https://proxy.golang.org,direct` and `sum.golang.org`; when the official endpoint is unreachable, the verified alternative value can be enabled in `.env`:
 
 ```text
 GOPROXY=https://goproxy.cn,direct
 GOSUMDB=sum.golang.org https://sum.golang.google.cn
 ```
 
-## 4. 选择发布来源
+## 4. Select publishing source
 
-生产环境推荐使用 GitHub Actions 产出的不可变 GHCR 镜像。CI 为控制面和边缘节点发布 `sha-<40 位提交>` 镜像，Deploy 工作流只向目标机传输 Compose、验证及回滚脚本的小型 release bundle，然后拉取镜像；目标机不需要 Go、编译缓存或永久保存完整 Git 仓库。
+For production environments, use the immutable GHCR image produced by GitHub Actions. CI publishes a `sha-<40-character-commit>` image for the control plane and edge nodes. The Deploy workflow transfers only a small release bundle containing Compose, verification, and rollback scripts, then pulls the image. The target machine does not need Go, a build cache, or a permanent clone of the complete Git repository.
 
-两个部署入口都支持 `DEPLOY_SOURCE`：
+Both deployment portals support `DEPLOY_SOURCE`:
 
-- `ci`：要求 `CONTROL_PLANE_IMAGE` 或 `EDGE_RELAY_IMAGE` 是 `ghcr.io/...:sha-<40 位提交>`，只拉取 CI 镜像；
-- `source`：使用当前检出的源码执行 Docker Compose/BuildKit 本机构建；
-- `auto`（默认）：检测到合法的 GHCR SHA 镜像时使用 `ci`，否则使用 `source`。
+- `ci`: requires `CONTROL_PLANE_IMAGE` or `EDGE_RELAY_IMAGE` to be `ghcr.io/...:sha-<40-character-commit>` and only pulls the CI image;
+- `source`: Execute Docker Compose/BuildKit native build using the currently checked out source code;
+- `auto` (default): Use `ci` when a valid GHCR SHA image is detected, otherwise use `source`.
 
-自动 CD 始终显式设置 `DEPLOY_SOURCE=ci`。只在离线开发或排障时使用源码模式；手工源码模式需要检出仓库：
+AutoCD always sets `DEPLOY_SOURCE=ci` explicitly. Use source mode only for offline development or troubleshooting; manual source mode requires a repository checkout:
 
 ```bash
 git clone <PROJECT_REPOSITORY_URL> project-rebound
 cd project-rebound/Backend
 ```
 
-手工使用私有 GHCR 镜像前先执行 `docker login ghcr.io`。部署账号只需要目标 package 的 `read:packages` 权限。
+Execute `docker login ghcr.io` before manually using the private GHCR image. The deployment account only requires the `read:packages` permission of the target package.
 
-## 5. 部署控制面
+## 5. Deploy control plane
 
-### 5.1 生成密钥与环境文件
+### 5.1 Generate key and environment files
 
 ```bash
 cd project-rebound/Backend
@@ -161,25 +163,25 @@ chmod +x scripts/*.sh deploy/deploy.sh
 chmod 600 deployments/control-plane/.env
 ```
 
-生成器创建相互独立的 Ed25519 Access Token、Relay Token、更新签名密钥，以及十年期 Relay CA。它不会覆盖已有 `.env`，也不会输出密钥正文。
+The generator creates independent Ed25519 Access Tokens, Relay Tokens, update signing keys, and ten-year Relay CAs. It does not overwrite the existing `.env`, nor does it output the key text.
 
-编辑 `deployments/control-plane/.env`：
+Edit `deployments/control-plane/.env`:
 
-- 将 `CORS_ALLOWED_ORIGINS` 改成真实客户端来源；多个来源用逗号分隔。
-- 将 `UPDATE_CDN_BASE_URL`、`UPDATE_REALTIME_URL`、`UPDATE_STUN_SERVERS` 改成真实地址。
-- 测试/IP 模式保留 `PUBLIC_API_SITE=http://:80` 和 `PUBLIC_API_HTTP_PORT=8080`。
-- 域名生产模式设置 `PUBLIC_API_SITE=api.example.com`、`PUBLIC_API_HTTP_PORT=80`；DNS A/AAAA 指向控制面并开放 80/443，Caddy 自动申请证书。
-- 当 FRPC 与控制面同机部署时，`RELAY_CONTROL_BIND_IP` 必须保持为 `127.0.0.1`；只有 FRPC 位于另一台可信私网/VPN 主机时才改为对应私网地址，不应直接绑定 `0.0.0.0`。
-- `RELAY_CONTROL_SERVER_NAMES` 必须包含边缘节点使用的 `control_server_name`，例如 `control-plane,localhost,relay.example.com`。
-- 密钥 ID 在轮换时必须更新，不能在密钥变化后继续复用旧 ID。
+- Change `CORS_ALLOWED_ORIGINS` to the real client source; separate multiple sources with commas.
+- Change `UPDATE_CDN_BASE_URL`, `UPDATE_REALTIME_URL`, `UPDATE_STUN_SERVERS` to real addresses.
+- Test/IP mode reserved for `PUBLIC_API_SITE=http://:80` and `PUBLIC_API_HTTP_PORT=8080`.
+- Domain name production mode settings `PUBLIC_API_SITE=api.example.com`, `PUBLIC_API_HTTP_PORT=80`; DNS A/AAAA points to the control plane and opens 80/443, Caddy automatically applies for a certificate.
+- When FRPC and the control plane are deployed on the same machine, `RELAY_CONTROL_BIND_IP` must remain `127.0.0.1`; only when FRPC is located on another trusted private network/VPN host, it is changed to the corresponding private network address and should not be directly bound to `0.0.0.0`.
+- `RELAY_CONTROL_SERVER_NAMES` must contain `control_server_name` used by the edge node, for example `control-plane,localhost,relay.example.com`.
+- Key IDs must be updated during rotation and old IDs cannot be reused after key changes.
 
-`.env` 必须保留在主机秘密存储中，权限必须为 `600`，不得提交 Git、复制进镜像或写入工单。
+`.env` must be kept in the host secret storage, the permission must be `600`, and it must not be submitted to Git, copied into a mirror, or written into a work order.
 
-### 5.2 更新描述符
+### 5.2 Update descriptor
 
-按照 `Backend/deployments/updates/README.md` 把非秘密发布描述符放到 `Backend/deployments/updates`。生产模式缺少有效发布描述符或安全更新 URL 时会拒绝启动。大文件必须放在对象存储/CDN，API 仅返回下载元数据。
+Put the non-secret release descriptor into `Backend/deployments/updates` as per `Backend/deployments/updates/README.md`. Production mode refuses to launch without a valid release descriptor or security update URL. Large files must be placed on object storage/CDN, and the API only returns download metadata.
 
-### 5.3 启动与验证
+### 5.3 Startup and Verification
 
 ```bash
 DEPLOY_SOURCE=ci \
@@ -188,16 +190,16 @@ CONTROL_PLANE_IMAGE=ghcr.io/<owner>/projectrebound-control-plane:sha-<40-char-co
 ./scripts/verify-control-plane.sh
 ```
 
-部署脚本会：
+The deployment script will:
 
-1. 拒绝包含 `CHANGE_ME` 或 `example.com` 的环境文件；
-2. 强制 `.env` 权限为 `600`；
-3. 校验 Compose；
-4. 拉取 CI 控制面镜像，并启动 PostgreSQL、Redis、控制面、Caddy、Prometheus、Grafana；
-5. 等待 `/health/ready`；
-6. 失败时输出受限的末尾日志并返回非零状态。
+1. Reject environment files containing `CHANGE_ME` or `example.com`;
+2. Force `.env` permission to `600`;
+3. Verify Compose;
+4. Pull the CI control plane image and start PostgreSQL, Redis, control plane, Caddy, Prometheus, and Grafana;
+5. Wait for `/health/ready`;
+6. Output a restricted tail log and return a non-zero status on failure.
 
-不需要本机监控栈时：
+When the native monitoring stack is not required:
 
 ```bash
 ENABLE_MONITORING=0 DEPLOY_SOURCE=ci \
@@ -205,9 +207,9 @@ CONTROL_PLANE_IMAGE=ghcr.io/<owner>/projectrebound-control-plane:sha-<40-char-co
   ./scripts/deploy-control-plane.sh
 ```
 
-仅在需要从当前检出源码构建时运行 `DEPLOY_SOURCE=source ./scripts/deploy-control-plane.sh`。
+Only run `DEPLOY_SOURCE=source ./scripts/deploy-control-plane.sh` if you need to build from the currently checked out source code.
 
-查看状态：
+View status:
 
 ```bash
 sudo docker compose --env-file deployments/control-plane/.env \
@@ -215,23 +217,23 @@ sudo docker compose --env-file deployments/control-plane/.env \
 curl -fsS http://127.0.0.1:18080/health/ready
 ```
 
-从运维机访问监控：
+Access monitoring from the operations workstation:
 
 ```bash
 ssh -L 9091:127.0.0.1:9091 -L 3000:127.0.0.1:3000 user@CONTROL_HOST
 ```
 
-## 6. 部署第一台边缘节点
+## 6. Deploy the first edge node
 
-### 6.1 在控制面准备一次性凭据
+### 6.1 Prepare one-time credentials on the control plane
 
-`RELAY_BOOTSTRAP_TOKENS` 的格式为 `credential_id=token`，多个凭据用分号分隔。生成器已经创建第一条。通过秘密管理器把等号右侧 token 值传给对应边缘节点，不要在聊天、日志或命令输出中展示。
+The format of `RELAY_BOOTSTRAP_TOKENS` is `credential_id=token`, with multiple credentials separated by semicolons. The generator has created the first item. Pass the token value on the right side of the equal sign to the corresponding edge node through the secret manager. Do not display it in chat, logs or command output.
 
-每台新边缘节点使用不同 credential ID 和不同随机 token。旧 token 一经注册即在数据库中标记为已消费，不能复用。
+Each new edge node uses a different credential ID and a different random token. Once the old token is registered, it will be marked as consumed in the database and cannot be reused.
 
-### 6.2 配置边缘节点
+### 6.2 Configure edge nodes
 
-在边缘主机：
+On the edge host:
 
 ```bash
 cd project-rebound/Backend
@@ -241,18 +243,18 @@ cp deployments/edge-relay/config.edge-relay.yaml.example \
 chmod 600 deployments/edge-relay/.env
 ```
 
-编辑 `.env`，只在首次注册时设置 `EDGE_RELAY_BOOTSTRAP_TOKEN`。编辑 YAML：
+Edit `.env` and set `EDGE_RELAY_BOOTSTRAP_TOKEN` only on first registration. Edit YAML:
 
-- `control_plane_url`：公网 HTTPS API，例如 `https://api.example.com`。
-- `control_addr`：稳定的 mTLS 网关地址，例如 `relay.example.com:443`；使用私网/VPN直连时可填写 `10.20.0.10:9090`。
-- `control_server_name`：必须与 `control_addr` 使用的证书域名及控制面 `RELAY_CONTROL_SERVER_NAMES` 一致，例如 `relay.example.com`，不应改成 IP。
-- `advertised_endpoints[].host`：客户端实际可达的公网 IP 或域名。
-- `advertised_endpoints[].port`：公网映射后的 UDP 端口。
-- `region`、`zone`、`provider`、容量和带宽：填写该节点真实信息。
+- `control_plane_url`: Public network HTTPS API, such as `https://api.example.com`.
+- `control_addr`: Stable mTLS gateway address, such as `relay.example.com:443`; when using private network/VPN direct connection, you can fill in `10.20.0.10:9090`.
+- `control_server_name`: must be consistent with the certificate domain name and control plane `RELAY_CONTROL_SERVER_NAMES` used by `control_addr`, for example, `relay.example.com`, and should not be changed to IP.
+- `advertised_endpoints[].host`: The public IP or domain name actually reachable by the client.
+- `advertised_endpoints[].port`: UDP port after public network mapping.
+- `region`, `zone`, `provider`, capacity and bandwidth: fill in the real information of the node.
 
-分离式边缘 Compose 使用 Linux host networking，因此 `127.0.0.1:9100` 指标可由主机上的 Prometheus/agent 抓取，同时不会暴露到公网。常规监控不要求为每台新节点配置独立抓取链路：Relay 会复用 mTLS 控制流上报累计遥测，控制面的 `/internal/metrics` 统一输出全部注册节点。节点本地 9100 抓取只作为可选的故障诊断增强。
+Detached edge Compose uses Linux host networking, so a Prometheus agent on the host can scrape `127.0.0.1:9100` without exposing it publicly. Regular monitoring does not require a separate scrape path for every new node: each Relay reuses the mTLS control channel to report cumulative telemetry, and `/internal/metrics` on the control plane exposes all registered nodes uniformly. Scraping the node-local port 9100 is an optional troubleshooting enhancement.
 
-### 6.3 首次启动
+### 6.3 First startup
 
 ```bash
 chmod +x scripts/deploy-edge-relay.sh
@@ -261,9 +263,9 @@ EDGE_RELAY_IMAGE=ghcr.io/<owner>/projectrebound-edge-relay:sha-<40-char-commit> 
   ./scripts/deploy-edge-relay.sh
 ```
 
-脚本等待 `relay control connected`，随后自动把边缘 `.env` 中的一次性 token 清空，并强制重建容器再次连接。这一步同时验证 `/edge-relay-data/identity.json` 已持久化。不要删除 `project-rebound-edge-relay_edge-relay-data` 卷，否则必须签发新的 Bootstrap Token 重新注册。
+The script waits for `relay control connected`, then automatically clears the one-time token in the edge `.env`, and forces the container to be rebuilt to connect again. This step also verifies that `/edge-relay-data/identity.json` has been persisted. Do not delete the `project-rebound-edge-relay_edge-relay-data` volume, otherwise a new Bootstrap Token must be issued and re-registered.
 
-确认监听和本地指标：
+Confirm listening and local indicators:
 
 ```bash
 sudo ss -lunp | grep ':8443'
@@ -272,7 +274,7 @@ sudo docker compose --env-file deployments/edge-relay/.env \
   -f deployments/edge-relay/docker-compose.yaml logs --tail=50 edge-relay
 ```
 
-在控制面通过回环管理端口查询节点：
+Query the node through the loopback management port on the control plane:
 
 ```bash
 curl -fsS 'http://127.0.0.1:18080/internal/v1/relay-nodes?limit=100' \
@@ -281,36 +283,36 @@ curl -fsS http://127.0.0.1:18080/internal/v1/relay-nodes/RELAY_NODE_ID \
   -H 'Authorization: Bearer ADMIN_TOKEN'
 ```
 
-期望状态为 `READY`。
+The desired status is `READY`.
 
-## 7. 添加、下线和恢复边缘节点
+## 7. Add, offline and restore edge nodes
 
-添加节点时生成新的高熵 token，将新的 `id=token` 追加到控制面 `RELAY_BOOTSTRAP_TOKENS`，重部署控制面，再按第 6 节部署边缘节点。
+When adding a node, generate a new high-entropy token, append the new `id=token` to the control plane `RELAY_BOOTSTRAP_TOKENS`, redeploy the control plane, and then deploy edge nodes according to Section 6.
 
-计划维护：
+Planned maintenance:
 
 ```bash
 curl -X POST http://127.0.0.1:18080/internal/v1/relay-nodes/NODE_ID/drain \
   -H 'Authorization: Bearer ADMIN_TOKEN'
 ```
 
-确认现有 allocation 排空后停止边缘容器。恢复后调用 `/resume`。证书或节点凭据泄漏时调用 `/revoke`，该操作不可逆；被撤销节点必须使用新身份重新注册。
+Stop the edge container after confirming that the existing allocation is drained. Call `/resume` after recovery. `/revoke` is called when certificate or node credentials are leaked. This operation is irreversible; the revoked node must re-register with a new identity.
 
-控制面重建、升级或重启不得更换 `RELAY_CA_*`。只要 CA 和边缘身份卷保持不变，边缘节点会自动重连。Relay CA 轮换需要双 CA/双证书迁移方案，当前版本不能通过直接替换完成无中断轮换。
+Control plane rebuilds, upgrades, or reboots must not replace `RELAY_CA_*`. Edge nodes automatically reconnect as long as the CA and edge identity volumes remain unchanged. Relay CA rotation requires a dual CA/dual certificate migration solution, and the current version cannot complete non-disruptive rotation through direct replacement.
 
-## 8. 备份、恢复与升级
+## 8. Backup, recovery and upgrade
 
-创建并校验 PostgreSQL custom-format 备份：
+Create and verify a PostgreSQL custom-format backup:
 
 ```bash
 ./scripts/backup-control-plane.sh /srv/project-rebound-backups
 ```
 
-备份目录权限为 `700`，备份文件为 `600`。将备份加密复制到另一主机/区域，并定期恢复到隔离数据库验证。生产恢复步骤：停止控制面写入、保留当前数据库备份、使用 `pg_restore --single-transaction --clean --if-exists` 恢复到明确数据库、重新运行迁移，然后执行冒烟测试。恢复是破坏性操作，不由自动部署脚本执行。
+The backup directory permission is `700` and the backup file is `600`. Encrypted replication of backups to another host/region and periodic restores to quarantine database verification. Production recovery steps: Stop control plane writes, keep a backup of the current database, restore to an explicit database using `pg_restore --single-transaction --clean --if-exists`, rerun the migration, and then perform a smoke test. Recovery is a destructive operation and is not performed by automated deployment scripts.
 
-升级推荐通过 GitHub Actions 的 Deploy 工作流完成：选择目标环境和节点，填写已经通过 CI 且仍存在于 GHCR 的完整 commit SHA。工作流会先备份控制面数据库，再拉取同一 SHA 的镜像、执行健康检查，并在失败时恢复上一 release。
+The upgrade is recommended to be done through the Deploy workflow of GitHub Actions: select the target environment and node, fill in the complete commit SHA that has passed CI and still exists in GHCR. The workflow will first back up the control plane database, then pull the image of the same SHA, perform a health check, and restore the previous release in case of failure.
 
-必须在主机上手工升级控制面时：
+When the control plane must be upgraded manually on the host:
 
 ```bash
 ./scripts/backup-control-plane.sh /srv/project-rebound-backups
@@ -320,11 +322,11 @@ CONTROL_PLANE_IMAGE=ghcr.io/<owner>/projectrebound-control-plane:sha-<40-char-co
 ./scripts/verify-control-plane.sh
 ```
 
-边缘节点可逐台 drain，再使用同一 CI commit SHA 运行 Deploy，或按第 6.3 节以 `DEPLOY_SOURCE=ci` 运行 `./scripts/deploy-edge-relay.sh`。应用回滚时部署仍存在于 GHCR 的上一个已验证 SHA；只有在迁移不向后兼容且已有恢复计划时才回滚数据库。
+Edge nodes can be drained one by one and run Deploy using the same CI commit SHA, or run `./scripts/deploy-edge-relay.sh` as `DEPLOY_SOURCE=ci` as per Section 6.3. Applying rollback deploys the last verified SHA that still exists in GHCR; rollback the database only if the migration is not backwards compatible and a recovery plan is in place.
 
-## 9. 完整验收
+## 9. Complete acceptance
 
-发布前至少执行：
+Before publishing, do at least:
 
 ```bash
 cd Backend
@@ -333,33 +335,33 @@ go test ./... -count=1
 ./scripts/verify-control-plane.sh
 ```
 
-然后执行：
+Then execute:
 
-- 真实 PostgreSQL 集成测试和迁移测试；
-- Auth bind/refresh/logout、封禁权限；
-- Dedicated Server 注册/心跳/注销；
-- P2P 创建/加入/离开/启动；
-- WebSocket candidate 交换和 Relay fallback；
-- Relay drain/resume、控制面重建后重连；
-- 公共 DNS 灰云解析、无客户端证书被拒绝、有效中继证书正向 mTLS 握手和服务端证书自动轮换；
-- 更新 Manifest 签名和文件 SHA-256；
-- 备份恢复；
-- 独立 network namespace 中的 `tests/netem/run-relay-matrix.sh`；
-- 独立负载机上的 `tests/load/control-plane.js`。
+- Real PostgreSQL integration testing and migration testing;
+- Auth bind/refresh/logout, ban permissions;
+- Dedicated Server registration/heartbeat/logout;
+- P2P create/join/leave/start;
+- WebSocket candidate exchange and Relay fallback;
+- Relay drain/resume, reconnect after the control plane is rebuilt;
+- Public DNS gray cloud resolution, no client certificate rejection, valid relay certificate forward mTLS handshake and server certificate automatic rotation;
+- Update Manifest signature and file SHA-256;
+- Backup and restore;
+- `tests/netem/run-relay-matrix.sh` in the independent network namespace;
+- `tests/load/control-plane.js` on a standalone loader.
 
-性能验收要求 HTTP P95 `< 200 ms`、HTTP 失败率 `< 1%`、检查成功率 `> 99%`、WebSocket upgrade P95 `< 1 s`。功能成功不等同于性能门槛通过，报告中必须分别给出结果。
+Performance acceptance requirements HTTP P95 `< 200 ms`, HTTP failure rate `< 1%`, check success rate `> 99%`, WebSocket upgrade P95 `< 1 s`. Functional success does not equate to passing performance thresholds, and results must be reported separately.
 
-## 10. 安全不变量
+## 10. Security invariants
 
-- PostgreSQL、Redis、Grafana、Prometheus、直接控制面 HTTP 和 Relay mTLS 后端端口只能绑定回环地址。
-- FRPS 只允许远端代理 TCP 443；控制端口 7000 不向任意公网来源开放，FRPC 必须与已有面板/应用 FRPC 隔离。
-- 公网 Caddy 对 `/v1/admin*` 和 `/internal/*` 返回 404，仅放行 Relay 注册和证书续签。
-- Admin Token 与玩家 Token、Game Server Token、Relay Token 不可互换。
-- Access、Refresh、Admin、Bootstrap、Relay、Game Server Token 和私钥不得进入日志。
-- 边缘节点不拥有数据库或 Redis 凭据，不解析游戏 Payload。
-- 不在生产物理网卡运行 netem；只使用隔离 namespace/veth。
-- 不把 `.env`、`identity.json`、数据库备份或签名私钥提交 Git。
+- PostgreSQL, Redis, Grafana, Prometheus, direct control plane HTTP and Relay mTLS backend ports can only be bound to loopback addresses.
+- FRPS only allows remote proxy TCP 443; control port 7000 is not open to any public network source, and FRPC must be isolated from existing panel/application FRPC.
+- Public network Caddy returns 404 for `/v1/admin*` and `/internal/*`, and only allows Relay registration and certificate renewal.
+- Admin Token is not interchangeable with player Token, Game Server Token, and Relay Token.
+- Access, Refresh, Admin, Bootstrap, Relay, Game Server Token and private keys are not allowed to enter the log.
+- The edge node does not own the database or Redis credentials and does not parse the game payload.
+- Do not run netem on production physical NICs; only use isolated namespace/veth.
+- Do not submit `.env`, `identity.json`, database backup or signing private key to Git.
 
-外部 API 见 `docs/api/external.md`，内部与 Relay API 见 `docs/api/internal.md`，机器可读契约见 `Backend/api/openapi/openapi.yaml`。
+See `docs/api/external.md` for the external API, `docs/api/internal.md` for the internal and Relay API, and `Backend/api/openapi/openapi.yaml` for the machine-readable contract.
 
-通过 GitHub Actions 构建 GHCR 镜像、配置 staging/production Environment、自动备份部署和回滚的方法见 `docs/operations/ci-cd.md`。
+For methods of building GHCR images, configuring staging/production environment, automatic backup deployment and rollback through GitHub Actions, see `docs/operations/ci-cd.md`.

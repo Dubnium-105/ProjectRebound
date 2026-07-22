@@ -1,5 +1,7 @@
 # Backup and restore runbook
 
+English | [简体中文](backup-restore.zh-CN.md)
+
 Use [PostgreSQL and key backup/restore](../backup-and-restore.md) for commands and retention policy.
 
 1. Select an encrypted `.dump.age` and matching SHA-256 from off-host storage. Verify checksum, age decryption, and `pg_restore --list` before touching a target.

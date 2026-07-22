@@ -48,7 +48,7 @@ Grafana/Prometheus 必须从控制面动态节点清单生成 Relay target，不
 5. 节点重新出现 `CONNECTING`、上报新心跳并进入 `READY` 后，才恢复调度。
 6. 检查故障前后的 allocation、迁移和客户端重绑结果，确认没有残留 handle。
 
-详细事故步骤见 [Relay outage runbook](runbooks/relay-outage.md)，发布和回滚见[发布与回滚](release-and-rollback.md)。
+详细事故步骤见 [Relay outage runbook](runbooks/relay-outage.zh-CN.md)，发布和回滚见[发布与回滚](release-and-rollback.zh-CN.md)。
 
 ## 测试口径与当前证据
 
@@ -59,4 +59,4 @@ Grafana/Prometheus 必须从控制面动态节点清单生成 Relay target，不
 
 2026-07-22 的修正后连续在线验证持续 601.2 秒：HTTP 4,780/4,780、P95 6.482 ms，UDP 1,170,600/1,170,600、零丢包，100 次 allocation、控制断链样本为 0、无残留 allocation。此前包含“每小时强制重启 Relay”的 17.1 小时运行产生 14.7928% UDP 丢包且没有形成有效迁移证据；该方法属于错误的故障注入，不计入 Soak 结果，已从运行策略删除。正式 24 小时连续在线证据仍应按上述新口径独立完成。
 
-完整版本证据见 [V1.1 测试报告](../testing/v1.1/test-report.md)。
+完整版本证据见 [V1.1 测试报告](../testing/v1.1/test-report.zh-CN.md)。

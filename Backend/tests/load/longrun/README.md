@@ -1,5 +1,7 @@
 # V1.1 long stability gates
 
+English | [简体中文](README.zh-CN.md)
+
 This harness runs the V1.1 stability gates in an isolated Docker Compose project. It does not connect to the production database, Redis, control plane, or Relay nodes. The only published port is the control plane on `127.0.0.1:38080`.
 
 The sequence is intentionally fail-fast:
