@@ -32,11 +32,11 @@ func TestReferenceDocsCoverEveryHTTPPath(t *testing.T) {
 	if err := yaml.Unmarshal(contents, &document); err != nil {
 		t.Fatal(err)
 	}
-	external, err := os.ReadFile("../../../docs/control-plane-external-api.md")
+	external, err := os.ReadFile("../../../docs/api/external.md")
 	if err != nil {
 		t.Fatal(err)
 	}
-	internal, err := os.ReadFile("../../../docs/control-plane-internal-api.md")
+	internal, err := os.ReadFile("../../../docs/api/internal.md")
 	if err != nil {
 		t.Fatal(err)
 	}
