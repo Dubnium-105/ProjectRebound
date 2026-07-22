@@ -60,6 +60,25 @@ expected_samples = max(2, int(min_seconds / 60 * 0.75))
 if min(len(memory), len(goroutines), len(db_in_use), len(db_open), len(postgres), len(redis)) < expected_samples:
     fail(f"insufficient samples; expected at least {expected_samples}")
 
+relay_control = {
+    key: samples
+    for key, samples in series.items()
+    if key.startswith("relay_node_control_connected{")
+}
+if len(relay_control) < 2:
+    fail("expected telemetry for at least two Relay nodes")
+if any(len(samples) < expected_samples for samples in relay_control.values()):
+    fail(f"insufficient Relay continuity samples; expected at least {expected_samples} per node")
+
+relay_disconnected_samples = {
+    key: sum(value != 1 for value in samples)
+    for key, samples in relay_control.items()
+}
+relay_disconnected_ratio = {
+    key: relay_disconnected_samples[key] / len(samples)
+    for key, samples in relay_control.items()
+}
+
 memory_first, memory_last = quarter_medians(memory)
 goroutines_first, goroutines_last = quarter_medians(goroutines)
 memory_limit = max(memory_first * 1.5, memory_first + 64 * 1024 * 1024)
@@ -70,6 +89,7 @@ checks = {
     "no sustained goroutine growth": goroutines_last <= goroutine_limit,
     "PostgreSQL availability": sum(value == 0 for value in postgres) / len(postgres) <= 0.05,
     "Redis availability": sum(value == 0 for value in redis) / len(redis) <= 0.05,
+    "Relay control continuity": max(relay_disconnected_ratio.values()) <= 0.005,
     "database pool not persistently exhausted": sum(
         open_count > 0 and in_use / open_count >= 0.85
         for in_use, open_count in zip(db_in_use, db_open)
@@ -89,5 +109,7 @@ summary = {
     "db_open_max": max(db_open),
     "postgres_unavailable_samples": sum(value == 0 for value in postgres),
     "redis_unavailable_samples": sum(value == 0 for value in redis),
+    "relay_nodes": len(relay_control),
+    "relay_disconnected_samples_max": max(relay_disconnected_samples.values()),
 }
 print("LONGRUN_TELEMETRY_OK " + json.dumps(summary, sort_keys=True))

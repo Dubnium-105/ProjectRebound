@@ -87,6 +87,7 @@ services:
 
   edge-relay-a:
     image: "${V11_EDGE_RELAY_IMAGE:?V11_EDGE_RELAY_IMAGE is required}"
+    restart: unless-stopped
     environment:
       EDGE_RELAY_BOOTSTRAP_TOKEN: "${V11_RELAY_A_BOOTSTRAP_TOKEN:?required}"
     volumes:
@@ -101,6 +102,7 @@ services:
 
   edge-relay-b:
     image: "${V11_EDGE_RELAY_IMAGE:?V11_EDGE_RELAY_IMAGE is required}"
+    restart: unless-stopped
     environment:
       EDGE_RELAY_BOOTSTRAP_TOKEN: "${V11_RELAY_B_BOOTSTRAP_TOKEN:?required}"
     volumes:

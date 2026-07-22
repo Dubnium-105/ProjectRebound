@@ -70,7 +70,7 @@ Control Plane 重启后的 Relay 判断不再只相信数据库中的旧 READY �
 | --- | --- | --- |
 | 基础并发 | 100 客户端、30 房间、20 allocation、1 小时 | NOT_RUN |
 | 设计上限 | 300 客户端、100 房间、100 allocation、6 小时 | NOT_RUN |
-| Relay Soak | 100～300 allocation、24 小时、每小时轮换 Relay | NOT_RUN |
+| Relay Soak | 100～300 allocation、24 小时、Relay 持续在线；仅在确认掉线后自动恢复 | NOT_RUN |
 | 正式重连风暴 | 100 客户端、10 分钟 | SHORT_PASS；90.6 秒功能门禁通过，未满足正式时长 |
 | 正式 Relay 故障 | 50 allocation、30 分钟 | SHORT_PASS；双 Relay 真实 SIGKILL/迁移通过，未满足正式规模与时长 |
 

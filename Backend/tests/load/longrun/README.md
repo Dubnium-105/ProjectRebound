@@ -7,9 +7,9 @@ The sequence is intentionally fail-fast:
 1. ten-minute preflight: 100 clients, 30 rooms, 20 Relay allocations;
 2. one-hour basic gate: 100 clients, 30 rooms, 20 Relay allocations;
 3. six-hour full gate: 300 clients, 100 rooms and 100 Relay allocations, with Redis and Control Plane restarted halfway through;
-4. 24-hour Relay soak: 200 clients, 100 rooms and 100 Relay allocations, with Relay A and B restarted alternately every hour.
+4. 24-hour Relay soak: 200 clients, 100 rooms and 100 Relay allocations, with both Relay nodes kept continuously online.
 
-Each gate starts from fresh PostgreSQL, Redis, and Relay volumes. A gate passes only if the load report, dependency/resource telemetry, and post-cleanup database residual checks all pass. Reports include API latency and error rates, UDP delivery, Refresh Token activity, memory/goroutine trends, database pool usage, dependency availability, migrations, duplicate records, and orphan resources.
+Each gate starts from fresh PostgreSQL, Redis, and Relay volumes. A gate passes only if the load report, dependency/resource telemetry, Relay control-link continuity, and post-cleanup database residual checks all pass. Reports include API latency and error rates, UDP delivery, Refresh Token activity, memory/goroutine trends, database pool usage, dependency availability, migrations, duplicate records, and orphan resources. The soak gate never restarts a healthy Relay. Docker restarts an exited Relay automatically; the harness only attempts an explicit recovery after confirming that a Relay remains stopped.
 
 Use immutable images produced by CI:
 
@@ -34,7 +34,7 @@ sudo cat "$V11_LONGRUN_RESULTS_DIR/status.env"
 sudo tail -n 20 "$V11_LONGRUN_RESULTS_DIR/events.tsv"
 ```
 
-The isolated configuration deliberately extends Relay Token TTL to eight hours and allocation TTL to 30 hours. The standard production TTLs are too short for a fixed-allocation soak; hourly Relay rotation still forces migrations and new token validation throughout the 24-hour gate. These values are mounted only into this disposable control plane.
+The isolated configuration deliberately extends Relay Token TTL to eight hours and allocation TTL to 30 hours so fixed allocations can remain continuously active for the complete soak. These values are mounted only into this disposable control plane. Relay crash and migration behavior is tested separately with the disposable Relay failure scenario; it is not mixed into the continuous-online soak gate.
 
 After retaining the reports, remove only the exact project named in `status.env`:
 

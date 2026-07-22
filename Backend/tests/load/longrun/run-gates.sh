@@ -172,14 +172,35 @@ inject_midrun_dependency_restarts() {
   wait_ready
 }
 
-inject_hourly_relay_rotation() {
-  local hour service
-  for hour in $(seq 1 23); do
-    sleep 3600
-    if (( hour % 2 == 1 )); then service=edge-relay-a; else service=edge-relay-b; fi
-    record_event relay_rotation "hour=$hour service=$service"
-    "${compose[@]}" restart "$service"
-    wait_ready
+relay_is_running() {
+  local service="$1" container_id
+  container_id="$("${compose[@]}" ps --quiet "$service")"
+  [[ -n "$container_id" ]] && [[ "$(docker inspect --format '{{.State.Running}}' "$container_id" 2>/dev/null)" == "true" ]]
+}
+
+monitor_relay_continuity() {
+  local service
+  local interval_seconds="${V11_RELAY_MONITOR_INTERVAL_SECONDS:-60}"
+  local confirm_seconds="${V11_RELAY_OFFLINE_CONFIRM_SECONDS:-10}"
+  [[ "$interval_seconds" =~ ^[1-9][0-9]*$ ]] || return 64
+  [[ "$confirm_seconds" =~ ^[1-9][0-9]*$ ]] || return 64
+
+  while true; do
+    sleep "$interval_seconds"
+    for service in edge-relay-a edge-relay-b; do
+      if relay_is_running "$service"; then
+        continue
+      fi
+      record_event relay_offline_detected "service=$service"
+      sleep "$confirm_seconds"
+      if relay_is_running "$service"; then
+        record_event relay_auto_recovered "service=$service"
+        continue
+      fi
+      record_event relay_restart_after_offline "service=$service"
+      "${compose[@]}" up --detach --no-deps "$service"
+      wait_ready
+    done
   done
 }
 
@@ -208,10 +229,10 @@ validate_residuals() {
 }
 
 run_gate() {
-  local gate="$1" scenario="$2" min_seconds="$3" clients="$4" rooms="$5" relay_connections="$6" injector="${7:-}"
+  local gate="$1" scenario="$2" min_seconds="$3" clients="$4" rooms="$5" relay_connections="$6" background_hook="${7:-}"
   local report="$artifacts_dir/$gate.json" prometheus="$artifacts_dir/$gate.prom" log="$results_dir/$gate.log"
   local load_name="$project-load-$gate"
-  local load_pid telemetry_pid injector_pid="" injector_status=0 run_status=0
+  local load_pid telemetry_pid background_pid="" background_status=0 run_status=0
 
   reset_stack "$gate"
   write_status RUNNING "$gate"
@@ -224,33 +245,33 @@ run_gate() {
   load_pid=$!
   collect_telemetry "$gate" &
   telemetry_pid=$!
-  if [[ -n "$injector" ]]; then
+  if [[ -n "$background_hook" ]]; then
     (
       trap - ERR
-      if ! "$injector"; then
-        record_event injector_failed "gate=$gate"
+      if ! "$background_hook"; then
+        record_event background_hook_failed "gate=$gate hook=$background_hook"
         docker rm --force "$load_name" >/dev/null 2>&1 || true
         exit 1
       fi
     ) &
-    injector_pid=$!
+    background_pid=$!
   fi
 
   wait "$load_pid" || run_status=$?
   kill "$telemetry_pid" >/dev/null 2>&1 || true
   wait "$telemetry_pid" >/dev/null 2>&1 || true
-  if [[ -n "$injector_pid" ]]; then
-    if kill -0 "$injector_pid" >/dev/null 2>&1; then
-      kill "$injector_pid" >/dev/null 2>&1 || true
-      wait "$injector_pid" >/dev/null 2>&1 || true
+  if [[ -n "$background_pid" ]]; then
+    if kill -0 "$background_pid" >/dev/null 2>&1; then
+      kill "$background_pid" >/dev/null 2>&1 || true
+      wait "$background_pid" >/dev/null 2>&1 || true
     else
-      wait "$injector_pid" || injector_status=$?
+      wait "$background_pid" || background_status=$?
     fi
   fi
   record_event load_bot_exit "gate=$gate status=$run_status"
-  if (( injector_status != 0 )); then
-    echo "Fault injector failed for $gate with status $injector_status" >&2
-    return "$injector_status"
+  if (( background_status != 0 )); then
+    echo "Background hook failed for $gate with status $background_status" >&2
+    return "$background_status"
   fi
   sleep 20
   python3 "$script_dir/validate-report.py" "$report" "$min_seconds" "$clients" "$rooms" "$relay_connections" | tee "$results_dir/$gate-validation.txt"
@@ -286,7 +307,7 @@ current_gate=full-6h
 run_gate "$current_gate" "$results_dir/scenarios/full-6h.yaml" 21600 300 100 100 inject_midrun_dependency_restarts
 
 current_gate=relay-soak-24h
-run_gate "$current_gate" "$results_dir/scenarios/relay-soak-24h.yaml" 86400 200 100 100 inject_hourly_relay_rotation
+run_gate "$current_gate" "$results_dir/scenarios/relay-soak-24h.yaml" 86400 200 100 100 monitor_relay_continuity
 
 write_status COMPLETE none
 record_event runner_completed "$project"
