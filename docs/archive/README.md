@@ -4,9 +4,9 @@
 
 | 历史文件 | 归档原因 | 当前替代 |
 | --- | --- | --- |
-| `backend-api-spec-v1.md` | 第一版兼容 API | `../control-plane-external-api.md`、OpenAPI |
+| `backend-api-spec-v1.md` | 第一版兼容 API | `../api/external.md`、OpenAPI |
 | `backend-api-spec-v2.md` | guest/SQLite/内嵌 Relay 设计 | 当前外部/内部 API 文档 |
-| `backend-production-runbook.md` | 与新版分离部署和 CI/CD 重复 | `../debian-deployment-and-ops.md`、`../cicd.md` |
+| `backend-production-runbook.md` | 与新版分离部署和 CI/CD 重复 | `../operations/deployment-guide.md`、`../operations/ci-cd.md` |
 | `game-and-server-launch-flow.md` | 旧 C# 后端与旧端口联调记录 | 当前组件 README 和 API 文档 |
 | `game-metaserver-repository-audit.md` | 实施前仓库审计 | 当前代码、测试和 `../README.md` |
 | `implementation-status-v2.md` | 2026-04 状态快照 | CI、提交历史和当前文档索引 |

@@ -10,7 +10,7 @@
 - UDP Proxy 使用旧 `/v1/nat/*`、`/v1/relay/allocations` 和内嵌 UDP 5001/5002 协议；
 - 它不实现当前独立 Edge Relay 的 cookie/token 数据面协议，也不能替代生产验收。
 
-因此，只有在明确维护旧兼容链路时才使用本目录。当前控制面、Edge Relay 和生产部署见 `docs/README.md` 与 `docs/cicd.md`。
+因此，只有在明确维护旧兼容链路时才使用本目录。当前控制面、Edge Relay 和生产部署见 `docs/README.md` 与 `docs/operations/ci-cd.md`。
 
 ## 运行
 

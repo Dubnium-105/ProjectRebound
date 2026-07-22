@@ -1,7 +1,7 @@
 # Game control-plane production runbook
 
 > [!WARNING]
-> 历史运维摘要，已由 [`../debian-deployment-and-ops.md`](../debian-deployment-and-ops.md) 和 [`../cicd.md`](../cicd.md) 取代，请勿按本文执行生产部署。
+> 历史运维摘要，已由 [`../operations/deployment-guide.md`](../operations/deployment-guide.md) 和 [`../operations/ci-cd.md`](../operations/ci-cd.md) 取代，请勿按本文执行生产部署。
 
 ## Deployment shape
 
@@ -73,4 +73,4 @@ Run `Backend/tests/netem/run-relay-matrix.sh` only on an isolated Linux interfac
 
 Validate, in order: liveness; readiness; client config; update check and signature; client bind/refresh/logout; banned-account write rejection; dedicated-server registration/heartbeat; P2P create/join/leave; direct connection; relay fallback; relay node drain/resume; and failure migration. Confirm public responses contain no internal addresses or credentials and confirm the public proxy returns 404 for admin and internal routes.
 
-The complete separated-host procedure is in `docs/debian-deployment-and-ops.md`. Public API usage is in `docs/control-plane-external-api.md`; administrator, relay HTTP, mTLS gRPC, metrics, and UDP interfaces are in `docs/control-plane-internal-api.md`.
+The complete separated-host procedure is in `docs/operations/deployment-guide.md`. Public API usage is in `docs/api/external.md`; administrator, relay HTTP, mTLS gRPC, metrics, and UDP interfaces are in `docs/api/internal.md`.

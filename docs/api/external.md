@@ -212,4 +212,4 @@ Relay 分配事件示例：
 - 完整 OpenAPI：`Backend/api/openapi/openapi.yaml`
 - 鉴权矩阵：`Backend/api/openapi/auth-permission-matrix.md`
 - Relay UDP 协议：`Backend/api/relay-protocol.md`
-- 内部 API：`docs/control-plane-internal-api.md`
+- 内部 API：`docs/api/internal.md`

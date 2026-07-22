@@ -35,7 +35,7 @@ dotnet build Shared/ProjectRebound.Contracts/ProjectRebound.Contracts.csproj --c
 dotnet build Desktop/ProjectRebound.Browser/ProjectRebound.Browser.csproj --configuration Release
 ```
 
-生产环境不应在目标机重新构建后端。CI 为每个提交发布 `sha-<40-char-commit>` 控制面和 Edge Relay 镜像，Deploy 工作流按同一 SHA 拉取并执行健康检查、备份与自动回滚。详见 [`docs/cicd.md`](docs/cicd.md)。
+生产环境不应在目标机重新构建后端。CI 为每个提交发布 `sha-<40-char-commit>` 控制面和 Edge Relay 镜像，Deploy 工作流按同一 SHA 拉取并执行健康检查、备份与自动回滚。详见 [`docs/operations/ci-cd.md`](docs/operations/ci-cd.md)。
 
 ## 文档入口
 

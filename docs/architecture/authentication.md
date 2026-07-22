@@ -8,9 +8,9 @@ Invite codes are generated outside logs, stored as hashes, bounded by expiry and
 
 Operational details:
 
-- public request/response contracts: [external API](control-plane-external-api.md#32-登录和玩家);
-- permissions and credential boundaries: [auth matrix](../Backend/api/openapi/auth-permission-matrix.md);
-- risk/session/invite administration: [internal API](control-plane-internal-api.md);
-- abuse response: [Auth abuse runbook](runbooks/auth-abuse.md).
+- public request/response contracts: [external API](../api/external.md#32-登录和玩家);
+- permissions and credential boundaries: [auth matrix](../../Backend/api/openapi/auth-permission-matrix.md);
+- risk/session/invite administration: [internal API](../api/internal.md);
+- abuse response: [Auth abuse runbook](../operations/runbooks/auth-abuse.md).
 
 Never log Authorization, Access/Refresh Tokens, invite plaintext, private keys, full Device IDs, or unmasked client IPs in administrative responses. Steamworks Auth Ticket verification is deliberately outside V1.1.

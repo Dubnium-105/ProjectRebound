@@ -1,12 +1,14 @@
 # V1.1 测试与 Release Gate 报告
 
-报告日期：2026-07-21
+报告日期：2026-07-22
 
-候选代码：本报告所在提交（父基线 `659cb7a`）
+生产候选：`66cde85a7528781b18e4302289d5d6087364076d`
 
-总体状态：`NOT_READY_LONG_TESTS`
+房间 TTL 修复：`447e27a`；连续在线策略：`66cde85a`
 
-除用户明确排除的 1/6/24 小时长稳与正式容量测试外，本轮短期功能、安全、弱网、迁移、故障恢复、告警和全新恢复门禁均已通过。由于 V1.1 正式 Release Gate 明确要求 6 小时/24 小时证据，因此仍不得创建“V1.1 正式完成”标签。
+总体状态：`PRODUCTION_DEPLOYED_24H_SOAK_PENDING`
+
+V1.1 已部署到生产控制面、LAX 和 HGH Relay；CI 的 7 个 job 全部通过。短期功能、安全、弱网、迁移、故障恢复、告警和全新恢复门禁已通过；1 小时和 6 小时容量长稳已通过。正式 24 小时 Relay 连续在线 Soak 尚未按修正后的“不做计划重启”口径完成，因此生产可继续观察，但不得把当前证据标记为完整 24 小时 Release Gate。
 
 ## 自动化质量门禁
 
@@ -64,25 +66,27 @@ Control Plane 重启后的 Relay 判断不再只相信数据库中的旧 READY �
 
 ## 长稳与正式容量门禁
 
-以下项目按用户本轮要求未执行，因此只影响正式版本标签，不推翻上述短期门禁结果：
-
-| 场景 | 正式要求 | 状态 |
+| 场景 | 实际结果 | 状态 |
 | --- | --- | --- |
-| 基础并发 | 100 客户端、30 房间、20 allocation、1 小时 | NOT_RUN |
-| 设计上限 | 300 客户端、100 房间、100 allocation、6 小时 | NOT_RUN |
-| Relay Soak | 100～300 allocation、24 小时、Relay 持续在线；仅在确认掉线后自动恢复 | NOT_RUN |
+| 预检 | 600.3 秒；HTTP 成功率 100%；UDP 零丢包 | PASS |
+| 基础并发 | 3,600.3 秒；HTTP 成功率 100%；P95 5.733 ms；UDP 零丢包 | PASS |
+| 设计上限 | 21,601.0 秒；155,345 个 HTTP 请求，成功率 100%，P95 5.520 ms；UDP 43,170,300 发、43,170,297 收，丢包率 0.00000695%；包含 Redis 和 Control Plane 恢复；无残留 allocation | PASS |
+| 修正后 Relay 连续在线验证 | 601.2 秒；HTTP 4,780/4,780，P95 6.482 ms；UDP 1,170,600/1,170,600；100 次 allocation；控制断链样本 0；无残留 | PASS（10 分钟） |
+| Relay Soak | 100～300 allocation、24 小时；Relay 不做计划重启，仅在确认掉线后恢复 | PENDING_24H |
 | 正式重连风暴 | 100 客户端、10 分钟 | SHORT_PASS；90.6 秒功能门禁通过，未满足正式时长 |
 | 正式 Relay 故障 | 50 allocation、30 分钟 | SHORT_PASS；双 Relay 真实 SIGKILL/迁移通过，未满足正式规模与时长 |
+
+曾执行一轮 17.1 小时测试，每小时强制重启 Relay，最终 UDP 丢包率为 14.7928%，且没有形成有效迁移证据。该结果证明“周期重启”会主动破坏正在中继的内存态对局，不属于连续在线 Soak。测试策略现已改为健康节点不显式重启、仅在确认掉线后恢复；故障注入另行执行。该轮失败数据保留作为反例，不计入 24 小时门禁。
 
 ## Release Gate 结论
 
 | Gate | 状态 |
 | --- | --- |
 | Auth Gate | PASS |
-| Relay Security Gate | SHORT_PASS；功能/安全通过，24h 泄漏项未执行 |
+| Relay Security Gate | SHORT_PASS；功能/安全与 6h 容量通过，24h 连续在线项待完成 |
 | Migration Gate | SHORT_PASS；真实故障迁移、幂等、恢复 READY 通过 |
 | Key Gate | PASS；自动轮换/证书测试及恢复演练通过 |
 | Operations Gate | PASS；备份恢复、告警、迁移幂等、部署/回滚脚本均有自动化门禁 |
-| Performance Gate | NOT_RUN（用户明确排除长稳） |
+| Performance Gate | PARTIAL_PASS；1h/6h 通过，修正后 10 分钟连续在线通过，24h 待完成 |
 
-结论：除长稳/正式容量证据外无已知发布阻断问题；在 6 小时和 24 小时门禁完成前，版本状态保持 `NOT_READY_LONG_TESTS`。
+结论：当前生产版本无已知短期发布阻断问题，1 小时和 6 小时门禁通过；正式 24 小时连续在线证据仍待补齐，版本状态保持 `PRODUCTION_DEPLOYED_24H_SOAK_PENDING`。Relay 的权威运行口径见 [连续在线与恢复策略](../../operations/relay-continuity.md)。

@@ -6,4 +6,4 @@
 4. Access/update signing compromise requires a new key ID and client/operator distribution plan. Relay CA compromise requires a new CA and re-enrollment of every node; ordinary leaf renewal is insufficient.
 5. Rotate administrator and storage credentials, invalidate exposed CI secrets, audit logs/commits/artifacts, and verify old credentials are rejected. Update encrypted offline recovery copies and complete a recovery test.
 
-Normal rotation details are in [key rotation](../key-rotation.md).
+Normal rotation details are in [key and certificate rotation](../key-and-certificate-rotation.md).

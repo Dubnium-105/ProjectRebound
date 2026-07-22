@@ -182,16 +182,16 @@ Edge 按 `jti` 缓存 allocation、role、源 endpoint 和过期时间；同 end
 以下为当前审计后的预计范围；每个 Milestone 会保持独立提交，并在实现中细化：
 
 - 认证与数据库：新增 `migrations/000009_auth_security.sql`，修改 `internal/auth/*`、`internal/config/config.go`、`internal/controlplane/server.go`、`internal/observability/metrics.go`；新增 invite、risk、session、Redis/local limiter 领域文件与测试。
-- API：修改 `api/openapi/openapi.yaml`、权限矩阵、`docs/control-plane-external-api.md` 和 `docs/control-plane-internal-api.md`。
+- API：修改 `api/openapi/openapi.yaml`、权限矩阵、`docs/api/external.md` 和 `docs/api/internal.md`。
 - Relay V2：修改 `internal/relayruntime/{protocol,cookie,token,runtime,config,metrics}.go`、对应测试、`api/relay-protocol.md` 和 edge 示例配置；保留受控 v1 兼容路径。
 - Relay 资源与迁移：新增后续 expand migration，修改 `internal/relayregistry/{model,repository,service,http,migration_sweeper,token,authority,control}.go`、connection 实时事件和集成测试。
 - 密钥/证书：新增 signing key、node credential repository/service、轮换后台任务、Keyset 版本/签名和证书自动续签测试。
 - 测试工具：新增 `cmd/load-bot/`、`internal/loadbot/`、标准场景与报告 Schema；扩展 `tests/load/`。
-- 弱网/故障：新增 `scripts/netem/`、`scripts/chaos/`、`tests/netem/` 场景和 `docs/runbooks/chaos-testing.md`。
+- 弱网/故障：新增 `scripts/netem/`、`scripts/chaos/`、`tests/netem/` 场景和 `docs/operations/runbooks/chaos-testing.md`。
 - 备份恢复：新增 Linux `scripts/backup/postgres-{backup,restore}.sh`、校验/保留脚本、systemd timer 示例和恢复演练报告。
 - 监控：拆分/扩展 Grafana dashboards，新增 Prometheus rule files、配置校验与告警测试。
 - 发布：新增 `scripts/release/preflight.sh`、版本/build metadata、迁移 gate、回滚 runbook 和发布清单；调整 CI 镜像/测试矩阵。
-- V1.1 文档：持续维护 `docs/v1.1/` 中的基线、协议、迁移、密钥、备份、测试、发布和最终验收报告。
+- V1.1 文档：持续维护 `docs/testing/v1.1/` 中的基线、协议、迁移、密钥、备份、测试、发布和最终验收报告。
 
 ## 审计结论
 

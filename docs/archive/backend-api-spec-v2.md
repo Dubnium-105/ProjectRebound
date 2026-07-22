@@ -1,7 +1,7 @@
 # ProjectRebound Backend API Spec v2
 
 > [!WARNING]
-> 历史 API 设计稿，包含已退出主线的 guest/SQLite/内嵌 Relay 模型。当前接口以 [`../control-plane-external-api.md`](../control-plane-external-api.md)、[`../control-plane-internal-api.md`](../control-plane-internal-api.md) 和 `Backend/api/openapi/openapi.yaml` 为准。
+> 历史 API 设计稿，包含已退出主线的 guest/SQLite/内嵌 Relay 模型。当前接口以 [`../api/external.md`](../api/external.md)、[`../api/internal.md`](../api/internal.md) 和 `Backend/api/openapi/openapi.yaml` 为准。
 
 生成日期：2026-04-20
 

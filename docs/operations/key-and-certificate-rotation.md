@@ -27,6 +27,10 @@ Authorization: Bearer <admin-token>
 
 Edge 从证书 `NotBefore/NotAfter` 计算完整有效期，在剩余 25% 时自动生成新 Ed25519 私钥和 CSR，通过 Node Token 请求续期，原子替换权限为 0600 的 `identity.json`，更新 Keyset 缓存并重建 mTLS 控制连接。续期失败但旧证书仍有时间时会按控制连接退避重试；证书过期后不能建立新控制连接。
 
+生产发布前必须确认镜像包含运行时续签实现，并检查每个节点 `certificate_expires_at` 留有足够升级窗口。早期只在进程启动时读取证书的 Edge 镜像不能依赖重启续证：应逐节点 Drain 到零 allocation，升级到支持在线续签的不可变镜像，再验证新 fingerprint、到期时间、新心跳和 `READY`。控制面重启会迫使 Relay 重新握手，可作为一次发布后验证，但不能作为证书轮换机制。
+
 管理员调用节点 `revoke` 时，节点进入不可逆 `REVOKED`，所有未撤销凭据记录为 `ADMIN_REVOKED`，在线控制流收到 `Shutdown`，现有连接进入故障迁移。以后使用该 Node Token、fingerprint 或证书重新连接都会被拒绝。
 
 Edge 会持久化证书、Control Plane CA、最后签名有效的 Keyset 和配置。控制流断开时既有 allocation 与已知 `kid` 的未过期 Token 继续工作；默认宽限 600 秒（`control_disconnect_grace_seconds`）后节点本地进入 `DRAINING`，停止接受新 allocation。控制连接恢复并收到 `READY` 配置快照后退出该保护状态。
+
+监控必须按动态节点清单展示 `control_connected`、心跳年龄、证书到期时间和剩余有效期，并在进入续签窗口后证书仍未更新时告警。证书过期、身份撤销和普通网络断线是不同故障：只有普通断线应先等待内建重连；过期或撤销必须使用受控的新身份流程。连续运行和恢复边界见 [Relay 连续在线与恢复](relay-continuity.md)。

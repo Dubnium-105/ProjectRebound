@@ -123,7 +123,7 @@ Edge Relay Environment 额外 Variables：
 
 ## 4. 远端主机首次准备
 
-安装 Docker 和依赖的完整步骤见 `docs/debian-deployment-and-ops.md`。为每个目标创建独立用户和目录，例如：
+安装 Docker 和依赖的完整步骤见 `docs/operations/deployment-guide.md`。为每个目标创建独立用户和目录，例如：
 
 ```bash
 sudo useradd --create-home --shell /bin/bash projectrebound

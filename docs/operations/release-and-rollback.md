@@ -33,6 +33,8 @@ Backend/scripts/release/rolling-edge-relay.sh
 
 The script requests `DRAINING` with migration enabled, waits for `active_allocations=0`, deploys the pinned image, waits for the mTLS control connection, resumes the node, and verifies `READY`. On failure it attempts the previous image and resumes the node. Do not run this concurrently on every Relay.
 
+Relay has no scheduled restart window: leave a healthy node running. Before a planned upgrade, also verify that its certificate has enough remaining validity and that the target image supports runtime renewal. After deployment record the new image digest, certificate expiry, control connection, new heartbeat, and allocation count. If a node is already offline, recovery may restart only that affected container; this is not a rolling-release shortcut.
+
 ## Manual rollback
 
 Stop further releases, preserve logs and the release record, and run:
@@ -50,6 +52,7 @@ For a Relay, drain it first and use `edge-relay` as the target. After rollback v
 - configuration has no placeholders and secret files are mode 0600;
 - PostgreSQL, Redis, object storage probe, OpenAPI, migration state, disk, backup freshness, and image digest pass preflight;
 - CI `go test -race ./...`, `go vet ./...`, Compose, shell, Caddy, Prometheus, and image jobs pass;
-- no `latest` image and no simultaneous Relay fleet restart;
+- no `latest` image, no scheduled healthy-Relay restart, and no simultaneous Relay fleet restart;
+- every Relay reports a fresh heartbeat, connected control stream, adequate certificate headroom, and runtime-renewal-capable image;
 - backup checksum/verification succeeds before migration;
 - dashboards and alerts show the new instance healthy during the observation window.

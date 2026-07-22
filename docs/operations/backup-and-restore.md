@@ -30,4 +30,4 @@ For alerting, set `BACKUP_METRICS_DIRECTORY=/var/lib/node_exporter/textfile_coll
 
 恢复顺序：空 PostgreSQL → 数据库 dump → 恢复脚本在单事务内终止快照中的房间/connection/allocation/migration 并将节点置为 OFFLINE → Access/Relay/Manifest 密钥与 Relay CA → Control Plane 非破坏迁移 → 管理员与 player_id 验证 → 旧 Manifest 验签 → Relay 重新连接或重新注册。易失状态必须在接入公网前完成清理，不能等待普通 TTL。
 
-每周在全新隔离环境演练并更新 `docs/v1.1/restore-test-report.md`：备份与独立密钥包 hash、开始/结束时间、数据库恢复耗时、应用 RTO/RPO、表行数、关键身份/Manifest 验证、Relay 重连和失败项。没有真实执行证据时不得写“恢复成功”。
+每周在全新隔离环境演练并更新 `docs/testing/v1.1/restore-test-report.md`：备份与独立密钥包 hash、开始/结束时间、数据库恢复耗时、应用 RTO/RPO、表行数、关键身份/Manifest 验证、Relay 重连和失败项。没有真实执行证据时不得写“恢复成功”。

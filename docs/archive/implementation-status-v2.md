@@ -45,7 +45,7 @@
 
 - 文档
   - `docs/backend-api-spec-v2.md`
-  - `docs/debian-deployment-and-ops.md`
+  - `docs/operations/deployment-guide.md`
   - `docs/game-and-server-launch-flow.md`
   - `Tools/NatPunchTest/README.md`
   - `Desktop/ProjectRebound.Browser.Python/README.md`

@@ -45,7 +45,7 @@ go run ./cmd/load-bot -config tests/load/scenario-v1.1-relay-failure.yaml \
   -report load-report-v1.1-relay-failure.json -prometheus-report load-report-v1.1-relay-failure.prom
 ```
 
-Replace the staging URL and invite code before execution. The staging Auth limits must be explicitly sized for controlled setup traffic; do not weaken production limits. Pair the six-hour run with `tests/chaos/run-matrix.sh` for the scheduled Control Plane/Redis restart and `tests/netem/run-relay-matrix.sh` for weak-network cases. During the Relay-failure scenario, target a disposable Relay that carries all 50 allocations; the load-bot itself never terminates infrastructure.
+Replace the staging URL and invite code before execution. The staging Auth limits must be explicitly sized for controlled setup traffic; do not weaken production limits. The versioned six-hour gate includes its scheduled Control Plane/Redis recovery check, but Relay SIGKILL/migration and `tests/netem/run-relay-matrix.sh` remain separate fault-injection evidence. Never add a scheduled Relay restart to the 24-hour continuous-online soak. During the Relay-failure scenario, target a disposable Relay that carries all 50 allocations; the load-bot itself never terminates infrastructure.
 
 For the complete isolated 10-minute preflight, 1-hour, 6-hour, and 24-hour sequence—including scheduled control-plane dependency recovery, continuous Relay availability checks, telemetry trend checks, and database residual checks—use the [V1.1 long stability harness](longrun/README.md). It consumes immutable CI images and never targets the production stack. Run Relay crash and migration tests separately so the continuous-online soak is not interrupted intentionally.
 
