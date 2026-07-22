@@ -1,58 +1,60 @@
-# ProjectRebound 文档中心
+# ProjectRebound documentation center
 
-这里是整个项目的文档入口。先阅读[系统总览](architecture/overview.md)，再按任务进入 API、运维、测试或组件文档。历史方案集中在 [`archive/`](archive/README.md)，不得作为当前实现或部署依据。
+English | [简体中文](README.zh-CN.md)
 
-## 权威顺序
+This is the entry point for the whole project. Start with the [system overview](architecture/overview.md), then choose API, operations, testing, or component documentation. Historical material is isolated under [`archive/`](archive/README.md) and must not be used as current implementation or deployment guidance.
 
-发生冲突时按以下顺序判断：
+## Authority order
 
-1. 机器可读契约：`Backend/api/openapi/openapi.yaml`、`Backend/api/proto/relay_control.proto`；
-2. 当前实现、数据库迁移和自动化测试；
-3. `docs/api/`、`docs/architecture/` 和 `docs/operations/`；
-4. `docs/testing/` 中的特定版本证据；
-5. `docs/archive/` 仅供追溯。
+When sources disagree, use this order:
 
-## 按角色进入
+1. machine-readable contracts: `Backend/api/openapi/openapi.yaml` and `Backend/api/proto/relay_control.proto`;
+2. current implementation, database migrations, and automated tests;
+3. `docs/api/`, `docs/architecture/`, and `docs/operations/`;
+4. version-specific evidence under `docs/testing/`;
+5. `docs/archive/` for historical context only.
 
-| 角色 / 任务 | 首选入口 |
+## Start by role
+
+| Role or task | Start here |
 | --- | --- |
-| 新开发者理解系统 | [`architecture/overview.md`](architecture/overview.md) |
-| 客户端或游戏服务器接入 | [`api/README.md`](api/README.md) |
-| 部署控制面、公网网关或中继 | [`operations/deployment.md`](operations/deployment.md) |
-| 日常发布与回滚 | [`operations/release-and-rollback.md`](operations/release-and-rollback.md) |
-| 值班、故障处理 | [`operations/runbooks/README.md`](operations/runbooks/README.md) |
-| 验证 V1.1 候选版本 | [`testing/v1.1/README.md`](testing/v1.1/README.md) |
-| 维护某个代码组件 | 组件目录内的 `README.md` |
+| New developer learning the system | [System overview](architecture/overview.md) |
+| Game client or dedicated-server integration | [API documentation](api/README.md) |
+| Deploy control plane, public gateway, or Relay | [Deployment entry point](operations/deployment.md) |
+| Release, rollback, or incident response | [Operations documentation](operations/README.md) |
+| Validate a V1.1 candidate | [V1.1 validation index](testing/v1.1/README.md) |
+| Maintain a specific component | The `README.md` beside that component |
 
-## 信息架构
+## Information architecture
 
-| 目录 | 内容 |
+| Directory | Content |
 | --- | --- |
-| [`architecture/`](architecture/README.md) | 系统边界、认证、Relay 协议、迁移和桌面运行时命令 |
-| [`api/`](api/README.md) | 外部 HTTP/WebSocket、内部管理、Relay HTTP/mTLS API |
-| [`operations/`](operations/README.md) | 部署、CI/CD、发布、备份、证书和连续在线策略 |
-| [`operations/runbooks/`](operations/runbooks/README.md) | 事故响应和恢复步骤 |
-| [`testing/`](testing/README.md) | 测试策略、版本验收证据和 Release Gate |
-| [`archive/`](archive/README.md) | 被替代的 API、方案、审计和实施快照 |
+| [`architecture/`](architecture/README.md) | System boundaries, authentication, Relay protocol, migration, and desktop runtime commands |
+| [`api/`](api/README.md) | External HTTP/WebSocket, internal administration, Relay HTTP/mTLS API |
+| [`operations/`](operations/README.md) | Deployment, CI/CD, releases, backup, certificates, and continuity policy |
+| [`operations/runbooks/`](operations/runbooks/README.md) | Production incident response and recovery |
+| [`testing/`](testing/README.md) | Test strategy, version evidence, and release gates |
+| [`archive/`](archive/README.md) | Superseded API, architecture, audit, and implementation snapshots |
 
-## 靠近代码的组件文档
+## Component documentation
 
-以下文档保留在实现旁边，以便随代码同步维护：
+Implementation-specific documents remain close to their code:
 
-- `Backend/api/openapi/auth-permission-matrix.md`：权限矩阵；
-- `Backend/api/relay-protocol.md`：UDP 数据面机器级协议说明；
-- `Backend/deployments/README.md`：Compose 和部署资产；
-- `Backend/tests/integration/README.md`：真实控制面/双中继集成门禁；
-- `Backend/tests/load/README.md`：负载与长稳测试；
-- `Backend/tests/netem/README.md`：弱网矩阵；
-- `Desktop/ProjectRebound.Browser.Python/README.md`：旧 Python 浏览器兼容范围；
-- `Tools/` 下各 README：独立诊断工具。
+- `Backend/api/openapi/auth-permission-matrix.md`: authorization matrix;
+- `Backend/api/relay-protocol.md`: machine-level UDP data-plane protocol;
+- `Backend/deployments/README.md`: Compose and deployment assets;
+- `Backend/tests/integration/README.md`: real control-plane/two-Relay gate;
+- `Backend/tests/load/README.md`: load and stability tests;
+- `Backend/tests/netem/README.md`: weak-network matrix;
+- `Desktop/ProjectRebound.Browser.Python/README.md`: legacy Python compatibility scope;
+- READMEs under `Tools/`: standalone diagnostic tools.
 
-## 维护规则
+## Maintenance rules
 
-- API 变化先更新 OpenAPI/proto，再同步人类可读 API 文档和测试。
-- 架构文档解释稳定边界，不记录一次性主机 IP、临时 Token 或实施日志。
-- 生产示例只使用不可变 commit SHA 或 digest，不使用 `latest`，不在目标机现场构建。
-- 健康 Relay 不做周期重启；故障注入与连续在线长稳分开执行。
-- 被替代的文档移动到 `archive/`，并说明替代入口和停止维护原因。
-- 提交前运行 `python Tools/Docs/check_markdown_links.py`。
+- Follow the [bilingual documentation standard](documentation-standard.md).
+- Update OpenAPI/proto first for contract changes, then synchronize human-readable API docs and tests.
+- Architecture documents describe stable boundaries; do not record one-off host IPs, temporary tokens, or implementation logs.
+- Production examples use immutable commit SHAs or digests, never `latest` or on-host builds.
+- Healthy Relay nodes are never restarted on a schedule; continuous soak and fault injection are separate tests.
+- Move superseded documents to `archive/` and identify their replacement.
+- Before committing, run both documentation checks listed in the documentation standard.

@@ -1,52 +1,54 @@
-# 系统总览
+# System overview
 
-ProjectRebound 是由游戏侧组件、桌面工具、Go 控制面和独立 Edge Relay 组成的联机元服务。控制面负责身份、房间、连接协调、Relay 调度和更新元数据；游戏 UDP 数据不经过控制面。
+English | [简体中文](overview.zh-CN.md)
+
+ProjectRebound is an online-services platform composed of game-side components, desktop tools, a Go control plane, and independent Edge Relay nodes. The control plane owns identity, rooms, connection coordination, Relay scheduling, and update metadata. Game UDP traffic never traverses the control plane.
 
 ```mermaid
 flowchart LR
-    Client["游戏客户端 / 桌面浏览器"] -->|"HTTPS + WebSocket"| Gateway["公网 HTTP 网关"]
-    Gateway --> Control["私网控制面"]
+    Client["Game client / desktop browser"] -->|"HTTPS + WebSocket"| Gateway["Public HTTP gateway"]
+    Gateway --> Control["Private control plane"]
     Control --> PG[(PostgreSQL)]
     Control --> Redis[(Redis)]
-    Relay["公网 Edge Relay"] -->|"TLS 1.3 mTLS gRPC"| Boundary["公网 mTLS 边界"]
+    Relay["Public Edge Relay"] -->|"TLS 1.3 mTLS gRPC"| Boundary["Public mTLS boundary"]
     Boundary --> Control
-    Client <-->|"认证 UDP V2"| Relay
+    Client <-->|"Authenticated UDP V2"| Relay
     Monitor["Prometheus / Grafana"] --> Control
     Monitor --> Relay
 ```
 
-## 组件职责
+## Component responsibilities
 
-| 组件 | 主要职责 | 不应承担 |
+| Component | Owns | Must not own |
 | --- | --- | --- |
-| 游戏客户端 / Payload | 登录、房间交互、候选交换、Relay BIND 和数据收发 | 保存服务端密钥、直接访问数据库 |
-| 控制面 | Auth、P2P 房间、连接状态机、Relay 调度、签名和管理 API | 转发游戏 UDP 流量 |
-| PostgreSQL | 权威持久状态、审计、迁移和幂等约束 | 临时广播 |
-| Redis | 限流、缓存和易失协作状态 | 权威身份或房间记录 |
-| 公网 HTTP 网关 | 转发客户端 HTTPS/WebSocket | 终止 Relay 客户端 mTLS 身份 |
-| 公网 mTLS 边界 | 透明转发 Relay TLS 连接到私网控制面 | 持有节点私钥、解析游戏 UDP |
-| Edge Relay | 验证 Relay Token、完成 UDP BIND、转发认证数据包 | 访问 PostgreSQL/Redis、承载业务 API |
+| Game client / payload | Login, room interaction, candidate exchange, Relay BIND, and data transfer | Server private keys or direct database access |
+| Control plane | Authentication, P2P rooms, connection state machine, Relay scheduling, signing, and administration API | Game UDP forwarding |
+| PostgreSQL | Authoritative persistent state, audit, migrations, and idempotency constraints | Ephemeral broadcast |
+| Redis | Rate limits, cache, and ephemeral coordination | Authoritative identity or room records |
+| Public HTTP gateway | Client HTTPS and WebSocket forwarding | Relay client-mTLS identity termination |
+| Public mTLS boundary | Transparent Relay TLS forwarding to the private control plane | Node private keys or game UDP parsing |
+| Edge Relay | Relay-token validation, UDP BIND, and authenticated packet forwarding | PostgreSQL/Redis access or business APIs |
 
-## 关键流程
+## Critical flows
 
-1. 客户端通过外部 API 绑定身份并取得短期 Access Token 与轮换 Refresh Token。
-2. 房主创建房间，参与者加入；双方通过 WebSocket 上报候选和直连检查结果。
-3. 直连失败时，控制面选择一个 `READY` Relay，签发参与者隔离的 Relay Token。
-4. 两端在 UDP V2 Challenge/Proof 后绑定同一 allocation，之后数据只在客户端与 Relay 之间流动。
-5. 房间心跳在同一事务中续期非终态连接，避免活跃对局被固定 TTL 清理。
-6. Relay 控制链路用于心跳、流量报告、配置、Keyset、分配和迁移；短时断链不立即删除已有 UDP allocation。
+1. A client binds an identity through the external API and receives a short-lived access token plus a rotating refresh token.
+2. The host creates a room and participants join. Both sides publish candidates and direct-connect results over WebSocket.
+3. When direct connectivity fails, the control plane selects a `READY` Relay and signs participant-isolated Relay tokens.
+4. Both peers bind the same allocation after the UDP V2 challenge/proof exchange; subsequent data flows only between clients and the Relay.
+5. A room heartbeat renews every non-terminal connection in the same transaction, preventing an active match from being removed by a fixed TTL.
+6. The Relay control stream carries heartbeats, traffic reports, configuration, keysets, allocations, and migrations. A brief control disconnect does not immediately remove existing UDP allocations.
 
-## 可用性原则
+## Availability principles
 
-- 控制面和 Edge Relay 独立部署、独立升级；中继节点之间不共享本地运行状态。
-- 健康 Relay 必须持续在线，不做小时级或日常周期重启。
-- 发布 Relay 前先 Drain 并迁移到零 allocation；节点已经离线时才执行恢复性重启。
-- 证书在剩余 25% 有效期时在线续签并重建 mTLS，不依赖进程重启续证。
-- 连续在线长稳不混入故障注入；SIGKILL、迁移和弱网使用独立门禁。
+- The control plane and Edge Relay deploy and upgrade independently. Relay nodes do not share local runtime state.
+- A healthy Relay stays continuously online and is not restarted hourly or daily.
+- Drain and migrate a Relay to zero allocations before a planned release. Recovery restarts apply only to an already-offline process.
+- A node certificate renews online at 25% remaining lifetime and rebuilds mTLS without a process restart.
+- Continuous soak does not include fault injection. SIGKILL, migration, and weak-network behavior use separate gates.
 
-## 下一步阅读
+## Next documents
 
-- 接口：[API 索引](../api/README.md)
-- 部署：[部署入口](../operations/deployment.md)
-- Relay 连续在线：[运行策略](../operations/relay-continuity.md)
-- 测试：[测试索引](../testing/README.md)
+- [API index](../api/README.md)
+- [Deployment entry point](../operations/deployment.md)
+- [Relay continuity policy](../operations/relay-continuity.md)
+- [Testing index](../testing/README.md)

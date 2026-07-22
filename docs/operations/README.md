@@ -1,15 +1,17 @@
-# 运维文档
+# Operations documentation
 
-## 部署与发布
+English | [简体中文](README.zh-CN.md)
 
-- [部署入口](deployment.md)：三类主机的职责和推荐顺序；
-- [Debian 完整部署手册](deployment-guide.md)：主机、端口、防火墙、FRP/HAProxy 和首次注册；
-- [CI/CD](ci-cd.md)：GitHub Actions、GHCR 不可变产物和 Environment；
-- [发布与回滚](release-and-rollback.md)：控制面发布与逐节点 Relay 滚动发布。
+## Deployment and release
 
-## 稳定性与数据安全
+- [Deployment entry point](deployment.md): responsibilities and order for the three host roles;
+- [Complete Debian deployment guide](deployment-guide.md): hosts, ports, firewall, FRP/HAProxy, and enrollment;
+- [CI/CD](ci-cd.md): GitHub Actions, immutable GHCR artifacts, and environments;
+- [Release and rollback](release-and-rollback.md): control-plane release and one-at-a-time Relay rollout.
 
-- [Relay 连续在线与恢复](relay-continuity.md)：禁止周期重启、掉线恢复、证书续签和监控；
-- [密钥与证书轮换](key-and-certificate-rotation.md)：Relay Token Keyset、节点证书和撤销；
-- [备份与恢复](backup-and-restore.md)：PostgreSQL、离线密钥和恢复顺序；
-- [事故 Runbook](runbooks/README.md)：按告警类型处理生产故障。
+## Stability and data safety
+
+- [Relay continuity and recovery](relay-continuity.md): no scheduled restarts, offline recovery, certificate renewal, and monitoring;
+- [Key and certificate rotation](key-and-certificate-rotation.md): Relay token keyset, node certificates, and revocation;
+- [Backup and restore](backup-and-restore.md): PostgreSQL, offline keys, and recovery order;
+- [Incident runbooks](runbooks/README.md): production response by alert type.

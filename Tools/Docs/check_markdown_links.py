@@ -12,12 +12,14 @@ from urllib.parse import unquote
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCAN_ROOTS = (
     REPOSITORY_ROOT / "README.md",
+    REPOSITORY_ROOT / "README.zh-CN.md",
     REPOSITORY_ROOT / "docs",
     REPOSITORY_ROOT / "Backend",
     REPOSITORY_ROOT / "Desktop",
     REPOSITORY_ROOT / "Tools",
 )
 LINK_PATTERN = re.compile(r"(?<!!)\[[^\]]+\]\((?P<target>[^)]+)\)")
+FENCED_CODE_PATTERN = re.compile(r"^```.*?^```\s*$", re.MULTILINE | re.DOTALL)
 EXTERNAL_PREFIXES = ("http://", "https://", "mailto:", "#")
 
 
@@ -45,6 +47,7 @@ def main() -> int:
     broken: list[str] = []
     for markdown in markdown_files():
         content = markdown.read_text(encoding="utf-8")
+        content = FENCED_CODE_PATTERN.sub("", content)
         for match in LINK_PATTERN.finditer(content):
             target = local_target(match.group("target"))
             if target is None:

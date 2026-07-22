@@ -1,0 +1,13 @@
+# English-default Markdown files that require a .zh-CN.md sibling.
+README.md
+docs/README.md
+docs/documentation-standard.md
+docs/api/README.md
+docs/architecture/README.md
+docs/architecture/overview.md
+docs/operations/README.md
+docs/operations/deployment.md
+docs/operations/relay-continuity.md
+docs/operations/runbooks/README.md
+docs/testing/README.md
+docs/testing/v1.1/README.md

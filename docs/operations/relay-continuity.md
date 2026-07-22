@@ -1,60 +1,62 @@
-# Relay 连续在线与恢复策略
+# Relay continuity and recovery policy
 
-本文定义 Edge Relay 的生产运行不变量、证书生命周期、恢复边界和测试口径。目标是让健康节点连续在线，并把发布、故障恢复和故障注入造成的中断限制在单个已排空节点。
+English | [简体中文](relay-continuity.zh-CN.md)
 
-## 运行不变量
+This document defines Edge Relay production invariants, certificate lifecycle, recovery boundaries, and test methodology. A healthy node should remain continuously online. Releases, recovery, and fault injection must limit disruption to one already-drained node.
 
-- 健康 Relay 不做每小时、每日或其他固定周期重启。
-- Compose 使用 `restart: unless-stopped`，仅在进程异常退出、Docker/主机恢复后拉起容器。
-- 监控脚本只在容器已经停止且二次确认仍未恢复时执行恢复；不得用定时重启代替健康检查。
-- 控制链路断开时，Relay 先按退避策略重连。默认宽限期内既有 allocation 继续转发，宽限期结束后进入 `DRAINING` 并拒绝新 allocation。
-- 计划发布必须逐节点执行 `DRAINING -> active_allocations=0 -> deploy -> CONNECTING -> READY`，同一区域不得同时重启全部节点。
+## Runtime invariants
 
-Relay 的 allocation 和 UDP 会话状态保存在进程内。重启正在承载对局的 Relay 会中断原数据路径；控制面迁移和客户端重新 BIND 可以缩短恢复窗口，但不能把有状态进程重启变成无损操作。因此，任何计划重启前都必须排空节点。
+- A healthy Relay is not restarted hourly, daily, or on any other fixed schedule.
+- Compose uses `restart: unless-stopped` only to recover from an abnormal process exit or Docker/host recovery.
+- A monitor performs explicit recovery only after the container is stopped and a second check confirms it has not recovered. A timer is not a health check.
+- When the control stream disconnects, the Relay reconnects with backoff. Existing allocations continue during the default grace period; after the grace period the node enters `DRAINING` and rejects new allocations.
+- A planned release follows `DRAINING -> active_allocations=0 -> deploy -> CONNECTING -> READY`, one node at a time. Never restart every node in a region together.
 
-## mTLS 证书生命周期
+Relay allocations and UDP sessions live in process memory. Restarting a Relay that carries an active match breaks the original data path. Control-plane migration and client re-BIND reduce recovery time but cannot turn a stateful process restart into a lossless operation. Drain every planned restart first.
 
-节点首次注册后把私钥、证书、Control Plane CA、Node Token 和 Keyset 原子保存到权限为 `0600` 的 `identity.json`。生产节点证书默认有效期为 24 小时；Edge 根据证书完整有效期计算续签点，在剩余 25% 时：
+## mTLS certificate lifecycle
 
-1. 生成新的 Ed25519 私钥和 CSR；
-2. 通过现有节点身份请求续签；
-3. 原子替换 `identity.json`；
-4. 使用新证书重建 mTLS gRPC 控制连接。
+After enrollment, a node atomically stores its private key, certificate, control-plane CA, node token, and keyset in `identity.json` with mode `0600`. A production node certificate is valid for 24 hours by default. At 25% remaining lifetime, the Edge Relay:
 
-续签失败但旧证书仍有效时按控制连接退避重试。证书一旦过期，新的 mTLS 连接无法建立；此时必须使用受控的重新注册或身份恢复流程，不能靠反复重启修复。
+1. creates a new Ed25519 private key and CSR;
+2. requests renewal using the existing node identity;
+3. atomically replaces `identity.json`;
+4. rebuilds the mTLS gRPC control connection with the new certificate.
 
-早期 Edge 镜像只在启动时读取证书，缺少运行时续签。升级这类节点时应先确认到期时间留有足够窗口，然后逐节点排空、部署支持在线续签的镜像并验证新证书。控制面重启会迫使节点重新建立连接，可作为发布后的证书有效性检查，但不得作为日常续签手段。
+If renewal fails while the old certificate remains valid, the node retries with control-stream backoff. An expired certificate cannot establish a new mTLS connection; use controlled re-enrollment or identity recovery instead of repeated restarts.
 
-## 监控与告警
+Early Edge images read a certificate only at startup and do not support runtime renewal. Before upgrading such a node, verify adequate expiry headroom, drain it, deploy a runtime-renewal-capable image, and verify the new certificate. A control-plane restart forces a new connection and is useful as a post-release certificate check, but it is not a routine renewal mechanism.
 
-Grafana/Prometheus 必须从控制面动态节点清单生成 Relay target，不硬编码 LAX、HGH 等固定名称。每个节点至少展示：
+## Monitoring and alerts
 
-- 节点状态、`control_connected`、最后心跳时间和心跳年龄；
-- `certificate_expires_at` 及剩余有效时间；
-- 软件版本、协议版本、区域和公网 UDP endpoint；
-- active allocations、容量、BIND/转发错误和控制链路重连次数；
-- 容器运行状态和最近一次非零退出。
+Grafana and Prometheus derive Relay targets from the dynamic control-plane inventory. Never hard-code fixed names such as LAX or HGH. Each node should expose:
 
-告警应在证书进入续签窗口但未更新、控制链路持续断开、心跳超时、节点离开 `READY` 或容量耗尽时触发。节点仍有数据库中的旧 `READY` 记录不能证明在线；控制面重启后的恢复判定必须看到晚于本次启动的新心跳。
+- state, `control_connected`, last heartbeat, and heartbeat age;
+- `certificate_expires_at` and remaining lifetime;
+- software version, protocol version, region, and public UDP endpoint;
+- active allocations, capacity, BIND/forwarding errors, and control reconnect count;
+- container state and the most recent non-zero exit.
 
-## 掉线恢复
+Alert when a certificate enters its renewal window without being replaced, the control stream remains disconnected, heartbeats expire, a node leaves `READY`, or capacity is exhausted. A stale database `READY` row does not prove liveness. Recovery after a control-plane restart requires a new heartbeat newer than that restart.
 
-1. 暂停该节点的新发布，查看动态节点清单、容器状态、心跳、控制连接、证书到期时间和 active allocations。
-2. 如果进程仍运行，先等待其内建退避重连；不要并行启动第二个使用相同身份的实例。
-3. 容器已停止时，等待确认间隔并仅恢复该容器。若持续 crash-loop，停止自动尝试并保留日志。
-4. 证书过期或身份被撤销时，按节点注册流程签发新身份；不得复制其他 Relay 的 `identity.json`。
-5. 节点重新出现 `CONNECTING`、上报新心跳并进入 `READY` 后，才恢复调度。
-6. 检查故障前后的 allocation、迁移和客户端重绑结果，确认没有残留 handle。
+## Offline recovery
 
-详细事故步骤见 [Relay outage runbook](runbooks/relay-outage.md)，发布和回滚见[发布与回滚](release-and-rollback.md)。
+1. Pause releases for the affected node. Inspect dynamic inventory, container state, heartbeat, control connection, certificate expiry, and active allocations.
+2. If the process still runs, allow built-in reconnect backoff. Never start a second instance with the same identity.
+3. If the container is stopped, wait for the confirmation interval and recover only that container. Stop automated attempts during a persistent crash loop and retain logs.
+4. If the certificate expired or identity was revoked, issue a new identity through the node-enrollment flow. Never copy another Relay's `identity.json`.
+5. Resume scheduling only after the node reaches `CONNECTING`, emits a new heartbeat, and returns to `READY`.
+6. Compare allocations, migrations, and client re-BIND results before and after the fault; confirm that no handle remains.
 
-## 测试口径与当前证据
+See the [Relay outage runbook](runbooks/relay-outage.md) for incident steps and [release and rollback](release-and-rollback.md) for planned changes.
 
-连续在线长稳与故障注入必须分开：
+## Test methodology and current evidence
 
-- **Soak**：Relay 不做计划重启，仅在确认掉线后恢复，用于证明持续在线、续签、资源和数据面稳定性。
-- **Fault injection**：单独执行 SIGKILL、控制面/Redis/PostgreSQL 重启、弱网和迁移，用于量化恢复窗口。
+Continuous soak and fault injection are separate:
 
-2026-07-22 的修正后连续在线验证持续 601.2 秒：HTTP 4,780/4,780、P95 6.482 ms，UDP 1,170,600/1,170,600、零丢包，100 次 allocation、控制断链样本为 0、无残留 allocation。此前包含“每小时强制重启 Relay”的 17.1 小时运行产生 14.7928% UDP 丢包且没有形成有效迁移证据；该方法属于错误的故障注入，不计入 Soak 结果，已从运行策略删除。正式 24 小时连续在线证据仍应按上述新口径独立完成。
+- **Soak:** no planned Relay restart; recover only a confirmed failure. This measures continuity, certificate renewal, resources, and data-plane stability.
+- **Fault injection:** SIGKILL, control-plane/Redis/PostgreSQL restart, weak network, and migration run independently to measure recovery windows.
 
-完整版本证据见 [V1.1 测试报告](../testing/v1.1/test-report.md)。
+The corrected continuous-online verification on 2026-07-22 ran for 601.2 seconds: HTTP 4,780/4,780 with P95 6.482 ms; UDP 1,170,600/1,170,600 with zero loss; 100 allocations; zero control-disconnect samples; and no residual allocation. An earlier 17.1-hour run forcibly restarted a Relay every hour, causing 14.7928% UDP loss without useful migration evidence. That method was incorrect fault injection, is excluded from soak evidence, and has been removed from policy. A formal 24-hour continuous-online run remains required under the corrected methodology.
+
+See the [V1.1 test report](../testing/v1.1/test-report.md) for complete version evidence.

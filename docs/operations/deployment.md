@@ -1,5 +1,7 @@
 # V1.1 deployment entry point
 
+English | [简体中文](deployment.zh-CN.md)
+
 ProjectRebound uses three independently deployed roles:
 
 1. the private Control Plane host runs PostgreSQL, Redis, Control Plane, Caddy, Prometheus, and Grafana with the separated Compose file;

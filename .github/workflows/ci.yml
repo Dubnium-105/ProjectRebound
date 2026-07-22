@@ -148,7 +148,9 @@ jobs:
         run: Backend/scripts/test-release.sh
 
       - name: Validate local Markdown links
-        run: python Tools/Docs/check_markdown_links.py
+        run: |
+          python Tools/Docs/check_markdown_links.py
+          python Tools/Docs/check_bilingual_docs.py
 
       - name: Generate production-shaped secrets
         run: |

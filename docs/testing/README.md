@@ -1,17 +1,19 @@
-# 测试与验收
+# Testing and acceptance
 
-测试分为四层：
+English | [简体中文](README.zh-CN.md)
 
-1. 单元、Race、PostgreSQL/Redis 集成和契约检查；
-2. 一次性控制面 + 双 Relay 的真实容器联合测试；
-3. 弱网、SIGKILL、依赖重启和迁移故障门禁；
-4. 1 小时、6 小时和 24 小时长稳/容量门禁。
+ProjectRebound uses four test layers:
 
-连续在线长稳不得主动重启健康 Relay。中继故障迁移、证书恢复和弱网注入必须使用独立场景，避免把预期故障时间混入稳态丢包率。
+1. unit, race-detector, PostgreSQL/Redis integration, and contract checks;
+2. a disposable real control plane with two Relay nodes;
+3. weak-network, SIGKILL, dependency restart, and migration fault gates;
+4. one-hour, six-hour, and 24-hour stability and capacity gates.
 
-- [V1.1 验收索引](v1.1/README.md)
-- [真实容器联合测试](../../Backend/tests/integration/README.md)
-- [负载测试](../../Backend/tests/load/README.md)
-- [V1.1 长稳 Harness](../../Backend/tests/load/longrun/README.md)
-- [弱网测试](../../Backend/tests/netem/README.md)
-- [故障注入](../../Backend/tests/chaos/README.md)
+A continuous-online soak must not restart a healthy Relay. Relay migration, certificate recovery, and weak-network injection use separate scenarios so expected fault windows do not contaminate steady-state packet-loss measurements.
+
+- [V1.1 acceptance index](v1.1/README.md)
+- [Real container integration](../../Backend/tests/integration/README.md)
+- [Load tests](../../Backend/tests/load/README.md)
+- [V1.1 long-run harness](../../Backend/tests/load/longrun/README.md)
+- [Weak-network tests](../../Backend/tests/netem/README.md)
+- [Fault injection](../../Backend/tests/chaos/README.md)
