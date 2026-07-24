@@ -7,7 +7,7 @@ env_file="${CONTROL_PLANE_ENV_FILE:-$backend_dir/deployments/control-plane/.env}
 compose_file="$backend_dir/deployments/control-plane/docker-compose.yaml"
 openapi_file="$backend_dir/api/openapi/openapi.yaml"
 image="${CONTROL_PLANE_IMAGE:?CONTROL_PLANE_IMAGE is required}"
-schema_version="${EXPECTED_SCHEMA_VERSION:-15}"
+schema_version="${EXPECTED_SCHEMA_VERSION:-24}"
 backup_dir="${BACKUP_DIRECTORY:-$backend_dir/backups/postgres}"
 record_file="${RELEASE_RECORD_FILE:-$backend_dir/release-record.json}"
 
@@ -19,6 +19,7 @@ env_value() { sed -n "s/^$1=//p" "$env_file" | tail -n 1; }
 [[ -f "$compose_file" && -f "$openapi_file" ]] || fail repository-files
 if grep -Eq 'CHANGE_ME|example\.com|203\.0\.113\.' "$env_file"; then fail config-placeholders; fi
 for key in POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD REDIS_PASSWORD ACCESS_TOKEN_PRIVATE_KEY_BASE64 \
+  DEVICE_FINGERPRINT_KEY_ID DEVICE_FINGERPRINT_HMAC_KEY_BASE64 \
   RELAY_CA_CERT_PEM_BASE64 RELAY_CA_KEY_PEM_BASE64 RELAY_TOKEN_PRIVATE_KEY_BASE64 \
   UPDATE_CDN_BASE_URL UPDATE_SIGNING_PRIVATE_KEY_BASE64; do
   [[ -n "$(env_value "$key")" ]] || fail "config-$key"
@@ -27,11 +28,14 @@ pass config
 
 temporary_dir="$(mktemp -d)"
 trap 'rm -rf "$temporary_dir"' EXIT HUP INT TERM
-for key in ACCESS_TOKEN_PRIVATE_KEY_BASE64 RELAY_CA_CERT_PEM_BASE64 RELAY_CA_KEY_PEM_BASE64 \
+for key in ACCESS_TOKEN_PRIVATE_KEY_BASE64 DEVICE_FINGERPRINT_HMAC_KEY_BASE64 \
+  RELAY_CA_CERT_PEM_BASE64 RELAY_CA_KEY_PEM_BASE64 \
   RELAY_TOKEN_PRIVATE_KEY_BASE64 UPDATE_SIGNING_PRIVATE_KEY_BASE64; do
   printf '%s' "$(env_value "$key")" | base64 -d >"$temporary_dir/$key" 2>/dev/null || fail "decode-$key"
   [[ -s "$temporary_dir/$key" ]] || fail "empty-$key"
 done
+[[ "$(wc -c <"$temporary_dir/DEVICE_FINGERPRINT_HMAC_KEY_BASE64")" -ge 32 ]] ||
+  fail device-fingerprint-hmac-key-length
 grep -q 'BEGIN CERTIFICATE' "$temporary_dir/RELAY_CA_CERT_PEM_BASE64" || fail relay-ca-certificate
 grep -q 'PRIVATE KEY' "$temporary_dir/RELAY_CA_KEY_PEM_BASE64" || fail relay-ca-private-key
 if command -v openssl >/dev/null 2>&1; then

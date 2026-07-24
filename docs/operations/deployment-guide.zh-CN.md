@@ -163,7 +163,7 @@ chmod +x scripts/*.sh deploy/deploy.sh
 chmod 600 deployments/control-plane/.env
 ```
 
-生成器创建相互独立的 Ed25519 Access Token、Relay Token、更新签名密钥，以及十年期 Relay CA。它不会覆盖已有 `.env`，也不会输出密钥正文。
+生成器创建相互独立的 Ed25519 Access Token、Relay Token、更新签名密钥、设备指纹 HMAC 密钥，以及十年期 Relay CA。它不会覆盖已有 `.env`，也不会输出密钥正文。
 
 编辑 `deployments/control-plane/.env`：
 
@@ -173,7 +173,8 @@ chmod 600 deployments/control-plane/.env
 - 域名生产模式设置 `PUBLIC_API_SITE=api.example.com`、`PUBLIC_API_HTTP_PORT=80`；DNS A/AAAA 指向控制面并开放 80/443，Caddy 自动申请证书。
 - 当 FRPC 与控制面同机部署时，`RELAY_CONTROL_BIND_IP` 必须保持为 `127.0.0.1`；只有 FRPC 位于另一台可信私网/VPN 主机时才改为对应私网地址，不应直接绑定 `0.0.0.0`。
 - `RELAY_CONTROL_SERVER_NAMES` 必须包含边缘节点使用的 `control_server_name`，例如 `control-plane,localhost,relay.example.com`。
-- 密钥 ID 在轮换时必须更新，不能在密钥变化后继续复用旧 ID。
+- 签名密钥 ID 在轮换时必须更新，不能在密钥变化后继续复用旧 ID。
+- `DEVICE_FINGERPRINT_HMAC_KEY_BASE64` 必须保持稳定并单独备份；生产环境缺失时会拒绝启动。服务端不保存硬件因子原文，因此该密钥丢失后无法重算已有设备摘要。在多密钥迁移流程可用前，不得变更它或 `DEVICE_FINGERPRINT_KEY_ID`。
 
 `.env` 必须保留在主机秘密存储中，权限必须为 `600`，不得提交 Git、复制进镜像或写入工单。
 

@@ -49,6 +49,7 @@ auth:
   issuer: "game-control-plane"
   audience: "game-client"
   access_token_key_id: "access-dev-ephemeral"
+  device_fingerprint_key_id: "device-fingerprint-v1"
   # Set ACCESS_TOKEN_PRIVATE_KEY_BASE64 in production. Development generates
   # an ephemeral Ed25519 key at startup and tokens do not survive restarts.
   access_token_private_key_base64: ""

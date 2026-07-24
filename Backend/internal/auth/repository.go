@@ -26,17 +26,50 @@ func NewRepository() *Repository {
 	return &Repository{}
 }
 
+func (r *Repository) UpsertDeviceFingerprint(
+	ctx context.Context,
+	executor Executor,
+	fingerprint DeviceFingerprint,
+) (string, error) {
+	var id string
+	err := executor.QueryRow(ctx, `
+		INSERT INTO auth_device_fingerprints (
+			id, format_version, digest_key_id, composite_digest,
+			smbios_uuid_digest, disk_serial_digest, cpu_id_digest, factor_mask,
+			first_seen_at, last_seen_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+		)
+		ON CONFLICT (digest_key_id, composite_digest)
+		DO UPDATE SET last_seen_at = GREATEST(
+			auth_device_fingerprints.last_seen_at,
+			EXCLUDED.last_seen_at
+		)
+		RETURNING id
+	`, fingerprint.ID, fingerprint.FormatVersion, fingerprint.DigestKeyID,
+		fingerprint.CompositeDigest, fingerprint.SMBIOSUUIDDigest,
+		fingerprint.DiskSerialDigest, fingerprint.CPUIDDigest, fingerprint.FactorMask,
+		fingerprint.FirstSeenAt, fingerprint.LastSeenAt,
+	).Scan(&id)
+	if err != nil {
+		return "", fmt.Errorf("upsert device fingerprint: %w", err)
+	}
+	return id, nil
+}
+
 func (r *Repository) InsertSession(ctx context.Context, executor Executor, session Session) error {
 	_, err := executor.Exec(ctx, `
 		INSERT INTO auth_sessions (
 			id, player_id, refresh_token_hash, token_family_id, token_version,
-			device_id, device_id_hash, device_id_suffix, ip_address, user_agent, expires_at, created_at
+			device_id, device_id_hash, device_id_suffix, device_fingerprint_id,
+			ip_address, user_agent, expires_at, created_at
 		) VALUES (
-			$1, $2, $3, $4, $5, NULL, $6, NULLIF($7, ''), NULLIF($8, '')::inet,
-			NULLIF($9, ''), $10, $11
+			$1, $2, $3, $4, $5, NULL, $6, NULLIF($7, ''), NULLIF($8, ''),
+			NULLIF($9, '')::inet, NULLIF($10, ''), $11, $12
 		)
 	`, session.ID, session.PlayerID, session.RefreshTokenHash, session.TokenFamilyID,
-		session.TokenVersion, session.DeviceIDHash, session.DeviceIDSuffix, session.IPAddress, session.UserAgent,
+		session.TokenVersion, session.DeviceIDHash, session.DeviceIDSuffix, session.DeviceFingerprintID,
+		session.IPAddress, session.UserAgent,
 		session.ExpiresAt, session.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("insert auth session: %w", err)
@@ -190,6 +223,7 @@ func (r *Repository) ListRiskEvents(
 ) ([]RiskEvent, error) {
 	rows, err := queryer.Query(ctx, `
 		SELECT id, COALESCE(player_id, ''), COALESCE(steam_id, ''), device_id_hash,
+		       COALESCE(device_fingerprint_id, ''),
 		       COALESCE(ip_address::text, ''), event_type, severity, details,
 		       created_at, resolved_at
 		FROM auth_risk_events
@@ -211,7 +245,7 @@ func (r *Repository) ListRiskEvents(
 		var details []byte
 		var resolvedAt sql.NullTime
 		if err := rows.Scan(
-			&item.ID, &item.PlayerID, &item.SteamID, &item.DeviceIDHash,
+			&item.ID, &item.PlayerID, &item.SteamID, &item.DeviceIDHash, &item.DeviceFingerprintID,
 			&item.IPAddress, &item.EventType, &item.Severity, &details,
 			&item.CreatedAt, &resolvedAt,
 		); err != nil {
@@ -251,13 +285,13 @@ func (r *Repository) InsertAudit(ctx context.Context, executor Executor, event A
 func (r *Repository) InsertRiskEvent(ctx context.Context, executor Executor, event RiskEvent) error {
 	_, err := executor.Exec(ctx, `
 		INSERT INTO auth_risk_events (
-			id, player_id, steam_id, device_id_hash, ip_address,
+			id, player_id, steam_id, device_id_hash, device_fingerprint_id, ip_address,
 			event_type, severity, details, created_at
 		) VALUES (
-			$1, NULLIF($2, ''), NULLIF($3, ''), $4, NULLIF($5, '')::inet,
-			$6, $7, $8, $9
+			$1, NULLIF($2, ''), NULLIF($3, ''), $4, NULLIF($5, ''), NULLIF($6, '')::inet,
+			$7, $8, $9, $10
 		)
-	`, event.ID, event.PlayerID, event.SteamID, event.DeviceIDHash, event.IPAddress,
+	`, event.ID, event.PlayerID, event.SteamID, event.DeviceIDHash, event.DeviceFingerprintID, event.IPAddress,
 		event.EventType, event.Severity, event.Details, event.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("insert authentication risk event: %w", err)
@@ -268,13 +302,13 @@ func (r *Repository) InsertRiskEvent(ctx context.Context, executor Executor, eve
 func (r *Repository) InsertLoginEvent(ctx context.Context, executor Executor, event LoginEvent) error {
 	_, err := executor.Exec(ctx, `
 		INSERT INTO auth_login_events (
-			id, player_id, steam_id, session_id, device_id_hash,
+			id, player_id, steam_id, session_id, device_id_hash, device_fingerprint_id,
 			ip_address, user_agent, result, failure_code, created_at
 		) VALUES (
-			$1, NULLIF($2, ''), NULLIF($3, ''), NULLIF($4, ''), $5,
-			NULLIF($6, '')::inet, NULLIF($7, ''), $8, NULLIF($9, ''), $10
+			$1, NULLIF($2, ''), NULLIF($3, ''), NULLIF($4, ''), $5, NULLIF($6, ''),
+			NULLIF($7, '')::inet, NULLIF($8, ''), $9, NULLIF($10, ''), $11
 		)
-	`, event.ID, event.PlayerID, event.SteamID, event.SessionID, event.DeviceIDHash,
+	`, event.ID, event.PlayerID, event.SteamID, event.SessionID, event.DeviceIDHash, event.DeviceFingerprintID,
 		event.IPAddress, event.UserAgent, event.Result, event.FailureCode, event.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("insert authentication login event: %w", err)
@@ -285,6 +319,7 @@ func (r *Repository) InsertLoginEvent(ctx context.Context, executor Executor, ev
 const sessionSelect = `
 	SELECT id, player_id, refresh_token_hash, token_family_id, token_version,
 	       device_id_hash, COALESCE(device_id_suffix, RIGHT(device_id, 4), ''),
+	       COALESCE(device_fingerprint_id, ''),
 	       COALESCE(ip_address::text, ''), COALESCE(user_agent, ''),
 	       expires_at, revoked_at, COALESCE(revoked_reason, ''),
 	       COALESCE(replaced_by_session_id, ''), reuse_detected_at, created_at, last_used_at
@@ -302,6 +337,7 @@ func scanSession(row pgx.Row) (Session, error) {
 		&session.TokenVersion,
 		&session.DeviceIDHash,
 		&session.DeviceIDSuffix,
+		&session.DeviceFingerprintID,
 		&session.IPAddress,
 		&session.UserAgent,
 		&session.ExpiresAt,

@@ -79,15 +79,17 @@ type RateLimitConfig struct {
 }
 
 type AuthConfig struct {
-	Issuer                      string                  `yaml:"issuer"`
-	Audience                    string                  `yaml:"audience"`
-	AccessTokenKeyID            string                  `yaml:"access_token_key_id"`
-	AccessTokenPrivateKeyBase64 string                  `yaml:"access_token_private_key_base64"`
-	AccessTokenTTLMinutes       int                     `yaml:"access_token_ttl_minutes"`
-	RefreshTokenTTLDays         int                     `yaml:"refresh_token_ttl_days"`
-	DefaultPersonaName          string                  `yaml:"default_persona_name"`
-	InviteRequired              bool                    `yaml:"invite_required"`
-	BindRateLimit               AuthBindRateLimitConfig `yaml:"bind_rate_limit"`
+	Issuer                         string                  `yaml:"issuer"`
+	Audience                       string                  `yaml:"audience"`
+	AccessTokenKeyID               string                  `yaml:"access_token_key_id"`
+	AccessTokenPrivateKeyBase64    string                  `yaml:"access_token_private_key_base64"`
+	AccessTokenTTLMinutes          int                     `yaml:"access_token_ttl_minutes"`
+	RefreshTokenTTLDays            int                     `yaml:"refresh_token_ttl_days"`
+	DefaultPersonaName             string                  `yaml:"default_persona_name"`
+	InviteRequired                 bool                    `yaml:"invite_required"`
+	DeviceFingerprintKeyID         string                  `yaml:"device_fingerprint_key_id"`
+	DeviceFingerprintHMACKeyBase64 string                  `yaml:"-"`
+	BindRateLimit                  AuthBindRateLimitConfig `yaml:"bind_rate_limit"`
 	// Deprecated: retained so existing configuration files continue to load.
 	BindRequestsPerMinute int `yaml:"bind_requests_per_minute"`
 	BindBurst             int `yaml:"bind_burst"`
@@ -256,12 +258,13 @@ var Defaults = Config{
 		Burst:             50,
 	},
 	Auth: AuthConfig{
-		Issuer:                "game-control-plane",
-		Audience:              "game-client",
-		AccessTokenKeyID:      "access-dev-ephemeral",
-		AccessTokenTTLMinutes: 15,
-		RefreshTokenTTLDays:   30,
-		DefaultPersonaName:    "Player",
+		Issuer:                 "game-control-plane",
+		Audience:               "game-client",
+		AccessTokenKeyID:       "access-dev-ephemeral",
+		AccessTokenTTLMinutes:  15,
+		RefreshTokenTTLDays:    30,
+		DefaultPersonaName:     "Player",
+		DeviceFingerprintKeyID: "device-fingerprint-v1",
 		BindRateLimit: AuthBindRateLimitConfig{
 			PerIPPerMinute:      5,
 			PerDevicePerMinute:  3,
@@ -394,6 +397,8 @@ func (c *Config) applyEnvOverrides() {
 	overrideString("LOG_LEVEL", &c.Logging.Level)
 	overrideString("ACCESS_TOKEN_PRIVATE_KEY_BASE64", &c.Auth.AccessTokenPrivateKeyBase64)
 	overrideString("ACCESS_TOKEN_KEY_ID", &c.Auth.AccessTokenKeyID)
+	overrideString("DEVICE_FINGERPRINT_KEY_ID", &c.Auth.DeviceFingerprintKeyID)
+	overrideString("DEVICE_FINGERPRINT_HMAC_KEY_BASE64", &c.Auth.DeviceFingerprintHMACKeyBase64)
 	overrideString("ADMIN_TOKENS", &c.Admin.TokenSet)
 	overrideString("ADMIN_ACCESS_TOKEN_PRIVATE_KEY_BASE64", &c.Admin.AccessTokenPrivateKeyBase64)
 	overrideString("ADMIN_ACCESS_TOKEN_KEY_ID", &c.Admin.AccessTokenKeyID)
@@ -548,6 +553,9 @@ func (c *Config) ValidateControlPlane() error {
 	if strings.TrimSpace(c.Auth.AccessTokenKeyID) == "" {
 		errs = append(errs, errors.New("auth.access_token_key_id is required"))
 	}
+	if strings.TrimSpace(c.Auth.DeviceFingerprintKeyID) == "" {
+		errs = append(errs, errors.New("auth.device_fingerprint_key_id is required"))
+	}
 	if c.Auth.AccessTokenTTLMinutes < 1 || c.Auth.RefreshTokenTTLDays < 1 {
 		errs = append(errs, errors.New("auth token lifetimes must be positive"))
 	}
@@ -558,6 +566,9 @@ func (c *Config) ValidateControlPlane() error {
 	}
 	if strings.EqualFold(c.Environment, "production") && strings.TrimSpace(c.Auth.AccessTokenPrivateKeyBase64) == "" {
 		errs = append(errs, errors.New("ACCESS_TOKEN_PRIVATE_KEY_BASE64 is required in production"))
+	}
+	if strings.EqualFold(c.Environment, "production") && strings.TrimSpace(c.Auth.DeviceFingerprintHMACKeyBase64) == "" {
+		errs = append(errs, errors.New("DEVICE_FINGERPRINT_HMAC_KEY_BASE64 is required in production"))
 	}
 	if len(c.Admin.TrustedCIDRs) == 0 {
 		errs = append(errs, errors.New("admin.trusted_cidrs must not be empty"))

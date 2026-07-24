@@ -119,6 +119,13 @@ func buildHandler(
 	if ephemeralKey {
 		logger.Warn("using ephemeral development access-token key; tokens will not survive a restart")
 	}
+	deviceFingerprinter, ephemeralDeviceFingerprintKey, err := auth.NewDeviceFingerprinter(cfg.Auth, cfg.Environment)
+	if err != nil {
+		return nil, nil, fmt.Errorf("initialize device fingerprint protection: %w", err)
+	}
+	if ephemeralDeviceFingerprintKey {
+		logger.Warn("using ephemeral development device-fingerprint key; device correlation will not survive a restart")
+	}
 	authRepository := auth.NewRepository()
 	playerRepository := player.NewRepository()
 	adminRepository := admin.NewRepository()
@@ -128,6 +135,7 @@ func buildHandler(
 		authRepository,
 		playerRepository,
 		tokenManager,
+		deviceFingerprinter,
 		cfg.Auth,
 		logger,
 	)

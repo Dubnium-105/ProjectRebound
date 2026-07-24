@@ -163,7 +163,7 @@ chmod +x scripts/*.sh deploy/deploy.sh
 chmod 600 deployments/control-plane/.env
 ```
 
-The generator creates independent Ed25519 Access Tokens, Relay Tokens, update signing keys, and ten-year Relay CAs. It does not overwrite the existing `.env`, nor does it output the key text.
+The generator creates independent Ed25519 Access Tokens, Relay Tokens, update signing keys, a device-fingerprint HMAC key, and ten-year Relay CAs. It does not overwrite the existing `.env`, nor does it output the key text.
 
 Edit `deployments/control-plane/.env`:
 
@@ -173,7 +173,8 @@ Edit `deployments/control-plane/.env`:
 - Domain name production mode settings `PUBLIC_API_SITE=api.example.com`, `PUBLIC_API_HTTP_PORT=80`; DNS A/AAAA points to the control plane and opens 80/443, Caddy automatically applies for a certificate.
 - When FRPC and the control plane are deployed on the same machine, `RELAY_CONTROL_BIND_IP` must remain `127.0.0.1`; only when FRPC is located on another trusted private network/VPN host, it is changed to the corresponding private network address and should not be directly bound to `0.0.0.0`.
 - `RELAY_CONTROL_SERVER_NAMES` must contain `control_server_name` used by the edge node, for example `control-plane,localhost,relay.example.com`.
-- Key IDs must be updated during rotation and old IDs cannot be reused after key changes.
+- Signing key IDs must be updated during rotation and old IDs cannot be reused after key changes.
+- Keep `DEVICE_FINGERPRINT_HMAC_KEY_BASE64` stable and backed up separately. Production refuses to start without it. Raw hardware factors are not stored, so existing device digests cannot be recomputed if this key is lost. Do not change it or `DEVICE_FINGERPRINT_KEY_ID` until a multi-key migration procedure is available.
 
 `.env` must be kept in the host secret storage, the permission must be `600`, and it must not be submitted to Git, copied into a mirror, or written into a work order.
 

@@ -19,14 +19,15 @@ import (
 )
 
 type Service struct {
-	pool       *pgxpool.Pool
-	repository *Repository
-	players    *player.Repository
-	tokens     *TokenManager
-	config     config.AuthConfig
-	logger     *slog.Logger
-	now        func() time.Time
-	metrics    interface {
+	pool                *pgxpool.Pool
+	repository          *Repository
+	players             *player.Repository
+	tokens              *TokenManager
+	deviceFingerprinter *DeviceFingerprinter
+	config              config.AuthConfig
+	logger              *slog.Logger
+	now                 func() time.Time
+	metrics             interface {
 		RefreshTokenReuse()
 		BindRateLimited(string)
 		InviteCodeFailure()
@@ -66,17 +67,19 @@ func NewService(
 	repository *Repository,
 	players *player.Repository,
 	tokens *TokenManager,
+	deviceFingerprinter *DeviceFingerprinter,
 	cfg config.AuthConfig,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
-		pool:       pool,
-		repository: repository,
-		players:    players,
-		tokens:     tokens,
-		config:     cfg,
-		logger:     logger,
-		now:        time.Now,
+		pool:                pool,
+		repository:          repository,
+		players:             players,
+		tokens:              tokens,
+		deviceFingerprinter: deviceFingerprinter,
+		config:              cfg,
+		logger:              logger,
+		now:                 time.Now,
 	}
 }
 
@@ -93,6 +96,12 @@ func (s *Service) Bind(ctx context.Context, input BindInput, meta RequestMeta) (
 		return BindResult{}, invalidRequest("Invalid device ID.", map[string]any{"device_id": err.Error()})
 	}
 	meta.DeviceID = deviceID
+	now := s.now().UTC()
+	deviceFingerprintID, err := s.resolveDeviceFingerprint(ctx, s.pool, deviceID, now)
+	if err != nil {
+		return BindResult{}, internalError(err)
+	}
+	meta.DeviceFingerprintID = deviceFingerprintID
 	if s.bindLimiter != nil {
 		decision := s.bindLimiter.Check(ctx, BindLimitRequest{
 			IPAddress: meta.IPAddress,
@@ -141,7 +150,6 @@ func (s *Service) Bind(ctx context.Context, input BindInput, meta RequestMeta) (
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
 
-	now := s.now().UTC()
 	item, isNew, err := s.players.UpsertSteamIdentity(ctx, tx, NewID("p_"), input.SteamID, personaName, now)
 	if err != nil {
 		return BindResult{}, internalError(err)
@@ -206,15 +214,16 @@ func (s *Service) Bind(ctx context.Context, input BindInput, meta RequestMeta) (
 		return BindResult{}, internalError(err)
 	}
 	if err := s.repository.InsertLoginEvent(ctx, tx, LoginEvent{
-		ID:           NewID("ale_"),
-		PlayerID:     item.ID,
-		SteamID:      item.SteamID,
-		SessionID:    session.ID,
-		DeviceIDHash: session.DeviceIDHash,
-		IPAddress:    meta.IPAddress,
-		UserAgent:    meta.UserAgent,
-		Result:       "SUCCESS",
-		CreatedAt:    now,
+		ID:                  NewID("ale_"),
+		PlayerID:            item.ID,
+		SteamID:             item.SteamID,
+		SessionID:           session.ID,
+		DeviceIDHash:        session.DeviceIDHash,
+		DeviceFingerprintID: session.DeviceFingerprintID,
+		IPAddress:           meta.IPAddress,
+		UserAgent:           meta.UserAgent,
+		Result:              "SUCCESS",
+		CreatedAt:           now,
 	}); err != nil {
 		return BindResult{}, internalError(err)
 	}
@@ -252,6 +261,15 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string, meta Request
 		}
 		return RefreshResult{}, internalError(fmt.Errorf("find refresh session: %w", err))
 	}
+	if meta.DeviceID == "" {
+		meta.DeviceFingerprintID = current.DeviceFingerprintID
+	} else {
+		deviceFingerprintID, fingerprintErr := s.resolveDeviceFingerprint(ctx, tx, meta.DeviceID, now)
+		if fingerprintErr != nil {
+			return RefreshResult{}, internalError(fingerprintErr)
+		}
+		meta.DeviceFingerprintID = deviceFingerprintID
+	}
 	if current.RevokedAt != nil {
 		if current.RevokedReason == "ROTATED" || current.ReplacedBySessionID != "" {
 			if err := s.repository.RevokeFamilyForReuse(ctx, tx, current.TokenFamilyID, current.ID, now); err != nil {
@@ -272,7 +290,8 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string, meta Request
 			}
 			if err := s.repository.InsertRiskEvent(ctx, tx, RiskEvent{
 				ID: NewID("are_"), PlayerID: current.PlayerID,
-				DeviceIDHash: HashDeviceID(meta.DeviceID), IPAddress: meta.IPAddress,
+				DeviceIDHash: HashDeviceID(meta.DeviceID), DeviceFingerprintID: meta.DeviceFingerprintID,
+				IPAddress: meta.IPAddress,
 				EventType: "REFRESH_TOKEN_REUSE", Severity: "HIGH",
 				Details:   map[string]any{"session_id": current.ID, "token_family_id": current.TokenFamilyID},
 				CreatedAt: now,
@@ -281,7 +300,8 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string, meta Request
 			}
 			if err := s.repository.InsertLoginEvent(ctx, tx, LoginEvent{
 				ID: NewID("ale_"), PlayerID: current.PlayerID, SessionID: current.ID,
-				DeviceIDHash: HashDeviceID(meta.DeviceID), IPAddress: meta.IPAddress,
+				DeviceIDHash: HashDeviceID(meta.DeviceID), DeviceFingerprintID: meta.DeviceFingerprintID,
+				IPAddress: meta.IPAddress,
 				UserAgent: meta.UserAgent, Result: "FAILURE", FailureCode: CodeRefreshTokenReused,
 				CreatedAt: now,
 			}); err != nil {
@@ -302,7 +322,8 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string, meta Request
 		_ = tx.Rollback(ctx)
 		s.recordRiskEvent(ctx, RiskEvent{
 			PlayerID: current.PlayerID, DeviceIDHash: HashDeviceID(meta.DeviceID),
-			IPAddress: meta.IPAddress, EventType: "REVOKED_SESSION_USAGE", Severity: "MEDIUM",
+			DeviceFingerprintID: meta.DeviceFingerprintID,
+			IPAddress:           meta.IPAddress, EventType: "REVOKED_SESSION_USAGE", Severity: "MEDIUM",
 			Details: map[string]any{"session_id": current.ID, "revoked_reason": current.RevokedReason},
 		}, meta)
 		s.recordFailedAudit(ctx, "", "AUTH_REFRESH_FAILURE", CodeSessionRevoked, meta)
@@ -341,6 +362,7 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string, meta Request
 	if len(replacement.DeviceIDHash) == 0 {
 		replacement.DeviceIDHash = current.DeviceIDHash
 		replacement.DeviceIDSuffix = current.DeviceIDSuffix
+		replacement.DeviceFingerprintID = current.DeviceFingerprintID
 	}
 	if err := s.repository.RotateSession(ctx, tx, current.ID, replacement, now); err != nil {
 		return RefreshResult{}, internalError(err)
@@ -364,7 +386,8 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string, meta Request
 	}
 	if err := s.repository.InsertLoginEvent(ctx, tx, LoginEvent{
 		ID: NewID("ale_"), PlayerID: item.ID, SteamID: item.SteamID, SessionID: replacement.ID,
-		DeviceIDHash: replacement.DeviceIDHash, IPAddress: meta.IPAddress,
+		DeviceIDHash: replacement.DeviceIDHash, DeviceFingerprintID: replacement.DeviceFingerprintID,
+		IPAddress: meta.IPAddress,
 		UserAgent: meta.UserAgent, Result: "SUCCESS", CreatedAt: now,
 	}); err != nil {
 		return RefreshResult{}, internalError(err)
@@ -372,7 +395,8 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string, meta Request
 	if current.IPAddress != "" && meta.IPAddress != "" && current.IPAddress != meta.IPAddress {
 		if err := s.repository.InsertRiskEvent(ctx, tx, RiskEvent{
 			ID: NewID("are_"), PlayerID: item.ID, SteamID: item.SteamID,
-			DeviceIDHash: replacement.DeviceIDHash, IPAddress: meta.IPAddress,
+			DeviceIDHash: replacement.DeviceIDHash, DeviceFingerprintID: replacement.DeviceFingerprintID,
+			IPAddress: meta.IPAddress,
 			EventType: "RAPID_IP_CHANGE", Severity: "MEDIUM",
 			Details: map[string]any{"previous_session_id": current.ID}, CreatedAt: now,
 		}); err != nil {
@@ -383,7 +407,8 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string, meta Request
 		!bytes.Equal(current.DeviceIDHash, replacement.DeviceIDHash) {
 		if err := s.repository.InsertRiskEvent(ctx, tx, RiskEvent{
 			ID: NewID("are_"), PlayerID: item.ID, SteamID: item.SteamID,
-			DeviceIDHash: replacement.DeviceIDHash, IPAddress: meta.IPAddress,
+			DeviceIDHash: replacement.DeviceIDHash, DeviceFingerprintID: replacement.DeviceFingerprintID,
+			IPAddress: meta.IPAddress,
 			EventType: "MULTI_DEVICE_LOGIN", Severity: "LOW",
 			Details: map[string]any{"previous_session_id": current.ID}, CreatedAt: now,
 		}); err != nil {
@@ -414,7 +439,8 @@ func (s *Service) AuthenticateAccess(ctx context.Context, accessToken string) (P
 	if session.RevokedAt != nil {
 		s.recordRiskEvent(ctx, RiskEvent{
 			PlayerID: session.PlayerID, DeviceIDHash: session.DeviceIDHash,
-			EventType: "REVOKED_SESSION_USAGE", Severity: "MEDIUM",
+			DeviceFingerprintID: session.DeviceFingerprintID,
+			EventType:           "REVOKED_SESSION_USAGE", Severity: "MEDIUM",
 			Details: map[string]any{"session_id": session.ID, "revoked_reason": session.RevokedReason},
 		}, RequestMeta{})
 		return Principal{}, &ServiceError{Status: 401, Code: CodeSessionRevoked, Message: "Session has been revoked."}
@@ -537,18 +563,25 @@ func (s *Service) newSession(playerID, familyID string, tokenVersion int, meta R
 	if err != nil {
 		return Session{}, "", err
 	}
+	deviceIDSuffix := DeviceIDSuffix(meta.DeviceID)
+	if meta.DeviceFingerprintID != "" {
+		// Structured fingerprints use the opaque internal record ID for display so
+		// even a short suffix of an individual hardware factor is never exposed.
+		deviceIDSuffix = DeviceIDSuffix(meta.DeviceFingerprintID)
+	}
 	return Session{
-		ID:               NewID("ses_"),
-		PlayerID:         playerID,
-		RefreshTokenHash: refreshHash,
-		TokenFamilyID:    familyID,
-		TokenVersion:     tokenVersion,
-		DeviceIDHash:     HashDeviceID(meta.DeviceID),
-		DeviceIDSuffix:   DeviceIDSuffix(meta.DeviceID),
-		IPAddress:        meta.IPAddress,
-		UserAgent:        meta.UserAgent,
-		ExpiresAt:        now.Add(s.config.RefreshTokenTTL()),
-		CreatedAt:        now,
+		ID:                  NewID("ses_"),
+		PlayerID:            playerID,
+		RefreshTokenHash:    refreshHash,
+		TokenFamilyID:       familyID,
+		TokenVersion:        tokenVersion,
+		DeviceIDHash:        HashDeviceID(meta.DeviceID),
+		DeviceIDSuffix:      deviceIDSuffix,
+		DeviceFingerprintID: meta.DeviceFingerprintID,
+		IPAddress:           meta.IPAddress,
+		UserAgent:           meta.UserAgent,
+		ExpiresAt:           now.Add(s.config.RefreshTokenTTL()),
+		CreatedAt:           now,
 	}, rawRefreshToken, nil
 }
 
@@ -591,14 +624,15 @@ func (s *Service) recordFailedAudit(ctx context.Context, steamID, event, failure
 		s.logger.ErrorContext(ctx, "write failed authentication audit", "event", event, "error", err)
 	}
 	if err := s.repository.InsertLoginEvent(ctx, s.pool, LoginEvent{
-		ID:           NewID("ale_"),
-		SteamID:      steamID,
-		DeviceIDHash: HashDeviceID(meta.DeviceID),
-		IPAddress:    meta.IPAddress,
-		UserAgent:    meta.UserAgent,
-		Result:       "FAILURE",
-		FailureCode:  failureCode,
-		CreatedAt:    now,
+		ID:                  NewID("ale_"),
+		SteamID:             steamID,
+		DeviceIDHash:        HashDeviceID(meta.DeviceID),
+		DeviceFingerprintID: meta.DeviceFingerprintID,
+		IPAddress:           meta.IPAddress,
+		UserAgent:           meta.UserAgent,
+		Result:              "FAILURE",
+		FailureCode:         failureCode,
+		CreatedAt:           now,
 	}); err != nil {
 		s.logger.ErrorContext(ctx, "write failed login event", "event", event, "error", err)
 	}
@@ -610,9 +644,35 @@ func (s *Service) recordRiskEvent(ctx context.Context, event RiskEvent, meta Req
 	if event.IPAddress == "" {
 		event.IPAddress = meta.IPAddress
 	}
+	if event.DeviceFingerprintID == "" {
+		event.DeviceFingerprintID = meta.DeviceFingerprintID
+	}
 	if err := s.repository.InsertRiskEvent(ctx, s.pool, event); err != nil {
 		s.logger.ErrorContext(ctx, "write authentication risk event", "event_type", event.EventType, "error", err)
 	}
+}
+
+func (s *Service) resolveDeviceFingerprint(
+	ctx context.Context,
+	executor Executor,
+	deviceID string,
+	now time.Time,
+) (string, error) {
+	values, recognized, err := ParseDeviceFingerprint(deviceID)
+	if err != nil {
+		return "", err
+	}
+	if !recognized {
+		return "", nil
+	}
+	if s.deviceFingerprinter == nil {
+		return "", errors.New("device fingerprinter is not configured")
+	}
+	fingerprint := s.deviceFingerprinter.Fingerprint(values)
+	fingerprint.ID = NewID("dfp_")
+	fingerprint.FirstSeenAt = now
+	fingerprint.LastSeenAt = now
+	return s.repository.UpsertDeviceFingerprint(ctx, executor, fingerprint)
 }
 
 func validSteamIDOrEmpty(steamID string) string {

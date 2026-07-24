@@ -40,8 +40,14 @@ func TestAdminPlayerLifecycleAgainstPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	deviceFingerprinter, _, err := auth.NewDeviceFingerprinter(config.Defaults.Auth, "development")
+	if err != nil {
+		t.Fatal(err)
+	}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	authService := auth.NewService(pool, authRepository, playerRepository, tokenManager, config.Defaults.Auth, logger)
+	authService := auth.NewService(
+		pool, authRepository, playerRepository, tokenManager, deviceFingerprinter, config.Defaults.Auth, logger,
+	)
 	service := NewService(pool, playerRepository, authRepository, NewRepository())
 
 	steamID := fmt.Sprintf("%017d", uint64(time.Now().UnixNano())%100_000_000_000_000_000)

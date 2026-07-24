@@ -83,16 +83,18 @@ Content-Type: application/json
 {
   "steam_id": "76561198000000000",
   "persona_name": "Player",
-  "device_id": "installation-generated-id",
+  "device_id": "v1|uu:b09bc26d38bb76d6|ds:a867d4d49d01c90a|cp:f846ffb743eca479",
   "invite_code": "TEST-ABCD-EFGH"
 }
 ```
 
-旧客户端可继续省略两个新增字段。`device_id` 最长 128 字节，只允许可打印 ASCII；它仅用于限流和风险观察，不是可信身份，也不会绕过 SteamID 唯一约束。是否要求邀请码由服务端 `auth.invite_required` 配置决定。绑定超过任一维度限制时返回 `429 AUTH_BIND_RATE_LIMITED`，响应同时包含 `Retry-After` 与 `details.retry_after_seconds`。
+旧客户端可继续省略两个可选字段，或发送不透明的安装 ID。新客户端应发送 `v1|uu:<摘要>|ds:<摘要>|cp:<摘要>`；每个摘要必须恰好为 16 个小写十六进制字符，分别表示客户端现有的 SMBIOS UUID、磁盘序列号和 CPU ID 单向摘要，无法取得的因子可以省略。服务端也兼容当前未带版本的 `uu:...|ds:...|cp:...` 格式、任意因子顺序和大写十六进制，并统一规范化为 `v1`、小写及 `uu`、`ds`、`cp` 顺序。以 `v1|`、`uu:`、`ds:` 或 `cp:` 开头的值若存在格式错误、重复或未知因子，将返回 `400 INVALID_REQUEST`。
+
+`device_id` 最长 128 字节，只允许可打印 ASCII；它仅用于限流和风险观察，不是可信身份，也不会绕过 SteamID 唯一约束。服务端不会直接保存三个提交值，而是分别生成带域隔离的 HMAC-SHA-256 摘要和组合摘要，再将内部指纹记录关联到会话、登录事件和风险事件；外部 API 不返回这些摘要。是否要求邀请码由服务端 `auth.invite_required` 配置决定。绑定超过任一维度限制时返回 `429 AUTH_BIND_RATE_LIMITED`，响应同时包含 `Retry-After` 与 `details.retry_after_seconds`。
 
 不要把 Access/Refresh Token 写入 URL、日志或崩溃报告。Refresh Token 发生重放时，服务端会撤销整个 token family。
 
-会话列表只返回 session ID、Device ID 后四位、创建/最近使用时间、脱敏 IP 和 `is_current`，不会返回 Token 哈希或完整设备标识。删除不属于当前玩家的 session 与不存在的 session 一样返回 404，避免跨账号探测。
+会话列表只返回 session ID、四字符设备展示后缀、创建/最近使用时间、脱敏 IP 和 `is_current`。结构化指纹的后缀来自不透明的内部记录 ID，不取自任何硬件因子；旧版不透明 Device ID 仍显示其后四位。API 不会返回 Token 哈希或完整设备标识。删除不属于当前玩家的 session 与不存在的 session 一样返回 404，避免跨账号探测。
 
 ### 3.3 Dedicated Server
 

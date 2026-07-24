@@ -109,7 +109,7 @@ Content-Type: application/json
 
 Dashboard 使用 `GET /v1/admin/dashboard/summary`、`GET /v1/admin/dashboard/timeseries` 和 `GET /v1/admin/dashboard/alerts`。趋势周期只允许 `1h`、`24h`、`7d`、`30d`，前端不能提交任意 SQL 分组表达式。
 
-使用 `GET /v1/admin/risk-events` 和 `GET /v1/admin/risk-events/{event_id}` 查询认证风险记录。`POST /v1/admin/risk-events/{event_id}/resolve` 必须提交 `reason`，并记录处理管理员和时间。响应不包含 Device ID 哈希，IP 会脱敏，详情中类似凭据的字段也会递归脱敏。
+使用 `GET /v1/admin/risk-events` 和 `GET /v1/admin/risk-events/{event_id}` 查询认证风险记录。`POST /v1/admin/risk-events/{event_id}/resolve` 必须提交 `reason`，并记录处理管理员和时间。响应不包含 Device ID 哈希、内部设备指纹 ID 或任何单因子 HMAC 摘要；IP 会脱敏，详情中类似凭据的字段也会递归脱敏。当前没有按原始因子查询或封禁设备的外部/管理员 API。将来的封禁流程只能提供经过鉴权的服务端匹配操作，绝不能返回已存摘要。
 
 写操作审计通过 `GET /v1/admin/audit-logs` 和 `GET /v1/admin/audit-logs/{audit_id}` 查询；管理员登录及 Turnstile 诊断通过 `GET /v1/admin/login-audit` 查询。登录审计只包含校验结果、错误码、hostname、action 和延迟，绝不记录 Turnstile Token、Secret、密码、Cookie 或 Authorization Header。
 

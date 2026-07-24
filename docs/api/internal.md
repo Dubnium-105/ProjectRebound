@@ -109,7 +109,7 @@ The clear text invitation code in the creation response is secret and appears on
 
 The dashboard uses `GET /v1/admin/dashboard/summary`, `GET /v1/admin/dashboard/timeseries`, and `GET /v1/admin/dashboard/alerts`. Time-series periods are restricted to `1h`, `24h`, `7d`, and `30d`; the UI cannot submit arbitrary SQL grouping expressions.
 
-Use `GET /v1/admin/risk-events` and `GET /v1/admin/risk-events/{event_id}` to query authentication risk records. `POST /v1/admin/risk-events/{event_id}/resolve` requires `reason` and records the administrator and resolution time. The response omits the Device ID hash, masks the IP address, and recursively redacts credential-like detail keys.
+Use `GET /v1/admin/risk-events` and `GET /v1/admin/risk-events/{event_id}` to query authentication risk records. `POST /v1/admin/risk-events/{event_id}/resolve` requires `reason` and records the administrator and resolution time. The response omits the Device ID hash, internal device-fingerprint ID, and all per-factor HMAC digests; it also masks the IP address and recursively redacts credential-like detail keys. There is currently no external or administrator API for raw factor lookup or device banning. A future ban workflow must expose only an authorization-checked server-side match operation, never stored digests.
 
 Write audits are available through `GET /v1/admin/audit-logs` and `GET /v1/admin/audit-logs/{audit_id}`. Administrator authentication and Turnstile diagnostics are available through `GET /v1/admin/login-audit`. Login audit records contain the verification result, error codes, hostname, action, and latency, but never the Turnstile token, secret, password, cookie, or Authorization header.
 

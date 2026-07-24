@@ -83,16 +83,18 @@ Content-Type: application/json
 {
   "steam_id": "76561198000000000",
   "persona_name": "Player",
-  "device_id": "installation-generated-id",
+  "device_id": "v1|uu:b09bc26d38bb76d6|ds:a867d4d49d01c90a|cp:f846ffb743eca479",
   "invite_code": "TEST-ABCD-EFGH"
 }
 ```
 
-Old clients can continue to omit the two new fields. `device_id` is up to 128 bytes long and only printable ASCII is allowed; it is only used for throttling and risk observation, is not a trusted identity, and will not bypass SteamID unique constraints. Whether to require an invitation code is determined by the server `auth.invite_required` configuration. When the binding exceeds the limit of any dimension, `429 AUTH_BIND_RATE_LIMITED` is returned, and the response contains both `Retry-After` and `details.retry_after_seconds`.
+Old clients can continue to omit the two optional fields or send an opaque installation ID. New clients should send `v1|uu:<digest>|ds:<digest>|cp:<digest>`, where each digest is exactly 16 lowercase hexadecimal characters and represents the client's existing one-way digest of the SMBIOS UUID, disk serial, or CPU ID. A factor may be omitted when unavailable. The server also accepts the current unversioned `uu:...|ds:...|cp:...` form, any factor order, and uppercase hex, then canonicalizes it to version `v1`, lowercase, and `uu`, `ds`, `cp` order. If a value begins with `v1|`, `uu:`, `ds:`, or `cp:`, malformed, duplicate, and unknown factors are rejected with `400 INVALID_REQUEST`.
+
+`device_id` is up to 128 printable ASCII bytes. It is only used for throttling and risk observation, is not a trusted identity, and will not bypass SteamID unique constraints. The server never stores the three submitted factor values directly: it creates separate domain-separated HMAC-SHA-256 digests plus a composite digest, links the resulting internal fingerprint record to sessions and login/risk events, and does not expose those digests through the external API. Whether to require an invitation code is determined by the server `auth.invite_required` configuration. When the binding exceeds the limit of any dimension, `429 AUTH_BIND_RATE_LIMITED` is returned, and the response contains both `Retry-After` and `details.retry_after_seconds`.
 
 Do not write Access/Refresh Tokens to URLs, logs, or crash reports. When Refresh Token is replayed, the server will revoke the entire token family.
 
-The session list returns only the session ID, the last four characters of the Device ID, creation and last-used times, a masked IP address, and `is_current`. It never returns token hashes or the complete device identifier. Deleting a session that does not belong to the current player returns the same 404 response as a nonexistent session to prevent cross-account enumeration.
+The session list returns only the session ID, a four-character device display suffix, creation and last-used times, a masked IP address, and `is_current`. For a structured fingerprint the suffix comes from its opaque internal record ID, not from any hardware factor; for a legacy opaque Device ID it remains the last four characters. The API never returns token hashes or the complete device identifier. Deleting a session that does not belong to the current player returns the same 404 response as a nonexistent session to prevent cross-account enumeration.
 
 ### 3.3 Dedicated Server
 

@@ -41,15 +41,21 @@ func TestAuthenticationLifecycleAgainstPostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	deviceFingerprinter, _, err := NewDeviceFingerprinter(authConfig, "development")
+	if err != nil {
+		t.Fatal(err)
+	}
 	service := NewService(
 		pool,
 		NewRepository(),
 		player.NewRepository(),
 		tokenManager,
+		deviceFingerprinter,
 		authConfig,
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 	)
 	createdSteamIDs := make([]string, 0)
+	createdDeviceFingerprintIDs := make([]string, 0)
 	t.Cleanup(func() {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cleanupCancel()
@@ -60,8 +66,101 @@ func TestAuthenticationLifecycleAgainstPostgreSQL(t *testing.T) {
 			_, _ = pool.Exec(cleanupCtx, "DELETE FROM auth_sessions WHERE player_id IN (SELECT id FROM players WHERE steam_id = $1)", steamID)
 			_, _ = pool.Exec(cleanupCtx, "DELETE FROM players WHERE steam_id = $1", steamID)
 		}
+		for _, fingerprintID := range createdDeviceFingerprintIDs {
+			_, _ = pool.Exec(cleanupCtx, "DELETE FROM auth_device_fingerprints WHERE id = $1", fingerprintID)
+		}
 	})
 	meta := RequestMeta{RequestID: "req_integration", IPAddress: "192.0.2.10", UserAgent: "auth-integration-test"}
+
+	t.Run("structured device factors are normalized and linked", func(t *testing.T) {
+		steamID := nextSteamID()
+		createdSteamIDs = append(createdSteamIDs, steamID)
+		const submitted = "CP:F846FFB743ECA479|UU:B09BC26D38BB76D6|DS:A867D4D49D01C90A"
+		const canonical = "v1|uu:b09bc26d38bb76d6|ds:a867d4d49d01c90a|cp:f846ffb743eca479"
+
+		bound, err := service.Bind(ctx, BindInput{
+			SteamID: steamID, PersonaName: "Structured Device", DeviceID: submitted,
+		}, meta)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var fingerprintID, digestKeyID, storedDeviceSuffix string
+		var formatVersion, factorMask int16
+		var compositeDigest, smbiosDigest, diskDigest, cpuDigest, storedDeviceHash []byte
+		if err := pool.QueryRow(ctx, `
+			SELECT f.id, f.format_version, f.digest_key_id, f.composite_digest,
+			       f.smbios_uuid_digest, f.disk_serial_digest, f.cpu_id_digest,
+			       f.factor_mask, s.device_id_hash, s.device_id_suffix
+			FROM auth_sessions s
+			JOIN auth_device_fingerprints f ON f.id = s.device_fingerprint_id
+			WHERE s.id = $1
+		`, bound.Tokens.SessionID).Scan(
+			&fingerprintID, &formatVersion, &digestKeyID, &compositeDigest,
+			&smbiosDigest, &diskDigest, &cpuDigest, &factorMask, &storedDeviceHash, &storedDeviceSuffix,
+		); err != nil {
+			t.Fatal(err)
+		}
+		createdDeviceFingerprintIDs = append(createdDeviceFingerprintIDs, fingerprintID)
+		if formatVersion != 1 || digestKeyID != authConfig.DeviceFingerprintKeyID || factorMask != 7 {
+			t.Fatalf("fingerprint metadata = version %d key %q mask %d", formatVersion, digestKeyID, factorMask)
+		}
+		for name, digest := range map[string][]byte{
+			"composite": compositeDigest,
+			"smbios":    smbiosDigest,
+			"disk":      diskDigest,
+			"cpu":       cpuDigest,
+		} {
+			if len(digest) != 32 {
+				t.Fatalf("%s digest length = %d", name, len(digest))
+			}
+		}
+		if string(storedDeviceHash) != string(HashDeviceID(canonical)) {
+			t.Fatal("session device hash was not derived from the canonical fingerprint")
+		}
+		if storedDeviceSuffix != DeviceIDSuffix(fingerprintID) || storedDeviceSuffix == "a479" {
+			t.Fatalf("structured device suffix = %q", storedDeviceSuffix)
+		}
+
+		var linkedLoginEvents int
+		if err := pool.QueryRow(ctx, `
+			SELECT COUNT(*) FROM auth_login_events
+			WHERE session_id = $1 AND device_fingerprint_id = $2
+		`, bound.Tokens.SessionID, fingerprintID).Scan(&linkedLoginEvents); err != nil {
+			t.Fatal(err)
+		}
+		if linkedLoginEvents != 1 {
+			t.Fatalf("linked login events = %d, want 1", linkedLoginEvents)
+		}
+
+		refreshMeta := meta
+		refreshMeta.DeviceID = "ds:a867d4d49d01c90a|cp:f846ffb743eca479|uu:b09bc26d38bb76d6"
+		rotated, err := service.Refresh(ctx, bound.Tokens.RefreshToken, refreshMeta)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var rotatedFingerprintID string
+		if err := pool.QueryRow(ctx, `
+			SELECT COALESCE(device_fingerprint_id, '')
+			FROM auth_sessions
+			WHERE id = $1
+		`, rotated.Tokens.SessionID).Scan(&rotatedFingerprintID); err != nil {
+			t.Fatal(err)
+		}
+		if rotatedFingerprintID != fingerprintID {
+			t.Fatalf("rotated fingerprint ID = %q, want %q", rotatedFingerprintID, fingerprintID)
+		}
+		var fingerprintCount int
+		if err := pool.QueryRow(ctx, `
+			SELECT COUNT(*) FROM auth_device_fingerprints
+			WHERE digest_key_id = $1 AND composite_digest = $2
+		`, digestKeyID, compositeDigest).Scan(&fingerprintCount); err != nil {
+			t.Fatal(err)
+		}
+		if fingerprintCount != 1 {
+			t.Fatalf("canonical fingerprint rows = %d, want 1", fingerprintCount)
+		}
+	})
 
 	t.Run("new and existing bind", func(t *testing.T) {
 		steamID := nextSteamID()

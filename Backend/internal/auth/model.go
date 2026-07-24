@@ -14,6 +14,7 @@ type Session struct {
 	TokenVersion        int
 	DeviceIDHash        []byte
 	DeviceIDSuffix      string
+	DeviceFingerprintID string
 	IPAddress           string
 	UserAgent           string
 	ExpiresAt           time.Time
@@ -41,10 +42,11 @@ type BindInput struct {
 }
 
 type RequestMeta struct {
-	RequestID string
-	IPAddress string
-	UserAgent string
-	DeviceID  string
+	RequestID           string
+	IPAddress           string
+	UserAgent           string
+	DeviceID            string
+	DeviceFingerprintID string
 }
 
 type BindResult struct {
@@ -76,29 +78,44 @@ type AuditEvent struct {
 }
 
 type RiskEvent struct {
-	ID           string
-	PlayerID     string
-	SteamID      string
-	DeviceIDHash []byte
-	IPAddress    string
-	EventType    string
-	Severity     string
-	Details      map[string]any
-	CreatedAt    time.Time
-	ResolvedAt   *time.Time
+	ID                  string
+	PlayerID            string
+	SteamID             string
+	DeviceIDHash        []byte
+	DeviceFingerprintID string
+	IPAddress           string
+	EventType           string
+	Severity            string
+	Details             map[string]any
+	CreatedAt           time.Time
+	ResolvedAt          *time.Time
 }
 
 type LoginEvent struct {
-	ID           string
-	PlayerID     string
-	SteamID      string
-	SessionID    string
-	DeviceIDHash []byte
-	IPAddress    string
-	UserAgent    string
-	Result       string
-	FailureCode  string
-	CreatedAt    time.Time
+	ID                  string
+	PlayerID            string
+	SteamID             string
+	SessionID           string
+	DeviceIDHash        []byte
+	DeviceFingerprintID string
+	IPAddress           string
+	UserAgent           string
+	Result              string
+	FailureCode         string
+	CreatedAt           time.Time
+}
+
+type DeviceFingerprint struct {
+	ID               string
+	FormatVersion    int16
+	DigestKeyID      string
+	CompositeDigest  []byte
+	SMBIOSUUIDDigest []byte
+	DiskSerialDigest []byte
+	CPUIDDigest      []byte
+	FactorMask       int16
+	FirstSeenAt      time.Time
+	LastSeenAt       time.Time
 }
 
 type UserSession struct {

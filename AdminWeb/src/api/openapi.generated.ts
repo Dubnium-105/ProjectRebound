@@ -1571,7 +1571,10 @@ export interface components {
         BindRequest: {
             steam_id: string;
             persona_name: string;
-            /** @description Optional random installation identifier used only as an untrusted risk signal. */
+            /**
+             * @description Optional untrusted risk signal. New clients should send v1|uu:<16 lowercase hex>|ds:<16 lowercase hex>|cp:<16 lowercase hex>; factors may be omitted when unavailable. The server also accepts the current unversioned uu:...|ds:...|cp:... form and canonicalizes factor order and case. Legacy opaque printable-ASCII values remain accepted.
+             * @example v1|uu:b09bc26d38bb76d6|ds:a867d4d49d01c90a|cp:f846ffb743eca479
+             */
             device_id?: string;
             /** @description Optional unless the server has auth.invite_required enabled. */
             invite_code?: string;

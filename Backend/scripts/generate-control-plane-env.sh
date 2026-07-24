@@ -47,6 +47,8 @@ RELAY_CONTROL_SERVER_NAMES=control-plane,localhost,relay.example.com
 CORS_ALLOWED_ORIGINS=https://game.example.com
 ACCESS_TOKEN_KEY_ID=access-signing-key-$key_suffix
 ACCESS_TOKEN_PRIVATE_KEY_BASE64=$(random_key)
+DEVICE_FINGERPRINT_KEY_ID=device-fingerprint-v1
+DEVICE_FINGERPRINT_HMAC_KEY_BASE64=$(random_key)
 ADMIN_TOKENS=operator=$(random_hex 48)
 ADMIN_ACCESS_TOKEN_KEY_ID=admin-access-signing-key-$key_suffix
 ADMIN_ACCESS_TOKEN_PRIVATE_KEY_BASE64=$(random_key)
