@@ -156,10 +156,10 @@ func (r *ReleaseRepository) updateState(
 	}
 	return scanRelease(tx.QueryRow(ctx, `
 		UPDATE admin_releases
-		SET status = $2, source_release = $3::jsonb,
+		SET status = $2::varchar, source_release = $3::jsonb,
 		    signed_manifest = $4::jsonb, validation_result = $5::jsonb,
-		    published_by = CASE WHEN $2 = 'PUBLISHED' THEN $6 ELSE published_by END,
-		    published_at = CASE WHEN $2 = 'PUBLISHED' THEN $7 ELSE published_at END,
+		    published_by = CASE WHEN $2::varchar = 'PUBLISHED' THEN $6 ELSE published_by END,
+		    published_at = CASE WHEN $2::varchar = 'PUBLISHED' THEN $7 ELSE published_at END,
 		    minimum_supported_version = $8,
 		    updated_at = $7
 		WHERE id = $1

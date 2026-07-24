@@ -306,8 +306,8 @@ func (s *GovernanceService) UpdateAdmin(
 	now := s.now().UTC()
 	_, err = tx.Exec(ctx, `
 		UPDATE admin_users
-		SET display_name = $2, status = $3,
-		    disabled_at = CASE WHEN $3 = 'DISABLED' THEN COALESCE(disabled_at, $4) ELSE NULL END,
+		SET display_name = $2, status = $3::varchar,
+		    disabled_at = CASE WHEN $3::varchar = 'DISABLED' THEN COALESCE(disabled_at, $4) ELSE NULL END,
 		    updated_at = $4
 		WHERE id = $1
 	`, oldItem.ID, displayName, status, now)

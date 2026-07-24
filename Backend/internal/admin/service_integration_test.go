@@ -63,6 +63,8 @@ func TestAdminPlayerLifecycleAgainstPostgreSQL(t *testing.T) {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cleanupCancel()
 		_, _ = pool.Exec(cleanupCtx, "DELETE FROM admin_audit_logs WHERE target_id = $1", bound.Player.ID)
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM auth_risk_events WHERE player_id = $1", bound.Player.ID)
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM auth_login_events WHERE player_id = $1", bound.Player.ID)
 		_, _ = pool.Exec(cleanupCtx, "DELETE FROM auth_login_audit_logs WHERE player_id = $1", bound.Player.ID)
 		_, _ = pool.Exec(cleanupCtx, "DELETE FROM auth_sessions WHERE player_id = $1", bound.Player.ID)
 		_, _ = pool.Exec(cleanupCtx, "DELETE FROM players WHERE id = $1", bound.Player.ID)
