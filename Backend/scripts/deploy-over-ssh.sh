@@ -46,7 +46,7 @@ tar -C "$repository_dir" \
   --exclude='Backend/deployments/edge-relay/.env' \
   --exclude='Backend/deployments/edge-relay/config.edge-relay.yaml' \
   --exclude='Backend/backups' \
-  -czf "$bundle" Backend/deployments Backend/scripts Backend/deploy/deploy.sh
+  -czf "$bundle" Backend/deployments Backend/scripts Backend/deploy/deploy.sh AdminWeb
 
 ssh_target="${DEPLOY_USER}@${DEPLOY_HOST}"
 ssh_options=(-p "$DEPLOY_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes)

@@ -31,11 +31,14 @@ cors:
   allowed_origins:
     - "http://localhost"
     - "http://127.0.0.1"
+    - "http://localhost:5173"
+    - "http://127.0.0.1:5173"
   allowed_headers:
     - "Authorization"
     - "Content-Type"
     - "X-Request-Id"
     - "X-Room-Host-Token"
+  allow_credentials: true
   max_age_seconds: 600
 
 rate_limit:
@@ -62,8 +65,25 @@ auth:
   bind_burst: 5
 
 admin:
-  # Admin credentials are accepted only through ADMIN_TOKENS using
-  # "admin_id=high-entropy-token;other_admin=...". They are never read here.
+  # ADMIN_TOKENS remains a machine-only credential for internal operational
+  # routes. Human administrators use the database-backed Admin Web login.
+  issuer: "game-control-plane"
+  audience: "admin-web"
+  access_token_key_id: "admin-access-dev-ephemeral"
+  access_token_ttl_minutes: 15
+  refresh_token_ttl_days: 7
+  login_challenge_ttl_seconds: 300
+  step_up_ttl_seconds: 300
+  login_per_ip_per_minute: 10
+  login_per_username_per_minute: 5
+  # TURNSTILE_SITE_KEY, TURNSTILE_SECRET_KEY,
+  # ADMIN_ACCESS_TOKEN_PRIVATE_KEY_BASE64, and
+  # ADMIN_MFA_ENCRYPTION_KEY_BASE64 are injected through the environment.
+  turnstile_site_key: ""
+  turnstile_expected_hostname: "admin.example.com"
+  turnstile_expected_action: "admin_login"
+  turnstile_verify_url: "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+  turnstile_timeout_seconds: 5
   trusted_cidrs:
     - "127.0.0.0/8"
     - "10.0.0.0/8"

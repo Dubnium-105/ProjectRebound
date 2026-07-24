@@ -66,10 +66,12 @@ sudo certbot certonly --standalone --non-interactive --agree-tos \
   -d boundary.example.com
 ```
 
-用仅允许 root 修改的 defaults 文件配置证书域名，再安装 deploy hook：
+用仅允许 root 修改的 defaults 文件配置证书域名，再安装 deploy hook。若 Admin Web 使用独立域名，还要设置 `ADMIN_WEB_HOST`；Hook 会先安装两条续期证书链，再校验并重载 HAProxy：
 
 ```bash
-printf '%s\n' 'PUBLIC_API_HOST=boundary.example.com' | \
+printf '%s\n' \
+  'PUBLIC_API_HOST=boundary.example.com' \
+  'ADMIN_WEB_HOST=admin.boundary.example.com' | \
   sudo tee /etc/default/projectrebound-http-gateway >/dev/null
 sudo chown root:root /etc/default/projectrebound-http-gateway
 sudo chmod 0600 /etc/default/projectrebound-http-gateway

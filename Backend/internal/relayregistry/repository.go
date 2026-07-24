@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -285,9 +286,13 @@ func (r *Repository) ChangeState(ctx context.Context, nodeID string, next State,
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO relay_node_audit_logs (
 			id, node_id, actor_id, action, old_state, new_state,
-			request_id, ip_address, created_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, '')::inet, $9)
-	`, newID("rna_"), nodeID, meta.ActorID, string(next), current.State, updated.State, meta.RequestID, meta.IPAddress, now); err != nil {
+			request_id, ip_address, reason, user_agent, result, created_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, NULLIF($8, '')::inet,
+			$9, NULLIF($10, ''), 'SUCCEEDED', $11
+		)
+	`, newID("rna_"), nodeID, meta.ActorID, string(next), current.State, updated.State,
+		meta.RequestID, meta.IPAddress, strings.TrimSpace(meta.Reason), meta.UserAgent, now); err != nil {
 		return Node{}, err
 	}
 	if next == StateRevoked {
@@ -584,7 +589,8 @@ func (r *Repository) PlanMigration(
 		WHERE allocation.id = $1
 		  AND allocation.state IN ('ALLOCATED', 'BINDING', 'ACTIVE')
 		  AND (node.state IN ('UNHEALTHY', 'OFFLINE', 'REVOKED')
-		       OR ($2 = 'RELAY_DRAIN' AND node.state = 'DRAINING' AND node.drain_migrate_existing))
+		       OR ($2 = 'RELAY_DRAIN' AND node.state = 'DRAINING' AND node.drain_migrate_existing)
+		       OR ($2 = 'ADMIN_MANUAL' AND node.state IN ('READY', 'DRAINING', 'UNHEALTHY')))
 		FOR UPDATE OF allocation, node
 	`, oldAllocationID, reason))
 	if err != nil {
@@ -630,15 +636,15 @@ func (r *Repository) PlanMigration(
 	}
 	if _, err := tx.Exec(ctx, `
 		UPDATE relay_allocations
-		SET state = CASE WHEN $3 = 'RELAY_DRAIN' THEN 'MIGRATING' ELSE 'FAILED' END,
-		    failure_reason = CASE WHEN $3 = 'RELAY_DRAIN' THEN NULL::varchar ELSE $3::varchar END,
-		    closed_at = CASE WHEN $3 = 'RELAY_DRAIN' THEN NULL::timestamptz ELSE $2::timestamptz END,
+		SET state = CASE WHEN $3 IN ('RELAY_DRAIN', 'ADMIN_MANUAL') THEN 'MIGRATING' ELSE 'FAILED' END,
+		    failure_reason = CASE WHEN $3 IN ('RELAY_DRAIN', 'ADMIN_MANUAL') THEN NULL::varchar ELSE $3::varchar END,
+		    closed_at = CASE WHEN $3 IN ('RELAY_DRAIN', 'ADMIN_MANUAL') THEN NULL::timestamptz ELSE $2::timestamptz END,
 		    updated_at = $2
 		WHERE id = $1
 	`, oldAllocation.ID, now, reason); err != nil {
 		return Migration{}, err
 	}
-	if reason != "RELAY_DRAIN" {
+	if reason != "RELAY_DRAIN" && reason != "ADMIN_MANUAL" {
 		if _, err := tx.Exec(ctx, `
 			UPDATE relay_nodes
 			SET active_allocations = GREATEST(active_allocations - 1, 0), updated_at = $2
@@ -687,6 +693,19 @@ func (r *Repository) PlanMigration(
 	newNode.ActiveAllocations++
 	migration.NewNode = newNode
 	return migration, nil
+}
+
+func (r *Repository) ActiveAllocationIDForConnection(ctx context.Context, connectionID string) (string, error) {
+	var allocationID string
+	err := r.pool.QueryRow(ctx, `
+		SELECT id
+		FROM relay_allocations
+		WHERE connection_id = $1
+		  AND state IN ('ALLOCATED', 'BINDING', 'ACTIVE')
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, connectionID).Scan(&allocationID)
+	return allocationID, err
 }
 
 func (r *Repository) PendingMigrations(ctx context.Context, limit int) ([]Migration, error) {

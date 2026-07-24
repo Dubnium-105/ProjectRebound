@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"net"
 	"net/http"
 	"strconv"
 	"time"
@@ -19,8 +20,9 @@ type HTTPService interface {
 	Create(context.Context, CreateInput, RequestMeta) (CreateResult, error)
 	List(context.Context, string, int) (ListResult, error)
 	Get(context.Context, string) (Code, error)
+	ListUses(context.Context, string, string, int) (UseListResult, error)
 	Patch(context.Context, string, Patch, RequestMeta) (Code, error)
-	Revoke(context.Context, string, RequestMeta) (Code, error)
+	Revoke(context.Context, string, string, RequestMeta) (Code, error)
 }
 
 type HTTPHandler struct {
@@ -35,9 +37,11 @@ func NewHTTPHandler(service HTTPService, logger *slog.Logger, trustProxy bool) *
 
 type createRequest struct {
 	BatchName   string         `json:"batch_name"`
+	Quantity    int            `json:"quantity"`
 	MaxUses     int            `json:"max_uses"`
 	ExpiresAt   *time.Time     `json:"expires_at"`
 	Permissions map[string]any `json:"permissions"`
+	Reason      string         `json:"reason"`
 }
 
 type patchRequest struct {
@@ -46,6 +50,26 @@ type patchRequest struct {
 	ExpiresAt   json.RawMessage `json:"expires_at"`
 	Enabled     *bool           `json:"enabled"`
 	Permissions map[string]any  `json:"permissions"`
+	Reason      string          `json:"reason"`
+}
+
+type revokeRequest struct {
+	Reason string `json:"reason"`
+}
+
+type createdCodeResponse struct {
+	InviteCode codeResponse `json:"invite_code"`
+	Code       string       `json:"code"`
+}
+
+type useResponse struct {
+	ID           string    `json:"id"`
+	InviteCodeID string    `json:"invite_code_id"`
+	PlayerID     string    `json:"player_id"`
+	SteamID      string    `json:"steam_id"`
+	IPAddress    string    `json:"ip_address"`
+	UsedAt       time.Time `json:"used_at"`
+	Result       string    `json:"result"`
 }
 
 type codeResponse struct {
@@ -69,16 +93,21 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := h.service.Create(r.Context(), CreateInput{
-		BatchName: request.BatchName, MaxUses: request.MaxUses,
-		ExpiresAt: request.ExpiresAt, Permissions: request.Permissions,
+		BatchName: request.BatchName, Quantity: request.Quantity, MaxUses: request.MaxUses,
+		ExpiresAt: request.ExpiresAt, Permissions: request.Permissions, Reason: request.Reason,
 	}, h.requestMeta(r))
 	if err != nil {
 		h.writeError(w, r, err)
 		return
 	}
+	created := make([]createdCodeResponse, 0, len(result.Items))
+	for _, item := range result.Items {
+		created = append(created, createdCodeResponse{InviteCode: toResponse(item.Code), Code: item.Plaintext})
+	}
 	api.WriteData(w, r, http.StatusCreated, map[string]any{
-		"invite_code": toResponse(result.Code),
-		"code":        result.Plaintext,
+		"invite_code":  toResponse(result.Code),
+		"code":         result.Plaintext,
+		"invite_codes": created,
 	})
 }
 
@@ -109,6 +138,30 @@ func (h *HTTPHandler) Get(w http.ResponseWriter, r *http.Request) {
 	api.WriteData(w, r, 200, toResponse(item))
 }
 
+func (h *HTTPHandler) ListUses(w http.ResponseWriter, r *http.Request) {
+	limit, err := strconv.Atoi(defaultString(r.URL.Query().Get("limit"), "50"))
+	if err != nil {
+		api.WriteError(w, r, 400, "INVALID_REQUEST", "Invalid limit.", nil)
+		return
+	}
+	result, err := h.service.ListUses(
+		r.Context(), chi.URLParam(r, "id"), r.URL.Query().Get("cursor"), limit,
+	)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	items := make([]useResponse, 0, len(result.Items))
+	for _, item := range result.Items {
+		items = append(items, useResponse{
+			ID: item.ID, InviteCodeID: item.InviteCodeID, PlayerID: item.PlayerID,
+			SteamID: item.SteamID, IPAddress: maskIPAddress(item.IPAddress),
+			UsedAt: item.UsedAt, Result: item.Result,
+		})
+	}
+	api.WriteData(w, r, 200, map[string]any{"items": items, "next_cursor": result.NextCursor})
+}
+
 func (h *HTTPHandler) Patch(w http.ResponseWriter, r *http.Request) {
 	var request patchRequest
 	if err := api.DecodeJSON(r, &request); err != nil {
@@ -117,7 +170,7 @@ func (h *HTTPHandler) Patch(w http.ResponseWriter, r *http.Request) {
 	}
 	patch := Patch{
 		BatchName: request.BatchName, MaxUses: request.MaxUses,
-		Enabled: request.Enabled, Permissions: request.Permissions,
+		Enabled: request.Enabled, Permissions: request.Permissions, Reason: request.Reason,
 	}
 	if len(request.ExpiresAt) > 0 {
 		if string(request.ExpiresAt) == "null" {
@@ -140,7 +193,12 @@ func (h *HTTPHandler) Patch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPHandler) Revoke(w http.ResponseWriter, r *http.Request) {
-	item, err := h.service.Revoke(r.Context(), chi.URLParam(r, "id"), h.requestMeta(r))
+	var request revokeRequest
+	if err := api.DecodeJSON(r, &request); err != nil {
+		api.WriteError(w, r, 400, "INVALID_REQUEST", "Invalid request.", map[string]any{"body": err.Error()})
+		return
+	}
+	item, err := h.service.Revoke(r.Context(), chi.URLParam(r, "id"), request.Reason, h.requestMeta(r))
 	if err != nil {
 		h.writeError(w, r, err)
 		return
@@ -157,6 +215,7 @@ func (h *HTTPHandler) requestMeta(r *http.Request) RequestMeta {
 	return RequestMeta{
 		AdminID: adminID, RequestID: requestctx.RequestID(r.Context()),
 		IPAddress: appmiddleware.ClientIP(r, h.trustProxy),
+		UserAgent: r.UserAgent(),
 	}
 }
 
@@ -181,4 +240,20 @@ func defaultString(value, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func maskIPAddress(value string) string {
+	ip := net.ParseIP(value)
+	if ip == nil {
+		return ""
+	}
+	if ipv4 := ip.To4(); ipv4 != nil {
+		return net.IPv4(ipv4[0], ipv4[1], ipv4[2], 0).String() + "/24"
+	}
+	masked := make(net.IP, net.IPv6len)
+	copy(masked, ip.To16())
+	for index := 6; index < len(masked); index++ {
+		masked[index] = 0
+	}
+	return masked.String() + "/48"
 }

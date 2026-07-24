@@ -265,6 +265,38 @@ func (r *Repository) CloseForRoom(ctx context.Context, roomID, reason string, no
 	return items, nil
 }
 
+func (r *Repository) CloseForRoomMember(
+	ctx context.Context,
+	roomID, playerID, reason string,
+	now time.Time,
+) ([]Connection, error) {
+	rows, err := r.pool.Query(ctx, `
+		UPDATE connections
+		SET state = 'CLOSED', failure_reason = NULLIF($3, ''),
+		    closed_at = COALESCE(closed_at, $4), updated_at = $4
+		WHERE room_id = $1 AND peer_player_id = $2
+		  AND state NOT IN ('FAILED', 'EXPIRED', 'CLOSED')
+		RETURNING `+connectionColumns,
+		roomID, playerID, reason, now,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("close room member connections: %w", err)
+	}
+	defer rows.Close()
+	items := make([]Connection, 0)
+	for rows.Next() {
+		item, err := scanConnection(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan room member connection closure: %w", err)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate room member connection closures: %w", err)
+	}
+	return items, nil
+}
+
 const connectionColumns = `
 	id, room_id, host_player_id, peer_player_id, state,
 	selected_path, failure_reason, expires_at, created_at, updated_at, closed_at

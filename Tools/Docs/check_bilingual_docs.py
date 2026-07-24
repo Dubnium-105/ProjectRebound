@@ -28,7 +28,7 @@ def maintained_english_docs() -> list[Path]:
     documents: list[Path] = []
     for path in REPOSITORY_ROOT.rglob("*.md"):
         relative = path.relative_to(REPOSITORY_ROOT)
-        if relative.parts[0] in {".git", ".tmp"}:
+        if any(part in {".git", ".tmp", "node_modules", "dist"} for part in relative.parts):
             continue
         if relative.parts[:2] == ("docs", "archive"):
             continue
@@ -105,7 +105,7 @@ def main() -> int:
     localized_documents: set[Path] = set()
     for path in REPOSITORY_ROOT.rglob("*.zh-CN.md"):
         relative = path.relative_to(REPOSITORY_ROOT)
-        if relative.parts[0] in {".git", ".tmp"}:
+        if any(part in {".git", ".tmp", "node_modules", "dist"} for part in relative.parts):
             continue
         if relative.parts[:2] != ("docs", "archive"):
             localized_documents.add(path)

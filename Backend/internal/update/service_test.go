@@ -127,7 +127,7 @@ func TestCatalogRejectsUnsafeObjectKey(t *testing.T) {
 	}
 }
 
-func TestProductionRequiresSigningKeyAndReleaseCatalog(t *testing.T) {
+func TestProductionRequiresSigningKeyAndAllowsManagedCatalogBootstrap(t *testing.T) {
 	cfg := config.Defaults.Update
 	cfg.ManifestDirectory = t.TempDir()
 	cfg.SigningPrivateKeyBase64 = ""
@@ -135,8 +135,8 @@ func TestProductionRequiresSigningKeyAndReleaseCatalog(t *testing.T) {
 		t.Fatal("production accepted a missing update signing key")
 	}
 	cfg.SigningPrivateKeyBase64 = base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{0x24}, ed25519.SeedSize))
-	if _, err := NewService(cfg, "production", nil); err == nil {
-		t.Fatal("production accepted an empty release catalog")
+	if _, err := NewService(cfg, "production", nil); err != nil {
+		t.Fatalf("production rejected empty static catalog before managed catalog initialization: %v", err)
 	}
 }
 

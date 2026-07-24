@@ -150,28 +150,147 @@ func buildHandler(
 		return nil, nil, fmt.Errorf("initialize administrator authentication: %w", err)
 	}
 	if !adminAuthenticator.Configured() {
-		logger.Warn("no administrator tokens configured; admin API will reject all requests")
+		logger.Warn("no machine administrator tokens configured; internal operational routes will reject requests")
 	}
 	adminNetworkGuard, err := admin.NewNetworkGuard(cfg.Admin.TrustedCIDRs, cfg.HTTP.TrustProxyHeaders)
 	if err != nil {
 		return nil, nil, err
 	}
+	adminTokenManager, ephemeralAdminTokenKey, err := auth.NewTokenManager(
+		cfg.Admin.AccessTokenConfig(),
+		cfg.Environment,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("initialize administrator access token signer: %w", err)
+	}
+	if ephemeralAdminTokenKey {
+		logger.Warn("using ephemeral development administrator access-token key; sessions will not survive a restart")
+	}
+	adminSecretBox, ephemeralMFAKey, err := admin.NewSecretBox(
+		cfg.Admin.MFAEncryptionKeyBase64,
+		cfg.Environment,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("initialize administrator MFA encryption: %w", err)
+	}
+	if ephemeralMFAKey {
+		logger.Warn("using ephemeral development administrator MFA key; configure ADMIN_MFA_ENCRYPTION_KEY_BASE64 before creating accounts")
+	}
+	turnstileVerifier := admin.NewCloudflareTurnstileVerifier(cfg.Admin)
+	if !turnstileVerifier.Configured() {
+		logger.Warn("Cloudflare Turnstile is not configured; human administrator login will remain unavailable")
+	}
+	adminAuthRepository := admin.NewAuthRepository(dbPool.Pool)
+	adminAuthService, err := admin.NewAdminAuthService(
+		dbPool.Pool,
+		adminAuthRepository,
+		turnstileVerifier,
+		admin.NewLoginLimiter(redisClient, cfg.Admin, logger),
+		adminTokenManager,
+		adminSecretBox,
+		cfg.Admin,
+		logger,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("initialize administrator authentication service: %w", err)
+	}
+	adminSessionAuthenticator := admin.NewSessionAuthenticator(adminAuthService)
+	adminAuthHandler := admin.NewAdminAuthHTTPHandler(
+		adminAuthService,
+		logger,
+		cfg.Admin,
+		cfg.Environment,
+		cfg.HTTP.TrustProxyHeaders,
+	)
 	adminService := admin.NewService(dbPool.Pool, playerRepository, authRepository, adminRepository)
 	adminHandler := admin.NewHTTPHandler(adminService, logger, cfg.HTTP.TrustProxyHeaders)
+	adminSecurityService := admin.NewSecurityService(
+		dbPool.Pool,
+		admin.NewSecurityRepository(dbPool.Pool),
+		adminRepository,
+	)
+	adminSecurityHandler := admin.NewSecurityHTTPHandler(
+		adminSecurityService,
+		logger,
+		cfg.HTTP.TrustProxyHeaders,
+	)
+	adminGovernanceService := admin.NewGovernanceService(
+		dbPool.Pool,
+		adminRepository,
+		adminSecretBox,
+	)
+	adminGovernanceHandler := admin.NewGovernanceHTTPHandler(
+		adminGovernanceService,
+		logger,
+		cfg.HTTP.TrustProxyHeaders,
+	)
+	adminSettingsService := admin.NewSettingsService(dbPool.Pool, adminRepository)
+	adminSettingsHandler := admin.NewSettingsHTTPHandler(
+		adminSettingsService,
+		logger,
+		cfg.HTTP.TrustProxyHeaders,
+	)
 	inviteHandler := invite.NewHTTPHandler(inviteService, logger, cfg.HTTP.TrustProxyHeaders)
-	router.Route("/v1/admin", func(router chi.Router) {
-		router.Use(adminNetworkGuard.Middleware)
-		router.Use(adminAuthenticator.Middleware)
-		router.Get("/players", adminHandler.ListPlayers)
-		router.Get("/players/{player_id}", adminHandler.GetPlayer)
+	adminRouter := chi.NewRouter()
+	adminRouter.Use(adminNetworkGuard.Middleware)
+	adminRouter.Get("/auth/config", adminAuthHandler.Config)
+	adminRouter.Post("/auth/login", adminAuthHandler.Login)
+	adminRouter.Post("/auth/mfa/verify", adminAuthHandler.VerifyMFA)
+	adminRouter.Post("/auth/refresh", adminAuthHandler.Refresh)
+	adminRouter.Group(func(router chi.Router) {
+		router.Use(adminSessionAuthenticator.Middleware)
+		router.Post("/auth/logout", adminAuthHandler.Logout)
+		router.Post("/auth/step-up", adminAuthHandler.StepUp)
+		router.Get("/auth/me", adminAuthHandler.Me)
+		router.Get("/auth/sessions", adminAuthHandler.Sessions)
+		router.Delete("/auth/sessions/{session_id}", adminAuthHandler.RevokeSession)
+		router.With(admin.RequirePermission("dashboard.read")).Get("/dashboard/summary", adminSecurityHandler.Summary)
+		router.With(admin.RequirePermission("dashboard.read")).Get("/dashboard/timeseries", adminSecurityHandler.Timeseries)
+		router.With(admin.RequirePermission("dashboard.read")).Get("/dashboard/alerts", adminSecurityHandler.Alerts)
+		router.With(admin.RequirePermission("players.read")).Get("/players", adminHandler.ListPlayers)
+		router.With(admin.RequirePermission("players.read")).Get("/players/{player_id}", adminHandler.GetPlayer)
+		router.With(admin.RequirePermission("players.read")).Get("/players/{player_id}/sessions", adminSecurityHandler.PlayerSessions)
+		router.With(admin.RequirePermission("players.read")).Get("/players/{player_id}/risk-events", adminSecurityHandler.PlayerRiskEvents)
+		router.With(admin.RequirePermission("players.read")).Get("/players/{player_id}/login-events", adminSecurityHandler.PlayerLoginEvents)
 		router.Patch("/players/{player_id}", adminHandler.PatchPlayer)
 		router.Post("/players/{player_id}/revoke-sessions", adminHandler.RevokeSessions)
-		router.Post("/invite-codes", inviteHandler.Create)
-		router.Get("/invite-codes", inviteHandler.List)
-		router.Get("/invite-codes/{id}", inviteHandler.Get)
-		router.Patch("/invite-codes/{id}", inviteHandler.Patch)
-		router.Post("/invite-codes/{id}/revoke", inviteHandler.Revoke)
-		router.Get("/auth/risk-events", authHandler.ListRiskEvents)
+		router.With(admin.RequirePermission("invite_codes.create")).Post("/invite-codes", inviteHandler.Create)
+		router.With(admin.RequirePermission("invite_codes.read")).Get("/invite-codes", inviteHandler.List)
+		router.With(admin.RequirePermission("invite_codes.read")).Get("/invite-codes/{id}", inviteHandler.Get)
+		router.With(admin.RequirePermission("invite_codes.read")).Get("/invite-codes/{id}/uses", inviteHandler.ListUses)
+		router.With(admin.RequirePermission("invite_codes.update")).Patch("/invite-codes/{id}", inviteHandler.Patch)
+		router.With(admin.RequirePermission("invite_codes.revoke")).Post("/invite-codes/{id}/revoke", inviteHandler.Revoke)
+		router.With(admin.RequirePermission("risk_events.read")).Get("/risk-events", adminSecurityHandler.ListRiskEvents)
+		router.With(admin.RequirePermission("risk_events.read")).Get("/risk-events/{event_id}", adminSecurityHandler.GetRiskEvent)
+		router.With(admin.RequirePermission("risk_events.resolve")).Post("/risk-events/{event_id}/resolve", adminSecurityHandler.ResolveRiskEvent)
+		router.With(admin.RequirePermission("audit_logs.read")).Get("/audit-logs", adminSecurityHandler.ListAudit)
+		router.With(admin.RequirePermission("audit_logs.read")).Get("/audit-logs/{audit_id}", adminSecurityHandler.GetAudit)
+		router.With(admin.RequirePermission("audit_logs.read")).Get("/login-audit", adminSecurityHandler.ListLoginAudit)
+		router.With(admin.RequirePermission("admins.read")).Get("/admins", adminGovernanceHandler.ListAdmins)
+		router.With(
+			admin.RequirePermission("admins.create"),
+			admin.RequireStepUp(adminAuthService),
+		).Post("/admins", adminGovernanceHandler.CreateAdmin)
+		router.With(
+			admin.RequirePermission("admins.update"),
+			admin.RequireStepUp(adminAuthService),
+		).Patch("/admins/{admin_id}", adminGovernanceHandler.UpdateAdmin)
+		router.With(
+			admin.RequirePermission("admins.update"),
+			admin.RequireStepUp(adminAuthService),
+		).Post("/admins/{admin_id}/reset-mfa", adminGovernanceHandler.ResetMFA)
+		router.With(admin.RequirePermission("admins.read")).Get("/roles", adminGovernanceHandler.ListRoles)
+		router.With(
+			admin.RequirePermission("roles.manage"),
+			admin.RequireStepUp(adminAuthService),
+		).Patch("/roles/{role_id}", adminGovernanceHandler.UpdateRole)
+		router.Get("/features", adminSettingsHandler.Features)
+		router.Get("/capabilities", adminSettingsHandler.Capabilities)
+		router.With(admin.RequirePermission("settings.read")).Get("/settings", adminSettingsHandler.List)
+		router.With(
+			admin.RequirePermission("settings.update"),
+			admin.RequireStepUp(adminAuthService),
+		).Patch("/settings", adminSettingsHandler.Update)
 	})
 	router.With(adminNetworkGuard.Middleware).Get("/internal/metrics", metrics.Handler().ServeHTTP)
 
@@ -225,6 +344,35 @@ func buildHandler(
 		router.Get("/v1/realtime/connect", realtimeHandler.Connect)
 	})
 
+	adminOnlineService := admin.NewOnlineService(
+		dbPool.Pool,
+		adminRepository,
+		connectionService,
+		logger,
+	)
+	adminOnlineHandler := admin.NewOnlineHTTPHandler(
+		adminOnlineService,
+		logger,
+		cfg.HTTP.TrustProxyHeaders,
+	)
+	adminRouter.Group(func(router chi.Router) {
+		router.Use(adminSessionAuthenticator.Middleware)
+		router.With(admin.RequirePermission("rooms.read")).Get("/p2p-rooms", p2pRoomHandler.List)
+		router.With(admin.RequirePermission("rooms.read")).Get("/p2p-rooms/{room_id}", p2pRoomHandler.Get)
+		router.With(admin.RequirePermission("rooms.read")).Get("/p2p-rooms/{room_id}/members", adminOnlineHandler.ListRoomMembers)
+		router.With(admin.RequirePermission("rooms.close")).Post("/p2p-rooms/{room_id}/close", adminOnlineHandler.CloseRoom)
+		router.With(admin.RequirePermission("rooms.remove_member")).Post("/p2p-rooms/{room_id}/members/{player_id}/remove", adminOnlineHandler.RemoveRoomMember)
+		router.With(admin.RequirePermission("game_servers.read")).Get("/game-servers", gameServerHandler.List)
+		router.With(admin.RequirePermission("game_servers.read")).Get("/game-servers/{server_id}", gameServerHandler.Get)
+		router.With(admin.RequirePermission("game_servers.drain")).Post("/game-servers/{server_id}/drain", adminOnlineHandler.DrainGameServer)
+		router.With(admin.RequirePermission("game_servers.drain")).Post("/game-servers/{server_id}/resume", adminOnlineHandler.ResumeGameServer)
+		router.With(admin.RequirePermission("game_servers.disable")).Post("/game-servers/{server_id}/disable", adminOnlineHandler.DisableGameServer)
+		router.With(admin.RequirePermission("connections.read")).Get("/connections", adminOnlineHandler.ListConnections)
+		router.With(admin.RequirePermission("connections.read")).Get("/connections/{connection_id}", adminOnlineHandler.GetConnection)
+		router.With(admin.RequirePermission("connections.close")).Post("/connections/{connection_id}/close", adminOnlineHandler.CloseConnection)
+		router.With(admin.RequirePermission("connections.migrate")).Post("/connections/{connection_id}/migrate-relay", adminOnlineHandler.MigrateConnectionRelay)
+	})
+
 	bootstrapCredentials, err := relayregistry.ParseBootstrapCredentials(cfg.RelayRegistry.BootstrapTokenSet)
 	if err != nil {
 		return nil, nil, fmt.Errorf("initialize relay bootstrap credentials: %w", err)
@@ -260,6 +408,7 @@ func buildHandler(
 	relayService.SetConnectionCoordinator(connectionService)
 	relayService.SetMetrics(metrics)
 	connectionService.SetRelayAllocator(relayService)
+	adminOnlineService.SetRelayConnectionOperator(relayService)
 	relayControlServer, err := relayregistry.NewControlServer(
 		relayService, relayControlHub, relayTelemetry, relayAuthority, cfg.RelayRegistry, logger,
 	)
@@ -267,6 +416,17 @@ func buildHandler(
 		return nil, nil, fmt.Errorf("initialize relay control server: %w", err)
 	}
 	relayHandler := relayregistry.NewHTTPHandler(relayService, logger, cfg.HTTP.TrustProxyHeaders)
+	adminRouter.Group(func(router chi.Router) {
+		router.Use(adminSessionAuthenticator.Middleware)
+		router.With(admin.RequirePermission("relay_nodes.read")).Get("/relay-nodes", relayHandler.List)
+		router.With(admin.RequirePermission("relay_nodes.read")).Get("/relay-nodes/{node_id}", relayHandler.Get)
+		router.With(admin.RequirePermission("relay_nodes.drain")).Post("/relay-nodes/{node_id}/drain", relayHandler.Drain)
+		router.With(admin.RequirePermission("relay_nodes.resume")).Post("/relay-nodes/{node_id}/resume", relayHandler.Resume)
+		router.With(
+			admin.RequirePermission("relay_nodes.revoke"),
+			admin.RequireStepUp(adminAuthService),
+		).Post("/relay-nodes/{node_id}/revoke", relayHandler.Revoke)
+	})
 	router.Post("/internal/v1/relay-nodes/enroll", relayHandler.Enroll)
 	router.Post("/internal/v1/relay-nodes/{node_id}/certificate/renew", relayHandler.RenewCertificate)
 	router.Route("/internal/v1/relay-nodes", func(router chi.Router) {
@@ -288,6 +448,37 @@ func buildHandler(
 		logger.Warn("using ephemeral development update-signing key; manifests will not verify after restart")
 	}
 	updateHandler := updateservice.NewHTTPHandler(updateService, logger)
+	adminReleaseService := admin.NewReleaseService(
+		dbPool.Pool,
+		admin.NewReleaseRepository(dbPool.Pool),
+		adminRepository,
+		updateService,
+		cfg.Update.Product,
+	)
+	updateService.SetManagedCatalog(adminReleaseService)
+	adminReleaseHandler := admin.NewReleaseHTTPHandler(
+		adminReleaseService, logger, cfg.HTTP.TrustProxyHeaders,
+	)
+	adminRouter.Group(func(router chi.Router) {
+		router.Use(adminSessionAuthenticator.Middleware)
+		router.With(admin.RequirePermission("updates.read")).Get("/releases", adminReleaseHandler.List)
+		router.With(admin.RequirePermission("updates.read")).Get("/releases/{release_id}", adminReleaseHandler.Get)
+		router.With(admin.RequirePermission("updates.create")).Post("/releases", adminReleaseHandler.Create)
+		router.With(admin.RequirePermission("updates.create")).Post("/releases/{release_id}/validate", adminReleaseHandler.Validate)
+		router.With(
+			admin.RequirePermission("updates.publish"),
+			admin.RequireStepUp(adminAuthService),
+		).Post("/releases/{release_id}/publish", adminReleaseHandler.Publish)
+		router.With(
+			admin.RequirePermission("updates.rollback"),
+			admin.RequireStepUp(adminAuthService),
+		).Post("/releases/{release_id}/rollback", adminReleaseHandler.Rollback)
+		router.With(
+			admin.RequirePermission("updates.rollback"),
+			admin.RequireStepUp(adminAuthService),
+		).Post("/releases/{release_id}/archive", adminReleaseHandler.Archive)
+	})
+	router.Mount("/v1/admin", adminRouter)
 	router.Get("/v1/updates/check", updateHandler.Check)
 	router.Get("/v1/updates/{platform}/{version}/manifest", updateHandler.Manifest)
 	router.Get("/v1/updates/files/{file_id}", updateHandler.File)

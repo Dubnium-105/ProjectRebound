@@ -10,12 +10,15 @@ type RequestMeta struct {
 	AdminID   string
 	RequestID string
 	IPAddress string
+	UserAgent string
 }
 
 type PlayerPatch struct {
 	AccountStatus  *player.AccountStatus
 	IsVIP          *bool
 	RevokeSessions bool
+	Reason         string
+	InternalNote   string
 }
 
 type PatchResult struct {
@@ -36,7 +39,10 @@ type AuditLog struct {
 	TargetID   string
 	OldValue   map[string]any
 	NewValue   map[string]any
+	Reason     string
 	RequestID  string
 	IPAddress  string
+	UserAgent  string
+	Result     string
 	CreatedAt  time.Time
 }

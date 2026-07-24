@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -14,6 +15,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/projectrebound/matchserver/internal/config"
 )
@@ -27,12 +30,17 @@ type RelayDirectory interface {
 	AvailableRegions(context.Context) ([]string, error)
 }
 
+type ManagedCatalog interface {
+	PublishedManifests(context.Context) ([]Manifest, error)
+}
+
 type Service struct {
 	cfg       config.UpdateConfig
 	signer    *Signer
 	relay     RelayDirectory
 	manifests []Manifest
 	files     map[string]FileDownload
+	managed   ManagedCatalog
 }
 
 func NewService(cfg config.UpdateConfig, environment string, relay RelayDirectory) (*Service, error) {
@@ -48,15 +56,123 @@ func NewService(cfg config.UpdateConfig, environment string, relay RelayDirector
 		manifests = []Manifest{}
 		files = make(map[string]FileDownload)
 	}
-	if strings.EqualFold(environment, "production") && len(manifests) == 0 {
-		return nil, errors.New("at least one update release is required in production")
-	}
 	return &Service{cfg: cfg, signer: signer, relay: relay, manifests: manifests, files: files}, nil
 }
 
 func (s *Service) EphemeralSigner() bool { return s.signer.Ephemeral() }
 
-func (s *Service) Check(_ context.Context, input CheckInput) (CheckResult, error) {
+func (s *Service) SetManagedCatalog(catalog ManagedCatalog) { s.managed = catalog }
+
+func (s *Service) BuildAndSign(source SourceRelease) (Manifest, error) {
+	baseURL, err := url.Parse(s.cfg.CDNBaseURL)
+	if err != nil {
+		return Manifest{}, err
+	}
+	manifest, err := buildManifest(s.cfg, baseURL, source)
+	if err != nil {
+		return Manifest{}, err
+	}
+	return s.signer.Sign(manifest)
+}
+
+func (s *Service) VerifySignedManifest(manifest Manifest) error {
+	return s.signer.Verify(manifest)
+}
+
+func (s *Service) VerifyReleaseObjects(ctx context.Context, manifest Manifest) error {
+	if len(manifest.Files) == 0 {
+		return errors.New("release has no files to probe")
+	}
+	const (
+		maxWorkers = 8
+		probeTTL   = 10 * time.Second
+	)
+	probeCtx, cancel := context.WithTimeout(ctx, probeTTL)
+	defer cancel()
+	client := &http.Client{
+		Timeout: probeTTL,
+		CheckRedirect: func(request *http.Request, via []*http.Request) error {
+			if len(via) >= 5 {
+				return errors.New("too many redirects")
+			}
+			if len(via) == 0 {
+				return nil
+			}
+			origin := via[0].URL
+			if !strings.EqualFold(request.URL.Scheme, origin.Scheme) ||
+				!strings.EqualFold(request.URL.Host, origin.Host) {
+				return errors.New("cross-origin redirect rejected")
+			}
+			return nil
+		},
+	}
+	jobs := make(chan File)
+	workerCount := min(maxWorkers, len(manifest.Files))
+	var (
+		firstErr error
+		errOnce  sync.Once
+		workers  sync.WaitGroup
+	)
+	recordError := func(err error) {
+		errOnce.Do(func() {
+			firstErr = err
+			cancel()
+		})
+	}
+	for range workerCount {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			for {
+				select {
+				case <-probeCtx.Done():
+					return
+				case file, ok := <-jobs:
+					if !ok {
+						return
+					}
+					request, err := http.NewRequestWithContext(probeCtx, http.MethodHead, file.DownloadURL, nil)
+					if err != nil {
+						recordError(fmt.Errorf("probe update object %q: %w", file.Path, err))
+						return
+					}
+					response, err := client.Do(request)
+					if err != nil {
+						if response != nil {
+							_ = response.Body.Close()
+						}
+						recordError(fmt.Errorf("probe update object %q: %w", file.Path, err))
+						return
+					}
+					_ = response.Body.Close()
+					if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+						recordError(fmt.Errorf("probe update object %q: unexpected HTTP status %d", file.Path, response.StatusCode))
+						return
+					}
+				}
+			}
+		}()
+	}
+sendLoop:
+	for _, file := range manifest.Files {
+		select {
+		case <-probeCtx.Done():
+			break sendLoop
+		case jobs <- file:
+		}
+	}
+	close(jobs)
+	workers.Wait()
+	if firstErr != nil {
+		return firstErr
+	}
+	if err := probeCtx.Err(); err != nil {
+		return fmt.Errorf("probe update objects: %w", err)
+	}
+	return nil
+}
+
+func (s *Service) Check(ctx context.Context, input CheckInput) (CheckResult, error) {
 	input.Platform = strings.ToLower(strings.TrimSpace(input.Platform))
 	input.Architecture = strings.ToLower(strings.TrimSpace(input.Architecture))
 	input.Channel = strings.ToLower(strings.TrimSpace(input.Channel))
@@ -75,8 +191,12 @@ func (s *Service) Check(_ context.Context, input CheckInput) (CheckResult, error
 		return CheckResult{}, invalid("Current version is invalid.", map[string]any{"version": input.Version})
 	}
 	var latest *Manifest
-	for index := range s.manifests {
-		candidate := &s.manifests[index]
+	manifests, _, err := s.catalog(ctx)
+	if err != nil {
+		return CheckResult{}, internal(err)
+	}
+	for index := range manifests {
+		candidate := &manifests[index]
 		if candidate.Platform != input.Platform || candidate.Architecture != input.Architecture || candidate.Channel != input.Channel {
 			continue
 		}
@@ -105,7 +225,7 @@ func (s *Service) Check(_ context.Context, input CheckInput) (CheckResult, error
 	}, nil
 }
 
-func (s *Service) Manifest(_ context.Context, platform, architecture, channel, version string) (Manifest, error) {
+func (s *Service) Manifest(ctx context.Context, platform, architecture, channel, version string) (Manifest, error) {
 	platform = strings.ToLower(strings.TrimSpace(platform))
 	architecture = strings.ToLower(strings.TrimSpace(architecture))
 	channel = strings.ToLower(strings.TrimSpace(channel))
@@ -116,7 +236,11 @@ func (s *Service) Manifest(_ context.Context, platform, architecture, channel, v
 	if channel == "" {
 		channel = s.cfg.DefaultChannel
 	}
-	for _, manifest := range s.manifests {
+	manifests, _, err := s.catalog(ctx)
+	if err != nil {
+		return Manifest{}, internal(err)
+	}
+	for _, manifest := range manifests {
 		if manifest.Platform == platform && manifest.Architecture == architecture && manifest.Channel == channel && manifest.Version == version {
 			return manifest, nil
 		}
@@ -124,12 +248,69 @@ func (s *Service) Manifest(_ context.Context, platform, architecture, channel, v
 	return Manifest{}, notFound("Update manifest was not found.")
 }
 
-func (s *Service) File(_ context.Context, fileID string) (FileDownload, error) {
-	file, ok := s.files[fileID]
+func (s *Service) File(ctx context.Context, fileID string) (FileDownload, error) {
+	_, files, err := s.catalog(ctx)
+	if err != nil {
+		return FileDownload{}, internal(err)
+	}
+	file, ok := files[fileID]
 	if !ok {
 		return FileDownload{}, notFound("Update file was not found.")
 	}
 	return file, nil
+}
+
+func (s *Service) catalog(ctx context.Context) ([]Manifest, map[string]FileDownload, error) {
+	byRelease := make(map[string]Manifest, len(s.manifests))
+	for _, manifest := range s.manifests {
+		byRelease[manifestCatalogKey(manifest)] = manifest
+	}
+	if s.managed != nil {
+		managed, err := s.managed.PublishedManifests(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, manifest := range managed {
+			if err := s.signer.Verify(manifest); err != nil {
+				return nil, nil, fmt.Errorf("verify managed update manifest %s: %w", manifest.Version, err)
+			}
+			byRelease[manifestCatalogKey(manifest)] = manifest
+		}
+	}
+	manifests := make([]Manifest, 0, len(byRelease))
+	files := make(map[string]FileDownload)
+	for _, manifest := range byRelease {
+		manifests = append(manifests, manifest)
+		for _, file := range manifest.Files {
+			download := FileDownload{
+				FileID: file.FileID, Size: file.Size, SHA256: file.SHA256, DownloadURL: file.DownloadURL,
+			}
+			if existing, duplicate := files[file.FileID]; duplicate && existing != download {
+				return nil, nil, fmt.Errorf("file_id %q refers to multiple published objects", file.FileID)
+			}
+			files[file.FileID] = download
+		}
+	}
+	sort.Slice(manifests, func(i, j int) bool {
+		left, right := manifests[i], manifests[j]
+		if left.Platform != right.Platform {
+			return left.Platform < right.Platform
+		}
+		if left.Architecture != right.Architecture {
+			return left.Architecture < right.Architecture
+		}
+		if left.Channel != right.Channel {
+			return left.Channel < right.Channel
+		}
+		comparison, _ := compareVersions(left.Version, right.Version)
+		return comparison < 0
+	})
+	return manifests, files, nil
+}
+
+func manifestCatalogKey(manifest Manifest) string {
+	return manifest.Platform + "\x00" + manifest.Architecture + "\x00" +
+		manifest.Channel + "\x00" + manifest.Version
 }
 
 func (s *Service) ClientConfig(ctx context.Context) (ClientConfig, error) {

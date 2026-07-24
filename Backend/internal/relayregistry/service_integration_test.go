@@ -173,7 +173,10 @@ func TestRelayRegistryLifecycleAgainstPostgreSQL(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	meta := AdminMeta{ActorID: "integration-admin", RequestID: "req-integration", IPAddress: "127.0.0.1"}
+	meta := AdminMeta{
+		ActorID: "integration-admin", RequestID: "req-integration", IPAddress: "127.0.0.1",
+		UserAgent: "relay-integration-test", Reason: "Integration lifecycle test",
+	}
 	draining, err := service.Drain(ctx, enrolled.Node.ID, DrainInput{}, meta)
 	if err != nil || draining.State != StateDraining {
 		t.Fatalf("draining node = %#v, %v", draining, err)

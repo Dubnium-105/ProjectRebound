@@ -8,6 +8,8 @@
 - [Debian 完整部署手册](deployment-guide.zh-CN.md)：主机、端口、防火墙、FRP/HAProxy 和首次注册；
 - [CI/CD](ci-cd.zh-CN.md)：GitHub Actions、GHCR 不可变产物和 Environment；
 - [发布与回滚](release-and-rollback.zh-CN.md)：控制面发布与逐节点 Relay 滚动发布。
+- [Admin Web 使用手册](admin-console-user-guide.zh-CN.md)：登录、玩家、联机、发布、治理和审计操作；
+- [Admin Web 安全手册](admin-console-security.zh-CN.md)：入口分层、Secret 边界、管理员生命周期与安全检查。
 
 ## 稳定性与数据安全
 

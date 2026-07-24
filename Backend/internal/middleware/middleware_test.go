@@ -56,3 +56,20 @@ func TestChainReturnsEnvelopeWhenRateLimited(t *testing.T) {
 		t.Fatalf("status/body = %d %s", recorder.Code, recorder.Body.String())
 	}
 }
+
+func TestCORSAllowsCredentialedAdminDevelopmentOrigin(t *testing.T) {
+	cfg := config.Defaults.CORS
+	handler := CORS(cfg, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	request := httptest.NewRequest(http.MethodOptions, "/v1/admin/auth/refresh", nil)
+	request.Header.Set("Origin", "http://localhost:5173")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Header().Get("Access-Control-Allow-Origin") != "http://localhost:5173" {
+		t.Fatalf("allow origin = %q", recorder.Header().Get("Access-Control-Allow-Origin"))
+	}
+	if recorder.Header().Get("Access-Control-Allow-Credentials") != "true" {
+		t.Fatalf("allow credentials = %q", recorder.Header().Get("Access-Control-Allow-Credentials"))
+	}
+}

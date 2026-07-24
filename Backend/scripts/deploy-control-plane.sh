@@ -7,6 +7,7 @@ deployment_dir="$backend_dir/deployments/control-plane"
 env_file="${CONTROL_PLANE_ENV_FILE:-$deployment_dir/.env}"
 compose_file="$deployment_dir/docker-compose.yaml"
 image="${CONTROL_PLANE_IMAGE:-}"
+admin_web_image="${ADMIN_WEB_IMAGE:-}"
 
 deploy_source="${DEPLOY_SOURCE:-auto}"
 if [[ -z "${DEPLOY_SOURCE:-}" && "${DEPLOY_PULL_ONLY:-0}" == "1" ]]; then
@@ -33,6 +34,15 @@ case "$deploy_source" in
     ;;
 esac
 
+if [[ "$deploy_source" == "ci" && -z "$admin_web_image" ]]; then
+  admin_web_image="${image/projectrebound-control-plane/projectrebound-admin-web}"
+fi
+if [[ "$deploy_source" == "ci" &&
+      ! "$admin_web_image" =~ ^ghcr\.io/[a-z0-9._/-]+(@sha256:[0-9a-f]{64}|:(sha-[0-9a-f]{40}|[0-9]+\.[0-9]+\.[0-9]+))$ ]]; then
+  echo "DEPLOY_SOURCE=ci requires ADMIN_WEB_IMAGE to be an immutable GHCR digest, commit tag, or semantic version." >&2
+  exit 1
+fi
+
 if [[ ! -f "$env_file" ]]; then
   echo "Missing $env_file. Run scripts/generate-control-plane-env.sh first." >&2
   exit 1
@@ -53,14 +63,18 @@ else
 fi
 
 compose=("${docker_cmd[@]}" compose --env-file "$env_file" -f "$compose_file")
+if [[ -n "$admin_web_image" ]]; then
+  export ADMIN_WEB_IMAGE="$admin_web_image"
+fi
 if [[ "${ENABLE_MONITORING:-1}" == "1" ]]; then compose+=(--profile monitoring); fi
 "${compose[@]}" config -q
 if [[ "$deploy_source" == "ci" ]]; then
   "${compose[@]}" pull
 else
-  "${compose[@]}" build --pull control-plane
+  "${compose[@]}" build --pull control-plane admin-web
 fi
-printf 'CONTROL_PLANE_DEPLOY_SOURCE source=%s image=%s\n' "$deploy_source" "${image:-local-build}"
+printf 'CONTROL_PLANE_DEPLOY_SOURCE source=%s image=%s admin_web_image=%s\n' \
+  "$deploy_source" "${image:-local-build}" "${admin_web_image:-local-build}"
 "${compose[@]}" up -d --remove-orphans
 
 admin_port="$(sed -n 's/^CONTROL_PLANE_ADMIN_PORT=//p' "$env_file" | tail -n 1)"

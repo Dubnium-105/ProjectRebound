@@ -8,7 +8,7 @@ This document describes the interfaces that are not exposed to normal game clien
 
 | Interface | Default address | Caller | Protection |
 | --- | --- | --- | --- |
-| Admin HTTP | `127.0.0.1:18080/v1/admin/*` | Operations backend or SSH tunnel | Admin Token + trusted CIDR |
+| Admin HTTP | `127.0.0.1:18080/v1/admin/*` | Dedicated Admin Web | Turnstile + administrator password + TOTP + short-lived Admin Access Token + trusted CIDR |
 | Internal Relay management HTTP | `127.0.0.1:18080/internal/v1/relay-nodes/*` | Operations backend | Admin Token + trusted CIDR |
 | Relay registration/renewal HTTP | Public HTTPS `/internal/v1/relay-nodes/enroll`, `.../certificate/renew` | Edge Relay | One-time Bootstrap Token or Node Token |
 | Control-plane metrics | `127.0.0.1:18080/internal/metrics` | Prometheus | Trusted CIDR; public proxy returns 404 |
@@ -18,9 +18,36 @@ This document describes the interfaces that are not exposed to normal game clien
 
 Public network Caddy must return 404 for `/v1/admin*` and `/internal/*`, and only two machine interfaces, Relay enroll and certificate renew, are allowed. Source IP whitelist cannot replace Token, nor can Token replace network isolation.
 
-## 2. Admin Token
+## 2. Administrator authentication
 
-The control plane reads through environment variables:
+Browser administrator authentication is completely isolated from player authentication:
+
+1. `GET /v1/admin/auth/config` returns the public Turnstile Sitekey and action.
+2. `POST /v1/admin/auth/login` submits the username, password, and `turnstile_token`.
+3. The control plane calls Cloudflare Siteverify and verifies `success`, the expected hostname, and the `admin_login` action.
+4. A valid password produces a single-use MFA challenge that expires after five minutes.
+5. `POST /v1/admin/auth/mfa/verify` accepts a TOTP or recovery code.
+6. Success returns a short-lived Admin Access Token and sets an `HttpOnly; SameSite=Strict` refresh cookie.
+7. `POST /v1/admin/auth/refresh` rotates the refresh cookie. Reuse of the previous token revokes the session.
+8. High-risk actions call `POST /v1/admin/auth/step-up` with TOTP or a recovery code and receive a short-lived, session-bound proof.
+
+Authenticated administrators use:
+
+```text
+POST   /v1/admin/auth/logout
+GET    /v1/admin/auth/me
+GET    /v1/admin/auth/sessions
+DELETE /v1/admin/auth/sessions/{session_id}
+POST   /v1/admin/auth/step-up
+```
+
+Neither Player Access Tokens nor machine Admin Tokens can replace an Admin Web Access Token. RBAC is enforced server-side; hiding a frontend menu is not a security boundary. Relay revoke additionally requires the step-up proof in `X-Admin-Step-Up`; the proof stays in browser memory and expires after the configured short TTL.
+
+Create the first administrator with `go run ./cmd/adminctl`. The password is read only from the `ADMINCTL_PASSWORD` environment variable. The TOTP provisioning URI and recovery codes are displayed once after creation. Persistent environments must configure `ADMIN_MFA_ENCRYPTION_KEY_BASE64` first.
+
+## 2.1 Machine Admin Token
+
+Static Admin Tokens remain available only for internal Relay operations and automation. They are no longer accepted by the human-facing `/v1/admin/*` API. The control plane reads them from environment variables:
 
 ```text
 ADMIN_TOKENS=operator=<high-entropy-token>;automation=<another-token>
@@ -33,7 +60,7 @@ Request:
 Authorization: Bearer <admin-token>
 ```
 
-Player Access Tokens are not available for use in the management interface. When `TRUST_PROXY_HEADERS=true` is enabled, the control plane can only be placed behind the trusted reverse proxy, and the client is prohibited from bypassing the proxy for direct connection; otherwise, the forged forwarding header may affect the source address determination.
+Player Access Tokens are never accepted by management interfaces. When `TRUST_PROXY_HEADERS=true` is enabled, the control plane can only be placed behind the trusted reverse proxy, and clients must not be able to bypass that proxy; otherwise, forged forwarding headers can influence source-address checks.
 
 ## 3. Player Management API
 
@@ -41,40 +68,123 @@ Player Access Tokens are not available for use in the management interface. When
 | --- | --- | --- | --- |
 | GET | `/v1/admin/players` | `cursor`, `limit`, `account_status` | Paginated player list |
 | GET | `/v1/admin/players/{player_id}` | Path ID | Complete administrative record |
-| PATCH | `/v1/admin/players/{player_id}` | At least one of `account_status`, `is_vip`, `revoke_sessions` | Updated player and number of revoked sessions |
-| POST | `/v1/admin/players/{player_id}/revoke-sessions` | None | Revocation count and time |
+| GET | `/v1/admin/players/{player_id}/sessions` | Path ID | Recent sessions with device and IP summaries |
+| GET | `/v1/admin/players/{player_id}/risk-events` | Path ID | Recent masked risk events |
+| GET | `/v1/admin/players/{player_id}/login-events` | Path ID | Recent authentication outcomes |
+| PATCH | `/v1/admin/players/{player_id}` | `reason`, plus at least one of `account_status`, `is_vip`, `revoke_sessions`; optional `internal_note` | Updated player and number of revoked sessions |
+| POST | `/v1/admin/players/{player_id}/revoke-sessions` | `reason` | Revocation count and time |
 
 Patch example:
 
 ```http
 PATCH /v1/admin/players/player_123 HTTP/1.1
-Authorization: Bearer <admin-token>
+Authorization: Bearer <admin-access-token>
 Content-Type: application/json
 
 {
   "account_status": "BANNED",
   "is_vip": false,
-  "revoke_sessions": true
+  "revoke_sessions": true,
+  "reason": "Confirmed chargeback abuse in ticket CS-4812",
+  "internal_note": "Reviewed by the duty operations lead"
 }
 ```
 
-`account_status` is `ACTIVE`, `BANNED` or `DELETED`. Updates are written to audit records; set `revoke_sessions=true` when an existing login needs to be invalidated immediately, or call the standalone revoke-sessions endpoint. External work order reasons should be correlated through a controlled audit system, and Tokens, private data, or game payloads should not be put into requests or logs.
+`account_status` is `ACTIVE`, `BANNED` or `DELETED`. Every write requires a human-readable reason and stores the reason, request ID, administrator, source address, User-Agent, before/after values, and outcome in the audit record. Set `revoke_sessions=true` when an existing login needs to be invalidated immediately, or call the standalone revoke-sessions endpoint. Never put tokens, passwords, cookies, private data, or game payloads into reasons or notes.
 
 ### 3.1 Invitation code management
 
 |method|path|parameters/request|success|
 | --- | --- | --- | --- |
-| POST | `/v1/admin/invite-codes` |`batch_name`, `max_uses`; optional `expires_at`, `permissions`|Create metadata and return plaintext `code` only this time|
+| POST | `/v1/admin/invite-codes` |`batch_name`, `max_uses`, `reason`; optional `quantity` (1–100), `expires_at`, `permissions`|Atomically create a batch and return its plaintext codes only this time|
 | GET | `/v1/admin/invite-codes` | `cursor`, `limit` |Paginated list of metadata, does not return clear text or hash|
 | GET | `/v1/admin/invite-codes/{id}` | Path ID |Single piece of metadata, no plaintext or hash returned|
-| PATCH | `/v1/admin/invite-codes/{id}` |At least one of `batch_name`, `max_uses`, `expires_at`, `enabled`, `permissions`|Updated metadata|
-| POST | `/v1/admin/invite-codes/{id}/revoke` | None | Idempotently disable and record revocation time |
+| GET | `/v1/admin/invite-codes/{id}/uses` | `cursor`, `limit` |Successful redemption records with masked IP network summaries|
+| PATCH | `/v1/admin/invite-codes/{id}` |`reason` and at least one of `batch_name`, `max_uses`, `expires_at`, `enabled`, `permissions`|Updated metadata|
+| POST | `/v1/admin/invite-codes/{id}/revoke` | `reason` | Idempotently disable and record revocation time |
 
 The clear text invitation code in the creation response is secret and appears only once; only the SHA-256 hash is stored in the database. `max_uses` shall not be reduced below `used_count`. Row-level locks are used to consume quotas when binding a new SteamID, so only one transaction will succeed in competing for the last quota concurrently. If an existing player binds again, the invitation code will not be consumed again.
 
-### 3.2 Authentication risk events
+### 3.2 Dashboard, risk events, and audit
 
-Use `GET /v1/admin/auth/risk-events` with `cursor`, `limit`, `player_id`, `event_type`, `severity`, and `unresolved_only` to query authentication risk records. V1.1 records and displays these events but does not ban accounts automatically. The response omits the Device ID hash and masks the IP address. Database event details must not contain Access Tokens, Refresh Tokens, or complete Authorization headers.
+The dashboard uses `GET /v1/admin/dashboard/summary`, `GET /v1/admin/dashboard/timeseries`, and `GET /v1/admin/dashboard/alerts`. Time-series periods are restricted to `1h`, `24h`, `7d`, and `30d`; the UI cannot submit arbitrary SQL grouping expressions.
+
+Use `GET /v1/admin/risk-events` and `GET /v1/admin/risk-events/{event_id}` to query authentication risk records. `POST /v1/admin/risk-events/{event_id}/resolve` requires `reason` and records the administrator and resolution time. The response omits the Device ID hash, masks the IP address, and recursively redacts credential-like detail keys.
+
+Write audits are available through `GET /v1/admin/audit-logs` and `GET /v1/admin/audit-logs/{audit_id}`. Administrator authentication and Turnstile diagnostics are available through `GET /v1/admin/login-audit`. Login audit records contain the verification result, error codes, hostname, action, and latency, but never the Turnstile token, secret, password, cookie, or Authorization header.
+
+### 3.3 Online operations
+
+Human administrators use these session-authenticated routes:
+
+```text
+GET  /v1/admin/p2p-rooms
+GET  /v1/admin/p2p-rooms/{room_id}
+GET  /v1/admin/p2p-rooms/{room_id}/members
+POST /v1/admin/p2p-rooms/{room_id}/close
+POST /v1/admin/p2p-rooms/{room_id}/members/{player_id}/remove
+
+GET  /v1/admin/game-servers
+GET  /v1/admin/game-servers/{server_id}
+POST /v1/admin/game-servers/{server_id}/drain
+POST /v1/admin/game-servers/{server_id}/resume
+POST /v1/admin/game-servers/{server_id}/disable
+
+GET  /v1/admin/connections
+GET  /v1/admin/connections/{connection_id}
+POST /v1/admin/connections/{connection_id}/close
+POST /v1/admin/connections/{connection_id}/migrate-relay
+
+GET  /v1/admin/relay-nodes
+GET  /v1/admin/relay-nodes/{node_id}
+POST /v1/admin/relay-nodes/{node_id}/drain
+POST /v1/admin/relay-nodes/{node_id}/resume
+POST /v1/admin/relay-nodes/{node_id}/revoke
+```
+
+Every write requires `reason`; Relay drain also accepts `deadline_seconds` and `migrate_existing`. Game-server disable marks the server offline and revokes its registration token. Room actions report `connections_cleanup_complete`; a false value means the room mutation succeeded but the operator should follow the runbook to confirm downstream connection cleanup. Connection Relay migration never accepts a target address or node from the browser: the backend scheduler selects an eligible READY node. Responses never include host tokens, node tokens, allocation tokens, registration-token hashes, private keys, or full ICE candidates.
+
+### 3.4 Managed client releases
+
+```text
+GET  /v1/admin/releases
+POST /v1/admin/releases
+GET  /v1/admin/releases/{release_id}
+POST /v1/admin/releases/{release_id}/validate
+POST /v1/admin/releases/{release_id}/publish
+POST /v1/admin/releases/{release_id}/rollback
+POST /v1/admin/releases/{release_id}/archive
+```
+
+Creation accepts platform, architecture, stable/beta channel, semantic version information, forced-update policy, and object-storage file descriptors. Validation checks file paths, sizes, SHA-256 values, compression, CDN object keys and actual `HEAD` availability, compatibility ordering, and the generated Ed25519 signature. Only a `READY` release can be published. Publish, rollback, and archive require both an operation reason and server-enforced MFA step-up. The public update catalog reads only `PUBLISHED` managed manifests; rollback removes that release from future update checks without deleting its audit history. Archive accepts only `DRAFT`, `READY`, or `ROLLED_BACK`, uses `updates.rollback`, and preserves all records.
+
+### 3.5 Administrator and role governance
+
+```text
+GET   /v1/admin/admins
+POST  /v1/admin/admins
+PATCH /v1/admin/admins/{admin_id}
+POST  /v1/admin/admins/{admin_id}/reset-mfa
+GET   /v1/admin/roles
+PATCH /v1/admin/roles/{role_id}
+```
+
+Administrator accounts remain separate from player identities. Creation assigns one or more existing roles and returns the TOTP provisioning URI and ten recovery codes only once. Updating an administrator can change the display name, active state, role assignments, and revoke sessions. MFA reset rotates the encrypted TOTP secret, replaces all recovery-code hashes, and revokes all sessions.
+
+Every governance write requires a human-readable reason, the corresponding `admins.create`, `admins.update`, or `roles.manage` permission, and a session-bound MFA step-up proof. The last active `SUPER_ADMIN` cannot be disabled or stripped of that role, including under concurrent requests. `SUPER_ADMIN` always owns the full permission catalog and cannot be edited. Passwords, TOTP secrets, recovery-code plaintext, cookies, and access tokens are excluded from list responses and audit values.
+
+### 3.6 Features, capabilities, settings, and integrations
+
+```text
+GET   /v1/admin/features
+GET   /v1/admin/capabilities
+GET   /v1/admin/settings
+PATCH /v1/admin/settings
+```
+
+Features and capabilities are non-secret discovery endpoints for optional modules, supported resources and operations, batch limits, realtime availability, and polling fallbacks. Settings expose only a database-backed whitelist of feature switches and HTTPS integration links; configuration secrets, connection strings, tokens, and private keys are never part of this model.
+
+Settings reads require `settings.read`. Updates require `settings.update`, an operation reason, and MFA step-up, and are atomically audited. URL settings accept only HTTPS URLs without embedded credentials. The Grafana value is a link to a read-only dashboard; the Admin Web does not reproduce the full monitoring system or proxy Grafana credentials.
 
 ## 4. Relay HTTP lifecycle API
 

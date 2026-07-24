@@ -67,9 +67,10 @@ type RedisConfig struct {
 }
 
 type CORSConfig struct {
-	AllowedOrigins []string `yaml:"allowed_origins"`
-	AllowedHeaders []string `yaml:"allowed_headers"`
-	MaxAgeSeconds  int      `yaml:"max_age_seconds"`
+	AllowedOrigins   []string `yaml:"allowed_origins"`
+	AllowedHeaders   []string `yaml:"allowed_headers"`
+	AllowCredentials bool     `yaml:"allow_credentials"`
+	MaxAgeSeconds    int      `yaml:"max_age_seconds"`
 }
 
 type RateLimitConfig struct {
@@ -101,8 +102,25 @@ type AuthBindRateLimitConfig struct {
 type AdminConfig struct {
 	// TokenSet is loaded only from ADMIN_TOKENS and is deliberately excluded
 	// from YAML so credentials cannot be committed in configuration files.
-	TokenSet     string   `yaml:"-"`
-	TrustedCIDRs []string `yaml:"trusted_cidrs"`
+	TokenSet                    string   `yaml:"-"`
+	AccessTokenPrivateKeyBase64 string   `yaml:"-"`
+	MFAEncryptionKeyBase64      string   `yaml:"-"`
+	TurnstileSecretKey          string   `yaml:"-"`
+	TrustedCIDRs                []string `yaml:"trusted_cidrs"`
+	Issuer                      string   `yaml:"issuer"`
+	Audience                    string   `yaml:"audience"`
+	AccessTokenKeyID            string   `yaml:"access_token_key_id"`
+	AccessTokenTTLMinutes       int      `yaml:"access_token_ttl_minutes"`
+	RefreshTokenTTLDays         int      `yaml:"refresh_token_ttl_days"`
+	LoginChallengeTTLSeconds    int      `yaml:"login_challenge_ttl_seconds"`
+	StepUpTTLSeconds            int      `yaml:"step_up_ttl_seconds"`
+	LoginPerIPPerMinute         int      `yaml:"login_per_ip_per_minute"`
+	LoginPerUsernamePerMinute   int      `yaml:"login_per_username_per_minute"`
+	TurnstileSiteKey            string   `yaml:"turnstile_site_key"`
+	TurnstileExpectedHostname   string   `yaml:"turnstile_expected_hostname"`
+	TurnstileExpectedAction     string   `yaml:"turnstile_expected_action"`
+	TurnstileVerifyURL          string   `yaml:"turnstile_verify_url"`
+	TurnstileTimeoutSeconds     int      `yaml:"turnstile_timeout_seconds"`
 }
 
 type GameServerConfig struct {
@@ -223,9 +241,15 @@ var Defaults = Config{
 		OperationTimeoutSecs: 2,
 	},
 	CORS: CORSConfig{
-		AllowedOrigins: []string{"http://localhost", "http://127.0.0.1"},
-		AllowedHeaders: []string{"Authorization", "Content-Type", "X-Request-Id", "X-Room-Host-Token"},
-		MaxAgeSeconds:  600,
+		AllowedOrigins: []string{
+			"http://localhost",
+			"http://127.0.0.1",
+			"http://localhost:5173",
+			"http://127.0.0.1:5173",
+		},
+		AllowedHeaders:   []string{"Authorization", "Content-Type", "X-Request-Id", "X-Room-Host-Token"},
+		AllowCredentials: true,
+		MaxAgeSeconds:    600,
 	},
 	RateLimit: RateLimitConfig{
 		RequestsPerSecond: 25,
@@ -247,6 +271,19 @@ var Defaults = Config{
 		BindBurst:             5,
 	},
 	Admin: AdminConfig{
+		Issuer:                    "game-control-plane",
+		Audience:                  "admin-web",
+		AccessTokenKeyID:          "admin-access-dev-ephemeral",
+		AccessTokenTTLMinutes:     15,
+		RefreshTokenTTLDays:       7,
+		LoginChallengeTTLSeconds:  300,
+		StepUpTTLSeconds:          300,
+		LoginPerIPPerMinute:       10,
+		LoginPerUsernamePerMinute: 5,
+		TurnstileExpectedHostname: "admin.example.com",
+		TurnstileExpectedAction:   "admin_login",
+		TurnstileVerifyURL:        "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+		TurnstileTimeoutSeconds:   5,
 		TrustedCIDRs: []string{
 			"127.0.0.0/8",
 			"10.0.0.0/8",
@@ -358,6 +395,21 @@ func (c *Config) applyEnvOverrides() {
 	overrideString("ACCESS_TOKEN_PRIVATE_KEY_BASE64", &c.Auth.AccessTokenPrivateKeyBase64)
 	overrideString("ACCESS_TOKEN_KEY_ID", &c.Auth.AccessTokenKeyID)
 	overrideString("ADMIN_TOKENS", &c.Admin.TokenSet)
+	overrideString("ADMIN_ACCESS_TOKEN_PRIVATE_KEY_BASE64", &c.Admin.AccessTokenPrivateKeyBase64)
+	overrideString("ADMIN_ACCESS_TOKEN_KEY_ID", &c.Admin.AccessTokenKeyID)
+	overrideString("ADMIN_MFA_ENCRYPTION_KEY_BASE64", &c.Admin.MFAEncryptionKeyBase64)
+	overrideString("TURNSTILE_SITE_KEY", &c.Admin.TurnstileSiteKey)
+	overrideString("TURNSTILE_SECRET_KEY", &c.Admin.TurnstileSecretKey)
+	overrideString("TURNSTILE_EXPECTED_HOSTNAME", &c.Admin.TurnstileExpectedHostname)
+	overrideString("TURNSTILE_EXPECTED_ACTION", &c.Admin.TurnstileExpectedAction)
+	overrideString("TURNSTILE_VERIFY_URL", &c.Admin.TurnstileVerifyURL)
+	overrideInt("ADMIN_ACCESS_TOKEN_TTL_MINUTES", &c.Admin.AccessTokenTTLMinutes)
+	overrideInt("ADMIN_REFRESH_TOKEN_TTL_DAYS", &c.Admin.RefreshTokenTTLDays)
+	overrideInt("ADMIN_LOGIN_CHALLENGE_TTL_SECONDS", &c.Admin.LoginChallengeTTLSeconds)
+	overrideInt("ADMIN_STEP_UP_TTL_SECONDS", &c.Admin.StepUpTTLSeconds)
+	overrideInt("ADMIN_LOGIN_PER_IP_PER_MINUTE", &c.Admin.LoginPerIPPerMinute)
+	overrideInt("ADMIN_LOGIN_PER_USERNAME_PER_MINUTE", &c.Admin.LoginPerUsernamePerMinute)
+	overrideInt("TURNSTILE_TIMEOUT_SECONDS", &c.Admin.TurnstileTimeoutSeconds)
 	overrideString("GAME_SERVER_REGISTRATION_TOKENS", &c.GameServer.RegistrationTokenSet)
 	overrideInt("REDIS_DB", &c.Redis.DB)
 	overrideInt("HTTP_RATE_LIMIT_BURST", &c.RateLimit.Burst)
@@ -510,8 +562,31 @@ func (c *Config) ValidateControlPlane() error {
 	if len(c.Admin.TrustedCIDRs) == 0 {
 		errs = append(errs, errors.New("admin.trusted_cidrs must not be empty"))
 	}
+	if strings.TrimSpace(c.Admin.Issuer) == "" || strings.TrimSpace(c.Admin.Audience) == "" ||
+		strings.TrimSpace(c.Admin.AccessTokenKeyID) == "" {
+		errs = append(errs, errors.New("admin issuer, audience, and access token key ID are required"))
+	}
+	if c.Admin.AccessTokenTTLMinutes < 1 || c.Admin.RefreshTokenTTLDays < 1 ||
+		c.Admin.LoginChallengeTTLSeconds < 30 || c.Admin.LoginChallengeTTLSeconds > 600 ||
+		c.Admin.StepUpTTLSeconds < 30 || c.Admin.StepUpTTLSeconds > 600 ||
+		c.Admin.LoginPerIPPerMinute < 1 || c.Admin.LoginPerUsernamePerMinute < 1 ||
+		c.Admin.TurnstileTimeoutSeconds < 1 {
+		errs = append(errs, errors.New("admin authentication timing and rate limit values are invalid"))
+	}
+	if strings.TrimSpace(c.Admin.TurnstileVerifyURL) == "" ||
+		strings.TrimSpace(c.Admin.TurnstileExpectedHostname) == "" ||
+		strings.TrimSpace(c.Admin.TurnstileExpectedAction) == "" {
+		errs = append(errs, errors.New("admin Turnstile verification URL, hostname, and action are required"))
+	}
 	if strings.EqualFold(c.Environment, "production") && strings.TrimSpace(c.Admin.TokenSet) == "" {
 		errs = append(errs, errors.New("ADMIN_TOKENS is required in production"))
+	}
+	if strings.EqualFold(c.Environment, "production") &&
+		(strings.TrimSpace(c.Admin.AccessTokenPrivateKeyBase64) == "" ||
+			strings.TrimSpace(c.Admin.MFAEncryptionKeyBase64) == "" ||
+			strings.TrimSpace(c.Admin.TurnstileSiteKey) == "" ||
+			strings.TrimSpace(c.Admin.TurnstileSecretKey) == "") {
+		errs = append(errs, errors.New("admin access token, MFA encryption, and Turnstile keys are required in production"))
 	}
 	if c.GameServer.HeartbeatIntervalSeconds < 1 ||
 		c.GameServer.UnhealthyAfterSeconds <= c.GameServer.HeartbeatIntervalSeconds ||
@@ -615,6 +690,37 @@ func (c AuthConfig) AccessTokenTTL() time.Duration {
 
 func (c AuthConfig) RefreshTokenTTL() time.Duration {
 	return time.Duration(c.RefreshTokenTTLDays) * 24 * time.Hour
+}
+
+func (c AdminConfig) AccessTokenConfig() AuthConfig {
+	return AuthConfig{
+		Issuer:                      c.Issuer,
+		Audience:                    c.Audience,
+		AccessTokenKeyID:            c.AccessTokenKeyID,
+		AccessTokenPrivateKeyBase64: c.AccessTokenPrivateKeyBase64,
+		AccessTokenTTLMinutes:       c.AccessTokenTTLMinutes,
+		RefreshTokenTTLDays:         c.RefreshTokenTTLDays,
+	}
+}
+
+func (c AdminConfig) AccessTokenTTL() time.Duration {
+	return time.Duration(c.AccessTokenTTLMinutes) * time.Minute
+}
+
+func (c AdminConfig) RefreshTokenTTL() time.Duration {
+	return time.Duration(c.RefreshTokenTTLDays) * 24 * time.Hour
+}
+
+func (c AdminConfig) LoginChallengeTTL() time.Duration {
+	return time.Duration(c.LoginChallengeTTLSeconds) * time.Second
+}
+
+func (c AdminConfig) StepUpTTL() time.Duration {
+	return time.Duration(c.StepUpTTLSeconds) * time.Second
+}
+
+func (c AdminConfig) TurnstileTimeout() time.Duration {
+	return time.Duration(c.TurnstileTimeoutSeconds) * time.Second
 }
 
 func (c GameServerConfig) ServerTokenTTL() time.Duration {

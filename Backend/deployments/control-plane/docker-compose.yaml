@@ -19,6 +19,8 @@ services:
       - postgres-data:/var/lib/postgresql/data
     security_opt:
       - no-new-privileges:true
+    networks:
+      - data
 
   redis:
     image: redis:7-alpine
@@ -37,6 +39,8 @@ services:
       - redis-data:/data
     security_opt:
       - no-new-privileges:true
+    networks:
+      - data
 
   control-plane:
     build:
@@ -72,6 +76,13 @@ services:
       ACCESS_TOKEN_PRIVATE_KEY_BASE64: "${ACCESS_TOKEN_PRIVATE_KEY_BASE64:?ACCESS_TOKEN_PRIVATE_KEY_BASE64 is required}"
       ADMIN_TOKENS: "${ADMIN_TOKENS:?ADMIN_TOKENS is required}"
       ADMIN_TRUSTED_CIDRS: "${ADMIN_TRUSTED_CIDRS:-127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1/128,fc00::/7}"
+      ADMIN_ACCESS_TOKEN_KEY_ID: "${ADMIN_ACCESS_TOKEN_KEY_ID:?ADMIN_ACCESS_TOKEN_KEY_ID is required}"
+      ADMIN_ACCESS_TOKEN_PRIVATE_KEY_BASE64: "${ADMIN_ACCESS_TOKEN_PRIVATE_KEY_BASE64:?ADMIN_ACCESS_TOKEN_PRIVATE_KEY_BASE64 is required}"
+      ADMIN_MFA_ENCRYPTION_KEY_BASE64: "${ADMIN_MFA_ENCRYPTION_KEY_BASE64:?ADMIN_MFA_ENCRYPTION_KEY_BASE64 is required}"
+      TURNSTILE_SITE_KEY: "${TURNSTILE_SITE_KEY:?TURNSTILE_SITE_KEY is required}"
+      TURNSTILE_SECRET_KEY: "${TURNSTILE_SECRET_KEY:?TURNSTILE_SECRET_KEY is required}"
+      TURNSTILE_EXPECTED_HOSTNAME: "${TURNSTILE_EXPECTED_HOSTNAME:?TURNSTILE_EXPECTED_HOSTNAME is required}"
+      TURNSTILE_EXPECTED_ACTION: "${TURNSTILE_EXPECTED_ACTION:-admin_login}"
       GAME_SERVER_REGISTRATION_TOKENS: "${GAME_SERVER_REGISTRATION_TOKENS:?GAME_SERVER_REGISTRATION_TOKENS is required}"
       RELAY_CONTROL_ADDR: ":9090"
       RELAY_CONTROL_SERVER_NAMES: "${RELAY_CONTROL_SERVER_NAMES:-control-plane,localhost}"
@@ -104,12 +115,39 @@ services:
       - "${RELAY_CONTROL_BIND_IP:-127.0.0.1}:${RELAY_CONTROL_PORT:-9090}:9090"
     volumes:
       - ../updates:/deployments/updates:ro
+    networks:
+      - data
+      - edge
+      - monitoring
+
+  admin-web:
+    build:
+      context: ../../..
+      dockerfile: AdminWeb/Dockerfile
+    image: "${ADMIN_WEB_IMAGE:-project-rebound/admin-web:local}"
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /config:size=16m,mode=0750,uid=10001,gid=10001
+      - /data:size=16m,mode=0750,uid=10001,gid=10001
+      - /tmp:size=16m,mode=1777,uid=10001,gid=10001
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    expose:
+      - "8080"
+    mem_limit: 256m
+    cpus: 0.5
+    networks:
+      - edge
 
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
     environment:
       PUBLIC_API_SITE: "${PUBLIC_API_SITE:-http://:80}"
+      ADMIN_WEB_SITE: "${ADMIN_WEB_SITE:?ADMIN_WEB_SITE is required}"
     ports:
       - "${PUBLIC_API_BIND_IP:-0.0.0.0}:${PUBLIC_API_HTTP_PORT:-8080}:80"
       - "${PUBLIC_API_BIND_IP:-0.0.0.0}:${PUBLIC_API_HTTPS_PORT:-443}:443"
@@ -123,6 +161,10 @@ services:
     depends_on:
       control-plane:
         condition: service_healthy
+      admin-web:
+        condition: service_started
+    networks:
+      - edge
 
   prometheus:
     profiles: [monitoring]
@@ -141,6 +183,8 @@ services:
     depends_on:
       control-plane:
         condition: service_healthy
+    networks:
+      - monitoring
 
   grafana:
     profiles: [monitoring]
@@ -160,6 +204,8 @@ services:
       - no-new-privileges:true
     depends_on:
       - prometheus
+    networks:
+      - monitoring
 
 volumes:
   postgres-data:
@@ -168,3 +214,10 @@ volumes:
   caddy-config:
   prometheus-data:
   grafana-data:
+
+networks:
+  edge:
+  data:
+    internal: true
+  monitoring:
+    internal: true

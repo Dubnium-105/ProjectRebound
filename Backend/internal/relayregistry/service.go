@@ -92,8 +92,8 @@ func (s *Service) KeysetLoaded(ctx context.Context, nodeID string, version int64
 }
 
 func (s *Service) ActivateSigningKey(ctx context.Context, keyID string, meta AdminMeta) (Keyset, error) {
-	if strings.TrimSpace(meta.ActorID) == "" {
-		return Keyset{}, unauthorized("ADMIN_UNAUTHORIZED", "Administrator authentication is required.")
+	if err := validateAdminMeta(meta); err != nil {
+		return Keyset{}, err
 	}
 	current := s.tokenManager.Keyset()
 	now := s.now().UTC()
@@ -343,8 +343,8 @@ func (s *Service) Revoke(ctx context.Context, nodeID string, meta AdminMeta) (No
 }
 
 func (s *Service) changeState(ctx context.Context, nodeID string, next State, deadline *time.Time, migrateExisting bool, meta AdminMeta) (Node, error) {
-	if strings.TrimSpace(meta.ActorID) == "" {
-		return Node{}, unauthorized("ADMIN_UNAUTHORIZED", "Administrator authentication is required.")
+	if err := validateAdminMeta(meta); err != nil {
+		return Node{}, err
 	}
 	node, err := s.repository.Get(ctx, nodeID)
 	if err != nil {
@@ -367,6 +367,26 @@ func (s *Service) changeState(ctx context.Context, nodeID string, next State, de
 		return Node{}, internal(err)
 	}
 	return updated, nil
+}
+
+func validateAdminMeta(meta AdminMeta) error {
+	if strings.TrimSpace(meta.ActorID) == "" {
+		return unauthorized("ADMIN_UNAUTHORIZED", "Administrator authentication is required.")
+	}
+	reason := strings.TrimSpace(meta.Reason)
+	if reason == "" {
+		return invalid("An operation reason is required.", map[string]any{"reason": "is required"})
+	}
+	if len([]rune(reason)) > 500 {
+		return invalid("The operation reason is too long.", map[string]any{"reason": "must contain at most 500 characters"})
+	}
+	lower := strings.ToLower(reason)
+	for _, marker := range []string{"authorization:", "bearer ", "password=", "token=", "secret=", "cookie="} {
+		if strings.Contains(lower, marker) {
+			return invalid("Operation reasons must not contain credentials.", map[string]any{"reason": "contains credential-like text"})
+		}
+	}
+	return nil
 }
 
 func (s *Service) Get(ctx context.Context, nodeID string) (Node, error) {
@@ -478,6 +498,41 @@ func (s *Service) RevokeRelay(ctx context.Context, connectionID, reason string) 
 		}})
 	}
 	return nil
+}
+
+// MigrateConnection starts a controlled migration to a scheduler-selected
+// READY node. Callers cannot provide an endpoint or target node.
+func (s *Service) MigrateConnection(ctx context.Context, connectionID string) (string, string, string, error) {
+	connectionID = strings.TrimSpace(connectionID)
+	if connectionID == "" {
+		return "", "", "", invalid("connection_id is required.", nil)
+	}
+	allocationID, err := s.repository.ActiveAllocationIDForConnection(ctx, connectionID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", "", "", conflict("ACTIVE_RELAY_ALLOCATION_NOT_FOUND", "Connection has no active relay allocation.")
+	}
+	if err != nil {
+		return "", "", "", internal(err)
+	}
+	now := s.now().UTC()
+	migration, err := s.repository.PlanMigration(
+		ctx, allocationID, newID("rmig_"), newID("alloc_"), "ADMIN_MANUAL",
+		now.Add(s.config.AllocationTTL()), now, s.config.CapacityThresholdPercent,
+		time.Duration(s.config.MigrationTimeoutSeconds)*time.Second,
+	)
+	if errors.Is(err, ErrActiveMigration) {
+		return "", "", "", conflict("RELAY_MIGRATION_ALREADY_ACTIVE", "A relay migration is already active for this connection.")
+	}
+	if errors.Is(err, ErrNoMigrationTarget) {
+		return "", "", "", unavailable("RELAY_MIGRATION_TARGET_UNAVAILABLE", "No healthy relay migration target is available.")
+	}
+	if err != nil {
+		return "", "", "", internal(err)
+	}
+	if err := s.dispatchMigration(ctx, migration); err != nil {
+		return "", "", "", internal(err)
+	}
+	return migration.ID, migration.OldRelayNodeID, migration.NewRelayNodeID, nil
 }
 
 func truncateReason(reason string) string {
@@ -605,26 +660,30 @@ func (s *Service) dispatchPendingMigrations(ctx context.Context, planned int) (i
 	}
 	dispatched := 0
 	for _, migration := range pending {
-		allocation, err := s.presentAllocation(migration.NewAllocation, migration.NewNode)
-		if err != nil {
-			return planned, dispatched, err
-		}
-		if s.connectionCoordinator == nil {
-			return planned, dispatched, errors.New("relay migration coordinator is unavailable")
-		}
-		if err := s.connectionCoordinator.RelayMigrating(ctx, migration.ConnectionID, connection.RelayMigration{
-			MigrationID: migration.ID, PreviousAllocationID: migration.OldAllocationID,
-			PreviousRelayNodeID: migration.OldRelayNodeID, Reason: migration.Reason,
-			Attempt: migration.Attempt, Allocation: allocation,
-		}); err != nil {
-			return planned, dispatched, err
-		}
-		if err := s.repository.MarkMigrationDispatched(ctx, migration.ID, s.now().UTC()); err != nil {
+		if err := s.dispatchMigration(ctx, migration); err != nil {
 			return planned, dispatched, err
 		}
 		dispatched++
 	}
 	return planned, dispatched, nil
+}
+
+func (s *Service) dispatchMigration(ctx context.Context, migration Migration) error {
+	allocation, err := s.presentAllocation(migration.NewAllocation, migration.NewNode)
+	if err != nil {
+		return err
+	}
+	if s.connectionCoordinator == nil {
+		return errors.New("relay migration coordinator is unavailable")
+	}
+	if err := s.connectionCoordinator.RelayMigrating(ctx, migration.ConnectionID, connection.RelayMigration{
+		MigrationID: migration.ID, PreviousAllocationID: migration.OldAllocationID,
+		PreviousRelayNodeID: migration.OldRelayNodeID, Reason: migration.Reason,
+		Attempt: migration.Attempt, Allocation: allocation,
+	}); err != nil {
+		return err
+	}
+	return s.repository.MarkMigrationDispatched(ctx, migration.ID, s.now().UTC())
 }
 
 func (s *Service) failMigrationConnection(ctx context.Context, migration Migration, reason string) error {

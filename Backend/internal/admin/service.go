@@ -83,6 +83,14 @@ func (s *Service) PatchPlayer(ctx context.Context, playerID string, patch Player
 		}
 		patch.AccountStatus = &normalized
 	}
+	reason, err := validateAuditReason(patch.Reason)
+	if err != nil {
+		return PatchResult{}, err
+	}
+	internalNote, err := validateInternalNote(patch.InternalNote)
+	if err != nil {
+		return PatchResult{}, err
+	}
 	meta = sanitizeMeta(meta)
 	if meta.AdminID == "" {
 		return PatchResult{}, &ServiceError{Status: 401, Code: "ADMIN_UNAUTHORIZED", Message: "Administrator authentication is required."}
@@ -122,9 +130,13 @@ func (s *Service) PatchPlayer(ctx context.Context, playerID string, patch Player
 			"account_status":   newValue.AccountStatus,
 			"is_vip":           newValue.IsVIP,
 			"revoked_sessions": revoked,
+			"internal_note":    internalNote,
 		},
+		Reason:    reason,
 		RequestID: meta.RequestID,
 		IPAddress: meta.IPAddress,
+		UserAgent: meta.UserAgent,
+		Result:    "SUCCEEDED",
 		CreatedAt: now,
 	}); err != nil {
 		return PatchResult{}, internal(err)
@@ -135,7 +147,11 @@ func (s *Service) PatchPlayer(ctx context.Context, playerID string, patch Player
 	return PatchResult{Player: newValue, RevokedSessions: revoked}, nil
 }
 
-func (s *Service) RevokePlayerSessions(ctx context.Context, playerID string, meta RequestMeta) (int64, error) {
+func (s *Service) RevokePlayerSessions(ctx context.Context, playerID, reasonInput string, meta RequestMeta) (int64, error) {
+	reason, err := validateAuditReason(reasonInput)
+	if err != nil {
+		return 0, err
+	}
 	meta = sanitizeMeta(meta)
 	if meta.AdminID == "" {
 		return 0, &ServiceError{Status: 401, Code: "ADMIN_UNAUTHORIZED", Message: "Administrator authentication is required."}
@@ -161,8 +177,11 @@ func (s *Service) RevokePlayerSessions(ctx context.Context, playerID string, met
 		TargetID:   playerID,
 		OldValue:   map[string]any{},
 		NewValue:   map[string]any{"revoked_sessions": revoked},
+		Reason:     reason,
 		RequestID:  meta.RequestID,
 		IPAddress:  meta.IPAddress,
+		UserAgent:  meta.UserAgent,
+		Result:     "SUCCEEDED",
 		CreatedAt:  now,
 	}); err != nil {
 		return 0, internal(err)
@@ -171,6 +190,51 @@ func (s *Service) RevokePlayerSessions(ctx context.Context, playerID string, met
 		return 0, internal(fmt.Errorf("commit admin session revocation: %w", err))
 	}
 	return revoked, nil
+}
+
+func validateAuditReason(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", &ServiceError{
+			Status:  http.StatusBadRequest,
+			Code:    "INVALID_REQUEST",
+			Message: "An operation reason is required.",
+			Details: map[string]any{"reason": "is required"},
+		}
+	}
+	if len([]rune(value)) > 500 {
+		return "", &ServiceError{
+			Status:  http.StatusBadRequest,
+			Code:    "INVALID_REQUEST",
+			Message: "The operation reason is too long.",
+			Details: map[string]any{"reason": "must contain at most 500 characters"},
+		}
+	}
+	lower := strings.ToLower(value)
+	for _, marker := range []string{"authorization:", "bearer ", "password=", "token=", "secret=", "cookie="} {
+		if strings.Contains(lower, marker) {
+			return "", &ServiceError{
+				Status:  http.StatusBadRequest,
+				Code:    "SENSITIVE_AUDIT_TEXT",
+				Message: "Operation reasons must not contain passwords, tokens, cookies, or other credentials.",
+				Details: map[string]any{"reason": "contains credential-like text"},
+			}
+		}
+	}
+	return value, nil
+}
+
+func validateInternalNote(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if len([]rune(value)) > 2000 {
+		return "", &ServiceError{
+			Status:  http.StatusBadRequest,
+			Code:    "INVALID_REQUEST",
+			Message: "The internal note is too long.",
+			Details: map[string]any{"internal_note": "must contain at most 2000 characters"},
+		}
+	}
+	return value, nil
 }
 
 func parseAccountStatus(value string, allowEmpty bool) (player.AccountStatus, error) {
@@ -200,6 +264,7 @@ func internal(err error) error {
 func sanitizeMeta(meta RequestMeta) RequestMeta {
 	meta.AdminID = truncate(strings.TrimSpace(meta.AdminID), 128)
 	meta.RequestID = truncate(strings.TrimSpace(meta.RequestID), 128)
+	meta.UserAgent = truncate(strings.TrimSpace(meta.UserAgent), 512)
 	if net.ParseIP(meta.IPAddress) == nil {
 		meta.IPAddress = ""
 	}

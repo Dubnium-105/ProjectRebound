@@ -35,12 +35,22 @@ func (s *Service) Create(ctx context.Context, input CreateInput, meta RequestMet
 	if meta.AdminID == "" {
 		return CreateResult{}, unauthorized()
 	}
+	reason, err := validateReason(input.Reason)
+	if err != nil {
+		return CreateResult{}, err
+	}
 	input.BatchName = strings.TrimSpace(input.BatchName)
 	if input.BatchName == "" || len(input.BatchName) > 128 {
 		return CreateResult{}, invalid("Invalid batch name.", map[string]any{"batch_name": "must contain 1 to 128 bytes"})
 	}
 	if input.MaxUses < 1 || input.MaxUses > 1_000_000 {
 		return CreateResult{}, invalid("Invalid maximum uses.", map[string]any{"max_uses": "must be between 1 and 1000000"})
+	}
+	if input.Quantity == 0 {
+		input.Quantity = 1
+	}
+	if input.Quantity < 1 || input.Quantity > 100 {
+		return CreateResult{}, invalid("Invalid quantity.", map[string]any{"quantity": "must be between 1 and 100"})
 	}
 	now := s.now().UTC()
 	if input.ExpiresAt != nil && !input.ExpiresAt.After(now) {
@@ -52,31 +62,40 @@ func (s *Service) Create(ctx context.Context, input CreateInput, meta RequestMet
 	if encoded, err := json.Marshal(input.Permissions); err != nil || len(encoded) > 8*1024 {
 		return CreateResult{}, invalid("Invalid permissions.", map[string]any{"permissions": "must be valid JSON no larger than 8192 bytes"})
 	}
-	plaintext, err := newPlaintextCode()
-	if err != nil {
-		return CreateResult{}, internal(err)
-	}
-	item := Code{
-		ID: newID("inv_"), BatchName: input.BatchName, MaxUses: input.MaxUses,
-		ExpiresAt: input.ExpiresAt, Enabled: true, Permissions: input.Permissions,
-		CreatedBy: meta.AdminID, CreatedAt: now, UpdatedAt: now,
-	}
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return CreateResult{}, internal(err)
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
-	if err := s.repository.Insert(ctx, tx, item, hashCode(plaintext)); err != nil {
-		return CreateResult{}, internal(err)
-	}
-	if err := s.insertAudit(ctx, tx, meta, "INVITE_CODE_CREATED", item.ID,
-		map[string]any{}, map[string]any{"batch_name": item.BatchName, "max_uses": item.MaxUses, "expires_at": item.ExpiresAt, "enabled": true}, now); err != nil {
-		return CreateResult{}, internal(err)
+	items := make([]CreatedCode, 0, input.Quantity)
+	for range input.Quantity {
+		plaintext, err := newPlaintextCode()
+		if err != nil {
+			return CreateResult{}, internal(err)
+		}
+		item := Code{
+			ID: newID("inv_"), BatchName: input.BatchName, MaxUses: input.MaxUses,
+			ExpiresAt: input.ExpiresAt, Enabled: true, Permissions: input.Permissions,
+			CreatedBy: meta.AdminID, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := s.repository.Insert(ctx, tx, item, hashCode(plaintext)); err != nil {
+			return CreateResult{}, internal(err)
+		}
+		if err := s.insertAudit(ctx, tx, meta, "INVITE_CODE_CREATED", item.ID,
+			map[string]any{}, map[string]any{
+				"batch_name": item.BatchName, "max_uses": item.MaxUses,
+				"expires_at": item.ExpiresAt, "enabled": true, "quantity": input.Quantity,
+			}, reason, now); err != nil {
+			return CreateResult{}, internal(err)
+		}
+		items = append(items, CreatedCode{Code: item, Plaintext: plaintext})
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return CreateResult{}, internal(fmt.Errorf("commit invite creation: %w", err))
 	}
-	return CreateResult{Code: item, Plaintext: plaintext}, nil
+	return CreateResult{
+		Code: items[0].Code, Plaintext: items[0].Plaintext, Items: items,
+	}, nil
 }
 
 func (s *Service) List(ctx context.Context, cursor string, limit int) (ListResult, error) {
@@ -106,11 +125,34 @@ func (s *Service) Get(ctx context.Context, id string) (Code, error) {
 	return item, nil
 }
 
+func (s *Service) ListUses(ctx context.Context, id, cursor string, limit int) (UseListResult, error) {
+	id = strings.TrimSpace(id)
+	if _, err := s.repository.Get(ctx, id); err != nil {
+		return UseListResult{}, mapNotFound(err)
+	}
+	if limit == 0 {
+		limit = 50
+	}
+	if limit < 1 || limit > 100 {
+		return UseListResult{}, invalid("Invalid limit.", map[string]any{"limit": "must be between 1 and 100"})
+	}
+	items, err := s.repository.ListUses(ctx, id, strings.TrimSpace(cursor), limit+1)
+	if err != nil {
+		return UseListResult{}, internal(err)
+	}
+	nextCursor := ""
+	if len(items) > limit {
+		nextCursor = items[limit-1].ID
+		items = items[:limit]
+	}
+	return UseListResult{Items: items, NextCursor: nextCursor}, nil
+}
+
 func (s *Service) Patch(ctx context.Context, id string, patch Patch, meta RequestMeta) (Code, error) {
 	if patch.BatchName == nil && patch.MaxUses == nil && patch.ExpiresAt == nil && !patch.ClearExpiry && patch.Enabled == nil && patch.Permissions == nil {
 		return Code{}, invalid("At least one invite field is required.", nil)
 	}
-	return s.mutate(ctx, id, meta, "INVITE_CODE_UPDATED", func(item *Code, now time.Time) error {
+	return s.mutate(ctx, id, patch.Reason, meta, "INVITE_CODE_UPDATED", func(item *Code, now time.Time) error {
 		if patch.BatchName != nil {
 			value := strings.TrimSpace(*patch.BatchName)
 			if value == "" || len(value) > 128 {
@@ -146,8 +188,8 @@ func (s *Service) Patch(ctx context.Context, id string, patch Patch, meta Reques
 	})
 }
 
-func (s *Service) Revoke(ctx context.Context, id string, meta RequestMeta) (Code, error) {
-	return s.mutate(ctx, id, meta, "INVITE_CODE_REVOKED", func(item *Code, now time.Time) error {
+func (s *Service) Revoke(ctx context.Context, id, reason string, meta RequestMeta) (Code, error) {
+	return s.mutate(ctx, id, reason, meta, "INVITE_CODE_REVOKED", func(item *Code, now time.Time) error {
 		item.Enabled = false
 		if item.RevokedAt == nil {
 			item.RevokedAt = &now
@@ -164,10 +206,14 @@ func (s *Service) Consume(ctx context.Context, tx pgx.Tx, plaintext, playerID, s
 	return s.repository.Consume(ctx, tx, hashCode(plaintext), playerID, steamID, ipAddress, now)
 }
 
-func (s *Service) mutate(ctx context.Context, id string, meta RequestMeta, action string, mutate func(*Code, time.Time) error) (Code, error) {
+func (s *Service) mutate(ctx context.Context, id, reasonInput string, meta RequestMeta, action string, mutate func(*Code, time.Time) error) (Code, error) {
 	meta = sanitizeMeta(meta)
 	if meta.AdminID == "" {
 		return Code{}, unauthorized()
+	}
+	reason, err := validateReason(reasonInput)
+	if err != nil {
+		return Code{}, err
 	}
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -187,7 +233,7 @@ func (s *Service) mutate(ctx context.Context, id string, meta RequestMeta, actio
 	if err := s.repository.Update(ctx, tx, item); err != nil {
 		return Code{}, internal(err)
 	}
-	if err := s.insertAudit(ctx, tx, meta, action, item.ID, auditValue(oldItem), auditValue(item), now); err != nil {
+	if err := s.insertAudit(ctx, tx, meta, action, item.ID, auditValue(oldItem), auditValue(item), reason, now); err != nil {
 		return Code{}, internal(err)
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -196,11 +242,29 @@ func (s *Service) mutate(ctx context.Context, id string, meta RequestMeta, actio
 	return item, nil
 }
 
-func (s *Service) insertAudit(ctx context.Context, tx pgx.Tx, meta RequestMeta, action, id string, oldValue, newValue map[string]any, now time.Time) error {
+func (s *Service) insertAudit(ctx context.Context, tx pgx.Tx, meta RequestMeta, action, id string, oldValue, newValue map[string]any, reason string, now time.Time) error {
 	return s.audits.InsertAudit(ctx, tx, admin.AuditLog{
 		ID: newID("ada_"), AdminID: meta.AdminID, Action: action, TargetType: "invite_code", TargetID: id,
-		OldValue: oldValue, NewValue: newValue, RequestID: meta.RequestID, IPAddress: meta.IPAddress, CreatedAt: now,
+		OldValue: oldValue, NewValue: newValue, Reason: reason, RequestID: meta.RequestID,
+		IPAddress: meta.IPAddress, UserAgent: meta.UserAgent, Result: "SUCCEEDED", CreatedAt: now,
 	})
+}
+
+func validateReason(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", invalid("An operation reason is required.", map[string]any{"reason": "is required"})
+	}
+	if len([]rune(value)) > 500 {
+		return "", invalid("The operation reason is too long.", map[string]any{"reason": "must contain at most 500 characters"})
+	}
+	lower := strings.ToLower(value)
+	for _, marker := range []string{"authorization:", "bearer ", "password=", "token=", "secret=", "cookie="} {
+		if strings.Contains(lower, marker) {
+			return "", invalid("Operation reasons must not contain credentials.", map[string]any{"reason": "contains credential-like text"})
+		}
+	}
+	return value, nil
 }
 
 func auditValue(item Code) map[string]any {
@@ -236,6 +300,7 @@ func hashCode(value string) []byte {
 func sanitizeMeta(meta RequestMeta) RequestMeta {
 	meta.AdminID = truncate(strings.TrimSpace(meta.AdminID), 128)
 	meta.RequestID = truncate(strings.TrimSpace(meta.RequestID), 128)
+	meta.UserAgent = truncate(strings.TrimSpace(meta.UserAgent), 512)
 	if net.ParseIP(meta.IPAddress) == nil {
 		meta.IPAddress = ""
 	}

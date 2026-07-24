@@ -8,7 +8,7 @@
 
 | 接口 | 默认地址 | 调用方 | 防护 |
 | --- | --- | --- | --- |
-| 管理 HTTP | `127.0.0.1:18080/v1/admin/*` | 运维后台/SSH 隧道 | Admin Token + trusted CIDR |
+| 管理 HTTP | `127.0.0.1:18080/v1/admin/*` | 独立 Admin Web | Turnstile + 管理员密码 + TOTP + 短期 Admin Access Token + trusted CIDR |
 | 内部 Relay 管理 HTTP | `127.0.0.1:18080/internal/v1/relay-nodes/*` | 运维后台 | Admin Token + trusted CIDR |
 | Relay 注册/续签 HTTP | 公网 HTTPS `/internal/v1/relay-nodes/enroll`、`.../certificate/renew` | Edge Relay | 一次性 Bootstrap Token 或 Node Token |
 | 控制面指标 | `127.0.0.1:18080/internal/metrics` | Prometheus | trusted CIDR；公网代理返回 404 |
@@ -18,9 +18,36 @@
 
 公网 Caddy 必须对 `/v1/admin*` 和 `/internal/*` 返回 404，只允许 Relay enroll 和 certificate renew 两条机器接口。源 IP 白名单不能替代 Token，Token 也不能替代网络隔离。
 
-## 2. Admin Token
+## 2. 管理员认证
 
-控制面通过环境变量读取：
+浏览器管理员认证与玩家认证完全隔离。登录流程为：
+
+1. `GET /v1/admin/auth/config` 获取公开的 Turnstile Sitekey 和 action；
+2. `POST /v1/admin/auth/login` 提交用户名、密码和 `turnstile_token`；
+3. 控制面调用 Cloudflare Siteverify，并校验 `success`、预期 hostname 和 `admin_login` action；
+4. 密码通过后返回五分钟有效的一次性 MFA challenge；
+5. `POST /v1/admin/auth/mfa/verify` 提交 TOTP 或恢复码；
+6. 成功后返回短期 Admin Access Token，并设置 `HttpOnly; SameSite=Strict` Refresh Cookie；
+7. `POST /v1/admin/auth/refresh` 轮换 Refresh Cookie，重复使用旧 Token 会撤销会话。
+8. 高风险操作通过 `POST /v1/admin/auth/step-up` 重新校验 TOTP 或恢复码，取得绑定当前 Session 的短时证明。
+
+已登录管理员使用：
+
+```text
+POST   /v1/admin/auth/logout
+GET    /v1/admin/auth/me
+GET    /v1/admin/auth/sessions
+DELETE /v1/admin/auth/sessions/{session_id}
+POST   /v1/admin/auth/step-up
+```
+
+玩家 Access Token 和机器 Admin Token 均不能代替 Admin Web 的 Access Token。权限由服务端 RBAC 强制执行，前端菜单隐藏不构成安全边界。Relay 撤销还必须在 `X-Admin-Step-Up` 中携带二次 MFA 证明；证明只保存在浏览器内存并按配置的短时 TTL 过期。
+
+首次管理员通过 `go run ./cmd/adminctl` 创建。密码只从 `ADMINCTL_PASSWORD` 环境变量读取；TOTP provisioning URI 和恢复码只在创建成功时显示一次。持久环境必须预先配置 `ADMIN_MFA_ENCRYPTION_KEY_BASE64`。
+
+## 2.1 机器 Admin Token
+
+静态 Admin Token 仅保留给内部 Relay 运维和自动化接口，不再接受于 `/v1/admin/*` 的人类管理 API。控制面通过环境变量读取：
 
 ```text
 ADMIN_TOKENS=operator=<high-entropy-token>;automation=<another-token>
@@ -33,7 +60,7 @@ ADMIN_TRUSTED_CIDRS=127.0.0.0/8,10.0.0.0/8,...
 Authorization: Bearer <admin-token>
 ```
 
-玩家 Access Token 不可用于管理接口。启用 `TRUST_PROXY_HEADERS=true` 时只能把控制面放在受信反向代理之后，禁止让客户端绕过代理直连；否则伪造的转发 Header 可能影响源地址判断。
+玩家 Access Token 不可用于任何管理接口。启用 `TRUST_PROXY_HEADERS=true` 时只能把控制面放在受信反向代理之后，禁止让客户端绕过代理直连；否则伪造的转发 Header 可能影响源地址判断。
 
 ## 3. 玩家管理 API
 
@@ -41,40 +68,123 @@ Authorization: Bearer <admin-token>
 | --- | --- | --- | --- |
 | GET | `/v1/admin/players` | `cursor`, `limit`, `account_status` | 玩家分页列表 |
 | GET | `/v1/admin/players/{player_id}` | Path ID | 完整管理记录 |
-| PATCH | `/v1/admin/players/{player_id}` | 至少一个：`account_status`, `is_vip`, `revoke_sessions` | 更新后的玩家、撤销 session 数 |
-| POST | `/v1/admin/players/{player_id}/revoke-sessions` | 无 | 撤销数量和时间 |
+| GET | `/v1/admin/players/{player_id}/sessions` | Path ID | 带设备与 IP 摘要的近期 Session |
+| GET | `/v1/admin/players/{player_id}/risk-events` | Path ID | 已脱敏的近期风险事件 |
+| GET | `/v1/admin/players/{player_id}/login-events` | Path ID | 近期认证结果 |
+| PATCH | `/v1/admin/players/{player_id}` | `reason`，以及至少一个 `account_status`、`is_vip`、`revoke_sessions`；可选 `internal_note` | 更新后的玩家、撤销 session 数 |
+| POST | `/v1/admin/players/{player_id}/revoke-sessions` | `reason` | 撤销数量和时间 |
 
 Patch 示例：
 
 ```http
 PATCH /v1/admin/players/player_123 HTTP/1.1
-Authorization: Bearer <admin-token>
+Authorization: Bearer <admin-access-token>
 Content-Type: application/json
 
 {
   "account_status": "BANNED",
   "is_vip": false,
-  "revoke_sessions": true
+  "revoke_sessions": true,
+  "reason": "客服工单 CS-4812 已确认存在退款滥用",
+  "internal_note": "值班运营负责人已复核"
 }
 ```
 
-`account_status` 为 `ACTIVE`、`BANNED` 或 `DELETED`。更新会写入审计记录；需要立即使现有登录失效时设置 `revoke_sessions=true`，或调用独立的 revoke-sessions 端点。外部工单原因应通过受控审计系统关联，不应把 Token、隐私数据或游戏 Payload 放入请求或日志。
+`account_status` 为 `ACTIVE`、`BANNED` 或 `DELETED`。所有写操作都必须填写人类可读原因，并在审计记录中保存原因、请求编号、管理员、来源地址、User-Agent、修改前后内容和结果。需要立即使现有登录失效时设置 `revoke_sessions=true`，或调用独立的 revoke-sessions 端点。原因和备注中禁止放入 Token、密码、Cookie、隐私数据或游戏 Payload。
 
 ### 3.1 邀请码管理
 
 | 方法 | 路径 | 参数/请求 | 成功 |
 | --- | --- | --- | --- |
-| POST | `/v1/admin/invite-codes` | `batch_name`, `max_uses`；可选 `expires_at`, `permissions` | 创建元数据并仅本次返回明文 `code` |
+| POST | `/v1/admin/invite-codes` | `batch_name`, `max_uses`, `reason`；可选 `quantity`（1–100）、`expires_at`, `permissions` | 原子创建一批元数据并仅本次返回明文邀请码 |
 | GET | `/v1/admin/invite-codes` | `cursor`, `limit` | 元数据分页列表，不返回明文或哈希 |
 | GET | `/v1/admin/invite-codes/{id}` | Path ID | 单条元数据，不返回明文或哈希 |
-| PATCH | `/v1/admin/invite-codes/{id}` | `batch_name`, `max_uses`, `expires_at`, `enabled`, `permissions` 中至少一个 | 更新后的元数据 |
-| POST | `/v1/admin/invite-codes/{id}/revoke` | 无 | 幂等禁用并记录撤销时间 |
+| GET | `/v1/admin/invite-codes/{id}/uses` | `cursor`, `limit` | 成功使用记录，IP 仅返回掩码后的网段摘要 |
+| PATCH | `/v1/admin/invite-codes/{id}` | `reason` 和 `batch_name`, `max_uses`, `expires_at`, `enabled`, `permissions` 中至少一个 | 更新后的元数据 |
+| POST | `/v1/admin/invite-codes/{id}/revoke` | `reason` | 幂等禁用并记录撤销时间 |
 
 创建响应中的明文邀请码是秘密，只出现一次；数据库仅存 SHA-256 哈希。`max_uses` 不得降低到 `used_count` 以下。绑定新 SteamID 时使用行级锁消费名额，因此并发争抢最后一个名额只会有一个事务成功。已有玩家再次 bind 不重复消费邀请码。
 
-### 3.2 认证风险事件
+### 3.2 Dashboard、风险事件与审计
 
-`GET /v1/admin/auth/risk-events` 按 `cursor`、`limit`、`player_id`、`event_type`、`severity` 和 `unresolved_only` 查询认证风险记录。V1.1 只记录和展示，不执行自动封禁。响应不包含 Device ID 哈希，IP 在返回前脱敏；数据库中的事件详情也不得写入 Access Token、Refresh Token 或完整 Authorization Header。
+Dashboard 使用 `GET /v1/admin/dashboard/summary`、`GET /v1/admin/dashboard/timeseries` 和 `GET /v1/admin/dashboard/alerts`。趋势周期只允许 `1h`、`24h`、`7d`、`30d`，前端不能提交任意 SQL 分组表达式。
+
+使用 `GET /v1/admin/risk-events` 和 `GET /v1/admin/risk-events/{event_id}` 查询认证风险记录。`POST /v1/admin/risk-events/{event_id}/resolve` 必须提交 `reason`，并记录处理管理员和时间。响应不包含 Device ID 哈希，IP 会脱敏，详情中类似凭据的字段也会递归脱敏。
+
+写操作审计通过 `GET /v1/admin/audit-logs` 和 `GET /v1/admin/audit-logs/{audit_id}` 查询；管理员登录及 Turnstile 诊断通过 `GET /v1/admin/login-audit` 查询。登录审计只包含校验结果、错误码、hostname、action 和延迟，绝不记录 Turnstile Token、Secret、密码、Cookie 或 Authorization Header。
+
+### 3.3 联机运营
+
+人类管理员使用以下基于 Session 的接口：
+
+```text
+GET  /v1/admin/p2p-rooms
+GET  /v1/admin/p2p-rooms/{room_id}
+GET  /v1/admin/p2p-rooms/{room_id}/members
+POST /v1/admin/p2p-rooms/{room_id}/close
+POST /v1/admin/p2p-rooms/{room_id}/members/{player_id}/remove
+
+GET  /v1/admin/game-servers
+GET  /v1/admin/game-servers/{server_id}
+POST /v1/admin/game-servers/{server_id}/drain
+POST /v1/admin/game-servers/{server_id}/resume
+POST /v1/admin/game-servers/{server_id}/disable
+
+GET  /v1/admin/connections
+GET  /v1/admin/connections/{connection_id}
+POST /v1/admin/connections/{connection_id}/close
+POST /v1/admin/connections/{connection_id}/migrate-relay
+
+GET  /v1/admin/relay-nodes
+GET  /v1/admin/relay-nodes/{node_id}
+POST /v1/admin/relay-nodes/{node_id}/drain
+POST /v1/admin/relay-nodes/{node_id}/resume
+POST /v1/admin/relay-nodes/{node_id}/revoke
+```
+
+所有写操作都必须提交 `reason`；Relay Drain 还可提交 `deadline_seconds` 和 `migrate_existing`。停用专服会将其标记为离线并撤销注册 Token。房间操作返回 `connections_cleanup_complete`；若为 false，说明房间变更已成功，但需按 Runbook 确认下游连接清理。Connection 的 Relay 迁移不接受浏览器提交目标地址或节点，目标由后端调度器从合格的 READY 节点中选择。响应绝不包含房主 Token、节点 Token、Allocation Token、注册 Token 哈希、私钥或完整 ICE Candidate。
+
+### 3.4 客户端发布管理
+
+```text
+GET  /v1/admin/releases
+POST /v1/admin/releases
+GET  /v1/admin/releases/{release_id}
+POST /v1/admin/releases/{release_id}/validate
+POST /v1/admin/releases/{release_id}/publish
+POST /v1/admin/releases/{release_id}/rollback
+POST /v1/admin/releases/{release_id}/archive
+```
+
+创建请求包含平台、架构、stable/beta 渠道、语义化版本、强制更新策略和对象存储文件描述。校验会检查文件路径、大小、SHA-256、压缩方式、CDN Object Key 与实际 `HEAD` 可用性、兼容版本顺序以及生成的 Ed25519 签名。只有 `READY` 版本可发布；正式发布、回滚和归档都必须填写原因，并由后端强制执行 MFA Step-up。公开更新目录只读取 `PUBLISHED` 的管理版本；回滚会让该版本退出后续更新检查，但不会删除审计历史。归档只接受 `DRAFT`、`READY` 或 `ROLLED_BACK`，沿用 `updates.rollback` 权限并保留全部记录。
+
+### 3.5 管理员与角色治理
+
+```text
+GET   /v1/admin/admins
+POST  /v1/admin/admins
+PATCH /v1/admin/admins/{admin_id}
+POST  /v1/admin/admins/{admin_id}/reset-mfa
+GET   /v1/admin/roles
+PATCH /v1/admin/roles/{role_id}
+```
+
+管理员账号与玩家身份完全隔离。创建管理员时必须分配至少一个已有角色，TOTP 配置 URI 和十个恢复码只在成功响应中返回一次。更新接口可修改显示名、启用状态、角色并撤销 Session；重置 MFA 会轮换加密保存的 TOTP Secret、替换全部恢复码哈希，并撤销该管理员的全部 Session。
+
+所有治理写操作都必须提交人类可读原因，具备对应的 `admins.create`、`admins.update` 或 `roles.manage` 权限，并提供与当前 Session 绑定的 MFA Step-up 凭证。最后一个有效 `SUPER_ADMIN` 不能被停用或移除该角色，并发请求同样受保护。`SUPER_ADMIN` 永远拥有完整权限目录且不可编辑。列表和审计值都不包含密码、TOTP Secret、恢复码明文、Cookie 或 Access Token。
+
+### 3.6 功能、能力、系统设置与集成
+
+```text
+GET   /v1/admin/features
+GET   /v1/admin/capabilities
+GET   /v1/admin/settings
+PATCH /v1/admin/settings
+```
+
+功能与能力发现接口只返回非秘密信息，包括可选模块、支持的资源和操作、批量上限、实时订阅能力以及轮询回退周期。系统设置只暴露数据库白名单中的功能开关与 HTTPS 集成链接；配置 Secret、数据库连接串、Token 和私钥永远不会进入该模型。
+
+读取设置要求 `settings.read`。更新要求 `settings.update`、操作原因与 MFA Step-up，并在同一事务中写入审计。URL 只允许不含嵌入凭据的 HTTPS 地址。Grafana 配置仅作为只读 Dashboard 链接；Admin Web 不重复实现完整监控系统，也不代理 Grafana 凭据。
 
 ## 4. Relay HTTP 生命周期 API
 

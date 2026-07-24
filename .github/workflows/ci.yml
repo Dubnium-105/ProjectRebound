@@ -95,6 +95,47 @@ jobs:
       - name: Build shared contracts
         run: dotnet build Shared/ProjectRebound.Contracts/ProjectRebound.Contracts.csproj --configuration Release
 
+  admin-web:
+    name: Independent administrator web
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: AdminWeb
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: AdminWeb/package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Audit all administrator web dependencies
+        run: npm audit
+
+      - name: Verify generated OpenAPI types
+        run: |
+          npm run generate:api
+          git diff --exit-code -- src/api/openapi.generated.ts
+
+      - name: Run administrator web tests
+        run: npm test
+
+      - name: Build administrator web
+        run: npm run build
+
+      - name: Install Chromium for administrator E2E
+        run: npx playwright install --with-deps chromium
+
+      - name: Run administrator E2E
+        run: npm run test:e2e
+
   deployment-config:
     name: Deployment and workflow configuration
     runs-on: ubuntu-latest
@@ -207,12 +248,13 @@ jobs:
         run: |
           docker run --rm \
             -e PUBLIC_API_SITE=http://:80 \
+            -e ADMIN_WEB_SITE=http://admin.localhost \
             -v "$GITHUB_WORKSPACE/Backend/deployments/control-plane/Caddyfile:/etc/caddy/Caddyfile:ro" \
             caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
 
   container-images:
     name: Build and package ${{ matrix.name }} image
-    needs: [backend, contracts, deployment-config, v11-integration]
+    needs: [backend, contracts, admin-web, deployment-config, v11-integration]
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -226,10 +268,16 @@ jobs:
         include:
           - name: control-plane
             dockerfile: Backend/deployments/compose/control-plane.Dockerfile
+            context: Backend
           - name: edge-relay
             dockerfile: Backend/deployments/relay/Dockerfile
+            context: Backend
           - name: load-bot
             dockerfile: Backend/deployments/load-bot/Dockerfile
+            context: Backend
+          - name: admin-web
+            dockerfile: AdminWeb/Dockerfile
+            context: .
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -267,7 +315,7 @@ jobs:
         id: push
         uses: docker/build-push-action@v7
         with:
-          context: Backend
+          context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
@@ -303,7 +351,7 @@ jobs:
             "image=${IMAGE_NAME}" \
             "image_digest=${IMAGE_DIGEST}" \
             "relay_protocol_version=2" \
-            "database_schema_version=16" \
+            "database_schema_version=23" \
             > "release-record/${{ matrix.name }}.txt"
 
       - name: Upload build record

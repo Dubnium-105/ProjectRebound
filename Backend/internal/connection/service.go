@@ -100,6 +100,43 @@ func (s *Service) CloseForRoom(ctx context.Context, roomID, reason string) error
 	return nil
 }
 
+func (s *Service) CloseForRoomMember(ctx context.Context, roomID, playerID, reason string) error {
+	items, err := s.repository.CloseForRoomMember(
+		ctx,
+		roomID,
+		playerID,
+		truncate(strings.TrimSpace(reason), 128),
+		s.now().UTC(),
+	)
+	if err != nil {
+		return err
+	}
+	for _, item := range items {
+		if s.relayAllocator != nil {
+			if err := s.relayAllocator.RevokeRelay(ctx, item.ID, reason); err != nil {
+				return err
+			}
+		}
+		s.publish(item, Event{Type: "connection.closed", Payload: connectionEventPayload(item), CreatedAt: s.now().UTC()})
+	}
+	return nil
+}
+
+// FinalizeAdministrativeClose performs the non-transactional side effects after
+// the administrator service has atomically closed a connection and written its
+// audit record in the database.
+func (s *Service) FinalizeAdministrativeClose(ctx context.Context, item Connection, reason string) error {
+	if s.relayAllocator != nil {
+		if err := s.relayAllocator.RevokeRelay(ctx, item.ID, reason); err != nil {
+			return err
+		}
+	}
+	s.publish(item, Event{
+		Type: "connection.closed", Payload: connectionEventPayload(item), CreatedAt: s.now().UTC(),
+	})
+	return nil
+}
+
 func (s *Service) RelayBound(ctx context.Context, connectionID, allocationID, previousAllocationID, migrationID string) error {
 	tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {

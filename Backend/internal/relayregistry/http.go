@@ -57,8 +57,13 @@ type renewRequest struct {
 }
 
 type drainRequest struct {
-	DeadlineSeconds int  `json:"deadline_seconds"`
-	MigrateExisting bool `json:"migrate_existing"`
+	DeadlineSeconds int    `json:"deadline_seconds"`
+	MigrateExisting bool   `json:"migrate_existing"`
+	Reason          string `json:"reason"`
+}
+
+type reasonRequest struct {
+	Reason string `json:"reason"`
 }
 
 type nodeResponse struct {
@@ -162,30 +167,43 @@ func (h *HTTPHandler) List(w http.ResponseWriter, r *http.Request) {
 
 func (h *HTTPHandler) Drain(w http.ResponseWriter, r *http.Request) {
 	var request drainRequest
-	if r.ContentLength != 0 {
-		if err := api.DecodeJSON(r, &request); err != nil {
-			api.WriteError(w, r, 400, "INVALID_REQUEST", "Invalid request.", map[string]any{"body": err.Error()})
-			return
-		}
+	if err := api.DecodeJSON(r, &request); err != nil {
+		api.WriteError(w, r, 400, "INVALID_REQUEST", "Invalid request.", map[string]any{"body": err.Error()})
+		return
 	}
 	node, err := h.service.Drain(r.Context(), chi.URLParam(r, "node_id"), DrainInput{
 		DeadlineSeconds: request.DeadlineSeconds, MigrateExisting: request.MigrateExisting,
-	}, h.adminMeta(r))
+	}, h.adminMeta(r, request.Reason))
 	h.writeNodeOperation(w, r, node, err)
 }
 
 func (h *HTTPHandler) Resume(w http.ResponseWriter, r *http.Request) {
-	node, err := h.service.Resume(r.Context(), chi.URLParam(r, "node_id"), h.adminMeta(r))
+	var request reasonRequest
+	if err := api.DecodeJSON(r, &request); err != nil {
+		api.WriteError(w, r, 400, "INVALID_REQUEST", "Invalid request.", nil)
+		return
+	}
+	node, err := h.service.Resume(r.Context(), chi.URLParam(r, "node_id"), h.adminMeta(r, request.Reason))
 	h.writeNodeOperation(w, r, node, err)
 }
 
 func (h *HTTPHandler) Revoke(w http.ResponseWriter, r *http.Request) {
-	node, err := h.service.Revoke(r.Context(), chi.URLParam(r, "node_id"), h.adminMeta(r))
+	var request reasonRequest
+	if err := api.DecodeJSON(r, &request); err != nil {
+		api.WriteError(w, r, 400, "INVALID_REQUEST", "Invalid request.", nil)
+		return
+	}
+	node, err := h.service.Revoke(r.Context(), chi.URLParam(r, "node_id"), h.adminMeta(r, request.Reason))
 	h.writeNodeOperation(w, r, node, err)
 }
 
 func (h *HTTPHandler) ActivateSigningKey(w http.ResponseWriter, r *http.Request) {
-	keyset, err := h.service.ActivateSigningKey(r.Context(), chi.URLParam(r, "key_id"), h.adminMeta(r))
+	var request reasonRequest
+	if err := api.DecodeJSON(r, &request); err != nil {
+		api.WriteError(w, r, 400, "INVALID_REQUEST", "Invalid request.", nil)
+		return
+	}
+	keyset, err := h.service.ActivateSigningKey(r.Context(), chi.URLParam(r, "key_id"), h.adminMeta(r, request.Reason))
 	if err != nil {
 		h.writeError(w, r, err)
 		return
@@ -201,7 +219,7 @@ func (h *HTTPHandler) writeNodeOperation(w http.ResponseWriter, r *http.Request,
 	api.WriteData(w, r, 200, resultNode(node))
 }
 
-func (h *HTTPHandler) adminMeta(r *http.Request) AdminMeta {
+func (h *HTTPHandler) adminMeta(r *http.Request, reason string) AdminMeta {
 	principal := admin.PrincipalFromContext(r.Context())
 	actorID := ""
 	if principal != nil {
@@ -210,6 +228,7 @@ func (h *HTTPHandler) adminMeta(r *http.Request) AdminMeta {
 	return AdminMeta{
 		ActorID: actorID, RequestID: requestctx.RequestID(r.Context()),
 		IPAddress: appmiddleware.ClientIP(r, h.trustProxy),
+		UserAgent: r.UserAgent(), Reason: reason,
 	}
 }
 

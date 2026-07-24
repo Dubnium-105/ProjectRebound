@@ -18,12 +18,20 @@ type Code struct {
 
 type CreateInput struct {
 	BatchName   string
+	Quantity    int
 	MaxUses     int
 	ExpiresAt   *time.Time
 	Permissions map[string]any
+	Reason      string
 }
 
 type CreateResult struct {
+	Code      Code
+	Plaintext string
+	Items     []CreatedCode
+}
+
+type CreatedCode struct {
 	Code      Code
 	Plaintext string
 }
@@ -35,6 +43,7 @@ type Patch struct {
 	ClearExpiry bool
 	Enabled     *bool
 	Permissions map[string]any
+	Reason      string
 }
 
 type ListResult struct {
@@ -42,8 +51,24 @@ type ListResult struct {
 	NextCursor string
 }
 
+type Use struct {
+	ID           string
+	InviteCodeID string
+	PlayerID     string
+	SteamID      string
+	IPAddress    string
+	UsedAt       time.Time
+	Result       string
+}
+
+type UseListResult struct {
+	Items      []Use
+	NextCursor string
+}
+
 type RequestMeta struct {
 	AdminID   string
 	RequestID string
 	IPAddress string
+	UserAgent string
 }

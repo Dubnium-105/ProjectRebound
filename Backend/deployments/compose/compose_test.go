@@ -70,6 +70,8 @@ func TestSeparatedControlPlaneHasSecureNetworkAndPersistentSecrets(t *testing.T)
 	for _, name := range []string{
 		"ACCESS_TOKEN_PRIVATE_KEY_BASE64", "RELAY_CA_CERT_PEM_BASE64", "RELAY_CA_KEY_PEM_BASE64",
 		"RELAY_TOKEN_PRIVATE_KEY_BASE64", "UPDATE_SIGNING_PRIVATE_KEY_BASE64", "ADMIN_TOKENS",
+		"ADMIN_ACCESS_TOKEN_PRIVATE_KEY_BASE64", "ADMIN_MFA_ENCRYPTION_KEY_BASE64",
+		"TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY",
 	} {
 		if _, ok := control.Environment[name]; !ok {
 			t.Fatalf("separated control plane does not inject %s", name)
@@ -82,6 +84,86 @@ func TestSeparatedControlPlaneHasSecureNetworkAndPersistentSecrets(t *testing.T)
 	for _, rule := range []string{"handle /internal/v1/relay-nodes/enroll", "handle /internal/*", "handle /v1/admin*"} {
 		if !strings.Contains(string(caddy), rule) {
 			t.Fatalf("public Caddy policy is missing %q", rule)
+		}
+	}
+}
+
+func TestSeparatedAdminWebHasOnlyEdgeNetworkAndNoSecrets(t *testing.T) {
+	contents, err := os.ReadFile("../control-plane/docker-compose.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document struct {
+		Services map[string]struct {
+			Environment map[string]any `yaml:"environment"`
+			Networks    []string       `yaml:"networks"`
+			ReadOnly    bool           `yaml:"read_only"`
+			CapDrop     []string       `yaml:"cap_drop"`
+			Expose      []string       `yaml:"expose"`
+		} `yaml:"services"`
+		Networks map[string]struct {
+			Internal bool `yaml:"internal"`
+		} `yaml:"networks"`
+	}
+	if err := yaml.Unmarshal(contents, &document); err != nil {
+		t.Fatal(err)
+	}
+	adminWeb, ok := document.Services["admin-web"]
+	if !ok {
+		t.Fatal("separated deployment is missing admin-web")
+	}
+	if len(adminWeb.Networks) != 1 || adminWeb.Networks[0] != "edge" {
+		t.Fatalf("admin-web must join only the edge network: %#v", adminWeb.Networks)
+	}
+	if !adminWeb.ReadOnly || len(adminWeb.CapDrop) != 1 || adminWeb.CapDrop[0] != "ALL" {
+		t.Fatalf("admin-web container hardening is incomplete: %#v", adminWeb)
+	}
+	if len(adminWeb.Expose) != 1 || adminWeb.Expose[0] != "8080" {
+		t.Fatalf("admin-web exposes unexpected ports: %#v", adminWeb.Expose)
+	}
+	for _, secret := range []string{
+		"TURNSTILE_SECRET_KEY", "ADMIN_MFA_ENCRYPTION_KEY_BASE64",
+		"ADMIN_ACCESS_TOKEN_PRIVATE_KEY_BASE64", "DATABASE_URL", "REDIS_PASSWORD",
+	} {
+		if _, exists := adminWeb.Environment[secret]; exists {
+			t.Fatalf("admin-web received forbidden secret %s", secret)
+		}
+	}
+	if !document.Networks["data"].Internal {
+		t.Fatal("control-plane data network must remain internal")
+	}
+
+	caddy, err := os.ReadFile("../control-plane/Caddyfile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, policy := range []string{
+		"{$ADMIN_WEB_SITE:admin.example.com}",
+		"reverse_proxy admin-web:8080",
+		"frame-src https://challenges.cloudflare.com",
+		"frame-ancestors 'none'",
+		"X-Frame-Options DENY",
+	} {
+		if !strings.Contains(string(caddy), policy) {
+			t.Fatalf("administrator Caddy policy is missing %q", policy)
+		}
+	}
+}
+
+func TestAdminWebImageUsesLockedBuildAndUnprivilegedRuntime(t *testing.T) {
+	dockerfile, err := os.ReadFile("../../../AdminWeb/Dockerfile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents := string(dockerfile)
+	for _, requirement := range []string{
+		"RUN npm ci",
+		"RUN npm run build",
+		"USER caddy",
+		"EXPOSE 8080",
+	} {
+		if !strings.Contains(contents, requirement) {
+			t.Fatalf("admin-web Dockerfile is missing %q", requirement)
 		}
 	}
 }

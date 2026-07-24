@@ -151,6 +151,8 @@ type AdminMeta struct {
 	ActorID   string
 	RequestID string
 	IPAddress string
+	UserAgent string
+	Reason    string
 }
 
 type Keyset struct {

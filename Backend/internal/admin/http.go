@@ -19,7 +19,7 @@ type HTTPService interface {
 	ListPlayers(context.Context, string, string, int) (ListResult, error)
 	GetPlayer(context.Context, string) (player.Player, error)
 	PatchPlayer(context.Context, string, PlayerPatch, RequestMeta) (PatchResult, error)
-	RevokePlayerSessions(context.Context, string, RequestMeta) (int64, error)
+	RevokePlayerSessions(context.Context, string, string, RequestMeta) (int64, error)
 }
 
 type HTTPHandler struct {
@@ -36,6 +36,12 @@ type patchPlayerRequest struct {
 	AccountStatus  *player.AccountStatus `json:"account_status"`
 	IsVIP          *bool                 `json:"is_vip"`
 	RevokeSessions bool                  `json:"revoke_sessions"`
+	Reason         string                `json:"reason"`
+	InternalNote   string                `json:"internal_note"`
+}
+
+type reasonRequest struct {
+	Reason string `json:"reason"`
 }
 
 type playerResponse struct {
@@ -84,10 +90,25 @@ func (h *HTTPHandler) PatchPlayer(w http.ResponseWriter, r *http.Request) {
 		api.WriteError(w, r, 400, "INVALID_REQUEST", "Invalid request.", map[string]any{"body": err.Error()})
 		return
 	}
+	principal := PrincipalFromContext(r.Context())
+	if request.AccountStatus != nil && (principal == nil || !principal.HasPermission("players.update_status")) {
+		api.WriteError(w, r, http.StatusForbidden, "ADMIN_FORBIDDEN", "Administrator permission is required.", nil)
+		return
+	}
+	if request.IsVIP != nil && (principal == nil || !principal.HasPermission("players.update_vip")) {
+		api.WriteError(w, r, http.StatusForbidden, "ADMIN_FORBIDDEN", "Administrator permission is required.", nil)
+		return
+	}
+	if request.RevokeSessions && (principal == nil || !principal.HasPermission("players.revoke_sessions")) {
+		api.WriteError(w, r, http.StatusForbidden, "ADMIN_FORBIDDEN", "Administrator permission is required.", nil)
+		return
+	}
 	result, err := h.service.PatchPlayer(r.Context(), chi.URLParam(r, "player_id"), PlayerPatch{
 		AccountStatus:  request.AccountStatus,
 		IsVIP:          request.IsVIP,
 		RevokeSessions: request.RevokeSessions,
+		Reason:         request.Reason,
+		InternalNote:   request.InternalNote,
 	}, h.requestMeta(r))
 	if err != nil {
 		h.writeError(w, r, err)
@@ -100,7 +121,17 @@ func (h *HTTPHandler) PatchPlayer(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPHandler) RevokeSessions(w http.ResponseWriter, r *http.Request) {
-	revoked, err := h.service.RevokePlayerSessions(r.Context(), chi.URLParam(r, "player_id"), h.requestMeta(r))
+	principal := PrincipalFromContext(r.Context())
+	if principal == nil || !principal.HasPermission("players.revoke_sessions") {
+		api.WriteError(w, r, http.StatusForbidden, "ADMIN_FORBIDDEN", "Administrator permission is required.", nil)
+		return
+	}
+	var request reasonRequest
+	if err := api.DecodeJSON(r, &request); err != nil {
+		api.WriteError(w, r, 400, "INVALID_REQUEST", "Invalid request.", map[string]any{"body": err.Error()})
+		return
+	}
+	revoked, err := h.service.RevokePlayerSessions(r.Context(), chi.URLParam(r, "player_id"), request.Reason, h.requestMeta(r))
 	if err != nil {
 		h.writeError(w, r, err)
 		return
@@ -118,6 +149,7 @@ func (h *HTTPHandler) requestMeta(r *http.Request) RequestMeta {
 		AdminID:   adminID,
 		RequestID: requestctx.RequestID(r.Context()),
 		IPAddress: appmiddleware.ClientIP(r, h.trustProxy),
+		UserAgent: r.UserAgent(),
 	}
 }
 

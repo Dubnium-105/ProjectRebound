@@ -24,13 +24,16 @@ func (r *Repository) InsertAudit(ctx context.Context, tx pgx.Tx, audit AuditLog)
 	_, err = tx.Exec(ctx, `
 		INSERT INTO admin_audit_logs (
 			id, admin_id, action, target_type, target_id,
-			old_value, new_value, request_id, ip_address, created_at
+			old_value, new_value, reason, request_id, ip_address,
+			user_agent, result, created_at
 		) VALUES (
 			$1, $2, $3, $4, $5, $6::jsonb, $7::jsonb,
-			NULLIF($8, ''), NULLIF($9, '')::inet, $10
+			$8, NULLIF($9, ''), NULLIF($10, '')::inet,
+			NULLIF($11, ''), $12, $13
 		)
 	`, audit.ID, audit.AdminID, audit.Action, audit.TargetType, audit.TargetID,
-		oldValue, newValue, audit.RequestID, audit.IPAddress, audit.CreatedAt)
+		oldValue, newValue, audit.Reason, audit.RequestID, audit.IPAddress,
+		audit.UserAgent, defaultString(audit.Result, "SUCCEEDED"), audit.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("insert admin audit log: %w", err)
 	}

@@ -4,6 +4,19 @@ English | [简体中文](release-and-rollback.zh-CN.md)
 
 Production deployment uses immutable GHCR references: `sha-<40-character commit>`, a release tag such as `1.1.0`, or preferably `@sha256:<digest>`. `latest` is rejected. CI records the Git commit, UTC build time, Go version, image digest, Relay protocol version, and schema version with every image artifact.
 
+## Admin Web client release
+
+This workflow manages game-client updates and is separate from the control-plane container release below.
+
+1. Use `RELEASE_MANAGER` or equivalent granular permissions to create a `DRAFT` with platform, architecture, stable/beta channel, version, minimum compatible version, force-update policy, and object-storage file descriptors.
+2. Run validation and require all manifest schema, path, size, SHA-256, compression, CDN URL, server-side object `HEAD` availability, version-order, and Ed25519 signature checks to pass.
+3. Only `READY` can be published. Confirm the affected platform and policy, supply a ticket-quality reason, and complete MFA step-up.
+4. Verify `/v1/updates/check` and the signed manifest after publication, then observe errors and version coverage.
+5. Rollback requires a reason and MFA. It removes the release from future public selection while preserving metadata and audit history.
+6. `DRAFT`, `READY`, and `ROLLED_BACK` releases can be archived with `updates.rollback`, a reason, and MFA. A `PUBLISHED` release must be rolled back first. Archive is irreversible and preserves release and audit records.
+
+The control plane performs bounded, time-limited `HEAD` probes against every generated CDN download URL during validation and again during publication. The configured CDN must therefore support `HEAD`; a successful probe proves reachability at that moment but does not replace client-side download and SHA-256 verification.
+
 ## Migration policy
 
 V1.1 migrations 000009 through 000016 are Expand/Migrate changes: they add tables, indexes, constraints, compatible fields, and the non-destructive Relay allocation `MIGRATING` state. The control-plane migrator serializes startup with a PostgreSQL advisory lock, wraps each migration in a transaction, and rejects the deployment if an already-applied checksum changed. No V1.1 migration drops a table or column. Contract changes are deferred to a later release after old code is retired and a restore drill has passed; normal image rollback therefore does not roll back the database.

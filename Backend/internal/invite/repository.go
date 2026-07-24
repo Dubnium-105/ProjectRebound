@@ -67,6 +67,37 @@ func (r *Repository) List(ctx context.Context, cursor string, limit int) ([]Code
 	return items, nil
 }
 
+func (r *Repository) ListUses(ctx context.Context, inviteCodeID, cursor string, limit int) ([]Use, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, invite_code_id, player_id, steam_id,
+		       COALESCE(host(ip_address), ''), used_at, result
+		FROM invite_code_uses
+		WHERE invite_code_id = $1
+		  AND ($2 = '' OR id > $2)
+		ORDER BY id
+		LIMIT $3
+	`, inviteCodeID, cursor, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list invite code uses: %w", err)
+	}
+	defer rows.Close()
+	items := make([]Use, 0, limit)
+	for rows.Next() {
+		var item Use
+		if err := rows.Scan(
+			&item.ID, &item.InviteCodeID, &item.PlayerID, &item.SteamID,
+			&item.IPAddress, &item.UsedAt, &item.Result,
+		); err != nil {
+			return nil, fmt.Errorf("scan invite code use: %w", err)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate invite code uses: %w", err)
+	}
+	return items, nil
+}
+
 func (r *Repository) Update(ctx context.Context, tx pgx.Tx, code Code) error {
 	permissions, err := json.Marshal(code.Permissions)
 	if err != nil {

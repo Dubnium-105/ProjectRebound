@@ -65,7 +65,7 @@ grep -q ' pull$' "$docker_log"
 PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" \
   CONTROL_PLANE_ENV_FILE="$control_env" DEPLOY_SOURCE=source \
   bash "$test_backend/scripts/deploy-control-plane.sh" >/dev/null
-grep -q ' build --pull control-plane$' "$docker_log"
+grep -q ' build --pull control-plane admin-web$' "$docker_log"
 
 if EDGE_RELAY_ENV_FILE="$edge_env" DEPLOY_SOURCE=ci EDGE_RELAY_IMAGE=invalid \
   bash "$test_backend/scripts/deploy-edge-relay.sh" >/dev/null 2>&1; then

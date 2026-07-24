@@ -13,6 +13,10 @@ type ServiceError struct {
 	Cause   error
 }
 
+func (e *ServiceError) HTTPStatus() int       { return e.Status }
+func (e *ServiceError) ErrorCode() string     { return e.Code }
+func (e *ServiceError) PublicMessage() string { return e.Message }
+
 func (e *ServiceError) Error() string {
 	if e.Cause != nil {
 		return e.Code + ": " + e.Cause.Error()

@@ -380,3 +380,9 @@ Backend/deployments/edge-relay/.env
 Backend/deployments/edge-relay/config.edge-relay.yaml
 Backend/backups/
 Backend/**/identity.json
+
+# Administrator web local artifacts
+AdminWeb/dist/
+AdminWeb/coverage/
+AdminWeb/playwright-report/
+AdminWeb/test-results/

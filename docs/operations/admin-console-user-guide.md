@@ -1,0 +1,41 @@
+# Admin Web operator guide
+
+English | [简体中文](admin-console-user-guide.zh-CN.md)
+
+Admin Web is for operations, support, release, infrastructure, and audit staff. It calls the Go Control Plane over HTTPS and never connects directly to PostgreSQL, Redis, game servers, or relay nodes.
+
+## Sign in
+
+Enter through the approved VPN or zero-trust proxy, submit administrator credentials after the Cloudflare Turnstile Managed interaction, and complete TOTP or a one-time recovery code. The access token stays only in page memory; the rotating refresh token is an `HttpOnly; Secure; SameSite=Strict` cookie. A Turnstile outage remains fail closed; follow the [Turnstile runbook](runbooks/admin-turnstile-login.md).
+
+## Common tasks
+
+### Players and risk
+
+Search and filter players, change account status or VIP, revoke sessions, and resolve risk events from their resource pages. Every write needs a ticket-quality reason. Never put tokens, passwords, cookies, private network data, or game payloads in a reason or note.
+
+### Invitations
+
+Invitation plaintext is a one-time response. Store or export it to an approved location before closing the result; the database retains only SHA-256.
+
+### Online resources
+
+Drain servers or relays before disruptive work. Connection relay migration never accepts an operator-supplied address; the backend scheduler selects an eligible `READY` node. Relay revoke requires fresh MFA step-up.
+
+### Client releases
+
+Create a `DRAFT`, run every manifest, server-side object `HEAD`, and file check, and publish only from `READY`. Publish and rollback require a reason and MFA; rollback preserves history. `DRAFT`, `READY`, and `ROLLED_BACK` releases can be archived with the rollback permission and MFA, while `PUBLISHED` must be rolled back first.
+
+### Administrators, roles, and settings
+
+New-administrator TOTP provisioning data and recovery codes are one-time responses. Administrator and role governance and settings changes require fresh MFA step-up.
+
+The final active `SUPER_ADMIN` cannot be disabled or stripped of that role. The `SUPER_ADMIN` permission bundle is immutable.
+
+## Audit and error escalation
+
+Use operation audit filters and export only the current redacted result. Preserve the request ID, resource ID, operation, and local/UTC time when escalating an error. Use secure logout when finished and revoke other sessions after device loss or suspected cookie exposure.
+
+## Sign out
+
+Use secure logout when finished. Revoke other sessions after device loss or suspected cookie exposure; administrator disablement and MFA reset revoke all of that administrator’s sessions.

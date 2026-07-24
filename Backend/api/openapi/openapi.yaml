@@ -131,13 +131,185 @@ paths:
                 $ref: "#/components/schemas/UserOtherSessionRevocationResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /v1/admin/auth/config:
+    get:
+      operationId: getAdminAuthenticationConfig
+      tags: [Admin Authentication]
+      x-internal: true
+      description: Returns public login-page configuration only. Turnstile Secret is never returned.
+      responses:
+        "200":
+          description: Administrator login configuration.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAuthConfigResponse"
+  /v1/admin/auth/login:
+    post:
+      operationId: beginAdminLogin
+      tags: [Admin Authentication]
+      x-internal: true
+      description: Validates the Turnstile token and administrator password before issuing a short-lived MFA challenge.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminLoginRequest"
+      responses:
+        "202":
+          description: Password accepted; TOTP or a recovery code is still required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLoginResponse"
+        "401":
+          $ref: "#/components/responses/AdminUnauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          description: Turnstile validation is temporarily unavailable or not configured.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/admin/auth/mfa/verify:
+    post:
+      operationId: verifyAdminMFA
+      tags: [Admin Authentication]
+      x-internal: true
+      description: Consumes the single-use MFA challenge and creates an administrator session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminMFAVerifyRequest"
+      responses:
+        "200":
+          description: MFA accepted. A rotated refresh token is set in an HttpOnly, SameSite=Strict cookie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAccessResponse"
+        "401":
+          $ref: "#/components/responses/AdminUnauthorized"
+  /v1/admin/auth/refresh:
+    post:
+      operationId: refreshAdminSession
+      tags: [Admin Authentication]
+      x-internal: true
+      description: Rotates the HttpOnly refresh cookie and returns a new short-lived access token.
+      responses:
+        "200":
+          description: Administrator session rotated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAccessResponse"
+        "401":
+          $ref: "#/components/responses/AdminUnauthorized"
+  /v1/admin/auth/step-up:
+    post:
+      operationId: verifyAdminStepUpMFA
+      tags: [Admin Authentication]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      description: Re-verifies TOTP or a recovery code and returns a five-minute, session-bound proof for high-risk actions.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminStepUpRequest"
+      responses:
+        "200":
+          description: MFA accepted; the proof is returned once and must remain in browser memory.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStepUpResponse"
+        "401":
+          $ref: "#/components/responses/AdminUnauthorized"
+  /v1/admin/auth/logout:
+    post:
+      operationId: logoutAdmin
+      tags: [Admin Authentication]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      responses:
+        "200":
+          description: Current administrator session revoked and refresh cookie cleared.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogoutResponse"
+        "401":
+          $ref: "#/components/responses/AdminUnauthorized"
+  /v1/admin/auth/me:
+    get:
+      operationId: getCurrentAdmin
+      tags: [Admin Authentication]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      responses:
+        "200":
+          description: Current administrator identity, roles, and permissions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentAdminResponse"
+        "401":
+          $ref: "#/components/responses/AdminUnauthorized"
+  /v1/admin/auth/sessions:
+    get:
+      operationId: listAdminSessions
+      tags: [Admin Authentication]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      responses:
+        "200":
+          description: Active sessions owned by the current administrator.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSessionListResponse"
+        "401":
+          $ref: "#/components/responses/AdminUnauthorized"
+  /v1/admin/auth/sessions/{session_id}:
+    delete:
+      operationId: revokeAdminSession
+      tags: [Admin Authentication]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - in: path
+          name: session_id
+          required: true
+          schema: {type: string, pattern: "^adm_ses_[A-Za-z0-9]+$"}
+      responses:
+        "200":
+          description: Owned administrator session revoked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSessionRevocationResponse"
+        "401":
+          $ref: "#/components/responses/AdminUnauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/players:
     get:
       operationId: adminListPlayers
       tags: [Admin]
       x-internal: true
       security:
-        - adminToken: []
+        - adminAccessToken: []
       parameters:
         - in: query
           name: cursor
@@ -171,7 +343,7 @@ paths:
       tags: [Admin]
       x-internal: true
       security:
-        - adminToken: []
+        - adminAccessToken: []
       responses:
         "200":
           description: Player administrative record.
@@ -188,7 +360,7 @@ paths:
       tags: [Admin]
       x-internal: true
       security:
-        - adminToken: []
+        - adminAccessToken: []
       requestBody:
         required: true
         content:
@@ -214,9 +386,15 @@ paths:
       tags: [Admin]
       x-internal: true
       security:
-        - adminToken: []
+        - adminAccessToken: []
       parameters:
         - $ref: "#/components/parameters/PlayerID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminOperationReason"
       responses:
         "200":
           description: All active sessions for the player were revoked.
@@ -228,13 +406,67 @@ paths:
           $ref: "#/components/responses/AdminUnauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/players/{player_id}/sessions:
+    get:
+      operationId: adminListPlayerSessions
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/PlayerID"
+      responses:
+        "200":
+          description: Recent player sessions with device and IP summaries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPlayerSessionListResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/players/{player_id}/risk-events:
+    get:
+      operationId: adminListPlayerRiskEvents
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/PlayerID"
+      responses:
+        "200":
+          description: Recent masked and redacted risk events for a player.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthRiskEventListResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/players/{player_id}/login-events:
+    get:
+      operationId: adminListPlayerLoginEvents
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/PlayerID"
+      responses:
+        "200":
+          description: Recent player authentication outcomes with IP summaries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPlayerLoginEventListResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/invite-codes:
     post:
       operationId: adminCreateInviteCode
       tags: [Admin]
       x-internal: true
       security:
-        - adminToken: []
+        - adminAccessToken: []
       requestBody:
         required: true
         content:
@@ -257,7 +489,7 @@ paths:
       tags: [Admin]
       x-internal: true
       security:
-        - adminToken: []
+        - adminAccessToken: []
       parameters:
         - in: query
           name: cursor
@@ -285,7 +517,7 @@ paths:
       tags: [Admin]
       x-internal: true
       security:
-        - adminToken: []
+        - adminAccessToken: []
       responses:
         "200":
           description: Invite metadata without plaintext or hash.
@@ -300,7 +532,7 @@ paths:
       tags: [Admin]
       x-internal: true
       security:
-        - adminToken: []
+        - adminAccessToken: []
       requestBody:
         required: true
         content:
@@ -324,12 +556,18 @@ paths:
       tags: [Admin]
       x-internal: true
       security:
-        - adminToken: []
+        - adminAccessToken: []
       parameters:
         - in: path
           name: id
           required: true
           schema: {type: string, pattern: "^inv_[A-Za-z0-9]+$"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminOperationReason"
       responses:
         "200":
           description: Idempotently revoked invite metadata.
@@ -339,13 +577,94 @@ paths:
                 $ref: "#/components/schemas/InviteCodeResponse"
         "404":
           $ref: "#/components/responses/NotFound"
-  /v1/admin/auth/risk-events:
+  /v1/admin/invite-codes/{id}/uses:
+    get:
+      operationId: adminListInviteCodeUses
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: string, pattern: "^inv_[A-Za-z0-9]+$"}
+        - in: query
+          name: cursor
+          schema: {type: string}
+        - in: query
+          name: limit
+          schema: {type: integer, minimum: 1, maximum: 100, default: 50}
+      responses:
+        "200":
+          description: Paginated successful uses. Network addresses are masked summaries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InviteCodeUseListResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/dashboard/summary:
+    get:
+      operationId: adminDashboardSummary
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      responses:
+        "200":
+          description: Current operational counters for the administrator dashboard.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDashboardSummaryResponse"
+        "401":
+          $ref: "#/components/responses/AdminUnauthorized"
+  /v1/admin/dashboard/timeseries:
+    get:
+      operationId: adminDashboardTimeseries
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - in: query
+          name: period
+          schema: {type: string, enum: [1h, 24h, 7d, 30d], default: 24h}
+      responses:
+        "200":
+          description: Whitelisted login, room, and risk-event time buckets.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDashboardTimeseriesResponse"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/AdminUnauthorized"
+  /v1/admin/dashboard/alerts:
+    get:
+      operationId: adminDashboardAlerts
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      responses:
+        "200":
+          description: Actionable current operational alerts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDashboardAlertListResponse"
+        "401":
+          $ref: "#/components/responses/AdminUnauthorized"
+  /v1/admin/risk-events:
     get:
       operationId: adminListAuthenticationRiskEvents
       tags: [Admin]
       x-internal: true
       security:
-        - adminToken: []
+        - adminAccessToken: []
       parameters:
         - in: query
           name: cursor
@@ -355,6 +674,9 @@ paths:
           schema: {type: integer, minimum: 1, maximum: 100, default: 50}
         - in: query
           name: player_id
+          schema: {type: string}
+        - in: query
+          name: steam_id
           schema: {type: string}
         - in: query
           name: event_type
@@ -376,6 +698,822 @@ paths:
           $ref: "#/components/responses/InvalidRequest"
         "401":
           $ref: "#/components/responses/AdminUnauthorized"
+  /v1/admin/risk-events/{event_id}:
+    parameters:
+      - in: path
+        name: event_id
+        required: true
+        schema: {type: string}
+    get:
+      operationId: adminGetAuthenticationRiskEvent
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      responses:
+        "200":
+          description: Risk event details with sensitive fields redacted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthRiskEventResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/risk-events/{event_id}/resolve:
+    post:
+      operationId: adminResolveAuthenticationRiskEvent
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - in: path
+          name: event_id
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminOperationReason"
+      responses:
+        "200":
+          description: Resolved risk event and administrator resolution metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthRiskEventResponse"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/audit-logs:
+    get:
+      operationId: adminListAuditLogs
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - in: query
+          name: cursor
+          schema: {type: string}
+        - in: query
+          name: limit
+          schema: {type: integer, minimum: 1, maximum: 100, default: 50}
+        - in: query
+          name: admin_id
+          schema: {type: string}
+        - in: query
+          name: action
+          schema: {type: string}
+        - in: query
+          name: target_type
+          schema: {type: string}
+        - in: query
+          name: target_id
+          schema: {type: string}
+      responses:
+        "200":
+          description: Paginated administrator write audit records with sensitive values redacted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAuditLogListResponse"
+  /v1/admin/audit-logs/{audit_id}:
+    get:
+      operationId: adminGetAuditLog
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - in: path
+          name: audit_id
+          required: true
+          schema: {type: string}
+      responses:
+        "200":
+          description: One administrator audit record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAuditLogResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/login-audit:
+    get:
+      operationId: adminListLoginAudit
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - in: query
+          name: cursor
+          schema: {type: string}
+        - in: query
+          name: limit
+          schema: {type: integer, minimum: 1, maximum: 100, default: 50}
+        - in: query
+          name: admin_id
+          schema: {type: string}
+        - in: query
+          name: result
+          schema: {type: string, enum: [SUCCESS, FAILURE]}
+      responses:
+        "200":
+          description: Administrator login outcomes and non-secret Turnstile diagnostics.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLoginAuditListResponse"
+  /v1/admin/admins:
+    get:
+      operationId: adminListAdministrators
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      responses:
+        "200":
+          description: Safe administrator identities, state, MFA state, and role assignments.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/GovernedAdministratorListResponse"}
+    post:
+      operationId: adminCreateAdministrator
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+          adminStepUpToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/GovernedAdministratorCreateRequest"}
+      responses:
+        "201":
+          description: Administrator created. The TOTP provisioning URI and recovery codes are returned only once.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/GovernedAdministratorProvisioningResponse"}
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/admins/{admin_id}:
+    patch:
+      operationId: adminUpdateAdministrator
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+          adminStepUpToken: []
+      parameters:
+        - {in: path, name: admin_id, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/GovernedAdministratorUpdateRequest"}
+      responses:
+        "200":
+          description: Updated administrator identity and assignments.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/GovernedAdministratorResponse"}
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/admins/{admin_id}/reset-mfa:
+    post:
+      operationId: adminResetAdministratorMFA
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+          adminStepUpToken: []
+      parameters:
+        - {in: path, name: admin_id, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
+      responses:
+        "200":
+          description: MFA secret rotated and all existing sessions revoked. Provisioning data is returned only once.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/GovernedAdministratorProvisioningResponse"}
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/roles:
+    get:
+      operationId: adminListRolesAndPermissions
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      responses:
+        "200":
+          description: Roles and the full permission catalog used by the management UI.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/GovernedRoleListResponse"}
+  /v1/admin/roles/{role_id}:
+    patch:
+      operationId: adminUpdateRolePermissions
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+          adminStepUpToken: []
+      parameters:
+        - {in: path, name: role_id, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/GovernedRoleUpdateRequest"}
+      responses:
+        "200":
+          description: Role permission set replaced atomically.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/GovernedRoleResponse"}
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/features:
+    get:
+      operationId: adminGetFeatures
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      responses:
+        "200":
+          description: Non-secret feature switches used to control optional management modules.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminFeaturesResponse"}
+  /v1/admin/capabilities:
+    get:
+      operationId: adminGetCapabilities
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      responses:
+        "200":
+          description: Supported resources, operations, protocol version, limits, and realtime availability.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminCapabilitiesResponse"}
+  /v1/admin/settings:
+    get:
+      operationId: adminListSettings
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      responses:
+        "200":
+          description: Whitelisted non-secret runtime settings and integration links.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminSettingListResponse"}
+    patch:
+      operationId: adminUpdateSettings
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+          adminStepUpToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminSettingsUpdateRequest"}
+      responses:
+        "200":
+          description: Updated settings after type, URL, permission, MFA, and audit validation.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminSettingListResponse"}
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/p2p-rooms:
+    get:
+      operationId: adminListP2PRooms
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - {in: query, name: region, schema: {type: string}}
+        - {in: query, name: mode, schema: {type: string}}
+        - {in: query, name: version, schema: {type: string}}
+        - {in: query, name: state, schema: {$ref: "#/components/schemas/P2PRoomState"}}
+        - {in: query, name: cursor, schema: {type: string}}
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 100}}
+      responses:
+        "200":
+          description: Administrative P2P room page without host credentials.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/P2PRoomListResponse"}
+  /v1/admin/p2p-rooms/{room_id}:
+    get:
+      operationId: adminGetP2PRoom
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/RoomID"
+      responses:
+        "200":
+          description: Administrative P2P room detail without host credentials.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/P2PRoomResponse"}
+  /v1/admin/p2p-rooms/{room_id}/close:
+    post:
+      operationId: adminCloseP2PRoom
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/RoomID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
+      responses:
+        "200":
+          description: Closed room and asynchronous connection-cleanup status.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminP2PRoomOperationResponse"}
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/p2p-rooms/{room_id}/members:
+    get:
+      operationId: adminListP2PRoomMembers
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/RoomID"
+      responses:
+        "200":
+          description: Room members and account summaries without network addresses or credentials.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminP2PRoomMemberListResponse"}
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/p2p-rooms/{room_id}/members/{player_id}/remove:
+    post:
+      operationId: adminRemoveP2PRoomMember
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/RoomID"
+        - $ref: "#/components/parameters/PlayerID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
+      responses:
+        "200":
+          description: Updated room and connection-cleanup status.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminP2PRoomOperationResponse"}
+  /v1/admin/game-servers:
+    get:
+      operationId: adminListGameServers
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      responses:
+        "200":
+          description: Administrative game-server page without registration credentials.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/GameServerListResponse"}
+  /v1/admin/game-servers/{server_id}:
+    get:
+      operationId: adminGetGameServer
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/GameServerID"
+      responses:
+        "200":
+          description: Administrative game-server detail without registration credentials.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/GameServerResponse"}
+  /v1/admin/game-servers/{server_id}/drain:
+    post:
+      operationId: adminDrainGameServer
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/GameServerID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
+      responses:
+        "200":
+          description: Game server entered maintenance mode.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminGameServerResponse"}
+  /v1/admin/game-servers/{server_id}/resume:
+    post:
+      operationId: adminResumeGameServer
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/GameServerID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
+      responses:
+        "200":
+          description: Game server resumed accepting work.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminGameServerResponse"}
+  /v1/admin/game-servers/{server_id}/disable:
+    post:
+      operationId: adminDisableGameServer
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/GameServerID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
+      responses:
+        "200":
+          description: Game server marked offline and its registration token revoked.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminGameServerResponse"}
+  /v1/admin/connections:
+    get:
+      operationId: adminListConnections
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - {in: query, name: cursor, schema: {type: string}}
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+        - {in: query, name: state, schema: {$ref: "#/components/schemas/ConnectionState"}}
+        - {in: query, name: room_id, schema: {type: string}}
+        - {in: query, name: player_id, schema: {type: string}}
+        - {in: query, name: relay_node_id, schema: {type: string}}
+      responses:
+        "200":
+          description: Administrative connection summaries without candidates, endpoint addresses, or tokens.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminConnectionListResponse"}
+  /v1/admin/connections/{connection_id}:
+    get:
+      operationId: adminGetConnection
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/ConnectionID"
+      responses:
+        "200":
+          description: Connection detail and relay migration history without secret network material.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminConnectionResponse"}
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/connections/{connection_id}/close:
+    post:
+      operationId: adminCloseConnection
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/ConnectionID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
+      responses:
+        "200":
+          description: Closed connection and Relay cleanup status.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminConnectionCloseResponse"}
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/connections/{connection_id}/migrate-relay:
+    post:
+      operationId: adminMigrateConnectionRelay
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/ConnectionID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
+      responses:
+        "202":
+          description: Relay migration started. The backend scheduler selects a READY target.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminConnectionMigrationResponse"}
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/admin/relay-nodes:
+    get:
+      operationId: adminListRelayNodes
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      responses:
+        "200":
+          description: Relay fleet page without node credentials.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/RelayNodeListResponse"}
+  /v1/admin/relay-nodes/{node_id}:
+    get:
+      operationId: adminGetRelayNode
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/RelayNodeID"
+      responses:
+        "200":
+          description: Relay node detail without node credentials or private keys.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/RelayNodeResponse"}
+  /v1/admin/relay-nodes/{node_id}/drain:
+    post:
+      operationId: adminDrainRelayNode
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/RelayNodeID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminRelayDrainRequest"}
+      responses:
+        "200":
+          description: Relay node entered maintenance mode.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/RelayNodeResponse"}
+  /v1/admin/relay-nodes/{node_id}/resume:
+    post:
+      operationId: adminResumeRelayNode
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/RelayNodeID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
+      responses:
+        "200":
+          description: Relay node resumed accepting allocations.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/RelayNodeResponse"}
+  /v1/admin/relay-nodes/{node_id}/revoke:
+    post:
+      operationId: adminRevokeRelayNode
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+          adminStepUpToken: []
+      parameters:
+        - $ref: "#/components/parameters/RelayNodeID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
+      responses:
+        "200":
+          description: Relay node identity revoked.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/RelayNodeResponse"}
+  /v1/admin/releases:
+    get:
+      operationId: adminListReleases
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - {in: query, name: cursor, schema: {type: string}}
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+        - {in: query, name: status, schema: {$ref: "#/components/schemas/AdminReleaseStatus"}}
+        - {in: query, name: platform, schema: {type: string}}
+        - {in: query, name: architecture, schema: {type: string}}
+        - {in: query, name: channel, schema: {type: string, enum: [stable, beta]}}
+      responses:
+        "200":
+          description: Paginated managed client releases.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminReleaseListResponse"}
+    post:
+      operationId: adminCreateRelease
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminReleaseCreateRequest"}
+      responses:
+        "201":
+          description: DRAFT release created after structural input validation.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminReleaseResponse"}
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/releases/{release_id}:
+    get:
+      operationId: adminGetRelease
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - {in: path, name: release_id, required: true, schema: {type: string}}
+      responses:
+        "200":
+          description: Release metadata, validation checks, and signed manifest when available.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminReleaseResponse"}
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/releases/{release_id}/validate:
+    post:
+      operationId: adminValidateRelease
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - {in: path, name: release_id, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
+      responses:
+        "200":
+          description: Signed manifest validated and release moved to READY.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminReleaseResponse"}
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/releases/{release_id}/publish:
+    post:
+      operationId: adminPublishRelease
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+          adminStepUpToken: []
+      parameters:
+        - {in: path, name: release_id, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
+      responses:
+        "200":
+          description: READY release re-signed with its actual publish time and made available to clients.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminReleaseResponse"}
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/releases/{release_id}/rollback:
+    post:
+      operationId: adminRollbackRelease
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+          adminStepUpToken: []
+      parameters:
+        - {in: path, name: release_id, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
+      responses:
+        "200":
+          description: Published release removed from the managed public catalog.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminReleaseResponse"}
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/releases/{release_id}/archive:
+    post:
+      operationId: adminArchiveRelease
+      tags: [Admin]
+      x-internal: true
+      description: Archives a DRAFT, READY, or ROLLED_BACK release. A PUBLISHED release must be rolled back first.
+      security:
+        - adminAccessToken: []
+          adminStepUpToken: []
+      parameters:
+        - {in: path, name: release_id, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
+      responses:
+        "200":
+          description: Release hidden from active release workflows while its metadata and audit history are preserved.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminReleaseResponse"}
+        "409":
+          $ref: "#/components/responses/Conflict"
   /v1/game-servers:
     post:
       operationId: registerGameServer
@@ -885,15 +2023,17 @@ paths:
       security:
         - adminToken: []
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
               type: object
               additionalProperties: false
+              required: [reason]
               properties:
                 deadline_seconds: {type: integer, minimum: 30, maximum: 86400, default: 300}
                 migrate_existing: {type: boolean, default: false}
+                reason: {type: string, minLength: 1, maxLength: 500}
       responses:
         "200":
           description: Node stopped receiving new allocations; existing allocations remain until expiry or drain deadline.
@@ -916,6 +2056,11 @@ paths:
       x-internal: true
       security:
         - adminToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
       responses:
         "200":
           description: Node returned to READY and may receive new allocations.
@@ -932,6 +2077,11 @@ paths:
       x-internal: true
       security:
         - adminToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
       responses:
         "200":
           description: Node certificate identity and node credential permanently rejected.
@@ -951,6 +2101,11 @@ paths:
       x-internal: true
       security:
         - adminToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
       responses:
         "200":
           description: Signing key activated after every READY Relay acknowledged the staged keyset.
@@ -1114,6 +2269,17 @@ components:
       type: http
       scheme: bearer
       bearerFormat: Static Admin Token
+      description: Machine-only token for internal operational routes. It is not accepted by the Admin Web API.
+    adminAccessToken:
+      type: http
+      scheme: bearer
+      bearerFormat: EdDSA Administrator JWT
+      description: Short-lived human administrator token issued only after Turnstile, password, and MFA validation.
+    adminStepUpToken:
+      type: apiKey
+      in: header
+      name: X-Admin-Step-Up
+      description: Short-lived MFA proof bound to the current administrator and session.
     gameServerRegistrationToken:
       type: http
       scheme: bearer
@@ -1170,6 +2336,13 @@ components:
       schema:
         type: string
         pattern: "^relay_[A-Za-z0-9]+$"
+    RoomID:
+      in: path
+      name: room_id
+      required: true
+      schema:
+        type: string
+        pattern: "^room_[A-Za-z0-9]+$"
   responses:
     InvalidRequest:
       description: Invalid request.
@@ -1184,19 +2357,31 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
     RateLimited:
-      description: A per-IP, per-SteamID, per-device, or combined authentication limit was exceeded. Retry-After is returned for bind limits.
+      description: An authentication rate limit was exceeded. Retry-After is returned when applicable.
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
     AdminUnauthorized:
-      description: A dedicated administrator token is required; Player tokens are not accepted.
+      description: Administrator authentication failed or the short-lived administrator session is unavailable. Player tokens are never accepted.
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
     NotFound:
       description: Resource not found or not exposed on this network.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: The requested operation conflicts with the current resource state.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ServiceUnavailable:
+      description: A required coordinator or healthy target is temporarily unavailable.
       content:
         application/json:
           schema:
@@ -1384,6 +2569,132 @@ components:
           properties:
             revoked_sessions: {type: integer, minimum: 0}
         request_id: {type: string}
+    AdminAuthConfigResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [turnstile]
+          properties:
+            turnstile:
+              type: object
+              required: [configured, site_key, action]
+              properties:
+                configured: {type: boolean}
+                site_key: {type: string}
+                action: {type: string, const: admin_login}
+        request_id: {type: string}
+    AdminLoginRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password, turnstile_token]
+      properties:
+        username: {type: string, minLength: 1, maxLength: 128}
+        password: {type: string, minLength: 1, maxLength: 256}
+        turnstile_token: {type: string, minLength: 1, maxLength: 2048}
+    AdminLoginResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [mfa_required, challenge_token, expires_at]
+          properties:
+            mfa_required: {type: boolean, const: true}
+            challenge_token: {type: string, pattern: "^amc_[A-Za-z0-9_-]+$"}
+            expires_at: {type: string, format: date-time}
+        request_id: {type: string}
+    AdminMFAVerifyRequest:
+      type: object
+      additionalProperties: false
+      required: [challenge_token, code]
+      properties:
+        challenge_token: {type: string, pattern: "^amc_[A-Za-z0-9_-]+$"}
+        code:
+          type: string
+          description: Six-digit TOTP or a one-time recovery code.
+          minLength: 6
+          maxLength: 32
+    AdminStepUpRequest:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code:
+          type: string
+          description: Six-digit TOTP or a one-time recovery code.
+          minLength: 6
+          maxLength: 32
+    AdminStepUpResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [step_up_token, expires_at]
+          properties:
+            step_up_token: {type: string}
+            expires_at: {type: string, format: date-time}
+        request_id: {type: string}
+    CurrentAdmin:
+      type: object
+      additionalProperties: false
+      required: [admin_id, username, display_name, roles, permissions]
+      properties:
+        admin_id: {type: string, pattern: "^adm_[A-Za-z0-9]+$"}
+        username: {type: string}
+        display_name: {type: string}
+        roles:
+          type: array
+          items: {type: string}
+        permissions:
+          type: array
+          items: {type: string}
+    CurrentAdminResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/CurrentAdmin"}
+        request_id: {type: string}
+    AdminAccessResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [access_token, access_token_expires_at, admin]
+          properties:
+            access_token: {type: string}
+            access_token_expires_at: {type: string, format: date-time}
+            admin: {$ref: "#/components/schemas/CurrentAdmin"}
+        request_id: {type: string}
+    AdminSession:
+      type: object
+      additionalProperties: false
+      required: [session_id, ip_address, user_agent, created_at, last_used_at, expires_at, is_current]
+      properties:
+        session_id: {type: string, pattern: "^adm_ses_[A-Za-z0-9]+$"}
+        ip_address: {type: string}
+        user_agent: {type: string}
+        created_at: {type: string, format: date-time}
+        last_used_at:
+          type: [string, "null"]
+          format: date-time
+        expires_at: {type: string, format: date-time}
+        is_current: {type: boolean}
+    AdminSessionListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: {$ref: "#/components/schemas/AdminSession"}
+        request_id: {type: string}
     AdminPlayer:
       allOf:
         - $ref: "#/components/schemas/MeData"
@@ -1402,7 +2713,7 @@ components:
     AdminPlayerPatch:
       type: object
       additionalProperties: false
-      minProperties: 1
+      required: [reason]
       properties:
         account_status:
           $ref: "#/components/schemas/AccountStatus"
@@ -1411,6 +2722,22 @@ components:
         revoke_sessions:
           type: boolean
           default: false
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+        internal_note:
+          type: string
+          maxLength: 2000
+    AdminOperationReason:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
     AdminPlayerResponse:
       type: object
       required: [data, request_id]
@@ -1467,6 +2794,58 @@ components:
               minimum: 0
         request_id:
           type: string
+    AdminPlayerSession:
+      type: object
+      additionalProperties: false
+      required: [session_id, device_id_suffix, ip_address, token_family_id, created_at, last_used_at, expires_at, revoked_at, revoked_reason, reuse_detected_at, active]
+      properties:
+        session_id: {type: string}
+        device_id_suffix: {type: string, maxLength: 4}
+        ip_address: {type: string, description: Masked address summary.}
+        token_family_id: {type: string}
+        created_at: {type: string, format: date-time}
+        last_used_at: {type: [string, "null"], format: date-time}
+        expires_at: {type: string, format: date-time}
+        revoked_at: {type: [string, "null"], format: date-time}
+        revoked_reason: {type: string}
+        reuse_detected_at: {type: [string, "null"], format: date-time}
+        active: {type: boolean}
+    AdminPlayerSessionListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: {$ref: "#/components/schemas/AdminPlayerSession"}
+        request_id: {type: string}
+    AdminPlayerLoginEvent:
+      type: object
+      additionalProperties: false
+      required: [id, session_id, ip_address, user_agent, result, failure_code, created_at]
+      properties:
+        id: {type: string}
+        session_id: {type: string}
+        ip_address: {type: string, description: Masked address summary.}
+        user_agent: {type: string}
+        result: {type: string, enum: [SUCCESS, FAILURE]}
+        failure_code: {type: string}
+        created_at: {type: string, format: date-time}
+    AdminPlayerLoginEventListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: {$ref: "#/components/schemas/AdminPlayerLoginEvent"}
+        request_id: {type: string}
     InviteCode:
       type: object
       additionalProperties: false
@@ -1490,16 +2869,23 @@ components:
     InviteCodeCreateRequest:
       type: object
       additionalProperties: false
-      required: [batch_name, max_uses]
+      required: [batch_name, max_uses, reason]
       properties:
         batch_name: {type: string, minLength: 1, maxLength: 128}
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 1
+          description: Number of independently hashed codes to create atomically.
         max_uses: {type: integer, minimum: 1, maximum: 1000000}
         expires_at: {type: string, format: date-time}
         permissions: {type: object, additionalProperties: true}
+        reason: {type: string, minLength: 1, maxLength: 500}
     InviteCodePatchRequest:
       type: object
       additionalProperties: false
-      minProperties: 1
+      required: [reason]
       properties:
         batch_name: {type: string, minLength: 1, maxLength: 128}
         max_uses: {type: integer, minimum: 1, maximum: 1000000}
@@ -1508,6 +2894,7 @@ components:
           format: date-time
         enabled: {type: boolean}
         permissions: {type: object, additionalProperties: true}
+        reason: {type: string, minLength: 1, maxLength: 500}
     InviteCodeResponse:
       type: object
       required: [data, request_id]
@@ -1516,12 +2903,24 @@ components:
         request_id: {type: string}
     InviteCodeCreateData:
       type: object
-      required: [invite_code, code]
+      required: [invite_code, code, invite_codes]
       properties:
         invite_code: {$ref: "#/components/schemas/InviteCode"}
         code:
           type: string
-          description: Plaintext secret returned only by the create operation.
+          description: First plaintext secret, retained for compatibility and returned only by the create operation.
+        invite_codes:
+          type: array
+          minItems: 1
+          maxItems: 100
+          description: Created metadata and plaintext values. Plaintext is returned only in this response.
+          items:
+            type: object
+            additionalProperties: false
+            required: [invite_code, code]
+            properties:
+              invite_code: {$ref: "#/components/schemas/InviteCode"}
+              code: {type: string}
     InviteCodeCreateResponse:
       type: object
       required: [data, request_id]
@@ -1542,6 +2941,593 @@ components:
       properties:
         data: {$ref: "#/components/schemas/InviteCodeListData"}
         request_id: {type: string}
+    InviteCodeUse:
+      type: object
+      additionalProperties: false
+      required: [id, invite_code_id, player_id, steam_id, ip_address, used_at, result]
+      properties:
+        id: {type: string}
+        invite_code_id: {type: string}
+        player_id: {type: string}
+        steam_id: {type: string}
+        ip_address:
+          type: string
+          description: Masked IPv4 /24 or IPv6 /48 network summary.
+        used_at: {type: string, format: date-time}
+        result: {type: string, enum: [SUCCESS]}
+    InviteCodeUseListData:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: {$ref: "#/components/schemas/InviteCodeUse"}
+        next_cursor: {type: string}
+    InviteCodeUseListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/InviteCodeUseListData"}
+        request_id: {type: string}
+    AdminDashboardSummary:
+      type: object
+      additionalProperties: false
+      required: [online_players, active_p2p_rooms, online_game_servers, ready_relay_nodes, active_relay_allocations, unresolved_risk_events, active_invite_codes, active_admin_sessions, generated_at]
+      properties:
+        online_players: {type: integer, minimum: 0}
+        active_p2p_rooms: {type: integer, minimum: 0}
+        online_game_servers: {type: integer, minimum: 0}
+        ready_relay_nodes: {type: integer, minimum: 0}
+        active_relay_allocations: {type: integer, minimum: 0}
+        unresolved_risk_events: {type: integer, minimum: 0}
+        active_invite_codes: {type: integer, minimum: 0}
+        active_admin_sessions: {type: integer, minimum: 0}
+        generated_at: {type: string, format: date-time}
+    AdminP2PRoom:
+      type: object
+      additionalProperties: false
+      required: [room_id, host_player_id, display_name, region, mode, version, max_players, player_count, state, last_heartbeat_at, created_at, updated_at, closed_at]
+      properties:
+        room_id: {type: string}
+        host_player_id: {type: string}
+        display_name: {type: string}
+        region: {type: string}
+        mode: {type: string}
+        version: {type: string}
+        max_players: {type: integer}
+        player_count: {type: integer}
+        state: {$ref: "#/components/schemas/P2PRoomState"}
+        last_heartbeat_at: {type: string, format: date-time}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        closed_at: {type: [string, "null"], format: date-time}
+    AdminP2PRoomOperationResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [room, connections_cleanup_complete]
+          properties:
+            room: {$ref: "#/components/schemas/AdminP2PRoom"}
+            connections_cleanup_complete: {type: boolean}
+        request_id: {type: string}
+    AdminP2PRoomMember:
+      type: object
+      additionalProperties: false
+      required: [room_id, player_id, steam_id, persona_name, account_status, role, status, joined_at, left_at]
+      properties:
+        room_id: {type: string}
+        player_id: {type: string}
+        steam_id: {type: string}
+        persona_name: {type: string}
+        account_status: {$ref: "#/components/schemas/AccountStatus"}
+        role: {type: string, enum: [HOST, MEMBER]}
+        status: {type: string, enum: [ACTIVE, LEFT]}
+        joined_at: {type: string, format: date-time}
+        left_at: {type: [string, "null"], format: date-time}
+    AdminP2PRoomMemberListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: {$ref: "#/components/schemas/AdminP2PRoomMember"}
+        request_id: {type: string}
+    AdminGameServer:
+      type: object
+      additionalProperties: false
+      required: [server_id, instance_id, display_name, region, mode, version, public_host, public_port, max_players, player_count, state, token_expires_at, token_revoked_at, last_heartbeat_at, created_at, updated_at]
+      properties:
+        server_id: {type: string}
+        instance_id: {type: string}
+        display_name: {type: string}
+        region: {type: string}
+        mode: {type: string}
+        version: {type: string}
+        public_host: {type: string}
+        public_port: {type: integer}
+        max_players: {type: integer}
+        player_count: {type: integer}
+        state: {$ref: "#/components/schemas/GameServerState"}
+        token_expires_at: {type: string, format: date-time}
+        token_revoked_at: {type: [string, "null"], format: date-time}
+        last_heartbeat_at: {type: string, format: date-time}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    AdminGameServerResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/AdminGameServer"}
+        request_id: {type: string}
+    AdminRelayMigration:
+      type: object
+      additionalProperties: false
+      required: [migration_id, previous_node_id, new_node_id, state, reason, attempt, failure_reason, created_at, completed_at]
+      properties:
+        migration_id: {type: string}
+        previous_node_id: {type: string}
+        new_node_id: {type: string}
+        state: {type: string, enum: [BINDING, COMPLETED, FAILED]}
+        reason: {type: string}
+        attempt: {type: integer, minimum: 1}
+        failure_reason: {type: string}
+        created_at: {type: string, format: date-time}
+        completed_at: {type: [string, "null"], format: date-time}
+    AdminConnection:
+      type: object
+      additionalProperties: false
+      required: [connection_id, room_id, host_player_id, peer_player_id, state, selected_path, failure_reason, allocation_id, relay_node_id, allocation_state, expires_at, created_at, updated_at, closed_at]
+      properties:
+        connection_id: {type: string}
+        room_id: {type: string}
+        host_player_id: {type: string}
+        peer_player_id: {type: string}
+        state: {$ref: "#/components/schemas/ConnectionState"}
+        selected_path: {type: string}
+        failure_reason: {type: string}
+        allocation_id: {type: string}
+        relay_node_id: {type: string}
+        allocation_state: {type: string}
+        expires_at: {type: string, format: date-time}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        closed_at: {type: [string, "null"], format: date-time}
+        migration_history:
+          type: array
+          items: {$ref: "#/components/schemas/AdminRelayMigration"}
+    AdminConnectionResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/AdminConnection"}
+        request_id: {type: string}
+    AdminConnectionListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [items, next_cursor]
+          properties:
+            items:
+              type: array
+              items: {$ref: "#/components/schemas/AdminConnection"}
+            next_cursor: {type: string}
+        request_id: {type: string}
+    AdminConnectionCloseResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [connection, relay_cleanup_complete]
+          properties:
+            connection: {$ref: "#/components/schemas/AdminConnection"}
+            relay_cleanup_complete: {type: boolean}
+        request_id: {type: string}
+    AdminConnectionMigrationResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [connection_id, migration_id, previous_relay_node_id, new_relay_node_id, state]
+          properties:
+            connection_id: {type: string}
+            migration_id: {type: string}
+            previous_relay_node_id: {type: string}
+            new_relay_node_id: {type: string}
+            state: {type: string, enum: [BINDING]}
+        request_id: {type: string}
+    AdminRelayDrainRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        deadline_seconds: {type: integer, minimum: 30, maximum: 86400, default: 300}
+        migrate_existing: {type: boolean, default: false}
+        reason: {type: string, minLength: 1, maxLength: 500}
+    GovernedAdministrator:
+      type: object
+      additionalProperties: false
+      required: [id, username, display_name, status, mfa_enabled, roles, created_at, updated_at]
+      properties:
+        id: {type: string, pattern: "^adm_[A-Za-z0-9]+$"}
+        username: {type: string}
+        display_name: {type: string}
+        status: {type: string, enum: [ACTIVE, DISABLED]}
+        mfa_enabled: {type: boolean}
+        roles:
+          type: array
+          items: {type: string}
+        last_login_at: {type: string, format: date-time}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        disabled_at: {type: string, format: date-time}
+    GovernedAdministratorCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [username, display_name, password, roles, reason]
+      properties:
+        username: {type: string, minLength: 1, maxLength: 128}
+        display_name: {type: string, minLength: 1, maxLength: 128}
+        password: {type: string, minLength: 12, maxLength: 256, format: password}
+        roles:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: {type: string}
+        reason: {type: string, minLength: 1, maxLength: 500}
+    GovernedAdministratorUpdateRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 2
+      required: [reason]
+      properties:
+        display_name: {type: string, minLength: 1, maxLength: 128}
+        status: {type: string, enum: [ACTIVE, DISABLED]}
+        roles:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: {type: string}
+        revoke_sessions: {type: boolean}
+        reason: {type: string, minLength: 1, maxLength: 500}
+    GovernedAdministratorResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/GovernedAdministrator"}
+        request_id: {type: string}
+    GovernedAdministratorListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: {$ref: "#/components/schemas/GovernedAdministrator"}
+        request_id: {type: string}
+    GovernedAdministratorProvisioningResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [admin, totp_provisioning_uri, recovery_codes]
+          properties:
+            admin: {$ref: "#/components/schemas/GovernedAdministrator"}
+            totp_provisioning_uri:
+              type: string
+              description: One-time TOTP bootstrap secret encoded as an otpauth URI; never persisted in plaintext.
+            recovery_codes:
+              type: array
+              minItems: 10
+              maxItems: 10
+              items: {type: string}
+        request_id: {type: string}
+    AdminPermissionDefinition:
+      type: object
+      additionalProperties: false
+      required: [key, resource, action, description, risk_level]
+      properties:
+        key: {type: string}
+        resource: {type: string}
+        action: {type: string}
+        description: {type: string}
+        risk_level: {type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL]}
+    GovernedRole:
+      type: object
+      additionalProperties: false
+      required: [id, name, display_name, description, system_role, permissions, created_at, updated_at]
+      properties:
+        id: {type: string}
+        name: {type: string}
+        display_name: {type: string}
+        description: {type: string}
+        system_role: {type: boolean}
+        permissions:
+          type: array
+          items: {type: string}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    GovernedRoleListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [items, permissions]
+          properties:
+            items:
+              type: array
+              items: {$ref: "#/components/schemas/GovernedRole"}
+            permissions:
+              type: array
+              items: {$ref: "#/components/schemas/AdminPermissionDefinition"}
+        request_id: {type: string}
+    GovernedRoleUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [permissions, reason]
+      properties:
+        permissions:
+          type: array
+          uniqueItems: true
+          items: {type: string}
+        reason: {type: string, minLength: 1, maxLength: 500}
+    GovernedRoleResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/GovernedRole"}
+        request_id: {type: string}
+    AdminFeatureMap:
+      type: object
+      additionalProperties: {type: boolean}
+      required: [matchmaking, parties, match_history, dual_approval]
+      properties:
+        matchmaking: {type: boolean}
+        parties: {type: boolean}
+        match_history: {type: boolean}
+        dual_approval: {type: boolean}
+    AdminFeaturesResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/AdminFeatureMap"}
+        request_id: {type: string}
+    AdminCapabilityResource:
+      type: object
+      additionalProperties: false
+      required: [name, operations]
+      properties:
+        name: {type: string}
+        operations:
+          type: array
+          items: {type: string}
+    AdminCapabilities:
+      type: object
+      additionalProperties: false
+      required: [api_version, resources, max_batch_operations, realtime_subscriptions, dual_approval, polling_fallback_seconds]
+      properties:
+        api_version: {type: string, const: v1}
+        resources:
+          type: array
+          items: {$ref: "#/components/schemas/AdminCapabilityResource"}
+        max_batch_operations: {type: integer, minimum: 1}
+        realtime_subscriptions: {type: boolean}
+        dual_approval: {type: boolean}
+        polling_fallback_seconds:
+          type: object
+          additionalProperties: {type: integer, minimum: 1}
+          required: [dashboard, fleet, lists]
+    AdminCapabilitiesResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/AdminCapabilities"}
+        request_id: {type: string}
+    AdminSetting:
+      type: object
+      additionalProperties: false
+      required: [key, category, display_name, description, value, value_type, editable, updated_at]
+      properties:
+        key: {type: string}
+        category: {type: string, enum: [FEATURES, INTEGRATIONS]}
+        display_name: {type: string}
+        description: {type: string}
+        value:
+          oneOf:
+            - {type: boolean}
+            - {type: string}
+        value_type: {type: string, enum: [BOOLEAN, URL]}
+        editable: {type: boolean}
+        updated_by: {type: string}
+        updated_at: {type: string, format: date-time}
+    AdminSettingListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: {$ref: "#/components/schemas/AdminSetting"}
+        request_id: {type: string}
+    AdminSettingsUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [values, reason]
+      properties:
+        values:
+          type: object
+          minProperties: 1
+          maxProperties: 20
+          additionalProperties:
+            oneOf:
+              - {type: boolean}
+              - {type: string}
+        reason: {type: string, minLength: 1, maxLength: 500}
+    AdminReleaseStatus:
+      type: string
+      enum: [DRAFT, READY, PUBLISHED, ROLLED_BACK, ARCHIVED]
+    AdminReleaseSourceFile:
+      type: object
+      additionalProperties: false
+      required: [file_id, path, size, sha256, compression, object_key]
+      properties:
+        file_id: {type: string, minLength: 1, maxLength: 64}
+        path: {type: string, minLength: 1}
+        size: {type: integer, format: int64, minimum: 0}
+        sha256: {type: string, pattern: "^[0-9a-f]{64}$"}
+        compression: {type: string, enum: [none, gzip, zstd]}
+        object_key:
+          type: string
+          minLength: 1
+          description: Relative object-storage key resolved only under the configured CDN base URL.
+    AdminReleaseCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [platform, architecture, channel, version, minimum_supported_version, force_update, files, reason]
+      properties:
+        platform: {type: string, minLength: 1, maxLength: 64}
+        architecture: {type: string, minLength: 1, maxLength: 64}
+        channel: {type: string, enum: [stable, beta]}
+        version: {type: string, minLength: 1, maxLength: 64}
+        minimum_supported_version: {type: string, minLength: 1, maxLength: 64}
+        force_update: {type: boolean}
+        files:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          items: {$ref: "#/components/schemas/AdminReleaseSourceFile"}
+        reason: {type: string, minLength: 1, maxLength: 500}
+    AdminReleaseValidation:
+      type: object
+      required: [valid, checks]
+      properties:
+        valid: {type: boolean}
+        checks:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [key, passed, message]
+            properties:
+              key: {type: string}
+              passed: {type: boolean}
+              message: {type: string}
+    AdminRelease:
+      type: object
+      additionalProperties: false
+      required: [id, product, platform, architecture, channel, version, minimum_supported_version, force_update, status, files, validation, created_by, published_by, rolled_back_by, archived_by, created_at, updated_at, published_at, rolled_back_at, archived_at]
+      properties:
+        id: {type: string}
+        product: {type: string}
+        platform: {type: string}
+        architecture: {type: string}
+        channel: {type: string, enum: [stable, beta]}
+        version: {type: string}
+        minimum_supported_version: {type: string}
+        force_update: {type: boolean}
+        status: {$ref: "#/components/schemas/AdminReleaseStatus"}
+        files:
+          type: array
+          items: {$ref: "#/components/schemas/AdminReleaseSourceFile"}
+        manifest: {$ref: "#/components/schemas/SignedUpdateManifest"}
+        validation: {$ref: "#/components/schemas/AdminReleaseValidation"}
+        created_by: {type: string}
+        published_by: {type: string}
+        rolled_back_by: {type: string}
+        archived_by: {type: string}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        published_at: {type: [string, "null"], format: date-time}
+        rolled_back_at: {type: [string, "null"], format: date-time}
+        archived_at: {type: [string, "null"], format: date-time}
+    AdminReleaseResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/AdminRelease"}
+        request_id: {type: string}
+    AdminReleaseListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [items, next_cursor]
+          properties:
+            items:
+              type: array
+              items: {$ref: "#/components/schemas/AdminRelease"}
+            next_cursor: {type: string}
+        request_id: {type: string}
+    AdminDashboardSummaryResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/AdminDashboardSummary"}
+        request_id: {type: string}
+    AdminDashboardPoint:
+      type: object
+      additionalProperties: false
+      required: [bucket_start, login_count, rooms_created, risk_events]
+      properties:
+        bucket_start: {type: string, format: date-time}
+        login_count: {type: integer, minimum: 0}
+        rooms_created: {type: integer, minimum: 0}
+        risk_events: {type: integer, minimum: 0}
+    AdminDashboardTimeseriesResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [items, period]
+          properties:
+            items:
+              type: array
+              items: {$ref: "#/components/schemas/AdminDashboardPoint"}
+            period: {type: string, enum: [1h, 24h, 7d, 30d]}
+        request_id: {type: string}
+    AdminDashboardAlert:
+      type: object
+      additionalProperties: false
+      required: [id, severity, resource_type, title, summary, count, resource_path]
+      properties:
+        id: {type: string}
+        severity: {type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL]}
+        resource_type: {type: string}
+        title: {type: string}
+        summary: {type: string}
+        count: {type: integer, minimum: 1}
+        resource_path: {type: string}
+    AdminDashboardAlertListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: {$ref: "#/components/schemas/AdminDashboardAlert"}
+        request_id: {type: string}
     AuthRiskEventType:
       type: string
       enum: [BIND_RATE_LIMITED, REFRESH_TOKEN_REUSE, MULTI_DEVICE_LOGIN, RAPID_IP_CHANGE, MULTI_ACCOUNT_FROM_DEVICE, MULTI_ACCOUNT_FROM_IP, INVALID_STEAM_ID, INVALID_INVITE_CODE, REVOKED_SESSION_USAGE]
@@ -1551,7 +3537,7 @@ components:
     AuthRiskEvent:
       type: object
       additionalProperties: false
-      required: [id, event_type, severity, details, created_at, resolved_at]
+      required: [id, player_id, steam_id, ip_address, event_type, severity, details, created_at, resolved_at, resolved_by, resolution_note]
       properties:
         id: {type: string}
         player_id: {type: string}
@@ -1564,6 +3550,14 @@ components:
         resolved_at:
           type: [string, "null"]
           format: date-time
+        resolved_by: {type: string}
+        resolution_note: {type: string}
+    AuthRiskEventResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/AuthRiskEvent"}
+        request_id: {type: string}
     AuthRiskEventListData:
       type: object
       required: [items, next_cursor]
@@ -1577,6 +3571,77 @@ components:
       required: [data, request_id]
       properties:
         data: {$ref: "#/components/schemas/AuthRiskEventListData"}
+        request_id: {type: string}
+    AdminAuditLog:
+      type: object
+      additionalProperties: false
+      required: [id, admin_id, action, target_type, target_id, old_value, new_value, reason, request_id, ip_address, user_agent, result, created_at]
+      properties:
+        id: {type: string}
+        admin_id: {type: string}
+        action: {type: string}
+        target_type: {type: string}
+        target_id: {type: string}
+        old_value: {type: object, additionalProperties: true}
+        new_value: {type: object, additionalProperties: true}
+        reason: {type: string}
+        request_id: {type: string}
+        ip_address: {type: string}
+        user_agent: {type: string}
+        result: {type: string, enum: [SUCCEEDED, FAILED, DENIED]}
+        created_at: {type: string, format: date-time}
+    AdminAuditLogResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/AdminAuditLog"}
+        request_id: {type: string}
+    AdminAuditLogListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [items, next_cursor]
+          properties:
+            items:
+              type: array
+              items: {$ref: "#/components/schemas/AdminAuditLog"}
+            next_cursor: {type: string}
+        request_id: {type: string}
+    AdminLoginAudit:
+      type: object
+      additionalProperties: false
+      required: [id, admin_id, event_type, result, reason_code, request_id, ip_address, user_agent, turnstile_success, turnstile_error_codes, turnstile_hostname, turnstile_action, turnstile_verify_latency_ms, created_at]
+      properties:
+        id: {type: string}
+        admin_id: {type: string}
+        event_type: {type: string}
+        result: {type: string, enum: [SUCCESS, FAILURE]}
+        reason_code: {type: string}
+        request_id: {type: string}
+        ip_address: {type: string}
+        user_agent: {type: string}
+        turnstile_success: {type: [boolean, "null"]}
+        turnstile_error_codes:
+          type: array
+          items: {type: string}
+        turnstile_hostname: {type: string}
+        turnstile_action: {type: string}
+        turnstile_verify_latency_ms: {type: [integer, "null"], minimum: 0}
+        created_at: {type: string, format: date-time}
+    AdminLoginAuditListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [items, next_cursor]
+          properties:
+            items:
+              type: array
+              items: {$ref: "#/components/schemas/AdminLoginAudit"}
+            next_cursor: {type: string}
         request_id: {type: string}
     GameServerState:
       type: string
