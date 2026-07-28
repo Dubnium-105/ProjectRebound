@@ -565,6 +565,19 @@ a {
   min-height: 100vh;
   grid-template-columns: minmax(460px, 1.05fr) minmax(520px, 0.95fr);
   background: #f4f6fa;
+  position: relative;
+}
+
+.login-language-switcher {
+  position: absolute;
+  z-index: 5;
+  top: 20px;
+  right: 24px;
+}
+
+.login-language-switcher .ant-btn {
+  background: rgb(255 255 255 / 88%);
+  box-shadow: 0 4px 18px rgb(15 23 42 / 10%);
 }
 
 .login-story {
