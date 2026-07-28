@@ -395,6 +395,7 @@ jobs:
           IMAGE_DIGEST: ${{ steps.push.outputs.digest }}
         run: |
           mkdir -p release-record
+          definitions_sha256="$(sha256sum Backend/internal/metaserver/assets/definitions/MANIFEST.sha256 | cut -d' ' -f1)"
           printf '%s\n' \
             "git_commit=${GITHUB_SHA}" \
             "build_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -404,7 +405,7 @@ jobs:
             "relay_protocol_version=2" \
             "meta_protocol_version=1" \
             "database_schema_version=28" \
-            "definitions_sha256=f1ef4530e25c10f10a3ce735987e2c594c0b81852e63007c5e3ef4d8353f8e2a" \
+            "definitions_sha256=${definitions_sha256}" \
             "definitions_upstream_commit=d68e717267abf14e32d4e39618f9b7680ed93046" \
             > "release-record/${{ matrix.name }}.txt"
 
