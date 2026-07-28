@@ -271,7 +271,17 @@ func TestRepositoryIsolationAndConcurrentSchedulingAgainstPostgreSQL(t *testing.
 		t.Fatalf("cross-server match access was accepted: %v", err)
 	}
 
-	scheduler.now = func() time.Time { return now.Add(2 * time.Minute) }
+	cleanupNow := now.Add(2 * time.Minute)
+	// Reservation expiry and heartbeat freshness are independent. Model live
+	// servers continuing to heartbeat while their clients fail to connect.
+	if _, err := pool.Exec(ctx, `
+		UPDATE game_servers
+		SET last_heartbeat_at = $2, updated_at = $2
+		WHERE id = ANY($1)
+	`, serverIDs, cleanupNow); err != nil {
+		t.Fatal(err)
+	}
+	scheduler.now = func() time.Time { return cleanupNow }
 	if err := scheduler.expireAndRelease(ctx); err != nil {
 		t.Fatalf("expire stale reservations: %v", err)
 	}
