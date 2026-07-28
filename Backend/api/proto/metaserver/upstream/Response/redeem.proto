@@ -1,0 +1,27 @@
+// Redeem / code redemption service
+// WARNING: Field numbers are TENTATIVE. Validate with proxy capture.
+syntax = "proto3";
+
+package ProjectBoundary;
+
+option go_package = "github.com/projectrebound/matchserver/internal/metaserver/protocol/upstream;upstream";
+
+message CheckVCFromPSNRequest {
+    // no fields found in binary
+}
+
+message CheckVCFromPSNResponse {
+    // no fields found in binary
+}
+
+message Item {
+    string id = 1;
+}
+
+message UseReq {
+    string code = 1;
+}
+
+message UseResp {
+    // no fields found in binary
+}

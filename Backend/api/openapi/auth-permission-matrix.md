@@ -14,9 +14,11 @@ The Access Token is a short-lived Ed25519 JWT containing only the player ID, ses
 | `users/me` | Allow | Allow | Reject |
 | Version/update reads | Allow | Allow | Defined by a later milestone |
 | Public server/room browsing | Allow | Allow | Defined by a later milestone |
+| Meta profile/content reads | Allow | Reject | Reject |
+| Meta loadout, Party, Gate, and matchmaking writes | Allow | Reject | Reject |
 | Online write operations | Allow | Reject | Reject |
 
-The Admin API does not use the player matrix and never accepts Player Access Tokens. Human routes under `/v1/admin/*` require a trusted source network plus a dedicated administrator session created only after Turnstile, password, and TOTP/recovery-code verification. Machine routes under `/internal/*` use separately configured static Admin Tokens and do not create browser sessions.
+The Admin API does not use the player matrix and never accepts Player Access Tokens. Human routes under `/v1/admin/*` require a trusted source network plus a dedicated administrator session created only after Turnstile, password, and TOTP/recovery-code verification. Existing operational machine routes use separately configured static Admin Tokens. Dedicated Server routes under `/internal/v1/meta/*` instead require an opaque Game Server Token bound to its server ID, expiry, scopes, active state, assigned match, and roster; neither credential creates a browser session.
 
 ## Human administrator RBAC
 
@@ -37,7 +39,8 @@ Roles are permission bundles. Backend handlers check permission keys; they do no
 | Roles | — | `roles.manage` |
 | Audit | `audit_logs.read` | — |
 | Settings | `settings.read` | `settings.update` |
+| MetaServer | `meta.read`, `meta.loadouts.read` | `meta.content.manage`, `meta.matches.manage`, `meta.loadouts.update` |
 
-Relay revoke, release publish/rollback/archive, administrator create/update/MFA reset, role changes, and settings changes also require a short-lived `X-Admin-Step-Up` proof bound to the current administrator session. Every write requires a reason and a backend audit record. The final active `SUPER_ADMIN` and the `SUPER_ADMIN` permission bundle have additional server-side invariants.
+Relay revoke, release publish/rollback/archive, administrator create/update/MFA reset, role changes, settings changes, and every MetaServer administrative write also require a short-lived `X-Admin-Step-Up` proof bound to the current administrator session. Every write requires a reason and a backend audit record. The final active `SUPER_ADMIN` and the `SUPER_ADMIN` permission bundle have additional server-side invariants.
 
 Refresh Tokens rotate on every use. The session row corresponding to the old token remains in a rotated state; reusing the old token revokes every session in the same `token_family_id` and records a `REFRESH_TOKEN_REUSE` audit event.

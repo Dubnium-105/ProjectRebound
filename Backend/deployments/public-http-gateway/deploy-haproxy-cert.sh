@@ -12,6 +12,12 @@ hosts=("$public_api_host")
 if [[ -n "${ADMIN_WEB_HOST:-}" ]]; then
   hosts+=("$ADMIN_WEB_HOST")
 fi
+if [[ -n "${META_HTTP_HOST:-}" ]]; then
+  hosts+=("$META_HTTP_HOST")
+fi
+if [[ -n "${META_LOGIC_HOST:-}" ]]; then
+  hosts+=("$META_LOGIC_HOST")
+fi
 for host in "${hosts[@]}"; do
   live_dir="/etc/letsencrypt/live/$host"
   target="/etc/haproxy/certs/$host.pem"

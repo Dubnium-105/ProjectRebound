@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"strconv"
@@ -26,6 +27,7 @@ type Config struct {
 	Auth              AuthConfig          `yaml:"auth"`
 	Admin             AdminConfig         `yaml:"admin"`
 	GameServer        GameServerConfig    `yaml:"game_server"`
+	MetaServer        MetaServerConfig    `yaml:"meta_server"`
 	P2PRoom           P2PRoomConfig       `yaml:"p2p_room"`
 	Connection        ConnectionConfig    `yaml:"connection"`
 	RelayRegistry     RelayRegistryConfig `yaml:"relay_registry"`
@@ -83,6 +85,7 @@ type AuthConfig struct {
 	Audience                       string                  `yaml:"audience"`
 	AccessTokenKeyID               string                  `yaml:"access_token_key_id"`
 	AccessTokenPrivateKeyBase64    string                  `yaml:"access_token_private_key_base64"`
+	AccessTokenPublicKeyBase64     string                  `yaml:"access_token_public_key_base64"`
 	AccessTokenTTLMinutes          int                     `yaml:"access_token_ttl_minutes"`
 	RefreshTokenTTLDays            int                     `yaml:"refresh_token_ttl_days"`
 	DefaultPersonaName             string                  `yaml:"default_persona_name"`
@@ -106,6 +109,7 @@ type AdminConfig struct {
 	// from YAML so credentials cannot be committed in configuration files.
 	TokenSet                    string   `yaml:"-"`
 	AccessTokenPrivateKeyBase64 string   `yaml:"-"`
+	AccessTokenPublicKeyBase64  string   `yaml:"-"`
 	MFAEncryptionKeyBase64      string   `yaml:"-"`
 	TurnstileSecretKey          string   `yaml:"-"`
 	TrustedCIDRs                []string `yaml:"trusted_cidrs"`
@@ -132,6 +136,29 @@ type GameServerConfig struct {
 	OfflineAfterSeconds      int    `yaml:"offline_after_seconds"`
 	ServerTokenTTLHours      int    `yaml:"server_token_ttl_hours"`
 	SweepIntervalSeconds     int    `yaml:"sweep_interval_seconds"`
+}
+
+type MetaServerConfig struct {
+	HTTPAddr                    string `yaml:"http_addr"`
+	LogicAddr                   string `yaml:"logic_addr"`
+	PublicHTTPBaseURL           string `yaml:"public_http_base_url"`
+	PublicLogicEndpoint         string `yaml:"public_logic_endpoint"`
+	LogicProxyProtocol          bool   `yaml:"logic_proxy_protocol"`
+	ProtocolVersion             int    `yaml:"protocol_version"`
+	GateTicketTTLSeconds        int    `yaml:"gate_ticket_ttl_seconds"`
+	MaxFrameBytes               int    `yaml:"max_frame_bytes"`
+	MaxWriteQueueBytes          int    `yaml:"max_write_queue_bytes"`
+	HandshakeTimeoutSeconds     int    `yaml:"handshake_timeout_seconds"`
+	FrameTimeoutSeconds         int    `yaml:"frame_timeout_seconds"`
+	IdleTimeoutSeconds          int    `yaml:"idle_timeout_seconds"`
+	MaxConnectionsPerIP         int    `yaml:"max_connections_per_ip"`
+	ConnectionsPerIPPerMinute   int    `yaml:"connections_per_ip_per_minute"`
+	RPCCallsPerPlayerPerMinute  int    `yaml:"rpc_calls_per_player_per_minute"`
+	MatchTicketTTLSeconds       int    `yaml:"match_ticket_ttl_seconds"`
+	MatchReservationTTLSeconds  int    `yaml:"match_reservation_ttl_seconds"`
+	SchedulerIntervalSeconds    int    `yaml:"scheduler_interval_seconds"`
+	RelayFreshnessSeconds       int    `yaml:"relay_freshness_seconds"`
+	DevelopmentLegacyLoadoutAPI bool   `yaml:"development_legacy_loadout_api"`
 }
 
 type P2PRoomConfig struct {
@@ -187,18 +214,16 @@ type UpdateConfig struct {
 }
 
 type MatchServerConfig struct {
-	HeartbeatSeconds              int `yaml:"heartbeat_seconds"`
-	StaleAfterSeconds             int `yaml:"stale_after_seconds"`
-	HostLostAfterSeconds          int `yaml:"host_lost_after_seconds"`
-	HostProbeSeconds              int `yaml:"host_probe_seconds"`
-	JoinTicketSeconds             int `yaml:"join_ticket_seconds"`
-	MatchTicketSeconds            int `yaml:"match_ticket_seconds"`
-	EndedRoomRetentionMinutes     int `yaml:"ended_room_retention_minutes"`
-	NatBindingSeconds             int `yaml:"nat_binding_seconds"`
-	PunchTicketSeconds            int `yaml:"punch_ticket_seconds"`
-	RelayAllocationSeconds        int `yaml:"relay_allocation_seconds"`
-	MetaserverTargetPlayerCount   int `yaml:"metaserver_target_player_count"`
-	MetaserverMatchTimeoutSeconds int `yaml:"metaserver_match_timeout_seconds"`
+	HeartbeatSeconds          int `yaml:"heartbeat_seconds"`
+	StaleAfterSeconds         int `yaml:"stale_after_seconds"`
+	HostLostAfterSeconds      int `yaml:"host_lost_after_seconds"`
+	HostProbeSeconds          int `yaml:"host_probe_seconds"`
+	JoinTicketSeconds         int `yaml:"join_ticket_seconds"`
+	MatchTicketSeconds        int `yaml:"match_ticket_seconds"`
+	EndedRoomRetentionMinutes int `yaml:"ended_room_retention_minutes"`
+	NatBindingSeconds         int `yaml:"nat_binding_seconds"`
+	PunchTicketSeconds        int `yaml:"punch_ticket_seconds"`
+	RelayAllocationSeconds    int `yaml:"relay_allocation_seconds"`
 }
 
 type RelayConfig struct {
@@ -303,6 +328,26 @@ var Defaults = Config{
 		ServerTokenTTLHours:      168,
 		SweepIntervalSeconds:     5,
 	},
+	MetaServer: MetaServerConfig{
+		HTTPAddr:                   ":8081",
+		LogicAddr:                  ":6968",
+		PublicHTTPBaseURL:          "https://meta.dubnium.top",
+		PublicLogicEndpoint:        "logic.dubnium.top:443",
+		ProtocolVersion:            1,
+		GateTicketTTLSeconds:       60,
+		MaxFrameBytes:              2 << 20,
+		MaxWriteQueueBytes:         4 << 20,
+		HandshakeTimeoutSeconds:    10,
+		FrameTimeoutSeconds:        15,
+		IdleTimeoutSeconds:         120,
+		MaxConnectionsPerIP:        8,
+		ConnectionsPerIPPerMinute:  30,
+		RPCCallsPerPlayerPerMinute: 600,
+		MatchTicketTTLSeconds:      300,
+		MatchReservationTTLSeconds: 90,
+		SchedulerIntervalSeconds:   2,
+		RelayFreshnessSeconds:      45,
+	},
 	P2PRoom: P2PRoomConfig{
 		HeartbeatIntervalSeconds: 15,
 		StaleAfterSeconds:        45,
@@ -346,18 +391,16 @@ var Defaults = Config{
 		ProtocolVersion:      2,
 	},
 	MatchServer: MatchServerConfig{
-		HeartbeatSeconds:              5,
-		StaleAfterSeconds:             15,
-		HostLostAfterSeconds:          45,
-		HostProbeSeconds:              60,
-		JoinTicketSeconds:             90,
-		MatchTicketSeconds:            120,
-		EndedRoomRetentionMinutes:     30,
-		NatBindingSeconds:             120,
-		PunchTicketSeconds:            120,
-		RelayAllocationSeconds:        1800,
-		MetaserverTargetPlayerCount:   12,
-		MetaserverMatchTimeoutSeconds: 300,
+		HeartbeatSeconds:          5,
+		StaleAfterSeconds:         15,
+		HostLostAfterSeconds:      45,
+		HostProbeSeconds:          60,
+		JoinTicketSeconds:         90,
+		MatchTicketSeconds:        120,
+		EndedRoomRetentionMinutes: 30,
+		NatBindingSeconds:         120,
+		PunchTicketSeconds:        120,
+		RelayAllocationSeconds:    1800,
 	},
 	Relay: RelayConfig{
 		Compression:               "auto",
@@ -396,11 +439,13 @@ func (c *Config) applyEnvOverrides() {
 	overrideString("REDIS_PASSWORD", &c.Redis.Password)
 	overrideString("LOG_LEVEL", &c.Logging.Level)
 	overrideString("ACCESS_TOKEN_PRIVATE_KEY_BASE64", &c.Auth.AccessTokenPrivateKeyBase64)
+	overrideString("ACCESS_TOKEN_PUBLIC_KEY_BASE64", &c.Auth.AccessTokenPublicKeyBase64)
 	overrideString("ACCESS_TOKEN_KEY_ID", &c.Auth.AccessTokenKeyID)
 	overrideString("DEVICE_FINGERPRINT_KEY_ID", &c.Auth.DeviceFingerprintKeyID)
 	overrideString("DEVICE_FINGERPRINT_HMAC_KEY_BASE64", &c.Auth.DeviceFingerprintHMACKeyBase64)
 	overrideString("ADMIN_TOKENS", &c.Admin.TokenSet)
 	overrideString("ADMIN_ACCESS_TOKEN_PRIVATE_KEY_BASE64", &c.Admin.AccessTokenPrivateKeyBase64)
+	overrideString("ADMIN_ACCESS_TOKEN_PUBLIC_KEY_BASE64", &c.Admin.AccessTokenPublicKeyBase64)
 	overrideString("ADMIN_ACCESS_TOKEN_KEY_ID", &c.Admin.AccessTokenKeyID)
 	overrideString("ADMIN_MFA_ENCRYPTION_KEY_BASE64", &c.Admin.MFAEncryptionKeyBase64)
 	overrideString("TURNSTILE_SITE_KEY", &c.Admin.TurnstileSiteKey)
@@ -416,6 +461,26 @@ func (c *Config) applyEnvOverrides() {
 	overrideInt("ADMIN_LOGIN_PER_USERNAME_PER_MINUTE", &c.Admin.LoginPerUsernamePerMinute)
 	overrideInt("TURNSTILE_TIMEOUT_SECONDS", &c.Admin.TurnstileTimeoutSeconds)
 	overrideString("GAME_SERVER_REGISTRATION_TOKENS", &c.GameServer.RegistrationTokenSet)
+	overrideString("META_HTTP_ADDR", &c.MetaServer.HTTPAddr)
+	overrideString("META_LOGIC_ADDR", &c.MetaServer.LogicAddr)
+	overrideString("META_PUBLIC_HTTP_BASE_URL", &c.MetaServer.PublicHTTPBaseURL)
+	overrideString("META_PUBLIC_LOGIC_ENDPOINT", &c.MetaServer.PublicLogicEndpoint)
+	overrideBool("META_LOGIC_PROXY_PROTOCOL", &c.MetaServer.LogicProxyProtocol)
+	overrideInt("META_PROTOCOL_VERSION", &c.MetaServer.ProtocolVersion)
+	overrideInt("META_GATE_TICKET_TTL_SECONDS", &c.MetaServer.GateTicketTTLSeconds)
+	overrideInt("META_MAX_FRAME_BYTES", &c.MetaServer.MaxFrameBytes)
+	overrideInt("META_MAX_WRITE_QUEUE_BYTES", &c.MetaServer.MaxWriteQueueBytes)
+	overrideInt("META_HANDSHAKE_TIMEOUT_SECONDS", &c.MetaServer.HandshakeTimeoutSeconds)
+	overrideInt("META_FRAME_TIMEOUT_SECONDS", &c.MetaServer.FrameTimeoutSeconds)
+	overrideInt("META_IDLE_TIMEOUT_SECONDS", &c.MetaServer.IdleTimeoutSeconds)
+	overrideInt("META_MAX_CONNECTIONS_PER_IP", &c.MetaServer.MaxConnectionsPerIP)
+	overrideInt("META_CONNECTIONS_PER_IP_PER_MINUTE", &c.MetaServer.ConnectionsPerIPPerMinute)
+	overrideInt("META_RPC_CALLS_PER_PLAYER_PER_MINUTE", &c.MetaServer.RPCCallsPerPlayerPerMinute)
+	overrideInt("META_MATCH_TICKET_TTL_SECONDS", &c.MetaServer.MatchTicketTTLSeconds)
+	overrideInt("META_MATCH_RESERVATION_TTL_SECONDS", &c.MetaServer.MatchReservationTTLSeconds)
+	overrideInt("META_SCHEDULER_INTERVAL_SECONDS", &c.MetaServer.SchedulerIntervalSeconds)
+	overrideInt("META_RELAY_FRESHNESS_SECONDS", &c.MetaServer.RelayFreshnessSeconds)
+	overrideBool("META_DEVELOPMENT_LEGACY_LOADOUT_API", &c.MetaServer.DevelopmentLegacyLoadoutAPI)
 	overrideInt("REDIS_DB", &c.Redis.DB)
 	overrideInt("HTTP_RATE_LIMIT_BURST", &c.RateLimit.Burst)
 	overrideInt("AUTH_BIND_REQUESTS_PER_MINUTE", &c.Auth.BindRequestsPerMinute)
@@ -659,6 +724,71 @@ func (c *Config) ValidateControlPlane() error {
 	return nil
 }
 
+func (c *Config) ValidateMetaServer() error {
+	var errs []error
+	if parsed, err := url.Parse(c.Database.URL); err != nil ||
+		parsed.Scheme != "postgres" && parsed.Scheme != "postgresql" {
+		errs = append(errs, errors.New("database.url must be a PostgreSQL URL"))
+	}
+	if strings.TrimSpace(c.Redis.Address) == "" ||
+		c.Database.MaxConnections < 1 || c.Database.MinConnections < 0 ||
+		c.Database.MinConnections > c.Database.MaxConnections {
+		errs = append(errs, errors.New("MetaServer database and Redis settings are invalid"))
+	}
+	if c.RateLimit.RequestsPerSecond <= 0 || c.RateLimit.Burst < 1 ||
+		c.HTTP.MaxRequestBodyBytes < 1 {
+		errs = append(errs, errors.New("MetaServer HTTP and rate settings are invalid"))
+	}
+	if strings.TrimSpace(c.Auth.Issuer) == "" || strings.TrimSpace(c.Auth.Audience) == "" ||
+		strings.TrimSpace(c.Auth.AccessTokenKeyID) == "" ||
+		c.Auth.AccessTokenTTLMinutes < 1 || c.Auth.RefreshTokenTTLDays < 1 {
+		errs = append(errs, errors.New("MetaServer player token settings are invalid"))
+	}
+	if len(c.Admin.TrustedCIDRs) == 0 || strings.TrimSpace(c.Admin.Issuer) == "" ||
+		strings.TrimSpace(c.Admin.Audience) == "" || strings.TrimSpace(c.Admin.AccessTokenKeyID) == "" ||
+		c.Admin.AccessTokenTTLMinutes < 1 || c.Admin.RefreshTokenTTLDays < 1 ||
+		c.Admin.LoginPerIPPerMinute < 1 || c.Admin.LoginPerUsernamePerMinute < 1 {
+		errs = append(errs, errors.New("MetaServer administrator token settings are invalid"))
+	}
+	if strings.EqualFold(c.Environment, "production") &&
+		(strings.TrimSpace(c.Auth.AccessTokenPublicKeyBase64) == "" ||
+			strings.TrimSpace(c.Admin.AccessTokenPublicKeyBase64) == "") {
+		errs = append(errs, errors.New("MetaServer player/admin token verification keys are required in production"))
+	}
+	if strings.EqualFold(c.Environment, "production") && !c.MetaServer.LogicProxyProtocol {
+		errs = append(errs, errors.New("MetaServer Logic PROXY protocol is required in production"))
+	}
+	if strings.TrimSpace(c.MetaServer.HTTPAddr) == "" || strings.TrimSpace(c.MetaServer.LogicAddr) == "" {
+		errs = append(errs, errors.New("meta_server HTTP and logic listen addresses are required"))
+	}
+	publicHTTP, err := url.Parse(c.MetaServer.PublicHTTPBaseURL)
+	if err != nil || publicHTTP.Host == "" || publicHTTP.Scheme != "https" {
+		errs = append(errs, errors.New("meta_server.public_http_base_url must be an absolute HTTPS URL"))
+	}
+	if _, _, err := net.SplitHostPort(c.MetaServer.PublicLogicEndpoint); err != nil {
+		errs = append(errs, errors.New("meta_server.public_logic_endpoint must be host:port"))
+	}
+	if c.MetaServer.ProtocolVersion < 1 ||
+		c.MetaServer.GateTicketTTLSeconds != 60 ||
+		c.MetaServer.MaxFrameBytes < 1024 || c.MetaServer.MaxFrameBytes > 2<<20 ||
+		c.MetaServer.MaxWriteQueueBytes < c.MetaServer.MaxFrameBytes ||
+		c.MetaServer.HandshakeTimeoutSeconds < 1 || c.MetaServer.FrameTimeoutSeconds < 1 ||
+		c.MetaServer.IdleTimeoutSeconds < c.MetaServer.FrameTimeoutSeconds ||
+		c.MetaServer.MaxConnectionsPerIP < 1 || c.MetaServer.ConnectionsPerIPPerMinute < 1 ||
+		c.MetaServer.RPCCallsPerPlayerPerMinute < 1 || c.MetaServer.MatchTicketTTLSeconds < 30 ||
+		c.MetaServer.MatchReservationTTLSeconds < 10 ||
+		c.MetaServer.SchedulerIntervalSeconds < 1 || c.MetaServer.RelayFreshnessSeconds < 1 {
+		errs = append(errs, errors.New("meta_server protocol, timeout, queue, or rate settings are invalid"))
+	}
+	if strings.EqualFold(c.Environment, "production") && c.MetaServer.DevelopmentLegacyLoadoutAPI {
+		errs = append(errs, errors.New("legacy loadout API cannot be enabled in production"))
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("invalid MetaServer configuration: %w", errors.Join(errs...))
+	}
+	return nil
+}
+
 func (c HTTPConfig) ReadHeaderTimeout() time.Duration {
 	return time.Duration(c.ReadHeaderTimeoutSecs) * time.Second
 }
@@ -709,6 +839,7 @@ func (c AdminConfig) AccessTokenConfig() AuthConfig {
 		Audience:                    c.Audience,
 		AccessTokenKeyID:            c.AccessTokenKeyID,
 		AccessTokenPrivateKeyBase64: c.AccessTokenPrivateKeyBase64,
+		AccessTokenPublicKeyBase64:  c.AccessTokenPublicKeyBase64,
 		AccessTokenTTLMinutes:       c.AccessTokenTTLMinutes,
 		RefreshTokenTTLDays:         c.RefreshTokenTTLDays,
 	}

@@ -54,6 +54,9 @@ type Config struct {
 	RejectNewThresholdPct         int        `yaml:"reject_new_threshold_percent"`
 	NATRebindWindowSecs           int        `yaml:"nat_rebind_window_seconds"`
 	MaxTokenReplayEntries         int        `yaml:"max_token_replay_entries"`
+	QoSEnabled                    bool       `yaml:"qos_enabled"`
+	QoSPacketsPerSecond           int        `yaml:"qos_packets_per_second"`
+	QoSMaxRequestBytes            int        `yaml:"qos_max_request_bytes"`
 }
 
 var DefaultConfig = Config{
@@ -66,6 +69,7 @@ var DefaultConfig = Config{
 	ControlDisconnectGraceSeconds: 600,
 	MaxDatagramBytes:              1280, MaxPayloadBytes: 1200, IPPacketsPerSecond: 300,
 	NATRebindWindowSecs: 30, MaxTokenReplayEntries: 4000,
+	QoSEnabled: true, QoSPacketsPerSecond: 32, QoSMaxRequestBytes: 256,
 	BindInitPerSecond: 20, BindProofPerSecond: 10, InvalidTokensPerMin: 30,
 	MaxAllocationsPerIP: 100, MaxIPRateStates: 100_000, MaxIngressPPS: 100_000, TemporaryBanSeconds: 60,
 	MaxIngressMbps: 200, MaxMemoryMB: 512, DegradedThresholdPct: 70, RejectNewThresholdPct: 85,
@@ -129,6 +133,15 @@ func applyEdgeEnv(cfg *Config) {
 	if value, err := strconv.Atoi(os.Getenv("EDGE_RELAY_MAX_TOKEN_REPLAY_ENTRIES")); err == nil && value > 0 {
 		cfg.MaxTokenReplayEntries = value
 	}
+	if value, err := strconv.ParseBool(os.Getenv("EDGE_RELAY_QOS_ENABLED")); err == nil {
+		cfg.QoSEnabled = value
+	}
+	if value, err := strconv.Atoi(os.Getenv("EDGE_RELAY_QOS_PACKETS_PER_SECOND")); err == nil && value > 0 {
+		cfg.QoSPacketsPerSecond = value
+	}
+	if value, err := strconv.Atoi(os.Getenv("EDGE_RELAY_QOS_MAX_REQUEST_BYTES")); err == nil && value > 0 {
+		cfg.QoSMaxRequestBytes = value
+	}
 	for name, target := range map[string]*int{
 		"EDGE_RELAY_BIND_INIT_PER_SECOND":             &cfg.BindInitPerSecond,
 		"EDGE_RELAY_BIND_PROOF_PER_SECOND":            &cfg.BindProofPerSecond,
@@ -174,6 +187,10 @@ func (c Config) Validate() error {
 		c.MaxDatagramBytes < DataHeaderSize+c.MaxPayloadBytes || c.MaxDatagramBytes > 65507 || c.IPPacketsPerSecond < 1 ||
 		c.NATRebindWindowSecs < 1 || c.NATRebindWindowSecs > 300 || c.MaxTokenReplayEntries < c.MaxAllocations*2 {
 		errs = append(errs, errors.New("relay protocol, capacity, timeout, or datagram settings are invalid"))
+	}
+	if c.QoSPacketsPerSecond < 1 || c.QoSMaxRequestBytes < 11 ||
+		c.QoSMaxRequestBytes > c.MaxDatagramBytes {
+		errs = append(errs, errors.New("relay QoS rate and request size settings are invalid"))
 	}
 	if c.BindInitPerSecond < 1 || c.BindProofPerSecond < 1 || c.InvalidTokensPerMin < 1 ||
 		c.MaxAllocationsPerIP < 1 || c.MaxIPRateStates < 1 || c.MaxIngressPPS < 1 || c.TemporaryBanSeconds < 1 {

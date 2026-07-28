@@ -27,10 +27,15 @@ frontend public_tls_mux
     tcp-request inspect-delay 5s
     acl sni_relay req.ssl_sni -i RELAY_MTLS_HOST
     acl sni_boundary req.ssl_sni -i PUBLIC_API_HOST
+    acl sni_meta req.ssl_sni -i meta.dubnium.top
+    acl sni_logic req.ssl_sni -i logic.dubnium.top
     acl from_cloudflare src -f /etc/haproxy/cloudflare-ips.lst
     tcp-request content reject if sni_boundary !from_cloudflare
+    tcp-request content reject if sni_meta !from_cloudflare
     tcp-request content accept if { req.ssl_hello_type 1 }
     use_backend relay_mtls if sni_relay
+    use_backend meta_logic_tls if sni_logic
+    use_backend meta_https if sni_meta
     use_backend boundary_tls if sni_boundary
     default_backend reject_tls
 
@@ -42,6 +47,14 @@ backend boundary_tls
     mode tcp
     server boundary_https 127.0.0.1:10443 check inter 3s fall 2 rise 2
 
+backend meta_https
+    mode tcp
+    server meta_https 127.0.0.1:10445 check inter 3s fall 2 rise 2
+
+backend meta_logic_tls
+    mode tcp
+    server meta_logic_tls 127.0.0.1:10444 send-proxy check-send-proxy check inter 3s fall 2 rise 2
+
 backend reject_tls
     mode tcp
     server reject 127.0.0.1:1
@@ -52,8 +65,10 @@ frontend public_http
     option httplog
     acl from_cloudflare src -f /etc/haproxy/cloudflare-ips.lst
     acl host_boundary hdr(host) -i PUBLIC_API_HOST
+    acl host_meta hdr(host) -i meta.dubnium.top
     acl acme_challenge path_beg /.well-known/acme-challenge/
-    http-request deny deny_status 403 unless from_cloudflare host_boundary
+    http-request deny deny_status 403 if !from_cloudflare !acme_challenge
+    http-request deny deny_status 403 if !host_boundary !host_meta !acme_challenge
     http-request redirect scheme https code 301 unless acme_challenge
     use_backend acme_standalone if acme_challenge
     default_backend control_http_origin
@@ -71,6 +86,26 @@ frontend boundary_https
     use_backend acme_standalone if acme_challenge
     default_backend control_http_origin
 
+frontend meta_https
+    bind 127.0.0.1:10445 ssl crt /etc/haproxy/certs/meta.dubnium.top.pem alpn h2,http/1.1
+    mode http
+    option httplog
+    option forwardfor
+    acl private_meta_path path_beg /internal/ /v1/admin
+    http-request deny deny_status 404 if private_meta_path
+    http-request set-header X-Forwarded-Proto https
+    http-request set-header X-Forwarded-Host %[req.hdr(Host)]
+    http-request set-header X-Forwarded-For %[req.hdr(CF-Connecting-IP)] if { req.hdr(CF-Connecting-IP) -m found }
+    http-response set-header Strict-Transport-Security "max-age=31536000"
+    default_backend meta_http_origin
+
+frontend meta_logic_tls
+    bind 127.0.0.1:10444 accept-proxy ssl crt /etc/haproxy/certs/logic.dubnium.top.pem
+    mode tcp
+    option tcplog
+    timeout client 5m
+    default_backend meta_logic_origin
+
 backend acme_standalone
     mode http
     server certbot 127.0.0.1:18888
@@ -80,3 +115,14 @@ backend control_http_origin
     option httpchk GET /health/ready
     http-check expect status 200
     server control_http 127.0.0.1:18081 check inter 3s fall 3 rise 2
+
+backend meta_http_origin
+    mode http
+    option httpchk GET /health/ready
+    http-check expect status 200
+    server meta_http 127.0.0.1:18082 check inter 3s fall 3 rise 2
+
+backend meta_logic_origin
+    mode tcp
+    timeout server 5m
+    server meta_logic 127.0.0.1:16969 send-proxy check-send-proxy check inter 3s fall 3 rise 2

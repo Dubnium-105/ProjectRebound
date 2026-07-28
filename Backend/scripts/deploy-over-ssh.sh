@@ -14,7 +14,7 @@ set -euo pipefail
 : "${GHCR_USERNAME:?GHCR_USERNAME is required}"
 : "${GHCR_TOKEN:?GHCR_TOKEN is required}"
 
-[[ "$DEPLOY_TARGET" =~ ^(control-plane|edge-relay)$ ]] || { echo "Invalid DEPLOY_TARGET" >&2; exit 1; }
+[[ "$DEPLOY_TARGET" =~ ^(control-plane|meta-server|edge-relay)$ ]] || { echo "Invalid DEPLOY_TARGET" >&2; exit 1; }
 [[ "$DEPLOY_HOST" =~ ^[A-Za-z0-9.-]+$ ]] || { echo "Invalid DEPLOY_HOST" >&2; exit 1; }
 [[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] || { echo "Invalid DEPLOY_USER" >&2; exit 1; }
 [[ "$DEPLOY_PORT" =~ ^[0-9]{1,5}$ ]] || { echo "Invalid DEPLOY_PORT" >&2; exit 1; }

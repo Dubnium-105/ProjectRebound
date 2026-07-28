@@ -1,6 +1,6 @@
 module github.com/projectrebound/matchserver/tests/integration
 
-go 1.25.5
+go 1.25.12
 
 require (
 	github.com/testcontainers/testcontainers-go v0.42.0

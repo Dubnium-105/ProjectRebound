@@ -195,6 +195,31 @@ For the specific fields and enumerations of the event, see `Connection*Event`, `
 4. Verify exact file size and SHA-256;
 5. Do not install if any step fails.
 
+## MetaServer route index
+
+MetaServer uses the existing player Access Token and the same error envelope.
+The complete field-level contract and MetaTunnel flow are documented in the
+[MetaServer external API](metaserver-external.md).
+
+| Method | Path | Authentication | Purpose |
+| --- | --- | --- | --- |
+| POST | `/connectServer` | Active Player | MetaTunnel-compatible Gate bootstrap |
+| GET | `/v1/meta/regions` | None | Dynamic READY Relay/QoS discovery |
+| GET | `/v1/meta/playlists` | None | Enabled matchmaking playlists |
+| GET | `/v1/meta/notifications` | None | Active localized notifications |
+| POST | `/v1/meta/sessions` | Active Player | Issue a 60-second single-use Gate Ticket |
+| GET | `/v1/users/me/meta-profile` | Active Player | Current Meta profile |
+| GET | `/v1/users/me/loadouts` | Active Player | All role loadouts |
+| GET | `/v1/users/me/loadouts/{role_id}` | Active Player | One role loadout |
+| PUT | `/v1/users/me/loadouts/{role_id}` | Active Player | Definition-validated optimistic update |
+| POST | `/v1/meta/parties` | Active Player | Create a Party |
+| GET | `/v1/meta/parties/{party_id}` | Party member | Read Party state |
+| POST | `/v1/meta/parties/{party_id}/ready` | Party member | Update ready state |
+| POST | `/v1/meta/parties/{party_id}/presence` | Party member | Update presence |
+| POST | `/v1/meta/matchmaking/tickets` | Active Player/leader | Queue a solo player or whole Party |
+| GET | `/v1/meta/matchmaking/tickets/{ticket_id}` | Ticket owner/member | Poll assignment |
+| DELETE | `/v1/meta/matchmaking/tickets/{ticket_id}` | Ticket owner/leader | Cancel a queued Ticket |
+
 ## 4. HTTP status and retry
 
 | Status | Meaning | Client behavior |

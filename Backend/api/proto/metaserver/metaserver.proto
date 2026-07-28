@@ -1,0 +1,197 @@
+syntax = "proto3";
+
+package projectrebound.meta.v1;
+
+option go_package = "github.com/projectrebound/matchserver/internal/metaserver/protocol;metaprotocol";
+
+// Canonical production messages whose field numbers have been confirmed in
+// BoundaryMetaServer master@d68e717. Tentative matchmaking response fields are
+// intentionally excluded until a sanitized real-client capture confirms them.
+message RequestWrapper {
+  int32 message_id = 1;
+  string rpc_path = 2;
+  optional bytes message = 3;
+}
+
+message ResponseWrapper {
+  int32 message_id = 1;
+  string rpc_path = 2;
+  int32 error_code = 3;
+  bytes message = 4;
+}
+
+message StatusResponse {
+  int32 status_code = 1;
+}
+
+message GetPlayerArchiveV2Request {
+  repeated string role_ids = 1;
+}
+
+message PlayerRoleData {
+  string role_id = 1;
+  string left_pylon = 2;
+  string right_pylon = 3;
+  string mobility_module = 4;
+  string melee_weapon = 5;
+  string primary_weapon = 6;
+  string second_weapon = 7;
+  optional string weapon_archive_raw = 8;
+  optional string skin_token = 9;
+  optional string ornament_id = 10;
+}
+
+message GetPlayerArchiveV2Response {
+  repeated PlayerRoleData player_role_datas = 1;
+  int32 player_level = 2;
+}
+
+message UpdateRoleArchiveV2Request {
+  int32 operation = 1;
+  string role_id = 2;
+  string item_id = 3;
+  optional bytes skin_data = 4;
+}
+
+message SkinPayload {
+  string token_id = 1;
+  string ornament_id = 2;
+}
+
+message WeaponArchiveV2 {
+  string weapon_id = 1;
+  repeated PartSlot parts = 2;
+  WeaponSkin skin = 3;
+}
+
+message PartSlot {
+  int32 slot_id = 1;
+  string part_id = 2;
+  PartOrnament ornament = 3;
+}
+
+message PartOrnament {
+  OrnamentInfo info = 1;
+}
+
+message OrnamentInfo {
+  string type = 1;
+  string id = 2;
+}
+
+message WeaponSkin {
+  OrnamentInfo skin_info = 1;
+  string weapon_ornament = 3;
+}
+
+message UpdateWeaponArchiveV2Request {
+  string role_id = 1;
+  WeaponArchiveV2 weapon_archive = 3;
+}
+
+message ItemData {
+  string item_id = 1;
+  sint32 unknown_1 = 2;
+  sint32 unknown_2 = 3;
+  sint32 unknown_3 = 4;
+}
+
+message QueryAssetsResponse {
+  int32 item_count = 1;
+  repeated ItemData item_datas = 2;
+}
+
+message QueryCurrencyResponse {
+  int32 currency_a = 1;
+  int32 currency_b = 2;
+  int32 currency_c = 3;
+  int32 currency_d = 4;
+  int32 currency_e = 5;
+}
+
+message QueryNotificationRequest {
+  string platform = 1;
+  string language_code = 2;
+  int32 unknown_1 = 3;
+  int32 unknown_2 = 4;
+}
+
+message NotificationEntity {
+  string id = 1;
+  string title = 2;
+  string content = 3;
+  string background = 4;
+  string language_code = 5;
+  string platform = 6;
+  int32 unknown_1 = 7;
+  string timezone = 8;
+  int32 unknown_2 = 9;
+}
+
+message QueryNotificationResponse {
+  int32 unknown = 1;
+  string error_message = 2;
+  repeated NotificationEntity notifications = 3;
+}
+
+message CreatePartyResponse {
+  int32 status_code = 1;
+  string party_id = 2;
+  repeated string party_members = 3;
+}
+
+message PartyReadyRequest {
+  string party_id = 1;
+}
+
+message SetPartyPresenceRequest {
+  string presence = 1;
+}
+
+message PartyMemberPresence {
+  string user_id = 1;
+  string status = 2;
+}
+
+message QueryPartyPresenceResponse {
+  int32 status_code = 1;
+  repeated PartyMemberPresence party_members = 2;
+}
+
+message MatchmakingRegion {
+  string region_id = 1;
+  string region_name = 2;
+}
+
+message QueryMatchmakingRegionResponse {
+  int32 status_code = 1;
+  repeated MatchmakingRegion regions = 2;
+}
+
+message QueryPlaylistResponse {
+  int32 status_code = 1;
+  string playlists_json = 2;
+}
+
+message UnknownMatchmakingMessage {
+  string region_id = 1;
+  optional uint32 unknown_uint = 2;
+}
+
+message MatchmakingPayload {
+  string matchmaking_requestor_user_id = 1;
+  repeated UnknownMatchmakingMessage unknown_message = 2;
+}
+
+message StartMatchmakingRequest {
+  MatchmakingPayload payload = 1;
+  string game_mode = 2;
+}
+
+message QueryUnityMatchmakingResponse {
+  // No production fields are confirmed.
+}
+
+message StopUnityMatchmakingResponse {
+  // No production fields are confirmed.
+}

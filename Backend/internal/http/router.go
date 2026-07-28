@@ -45,11 +45,6 @@ func RegisterRoutes(mux *http.ServeMux, deps *Deps) {
 	mux.HandleFunc("POST /server/status", handleLegacyServerStatus(deps))
 	mux.HandleFunc("GET /v1/servers", handleLegacyServerList(deps.DB))
 
-	// MetaServer matchmaking
-	mux.HandleFunc("POST /matchmaking/enqueue", handleMetaServerEnqueue(deps))
-	mux.HandleFunc("GET /matchmaking/status/{ticketId}", handleMetaServerStatus(deps))
-	mux.HandleFunc("POST /matchmaking/cancel/{ticketId}", handleMetaServerCancel(deps.DB))
-
 	// Stub for host migration
 	mux.HandleFunc("POST /v1/rooms/{roomId}/host-migration/", handleNotImplemented())
 }

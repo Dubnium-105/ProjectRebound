@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package ProjectBoundary;
+
+
+option go_package = "github.com/projectrebound/matchserver/internal/metaserver/protocol/upstream;upstream";
+
+message MatchmakingRegion{
+    string RegionId = 1;
+    string RegionName = 2;
+}
+
+message QueryMatchmakingRegionResponse{
+    int32 StatusCode = 1;
+    repeated MatchmakingRegion Regions = 2;
+}

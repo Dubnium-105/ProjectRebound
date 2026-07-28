@@ -13,7 +13,7 @@ edge_config_file="${8:?edge config file is required}"
 public_base_url="${9:?public base URL is required}"
 enable_monitoring="${10:?monitoring setting is required}"
 
-[[ "$target" =~ ^(control-plane|edge-relay)$ ]] || { echo "Invalid target" >&2; exit 1; }
+[[ "$target" =~ ^(control-plane|meta-server|edge-relay)$ ]] || { echo "Invalid target" >&2; exit 1; }
 [[ "$deploy_root" =~ ^/[A-Za-z0-9._/-]+$ ]] || { echo "Invalid deploy root" >&2; exit 1; }
 [[ "$release_id" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "Invalid release id" >&2; exit 1; }
 [[ "$bundle" == "/tmp/projectrebound-${release_id}.tar.gz" ]] || { echo "Unexpected bundle path" >&2; exit 1; }
@@ -56,6 +56,13 @@ deploy_release() {
         "$directory/Backend/scripts/verify-control-plane.sh"; then
       return 1
     fi
+  elif [[ "$target" == "meta-server" ]]; then
+    if ! CONTROL_PLANE_ENV_FILE="$control_env_file" \
+      META_SERVER_IMAGE="$selected_image" \
+      DEPLOY_SOURCE=ci \
+        "$directory/Backend/scripts/deploy-meta-server.sh"; then
+      return 1
+    fi
   else
     cp "$edge_config_file" "$directory/Backend/deployments/edge-relay/config.edge-relay.yaml"
     # The container runs as UID 65532 and must be able to read this non-secret file.
@@ -76,6 +83,8 @@ if [[ "$target" == "control-plane" ]]; then
     CONTROL_PLANE_ENV_FILE="$control_env_file" \
       "$release_dir/Backend/scripts/backup-control-plane.sh" "$deploy_root/backups"
   fi
+elif [[ "$target" == "meta-server" ]]; then
+  [[ -f "$control_env_file" ]] || { echo "Control-plane env file is missing for MetaServer" >&2; exit 1; }
 else
   [[ -f "$edge_env_file" ]] || { echo "Edge env file is missing" >&2; exit 1; }
   [[ -f "$edge_config_file" ]] || { echo "Edge config file is missing" >&2; exit 1; }

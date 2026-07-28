@@ -41,6 +41,10 @@
 		-Server
 	}
 
+	handle /v1/admin/meta* {
+		reverse_proxy meta-server:8081
+	}
+
 	handle /v1/admin* {
 		reverse_proxy control-plane:8080
 	}

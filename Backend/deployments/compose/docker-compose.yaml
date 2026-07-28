@@ -127,6 +127,21 @@ services:
     networks:
       - edge
 
+  blackbox-exporter:
+    profiles: [monitoring]
+    image: prom/blackbox-exporter:v0.26.0
+    command: ["--config.file=/etc/blackbox_exporter/config.yml"]
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ../monitoring/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    networks:
+      - edge
+      - monitoring
+
   prometheus:
     profiles: [monitoring]
     image: prom/prometheus:v2.55.1
@@ -141,6 +156,8 @@ services:
     depends_on:
       control-plane:
         condition: service_healthy
+      blackbox-exporter:
+        condition: service_started
     networks:
       - monitoring
 

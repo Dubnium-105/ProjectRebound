@@ -357,3 +357,25 @@ Troubleshoot using request ID, actor/resource ID, state migration, certificate f
 - Permission matrix: `Backend/api/openapi/auth-permission-matrix.md`
 
 Newly added fields should remain backward compatible; deletion/renaming, tightening of enumerations, changes in authentication methods, or changes in binary headers all require new API/protocol versions. The internal path does not mean that compatibility can be ignored, as edge nodes allow rolling upgrades.
+
+## 10. MetaServer internal and administration routes
+
+The full security and field contract is in the
+[MetaServer internal API](metaserver-internal.md). Dedicated Server calls require
+a hashed Game Server Token, matching `X-Game-Server-Id`, a fresh eligible server,
+the route scope, the assigned match, and roster membership. Administrative
+writes additionally require trusted CIDR, human admin session, permission,
+step-up, reason, and audit.
+
+| Method | Path | Required scope or permission |
+| --- | --- | --- |
+| GET | `/internal/v1/meta/matches/{match_id}/players/{player_id}/loadout` | Game Server `meta.loadouts.read` |
+| POST | `/internal/v1/meta/matches/{match_id}/players/{player_id}/connected` | Game Server `meta.matches.connect` |
+| POST | `/internal/v1/meta/matches/{match_id}/completed` | Game Server `meta.matches.complete` |
+| GET | `/v1/admin/meta/overview` | `meta.read` |
+| GET | `/v1/admin/meta/players/{player_id}/loadouts` | `meta.loadouts.read` |
+| PUT | `/v1/admin/meta/players/{player_id}/loadouts/{role_id}` | `meta.loadouts.update` + step-up |
+| GET | `/v1/admin/meta/matches` | `meta.read` |
+| POST | `/v1/admin/meta/matches/{match_id}/cancel` | `meta.matches.manage` + step-up |
+| PUT | `/v1/admin/meta/playlists/{slug}` | `meta.content.manage` + step-up |
+| PUT | `/v1/admin/meta/notifications/{notification_id}` | `meta.content.manage` + step-up |

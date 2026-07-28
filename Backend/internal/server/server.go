@@ -28,9 +28,8 @@ type Server struct {
 	qos         *udp.QoSService
 	probeSender *udp.ProbeSender
 
-	sweeper           *lifecycle.Sweeper
-	p2pMatcher        *matchmaking.P2PMatcher
-	metaserverMatcher *matchmaking.MetaServerMatcher
+	sweeper    *lifecycle.Sweeper
+	p2pMatcher *matchmaking.P2PMatcher
 
 	wg sync.WaitGroup
 }
@@ -67,13 +66,12 @@ func New(cfg *config.Config) (*Server, error) {
 			Addr:    cfg.HTTPAddr,
 			Handler: httppkg.WithMiddleware(mux),
 		},
-		rendezvous:        udp.NewRendezvousService(natStore),
-		relay:             udp.NewRelayService(relayStore),
-		qos:               udp.NewQoSService(),
-		probeSender:       probeSender,
-		sweeper:           lifecycle.New(database, &cfg.MatchServer, natStore, relayStore),
-		p2pMatcher:        matchmaking.NewP2PMatcher(database, &cfg.MatchServer, natStore, relayStore),
-		metaserverMatcher: matchmaking.NewMetaServerMatcher(database, &cfg.MatchServer, natStore, relayStore),
+		rendezvous:  udp.NewRendezvousService(natStore),
+		relay:       udp.NewRelayService(relayStore),
+		qos:         udp.NewQoSService(),
+		probeSender: probeSender,
+		sweeper:     lifecycle.New(database, &cfg.MatchServer, natStore, relayStore),
+		p2pMatcher:  matchmaking.NewP2PMatcher(database, &cfg.MatchServer, natStore, relayStore),
 	}, nil
 }
 
@@ -117,9 +115,6 @@ func (s *Server) Start(ctx context.Context) {
 	s.wg.Add(1)
 	go s.p2pMatcher.Run(ctx, &s.wg)
 
-	// MetaServer Matchmaker
-	s.wg.Add(1)
-	go s.metaserverMatcher.Run(ctx, &s.wg)
 }
 
 func (s *Server) Shutdown() error {

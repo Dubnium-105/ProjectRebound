@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package ProjectBoundary;
+
+
+option go_package = "github.com/projectrebound/matchserver/internal/metaserver/protocol/upstream;upstream";
+
+message QueryCurrencyResponse{
+    int32 CurrencyA = 1;
+    int32 CurrencyB = 2;
+    int32 CurrencyC = 3;
+    int32 CurrencyD = 4;
+    int32 CurrencyE = 5;
+}

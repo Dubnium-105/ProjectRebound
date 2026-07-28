@@ -357,3 +357,23 @@ HTTP 错误仍使用统一 `error` + `request_id` envelope。管理写操作、�
 - 权限矩阵：`Backend/api/openapi/auth-permission-matrix.md`
 
 新增字段应保持向后兼容；删除/改名、枚举收紧、认证方式改变或二进制包头改变都需要新 API/协议版本。内部路径并不代表可以忽略兼容性，因为边缘节点允许滚动升级。
+## MetaServer 内部与管理路由
+
+完整安全和字段契约见
+[MetaServer 内部 API](metaserver-internal.zh-CN.md)。Dedicated Server 调用必须
+同时通过 Game Server Token 哈希、`X-Game-Server-Id`、节点新鲜度与状态、
+路由 scope、对局归属和玩家名单校验。管理写操作还要求可信网段、人工管理员
+会话、权限、Step-up、原因和审计。
+
+| 方法 | 路径 | Scope 或权限 |
+| --- | --- | --- |
+| GET | `/internal/v1/meta/matches/{match_id}/players/{player_id}/loadout` | Game Server `meta.loadouts.read` |
+| POST | `/internal/v1/meta/matches/{match_id}/players/{player_id}/connected` | Game Server `meta.matches.connect` |
+| POST | `/internal/v1/meta/matches/{match_id}/completed` | Game Server `meta.matches.complete` |
+| GET | `/v1/admin/meta/overview` | `meta.read` |
+| GET | `/v1/admin/meta/players/{player_id}/loadouts` | `meta.loadouts.read` |
+| PUT | `/v1/admin/meta/players/{player_id}/loadouts/{role_id}` | `meta.loadouts.update` + Step-up |
+| GET | `/v1/admin/meta/matches` | `meta.read` |
+| POST | `/v1/admin/meta/matches/{match_id}/cancel` | `meta.matches.manage` + Step-up |
+| PUT | `/v1/admin/meta/playlists/{slug}` | `meta.content.manage` + Step-up |
+| PUT | `/v1/admin/meta/notifications/{notification_id}` | `meta.content.manage` + Step-up |

@@ -74,10 +74,40 @@ jobs:
       - name: Test with race detector
         run: go test -race ./... -count=1
 
-      - name: Build control plane and edge relay
+      - name: Fuzz MetaServer framing
+        run: go test ./internal/metaserver -run=^$ -fuzz=FuzzReadFrame -fuzztime=10s
+
+      - name: Verify generated MetaServer protobuf
+        shell: bash
+        run: |
+          curl -fsSLo /tmp/protoc.zip \
+            https://github.com/protocolbuffers/protobuf/releases/download/v30.2/protoc-30.2-linux-x86_64.zip
+          unzip -q /tmp/protoc.zip -d /tmp/protoc
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
+          PATH="/tmp/protoc/bin:$(go env GOPATH)/bin:$PATH" \
+            protoc --proto_path=api/proto/metaserver \
+              --go_out=. \
+              --go_opt=module=github.com/projectrebound/matchserver \
+              api/proto/metaserver/metaserver.proto
+          git diff --exit-code -- internal/metaserver/protocol
+
+      - name: Check known Go vulnerabilities
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+      - name: Build control plane, MetaServer, MetaTunnel and edge relay
         run: |
           go build -trimpath ./cmd/control-plane
+          go build -trimpath ./cmd/meta-server
+          go build -trimpath ./cmd/meta-import
           go build -trimpath ./cmd/edge-relay
+          GOOS=windows GOARCH=amd64 go build -trimpath -o meta-tunnel.exe ./cmd/meta-tunnel
+
+      - name: Upload Windows MetaTunnel
+        uses: actions/upload-artifact@v6
+        with:
+          name: meta-tunnel-windows-amd64-${{ github.sha }}
+          path: Backend/meta-tunnel.exe
+          if-no-files-found: error
 
   contracts:
     name: .NET contracts
@@ -147,7 +177,7 @@ jobs:
       - name: Set up Go for actionlint
         uses: actions/setup-go@v6
         with:
-          go-version: "1.25.x"
+          go-version: "1.25.12"
           cache: false
 
       - name: Validate GitHub Actions
@@ -272,6 +302,9 @@ jobs:
           - name: edge-relay
             dockerfile: Backend/deployments/relay/Dockerfile
             context: Backend
+          - name: meta-server
+            dockerfile: Backend/deployments/compose/meta-server.Dockerfile
+            context: Backend
           - name: load-bot
             dockerfile: Backend/deployments/load-bot/Dockerfile
             context: Backend
@@ -331,6 +364,24 @@ jobs:
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
 
+      - name: Generate image SBOM
+        if: github.event_name != 'pull_request'
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ steps.image.outputs.name }}@${{ steps.push.outputs.digest }}
+          artifact-name: sbom-${{ matrix.name }}-${{ github.sha }}.spdx.json
+          format: spdx-json
+
+      - name: Scan image for high and critical vulnerabilities
+        if: github.event_name != 'pull_request'
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: ${{ steps.image.outputs.name }}@${{ steps.push.outputs.digest }}
+          format: table
+          exit-code: "1"
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+
       - name: Set up Go for release record
         uses: actions/setup-go@v6
         with:
@@ -351,7 +402,10 @@ jobs:
             "image=${IMAGE_NAME}" \
             "image_digest=${IMAGE_DIGEST}" \
             "relay_protocol_version=2" \
-            "database_schema_version=24" \
+            "meta_protocol_version=1" \
+            "database_schema_version=28" \
+            "definitions_sha256=f1ef4530e25c10f10a3ce735987e2c594c0b81852e63007c5e3ef4d8353f8e2a" \
+            "definitions_upstream_commit=d68e717267abf14e32d4e39618f9b7680ed93046" \
             > "release-record/${{ matrix.name }}.txt"
 
       - name: Upload build record

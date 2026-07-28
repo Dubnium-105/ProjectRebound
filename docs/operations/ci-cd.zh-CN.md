@@ -2,7 +2,7 @@
 
 [English](ci-cd.md) | 简体中文
 
-本仓库使用 GitHub Actions、GitHub Container Registry（GHCR）、GitHub Environments 和原生 OpenSSH 完成 CI/CD。控制面和 Edge Relay 是两个独立部署目标，可以位于不同主机并使用不同审批人与 Secrets。
+本仓库使用 GitHub Actions、GitHub Container Registry（GHCR）、GitHub Environments 和原生 OpenSSH 完成 CI/CD。控制面、MetaServer 和 Edge Relay 是独立部署目标，可以使用不同主机、审批人、回滚动作和 Secrets。
 
 ## 1. 工作流
 
@@ -15,16 +15,18 @@
 1. Go 格式检查和 `go mod verify`；
 2. `go vet ./...`；
 3. PostgreSQL 17 service container 上的 `go test -race ./...`；
-4. Control Plane 和 Edge Relay 二进制构建；
+4. Control Plane、MetaServer、Meta 导入工具、Windows MetaTunnel 和 Edge Relay 二进制构建；
 5. .NET 8 Shared Contracts 构建；
 6. actionlint、Shell 语法和 LF 行尾检查；
 7. 密钥生成器、两份 Compose 和 Caddy 配置校验；
-8. 所有质量检查通过后，各使用一次 Buildx 构建控制面和 Edge Relay 镜像。
+8. Meta protobuf 生成/漂移、definitions、分帧 fuzz、race、Gate 重放/IDOR、调度/QoS、`govulncheck`、镜像漏洞、SBOM 和 provenance 门禁；
+9. 所有质量检查通过后，各使用一次 Buildx 构建控制面、MetaServer 和 Edge Relay 镜像。
 
 普通分支、`main`、`v*` tag 的 push，以及手动运行 CI，都会把这次构建直接发布为可部署的 GHCR CI 产物：
 
 ```text
 ghcr.io/<owner>/projectrebound-control-plane:sha-<40-char-commit>
+ghcr.io/<owner>/projectrebound-meta-server:sha-<40-char-commit>
 ghcr.io/<owner>/projectrebound-edge-relay:sha-<40-char-commit>
 ```
 
@@ -36,8 +38,9 @@ Pull request 只构建和验证，不登录 GHCR，也不发布镜像。`main` �
 
 文件：`.github/workflows/deploy.yml`
 
-- main 的 CI 和镜像发布全部成功后，如果仓库变量 `ENABLE_STAGING_DEPLOY=true`，自动部署两个 staging target。
-- `workflow_dispatch` 可以手动选择 `staging`/`production` 和 `control-plane`/`edge-relay`/`both`。
+- main 的 CI 和镜像发布全部成功后，如果仓库变量 `ENABLE_STAGING_DEPLOY=true`，自动部署三个 staging target。
+- `workflow_dispatch` 可以手动选择 `staging`/`production` 和 `control-plane`/`meta-server`/`edge-relay`/`all`。
+- 对 `all` 和自动 staging，MetaServer 会等待控制面部署完成后再操作共享 Compose project；仅部署 MetaServer 时，控制面 job 跳过后仍可正常执行。
 - production 应通过 GitHub Environment Required Reviewers 审批，并启用 Prevent self-review。
 - 同一环境和 target 的部署使用 concurrency 串行化，不会互相取消。
 - 部署前控制面自动创建 PostgreSQL custom-format 备份。
@@ -59,12 +62,14 @@ id-token: write
 
 ### 2.2 Environments
 
-创建四个 Environment：
+创建六个 Environment：
 
 ```text
 staging-control-plane
+staging-meta-server
 staging-edge-relay
 production-control-plane
+production-meta-server
 production-edge-relay
 ```
 
@@ -102,6 +107,16 @@ Control Plane Environment 额外 Variables：
 | `CONTROL_PLANE_ENV_FILE` | `/etc/projectrebound/control-plane.env` |
 | `PUBLIC_BASE_URL` | `https://api.example.com` |
 | `ENABLE_MONITORING` | `1` |
+
+MetaServer Environment 额外 Variables：
+
+| Variable | 示例 |
+| --- | --- |
+| `CONTROL_PLANE_ENV_FILE` | `/etc/projectrebound/control-plane.env` |
+| `META_PUBLIC_BASE_URL` | `https://meta.dubnium.top` |
+
+MetaServer Environment 可以指向同一控制面主机，但审批、concurrency 和回滚仍独立。
+Meta 部署失败只回滚自身镜像，不重启 control-plane 服务。
 
 Edge Relay Environment 额外 Variables：
 
@@ -162,12 +177,12 @@ install -m 600 deployments/edge-relay/config.edge-relay.yaml.example \
 ## 5. 首次发布和部署
 
 1. push 到准备部署的分支（首次生产发布通常合并到 main），等待 `CI and Images` 全绿。
-2. 在仓库 Packages 页面确认两个 `sha-<commit>` 镜像存在。
+2. 在仓库 Packages 页面确认三个 `sha-<commit>` 镜像和 Windows MetaTunnel artifact 存在。
 3. 保持 `ENABLE_STAGING_DEPLOY=false`。
 4. 打开 `Actions -> Deploy -> Run workflow`。
 5. 选择 `staging` 和一个 target；`commit_sha` 留空表示当前所选 ref。
-6. 分别验证 control-plane 和 edge-relay。
-7. 再选择 `both` 做一次完整 staging 发布。
+6. 分别验证 control-plane、MetaServer 和 edge-relay。
+7. 再选择 `all` 做一次完整 staging 发布。
 8. 验证成功后可把 `ENABLE_STAGING_DEPLOY` 设为 `true`。
 
 Deploy 工作流是生产推荐入口。确需在目标机直接运行底层脚本时，先登录 GHCR，再明确指定 CI 产物：
@@ -176,6 +191,10 @@ Deploy 工作流是生产推荐入口。确需在目标机直接运行底层脚�
 DEPLOY_SOURCE=ci \
 CONTROL_PLANE_IMAGE=ghcr.io/<owner>/projectrebound-control-plane:sha-<40-char-commit> \
   ./scripts/deploy-control-plane.sh
+
+DEPLOY_SOURCE=ci \
+META_SERVER_IMAGE=ghcr.io/<owner>/projectrebound-meta-server:sha-<40-char-commit> \
+  ./scripts/deploy-meta-server.sh
 
 DEPLOY_SOURCE=ci \
 EDGE_RELAY_IMAGE=ghcr.io/<owner>/projectrebound-edge-relay:sha-<40-char-commit> \
@@ -202,10 +221,14 @@ git push origin v1.0.0
       Backend/
       .deployed-image
   current-control-plane -> releases/<active-release>
+  current-meta-server -> releases/<active-meta-release>
   backups/
 ```
 
-Edge 使用 `current-edge-relay`。部署 bundle 不包含 `.env`、具体 Edge YAML、`identity.json` 或备份。GHCR Token 只通过 SSH stdin 发送给 `docker login --password-stdin`，不会出现在远端命令参数或 bundle 中。
+Edge 使用 `current-edge-relay`。MetaServer 的 release pointer 和回滚镜像与
+control-plane 相互独立。部署 bundle 不包含 `.env`、具体 Edge YAML、
+`identity.json` 或备份。GHCR Token 只通过 SSH stdin 发送给
+`docker login --password-stdin`，不会出现在远端命令参数或 bundle 中。
 
 工作流不会自动删除旧 release。确认备份和回滚窗口后，由运维人员按明确路径清理。
 
@@ -224,6 +247,7 @@ Go backend, PostgreSQL and contracts
 .NET contracts
 Deployment and workflow configuration
 Build and package control-plane image
+Build and package meta-server image
 Build and package edge-relay image
 ```
 
@@ -245,6 +269,7 @@ Dependabot 每周检查 GitHub Actions major tag 更新。安全要求更高时�
 - SSH host verification failed：重新通过可信通道核对 host key，不要禁用 `StrictHostKeyChecking`。
 - Remote pull denied：检查 Environment 中 GHCR 账号是否有 `read:packages`。
 - Control deploy failed：查看 workflow 的备份结果、健康检查和 `ROLLBACK_OK/FAILED`。
+- Meta deploy failed：检查 28 号迁移 readiness、受限 PostgreSQL/Redis provisioning 及 Logic/HTTP 端口；回滚不得重启 control-plane。
 - Edge deploy failed：检查 443 enrollment、9090 mTLS 和 UDP advertised endpoint；不要删除 identity volume 作为第一反应。
 
 GitHub 官方参考：

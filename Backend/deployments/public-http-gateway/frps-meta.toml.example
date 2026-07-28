@@ -1,0 +1,24 @@
+bindAddr = "0.0.0.0"
+bindPort = 7002
+quicBindPort = 7002
+proxyBindAddr = "127.0.0.1"
+
+transport.tls.force = true
+transport.maxPoolCount = 4
+transport.tcpMuxKeepaliveInterval = 15
+
+auth.method = "token"
+auth.additionalScopes = ["HeartBeats", "NewWorkConns"]
+auth.tokenSource.type = "file"
+auth.tokenSource.file.path = "/etc/projectrebound-meta-frps/token"
+
+allowPorts = [
+  { single = 18082 },
+  { single = 16969 }
+]
+maxPortsPerClient = 2
+detailedErrorsToClient = false
+
+log.to = "console"
+log.level = "info"
+log.disablePrintColor = true

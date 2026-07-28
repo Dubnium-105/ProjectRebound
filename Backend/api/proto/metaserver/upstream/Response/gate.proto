@@ -1,0 +1,19 @@
+// Gate service — connection gate handshake
+// WARNING: Field numbers are TENTATIVE. Validate with proxy capture.
+syntax = "proto3";
+
+package ProjectBoundary;
+
+option go_package = "github.com/projectrebound/matchserver/internal/metaserver/protocol/upstream;upstream";
+
+message clientReq {
+    string method = 1;
+}
+
+message clientResp {
+    string method = 1;
+}
+
+message tokenReq {
+    string token = 1;
+}

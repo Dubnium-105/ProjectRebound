@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"encoding/base64"
 	"strings"
 	"testing"
 	"time"
@@ -31,6 +32,37 @@ func TestAccessTokenRoundTripAndTamperDetection(t *testing.T) {
 	parts[1] = parts[1][:len(parts[1])-1] + replacement
 	if _, err := manager.Verify(strings.Join(parts, ".")); err == nil {
 		t.Fatal("tampered token was accepted")
+	}
+}
+
+func TestPublicKeyVerifierCannotSign(t *testing.T) {
+	cfg := config.Defaults.Auth
+	signer, _, err := NewTokenManager(cfg, "development")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Unix(1_800_000_000, 0).UTC()
+	signer.now = func() time.Time { return now }
+	token, _, err := signer.Sign(
+		"p_test", "ses_test", "steam_client_asserted", "unverified", 1, time.Minute,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.AccessTokenPublicKeyBase64 = base64.StdEncoding.EncodeToString(signer.publicKey)
+	cfg.AccessTokenPrivateKeyBase64 = ""
+	verifier, err := NewTokenVerifier(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verifier.now = func() time.Time { return now }
+	if _, err := verifier.Verify(token); err != nil {
+		t.Fatalf("public verifier rejected signed token: %v", err)
+	}
+	if _, _, err := verifier.Sign(
+		"p_test", "ses_test", "steam_client_asserted", "unverified", 1, time.Minute,
+	); err == nil {
+		t.Fatal("verifier-only token manager signed a token")
 	}
 }
 

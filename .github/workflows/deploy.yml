@@ -10,8 +10,8 @@ on:
         description: Deployment target
         type: choice
         required: true
-        default: both
-        options: [both, control-plane, edge-relay]
+        default: all
+        options: [all, control-plane, meta-server, edge-relay]
       environment:
         description: GitHub Environment tier
         type: choice
@@ -35,7 +35,7 @@ jobs:
        github.event.workflow_run.head_branch == 'main' &&
        vars.ENABLE_STAGING_DEPLOY == 'true') ||
       (github.event_name == 'workflow_dispatch' &&
-       (inputs.target == 'both' || inputs.target == 'control-plane'))
+       (inputs.target == 'all' || inputs.target == 'control-plane'))
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
@@ -97,6 +97,80 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
         run: Backend/scripts/deploy-over-ssh.sh
 
+  deploy-meta-server:
+    name: Deploy MetaServer only
+    needs: [deploy-control-plane]
+    if: >-
+      always() &&
+      (needs.deploy-control-plane.result == 'success' ||
+       needs.deploy-control-plane.result == 'skipped') &&
+      ((github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        vars.ENABLE_STAGING_DEPLOY == 'true') ||
+       (github.event_name == 'workflow_dispatch' &&
+        (inputs.target == 'all' || inputs.target == 'meta-server')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: ${{ github.event_name == 'workflow_run' && 'staging-meta-server' || format('{0}-meta-server', inputs.environment) }}
+      url: ${{ vars.META_PUBLIC_BASE_URL }}
+    concurrency:
+      group: deploy-${{ github.event_name == 'workflow_run' && 'staging' || inputs.environment }}-meta-server
+      cancel-in-progress: false
+    steps:
+      - name: Resolve deployment SHA
+        id: revision
+        shell: bash
+        env:
+          CANDIDATE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.commit_sha || github.sha }}
+        run: |
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "A full commit SHA is required" >&2; exit 1; }
+          echo "sha=$CANDIDATE_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Check out deployment revision
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.revision.outputs.sha }}
+
+      - name: Configure pinned SSH host identity
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Resolve MetaServer image reference
+        id: image
+        shell: bash
+        env:
+          REVISION: ${{ steps.revision.outputs.sha }}
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "name=ghcr.io/${owner}/projectrebound-meta-server:sha-${REVISION}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy MetaServer, verify and roll back only MetaServer on failure
+        shell: bash
+        env:
+          DEPLOY_TARGET: meta-server
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_ROOT: ${{ vars.DEPLOY_ROOT }}
+          DEPLOY_RELEASE_ID: ${{ format('sha-{0}-{1}-{2}-meta', steps.revision.outputs.sha, github.run_id, github.run_attempt) }}
+          DEPLOY_IMAGE: ${{ steps.image.outputs.name }}
+          CONTROL_PLANE_ENV_FILE: ${{ vars.CONTROL_PLANE_ENV_FILE }}
+          PUBLIC_BASE_URL: ${{ vars.META_PUBLIC_BASE_URL }}
+          ENABLE_MONITORING: "0"
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        run: Backend/scripts/deploy-over-ssh.sh
+
   deploy-edge-relay:
     name: Deploy edge relay
     if: >-
@@ -105,7 +179,7 @@ jobs:
        github.event.workflow_run.head_branch == 'main' &&
        vars.ENABLE_STAGING_DEPLOY == 'true') ||
       (github.event_name == 'workflow_dispatch' &&
-       (inputs.target == 'both' || inputs.target == 'edge-relay'))
+       (inputs.target == 'all' || inputs.target == 'edge-relay'))
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:

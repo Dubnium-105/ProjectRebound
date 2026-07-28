@@ -46,3 +46,6 @@ degraded_threshold_percent: 70
 reject_new_threshold_percent: 85
 nat_rebind_window_seconds: 30
 max_token_replay_entries: 4000
+qos_enabled: true
+qos_packets_per_second: 32
+qos_max_request_bytes: 256

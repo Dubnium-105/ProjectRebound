@@ -17,8 +17,6 @@ matchserver:
   nat_binding_seconds: 120
   punch_ticket_seconds: 120
   relay_allocation_seconds: 1800
-  metaserver_target_player_count: 12
-  metaserver_match_timeout_seconds: 300
 
 relay:
   compression: "auto"

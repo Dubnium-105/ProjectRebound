@@ -120,6 +120,50 @@ groups:
         annotations:
           summary: Relay migration failure ratio exceeds 10%
 
+  - name: project-rebound-meta-server
+    rules:
+      - alert: MetaServerDown
+        expr: up{job="project-rebound-meta-server"} == 0
+        for: 2m
+        labels: {severity: critical, service: meta-server}
+        annotations:
+          summary: MetaServer is not ready for Prometheus scraping
+      - alert: MetaHTTPFRPTunnelDown
+        expr: probe_success{job="project-rebound-meta-public"} == 0
+        for: 2m
+        labels: {severity: critical, service: meta-server}
+        annotations:
+          summary: meta.dubnium.top public HTTPS or its isolated FRP tunnel is unavailable
+      - alert: MetaLogicFRPTunnelDown
+        expr: probe_success{job="project-rebound-logic-public"} == 0
+        for: 2m
+        labels: {severity: critical, service: meta-server}
+        annotations:
+          summary: logic.dubnium.top TLS or its isolated FRP tunnel is unavailable
+      - alert: MetaGateTicketReplaySpike
+        expr: increase(meta_gate_ticket_replay_total[5m]) > 3
+        labels: {severity: critical, service: meta-server}
+        annotations:
+          summary: MetaServer Gate Ticket replay or expired-ticket usage is elevated
+      - alert: MetaMalformedFrameSpike
+        expr: increase(meta_malformed_frames_total[5m]) > 20
+        for: 2m
+        labels: {severity: warning, service: meta-server}
+        annotations:
+          summary: MetaServer malformed native frames are elevated
+      - alert: MetaMatchQueueBacklog
+        expr: meta_match_queue_depth > 100
+        for: 10m
+        labels: {severity: warning, service: meta-server}
+        annotations:
+          summary: MetaServer matchmaking queue exceeds 100 tickets
+      - alert: MetaLogicTLSExpiring
+        expr: probe_ssl_earliest_cert_expiry{job=~"project-rebound-(meta|logic)-public"} - time() < 1209600
+        for: 1h
+        labels: {severity: warning, service: meta-server}
+        annotations:
+          summary: A Meta public TLS certificate expires within 14 days
+
   - name: project-rebound-backup
     rules:
       - alert: DailyBackupMissing

@@ -10,7 +10,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func TestPrometheusScrapesOnlyInternalControlPlaneMetrics(t *testing.T) {
+func TestPrometheusScrapesInternalControlPlaneAndMetaMetrics(t *testing.T) {
 	contents, err := os.ReadFile("prometheus.yml")
 	if err != nil {
 		t.Fatal(err)
@@ -31,7 +31,7 @@ func TestPrometheusScrapesOnlyInternalControlPlaneMetrics(t *testing.T) {
 	if err := yaml.Unmarshal(contents, &config); err != nil {
 		t.Fatal(err)
 	}
-	if len(config.ScrapeConfigs) != 2 || config.ScrapeConfigs[0].MetricsPath != "/internal/metrics" ||
+	if len(config.ScrapeConfigs) != 5 || config.ScrapeConfigs[0].MetricsPath != "/internal/metrics" ||
 		len(config.ScrapeConfigs[0].StaticConfigs) != 1 || len(config.ScrapeConfigs[0].StaticConfigs[0].Targets) != 1 ||
 		config.ScrapeConfigs[0].StaticConfigs[0].Targets[0] != "control-plane:8080" {
 		t.Fatalf("unexpected Prometheus scrape config: %#v", config)
@@ -39,11 +39,27 @@ func TestPrometheusScrapesOnlyInternalControlPlaneMetrics(t *testing.T) {
 	if len(config.RuleFiles) != 1 || config.RuleFiles[0] != "/etc/prometheus/alerts/*.yml" {
 		t.Fatalf("unexpected Prometheus rule files: %#v", config.RuleFiles)
 	}
-	if config.ScrapeConfigs[1].JobName != "project-rebound-edge-relay" ||
-		len(config.ScrapeConfigs[1].FileSDConfigs) != 1 ||
-		len(config.ScrapeConfigs[1].FileSDConfigs[0].Files) != 1 ||
-		config.ScrapeConfigs[1].FileSDConfigs[0].Files[0] != "/etc/prometheus/targets/edge-relays.yml" {
-		t.Fatalf("unexpected edge relay discovery config: %#v", config.ScrapeConfigs[1])
+	if config.ScrapeConfigs[1].JobName != "project-rebound-meta-server" ||
+		config.ScrapeConfigs[1].MetricsPath != "/internal/metrics" ||
+		len(config.ScrapeConfigs[1].StaticConfigs) != 1 ||
+		config.ScrapeConfigs[1].StaticConfigs[0].Targets[0] != "meta-server:8081" {
+		t.Fatalf("unexpected MetaServer scrape config: %#v", config.ScrapeConfigs[1])
+	}
+	if config.ScrapeConfigs[2].JobName != "project-rebound-edge-relay" ||
+		len(config.ScrapeConfigs[2].FileSDConfigs) != 1 ||
+		len(config.ScrapeConfigs[2].FileSDConfigs[0].Files) != 1 ||
+		config.ScrapeConfigs[2].FileSDConfigs[0].Files[0] != "/etc/prometheus/targets/edge-relays.yml" {
+		t.Fatalf("unexpected edge relay discovery config: %#v", config.ScrapeConfigs[2])
+	}
+	if config.ScrapeConfigs[3].JobName != "project-rebound-meta-public" ||
+		config.ScrapeConfigs[3].MetricsPath != "/probe" ||
+		config.ScrapeConfigs[3].StaticConfigs[0].Targets[0] != "https://meta.dubnium.top/health/ready" {
+		t.Fatalf("unexpected public MetaServer probe config: %#v", config.ScrapeConfigs[3])
+	}
+	if config.ScrapeConfigs[4].JobName != "project-rebound-logic-public" ||
+		config.ScrapeConfigs[4].MetricsPath != "/probe" ||
+		config.ScrapeConfigs[4].StaticConfigs[0].Targets[0] != "logic.dubnium.top:443" {
+		t.Fatalf("unexpected public Logic probe config: %#v", config.ScrapeConfigs[4])
 	}
 }
 
@@ -79,6 +95,9 @@ func TestV11AlertRulesCoverRequiredFailureModes(t *testing.T) {
 		"RelayNodeOffline", "NoRelayAvailable", "RelayRegionCapacityHigh", "RelayInvalidTokenSpike",
 		"RelayTokenReplayDetected", "RelayBindFailureRateHigh", "RelayMemoryGrowing", "RelayMigrationFailureRateHigh",
 		"DailyBackupMissing", "BackupVerificationFailed", "RestoreDrillOverdue",
+		"MetaServerDown", "MetaGateTicketReplaySpike", "MetaMalformedFrameSpike",
+		"MetaHTTPFRPTunnelDown", "MetaLogicFRPTunnelDown",
+		"MetaMatchQueueBacklog", "MetaLogicTLSExpiring",
 	} {
 		if _, ok := alerts[name]; !ok {
 			t.Errorf("required alert %s is missing", name)
@@ -184,6 +203,7 @@ func TestGrafanaDashboardRepeatsDynamicServiceAndRelayCards(t *testing.T) {
 	}
 	serviceTarget, ok := variables["service_target"]
 	if !ok || !strings.Contains(serviceTarget.Definition, `up{job="project-rebound-control-plane"}`) ||
+		!strings.Contains(serviceTarget.Definition, "project-rebound-meta-server") ||
 		!strings.Contains(serviceTarget.Definition, "relay_node_control_connected == 1") ||
 		!serviceTarget.Multi || !serviceTarget.IncludeAll {
 		t.Fatalf("service target variable is not configured for dynamic expansion: %#v", dashboard.Templating.List)
@@ -215,6 +235,24 @@ func TestPublicProxyBlocksInternalMetrics(t *testing.T) {
 	text := string(contents)
 	if !strings.Contains(text, "handle /internal/*") || !strings.Contains(text, "respond 404") {
 		t.Fatal("Caddy does not block internal endpoints")
+	}
+}
+
+func TestPublicMetaGatewayBlocksPrivateRoutes(t *testing.T) {
+	contents, err := os.ReadFile(filepath.Join("..", "public-http-gateway", "haproxy.cfg.example"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(contents)
+	if !strings.Contains(text, "acl private_meta_path path_beg /internal/ /v1/admin") ||
+		!strings.Contains(text, "http-request deny deny_status 404 if private_meta_path") ||
+		!strings.Contains(text, "ssl-default-bind-options ssl-min-ver TLSv1.2") ||
+		!strings.Contains(text, "tcp-request content reject if sni_meta !from_cloudflare") ||
+		!strings.Contains(text, "use_backend meta_logic_tls if sni_logic") ||
+		!strings.Contains(text, "127.0.0.1:10444 send-proxy") ||
+		!strings.Contains(text, "127.0.0.1:10444 accept-proxy ssl") ||
+		!strings.Contains(text, "127.0.0.1:16969 send-proxy") {
+		t.Fatal("public Meta HAProxy frontend is missing route isolation, TLS policy, or Cloudflare source policy")
 	}
 }
 

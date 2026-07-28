@@ -11,4 +11,8 @@
 
 将 UDP 8443 公开为所需的外部 UDP 端口（通常为 443）。保持指标侦听器绑定到环回。允许出站 HTTPS 到注册端点，并允许出站 mTLS gRPC 到配置的控制地址。
 
+`qos_enabled: true` 时，同一个 UDP listener 会处理有界的 MetaServer `0x59` QoS
+探测。没有实测依据时保持每个来源每秒 32 包和最大 256 字节请求。QoS 不需要开放
+8000 或另一个公网 listener；畸形探测静默丢弃，响应绝不大于请求。
+
 `scripts/deploy-edge-relay.sh`更喜欢 Docker Compose v2，支持独立版`docker-compose`命令，并回退到等效的隔离`docker run`未安装 Compose 实现时的部署。放`EDGE_RELAY_RUNTIME=compose`或者`EDGE_RELAY_RUNTIME=raw-docker`明确要求一种模式。 Raw Docker 模式使用稳定的容器名称`project-rebound-edge-relay`和持久量`project-rebound-edge-relay-data`;两者都可以被覆盖`EDGE_RELAY_CONTAINER_NAME`和`EDGE_RELAY_VOLUME_NAME`.

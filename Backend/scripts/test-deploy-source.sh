@@ -8,7 +8,8 @@ trap 'rm -rf "$temporary_dir"' EXIT HUP INT TERM
 test_backend="$temporary_dir/Backend"
 mkdir -p "$temporary_dir/bin" "$test_backend/scripts" \
   "$test_backend/deployments/control-plane" "$test_backend/deployments/edge-relay"
-cp "$script_dir/deploy-control-plane.sh" "$script_dir/deploy-edge-relay.sh" "$test_backend/scripts/"
+cp "$script_dir/deploy-control-plane.sh" "$script_dir/deploy-meta-server.sh" \
+  "$script_dir/deploy-edge-relay.sh" "$test_backend/scripts/"
 touch "$test_backend/deployments/control-plane/docker-compose.yaml"
 touch "$test_backend/deployments/edge-relay/docker-compose.yaml"
 printf 'relay_id: relay-test\n' >"$test_backend/deployments/edge-relay/config.edge-relay.yaml"
@@ -35,11 +36,12 @@ EOF
 chmod +x "$temporary_dir/bin/docker" "$temporary_dir/bin/curl" "$temporary_dir/bin/uname"
 
 control_env="$temporary_dir/control.env"
-printf 'CONTROL_PLANE_ADMIN_PORT=18080\n' >"$control_env"
+printf 'CONTROL_PLANE_ADMIN_PORT=18080\nMETA_SERVER_HTTP_PORT=18082\n' >"$control_env"
 edge_env="$temporary_dir/edge.env"
 printf 'EDGE_RELAY_BOOTSTRAP_TOKEN=\n' >"$edge_env"
 control_image="ghcr.io/example/projectrebound-control-plane:sha-1111111111111111111111111111111111111111"
 edge_image="ghcr.io/example/projectrebound-edge-relay:sha-2222222222222222222222222222222222222222"
+meta_image="ghcr.io/example/projectrebound-meta-server:sha-3333333333333333333333333333333333333333"
 
 if CONTROL_PLANE_ENV_FILE="$control_env" DEPLOY_SOURCE=ci CONTROL_PLANE_IMAGE=invalid \
   bash "$test_backend/scripts/deploy-control-plane.sh" >/dev/null 2>&1; then
@@ -66,6 +68,26 @@ PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" \
   CONTROL_PLANE_ENV_FILE="$control_env" DEPLOY_SOURCE=source \
   bash "$test_backend/scripts/deploy-control-plane.sh" >/dev/null
 grep -q ' build --pull control-plane admin-web$' "$docker_log"
+
+if CONTROL_PLANE_ENV_FILE="$control_env" DEPLOY_SOURCE=ci META_SERVER_IMAGE=invalid \
+  bash "$test_backend/scripts/deploy-meta-server.sh" >/dev/null 2>&1; then
+  echo "Expected an invalid MetaServer CI image to be rejected" >&2
+  exit 1
+fi
+
+: >"$docker_log"
+PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" \
+  CONTROL_PLANE_ENV_FILE="$control_env" DEPLOY_SOURCE=ci META_SERVER_IMAGE="$meta_image" \
+  bash "$test_backend/scripts/deploy-meta-server.sh" >/dev/null
+grep -q ' pull meta-server$' "$docker_log"
+grep -q ' up -d --no-deps meta-server$' "$docker_log"
+! grep -q ' up .*control-plane' "$docker_log"
+
+: >"$docker_log"
+PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" \
+  CONTROL_PLANE_ENV_FILE="$control_env" DEPLOY_SOURCE=source \
+  bash "$test_backend/scripts/deploy-meta-server.sh" >/dev/null
+grep -q ' build --pull meta-server$' "$docker_log"
 
 if EDGE_RELAY_ENV_FILE="$edge_env" DEPLOY_SOURCE=ci EDGE_RELAY_IMAGE=invalid \
   bash "$test_backend/scripts/deploy-edge-relay.sh" >/dev/null 2>&1; then

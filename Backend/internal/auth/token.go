@@ -83,7 +83,51 @@ func NewTokenManager(cfg config.AuthConfig, environment string) (*TokenManager, 
 	}, ephemeral, nil
 }
 
+func NewTokenVerifier(cfg config.AuthConfig) (*TokenManager, error) {
+	var publicKey ed25519.PublicKey
+	if strings.TrimSpace(cfg.AccessTokenPublicKeyBase64) != "" {
+		decoded, err := decodeKey(cfg.AccessTokenPublicKeyBase64)
+		if err != nil {
+			return nil, fmt.Errorf("decode access token public key: %w", err)
+		}
+		if len(decoded) != ed25519.PublicKeySize {
+			return nil, fmt.Errorf("access token public key must be %d bytes", ed25519.PublicKeySize)
+		}
+		publicKey = ed25519.PublicKey(append([]byte(nil), decoded...))
+	} else {
+		decoded, err := decodeKey(cfg.AccessTokenPrivateKeyBase64)
+		if err != nil {
+			return nil, fmt.Errorf("decode development access token key: %w", err)
+		}
+		var privateKey ed25519.PrivateKey
+		switch len(decoded) {
+		case ed25519.SeedSize:
+			privateKey = ed25519.NewKeyFromSeed(decoded)
+		case ed25519.PrivateKeySize:
+			privateKey = ed25519.PrivateKey(decoded)
+		default:
+			return nil, fmt.Errorf("development access token key has invalid length")
+		}
+		publicKey = append(ed25519.PublicKey(nil), privateKey.Public().(ed25519.PublicKey)...)
+	}
+	if strings.TrimSpace(cfg.Issuer) == "" ||
+		strings.TrimSpace(cfg.Audience) == "" ||
+		strings.TrimSpace(cfg.AccessTokenKeyID) == "" {
+		return nil, errors.New("access token verifier identity is incomplete")
+	}
+	return &TokenManager{
+		publicKey: publicKey,
+		issuer:    cfg.Issuer,
+		audience:  cfg.Audience,
+		keyID:     cfg.AccessTokenKeyID,
+		now:       time.Now,
+	}, nil
+}
+
 func (m *TokenManager) Sign(playerID, sessionID, provider, authLevel string, tokenVersion int, ttl time.Duration) (string, time.Time, error) {
+	if len(m.privateKey) != ed25519.PrivateKeySize {
+		return "", time.Time{}, errors.New("token manager is verifier-only")
+	}
 	now := m.now().UTC()
 	expiresAt := now.Add(ttl)
 	headerBytes, err := json.Marshal(tokenHeader{Algorithm: "EdDSA", Type: "JWT", KeyID: m.keyID})

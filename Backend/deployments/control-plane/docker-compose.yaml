@@ -122,6 +122,117 @@ services:
       - edge
       - monitoring
 
+  meta-postgres-provision:
+    profiles: [meta]
+    image: postgres:17-alpine
+    restart: "no"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: "${POSTGRES_DB:?POSTGRES_DB is required}"
+      POSTGRES_USER: "${POSTGRES_USER:?POSTGRES_USER is required}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+      META_POSTGRES_USER: "${META_POSTGRES_USER:-projectrebound_meta}"
+      META_POSTGRES_PASSWORD: "${META_POSTGRES_PASSWORD:?META_POSTGRES_PASSWORD is required}"
+    entrypoint: ["/bin/sh", "/provision-meta-postgres.sh"]
+    volumes:
+      - ./provision-meta-postgres.sh:/provision-meta-postgres.sh:ro
+    depends_on:
+      control-plane:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - data
+
+  meta-redis-provision:
+    profiles: [meta]
+    image: redis:7-alpine
+    restart: "no"
+    environment:
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"
+      META_REDIS_USERNAME: "${META_REDIS_USERNAME:-projectrebound-meta}"
+      META_REDIS_PASSWORD: "${META_REDIS_PASSWORD:?META_REDIS_PASSWORD is required}"
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - >-
+        redis-cli -h redis -a "$${REDIS_PASSWORD}" --no-auth-warning
+        ACL SETUSER "$${META_REDIS_USERNAME}" reset on
+        ">$${META_REDIS_PASSWORD}" "~meta:*"
+        "+@connection" "+get" "+set" "+getdel" "+del" "+unlink"
+        "+expire" "+pexpire" "+ttl" "+pttl"
+    depends_on:
+      redis:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - data
+
+  meta-server:
+    profiles: [meta]
+    build:
+      context: ../..
+      dockerfile: deployments/compose/meta-server.Dockerfile
+      args:
+        GOPROXY: "${GOPROXY:-https://proxy.golang.org,direct}"
+        GOSUMDB: "${GOSUMDB:-sum.golang.org}"
+    image: "${META_SERVER_IMAGE:-project-rebound/meta-server:local}"
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 512m
+    cpus: 1.0
+    environment:
+      CONTROL_PLANE_ENVIRONMENT: production
+      META_HTTP_ADDR: ":8081"
+      META_LOGIC_ADDR: ":6968"
+      META_PUBLIC_HTTP_BASE_URL: "https://meta.dubnium.top"
+      META_PUBLIC_LOGIC_ENDPOINT: "logic.dubnium.top:443"
+      META_LOGIC_PROXY_PROTOCOL: "${META_LOGIC_PROXY_PROTOCOL:-true}"
+      META_PROTOCOL_VERSION: "${META_PROTOCOL_VERSION:-1}"
+      META_GATE_TICKET_TTL_SECONDS: "${META_GATE_TICKET_TTL_SECONDS:-60}"
+      META_MAX_FRAME_BYTES: "${META_MAX_FRAME_BYTES:-2097152}"
+      META_MAX_WRITE_QUEUE_BYTES: "${META_MAX_WRITE_QUEUE_BYTES:-4194304}"
+      META_MATCH_TICKET_TTL_SECONDS: "${META_MATCH_TICKET_TTL_SECONDS:-300}"
+      META_MATCH_RESERVATION_TTL_SECONDS: "${META_MATCH_RESERVATION_TTL_SECONDS:-90}"
+      DATABASE_URL: "postgres://${META_POSTGRES_USER:-projectrebound_meta}:${META_POSTGRES_PASSWORD:?META_POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}?sslmode=disable"
+      REDIS_ADDRESS: "redis:6379"
+      REDIS_USERNAME: "${META_REDIS_USERNAME:-projectrebound-meta}"
+      REDIS_PASSWORD: "${META_REDIS_PASSWORD:?META_REDIS_PASSWORD is required}"
+      ACCESS_TOKEN_KEY_ID: "${ACCESS_TOKEN_KEY_ID:?ACCESS_TOKEN_KEY_ID is required}"
+      ACCESS_TOKEN_PUBLIC_KEY_BASE64: "${ACCESS_TOKEN_PUBLIC_KEY_BASE64:?ACCESS_TOKEN_PUBLIC_KEY_BASE64 is required}"
+      ADMIN_TRUSTED_CIDRS: "${ADMIN_TRUSTED_CIDRS:-127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1/128,fc00::/7}"
+      ADMIN_ACCESS_TOKEN_KEY_ID: "${ADMIN_ACCESS_TOKEN_KEY_ID:?ADMIN_ACCESS_TOKEN_KEY_ID is required}"
+      ADMIN_ACCESS_TOKEN_PUBLIC_KEY_BASE64: "${ADMIN_ACCESS_TOKEN_PUBLIC_KEY_BASE64:?ADMIN_ACCESS_TOKEN_PUBLIC_KEY_BASE64 is required}"
+      TRUST_PROXY_HEADERS: "true"
+      HTTP_RATE_LIMIT_RPS: "${META_HTTP_RATE_LIMIT_RPS:-100}"
+      HTTP_RATE_LIMIT_BURST: "${META_HTTP_RATE_LIMIT_BURST:-200}"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+    depends_on:
+      meta-postgres-provision:
+        condition: service_completed_successfully
+      meta-redis-provision:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/meta-server", "-healthcheck", "http://127.0.0.1:8081/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    ports:
+      - "127.0.0.1:${META_SERVER_HTTP_PORT:-18082}:8081"
+      - "127.0.0.1:${META_SERVER_LOGIC_PORT:-16968}:6968"
+    networks:
+      - data
+      - edge
+      - monitoring
+
   admin-web:
     build:
       context: ../../..
@@ -168,6 +279,25 @@ services:
     networks:
       - edge
 
+  blackbox-exporter:
+    profiles: [monitoring]
+    image: prom/blackbox-exporter:v0.26.0
+    restart: unless-stopped
+    command: ["--config.file=/etc/blackbox_exporter/config.yml"]
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 128m
+    cpus: 0.25
+    volumes:
+      - ../monitoring/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    networks:
+      - edge
+      - monitoring
+
   prometheus:
     profiles: [monitoring]
     image: prom/prometheus:v2.55.1
@@ -185,6 +315,8 @@ services:
     depends_on:
       control-plane:
         condition: service_healthy
+      blackbox-exporter:
+        condition: service_started
     networks:
       - monitoring
 

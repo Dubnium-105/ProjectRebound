@@ -1515,6 +1515,424 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Public MetaServer compatibility bootstrap. It contains only fresh, discoverable Relay endpoints. */
+        get: operations["getMetaServerBootstrap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/connectServer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Compatibility endpoint used only through MetaTunnel. Any playerId or loginToken field is ignored. */
+        post: operations["connectMetaServerCompatibility"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meta/regions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Lists regions backed by READY Relay nodes with fresh heartbeats. */
+        get: operations["listMetaRegions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meta/playlists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listMetaPlaylists"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meta/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listMetaNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meta/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createMetaSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/users/me/meta-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getMyMetaProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/users/me/loadouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listMyMetaLoadouts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/users/me/loadouts/{role_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: components["parameters"]["MetaRoleID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getMyMetaLoadout"];
+        put: operations["updateMyMetaLoadout"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meta/parties": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createMetaParty"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meta/parties/{party_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                party_id: components["parameters"]["MetaPartyID"];
+            };
+            cookie?: never;
+        };
+        /** @description Returns the party only when the authenticated player is a member. */
+        get: operations["getMetaParty"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meta/parties/{party_id}/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                party_id: components["parameters"]["MetaPartyID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["setMetaPartyReady"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meta/parties/{party_id}/presence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                party_id: components["parameters"]["MetaPartyID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["setMetaPartyPresence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meta/matchmaking/tickets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createMetaMatchTicket"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/meta/matchmaking/tickets/{ticket_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: components["parameters"]["MetaTicketID"];
+            };
+            cookie?: never;
+        };
+        /** @description Ticket ownership is derived from the access token; cross-player access is hidden as not found. */
+        get: operations["getMetaMatchTicket"];
+        put?: never;
+        post?: never;
+        delete: operations["cancelMetaMatchTicket"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v1/meta/matches/{match_id}/players/{player_id}/loadout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Requires meta.loadouts.read scope and an active match assigned to this Game Server. */
+        get: operations["getAssignedMetaPlayerLoadout"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v1/meta/matches/{match_id}/players/{player_id}/connected": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Requires meta.matches.connect scope and the assigned active match/player. */
+        post: operations["markAssignedMetaPlayerConnected"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v1/meta/matches/{match_id}/completed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Requires meta.matches.complete scope and an active match assigned to this Game Server. */
+        post: operations["completeAssignedMetaMatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/meta/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["adminGetMetaOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/meta/players/{player_id}/loadouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["adminListMetaPlayerLoadouts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/meta/players/{player_id}/loadouts/{role_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["adminUpdateMetaPlayerLoadout"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/meta/matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["adminListMetaMatches"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/meta/matches/{match_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["adminCancelMetaMatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/meta/playlists/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["adminUpsertMetaPlaylist"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/meta/notifications/{notification_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["adminUpsertMetaNotification"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/metrics": {
         parameters: {
             query?: never;
@@ -2952,6 +3370,338 @@ export interface components {
             };
             request_id: string;
         };
+        MetaEndpoint: {
+            /** @enum {string} */
+            protocol: "udp";
+            host: string;
+            port: number;
+        };
+        MetaRegion: {
+            id: string;
+            name: string;
+            qos_endpoints: components["schemas"]["MetaEndpoint"][];
+        };
+        MetaBootstrapResponse: {
+            data: {
+                /** @constant */
+                service: "project-rebound-meta-server";
+                protocol_version: number;
+                servers: {
+                    location_id: number;
+                    region_id: string;
+                    ipv4: string;
+                    ipv6: string;
+                    port: number;
+                }[];
+            };
+            request_id: string;
+        };
+        MetaRegionListResponse: {
+            data: {
+                items: components["schemas"]["MetaRegion"][];
+            };
+            request_id: string;
+        };
+        MetaPlaylist: {
+            id: string;
+            slug: string;
+            display_name: string;
+            description: string;
+            mode: string;
+            definition: {
+                [key: string]: unknown;
+            };
+            sort_order: number;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        MetaPlaylistResponse: {
+            data: components["schemas"]["MetaPlaylist"];
+            request_id: string;
+        };
+        MetaPlaylistListResponse: {
+            data: {
+                items: components["schemas"]["MetaPlaylist"][];
+            };
+            request_id: string;
+        };
+        MetaNotification: {
+            id: string;
+            title: string;
+            body: string;
+            locale: string;
+            priority: number;
+            /** Format: date-time */
+            starts_at?: string;
+            /** Format: date-time */
+            ends_at?: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        MetaNotificationResponse: {
+            data: components["schemas"]["MetaNotification"];
+            request_id: string;
+        };
+        MetaNotificationListResponse: {
+            data: {
+                items: components["schemas"]["MetaNotification"][];
+            };
+            request_id: string;
+        };
+        MetaSessionRequest: {
+            client_version?: string;
+            /** @description Compatibility alias for client_version. */
+            version?: string;
+            protocol_version?: number;
+            platform?: string;
+            /**
+             * @deprecated
+             * @description Ignored. Identity is always derived from the access token.
+             */
+            playerId?: string;
+            /**
+             * @deprecated
+             * @description Ignored. Authorization is accepted only through the bearer header.
+             */
+            loginToken?: string;
+        };
+        MetaSessionData: {
+            user_id: string;
+            /** @description 256-bit, 60-second, single-use Gate credential. */
+            gate_ticket: string;
+            /** @example logic.dubnium.top:443 */
+            endpoint: string;
+            expires_in_seconds: number;
+            protocol_version: number;
+        };
+        MetaSessionResponse: {
+            data: components["schemas"]["MetaSessionData"];
+            request_id: string;
+        };
+        MetaConnectServerResponse: {
+            /** @constant */
+            error: 0;
+            userId: string;
+            aceId: string;
+            gateToken: string;
+            endpoint: string;
+        };
+        MetaProfile: {
+            player_id: string;
+            level: number;
+            /** Format: int64 */
+            experience: number;
+            currencies: {
+                [key: string]: unknown;
+            };
+            statistics: {
+                [key: string]: unknown;
+            };
+            /** Format: int64 */
+            revision: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        MetaProfileResponse: {
+            data: components["schemas"]["MetaProfile"];
+            request_id: string;
+        };
+        MetaLoadout: {
+            player_id?: string;
+            role_id: string;
+            /** @description Canonical definition-validated JSON snapshot. */
+            snapshot: {
+                [key: string]: unknown;
+            };
+            /** Format: int64 */
+            revision: number;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        MetaLoadoutUpdateRequest: {
+            snapshot: {
+                [key: string]: unknown;
+            };
+            /**
+             * Format: int64
+             * @description Current revision, or zero when creating a role loadout.
+             */
+            revision: number;
+        };
+        AdminMetaLoadoutUpdateRequest: {
+            snapshot: {
+                [key: string]: unknown;
+            };
+            /** Format: int64 */
+            revision: number;
+            reason: string;
+        };
+        MetaLoadoutResponse: {
+            data: components["schemas"]["MetaLoadout"];
+            request_id: string;
+        };
+        MetaLoadoutListResponse: {
+            data: {
+                items: components["schemas"]["MetaLoadout"][];
+            };
+            request_id: string;
+        };
+        MetaPartyCreateRequest: {
+            mode: string;
+            region: string;
+            client_version: string;
+        };
+        MetaPartyMember: {
+            player_id: string;
+            /** @enum {string} */
+            role: "LEADER" | "MEMBER";
+            ready: boolean;
+            /** @enum {string} */
+            presence: "ONLINE" | "AWAY" | "IN_GAME" | "OFFLINE";
+            /** Format: date-time */
+            joined_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        MetaParty: {
+            id: string;
+            leader_player_id: string;
+            /** @enum {string} */
+            state: "ACTIVE" | "MATCHMAKING" | "IN_MATCH" | "CLOSED";
+            mode: string;
+            region: string;
+            client_version: string;
+            protocol_version: number;
+            /** Format: int64 */
+            revision: number;
+            members: components["schemas"]["MetaPartyMember"][];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        MetaPartyResponse: {
+            data: components["schemas"]["MetaParty"];
+            request_id: string;
+        };
+        MetaPartyReadyRequest: {
+            ready: boolean;
+        };
+        MetaPartyPresenceRequest: {
+            /** @enum {string} */
+            presence: "ONLINE" | "AWAY" | "IN_GAME" | "OFFLINE";
+        };
+        MetaMatchTicketCreateRequest: {
+            party_id?: string;
+            mode: string;
+            region: string;
+            client_version: string;
+        };
+        MetaMatchTicket: {
+            id: string;
+            player_id?: string;
+            party_id?: string;
+            mode: string;
+            region: string;
+            client_version: string;
+            protocol_version: number;
+            /** @enum {string} */
+            state: "QUEUED" | "MATCHED" | "CANCELLED" | "TIMED_OUT" | "FAILED";
+            failure_code?: string;
+            match_id?: string;
+            endpoint?: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            completed_at?: string;
+        };
+        MetaMatchTicketResponse: {
+            data: components["schemas"]["MetaMatchTicket"];
+            request_id: string;
+        };
+        MetaMatchPlayerLoadout: {
+            match_id: string;
+            player_id: string;
+            loadouts: components["schemas"]["MetaLoadout"][];
+        };
+        MetaMatchPlayerLoadoutResponse: {
+            data: components["schemas"]["MetaMatchPlayerLoadout"];
+            request_id: string;
+        };
+        MetaMatchCompleteRequest: {
+            result: {
+                [key: string]: unknown;
+            };
+        };
+        AdminMetaOverviewResponse: {
+            data: {
+                /** Format: int64 */
+                profiles: number;
+                /** Format: int64 */
+                active_parties: number;
+                /** Format: int64 */
+                queued_tickets: number;
+                /** Format: int64 */
+                active_matches: number;
+            };
+            request_id: string;
+        };
+        AdminMetaMatch: {
+            id: string;
+            game_server_id: string;
+            ticket_id: string;
+            mode: string;
+            region: string;
+            /** @enum {string} */
+            state: "RESERVED" | "RUNNING" | "COMPLETED" | "CANCELLED" | "FAILED";
+            endpoint: string;
+            /** Format: date-time */
+            reserved_at: string;
+            /** Format: date-time */
+            started_at?: string;
+            /** Format: date-time */
+            completed_at?: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        AdminMetaMatchListResponse: {
+            data: {
+                items: components["schemas"]["AdminMetaMatch"][];
+            };
+            request_id: string;
+        };
+        AdminReasonRequest: {
+            reason: string;
+        };
+        AdminMetaPlaylistUpsertRequest: {
+            display_name: string;
+            description: string;
+            mode: string;
+            definition: {
+                [key: string]: unknown;
+            };
+            enabled: boolean;
+            sort_order: number;
+            reason: string;
+        };
+        AdminMetaNotificationUpsertRequest: {
+            title: string;
+            body: string;
+            locale: string;
+            priority: number;
+            enabled: boolean;
+            /** Format: date-time */
+            starts_at?: string;
+            /** Format: date-time */
+            ends_at?: string;
+            reason: string;
+        };
         HealthSuccess: {
             data: {
                 /** @enum {string} */
@@ -3045,6 +3795,12 @@ export interface components {
         ConnectionID: string;
         RelayNodeID: string;
         RoomID: string;
+        MetaRoleID: string;
+        MetaPartyID: string;
+        MetaTicketID: string;
+        MetaMatchID: string;
+        /** @description Must identify the same Game Server encoded in the scoped bearer token. */
+        GameServerIdentity: string;
     };
     requestBodies: never;
     headers: never;
@@ -5705,6 +6461,687 @@ export interface operations {
                     "application/json": components["schemas"]["ClientConfigResponse"];
                 };
             };
+        };
+    };
+    getMetaServerBootstrap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description MetaServer bootstrap data. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaBootstrapResponse"];
+                };
+            };
+        };
+    };
+    connectMetaServerCompatibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MetaSessionRequest"];
+            };
+        };
+        responses: {
+            /** @description Compatibility Gate response. MetaTunnel rewrites endpoint to its loopback listener. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaConnectServerResponse"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    listMetaRegions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dynamic QoS region list. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaRegionListResponse"];
+                };
+            };
+        };
+    };
+    listMetaPlaylists: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Enabled playlists. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaPlaylistListResponse"];
+                };
+            };
+        };
+    };
+    listMetaNotifications: {
+        parameters: {
+            query?: {
+                locale?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active notifications in the requested locale. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaNotificationListResponse"];
+                };
+            };
+        };
+    };
+    createMetaSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MetaSessionRequest"];
+            };
+        };
+        responses: {
+            /** @description A single-use, short-lived Gate ticket. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaSessionResponse"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    getMyMetaProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authenticated player's Meta profile. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaProfileResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    listMyMetaLoadouts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authenticated player's role loadouts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaLoadoutListResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getMyMetaLoadout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: components["parameters"]["MetaRoleID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Role loadout and current revision. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaLoadoutResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateMyMetaLoadout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: components["parameters"]["MetaRoleID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MetaLoadoutUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated role loadout with incremented revision. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaLoadoutResponse"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    createMetaParty: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MetaPartyCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Created party. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaPartyResponse"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getMetaParty: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                party_id: components["parameters"]["MetaPartyID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Party state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaPartyResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setMetaPartyReady: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                party_id: components["parameters"]["MetaPartyID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MetaPartyReadyRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated party. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaPartyResponse"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setMetaPartyPresence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                party_id: components["parameters"]["MetaPartyID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MetaPartyPresenceRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated party. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaPartyResponse"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createMetaMatchTicket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MetaMatchTicketCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Queued match ticket. No P2P fallback is implied. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaMatchTicketResponse"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getMetaMatchTicket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: components["parameters"]["MetaTicketID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current ticket state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaMatchTicketResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    cancelMetaMatchTicket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: components["parameters"]["MetaTicketID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ticket cancelled. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getAssignedMetaPlayerLoadout: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Must identify the same Game Server encoded in the scoped bearer token. */
+                "X-Game-Server-Id": components["parameters"]["GameServerIdentity"];
+            };
+            path: {
+                match_id: components["parameters"]["MetaMatchID"];
+                player_id: components["parameters"]["PlayerID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Match-bound loadout snapshot. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaMatchPlayerLoadoutResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    markAssignedMetaPlayerConnected: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Must identify the same Game Server encoded in the scoped bearer token. */
+                "X-Game-Server-Id": components["parameters"]["GameServerIdentity"];
+            };
+            path: {
+                match_id: components["parameters"]["MetaMatchID"];
+                player_id: components["parameters"]["PlayerID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Player connection recorded. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    completeAssignedMetaMatch: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Must identify the same Game Server encoded in the scoped bearer token. */
+                "X-Game-Server-Id": components["parameters"]["GameServerIdentity"];
+            };
+            path: {
+                match_id: components["parameters"]["MetaMatchID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MetaMatchCompleteRequest"];
+            };
+        };
+        responses: {
+            /** @description Match completed and Game Server returned to READY. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    adminGetMetaOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description MetaServer operational counters. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMetaOverviewResponse"];
+                };
+            };
+            401: components["responses"]["AdminUnauthorized"];
+        };
+    };
+    adminListMetaPlayerLoadouts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                player_id: components["parameters"]["PlayerID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Player loadouts for authorized support review. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaLoadoutListResponse"];
+                };
+            };
+            401: components["responses"]["AdminUnauthorized"];
+        };
+    };
+    adminUpdateMetaPlayerLoadout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                player_id: components["parameters"]["PlayerID"];
+                role_id: components["parameters"]["MetaRoleID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminMetaLoadoutUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated and audited loadout. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaLoadoutResponse"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["AdminUnauthorized"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    adminListMetaMatches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Most recently updated matches. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMetaMatchListResponse"];
+                };
+            };
+            401: components["responses"]["AdminUnauthorized"];
+        };
+    };
+    adminCancelMetaMatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                match_id: components["parameters"]["MetaMatchID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description Match cancelled, reservation released, and action audited. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["AdminUnauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    adminUpsertMetaPlaylist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminMetaPlaylistUpsertRequest"];
+            };
+        };
+        responses: {
+            /** @description Playlist upserted and audited. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaPlaylistResponse"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["AdminUnauthorized"];
+        };
+    };
+    adminUpsertMetaNotification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Use new to allocate a new notification ID. */
+                notification_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminMetaNotificationUpsertRequest"];
+            };
+        };
+        responses: {
+            /** @description Notification upserted and audited. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaNotificationResponse"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["AdminUnauthorized"];
         };
     };
     getControlPlaneMetrics: {

@@ -217,3 +217,27 @@ Relay 分配事件示例：
 - 鉴权矩阵：`Backend/api/openapi/auth-permission-matrix.md`
 - Relay UDP 协议：`Backend/api/relay-protocol.md`
 - 内部 API：`docs/api/internal.md`
+
+## MetaServer 路由索引
+
+MetaServer 复用现有玩家 Access Token 和统一错误 envelope。字段级契约与
+MetaTunnel 流程见 [MetaServer 外部 API](metaserver-external.zh-CN.md)。
+
+| 方法 | 路径 | 鉴权 | 用途 |
+| --- | --- | --- | --- |
+| POST | `/connectServer` | 活跃玩家 | 兼容 MetaTunnel 的 Gate 引导 |
+| GET | `/v1/meta/regions` | 无 | 动态发现 READY Relay/QoS |
+| GET | `/v1/meta/playlists` | 无 | 已启用匹配列表 |
+| GET | `/v1/meta/notifications` | 无 | 活跃本地化通知 |
+| POST | `/v1/meta/sessions` | 活跃玩家 | 签发 60 秒单次 Gate Ticket |
+| GET | `/v1/users/me/meta-profile` | 活跃玩家 | 当前 Meta 档案 |
+| GET | `/v1/users/me/loadouts` | 活跃玩家 | 全部角色配装 |
+| GET | `/v1/users/me/loadouts/{role_id}` | 活跃玩家 | 单个角色配装 |
+| PUT | `/v1/users/me/loadouts/{role_id}` | 活跃玩家 | 定义校验和乐观锁更新 |
+| POST | `/v1/meta/parties` | 活跃玩家 | 创建 Party |
+| GET | `/v1/meta/parties/{party_id}` | Party 成员 | 查询 Party |
+| POST | `/v1/meta/parties/{party_id}/ready` | Party 成员 | 更新准备状态 |
+| POST | `/v1/meta/parties/{party_id}/presence` | Party 成员 | 更新在线状态 |
+| POST | `/v1/meta/matchmaking/tickets` | 玩家/队长 | 单人或整队排队 |
+| GET | `/v1/meta/matchmaking/tickets/{ticket_id}` | Ticket 所有者/成员 | 轮询分配 |
+| DELETE | `/v1/meta/matchmaking/tickets/{ticket_id}` | Ticket 所有者/队长 | 取消排队 |

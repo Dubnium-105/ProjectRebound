@@ -74,6 +74,7 @@ type ipRateState struct {
 	bindProof     tokenBucket
 	invalidTokens tokenBucket
 	untrusted     tokenBucket
+	qos           tokenBucket
 	bannedUntil   time.Time
 	lastSeen      time.Time
 }
@@ -189,6 +190,9 @@ func (r *Runtime) ShutdownRequested() <-chan struct{} { return r.shutdown }
 func (r *Runtime) Process(packet []byte, address netip.AddrPort) []OutboundDatagram {
 	r.metrics.packetsReceived.Add(1)
 	r.metrics.bytesReceived.Add(uint64(len(packet)))
+	if len(packet) > 0 && packet[0] == 0x59 {
+		return r.processQoS(packet, address)
+	}
 	if len(packet) < 6 || len(packet) > r.config.MaxDatagramBytes || string(packet[:4]) != Magic || !r.acceptsVersion(packet[4]) {
 		if len(packet) > r.config.MaxDatagramBytes {
 			r.metrics.packetTooLarge.Add(1)
@@ -271,6 +275,37 @@ func (r *Runtime) Process(packet []byte, address netip.AddrPort) []OutboundDatag
 		r.drop(false)
 		return nil
 	}
+}
+
+func (r *Runtime) processQoS(packet []byte, address netip.AddrPort) []OutboundDatagram {
+	r.metrics.qosRequests.Add(1)
+	if !r.config.QoSEnabled || len(packet) < 11 || len(packet) > r.config.QoSMaxRequestBytes {
+		r.metrics.qosMalformed.Add(1)
+		r.drop(false)
+		return nil
+	}
+	now := r.now().UTC()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.intervalIngressBytes += int64(len(packet))
+	r.intervalPackets++
+	state := r.ipState(address.Addr(), now)
+	if state == nil || state.bannedUntil.After(now) ||
+		!r.nodePacketBucket.Allow(1, now) || !state.qos.Allow(1, now) {
+		r.metrics.qosRateLimited.Add(1)
+		r.drop(true)
+		return nil
+	}
+	response := make([]byte, 2+len(packet)-11)
+	response[0], response[1] = 0x95, 0x00
+	copy(response[2:], packet[11:])
+	if len(response) > len(packet) {
+		r.metrics.qosMalformed.Add(1)
+		r.drop(false)
+		return nil
+	}
+	r.metrics.qosResponses.Add(1)
+	return []OutboundDatagram{{Address: address, Packet: response}}
 }
 
 const sha256Size = 32
@@ -559,6 +594,7 @@ func (r *Runtime) ipState(address netip.Addr, now time.Time) *ipRateState {
 		bindProof:     newTokenBucket(float64(r.config.BindProofPerSecond), float64(r.config.BindProofPerSecond), now),
 		invalidTokens: newTokenBucket(float64(r.config.InvalidTokensPerMin)/60, float64(r.config.InvalidTokensPerMin), now),
 		untrusted:     newTokenBucket(float64(r.config.IPPacketsPerSecond), float64(r.config.IPPacketsPerSecond), now),
+		qos:           newTokenBucket(float64(r.config.QoSPacketsPerSecond), float64(r.config.QoSPacketsPerSecond), now),
 		lastSeen:      now,
 	}
 	r.ipStates[address] = state

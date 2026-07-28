@@ -83,14 +83,46 @@ sudo certbot renew --dry-run --no-random-sleep-on-renew
 
 deploy hook 会将 `fullchain.pem` 与 `privkey.pem` 合并为 HAProxy PEM，并在续期后原子替换、校验配置、热重载 HAProxy。公网 80 端口除 ACME HTTP-01 外只返回 HTTPS 重定向；如果 Cloudflare 被误改为 Flexible，该配置会暴露重定向异常，避免静默使用明文 API 回源。
 
+## 隔离的 MetaServer HTTP 与 Logic 路由
+
+最终 Meta 路径使用第三套 FRP 身份，不修改现有 HTTP 或 Relay mTLS FRP 服务：
+
+```text
+meta.dubnium.top（橙云） -> HAProxy :443 -> TLS :10445
+  -> Meta FRPS 127.0.0.1:18082 -> Meta FRPC -> 控制面 127.0.0.1:18082
+
+logic.dubnium.top（灰云） -> HAProxy :443 -> TLS :10444
+  -> Meta FRPS 127.0.0.1:16969 -> Meta FRPC -> 控制面 127.0.0.1:16968
+```
+
+两段 HAProxy Logic 路径使用 PROXY protocol v1，使 MetaServer 经 FRP 后仍能看到
+真实客户端地址。10444、16969 和控制面的 PROXY listener 必须保持私有；从不可信
+来源接受该头部会允许 IP 欺骗。
+
+网关将 `frps-meta.toml.example` 与 `projectrebound-meta-frps.service` 安装到
+`/etc/projectrebound-meta-frps`；控制面将 `frpc-meta.toml.example` 与
+`projectrebound-meta-frpc.service` 安装到 `/etc/projectrebound-meta-frpc`。
+必须使用唯一 token 和 FRP user，7002 控制端口只允许控制面来源。两个证书都在网关
+终止。Meta HTTP 只接受 Cloudflare 来源；Logic 需要普通 TLS 客户端直连，因此不限制
+为 Cloudflare 来源。Meta HTTPS frontend 对 `/internal/*` 和 `/v1/admin*` 返回
+404；管理员继续使用已有隔离 Admin origin。
+
+运行证书部署 hook 前，在 root-only 网关 defaults 中设置
+`META_HTTP_HOST=meta.dubnium.top` 与 `META_LOGIC_HOST=logic.dubnium.top`。18082 和
+16969 始终只绑定回环。完整顺序见
+[`docs/operations/metaserver-deployment.zh-CN.md`](../../../docs/operations/metaserver-deployment.zh-CN.md)。
+
 ## 验收
 
 ```bash
 sudo haproxy -c -f /etc/haproxy/haproxy.cfg
-sudo systemctl is-active haproxy frps projectrebound-http-frps
-sudo ss -lntup | grep -E ':(80|443|7000|7001) '
-sudo ss -lntp | grep -E '127.0.0.1:(9443|10443|18081) '
-curl -fsS https://boundary.example.com/health/ready
+sudo systemctl is-active haproxy frps projectrebound-http-frps projectrebound-meta-frps
+sudo ss -lntup | grep -E ':(80|443|7000|7001|7002) '
+sudo ss -lntp | grep -E '127.0.0.1:(9443|10443|10444|10445|18081|18082|16969) '
+curl -fsS https://meta.dubnium.top/health/ready
+test "$(curl -sS -o /dev/null -w '%{http_code}' https://meta.dubnium.top/internal/metrics)" = 404
+openssl s_client -connect 127.0.0.1:443 -servername logic.dubnium.top \
+  -verify_hostname logic.dubnium.top -verify_return_error </dev/null
 ```
 
 最后检查所有有效 Relay 节点持续在线、遥测不过期、FRPC/FRPS 无新增重连，然后再执行 10/25/50/100 VU 分级压测。

@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package ProjectBoundary;
+
+
+option go_package = "github.com/projectrebound/matchserver/internal/metaserver/protocol/upstream;upstream";
+
+message QueryNotificationRequest{
+    string Platform = 1;
+    string LanguageCode = 2;
+    int32 Unknown1 = 3;
+    int32 Unknown2 = 4;
+}

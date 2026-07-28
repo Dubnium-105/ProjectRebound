@@ -1,0 +1,102 @@
+{
+  "uid": "project-rebound-meta-server",
+  "title": "MetaServer",
+  "description": "HTTP, native TCP, Gate Ticket, matchmaking, and Relay QoS health.",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "time": {"from": "now-6h", "to": "now"},
+  "tags": ["project-rebound", "meta-server"],
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Service and native connections",
+      "gridPos": {"h": 6, "w": 8, "x": 0, "y": 0},
+      "targets": [
+        {"expr": "up{job=\"project-rebound-meta-server\"}", "legendFormat": "ready"},
+        {"expr": "meta_tcp_connections_active", "legendFormat": "native connections"},
+        {"expr": "meta_match_queue_depth", "legendFormat": "queued tickets"}
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Gate Tickets",
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 0},
+      "targets": [
+        {"expr": "sum(rate(meta_gate_ticket_issued_total[5m]))", "legendFormat": "issued/s"},
+        {"expr": "sum(rate(meta_gate_ticket_consumed_total[5m]))", "legendFormat": "consumed/s"},
+        {"expr": "sum(rate(meta_gate_ticket_replay_total[5m]))", "legendFormat": "rejected replay/s"}
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Native protocol security",
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 0},
+      "targets": [
+        {"expr": "sum(rate(meta_malformed_frames_total[5m]))", "legendFormat": "malformed/s"},
+        {"expr": "sum(rate(meta_rate_limited_total[5m]))", "legendFormat": "rate limited/s"}
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Relay QoS fleet",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [
+        {"expr": "sum by (instance) (rate(relay_qos_requests_total[5m]))", "legendFormat": "{{instance}} requests"},
+        {"expr": "sum by (instance) (rate(relay_qos_responses_total[5m]))", "legendFormat": "{{instance}} responses"},
+        {"expr": "sum by (instance) (rate(relay_qos_rate_limited_total[5m]))", "legendFormat": "{{instance}} limited"}
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "RPC calls by path",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [
+        {"expr": "sum by (rpc) (rate(meta_rpc_requests_total[5m]))", "legendFormat": "{{rpc}}"}
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "HTTP latency and traffic",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "targets": [
+        {"expr": "sum by (route) (rate(meta_http_requests_total[5m]))", "legendFormat": "{{route}} requests/s"},
+        {"expr": "sum by (route) (rate(meta_http_request_duration_seconds_sum[5m])) / clamp_min(sum by (route) (rate(meta_http_request_duration_seconds_count[5m])), 0.001)", "legendFormat": "{{route}} mean seconds"}
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Native RPC latency",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "targets": [
+        {"expr": "sum by (rpc) (rate(meta_rpc_duration_seconds_sum[5m])) / clamp_min(sum by (rpc) (rate(meta_rpc_duration_seconds_count[5m])), 0.001)", "legendFormat": "{{rpc}} mean seconds"}
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Matchmaking outcomes and queue time",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+      "targets": [
+        {"expr": "sum by (outcome) (rate(meta_matchmaking_outcomes_total[5m]))", "legendFormat": "{{outcome}}/s"},
+        {"expr": "rate(meta_matchmaking_queue_duration_seconds_sum[5m]) / clamp_min(rate(meta_matchmaking_queue_duration_seconds_count[5m]), 0.001)", "legendFormat": "mean queue seconds"}
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Loadout revision conflicts",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+      "targets": [
+        {"expr": "sum(rate(meta_loadout_revision_conflicts_total[5m]))", "legendFormat": "conflicts/s"}
+      ]
+    }
+  ]
+}

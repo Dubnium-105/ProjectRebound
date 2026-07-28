@@ -84,14 +84,51 @@ sudo certbot renew --dry-run --no-random-sleep-on-renew
 
 After renewal, the deployment hook combines `fullchain.pem` and `privkey.pem` into an HAProxy PEM file, replaces it atomically, validates the configuration, and hot-reloads HAProxy. Public port 80 redirects to HTTPS except for ACME HTTP-01. If Cloudflare is accidentally changed to Flexible mode, this setup exposes a redirect failure instead of silently forwarding the API to the origin over plaintext HTTP.
 
+## Isolated MetaServer HTTP and Logic routes
+
+The final Meta routes use a third FRP identity and do not modify the existing
+HTTP or Relay mTLS FRP services:
+
+```text
+meta.dubnium.top (orange cloud) -> HAProxy :443 -> TLS :10445
+  -> Meta FRPS 127.0.0.1:18082 -> Meta FRPC -> control 127.0.0.1:18082
+
+logic.dubnium.top (DNS only) -> HAProxy :443 -> TLS :10444
+  -> Meta FRPS 127.0.0.1:16969 -> Meta FRPC -> control 127.0.0.1:16968
+```
+
+The two HAProxy Logic hops use PROXY protocol v1 so MetaServer sees the real
+client address after FRP. Keep 10444, 16969, and the PROXY-enabled control
+listener private; accepting this header from an untrusted source permits IP
+spoofing.
+
+Install `frps-meta.toml.example` and `projectrebound-meta-frps.service` on the
+gateway under `/etc/projectrebound-meta-frps`. Install
+`frpc-meta.toml.example` and `projectrebound-meta-frpc.service` on the control
+host under `/etc/projectrebound-meta-frpc`. Use a unique token and FRP user;
+firewall control port 7002 to the control-plane source. The gateway terminates
+both certificates. Meta HTTP accepts Cloudflare source ranges only; Logic must
+remain reachable by normal TLS clients and is therefore not Cloudflare-source
+restricted. The Meta HTTPS frontend returns 404 for `/internal/*` and
+`/v1/admin*`; administrators use the existing isolated Admin origin.
+
+Set `META_HTTP_HOST=meta.dubnium.top` and
+`META_LOGIC_HOST=logic.dubnium.top` in the root-only gateway defaults before
+running the certificate deployment hook. Ports 18082 and 16969 remain
+loopback-only. The complete ordered procedure is in
+[`docs/operations/metaserver-deployment.md`](../../../docs/operations/metaserver-deployment.md).
+
 ## Acceptance
 
 ```bash
 sudo haproxy -c -f /etc/haproxy/haproxy.cfg
-sudo systemctl is-active haproxy frps projectrebound-http-frps
-sudo ss -lntup | grep -E ':(80|443|7000|7001) '
-sudo ss -lntp | grep -E '127.0.0.1:(9443|10443|18081) '
-curl -fsS https://boundary.example.com/health/ready
+sudo systemctl is-active haproxy frps projectrebound-http-frps projectrebound-meta-frps
+sudo ss -lntup | grep -E ':(80|443|7000|7001|7002) '
+sudo ss -lntp | grep -E '127.0.0.1:(9443|10443|10444|10445|18081|18082|16969) '
+curl -fsS https://meta.dubnium.top/health/ready
+test "$(curl -sS -o /dev/null -w '%{http_code}' https://meta.dubnium.top/internal/metrics)" = 404
+openssl s_client -connect 127.0.0.1:443 -servername logic.dubnium.top \
+  -verify_hostname logic.dubnium.top -verify_return_error </dev/null
 ```
 
 Finally, confirm that every valid Relay remains continuously online, telemetry stays fresh, and FRPC/FRPS show no new reconnects. Then run staged load tests at 10, 25, 50, and 100 virtual users.

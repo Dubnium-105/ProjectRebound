@@ -2213,6 +2213,478 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ClientConfigResponse"
+  /:
+    get:
+      operationId: getMetaServerBootstrap
+      tags: [MetaServer]
+      description: Public MetaServer compatibility bootstrap. It contains only fresh, discoverable Relay endpoints.
+      responses:
+        "200":
+          description: MetaServer bootstrap data.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MetaBootstrapResponse"}
+  /connectServer:
+    post:
+      operationId: connectMetaServerCompatibility
+      tags: [MetaServer]
+      security:
+        - playerAccessToken: []
+      description: Compatibility endpoint used only through MetaTunnel. Any playerId or loginToken field is ignored.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/MetaSessionRequest"}
+      responses:
+        "200":
+          description: Compatibility Gate response. MetaTunnel rewrites endpoint to its loopback listener.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MetaConnectServerResponse"}
+        "400": {$ref: "#/components/responses/InvalidRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+  /v1/meta/regions:
+    get:
+      operationId: listMetaRegions
+      tags: [MetaServer]
+      description: Lists regions backed by READY Relay nodes with fresh heartbeats.
+      responses:
+        "200":
+          description: Dynamic QoS region list.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MetaRegionListResponse"}
+  /v1/meta/playlists:
+    get:
+      operationId: listMetaPlaylists
+      tags: [MetaServer]
+      responses:
+        "200":
+          description: Enabled playlists.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MetaPlaylistListResponse"}
+  /v1/meta/notifications:
+    get:
+      operationId: listMetaNotifications
+      tags: [MetaServer]
+      parameters:
+        - in: query
+          name: locale
+          schema: {type: string, maxLength: 16}
+      responses:
+        "200":
+          description: Active notifications in the requested locale.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MetaNotificationListResponse"}
+  /v1/meta/sessions:
+    post:
+      operationId: createMetaSession
+      tags: [MetaServer]
+      security:
+        - playerAccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/MetaSessionRequest"}
+      responses:
+        "201":
+          description: A single-use, short-lived Gate ticket.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MetaSessionResponse"}
+        "400": {$ref: "#/components/responses/InvalidRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "409": {$ref: "#/components/responses/Conflict"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+  /v1/users/me/meta-profile:
+    get:
+      operationId: getMyMetaProfile
+      tags: [MetaServer]
+      security:
+        - playerAccessToken: []
+      responses:
+        "200":
+          description: Authenticated player's Meta profile.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MetaProfileResponse"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+  /v1/users/me/loadouts:
+    get:
+      operationId: listMyMetaLoadouts
+      tags: [MetaServer]
+      security:
+        - playerAccessToken: []
+      responses:
+        "200":
+          description: Authenticated player's role loadouts.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MetaLoadoutListResponse"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+  /v1/users/me/loadouts/{role_id}:
+    parameters:
+      - {$ref: "#/components/parameters/MetaRoleID"}
+    get:
+      operationId: getMyMetaLoadout
+      tags: [MetaServer]
+      security:
+        - playerAccessToken: []
+      responses:
+        "200":
+          description: Role loadout and current revision.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MetaLoadoutResponse"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {$ref: "#/components/responses/NotFound"}
+    put:
+      operationId: updateMyMetaLoadout
+      tags: [MetaServer]
+      security:
+        - playerAccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/MetaLoadoutUpdateRequest"}
+      responses:
+        "200":
+          description: Updated role loadout with incremented revision.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MetaLoadoutResponse"}
+        "400": {$ref: "#/components/responses/InvalidRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/meta/parties:
+    post:
+      operationId: createMetaParty
+      tags: [MetaServer]
+      security:
+        - playerAccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/MetaPartyCreateRequest"}
+      responses:
+        "201":
+          description: Created party.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MetaPartyResponse"}
+        "400": {$ref: "#/components/responses/InvalidRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/meta/parties/{party_id}:
+    parameters:
+      - {$ref: "#/components/parameters/MetaPartyID"}
+    get:
+      operationId: getMetaParty
+      tags: [MetaServer]
+      security:
+        - playerAccessToken: []
+      description: Returns the party only when the authenticated player is a member.
+      responses:
+        "200":
+          description: Party state.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MetaPartyResponse"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /v1/meta/parties/{party_id}/ready:
+    parameters:
+      - {$ref: "#/components/parameters/MetaPartyID"}
+    post:
+      operationId: setMetaPartyReady
+      tags: [MetaServer]
+      security:
+        - playerAccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/MetaPartyReadyRequest"}
+      responses:
+        "200":
+          description: Updated party.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MetaPartyResponse"}
+        "400": {$ref: "#/components/responses/InvalidRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /v1/meta/parties/{party_id}/presence:
+    parameters:
+      - {$ref: "#/components/parameters/MetaPartyID"}
+    post:
+      operationId: setMetaPartyPresence
+      tags: [MetaServer]
+      security:
+        - playerAccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/MetaPartyPresenceRequest"}
+      responses:
+        "200":
+          description: Updated party.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MetaPartyResponse"}
+        "400": {$ref: "#/components/responses/InvalidRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /v1/meta/matchmaking/tickets:
+    post:
+      operationId: createMetaMatchTicket
+      tags: [MetaServer]
+      security:
+        - playerAccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/MetaMatchTicketCreateRequest"}
+      responses:
+        "202":
+          description: Queued match ticket. No P2P fallback is implied.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MetaMatchTicketResponse"}
+        "400": {$ref: "#/components/responses/InvalidRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/meta/matchmaking/tickets/{ticket_id}:
+    parameters:
+      - {$ref: "#/components/parameters/MetaTicketID"}
+    get:
+      operationId: getMetaMatchTicket
+      tags: [MetaServer]
+      security:
+        - playerAccessToken: []
+      description: Ticket ownership is derived from the access token; cross-player access is hidden as not found.
+      responses:
+        "200":
+          description: Current ticket state.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MetaMatchTicketResponse"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {$ref: "#/components/responses/NotFound"}
+    delete:
+      operationId: cancelMetaMatchTicket
+      tags: [MetaServer]
+      security:
+        - playerAccessToken: []
+      responses:
+        "204": {description: Ticket cancelled.}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /internal/v1/meta/matches/{match_id}/players/{player_id}/loadout:
+    get:
+      operationId: getAssignedMetaPlayerLoadout
+      tags: [MetaServer Internal]
+      x-internal: true
+      security:
+        - gameServerToken: []
+      parameters:
+        - {$ref: "#/components/parameters/MetaMatchID"}
+        - {$ref: "#/components/parameters/PlayerID"}
+        - {$ref: "#/components/parameters/GameServerIdentity"}
+      description: Requires meta.loadouts.read scope and an active match assigned to this Game Server.
+      responses:
+        "200":
+          description: Match-bound loadout snapshot.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MetaMatchPlayerLoadoutResponse"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /internal/v1/meta/matches/{match_id}/players/{player_id}/connected:
+    post:
+      operationId: markAssignedMetaPlayerConnected
+      tags: [MetaServer Internal]
+      x-internal: true
+      description: Requires meta.matches.connect scope and the assigned active match/player.
+      security:
+        - gameServerToken: []
+      parameters:
+        - {$ref: "#/components/parameters/MetaMatchID"}
+        - {$ref: "#/components/parameters/PlayerID"}
+        - {$ref: "#/components/parameters/GameServerIdentity"}
+      responses:
+        "204": {description: Player connection recorded.}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /internal/v1/meta/matches/{match_id}/completed:
+    post:
+      operationId: completeAssignedMetaMatch
+      tags: [MetaServer Internal]
+      x-internal: true
+      description: Requires meta.matches.complete scope and an active match assigned to this Game Server.
+      security:
+        - gameServerToken: []
+      parameters:
+        - {$ref: "#/components/parameters/MetaMatchID"}
+        - {$ref: "#/components/parameters/GameServerIdentity"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/MetaMatchCompleteRequest"}
+      responses:
+        "204": {description: Match completed and Game Server returned to READY.}
+        "400": {$ref: "#/components/responses/InvalidRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/admin/meta/overview:
+    get:
+      operationId: adminGetMetaOverview
+      tags: [Admin MetaServer]
+      security:
+        - adminAccessToken: []
+      responses:
+        "200":
+          description: MetaServer operational counters.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminMetaOverviewResponse"}
+        "401": {$ref: "#/components/responses/AdminUnauthorized"}
+  /v1/admin/meta/players/{player_id}/loadouts:
+    get:
+      operationId: adminListMetaPlayerLoadouts
+      tags: [Admin MetaServer]
+      security:
+        - adminAccessToken: []
+      parameters:
+        - {$ref: "#/components/parameters/PlayerID"}
+      responses:
+        "200":
+          description: Player loadouts for authorized support review.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MetaLoadoutListResponse"}
+        "401": {$ref: "#/components/responses/AdminUnauthorized"}
+  /v1/admin/meta/players/{player_id}/loadouts/{role_id}:
+    put:
+      operationId: adminUpdateMetaPlayerLoadout
+      tags: [Admin MetaServer]
+      security:
+        - adminAccessToken: []
+          adminStepUpToken: []
+      parameters:
+        - {$ref: "#/components/parameters/PlayerID"}
+        - {$ref: "#/components/parameters/MetaRoleID"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminMetaLoadoutUpdateRequest"}
+      responses:
+        "200":
+          description: Updated and audited loadout.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MetaLoadoutResponse"}
+        "400": {$ref: "#/components/responses/InvalidRequest"}
+        "401": {$ref: "#/components/responses/AdminUnauthorized"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/admin/meta/matches:
+    get:
+      operationId: adminListMetaMatches
+      tags: [Admin MetaServer]
+      security:
+        - adminAccessToken: []
+      responses:
+        "200":
+          description: Most recently updated matches.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminMetaMatchListResponse"}
+        "401": {$ref: "#/components/responses/AdminUnauthorized"}
+  /v1/admin/meta/matches/{match_id}/cancel:
+    post:
+      operationId: adminCancelMetaMatch
+      tags: [Admin MetaServer]
+      security:
+        - adminAccessToken: []
+          adminStepUpToken: []
+      parameters:
+        - {$ref: "#/components/parameters/MetaMatchID"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminReasonRequest"}
+      responses:
+        "204": {description: "Match cancelled, reservation released, and action audited."}
+        "400": {$ref: "#/components/responses/InvalidRequest"}
+        "401": {$ref: "#/components/responses/AdminUnauthorized"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/admin/meta/playlists/{slug}:
+    put:
+      operationId: adminUpsertMetaPlaylist
+      tags: [Admin MetaServer]
+      security:
+        - adminAccessToken: []
+          adminStepUpToken: []
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema: {type: string, pattern: "^[a-z0-9][a-z0-9-]{0,63}$"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminMetaPlaylistUpsertRequest"}
+      responses:
+        "200":
+          description: Playlist upserted and audited.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MetaPlaylistResponse"}
+        "400": {$ref: "#/components/responses/InvalidRequest"}
+        "401": {$ref: "#/components/responses/AdminUnauthorized"}
+  /v1/admin/meta/notifications/{notification_id}:
+    put:
+      operationId: adminUpsertMetaNotification
+      tags: [Admin MetaServer]
+      security:
+        - adminAccessToken: []
+          adminStepUpToken: []
+      parameters:
+        - in: path
+          name: notification_id
+          required: true
+          schema: {type: string, maxLength: 64}
+          description: Use new to allocate a new notification ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminMetaNotificationUpsertRequest"}
+      responses:
+        "200":
+          description: Notification upserted and audited.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MetaNotificationResponse"}
+        "400": {$ref: "#/components/responses/InvalidRequest"}
+        "401": {$ref: "#/components/responses/AdminUnauthorized"}
   /internal/metrics:
     get:
       operationId: getControlPlaneMetrics
@@ -2343,6 +2815,41 @@ components:
       schema:
         type: string
         pattern: "^room_[A-Za-z0-9]+$"
+    MetaRoleID:
+      in: path
+      name: role_id
+      required: true
+      schema:
+        type: string
+        pattern: "^[A-Za-z0-9_.:-]{1,128}$"
+    MetaPartyID:
+      in: path
+      name: party_id
+      required: true
+      schema:
+        type: string
+        pattern: "^mp_[A-Za-z0-9_-]+$"
+    MetaTicketID:
+      in: path
+      name: ticket_id
+      required: true
+      schema:
+        type: string
+        pattern: "^mt_[A-Za-z0-9_-]+$"
+    MetaMatchID:
+      in: path
+      name: match_id
+      required: true
+      schema:
+        type: string
+        pattern: "^mm_[A-Za-z0-9_-]+$"
+    GameServerIdentity:
+      in: header
+      name: X-Game-Server-Id
+      required: true
+      schema:
+        type: string
+      description: Must identify the same Game Server encoded in the scoped bearer token.
   responses:
     InvalidRequest:
       description: Invalid request.
@@ -4377,6 +4884,446 @@ components:
                 relay: {type: boolean}
                 dedicated_servers: {type: boolean}
         request_id: {type: string}
+    MetaEndpoint:
+      type: object
+      additionalProperties: false
+      required: [protocol, host, port]
+      properties:
+        protocol: {type: string, enum: [udp]}
+        host: {type: string}
+        port: {type: integer, minimum: 1, maximum: 65535}
+    MetaRegion:
+      type: object
+      additionalProperties: false
+      required: [id, name, qos_endpoints]
+      properties:
+        id: {type: string}
+        name: {type: string}
+        qos_endpoints:
+          type: array
+          items: {$ref: "#/components/schemas/MetaEndpoint"}
+    MetaBootstrapResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [service, protocol_version, servers]
+          properties:
+            service: {type: string, const: project-rebound-meta-server}
+            protocol_version: {type: integer, minimum: 1}
+            servers:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                required: [location_id, region_id, ipv4, ipv6, port]
+                properties:
+                  location_id: {type: integer}
+                  region_id: {type: string}
+                  ipv4: {type: string}
+                  ipv6: {type: string}
+                  port: {type: integer, minimum: 1, maximum: 65535}
+        request_id: {type: string}
+    MetaRegionListResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: {$ref: "#/components/schemas/MetaRegion"}
+        request_id: {type: string}
+    MetaPlaylist:
+      type: object
+      additionalProperties: false
+      required: [id, slug, display_name, description, mode, definition, sort_order, updated_at]
+      properties:
+        id: {type: string}
+        slug: {type: string}
+        display_name: {type: string}
+        description: {type: string}
+        mode: {type: string}
+        definition: {type: object, additionalProperties: true}
+        sort_order: {type: integer}
+        updated_at: {type: string, format: date-time}
+    MetaPlaylistResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/MetaPlaylist"}
+        request_id: {type: string}
+    MetaPlaylistListResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: {$ref: "#/components/schemas/MetaPlaylist"}
+        request_id: {type: string}
+    MetaNotification:
+      type: object
+      additionalProperties: false
+      required: [id, title, body, locale, priority, updated_at]
+      properties:
+        id: {type: string}
+        title: {type: string}
+        body: {type: string}
+        locale: {type: string}
+        priority: {type: integer}
+        starts_at: {type: string, format: date-time}
+        ends_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    MetaNotificationResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/MetaNotification"}
+        request_id: {type: string}
+    MetaNotificationListResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: {$ref: "#/components/schemas/MetaNotification"}
+        request_id: {type: string}
+    MetaSessionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        client_version: {type: string, minLength: 1, maxLength: 64}
+        version:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: Compatibility alias for client_version.
+        protocol_version: {type: integer, minimum: 1}
+        platform: {type: string, maxLength: 64}
+        playerId:
+          type: string
+          deprecated: true
+          description: Ignored. Identity is always derived from the access token.
+        loginToken:
+          type: string
+          deprecated: true
+          description: Ignored. Authorization is accepted only through the bearer header.
+    MetaSessionData:
+      type: object
+      additionalProperties: false
+      required: [user_id, gate_ticket, endpoint, expires_in_seconds, protocol_version]
+      properties:
+        user_id: {type: string}
+        gate_ticket:
+          type: string
+          writeOnly: true
+          description: 256-bit, 60-second, single-use Gate credential.
+        endpoint: {type: string, example: "logic.dubnium.top:443"}
+        expires_in_seconds: {type: integer, minimum: 1, maximum: 60}
+        protocol_version: {type: integer, minimum: 1}
+    MetaSessionResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/MetaSessionData"}
+        request_id: {type: string}
+    MetaConnectServerResponse:
+      type: object
+      additionalProperties: false
+      required: [error, userId, aceId, gateToken, endpoint]
+      properties:
+        error: {type: integer, const: 0}
+        userId: {type: string}
+        aceId: {type: string}
+        gateToken: {type: string, writeOnly: true}
+        endpoint: {type: string}
+    MetaProfile:
+      type: object
+      additionalProperties: false
+      required: [player_id, level, experience, currencies, statistics, revision, created_at, updated_at]
+      properties:
+        player_id: {type: string}
+        level: {type: integer, minimum: 0}
+        experience: {type: integer, format: int64, minimum: 0}
+        currencies: {type: object, additionalProperties: true}
+        statistics: {type: object, additionalProperties: true}
+        revision: {type: integer, format: int64, minimum: 1}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    MetaProfileResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/MetaProfile"}
+        request_id: {type: string}
+    MetaLoadout:
+      type: object
+      additionalProperties: false
+      required: [role_id, snapshot, revision, updated_at]
+      properties:
+        player_id: {type: string}
+        role_id: {type: string}
+        snapshot:
+          type: object
+          additionalProperties: true
+          description: Canonical definition-validated JSON snapshot.
+        revision: {type: integer, format: int64, minimum: 1}
+        updated_at: {type: string, format: date-time}
+    MetaLoadoutUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [snapshot, revision]
+      properties:
+        snapshot: {type: object, additionalProperties: true}
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Current revision, or zero when creating a role loadout.
+    AdminMetaLoadoutUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [snapshot, revision, reason]
+      properties:
+        snapshot: {type: object, additionalProperties: true}
+        revision: {type: integer, format: int64, minimum: 0}
+        reason: {type: string, minLength: 8, maxLength: 1000}
+    MetaLoadoutResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/MetaLoadout"}
+        request_id: {type: string}
+    MetaLoadoutListResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: {$ref: "#/components/schemas/MetaLoadout"}
+        request_id: {type: string}
+    MetaPartyCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [mode, region, client_version]
+      properties:
+        mode: {type: string, minLength: 1, maxLength: 64}
+        region: {type: string, minLength: 1, maxLength: 64}
+        client_version: {type: string, minLength: 1, maxLength: 64}
+    MetaPartyMember:
+      type: object
+      additionalProperties: false
+      required: [player_id, role, ready, presence, joined_at, updated_at]
+      properties:
+        player_id: {type: string}
+        role: {type: string, enum: [LEADER, MEMBER]}
+        ready: {type: boolean}
+        presence: {type: string, enum: [ONLINE, AWAY, IN_GAME, OFFLINE]}
+        joined_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    MetaParty:
+      type: object
+      additionalProperties: false
+      required: [id, leader_player_id, state, mode, region, client_version, protocol_version, revision, members, created_at, updated_at]
+      properties:
+        id: {type: string}
+        leader_player_id: {type: string}
+        state: {type: string, enum: [ACTIVE, MATCHMAKING, IN_MATCH, CLOSED]}
+        mode: {type: string}
+        region: {type: string}
+        client_version: {type: string}
+        protocol_version: {type: integer, minimum: 1}
+        revision: {type: integer, format: int64, minimum: 1}
+        members:
+          type: array
+          minItems: 1
+          items: {$ref: "#/components/schemas/MetaPartyMember"}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    MetaPartyResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/MetaParty"}
+        request_id: {type: string}
+    MetaPartyReadyRequest:
+      type: object
+      additionalProperties: false
+      required: [ready]
+      properties:
+        ready: {type: boolean}
+    MetaPartyPresenceRequest:
+      type: object
+      additionalProperties: false
+      required: [presence]
+      properties:
+        presence: {type: string, enum: [ONLINE, AWAY, IN_GAME, OFFLINE]}
+    MetaMatchTicketCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [mode, region, client_version]
+      properties:
+        party_id: {type: string}
+        mode: {type: string, minLength: 1, maxLength: 64}
+        region: {type: string, minLength: 1, maxLength: 64}
+        client_version: {type: string, minLength: 1, maxLength: 64}
+    MetaMatchTicket:
+      type: object
+      additionalProperties: false
+      required: [id, mode, region, client_version, protocol_version, state, expires_at, created_at, updated_at]
+      properties:
+        id: {type: string}
+        player_id: {type: string}
+        party_id: {type: string}
+        mode: {type: string}
+        region: {type: string}
+        client_version: {type: string}
+        protocol_version: {type: integer}
+        state: {type: string, enum: [QUEUED, MATCHED, CANCELLED, TIMED_OUT, FAILED]}
+        failure_code: {type: string}
+        match_id: {type: string}
+        endpoint: {type: string}
+        expires_at: {type: string, format: date-time}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        completed_at: {type: string, format: date-time}
+    MetaMatchTicketResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/MetaMatchTicket"}
+        request_id: {type: string}
+    MetaMatchPlayerLoadout:
+      type: object
+      additionalProperties: false
+      required: [match_id, player_id, loadouts]
+      properties:
+        match_id: {type: string}
+        player_id: {type: string}
+        loadouts:
+          type: array
+          items: {$ref: "#/components/schemas/MetaLoadout"}
+    MetaMatchPlayerLoadoutResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/MetaMatchPlayerLoadout"}
+        request_id: {type: string}
+    MetaMatchCompleteRequest:
+      type: object
+      additionalProperties: false
+      required: [result]
+      properties:
+        result: {type: object, additionalProperties: true}
+    AdminMetaOverviewResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [profiles, active_parties, queued_tickets, active_matches]
+          properties:
+            profiles: {type: integer, format: int64, minimum: 0}
+            active_parties: {type: integer, format: int64, minimum: 0}
+            queued_tickets: {type: integer, format: int64, minimum: 0}
+            active_matches: {type: integer, format: int64, minimum: 0}
+        request_id: {type: string}
+    AdminMetaMatch:
+      type: object
+      additionalProperties: false
+      required: [id, game_server_id, ticket_id, mode, region, state, endpoint, reserved_at, updated_at]
+      properties:
+        id: {type: string}
+        game_server_id: {type: string}
+        ticket_id: {type: string}
+        mode: {type: string}
+        region: {type: string}
+        state: {type: string, enum: [RESERVED, RUNNING, COMPLETED, CANCELLED, FAILED]}
+        endpoint: {type: string}
+        reserved_at: {type: string, format: date-time}
+        started_at: {type: string, format: date-time}
+        completed_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    AdminMetaMatchListResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: {$ref: "#/components/schemas/AdminMetaMatch"}
+        request_id: {type: string}
+    AdminReasonRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: {type: string, minLength: 8, maxLength: 1000}
+    AdminMetaPlaylistUpsertRequest:
+      type: object
+      additionalProperties: false
+      required: [display_name, description, mode, definition, enabled, sort_order, reason]
+      properties:
+        display_name: {type: string, minLength: 1, maxLength: 256}
+        description: {type: string, maxLength: 2000}
+        mode: {type: string, minLength: 1, maxLength: 64}
+        definition: {type: object, additionalProperties: true}
+        enabled: {type: boolean}
+        sort_order: {type: integer}
+        reason: {type: string, minLength: 8, maxLength: 1000}
+    AdminMetaNotificationUpsertRequest:
+      type: object
+      additionalProperties: false
+      required: [title, body, locale, priority, enabled, reason]
+      properties:
+        title: {type: string, minLength: 1, maxLength: 256}
+        body: {type: string, minLength: 1}
+        locale: {type: string, minLength: 1, maxLength: 16}
+        priority: {type: integer}
+        enabled: {type: boolean}
+        starts_at: {type: string, format: date-time}
+        ends_at: {type: string, format: date-time}
+        reason: {type: string, minLength: 8, maxLength: 1000}
     HealthSuccess:
       type: object
       required: [data, request_id]

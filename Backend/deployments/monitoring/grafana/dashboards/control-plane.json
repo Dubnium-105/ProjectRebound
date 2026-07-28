@@ -51,13 +51,13 @@
       "id": 3,
       "type": "stat",
       "title": "$service_target",
-      "description": "This card repeats for the control plane and every online relay. Relay health comes from the shared mTLS control stream, so direct Prometheus scraping is not required.",
+      "description": "This card repeats for the control plane, MetaServer, and every online relay. Relay health comes from the shared mTLS control stream.",
       "datasource": {"type": "prometheus", "uid": "project-rebound-prometheus"},
       "repeat": "service_target",
       "repeatDirection": "h",
       "maxPerRow": 3,
       "targets": [
-        {"expr": "(label_replace(up{job=\"project-rebound-control-plane\"}, \"service_target\", \"control-plane\", \"\", \"\") or label_replace(relay_node_control_connected == 1, \"service_target\", \"$1\", \"display_name\", \"(.*)\")) and on(service_target) label_replace(vector(1), \"service_target\", \"$service_target\", \"\", \"\")", "legendFormat": "Status", "instant": true}
+        {"expr": "(label_replace(up{job=\"project-rebound-control-plane\"}, \"service_target\", \"control-plane\", \"\", \"\") or label_replace(up{job=\"project-rebound-meta-server\"}, \"service_target\", \"meta-server\", \"\", \"\") or label_replace(relay_node_control_connected == 1, \"service_target\", \"$1\", \"display_name\", \"(.*)\")) and on(service_target) label_replace(vector(1), \"service_target\", \"$service_target\", \"\", \"\")", "legendFormat": "Status", "instant": true}
       ],
       "fieldConfig": {
         "defaults": {
@@ -280,8 +280,8 @@
         "label": "Service target",
         "type": "query",
         "datasource": {"type": "prometheus", "uid": "project-rebound-prometheus"},
-        "definition": "query_result(label_replace(up{job=\"project-rebound-control-plane\"}, \"service_target\", \"control-plane\", \"\", \"\") or label_replace(relay_node_control_connected == 1, \"service_target\", \"$1\", \"display_name\", \"(.*)\"))",
-        "query": {"query": "query_result(label_replace(up{job=\"project-rebound-control-plane\"}, \"service_target\", \"control-plane\", \"\", \"\") or label_replace(relay_node_control_connected == 1, \"service_target\", \"$1\", \"display_name\", \"(.*)\"))", "refId": "StandardVariableQuery"},
+        "definition": "query_result(label_replace(up{job=\"project-rebound-control-plane\"}, \"service_target\", \"control-plane\", \"\", \"\") or label_replace(up{job=\"project-rebound-meta-server\"}, \"service_target\", \"meta-server\", \"\", \"\") or label_replace(relay_node_control_connected == 1, \"service_target\", \"$1\", \"display_name\", \"(.*)\"))",
+        "query": {"query": "query_result(label_replace(up{job=\"project-rebound-control-plane\"}, \"service_target\", \"control-plane\", \"\", \"\") or label_replace(up{job=\"project-rebound-meta-server\"}, \"service_target\", \"meta-server\", \"\", \"\") or label_replace(relay_node_control_connected == 1, \"service_target\", \"$1\", \"display_name\", \"(.*)\"))", "refId": "StandardVariableQuery"},
         "regex": "/service_target=\"([^\"]+)\"/",
         "sort": 1,
         "refresh": 1,

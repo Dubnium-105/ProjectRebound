@@ -77,9 +77,9 @@ type MatchTicket struct {
 	FailureReason   string                  `db:"failure_reason"`
 	CreatedAt       time.Time               `db:"created_at"`
 	ExpiresAt       time.Time               `db:"expires_at"`
-	// MetaServer matchmaking fields
-	MetaServerMode bool   `db:"metaserver_mode"`
-	QoSDataJSON    string `db:"qos_data_json"`
+	// qos_data_json and metaserver_mode remain in the legacy SQLite schema so
+	// old rows are readable; the Go model no longer exposes the retired mode.
+	QoSDataJSON string `db:"qos_data_json"`
 }
 
 type LegacyServer struct {

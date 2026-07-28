@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package ProjectBoundary;
+
+
+option go_package = "github.com/projectrebound/matchserver/internal/metaserver/protocol/upstream;upstream";
+
+message PartyMemberPresence{
+    string UserId = 1;
+    string Status = 2;
+}
+
+message QueryPartyPresenceResponse{
+    int32 StatusCode = 1;
+    repeated PartyMemberPresence PartyMembers = 2;
+}

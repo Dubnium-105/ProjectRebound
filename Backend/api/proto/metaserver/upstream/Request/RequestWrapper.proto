@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package ProjectBoundary;
+
+
+option go_package = "github.com/projectrebound/matchserver/internal/metaserver/protocol/upstream;upstream";
+
+message RequestWrapper{
+    int32 MessageId = 1;
+    string RPCPath = 2;
+    optional bytes Message = 3;
+}

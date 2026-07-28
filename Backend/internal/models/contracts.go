@@ -245,28 +245,3 @@ type CreateRelayAllocationResponse struct {
 	RelayPort int       `json:"relayPort"`
 	ExpiresAt time.Time `json:"expiresAt"`
 }
-
-// MetaServer matchmaking contracts
-type MatchmakingEnqueueRequest struct {
-	UserID   string      `json:"userId"`
-	RegionID string      `json:"regionId"`
-	GameMode string      `json:"gameMode"`
-	QoSData  interface{} `json:"qosData,omitempty"`
-}
-
-type MatchmakingEnqueueResponse struct {
-	TicketID string `json:"ticketId"`
-	Status   string `json:"status"`
-}
-
-type MatchmakingStatusResponse struct {
-	TicketID   string `json:"ticketId"`
-	Status     string `json:"status"`
-	ServerIP   string `json:"serverIp,omitempty"`
-	ServerPort int    `json:"serverPort,omitempty"`
-}
-
-type MatchmakingCancelResponse struct {
-	TicketID string `json:"ticketId"`
-	Status   string `json:"status"`
-}

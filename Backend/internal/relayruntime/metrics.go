@@ -34,6 +34,10 @@ type Metrics struct {
 	loadState            atomic.Int32
 	loadStateTransitions atomic.Uint64
 	loadRatioBits        atomic.Uint64
+	qosRequests          atomic.Uint64
+	qosResponses         atomic.Uint64
+	qosMalformed         atomic.Uint64
+	qosRateLimited       atomic.Uint64
 }
 
 type MetricsSnapshot struct {
@@ -59,6 +63,10 @@ type MetricsSnapshot struct {
 	LoadState            LoadState
 	LoadStateTransitions uint64
 	LoadRatio            float64
+	QoSRequests          uint64
+	QoSResponses         uint64
+	QoSMalformed         uint64
+	QoSRateLimited       uint64
 	Goroutines           int
 	MemoryBytes          uint64
 }
@@ -80,7 +88,9 @@ func (m *Metrics) Snapshot() MetricsSnapshot {
 		ReplayDropped:  m.replayDropped.Load(),
 		RateLimitDrops: m.rateLimitDrops.Load(), ControlReconnects: m.controlReconnects.Load(),
 		LoadState: loadStateFromMetric(m.loadState.Load()), LoadStateTransitions: m.loadStateTransitions.Load(),
-		LoadRatio:  math.Float64frombits(m.loadRatioBits.Load()),
+		LoadRatio:   math.Float64frombits(m.loadRatioBits.Load()),
+		QoSRequests: m.qosRequests.Load(), QoSResponses: m.qosResponses.Load(),
+		QoSMalformed: m.qosMalformed.Load(), QoSRateLimited: m.qosRateLimited.Load(),
 		Goroutines: runtime.NumGoroutine(), MemoryBytes: memory.Alloc,
 	}
 }
@@ -134,12 +144,21 @@ relay_rate_limit_drops_total %d
 relay_control_connected %d
 # TYPE relay_control_reconnects_total counter
 relay_control_reconnects_total %d
+# TYPE relay_qos_requests_total counter
+relay_qos_requests_total %d
+# TYPE relay_qos_responses_total counter
+relay_qos_responses_total %d
+# TYPE relay_qos_malformed_total counter
+relay_qos_malformed_total %d
+# TYPE relay_qos_rate_limited_total counter
+relay_qos_rate_limited_total %d
 `, m.activeAllocations.Load(), m.packetsReceived.Load(), m.bytesReceived.Load(), m.packetsForwarded.Load(),
 			m.packetsDropped.Load(), m.bytesForwarded.Load(), m.bindSuccess.Load(),
 			m.bindFailed.Load(), m.bindInit.Load(), m.bindChallenge.Load(), m.cookieInvalid.Load(),
 			m.tokenInvalid.Load(), m.tokenReplay.Load(), m.natRebind.Load(),
 			m.authenticationFailed.Load(), m.authenticationFailed.Load(), m.packetTooLarge.Load(), m.replayDropped.Load(), m.rateLimitDrops.Load(),
-			m.controlConnected.Load(), m.controlReconnects.Load())
+			m.controlConnected.Load(), m.controlReconnects.Load(),
+			m.qosRequests.Load(), m.qosResponses.Load(), m.qosMalformed.Load(), m.qosRateLimited.Load())
 		_, _ = fmt.Fprintf(w, "# TYPE relay_node_load_ratio gauge\nrelay_node_load_ratio %g\n", math.Float64frombits(m.loadRatioBits.Load()))
 		_, _ = fmt.Fprintf(w, "# TYPE relay_goroutines gauge\nrelay_goroutines %d\n", runtime.NumGoroutine())
 		_, _ = fmt.Fprintf(w, "# TYPE relay_memory_bytes gauge\nrelay_memory_bytes %d\n", memory.Alloc)

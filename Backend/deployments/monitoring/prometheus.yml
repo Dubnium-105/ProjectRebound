@@ -11,6 +11,41 @@ scrape_configs:
     static_configs:
       - targets: [control-plane:8080]
 
+  - job_name: project-rebound-meta-server
+    metrics_path: /internal/metrics
+    static_configs:
+      - targets: [meta-server:8081]
+        labels:
+          service: meta-server
+
   - job_name: project-rebound-edge-relay
     file_sd_configs:
       - files: [/etc/prometheus/targets/edge-relays.yml]
+
+  - job_name: project-rebound-meta-public
+    metrics_path: /probe
+    params:
+      module: [meta_http_2xx]
+    static_configs:
+      - targets: [https://meta.dubnium.top/health/ready]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  - job_name: project-rebound-logic-public
+    metrics_path: /probe
+    params:
+      module: [meta_logic_tls]
+    static_configs:
+      - targets: [logic.dubnium.top:443]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115

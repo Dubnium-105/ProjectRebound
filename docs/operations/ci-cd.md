@@ -2,7 +2,7 @@
 
 English | [简体中文](ci-cd.zh-CN.md)
 
-This repository uses GitHub Actions, GitHub Container Registry (GHCR), GitHub Environments and native OpenSSH to complete CI/CD. The control plane and Edge Relay are two independent deployment targets that can be on different hosts and use different approvers and Secrets.
+This repository uses GitHub Actions, GitHub Container Registry (GHCR), GitHub Environments and native OpenSSH to complete CI/CD. The control plane, MetaServer, and Edge Relay are independent deployment targets that can use different hosts, approvers, rollback actions, and Secrets.
 
 ## 1. Workflow
 
@@ -15,16 +15,18 @@ Executed on every push, pull request to main and manual run:
 1. Go format check and `go mod verify`;
 2. `go vet ./...`;
 3. `go test -race ./...` on PostgreSQL 17 service container;
-4. Control Plane and Edge Relay binary build;
+4. Control Plane, MetaServer, Meta import utility, Windows MetaTunnel, and Edge Relay binary builds;
 5. .NET 8 Shared Contracts build;
 6. actionlint, Shell syntax and LF end-of-line checking;
 7. Key generator, two copies of Compose and Caddy configuration verification;
-8. After all quality checks pass, use Buildx once to build the control plane and Edge Relay images.
+8. Meta protobuf generation/drift, definitions, framing fuzz, race, Gate replay/IDOR, scheduler/QoS, `govulncheck`, image vulnerability, SBOM, and provenance gates;
+9. After all quality checks pass, use Buildx once to build the control plane, MetaServer, and Edge Relay images.
 
 Normal branch, push of `main`, `v*` tag, and manual CI operation will directly publish the build as a deployable GHCR CI product:
 
 ```text
 ghcr.io/<owner>/projectrebound-control-plane:sha-<40-char-commit>
+ghcr.io/<owner>/projectrebound-meta-server:sha-<40-char-commit>
 ghcr.io/<owner>/projectrebound-edge-relay:sha-<40-char-commit>
 ```
 
@@ -36,8 +38,9 @@ The container will not be built first in a job and then again in the release job
 
 File:`.github/workflows/deploy.yml`
 
-- After CI succeeds on `main` and images are published, the two staging targets are deployed automatically when repository variable `ENABLE_STAGING_DEPLOY=true`.
-- `workflow_dispatch` can be manually selected from `staging`/`production` and `control-plane`/`edge-relay`/`both`.
+- After CI succeeds on `main` and images are published, all three staging targets are deployed automatically when repository variable `ENABLE_STAGING_DEPLOY=true`.
+- `workflow_dispatch` can select `staging`/`production` and `control-plane`/`meta-server`/`edge-relay`/`all`.
+- For `all` and automatic staging, MetaServer waits for the control-plane deployment to finish before touching the shared Compose project. A MetaServer-only run still works when the control-plane job is skipped.
 - production should be approved by GitHub Environment Required Reviewers and have Prevent self-review enabled.
 - Deployments in the same environment and target use concurrency serialization and will not cancel each other.
 - The control plane automatically creates a PostgreSQL custom-format backup before deployment.
@@ -59,12 +62,14 @@ Do not create a PAT with repository-management permissions for image publication
 
 ### 2.2 Environments
 
-Create four Environments:
+Create six Environments:
 
 ```text
 staging-control-plane
+staging-meta-server
 staging-edge-relay
 production-control-plane
+production-meta-server
 production-edge-relay
 ```
 
@@ -102,6 +107,17 @@ Control Plane Environment Additional Variables:
 | `CONTROL_PLANE_ENV_FILE` | `/etc/projectrebound/control-plane.env` |
 | `PUBLIC_BASE_URL` | `https://api.example.com` |
 | `ENABLE_MONITORING` | `1` |
+
+MetaServer Environment additional variables:
+
+| Variable | Example |
+| --- | --- |
+| `CONTROL_PLANE_ENV_FILE` | `/etc/projectrebound/control-plane.env` |
+| `META_PUBLIC_BASE_URL` | `https://meta.dubnium.top` |
+
+The MetaServer Environment may point at the same control host, but it remains a
+separate approval/concurrency/rollback target. A failed Meta deployment rolls
+back only its own image and does not restart the control-plane service.
 
 Edge Relay Environment additional variables:
 
@@ -162,12 +178,12 @@ The deploying user must be able to execute Docker. You can join the `docker` gro
 ## 5. First release and deployment
 
 1. Push to the branch ready for deployment (the first production release is usually merged into main) and wait for `CI and Images` to be fully green.
-2. Confirm that both `sha-<commit>` images exist on the repository's Packages page.
+2. Confirm that all three `sha-<commit>` images and the Windows MetaTunnel artifact exist.
 3. Keep `ENABLE_STAGING_DEPLOY=false`.
 4. Open `Actions -> Deploy -> Run workflow`.
 5. Select `staging` and a target; `commit_sha` is left blank to indicate the currently selected ref.
-6. Verify control-plane and edge-relay respectively.
-7. Then select `both` to do a complete staging release.
+6. Verify control-plane, MetaServer, and edge-relay independently.
+7. Then select `all` to do a complete staging release.
 8. After successful verification, `ENABLE_STAGING_DEPLOY` can be set to `true`.
 
 The Deploy workflow is the recommended entry point for production. If you really need to run the underlying script directly on the target machine, log in to GHCR first, and then explicitly specify the CI product:
@@ -176,6 +192,10 @@ The Deploy workflow is the recommended entry point for production. If you really
 DEPLOY_SOURCE=ci \
 CONTROL_PLANE_IMAGE=ghcr.io/<owner>/projectrebound-control-plane:sha-<40-char-commit> \
   ./scripts/deploy-control-plane.sh
+
+DEPLOY_SOURCE=ci \
+META_SERVER_IMAGE=ghcr.io/<owner>/projectrebound-meta-server:sha-<40-char-commit> \
+  ./scripts/deploy-meta-server.sh
 
 DEPLOY_SOURCE=ci \
 EDGE_RELAY_IMAGE=ghcr.io/<owner>/projectrebound-edge-relay:sha-<40-char-commit> \
@@ -202,10 +222,15 @@ Wait for the tag image to be released successfully, then manually run Deploy, se
       Backend/
       .deployed-image
   current-control-plane -> releases/<active-release>
+  current-meta-server -> releases/<active-meta-release>
   backups/
 ```
 
-Edge uses `current-edge-relay`. The deployment bundle does not contain `.env`, specific Edge YAML, `identity.json`, or backups. The GHCR Token is only sent to `docker login --password-stdin` through SSH stdin and will not appear in the remote command parameters or bundle.
+Edge uses `current-edge-relay`. MetaServer's release pointer and rollback image
+are independent from control-plane. The deployment bundle does not contain
+`.env`, specific Edge YAML, `identity.json`, or backups. The GHCR Token is only
+sent to `docker login --password-stdin` through SSH stdin and will not appear in
+the remote command parameters or bundle.
 
 The workflow does not automatically delete old releases. After confirming the backup and rollback window, operators may remove them by explicit path.
 
@@ -224,6 +249,7 @@ Go backend, PostgreSQL and contracts
 .NET contracts
 Deployment and workflow configuration
 Build and package control-plane image
+Build and package meta-server image
 Build and package edge-relay image
 ```
 
@@ -245,6 +271,7 @@ Dependabot checks GitHub Actions major tag updates weekly. When security require
 - SSH host verification failed: Recheck the host key through the trusted channel, do not disable `StrictHostKeyChecking`.
 - Remote pull denied: Check whether the GHCR account in Environment has `read:packages`.
 - Control deploy failed: View workflow backup results, health checks, and `ROLLBACK_OK/FAILED`.
+- Meta deploy failed: inspect migration-28 readiness, restricted PostgreSQL/Redis provisioning, and Logic/HTTP ports; its rollback must not restart control-plane.
 - Edge deploy failed: Check for 443 enrollment, 9090 mTLS and UDP advertised endpoints; do not delete the identity volume as a first reaction.
 
 GitHub official reference:

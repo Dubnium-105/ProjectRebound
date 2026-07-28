@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package ProjectBoundary;
+
+
+option go_package = "github.com/projectrebound/matchserver/internal/metaserver/protocol/upstream;upstream";
+
+message UnknownMatchmakingMessage{
+    string RegionId = 1;
+    optional uint32 UnknownUInt = 2;
+}
+
+message MatchmakingPayload{
+    string MatchmakingRequestorUserId = 1;
+    repeated UnknownMatchmakingMessage UnknownMessage = 2;
+}
+
+message StartMatchmakingRequest{
+    MatchmakingPayload Payload = 1;
+    string GameMode = 2;
+}

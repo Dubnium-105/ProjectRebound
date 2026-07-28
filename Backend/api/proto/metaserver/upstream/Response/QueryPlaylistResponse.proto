@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package ProjectBoundary;
+
+
+option go_package = "github.com/projectrebound/matchserver/internal/metaserver/protocol/upstream;upstream";
+
+message QueryPlaylistResponse{
+    int32 StatusCode = 1;
+    string PlaylistsJSON = 2;
+}

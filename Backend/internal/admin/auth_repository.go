@@ -431,6 +431,62 @@ func (r *AuthRepository) GetCurrentAdmin(ctx context.Context, sessionID string) 
 	return current, tokenVersion, expiresAt, nil, nil
 }
 
+// GetCurrentAdminAuthorization loads only the fields required to authorize an
+// already signed administrator session. It deliberately excludes password and
+// MFA material so verifier-only services can use column-level database grants.
+func (r *AuthRepository) GetCurrentAdminAuthorization(
+	ctx context.Context,
+	sessionID string,
+) (CurrentAdmin, int, time.Time, *time.Time, error) {
+	var current CurrentAdmin
+	var tokenVersion int
+	var expiresAt time.Time
+	var revokedAt sql.NullTime
+	var lastLoginAt sql.NullTime
+	var disabledAt sql.NullTime
+	err := r.pool.QueryRow(ctx, `
+		SELECT u.id, u.username, u.display_name, u.status,
+		       u.last_login_at, u.created_at, u.updated_at, u.disabled_at,
+		       s.id, s.token_version, s.expires_at, s.revoked_at
+		FROM admin_sessions s
+		JOIN admin_users u ON u.id = s.admin_id
+		WHERE s.id = $1
+	`, sessionID).Scan(
+		&current.User.ID,
+		&current.User.Username,
+		&current.User.DisplayName,
+		&current.User.Status,
+		&lastLoginAt,
+		&current.User.CreatedAt,
+		&current.User.UpdatedAt,
+		&disabledAt,
+		&current.SessionID,
+		&tokenVersion,
+		&expiresAt,
+		&revokedAt,
+	)
+	if err != nil {
+		return CurrentAdmin{}, 0, time.Time{}, nil, err
+	}
+	if lastLoginAt.Valid {
+		current.User.LastLoginAt = &lastLoginAt.Time
+	}
+	if disabledAt.Valid {
+		current.User.DisabledAt = &disabledAt.Time
+	}
+	if revokedAt.Valid {
+		currentRevokedAt := revokedAt.Time
+		return current, tokenVersion, expiresAt, &currentRevokedAt, nil
+	}
+	roles, permissions, err := r.LoadAccess(ctx, r.pool, current.User.ID)
+	if err != nil {
+		return CurrentAdmin{}, 0, time.Time{}, nil, err
+	}
+	current.Roles = roles
+	current.Permissions = permissions
+	return current, tokenVersion, expiresAt, nil, nil
+}
+
 func (r *AuthRepository) LoadAccess(
 	ctx context.Context,
 	queryer interface {

@@ -20,10 +20,22 @@ openssl req -new -x509 -key "$temporary_dir/relay-ca.key" \
   -subj '/CN=Project Rebound Relay CA' \
   -addext 'basicConstraints=critical,CA:TRUE,pathlen:0' \
   -addext 'keyUsage=critical,keyCertSign,cRLSign,digitalSignature' >/dev/null 2>&1
+openssl genpkey -algorithm ED25519 -out "$temporary_dir/access-token.key" >/dev/null 2>&1
+openssl genpkey -algorithm ED25519 -out "$temporary_dir/admin-access-token.key" >/dev/null 2>&1
 
 random_hex() { openssl rand -hex "$1"; }
 random_key() { openssl rand -base64 32 | tr -d '\r\n'; }
 file_base64() { openssl base64 -A -in "$1"; }
+ed25519_private_seed_base64() {
+  openssl pkey -in "$1" -outform DER 2>/dev/null |
+    tail -c 32 |
+    openssl base64 -A
+}
+ed25519_public_base64() {
+  openssl pkey -in "$1" -pubout -outform DER 2>/dev/null |
+    tail -c 32 |
+    openssl base64 -A
+}
 key_suffix="$(date -u +%Y%m)"
 relay_bootstrap_id="relay-$(date -u +%Y%m%d)-01"
 
@@ -33,6 +45,10 @@ POSTGRES_DB=projectrebound
 POSTGRES_USER=projectrebound
 POSTGRES_PASSWORD=$(random_hex 32)
 REDIS_PASSWORD=$(random_hex 32)
+META_POSTGRES_USER=projectrebound_meta
+META_POSTGRES_PASSWORD=$(random_hex 32)
+META_REDIS_USERNAME=projectrebound-meta
+META_REDIS_PASSWORD=$(random_hex 32)
 
 PUBLIC_API_SITE=http://:80
 ADMIN_WEB_SITE=admin.example.com
@@ -40,18 +56,23 @@ PUBLIC_API_BIND_IP=0.0.0.0
 PUBLIC_API_HTTP_PORT=8080
 PUBLIC_API_HTTPS_PORT=443
 CONTROL_PLANE_ADMIN_PORT=18080
+META_SERVER_HTTP_PORT=18082
+META_SERVER_LOGIC_PORT=16968
+META_PROTOCOL_VERSION=1
 RELAY_CONTROL_BIND_IP=127.0.0.1
 RELAY_CONTROL_PORT=9090
 RELAY_CONTROL_SERVER_NAMES=control-plane,localhost,relay.example.com
 
 CORS_ALLOWED_ORIGINS=https://game.example.com
 ACCESS_TOKEN_KEY_ID=access-signing-key-$key_suffix
-ACCESS_TOKEN_PRIVATE_KEY_BASE64=$(random_key)
+ACCESS_TOKEN_PRIVATE_KEY_BASE64=$(ed25519_private_seed_base64 "$temporary_dir/access-token.key")
+ACCESS_TOKEN_PUBLIC_KEY_BASE64=$(ed25519_public_base64 "$temporary_dir/access-token.key")
 DEVICE_FINGERPRINT_KEY_ID=device-fingerprint-v1
 DEVICE_FINGERPRINT_HMAC_KEY_BASE64=$(random_key)
 ADMIN_TOKENS=operator=$(random_hex 48)
 ADMIN_ACCESS_TOKEN_KEY_ID=admin-access-signing-key-$key_suffix
-ADMIN_ACCESS_TOKEN_PRIVATE_KEY_BASE64=$(random_key)
+ADMIN_ACCESS_TOKEN_PRIVATE_KEY_BASE64=$(ed25519_private_seed_base64 "$temporary_dir/admin-access-token.key")
+ADMIN_ACCESS_TOKEN_PUBLIC_KEY_BASE64=$(ed25519_public_base64 "$temporary_dir/admin-access-token.key")
 ADMIN_MFA_ENCRYPTION_KEY_BASE64=$(random_key)
 TURNSTILE_SITE_KEY=CHANGE_ME
 TURNSTILE_SECRET_KEY=CHANGE_ME

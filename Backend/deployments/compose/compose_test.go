@@ -150,6 +150,69 @@ func TestSeparatedAdminWebHasOnlyEdgeNetworkAndNoSecrets(t *testing.T) {
 	}
 }
 
+func TestSeparatedMetaServerIsHardenedAndOptIn(t *testing.T) {
+	contents, err := os.ReadFile("../control-plane/docker-compose.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document struct {
+		Services map[string]struct {
+			Profiles    []string       `yaml:"profiles"`
+			Environment map[string]any `yaml:"environment"`
+			Ports       []string       `yaml:"ports"`
+			ReadOnly    bool           `yaml:"read_only"`
+			CapDrop     []string       `yaml:"cap_drop"`
+			PidsLimit   int            `yaml:"pids_limit"`
+			Networks    []string       `yaml:"networks"`
+		} `yaml:"services"`
+	}
+	if err := yaml.Unmarshal(contents, &document); err != nil {
+		t.Fatal(err)
+	}
+	meta, ok := document.Services["meta-server"]
+	if !ok {
+		t.Fatal("separated deployment is missing meta-server")
+	}
+	if len(meta.Profiles) != 1 || meta.Profiles[0] != "meta" {
+		t.Fatalf("meta-server must remain independently deployable: %#v", meta.Profiles)
+	}
+	if !meta.ReadOnly || len(meta.CapDrop) != 1 || meta.CapDrop[0] != "ALL" || meta.PidsLimit < 1 {
+		t.Fatalf("meta-server hardening is incomplete: %#v", meta)
+	}
+	if len(meta.Ports) != 2 {
+		t.Fatalf("meta-server must publish exactly two loopback origins: %#v", meta.Ports)
+	}
+	for _, port := range meta.Ports {
+		if !strings.HasPrefix(port, "127.0.0.1:") {
+			t.Fatalf("meta-server origin is not loopback-only: %s", port)
+		}
+	}
+	databaseURL, _ := meta.Environment["DATABASE_URL"].(string)
+	if !strings.Contains(databaseURL, "META_POSTGRES") {
+		t.Fatal("meta-server does not use the dedicated PostgreSQL role")
+	}
+	if _, ok := meta.Environment["RELAY_CA_KEY_PEM_BASE64"]; ok {
+		t.Fatal("meta-server received the relay CA private key")
+	}
+	for _, secret := range []string{
+		"ACCESS_TOKEN_PRIVATE_KEY_BASE64",
+		"ADMIN_ACCESS_TOKEN_PRIVATE_KEY_BASE64",
+		"ADMIN_MFA_ENCRYPTION_KEY_BASE64",
+	} {
+		if _, ok := meta.Environment[secret]; ok {
+			t.Fatalf("meta-server received signing or MFA secret %s", secret)
+		}
+	}
+	for _, verifier := range []string{
+		"ACCESS_TOKEN_PUBLIC_KEY_BASE64",
+		"ADMIN_ACCESS_TOKEN_PUBLIC_KEY_BASE64",
+	} {
+		if _, ok := meta.Environment[verifier]; !ok {
+			t.Fatalf("meta-server is missing verifier %s", verifier)
+		}
+	}
+}
+
 func TestAdminWebImageUsesLockedBuildAndUnprivilegedRuntime(t *testing.T) {
 	dockerfile, err := os.ReadFile("../../../AdminWeb/Dockerfile")
 	if err != nil {
