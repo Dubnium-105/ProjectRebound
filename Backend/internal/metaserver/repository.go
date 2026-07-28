@@ -144,19 +144,29 @@ func (r *Repository) putLoadout(
 ) (Loadout, error) {
 	now := r.now().UTC()
 	item, err := scanLoadout(queries.QueryRow(ctx, `
-		INSERT INTO meta_role_loadouts (
-			player_id, role_id, snapshot, snapshot_sha256,
-			revision, created_at, updated_at
+		WITH updated AS (
+			UPDATE meta_role_loadouts
+			SET snapshot = $3::jsonb,
+			    snapshot_sha256 = $4,
+			    revision = revision + 1,
+			    updated_at = $6
+			WHERE player_id = $1 AND role_id = $2
+			  AND revision = $5 AND $5 > 0
+			RETURNING player_id, role_id, snapshot, revision, updated_at
+		),
+		inserted AS (
+			INSERT INTO meta_role_loadouts (
+				player_id, role_id, snapshot, snapshot_sha256,
+				revision, created_at, updated_at
+			)
+			SELECT $1, $2, $3::jsonb, $4, 1, $6, $6
+			WHERE $5 = 0
+			ON CONFLICT (player_id, role_id) DO NOTHING
+			RETURNING player_id, role_id, snapshot, revision, updated_at
 		)
-		SELECT $1, $2, $3::jsonb, $4, 1, $6, $6
-		WHERE $5 = 0
-		ON CONFLICT (player_id, role_id) DO UPDATE SET
-			snapshot = EXCLUDED.snapshot,
-			snapshot_sha256 = EXCLUDED.snapshot_sha256,
-			revision = meta_role_loadouts.revision + 1,
-			updated_at = EXCLUDED.updated_at
-		WHERE meta_role_loadouts.revision = $5
-		RETURNING player_id, role_id, snapshot, revision, updated_at
+		SELECT player_id, role_id, snapshot, revision, updated_at FROM updated
+		UNION ALL
+		SELECT player_id, role_id, snapshot, revision, updated_at FROM inserted
 	`, playerID, roleID, snapshot, digest, expectedRevision, now))
 	if errors.Is(err, pgx.ErrNoRows) {
 		if r.metrics != nil {

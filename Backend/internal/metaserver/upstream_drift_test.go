@@ -2,6 +2,7 @@ package metaserver
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"os"
@@ -49,6 +50,9 @@ func TestUpstreamProtocolMirrorMatchesManifest(t *testing.T) {
 		if err != nil {
 			return err
 		}
+		// The manifest records canonical LF bytes so the provenance check has
+		// identical semantics on Windows and Linux worktrees.
+		raw = bytes.ReplaceAll(raw, []byte("\r\n"), []byte("\n"))
 		digest := sha256.Sum256(raw)
 		actual[filepath.ToSlash(relative)] = hex.EncodeToString(digest[:])
 		return nil

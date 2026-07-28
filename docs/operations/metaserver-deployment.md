@@ -24,7 +24,7 @@ CI produces:
 - Windows `meta-tunnel.exe` artifact;
 - image SBOM, vulnerability result, and provenance;
 - release metadata containing protocol version `1`, database migration `28`,
-  definitions hash `f1ef4530e25c10f10a3ce735987e2c594c0b81852e63007c5e3ef4d8353f8e2a`,
+  definitions hash `20393e344e14935535c0eac6815ad82ca051f33caf199281ace4d4bb58391c49`,
   and upstream commit `d68e717267abf14e32d4e39618f9b7680ed93046`.
 
 Promote the exact SHA that passed CI. Production deployment uses the

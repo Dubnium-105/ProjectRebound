@@ -23,7 +23,7 @@ CI 生成：
 - Windows `meta-tunnel.exe` artifact；
 - 镜像 SBOM、漏洞结果和 provenance；
 - 包含协议版本 `1`、数据库迁移 `28`、definitions 哈希
-  `f1ef4530e25c10f10a3ce735987e2c594c0b81852e63007c5e3ef4d8353f8e2a`
+  `20393e344e14935535c0eac6815ad82ca051f33caf199281ace4d4bb58391c49`
   及上游 commit `d68e717267abf14e32d4e39618f9b7680ed93046` 的发布元数据。
 
 只提升完整通过 CI 的同一 SHA。生产使用 `production-meta-server` GitHub

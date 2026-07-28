@@ -4,6 +4,9 @@
 * text=auto
 *.go text eol=lf
 *.sh text eol=lf
+*.proto text eol=lf
+*.sha256 text eol=lf
+Backend/internal/metaserver/assets/definitions/*.json text eol=lf
 
 ###############################################################################
 # Set default behavior for command prompt diff.
