@@ -222,7 +222,9 @@ func TestAdminWebImageUsesLockedBuildAndUnprivilegedRuntime(t *testing.T) {
 	for _, requirement := range []string{
 		"RUN npm ci",
 		"RUN npm run build",
-		"USER caddy",
+		"FROM scratch",
+		"COPY --from=caddy-build /out/caddy /usr/bin/caddy",
+		"USER 10001:10001",
 		"EXPOSE 8080",
 	} {
 		if !strings.Contains(contents, requirement) {
