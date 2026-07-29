@@ -7,11 +7,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/api"
+	appmiddleware "github.com/Dubnium-105/ProjectRebound/Backend/internal/middleware"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/requestctx"
+	clientupdate "github.com/Dubnium-105/ProjectRebound/Backend/internal/update"
 	"github.com/go-chi/chi/v5"
-	"github.com/projectrebound/matchserver/internal/api"
-	appmiddleware "github.com/projectrebound/matchserver/internal/middleware"
-	"github.com/projectrebound/matchserver/internal/requestctx"
-	clientupdate "github.com/projectrebound/matchserver/internal/update"
 )
 
 type ReleaseHTTPService interface {

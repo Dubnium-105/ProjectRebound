@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
+	playerauth "github.com/Dubnium-105/ProjectRebound/Backend/internal/auth"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	playerauth "github.com/projectrebound/matchserver/internal/auth"
-	"github.com/projectrebound/matchserver/internal/config"
 )
 
 type AdminAuthService struct {

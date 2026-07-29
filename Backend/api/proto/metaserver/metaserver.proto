@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package projectrebound.meta.v1;
 
-option go_package = "github.com/projectrebound/matchserver/internal/metaserver/protocol;metaprotocol";
+option go_package = "github.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver/protocol;metaprotocol";
 
 // Canonical production messages whose field numbers have been confirmed in
 // BoundaryMetaServer master@d68e717. Tentative matchmaking response fields are

@@ -10,9 +10,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/projectrebound/matchserver/internal/config"
-	"github.com/projectrebound/matchserver/internal/controlplane"
-	"github.com/projectrebound/matchserver/internal/observability"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/controlplane"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/observability"
 )
 
 func main() {

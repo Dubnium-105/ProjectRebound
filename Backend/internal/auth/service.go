@@ -12,10 +12,10 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/player"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/projectrebound/matchserver/internal/config"
-	"github.com/projectrebound/matchserver/internal/player"
 )
 
 type Service struct {

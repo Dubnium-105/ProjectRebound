@@ -3,7 +3,7 @@ package admin
 import (
 	"testing"
 
-	"github.com/projectrebound/matchserver/internal/player"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/player"
 )
 
 func TestParseAccountStatusNormalizesAndRejectsUnknown(t *testing.T) {

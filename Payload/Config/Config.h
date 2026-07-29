@@ -17,7 +17,7 @@ struct ServerConfig
 // Central server ip
 extern std::string OnlineBackendAddress;
 
-// Room heartbeat credentials from the desktop browser/match server
+// Room heartbeat credentials forwarded by the server launcher
 extern std::string HostRoomId;
 extern std::string HostToken;
 

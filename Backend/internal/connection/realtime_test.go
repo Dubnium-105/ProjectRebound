@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/auth"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
+	appmiddleware "github.com/Dubnium-105/ProjectRebound/Backend/internal/middleware"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/player"
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
-	"github.com/projectrebound/matchserver/internal/auth"
-	"github.com/projectrebound/matchserver/internal/config"
-	appmiddleware "github.com/projectrebound/matchserver/internal/middleware"
-	"github.com/projectrebound/matchserver/internal/player"
 )
 
 type realtimeServiceStub struct {

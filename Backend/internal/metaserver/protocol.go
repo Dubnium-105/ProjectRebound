@@ -3,7 +3,7 @@ package metaserver
 import (
 	"errors"
 
-	metaprotocol "github.com/projectrebound/matchserver/internal/metaserver/protocol"
+	metaprotocol "github.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver/protocol"
 	"google.golang.org/protobuf/proto"
 )
 

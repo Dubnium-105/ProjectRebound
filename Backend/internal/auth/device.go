@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/projectrebound/matchserver/internal/config"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
 )
 
 const maximumDeviceIDLength = 128

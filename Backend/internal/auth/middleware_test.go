@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/projectrebound/matchserver/internal/player"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/player"
 )
 
 func TestRequireActiveRejectsBannedPlayer(t *testing.T) {

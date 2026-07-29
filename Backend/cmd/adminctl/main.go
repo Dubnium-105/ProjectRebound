@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/projectrebound/matchserver/internal/admin"
-	"github.com/projectrebound/matchserver/internal/auth"
-	"github.com/projectrebound/matchserver/internal/config"
-	"github.com/projectrebound/matchserver/internal/database"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/admin"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/auth"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/database"
 )
 
 func main() {

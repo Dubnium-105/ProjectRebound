@@ -2,7 +2,7 @@
 
 English | [简体中文](deployment-guide.zh-CN.md)
 
-This document corresponds to `Backend/cmd/control-plane` and `Backend/cmd/edge-relay`. The old SQLite/systemd MatchServer deployment has been deprecated; compatibility entry `Backend/deploy/deploy.sh` will go to the new control plane deployment script.
+This document corresponds to `Backend/cmd/control-plane` and `Backend/cmd/edge-relay`.
 
 ## 1. Deployment topology
 

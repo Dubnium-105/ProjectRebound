@@ -9,16 +9,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/admin"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/api"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/auth"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/cache"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/database"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/health"
+	appmiddleware "github.com/Dubnium-105/ProjectRebound/Backend/internal/middleware"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/player"
 	"github.com/go-chi/chi/v5"
-	"github.com/projectrebound/matchserver/internal/admin"
-	"github.com/projectrebound/matchserver/internal/api"
-	"github.com/projectrebound/matchserver/internal/auth"
-	"github.com/projectrebound/matchserver/internal/cache"
-	"github.com/projectrebound/matchserver/internal/config"
-	"github.com/projectrebound/matchserver/internal/database"
-	"github.com/projectrebound/matchserver/internal/health"
-	appmiddleware "github.com/projectrebound/matchserver/internal/middleware"
-	"github.com/projectrebound/matchserver/internal/player"
 )
 
 type Server struct {

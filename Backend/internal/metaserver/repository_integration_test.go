@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/database"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/projectrebound/matchserver/internal/database"
 )
 
 func TestRepositoryIsolationAndConcurrentSchedulingAgainstPostgreSQL(t *testing.T) {

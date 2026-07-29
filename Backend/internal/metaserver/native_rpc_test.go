@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	metaprotocol "github.com/projectrebound/matchserver/internal/metaserver/protocol"
+	metaprotocol "github.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver/protocol"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 )

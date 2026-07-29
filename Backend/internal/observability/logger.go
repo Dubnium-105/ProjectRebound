@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/projectrebound/matchserver/internal/config"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
 )
 
 func NewLogger(output io.Writer, cfg config.LogConfig) *slog.Logger {

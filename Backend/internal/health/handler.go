@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/projectrebound/matchserver/internal/api"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/api"
 )
 
 type Checker interface {

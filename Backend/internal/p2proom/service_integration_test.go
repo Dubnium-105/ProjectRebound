@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/database"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/player"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/projectrebound/matchserver/internal/config"
-	"github.com/projectrebound/matchserver/internal/database"
-	"github.com/projectrebound/matchserver/internal/player"
 )
 
 func TestP2PRoomLifecycleAgainstPostgreSQL(t *testing.T) {

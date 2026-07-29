@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
-	"github.com/projectrebound/matchserver/internal/config"
 )
 
 type RealtimeService interface {

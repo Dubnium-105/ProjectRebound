@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/projectrebound/matchserver/internal/config"
 )
 
 type Pool struct {

@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
+	playerauth "github.com/Dubnium-105/ProjectRebound/Backend/internal/auth"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-	playerauth "github.com/projectrebound/matchserver/internal/auth"
 )
 
 type GovernanceService struct {

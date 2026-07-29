@@ -8,7 +8,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/projectrebound/matchserver/internal/loadbot"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/loadbot"
 )
 
 func main() {

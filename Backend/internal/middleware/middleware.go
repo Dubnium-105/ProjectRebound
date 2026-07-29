@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/projectrebound/matchserver/internal/config"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
 )
 
 func Chain(next http.Handler, cfg *config.Config, logger *slog.Logger, limiter *IPRateLimiter, metrics HTTPMetrics) http.Handler {

@@ -9,7 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/projectrebound/matchserver/internal/relayruntime"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/relayruntime"
 )
 
 func main() {

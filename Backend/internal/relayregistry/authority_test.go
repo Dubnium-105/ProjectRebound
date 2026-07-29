@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/projectrebound/matchserver/internal/config"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
 )
 
 func TestAuthorityIssuesNodeBoundEd25519Certificate(t *testing.T) {

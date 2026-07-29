@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/api"
 	"github.com/go-chi/chi/v5"
-	"github.com/projectrebound/matchserver/internal/api"
 )
 
 type HTTPService interface {

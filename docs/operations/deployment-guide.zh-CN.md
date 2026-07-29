@@ -2,7 +2,7 @@
 
 [English](deployment-guide.md) | 简体中文
 
-本文档对应 `Backend/cmd/control-plane` 和 `Backend/cmd/edge-relay`。旧的 SQLite/systemd MatchServer 部署已经废弃；兼容入口 `Backend/deploy/deploy.sh` 会转到新的控制面部署脚本。
+本文档对应 `Backend/cmd/control-plane` 和 `Backend/cmd/edge-relay`。
 
 ## 1. 部署拓扑
 

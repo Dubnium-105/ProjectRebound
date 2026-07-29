@@ -14,8 +14,8 @@ import (
 	"strconv"
 	"time"
 
+	relaycontrolpb "github.com/Dubnium-105/ProjectRebound/Backend/api/proto"
 	"github.com/google/uuid"
-	relaycontrolpb "github.com/projectrebound/matchserver/api/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/protobuf/types/known/structpb"

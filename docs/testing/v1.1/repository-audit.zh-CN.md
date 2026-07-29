@@ -20,16 +20,14 @@ ProjectRebound/
 │   │   └── relay-protocol.md   # 当前 UDP Relay v1
 │   ├── cmd/
 │   │   ├── control-plane/      # 生产控制面入口
-│   │   ├── edge-relay/         # 最小 Edge Relay 入口
-│   │   └── main.go             # 旧 SQLite/UDP 单体入口
+│   │   ├── meta-server/        # MetaServer 入口
+│   │   └── edge-relay/         # 最小 Edge Relay 入口
 │   ├── internal/
 │   │   ├── auth, admin, player
 │   │   ├── gameserver, p2proom, connection
 │   │   ├── relayregistry       # 控制面 Relay 注册、调度、迁移和 mTLS
 │   │   ├── relayruntime        # Edge UDP 数据面
-│   │   ├── observability, health, cache, database
-│   │   └── http, server, db, store, udp, matchmaking, models
-│   │       # 尚未删除的旧单体实现
+│   │   └── observability, health, cache, database
 │   ├── migrations/             # PostgreSQL 000001～000008
 │   ├── deployments/            # Compose、监控、边缘节点和公网网关
 │   ├── scripts/                # 构建、部署、备份、验证与回滚
@@ -40,7 +38,7 @@ ProjectRebound/
 └── Tools/                      # 文档和 NAT 测试工具
 ```
 
-生产镜像只构建 `cmd/control-plane` 和 `cmd/edge-relay`。旧 `cmd/main.go`、SQLite 数据库与相应包仍可编译，但不应作为 V1.1 权威实现继续扩展。
+生产服务入口为 `cmd/control-plane`、`cmd/meta-server` 和 `cmd/edge-relay`；旧 SQLite/UDP 单体实现已从仓库移除。
 
 ## 2. 当前公开 API
 
@@ -170,14 +168,12 @@ Edge 按 `jti` 缓存 allocation、role、源 endpoint 和过期时间；同 end
 
 缺口：应用启动时自动迁移，没有独立 Expand/Migrate/Contract gate；没有统一 release preflight、数据库 schema/协议/build metadata；镜像仍产生 `main` 浮动标签（部署虽不使用）；备份没有加密、分层保留、异地上传和周期恢复演练；Prometheus 没有版本控制的告警规则。
 
-## 12. 与 V1.1 冲突或重叠的旧实现
+## 12. 与 V1.1 冲突或重叠的实现
 
-1. `cmd/main.go` 及 `internal/http|server|db|store|udp|matchmaking|models` 是 SQLite/旧 UDP 单体，与 PostgreSQL 控制面和 Edge Relay 并存；V1.1 不应在两套实现中重复开发。
-2. 根 `config.yaml`、`matchserver.db`、`deploy/` 属于旧部署路径，容易被误认为生产权威入口。
-3. Relay 已具有 V2 目标的大部分包格式和安全语义，却仍公开命名为 v1；直接改版本会破坏已部署客户端，必须用兼容开关和明确迁移策略。
-4. Refresh Token 已实现 rotation/reuse，但数据模型是“每个 refresh 一条 Session”，与计划中的独立 refresh-token 表不同；迁移时应保持现有 Token 立即撤销语义并采用 expand-first。
-5. 当前认证 bind IP 限流位于通用中间件且为单进程内存状态，不能满足多维、Redis 一致和风险审计要求。
-6. 现有迁移能完成单次 Relay 替换，但不满足重试、超时和 Drain 强迁移的完整状态机；不得把现状误报为 Release Gate 已通过。
+1. Relay 已具有 V2 目标的大部分包格式和安全语义，却仍公开命名为 v1；直接改版本会破坏已部署客户端，必须用兼容开关和明确迁移策略。
+2. Refresh Token 已实现 rotation/reuse，但数据模型是“每个 refresh 一条 Session”，与计划中的独立 refresh-token 表不同；迁移时应保持现有 Token 立即撤销语义并采用 expand-first。
+3. 当前认证 bind IP 限流位于通用中间件且为单进程内存状态，不能满足多维、Redis 一致和风险审计要求。
+4. 现有迁移能完成单次 Relay 替换，但不满足重试、超时和 Drain 强迁移的完整状态机；不得把现状误报为 Release Gate 已通过。
 
 ## 13. 拟修改和新增的文件
 

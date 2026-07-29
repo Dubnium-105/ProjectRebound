@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/projectrebound/matchserver/internal/api"
-	"github.com/projectrebound/matchserver/internal/player"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/api"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/player"
 )
 
 type principalContextKey uint8

@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package projectrebound.relay.v1;
 
-option go_package = "github.com/projectrebound/matchserver/api/proto;relaycontrolpb";
+option go_package = "github.com/Dubnium-105/ProjectRebound/Backend/api/proto;relaycontrolpb";
 
 import "google/protobuf/struct.proto";
 

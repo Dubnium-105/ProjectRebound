@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/relayclient"
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
-	"github.com/projectrebound/matchserver/internal/relayclient"
 )
 
 type virtualClient struct {

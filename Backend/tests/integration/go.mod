@@ -1,4 +1,4 @@
-module github.com/projectrebound/matchserver/tests/integration
+module github.com/Dubnium-105/ProjectRebound/Backend/tests/integration
 
 go 1.25.12
 

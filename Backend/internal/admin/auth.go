@@ -10,9 +10,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/projectrebound/matchserver/internal/api"
-	"github.com/projectrebound/matchserver/internal/config"
-	appmiddleware "github.com/projectrebound/matchserver/internal/middleware"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/api"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
+	appmiddleware "github.com/Dubnium-105/ProjectRebound/Backend/internal/middleware"
 )
 
 type adminContextKey uint8

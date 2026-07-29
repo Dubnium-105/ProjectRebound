@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/api"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/auth"
 	"github.com/go-chi/chi/v5"
-	"github.com/projectrebound/matchserver/internal/api"
-	"github.com/projectrebound/matchserver/internal/auth"
 )
 
 type HTTPHandler struct {

@@ -12,9 +12,8 @@ ProjectRebound is a multi-component project containing the game payload, launch 
 | --- | --- |
 | `Backend/` | Go control plane, Edge Relay, database migrations, Compose, monitoring, and tests |
 | `Payload/`, `dxgi/` | Injected payload, runtime hooks, and proxy DLL |
-| `Desktop/ProjectRebound.Browser.Python/` | Legacy Python browser compatibility prototype and portable packaging experiments |
 | `ServerWrapper/`, `ServerLauncherGUI/` | Game server wrapper and launcher |
-| `Tools/` | NAT/Relay validation and SDK support tools |
+| `Tools/` | SDK support tools |
 | `docs/` | Current architecture, API, deployment, testing, and CI/CD documentation |
 
 ## Quick verification

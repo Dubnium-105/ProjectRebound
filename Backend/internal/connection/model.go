@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/projectrebound/matchserver/internal/player"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/player"
 )
 
 type State string

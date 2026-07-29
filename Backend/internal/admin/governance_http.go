@@ -5,10 +5,10 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/api"
+	appmiddleware "github.com/Dubnium-105/ProjectRebound/Backend/internal/middleware"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/requestctx"
 	"github.com/go-chi/chi/v5"
-	"github.com/projectrebound/matchserver/internal/api"
-	appmiddleware "github.com/projectrebound/matchserver/internal/middleware"
-	"github.com/projectrebound/matchserver/internal/requestctx"
 )
 
 type GovernanceHTTPService interface {

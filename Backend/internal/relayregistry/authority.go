@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/projectrebound/matchserver/internal/config"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
 )
 
 type Authority struct {

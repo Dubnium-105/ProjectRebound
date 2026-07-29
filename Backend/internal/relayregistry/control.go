@@ -21,8 +21,8 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	relaycontrolpb "github.com/projectrebound/matchserver/api/proto"
-	"github.com/projectrebound/matchserver/internal/config"
+	relaycontrolpb "github.com/Dubnium-105/ProjectRebound/Backend/api/proto"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
 )
 
 type ControlMessage struct {

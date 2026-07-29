@@ -3,7 +3,7 @@ package admin
 import (
 	"time"
 
-	clientupdate "github.com/projectrebound/matchserver/internal/update"
+	clientupdate "github.com/Dubnium-105/ProjectRebound/Backend/internal/update"
 )
 
 const (

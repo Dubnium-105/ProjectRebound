@@ -87,7 +87,7 @@ jobs:
           PATH="/tmp/protoc/bin:$(go env GOPATH)/bin:$PATH" \
             protoc --proto_path=api/proto/metaserver \
               --go_out=. \
-              --go_opt=module=github.com/projectrebound/matchserver \
+              --go_opt=module=github.com/Dubnium-105/ProjectRebound/Backend \
               api/proto/metaserver/metaserver.proto
           git diff --exit-code -- internal/metaserver/protocol
 

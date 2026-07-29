@@ -20,16 +20,14 @@ ProjectRebound/
 │   │   └── relay-protocol.md   # 当前 UDP Relay v1
 │   ├── cmd/
 │   │   ├── control-plane/      # 生产控制面入口
-│   │   ├── edge-relay/         # 最小 Edge Relay 入口
-│   │   └── main.go             # 旧 SQLite/UDP 单体入口
+│   │   ├── meta-server/        # MetaServer 入口
+│   │   └── edge-relay/         # 最小 Edge Relay 入口
 │   ├── internal/
 │   │   ├── auth, admin, player
 │   │   ├── gameserver, p2proom, connection
 │   │   ├── relayregistry       # 控制面 Relay 注册、调度、迁移和 mTLS
 │   │   ├── relayruntime        # Edge UDP 数据面
-│   │   ├── observability, health, cache, database
-│   │   └── http, server, db, store, udp, matchmaking, models
-│   │       # 尚未删除的旧单体实现
+│   │   └── observability, health, cache, database
 │   ├── migrations/             # PostgreSQL 000001～000008
 │   ├── deployments/            # Compose、监控、边缘节点和公网网关
 │   ├── scripts/                # 构建、部署、备份、验证与回滚
@@ -40,7 +38,7 @@ ProjectRebound/
 └── Tools/                      # 文档和 NAT 测试工具
 ```
 
-The production image only builds `cmd/control-plane` and `cmd/edge-relay`. The old `cmd/main.go`, SQLite database and corresponding package can still be compiled, but should not be extended further as the V1.1 authoritative implementation.
+The production service entry points are `cmd/control-plane`, `cmd/meta-server`, and `cmd/edge-relay`; the old SQLite/UDP monolith has been removed from the repository.
 
 ## 2. Current public API
 
@@ -170,14 +168,12 @@ The log uses the structured `slog`. Authentication errors only record error code
 
 Gap: Automatic migration when the application starts, no independent Expand/Migrate/Contract gate; no unified release preflight, database schema/protocol/build metadata; the image still generates `main` floating label (although not used for deployment); backup does not have encryption, hierarchical retention, off-site upload and periodic recovery drills; Prometheus does not have version control alarm rules.
 
-## 12. Old implementations that conflict or overlap with V1.1
+## 12. Implementations that conflict or overlap with V1.1
 
-1. `cmd/main.go` and `internal/http|server|db|store|udp|matchmaking|models` are SQLite/old UDP monomers that coexist with the PostgreSQL control plane and Edge Relay; V1.1 should not be developed repeatedly in the two sets of implementations.
-2. The roots `config.yaml`, `matchserver.db`, and `deploy/` belong to the old deployment path and can easily be mistaken for the production authoritative entrance.
-3. Relay already has most of the package formats and security semantics of the V2 target, but it is still publicly named v1; directly changing the version will destroy the deployed client, and compatibility switches and clear migration strategies must be used.
-4. Refresh Token has implemented rotation/reuse, but the data model is "one Session per refresh", which is different from the planned independent refresh-token table; the existing Token immediate revocation semantics should be maintained during migration and expand-first should be adopted.
-5. The current authentication-bind IP rate limit is implemented in generic middleware and stored in single-process memory, so it cannot meet multidimensional, Redis-consistency, or risk-audit requirements.
-6. The existing migration can complete a single Relay replacement, but does not meet the complete state machine of retry, timeout and Drain strong migration; the current situation must not be mistakenly reported as the Release Gate has passed.
+1. Relay already has most of the package formats and security semantics of the V2 target, but it is still publicly named v1; directly changing the version will destroy the deployed client, and compatibility switches and clear migration strategies must be used.
+2. Refresh Token has implemented rotation/reuse, but the data model is "one Session per refresh", which is different from the planned independent refresh-token table; the existing Token immediate revocation semantics should be maintained during migration and expand-first should be adopted.
+3. The current authentication-bind IP rate limit is implemented in generic middleware and stored in single-process memory, so it cannot meet multidimensional, Redis-consistency, or risk-audit requirements.
+4. The existing migration can complete a single Relay replacement, but does not meet the complete state machine of retry, timeout and Drain strong migration; the current situation must not be mistakenly reported as the Release Gate has passed.
 
 ## 13. Documents to be modified and added
 

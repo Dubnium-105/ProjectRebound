@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
+	playerauth "github.com/Dubnium-105/ProjectRebound/Backend/internal/auth"
 	"github.com/jackc/pgx/v5"
-	playerauth "github.com/projectrebound/matchserver/internal/auth"
 )
 
 // SessionVerifier exposes only administrator access and step-up verification.

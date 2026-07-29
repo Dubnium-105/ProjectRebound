@@ -46,7 +46,6 @@ Implementation-specific documents remain close to their code:
 - `Backend/tests/integration/README.md`: real control-plane/two-Relay gate;
 - `Backend/tests/load/README.md`: load and stability tests;
 - `Backend/tests/netem/README.md`: weak-network matrix;
-- `Desktop/ProjectRebound.Browser.Python/README.md`: legacy Python compatibility scope;
 - READMEs under `Tools/`: standalone diagnostic tools.
 
 ## Maintenance rules

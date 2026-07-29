@@ -14,11 +14,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/database"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/observability"
 	"github.com/jackc/pgx/v5"
-	"github.com/projectrebound/matchserver/internal/config"
-	"github.com/projectrebound/matchserver/internal/database"
-	"github.com/projectrebound/matchserver/internal/metaserver"
-	"github.com/projectrebound/matchserver/internal/observability"
 )
 
 var steamIDPattern = regexp.MustCompile(`^[0-9]{16,20}$`)

@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/auth"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/player"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/projectrebound/matchserver/internal/auth"
-	"github.com/projectrebound/matchserver/internal/player"
 )
 
 type PlayerRepository interface {

@@ -7,7 +7,7 @@
 // Central server ip
 std::string OnlineBackendAddress = "";
 
-// Room heartbeat credentials from the desktop browser/match server
+// Room heartbeat credentials forwarded by the server launcher
 std::string HostRoomId = "";
 std::string HostToken = "";
 

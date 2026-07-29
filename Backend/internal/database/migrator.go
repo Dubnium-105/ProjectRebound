@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Dubnium-105/ProjectRebound/Backend/migrations"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/projectrebound/matchserver/migrations"
 )
 
 const migrationLockID int64 = 727_300_101

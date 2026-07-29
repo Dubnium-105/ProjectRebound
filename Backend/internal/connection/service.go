@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/player"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/projectrebound/matchserver/internal/config"
-	"github.com/projectrebound/matchserver/internal/player"
 )
 
 var foundationPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)

@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/database"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/projectrebound/matchserver/internal/database"
 )
 
 func TestConcurrentConsumeAllowsOnlyFinalSlotOnce(t *testing.T) {

@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
+	clientupdate "github.com/Dubnium-105/ProjectRebound/Backend/internal/update"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	clientupdate "github.com/projectrebound/matchserver/internal/update"
 )
 
 type ReleaseRepository struct {

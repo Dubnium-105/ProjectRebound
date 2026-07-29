@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/projectrebound/matchserver/internal/gameserver"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/gameserver"
 )
 
 func TestAdministrativeGameServerResponseDoesNotExposeTokenHash(t *testing.T) {

@@ -2074,7 +2074,7 @@ const file_metaserver_proto_rawDesc = "" +
 	"\apayload\x18\x01 \x01(\v2*.projectrebound.meta.v1.MatchmakingPayloadR\apayload\x12\x1b\n" +
 	"\tgame_mode\x18\x02 \x01(\tR\bgameMode\"\x1f\n" +
 	"\x1dQueryUnityMatchmakingResponse\"\x1e\n" +
-	"\x1cStopUnityMatchmakingResponseBQZOgithub.com/projectrebound/matchserver/internal/metaserver/protocol;metaprotocolb\x06proto3"
+	"\x1cStopUnityMatchmakingResponseBYZWgithub.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver/protocol;metaprotocolb\x06proto3"
 
 var (
 	file_metaserver_proto_rawDescOnce sync.Once

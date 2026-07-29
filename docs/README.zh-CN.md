@@ -46,7 +46,6 @@
 - `Backend/tests/integration/README.md`：真实控制面/双中继集成门禁；
 - `Backend/tests/load/README.md`：负载与长稳测试；
 - `Backend/tests/netem/README.md`：弱网矩阵；
-- `Desktop/ProjectRebound.Browser.Python/README.md`：旧 Python 浏览器兼容范围；
 - `Tools/` 下各 README：独立诊断工具。
 
 ## 维护规则

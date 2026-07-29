@@ -4,8 +4,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/projectrebound/matchserver/internal/api"
-	"github.com/projectrebound/matchserver/internal/requestctx"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/api"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/requestctx"
 )
 
 func Recovery(logger *slog.Logger, next http.Handler) http.Handler {

@@ -14,27 +14,21 @@ import (
 )
 
 type Config struct {
-	Environment       string              `yaml:"environment"`
-	HTTPAddr          string              `yaml:"http_addr"`
-	HTTP              HTTPConfig          `yaml:"http"`
-	UDPRendezvousPort int                 `yaml:"udp_rendezvous_port"`
-	UDPRelayPort      int                 `yaml:"udp_relay_port"`
-	UDPQoSPort        int                 `yaml:"udp_qos_port"`
-	Database          DBConfig            `yaml:"database"`
-	Redis             RedisConfig         `yaml:"redis"`
-	CORS              CORSConfig          `yaml:"cors"`
-	RateLimit         RateLimitConfig     `yaml:"rate_limit"`
-	Auth              AuthConfig          `yaml:"auth"`
-	Admin             AdminConfig         `yaml:"admin"`
-	GameServer        GameServerConfig    `yaml:"game_server"`
-	MetaServer        MetaServerConfig    `yaml:"meta_server"`
-	P2PRoom           P2PRoomConfig       `yaml:"p2p_room"`
-	Connection        ConnectionConfig    `yaml:"connection"`
-	RelayRegistry     RelayRegistryConfig `yaml:"relay_registry"`
-	Update            UpdateConfig        `yaml:"update"`
-	MatchServer       MatchServerConfig   `yaml:"matchserver"`
-	Relay             RelayConfig         `yaml:"relay"`
-	Logging           LogConfig           `yaml:"logging"`
+	Environment   string              `yaml:"environment"`
+	HTTP          HTTPConfig          `yaml:"http"`
+	Database      DBConfig            `yaml:"database"`
+	Redis         RedisConfig         `yaml:"redis"`
+	CORS          CORSConfig          `yaml:"cors"`
+	RateLimit     RateLimitConfig     `yaml:"rate_limit"`
+	Auth          AuthConfig          `yaml:"auth"`
+	Admin         AdminConfig         `yaml:"admin"`
+	GameServer    GameServerConfig    `yaml:"game_server"`
+	MetaServer    MetaServerConfig    `yaml:"meta_server"`
+	P2PRoom       P2PRoomConfig       `yaml:"p2p_room"`
+	Connection    ConnectionConfig    `yaml:"connection"`
+	RelayRegistry RelayRegistryConfig `yaml:"relay_registry"`
+	Update        UpdateConfig        `yaml:"update"`
+	Logging       LogConfig           `yaml:"logging"`
 }
 
 type HTTPConfig struct {
@@ -49,8 +43,6 @@ type HTTPConfig struct {
 }
 
 type DBConfig struct {
-	// Path is retained only for the legacy SQLite server during the migration.
-	Path              string `yaml:"path"`
 	URL               string `yaml:"url"`
 	MaxConnections    int32  `yaml:"max_connections"`
 	MinConnections    int32  `yaml:"min_connections"`
@@ -213,26 +205,6 @@ type UpdateConfig struct {
 	ProtocolVersion         int      `yaml:"protocol_version"`
 }
 
-type MatchServerConfig struct {
-	HeartbeatSeconds          int `yaml:"heartbeat_seconds"`
-	StaleAfterSeconds         int `yaml:"stale_after_seconds"`
-	HostLostAfterSeconds      int `yaml:"host_lost_after_seconds"`
-	HostProbeSeconds          int `yaml:"host_probe_seconds"`
-	JoinTicketSeconds         int `yaml:"join_ticket_seconds"`
-	MatchTicketSeconds        int `yaml:"match_ticket_seconds"`
-	EndedRoomRetentionMinutes int `yaml:"ended_room_retention_minutes"`
-	NatBindingSeconds         int `yaml:"nat_binding_seconds"`
-	PunchTicketSeconds        int `yaml:"punch_ticket_seconds"`
-	RelayAllocationSeconds    int `yaml:"relay_allocation_seconds"`
-}
-
-type RelayConfig struct {
-	Compression               string  `yaml:"compression"`
-	ForceCompression          bool    `yaml:"force_compression"`
-	CompressionLossThreshold  float64 `yaml:"compression_loss_threshold"`
-	CompressionRTTThresholdMs int     `yaml:"compression_rtt_threshold_ms"`
-}
-
 type LogConfig struct {
 	Level     string `yaml:"level"`
 	AddSource bool   `yaml:"add_source"`
@@ -240,7 +212,6 @@ type LogConfig struct {
 
 var Defaults = Config{
 	Environment: "development",
-	HTTPAddr:    ":5000",
 	HTTP: HTTPConfig{
 		Addr:                  ":8080",
 		ReadHeaderTimeoutSecs: 5,
@@ -250,11 +221,7 @@ var Defaults = Config{
 		ShutdownTimeoutSecs:   10,
 		MaxRequestBodyBytes:   1 << 20,
 	},
-	UDPRendezvousPort: 5001,
-	UDPRelayPort:      5002,
-	UDPQoSPort:        9000,
 	Database: DBConfig{
-		Path:              "matchserver.db",
 		URL:               "postgres://projectrebound:projectrebound_dev@127.0.0.1:5432/projectrebound?sslmode=disable",
 		MaxConnections:    20,
 		MinConnections:    2,
@@ -390,24 +357,6 @@ var Defaults = Config{
 		APIVersion:           "v1",
 		ProtocolVersion:      2,
 	},
-	MatchServer: MatchServerConfig{
-		HeartbeatSeconds:          5,
-		StaleAfterSeconds:         15,
-		HostLostAfterSeconds:      45,
-		HostProbeSeconds:          60,
-		JoinTicketSeconds:         90,
-		MatchTicketSeconds:        120,
-		EndedRoomRetentionMinutes: 30,
-		NatBindingSeconds:         120,
-		PunchTicketSeconds:        120,
-		RelayAllocationSeconds:    1800,
-	},
-	Relay: RelayConfig{
-		Compression:               "auto",
-		ForceCompression:          false,
-		CompressionLossThreshold:  0.05,
-		CompressionRTTThresholdMs: 200,
-	},
 	Logging: LogConfig{
 		Level:     "info",
 		AddSource: false,
@@ -536,24 +485,6 @@ func (c *Config) applyEnvOverrides() {
 		}
 	}
 
-	if v := os.Getenv("MATCHSERVER_HEARTBEAT_SECONDS"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			c.MatchServer.HeartbeatSeconds = n
-		}
-	}
-	if v := os.Getenv("MATCHSERVER_HOST_LOST_AFTER_SECONDS"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			c.MatchServer.HostLostAfterSeconds = n
-		}
-	}
-	if v := os.Getenv("MATCHSERVER_RELAY_ALLOCATION_SECONDS"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			c.MatchServer.RelayAllocationSeconds = n
-		}
-	}
-	if v := os.Getenv("MATCHSERVER_DATABASE_PATH"); v != "" {
-		c.Database.Path = v
-	}
 }
 
 func overrideString(name string, target *string) {

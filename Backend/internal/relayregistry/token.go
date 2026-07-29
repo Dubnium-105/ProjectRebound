@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
 	"github.com/google/uuid"
-	"github.com/projectrebound/matchserver/internal/config"
 )
 
 type RelayClaims struct {
