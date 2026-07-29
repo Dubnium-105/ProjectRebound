@@ -36,7 +36,7 @@ ProjectRebound/
 │   └── tests/                  # k6 HTTP 负载与 Relay netem 矩阵
 ├── docs/                       # 外部/内部 API、CI/CD 与 Debian 运维
 ├── Desktop/                    # 客户端浏览器工具
-├── Payload/, Shared/           # 游戏 Payload 与共享契约
+├── Payload/                    # 游戏 Payload
 └── Tools/                      # 文档和 NAT 测试工具
 ```
 

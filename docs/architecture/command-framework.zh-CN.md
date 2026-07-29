@@ -2,16 +2,17 @@
 
 [English](command-framework.md) | 简体中文
 
-CommandFramework 是 Windows 桌面浏览器与游戏进程内 Payload 之间的本地命名管道协议。当前实现由 C++ 管道服务端和 .NET 管道客户端组成，不再使用旧 Python `PipeClient`。
+CommandFramework 是 Windows 启动器与游戏进程内 Payload 之间的本地命名管道协议。
+本仓库维护 C++ 管道服务端和线协议；仓库内已弃用的 .NET 客户端已移除，客户端实现
+由使用该协议的前端自行维护。
 
 ## 实现位置
 
 - Payload 服务端：`Payload/Communication/CommandFramework.h`、`CommandFramework.cpp`；
 - Payload 接线：`Payload/dllmain.cpp`；
-- .NET 客户端：`Desktop/ProjectRebound.Browser/Services/PipeClient.cs`；
-- 启动与调用：`Desktop/ProjectRebound.Browser/Services/GameLauncher.cs`、`ViewModels/MainViewModel.cs`。
 
-浏览器为每次运行生成管道名，通过 `-pipe=<name>` 传给游戏。Payload 创建 `\\.\pipe\<name>`，浏览器随后连接。
+使用该协议的启动器为每次运行生成管道名，通过 `-pipe=<name>` 传给游戏。Payload
+创建 `\\.\pipe\<name>`，启动器随后连接。
 
 ## 帧格式
 
@@ -53,10 +54,11 @@ debug\t{"action":"status"}
 - `SendResponse` 使用互斥锁保护，可从其他线程调用；
 - `Stop()` 会取消 I/O 并等待监听线程退出。
 
-.NET `PipeClient` 当前采用严格的一问一答调用方式：发送一条命令后读取一行响应。调用方不得并行复用同一个实例发送多条请求，否则响应对应关系无法保证。
+协议没有请求标识。客户端必须在同一连接上串行发送请求，并在每个请求后读取一条
+响应；并发请求无法安全关联响应。
 
 ## 安全边界
 
-命名管道只用于同一 Windows 主机上的浏览器和游戏进程，不应承载长期凭据或服务端管理密钥。当前 Payload 管道安全描述符允许本机任意进程连接，因此协议参数仍必须视为不可信输入；若未来传输敏感信息，应改为限定用户 SID 的 ACL，并增加消息级身份校验。
+命名管道只用于同一 Windows 主机上的启动器和游戏进程，不应承载长期凭据或服务端管理密钥。当前 Payload 管道安全描述符允许本机任意进程连接，因此协议参数仍必须视为不可信输入；若未来传输敏感信息，应改为限定用户 SID 的 ACL，并增加消息级身份校验。
 
-修改协议时必须同时更新 C++ 分发逻辑、.NET 客户端调用和本文命令表。
+修改协议时必须同时更新 C++ 分发逻辑、所有使用该协议的客户端实现和本文命令表。

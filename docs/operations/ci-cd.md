@@ -16,11 +16,10 @@ Executed on every push, pull request to main and manual run:
 2. `go vet ./...`;
 3. `go test -race ./...` on PostgreSQL 17 service container;
 4. Control Plane, MetaServer, Meta import utility, Windows MetaTunnel, and Edge Relay binary builds;
-5. .NET 8 Shared Contracts build;
-6. actionlint, Shell syntax and LF end-of-line checking;
-7. Key generator, two copies of Compose and Caddy configuration verification;
-8. Meta protobuf generation/drift, definitions, framing fuzz, race, Gate replay/IDOR, scheduler/QoS, `govulncheck`, image vulnerability, SBOM, and provenance gates;
-9. After all quality checks pass, use Buildx once to build the control plane, MetaServer, and Edge Relay images.
+5. actionlint, Shell syntax and LF end-of-line checking;
+6. Key generator, two copies of Compose and Caddy configuration verification;
+7. Meta protobuf generation/drift, definitions, deterministic framing fuzz, race, Gate replay/IDOR, scheduler/QoS, `govulncheck`, image vulnerability, SBOM, and provenance gates;
+8. After all quality checks pass, use Buildx once to build the control plane, MetaServer, and Edge Relay images.
 
 Normal branch, push of `main`, `v*` tag, and manual CI operation will directly publish the build as a deployable GHCR CI product:
 
@@ -245,8 +244,7 @@ Active rollback: Run Deploy manually, setting `commit_sha` to the old full SHA t
 main requires at least the following checks:
 
 ```text
-Go backend, PostgreSQL and contracts
-.NET contracts
+Go backend and PostgreSQL
 Deployment and workflow configuration
 Build and package control-plane image
 Build and package meta-server image

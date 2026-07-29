@@ -12,10 +12,8 @@ ProjectRebound is a multi-component project containing the game payload, launch 
 | --- | --- |
 | `Backend/` | Go control plane, Edge Relay, database migrations, Compose, monitoring, and tests |
 | `Payload/`, `dxgi/` | Injected payload, runtime hooks, and proxy DLL |
-| `Desktop/ProjectRebound.Browser/` | .NET desktop browser and game launch entry point |
 | `Desktop/ProjectRebound.Browser.Python/` | Legacy Python browser compatibility prototype and portable packaging experiments |
 | `ServerWrapper/`, `ServerLauncherGUI/` | Game server wrapper and launcher |
-| `Shared/` | Cross-component .NET contracts |
 | `Tools/` | NAT/Relay validation and SDK support tools |
 | `docs/` | Current architecture, API, deployment, testing, and CI/CD documentation |
 
@@ -28,13 +26,6 @@ cd Backend
 gofmt -l .
 go vet ./...
 go test ./... -count=1
-```
-
-.NET contracts and desktop browser:
-
-```powershell
-dotnet build Shared/ProjectRebound.Contracts/ProjectRebound.Contracts.csproj --configuration Release
-dotnet build Desktop/ProjectRebound.Browser/ProjectRebound.Browser.csproj --configuration Release
 ```
 
 Production hosts must not rebuild the backend locally. CI publishes immutable `sha-<40-character-commit>` control-plane and Edge Relay images for every commit. Deployment workflows pull the same SHA and perform health checks, backups, and automatic rollback. See the [CI/CD guide](docs/operations/ci-cd.md).

@@ -2,16 +2,19 @@
 
 English | [简体中文](command-framework.zh-CN.md)
 
-CommandFramework is a native named pipe protocol between Windows desktop browsers and game in-process payloads. The current implementation consists of a C++ pipeline server and a .NET pipeline client, and no longer uses the old Python `PipeClient`.
+CommandFramework is a native named-pipe protocol between a Windows launcher and
+the in-process game Payload. This repository maintains the C++ pipe server and
+the wire contract. The deprecated in-repository .NET client has been removed;
+client implementations live with their consuming frontend.
 
 ## Implementation location
 
 - Payload server: `Payload/Communication/CommandFramework.h`, `CommandFramework.cpp`;
 - Payload wiring: `Payload/dllmain.cpp`;
-- .NET client: `Desktop/ProjectRebound.Browser/Services/PipeClient.cs`;
-- Start and call: `Desktop/ProjectRebound.Browser/Services/GameLauncher.cs`, `ViewModels/MainViewModel.cs`.
 
-The browser generates a pipe name for each run and passes it to the game via `-pipe=<name>`. The payload creates `\\.\pipe\<name>` and the browser then connects.
+The consuming launcher generates a pipe name for each run and passes it to the
+game via `-pipe=<name>`. The Payload creates `\\.\pipe\<name>`, then the
+launcher connects.
 
 ## Frame format
 
@@ -53,10 +56,13 @@ debug\t{"action":"status"}
 - `SendResponse` is protected by a mutex and can be called from other threads;
 - `Stop()` will cancel the I/O and wait for the listening thread to exit.
 
-.NET `PipeClient` currently uses a strict one-question-one-answer calling method: send a command and read a line of response. The caller must not reuse the same instance in parallel to send multiple requests, otherwise the response correspondence cannot be guaranteed.
+The protocol has no request identifier. A client must serialize requests on one
+connection and read one response after each request; concurrent requests cannot
+be correlated safely.
 
 ## Security Boundary
 
-Named pipes should only be used between browser and game processes on the same Windows host and should not host long-term credentials or server-side management keys. The current payload pipeline security descriptor allows any process on the local machine to connect, so the protocol parameters must still be regarded as untrusted input; if sensitive information is transmitted in the future, it should be changed to an ACL that limits the user SID, and message-level identity verification should be added.
+Named pipes should only be used between launcher and game processes on the same Windows host and should not host long-term credentials or server-side management keys. The current payload pipeline security descriptor allows any process on the local machine to connect, so the protocol parameters must still be regarded as untrusted input; if sensitive information is transmitted in the future, it should be changed to an ACL that limits the user SID, and message-level identity verification should be added.
 
-When you modify the protocol, you must also update the C++ distribution logic, .NET client calls, and this article command table.
+When modifying the protocol, update the C++ dispatch logic, every consuming
+client implementation, and this command table together.

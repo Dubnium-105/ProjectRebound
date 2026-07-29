@@ -4,7 +4,7 @@ English | [简体中文](README.zh-CN.md)
 
 
 > [!WARNING]
-> This compatibility prototype is retained for debugging legacy room/NAT APIs and experimenting with portable packaging. It is not an entry point for current production deployments. The maintained .NET browser is under `Desktop/ProjectRebound.Browser/`.
+> This compatibility prototype is retained for debugging legacy room/NAT APIs and experimenting with portable packaging. It is not an entry point for current production deployments. The deprecated in-repository .NET browser has been removed; maintained client frontends live outside this repository.
 
 ## Current limitations
 

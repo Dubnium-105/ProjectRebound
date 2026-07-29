@@ -16,7 +16,7 @@ AGPL 声明固定保存在 `Backend/api/proto/metaserver` 与
 ## 组件与信任边界
 
 ```text
-WPF/Python Browser -- 匿名管道传 Access Token --> MetaTunnel
+浏览器/启动器 -- 匿名管道传 Access Token --> MetaTunnel
 MetaTunnel -- HTTPS --> meta.dubnium.top -- FRP --> meta-server HTTP :8081
 游戏 -- 本地 TCP --> MetaTunnel -- 验证证书的 TLS --> logic.dubnium.top:443
 Logic 网关 -- TLS 终止 + 独立鉴权 FRP --> meta-server :6968

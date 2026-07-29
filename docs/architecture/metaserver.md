@@ -19,7 +19,7 @@ capture confirms them.
 ## Components and trust boundaries
 
 ```text
-WPF/Python Browser -- Access Token via anonymous pipe --> MetaTunnel
+Browser/launcher -- Access Token via anonymous pipe --> MetaTunnel
 MetaTunnel -- HTTPS --> meta.dubnium.top -- FRP --> meta-server HTTP :8081
 game -- loopback TCP --> MetaTunnel -- verified TLS --> logic.dubnium.top:443
 logic gateway -- terminated TLS + isolated authenticated FRP --> meta-server :6968

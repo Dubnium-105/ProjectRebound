@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   backend:
-    name: Go backend, PostgreSQL and contracts
+    name: Go backend and PostgreSQL
     runs-on: ubuntu-latest
     timeout-minutes: 25
     defaults:
@@ -75,7 +75,7 @@ jobs:
         run: go test -race ./... -count=1
 
       - name: Fuzz MetaServer framing
-        run: go test ./internal/metaserver -run=^$ -fuzz=FuzzReadFrame -fuzztime=10s
+        run: go test ./internal/metaserver -run=^$ -fuzz=FuzzReadFrame -fuzztime=100000x
 
       - name: Verify generated MetaServer protobuf
         shell: bash
@@ -108,22 +108,6 @@ jobs:
           name: meta-tunnel-windows-amd64-${{ github.sha }}
           path: Backend/meta-tunnel.exe
           if-no-files-found: error
-
-  contracts:
-    name: .NET contracts
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Set up .NET
-        uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: "8.0.x"
-
-      - name: Build shared contracts
-        run: dotnet build Shared/ProjectRebound.Contracts/ProjectRebound.Contracts.csproj --configuration Release
 
   admin-web:
     name: Independent administrator web
@@ -284,7 +268,7 @@ jobs:
 
   container-images:
     name: Build and package ${{ matrix.name }} image
-    needs: [backend, contracts, admin-web, deployment-config, v11-integration]
+    needs: [backend, admin-web, deployment-config, v11-integration]
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:

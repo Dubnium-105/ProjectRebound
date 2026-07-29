@@ -16,11 +16,10 @@
 2. `go vet ./...`；
 3. PostgreSQL 17 service container 上的 `go test -race ./...`；
 4. Control Plane、MetaServer、Meta 导入工具、Windows MetaTunnel 和 Edge Relay 二进制构建；
-5. .NET 8 Shared Contracts 构建；
-6. actionlint、Shell 语法和 LF 行尾检查；
-7. 密钥生成器、两份 Compose 和 Caddy 配置校验；
-8. Meta protobuf 生成/漂移、definitions、分帧 fuzz、race、Gate 重放/IDOR、调度/QoS、`govulncheck`、镜像漏洞、SBOM 和 provenance 门禁；
-9. 所有质量检查通过后，各使用一次 Buildx 构建控制面、MetaServer 和 Edge Relay 镜像。
+5. actionlint、Shell 语法和 LF 行尾检查；
+6. 密钥生成器、两份 Compose 和 Caddy 配置校验；
+7. Meta protobuf 生成/漂移、definitions、确定次数的分帧 fuzz、race、Gate 重放/IDOR、调度/QoS、`govulncheck`、镜像漏洞、SBOM 和 provenance 门禁；
+8. 所有质量检查通过后，各使用一次 Buildx 构建控制面、MetaServer 和 Edge Relay 镜像。
 
 普通分支、`main`、`v*` tag 的 push，以及手动运行 CI，都会把这次构建直接发布为可部署的 GHCR CI 产物：
 
@@ -243,8 +242,7 @@ control-plane 相互独立。部署 bundle 不包含 `.env`、具体 Edge YAML�
 main 至少要求以下 checks：
 
 ```text
-Go backend, PostgreSQL and contracts
-.NET contracts
+Go backend and PostgreSQL
 Deployment and workflow configuration
 Build and package control-plane image
 Build and package meta-server image
