@@ -53,7 +53,7 @@ backend meta_https
 
 backend meta_logic_tls
     mode tcp
-    server meta_logic_tls 127.0.0.1:10444 send-proxy check-send-proxy check inter 3s fall 2 rise 2
+    server meta_logic_tls 127.0.0.1:10446 send-proxy check-send-proxy check inter 3s fall 2 rise 2
 
 backend reject_tls
     mode tcp
@@ -100,7 +100,7 @@ frontend meta_https
     default_backend meta_http_origin
 
 frontend meta_logic_tls
-    bind 127.0.0.1:10444 accept-proxy ssl crt /etc/haproxy/certs/logic.dubnium.top.pem
+    bind 127.0.0.1:10446 accept-proxy ssl crt /etc/haproxy/certs/logic.dubnium.top.pem
     mode tcp
     option tcplog
     timeout client 5m

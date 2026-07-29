@@ -249,8 +249,8 @@ func TestPublicMetaGatewayBlocksPrivateRoutes(t *testing.T) {
 		!strings.Contains(text, "ssl-default-bind-options ssl-min-ver TLSv1.2") ||
 		!strings.Contains(text, "tcp-request content reject if sni_meta !from_cloudflare") ||
 		!strings.Contains(text, "use_backend meta_logic_tls if sni_logic") ||
-		!strings.Contains(text, "127.0.0.1:10444 send-proxy") ||
-		!strings.Contains(text, "127.0.0.1:10444 accept-proxy ssl") ||
+		!strings.Contains(text, "127.0.0.1:10446 send-proxy") ||
+		!strings.Contains(text, "127.0.0.1:10446 accept-proxy ssl") ||
 		!strings.Contains(text, "127.0.0.1:16969 send-proxy") {
 		t.Fatal("public Meta HAProxy frontend is missing route isolation, TLS policy, or Cloudflare source policy")
 	}

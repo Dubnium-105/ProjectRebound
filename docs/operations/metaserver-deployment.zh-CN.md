@@ -47,6 +47,10 @@ sudoedit deployments/control-plane/.env
 `ADMIN_ACCESS_TOKEN_PUBLIC_KEY_BASE64`。旧环境使用以下方式派生公钥，不输出私有
 seed：
 
+若其他本地服务已占用 18082，设置 `META_SERVER_HTTP_PORT=18083`。随后只把 Meta
+FRPC HTTP 代理的 `localPort` 改为 18083，网关 `remotePort` 仍保持 18082。这样可
+隔离同机的 AdminWeb 与 MetaServer 监听，同时不改变公网路由。
+
 ```bash
 printf '%s\n' "$ACCESS_TOKEN_PRIVATE_KEY_BASE64" |
   ./scripts/derive-ed25519-public.sh
@@ -162,6 +166,8 @@ sudo /etc/letsencrypt/renewal-hooks/deploy/projectrebound-haproxy-cert
 - `meta.dubnium.top` 只接受 Cloudflare 来源，终止 TLS 后转到
   `127.0.0.1:18082`；
 - `logic.dubnium.top` 终止普通 TLS，字节流转到 `127.0.0.1:16969`；
+- Meta Logic TLS 使用私有监听端口 `10446`；`10444` 继续保留给现有 Admin HTTPS
+  监听；
 - 两段 HAProxy Logic 路径使用 PROXY protocol v1 保留客户端地址，FRP 将其原样
   转发到控制面 listener；
 - 现有 Boundary、Admin 和 Relay SNI 路由保持不变。

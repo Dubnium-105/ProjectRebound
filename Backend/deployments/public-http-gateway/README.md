@@ -93,14 +93,17 @@ HTTP or Relay mTLS FRP services:
 meta.dubnium.top (orange cloud) -> HAProxy :443 -> TLS :10445
   -> Meta FRPS 127.0.0.1:18082 -> Meta FRPC -> control 127.0.0.1:18082
 
-logic.dubnium.top (DNS only) -> HAProxy :443 -> TLS :10444
+logic.dubnium.top (DNS only) -> HAProxy :443 -> TLS :10446
   -> Meta FRPS 127.0.0.1:16969 -> Meta FRPC -> control 127.0.0.1:16968
 ```
 
 The two HAProxy Logic hops use PROXY protocol v1 so MetaServer sees the real
-client address after FRP. Keep 10444, 16969, and the PROXY-enabled control
+client address after FRP. Keep 10446, 16969, and the PROXY-enabled control
 listener private; accepting this header from an untrusted source permits IP
 spoofing.
+
+Port 10446 is intentionally separate from the deployed Admin HTTPS listener on
+10444. Do not reuse the Admin listener or certificate for Meta Logic.
 
 Install `frps-meta.toml.example` and `projectrebound-meta-frps.service` on the
 gateway under `/etc/projectrebound-meta-frps`. Install
@@ -112,11 +115,21 @@ remain reachable by normal TLS clients and is therefore not Cloudflare-source
 restricted. The Meta HTTPS frontend returns 404 for `/internal/*` and
 `/v1/admin*`; administrators use the existing isolated Admin origin.
 
+When the FRP control connection uses a two-host VPN such as Tailscale, bind
+FRPS to the VPN address instead of `0.0.0.0`. Prefer FRP `tcp` transport over
+that overlay if nested QUIC repeatedly reports `no recent network activity`;
+FRP TLS and the VPN encryption remain enabled.
+
 Set `META_HTTP_HOST=meta.dubnium.top` and
 `META_LOGIC_HOST=logic.dubnium.top` in the root-only gateway defaults before
 running the certificate deployment hook. Ports 18082 and 16969 remain
 loopback-only. The complete ordered procedure is in
 [`docs/operations/metaserver-deployment.md`](../../../docs/operations/metaserver-deployment.md).
+
+The control-plane local HTTP port may differ from the gateway remote port. For
+example, when AdminWeb already owns control-plane `127.0.0.1:18082`, set
+`META_SERVER_HTTP_PORT=18083` and change only the Meta FRPC proxy
+`localPort` to `18083`; keep its `remotePort` and the gateway origin on `18082`.
 
 ## Acceptance
 
@@ -124,7 +137,7 @@ loopback-only. The complete ordered procedure is in
 sudo haproxy -c -f /etc/haproxy/haproxy.cfg
 sudo systemctl is-active haproxy frps projectrebound-http-frps projectrebound-meta-frps
 sudo ss -lntup | grep -E ':(80|443|7000|7001|7002) '
-sudo ss -lntp | grep -E '127.0.0.1:(9443|10443|10444|10445|18081|18082|16969) '
+sudo ss -lntp | grep -E '127.0.0.1:(9443|10443|10444|10445|10446|18081|18082|16969) '
 curl -fsS https://meta.dubnium.top/health/ready
 test "$(curl -sS -o /dev/null -w '%{http_code}' https://meta.dubnium.top/internal/metrics)" = 404
 openssl s_client -connect 127.0.0.1:443 -servername logic.dubnium.top \

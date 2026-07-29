@@ -50,6 +50,12 @@ final public hosts. New generated environments already contain
 `ADMIN_ACCESS_TOKEN_PUBLIC_KEY_BASE64`. For an older environment, derive each
 public key without printing the private seed:
 
+If another local service already owns 18082, set
+`META_SERVER_HTTP_PORT=18083`. Later, change only the Meta FRPC HTTP
+`localPort` to 18083; the gateway `remotePort` remains 18082. This keeps the
+host-local AdminWeb and MetaServer listeners isolated without changing the
+public route.
+
 ```bash
 printf '%s\n' "$ACCESS_TOKEN_PRIVATE_KEY_BASE64" |
   ./scripts/derive-ed25519-public.sh
@@ -172,6 +178,8 @@ HAProxy configuration. On public 443:
   forwards HTTP to `127.0.0.1:18082`;
 - `logic.dubnium.top` terminates normal TLS and forwards the byte stream to
   `127.0.0.1:16969`;
+- the Meta Logic TLS listener uses private port `10446`; `10444` remains
+  reserved for the existing Admin HTTPS listener;
 - both HAProxy Logic hops preserve the client address with PROXY protocol v1,
   which FRP forwards unchanged to the control-plane listener;
 - all existing Boundary, Admin, and Relay SNI routes remain unchanged.

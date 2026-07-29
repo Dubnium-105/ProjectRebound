@@ -91,13 +91,16 @@ deploy hook 会将 `fullchain.pem` 与 `privkey.pem` 合并为 HAProxy PEM，并
 meta.dubnium.top（橙云） -> HAProxy :443 -> TLS :10445
   -> Meta FRPS 127.0.0.1:18082 -> Meta FRPC -> 控制面 127.0.0.1:18082
 
-logic.dubnium.top（灰云） -> HAProxy :443 -> TLS :10444
+logic.dubnium.top（灰云） -> HAProxy :443 -> TLS :10446
   -> Meta FRPS 127.0.0.1:16969 -> Meta FRPC -> 控制面 127.0.0.1:16968
 ```
 
 两段 HAProxy Logic 路径使用 PROXY protocol v1，使 MetaServer 经 FRP 后仍能看到
-真实客户端地址。10444、16969 和控制面的 PROXY listener 必须保持私有；从不可信
+真实客户端地址。10446、16969 和控制面的 PROXY listener 必须保持私有；从不可信
 来源接受该头部会允许 IP 欺骗。
+
+10446 特意与已部署的 Admin HTTPS 监听 10444 分离。不得让 Meta Logic 复用 Admin
+监听或证书。
 
 网关将 `frps-meta.toml.example` 与 `projectrebound-meta-frps.service` 安装到
 `/etc/projectrebound-meta-frps`；控制面将 `frpc-meta.toml.example` 与
@@ -107,10 +110,18 @@ logic.dubnium.top（灰云） -> HAProxy :443 -> TLS :10444
 为 Cloudflare 来源。Meta HTTPS frontend 对 `/internal/*` 和 `/v1/admin*` 返回
 404；管理员继续使用已有隔离 Admin origin。
 
+FRP 控制连接使用 Tailscale 等双机 VPN 时，应让 FRPS 绑定 VPN 地址而不是
+`0.0.0.0`。若叠加 QUIC 持续出现 `no recent network activity`，在该 overlay 上
+改用 FRP `tcp` 传输；FRP TLS 与 VPN 加密仍保持启用。
+
 运行证书部署 hook 前，在 root-only 网关 defaults 中设置
 `META_HTTP_HOST=meta.dubnium.top` 与 `META_LOGIC_HOST=logic.dubnium.top`。18082 和
 16969 始终只绑定回环。完整顺序见
 [`docs/operations/metaserver-deployment.zh-CN.md`](../../../docs/operations/metaserver-deployment.zh-CN.md)。
+
+控制面本地 HTTP 端口可以与网关 remote port 不同。例如 AdminWeb 已占用控制面的
+`127.0.0.1:18082` 时，设置 `META_SERVER_HTTP_PORT=18083`，且只把 Meta FRPC
+代理的 `localPort` 改为 `18083`；`remotePort` 与网关 origin 仍保持 `18082`。
 
 ## 验收
 
@@ -118,7 +129,7 @@ logic.dubnium.top（灰云） -> HAProxy :443 -> TLS :10444
 sudo haproxy -c -f /etc/haproxy/haproxy.cfg
 sudo systemctl is-active haproxy frps projectrebound-http-frps projectrebound-meta-frps
 sudo ss -lntup | grep -E ':(80|443|7000|7001|7002) '
-sudo ss -lntp | grep -E '127.0.0.1:(9443|10443|10444|10445|18081|18082|16969) '
+sudo ss -lntp | grep -E '127.0.0.1:(9443|10443|10444|10445|10446|18081|18082|16969) '
 curl -fsS https://meta.dubnium.top/health/ready
 test "$(curl -sS -o /dev/null -w '%{http_code}' https://meta.dubnium.top/internal/metrics)" = 404
 openssl s_client -connect 127.0.0.1:443 -servername logic.dubnium.top \
