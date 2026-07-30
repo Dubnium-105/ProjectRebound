@@ -7,6 +7,7 @@ relay_connections: 100
 duration: 24h
 setup_concurrency: 10
 auth:
+  unsafe_test_ticket_fixture: true
   invite_code: CHANGE_ME_STAGING_INVITE
   refresh_interval: 10m
 room:

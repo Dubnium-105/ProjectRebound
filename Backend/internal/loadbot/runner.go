@@ -3,6 +3,7 @@ package loadbot
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,8 +12,11 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
+
+var fixtureTicketSequence atomic.Uint64
 
 type Report struct {
 	Scenario               string            `json:"scenario"`
@@ -154,12 +158,21 @@ func (r *Runner) step(ctx context.Context, id int) {
 	switch r.cfg.Scenario {
 	case "auth", "auth-bind":
 		steamID := fmt.Sprintf("7656119%010d", id)
-		r.request(ctx, http.MethodPost, "/v1/auth/bind", map[string]any{"steam_id": steamID, "persona_name": fmt.Sprintf("loadbot-%d", id), "device_id": fmt.Sprintf("loadbot-device-%d", id), "invite_code": r.cfg.Auth.InviteCode})
+		body := map[string]any{"steam_id": steamID, "persona_name": fmt.Sprintf("loadbot-%d", id), "device_id": fmt.Sprintf("loadbot-device-%d", id), "invite_code": r.cfg.Auth.InviteCode}
+		if r.cfg.Auth.UnsafeTestTicketFixture {
+			body["encrypted_ticket"] = fixtureEncryptedTicket(steamID)
+		}
+		r.request(ctx, http.MethodPost, "/v1/auth/bind", body)
 	default:
 		r.request(ctx, http.MethodGet, "/health/live", nil)
 		r.request(ctx, http.MethodGet, "/v1/p2p-rooms?state=LOBBY&limit=50", nil)
 		r.request(ctx, http.MethodGet, "/v1/client/config", nil)
 	}
+}
+
+func fixtureEncryptedTicket(steamID string) string {
+	nonce := fixtureTicketSequence.Add(1)
+	return hex.EncodeToString([]byte(fmt.Sprintf("%s|%d-%d", steamID, time.Now().UnixNano(), nonce)))
 }
 
 func (r *Runner) request(ctx context.Context, method, path string, body any) {

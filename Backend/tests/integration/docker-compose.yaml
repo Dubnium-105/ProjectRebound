@@ -30,6 +30,7 @@ services:
     build:
       context: ../..
       dockerfile: deployments/compose/control-plane.Dockerfile
+      target: integration
       args:
         GOPROXY: "${V11_GOPROXY:-https://proxy.golang.org,direct}"
         GOSUMDB: "${V11_GOSUMDB:-sum.golang.org}"
@@ -45,6 +46,9 @@ services:
       AUTH_BIND_PER_IP_PER_MINUTE: "1000"
       AUTH_BIND_PER_DEVICE_PER_MINUTE: "10"
       AUTH_BIND_PER_STEAM_ID_PER_MINUTE: "10"
+      STEAM_APP_ID: "480"
+      STEAM_TICKET_VERIFIER_PATH: /test-tools/decrypt-ticket
+      ALLOW_INSECURE_TEST_TICKET_VERIFIER: "1"
       ACCESS_TOKEN_KEY_ID: integration-access
       ACCESS_TOKEN_PRIVATE_KEY_BASE64: "${V11_ACCESS_TOKEN_PRIVATE_KEY_BASE64:?required}"
       ADMIN_TOKENS: "integration=${V11_ADMIN_TOKEN:?required}"

@@ -57,6 +57,20 @@ auth:
   refresh_token_ttl_days: 30
   default_persona_name: "Player"
   invite_required: false
+  steam_app_id: 480
+  # The verifier receives only hexadecimal ticket text on stdin and must emit
+  # one bounded JSON object on stdout. Override this path for the deployment OS.
+  ticket_verifier_executable: "decrypt-ticket.exe"
+  ticket_verifier_timeout_seconds: 3
+  ticket_maximum_age_seconds: 300
+  ticket_clock_skew_seconds: 60
+  ticket_maximum_hex_bytes: 4096
+  ticket_maximum_output_bytes: 8192
+  # The exact PEM file bytes participate in the integrity proof. In production,
+  # mount signer.pem read-only and set TOOLBOX_PUBKEY_PATH.
+  integrity_public_key_path: ""
+  integrity_challenge_ttl_seconds: 120
+  integrity_maximum_failures: 3
   bind_rate_limit:
     per_ip_per_minute: 5
     per_device_per_minute: 3

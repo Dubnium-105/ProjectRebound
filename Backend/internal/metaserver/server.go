@@ -36,7 +36,7 @@ type schemaChecker struct{ database *database.Pool }
 func (c schemaChecker) Check(ctx context.Context) error {
 	var applied bool
 	if err := c.database.QueryRow(ctx, `
-		SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 28)
+		SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 29)
 	`).Scan(&applied); err != nil {
 		return err
 	}
@@ -135,6 +135,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	playerMiddleware := []func(http.Handler) http.Handler{
 		auth.RequireAccess(authService, logger),
 		auth.RequireActive,
+		auth.RequireVerified,
 	}
 	router.With(playerMiddleware...).Post("/connectServer", handler.ConnectServer)
 	router.Route("/v1", func(router chi.Router) {

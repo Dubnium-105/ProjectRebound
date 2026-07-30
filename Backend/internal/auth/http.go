@@ -36,10 +36,11 @@ func NewHTTPHandler(service HTTPService, logger *slog.Logger, trustProxyHeader b
 }
 
 type bindRequest struct {
-	SteamID     string `json:"steam_id"`
-	PersonaName string `json:"persona_name"`
-	DeviceID    string `json:"device_id,omitempty"`
-	InviteCode  string `json:"invite_code,omitempty"`
+	SteamID         string `json:"steam_id"`
+	PersonaName     string `json:"persona_name"`
+	DeviceID        string `json:"device_id,omitempty"`
+	InviteCode      string `json:"invite_code,omitempty"`
+	EncryptedTicket string `json:"encrypted_ticket,omitempty"`
 }
 
 type refreshRequest struct {
@@ -59,12 +60,15 @@ type sessionResponse struct {
 }
 
 type bindResponse struct {
-	PlayerID      string          `json:"player_id"`
-	AccountStatus string          `json:"account_status"`
-	IsVIP         bool            `json:"is_vip"`
-	Profile       profileResponse `json:"profile"`
-	Session       sessionResponse `json:"session"`
-	IsNewPlayer   bool            `json:"is_new_player"`
+	PlayerID           string             `json:"player_id"`
+	AccountStatus      string             `json:"account_status"`
+	IsVIP              bool               `json:"is_vip"`
+	Profile            profileResponse    `json:"profile"`
+	Session            sessionResponse    `json:"session"`
+	IsNewPlayer        bool               `json:"is_new_player"`
+	AuthLevel          string             `json:"auth_level"`
+	SteamVerified      bool               `json:"steam_verified"`
+	IntegrityChallenge IntegrityChallenge `json:"integrity_challenge"`
 }
 
 type refreshResponse struct {
@@ -112,6 +116,7 @@ func (h *HTTPHandler) Bind(w http.ResponseWriter, r *http.Request) {
 	result, err := h.service.Bind(r.Context(), BindInput{
 		SteamID: request.SteamID, PersonaName: request.PersonaName,
 		DeviceID: request.DeviceID, InviteCode: request.InviteCode,
+		EncryptedTicket: request.EncryptedTicket,
 	}, h.requestMeta(r))
 	if err != nil {
 		h.writeError(w, r, err)
@@ -125,8 +130,11 @@ func (h *HTTPHandler) Bind(w http.ResponseWriter, r *http.Request) {
 			SteamID:     result.Player.SteamID,
 			PersonaName: result.Player.PersonaName,
 		},
-		Session:     sessionToResponse(result.Tokens),
-		IsNewPlayer: result.IsNewPlayer,
+		Session:            sessionToResponse(result.Tokens),
+		IsNewPlayer:        result.IsNewPlayer,
+		AuthLevel:          result.AuthLevel,
+		SteamVerified:      result.SteamVerified,
+		IntegrityChallenge: result.IntegrityChallenge,
 	})
 }
 

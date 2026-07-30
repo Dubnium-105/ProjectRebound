@@ -2,9 +2,11 @@
 
 English | [简体中文](auth-permission-matrix.zh-CN.md)
 
-`POST /v1/auth/bind` accepts the SteamID reported by the client. Currently, `auth_provider` is fixed to `steam_client_asserted` and `auth_level` is fixed to `unverified`. This process does not prove that the requester controls the corresponding Steam account.
+`POST /v1/auth/bind` keeps legacy compatibility: omitting `encrypted_ticket` creates an `auth_provider=steam_client_asserted`, `auth_level=unverified` session. A valid Encrypted App Ticket creates an `auth_provider=steam_ticket`, `auth_level=verified`, `steam_verified=true` session. The decrypted ticket SteamID is authoritative. A supplied invalid ticket is rejected and never downgraded.
 
-The Access Token is a short-lived Ed25519 JWT containing only the player ID, session ID, provider, authentication level, issue/expiration times, and token version. `account_status` and `is_vip` are not written to the token; they are always read from PostgreSQL, or from a future short-lived Redis cache, when needed.
+The bind response includes an integrity nonce for verified sessions. A valid ToolBox PE/ticket proof promotes only that database session, and the player identity, to `auth_level=trusted`. The promotion is one-way: an already-issued verified Access Token remains accepted until refresh, while an unverified token can never inherit trusted privileges. Three consecutive proof failures revoke the session.
+
+The Access Token is a short-lived Ed25519 JWT containing the player/user ID, session ID, provider, authentication level, Steam verification flag, issue/expiration times, and token version. Authentication level is stored per session and preserved by refresh. `account_status` and `is_vip` are not written to the token; they are always read from PostgreSQL, or from a future short-lived Redis cache, when needed.
 
 | Operation | ACTIVE | BANNED | DELETED |
 | --- | --- | --- | --- |
@@ -17,6 +19,8 @@ The Access Token is a short-lived Ed25519 JWT containing only the player ID, ses
 | Meta profile/content reads | Allow | Reject | Reject |
 | Meta loadout, Party, Gate, and matchmaking writes | Allow | Reject | Reject |
 | Online write operations | Allow | Reject | Reject |
+
+Room, connection, MetaServer session, party, loadout, and matchmaking operations additionally require a session with `steam_verified=true` and `auth_level` of `verified` or `trusted`. Unverified legacy sessions retain bind, refresh, logout, personal/session management, public directory, and update-read compatibility.
 
 The Admin API does not use the player matrix and never accepts Player Access Tokens. Human routes under `/v1/admin/*` require a trusted source network plus a dedicated administrator session created only after Turnstile, password, and TOTP/recovery-code verification. Existing operational machine routes use separately configured static Admin Tokens. Dedicated Server routes under `/internal/v1/meta/*` instead require an opaque Game Server Token bound to its server ID, expiry, scopes, active state, assigned match, and roster; neither credential creates a browser session.
 

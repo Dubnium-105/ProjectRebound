@@ -2,9 +2,11 @@
 
 [English](auth-permission-matrix.md) | 简体中文
 
-`POST /v1/auth/bind` 接受客户端自述的 SteamID，当前 `auth_provider` 固定为 `steam_client_asserted`，`auth_level` 固定为 `unverified`。此流程不证明请求者控制对应 Steam 账号。
+`POST /v1/auth/bind` 保持旧客户端兼容：省略 `encrypted_ticket` 时创建 `auth_provider=steam_client_asserted`、`auth_level=unverified` 会话。有效 Encrypted App Ticket 创建 `auth_provider=steam_ticket`、`auth_level=verified`、`steam_verified=true` 会话，且以解密出的 ticket SteamID 为权威身份。提交无效 ticket 时直接拒绝，绝不降级。
 
-Access Token 是短期 Ed25519 JWT，只包含玩家 ID、session ID、provider、auth level、签发/过期时间和 token version。`account_status` 与 `is_vip` 不写入 Token；需要时始终从 PostgreSQL（或后续的短期 Redis 缓存）读取。
+verified 会话的 bind 响应会携带完整性 nonce。有效的 ToolBox PE/ticket proof 会把当前数据库会话以及玩家身份提升为 `auth_level=trusted`。该提升是单向的：此前签发的 verified Access Token 在 refresh 前仍可使用，但 unverified Token 绝不能继承 trusted 权限。连续三次 proof 失败会撤销会话。
+
+Access Token 是短期 Ed25519 JWT，包含玩家/用户 ID、session ID、provider、auth level、Steam 验证标记、签发/过期时间和 token version。认证等级按会话保存并由 refresh 继承。`account_status` 与 `is_vip` 不写入 Token；需要时始终从 PostgreSQL（或后续的短期 Redis 缓存）读取。
 
 | 操作 | ACTIVE | BANNED | DELETED |
 | --- | --- | --- | --- |
@@ -17,6 +19,8 @@ Access Token 是短期 Ed25519 JWT，只包含玩家 ID、session ID、provider�
 | Meta 档案/内容读取 | 允许 | 拒绝 | 拒绝 |
 | Meta 配装、Party、Gate 和匹配写操作 | 允许 | 拒绝 | 拒绝 |
 | 联机写操作 | 允许 | 拒绝 | 拒绝 |
+
+房间、连接、MetaServer session、Party、配装和匹配操作还要求会话满足 `steam_verified=true`，且 `auth_level` 为 `verified` 或 `trusted`。旧客户端的 unverified 会话仍可 bind、refresh、logout、管理个人/会话、读取公共目录和更新信息。
 
 Admin API 不使用玩家矩阵，也绝不接受 Player Access Token。`/v1/admin/*` 人类管理接口要求可信来源网段，并使用只有在 Turnstile、密码和 TOTP/恢复码全部通过后才建立的独立管理员 Session。现有运维机器接口使用单独配置的静态 Admin Token；`/internal/v1/meta/*` Dedicated Server 路由改用绑定 server ID、有效期、scope、活动状态、已分配对局和名单的不透明 Game Server Token。两类凭据都不建立浏览器 Session。
 

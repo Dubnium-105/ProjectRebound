@@ -48,7 +48,7 @@
 | Game Server Token | `Authorization: Bearer <token>` | 注册响应，仅返回一次 | 对应 Server 心跳和注销 |
 | Room Host Token | `X-Room-Host-Token: <token>` | 创建房间响应，仅返回一次 | 房主心跳、启动和关闭 |
 
-`account_status=BANNED` 的玩家仍可 bind、refresh、logout 和读取本人资料，但不能执行房间或连接写操作。当前 bind 接受客户端自述的 SteamID，`auth_provider=steam_client_asserted`、`auth_level=unverified`，不能证明 Steam 账户所有权。
+`account_status=BANNED` 的玩家仍可 bind、refresh、logout 和读取本人资料，但不能执行房间或连接写操作。未提交 `encrypted_ticket` 的旧客户端仍可 bind，但只获得 `unverified` 会话；有效 Steam Encrypted App Ticket 会建立 `verified` 会话。游戏、房间、连接和 MetaServer 操作只允许 verified 会话。
 
 ## 3. 端点总表
 
@@ -66,13 +66,16 @@
 
 | 方法 | 路径 | 鉴权 | 请求 | 成功 |
 | --- | --- | --- | --- | --- |
-| POST | `/v1/auth/bind` | 无；按 IP、SteamID、Device ID 及组合维度限流 | 必需 `steam_id`, `persona_name`；可选 `device_id`, `invite_code` | 200 Player + Access/Refresh Token + `is_new_player` |
+| POST | `/v1/auth/bind` | 无；按 IP、SteamID、Device ID 及组合维度限流 | 必需 `steam_id`, `persona_name`；可选 `device_id`, `invite_code`, `encrypted_ticket` | 200 Player + Access/Refresh Token + 认证等级 + 首次完整性 nonce |
 | POST | `/v1/auth/refresh` | 无 | `refresh_token` | 200 新 Access/Refresh Token；旧 Refresh Token 失效 |
 | POST | `/v1/auth/logout` | Player | 无 | 200 当前 session 撤销 |
 | GET | `/v1/users/me` | Player | 无 | 200 实时玩家状态和权限字段 |
 | GET | `/v1/users/me/sessions` | Player | 无 | 200 当前玩家的有效会话列表 |
 | DELETE | `/v1/users/me/sessions/{session_id}` | Player | Path session ID | 200 撤销属于当前玩家的指定会话 |
 | POST | `/v1/users/me/sessions/revoke-others` | Player | 无 | 200 撤销除调用会话外的全部会话 |
+| POST | `/v1/integrity/challenge` | Player | 无 | 200 返回新的一次性 `nonce`；内存中没有 verified ticket 时为空 |
+| POST | `/v1/integrity/proof` | Player | `nonce`、`proof`、`component=toolbox` | 200 返回 `ok`；成功后会话提升为 `trusted` |
+| POST | `/v1/integrity/verify` | Player | 与 `/proof` 相同 | 已弃用的兼容别名 |
 
 Bind 示例：
 
@@ -83,12 +86,17 @@ Content-Type: application/json
 {
   "steam_id": "76561198000000000",
   "persona_name": "Player",
-  "device_id": "v1|uu:b09bc26d38bb76d6|ds:a867d4d49d01c90a|cp:f846ffb743eca479",
+  "device_id": "hardware-uuid|disk-serial|cpu-id",
+  "encrypted_ticket": "0123456789abcdef",
   "invite_code": "TEST-ABCD-EFGH"
 }
 ```
 
-旧客户端可继续省略两个可选字段，或发送不透明的安装 ID。新客户端应发送 `v1|uu:<摘要>|ds:<摘要>|cp:<摘要>`；每个摘要必须恰好为 16 个小写十六进制字符，分别表示客户端现有的 SMBIOS UUID、磁盘序列号和 CPU ID 单向摘要，无法取得的因子可以省略。服务端也兼容当前未带版本的 `uu:...|ds:...|cp:...` 格式、任意因子顺序和大写十六进制，并统一规范化为 `v1`、小写及 `uu`、`ds`、`cp` 顺序。以 `v1|`、`uu:`、`ds:` 或 `cp:` 开头的值若存在格式错误、重复或未知因子，将返回 `400 INVALID_REQUEST`。
+旧客户端可继续省略可选字段或发送不透明安装 ID，但会话保持 `unverified`。新客户端提交十六进制 `encrypted_ticket`。后端只通过 stdin 将其传给外部验证程序，以解密出的 SteamID 为权威身份，并拒绝无效、过期、重放、AppID 错误或请求 SteamID 不一致的 ticket。系统绝不保存 ticket 明文。
+
+verified bind 的 `data.integrity_challenge.nonce` 包含首次一次性 challenge。客户端计算 `SHA256(PE_certificate_bytes || decoded_encrypted_ticket_bytes || nonce_ascii)`，并把 64 字符十六进制摘要提交到 `/v1/integrity/proof`。每次 challenge 都会替换前一个 nonce；proof 正确时会话提升为 `trusted`，连续三次失败则撤销会话。challenge 与 ticket 原始字节仅存在于进程内存，因此后端重启后返回空 nonce 表示客户端必须重新 bind。
+
+新客户端可以发送 `uuid|disk|cpu`，服务端分别对三个因子执行 HMAC；也继续接受 `v1|uu:<摘要>|ds:<摘要>|cp:<摘要>`，其中摘要为 16 个十六进制字符，版本化格式允许省略无法取得的因子。无竖线的旧版不透明 Device ID 仍然兼容。
 
 `device_id` 最长 128 字节，只允许可打印 ASCII；它仅用于限流和风险观察，不是可信身份，也不会绕过 SteamID 唯一约束。服务端不会直接保存三个提交值，而是分别生成带域隔离的 HMAC-SHA-256 摘要和组合摘要，再将内部指纹记录关联到会话、登录事件和风险事件；外部 API 不返回这些摘要。是否要求邀请码由服务端 `auth.invite_required` 配置决定。绑定超过任一维度限制时返回 `429 AUTH_BIND_RATE_LIMITED`，响应同时包含 `Retry-After` 与 `details.retry_after_seconds`。
 

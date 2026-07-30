@@ -15,6 +15,14 @@ const (
 	CodeSessionNotFound    = "SESSION_NOT_FOUND"
 	CodeRefreshTokenReused = "REFRESH_TOKEN_REUSED"
 	CodeAccountDeleted     = "ACCOUNT_DELETED"
+	CodeInvalidSteamTicket = "STEAM_TICKET_INVALID"
+	CodeSteamIDMismatch    = "STEAM_ID_MISMATCH"
+	CodeSteamTicketExpired = "STEAM_TICKET_EXPIRED"
+	CodeSteamTicketAppID   = "STEAM_TICKET_APP_ID_MISMATCH"
+	CodeSteamTicketReplay  = "STEAM_TICKET_REPLAY"
+	CodeDeviceRestricted   = "DEVICE_RESTRICTED"
+	CodeVerifiedRequired   = "STEAM_VERIFICATION_REQUIRED"
+	CodeIntegrityFailed    = "INTEGRITY_PROOF_INVALID"
 	CodeInternalError      = "INTERNAL_ERROR"
 )
 

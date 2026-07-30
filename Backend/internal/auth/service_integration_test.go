@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -19,6 +20,48 @@ import (
 )
 
 var steamSequence atomic.Uint64
+
+type integrationTicketVerifier struct {
+	result VerifiedTicket
+	err    error
+}
+
+func (v *integrationTicketVerifier) Verify(context.Context, string) (VerifiedTicket, error) {
+	return v.result, v.err
+}
+
+type integrationIntegrityManager struct {
+	mu          sync.Mutex
+	ticket      []byte
+	sessionID   string
+	rotatedFrom string
+	removed     string
+}
+
+func (m *integrationIntegrityManager) RegisterSession(
+	sessionID string,
+	ticket []byte,
+	_ time.Time,
+) (IntegrityChallenge, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.sessionID = sessionID
+	m.ticket = append([]byte(nil), ticket...)
+	return IntegrityChallenge{Nonce: "integration-nonce"}, nil
+}
+
+func (m *integrationIntegrityManager) RotateSession(oldSessionID, newSessionID string, _ time.Time) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.rotatedFrom = oldSessionID
+	m.sessionID = newSessionID
+}
+
+func (m *integrationIntegrityManager) RemoveSession(sessionID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.removed = sessionID
+}
 
 func TestAuthenticationLifecycleAgainstPostgreSQL(t *testing.T) {
 	databaseURL := os.Getenv("TEST_DATABASE_URL")
@@ -54,12 +97,15 @@ func TestAuthenticationLifecycleAgainstPostgreSQL(t *testing.T) {
 		authConfig,
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 	)
+	integrityManager := &integrationIntegrityManager{}
+	service.SetIntegritySessionManager(integrityManager)
 	createdSteamIDs := make([]string, 0)
 	createdDeviceFingerprintIDs := make([]string, 0)
 	t.Cleanup(func() {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cleanupCancel()
 		for _, steamID := range createdSteamIDs {
+			_, _ = pool.Exec(cleanupCtx, "DELETE FROM auth_steam_ticket_verifications WHERE steam_id = $1 OR player_id IN (SELECT id FROM players WHERE steam_id = $1)", steamID)
 			_, _ = pool.Exec(cleanupCtx, "DELETE FROM auth_risk_events WHERE steam_id = $1 OR player_id IN (SELECT id FROM players WHERE steam_id = $1)", steamID)
 			_, _ = pool.Exec(cleanupCtx, "DELETE FROM auth_login_events WHERE steam_id = $1 OR player_id IN (SELECT id FROM players WHERE steam_id = $1)", steamID)
 			_, _ = pool.Exec(cleanupCtx, "DELETE FROM auth_login_audit_logs WHERE steam_id = $1 OR player_id IN (SELECT id FROM players WHERE steam_id = $1)", steamID)
@@ -71,6 +117,141 @@ func TestAuthenticationLifecycleAgainstPostgreSQL(t *testing.T) {
 		}
 	})
 	meta := RequestMeta{RequestID: "req_integration", IPAddress: "192.0.2.10", UserAgent: "auth-integration-test"}
+
+	t.Run("encrypted ticket establishes and preserves a verified session", func(t *testing.T) {
+		steamID := nextSteamID()
+		createdSteamIDs = append(createdSteamIDs, steamID)
+		now := service.now().UTC()
+		verifier := &integrationTicketVerifier{result: VerifiedTicket{
+			Valid: true, SteamID: steamID, AppID: authConfig.SteamAppID,
+			IssueTime: now.Unix(),
+		}}
+		service.SetTicketVerifier(verifier)
+		const ticketHex = "0102030405060708090a0b0c0d0e0f"
+
+		bound, err := service.Bind(ctx, BindInput{
+			SteamID: steamID, PersonaName: "Verified Player",
+			EncryptedTicket: ticketHex,
+		}, meta)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if bound.Player.SteamID != steamID || bound.Player.AuthProvider != player.AuthProviderSteamTicket ||
+			bound.Player.AuthLevel != player.AuthLevelVerified ||
+			bound.AuthLevel != player.AuthLevelVerified || !bound.SteamVerified {
+			t.Fatalf("verified bind = %#v", bound)
+		}
+		if bound.IntegrityChallenge.Nonce != "integration-nonce" ||
+			fmt.Sprintf("%x", integrityManager.ticket) != ticketHex ||
+			integrityManager.sessionID != bound.Tokens.SessionID {
+			t.Fatalf("integrity registration = challenge=%+v manager=%+v", bound.IntegrityChallenge, integrityManager)
+		}
+		claims, err := tokenManager.Verify(bound.Tokens.AccessToken)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if claims.UserID != bound.Player.ID || claims.Provider != player.AuthProviderSteamTicket ||
+			claims.AuthLevel != player.AuthLevelVerified || !claims.SteamVerified {
+			t.Fatalf("verified access claims = %#v", claims)
+		}
+
+		var verificationCount int
+		var sessionLevel string
+		var sessionVerified bool
+		if err := pool.QueryRow(ctx, `
+			SELECT COUNT(*) FROM auth_steam_ticket_verifications
+			WHERE player_id = $1 AND ticket_hash = $2
+		`, bound.Player.ID, mustTicketHashForTest(t, ticketHex)).Scan(&verificationCount); err != nil {
+			t.Fatal(err)
+		}
+		if err := pool.QueryRow(ctx, `
+			SELECT auth_level, steam_verified FROM auth_sessions WHERE id = $1
+		`, bound.Tokens.SessionID).Scan(&sessionLevel, &sessionVerified); err != nil {
+			t.Fatal(err)
+		}
+		if verificationCount != 1 || sessionLevel != player.AuthLevelVerified || !sessionVerified {
+			t.Fatalf("verification/session state = %d, %q, %v", verificationCount, sessionLevel, sessionVerified)
+		}
+
+		principal, err := service.AuthenticateAccess(ctx, bound.Tokens.AccessToken)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := service.PromoteIntegrityTrusted(ctx, principal, meta); err != nil {
+			t.Fatal(err)
+		}
+		principal, err = service.AuthenticateAccess(ctx, bound.Tokens.AccessToken)
+		if err != nil || principal.AuthLevel != player.AuthLevelTrusted {
+			t.Fatalf("trusted principal = %#v, %v", principal, err)
+		}
+
+		refreshed, err := service.Refresh(ctx, bound.Tokens.RefreshToken, meta)
+		if err != nil {
+			t.Fatal(err)
+		}
+		refreshedClaims, err := tokenManager.Verify(refreshed.Tokens.AccessToken)
+		if err != nil || !refreshedClaims.SteamVerified ||
+			refreshedClaims.AuthLevel != player.AuthLevelTrusted {
+			t.Fatalf("refreshed claims = %#v, %v", refreshedClaims, err)
+		}
+		if integrityManager.rotatedFrom != bound.Tokens.SessionID ||
+			integrityManager.sessionID != refreshed.Tokens.SessionID {
+			t.Fatalf("integrity rotation = %+v", integrityManager)
+		}
+
+		if _, err := service.Bind(ctx, BindInput{
+			SteamID: steamID, PersonaName: "Replay", EncryptedTicket: ticketHex,
+		}, meta); ErrorCode(err) != CodeSteamTicketReplay {
+			t.Fatalf("ticket replay error = %v (%s)", err, ErrorCode(err))
+		}
+	})
+
+	t.Run("ticket validation rejects invalid identity attributes", func(t *testing.T) {
+		now := service.now().UTC()
+		tests := []struct {
+			name   string
+			result VerifiedTicket
+			err    error
+			code   string
+		}{
+			{
+				name: "decrypt failure", err: errors.New("bad ticket"),
+				code: CodeInvalidSteamTicket,
+			},
+			{
+				name:   "SteamID mismatch",
+				result: VerifiedTicket{Valid: true, SteamID: nextSteamID(), AppID: authConfig.SteamAppID, IssueTime: now.Unix()},
+				code:   CodeSteamIDMismatch,
+			},
+			{
+				name:   "wrong app",
+				result: VerifiedTicket{Valid: true, AppID: authConfig.SteamAppID + 1, IssueTime: now.Unix()},
+				code:   CodeSteamTicketAppID,
+			},
+			{
+				name:   "expired",
+				result: VerifiedTicket{Valid: true, AppID: authConfig.SteamAppID, IssueTime: now.Add(-10 * time.Minute).Unix()},
+				code:   CodeSteamTicketExpired,
+			},
+		}
+		for index, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				requestSteamID := nextSteamID()
+				createdSteamIDs = append(createdSteamIDs, requestSteamID)
+				if test.result.SteamID == "" {
+					test.result.SteamID = requestSteamID
+				}
+				service.SetTicketVerifier(&integrationTicketVerifier{result: test.result, err: test.err})
+				_, err := service.Bind(ctx, BindInput{
+					SteamID: requestSteamID, PersonaName: "Rejected Ticket",
+					EncryptedTicket: fmt.Sprintf("%032x", index+100),
+				}, meta)
+				if ErrorCode(err) != test.code {
+					t.Fatalf("error = %v (%s), want %s", err, ErrorCode(err), test.code)
+				}
+			})
+		}
+	})
 
 	t.Run("structured device factors are normalized and linked", func(t *testing.T) {
 		steamID := nextSteamID()
@@ -417,4 +598,13 @@ func TestAuthenticationLifecycleAgainstPostgreSQL(t *testing.T) {
 func nextSteamID() string {
 	sequence := steamSequence.Add(1)
 	return fmt.Sprintf("%017d", (uint64(time.Now().UnixNano())+sequence)%100_000_000_000_000_000)
+}
+
+func mustTicketHashForTest(t *testing.T, ticketHex string) []byte {
+	t.Helper()
+	_, hash, err := normalizeEncryptedTicket(ticketHex, config.Defaults.Auth.TicketMaximumHexBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return hash
 }

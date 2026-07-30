@@ -18,6 +18,7 @@ import (
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/database"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/gameserver"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/health"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/integrity"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/invite"
 	appmiddleware "github.com/Dubnium-105/ProjectRebound/Backend/internal/middleware"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/observability"
@@ -139,10 +140,21 @@ func buildHandler(
 		cfg.Auth,
 		logger,
 	)
+	authService.SetTicketVerifier(auth.NewExecTicketVerifier(cfg.Auth, logger))
 	authService.SetInviteConsumer(inviteService)
 	authService.SetBindLimiter(auth.NewBindLimiter(redisClient, cfg.Auth, logger))
 	authService.SetMetrics(metrics)
+	integrityService, err := integrity.NewService(cfg.Auth, authService, logger)
+	if err != nil {
+		return nil, nil, fmt.Errorf("initialize integrity challenge service: %w", err)
+	}
+	authService.SetIntegritySessionManager(integrityService)
 	authHandler := auth.NewHTTPHandler(authService, logger, cfg.HTTP.TrustProxyHeaders)
+	integrityHandler := integrity.NewHTTPHandler(
+		integrityService,
+		logger,
+		cfg.HTTP.TrustProxyHeaders,
+	)
 	router.Route("/v1", func(router chi.Router) {
 		router.Post("/auth/bind", authHandler.Bind)
 		router.Post("/auth/refresh", authHandler.Refresh)
@@ -151,6 +163,9 @@ func buildHandler(
 		router.With(auth.RequireAccess(authService, logger)).Get("/users/me/sessions", authHandler.ListSessions)
 		router.With(auth.RequireAccess(authService, logger)).Delete("/users/me/sessions/{session_id}", authHandler.RevokeSession)
 		router.With(auth.RequireAccess(authService, logger)).Post("/users/me/sessions/revoke-others", authHandler.RevokeOtherSessions)
+		router.With(auth.RequireAccess(authService, logger)).Post("/integrity/challenge", integrityHandler.Challenge)
+		router.With(auth.RequireAccess(authService, logger)).Post("/integrity/proof", integrityHandler.Proof)
+		router.With(auth.RequireAccess(authService, logger)).Post("/integrity/verify", integrityHandler.Verify)
 	})
 
 	adminAuthenticator, err := admin.NewAuthenticator(cfg.Admin)
@@ -325,6 +340,7 @@ func buildHandler(
 	router.Group(func(router chi.Router) {
 		router.Use(auth.RequireAccess(authService, logger))
 		router.Use(auth.RequireActive)
+		router.Use(auth.RequireVerified)
 		router.Post("/v1/p2p-rooms", p2pRoomHandler.Create)
 		router.Post("/v1/p2p-rooms/{room_id}/join", p2pRoomHandler.Join)
 		router.Post("/v1/p2p-rooms/{room_id}/leave", p2pRoomHandler.Leave)
@@ -347,6 +363,7 @@ func buildHandler(
 	router.Group(func(router chi.Router) {
 		router.Use(auth.RequireAccess(authService, logger))
 		router.Use(auth.RequireActive)
+		router.Use(auth.RequireVerified)
 		router.Post("/v1/connections", connectionHandler.Create)
 		router.Delete("/v1/connections/{connection_id}", connectionHandler.Delete)
 		router.Get("/v1/realtime/connect", realtimeHandler.Connect)

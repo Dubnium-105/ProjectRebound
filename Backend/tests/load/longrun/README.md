@@ -13,6 +13,10 @@ The sequence is intentionally fail-fast:
 
 Each gate starts from fresh PostgreSQL, Redis, and Relay volumes. A gate passes only if the load report, dependency/resource telemetry, Relay control-link continuity, and post-cleanup database residual checks all pass. Reports include API latency and error rates, UDP delivery, Refresh Token activity, memory/goroutine trends, database pool usage, dependency availability, migrations, duplicate records, and orphan resources. The soak gate never restarts a healthy Relay. Docker restarts an exited Relay automatically; the harness only attempts an explicit recovery after confirming that a Relay remains stopped.
 
+The harness locally builds and read-only mounts the explicitly gated insecure
+ticket-verifier fixture so load clients exercise verified sessions. The fixture
+is limited to this disposable stack and must never be installed in production.
+
 Use immutable images produced by CI:
 
 ```bash

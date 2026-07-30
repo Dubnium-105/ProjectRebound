@@ -12,6 +12,8 @@ func TestLoadMissingFileAppliesEnvironment(t *testing.T) {
 	t.Setenv("RELAY_CONTROL_SERVER_NAMES", "control-plane, relay.example.com")
 	t.Setenv("AUTH_BIND_PER_IP_PER_MINUTE", "7")
 	t.Setenv("AUTH_INVITE_REQUIRED", "true")
+	t.Setenv("TOOLBOX_PUBKEY_PATH", "/run/projectrebound/test-signer.pem")
+	t.Setenv("INTEGRITY_CHALLENGE_TTL_SECONDS", "90")
 	t.Setenv("RELAY_HEARTBEAT_INTERVAL_SECONDS", "2")
 	t.Setenv("RELAY_UNHEALTHY_AFTER_SECONDS", "6")
 	t.Setenv("RELAY_OFFLINE_AFTER_SECONDS", "10")
@@ -32,6 +34,10 @@ func TestLoadMissingFileAppliesEnvironment(t *testing.T) {
 	}
 	if cfg.Auth.BindRateLimit.PerIPPerMinute != 7 || !cfg.Auth.InviteRequired {
 		t.Fatalf("Auth bind config = %#v", cfg.Auth)
+	}
+	if cfg.Auth.IntegrityPublicKeyPath != "/run/projectrebound/test-signer.pem" ||
+		cfg.Auth.IntegrityChallengeTTLSeconds != 90 {
+		t.Fatalf("Auth integrity config = %#v", cfg.Auth)
 	}
 	if cfg.RelayRegistry.HeartbeatIntervalSeconds != 2 || cfg.RelayRegistry.UnhealthyAfterSeconds != 6 ||
 		cfg.RelayRegistry.OfflineAfterSeconds != 10 || cfg.RelayRegistry.SweepIntervalSeconds != 1 {

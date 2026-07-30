@@ -175,6 +175,8 @@ chmod 600 deployments/control-plane/.env
 - `RELAY_CONTROL_SERVER_NAMES` 必须包含边缘节点使用的 `control_server_name`，例如 `control-plane,localhost,relay.example.com`。
 - 签名密钥 ID 在轮换时必须更新，不能在密钥变化后继续复用旧 ID。
 - `DEVICE_FINGERPRINT_HMAC_KEY_BASE64` 必须保持稳定并单独备份；生产环境缺失时会拒绝启动。服务端不保存硬件因子原文，因此该密钥丢失后无法重算已有设备摘要。在多密钥迁移流程可用前，不得变更它或 `DEVICE_FINGERPRINT_KEY_ID`。
+- 将 `STEAM_APP_ID` 设置为正式 Steam 应用。镜像内置独立的 Go `/usr/local/bin/decrypt-ticket` verifier，但官方 Steamworks Linux `libsdkencryptedappticket.so` 与该应用的 32 字节 encrypted-ticket key 必须分别通过 `STEAM_ENCRYPTED_APP_TICKET_LIBRARY_HOST_PATH` 和 `STEAM_ENCRYPTED_APP_TICKET_KEY_HOST_PATH` 提供。两者均只读挂载，绝不打入镜像。key 文件可以是正好 32 个原始字节或 64 个十六进制字符，宿主机权限必须为 `600`。verifier 仅从 stdin 接收 ticket，并在 stdout 输出受限 JSON；控制面不包含、也不会回退到进程内 Steam 解密算法。
+- 将规范的 ToolBox 证书放到 `TOOLBOX_PUBKEY_HOST_PATH`，并只读挂载到 `TOOLBOX_PUBKEY_PATH`。每次完整性 proof 都会哈希 PEM 的精确字节（包括换行符），不得重新排版或转换成 base64；生产环境缺少该设置时拒绝启动。`INTEGRITY_CHALLENGE_TTL_SECONDS` 默认为 120，除非客户端和事件响应策略同时更新，否则 `INTEGRITY_MAXIMUM_FAILURES` 必须保持为 3。
 
 `.env` 必须保留在主机秘密存储中，权限必须为 `600`，不得提交 Git、复制进镜像或写入工单。
 

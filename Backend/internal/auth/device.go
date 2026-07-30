@@ -91,12 +91,31 @@ func NormalizeDeviceID(value string) (string, error) {
 func ParseDeviceFingerprint(value string) (DeviceFactorValues, bool, error) {
 	value = strings.TrimSpace(value)
 	lower := strings.ToLower(value)
-	recognized := strings.HasPrefix(lower, "v1|") ||
+	structured := strings.HasPrefix(lower, "v1|") ||
 		strings.HasPrefix(lower, "uu:") ||
 		strings.HasPrefix(lower, "ds:") ||
 		strings.HasPrefix(lower, "cp:")
-	if !recognized {
+	if !structured && !strings.Contains(lower, "|") {
 		return DeviceFactorValues{}, false, nil
+	}
+	if !structured {
+		parts := strings.Split(lower, "|")
+		if len(parts) != 3 {
+			return DeviceFactorValues{}, true, fmt.Errorf("positional device fingerprint must contain uuid|disk|cpu")
+		}
+		for index := range parts {
+			parts[index] = strings.TrimSpace(parts[index])
+			if parts[index] == "" {
+				return DeviceFactorValues{}, true, fmt.Errorf("positional device fingerprint factors must not be empty")
+			}
+		}
+		return DeviceFactorValues{
+			CanonicalID: strings.Join(parts, "|"),
+			SMBIOSUUID:  parts[0],
+			DiskSerial:  parts[1],
+			CPUID:       parts[2],
+			FactorMask:  deviceFactorSMBIOSMask | deviceFactorDiskMask | deviceFactorCPUMask,
+		}, true, nil
 	}
 	parts := strings.Split(lower, "|")
 	if parts[0] == "v1" {

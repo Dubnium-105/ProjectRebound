@@ -60,3 +60,22 @@ func RequireActive(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
+func RequireVerified(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		principal := PrincipalFromContext(r.Context())
+		if principal == nil {
+			api.WriteError(w, r, http.StatusUnauthorized, CodeUnauthorized, "Authentication is required.", nil)
+			return
+		}
+		if !principal.SteamVerified ||
+			(principal.AuthLevel != player.AuthLevelVerified && principal.AuthLevel != player.AuthLevelTrusted) {
+			api.WriteError(
+				w, r, http.StatusForbidden, CodeVerifiedRequired,
+				"A verified Steam session is required.", nil,
+			)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}

@@ -24,6 +24,9 @@ func TestAccessTokenRoundTripAndTamperDetection(t *testing.T) {
 	if err != nil || claims.Subject != "p_test" || claims.SessionID != "ses_test" || !expiresAt.Equal(now.Add(15*time.Minute)) {
 		t.Fatalf("Verify() = %#v, %v", claims, err)
 	}
+	if claims.UserID != "p_test" || claims.SteamVerified {
+		t.Fatalf("unexpected identity claims: %#v", claims)
+	}
 	parts := strings.Split(token, ".")
 	replacement := "A"
 	if strings.HasSuffix(parts[1], replacement) {
@@ -32,6 +35,26 @@ func TestAccessTokenRoundTripAndTamperDetection(t *testing.T) {
 	parts[1] = parts[1][:len(parts[1])-1] + replacement
 	if _, err := manager.Verify(strings.Join(parts, ".")); err == nil {
 		t.Fatal("tampered token was accepted")
+	}
+}
+
+func TestVerifiedAccessTokenClaims(t *testing.T) {
+	manager, _, err := NewTokenManager(config.Defaults.Auth, "development")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Unix(1_800_000_000, 0).UTC()
+	manager.now = func() time.Time { return now }
+	token, _, err := manager.Sign("p_verified", "ses_verified", "steam_ticket", "verified", 1, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claims, err := manager.Verify(token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claims.UserID != "p_verified" || claims.AuthLevel != "verified" || !claims.SteamVerified {
+		t.Fatalf("verified claims = %#v", claims)
 	}
 }
 

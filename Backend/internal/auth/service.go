@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -24,6 +26,8 @@ type Service struct {
 	players             *player.Repository
 	tokens              *TokenManager
 	deviceFingerprinter *DeviceFingerprinter
+	ticketVerifier      TicketVerifier
+	integritySessions   IntegritySessionManager
 	config              config.AuthConfig
 	logger              *slog.Logger
 	now                 func() time.Time
@@ -36,6 +40,12 @@ type Service struct {
 	invites     interface {
 		Consume(context.Context, pgx.Tx, string, string, string, string, time.Time) error
 	}
+}
+
+type IntegritySessionManager interface {
+	RegisterSession(sessionID string, ticket []byte, expiresAt time.Time) (IntegrityChallenge, error)
+	RotateSession(oldSessionID, newSessionID string, expiresAt time.Time)
+	RemoveSession(sessionID string)
 }
 
 func (s *Service) SetMetrics(metrics interface {
@@ -60,6 +70,14 @@ func (s *Service) SetBindLimiter(limiter *BindLimiter) {
 	if limiter != nil && s.metrics != nil {
 		limiter.SetMetrics(s.metrics)
 	}
+}
+
+func (s *Service) SetTicketVerifier(verifier TicketVerifier) {
+	s.ticketVerifier = verifier
+}
+
+func (s *Service) SetIntegritySessionManager(manager IntegritySessionManager) {
+	s.integritySessions = manager
 }
 
 func NewService(
@@ -97,11 +115,6 @@ func (s *Service) Bind(ctx context.Context, input BindInput, meta RequestMeta) (
 	}
 	meta.DeviceID = deviceID
 	now := s.now().UTC()
-	deviceFingerprintID, err := s.resolveDeviceFingerprint(ctx, s.pool, deviceID, now)
-	if err != nil {
-		return BindResult{}, internalError(err)
-	}
-	meta.DeviceFingerprintID = deviceFingerprintID
 	if s.bindLimiter != nil {
 		decision := s.bindLimiter.Check(ctx, BindLimitRequest{
 			IPAddress: meta.IPAddress,
@@ -144,13 +157,72 @@ func (s *Service) Bind(ctx context.Context, input BindInput, meta RequestMeta) (
 		return BindResult{}, invalidRequest("Invalid persona name.", map[string]any{"persona_name": err.Error()})
 	}
 
+	authProvider := player.AuthProviderSteamClientAsserted
+	authLevel := player.AuthLevelUnverified
+	verifiedSteamID := input.SteamID
+	var ticketHash []byte
+	var ticketBytes []byte
+	var ticket VerifiedTicket
+	if strings.TrimSpace(input.EncryptedTicket) != "" {
+		canonicalTicket, hash, normalizeErr := normalizeEncryptedTicket(
+			input.EncryptedTicket,
+			s.config.TicketMaximumHexBytes,
+		)
+		if normalizeErr != nil {
+			return BindResult{}, s.rejectTicket(ctx, input.SteamID, CodeInvalidSteamTicket, "invalid_format", meta, normalizeErr)
+		}
+		if s.ticketVerifier == nil {
+			return BindResult{}, s.rejectTicket(ctx, input.SteamID, CodeInvalidSteamTicket, "verifier_unavailable", meta, errors.New("ticket verifier is unavailable"))
+		}
+		ticket, err = s.ticketVerifier.Verify(ctx, canonicalTicket)
+		if err != nil {
+			return BindResult{}, s.rejectTicket(ctx, input.SteamID, CodeInvalidSteamTicket, "decrypt_failed", meta, err)
+		}
+		ticket.SteamID = strings.TrimSpace(ticket.SteamID)
+		if validationErr := validateVerifiedTicket(input.SteamID, ticket, s.config, now); validationErr != nil {
+			details := validationErr.(*ticketValidationError)
+			return BindResult{}, s.rejectTicket(
+				ctx, input.SteamID, details.code, details.reason, meta, details.cause,
+			)
+		}
+		ticketHash = hash
+		ticketBytes, _ = hex.DecodeString(canonicalTicket)
+		verifiedSteamID = ticket.SteamID
+		authProvider = player.AuthProviderSteamTicket
+		authLevel = player.AuthLevelVerified
+	}
+
+	deviceFingerprintID, err := s.resolveDeviceFingerprint(ctx, s.pool, deviceID, now)
+	if err != nil {
+		return BindResult{}, internalError(err)
+	}
+	meta.DeviceFingerprintID = deviceFingerprintID
+	deviceBanned, err := s.repository.IsDeviceFingerprintBanned(ctx, s.pool, deviceFingerprintID)
+	if err != nil {
+		return BindResult{}, internalError(err)
+	}
+	if deviceBanned {
+		s.recordRiskEvent(ctx, RiskEvent{
+			SteamID: verifiedSteamID, DeviceIDHash: HashDeviceID(deviceID),
+			DeviceFingerprintID: deviceFingerprintID, IPAddress: meta.IPAddress,
+			EventType: "DEVICE_MISMATCH", Severity: "HIGH",
+			Details: map[string]any{"matched_factors": "at_least_two"},
+		}, meta)
+		s.recordFailedAudit(ctx, verifiedSteamID, "DEVICE_MISMATCH", CodeDeviceRestricted, meta)
+		return BindResult{}, &ServiceError{
+			Status: 403, Code: CodeDeviceRestricted, Message: "This device is restricted.",
+		}
+	}
+
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return BindResult{}, internalError(fmt.Errorf("begin bind transaction: %w", err))
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
 
-	item, isNew, err := s.players.UpsertSteamIdentity(ctx, tx, NewID("p_"), input.SteamID, personaName, now)
+	item, isNew, err := s.players.UpsertSteamIdentity(
+		ctx, tx, NewID("p_"), verifiedSteamID, personaName, authProvider, authLevel, now,
+	)
 	if err != nil {
 		return BindResult{}, internalError(err)
 	}
@@ -189,10 +261,45 @@ func (s *Service) Bind(ctx context.Context, input BindInput, meta RequestMeta) (
 		}
 	}
 
-	session, rawRefreshToken, err := s.newSession(item.ID, NewID("fam_"), 1, meta, now)
+	if len(ticketHash) > 0 {
+		inserted, insertErr := s.repository.InsertTicketVerification(ctx, tx, TicketVerification{
+			ID: NewID("atv_"), PlayerID: item.ID, SteamID: ticket.SteamID,
+			AppID: ticket.AppID, TicketHash: ticketHash,
+			IssueTime: time.Unix(ticket.IssueTime, 0).UTC(), VerifiedAt: now,
+		})
+		if insertErr != nil {
+			return BindResult{}, internalError(insertErr)
+		}
+		if !inserted {
+			_ = tx.Rollback(ctx)
+			return BindResult{}, s.rejectTicket(ctx, ticket.SteamID, CodeSteamTicketReplay, "ticket_replay", meta, nil)
+		}
+	}
+
+	session, rawRefreshToken, err := s.newSession(
+		item.ID, NewID("fam_"), 1, authProvider, authLevel, meta, now,
+	)
 	if err != nil {
 		return BindResult{}, internalError(err)
 	}
+	integrityChallenge := IntegrityChallenge{}
+	integrityRegistered := false
+	if len(ticketBytes) > 0 && s.integritySessions != nil {
+		integrityChallenge, err = s.integritySessions.RegisterSession(
+			session.ID,
+			ticketBytes,
+			session.ExpiresAt,
+		)
+		if err != nil {
+			return BindResult{}, internalError(fmt.Errorf("register integrity session: %w", err))
+		}
+		integrityRegistered = integrityChallenge.Nonce != ""
+	}
+	defer func() {
+		if integrityRegistered && s.integritySessions != nil {
+			s.integritySessions.RemoveSession(session.ID)
+		}
+	}()
 	if err := s.repository.InsertSession(ctx, tx, session); err != nil {
 		return BindResult{}, internalError(err)
 	}
@@ -201,17 +308,30 @@ func (s *Service) Bind(ctx context.Context, input BindInput, meta RequestMeta) (
 		return BindResult{}, internalError(fmt.Errorf("issue bind tokens: %w", err))
 	}
 	if err := s.repository.InsertAudit(ctx, tx, AuditEvent{
-		ID:        NewID("aal_"),
-		PlayerID:  item.ID,
-		SteamID:   item.SteamID,
-		Event:     "AUTH_BIND_SUCCESS",
-		Success:   true,
-		RequestID: meta.RequestID,
-		IPAddress: meta.IPAddress,
-		UserAgent: meta.UserAgent,
-		CreatedAt: now,
+		ID:                  NewID("aal_"),
+		PlayerID:            item.ID,
+		SteamID:             item.SteamID,
+		Event:               "AUTH_BIND_SUCCESS",
+		Success:             true,
+		RequestID:           meta.RequestID,
+		IPAddress:           meta.IPAddress,
+		UserAgent:           meta.UserAgent,
+		DeviceIDHash:        session.DeviceIDHash,
+		DeviceFingerprintID: session.DeviceFingerprintID,
+		CreatedAt:           now,
 	}); err != nil {
 		return BindResult{}, internalError(err)
+	}
+	if len(ticketHash) > 0 {
+		if err := s.repository.InsertAudit(ctx, tx, AuditEvent{
+			ID: NewID("aal_"), PlayerID: item.ID, SteamID: item.SteamID,
+			Event: "STEAM_TICKET_VERIFY_SUCCESS", Success: true,
+			RequestID: meta.RequestID, IPAddress: meta.IPAddress, UserAgent: meta.UserAgent,
+			DeviceIDHash: session.DeviceIDHash, DeviceFingerprintID: session.DeviceFingerprintID,
+			CreatedAt: now,
+		}); err != nil {
+			return BindResult{}, internalError(err)
+		}
 	}
 	if err := s.repository.InsertLoginEvent(ctx, tx, LoginEvent{
 		ID:                  NewID("ale_"),
@@ -230,7 +350,12 @@ func (s *Service) Bind(ctx context.Context, input BindInput, meta RequestMeta) (
 	if err := tx.Commit(ctx); err != nil {
 		return BindResult{}, internalError(fmt.Errorf("commit bind transaction: %w", err))
 	}
-	return BindResult{Player: item, Tokens: issued, IsNewPlayer: isNew}, nil
+	integrityRegistered = false
+	return BindResult{
+		Player: item, Tokens: issued, IsNewPlayer: isNew,
+		AuthLevel: session.AuthLevel, SteamVerified: session.SteamVerified,
+		IntegrityChallenge: integrityChallenge,
+	}, nil
 }
 
 func (s *Service) Refresh(ctx context.Context, refreshToken string, meta RequestMeta) (RefreshResult, error) {
@@ -355,7 +480,10 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string, meta Request
 		return RefreshResult{}, &ServiceError{Status: 403, Code: CodeAccountDeleted, Message: "Account has been deleted."}
 	}
 
-	replacement, rawRefreshToken, err := s.newSession(item.ID, current.TokenFamilyID, current.TokenVersion+1, meta, now)
+	replacement, rawRefreshToken, err := s.newSession(
+		item.ID, current.TokenFamilyID, current.TokenVersion+1,
+		current.AuthProvider, current.AuthLevel, meta, now,
+	)
 	if err != nil {
 		return RefreshResult{}, internalError(err)
 	}
@@ -418,6 +546,9 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string, meta Request
 	if err := tx.Commit(ctx); err != nil {
 		return RefreshResult{}, internalError(fmt.Errorf("commit refresh transaction: %w", err))
 	}
+	if s.integritySessions != nil {
+		s.integritySessions.RotateSession(current.ID, replacement.ID, replacement.ExpiresAt)
+	}
 	return RefreshResult{Tokens: issued}, nil
 }
 
@@ -449,7 +580,10 @@ func (s *Service) AuthenticateAccess(ctx context.Context, accessToken string) (P
 	if err != nil {
 		return Principal{}, internalError(err)
 	}
-	if item.AuthProvider != claims.Provider || item.AuthLevel != claims.AuthLevel {
+	authLevelMatches := session.AuthLevel == claims.AuthLevel ||
+		(session.AuthLevel == player.AuthLevelTrusted && claims.AuthLevel == player.AuthLevelVerified)
+	if session.AuthProvider != claims.Provider || !authLevelMatches ||
+		session.SteamVerified != claims.SteamVerified {
 		return Principal{}, unauthorized("Invalid access token.", nil)
 	}
 	if item.AccountStatus == player.AccountStatusDeleted {
@@ -458,7 +592,134 @@ func (s *Service) AuthenticateAccess(ctx context.Context, accessToken string) (P
 	if err := s.repository.TouchSession(ctx, s.pool, session.ID, s.now().UTC()); err != nil {
 		s.logger.WarnContext(ctx, "update authentication session activity", "session_id", session.ID, "error", err)
 	}
-	return Principal{Player: item, SessionID: session.ID}, nil
+	return Principal{
+		Player: item, SessionID: session.ID,
+		AuthProvider: session.AuthProvider, AuthLevel: session.AuthLevel,
+		SteamVerified: session.SteamVerified,
+	}, nil
+}
+
+func (s *Service) PromoteIntegrityTrusted(
+	ctx context.Context,
+	principal Principal,
+	meta RequestMeta,
+) error {
+	meta = sanitizeMeta(meta)
+	now := s.now().UTC()
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return internalError(fmt.Errorf("begin integrity promotion transaction: %w", err))
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+
+	promoted, err := s.repository.PromoteIntegrityTrusted(
+		ctx,
+		tx,
+		principal.SessionID,
+		principal.Player.ID,
+		now,
+	)
+	if err != nil {
+		return internalError(err)
+	}
+	if !promoted {
+		return &ServiceError{
+			Status:  http.StatusUnauthorized,
+			Code:    CodeSessionRevoked,
+			Message: "Session is no longer eligible for integrity verification.",
+		}
+	}
+	session, err := s.repository.GetSession(ctx, tx, principal.SessionID)
+	if err != nil {
+		return internalError(err)
+	}
+	if err := s.repository.InsertAudit(ctx, tx, AuditEvent{
+		ID: NewID("aal_"), PlayerID: principal.Player.ID, SteamID: principal.Player.SteamID,
+		Event: "INTEGRITY_VERIFY_SUCCESS", Success: true,
+		RequestID: meta.RequestID, IPAddress: meta.IPAddress, UserAgent: meta.UserAgent,
+		DeviceIDHash: session.DeviceIDHash, DeviceFingerprintID: session.DeviceFingerprintID,
+		CreatedAt: now,
+	}); err != nil {
+		return internalError(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return internalError(fmt.Errorf("commit integrity promotion: %w", err))
+	}
+	return nil
+}
+
+func (s *Service) RecordIntegrityFailure(
+	ctx context.Context,
+	principal Principal,
+	attempts int,
+	component string,
+	reason string,
+	terminal bool,
+	meta RequestMeta,
+) error {
+	meta = sanitizeMeta(meta)
+	now := s.now().UTC()
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return internalError(fmt.Errorf("begin integrity failure transaction: %w", err))
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+
+	session, err := s.repository.GetSession(ctx, tx, principal.SessionID)
+	if err != nil {
+		return internalError(err)
+	}
+	if session.PlayerID != principal.Player.ID {
+		return unauthorized("Invalid access token.", nil)
+	}
+	if err := s.repository.InsertAudit(ctx, tx, AuditEvent{
+		ID: NewID("aal_"), PlayerID: principal.Player.ID, SteamID: principal.Player.SteamID,
+		Event: "INTEGRITY_FAILED", Success: false, FailureCode: CodeIntegrityFailed,
+		RequestID: meta.RequestID, IPAddress: meta.IPAddress, UserAgent: meta.UserAgent,
+		DeviceIDHash: session.DeviceIDHash, DeviceFingerprintID: session.DeviceFingerprintID,
+		CreatedAt: now,
+	}); err != nil {
+		return internalError(err)
+	}
+	if terminal {
+		if err := s.repository.RevokeSession(
+			ctx,
+			tx,
+			principal.SessionID,
+			now,
+			"INTEGRITY_FAILED",
+		); err != nil {
+			return internalError(err)
+		}
+		deviceBanned, err := s.repository.IsDeviceFingerprintBanned(
+			ctx,
+			tx,
+			session.DeviceFingerprintID,
+		)
+		if err != nil {
+			return internalError(err)
+		}
+		severity := "HIGH"
+		if deviceBanned {
+			severity = "CRITICAL"
+		}
+		if err := s.repository.InsertRiskEvent(ctx, tx, RiskEvent{
+			ID: NewID("are_"), PlayerID: principal.Player.ID, SteamID: principal.Player.SteamID,
+			DeviceIDHash: session.DeviceIDHash, DeviceFingerprintID: session.DeviceFingerprintID,
+			IPAddress: meta.IPAddress, EventType: "INTEGRITY_FAILED", Severity: severity,
+			Details: map[string]any{
+				"attempts": attempts, "component": component, "reason": reason,
+				"session_id": principal.SessionID, "device_ban_match": deviceBanned,
+			},
+			CreatedAt: now,
+		}); err != nil {
+			return internalError(err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return internalError(fmt.Errorf("commit integrity failure: %w", err))
+	}
+	return nil
 }
 
 func (s *Service) Logout(ctx context.Context, sessionID string) error {
@@ -467,6 +728,9 @@ func (s *Service) Logout(ctx context.Context, sessionID string) error {
 	}
 	if err := s.repository.RevokeSession(ctx, s.pool, sessionID, s.now().UTC(), "LOGOUT"); err != nil {
 		return internalError(err)
+	}
+	if s.integritySessions != nil {
+		s.integritySessions.RemoveSession(sessionID)
 	}
 	return nil
 }
@@ -500,6 +764,9 @@ func (s *Service) RevokeUserSession(ctx context.Context, playerID, sessionID str
 	}
 	if !revoked {
 		return &ServiceError{Status: 404, Code: CodeSessionNotFound, Message: "Session not found."}
+	}
+	if s.integritySessions != nil {
+		s.integritySessions.RemoveSession(strings.TrimSpace(sessionID))
 	}
 	return nil
 }
@@ -558,7 +825,13 @@ func (s *Service) AuditBindDecodeFailure(ctx context.Context, meta RequestMeta) 
 	s.recordFailedAudit(ctx, "", "AUTH_BIND_FAILURE", CodeInvalidRequest, sanitizeMeta(meta))
 }
 
-func (s *Service) newSession(playerID, familyID string, tokenVersion int, meta RequestMeta, now time.Time) (Session, string, error) {
+func (s *Service) newSession(
+	playerID, familyID string,
+	tokenVersion int,
+	authProvider, authLevel string,
+	meta RequestMeta,
+	now time.Time,
+) (Session, string, error) {
 	rawRefreshToken, refreshHash, err := NewRefreshToken()
 	if err != nil {
 		return Session{}, "", err
@@ -575,6 +848,9 @@ func (s *Service) newSession(playerID, familyID string, tokenVersion int, meta R
 		RefreshTokenHash:    refreshHash,
 		TokenFamilyID:       familyID,
 		TokenVersion:        tokenVersion,
+		AuthProvider:        authProvider,
+		AuthLevel:           authLevel,
+		SteamVerified:       authLevel == player.AuthLevelVerified || authLevel == player.AuthLevelTrusted,
 		DeviceIDHash:        HashDeviceID(meta.DeviceID),
 		DeviceIDSuffix:      deviceIDSuffix,
 		DeviceFingerprintID: meta.DeviceFingerprintID,
@@ -589,8 +865,8 @@ func (s *Service) issueTokens(item player.Player, session Session, rawRefreshTok
 	accessToken, accessExpiresAt, err := s.tokens.Sign(
 		item.ID,
 		session.ID,
-		item.AuthProvider,
-		item.AuthLevel,
+		session.AuthProvider,
+		session.AuthLevel,
 		session.TokenVersion,
 		s.config.AccessTokenTTL(),
 	)
@@ -610,15 +886,17 @@ func (s *Service) recordFailedAudit(ctx context.Context, steamID, event, failure
 	steamID = validSteamIDOrEmpty(steamID)
 	now := s.now().UTC()
 	err := s.repository.InsertAudit(ctx, s.pool, AuditEvent{
-		ID:          NewID("aal_"),
-		SteamID:     steamID,
-		Event:       event,
-		Success:     false,
-		FailureCode: failureCode,
-		RequestID:   meta.RequestID,
-		IPAddress:   meta.IPAddress,
-		UserAgent:   meta.UserAgent,
-		CreatedAt:   now,
+		ID:                  NewID("aal_"),
+		SteamID:             steamID,
+		Event:               event,
+		Success:             false,
+		FailureCode:         failureCode,
+		RequestID:           meta.RequestID,
+		IPAddress:           meta.IPAddress,
+		UserAgent:           meta.UserAgent,
+		DeviceIDHash:        HashDeviceID(meta.DeviceID),
+		DeviceFingerprintID: meta.DeviceFingerprintID,
+		CreatedAt:           now,
 	})
 	if err != nil {
 		s.logger.ErrorContext(ctx, "write failed authentication audit", "event", event, "error", err)
@@ -635,6 +913,27 @@ func (s *Service) recordFailedAudit(ctx context.Context, steamID, event, failure
 		CreatedAt:           now,
 	}); err != nil {
 		s.logger.ErrorContext(ctx, "write failed login event", "event", event, "error", err)
+	}
+}
+
+func (s *Service) rejectTicket(
+	ctx context.Context,
+	steamID, failureCode, reason string,
+	meta RequestMeta,
+	cause error,
+) error {
+	s.recordRiskEvent(ctx, RiskEvent{
+		SteamID: validSteamIDOrEmpty(steamID), DeviceIDHash: HashDeviceID(meta.DeviceID),
+		DeviceFingerprintID: meta.DeviceFingerprintID, IPAddress: meta.IPAddress,
+		EventType: "STEAM_TICKET_VERIFY_FAILED", Severity: "MEDIUM",
+		Details: map[string]any{"reason": reason},
+	}, meta)
+	s.recordFailedAudit(ctx, steamID, "STEAM_TICKET_VERIFY_FAILED", failureCode, meta)
+	if cause != nil && s.logger != nil {
+		s.logger.WarnContext(ctx, "Steam ticket verification rejected", "reason", reason, "error", cause)
+	}
+	return &ServiceError{
+		Status: 401, Code: failureCode, Message: "Steam ticket verification failed.",
 	}
 }
 
@@ -686,6 +985,7 @@ var validRiskEventTypes = map[string]bool{
 	"BIND_RATE_LIMITED": true, "REFRESH_TOKEN_REUSE": true, "MULTI_DEVICE_LOGIN": true,
 	"RAPID_IP_CHANGE": true, "MULTI_ACCOUNT_FROM_DEVICE": true, "MULTI_ACCOUNT_FROM_IP": true,
 	"INVALID_STEAM_ID": true, "INVALID_INVITE_CODE": true, "REVOKED_SESSION_USAGE": true,
+	"STEAM_TICKET_VERIFY_FAILED": true, "DEVICE_MISMATCH": true, "INTEGRITY_FAILED": true,
 }
 
 var validRiskSeverities = map[string]bool{"LOW": true, "MEDIUM": true, "HIGH": true, "CRITICAL": true}

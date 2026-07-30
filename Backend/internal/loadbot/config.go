@@ -19,8 +19,9 @@ type Config struct {
 	RequestIntervalMS int    `yaml:"request_interval_ms"`
 	SetupConcurrency  int    `yaml:"setup_concurrency"`
 	Auth              struct {
-		InviteCode      string `yaml:"invite_code"`
-		RefreshInterval string `yaml:"refresh_interval"`
+		InviteCode              string `yaml:"invite_code"`
+		RefreshInterval         string `yaml:"refresh_interval"`
+		UnsafeTestTicketFixture bool   `yaml:"unsafe_test_ticket_fixture"`
 	} `yaml:"auth"`
 	Room struct {
 		Region  string `yaml:"region"`

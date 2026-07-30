@@ -8,6 +8,7 @@ fi
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 load_dir="$(cd -- "$script_dir/.." && pwd)"
+backend_dir="$(cd -- "$load_dir/../.." && pwd)"
 project="${V11_LONGRUN_PROJECT:-project-rebound-v11-longrun-$(date -u +%Y%m%d%H%M%S)}"
 results_dir="${V11_LONGRUN_RESULTS_DIR:-${TMPDIR:-/tmp}/$project-results}"
 harness_revision="${V11_LONGRUN_HARNESS_REVISION:-unknown}"
@@ -22,7 +23,7 @@ case "$project" in
   *) echo "Project name must start with project-rebound-v11-longrun-." >&2; exit 64 ;;
 esac
 
-for command_name in docker openssl curl python3; do
+for command_name in docker openssl curl python3 go; do
   command -v "$command_name" >/dev/null 2>&1 || {
     echo "$command_name is required" >&2
     exit 69
@@ -39,6 +40,13 @@ mkdir -p "$results_dir/scenarios" "$artifacts_dir"
 chmod 755 "$results_dir" "$results_dir/scenarios"
 chown 65532:65532 "$artifacts_dir"
 chmod 700 "$artifacts_dir"
+ticket_verifier_path="$results_dir/test-ticket-verifier"
+(
+  cd "$backend_dir"
+  CGO_ENABLED=0 GOOS=linux go build -trimpath -o "$ticket_verifier_path" ./cmd/test-ticket-verifier
+)
+chmod 755 "$ticket_verifier_path"
+export V11_TEST_TICKET_VERIFIER_HOST_PATH="$ticket_verifier_path"
 
 write_status() {
   local state="$1"

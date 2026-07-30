@@ -5,6 +5,10 @@
 
 这些门有意与普通 Go 模块分开。它们需要 Linux Docker 主机，并且仅创建临时容器、卷、网络、密钥、玩家、房间和中继身份。
 
+集成镜像使用必须显式启用的 `test-ticket-verifier` 测试夹具来覆盖 verified
+Steam 会话。该夹具不解密真实 Steam ticket，也不包含在默认生产镜像 target
+中。隔离测试环境之外绝不能设置 `ALLOW_INSECURE_TEST_TICKET_VERIFIER=1`。
+
 ## 控制平面、两个Relay节点、弱网、短故障恢复
 
 Testcontainers 门显式重建当前源（因此过时的本地映像无法绕过代码更改），启动 PostgreSQL 17、Redis 7、带有集成工作线程的控制平面以及两个 Edge Relay 节点`198.18.11.0/24`。它运行真实的身份验证、房间、WebSocket、中继分配、协议 v2 BIND 和 UDP 数据路径。然后注射轻度、中度和重度`netem`配置文件到一个中继容器中，运行 100 个客户端/50 个分配重新连接风暴，SIGKILL 一个活动中继并要求成功迁移，并在重复干净的端到端流程之前重新启动 Redis、PostgreSQL 和控制平面。重启后准备需要比控制平面重启更新的中继心跳，而不是陈旧的 READY 行。

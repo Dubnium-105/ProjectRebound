@@ -40,6 +40,19 @@ func TestNormalizeStructuredDeviceFingerprint(t *testing.T) {
 	}
 }
 
+func TestNormalizePositionalDeviceFingerprint(t *testing.T) {
+	value, err := NormalizeDeviceID(" Hardware-UUID | Disk-Serial | CPU-ID ")
+	if err != nil || value != "hardware-uuid|disk-serial|cpu-id" {
+		t.Fatalf("NormalizeDeviceID() = %q, %v", value, err)
+	}
+	factors, recognized, err := ParseDeviceFingerprint(value)
+	if err != nil || !recognized || factors.FactorMask != 7 ||
+		factors.SMBIOSUUID != "hardware-uuid" ||
+		factors.DiskSerial != "disk-serial" || factors.CPUID != "cpu-id" {
+		t.Fatalf("factors = %#v, recognized=%v, err=%v", factors, recognized, err)
+	}
+}
+
 func TestStructuredDeviceFingerprintRejectsMalformedValues(t *testing.T) {
 	for _, invalid := range []string{
 		"v1|uu:short",

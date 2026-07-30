@@ -1,9 +1,24 @@
 package loadbot
 
 import (
+	"encoding/hex"
 	"path/filepath"
+	"strings"
 	"testing"
 )
+
+func TestFixtureEncryptedTicketCarriesIdentityAndUniqueNonce(t *testing.T) {
+	const steamID = "76561198000000000"
+	first := fixtureEncryptedTicket(steamID)
+	second := fixtureEncryptedTicket(steamID)
+	if first == second {
+		t.Fatal("fixture tickets were replayable")
+	}
+	decoded, err := hex.DecodeString(first)
+	if err != nil || !strings.HasPrefix(string(decoded), steamID+"|") {
+		t.Fatalf("fixture ticket = %q, %v", decoded, err)
+	}
+}
 
 func TestV11ScenarioFilesMatchReleaseGates(t *testing.T) {
 	tests := []struct {
@@ -29,6 +44,9 @@ func TestV11ScenarioFilesMatchReleaseGates(t *testing.T) {
 		}
 		if cfg.Traffic.PacketsPerSecond <= 0 || cfg.Traffic.PayloadBytes <= 0 || cfg.Auth.RefreshInterval == "" {
 			t.Errorf("%s does not exercise traffic and token rotation", test.name)
+		}
+		if !cfg.Auth.UnsafeTestTicketFixture {
+			t.Errorf("%s does not exercise verified Steam sessions", test.name)
 		}
 	}
 }

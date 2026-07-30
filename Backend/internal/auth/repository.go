@@ -61,14 +61,16 @@ func (r *Repository) InsertSession(ctx context.Context, executor Executor, sessi
 	_, err := executor.Exec(ctx, `
 		INSERT INTO auth_sessions (
 			id, player_id, refresh_token_hash, token_family_id, token_version,
+			auth_provider, auth_level, steam_verified,
 			device_id, device_id_hash, device_id_suffix, device_fingerprint_id,
 			ip_address, user_agent, expires_at, created_at
 		) VALUES (
-			$1, $2, $3, $4, $5, NULL, $6, NULLIF($7, ''), NULLIF($8, ''),
-			NULLIF($9, '')::inet, NULLIF($10, ''), $11, $12
+			$1, $2, $3, $4, $5, $6, $7, $8, NULL, $9, NULLIF($10, ''), NULLIF($11, ''),
+			NULLIF($12, '')::inet, NULLIF($13, ''), $14, $15
 		)
 	`, session.ID, session.PlayerID, session.RefreshTokenHash, session.TokenFamilyID,
-		session.TokenVersion, session.DeviceIDHash, session.DeviceIDSuffix, session.DeviceFingerprintID,
+		session.TokenVersion, session.AuthProvider, session.AuthLevel, session.SteamVerified,
+		session.DeviceIDHash, session.DeviceIDSuffix, session.DeviceFingerprintID,
 		session.IPAddress, session.UserAgent,
 		session.ExpiresAt, session.CreatedAt)
 	if err != nil {
@@ -137,6 +139,43 @@ func (r *Repository) RevokeSession(ctx context.Context, executor Executor, sessi
 		return fmt.Errorf("revoke auth session: %w", err)
 	}
 	return nil
+}
+
+func (r *Repository) PromoteIntegrityTrusted(
+	ctx context.Context,
+	tx pgx.Tx,
+	sessionID string,
+	playerID string,
+	now time.Time,
+) (bool, error) {
+	tag, err := tx.Exec(ctx, `
+		UPDATE auth_sessions
+		SET auth_level = 'trusted',
+		    last_used_at = $3
+		WHERE id = $1
+		  AND player_id = $2
+		  AND auth_level IN ('verified', 'trusted')
+		  AND steam_verified = TRUE
+		  AND revoked_at IS NULL
+		  AND expires_at > $3
+	`, sessionID, playerID, now)
+	if err != nil {
+		return false, fmt.Errorf("promote integrity session: %w", err)
+	}
+	if tag.RowsAffected() != 1 {
+		return false, nil
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE players
+		SET auth_provider = 'steam_ticket',
+		    auth_level = 'trusted',
+		    updated_at = $2
+		WHERE id = $1
+		  AND auth_level IN ('verified', 'trusted')
+	`, playerID, now); err != nil {
+		return false, fmt.Errorf("promote player integrity level: %w", err)
+	}
+	return true, nil
 }
 
 func (r *Repository) RevokePlayerSessions(ctx context.Context, executor Executor, playerID string, now time.Time, reason string) (int64, error) {
@@ -269,13 +308,16 @@ func (r *Repository) InsertAudit(ctx context.Context, executor Executor, event A
 	_, err := executor.Exec(ctx, `
 		INSERT INTO auth_login_audit_logs (
 			id, player_id, steam_id, event, success, failure_code,
-			request_id, ip_address, user_agent, created_at
+			request_id, ip_address, user_agent, device_id_hash,
+			device_fingerprint_id, created_at
 		) VALUES (
 			$1, NULLIF($2, ''), NULLIF($3, ''), $4, $5, NULLIF($6, ''),
-			NULLIF($7, ''), NULLIF($8, '')::inet, NULLIF($9, ''), $10
+			NULLIF($7, ''), NULLIF($8, '')::inet, NULLIF($9, ''), $10,
+			NULLIF($11, ''), $12
 		)
 	`, event.ID, event.PlayerID, event.SteamID, event.Event, event.Success,
-		event.FailureCode, event.RequestID, event.IPAddress, event.UserAgent, event.CreatedAt)
+		event.FailureCode, event.RequestID, event.IPAddress, event.UserAgent,
+		event.DeviceIDHash, event.DeviceFingerprintID, event.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("insert authentication audit event: %w", err)
 	}
@@ -316,8 +358,59 @@ func (r *Repository) InsertLoginEvent(ctx context.Context, executor Executor, ev
 	return nil
 }
 
+func (r *Repository) InsertTicketVerification(
+	ctx context.Context,
+	executor Executor,
+	verification TicketVerification,
+) (bool, error) {
+	tag, err := executor.Exec(ctx, `
+		INSERT INTO auth_steam_ticket_verifications (
+			id, player_id, steam_id, app_id, ticket_hash, issue_time, verified_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (ticket_hash) DO NOTHING
+	`, verification.ID, verification.PlayerID, verification.SteamID, int64(verification.AppID),
+		verification.TicketHash, verification.IssueTime, verification.VerifiedAt)
+	if err != nil {
+		return false, fmt.Errorf("insert Steam ticket verification: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
+func (r *Repository) IsDeviceFingerprintBanned(
+	ctx context.Context,
+	queryer Executor,
+	fingerprintID string,
+) (bool, error) {
+	if fingerprintID == "" {
+		return false, nil
+	}
+	var banned bool
+	err := queryer.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM auth_device_fingerprints AS fingerprint
+			JOIN ban_device_fingerprint AS ban
+			  ON ban.digest_key_id = fingerprint.digest_key_id
+			WHERE fingerprint.id = $1
+			  AND (
+			      CASE WHEN ban.uuid_hash IS NOT NULL
+			             AND ban.uuid_hash = fingerprint.smbios_uuid_digest THEN 1 ELSE 0 END +
+			      CASE WHEN ban.disk_hash IS NOT NULL
+			             AND ban.disk_hash = fingerprint.disk_serial_digest THEN 1 ELSE 0 END +
+			      CASE WHEN ban.cpu_hash IS NOT NULL
+			             AND ban.cpu_hash = fingerprint.cpu_id_digest THEN 1 ELSE 0 END
+			  ) >= 2
+		)
+	`, fingerprintID).Scan(&banned)
+	if err != nil {
+		return false, fmt.Errorf("check device fingerprint ban: %w", err)
+	}
+	return banned, nil
+}
+
 const sessionSelect = `
 	SELECT id, player_id, refresh_token_hash, token_family_id, token_version,
+	       auth_provider, auth_level, steam_verified,
 	       device_id_hash, COALESCE(device_id_suffix, RIGHT(device_id, 4), ''),
 	       COALESCE(device_fingerprint_id, ''),
 	       COALESCE(ip_address::text, ''), COALESCE(user_agent, ''),
@@ -335,6 +428,9 @@ func scanSession(row pgx.Row) (Session, error) {
 		&session.RefreshTokenHash,
 		&session.TokenFamilyID,
 		&session.TokenVersion,
+		&session.AuthProvider,
+		&session.AuthLevel,
+		&session.SteamVerified,
 		&session.DeviceIDHash,
 		&session.DeviceIDSuffix,
 		&session.DeviceFingerprintID,

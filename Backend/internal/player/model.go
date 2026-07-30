@@ -12,7 +12,10 @@ const (
 
 const (
 	AuthProviderSteamClientAsserted = "steam_client_asserted"
+	AuthProviderSteamTicket         = "steam_ticket"
 	AuthLevelUnverified             = "unverified"
+	AuthLevelVerified               = "verified"
+	AuthLevelTrusted                = "trusted"
 )
 
 type Player struct {

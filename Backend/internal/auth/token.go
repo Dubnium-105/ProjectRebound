@@ -16,15 +16,17 @@ import (
 )
 
 type AccessClaims struct {
-	Issuer       string `json:"iss"`
-	Audience     string `json:"aud"`
-	Subject      string `json:"sub"`
-	SessionID    string `json:"sid"`
-	Provider     string `json:"provider"`
-	AuthLevel    string `json:"auth_level"`
-	IssuedAt     int64  `json:"iat"`
-	ExpiresAt    int64  `json:"exp"`
-	TokenVersion int    `json:"token_version"`
+	Issuer        string `json:"iss"`
+	Audience      string `json:"aud"`
+	Subject       string `json:"sub"`
+	UserID        string `json:"user_id"`
+	SessionID     string `json:"sid"`
+	Provider      string `json:"provider"`
+	AuthLevel     string `json:"auth_level"`
+	SteamVerified bool   `json:"steam_verified"`
+	IssuedAt      int64  `json:"iat"`
+	ExpiresAt     int64  `json:"exp"`
+	TokenVersion  int    `json:"token_version"`
 }
 
 type tokenHeader struct {
@@ -135,15 +137,17 @@ func (m *TokenManager) Sign(playerID, sessionID, provider, authLevel string, tok
 		return "", time.Time{}, err
 	}
 	claimsBytes, err := json.Marshal(AccessClaims{
-		Issuer:       m.issuer,
-		Audience:     m.audience,
-		Subject:      playerID,
-		SessionID:    sessionID,
-		Provider:     provider,
-		AuthLevel:    authLevel,
-		IssuedAt:     now.Unix(),
-		ExpiresAt:    expiresAt.Unix(),
-		TokenVersion: tokenVersion,
+		Issuer:        m.issuer,
+		Audience:      m.audience,
+		Subject:       playerID,
+		UserID:        playerID,
+		SessionID:     sessionID,
+		Provider:      provider,
+		AuthLevel:     authLevel,
+		SteamVerified: authLevel == "verified" || authLevel == "trusted",
+		IssuedAt:      now.Unix(),
+		ExpiresAt:     expiresAt.Unix(),
+		TokenVersion:  tokenVersion,
 	})
 	if err != nil {
 		return "", time.Time{}, err
@@ -180,7 +184,8 @@ func (m *TokenManager) Verify(token string) (AccessClaims, error) {
 	}
 	now := m.now().UTC()
 	if claims.Issuer != m.issuer || claims.Audience != m.audience ||
-		claims.Subject == "" || claims.SessionID == "" || claims.Provider == "" || claims.AuthLevel == "" ||
+		claims.Subject == "" || (claims.UserID != "" && claims.UserID != claims.Subject) ||
+		claims.SessionID == "" || claims.Provider == "" || claims.AuthLevel == "" ||
 		claims.TokenVersion < 1 || claims.IssuedAt < 1 || claims.ExpiresAt <= claims.IssuedAt {
 		return AccessClaims{}, errors.New("invalid access token claims")
 	}

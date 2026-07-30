@@ -107,15 +107,17 @@ func (r *Repository) UpsertSteamIdentity(
 	playerID string,
 	steamID string,
 	personaName string,
+	authProvider string,
+	authLevel string,
 	now time.Time,
 ) (Player, bool, error) {
 	tag, err := tx.Exec(ctx, `
 		INSERT INTO players (
 			id, steam_id, persona_name, account_status, is_vip,
 			auth_provider, auth_level, last_login_at, created_at, updated_at
-		) VALUES ($1, $2, $3, 'ACTIVE', FALSE, 'steam_client_asserted', 'unverified', $4, $4, $4)
+		) VALUES ($1, $2, $3, 'ACTIVE', FALSE, $4, $5, $6, $6, $6)
 		ON CONFLICT (steam_id) DO NOTHING
-	`, playerID, steamID, personaName, now)
+	`, playerID, steamID, personaName, authProvider, authLevel, now)
 	if err != nil {
 		return Player{}, false, fmt.Errorf("insert Steam player: %w", err)
 	}
@@ -123,11 +125,24 @@ func (r *Repository) UpsertSteamIdentity(
 
 	row := tx.QueryRow(ctx, `
 		UPDATE players
-		SET persona_name = $2, last_login_at = $3, updated_at = $3
+		SET persona_name = $2,
+		    auth_provider = CASE
+		        WHEN auth_level = 'trusted' THEN auth_provider
+		        WHEN $4 IN ('verified', 'trusted') THEN $5
+		        ELSE auth_provider
+		    END,
+		    auth_level = CASE
+		        WHEN auth_level = 'trusted' THEN auth_level
+		        WHEN $4 = 'trusted' THEN 'trusted'
+		        WHEN $4 = 'verified' THEN 'verified'
+		        ELSE auth_level
+		    END,
+		    last_login_at = $3,
+		    updated_at = $3
 		WHERE steam_id = $1
 		RETURNING id, steam_id, persona_name, account_status, is_vip,
 		          auth_provider, auth_level, last_login_at, created_at, updated_at
-	`, steamID, personaName, now)
+	`, steamID, personaName, now, authLevel, authProvider)
 	item, err := scanPlayer(row)
 	if err != nil {
 		return Player{}, false, fmt.Errorf("load Steam player after upsert: %w", err)

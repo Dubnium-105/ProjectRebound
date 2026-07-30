@@ -21,3 +21,40 @@ func TestRequireActiveRejectsBannedPlayer(t *testing.T) {
 		t.Fatalf("status = %d", recorder.Code)
 	}
 }
+
+func TestRequireVerifiedUsesSessionAuthenticationLevel(t *testing.T) {
+	handler := RequireVerified(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	for _, test := range []struct {
+		name      string
+		principal *Principal
+		status    int
+	}{
+		{
+			name: "verified",
+			principal: &Principal{
+				AuthLevel: player.AuthLevelVerified, SteamVerified: true,
+			},
+			status: http.StatusNoContent,
+		},
+		{
+			name: "unverified player with globally verified profile",
+			principal: &Principal{
+				Player:    player.Player{AuthLevel: player.AuthLevelVerified},
+				AuthLevel: player.AuthLevelUnverified, SteamVerified: false,
+			},
+			status: http.StatusForbidden,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/v1/p2p-rooms", nil)
+			request = request.WithContext(context.WithValue(request.Context(), principalKey, test.principal))
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, request)
+			if recorder.Code != test.status {
+				t.Fatalf("status = %d, want %d", recorder.Code, test.status)
+			}
+		})
+	}
+}

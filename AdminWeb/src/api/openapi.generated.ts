@@ -13,7 +13,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Accepts a client-asserted SteamID. Optional device and invite fields are backwards-compatible; device_id is only a risk signal and does not prove identity. */
+        /** @description Binds a Steam identity and creates the existing JWT/refresh-token session. encrypted_ticket is optional for legacy compatibility. When present it is decrypted by the configured external verifier, and the identity from the ticket is authoritative. Invalid, expired, replayed, wrong-AppID, or SteamID-mismatched tickets are rejected. */
         post: operations["bindSteamIdentity"];
         delete?: never;
         options?: never;
@@ -47,6 +47,60 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/integrity/challenge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Replaces any outstanding one-time nonce for the authenticated Steam-ticket session. Returns an empty nonce when no in-memory ticket is available. */
+        post: operations["createIntegrityChallenge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/integrity/proof": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Verifies SHA-256 over the configured ToolBox PEM bytes, the current session's raw encrypted Steam ticket, and the one-time nonce. A successful proof promotes the session to trusted. Three consecutive failures revoke it. */
+        post: operations["submitIntegrityProof"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/integrity/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @deprecated
+         * @description Compatibility alias for POST /v1/integrity/proof.
+         */
+        post: operations["verifyIntegrityChallenge"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1990,12 +2044,14 @@ export interface components {
             steam_id: string;
             persona_name: string;
             /**
-             * @description Optional untrusted risk signal. New clients should send v1|uu:<16 lowercase hex>|ds:<16 lowercase hex>|cp:<16 lowercase hex>; factors may be omitted when unavailable. The server also accepts the current unversioned uu:...|ds:...|cp:... form and canonicalizes factor order and case. Legacy opaque printable-ASCII values remain accepted.
-             * @example v1|uu:b09bc26d38bb76d6|ds:a867d4d49d01c90a|cp:f846ffb743eca479
+             * @description Optional untrusted risk signal. New clients may send uuid|disk|cpu; each factor is independently HMAC-hashed. The existing versioned v1|uu:<16 hex>|ds:<16 hex>|cp:<16 hex> representation remains accepted, as do legacy opaque printable-ASCII values without pipes.
+             * @example hardware-uuid|disk-serial|cpu-id
              */
             device_id?: string;
             /** @description Optional unless the server has auth.invite_required enabled. */
             invite_code?: string;
+            /** @description Optional Steam Encrypted App Ticket encoded as hexadecimal. The plaintext ticket is never persisted. Supplying an invalid ticket fails the request rather than falling back to unverified. */
+            encrypted_ticket?: string;
         };
         RefreshRequest: {
             refresh_token: string;
@@ -2019,9 +2075,34 @@ export interface components {
             profile: components["schemas"]["PlayerProfile"];
             session: components["schemas"]["SessionTokens"];
             is_new_player: boolean;
+            /** @enum {string} */
+            auth_level: "unverified" | "verified" | "trusted";
+            steam_verified: boolean;
+            integrity_challenge: components["schemas"]["IntegrityChallengeData"];
         };
         BindResponse: {
             data: components["schemas"]["BindData"];
+            request_id: string;
+        };
+        IntegrityChallengeData: {
+            /** @description Empty for sessions without an in-memory verified Steam ticket. */
+            nonce: string;
+        };
+        IntegrityChallengeResponse: {
+            data: components["schemas"]["IntegrityChallengeData"];
+            request_id: string;
+        };
+        IntegrityProofRequest: {
+            nonce: string;
+            proof: string;
+            /** @enum {string} */
+            component: "toolbox";
+        };
+        IntegrityProofData: {
+            ok: boolean;
+        };
+        IntegrityProofResponse: {
+            data: components["schemas"]["IntegrityProofData"];
             request_id: string;
         };
         RefreshData: {
@@ -3831,6 +3912,16 @@ export interface operations {
                 };
             };
             400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description The matching device fingerprint is restricted. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             429: components["responses"]["RateLimited"];
         };
     };
@@ -3878,6 +3969,79 @@ export interface operations {
                     "application/json": components["schemas"]["LogoutResponse"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createIntegrityChallenge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ephemeral one-time integrity challenge. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrityChallengeResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    submitIntegrityProof: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IntegrityProofRequest"];
+            };
+        };
+        responses: {
+            /** @description Proof result. Invalid proofs intentionally use the same response shape. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrityProofResponse"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    verifyIntegrityChallenge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IntegrityProofRequest"];
+            };
+        };
+        responses: {
+            /** @description Proof result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrityProofResponse"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthorized"];
         };
     };

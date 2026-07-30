@@ -84,6 +84,17 @@ type AuthConfig struct {
 	InviteRequired                 bool                    `yaml:"invite_required"`
 	DeviceFingerprintKeyID         string                  `yaml:"device_fingerprint_key_id"`
 	DeviceFingerprintHMACKeyBase64 string                  `yaml:"-"`
+	SteamAppID                     uint32                  `yaml:"steam_app_id"`
+	TicketVerifierExecutable       string                  `yaml:"ticket_verifier_executable"`
+	TicketVerifierTimeoutSeconds   int                     `yaml:"ticket_verifier_timeout_seconds"`
+	TicketMaximumAgeSeconds        int                     `yaml:"ticket_maximum_age_seconds"`
+	TicketClockSkewSeconds         int                     `yaml:"ticket_clock_skew_seconds"`
+	TicketMaximumHexBytes          int                     `yaml:"ticket_maximum_hex_bytes"`
+	TicketMaximumOutputBytes       int                     `yaml:"ticket_maximum_output_bytes"`
+	IntegrityPublicKeyPath         string                  `yaml:"integrity_public_key_path"`
+	IntegrityPublicKeyPEM          string                  `yaml:"-"`
+	IntegrityChallengeTTLSeconds   int                     `yaml:"integrity_challenge_ttl_seconds"`
+	IntegrityMaximumFailures       int                     `yaml:"integrity_maximum_failures"`
 	BindRateLimit                  AuthBindRateLimitConfig `yaml:"bind_rate_limit"`
 	// Deprecated: retained so existing configuration files continue to load.
 	BindRequestsPerMinute int `yaml:"bind_requests_per_minute"`
@@ -250,13 +261,22 @@ var Defaults = Config{
 		Burst:             50,
 	},
 	Auth: AuthConfig{
-		Issuer:                 "game-control-plane",
-		Audience:               "game-client",
-		AccessTokenKeyID:       "access-dev-ephemeral",
-		AccessTokenTTLMinutes:  15,
-		RefreshTokenTTLDays:    30,
-		DefaultPersonaName:     "Player",
-		DeviceFingerprintKeyID: "device-fingerprint-v1",
+		Issuer:                       "game-control-plane",
+		Audience:                     "game-client",
+		AccessTokenKeyID:             "access-dev-ephemeral",
+		AccessTokenTTLMinutes:        15,
+		RefreshTokenTTLDays:          30,
+		DefaultPersonaName:           "Player",
+		DeviceFingerprintKeyID:       "device-fingerprint-v1",
+		SteamAppID:                   480,
+		TicketVerifierExecutable:     "decrypt-ticket.exe",
+		TicketVerifierTimeoutSeconds: 3,
+		TicketMaximumAgeSeconds:      300,
+		TicketClockSkewSeconds:       60,
+		TicketMaximumHexBytes:        4096,
+		TicketMaximumOutputBytes:     8192,
+		IntegrityChallengeTTLSeconds: 120,
+		IntegrityMaximumFailures:     3,
 		BindRateLimit: AuthBindRateLimitConfig{
 			PerIPPerMinute:      5,
 			PerDevicePerMinute:  3,
@@ -392,6 +412,9 @@ func (c *Config) applyEnvOverrides() {
 	overrideString("ACCESS_TOKEN_KEY_ID", &c.Auth.AccessTokenKeyID)
 	overrideString("DEVICE_FINGERPRINT_KEY_ID", &c.Auth.DeviceFingerprintKeyID)
 	overrideString("DEVICE_FINGERPRINT_HMAC_KEY_BASE64", &c.Auth.DeviceFingerprintHMACKeyBase64)
+	overrideString("STEAM_TICKET_VERIFIER_PATH", &c.Auth.TicketVerifierExecutable)
+	overrideString("TOOLBOX_PUBKEY_PATH", &c.Auth.IntegrityPublicKeyPath)
+	overrideString("TOOLBOX_PUBKEY", &c.Auth.IntegrityPublicKeyPEM)
 	overrideString("ADMIN_TOKENS", &c.Admin.TokenSet)
 	overrideString("ADMIN_ACCESS_TOKEN_PRIVATE_KEY_BASE64", &c.Admin.AccessTokenPrivateKeyBase64)
 	overrideString("ADMIN_ACCESS_TOKEN_PUBLIC_KEY_BASE64", &c.Admin.AccessTokenPublicKeyBase64)
@@ -438,6 +461,14 @@ func (c *Config) applyEnvOverrides() {
 	overrideInt("AUTH_BIND_PER_DEVICE_PER_MINUTE", &c.Auth.BindRateLimit.PerDevicePerMinute)
 	overrideInt("AUTH_BIND_PER_STEAM_ID_PER_MINUTE", &c.Auth.BindRateLimit.PerSteamIDPerMinute)
 	overrideBool("AUTH_INVITE_REQUIRED", &c.Auth.InviteRequired)
+	overrideUint32("STEAM_APP_ID", &c.Auth.SteamAppID)
+	overrideInt("STEAM_TICKET_VERIFIER_TIMEOUT_SECONDS", &c.Auth.TicketVerifierTimeoutSeconds)
+	overrideInt("STEAM_TICKET_MAXIMUM_AGE_SECONDS", &c.Auth.TicketMaximumAgeSeconds)
+	overrideInt("STEAM_TICKET_CLOCK_SKEW_SECONDS", &c.Auth.TicketClockSkewSeconds)
+	overrideInt("STEAM_TICKET_MAXIMUM_HEX_BYTES", &c.Auth.TicketMaximumHexBytes)
+	overrideInt("STEAM_TICKET_MAXIMUM_OUTPUT_BYTES", &c.Auth.TicketMaximumOutputBytes)
+	overrideInt("INTEGRITY_CHALLENGE_TTL_SECONDS", &c.Auth.IntegrityChallengeTTLSeconds)
+	overrideInt("INTEGRITY_MAXIMUM_FAILURES", &c.Auth.IntegrityMaximumFailures)
 	overrideInt("CONNECTION_SESSION_TTL_SECONDS", &c.Connection.SessionTTLSeconds)
 	overrideInt("CONNECTION_SWEEP_INTERVAL_SECONDS", &c.Connection.SweepIntervalSeconds)
 	overrideInt("CONNECTION_WEBSOCKET_QUEUE_SIZE", &c.Connection.WebSocketQueueSize)
@@ -501,6 +532,14 @@ func overrideInt(name string, target *int) {
 	}
 }
 
+func overrideUint32(name string, target *uint32) {
+	if raw := os.Getenv(name); raw != "" {
+		if value, err := strconv.ParseUint(raw, 10, 32); err == nil {
+			*target = uint32(value)
+		}
+	}
+}
+
 func overrideBool(name string, target *bool) {
 	if raw := os.Getenv(name); raw != "" {
 		if value, err := strconv.ParseBool(raw); err == nil {
@@ -554,6 +593,20 @@ func (c *Config) ValidateControlPlane() error {
 	}
 	if c.Auth.AccessTokenTTLMinutes < 1 || c.Auth.RefreshTokenTTLDays < 1 {
 		errs = append(errs, errors.New("auth token lifetimes must be positive"))
+	}
+	if c.Auth.SteamAppID == 0 || strings.TrimSpace(c.Auth.TicketVerifierExecutable) == "" ||
+		c.Auth.TicketVerifierTimeoutSeconds < 1 || c.Auth.TicketMaximumAgeSeconds < 1 ||
+		c.Auth.TicketClockSkewSeconds < 0 || c.Auth.TicketMaximumHexBytes < 2 ||
+		c.Auth.TicketMaximumOutputBytes < 128 {
+		errs = append(errs, errors.New("Steam encrypted ticket settings are invalid"))
+	}
+	if c.Auth.IntegrityChallengeTTLSeconds < 1 || c.Auth.IntegrityMaximumFailures < 1 {
+		errs = append(errs, errors.New("integrity challenge settings are invalid"))
+	}
+	if strings.EqualFold(c.Environment, "production") &&
+		strings.TrimSpace(c.Auth.IntegrityPublicKeyPath) == "" &&
+		strings.TrimSpace(c.Auth.IntegrityPublicKeyPEM) == "" {
+		errs = append(errs, errors.New("TOOLBOX_PUBKEY_PATH or TOOLBOX_PUBKEY is required in production"))
 	}
 	if c.Auth.BindRequestsPerMinute < 1 || c.Auth.BindBurst < 1 ||
 		c.Auth.BindRateLimit.PerIPPerMinute < 1 || c.Auth.BindRateLimit.PerDevicePerMinute < 1 ||

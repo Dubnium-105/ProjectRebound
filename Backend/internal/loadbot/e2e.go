@@ -153,10 +153,14 @@ func (r *Runner) bindClients(ctx context.Context) []*virtualClient {
 				} `json:"data"`
 			}
 			steamID := fmt.Sprintf("7656119%010d", id)
-			err := r.requestJSON(ctx, http.MethodPost, "/v1/auth/bind", "", nil, map[string]any{
+			bindRequest := map[string]any{
 				"steam_id": steamID, "persona_name": fmt.Sprintf("loadbot-%d", id),
 				"device_id": fmt.Sprintf("loadbot-device-%d", id), "invite_code": r.cfg.Auth.InviteCode,
-			}, &response)
+			}
+			if r.cfg.Auth.UnsafeTestTicketFixture {
+				bindRequest["encrypted_ticket"] = fixtureEncryptedTicket(steamID)
+			}
+			err := r.requestJSON(ctx, http.MethodPost, "/v1/auth/bind", "", nil, bindRequest, &response)
 			if err != nil || response.Data.PlayerID == "" || response.Data.Session.AccessToken == "" {
 				r.recordFailure("auth_bind")
 				return

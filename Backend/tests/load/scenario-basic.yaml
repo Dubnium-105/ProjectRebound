@@ -8,6 +8,7 @@ duration: 1h
 request_interval_ms: 1000
 setup_concurrency: 10
 auth:
+  unsafe_test_ticket_fixture: true
   refresh_interval: 10m
 room:
   region: test

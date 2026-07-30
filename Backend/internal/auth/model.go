@@ -12,6 +12,9 @@ type Session struct {
 	RefreshTokenHash    []byte
 	TokenFamilyID       string
 	TokenVersion        int
+	AuthProvider        string
+	AuthLevel           string
+	SteamVerified       bool
 	DeviceIDHash        []byte
 	DeviceIDSuffix      string
 	DeviceFingerprintID string
@@ -35,10 +38,11 @@ type SessionTokens struct {
 }
 
 type BindInput struct {
-	SteamID     string
-	PersonaName string
-	DeviceID    string
-	InviteCode  string
+	SteamID         string
+	PersonaName     string
+	DeviceID        string
+	InviteCode      string
+	EncryptedTicket string
 }
 
 type RequestMeta struct {
@@ -50,9 +54,16 @@ type RequestMeta struct {
 }
 
 type BindResult struct {
-	Player      player.Player
-	Tokens      SessionTokens
-	IsNewPlayer bool
+	Player             player.Player
+	Tokens             SessionTokens
+	IsNewPlayer        bool
+	AuthLevel          string
+	SteamVerified      bool
+	IntegrityChallenge IntegrityChallenge
+}
+
+type IntegrityChallenge struct {
+	Nonce string `json:"nonce"`
 }
 
 type RefreshResult struct {
@@ -60,21 +71,36 @@ type RefreshResult struct {
 }
 
 type Principal struct {
-	Player    player.Player
-	SessionID string
+	Player        player.Player
+	SessionID     string
+	AuthProvider  string
+	AuthLevel     string
+	SteamVerified bool
 }
 
 type AuditEvent struct {
-	ID          string
-	PlayerID    string
-	SteamID     string
-	Event       string
-	Success     bool
-	FailureCode string
-	RequestID   string
-	IPAddress   string
-	UserAgent   string
-	CreatedAt   time.Time
+	ID                  string
+	PlayerID            string
+	SteamID             string
+	Event               string
+	Success             bool
+	FailureCode         string
+	RequestID           string
+	IPAddress           string
+	UserAgent           string
+	DeviceIDHash        []byte
+	DeviceFingerprintID string
+	CreatedAt           time.Time
+}
+
+type TicketVerification struct {
+	ID         string
+	PlayerID   string
+	SteamID    string
+	AppID      uint32
+	TicketHash []byte
+	IssueTime  time.Time
+	VerifiedAt time.Time
 }
 
 type RiskEvent struct {

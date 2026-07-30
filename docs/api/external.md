@@ -48,7 +48,7 @@ The client can send `X-Request-Id`, but the server will verify and normalize it;
 | Game Server Token | `Authorization: Bearer <token>` | Registration response; returned only once | Server heartbeat and deregistration |
 | Room Host Token | `X-Room-Host-Token: <token>` | Room-creation response; returned only once | Host heartbeat, start, and shutdown operations |
 
-Players at `account_status=BANNED` can still bind, refresh, logout, and read personal data, but cannot perform room or connection write operations. Currently bind accepts the SteamID reported by the client, `auth_provider=steam_client_asserted`, `auth_level=unverified`, which cannot prove Steam account ownership.
+Players at `account_status=BANNED` can still bind, refresh, logout, and read personal data, but cannot perform room or connection write operations. A bind without `encrypted_ticket` remains compatible and issues an `unverified` session. A valid Steam Encrypted App Ticket issues a `verified` session; only verified sessions can perform game, room, connection, and MetaServer operations.
 
 ## 3. Endpoint summary
 
@@ -66,13 +66,16 @@ Client configuration does not return specific Relay addresses. The specific endp
 
 | Method | Path | Authentication | Request | Success |
 | --- | --- | --- | --- | --- |
-| POST | `/v1/auth/bind` | None; rate-limited by IP, SteamID, Device ID, and combined dimensions | Required: `steam_id`, `persona_name`; optional: `device_id`, `invite_code` | 200 Player + Access/Refresh Token + `is_new_player` |
+| POST | `/v1/auth/bind` | None; rate-limited by IP, SteamID, Device ID, and combined dimensions | Required: `steam_id`, `persona_name`; optional: `device_id`, `invite_code`, `encrypted_ticket` | 200 Player + Access/Refresh Token + authentication level + initial integrity nonce |
 | POST | `/v1/auth/refresh` | None | `refresh_token` | 200 new Access/Refresh Token; the old Refresh Token expires |
 | POST | `/v1/auth/logout` | Player | None | 200 current session revoked |
 | GET | `/v1/users/me` | Player | None | 200 current player status and permission fields |
 | GET | `/v1/users/me/sessions` | Player | None | 200 active sessions for the current player |
 | DELETE | `/v1/users/me/sessions/{session_id}` | Player | Path session ID | 200 specified session revoked |
 | POST | `/v1/users/me/sessions/revoke-others` | Player | None | 200 all sessions except the current session revoked |
+| POST | `/v1/integrity/challenge` | Player | None | 200 fresh one-time `nonce`; empty when no verified ticket is held in memory |
+| POST | `/v1/integrity/proof` | Player | `nonce`, `proof`, `component=toolbox` | 200 `ok`; success promotes the session to `trusted` |
+| POST | `/v1/integrity/verify` | Player | Same as `/proof` | Deprecated compatibility alias |
 
 Bind example:
 
@@ -83,12 +86,17 @@ Content-Type: application/json
 {
   "steam_id": "76561198000000000",
   "persona_name": "Player",
-  "device_id": "v1|uu:b09bc26d38bb76d6|ds:a867d4d49d01c90a|cp:f846ffb743eca479",
+  "device_id": "hardware-uuid|disk-serial|cpu-id",
+  "encrypted_ticket": "0123456789abcdef",
   "invite_code": "TEST-ABCD-EFGH"
 }
 ```
 
-Old clients can continue to omit the two optional fields or send an opaque installation ID. New clients should send `v1|uu:<digest>|ds:<digest>|cp:<digest>`, where each digest is exactly 16 lowercase hexadecimal characters and represents the client's existing one-way digest of the SMBIOS UUID, disk serial, or CPU ID. A factor may be omitted when unavailable. The server also accepts the current unversioned `uu:...|ds:...|cp:...` form, any factor order, and uppercase hex, then canonicalizes it to version `v1`, lowercase, and `uu`, `ds`, `cp` order. If a value begins with `v1|`, `uu:`, `ds:`, or `cp:`, malformed, duplicate, and unknown factors are rejected with `400 INVALID_REQUEST`.
+Old clients can continue to omit optional fields or send an opaque installation ID; these sessions remain `unverified`. New clients submit a hexadecimal `encrypted_ticket`. The backend passes it only through stdin to the configured external verifier, uses the decrypted SteamID as authoritative, and rejects invalid, expired, replayed, wrong-AppID, or request-mismatched tickets. Plaintext tickets are never persisted.
+
+For a verified bind, `data.integrity_challenge.nonce` contains the first one-time challenge. The client computes `SHA256(PE_certificate_bytes || decoded_encrypted_ticket_bytes || nonce_ascii)` and submits its 64-character hexadecimal digest to `/v1/integrity/proof`. Each challenge replaces the previous nonce. A correct proof sets the session to `trusted`; three consecutive failures revoke it. Challenge and raw-ticket state is process-local, so an empty nonce after a backend restart means the client must bind again.
+
+New clients may send `uuid|disk|cpu`. The server independently HMAC-hashes each factor. It also accepts `v1|uu:<digest>|ds:<digest>|cp:<digest>`, where each digest is exactly 16 hexadecimal characters. A factor may be omitted in the versioned form. Legacy opaque printable-ASCII values without pipes remain accepted.
 
 `device_id` is up to 128 printable ASCII bytes. It is only used for throttling and risk observation, is not a trusted identity, and will not bypass SteamID unique constraints. The server never stores the three submitted factor values directly: it creates separate domain-separated HMAC-SHA-256 digests plus a composite digest, links the resulting internal fingerprint record to sessions and login/risk events, and does not expose those digests through the external API. Whether to require an invitation code is determined by the server `auth.invite_required` configuration. When the binding exceeds the limit of any dimension, `429 AUTH_BIND_RATE_LIMITED` is returned, and the response contains both `Retry-After` and `details.retry_after_seconds`.
 

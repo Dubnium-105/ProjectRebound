@@ -27,14 +27,17 @@ func TestBindAcceptsOptionalDeviceAndInviteFields(t *testing.T) {
 		"steam_id":"76561198950613585",
 		"persona_name":"STanJK",
 		"device_id":"installation-1234",
-		"invite_code":"TEST-ABCD-EFGH"
+		"invite_code":"TEST-ABCD-EFGH",
+		"encrypted_ticket":"012345abcdef"
 	}`))
 	recorder := httptest.NewRecorder()
 	handler.Bind(recorder, req)
 	if recorder.Code != 200 || !service.bindCalled {
 		t.Fatalf("status=%d bindCalled=%v body=%s", recorder.Code, service.bindCalled, recorder.Body.String())
 	}
-	if service.bindInput.DeviceID != "installation-1234" || service.bindInput.InviteCode != "TEST-ABCD-EFGH" {
+	if service.bindInput.DeviceID != "installation-1234" ||
+		service.bindInput.InviteCode != "TEST-ABCD-EFGH" ||
+		service.bindInput.EncryptedTicket != "012345abcdef" {
 		t.Fatalf("bind input = %#v", service.bindInput)
 	}
 }
