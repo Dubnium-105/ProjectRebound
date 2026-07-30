@@ -23,12 +23,24 @@ type virtualClient struct {
 	refreshToken string
 }
 
-func (c *virtualClient) access() string  { c.mu.RLock(); defer c.mu.RUnlock(); return c.accessToken }
-func (c *virtualClient) refresh() string { c.mu.RLock(); defer c.mu.RUnlock(); return c.refreshToken }
-func (c *virtualClient) updateTokens(access, refresh string) {
+func (c *virtualClient) withAccessToken(request func(string) error) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return request(c.accessToken)
+}
+
+func (c *virtualClient) rotateTokens(
+	refresh func(string) (accessToken string, refreshToken string, err error),
+) error {
 	c.mu.Lock()
-	c.accessToken, c.refreshToken = access, refresh
-	c.mu.Unlock()
+	defer c.mu.Unlock()
+
+	accessToken, refreshToken, err := refresh(c.refreshToken)
+	if err != nil {
+		return err
+	}
+	c.accessToken, c.refreshToken = accessToken, refreshToken
+	return nil
 }
 
 type roomFixture struct {
@@ -111,8 +123,8 @@ func (r *Runner) runEndToEnd(ctx context.Context) {
 	cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	for _, pair := range pairs {
-		if err := r.requestJSON(cleanupCtx, http.MethodDelete, "/v1/connections/"+pair.connectionID,
-			pair.clients[0].access(), nil, nil, nil); err != nil {
+		if err := r.requestJSONAs(cleanupCtx, pair.clients[0], http.MethodDelete,
+			"/v1/connections/"+pair.connectionID, nil, nil, nil); err != nil {
 			r.recordFailure("relay_cleanup")
 		} else {
 			r.mu.Lock()
@@ -122,7 +134,8 @@ func (r *Runner) runEndToEnd(ctx context.Context) {
 		pair.close()
 	}
 	for _, room := range rooms {
-		if err := r.requestJSON(cleanupCtx, http.MethodDelete, "/v1/p2p-rooms/"+room.id, room.host.access(),
+		if err := r.requestJSONAs(cleanupCtx, room.host, http.MethodDelete,
+			"/v1/p2p-rooms/"+room.id,
 			map[string]string{"X-Room-Host-Token": room.hostToken}, nil, nil); err != nil {
 			r.recordFailure("room_cleanup")
 		}
@@ -190,7 +203,7 @@ func (r *Runner) createRooms(ctx context.Context, clients []*virtualClient) []ro
 				HostToken string `json:"host_token"`
 			} `json:"data"`
 		}
-		err := r.requestJSON(ctx, http.MethodPost, "/v1/p2p-rooms", host.access(), nil, map[string]any{
+		err := r.requestJSONAs(ctx, host, http.MethodPost, "/v1/p2p-rooms", nil, map[string]any{
 			"display_name": fmt.Sprintf("loadbot-room-%d", index), "region": r.cfg.Room.Region,
 			"mode": r.cfg.Room.Mode, "version": r.cfg.Room.Version, "max_players": 2,
 		}, &created)
@@ -198,7 +211,8 @@ func (r *Runner) createRooms(ctx context.Context, clients []*virtualClient) []ro
 			r.recordFailure("room_create")
 			continue
 		}
-		if err := r.requestJSON(ctx, http.MethodPost, "/v1/p2p-rooms/"+created.Data.Room.RoomID+"/join", peer.access(),
+		if err := r.requestJSONAs(ctx, peer, http.MethodPost,
+			"/v1/p2p-rooms/"+created.Data.Room.RoomID+"/join",
 			nil, map[string]string{"version": r.cfg.Room.Version}, nil); err != nil {
 			r.recordFailure("room_join")
 			continue
@@ -226,8 +240,9 @@ func (r *Runner) createRelayPair(ctx context.Context, room roomFixture, index in
 			ConnectionID string `json:"connection_id"`
 		} `json:"data"`
 	}
-	if err := r.requestJSON(ctx, http.MethodPost, "/v1/connections", room.host.access(), nil,
-		map[string]string{"room_id": room.id, "peer_player_id": room.peer.playerID}, &connectionResponse); err != nil {
+	if err := r.requestJSONAs(ctx, room.host, http.MethodPost, "/v1/connections", nil,
+		map[string]string{"room_id": room.id, "peer_player_id": room.peer.playerID},
+		&connectionResponse); err != nil {
 		_ = hostSocket.CloseNow()
 		_ = peerSocket.CloseNow()
 		return nil, err
@@ -252,7 +267,9 @@ func (r *Runner) createRelayPair(ctx context.Context, room roomFixture, index in
 				State string `json:"state"`
 			} `json:"data"`
 		}
-		if err := r.requestJSON(ctx, http.MethodGet, "/v1/connections/"+connectionID, room.host.access(), nil, nil, &current); err == nil && current.Data.State == "CHECKING_DIRECT" {
+		if err := r.requestJSONAs(ctx, room.host, http.MethodGet,
+			"/v1/connections/"+connectionID, nil, nil, &current); err == nil &&
+			current.Data.State == "CHECKING_DIRECT" {
 			ready = true
 			break
 		}
@@ -312,8 +329,13 @@ func (r *Runner) openWebSocket(ctx context.Context, client *virtualClient) (*web
 		url = strings.Replace(r.cfg.ControlPlaneURL, "http://", "ws://", 1)
 		url = strings.Replace(url, "https://", "wss://", 1) + "/v1/realtime/connect"
 	}
-	header := http.Header{"Authorization": []string{"Bearer " + client.access()}}
-	socket, _, err := websocket.Dial(ctx, url, &websocket.DialOptions{HTTPHeader: header})
+	var socket *websocket.Conn
+	err := client.withAccessToken(func(accessToken string) error {
+		header := http.Header{"Authorization": []string{"Bearer " + accessToken}}
+		var dialErr error
+		socket, _, dialErr = websocket.Dial(ctx, url, &websocket.DialOptions{HTTPHeader: header})
+		return dialErr
+	})
 	return socket, err
 }
 
@@ -349,8 +371,10 @@ func (r *Runner) runRoomHeartbeats(ctx context.Context, rooms []roomFixture) {
 			return
 		case <-ticker.C:
 			for _, room := range rooms {
-				if err := r.requestJSON(ctx, http.MethodPost, "/v1/p2p-rooms/"+room.id+"/heartbeat", room.host.access(),
-					map[string]string{"X-Room-Host-Token": room.hostToken}, nil, nil); err != nil && ctx.Err() == nil {
+				if err := r.requestJSONAs(ctx, room.host, http.MethodPost,
+					"/v1/p2p-rooms/"+room.id+"/heartbeat",
+					map[string]string{"X-Room-Host-Token": room.hostToken},
+					nil, nil); err != nil && ctx.Err() == nil {
 					r.recordFailure("room_heartbeat")
 				}
 			}
@@ -535,25 +559,55 @@ func (r *Runner) runTokenRefresh(ctx context.Context, clients []*virtualClient) 
 			return
 		case <-ticker.C:
 			for _, client := range clients {
-				var response struct {
-					Data struct {
-						Session struct {
-							AccessToken  string `json:"access_token"`
-							RefreshToken string `json:"refresh_token"`
-						} `json:"session"`
-					} `json:"data"`
-				}
-				if err := r.requestJSON(ctx, http.MethodPost, "/v1/auth/refresh", "", nil, map[string]string{"refresh_token": client.refresh()}, &response); err != nil {
+				if err := client.rotateTokens(func(refreshToken string) (string, string, error) {
+					var response struct {
+						Data struct {
+							Session struct {
+								AccessToken  string `json:"access_token"`
+								RefreshToken string `json:"refresh_token"`
+							} `json:"session"`
+						} `json:"data"`
+					}
+					err := r.requestJSON(
+						ctx,
+						http.MethodPost,
+						"/v1/auth/refresh",
+						"",
+						nil,
+						map[string]string{"refresh_token": refreshToken},
+						&response,
+					)
+					if err != nil {
+						return "", "", err
+					}
+					if response.Data.Session.AccessToken == "" ||
+						response.Data.Session.RefreshToken == "" {
+						return "", "", fmt.Errorf("refresh response did not contain both tokens")
+					}
+					return response.Data.Session.AccessToken, response.Data.Session.RefreshToken, nil
+				}); err != nil {
 					r.mu.Lock()
 					r.report.TokenRefreshFailures++
 					r.mu.Unlock()
 					r.recordFailure("token_refresh")
-					continue
 				}
-				client.updateTokens(response.Data.Session.AccessToken, response.Data.Session.RefreshToken)
 			}
 		}
 	}
+}
+
+func (r *Runner) requestJSONAs(
+	ctx context.Context,
+	client *virtualClient,
+	method string,
+	path string,
+	headers map[string]string,
+	body any,
+	result any,
+) error {
+	return client.withAccessToken(func(accessToken string) error {
+		return r.requestJSON(ctx, method, path, accessToken, headers, body, result)
+	})
 }
 
 func (p *relayPair) close() {

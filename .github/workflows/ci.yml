@@ -94,9 +94,10 @@ jobs:
       - name: Check known Go vulnerabilities
         run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
-      - name: Build control plane, MetaServer, MetaTunnel and edge relay
+      - name: Build control plane, Steam ticket verifier, MetaServer, MetaTunnel and edge relay
         run: |
           go build -trimpath ./cmd/control-plane
+          go build -trimpath ./cmd/decrypt-ticket
           go build -trimpath ./cmd/meta-server
           go build -trimpath ./cmd/meta-import
           go build -trimpath ./cmd/edge-relay
@@ -256,15 +257,27 @@ jobs:
         env:
           V11_INTEGRATION_I_UNDERSTAND: disposable-docker-stack
           TESTCONTAINERS_RYUK_DISABLED: "true"
-        run: bash ./run-gate.sh
+        run: |
+          set -o pipefail
+          bash ./run-gate.sh 2>&1 | tee integration-gate.log
 
       - name: Validate public Caddy policy
+        if: ${{ !cancelled() }}
         run: |
           docker run --rm \
             -e PUBLIC_API_SITE=http://:80 \
             -e ADMIN_WEB_SITE=http://admin.localhost \
             -v "$GITHUB_WORKSPACE/Backend/deployments/control-plane/Caddyfile:/etc/caddy/Caddyfile:ro" \
             caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
+
+      - name: Upload integration diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: v11-integration-${{ github.sha }}-${{ github.run_attempt }}
+          path: Backend/tests/integration/integration-gate.log
+          if-no-files-found: warn
+          retention-days: 7
 
   container-images:
     name: Build and package ${{ matrix.name }} image
@@ -380,6 +393,12 @@ jobs:
         run: |
           mkdir -p release-record
           definitions_sha256="$(sha256sum Backend/internal/metaserver/assets/definitions/MANIFEST.sha256 | cut -d' ' -f1)"
+          latest_migration="$(find Backend/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | tail -n 1)"
+          if [[ ! "$latest_migration" =~ ^([0-9]+)_ ]]; then
+            echo "Unable to derive database schema version from Backend/migrations" >&2
+            exit 1
+          fi
+          database_schema_version="$((10#${BASH_REMATCH[1]}))"
           printf '%s\n' \
             "git_commit=${GITHUB_SHA}" \
             "build_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -388,7 +407,7 @@ jobs:
             "image_digest=${IMAGE_DIGEST}" \
             "relay_protocol_version=2" \
             "meta_protocol_version=1" \
-            "database_schema_version=28" \
+            "database_schema_version=${database_schema_version}" \
             "definitions_sha256=${definitions_sha256}" \
             "definitions_upstream_commit=d68e717267abf14e32d4e39618f9b7680ed93046" \
             > "release-record/${{ matrix.name }}.txt"

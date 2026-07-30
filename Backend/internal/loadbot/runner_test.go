@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestRequestFailureCategoryNormalizesIdentifiers(t *testing.T) {
@@ -30,5 +31,61 @@ func TestRunnerCollectsConcurrentRequestResults(t *testing.T) {
 	report := New(cfg).Run(t.Context())
 	if report.SuccessfulRequests == 0 || report.FailedRequests != 0 || report.P95MS < 0 {
 		t.Fatalf("report=%#v", report)
+	}
+}
+
+func TestVirtualClientSerializesTokenRotationWithAuthenticatedRequests(t *testing.T) {
+	client := &virtualClient{
+		accessToken:  "access-v1",
+		refreshToken: "refresh-v1",
+	}
+	requestStarted := make(chan string, 1)
+	releaseRequest := make(chan struct{})
+	requestDone := make(chan error, 1)
+	go func() {
+		requestDone <- client.withAccessToken(func(accessToken string) error {
+			requestStarted <- accessToken
+			<-releaseRequest
+			return nil
+		})
+	}()
+	if accessToken := <-requestStarted; accessToken != "access-v1" {
+		t.Fatalf("authenticated request used %q", accessToken)
+	}
+
+	rotationStarted := make(chan struct{})
+	rotationInvoked := make(chan string, 1)
+	rotationDone := make(chan error, 1)
+	go func() {
+		close(rotationStarted)
+		rotationDone <- client.rotateTokens(func(refreshToken string) (string, string, error) {
+			rotationInvoked <- refreshToken
+			return "access-v2", "refresh-v2", nil
+		})
+	}()
+	<-rotationStarted
+	select {
+	case refreshToken := <-rotationInvoked:
+		t.Fatalf("rotation used %q before the authenticated request completed", refreshToken)
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	close(releaseRequest)
+	if err := <-requestDone; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-rotationDone; err != nil {
+		t.Fatal(err)
+	}
+	if refreshToken := <-rotationInvoked; refreshToken != "refresh-v1" {
+		t.Fatalf("rotation used %q", refreshToken)
+	}
+	if err := client.withAccessToken(func(accessToken string) error {
+		if accessToken != "access-v2" {
+			t.Fatalf("next authenticated request used %q", accessToken)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
 	}
 }
