@@ -25,6 +25,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   deploy-control-plane:
@@ -93,8 +94,8 @@ jobs:
           CONTROL_PLANE_ENV_FILE: ${{ vars.CONTROL_PLANE_ENV_FILE }}
           PUBLIC_BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
           ENABLE_MONITORING: ${{ vars.ENABLE_MONITORING || '1' }}
-          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ github.token }}
         run: Backend/scripts/deploy-over-ssh.sh
 
   deploy-meta-server:
@@ -167,12 +168,12 @@ jobs:
           CONTROL_PLANE_ENV_FILE: ${{ vars.CONTROL_PLANE_ENV_FILE }}
           PUBLIC_BASE_URL: ${{ vars.META_PUBLIC_BASE_URL }}
           ENABLE_MONITORING: "0"
-          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ github.token }}
         run: Backend/scripts/deploy-over-ssh.sh
 
   deploy-edge-relay:
-    name: Deploy edge relay
+    name: Deploy edge relay (${{ matrix.node }})
     if: >-
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
@@ -182,10 +183,14 @@ jobs:
        (inputs.target == 'all' || inputs.target == 'edge-relay'))
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [gateway, hgh]
     environment:
-      name: ${{ github.event_name == 'workflow_run' && 'staging-edge-relay' || format('{0}-edge-relay', inputs.environment) }}
+      name: ${{ github.event_name == 'workflow_run' && format('staging-edge-relay-{0}', matrix.node) || format('{0}-edge-relay-{1}', inputs.environment, matrix.node) }}
     concurrency:
-      group: deploy-${{ github.event_name == 'workflow_run' && 'staging' || inputs.environment }}-edge-relay
+      group: deploy-${{ github.event_name == 'workflow_run' && 'staging' || inputs.environment }}-edge-relay-${{ matrix.node }}
       cancel-in-progress: false
     steps:
       - name: Resolve deployment SHA
@@ -231,10 +236,10 @@ jobs:
           DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
           DEPLOY_USER: ${{ vars.DEPLOY_USER }}
           DEPLOY_ROOT: ${{ vars.DEPLOY_ROOT }}
-          DEPLOY_RELEASE_ID: ${{ format('sha-{0}-{1}-{2}-edge', steps.revision.outputs.sha, github.run_id, github.run_attempt) }}
+          DEPLOY_RELEASE_ID: ${{ format('sha-{0}-{1}-{2}-edge-{3}', steps.revision.outputs.sha, github.run_id, github.run_attempt, matrix.node) }}
           DEPLOY_IMAGE: ${{ steps.image.outputs.name }}
           EDGE_RELAY_ENV_FILE: ${{ vars.EDGE_RELAY_ENV_FILE }}
           EDGE_RELAY_CONFIG_FILE: ${{ vars.EDGE_RELAY_CONFIG_FILE }}
-          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ github.token }}
         run: Backend/scripts/deploy-over-ssh.sh

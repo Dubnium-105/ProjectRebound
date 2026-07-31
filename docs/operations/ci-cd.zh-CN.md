@@ -61,15 +61,17 @@ id-token: write
 
 ### 2.2 Environments
 
-创建六个 Environment：
+创建八个 Environment：
 
 ```text
 staging-control-plane
 staging-meta-server
-staging-edge-relay
+staging-edge-relay-gateway
+staging-edge-relay-hgh
 production-control-plane
 production-meta-server
-production-edge-relay
+production-edge-relay-gateway
+production-edge-relay-hgh
 ```
 
 production 环境建议配置：
@@ -130,12 +132,16 @@ Edge Relay Environment 额外 Variables：
 | --- | --- |
 | `SSH_PRIVATE_KEY` | 该目标专用的无口令 Ed25519 deploy key 私钥 |
 | `SSH_KNOWN_HOSTS` | 通过可信带外渠道核对过的目标 host key 行 |
-| `GHCR_USERNAME` | 只读容器账号名 |
-| `GHCR_TOKEN` | 仅有 `read:packages` 的 classic PAT，供远端 Docker pull 私有镜像 |
 
 不要在工作流中运行未经核验的 `ssh-keyscan`。`SSH_KNOWN_HOSTS` 必须从控制台、云厂商指纹或另一可信通道核对。
 
-如果 GHCR package 是公开的，可以扩展脚本允许匿名 pull；当前默认强制认证，以避免错误配置在部署中途才暴露。
+工作流仅授予短期 `GITHUB_TOKEN` `contents: read` 与 `packages: read`
+权限，并用该令牌完成远端 GHCR 登录。不要为部署创建或保存长期 Package
+PAT。
+
+两个 Edge Relay Environment 分别拥有独立的部署、审批、并发、凭据撤销与
+回滚边界。部署 `edge-relay` 时通过 `fail-fast: false` 同时覆盖两个节点，
+单节点失败不会取消另一节点的执行结果。
 
 ## 4. 远端主机首次准备
 

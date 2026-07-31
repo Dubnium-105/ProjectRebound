@@ -61,15 +61,17 @@ Do not create a PAT with repository-management permissions for image publication
 
 ### 2.2 Environments
 
-Create six Environments:
+Create eight Environments:
 
 ```text
 staging-control-plane
 staging-meta-server
-staging-edge-relay
+staging-edge-relay-gateway
+staging-edge-relay-hgh
 production-control-plane
 production-meta-server
-production-edge-relay
+production-edge-relay-gateway
+production-edge-relay-hgh
 ```
 
 Recommended configuration for production environment:
@@ -131,12 +133,17 @@ Add the following Secrets to each Environment:
 | --- | --- |
 | `SSH_PRIVATE_KEY` |Passwordless Ed25519 deploy key private key specific to this target|
 | `SSH_KNOWN_HOSTS` |Target host key row checked through trusted out-of-band channels|
-| `GHCR_USERNAME` |Read-only container account name|
-| `GHCR_TOKEN` |Only the classic PAT of `read:packages` is used for remote Docker pull private images|
 
 Do not run unverified `ssh-keyscan` in workflows. `SSH_KNOWN_HOSTS` must be verified from the console, cloud vendor fingerprint, or another trusted channel.
 
-If the GHCR package is public, the script can be extended to allow anonymous pulls; authentication is currently forced by default to avoid misconfigurations being exposed mid-deployment.
+The workflow grants its short-lived `GITHUB_TOKEN` only `contents: read` and
+`packages: read`, then uses that token for the remote GHCR login. Do not create
+or store a long-lived package PAT for deployment.
+
+The two edge relay Environments are separate deployment, approval,
+concurrency, credential-revocation, and rollback targets. A deployment of
+`edge-relay` fans out to both nodes with `fail-fast: false`, so one node's
+failure does not cancel the other node's result.
 
 ## 4. Remote host preparation for the first time
 
