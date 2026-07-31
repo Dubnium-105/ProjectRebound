@@ -14,6 +14,7 @@ FENCE_PATTERN = re.compile(r"^```([^\r\n`]*)\r?$", re.MULTILINE)
 FENCED_CODE_PATTERN = re.compile(r"^```.*?^```\s*$", re.MULTILINE | re.DOTALL)
 HEADING_PATTERN = re.compile(r"^(#{1,6})\s+", re.MULTILINE)
 LINK_PATTERN = re.compile(r"(?<!!)\[[^\]]+\]\((?P<target>[^)]+)\)")
+CHINESE_ONLY_MARKER = "<!-- bilingual-doc: chinese-only -->"
 
 
 def chinese_sibling(english: Path) -> Path:
@@ -22,6 +23,14 @@ def chinese_sibling(english: Path) -> Path:
 
 def english_sibling(chinese: Path) -> Path:
     return chinese.with_name(chinese.name.removesuffix(".zh-CN.md") + ".md")
+
+
+def is_chinese_only_handoff(chinese: Path) -> bool:
+    """Allow explicitly marked Chinese-only handoff artifacts outside the archive."""
+    if not chinese.name.endswith(".zh-CN.md"):
+        return False
+    header = "\n".join(chinese.read_text(encoding="utf-8").splitlines()[:8])
+    return CHINESE_ONLY_MARKER in header
 
 
 def maintained_english_docs() -> list[Path]:
@@ -110,6 +119,8 @@ def main() -> int:
         if relative.parts[:2] != ("docs", "archive"):
             localized_documents.add(path)
     for chinese in sorted(localized_documents - expected_chinese):
+        if is_chinese_only_handoff(chinese):
+            continue
         errors.append(
             f"orphan Simplified Chinese document: {chinese.relative_to(REPOSITORY_ROOT)}"
         )

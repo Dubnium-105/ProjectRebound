@@ -35,24 +35,12 @@ LibReplicate* libReplicate = nullptr; // was static in original, but extern need
 HMODULE gPayloadModule = nullptr;
 static CommandFramework* g_CmdFramework = nullptr;
 DebugTool* gDebugTool = nullptr;
-static std::mutex MatchIPMutex;
 
-void OnJoinFromPipe(const std::string& ip, const std::string& token)
+bool OnJoinFromPipe(const std::string& ip, const std::string& token)
 {
+    (void)token;
     ClientLog("[PIPE] Join request received: " + ip);
-    {
-        std::lock_guard<std::mutex> lock(MatchIPMutex);
-        MatchIP = ip;
-    }
-
-    if (UWorld::GetWorld() && UWorld::GetWorld()->OwningGameInstance)
-    {
-        ConnectToMatch();
-    }
-    else
-    {
-        AutoConnectToMatchFromCmdline();
-    }
+    return QueueConnectToMatch(ip);
 }
 
 // ======================================================

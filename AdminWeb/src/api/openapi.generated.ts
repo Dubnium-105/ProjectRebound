@@ -838,6 +838,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/p2p-battlelog/matches/{match_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Returns normalized decision, frozen roster, presence segments, and report hashes without raw snapshots. Requires p2p.battlelog.read. */
+        get: operations["adminGetP2PBattleLogEvidence"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/p2p-battlelog/reports/{evidence_id}/raw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Returns raw player-submitted P2P evidence with no-store caching. Requires p2p.battlelog.raw.read. */
+        get: operations["adminGetRawP2PBattleLogEvidence"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/game-servers": {
         parameters: {
             query?: never;
@@ -1301,6 +1335,91 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["startP2PRoom"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/p2p-rooms/{room_id}/matches/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Returns the server-created match identity for a member of the frozen room roster. */
+        get: operations["getActiveP2PMatch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/p2p-matches/{match_id}/report-capability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Rotates and returns a session-family-bound report capability for an eligible frozen-roster member. */
+        post: operations["issueP2PReportCapability"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/p2p-matches/{match_id}/presence/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Records monotonic launcher presence, disconnect, reconnect, result-screen, and exit-intent checkpoints. */
+        put: operations["updateOwnP2PMatchPresence"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/p2p-matches/{match_id}/reports/{report_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Uploads one bounded raw v3 snapshot. Authentication requires both the verified player access token and its session-bound report capability. Idempotency is scoped to match, reporter, and report_id; a FINAL report is immutable per reporter. */
+        put: operations["submitP2PBattleLogV3"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/p2p-matches/{match_id}/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Returns collection progress or the immutable deadline/quorum decision to a frozen-roster member. */
+        get: operations["getP2PBattleLogResult"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3022,6 +3141,180 @@ export interface components {
         };
         /** @enum {string} */
         P2PRoomState: "LOBBY" | "CONNECTING" | "RUNNING" | "STALE" | "CLOSED";
+        /** @enum {string} */
+        P2PMatchState: "STARTING" | "RUNNING" | "COLLECTING" | "PEER_CONFIRMED" | "SELF_REPORTED" | "DISPUTED" | "INCOMPLETE" | "ABORTED" | "EXPIRED";
+        P2PActiveMatch: {
+            match_id: string;
+            room_id: string;
+            sequence: number;
+            mode: string;
+            map_alias: string;
+            /** @enum {string} */
+            match_type: "PVE" | "PVP" | "UNKNOWN";
+            state: components["schemas"]["P2PMatchState"];
+            roster_revision: number;
+            expected_reporter_count: number;
+            policy_version: string;
+            /** Format: date-time */
+            collection_started_at?: string | null;
+            /** Format: date-time */
+            collection_deadline?: string | null;
+            /** Format: date-time */
+            hard_expires_at: string;
+        };
+        P2PActiveMatchResponse: {
+            data: components["schemas"]["P2PActiveMatch"];
+            request_id: string;
+        };
+        P2PReportCapability: {
+            match_id: string;
+            capability_id: string;
+            report_token: string;
+            server_nonce: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        P2PReportCapabilityResponse: {
+            data: components["schemas"]["P2PReportCapability"];
+            request_id: string;
+        };
+        P2PPresenceRequest: {
+            /** Format: int64 */
+            presence_seq: number;
+            /** @enum {string} */
+            status: "CONNECTING" | "ACTIVE" | "DISCONNECTED" | "RESULT_SCREEN" | "EXIT_INTENT" | "LEFT";
+            timeline_session_id: string;
+            /** Format: int64 */
+            last_checkpoint_seq: number;
+            game_process_alive: boolean;
+            game_connected: boolean;
+        };
+        P2PPresenceResult: {
+            match_id: string;
+            player_id: string;
+            segment_no: number;
+            /** Format: int64 */
+            presence_seq: number;
+            status: string;
+            /** Format: date-time */
+            last_presence_at: string;
+            was_duplicate: boolean;
+            reconnect_segment_opened: boolean;
+        };
+        P2PPresenceResponse: {
+            data: components["schemas"]["P2PPresenceResult"];
+            request_id: string;
+        };
+        P2PBattleLogWarning: {
+            code: string;
+            /** @enum {string} */
+            severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+            message: string;
+            quarantine: boolean;
+        };
+        /** @description Bounded project-rebound.p2p-battlelog.raw schema version 3 snapshot with a SHA-256-linked local timeline. */
+        P2PBattleLogRawV3: {
+            /** @constant */
+            schema: "project-rebound.p2p-battlelog.raw";
+            /** @constant */
+            schema_version: 3;
+            p2p_match_id: string;
+            capability_id: string;
+            server_nonce: string;
+            /** @enum {string} */
+            authority_kind: "CLIENT_OBSERVER" | "LISTEN_HOST_OBSERVER";
+            client_version: string;
+            timeline_session_id: string;
+            /** @enum {string} */
+            report_completeness: "PARTIAL" | "FINAL";
+            report_revision: number;
+            /** Format: date-time */
+            captured_at_utc: string;
+            match_classification: {
+                [key: string]: unknown;
+            };
+            game_state: {
+                [key: string]: unknown;
+            };
+            players: {
+                [key: string]: unknown;
+            }[];
+            timeline: {
+                /** Format: int64 */
+                first_seq: number;
+                /** Format: int64 */
+                last_seq: number;
+                events_digest: string;
+                timeline_truncated: boolean;
+                events: {
+                    [key: string]: unknown;
+                }[];
+            } & {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
+        P2PBattleLogSubmission: {
+            report_id: string;
+            match_id: string;
+            /** @enum {string} */
+            validation_status: "ACCEPTED" | "ACCEPTED_WITH_WARNINGS" | "QUARANTINED";
+            /** @enum {string} */
+            risk_severity?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+            validation_warnings: components["schemas"]["P2PBattleLogWarning"][];
+            duplicate: boolean;
+            collection_state: components["schemas"]["P2PMatchState"];
+        };
+        P2PBattleLogSubmissionResponse: {
+            data: components["schemas"]["P2PBattleLogSubmission"];
+            request_id: string;
+        };
+        P2PBattleLogResultResponse: {
+            data: {
+                [key: string]: unknown;
+            };
+            request_id: string;
+        };
+        AdminP2PBattleLogEvidenceResponse: {
+            data: {
+                match: {
+                    [key: string]: unknown;
+                };
+                roster: {
+                    [key: string]: unknown;
+                }[];
+                presence: {
+                    [key: string]: unknown;
+                }[];
+                reports: {
+                    [key: string]: unknown;
+                }[];
+                result: {
+                    [key: string]: unknown;
+                };
+                shadow_mode: boolean;
+                /** @constant */
+                storage_class: "P2P_PEER_EVIDENCE";
+            } & {
+                [key: string]: unknown;
+            };
+            request_id: string;
+        };
+        AdminP2PRawEvidenceResponse: {
+            data: {
+                evidence_id: string;
+                match_id: string;
+                reporter_player_id: string;
+                raw_sha256: string;
+                /** @enum {string} */
+                validation_status: "ACCEPTED" | "ACCEPTED_WITH_WARNINGS" | "QUARANTINED";
+                /** @enum {string} */
+                risk_severity?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+                snapshot: components["schemas"]["P2PBattleLogRawV3"];
+            };
+            request_id: string;
+        };
         P2PRoomCreateRequest: {
             display_name: string;
             region: string;
@@ -3925,6 +4218,11 @@ export interface components {
         P2PRoomID: string;
         /** @description Independent high-entropy room host credential. It is returned only at room creation. */
         P2PRoomHostToken: string;
+        P2PMatchID: string;
+        P2PReportID: string;
+        /** @description Session-family-bound opaque capability retained and attached by Launcher; never exposed to the game DLL. */
+        P2PReportToken: string;
+        P2PEvidenceID: string;
         ConnectionID: string;
         RelayNodeID: string;
         RoomID: string;
@@ -5309,6 +5607,70 @@ export interface operations {
             };
         };
     };
+    adminGetP2PBattleLogEvidence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                match_id: components["parameters"]["P2PMatchID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Administrative P2P evidence bundle. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminP2PBattleLogEvidenceResponse"];
+                };
+            };
+            /** @description Administrator lacks the independent P2P BattleLog permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    adminGetRawP2PBattleLogEvidence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                evidence_id: components["parameters"]["P2PEvidenceID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Raw evidence and its server-computed digest. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminP2PRawEvidenceResponse"];
+                };
+            };
+            /** @description Administrator lacks the independent raw-evidence permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
     adminListGameServers: {
         parameters: {
             query?: never;
@@ -6228,6 +6590,232 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+        };
+    };
+    getActiveP2PMatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                room_id: components["parameters"]["P2PRoomID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active P2P match collection state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["P2PActiveMatchResponse"];
+                };
+            };
+            /** @description Verified frozen-roster membership is required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    issueP2PReportCapability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                match_id: components["parameters"]["P2PMatchID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Capability issued. The report token is shown only here and must not be passed to the injected payload. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["P2PReportCapabilityResponse"];
+                };
+            };
+            /** @description Verified eligible reporter membership is required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description Match is no longer accepting reports. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    updateOwnP2PMatchPresence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                match_id: components["parameters"]["P2PMatchID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["P2PPresenceRequest"];
+            };
+        };
+        responses: {
+            /** @description Presence checkpoint accepted or identified as an idempotent duplicate. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["P2PPresenceResponse"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            /** @description Verified frozen-roster membership is required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The match is finalized. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    submitP2PBattleLogV3: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Session-family-bound opaque capability retained and attached by Launcher; never exposed to the game DLL. */
+                "X-P2P-Report-Token": components["parameters"]["P2PReportToken"];
+            };
+            path: {
+                match_id: components["parameters"]["P2PMatchID"];
+                report_id: components["parameters"]["P2PReportID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["P2PBattleLogRawV3"];
+            };
+        };
+        responses: {
+            /** @description Report stored, quarantined for review, or returned as an idempotent duplicate. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["P2PBattleLogSubmissionResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Verified reporter identity or report context rejected. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflicting report ID/final report, or finalized match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Snapshot exceeds the configured P2P report limit. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Content-Type is not application/json. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Snapshot, roster identity, or timeline chain is invalid. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getP2PBattleLogResult: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                match_id: components["parameters"]["P2PMatchID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current collection or finalized P2P result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["P2PBattleLogResultResponse"];
+                };
+            };
+            /** @description Verified frozen-roster membership is required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
         };
     };
     createConnection: {

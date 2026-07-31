@@ -552,7 +552,7 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
     // Detect login complete via MainMenuBase Construct
     if (functionName.contains("UMG_MainMenuBase_C.Construct"))
     {
-        LoginCompleted = true;
+        LoginCompleted.store(true);
     }
     if (functionName.contains("OnConnectMatchServerTimeOut"))
     {
@@ -563,6 +563,9 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
 
     // 先执行原始 ProcessEvent，确保游戏状态已更新
     ProcessEventClient.call(Object, Function, Parms);
+
+    // Pipe and command-line match transitions are consumed only on this game thread.
+    PumpPendingClientCommands();
 
     BattleLog::OnProcessEventPost(
         BattleLog::ProcessSide::Client,

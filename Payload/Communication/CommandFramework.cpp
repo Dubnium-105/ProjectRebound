@@ -1,400 +1,826 @@
-// ======================================================
-//  CommandFramework — 运行时指令框架实现
-// ======================================================
-//
-//  架构概述：
-//    单 ListenerLoop 线程 + Overlapped I/O 完成所有管道操作。
-//    无独立看门狗线程 — 读超时由 WaitForSingleObject(overlappedEvent, 1s)
-//    循环轮询实现，同时每 1s 检查 running 标志以支持快速 Stop()。
-//
-//  线程模型：
-//    - ListenerLoop 线程：负责 ConnectNamedPipe + ReadFile + 解析分发
-//    - 回调（onJoin / onLog）在 ListenerLoop 线程内同步执行
-//    - SendResponse 可从任意线程调用，受 writeMutex 保护
-//
-//  管道生命周期：
-//    CreateNamedPipe → ConnectNamedPipe(overlapped) → 读循环 →
-//    断线 / 超时 → DisconnectNamedPipe + CloseHandle → 重新 Create
-
 #include "CommandFramework.h"
 
-// =====================================================================
-//  构造 / 析构
-// =====================================================================
+#include <Aclapi.h>
 
-CommandFramework::CommandFramework()
-    : watchdogTimeoutMs(30000)
-    , running(false)
-    , hCurrentPipe(INVALID_HANDLE_VALUE)
-    , saInitialized(false)
+#include <algorithm>
+#include <array>
+#include <exception>
+#include <limits>
+#include <utility>
+
+#pragma comment(lib, "Advapi32.lib")
+
+namespace
 {
-    ZeroMemory(&sa, sizeof(sa));
-    ZeroMemory(&sd, sizeof(sd));
+    constexpr DWORD RetryDelayMs = 1000;
+    constexpr unsigned int MaxProtocolErrorsPerConnection = 3;
+    constexpr std::size_t MaxPipeNameBytes = 200;
+
+    bool IsSafePipeNameCharacter(const unsigned char ch) noexcept
+    {
+        return (ch >= 'a' && ch <= 'z') ||
+            (ch >= 'A' && ch <= 'Z') ||
+            (ch >= '0' && ch <= '9') ||
+            ch == '_' || ch == '-' || ch == '.';
+    }
 }
+
+CommandFramework::CommandFramework() = default;
 
 CommandFramework::~CommandFramework()
 {
     Stop();
+    ReleaseSecurity();
 }
-
-// =====================================================================
-//  配置 — 必须在 Start() 前调用
-// =====================================================================
 
 void CommandFramework::SetPipeName(const std::string& name)
 {
-    pipeName = R"(\\.\pipe\)" + name;
+    std::lock_guard<std::mutex> lock(lifecycleMutex);
+    if (!running.load())
+        pipeName = name;
 }
 
-void CommandFramework::SetWatchdogTimeout(DWORD timeoutMs)
+void CommandFramework::SetWatchdogTimeout(const DWORD timeoutMs)
 {
-    watchdogTimeoutMs = timeoutMs;
+    std::lock_guard<std::mutex> lock(lifecycleMutex);
+    if (!running.load())
+        watchdogTimeoutMs = timeoutMs;
 }
 
-void CommandFramework::SetJoinCallback(JoinCallback cb)
+void CommandFramework::SetWriteTimeout(const DWORD timeoutMs)
 {
-    onJoin = std::move(cb);
+    std::lock_guard<std::mutex> lock(lifecycleMutex);
+    if (!running.load())
+        writeTimeoutMs = timeoutMs;
 }
 
-void CommandFramework::SetLogCallback(LogCallback cb)
+void CommandFramework::SetJoinCallback(JoinCallback callback)
 {
-    onLog = std::move(cb);
+    std::lock_guard<std::mutex> lock(lifecycleMutex);
+    if (!running.load())
+        onJoin = std::move(callback);
 }
 
-void CommandFramework::SetDebugCallback(DebugCallback cb)
+void CommandFramework::SetLogCallback(LogCallback callback)
 {
-    onDebug = std::move(cb);
+    std::lock_guard<std::mutex> lock(lifecycleMutex);
+    if (!running.load())
+        onLog = std::move(callback);
 }
 
-// =====================================================================
-//  生命周期
-// =====================================================================
+void CommandFramework::SetDebugCallback(DebugCallback callback)
+{
+    std::lock_guard<std::mutex> lock(lifecycleMutex);
+    if (!running.load())
+        onDebug = std::move(callback);
+}
+
+bool CommandFramework::BuildPipePath()
+{
+    if (pipeName.empty() || pipeName.size() > MaxPipeNameBytes)
+    {
+        Log("[CMDFW] Pipe name is empty or too long.");
+        return false;
+    }
+    if (!std::all_of(pipeName.begin(), pipeName.end(), [](const unsigned char ch)
+        {
+            return IsSafePipeNameCharacter(ch);
+        }))
+    {
+        Log("[CMDFW] Pipe name contains unsupported characters.");
+        return false;
+    }
+
+    pipePath = LR"(\\.\pipe\)";
+    pipePath.append(pipeName.begin(), pipeName.end());
+    return pipePath.size() < 256;
+}
+
+bool CommandFramework::InitializeSecurity()
+{
+    if (securityInitialized)
+        return true;
+
+    UniqueHandle processToken;
+    HANDLE rawToken = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &rawToken))
+    {
+        LogWin32Error("OpenProcessToken", GetLastError());
+        return false;
+    }
+    processToken.Reset(rawToken);
+
+    DWORD tokenInfoBytes = 0;
+    GetTokenInformation(processToken.Get(), TokenUser, nullptr, 0, &tokenInfoBytes);
+    if (GetLastError() != ERROR_INSUFFICIENT_BUFFER || tokenInfoBytes == 0)
+    {
+        LogWin32Error("GetTokenInformation(size)", GetLastError());
+        return false;
+    }
+
+    std::vector<unsigned char> tokenInfo(tokenInfoBytes);
+    if (!GetTokenInformation(
+        processToken.Get(),
+        TokenUser,
+        tokenInfo.data(),
+        tokenInfoBytes,
+        &tokenInfoBytes))
+    {
+        LogWin32Error("GetTokenInformation(TokenUser)", GetLastError());
+        return false;
+    }
+
+    const auto* const tokenUser = reinterpret_cast<const TOKEN_USER*>(tokenInfo.data());
+    const DWORD sidBytes = GetLengthSid(tokenUser->User.Sid);
+    if (sidBytes == 0)
+    {
+        LogWin32Error("GetLengthSid", GetLastError());
+        return false;
+    }
+
+    allowedUserSid.resize(sidBytes);
+    if (!CopySid(sidBytes, allowedUserSid.data(), tokenUser->User.Sid))
+    {
+        LogWin32Error("CopySid", GetLastError());
+        allowedUserSid.clear();
+        return false;
+    }
+
+    EXPLICIT_ACCESSW access{};
+    access.grfAccessPermissions = GENERIC_ALL;
+    access.grfAccessMode = SET_ACCESS;
+    access.grfInheritance = NO_INHERITANCE;
+    BuildTrusteeWithSidW(&access.Trustee, allowedUserSid.data());
+
+    const DWORD aclError = SetEntriesInAclW(1, &access, nullptr, &pipeAcl);
+    if (aclError != ERROR_SUCCESS)
+    {
+        LogWin32Error("SetEntriesInAclW", aclError);
+        allowedUserSid.clear();
+        return false;
+    }
+
+    if (!InitializeSecurityDescriptor(&securityDescriptor, SECURITY_DESCRIPTOR_REVISION))
+    {
+        LogWin32Error("InitializeSecurityDescriptor", GetLastError());
+        ReleaseSecurity();
+        return false;
+    }
+    if (!SetSecurityDescriptorDacl(&securityDescriptor, TRUE, pipeAcl, FALSE))
+    {
+        LogWin32Error("SetSecurityDescriptorDacl", GetLastError());
+        ReleaseSecurity();
+        return false;
+    }
+
+    securityAttributes.nLength = sizeof(securityAttributes);
+    securityAttributes.lpSecurityDescriptor = &securityDescriptor;
+    securityAttributes.bInheritHandle = FALSE;
+    securityInitialized = true;
+    return true;
+}
+
+void CommandFramework::ReleaseSecurity() noexcept
+{
+    if (pipeAcl != nullptr)
+    {
+        LocalFree(pipeAcl);
+        pipeAcl = nullptr;
+    }
+    allowedUserSid.clear();
+    securityInitialized = false;
+    securityAttributes = {};
+    securityDescriptor = {};
+}
 
 bool CommandFramework::Start()
 {
-    if (running.load())
+    std::lock_guard<std::mutex> lock(lifecycleMutex);
+    if (running.load() || listenerThread.joinable())
         return false;
-    if (pipeName.empty())
+    if (!BuildPipePath() || !InitializeSecurity())
         return false;
 
-    // 构建 NULL DACL 安全描述符，允许任意进程连接管道
-    if (!saInitialized)
+    stopEvent.Reset(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    if (!stopEvent.IsValid())
     {
-        InitializeSecurityDescriptor(&sd, SECURITY_DESCRIPTOR_REVISION);
-        SetSecurityDescriptorDacl(&sd, TRUE, NULL, FALSE);
-        sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-        sa.lpSecurityDescriptor = &sd;
-        sa.bInheritHandle = FALSE;
-        saInitialized = true;
+        LogWin32Error("CreateEventW(stop)", GetLastError());
+        return false;
     }
 
+    connectionFaulted.store(false);
     running.store(true);
-    listenerThread = std::thread(&CommandFramework::ListenerLoop, this);
-    Log("[CMDFW] Started on pipe: " + pipeName);
+    try
+    {
+        listenerThread = std::thread(&CommandFramework::ListenerLoop, this);
+    }
+    catch (const std::exception& exception)
+    {
+        running.store(false);
+        stopEvent.Reset();
+        Log(std::string("[CMDFW] Failed to create listener thread: ") + exception.what());
+        return false;
+    }
+    catch (...)
+    {
+        running.store(false);
+        stopEvent.Reset();
+        Log("[CMDFW] Failed to create listener thread.");
+        return false;
+    }
+
+    Log("[CMDFW] Started on pipe: \\.\\pipe\\" + pipeName);
     return true;
 }
 
 void CommandFramework::Stop()
 {
-    if (!running.load())
-        return;
+    std::unique_lock<std::mutex> lifecycleLock(lifecycleMutex);
+    const bool wasRunning = running.exchange(false);
 
-    running.store(false);
+    if (stopEvent.IsValid())
+        SetEvent(stopEvent.Get());
 
-    // 唤醒 ListenerLoop 若其正阻塞在 I/O 上
     {
-        std::lock_guard<std::mutex> lock(writeMutex);
+        std::lock_guard<std::mutex> writeLock(writeMutex);
         if (hCurrentPipe != INVALID_HANDLE_VALUE)
-        {
-            CancelIo(hCurrentPipe);
-        }
+            CancelIoEx(hCurrentPipe, nullptr);
     }
 
     if (listenerThread.joinable())
     {
-        auto nativeHandle = listenerThread.native_handle();
-        DWORD waitResult = WaitForSingleObject(nativeHandle, 5000);
-        if (waitResult == WAIT_TIMEOUT)
+        if (listenerThread.get_id() == std::this_thread::get_id())
         {
-            // 线程未能及时退出（可能卡在内核调用），detach 交由系统回收
-            Log("[CMDFW] Listener thread did not exit in time, detaching.");
-            listenerThread.detach();
-        }
-        else
-        {
-            listenerThread.join();
-        }
-    }
-
-    Log("[CMDFW] Stopped.");
-}
-
-// =====================================================================
-//  SendResponse — 线程安全的管道写入
-// =====================================================================
-
-void CommandFramework::SendResponse(const std::string& cmd, const nlohmann::json& args)
-{
-    std::lock_guard<std::mutex> lock(writeMutex);
-    if (hCurrentPipe == INVALID_HANDLE_VALUE)
-        return;
-
-    std::string line = cmd + PROTOCOL_DELIM + args.dump() + PROTOCOL_NEWLINE;
-    DWORD written = 0;
-    WriteFile(hCurrentPipe, line.c_str(), static_cast<DWORD>(line.size()), &written, nullptr);
-}
-
-// =====================================================================
-//  ListenerLoop — 主监听循环（单线程 + Overlapped I/O）
-// =====================================================================
-
-void CommandFramework::ListenerLoop()
-{
-    while (running.load())
-    {
-        // ── 创建管道实例 ──
-        HANDLE hPipe = CreateNamedPipeA(
-            pipeName.c_str(),
-            PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
-            PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
-            1,                         // 单实例（当前仅支持一个启动器连接）
-            4096,                      // 输出缓冲区
-            4096,                      // 输入缓冲区
-            0,                         // 默认超时
-            &sa
-        );
-
-        if (hPipe == INVALID_HANDLE_VALUE)
-        {
-            Log("[CMDFW] CreateNamedPipe failed: " + std::to_string(GetLastError()));
-            if (!running.load()) break;
-            Sleep(1000);
-            continue;
-        }
-
-        // ── 等待客户端连接（overlapped，每 1s 检查 running 标志）──
-        OVERLAPPED connectOl = {};
-        connectOl.hEvent = CreateEventA(nullptr, TRUE, FALSE, nullptr);
-
-        BOOL connected = ConnectNamedPipe(hPipe, &connectOl);
-        DWORD connectErr = GetLastError();
-
-        if (!connected && connectErr == ERROR_IO_PENDING)
-        {
-            bool clientConnected = false;
-            while (running.load())
-            {
-                DWORD waitResult = WaitForSingleObject(connectOl.hEvent, 1000);
-                if (waitResult == WAIT_OBJECT_0)
-                {
-                    clientConnected = true;
-                    break;
-                }
-                if (waitResult == WAIT_FAILED)
-                    break;
-                // WAIT_TIMEOUT → 继续循环检查 running 标志
-            }
-
-            if (!clientConnected)
-            {
-                CancelIo(hPipe);
-                CloseHandle(connectOl.hEvent);
-                CloseHandle(hPipe);
-                continue;
-            }
-        }
-        else if (!connected && connectErr != ERROR_PIPE_CONNECTED)
-        {
-            CloseHandle(connectOl.hEvent);
-            CloseHandle(hPipe);
-            if (running.load()) Sleep(1000);
-            continue;
-        }
-
-        CloseHandle(connectOl.hEvent);
-
-        // ── 客户端已连接，开始读循环 ──
-        {
-            std::lock_guard<std::mutex> lock(writeMutex);
-            hCurrentPipe = hPipe;
-        }
-
-        Log("[CMDFW] Client connected.");
-
-        char buf[4096];
-        std::string lineBuf;
-
-        while (running.load())
-        {
-            OVERLAPPED readOl = {};
-            readOl.hEvent = CreateEventA(nullptr, TRUE, FALSE, nullptr);
-
-            DWORD bytesRead = 0;
-            BOOL ok = ReadFile(hPipe, buf, sizeof(buf) - 1, &bytesRead, &readOl);
-
-            if (!ok && GetLastError() == ERROR_IO_PENDING)
-            {
-                bool dataReady = false;
-                while (running.load())
-                {
-                    DWORD waitResult = WaitForSingleObject(readOl.hEvent, 1000);
-                    if (waitResult == WAIT_OBJECT_0)
-                    {
-                        dataReady = true;
-                        break;
-                    }
-                    if (waitResult == WAIT_FAILED)
-                        break;
-                }
-
-                if (!dataReady)
-                {
-                    // 超时或被 Stop() 的 CancelIo 中断
-                    CancelIo(hPipe);
-                    CloseHandle(readOl.hEvent);
-                    break;
-                }
-
-                GetOverlappedResult(hPipe, &readOl, &bytesRead, FALSE);
-            }
-
-            CloseHandle(readOl.hEvent);
-
-            if (bytesRead == 0)
-            {
-                // 客户端正常断开
-                break;
-            }
-
-            buf[bytesRead] = '\0';
-            lineBuf.append(buf, bytesRead);
-
-            // 按 '\n' 拆分为完整行
-            size_t pos;
-            while ((pos = lineBuf.find(PROTOCOL_NEWLINE)) != std::string::npos)
-            {
-                std::string line = lineBuf.substr(0, pos);
-                lineBuf.erase(0, pos + 1);
-
-                // 兼容 Windows 风格 \r\n
-                if (!line.empty() && line.back() == '\r')
-                    line.pop_back();
-
-                if (!line.empty())
-                    ParseAndDispatch(line);
-            }
-
-            // 安全阀：缓冲区异常膨胀则重置
-            if (lineBuf.size() > 65536)
-            {
-                Log("[CMDFW] Line buffer exceeded 64K, resetting.");
-                lineBuf.clear();
-            }
-        }
-
-        Log("[CMDFW] Client disconnected.");
-
-        // 清除连接句柄，阻止新的 SendResponse
-        {
-            std::lock_guard<std::mutex> lock(writeMutex);
-            hCurrentPipe = INVALID_HANDLE_VALUE;
-        }
-
-        DisconnectNamedPipe(hPipe);
-        CloseHandle(hPipe);
-    }
-}
-
-// =====================================================================
-//  协议解析与分发
-// =====================================================================
-
-// @brief 按 '\t' 拆分为 CMD 和 JSON 字符串，解析 JSON 后分发。
-//        解析失败则回写 error 响应。
-void CommandFramework::ParseAndDispatch(const std::string& line)
-{
-    size_t delim = line.find(PROTOCOL_DELIM);
-    if (delim == std::string::npos)
-    {
-        nlohmann::json resp;
-        resp["msg"] = "missing delimiter";
-        SendResponse("error", resp);
-        return;
-    }
-
-    std::string cmd = line.substr(0, delim);
-    std::string jsonStr = line.substr(delim + 1);
-
-    nlohmann::json args;
-    if (!jsonStr.empty())
-    {
-        try
-        {
-            args = nlohmann::json::parse(jsonStr);
-        }
-        catch (const nlohmann::json::parse_error& e)
-        {
-            nlohmann::json resp;
-            resp["msg"] = "json parse error";
-            resp["detail"] = e.what();
-            SendResponse("error", resp);
+            lifecycleLock.unlock();
+            Log("[CMDFW] Stop requested on listener thread; owner must join it.");
             return;
         }
+        listenerThread.join();
     }
 
-    Dispatch(cmd, args);
+    {
+        std::lock_guard<std::mutex> writeLock(writeMutex);
+        hCurrentPipe = INVALID_HANDLE_VALUE;
+    }
+    stopEvent.Reset();
+    lifecycleLock.unlock();
+
+    if (wasRunning)
+        Log("[CMDFW] Stopped.");
 }
 
-// @brief 命令分发：ping → pong / join → 触发回调 + join_ack / 其他 → error
-void CommandFramework::Dispatch(const std::string& cmd, const nlohmann::json& args)
+bool CommandFramework::IsRunning() const noexcept
 {
-    if (cmd == "ping")
+    return running.load();
+}
+
+bool CommandFramework::IsAuthorizedClient(const HANDLE pipe) const
+{
+    ULONG clientPid = 0;
+    if (!GetNamedPipeClientProcessId(pipe, &clientPid) || clientPid == 0)
     {
-        SendResponse("pong", nlohmann::json::object());
+        LogWin32Error("GetNamedPipeClientProcessId", GetLastError());
+        return false;
     }
-    else if (cmd == "join")
+
+    DWORD serverSession = 0;
+    DWORD clientSession = 0;
+    if (!ProcessIdToSessionId(GetCurrentProcessId(), &serverSession) ||
+        !ProcessIdToSessionId(clientPid, &clientSession) ||
+        serverSession != clientSession)
     {
-        std::string ip = args.value("ip", "");
-        std::string token = args.value("token", "");
-        if (!ip.empty() && onJoin)
-        {
-            onJoin(ip, token);
-        }
-        nlohmann::json ack;
-        ack["status"] = "ok";
-        SendResponse("join_ack", ack);
+        Log("[CMDFW] Rejected client from a different or unknown Windows session.");
+        return false;
     }
-    else if (cmd == "debug")
+
+    UniqueHandle clientProcess(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, clientPid));
+    if (!clientProcess.IsValid())
     {
-        if (onDebug)
-        {
-            nlohmann::json result = onDebug(args);
-            SendResponse("debug_ack", result);
-        }
-        else
-        {
-            nlohmann::json resp;
-            resp["ok"] = false;
-            resp["error"] = "no debug handler registered";
-            SendResponse("debug_ack", resp);
-        }
+        LogWin32Error("OpenProcess(pipe client)", GetLastError());
+        return false;
+    }
+
+    HANDLE rawToken = nullptr;
+    if (!OpenProcessToken(clientProcess.Get(), TOKEN_QUERY, &rawToken))
+    {
+        LogWin32Error("OpenProcessToken(pipe client)", GetLastError());
+        return false;
+    }
+    UniqueHandle clientToken(rawToken);
+
+    DWORD tokenInfoBytes = 0;
+    GetTokenInformation(clientToken.Get(), TokenUser, nullptr, 0, &tokenInfoBytes);
+    if (GetLastError() != ERROR_INSUFFICIENT_BUFFER || tokenInfoBytes == 0)
+    {
+        LogWin32Error("GetTokenInformation(client size)", GetLastError());
+        return false;
+    }
+
+    std::vector<unsigned char> tokenInfo(tokenInfoBytes);
+    if (!GetTokenInformation(
+        clientToken.Get(),
+        TokenUser,
+        tokenInfo.data(),
+        tokenInfoBytes,
+        &tokenInfoBytes))
+    {
+        LogWin32Error("GetTokenInformation(client user)", GetLastError());
+        return false;
+    }
+
+    const auto* const tokenUser = reinterpret_cast<const TOKEN_USER*>(tokenInfo.data());
+    return !allowedUserSid.empty() && EqualSid(allowedUserSid.data(), tokenUser->User.Sid) != FALSE;
+}
+
+CommandFramework::IoResult CommandFramework::CompleteIo(
+    const HANDLE handle,
+    OVERLAPPED& operation) const noexcept
+{
+    IoResult result;
+    if (GetOverlappedResult(handle, &operation, &result.bytesTransferred, FALSE))
+    {
+        result.status = IoStatus::Completed;
+        result.error = ERROR_SUCCESS;
+        return result;
+    }
+
+    result.error = GetLastError();
+    result.status = result.error == ERROR_MORE_DATA ? IoStatus::Completed : IoStatus::Failed;
+    return result;
+}
+
+void CommandFramework::CancelAndDrain(
+    const HANDLE handle,
+    OVERLAPPED& operation) const noexcept
+{
+    if (!CancelIoEx(handle, &operation) && GetLastError() != ERROR_NOT_FOUND)
+        return;
+
+    DWORD ignoredBytes = 0;
+    GetOverlappedResult(handle, &operation, &ignoredBytes, TRUE);
+}
+
+CommandFramework::IoResult CommandFramework::WaitForPendingIo(
+    const HANDLE handle,
+    OVERLAPPED& operation,
+    const DWORD timeoutMs) const noexcept
+{
+    const std::array<HANDLE, 2> waitHandles{stopEvent.Get(), operation.hEvent};
+    const DWORD waitResult = WaitForMultipleObjects(
+        static_cast<DWORD>(waitHandles.size()),
+        waitHandles.data(),
+        FALSE,
+        timeoutMs == 0 ? INFINITE : timeoutMs);
+
+    if (waitResult == WAIT_OBJECT_0 + 1)
+        return CompleteIo(handle, operation);
+
+    IoResult result;
+    if (waitResult == WAIT_OBJECT_0)
+    {
+        result.status = IoStatus::Stopped;
+        result.error = ERROR_OPERATION_ABORTED;
+    }
+    else if (waitResult == WAIT_TIMEOUT)
+    {
+        result.status = IoStatus::TimedOut;
+        result.error = WAIT_TIMEOUT;
     }
     else
     {
-        Log("[CMDFW] Unknown command: " + cmd);
-        nlohmann::json resp;
-        resp["msg"] = "unknown command";
-        resp["cmd"] = cmd;
-        SendResponse("error", resp);
+        result.status = IoStatus::Failed;
+        result.error = GetLastError();
+    }
+
+    CancelAndDrain(handle, operation);
+    return result;
+}
+
+void CommandFramework::ListenerLoop() noexcept
+{
+    while (running.load())
+    {
+        UniqueHandle pipe(CreateNamedPipeW(
+            pipePath.c_str(),
+            PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
+            PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
+            1,
+            4096,
+            4096,
+            0,
+            &securityAttributes));
+
+        if (!pipe.IsValid())
+        {
+            LogWin32Error("CreateNamedPipeW", GetLastError());
+            if (WaitForSingleObject(stopEvent.Get(), RetryDelayMs) == WAIT_OBJECT_0)
+                break;
+            continue;
+        }
+
+        UniqueHandle connectEvent(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+        if (!connectEvent.IsValid())
+        {
+            LogWin32Error("CreateEventW(connect)", GetLastError());
+            continue;
+        }
+
+        OVERLAPPED connectOperation{};
+        connectOperation.hEvent = connectEvent.Get();
+        bool connected = false;
+        bool stopRequested = false;
+
+        if (ConnectNamedPipe(pipe.Get(), &connectOperation))
+        {
+            connected = true;
+        }
+        else
+        {
+            const DWORD connectError = GetLastError();
+            if (connectError == ERROR_PIPE_CONNECTED)
+            {
+                connected = true;
+            }
+            else if (connectError == ERROR_IO_PENDING)
+            {
+                const IoResult result = WaitForPendingIo(pipe.Get(), connectOperation, 0);
+                connected = result.status == IoStatus::Completed;
+                stopRequested = result.status == IoStatus::Stopped;
+                if (!connected && !stopRequested)
+                    LogWin32Error("ConnectNamedPipe completion", result.error);
+            }
+            else
+            {
+                LogWin32Error("ConnectNamedPipe", connectError);
+            }
+        }
+
+        if (stopRequested || !running.load())
+            break;
+        if (!connected)
+            continue;
+        if (!IsAuthorizedClient(pipe.Get()))
+        {
+            Log("[CMDFW] Rejected unauthorized pipe client.");
+            DisconnectNamedPipe(pipe.Get());
+            continue;
+        }
+
+        {
+            std::lock_guard<std::mutex> writeLock(writeMutex);
+            hCurrentPipe = pipe.Get();
+            connectionFaulted.store(false);
+        }
+
+        Log("[CMDFW] Client connected.");
+        ReadClient(pipe.Get());
+
+        {
+            std::lock_guard<std::mutex> writeLock(writeMutex);
+            if (hCurrentPipe == pipe.Get())
+                hCurrentPipe = INVALID_HANDLE_VALUE;
+        }
+
+        DisconnectNamedPipe(pipe.Get());
+        Log("[CMDFW] Client disconnected.");
     }
 }
 
-// =====================================================================
-//  内部工具
-// =====================================================================
-
-void CommandFramework::Log(const std::string& msg)
+bool CommandFramework::ReadClient(const HANDLE pipe)
 {
-    if (onLog)
-        onLog(msg);
+    std::array<char, 4096> buffer{};
+    std::string lineBuffer;
+    unsigned int protocolErrors = 0;
+
+    while (running.load() && !connectionFaulted.load())
+    {
+        UniqueHandle readEvent(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+        if (!readEvent.IsValid())
+        {
+            LogWin32Error("CreateEventW(read)", GetLastError());
+            return false;
+        }
+
+        OVERLAPPED readOperation{};
+        readOperation.hEvent = readEvent.Get();
+        IoResult result;
+
+        if (ReadFile(
+            pipe,
+            buffer.data(),
+            static_cast<DWORD>(buffer.size()),
+            nullptr,
+            &readOperation))
+        {
+            result = CompleteIo(pipe, readOperation);
+        }
+        else
+        {
+            const DWORD readError = GetLastError();
+            if (readError == ERROR_IO_PENDING)
+            {
+                result = WaitForPendingIo(pipe, readOperation, watchdogTimeoutMs);
+            }
+            else if (readError == ERROR_MORE_DATA)
+            {
+                result = CompleteIo(pipe, readOperation);
+            }
+            else
+            {
+                result.status = IoStatus::Failed;
+                result.error = readError;
+            }
+        }
+
+        if (result.status == IoStatus::Stopped)
+            return true;
+        if (result.status == IoStatus::TimedOut)
+        {
+            Log("[CMDFW] Client exceeded the idle read timeout.");
+            return false;
+        }
+        if (result.status == IoStatus::Failed)
+        {
+            if (result.error != ERROR_BROKEN_PIPE &&
+                result.error != ERROR_NO_DATA &&
+                result.error != ERROR_OPERATION_ABORTED)
+            {
+                LogWin32Error("ReadFile", result.error);
+            }
+            return false;
+        }
+        if (result.bytesTransferred == 0)
+            return false;
+
+        lineBuffer.append(buffer.data(), result.bytesTransferred);
+
+        std::size_t newline = std::string::npos;
+        while ((newline = lineBuffer.find(CommandProtocol::Newline)) != std::string::npos)
+        {
+            if (newline > CommandProtocol::MaxFrameBytes)
+            {
+                SendError("frame_too_large", "frame exceeds 64 KiB");
+                return false;
+            }
+
+            std::string frame = lineBuffer.substr(0, newline);
+            lineBuffer.erase(0, newline + 1);
+            if (!frame.empty() && frame.back() == '\r')
+                frame.pop_back();
+            if (frame.empty())
+                continue;
+
+            const FrameResult frameResult = ParseAndDispatch(frame);
+            if (frameResult == FrameResult::TransportError)
+                return false;
+            if (frameResult == FrameResult::ProtocolError &&
+                ++protocolErrors >= MaxProtocolErrorsPerConnection)
+            {
+                Log("[CMDFW] Disconnecting client after repeated protocol errors.");
+                return false;
+            }
+        }
+
+        if (lineBuffer.size() > CommandProtocol::MaxFrameBytes)
+        {
+            SendError("frame_too_large", "frame exceeds 64 KiB");
+            return false;
+        }
+    }
+
+    return !connectionFaulted.load();
+}
+
+bool CommandFramework::SendResponse(
+    const std::string& command,
+    const nlohmann::json& payload)
+{
+    std::string frame;
+    try
+    {
+        frame = CommandProtocol::EncodeFrame(command, payload);
+    }
+    catch (const std::exception& exception)
+    {
+        Log(std::string("[CMDFW] Cannot encode response: ") + exception.what());
+        return false;
+    }
+    catch (...)
+    {
+        Log("[CMDFW] Cannot encode response.");
+        return false;
+    }
+
+    DWORD writeError = ERROR_SUCCESS;
+    bool wroteFrame = false;
+    {
+        std::lock_guard<std::mutex> writeLock(writeMutex);
+        if (hCurrentPipe == INVALID_HANDLE_VALUE)
+            return false;
+
+        UniqueHandle writeEvent(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+        if (!writeEvent.IsValid())
+        {
+            writeError = GetLastError();
+        }
+        else
+        {
+            OVERLAPPED writeOperation{};
+            writeOperation.hEvent = writeEvent.Get();
+            IoResult result;
+
+            if (WriteFile(
+                hCurrentPipe,
+                frame.data(),
+                static_cast<DWORD>(frame.size()),
+                nullptr,
+                &writeOperation))
+            {
+                result = CompleteIo(hCurrentPipe, writeOperation);
+            }
+            else if (const DWORD error = GetLastError(); error == ERROR_IO_PENDING)
+            {
+                result = WaitForPendingIo(hCurrentPipe, writeOperation, writeTimeoutMs);
+            }
+            else
+            {
+                result.status = IoStatus::Failed;
+                result.error = error;
+            }
+
+            wroteFrame = result.status == IoStatus::Completed &&
+                result.bytesTransferred == frame.size();
+            writeError = result.error;
+        }
+
+        if (!wroteFrame)
+        {
+            connectionFaulted.store(true);
+            CancelIoEx(hCurrentPipe, nullptr);
+        }
+    }
+
+    if (!wroteFrame)
+        LogWin32Error("WriteFile", writeError);
+    return wroteFrame;
+}
+
+CommandFramework::FrameResult CommandFramework::ParseAndDispatch(
+    const std::string& frame) noexcept
+{
+    const CommandProtocol::ParseResult parsed = CommandProtocol::ParseFrame(frame);
+    if (!parsed.Succeeded())
+    {
+        return SendError(parsed.errorCode, parsed.errorMessage, parsed.requestId)
+            ? FrameResult::ProtocolError
+            : FrameResult::TransportError;
+    }
+
+    return Dispatch(*parsed.request);
+}
+
+CommandFramework::FrameResult CommandFramework::Dispatch(
+    const CommandProtocol::Request& request) noexcept
+{
+    try
+    {
+        if (request.command == "ping")
+        {
+            return SendResponse(
+                "pong",
+                CommandProtocol::WithRequestId(nlohmann::json::object(), request.requestId))
+                ? FrameResult::Processed
+                : FrameResult::TransportError;
+        }
+
+        if (request.command == "join")
+        {
+            const auto ip = request.arguments.find("ip");
+            if (ip == request.arguments.end() || !ip->is_string())
+            {
+                return SendError("invalid_request", "join.ip must be a string", request.requestId)
+                    ? FrameResult::ProtocolError
+                    : FrameResult::TransportError;
+            }
+
+            const std::string target = ip->get<std::string>();
+            std::string targetError;
+            if (!CommandProtocol::ValidateMatchTarget(target, &targetError))
+            {
+                return SendError("invalid_target", targetError, request.requestId)
+                    ? FrameResult::ProtocolError
+                    : FrameResult::TransportError;
+            }
+
+            std::string token;
+            if (const auto tokenValue = request.arguments.find("token");
+                tokenValue != request.arguments.end())
+            {
+                if (!tokenValue->is_string())
+                {
+                    return SendError("invalid_request", "join.token must be a string", request.requestId)
+                        ? FrameResult::ProtocolError
+                        : FrameResult::TransportError;
+                }
+                token = tokenValue->get<std::string>();
+                if (token.size() > CommandProtocol::MaxTokenBytes)
+                {
+                    return SendError("invalid_request", "join.token is too long", request.requestId)
+                        ? FrameResult::ProtocolError
+                        : FrameResult::TransportError;
+                }
+            }
+
+            if (!onJoin)
+            {
+                return SendError("unavailable", "join handler is not available", request.requestId)
+                    ? FrameResult::Processed
+                    : FrameResult::TransportError;
+            }
+            if (!onJoin(target, token))
+            {
+                return SendError("busy", "a match transition is already pending", request.requestId)
+                    ? FrameResult::Processed
+                    : FrameResult::TransportError;
+            }
+
+            return SendResponse(
+                "join_ack",
+                CommandProtocol::WithRequestId(
+                    nlohmann::json{{"status", "accepted"}},
+                    request.requestId))
+                ? FrameResult::Processed
+                : FrameResult::TransportError;
+        }
+
+        if (request.command == "debug")
+        {
+            if (!onDebug)
+            {
+                return SendError("unavailable", "debug handler is not available", request.requestId)
+                    ? FrameResult::Processed
+                    : FrameResult::TransportError;
+            }
+
+            return SendResponse(
+                "debug_ack",
+                CommandProtocol::WithRequestId(onDebug(request.arguments), request.requestId))
+                ? FrameResult::Processed
+                : FrameResult::TransportError;
+        }
+
+        return SendError("unknown_command", "command is not supported", request.requestId)
+            ? FrameResult::ProtocolError
+            : FrameResult::TransportError;
+    }
+    catch (const std::exception& exception)
+    {
+        Log(std::string("[CMDFW] Command callback failed: ") + exception.what());
+    }
+    catch (...)
+    {
+        Log("[CMDFW] Command callback failed.");
+    }
+
+    return SendError("internal_error", "command execution failed", request.requestId)
+        ? FrameResult::Processed
+        : FrameResult::TransportError;
+}
+
+bool CommandFramework::SendError(
+    const std::string_view code,
+    const std::string_view message,
+    const std::optional<std::string>& requestId)
+{
+    try
+    {
+        return SendResponse("error", CommandProtocol::MakeError(code, message, requestId));
+    }
+    catch (...)
+    {
+        Log("[CMDFW] Failed to build protocol error response.");
+        return false;
+    }
+}
+
+void CommandFramework::Log(const std::string& message) const noexcept
+{
+    try
+    {
+        if (onLog)
+            onLog(message);
+        else
+            OutputDebugStringA((message + "\n").c_str());
+    }
+    catch (...)
+    {
+        OutputDebugStringA("[CMDFW] Logging callback failed.\n");
+    }
+}
+
+void CommandFramework::LogWin32Error(
+    const std::string& operation,
+    const DWORD error) const noexcept
+{
+    Log("[CMDFW] " + operation + " failed: " + std::to_string(error));
 }
