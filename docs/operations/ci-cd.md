@@ -61,20 +61,20 @@ Do not create a PAT with repository-management permissions for image publication
 
 ### 2.2 Environments
 
-Create ten Environments:
+Create eight Environments:
 
 ```text
 staging-control-plane
 staging-meta-server
 staging-edge-relay-primary
 staging-edge-relay-gateway
-staging-edge-relay-hgh
 production-control-plane
 production-meta-server
 production-edge-relay-primary
 production-edge-relay-gateway
-production-edge-relay-hgh
 ```
+
+The application deployment matrix contains only `primary` and `gateway`. Standalone relay nodes such as HGH are updated through a separate relay-node workflow.
 
 Recommended configuration for production environment:
 

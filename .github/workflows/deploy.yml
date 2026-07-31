@@ -188,7 +188,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [primary, gateway, hgh]
+        node: [primary, gateway]
     environment:
       name: ${{ github.event_name == 'workflow_run' && format('staging-edge-relay-{0}', matrix.node) || format('{0}-edge-relay-{1}', inputs.environment, matrix.node) }}
     concurrency:

@@ -61,20 +61,20 @@ id-token: write
 
 ### 2.2 Environments
 
-创建十个 Environment：
+创建八个 Environment：
 
 ```text
 staging-control-plane
 staging-meta-server
 staging-edge-relay-primary
 staging-edge-relay-gateway
-staging-edge-relay-hgh
 production-control-plane
 production-meta-server
 production-edge-relay-primary
 production-edge-relay-gateway
-production-edge-relay-hgh
 ```
+
+应用发布矩阵只包含 `primary` 和 `gateway`。HGH 等独立中继节点不由本工作流更新，使用单独的中继节点更新流程。
 
 production 环境建议配置：
 
