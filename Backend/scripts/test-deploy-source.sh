@@ -148,4 +148,8 @@ for table in battlelog_matches battlelog_teams battlelog_participants \
 done
 grep -Fq "('players', 'id, steam_id, auth_level, account_status')" "$provision_script"
 
+verify_script="$script_dir/verify-control-plane.sh"
+! grep -Eq 'curl .*\|[[:space:]]*grep .*q' "$verify_script"
+grep -Fq 'response="$(curl -fsS "$url")"' "$verify_script"
+
 printf 'DEPLOY_SOURCE_TEST_OK\n'
