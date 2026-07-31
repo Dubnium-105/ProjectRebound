@@ -18,6 +18,9 @@ func TestLoadMissingFileAppliesEnvironment(t *testing.T) {
 	t.Setenv("RELAY_UNHEALTHY_AFTER_SECONDS", "6")
 	t.Setenv("RELAY_OFFLINE_AFTER_SECONDS", "10")
 	t.Setenv("RELAY_SWEEP_INTERVAL_SECONDS", "1")
+	t.Setenv("P2P_BATTLELOG_ENABLED", "true")
+	t.Setenv("P2P_BATTLELOG_SHADOW_MODE", "false")
+	t.Setenv("P2P_BATTLELOG_COLLECTION_DEADLINE_SECONDS", "180")
 
 	cfg, err := Load(filepath.Join(t.TempDir(), "missing.yaml"))
 	if err != nil {
@@ -42,6 +45,10 @@ func TestLoadMissingFileAppliesEnvironment(t *testing.T) {
 	if cfg.RelayRegistry.HeartbeatIntervalSeconds != 2 || cfg.RelayRegistry.UnhealthyAfterSeconds != 6 ||
 		cfg.RelayRegistry.OfflineAfterSeconds != 10 || cfg.RelayRegistry.SweepIntervalSeconds != 1 {
 		t.Fatalf("Relay registry timing = %#v", cfg.RelayRegistry)
+	}
+	if !cfg.P2PBattleLog.Enabled || cfg.P2PBattleLog.ShadowMode ||
+		cfg.P2PBattleLog.CollectionDeadlineSeconds != 180 {
+		t.Fatalf("P2P BattleLog config = %#v", cfg.P2PBattleLog)
 	}
 }
 
@@ -76,5 +83,14 @@ func TestValidateControlPlaneAcceptsToolboxDefaultChannel(t *testing.T) {
 	cfg.Update.DefaultChannel = "toolbox"
 	if err := cfg.ValidateControlPlane(); err != nil {
 		t.Fatalf("ValidateControlPlane() error = %v", err)
+	}
+}
+
+func TestValidateControlPlaneRejectsP2PReportLargerThanHTTPBody(t *testing.T) {
+	cfg := Defaults
+	cfg.HTTP.MaxRequestBodyBytes = 128 * 1024
+	cfg.P2PBattleLog.MaxReportBytes = 256 * 1024
+	if err := cfg.ValidateControlPlane(); err == nil {
+		t.Fatal("ValidateControlPlane() returned nil")
 	}
 }

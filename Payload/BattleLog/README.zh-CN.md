@@ -26,6 +26,28 @@
 游戏或服务器控制台会用 `[BATTLELOG]` 前缀输出绝对路径。同一结算阶段的重复
 调用会被去重，直到下一次对局开始事件或 `UWorld` 发生变化。
 
+## P2P v3 封存
+
+Launcher 在注入前通过以下非秘密的进程环境变量启用客户端观察者 v3：
+
+```text
+PROJECT_REBOUND_P2P_MATCH_ID=p2pm_...
+PROJECT_REBOUND_P2P_CAPABILITY_ID=p2rc_...
+PROJECT_REBOUND_P2P_SERVER_NONCE=p2n_...
+PROJECT_REBOUND_CLIENT_VERSION=<launcher-version>
+PROJECT_REBOUND_P2P_AUTHORITY_KIND=CLIENT_OBSERVER
+```
+
+仅房主监听服务器使用 `LISTEN_HOST_OBSERVER`。报告 Token 不属于 DLL 契约，必须
+只保留在 Launcher 内存中。
+
+三个上下文 ID 有效时，提取器输出 schema v3：开局先封存一份 `PARTIAL`，每轮
+结束再封存有界检查点，结果界面触发时封存一份 `FINAL`。事件以
+`match_id|capability_id|server_nonce|timeline_session_id` 为根组成 SHA-256 链。
+文件先写入同目录 `.tmp`，再原子改名为 `*.json.ready`；Launcher 只能扫描
+`.ready` 文件。未设置这些变量的专用服务器仍使用 schema v2 和原有 `.json`
+行为。
+
 ## PvE 与 PvP 分类
 
 Schema v2 将 `match_classification.type` 输出为 `pve`、`pvp` 或 `unknown`。

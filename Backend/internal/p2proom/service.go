@@ -19,6 +19,7 @@ type Service struct {
 	repository        *Repository
 	config            config.P2PRoomConfig
 	connectionCreator ConnectionCreator
+	matchLifecycle    MatchLifecycle
 	now               func() time.Time
 }
 
@@ -28,12 +29,27 @@ type ConnectionCreator interface {
 	RenewForRoom(context.Context, pgx.Tx, string, time.Time) error
 }
 
+type MatchStartRoom struct {
+	ID           string
+	HostPlayerID string
+	Mode         string
+}
+
+type MatchLifecycle interface {
+	EnsureForRoomStart(context.Context, pgx.Tx, MatchStartRoom, time.Time) error
+	MarkRoomRunning(context.Context, string, time.Time) error
+}
+
 func NewService(repository *Repository, cfg config.P2PRoomConfig) *Service {
 	return &Service{repository: repository, config: cfg, now: time.Now}
 }
 
 func (s *Service) SetConnectionCreator(creator ConnectionCreator) {
 	s.connectionCreator = creator
+}
+
+func (s *Service) SetMatchLifecycle(lifecycle MatchLifecycle) {
+	s.matchLifecycle = lifecycle
 }
 
 func (s *Service) Create(ctx context.Context, actor Actor, input CreateInput) (CreateResult, error) {
@@ -200,8 +216,14 @@ func (s *Service) ResolveConnectionParticipants(ctx context.Context, roomID, act
 }
 
 func (s *Service) MarkConnectionEstablished(ctx context.Context, roomID string) error {
-	_, err := s.repository.MarkRunning(ctx, roomID, s.now().UTC())
+	now := s.now().UTC()
+	_, err := s.repository.MarkRunning(ctx, roomID, now)
 	if err == nil {
+		if s.matchLifecycle != nil {
+			if lifecycleErr := s.matchLifecycle.MarkRoomRunning(ctx, roomID, now); lifecycleErr != nil {
+				return internal(lifecycleErr)
+			}
+		}
 		return nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
@@ -212,6 +234,11 @@ func (s *Service) MarkConnectionEstablished(ctx context.Context, roomID string) 
 		return mapRoomError(getErr)
 	}
 	if room.State == StateRunning {
+		if s.matchLifecycle != nil {
+			if lifecycleErr := s.matchLifecycle.MarkRoomRunning(ctx, roomID, now); lifecycleErr != nil {
+				return internal(lifecycleErr)
+			}
+		}
 		return nil
 	}
 	return conflict("INVALID_ROOM_STATE", "Room cannot enter RUNNING from its current state.")
@@ -302,12 +329,30 @@ func (s *Service) Heartbeat(ctx context.Context, actor Actor, roomID, hostToken 
 func (s *Service) Start(ctx context.Context, actor Actor, roomID, hostToken string) (Room, error) {
 	return s.hostOperation(ctx, actor, roomID, hostToken, func(ctx context.Context, tx pgx.Tx, room Room, now time.Time) (Room, error) {
 		if room.State == StateConnecting || room.State == StateRunning {
+			if s.matchLifecycle != nil {
+				if err := s.matchLifecycle.EnsureForRoomStart(ctx, tx, MatchStartRoom{
+					ID: room.ID, HostPlayerID: room.HostPlayerID, Mode: room.Mode,
+				}, now); err != nil {
+					return Room{}, internal(err)
+				}
+			}
 			return room, nil
 		}
 		if room.State != StateLobby {
 			return Room{}, conflict("INVALID_ROOM_STATE", "Room cannot start from its current state.")
 		}
-		return s.repository.Start(ctx, tx, room.ID, now)
+		updated, err := s.repository.Start(ctx, tx, room.ID, now)
+		if err != nil {
+			return Room{}, err
+		}
+		if s.matchLifecycle != nil {
+			if err := s.matchLifecycle.EnsureForRoomStart(ctx, tx, MatchStartRoom{
+				ID: room.ID, HostPlayerID: room.HostPlayerID, Mode: room.Mode,
+			}, now); err != nil {
+				return Room{}, internal(err)
+			}
+		}
+		return updated, nil
 	})
 }
 

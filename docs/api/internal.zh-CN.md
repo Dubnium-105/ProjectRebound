@@ -124,6 +124,9 @@ GET  /v1/admin/p2p-rooms/{room_id}/members
 POST /v1/admin/p2p-rooms/{room_id}/close
 POST /v1/admin/p2p-rooms/{room_id}/members/{player_id}/remove
 
+GET  /v1/admin/p2p-battlelog/matches/{match_id}
+GET  /v1/admin/p2p-battlelog/reports/{evidence_id}/raw
+
 GET  /v1/admin/game-servers
 GET  /v1/admin/game-servers/{server_id}
 POST /v1/admin/game-servers/{server_id}/drain
@@ -141,6 +144,8 @@ POST /v1/admin/relay-nodes/{node_id}/drain
 POST /v1/admin/relay-nodes/{node_id}/resume
 POST /v1/admin/relay-nodes/{node_id}/revoke
 ```
+
+读取 P2P BattleLog 标准化证据要求 `p2p.battlelog.read`；独立的原始证据接口要求 `p2p.battlelog.raw.read`，响应强制 `Cache-Control: no-store`，普通运维/客服角色不获得该权限。其报告标识和数据表与专用服务器 BattleLog 完全分离。
 
 所有写操作都必须提交 `reason`；Relay Drain 还可提交 `deadline_seconds` 和 `migrate_existing`。停用专服会将其标记为离线并撤销注册 Token。房间操作返回 `connections_cleanup_complete`；若为 false，说明房间变更已成功，但需按 Runbook 确认下游连接清理。Connection 的 Relay 迁移不接受浏览器提交目标地址或节点，目标由后端调度器从合格的 READY 节点中选择。响应绝不包含房主 Token、节点 Token、Allocation Token、注册 Token 哈希、私钥或完整 ICE Candidate。
 

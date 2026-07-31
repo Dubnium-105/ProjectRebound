@@ -1,8 +1,10 @@
 #include "BattleLogExtractor.h"
 
 #include <Windows.h>
+#include <bcrypt.h>
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cctype>
@@ -25,6 +27,8 @@
 #include "../Debug/Debug.h"
 #include "../Utility/Utility.h"
 
+#pragma comment(lib, "bcrypt.lib")
+
 namespace BattleLog
 {
 namespace
@@ -36,6 +40,29 @@ namespace
     UWorld* gObservedWorld = nullptr;
     std::unordered_set<std::string> gCapturedStages;
     std::atomic_uint64_t gFileSequence = 0;
+
+    struct P2PContext final
+    {
+        bool Enabled = false;
+        std::string MatchId;
+        std::string CapabilityId;
+        std::string ServerNonce;
+        std::string ClientVersion = "payload-v3";
+        std::string AuthorityKind = "CLIENT_OBSERVER";
+    };
+
+    P2PContext gP2PContext;
+    bool gP2PTimelineActive = false;
+    bool gP2PTimelineFinalized = false;
+    bool gP2PTimelineTruncated = false;
+    bool gP2PStartSnapshotWritten = false;
+    uint64_t gP2PTimelineSequence = 0;
+    std::string gP2PTimelineSessionId;
+    std::string gP2PTimelineDigest;
+    json gP2PTimelineEvents = json::array();
+    std::chrono::steady_clock::time_point gP2PTimelineStartedAt;
+
+    constexpr size_t kMaximumP2PTimelineEvents = 4096;
 
     struct MatchClassification final
     {
@@ -88,8 +115,222 @@ namespace
             || EndsWith(functionName, ".K2_StartMatchEnding")
             || EndsWith(functionName, ".K2_MatchHasEnded")
             || EndsWith(functionName, ".K2_StartShowingMatchResult")
+            || EndsWith(functionName, ".ClientStartShowingMatchResult")
             || EndsWith(functionName, ".SaveMatchResultInfo")
             || EndsWith(functionName, ".GetLastPostMatchSettlementData");
+    }
+
+    bool IsFinalP2PTrigger(const std::string& functionName)
+    {
+        return EndsWith(functionName, ".K2_StartShowingMatchResult")
+            || EndsWith(functionName, ".ClientStartShowingMatchResult");
+    }
+
+    bool IsRoundStartTrigger(const std::string& functionName)
+    {
+        return EndsWith(functionName, ".K2_RoundHasStarted");
+    }
+
+    bool IsRoundEndTrigger(const std::string& functionName)
+    {
+        return EndsWith(functionName, ".K2_RoundHasEnded")
+            || EndsWith(functionName, ".ClientRoundHasEnded");
+    }
+
+    std::string EnvironmentValue(const char* name, const size_t maximumLength)
+    {
+        const DWORD required = GetEnvironmentVariableA(name, nullptr, 0);
+        if (required <= 1 || required > maximumLength + 1)
+            return {};
+		std::string value(static_cast<size_t>(required), '\0');
+		const DWORD written = GetEnvironmentVariableA(name, value.data(), required);
+		if (written != required - 1)
+            return {};
+		value.resize(written);
+        return value;
+    }
+
+    bool IsOpaqueContextValue(const std::string& value)
+    {
+        if (value.empty())
+            return false;
+        return std::all_of(
+            value.begin(), value.end(),
+            [](const unsigned char character)
+            {
+                return std::isalnum(character) || character == '_' || character == '-';
+            });
+    }
+
+    std::string Hex(const uint8_t* bytes, const size_t length)
+    {
+        static constexpr char digits[] = "0123456789abcdef";
+        std::string result(length * 2, '\0');
+        for (size_t index = 0; index < length; ++index)
+        {
+            result[index * 2] = digits[(bytes[index] >> 4) & 0x0f];
+            result[index * 2 + 1] = digits[bytes[index] & 0x0f];
+        }
+        return result;
+    }
+
+    std::string Sha256Hex(const std::string& value)
+    {
+        BCRYPT_ALG_HANDLE algorithm = nullptr;
+        BCRYPT_HASH_HANDLE hash = nullptr;
+        DWORD objectLength = 0;
+        DWORD copied = 0;
+        std::vector<uint8_t> object;
+        std::array<uint8_t, 32> digest{};
+
+        if (BCryptOpenAlgorithmProvider(&algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0) < 0)
+            return {};
+        const auto closeAlgorithm = [&]() { BCryptCloseAlgorithmProvider(algorithm, 0); };
+        if (BCryptGetProperty(
+                algorithm, BCRYPT_OBJECT_LENGTH,
+                reinterpret_cast<PUCHAR>(&objectLength), sizeof(objectLength), &copied, 0) < 0)
+        {
+            closeAlgorithm();
+            return {};
+        }
+        object.resize(objectLength);
+        if (BCryptCreateHash(
+                algorithm, &hash, object.data(), objectLength, nullptr, 0, 0) < 0)
+        {
+            closeAlgorithm();
+            return {};
+        }
+        const NTSTATUS hashStatus = BCryptHashData(
+            hash,
+            reinterpret_cast<PUCHAR>(const_cast<char*>(value.data())),
+            static_cast<ULONG>(value.size()), 0);
+        const NTSTATUS finishStatus = hashStatus < 0
+            ? hashStatus
+            : BCryptFinishHash(hash, digest.data(), static_cast<ULONG>(digest.size()), 0);
+        BCryptDestroyHash(hash);
+        closeAlgorithm();
+        return finishStatus < 0 ? std::string() : Hex(digest.data(), digest.size());
+    }
+
+    std::string RandomTimelineSessionId()
+    {
+        std::array<uint8_t, 16> random{};
+        if (BCryptGenRandom(
+                nullptr, random.data(), static_cast<ULONG>(random.size()),
+                BCRYPT_USE_SYSTEM_PREFERRED_RNG) < 0)
+        {
+            return {};
+        }
+        return "p2tl_" + Hex(random.data(), random.size());
+    }
+
+    P2PContext LoadP2PContext()
+    {
+        P2PContext context;
+        context.MatchId = EnvironmentValue("PROJECT_REBOUND_P2P_MATCH_ID", 64);
+        context.CapabilityId = EnvironmentValue("PROJECT_REBOUND_P2P_CAPABILITY_ID", 64);
+        context.ServerNonce = EnvironmentValue("PROJECT_REBOUND_P2P_SERVER_NONCE", 128);
+        const std::string clientVersion =
+            EnvironmentValue("PROJECT_REBOUND_CLIENT_VERSION", 64);
+        if (!clientVersion.empty())
+            context.ClientVersion = clientVersion;
+        const std::string authority =
+            EnvironmentValue("PROJECT_REBOUND_P2P_AUTHORITY_KIND", 32);
+        if (authority == "LISTEN_HOST_OBSERVER")
+            context.AuthorityKind = authority;
+        context.Enabled = IsOpaqueContextValue(context.MatchId)
+            && IsOpaqueContextValue(context.CapabilityId)
+            && IsOpaqueContextValue(context.ServerNonce);
+        return context;
+    }
+
+    bool IsP2PProcessSide(const ProcessSide side)
+    {
+        if (!gP2PContext.Enabled)
+            return false;
+        return gP2PContext.AuthorityKind == "LISTEN_HOST_OBSERVER"
+            ? side == ProcessSide::Server
+            : side == ProcessSide::Client;
+    }
+
+    void ResetP2PTimeline()
+    {
+        gP2PTimelineActive = false;
+        gP2PTimelineFinalized = false;
+        gP2PTimelineTruncated = false;
+        gP2PStartSnapshotWritten = false;
+        gP2PTimelineSequence = 0;
+        gP2PTimelineSessionId.clear();
+        gP2PTimelineDigest.clear();
+        gP2PTimelineEvents = json::array();
+    }
+
+    bool BeginP2PTimeline()
+    {
+        ResetP2PTimeline();
+        gP2PTimelineSessionId = RandomTimelineSessionId();
+        if (gP2PTimelineSessionId.empty())
+            return false;
+        gP2PTimelineDigest = Sha256Hex(
+            gP2PContext.MatchId + "|" + gP2PContext.CapabilityId + "|"
+            + gP2PContext.ServerNonce + "|" + gP2PTimelineSessionId);
+        if (gP2PTimelineDigest.empty())
+            return false;
+        gP2PTimelineStartedAt = std::chrono::steady_clock::now();
+        gP2PTimelineActive = true;
+        return true;
+    }
+
+    bool AppendP2PTimelineEvent(const std::string& type, const json& payload)
+    {
+        if (!gP2PTimelineActive || gP2PTimelineFinalized)
+            return false;
+		const size_t eventCount = gP2PTimelineEvents.size();
+		if (eventCount >= kMaximumP2PTimelineEvents
+			|| (type != "MATCH_ENDED" && eventCount >= kMaximumP2PTimelineEvents - 1))
+        {
+            gP2PTimelineTruncated = true;
+            return false;
+        }
+        const uint64_t sequence = ++gP2PTimelineSequence;
+        const uint64_t elapsed = static_cast<uint64_t>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - gP2PTimelineStartedAt).count());
+        const std::string payloadDigest = Sha256Hex(payload.dump());
+        const std::string eventDigest = Sha256Hex(
+            gP2PTimelineDigest + "|" + std::to_string(sequence) + "|" + type + "|"
+            + std::to_string(elapsed) + "|" + payloadDigest);
+        if (payloadDigest.empty() || eventDigest.empty())
+            return false;
+        gP2PTimelineEvents.push_back({
+            {"seq", sequence},
+            {"type", type},
+            {"local_monotonic_ms", elapsed},
+            {"previous_event_hash", gP2PTimelineDigest},
+            {"event_hash", eventDigest},
+            {"payload", payload},
+        });
+        gP2PTimelineDigest = eventDigest;
+        if (type == "MATCH_ENDED")
+            gP2PTimelineFinalized = true;
+        return true;
+    }
+
+    json P2PTimeline()
+    {
+		const uint64_t firstSequence = gP2PTimelineEvents.empty()
+			? 0
+			: gP2PTimelineEvents.front()["seq"].get<uint64_t>();
+		const uint64_t lastSequence = gP2PTimelineEvents.empty()
+			? 0
+			: gP2PTimelineEvents.back()["seq"].get<uint64_t>();
+        return {
+			{"first_seq", firstSequence},
+			{"last_seq", lastSequence},
+            {"events_digest", gP2PTimelineDigest},
+            {"timeline_truncated", gP2PTimelineTruncated},
+            {"events", gP2PTimelineEvents},
+        };
     }
 
     std::string WideToUtf8(const std::wstring& value)
@@ -1005,6 +1246,22 @@ namespace
         const json finalResult = gameState
             ? SerializeMatchResult(gameState->GetMatchResult())
             : json(nullptr);
+		const bool p2pSnapshot = IsP2PProcessSide(side) && gP2PTimelineActive;
+		const bool finalP2PSnapshot = p2pSnapshot && IsFinalP2PTrigger(functionName);
+		if (p2pSnapshot && !gP2PTimelineFinalized)
+		{
+			AppendP2PTimelineEvent("STAT_CHECKPOINT", {
+				{"trigger", TriggerLeaf(functionName)},
+				{"participants", participantSummary},
+			});
+			if (finalP2PSnapshot)
+			{
+				AppendP2PTimelineEvent("MATCH_ENDED", {
+					{"trigger", TriggerLeaf(functionName)},
+					{"result", finalResult},
+				});
+			}
+		}
         json pveRecord = nullptr;
         json pvpRecord = nullptr;
         const json classifiedRecord = {
@@ -1045,6 +1302,21 @@ namespace
             {"career_post_match_settlement", nullptr},
             {"warnings", warnings},
         };
+
+		if (p2pSnapshot)
+		{
+			root["schema"] = "project-rebound.p2p-battlelog.raw";
+			root["schema_version"] = 3;
+			root["p2p_match_id"] = gP2PContext.MatchId;
+			root["capability_id"] = gP2PContext.CapabilityId;
+			root["server_nonce"] = gP2PContext.ServerNonce;
+			root["authority_kind"] = gP2PContext.AuthorityKind;
+			root["client_version"] = gP2PContext.ClientVersion;
+			root["timeline_session_id"] = gP2PTimelineSessionId;
+			root["report_completeness"] = finalP2PSnapshot ? "FINAL" : "PARTIAL";
+			root["report_revision"] = 1;
+			root["timeline"] = P2PTimeline();
+		}
 
         for (APBPlayerState* player : players)
             root["players"].push_back(SerializePlayerState(player, gameMode));
@@ -1112,7 +1384,7 @@ namespace
             SafeFilenamePart(matchId.empty() ? "match-id-unavailable" : matchId);
         const uint64_t sequence = ++gFileSequence;
 
-        const std::filesystem::path outputPath =
+        std::filesystem::path outputPath =
             directory
             / (CurrentTimestamp()
                 + "_" + std::to_string(sequence)
@@ -1121,16 +1393,34 @@ namespace
                 + "_" + matchName
                 + "_" + stageName
                 + ".json");
+		if (p2pSnapshot)
+			outputPath += ".ready";
+		const std::filesystem::path writePath = p2pSnapshot
+			? std::filesystem::path(outputPath.string() + ".tmp")
+			: outputPath;
 
-        std::ofstream output(outputPath, std::ios::binary | std::ios::trunc);
+		std::ofstream output(writePath, std::ios::binary | std::ios::trunc);
         if (!output.is_open())
         {
-            Log("[BATTLELOG] Cannot open dump file: " + outputPath.string());
+			Log("[BATTLELOG] Cannot open dump file: " + writePath.string());
             return;
         }
 
         output << root.dump(2);
         output.close();
+		if (p2pSnapshot)
+		{
+			std::error_code renameError;
+			std::filesystem::rename(writePath, outputPath, renameError);
+			if (renameError)
+			{
+				std::error_code cleanupError;
+				std::filesystem::remove(writePath, cleanupError);
+				Log("[BATTLELOG] Cannot seal P2P snapshot: "
+					+ outputPath.string() + " (" + renameError.message() + ")");
+				return;
+			}
+		}
         Log("[BATTLELOG] Raw post-match snapshot: " + outputPath.string());
     }
 }
@@ -1149,16 +1439,81 @@ void OnProcessEventPost(
     {
         gObservedWorld = currentWorld;
         gCapturedStages.clear();
+		gP2PContext = LoadP2PContext();
+		ResetP2PTimeline();
     }
 
     if (IsStartTrigger(functionName))
     {
         gCapturedStages.clear();
+		if (IsP2PProcessSide(side) && !gP2PTimelineActive && BeginP2PTimeline())
+		{
+			AppendP2PTimelineEvent("MATCH_STARTED", {
+				{"trigger", TriggerLeaf(functionName)},
+			});
+			if (!gP2PStartSnapshotWritten)
+			{
+				gP2PStartSnapshotWritten = true;
+				try
+				{
+					Capture(side, object, functionName, parms);
+				}
+				catch (const std::exception& exception)
+				{
+					Log("[BATTLELOG] Initial P2P snapshot failed: "
+						+ std::string(exception.what()));
+				}
+				catch (...)
+				{
+					Log("[BATTLELOG] Initial P2P snapshot failed: unknown exception");
+				}
+			}
+		}
         return;
     }
 
+	if ((IsRoundStartTrigger(functionName) || IsRoundEndTrigger(functionName))
+		&& IsP2PProcessSide(side) && gP2PTimelineActive && !gP2PTimelineFinalized)
+	{
+		auto* gameState = currentWorld && currentWorld->GameState
+			&& currentWorld->GameState->IsA(SDK::APBGameState::StaticClass())
+			? static_cast<SDK::APBGameState*>(currentWorld->GameState)
+			: nullptr;
+		const bool roundEnded = IsRoundEndTrigger(functionName);
+		const int32_t roundCount = gameState ? gameState->CurrentRoundCount : -1;
+		const std::string roundKey = std::string(roundEnded ? "round-end|" : "round-start|")
+			+ std::to_string(roundCount);
+		if (gCapturedStages.insert(roundKey).second)
+		{
+			AppendP2PTimelineEvent(roundEnded ? "ROUND_ENDED" : "ROUND_STARTED", {
+				{"round_index", roundCount},
+				{"trigger", TriggerLeaf(functionName)},
+				{"result", gameState ? SerializeRoundResult(gameState->GetLastRoundResult()) : json(nullptr)},
+			});
+			if (roundEnded)
+			{
+				try
+				{
+					Capture(side, object, functionName, parms);
+				}
+				catch (const std::exception& exception)
+				{
+					Log("[BATTLELOG] Round P2P checkpoint failed: "
+						+ std::string(exception.what()));
+				}
+				catch (...)
+				{
+					Log("[BATTLELOG] Round P2P checkpoint failed: unknown exception");
+				}
+			}
+		}
+		return;
+	}
+
     if (!IsCaptureTrigger(functionName))
         return;
+	if (IsP2PProcessSide(side) && gP2PTimelineFinalized)
+		return;
 
     std::string matchId;
     if (currentWorld

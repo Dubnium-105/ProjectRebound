@@ -131,7 +131,21 @@ The session list returns only the session ID, a four-character device display su
 
 Public room responses do not return candidate addresses, host tokens, or member secrets. The host cannot call leave and must close the room. By default, if there is no host heartbeat for 45 seconds, it will enter the expiration process, and it will be closed after 90 seconds. A valid host heartbeat also renews all non-terminal connections to the room in the same database transaction; final connections are not restored.
 
-### 3.5 Connection coordination and WebSocket
+### 3.5 P2P BattleLog v3
+
+All endpoints require an active, Steam-verified Player access token and frozen-roster membership. P2P evidence is stored separately from dedicated-server `battlelog_*` data.
+
+| Method | Path | Additional authentication/body | Success |
+| --- | --- | --- | --- |
+| GET | `/v1/p2p-rooms/{room_id}/matches/active` | — | 200 server-created match context |
+| POST | `/v1/p2p-matches/{match_id}/report-capability` | — | 201 session-family-bound `report_token`, capability ID, and nonce |
+| PUT | `/v1/p2p-matches/{match_id}/presence/me` | Monotonic presence sequence and process/connection status | 200 presence or reconnect segment |
+| PUT | `/v1/p2p-matches/{match_id}/reports/{report_id}` | `X-P2P-Report-Token`; direct raw v3 JSON body | 200 accepted, quarantined, or idempotent duplicate |
+| GET | `/v1/p2p-matches/{match_id}/result` | — | 200 collection progress or final decision |
+
+Launcher must retain the report token and add it only during upload; the injected DLL receives only the non-secret match ID, capability ID, and server nonce. One immutable `FINAL` report is accepted per reporter. Missing reporters—including a host or player that leaves early—do not block indefinitely: the first final report, all reporters reaching result/left state, or closure of the room opens the collection deadline. The service then records peer-confirmed, self-reported, disputed, incomplete, or expired status. `PARTIAL` reports remain evidence but do not count toward final quorum.
+
+### 3.6 Connection coordination and WebSocket
 
 | Method | Path | Authentication | Request | Success |
 | --- | --- | --- | --- | --- |

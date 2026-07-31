@@ -123,6 +123,19 @@ p2p_room:
   sweep_interval_seconds: 5
   maximum_players: 64
 
+p2p_battlelog:
+  # Keep intake disabled until the v3 player Launcher is deployed. Shadow mode
+  # stores and validates evidence without exposing peer-attested history.
+  enabled: false
+  shadow_mode: true
+  policy_version: "p2p-v1"
+  max_report_bytes: 524288
+  max_events: 4096
+  collection_deadline_seconds: 300
+  hard_expiry_hours: 8
+  capability_ttl_hours: 24
+  finalizer_interval_seconds: 5
+
 connection:
   session_ttl_seconds: 600
   sweep_interval_seconds: 5

@@ -1182,6 +1182,50 @@ paths:
           content:
             application/json:
               schema: {$ref: "#/components/schemas/AdminP2PRoomOperationResponse"}
+  /v1/admin/p2p-battlelog/matches/{match_id}:
+    get:
+      operationId: adminGetP2PBattleLogEvidence
+      tags: [Admin, P2P BattleLog]
+      x-internal: true
+      description: Returns normalized decision, frozen roster, presence segments, and report hashes without raw snapshots. Requires p2p.battlelog.read.
+      security:
+        - adminAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/P2PMatchID"
+      responses:
+        "200":
+          description: Administrative P2P evidence bundle.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminP2PBattleLogEvidenceResponse"}
+        "403":
+          description: Administrator lacks the independent P2P BattleLog permission.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ErrorResponse"}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /v1/admin/p2p-battlelog/reports/{evidence_id}/raw:
+    get:
+      operationId: adminGetRawP2PBattleLogEvidence
+      tags: [Admin, P2P BattleLog]
+      x-internal: true
+      description: Returns raw player-submitted P2P evidence with no-store caching. Requires p2p.battlelog.raw.read.
+      security:
+        - adminAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/P2PEvidenceID"
+      responses:
+        "200":
+          description: Raw evidence and its server-computed digest.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminP2PRawEvidenceResponse"}
+        "403":
+          description: Administrator lacks the independent raw-evidence permission.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ErrorResponse"}
+        "404": {$ref: "#/components/responses/NotFound"}
   /v1/admin/game-servers:
     get:
       operationId: adminListGameServers
@@ -1898,6 +1942,157 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /v1/p2p-rooms/{room_id}/matches/active:
+    get:
+      operationId: getActiveP2PMatch
+      tags: [P2P BattleLog]
+      description: Returns the server-created match identity for a member of the frozen room roster.
+      security:
+        - playerAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/P2PRoomID"
+      responses:
+        "200":
+          description: Active P2P match collection state.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/P2PActiveMatchResponse"}
+        "403":
+          description: Verified frozen-roster membership is required.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ErrorResponse"}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /v1/p2p-matches/{match_id}/report-capability:
+    post:
+      operationId: issueP2PReportCapability
+      tags: [P2P BattleLog]
+      description: Rotates and returns a session-family-bound report capability for an eligible frozen-roster member.
+      security:
+        - playerAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/P2PMatchID"
+      responses:
+        "201":
+          description: Capability issued. The report token is shown only here and must not be passed to the injected payload.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/P2PReportCapabilityResponse"}
+        "403":
+          description: Verified eligible reporter membership is required.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ErrorResponse"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: Match is no longer accepting reports.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ErrorResponse"}
+  /v1/p2p-matches/{match_id}/presence/me:
+    put:
+      operationId: updateOwnP2PMatchPresence
+      tags: [P2P BattleLog]
+      description: Records monotonic launcher presence, disconnect, reconnect, result-screen, and exit-intent checkpoints.
+      security:
+        - playerAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/P2PMatchID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/P2PPresenceRequest"}
+      responses:
+        "200":
+          description: Presence checkpoint accepted or identified as an idempotent duplicate.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/P2PPresenceResponse"}
+        "400": {$ref: "#/components/responses/InvalidRequest"}
+        "403":
+          description: Verified frozen-roster membership is required.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ErrorResponse"}
+        "409":
+          description: The match is finalized.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ErrorResponse"}
+  /v1/p2p-matches/{match_id}/reports/{report_id}:
+    put:
+      operationId: submitP2PBattleLogV3
+      tags: [P2P BattleLog]
+      description: >-
+        Uploads one bounded raw v3 snapshot. Authentication requires both the
+        verified player access token and its session-bound report capability.
+        Idempotency is scoped to match, reporter, and report_id; a FINAL report
+        is immutable per reporter.
+      security:
+        - playerAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/P2PMatchID"
+        - $ref: "#/components/parameters/P2PReportID"
+        - $ref: "#/components/parameters/P2PReportToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/P2PBattleLogRawV3"}
+      responses:
+        "200":
+          description: Report stored, quarantined for review, or returned as an idempotent duplicate.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/P2PBattleLogSubmissionResponse"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403":
+          description: Verified reporter identity or report context rejected.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ErrorResponse"}
+        "409":
+          description: Conflicting report ID/final report, or finalized match.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ErrorResponse"}
+        "413":
+          description: Snapshot exceeds the configured P2P report limit.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ErrorResponse"}
+        "415":
+          description: Content-Type is not application/json.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ErrorResponse"}
+        "422":
+          description: Snapshot, roster identity, or timeline chain is invalid.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ErrorResponse"}
+  /v1/p2p-matches/{match_id}/result:
+    get:
+      operationId: getP2PBattleLogResult
+      tags: [P2P BattleLog]
+      description: Returns collection progress or the immutable deadline/quorum decision to a frozen-roster member.
+      security:
+        - playerAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/P2PMatchID"
+      responses:
+        "200":
+          description: Current collection or finalized P2P result.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/P2PBattleLogResultResponse"}
+        "403":
+          description: Verified frozen-roster membership is required.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ErrorResponse"}
+        "404": {$ref: "#/components/responses/NotFound"}
   /v1/connections:
     post:
       operationId: createConnection
@@ -2916,6 +3111,35 @@ components:
       schema:
         type: string
         minLength: 64
+    P2PMatchID:
+      in: path
+      name: match_id
+      required: true
+      schema:
+        type: string
+        pattern: "^p2pm_[A-Za-z0-9_-]+$"
+    P2PReportID:
+      in: path
+      name: report_id
+      required: true
+      schema:
+        type: string
+        pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    P2PReportToken:
+      in: header
+      name: X-P2P-Report-Token
+      required: true
+      description: Session-family-bound opaque capability retained and attached by Launcher; never exposed to the game DLL.
+      schema:
+        type: string
+        minLength: 40
+    P2PEvidenceID:
+      in: path
+      name: evidence_id
+      required: true
+      schema:
+        type: string
+        pattern: "^p2pr_[A-Za-z0-9_-]+$"
     ConnectionID:
       in: path
       name: connection_id
@@ -4459,6 +4683,195 @@ components:
     P2PRoomState:
       type: string
       enum: [LOBBY, CONNECTING, RUNNING, STALE, CLOSED]
+    P2PMatchState:
+      type: string
+      enum: [STARTING, RUNNING, COLLECTING, PEER_CONFIRMED, SELF_REPORTED, DISPUTED, INCOMPLETE, ABORTED, EXPIRED]
+    P2PActiveMatch:
+      type: object
+      additionalProperties: false
+      required: [match_id, room_id, sequence, mode, map_alias, match_type, state, roster_revision, expected_reporter_count, policy_version, hard_expires_at]
+      properties:
+        match_id: {type: string}
+        room_id: {type: string}
+        sequence: {type: integer, minimum: 1}
+        mode: {type: string}
+        map_alias: {type: string}
+        match_type: {type: string, enum: [PVE, PVP, UNKNOWN]}
+        state: {$ref: "#/components/schemas/P2PMatchState"}
+        roster_revision: {type: integer, minimum: 1}
+        expected_reporter_count: {type: integer, minimum: 0}
+        policy_version: {type: string}
+        collection_started_at: {type: [string, "null"], format: date-time}
+        collection_deadline: {type: [string, "null"], format: date-time}
+        hard_expires_at: {type: string, format: date-time}
+    P2PActiveMatchResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/P2PActiveMatch"}
+        request_id: {type: string}
+    P2PReportCapability:
+      type: object
+      additionalProperties: false
+      required: [match_id, capability_id, report_token, server_nonce, expires_at]
+      properties:
+        match_id: {type: string}
+        capability_id: {type: string}
+        report_token: {type: string, writeOnly: true}
+        server_nonce: {type: string}
+        expires_at: {type: string, format: date-time}
+    P2PReportCapabilityResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/P2PReportCapability"}
+        request_id: {type: string}
+    P2PPresenceRequest:
+      type: object
+      additionalProperties: false
+      required: [presence_seq, status, timeline_session_id, last_checkpoint_seq, game_process_alive, game_connected]
+      properties:
+        presence_seq: {type: integer, format: int64, minimum: 1}
+        status: {type: string, enum: [CONNECTING, ACTIVE, DISCONNECTED, RESULT_SCREEN, EXIT_INTENT, LEFT]}
+        timeline_session_id: {type: string, minLength: 1, maxLength: 128}
+        last_checkpoint_seq: {type: integer, format: int64, minimum: 0}
+        game_process_alive: {type: boolean}
+        game_connected: {type: boolean}
+    P2PPresenceResult:
+      type: object
+      additionalProperties: false
+      required: [match_id, player_id, segment_no, presence_seq, status, last_presence_at, was_duplicate, reconnect_segment_opened]
+      properties:
+        match_id: {type: string}
+        player_id: {type: string}
+        segment_no: {type: integer, minimum: 1}
+        presence_seq: {type: integer, format: int64, minimum: 1}
+        status: {type: string}
+        last_presence_at: {type: string, format: date-time}
+        was_duplicate: {type: boolean}
+        reconnect_segment_opened: {type: boolean}
+    P2PPresenceResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/P2PPresenceResult"}
+        request_id: {type: string}
+    P2PBattleLogWarning:
+      type: object
+      additionalProperties: false
+      required: [code, severity, message, quarantine]
+      properties:
+        code: {type: string}
+        severity: {type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL]}
+        message: {type: string}
+        quarantine: {type: boolean}
+    P2PBattleLogRawV3:
+      type: object
+      description: Bounded project-rebound.p2p-battlelog.raw schema version 3 snapshot with a SHA-256-linked local timeline.
+      additionalProperties: true
+      required: [schema, schema_version, p2p_match_id, capability_id, server_nonce, authority_kind, client_version, timeline_session_id, report_completeness, report_revision, captured_at_utc, match_classification, game_state, players, timeline]
+      properties:
+        schema: {type: string, const: project-rebound.p2p-battlelog.raw}
+        schema_version: {type: integer, const: 3}
+        p2p_match_id: {type: string}
+        capability_id: {type: string}
+        server_nonce: {type: string}
+        authority_kind: {type: string, enum: [CLIENT_OBSERVER, LISTEN_HOST_OBSERVER]}
+        client_version: {type: string, minLength: 1, maxLength: 64}
+        timeline_session_id: {type: string, minLength: 1, maxLength: 128}
+        report_completeness: {type: string, enum: [PARTIAL, FINAL]}
+        report_revision: {type: integer, minimum: 1}
+        captured_at_utc: {type: string, format: date-time}
+        match_classification: {type: object, additionalProperties: true}
+        game_state: {type: object, additionalProperties: true}
+        players:
+          type: array
+          minItems: 1
+          maxItems: 256
+          items: {type: object, additionalProperties: true}
+        timeline:
+          type: object
+          additionalProperties: true
+          required: [first_seq, last_seq, events_digest, timeline_truncated, events]
+          properties:
+            first_seq: {type: integer, format: int64, minimum: 1}
+            last_seq: {type: integer, format: int64, minimum: 1}
+            events_digest: {type: string, pattern: "^[a-fA-F0-9]{64}$"}
+            timeline_truncated: {type: boolean}
+            events:
+              type: array
+              minItems: 1
+              items: {type: object, additionalProperties: true}
+    P2PBattleLogSubmission:
+      type: object
+      additionalProperties: false
+      required: [report_id, match_id, validation_status, validation_warnings, duplicate, collection_state]
+      properties:
+        report_id: {type: string}
+        match_id: {type: string}
+        validation_status: {type: string, enum: [ACCEPTED, ACCEPTED_WITH_WARNINGS, QUARANTINED]}
+        risk_severity: {type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL]}
+        validation_warnings:
+          type: array
+          items: {$ref: "#/components/schemas/P2PBattleLogWarning"}
+        duplicate: {type: boolean}
+        collection_state: {$ref: "#/components/schemas/P2PMatchState"}
+    P2PBattleLogSubmissionResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/P2PBattleLogSubmission"}
+        request_id: {type: string}
+    P2PBattleLogResultResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          additionalProperties: true
+          required: [match_id, state, match_type, team_scores, participants, eligible_reporter_count, received_final_count, required_quorum, team_coverage, reasons, policy_version]
+        request_id: {type: string}
+    AdminP2PBattleLogEvidenceResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          additionalProperties: true
+          required: [match, roster, presence, reports, result, shadow_mode, storage_class]
+          properties:
+            match: {type: object, additionalProperties: true}
+            roster: {type: array, items: {type: object, additionalProperties: true}}
+            presence: {type: array, items: {type: object, additionalProperties: true}}
+            reports: {type: array, items: {type: object, additionalProperties: true}}
+            result: {type: object, additionalProperties: true}
+            shadow_mode: {type: boolean}
+            storage_class: {type: string, const: P2P_PEER_EVIDENCE}
+        request_id: {type: string}
+    AdminP2PRawEvidenceResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [evidence_id, match_id, reporter_player_id, raw_sha256, validation_status, snapshot]
+          properties:
+            evidence_id: {type: string}
+            match_id: {type: string}
+            reporter_player_id: {type: string}
+            raw_sha256: {type: string, pattern: "^[a-f0-9]{64}$"}
+            validation_status: {type: string, enum: [ACCEPTED, ACCEPTED_WITH_WARNINGS, QUARANTINED]}
+            risk_severity: {type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL]}
+            snapshot: {$ref: "#/components/schemas/P2PBattleLogRawV3"}
+        request_id: {type: string}
     P2PRoomCreateRequest:
       type: object
       additionalProperties: false

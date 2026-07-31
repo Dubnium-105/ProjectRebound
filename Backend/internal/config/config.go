@@ -25,6 +25,7 @@ type Config struct {
 	GameServer    GameServerConfig    `yaml:"game_server"`
 	MetaServer    MetaServerConfig    `yaml:"meta_server"`
 	P2PRoom       P2PRoomConfig       `yaml:"p2p_room"`
+	P2PBattleLog  P2PBattleLogConfig  `yaml:"p2p_battlelog"`
 	Connection    ConnectionConfig    `yaml:"connection"`
 	RelayRegistry RelayRegistryConfig `yaml:"relay_registry"`
 	Update        UpdateConfig        `yaml:"update"`
@@ -172,6 +173,18 @@ type P2PRoomConfig struct {
 	MaximumPlayers           int `yaml:"maximum_players"`
 }
 
+type P2PBattleLogConfig struct {
+	Enabled                   bool   `yaml:"enabled"`
+	ShadowMode                bool   `yaml:"shadow_mode"`
+	PolicyVersion             string `yaml:"policy_version"`
+	MaxReportBytes            int    `yaml:"max_report_bytes"`
+	MaxEvents                 int    `yaml:"max_events"`
+	CollectionDeadlineSeconds int    `yaml:"collection_deadline_seconds"`
+	HardExpiryHours           int    `yaml:"hard_expiry_hours"`
+	CapabilityTTLHours        int    `yaml:"capability_ttl_hours"`
+	FinalizerIntervalSeconds  int    `yaml:"finalizer_interval_seconds"`
+}
+
 type ConnectionConfig struct {
 	SessionTTLSeconds    int `yaml:"session_ttl_seconds"`
 	SweepIntervalSeconds int `yaml:"sweep_interval_seconds"`
@@ -252,7 +265,7 @@ var Defaults = Config{
 			"http://localhost:5173",
 			"http://127.0.0.1:5173",
 		},
-		AllowedHeaders:   []string{"Authorization", "Content-Type", "X-Request-Id", "X-Room-Host-Token"},
+		AllowedHeaders:   []string{"Authorization", "Content-Type", "X-Request-Id", "X-Room-Host-Token", "X-P2P-Report-Token"},
 		AllowCredentials: true,
 		MaxAgeSeconds:    600,
 	},
@@ -341,6 +354,17 @@ var Defaults = Config{
 		ClosedAfterSeconds:       90,
 		SweepIntervalSeconds:     5,
 		MaximumPlayers:           64,
+	},
+	P2PBattleLog: P2PBattleLogConfig{
+		Enabled:                   false,
+		ShadowMode:                true,
+		PolicyVersion:             "p2p-v1",
+		MaxReportBytes:            512 * 1024,
+		MaxEvents:                 4096,
+		CollectionDeadlineSeconds: 300,
+		HardExpiryHours:           8,
+		CapabilityTTLHours:        24,
+		FinalizerIntervalSeconds:  5,
 	},
 	Connection: ConnectionConfig{
 		SessionTTLSeconds:    600,
@@ -473,6 +497,15 @@ func (c *Config) applyEnvOverrides() {
 	overrideInt("CONNECTION_SWEEP_INTERVAL_SECONDS", &c.Connection.SweepIntervalSeconds)
 	overrideInt("CONNECTION_WEBSOCKET_QUEUE_SIZE", &c.Connection.WebSocketQueueSize)
 	overrideInt("CONNECTION_WEBSOCKET_MAX_MESSAGE_BYTES", &c.Connection.WebSocketMaxBytes)
+	overrideBool("P2P_BATTLELOG_ENABLED", &c.P2PBattleLog.Enabled)
+	overrideBool("P2P_BATTLELOG_SHADOW_MODE", &c.P2PBattleLog.ShadowMode)
+	overrideString("P2P_BATTLELOG_POLICY_VERSION", &c.P2PBattleLog.PolicyVersion)
+	overrideInt("P2P_BATTLELOG_MAX_REPORT_BYTES", &c.P2PBattleLog.MaxReportBytes)
+	overrideInt("P2P_BATTLELOG_MAX_EVENTS", &c.P2PBattleLog.MaxEvents)
+	overrideInt("P2P_BATTLELOG_COLLECTION_DEADLINE_SECONDS", &c.P2PBattleLog.CollectionDeadlineSeconds)
+	overrideInt("P2P_BATTLELOG_HARD_EXPIRY_HOURS", &c.P2PBattleLog.HardExpiryHours)
+	overrideInt("P2P_BATTLELOG_CAPABILITY_TTL_HOURS", &c.P2PBattleLog.CapabilityTTLHours)
+	overrideInt("P2P_BATTLELOG_FINALIZER_INTERVAL_SECONDS", &c.P2PBattleLog.FinalizerIntervalSeconds)
 	overrideString("RELAY_CONTROL_ADDR", &c.RelayRegistry.ControlAddr)
 	if raw := os.Getenv("RELAY_CONTROL_SERVER_NAMES"); raw != "" {
 		c.RelayRegistry.ServerNames = splitCSV(raw)
@@ -662,6 +695,17 @@ func (c *Config) ValidateControlPlane() error {
 		c.P2PRoom.ClosedAfterSeconds <= c.P2PRoom.StaleAfterSeconds ||
 		c.P2PRoom.SweepIntervalSeconds < 1 || c.P2PRoom.MaximumPlayers < 2 || c.P2PRoom.MaximumPlayers > 64 {
 		errs = append(errs, errors.New("p2p_room timing and capacity settings are invalid"))
+	}
+	if strings.TrimSpace(c.P2PBattleLog.PolicyVersion) == "" ||
+		c.P2PBattleLog.MaxReportBytes < 16*1024 ||
+		int64(c.P2PBattleLog.MaxReportBytes) > c.HTTP.MaxRequestBodyBytes ||
+		c.P2PBattleLog.MaxEvents < 1 || c.P2PBattleLog.MaxEvents > 100000 ||
+		c.P2PBattleLog.CollectionDeadlineSeconds < 30 ||
+		c.P2PBattleLog.HardExpiryHours < 1 || c.P2PBattleLog.HardExpiryHours > 168 ||
+		c.P2PBattleLog.CapabilityTTLHours < c.P2PBattleLog.HardExpiryHours ||
+		c.P2PBattleLog.CapabilityTTLHours > 168 ||
+		c.P2PBattleLog.FinalizerIntervalSeconds < 1 {
+		errs = append(errs, errors.New("p2p_battlelog limits and timing settings are invalid"))
 	}
 	if c.Connection.SessionTTLSeconds < 30 || c.Connection.SweepIntervalSeconds < 1 ||
 		c.Connection.WebSocketQueueSize < 1 || c.Connection.WebSocketMaxBytes < 1024 {
@@ -859,6 +903,22 @@ func (c GameServerConfig) SweepInterval() time.Duration {
 
 func (c P2PRoomConfig) SweepInterval() time.Duration {
 	return time.Duration(c.SweepIntervalSeconds) * time.Second
+}
+
+func (c P2PBattleLogConfig) CollectionDeadline() time.Duration {
+	return time.Duration(c.CollectionDeadlineSeconds) * time.Second
+}
+
+func (c P2PBattleLogConfig) HardExpiry() time.Duration {
+	return time.Duration(c.HardExpiryHours) * time.Hour
+}
+
+func (c P2PBattleLogConfig) CapabilityTTL() time.Duration {
+	return time.Duration(c.CapabilityTTLHours) * time.Hour
+}
+
+func (c P2PBattleLogConfig) FinalizerInterval() time.Duration {
+	return time.Duration(c.FinalizerIntervalSeconds) * time.Second
 }
 
 func (c ConnectionConfig) SessionTTL() time.Duration {

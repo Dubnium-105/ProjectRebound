@@ -275,6 +275,9 @@ func (m *Metrics) writeDatabaseGauges(ctx context.Context, w http.ResponseWriter
 	gameServerHeartbeatLag := int64(0)
 	gameServers := make(map[string]int64)
 	relayNodes := make(map[string]int64)
+	p2pBattleLogMatches := make(map[string]int64)
+	var p2pBattleLogReports int64
+	var p2pBattleLogQuarantined int64
 	scrapeError := int64(0)
 	postgresAvailable := int64(0)
 	if m.pool != nil {
@@ -299,6 +302,8 @@ func (m *Metrics) writeDatabaseGauges(ctx context.Context, w http.ResponseWriter
 			{"SELECT COUNT(*) FROM relay_migrations WHERE state = 'FAILED'", &relayMigrationFailures},
 			{"SELECT COALESCE(EXTRACT(EPOCH FROM NOW() - MIN(last_heartbeat_at)), 0)::bigint FROM p2p_rooms WHERE state <> 'CLOSED'", &p2pHeartbeatLag},
 			{"SELECT COALESCE(EXTRACT(EPOCH FROM NOW() - MIN(last_heartbeat_at)), 0)::bigint FROM game_servers WHERE state <> 'OFFLINE'", &gameServerHeartbeatLag},
+			{"SELECT COUNT(*) FROM p2p_battlelog_reports", &p2pBattleLogReports},
+			{"SELECT COUNT(*) FROM p2p_battlelog_reports WHERE validation_status = 'QUARANTINED'", &p2pBattleLogQuarantined},
 		}
 		for _, item := range queries {
 			if err := m.pool.QueryRow(queryCtx, item.query).Scan(item.value); err != nil {
@@ -311,6 +316,9 @@ func (m *Metrics) writeDatabaseGauges(ctx context.Context, w http.ResponseWriter
 		if err := collectStates(queryCtx, m.pool, "SELECT state, COUNT(*) FROM relay_nodes GROUP BY state", relayNodes); err != nil {
 			scrapeError = 1
 		}
+		if err := collectStates(queryCtx, m.pool, "SELECT state, COUNT(*) FROM p2p_match_sessions GROUP BY state", p2pBattleLogMatches); err != nil {
+			scrapeError = 1
+		}
 		if scrapeError == 0 {
 			postgresAvailable = 1
 		}
@@ -321,12 +329,15 @@ func (m *Metrics) writeDatabaseGauges(ctx context.Context, w http.ResponseWriter
 	writeGauge(w, "auth_risk_events_total", riskEvents)
 	writeGauge(w, "p2p_rooms_active", activeRooms)
 	writeGauge(w, "p2p_room_heartbeat_lag_seconds", p2pHeartbeatLag)
+	writeGauge(w, "p2p_battlelog_reports", p2pBattleLogReports)
+	writeGauge(w, "p2p_battlelog_quarantined_reports", p2pBattleLogQuarantined)
 	writeGauge(w, "game_server_heartbeat_lag_seconds", gameServerHeartbeatLag)
 	writeGauge(w, "relay_allocations_active", activeAllocations)
 	writeGauge(w, "relay_migrations_total", relayMigrations)
 	writeGauge(w, "relay_migration_failed_total", relayMigrationFailures)
 	writeStateGauges(w, "game_servers_by_state", []string{"STARTING", "READY", "RESERVED", "RUNNING", "DRAINING", "UNHEALTHY", "OFFLINE"}, gameServers)
 	writeStateGauges(w, "relay_nodes_by_state", []string{"BOOTSTRAPPING", "CONNECTING", "READY", "DRAINING", "UNHEALTHY", "OFFLINE", "REVOKED"}, relayNodes)
+	writeStateGauges(w, "p2p_battlelog_matches_by_state", []string{"STARTING", "RUNNING", "COLLECTING", "PEER_CONFIRMED", "SELF_REPORTED", "DISPUTED", "INCOMPLETE", "ABORTED", "EXPIRED"}, p2pBattleLogMatches)
 	var memory runtime.MemStats
 	runtime.ReadMemStats(&memory)
 	writeGauge(w, "go_goroutines", int64(runtime.NumGoroutine()))

@@ -131,7 +131,21 @@ verified bind 的 `data.integrity_challenge.nonce` 包含首次一次性 challen
 
 公共房间响应不会返回候选地址、Host Token 或成员秘密。房主不能调用 leave，必须关闭房间。默认 45 秒无房主心跳进入过期处理，90 秒关闭。有效的房主心跳还会在同一数据库事务中续租该房间的所有非终态连接；终态连接不会被恢复。
 
-### 3.5 连接协调和 WebSocket
+### 3.5 P2P BattleLog v3
+
+全部接口都要求 Active、Steam 已验证的 Player Access Token，并要求玩家属于服务端冻结的对局名单。P2P 证据与专用服务器的 `battlelog_*` 数据完全分开保存。
+
+| 方法 | 路径 | 附加鉴权/请求体 | 成功响应 |
+| --- | --- | --- | --- |
+| GET | `/v1/p2p-rooms/{room_id}/matches/active` | — | 200 服务端创建的对局上下文 |
+| POST | `/v1/p2p-matches/{match_id}/report-capability` | — | 201 与会话族绑定的 `report_token`、Capability ID 和 nonce |
+| PUT | `/v1/p2p-matches/{match_id}/presence/me` | 单调递增的在线序号及进程/连接状态 | 200 在线或重连分段 |
+| PUT | `/v1/p2p-matches/{match_id}/reports/{report_id}` | `X-P2P-Report-Token`；请求体直接为 raw v3 JSON | 200 接收、隔离或幂等重复 |
+| GET | `/v1/p2p-matches/{match_id}/result` | — | 200 收集进度或最终裁决 |
+
+Launcher 必须自行保管报告 Token，只在上传时添加；注入 DLL 只能取得非秘密的 Match ID、Capability ID 与 server nonce。每位上报者只能提交一份不可变 `FINAL`。房主或玩家提前离开不会无限阻塞：首份 FINAL、全体上报者进入结果页/离开，或房间关闭都会开启收集截止窗口；窗口结束后将对局记为交叉确认、自报、争议、不完整或过期。`PARTIAL` 仅保留为证据，不计入最终法定人数。
+
+### 3.6 连接协调和 WebSocket
 
 | 方法 | 路径 | 鉴权 | 请求 | 成功 |
 | --- | --- | --- | --- | --- |

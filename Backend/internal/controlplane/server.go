@@ -22,6 +22,7 @@ import (
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/invite"
 	appmiddleware "github.com/Dubnium-105/ProjectRebound/Backend/internal/middleware"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/observability"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/p2pbattlelog"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/p2proom"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/player"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/relayregistry"
@@ -334,7 +335,18 @@ func buildHandler(
 	router.Delete("/v1/game-servers/{server_id}", gameServerHandler.Deregister)
 
 	p2pRoomService := p2proom.NewService(p2proom.NewRepository(dbPool.Pool), cfg.P2PRoom)
+	p2pBattleLogRepository := p2pbattlelog.NewRepository(dbPool.Pool)
+	p2pBattleLogService := p2pbattlelog.NewService(
+		p2pBattleLogRepository, cfg.P2PBattleLog,
+	)
+	p2pRoomService.SetMatchLifecycle(p2pBattleLogService)
 	p2pRoomHandler := p2proom.NewHTTPHandler(p2pRoomService, logger)
+	p2pBattleLogHandler := p2pbattlelog.NewHTTPHandler(
+		p2pBattleLogService, logger, cfg.P2PBattleLog.MaxReportBytes,
+	)
+	p2pBattleLogAdminHandler := p2pbattlelog.NewAdminHTTPHandler(
+		p2pbattlelog.NewAdminService(p2pBattleLogRepository, cfg.P2PBattleLog.ShadowMode), logger,
+	)
 	router.Get("/v1/p2p-rooms", p2pRoomHandler.List)
 	router.Get("/v1/p2p-rooms/{room_id}", p2pRoomHandler.Get)
 	router.Group(func(router chi.Router) {
@@ -347,6 +359,11 @@ func buildHandler(
 		router.Post("/v1/p2p-rooms/{room_id}/heartbeat", p2pRoomHandler.Heartbeat)
 		router.Post("/v1/p2p-rooms/{room_id}/start", p2pRoomHandler.Start)
 		router.Delete("/v1/p2p-rooms/{room_id}", p2pRoomHandler.Delete)
+		router.Get("/v1/p2p-rooms/{room_id}/matches/active", p2pBattleLogHandler.ActiveMatch)
+		router.Post("/v1/p2p-matches/{match_id}/report-capability", p2pBattleLogHandler.IssueCapability)
+		router.Put("/v1/p2p-matches/{match_id}/presence/me", p2pBattleLogHandler.Presence)
+		router.Put("/v1/p2p-matches/{match_id}/reports/{report_id}", p2pBattleLogHandler.SubmitReport)
+		router.Get("/v1/p2p-matches/{match_id}/result", p2pBattleLogHandler.Result)
 	})
 
 	realtimeHub := connection.NewHub(cfg.Connection.WebSocketQueueSize)
@@ -396,6 +413,8 @@ func buildHandler(
 		router.With(admin.RequirePermission("connections.read")).Get("/connections/{connection_id}", adminOnlineHandler.GetConnection)
 		router.With(admin.RequirePermission("connections.close")).Post("/connections/{connection_id}/close", adminOnlineHandler.CloseConnection)
 		router.With(admin.RequirePermission("connections.migrate")).Post("/connections/{connection_id}/migrate-relay", adminOnlineHandler.MigrateConnectionRelay)
+		router.With(admin.RequirePermission("p2p.battlelog.read")).Get("/p2p-battlelog/matches/{match_id}", p2pBattleLogAdminHandler.MatchEvidence)
+		router.With(admin.RequirePermission("p2p.battlelog.raw.read")).Get("/p2p-battlelog/reports/{evidence_id}/raw", p2pBattleLogAdminHandler.RawEvidence)
 	})
 
 	bootstrapCredentials, err := relayregistry.ParseBootstrapCredentials(cfg.RelayRegistry.BootstrapTokenSet)
@@ -519,9 +538,12 @@ func buildHandler(
 	connectionSweeper := connection.NewSweeper(connectionService, cfg.Connection.SweepInterval(), logger)
 	relaySweeper := relayregistry.NewSweeper(relayService, cfg.RelayRegistry.SweepInterval(), logger)
 	relayMigrationSweeper := relayregistry.NewMigrationSweeper(relayService, cfg.RelayRegistry.SweepInterval(), logger)
+	p2pBattleLogFinalizer := p2pbattlelog.NewFinalizer(
+		p2pBattleLogService, cfg.P2PBattleLog.FinalizerInterval(), logger,
+	)
 	return appmiddleware.Chain(router, cfg, logger, limiter, metrics), []backgroundService{
 		gameServerSweeper, p2pRoomSweeper, connectionSweeper, relaySweeper, relayMigrationSweeper,
-		realtimeHub, relayControlServer,
+		p2pBattleLogFinalizer, realtimeHub, relayControlServer,
 	}, nil
 }
 

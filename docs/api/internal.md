@@ -124,6 +124,9 @@ GET  /v1/admin/p2p-rooms/{room_id}/members
 POST /v1/admin/p2p-rooms/{room_id}/close
 POST /v1/admin/p2p-rooms/{room_id}/members/{player_id}/remove
 
+GET  /v1/admin/p2p-battlelog/matches/{match_id}
+GET  /v1/admin/p2p-battlelog/reports/{evidence_id}/raw
+
 GET  /v1/admin/game-servers
 GET  /v1/admin/game-servers/{server_id}
 POST /v1/admin/game-servers/{server_id}/drain
@@ -141,6 +144,8 @@ POST /v1/admin/relay-nodes/{node_id}/drain
 POST /v1/admin/relay-nodes/{node_id}/resume
 POST /v1/admin/relay-nodes/{node_id}/revoke
 ```
+
+P2P BattleLog normalized evidence requires `p2p.battlelog.read`. The separate raw endpoint requires `p2p.battlelog.raw.read`, returns `Cache-Control: no-store`, and is not granted to ordinary operations/support roles. Its report identifiers and tables are separate from dedicated-server BattleLog storage.
 
 Every write requires `reason`; Relay drain also accepts `deadline_seconds` and `migrate_existing`. Game-server disable marks the server offline and revokes its registration token. Room actions report `connections_cleanup_complete`; a false value means the room mutation succeeded but the operator should follow the runbook to confirm downstream connection cleanup. Connection Relay migration never accepts a target address or node from the browser: the backend scheduler selects an eligible READY node. Responses never include host tokens, node tokens, allocation tokens, registration-token hashes, private keys, or full ICE candidates.
 

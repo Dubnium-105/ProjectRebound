@@ -31,6 +31,7 @@ func TestMetricsExposeRequiredControlPlaneSeries(t *testing.T) {
 		"auth_active_sessions 0", "auth_refresh_total 1", "auth_refresh_reuse_total 1",
 		"p2p_rooms_active 0", "p2p_room_join_failed_total 1", "game_servers_by_state",
 		"p2p_room_join_total 1", "p2p_room_heartbeat_lag_seconds 0", "game_server_heartbeat_lag_seconds 0",
+		"p2p_battlelog_reports 0", "p2p_battlelog_quarantined_reports 0", "p2p_battlelog_matches_by_state",
 		"relay_nodes_by_state", "relay_allocations_active 0", "relay_allocation_failed_total 1",
 		"relay_migrations_total 0", "relay_migration_failed_total 0",
 		"websocket_connections_active 0", "websocket_reconnect_total 1",

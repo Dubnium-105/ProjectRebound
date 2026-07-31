@@ -27,6 +27,30 @@ The game/server console prints the absolute path with a `[BATTLELOG]` prefix.
 Repeated calls to the same stage are de-duplicated until the next match-start
 event or `UWorld` change.
 
+## P2P v3 sealing
+
+Launcher enables client-observer v3 output by setting these non-secret process
+environment values before injection:
+
+```text
+PROJECT_REBOUND_P2P_MATCH_ID=p2pm_...
+PROJECT_REBOUND_P2P_CAPABILITY_ID=p2rc_...
+PROJECT_REBOUND_P2P_SERVER_NONCE=p2n_...
+PROJECT_REBOUND_CLIENT_VERSION=<launcher-version>
+PROJECT_REBOUND_P2P_AUTHORITY_KIND=CLIENT_OBSERVER
+```
+
+Use `LISTEN_HOST_OBSERVER` only for the listen host. The report token is
+deliberately absent from this contract and must remain in Launcher memory.
+
+When the three context IDs are valid, the extractor emits schema v3. It creates
+an initial `PARTIAL` at match start, another bounded checkpoint after each
+round, and one `FINAL` at the result-screen trigger. Events form a SHA-256 chain
+rooted in `match_id|capability_id|server_nonce|timeline_session_id`. Files are
+written to a `.tmp` sibling and atomically renamed to `*.json.ready`; Launcher
+must scan only `.ready` files. Dedicated-server extraction without these
+variables remains schema v2 and keeps the existing `.json` behavior.
+
 ## PvE and PvP classification
 
 Schema version 2 emits `match_classification.type` as `pve`, `pvp`, or
