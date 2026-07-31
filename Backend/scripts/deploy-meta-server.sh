@@ -6,6 +6,7 @@ backend_dir="$(CDPATH= cd -- "$script_dir/.." && pwd)"
 deployment_dir="$backend_dir/deployments/control-plane"
 env_file="${CONTROL_PLANE_ENV_FILE:-$deployment_dir/.env}"
 compose_file="$deployment_dir/docker-compose.yaml"
+compose_override_file="${CONTROL_PLANE_COMPOSE_OVERRIDE_FILE:-}"
 image="${META_SERVER_IMAGE:-}"
 deploy_source="${DEPLOY_SOURCE:-auto}"
 
@@ -43,7 +44,12 @@ else
   exit 1
 fi
 
-compose=("${docker_cmd[@]}" compose --env-file "$env_file" -f "$compose_file" --profile meta)
+compose=("${docker_cmd[@]}" compose --env-file "$env_file" -f "$compose_file")
+if [[ -n "$compose_override_file" && "$compose_override_file" != /dev/null ]]; then
+  [[ -f "$compose_override_file" ]] || { echo "Missing $compose_override_file" >&2; exit 1; }
+  compose+=(-f "$compose_override_file")
+fi
+compose+=(--profile meta)
 if [[ "$deploy_source" == "ci" ]]; then
   export META_SERVER_IMAGE="$image"
   "${compose[@]}" pull meta-server

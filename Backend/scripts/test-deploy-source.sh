@@ -37,6 +37,8 @@ chmod +x "$temporary_dir/bin/docker" "$temporary_dir/bin/curl" "$temporary_dir/b
 
 control_env="$temporary_dir/control.env"
 printf 'CONTROL_PLANE_ADMIN_PORT=18080\nMETA_SERVER_HTTP_PORT=18082\n' >"$control_env"
+control_override="$temporary_dir/docker-compose.production.yaml"
+printf 'services: {}\n' >"$control_override"
 edge_env="$temporary_dir/edge.env"
 printf 'EDGE_RELAY_BOOTSTRAP_TOKEN=\n' >"$edge_env"
 control_image="ghcr.io/example/projectrebound-control-plane:sha-1111111111111111111111111111111111111111"
@@ -51,9 +53,11 @@ fi
 
 : >"$docker_log"
 PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" \
-  CONTROL_PLANE_ENV_FILE="$control_env" DEPLOY_SOURCE=ci CONTROL_PLANE_IMAGE="$control_image" \
+  CONTROL_PLANE_ENV_FILE="$control_env" CONTROL_PLANE_COMPOSE_OVERRIDE_FILE="$control_override" \
+  DEPLOY_SOURCE=ci CONTROL_PLANE_IMAGE="$control_image" \
   bash "$test_backend/scripts/deploy-control-plane.sh" >/dev/null
 grep -q ' pull$' "$docker_log"
+grep -Fq -- "-f $control_override --profile monitoring pull" "$docker_log"
 ! grep -q ' build ' "$docker_log"
 
 : >"$docker_log"
@@ -77,9 +81,11 @@ fi
 
 : >"$docker_log"
 PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" \
-  CONTROL_PLANE_ENV_FILE="$control_env" DEPLOY_SOURCE=ci META_SERVER_IMAGE="$meta_image" \
+  CONTROL_PLANE_ENV_FILE="$control_env" CONTROL_PLANE_COMPOSE_OVERRIDE_FILE="$control_override" \
+  DEPLOY_SOURCE=ci META_SERVER_IMAGE="$meta_image" \
   bash "$test_backend/scripts/deploy-meta-server.sh" >/dev/null
 grep -q ' pull meta-server$' "$docker_log"
+grep -Fq -- "-f $control_override --profile meta pull meta-server" "$docker_log"
 grep -q ' up -d --no-deps meta-server$' "$docker_log"
 ! grep -q ' up .*control-plane' "$docker_log"
 

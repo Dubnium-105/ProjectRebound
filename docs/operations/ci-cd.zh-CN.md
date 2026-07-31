@@ -61,15 +61,17 @@ id-token: write
 
 ### 2.2 Environments
 
-创建八个 Environment：
+创建十个 Environment：
 
 ```text
 staging-control-plane
 staging-meta-server
+staging-edge-relay-primary
 staging-edge-relay-gateway
 staging-edge-relay-hgh
 production-control-plane
 production-meta-server
+production-edge-relay-primary
 production-edge-relay-gateway
 production-edge-relay-hgh
 ```
@@ -106,6 +108,7 @@ Control Plane Environment 额外 Variables：
 | Variable | 示例 |
 | --- | --- |
 | `CONTROL_PLANE_ENV_FILE` | `/etc/projectrebound/control-plane.env` |
+| `CONTROL_PLANE_COMPOSE_OVERRIDE_FILE` | `/etc/projectrebound/docker-compose.production.yaml` |
 | `PUBLIC_BASE_URL` | `https://api.example.com` |
 | `ENABLE_MONITORING` | `1` |
 
@@ -114,6 +117,7 @@ MetaServer Environment 额外 Variables：
 | Variable | 示例 |
 | --- | --- |
 | `CONTROL_PLANE_ENV_FILE` | `/etc/projectrebound/control-plane.env` |
+| `CONTROL_PLANE_COMPOSE_OVERRIDE_FILE` | `/etc/projectrebound/docker-compose.production.yaml` |
 | `META_PUBLIC_BASE_URL` | `https://meta.dubnium.top` |
 
 MetaServer Environment 可以指向同一控制面主机，但审批、concurrency 和回滚仍独立。
@@ -139,9 +143,9 @@ Edge Relay Environment 额外 Variables：
 权限，并用该令牌完成远端 GHCR 登录。不要为部署创建或保存长期 Package
 PAT。
 
-两个 Edge Relay Environment 分别拥有独立的部署、审批、并发、凭据撤销与
+三个 Edge Relay Environment 分别拥有独立的部署、审批、并发、凭据撤销与
 回滚边界。部署 `edge-relay` 时通过 `fail-fast: false` 同时覆盖两个节点，
-单节点失败不会取消另一节点的执行结果。
+单节点失败不会取消其他节点的执行结果。
 
 ## 4. 远端主机首次准备
 

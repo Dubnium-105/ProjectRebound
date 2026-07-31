@@ -61,15 +61,17 @@ Do not create a PAT with repository-management permissions for image publication
 
 ### 2.2 Environments
 
-Create eight Environments:
+Create ten Environments:
 
 ```text
 staging-control-plane
 staging-meta-server
+staging-edge-relay-primary
 staging-edge-relay-gateway
 staging-edge-relay-hgh
 production-control-plane
 production-meta-server
+production-edge-relay-primary
 production-edge-relay-gateway
 production-edge-relay-hgh
 ```
@@ -106,6 +108,7 @@ Control Plane Environment Additional Variables:
 | Variable |Example|
 | --- | --- |
 | `CONTROL_PLANE_ENV_FILE` | `/etc/projectrebound/control-plane.env` |
+| `CONTROL_PLANE_COMPOSE_OVERRIDE_FILE` | `/etc/projectrebound/docker-compose.production.yaml` |
 | `PUBLIC_BASE_URL` | `https://api.example.com` |
 | `ENABLE_MONITORING` | `1` |
 
@@ -114,6 +117,7 @@ MetaServer Environment additional variables:
 | Variable | Example |
 | --- | --- |
 | `CONTROL_PLANE_ENV_FILE` | `/etc/projectrebound/control-plane.env` |
+| `CONTROL_PLANE_COMPOSE_OVERRIDE_FILE` | `/etc/projectrebound/docker-compose.production.yaml` |
 | `META_PUBLIC_BASE_URL` | `https://meta.dubnium.top` |
 
 The MetaServer Environment may point at the same control host, but it remains a
@@ -140,9 +144,9 @@ The workflow grants its short-lived `GITHUB_TOKEN` only `contents: read` and
 `packages: read`, then uses that token for the remote GHCR login. Do not create
 or store a long-lived package PAT for deployment.
 
-The two edge relay Environments are separate deployment, approval,
+The three edge relay Environments are separate deployment, approval,
 concurrency, credential-revocation, and rollback targets. A deployment of
-`edge-relay` fans out to both nodes with `fail-fast: false`, so one node's
+`edge-relay` fans out to all nodes with `fail-fast: false`, so one node's
 failure does not cancel the other node's result.
 
 ## 4. Remote host preparation for the first time

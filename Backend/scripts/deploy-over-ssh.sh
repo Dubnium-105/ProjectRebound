@@ -26,9 +26,10 @@ set -euo pipefail
 control_env_file="${CONTROL_PLANE_ENV_FILE:-/dev/null}"
 edge_env_file="${EDGE_RELAY_ENV_FILE:-/dev/null}"
 edge_config_file="${EDGE_RELAY_CONFIG_FILE:-/dev/null}"
+control_compose_override_file="${CONTROL_PLANE_COMPOSE_OVERRIDE_FILE:-/dev/null}"
 public_base_url="${PUBLIC_BASE_URL:-http://127.0.0.1:8080}"
 enable_monitoring="${ENABLE_MONITORING:-1}"
-for path in "$control_env_file" "$edge_env_file" "$edge_config_file"; do
+for path in "$control_env_file" "$edge_env_file" "$edge_config_file" "$control_compose_override_file"; do
   [[ "$path" =~ ^/[A-Za-z0-9._/-]+$ ]] || { echo "Invalid deployment file path" >&2; exit 1; }
 done
 [[ "$public_base_url" =~ ^https?://[A-Za-z0-9._:/-]+$ ]] || { echo "Invalid PUBLIC_BASE_URL" >&2; exit 1; }
@@ -61,5 +62,5 @@ scp -P "$DEPLOY_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
   "$bundle" "$ssh_target:$remote_bundle"
 
 ssh "${ssh_options[@]}" "$ssh_target" \
-  "bash -s -- '$DEPLOY_TARGET' '$DEPLOY_ROOT' '$DEPLOY_RELEASE_ID' '$remote_bundle' '$DEPLOY_IMAGE' '$control_env_file' '$edge_env_file' '$edge_config_file' '$public_base_url' '$enable_monitoring'" \
+  "bash -s -- '$DEPLOY_TARGET' '$DEPLOY_ROOT' '$DEPLOY_RELEASE_ID' '$remote_bundle' '$DEPLOY_IMAGE' '$control_env_file' '$edge_env_file' '$edge_config_file' '$public_base_url' '$enable_monitoring' '$control_compose_override_file'" \
   <"$script_dir/remote-deploy.sh"

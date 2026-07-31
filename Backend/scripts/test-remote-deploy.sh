@@ -22,6 +22,8 @@ EOF
 chmod +x "$temporary_dir/bin/docker"
 control_env="$temporary_dir/control-plane.env"
 printf 'test-only=true\n' >"$control_env"
+control_override="$temporary_dir/docker-compose.production.yaml"
+printf 'services: {}\n' >"$control_override"
 
 make_bundle() {
   local release_id="$1"
@@ -36,6 +38,7 @@ case "\${BASH_SOURCE[0]}" in
 esac
 test "\${DEPLOY_SOURCE:-}" = "ci"
 test -n "\${CONTROL_PLANE_IMAGE:-}"
+test "\${CONTROL_PLANE_COMPOSE_OVERRIDE_FILE:-}" = "$control_override"
 EOF
   cat >"$staging/Backend/scripts/verify-control-plane.sh" <<'EOF'
 #!/usr/bin/env bash
@@ -58,7 +61,7 @@ image_two="ghcr.io/example/projectrebound-control-plane:sha-22222222222222222222
 make_bundle "$release_one" "$bundle_one"
 PATH="$temporary_dir/bin:$PATH" bash "$script_dir/remote-deploy.sh" \
   control-plane "$temporary_dir/deploy" "$release_one" "$bundle_one" "$image_one" \
-  "$control_env" /dev/null /dev/null http://127.0.0.1:8080 0 >/dev/null
+  "$control_env" /dev/null /dev/null http://127.0.0.1:8080 0 "$control_override" >/dev/null
 
 current_link="$temporary_dir/deploy/current-control-plane"
 test "$(readlink -f "$current_link")" = "$temporary_dir/deploy/releases/$release_one"
@@ -69,7 +72,7 @@ make_bundle "$release_two" "$bundle_two"
 rollback_log="$temporary_dir/rollback.log"
 if PATH="$temporary_dir/bin:$PATH" bash "$script_dir/remote-deploy.sh" \
   control-plane "$temporary_dir/deploy" "$release_two" "$bundle_two" "$image_two" \
-  "$control_env" /dev/null /dev/null http://127.0.0.1:8080 0 \
+  "$control_env" /dev/null /dev/null http://127.0.0.1:8080 0 "$control_override" \
   >"$temporary_dir/unexpected-success.log" 2>"$rollback_log"; then
   echo "Expected the second release to fail" >&2
   exit 1

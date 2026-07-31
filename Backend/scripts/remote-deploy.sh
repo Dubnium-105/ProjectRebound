@@ -12,13 +12,14 @@ edge_env_file="${7:?edge env file is required}"
 edge_config_file="${8:?edge config file is required}"
 public_base_url="${9:?public base URL is required}"
 enable_monitoring="${10:?monitoring setting is required}"
+control_compose_override_file="${11:-/dev/null}"
 
 [[ "$target" =~ ^(control-plane|meta-server|edge-relay)$ ]] || { echo "Invalid target" >&2; exit 1; }
 [[ "$deploy_root" =~ ^/[A-Za-z0-9._/-]+$ ]] || { echo "Invalid deploy root" >&2; exit 1; }
 [[ "$release_id" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "Invalid release id" >&2; exit 1; }
 [[ "$bundle" == "/tmp/projectrebound-${release_id}.tar.gz" ]] || { echo "Unexpected bundle path" >&2; exit 1; }
 [[ "$image" =~ ^ghcr\.io/[a-z0-9._/-]+:sha-[0-9a-f]{40}$ ]] || { echo "Invalid image" >&2; exit 1; }
-for path in "$control_env_file" "$edge_env_file" "$edge_config_file"; do
+for path in "$control_env_file" "$edge_env_file" "$edge_config_file" "$control_compose_override_file"; do
   [[ "$path" =~ ^/[A-Za-z0-9._/-]+$ ]] || { echo "Invalid deployment file path" >&2; exit 1; }
 done
 [[ "$public_base_url" =~ ^https?://[A-Za-z0-9._:/-]+$ ]] || { echo "Invalid public URL" >&2; exit 1; }
@@ -46,6 +47,7 @@ deploy_release() {
   if [[ "$target" == "control-plane" ]]; then
     if ! CONTROL_PLANE_ENV_FILE="$control_env_file" \
       CONTROL_PLANE_IMAGE="$selected_image" \
+      CONTROL_PLANE_COMPOSE_OVERRIDE_FILE="$control_compose_override_file" \
       DEPLOY_SOURCE=ci \
       ENABLE_MONITORING="$enable_monitoring" \
         "$directory/Backend/scripts/deploy-control-plane.sh"; then
@@ -59,6 +61,7 @@ deploy_release() {
   elif [[ "$target" == "meta-server" ]]; then
     if ! CONTROL_PLANE_ENV_FILE="$control_env_file" \
       META_SERVER_IMAGE="$selected_image" \
+      CONTROL_PLANE_COMPOSE_OVERRIDE_FILE="$control_compose_override_file" \
       DEPLOY_SOURCE=ci \
         "$directory/Backend/scripts/deploy-meta-server.sh"; then
       return 1
@@ -78,6 +81,10 @@ deploy_release() {
 
 if [[ "$target" == "control-plane" ]]; then
   [[ -f "$control_env_file" ]] || { echo "Control-plane env file is missing" >&2; exit 1; }
+  [[ "$control_compose_override_file" == /dev/null || -f "$control_compose_override_file" ]] || {
+    echo "Control-plane Compose override file is missing" >&2
+    exit 1
+  }
   if docker info >/dev/null 2>&1; then docker_cmd=(docker); else docker_cmd=(sudo docker); fi
   if "${docker_cmd[@]}" ps --format '{{.Names}}' | grep -qx 'project-rebound-control-plane-postgres-1'; then
     CONTROL_PLANE_ENV_FILE="$control_env_file" \
@@ -85,6 +92,10 @@ if [[ "$target" == "control-plane" ]]; then
   fi
 elif [[ "$target" == "meta-server" ]]; then
   [[ -f "$control_env_file" ]] || { echo "Control-plane env file is missing for MetaServer" >&2; exit 1; }
+  [[ "$control_compose_override_file" == /dev/null || -f "$control_compose_override_file" ]] || {
+    echo "Control-plane Compose override file is missing for MetaServer" >&2
+    exit 1
+  }
 else
   [[ -f "$edge_env_file" ]] || { echo "Edge env file is missing" >&2; exit 1; }
   [[ -f "$edge_config_file" ]] || { echo "Edge config file is missing" >&2; exit 1; }

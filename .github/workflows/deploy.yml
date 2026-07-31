@@ -92,6 +92,7 @@ jobs:
           DEPLOY_RELEASE_ID: ${{ format('sha-{0}-{1}-{2}-control', steps.revision.outputs.sha, github.run_id, github.run_attempt) }}
           DEPLOY_IMAGE: ${{ steps.image.outputs.name }}
           CONTROL_PLANE_ENV_FILE: ${{ vars.CONTROL_PLANE_ENV_FILE }}
+          CONTROL_PLANE_COMPOSE_OVERRIDE_FILE: ${{ vars.CONTROL_PLANE_COMPOSE_OVERRIDE_FILE }}
           PUBLIC_BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
           ENABLE_MONITORING: ${{ vars.ENABLE_MONITORING || '1' }}
           GHCR_USERNAME: ${{ github.actor }}
@@ -166,6 +167,7 @@ jobs:
           DEPLOY_RELEASE_ID: ${{ format('sha-{0}-{1}-{2}-meta', steps.revision.outputs.sha, github.run_id, github.run_attempt) }}
           DEPLOY_IMAGE: ${{ steps.image.outputs.name }}
           CONTROL_PLANE_ENV_FILE: ${{ vars.CONTROL_PLANE_ENV_FILE }}
+          CONTROL_PLANE_COMPOSE_OVERRIDE_FILE: ${{ vars.CONTROL_PLANE_COMPOSE_OVERRIDE_FILE }}
           PUBLIC_BASE_URL: ${{ vars.META_PUBLIC_BASE_URL }}
           ENABLE_MONITORING: "0"
           GHCR_USERNAME: ${{ github.actor }}
@@ -186,7 +188,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [gateway, hgh]
+        node: [primary, gateway, hgh]
     environment:
       name: ${{ github.event_name == 'workflow_run' && format('staging-edge-relay-{0}', matrix.node) || format('{0}-edge-relay-{1}', inputs.environment, matrix.node) }}
     concurrency:

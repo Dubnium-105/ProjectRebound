@@ -6,6 +6,7 @@ backend_dir="$(CDPATH= cd -- "$script_dir/.." && pwd)"
 deployment_dir="$backend_dir/deployments/control-plane"
 env_file="${CONTROL_PLANE_ENV_FILE:-$deployment_dir/.env}"
 compose_file="$deployment_dir/docker-compose.yaml"
+compose_override_file="${CONTROL_PLANE_COMPOSE_OVERRIDE_FILE:-}"
 image="${CONTROL_PLANE_IMAGE:-}"
 admin_web_image="${ADMIN_WEB_IMAGE:-}"
 
@@ -63,6 +64,10 @@ else
 fi
 
 compose=("${docker_cmd[@]}" compose --env-file "$env_file" -f "$compose_file")
+if [[ -n "$compose_override_file" && "$compose_override_file" != /dev/null ]]; then
+  [[ -f "$compose_override_file" ]] || { echo "Missing $compose_override_file" >&2; exit 1; }
+  compose+=(-f "$compose_override_file")
+fi
 if [[ -n "$admin_web_image" ]]; then
   export ADMIN_WEB_IMAGE="$admin_web_image"
 fi
