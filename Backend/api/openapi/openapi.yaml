@@ -142,6 +142,30 @@ paths:
           $ref: "#/components/responses/InvalidRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /v1/diagnostic/report:
+    post:
+      operationId: submitDiagnosticReport
+      tags: [Diagnostics]
+      description: Stores the submitted diagnostic text verbatim for the authenticated player. The report content is not parsed, validated, or indexed.
+      security:
+        - playerAccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DiagnosticReportRequest"
+      responses:
+        "200":
+          description: The diagnostic report was stored. This endpoint intentionally returns a bare response instead of the standard success envelope.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiagnosticReportResponse"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /v1/users/me:
     get:
       operationId: getCurrentPlayer
@@ -3386,6 +3410,22 @@ components:
           $ref: "#/components/schemas/IntegrityProofData"
         request_id:
           type: string
+    DiagnosticReportRequest:
+      type: object
+      additionalProperties: false
+      required: [report]
+      properties:
+        report:
+          type: string
+          description: Complete UTF-8 diagnostic text. The server stores it without parsing or content validation.
+    DiagnosticReportResponse:
+      type: object
+      additionalProperties: false
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          const: true
     RefreshData:
       type: object
       required: [session]

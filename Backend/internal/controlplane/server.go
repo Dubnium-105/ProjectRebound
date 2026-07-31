@@ -16,6 +16,7 @@ import (
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/connection"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/database"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/diagnostic"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/gameserver"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/health"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/integrity"
@@ -156,6 +157,7 @@ func buildHandler(
 		logger,
 		cfg.HTTP.TrustProxyHeaders,
 	)
+	diagnosticHandler := diagnostic.NewHTTPHandler(diagnostic.NewRepository(dbPool.Pool), logger)
 	router.Route("/v1", func(router chi.Router) {
 		router.Post("/auth/bind", authHandler.Bind)
 		router.Post("/auth/refresh", authHandler.Refresh)
@@ -167,6 +169,7 @@ func buildHandler(
 		router.With(auth.RequireAccess(authService, logger)).Post("/integrity/challenge", integrityHandler.Challenge)
 		router.With(auth.RequireAccess(authService, logger)).Post("/integrity/proof", integrityHandler.Proof)
 		router.With(auth.RequireAccess(authService, logger)).Post("/integrity/verify", integrityHandler.Verify)
+		router.With(auth.RequireAccess(authService, logger)).Post("/diagnostic/report", diagnosticHandler.Submit)
 	})
 
 	adminAuthenticator, err := admin.NewAuthenticator(cfg.Admin)

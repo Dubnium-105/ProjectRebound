@@ -14,7 +14,7 @@
 - 分页：`cursor` + `limit`，`limit` 范围 1–100，默认 50。
 - 幂等：重复 logout、leave、close、deregister 返回当前最终状态；客户端仍应避免并发重复写入。
 
-成功响应统一为：
+除下文的诊断报告上传接口外，成功响应统一为：
 
 ```json
 {
@@ -76,6 +76,7 @@
 | POST | `/v1/integrity/challenge` | Player | 无 | 200 返回新的一次性 `nonce`；内存中没有 verified ticket 时为空 |
 | POST | `/v1/integrity/proof` | Player | `nonce`、`proof`、`component=toolbox` | 200 返回 `ok`；成功后会话提升为 `trusted` |
 | POST | `/v1/integrity/verify` | Player | 与 `/proof` 相同 | 已弃用的兼容别名 |
+| POST | `/v1/diagnostic/report` | Player | 必需的诊断文本字段 `report` | 文本存储后返回 200 裸响应 `{"ok":true}` |
 
 Bind 示例：
 
@@ -101,6 +102,8 @@ verified bind 的 `data.integrity_challenge.nonce` 包含首次一次性 challen
 `device_id` 最长 128 字节，只允许可打印 ASCII；它仅用于限流和风险观察，不是可信身份，也不会绕过 SteamID 唯一约束。服务端不会直接保存三个提交值，而是分别生成带域隔离的 HMAC-SHA-256 摘要和组合摘要，再将内部指纹记录关联到会话、登录事件和风险事件；外部 API 不返回这些摘要。是否要求邀请码由服务端 `auth.invite_required` 配置决定。绑定超过任一维度限制时返回 `429 AUTH_BIND_RATE_LIMITED`，响应同时包含 `Retry-After` 与 `details.retry_after_seconds`。
 
 不要把 Access/Refresh Token 写入 URL、日志或崩溃报告。Refresh Token 发生重放时，服务端会撤销整个 token family。
+
+诊断接口使用 Access Token 中的 `player_id` 关联报告，并原样存储提交的字符串；服务端不解析、不验证、不索引报告内容。其成功响应使用裸 `{"ok":true}`，这是对统一成功 envelope 的有意兼容例外；错误仍使用统一错误 envelope。
 
 会话列表只返回 session ID、四字符设备展示后缀、创建/最近使用时间、脱敏 IP 和 `is_current`。结构化指纹的后缀来自不透明的内部记录 ID，不取自任何硬件因子；旧版不透明 Device ID 仍显示其后四位。API 不会返回 Token 哈希或完整设备标识。删除不属于当前玩家的 session 与不存在的 session 一样返回 404，避免跨账号探测。
 

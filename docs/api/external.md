@@ -14,7 +14,7 @@ This document describes the APIs accessible to clients, Dedicated Servers, and U
 - Paging: `cursor` + `limit`, `limit` range 1–100, default 50.
 - Idempotency: Repeated logout, leave, close, and deregister operations return the current final state; clients should still avoid concurrent duplicate writes.
 
-The successful response is unified as:
+Except for the diagnostic-report upload described below, the successful response is unified as:
 
 ```json
 {
@@ -76,6 +76,7 @@ Client configuration does not return specific Relay addresses. The specific endp
 | POST | `/v1/integrity/challenge` | Player | None | 200 fresh one-time `nonce`; empty when no verified ticket is held in memory |
 | POST | `/v1/integrity/proof` | Player | `nonce`, `proof`, `component=toolbox` | 200 `ok`; success promotes the session to `trusted` |
 | POST | `/v1/integrity/verify` | Player | Same as `/proof` | Deprecated compatibility alias |
+| POST | `/v1/diagnostic/report` | Player | Required raw diagnostic-text field `report` | 200 bare `{"ok":true}` after the text is stored |
 
 Bind example:
 
@@ -101,6 +102,8 @@ New clients may send `uuid|disk|cpu`. The server independently HMAC-hashes each 
 `device_id` is up to 128 printable ASCII bytes. It is only used for throttling and risk observation, is not a trusted identity, and will not bypass SteamID unique constraints. The server never stores the three submitted factor values directly: it creates separate domain-separated HMAC-SHA-256 digests plus a composite digest, links the resulting internal fingerprint record to sessions and login/risk events, and does not expose those digests through the external API. Whether to require an invitation code is determined by the server `auth.invite_required` configuration. When the binding exceeds the limit of any dimension, `429 AUTH_BIND_RATE_LIMITED` is returned, and the response contains both `Retry-After` and `details.retry_after_seconds`.
 
 Do not write Access/Refresh Tokens to URLs, logs, or crash reports. When Refresh Token is replayed, the server will revoke the entire token family.
+
+The diagnostic endpoint associates the report with the `player_id` from the Access Token and stores the submitted string verbatim. It does not parse, validate, or index the report content. Its bare `{"ok":true}` success body is an intentional compatibility exception to the standard success envelope; errors still use the standard error envelope.
 
 The session list returns only the session ID, a four-character device display suffix, creation and last-used times, a masked IP address, and `is_current`. For a structured fingerprint the suffix comes from its opaque internal record ID, not from any hardware factor; for a legacy opaque Device ID it remains the last four characters. The API never returns token hashes or the complete device identifier. Deleting a session that does not belong to the current player returns the same 404 response as a nonexistent session to prevent cross-account enumeration.
 
