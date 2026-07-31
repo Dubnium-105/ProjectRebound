@@ -22,6 +22,8 @@ func TestMetaMetricsExposeOperationalSignals(t *testing.T) {
 	metrics.RPC("GetProfile", 10*time.Millisecond)
 	metrics.MatchOutcome("matched", 1, 2*time.Second)
 	metrics.MatchOutcome("connection_timeout", 1, 0)
+	metrics.BattleLogOutcome("PVE", "ACCEPTED", false)
+	metrics.BattleLogOutcome("PVE", "ACCEPTED", true)
 	metrics.SetQueueProbe(func(context.Context) (int64, error) { return 8, nil })
 
 	recorder := httptest.NewRecorder()
@@ -43,6 +45,8 @@ func TestMetaMetricsExposeOperationalSignals(t *testing.T) {
 		`meta_rpc_requests_total{rpc="GetProfile"} 1`,
 		`meta_matchmaking_outcomes_total{outcome="matched"} 1`,
 		`meta_matchmaking_outcomes_total{outcome="connection_timeout"} 1`,
+		`meta_battlelog_reports_total{match_type="PVE",status="ACCEPTED",duplicate="false"} 1`,
+		`meta_battlelog_reports_total{match_type="PVE",status="ACCEPTED",duplicate="true"} 1`,
 		"meta_matchmaking_queue_duration_seconds_count 1",
 	} {
 		if !strings.Contains(body, expected) {

@@ -43,7 +43,11 @@ Admin API 不使用玩家矩阵，也绝不接受 Player Access Token。`/v1/adm
 | 角色 | — | `roles.manage` |
 | 审计 | `audit_logs.read` | — |
 | 设置 | `settings.read` | `settings.update` |
-| MetaServer | `meta.read`, `meta.loadouts.read` | `meta.content.manage`, `meta.matches.manage`, `meta.loadouts.update` |
+| MetaServer | `meta.read`, `meta.loadouts.read`, `meta.battlelog.read`, `meta.battlelog.raw.read` | `meta.content.manage`, `meta.matches.manage`, `meta.loadouts.update`, `meta.battlelog.manage` |
+
+Dedicated Server 的 BattleLog 上报不是管理员权限，而是使用仅限机器凭据的
+`meta.battlelog.write` Game Server Token scope。玩家资格复用名单预留时固化的
+`unverified`、`verified`、`trusted` 认证等级；游戏原始快照不能声明或提升认证等级。
 
 撤销中继节点、正式发布/回滚/归档、管理员创建/更新/MFA 重置、角色改权、系统设置更新及所有 MetaServer 管理写操作还必须提供与当前管理员 Session 绑定的短时 `X-Admin-Step-Up` 凭证。每个写操作必须填写原因并由后端写入审计。最后一个有效 `SUPER_ADMIN` 与 `SUPER_ADMIN` 权限集另有服务端不变量保护。
 

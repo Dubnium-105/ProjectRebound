@@ -1455,7 +1455,7 @@ paths:
         - {in: query, name: status, schema: {$ref: "#/components/schemas/AdminReleaseStatus"}}
         - {in: query, name: platform, schema: {type: string}}
         - {in: query, name: architecture, schema: {type: string}}
-        - {in: query, name: channel, schema: {type: string, enum: [stable, beta]}}
+        - {in: query, name: channel, schema: {type: string, enum: [stable, beta, toolbox]}}
       responses:
         "200":
           description: Paginated managed client releases.
@@ -2216,7 +2216,7 @@ paths:
           schema: {type: string, default: amd64}
         - in: query
           name: channel
-          schema: {type: string, enum: [stable, beta], default: stable}
+          schema: {type: string, enum: [stable, beta, toolbox], default: stable}
         - in: query
           name: current_version
           required: true
@@ -2250,7 +2250,7 @@ paths:
           schema: {type: string, default: amd64}
         - in: query
           name: channel
-          schema: {type: string, enum: [stable, beta], default: stable}
+          schema: {type: string, enum: [stable, beta, toolbox], default: stable}
       responses:
         "200":
           description: Deterministically serialized and Ed25519-signed release manifest.
@@ -2627,6 +2627,49 @@ paths:
         "401": {$ref: "#/components/responses/Unauthorized"}
         "404": {$ref: "#/components/responses/NotFound"}
         "409": {$ref: "#/components/responses/Conflict"}
+  /internal/v1/meta/battlelog/reports/{report_id}:
+    put:
+      operationId: submitBattleLogReport
+      tags: [MetaServer Internal]
+      x-internal: true
+      description: |
+        Requires meta.battlelog.write scope. The report is idempotent per
+        Game Server and report_id. A matching active assignment is authoritative;
+        otherwise the report is retained as a non-official standalone record.
+      security:
+        - gameServerToken: []
+      parameters:
+        - {$ref: "#/components/parameters/BattleLogReportID"}
+        - {$ref: "#/components/parameters/GameServerIdentity"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/BattleLogSubmitRequest"}
+      responses:
+        "200":
+          description: Idempotent replay of an existing report with the same SHA-256.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/BattleLogSubmitResponse"}
+        "201":
+          description: BattleLog report stored and normalized.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/BattleLogSubmitResponse"}
+        "400": {$ref: "#/components/responses/InvalidRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403":
+          description: Scope, Game Server, or assigned-match check failed.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ErrorResponse"}
+        "409": {$ref: "#/components/responses/Conflict"}
+        "422":
+          description: Snapshot schema or required server-side evidence is invalid.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ErrorResponse"}
   /v1/admin/meta/overview:
     get:
       operationId: adminGetMetaOverview
@@ -2921,6 +2964,15 @@ components:
       schema:
         type: string
         pattern: "^mm_[A-Za-z0-9_-]+$"
+    BattleLogReportID:
+      in: path
+      name: report_id
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+        pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
     GameServerIdentity:
       in: header
       name: X-Game-Server-Id
@@ -4053,7 +4105,7 @@ components:
       properties:
         platform: {type: string, minLength: 1, maxLength: 64}
         architecture: {type: string, minLength: 1, maxLength: 64}
-        channel: {type: string, enum: [stable, beta]}
+        channel: {type: string, enum: [stable, beta, toolbox]}
         version: {type: string, minLength: 1, maxLength: 64}
         minimum_supported_version: {type: string, minLength: 1, maxLength: 64}
         force_update: {type: boolean}
@@ -4087,7 +4139,7 @@ components:
         product: {type: string}
         platform: {type: string}
         architecture: {type: string}
-        channel: {type: string, enum: [stable, beta]}
+        channel: {type: string, enum: [stable, beta, toolbox]}
         version: {type: string}
         minimum_supported_version: {type: string}
         force_update: {type: boolean}
@@ -4914,7 +4966,7 @@ components:
         product: {type: string}
         platform: {type: string}
         architecture: {type: string}
-        channel: {type: string, enum: [stable, beta]}
+        channel: {type: string, enum: [stable, beta, toolbox]}
         version: {type: string}
         minimum_supported_version: {type: string}
         published_at: {type: string, format: date-time}
@@ -4947,7 +4999,7 @@ components:
             product: {type: string}
             platform: {type: string}
             architecture: {type: string}
-            channel: {type: string, enum: [stable, beta]}
+            channel: {type: string, enum: [stable, beta, toolbox]}
             current_version: {type: string}
             latest_version: {type: string}
             minimum_supported_version: {type: string}
@@ -5384,6 +5436,56 @@ components:
       required: [result]
       properties:
         result: {type: object, additionalProperties: true}
+    BattleLogSubmitRequest:
+      type: object
+      additionalProperties: false
+      required: [snapshot]
+      properties:
+        snapshot:
+          type: object
+          additionalProperties: true
+          description: project-rebound.battlelog.raw schema version 2 server snapshot.
+    BattleLogWarning:
+      type: object
+      additionalProperties: false
+      required: [code, severity, message]
+      properties:
+        code: {type: string}
+        severity: {type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL]}
+        message: {type: string}
+        participant_index: {type: integer, minimum: 0}
+    BattleLogSubmission:
+      type: object
+      additionalProperties: false
+      required:
+        - battlelog_id
+        - report_id
+        - match_type
+        - validation_status
+        - official
+        - duplicate
+        - warnings
+      properties:
+        battlelog_id: {type: string, pattern: "^bl_[A-Za-z0-9]+$"}
+        report_id: {type: string}
+        meta_match_id: {type: string}
+        match_type: {type: string, enum: [PVE, PVP, UNKNOWN]}
+        validation_status:
+          type: string
+          enum: [ACCEPTED, ACCEPTED_WITH_WARNINGS, QUARANTINED]
+        risk_severity: {type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL]}
+        official: {type: boolean}
+        duplicate: {type: boolean}
+        warnings:
+          type: array
+          items: {$ref: "#/components/schemas/BattleLogWarning"}
+    BattleLogSubmitResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/BattleLogSubmission"}
+        request_id: {type: string}
     AdminMetaOverviewResponse:
       type: object
       additionalProperties: false

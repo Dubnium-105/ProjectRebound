@@ -9,7 +9,7 @@ import type { Release, ReleaseSourceFile } from "../types";
 type CreateValues = {
     platform: string;
     architecture: string;
-    channel: "stable" | "beta";
+    channel: "stable" | "beta" | "toolbox";
     version: string;
     minimum_supported_version: string;
     force_update: boolean;
@@ -204,7 +204,8 @@ export function ReleasesPage() {
               <Form.Item label={tr("\u6E20\u9053")} name="channel" rules={[{ required: true }]}>
                 <Select style={{ width: 140 }} options={[
             { label: "Stable", value: "stable" },
-            { label: "Beta", value: "beta" }
+            { label: "Beta", value: "beta" },
+            { label: "ToolBox", value: "toolbox" }
         ]}/>
               </Form.Item>
             </Space>

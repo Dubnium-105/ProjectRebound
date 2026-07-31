@@ -38,6 +38,11 @@ func TestSignedManifestCatalogAndChannels(t *testing.T) {
 		Version: "1.3.0-beta.1", MinimumSupportedVersion: "1.1.0", PublishedAt: time.Date(2026, 7, 18, 2, 3, 4, 0, time.UTC),
 		Files: []SourceFile{{FileID: "file_beta", Path: "game.exe", Size: 30, SHA256: repeatHex("c"), Compression: "none", ObjectKey: "beta/1.3.0-beta.1/game.exe"}},
 	})
+	writeRelease(t, cfg.ManifestDirectory, "toolbox.json", SourceRelease{
+		SchemaVersion: 1, Product: cfg.Product, Platform: "windows", Architecture: "amd64", Channel: "toolbox",
+		Version: "0.9.0", MinimumSupportedVersion: "0.8.0", PublishedAt: time.Date(2026, 7, 18, 3, 4, 5, 0, time.UTC),
+		Files: []SourceFile{{FileID: "file_toolbox", Path: "Rebound_Toolbox.exe", Size: 40, SHA256: repeatHex("d"), Compression: "none", ObjectKey: "toolbox/0.9.0/Rebound_Toolbox.exe"}},
+	})
 	service, err := NewService(cfg, "test", fixedRelayDirectory{regions: []string{"hk", "us-west"}})
 	if err != nil {
 		t.Fatal(err)
@@ -55,6 +60,13 @@ func TestSignedManifestCatalogAndChannels(t *testing.T) {
 	}
 	if beta.LatestVersion != "1.3.0-beta.1" || !beta.UpdateAvailable {
 		t.Fatalf("beta check = %#v", beta)
+	}
+	toolbox, err := service.Check(context.Background(), CheckInput{Platform: "windows", Architecture: "amd64", Channel: "toolbox", Version: "0.8.0"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if toolbox.LatestVersion != "0.9.0" || !toolbox.UpdateAvailable || toolbox.Channel != "toolbox" {
+		t.Fatalf("toolbox check = %#v", toolbox)
 	}
 	manifest, err := service.Manifest(context.Background(), "windows", "amd64", "stable", "1.2.0")
 	if err != nil {

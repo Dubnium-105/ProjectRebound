@@ -379,6 +379,54 @@ func (h *HTTPHandler) InternalCompleted(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *HTTPHandler) InternalBattleLog(w http.ResponseWriter, r *http.Request) {
+	reportID := strings.TrimSpace(chi.URLParam(r, "report_id"))
+	if !metaLabelPattern.MatchString(reportID) {
+		h.writeError(w, r, invalid(map[string]any{
+			"report_id": "contains unsupported characters or has invalid length",
+		}))
+		return
+	}
+	var input struct {
+		Snapshot json.RawMessage `json:"snapshot"`
+	}
+	if err := api.DecodeJSON(r, &input); err != nil {
+		h.writeError(w, r, invalid(map[string]any{"body": err.Error()}))
+		return
+	}
+	if len(input.Snapshot) == 0 {
+		h.writeError(w, r, unprocessable(
+			"BATTLELOG_INVALID_SNAPSHOT",
+			map[string]any{"snapshot": "is required"},
+		))
+		return
+	}
+	normalized, err := normalizeBattleLogSnapshot(input.Snapshot)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	submission, err := h.repository.SubmitBattleLog(
+		r.Context(), gameServerFromRequest(r), reportID, normalized,
+	)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	status := http.StatusCreated
+	if submission.Duplicate {
+		status = http.StatusOK
+	}
+	if h.repository.metrics != nil {
+		h.repository.metrics.BattleLogOutcome(
+			string(submission.MatchType),
+			string(submission.ValidationStatus),
+			submission.Duplicate,
+		)
+	}
+	api.WriteData(w, r, status, submission)
+}
+
 func decodeJSON(r *http.Request, target any) error {
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()

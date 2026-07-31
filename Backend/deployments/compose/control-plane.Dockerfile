@@ -12,7 +12,11 @@ RUN CGO_ENABLED=1 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/decrypt
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/test-ticket-verifier ./cmd/test-ticket-verifier
 
 FROM debian:bookworm-slim AS runtime-common
-RUN groupadd --system app && useradd --system --gid app --no-create-home app
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates && \
+    rm -rf /var/lib/apt/lists/* && \
+    groupadd --system app && \
+    useradd --system --gid app --no-create-home app
 COPY --from=build /out/control-plane /control-plane
 COPY --from=build /out/decrypt-ticket /usr/local/bin/decrypt-ticket
 COPY --from=build /src/deployments/updates /deployments/updates

@@ -43,7 +43,13 @@ Roles are permission bundles. Backend handlers check permission keys; they do no
 | Roles | — | `roles.manage` |
 | Audit | `audit_logs.read` | — |
 | Settings | `settings.read` | `settings.update` |
-| MetaServer | `meta.read`, `meta.loadouts.read` | `meta.content.manage`, `meta.matches.manage`, `meta.loadouts.update` |
+| MetaServer | `meta.read`, `meta.loadouts.read`, `meta.battlelog.read`, `meta.battlelog.raw.read` | `meta.content.manage`, `meta.matches.manage`, `meta.loadouts.update`, `meta.battlelog.manage` |
+
+Dedicated Server BattleLog submission is not an administrator permission. It
+uses the machine-only `meta.battlelog.write` Game Server Token scope. Player
+eligibility reuses the existing `unverified`, `verified`, and `trusted`
+authentication levels captured when the roster is reserved; the raw game
+snapshot cannot assert or promote an authentication level.
 
 Relay revoke, release publish/rollback/archive, administrator create/update/MFA reset, role changes, settings changes, and every MetaServer administrative write also require a short-lived `X-Admin-Step-Up` proof bound to the current administrator session. Every write requires a reason and a backend audit record. The final active `SUPER_ADMIN` and the `SUPER_ADMIN` permission bundle have additional server-side invariants.
 

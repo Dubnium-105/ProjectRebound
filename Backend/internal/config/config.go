@@ -691,7 +691,7 @@ func (c *Config) ValidateControlPlane() error {
 	realtimeURL, realtimeErr := url.Parse(c.Update.RealtimeURL)
 	if strings.TrimSpace(c.Update.Product) == "" || strings.TrimSpace(c.Update.ManifestDirectory) == "" ||
 		strings.TrimSpace(c.Update.SigningKeyID) == "" ||
-		(c.Update.DefaultChannel != "stable" && c.Update.DefaultChannel != "beta") ||
+		(c.Update.DefaultChannel != "stable" && c.Update.DefaultChannel != "beta" && c.Update.DefaultChannel != "toolbox") ||
 		strings.TrimSpace(c.Update.DefaultArchitecture) == "" || strings.TrimSpace(c.Update.MinimumClientVersion) == "" ||
 		strings.TrimSpace(c.Update.APIVersion) == "" || c.Update.ProtocolVersion < 1 || len(c.Update.STUNServers) == 0 ||
 		updateCDNErr != nil || updateCDNURL.Host == "" || (updateCDNURL.Scheme != "https" && updateCDNURL.Scheme != "http") ||

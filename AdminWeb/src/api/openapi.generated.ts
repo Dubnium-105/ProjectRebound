@@ -1875,6 +1875,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/v1/meta/battlelog/reports/{report_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * @description Requires meta.battlelog.write scope. The report is idempotent per
+         *     Game Server and report_id. A matching active assignment is authoritative;
+         *     otherwise the report is retained as a non-official standalone record.
+         */
+        put: operations["submitBattleLogReport"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/meta/overview": {
         parameters: {
             query?: never;
@@ -2745,7 +2766,7 @@ export interface components {
             platform: string;
             architecture: string;
             /** @enum {string} */
-            channel: "stable" | "beta";
+            channel: "stable" | "beta" | "toolbox";
             version: string;
             minimum_supported_version: string;
             force_update: boolean;
@@ -2766,7 +2787,7 @@ export interface components {
             platform: string;
             architecture: string;
             /** @enum {string} */
-            channel: "stable" | "beta";
+            channel: "stable" | "beta" | "toolbox";
             version: string;
             minimum_supported_version: string;
             force_update: boolean;
@@ -3380,7 +3401,7 @@ export interface components {
             platform: string;
             architecture: string;
             /** @enum {string} */
-            channel: "stable" | "beta";
+            channel: "stable" | "beta" | "toolbox";
             version: string;
             minimum_supported_version: string;
             /** Format: date-time */
@@ -3401,7 +3422,7 @@ export interface components {
                 platform: string;
                 architecture: string;
                 /** @enum {string} */
-                channel: "stable" | "beta";
+                channel: "stable" | "beta" | "toolbox";
                 current_version: string;
                 latest_version: string;
                 minimum_supported_version: string;
@@ -3720,6 +3741,37 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        BattleLogSubmitRequest: {
+            /** @description project-rebound.battlelog.raw schema version 2 server snapshot. */
+            snapshot: {
+                [key: string]: unknown;
+            };
+        };
+        BattleLogWarning: {
+            code: string;
+            /** @enum {string} */
+            severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+            message: string;
+            participant_index?: number;
+        };
+        BattleLogSubmission: {
+            battlelog_id: string;
+            report_id: string;
+            meta_match_id?: string;
+            /** @enum {string} */
+            match_type: "PVE" | "PVP" | "UNKNOWN";
+            /** @enum {string} */
+            validation_status: "ACCEPTED" | "ACCEPTED_WITH_WARNINGS" | "QUARANTINED";
+            /** @enum {string} */
+            risk_severity?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+            official: boolean;
+            duplicate: boolean;
+            warnings: components["schemas"]["BattleLogWarning"][];
+        };
+        BattleLogSubmitResponse: {
+            data: components["schemas"]["BattleLogSubmission"];
+            request_id: string;
+        };
         AdminMetaOverviewResponse: {
             data: {
                 /** Format: int64 */
@@ -3880,6 +3932,7 @@ export interface components {
         MetaPartyID: string;
         MetaTicketID: string;
         MetaMatchID: string;
+        BattleLogReportID: string;
         /** @description Must identify the same Game Server encoded in the scoped bearer token. */
         GameServerIdentity: string;
     };
@@ -5609,7 +5662,7 @@ export interface operations {
                 status?: components["schemas"]["AdminReleaseStatus"];
                 platform?: string;
                 architecture?: string;
-                channel?: "stable" | "beta";
+                channel?: "stable" | "beta" | "toolbox";
             };
             header?: never;
             path?: never;
@@ -6535,7 +6588,7 @@ export interface operations {
             query: {
                 platform: string;
                 architecture?: string;
-                channel?: "stable" | "beta";
+                channel?: "stable" | "beta" | "toolbox";
                 current_version: string;
             };
             header?: never;
@@ -6561,7 +6614,7 @@ export interface operations {
         parameters: {
             query?: {
                 architecture?: string;
-                channel?: "stable" | "beta";
+                channel?: "stable" | "beta" | "toolbox";
             };
             header?: never;
             path: {
@@ -7126,6 +7179,65 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    submitBattleLogReport: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Must identify the same Game Server encoded in the scoped bearer token. */
+                "X-Game-Server-Id": components["parameters"]["GameServerIdentity"];
+            };
+            path: {
+                report_id: components["parameters"]["BattleLogReportID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BattleLogSubmitRequest"];
+            };
+        };
+        responses: {
+            /** @description Idempotent replay of an existing report with the same SHA-256. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BattleLogSubmitResponse"];
+                };
+            };
+            /** @description BattleLog report stored and normalized. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BattleLogSubmitResponse"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Scope, Game Server, or assigned-match check failed. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+            /** @description Snapshot schema or required server-side evidence is invalid. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     adminGetMetaOverview: {

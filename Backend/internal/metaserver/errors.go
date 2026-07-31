@@ -45,6 +45,13 @@ func invalid(details map[string]any) error {
 	}
 }
 
+func unprocessable(code string, details map[string]any) error {
+	return &ServiceError{
+		Status: http.StatusUnprocessableEntity, Code: code,
+		Message: "The BattleLog snapshot could not be accepted.", Details: details,
+	}
+}
+
 func internalError(err error) error {
 	return &ServiceError{
 		Status: http.StatusInternalServerError, Code: "META_INTERNAL_ERROR",

@@ -2,12 +2,9 @@
 #include "ClientLogic.h"
 #include "../Config/Config.h"
 #include "../Debug/Debug.h"
-#include "../Utility/Utility.h"
 #include "../SDK/Engine_parameters.hpp"
 #include "../SDK/ProjectBoundary_parameters.hpp"
-#include "../Libs/json.hpp"
 #include <iostream>
-#include <fstream>
 #include <thread>
 #include <Windows.h>
 
@@ -19,33 +16,6 @@ bool ReadyToAutoconnect = false;
 // ======================================================
 //  SECTION 14 — CLIENT LOGIC
 // ======================================================
-
-void InitClientArmory()
-{
-    for (UObject *obj : getObjectsOfClass(UPBArmoryManager::StaticClass(), false))
-    {
-        UPBArmoryManager *DefaultConfig = (UPBArmoryManager *)obj;
-
-        std::ifstream items("DT_ItemType.json");
-        nlohmann::json itemJson = nlohmann::json::parse(items);
-
-        for (auto &[ItemId, _] : itemJson[0]["Rows"].items())
-        {
-            std::string aString = std::string(ItemId.c_str());
-            std::wstring wString = std::wstring(aString.begin(), aString.end());
-
-            if (DefaultConfig->DefaultConfig)
-                DefaultConfig->DefaultConfig->OwnedItems.Add(UKismetStringLibrary::Conv_StringToName(wString.c_str()));
-
-            FPBItem item{};
-            item.ID = UKismetStringLibrary::Conv_StringToName(wString.c_str());
-            item.Count = 1;
-            item.bIsNew = false;
-
-            DefaultConfig->Armorys.OwnedItems.Add(item);
-        }
-    }
-}
 
 void ConnectToMatch()
 {

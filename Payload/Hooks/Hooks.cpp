@@ -12,19 +12,17 @@
 #include "../Libs/json.hpp"
 #include "../Replication/libreplicate.h"
 #include "../ServerLogic/LateJoinManager.h"
-#include "../Loadout/LoadoutManager.h"
 #include "../Config/Config.h"
 #include "../Debug/Debug.h"
 #include "../Debug/DebugTool.h"
 #include "../ServerLogic/ServerLogic.h"
 #include "../ClientLogic/ClientLogic.h"
 #include "../Utility/Utility.h"
+#include "../BattleLog/BattleLogExtractor.h"
 
 extern uintptr_t BaseAddress;
 extern LibReplicate* libReplicate;
-class LoadoutManager;
 extern DebugTool* gDebugTool;
-extern LoadoutManager* gLoadoutManager;
 
 using namespace SDK;
 
@@ -326,31 +324,7 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
         }
     }
 
-    // 用 ProcessEvent 作为 tick 来源（原设计中缺少 GameThread tick hook）
-    if (gLoadoutManager)
-    {
-        static auto nextTick = std::chrono::steady_clock::now();
-        const auto now = std::chrono::steady_clock::now();
-        if (now >= nextTick)
-        {
-            nextTick = now + std::chrono::seconds(1);
-            gLoadoutManager->TickServer();
-        }
-        gLoadoutManager->OnServerProcessEventPre(Object, functionName, Parms);
-
-        // Listen Server: 本地控制 Pawn 同时走客户端视觉路径
-        if (Object && Object->IsA(APawn::StaticClass()))
-        {
-            APawn* pawn = static_cast<APawn*>(Object);
-            if (pawn->IsLocallyControlled())
-            {
-                gLoadoutManager->OnClientProcessEventPre(Object, functionName, Parms);
-            }
-        }
-    }
-
     // ServerSay：拦截调试命令（__DBG__ 前缀）
-    // __LDS__ 负载通道已移除 — 配装数据现在通过 metaserver HTTP API 获取
     if (functionName.contains("ServerSay"))
     {
         APBPlayerController *PBPlayerController = Object && Object->IsA(APBPlayerController::StaticClass())
@@ -408,51 +382,13 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
         APBPlayerController *PBPlayerController = Object && Object->IsA(APBPlayerController::StaticClass())
                                                       ? (APBPlayerController *)Object
                                                       : nullptr;
-        auto *ConfirmParms = static_cast<Params::PBPlayerController_ServerConfirmRoleSelection *>(Parms);
-
         QueuePendingPlayerNameUpdate(PBPlayerController);
-
-        if (gLoadoutManager && PBPlayerController && ConfirmParms)
-        {
-            gLoadoutManager->OnRoleSelectionConfirmed(PBPlayerController, ConfirmParms->InRoleID, true);
-        }
 
         // Late join player: execute original + advance state, skip match-start counting
         if (gLateJoinManager && gLateJoinManager->IsLateJoinPlayer(PBPlayerController))
         {
             ProcessEvent.call(Object, Function, Parms);
-            if (gLoadoutManager)
-                gLoadoutManager->OnServerProcessEventPost(Object, functionName, Parms);
             gLateJoinManager->OnRoleConfirmed(PBPlayerController);
-            return;
-        }
-
-        // Initial join player in deferred-spawn flow: execute original + advance state,
-        // but ALSO count towards match start (unlike late join)
-        if (gLateJoinManager && gLateJoinManager->IsInitialJoinPlayer(PBPlayerController))
-        {
-            ProcessEvent.call(Object, Function, Parms);
-            if (gLoadoutManager)
-                gLoadoutManager->OnServerProcessEventPost(Object, functionName, Parms);
-            gLateJoinManager->OnRoleConfirmed(PBPlayerController);
-
-            if (PBPlayerController)
-            {
-                const auto [_, inserted] = PlayersConfirmedRole.insert(PBPlayerController);
-                if (inserted)
-                {
-                    NumPlayersSelectedRole = static_cast<int>(PlayersConfirmedRole.size());
-                    std::cout << "[MATCH] Role confirmed by (initial-join) "
-                        << PBPlayerController->GetFullName()
-                        << " (" << NumPlayersSelectedRole << "/" << NumExpectedPlayers << ")" << std::endl;
-                }
-
-                if (!canStartMatch && NumExpectedPlayers > 0 && NumPlayersSelectedRole >= NumExpectedPlayers)
-                {
-                    canStartMatch = true;
-                    StartMatchTimer = -1.0f;
-                }
-            }
             return;
         }
 
@@ -505,7 +441,12 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
         return;
     }
 
-    return ProcessEvent.call(Object, Function, Parms);
+    ProcessEvent.call(Object, Function, Parms);
+    BattleLog::OnProcessEventPost(
+        BattleLog::ProcessSide::Server,
+        Object,
+        functionName,
+        Parms);
 }
 
 static SafetyHookInline PostLoginHook;
@@ -525,16 +466,8 @@ void *PostLogin(AGameMode *GameMode, APBPlayerController *PC)
         return Ret;
     }
 
-    // Initial join: defer Pawn creation to LateJoinManager's delayed-spawn flow.
-    // This ensures weapons are created AFTER role confirmation (when loadout
-    // inventory is already applied), fixing the loadout switching issue.
-    if (gLateJoinManager)
-    {
-        gLateJoinManager->QueueInitialJoinPlayer(GameMode, PC);
-        return Ret;
-    }
-
-    // Fallback: if LateJoinManager is not available, use the old immediate-respawn path
+    // Normal initial join uses the original immediate-respawn path.
+    // LateJoinManager remains active only for players joining an active match.
     if (PC && PC->Pawn)
     {
         PC->ServerSuicide(0);   // triggers respawn
@@ -562,27 +495,9 @@ void *OnFireWeapon(APBWeapon *Weapon)
 // ======================================================
 
 static SafetyHookInline ProcessEventClient;
-static thread_local int gClientProcessEventSuppressionDepth = 0;
-
-extern "C" void PayloadPushClientProcessEventSuppression()
-{
-    ++gClientProcessEventSuppressionDepth;
-}
-
-extern "C" void PayloadPopClientProcessEventSuppression()
-{
-    if (gClientProcessEventSuppressionDepth > 0)
-        --gClientProcessEventSuppressionDepth;
-}
 
 void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
 {
-    if (gClientProcessEventSuppressionDepth > 0)
-    {
-        ProcessEventClient.call(Object, Function, Parms);
-        return;
-    }
-
     // 热键检测（游戏线程安全）— F6=dump, F7=reapply snapshot
     if (gDebugTool)
     {
@@ -606,18 +521,6 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
     }
 
     const std::string functionName = Function ? std::string(Function->GetFullName()) : "";
-
-    if (gLoadoutManager)
-    {
-        static auto nextClientTick = std::chrono::steady_clock::now();
-        const auto now = std::chrono::steady_clock::now();
-        if (now >= nextClientTick)
-        {
-            nextClientTick = now + std::chrono::seconds(1);
-            gLoadoutManager->TickClient();
-        }
-        gLoadoutManager->OnClientProcessEventPre(Object, functionName, Parms);
-    }
 
     // TEMP LOGIN DEBUG DUMP (GameInstance only)
     // if (Object && Object->IsA(UPBGameInstance::StaticClass()))
@@ -661,10 +564,11 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
     // 先执行原始 ProcessEvent，确保游戏状态已更新
     ProcessEventClient.call(Object, Function, Parms);
 
-    if (gLoadoutManager)
-    {
-        gLoadoutManager->OnClientProcessEventPost(Object, functionName, Parms);
-    }
+    BattleLog::OnProcessEventPost(
+        BattleLog::ProcessSide::Client,
+        Object,
+        functionName,
+        Parms);
 }
 
 static SafetyHookInline ClientDeathCrash;

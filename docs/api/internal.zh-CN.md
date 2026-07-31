@@ -156,7 +156,7 @@ POST /v1/admin/releases/{release_id}/rollback
 POST /v1/admin/releases/{release_id}/archive
 ```
 
-创建请求包含平台、架构、stable/beta 渠道、语义化版本、强制更新策略和对象存储文件描述。校验会检查文件路径、大小、SHA-256、压缩方式、CDN Object Key 与实际 `HEAD` 可用性、兼容版本顺序以及生成的 Ed25519 签名。只有 `READY` 版本可发布；正式发布、回滚和归档都必须填写原因，并由后端强制执行 MFA Step-up。公开更新目录只读取 `PUBLISHED` 的管理版本；回滚会让该版本退出后续更新检查，但不会删除审计历史。归档只接受 `DRAFT`、`READY` 或 `ROLLED_BACK`，沿用 `updates.rollback` 权限并保留全部记录。
+创建请求包含平台、架构、stable/beta/toolbox 渠道、语义化版本、强制更新策略和对象存储文件描述。校验会检查文件路径、大小、SHA-256、压缩方式、CDN Object Key 与实际 `HEAD` 可用性、兼容版本顺序以及生成的 Ed25519 签名。只有 `READY` 版本可发布；正式发布、回滚和归档都必须填写原因，并由后端强制执行 MFA Step-up。公开更新目录只读取 `PUBLISHED` 的管理版本；回滚会让该版本退出后续更新检查，但不会删除审计历史。归档只接受 `DRAFT`、`READY` 或 `ROLLED_BACK`，沿用 `updates.rollback` 权限并保留全部记录。
 
 ### 3.5 管理员与角色治理
 
@@ -370,6 +370,7 @@ HTTP 错误仍使用统一 `error` + `request_id` envelope。管理写操作、�
 | GET | `/internal/v1/meta/matches/{match_id}/players/{player_id}/loadout` | Game Server `meta.loadouts.read` |
 | POST | `/internal/v1/meta/matches/{match_id}/players/{player_id}/connected` | Game Server `meta.matches.connect` |
 | POST | `/internal/v1/meta/matches/{match_id}/completed` | Game Server `meta.matches.complete` |
+| PUT | `/internal/v1/meta/battlelog/reports/{report_id}` | Game Server `meta.battlelog.write` |
 | GET | `/v1/admin/meta/overview` | `meta.read` |
 | GET | `/v1/admin/meta/players/{player_id}/loadouts` | `meta.loadouts.read` |
 | PUT | `/v1/admin/meta/players/{player_id}/loadouts/{role_id}` | `meta.loadouts.update` + Step-up |

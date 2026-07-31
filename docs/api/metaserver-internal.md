@@ -26,6 +26,18 @@ to this server, and contains the requested player.
 | `GET /internal/v1/meta/matches/{match_id}/players/{player_id}/loadout` | `meta.loadouts.read` | returns the definition-validated match snapshot |
 | `POST /internal/v1/meta/matches/{match_id}/players/{player_id}/connected` | `meta.matches.connect` | marks only that roster member connected; starts the reserved match when applicable |
 | `POST /internal/v1/meta/matches/{match_id}/completed` | `meta.matches.complete` | accepts `{"result":{...}}`, completes match, releases server to READY |
+| `PUT /internal/v1/meta/battlelog/reports/{report_id}` | `meta.battlelog.write` | validates and idempotently persists a schema-v2 server snapshot, then completes a linked match |
+
+BattleLog identity and integrity decisions reuse the existing security model.
+The match roster snapshots `unverified`, `verified`, or `trusted` when the match
+is reserved. Only `verified` and `trusted` roster members become official
+participants. The raw report never supplies this level. Validation findings use
+the existing `LOW`, `MEDIUM`, `HIGH`, and `CRITICAL` severity vocabulary.
+
+The same `report_id` and canonical SHA-256 returns `200` as a safe retry. Reusing
+the ID with different content returns `409`. If the snapshot has no match ID,
+the backend links the Game Server's unique active assignment. With no active
+assignment it retains the report as non-official standalone evidence.
 
 Return 404/403 semantics deliberately avoid revealing players or matches
 assigned elsewhere. Do not retry DRAINING/OFFLINE or assignment failures with a
@@ -69,6 +81,7 @@ network. Important metric families include:
 - Gate issue, consume, and replay;
 - loadout revision conflicts;
 - matchmaking queue depth and assignment outcomes/latency;
+- BattleLog reports by PvE/PvP type, validation status, and idempotent replay;
 - Relay `0x59` QoS request, malformed, and rate-limit counters.
 
 Grafana discovers the service through `service="project-rebound-meta-server"`;

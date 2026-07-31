@@ -36,7 +36,7 @@ type schemaChecker struct{ database *database.Pool }
 func (c schemaChecker) Check(ctx context.Context) error {
 	var applied bool
 	if err := c.database.QueryRow(ctx, `
-		SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 29)
+		SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 31)
 	`).Scan(&applied); err != nil {
 		return err
 	}
@@ -160,6 +160,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		router.Get("/matches/{match_id}/players/{player_id}/loadout", handler.InternalLoadout)
 		router.Post("/matches/{match_id}/players/{player_id}/connected", handler.InternalConnected)
 		router.Post("/matches/{match_id}/completed", handler.InternalCompleted)
+		router.Put("/battlelog/reports/{report_id}", handler.InternalBattleLog)
 	})
 	router.Route("/v1/admin/meta", func(router chi.Router) {
 		router.Use(adminNetworkGuard.Middleware)

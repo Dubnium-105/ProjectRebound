@@ -8,7 +8,7 @@
 
 本节管理游戏客户端更新，与后文的控制面容器发布不同。
 
-1. 使用 `RELEASE_MANAGER` 或等价细粒度权限创建 `DRAFT`，填写平台、架构、stable/beta 渠道、版本、最低兼容版本、强制更新策略和对象存储文件描述。
+1. 使用 `RELEASE_MANAGER` 或等价细粒度权限创建 `DRAFT`，填写平台、架构、stable/beta/toolbox 渠道、版本、最低兼容版本、强制更新策略和对象存储文件描述。beta 渠道只包含一个完整 `Release.zip`；toolbox 渠道只包含一个 `Rebound_Toolbox.exe`。
 2. 执行“校验”，确认 Manifest Schema、路径、大小、SHA-256、压缩方式、CDN URL、服务端对象 `HEAD` 可用性、版本顺序和 Ed25519 签名全部通过。
 3. 只有 `READY` 可发布。确认受影响平台和策略，填写工单原因，并完成 MFA Step-up。
 4. 发布后验证 `/v1/updates/check` 和签名 Manifest，观察错误率与版本覆盖。

@@ -70,3 +70,11 @@ func TestValidateControlPlaneRejectsInvalidConfiguration(t *testing.T) {
 		t.Fatal("ValidateControlPlane() returned nil")
 	}
 }
+
+func TestValidateControlPlaneAcceptsToolboxDefaultChannel(t *testing.T) {
+	cfg := Defaults
+	cfg.Update.DefaultChannel = "toolbox"
+	if err := cfg.ValidateControlPlane(); err != nil {
+		t.Fatalf("ValidateControlPlane() error = %v", err)
+	}
+}

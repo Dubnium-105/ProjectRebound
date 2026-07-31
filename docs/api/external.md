@@ -195,7 +195,7 @@ For the specific fields and enumerations of the event, see `Connection*Event`, `
 | GET | `/v1/updates/{platform}/{version}/manifest` | None | `architecture`, `channel` | 200 Ed25519-signed manifest |
 | GET | `/v1/updates/files/{file_id}` | None | — | 200 immutable CDN download metadata |
 
-`channel` is `stable` or `beta`. Manifest contains `schema_version`, product/platform/architecture/channel/version, minimum supported version, release date, file list, `manifest_hash`, `signature_algorithm=Ed25519`, `key_id` and `signature`. Updaters must:
+`channel` is `stable`, `beta`, or `toolbox`. `beta` publishes the complete game `Release.zip`; `toolbox` publishes only `Rebound_Toolbox.exe`. Manifest contains `schema_version`, product/platform/architecture/channel/version, minimum supported version, release date, file list, `manifest_hash`, `signature_algorithm=Ed25519`, `key_id` and `signature`. Updaters must:
 
 1. Verify the signature using the public key built into the client and corresponding to `key_id`;
 2. Verify manifest hash;

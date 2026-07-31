@@ -8,7 +8,7 @@ Production deployment uses immutable GHCR references: `sha-<40-character commit>
 
 This workflow manages game-client updates and is separate from the control-plane container release below.
 
-1. Use `RELEASE_MANAGER` or equivalent granular permissions to create a `DRAFT` with platform, architecture, stable/beta channel, version, minimum compatible version, force-update policy, and object-storage file descriptors.
+1. Use `RELEASE_MANAGER` or equivalent granular permissions to create a `DRAFT` with platform, architecture, stable/beta/toolbox channel, version, minimum compatible version, force-update policy, and object-storage file descriptors. The beta channel contains one complete `Release.zip`; the toolbox channel contains one `Rebound_Toolbox.exe`.
 2. Run validation and require all manifest schema, path, size, SHA-256, compression, CDN URL, server-side object `HEAD` availability, version-order, and Ed25519 signature checks to pass.
 3. Only `READY` can be published. Confirm the affected platform and policy, supply a ticket-quality reason, and complete MFA step-up.
 4. Verify `/v1/updates/check` and the signed manifest after publication, then observe errors and version coverage.

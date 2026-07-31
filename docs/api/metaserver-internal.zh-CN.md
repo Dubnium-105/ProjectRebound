@@ -23,6 +23,16 @@ Meta match scope，且服务器不能处于 DRAINING、UNHEALTHY 或 OFFLINE。�
 | `GET /internal/v1/meta/matches/{match_id}/players/{player_id}/loadout` | `meta.loadouts.read` | 返回经 definitions 校验的对局配装快照 |
 | `POST /internal/v1/meta/matches/{match_id}/players/{player_id}/connected` | `meta.matches.connect` | 仅标记该名单玩家连接；必要时启动 RESERVED 对局 |
 | `POST /internal/v1/meta/matches/{match_id}/completed` | `meta.matches.complete` | 接收 `{"result":{...}}`，完成对局并将服务器释放为 READY |
+| `PUT /internal/v1/meta/battlelog/reports/{report_id}` | `meta.battlelog.write` | 校验并幂等保存 schema v2 服务端快照，然后完成已关联对局 |
+
+BattleLog 身份与完整性判断复用现有安全体系。对局预留时固化名单玩家的
+`unverified`、`verified` 或 `trusted` 等级；只有 `verified` 和 `trusted`
+名单成员可成为官方战绩参与者，原始上报不能提供或覆盖该等级。校验异常沿用
+`LOW`、`MEDIUM`、`HIGH`、`CRITICAL` 严重度。
+
+相同 `report_id` 与规范化 SHA-256 返回 `200`，可安全重试；相同 ID 对应不同
+内容返回 `409`。快照缺少 match ID 时，后端自动关联该游戏服唯一的活动分配；
+不存在活动分配时，记录作为非官方 standalone 证据保存。
 
 404/403 语义会刻意避免泄露其他服务器的玩家和对局。遇到 DRAINING/OFFLINE 或分配不
 匹配时，不得更换 player ID 重试。
@@ -62,6 +72,7 @@ request ID、客户端地址、User-Agent、结果和时间。
 - Gate 签发、消费和重放；
 - 配装 revision 冲突；
 - 匹配队列深度、分配结果和耗时；
+- 按 PvE/PvP 类型、校验状态和幂等重试统计的 BattleLog 上报；
 - Relay `0x59` QoS 请求、畸形包和限流计数。
 
 Grafana 通过 `service="project-rebound-meta-server"` 动态发现服务；新增副本不应要求

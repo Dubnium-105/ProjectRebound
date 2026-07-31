@@ -2,7 +2,12 @@ package update
 
 import "time"
 
-const SignatureAlgorithm = "Ed25519"
+const (
+	SignatureAlgorithm = "Ed25519"
+	ChannelStable      = "stable"
+	ChannelBeta        = "beta"
+	ChannelToolbox     = "toolbox"
+)
 
 type File struct {
 	FileID      string `json:"file_id"`

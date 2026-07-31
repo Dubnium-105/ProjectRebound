@@ -15,7 +15,6 @@
 #include "Replication/libreplicate.h"
 #include "ServerLogic/LateJoinManager.h"
 #include "Communication/CommandFramework.h"
-#include "Loadout/LoadoutManager.h"
 
 #include "Config/Config.h"
 #include "Debug/Debug.h"
@@ -35,7 +34,6 @@ uintptr_t BaseAddress = 0x0;
 LibReplicate* libReplicate = nullptr; // was static in original, but extern needed by other modules
 HMODULE gPayloadModule = nullptr;
 static CommandFramework* g_CmdFramework = nullptr;
-LoadoutManager* gLoadoutManager = nullptr;
 DebugTool* gDebugTool = nullptr;
 static std::mutex MatchIPMutex;
 
@@ -64,6 +62,7 @@ void OnJoinFromPipe(const std::string& ip, const std::string& token)
 void MainThread()
 {
     ClientLog("[BOOT] DLL injected, starting...");
+    ClientLog("[BOOT] Build profile: BattleLog extraction; equipment override disabled.");
     try
     {
         // Calms down the ui font missing panic
@@ -76,12 +75,6 @@ void MainThread()
         if (std::string(GetCommandLineA()).contains("-server"))
         {
             amServer = true;
-        }
-
-        // Initialize LoadoutManager (shared between client and server)
-        if (!gLoadoutManager)
-        {
-            gLoadoutManager = new LoadoutManager();
         }
 
         // Initialize DebugTool (shared between client and server)
@@ -106,7 +99,6 @@ void MainThread()
         {
             InitServerHooks();
             Log("[SERVER] Hooks installed.");
-            gLoadoutManager->PreloadSnapshot();
 
             // Wait for world
             Log("[SERVER] Waiting for UWorld...");
@@ -173,7 +165,6 @@ void MainThread()
                 std::thread(HotkeyThreadWithDebugTool).detach();
             }
 
-            InitClientArmory();
             if (!MatchIP.empty())
             {
                 AutoConnectToMatchFromCmdline();

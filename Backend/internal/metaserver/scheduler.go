@@ -167,13 +167,26 @@ func (s *Scheduler) scheduleOne(ctx context.Context) (bool, error) {
 	}
 	if ticket.partyID == "" {
 		_, err = tx.Exec(ctx, `
-			INSERT INTO meta_match_players (match_id, player_id) VALUES ($1, $2)
+			INSERT INTO meta_match_players (
+				match_id, player_id, auth_level_at_reservation,
+				steam_verified_at_reservation
+			)
+			SELECT $1, player.id, player.auth_level,
+			       player.auth_level IN ('verified', 'trusted')
+			FROM players AS player
+			WHERE player.id = $2
 		`, matchID, ticket.playerID)
 	} else {
 		_, err = tx.Exec(ctx, `
-			INSERT INTO meta_match_players (match_id, player_id)
-			SELECT $1, player_id FROM meta_party_members
-			WHERE party_id = $2 AND left_at IS NULL
+			INSERT INTO meta_match_players (
+				match_id, player_id, auth_level_at_reservation,
+				steam_verified_at_reservation
+			)
+			SELECT $1, member.player_id, player.auth_level,
+			       player.auth_level IN ('verified', 'trusted')
+			FROM meta_party_members AS member
+			JOIN players AS player ON player.id = member.player_id
+			WHERE member.party_id = $2 AND member.left_at IS NULL
 		`, matchID, ticket.partyID)
 	}
 	if err != nil {

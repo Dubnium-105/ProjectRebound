@@ -156,7 +156,7 @@ POST /v1/admin/releases/{release_id}/rollback
 POST /v1/admin/releases/{release_id}/archive
 ```
 
-Creation accepts platform, architecture, stable/beta channel, semantic version information, forced-update policy, and object-storage file descriptors. Validation checks file paths, sizes, SHA-256 values, compression, CDN object keys and actual `HEAD` availability, compatibility ordering, and the generated Ed25519 signature. Only a `READY` release can be published. Publish, rollback, and archive require both an operation reason and server-enforced MFA step-up. The public update catalog reads only `PUBLISHED` managed manifests; rollback removes that release from future update checks without deleting its audit history. Archive accepts only `DRAFT`, `READY`, or `ROLLED_BACK`, uses `updates.rollback`, and preserves all records.
+Creation accepts platform, architecture, stable/beta/toolbox channel, semantic version information, forced-update policy, and object-storage file descriptors. Validation checks file paths, sizes, SHA-256 values, compression, CDN object keys and actual `HEAD` availability, compatibility ordering, and the generated Ed25519 signature. Only a `READY` release can be published. Publish, rollback, and archive require both an operation reason and server-enforced MFA step-up. The public update catalog reads only `PUBLISHED` managed manifests; rollback removes that release from future update checks without deleting its audit history. Archive accepts only `DRAFT`, `READY`, or `ROLLED_BACK`, uses `updates.rollback`, and preserves all records.
 
 ### 3.5 Administrator and role governance
 
@@ -372,6 +372,7 @@ step-up, reason, and audit.
 | GET | `/internal/v1/meta/matches/{match_id}/players/{player_id}/loadout` | Game Server `meta.loadouts.read` |
 | POST | `/internal/v1/meta/matches/{match_id}/players/{player_id}/connected` | Game Server `meta.matches.connect` |
 | POST | `/internal/v1/meta/matches/{match_id}/completed` | Game Server `meta.matches.complete` |
+| PUT | `/internal/v1/meta/battlelog/reports/{report_id}` | Game Server `meta.battlelog.write` |
 | GET | `/v1/admin/meta/overview` | `meta.read` |
 | GET | `/v1/admin/meta/players/{player_id}/loadouts` | `meta.loadouts.read` |
 | PUT | `/v1/admin/meta/players/{player_id}/loadouts/{role_id}` | `meta.loadouts.update` + step-up |

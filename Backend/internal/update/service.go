@@ -184,7 +184,7 @@ func (s *Service) Check(ctx context.Context, input CheckInput) (CheckResult, err
 		input.Channel = s.cfg.DefaultChannel
 	}
 	if !identifierPattern.MatchString(input.Platform) || !identifierPattern.MatchString(input.Architecture) ||
-		(input.Channel != "stable" && input.Channel != "beta") {
+		!validChannel(input.Channel) {
 		return CheckResult{}, invalid("Platform, architecture, or channel is invalid.", nil)
 	}
 	if _, err := parseVersion(input.Version); err != nil {
@@ -418,7 +418,7 @@ func decodeSourceRelease(path string) (SourceRelease, error) {
 func buildManifest(cfg config.UpdateConfig, baseURL *url.URL, source SourceRelease) (Manifest, error) {
 	if source.SchemaVersion != 1 || source.Product != cfg.Product ||
 		!identifierPattern.MatchString(source.Platform) || !identifierPattern.MatchString(source.Architecture) ||
-		(source.Channel != "stable" && source.Channel != "beta") || source.PublishedAt.IsZero() || len(source.Files) == 0 {
+		!validChannel(source.Channel) || source.PublishedAt.IsZero() || len(source.Files) == 0 {
 		return Manifest{}, errors.New("release metadata is invalid")
 	}
 	if _, err := parseVersion(source.Version); err != nil {
@@ -479,4 +479,13 @@ func objectURL(base *url.URL, objectKey string) (string, error) {
 	resolved.Fragment = ""
 	resolved.Path = strings.TrimRight(base.Path, "/") + "/" + strings.Join(segments, "/")
 	return resolved.String(), nil
+}
+
+func validChannel(value string) bool {
+	switch value {
+	case ChannelStable, ChannelBeta, ChannelToolbox:
+		return true
+	default:
+		return false
+	}
 }

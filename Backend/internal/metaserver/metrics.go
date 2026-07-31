@@ -27,6 +27,7 @@ type MetaMetrics struct {
 	httpTotals        map[string]uint64
 	httpDurations     map[string]durationStat
 	matchOutcomes     map[string]uint64
+	battleLogOutcomes map[string]uint64
 	matchQueueLatency durationStat
 	queueProbe        func(context.Context) (int64, error)
 }
@@ -38,11 +39,12 @@ type durationStat struct {
 
 func NewMetaMetrics() *MetaMetrics {
 	return &MetaMetrics{
-		rpcRequests:   make(map[string]uint64),
-		rpcDurations:  make(map[string]durationStat),
-		httpTotals:    make(map[string]uint64),
-		httpDurations: make(map[string]durationStat),
-		matchOutcomes: make(map[string]uint64),
+		rpcRequests:       make(map[string]uint64),
+		rpcDurations:      make(map[string]durationStat),
+		httpTotals:        make(map[string]uint64),
+		httpDurations:     make(map[string]durationStat),
+		matchOutcomes:     make(map[string]uint64),
+		battleLogOutcomes: make(map[string]uint64),
 	}
 }
 
@@ -84,6 +86,19 @@ func (m *MetaMetrics) MatchOutcome(
 		m.matchQueueLatency.Count += count
 		m.matchQueueLatency.Sum += queueLatency.Seconds()
 	}
+	m.mu.Unlock()
+}
+
+func (m *MetaMetrics) BattleLogOutcome(
+	matchType, status string,
+	duplicate bool,
+) {
+	key := matchType + "|" + status + "|false"
+	if duplicate {
+		key = matchType + "|" + status + "|true"
+	}
+	m.mu.Lock()
+	m.battleLogOutcomes[key]++
 	m.mu.Unlock()
 }
 
@@ -137,6 +152,19 @@ func (m *MetaMetrics) Handler() http.Handler {
 			_, _ = fmt.Fprintf(
 				w, "meta_matchmaking_outcomes_total{outcome=%q} %d\n",
 				outcome, m.matchOutcomes[outcome],
+			)
+		}
+		battleLogKeys := sortedMetricKeys(m.battleLogOutcomes)
+		_, _ = fmt.Fprintln(
+			w,
+			"# TYPE meta_battlelog_reports_total counter",
+		)
+		for _, key := range battleLogKeys {
+			parts := strings.Split(key, "|")
+			_, _ = fmt.Fprintf(
+				w,
+				"meta_battlelog_reports_total{match_type=%q,status=%q,duplicate=%q} %d\n",
+				parts[0], parts[1], parts[2], m.battleLogOutcomes[key],
 			)
 		}
 		_, _ = fmt.Fprintf(

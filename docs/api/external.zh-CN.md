@@ -195,7 +195,7 @@ Relay 分配事件示例：
 | GET | `/v1/updates/{platform}/{version}/manifest` | 无 | `architecture`, `channel` | 200 Ed25519 签名 Manifest |
 | GET | `/v1/updates/files/{file_id}` | 无 | — | 200 immutable CDN 下载元数据 |
 
-`channel` 为 `stable` 或 `beta`。Manifest 包含 `schema_version`、产品/平台/架构/频道/版本、最低支持版本、发布时间、文件列表、`manifest_hash`、`signature_algorithm=Ed25519`、`key_id` 和 `signature`。更新器必须：
+`channel` 为 `stable`、`beta` 或 `toolbox`。`beta` 发布完整游戏包 `Release.zip`；`toolbox` 仅发布 `Rebound_Toolbox.exe`。Manifest 包含 `schema_version`、产品/平台/架构/频道/版本、最低支持版本、发布时间、文件列表、`manifest_hash`、`signature_algorithm=Ed25519`、`key_id` 和 `signature`。更新器必须：
 
 1. 使用客户端内置且与 `key_id` 对应的公钥验证签名；
 2. 验证 Manifest hash；
