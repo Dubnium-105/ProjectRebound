@@ -21,6 +21,16 @@ func TestNormalizeBattleLogSnapshotPvE(t *testing.T) {
 	if result.DurationMS != 120_000 || len(result.Participants) != 1 {
 		t.Fatalf("duration/participants = %d/%d", result.DurationMS, len(result.Participants))
 	}
+	if result.Warnings == nil {
+		t.Fatal("warning-free snapshot must normalize warnings to an empty array")
+	}
+	warningsJSON, err := json.Marshal(result.Warnings)
+	if err != nil {
+		t.Fatalf("marshal warnings: %v", err)
+	}
+	if string(warningsJSON) != "[]" {
+		t.Fatalf("warning-free snapshot warnings JSON = %s, want []", warningsJSON)
+	}
 	participant := result.Participants[0]
 	if participant.IsAI || participant.Kills != 5 || participant.Deaths != 2 ||
 		participant.Assists != 1 || participant.Score != 100 {

@@ -90,6 +90,7 @@ func normalizeBattleLogSnapshot(raw json.RawMessage) (normalizedBattleLog, error
 		CanonicalRaw: canonical.Bytes(),
 		Digest:       digest[:],
 		DurationMS:   int64(math.Round(snapshot.GameState.ElapsedTime * 1000)),
+		Warnings:     []BattleLogWarning{},
 		Rounds:       snapshot.GameState.MatchResult.Rounds,
 	}
 	result.MatchType = normalizedMatchType(snapshot.MatchClassification.Type)
