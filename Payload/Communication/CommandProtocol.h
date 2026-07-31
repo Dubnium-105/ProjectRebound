@@ -37,11 +37,11 @@ namespace CommandProtocol
         }
     };
 
-    [[nodiscard]] ParseResult ParseFrame(std::string_view frame) noexcept;
+    [[nodiscard]] ParseResult ParseFrame(std::string_view frame);
 
     [[nodiscard]] bool ValidateMatchTarget(
         std::string_view target,
-        std::string* failureReason = nullptr) noexcept;
+        std::string* failureReason = nullptr);
 
     [[nodiscard]] nlohmann::json WithRequestId(
         nlohmann::json payload,

@@ -16,6 +16,40 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  command-protocol:
+    name: C++ command protocol
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Configure protocol tests
+        run: cmake -S Payload/Tests -B build/command-protocol -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build protocol tests with warnings as errors
+        run: cmake --build build/command-protocol --parallel
+
+      - name: Run protocol tests
+        run: ctest --test-dir build/command-protocol --output-on-failure
+
+  command-pipe-windows:
+    name: Windows named-pipe integration
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Configure named-pipe tests
+        run: cmake -S Payload/Tests -B build/command-pipe-tests -A x64
+
+      - name: Build named-pipe tests with warnings as errors
+        run: cmake --build build/command-pipe-tests --config Release --parallel
+
+      - name: Run named-pipe tests
+        run: ctest --test-dir build/command-pipe-tests -C Release --output-on-failure
+
   backend:
     name: Go backend and PostgreSQL
     runs-on: ubuntu-latest

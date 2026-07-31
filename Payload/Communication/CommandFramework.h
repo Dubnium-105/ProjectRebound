@@ -35,9 +35,10 @@ public:
     void SetDebugCallback(DebugCallback callback);
 
     [[nodiscard]] bool Start();
-    void Stop();
+    void Stop() noexcept;
 
     [[nodiscard]] bool IsRunning() const noexcept;
+    [[nodiscard]] bool IsListenerThread() const noexcept;
     [[nodiscard]] bool SendResponse(const std::string& command, const nlohmann::json& payload);
 
 private:
@@ -105,8 +106,8 @@ private:
         TransportError
     };
 
-    [[nodiscard]] bool BuildPipePath();
-    [[nodiscard]] bool InitializeSecurity();
+    [[nodiscard]] bool BuildPipePath(std::string& failureReason);
+    [[nodiscard]] bool InitializeSecurity(std::string& failureReason);
     void ReleaseSecurity() noexcept;
     [[nodiscard]] bool IsAuthorizedClient(HANDLE pipe) const;
 
@@ -137,10 +138,13 @@ private:
 
     std::atomic<bool> running{false};
     std::atomic<bool> connectionFaulted{false};
+    std::atomic<DWORD> listenerThreadId{0};
     HANDLE hCurrentPipe = INVALID_HANDLE_VALUE; // Non-owning; guarded by writeMutex.
     UniqueHandle stopEvent;
+    bool stopping = false; // Guarded by lifecycleMutex.
 
     mutable std::mutex lifecycleMutex;
+    mutable std::mutex callbackMutex;
     mutable std::mutex writeMutex;
     std::thread listenerThread;
 

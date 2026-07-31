@@ -150,6 +150,7 @@
     <ClInclude Include="framework.h" />
     <ClInclude Include="BattleLog\BattleLogExtractor.h" />
     <ClInclude Include="Communication\CommandFramework.h" />
+    <ClInclude Include="Communication\CommandProtocol.h" />
     <ClInclude Include="Debug\DebugTool.h" />
   </ItemGroup>
   <ItemGroup>
@@ -160,6 +161,7 @@
     <ClCompile Include="Debug\DebugTool.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="Communication\CommandFramework.cpp" />
+    <ClCompile Include="Communication\CommandProtocol.cpp" />
     <ClCompile Include="Hooks\Hooks.cpp" />
     <ClCompile Include="Network\NetDriverAccess.cpp" />
     <ClCompile Include="Network\Network.cpp" />

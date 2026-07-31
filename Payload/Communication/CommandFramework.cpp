@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <array>
 #include <exception>
-#include <limits>
 #include <utility>
 
 #pragma comment(lib, "Advapi32.lib")
@@ -23,6 +22,37 @@ namespace
             (ch >= '0' && ch <= '9') ||
             ch == '_' || ch == '-' || ch == '.';
     }
+
+    class CurrentPipeRegistration
+    {
+    public:
+        CurrentPipeRegistration(
+            HANDLE& publishedPipe,
+            std::mutex& mutex,
+            const HANDLE pipe)
+            : publishedPipe_(publishedPipe)
+            , mutex_(mutex)
+            , pipe_(pipe)
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            publishedPipe_ = pipe_;
+        }
+
+        ~CurrentPipeRegistration()
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (publishedPipe_ == pipe_)
+                publishedPipe_ = INVALID_HANDLE_VALUE;
+        }
+
+        CurrentPipeRegistration(const CurrentPipeRegistration&) = delete;
+        CurrentPipeRegistration& operator=(const CurrentPipeRegistration&) = delete;
+
+    private:
+        HANDLE& publishedPipe_;
+        std::mutex& mutex_;
+        HANDLE pipe_;
+    };
 }
 
 CommandFramework::CommandFramework() = default;
@@ -36,50 +66,59 @@ CommandFramework::~CommandFramework()
 void CommandFramework::SetPipeName(const std::string& name)
 {
     std::lock_guard<std::mutex> lock(lifecycleMutex);
-    if (!running.load())
+    if (!running.load() && !stopping)
         pipeName = name;
 }
 
 void CommandFramework::SetWatchdogTimeout(const DWORD timeoutMs)
 {
     std::lock_guard<std::mutex> lock(lifecycleMutex);
-    if (!running.load())
+    if (!running.load() && !stopping)
         watchdogTimeoutMs = timeoutMs;
 }
 
 void CommandFramework::SetWriteTimeout(const DWORD timeoutMs)
 {
     std::lock_guard<std::mutex> lock(lifecycleMutex);
-    if (!running.load())
+    if (!running.load() && !stopping)
         writeTimeoutMs = timeoutMs;
 }
 
 void CommandFramework::SetJoinCallback(JoinCallback callback)
 {
     std::lock_guard<std::mutex> lock(lifecycleMutex);
-    if (!running.load())
+    if (!running.load() && !stopping)
+    {
+        std::lock_guard<std::mutex> callbackLock(callbackMutex);
         onJoin = std::move(callback);
+    }
 }
 
 void CommandFramework::SetLogCallback(LogCallback callback)
 {
     std::lock_guard<std::mutex> lock(lifecycleMutex);
-    if (!running.load())
+    if (!running.load() && !stopping)
+    {
+        std::lock_guard<std::mutex> callbackLock(callbackMutex);
         onLog = std::move(callback);
+    }
 }
 
 void CommandFramework::SetDebugCallback(DebugCallback callback)
 {
     std::lock_guard<std::mutex> lock(lifecycleMutex);
-    if (!running.load())
+    if (!running.load() && !stopping)
+    {
+        std::lock_guard<std::mutex> callbackLock(callbackMutex);
         onDebug = std::move(callback);
+    }
 }
 
-bool CommandFramework::BuildPipePath()
+bool CommandFramework::BuildPipePath(std::string& failureReason)
 {
     if (pipeName.empty() || pipeName.size() > MaxPipeNameBytes)
     {
-        Log("[CMDFW] Pipe name is empty or too long.");
+        failureReason = "pipe name is empty or too long";
         return false;
     }
     if (!std::all_of(pipeName.begin(), pipeName.end(), [](const unsigned char ch)
@@ -87,16 +126,21 @@ bool CommandFramework::BuildPipePath()
             return IsSafePipeNameCharacter(ch);
         }))
     {
-        Log("[CMDFW] Pipe name contains unsupported characters.");
+        failureReason = "pipe name contains unsupported characters";
         return false;
     }
 
     pipePath = LR"(\\.\pipe\)";
     pipePath.append(pipeName.begin(), pipeName.end());
-    return pipePath.size() < 256;
+    if (pipePath.size() >= 256)
+    {
+        failureReason = "pipe path is too long";
+        return false;
+    }
+    return true;
 }
 
-bool CommandFramework::InitializeSecurity()
+bool CommandFramework::InitializeSecurity(std::string& failureReason)
 {
     if (securityInitialized)
         return true;
@@ -105,7 +149,7 @@ bool CommandFramework::InitializeSecurity()
     HANDLE rawToken = nullptr;
     if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &rawToken))
     {
-        LogWin32Error("OpenProcessToken", GetLastError());
+        failureReason = "OpenProcessToken failed: " + std::to_string(GetLastError());
         return false;
     }
     processToken.Reset(rawToken);
@@ -114,7 +158,7 @@ bool CommandFramework::InitializeSecurity()
     GetTokenInformation(processToken.Get(), TokenUser, nullptr, 0, &tokenInfoBytes);
     if (GetLastError() != ERROR_INSUFFICIENT_BUFFER || tokenInfoBytes == 0)
     {
-        LogWin32Error("GetTokenInformation(size)", GetLastError());
+        failureReason = "GetTokenInformation(size) failed: " + std::to_string(GetLastError());
         return false;
     }
 
@@ -126,7 +170,7 @@ bool CommandFramework::InitializeSecurity()
         tokenInfoBytes,
         &tokenInfoBytes))
     {
-        LogWin32Error("GetTokenInformation(TokenUser)", GetLastError());
+        failureReason = "GetTokenInformation(TokenUser) failed: " + std::to_string(GetLastError());
         return false;
     }
 
@@ -134,20 +178,20 @@ bool CommandFramework::InitializeSecurity()
     const DWORD sidBytes = GetLengthSid(tokenUser->User.Sid);
     if (sidBytes == 0)
     {
-        LogWin32Error("GetLengthSid", GetLastError());
+        failureReason = "GetLengthSid failed: " + std::to_string(GetLastError());
         return false;
     }
 
     allowedUserSid.resize(sidBytes);
     if (!CopySid(sidBytes, allowedUserSid.data(), tokenUser->User.Sid))
     {
-        LogWin32Error("CopySid", GetLastError());
+        failureReason = "CopySid failed: " + std::to_string(GetLastError());
         allowedUserSid.clear();
         return false;
     }
 
     EXPLICIT_ACCESSW access{};
-    access.grfAccessPermissions = GENERIC_ALL;
+    access.grfAccessPermissions = GENERIC_READ | GENERIC_WRITE;
     access.grfAccessMode = SET_ACCESS;
     access.grfInheritance = NO_INHERITANCE;
     BuildTrusteeWithSidW(&access.Trustee, allowedUserSid.data());
@@ -155,20 +199,20 @@ bool CommandFramework::InitializeSecurity()
     const DWORD aclError = SetEntriesInAclW(1, &access, nullptr, &pipeAcl);
     if (aclError != ERROR_SUCCESS)
     {
-        LogWin32Error("SetEntriesInAclW", aclError);
+        failureReason = "SetEntriesInAclW failed: " + std::to_string(aclError);
         allowedUserSid.clear();
         return false;
     }
 
     if (!InitializeSecurityDescriptor(&securityDescriptor, SECURITY_DESCRIPTOR_REVISION))
     {
-        LogWin32Error("InitializeSecurityDescriptor", GetLastError());
+        failureReason = "InitializeSecurityDescriptor failed: " + std::to_string(GetLastError());
         ReleaseSecurity();
         return false;
     }
     if (!SetSecurityDescriptorDacl(&securityDescriptor, TRUE, pipeAcl, FALSE))
     {
-        LogWin32Error("SetSecurityDescriptorDacl", GetLastError());
+        failureReason = "SetSecurityDescriptorDacl failed: " + std::to_string(GetLastError());
         ReleaseSecurity();
         return false;
     }
@@ -195,16 +239,24 @@ void CommandFramework::ReleaseSecurity() noexcept
 
 bool CommandFramework::Start()
 {
-    std::lock_guard<std::mutex> lock(lifecycleMutex);
-    if (running.load() || listenerThread.joinable())
+    std::unique_lock<std::mutex> lock(lifecycleMutex);
+    if (running.load() || stopping || listenerThread.joinable())
         return false;
-    if (!BuildPipePath() || !InitializeSecurity())
+
+    std::string failureReason;
+    if (!BuildPipePath(failureReason) || !InitializeSecurity(failureReason))
+    {
+        lock.unlock();
+        Log("[CMDFW] Cannot start: " + failureReason + ".");
         return false;
+    }
 
     stopEvent.Reset(CreateEventW(nullptr, TRUE, FALSE, nullptr));
     if (!stopEvent.IsValid())
     {
-        LogWin32Error("CreateEventW(stop)", GetLastError());
+        const DWORD error = GetLastError();
+        lock.unlock();
+        LogWin32Error("CreateEventW(stop)", error);
         return false;
     }
 
@@ -218,6 +270,7 @@ bool CommandFramework::Start()
     {
         running.store(false);
         stopEvent.Reset();
+        lock.unlock();
         Log(std::string("[CMDFW] Failed to create listener thread: ") + exception.what());
         return false;
     }
@@ -225,17 +278,23 @@ bool CommandFramework::Start()
     {
         running.store(false);
         stopEvent.Reset();
+        lock.unlock();
         Log("[CMDFW] Failed to create listener thread.");
         return false;
     }
 
-    Log("[CMDFW] Started on pipe: \\.\\pipe\\" + pipeName);
+    const std::string startedPipeName = pipeName;
+    lock.unlock();
+    Log("[CMDFW] Started on pipe: \\\\.\\pipe\\" + startedPipeName);
     return true;
 }
 
-void CommandFramework::Stop()
+void CommandFramework::Stop() noexcept
 {
     std::unique_lock<std::mutex> lifecycleLock(lifecycleMutex);
+    if (stopping)
+        return;
+
     const bool wasRunning = running.exchange(false);
 
     if (stopEvent.IsValid())
@@ -255,7 +314,12 @@ void CommandFramework::Stop()
             Log("[CMDFW] Stop requested on listener thread; owner must join it.");
             return;
         }
-        listenerThread.join();
+
+        stopping = true;
+        std::thread threadToJoin = std::move(listenerThread);
+        lifecycleLock.unlock();
+        threadToJoin.join();
+        lifecycleLock.lock();
     }
 
     {
@@ -263,6 +327,7 @@ void CommandFramework::Stop()
         hCurrentPipe = INVALID_HANDLE_VALUE;
     }
     stopEvent.Reset();
+    stopping = false;
     lifecycleLock.unlock();
 
     if (wasRunning)
@@ -272,6 +337,12 @@ void CommandFramework::Stop()
 bool CommandFramework::IsRunning() const noexcept
 {
     return running.load();
+}
+
+bool CommandFramework::IsListenerThread() const noexcept
+{
+    const DWORD listenerId = listenerThreadId.load();
+    return listenerId != 0 && listenerId == GetCurrentThreadId();
 }
 
 bool CommandFramework::IsAuthorizedClient(const HANDLE pipe) const
@@ -329,7 +400,10 @@ bool CommandFramework::IsAuthorizedClient(const HANDLE pipe) const
     }
 
     const auto* const tokenUser = reinterpret_cast<const TOKEN_USER*>(tokenInfo.data());
-    return !allowedUserSid.empty() && EqualSid(allowedUserSid.data(), tokenUser->User.Sid) != FALSE;
+    return !allowedUserSid.empty() &&
+        EqualSid(
+            reinterpret_cast<PSID>(const_cast<unsigned char*>(allowedUserSid.data())),
+            tokenUser->User.Sid) != FALSE;
 }
 
 CommandFramework::IoResult CommandFramework::CompleteIo(
@@ -353,9 +427,10 @@ void CommandFramework::CancelAndDrain(
     const HANDLE handle,
     OVERLAPPED& operation) const noexcept
 {
-    if (!CancelIoEx(handle, &operation) && GetLastError() != ERROR_NOT_FOUND)
-        return;
-
+    // The OVERLAPPED structure and its buffers must remain alive until the
+    // operation reaches a terminal state, even when CancelIoEx reports that
+    // completion won the race (ERROR_NOT_FOUND).
+    CancelIoEx(handle, &operation);
     DWORD ignoredBytes = 0;
     GetOverlappedResult(handle, &operation, &ignoredBytes, TRUE);
 }
@@ -398,92 +473,125 @@ CommandFramework::IoResult CommandFramework::WaitForPendingIo(
 
 void CommandFramework::ListenerLoop() noexcept
 {
-    while (running.load())
+    listenerThreadId.store(GetCurrentThreadId());
+    try
     {
-        UniqueHandle pipe(CreateNamedPipeW(
-            pipePath.c_str(),
-            PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
-            PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
-            1,
-            4096,
-            4096,
-            0,
-            &securityAttributes));
-
-        if (!pipe.IsValid())
+        while (running.load())
         {
-            LogWin32Error("CreateNamedPipeW", GetLastError());
-            if (WaitForSingleObject(stopEvent.Get(), RetryDelayMs) == WAIT_OBJECT_0)
-                break;
-            continue;
-        }
+            UniqueHandle pipe(CreateNamedPipeW(
+                pipePath.c_str(),
+                PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
+                PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
+                1,
+                4096,
+                4096,
+                0,
+                &securityAttributes));
 
-        UniqueHandle connectEvent(CreateEventW(nullptr, TRUE, FALSE, nullptr));
-        if (!connectEvent.IsValid())
-        {
-            LogWin32Error("CreateEventW(connect)", GetLastError());
-            continue;
-        }
+            if (!pipe.IsValid())
+            {
+                LogWin32Error("CreateNamedPipeW", GetLastError());
+                if (WaitForSingleObject(stopEvent.Get(), RetryDelayMs) == WAIT_OBJECT_0)
+                    break;
+                continue;
+            }
 
-        OVERLAPPED connectOperation{};
-        connectOperation.hEvent = connectEvent.Get();
-        bool connected = false;
-        bool stopRequested = false;
+            UniqueHandle connectEvent(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+            if (!connectEvent.IsValid())
+            {
+                LogWin32Error("CreateEventW(connect)", GetLastError());
+                continue;
+            }
 
-        if (ConnectNamedPipe(pipe.Get(), &connectOperation))
-        {
-            connected = true;
-        }
-        else
-        {
-            const DWORD connectError = GetLastError();
-            if (connectError == ERROR_PIPE_CONNECTED)
+            OVERLAPPED connectOperation{};
+            connectOperation.hEvent = connectEvent.Get();
+            bool connected = false;
+            bool stopRequested = false;
+
+            if (ConnectNamedPipe(pipe.Get(), &connectOperation))
             {
                 connected = true;
             }
-            else if (connectError == ERROR_IO_PENDING)
-            {
-                const IoResult result = WaitForPendingIo(pipe.Get(), connectOperation, 0);
-                connected = result.status == IoStatus::Completed;
-                stopRequested = result.status == IoStatus::Stopped;
-                if (!connected && !stopRequested)
-                    LogWin32Error("ConnectNamedPipe completion", result.error);
-            }
             else
             {
-                LogWin32Error("ConnectNamedPipe", connectError);
+                const DWORD connectError = GetLastError();
+                if (connectError == ERROR_PIPE_CONNECTED)
+                {
+                    connected = true;
+                }
+                else if (connectError == ERROR_IO_PENDING)
+                {
+                    const IoResult result = WaitForPendingIo(pipe.Get(), connectOperation, 0);
+                    connected = result.status == IoStatus::Completed;
+                    stopRequested = result.status == IoStatus::Stopped;
+                    if (!connected && !stopRequested)
+                        LogWin32Error("ConnectNamedPipe completion", result.error);
+                }
+                else
+                {
+                    LogWin32Error("ConnectNamedPipe", connectError);
+                }
             }
-        }
 
-        if (stopRequested || !running.load())
-            break;
-        if (!connected)
-            continue;
-        if (!IsAuthorizedClient(pipe.Get()))
-        {
-            Log("[CMDFW] Rejected unauthorized pipe client.");
+            if (stopRequested || !running.load())
+                break;
+            if (!connected)
+                continue;
+            if (!IsAuthorizedClient(pipe.Get()))
+            {
+                Log("[CMDFW] Rejected unauthorized pipe client.");
+                DisconnectNamedPipe(pipe.Get());
+                continue;
+            }
+
+            {
+                connectionFaulted.store(false);
+                CurrentPipeRegistration currentPipe(hCurrentPipe, writeMutex, pipe.Get());
+
+                Log("[CMDFW] Client connected.");
+                try
+                {
+                    (void)ReadClient(pipe.Get());
+                }
+                catch (const std::exception& exception)
+                {
+                    OutputDebugStringA(exception.what());
+                    OutputDebugStringA("\n");
+                    Log("[CMDFW] Client processing failed with a C++ exception.");
+                    running.store(false);
+                }
+                catch (...)
+                {
+                    Log("[CMDFW] Client processing failed.");
+                    running.store(false);
+                }
+            }
+
             DisconnectNamedPipe(pipe.Get());
-            continue;
+            Log("[CMDFW] Client disconnected.");
         }
-
-        {
-            std::lock_guard<std::mutex> writeLock(writeMutex);
-            hCurrentPipe = pipe.Get();
-            connectionFaulted.store(false);
-        }
-
-        Log("[CMDFW] Client connected.");
-        ReadClient(pipe.Get());
-
-        {
-            std::lock_guard<std::mutex> writeLock(writeMutex);
-            if (hCurrentPipe == pipe.Get())
-                hCurrentPipe = INVALID_HANDLE_VALUE;
-        }
-
-        DisconnectNamedPipe(pipe.Get());
-        Log("[CMDFW] Client disconnected.");
     }
+    catch (const std::exception& exception)
+    {
+        running.store(false);
+        {
+            std::lock_guard<std::mutex> writeLock(writeMutex);
+            hCurrentPipe = INVALID_HANDLE_VALUE;
+        }
+        OutputDebugStringA(exception.what());
+        OutputDebugStringA("\n");
+        Log("[CMDFW] Listener failed with a C++ exception.");
+    }
+    catch (...)
+    {
+        running.store(false);
+        {
+            std::lock_guard<std::mutex> writeLock(writeMutex);
+            hCurrentPipe = INVALID_HANDLE_VALUE;
+        }
+        Log("[CMDFW] Listener failed.");
+    }
+    listenerThreadId.store(0);
 }
 
 bool CommandFramework::ReadClient(const HANDLE pipe)
@@ -557,9 +665,9 @@ bool CommandFramework::ReadClient(const HANDLE pipe)
         std::size_t newline = std::string::npos;
         while ((newline = lineBuffer.find(CommandProtocol::Newline)) != std::string::npos)
         {
-            if (newline > CommandProtocol::MaxFrameBytes)
+            if (newline >= CommandProtocol::MaxFrameBytes)
             {
-                SendError("frame_too_large", "frame exceeds 64 KiB");
+                (void)SendError("frame_too_large", "frame exceeds 64 KiB");
                 return false;
             }
 
@@ -567,9 +675,6 @@ bool CommandFramework::ReadClient(const HANDLE pipe)
             lineBuffer.erase(0, newline + 1);
             if (!frame.empty() && frame.back() == '\r')
                 frame.pop_back();
-            if (frame.empty())
-                continue;
-
             const FrameResult frameResult = ParseAndDispatch(frame);
             if (frameResult == FrameResult::TransportError)
                 return false;
@@ -581,9 +686,9 @@ bool CommandFramework::ReadClient(const HANDLE pipe)
             }
         }
 
-        if (lineBuffer.size() > CommandProtocol::MaxFrameBytes)
+        if (lineBuffer.size() >= CommandProtocol::MaxFrameBytes)
         {
-            SendError("frame_too_large", "frame exceeds 64 KiB");
+            (void)SendError("frame_too_large", "frame exceeds 64 KiB");
             return false;
         }
     }
@@ -668,15 +773,24 @@ bool CommandFramework::SendResponse(
 CommandFramework::FrameResult CommandFramework::ParseAndDispatch(
     const std::string& frame) noexcept
 {
-    const CommandProtocol::ParseResult parsed = CommandProtocol::ParseFrame(frame);
-    if (!parsed.Succeeded())
+    try
     {
-        return SendError(parsed.errorCode, parsed.errorMessage, parsed.requestId)
-            ? FrameResult::ProtocolError
+        const CommandProtocol::ParseResult parsed = CommandProtocol::ParseFrame(frame);
+        if (!parsed.Succeeded())
+        {
+            return SendError(parsed.errorCode, parsed.errorMessage, parsed.requestId)
+                ? FrameResult::ProtocolError
+                : FrameResult::TransportError;
+        }
+
+        return Dispatch(*parsed.request);
+    }
+    catch (...)
+    {
+        return SendError("internal_error", "request parsing failed")
+            ? FrameResult::Processed
             : FrameResult::TransportError;
     }
-
-    return Dispatch(*parsed.request);
 }
 
 CommandFramework::FrameResult CommandFramework::Dispatch(
@@ -731,13 +845,18 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
                 }
             }
 
-            if (!onJoin)
+            JoinCallback joinCallback;
+            {
+                std::lock_guard<std::mutex> callbackLock(callbackMutex);
+                joinCallback = onJoin;
+            }
+            if (!joinCallback)
             {
                 return SendError("unavailable", "join handler is not available", request.requestId)
                     ? FrameResult::Processed
                     : FrameResult::TransportError;
             }
-            if (!onJoin(target, token))
+            if (!joinCallback(target, token))
             {
                 return SendError("busy", "a match transition is already pending", request.requestId)
                     ? FrameResult::Processed
@@ -755,7 +874,12 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
 
         if (request.command == "debug")
         {
-            if (!onDebug)
+            DebugCallback debugCallback;
+            {
+                std::lock_guard<std::mutex> callbackLock(callbackMutex);
+                debugCallback = onDebug;
+            }
+            if (!debugCallback)
             {
                 return SendError("unavailable", "debug handler is not available", request.requestId)
                     ? FrameResult::Processed
@@ -764,7 +888,7 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
 
             return SendResponse(
                 "debug_ack",
-                CommandProtocol::WithRequestId(onDebug(request.arguments), request.requestId))
+                CommandProtocol::WithRequestId(debugCallback(request.arguments), request.requestId))
                 ? FrameResult::Processed
                 : FrameResult::TransportError;
         }
@@ -775,7 +899,9 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
     }
     catch (const std::exception& exception)
     {
-        Log(std::string("[CMDFW] Command callback failed: ") + exception.what());
+        OutputDebugStringA(exception.what());
+        OutputDebugStringA("\n");
+        Log("[CMDFW] Command callback failed with a C++ exception.");
     }
     catch (...)
     {
@@ -807,8 +933,14 @@ void CommandFramework::Log(const std::string& message) const noexcept
 {
     try
     {
-        if (onLog)
-            onLog(message);
+        LogCallback logCallback;
+        {
+            std::lock_guard<std::mutex> callbackLock(callbackMutex);
+            logCallback = onLog;
+        }
+
+        if (logCallback)
+            logCallback(message);
         else
             OutputDebugStringA((message + "\n").c_str());
     }
@@ -822,5 +954,12 @@ void CommandFramework::LogWin32Error(
     const std::string& operation,
     const DWORD error) const noexcept
 {
-    Log("[CMDFW] " + operation + " failed: " + std::to_string(error));
+    try
+    {
+        Log("[CMDFW] " + operation + " failed: " + std::to_string(error));
+    }
+    catch (...)
+    {
+        OutputDebugStringA("[CMDFW] Win32 operation failed.\n");
+    }
 }

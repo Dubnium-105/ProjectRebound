@@ -3,17 +3,19 @@
 #include "../Communication/CommandProtocol.h"
 #include "../Config/Config.h"
 #include "../Debug/Debug.h"
+#include "../SDK.hpp"
 #include "../SDK/Engine_parameters.hpp"
 #include "../SDK/ProjectBoundary_parameters.hpp"
 
+#include <Windows.h>
+
+#include <atomic>
 #include <chrono>
 #include <mutex>
 #include <optional>
 #include <utility>
 
 using namespace SDK;
-
-std::atomic<bool> LoginCompleted{false};
 
 namespace
 {
@@ -30,6 +32,8 @@ namespace
     std::string currentTarget;
     ConnectStage connectStage = ConnectStage::Idle;
     std::chrono::steady_clock::time_point nextActionAt{};
+    std::atomic<bool> loginCompleted{false};
+    std::atomic<DWORD> gameThreadId{0};
 
     constexpr auto LoginSettleDelay = std::chrono::seconds(2);
     constexpr auto RangeSettleDelay = std::chrono::seconds(1);
@@ -44,12 +48,14 @@ bool QueueConnectToMatch(const std::string& target)
         return false;
     }
 
-    std::lock_guard<std::mutex> lock(connectMutex);
-    if (pendingTarget.has_value())
-        return false;
+    {
+        std::lock_guard<std::mutex> lock(connectMutex);
+        if (pendingTarget.has_value())
+            return false;
 
-    pendingTarget = target;
-    connectStage = ConnectStage::Queued;
+        pendingTarget = target;
+        connectStage = ConnectStage::Queued;
+    }
     ClientLog("[CLIENT] Match transition queued: " + target);
     return true;
 }
@@ -77,10 +83,17 @@ void AutoConnectToMatchFromCmdline()
         ClientLog("[CLIENT] Initial match target could not be queued.");
 }
 
+void NotifyClientLoginCompleted()
+{
+    gameThreadId.store(GetCurrentThreadId());
+    loginCompleted.store(true);
+}
+
 void PumpPendingClientCommands()
 {
     static thread_local bool pumping = false;
-    if (pumping || !LoginCompleted.load())
+    if (pumping || !loginCompleted.load() ||
+        gameThreadId.load() != GetCurrentThreadId())
         return;
 
     UWorld* const world = UWorld::GetWorld();
@@ -89,6 +102,11 @@ void PumpPendingClientCommands()
     {
         return;
     }
+
+    auto* const localPlayer = static_cast<UPBLocalPlayer*>(
+        world->OwningGameInstance->LocalPlayers[0]);
+    if (localPlayer == nullptr)
+        return;
 
     const auto now = std::chrono::steady_clock::now();
     bool enterRange = false;
@@ -110,32 +128,23 @@ void PumpPendingClientCommands()
 
         if (connectStage == ConnectStage::WaitingAfterLogin)
         {
-            connectStage = ConnectStage::WaitingAfterRange;
-            nextActionAt = now + RangeSettleDelay;
             enterRange = true;
         }
         else if (connectStage == ConnectStage::WaitingAfterRange)
         {
-            connectTarget = std::move(pendingTarget);
-            currentTarget = *connectTarget;
-            pendingTarget.reset();
-            connectStage = ConnectStage::Idle;
+            connectTarget = pendingTarget;
         }
     }
 
     pumping = true;
+    bool actionSucceeded = false;
     try
     {
-        auto* const localPlayer = static_cast<UPBLocalPlayer*>(
-            world->OwningGameInstance->LocalPlayers[0]);
-
         if (enterRange)
         {
-            if (localPlayer != nullptr)
-            {
-                ClientLog("[CLIENT] Entering Shooting Range before match transition...");
-                localPlayer->GoToRange(0.0f);
-            }
+            ClientLog("[CLIENT] Entering Shooting Range before match transition...");
+            localPlayer->GoToRange(0.0f);
+            actionSucceeded = true;
         }
         else if (connectTarget.has_value())
         {
@@ -143,6 +152,7 @@ void PumpPendingClientCommands()
                 std::wstring(connectTarget->begin(), connectTarget->end());
             ClientLog("[CLIENT] Connecting to match: " + *connectTarget);
             UKismetSystemLibrary::ExecuteConsoleCommand(world, command.c_str(), nullptr);
+            actionSucceeded = true;
         }
     }
     catch (...)
@@ -150,4 +160,22 @@ void PumpPendingClientCommands()
         ClientLog("[CLIENT] Match transition failed on the game thread.");
     }
     pumping = false;
+
+    if (!actionSucceeded)
+        return;
+
+    std::lock_guard<std::mutex> lock(connectMutex);
+    if (enterRange && connectStage == ConnectStage::WaitingAfterLogin)
+    {
+        connectStage = ConnectStage::WaitingAfterRange;
+        nextActionAt = std::chrono::steady_clock::now() + RangeSettleDelay;
+    }
+    else if (connectTarget.has_value() &&
+        connectStage == ConnectStage::WaitingAfterRange &&
+        pendingTarget == connectTarget)
+    {
+        currentTarget = *connectTarget;
+        pendingTarget.reset();
+        connectStage = ConnectStage::Idle;
+    }
 }

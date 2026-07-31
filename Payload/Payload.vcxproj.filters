@@ -36,6 +36,9 @@
     <ClInclude Include="Communication\CommandFramework.h">
       <Filter>Communication</Filter>
     </ClInclude>
+    <ClInclude Include="Communication\CommandProtocol.h">
+      <Filter>Communication</Filter>
+    </ClInclude>
     <ClInclude Include="BattleLog\BattleLogExtractor.h">
       <Filter>BattleLog</Filter>
     </ClInclude>
@@ -48,6 +51,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Communication\CommandFramework.cpp">
+      <Filter>Communication</Filter>
+    </ClCompile>
+    <ClCompile Include="Communication\CommandProtocol.cpp">
       <Filter>Communication</Filter>
     </ClCompile>
     <ClCompile Include="BattleLog\BattleLogExtractor.cpp">

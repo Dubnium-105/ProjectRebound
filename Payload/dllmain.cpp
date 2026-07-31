@@ -4,6 +4,7 @@
 #include <fstream>
 #include <filesystem>
 #include <iostream>
+#include <memory>
 #include <mutex>
 
 #include "SDK.hpp"
@@ -34,6 +35,7 @@ uintptr_t BaseAddress = 0x0;
 LibReplicate* libReplicate = nullptr; // was static in original, but extern needed by other modules
 HMODULE gPayloadModule = nullptr;
 static CommandFramework* g_CmdFramework = nullptr;
+static std::mutex g_CmdFrameworkMutex;
 DebugTool* gDebugTool = nullptr;
 
 bool OnJoinFromPipe(const std::string& ip, const std::string& token)
@@ -41,6 +43,38 @@ bool OnJoinFromPipe(const std::string& ip, const std::string& token)
     (void)token;
     ClientLog("[PIPE] Join request received: " + ip);
     return QueueConnectToMatch(ip);
+}
+
+// Explicit DLL unloaders must call this outside DllMain before unloading the
+// module. Process termination itself is left to Windows, avoiding a blocking
+// join while the loader lock is held.
+extern "C" __declspec(dllexport) void ShutdownPayloadCommandFramework()
+{
+    CommandFramework* framework = nullptr;
+    bool calledFromListener = false;
+    {
+        std::lock_guard<std::mutex> lock(g_CmdFrameworkMutex);
+        if (g_CmdFramework != nullptr && g_CmdFramework->IsListenerThread())
+        {
+            calledFromListener = true;
+        }
+        else
+        {
+            framework = g_CmdFramework;
+            g_CmdFramework = nullptr;
+        }
+    }
+
+    if (calledFromListener)
+    {
+        ClientLog("[PIPE] Shutdown must be requested by an external owner thread.");
+        return;
+    }
+    if (framework != nullptr)
+    {
+        framework->Stop();
+        delete framework;
+    }
 }
 
 // ======================================================
@@ -161,16 +195,25 @@ void MainThread()
             // Start CommandFramework if a pipe name was provided
             if (!MatchPipeName.empty())
             {
-                g_CmdFramework = new CommandFramework();
-                g_CmdFramework->SetPipeName(MatchPipeName);
-                g_CmdFramework->SetJoinCallback(OnJoinFromPipe);
-                g_CmdFramework->SetLogCallback([](const std::string& msg) { ClientLog(msg); });
-                g_CmdFramework->SetDebugCallback([](const nlohmann::json& args) {
+                auto framework = std::make_unique<CommandFramework>();
+                framework->SetPipeName(MatchPipeName);
+                framework->SetJoinCallback(OnJoinFromPipe);
+                framework->SetLogCallback([](const std::string& msg) { ClientLog(msg); });
+                framework->SetDebugCallback([](const nlohmann::json& args) {
                     if (gDebugTool)
                         return gDebugTool->ExecuteJson(args);
                     return nlohmann::json{{"ok", false}, {"error", "DebugTool not initialized"}};
                 });
-                g_CmdFramework->Start();
+
+                if (framework->Start())
+                {
+                    std::lock_guard<std::mutex> lock(g_CmdFrameworkMutex);
+                    g_CmdFramework = framework.release();
+                }
+                else
+                {
+                    ClientLog("[PIPE] Command framework failed to start.");
+                }
             }
             /*
             Sleep(10 * 1000);
@@ -205,6 +248,7 @@ BOOL APIENTRY DllMain(HMODULE hModule,
     if (ul_reason_for_call == DLL_PROCESS_ATTACH)
     {
         gPayloadModule = hModule;
+        DisableThreadLibraryCalls(hModule);
         std::thread t(MainThread);
 
         t.detach();

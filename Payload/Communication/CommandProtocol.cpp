@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <limits>
 #include <stdexcept>
 
 namespace
@@ -47,7 +46,7 @@ namespace
     CommandProtocol::ParseResult Failure(
         std::string code,
         std::string message,
-        std::optional<std::string> requestId = std::nullopt) noexcept
+        std::optional<std::string> requestId = std::nullopt)
     {
         CommandProtocol::ParseResult result;
         result.errorCode = std::move(code);
@@ -59,11 +58,13 @@ namespace
 
 namespace CommandProtocol
 {
-    ParseResult ParseFrame(const std::string_view frame) noexcept
+    ParseResult ParseFrame(const std::string_view frame)
     {
         if (frame.empty())
             return Failure("empty_frame", "frame is empty");
-        if (frame.size() > MaxFrameBytes)
+        // ParseFrame receives the frame without its trailing LF. Keep the
+        // wire-size limit symmetric with EncodeFrame, which includes that LF.
+        if (frame.size() >= MaxFrameBytes)
             return Failure("frame_too_large", "frame exceeds 64 KiB");
 
         const std::size_t delimiter = frame.find(Delimiter);
@@ -127,8 +128,11 @@ namespace CommandProtocol
 
     bool ValidateMatchTarget(
         const std::string_view target,
-        std::string* const failureReason) noexcept
+        std::string* const failureReason)
     {
+        if (failureReason != nullptr)
+            failureReason->clear();
+
         const auto fail = [failureReason](const char* const reason)
         {
             if (failureReason != nullptr)
@@ -208,8 +212,8 @@ namespace CommandProtocol
     {
         return WithRequestId(
             nlohmann::json{
-                {"code", code},
-                {"message", message}
+                {"code", std::string(code)},
+                {"message", std::string(message)}
             },
             requestId);
     }
@@ -229,11 +233,12 @@ namespace CommandProtocol
         if (!payload.is_object())
             throw std::invalid_argument("response payload must be a JSON object");
 
+        const std::string serializedPayload = payload.dump();
         std::string frame;
-        frame.reserve(command.size() + payload.dump().size() + 2U);
+        frame.reserve(command.size() + serializedPayload.size() + 2U);
         frame.append(command);
         frame.push_back(Delimiter);
-        frame.append(payload.dump());
+        frame.append(serializedPayload);
         frame.push_back(Newline);
 
         if (frame.size() > MaxFrameBytes)

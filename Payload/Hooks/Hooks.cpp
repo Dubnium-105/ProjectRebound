@@ -552,7 +552,7 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
     // Detect login complete via MainMenuBase Construct
     if (functionName.contains("UMG_MainMenuBase_C.Construct"))
     {
-        LoginCompleted.store(true);
+        NotifyClientLoginCompleted();
     }
     if (functionName.contains("OnConnectMatchServerTimeOut"))
     {

@@ -1,6 +1,7 @@
 #include "../Communication/CommandProtocol.h"
 
 #include <iostream>
+#include <stdexcept>
 #include <string>
 
 namespace
@@ -45,6 +46,48 @@ namespace
         Expect(!CommandProtocol::ParseFrame(oversized).Succeeded(), "oversized frame rejected");
     }
 
+    void TestFrameSizeBoundary()
+    {
+        const std::string prefix = "debug\t{\"value\":\"";
+        const std::string suffix = "\"}";
+        std::string maximumFrame = prefix;
+        maximumFrame.append(
+            CommandProtocol::MaxFrameBytes - 1U - prefix.size() - suffix.size(),
+            'x');
+        maximumFrame.append(suffix);
+        Expect(maximumFrame.size() + 1U == CommandProtocol::MaxFrameBytes,
+            "maximum request wire frame is exactly 64 KiB");
+        Expect(CommandProtocol::ParseFrame(maximumFrame).Succeeded(),
+            "maximum request wire frame is accepted");
+
+        maximumFrame.insert(maximumFrame.size() - suffix.size(), 1, 'x');
+        Expect(!CommandProtocol::ParseFrame(maximumFrame).Succeeded(),
+            "request exceeding wire limit by one byte is rejected");
+
+        constexpr std::size_t encodedFrameOverhead =
+            sizeof("debug\t{\"value\":\"\"}\n") - 1U;
+        nlohmann::json maximumPayload{
+            {"value", std::string(
+                CommandProtocol::MaxFrameBytes - encodedFrameOverhead,
+                'x')}
+        };
+        Expect(CommandProtocol::EncodeFrame("debug", maximumPayload).size() ==
+            CommandProtocol::MaxFrameBytes,
+            "maximum response wire frame is accepted");
+
+        maximumPayload["value"] = maximumPayload["value"].get<std::string>() + "x";
+        bool threw = false;
+        try
+        {
+            (void)CommandProtocol::EncodeFrame("debug", maximumPayload);
+        }
+        catch (const std::length_error&)
+        {
+            threw = true;
+        }
+        Expect(threw, "response exceeding wire limit by one byte is rejected");
+    }
+
     void TestMatchTargets()
     {
         Expect(CommandProtocol::ValidateMatchTarget("127.0.0.1:7777"), "IPv4 target accepted");
@@ -77,6 +120,7 @@ int main()
 {
     TestValidFrames();
     TestInvalidFrames();
+    TestFrameSizeBoundary();
     TestMatchTargets();
     TestResponses();
 
