@@ -29,7 +29,7 @@ make_bundle() {
   local release_id="$1"
   local bundle="$2"
   local staging="$temporary_dir/staging-$release_id"
-  mkdir -p "$staging/Backend/scripts" "$staging/Backend/deploy"
+  mkdir -p "$staging/Backend/scripts"
   cat >"$staging/Backend/scripts/deploy-control-plane.sh" <<EOF
 #!/usr/bin/env bash
 set -eu
@@ -46,10 +46,6 @@ set -eu
 test -n "${PUBLIC_BASE_URL:-}"
 EOF
   cat >"$staging/Backend/scripts/backup-control-plane.sh" <<'EOF'
-#!/usr/bin/env bash
-exit 0
-EOF
-  cat >"$staging/Backend/deploy/deploy.sh" <<'EOF'
 #!/usr/bin/env bash
 exit 0
 EOF

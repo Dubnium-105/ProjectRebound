@@ -33,7 +33,7 @@ mkdir -p "$deploy_root/releases" "$deploy_root/backups"
 [[ ! -e "$release_dir" ]] || { echo "Release already exists: $release_dir" >&2; exit 1; }
 mkdir "$release_dir"
 tar -xzf "$bundle" -C "$release_dir"
-chmod +x "$release_dir"/Backend/scripts/*.sh "$release_dir/Backend/deploy/deploy.sh"
+  chmod +x "$release_dir"/Backend/scripts/*.sh
 
 previous_dir=""
 if [[ -L "$current_link" ]]; then
