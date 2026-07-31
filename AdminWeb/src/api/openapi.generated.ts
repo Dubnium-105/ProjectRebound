@@ -13,7 +13,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Binds a Steam identity and creates the existing JWT/refresh-token session. encrypted_ticket is optional for legacy compatibility. When present it is decrypted by the configured external verifier, and the identity from the ticket is authoritative. Invalid, expired, replayed, wrong-AppID, or SteamID-mismatched tickets are rejected. */
+        /** @description Binds a Steam identity and creates the existing JWT/refresh-token session. encrypted_ticket is optional for legacy compatibility. When present it is decrypted by the configured external verifier, and the identity from the ticket is authoritative. Acceptance requires only successful decryption and a ticket SteamID matching the requested SteamID. AppID, issue time, VAC state, and prior use do not gate bind. */
         post: operations["bindSteamIdentity"];
         delete?: never;
         options?: never;
@@ -101,6 +101,23 @@ export interface paths {
          * @description Compatibility alias for POST /v1/integrity/proof.
          */
         post: operations["verifyIntegrityChallenge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/diagnostic/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Stores the submitted diagnostic text verbatim for the authenticated player. The report content is not parsed, validated, or indexed. */
+        post: operations["submitDiagnosticReport"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2244,6 +2261,14 @@ export interface components {
         IntegrityProofResponse: {
             data: components["schemas"]["IntegrityProofData"];
             request_id: string;
+        };
+        DiagnosticReportRequest: {
+            /** @description Complete UTF-8 diagnostic text. The server stores it without parsing or content validation. */
+            report: string;
+        };
+        DiagnosticReportResponse: {
+            /** @constant */
+            ok: true;
         };
         RefreshData: {
             session: components["schemas"]["SessionTokens"];
@@ -4390,6 +4415,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IntegrityProofResponse"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    submitDiagnosticReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiagnosticReportRequest"];
+            };
+        };
+        responses: {
+            /** @description The diagnostic report was stored. This endpoint intentionally returns a bare response instead of the standard success envelope. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiagnosticReportResponse"];
                 };
             };
             400: components["responses"]["InvalidRequest"];

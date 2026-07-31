@@ -120,8 +120,6 @@ func (v *ExecTicketVerifier) Verify(ctx context.Context, encryptedTicketHex stri
 func validateVerifiedTicket(
 	requestedSteamID string,
 	ticket VerifiedTicket,
-	cfg config.AuthConfig,
-	now time.Time,
 ) error {
 	if !ticket.Valid {
 		return &ticketValidationError{code: CodeInvalidSteamTicket, reason: "ticket_reported_invalid"}
@@ -132,15 +130,6 @@ func validateVerifiedTicket(
 	}
 	if ticket.SteamID != requestedSteamID {
 		return &ticketValidationError{code: CodeSteamIDMismatch, reason: "steam_id_mismatch"}
-	}
-	if ticket.AppID != cfg.SteamAppID {
-		return &ticketValidationError{code: CodeSteamTicketAppID, reason: "app_id_mismatch"}
-	}
-	issueTime := time.Unix(ticket.IssueTime, 0).UTC()
-	if ticket.IssueTime < 1 ||
-		issueTime.After(now.Add(time.Duration(cfg.TicketClockSkewSeconds)*time.Second)) ||
-		now.Sub(issueTime) > time.Duration(cfg.TicketMaximumAgeSeconds)*time.Second {
-		return &ticketValidationError{code: CodeSteamTicketExpired, reason: "expired_or_not_yet_valid"}
 	}
 	return nil
 }

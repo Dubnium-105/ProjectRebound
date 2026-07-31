@@ -2,9 +2,9 @@
 
 [English](authentication.md) | 简体中文
 
-`POST /v1/auth/bind` 接受可选的十六进制 Steam Encrypted App Ticket。未提交 ticket 的旧客户端继续兼容，但只获得会话级 `unverified` 身份。提交 ticket 时，后端通过 stdin 将其发送给独立部署的验证程序，并校验解密得到的 SteamID、AppID、签发时间和重放哈希；成功后签发会话级 `verified` 身份。只要提交了 ticket，解密失败、过期、重放、AppID 错误或请求/ticket SteamID 不一致都会拒绝，不会静默降级。
+`POST /v1/auth/bind` 接受可选的十六进制 Steam Encrypted App Ticket。未提交 ticket 的旧客户端继续兼容，但只获得会话级 `unverified` 身份。提交 ticket 时，后端通过 stdin 将其发送给独立部署的验证程序；只要解密成功且解密出的 SteamID 与请求 SteamID 一致，就签发会话级 `verified` 身份。AppID、签发时间、VAC 状态和 ticket 是否曾使用不再作为准入条件。只要提交了 ticket，解密失败、解密出的 SteamID 无效或请求/ticket SteamID 不一致仍会拒绝，不会静默降级。
 
-验证程序通过无 shell、无 ticket 命令行参数的方式直接启动，执行时间、stdin、stdout 和 stderr 均受限。独立 Go verifier 动态加载 Valve 对应平台的 `sdkencryptedappticket` 原生库，并从独立环境值或只读文件读取 32 字节应用 key；原生库和 key 均不会编译进控制面。后端绝不保存 ticket 明文；`auth_steam_ticket_verifications` 只保存 SHA-256 ticket 哈希、权威 SteamID、AppID、签发时间、玩家 ID 和验证时间。创建或加载玩家时使用 ticket SteamID，而不是请求字段。
+验证程序通过无 shell、无 ticket 命令行参数的方式直接启动，执行时间、stdin、stdout 和 stderr 均受限。独立 Go verifier 动态加载 Valve 对应平台的 `sdkencryptedappticket` 原生库，并从独立环境值或只读文件读取 32 字节应用 key；原生库和 key 均不会编译进控制面。AppID、签发时间和 VAC 状态仅作为尽力采集的审计元数据，读取失败不会让已成功解密的 ticket 失效。后端绝不保存 ticket 明文；元数据可用时，`auth_steam_ticket_verifications` 以 SHA-256 ticket 哈希去重保存权威 SteamID、AppID、签发时间、玩家 ID 和验证时间，重复哈希不会拒绝 bind。创建或加载玩家时使用已匹配的 ticket SteamID。
 
 结构化设备指纹同时接受 `uuid|disk|cpu` 和 `v1|uu:<16hex>|ds:<16hex>|cp:<16hex>`。PostgreSQL 不保存 SMBIOS、磁盘、CPU 或组合指纹原文。`auth_device_fingerprints` 保存带域隔离的 HMAC-SHA-256 组合摘要和各因子独立摘要，并记录稳定的密钥 ID；会话、登录事件和风险事件通过外键引用该记录。`ban_device_fingerprint` 仅在同一封禁记录至少匹配两个因子时限制 bind。旧版无竖线的不透明 Device ID 继续兼容，并沿用已有的 SHA-256 会话/风险摘要与后四位展示值，但无法追溯拆分。
 

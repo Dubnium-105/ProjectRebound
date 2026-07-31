@@ -14,8 +14,9 @@ paths:
         Binds a Steam identity and creates the existing JWT/refresh-token
         session. encrypted_ticket is optional for legacy compatibility. When
         present it is decrypted by the configured external verifier, and the
-        identity from the ticket is authoritative. Invalid, expired, replayed,
-        wrong-AppID, or SteamID-mismatched tickets are rejected.
+        identity from the ticket is authoritative. Acceptance requires only
+        successful decryption and a ticket SteamID matching the requested
+        SteamID. AppID, issue time, VAC state, and prior use do not gate bind.
       requestBody:
         required: true
         content:

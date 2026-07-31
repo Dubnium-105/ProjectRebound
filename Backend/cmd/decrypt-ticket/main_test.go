@@ -14,9 +14,13 @@ type fakeTicketLibrary struct {
 	decrypted  []byte
 	decryptErr error
 	steamID    uint64
+	steamIDErr error
 	appID      uint32
+	appIDErr   error
 	issueTime  uint32
+	issueErr   error
 	vacBanned  bool
+	vacErr     error
 	closed     bool
 	seenKey    []byte
 	seenTicket []byte
@@ -32,19 +36,19 @@ func (f *fakeTicketLibrary) Decrypt(ticket []byte, key []byte) ([]byte, error) {
 }
 
 func (f *fakeTicketLibrary) SteamID([]byte) (uint64, error) {
-	return f.steamID, nil
+	return f.steamID, f.steamIDErr
 }
 
 func (f *fakeTicketLibrary) AppID([]byte) (uint32, error) {
-	return f.appID, nil
+	return f.appID, f.appIDErr
 }
 
 func (f *fakeTicketLibrary) IssueTime([]byte) (uint32, error) {
-	return f.issueTime, nil
+	return f.issueTime, f.issueErr
 }
 
 func (f *fakeTicketLibrary) VACBanned([]byte) (bool, error) {
-	return f.vacBanned, nil
+	return f.vacBanned, f.vacErr
 }
 
 func (f *fakeTicketLibrary) Close() error {
@@ -136,6 +140,55 @@ func TestRunDoesNotLeakTicketWhenDecryptFails(t *testing.T) {
 	if exitCode != 1 || strings.Contains(stderr.String(), ticket) ||
 		stderr.String() != "{\"error\":\"invalid_ticket\"}\n" {
 		t.Fatalf("exit=%d stderr=%q", exitCode, stderr.String())
+	}
+}
+
+func TestRunRequiresSteamIDButIgnoresOptionalMetadataFailures(t *testing.T) {
+	keyHex := strings.Repeat("ab", symmetricKeyBytes)
+	for _, test := range []struct {
+		name     string
+		library  *fakeTicketLibrary
+		wantExit int
+	}{
+		{
+			name: "optional metadata unavailable",
+			library: &fakeTicketLibrary{
+				decrypted: []byte{0x10}, steamID: 76561198000000001,
+				appIDErr: errors.New("app ID unavailable"), issueErr: errors.New("issue time unavailable"),
+				vacErr: errors.New("VAC state unavailable"),
+			},
+			wantExit: 0,
+		},
+		{
+			name: "SteamID unavailable",
+			library: &fakeTicketLibrary{
+				decrypted: []byte{0x10}, steamIDErr: errors.New("SteamID unavailable"),
+			},
+			wantExit: 1,
+		},
+		{name: "zero SteamID", library: &fakeTicketLibrary{decrypted: []byte{0x10}}, wantExit: 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			exitCode := run(
+				strings.NewReader("0102\n"), &stdout, &stderr,
+				mapLookup(map[string]string{"STEAM_ENCRYPTED_APP_TICKET_KEY_HEX": keyHex}),
+				func(string) (nativeTicketLibrary, error) { return test.library, nil },
+			)
+			if exitCode != test.wantExit {
+				t.Fatalf("exit=%d want=%d stderr=%s", exitCode, test.wantExit, stderr.String())
+			}
+			if test.wantExit == 0 {
+				var output verifierOutput
+				if err := json.Unmarshal(stdout.Bytes(), &output); err != nil {
+					t.Fatal(err)
+				}
+				if !output.Valid || output.SteamID != "76561198000000001" ||
+					output.AppID != 0 || output.IssueTime != 0 || output.VACBanned {
+					t.Fatalf("output=%+v", output)
+				}
+			}
+		})
 	}
 }
 

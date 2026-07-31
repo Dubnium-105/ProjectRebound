@@ -362,8 +362,8 @@ func (r *Repository) InsertTicketVerification(
 	ctx context.Context,
 	executor Executor,
 	verification TicketVerification,
-) (bool, error) {
-	tag, err := executor.Exec(ctx, `
+) error {
+	_, err := executor.Exec(ctx, `
 		INSERT INTO auth_steam_ticket_verifications (
 			id, player_id, steam_id, app_id, ticket_hash, issue_time, verified_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -371,9 +371,9 @@ func (r *Repository) InsertTicketVerification(
 	`, verification.ID, verification.PlayerID, verification.SteamID, int64(verification.AppID),
 		verification.TicketHash, verification.IssueTime, verification.VerifiedAt)
 	if err != nil {
-		return false, fmt.Errorf("insert Steam ticket verification: %w", err)
+		return fmt.Errorf("insert Steam ticket verification: %w", err)
 	}
-	return tag.RowsAffected() == 1, nil
+	return nil
 }
 
 func (r *Repository) IsDeviceFingerprintBanned(

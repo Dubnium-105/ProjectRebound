@@ -93,7 +93,7 @@ Content-Type: application/json
 }
 ```
 
-旧客户端可继续省略可选字段或发送不透明安装 ID，但会话保持 `unverified`。新客户端提交十六进制 `encrypted_ticket`。后端只通过 stdin 将其传给外部验证程序，以解密出的 SteamID 为权威身份，并拒绝无效、过期、重放、AppID 错误或请求 SteamID 不一致的 ticket。系统绝不保存 ticket 明文。
+旧客户端可继续省略可选字段或发送不透明安装 ID，但会话保持 `unverified`。新客户端提交十六进制 `encrypted_ticket`。后端只通过 stdin 将其传给外部验证程序，并以解密出的 SteamID 为权威身份。只要解密成功且 ticket SteamID 与请求 SteamID 一致就接受；AppID、签发时间、VAC 状态和此前是否使用过均不再阻断 bind。系统绝不保存 ticket 明文。
 
 verified bind 的 `data.integrity_challenge.nonce` 包含首次一次性 challenge。客户端计算 `SHA256(PE_certificate_bytes || decoded_encrypted_ticket_bytes || nonce_ascii)`，并把 64 字符十六进制摘要提交到 `/v1/integrity/proof`。每次 challenge 都会替换前一个 nonce；proof 正确时会话提升为 `trusted`，连续三次失败则撤销会话。challenge 与 ticket 原始字节仅存在于进程内存，因此后端重启后返回空 nonce 表示客户端必须重新 bind。
 

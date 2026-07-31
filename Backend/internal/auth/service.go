@@ -179,7 +179,7 @@ func (s *Service) Bind(ctx context.Context, input BindInput, meta RequestMeta) (
 			return BindResult{}, s.rejectTicket(ctx, input.SteamID, CodeInvalidSteamTicket, "decrypt_failed", meta, err)
 		}
 		ticket.SteamID = strings.TrimSpace(ticket.SteamID)
-		if validationErr := validateVerifiedTicket(input.SteamID, ticket, s.config, now); validationErr != nil {
+		if validationErr := validateVerifiedTicket(input.SteamID, ticket); validationErr != nil {
 			details := validationErr.(*ticketValidationError)
 			return BindResult{}, s.rejectTicket(
 				ctx, input.SteamID, details.code, details.reason, meta, details.cause,
@@ -261,18 +261,13 @@ func (s *Service) Bind(ctx context.Context, input BindInput, meta RequestMeta) (
 		}
 	}
 
-	if len(ticketHash) > 0 {
-		inserted, insertErr := s.repository.InsertTicketVerification(ctx, tx, TicketVerification{
+	if len(ticketHash) > 0 && ticket.AppID > 0 && ticket.IssueTime > 0 {
+		if insertErr := s.repository.InsertTicketVerification(ctx, tx, TicketVerification{
 			ID: NewID("atv_"), PlayerID: item.ID, SteamID: ticket.SteamID,
 			AppID: ticket.AppID, TicketHash: ticketHash,
 			IssueTime: time.Unix(ticket.IssueTime, 0).UTC(), VerifiedAt: now,
-		})
-		if insertErr != nil {
+		}); insertErr != nil {
 			return BindResult{}, internalError(insertErr)
-		}
-		if !inserted {
-			_ = tx.Rollback(ctx)
-			return BindResult{}, s.rejectTicket(ctx, ticket.SteamID, CodeSteamTicketReplay, "ticket_replay", meta, nil)
 		}
 	}
 

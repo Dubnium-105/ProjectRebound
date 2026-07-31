@@ -93,21 +93,11 @@ func run(
 		writeVerifierError(stderr, &invalidTicketError{cause: errors.New("ticket contains an invalid SteamID")})
 		return 1
 	}
-	appID, err := library.AppID(decryptedTicket)
-	if err != nil || appID == 0 {
-		writeVerifierError(stderr, &invalidTicketError{cause: errors.New("ticket contains an invalid AppID")})
-		return 1
-	}
-	issueTime, err := library.IssueTime(decryptedTicket)
-	if err != nil || issueTime == 0 {
-		writeVerifierError(stderr, &invalidTicketError{cause: errors.New("ticket contains an invalid issue time")})
-		return 1
-	}
-	vacBanned, err := library.VACBanned(decryptedTicket)
-	if err != nil {
-		writeVerifierError(stderr, &invalidTicketError{cause: errors.New("ticket VAC state could not be read")})
-		return 1
-	}
+	// AppID, issue time, and VAC state are best-effort audit metadata. Ticket
+	// acceptance depends only on successful decryption and the SteamID above.
+	appID, _ := library.AppID(decryptedTicket)
+	issueTime, _ := library.IssueTime(decryptedTicket)
+	vacBanned, _ := library.VACBanned(decryptedTicket)
 
 	if err := json.NewEncoder(stdout).Encode(verifierOutput{
 		Valid: true, SteamID: strconv.FormatUint(steamID, 10),

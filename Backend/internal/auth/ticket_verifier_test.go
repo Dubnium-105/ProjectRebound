@@ -106,13 +106,9 @@ func TestNormalizeEncryptedTicket(t *testing.T) {
 }
 
 func TestValidateVerifiedTicket(t *testing.T) {
-	cfg := config.Defaults.Auth
-	now := time.Unix(1_800_000_000, 0).UTC()
 	const requestedSteamID = "76561198000000000"
-	valid := VerifiedTicket{
-		Valid: true, SteamID: requestedSteamID, AppID: cfg.SteamAppID, IssueTime: now.Unix(),
-	}
-	if err := validateVerifiedTicket(requestedSteamID, valid, cfg, now); err != nil {
+	valid := VerifiedTicket{Valid: true, SteamID: requestedSteamID}
+	if err := validateVerifiedTicket(requestedSteamID, valid); err != nil {
 		t.Fatalf("valid ticket rejected: %v", err)
 	}
 
@@ -124,20 +120,27 @@ func TestValidateVerifiedTicket(t *testing.T) {
 		{name: "reported invalid", mutate: func(ticket *VerifiedTicket) { ticket.Valid = false }, code: CodeInvalidSteamTicket},
 		{name: "bad SteamID", mutate: func(ticket *VerifiedTicket) { ticket.SteamID = "invalid" }, code: CodeInvalidSteamTicket},
 		{name: "SteamID mismatch", mutate: func(ticket *VerifiedTicket) { ticket.SteamID = "76561198000000001" }, code: CodeSteamIDMismatch},
-		{name: "wrong app", mutate: func(ticket *VerifiedTicket) { ticket.AppID++ }, code: CodeSteamTicketAppID},
-		{name: "expired", mutate: func(ticket *VerifiedTicket) { ticket.IssueTime = now.Add(-10 * time.Minute).Unix() }, code: CodeSteamTicketExpired},
-		{name: "future", mutate: func(ticket *VerifiedTicket) { ticket.IssueTime = now.Add(2 * time.Minute).Unix() }, code: CodeSteamTicketExpired},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ticket := valid
 			test.mutate(&ticket)
-			err := validateVerifiedTicket(requestedSteamID, ticket, cfg, now)
+			err := validateVerifiedTicket(requestedSteamID, ticket)
 			var validationErr *ticketValidationError
 			if !errors.As(err, &validationErr) || validationErr.code != test.code {
 				t.Fatalf("error = %#v, want code %s", err, test.code)
 			}
 		})
+	}
+
+	for _, ticket := range []VerifiedTicket{
+		{Valid: true, SteamID: requestedSteamID, AppID: 0, IssueTime: 0},
+		{Valid: true, SteamID: requestedSteamID, AppID: 999999, IssueTime: 1},
+		{Valid: true, SteamID: requestedSteamID, AppID: 480, IssueTime: 4_000_000_000},
+	} {
+		if err := validateVerifiedTicket(requestedSteamID, ticket); err != nil {
+			t.Errorf("optional ticket metadata caused rejection: ticket=%+v err=%v", ticket, err)
+		}
 	}
 }
 

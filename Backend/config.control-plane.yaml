@@ -57,11 +57,13 @@ auth:
   refresh_token_ttl_days: 30
   default_persona_name: "Player"
   invite_required: false
+  # Deprecated compatibility metadata; real ticket acceptance does not check AppID.
   steam_app_id: 480
   # The verifier receives only hexadecimal ticket text on stdin and must emit
   # one bounded JSON object on stdout. Override this path for the deployment OS.
   ticket_verifier_executable: "decrypt-ticket.exe"
   ticket_verifier_timeout_seconds: 3
+  # Deprecated compatibility settings; ticket age no longer gates bind.
   ticket_maximum_age_seconds: 300
   ticket_clock_skew_seconds: 60
   ticket_maximum_hex_bytes: 4096

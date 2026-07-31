@@ -73,6 +73,8 @@ type RateLimitConfig struct {
 	Burst             int     `yaml:"burst"`
 }
 
+// SteamAppID, TicketMaximumAgeSeconds, and TicketClockSkewSeconds are retained
+// for configuration compatibility but no longer participate in ticket acceptance.
 type AuthConfig struct {
 	Issuer                         string                  `yaml:"issuer"`
 	Audience                       string                  `yaml:"audience"`
@@ -627,9 +629,8 @@ func (c *Config) ValidateControlPlane() error {
 	if c.Auth.AccessTokenTTLMinutes < 1 || c.Auth.RefreshTokenTTLDays < 1 {
 		errs = append(errs, errors.New("auth token lifetimes must be positive"))
 	}
-	if c.Auth.SteamAppID == 0 || strings.TrimSpace(c.Auth.TicketVerifierExecutable) == "" ||
-		c.Auth.TicketVerifierTimeoutSeconds < 1 || c.Auth.TicketMaximumAgeSeconds < 1 ||
-		c.Auth.TicketClockSkewSeconds < 0 || c.Auth.TicketMaximumHexBytes < 2 ||
+	if strings.TrimSpace(c.Auth.TicketVerifierExecutable) == "" ||
+		c.Auth.TicketVerifierTimeoutSeconds < 1 || c.Auth.TicketMaximumHexBytes < 2 ||
 		c.Auth.TicketMaximumOutputBytes < 128 {
 		errs = append(errs, errors.New("Steam encrypted ticket settings are invalid"))
 	}

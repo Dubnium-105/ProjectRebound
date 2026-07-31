@@ -93,7 +93,7 @@ Content-Type: application/json
 }
 ```
 
-Old clients can continue to omit optional fields or send an opaque installation ID; these sessions remain `unverified`. New clients submit a hexadecimal `encrypted_ticket`. The backend passes it only through stdin to the configured external verifier, uses the decrypted SteamID as authoritative, and rejects invalid, expired, replayed, wrong-AppID, or request-mismatched tickets. Plaintext tickets are never persisted.
+Old clients can continue to omit optional fields or send an opaque installation ID; these sessions remain `unverified`. New clients submit a hexadecimal `encrypted_ticket`. The backend passes it only through stdin to the configured external verifier and uses the decrypted SteamID as authoritative. A ticket is accepted when decryption succeeds and its SteamID matches the requested SteamID; AppID, issue time, VAC state, and prior use do not gate bind. Plaintext tickets are never persisted.
 
 For a verified bind, `data.integrity_challenge.nonce` contains the first one-time challenge. The client computes `SHA256(PE_certificate_bytes || decoded_encrypted_ticket_bytes || nonce_ascii)` and submits its 64-character hexadecimal digest to `/v1/integrity/proof`. Each challenge replaces the previous nonce. A correct proof sets the session to `trusted`; three consecutive failures revoke it. Challenge and raw-ticket state is process-local, so an empty nonce after a backend restart means the client must bind again.
 

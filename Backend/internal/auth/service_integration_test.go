@@ -199,14 +199,27 @@ func TestAuthenticationLifecycleAgainstPostgreSQL(t *testing.T) {
 			t.Fatalf("integrity rotation = %+v", integrityManager)
 		}
 
-		if _, err := service.Bind(ctx, BindInput{
+		replayed, err := service.Bind(ctx, BindInput{
 			SteamID: steamID, PersonaName: "Replay", EncryptedTicket: ticketHex,
-		}, meta); ErrorCode(err) != CodeSteamTicketReplay {
-			t.Fatalf("ticket replay error = %v (%s)", err, ErrorCode(err))
+		}, meta)
+		if err != nil {
+			t.Fatalf("replayed ticket was rejected: %v (%s)", err, ErrorCode(err))
+		}
+		if replayed.AuthLevel != player.AuthLevelVerified || !replayed.SteamVerified {
+			t.Fatalf("replayed ticket bind = %#v", replayed)
+		}
+		if err := pool.QueryRow(ctx, `
+			SELECT COUNT(*) FROM auth_steam_ticket_verifications
+			WHERE player_id = $1 AND ticket_hash = $2
+		`, bound.Player.ID, mustTicketHashForTest(t, ticketHex)).Scan(&verificationCount); err != nil {
+			t.Fatal(err)
+		}
+		if verificationCount != 1 {
+			t.Fatalf("deduplicated verification count = %d, want 1", verificationCount)
 		}
 	})
 
-	t.Run("ticket validation rejects invalid identity attributes", func(t *testing.T) {
+	t.Run("ticket acceptance depends only on decryption and SteamID", func(t *testing.T) {
 		now := service.now().UTC()
 		tests := []struct {
 			name   string
@@ -226,12 +239,14 @@ func TestAuthenticationLifecycleAgainstPostgreSQL(t *testing.T) {
 			{
 				name:   "wrong app",
 				result: VerifiedTicket{Valid: true, AppID: authConfig.SteamAppID + 1, IssueTime: now.Unix()},
-				code:   CodeSteamTicketAppID,
 			},
 			{
 				name:   "expired",
 				result: VerifiedTicket{Valid: true, AppID: authConfig.SteamAppID, IssueTime: now.Add(-10 * time.Minute).Unix()},
-				code:   CodeSteamTicketExpired,
+			},
+			{
+				name:   "missing optional metadata",
+				result: VerifiedTicket{Valid: true},
 			},
 		}
 		for index, test := range tests {
@@ -242,12 +257,20 @@ func TestAuthenticationLifecycleAgainstPostgreSQL(t *testing.T) {
 					test.result.SteamID = requestSteamID
 				}
 				service.SetTicketVerifier(&integrationTicketVerifier{result: test.result, err: test.err})
-				_, err := service.Bind(ctx, BindInput{
+				bound, err := service.Bind(ctx, BindInput{
 					SteamID: requestSteamID, PersonaName: "Rejected Ticket",
 					EncryptedTicket: fmt.Sprintf("%032x", index+100),
 				}, meta)
-				if ErrorCode(err) != test.code {
+				if test.code != "" && ErrorCode(err) != test.code {
 					t.Fatalf("error = %v (%s), want %s", err, ErrorCode(err), test.code)
+				}
+				if test.code == "" {
+					if err != nil {
+						t.Fatalf("optional metadata caused rejection: %v (%s)", err, ErrorCode(err))
+					}
+					if bound.AuthLevel != player.AuthLevelVerified || !bound.SteamVerified {
+						t.Fatalf("verified bind = %#v", bound)
+					}
 				}
 			})
 		}
