@@ -15,11 +15,11 @@ until psql \
   --username "$POSTGRES_USER" \
   --dbname "$POSTGRES_DB" \
   --tuples-only --no-align \
-  --command "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 28)" 2>/dev/null |
+  --command "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 31)" 2>/dev/null |
   grep -qx t; do
   attempt=$((attempt + 1))
   if [ "$attempt" -ge 60 ]; then
-    printf 'MetaServer migration 28 was not applied within 120 seconds.\n' >&2
+    printf 'MetaServer migration 31 was not applied within 120 seconds.\n' >&2
     exit 1
   fi
   sleep 2
@@ -77,7 +77,13 @@ FROM (VALUES
   ('meta_match_players'),
   ('meta_notifications'),
   ('meta_playlists'),
-  ('meta_settings')
+  ('meta_settings'),
+  ('battlelog_matches'),
+  ('battlelog_teams'),
+  ('battlelog_participants'),
+  ('battlelog_participant_stats'),
+  ('battlelog_rounds'),
+  ('battlelog_score_breakdowns')
 ) AS allowed(table_name)
 \gexec
 
@@ -86,7 +92,7 @@ SELECT format(
   columns, table_name, :'meta_user'
 )
 FROM (VALUES
-  ('players', 'id, account_status'),
+  ('players', 'id, steam_id, auth_level, account_status'),
   ('relay_nodes', 'id, region, state, load_state, public_endpoints, last_heartbeat_at, lease_expires_at'),
   ('schema_migrations', 'version'),
   ('auth_sessions', 'id, player_id, expires_at, revoked_at'),

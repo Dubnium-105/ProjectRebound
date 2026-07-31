@@ -40,7 +40,7 @@ backend_dir="$(CDPATH= cd -- "$script_dir/.." && pwd)"
 repository_dir="$(CDPATH= cd -- "$backend_dir/.." && pwd)"
 temporary_dir="$(mktemp -d)"
 trap 'rm -rf "$temporary_dir"' EXIT HUP INT TERM
-bundle="$temporary_dir/projectrebound-deployment.tar.gz"
+bundle="$temporary_dir/projectrebound-${DEPLOY_RELEASE_ID}.tar.gz"
 
 tar -C "$repository_dir" \
   --exclude='Backend/deployments/control-plane/.env' \
@@ -52,6 +52,10 @@ tar -C "$repository_dir" \
 ssh_target="${DEPLOY_USER}@${DEPLOY_HOST}"
 ssh_options=(-p "$DEPLOY_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes)
 remote_bundle="/tmp/projectrebound-${DEPLOY_RELEASE_ID}.tar.gz"
+remote_script="/tmp/projectrebound-${DEPLOY_RELEASE_ID}-remote-deploy.sh"
+local_remote_script="$temporary_dir/projectrebound-${DEPLOY_RELEASE_ID}-remote-deploy.sh"
+cp "$script_dir/remote-deploy.sh" "$local_remote_script"
+chmod 600 "$bundle" "$local_remote_script"
 
 # The token is sent only through encrypted stdin and is never part of a remote
 # command argument or deployment bundle.
@@ -59,8 +63,7 @@ printf '%s' "$GHCR_TOKEN" | ssh "${ssh_options[@]}" "$ssh_target" \
   "if docker info >/dev/null 2>&1; then docker login ghcr.io --username '$GHCR_USERNAME' --password-stdin; else sudo docker login ghcr.io --username '$GHCR_USERNAME' --password-stdin; fi" >/dev/null
 
 scp -P "$DEPLOY_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
-  "$bundle" "$ssh_target:$remote_bundle"
+  "$bundle" "$local_remote_script" "$ssh_target:/tmp/"
 
-ssh "${ssh_options[@]}" "$ssh_target" \
-  "bash -s -- '$DEPLOY_TARGET' '$DEPLOY_ROOT' '$DEPLOY_RELEASE_ID' '$remote_bundle' '$DEPLOY_IMAGE' '$control_env_file' '$edge_env_file' '$edge_config_file' '$public_base_url' '$enable_monitoring' '$control_compose_override_file'" \
-  <"$script_dir/remote-deploy.sh"
+ssh -n "${ssh_options[@]}" "$ssh_target" \
+  "status=0; bash '$remote_script' '$DEPLOY_TARGET' '$DEPLOY_ROOT' '$DEPLOY_RELEASE_ID' '$remote_bundle' '$DEPLOY_IMAGE' '$control_env_file' '$edge_env_file' '$edge_config_file' '$public_base_url' '$enable_monitoring' '$control_compose_override_file' || status=\$?; rm -f '$remote_script' '$remote_bundle'; exit \$status"

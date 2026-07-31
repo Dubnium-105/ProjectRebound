@@ -57,10 +57,11 @@ else
   "${compose[@]}" build --pull meta-server
 fi
 
-# Provisioning runs after control-plane migration 28 and is idempotent. These
-# one-shot containers never become long-running dependencies.
-"${compose[@]}" run --rm meta-postgres-provision
-"${compose[@]}" run --rm meta-redis-provision
+# Provisioning runs only after the required control-plane migration and is
+# idempotent. --no-deps prevents a MetaServer-only deployment from reconciling
+# or restarting the independently deployed control-plane and data services.
+"${compose[@]}" run --rm --no-deps meta-postgres-provision
+"${compose[@]}" run --rm --no-deps meta-redis-provision
 
 # Updating MetaServer must not recreate or restart control-plane.
 "${compose[@]}" up -d --no-deps meta-server

@@ -13,14 +13,25 @@ cp "$script_dir/deploy-over-ssh.sh" "$script_dir/remote-deploy.sh" \
 
 cat >"$temporary_dir/bin/ssh" <<'EOF'
 #!/usr/bin/env bash
-cat >/dev/null
+printf '%s\n' "$*" >>"${SSH_TEST_LOG:?}"
+case "$*" in
+  *"docker login"*) cat >/dev/null ;;
+esac
 EOF
 
 cat >"$temporary_dir/bin/scp" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-archive="${@: -2:1}"
+archive=""
+remote_script=""
+for argument in "$@"; do
+  case "$argument" in
+    *.tar.gz) archive="$argument" ;;
+    *-remote-deploy.sh) remote_script="$argument" ;;
+  esac
+done
 [[ -f "$archive" ]]
+[[ -f "$remote_script" ]]
 tar -tzf "$archive" | grep -q '^Backend/deployments/'
 tar -tzf "$archive" | grep -q '^Backend/scripts/deploy-over-ssh.sh$'
 tar -tzf "$archive" | grep -q '^AdminWeb/'
@@ -34,6 +45,7 @@ chmod +x "$temporary_dir/bin/ssh" "$temporary_dir/bin/scp"
 
 PATH="$temporary_dir/bin:$PATH" \
 SCP_TEST_LOG="$temporary_dir/scp.log" \
+SSH_TEST_LOG="$temporary_dir/ssh.log" \
 DEPLOY_TARGET=control-plane \
 DEPLOY_HOST=deploy.example.test \
 DEPLOY_PORT=22 \
@@ -48,4 +60,6 @@ GHCR_TOKEN=test-only-token \
   bash "$test_repo/Backend/scripts/deploy-over-ssh.sh"
 
 grep -qx 'bundle-ok' "$temporary_dir/scp.log"
+grep -q 'projectrebound-sha-1111111111111111111111111111111111111111-test-remote-deploy.sh' "$temporary_dir/ssh.log"
+! grep -q 'bash -s' "$temporary_dir/ssh.log"
 printf 'DEPLOY_OVER_SSH_TEST_OK\n'

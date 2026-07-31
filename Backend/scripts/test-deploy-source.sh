@@ -86,7 +86,10 @@ PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" \
   bash "$test_backend/scripts/deploy-meta-server.sh" >/dev/null
 grep -q ' pull meta-server$' "$docker_log"
 grep -Fq -- "-f $control_override --profile meta pull meta-server" "$docker_log"
+grep -q ' run --rm --no-deps meta-postgres-provision$' "$docker_log"
+grep -q ' run --rm --no-deps meta-redis-provision$' "$docker_log"
 grep -q ' up -d --no-deps meta-server$' "$docker_log"
+! grep -q ' run --rm meta-postgres-provision$' "$docker_log"
 ! grep -q ' up .*control-plane' "$docker_log"
 
 : >"$docker_log"
@@ -132,5 +135,17 @@ grep -q -- '--mount type=volume,src=project-rebound-edge-relay-data,dst=/edge-re
 ! grep -q ' compose ' "$docker_log"
 
 grep -q 'ca-certificates.crt' "$script_dir/../deployments/relay/Dockerfile"
+
+provision_script="$script_dir/../deployments/control-plane/provision-meta-postgres.sh"
+meta_server_source="$script_dir/../internal/metaserver/server.go"
+provision_version="$(sed -n 's/.*WHERE version = \([0-9][0-9]*\).*/\1/p' "$provision_script" | head -n 1)"
+server_version="$(sed -n 's/.*WHERE version = \([0-9][0-9]*\).*/\1/p' "$meta_server_source" | head -n 1)"
+test -n "$provision_version"
+test "$provision_version" = "$server_version"
+for table in battlelog_matches battlelog_teams battlelog_participants \
+  battlelog_participant_stats battlelog_rounds battlelog_score_breakdowns; do
+  grep -Fq "('$table')" "$provision_script"
+done
+grep -Fq "('players', 'id, steam_id, auth_level, account_status')" "$provision_script"
 
 printf 'DEPLOY_SOURCE_TEST_OK\n'
