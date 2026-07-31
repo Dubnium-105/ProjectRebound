@@ -15,8 +15,8 @@ FROM debian:bookworm-slim AS runtime-common
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates && \
     rm -rf /var/lib/apt/lists/* && \
-    groupadd --system app && \
-    useradd --system --gid app --no-create-home app
+    groupadd --system --gid 999 app && \
+    useradd --system --uid 999 --gid app --no-create-home app
 COPY --from=build /out/control-plane /control-plane
 COPY --from=build /out/decrypt-ticket /usr/local/bin/decrypt-ticket
 COPY --from=build /src/deployments/updates /deployments/updates

@@ -12,6 +12,9 @@ client implementations live with their consuming frontend.
 - Payload server: `Payload/Communication/CommandFramework.h`, `CommandFramework.cpp`;
 - Payload wiring: `Payload/dllmain.cpp`;
 
+For function-by-function source behavior, ownership, known defects, and the required test
+matrix, see the [C++ implementation analysis guide](command-framework-code-analysis.md).
+
 The consuming launcher generates a pipe name for each run and passes it to the
 game via `-pipe=<name>`. The Payload creates `\\.\pipe\<name>`, then the
 launcher connects.

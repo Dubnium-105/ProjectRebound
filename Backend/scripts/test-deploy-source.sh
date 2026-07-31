@@ -18,6 +18,10 @@ docker_log="$temporary_dir/docker.log"
 cat >"$temporary_dir/bin/docker" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"${DOCKER_LOG:?}"
+if [[ "$*" == *"--entrypoint /bin/sh control-plane"* &&
+      "${FAIL_TICKET_PREFLIGHT:-0}" == "1" ]]; then
+  exit 1
+fi
 case " $* " in
   *" ps --status running -q edge-relay "*) printf 'fake-container\n' ;;
   *" logs "*) printf 'relay control connected\n' ;;
@@ -58,7 +62,15 @@ PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" \
   bash "$test_backend/scripts/deploy-control-plane.sh" >/dev/null
 grep -q ' pull$' "$docker_log"
 grep -Fq -- "-f $control_override --profile monitoring pull" "$docker_log"
+grep -Fq -- 'run --rm -T --no-deps --entrypoint /bin/sh control-plane -c' "$docker_log"
 ! grep -q ' build ' "$docker_log"
+
+if PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" FAIL_TICKET_PREFLIGHT=1 \
+  CONTROL_PLANE_ENV_FILE="$control_env" DEPLOY_SOURCE=ci CONTROL_PLANE_IMAGE="$control_image" \
+  bash "$test_backend/scripts/deploy-control-plane.sh" >/dev/null 2>&1; then
+  echo "Expected a failed Steam ticket verifier preflight to stop deployment" >&2
+  exit 1
+fi
 
 : >"$docker_log"
 PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" \

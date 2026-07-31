@@ -7,6 +7,7 @@ English | [简体中文](README.zh-CN.md)
 - [Relay protocol V2](relay-protocol.md): UDP BIND, authenticated packets, and MTU;
 - [Relay failure migration](relay-migration.md): state machine, events, and consistency boundaries;
 - [Runtime command framework](command-framework.md): named-pipe protocol between the desktop browser and payload.
+- [CommandFramework C++ implementation analysis](command-framework-code-analysis.md): function-by-function behavior, ownership, defects, security, and test guidance;
 - [MetaServer architecture](metaserver.md): Go services, persistence, identity, scheduling, and dynamic Relay discovery;
 - [MetaServer native protocol](metaserver-native-protocol.md): TLS tunnel, framing, Gate, and confirmed RPC boundary;
 - [MetaServer threat model](metaserver-threat-model.md): assets, controls, residual risks, and security gates.

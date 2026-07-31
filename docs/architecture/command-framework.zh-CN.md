@@ -11,6 +11,9 @@ CommandFramework 是 Windows 启动器与游戏进程内 Payload 之间的本地
 - Payload 服务端：`Payload/Communication/CommandFramework.h`、`CommandFramework.cpp`；
 - Payload 接线：`Payload/dllmain.cpp`；
 
+逐函数源码行为、所有权、已知缺陷与必需测试矩阵见
+[C++ 实现分析指南](command-framework-code-analysis.zh-CN.md)。
+
 使用该协议的启动器为每次运行生成管道名，通过 `-pipe=<name>` 传给游戏。Payload
 创建 `\\.\pipe\<name>`，启动器随后连接。
 

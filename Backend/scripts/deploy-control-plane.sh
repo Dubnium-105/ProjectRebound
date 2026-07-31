@@ -78,6 +78,23 @@ if [[ "$deploy_source" == "ci" ]]; then
 else
   "${compose[@]}" build --pull control-plane admin-web
 fi
+
+# Run the verifier as the image's non-root application user before replacing
+# the current container. Exit 1 means the key and native Steam library loaded
+# successfully and the deliberately invalid ciphertext reached decryption;
+# configuration and runtime failures use exit 2.
+if ! "${compose[@]}" run --rm -T --no-deps --entrypoint /bin/sh control-plane -c '
+set +e
+printf "00\n" | "$STEAM_TICKET_VERIFIER_PATH" >/dev/null 2>/dev/null
+status=$?
+set -e
+test "$status" -eq 1
+'; then
+  echo "Steam ticket verifier preflight failed. Check the key mount permissions and native library." >&2
+  exit 1
+fi
+printf 'CONTROL_PLANE_TICKET_VERIFIER_OK\n'
+
 printf 'CONTROL_PLANE_DEPLOY_SOURCE source=%s image=%s admin_web_image=%s\n' \
   "$deploy_source" "${image:-local-build}" "${admin_web_image:-local-build}"
 "${compose[@]}" up -d --remove-orphans
