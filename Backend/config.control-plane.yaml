@@ -110,12 +110,14 @@ admin:
     - "fc00::/7"
 
 game_server:
-  # Registration credentials are accepted only through
-  # GAME_SERVER_REGISTRATION_TOKENS="pool_id=high-entropy-token;...".
+  # A verified player identity backed by a Dedicated Server invite grant can
+  # mint a short-lived, single-use registration credential.
   heartbeat_interval_seconds: 15
   unhealthy_after_seconds: 45
   offline_after_seconds: 90
-  server_token_ttl_hours: 168
+  registration_token_ttl_minutes: 10
+  server_token_ttl_hours: 24
+  server_token_rotation_grace_seconds: 60
   sweep_interval_seconds: 5
 
 p2p_room:

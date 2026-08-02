@@ -1,6 +1,10 @@
 package gameserver
 
-import "time"
+import (
+	"time"
+
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/gameserverregistration"
+)
 
 type State string
 
@@ -15,24 +19,28 @@ const (
 )
 
 type Server struct {
-	ID                 string
-	InstanceID         string
-	DisplayName        string
-	Region             string
-	Mode               string
-	Version            string
-	PublicHost         string
-	PublicPort         int
-	MaxPlayers         int
-	PlayerCount        int
-	State              State
-	ServerTokenHash    []byte
-	RegistrationIssuer string
-	TokenExpiresAt     time.Time
-	TokenRevokedAt     *time.Time
-	LastHeartbeatAt    time.Time
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	ID                      string
+	InstanceID              string
+	OwnerPlayerID           string
+	DisplayName             string
+	Region                  string
+	Mode                    string
+	Version                 string
+	PublicHost              string
+	PublicPort              int
+	MaxPlayers              int
+	PlayerCount             int
+	State                   State
+	ServerTokenHash         []byte
+	PreviousServerTokenHash []byte
+	RegistrationIssuer      string
+	TokenExpiresAt          time.Time
+	PreviousTokenExpiresAt  *time.Time
+	TokenRevokedAt          *time.Time
+	CredentialGeneration    int64
+	LastHeartbeatAt         time.Time
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
 }
 
 type RegistrationInput struct {
@@ -50,6 +58,24 @@ type RegistrationResult struct {
 	Server            Server
 	ServerToken       string
 	HeartbeatInterval int
+}
+
+type RegistrationCredentialInput struct {
+	InstanceID string
+	PlayerID   string
+}
+
+type RegistrationCredentialResult struct {
+	Credential gameserverregistration.Credential
+	Plaintext  string
+}
+
+type CredentialRotationResult struct {
+	ServerID             string
+	ServerToken          string
+	TokenExpiresAt       time.Time
+	PreviousValidUntil   time.Time
+	CredentialGeneration int64
 }
 
 type HeartbeatInput struct {

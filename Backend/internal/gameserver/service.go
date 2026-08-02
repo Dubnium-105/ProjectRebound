@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/gameserverregistration"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -18,27 +19,109 @@ var labelPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 var instancePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
 
 type Service struct {
-	repository *Repository
-	config     config.GameServerConfig
-	now        func() time.Time
+	repository         *Repository
+	registrationTokens *gameserverregistration.Repository
+	config             config.GameServerConfig
+	now                func() time.Time
 }
 
-func NewService(repository *Repository, cfg config.GameServerConfig) *Service {
-	return &Service{repository: repository, config: cfg, now: time.Now}
+func NewService(
+	repository *Repository,
+	registrationTokens *gameserverregistration.Repository,
+	cfg config.GameServerConfig,
+) *Service {
+	return &Service{
+		repository: repository, registrationTokens: registrationTokens,
+		config: cfg, now: time.Now,
+	}
 }
 
-func (s *Service) Register(ctx context.Context, input RegistrationInput, issuer string) (RegistrationResult, error) {
-	if err := validateRegistration(input, issuer); err != nil {
+func (s *Service) IssueRegistrationCredential(
+	ctx context.Context,
+	input RegistrationCredentialInput,
+) (RegistrationCredentialResult, error) {
+	input.InstanceID = strings.TrimSpace(input.InstanceID)
+	input.PlayerID = strings.TrimSpace(input.PlayerID)
+	if !ValidInstanceID(input.InstanceID) {
+		return RegistrationCredentialResult{}, invalid(
+			"Invalid game server instance ID.",
+			map[string]any{"instance_id": "contains unsupported characters or has invalid length"},
+		)
+	}
+	if input.PlayerID == "" {
+		return RegistrationCredentialResult{}, unauthorized()
+	}
+	tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return RegistrationCredentialResult{}, internal(err)
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	inviteUseID, err := s.registrationTokens.FindPlayerInviteGrant(ctx, tx, input.PlayerID)
+	if errors.Is(err, gameserverregistration.ErrInvalidInviteGrant) {
+		return RegistrationCredentialResult{}, &ServiceError{
+			Status:  http.StatusForbidden,
+			Code:    "GAME_SERVER_INVITE_REQUIRED",
+			Message: "A Dedicated Server invitation is required.",
+		}
+	}
+	if err != nil {
+		return RegistrationCredentialResult{}, internal(err)
+	}
+	plaintext, tokenHash, err := gameserverregistration.GenerateToken()
+	if err != nil {
+		return RegistrationCredentialResult{}, internal(err)
+	}
+	now := s.now().UTC()
+	credential := gameserverregistration.Credential{
+		ID: newID("gsrt_"), InstanceID: input.InstanceID,
+		IssuedToPlayerID: input.PlayerID, SourceInviteUseID: inviteUseID,
+		ExpiresAt: now.Add(s.config.RegistrationTokenTTL()), CreatedAt: now,
+	}
+	if _, err := s.registrationTokens.RevokeActiveForInstance(ctx, tx, input.InstanceID, now); err != nil {
+		return RegistrationCredentialResult{}, internal(err)
+	}
+	if err := s.registrationTokens.Insert(ctx, tx, credential, tokenHash); err != nil {
+		return RegistrationCredentialResult{}, internal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return RegistrationCredentialResult{}, internal(err)
+	}
+	return RegistrationCredentialResult{Credential: credential, Plaintext: plaintext}, nil
+}
+
+func (s *Service) Register(ctx context.Context, input RegistrationInput, registrationToken string) (RegistrationResult, error) {
+	if err := validateRegistration(input); err != nil {
 		return RegistrationResult{}, err
+	}
+	if !gameserverregistration.HasValidShape(registrationToken) {
+		return RegistrationResult{}, unauthorized()
+	}
+	tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return RegistrationResult{}, internal(err)
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	now := s.now().UTC()
+	credential, err := s.registrationTokens.LockActive(
+		ctx, tx, gameserverregistration.HashToken(registrationToken), now,
+	)
+	if errors.Is(err, gameserverregistration.ErrInvalidToken) {
+		return RegistrationResult{}, unauthorized()
+	}
+	if err != nil {
+		return RegistrationResult{}, internal(err)
+	}
+	if credential.InstanceID != strings.TrimSpace(input.InstanceID) {
+		return RegistrationResult{}, unauthorized()
 	}
 	token, tokenHash, err := newServerToken()
 	if err != nil {
 		return RegistrationResult{}, internal(err)
 	}
-	now := s.now().UTC()
-	item, err := s.repository.Register(ctx, Server{
+	item, err := s.repository.Register(ctx, tx, Server{
 		ID:                 newID("gs_"),
 		InstanceID:         strings.TrimSpace(input.InstanceID),
+		OwnerPlayerID:      credential.IssuedToPlayerID,
 		DisplayName:        truncate(strings.TrimSpace(input.DisplayName), 128),
 		Region:             strings.TrimSpace(input.Region),
 		Mode:               strings.TrimSpace(input.Mode),
@@ -48,13 +131,28 @@ func (s *Service) Register(ctx context.Context, input RegistrationInput, issuer 
 		MaxPlayers:         input.MaxPlayers,
 		State:              StateStarting,
 		ServerTokenHash:    tokenHash,
-		RegistrationIssuer: issuer,
+		RegistrationIssuer: credential.ID,
 		TokenExpiresAt:     now.Add(s.config.ServerTokenTTL()),
 		LastHeartbeatAt:    now,
 		CreatedAt:          now,
 		UpdatedAt:          now,
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return RegistrationResult{}, &ServiceError{
+				Status: http.StatusConflict, Code: "GAME_SERVER_INSTANCE_OWNED",
+				Message: "The game server instance belongs to another registrant.",
+			}
+		}
+		return RegistrationResult{}, internal(err)
+	}
+	if err := s.registrationTokens.MarkConsumed(ctx, tx, credential.ID, item.ID, now); err != nil {
+		if errors.Is(err, gameserverregistration.ErrInvalidToken) {
+			return RegistrationResult{}, unauthorized()
+		}
+		return RegistrationResult{}, internal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return RegistrationResult{}, internal(err)
 	}
 	return RegistrationResult{
@@ -98,6 +196,51 @@ func (s *Service) Heartbeat(ctx context.Context, serverID, serverToken string, i
 		return Server{}, internal(err)
 	}
 	return updated, nil
+}
+
+func (s *Service) RotateCredential(
+	ctx context.Context,
+	serverID, serverToken string,
+) (CredentialRotationResult, error) {
+	if !strings.HasPrefix(serverToken, "gst_") || len(serverToken) < 64 {
+		return CredentialRotationResult{}, unauthorized()
+	}
+	tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return CredentialRotationResult{}, internal(err)
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	now := s.now().UTC()
+	current, err := s.repository.GetForManagement(ctx, tx, serverID, hashServerToken(serverToken), now)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return CredentialRotationResult{}, unauthorized()
+		}
+		return CredentialRotationResult{}, internal(err)
+	}
+	plaintext, tokenHash, err := newServerToken()
+	if err != nil {
+		return CredentialRotationResult{}, internal(err)
+	}
+	previousValidUntil := now.Add(s.config.ServerTokenRotationGrace())
+	if current.TokenExpiresAt.Before(previousValidUntil) {
+		previousValidUntil = current.TokenExpiresAt
+	}
+	newExpiresAt := now.Add(s.config.ServerTokenTTL())
+	updated, err := s.repository.RotateCredential(
+		ctx, tx, serverID, tokenHash, newExpiresAt, previousValidUntil, now,
+	)
+	if err != nil {
+		return CredentialRotationResult{}, internal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return CredentialRotationResult{}, internal(err)
+	}
+	return CredentialRotationResult{
+		ServerID: serverID, ServerToken: plaintext, TokenExpiresAt: updated.TokenExpiresAt,
+		PreviousValidUntil:   previousValidUntil,
+		CredentialGeneration: updated.CredentialGeneration,
+	}, nil
 }
 
 func (s *Service) Deregister(ctx context.Context, serverID, serverToken string) error {
@@ -165,9 +308,9 @@ func (s *Service) List(ctx context.Context, filter ListFilter) (ListResult, erro
 	return ListResult{Items: items, NextCursor: nextCursor}, nil
 }
 
-func validateRegistration(input RegistrationInput, issuer string) error {
+func validateRegistration(input RegistrationInput) error {
 	details := make(map[string]any)
-	if !instancePattern.MatchString(strings.TrimSpace(input.InstanceID)) {
+	if !ValidInstanceID(input.InstanceID) {
 		details["instance_id"] = "contains unsupported characters or has invalid length"
 	}
 	if strings.TrimSpace(input.DisplayName) == "" {
@@ -188,13 +331,14 @@ func validateRegistration(input RegistrationInput, issuer string) error {
 	if input.MaxPlayers < 1 || input.MaxPlayers > 256 {
 		details["max_players"] = "must be between 1 and 256"
 	}
-	if strings.TrimSpace(issuer) == "" {
-		return &ServiceError{Status: 401, Code: "REGISTRATION_UNAUTHORIZED", Message: "Invalid registration token."}
-	}
 	if len(details) > 0 {
 		return invalid("Invalid game server registration.", details)
 	}
 	return nil
+}
+
+func ValidInstanceID(value string) bool {
+	return instancePattern.MatchString(strings.TrimSpace(value))
 }
 
 func validTransition(current, next State) bool {

@@ -136,12 +136,13 @@ type AdminConfig struct {
 }
 
 type GameServerConfig struct {
-	RegistrationTokenSet     string `yaml:"-"`
-	HeartbeatIntervalSeconds int    `yaml:"heartbeat_interval_seconds"`
-	UnhealthyAfterSeconds    int    `yaml:"unhealthy_after_seconds"`
-	OfflineAfterSeconds      int    `yaml:"offline_after_seconds"`
-	ServerTokenTTLHours      int    `yaml:"server_token_ttl_hours"`
-	SweepIntervalSeconds     int    `yaml:"sweep_interval_seconds"`
+	HeartbeatIntervalSeconds        int `yaml:"heartbeat_interval_seconds"`
+	UnhealthyAfterSeconds           int `yaml:"unhealthy_after_seconds"`
+	OfflineAfterSeconds             int `yaml:"offline_after_seconds"`
+	RegistrationTokenTTLMinutes     int `yaml:"registration_token_ttl_minutes"`
+	ServerTokenTTLHours             int `yaml:"server_token_ttl_hours"`
+	ServerTokenRotationGraceSeconds int `yaml:"server_token_rotation_grace_seconds"`
+	SweepIntervalSeconds            int `yaml:"sweep_interval_seconds"`
 }
 
 type MetaServerConfig struct {
@@ -324,11 +325,13 @@ var Defaults = Config{
 		},
 	},
 	GameServer: GameServerConfig{
-		HeartbeatIntervalSeconds: 15,
-		UnhealthyAfterSeconds:    45,
-		OfflineAfterSeconds:      90,
-		ServerTokenTTLHours:      168,
-		SweepIntervalSeconds:     5,
+		HeartbeatIntervalSeconds:        15,
+		UnhealthyAfterSeconds:           45,
+		OfflineAfterSeconds:             90,
+		RegistrationTokenTTLMinutes:     10,
+		ServerTokenTTLHours:             24,
+		ServerTokenRotationGraceSeconds: 60,
+		SweepIntervalSeconds:            5,
 	},
 	MetaServer: MetaServerConfig{
 		HTTPAddr:                   ":8081",
@@ -458,7 +461,6 @@ func (c *Config) applyEnvOverrides() {
 	overrideInt("ADMIN_LOGIN_PER_IP_PER_MINUTE", &c.Admin.LoginPerIPPerMinute)
 	overrideInt("ADMIN_LOGIN_PER_USERNAME_PER_MINUTE", &c.Admin.LoginPerUsernamePerMinute)
 	overrideInt("TURNSTILE_TIMEOUT_SECONDS", &c.Admin.TurnstileTimeoutSeconds)
-	overrideString("GAME_SERVER_REGISTRATION_TOKENS", &c.GameServer.RegistrationTokenSet)
 	overrideString("META_HTTP_ADDR", &c.MetaServer.HTTPAddr)
 	overrideString("META_LOGIC_ADDR", &c.MetaServer.LogicAddr)
 	overrideString("META_PUBLIC_HTTP_BASE_URL", &c.MetaServer.PublicHTTPBaseURL)
@@ -685,11 +687,11 @@ func (c *Config) ValidateControlPlane() error {
 	if c.GameServer.HeartbeatIntervalSeconds < 1 ||
 		c.GameServer.UnhealthyAfterSeconds <= c.GameServer.HeartbeatIntervalSeconds ||
 		c.GameServer.OfflineAfterSeconds <= c.GameServer.UnhealthyAfterSeconds ||
-		c.GameServer.ServerTokenTTLHours < 1 || c.GameServer.SweepIntervalSeconds < 1 {
+		c.GameServer.RegistrationTokenTTLMinutes < 1 ||
+		c.GameServer.ServerTokenTTLHours < 1 ||
+		c.GameServer.ServerTokenRotationGraceSeconds < 1 ||
+		c.GameServer.SweepIntervalSeconds < 1 {
 		errs = append(errs, errors.New("game_server timing and token settings are invalid"))
-	}
-	if strings.EqualFold(c.Environment, "production") && strings.TrimSpace(c.GameServer.RegistrationTokenSet) == "" {
-		errs = append(errs, errors.New("GAME_SERVER_REGISTRATION_TOKENS is required in production"))
 	}
 	if c.P2PRoom.HeartbeatIntervalSeconds < 1 ||
 		c.P2PRoom.StaleAfterSeconds <= c.P2PRoom.HeartbeatIntervalSeconds ||
@@ -896,6 +898,14 @@ func (c AdminConfig) TurnstileTimeout() time.Duration {
 
 func (c GameServerConfig) ServerTokenTTL() time.Duration {
 	return time.Duration(c.ServerTokenTTLHours) * time.Hour
+}
+
+func (c GameServerConfig) RegistrationTokenTTL() time.Duration {
+	return time.Duration(c.RegistrationTokenTTLMinutes) * time.Minute
+}
+
+func (c GameServerConfig) ServerTokenRotationGrace() time.Duration {
+	return time.Duration(c.ServerTokenRotationGraceSeconds) * time.Second
 }
 
 func (c GameServerConfig) SweepInterval() time.Duration {

@@ -2,13 +2,17 @@ package gameserver
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/database"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/gameserverregistration"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -28,32 +32,104 @@ func TestGameServerRegistryAgainstPostgreSQL(t *testing.T) {
 		t.Fatal(err)
 	}
 	repository := NewRepository(pool)
-	service := NewService(repository, config.Defaults.GameServer)
+	registrationRepository := gameserverregistration.NewRepository()
+	service := NewService(repository, registrationRepository, config.Defaults.GameServer)
 	fixedNow := time.Now().UTC().Truncate(time.Second)
 	service.now = func() time.Time { return fixedNow }
 
 	suffix := time.Now().UnixNano()
 	firstInstance := fmt.Sprintf("integration-primary-%d", suffix)
 	secondInstance := fmt.Sprintf("integration-secondary-%d", suffix)
+	concurrentInstance := fmt.Sprintf("integration-concurrent-%d", suffix)
+	playerInstance := fmt.Sprintf("integration-player-%d", suffix)
+	adminID := fmt.Sprintf("adm_game_server_%d", suffix)
+	playerID := fmt.Sprintf("p_game_server_%d", suffix)
+	inviteID := fmt.Sprintf("inv_game_server_%d", suffix)
+	inviteUseID := fmt.Sprintf("icu_game_server_%d", suffix)
+	inviteHash := sha256.Sum256([]byte(inviteID))
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO admin_users (
+			id, username, display_name, password_hash, status, mfa_required,
+			created_at, updated_at
+		) VALUES ($1, $2, 'Game Server Integration', 'test-only', 'ACTIVE', TRUE, $3, $3)
+	`, adminID, adminID, fixedNow); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO players (
+			id, steam_id, persona_name, account_status, auth_provider, auth_level,
+			created_at, updated_at
+		) VALUES ($1, $2, 'Game Server Registrant', 'ACTIVE', 'steam_ticket', 'verified', $3, $3)
+	`, playerID, fmt.Sprintf("76561%012d", suffix%1_000_000_000_000), fixedNow); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO invite_codes (
+			id, code_hash, batch_name, max_uses, used_count, enabled, permissions,
+			created_by, created_at, updated_at
+		) VALUES ($1, $2, 'Dedicated Server Integration', 1, 1, TRUE,
+		          '{"allow_game_server_registration": true}'::jsonb, $3, $4, $4)
+	`, inviteID, inviteHash[:], adminID, fixedNow); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO invite_code_uses (
+			id, invite_code_id, player_id, steam_id, used_at, result, permission_snapshot
+		) VALUES ($1, $2, $3, $4, $5, 'SUCCESS',
+		          '{"allow_game_server_registration": true}'::jsonb)
+	`, inviteUseID, inviteID, playerID,
+		fmt.Sprintf("76561%012d", suffix%1_000_000_000_000), fixedNow); err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cleanupCancel()
-		_, _ = pool.Exec(cleanupCtx, "DELETE FROM game_servers WHERE instance_id = ANY($1)", []string{firstInstance, secondInstance})
+		instances := []string{firstInstance, secondInstance, concurrentInstance, playerInstance}
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM game_server_registration_tokens WHERE instance_id = ANY($1)", instances)
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM game_servers WHERE instance_id = ANY($1)", instances)
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM invite_code_uses WHERE invite_code_id = $1", inviteID)
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM invite_codes WHERE id = $1", inviteID)
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM players WHERE id = $1", playerID)
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM admin_users WHERE id = $1", adminID)
 	})
+	playerCredential, err := service.IssueRegistrationCredential(ctx, RegistrationCredentialInput{
+		InstanceID: playerInstance, PlayerID: playerID,
+	})
+	if err != nil || !gameserverregistration.HasValidShape(playerCredential.Plaintext) ||
+		playerCredential.Credential.SourceInviteUseID != inviteUseID {
+		t.Fatalf("player registration credential = %#v, %v", playerCredential, err)
+	}
+	playerServer, err := service.Register(ctx, RegistrationInput{
+		InstanceID: playerInstance, DisplayName: "Player Owned", Region: "asia-hk",
+		Mode: "tdm", Version: "1.0.0", PublicHost: "9.9.9.9", PublicPort: 7780,
+		MaxPlayers: 8,
+	}, playerCredential.Plaintext)
+	if err != nil || playerServer.Server.OwnerPlayerID != playerID {
+		t.Fatalf("player-owned registration = %#v, %v", playerServer, err)
+	}
+	firstRegistrationToken := issueRegistrationToken(
+		t, ctx, pool, registrationRepository, adminID, firstInstance, fixedNow,
+	)
 	input := RegistrationInput{
 		InstanceID: firstInstance, DisplayName: "Integration Server", Region: "us-west",
 		Mode: "tdm", Version: "1.0.0", PublicHost: "8.8.8.8", PublicPort: 7777, MaxPlayers: 12,
 	}
-	first, err := service.Register(ctx, input, "integration-pool")
+	first, err := service.Register(ctx, input, firstRegistrationToken)
 	if err != nil {
 		t.Fatal(err)
 	}
-	secondRegistration, err := service.Register(ctx, input, "integration-pool")
+	if _, err := service.Register(ctx, input, firstRegistrationToken); errorStatus(err) != 401 {
+		t.Fatalf("consumed registration token reuse error = %v", err)
+	}
+	replacementRegistrationToken := issueRegistrationToken(
+		t, ctx, pool, registrationRepository, adminID, firstInstance, fixedNow,
+	)
+	secondRegistration, err := service.Register(ctx, input, replacementRegistrationToken)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if secondRegistration.Server.ID != first.Server.ID || secondRegistration.ServerToken == first.ServerToken {
-		t.Fatalf("idempotent registration did not preserve ID and rotate token: %#v %#v", first, secondRegistration)
+		t.Fatalf("authorized re-registration did not preserve ID and rotate token: %#v %#v", first, secondRegistration)
 	}
 	if _, err := service.Heartbeat(ctx, first.Server.ID, first.ServerToken, HeartbeatInput{State: StateReady}); errorStatus(err) != 401 {
 		t.Fatalf("old rotated token heartbeat error = %v", err)
@@ -62,16 +138,71 @@ func TestGameServerRegistryAgainstPostgreSQL(t *testing.T) {
 	if err != nil || ready.State != StateReady || ready.PlayerCount != 2 {
 		t.Fatalf("heartbeat = %#v, %v", ready, err)
 	}
+	rotated, err := service.RotateCredential(ctx, first.Server.ID, secondRegistration.ServerToken)
+	if err != nil || rotated.ServerToken == secondRegistration.ServerToken || rotated.CredentialGeneration < 2 {
+		t.Fatalf("credential rotation = %#v, %v", rotated, err)
+	}
+	if _, err := service.Heartbeat(ctx, first.Server.ID, secondRegistration.ServerToken, HeartbeatInput{State: StateReady, PlayerCount: 2}); err != nil {
+		t.Fatalf("previous token was not accepted during overlap: %v", err)
+	}
+	service.now = func() time.Time {
+		return fixedNow.Add(config.Defaults.GameServer.ServerTokenRotationGrace() + time.Second)
+	}
+	if _, err := service.Heartbeat(ctx, first.Server.ID, secondRegistration.ServerToken, HeartbeatInput{State: StateReady, PlayerCount: 2}); errorStatus(err) != 401 {
+		t.Fatalf("expired overlap token heartbeat error = %v", err)
+	}
+	if _, err := service.Heartbeat(ctx, first.Server.ID, rotated.ServerToken, HeartbeatInput{State: StateReady, PlayerCount: 2}); err != nil {
+		t.Fatalf("rotated token heartbeat error = %v", err)
+	}
+	service.now = func() time.Time { return fixedNow }
 
+	secondRegistrationToken := issueRegistrationToken(
+		t, ctx, pool, registrationRepository, adminID, secondInstance, fixedNow,
+	)
+	if _, err := service.Register(ctx, input, secondRegistrationToken); errorStatus(err) != 401 {
+		t.Fatalf("instance-bound registration token was accepted for another instance: %v", err)
+	}
 	secondServer, err := service.Register(ctx, RegistrationInput{
 		InstanceID: secondInstance, DisplayName: "Other", Region: "eu-west", Mode: "tdm",
 		Version: "1.0.0", PublicHost: "1.1.1.1", PublicPort: 7778, MaxPlayers: 8,
-	}, "integration-pool")
+	}, secondRegistrationToken)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.Heartbeat(ctx, secondServer.Server.ID, secondRegistration.ServerToken, HeartbeatInput{State: StateReady}); errorStatus(err) != 401 {
 		t.Fatalf("cross-server token was accepted: %v", err)
+	}
+
+	concurrentRegistrationToken := issueRegistrationToken(
+		t, ctx, pool, registrationRepository, adminID, concurrentInstance, fixedNow,
+	)
+	concurrentInput := RegistrationInput{
+		InstanceID: concurrentInstance, DisplayName: "Concurrent", Region: "asia-hk", Mode: "tdm",
+		Version: "1.0.0", PublicHost: "9.9.9.9", PublicPort: 7779, MaxPlayers: 8,
+	}
+	var wait sync.WaitGroup
+	statuses := make(chan int, 2)
+	for range 2 {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			_, err := service.Register(ctx, concurrentInput, concurrentRegistrationToken)
+			statuses <- errorStatus(err)
+		}()
+	}
+	wait.Wait()
+	close(statuses)
+	successes, rejected := 0, 0
+	for status := range statuses {
+		if status == 0 {
+			successes++
+		}
+		if status == 401 {
+			rejected++
+		}
+	}
+	if successes != 1 || rejected != 1 {
+		t.Fatalf("concurrent registration results: successes=%d rejected=%d", successes, rejected)
 	}
 
 	if _, err := pool.Exec(ctx, "UPDATE game_servers SET last_heartbeat_at = $2, state = 'READY' WHERE id = $1", first.Server.ID, fixedNow.Add(-46*time.Second)); err != nil {
@@ -102,6 +233,41 @@ func TestGameServerRegistryAgainstPostgreSQL(t *testing.T) {
 	if err != nil || deregistered.State != StateOffline || deregistered.TokenRevokedAt == nil {
 		t.Fatalf("deregistered server = %#v, %v", deregistered, err)
 	}
+}
+
+func issueRegistrationToken(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	repository *gameserverregistration.Repository,
+	adminID, instanceID string,
+	now time.Time,
+) string {
+	t.Helper()
+	plaintext, tokenHash, err := gameserverregistration.GenerateToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	if _, err := repository.RevokeActiveForInstance(ctx, tx, instanceID, now); err != nil {
+		t.Fatal(err)
+	}
+	credential := gameserverregistration.Credential{
+		ID:         fmt.Sprintf("gsrt_test_%d", time.Now().UnixNano()),
+		InstanceID: instanceID, CreatedBy: adminID,
+		ExpiresAt: now.Add(time.Hour), CreatedAt: now,
+	}
+	if err := repository.Insert(ctx, tx, credential, tokenHash); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	return plaintext
 }
 
 func errorStatus(err error) int {

@@ -18,6 +18,7 @@ import (
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/database"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/diagnostic"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/gameserver"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/gameserverregistration"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/health"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/integrity"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/invite"
@@ -321,20 +322,23 @@ func buildHandler(
 	})
 	router.With(adminNetworkGuard.Middleware).Get("/internal/metrics", metrics.Handler().ServeHTTP)
 
-	gameServerRegistrationAuth, err := gameserver.NewRegistrationAuthenticator(cfg.GameServer.RegistrationTokenSet)
-	if err != nil {
-		return nil, nil, fmt.Errorf("initialize game server registration authentication: %w", err)
-	}
-	if !gameServerRegistrationAuth.Configured() {
-		logger.Warn("no game server registration tokens configured; registrations will be rejected")
-	}
 	gameServerRepository := gameserver.NewRepository(dbPool.Pool)
-	gameServerService := gameserver.NewService(gameServerRepository, cfg.GameServer)
+	gameServerRegistrationRepository := gameserverregistration.NewRepository()
+	gameServerService := gameserver.NewService(
+		gameServerRepository, gameServerRegistrationRepository, cfg.GameServer,
+	)
 	gameServerHandler := gameserver.NewHTTPHandler(gameServerService, logger)
-	router.With(gameServerRegistrationAuth.Middleware).Post("/v1/game-servers", gameServerHandler.Register)
+	router.Group(func(router chi.Router) {
+		router.Use(auth.RequireAccess(authService, logger))
+		router.Use(auth.RequireActive)
+		router.Use(auth.RequireVerified)
+		router.Post("/v1/game-server-registration-tokens", gameServerHandler.IssueRegistrationCredential)
+	})
+	router.Post("/v1/game-servers", gameServerHandler.Register)
 	router.Get("/v1/game-servers", gameServerHandler.List)
 	router.Get("/v1/game-servers/{server_id}", gameServerHandler.Get)
 	router.Post("/v1/game-servers/{server_id}/heartbeat", gameServerHandler.Heartbeat)
+	router.Post("/v1/game-servers/{server_id}/credential/rotate", gameServerHandler.RotateCredential)
 	router.Delete("/v1/game-servers/{server_id}", gameServerHandler.Deregister)
 
 	p2pRoomService := p2proom.NewService(p2proom.NewRepository(dbPool.Pool), cfg.P2PRoom)
@@ -393,6 +397,7 @@ func buildHandler(
 		dbPool.Pool,
 		adminRepository,
 		connectionService,
+		gameServerRegistrationRepository,
 		logger,
 	)
 	adminOnlineHandler := admin.NewOnlineHTTPHandler(
@@ -409,6 +414,10 @@ func buildHandler(
 		router.With(admin.RequirePermission("rooms.remove_member")).Post("/p2p-rooms/{room_id}/members/{player_id}/remove", adminOnlineHandler.RemoveRoomMember)
 		router.With(admin.RequirePermission("game_servers.read")).Get("/game-servers", gameServerHandler.List)
 		router.With(admin.RequirePermission("game_servers.read")).Get("/game-servers/{server_id}", gameServerHandler.Get)
+		router.With(
+			admin.RequirePermission("game_servers.register"),
+			admin.RequireStepUp(adminAuthService),
+		).Post("/game-servers/registration-tokens", adminOnlineHandler.CreateGameServerRegistration)
 		router.With(admin.RequirePermission("game_servers.drain")).Post("/game-servers/{server_id}/drain", adminOnlineHandler.DrainGameServer)
 		router.With(admin.RequirePermission("game_servers.drain")).Post("/game-servers/{server_id}/resume", adminOnlineHandler.ResumeGameServer)
 		router.With(admin.RequirePermission("game_servers.disable")).Post("/game-servers/{server_id}/disable", adminOnlineHandler.DisableGameServer)

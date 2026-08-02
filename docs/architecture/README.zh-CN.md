@@ -3,6 +3,8 @@
 [English](README.md) | 简体中文
 
 - [系统总览](overview.zh-CN.md)：组件、信任边界、控制流和数据流；
+- [P2P 联机完整架构](online-architecture.zh-CN.md)：房间、连接协调、直连、Relay、BattleLog、状态机、部署与当前实现边界；
+- [社区 VNT 节点联机目标架构](vnt-community-online-architecture.zh-CN.md)：社区节点、房间隔离、VNT bootstrap、ToolBox/VNT-Node、安全边界和从现有 Relay 的迁移设计；
 - [认证与会话](authentication.zh-CN.md)：玩家身份、Token rotation 和风控；
 - [Relay 协议 V2](relay-protocol.zh-CN.md)：UDP BIND、认证数据包和 MTU；
 - [Relay 故障迁移](relay-migration.zh-CN.md)：状态机、事件和一致性边界；

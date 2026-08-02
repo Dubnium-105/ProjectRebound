@@ -19,6 +19,7 @@ type OnlineHTTPService interface {
 	CloseRoom(context.Context, string, string, RequestMeta) (OnlineOperationResult[p2proom.Room], error)
 	RemoveRoomMember(context.Context, string, string, string, RequestMeta) (OnlineOperationResult[p2proom.Room], error)
 	ChangeGameServerState(context.Context, string, string, string, RequestMeta) (gameserver.Server, error)
+	CreateGameServerRegistration(context.Context, GameServerRegistrationInput, RequestMeta) (GameServerRegistrationResult, error)
 	ListRoomMembers(context.Context, string) ([]AdministrativeRoomMember, error)
 	ListConnections(context.Context, AdministrativeConnectionFilter) (AdministrativeConnectionList, error)
 	GetConnection(context.Context, string) (AdministrativeConnection, error)
@@ -65,6 +66,19 @@ type administrativeGameServerResponse struct {
 	LastHeartbeatAt time.Time        `json:"last_heartbeat_at"`
 	CreatedAt       time.Time        `json:"created_at"`
 	UpdatedAt       time.Time        `json:"updated_at"`
+}
+
+type gameServerRegistrationRequest struct {
+	InstanceID     string `json:"instance_id"`
+	ExpiresInHours int    `json:"expires_in_hours"`
+	Reason         string `json:"reason"`
+}
+
+type gameServerRegistrationResponse struct {
+	RegistrationID    string    `json:"registration_id"`
+	InstanceID        string    `json:"instance_id"`
+	RegistrationToken string    `json:"registration_token"`
+	ExpiresAt         time.Time `json:"expires_at"`
 }
 
 type administrativeConnectionResponse struct {
@@ -175,6 +189,34 @@ func (h *OnlineHTTPHandler) ResumeGameServer(w http.ResponseWriter, r *http.Requ
 
 func (h *OnlineHTTPHandler) DisableGameServer(w http.ResponseWriter, r *http.Request) {
 	h.changeGameServerState(w, r, "disable")
+}
+
+func (h *OnlineHTTPHandler) CreateGameServerRegistration(w http.ResponseWriter, r *http.Request) {
+	var request gameServerRegistrationRequest
+	if err := api.DecodeJSON(r, &request); err != nil {
+		api.WriteError(w, r, 400, "INVALID_REQUEST", "Invalid request.", map[string]any{"body": err.Error()})
+		return
+	}
+	result, err := h.service.CreateGameServerRegistration(
+		r.Context(),
+		GameServerRegistrationInput{
+			InstanceID: request.InstanceID, ExpiresInHours: request.ExpiresInHours,
+			Reason: request.Reason,
+		},
+		h.requestMeta(r),
+	)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
+	api.WriteData(w, r, http.StatusCreated, gameServerRegistrationResponse{
+		RegistrationID:    result.Credential.ID,
+		InstanceID:        result.Credential.InstanceID,
+		RegistrationToken: result.Plaintext,
+		ExpiresAt:         result.Credential.ExpiresAt,
+	})
 }
 
 func (h *OnlineHTTPHandler) ListConnections(w http.ResponseWriter, r *http.Request) {

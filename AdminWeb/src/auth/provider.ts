@@ -79,7 +79,8 @@ const permissionMap: Record<string, Partial<Record<string, string>>> = {
     },
     "game-servers": {
         list: "game_servers.read",
-        show: "game_servers.read"
+        show: "game_servers.read",
+        create: "game_servers.register"
     },
     "relay-nodes": {
         list: "relay_nodes.read",

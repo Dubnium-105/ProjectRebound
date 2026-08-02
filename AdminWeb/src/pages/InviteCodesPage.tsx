@@ -13,6 +13,7 @@ type CreateValues = {
     expires_at?: string;
     create_account: boolean;
     p2p: boolean;
+    game_server_registration: boolean;
     note?: string;
     reason: string;
 };
@@ -56,6 +57,7 @@ export function InviteCodesPage() {
             expires_at: "",
             create_account: true,
             p2p: true,
+            game_server_registration: false,
             note: "",
             reason: ""
         });
@@ -78,6 +80,7 @@ export function InviteCodesPage() {
                     permissions: {
                         allow_create_account: values.create_account,
                         allow_p2p: values.p2p,
+                        allow_game_server_registration: values.game_server_registration,
                         note: values.note?.trim() || undefined
                     },
                     reason: values.reason
@@ -218,7 +221,8 @@ export function InviteCodesPage() {
             render: (value: Record<string, unknown>) => (<Space size={[4, 4]} wrap>
           {value.allow_create_account === true && <Tag>{tr("\u521B\u5EFA\u8D26\u53F7")}</Tag>}
           {value.allow_p2p === true && <Tag>P2P</Tag>}
-          {value.allow_create_account !== true && value.allow_p2p !== true && <span>{tr("\u9ED8\u8BA4")}</span>}
+          {value.allow_game_server_registration === true && <Tag color="blue">{tr("专用服务器注册")}</Tag>}
+          {value.allow_create_account !== true && value.allow_p2p !== true && value.allow_game_server_registration !== true && <span>{tr("\u9ED8\u8BA4")}</span>}
         </Space>)
         },
         {
@@ -280,6 +284,9 @@ export function InviteCodesPage() {
           </Form.Item>
           <Form.Item name="p2p" valuePropName="checked">
             <Checkbox>{tr("\u5141\u8BB8 P2P \u8054\u673A")}</Checkbox>
+          </Form.Item>
+          <Form.Item name="game_server_registration" valuePropName="checked">
+            <Checkbox>{tr("允许注册专用服务器")}</Checkbox>
           </Form.Item>
           <Form.Item label={tr("\u8FD0\u8425\u5907\u6CE8")} name="note" rules={[{ max: 300 }]}>
             <Input.TextArea rows={2} maxLength={300} showCount/>

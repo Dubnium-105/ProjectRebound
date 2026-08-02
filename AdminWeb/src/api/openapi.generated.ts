@@ -905,6 +905,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/game-servers/registration-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Creates an instance-bound, single-use Dedicated Server registration token. Any previous unconsumed token for the same instance is revoked. The plaintext token is returned only once. */
+        post: operations["adminCreateGameServerRegistrationToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/game-servers/{server_id}": {
         parameters: {
             query?: never;
@@ -1210,6 +1227,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/game-server-registration-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Issues a short-lived, instance-bound, single-use registration token to a verified player whose consumed invitation includes the immutable Dedicated Server registration grant. */
+        post: operations["issueGameServerRegistrationToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/game-servers": {
         parameters: {
             query?: never;
@@ -1254,6 +1288,23 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["heartbeatGameServer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/game-servers/{server_id}/credential/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Rotates the node-specific runtime token. The old token remains valid only for the configured short overlap window so a lost response can be retried safely. */
+        post: operations["rotateGameServerCredential"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2674,6 +2725,24 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
         };
+        AdminGameServerRegistrationTokenCreateRequest: {
+            instance_id: string;
+            /** @default 24 */
+            expires_in_hours: number;
+            reason: string;
+        };
+        AdminGameServerRegistrationToken: {
+            registration_id: string;
+            instance_id: string;
+            /** @description Plaintext secret returned only in this creation response. */
+            registration_token: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        AdminGameServerRegistrationTokenCreateResponse: {
+            data: components["schemas"]["AdminGameServerRegistrationToken"];
+            request_id: string;
+        };
         AdminGameServerResponse: {
             data: components["schemas"]["AdminGameServer"];
             request_id: string;
@@ -3093,6 +3162,20 @@ export interface components {
         };
         /** @enum {string} */
         GameServerState: "STARTING" | "READY" | "RESERVED" | "RUNNING" | "DRAINING" | "UNHEALTHY" | "OFFLINE";
+        GameServerRegistrationTokenRequest: {
+            instance_id: string;
+        };
+        GameServerRegistrationTokenData: {
+            registration_id: string;
+            instance_id: string;
+            registration_token: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        GameServerRegistrationTokenResponse: {
+            data: components["schemas"]["GameServerRegistrationTokenData"];
+            request_id: string;
+        };
         GameServerRegistrationRequest: {
             instance_id: string;
             display_name: string;
@@ -3110,6 +3193,7 @@ export interface components {
             heartbeat_interval_seconds: number;
             /** Format: date-time */
             token_expires_at: string;
+            credential_generation: number;
         };
         GameServerRegistrationResponse: {
             data: components["schemas"]["GameServerRegistrationData"];
@@ -3156,6 +3240,19 @@ export interface components {
         };
         GameServerHeartbeatResponse: {
             data: components["schemas"]["GameServerHeartbeatData"];
+            request_id: string;
+        };
+        GameServerCredentialRotationData: {
+            server_id: string;
+            server_token: string;
+            /** Format: date-time */
+            token_expires_at: string;
+            /** Format: date-time */
+            previous_valid_until: string;
+            credential_generation: number;
+        };
+        GameServerCredentialRotationResponse: {
+            data: components["schemas"]["GameServerCredentialRotationData"];
             request_id: string;
         };
         GameServerDeregistrationResponse: {
@@ -5742,6 +5839,42 @@ export interface operations {
             };
         };
     };
+    adminCreateGameServerRegistrationToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminGameServerRegistrationTokenCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description One-time registration token created. The response must not be cached. */
+            201: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminGameServerRegistrationTokenCreateResponse"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["AdminUnauthorized"];
+            /** @description Administrator lacks permission or a valid MFA step-up proof. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     adminGetGameServer: {
         parameters: {
             query?: never;
@@ -6251,6 +6384,42 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
+    issueGameServerRegistrationToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GameServerRegistrationTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description Registration token issued once. The response must not be cached. */
+            201: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameServerRegistrationTokenResponse"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description A verified active player session or a Dedicated Server invitation grant is missing. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     listGameServers: {
         parameters: {
             query?: {
@@ -6385,6 +6554,30 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+        };
+    };
+    rotateGameServerCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                server_id: components["parameters"]["GameServerID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Runtime credential rotated. The new plaintext token is returned only once. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameServerCredentialRotationResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
     listP2PRooms: {

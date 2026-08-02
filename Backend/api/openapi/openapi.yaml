@@ -1264,6 +1264,36 @@ paths:
           content:
             application/json:
               schema: {$ref: "#/components/schemas/GameServerListResponse"}
+  /v1/admin/game-servers/registration-tokens:
+    post:
+      operationId: adminCreateGameServerRegistrationToken
+      tags: [Admin]
+      x-internal: true
+      description: Creates an instance-bound, single-use Dedicated Server registration token. Any previous unconsumed token for the same instance is revoked. The plaintext token is returned only once.
+      security:
+        - adminAccessToken: []
+          adminStepUpToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminGameServerRegistrationTokenCreateRequest"}
+      responses:
+        "201":
+          description: One-time registration token created. The response must not be cached.
+          headers:
+            Cache-Control:
+              schema: {type: string, const: no-store}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminGameServerRegistrationTokenCreateResponse"}
+        "400": {$ref: "#/components/responses/InvalidRequest"}
+        "401": {$ref: "#/components/responses/AdminUnauthorized"}
+        "403":
+          description: Administrator lacks permission or a valid MFA step-up proof.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ErrorResponse"}
   /v1/admin/game-servers/{server_id}:
     get:
       operationId: adminGetGameServer
@@ -1661,6 +1691,34 @@ paths:
               schema: {$ref: "#/components/schemas/AdminReleaseResponse"}
         "409":
           $ref: "#/components/responses/Conflict"
+  /v1/game-server-registration-tokens:
+    post:
+      operationId: issueGameServerRegistrationToken
+      tags: [Dedicated Servers]
+      description: Issues a short-lived, instance-bound, single-use registration token to a verified player whose consumed invitation includes the immutable Dedicated Server registration grant.
+      security:
+        - playerAccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/GameServerRegistrationTokenRequest"}
+      responses:
+        "201":
+          description: Registration token issued once. The response must not be cached.
+          headers:
+            Cache-Control:
+              schema: {type: string, const: no-store}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/GameServerRegistrationTokenResponse"}
+        "400": {$ref: "#/components/responses/InvalidRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403":
+          description: A verified active player session or a Dedicated Server invitation grant is missing.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ErrorResponse"}
   /v1/game-servers:
     post:
       operationId: registerGameServer
@@ -1774,6 +1832,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /v1/game-servers/{server_id}/credential/rotate:
+    post:
+      operationId: rotateGameServerCredential
+      tags: [Dedicated Servers]
+      description: Rotates the node-specific runtime token. The old token remains valid only for the configured short overlap window so a lost response can be retried safely.
+      security:
+        - gameServerToken: []
+      parameters:
+        - $ref: "#/components/parameters/GameServerID"
+      responses:
+        "200":
+          description: Runtime credential rotated. The new plaintext token is returned only once.
+          headers:
+            Cache-Control:
+              schema: {type: string, const: no-store}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/GameServerCredentialRotationResponse"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
   /v1/p2p-rooms:
     get:
       operationId: listP2PRooms
@@ -3096,7 +3173,8 @@ components:
     gameServerRegistrationToken:
       type: http
       scheme: bearer
-      bearerFormat: Preconfigured Registration Token
+      bearerFormat: One-Time Instance-Bound Registration Token
+      description: Single-use token created by an authorized administrator and bound to the request instance_id.
     gameServerToken:
       type: http
       scheme: bearer
@@ -4025,6 +4103,43 @@ components:
         last_heartbeat_at: {type: string, format: date-time}
         created_at: {type: string, format: date-time}
         updated_at: {type: string, format: date-time}
+    AdminGameServerRegistrationTokenCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [instance_id, expires_in_hours, reason]
+      properties:
+        instance_id:
+          type: string
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+        expires_in_hours:
+          type: integer
+          minimum: 1
+          maximum: 168
+          default: 24
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+    AdminGameServerRegistrationToken:
+      type: object
+      additionalProperties: false
+      required: [registration_id, instance_id, registration_token, expires_at]
+      properties:
+        registration_id: {type: string, pattern: "^gsrt_[a-f0-9]{32}$"}
+        instance_id: {type: string}
+        registration_token:
+          type: string
+          pattern: "^gsr_[A-Za-z0-9_-]{64}$"
+          writeOnly: true
+          description: Plaintext secret returned only in this creation response.
+        expires_at: {type: string, format: date-time}
+    AdminGameServerRegistrationTokenCreateResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/AdminGameServerRegistrationToken"}
+        request_id: {type: string}
     AdminGameServerResponse:
       type: object
       required: [data, request_id]
@@ -4612,12 +4727,41 @@ components:
     GameServerState:
       type: string
       enum: [STARTING, READY, RESERVED, RUNNING, DRAINING, UNHEALTHY, OFFLINE]
+    GameServerRegistrationTokenRequest:
+      type: object
+      additionalProperties: false
+      required: [instance_id]
+      properties:
+        instance_id:
+          type: string
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    GameServerRegistrationTokenData:
+      type: object
+      additionalProperties: false
+      required: [registration_id, instance_id, registration_token, expires_at]
+      properties:
+        registration_id: {type: string, pattern: "^gsrt_[a-f0-9]{32}$"}
+        instance_id: {type: string}
+        registration_token:
+          type: string
+          pattern: "^gsr_[A-Za-z0-9_-]{64}$"
+          writeOnly: true
+        expires_at: {type: string, format: date-time}
+    GameServerRegistrationTokenResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/GameServerRegistrationTokenData"}
+        request_id: {type: string}
     GameServerRegistrationRequest:
       type: object
       additionalProperties: false
       required: [instance_id, display_name, region, mode, version, public_host, public_port, max_players]
       properties:
-        instance_id: {type: string, maxLength: 128}
+        instance_id:
+          type: string
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
         display_name: {type: string, maxLength: 128}
         region: {type: string, maxLength: 64}
         mode: {type: string, maxLength: 64}
@@ -4629,12 +4773,13 @@ components:
         max_players: {type: integer, minimum: 1, maximum: 256}
     GameServerRegistrationData:
       type: object
-      required: [server_id, server_token, heartbeat_interval_seconds, token_expires_at]
+      required: [server_id, server_token, heartbeat_interval_seconds, token_expires_at, credential_generation]
       properties:
         server_id: {type: string}
         server_token: {type: string}
         heartbeat_interval_seconds: {type: integer, minimum: 1}
         token_expires_at: {type: string, format: date-time}
+        credential_generation: {type: integer, minimum: 1}
     GameServerRegistrationResponse:
       type: object
       required: [data, request_id]
@@ -4710,6 +4855,23 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/GameServerHeartbeatData"
+        request_id: {type: string}
+    GameServerCredentialRotationData:
+      type: object
+      additionalProperties: false
+      required: [server_id, server_token, token_expires_at, previous_valid_until, credential_generation]
+      properties:
+        server_id: {type: string}
+        server_token: {type: string, writeOnly: true}
+        token_expires_at: {type: string, format: date-time}
+        previous_valid_until: {type: string, format: date-time}
+        credential_generation: {type: integer, minimum: 2}
+    GameServerCredentialRotationResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/GameServerCredentialRotationData"}
         request_id: {type: string}
     GameServerDeregistrationResponse:
       type: object

@@ -35,7 +35,7 @@ Admin API 不使用玩家矩阵，也绝不接受 Player Access Token。`/v1/adm
 | 风险 | `risk_events.read` | `risk_events.resolve` |
 | 邀请码 | `invite_codes.read` | `invite_codes.create`, `invite_codes.update`, `invite_codes.revoke` |
 | 房间 | `rooms.read` | `rooms.close`, `rooms.remove_member` |
-| Dedicated Server | `game_servers.read` | `game_servers.drain`, `game_servers.disable` |
+| Dedicated Server | `game_servers.read` | `game_servers.register`, `game_servers.drain`, `game_servers.disable` |
 | 中继节点 | `relay_nodes.read` | `relay_nodes.drain`, `relay_nodes.resume`, `relay_nodes.revoke`, `relay_nodes.rotate_certificate` |
 | Connection | `connections.read` | `connections.migrate`, `connections.close` |
 | 客户端发布 | `updates.read` | `updates.create`, `updates.publish`, `updates.rollback`（也用于归档非发布版本） |
@@ -49,6 +49,6 @@ Dedicated Server 的 BattleLog 上报不是管理员权限，而是使用仅限�
 `meta.battlelog.write` Game Server Token scope。玩家资格复用名单预留时固化的
 `unverified`、`verified`、`trusted` 认证等级；游戏原始快照不能声明或提升认证等级。
 
-撤销中继节点、正式发布/回滚/归档、管理员创建/更新/MFA 重置、角色改权、系统设置更新及所有 MetaServer 管理写操作还必须提供与当前管理员 Session 绑定的短时 `X-Admin-Step-Up` 凭证。每个写操作必须填写原因并由后端写入审计。最后一个有效 `SUPER_ADMIN` 与 `SUPER_ADMIN` 权限集另有服务端不变量保护。
+创建 Dedicated Server 注册 Token、撤销中继节点、正式发布/回滚/归档、管理员创建/更新/MFA 重置、角色改权、系统设置更新及所有 MetaServer 管理写操作还必须提供与当前管理员 Session 绑定的短时 `X-Admin-Step-Up` 凭证。每个写操作必须填写原因并由后端写入审计。最后一个有效 `SUPER_ADMIN` 与 `SUPER_ADMIN` 权限集另有服务端不变量保护。
 
 Refresh Token 每次使用都会 rotation。旧 Token 对应的 session 行保留为已轮换状态；再次使用旧 Token 会撤销整个 `token_family_id` 下的 session，并记录 `REFRESH_TOKEN_REUSE` 审计事件。

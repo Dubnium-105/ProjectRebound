@@ -775,7 +775,11 @@ func (r *Repository) AuthenticateGameServer(
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, token_scopes
 		FROM game_servers
-		WHERE id = $1 AND server_token_hash = $2
+		WHERE id = $1
+		  AND (
+			server_token_hash = $2 OR
+			(previous_server_token_hash = $2 AND previous_token_expires_at > $3)
+		  )
 		  AND token_revoked_at IS NULL AND token_expires_at > $3
 		  AND state IN ('READY', 'RESERVED', 'RUNNING')
 		  AND last_heartbeat_at > $4

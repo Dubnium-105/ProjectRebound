@@ -3,6 +3,8 @@
 English | [简体中文](README.zh-CN.md)
 
 - [System overview](overview.md): components, trust boundaries, control flow, and data flow;
+- [Complete P2P online architecture](online-architecture.md): rooms, connection coordination, direct paths, Relay, BattleLog, state machines, deployment, and current implementation boundaries;
+- [Community VNT node online target architecture](vnt-community-online-architecture.md): community nodes, room isolation, VNT bootstrap, ToolBox/VNT-Node, security boundaries, and migration from the current Relay path;
 - [Authentication and sessions](authentication.md): player identity, token rotation, and risk controls;
 - [Relay protocol V2](relay-protocol.md): UDP BIND, authenticated packets, and MTU;
 - [Relay failure migration](relay-migration.md): state machine, events, and consistency boundaries;

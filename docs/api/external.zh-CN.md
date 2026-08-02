@@ -44,8 +44,8 @@
 | --- | --- | --- | --- |
 | Player Access Token | `Authorization: Bearer <jwt>` | `/v1/auth/bind` 或 `/refresh` | 玩家写操作、个人资料、连接/WebSocket |
 | Refresh Token | JSON 字段 `refresh_token` | bind/refresh | 轮换 Access Token；每次使用后旧值失效 |
-| Game Server Registration Token | `Authorization: Bearer <token>` | 运维预配置 | 注册 Dedicated Server |
-| Game Server Token | `Authorization: Bearer <token>` | 注册响应，仅返回一次 | 对应 Server 心跳和注销 |
+| Game Server Registration Token | `Authorization: Bearer <token>` | 具有不可变专服邀请资格的已验证玩家调用 `/v1/game-server-registration-tokens`，仅返回一次 | 仅注册对应的一台 Dedicated Server |
+| Game Server Token | `Authorization: Bearer <token>` | 注册或凭证轮转响应，仅返回一次 | 对应 Server 的心跳、轮转和注销 |
 | Room Host Token | `X-Room-Host-Token: <token>` | 创建房间响应，仅返回一次 | 房主心跳、启动和关闭 |
 
 `account_status=BANNED` 的玩家仍可 bind、refresh、logout 和读取本人资料，但不能执行房间或连接写操作。未提交 `encrypted_ticket` 的旧客户端仍可 bind，但只获得 `unverified` 会话；有效 Steam Encrypted App Ticket 会建立 `verified` 会话。游戏、房间、连接和 MetaServer 操作只允许 verified 会话。
@@ -111,13 +111,17 @@ verified bind 的 `data.integrity_challenge.nonce` 包含首次一次性 challen
 
 | 方法 | 路径 | 鉴权 | 请求/查询 | 成功 |
 | --- | --- | --- | --- | --- |
+| POST | `/v1/game-server-registration-tokens` | 已验证 Player Access Token + 已消费的专服邀请资格 | `instance_id` | 201 单次 `registration_token` |
 | POST | `/v1/game-servers` | Registration Token | `instance_id`, `display_name`, `region`, `mode`, `version`, `public_host`, `public_port`, `max_players` | 201 Server + 一次性 `server_token` |
 | GET | `/v1/game-servers` | 无 | `region`, `mode`, `version`, `state`, `cursor`, `limit` | 200 公共目录 |
 | GET | `/v1/game-servers/{server_id}` | 无 | — | 200 公共状态 |
 | POST | `/v1/game-servers/{server_id}/heartbeat` | 对应 Server Token | `state`, `player_count` | 200 状态与下一次心跳信息 |
+| POST | `/v1/game-servers/{server_id}/credential/rotate` | 当前或短暂重叠期内的上一 Server Token | — | 200 新 `server_token`、有效期、代数和重叠截止时间 |
 | DELETE | `/v1/game-servers/{server_id}` | 对应 Server Token | — | 200 注销并撤销 token |
 
-`instance_id` 注册是幂等的。Server Token 只能管理响应中的 `server_id`。建议每 15 秒心跳；默认 45 秒转 `UNHEALTHY`，90 秒转 `OFFLINE`。公共响应不包含 token hash、内部审计字段或其他服务器秘密。
+专服邀请码在注册者完成已验证 Steam bind 时消费，其不可变权限快照必须包含 `allow_game_server_registration: true`；之后修改邀请码不能追溯扩权。已验证玩家随后可为一个 `instance_id` 签发 10 分钟有效的 Registration Token。注册会在同一事务内原子消费它，将新实例绑定到该玩家，并返回节点专属 Server Token；其他玩家不能抢占同一实例 ID。
+
+Server Token 默认有效 24 小时。节点通过 `/v1/game-servers/{server_id}/credential/rotate` 自助轮转；旧 Token 只保留 60 秒重叠期，以便轮转响应丢失后重试。Control Plane 与 MetaServer 共用当前/重叠凭证状态。数据库只保存哈希，所有明文凭证都仅返回一次并带 `Cache-Control: no-store`。建议每 15 秒心跳；默认 45 秒转 `UNHEALTHY`，90 秒转 `OFFLINE`。
 
 ### 3.4 P2P 房间
 

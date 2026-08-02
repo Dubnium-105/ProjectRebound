@@ -44,8 +44,8 @@ The client can send `X-Request-Id`, but the server will verify and normalize it;
 | --- | --- | --- | --- |
 | Player Access Token | `Authorization: Bearer <jwt>` |`/v1/auth/bind` or `/refresh`|Player write operations, personal information, connection/WebSocket|
 | Refresh Token | JSON field `refresh_token` | Bind/refresh response | Rotate the Access Token; the previous value expires after each use |
-| Game Server Registration Token | `Authorization: Bearer <token>` | Preconfigured by operators | Register a Dedicated Server |
-| Game Server Token | `Authorization: Bearer <token>` | Registration response; returned only once | Server heartbeat and deregistration |
+| Game Server Registration Token | `Authorization: Bearer <token>` | A verified player with an immutable Dedicated Server invite grant calls `/v1/game-server-registration-tokens`; returned only once | Register exactly one Dedicated Server instance |
+| Game Server Token | `Authorization: Bearer <token>` | Registration or credential-rotation response; returned only once | Server heartbeat, credential rotation, and deregistration |
 | Room Host Token | `X-Room-Host-Token: <token>` | Room-creation response; returned only once | Host heartbeat, start, and shutdown operations |
 
 Players at `account_status=BANNED` can still bind, refresh, logout, and read personal data, but cannot perform room or connection write operations. A bind without `encrypted_ticket` remains compatible and issues an `unverified` session. A valid Steam Encrypted App Ticket issues a `verified` session; only verified sessions can perform game, room, connection, and MetaServer operations.
@@ -111,13 +111,17 @@ The session list returns only the session ID, a four-character device display su
 
 |method|path|Authentication|Request/Query|success|
 | --- | --- | --- | --- | --- |
+| POST | `/v1/game-server-registration-tokens` | Verified Player Access Token + consumed Dedicated Server invitation grant | `instance_id` | 201 single-use `registration_token` |
 | POST | `/v1/game-servers` | Registration Token | `instance_id`, `display_name`, `region`, `mode`, `version`, `public_host`, `public_port`, `max_players` | 201 Server + one-time `server_token` |
 | GET | `/v1/game-servers` | None | `region`, `mode`, `version`, `state`, `cursor`, `limit` | 200 public directory |
 | GET | `/v1/game-servers/{server_id}` |none| — |200 public status|
 | POST | `/v1/game-servers/{server_id}/heartbeat` |Corresponding Server Token| `state`, `player_count` |200 status and next heartbeat information|
+| POST | `/v1/game-servers/{server_id}/credential/rotate` | Current or briefly overlapping previous Server Token | — | 200 replacement `server_token`, expiry, generation, and overlap deadline |
 | DELETE | `/v1/game-servers/{server_id}` | Corresponding Server Token | — | 200 deregister and revoke token |
 
-`instance_id` registration is idempotent. Server Token can only manage `server_id` in the response. It is recommended to heartbeat every 15 seconds; the default is 45 seconds to `UNHEALTHY` and 90 seconds to `OFFLINE`. Public responses do not contain token hashes, internal audit fields, or other server secrets.
+A Dedicated Server invitation is consumed during the registrant's verified Steam bind. Its immutable permission snapshot must contain `allow_game_server_registration: true`; changing the invitation later cannot retroactively grant this capability. The verified player may then mint a ten-minute Registration Token for one `instance_id`. Registration consumes it atomically, binds a new instance to that player, returns a node-specific Server Token, and prevents another player from claiming the same instance ID.
+
+Server Tokens default to a 24-hour lifetime. A node rotates its credential with `/v1/game-servers/{server_id}/credential/rotate`; the old token remains valid for only 60 seconds so a lost rotation response can be retried. The Control Plane and MetaServer accept the same current/overlap credential state. Tokens are stored only as hashes and every plaintext value is returned once with `Cache-Control: no-store`. A heartbeat is recommended every 15 seconds; the default is 45 seconds to `UNHEALTHY`, and 90 seconds to `OFFLINE`.
 
 ### 3.4 P2P Room
 

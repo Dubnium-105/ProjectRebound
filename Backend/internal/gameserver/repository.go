@@ -16,16 +16,16 @@ type Repository struct {
 
 func NewRepository(pool *pgxpool.Pool) *Repository { return &Repository{pool: pool} }
 
-func (r *Repository) Register(ctx context.Context, input Server) (Server, error) {
-	row := r.pool.QueryRow(ctx, `
+func (r *Repository) Register(ctx context.Context, tx pgx.Tx, input Server) (Server, error) {
+	row := tx.QueryRow(ctx, `
 		INSERT INTO game_servers (
-			id, instance_id, display_name, region, mode, version,
+			id, instance_id, owner_player_id, display_name, region, mode, version,
 			public_host, public_port, max_players, player_count, state,
 			server_token_hash, registration_issuer, token_expires_at,
 			last_heartbeat_at, created_at, updated_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, 0, 'STARTING',
-			$10, $11, $12, $13, $13, $13
+			$1, $2, NULLIF($3, ''), $4, $5, $6, $7, $8, $9, $10, 0, 'STARTING',
+			$11, $12, $13, $14, $14, $14
 		)
 		ON CONFLICT (instance_id) DO UPDATE SET
 			display_name = EXCLUDED.display_name,
@@ -41,10 +41,17 @@ func (r *Repository) Register(ctx context.Context, input Server) (Server, error)
 			registration_issuer = EXCLUDED.registration_issuer,
 			token_expires_at = EXCLUDED.token_expires_at,
 			token_revoked_at = NULL,
+			previous_server_token_hash = NULL,
+			previous_token_expires_at = NULL,
+			credential_generation = game_servers.credential_generation + 1,
 			last_heartbeat_at = EXCLUDED.last_heartbeat_at,
 			updated_at = EXCLUDED.updated_at
+		WHERE (
+			game_servers.owner_player_id = EXCLUDED.owner_player_id OR
+			(game_servers.owner_player_id IS NULL AND EXCLUDED.owner_player_id IS NULL)
+		)
 		RETURNING `+serverColumns,
-		input.ID, input.InstanceID, input.DisplayName, input.Region, input.Mode,
+		input.ID, input.InstanceID, input.OwnerPlayerID, input.DisplayName, input.Region, input.Mode,
 		input.Version, input.PublicHost, input.PublicPort, input.MaxPlayers,
 		input.ServerTokenHash, input.RegistrationIssuer, input.TokenExpiresAt,
 		input.LastHeartbeatAt,
@@ -98,10 +105,35 @@ func (r *Repository) GetForManagement(ctx context.Context, tx pgx.Tx, serverID s
 	return scanServer(tx.QueryRow(ctx, `
 		SELECT `+serverColumns+`
 		FROM game_servers
-		WHERE id = $1 AND server_token_hash = $2
+		WHERE id = $1
+		  AND (
+			server_token_hash = $2 OR
+			(previous_server_token_hash = $2 AND previous_token_expires_at > $3)
+		  )
 		  AND token_revoked_at IS NULL AND token_expires_at > $3
 		FOR UPDATE
 	`, serverID, tokenHash, now))
+}
+
+func (r *Repository) RotateCredential(
+	ctx context.Context,
+	tx pgx.Tx,
+	serverID string,
+	newTokenHash []byte,
+	newExpiresAt, previousValidUntil, now time.Time,
+) (Server, error) {
+	return scanServer(tx.QueryRow(ctx, `
+		UPDATE game_servers
+		SET previous_server_token_hash = server_token_hash,
+		    previous_token_expires_at = $3,
+		    server_token_hash = $2,
+		    token_expires_at = $4,
+		    credential_generation = credential_generation + 1,
+		    updated_at = $5
+		WHERE id = $1 AND token_revoked_at IS NULL
+		RETURNING `+serverColumns,
+		serverID, newTokenHash, previousValidUntil, newExpiresAt, now,
+	))
 }
 
 func (r *Repository) UpdateHeartbeat(ctx context.Context, tx pgx.Tx, serverID string, state State, playerCount int, now time.Time) (Server, error) {
@@ -117,7 +149,9 @@ func (r *Repository) UpdateHeartbeat(ctx context.Context, tx pgx.Tx, serverID st
 func (r *Repository) Deregister(ctx context.Context, tx pgx.Tx, serverID string, now time.Time) error {
 	_, err := tx.Exec(ctx, `
 		UPDATE game_servers
-		SET state = 'OFFLINE', token_revoked_at = $2, updated_at = $2
+		SET state = 'OFFLINE', token_revoked_at = $2,
+		    previous_server_token_hash = NULL, previous_token_expires_at = NULL,
+		    updated_at = $2
 		WHERE id = $1
 	`, serverID, now)
 	if err != nil {
@@ -144,18 +178,20 @@ func (r *Repository) SweepStale(ctx context.Context, now time.Time, unhealthyAft
 }
 
 const serverColumns = `
-	id, instance_id, display_name, region, mode, version,
+	id, instance_id, COALESCE(owner_player_id, ''), display_name, region, mode, version,
 	public_host, public_port, max_players, player_count, state,
-	server_token_hash, registration_issuer, token_expires_at,
+	server_token_hash, previous_server_token_hash, registration_issuer, token_expires_at,
+	previous_token_expires_at, credential_generation,
 	token_revoked_at, last_heartbeat_at, created_at, updated_at
 `
 
 func scanServer(row pgx.Row) (Server, error) {
 	var item Server
-	var revokedAt sql.NullTime
+	var revokedAt, previousExpiresAt sql.NullTime
 	err := row.Scan(
 		&item.ID,
 		&item.InstanceID,
+		&item.OwnerPlayerID,
 		&item.DisplayName,
 		&item.Region,
 		&item.Mode,
@@ -166,8 +202,11 @@ func scanServer(row pgx.Row) (Server, error) {
 		&item.PlayerCount,
 		&item.State,
 		&item.ServerTokenHash,
+		&item.PreviousServerTokenHash,
 		&item.RegistrationIssuer,
 		&item.TokenExpiresAt,
+		&previousExpiresAt,
+		&item.CredentialGeneration,
 		&revokedAt,
 		&item.LastHeartbeatAt,
 		&item.CreatedAt,
@@ -175,6 +214,9 @@ func scanServer(row pgx.Row) (Server, error) {
 	)
 	if revokedAt.Valid {
 		item.TokenRevokedAt = &revokedAt.Time
+	}
+	if previousExpiresAt.Valid {
+		item.PreviousTokenExpiresAt = &previousExpiresAt.Time
 	}
 	return item, err
 }

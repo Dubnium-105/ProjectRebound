@@ -128,6 +128,7 @@ GET  /v1/admin/p2p-battlelog/matches/{match_id}
 GET  /v1/admin/p2p-battlelog/reports/{evidence_id}/raw
 
 GET  /v1/admin/game-servers
+POST /v1/admin/game-servers/registration-tokens
 GET  /v1/admin/game-servers/{server_id}
 POST /v1/admin/game-servers/{server_id}/drain
 POST /v1/admin/game-servers/{server_id}/resume
@@ -147,7 +148,7 @@ POST /v1/admin/relay-nodes/{node_id}/revoke
 
 读取 P2P BattleLog 标准化证据要求 `p2p.battlelog.read`；独立的原始证据接口要求 `p2p.battlelog.raw.read`，响应强制 `Cache-Control: no-store`，普通运维/客服角色不获得该权限。其报告标识和数据表与专用服务器 BattleLog 完全分离。
 
-所有写操作都必须提交 `reason`；Relay Drain 还可提交 `deadline_seconds` 和 `migrate_existing`。停用专服会将其标记为离线并撤销注册 Token。房间操作返回 `connections_cleanup_complete`；若为 false，说明房间变更已成功，但需按 Runbook 确认下游连接清理。Connection 的 Relay 迁移不接受浏览器提交目标地址或节点，目标由后端调度器从合格的 READY 节点中选择。响应绝不包含房主 Token、节点 Token、Allocation Token、注册 Token 哈希、私钥或完整 ICE Candidate。
+所有写操作都必须提交 `reason`；Relay Drain 还可提交 `deadline_seconds` 和 `migrate_existing`。`POST /v1/admin/game-servers/registration-tokens` 还要求 `game_servers.register` 权限和 MFA Step-up；请求包含 `instance_id` 与 1–168 小时有效期，会撤销该实例之前尚未消费的凭据，只保存 SHA-256 哈希，并仅在带 `Cache-Control: no-store` 的创建响应中返回一次明文 `gsr_...` Token。停用专服会将其标记为离线并撤销 Server Token。房间操作返回 `connections_cleanup_complete`；若为 false，说明房间变更已成功，但需按 Runbook 确认下游连接清理。Connection 的 Relay 迁移不接受浏览器提交目标地址或节点，目标由后端调度器从合格的 READY 节点中选择。其他响应绝不包含房主 Token、节点 Token、Allocation Token、注册 Token 哈希、私钥或完整 ICE Candidate。
 
 ### 3.4 客户端发布管理
 

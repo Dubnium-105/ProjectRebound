@@ -129,13 +129,14 @@ func (r *Repository) Consume(
 	var id string
 	var maxUses, usedCount int
 	var enabled bool
+	var permissions []byte
 	var expiresAt, revokedAt sql.NullTime
 	err := tx.QueryRow(ctx, `
-		SELECT id, max_uses, used_count, enabled, expires_at, revoked_at
+		SELECT id, max_uses, used_count, enabled, expires_at, revoked_at, permissions
 		FROM invite_codes
 		WHERE code_hash = $1
 		FOR UPDATE
-	`, codeHash).Scan(&id, &maxUses, &usedCount, &enabled, &expiresAt, &revokedAt)
+	`, codeHash).Scan(&id, &maxUses, &usedCount, &enabled, &expiresAt, &revokedAt, &permissions)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return ErrInvalidCode
@@ -158,9 +159,10 @@ func (r *Repository) Consume(
 	}
 	_, err = tx.Exec(ctx, `
 		INSERT INTO invite_code_uses (
-			id, invite_code_id, player_id, steam_id, ip_address, used_at, result
-		) VALUES ($1, $2, $3, $4, NULLIF($5, '')::inet, $6, 'SUCCESS')
-	`, newID("icu_"), id, playerID, steamID, ipAddress, now)
+			id, invite_code_id, player_id, steam_id, ip_address, used_at, result,
+			permission_snapshot
+		) VALUES ($1, $2, $3, $4, NULLIF($5, '')::inet, $6, 'SUCCESS', $7::jsonb)
+	`, newID("icu_"), id, playerID, steamID, ipAddress, now, permissions)
 	if err != nil {
 		return fmt.Errorf("record invite code use: %w", err)
 	}

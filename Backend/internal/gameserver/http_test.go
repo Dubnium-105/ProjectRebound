@@ -14,8 +14,14 @@ type stubHTTPService struct {
 	server Server
 }
 
+func (s *stubHTTPService) IssueRegistrationCredential(context.Context, RegistrationCredentialInput) (RegistrationCredentialResult, error) {
+	return RegistrationCredentialResult{}, nil
+}
 func (s *stubHTTPService) Register(context.Context, RegistrationInput, string) (RegistrationResult, error) {
 	return RegistrationResult{}, nil
+}
+func (s *stubHTTPService) RotateCredential(context.Context, string, string) (CredentialRotationResult, error) {
+	return CredentialRotationResult{}, nil
 }
 func (s *stubHTTPService) Heartbeat(context.Context, string, string, HeartbeatInput) (Server, error) {
 	return s.server, nil

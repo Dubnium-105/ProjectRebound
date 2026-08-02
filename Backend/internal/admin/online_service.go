@@ -12,6 +12,7 @@ import (
 
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/connection"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/gameserver"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/gameserverregistration"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/p2proom"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -28,22 +29,25 @@ type RelayConnectionOperator interface {
 }
 
 type OnlineService struct {
-	pool        *pgxpool.Pool
-	audits      *Repository
-	connections RoomConnectionCloser
-	relays      RelayConnectionOperator
-	logger      *slog.Logger
-	now         func() time.Time
+	pool          *pgxpool.Pool
+	audits        *Repository
+	connections   RoomConnectionCloser
+	registrations *gameserverregistration.Repository
+	relays        RelayConnectionOperator
+	logger        *slog.Logger
+	now           func() time.Time
 }
 
 func NewOnlineService(
 	pool *pgxpool.Pool,
 	audits *Repository,
 	connections RoomConnectionCloser,
+	registrations *gameserverregistration.Repository,
 	logger *slog.Logger,
 ) *OnlineService {
 	return &OnlineService{
-		pool: pool, audits: audits, connections: connections, logger: logger, now: time.Now,
+		pool: pool, audits: audits, connections: connections,
+		registrations: registrations, logger: logger, now: time.Now,
 	}
 }
 
@@ -54,6 +58,17 @@ func (s *OnlineService) SetRelayConnectionOperator(operator RelayConnectionOpera
 type OnlineOperationResult[T any] struct {
 	Resource                  T
 	ConnectionCleanupComplete bool
+}
+
+type GameServerRegistrationInput struct {
+	InstanceID     string
+	ExpiresInHours int
+	Reason         string
+}
+
+type GameServerRegistrationResult struct {
+	Credential gameserverregistration.Credential
+	Plaintext  string
 }
 
 type AdministrativeConnection struct {
@@ -606,6 +621,11 @@ func (s *OnlineService) ChangeGameServerState(
 	if err != nil {
 		return gameserver.Server{}, internal(err)
 	}
+	if revokeToken {
+		if _, err := s.registrations.RevokeActiveForInstance(ctx, tx, item.InstanceID, now); err != nil {
+			return gameserver.Server{}, internal(err)
+		}
+	}
 	if err := s.insertOnlineAudit(ctx, tx, meta, action, "game_server", serverID,
 		gameServerAuditValue(oldItem), gameServerAuditValue(item), reason, now); err != nil {
 		return gameserver.Server{}, internal(err)
@@ -614,6 +634,75 @@ func (s *OnlineService) ChangeGameServerState(
 		return gameserver.Server{}, internal(fmt.Errorf("commit administrator game server operation: %w", err))
 	}
 	return item, nil
+}
+
+func (s *OnlineService) CreateGameServerRegistration(
+	ctx context.Context,
+	input GameServerRegistrationInput,
+	meta RequestMeta,
+) (GameServerRegistrationResult, error) {
+	meta, reason, err := validateOnlineOperation(meta, input.Reason)
+	if err != nil {
+		return GameServerRegistrationResult{}, err
+	}
+	input.InstanceID = strings.TrimSpace(input.InstanceID)
+	if !gameserver.ValidInstanceID(input.InstanceID) {
+		return GameServerRegistrationResult{}, &ServiceError{
+			Status: http.StatusBadRequest, Code: "INVALID_REQUEST",
+			Message: "Invalid game server instance ID.",
+			Details: map[string]any{
+				"instance_id": "must contain 1 to 128 supported characters",
+			},
+		}
+	}
+	if input.ExpiresInHours == 0 {
+		input.ExpiresInHours = 24
+	}
+	if input.ExpiresInHours < 1 || input.ExpiresInHours > 168 {
+		return GameServerRegistrationResult{}, &ServiceError{
+			Status: http.StatusBadRequest, Code: "INVALID_REQUEST",
+			Message: "Invalid registration token expiry.",
+			Details: map[string]any{
+				"expires_in_hours": "must be between 1 and 168",
+			},
+		}
+	}
+	plaintext, tokenHash, err := gameserverregistration.GenerateToken()
+	if err != nil {
+		return GameServerRegistrationResult{}, internal(err)
+	}
+	now := s.now().UTC()
+	credential := gameserverregistration.Credential{
+		ID: newID("gsrt_"), InstanceID: input.InstanceID, CreatedBy: meta.AdminID,
+		ExpiresAt: now.Add(time.Duration(input.ExpiresInHours) * time.Hour), CreatedAt: now,
+	}
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return GameServerRegistrationResult{}, internal(err)
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	replaced, err := s.registrations.RevokeActiveForInstance(ctx, tx, credential.InstanceID, now)
+	if err != nil {
+		return GameServerRegistrationResult{}, internal(err)
+	}
+	if err := s.registrations.Insert(ctx, tx, credential, tokenHash); err != nil {
+		return GameServerRegistrationResult{}, internal(err)
+	}
+	if err := s.insertOnlineAudit(
+		ctx, tx, meta, "GAME_SERVER_REGISTRATION_TOKEN_CREATED",
+		"game_server_registration", credential.ID,
+		map[string]any{}, map[string]any{
+			"instance_id":            credential.InstanceID,
+			"expires_at":             credential.ExpiresAt,
+			"replaced_active_tokens": replaced,
+		}, reason, now,
+	); err != nil {
+		return GameServerRegistrationResult{}, internal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return GameServerRegistrationResult{}, internal(fmt.Errorf("commit game server registration token creation: %w", err))
+	}
+	return GameServerRegistrationResult{Credential: credential, Plaintext: plaintext}, nil
 }
 
 func validateOnlineOperation(meta RequestMeta, reasonInput string) (RequestMeta, string, error) {

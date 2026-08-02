@@ -9,12 +9,15 @@ import (
 	"time"
 
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/api"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/auth"
 	"github.com/go-chi/chi/v5"
 )
 
 type HTTPService interface {
+	IssueRegistrationCredential(context.Context, RegistrationCredentialInput) (RegistrationCredentialResult, error)
 	Register(context.Context, RegistrationInput, string) (RegistrationResult, error)
 	Heartbeat(context.Context, string, string, HeartbeatInput) (Server, error)
+	RotateCredential(context.Context, string, string) (CredentialRotationResult, error)
 	Deregister(context.Context, string, string) error
 	Get(context.Context, string) (Server, error)
 	List(context.Context, ListFilter) (ListResult, error)
@@ -41,6 +44,10 @@ type registrationRequest struct {
 	MaxPlayers  int    `json:"max_players"`
 }
 
+type registrationCredentialRequest struct {
+	InstanceID string `json:"instance_id"`
+}
+
 type heartbeatRequest struct {
 	State       State `json:"state"`
 	PlayerCount int   `json:"player_count"`
@@ -64,6 +71,34 @@ type publicServerResponse struct {
 	LastHeartbeatAt time.Time        `json:"last_heartbeat_at"`
 }
 
+func (h *HTTPHandler) IssueRegistrationCredential(w http.ResponseWriter, r *http.Request) {
+	var request registrationCredentialRequest
+	if err := api.DecodeJSON(r, &request); err != nil {
+		api.WriteError(w, r, 400, "INVALID_REQUEST", "Invalid request.", map[string]any{"body": err.Error()})
+		return
+	}
+	principal := auth.PrincipalFromContext(r.Context())
+	playerID := ""
+	if principal != nil {
+		playerID = principal.Player.ID
+	}
+	result, err := h.service.IssueRegistrationCredential(r.Context(), RegistrationCredentialInput{
+		InstanceID: request.InstanceID, PlayerID: playerID,
+	})
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
+	api.WriteData(w, r, http.StatusCreated, map[string]any{
+		"registration_id":    result.Credential.ID,
+		"instance_id":        result.Credential.InstanceID,
+		"registration_token": result.Plaintext,
+		"expires_at":         result.Credential.ExpiresAt,
+	})
+}
+
 func (h *HTTPHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var request registrationRequest
 	if err := api.DecodeJSON(r, &request); err != nil {
@@ -74,7 +109,7 @@ func (h *HTTPHandler) Register(w http.ResponseWriter, r *http.Request) {
 		InstanceID: request.InstanceID, DisplayName: request.DisplayName,
 		Region: request.Region, Mode: request.Mode, Version: request.Version,
 		PublicHost: request.PublicHost, PublicPort: request.PublicPort, MaxPlayers: request.MaxPlayers,
-	}, RegistrationIssuer(r.Context()))
+	}, bearerToken(r))
 	if err != nil {
 		h.writeError(w, r, err)
 		return
@@ -84,6 +119,7 @@ func (h *HTTPHandler) Register(w http.ResponseWriter, r *http.Request) {
 		"server_token":               result.ServerToken,
 		"heartbeat_interval_seconds": result.HeartbeatInterval,
 		"token_expires_at":           result.Server.TokenExpiresAt,
+		"credential_generation":      result.Server.CredentialGeneration,
 	})
 }
 
@@ -103,6 +139,25 @@ func (h *HTTPHandler) Heartbeat(w http.ResponseWriter, r *http.Request) {
 	api.WriteData(w, r, 200, map[string]any{
 		"server":                 toPublicResponse(updated),
 		"next_heartbeat_seconds": h.service.HeartbeatInterval(),
+	})
+}
+
+func (h *HTTPHandler) RotateCredential(w http.ResponseWriter, r *http.Request) {
+	result, err := h.service.RotateCredential(
+		r.Context(), chi.URLParam(r, "server_id"), bearerToken(r),
+	)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
+	api.WriteData(w, r, http.StatusOK, map[string]any{
+		"server_id":             result.ServerID,
+		"server_token":          result.ServerToken,
+		"token_expires_at":      result.TokenExpiresAt,
+		"previous_valid_until":  result.PreviousValidUntil,
+		"credential_generation": result.CredentialGeneration,
 	})
 }
 
