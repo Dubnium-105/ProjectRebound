@@ -24,7 +24,7 @@ envelope：
 | 方法和路径 | 请求 | 响应 `data` |
 | --- | --- | --- |
 | `GET /health/live` | 无 | 进程存活 |
-| `GET /health/ready` | 无 | PostgreSQL、Redis 和 28 号迁移 readiness |
+| `GET /health/ready` | 无 | PostgreSQL、Redis 和 35 号迁移 readiness |
 | `GET /` | 无 | 服务/协议及动态 Relay 兼容列表 |
 | `GET /v1/meta/regions` | 无 | 区域及 `qos_endpoints[]` |
 | `GET /v1/meta/playlists` | 无 | 按 `sort_order` 排序的已启用 playlist |

@@ -26,7 +26,7 @@ player IDs are never accepted as identity.
 | Method and path | Request | Response `data` |
 | --- | --- | --- |
 | `GET /health/live` | none | process liveness |
-| `GET /health/ready` | none | PostgreSQL, Redis, and migration 28 readiness |
+| `GET /health/ready` | none | PostgreSQL, Redis, and migration 35 readiness |
 | `GET /` | none | service/protocol and dynamic Relay server compatibility list |
 | `GET /v1/meta/regions` | none | `items[]` containing region and `qos_endpoints[]` |
 | `GET /v1/meta/playlists` | none | enabled playlists ordered by `sort_order` |

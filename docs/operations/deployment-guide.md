@@ -135,11 +135,11 @@ GOSUMDB=sum.golang.org https://sum.golang.google.cn
 
 ## 4. Select publishing source
 
-For production environments, use the immutable GHCR image produced by GitHub Actions. CI publishes a `sha-<40-character-commit>` image for the control plane and edge nodes. The Deploy workflow transfers only a small release bundle containing Compose, verification, and rollback scripts, then pulls the image. The target machine does not need Go, a build cache, or a permanent clone of the complete Git repository.
+For production environments, use the immutable GHCR image produced by GitHub Actions. CI publishes `sha-<40-character-commit>` images for the Control Plane, MetaServer, and Edge Relay. The Deploy workflow transfers only a small release bundle containing Compose, verification, and rollback scripts, then pulls the selected image. The target machine does not need Go, a build cache, or a permanent clone of the complete Git repository.
 
-Both deployment portals support `DEPLOY_SOURCE`:
+The deployment entry points support `DEPLOY_SOURCE`:
 
-- `ci`: requires `CONTROL_PLANE_IMAGE` or `EDGE_RELAY_IMAGE` to be `ghcr.io/...:sha-<40-character-commit>` and only pulls the CI image;
+- `ci`: requires the applicable `CONTROL_PLANE_IMAGE`, `META_SERVER_IMAGE`, or `EDGE_RELAY_IMAGE` to be `ghcr.io/...:sha-<40-character-commit>` and only pulls the CI image;
 - `source`: Execute Docker Compose/BuildKit native build using the currently checked out source code;
 - `auto` (default): Use `ci` when a valid GHCR SHA image is detected, otherwise use `source`.
 
@@ -164,6 +164,15 @@ chmod 600 deployments/control-plane/.env
 ```
 
 The generator creates independent Ed25519 Access Tokens, Relay Tokens, update signing keys, a device-fingerprint HMAC key, and separate ten-year Relay and Game Server CAs. It does not overwrite the existing `.env`, nor does it output the key text. Preserve `GAME_SERVER_CA_*` across rebuilds; replacing it prevents existing Dedicated Server certificates from being renewed normally.
+
+Before deploying a release that supports certificate-backed Dedicated Servers, check an existing environment without printing either secret:
+
+```bash
+env_file=deployments/control-plane/.env
+test "$(grep -Ec '^GAME_SERVER_CA_(CERT|KEY)_PEM_BASE64=[A-Za-z0-9+/=]+$' "$env_file")" -eq 2
+```
+
+If the check fails, generate a separate Game Server CA through the approved secret ceremony and add both values before deployment. Do not replace the complete environment file or reuse the Relay CA. Production Compose rejects a missing pair before changing the running release. The legacy `GAME_SERVER_REGISTRATION_TOKENS` variable is no longer read; remove it from old environments after confirming that all nodes use database-backed, instance-bound Registration Tokens.
 
 Edit `deployments/control-plane/.env`:
 
@@ -199,7 +208,7 @@ The deployment script will:
 2. Force `.env` permission to `600`;
 3. Verify Compose;
 4. Pull the CI control plane image and start PostgreSQL, Redis, control plane, Caddy, Prometheus, and Grafana;
-5. Wait for `/health/ready`;
+5. Apply the current database migrations and wait for `/health/ready`;
 6. Output a restricted tail log and return a non-zero status on failure.
 
 When the native monitoring stack is not required:

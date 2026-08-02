@@ -15,7 +15,7 @@
 
 ## Readiness 失败
 
-- PostgreSQL：确认 28 号迁移已应用且受限 Meta 角色权限仍在；不得通过授予全 schema
+- PostgreSQL：确认 35 号迁移已应用且受限 Meta 角色权限仍在；不得通过授予全 schema
   写权限绕过。
 - Redis：确认 `projectrebound-meta` ACL 用户启用且只能访问 `meta:*`。Redis 重启会
   使未消费 Gate Ticket 失效，客户端需要重新申请会话。

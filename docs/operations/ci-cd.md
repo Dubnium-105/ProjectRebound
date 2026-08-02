@@ -118,7 +118,7 @@ MetaServer Environment additional variables:
 | --- | --- |
 | `CONTROL_PLANE_ENV_FILE` | `/etc/projectrebound/control-plane.env` |
 | `CONTROL_PLANE_COMPOSE_OVERRIDE_FILE` | `/etc/projectrebound/docker-compose.production.yaml` |
-| `META_PUBLIC_BASE_URL` | `https://meta.dubnium.top` |
+| `META_PUBLIC_BASE_URL` | `https://meta.project-rebound.space` |
 
 The MetaServer Environment may point at the same control host, but it remains a
 separate approval/concurrency/rollback target. A failed Meta deployment rolls
@@ -280,7 +280,7 @@ Dependabot checks GitHub Actions major tag updates weekly. When security require
 - SSH host verification failed: Recheck the host key through the trusted channel, do not disable `StrictHostKeyChecking`.
 - Remote pull denied: Check whether the GHCR account in Environment has `read:packages`.
 - Control deploy failed: View workflow backup results, health checks, and `ROLLBACK_OK/FAILED`.
-- Meta deploy failed: inspect migration-28 readiness, restricted PostgreSQL/Redis provisioning, and Logic/HTTP ports; its rollback must not restart control-plane.
+- Meta deploy failed: inspect migration-35 readiness, restricted PostgreSQL/Redis provisioning, and Logic/HTTP ports; its rollback must not restart control-plane.
 - Edge deploy failed: Check for 443 enrollment, 9090 mTLS and UDP advertised endpoints; do not delete the identity volume as a first reaction.
 
 GitHub official reference:

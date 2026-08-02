@@ -27,7 +27,7 @@ The wrapper and test always request Compose volume/orphan cleanup. If the proces
 
 ## Encrypted PostgreSQL restore drill
 
-The restore drill creates two unrelated PostgreSQL 17 containers. It migrates and seeds the source, including deliberately active room/connection/Relay records, runs the production backup, checksum, encryption, verification, and restore scripts, then verifies schema version 16, all 22 application table names in the current schema, the fixture player, backup/restore metrics, and migration idempotency against the fresh target. The production restore transaction must also close the restored room, fail the restored connection/allocation, mark the Relay OFFLINE, and reset active member/allocation counts so ephemeral live state cannot be resurrected from a snapshot.
+The restore drill creates two unrelated PostgreSQL 17 containers. It migrates and seeds the source, including deliberately active room/connection/Relay records, runs the production backup, checksum, encryption, verification, and restore scripts, then verifies that the restored schema reaches the latest migration file, checks 22 core recovery-invariant tables, restores the fixture player and backup/restore metrics, and reruns migration idempotency against the fresh target. The production restore transaction must also close the restored room, fail the restored connection/allocation, mark the Relay OFFLINE, and reset active member/allocation counts so ephemeral live state cannot be resurrected from a snapshot.
 
 It requires matching PostgreSQL client tools, `age`, and Docker:
 

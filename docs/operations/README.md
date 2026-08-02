@@ -9,6 +9,7 @@ English | [简体中文](README.zh-CN.md)
 - [CI/CD](ci-cd.md): GitHub Actions, immutable GHCR artifacts, and environments;
 - [Release and rollback](release-and-rollback.md): control-plane release and one-at-a-time Relay rollout.
 - [MetaServer deployment](metaserver-deployment.md): separate control host, public gateway, Relay, client, and rollback checklist;
+- [Dedicated Server registration](dedicated-server-registration.md): invitation/grant verification, one-time enrollment, Windows Agent, and rotating node identity;
 - [Admin Web operator guide](admin-console-user-guide.md): sign-in, player, online, release, governance, and audit workflows;
 - [Admin Web security guide](admin-console-security.md): access layers, secret boundaries, administrator lifecycle, and security checks.
 

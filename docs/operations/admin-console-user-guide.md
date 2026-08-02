@@ -22,6 +22,8 @@ Invitation plaintext is a one-time response. Store or export it to an approved l
 
 Drain servers or relays before disruptive work. Connection relay migration never accepts an operator-supplied address; the backend scheduler selects an eligible `READY` node. Relay revoke requires fresh MFA step-up.
 
+To enroll a Dedicated Server, use **Online / Dedicated Servers / Add server**. The operator needs `game_servers.register`, must complete a fresh MFA step-up, and must provide a stable instance ID, a 1–168 hour expiry, and an audit reason. The plaintext Registration Token is displayed once. Transfer it to only the matching server, confirm safe receipt before closing the dialog, and never put it in Git, logs, chat, or the reason field. Issuing another token for the same instance immediately revokes the previous unconsumed token. Continue with the [Dedicated Server registration guide](dedicated-server-registration.md).
+
 ### Client releases
 
 Create a `DRAFT`, run every manifest, server-side object `HEAD`, and file check, and publish only from `READY`. Publish and rollback require a reason and MFA; rollback preserves history. `DRAFT`, `READY`, and `ROLLED_BACK` releases can be archived with the rollback permission and MFA, while `PUBLISHED` must be rolled back first.

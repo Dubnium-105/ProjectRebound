@@ -142,6 +142,8 @@ Windows Dedicated Server Wrapper 会调用 `game-server-agent.exe` 完成注册�
 
 `serverId` 必须等于 Registration Token 绑定的 `instance_id`。生成 `game-server-identity-<serverId>.json` 后应从配置中删除 `registrationToken`；它此时已经消费。身份文件包含节点私钥和轮转中的运行 Token，必须限制访问并备份。
 
+完整的签发、构建、Wrapper 参数、回退、ACL、轮转和生产 CA 流程见[Dedicated Server 注册与运行身份](../operations/dedicated-server-registration.zh-CN.md)。
+
 ### 3.4 P2P 房间
 
 | 方法 | 路径 | 鉴权 | 请求/附加 Header | 成功 |

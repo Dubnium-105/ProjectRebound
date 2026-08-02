@@ -118,7 +118,7 @@ MetaServer Environment 额外 Variables：
 | --- | --- |
 | `CONTROL_PLANE_ENV_FILE` | `/etc/projectrebound/control-plane.env` |
 | `CONTROL_PLANE_COMPOSE_OVERRIDE_FILE` | `/etc/projectrebound/docker-compose.production.yaml` |
-| `META_PUBLIC_BASE_URL` | `https://meta.dubnium.top` |
+| `META_PUBLIC_BASE_URL` | `https://meta.project-rebound.space` |
 
 MetaServer Environment 可以指向同一控制面主机，但审批、concurrency 和回滚仍独立。
 Meta 部署失败只回滚自身镜像，不重启 control-plane 服务。
@@ -277,7 +277,7 @@ Dependabot 每周检查 GitHub Actions major tag 更新。安全要求更高时�
 - SSH host verification failed：重新通过可信通道核对 host key，不要禁用 `StrictHostKeyChecking`。
 - Remote pull denied：检查 Environment 中 GHCR 账号是否有 `read:packages`。
 - Control deploy failed：查看 workflow 的备份结果、健康检查和 `ROLLBACK_OK/FAILED`。
-- Meta deploy failed：检查 28 号迁移 readiness、受限 PostgreSQL/Redis provisioning 及 Logic/HTTP 端口；回滚不得重启 control-plane。
+- Meta deploy failed：检查 35 号迁移 readiness、受限 PostgreSQL/Redis provisioning 及 Logic/HTTP 端口；回滚不得重启 control-plane。
 - Edge deploy failed：检查 443 enrollment、9090 mTLS 和 UDP advertised endpoint；不要删除 identity volume 作为第一反应。
 
 GitHub 官方参考：

@@ -14,6 +14,16 @@ Final DNS:
 - `logic.dubnium.top`: A record to the same gateway, DNS-only/gray cloud so a
   normal TLS TCP client can connect directly.
 
+The production GitHub Environment currently uses
+`https://meta.project-rebound.space` for deployment verification, while the
+repository's MetaTunnel, MetaServer response, gateway, and monitoring defaults
+still use `meta.dubnium.top` and `logic.dubnium.top` for client compatibility.
+Both HTTPS names must remain healthy during this compatibility period. Do not
+change the Logic hostname on only one side: MetaTunnel verifies that exact TLS
+server name. A canonical-domain migration must update the client defaults,
+Control Plane/MetaServer configuration, OpenAPI examples, gateway SNI rules,
+certificates, and monitoring in one release.
+
 Do not expose 6968, 6969, 8000, 8081, 9000, 16968, 16969, or 18082 publicly.
 
 ## 1. CI artifacts and release inputs
@@ -23,7 +33,7 @@ CI produces:
 - `ghcr.io/<owner>/projectrebound-meta-server:sha-<40-char-commit>`;
 - Windows `meta-tunnel.exe` artifact;
 - image SBOM, vulnerability result, and provenance;
-- release metadata containing protocol version `1`, database migration `28`,
+- release metadata containing protocol version `1`, database migration `35`,
   definitions hash `20393e344e14935535c0eac6815ad82ca051f33caf199281ace4d4bb58391c49`,
   and upstream commit `d68e717267abf14e32d4e39618f9b7680ed93046`.
 
@@ -47,8 +57,12 @@ Keep `META_POSTGRES_USER=projectrebound_meta`,
 `META_REDIS_USERNAME=projectrebound-meta`, loopback ports 18082/16968, and the
 final public hosts. New generated environments already contain
 `ACCESS_TOKEN_PUBLIC_KEY_BASE64` and
-`ADMIN_ACCESS_TOKEN_PUBLIC_KEY_BASE64`. For an older environment, derive each
-public key without printing the private seed:
+`ADMIN_ACCESS_TOKEN_PUBLIC_KEY_BASE64`, plus the separate
+`GAME_SERVER_CA_CERT_PEM_BASE64` and `GAME_SERVER_CA_KEY_PEM_BASE64` pair used
+by the Control Plane. Compose interpolation requires that pair even during a
+Meta-only deployment. For an older environment, add the Game Server CA as
+described in the [Dedicated Server registration guide](dedicated-server-registration.md),
+then derive each public key without printing the private seed:
 
 If another local service already owns 18082, set
 `META_SERVER_HTTP_PORT=18083`. Later, change only the Meta FRPC HTTP
@@ -78,7 +92,7 @@ sudo env \
   ./scripts/deploy-meta-server.sh
 ```
 
-The script builds/pulls only MetaServer, waits for additive migration 28,
+The script builds/pulls only MetaServer, waits for current migration 35,
 idempotently provisions a restricted PostgreSQL role and `meta:*` Redis ACL
 user, and executes `up -d --no-deps meta-server`. Verify:
 
@@ -250,6 +264,6 @@ only checking the local container.
 
 On failure, use the deployment workflow's MetaServer rollback or redeploy the
 previous immutable MetaServer digest. Do not restart control-plane, do not
-rollback migrations 25–28, and do not restore PostgreSQL for an ordinary image
+rollback migrations 25–35, and do not restore PostgreSQL for an ordinary image
 rollback. Gateway/FRP rollback is a separate configuration change validated
 with `haproxy -c` and FRP config checks.

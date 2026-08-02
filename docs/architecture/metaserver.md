@@ -63,7 +63,7 @@ concurrent or repeated use fails and emits a replay metric/security event.
   tickets and READY Game Servers with `FOR UPDATE SKIP LOCKED`, then writes the
   match, roster, ticket transition, and `READY -> RESERVED` transition in one
   transaction.
-- Image rollback never rolls migrations back. Migrations 25–28 are additive.
+- Image rollback never rolls migrations back. Current MetaServer readiness requires migration 35; migrations 25–35 remain applied during an ordinary image rollback.
 
 ## Availability and discovery
 

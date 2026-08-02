@@ -135,11 +135,11 @@ GOSUMDB=sum.golang.org https://sum.golang.google.cn
 
 ## 4. 选择发布来源
 
-生产环境推荐使用 GitHub Actions 产出的不可变 GHCR 镜像。CI 为控制面和边缘节点发布 `sha-<40 位提交>` 镜像，Deploy 工作流只向目标机传输 Compose、验证及回滚脚本的小型 release bundle，然后拉取镜像；目标机不需要 Go、编译缓存或永久保存完整 Git 仓库。
+生产环境推荐使用 GitHub Actions 产出的不可变 GHCR 镜像。CI 为 Control Plane、MetaServer 和 Edge Relay 发布 `sha-<40 位提交>` 镜像，Deploy 工作流只向目标机传输 Compose、验证及回滚脚本的小型 release bundle，然后拉取选定镜像；目标机不需要 Go、编译缓存或永久保存完整 Git 仓库。
 
-两个部署入口都支持 `DEPLOY_SOURCE`：
+各部署入口都支持 `DEPLOY_SOURCE`：
 
-- `ci`：要求 `CONTROL_PLANE_IMAGE` 或 `EDGE_RELAY_IMAGE` 是 `ghcr.io/...:sha-<40 位提交>`，只拉取 CI 镜像；
+- `ci`：要求对应的 `CONTROL_PLANE_IMAGE`、`META_SERVER_IMAGE` 或 `EDGE_RELAY_IMAGE` 是 `ghcr.io/...:sha-<40 位提交>`，只拉取 CI 镜像；
 - `source`：使用当前检出的源码执行 Docker Compose/BuildKit 本机构建；
 - `auto`（默认）：检测到合法的 GHCR SHA 镜像时使用 `ci`，否则使用 `source`。
 
@@ -164,6 +164,15 @@ chmod 600 deployments/control-plane/.env
 ```
 
 生成器创建相互独立的 Ed25519 Access Token、Relay Token、更新签名密钥、设备指纹 HMAC 密钥，以及彼此独立的十年期 Relay CA 与 Game Server CA。它不会覆盖已有 `.env`，也不会输出密钥正文。重建时必须保留 `GAME_SERVER_CA_*`；直接替换会使现有 Dedicated Server 证书无法正常续期。
+
+部署支持证书身份的 Dedicated Server 版本前，使用下列检查确认旧环境已经包含两个值，同时不输出秘密正文：
+
+```bash
+env_file=deployments/control-plane/.env
+test "$(grep -Ec '^GAME_SERVER_CA_(CERT|KEY)_PEM_BASE64=[A-Za-z0-9+/=]+$' "$env_file")" -eq 2
+```
+
+检查失败时，通过批准的秘密生成流程单独创建 Game Server CA，并在部署前补齐两个值；不得替换整个环境文件，也不得复用 Relay CA。缺少任一值时，生产 Compose 会在更改运行版本前拒绝部署。当前代码已不读取旧的 `GAME_SERVER_REGISTRATION_TOKENS`；确认全部节点使用数据库中的实例绑定 Registration Token 后，应从旧环境删除该变量。
 
 编辑 `deployments/control-plane/.env`：
 
@@ -199,7 +208,7 @@ CONTROL_PLANE_IMAGE=ghcr.io/<owner>/projectrebound-control-plane:sha-<40-char-co
 2. 强制 `.env` 权限为 `600`；
 3. 校验 Compose；
 4. 拉取 CI 控制面镜像，并启动 PostgreSQL、Redis、控制面、Caddy、Prometheus、Grafana；
-5. 等待 `/health/ready`；
+5. 应用当前数据库迁移并等待 `/health/ready`；
 6. 失败时输出受限的末尾日志并返回非零状态。
 
 不需要本机监控栈时：

@@ -55,7 +55,7 @@ MetaTunnel 转发 `/connectServer` 时注入 bearer token。MetaServer 忽略旧
 - 调度器取得 PostgreSQL advisory transaction lock，以 `FOR UPDATE SKIP LOCKED`
   领取队列 Ticket 与 READY Game Server，并在同一事务中写入对局、名单、Ticket
   状态及 `READY -> RESERVED`。
-- 普通回滚不回滚数据库；25–28 号迁移均为 additive。
+- 普通镜像回滚不回滚数据库；当前 MetaServer readiness 要求 35 号迁移，普通镜像回滚会保留 25–35 号迁移。
 
 ## 可用性与动态发现
 

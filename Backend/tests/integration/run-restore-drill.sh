@@ -388,11 +388,15 @@ start_restored_relay
 restore_finished_milliseconds="$(date -u +%s%3N)"
 
 restored_player_id="$(docker exec "$target_name" psql -At -U projectrebound -d projectrebound -c "SELECT id FROM players WHERE steam_id = '$fixture_steam_id'")"
+latest_migration_file="$(find "$backend_dir/migrations" -maxdepth 1 -type f -name '[0-9][0-9][0-9][0-9][0-9][0-9]_*.sql' -printf '%f\n' | sort | tail -n 1)"
+[[ -n "$latest_migration_file" ]] || { echo "no database migrations were found" >&2; exit 1; }
+expected_schema_version_text="${latest_migration_file%%_*}"
+expected_schema_version="$((10#$expected_schema_version_text))"
 schema_version="$(docker exec "$target_name" psql -At -U projectrebound -d projectrebound -c 'SELECT MAX(version) FROM schema_migrations')"
 required_table_count="$(docker exec "$target_name" psql -At -U projectrebound -d projectrebound -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ANY (ARRAY['players','auth_sessions','auth_login_audit_logs','auth_risk_events','auth_login_events','invite_codes','invite_code_uses','game_servers','p2p_rooms','p2p_room_members','connections','connection_candidates','connection_path_checks','relay_bootstrap_tokens','relay_nodes','relay_allocations','relay_node_audit_logs','relay_migrations','relay_signing_keys','relay_keyset_acks','relay_node_credentials','admin_audit_logs'])")"
 ephemeral_state="$(docker exec "$target_name" psql -At -F, -U projectrebound -d projectrebound -c "SELECT (SELECT state FROM p2p_rooms WHERE id = 'restore-room-0001'), (SELECT state FROM connections WHERE id = 'restore-connection-0001'), (SELECT state FROM relay_allocations WHERE id = 'restore-allocation-0001'), (SELECT state FROM relay_nodes WHERE id = 'restore-relay-0001'), (SELECT active_allocations FROM relay_nodes WHERE id = 'restore-relay-0001'), (SELECT COUNT(*) FROM p2p_room_members WHERE room_id = 'restore-room-0001' AND status = 'ACTIVE')")"
 [[ "$restored_player_id" == "$fixture_player_id" ]] || { echo "fixture player was not restored" >&2; exit 1; }
-[[ "$schema_version" == "16" ]] || { echo "restored schema version is $schema_version, expected 16" >&2; exit 1; }
+[[ "$schema_version" == "$expected_schema_version" ]] || { echo "restored schema version is $schema_version, expected $expected_schema_version" >&2; exit 1; }
 [[ "$required_table_count" == "22" ]] || { echo "only $required_table_count required tables were restored" >&2; exit 1; }
 [[ "$ephemeral_state" == "CLOSED,FAILED,FAILED,OFFLINE,0,0" ]] || { echo "restored ephemeral state was not invalidated: $ephemeral_state" >&2; exit 1; }
 grep -q 'projectrebound_backup_last_run_success 1' "$metrics_dir/projectrebound-backup-status.prom"

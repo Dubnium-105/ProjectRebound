@@ -142,6 +142,8 @@ The Windows Dedicated Server wrapper launches `game-server-agent.exe` for enroll
 
 `serverId` must equal the `instance_id` bound to the Registration Token. Remove `registrationToken` from the file after `game-server-identity-<serverId>.json` is created; the token has already been consumed. Protect and back up the identity file because it contains the node private key and rotating runtime Token.
 
+For the complete issuance, build, Wrapper argument, fallback, ACL, rotation, and production-CA procedure, see [Dedicated Server registration and runtime identity](../operations/dedicated-server-registration.md).
+
 ### 3.4 P2P Room
 
 | Method | Path | Authentication | Request/additional header | Success |

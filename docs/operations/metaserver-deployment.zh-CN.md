@@ -13,6 +13,13 @@
 - `logic.dubnium.top`：A 记录指向同一网关，灰云/DNS only，使普通 TLS TCP 客户端
   可以直连。
 
+生产 GitHub Environment 当前使用 `https://meta.project-rebound.space` 做部署验证，
+但仓库中的 MetaTunnel、MetaServer 响应、网关和监控默认值仍为兼容既有客户端而使用
+`meta.dubnium.top` 与 `logic.dubnium.top`。兼容期内两个 HTTPS 名称都必须保持健康。
+不得只在一侧修改 Logic 域名，因为 MetaTunnel 会严格验证该 TLS server name。切换
+规范域名时，必须在同一发布中同步客户端默认值、Control Plane/MetaServer 配置、
+OpenAPI 示例、网关 SNI 规则、证书与监控。
+
 不得将 6968、6969、8000、8081、9000、16968、16969 或 18082 暴露到公网。
 
 ## 1. CI 产物与发布输入
@@ -22,7 +29,7 @@ CI 生成：
 - `ghcr.io/<owner>/projectrebound-meta-server:sha-<40位commit>`；
 - Windows `meta-tunnel.exe` artifact；
 - 镜像 SBOM、漏洞结果和 provenance；
-- 包含协议版本 `1`、数据库迁移 `28`、definitions 哈希
+- 包含协议版本 `1`、数据库迁移 `35`、definitions 哈希
   `20393e344e14935535c0eac6815ad82ca051f33caf199281ace4d4bb58391c49`
   及上游 commit `d68e717267abf14e32d4e39618f9b7680ed93046` 的发布元数据。
 
@@ -44,8 +51,11 @@ sudoedit deployments/control-plane/.env
 `META_POSTGRES_USER=projectrebound_meta`、
 `META_REDIS_USERNAME=projectrebound-meta`、回环端口 18082/16968 及最终公网域名。
 新生成的环境已经包含 `ACCESS_TOKEN_PUBLIC_KEY_BASE64` 和
-`ADMIN_ACCESS_TOKEN_PUBLIC_KEY_BASE64`。旧环境使用以下方式派生公钥，不输出私有
-seed：
+`ADMIN_ACCESS_TOKEN_PUBLIC_KEY_BASE64`，以及 Control Plane 使用的独立
+`GAME_SERVER_CA_CERT_PEM_BASE64` 与 `GAME_SERVER_CA_KEY_PEM_BASE64`。即使只部署
+MetaServer，Compose 插值也要求该 CA 对存在。旧环境应先按
+[Dedicated Server 注册手册](dedicated-server-registration.zh-CN.md)补齐 Game Server CA，
+再使用以下方式派生公钥，且不输出私有 seed：
 
 若其他本地服务已占用 18082，设置 `META_SERVER_HTTP_PORT=18083`。随后只把 Meta
 FRPC HTTP 代理的 `localPort` 改为 18083，网关 `remotePort` 仍保持 18082。这样可
@@ -71,7 +81,7 @@ sudo env \
   ./scripts/deploy-meta-server.sh
 ```
 
-脚本只构建/拉取 MetaServer，等待 additive 的 28 号迁移，幂等创建受限 PostgreSQL
+脚本只构建/拉取 MetaServer，等待当前的 35 号迁移，幂等创建受限 PostgreSQL
 角色和仅限 `meta:*` 的 Redis ACL 用户，再执行
 `up -d --no-deps meta-server`。验证：
 
@@ -230,5 +240,5 @@ openssl s_client -connect 107.172.187.202:443 \
 HAProxy 分流和隔离 FRP 链路，而不只是本机容器状态。
 
 失败时使用部署 workflow 的 MetaServer rollback，或重部署上一不可变 digest。不得
-重启 control-plane，不回滚 25–28 号迁移，普通镜像回滚不恢复 PostgreSQL。网关/FRP
+重启 control-plane，不回滚 25–35 号迁移，普通镜像回滚不恢复 PostgreSQL。网关/FRP
 回滚是独立配置变更，必须分别通过 `haproxy -c` 和 FRP 配置校验。
