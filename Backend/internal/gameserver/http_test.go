@@ -20,7 +20,10 @@ func (s *stubHTTPService) IssueRegistrationCredential(context.Context, Registrat
 func (s *stubHTTPService) Register(context.Context, RegistrationInput, string) (RegistrationResult, error) {
 	return RegistrationResult{}, nil
 }
-func (s *stubHTTPService) RotateCredential(context.Context, string, string) (CredentialRotationResult, error) {
+func (s *stubHTTPService) VerifySignedRequest(context.Context, SignedRequestInput) (SignedRequestPrincipal, error) {
+	return SignedRequestPrincipal{}, nil
+}
+func (s *stubHTTPService) RotateCredential(context.Context, string, string, string) (CredentialRotationResult, error) {
 	return CredentialRotationResult{}, nil
 }
 func (s *stubHTTPService) Heartbeat(context.Context, string, string, HeartbeatInput) (Server, error) {

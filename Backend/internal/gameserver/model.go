@@ -19,28 +19,36 @@ const (
 )
 
 type Server struct {
-	ID                      string
-	InstanceID              string
-	OwnerPlayerID           string
-	DisplayName             string
-	Region                  string
-	Mode                    string
-	Version                 string
-	PublicHost              string
-	PublicPort              int
-	MaxPlayers              int
-	PlayerCount             int
-	State                   State
-	ServerTokenHash         []byte
-	PreviousServerTokenHash []byte
-	RegistrationIssuer      string
-	TokenExpiresAt          time.Time
-	PreviousTokenExpiresAt  *time.Time
-	TokenRevokedAt          *time.Time
-	CredentialGeneration    int64
-	LastHeartbeatAt         time.Time
-	CreatedAt               time.Time
-	UpdatedAt               time.Time
+	ID                             string
+	InstanceID                     string
+	OwnerPlayerID                  string
+	DisplayName                    string
+	Region                         string
+	Mode                           string
+	Version                        string
+	PublicHost                     string
+	PublicPort                     int
+	MaxPlayers                     int
+	PlayerCount                    int
+	State                          State
+	ServerTokenHash                []byte
+	PreviousServerTokenHash        []byte
+	RegistrationIssuer             string
+	TokenExpiresAt                 time.Time
+	PreviousTokenExpiresAt         *time.Time
+	TokenRevokedAt                 *time.Time
+	CredentialGeneration           int64
+	CertificateFingerprint         string
+	CertificatePublicKey           []byte
+	CertificateSerial              string
+	CertificateExpiresAt           *time.Time
+	PreviousCertificateFingerprint string
+	PreviousCertificatePublicKey   []byte
+	PreviousCertificateExpiresAt   *time.Time
+	LegacyAuthExpiresAt            *time.Time
+	LastHeartbeatAt                time.Time
+	CreatedAt                      time.Time
+	UpdatedAt                      time.Time
 }
 
 type RegistrationInput struct {
@@ -52,17 +60,23 @@ type RegistrationInput struct {
 	PublicHost  string
 	PublicPort  int
 	MaxPlayers  int
+	CSRPEM      string
 }
 
 type RegistrationResult struct {
 	Server            Server
 	ServerToken       string
 	HeartbeatInterval int
+	CertificatePEM    string
+	CACertificatePEM  string
 }
 
 type RegistrationCredentialInput struct {
 	InstanceID string
 	PlayerID   string
+	SteamID    string
+	InviteCode string
+	IPAddress  string
 }
 
 type RegistrationCredentialResult struct {
@@ -71,11 +85,34 @@ type RegistrationCredentialResult struct {
 }
 
 type CredentialRotationResult struct {
+	ServerID               string
+	ServerToken            string
+	TokenExpiresAt         time.Time
+	PreviousValidUntil     time.Time
+	CredentialGeneration   int64
+	CertificatePEM         string
+	CACertificatePEM       string
+	CertificateFingerprint string
+	CertificateExpiresAt   time.Time
+}
+
+type SignedRequestInput struct {
+	ServerID               string
+	ServerToken            string
+	CertificateFingerprint string
+	Timestamp              int64
+	Nonce                  string
+	CredentialGeneration   int64
+	Signature              string
+	Method                 string
+	RequestTarget          string
+	Body                   []byte
+}
+
+type SignedRequestPrincipal struct {
 	ServerID             string
-	ServerToken          string
-	TokenExpiresAt       time.Time
-	PreviousValidUntil   time.Time
 	CredentialGeneration int64
+	Legacy               bool
 }
 
 type HeartbeatInput struct {

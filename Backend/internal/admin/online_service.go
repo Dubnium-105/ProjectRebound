@@ -785,6 +785,8 @@ func queryAdministrativeGameServer(ctx context.Context, queryer adminAuthExecuto
 		SELECT id, instance_id, display_name, region, mode, version,
 		       public_host, public_port, max_players, player_count, state,
 		       registration_issuer, token_expires_at, token_revoked_at,
+		       credential_generation, COALESCE(certificate_fingerprint, ''),
+		       certificate_expires_at, legacy_auth_expires_at,
 		       last_heartbeat_at, created_at, updated_at
 		FROM game_servers
 		WHERE id = $1
@@ -808,21 +810,31 @@ func updateAdministrativeGameServer(
 		RETURNING id, instance_id, display_name, region, mode, version,
 		          public_host, public_port, max_players, player_count, state,
 		          registration_issuer, token_expires_at, token_revoked_at,
+		          credential_generation, COALESCE(certificate_fingerprint, ''),
+		          certificate_expires_at, legacy_auth_expires_at,
 		          last_heartbeat_at, created_at, updated_at
 	`, id, state, revokeToken, now))
 }
 
 func scanAdministrativeGameServer(row pgx.Row) (gameserver.Server, error) {
 	var item gameserver.Server
-	var revokedAt sql.NullTime
+	var revokedAt, certificateExpiresAt, legacyAuthExpiresAt sql.NullTime
 	err := row.Scan(
 		&item.ID, &item.InstanceID, &item.DisplayName, &item.Region, &item.Mode, &item.Version,
 		&item.PublicHost, &item.PublicPort, &item.MaxPlayers, &item.PlayerCount, &item.State,
 		&item.RegistrationIssuer, &item.TokenExpiresAt, &revokedAt,
+		&item.CredentialGeneration, &item.CertificateFingerprint,
+		&certificateExpiresAt, &legacyAuthExpiresAt,
 		&item.LastHeartbeatAt, &item.CreatedAt, &item.UpdatedAt,
 	)
 	if revokedAt.Valid {
 		item.TokenRevokedAt = &revokedAt.Time
+	}
+	if certificateExpiresAt.Valid {
+		item.CertificateExpiresAt = &certificateExpiresAt.Time
+	}
+	if legacyAuthExpiresAt.Valid {
+		item.LegacyAuthExpiresAt = &legacyAuthExpiresAt.Time
 	}
 	return item, err
 }

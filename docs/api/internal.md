@@ -368,10 +368,12 @@ Newly added fields should remain backward compatible; deletion/renaming, tighten
 
 The full security and field contract is in the
 [MetaServer internal API](metaserver-internal.md). Dedicated Server calls require
-a hashed Game Server Token, matching `X-Game-Server-Id`, a fresh eligible server,
-the route scope, the assigned match, and roster membership. Administrative
-writes additionally require trusted CIDR, human admin session, permission,
-step-up, reason, and audit.
+a hashed Game Server Token, matching `X-Game-Server-Id`, and an Ed25519 request
+signature made by the node certificate for the same credential generation.
+Timestamp and nonce checks prevent replay. The backend also checks a fresh
+eligible server, route scope, assigned match, and roster membership.
+Administrative writes additionally require trusted CIDR, human admin session,
+permission, step-up, reason, and audit.
 
 | Method | Path | Required scope or permission |
 | --- | --- | --- |

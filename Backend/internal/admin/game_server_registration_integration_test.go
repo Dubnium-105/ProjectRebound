@@ -60,9 +60,17 @@ func TestAdministratorIssuesAndRevokesInstanceBoundGameServerToken(t *testing.T)
 	registrationRepository := gameserverregistration.NewRepository()
 	adminService := NewOnlineService(pool, NewRepository(), nil, registrationRepository, logger)
 	adminService.now = func() time.Time { return now }
+	gameServerAuthority, err := gameserver.NewAuthority(config.Defaults.GameServer, "development")
+	if err != nil {
+		t.Fatal(err)
+	}
 	gameServerService := gameserver.NewService(
-		gameserver.NewRepository(pool), registrationRepository, config.Defaults.GameServer,
+		gameserver.NewRepository(pool), registrationRepository, config.Defaults.GameServer, gameServerAuthority,
 	)
+	_, csrPEM, err := gameserver.NewNodeIdentity(instanceID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	meta := RequestMeta{
 		AdminID: adminID, RequestID: "req_registration_integration",
 		IPAddress: "192.0.2.50", UserAgent: "registration-integration-test",
@@ -90,7 +98,7 @@ func TestAdministratorIssuesAndRevokesInstanceBoundGameServerToken(t *testing.T)
 	registered, err := gameServerService.Register(ctx, gameserver.RegistrationInput{
 		InstanceID: instanceID, DisplayName: "Registration Integration", Region: "asia-hk",
 		Mode: "casual", Version: "1.0.0", PublicHost: "8.8.4.4", PublicPort: 7777,
-		MaxPlayers: 16,
+		MaxPlayers: 16, CSRPEM: csrPEM,
 	}, issued.Plaintext)
 	if err != nil {
 		t.Fatal(err)

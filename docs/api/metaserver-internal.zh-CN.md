@@ -7,14 +7,19 @@
 
 ## Dedicated Server 认证
 
-每个请求同时发送：
+每个请求同时发送 Token 和节点私钥签名：
 
 ```http
 Authorization: Bearer gst_<opaque-token>
 X-Game-Server-Id: <server-id>
+X-Game-Server-Certificate: <certificate-sha256>
+X-Game-Server-Timestamp: <unix-seconds>
+X-Game-Server-Nonce: <base64url-random-16-to-64-bytes>
+X-Game-Server-Generation: <credential-generation>
+X-Game-Server-Signature: <base64url-ed25519-signature>
 ```
 
-数据库只保存 token 哈希。Token 必须未过期、与 header 的 server 一致、包含所需
+签名规范串与外部专服 API 相同，覆盖方法、完整 path/query、正文哈希、时间戳、nonce、Server ID、代数和 Token 哈希；nonce 由共享 PostgreSQL 表防重放。数据库只保存 Token 哈希、公钥和证书指纹，不保存节点私钥。Token 和签名身份必须属于同一凭证代数。Token 必须未过期、与 header 的 server 一致、包含所需
 Meta match scope，且服务器不能处于 DRAINING、UNHEALTHY 或 OFFLINE。有效凭据也不
 提供全局玩家访问：Repository 会检查对局仍活动、确实分配给该服务器并包含目标玩家。
 

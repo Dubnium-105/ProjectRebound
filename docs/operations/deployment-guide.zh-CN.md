@@ -163,7 +163,7 @@ chmod +x scripts/*.sh deploy/deploy.sh
 chmod 600 deployments/control-plane/.env
 ```
 
-生成器创建相互独立的 Ed25519 Access Token、Relay Token、更新签名密钥、设备指纹 HMAC 密钥，以及十年期 Relay CA。它不会覆盖已有 `.env`，也不会输出密钥正文。
+生成器创建相互独立的 Ed25519 Access Token、Relay Token、更新签名密钥、设备指纹 HMAC 密钥，以及彼此独立的十年期 Relay CA 与 Game Server CA。它不会覆盖已有 `.env`，也不会输出密钥正文。重建时必须保留 `GAME_SERVER_CA_*`；直接替换会使现有 Dedicated Server 证书无法正常续期。
 
 编辑 `deployments/control-plane/.env`：
 

@@ -21,6 +21,8 @@ var instancePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
 type Service struct {
 	repository         *Repository
 	registrationTokens *gameserverregistration.Repository
+	authority          *Authority
+	proofVerifier      *ProofVerifier
 	config             config.GameServerConfig
 	now                func() time.Time
 }
@@ -29,11 +31,16 @@ func NewService(
 	repository *Repository,
 	registrationTokens *gameserverregistration.Repository,
 	cfg config.GameServerConfig,
+	authorities ...*Authority,
 ) *Service {
-	return &Service{
+	service := &Service{
 		repository: repository, registrationTokens: registrationTokens,
-		config: cfg, now: time.Now,
+		config: cfg, now: time.Now, proofVerifier: NewProofVerifier(repository, cfg),
 	}
+	if len(authorities) > 0 {
+		service.authority = authorities[0]
+	}
+	return service
 }
 
 func (s *Service) IssueRegistrationCredential(
@@ -56,12 +63,18 @@ func (s *Service) IssueRegistrationCredential(
 		return RegistrationCredentialResult{}, internal(err)
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	now := s.now().UTC()
 	inviteUseID, err := s.registrationTokens.FindPlayerInviteGrant(ctx, tx, input.PlayerID)
 	if errors.Is(err, gameserverregistration.ErrInvalidInviteGrant) {
-		return RegistrationCredentialResult{}, &ServiceError{
-			Status:  http.StatusForbidden,
-			Code:    "GAME_SERVER_INVITE_REQUIRED",
-			Message: "A Dedicated Server invitation is required.",
+		inviteUseID, err = s.registrationTokens.RedeemPlayerInviteGrant(
+			ctx, tx, input.InviteCode, input.PlayerID, input.SteamID, input.IPAddress, now,
+		)
+		if errors.Is(err, gameserverregistration.ErrInvalidInviteGrant) {
+			return RegistrationCredentialResult{}, &ServiceError{
+				Status:  http.StatusForbidden,
+				Code:    "GAME_SERVER_INVITE_REQUIRED",
+				Message: "A valid Dedicated Server invitation is required.",
+			}
 		}
 	}
 	if err != nil {
@@ -71,7 +84,6 @@ func (s *Service) IssueRegistrationCredential(
 	if err != nil {
 		return RegistrationCredentialResult{}, internal(err)
 	}
-	now := s.now().UTC()
 	credential := gameserverregistration.Credential{
 		ID: newID("gsrt_"), InstanceID: input.InstanceID,
 		IssuedToPlayerID: input.PlayerID, SourceInviteUseID: inviteUseID,
@@ -95,6 +107,9 @@ func (s *Service) Register(ctx context.Context, input RegistrationInput, registr
 	}
 	if !gameserverregistration.HasValidShape(registrationToken) {
 		return RegistrationResult{}, unauthorized()
+	}
+	if s.authority == nil {
+		return RegistrationResult{}, internal(errors.New("game server certificate authority is unavailable"))
 	}
 	tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -146,6 +161,14 @@ func (s *Service) Register(ctx context.Context, input RegistrationInput, registr
 		}
 		return RegistrationResult{}, internal(err)
 	}
+	certificate, err := s.authority.IssueClientCertificate(item.ID, input.CSRPEM, s.config.CertificateTTL())
+	if err != nil {
+		return RegistrationResult{}, err
+	}
+	item, err = s.repository.BindCertificate(ctx, tx, item.ID, certificate, now)
+	if err != nil {
+		return RegistrationResult{}, internal(err)
+	}
 	if err := s.registrationTokens.MarkConsumed(ctx, tx, credential.ID, item.ID, now); err != nil {
 		if errors.Is(err, gameserverregistration.ErrInvalidToken) {
 			return RegistrationResult{}, unauthorized()
@@ -159,7 +182,13 @@ func (s *Service) Register(ctx context.Context, input RegistrationInput, registr
 		Server:            item,
 		ServerToken:       token,
 		HeartbeatInterval: s.config.HeartbeatIntervalSeconds,
+		CertificatePEM:    certificate.PEM,
+		CACertificatePEM:  s.authority.CACertificatePEM(),
 	}, nil
+}
+
+func (s *Service) VerifySignedRequest(ctx context.Context, input SignedRequestInput) (SignedRequestPrincipal, error) {
+	return s.proofVerifier.Verify(ctx, input)
 }
 
 func (s *Service) Heartbeat(ctx context.Context, serverID, serverToken string, input HeartbeatInput) (Server, error) {
@@ -200,10 +229,13 @@ func (s *Service) Heartbeat(ctx context.Context, serverID, serverToken string, i
 
 func (s *Service) RotateCredential(
 	ctx context.Context,
-	serverID, serverToken string,
+	serverID, serverToken, csrPEM string,
 ) (CredentialRotationResult, error) {
 	if !strings.HasPrefix(serverToken, "gst_") || len(serverToken) < 64 {
 		return CredentialRotationResult{}, unauthorized()
+	}
+	if s.authority == nil {
+		return CredentialRotationResult{}, internal(errors.New("game server certificate authority is unavailable"))
 	}
 	tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -211,7 +243,7 @@ func (s *Service) RotateCredential(
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
 	now := s.now().UTC()
-	current, err := s.repository.GetForManagement(ctx, tx, serverID, hashServerToken(serverToken), now)
+	current, err := s.repository.GetCurrentForManagement(ctx, tx, serverID, hashServerToken(serverToken), now)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return CredentialRotationResult{}, unauthorized()
@@ -227,8 +259,12 @@ func (s *Service) RotateCredential(
 		previousValidUntil = current.TokenExpiresAt
 	}
 	newExpiresAt := now.Add(s.config.ServerTokenTTL())
+	certificate, err := s.authority.IssueClientCertificate(serverID, csrPEM, s.config.CertificateTTL())
+	if err != nil {
+		return CredentialRotationResult{}, err
+	}
 	updated, err := s.repository.RotateCredential(
-		ctx, tx, serverID, tokenHash, newExpiresAt, previousValidUntil, now,
+		ctx, tx, serverID, tokenHash, certificate, newExpiresAt, previousValidUntil, now,
 	)
 	if err != nil {
 		return CredentialRotationResult{}, internal(err)
@@ -238,8 +274,12 @@ func (s *Service) RotateCredential(
 	}
 	return CredentialRotationResult{
 		ServerID: serverID, ServerToken: plaintext, TokenExpiresAt: updated.TokenExpiresAt,
-		PreviousValidUntil:   previousValidUntil,
-		CredentialGeneration: updated.CredentialGeneration,
+		PreviousValidUntil:     previousValidUntil,
+		CredentialGeneration:   updated.CredentialGeneration,
+		CertificatePEM:         certificate.PEM,
+		CACertificatePEM:       s.authority.CACertificatePEM(),
+		CertificateFingerprint: certificate.Fingerprint,
+		CertificateExpiresAt:   certificate.ExpiresAt,
 	}, nil
 }
 
@@ -253,7 +293,7 @@ func (s *Service) Deregister(ctx context.Context, serverID, serverToken string) 
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
 	now := s.now().UTC()
-	if _, err := s.repository.GetForManagement(ctx, tx, serverID, hashServerToken(serverToken), now); err != nil {
+	if _, err := s.repository.GetCurrentForManagement(ctx, tx, serverID, hashServerToken(serverToken), now); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return unauthorized()
 		}
@@ -330,6 +370,9 @@ func validateRegistration(input RegistrationInput) error {
 	}
 	if input.MaxPlayers < 1 || input.MaxPlayers > 256 {
 		details["max_players"] = "must be between 1 and 256"
+	}
+	if strings.TrimSpace(input.CSRPEM) == "" || len(input.CSRPEM) > 16*1024 {
+		details["csr_pem"] = "must contain an Ed25519 certificate request no larger than 16384 bytes"
 	}
 	if len(details) > 0 {
 		return invalid("Invalid game server registration.", details)

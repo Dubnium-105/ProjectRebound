@@ -89,6 +89,16 @@ export function GameServersPage() {
           {value}
         </Tag>)
         },
+        {
+            title: tr("凭证"),
+            key: "credential",
+            width: 170,
+            render: (_, item) => (<Space direction="vertical" size={0}>
+          <Tag color={item.certificate_fingerprint ? "green" : "orange"}>{item.certificate_fingerprint ? tr("签名凭证") : tr("旧版 Token")}</Tag>
+          <Typography.Text type="secondary">{tr("凭证代数")} {item.credential_generation ?? "—"}</Typography.Text>
+          {item.certificate_expires_at && <Typography.Text type="secondary">{tr("证书到期")} {formatTime(item.certificate_expires_at)}</Typography.Text>}
+        </Space>)
+        },
         { title: tr("\u6700\u540E\u5FC3\u8DF3"), dataIndex: "last_heartbeat_at", width: 180, render: formatTime },
         {
             title: tr("\u64CD\u4F5C"),

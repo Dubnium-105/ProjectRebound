@@ -2,10 +2,13 @@ package gameserverregistration
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -55,6 +58,64 @@ func (r *Repository) FindPlayerInviteGrant(
 		return "", fmt.Errorf("find game server invitation grant: %w", err)
 	}
 	return inviteUseID, nil
+}
+
+func (r *Repository) RedeemPlayerInviteGrant(
+	ctx context.Context,
+	tx pgx.Tx,
+	plaintext, playerID, steamID, ipAddress string,
+	now time.Time,
+) (string, error) {
+	plaintext = strings.ToUpper(strings.TrimSpace(plaintext))
+	if plaintext == "" || len(plaintext) > 128 {
+		return "", ErrInvalidInviteGrant
+	}
+	codeHash := sha256.Sum256([]byte(plaintext))
+	var inviteID string
+	var maxUses, usedCount int
+	var permissions []byte
+	err := tx.QueryRow(ctx, `
+		SELECT id, max_uses, used_count, permissions
+		FROM invite_codes
+		WHERE code_hash = $1
+		  AND enabled = TRUE
+		  AND revoked_at IS NULL
+		  AND (expires_at IS NULL OR expires_at > $2)
+		  AND used_count < max_uses
+		  AND permissions @> '{"allow_game_server_registration": true}'::jsonb
+		FOR UPDATE
+	`, codeHash[:], now).Scan(&inviteID, &maxUses, &usedCount, &permissions)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrInvalidInviteGrant
+	}
+	if err != nil {
+		return "", fmt.Errorf("lock dedicated server invitation: %w", err)
+	}
+	if usedCount >= maxUses {
+		return "", ErrInvalidInviteGrant
+	}
+	tag, err := tx.Exec(ctx, `
+		UPDATE invite_codes
+		SET used_count = used_count + 1, updated_at = $2
+		WHERE id = $1 AND used_count < max_uses
+	`, inviteID, now)
+	if err != nil {
+		return "", fmt.Errorf("consume dedicated server invitation: %w", err)
+	}
+	if tag.RowsAffected() != 1 {
+		return "", ErrInvalidInviteGrant
+	}
+	useID := "icu_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	_, err = tx.Exec(ctx, `
+		INSERT INTO invite_code_uses (
+			id, invite_code_id, player_id, steam_id, ip_address, used_at, result,
+			permission_snapshot
+		) VALUES ($1, $2, $3, $4, NULLIF($5, '')::inet, $6, 'SUCCESS', $7::jsonb)
+	`, useID, inviteID, playerID, steamID, ipAddress, now, permissions)
+	if err != nil {
+		return "", fmt.Errorf("record dedicated server invitation use: %w", err)
+	}
+	return useID, nil
 }
 
 func (r *Repository) RevokeActiveForInstance(

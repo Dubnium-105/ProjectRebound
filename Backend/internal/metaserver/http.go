@@ -11,17 +11,19 @@ import (
 
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/api"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/auth"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/gameserver"
 	"github.com/go-chi/chi/v5"
 )
 
 type HTTPHandler struct {
-	service    *Service
-	repository *Repository
-	logger     *slog.Logger
+	service       *Service
+	repository    *Repository
+	proofVerifier *gameserver.ProofVerifier
+	logger        *slog.Logger
 }
 
-func NewHTTPHandler(service *Service, repository *Repository, logger *slog.Logger) *HTTPHandler {
-	return &HTTPHandler{service: service, repository: repository, logger: logger}
+func NewHTTPHandler(service *Service, repository *Repository, proofVerifier *gameserver.ProofVerifier, logger *slog.Logger) *HTTPHandler {
+	return &HTTPHandler{service: service, repository: repository, proofVerifier: proofVerifier, logger: logger}
 }
 
 func (h *HTTPHandler) Root(w http.ResponseWriter, r *http.Request) {
@@ -312,8 +314,18 @@ func (h *HTTPHandler) RequireGameServer(next http.Handler) http.Handler {
 			h.writeError(w, r, forbidden("META_GAME_SERVER_UNAUTHORIZED", "Game Server authentication failed."))
 			return
 		}
+		serverID := strings.TrimSpace(r.Header.Get(gameserver.HeaderGameServerID))
+		proof, err := gameserver.SignedRequestFromHTTP(r, serverID)
+		if err != nil {
+			h.writeError(w, r, forbidden("META_GAME_SERVER_UNAUTHORIZED", "Game Server authentication failed."))
+			return
+		}
+		if _, err := h.proofVerifier.Verify(r.Context(), proof); err != nil {
+			h.writeError(w, r, forbidden("META_GAME_SERVER_UNAUTHORIZED", "Game Server authentication failed."))
+			return
+		}
 		principal, err := h.repository.AuthenticateGameServer(
-			r.Context(), strings.TrimSpace(r.Header.Get("X-Game-Server-Id")),
+			r.Context(), serverID,
 			strings.TrimSpace(strings.TrimPrefix(header, "Bearer ")),
 		)
 		if err != nil {

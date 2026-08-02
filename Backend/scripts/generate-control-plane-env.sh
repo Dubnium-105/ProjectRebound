@@ -20,6 +20,12 @@ openssl req -new -x509 -key "$temporary_dir/relay-ca.key" \
   -subj '/CN=Project Rebound Relay CA' \
   -addext 'basicConstraints=critical,CA:TRUE,pathlen:0' \
   -addext 'keyUsage=critical,keyCertSign,cRLSign,digitalSignature' >/dev/null 2>&1
+openssl genpkey -algorithm ED25519 -out "$temporary_dir/game-server-ca.key" >/dev/null 2>&1
+openssl req -new -x509 -key "$temporary_dir/game-server-ca.key" \
+  -out "$temporary_dir/game-server-ca.crt" -days 3650 \
+  -subj '/CN=Project Rebound Game Server CA' \
+  -addext 'basicConstraints=critical,CA:TRUE,pathlen:0' \
+  -addext 'keyUsage=critical,keyCertSign,cRLSign,digitalSignature' >/dev/null 2>&1
 openssl genpkey -algorithm ED25519 -out "$temporary_dir/access-token.key" >/dev/null 2>&1
 openssl genpkey -algorithm ED25519 -out "$temporary_dir/admin-access-token.key" >/dev/null 2>&1
 
@@ -90,6 +96,8 @@ TURNSTILE_SITE_KEY=CHANGE_ME
 TURNSTILE_SECRET_KEY=CHANGE_ME
 TURNSTILE_EXPECTED_HOSTNAME=admin.example.com
 TURNSTILE_EXPECTED_ACTION=admin_login
+GAME_SERVER_CA_CERT_PEM_BASE64=$(file_base64 "$temporary_dir/game-server-ca.crt")
+GAME_SERVER_CA_KEY_PEM_BASE64=$(file_base64 "$temporary_dir/game-server-ca.key")
 RELAY_BOOTSTRAP_TOKENS=$relay_bootstrap_id=$(random_hex 48)
 RELAY_CA_CERT_PEM_BASE64=$(file_base64 "$temporary_dir/relay-ca.crt")
 RELAY_CA_KEY_PEM_BASE64=$(file_base64 "$temporary_dir/relay-ca.key")

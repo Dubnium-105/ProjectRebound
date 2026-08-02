@@ -118,6 +118,8 @@ game_server:
   registration_token_ttl_minutes: 10
   server_token_ttl_hours: 24
   server_token_rotation_grace_seconds: 60
+  certificate_ttl_hours: 24
+  signature_max_clock_skew_seconds: 60
   sweep_interval_seconds: 5
 
 p2p_room:

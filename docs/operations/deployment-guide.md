@@ -163,7 +163,7 @@ chmod +x scripts/*.sh deploy/deploy.sh
 chmod 600 deployments/control-plane/.env
 ```
 
-The generator creates independent Ed25519 Access Tokens, Relay Tokens, update signing keys, a device-fingerprint HMAC key, and ten-year Relay CAs. It does not overwrite the existing `.env`, nor does it output the key text.
+The generator creates independent Ed25519 Access Tokens, Relay Tokens, update signing keys, a device-fingerprint HMAC key, and separate ten-year Relay and Game Server CAs. It does not overwrite the existing `.env`, nor does it output the key text. Preserve `GAME_SERVER_CA_*` across rebuilds; replacing it prevents existing Dedicated Server certificates from being renewed normally.
 
 Edit `deployments/control-plane/.env`:
 

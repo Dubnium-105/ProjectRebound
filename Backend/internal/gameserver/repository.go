@@ -43,6 +43,14 @@ func (r *Repository) Register(ctx context.Context, tx pgx.Tx, input Server) (Ser
 			token_revoked_at = NULL,
 			previous_server_token_hash = NULL,
 			previous_token_expires_at = NULL,
+			certificate_fingerprint = NULL,
+			certificate_public_key = NULL,
+			certificate_serial = NULL,
+			certificate_expires_at = NULL,
+			previous_certificate_fingerprint = NULL,
+			previous_certificate_public_key = NULL,
+			previous_certificate_expires_at = NULL,
+			legacy_auth_expires_at = NULL,
 			credential_generation = game_servers.credential_generation + 1,
 			last_heartbeat_at = EXCLUDED.last_heartbeat_at,
 			updated_at = EXCLUDED.updated_at
@@ -61,6 +69,31 @@ func (r *Repository) Register(ctx context.Context, tx pgx.Tx, input Server) (Ser
 		return Server{}, fmt.Errorf("register game server: %w", err)
 	}
 	return item, nil
+}
+
+func (r *Repository) BindCertificate(
+	ctx context.Context,
+	tx pgx.Tx,
+	serverID string,
+	certificate Certificate,
+	now time.Time,
+) (Server, error) {
+	return scanServer(tx.QueryRow(ctx, `
+		UPDATE game_servers
+		SET certificate_fingerprint = $2,
+		    certificate_public_key = $3,
+		    certificate_serial = $4,
+		    certificate_expires_at = $5,
+		    previous_certificate_fingerprint = NULL,
+		    previous_certificate_public_key = NULL,
+		    previous_certificate_expires_at = NULL,
+		    legacy_auth_expires_at = NULL,
+		    updated_at = $6
+		WHERE id = $1 AND token_revoked_at IS NULL
+		RETURNING `+serverColumns,
+		serverID, certificate.Fingerprint, certificate.PublicKey,
+		certificate.Serial, certificate.ExpiresAt, now,
+	))
 }
 
 func (r *Repository) Get(ctx context.Context, serverID string) (Server, error) {
@@ -115,11 +148,23 @@ func (r *Repository) GetForManagement(ctx context.Context, tx pgx.Tx, serverID s
 	`, serverID, tokenHash, now))
 }
 
+func (r *Repository) GetCurrentForManagement(ctx context.Context, tx pgx.Tx, serverID string, tokenHash []byte, now time.Time) (Server, error) {
+	return scanServer(tx.QueryRow(ctx, `
+		SELECT `+serverColumns+`
+		FROM game_servers
+		WHERE id = $1
+		  AND server_token_hash = $2
+		  AND token_revoked_at IS NULL AND token_expires_at > $3
+		FOR UPDATE
+	`, serverID, tokenHash, now))
+}
+
 func (r *Repository) RotateCredential(
 	ctx context.Context,
 	tx pgx.Tx,
 	serverID string,
 	newTokenHash []byte,
+	certificate Certificate,
 	newExpiresAt, previousValidUntil, now time.Time,
 ) (Server, error) {
 	return scanServer(tx.QueryRow(ctx, `
@@ -128,11 +173,24 @@ func (r *Repository) RotateCredential(
 		    previous_token_expires_at = $3,
 		    server_token_hash = $2,
 		    token_expires_at = $4,
+		    previous_certificate_fingerprint = certificate_fingerprint,
+		    previous_certificate_public_key = certificate_public_key,
+		    previous_certificate_expires_at = CASE
+		        WHEN certificate_public_key IS NULL THEN NULL
+		        ELSE LEAST(certificate_expires_at, $3)
+		    END,
+		    certificate_fingerprint = $5,
+		    certificate_public_key = $6,
+		    certificate_serial = $7,
+		    certificate_expires_at = $8,
+		    legacy_auth_expires_at = NULL,
 		    credential_generation = credential_generation + 1,
-		    updated_at = $5
+		    updated_at = $9
 		WHERE id = $1 AND token_revoked_at IS NULL
 		RETURNING `+serverColumns,
-		serverID, newTokenHash, previousValidUntil, newExpiresAt, now,
+		serverID, newTokenHash, previousValidUntil, newExpiresAt,
+		certificate.Fingerprint, certificate.PublicKey, certificate.Serial,
+		certificate.ExpiresAt, now,
 	))
 }
 
@@ -151,6 +209,9 @@ func (r *Repository) Deregister(ctx context.Context, tx pgx.Tx, serverID string,
 		UPDATE game_servers
 		SET state = 'OFFLINE', token_revoked_at = $2,
 		    previous_server_token_hash = NULL, previous_token_expires_at = NULL,
+		    previous_certificate_fingerprint = NULL,
+		    previous_certificate_public_key = NULL,
+		    previous_certificate_expires_at = NULL,
 		    updated_at = $2
 		WHERE id = $1
 	`, serverID, now)
@@ -160,7 +221,37 @@ func (r *Repository) Deregister(ctx context.Context, tx pgx.Tx, serverID string,
 	return nil
 }
 
+func (r *Repository) RecordRequestNonce(
+	ctx context.Context,
+	tx pgx.Tx,
+	serverID string,
+	nonceHash []byte,
+	now, expiresAt time.Time,
+) (bool, error) {
+	if _, err := tx.Exec(ctx, `
+		DELETE FROM game_server_request_nonces
+		WHERE server_id = $1 AND nonce_hash = $2 AND expires_at <= $3
+	`, serverID, nonceHash, now); err != nil {
+		return false, fmt.Errorf("remove expired game server request nonce: %w", err)
+	}
+	tag, err := tx.Exec(ctx, `
+		INSERT INTO game_server_request_nonces (
+			server_id, nonce_hash, expires_at, created_at
+		) VALUES ($1, $2, $3, $4)
+		ON CONFLICT DO NOTHING
+	`, serverID, nonceHash, expiresAt, now)
+	if err != nil {
+		return false, fmt.Errorf("record game server request nonce: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
 func (r *Repository) SweepStale(ctx context.Context, now time.Time, unhealthyAfter, offlineAfter time.Duration) (int64, error) {
+	if _, err := r.pool.Exec(ctx, `
+		DELETE FROM game_server_request_nonces WHERE expires_at <= $1
+	`, now); err != nil {
+		return 0, fmt.Errorf("sweep expired game server request nonces: %w", err)
+	}
 	tag, err := r.pool.Exec(ctx, `
 		UPDATE game_servers
 		SET state = CASE
@@ -182,12 +273,17 @@ const serverColumns = `
 	public_host, public_port, max_players, player_count, state,
 	server_token_hash, previous_server_token_hash, registration_issuer, token_expires_at,
 	previous_token_expires_at, credential_generation,
+	COALESCE(certificate_fingerprint, ''), certificate_public_key,
+	COALESCE(certificate_serial, ''), certificate_expires_at,
+	COALESCE(previous_certificate_fingerprint, ''), previous_certificate_public_key,
+	previous_certificate_expires_at, legacy_auth_expires_at,
 	token_revoked_at, last_heartbeat_at, created_at, updated_at
 `
 
 func scanServer(row pgx.Row) (Server, error) {
 	var item Server
-	var revokedAt, previousExpiresAt sql.NullTime
+	var revokedAt, previousExpiresAt, certificateExpiresAt sql.NullTime
+	var previousCertificateExpiresAt, legacyAuthExpiresAt sql.NullTime
 	err := row.Scan(
 		&item.ID,
 		&item.InstanceID,
@@ -207,6 +303,14 @@ func scanServer(row pgx.Row) (Server, error) {
 		&item.TokenExpiresAt,
 		&previousExpiresAt,
 		&item.CredentialGeneration,
+		&item.CertificateFingerprint,
+		&item.CertificatePublicKey,
+		&item.CertificateSerial,
+		&certificateExpiresAt,
+		&item.PreviousCertificateFingerprint,
+		&item.PreviousCertificatePublicKey,
+		&previousCertificateExpiresAt,
+		&legacyAuthExpiresAt,
 		&revokedAt,
 		&item.LastHeartbeatAt,
 		&item.CreatedAt,
@@ -217,6 +321,15 @@ func scanServer(row pgx.Row) (Server, error) {
 	}
 	if previousExpiresAt.Valid {
 		item.PreviousTokenExpiresAt = &previousExpiresAt.Time
+	}
+	if certificateExpiresAt.Valid {
+		item.CertificateExpiresAt = &certificateExpiresAt.Time
+	}
+	if previousCertificateExpiresAt.Valid {
+		item.PreviousCertificateExpiresAt = &previousCertificateExpiresAt.Time
+	}
+	if legacyAuthExpiresAt.Valid {
+		item.LegacyAuthExpiresAt = &legacyAuthExpiresAt.Time
 	}
 	return item, err
 }

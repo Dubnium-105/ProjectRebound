@@ -8,14 +8,19 @@ trusted admin network at the reverse proxy and application middleware.
 
 ## Dedicated Server authentication
 
-Each request sends both:
+Each request sends the token plus a node-private-key signature:
 
 ```http
 Authorization: Bearer gst_<opaque-token>
 X-Game-Server-Id: <server-id>
+X-Game-Server-Certificate: <certificate-sha256>
+X-Game-Server-Timestamp: <unix-seconds>
+X-Game-Server-Nonce: <base64url-random-16-to-64-bytes>
+X-Game-Server-Generation: <credential-generation>
+X-Game-Server-Signature: <base64url-ed25519-signature>
 ```
 
-The database stores only the token hash. The token must be unexpired, identify
+The canonical signature is identical to the external Dedicated Server API and binds the method, full path/query, body hash, timestamp, nonce, Server ID, generation, and Token hash. A shared PostgreSQL table prevents nonce replay. The database stores only the Token hash, public key, and certificate fingerprint; it never stores the node private key. Token and signature identity must belong to the same credential generation. The token must be unexpired, identify
 the same server, include the required Meta match scope, and belong to a server
 that is not DRAINING, UNHEALTHY, or OFFLINE. A valid credential still grants no
 global player access: the repository checks that the match is active, assigned

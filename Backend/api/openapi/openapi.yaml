@@ -1263,7 +1263,7 @@ paths:
           description: Administrative game-server page without registration credentials.
           content:
             application/json:
-              schema: {$ref: "#/components/schemas/GameServerListResponse"}
+              schema: {$ref: "#/components/schemas/AdminGameServerListResponse"}
   /v1/admin/game-servers/registration-tokens:
     post:
       operationId: adminCreateGameServerRegistrationToken
@@ -1308,7 +1308,7 @@ paths:
           description: Administrative game-server detail without registration credentials.
           content:
             application/json:
-              schema: {$ref: "#/components/schemas/GameServerResponse"}
+              schema: {$ref: "#/components/schemas/AdminGameServerResponse"}
   /v1/admin/game-servers/{server_id}/drain:
     post:
       operationId: adminDrainGameServer
@@ -1695,7 +1695,7 @@ paths:
     post:
       operationId: issueGameServerRegistrationToken
       tags: [Dedicated Servers]
-      description: Issues a short-lived, instance-bound, single-use registration token to a verified player whose consumed invitation includes the immutable Dedicated Server registration grant.
+      description: Issues a short-lived, instance-bound, single-use registration token to a verified player. A player without an existing immutable Dedicated Server grant may redeem a qualifying invite_code in the same transaction.
       security:
         - playerAccessToken: []
       requestBody:
@@ -1733,7 +1733,7 @@ paths:
               $ref: "#/components/schemas/GameServerRegistrationRequest"
       responses:
         "201":
-          description: Server registered and management token issued.
+          description: Server registered after Ed25519 CSR proof-of-possession; a node certificate and one-time runtime token are issued.
           content:
             application/json:
               schema:
@@ -1790,8 +1790,15 @@ paths:
     delete:
       operationId: deregisterGameServer
       tags: [Dedicated Servers]
+      description: Deregisters the node using only the current credential generation. A previous overlap credential cannot perform this destructive operation.
       security:
         - gameServerToken: []
+          gameServerSignature: []
+      parameters:
+        - $ref: "#/components/parameters/GameServerCertificateFingerprint"
+        - $ref: "#/components/parameters/GameServerRequestTimestamp"
+        - $ref: "#/components/parameters/GameServerRequestNonce"
+        - $ref: "#/components/parameters/GameServerCredentialGeneration"
       responses:
         "200":
           description: Server deregistered and management token revoked.
@@ -1807,8 +1814,13 @@ paths:
       tags: [Dedicated Servers]
       security:
         - gameServerToken: []
+          gameServerSignature: []
       parameters:
         - $ref: "#/components/parameters/GameServerID"
+        - $ref: "#/components/parameters/GameServerCertificateFingerprint"
+        - $ref: "#/components/parameters/GameServerRequestTimestamp"
+        - $ref: "#/components/parameters/GameServerRequestNonce"
+        - $ref: "#/components/parameters/GameServerCredentialGeneration"
       requestBody:
         required: true
         content:
@@ -1836,11 +1848,21 @@ paths:
     post:
       operationId: rotateGameServerCredential
       tags: [Dedicated Servers]
-      description: Rotates the node-specific runtime token. The old token remains valid only for the configured short overlap window so a lost response can be retried safely.
+      description: Uses only the current signed node identity to bind a fresh Ed25519 CSR, then atomically rotates the node certificate and runtime token. The old pair remains valid for routine runtime traffic during the configured short overlap window, but cannot rotate or deregister the node.
       security:
         - gameServerToken: []
+          gameServerSignature: []
       parameters:
         - $ref: "#/components/parameters/GameServerID"
+        - $ref: "#/components/parameters/GameServerCertificateFingerprint"
+        - $ref: "#/components/parameters/GameServerRequestTimestamp"
+        - $ref: "#/components/parameters/GameServerRequestNonce"
+        - $ref: "#/components/parameters/GameServerCredentialGeneration"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/GameServerCredentialRotationRequest"}
       responses:
         "200":
           description: Runtime credential rotated. The new plaintext token is returned only once.
@@ -3179,6 +3201,12 @@ components:
       type: http
       scheme: bearer
       bearerFormat: Opaque Game Server Token
+      description: Short-lived node token. Signed endpoints additionally require the Game Server signature headers.
+    gameServerSignature:
+      type: apiKey
+      in: header
+      name: X-Game-Server-Signature
+      description: Base64url Ed25519 signature over the PR-GAME-SERVER-V1 canonical request. Timestamp, nonce, certificate fingerprint, credential generation, node ID, body hash, and token hash are bound into the signature.
     relayBootstrapToken:
       type: http
       scheme: bearer
@@ -3188,6 +3216,26 @@ components:
       scheme: bearer
       bearerFormat: Opaque Relay Node Token
   parameters:
+    GameServerCertificateFingerprint:
+      in: header
+      name: X-Game-Server-Certificate
+      required: true
+      schema: {type: string, pattern: "^[0-9a-f]{64}$"}
+    GameServerRequestTimestamp:
+      in: header
+      name: X-Game-Server-Timestamp
+      required: true
+      schema: {type: integer, format: int64}
+    GameServerRequestNonce:
+      in: header
+      name: X-Game-Server-Nonce
+      required: true
+      schema: {type: string, minLength: 22, maxLength: 86}
+    GameServerCredentialGeneration:
+      in: header
+      name: X-Game-Server-Generation
+      required: true
+      schema: {type: integer, format: int64, minimum: 1}
     PlayerID:
       in: path
       name: player_id
@@ -4085,7 +4133,7 @@ components:
     AdminGameServer:
       type: object
       additionalProperties: false
-      required: [server_id, instance_id, display_name, region, mode, version, public_host, public_port, max_players, player_count, state, token_expires_at, token_revoked_at, last_heartbeat_at, created_at, updated_at]
+      required: [server_id, instance_id, display_name, region, mode, version, public_host, public_port, max_players, player_count, state, token_expires_at, token_revoked_at, credential_generation, certificate_fingerprint, certificate_expires_at, legacy_auth_expires_at, last_heartbeat_at, created_at, updated_at]
       properties:
         server_id: {type: string}
         instance_id: {type: string}
@@ -4100,6 +4148,10 @@ components:
         state: {$ref: "#/components/schemas/GameServerState"}
         token_expires_at: {type: string, format: date-time}
         token_revoked_at: {type: [string, "null"], format: date-time}
+        credential_generation: {type: integer, minimum: 1}
+        certificate_fingerprint: {type: string, pattern: "^$|^[0-9a-f]{64}$"}
+        certificate_expires_at: {type: [string, "null"], format: date-time}
+        legacy_auth_expires_at: {type: [string, "null"], format: date-time}
         last_heartbeat_at: {type: string, format: date-time}
         created_at: {type: string, format: date-time}
         updated_at: {type: string, format: date-time}
@@ -4145,6 +4197,21 @@ components:
       required: [data, request_id]
       properties:
         data: {$ref: "#/components/schemas/AdminGameServer"}
+        request_id: {type: string}
+    AdminGameServerListResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [items, next_cursor]
+          properties:
+            items:
+              type: array
+              items: {$ref: "#/components/schemas/AdminGameServer"}
+            next_cursor: {type: string}
         request_id: {type: string}
     AdminRelayMigration:
       type: object
@@ -4735,6 +4802,10 @@ components:
         instance_id:
           type: string
           pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+        invite_code:
+          type: string
+          writeOnly: true
+          description: Optional qualifying invitation redeemed only when the verified player has no existing Dedicated Server grant.
     GameServerRegistrationTokenData:
       type: object
       additionalProperties: false
@@ -4757,7 +4828,7 @@ components:
     GameServerRegistrationRequest:
       type: object
       additionalProperties: false
-      required: [instance_id, display_name, region, mode, version, public_host, public_port, max_players]
+      required: [instance_id, display_name, region, mode, version, public_host, public_port, max_players, csr_pem]
       properties:
         instance_id:
           type: string
@@ -4771,15 +4842,23 @@ components:
           description: Public unicast IP address; private and loopback addresses are rejected.
         public_port: {type: integer, minimum: 1, maximum: 65535}
         max_players: {type: integer, minimum: 1, maximum: 256}
+        csr_pem:
+          type: string
+          maxLength: 16384
+          description: PEM PKCS#10 CSR using a node-generated Ed25519 key. The private key must never leave the node.
     GameServerRegistrationData:
       type: object
-      required: [server_id, server_token, heartbeat_interval_seconds, token_expires_at, credential_generation]
+      required: [server_id, server_token, heartbeat_interval_seconds, token_expires_at, credential_generation, certificate_pem, ca_certificate_pem, certificate_fingerprint, certificate_expires_at]
       properties:
         server_id: {type: string}
         server_token: {type: string}
         heartbeat_interval_seconds: {type: integer, minimum: 1}
         token_expires_at: {type: string, format: date-time}
         credential_generation: {type: integer, minimum: 1}
+        certificate_pem: {type: string}
+        ca_certificate_pem: {type: string}
+        certificate_fingerprint: {type: string, pattern: "^[0-9a-f]{64}$"}
+        certificate_expires_at: {type: string, format: date-time}
     GameServerRegistrationResponse:
       type: object
       required: [data, request_id]
@@ -4856,16 +4935,29 @@ components:
         data:
           $ref: "#/components/schemas/GameServerHeartbeatData"
         request_id: {type: string}
+    GameServerCredentialRotationRequest:
+      type: object
+      additionalProperties: false
+      required: [csr_pem]
+      properties:
+        csr_pem:
+          type: string
+          maxLength: 16384
+          description: Fresh Ed25519 CSR signed by the new node-owned private key. The whole rotation request is signed with the old key.
     GameServerCredentialRotationData:
       type: object
       additionalProperties: false
-      required: [server_id, server_token, token_expires_at, previous_valid_until, credential_generation]
+      required: [server_id, server_token, token_expires_at, previous_valid_until, credential_generation, certificate_pem, ca_certificate_pem, certificate_fingerprint, certificate_expires_at]
       properties:
         server_id: {type: string}
         server_token: {type: string, writeOnly: true}
         token_expires_at: {type: string, format: date-time}
         previous_valid_until: {type: string, format: date-time}
         credential_generation: {type: integer, minimum: 2}
+        certificate_pem: {type: string}
+        ca_certificate_pem: {type: string}
+        certificate_fingerprint: {type: string, pattern: "^[0-9a-f]{64}$"}
+        certificate_expires_at: {type: string, format: date-time}
     GameServerCredentialRotationResponse:
       type: object
       additionalProperties: false

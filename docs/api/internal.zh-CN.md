@@ -367,9 +367,10 @@ HTTP 错误仍使用统一 `error` + `request_id` envelope。管理写操作、�
 
 完整安全和字段契约见
 [MetaServer 内部 API](metaserver-internal.zh-CN.md)。Dedicated Server 调用必须
-同时通过 Game Server Token 哈希、`X-Game-Server-Id`、节点新鲜度与状态、
-路由 scope、对局归属和玩家名单校验。管理写操作还要求可信网段、人工管理员
-会话、权限、Step-up、原因和审计。
+同时通过 Game Server Token 哈希、`X-Game-Server-Id`，以及由同一凭据代际
+绑定的节点证书私钥生成的 Ed25519 请求签名。时间戳和 nonce 用于阻止重放；
+后端还会校验节点新鲜度与状态、路由 scope、对局归属和玩家名单。管理写操作
+还要求可信网段、人工管理员会话、权限、Step-up、原因和审计。
 
 | 方法 | 路径 | Scope 或权限 |
 | --- | --- | --- |

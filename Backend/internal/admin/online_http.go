@@ -50,22 +50,26 @@ type administrativeRoomResponse struct {
 }
 
 type administrativeGameServerResponse struct {
-	ServerID        string           `json:"server_id"`
-	InstanceID      string           `json:"instance_id"`
-	DisplayName     string           `json:"display_name"`
-	Region          string           `json:"region"`
-	Mode            string           `json:"mode"`
-	Version         string           `json:"version"`
-	PublicHost      string           `json:"public_host"`
-	PublicPort      int              `json:"public_port"`
-	MaxPlayers      int              `json:"max_players"`
-	PlayerCount     int              `json:"player_count"`
-	State           gameserver.State `json:"state"`
-	TokenExpiresAt  time.Time        `json:"token_expires_at"`
-	TokenRevokedAt  *time.Time       `json:"token_revoked_at"`
-	LastHeartbeatAt time.Time        `json:"last_heartbeat_at"`
-	CreatedAt       time.Time        `json:"created_at"`
-	UpdatedAt       time.Time        `json:"updated_at"`
+	ServerID               string           `json:"server_id"`
+	InstanceID             string           `json:"instance_id"`
+	DisplayName            string           `json:"display_name"`
+	Region                 string           `json:"region"`
+	Mode                   string           `json:"mode"`
+	Version                string           `json:"version"`
+	PublicHost             string           `json:"public_host"`
+	PublicPort             int              `json:"public_port"`
+	MaxPlayers             int              `json:"max_players"`
+	PlayerCount            int              `json:"player_count"`
+	State                  gameserver.State `json:"state"`
+	TokenExpiresAt         time.Time        `json:"token_expires_at"`
+	TokenRevokedAt         *time.Time       `json:"token_revoked_at"`
+	CredentialGeneration   int64            `json:"credential_generation"`
+	CertificateFingerprint string           `json:"certificate_fingerprint"`
+	CertificateExpiresAt   *time.Time       `json:"certificate_expires_at"`
+	LegacyAuthExpiresAt    *time.Time       `json:"legacy_auth_expires_at"`
+	LastHeartbeatAt        time.Time        `json:"last_heartbeat_at"`
+	CreatedAt              time.Time        `json:"created_at"`
+	UpdatedAt              time.Time        `json:"updated_at"`
 }
 
 type gameServerRegistrationRequest struct {
@@ -322,7 +326,11 @@ func administrativeGameServer(item gameserver.Server) administrativeGameServerRe
 		PublicHost: item.PublicHost, PublicPort: item.PublicPort,
 		MaxPlayers: item.MaxPlayers, PlayerCount: item.PlayerCount, State: item.State,
 		TokenExpiresAt: item.TokenExpiresAt, TokenRevokedAt: item.TokenRevokedAt,
-		LastHeartbeatAt: item.LastHeartbeatAt, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt,
+		CredentialGeneration:   item.CredentialGeneration,
+		CertificateFingerprint: item.CertificateFingerprint,
+		CertificateExpiresAt:   item.CertificateExpiresAt,
+		LegacyAuthExpiresAt:    item.LegacyAuthExpiresAt,
+		LastHeartbeatAt:        item.LastHeartbeatAt, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt,
 	}
 }
 

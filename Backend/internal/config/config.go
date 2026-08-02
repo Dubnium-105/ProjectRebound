@@ -136,13 +136,17 @@ type AdminConfig struct {
 }
 
 type GameServerConfig struct {
-	HeartbeatIntervalSeconds        int `yaml:"heartbeat_interval_seconds"`
-	UnhealthyAfterSeconds           int `yaml:"unhealthy_after_seconds"`
-	OfflineAfterSeconds             int `yaml:"offline_after_seconds"`
-	RegistrationTokenTTLMinutes     int `yaml:"registration_token_ttl_minutes"`
-	ServerTokenTTLHours             int `yaml:"server_token_ttl_hours"`
-	ServerTokenRotationGraceSeconds int `yaml:"server_token_rotation_grace_seconds"`
-	SweepIntervalSeconds            int `yaml:"sweep_interval_seconds"`
+	HeartbeatIntervalSeconds        int    `yaml:"heartbeat_interval_seconds"`
+	UnhealthyAfterSeconds           int    `yaml:"unhealthy_after_seconds"`
+	OfflineAfterSeconds             int    `yaml:"offline_after_seconds"`
+	RegistrationTokenTTLMinutes     int    `yaml:"registration_token_ttl_minutes"`
+	ServerTokenTTLHours             int    `yaml:"server_token_ttl_hours"`
+	ServerTokenRotationGraceSeconds int    `yaml:"server_token_rotation_grace_seconds"`
+	CertificateTTLHours             int    `yaml:"certificate_ttl_hours"`
+	SignatureMaxClockSkewSeconds    int    `yaml:"signature_max_clock_skew_seconds"`
+	CACertificatePEMBase64          string `yaml:"-"`
+	CAPrivateKeyPEMBase64           string `yaml:"-"`
+	SweepIntervalSeconds            int    `yaml:"sweep_interval_seconds"`
 }
 
 type MetaServerConfig struct {
@@ -268,7 +272,11 @@ var Defaults = Config{
 			"http://localhost:5173",
 			"http://127.0.0.1:5173",
 		},
-		AllowedHeaders:   []string{"Authorization", "Content-Type", "X-Request-Id", "X-Room-Host-Token", "X-P2P-Report-Token"},
+		AllowedHeaders: []string{
+			"Authorization", "Content-Type", "X-Request-Id", "X-Room-Host-Token", "X-P2P-Report-Token",
+			"X-Game-Server-Id", "X-Game-Server-Certificate", "X-Game-Server-Timestamp",
+			"X-Game-Server-Nonce", "X-Game-Server-Generation", "X-Game-Server-Signature",
+		},
 		AllowCredentials: true,
 		MaxAgeSeconds:    600,
 	},
@@ -331,6 +339,8 @@ var Defaults = Config{
 		RegistrationTokenTTLMinutes:     10,
 		ServerTokenTTLHours:             24,
 		ServerTokenRotationGraceSeconds: 60,
+		CertificateTTLHours:             24,
+		SignatureMaxClockSkewSeconds:    60,
 		SweepIntervalSeconds:            5,
 	},
 	MetaServer: MetaServerConfig{
@@ -510,6 +520,10 @@ func (c *Config) applyEnvOverrides() {
 	overrideInt("P2P_BATTLELOG_HARD_EXPIRY_HOURS", &c.P2PBattleLog.HardExpiryHours)
 	overrideInt("P2P_BATTLELOG_CAPABILITY_TTL_HOURS", &c.P2PBattleLog.CapabilityTTLHours)
 	overrideInt("P2P_BATTLELOG_FINALIZER_INTERVAL_SECONDS", &c.P2PBattleLog.FinalizerIntervalSeconds)
+	overrideString("GAME_SERVER_CA_CERT_PEM_BASE64", &c.GameServer.CACertificatePEMBase64)
+	overrideString("GAME_SERVER_CA_KEY_PEM_BASE64", &c.GameServer.CAPrivateKeyPEMBase64)
+	overrideInt("GAME_SERVER_CERTIFICATE_TTL_HOURS", &c.GameServer.CertificateTTLHours)
+	overrideInt("GAME_SERVER_SIGNATURE_MAX_CLOCK_SKEW_SECONDS", &c.GameServer.SignatureMaxClockSkewSeconds)
 	overrideString("RELAY_CONTROL_ADDR", &c.RelayRegistry.ControlAddr)
 	if raw := os.Getenv("RELAY_CONTROL_SERVER_NAMES"); raw != "" {
 		c.RelayRegistry.ServerNames = splitCSV(raw)
@@ -690,8 +704,15 @@ func (c *Config) ValidateControlPlane() error {
 		c.GameServer.RegistrationTokenTTLMinutes < 1 ||
 		c.GameServer.ServerTokenTTLHours < 1 ||
 		c.GameServer.ServerTokenRotationGraceSeconds < 1 ||
+		c.GameServer.CertificateTTLHours < 1 ||
+		c.GameServer.SignatureMaxClockSkewSeconds < 10 ||
+		c.GameServer.SignatureMaxClockSkewSeconds > 300 ||
 		c.GameServer.SweepIntervalSeconds < 1 {
-		errs = append(errs, errors.New("game_server timing and token settings are invalid"))
+		errs = append(errs, errors.New("game_server timing, certificate, and token settings are invalid"))
+	}
+	if (strings.TrimSpace(c.GameServer.CACertificatePEMBase64) == "") !=
+		(strings.TrimSpace(c.GameServer.CAPrivateKeyPEMBase64) == "") {
+		errs = append(errs, errors.New("game server CA certificate and private key must be configured together"))
 	}
 	if c.P2PRoom.HeartbeatIntervalSeconds < 1 ||
 		c.P2PRoom.StaleAfterSeconds <= c.P2PRoom.HeartbeatIntervalSeconds ||
@@ -906,6 +927,14 @@ func (c GameServerConfig) RegistrationTokenTTL() time.Duration {
 
 func (c GameServerConfig) ServerTokenRotationGrace() time.Duration {
 	return time.Duration(c.ServerTokenRotationGraceSeconds) * time.Second
+}
+
+func (c GameServerConfig) CertificateTTL() time.Duration {
+	return time.Duration(c.CertificateTTLHours) * time.Hour
+}
+
+func (c GameServerConfig) SignatureMaxClockSkew() time.Duration {
+	return time.Duration(c.SignatureMaxClockSkewSeconds) * time.Second
 }
 
 func (c GameServerConfig) SweepInterval() time.Duration {

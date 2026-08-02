@@ -324,8 +324,15 @@ func buildHandler(
 
 	gameServerRepository := gameserver.NewRepository(dbPool.Pool)
 	gameServerRegistrationRepository := gameserverregistration.NewRepository()
+	gameServerAuthority, err := gameserver.NewAuthority(cfg.GameServer, cfg.Environment)
+	if err != nil {
+		return nil, nil, fmt.Errorf("initialize game server certificate authority: %w", err)
+	}
+	if gameServerAuthority.Ephemeral() {
+		logger.Warn("using ephemeral development game server CA; node certificates will not survive a restart")
+	}
 	gameServerService := gameserver.NewService(
-		gameServerRepository, gameServerRegistrationRepository, cfg.GameServer,
+		gameServerRepository, gameServerRegistrationRepository, cfg.GameServer, gameServerAuthority,
 	)
 	gameServerHandler := gameserver.NewHTTPHandler(gameServerService, logger)
 	router.Group(func(router chi.Router) {
@@ -337,9 +344,12 @@ func buildHandler(
 	router.Post("/v1/game-servers", gameServerHandler.Register)
 	router.Get("/v1/game-servers", gameServerHandler.List)
 	router.Get("/v1/game-servers/{server_id}", gameServerHandler.Get)
-	router.Post("/v1/game-servers/{server_id}/heartbeat", gameServerHandler.Heartbeat)
-	router.Post("/v1/game-servers/{server_id}/credential/rotate", gameServerHandler.RotateCredential)
-	router.Delete("/v1/game-servers/{server_id}", gameServerHandler.Deregister)
+	router.With(gameServerHandler.RequireCredentialProof).
+		Post("/v1/game-servers/{server_id}/heartbeat", gameServerHandler.Heartbeat)
+	router.With(gameServerHandler.RequireCredentialProof).
+		Post("/v1/game-servers/{server_id}/credential/rotate", gameServerHandler.RotateCredential)
+	router.With(gameServerHandler.RequireCredentialProof).
+		Delete("/v1/game-servers/{server_id}", gameServerHandler.Deregister)
 
 	p2pRoomService := p2proom.NewService(p2proom.NewRepository(dbPool.Pool), cfg.P2PRoom)
 	p2pBattleLogRepository := p2pbattlelog.NewRepository(dbPool.Pool)
@@ -412,8 +422,8 @@ func buildHandler(
 		router.With(admin.RequirePermission("rooms.read")).Get("/p2p-rooms/{room_id}/members", adminOnlineHandler.ListRoomMembers)
 		router.With(admin.RequirePermission("rooms.close")).Post("/p2p-rooms/{room_id}/close", adminOnlineHandler.CloseRoom)
 		router.With(admin.RequirePermission("rooms.remove_member")).Post("/p2p-rooms/{room_id}/members/{player_id}/remove", adminOnlineHandler.RemoveRoomMember)
-		router.With(admin.RequirePermission("game_servers.read")).Get("/game-servers", gameServerHandler.List)
-		router.With(admin.RequirePermission("game_servers.read")).Get("/game-servers/{server_id}", gameServerHandler.Get)
+		router.With(admin.RequirePermission("game_servers.read")).Get("/game-servers", gameServerHandler.AdminList)
+		router.With(admin.RequirePermission("game_servers.read")).Get("/game-servers/{server_id}", gameServerHandler.AdminGet)
 		router.With(
 			admin.RequirePermission("game_servers.register"),
 			admin.RequireStepUp(adminAuthService),

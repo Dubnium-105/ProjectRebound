@@ -22,7 +22,7 @@ Access Token 是短期 Ed25519 JWT，包含玩家/用户 ID、session ID、provi
 
 房间、连接、MetaServer session、Party、配装和匹配操作还要求会话满足 `steam_verified=true`，且 `auth_level` 为 `verified` 或 `trusted`。旧客户端的 unverified 会话仍可 bind、refresh、logout、管理个人/会话、读取公共目录和更新信息。
 
-Admin API 不使用玩家矩阵，也绝不接受 Player Access Token。`/v1/admin/*` 人类管理接口要求可信来源网段，并使用只有在 Turnstile、密码和 TOTP/恢复码全部通过后才建立的独立管理员 Session。现有运维机器接口使用单独配置的静态 Admin Token；`/internal/v1/meta/*` Dedicated Server 路由改用绑定 server ID、有效期、scope、活动状态、已分配对局和名单的不透明 Game Server Token。两类凭据都不建立浏览器 Session。
+Admin API 不使用玩家矩阵，也绝不接受 Player Access Token。`/v1/admin/*` 人类管理接口要求可信来源网段，并使用只有在 Turnstile、密码和 TOTP/恢复码全部通过后才建立的独立管理员 Session。现有运维机器接口使用单独配置的静态 Admin Token；`/internal/v1/meta/*` Dedicated Server 路由同时要求绑定 server ID、有效期、scope、活动状态、已分配对局和名单的不透明 Game Server Token，以及由同一凭据代际绑定的节点证书私钥生成的 Ed25519 请求签名。Token 与证书成对轮转，配置的重叠窗口内仅允许上一对凭据继续普通运行流量，不能再次轮转或注销。这些机器凭据都不建立浏览器 Session。
 
 ## 人类管理员 RBAC
 

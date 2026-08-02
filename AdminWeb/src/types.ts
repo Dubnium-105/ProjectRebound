@@ -178,6 +178,7 @@ export type P2PRoomMember = {
 export type GameServer = {
   id: string;
   server_id: string;
+  instance_id?: string;
   display_name: string;
   region: string;
   mode: string;
@@ -187,6 +188,12 @@ export type GameServer = {
   player_count: number;
   state: "STARTING" | "READY" | "RESERVED" | "RUNNING" | "DRAINING" | "UNHEALTHY" | "OFFLINE";
   last_heartbeat_at: string;
+  token_expires_at?: string;
+  token_revoked_at?: string | null;
+  credential_generation?: number;
+  certificate_fingerprint?: string;
+  certificate_expires_at?: string | null;
+  legacy_auth_expires_at?: string | null;
 };
 
 export type RelayNode = {

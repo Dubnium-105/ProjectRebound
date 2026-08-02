@@ -1236,7 +1236,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Issues a short-lived, instance-bound, single-use registration token to a verified player whose consumed invitation includes the immutable Dedicated Server registration grant. */
+        /** @description Issues a short-lived, instance-bound, single-use registration token to a verified player. A player without an existing immutable Dedicated Server grant may redeem a qualifying invite_code in the same transaction. */
         post: operations["issueGameServerRegistrationToken"];
         delete?: never;
         options?: never;
@@ -1272,6 +1272,7 @@ export interface paths {
         get: operations["getGameServer"];
         put?: never;
         post?: never;
+        /** @description Deregisters the node using only the current credential generation. A previous overlap credential cannot perform this destructive operation. */
         delete: operations["deregisterGameServer"];
         options?: never;
         head?: never;
@@ -1303,7 +1304,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Rotates the node-specific runtime token. The old token remains valid only for the configured short overlap window so a lost response can be retried safely. */
+        /** @description Uses only the current signed node identity to bind a fresh Ed25519 CSR, then atomically rotates the node certificate and runtime token. The old pair remains valid for routine runtime traffic during the configured short overlap window, but cannot rotate or deregister the node. */
         post: operations["rotateGameServerCredential"];
         delete?: never;
         options?: never;
@@ -2718,6 +2719,12 @@ export interface components {
             token_expires_at: string;
             /** Format: date-time */
             token_revoked_at: string | null;
+            credential_generation: number;
+            certificate_fingerprint: string;
+            /** Format: date-time */
+            certificate_expires_at: string | null;
+            /** Format: date-time */
+            legacy_auth_expires_at: string | null;
             /** Format: date-time */
             last_heartbeat_at: string;
             /** Format: date-time */
@@ -2745,6 +2752,13 @@ export interface components {
         };
         AdminGameServerResponse: {
             data: components["schemas"]["AdminGameServer"];
+            request_id: string;
+        };
+        AdminGameServerListResponse: {
+            data: {
+                items: components["schemas"]["AdminGameServer"][];
+                next_cursor: string;
+            };
             request_id: string;
         };
         AdminRelayMigration: {
@@ -3164,6 +3178,8 @@ export interface components {
         GameServerState: "STARTING" | "READY" | "RESERVED" | "RUNNING" | "DRAINING" | "UNHEALTHY" | "OFFLINE";
         GameServerRegistrationTokenRequest: {
             instance_id: string;
+            /** @description Optional qualifying invitation redeemed only when the verified player has no existing Dedicated Server grant. */
+            invite_code?: string;
         };
         GameServerRegistrationTokenData: {
             registration_id: string;
@@ -3186,6 +3202,8 @@ export interface components {
             public_host: string;
             public_port: number;
             max_players: number;
+            /** @description PEM PKCS#10 CSR using a node-generated Ed25519 key. The private key must never leave the node. */
+            csr_pem: string;
         };
         GameServerRegistrationData: {
             server_id: string;
@@ -3194,6 +3212,11 @@ export interface components {
             /** Format: date-time */
             token_expires_at: string;
             credential_generation: number;
+            certificate_pem: string;
+            ca_certificate_pem: string;
+            certificate_fingerprint: string;
+            /** Format: date-time */
+            certificate_expires_at: string;
         };
         GameServerRegistrationResponse: {
             data: components["schemas"]["GameServerRegistrationData"];
@@ -3242,6 +3265,10 @@ export interface components {
             data: components["schemas"]["GameServerHeartbeatData"];
             request_id: string;
         };
+        GameServerCredentialRotationRequest: {
+            /** @description Fresh Ed25519 CSR signed by the new node-owned private key. The whole rotation request is signed with the old key. */
+            csr_pem: string;
+        };
         GameServerCredentialRotationData: {
             server_id: string;
             server_token: string;
@@ -3250,6 +3277,11 @@ export interface components {
             /** Format: date-time */
             previous_valid_until: string;
             credential_generation: number;
+            certificate_pem: string;
+            ca_certificate_pem: string;
+            certificate_fingerprint: string;
+            /** Format: date-time */
+            certificate_expires_at: string;
         };
         GameServerCredentialRotationResponse: {
             data: components["schemas"]["GameServerCredentialRotationData"];
@@ -4335,6 +4367,10 @@ export interface components {
         };
     };
     parameters: {
+        GameServerCertificateFingerprint: string;
+        GameServerRequestTimestamp: number;
+        GameServerRequestNonce: string;
+        GameServerCredentialGeneration: number;
         PlayerID: string;
         GameServerID: string;
         P2PRoomID: string;
@@ -5834,7 +5870,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GameServerListResponse"];
+                    "application/json": components["schemas"]["AdminGameServerListResponse"];
                 };
             };
         };
@@ -5892,7 +5928,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GameServerResponse"];
+                    "application/json": components["schemas"]["AdminGameServerResponse"];
                 };
             };
         };
@@ -6460,7 +6496,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Server registered and management token issued. */
+            /** @description Server registered after Ed25519 CSR proof-of-possession; a node certificate and one-time runtime token are issued. */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -6499,7 +6535,12 @@ export interface operations {
     deregisterGameServer: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "X-Game-Server-Certificate": components["parameters"]["GameServerCertificateFingerprint"];
+                "X-Game-Server-Timestamp": components["parameters"]["GameServerRequestTimestamp"];
+                "X-Game-Server-Nonce": components["parameters"]["GameServerRequestNonce"];
+                "X-Game-Server-Generation": components["parameters"]["GameServerCredentialGeneration"];
+            };
             path: {
                 server_id: components["parameters"]["GameServerID"];
             };
@@ -6522,7 +6563,12 @@ export interface operations {
     heartbeatGameServer: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "X-Game-Server-Certificate": components["parameters"]["GameServerCertificateFingerprint"];
+                "X-Game-Server-Timestamp": components["parameters"]["GameServerRequestTimestamp"];
+                "X-Game-Server-Nonce": components["parameters"]["GameServerRequestNonce"];
+                "X-Game-Server-Generation": components["parameters"]["GameServerCredentialGeneration"];
+            };
             path: {
                 server_id: components["parameters"]["GameServerID"];
             };
@@ -6559,13 +6605,22 @@ export interface operations {
     rotateGameServerCredential: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "X-Game-Server-Certificate": components["parameters"]["GameServerCertificateFingerprint"];
+                "X-Game-Server-Timestamp": components["parameters"]["GameServerRequestTimestamp"];
+                "X-Game-Server-Nonce": components["parameters"]["GameServerRequestNonce"];
+                "X-Game-Server-Generation": components["parameters"]["GameServerCredentialGeneration"];
+            };
             path: {
                 server_id: components["parameters"]["GameServerID"];
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GameServerCredentialRotationRequest"];
+            };
+        };
         responses: {
             /** @description Runtime credential rotated. The new plaintext token is returned only once. */
             200: {

@@ -15,6 +15,7 @@ import (
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/cache"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/database"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/gameserver"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/health"
 	appmiddleware "github.com/Dubnium-105/ProjectRebound/Backend/internal/middleware"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/player"
@@ -36,7 +37,7 @@ type schemaChecker struct{ database *database.Pool }
 func (c schemaChecker) Check(ctx context.Context) error {
 	var applied bool
 	if err := c.database.QueryRow(ctx, `
-		SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 31)
+		SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 35)
 	`).Scan(&applied); err != nil {
 		return err
 	}
@@ -116,7 +117,10 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 		cfg.MetaServer.MaxFrameBytes,
 		definitions,
 	)
-	handler := NewHTTPHandler(service, repository, logger)
+	gameServerProofVerifier := gameserver.NewProofVerifier(
+		gameserver.NewRepository(dbPool.Pool), cfg.GameServer,
+	)
+	handler := NewHTTPHandler(service, repository, gameServerProofVerifier, logger)
 	adminHandler := NewMetaAdminHandler(repository, service, logger, cfg.HTTP.TrustProxyHeaders)
 	router := chi.NewRouter()
 	healthHandler := health.NewHandler([]health.Dependency{

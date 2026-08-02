@@ -44,8 +44,8 @@
 | --- | --- | --- | --- |
 | Player Access Token | `Authorization: Bearer <jwt>` | `/v1/auth/bind` 或 `/refresh` | 玩家写操作、个人资料、连接/WebSocket |
 | Refresh Token | JSON 字段 `refresh_token` | bind/refresh | 轮换 Access Token；每次使用后旧值失效 |
-| Game Server Registration Token | `Authorization: Bearer <token>` | 具有不可变专服邀请资格的已验证玩家调用 `/v1/game-server-registration-tokens`，仅返回一次 | 仅注册对应的一台 Dedicated Server |
-| Game Server Token | `Authorization: Bearer <token>` | 注册或凭证轮转响应，仅返回一次 | 对应 Server 的心跳、轮转和注销 |
+| Game Server Registration Token | `Authorization: Bearer <token>` | 已验证玩家以既有资格或专服邀请码调用 `/v1/game-server-registration-tokens`，仅返回一次 | 仅注册对应的一台 Dedicated Server |
+| Game Server Runtime Credential | Bearer Token + Ed25519 请求签名 | 注册或凭证轮转响应，仅返回一次 | 对应 Server 的心跳、轮转、注销与 MetaServer 内部调用 |
 | Room Host Token | `X-Room-Host-Token: <token>` | 创建房间响应，仅返回一次 | 房主心跳、启动和关闭 |
 
 `account_status=BANNED` 的玩家仍可 bind、refresh、logout 和读取本人资料，但不能执行房间或连接写操作。未提交 `encrypted_ticket` 的旧客户端仍可 bind，但只获得 `unverified` 会话；有效 Steam Encrypted App Ticket 会建立 `verified` 会话。游戏、房间、连接和 MetaServer 操作只允许 verified 会话。
@@ -111,17 +111,21 @@ verified bind 的 `data.integrity_challenge.nonce` 包含首次一次性 challen
 
 | 方法 | 路径 | 鉴权 | 请求/查询 | 成功 |
 | --- | --- | --- | --- | --- |
-| POST | `/v1/game-server-registration-tokens` | 已验证 Player Access Token + 已消费的专服邀请资格 | `instance_id` | 201 单次 `registration_token` |
-| POST | `/v1/game-servers` | Registration Token | `instance_id`, `display_name`, `region`, `mode`, `version`, `public_host`, `public_port`, `max_players` | 201 Server + 一次性 `server_token` |
+| POST | `/v1/game-server-registration-tokens` | 已验证 Player Access Token | `instance_id`；尚无资格时同时提交 `invite_code` | 201 单次 `registration_token` |
+| POST | `/v1/game-servers` | Registration Token | 节点信息 + 节点本地生成 Ed25519 密钥对应的 `csr_pem` | 201 Server + 一次性 Token + 节点证书/CA |
 | GET | `/v1/game-servers` | 无 | `region`, `mode`, `version`, `state`, `cursor`, `limit` | 200 公共目录 |
 | GET | `/v1/game-servers/{server_id}` | 无 | — | 200 公共状态 |
-| POST | `/v1/game-servers/{server_id}/heartbeat` | 对应 Server Token | `state`, `player_count` | 200 状态与下一次心跳信息 |
-| POST | `/v1/game-servers/{server_id}/credential/rotate` | 当前或短暂重叠期内的上一 Server Token | — | 200 新 `server_token`、有效期、代数和重叠截止时间 |
-| DELETE | `/v1/game-servers/{server_id}` | 对应 Server Token | — | 200 注销并撤销 token |
+| POST | `/v1/game-servers/{server_id}/heartbeat` | Token + 当前/重叠证书私钥签名 | `state`, `player_count` | 200 状态与下一次心跳信息 |
+| POST | `/v1/game-servers/{server_id}/credential/rotate` | 当前 Token + 当前私钥签名 | 新密钥对应的 `csr_pem` | 200 新 Token、证书、代数和重叠截止时间 |
+| DELETE | `/v1/game-servers/{server_id}` | 当前 Token + 当前私钥签名 | — | 200 注销并撤销凭证 |
 
-专服邀请码在注册者完成已验证 Steam bind 时消费，其不可变权限快照必须包含 `allow_game_server_registration: true`；之后修改邀请码不能追溯扩权。已验证玩家随后可为一个 `instance_id` 签发 10 分钟有效的 Registration Token。注册会在同一事务内原子消费它，将新实例绑定到该玩家，并返回节点专属 Server Token；其他玩家不能抢占同一实例 ID。
+专服邀请码的不可变权限快照必须包含 `allow_game_server_registration: true`。它既可在首次已验证 Steam bind 时消费，也可由已有已验证玩家在签发 Registration Token 时提交；之后修改邀请码不能追溯扩权。Registration Token 有效 10 分钟且绑定一个 `instance_id`。注册会原子消费它并将实例绑定到玩家；其他玩家不能抢占同一实例 ID。
 
-Server Token 默认有效 24 小时。节点通过 `/v1/game-servers/{server_id}/credential/rotate` 自助轮转；旧 Token 只保留 60 秒重叠期，以便轮转响应丢失后重试。Control Plane 与 MetaServer 共用当前/重叠凭证状态。数据库只保存哈希，所有明文凭证都仅返回一次并带 `Cache-Control: no-store`。建议每 15 秒心跳；默认 45 秒转 `UNHEALTHY`，90 秒转 `OFFLINE`。
+节点必须自行生成并仅在本机保存 Ed25519 私钥，注册提交由该私钥签名的 PKCS#10 CSR。后端签发 24 小时节点证书，身份 URI 为 `spiffe://projectrebound/game-server/{server_id}`；后端只保存公钥和证书指纹，不接收或生成节点私钥。
+
+所有运行写请求必须同时发送 Bearer Token、`X-Game-Server-Certificate`、`X-Game-Server-Timestamp`、`X-Game-Server-Nonce`、`X-Game-Server-Generation` 和 `X-Game-Server-Signature`。签名为 Ed25519 对以下以换行连接的规范串签名：`PR-GAME-SERVER-V1`、大写 HTTP 方法、原始 path+query、正文 SHA-256 十六进制、Unix 时间戳、base64url nonce、Server ID、凭证代数、Token SHA-256 十六进制。时间允许偏差 60 秒；nonce 解码后为 16–64 字节且由 PostgreSQL 全局防重放。
+
+Token 与证书默认均有效 24 小时。轮转请求由当前私钥签名并携带新 CSR，服务端原子替换 Token 与证书；旧凭证对仅可在 60 秒重叠期内继续普通运行流量，不能再次轮转或注销节点。Control Plane 与 MetaServer 共用相同验证器和 nonce 表。明文 Token 只返回一次并带 `Cache-Control: no-store`。现网无证书旧节点仅有迁移落库后 24 小时兼容窗口。参考代理：`go run ./cmd/game-server-agent`。
 
 ### 3.4 P2P 房间
 
