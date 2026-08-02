@@ -15,11 +15,11 @@ until psql \
   --username "$POSTGRES_USER" \
   --dbname "$POSTGRES_DB" \
   --tuples-only --no-align \
-  --command "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 31)" 2>/dev/null |
+  --command "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 35)" 2>/dev/null |
   grep -qx t; do
   attempt=$((attempt + 1))
   if [ "$attempt" -ge 60 ]; then
-    printf 'MetaServer migration 31 was not applied within 120 seconds.\n' >&2
+    printf 'MetaServer migration 35 was not applied within 120 seconds.\n' >&2
     exit 1
   fi
   sleep 2
