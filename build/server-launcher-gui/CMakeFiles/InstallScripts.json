@@ -1,9 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"C:/wksp/ProjectRebound/build/server-launcher-gui/cmake_install.cmake",
-		"C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/slint-build/cmake_install.cmake",
-		"C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/corrosion-build/cmake_install.cmake"
-	],
-	"Parallel" : false
-}

@@ -1,7 +1,0 @@
-# CMake generation dependency list for this directory.
-C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/FindPackageHandleStandardArgs.cmake
-C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/FindPackageMessage.cmake
-C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/corrosion-src/CMakeLists.txt
-C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/corrosion-src/cmake/Corrosion.cmake
-C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/corrosion-src/cmake/CorrosionGenerator.cmake
-C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/corrosion-src/cmake/FindRust.cmake

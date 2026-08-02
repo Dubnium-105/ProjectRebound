@@ -1,5 +1,0 @@
-C:/wksp/ProjectRebound/build/command-pipe-tests/CMakeFiles/command_protocol_tests.dir
-C:/wksp/ProjectRebound/build/command-pipe-tests/CMakeFiles/command_framework_tests.dir
-C:/wksp/ProjectRebound/build/command-pipe-tests/CMakeFiles/RUN_TESTS.dir
-C:/wksp/ProjectRebound/build/command-pipe-tests/CMakeFiles/ALL_BUILD.dir
-C:/wksp/ProjectRebound/build/command-pipe-tests/CMakeFiles/ZERO_CHECK.dir

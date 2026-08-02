@@ -1,3 +1,0 @@
-command_protocol_tests 3 0.00320253
-command_framework_tests 3 0.0350438
----
