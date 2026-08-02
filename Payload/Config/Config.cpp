@@ -7,6 +7,9 @@
 // Central server ip
 std::string OnlineBackendAddress = "";
 
+// Server registration
+std::string RegistrationToken = "";
+
 // Room heartbeat credentials forwarded by the server launcher
 std::string HostRoomId = "";
 std::string HostToken = "";
@@ -100,12 +103,27 @@ void LoadConfig()
         Config.ServerName = serverNameArg;
         Log("[SERVER] Server name: " + serverNameArg);
     }
+    else
+    {
+        Config.ServerName = "Dedicated Server";
+    }
     // Region
     std::string serverRegionArg = GetCmdValue("-serverregion=");
     if (!serverRegionArg.empty())
     {
         Config.ServerRegion = serverRegionArg;
         Log("[SERVER] Server region: " + serverRegionArg);
+    }
+    else
+    {
+        Config.ServerRegion = "asia-hk";
+    }
+
+    Config.MaxPlayers = 10;
+    std::string maxPlayersArg = GetCmdValue("-maxplayers=");
+    if (!maxPlayersArg.empty())
+    {
+        Config.MaxPlayers = std::stoi(maxPlayersArg);
     }
     // Min players (still used in TickFlush)
     Config.MinPlayersToStart = Config.IsPvE ? 1 : 2;
@@ -130,6 +148,31 @@ void LoadConfig()
     {
         HostToken = hostTokenArg;
         Log("[SERVER] Host token received.");
+    }
+
+    std::string serverIdArg = GetCmdValue("-serverid=");
+    if (!serverIdArg.empty())
+    {
+        Config.ServerUniqueId = serverIdArg;
+        Log("[SERVER] Server ID: " + serverIdArg);
+    }
+
+    std::string publicHostArg = GetCmdValue("-publichost=");
+    if (!publicHostArg.empty())
+    {
+        Config.PublicHost = publicHostArg;
+        Log("[SERVER] Public host configured.");
+    }
+
+    std::string agentPathArg = GetCmdValue("-gameserveragent=");
+    Config.GameServerAgentPath = agentPathArg.empty() ? "game-server-agent.exe" : agentPathArg;
+
+    std::string tokenArg = GetCmdValue("-registrationtoken=");
+    if (!tokenArg.empty())
+    {
+        RegistrationToken = tokenArg;
+        SetEnvironmentVariableA("GAME_SERVER_REGISTRATION_TOKEN", RegistrationToken.c_str());
+        Log("[SERVER] Registration token received.");
     }
 }
 

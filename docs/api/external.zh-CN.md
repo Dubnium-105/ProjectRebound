@@ -127,6 +127,21 @@ verified bind 的 `data.integrity_challenge.nonce` 包含首次一次性 challen
 
 Token 与证书默认均有效 24 小时。轮转请求由当前私钥签名并携带新 CSR，服务端原子替换 Token 与证书；旧凭证对仅可在 60 秒重叠期内继续普通运行流量，不能再次轮转或注销节点。Control Plane 与 MetaServer 共用相同验证器和 nonce 表。明文 Token 只返回一次并带 `Cache-Control: no-store`。现网无证书旧节点仅有迁移落库后 24 小时兼容窗口。参考代理：`go run ./cmd/game-server-agent`。
 
+Windows Dedicated Server Wrapper 会调用 `game-server-agent.exe` 完成注册、签名心跳和轮转。将 Agent 放到游戏服务端旁，并在 `serverconfig.json` 中增加：
+
+```json
+{
+  "backend": "https://api.project-rebound.space",
+  "registrationToken": "gsr_替换为一次性注册凭证",
+  "serverId": "hk-dedicated-01",
+  "publicHost": "替换为公网IP",
+  "maxPlayers": 10,
+  "gameServerAgent": "game-server-agent.exe"
+}
+```
+
+`serverId` 必须等于 Registration Token 绑定的 `instance_id`。生成 `game-server-identity-<serverId>.json` 后应从配置中删除 `registrationToken`；它此时已经消费。身份文件包含节点私钥和轮转中的运行 Token，必须限制访问并备份。
+
 ### 3.4 P2P 房间
 
 | 方法 | 路径 | 鉴权 | 请求/附加 Header | 成功 |

@@ -55,7 +55,7 @@ HANDLE g_ServerProcess = NULL;
 DWORD g_ServerPid = 0;
 
 // Config constants
-const std::string DEFAULT_BACKEND = "ax48735790k.vicp.fun:3000";
+const std::string DEFAULT_BACKEND = "https://api.project-rebound.space";
 std::string CurrentMap = "Warehouse";
 std::string CurrentMode = "pvp";
 std::string LastMap = "";
@@ -65,9 +65,14 @@ std::string ServerName = "DefaultServer";
 std::string ServerRegion = "CN";
 std::string HostRoomId = "";
 std::string HostToken = "";
+std::string RegistrationToken = "";
+std::string ServerUniqueId = "";
+std::string PublicHost = "";
+std::string GameServerAgentPath = "game-server-agent.exe";
 std::string GameExePath = "..\\ProjectBoundarySteam-Win64-Shipping.exe";
 int g_ServerPort = 7777;
 int g_ExternalPort = g_ServerPort;
+int g_MaxPlayers = 10;
 bool OfflineMode = false;
 bool UseDX11 = false;
 
@@ -609,6 +614,26 @@ void LoadCommandLineConfig()
     if (!hostTokenArg.empty())
         HostToken = hostTokenArg;
 
+    std::string registrationTokenArg = GetCmdValue("-registrationtoken=");
+    if (!registrationTokenArg.empty())
+        RegistrationToken = registrationTokenArg;
+
+    std::string serverIdArg = GetCmdValue("-serverid=");
+    if (!serverIdArg.empty())
+        ServerUniqueId = serverIdArg;
+
+    std::string publicHostArg = GetCmdValue("-publichost=");
+    if (!publicHostArg.empty())
+        PublicHost = publicHostArg;
+
+    std::string maxPlayersArg = GetCmdValue("-maxplayers=");
+    if (!maxPlayersArg.empty())
+        g_MaxPlayers = std::stoi(maxPlayersArg);
+
+    std::string gameServerAgentArg = GetCmdValue("-gameserveragent=");
+    if (!gameServerAgentArg.empty())
+        GameServerAgentPath = gameServerAgentArg;
+
     std::string gameExeArg = GetCmdValue("-gameexe=");
     if (!gameExeArg.empty())
         GameExePath = gameExeArg;
@@ -666,6 +691,21 @@ bool LoadConfigFile()
     if (j.contains("backend") && j["backend"].is_string())
         OnlineBackend = j["backend"];
 
+    if (j.contains("registrationToken") && j["registrationToken"].is_string())
+        RegistrationToken = j["registrationToken"];
+
+    if (j.contains("serverId") && j["serverId"].is_string())
+        ServerUniqueId = j["serverId"];
+
+    if (j.contains("publicHost") && j["publicHost"].is_string())
+        PublicHost = j["publicHost"];
+
+    if (j.contains("maxPlayers") && j["maxPlayers"].is_number_integer())
+        g_MaxPlayers = j["maxPlayers"];
+
+    if (j.contains("gameServerAgent") && j["gameServerAgent"].is_string())
+        GameServerAgentPath = j["gameServerAgent"];
+
     if (j.contains("offline") && j["offline"].is_boolean())
         OfflineMode = j["offline"];
 
@@ -689,6 +729,11 @@ void SaveConfigFile()
     j["port"] = g_ServerPort;
     j["externalPort"] = g_ExternalPort;
     j["backend"] = OnlineBackend;
+    j["registrationToken"] = RegistrationToken;
+    j["serverId"] = ServerUniqueId;
+    j["publicHost"] = PublicHost;
+    j["maxPlayers"] = g_MaxPlayers;
+    j["gameServerAgent"] = GameServerAgentPath;
     j["offline"] = OfflineMode;
     j["dx11"] = UseDX11;
 
@@ -1093,11 +1138,21 @@ bool LaunchServerLocked()
         cmd += L"-hosttoken=" + wHostToken + L" ";
     }
 
+    if (!RegistrationToken.empty())
+        cmd += L"-registrationtoken=" + std::wstring(RegistrationToken.begin(), RegistrationToken.end()) + L" ";
+    if (!ServerUniqueId.empty())
+        cmd += L"-serverid=" + std::wstring(ServerUniqueId.begin(), ServerUniqueId.end()) + L" ";
+    if (!PublicHost.empty())
+        cmd += L"-publichost=" + std::wstring(PublicHost.begin(), PublicHost.end()) + L" ";
+    cmd += L"-maxplayers=" + std::to_wstring(g_MaxPlayers) + L" ";
+    if (!GameServerAgentPath.empty())
+        cmd += L"-gameserveragent=" + std::wstring(GameServerAgentPath.begin(), GameServerAgentPath.end()) + L" ";
+
     if (!CreateProcessW(NULL, cmd.data(), NULL, NULL, TRUE,
                         CREATE_NO_WINDOW | DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP, NULL, NULL, &si, &pi))
     {
         LauncherLog("Failed to launch server! GetLastError=" + std::to_string(GetLastError()));
-        LauncherLog("Command line: " + std::string(cmd.begin(), cmd.end()));
+        LauncherLog("Command line omitted because it contains registration credentials.");
         CloseHandle(readPipe);
         CloseHandle(writePipe);
         g_ServerState.store(ServerState::Stopped);

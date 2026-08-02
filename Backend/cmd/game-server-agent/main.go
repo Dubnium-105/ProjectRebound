@@ -27,6 +27,7 @@ import (
 
 type options struct {
 	ControlPlaneURL string
+	FallbackURL     string
 	IdentityFile    string
 	InstanceID      string
 	DisplayName     string
@@ -37,6 +38,8 @@ type options struct {
 	PublicPort      int
 	MaxPlayers      int
 	RotateBefore    time.Duration
+	HeartbeatState  string
+	PlayerCount     int
 	Once            bool
 }
 
@@ -85,6 +88,7 @@ type rotationData struct {
 func main() {
 	var cfg options
 	flag.StringVar(&cfg.ControlPlaneURL, "control-plane-url", "http://127.0.0.1:8080", "Control Plane base URL")
+	flag.StringVar(&cfg.FallbackURL, "fallback-control-plane-url", "", "optional fallback URL for idempotent heartbeats")
 	flag.StringVar(&cfg.IdentityFile, "identity-file", "game-server-identity.json", "mode-0600 node identity file")
 	flag.StringVar(&cfg.InstanceID, "instance-id", "", "stable node instance ID")
 	flag.StringVar(&cfg.DisplayName, "display-name", "Dedicated Server", "public display name")
@@ -95,6 +99,8 @@ func main() {
 	flag.IntVar(&cfg.PublicPort, "public-port", 7777, "public game port")
 	flag.IntVar(&cfg.MaxPlayers, "max-players", 16, "maximum players")
 	flag.DurationVar(&cfg.RotateBefore, "rotate-before", 6*time.Hour, "rotate when token or certificate has less time remaining")
+	flag.StringVar(&cfg.HeartbeatState, "heartbeat-state", "READY", "reported server state")
+	flag.IntVar(&cfg.PlayerCount, "player-count", 0, "reported player count")
 	flag.BoolVar(&cfg.Once, "once", false, "send one heartbeat and exit")
 	flag.Parse()
 
@@ -125,7 +131,7 @@ func main() {
 				logger.Info("game server identity rotated", "server_id", current.ServerID, "generation", current.CredentialGeneration)
 			}
 		}
-		if err := heartbeat(ctx, client, cfg.ControlPlaneURL, current); err != nil {
+		if err := heartbeat(ctx, client, cfg, current); err != nil {
 			logger.Error("send game server heartbeat", "error", err)
 		} else {
 			logger.Info("game server heartbeat accepted", "server_id", current.ServerID)
@@ -210,14 +216,40 @@ func rotate(ctx context.Context, client *http.Client, baseURL string, current id
 	}, nil
 }
 
-func heartbeat(ctx context.Context, client *http.Client, baseURL string, current identity) error {
-	body := []byte(`{"state":"READY","player_count":0}`)
-	path := "/v1/game-servers/" + url.PathEscape(current.ServerID) + "/heartbeat"
-	request, err := signedRequest(ctx, http.MethodPost, baseURL, path, body, current)
+func heartbeat(ctx context.Context, client *http.Client, cfg options, current identity) error {
+	if cfg.PlayerCount < 0 {
+		return errors.New("player-count cannot be negative")
+	}
+	body, err := json.Marshal(map[string]any{
+		"state": strings.ToUpper(strings.TrimSpace(cfg.HeartbeatState)), "player_count": cfg.PlayerCount,
+	})
 	if err != nil {
 		return err
 	}
-	return doJSON(client, request, nil)
+	path := "/v1/game-servers/" + url.PathEscape(current.ServerID) + "/heartbeat"
+	targets := heartbeatTargets(cfg.ControlPlaneURL, cfg.FallbackURL)
+	var lastErr error
+	for _, baseURL := range targets {
+		request, requestErr := signedRequest(ctx, http.MethodPost, baseURL, path, body, current)
+		if requestErr != nil {
+			return requestErr
+		}
+		if requestErr = doJSON(client, request, nil); requestErr == nil {
+			return nil
+		}
+		lastErr = requestErr
+	}
+	return lastErr
+}
+
+func heartbeatTargets(primary, fallback string) []string {
+	primary = strings.TrimRight(strings.TrimSpace(primary), "/")
+	fallback = strings.TrimRight(strings.TrimSpace(fallback), "/")
+	targets := []string{primary}
+	if fallback != "" && fallback != primary {
+		targets = append(targets, fallback)
+	}
+	return targets
 }
 
 func signedRequest(ctx context.Context, method, baseURL, path string, body []byte, current identity) (*http.Request, error) {
@@ -323,6 +355,10 @@ func saveIdentity(path string, current identity) error {
 		_ = temporary.Close()
 		return err
 	}
+	if err := hardenIdentityFile(temporaryName); err != nil {
+		_ = temporary.Close()
+		return err
+	}
 	encoder := json.NewEncoder(temporary)
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(current); err != nil {
@@ -339,7 +375,7 @@ func saveIdentity(path string, current identity) error {
 	if err := os.Rename(temporaryName, path); err != nil {
 		return err
 	}
-	return os.Chmod(path, 0o600)
+	return hardenIdentityFile(path)
 }
 
 func endpoint(baseURL, path string) string { return strings.TrimRight(baseURL, "/") + path }

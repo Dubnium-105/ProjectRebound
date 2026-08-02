@@ -127,6 +127,21 @@ Every runtime write supplies the Bearer Token and `X-Game-Server-Certificate`, `
 
 Tokens and certificates default to 24 hours. Rotation is signed by the current key and carries a fresh CSR; the backend atomically replaces both credentials and accepts the previous pair for routine runtime traffic for 60 seconds. The previous pair cannot rotate or deregister the node. Control Plane and MetaServer share the verifier and nonce table. Plaintext tokens are returned once with `Cache-Control: no-store`. Certificate-less pre-upgrade nodes receive only a 24-hour migration window. A runnable reference is available at `go run ./cmd/game-server-agent`.
 
+The Windows Dedicated Server wrapper launches `game-server-agent.exe` for enrollment, signed heartbeats, and rotation. Place the agent next to the game server and add the following fields to `serverconfig.json`:
+
+```json
+{
+  "backend": "https://api.project-rebound.space",
+  "registrationToken": "gsr_REPLACE_WITH_ONE_TIME_TOKEN",
+  "serverId": "hk-dedicated-01",
+  "publicHost": "REPLACE_WITH_PUBLIC_IP",
+  "maxPlayers": 10,
+  "gameServerAgent": "game-server-agent.exe"
+}
+```
+
+`serverId` must equal the `instance_id` bound to the Registration Token. Remove `registrationToken` from the file after `game-server-identity-<serverId>.json` is created; the token has already been consumed. Protect and back up the identity file because it contains the node private key and rotating runtime Token.
+
 ### 3.4 P2P Room
 
 | Method | Path | Authentication | Request/additional header | Success |
