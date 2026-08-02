@@ -125,24 +125,24 @@ verified bind 的 `data.integrity_challenge.nonce` 包含首次一次性 challen
 
 所有运行写请求必须同时发送 Bearer Token、`X-Game-Server-Certificate`、`X-Game-Server-Timestamp`、`X-Game-Server-Nonce`、`X-Game-Server-Generation` 和 `X-Game-Server-Signature`。签名为 Ed25519 对以下以换行连接的规范串签名：`PR-GAME-SERVER-V1`、大写 HTTP 方法、原始 path+query、正文 SHA-256 十六进制、Unix 时间戳、base64url nonce、Server ID、凭证代数、Token SHA-256 十六进制。时间允许偏差 60 秒；nonce 解码后为 16–64 字节且由 PostgreSQL 全局防重放。
 
-Token 与证书默认均有效 24 小时。轮转请求由当前私钥签名并携带新 CSR，服务端原子替换 Token 与证书；旧凭证对仅可在 60 秒重叠期内继续普通运行流量，不能再次轮转或注销节点。Control Plane 与 MetaServer 共用相同验证器和 nonce 表。明文 Token 只返回一次并带 `Cache-Control: no-store`。现网无证书旧节点仅有迁移落库后 24 小时兼容窗口。参考代理：`go run ./cmd/game-server-agent`。
+Token 与证书默认均有效 24 小时。轮转请求由当前私钥签名并携带新 CSR，服务端原子替换 Token 与证书；旧凭证对仅可在 60 秒重叠期内继续普通运行流量，不能再次轮转或注销节点。Control Plane 与 MetaServer 共用相同验证器和 nonce 表。明文 Token 只返回一次并带 `Cache-Control: no-store`。现网无证书旧节点仅有迁移落库后 24 小时兼容窗口。`cmd/game-server-agent` 下的 Go 命令仅为协议参考和开发诊断客户端，不属于生产启动链路。
 
-Windows Dedicated Server Wrapper 会调用 `game-server-agent.exe` 完成注册、签名心跳和轮转。将 Agent 放到游戏服务端旁，并在 `serverconfig.json` 中增加：
+生产注册、签名心跳、私钥和凭证轮转由 Rust Toolbox 负责。Toolbox 为每次启动生成高熵命名管道名，通过 Windows Wrapper 传递 `-pipe=<name>`，并且只从 Payload 读取非秘密的 `state`、`player_count` 和 `round_state`。`serverconfig.json` 配置如下：
 
 ```json
 {
   "backend": "https://api.project-rebound.space",
+  "offline": false,
   "registrationToken": "gsr_替换为一次性注册凭证",
   "serverId": "hk-dedicated-01",
   "publicHost": "替换为公网IP",
-  "maxPlayers": 10,
-  "gameServerAgent": "game-server-agent.exe"
+  "maxPlayers": 10
 }
 ```
 
-`serverId` 必须等于 Registration Token 绑定的 `instance_id`。生成 `game-server-identity-<serverId>.json` 后应从配置中删除 `registrationToken`；它此时已经消费。身份文件包含节点私钥和轮转中的运行 Token，必须限制访问并备份。
+`serverId` 是 Registration Token 绑定的 `instance_id`，不是后端生成的 Server ID。注册成功后，Toolbox 保存当前用户 DPAPI 加密的 `game-server-identity-<serverId>.dpapi`，并从配置中删除 `registrationToken`。Wrapper 和 Payload 不会接触 Registration Token、节点私钥、运行 Token、CSR 或签名。
 
-完整的签发、构建、Wrapper 参数、回退、ACL、轮转和生产 CA 流程见[Dedicated Server 注册与运行身份](../operations/dedicated-server-registration.zh-CN.md)。
+完整的签发、命名管道、回退、DPAPI、轮转和生产 CA 流程见[Dedicated Server 注册与运行身份](../operations/dedicated-server-registration.zh-CN.md)。
 
 ### 3.4 P2P 房间
 

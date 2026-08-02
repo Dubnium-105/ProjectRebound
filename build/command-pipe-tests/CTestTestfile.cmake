@@ -1,0 +1,36 @@
+# CMake generated Testfile for 
+# Source directory: C:/wksp/ProjectRebound/Payload/Tests
+# Build directory: C:/wksp/ProjectRebound/build/command-pipe-tests
+# 
+# This file includes the relevant testing commands required for 
+# testing this directory and lists subdirectories to be tested as well.
+if(CTEST_CONFIGURATION_TYPE MATCHES "^([Dd][Ee][Bb][Uu][Gg])$")
+  add_test([=[command_protocol_tests]=] "C:/wksp/ProjectRebound/build/command-pipe-tests/Debug/command_protocol_tests.exe")
+  set_tests_properties([=[command_protocol_tests]=] PROPERTIES  _BACKTRACE_TRIPLES "C:/wksp/ProjectRebound/Payload/Tests/CMakeLists.txt;22;add_test;C:/wksp/ProjectRebound/Payload/Tests/CMakeLists.txt;0;")
+elseif(CTEST_CONFIGURATION_TYPE MATCHES "^([Rr][Ee][Ll][Ee][Aa][Ss][Ee])$")
+  add_test([=[command_protocol_tests]=] "C:/wksp/ProjectRebound/build/command-pipe-tests/Release/command_protocol_tests.exe")
+  set_tests_properties([=[command_protocol_tests]=] PROPERTIES  _BACKTRACE_TRIPLES "C:/wksp/ProjectRebound/Payload/Tests/CMakeLists.txt;22;add_test;C:/wksp/ProjectRebound/Payload/Tests/CMakeLists.txt;0;")
+elseif(CTEST_CONFIGURATION_TYPE MATCHES "^([Mm][Ii][Nn][Ss][Ii][Zz][Ee][Rr][Ee][Ll])$")
+  add_test([=[command_protocol_tests]=] "C:/wksp/ProjectRebound/build/command-pipe-tests/MinSizeRel/command_protocol_tests.exe")
+  set_tests_properties([=[command_protocol_tests]=] PROPERTIES  _BACKTRACE_TRIPLES "C:/wksp/ProjectRebound/Payload/Tests/CMakeLists.txt;22;add_test;C:/wksp/ProjectRebound/Payload/Tests/CMakeLists.txt;0;")
+elseif(CTEST_CONFIGURATION_TYPE MATCHES "^([Rr][Ee][Ll][Ww][Ii][Tt][Hh][Dd][Ee][Bb][Ii][Nn][Ff][Oo])$")
+  add_test([=[command_protocol_tests]=] "C:/wksp/ProjectRebound/build/command-pipe-tests/RelWithDebInfo/command_protocol_tests.exe")
+  set_tests_properties([=[command_protocol_tests]=] PROPERTIES  _BACKTRACE_TRIPLES "C:/wksp/ProjectRebound/Payload/Tests/CMakeLists.txt;22;add_test;C:/wksp/ProjectRebound/Payload/Tests/CMakeLists.txt;0;")
+else()
+  add_test([=[command_protocol_tests]=] NOT_AVAILABLE)
+endif()
+if(CTEST_CONFIGURATION_TYPE MATCHES "^([Dd][Ee][Bb][Uu][Gg])$")
+  add_test([=[command_framework_tests]=] "C:/wksp/ProjectRebound/build/command-pipe-tests/Debug/command_framework_tests.exe")
+  set_tests_properties([=[command_framework_tests]=] PROPERTIES  _BACKTRACE_TRIPLES "C:/wksp/ProjectRebound/Payload/Tests/CMakeLists.txt;35;add_test;C:/wksp/ProjectRebound/Payload/Tests/CMakeLists.txt;0;")
+elseif(CTEST_CONFIGURATION_TYPE MATCHES "^([Rr][Ee][Ll][Ee][Aa][Ss][Ee])$")
+  add_test([=[command_framework_tests]=] "C:/wksp/ProjectRebound/build/command-pipe-tests/Release/command_framework_tests.exe")
+  set_tests_properties([=[command_framework_tests]=] PROPERTIES  _BACKTRACE_TRIPLES "C:/wksp/ProjectRebound/Payload/Tests/CMakeLists.txt;35;add_test;C:/wksp/ProjectRebound/Payload/Tests/CMakeLists.txt;0;")
+elseif(CTEST_CONFIGURATION_TYPE MATCHES "^([Mm][Ii][Nn][Ss][Ii][Zz][Ee][Rr][Ee][Ll])$")
+  add_test([=[command_framework_tests]=] "C:/wksp/ProjectRebound/build/command-pipe-tests/MinSizeRel/command_framework_tests.exe")
+  set_tests_properties([=[command_framework_tests]=] PROPERTIES  _BACKTRACE_TRIPLES "C:/wksp/ProjectRebound/Payload/Tests/CMakeLists.txt;35;add_test;C:/wksp/ProjectRebound/Payload/Tests/CMakeLists.txt;0;")
+elseif(CTEST_CONFIGURATION_TYPE MATCHES "^([Rr][Ee][Ll][Ww][Ii][Tt][Hh][Dd][Ee][Bb][Ii][Nn][Ff][Oo])$")
+  add_test([=[command_framework_tests]=] "C:/wksp/ProjectRebound/build/command-pipe-tests/RelWithDebInfo/command_framework_tests.exe")
+  set_tests_properties([=[command_framework_tests]=] PROPERTIES  _BACKTRACE_TRIPLES "C:/wksp/ProjectRebound/Payload/Tests/CMakeLists.txt;35;add_test;C:/wksp/ProjectRebound/Payload/Tests/CMakeLists.txt;0;")
+else()
+  add_test([=[command_framework_tests]=] NOT_AVAILABLE)
+endif()

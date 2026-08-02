@@ -8,12 +8,9 @@
 #include "../Libs/json.hpp"
 #include <iostream>
 #include <string>
-#include <algorithm>
-#include <cctype>
-#include <chrono>
+#include <atomic>
 #include <mutex>
 #include <thread>
-#include <vector>
 #include <Windows.h>
 #include <winhttp.h>
 #pragma comment(lib, "winhttp.lib")
@@ -21,155 +18,25 @@
 using namespace SDK;
 
 constexpr const char *BACKEND_PRIMARY = "https://api.project-rebound.space";
-constexpr const char *BACKEND_FALLBACK = "https://cnapi.project-rebound.space";
-constexpr const char *REG_TOKEN_PLACEHOLDER = "YOUR_TOKEN_HERE";
 
 namespace
 {
-    std::wstring QuoteWindowsArgument(const std::string &value)
+    std::atomic<int> ToolboxPlayerCount{0};
+    std::mutex ToolboxRoundStateMutex;
+    std::string ToolboxRoundState = "Unknown";
+
+    void RefreshToolboxServerStatus(const int playerCount)
     {
-        std::wstring input(value.begin(), value.end());
-        std::wstring quoted = L"\"";
-        size_t backslashes = 0;
-        for (wchar_t character : input)
+        ToolboxPlayerCount.store(playerCount < 0 ? 0 : playerCount, std::memory_order_release);
+        std::string state = "Unknown";
+        UWorld *world = UWorld::GetWorld();
+        if (world && world->AuthorityGameMode && world->AuthorityGameMode->GameState)
         {
-            if (character == L'\\')
-            {
-                ++backslashes;
-                continue;
-            }
-            if (character == L'\"')
-            {
-                quoted.append(backslashes * 2 + 1, L'\\');
-                quoted.push_back(L'\"');
-            }
-            else
-            {
-                quoted.append(backslashes, L'\\');
-                quoted.push_back(character);
-            }
-            backslashes = 0;
+            APBGameState *gameState = (APBGameState *)world->AuthorityGameMode->GameState;
+            state = gameState->RoundState.ToString();
         }
-        quoted.append(backslashes * 2, L'\\');
-        quoted.push_back(L'\"');
-        return quoted;
-    }
-
-    std::string IdentityFileName()
-    {
-        std::string instance = Config.ServerUniqueId.empty() ? "server-unknown" : Config.ServerUniqueId;
-        std::replace_if(instance.begin(), instance.end(), [](unsigned char character)
-                        { return !(std::isalnum(character) || character == '.' || character == '_' || character == '-'); },
-                        '_');
-        return "game-server-identity-" + instance + ".json";
-    }
-
-    bool FileExists(const std::string &path)
-    {
-        DWORD attributes = GetFileAttributesA(path.c_str());
-        return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
-    }
-
-    bool RunGameServerAgent(const std::string &backend)
-    {
-        static ULONGLONG lastSuccessfulRun = 0;
-        const ULONGLONG now = GetTickCount64();
-        if (lastSuccessfulRun != 0 && now - lastSuccessfulRun < 15000)
-            return true;
-
-        const std::string identityFile = IdentityFileName();
-        const bool hasIdentity = FileExists(identityFile);
-        if (Config.ServerUniqueId.empty() || (!hasIdentity && Config.PublicHost.empty()))
-        {
-            static bool configurationBannerShown = false;
-            if (!configurationBannerShown)
-            {
-                configurationBannerShown = true;
-                Log("[ONLINE] Dedicated Server registration requires -serverid and -publichost.");
-            }
-            return false;
-        }
-        if (!hasIdentity && (RegistrationToken.empty() || RegistrationToken == REG_TOKEN_PLACEHOLDER))
-        {
-            static bool tokenBannerShown = false;
-            if (!tokenBannerShown)
-            {
-                tokenBannerShown = true;
-                Log("[ONLINE] Registration token is not configured; server remains unlisted.");
-            }
-            return false;
-        }
-        if (!FileExists(Config.GameServerAgentPath))
-        {
-            static bool agentBannerShown = false;
-            if (!agentBannerShown)
-            {
-                agentBannerShown = true;
-                Log("[ONLINE] game-server-agent executable was not found: " + Config.GameServerAgentPath);
-            }
-            return false;
-        }
-
-        const std::string primary = backend.empty() ? BACKEND_PRIMARY : backend;
-        const std::string fallback = primary == BACKEND_PRIMARY
-                                         ? BACKEND_FALLBACK
-                                         : (primary == BACKEND_FALLBACK ? BACKEND_PRIMARY : "");
-        const std::string mode = Config.IsPvE ? "pve" : "tdm";
-        const int playerCount = GetCurrentPlayerCount();
-        const std::string heartbeatState = hasIdentity && playerCount > 0 ? "RUNNING" : "READY";
-        std::wstring command = QuoteWindowsArgument(Config.GameServerAgentPath);
-        auto append = [&command](const char *flag, const std::string &value)
-        {
-            command += L" ";
-            command += std::wstring(flag, flag + std::char_traits<char>::length(flag));
-            command += L" ";
-            command += QuoteWindowsArgument(value);
-        };
-        append("-control-plane-url", primary);
-        if (!fallback.empty())
-            append("-fallback-control-plane-url", fallback);
-        append("-identity-file", identityFile);
-        append("-instance-id", Config.ServerUniqueId);
-        append("-display-name", Config.ServerName);
-        append("-region", Config.ServerRegion);
-        append("-mode", mode);
-        append("-version", "0.7.0");
-        append("-public-host", Config.PublicHost);
-        append("-public-port", std::to_string(Config.ExternalPort));
-        append("-max-players", std::to_string(Config.MaxPlayers));
-        append("-heartbeat-state", heartbeatState);
-        append("-player-count", std::to_string(playerCount));
-        command += L" -once";
-
-        std::vector<wchar_t> mutableCommand(command.begin(), command.end());
-        mutableCommand.push_back(L'\0');
-        STARTUPINFOW startup{};
-        startup.cb = sizeof(startup);
-        PROCESS_INFORMATION process{};
-        if (!CreateProcessW(nullptr, mutableCommand.data(), nullptr, nullptr, FALSE,
-                            CREATE_NO_WINDOW, nullptr, nullptr, &startup, &process))
-        {
-            Log("[ONLINE] Failed to start game-server-agent.");
-            return false;
-        }
-        WaitForSingleObject(process.hProcess, INFINITE);
-        DWORD exitCode = 1;
-        GetExitCodeProcess(process.hProcess, &exitCode);
-        CloseHandle(process.hThread);
-        CloseHandle(process.hProcess);
-        if (exitCode != 0)
-        {
-            Log("[ONLINE] game-server-agent failed with exit code " + std::to_string(exitCode) + ".");
-            return false;
-        }
-        if (!RegistrationToken.empty() && FileExists(identityFile))
-        {
-            SetEnvironmentVariableA("GAME_SERVER_REGISTRATION_TOKEN", nullptr);
-            SecureZeroMemory(RegistrationToken.data(), RegistrationToken.size());
-            RegistrationToken.clear();
-        }
-        lastSuccessfulRun = GetTickCount64();
-        return true;
+        std::lock_guard<std::mutex> lock(ToolboxRoundStateMutex);
+        ToolboxRoundState = std::move(state);
     }
 }
 
@@ -193,19 +60,15 @@ std::string StripHttpScheme(const std::string &backend)
 
 nlohmann::json BuildServerStatusPayload()
 {
-    int playerCount = GetCurrentPlayerCount();
+    const int playerCount = ToolboxPlayerCount.load(std::memory_order_acquire);
 
     std::string map = std::string(Config.MapName.begin(), Config.MapName.end());
     std::string mode = std::string(Config.FullModePath.begin(), Config.FullModePath.end());
 
-    std::string state = "Unknown";
-
-    // FIXED: Add proper null checks before dereferencing
-    UWorld *World = UWorld::GetWorld();
-    if (World && World->AuthorityGameMode && World->AuthorityGameMode->GameState)
+    std::string state;
     {
-        APBGameState *GS = (APBGameState *)World->AuthorityGameMode->GameState;
-        state = GS->RoundState.ToString();
+        std::lock_guard<std::mutex> lock(ToolboxRoundStateMutex);
+        state = ToolboxRoundState;
     }
 
     nlohmann::json payload = {
@@ -325,9 +188,7 @@ void SendServerStatus(const std::string &backend)
     if (useRoomHeartbeat)
     {
         PostJsonToBackend(backend, "/v1/rooms/" + HostRoomId + "/heartbeat", BuildRoomHeartbeatPayload());
-        return;
     }
-    RunGameServerAgent(backend);
 }
 
 bool SendRoomLifecycleStart(const std::string &backend)
@@ -395,6 +256,7 @@ void StartHeartbeatThread()
         while (true)
         {
             int pc = GetCurrentPlayerCount();
+            RefreshToolboxServerStatus(pc);
             std::cout << "[HEARTBEAT] PlayerCount = " << pc << std::endl;
 
             if (!OnlineBackendAddress.empty())

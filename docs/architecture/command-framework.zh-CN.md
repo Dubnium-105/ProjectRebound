@@ -2,9 +2,9 @@
 
 [English](command-framework.md) | 简体中文
 
-`CommandFramework` 是 Windows 启动器与游戏进程内 Payload 之间的本地命令通道。
-Payload 是单实例管道服务端。启动器应为每次游戏运行生成高熵管道名，通过
-`-pipe=<name>` 传给游戏，并以同一 Windows 用户、同一会话连接
+`CommandFramework` 是 Rust Toolbox 与游戏进程内 Payload 之间的本地命令通道。
+Payload 是单实例管道服务端。Toolbox 为每次游戏运行生成高熵管道名，通过 Windows
+Wrapper 将 `-pipe=<name>` 传给游戏，并以同一 Windows 用户、同一会话连接
 `\\.\pipe\<name>`。
 
 实现被拆成三个边界：
@@ -49,6 +49,12 @@ pong\t{"request_id":"health-17"}\n
 | `ping` | 无 | `pong` | 检查通道是否存活 |
 | `join` | `ip`：字符串 | `join_ack` | 接受一个游戏线程比赛跳转 |
 | `debug` | 由回调定义 | `debug_ack` | 执行注册到 Payload 的调试处理器 |
+| `server_status` | 无 | `server_status_ack` | 为 Toolbox 所有的签名心跳读取非秘密专服运行状态 |
+
+`server_status` 只在 Dedicated Server Payload 中可用。响应包含 `state`（`READY` 或
+`RUNNING`）、非负 `player_count` 和诊断字段 `round_state`；客户端 Payload 返回
+`unavailable`。Registration Token、节点私钥、运行 Token、证书、CSR 和签名都禁止
+出现在该请求或响应中。
 
 `join.ip` 表示完整目标，不只是 IP。允许 `host:port`、`IPv4:port` 和
 `[IPv6]:port`；端口必须在 1–65535 之间，完整目标最多 512 字节。构造 Unreal

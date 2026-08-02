@@ -125,24 +125,24 @@ The node generates and retains its own Ed25519 private key, and registration sub
 
 Every runtime write supplies the Bearer Token and `X-Game-Server-Certificate`, `X-Game-Server-Timestamp`, `X-Game-Server-Nonce`, `X-Game-Server-Generation`, and `X-Game-Server-Signature`. The Ed25519 signature covers a newline-delimited canonical value containing `PR-GAME-SERVER-V1`, uppercase method, raw path and query, hexadecimal body SHA-256, Unix timestamp, base64url nonce, Server ID, credential generation, and hexadecimal Token SHA-256. The timestamp window is 60 seconds; decoded nonces are 16–64 bytes and PostgreSQL prevents cross-process replay.
 
-Tokens and certificates default to 24 hours. Rotation is signed by the current key and carries a fresh CSR; the backend atomically replaces both credentials and accepts the previous pair for routine runtime traffic for 60 seconds. The previous pair cannot rotate or deregister the node. Control Plane and MetaServer share the verifier and nonce table. Plaintext tokens are returned once with `Cache-Control: no-store`. Certificate-less pre-upgrade nodes receive only a 24-hour migration window. A runnable reference is available at `go run ./cmd/game-server-agent`.
+Tokens and certificates default to 24 hours. Rotation is signed by the current key and carries a fresh CSR; the backend atomically replaces both credentials and accepts the previous pair for routine runtime traffic for 60 seconds. The previous pair cannot rotate or deregister the node. Control Plane and MetaServer share the verifier and nonce table. Plaintext tokens are returned once with `Cache-Control: no-store`. Certificate-less pre-upgrade nodes receive only a 24-hour migration window. The Go command under `cmd/game-server-agent` is a protocol reference and developer diagnostic client, not the production launcher.
 
-The Windows Dedicated Server wrapper launches `game-server-agent.exe` for enrollment, signed heartbeats, and rotation. Place the agent next to the game server and add the following fields to `serverconfig.json`:
+The Rust Toolbox owns production enrollment, signed heartbeats, private keys, and credential rotation. It generates a high-entropy per-launch named-pipe name, passes `-pipe=<name>` through the Windows Wrapper, and reads only non-secret `state`, `player_count`, and `round_state` from the Payload. Configure `serverconfig.json` as follows:
 
 ```json
 {
   "backend": "https://api.project-rebound.space",
+  "offline": false,
   "registrationToken": "gsr_REPLACE_WITH_ONE_TIME_TOKEN",
   "serverId": "hk-dedicated-01",
   "publicHost": "REPLACE_WITH_PUBLIC_IP",
-  "maxPlayers": 10,
-  "gameServerAgent": "game-server-agent.exe"
+  "maxPlayers": 10
 }
 ```
 
-`serverId` must equal the `instance_id` bound to the Registration Token. Remove `registrationToken` from the file after `game-server-identity-<serverId>.json` is created; the token has already been consumed. Protect and back up the identity file because it contains the node private key and rotating runtime Token.
+`serverId` is the `instance_id` bound to the Registration Token, not the backend-generated Server ID. After successful enrollment, the Toolbox stores a current-user DPAPI-encrypted `game-server-identity-<serverId>.dpapi` file and removes `registrationToken` from the configuration. The Wrapper and Payload never receive the Registration Token, node private key, runtime Token, CSR, or signature.
 
-For the complete issuance, build, Wrapper argument, fallback, ACL, rotation, and production-CA procedure, see [Dedicated Server registration and runtime identity](../operations/dedicated-server-registration.md).
+For the complete issuance, named-pipe, fallback, DPAPI, rotation, and production-CA procedure, see [Dedicated Server registration and runtime identity](../operations/dedicated-server-registration.md).
 
 ### 3.4 P2P Room
 

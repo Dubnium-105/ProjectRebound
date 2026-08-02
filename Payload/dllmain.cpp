@@ -155,6 +155,37 @@ void MainThread()
 
             StartServer();
 
+            // Toolbox owns enrollment and long-lived node credentials. The
+            // in-process server exposes only non-secret runtime status over
+            // the per-launch, same-user named pipe.
+            if (!MatchPipeName.empty())
+            {
+                auto framework = std::make_unique<CommandFramework>();
+                framework->SetPipeName(MatchPipeName);
+                framework->SetLogCallback([](const std::string& msg) { Log(msg); });
+                framework->SetServerStatusCallback([]()
+                    {
+                        const nlohmann::json current = BuildServerStatusPayload();
+                        const int reportedPlayerCount = current.value("playerCount", 0);
+                        const int playerCount = reportedPlayerCount < 0 ? 0 : reportedPlayerCount;
+                        return nlohmann::json{
+                            {"state", playerCount > 0 ? "RUNNING" : "READY"},
+                            {"player_count", playerCount},
+                            {"round_state", current.value("serverState", "Unknown")}
+                        };
+                    });
+
+                if (framework->Start())
+                {
+                    std::lock_guard<std::mutex> lock(g_CmdFrameworkMutex);
+                    g_CmdFramework = framework.release();
+                }
+                else
+                {
+                    Log("[PIPE] Toolbox command framework failed to start.");
+                }
+            }
+
             // Heartbeat thread (game + backend) – now wrapped in Network
             StartHeartbeatThread();
         }

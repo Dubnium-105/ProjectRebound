@@ -2,10 +2,11 @@
 
 English | [简体中文](command-framework.zh-CN.md)
 
-`CommandFramework` is the local command channel between a Windows launcher and the
-in-process game Payload. The Payload is the single-instance pipe server. A launcher
-creates a high-entropy pipe name for one game run, passes it through `-pipe=<name>`, and
-connects to `\\.\pipe\<name>` as the same Windows user and in the same session.
+`CommandFramework` is the local command channel between the Rust Toolbox and the
+in-process game Payload. The Payload is the single-instance pipe server. The Toolbox
+creates a high-entropy pipe name for one game run, passes it through the Windows Wrapper
+as `-pipe=<name>`, and connects to `\\.\pipe\<name>` as the same Windows user and in the
+same session.
 
 The implementation is split into three boundaries:
 
@@ -54,6 +55,13 @@ pong\t{"request_id":"health-17"}\n
 | `ping` | none | `pong` | Checks that the channel is live |
 | `join` | `ip`: string | `join_ack` | Accepts a game-thread match transition |
 | `debug` | callback-defined | `debug_ack` | Runs the registered Payload debug handler |
+| `server_status` | none | `server_status_ack` | Reads non-secret Dedicated Server runtime state for Toolbox-owned signed heartbeats |
+
+`server_status` is available only in a Dedicated Server Payload. Its response contains
+`state` (`READY` or `RUNNING`), non-negative `player_count`, and diagnostic
+`round_state`. A client Payload returns `unavailable`. Registration Tokens, node private
+keys, runtime Tokens, certificates, CSRs, and signatures are prohibited from this
+request and response.
 
 `join.ip` is the complete target, not only an IP address. Accepted forms are
 `host:port`, `IPv4:port`, and `[IPv6]:port`; the port range is 1–65535 and the complete

@@ -7,9 +7,6 @@
 // Central server ip
 std::string OnlineBackendAddress = "";
 
-// Server registration
-std::string RegistrationToken = "";
-
 // Room heartbeat credentials forwarded by the server launcher
 std::string HostRoomId = "";
 std::string HostToken = "";
@@ -164,16 +161,9 @@ void LoadConfig()
         Log("[SERVER] Public host configured.");
     }
 
-    std::string agentPathArg = GetCmdValue("-gameserveragent=");
-    Config.GameServerAgentPath = agentPathArg.empty() ? "game-server-agent.exe" : agentPathArg;
-
-    std::string tokenArg = GetCmdValue("-registrationtoken=");
-    if (!tokenArg.empty())
-    {
-        RegistrationToken = tokenArg;
-        SetEnvironmentVariableA("GAME_SERVER_REGISTRATION_TOKEN", RegistrationToken.c_str());
-        Log("[SERVER] Registration token received.");
-    }
+    MatchPipeName = GetCmdValue("-pipe=");
+    if (!MatchPipeName.empty())
+        Log("[SERVER] Toolbox command pipe configured.");
 }
 
 void LoadClientConfig()

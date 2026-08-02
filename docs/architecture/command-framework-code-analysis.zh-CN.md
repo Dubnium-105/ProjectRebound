@@ -27,21 +27,23 @@ Payload 构建，也可脱离庞大的 SDK 单独测试。
 
 ```mermaid
 flowchart LR
-    L["Launcher\nCreateFile/ReadFile/WriteFile"] --> K["Windows named pipe"]
+    L["Rust Toolbox\nCreateFile/ReadFile/WriteFile"] --> K["Windows named pipe"]
     S["Start + ACL + stop event"] --> K
     K --> IO["ListenerLoop\nOverlapped connect/read/write"]
     IO --> P["CommandProtocol\nparse + validate + encode"]
-    P --> D["Dispatch\nping/join/debug"]
+    P --> D["Dispatch\nping/join/debug/server_status"]
     D -->|"join: accepted"| Q["thread-safe pending target"]
     Q --> H["ProcessEvent hook\nrecorded game thread only"]
     H --> U["GoToRange + open target"]
-    D --> R["pong/join_ack/debug_ack/error"]
+    D --> SS["线程安全的服务器状态快照"]
+    D --> R["pong/join_ack/debug_ack/server_status_ack/error"]
     R --> IO
     E["Stop event"] -. "wake/cancel/drain" .-> IO
 ```
 
-关键边界是：监听线程只处理字节、JSON 和队列；所有 Unreal 对象访问与控制台命令都在登录
-事件记录的游戏线程执行。
+关键边界是：监听线程只处理字节、JSON、队列以及线程安全的服务器状态快照。与加入流程
+相关的 Unreal 对象访问和控制台命令都在登录事件记录的游戏线程执行；`server_status`
+不会在监听线程解引用 Unreal 对象。
 
 ## 3. 线上协议的数据结构
 
@@ -87,6 +89,7 @@ JSON 库负责解析和转义。
 | --- | --- | --- |
 | `JoinCallback` | `(target, token) -> bool`；`true` 表示已排队 | 监听线程 |
 | `DebugCallback` | `arguments -> json` | 监听线程 |
+| `ServerStatusCallback` | `() -> json`；返回不含秘密的 Dedicated Server 缓存快照 | 监听线程 |
 | `LogCallback` | 输出一条不带换行的消息 | 调用日志的线程 |
 
 框架会在持锁时复制 `std::function`，释放锁后再调用，因而回调代码不会在框架互斥锁内执行。
@@ -123,7 +126,7 @@ JSON 库负责解析和转义。
 | `running`、`connectionFaulted`、监听线程 ID | 快速跨线程状态 | 原子变量 |
 | `stopping`, `listenerThread`, `stopEvent` | 生命周期状态 | `lifecycleMutex` |
 | `hCurrentPipe` | 当前管道的非拥有别名 | `writeMutex` |
-| 三个回调 | 可复制的依赖 | `callbackMutex` |
+| 四个回调 | 可复制的依赖 | `callbackMutex` |
 | `securityAttributes`, descriptor, ACL, SID | 服务端安全对象 | 启动前构造，析构时释放 |
 
 ## 5. 协议层逐函数分析
@@ -176,7 +179,7 @@ JSON 库负责解析和转义。
 
 - 构造函数依赖成员默认值：读超时 30 秒、写超时 5 秒、未运行；
 - 析构函数先 `Stop()`，再 `ReleaseSecurity()`；拥有者必须在普通线程销毁；
-- `SetPipeName`、两个 timeout setter 和三个 callback setter 只在既未运行也未停止过程中生效；
+- `SetPipeName`、两个 timeout setter 和四个 callback setter 只在既未运行也未停止过程中生效；
 - 配置函数持有 `lifecycleMutex`，回调赋值额外持有 `callbackMutex`，顺序始终是 lifecycle →
   callback。
 
@@ -287,6 +290,7 @@ timeout 为 0 时使用 `INFINITE`。
 | `ping` | 顶层对象已保证 | 无 | `pong` |
 | `join` | `ip` 字符串和目标白名单；可选 token 类型/长度 | 复制并调用 Join callback | accepted 时 `join_ack`；否则 `busy`/`unavailable` |
 | `debug` | 由回调负责业务 schema | 复制并调用 Debug callback | `debug_ack` |
+| `server_status` | 无业务字段；禁止秘密 | 复制并调用 Server Status callback，只读取线程安全快照 | `server_status_ack` 或 `unavailable` |
 | 其他 | — | 无 | `unknown_command` |
 
 字段/目标错误计为协议错误；`busy` 和 `unavailable` 是有效业务响应，不消耗协议错误配额。

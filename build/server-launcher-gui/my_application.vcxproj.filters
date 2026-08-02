@@ -1,0 +1,42 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\wksp\ProjectRebound\ServerLauncherGUI\ProjectReboundLauncher\src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\wksp\ProjectRebound\ServerLauncherGUI\ProjectReboundLauncher\src\wrapper.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\wksp\ProjectRebound\ServerLauncherGUI\ProjectReboundLauncher\src\initcli.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\wksp\ProjectRebound\ServerLauncherGUI\ProjectReboundLauncher\src\initgui.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\wksp\ProjectRebound\build\server-launcher-gui\slint_generated_app-window_1.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="C:\wksp\ProjectRebound\build\server-launcher-gui\app-window.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\wksp\ProjectRebound\build\server-launcher-gui\CMakeFiles\564e12e68580cbdc88938858ce8cf724\app-window.h.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\wksp\ProjectRebound\ServerLauncherGUI\ProjectReboundLauncher\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{079ABA5C-2451-38E2-B6BF-0C3CF8864491}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{0D4FAD3D-6318-3CD5-A786-899C4F02DC5E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{E7759521-4BCB-326D-873B-BB43F4E57B36}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

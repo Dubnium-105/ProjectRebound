@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\wksp\ProjectRebound\Payload\Tests\CommandProtocolTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\wksp\ProjectRebound\Payload\Communication\CommandProtocol.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\wksp\ProjectRebound\Payload\Tests\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{CDE5B94F-B084-31B3-9533-2C37C30F4210}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

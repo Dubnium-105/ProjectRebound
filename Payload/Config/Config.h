@@ -15,15 +15,10 @@ struct ServerConfig
     std::string ServerRegion;
     std::string ServerUniqueId;
     std::string PublicHost;
-    std::string GameServerAgentPath;
 };
 
 // Central server ip
 extern std::string OnlineBackendAddress;
-
-// One-time Dedicated Server registration credential. Runtime credentials and
-// the node private key are owned by game-server-agent, not kept in the DLL.
-extern std::string RegistrationToken;
 
 // Room heartbeat credentials forwarded by the server launcher
 extern std::string HostRoomId;

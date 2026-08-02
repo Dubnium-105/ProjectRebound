@@ -148,6 +148,14 @@ namespace
                 joinRanOnListener.store(framework.IsListenerThread());
                 return ++joinCalls == 1;
             });
+        framework.SetServerStatusCallback([]()
+            {
+                return nlohmann::json{
+                    {"state", "RUNNING"},
+                    {"player_count", 2},
+                    {"round_state", "InProgress"}
+                };
+            });
 
         Expect(framework.Start(), "framework starts");
         Expect(framework.IsRunning(), "framework reports running");
@@ -183,6 +191,15 @@ namespace
             Expect(ReadFrame(client.Get()).find("\"code\":\"invalid_target\"") !=
                 std::string::npos,
                 "invalid target is rejected");
+
+            Expect(WriteFrame(client.Get(),
+                "server_status\t{\"request_id\":\"status-1\"}\n"),
+                "server status request is written");
+            const std::string status = ReadFrame(client.Get());
+            Expect(status.find("server_status_ack\t") == 0 &&
+                status.find("\"player_count\":2") != std::string::npos &&
+                status.find("\"request_id\":\"status-1\"") != std::string::npos,
+                "server status response is correlated");
         }
 
         framework.Stop();

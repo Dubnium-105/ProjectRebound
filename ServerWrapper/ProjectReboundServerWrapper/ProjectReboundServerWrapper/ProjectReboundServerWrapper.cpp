@@ -54,10 +54,9 @@ std::string ServerName = "DefaultServer";
 std::string ServerRegion = "CN";
 std::string HostRoomId = "";
 std::string HostToken = "";
-std::string RegistrationToken = "";
 std::string ServerUniqueId = "";
 std::string PublicHost = "";
-std::string GameServerAgentPath = "game-server-agent.exe";
+std::string ToolboxPipeName = "";
 std::string GameExePath = ".\\ProjectBoundarySteam-Win64-Shipping.exe";
 int g_ServerPort = 7777;
 int g_ExternalPort = g_ServerPort;
@@ -633,10 +632,6 @@ void LoadCommandLineConfig()
     if (!hostTokenArg.empty())
         HostToken = hostTokenArg;
 
-    std::string registrationTokenArg = GetCmdValue("-registrationtoken=");
-    if (!registrationTokenArg.empty())
-        RegistrationToken = registrationTokenArg;
-
     std::string serverIdArg = GetCmdValue("-serverid=");
     if (!serverIdArg.empty())
         ServerUniqueId = serverIdArg;
@@ -649,9 +644,9 @@ void LoadCommandLineConfig()
     if (!maxPlayersArg.empty())
         g_MaxPlayers = std::stoi(maxPlayersArg);
 
-    std::string gameServerAgentArg = GetCmdValue("-gameserveragent=");
-    if (!gameServerAgentArg.empty())
-        GameServerAgentPath = gameServerAgentArg;
+    std::string toolboxPipeArg = GetCmdValue("-pipe=");
+    if (!toolboxPipeArg.empty())
+        ToolboxPipeName = toolboxPipeArg;
 
     std::string gameExeArg = GetCmdValue("-gameexe=");
     if (!gameExeArg.empty())
@@ -708,9 +703,6 @@ bool LoadConfigFile()
     if (j.contains("backend") && j["backend"].is_string())
         OnlineBackend = j["backend"];
 
-    if (j.contains("registrationToken") && j["registrationToken"].is_string())
-        RegistrationToken = j["registrationToken"];
-
     if (j.contains("serverId") && j["serverId"].is_string())
         ServerUniqueId = j["serverId"];
 
@@ -719,9 +711,6 @@ bool LoadConfigFile()
 
     if (j.contains("maxPlayers") && j["maxPlayers"].is_number_integer())
         g_MaxPlayers = j["maxPlayers"];
-
-    if (j.contains("gameServerAgent") && j["gameServerAgent"].is_string())
-        GameServerAgentPath = j["gameServerAgent"];
 
     if (j.contains("offline") && j["offline"].is_boolean())
         OfflineMode = j["offline"];
@@ -746,11 +735,9 @@ void SaveConfigFile()
     j["port"] = g_ServerPort;
     j["externalPort"] = g_ExternalPort;
     j["backend"] = OnlineBackend;
-    j["registrationToken"] = RegistrationToken;
     j["serverId"] = ServerUniqueId;
     j["publicHost"] = PublicHost;
     j["maxPlayers"] = g_MaxPlayers;
-    j["gameServerAgent"] = GameServerAgentPath;
     j["offline"] = OfflineMode;
     j["dx11"] = UseDX11;
 
@@ -1145,15 +1132,13 @@ bool LaunchServerLocked()
         cmd += L"-hosttoken=" + wHostToken + L" ";
     }
 
-    if (!RegistrationToken.empty())
-        cmd += L"-registrationtoken=" + std::wstring(RegistrationToken.begin(), RegistrationToken.end()) + L" ";
     if (!ServerUniqueId.empty())
         cmd += L"-serverid=" + std::wstring(ServerUniqueId.begin(), ServerUniqueId.end()) + L" ";
     if (!PublicHost.empty())
         cmd += L"-publichost=" + std::wstring(PublicHost.begin(), PublicHost.end()) + L" ";
     cmd += L"-maxplayers=" + std::to_wstring(g_MaxPlayers) + L" ";
-    if (!GameServerAgentPath.empty())
-        cmd += L"-gameserveragent=" + std::wstring(GameServerAgentPath.begin(), GameServerAgentPath.end()) + L" ";
+    if (!ToolboxPipeName.empty())
+        cmd += L"-pipe=" + std::wstring(ToolboxPipeName.begin(), ToolboxPipeName.end()) + L" ";
 
     if (!CreateProcessW(
         NULL,

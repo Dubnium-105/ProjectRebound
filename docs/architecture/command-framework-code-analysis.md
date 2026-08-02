@@ -31,21 +31,24 @@ of the production DLL.
 
 ```mermaid
 flowchart LR
-    L["Launcher\nCreateFile/ReadFile/WriteFile"] --> K["Windows named pipe"]
+    L["Rust Toolbox\nCreateFile/ReadFile/WriteFile"] --> K["Windows named pipe"]
     S["Start + ACL + stop event"] --> K
     K --> IO["ListenerLoop\nOverlapped connect/read/write"]
     IO --> P["CommandProtocol\nparse + validate + encode"]
-    P --> D["Dispatch\nping/join/debug"]
+    P --> D["Dispatch\nping/join/debug/server_status"]
     D -->|"join accepted"| Q["thread-safe pending target"]
     Q --> H["ProcessEvent hook\nrecorded game thread only"]
     H --> U["GoToRange + open target"]
-    D --> R["pong/join_ack/debug_ack/error"]
+    D --> SS["thread-safe server status snapshot"]
+    D --> R["pong/join_ack/debug_ack/server_status_ack/error"]
     R --> IO
     E["Stop event"] -. "wake/cancel/drain" .-> IO
 ```
 
-The listener thread handles bytes, JSON, and queue admission only. All Unreal object
-access and console execution occurs on the exact thread recorded by the login event.
+The listener thread handles bytes, JSON, queue admission, and reads of the synchronized
+server-status snapshot only. Join-related Unreal object access and console execution occur
+on the exact thread recorded by the login event; `server_status` never dereferences Unreal
+objects on the listener thread.
 
 ## 3. Protocol value structures
 
@@ -84,6 +87,7 @@ passed type/length validation.
 | --- | --- | --- |
 | `JoinCallback` | `(target, token) -> bool`; true means queued | Listener |
 | `DebugCallback` | `arguments -> json` | Listener |
+| `ServerStatusCallback` | `() -> json`; returns a non-secret cached Dedicated Server snapshot | Listener |
 | `LogCallback` | Receives one message without a newline | Calling thread |
 
 The framework copies each `std::function` under `callbackMutex` and invokes the copy
@@ -250,6 +254,7 @@ connection faulted and cancels its other I/O so the listener can rebuild.
 | `ping` | No side effect | `pong` |
 | `join` | Validate `ip`, token type/size; invoke copied Join callback | accepted `join_ack`, otherwise `busy`/`unavailable` |
 | `debug` | Invoke copied Debug callback; callback owns business schema | `debug_ack` |
+| `server_status` | Invoke copied Server Status callback; no request secrets or Unreal access | `server_status_ack` or `unavailable` |
 | other | None | `unknown_command` |
 
 Schema/target failures count as protocol errors. `busy` and `unavailable` are valid

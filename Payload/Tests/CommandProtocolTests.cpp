@@ -27,6 +27,12 @@ namespace
         Expect(join.Succeeded(), "join frame parses");
         Expect(join.requestId == std::optional<std::string>("req-1"), "request id extracted");
         Expect(join.request && join.request->arguments["ip"] == "127.0.0.1:7777", "join IP preserved");
+
+        const auto status = CommandProtocol::ParseFrame(
+            "server_status\t{\"request_id\":\"status-1\"}");
+        Expect(status.Succeeded(), "server_status frame parses");
+        Expect(status.request && status.request->command == "server_status",
+            "server_status command preserved");
     }
 
     void TestInvalidFrames()
@@ -113,6 +119,13 @@ namespace
 
         const auto error = CommandProtocol::MakeError("invalid_request", "bad request");
         Expect(error["code"] == "invalid_request", "error code encoded");
+
+        const std::string statusFrame = CommandProtocol::EncodeFrame(
+            "server_status_ack",
+            nlohmann::json{{"player_count", 2}, {"state", "RUNNING"}});
+        Expect(statusFrame ==
+            "server_status_ack\t{\"player_count\":2,\"state\":\"RUNNING\"}\n",
+            "server status response is encoded deterministically");
     }
 }
 

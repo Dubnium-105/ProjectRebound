@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/slint-subbuild/CMakeFiles/slint-populate"
+		},
+		{
+			"file" : "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/slint-subbuild/CMakeFiles/27e6e91e8baabd53955650fd74269d3d/slint-populate.rule"
+		},
+		{
+			"file" : "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/slint-subbuild/CMakeFiles/3e72b5ae771e26816b4afbbf8e3c418f/slint-populate-complete.rule"
+		},
+		{
+			"file" : "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/slint-subbuild/CMakeFiles/0d9ca1d17f993de79ade89dc911b4cb4/slint-populate-build.rule"
+		},
+		{
+			"file" : "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/slint-subbuild/CMakeFiles/0d9ca1d17f993de79ade89dc911b4cb4/slint-populate-configure.rule"
+		},
+		{
+			"file" : "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/slint-subbuild/CMakeFiles/0d9ca1d17f993de79ade89dc911b4cb4/slint-populate-download.rule"
+		},
+		{
+			"file" : "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/slint-subbuild/CMakeFiles/0d9ca1d17f993de79ade89dc911b4cb4/slint-populate-install.rule"
+		},
+		{
+			"file" : "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/slint-subbuild/CMakeFiles/0d9ca1d17f993de79ade89dc911b4cb4/slint-populate-mkdir.rule"
+		},
+		{
+			"file" : "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/slint-subbuild/CMakeFiles/0d9ca1d17f993de79ade89dc911b4cb4/slint-populate-patch.rule"
+		},
+		{
+			"file" : "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/slint-subbuild/CMakeFiles/0d9ca1d17f993de79ade89dc911b4cb4/slint-populate-test.rule"
+		},
+		{
+			"file" : "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/slint-subbuild/CMakeFiles/0d9ca1d17f993de79ade89dc911b4cb4/slint-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"slint-populate"
+		],
+		"name" : "slint-populate"
+	}
+}

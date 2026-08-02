@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\wksp\ProjectRebound\build\server-launcher-gui\CMakeFiles\ca1c39de8c9951332d9ee9539b3e7371\INSTALL_force.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{079ABA5C-2451-38E2-B6BF-0C3CF8864491}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

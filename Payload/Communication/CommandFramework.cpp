@@ -114,6 +114,16 @@ void CommandFramework::SetDebugCallback(DebugCallback callback)
     }
 }
 
+void CommandFramework::SetServerStatusCallback(ServerStatusCallback callback)
+{
+    std::lock_guard<std::mutex> lock(lifecycleMutex);
+    if (!running.load() && !stopping)
+    {
+        std::lock_guard<std::mutex> callbackLock(callbackMutex);
+        onServerStatus = std::move(callback);
+    }
+}
+
 bool CommandFramework::BuildPipePath(std::string& failureReason)
 {
     if (pipeName.empty() || pipeName.size() > MaxPipeNameBytes)
@@ -889,6 +899,30 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
             return SendResponse(
                 "debug_ack",
                 CommandProtocol::WithRequestId(debugCallback(request.arguments), request.requestId))
+                ? FrameResult::Processed
+                : FrameResult::TransportError;
+        }
+
+        if (request.command == "server_status")
+        {
+            ServerStatusCallback statusCallback;
+            {
+                std::lock_guard<std::mutex> callbackLock(callbackMutex);
+                statusCallback = onServerStatus;
+            }
+            if (!statusCallback)
+            {
+                return SendError(
+                    "unavailable",
+                    "server status handler is not available",
+                    request.requestId)
+                    ? FrameResult::Processed
+                    : FrameResult::TransportError;
+            }
+
+            return SendResponse(
+                "server_status_ack",
+                CommandProtocol::WithRequestId(statusCallback(), request.requestId))
                 ? FrameResult::Processed
                 : FrameResult::TransportError;
         }

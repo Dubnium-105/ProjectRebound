@@ -17,6 +17,7 @@ public:
     using JoinCallback = std::function<bool(const std::string& ip, const std::string& token)>;
     using LogCallback = std::function<void(const std::string& message)>;
     using DebugCallback = std::function<nlohmann::json(const nlohmann::json& arguments)>;
+    using ServerStatusCallback = std::function<nlohmann::json()>;
 
     CommandFramework();
     ~CommandFramework();
@@ -33,6 +34,7 @@ public:
     void SetJoinCallback(JoinCallback callback);
     void SetLogCallback(LogCallback callback);
     void SetDebugCallback(DebugCallback callback);
+    void SetServerStatusCallback(ServerStatusCallback callback);
 
     [[nodiscard]] bool Start();
     void Stop() noexcept;
@@ -151,6 +153,7 @@ private:
     JoinCallback onJoin;
     LogCallback onLog;
     DebugCallback onDebug;
+    ServerStatusCallback onServerStatus;
 
     SECURITY_ATTRIBUTES securityAttributes{};
     SECURITY_DESCRIPTOR securityDescriptor{};

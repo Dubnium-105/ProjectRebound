@@ -1,0 +1,3217 @@
+
+---
+events:
+  -
+    kind: "message-v1"
+    backtrace:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineSystem.cmake:212 (message)"
+      - "CMakeLists.txt:2 (project)"
+    message: |
+      The system is: Windows - 10.0.26100 - AMD64
+  -
+    kind: "find-v1"
+    backtrace:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCompilerId.cmake:462 (find_file)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCompilerId.cmake:500 (CMAKE_DETERMINE_COMPILER_ID_WRITE)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCompilerId.cmake:8 (CMAKE_DETERMINE_COMPILER_ID_BUILD)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCompilerId.cmake:64 (__determine_compiler_id_test)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCXXCompiler.cmake:125 (CMAKE_DETERMINE_COMPILER_ID)"
+      - "CMakeLists.txt:2 (project)"
+    mode: "file"
+    variable: "src_in"
+    description: "Path to a file."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "CMakeCXXCompilerId.cpp.in"
+    candidate_directories:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/"
+    found: "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeCXXCompilerId.cpp.in"
+    search_context:
+      ENV{PATH}:
+        - "C:\\Users\\23587\\.codex\\tmp\\arg0\\codex-arg02Q8mdH"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\override"
+        - "C:\\Python314\\Scripts\\"
+        - "C:\\Python314\\"
+        - "C:\\Program Files\\Python39\\Scripts\\"
+        - "C:\\Program Files\\Python39\\"
+        - "C:\\Windows\\system32"
+        - "C:\\Windows"
+        - "C:\\Windows\\System32\\Wbem"
+        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\Windows\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA App\\NvDLISR"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\Program Files\\Siril\\bin\\"
+        - "C:\\ProgramData\\chocolatey\\bin"
+        - "C:\\Program Files\\nodejs\\"
+        - "C:\\Program Files\\Go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\23587\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\23587\\.dotnet\\tools"
+        - "C:\\Users\\23587\\AppData\\Roaming\\npm"
+        - "C:\\Users\\23587\\AppData\\Local\\Pandoc\\"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\23587\\go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe\\bin"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\fallback"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\git\\cmd"
+        - "C:\\Users\\23587\\AppData\\Local\\OpenAI\\Codex\\bin\\3e42d49ad3e35a50"
+        - "C:\\Program Files\\WindowsApps\\OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0\\app\\resources"
+  -
+    kind: "message-v1"
+    backtrace:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCompilerId.cmake:17 (message)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCompilerId.cmake:64 (__determine_compiler_id_test)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCXXCompiler.cmake:125 (CMAKE_DETERMINE_COMPILER_ID)"
+      - "CMakeLists.txt:2 (project)"
+    message: |
+      Compiling the CXX compiler identification source file "CMakeCXXCompilerId.cpp" succeeded.
+      Compiler:  
+      Build flags: 
+      Id flags:  
+      
+      The output was:
+      0
+      适用于 .NET Framework MSBuild 版本 18.3.0-release-26070-10+3972042b7
+      生成启动时间为 2026/8/2 18:09:12。
+      
+      节点 1 上的项目“C:\\wksp\\ProjectRebound\\build\\server-launcher-gui\\CMakeFiles\\4.1.2-msvc8\\CompilerIdCXX\\CompilerIdCXX.vcxproj”(默认目标)。
+      PrepareForBuild:
+        正在创建目录“Debug\\”。
+        已启用结构化输出。编译器诊断的格式设置将反映错误层次结构。有关详细信息，请参阅 https://aka.ms/cpp/structured-output。
+        正在创建目录“Debug\\CompilerIdCXX.tlog\\”。
+      InitializeBuildStatus:
+        正在创建“Debug\\CompilerIdCXX.tlog\\unsuccessfulbuild”，因为已指定“AlwaysCreate”。
+        正在对“Debug\\CompilerIdCXX.tlog\\unsuccessfulbuild”执行 Touch 任务。
+      ClCompile:
+        C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.50.35717\\bin\\HostX64\\x64\\CL.exe /c /nologo /W0 /WX- /diagnostics:column /Od /D _MBCS /Gm- /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"Debug\\\\" /Fd"Debug\\vc145.pdb" /external:W0 /Gd /TP /FC /errorReport:queue CMakeCXXCompilerId.cpp
+        CMakeCXXCompilerId.cpp
+      Link:
+        C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.50.35717\\bin\\HostX64\\x64\\link.exe /ERRORREPORT:QUEUE /OUT:".\\CompilerIdCXX.exe" /INCREMENTAL:NO /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /PDB:".\\CompilerIdCXX.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:".\\CompilerIdCXX.lib" /MACHINE:X64 Debug\\CMakeCXXCompilerId.obj
+        CompilerIdCXX.vcxproj -> C:\\wksp\\ProjectRebound\\build\\server-launcher-gui\\CMakeFiles\\4.1.2-msvc8\\CompilerIdCXX\\CompilerIdCXX.exe
+      PostBuildEvent:
+        for %%i in (cl.exe) do @echo CMAKE_CXX_COMPILER=%%~$PATH:i
+        :VCEnd
+        CMAKE_CXX_COMPILER=C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.50.35717\\bin\\Hostx64\\x64\\cl.exe
+      FinalizeBuildStatus:
+        正在删除文件“Debug\\CompilerIdCXX.tlog\\unsuccessfulbuild”。
+        正在对“Debug\\CompilerIdCXX.tlog\\CompilerIdCXX.lastbuildstate”执行 Touch 任务。
+      已完成生成项目“C:\\wksp\\ProjectRebound\\build\\server-launcher-gui\\CMakeFiles\\4.1.2-msvc8\\CompilerIdCXX\\CompilerIdCXX.vcxproj”(默认目标)的操作。
+      
+      已成功生成。
+          0 个警告
+          0 个错误
+      
+      已用时间 00:00:00.60
+      
+      
+      Compilation of the CXX compiler identification source "CMakeCXXCompilerId.cpp" produced "CompilerIdCXX.exe"
+      
+      Compilation of the CXX compiler identification source "CMakeCXXCompilerId.cpp" produced "CompilerIdCXX.vcxproj"
+      
+      The CXX compiler identification is MSVC, found in:
+        C:/wksp/ProjectRebound/build/server-launcher-gui/CMakeFiles/4.1.2-msvc8/CompilerIdCXX/CompilerIdCXX.exe
+      
+  -
+    kind: "find-v1"
+    backtrace:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeFindBinUtils.cmake:37 (find_program)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeFindBinUtils.cmake:65 (__resolve_tool_path)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeFindBinUtils.cmake:103 (__resolve_linker_path)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCXXCompiler.cmake:206 (include)"
+      - "CMakeLists.txt:2 (project)"
+    mode: "program"
+    variable: "_CMAKE_TOOL_WITH_PATH"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "link"
+    candidate_directories:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/"
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/"
+      - "C:/Python314/Scripts/"
+      - "C:/Python314/"
+      - "C:/Program Files/Python39/Scripts/"
+      - "C:/Program Files/Python39/"
+      - "C:/Windows/System32/"
+      - "C:/Windows/"
+      - "C:/Windows/System32/wbem/"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/"
+      - "C:/Windows/System32/OpenSSH/"
+      - "C:/Program Files/dotnet/"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/"
+      - "C:/Program Files/Git/cmd/"
+      - "C:/Program Files/Siril/bin/"
+      - "C:/ProgramData/chocolatey/bin/"
+      - "C:/Program Files/nodejs/"
+      - "C:/Program Files/Go/bin/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/"
+      - "C:/Users/23587/.dotnet/tools/"
+      - "C:/Users/23587/AppData/Roaming/npm/"
+      - "C:/Users/23587/AppData/Local/Pandoc/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/"
+      - "C:/Users/23587/go/bin/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/"
+    searched_directories:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/link.com"
+    found: "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/link.exe"
+    search_context:
+      ENV{PATH}:
+        - "C:\\Users\\23587\\.codex\\tmp\\arg0\\codex-arg02Q8mdH"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\override"
+        - "C:\\Python314\\Scripts\\"
+        - "C:\\Python314\\"
+        - "C:\\Program Files\\Python39\\Scripts\\"
+        - "C:\\Program Files\\Python39\\"
+        - "C:\\Windows\\system32"
+        - "C:\\Windows"
+        - "C:\\Windows\\System32\\Wbem"
+        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\Windows\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA App\\NvDLISR"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\Program Files\\Siril\\bin\\"
+        - "C:\\ProgramData\\chocolatey\\bin"
+        - "C:\\Program Files\\nodejs\\"
+        - "C:\\Program Files\\Go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\23587\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\23587\\.dotnet\\tools"
+        - "C:\\Users\\23587\\AppData\\Roaming\\npm"
+        - "C:\\Users\\23587\\AppData\\Local\\Pandoc\\"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\23587\\go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe\\bin"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\fallback"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\git\\cmd"
+        - "C:\\Users\\23587\\AppData\\Local\\OpenAI\\Codex\\bin\\3e42d49ad3e35a50"
+        - "C:\\Program Files\\WindowsApps\\OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0\\app\\resources"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeFindBinUtils.cmake:37 (find_program)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeFindBinUtils.cmake:65 (__resolve_tool_path)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeFindBinUtils.cmake:104 (__resolve_linker_path)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCXXCompiler.cmake:206 (include)"
+      - "CMakeLists.txt:2 (project)"
+    mode: "program"
+    variable: "_CMAKE_TOOL_WITH_PATH"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "lld-link"
+    candidate_directories:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/"
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/"
+      - "C:/Python314/Scripts/"
+      - "C:/Python314/"
+      - "C:/Program Files/Python39/Scripts/"
+      - "C:/Program Files/Python39/"
+      - "C:/Windows/System32/"
+      - "C:/Windows/"
+      - "C:/Windows/System32/wbem/"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/"
+      - "C:/Windows/System32/OpenSSH/"
+      - "C:/Program Files/dotnet/"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/"
+      - "C:/Program Files/Git/cmd/"
+      - "C:/Program Files/Siril/bin/"
+      - "C:/ProgramData/chocolatey/bin/"
+      - "C:/Program Files/nodejs/"
+      - "C:/Program Files/Go/bin/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/"
+      - "C:/Users/23587/.dotnet/tools/"
+      - "C:/Users/23587/AppData/Roaming/npm/"
+      - "C:/Users/23587/AppData/Local/Pandoc/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/"
+      - "C:/Users/23587/go/bin/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/"
+    searched_directories:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/lld-link.com"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/lld-link.exe"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/lld-link"
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/lld-link.com"
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/lld-link.exe"
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/lld-link"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/lld-link.com"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/lld-link.exe"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/lld-link"
+      - "C:/Python314/Scripts/lld-link.com"
+      - "C:/Python314/Scripts/lld-link.exe"
+      - "C:/Python314/Scripts/lld-link"
+      - "C:/Python314/lld-link.com"
+      - "C:/Python314/lld-link.exe"
+      - "C:/Python314/lld-link"
+      - "C:/Program Files/Python39/Scripts/lld-link.com"
+      - "C:/Program Files/Python39/Scripts/lld-link.exe"
+      - "C:/Program Files/Python39/Scripts/lld-link"
+      - "C:/Program Files/Python39/lld-link.com"
+      - "C:/Program Files/Python39/lld-link.exe"
+      - "C:/Program Files/Python39/lld-link"
+      - "C:/Windows/System32/lld-link.com"
+      - "C:/Windows/System32/lld-link.exe"
+      - "C:/Windows/System32/lld-link"
+      - "C:/Windows/lld-link.com"
+      - "C:/Windows/lld-link.exe"
+      - "C:/Windows/lld-link"
+      - "C:/Windows/System32/wbem/lld-link.com"
+      - "C:/Windows/System32/wbem/lld-link.exe"
+      - "C:/Windows/System32/wbem/lld-link"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/lld-link.com"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/lld-link.exe"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/lld-link"
+      - "C:/Windows/System32/OpenSSH/lld-link.com"
+      - "C:/Windows/System32/OpenSSH/lld-link.exe"
+      - "C:/Windows/System32/OpenSSH/lld-link"
+      - "C:/Program Files/dotnet/lld-link.com"
+      - "C:/Program Files/dotnet/lld-link.exe"
+      - "C:/Program Files/dotnet/lld-link"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/lld-link.com"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/lld-link.exe"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/lld-link"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/lld-link.com"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/lld-link.exe"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/lld-link"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/lld-link.com"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/lld-link.exe"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/lld-link"
+      - "C:/Program Files/Git/cmd/lld-link.com"
+      - "C:/Program Files/Git/cmd/lld-link.exe"
+      - "C:/Program Files/Git/cmd/lld-link"
+      - "C:/Program Files/Siril/bin/lld-link.com"
+      - "C:/Program Files/Siril/bin/lld-link.exe"
+      - "C:/Program Files/Siril/bin/lld-link"
+      - "C:/ProgramData/chocolatey/bin/lld-link.com"
+      - "C:/ProgramData/chocolatey/bin/lld-link.exe"
+      - "C:/ProgramData/chocolatey/bin/lld-link"
+      - "C:/Program Files/nodejs/lld-link.com"
+      - "C:/Program Files/nodejs/lld-link.exe"
+      - "C:/Program Files/nodejs/lld-link"
+      - "C:/Program Files/Go/bin/lld-link.com"
+      - "C:/Program Files/Go/bin/lld-link.exe"
+      - "C:/Program Files/Go/bin/lld-link"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/lld-link.com"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/lld-link.exe"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/lld-link"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/lld-link.com"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/lld-link.exe"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/lld-link"
+      - "C:/Users/23587/.dotnet/tools/lld-link.com"
+      - "C:/Users/23587/.dotnet/tools/lld-link.exe"
+      - "C:/Users/23587/.dotnet/tools/lld-link"
+      - "C:/Users/23587/AppData/Roaming/npm/lld-link.com"
+      - "C:/Users/23587/AppData/Roaming/npm/lld-link.exe"
+      - "C:/Users/23587/AppData/Roaming/npm/lld-link"
+      - "C:/Users/23587/AppData/Local/Pandoc/lld-link.com"
+      - "C:/Users/23587/AppData/Local/Pandoc/lld-link.exe"
+      - "C:/Users/23587/AppData/Local/Pandoc/lld-link"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/lld-link.com"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/lld-link.exe"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/lld-link"
+      - "C:/Users/23587/go/bin/lld-link.com"
+      - "C:/Users/23587/go/bin/lld-link.exe"
+      - "C:/Users/23587/go/bin/lld-link"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/lld-link.com"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/lld-link.exe"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/lld-link"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/lld-link.com"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/lld-link.exe"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/lld-link"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/lld-link.com"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/lld-link.exe"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/lld-link"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/lld-link.com"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/lld-link.exe"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/lld-link"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/lld-link.com"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/lld-link.exe"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/lld-link"
+    found: false
+    search_context:
+      ENV{PATH}:
+        - "C:\\Users\\23587\\.codex\\tmp\\arg0\\codex-arg02Q8mdH"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\override"
+        - "C:\\Python314\\Scripts\\"
+        - "C:\\Python314\\"
+        - "C:\\Program Files\\Python39\\Scripts\\"
+        - "C:\\Program Files\\Python39\\"
+        - "C:\\Windows\\system32"
+        - "C:\\Windows"
+        - "C:\\Windows\\System32\\Wbem"
+        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\Windows\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA App\\NvDLISR"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\Program Files\\Siril\\bin\\"
+        - "C:\\ProgramData\\chocolatey\\bin"
+        - "C:\\Program Files\\nodejs\\"
+        - "C:\\Program Files\\Go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\23587\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\23587\\.dotnet\\tools"
+        - "C:\\Users\\23587\\AppData\\Roaming\\npm"
+        - "C:\\Users\\23587\\AppData\\Local\\Pandoc\\"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\23587\\go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe\\bin"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\fallback"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\git\\cmd"
+        - "C:\\Users\\23587\\AppData\\Local\\OpenAI\\Codex\\bin\\3e42d49ad3e35a50"
+        - "C:\\Program Files\\WindowsApps\\OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0\\app\\resources"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeFindBinUtils.cmake:238 (find_program)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCXXCompiler.cmake:206 (include)"
+      - "CMakeLists.txt:2 (project)"
+    mode: "program"
+    variable: "CMAKE_LINKER"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "link"
+    candidate_directories:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/"
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/"
+      - "C:/Python314/Scripts/"
+      - "C:/Python314/"
+      - "C:/Program Files/Python39/Scripts/"
+      - "C:/Program Files/Python39/"
+      - "C:/Windows/System32/"
+      - "C:/Windows/"
+      - "C:/Windows/System32/wbem/"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/"
+      - "C:/Windows/System32/OpenSSH/"
+      - "C:/Program Files/dotnet/"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/"
+      - "C:/Program Files/Git/cmd/"
+      - "C:/Program Files/Siril/bin/"
+      - "C:/ProgramData/chocolatey/bin/"
+      - "C:/Program Files/nodejs/"
+      - "C:/Program Files/Go/bin/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/"
+      - "C:/Users/23587/.dotnet/tools/"
+      - "C:/Users/23587/AppData/Roaming/npm/"
+      - "C:/Users/23587/AppData/Local/Pandoc/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/"
+      - "C:/Users/23587/go/bin/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/"
+    searched_directories:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/link.com"
+    found: "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/link.exe"
+    search_context:
+      ENV{PATH}:
+        - "C:\\Users\\23587\\.codex\\tmp\\arg0\\codex-arg02Q8mdH"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\override"
+        - "C:\\Python314\\Scripts\\"
+        - "C:\\Python314\\"
+        - "C:\\Program Files\\Python39\\Scripts\\"
+        - "C:\\Program Files\\Python39\\"
+        - "C:\\Windows\\system32"
+        - "C:\\Windows"
+        - "C:\\Windows\\System32\\Wbem"
+        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\Windows\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA App\\NvDLISR"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\Program Files\\Siril\\bin\\"
+        - "C:\\ProgramData\\chocolatey\\bin"
+        - "C:\\Program Files\\nodejs\\"
+        - "C:\\Program Files\\Go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\23587\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\23587\\.dotnet\\tools"
+        - "C:\\Users\\23587\\AppData\\Roaming\\npm"
+        - "C:\\Users\\23587\\AppData\\Local\\Pandoc\\"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\23587\\go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe\\bin"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\fallback"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\git\\cmd"
+        - "C:\\Users\\23587\\AppData\\Local\\OpenAI\\Codex\\bin\\3e42d49ad3e35a50"
+        - "C:\\Program Files\\WindowsApps\\OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0\\app\\resources"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeFindBinUtils.cmake:238 (find_program)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCXXCompiler.cmake:206 (include)"
+      - "CMakeLists.txt:2 (project)"
+    mode: "program"
+    variable: "CMAKE_MT"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "mt"
+    candidate_directories:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/"
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/"
+      - "C:/Python314/Scripts/"
+      - "C:/Python314/"
+      - "C:/Program Files/Python39/Scripts/"
+      - "C:/Program Files/Python39/"
+      - "C:/Windows/System32/"
+      - "C:/Windows/"
+      - "C:/Windows/System32/wbem/"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/"
+      - "C:/Windows/System32/OpenSSH/"
+      - "C:/Program Files/dotnet/"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/"
+      - "C:/Program Files/Git/cmd/"
+      - "C:/Program Files/Siril/bin/"
+      - "C:/ProgramData/chocolatey/bin/"
+      - "C:/Program Files/nodejs/"
+      - "C:/Program Files/Go/bin/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/"
+      - "C:/Users/23587/.dotnet/tools/"
+      - "C:/Users/23587/AppData/Roaming/npm/"
+      - "C:/Users/23587/AppData/Local/Pandoc/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/"
+      - "C:/Users/23587/go/bin/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/"
+    searched_directories:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/mt.com"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/mt.exe"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/mt"
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/mt.com"
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/mt.exe"
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/mt"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/mt.com"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/mt.exe"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/mt"
+      - "C:/Python314/Scripts/mt.com"
+      - "C:/Python314/Scripts/mt.exe"
+      - "C:/Python314/Scripts/mt"
+      - "C:/Python314/mt.com"
+      - "C:/Python314/mt.exe"
+      - "C:/Python314/mt"
+      - "C:/Program Files/Python39/Scripts/mt.com"
+      - "C:/Program Files/Python39/Scripts/mt.exe"
+      - "C:/Program Files/Python39/Scripts/mt"
+      - "C:/Program Files/Python39/mt.com"
+      - "C:/Program Files/Python39/mt.exe"
+      - "C:/Program Files/Python39/mt"
+      - "C:/Windows/System32/mt.com"
+      - "C:/Windows/System32/mt.exe"
+      - "C:/Windows/System32/mt"
+      - "C:/Windows/mt.com"
+      - "C:/Windows/mt.exe"
+      - "C:/Windows/mt"
+      - "C:/Windows/System32/wbem/mt.com"
+      - "C:/Windows/System32/wbem/mt.exe"
+      - "C:/Windows/System32/wbem/mt"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/mt.com"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/mt.exe"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/mt"
+      - "C:/Windows/System32/OpenSSH/mt.com"
+      - "C:/Windows/System32/OpenSSH/mt.exe"
+      - "C:/Windows/System32/OpenSSH/mt"
+      - "C:/Program Files/dotnet/mt.com"
+      - "C:/Program Files/dotnet/mt.exe"
+      - "C:/Program Files/dotnet/mt"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/mt.com"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/mt.exe"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/mt"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/mt.com"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/mt.exe"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/mt"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/mt.com"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/mt.exe"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/mt"
+      - "C:/Program Files/Git/cmd/mt.com"
+      - "C:/Program Files/Git/cmd/mt.exe"
+      - "C:/Program Files/Git/cmd/mt"
+      - "C:/Program Files/Siril/bin/mt.com"
+      - "C:/Program Files/Siril/bin/mt.exe"
+      - "C:/Program Files/Siril/bin/mt"
+      - "C:/ProgramData/chocolatey/bin/mt.com"
+      - "C:/ProgramData/chocolatey/bin/mt.exe"
+      - "C:/ProgramData/chocolatey/bin/mt"
+      - "C:/Program Files/nodejs/mt.com"
+      - "C:/Program Files/nodejs/mt.exe"
+      - "C:/Program Files/nodejs/mt"
+      - "C:/Program Files/Go/bin/mt.com"
+      - "C:/Program Files/Go/bin/mt.exe"
+      - "C:/Program Files/Go/bin/mt"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/mt.com"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/mt.exe"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/mt"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/mt.com"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/mt.exe"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/mt"
+      - "C:/Users/23587/.dotnet/tools/mt.com"
+      - "C:/Users/23587/.dotnet/tools/mt.exe"
+      - "C:/Users/23587/.dotnet/tools/mt"
+      - "C:/Users/23587/AppData/Roaming/npm/mt.com"
+      - "C:/Users/23587/AppData/Roaming/npm/mt.exe"
+      - "C:/Users/23587/AppData/Roaming/npm/mt"
+      - "C:/Users/23587/AppData/Local/Pandoc/mt.com"
+      - "C:/Users/23587/AppData/Local/Pandoc/mt.exe"
+      - "C:/Users/23587/AppData/Local/Pandoc/mt"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/mt.com"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/mt.exe"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/mt"
+      - "C:/Users/23587/go/bin/mt.com"
+      - "C:/Users/23587/go/bin/mt.exe"
+      - "C:/Users/23587/go/bin/mt"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/mt.com"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/mt.exe"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/mt"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/mt.com"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/mt.exe"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/mt"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/mt.com"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/mt.exe"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/mt"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/mt.com"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/mt.exe"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/mt"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/mt.com"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/mt.exe"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/mt"
+    found: false
+    search_context:
+      ENV{PATH}:
+        - "C:\\Users\\23587\\.codex\\tmp\\arg0\\codex-arg02Q8mdH"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\override"
+        - "C:\\Python314\\Scripts\\"
+        - "C:\\Python314\\"
+        - "C:\\Program Files\\Python39\\Scripts\\"
+        - "C:\\Program Files\\Python39\\"
+        - "C:\\Windows\\system32"
+        - "C:\\Windows"
+        - "C:\\Windows\\System32\\Wbem"
+        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\Windows\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA App\\NvDLISR"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\Program Files\\Siril\\bin\\"
+        - "C:\\ProgramData\\chocolatey\\bin"
+        - "C:\\Program Files\\nodejs\\"
+        - "C:\\Program Files\\Go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\23587\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\23587\\.dotnet\\tools"
+        - "C:\\Users\\23587\\AppData\\Roaming\\npm"
+        - "C:\\Users\\23587\\AppData\\Local\\Pandoc\\"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\23587\\go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe\\bin"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\fallback"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\git\\cmd"
+        - "C:\\Users\\23587\\AppData\\Local\\OpenAI\\Codex\\bin\\3e42d49ad3e35a50"
+        - "C:\\Program Files\\WindowsApps\\OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0\\app\\resources"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeFindBinUtils.cmake:238 (find_program)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCXXCompiler.cmake:206 (include)"
+      - "CMakeLists.txt:2 (project)"
+    mode: "program"
+    variable: "CMAKE_AR"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "lib"
+    candidate_directories:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/"
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/"
+      - "C:/Python314/Scripts/"
+      - "C:/Python314/"
+      - "C:/Program Files/Python39/Scripts/"
+      - "C:/Program Files/Python39/"
+      - "C:/Windows/System32/"
+      - "C:/Windows/"
+      - "C:/Windows/System32/wbem/"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/"
+      - "C:/Windows/System32/OpenSSH/"
+      - "C:/Program Files/dotnet/"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/"
+      - "C:/Program Files/Git/cmd/"
+      - "C:/Program Files/Siril/bin/"
+      - "C:/ProgramData/chocolatey/bin/"
+      - "C:/Program Files/nodejs/"
+      - "C:/Program Files/Go/bin/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/"
+      - "C:/Users/23587/.dotnet/tools/"
+      - "C:/Users/23587/AppData/Roaming/npm/"
+      - "C:/Users/23587/AppData/Local/Pandoc/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/"
+      - "C:/Users/23587/go/bin/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/"
+    searched_directories:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/lib.com"
+    found: "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/lib.exe"
+    search_context:
+      ENV{PATH}:
+        - "C:\\Users\\23587\\.codex\\tmp\\arg0\\codex-arg02Q8mdH"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\override"
+        - "C:\\Python314\\Scripts\\"
+        - "C:\\Python314\\"
+        - "C:\\Program Files\\Python39\\Scripts\\"
+        - "C:\\Program Files\\Python39\\"
+        - "C:\\Windows\\system32"
+        - "C:\\Windows"
+        - "C:\\Windows\\System32\\Wbem"
+        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\Windows\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA App\\NvDLISR"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\Program Files\\Siril\\bin\\"
+        - "C:\\ProgramData\\chocolatey\\bin"
+        - "C:\\Program Files\\nodejs\\"
+        - "C:\\Program Files\\Go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\23587\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\23587\\.dotnet\\tools"
+        - "C:\\Users\\23587\\AppData\\Roaming\\npm"
+        - "C:\\Users\\23587\\AppData\\Local\\Pandoc\\"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\23587\\go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe\\bin"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\fallback"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\git\\cmd"
+        - "C:\\Users\\23587\\AppData\\Local\\OpenAI\\Codex\\bin\\3e42d49ad3e35a50"
+        - "C:\\Program Files\\WindowsApps\\OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0\\app\\resources"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineRCCompiler.cmake:40 (find_program)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/Platform/Windows-MSVC.cmake:581 (enable_language)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/Platform/Windows-MSVC.cmake:554 (__windows_compiler_msvc_enable_rc)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/Platform/Windows-MSVC-CXX.cmake:6 (__windows_compiler_msvc)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeCXXInformation.cmake:48 (include)"
+      - "CMakeLists.txt:2 (project)"
+    mode: "program"
+    variable: "CMAKE_RC_COMPILER"
+    description: "RC compiler"
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "rc"
+    candidate_directories:
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/"
+      - "C:/Python314/Scripts/"
+      - "C:/Python314/"
+      - "C:/Program Files/Python39/Scripts/"
+      - "C:/Program Files/Python39/"
+      - "C:/Windows/System32/"
+      - "C:/Windows/"
+      - "C:/Windows/System32/wbem/"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/"
+      - "C:/Windows/System32/OpenSSH/"
+      - "C:/Program Files/dotnet/"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/"
+      - "C:/Program Files/Git/cmd/"
+      - "C:/Program Files/Siril/bin/"
+      - "C:/ProgramData/chocolatey/bin/"
+      - "C:/Program Files/nodejs/"
+      - "C:/Program Files/Go/bin/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/"
+      - "C:/Users/23587/.dotnet/tools/"
+      - "C:/Users/23587/AppData/Roaming/npm/"
+      - "C:/Users/23587/AppData/Local/Pandoc/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/"
+      - "C:/Users/23587/go/bin/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/"
+      - "C:/Program Files/bin/"
+      - "C:/Program Files/sbin/"
+      - "C:/Program Files/"
+      - "C:/Program Files (x86)/bin/"
+      - "C:/Program Files (x86)/sbin/"
+      - "C:/Program Files (x86)/"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/sbin/"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/"
+      - "C:/Program Files/my_application/bin/"
+      - "C:/Program Files/my_application/sbin/"
+      - "C:/Program Files/my_application/"
+    searched_directories:
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/rc.com"
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/rc.exe"
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/rc"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/rc.com"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/rc.exe"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/rc"
+      - "C:/Python314/Scripts/rc.com"
+      - "C:/Python314/Scripts/rc.exe"
+      - "C:/Python314/Scripts/rc"
+      - "C:/Python314/rc.com"
+      - "C:/Python314/rc.exe"
+      - "C:/Python314/rc"
+      - "C:/Program Files/Python39/Scripts/rc.com"
+      - "C:/Program Files/Python39/Scripts/rc.exe"
+      - "C:/Program Files/Python39/Scripts/rc"
+      - "C:/Program Files/Python39/rc.com"
+      - "C:/Program Files/Python39/rc.exe"
+      - "C:/Program Files/Python39/rc"
+      - "C:/Windows/System32/rc.com"
+      - "C:/Windows/System32/rc.exe"
+      - "C:/Windows/System32/rc"
+      - "C:/Windows/rc.com"
+      - "C:/Windows/rc.exe"
+      - "C:/Windows/rc"
+      - "C:/Windows/System32/wbem/rc.com"
+      - "C:/Windows/System32/wbem/rc.exe"
+      - "C:/Windows/System32/wbem/rc"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/rc.com"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/rc.exe"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/rc"
+      - "C:/Windows/System32/OpenSSH/rc.com"
+      - "C:/Windows/System32/OpenSSH/rc.exe"
+      - "C:/Windows/System32/OpenSSH/rc"
+      - "C:/Program Files/dotnet/rc.com"
+      - "C:/Program Files/dotnet/rc.exe"
+      - "C:/Program Files/dotnet/rc"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/rc.com"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/rc.exe"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/rc"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/rc.com"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/rc.exe"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/rc"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/rc.com"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/rc.exe"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/rc"
+      - "C:/Program Files/Git/cmd/rc.com"
+      - "C:/Program Files/Git/cmd/rc.exe"
+      - "C:/Program Files/Git/cmd/rc"
+      - "C:/Program Files/Siril/bin/rc.com"
+      - "C:/Program Files/Siril/bin/rc.exe"
+      - "C:/Program Files/Siril/bin/rc"
+      - "C:/ProgramData/chocolatey/bin/rc.com"
+      - "C:/ProgramData/chocolatey/bin/rc.exe"
+      - "C:/ProgramData/chocolatey/bin/rc"
+      - "C:/Program Files/nodejs/rc.com"
+      - "C:/Program Files/nodejs/rc.exe"
+      - "C:/Program Files/nodejs/rc"
+      - "C:/Program Files/Go/bin/rc.com"
+      - "C:/Program Files/Go/bin/rc.exe"
+      - "C:/Program Files/Go/bin/rc"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/rc.com"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/rc.exe"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/rc"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/rc.com"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/rc.exe"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/rc"
+      - "C:/Users/23587/.dotnet/tools/rc.com"
+      - "C:/Users/23587/.dotnet/tools/rc.exe"
+      - "C:/Users/23587/.dotnet/tools/rc"
+      - "C:/Users/23587/AppData/Roaming/npm/rc.com"
+      - "C:/Users/23587/AppData/Roaming/npm/rc.exe"
+      - "C:/Users/23587/AppData/Roaming/npm/rc"
+      - "C:/Users/23587/AppData/Local/Pandoc/rc.com"
+      - "C:/Users/23587/AppData/Local/Pandoc/rc.exe"
+      - "C:/Users/23587/AppData/Local/Pandoc/rc"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/rc.com"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/rc.exe"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/rc"
+      - "C:/Users/23587/go/bin/rc.com"
+      - "C:/Users/23587/go/bin/rc.exe"
+      - "C:/Users/23587/go/bin/rc"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/rc.com"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/rc.exe"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/rc"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/rc.com"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/rc.exe"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/rc"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/rc.com"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/rc.exe"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/rc"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/rc.com"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/rc.exe"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/rc"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/rc.com"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/rc.exe"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/rc"
+      - "C:/Program Files/bin/rc.com"
+      - "C:/Program Files/bin/rc.exe"
+      - "C:/Program Files/bin/rc"
+      - "C:/Program Files/sbin/rc.com"
+      - "C:/Program Files/sbin/rc.exe"
+      - "C:/Program Files/sbin/rc"
+      - "C:/Program Files/rc.com"
+      - "C:/Program Files/rc.exe"
+      - "C:/Program Files/rc"
+      - "C:/Program Files (x86)/bin/rc.com"
+      - "C:/Program Files (x86)/bin/rc.exe"
+      - "C:/Program Files (x86)/bin/rc"
+      - "C:/Program Files (x86)/sbin/rc.com"
+      - "C:/Program Files (x86)/sbin/rc.exe"
+      - "C:/Program Files (x86)/sbin/rc"
+      - "C:/Program Files (x86)/rc.com"
+      - "C:/Program Files (x86)/rc.exe"
+      - "C:/Program Files (x86)/rc"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/rc.com"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/rc.exe"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/rc"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/sbin/rc.com"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/sbin/rc.exe"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/sbin/rc"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/rc.com"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/rc.exe"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/rc"
+      - "C:/Program Files/my_application/bin/rc.com"
+      - "C:/Program Files/my_application/bin/rc.exe"
+      - "C:/Program Files/my_application/bin/rc"
+      - "C:/Program Files/my_application/sbin/rc.com"
+      - "C:/Program Files/my_application/sbin/rc.exe"
+      - "C:/Program Files/my_application/sbin/rc"
+      - "C:/Program Files/my_application/rc.com"
+      - "C:/Program Files/my_application/rc.exe"
+      - "C:/Program Files/my_application/rc"
+    found: false
+    search_context:
+      ENV{PATH}:
+        - "C:\\Users\\23587\\.codex\\tmp\\arg0\\codex-arg02Q8mdH"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\override"
+        - "C:\\Python314\\Scripts\\"
+        - "C:\\Python314\\"
+        - "C:\\Program Files\\Python39\\Scripts\\"
+        - "C:\\Program Files\\Python39\\"
+        - "C:\\Windows\\system32"
+        - "C:\\Windows"
+        - "C:\\Windows\\System32\\Wbem"
+        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\Windows\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA App\\NvDLISR"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\Program Files\\Siril\\bin\\"
+        - "C:\\ProgramData\\chocolatey\\bin"
+        - "C:\\Program Files\\nodejs\\"
+        - "C:\\Program Files\\Go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\23587\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\23587\\.dotnet\\tools"
+        - "C:\\Users\\23587\\AppData\\Roaming\\npm"
+        - "C:\\Users\\23587\\AppData\\Local\\Pandoc\\"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\23587\\go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe\\bin"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\fallback"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\git\\cmd"
+        - "C:\\Users\\23587\\AppData\\Local\\OpenAI\\Codex\\bin\\3e42d49ad3e35a50"
+        - "C:\\Program Files\\WindowsApps\\OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0\\app\\resources"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files/my_application"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake"
+        - "C:/Program Files/my_application"
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCompilerABI.cmake:83 (try_compile)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeTestCXXCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:2 (project)"
+    checks:
+      - "Detecting CXX compiler ABI info"
+    directories:
+      source: "C:/wksp/ProjectRebound/build/server-launcher-gui/CMakeFiles/CMakeScratch/TryCompile-ydelh8"
+      binary: "C:/wksp/ProjectRebound/build/server-launcher-gui/CMakeFiles/CMakeScratch/TryCompile-ydelh8"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: "/DWIN32 /D_WINDOWS /EHsc"
+      CMAKE_CXX_FLAGS_DEBUG: "/Zi /Ob0 /Od /RTC1"
+      CMAKE_CXX_SCAN_FOR_MODULES: "OFF"
+      CMAKE_EXE_LINKER_FLAGS: "/machine:x64"
+    buildResult:
+      variable: "CMAKE_CXX_ABI_COMPILED"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/wksp/ProjectRebound/build/server-launcher-gui/CMakeFiles/CMakeScratch/TryCompile-ydelh8'
+        
+        Run Build Command(s): "C:/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/amd64/MSBuild.exe" cmTC_96a91.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=18.0 /v:n
+        适用于 .NET Framework MSBuild 版本 18.3.0-release-26070-10+3972042b7
+        生成启动时间为 2026/8/2 18:09:12。
+        
+        节点 1 上的项目“C:\\wksp\\ProjectRebound\\build\\server-launcher-gui\\CMakeFiles\\CMakeScratch\\TryCompile-ydelh8\\cmTC_96a91.vcxproj”(默认目标)。
+        PrepareForBuild:
+          正在创建目录“cmTC_96a91.dir\\Debug\\”。
+          已启用结构化输出。编译器诊断的格式设置将反映错误层次结构。有关详细信息，请参阅 https://aka.ms/cpp/structured-output。
+          正在创建目录“C:\\wksp\\ProjectRebound\\build\\server-launcher-gui\\CMakeFiles\\CMakeScratch\\TryCompile-ydelh8\\Debug\\”。
+          正在创建目录“cmTC_96a91.dir\\Debug\\cmTC_96a91.tlog\\”。
+        InitializeBuildStatus:
+          正在创建“cmTC_96a91.dir\\Debug\\cmTC_96a91.tlog\\unsuccessfulbuild”，因为已指定“AlwaysCreate”。
+          正在对“cmTC_96a91.dir\\Debug\\cmTC_96a91.tlog\\unsuccessfulbuild”执行 Touch 任务。
+        ClCompile:
+          C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.50.35717\\bin\\HostX64\\x64\\CL.exe /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GS /fp:precise /Fo"cmTC_96a91.dir\\Debug\\\\" /Fd"cmTC_96a91.dir\\Debug\\vc145.pdb" /external:W1 /Gd /TP /errorReport:queue "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\share\\cmake-4.1\\Modules\\CMakeCXXCompilerABI.cpp"
+          用于 x64 的 Microsoft (R) C/C++ 优化编译器 19.50.35725 版
+          版权所有(C) Microsoft Corporation。保留所有权利。
+          cl /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GS /fp:precise /Fo"cmTC_96a91.dir\\Debug\\\\" /Fd"cmTC_96a91.dir\\Debug\\vc145.pdb" /external:W1 /Gd /TP /errorReport:queue "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\share\\cmake-4.1\\Modules\\CMakeCXXCompilerABI.cpp"
+          CMakeCXXCompilerABI.cpp
+        Link:
+          C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.50.35717\\bin\\HostX64\\x64\\link.exe /OUT:"C:\\wksp\\ProjectRebound\\build\\server-launcher-gui\\CMakeFiles\\CMakeScratch\\TryCompile-ydelh8\\Debug\\cmTC_96a91.exe" /INCREMENTAL /ILK:"cmTC_96a91.dir\\Debug\\cmTC_96a91.ilk" /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:/wksp/ProjectRebound/build/server-launcher-gui/CMakeFiles/CMakeScratch/TryCompile-ydelh8/Debug/cmTC_96a91.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /IMPLIB:"C:/wksp/ProjectRebound/build/server-launcher-gui/CMakeFiles/CMakeScratch/TryCompile-ydelh8/Debug/cmTC_96a91.lib" /MACHINE:X64  /machine:x64 cmTC_96a91.dir\\Debug\\CMakeCXXCompilerABI.obj
+          cmTC_96a91.vcxproj -> C:\\wksp\\ProjectRebound\\build\\server-launcher-gui\\CMakeFiles\\CMakeScratch\\TryCompile-ydelh8\\Debug\\cmTC_96a91.exe
+        FinalizeBuildStatus:
+          正在删除文件“cmTC_96a91.dir\\Debug\\cmTC_96a91.tlog\\unsuccessfulbuild”。
+          正在对“cmTC_96a91.dir\\Debug\\cmTC_96a91.tlog\\cmTC_96a91.lastbuildstate”执行 Touch 任务。
+        已完成生成项目“C:\\wksp\\ProjectRebound\\build\\server-launcher-gui\\CMakeFiles\\CMakeScratch\\TryCompile-ydelh8\\cmTC_96a91.vcxproj”(默认目标)的操作。
+        
+        已成功生成。
+            0 个警告
+            0 个错误
+        
+        已用时间 00:00:00.68
+        
+      exitCode: 0
+  -
+    kind: "message-v1"
+    backtrace:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCompilerABI.cmake:253 (message)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeTestCXXCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:2 (project)"
+    message: |
+      Parsed CXX implicit link information:
+        link line regex: [^( *|.*[/\\])(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)|link\\.exe|lld-link(\\.exe)?|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\\]+-)?ld|collect2)[^/\\]*( |$)]
+        linker tool regex: [^[ 	]*(->|")?[ 	]*(([^"]*[/\\])?(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)|link\\.exe|lld-link(\\.exe)?))("|,| |$)]
+        linker tool for 'CXX': C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/HostX64/x64/link.exe
+        implicit libs: []
+        implicit objs: []
+        implicit dirs: []
+        implicit fwks: []
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/Internal/CMakeDetermineLinkerId.cmake:36 (message)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCompilerABI.cmake:299 (cmake_determine_linker_id)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeTestCXXCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:2 (project)"
+    message: |
+      Running the CXX compiler's linker: "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/HostX64/x64/link.exe" "-v"
+      Microsoft (R) Incremental Linker Version 14.50.35725.0
+      Copyright (C) Microsoft Corporation.  All rights reserved.
+  -
+    kind: "find_package-v1"
+    backtrace:
+      - "CMakeLists.txt:4 (find_package)"
+    name: "Slint"
+    configs:
+      -
+        filename: "SlintConfig.cmake"
+        kind: "cmake"
+      -
+        filename: "slint-config.cmake"
+        kind: "cmake"
+    version_request:
+      exact: false
+    settings:
+      required: "optional"
+      quiet: true
+      global: false
+      policy_scope: true
+      bypass_provider: false
+      names:
+        - "Slint"
+      path_suffixes:
+        - ""
+      paths:
+        CMAKE_FIND_USE_CMAKE_PATH: true
+        CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+        CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+        CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+        CMAKE_FIND_USE_INSTALL_PREFIX: true
+        CMAKE_FIND_USE_PACKAGE_ROOT_PATH: true
+        CMAKE_FIND_USE_CMAKE_PACKAGE_REGISTRY: true
+        CMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY: true
+        CMAKE_FIND_ROOT_PATH_MODE: "BOTH"
+    candidates:
+      -
+        path: "C:/wksp/ProjectRebound/build/server-launcher-gui/CMakeFiles/pkgRedirects/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/wksp/ProjectRebound/build/server-launcher-gui/CMakeFiles/pkgRedirects/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Python314/Scripts/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Python314/Scripts/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Python314/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Python314/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Python39/Scripts/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Python39/Scripts/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Python39/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Python39/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/wbem/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/wbem/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/WindowsPowerShell/v1.0/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/WindowsPowerShell/v1.0/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/OpenSSH/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/OpenSSH/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/dotnet/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/dotnet/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Git/cmd/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Git/cmd/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Siril/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Siril/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/ProgramData/chocolatey/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/ProgramData/chocolatey/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/nodejs/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/nodejs/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Go/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Go/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/AppData/Local/Pandoc/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/AppData/Local/Pandoc/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/go/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/go/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/SlintConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/slint-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+    found: null
+    search_context:
+      ENV{PATH}:
+        - "C:\\Users\\23587\\.codex\\tmp\\arg0\\codex-arg02Q8mdH"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\override"
+        - "C:\\Python314\\Scripts\\"
+        - "C:\\Python314\\"
+        - "C:\\Program Files\\Python39\\Scripts\\"
+        - "C:\\Program Files\\Python39\\"
+        - "C:\\Windows\\system32"
+        - "C:\\Windows"
+        - "C:\\Windows\\System32\\Wbem"
+        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\Windows\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA App\\NvDLISR"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\Program Files\\Siril\\bin\\"
+        - "C:\\ProgramData\\chocolatey\\bin"
+        - "C:\\Program Files\\nodejs\\"
+        - "C:\\Program Files\\Go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\23587\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\23587\\.dotnet\\tools"
+        - "C:\\Users\\23587\\AppData\\Roaming\\npm"
+        - "C:\\Users\\23587\\AppData\\Local\\Pandoc\\"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\23587\\go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe\\bin"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\fallback"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\git\\cmd"
+        - "C:\\Users\\23587\\AppData\\Local\\OpenAI\\Codex\\bin\\3e42d49ad3e35a50"
+        - "C:\\Program Files\\WindowsApps\\OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0\\app\\resources"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files/my_application"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake"
+        - "C:/Program Files/my_application"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/FindGit.cmake:86 (find_program)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/FetchContent.cmake:1874 (find_package)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/FetchContent.cmake:1609 (__FetchContent_populateSubbuild)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/FetchContent.cmake:2145:EVAL:2 (__FetchContent_doPopulation)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/FetchContent.cmake:2145 (cmake_language)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/FetchContent.cmake:2384 (__FetchContent_Populate)"
+      - "CMakeLists.txt:16 (FetchContent_MakeAvailable)"
+    mode: "program"
+    variable: "GIT_EXECUTABLE"
+    description: "Git command line client"
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "git.cmd"
+      - "git"
+    candidate_directories:
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/"
+      - "C:/Python314/Scripts/"
+      - "C:/Python314/"
+      - "C:/Program Files/Python39/Scripts/"
+      - "C:/Program Files/Python39/"
+      - "C:/Windows/System32/"
+      - "C:/Windows/"
+      - "C:/Windows/System32/wbem/"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/"
+      - "C:/Windows/System32/OpenSSH/"
+      - "C:/Program Files/dotnet/"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/"
+      - "C:/Program Files/Git/cmd/"
+      - "C:/Program Files/Siril/bin/"
+      - "C:/ProgramData/chocolatey/bin/"
+      - "C:/Program Files/nodejs/"
+      - "C:/Program Files/Go/bin/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/"
+      - "C:/Users/23587/.dotnet/tools/"
+      - "C:/Users/23587/AppData/Roaming/npm/"
+      - "C:/Users/23587/AppData/Local/Pandoc/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/"
+      - "C:/Users/23587/go/bin/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/"
+      - "C:/Program Files/bin/"
+      - "C:/Program Files/sbin/"
+      - "C:/Program Files/"
+      - "C:/Program Files (x86)/bin/"
+      - "C:/Program Files (x86)/sbin/"
+      - "C:/Program Files (x86)/"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/sbin/"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/"
+      - "C:/Program Files/my_application/bin/"
+      - "C:/Program Files/my_application/sbin/"
+      - "C:/Program Files/my_application/"
+      - "C:/Users/23587/AppData/Local/Atlassian/SourceTree/git_local/bin/"
+    searched_directories:
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/git.cmd.com"
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/git.cmd.exe"
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/git.cmd"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/git.cmd.com"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/git.cmd.exe"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/git.cmd"
+      - "C:/Python314/Scripts/git.cmd.com"
+      - "C:/Python314/Scripts/git.cmd.exe"
+      - "C:/Python314/Scripts/git.cmd"
+      - "C:/Python314/git.cmd.com"
+      - "C:/Python314/git.cmd.exe"
+      - "C:/Python314/git.cmd"
+      - "C:/Program Files/Python39/Scripts/git.cmd.com"
+      - "C:/Program Files/Python39/Scripts/git.cmd.exe"
+      - "C:/Program Files/Python39/Scripts/git.cmd"
+      - "C:/Program Files/Python39/git.cmd.com"
+      - "C:/Program Files/Python39/git.cmd.exe"
+      - "C:/Program Files/Python39/git.cmd"
+      - "C:/Windows/System32/git.cmd.com"
+      - "C:/Windows/System32/git.cmd.exe"
+      - "C:/Windows/System32/git.cmd"
+      - "C:/Windows/git.cmd.com"
+      - "C:/Windows/git.cmd.exe"
+      - "C:/Windows/git.cmd"
+      - "C:/Windows/System32/wbem/git.cmd.com"
+      - "C:/Windows/System32/wbem/git.cmd.exe"
+      - "C:/Windows/System32/wbem/git.cmd"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/git.cmd.com"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/git.cmd.exe"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/git.cmd"
+      - "C:/Windows/System32/OpenSSH/git.cmd.com"
+      - "C:/Windows/System32/OpenSSH/git.cmd.exe"
+      - "C:/Windows/System32/OpenSSH/git.cmd"
+      - "C:/Program Files/dotnet/git.cmd.com"
+      - "C:/Program Files/dotnet/git.cmd.exe"
+      - "C:/Program Files/dotnet/git.cmd"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/git.cmd.com"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/git.cmd.exe"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/git.cmd"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/git.cmd.com"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/git.cmd.exe"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/git.cmd"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/git.cmd.com"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/git.cmd.exe"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/git.cmd"
+      - "C:/Program Files/Git/cmd/git.cmd.com"
+      - "C:/Program Files/Git/cmd/git.cmd.exe"
+      - "C:/Program Files/Git/cmd/git.cmd"
+      - "C:/Program Files/Siril/bin/git.cmd.com"
+      - "C:/Program Files/Siril/bin/git.cmd.exe"
+      - "C:/Program Files/Siril/bin/git.cmd"
+      - "C:/ProgramData/chocolatey/bin/git.cmd.com"
+      - "C:/ProgramData/chocolatey/bin/git.cmd.exe"
+      - "C:/ProgramData/chocolatey/bin/git.cmd"
+      - "C:/Program Files/nodejs/git.cmd.com"
+      - "C:/Program Files/nodejs/git.cmd.exe"
+      - "C:/Program Files/nodejs/git.cmd"
+      - "C:/Program Files/Go/bin/git.cmd.com"
+      - "C:/Program Files/Go/bin/git.cmd.exe"
+      - "C:/Program Files/Go/bin/git.cmd"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/git.cmd.com"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/git.cmd.exe"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/git.cmd"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/git.cmd.com"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/git.cmd.exe"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/git.cmd"
+      - "C:/Users/23587/.dotnet/tools/git.cmd.com"
+      - "C:/Users/23587/.dotnet/tools/git.cmd.exe"
+      - "C:/Users/23587/.dotnet/tools/git.cmd"
+      - "C:/Users/23587/AppData/Roaming/npm/git.cmd.com"
+      - "C:/Users/23587/AppData/Roaming/npm/git.cmd.exe"
+      - "C:/Users/23587/AppData/Roaming/npm/git.cmd"
+      - "C:/Users/23587/AppData/Local/Pandoc/git.cmd.com"
+      - "C:/Users/23587/AppData/Local/Pandoc/git.cmd.exe"
+      - "C:/Users/23587/AppData/Local/Pandoc/git.cmd"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/git.cmd.com"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/git.cmd.exe"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/git.cmd"
+      - "C:/Users/23587/go/bin/git.cmd.com"
+      - "C:/Users/23587/go/bin/git.cmd.exe"
+      - "C:/Users/23587/go/bin/git.cmd"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/git.cmd.com"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/git.cmd.exe"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/git.cmd"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/git.cmd.com"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/git.cmd.exe"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/git.cmd"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/git.cmd.com"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/git.cmd.exe"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/git.cmd"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/git.cmd.com"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/git.cmd.exe"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/git.cmd"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/git.cmd.com"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/git.cmd.exe"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/git.cmd"
+      - "C:/Program Files/bin/git.cmd.com"
+      - "C:/Program Files/bin/git.cmd.exe"
+      - "C:/Program Files/bin/git.cmd"
+      - "C:/Program Files/sbin/git.cmd.com"
+      - "C:/Program Files/sbin/git.cmd.exe"
+      - "C:/Program Files/sbin/git.cmd"
+      - "C:/Program Files/git.cmd.com"
+      - "C:/Program Files/git.cmd.exe"
+      - "C:/Program Files/git.cmd"
+      - "C:/Program Files (x86)/bin/git.cmd.com"
+      - "C:/Program Files (x86)/bin/git.cmd.exe"
+      - "C:/Program Files (x86)/bin/git.cmd"
+      - "C:/Program Files (x86)/sbin/git.cmd.com"
+      - "C:/Program Files (x86)/sbin/git.cmd.exe"
+      - "C:/Program Files (x86)/sbin/git.cmd"
+      - "C:/Program Files (x86)/git.cmd.com"
+      - "C:/Program Files (x86)/git.cmd.exe"
+      - "C:/Program Files (x86)/git.cmd"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/git.cmd.com"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/git.cmd.exe"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/git.cmd"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/sbin/git.cmd.com"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/sbin/git.cmd.exe"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/sbin/git.cmd"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/git.cmd.com"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/git.cmd.exe"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/git.cmd"
+      - "C:/Program Files/my_application/bin/git.cmd.com"
+      - "C:/Program Files/my_application/bin/git.cmd.exe"
+      - "C:/Program Files/my_application/bin/git.cmd"
+      - "C:/Program Files/my_application/sbin/git.cmd.com"
+      - "C:/Program Files/my_application/sbin/git.cmd.exe"
+      - "C:/Program Files/my_application/sbin/git.cmd"
+      - "C:/Program Files/my_application/git.cmd.com"
+      - "C:/Program Files/my_application/git.cmd.exe"
+      - "C:/Program Files/my_application/git.cmd"
+      - "C:/Users/23587/AppData/Local/Atlassian/SourceTree/git_local/bin/git.cmd.com"
+      - "C:/Users/23587/AppData/Local/Atlassian/SourceTree/git_local/bin/git.cmd.exe"
+      - "C:/Users/23587/AppData/Local/Atlassian/SourceTree/git_local/bin/git.cmd"
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/git.com"
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/git.exe"
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/git"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/git.com"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/git.exe"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/git"
+      - "C:/Python314/Scripts/git.com"
+      - "C:/Python314/Scripts/git.exe"
+      - "C:/Python314/Scripts/git"
+      - "C:/Python314/git.com"
+      - "C:/Python314/git.exe"
+      - "C:/Python314/git"
+      - "C:/Program Files/Python39/Scripts/git.com"
+      - "C:/Program Files/Python39/Scripts/git.exe"
+      - "C:/Program Files/Python39/Scripts/git"
+      - "C:/Program Files/Python39/git.com"
+      - "C:/Program Files/Python39/git.exe"
+      - "C:/Program Files/Python39/git"
+      - "C:/Windows/System32/git.com"
+      - "C:/Windows/System32/git.exe"
+      - "C:/Windows/System32/git"
+      - "C:/Windows/git.com"
+      - "C:/Windows/git.exe"
+      - "C:/Windows/git"
+      - "C:/Windows/System32/wbem/git.com"
+      - "C:/Windows/System32/wbem/git.exe"
+      - "C:/Windows/System32/wbem/git"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/git.com"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/git.exe"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/git"
+      - "C:/Windows/System32/OpenSSH/git.com"
+      - "C:/Windows/System32/OpenSSH/git.exe"
+      - "C:/Windows/System32/OpenSSH/git"
+      - "C:/Program Files/dotnet/git.com"
+      - "C:/Program Files/dotnet/git.exe"
+      - "C:/Program Files/dotnet/git"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/git.com"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/git.exe"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/git"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/git.com"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/git.exe"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/git"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/git.com"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/git.exe"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/git"
+      - "C:/Program Files/Git/cmd/git.com"
+    found: "C:/Program Files/Git/cmd/git.exe"
+    search_context:
+      ENV{PATH}:
+        - "C:\\Users\\23587\\.codex\\tmp\\arg0\\codex-arg02Q8mdH"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\override"
+        - "C:\\Python314\\Scripts\\"
+        - "C:\\Python314\\"
+        - "C:\\Program Files\\Python39\\Scripts\\"
+        - "C:\\Program Files\\Python39\\"
+        - "C:\\Windows\\system32"
+        - "C:\\Windows"
+        - "C:\\Windows\\System32\\Wbem"
+        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\Windows\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA App\\NvDLISR"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\Program Files\\Siril\\bin\\"
+        - "C:\\ProgramData\\chocolatey\\bin"
+        - "C:\\Program Files\\nodejs\\"
+        - "C:\\Program Files\\Go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\23587\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\23587\\.dotnet\\tools"
+        - "C:\\Users\\23587\\AppData\\Roaming\\npm"
+        - "C:\\Users\\23587\\AppData\\Local\\Pandoc\\"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\23587\\go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe\\bin"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\fallback"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\git\\cmd"
+        - "C:\\Users\\23587\\AppData\\Local\\OpenAI\\Codex\\bin\\3e42d49ad3e35a50"
+        - "C:\\Program Files\\WindowsApps\\OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0\\app\\resources"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files/my_application"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake"
+        - "C:/Program Files/my_application"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCompilerId.cmake:462 (find_file)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCompilerId.cmake:500 (CMAKE_DETERMINE_COMPILER_ID_WRITE)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCompilerId.cmake:8 (CMAKE_DETERMINE_COMPILER_ID_BUILD)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCompilerId.cmake:64 (__determine_compiler_id_test)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCCompiler.cmake:122 (CMAKE_DETERMINE_COMPILER_ID)"
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/slint-src/api/cpp/CMakeLists.txt:8 (project)"
+    mode: "file"
+    variable: "src_in"
+    description: "Path to a file."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "CMakeCCompilerId.c.in"
+    candidate_directories:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/"
+    found: "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeCCompilerId.c.in"
+    search_context:
+      ENV{PATH}:
+        - "C:\\Users\\23587\\.codex\\tmp\\arg0\\codex-arg02Q8mdH"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\override"
+        - "C:\\Python314\\Scripts\\"
+        - "C:\\Python314\\"
+        - "C:\\Program Files\\Python39\\Scripts\\"
+        - "C:\\Program Files\\Python39\\"
+        - "C:\\Windows\\system32"
+        - "C:\\Windows"
+        - "C:\\Windows\\System32\\Wbem"
+        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\Windows\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA App\\NvDLISR"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\Program Files\\Siril\\bin\\"
+        - "C:\\ProgramData\\chocolatey\\bin"
+        - "C:\\Program Files\\nodejs\\"
+        - "C:\\Program Files\\Go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\23587\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\23587\\.dotnet\\tools"
+        - "C:\\Users\\23587\\AppData\\Roaming\\npm"
+        - "C:\\Users\\23587\\AppData\\Local\\Pandoc\\"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\23587\\go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe\\bin"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\fallback"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\git\\cmd"
+        - "C:\\Users\\23587\\AppData\\Local\\OpenAI\\Codex\\bin\\3e42d49ad3e35a50"
+        - "C:\\Program Files\\WindowsApps\\OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0\\app\\resources"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files/my_application"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake"
+        - "C:/Program Files/my_application"
+  -
+    kind: "message-v1"
+    backtrace:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCompilerId.cmake:17 (message)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCompilerId.cmake:64 (__determine_compiler_id_test)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCCompiler.cmake:122 (CMAKE_DETERMINE_COMPILER_ID)"
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/slint-src/api/cpp/CMakeLists.txt:8 (project)"
+    message: |
+      Compiling the C compiler identification source file "CMakeCCompilerId.c" succeeded.
+      Compiler:  
+      Build flags: 
+      Id flags:  
+      
+      The output was:
+      0
+      适用于 .NET Framework MSBuild 版本 18.3.0-release-26070-10+3972042b7
+      生成启动时间为 2026/8/2 18:09:49。
+      
+      节点 1 上的项目“C:\\wksp\\ProjectRebound\\build\\server-launcher-gui\\CMakeFiles\\4.1.2-msvc8\\CompilerIdC\\CompilerIdC.vcxproj”(默认目标)。
+      PrepareForBuild:
+        正在创建目录“Debug\\”。
+        已启用结构化输出。编译器诊断的格式设置将反映错误层次结构。有关详细信息，请参阅 https://aka.ms/cpp/structured-output。
+        正在创建目录“Debug\\CompilerIdC.tlog\\”。
+      InitializeBuildStatus:
+        正在创建“Debug\\CompilerIdC.tlog\\unsuccessfulbuild”，因为已指定“AlwaysCreate”。
+        正在对“Debug\\CompilerIdC.tlog\\unsuccessfulbuild”执行 Touch 任务。
+      ClCompile:
+        C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.50.35717\\bin\\HostX64\\x64\\CL.exe /c /nologo /W0 /WX- /diagnostics:column /Od /D _MBCS /Gm- /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"Debug\\\\" /Fd"Debug\\vc145.pdb" /external:W0 /Gd /TC /FC /errorReport:queue CMakeCCompilerId.c
+        CMakeCCompilerId.c
+      Link:
+        C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.50.35717\\bin\\HostX64\\x64\\link.exe /ERRORREPORT:QUEUE /OUT:".\\CompilerIdC.exe" /INCREMENTAL:NO /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /PDB:".\\CompilerIdC.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:".\\CompilerIdC.lib" /MACHINE:X64 Debug\\CMakeCCompilerId.obj
+        CompilerIdC.vcxproj -> C:\\wksp\\ProjectRebound\\build\\server-launcher-gui\\CMakeFiles\\4.1.2-msvc8\\CompilerIdC\\CompilerIdC.exe
+      PostBuildEvent:
+        for %%i in (cl.exe) do @echo CMAKE_C_COMPILER=%%~$PATH:i
+        :VCEnd
+        CMAKE_C_COMPILER=C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.50.35717\\bin\\Hostx64\\x64\\cl.exe
+      FinalizeBuildStatus:
+        正在删除文件“Debug\\CompilerIdC.tlog\\unsuccessfulbuild”。
+        正在对“Debug\\CompilerIdC.tlog\\CompilerIdC.lastbuildstate”执行 Touch 任务。
+      已完成生成项目“C:\\wksp\\ProjectRebound\\build\\server-launcher-gui\\CMakeFiles\\4.1.2-msvc8\\CompilerIdC\\CompilerIdC.vcxproj”(默认目标)的操作。
+      
+      已成功生成。
+          0 个警告
+          0 个错误
+      
+      已用时间 00:00:00.95
+      
+      
+      Compilation of the C compiler identification source "CMakeCCompilerId.c" produced "CompilerIdC.exe"
+      
+      Compilation of the C compiler identification source "CMakeCCompilerId.c" produced "CompilerIdC.vcxproj"
+      
+      The C compiler identification is MSVC, found in:
+        C:/wksp/ProjectRebound/build/server-launcher-gui/CMakeFiles/4.1.2-msvc8/CompilerIdC/CompilerIdC.exe
+      
+  -
+    kind: "find-v1"
+    backtrace:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeFindBinUtils.cmake:37 (find_program)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeFindBinUtils.cmake:65 (__resolve_tool_path)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeFindBinUtils.cmake:104 (__resolve_linker_path)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCCompiler.cmake:200 (include)"
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/slint-src/api/cpp/CMakeLists.txt:8 (project)"
+    mode: "program"
+    variable: "_CMAKE_TOOL_WITH_PATH"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: false
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "lld-link"
+    candidate_directories:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/"
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/"
+      - "C:/Python314/Scripts/"
+      - "C:/Python314/"
+      - "C:/Program Files/Python39/Scripts/"
+      - "C:/Program Files/Python39/"
+      - "C:/Windows/System32/"
+      - "C:/Windows/"
+      - "C:/Windows/System32/wbem/"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/"
+      - "C:/Windows/System32/OpenSSH/"
+      - "C:/Program Files/dotnet/"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/"
+      - "C:/Program Files/Git/cmd/"
+      - "C:/Program Files/Siril/bin/"
+      - "C:/ProgramData/chocolatey/bin/"
+      - "C:/Program Files/nodejs/"
+      - "C:/Program Files/Go/bin/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/"
+      - "C:/Users/23587/.dotnet/tools/"
+      - "C:/Users/23587/AppData/Roaming/npm/"
+      - "C:/Users/23587/AppData/Local/Pandoc/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/"
+      - "C:/Users/23587/go/bin/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/"
+      - "C:/Program Files/bin/"
+      - "C:/Program Files/sbin/"
+      - "C:/Program Files/"
+      - "C:/Program Files (x86)/bin/"
+      - "C:/Program Files (x86)/sbin/"
+      - "C:/Program Files (x86)/"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/sbin/"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/"
+      - "C:/Program Files/my_application/bin/"
+      - "C:/Program Files/my_application/sbin/"
+      - "C:/Program Files/my_application/"
+    searched_directories:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/lld-link.com"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/lld-link.exe"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/lld-link"
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/lld-link.com"
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/lld-link.exe"
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/lld-link"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/lld-link.com"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/lld-link.exe"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/lld-link"
+      - "C:/Python314/Scripts/lld-link.com"
+      - "C:/Python314/Scripts/lld-link.exe"
+      - "C:/Python314/Scripts/lld-link"
+      - "C:/Python314/lld-link.com"
+      - "C:/Python314/lld-link.exe"
+      - "C:/Python314/lld-link"
+      - "C:/Program Files/Python39/Scripts/lld-link.com"
+      - "C:/Program Files/Python39/Scripts/lld-link.exe"
+      - "C:/Program Files/Python39/Scripts/lld-link"
+      - "C:/Program Files/Python39/lld-link.com"
+      - "C:/Program Files/Python39/lld-link.exe"
+      - "C:/Program Files/Python39/lld-link"
+      - "C:/Windows/System32/lld-link.com"
+      - "C:/Windows/System32/lld-link.exe"
+      - "C:/Windows/System32/lld-link"
+      - "C:/Windows/lld-link.com"
+      - "C:/Windows/lld-link.exe"
+      - "C:/Windows/lld-link"
+      - "C:/Windows/System32/wbem/lld-link.com"
+      - "C:/Windows/System32/wbem/lld-link.exe"
+      - "C:/Windows/System32/wbem/lld-link"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/lld-link.com"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/lld-link.exe"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/lld-link"
+      - "C:/Windows/System32/OpenSSH/lld-link.com"
+      - "C:/Windows/System32/OpenSSH/lld-link.exe"
+      - "C:/Windows/System32/OpenSSH/lld-link"
+      - "C:/Program Files/dotnet/lld-link.com"
+      - "C:/Program Files/dotnet/lld-link.exe"
+      - "C:/Program Files/dotnet/lld-link"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/lld-link.com"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/lld-link.exe"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/lld-link"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/lld-link.com"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/lld-link.exe"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/lld-link"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/lld-link.com"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/lld-link.exe"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/lld-link"
+      - "C:/Program Files/Git/cmd/lld-link.com"
+      - "C:/Program Files/Git/cmd/lld-link.exe"
+      - "C:/Program Files/Git/cmd/lld-link"
+      - "C:/Program Files/Siril/bin/lld-link.com"
+      - "C:/Program Files/Siril/bin/lld-link.exe"
+      - "C:/Program Files/Siril/bin/lld-link"
+      - "C:/ProgramData/chocolatey/bin/lld-link.com"
+      - "C:/ProgramData/chocolatey/bin/lld-link.exe"
+      - "C:/ProgramData/chocolatey/bin/lld-link"
+      - "C:/Program Files/nodejs/lld-link.com"
+      - "C:/Program Files/nodejs/lld-link.exe"
+      - "C:/Program Files/nodejs/lld-link"
+      - "C:/Program Files/Go/bin/lld-link.com"
+      - "C:/Program Files/Go/bin/lld-link.exe"
+      - "C:/Program Files/Go/bin/lld-link"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/lld-link.com"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/lld-link.exe"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/lld-link"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/lld-link.com"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/lld-link.exe"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/lld-link"
+      - "C:/Users/23587/.dotnet/tools/lld-link.com"
+      - "C:/Users/23587/.dotnet/tools/lld-link.exe"
+      - "C:/Users/23587/.dotnet/tools/lld-link"
+      - "C:/Users/23587/AppData/Roaming/npm/lld-link.com"
+      - "C:/Users/23587/AppData/Roaming/npm/lld-link.exe"
+      - "C:/Users/23587/AppData/Roaming/npm/lld-link"
+      - "C:/Users/23587/AppData/Local/Pandoc/lld-link.com"
+      - "C:/Users/23587/AppData/Local/Pandoc/lld-link.exe"
+      - "C:/Users/23587/AppData/Local/Pandoc/lld-link"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/lld-link.com"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/lld-link.exe"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/lld-link"
+      - "C:/Users/23587/go/bin/lld-link.com"
+      - "C:/Users/23587/go/bin/lld-link.exe"
+      - "C:/Users/23587/go/bin/lld-link"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/lld-link.com"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/lld-link.exe"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/lld-link"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/lld-link.com"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/lld-link.exe"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/lld-link"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/lld-link.com"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/lld-link.exe"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/lld-link"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/lld-link.com"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/lld-link.exe"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/lld-link"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/lld-link.com"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/lld-link.exe"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/lld-link"
+      - "C:/Program Files/bin/lld-link.com"
+      - "C:/Program Files/bin/lld-link.exe"
+      - "C:/Program Files/bin/lld-link"
+      - "C:/Program Files/sbin/lld-link.com"
+      - "C:/Program Files/sbin/lld-link.exe"
+      - "C:/Program Files/sbin/lld-link"
+      - "C:/Program Files/lld-link.com"
+      - "C:/Program Files/lld-link.exe"
+      - "C:/Program Files/lld-link"
+      - "C:/Program Files (x86)/bin/lld-link.com"
+      - "C:/Program Files (x86)/bin/lld-link.exe"
+      - "C:/Program Files (x86)/bin/lld-link"
+      - "C:/Program Files (x86)/sbin/lld-link.com"
+      - "C:/Program Files (x86)/sbin/lld-link.exe"
+      - "C:/Program Files (x86)/sbin/lld-link"
+      - "C:/Program Files (x86)/lld-link.com"
+      - "C:/Program Files (x86)/lld-link.exe"
+      - "C:/Program Files (x86)/lld-link"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/lld-link.com"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/lld-link.exe"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/lld-link"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/sbin/lld-link.com"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/sbin/lld-link.exe"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/sbin/lld-link"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/lld-link.com"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/lld-link.exe"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/lld-link"
+      - "C:/Program Files/my_application/bin/lld-link.com"
+      - "C:/Program Files/my_application/bin/lld-link.exe"
+      - "C:/Program Files/my_application/bin/lld-link"
+      - "C:/Program Files/my_application/sbin/lld-link.com"
+      - "C:/Program Files/my_application/sbin/lld-link.exe"
+      - "C:/Program Files/my_application/sbin/lld-link"
+      - "C:/Program Files/my_application/lld-link.com"
+      - "C:/Program Files/my_application/lld-link.exe"
+      - "C:/Program Files/my_application/lld-link"
+    found: false
+    search_context:
+      ENV{PATH}:
+        - "C:\\Users\\23587\\.codex\\tmp\\arg0\\codex-arg02Q8mdH"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\override"
+        - "C:\\Python314\\Scripts\\"
+        - "C:\\Python314\\"
+        - "C:\\Program Files\\Python39\\Scripts\\"
+        - "C:\\Program Files\\Python39\\"
+        - "C:\\Windows\\system32"
+        - "C:\\Windows"
+        - "C:\\Windows\\System32\\Wbem"
+        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\Windows\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA App\\NvDLISR"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\Program Files\\Siril\\bin\\"
+        - "C:\\ProgramData\\chocolatey\\bin"
+        - "C:\\Program Files\\nodejs\\"
+        - "C:\\Program Files\\Go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\23587\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\23587\\.dotnet\\tools"
+        - "C:\\Users\\23587\\AppData\\Roaming\\npm"
+        - "C:\\Users\\23587\\AppData\\Local\\Pandoc\\"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\23587\\go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe\\bin"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\fallback"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\git\\cmd"
+        - "C:\\Users\\23587\\AppData\\Local\\OpenAI\\Codex\\bin\\3e42d49ad3e35a50"
+        - "C:\\Program Files\\WindowsApps\\OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0\\app\\resources"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files/my_application"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake"
+        - "C:/Program Files/my_application"
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCompilerABI.cmake:83 (try_compile)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/slint-src/api/cpp/CMakeLists.txt:8 (project)"
+    checks:
+      - "Detecting C compiler ABI info"
+    directories:
+      source: "C:/wksp/ProjectRebound/build/server-launcher-gui/CMakeFiles/CMakeScratch/TryCompile-26jarw"
+      binary: "C:/wksp/ProjectRebound/build/server-launcher-gui/CMakeFiles/CMakeScratch/TryCompile-26jarw"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "/DWIN32 /D_WINDOWS"
+      CMAKE_C_FLAGS_DEBUG: "/Zi /Ob0 /Od /RTC1"
+      CMAKE_EXE_LINKER_FLAGS: "/machine:x64"
+    buildResult:
+      variable: "CMAKE_C_ABI_COMPILED"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/wksp/ProjectRebound/build/server-launcher-gui/CMakeFiles/CMakeScratch/TryCompile-26jarw'
+        
+        Run Build Command(s): "C:/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/amd64/MSBuild.exe" cmTC_3af5b.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=18.0 /v:n
+        适用于 .NET Framework MSBuild 版本 18.3.0-release-26070-10+3972042b7
+        生成启动时间为 2026/8/2 18:09:51。
+        
+        节点 1 上的项目“C:\\wksp\\ProjectRebound\\build\\server-launcher-gui\\CMakeFiles\\CMakeScratch\\TryCompile-26jarw\\cmTC_3af5b.vcxproj”(默认目标)。
+        PrepareForBuild:
+          正在创建目录“cmTC_3af5b.dir\\Debug\\”。
+          已启用结构化输出。编译器诊断的格式设置将反映错误层次结构。有关详细信息，请参阅 https://aka.ms/cpp/structured-output。
+          正在创建目录“C:\\wksp\\ProjectRebound\\build\\server-launcher-gui\\CMakeFiles\\CMakeScratch\\TryCompile-26jarw\\Debug\\”。
+          正在创建目录“cmTC_3af5b.dir\\Debug\\cmTC_3af5b.tlog\\”。
+        InitializeBuildStatus:
+          正在创建“cmTC_3af5b.dir\\Debug\\cmTC_3af5b.tlog\\unsuccessfulbuild”，因为已指定“AlwaysCreate”。
+          正在对“cmTC_3af5b.dir\\Debug\\cmTC_3af5b.tlog\\unsuccessfulbuild”执行 Touch 任务。
+        ClCompile:
+          C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.50.35717\\bin\\HostX64\\x64\\CL.exe /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Fo"cmTC_3af5b.dir\\Debug\\\\" /Fd"cmTC_3af5b.dir\\Debug\\vc145.pdb" /external:W1 /Gd /TC /errorReport:queue "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\share\\cmake-4.1\\Modules\\CMakeCCompilerABI.c"
+          用于 x64 的 Microsoft (R) C/C++ 优化编译器 19.50.35725 版
+          版权所有(C) Microsoft Corporation。保留所有权利。
+          cl /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Fo"cmTC_3af5b.dir\\Debug\\\\" /Fd"cmTC_3af5b.dir\\Debug\\vc145.pdb" /external:W1 /Gd /TC /errorReport:queue "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\share\\cmake-4.1\\Modules\\CMakeCCompilerABI.c"
+          CMakeCCompilerABI.c
+        Link:
+          C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.50.35717\\bin\\HostX64\\x64\\link.exe /OUT:"C:\\wksp\\ProjectRebound\\build\\server-launcher-gui\\CMakeFiles\\CMakeScratch\\TryCompile-26jarw\\Debug\\cmTC_3af5b.exe" /INCREMENTAL /ILK:"cmTC_3af5b.dir\\Debug\\cmTC_3af5b.ilk" /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:/wksp/ProjectRebound/build/server-launcher-gui/CMakeFiles/CMakeScratch/TryCompile-26jarw/Debug/cmTC_3af5b.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /IMPLIB:"C:/wksp/ProjectRebound/build/server-launcher-gui/CMakeFiles/CMakeScratch/TryCompile-26jarw/Debug/cmTC_3af5b.lib" /MACHINE:X64  /machine:x64 cmTC_3af5b.dir\\Debug\\CMakeCCompilerABI.obj
+          cmTC_3af5b.vcxproj -> C:\\wksp\\ProjectRebound\\build\\server-launcher-gui\\CMakeFiles\\CMakeScratch\\TryCompile-26jarw\\Debug\\cmTC_3af5b.exe
+        FinalizeBuildStatus:
+          正在删除文件“cmTC_3af5b.dir\\Debug\\cmTC_3af5b.tlog\\unsuccessfulbuild”。
+          正在对“cmTC_3af5b.dir\\Debug\\cmTC_3af5b.tlog\\cmTC_3af5b.lastbuildstate”执行 Touch 任务。
+        已完成生成项目“C:\\wksp\\ProjectRebound\\build\\server-launcher-gui\\CMakeFiles\\CMakeScratch\\TryCompile-26jarw\\cmTC_3af5b.vcxproj”(默认目标)的操作。
+        
+        已成功生成。
+            0 个警告
+            0 个错误
+        
+        已用时间 00:00:01.00
+        
+      exitCode: 0
+  -
+    kind: "message-v1"
+    backtrace:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCompilerABI.cmake:253 (message)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/slint-src/api/cpp/CMakeLists.txt:8 (project)"
+    message: |
+      Parsed C implicit link information:
+        link line regex: [^( *|.*[/\\])(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)|link\\.exe|lld-link(\\.exe)?|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\\]+-)?ld|collect2)[^/\\]*( |$)]
+        linker tool regex: [^[ 	]*(->|")?[ 	]*(([^"]*[/\\])?(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)|link\\.exe|lld-link(\\.exe)?))("|,| |$)]
+        linker tool for 'C': C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/HostX64/x64/link.exe
+        implicit libs: []
+        implicit objs: []
+        implicit dirs: []
+        implicit fwks: []
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/Internal/CMakeDetermineLinkerId.cmake:36 (message)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeDetermineCompilerABI.cmake:299 (cmake_determine_linker_id)"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-4.1/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/slint-src/api/cpp/CMakeLists.txt:8 (project)"
+    message: |
+      Running the C compiler's linker: "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/HostX64/x64/link.exe" "-v"
+      Microsoft (R) Incremental Linker Version 14.50.35725.0
+      Copyright (C) Microsoft Corporation.  All rights reserved.
+  -
+    kind: "find_package-v1"
+    backtrace:
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/slint-src/api/cpp/CMakeLists.txt:13 (find_package)"
+    name: "Corrosion"
+    configs:
+      -
+        filename: "CorrosionConfig.cmake"
+        kind: "cmake"
+      -
+        filename: "corrosion-config.cmake"
+        kind: "cmake"
+    version_request:
+      version: "0.6"
+      version_complete: "0.6"
+      exact: false
+    settings:
+      required: "optional"
+      quiet: true
+      global: false
+      policy_scope: true
+      bypass_provider: false
+      names:
+        - "Corrosion"
+      path_suffixes:
+        - ""
+      paths:
+        CMAKE_FIND_USE_CMAKE_PATH: true
+        CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+        CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+        CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+        CMAKE_FIND_USE_INSTALL_PREFIX: true
+        CMAKE_FIND_USE_PACKAGE_ROOT_PATH: true
+        CMAKE_FIND_USE_CMAKE_PACKAGE_REGISTRY: true
+        CMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY: true
+        CMAKE_FIND_ROOT_PATH_MODE: "BOTH"
+    candidates:
+      -
+        path: "C:/wksp/ProjectRebound/build/server-launcher-gui/CMakeFiles/pkgRedirects/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/wksp/ProjectRebound/build/server-launcher-gui/CMakeFiles/pkgRedirects/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Python314/Scripts/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Python314/Scripts/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Python314/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Python314/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Python39/Scripts/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Python39/Scripts/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Python39/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Python39/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/wbem/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/wbem/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/WindowsPowerShell/v1.0/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/WindowsPowerShell/v1.0/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/OpenSSH/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/OpenSSH/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/dotnet/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/dotnet/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Git/cmd/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Git/cmd/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Siril/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Siril/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/ProgramData/chocolatey/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/ProgramData/chocolatey/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/nodejs/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/nodejs/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Go/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Go/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/AppData/Local/Pandoc/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/AppData/Local/Pandoc/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/go/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/go/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/CorrosionConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/corrosion-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+    found: null
+    search_context:
+      ENV{PATH}:
+        - "C:\\Users\\23587\\.codex\\tmp\\arg0\\codex-arg02Q8mdH"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\override"
+        - "C:\\Python314\\Scripts\\"
+        - "C:\\Python314\\"
+        - "C:\\Program Files\\Python39\\Scripts\\"
+        - "C:\\Program Files\\Python39\\"
+        - "C:\\Windows\\system32"
+        - "C:\\Windows"
+        - "C:\\Windows\\System32\\Wbem"
+        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\Windows\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA App\\NvDLISR"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\Program Files\\Siril\\bin\\"
+        - "C:\\ProgramData\\chocolatey\\bin"
+        - "C:\\Program Files\\nodejs\\"
+        - "C:\\Program Files\\Go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\23587\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\23587\\.dotnet\\tools"
+        - "C:\\Users\\23587\\AppData\\Roaming\\npm"
+        - "C:\\Users\\23587\\AppData\\Local\\Pandoc\\"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\23587\\go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe\\bin"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\fallback"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\git\\cmd"
+        - "C:\\Users\\23587\\AppData\\Local\\OpenAI\\Codex\\bin\\3e42d49ad3e35a50"
+        - "C:\\Program Files\\WindowsApps\\OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0\\app\\resources"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files/my_application"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake"
+        - "C:/Program Files/my_application"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/corrosion-src/cmake/FindRust.cmake:256 (find_program)"
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/corrosion-src/cmake/Corrosion.cmake:47 (find_package)"
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/corrosion-src/CMakeLists.txt:30 (include)"
+    mode: "program"
+    variable: "_Rust_COMPILER_TEST"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "rustc"
+    candidate_directories:
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/"
+      - "C:/Python314/Scripts/"
+      - "C:/Python314/"
+      - "C:/Program Files/Python39/Scripts/"
+      - "C:/Program Files/Python39/"
+      - "C:/Windows/System32/"
+      - "C:/Windows/"
+      - "C:/Windows/System32/wbem/"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/"
+      - "C:/Windows/System32/OpenSSH/"
+      - "C:/Program Files/dotnet/"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/"
+      - "C:/Program Files/Git/cmd/"
+      - "C:/Program Files/Siril/bin/"
+      - "C:/ProgramData/chocolatey/bin/"
+      - "C:/Program Files/nodejs/"
+      - "C:/Program Files/Go/bin/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/"
+      - "C:/Users/23587/.dotnet/tools/"
+      - "C:/Users/23587/AppData/Roaming/npm/"
+      - "C:/Users/23587/AppData/Local/Pandoc/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/"
+      - "C:/Users/23587/go/bin/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/"
+      - "C:/Program Files/bin/"
+      - "C:/Program Files/sbin/"
+      - "C:/Program Files/"
+      - "C:/Program Files (x86)/bin/"
+      - "C:/Program Files (x86)/sbin/"
+      - "C:/Program Files (x86)/"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/sbin/"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/"
+      - "C:/Program Files/my_application/bin/"
+      - "C:/Program Files/my_application/sbin/"
+      - "C:/Program Files/my_application/"
+      - "/.cargo/bin/"
+    searched_directories:
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/rustc.com"
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/rustc.exe"
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/rustc"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/rustc.com"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/rustc.exe"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/rustc"
+      - "C:/Python314/Scripts/rustc.com"
+      - "C:/Python314/Scripts/rustc.exe"
+      - "C:/Python314/Scripts/rustc"
+      - "C:/Python314/rustc.com"
+      - "C:/Python314/rustc.exe"
+      - "C:/Python314/rustc"
+      - "C:/Program Files/Python39/Scripts/rustc.com"
+      - "C:/Program Files/Python39/Scripts/rustc.exe"
+      - "C:/Program Files/Python39/Scripts/rustc"
+      - "C:/Program Files/Python39/rustc.com"
+      - "C:/Program Files/Python39/rustc.exe"
+      - "C:/Program Files/Python39/rustc"
+      - "C:/Windows/System32/rustc.com"
+      - "C:/Windows/System32/rustc.exe"
+      - "C:/Windows/System32/rustc"
+      - "C:/Windows/rustc.com"
+      - "C:/Windows/rustc.exe"
+      - "C:/Windows/rustc"
+      - "C:/Windows/System32/wbem/rustc.com"
+      - "C:/Windows/System32/wbem/rustc.exe"
+      - "C:/Windows/System32/wbem/rustc"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/rustc.com"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/rustc.exe"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/rustc"
+      - "C:/Windows/System32/OpenSSH/rustc.com"
+      - "C:/Windows/System32/OpenSSH/rustc.exe"
+      - "C:/Windows/System32/OpenSSH/rustc"
+      - "C:/Program Files/dotnet/rustc.com"
+      - "C:/Program Files/dotnet/rustc.exe"
+      - "C:/Program Files/dotnet/rustc"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/rustc.com"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/rustc.exe"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/rustc"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/rustc.com"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/rustc.exe"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/rustc"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/rustc.com"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/rustc.exe"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/rustc"
+      - "C:/Program Files/Git/cmd/rustc.com"
+      - "C:/Program Files/Git/cmd/rustc.exe"
+      - "C:/Program Files/Git/cmd/rustc"
+      - "C:/Program Files/Siril/bin/rustc.com"
+      - "C:/Program Files/Siril/bin/rustc.exe"
+      - "C:/Program Files/Siril/bin/rustc"
+      - "C:/ProgramData/chocolatey/bin/rustc.com"
+      - "C:/ProgramData/chocolatey/bin/rustc.exe"
+      - "C:/ProgramData/chocolatey/bin/rustc"
+      - "C:/Program Files/nodejs/rustc.com"
+      - "C:/Program Files/nodejs/rustc.exe"
+      - "C:/Program Files/nodejs/rustc"
+      - "C:/Program Files/Go/bin/rustc.com"
+      - "C:/Program Files/Go/bin/rustc.exe"
+      - "C:/Program Files/Go/bin/rustc"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/rustc.com"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/rustc.exe"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/rustc"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/rustc.com"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/rustc.exe"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/rustc"
+      - "C:/Users/23587/.dotnet/tools/rustc.com"
+      - "C:/Users/23587/.dotnet/tools/rustc.exe"
+      - "C:/Users/23587/.dotnet/tools/rustc"
+      - "C:/Users/23587/AppData/Roaming/npm/rustc.com"
+      - "C:/Users/23587/AppData/Roaming/npm/rustc.exe"
+      - "C:/Users/23587/AppData/Roaming/npm/rustc"
+      - "C:/Users/23587/AppData/Local/Pandoc/rustc.com"
+      - "C:/Users/23587/AppData/Local/Pandoc/rustc.exe"
+      - "C:/Users/23587/AppData/Local/Pandoc/rustc"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/rustc.com"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/rustc.exe"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/rustc"
+      - "C:/Users/23587/go/bin/rustc.com"
+      - "C:/Users/23587/go/bin/rustc.exe"
+      - "C:/Users/23587/go/bin/rustc"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/rustc.com"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/rustc.exe"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/rustc"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/rustc.com"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/rustc.exe"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/rustc"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/rustc.com"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/rustc.exe"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/rustc"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/rustc.com"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/rustc.exe"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/rustc"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/rustc.com"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/rustc.exe"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/rustc"
+      - "C:/Program Files/bin/rustc.com"
+      - "C:/Program Files/bin/rustc.exe"
+      - "C:/Program Files/bin/rustc"
+      - "C:/Program Files/sbin/rustc.com"
+      - "C:/Program Files/sbin/rustc.exe"
+      - "C:/Program Files/sbin/rustc"
+      - "C:/Program Files/rustc.com"
+      - "C:/Program Files/rustc.exe"
+      - "C:/Program Files/rustc"
+      - "C:/Program Files (x86)/bin/rustc.com"
+      - "C:/Program Files (x86)/bin/rustc.exe"
+      - "C:/Program Files (x86)/bin/rustc"
+      - "C:/Program Files (x86)/sbin/rustc.com"
+      - "C:/Program Files (x86)/sbin/rustc.exe"
+      - "C:/Program Files (x86)/sbin/rustc"
+      - "C:/Program Files (x86)/rustc.com"
+      - "C:/Program Files (x86)/rustc.exe"
+      - "C:/Program Files (x86)/rustc"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/rustc.com"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/rustc.exe"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/rustc"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/sbin/rustc.com"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/sbin/rustc.exe"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/sbin/rustc"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/rustc.com"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/rustc.exe"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/rustc"
+      - "C:/Program Files/my_application/bin/rustc.com"
+      - "C:/Program Files/my_application/bin/rustc.exe"
+      - "C:/Program Files/my_application/bin/rustc"
+      - "C:/Program Files/my_application/sbin/rustc.com"
+      - "C:/Program Files/my_application/sbin/rustc.exe"
+      - "C:/Program Files/my_application/sbin/rustc"
+      - "C:/Program Files/my_application/rustc.com"
+      - "C:/Program Files/my_application/rustc.exe"
+      - "C:/Program Files/my_application/rustc"
+      - "/.cargo/bin/rustc.com"
+      - "/.cargo/bin/rustc.exe"
+      - "/.cargo/bin/rustc"
+    found: false
+    search_context:
+      ENV{PATH}:
+        - "C:\\Users\\23587\\.codex\\tmp\\arg0\\codex-arg02Q8mdH"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\override"
+        - "C:\\Python314\\Scripts\\"
+        - "C:\\Python314\\"
+        - "C:\\Program Files\\Python39\\Scripts\\"
+        - "C:\\Program Files\\Python39\\"
+        - "C:\\Windows\\system32"
+        - "C:\\Windows"
+        - "C:\\Windows\\System32\\Wbem"
+        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\Windows\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA App\\NvDLISR"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\Program Files\\Siril\\bin\\"
+        - "C:\\ProgramData\\chocolatey\\bin"
+        - "C:\\Program Files\\nodejs\\"
+        - "C:\\Program Files\\Go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\23587\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\23587\\.dotnet\\tools"
+        - "C:\\Users\\23587\\AppData\\Roaming\\npm"
+        - "C:\\Users\\23587\\AppData\\Local\\Pandoc\\"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\23587\\go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe\\bin"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\fallback"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\git\\cmd"
+        - "C:\\Users\\23587\\AppData\\Local\\OpenAI\\Codex\\bin\\3e42d49ad3e35a50"
+        - "C:\\Program Files\\WindowsApps\\OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0\\app\\resources"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files/my_application"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake"
+        - "C:/Program Files/my_application"
+...
+
+---
+events:
+  -
+    kind: "find-v1"
+    backtrace:
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/corrosion-src/cmake/FindRust.cmake:256 (find_program)"
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/corrosion-src/cmake/Corrosion.cmake:47 (find_package)"
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/corrosion-src/CMakeLists.txt:30 (include)"
+    mode: "program"
+    variable: "_Rust_COMPILER_TEST"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "rustc"
+    candidate_directories:
+      - "C:/Users/23587/.cargo/bin/"
+      - "C:/Users/23587/.codex/tmp/arg0/codex-arg02Q8mdH/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/"
+      - "C:/Python314/Scripts/"
+      - "C:/Python314/"
+      - "C:/Program Files/Python39/Scripts/"
+      - "C:/Program Files/Python39/"
+      - "C:/Windows/System32/"
+      - "C:/Windows/"
+      - "C:/Windows/System32/wbem/"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/"
+      - "C:/Windows/System32/OpenSSH/"
+      - "C:/Program Files/dotnet/"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR/"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/"
+      - "C:/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/"
+      - "C:/Program Files/Git/cmd/"
+      - "C:/Program Files/Siril/bin/"
+      - "C:/ProgramData/chocolatey/bin/"
+      - "C:/Program Files/nodejs/"
+      - "C:/Program Files/Go/bin/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Users/23587/AppData/Local/Programs/Microsoft VS Code/bin/"
+      - "C:/Users/23587/.dotnet/tools/"
+      - "C:/Users/23587/AppData/Roaming/npm/"
+      - "C:/Users/23587/AppData/Local/Pandoc/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe/"
+      - "C:/Users/23587/go/bin/"
+      - "C:/Users/23587/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/"
+      - "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/cmd/"
+      - "C:/Users/23587/AppData/Local/OpenAI/Codex/bin/3e42d49ad3e35a50/"
+      - "C:/Program Files/WindowsApps/OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0/app/resources/"
+      - "C:/Program Files/bin/"
+      - "C:/Program Files/sbin/"
+      - "C:/Program Files/"
+      - "C:/Program Files (x86)/bin/"
+      - "C:/Program Files (x86)/sbin/"
+      - "C:/Program Files (x86)/"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/sbin/"
+      - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/"
+      - "C:/Program Files/my_application/bin/"
+      - "C:/Program Files/my_application/sbin/"
+      - "C:/Program Files/my_application/"
+      - "/.cargo/bin/"
+    searched_directories:
+      - "C:/Users/23587/.cargo/bin/rustc.com"
+    found: "C:/Users/23587/.cargo/bin/rustc.exe"
+    search_context:
+      ENV{PATH}:
+        - "C:\\Users\\23587\\.cargo\\bin"
+        - "C:\\Users\\23587\\.codex\\tmp\\arg0\\codex-arg02Q8mdH"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\override"
+        - "C:\\Python314\\Scripts\\"
+        - "C:\\Python314\\"
+        - "C:\\Program Files\\Python39\\Scripts\\"
+        - "C:\\Program Files\\Python39\\"
+        - "C:\\Windows\\system32"
+        - "C:\\Windows"
+        - "C:\\Windows\\System32\\Wbem"
+        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\Windows\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA App\\NvDLISR"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\Program Files\\Siril\\bin\\"
+        - "C:\\ProgramData\\chocolatey\\bin"
+        - "C:\\Program Files\\nodejs\\"
+        - "C:\\Program Files\\Go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\23587\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\23587\\.dotnet\\tools"
+        - "C:\\Users\\23587\\AppData\\Roaming\\npm"
+        - "C:\\Users\\23587\\AppData\\Local\\Pandoc\\"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\23587\\go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe\\bin"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\fallback"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\git\\cmd"
+        - "C:\\Users\\23587\\AppData\\Local\\OpenAI\\Codex\\bin\\3e42d49ad3e35a50"
+        - "C:\\Program Files\\WindowsApps\\OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0\\app\\resources"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files/my_application"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake"
+        - "C:/Program Files/my_application"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/corrosion-src/cmake/FindRust.cmake:298 (find_program)"
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/corrosion-src/cmake/Corrosion.cmake:47 (find_package)"
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/corrosion-src/CMakeLists.txt:30 (include)"
+    mode: "program"
+    variable: "Rust_RUSTUP"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "rustup"
+    candidate_directories:
+      - "C:/Users/23587/.cargo/bin/"
+    searched_directories:
+      - "C:/Users/23587/.cargo/bin/rustup.com"
+    found: "C:/Users/23587/.cargo/bin/rustup.exe"
+    search_context:
+      ENV{PATH}:
+        - "C:\\Users\\23587\\.cargo\\bin"
+        - "C:\\Users\\23587\\.codex\\tmp\\arg0\\codex-arg02Q8mdH"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\override"
+        - "C:\\Python314\\Scripts\\"
+        - "C:\\Python314\\"
+        - "C:\\Program Files\\Python39\\Scripts\\"
+        - "C:\\Program Files\\Python39\\"
+        - "C:\\Windows\\system32"
+        - "C:\\Windows"
+        - "C:\\Windows\\System32\\Wbem"
+        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\Windows\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA App\\NvDLISR"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\Program Files\\Siril\\bin\\"
+        - "C:\\ProgramData\\chocolatey\\bin"
+        - "C:\\Program Files\\nodejs\\"
+        - "C:\\Program Files\\Go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\23587\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\23587\\.dotnet\\tools"
+        - "C:\\Users\\23587\\AppData\\Roaming\\npm"
+        - "C:\\Users\\23587\\AppData\\Local\\Pandoc\\"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\23587\\go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe\\bin"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\fallback"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\git\\cmd"
+        - "C:\\Users\\23587\\AppData\\Local\\OpenAI\\Codex\\bin\\3e42d49ad3e35a50"
+        - "C:\\Program Files\\WindowsApps\\OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0\\app\\resources"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files/my_application"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake"
+        - "C:/Program Files/my_application"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/corrosion-src/cmake/FindRust.cmake:499 (find_program)"
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/corrosion-src/cmake/Corrosion.cmake:47 (find_package)"
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/corrosion-src/CMakeLists.txt:30 (include)"
+    mode: "program"
+    variable: "Rust_COMPILER_CACHED"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "rustc"
+    candidate_directories:
+      - "C:/Users/23587/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin/"
+    searched_directories:
+      - "C:/Users/23587/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin/rustc.com"
+    found: "C:/Users/23587/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin/rustc.exe"
+    search_context:
+      ENV{PATH}:
+        - "C:\\Users\\23587\\.cargo\\bin"
+        - "C:\\Users\\23587\\.codex\\tmp\\arg0\\codex-arg02Q8mdH"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\override"
+        - "C:\\Python314\\Scripts\\"
+        - "C:\\Python314\\"
+        - "C:\\Program Files\\Python39\\Scripts\\"
+        - "C:\\Program Files\\Python39\\"
+        - "C:\\Windows\\system32"
+        - "C:\\Windows"
+        - "C:\\Windows\\System32\\Wbem"
+        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\Windows\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA App\\NvDLISR"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\Program Files\\Siril\\bin\\"
+        - "C:\\ProgramData\\chocolatey\\bin"
+        - "C:\\Program Files\\nodejs\\"
+        - "C:\\Program Files\\Go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\23587\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\23587\\.dotnet\\tools"
+        - "C:\\Users\\23587\\AppData\\Roaming\\npm"
+        - "C:\\Users\\23587\\AppData\\Local\\Pandoc\\"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\23587\\go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe\\bin"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\fallback"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\git\\cmd"
+        - "C:\\Users\\23587\\AppData\\Local\\OpenAI\\Codex\\bin\\3e42d49ad3e35a50"
+        - "C:\\Program Files\\WindowsApps\\OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0\\app\\resources"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files/my_application"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake"
+        - "C:/Program Files/my_application"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/corrosion-src/cmake/FindRust.cmake:534 (find_program)"
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/corrosion-src/cmake/Corrosion.cmake:47 (find_package)"
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/corrosion-src/CMakeLists.txt:30 (include)"
+    mode: "program"
+    variable: "Rust_CARGO_CACHED"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "cargo"
+    candidate_directories:
+      - "C:/Users/23587/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin/"
+    searched_directories:
+      - "C:/Users/23587/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin/cargo.com"
+    found: "C:/Users/23587/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin/cargo.exe"
+    search_context:
+      ENV{PATH}:
+        - "C:\\Users\\23587\\.cargo\\bin"
+        - "C:\\Users\\23587\\.codex\\tmp\\arg0\\codex-arg02Q8mdH"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\override"
+        - "C:\\Python314\\Scripts\\"
+        - "C:\\Python314\\"
+        - "C:\\Program Files\\Python39\\Scripts\\"
+        - "C:\\Program Files\\Python39\\"
+        - "C:\\Windows\\system32"
+        - "C:\\Windows"
+        - "C:\\Windows\\System32\\Wbem"
+        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\Windows\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA App\\NvDLISR"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\Program Files\\Siril\\bin\\"
+        - "C:\\ProgramData\\chocolatey\\bin"
+        - "C:\\Program Files\\nodejs\\"
+        - "C:\\Program Files\\Go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\23587\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\23587\\.dotnet\\tools"
+        - "C:\\Users\\23587\\AppData\\Roaming\\npm"
+        - "C:\\Users\\23587\\AppData\\Local\\Pandoc\\"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\23587\\go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe\\bin"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\fallback"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\git\\cmd"
+        - "C:\\Users\\23587\\AppData\\Local\\OpenAI\\Codex\\bin\\3e42d49ad3e35a50"
+        - "C:\\Program Files\\WindowsApps\\OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0\\app\\resources"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files/my_application"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake"
+        - "C:/Program Files/my_application"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/corrosion-src/cmake/FindRust.cmake:499 (find_program)"
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/slint-src/api/cpp/CMakeLists.txt:26 (find_package)"
+    mode: "program"
+    variable: "Rust_COMPILER_CACHED"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "rustc"
+    candidate_directories:
+      - "C:/Users/23587/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin/"
+    searched_directories:
+      - "C:/Users/23587/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin/rustc.com"
+    found: "C:/Users/23587/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin/rustc.exe"
+    search_context:
+      ENV{PATH}:
+        - "C:\\Users\\23587\\.cargo\\bin"
+        - "C:\\Users\\23587\\.codex\\tmp\\arg0\\codex-arg02Q8mdH"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\override"
+        - "C:\\Python314\\Scripts\\"
+        - "C:\\Python314\\"
+        - "C:\\Program Files\\Python39\\Scripts\\"
+        - "C:\\Program Files\\Python39\\"
+        - "C:\\Windows\\system32"
+        - "C:\\Windows"
+        - "C:\\Windows\\System32\\Wbem"
+        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\Windows\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA App\\NvDLISR"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\Program Files\\Siril\\bin\\"
+        - "C:\\ProgramData\\chocolatey\\bin"
+        - "C:\\Program Files\\nodejs\\"
+        - "C:\\Program Files\\Go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\23587\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\23587\\.dotnet\\tools"
+        - "C:\\Users\\23587\\AppData\\Roaming\\npm"
+        - "C:\\Users\\23587\\AppData\\Local\\Pandoc\\"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\23587\\go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe\\bin"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\fallback"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\git\\cmd"
+        - "C:\\Users\\23587\\AppData\\Local\\OpenAI\\Codex\\bin\\3e42d49ad3e35a50"
+        - "C:\\Program Files\\WindowsApps\\OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0\\app\\resources"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files/my_application"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake"
+        - "C:/Program Files/my_application"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/corrosion-src/cmake/FindRust.cmake:534 (find_program)"
+      - "C:/wksp/ProjectRebound/build/server-launcher-gui/_deps/slint-src/api/cpp/CMakeLists.txt:26 (find_package)"
+    mode: "program"
+    variable: "Rust_CARGO_CACHED"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "cargo"
+    candidate_directories:
+      - "C:/Users/23587/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin/"
+    searched_directories:
+      - "C:/Users/23587/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin/cargo.com"
+    found: "C:/Users/23587/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin/cargo.exe"
+    search_context:
+      ENV{PATH}:
+        - "C:\\Users\\23587\\.cargo\\bin"
+        - "C:\\Users\\23587\\.codex\\tmp\\arg0\\codex-arg02Q8mdH"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\override"
+        - "C:\\Python314\\Scripts\\"
+        - "C:\\Python314\\"
+        - "C:\\Program Files\\Python39\\Scripts\\"
+        - "C:\\Program Files\\Python39\\"
+        - "C:\\Windows\\system32"
+        - "C:\\Windows"
+        - "C:\\Windows\\System32\\Wbem"
+        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\Windows\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA App\\NvDLISR"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\Program Files\\Siril\\bin\\"
+        - "C:\\ProgramData\\chocolatey\\bin"
+        - "C:\\Program Files\\nodejs\\"
+        - "C:\\Program Files\\Go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\23587\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\23587\\.dotnet\\tools"
+        - "C:\\Users\\23587\\AppData\\Roaming\\npm"
+        - "C:\\Users\\23587\\AppData\\Local\\Pandoc\\"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\23587\\go\\bin"
+        - "C:\\Users\\23587\\AppData\\Local\\Microsoft\\WinGet\\Packages\\GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe\\bin"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\fallback"
+        - "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\git\\cmd"
+        - "C:\\Users\\23587\\AppData\\Local\\OpenAI\\Codex\\bin\\3e42d49ad3e35a50"
+        - "C:\\Program Files\\WindowsApps\\OpenAI.Codex_26.721.11231.0_x64__2p2nqsd0c76g0\\app\\resources"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files/my_application"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake"
+        - "C:/Program Files/my_application"
+...
