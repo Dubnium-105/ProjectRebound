@@ -2,6 +2,7 @@ package metaserver
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	metaprotocol "github.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver/protocol"
@@ -47,40 +48,130 @@ func TestNativeIdentityMismatch(t *testing.T) {
 	}
 }
 
-func TestNativeWeaponArchiveBundle(t *testing.T) {
+func TestNativeWeaponConfig(t *testing.T) {
 	archive, err := proto.Marshal(&metaprotocol.WeaponArchiveV2{WeaponId: "weapon-a"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	bundle := nativeWeaponArchiveBundle(
-		"role-a", []string{"weapon-a"}, map[string][]byte{"weapon-a": archive},
+	config := nativeWeaponConfig(
+		[]string{"weapon-a", "weapon-a"}, map[string][]byte{"weapon-a": archive},
 	)
-	roleID, ok := consumeStringField(bundle, 1)
-	if !ok || roleID != "role-a" {
-		t.Fatalf("role id=%q ok=%v", roleID, ok)
-	}
 	fields := 0
-	for len(bundle) > 0 {
-		number, typ, n := protowire.ConsumeTag(bundle)
+	for len(config) > 0 {
+		number, typ, n := protowire.ConsumeTag(config)
 		if n < 0 {
-			t.Fatal("invalid bundle tag")
+			t.Fatal("invalid weapon config tag")
 		}
-		bundle = bundle[n:]
-		if typ != protowire.BytesType {
+		config = config[n:]
+		if number != 1 || typ != protowire.BytesType {
 			t.Fatal("unexpected wire type")
 		}
-		_, n = protowire.ConsumeBytes(bundle)
+		value, n := protowire.ConsumeBytes(config)
 		if n < 0 {
-			t.Fatal("invalid bundle value")
+			t.Fatal("invalid weapon config value")
 		}
-		if number == 3 {
-			fields++
+		var decoded metaprotocol.WeaponArchiveV2
+		if err := proto.Unmarshal(value, &decoded); err != nil {
+			t.Fatal(err)
 		}
-		bundle = bundle[n:]
+		if decoded.GetWeaponId() != "weapon-a" {
+			t.Fatalf("weapon id=%q", decoded.GetWeaponId())
+		}
+		fields++
+		config = config[n:]
 	}
 	if fields != 1 {
 		t.Fatalf("weapon archive fields=%d", fields)
 	}
+}
+
+func TestNativeSkinConfig(t *testing.T) {
+	config := nativeSkinConfig(map[string]any{
+		"skinModel": "skin-a", "skinPaint": "paint-a",
+		"armBadge": "badge-a", "headOrnament": "ornament-a",
+	})
+	suitRaw, ok := consumeBytesField(config, 1)
+	if !ok {
+		t.Fatal("skin config omitted suit")
+	}
+	if model, ok := consumeStringField(suitRaw, 1); !ok || model != "skin-a" {
+		t.Fatalf("skin model=%q ok=%v", model, ok)
+	}
+	if paint, ok := consumeStringField(suitRaw, 2); !ok || paint != "paint-a" {
+		t.Fatalf("skin paint=%q ok=%v", paint, ok)
+	}
+	if badge, ok := consumeStringField(config, 2); !ok || badge != "badge-a" {
+		t.Fatalf("arm badge=%q ok=%v", badge, ok)
+	}
+	if ornament, ok := consumeStringField(config, 3); !ok || ornament != "ornament-a" {
+		t.Fatalf("head ornament=%q ok=%v", ornament, ok)
+	}
+}
+
+func TestNativeSlotMappingAndDefaults(t *testing.T) {
+	want := map[int32]string{
+		1: "primaryWeapon", 2: "secondaryWeapon", 3: "meleeWeapon",
+		4: "mobilityModule", 5: "leftPylon", 6: "rightPylon",
+	}
+	for operation, key := range want {
+		if got := nativeOperationSlot(operation); got != key {
+			t.Fatalf("operation %d maps to %q, want %q", operation, got, key)
+		}
+	}
+	if got := nativeOperationSlot(7); got != "" {
+		t.Fatalf("skin operation maps to inventory key %q", got)
+	}
+	defaults := defaultNativeLoadoutSnapshot("SNIPER")
+	if defaults["primaryWeapon"] != "SNIPER_GSW-PSR" ||
+		defaults["meleeWeapon"] != "MELEE-KNIFE" ||
+		defaults["headOrnament"] != "HONONE" {
+		t.Fatalf("unexpected SNIPER defaults: %#v", defaults)
+	}
+}
+
+func TestNativeDefaultLoadoutsUsePinnedDefinitions(t *testing.T) {
+	definitions, err := LoadDefinitionIndex()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, roleID := range nativeDefaultRoleOrder {
+		canonical, ok := definitions.CanonicalRoleID(strings.ToLower(roleID))
+		if !ok || canonical != roleID {
+			t.Fatalf("canonical role for %q=%q ok=%v", roleID, canonical, ok)
+		}
+		if err := definitions.ValidateLoadoutSnapshot(
+			roleID, defaultNativeLoadoutSnapshot(roleID),
+		); err != nil {
+			t.Fatalf("invalid defaults for %s: %v", roleID, err)
+		}
+	}
+}
+
+func consumeBytesField(data []byte, wanted protowire.Number) ([]byte, bool) {
+	for len(data) > 0 {
+		number, typ, n := protowire.ConsumeTag(data)
+		if n < 0 {
+			return nil, false
+		}
+		data = data[n:]
+		if typ != protowire.BytesType {
+			n = protowire.ConsumeFieldValue(number, typ, data)
+			if n < 0 {
+				return nil, false
+			}
+			data = data[n:]
+			continue
+		}
+		value, n := protowire.ConsumeBytes(data)
+		if n < 0 {
+			return nil, false
+		}
+		if number == wanted {
+			return value, true
+		}
+		data = data[n:]
+	}
+	return nil, false
 }
 
 func TestLoadoutSnapshotDefinitionValidation(t *testing.T) {

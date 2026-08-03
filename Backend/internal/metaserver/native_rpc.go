@@ -2,7 +2,6 @@ package metaserver
 
 import (
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,6 +23,9 @@ func (s *TCPServer) getPlayerArchive(
 	if err := proto.Unmarshal(message, &request); err != nil {
 		return nil, invalid(map[string]any{"message": "invalid player archive request"})
 	}
+	if err := s.ensureNativeDefaultLoadouts(ctx, session.PlayerID); err != nil {
+		return nil, err
+	}
 	loadouts, err := s.service.ListLoadouts(ctx, session.PlayerID)
 	if err != nil {
 		return nil, err
@@ -42,8 +44,9 @@ func (s *TCPServer) getPlayerArchive(
 	response := &metaprotocol.GetPlayerArchiveV2Response{
 		PlayerRoleDatas: make([]*metaprotocol.PlayerRoleData, 0, len(roleIDs)),
 	}
-	for _, roleID := range roleIDs {
-		if !s.service.definitions.HasRole(roleID) {
+	for _, requestedRoleID := range roleIDs {
+		roleID, ok := s.service.definitions.CanonicalRoleID(requestedRoleID)
+		if !ok {
 			continue
 		}
 		snapshot := map[string]any{}
@@ -51,7 +54,7 @@ func (s *TCPServer) getPlayerArchive(
 			_ = json.Unmarshal(loadout.Snapshot, &snapshot)
 		}
 		role := &metaprotocol.PlayerRoleData{
-			RoleId:         roleID,
+			RoleId:         requestedRoleID,
 			LeftPylon:      nativeSnapshotItem(snapshot, "leftPylon", 3),
 			RightPylon:     nativeSnapshotItem(snapshot, "rightPylon", 4),
 			MobilityModule: nativeSnapshotItem(snapshot, "mobilityModule", 6),
@@ -69,16 +72,9 @@ func (s *TCPServer) getPlayerArchive(
 		if err != nil {
 			return nil, err
 		}
-		if bundle := nativeWeaponArchiveBundle(roleID, weaponIDs, archives); len(bundle) > 0 {
-			value := hex.EncodeToString(bundle)
-			role.WeaponArchiveRaw = &value
-		}
-		if value := nativeSnapshotString(snapshot, "_skinToken", "skinToken"); value != "" {
-			role.SkinToken = &value
-		}
-		if value := nativeSnapshotString(snapshot, "_ornamentId", "ornamentId"); value != "" {
-			role.OrnamentId = &value
-		}
+		role.SkinConfig = nativeSkinConfig(snapshot)
+		role.WeaponConfig = nativeWeaponConfig(weaponIDs, archives)
+		role.SkinPaint = nativeSnapshotString(snapshot, "skinPaint", "_SkinPaint", "_skinPaint")
 		response.PlayerRoleDatas = append(response.PlayerRoleDatas, role)
 	}
 	profile, err := s.service.Profile(ctx, session.PlayerID)
@@ -98,10 +94,14 @@ func (s *TCPServer) updateRoleArchive(
 	if err := proto.Unmarshal(message, &request); err != nil {
 		return nil, invalid(map[string]any{"message": "invalid role archive update"})
 	}
-	roleID, itemID := request.GetRoleId(), request.GetItemId()
-	if !s.service.definitions.HasRole(roleID) ||
+	roleID, ok := s.service.definitions.CanonicalRoleID(request.GetRoleId())
+	itemID := request.GetItemId()
+	if !ok ||
 		(itemID != "" && !s.service.definitions.HasItem(itemID)) {
 		return nil, invalid(map[string]any{"message": "role or item is absent from pinned definitions"})
+	}
+	if !nativeSupportedOperation(request.GetOperation()) {
+		return nil, invalid(map[string]any{"message": "role archive slot is unsupported"})
 	}
 	var skin metaprotocol.SkinPayload
 	if len(request.GetSkinData()) > 0 {
@@ -110,35 +110,22 @@ func (s *TCPServer) updateRoleArchive(
 		}
 	}
 	err := s.mutateNativeLoadout(ctx, session.PlayerID, roleID, func(snapshot map[string]any) {
-		if skin.GetTokenId() != "" {
-			snapshot["_skinToken"] = skin.GetTokenId()
-		}
-		if skin.GetOrnamentId() != "" {
-			snapshot["_ornamentId"] = skin.GetOrnamentId()
-		}
-		if itemID == "" {
-			if key := nativeOperationSlot(request.GetOperation()); key != "" {
-				snapshot[key] = "None"
+		switch request.GetOperation() {
+		case 1, 2, 3, 4, 5, 6:
+			snapshot[nativeOperationSlot(request.GetOperation())] = nativeEquippedItem(itemID)
+		case 7:
+			if value := skin.GetSkinModel(); value != "" {
+				snapshot["skinModel"] = value
+			} else if itemID != "" {
+				snapshot["skinModel"] = itemID
 			}
-			return
-		}
-		switch s.service.definitions.ItemType(itemID) {
-		case "EPBItemType::Weapon":
-			if request.GetOperation() == 2 || request.GetOperation() == 7 {
-				snapshot["secondaryWeapon"] = itemID
-			} else {
-				snapshot["primaryWeapon"] = itemID
+			if value := skin.GetSkinPaint(); value != "" {
+				snapshot["skinPaint"] = value
 			}
-		case "EPBItemType::Pod":
-			if request.GetOperation() == 3 || request.GetOperation() == 6 || request.GetOperation() == 7 {
-				snapshot["rightPylon"] = itemID
-			} else {
-				snapshot["leftPylon"] = itemID
-			}
-		case "EPBItemType::Mobility":
-			snapshot["mobilityModule"] = itemID
-		case "EPBItemType::MeleeWeapon":
-			snapshot["meleeWeapon"] = itemID
+		case 9:
+			snapshot["armBadge"] = nativeEquippedItem(itemID)
+		case 10:
+			snapshot["headOrnament"] = nativeEquippedItem(itemID)
 		}
 	})
 	if err != nil {
@@ -157,7 +144,8 @@ func (s *TCPServer) updateWeaponArchive(
 		return nil, invalid(map[string]any{"message": "invalid weapon archive update"})
 	}
 	archive := request.GetWeaponArchive()
-	if !s.service.definitions.HasRole(request.GetRoleId()) ||
+	_, ok := s.service.definitions.CanonicalRoleID(request.GetRoleId())
+	if !ok ||
 		archive == nil || !s.service.definitions.HasWeapon(archive.GetWeaponId()) {
 		return nil, invalid(map[string]any{"message": "role or weapon is absent from pinned definitions"})
 	}
@@ -264,6 +252,87 @@ func (s *TCPServer) queryPartyPresence(
 	return proto.Marshal(response)
 }
 
+var nativeDefaultRoleOrder = []string{
+	"PEACE", "PROBE", "SNIPER", "FORT", "FIXER", "SPIKE",
+}
+
+var nativeDefaultLoadouts = map[string]map[string]string{
+	"PEACE": {
+		"primaryWeapon": "PEACE_RU-AKM", "secondaryWeapon": "PEACE_RU-APS",
+		"leftPylon": "PEACE_TAC-EMP", "mobilityModule": "PEACE_FCM-GRAPPLE",
+		"skinModel": "PEACE_ORIGINAL", "skinPaint": "PEACE_ORIGINAL_PTOriginal",
+		"armBadge": "ABGOrlanDefault",
+	},
+	"PROBE": {
+		"primaryWeapon": "PROBE_GSW-DMR", "secondaryWeapon": "PROBE_GSW-FOP",
+		"leftPylon": "PROBE_MISSILE-HIVE", "mobilityModule": "PROBE_FCM-GRAPPLE",
+		"skinModel": "PROBE_ORIGINAL", "skinPaint": "PROBE_ORIGINAL_PTOriginal",
+		"armBadge": "ABGProbeDefault",
+	},
+	"SNIPER": {
+		"primaryWeapon": "SNIPER_GSW-PSR", "secondaryWeapon": "SNIPER_GSW-CDP",
+		"leftPylon": "SNIPER_INFO-SNAPSHOT", "mobilityModule": "SNIPER_FCM-GRAPPLE",
+		"skinModel": "SNIPER_ORIGINAL", "skinPaint": "SNIPER_ORIGINAL_PTOriginal",
+		"armBadge": "ABGYangDefault",
+	},
+	"FORT": {
+		"primaryWeapon": "FORT_GSW-MG", "secondaryWeapon": "FORT_GSW-IDW",
+		"leftPylon": "FORT_TAC-ADS", "mobilityModule": "FORT_FCM-GRAPPLE",
+		"skinModel": "FORT_ORIGINAL", "skinPaint": "FORT_ORIGINAL_PTOriginal",
+		"armBadge": "ABGFortDefault",
+	},
+	"FIXER": {
+		"primaryWeapon": "FIXER_GSW-PCC", "secondaryWeapon": "FIXER_GSW-FOP",
+		"leftPylon": "FIXER_TAC-MED", "mobilityModule": "FIXER_FCM-GRAPPLE",
+		"skinModel": "FIXER_ORIGINAL", "skinPaint": "FIXER_ORIGINAL_PTOriginal",
+		"armBadge": "ABGDocDefault",
+	},
+	"SPIKE": {
+		"primaryWeapon": "SPIKE_GSW-SG", "secondaryWeapon": "SPIKE_GSW-IDW",
+		"leftPylon": "SPIKE_SMK-SQUID", "mobilityModule": "SPIKE_FCM-GRAPPLE",
+		"skinModel": "SPIKE_ORIGINAL", "skinPaint": "SPIKE_ORIGINAL_PTOriginal",
+		"armBadge": "ABGSpikeDefault",
+	},
+}
+
+func (s *TCPServer) ensureNativeDefaultLoadouts(ctx context.Context, playerID string) error {
+	loadouts, err := s.service.ListLoadouts(ctx, playerID)
+	if err != nil {
+		return err
+	}
+	existing := make(map[string]struct{}, len(loadouts))
+	for _, loadout := range loadouts {
+		existing[loadout.RoleID] = struct{}{}
+	}
+	for _, roleID := range nativeDefaultRoleOrder {
+		if _, ok := existing[roleID]; ok || !s.service.definitions.HasRole(roleID) {
+			continue
+		}
+		if err := s.mutateNativeLoadout(ctx, playerID, roleID, func(map[string]any) {}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func defaultNativeLoadoutSnapshot(roleID string) map[string]any {
+	snapshot := map[string]any{
+		"roleId": roleID, "primaryWeapon": "None", "secondaryWeapon": "None",
+		"leftPylon": "None", "rightPylon": "None", "mobilityModule": "None",
+		"meleeWeapon": "None",
+	}
+	defaults, ok := nativeDefaultLoadouts[roleID]
+	if !ok {
+		return snapshot
+	}
+	snapshot["meleeWeapon"] = "MELEE-KNIFE"
+	snapshot["headOrnament"] = "HONONE"
+	for key, value := range defaults {
+		snapshot[key] = value
+	}
+	return snapshot
+}
+
 func (s *TCPServer) mutateNativeLoadout(
 	ctx context.Context,
 	playerID, roleID string,
@@ -271,11 +340,7 @@ func (s *TCPServer) mutateNativeLoadout(
 ) error {
 	for range 3 {
 		revision := int64(0)
-		snapshot := map[string]any{
-			"roleId": roleID, "primaryWeapon": "None", "secondaryWeapon": "None",
-			"leftPylon": "None", "rightPylon": "None", "mobilityModule": "None",
-			"meleeWeapon": "None",
-		}
+		snapshot := defaultNativeLoadoutSnapshot(roleID)
 		current, err := s.service.repository.GetLoadout(ctx, playerID, roleID)
 		if err == nil {
 			revision = current.Revision
@@ -341,44 +406,78 @@ func nativeSnapshotString(snapshot map[string]any, keys ...string) string {
 
 func nativeOperationSlot(operation int32) string {
 	switch operation {
+	case 1:
+		return "primaryWeapon"
 	case 2:
 		return "secondaryWeapon"
 	case 3:
-		return "rightPylon"
+		return "meleeWeapon"
 	case 4:
 		return "mobilityModule"
 	case 5:
-		return "meleeWeapon"
+		return "leftPylon"
 	case 6:
-		return "primaryWeapon"
-	case 7:
-		return "secondaryWeapon"
+		return "rightPylon"
 	default:
-		return "primaryWeapon"
+		return ""
 	}
 }
 
-func nativeWeaponArchiveBundle(
-	roleID string,
-	weaponIDs []string,
-	archives map[string][]byte,
-) []byte {
-	output := protowire.AppendTag(nil, 1, protowire.BytesType)
-	output = protowire.AppendString(output, roleID)
-	appended := false
+func nativeWeaponConfig(weaponIDs []string, archives map[string][]byte) []byte {
+	var output []byte
+	seen := make(map[string]struct{}, len(weaponIDs))
 	for _, weaponID := range weaponIDs {
+		if _, ok := seen[weaponID]; ok {
+			continue
+		}
+		seen[weaponID] = struct{}{}
 		raw := archives[weaponID]
 		if len(raw) == 0 {
 			continue
 		}
-		output = protowire.AppendTag(output, 3, protowire.BytesType)
+		output = protowire.AppendTag(output, 1, protowire.BytesType)
 		output = protowire.AppendBytes(output, raw)
-		appended = true
-	}
-	if !appended {
-		return nil
 	}
 	return output
+}
+
+func nativeSkinConfig(snapshot map[string]any) []byte {
+	model := nativeSnapshotString(snapshot, "skinModel", "_SkinBase", "_skinBase", "_skinToken", "skinToken")
+	paint := nativeSnapshotString(snapshot, "skinPaint", "_SkinPaint", "_skinPaint")
+	badge := nativeSnapshotString(snapshot, "armBadge", "_Cosmetic9", "_cosmetic9")
+	ornament := nativeSnapshotString(
+		snapshot, "headOrnament", "_Cosmetic10", "_cosmetic10", "_ornamentId", "ornamentId",
+	)
+	var config []byte
+	if model != "" || paint != "" {
+		var suit []byte
+		suit = appendNativeString(suit, 1, model)
+		suit = appendNativeString(suit, 2, paint)
+		config = protowire.AppendTag(config, 1, protowire.BytesType)
+		config = protowire.AppendBytes(config, suit)
+	}
+	config = appendNativeString(config, 2, badge)
+	config = appendNativeString(config, 3, ornament)
+	return config
+}
+
+func appendNativeString(output []byte, field protowire.Number, value string) []byte {
+	if value == "" || strings.EqualFold(value, "none") {
+		return output
+	}
+	output = protowire.AppendTag(output, field, protowire.BytesType)
+	return protowire.AppendString(output, value)
+}
+
+func nativeEquippedItem(itemID string) string {
+	if itemID == "" {
+		return "None"
+	}
+	return itemID
+}
+
+func nativeSupportedOperation(operation int32) bool {
+	return operation >= 1 && operation <= 7 || operation == 9 || operation == 10
 }
 
 func nativeCurrency(values map[string]any, keys ...string) int32 {

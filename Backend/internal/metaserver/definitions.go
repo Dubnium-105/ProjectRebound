@@ -133,6 +133,18 @@ func (d *DefinitionIndex) HasRole(roleID string) bool {
 	return ok
 }
 
+func (d *DefinitionIndex) CanonicalRoleID(roleID string) (string, bool) {
+	if d.HasRole(roleID) {
+		return roleID, true
+	}
+	for candidate := range d.Roles {
+		if strings.EqualFold(candidate, roleID) {
+			return candidate, true
+		}
+	}
+	return "", false
+}
+
 func (d *DefinitionIndex) HasItem(itemID string) bool {
 	if itemID == "" || strings.EqualFold(itemID, "none") {
 		return true
@@ -189,7 +201,8 @@ func (d *DefinitionIndex) ValidateLoadoutSnapshot(
 		"itemid": {}, "primaryweapon": {}, "secondaryweapon": {}, "secondweapon": {},
 		"leftpylon": {}, "rightpylon": {}, "leftpod": {}, "rightpod": {},
 		"leftlauncher": {}, "rightlauncher": {}, "mobilitymodule": {},
-		"meleeweapon": {}, "weaponid": {}, "partid": {},
+		"meleeweapon": {}, "weaponid": {}, "partid": {}, "skinmodel": {},
+		"skinpaint": {}, "armbadge": {}, "headornament": {},
 	}
 	var visit func(map[string]any) error
 	visit = func(object map[string]any) error {

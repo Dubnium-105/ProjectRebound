@@ -21,9 +21,10 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Canonical production messages whose field numbers have been confirmed in
-// BoundaryMetaServer master@d68e717. Tentative matchmaking response fields are
-// intentionally excluded until a sanitized real-client capture confirms them.
+// Canonical production messages whose field numbers have been confirmed from
+// the upstream implementation and reverse engineering notes. Tentative
+// matchmaking response fields are intentionally excluded until a sanitized
+// real-client capture confirms them.
 type RequestWrapper struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	MessageId     int32                  `protobuf:"varint,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
@@ -241,19 +242,19 @@ func (x *GetPlayerArchiveV2Request) GetRoleIds() []string {
 }
 
 type PlayerRoleData struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	RoleId           string                 `protobuf:"bytes,1,opt,name=role_id,json=roleId,proto3" json:"role_id,omitempty"`
-	LeftPylon        string                 `protobuf:"bytes,2,opt,name=left_pylon,json=leftPylon,proto3" json:"left_pylon,omitempty"`
-	RightPylon       string                 `protobuf:"bytes,3,opt,name=right_pylon,json=rightPylon,proto3" json:"right_pylon,omitempty"`
-	MobilityModule   string                 `protobuf:"bytes,4,opt,name=mobility_module,json=mobilityModule,proto3" json:"mobility_module,omitempty"`
-	MeleeWeapon      string                 `protobuf:"bytes,5,opt,name=melee_weapon,json=meleeWeapon,proto3" json:"melee_weapon,omitempty"`
-	PrimaryWeapon    string                 `protobuf:"bytes,6,opt,name=primary_weapon,json=primaryWeapon,proto3" json:"primary_weapon,omitempty"`
-	SecondWeapon     string                 `protobuf:"bytes,7,opt,name=second_weapon,json=secondWeapon,proto3" json:"second_weapon,omitempty"`
-	WeaponArchiveRaw *string                `protobuf:"bytes,8,opt,name=weapon_archive_raw,json=weaponArchiveRaw,proto3,oneof" json:"weapon_archive_raw,omitempty"`
-	SkinToken        *string                `protobuf:"bytes,9,opt,name=skin_token,json=skinToken,proto3,oneof" json:"skin_token,omitempty"`
-	OrnamentId       *string                `protobuf:"bytes,10,opt,name=ornament_id,json=ornamentId,proto3,oneof" json:"ornament_id,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	RoleId         string                 `protobuf:"bytes,1,opt,name=role_id,json=roleId,proto3" json:"role_id,omitempty"`
+	LeftPylon      string                 `protobuf:"bytes,2,opt,name=left_pylon,json=leftPylon,proto3" json:"left_pylon,omitempty"`
+	RightPylon     string                 `protobuf:"bytes,3,opt,name=right_pylon,json=rightPylon,proto3" json:"right_pylon,omitempty"`
+	MobilityModule string                 `protobuf:"bytes,4,opt,name=mobility_module,json=mobilityModule,proto3" json:"mobility_module,omitempty"`
+	MeleeWeapon    string                 `protobuf:"bytes,5,opt,name=melee_weapon,json=meleeWeapon,proto3" json:"melee_weapon,omitempty"`
+	PrimaryWeapon  string                 `protobuf:"bytes,6,opt,name=primary_weapon,json=primaryWeapon,proto3" json:"primary_weapon,omitempty"`
+	SecondWeapon   string                 `protobuf:"bytes,7,opt,name=second_weapon,json=secondWeapon,proto3" json:"second_weapon,omitempty"`
+	SkinConfig     []byte                 `protobuf:"bytes,8,opt,name=skin_config,json=skinConfig,proto3" json:"skin_config,omitempty"`
+	WeaponConfig   []byte                 `protobuf:"bytes,9,opt,name=weapon_config,json=weaponConfig,proto3" json:"weapon_config,omitempty"`
+	SkinPaint      string                 `protobuf:"bytes,10,opt,name=skin_paint,json=skinPaint,proto3" json:"skin_paint,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *PlayerRoleData) Reset() {
@@ -335,23 +336,23 @@ func (x *PlayerRoleData) GetSecondWeapon() string {
 	return ""
 }
 
-func (x *PlayerRoleData) GetWeaponArchiveRaw() string {
-	if x != nil && x.WeaponArchiveRaw != nil {
-		return *x.WeaponArchiveRaw
+func (x *PlayerRoleData) GetSkinConfig() []byte {
+	if x != nil {
+		return x.SkinConfig
 	}
-	return ""
+	return nil
 }
 
-func (x *PlayerRoleData) GetSkinToken() string {
-	if x != nil && x.SkinToken != nil {
-		return *x.SkinToken
+func (x *PlayerRoleData) GetWeaponConfig() []byte {
+	if x != nil {
+		return x.WeaponConfig
 	}
-	return ""
+	return nil
 }
 
-func (x *PlayerRoleData) GetOrnamentId() string {
-	if x != nil && x.OrnamentId != nil {
-		return *x.OrnamentId
+func (x *PlayerRoleData) GetSkinPaint() string {
+	if x != nil {
+		return x.SkinPaint
 	}
 	return ""
 }
@@ -478,8 +479,8 @@ func (x *UpdateRoleArchiveV2Request) GetSkinData() []byte {
 
 type SkinPayload struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	TokenId       string                 `protobuf:"bytes,1,opt,name=token_id,json=tokenId,proto3" json:"token_id,omitempty"`
-	OrnamentId    string                 `protobuf:"bytes,2,opt,name=ornament_id,json=ornamentId,proto3" json:"ornament_id,omitempty"`
+	SkinModel     string                 `protobuf:"bytes,1,opt,name=skin_model,json=skinModel,proto3" json:"skin_model,omitempty"`
+	SkinPaint     string                 `protobuf:"bytes,2,opt,name=skin_paint,json=skinPaint,proto3" json:"skin_paint,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -514,16 +515,16 @@ func (*SkinPayload) Descriptor() ([]byte, []int) {
 	return file_metaserver_proto_rawDescGZIP(), []int{7}
 }
 
-func (x *SkinPayload) GetTokenId() string {
+func (x *SkinPayload) GetSkinModel() string {
 	if x != nil {
-		return x.TokenId
+		return x.SkinModel
 	}
 	return ""
 }
 
-func (x *SkinPayload) GetOrnamentId() string {
+func (x *SkinPayload) GetSkinPaint() string {
 	if x != nil {
-		return x.OrnamentId
+		return x.SkinPaint
 	}
 	return ""
 }
@@ -1939,7 +1940,7 @@ const file_metaserver_proto_rawDesc = "" +
 	"\vstatus_code\x18\x01 \x01(\x05R\n" +
 	"statusCode\"6\n" +
 	"\x19GetPlayerArchiveV2Request\x12\x19\n" +
-	"\brole_ids\x18\x01 \x03(\tR\aroleIds\"\xb4\x03\n" +
+	"\brole_ids\x18\x01 \x03(\tR\aroleIds\"\xe6\x02\n" +
 	"\x0ePlayerRoleData\x12\x17\n" +
 	"\arole_id\x18\x01 \x01(\tR\x06roleId\x12\x1d\n" +
 	"\n" +
@@ -1949,16 +1950,13 @@ const file_metaserver_proto_rawDesc = "" +
 	"\x0fmobility_module\x18\x04 \x01(\tR\x0emobilityModule\x12!\n" +
 	"\fmelee_weapon\x18\x05 \x01(\tR\vmeleeWeapon\x12%\n" +
 	"\x0eprimary_weapon\x18\x06 \x01(\tR\rprimaryWeapon\x12#\n" +
-	"\rsecond_weapon\x18\a \x01(\tR\fsecondWeapon\x121\n" +
-	"\x12weapon_archive_raw\x18\b \x01(\tH\x00R\x10weaponArchiveRaw\x88\x01\x01\x12\"\n" +
+	"\rsecond_weapon\x18\a \x01(\tR\fsecondWeapon\x12\x1f\n" +
+	"\vskin_config\x18\b \x01(\fR\n" +
+	"skinConfig\x12#\n" +
+	"\rweapon_config\x18\t \x01(\fR\fweaponConfig\x12\x1d\n" +
 	"\n" +
-	"skin_token\x18\t \x01(\tH\x01R\tskinToken\x88\x01\x01\x12$\n" +
-	"\vornament_id\x18\n" +
-	" \x01(\tH\x02R\n" +
-	"ornamentId\x88\x01\x01B\x15\n" +
-	"\x13_weapon_archive_rawB\r\n" +
-	"\v_skin_tokenB\x0e\n" +
-	"\f_ornament_id\"\x93\x01\n" +
+	"skin_paint\x18\n" +
+	" \x01(\tR\tskinPaint\"\x93\x01\n" +
 	"\x1aGetPlayerArchiveV2Response\x12R\n" +
 	"\x11player_role_datas\x18\x01 \x03(\v2&.projectrebound.meta.v1.PlayerRoleDataR\x0fplayerRoleDatas\x12!\n" +
 	"\fplayer_level\x18\x02 \x01(\x05R\vplayerLevel\"\x9c\x01\n" +
@@ -1968,11 +1966,12 @@ const file_metaserver_proto_rawDesc = "" +
 	"\aitem_id\x18\x03 \x01(\tR\x06itemId\x12 \n" +
 	"\tskin_data\x18\x04 \x01(\fH\x00R\bskinData\x88\x01\x01B\f\n" +
 	"\n" +
-	"_skin_data\"I\n" +
-	"\vSkinPayload\x12\x19\n" +
-	"\btoken_id\x18\x01 \x01(\tR\atokenId\x12\x1f\n" +
-	"\vornament_id\x18\x02 \x01(\tR\n" +
-	"ornamentId\"\x9e\x01\n" +
+	"_skin_data\"K\n" +
+	"\vSkinPayload\x12\x1d\n" +
+	"\n" +
+	"skin_model\x18\x01 \x01(\tR\tskinModel\x12\x1d\n" +
+	"\n" +
+	"skin_paint\x18\x02 \x01(\tR\tskinPaint\"\x9e\x01\n" +
 	"\x0fWeaponArchiveV2\x12\x1b\n" +
 	"\tweapon_id\x18\x01 \x01(\tR\bweaponId\x126\n" +
 	"\x05parts\x18\x02 \x03(\v2 .projectrebound.meta.v1.PartSlotR\x05parts\x126\n" +
@@ -2151,7 +2150,6 @@ func file_metaserver_proto_init() {
 		return
 	}
 	file_metaserver_proto_msgTypes[0].OneofWrappers = []any{}
-	file_metaserver_proto_msgTypes[4].OneofWrappers = []any{}
 	file_metaserver_proto_msgTypes[6].OneofWrappers = []any{}
 	file_metaserver_proto_msgTypes[28].OneofWrappers = []any{}
 	type x struct{}

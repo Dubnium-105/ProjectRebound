@@ -4,9 +4,10 @@ package projectrebound.meta.v1;
 
 option go_package = "github.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver/protocol;metaprotocol";
 
-// Canonical production messages whose field numbers have been confirmed in
-// BoundaryMetaServer master@d68e717. Tentative matchmaking response fields are
-// intentionally excluded until a sanitized real-client capture confirms them.
+// Canonical production messages whose field numbers have been confirmed from
+// the upstream implementation and reverse engineering notes. Tentative
+// matchmaking response fields are intentionally excluded until a sanitized
+// real-client capture confirms them.
 message RequestWrapper {
   int32 message_id = 1;
   string rpc_path = 2;
@@ -36,9 +37,9 @@ message PlayerRoleData {
   string melee_weapon = 5;
   string primary_weapon = 6;
   string second_weapon = 7;
-  optional string weapon_archive_raw = 8;
-  optional string skin_token = 9;
-  optional string ornament_id = 10;
+  bytes skin_config = 8;
+  bytes weapon_config = 9;
+  string skin_paint = 10;
 }
 
 message GetPlayerArchiveV2Response {
@@ -54,8 +55,8 @@ message UpdateRoleArchiveV2Request {
 }
 
 message SkinPayload {
-  string token_id = 1;
-  string ornament_id = 2;
+  string skin_model = 1;
+  string skin_paint = 2;
 }
 
 message WeaponArchiveV2 {
