@@ -1783,7 +1783,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Compatibility endpoint used only through MetaTunnel. Any playerId or loginToken field is ignored. */
+        /** @description Compatibility endpoint used only through MetaTunnel. Any playerId or loginToken field is ignored. Shipped Boundary clients that omit version are labeled boundary-legacy. */
         post: operations["connectMetaServerCompatibility"];
         delete?: never;
         options?: never;
