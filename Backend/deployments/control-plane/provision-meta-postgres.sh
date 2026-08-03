@@ -92,7 +92,7 @@ SELECT format(
   columns, table_name, :'meta_user'
 )
 FROM (VALUES
-  ('players', 'id, steam_id, auth_level, account_status'),
+  ('players', 'id, steam_id, auth_level, account_status, is_vip'),
   ('relay_nodes', 'id, region, state, load_state, public_endpoints, last_heartbeat_at, lease_expires_at'),
   ('schema_migrations', 'version'),
   ('auth_sessions', 'id, player_id, token_version, auth_provider, auth_level, steam_verified, device_id_hash, device_fingerprint_id, expires_at, revoked_at, revoked_reason, last_used_at'),

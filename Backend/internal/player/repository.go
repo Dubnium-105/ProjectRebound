@@ -39,7 +39,7 @@ func (r *Repository) GetByID(ctx context.Context, queryer Queryer, playerID stri
 func (r *Repository) GetByIDForAccess(ctx context.Context, queryer Queryer, playerID string) (Player, error) {
 	var item Player
 	err := queryer.QueryRow(ctx, `
-		SELECT id, steam_id, auth_level, account_status
+		SELECT id, steam_id, auth_level, account_status, is_vip
 		FROM players
 		WHERE id = $1
 	`, playerID).Scan(
@@ -47,6 +47,7 @@ func (r *Repository) GetByIDForAccess(ctx context.Context, queryer Queryer, play
 		&item.SteamID,
 		&item.AuthLevel,
 		&item.AccountStatus,
+		&item.IsVIP,
 	)
 	if err != nil {
 		return Player{}, fmt.Errorf("get player for access authentication: %w", err)
