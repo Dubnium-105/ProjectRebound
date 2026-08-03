@@ -95,7 +95,7 @@ FROM (VALUES
   ('players', 'id, steam_id, auth_level, account_status'),
   ('relay_nodes', 'id, region, state, load_state, public_endpoints, last_heartbeat_at, lease_expires_at'),
   ('schema_migrations', 'version'),
-  ('auth_sessions', 'id, player_id, expires_at, revoked_at'),
+  ('auth_sessions', 'id, player_id, token_version, auth_provider, auth_level, steam_verified, device_id_hash, device_fingerprint_id, expires_at, revoked_at, revoked_reason, last_used_at'),
   ('admin_users', 'id, username, display_name, status, last_login_at, created_at, updated_at, disabled_at'),
   ('admin_sessions', 'id, admin_id, token_version, expires_at, revoked_at'),
   ('admin_roles', 'id, name'),
@@ -108,6 +108,12 @@ FROM (VALUES
 
 SELECT format(
   'GRANT UPDATE (state, updated_at) ON TABLE game_servers TO %I',
+  :'meta_user'
+)
+\gexec
+
+SELECT format(
+  'GRANT UPDATE (last_used_at) ON TABLE auth_sessions TO %I',
   :'meta_user'
 )
 \gexec

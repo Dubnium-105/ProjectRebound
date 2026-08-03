@@ -92,6 +92,40 @@ func (r *Repository) GetSession(ctx context.Context, queryer Executor, sessionID
 	`, sessionID))
 }
 
+// GetSessionForAccess loads only the session fields required to authenticate an
+// access token. MetaServer uses a restricted database role that intentionally
+// cannot read refresh token hashes or other login-session metadata.
+func (r *Repository) GetSessionForAccess(ctx context.Context, queryer Executor, sessionID string) (Session, error) {
+	var session Session
+	var revokedAt sql.NullTime
+	err := queryer.QueryRow(ctx, `
+		SELECT id, player_id, token_version, auth_provider, auth_level,
+		       steam_verified, device_id_hash,
+		       COALESCE(device_fingerprint_id, ''), revoked_at,
+		       COALESCE(revoked_reason, '')
+		FROM auth_sessions
+		WHERE id = $1
+	`, sessionID).Scan(
+		&session.ID,
+		&session.PlayerID,
+		&session.TokenVersion,
+		&session.AuthProvider,
+		&session.AuthLevel,
+		&session.SteamVerified,
+		&session.DeviceIDHash,
+		&session.DeviceFingerprintID,
+		&revokedAt,
+		&session.RevokedReason,
+	)
+	if err != nil {
+		return Session{}, err
+	}
+	if revokedAt.Valid {
+		session.RevokedAt = &revokedAt.Time
+	}
+	return session, nil
+}
+
 func (r *Repository) RotateSession(ctx context.Context, tx pgx.Tx, oldSessionID string, replacement Session, now time.Time) error {
 	tag, err := tx.Exec(ctx, `
 		UPDATE auth_sessions

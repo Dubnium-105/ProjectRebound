@@ -159,6 +159,8 @@ for table in battlelog_matches battlelog_teams battlelog_participants \
   grep -Fq "('$table')" "$provision_script"
 done
 grep -Fq "('players', 'id, steam_id, auth_level, account_status')" "$provision_script"
+grep -Fq "('auth_sessions', 'id, player_id, token_version, auth_provider, auth_level, steam_verified, device_id_hash, device_fingerprint_id, expires_at, revoked_at, revoked_reason, last_used_at')" "$provision_script"
+grep -Fq "'GRANT UPDATE (last_used_at) ON TABLE auth_sessions TO %I'" "$provision_script"
 
 verify_script="$script_dir/verify-control-plane.sh"
 ! grep -Eq 'curl .*\|[[:space:]]*grep .*q' "$verify_script"

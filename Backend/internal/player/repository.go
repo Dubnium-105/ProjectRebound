@@ -34,6 +34,26 @@ func (r *Repository) GetByID(ctx context.Context, queryer Queryer, playerID stri
 	return item, nil
 }
 
+// GetByIDForAccess loads only the player fields required by access-token
+// middleware so services using a restricted database role remain least-privileged.
+func (r *Repository) GetByIDForAccess(ctx context.Context, queryer Queryer, playerID string) (Player, error) {
+	var item Player
+	err := queryer.QueryRow(ctx, `
+		SELECT id, steam_id, auth_level, account_status
+		FROM players
+		WHERE id = $1
+	`, playerID).Scan(
+		&item.ID,
+		&item.SteamID,
+		&item.AuthLevel,
+		&item.AccountStatus,
+	)
+	if err != nil {
+		return Player{}, fmt.Errorf("get player for access authentication: %w", err)
+	}
+	return item, nil
+}
+
 func (r *Repository) List(ctx context.Context, queryer Queryer, cursor string, status AccountStatus, limit int) ([]Player, error) {
 	rows, err := queryer.Query(ctx, `
 		SELECT id, steam_id, persona_name, account_status, is_vip,

@@ -552,7 +552,7 @@ func (s *Service) AuthenticateAccess(ctx context.Context, accessToken string) (P
 	if err != nil {
 		return Principal{}, unauthorized("Invalid access token.", err)
 	}
-	session, err := s.repository.GetSession(ctx, s.pool, claims.SessionID)
+	session, err := s.repository.GetSessionForAccess(ctx, s.pool, claims.SessionID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Principal{}, unauthorized("Invalid access token.", err)
@@ -571,7 +571,7 @@ func (s *Service) AuthenticateAccess(ctx context.Context, accessToken string) (P
 		}, RequestMeta{})
 		return Principal{}, &ServiceError{Status: 401, Code: CodeSessionRevoked, Message: "Session has been revoked."}
 	}
-	item, err := s.players.GetByID(ctx, s.pool, claims.Subject)
+	item, err := s.players.GetByIDForAccess(ctx, s.pool, claims.Subject)
 	if err != nil {
 		return Principal{}, internalError(err)
 	}
