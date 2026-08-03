@@ -2634,7 +2634,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: {$ref: "#/components/schemas/MetaSessionRequest"}
+            schema: {$ref: "#/components/schemas/MetaConnectServerRequest"}
       responses:
         "200":
           description: Compatibility Gate response. MetaTunnel rewrites endpoint to its loopback listener.
@@ -5917,6 +5917,28 @@ components:
           minLength: 1
           maxLength: 64
           description: Compatibility alias for client_version.
+        protocol_version: {type: integer, minimum: 1}
+        platform: {type: string, maxLength: 64}
+        playerId:
+          type: string
+          deprecated: true
+          description: Ignored. Identity is always derived from the access token.
+        loginToken:
+          type: string
+          deprecated: true
+          description: Ignored. Authorization is accepted only through the bearer header.
+    MetaConnectServerRequest:
+      type: object
+      additionalProperties: true
+      description: >-
+        Shipped Boundary clients include release-specific legacy fields. Unknown fields are accepted and ignored
+        only on the compatibility endpoint; identity always comes from the bearer token.
+      properties:
+        client_version: {type: string, minLength: 1, maxLength: 64}
+        version:
+          type: string
+          maxLength: 64
+          description: Compatibility alias for client_version. Empty values are labeled boundary-legacy.
         protocol_version: {type: integer, minimum: 1}
         platform: {type: string, maxLength: 64}
         playerId:

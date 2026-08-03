@@ -127,7 +127,7 @@ func (h *HTTPHandler) Session(w http.ResponseWriter, r *http.Request) {
 // the request are deliberately ignored.
 func (h *HTTPHandler) ConnectServer(w http.ResponseWriter, r *http.Request) {
 	var input sessionRequest
-	if err := decodeJSON(r, &input); err != nil {
+	if err := decodeCompatibilityJSON(r, &input); err != nil {
 		h.writeError(w, r, invalid(map[string]any{"body": err.Error()}))
 		return
 	}
@@ -445,8 +445,18 @@ func (h *HTTPHandler) InternalBattleLog(w http.ResponseWriter, r *http.Request) 
 }
 
 func decodeJSON(r *http.Request, target any) error {
+	return decodeJSONValue(r, target, true)
+}
+
+func decodeCompatibilityJSON(r *http.Request, target any) error {
+	return decodeJSONValue(r, target, false)
+}
+
+func decodeJSONValue(r *http.Request, target any, disallowUnknownFields bool) error {
 	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
+	if disallowUnknownFields {
+		decoder.DisallowUnknownFields()
+	}
 	if err := decoder.Decode(target); err != nil {
 		return err
 	}

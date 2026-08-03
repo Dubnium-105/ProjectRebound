@@ -1,6 +1,10 @@
 package metaserver
 
-import "testing"
+import (
+	"net/http/httptest"
+	"strings"
+	"testing"
+)
 
 func TestSessionRequestNormalize(t *testing.T) {
 	tests := []struct {
@@ -50,5 +54,39 @@ func TestSessionRequestNormalize(t *testing.T) {
 				t.Fatalf("protocol version = %d, want %d", test.input.ProtocolVersion, test.wantProtocolVersion)
 			}
 		})
+	}
+}
+
+func TestCompatibilityJSONAllowsUnknownLegacyFields(t *testing.T) {
+	request := httptest.NewRequest(
+		"POST",
+		"/connectServer",
+		strings.NewReader(`{
+			"loginToken":"legacy-token",
+			"playerId":"legacy-player",
+			"version":"",
+			"legacyBuild":42,
+			"legacyMetadata":{"channel":"steam"}
+		}`),
+	)
+	var input sessionRequest
+	if err := decodeCompatibilityJSON(request, &input); err != nil {
+		t.Fatalf("decode compatibility request: %v", err)
+	}
+	input.normalize(7, boundaryLegacyClientVersion)
+	if input.ClientVersion != boundaryLegacyClientVersion || input.ProtocolVersion != 7 {
+		t.Fatalf("normalized compatibility request = %#v", input)
+	}
+}
+
+func TestStrictJSONRejectsUnknownFields(t *testing.T) {
+	request := httptest.NewRequest(
+		"POST",
+		"/v1/meta/sessions",
+		strings.NewReader(`{"client_version":"1.1.0","legacyBuild":42}`),
+	)
+	var input sessionRequest
+	if err := decodeJSON(request, &input); err == nil {
+		t.Fatal("strict decoder accepted an unknown field")
 	}
 }

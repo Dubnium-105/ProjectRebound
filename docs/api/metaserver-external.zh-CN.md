@@ -46,7 +46,8 @@ HTTP 201 响应包含 `user_id`、`gate_ticket`、`endpoint`、
 
 游戏兼容路径为 `POST /connectServer`。MetaTunnel 携带 bearer header 调用，可发送
 `version`、`protocol_version` 和 `platform`。旧字段 `playerId` 与 `loginToken`
-仅作为被忽略的兼容字段。直接返回游戏形状：
+仅作为被忽略的兼容字段。此兼容路径也会忽略随游戏版本变化的其他旧字段；现代
+MetaServer 接口仍会拒绝未知字段。直接返回游戏形状：
 
 ```json
 {"error":0,"userId":"...","aceId":"...","gateToken":"...","endpoint":"logic.dubnium.top:443"}

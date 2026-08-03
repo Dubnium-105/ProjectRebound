@@ -52,6 +52,8 @@ the bearer header and may include `version`, `protocol_version`, and `platform`.
 Shipped Boundary clients that leave `version` empty are labeled
 `boundary-legacy`; this fallback applies only to the compatibility path.
 Legacy `playerId` and `loginToken` are accepted only as ignored compatibility
+fields. Additional release-specific legacy fields are also ignored on this
+compatibility path; modern MetaServer endpoints continue to reject unknown
 fields. Its direct game-shaped response is:
 
 ```json

@@ -4014,6 +4014,26 @@ export interface components {
              */
             loginToken?: string;
         };
+        /** @description Shipped Boundary clients include release-specific legacy fields. Unknown fields are accepted and ignored only on the compatibility endpoint; identity always comes from the bearer token. */
+        MetaConnectServerRequest: {
+            client_version?: string;
+            /** @description Compatibility alias for client_version. Empty values are labeled boundary-legacy. */
+            version?: string;
+            protocol_version?: number;
+            platform?: string;
+            /**
+             * @deprecated
+             * @description Ignored. Identity is always derived from the access token.
+             */
+            playerId?: string;
+            /**
+             * @deprecated
+             * @description Ignored. Authorization is accepted only through the bearer header.
+             */
+            loginToken?: string;
+        } & {
+            [key: string]: unknown;
+        };
         MetaSessionData: {
             user_id: string;
             /** @description 256-bit, 60-second, single-use Gate credential. */
@@ -7596,7 +7616,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["MetaSessionRequest"];
+                "application/json": components["schemas"]["MetaConnectServerRequest"];
             };
         };
         responses: {
