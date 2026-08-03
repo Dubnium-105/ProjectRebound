@@ -2627,7 +2627,9 @@ paths:
       tags: [MetaServer]
       security:
         - playerAccessToken: []
-      description: Compatibility endpoint used only through MetaTunnel. Any playerId or loginToken field is ignored.
+      description: >-
+        Compatibility endpoint used only through MetaTunnel. Any playerId or loginToken field is ignored.
+        Shipped Boundary clients that omit version are labeled boundary-legacy.
       requestBody:
         required: true
         content:

@@ -49,6 +49,8 @@ entropy, expires after at most 60 seconds, and can be consumed once.
 
 The game compatibility path is `POST /connectServer`. MetaTunnel calls it with
 the bearer header and may include `version`, `protocol_version`, and `platform`.
+Shipped Boundary clients that leave `version` empty are labeled
+`boundary-legacy`; this fallback applies only to the compatibility path.
 Legacy `playerId` and `loginToken` are accepted only as ignored compatibility
 fields. Its direct game-shaped response is:
 

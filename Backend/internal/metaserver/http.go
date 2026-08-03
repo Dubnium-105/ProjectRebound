@@ -83,18 +83,28 @@ type sessionRequest struct {
 	LoginToken      string `json:"loginToken"`
 }
 
+const boundaryLegacyClientVersion = "boundary-legacy"
+
+func (input *sessionRequest) normalize(protocolVersion int, clientVersionFallback string) {
+	input.ClientVersion = strings.TrimSpace(input.ClientVersion)
+	if input.ClientVersion == "" {
+		input.ClientVersion = strings.TrimSpace(input.Version)
+	}
+	if input.ClientVersion == "" {
+		input.ClientVersion = clientVersionFallback
+	}
+	if input.ProtocolVersion == 0 {
+		input.ProtocolVersion = protocolVersion
+	}
+}
+
 func (h *HTTPHandler) Session(w http.ResponseWriter, r *http.Request) {
 	var input sessionRequest
 	if err := decodeJSON(r, &input); err != nil {
 		h.writeError(w, r, invalid(map[string]any{"body": err.Error()}))
 		return
 	}
-	if input.ClientVersion == "" {
-		input.ClientVersion = input.Version
-	}
-	if input.ProtocolVersion == 0 {
-		input.ProtocolVersion = h.service.ProtocolVersion()
-	}
+	input.normalize(h.service.ProtocolVersion(), "")
 	principal := auth.PrincipalFromContext(r.Context())
 	ticket, err := h.service.IssueSession(
 		r.Context(), principal.Player.ID, principal.SessionID,
@@ -121,12 +131,7 @@ func (h *HTTPHandler) ConnectServer(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, r, invalid(map[string]any{"body": err.Error()}))
 		return
 	}
-	if input.ClientVersion == "" {
-		input.ClientVersion = input.Version
-	}
-	if input.ProtocolVersion == 0 {
-		input.ProtocolVersion = h.service.ProtocolVersion()
-	}
+	input.normalize(h.service.ProtocolVersion(), boundaryLegacyClientVersion)
 	principal := auth.PrincipalFromContext(r.Context())
 	ticket, err := h.service.IssueSession(
 		r.Context(), principal.Player.ID, principal.SessionID,
