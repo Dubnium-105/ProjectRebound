@@ -5,6 +5,7 @@ English | [简体中文](README.zh-CN.md)
 | Document | Audience |
 | --- | --- |
 | [External API](external.md) | Game clients, desktop browser, dedicated servers, and update clients |
+| [ToolBox registration and integration guide](toolbox-integration-guide.md) | ToolBox developers and operators integrating player, dedicated-server, P2P, and VNT registration flows |
 | [Internal API](internal.md) | Administrators, Relay nodes, monitoring, and control-plane components |
 | [MetaServer external API](metaserver-external.md) | MetaTunnel, game clients, profile, Party, and matchmaking |
 | [MetaServer internal API](metaserver-internal.md) | Dedicated Servers, administrators, metrics, and import |
