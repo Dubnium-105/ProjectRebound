@@ -59,6 +59,7 @@ type BindResult struct {
 	IsNewPlayer        bool
 	AuthLevel          string
 	SteamVerified      bool
+	Capabilities       []string
 	IntegrityChallenge IntegrityChallenge
 }
 
@@ -67,7 +68,8 @@ type IntegrityChallenge struct {
 }
 
 type RefreshResult struct {
-	Tokens SessionTokens
+	Tokens       SessionTokens
+	Capabilities []string
 }
 
 type Principal struct {
@@ -76,6 +78,7 @@ type Principal struct {
 	AuthProvider  string
 	AuthLevel     string
 	SteamVerified bool
+	Capabilities  []string
 }
 
 type AuditEvent struct {

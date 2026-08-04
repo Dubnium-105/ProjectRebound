@@ -68,11 +68,13 @@ type bindResponse struct {
 	IsNewPlayer        bool               `json:"is_new_player"`
 	AuthLevel          string             `json:"auth_level"`
 	SteamVerified      bool               `json:"steam_verified"`
+	Capabilities       []string           `json:"capabilities"`
 	IntegrityChallenge IntegrityChallenge `json:"integrity_challenge"`
 }
 
 type refreshResponse struct {
-	Session sessionResponse `json:"session"`
+	Session      sessionResponse `json:"session"`
+	Capabilities []string        `json:"capabilities"`
 }
 
 type meResponse struct {
@@ -83,6 +85,7 @@ type meResponse struct {
 	IsVIP         bool      `json:"is_vip"`
 	LastLoginAt   time.Time `json:"last_login_at"`
 	CreatedAt     time.Time `json:"created_at"`
+	Capabilities  []string  `json:"capabilities"`
 }
 
 type userSessionResponse struct {
@@ -134,6 +137,7 @@ func (h *HTTPHandler) Bind(w http.ResponseWriter, r *http.Request) {
 		IsNewPlayer:        result.IsNewPlayer,
 		AuthLevel:          result.AuthLevel,
 		SteamVerified:      result.SteamVerified,
+		Capabilities:       result.Capabilities,
 		IntegrityChallenge: result.IntegrityChallenge,
 	})
 }
@@ -149,7 +153,9 @@ func (h *HTTPHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, r, err)
 		return
 	}
-	api.WriteData(w, r, http.StatusOK, refreshResponse{Session: sessionToResponse(result.Tokens)})
+	api.WriteData(w, r, http.StatusOK, refreshResponse{
+		Session: sessionToResponse(result.Tokens), Capabilities: result.Capabilities,
+	})
 }
 
 func (h *HTTPHandler) Logout(w http.ResponseWriter, r *http.Request) {
@@ -180,6 +186,7 @@ func (h *HTTPHandler) Me(w http.ResponseWriter, r *http.Request) {
 		IsVIP:         item.IsVIP,
 		LastLoginAt:   item.LastLoginAt,
 		CreatedAt:     item.CreatedAt,
+		Capabilities:  principal.Capabilities,
 	})
 }
 

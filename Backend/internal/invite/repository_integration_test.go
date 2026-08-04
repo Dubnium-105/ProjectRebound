@@ -39,6 +39,7 @@ func TestConcurrentConsumeAllowsOnlyFinalSlotOnce(t *testing.T) {
 	steamIDs := []string{integrationSteamID(1), integrationSteamID(2)}
 	plaintext := "INV-TEST-LAST-SLOT"
 	now := time.Now().UTC()
+	expiresAt := now.Add(time.Hour)
 
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -46,7 +47,7 @@ func TestConcurrentConsumeAllowsOnlyFinalSlotOnce(t *testing.T) {
 	}
 	if err := repository.Insert(ctx, tx, Code{
 		ID: inviteID, BatchName: "integration", MaxUses: 1, Enabled: true,
-		Permissions: map[string]any{}, CreatedBy: "test", CreatedAt: now, UpdatedAt: now,
+		ExpiresAt: &expiresAt, Permissions: map[string]any{}, CreatedBy: "test", CreatedAt: now, UpdatedAt: now,
 	}, hashCode(plaintext)); err != nil {
 		_ = tx.Rollback(ctx)
 		t.Fatal(err)
@@ -88,12 +89,16 @@ func TestConcurrentConsumeAllowsOnlyFinalSlotOnce(t *testing.T) {
 				return
 			}
 			defer func() { _ = consumeTx.Rollback(context.WithoutCancel(ctx)) }()
-			err = repository.Consume(ctx, consumeTx, hashCode(plaintext), playerIDs[index], steamIDs[index], "192.0.2.10", now)
+			_, _, grantExpiresAt, err := repository.Consume(ctx, consumeTx, hashCode(plaintext), playerIDs[index], steamIDs[index], "192.0.2.10", now)
 			if errors.Is(err, ErrInvalidCode) {
 				return
 			}
 			if err != nil {
 				errorsCh <- err
+				return
+			}
+			if grantExpiresAt == nil || !grantExpiresAt.Equal(expiresAt) {
+				errorsCh <- fmt.Errorf("grant expiry = %v, want %v", grantExpiresAt, expiresAt)
 				return
 			}
 			if err := consumeTx.Commit(ctx); err != nil {

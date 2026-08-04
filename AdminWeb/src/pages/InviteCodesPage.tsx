@@ -12,8 +12,9 @@ type CreateValues = {
     max_uses: number;
     expires_at?: string;
     create_account: boolean;
-    p2p: boolean;
+    p2p_room_registration: boolean;
     game_server_registration: boolean;
+    vnt_node_registration: boolean;
     note?: string;
     reason: string;
 };
@@ -56,8 +57,9 @@ export function InviteCodesPage() {
             max_uses: 1,
             expires_at: "",
             create_account: true,
-            p2p: true,
+            p2p_room_registration: true,
             game_server_registration: false,
+            vnt_node_registration: false,
             note: "",
             reason: ""
         });
@@ -79,8 +81,9 @@ export function InviteCodesPage() {
                     expires_at: toISOString(values.expires_at),
                     permissions: {
                         allow_create_account: values.create_account,
-                        allow_p2p: values.p2p,
+                        allow_p2p_room_registration: values.p2p_room_registration,
                         allow_game_server_registration: values.game_server_registration,
+                        allow_vnt_node_registration: values.vnt_node_registration,
                         note: values.note?.trim() || undefined
                     },
                     reason: values.reason
@@ -220,9 +223,10 @@ export function InviteCodesPage() {
             width: 220,
             render: (value: Record<string, unknown>) => (<Space size={[4, 4]} wrap>
           {value.allow_create_account === true && <Tag>{tr("\u521B\u5EFA\u8D26\u53F7")}</Tag>}
-          {value.allow_p2p === true && <Tag>P2P</Tag>}
+          {(value.allow_p2p_room_registration === true || value.allow_p2p === true) && <Tag>P2P {tr("房间注册")}</Tag>}
           {value.allow_game_server_registration === true && <Tag color="blue">{tr("专用服务器注册")}</Tag>}
-          {value.allow_create_account !== true && value.allow_p2p !== true && value.allow_game_server_registration !== true && <span>{tr("\u9ED8\u8BA4")}</span>}
+          {value.allow_vnt_node_registration === true && <Tag color="purple">VNT {tr("节点注册")}</Tag>}
+          {value.allow_create_account !== true && value.allow_p2p_room_registration !== true && value.allow_p2p !== true && value.allow_game_server_registration !== true && value.allow_vnt_node_registration !== true && <span>{tr("\u9ED8\u8BA4")}</span>}
         </Space>)
         },
         {
@@ -276,17 +280,20 @@ export function InviteCodesPage() {
               <InputNumber min={1} max={1000000}/>
             </Form.Item>
           </Space>
-          <Form.Item label={tr("\u6709\u6548\u671F\uFF08\u7559\u7A7A\u4E3A\u957F\u671F\uFF09")} name="expires_at">
+          <Form.Item label={tr("\u6709\u6548\u671F\uFF08\u7559\u7A7A\u4E3A\u957F\u671F\uFF09")} name="expires_at" extra={tr("玩家权限与邀请码同时到期；留空则均为长期有效。")}>
             <Input type="datetime-local"/>
           </Form.Item>
           <Form.Item name="create_account" valuePropName="checked">
             <Checkbox>{tr("\u5141\u8BB8\u521B\u5EFA\u8D26\u53F7")}</Checkbox>
           </Form.Item>
-          <Form.Item name="p2p" valuePropName="checked">
-            <Checkbox>{tr("\u5141\u8BB8 P2P \u8054\u673A")}</Checkbox>
+          <Form.Item name="p2p_room_registration" valuePropName="checked">
+            <Checkbox>{tr("允许注册 P2P 房间")}</Checkbox>
           </Form.Item>
           <Form.Item name="game_server_registration" valuePropName="checked">
             <Checkbox>{tr("允许注册专用服务器")}</Checkbox>
+          </Form.Item>
+          <Form.Item name="vnt_node_registration" valuePropName="checked">
+            <Checkbox>{tr("允许注册 VNT 节点")}</Checkbox>
           </Form.Item>
           <Form.Item label={tr("\u8FD0\u8425\u5907\u6CE8")} name="note" rules={[{ max: 300 }]}>
             <Input.TextArea rows={2} maxLength={300} showCount/>
@@ -312,7 +319,7 @@ export function InviteCodesPage() {
         ]}>
             <InputNumber min={Math.max(1, editTarget?.used_count ?? 1)} max={1000000}/>
           </Form.Item>
-          <Form.Item label={tr("\u6709\u6548\u671F\uFF08\u7559\u7A7A\u6E05\u9664\uFF09")} name="expires_at">
+          <Form.Item label={tr("\u6709\u6548\u671F\uFF08\u7559\u7A7A\u6E05\u9664\uFF09")} name="expires_at" extra={tr("仅影响后续兑换；已授权限保留兑换时记录的截止时间。")}>
             <Input type="datetime-local"/>
           </Form.Item>
           <Form.Item name="enabled" valuePropName="checked">

@@ -99,7 +99,7 @@ For a verified bind, `data.integrity_challenge.nonce` contains the first one-tim
 
 New clients may send `uuid|disk|cpu`. The server independently HMAC-hashes each factor. It also accepts `v1|uu:<digest>|ds:<digest>|cp:<digest>`, where each digest is exactly 16 hexadecimal characters. A factor may be omitted in the versioned form. Legacy opaque printable-ASCII values without pipes remain accepted.
 
-`device_id` is up to 128 printable ASCII bytes. It is only used for throttling and risk observation, is not a trusted identity, and will not bypass SteamID unique constraints. The server never stores the three submitted factor values directly: it creates separate domain-separated HMAC-SHA-256 digests plus a composite digest, links the resulting internal fingerprint record to sessions and login/risk events, and does not expose those digests through the external API. Whether to require an invitation code is determined by the server `auth.invite_required` configuration. When the binding exceeds the limit of any dimension, `429 AUTH_BIND_RATE_LIMITED` is returned, and the response contains both `Retry-After` and `details.retry_after_seconds`.
+`device_id` is up to 128 printable ASCII bytes. It is only used for throttling and risk observation, is not a trusted identity, and will not bypass SteamID unique constraints. The server never stores the three submitted factor values directly: it creates separate domain-separated HMAC-SHA-256 digests plus a composite digest, links the resulting internal fingerprint record to sessions and login/risk events, and does not expose those digests through the external API. Whether to require an invitation code for account creation is determined by `auth.invite_required`. A supplied code is also accepted for an existing player: its permission snapshot grants that player any of `p2p_room_registration`, `game_server_registration`, and `vnt_node_registration` until the invitation's expiry at consumption time. An invitation without an expiry grants non-expiring capabilities. Bind, refresh, and `/v1/users/me` return only currently active capabilities. When the binding exceeds the limit of any dimension, `429 AUTH_BIND_RATE_LIMITED` is returned, and the response contains both `Retry-After` and `details.retry_after_seconds`.
 
 Do not write Access/Refresh Tokens to URLs, logs, or crash reports. When Refresh Token is replayed, the server will revoke the entire token family.
 
@@ -119,7 +119,7 @@ The session list returns only the session ID, a four-character device display su
 | POST | `/v1/game-servers/{server_id}/credential/rotate` | Current Token plus current private-key signature | `csr_pem` for the new key | 200 replacement token, certificate, generation, and overlap deadline |
 | DELETE | `/v1/game-servers/{server_id}` | Current Token plus current private-key signature | None | 200 deregister and revoke credentials |
 
-A Dedicated Server invitation's immutable permission snapshot must contain `allow_game_server_registration: true`. It can be consumed during the initial verified Steam bind, or an already verified player can submit it while minting a Registration Token. Later invitation edits cannot grant capability retroactively. The ten-minute Registration Token is bound to one `instance_id`; registration consumes it atomically, binds the instance to the player, and prevents another player from claiming that ID.
+A Dedicated Server invitation's immutable permission snapshot must contain `allow_game_server_registration: true`. It can be consumed during any Steam bind (including an existing player's login); the legacy direct redemption on Registration Token issuance remains compatible. Consumption grants `game_server_registration` until the invitation's expiry timestamp at consumption time. Later invitation edits do not retroactively change that captured deadline or expand the permission snapshot. Redeeming another qualifying invitation may extend the deadline but never shortens it; a non-expiring grant takes precedence. The ten-minute Registration Token is bound to one `instance_id`; registration consumes it atomically, binds the instance to the player, and prevents another player from claiming that ID.
 
 The node generates and retains its own Ed25519 private key, and registration submits a PKCS#10 CSR signed by that key. The backend issues a 24-hour certificate with identity `spiffe://projectrebound/game-server/{server_id}` and stores only its public key and certificate fingerprint; it never receives or generates the node private key.
 
@@ -244,6 +244,30 @@ For the specific fields and enumerations of the event, see `Connection*Event`, `
 3. Download from CDN;
 4. Verify exact file size and SHA-256;
 5. Do not install if any step fails.
+
+### 3.7 VNT community nodes and rooms
+
+VNT node registration is independently authorized by the player's
+`vnt_node_registration` capability. Creating either a VNT or legacy P2P room
+requires `p2p_room_registration`; Dedicated Server registration separately
+requires `game_server_registration`.
+
+| Method | Path | Authentication | Purpose |
+| --- | --- | --- | --- |
+| POST | `/v1/vnt/node-enrollments` | Verified Player | Issue a ten-minute, single-use node enrollment code |
+| POST | `/v1/vnt/nodes` | `VNTEnrollment` | Consume the code and return a node credential once |
+| GET | `/v1/vnt/nodes` | None | List public, eligible node endpoints and capacity |
+| POST | `/v1/vnt/nodes/{node_id}/heartbeat` | VNT Node | Renew health and capacity telemetry |
+| POST | `/v1/vnt/nodes/{node_id}/credential/rotate` | VNT Node | Rotate the node credential and return the replacement once |
+| DELETE | `/v1/vnt/nodes/{node_id}` | VNT Node | Drain or retire the node |
+| POST | `/v1/p2p-rooms/{room_id}/vnt/bootstrap` | Active member | Return the current encrypted-at-rest VNT runtime secrets; response is `no-store` |
+| PUT | `/v1/p2p-rooms/{room_id}/vnt/presence/me` | Active member | Report local tunnel state and observed path |
+| PUT | `/v1/p2p-rooms/{room_id}/vnt/host-ready` | Host + host token | Publish host readiness for the current generation |
+| POST | `/v1/p2p-rooms/{room_id}/vnt/rebind` | Host + host token | Select another node and rotate the generation and all room secrets before start |
+
+The VNT data plane never traverses the control-plane server. Public room and
+node responses exclude network tokens, E2E passwords, device IDs, credentials,
+and member virtual addresses.
 
 ## MetaServer route index
 

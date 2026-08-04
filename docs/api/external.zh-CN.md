@@ -99,7 +99,7 @@ verified bind 的 `data.integrity_challenge.nonce` 包含首次一次性 challen
 
 新客户端可以发送 `uuid|disk|cpu`，服务端分别对三个因子执行 HMAC；也继续接受 `v1|uu:<摘要>|ds:<摘要>|cp:<摘要>`，其中摘要为 16 个十六进制字符，版本化格式允许省略无法取得的因子。无竖线的旧版不透明 Device ID 仍然兼容。
 
-`device_id` 最长 128 字节，只允许可打印 ASCII；它仅用于限流和风险观察，不是可信身份，也不会绕过 SteamID 唯一约束。服务端不会直接保存三个提交值，而是分别生成带域隔离的 HMAC-SHA-256 摘要和组合摘要，再将内部指纹记录关联到会话、登录事件和风险事件；外部 API 不返回这些摘要。是否要求邀请码由服务端 `auth.invite_required` 配置决定。绑定超过任一维度限制时返回 `429 AUTH_BIND_RATE_LIMITED`，响应同时包含 `Retry-After` 与 `details.retry_after_seconds`。
+`device_id` 最长 128 字节，只允许可打印 ASCII；它仅用于限流和风险观察，不是可信身份，也不会绕过 SteamID 唯一约束。服务端不会直接保存三个提交值，而是分别生成带域隔离的 HMAC-SHA-256 摘要和组合摘要，再将内部指纹记录关联到会话、登录事件和风险事件；外部 API 不返回这些摘要。是否要求邀请码创建账户由 `auth.invite_required` 决定；新老玩家在 bind 时携带的邀请码都会按权限快照给该玩家授予 `p2p_room_registration`、`game_server_registration`、`vnt_node_registration` 中对应的独立权限，权限截止时间取消费当时的邀请码 `expires_at`；无截止时间的邀请码授予永久权限。bind、refresh 和 `/v1/users/me` 只返回当前未到期的 `capabilities`。绑定超过任一维度限制时返回 `429 AUTH_BIND_RATE_LIMITED`，响应同时包含 `Retry-After` 与 `details.retry_after_seconds`。
 
 不要把 Access/Refresh Token 写入 URL、日志或崩溃报告。Refresh Token 发生重放时，服务端会撤销整个 token family。
 
@@ -119,7 +119,7 @@ verified bind 的 `data.integrity_challenge.nonce` 包含首次一次性 challen
 | POST | `/v1/game-servers/{server_id}/credential/rotate` | 当前 Token + 当前私钥签名 | 新密钥对应的 `csr_pem` | 200 新 Token、证书、代数和重叠截止时间 |
 | DELETE | `/v1/game-servers/{server_id}` | 当前 Token + 当前私钥签名 | — | 200 注销并撤销凭证 |
 
-专服邀请码的不可变权限快照必须包含 `allow_game_server_registration: true`。它既可在首次已验证 Steam bind 时消费，也可由已有已验证玩家在签发 Registration Token 时提交；之后修改邀请码不能追溯扩权。Registration Token 有效 10 分钟且绑定一个 `instance_id`。注册会原子消费它并将实例绑定到玩家；其他玩家不能抢占同一实例 ID。
+专服邀请码的不可变权限快照必须包含 `allow_game_server_registration: true`。新玩家或已有玩家都可以在 Steam bind 时消费；签发 Registration Token 时直接兑换邀请码的旧流程仍兼容。消费后授予的 `game_server_registration` 与消费当时的邀请码在同一时间到期；之后修改邀请码不会追溯改变已记录的截止时间或扩大权限。再次兑换合格邀请码只会延长、不会缩短权限，永久权限优先。Registration Token 有效 10 分钟且绑定一个 `instance_id`。注册会原子消费它并将实例绑定到玩家；其他玩家不能抢占同一实例 ID。
 
 节点必须自行生成并仅在本机保存 Ed25519 私钥，注册提交由该私钥签名的 PKCS#10 CSR。后端签发 24 小时节点证书，身份 URI 为 `spiffe://projectrebound/game-server/{server_id}`；后端只保存公钥和证书指纹，不接收或生成节点私钥。
 
@@ -244,6 +244,23 @@ Relay 分配事件示例：
 3. 从 CDN 下载；
 4. 校验精确文件大小和 SHA-256；
 5. 任一步失败都不得安装。
+
+### 3.7 社区 VNT 节点与房间
+
+| 方法 | 路径 | 鉴权 | 用途 |
+| --- | --- | --- | --- |
+| POST | `/v1/vnt/node-enrollments` | verified 玩家 | 签发十分钟、单次使用的节点 enrollment code |
+| POST | `/v1/vnt/nodes` | `VNTEnrollment` | 消费 enrollment code，Node Credential 仅返回一次 |
+| GET | `/v1/vnt/nodes` | 无 | 返回公开节点 endpoint、版本、位置和剩余容量 |
+| POST | `/v1/vnt/nodes/{node_id}/heartbeat` | VNT Node | 续租并提交健康遥测 |
+| POST | `/v1/vnt/nodes/{node_id}/credential/rotate` | VNT Node | 轮转 Node Credential，新值仅返回一次 |
+| DELETE | `/v1/vnt/nodes/{node_id}` | VNT Node | 进入 DRAINING 或 RETIRED |
+| POST | `/v1/p2p-rooms/{room_id}/vnt/bootstrap` | 活动成员 | 返回当前 generation 的 VNT 运行秘密；响应为 `no-store` |
+| PUT | `/v1/p2p-rooms/{room_id}/vnt/presence/me` | 活动成员 | 上报本地隧道状态和实际路径 |
+| PUT | `/v1/p2p-rooms/{room_id}/vnt/host-ready` | 房主 + Host Token | 发布当前 generation 的房主就绪状态 |
+| POST | `/v1/p2p-rooms/{room_id}/vnt/rebind` | 房主 + Host Token | 开局前换节点，并轮换 generation 和全部房间秘密 |
+
+VNT 数据面不经过 Control Plane。公共节点和房间响应不会包含 network token、E2E 密码、Node Credential、device ID 或成员虚拟地址。
 
 ## 4. HTTP 状态与重试
 

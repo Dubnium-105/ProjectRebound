@@ -3,6 +3,7 @@ package gameserverregistration
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
@@ -43,13 +44,10 @@ func (r *Repository) FindPlayerInviteGrant(
 ) (string, error) {
 	var inviteUseID string
 	err := tx.QueryRow(ctx, `
-		SELECT invite_use.id
-		FROM invite_code_uses AS invite_use
-		WHERE invite_use.player_id = $1
-		  AND invite_use.result = 'SUCCESS'
-		  AND invite_use.permission_snapshot @> '{"allow_game_server_registration": true}'::jsonb
-		ORDER BY invite_use.used_at DESC
-		LIMIT 1
+		SELECT source_invite_use_id
+		FROM player_feature_grants
+		WHERE player_id = $1 AND capability = 'game_server_registration'
+		  AND (expires_at IS NULL OR expires_at > NOW())
 	`, playerID).Scan(&inviteUseID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", ErrInvalidInviteGrant
@@ -74,8 +72,9 @@ func (r *Repository) RedeemPlayerInviteGrant(
 	var inviteID string
 	var maxUses, usedCount int
 	var permissions []byte
+	var expiresAt sql.NullTime
 	err := tx.QueryRow(ctx, `
-		SELECT id, max_uses, used_count, permissions
+		SELECT id, max_uses, used_count, permissions, expires_at
 		FROM invite_codes
 		WHERE code_hash = $1
 		  AND enabled = TRUE
@@ -84,7 +83,7 @@ func (r *Repository) RedeemPlayerInviteGrant(
 		  AND used_count < max_uses
 		  AND permissions @> '{"allow_game_server_registration": true}'::jsonb
 		FOR UPDATE
-	`, codeHash[:], now).Scan(&inviteID, &maxUses, &usedCount, &permissions)
+	`, codeHash[:], now).Scan(&inviteID, &maxUses, &usedCount, &permissions, &expiresAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", ErrInvalidInviteGrant
 	}
@@ -114,6 +113,25 @@ func (r *Repository) RedeemPlayerInviteGrant(
 	`, useID, inviteID, playerID, steamID, ipAddress, now, permissions)
 	if err != nil {
 		return "", fmt.Errorf("record dedicated server invitation use: %w", err)
+	}
+	var permissionExpiresAt *time.Time
+	if expiresAt.Valid {
+		value := expiresAt.Time
+		permissionExpiresAt = &value
+	}
+	_, err = tx.Exec(ctx, `
+		INSERT INTO player_feature_grants (
+			player_id, capability, source_invite_use_id, granted_at, expires_at
+		) VALUES ($1, 'game_server_registration', $2, $3, $4)
+		ON CONFLICT (player_id, capability) DO UPDATE SET
+			source_invite_use_id = EXCLUDED.source_invite_use_id,
+			granted_at = EXCLUDED.granted_at,
+			expires_at = EXCLUDED.expires_at
+		WHERE player_feature_grants.expires_at IS NOT NULL
+		  AND (EXCLUDED.expires_at IS NULL OR EXCLUDED.expires_at > player_feature_grants.expires_at)
+	`, playerID, useID, now, permissionExpiresAt)
+	if err != nil {
+		return "", fmt.Errorf("grant dedicated server registration permission: %w", err)
 	}
 	return useID, nil
 }

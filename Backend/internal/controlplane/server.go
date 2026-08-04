@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/connection"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/database"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/diagnostic"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/entitlement"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/gameserver"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/gameserverregistration"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/health"
@@ -29,6 +31,7 @@ import (
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/player"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/relayregistry"
 	updateservice "github.com/Dubnium-105/ProjectRebound/Backend/internal/update"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/vnt"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -133,6 +136,7 @@ func buildHandler(
 	authRepository := auth.NewRepository()
 	playerRepository := player.NewRepository()
 	adminRepository := admin.NewRepository()
+	entitlementRepository := entitlement.NewRepository(dbPool.Pool)
 	inviteService := invite.NewService(dbPool.Pool, invite.NewRepository(dbPool.Pool), adminRepository)
 	authService := auth.NewService(
 		dbPool.Pool,
@@ -145,6 +149,7 @@ func buildHandler(
 	)
 	authService.SetTicketVerifier(auth.NewExecTicketVerifier(cfg.Auth, logger))
 	authService.SetInviteConsumer(inviteService)
+	authService.SetEntitlements(entitlementRepository)
 	authService.SetBindLimiter(auth.NewBindLimiter(redisClient, cfg.Auth, logger))
 	authService.SetMetrics(metrics)
 	integrityService, err := integrity.NewService(cfg.Auth, authService, logger)
@@ -153,6 +158,8 @@ func buildHandler(
 	}
 	authService.SetIntegritySessionManager(integrityService)
 	authHandler := auth.NewHTTPHandler(authService, logger, cfg.HTTP.TrustProxyHeaders)
+	vntService := vnt.NewService(vnt.NewRepository(dbPool.Pool), entitlementRepository)
+	vntHandler := vnt.NewHTTPHandler(vntService, logger)
 	integrityHandler := integrity.NewHTTPHandler(
 		integrityService,
 		logger,
@@ -171,6 +178,12 @@ func buildHandler(
 		router.With(auth.RequireAccess(authService, logger)).Post("/integrity/proof", integrityHandler.Proof)
 		router.With(auth.RequireAccess(authService, logger)).Post("/integrity/verify", integrityHandler.Verify)
 		router.With(auth.RequireAccess(authService, logger)).Post("/diagnostic/report", diagnosticHandler.Submit)
+		router.With(auth.RequireAccess(authService, logger)).Post("/vnt/node-enrollments", vntHandler.CreateEnrollment)
+		router.Post("/vnt/nodes", vntHandler.Register)
+		router.Get("/vnt/nodes", vntHandler.List)
+		router.Post("/vnt/nodes/{node_id}/heartbeat", vntHandler.Heartbeat)
+		router.Post("/vnt/nodes/{node_id}/credential/rotate", vntHandler.RotateCredential)
+		router.Delete("/vnt/nodes/{node_id}", vntHandler.Retire)
 	})
 
 	adminAuthenticator, err := admin.NewAuthenticator(cfg.Admin)
@@ -352,6 +365,15 @@ func buildHandler(
 		Delete("/v1/game-servers/{server_id}", gameServerHandler.Deregister)
 
 	p2pRoomService := p2proom.NewService(p2proom.NewRepository(dbPool.Pool), cfg.P2PRoom)
+	p2pRoomService.SetEntitlementChecker(entitlementRepository)
+	vntSecretBox, ephemeralVNTSecretKey, err := p2proom.NewSecretBox(os.Getenv("VNT_SECRET_ENCRYPTION_KEY_BASE64"), cfg.Environment)
+	if err != nil {
+		return nil, nil, fmt.Errorf("initialize VNT room secret encryption: %w", err)
+	}
+	if ephemeralVNTSecretKey {
+		logger.Warn("using ephemeral development VNT room key; rooms will not survive a restart")
+	}
+	p2pRoomService.SetVNT(vnt.NewRepository(dbPool.Pool), vntSecretBox)
 	p2pBattleLogRepository := p2pbattlelog.NewRepository(dbPool.Pool)
 	p2pBattleLogService := p2pbattlelog.NewService(
 		p2pBattleLogRepository, cfg.P2PBattleLog,
@@ -376,6 +398,10 @@ func buildHandler(
 		router.Post("/v1/p2p-rooms/{room_id}/heartbeat", p2pRoomHandler.Heartbeat)
 		router.Post("/v1/p2p-rooms/{room_id}/start", p2pRoomHandler.Start)
 		router.Delete("/v1/p2p-rooms/{room_id}", p2pRoomHandler.Delete)
+		router.Post("/v1/p2p-rooms/{room_id}/vnt/bootstrap", p2pRoomHandler.VNTBootstrap)
+		router.Put("/v1/p2p-rooms/{room_id}/vnt/presence/me", p2pRoomHandler.UpdateVNTPresence)
+		router.Put("/v1/p2p-rooms/{room_id}/vnt/host-ready", p2pRoomHandler.VNTHostReady)
+		router.Post("/v1/p2p-rooms/{room_id}/vnt/rebind", p2pRoomHandler.VNTRebind)
 		router.Get("/v1/p2p-rooms/{room_id}/matches/active", p2pBattleLogHandler.ActiveMatch)
 		router.Post("/v1/p2p-matches/{match_id}/report-capability", p2pBattleLogHandler.IssueCapability)
 		router.Put("/v1/p2p-matches/{match_id}/presence/me", p2pBattleLogHandler.Presence)
@@ -557,6 +583,7 @@ func buildHandler(
 	})
 	gameServerSweeper := gameserver.NewSweeper(gameServerService, cfg.GameServer.SweepInterval(), logger)
 	p2pRoomSweeper := p2proom.NewSweeper(p2pRoomService, cfg.P2PRoom.SweepInterval(), logger)
+	vntNodeSweeper := vnt.NewSweeper(vntService, 30*time.Second, logger)
 	connectionSweeper := connection.NewSweeper(connectionService, cfg.Connection.SweepInterval(), logger)
 	relaySweeper := relayregistry.NewSweeper(relayService, cfg.RelayRegistry.SweepInterval(), logger)
 	relayMigrationSweeper := relayregistry.NewMigrationSweeper(relayService, cfg.RelayRegistry.SweepInterval(), logger)
@@ -564,7 +591,7 @@ func buildHandler(
 		p2pBattleLogService, cfg.P2PBattleLog.FinalizerInterval(), logger,
 	)
 	return appmiddleware.Chain(router, cfg, logger, limiter, metrics), []backgroundService{
-		gameServerSweeper, p2pRoomSweeper, connectionSweeper, relaySweeper, relayMigrationSweeper,
+		gameServerSweeper, p2pRoomSweeper, vntNodeSweeper, connectionSweeper, relaySweeper, relayMigrationSweeper,
 		p2pBattleLogFinalizer, realtimeHub, relayControlServer,
 	}, nil
 }

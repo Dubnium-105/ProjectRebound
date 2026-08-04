@@ -15,6 +15,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/entitlement"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/player"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -38,8 +39,9 @@ type Service struct {
 	}
 	bindLimiter *BindLimiter
 	invites     interface {
-		Consume(context.Context, pgx.Tx, string, string, string, string, time.Time) error
+		Consume(context.Context, pgx.Tx, string, string, string, string, time.Time) (string, map[string]any, *time.Time, error)
 	}
+	entitlements *entitlement.Repository
 }
 
 type IntegritySessionManager interface {
@@ -60,9 +62,13 @@ func (s *Service) SetMetrics(metrics interface {
 }
 
 func (s *Service) SetInviteConsumer(consumer interface {
-	Consume(context.Context, pgx.Tx, string, string, string, string, time.Time) error
+	Consume(context.Context, pgx.Tx, string, string, string, string, time.Time) (string, map[string]any, *time.Time, error)
 }) {
 	s.invites = consumer
+}
+
+func (s *Service) SetEntitlements(repository *entitlement.Repository) {
+	s.entitlements = repository
 }
 
 func (s *Service) SetBindLimiter(limiter *BindLimiter) {
@@ -236,14 +242,15 @@ func (s *Service) Bind(ctx context.Context, input BindInput, meta RequestMeta) (
 		}
 	}
 	inviteCode := strings.TrimSpace(input.InviteCode)
-	if isNew && (s.config.InviteRequired || inviteCode != "") {
+	if (isNew && s.config.InviteRequired) || inviteCode != "" {
 		if s.invites == nil {
 			return BindResult{}, internalError(errors.New("invite code service is not configured"))
 		}
-		if err := s.invites.Consume(ctx, tx, inviteCode, item.ID, item.SteamID, meta.IPAddress, now); err != nil {
+		inviteUseID, permissions, permissionExpiresAt, consumeErr := s.invites.Consume(ctx, tx, inviteCode, item.ID, item.SteamID, meta.IPAddress, now)
+		if consumeErr != nil {
 			var invalidInvite interface{ InvalidInviteCode() bool }
-			if !errors.As(err, &invalidInvite) || !invalidInvite.InvalidInviteCode() {
-				return BindResult{}, internalError(err)
+			if !errors.As(consumeErr, &invalidInvite) || !invalidInvite.InvalidInviteCode() {
+				return BindResult{}, internalError(consumeErr)
 			}
 			_ = tx.Rollback(ctx)
 			s.recordRiskEvent(ctx, RiskEvent{
@@ -258,6 +265,25 @@ func (s *Service) Bind(ctx context.Context, input BindInput, meta RequestMeta) (
 			return BindResult{}, &ServiceError{
 				Status: 403, Code: CodeInvalidInvite, Message: "A valid invite code is required.",
 			}
+		}
+		if isNew && s.config.InviteRequired && !entitlement.AllowsAccountCreation(permissions) {
+			return BindResult{}, &ServiceError{
+				Status: 403, Code: CodeInvalidInvite,
+				Message: "This invite code cannot create an account.",
+			}
+		}
+		if s.entitlements == nil {
+			return BindResult{}, internalError(errors.New("entitlement repository is not configured"))
+		}
+		if err := s.entitlements.GrantFromInvite(ctx, tx, item.ID, inviteUseID, permissions, permissionExpiresAt, now); err != nil {
+			return BindResult{}, internalError(err)
+		}
+	}
+	capabilities := []string{}
+	if s.entitlements != nil {
+		capabilities, err = s.entitlements.ListWith(ctx, tx, item.ID)
+		if err != nil {
+			return BindResult{}, internalError(err)
 		}
 	}
 
@@ -349,6 +375,7 @@ func (s *Service) Bind(ctx context.Context, input BindInput, meta RequestMeta) (
 	return BindResult{
 		Player: item, Tokens: issued, IsNewPlayer: isNew,
 		AuthLevel: session.AuthLevel, SteamVerified: session.SteamVerified,
+		Capabilities:       capabilities,
 		IntegrityChallenge: integrityChallenge,
 	}, nil
 }
@@ -538,13 +565,20 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string, meta Request
 			return RefreshResult{}, internalError(err)
 		}
 	}
+	capabilities := []string{}
+	if s.entitlements != nil {
+		capabilities, err = s.entitlements.ListWith(ctx, tx, item.ID)
+		if err != nil {
+			return RefreshResult{}, internalError(err)
+		}
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return RefreshResult{}, internalError(fmt.Errorf("commit refresh transaction: %w", err))
 	}
 	if s.integritySessions != nil {
 		s.integritySessions.RotateSession(current.ID, replacement.ID, replacement.ExpiresAt)
 	}
-	return RefreshResult{Tokens: issued}, nil
+	return RefreshResult{Tokens: issued, Capabilities: capabilities}, nil
 }
 
 func (s *Service) AuthenticateAccess(ctx context.Context, accessToken string) (Principal, error) {
@@ -587,10 +621,18 @@ func (s *Service) AuthenticateAccess(ctx context.Context, accessToken string) (P
 	if err := s.repository.TouchSession(ctx, s.pool, session.ID, s.now().UTC()); err != nil {
 		s.logger.WarnContext(ctx, "update authentication session activity", "session_id", session.ID, "error", err)
 	}
+	capabilities := []string{}
+	if s.entitlements != nil {
+		capabilities, err = s.entitlements.List(ctx, item.ID)
+		if err != nil {
+			return Principal{}, internalError(err)
+		}
+	}
 	return Principal{
 		Player: item, SessionID: session.ID,
 		AuthProvider: session.AuthProvider, AuthLevel: session.AuthLevel,
 		SteamVerified: session.SteamVerified,
+		Capabilities:  capabilities,
 	}, nil
 }
 

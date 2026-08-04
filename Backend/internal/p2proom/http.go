@@ -27,6 +27,13 @@ type HTTPService interface {
 	HeartbeatInterval() int
 }
 
+type VNTHTTPService interface {
+	VNTBootstrap(context.Context, Actor, string) (VNTBootstrap, error)
+	UpdateVNTPresence(context.Context, Actor, string, VNTPresenceInput) (Room, error)
+	VNTHostReady(context.Context, Actor, string, string, int, string) (Room, error)
+	VNTRebind(context.Context, Actor, string, string, string) (Room, error)
+}
+
 type HTTPHandler struct {
 	service HTTPService
 	logger  *slog.Logger
@@ -37,11 +44,13 @@ func NewHTTPHandler(service HTTPService, logger *slog.Logger) *HTTPHandler {
 }
 
 type createRequest struct {
-	DisplayName string `json:"display_name"`
-	Region      string `json:"region"`
-	Mode        string `json:"mode"`
-	Version     string `json:"version"`
-	MaxPlayers  int    `json:"max_players"`
+	DisplayName   string        `json:"display_name"`
+	Region        string        `json:"region"`
+	Mode          string        `json:"mode"`
+	Version       string        `json:"version"`
+	MaxPlayers    int           `json:"max_players"`
+	TransportKind TransportKind `json:"transport_kind,omitempty"`
+	VNTNodeID     string        `json:"vnt_node_id,omitempty"`
 }
 
 type joinRequest struct {
@@ -49,17 +58,26 @@ type joinRequest struct {
 }
 
 type publicRoomResponse struct {
-	RoomID          string    `json:"room_id"`
-	HostPlayerID    string    `json:"host_player_id"`
-	DisplayName     string    `json:"display_name"`
-	Region          string    `json:"region"`
-	Mode            string    `json:"mode"`
-	Version         string    `json:"version"`
-	MaxPlayers      int       `json:"max_players"`
-	PlayerCount     int       `json:"player_count"`
-	State           State     `json:"state"`
-	LastHeartbeatAt time.Time `json:"last_heartbeat_at"`
-	CreatedAt       time.Time `json:"created_at"`
+	RoomID          string        `json:"room_id"`
+	HostPlayerID    string        `json:"host_player_id"`
+	DisplayName     string        `json:"display_name"`
+	Region          string        `json:"region"`
+	Mode            string        `json:"mode"`
+	Version         string        `json:"version"`
+	MaxPlayers      int           `json:"max_players"`
+	PlayerCount     int           `json:"player_count"`
+	State           State         `json:"state"`
+	LastHeartbeatAt time.Time     `json:"last_heartbeat_at"`
+	CreatedAt       time.Time     `json:"created_at"`
+	TransportKind   TransportKind `json:"transport_kind"`
+	VNTNodeID       string        `json:"vnt_node_id,omitempty"`
+	VNTHost         string        `json:"vnt_host,omitempty"`
+	VNTPort         int           `json:"vnt_port,omitempty"`
+	VNTRegion       string        `json:"vnt_region,omitempty"`
+	VNTLocation     string        `json:"vnt_location,omitempty"`
+	VNTState        string        `json:"vnt_state,omitempty"`
+	Generation      int           `json:"generation,omitempty"`
+	ExpiresAt       time.Time     `json:"expires_at"`
 }
 
 func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -69,16 +87,21 @@ func (h *HTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := h.service.Create(r.Context(), actorFromRequest(r), CreateInput{
-		DisplayName: request.DisplayName,
-		Region:      request.Region,
-		Mode:        request.Mode,
-		Version:     request.Version,
-		MaxPlayers:  request.MaxPlayers,
+		DisplayName:    request.DisplayName,
+		Region:         request.Region,
+		Mode:           request.Mode,
+		Version:        request.Version,
+		MaxPlayers:     request.MaxPlayers,
+		TransportKind:  request.TransportKind,
+		VNTNodeID:      request.VNTNodeID,
+		IdempotencyKey: r.Header.Get("Idempotency-Key"),
 	})
 	if err != nil {
 		h.writeError(w, r, err)
 		return
 	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
 	api.WriteData(w, r, http.StatusCreated, map[string]any{
 		"room":                       toPublicResponse(result.Room),
 		"host_token":                 result.HostToken,
@@ -171,6 +194,81 @@ func (h *HTTPHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	h.writeRoomOperation(w, r, room, err)
 }
 
+func (h *HTTPHandler) VNTBootstrap(w http.ResponseWriter, r *http.Request) {
+	service, ok := h.service.(VNTHTTPService)
+	if !ok {
+		h.writeError(w, r, conflict("VNT_FEATURE_DISABLED", "VNT rooms are not available."))
+		return
+	}
+	result, err := service.VNTBootstrap(r.Context(), actorFromRequest(r), chi.URLParam(r, "room_id"))
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
+	api.WriteData(w, r, http.StatusOK, result)
+}
+
+func (h *HTTPHandler) UpdateVNTPresence(w http.ResponseWriter, r *http.Request) {
+	service, ok := h.service.(VNTHTTPService)
+	if !ok {
+		h.writeError(w, r, conflict("VNT_FEATURE_DISABLED", "VNT rooms are not available."))
+		return
+	}
+	var request struct {
+		Generation   int    `json:"generation"`
+		State        string `json:"state"`
+		VirtualIP    string `json:"virtual_ip"`
+		ObservedPath string `json:"observed_path,omitempty"`
+		ReasonCode   string `json:"reason_code,omitempty"`
+	}
+	if err := api.DecodeJSON(r, &request); err != nil {
+		api.WriteError(w, r, 400, "INVALID_REQUEST", "Invalid request.", map[string]any{"body": err.Error()})
+		return
+	}
+	room, err := service.UpdateVNTPresence(r.Context(), actorFromRequest(r), chi.URLParam(r, "room_id"), VNTPresenceInput{
+		Generation: request.Generation, State: request.State, VirtualIP: request.VirtualIP,
+		ObservedPath: request.ObservedPath, ReasonCode: request.ReasonCode,
+	})
+	h.writeRoomOperation(w, r, room, err)
+}
+
+func (h *HTTPHandler) VNTHostReady(w http.ResponseWriter, r *http.Request) {
+	service, ok := h.service.(VNTHTTPService)
+	if !ok {
+		h.writeError(w, r, conflict("VNT_FEATURE_DISABLED", "VNT rooms are not available."))
+		return
+	}
+	var request struct {
+		Generation int    `json:"generation"`
+		VirtualIP  string `json:"virtual_ip"`
+	}
+	if err := api.DecodeJSON(r, &request); err != nil {
+		api.WriteError(w, r, 400, "INVALID_REQUEST", "Invalid request.", map[string]any{"body": err.Error()})
+		return
+	}
+	room, err := service.VNTHostReady(r.Context(), actorFromRequest(r), chi.URLParam(r, "room_id"), r.Header.Get(hostTokenHeader), request.Generation, request.VirtualIP)
+	h.writeRoomOperation(w, r, room, err)
+}
+
+func (h *HTTPHandler) VNTRebind(w http.ResponseWriter, r *http.Request) {
+	service, ok := h.service.(VNTHTTPService)
+	if !ok {
+		h.writeError(w, r, conflict("VNT_FEATURE_DISABLED", "VNT rooms are not available."))
+		return
+	}
+	var request struct {
+		VNTNodeID string `json:"vnt_node_id"`
+	}
+	if err := api.DecodeJSON(r, &request); err != nil {
+		api.WriteError(w, r, 400, "INVALID_REQUEST", "Invalid request.", map[string]any{"body": err.Error()})
+		return
+	}
+	room, err := service.VNTRebind(r.Context(), actorFromRequest(r), chi.URLParam(r, "room_id"), r.Header.Get(hostTokenHeader), request.VNTNodeID)
+	h.writeRoomOperation(w, r, room, err)
+}
+
 func (h *HTTPHandler) writeRoomOperation(w http.ResponseWriter, r *http.Request, room Room, err error) {
 	if err != nil {
 		h.writeError(w, r, err)
@@ -201,6 +299,10 @@ func toPublicResponse(room Room) publicRoomResponse {
 		Region: room.Region, Mode: room.Mode, Version: room.Version,
 		MaxPlayers: room.MaxPlayers, PlayerCount: room.PlayerCount, State: room.State,
 		LastHeartbeatAt: room.LastHeartbeatAt, CreatedAt: room.CreatedAt,
+		TransportKind: room.TransportKind, VNTNodeID: room.VNTNodeID,
+		VNTHost: room.VNTHost, VNTPort: room.VNTPort, VNTRegion: room.VNTRegion,
+		VNTLocation: room.VNTLocation, VNTState: room.VNTState,
+		Generation: room.VNTGeneration, ExpiresAt: room.ExpiresAt,
 	}
 }
 

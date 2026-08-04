@@ -2,25 +2,36 @@ package p2proom
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/subtle"
 	"errors"
+	"fmt"
+	"net"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/entitlement"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/player"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/vnt"
 	"github.com/jackc/pgx/v5"
 )
 
 var labelPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
+var idempotencyPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$`)
 
 type Service struct {
 	repository        *Repository
 	config            config.P2PRoomConfig
 	connectionCreator ConnectionCreator
 	matchLifecycle    MatchLifecycle
-	now               func() time.Time
+	entitlements      interface {
+		Has(context.Context, string, string) (bool, error)
+	}
+	vntNodes   *vnt.Repository
+	vntSecrets *SecretBox
+	now        func() time.Time
 }
 
 type ConnectionCreator interface {
@@ -52,10 +63,37 @@ func (s *Service) SetMatchLifecycle(lifecycle MatchLifecycle) {
 	s.matchLifecycle = lifecycle
 }
 
+func (s *Service) SetEntitlementChecker(checker interface {
+	Has(context.Context, string, string) (bool, error)
+}) {
+	s.entitlements = checker
+}
+
+func (s *Service) SetVNT(repository *vnt.Repository, secrets *SecretBox) {
+	s.vntNodes = repository
+	s.vntSecrets = secrets
+}
+
 func (s *Service) Create(ctx context.Context, actor Actor, input CreateInput) (CreateResult, error) {
 	if err := requireActive(actor); err != nil {
 		return CreateResult{}, err
 	}
+	if s.entitlements != nil {
+		allowed, err := s.entitlements.Has(ctx, actor.PlayerID, entitlement.P2PRoomRegistration)
+		if err != nil {
+			return CreateResult{}, internal(err)
+		}
+		if !allowed {
+			return CreateResult{}, forbidden(
+				"P2P_ROOM_REGISTRATION_NOT_ALLOWED",
+				"This player is not allowed to register P2P rooms.",
+			)
+		}
+	}
+	if input.TransportKind == "" {
+		input.TransportKind = TransportLegacy
+	}
+	input.IdempotencyKey = strings.TrimSpace(input.IdempotencyKey)
 	if err := s.validateCreate(input); err != nil {
 		return CreateResult{}, err
 	}
@@ -71,13 +109,110 @@ func (s *Service) Create(ctx context.Context, actor Actor, input CreateInput) (C
 		Version: strings.TrimSpace(input.Version), MaxPlayers: input.MaxPlayers,
 		PlayerCount: 1, State: StateLobby, LastHeartbeatAt: now,
 		CreatedAt: now, UpdatedAt: now,
+		TransportKind: input.TransportKind, ExpiresAt: now.Add(8 * time.Hour),
 	}
+	requestHash := createRequestHash(room, input.VNTNodeID)
 	tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return CreateResult{}, internal(err)
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
-	if err := s.repository.Create(ctx, tx, room); err != nil {
+	if input.IdempotencyKey != "" {
+		if s.vntSecrets == nil {
+			return CreateResult{}, internal(errors.New("VNT secret box is not configured"))
+		}
+		if err := s.repository.LockIdempotency(ctx, tx, actor.PlayerID, input.IdempotencyKey); err != nil {
+			return CreateResult{}, internal(err)
+		}
+		existingRoomID, existingHash, ciphertext, nonce, findErr := s.repository.FindIdempotent(ctx, tx, actor.PlayerID, input.IdempotencyKey)
+		if findErr == nil {
+			if subtle.ConstantTimeCompare(existingHash, requestHash) != 1 {
+				return CreateResult{}, conflict("IDEMPOTENCY_KEY_CONFLICT", "The idempotency key was already used for a different room request.")
+			}
+			existingRoom, err := s.repository.GetForUpdate(ctx, tx, existingRoomID)
+			if err != nil {
+				return CreateResult{}, internal(err)
+			}
+			plaintext, err := s.vntSecrets.Open(ciphertext, nonce, roomHostTokenAAD(existingRoomID, actor.PlayerID, input.IdempotencyKey))
+			if err != nil {
+				return CreateResult{}, internal(err)
+			}
+			if err := tx.Commit(ctx); err != nil {
+				return CreateResult{}, internal(err)
+			}
+			return CreateResult{Room: existingRoom, HostToken: string(plaintext), HeartbeatInterval: s.config.HeartbeatIntervalSeconds}, nil
+		}
+		if !errors.Is(findErr, pgx.ErrNoRows) {
+			return CreateResult{}, internal(findErr)
+		}
+		ciphertext, nonce, keyID, err := s.vntSecrets.Seal([]byte(hostToken), roomHostTokenAAD(room.ID, actor.PlayerID, input.IdempotencyKey))
+		if err != nil {
+			return CreateResult{}, internal(err)
+		}
+		room.IdempotencyKey = input.IdempotencyKey
+		room.IdempotencyRequestHash = requestHash
+		room.HostTokenCiphertext = ciphertext
+		room.HostTokenNonce = nonce
+		room.HostTokenKeyID = keyID
+	}
+	var vntSession *VNTSession
+	var hostSession *VNTMemberSession
+	if input.TransportKind == TransportVNT {
+		if s.vntNodes == nil || s.vntSecrets == nil {
+			return CreateResult{}, conflict("VNT_FEATURE_DISABLED", "VNT rooms are not available.")
+		}
+		node, err := s.vntNodes.GetForAllocation(ctx, tx, strings.TrimSpace(input.VNTNodeID), now)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return CreateResult{}, conflict("VNT_NODE_UNAVAILABLE", "The selected VNT node is unavailable.")
+			}
+			return CreateResult{}, internal(err)
+		}
+		if node.State != vnt.StateOnline || node.ActiveRooms >= node.MaxRooms {
+			return CreateResult{}, conflict("VNT_NODE_UNAVAILABLE", "The selected VNT node is unavailable.")
+		}
+		networkToken, err := newVNTSecret("vntk_")
+		if err != nil {
+			return CreateResult{}, internal(err)
+		}
+		e2ePassword, err := newVNTSecret("vntw_")
+		if err != nil {
+			return CreateResult{}, internal(err)
+		}
+		generation := 1
+		networkCipher, networkNonce, keyID, err := s.vntSecrets.Seal(
+			[]byte(networkToken), vntSecretAAD(room.ID, generation, node.ID, "network_token"),
+		)
+		if err != nil {
+			return CreateResult{}, internal(err)
+		}
+		passwordCipher, passwordNonce, _, err := s.vntSecrets.Seal(
+			[]byte(e2ePassword), vntSecretAAD(room.ID, generation, node.ID, "e2e_password"),
+		)
+		if err != nil {
+			return CreateResult{}, internal(err)
+		}
+		vntSession = &VNTSession{
+			RoomID: room.ID, NodeID: node.ID, Generation: generation, State: "SELECTED",
+			NodeHost: node.AdvertisedHost, NodePort: node.Port, NodeRegion: node.Region,
+			NodeLocation: node.Location, NodeFingerprint: node.ServerKeyFingerprint,
+			NodeTransports: node.SupportedTransports, NetworkTokenCiphertext: networkCipher,
+			NetworkTokenNonce: networkNonce, E2EPasswordCiphertext: passwordCipher,
+			E2EPasswordNonce: passwordNonce, SecretKeyID: keyID, CreatedAt: now, UpdatedAt: now,
+		}
+		hostSession = &VNTMemberSession{
+			RoomID: room.ID, Generation: generation, PlayerID: actor.PlayerID,
+			DeviceID: newID("vnd_"), VirtualIP: "10.26.0.2", State: "ISSUED", CreatedAt: now,
+		}
+		room.VNTNodeID = node.ID
+		room.VNTHost = node.AdvertisedHost
+		room.VNTPort = node.Port
+		room.VNTRegion = node.Region
+		room.VNTLocation = node.Location
+		room.VNTState = "SELECTED"
+		room.VNTGeneration = generation
+	}
+	if err := s.repository.Create(ctx, tx, room, vntSession, hostSession); err != nil {
 		return CreateResult{}, internal(err)
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -144,6 +279,10 @@ func (s *Service) Join(ctx context.Context, actor Actor, roomID, version string)
 	if err != nil {
 		return Room{}, mapRoomError(err)
 	}
+	now := s.now().UTC()
+	if !room.ExpiresAt.After(now) {
+		return Room{}, conflict("ROOM_EXPIRED", "Room has expired.")
+	}
 	if room.State != StateLobby {
 		return Room{}, conflict("ROOM_NOT_JOINABLE", "Room is not accepting new members.")
 	}
@@ -166,9 +305,21 @@ func (s *Service) Join(ctx context.Context, actor Actor, roomID, version string)
 	if room.PlayerCount >= room.MaxPlayers {
 		return Room{}, conflict("ROOM_FULL", "Room is full.")
 	}
-	now := s.now().UTC()
 	if err := s.repository.ActivateMember(ctx, tx, roomID, actor.PlayerID, now); err != nil {
 		return Room{}, internal(err)
+	}
+	if room.TransportKind == TransportVNT {
+		virtualIP, err := s.repository.NextVNTVirtualIP(ctx, tx, room.ID, room.VNTGeneration)
+		if err != nil {
+			return Room{}, internal(err)
+		}
+		if err := s.repository.ActivateVNTMember(ctx, tx, VNTMemberSession{
+			RoomID: room.ID, Generation: room.VNTGeneration, PlayerID: actor.PlayerID,
+			DeviceID: newID("vnd_"), VirtualIP: virtualIP,
+			State: "ISSUED", CreatedAt: now,
+		}); err != nil {
+			return Room{}, internal(err)
+		}
 	}
 	room, err = s.repository.UpdatePlayerCount(ctx, tx, roomID, 1, now)
 	if err != nil {
@@ -256,7 +407,7 @@ func (s *Service) RelayRegion(ctx context.Context, roomID string) (string, error
 }
 
 func (s *Service) ensureConnection(ctx context.Context, room Room, peerPlayerID string) error {
-	if s.connectionCreator == nil || peerPlayerID == room.HostPlayerID {
+	if room.TransportKind == TransportVNT || s.connectionCreator == nil || peerPlayerID == room.HostPlayerID {
 		return nil
 	}
 	if err := s.connectionCreator.EnsureForRoomPeer(ctx, room.ID, room.HostPlayerID, peerPlayerID); err != nil {
@@ -298,6 +449,11 @@ func (s *Service) Leave(ctx context.Context, actor Actor, roomID string) (Room, 
 	if err := s.repository.MarkMemberLeft(ctx, tx, roomID, actor.PlayerID, now); err != nil {
 		return Room{}, internal(err)
 	}
+	if room.TransportKind == TransportVNT {
+		if err := s.repository.StopVNTMember(ctx, tx, roomID, actor.PlayerID, now); err != nil {
+			return Room{}, internal(err)
+		}
+	}
 	room, err = s.repository.UpdatePlayerCount(ctx, tx, roomID, -1, now)
 	if err != nil {
 		return Room{}, internal(err)
@@ -313,11 +469,14 @@ func (s *Service) Heartbeat(ctx context.Context, actor Actor, roomID, hostToken 
 		if room.State == StateClosed {
 			return Room{}, conflict("ROOM_CLOSED", "Room is closed.")
 		}
+		if now.After(room.ExpiresAt) {
+			return Room{}, conflict("ROOM_EXPIRED", "Room has expired.")
+		}
 		updated, err := s.repository.Heartbeat(ctx, tx, room.ID, now)
 		if err != nil {
 			return Room{}, err
 		}
-		if s.connectionCreator != nil {
+		if room.TransportKind != TransportVNT && s.connectionCreator != nil {
 			if err := s.connectionCreator.RenewForRoom(ctx, tx, room.ID, now); err != nil {
 				return Room{}, internal(err)
 			}
@@ -327,7 +486,10 @@ func (s *Service) Heartbeat(ctx context.Context, actor Actor, roomID, hostToken 
 }
 
 func (s *Service) Start(ctx context.Context, actor Actor, roomID, hostToken string) (Room, error) {
-	return s.hostOperation(ctx, actor, roomID, hostToken, func(ctx context.Context, tx pgx.Tx, room Room, now time.Time) (Room, error) {
+	room, err := s.hostOperation(ctx, actor, roomID, hostToken, func(ctx context.Context, tx pgx.Tx, room Room, now time.Time) (Room, error) {
+		if !room.ExpiresAt.After(now) {
+			return Room{}, conflict("ROOM_EXPIRED", "Room has expired.")
+		}
 		if room.State == StateConnecting || room.State == StateRunning {
 			if s.matchLifecycle != nil {
 				if err := s.matchLifecycle.EnsureForRoomStart(ctx, tx, MatchStartRoom{
@@ -340,6 +502,9 @@ func (s *Service) Start(ctx context.Context, actor Actor, roomID, hostToken stri
 		}
 		if room.State != StateLobby {
 			return Room{}, conflict("INVALID_ROOM_STATE", "Room cannot start from its current state.")
+		}
+		if room.TransportKind == TransportVNT && room.VNTState != "HOST_READY" && room.VNTState != "READY" {
+			return Room{}, conflict("VNT_HOST_NOT_READY", "The VNT host is not ready.")
 		}
 		updated, err := s.repository.Start(ctx, tx, room.ID, now)
 		if err != nil {
@@ -354,6 +519,15 @@ func (s *Service) Start(ctx context.Context, actor Actor, roomID, hostToken stri
 		}
 		return updated, nil
 	})
+	if err != nil {
+		return Room{}, err
+	}
+	if room.TransportKind == TransportVNT && s.matchLifecycle != nil {
+		if err := s.matchLifecycle.MarkRoomRunning(ctx, room.ID, s.now().UTC()); err != nil {
+			return Room{}, internal(err)
+		}
+	}
+	return room, nil
 }
 
 func (s *Service) Delete(ctx context.Context, actor Actor, roomID, hostToken string) (Room, error) {
@@ -366,12 +540,243 @@ func (s *Service) Delete(ctx context.Context, actor Actor, roomID, hostToken str
 	if err != nil {
 		return Room{}, err
 	}
-	if s.connectionCreator != nil {
+	if room.TransportKind != TransportVNT && s.connectionCreator != nil {
 		if err := s.connectionCreator.CloseForRoom(ctx, room.ID, "ROOM_CLOSED"); err != nil {
 			return Room{}, internal(err)
 		}
 	}
 	return room, nil
+}
+
+func (s *Service) VNTBootstrap(ctx context.Context, actor Actor, roomID string) (VNTBootstrap, error) {
+	if err := requireActive(actor); err != nil {
+		return VNTBootstrap{}, err
+	}
+	if s.vntSecrets == nil {
+		return VNTBootstrap{}, conflict("VNT_FEATURE_DISABLED", "VNT rooms are not available.")
+	}
+	tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return VNTBootstrap{}, internal(err)
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	room, err := s.repository.GetForUpdate(ctx, tx, roomID)
+	if err != nil {
+		return VNTBootstrap{}, mapRoomError(err)
+	}
+	if room.TransportKind != TransportVNT {
+		return VNTBootstrap{}, conflict("VNT_ROOM_REQUIRED", "This is not a VNT room.")
+	}
+	now := s.now().UTC()
+	if room.State == StateClosed {
+		return VNTBootstrap{}, conflict("ROOM_CLOSED", "Room is closed.")
+	}
+	if !room.ExpiresAt.After(now) {
+		return VNTBootstrap{}, conflict("ROOM_EXPIRED", "Room has expired.")
+	}
+	member, err := s.repository.GetMemberForUpdate(ctx, tx, roomID, actor.PlayerID)
+	if err != nil || member.Status != "ACTIVE" {
+		return VNTBootstrap{}, forbidden("VNT_BOOTSTRAP_FORBIDDEN", "An active room membership is required.")
+	}
+	session, err := s.repository.GetVNTSession(ctx, tx, roomID)
+	if err != nil {
+		return VNTBootstrap{}, internal(err)
+	}
+	memberSession, err := s.repository.GetVNTMember(ctx, tx, roomID, session.Generation, actor.PlayerID)
+	if err != nil {
+		return VNTBootstrap{}, internal(err)
+	}
+	if member.Role != "HOST" && session.State != "HOST_READY" && session.State != "READY" && session.State != "ACTIVE" {
+		return VNTBootstrap{}, conflict("VNT_HOST_NOT_READY", "The VNT host is not ready.")
+	}
+	networkToken, err := s.vntSecrets.Open(session.NetworkTokenCiphertext, session.NetworkTokenNonce,
+		vntSecretAAD(room.ID, session.Generation, session.NodeID, "network_token"))
+	if err != nil {
+		return VNTBootstrap{}, internal(err)
+	}
+	e2ePassword, err := s.vntSecrets.Open(session.E2EPasswordCiphertext, session.E2EPasswordNonce,
+		vntSecretAAD(room.ID, session.Generation, session.NodeID, "e2e_password"))
+	if err != nil {
+		return VNTBootstrap{}, internal(err)
+	}
+	var hostVirtualIP *string
+	if member.Role != "HOST" && session.HostVirtualIP != "" {
+		value := session.HostVirtualIP
+		hostVirtualIP = &value
+	}
+	deviceName := "room-member"
+	if member.Role == "HOST" {
+		deviceName = "room-host"
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return VNTBootstrap{}, internal(err)
+	}
+	return VNTBootstrap{
+		RoomID: room.ID, Generation: session.Generation, ExpiresAt: room.ExpiresAt,
+		Server: VNTServerEndpoint{
+			Address:              net.JoinHostPort(session.NodeHost, fmt.Sprintf("%d", session.NodePort)),
+			ServerKeyFingerprint: session.NodeFingerprint,
+			SupportedTransports:  session.NodeTransports,
+		},
+		NetworkToken: string(networkToken), E2EPassword: string(e2ePassword),
+		CipherModel: "chacha20_poly1305", ServerEncrypt: true,
+		DeviceID: memberSession.DeviceID, DeviceName: deviceName,
+		VirtualIP: memberSession.VirtualIP, HostVirtualIP: hostVirtualIP, MTU: 1410,
+	}, nil
+}
+
+func (s *Service) UpdateVNTPresence(ctx context.Context, actor Actor, roomID string, input VNTPresenceInput) (Room, error) {
+	if err := requireActive(actor); err != nil {
+		return Room{}, err
+	}
+	input.State = strings.ToUpper(strings.TrimSpace(input.State))
+	input.ObservedPath = strings.ToUpper(strings.TrimSpace(input.ObservedPath))
+	if !containsString([]string{"ISSUED", "CONNECTING", "CONNECTED", "FAILED", "STOPPED"}, input.State) ||
+		(input.ObservedPath != "" && !containsString([]string{"P2P", "RELAY", "UNKNOWN"}, input.ObservedPath)) ||
+		net.ParseIP(strings.TrimSpace(input.VirtualIP)) == nil || len(input.ReasonCode) > 64 {
+		return Room{}, invalid("Invalid VNT presence.", nil)
+	}
+	tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return Room{}, internal(err)
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	room, err := s.repository.GetForUpdate(ctx, tx, roomID)
+	if err != nil {
+		return Room{}, mapRoomError(err)
+	}
+	if room.TransportKind != TransportVNT {
+		return Room{}, conflict("VNT_ROOM_REQUIRED", "This is not a VNT room.")
+	}
+	now := s.now().UTC()
+	if !room.ExpiresAt.After(now) {
+		return Room{}, conflict("ROOM_EXPIRED", "Room has expired.")
+	}
+	if input.Generation != room.VNTGeneration {
+		return Room{}, conflict("VNT_GENERATION_STALE", "The VNT generation has changed.")
+	}
+	member, err := s.repository.GetMemberForUpdate(ctx, tx, roomID, actor.PlayerID)
+	if err != nil || member.Status != "ACTIVE" {
+		return Room{}, forbidden("VNT_PRESENCE_FORBIDDEN", "An active room membership is required.")
+	}
+	if err := s.repository.UpdateVNTPresence(ctx, tx, roomID, input, actor.PlayerID, now); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Room{}, conflict("VNT_PRESENCE_MISMATCH", "VNT presence does not match the issued slot.")
+		}
+		return Room{}, internal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Room{}, internal(err)
+	}
+	return s.repository.Get(ctx, roomID)
+}
+
+func (s *Service) VNTHostReady(ctx context.Context, actor Actor, roomID, hostToken string, generation int, virtualIP string) (Room, error) {
+	virtualIP = strings.TrimSpace(virtualIP)
+	if virtualIP != "10.26.0.2" {
+		return Room{}, invalid("Invalid VNT host virtual IP.", nil)
+	}
+	return s.hostOperation(ctx, actor, roomID, hostToken, func(ctx context.Context, tx pgx.Tx, room Room, now time.Time) (Room, error) {
+		if room.TransportKind != TransportVNT {
+			return Room{}, conflict("VNT_ROOM_REQUIRED", "This is not a VNT room.")
+		}
+		if generation != room.VNTGeneration {
+			return Room{}, conflict("VNT_GENERATION_STALE", "The VNT generation has changed.")
+		}
+		if !room.ExpiresAt.After(now) {
+			return Room{}, conflict("ROOM_EXPIRED", "Room has expired.")
+		}
+		if err := s.repository.MarkVNTHostReady(ctx, tx, room.ID, generation, virtualIP, now); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return Room{}, conflict("VNT_HOST_READY_CONFLICT", "VNT host readiness conflicts with current state.")
+			}
+			return Room{}, internal(err)
+		}
+		room.VNTState = "HOST_READY"
+		return room, nil
+	})
+}
+
+func (s *Service) VNTRebind(ctx context.Context, actor Actor, roomID, hostToken, nodeID string) (Room, error) {
+	if s.vntNodes == nil || s.vntSecrets == nil {
+		return Room{}, conflict("VNT_FEATURE_DISABLED", "VNT rooms are not available.")
+	}
+	return s.hostOperation(ctx, actor, roomID, hostToken, func(ctx context.Context, tx pgx.Tx, room Room, now time.Time) (Room, error) {
+		if room.TransportKind != TransportVNT {
+			return Room{}, conflict("VNT_ROOM_REQUIRED", "This is not a VNT room.")
+		}
+		if room.State != StateLobby {
+			return Room{}, conflict("VNT_REBIND_NOT_ALLOWED", "VNT nodes can only be changed before the room starts.")
+		}
+		if !room.ExpiresAt.After(now) {
+			return Room{}, conflict("ROOM_EXPIRED", "Room has expired.")
+		}
+		node, err := s.vntNodes.GetForAllocation(ctx, tx, strings.TrimSpace(nodeID), now)
+		if err != nil || node.State != vnt.StateOnline || node.ActiveRooms >= node.MaxRooms {
+			return Room{}, conflict("VNT_NODE_UNAVAILABLE", "The selected VNT node is unavailable.")
+		}
+		generation := room.VNTGeneration + 1
+		networkToken, err := newVNTSecret("vntk_")
+		if err != nil {
+			return Room{}, internal(err)
+		}
+		e2ePassword, err := newVNTSecret("vntw_")
+		if err != nil {
+			return Room{}, internal(err)
+		}
+		networkCipher, networkNonce, keyID, err := s.vntSecrets.Seal([]byte(networkToken), vntSecretAAD(room.ID, generation, node.ID, "network_token"))
+		if err != nil {
+			return Room{}, internal(err)
+		}
+		passwordCipher, passwordNonce, _, err := s.vntSecrets.Seal([]byte(e2ePassword), vntSecretAAD(room.ID, generation, node.ID, "e2e_password"))
+		if err != nil {
+			return Room{}, internal(err)
+		}
+		session := VNTSession{
+			RoomID: room.ID, NodeID: node.ID, Generation: generation, State: "SELECTED",
+			NodeHost: node.AdvertisedHost, NodePort: node.Port, NodeRegion: node.Region,
+			NodeLocation: node.Location, NodeFingerprint: node.ServerKeyFingerprint,
+			NodeTransports: node.SupportedTransports, NetworkTokenCiphertext: networkCipher,
+			NetworkTokenNonce: networkNonce, E2EPasswordCiphertext: passwordCipher,
+			E2EPasswordNonce: passwordNonce, SecretKeyID: keyID,
+		}
+		if err := s.repository.RebindVNT(ctx, tx, session, now); err != nil {
+			return Room{}, internal(err)
+		}
+		room.VNTNodeID = node.ID
+		room.VNTHost = node.AdvertisedHost
+		room.VNTPort = node.Port
+		room.VNTRegion = node.Region
+		room.VNTLocation = node.Location
+		room.VNTState = "SELECTED"
+		room.VNTGeneration = generation
+		return room, nil
+	})
+}
+
+func vntSecretAAD(roomID string, generation int, nodeID, kind string) []byte {
+	return []byte(fmt.Sprintf("%s:%d:%s:%s", roomID, generation, nodeID, kind))
+}
+
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
+}
+
+func createRequestHash(room Room, vntNodeID string) []byte {
+	canonical := fmt.Sprintf("%s\x00%s\x00%s\x00%s\x00%d\x00%s\x00%s",
+		room.DisplayName, room.Region, room.Mode, room.Version, room.MaxPlayers,
+		room.TransportKind, strings.TrimSpace(vntNodeID))
+	hash := sha256.Sum256([]byte(canonical))
+	return hash[:]
+}
+
+func roomHostTokenAAD(roomID, playerID, key string) []byte {
+	return []byte("p2p-host-token:" + roomID + ":" + playerID + ":" + key)
 }
 
 func (s *Service) hostOperation(
@@ -443,6 +848,15 @@ func (s *Service) validateCreate(input CreateInput) error {
 	}
 	if input.MaxPlayers < 2 || input.MaxPlayers > s.config.MaximumPlayers {
 		details["max_players"] = "is outside the configured capacity"
+	}
+	if input.TransportKind != TransportLegacy && input.TransportKind != TransportVNT {
+		details["transport_kind"] = "must be LEGACY_RELAY or VNT"
+	}
+	if input.TransportKind == TransportVNT && strings.TrimSpace(input.VNTNodeID) == "" {
+		details["vnt_node_id"] = "is required for VNT rooms"
+	}
+	if input.IdempotencyKey != "" && !idempotencyPattern.MatchString(strings.TrimSpace(input.IdempotencyKey)) {
+		details["idempotency_key"] = "must contain 8 to 128 safe characters"
 	}
 	if len(details) > 0 {
 		return invalid("Invalid P2P room.", details)

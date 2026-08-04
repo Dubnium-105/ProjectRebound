@@ -18,6 +18,14 @@ func newHostToken() (string, []byte, error) {
 	return token, hashHostToken(token), nil
 }
 
+func newVNTSecret(prefix string) (string, error) {
+	value := make([]byte, 32)
+	if _, err := rand.Read(value); err != nil {
+		return "", err
+	}
+	return prefix + base64.RawURLEncoding.EncodeToString(value), nil
+}
+
 func hashHostToken(token string) []byte {
 	hash := sha256.Sum256([]byte(token))
 	return hash[:]

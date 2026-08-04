@@ -1236,7 +1236,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Issues a short-lived, instance-bound, single-use registration token to a verified player. A player without an existing immutable Dedicated Server grant may redeem a qualifying invite_code in the same transaction. */
+        /** @description Issues a short-lived, instance-bound, single-use registration token to a verified player with an active, unexpired Dedicated Server grant. A player without one may redeem a qualifying invite_code in the same transaction. */
         post: operations["issueGameServerRegistrationToken"];
         delete?: never;
         options?: never;
@@ -1306,6 +1306,86 @@ export interface paths {
         put?: never;
         /** @description Uses only the current signed node identity to bind a fresh Ed25519 CSR, then atomically rotates the node certificate and runtime token. The old pair remains valid for routine runtime traffic during the configured short overlap window, but cannot rotate or deregister the node. */
         post: operations["rotateGameServerCredential"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vnt/node-enrollments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createVNTNodeEnrollment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vnt/nodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listVNTNodes"];
+        put?: never;
+        post: operations["registerVNTNode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vnt/nodes/{node_id}/heartbeat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["heartbeatVNTNode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vnt/nodes/{node_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["retireVNTNode"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vnt/nodes/{node_id}/credential/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["rotateVNTNodeCredential"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1404,6 +1484,70 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["startP2PRoom"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/p2p-rooms/{room_id}/vnt/bootstrap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["bootstrapP2PVNTSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/p2p-rooms/{room_id}/vnt/presence/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["updateP2PVNTPresence"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/p2p-rooms/{room_id}/vnt/host-ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["markP2PVNTHostReady"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/p2p-rooms/{room_id}/vnt/rebind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["rebindP2PVNTSession"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2257,7 +2401,7 @@ export interface components {
              * @example hardware-uuid|disk-serial|cpu-id
              */
             device_id?: string;
-            /** @description Optional unless the server has auth.invite_required enabled. */
+            /** @description Optional unless account creation requires an invite. When supplied by a new or existing player, it is consumed for that player and grants its independent feature capabilities until the invitation's expiry at consumption time. An invitation without an expiry grants non-expiring capabilities. */
             invite_code?: string;
             /** @description Optional Steam Encrypted App Ticket encoded as hexadecimal. The plaintext ticket is never persisted. Supplying an invalid ticket fails the request rather than falling back to unverified. */
             encrypted_ticket?: string;
@@ -2287,6 +2431,7 @@ export interface components {
             /** @enum {string} */
             auth_level: "unverified" | "verified" | "trusted";
             steam_verified: boolean;
+            capabilities: components["schemas"]["PlayerCapabilities"];
             integrity_challenge: components["schemas"]["IntegrityChallengeData"];
         };
         BindResponse: {
@@ -2324,6 +2469,7 @@ export interface components {
         };
         RefreshData: {
             session: components["schemas"]["SessionTokens"];
+            capabilities: components["schemas"]["PlayerCapabilities"];
         };
         RefreshResponse: {
             data: components["schemas"]["RefreshData"];
@@ -2337,6 +2483,8 @@ export interface components {
         };
         /** @enum {string} */
         AccountStatus: "ACTIVE" | "BANNED" | "DELETED";
+        /** @description Currently active, unexpired player feature capabilities. */
+        PlayerCapabilities: ("p2p_room_registration" | "game_server_registration" | "vnt_node_registration")[];
         MeData: {
             player_id: string;
             steam_id: string;
@@ -2347,6 +2495,7 @@ export interface components {
             last_login_at: string;
             /** Format: date-time */
             created_at: string;
+            capabilities: components["schemas"]["PlayerCapabilities"];
         };
         MeResponse: {
             data: components["schemas"]["MeData"];
@@ -2560,17 +2709,28 @@ export interface components {
             used_count: number;
             /** Format: date-time */
             expires_at: string | null;
-            enabled: boolean;
-            permissions: {
-                [key: string]: unknown;
-            };
-            created_by: string;
+        };
+        InvitePermissions: {
+            /** @default false */
+            allow_create_account: boolean;
+            /** @default false */
+            allow_p2p_room_registration: boolean;
+            /** @default false */
+            allow_game_server_registration: boolean;
+            /** @default false */
+            allow_vnt_node_registration: boolean;
+            note?: string;
+            enabled?: boolean;
+            permissions?: components["schemas"]["InvitePermissions"];
+            created_by?: string;
             /** Format: date-time */
-            created_at: string;
+            created_at?: string;
             /** Format: date-time */
-            updated_at: string;
+            updated_at?: string;
             /** Format: date-time */
-            revoked_at: string | null;
+            revoked_at?: string | null;
+        } & {
+            [key: string]: unknown;
         };
         InviteCodeCreateRequest: {
             batch_name: string;
@@ -2582,9 +2742,7 @@ export interface components {
             max_uses: number;
             /** Format: date-time */
             expires_at?: string;
-            permissions?: {
-                [key: string]: unknown;
-            };
+            permissions?: components["schemas"]["InvitePermissions"];
             reason: string;
         };
         InviteCodePatchRequest: {
@@ -2593,9 +2751,7 @@ export interface components {
             /** Format: date-time */
             expires_at?: string | null;
             enabled?: boolean;
-            permissions?: {
-                [key: string]: unknown;
-            };
+            permissions?: components["schemas"]["InvitePermissions"];
             reason: string;
         };
         InviteCodeResponse: {
@@ -3293,6 +3449,115 @@ export interface components {
             };
             request_id: string;
         };
+        VNTNodeEnrollmentRequest: {
+            label: string;
+        };
+        VNTNodeEnrollmentResponse: {
+            data: {
+                enrollment_code: string;
+                /** Format: date-time */
+                expires_at: string;
+            };
+            request_id: string;
+        };
+        VNTNodeRegistrationRequest: {
+            advertised_host: string;
+            port: number;
+            region: string;
+            location: string;
+            vnts_version: string;
+            wrapper_version: string;
+            server_key_fingerprint: string;
+            /** @description Must include both udp for VNT traffic and tcp for control-plane reachability probes. */
+            supported_transports: ("udp" | "tcp")[];
+            max_rooms: number;
+        };
+        VNTNodeRegistrationResponse: {
+            data: {
+                node_id: string;
+                node_token: string;
+                /** @constant */
+                state: "REGISTERING";
+                heartbeat_interval_seconds: number;
+                /** Format: date-time */
+                credential_expires_at: string;
+            };
+            request_id: string;
+        };
+        VNTNodeHeartbeatRequest: {
+            wrapper_version: string;
+            vnts_version: string;
+            /** Format: int64 */
+            uptime_seconds: number;
+            reported_sessions: number;
+            server_process_healthy: boolean;
+        };
+        VNTNode: {
+            node_id: string;
+            host: string;
+            port: number;
+            region: string;
+            location: string;
+            /** @enum {string} */
+            status: "REGISTERING" | "ONLINE" | "STALE" | "OFFLINE" | "DRAINING" | "REVOKED" | "RETIRED";
+            vnts_version: string;
+            wrapper_version: string;
+            server_key_fingerprint: string;
+            supported_transports: ("udp" | "tcp")[];
+            capacity_available: number;
+            version_compatible: boolean;
+            /** Format: date-time */
+            last_reachable_at: string | null;
+        };
+        VNTNodeListResponse: {
+            data: {
+                items: components["schemas"]["VNTNode"][];
+            };
+            request_id: string;
+        };
+        VNTPresenceRequest: {
+            generation: number;
+            /** @enum {string} */
+            state: "ISSUED" | "CONNECTING" | "CONNECTED" | "FAILED" | "STOPPED";
+            /** Format: ipv4 */
+            virtual_ip: string;
+            /** @enum {string} */
+            observed_path?: "P2P" | "RELAY" | "UNKNOWN";
+            reason_code?: string;
+        };
+        VNTHostReadyRequest: {
+            generation: number;
+            /** @constant */
+            virtual_ip: "10.26.0.2";
+        };
+        VNTBootstrap: {
+            room_id: string;
+            generation: number;
+            /** Format: date-time */
+            expires_at: string;
+            server: {
+                address: string;
+                server_key_fingerprint: string;
+                supported_transports: string[];
+            };
+            network_token: string;
+            e2e_password: string;
+            /** @enum {string} */
+            cipher_model: "chacha20_poly1305" | "aes_gcm";
+            /** @constant */
+            server_encrypt: true;
+            device_id: string;
+            device_name: string;
+            /** Format: ipv4 */
+            virtual_ip: string;
+            /** Format: ipv4 */
+            host_virtual_ip: string | null;
+            mtu: number;
+        };
+        VNTBootstrapResponse: {
+            data: components["schemas"]["VNTBootstrap"];
+            request_id: string;
+        };
         /** @enum {string} */
         P2PRoomState: "LOBBY" | "CONNECTING" | "RUNNING" | "STALE" | "CLOSED";
         /** @enum {string} */
@@ -3475,6 +3740,12 @@ export interface components {
             mode: string;
             version: string;
             max_players: number;
+            /**
+             * @default LEGACY_RELAY
+             * @enum {string}
+             */
+            transport_kind: "LEGACY_RELAY" | "VNT";
+            vnt_node_id?: string;
         };
         P2PRoomJoinRequest: {
             version: string;
@@ -3494,6 +3765,18 @@ export interface components {
             last_heartbeat_at: string;
             /** Format: date-time */
             created_at: string;
+            /** @enum {string} */
+            transport_kind: "LEGACY_RELAY" | "VNT";
+            vnt_node_id?: string;
+            vnt_host?: string;
+            vnt_port?: number;
+            vnt_region?: string;
+            vnt_location?: string;
+            /** @enum {string} */
+            vnt_state?: "SELECTED" | "HOST_CONNECTING" | "HOST_READY" | "READY" | "ACTIVE" | "REBINDING" | "FAILED" | "CLOSED";
+            generation?: number;
+            /** Format: date-time */
+            expires_at: string;
         };
         P2PRoomResponse: {
             data: components["schemas"]["PublicP2PRoom"];
@@ -4317,6 +4600,15 @@ export interface components {
         };
         /** @description Invalid, expired, reused, or revoked session token. */
         Unauthorized: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description The authenticated subject lacks the required account state or capability. */
+        Forbidden: {
             headers: {
                 [name: string]: unknown;
             };
@@ -6639,6 +6931,159 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
         };
     };
+    createVNTNodeEnrollment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VNTNodeEnrollmentRequest"];
+            };
+        };
+        responses: {
+            /** @description A single-use, ten-minute node enrollment code. Requires the vnt_node_registration player capability. */
+            201: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VNTNodeEnrollmentResponse"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listVNTNodes: {
+        parameters: {
+            query?: {
+                status?: string;
+                region?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Public VNT node directory without owner identity or credentials. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VNTNodeListResponse"];
+                };
+            };
+        };
+    };
+    registerVNTNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VNTNodeRegistrationRequest"];
+            };
+        };
+        responses: {
+            /** @description Node registered; the node credential is returned only once. */
+            201: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VNTNodeRegistrationResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    heartbeatVNTNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VNTNodeHeartbeatRequest"];
+            };
+        };
+        responses: {
+            /** @description Node lease refreshed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    retireVNTNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Node moved to DRAINING or RETIRED. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    rotateVNTNodeCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The old credential is revoked and the new credential is returned only once. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            node_token: string;
+                            /** Format: date-time */
+                            credential_expires_at: string;
+                        };
+                        request_id: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
     listP2PRooms: {
         parameters: {
             query?: {
@@ -6670,7 +7115,10 @@ export interface operations {
     createP2PRoom: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Recommended for all room creation and required by ToolBox for VNT creation; the same key and request return the same room and host token. */
+                "Idempotency-Key"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -6683,6 +7131,7 @@ export interface operations {
             /** @description Room created and its one-time host management credential issued. */
             201: {
                 headers: {
+                    "Cache-Control"?: "no-store";
                     [name: string]: unknown;
                 };
                 content: {
@@ -6700,6 +7149,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            409: components["responses"]["Conflict"];
         };
     };
     getP2PRoom: {
@@ -6875,7 +7325,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Room transitioned from LOBBY to CONNECTING. */
+            /** @description Legacy rooms transition to CONNECTING; an already host-ready VNT room transitions directly to RUNNING. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -6893,6 +7343,117 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+        };
+    };
+    bootstrapP2PVNTSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                room_id: components["parameters"]["P2PRoomID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current-generation VNT runtime configuration for an active member. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VNTBootstrapResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    updateP2PVNTPresence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                room_id: components["parameters"]["P2PRoomID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VNTPresenceRequest"];
+            };
+        };
+        responses: {
+            /** @description Presence accepted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["P2PRoomResponse"];
+                };
+            };
+        };
+    };
+    markP2PVNTHostReady: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Independent high-entropy room host credential. It is returned only at room creation. */
+                "X-Room-Host-Token": components["parameters"]["P2PRoomHostToken"];
+            };
+            path: {
+                room_id: components["parameters"]["P2PRoomID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VNTHostReadyRequest"];
+            };
+        };
+        responses: {
+            /** @description Host readiness published */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["P2PRoomResponse"];
+                };
+            };
+        };
+    };
+    rebindP2PVNTSession: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Independent high-entropy room host credential. It is returned only at room creation. */
+                "X-Room-Host-Token": components["parameters"]["P2PRoomHostToken"];
+            };
+            path: {
+                room_id: components["parameters"]["P2PRoomID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    vnt_node_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description VNT generation and room secrets rotated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["P2PRoomResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
         };
     };
     getActiveP2PMatch: {

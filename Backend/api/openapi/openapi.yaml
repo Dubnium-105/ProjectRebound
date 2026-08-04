@@ -1695,7 +1695,7 @@ paths:
     post:
       operationId: issueGameServerRegistrationToken
       tags: [Dedicated Servers]
-      description: Issues a short-lived, instance-bound, single-use registration token to a verified player. A player without an existing immutable Dedicated Server grant may redeem a qualifying invite_code in the same transaction.
+      description: Issues a short-lived, instance-bound, single-use registration token to a verified player with an active, unexpired Dedicated Server grant. A player without one may redeem a qualifying invite_code in the same transaction.
       security:
         - playerAccessToken: []
       requestBody:
@@ -1873,6 +1873,113 @@ paths:
             application/json:
               schema: {$ref: "#/components/schemas/GameServerCredentialRotationResponse"}
         "401": {$ref: "#/components/responses/Unauthorized"}
+  /v1/vnt/node-enrollments:
+    post:
+      operationId: createVNTNodeEnrollment
+      tags: [VNT]
+      security:
+        - playerAccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/VNTNodeEnrollmentRequest"}
+      responses:
+        "201":
+          description: A single-use, ten-minute node enrollment code. Requires the vnt_node_registration player capability.
+          headers:
+            Cache-Control: {schema: {type: string, const: no-store}}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/VNTNodeEnrollmentResponse"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+  /v1/vnt/nodes:
+    get:
+      operationId: listVNTNodes
+      tags: [VNT]
+      parameters:
+        - {in: query, name: status, schema: {type: string, default: online}}
+        - {in: query, name: region, schema: {type: string}}
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 200, default: 100}}
+      responses:
+        "200":
+          description: Public VNT node directory without owner identity or credentials.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/VNTNodeListResponse"}
+    post:
+      operationId: registerVNTNode
+      tags: [VNT]
+      security:
+        - vntEnrollmentCode: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/VNTNodeRegistrationRequest"}
+      responses:
+        "201":
+          description: Node registered; the node credential is returned only once.
+          headers:
+            Cache-Control: {schema: {type: string, const: no-store}}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/VNTNodeRegistrationResponse"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+  /v1/vnt/nodes/{node_id}/heartbeat:
+    post:
+      operationId: heartbeatVNTNode
+      tags: [VNT]
+      security:
+        - vntNodeToken: []
+      parameters:
+        - {in: path, name: node_id, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/VNTNodeHeartbeatRequest"}
+      responses:
+        "200": {description: Node lease refreshed.}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+  /v1/vnt/nodes/{node_id}:
+    delete:
+      operationId: retireVNTNode
+      tags: [VNT]
+      security:
+        - vntNodeToken: []
+      parameters:
+        - {in: path, name: node_id, required: true, schema: {type: string}}
+      responses:
+        "200": {description: Node moved to DRAINING or RETIRED.}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+  /v1/vnt/nodes/{node_id}/credential/rotate:
+    post:
+      operationId: rotateVNTNodeCredential
+      tags: [VNT]
+      security:
+        - vntNodeToken: []
+      parameters:
+        - {in: path, name: node_id, required: true, schema: {type: string}}
+      responses:
+        "200":
+          description: The old credential is revoked and the new credential is returned only once.
+          headers:
+            Cache-Control: {schema: {type: string, const: no-store}}
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, request_id]
+                properties:
+                  data:
+                    type: object
+                    required: [node_token, credential_expires_at]
+                    properties:
+                      node_token: {type: string, writeOnly: true}
+                      credential_expires_at: {type: string, format: date-time}
+                  request_id: {type: string}
+        "401": {$ref: "#/components/responses/Unauthorized"}
   /v1/p2p-rooms:
     get:
       operationId: listP2PRooms
@@ -1912,6 +2019,12 @@ paths:
       tags: [P2P Rooms]
       security:
         - playerAccessToken: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: false
+          schema: {type: string, minLength: 8, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$"}
+          description: Recommended for all room creation and required by ToolBox for VNT creation; the same key and request return the same room and host token.
       requestBody:
         required: true
         content:
@@ -1921,6 +2034,8 @@ paths:
       responses:
         "201":
           description: Room created and its one-time host management credential issued.
+          headers:
+            Cache-Control: {schema: {type: string, const: no-store}}
           content:
             application/json:
               schema:
@@ -1935,6 +2050,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "409": {$ref: "#/components/responses/Conflict"}
   /v1/p2p-rooms/{room_id}:
     parameters:
       - $ref: "#/components/parameters/P2PRoomID"
@@ -2055,7 +2171,7 @@ paths:
         - $ref: "#/components/parameters/P2PRoomHostToken"
       responses:
         "200":
-          description: Room transitioned from LOBBY to CONNECTING.
+          description: Legacy rooms transition to CONNECTING; an already host-ready VNT room transitions directly to RUNNING.
           content:
             application/json:
               schema:
@@ -2066,6 +2182,76 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /v1/p2p-rooms/{room_id}/vnt/bootstrap:
+    post:
+      operationId: bootstrapP2PVNTSession
+      tags: [VNT]
+      security:
+        - playerAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/P2PRoomID"
+      responses:
+        "200":
+          description: Current-generation VNT runtime configuration for an active member.
+          headers:
+            Cache-Control: {schema: {type: string, const: no-store}}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/VNTBootstrapResponse"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/p2p-rooms/{room_id}/vnt/presence/me:
+    put:
+      operationId: updateP2PVNTPresence
+      tags: [VNT]
+      security:
+        - playerAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/P2PRoomID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/VNTPresenceRequest"}
+      responses:
+        "200": {description: Presence accepted, content: {application/json: {schema: {$ref: "#/components/schemas/P2PRoomResponse"}}}}
+  /v1/p2p-rooms/{room_id}/vnt/host-ready:
+    put:
+      operationId: markP2PVNTHostReady
+      tags: [VNT]
+      security:
+        - playerAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/P2PRoomID"
+        - $ref: "#/components/parameters/P2PRoomHostToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/VNTHostReadyRequest"}
+      responses:
+        "200": {description: Host readiness published, content: {application/json: {schema: {$ref: "#/components/schemas/P2PRoomResponse"}}}}
+  /v1/p2p-rooms/{room_id}/vnt/rebind:
+    post:
+      operationId: rebindP2PVNTSession
+      tags: [VNT]
+      security:
+        - playerAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/P2PRoomID"
+        - $ref: "#/components/parameters/P2PRoomHostToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [vnt_node_id]
+              properties:
+                vnt_node_id: {type: string}
+      responses:
+        "200": {description: VNT generation and room secrets rotated, content: {application/json: {schema: {$ref: "#/components/schemas/P2PRoomResponse"}}}}
+        "409": {$ref: "#/components/responses/Conflict"}
   /v1/p2p-rooms/{room_id}/matches/active:
     get:
       operationId: getActiveP2PMatch
@@ -3219,6 +3405,15 @@ components:
       type: http
       scheme: bearer
       bearerFormat: Opaque Relay Node Token
+    vntEnrollmentCode:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Single-use VNT node enrollment code returned to an entitled player.
+    vntNodeToken:
+      type: http
+      scheme: bearer
+      bearerFormat: Opaque VNT Node Credential
   parameters:
     GameServerCertificateFingerprint:
       in: header
@@ -3372,6 +3567,12 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: The authenticated subject lacks the required account state or capability.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
     RateLimited:
       description: An authentication rate limit was exceeded. Retry-After is returned when applicable.
       content:
@@ -3427,7 +3628,12 @@ components:
         invite_code:
           type: string
           maxLength: 128
-          description: Optional unless the server has auth.invite_required enabled.
+          description: >-
+            Optional unless account creation requires an invite. When supplied
+            by a new or existing player, it is consumed for that player and
+            grants its independent feature capabilities until the invitation's
+            expiry at consumption time. An invitation without an expiry grants
+            non-expiring capabilities.
         encrypted_ticket:
           type: string
           maxLength: 4096
@@ -3468,7 +3674,7 @@ components:
           type: string
     BindData:
       type: object
-      required: [player_id, account_status, is_vip, profile, session, is_new_player, auth_level, steam_verified, integrity_challenge]
+      required: [player_id, account_status, is_vip, profile, session, is_new_player, auth_level, steam_verified, capabilities, integrity_challenge]
       properties:
         player_id:
           type: string
@@ -3487,6 +3693,8 @@ components:
           enum: [unverified, verified, trusted]
         steam_verified:
           type: boolean
+        capabilities:
+          $ref: "#/components/schemas/PlayerCapabilities"
         integrity_challenge:
           $ref: "#/components/schemas/IntegrityChallengeData"
     BindResponse:
@@ -3559,10 +3767,12 @@ components:
           const: true
     RefreshData:
       type: object
-      required: [session]
+      required: [session, capabilities]
       properties:
         session:
           $ref: "#/components/schemas/SessionTokens"
+        capabilities:
+          $ref: "#/components/schemas/PlayerCapabilities"
     RefreshResponse:
       type: object
       required: [data, request_id]
@@ -3586,9 +3796,16 @@ components:
     AccountStatus:
       type: string
       enum: [ACTIVE, BANNED, DELETED]
+    PlayerCapabilities:
+      type: array
+      description: Currently active, unexpired player feature capabilities.
+      uniqueItems: true
+      items:
+        type: string
+        enum: [p2p_room_registration, game_server_registration, vnt_node_registration]
     MeData:
       type: object
-      required: [player_id, steam_id, persona_name, account_status, is_vip, last_login_at, created_at]
+      required: [player_id, steam_id, persona_name, account_status, is_vip, last_login_at, created_at, capabilities]
       properties:
         player_id:
           type: string
@@ -3606,6 +3823,8 @@ components:
         created_at:
           type: string
           format: date-time
+        capabilities:
+          $ref: "#/components/schemas/PlayerCapabilities"
     MeResponse:
       type: object
       required: [data, request_id]
@@ -3954,8 +4173,17 @@ components:
         expires_at:
           type: [string, "null"]
           format: date-time
+    InvitePermissions:
+      type: object
+      additionalProperties: true
+      properties:
+        allow_create_account: {type: boolean, default: false}
+        allow_p2p_room_registration: {type: boolean, default: false}
+        allow_game_server_registration: {type: boolean, default: false}
+        allow_vnt_node_registration: {type: boolean, default: false}
+        note: {type: string, maxLength: 300}
         enabled: {type: boolean}
-        permissions: {type: object, additionalProperties: true}
+        permissions: {$ref: "#/components/schemas/InvitePermissions"}
         created_by: {type: string}
         created_at: {type: string, format: date-time}
         updated_at: {type: string, format: date-time}
@@ -3976,7 +4204,7 @@ components:
           description: Number of independently hashed codes to create atomically.
         max_uses: {type: integer, minimum: 1, maximum: 1000000}
         expires_at: {type: string, format: date-time}
-        permissions: {type: object, additionalProperties: true}
+        permissions: {$ref: "#/components/schemas/InvitePermissions"}
         reason: {type: string, minLength: 1, maxLength: 500}
     InviteCodePatchRequest:
       type: object
@@ -3989,7 +4217,7 @@ components:
           type: [string, "null"]
           format: date-time
         enabled: {type: boolean}
-        permissions: {type: object, additionalProperties: true}
+        permissions: {$ref: "#/components/schemas/InvitePermissions"}
         reason: {type: string, minLength: 1, maxLength: 500}
     InviteCodeResponse:
       type: object
@@ -4979,6 +5207,141 @@ components:
           properties:
             deregistered: {type: boolean}
         request_id: {type: string}
+    VNTNodeEnrollmentRequest:
+      type: object
+      additionalProperties: false
+      required: [label]
+      properties:
+        label: {type: string, pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"}
+    VNTNodeEnrollmentResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [enrollment_code, expires_at]
+          properties:
+            enrollment_code: {type: string, writeOnly: true}
+            expires_at: {type: string, format: date-time}
+        request_id: {type: string}
+    VNTNodeRegistrationRequest:
+      type: object
+      additionalProperties: false
+      required: [advertised_host, port, region, location, vnts_version, wrapper_version, server_key_fingerprint, supported_transports, max_rooms]
+      properties:
+        advertised_host: {type: string, maxLength: 253}
+        port: {type: integer, minimum: 1024, maximum: 65535}
+        region: {type: string, maxLength: 64}
+        location: {type: string, maxLength: 128}
+        vnts_version: {type: string, maxLength: 32}
+        wrapper_version: {type: string, maxLength: 32}
+        server_key_fingerprint: {type: string, maxLength: 128}
+        supported_transports:
+          type: array
+          description: Must include both udp for VNT traffic and tcp for control-plane reachability probes.
+          minItems: 2
+          uniqueItems: true
+          items: {type: string, enum: [udp, tcp]}
+        max_rooms: {type: integer, minimum: 1, maximum: 10000}
+    VNTNodeRegistrationResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [node_id, node_token, state, heartbeat_interval_seconds, credential_expires_at]
+          properties:
+            node_id: {type: string}
+            node_token: {type: string, writeOnly: true}
+            state: {type: string, const: REGISTERING}
+            heartbeat_interval_seconds: {type: integer, minimum: 1}
+            credential_expires_at: {type: string, format: date-time}
+        request_id: {type: string}
+    VNTNodeHeartbeatRequest:
+      type: object
+      additionalProperties: false
+      required: [wrapper_version, vnts_version, uptime_seconds, reported_sessions, server_process_healthy]
+      properties:
+        wrapper_version: {type: string, maxLength: 32}
+        vnts_version: {type: string, maxLength: 32}
+        uptime_seconds: {type: integer, format: int64, minimum: 0}
+        reported_sessions: {type: integer, minimum: 0}
+        server_process_healthy: {type: boolean}
+    VNTNode:
+      type: object
+      additionalProperties: false
+      required: [node_id, host, port, region, location, status, vnts_version, wrapper_version, server_key_fingerprint, supported_transports, capacity_available, version_compatible, last_reachable_at]
+      properties:
+        node_id: {type: string}
+        host: {type: string}
+        port: {type: integer, minimum: 1024, maximum: 65535}
+        region: {type: string}
+        location: {type: string}
+        status: {type: string, enum: [REGISTERING, ONLINE, STALE, OFFLINE, DRAINING, REVOKED, RETIRED]}
+        vnts_version: {type: string}
+        wrapper_version: {type: string}
+        server_key_fingerprint: {type: string}
+        supported_transports: {type: array, items: {type: string, enum: [udp, tcp]}}
+        capacity_available: {type: integer, minimum: 0}
+        version_compatible: {type: boolean}
+        last_reachable_at: {type: [string, "null"], format: date-time}
+    VNTNodeListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items: {type: array, items: {$ref: "#/components/schemas/VNTNode"}}
+        request_id: {type: string}
+    VNTPresenceRequest:
+      type: object
+      additionalProperties: false
+      required: [generation, state, virtual_ip]
+      properties:
+        generation: {type: integer, minimum: 1}
+        state: {type: string, enum: [ISSUED, CONNECTING, CONNECTED, FAILED, STOPPED]}
+        virtual_ip: {type: string, format: ipv4}
+        observed_path: {type: string, enum: [P2P, RELAY, UNKNOWN]}
+        reason_code: {type: string, maxLength: 64}
+    VNTHostReadyRequest:
+      type: object
+      additionalProperties: false
+      required: [generation, virtual_ip]
+      properties:
+        generation: {type: integer, minimum: 1}
+        virtual_ip: {type: string, const: 10.26.0.2}
+    VNTBootstrap:
+      type: object
+      additionalProperties: false
+      required: [room_id, generation, expires_at, server, network_token, e2e_password, cipher_model, server_encrypt, device_id, device_name, virtual_ip, host_virtual_ip, mtu]
+      properties:
+        room_id: {type: string}
+        generation: {type: integer, minimum: 1}
+        expires_at: {type: string, format: date-time}
+        server:
+          type: object
+          required: [address, server_key_fingerprint, supported_transports]
+          properties:
+            address: {type: string}
+            server_key_fingerprint: {type: string}
+            supported_transports: {type: array, items: {type: string}}
+        network_token: {type: string, writeOnly: true}
+        e2e_password: {type: string, writeOnly: true}
+        cipher_model: {type: string, enum: [chacha20_poly1305, aes_gcm]}
+        server_encrypt: {type: boolean, const: true}
+        device_id: {type: string}
+        device_name: {type: string}
+        virtual_ip: {type: string, format: ipv4}
+        host_virtual_ip: {type: [string, "null"], format: ipv4}
+        mtu: {type: integer, minimum: 576, maximum: 1500}
+    VNTBootstrapResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/VNTBootstrap"}
+        request_id: {type: string}
     P2PRoomState:
       type: string
       enum: [LOBBY, CONNECTING, RUNNING, STALE, CLOSED]
@@ -5181,6 +5544,8 @@ components:
         mode: {type: string, minLength: 1, maxLength: 64}
         version: {type: string, minLength: 1, maxLength: 64}
         max_players: {type: integer, minimum: 2, maximum: 64}
+        transport_kind: {type: string, enum: [LEGACY_RELAY, VNT], default: LEGACY_RELAY}
+        vnt_node_id: {type: string}
     P2PRoomJoinRequest:
       type: object
       additionalProperties: false
@@ -5190,7 +5555,7 @@ components:
     PublicP2PRoom:
       type: object
       description: Whitelisted room metadata. Host credentials, IP addresses, NAT details, candidates, and relay data are excluded.
-      required: [room_id, host_player_id, display_name, region, mode, version, max_players, player_count, state, last_heartbeat_at, created_at]
+      required: [room_id, host_player_id, display_name, region, mode, version, max_players, player_count, state, last_heartbeat_at, created_at, transport_kind, expires_at]
       properties:
         room_id: {type: string}
         host_player_id: {type: string}
@@ -5204,6 +5569,15 @@ components:
           $ref: "#/components/schemas/P2PRoomState"
         last_heartbeat_at: {type: string, format: date-time}
         created_at: {type: string, format: date-time}
+        transport_kind: {type: string, enum: [LEGACY_RELAY, VNT]}
+        vnt_node_id: {type: string}
+        vnt_host: {type: string}
+        vnt_port: {type: integer, minimum: 1024, maximum: 65535}
+        vnt_region: {type: string}
+        vnt_location: {type: string}
+        vnt_state: {type: string, enum: [SELECTED, HOST_CONNECTING, HOST_READY, READY, ACTIVE, REBINDING, FAILED, CLOSED]}
+        generation: {type: integer, minimum: 1}
+        expires_at: {type: string, format: date-time}
     P2PRoomResponse:
       type: object
       required: [data, request_id]

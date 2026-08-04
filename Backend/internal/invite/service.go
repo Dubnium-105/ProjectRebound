@@ -198,10 +198,10 @@ func (s *Service) Revoke(ctx context.Context, id, reason string, meta RequestMet
 	})
 }
 
-func (s *Service) Consume(ctx context.Context, tx pgx.Tx, plaintext, playerID, steamID, ipAddress string, now time.Time) error {
+func (s *Service) Consume(ctx context.Context, tx pgx.Tx, plaintext, playerID, steamID, ipAddress string, now time.Time) (string, map[string]any, *time.Time, error) {
 	plaintext = normalizeCode(plaintext)
 	if plaintext == "" || len(plaintext) > 128 {
-		return ErrInvalidCode
+		return "", nil, nil, ErrInvalidCode
 	}
 	return s.repository.Consume(ctx, tx, hashCode(plaintext), playerID, steamID, ipAddress, now)
 }

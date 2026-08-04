@@ -110,6 +110,12 @@ func TestGameServerRegistryAgainstPostgreSQL(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := pool.Exec(ctx, `
+		INSERT INTO player_feature_grants (player_id, capability, source_invite_use_id, granted_at)
+		VALUES ($1, 'game_server_registration', $2, $3)
+	`, playerID, inviteUseID, fixedNow); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
 		INSERT INTO players (
 			id, steam_id, persona_name, account_status, auth_provider, auth_level,
 			created_at, updated_at
@@ -132,6 +138,7 @@ func TestGameServerRegistryAgainstPostgreSQL(t *testing.T) {
 		instances := []string{firstInstance, secondInstance, concurrentInstance, playerInstance, redeemInstance}
 		_, _ = pool.Exec(cleanupCtx, "DELETE FROM game_server_registration_tokens WHERE instance_id = ANY($1)", instances)
 		_, _ = pool.Exec(cleanupCtx, "DELETE FROM game_servers WHERE instance_id = ANY($1)", instances)
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM player_feature_grants WHERE player_id = ANY($1)", []string{playerID, redeemPlayerID})
 		_, _ = pool.Exec(cleanupCtx, "DELETE FROM invite_code_uses WHERE invite_code_id = $1", inviteID)
 		_, _ = pool.Exec(cleanupCtx, "DELETE FROM invite_codes WHERE id = $1", inviteID)
 		_, _ = pool.Exec(cleanupCtx, "DELETE FROM invite_code_uses WHERE invite_code_id = $1", redeemInviteID)

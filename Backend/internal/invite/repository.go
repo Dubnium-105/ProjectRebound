@@ -125,7 +125,7 @@ func (r *Repository) Consume(
 	codeHash []byte,
 	playerID, steamID, ipAddress string,
 	now time.Time,
-) error {
+) (string, map[string]any, *time.Time, error) {
 	var id string
 	var maxUses, usedCount int
 	var enabled bool
@@ -139,12 +139,12 @@ func (r *Repository) Consume(
 	`, codeHash).Scan(&id, &maxUses, &usedCount, &enabled, &expiresAt, &revokedAt, &permissions)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return ErrInvalidCode
+			return "", nil, nil, ErrInvalidCode
 		}
-		return fmt.Errorf("lock invite code: %w", err)
+		return "", nil, nil, fmt.Errorf("lock invite code: %w", err)
 	}
 	if !enabled || revokedAt.Valid || expiresAt.Valid && !expiresAt.Time.After(now) || usedCount >= maxUses {
-		return ErrInvalidCode
+		return "", nil, nil, ErrInvalidCode
 	}
 	tag, err := tx.Exec(ctx, `
 		UPDATE invite_codes
@@ -152,21 +152,31 @@ func (r *Repository) Consume(
 		WHERE id = $1 AND used_count < max_uses
 	`, id, now)
 	if err != nil {
-		return fmt.Errorf("consume invite code: %w", err)
+		return "", nil, nil, fmt.Errorf("consume invite code: %w", err)
 	}
 	if tag.RowsAffected() != 1 {
-		return ErrInvalidCode
+		return "", nil, nil, ErrInvalidCode
 	}
+	useID := newID("icu_")
 	_, err = tx.Exec(ctx, `
 		INSERT INTO invite_code_uses (
 			id, invite_code_id, player_id, steam_id, ip_address, used_at, result,
 			permission_snapshot
 		) VALUES ($1, $2, $3, $4, NULLIF($5, '')::inet, $6, 'SUCCESS', $7::jsonb)
-	`, newID("icu_"), id, playerID, steamID, ipAddress, now, permissions)
+	`, useID, id, playerID, steamID, ipAddress, now, permissions)
 	if err != nil {
-		return fmt.Errorf("record invite code use: %w", err)
+		return "", nil, nil, fmt.Errorf("record invite code use: %w", err)
 	}
-	return nil
+	var decoded map[string]any
+	if err := json.Unmarshal(permissions, &decoded); err != nil {
+		return "", nil, nil, fmt.Errorf("decode invite permissions: %w", err)
+	}
+	var permissionExpiresAt *time.Time
+	if expiresAt.Valid {
+		value := expiresAt.Time
+		permissionExpiresAt = &value
+	}
+	return useID, decoded, permissionExpiresAt, nil
 }
 
 const codeSelect = `
