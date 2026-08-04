@@ -124,10 +124,10 @@ func (h *HTTPHandler) Session(w http.ResponseWriter, r *http.Request) {
 
 // ConnectServer preserves the game's route and response shape while deriving
 // identity only from the authenticated control-plane principal. Shipped game
-// builds disagree on both the names and JSON types of their legacy fields, so
-// the compatibility body is validated as an object but otherwise ignored.
+// builds disagree on the encoding, names, and types of their legacy fields, so
+// the size-limited compatibility body is drained but never decoded or trusted.
 func (h *HTTPHandler) ConnectServer(w http.ResponseWriter, r *http.Request) {
-	if err := decodeCompatibilityJSONObject(r); err != nil {
+	if err := discardCompatibilityBody(r); err != nil {
 		h.writeError(w, r, invalid(map[string]any{"body": err.Error()}))
 		return
 	}
@@ -447,15 +447,9 @@ func decodeJSON(r *http.Request, target any) error {
 	return decodeJSONValue(r, target, true)
 }
 
-func decodeCompatibilityJSONObject(r *http.Request) error {
-	var input map[string]json.RawMessage
-	if err := decodeJSONValue(r, &input, false); err != nil {
-		return err
-	}
-	if input == nil {
-		return errors.New("request body must be a JSON object")
-	}
-	return nil
+func discardCompatibilityBody(r *http.Request) error {
+	_, err := io.Copy(io.Discard, r.Body)
+	return err
 }
 
 func decodeJSONValue(r *http.Request, target any, disallowUnknownFields bool) error {

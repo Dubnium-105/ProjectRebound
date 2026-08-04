@@ -1783,7 +1783,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Compatibility endpoint used only through MetaTunnel. Any playerId or loginToken field is ignored. The request must be one JSON object, but all of its release-specific fields and values are ignored. Shipped Boundary clients are labeled boundary-legacy and use the server protocol version. */
+        /** @description Compatibility endpoint used only through MetaTunnel. Any playerId or loginToken field is ignored. The size-limited legacy body is treated as opaque and is never decoded because shipped builds use different encodings, fields, and value types. Shipped Boundary clients are labeled boundary-legacy and use the server protocol version. */
         post: operations["connectMetaServerCompatibility"];
         delete?: never;
         options?: never;
@@ -4014,7 +4014,7 @@ export interface components {
              */
             loginToken?: string;
         };
-        /** @description Shipped Boundary clients include release-specific legacy fields whose names and JSON types vary. Every field is accepted and ignored only on the compatibility endpoint. Identity comes from the bearer token; client and protocol versions come from the server compatibility profile. */
+        /** @description Documentation shape for an opaque, ignored legacy payload. Shipped Boundary clients vary in their wire encoding, field names, and value types, so the compatibility endpoint does not decode this body. Identity comes from the bearer token; client and protocol versions come from the server profile. */
         MetaConnectServerRequest: {
             [key: string]: unknown;
         };

@@ -48,13 +48,13 @@ It returns HTTP 201 with `user_id`, `gate_ticket`, `endpoint`,
 entropy, expires after at most 60 seconds, and can be consumed once.
 
 The game compatibility path is `POST /connectServer`. MetaTunnel calls it with
-the bearer header and one JSON object. Shipped Boundary builds disagree on both
-the names and JSON types of their release-specific fields, so every body field
-is ignored. The server labels these clients `boundary-legacy` and selects its
-own protocol version. Identity always comes from the bearer token, never from
-legacy `playerId` or `loginToken` values. Modern MetaServer endpoints continue
-to enforce their typed schemas. The compatibility path's direct game-shaped
-response is:
+the bearer header and the game's size-limited legacy body. Shipped Boundary
+builds disagree on its encoding, field names, and value types, so the body is
+treated as opaque and is never decoded. The server labels these clients
+`boundary-legacy` and selects its own protocol version. Identity always comes
+from the bearer token, never from legacy `playerId` or `loginToken` values.
+Modern MetaServer endpoints continue to enforce their typed schemas. The
+compatibility path's direct game-shaped response is:
 
 ```json
 {"error":0,"userId":"...","aceId":"...","gateToken":"...","endpoint":"logic.dubnium.top:443"}

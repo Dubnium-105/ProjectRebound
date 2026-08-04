@@ -44,11 +44,12 @@ HTTP 201 响应包含 `user_id`、`gate_ticket`、`endpoint`、
 `expires_in_seconds` 和 `protocol_version`。Ticket 具有 256 位随机熵，最多 60 秒
 有效，且只能消费一次。
 
-游戏兼容路径为 `POST /connectServer`。MetaTunnel 携带 bearer header 和一个 JSON
-对象调用。不同 Boundary 正式版本的旧字段名称及 JSON 类型并不一致，因此兼容路径
-忽略请求体中的全部字段。服务端统一标记客户端为 `boundary-legacy` 并选用服务端协议
-版本；身份始终来自 bearer token，不采用旧 `playerId` 或 `loginToken` 值。现代
-MetaServer 接口仍严格校验字段类型和未知字段。兼容路径直接返回游戏形状：
+游戏兼容路径为 `POST /connectServer`。MetaTunnel 携带 bearer header 和受全局大小限制
+的游戏旧请求体调用。不同 Boundary 正式版本的正文编码、字段名称及值类型并不一致，
+因此兼容路径将正文视为不透明数据并直接丢弃，不执行 JSON 解码。服务端统一标记客户端
+为 `boundary-legacy` 并选用服务端协议版本；身份始终来自 bearer token，不采用旧
+`playerId` 或 `loginToken` 值。现代 MetaServer 接口仍严格校验字段类型和未知字段。
+兼容路径直接返回游戏形状：
 
 ```json
 {"error":0,"userId":"...","aceId":"...","gateToken":"...","endpoint":"logic.dubnium.top:443"}

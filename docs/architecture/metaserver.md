@@ -43,11 +43,11 @@ Access Token to MetaTunnel through stdin. MetaTunnel never accepts tokens in a
 command line, environment variable, URL, or log. It binds random loopback-only
 HTTP and TCP ports.
 
-For `/connectServer`, MetaTunnel injects the bearer token. MetaServer validates
-only that the legacy body is one JSON object because shipped builds disagree on
-field names and types. It ignores every body field and derives player ID, auth
-session, account state, compatibility client label, and protocol version
-server-side. It stores a
+For `/connectServer`, MetaTunnel injects the bearer token. Shipped builds
+disagree on the legacy body's encoding, field names, and types, so MetaServer
+drains the size-limited body without decoding or trusting it. It derives player
+ID, auth session, account state, compatibility client label, and protocol
+version server-side. It stores a
 SHA-256-keyed Gate record in Redis for 60 seconds and returns the opaque
 256-bit ticket. The native Gate handshake consumes it with Redis `GETDEL`; a
 concurrent or repeated use fails and emits a replay metric/security event.

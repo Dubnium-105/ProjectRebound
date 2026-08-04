@@ -38,10 +38,10 @@ Browser 在现有控制面完成认证，通过 stdin 将 Access Token 交给 Me
 MetaTunnel 不从命令行、环境变量、URL 或日志接收/输出 token，只绑定随机的
 loopback HTTP/TCP 端口。
 
-MetaTunnel 转发 `/connectServer` 时注入 bearer token。不同正式游戏版本的旧字段名称
-及类型并不一致，因此 MetaServer 只验证请求体是单个 JSON 对象，并忽略其中全部字段；
-玩家、认证会话、账号状态、兼容客户端标签和协议版本均由服务端确定。服务端将以
-SHA-256 为 Redis key 的 Gate 记录保存 60 秒，返回不透明的
+MetaTunnel 转发 `/connectServer` 时注入 bearer token。不同正式游戏版本的旧正文编码、
+字段名称及类型并不一致，因此 MetaServer 在全局大小限制内读取并丢弃正文，不解码也不
+信任其中内容；玩家、认证会话、账号状态、兼容客户端标签和协议版本均由服务端确定。
+服务端将以 SHA-256 为 Redis key 的 Gate 记录保存 60 秒，返回不透明的
 256 位 Ticket。原生 Gate 握手通过 Redis `GETDEL` 原子消费；并发消费或重放会失败，
 并记录重放指标和安全事件。
 
