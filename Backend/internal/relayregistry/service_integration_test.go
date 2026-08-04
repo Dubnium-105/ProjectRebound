@@ -291,9 +291,9 @@ func insertRelayConnectionFixtures(
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO p2p_rooms (
 			id, host_player_id, host_token_hash, display_name, region, mode, version,
-			max_players, player_count, state, last_heartbeat_at, created_at, updated_at
-		) VALUES ($1, $2, $3, 'Relay Integration', 'hk', 'coop', '1.0.0', 4, 4, 'CONNECTING', $4, $4, $4)
-	`, roomID, playerIDs[0], hashToken(fmt.Sprintf("room-token-%d", suffix)), now); err != nil {
+			max_players, player_count, state, last_heartbeat_at, created_at, updated_at, expires_at
+		) VALUES ($1, $2, $3, 'Relay Integration', 'hk', 'coop', '1.0.0', 4, 4, 'CONNECTING', $4, $4, $4, $5)
+	`, roomID, playerIDs[0], hashToken(fmt.Sprintf("room-token-%d", suffix)), now, now.Add(8*time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	for index, connectionID := range connectionIDs {

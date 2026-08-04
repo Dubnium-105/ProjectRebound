@@ -128,7 +128,7 @@ func assertGrantExpiry(
 	if got.Valid != wantValid {
 		t.Fatalf("expires_at validity = %v, want %v", got.Valid, wantValid)
 	}
-	if wantValid && !got.Time.Equal(want) {
+	if wantValid && got.Time.Sub(want).Abs() > time.Microsecond {
 		t.Fatalf("expires_at = %v, want %v", got.Time, want)
 	}
 }

@@ -98,9 +98,9 @@ func TestRelayMigrationLifecycleAgainstPostgreSQL(t *testing.T) {
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO p2p_rooms (
 			id, host_player_id, host_token_hash, display_name, region, mode, version,
-			max_players, player_count, state, last_heartbeat_at, created_at, updated_at
-		) VALUES ($1, $2, $3, 'Migration Room', 'hk', 'coop', '1.0.0', 2, 2, 'RUNNING', $4, $4, $4)
-	`, roomID, playerIDs[0], hashToken("migration-room-token"), now); err != nil {
+			max_players, player_count, state, last_heartbeat_at, created_at, updated_at, expires_at
+		) VALUES ($1, $2, $3, 'Migration Room', 'hk', 'coop', '1.0.0', 2, 2, 'RUNNING', $4, $4, $4, $5)
+	`, roomID, playerIDs[0], hashToken("migration-room-token"), now, now.Add(8*time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := pool.Exec(ctx, `

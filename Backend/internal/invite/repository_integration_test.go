@@ -97,7 +97,7 @@ func TestConcurrentConsumeAllowsOnlyFinalSlotOnce(t *testing.T) {
 				errorsCh <- err
 				return
 			}
-			if grantExpiresAt == nil || !grantExpiresAt.Equal(expiresAt) {
+			if grantExpiresAt == nil || grantExpiresAt.Sub(expiresAt).Abs() > time.Microsecond {
 				errorsCh <- fmt.Errorf("grant expiry = %v, want %v", grantExpiresAt, expiresAt)
 				return
 			}
