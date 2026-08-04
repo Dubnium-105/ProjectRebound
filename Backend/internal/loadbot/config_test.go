@@ -7,6 +7,15 @@ import (
 	"testing"
 )
 
+func TestApplyEnvironmentOverridesSetsInviteCode(t *testing.T) {
+	var cfg Config
+	t.Setenv(InviteCodeEnvironmentVariable, "  integration-invite  ")
+	ApplyEnvironmentOverrides(&cfg)
+	if cfg.Auth.InviteCode != "integration-invite" {
+		t.Fatalf("invite code override = %q", cfg.Auth.InviteCode)
+	}
+}
+
 func TestFixtureEncryptedTicketCarriesIdentityAndUniqueNonce(t *testing.T) {
 	const steamID = "76561198000000000"
 	first := fixtureEncryptedTicket(steamID)

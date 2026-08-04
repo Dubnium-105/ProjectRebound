@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
@@ -115,6 +116,7 @@ func TestV11ControlPlaneAndTwoRelays(t *testing.T) {
 			t.Fatalf("ready relay %q not found: %#v", expected, nodes)
 		}
 	}
+	t.Setenv("PROJECT_REBOUND_LOADBOT_INVITE_CODE", seedP2PInvite(t, ctx, stack))
 
 	report, contents, runErr := runLoadBot(t, ctx, backendDir, integrationDir)
 	assertLoadReport(t, report, contents, runErr)
@@ -148,6 +150,40 @@ func TestV11ControlPlaneAndTwoRelays(t *testing.T) {
 	}
 
 	assertRecoveredLoadReport(t, ctx, backendDir, integrationDir)
+}
+
+func seedP2PInvite(t *testing.T, ctx context.Context, stack compose.ComposeStack) string {
+	t.Helper()
+	random := make([]byte, 12)
+	if _, err := rand.Read(random); err != nil {
+		t.Fatal(err)
+	}
+	code := "PRB-V11-" + strings.ToUpper(hex.EncodeToString(random))
+	codeHash := sha256.Sum256([]byte(code))
+	inviteID := "inv_v11_" + hex.EncodeToString(random)
+	postgres, err := stack.ServiceContainer(ctx, "postgres")
+	if err != nil {
+		t.Fatalf("get PostgreSQL container for invite fixture: %v", err)
+	}
+	statement := fmt.Sprintf(`
+		INSERT INTO invite_codes (
+			id, code_hash, batch_name, max_uses, used_count, enabled,
+			permissions, created_by, created_at, updated_at
+		) VALUES (
+			'%s', decode('%s', 'hex'), 'v11-integration', 1000000, 0, TRUE,
+			'{"allow_p2p_room_registration": true}'::jsonb,
+			'v11-integration-fixture', NOW(), NOW()
+		)
+	`, inviteID, hex.EncodeToString(codeHash[:]))
+	command := exec.CommandContext(
+		ctx, "docker", "exec", postgres.GetContainerID(),
+		"psql", "-v", "ON_ERROR_STOP=1", "-U", "projectrebound", "-d", "projectrebound",
+		"-c", statement,
+	)
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("seed P2P invite fixture: %v: %s", err, output)
+	}
+	return code
 }
 
 func runReconnectStorm(t *testing.T, ctx context.Context, backendDir, integrationDir string) {

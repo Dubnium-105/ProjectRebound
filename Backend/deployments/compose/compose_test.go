@@ -67,15 +67,25 @@ func TestSeparatedControlPlaneHasSecureNetworkAndPersistentSecrets(t *testing.T)
 	if control.Ports[1] != "${RELAY_CONTROL_BIND_IP:-127.0.0.1}:${RELAY_CONTROL_PORT:-9090}:9090" {
 		t.Fatalf("relay control endpoint must default to loopback: %#v", control.Ports)
 	}
-	for _, name := range []string{
+	requiredSecrets := []string{
 		"ACCESS_TOKEN_PRIVATE_KEY_BASE64", "GAME_SERVER_CA_CERT_PEM_BASE64", "GAME_SERVER_CA_KEY_PEM_BASE64",
-		"RELAY_CA_CERT_PEM_BASE64", "RELAY_CA_KEY_PEM_BASE64",
+		"VNT_SECRET_ENCRYPTION_KEY_BASE64", "RELAY_CA_CERT_PEM_BASE64", "RELAY_CA_KEY_PEM_BASE64",
 		"RELAY_TOKEN_PRIVATE_KEY_BASE64", "UPDATE_SIGNING_PRIVATE_KEY_BASE64", "ADMIN_TOKENS",
 		"ADMIN_ACCESS_TOKEN_PRIVATE_KEY_BASE64", "ADMIN_MFA_ENCRYPTION_KEY_BASE64",
 		"TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY",
-	} {
+	}
+	for _, name := range requiredSecrets {
 		if _, ok := control.Environment[name]; !ok {
 			t.Fatalf("separated control plane does not inject %s", name)
+		}
+	}
+	generator, err := os.ReadFile("../../scripts/generate-control-plane-env.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range requiredSecrets {
+		if !strings.Contains(string(generator), "\n"+name+"=") {
+			t.Fatalf("production secret generator does not emit %s", name)
 		}
 	}
 	caddy, err := os.ReadFile("../control-plane/Caddyfile")

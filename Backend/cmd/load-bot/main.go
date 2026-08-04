@@ -21,6 +21,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
+	loadbot.ApplyEnvironmentOverrides(&cfg)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 	report := loadbot.New(cfg).Run(ctx)

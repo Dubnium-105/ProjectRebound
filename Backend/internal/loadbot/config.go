@@ -3,10 +3,13 @@ package loadbot
 import (
 	"errors"
 	"os"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
 )
+
+const InviteCodeEnvironmentVariable = "PROJECT_REBOUND_LOADBOT_INVITE_CODE"
 
 type Config struct {
 	Scenario          string `yaml:"scenario"`
@@ -37,6 +40,15 @@ type Config struct {
 		DisconnectPercent     int `yaml:"disconnect_percent"`
 		ReconnectDelaySeconds int `yaml:"reconnect_delay_seconds"`
 	} `yaml:"failure_injection"`
+}
+
+func ApplyEnvironmentOverrides(cfg *Config) {
+	if cfg == nil {
+		return
+	}
+	if inviteCode := strings.TrimSpace(os.Getenv(InviteCodeEnvironmentVariable)); inviteCode != "" {
+		cfg.Auth.InviteCode = inviteCode
+	}
 }
 
 func LoadConfig(path string) (Config, error) {

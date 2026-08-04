@@ -98,6 +98,7 @@ TURNSTILE_EXPECTED_HOSTNAME=admin.example.com
 TURNSTILE_EXPECTED_ACTION=admin_login
 GAME_SERVER_CA_CERT_PEM_BASE64=$(file_base64 "$temporary_dir/game-server-ca.crt")
 GAME_SERVER_CA_KEY_PEM_BASE64=$(file_base64 "$temporary_dir/game-server-ca.key")
+VNT_SECRET_ENCRYPTION_KEY_BASE64=$(random_key)
 RELAY_BOOTSTRAP_TOKENS=$relay_bootstrap_id=$(random_hex 48)
 RELAY_CA_CERT_PEM_BASE64=$(file_base64 "$temporary_dir/relay-ca.crt")
 RELAY_CA_KEY_PEM_BASE64=$(file_base64 "$temporary_dir/relay-ca.key")
