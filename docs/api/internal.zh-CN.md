@@ -103,7 +103,18 @@ Content-Type: application/json
 | PATCH | `/v1/admin/invite-codes/{id}` | `reason` 和 `batch_name`, `max_uses`, `expires_at`, `enabled`, `permissions` 中至少一个 | 更新后的元数据 |
 | POST | `/v1/admin/invite-codes/{id}/revoke` | `reason` | 幂等禁用并记录撤销时间 |
 
-创建响应中的明文邀请码是秘密，只出现一次；数据库仅存 SHA-256 哈希。`max_uses` 不得降低到 `used_count` 以下。绑定新 SteamID 时使用行级锁消费名额，因此并发争抢最后一个名额只会有一个事务成功。已有玩家再次 bind 不重复消费邀请码。
+创建响应中的明文邀请码是秘密，只出现一次；数据库仅存 SHA-256 哈希。`max_uses` 不得降低到 `used_count` 以下。每次成功兑换都使用行级锁保护名额，因此并发争抢最后一个名额只会有一个事务成功。新玩家和已有玩家只要在 Steam bind 中提交邀请码，都会消费一次；已有玩家不提交 `invite_code` 时不会消费。
+
+每条成功使用记录都会保存一份不可变的 `permissions` 快照。Admin Web 创建批次时提供以下相互独立的选项：
+
+| 权限字段 | 作用 |
+| --- | --- |
+| `allow_create_account` | 允许邀请码满足新玩家的强制邀请码校验 |
+| `allow_p2p_room_registration` | 授予 `p2p_room_registration` |
+| `allow_game_server_registration` | 授予 `game_server_registration` |
+| `allow_vnt_node_registration` | 授予 `vnt_node_registration` |
+
+权限截止时间在兑换时复制自邀请码的 `expires_at`；邀请码无到期时间时授予永久权限。bind、refresh 和 `/v1/users/me` 的能力列表会过滤已到期权限，对应鉴权也会失败。之后编辑或撤销邀请码只影响未来兑换，不会撤回或扩大已有授权。玩家再次兑换合格邀请码时，只会延长而不会缩短期限；永久授权优先。
 
 ### 3.2 Dashboard、风险事件与审计
 

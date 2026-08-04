@@ -163,7 +163,7 @@ chmod +x scripts/*.sh deploy/deploy.sh
 chmod 600 deployments/control-plane/.env
 ```
 
-生成器创建相互独立的 Ed25519 Access Token、Relay Token、更新签名密钥、设备指纹 HMAC 密钥，以及彼此独立的十年期 Relay CA 与 Game Server CA。它不会覆盖已有 `.env`，也不会输出密钥正文。重建时必须保留 `GAME_SERVER_CA_*`；直接替换会使现有 Dedicated Server 证书无法正常续期。
+生成器创建相互独立的 Ed25519 Access Token、Relay Token、更新签名密钥、设备指纹 HMAC 密钥、32 字节 VNT 房间秘密加密密钥，以及彼此独立的十年期 Relay CA 与 Game Server CA。它不会覆盖已有 `.env`，也不会输出密钥正文。重建时必须保留 `GAME_SERVER_CA_*`；直接替换会使现有 Dedicated Server 证书无法正常续期。
 
 部署支持证书身份的 Dedicated Server 版本前，使用下列检查确认旧环境已经包含两个值，同时不输出秘密正文：
 
@@ -173,6 +173,17 @@ test "$(grep -Ec '^GAME_SERVER_CA_(CERT|KEY)_PEM_BASE64=[A-Za-z0-9+/=]+$' "$env_
 ```
 
 检查失败时，通过批准的秘密生成流程单独创建 Game Server CA，并在部署前补齐两个值；不得替换整个环境文件，也不得复用 Relay CA。缺少任一值时，生产 Compose 会在更改运行版本前拒绝部署。当前代码已不读取旧的 `GAME_SERVER_REGISTRATION_TOKENS`；确认全部节点使用数据库中的实例绑定 Registration Token 后，应从旧环境删除该变量。
+
+向已有生产环境首次引入 VNT 支持前，执行以下检查且不打印密钥：
+
+```bash
+env_file=deployments/control-plane/.env
+vnt_key="$(sed -n 's/^VNT_SECRET_ENCRYPTION_KEY_BASE64=//p' "$env_file")"
+test "$(printf '%s' "$vnt_key" | base64 -d | wc -c)" -eq 32
+unset vnt_key
+```
+
+若缺失，先为现有环境文件创建权限为 `600` 的备份，再通过批准的秘密管理器生成正好 32 个随机字节，把标准 Base64 结果保存为 `VNT_SECRET_ENCRYPTION_KEY_BASE64`，然后重新检查。生产 Compose 会拒绝空值，应用也会在对外服务前拒绝缺失或格式错误的值。该密钥用于加密每个房间的 VNT network token、E2E password 和幂等 Host Token 恢复材料，必须保持稳定并单独备份。替换或丢失密钥会使数据库中的 VNT 房间秘密无法解密；没有数据重加密迁移时不得轮换。
 
 编辑 `deployments/control-plane/.env`：
 
@@ -184,6 +195,7 @@ test "$(grep -Ec '^GAME_SERVER_CA_(CERT|KEY)_PEM_BASE64=[A-Za-z0-9+/=]+$' "$env_
 - `RELAY_CONTROL_SERVER_NAMES` 必须包含边缘节点使用的 `control_server_name`，例如 `control-plane,localhost,relay.example.com`。
 - 签名密钥 ID 在轮换时必须更新，不能在密钥变化后继续复用旧 ID。
 - `DEVICE_FINGERPRINT_HMAC_KEY_BASE64` 必须保持稳定并单独备份；生产环境缺失时会拒绝启动。服务端不保存硬件因子原文，因此该密钥丢失后无法重算已有设备摘要。在多密钥迁移流程可用前，不得变更它或 `DEVICE_FINGERPRINT_KEY_ID`。
+- `VNT_SECRET_ENCRYPTION_KEY_BASE64` 必须保持稳定并采用同等级备份保护。开发环境在变量为空时可以创建临时密钥，但生产环境绝不会这样做；临时密钥会在重启后使已有 VNT 房间秘密失效，也不适合共享 staging。
 - `STEAM_APP_ID` 与票龄设置仅为旧配置和测试夹具兼容而保留，不参与真实 ticket 准入。镜像内置独立的 Go `/usr/local/bin/decrypt-ticket` verifier，但官方 Steamworks Linux `libsdkencryptedappticket.so` 与该应用的 32 字节 encrypted-ticket key 必须分别通过 `STEAM_ENCRYPTED_APP_TICKET_LIBRARY_HOST_PATH` 和 `STEAM_ENCRYPTED_APP_TICKET_KEY_HOST_PATH` 提供。两者均只读挂载，绝不打入镜像。key 文件可以是正好 32 个原始字节或 64 个十六进制字符。宿主机上应保持 root 所有者，将文件组设置为容器 `app` 的 GID（固定为 `999`），权限设置为 `0440`；包含它的宿主目录保持 root 所有且权限为 `0700`。root 所有的 `0600` key 无法被容器内非 root 进程读取。部署脚本会在替换现有容器前以 `app` 身份执行无效密文探针；只有 key 与原生库均可加载时才允许发布。verifier 仅从 stdin 接收 ticket，并在 stdout 输出受限 JSON；控制面不包含、也不会回退到进程内 Steam 解密算法。
 - 将规范的 ToolBox 证书放到 `TOOLBOX_PUBKEY_HOST_PATH`，并只读挂载到 `TOOLBOX_PUBKEY_PATH`。每次完整性 proof 都会哈希 PEM 的精确字节（包括换行符），不得重新排版或转换成 base64；生产环境缺少该设置时拒绝启动。`INTEGRITY_CHALLENGE_TTL_SECONDS` 默认为 120，除非客户端和事件响应策略同时更新，否则 `INTEGRITY_MAXIMUM_FAILURES` 必须保持为 3。
 
@@ -228,6 +240,8 @@ sudo docker compose --env-file deployments/control-plane/.env \
   -f deployments/control-plane/docker-compose.yaml --profile monitoring ps
 curl -fsS http://127.0.0.1:18080/health/ready
 ```
+
+部署包含 VNT 支持的版本时，还要确认 `000036_player_entitlements_and_vnt.sql` 已完成，并确认 `player_feature_grants`、`vnt_nodes`、`p2p_vnt_sessions` 三张表存在后再开放客户端流量。不能只凭 HTTP liveness 推断迁移成功；`/health/ready` 与 migration/table 检查必须同时通过。
 
 从运维机访问监控：
 

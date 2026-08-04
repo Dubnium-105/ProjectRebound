@@ -39,6 +39,7 @@ File:`.github/workflows/deploy.yml`
 
 - After CI succeeds on `main` and images are published, all three staging targets are deployed automatically when repository variable `ENABLE_STAGING_DEPLOY=true`.
 - `workflow_dispatch` can select `staging`/`production` and `control-plane`/`meta-server`/`edge-relay`/`all`.
+- A deployment of everything except Edge Relay requires two dispatches for the same successful CI SHA: first `control-plane`, then `meta-server`. Do not select `all`, because `all` also updates every configured Edge Relay target. Record both successful run URLs as one release operation.
 - For `all` and automatic staging, MetaServer waits for the control-plane deployment to finish before touching the shared Compose project. A MetaServer-only run still works when the control-plane job is skipped.
 - production should be approved by GitHub Environment Required Reviewers and have Prevent self-review enabled.
 - Deployments in the same environment and target use concurrency serialization and will not cancel each other.

@@ -2,7 +2,7 @@
 
 [English](online-architecture.md) | 简体中文
 
-本文描述当前仓库已经实现的 P2P 联机后端、独立 Edge Relay、玩家 Launcher/Payload 接入边界，以及可选的 P2P BattleLog v3 证据链。它是联机系统的完整导航和实现基线，但不替代机器可读协议契约。尚未实现的社区 VNT 替代方案见[社区 VNT 节点联机目标架构](vnt-community-online-architecture.zh-CN.md)。
+本文描述 `LEGACY_RELAY` P2P 后端、独立 Edge Relay、玩家 Launcher/Payload 接入边界，以及可选的 P2P BattleLog v3 证据链。它仍是 Legacy 数据路径的完整导航和实现基线，但不替代机器可读协议契约。并行社区 VNT 路径已完成的后端 MVP 与剩余端到端工作见[社区 VNT 节点联机目标架构](vnt-community-online-architecture.zh-CN.md)。
 
 ## 1. 范围与权威来源
 

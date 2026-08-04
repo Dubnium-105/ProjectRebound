@@ -2,10 +2,12 @@
 
 [English](vnt-community-online-architecture.md) | 简体中文
 
-状态：目标设计，尚未实现
-基线日期：2026-08-02
+状态：后端 MVP 已实现；客户端/节点打包与 GA 门禁仍待完成
+基线日期：2026-08-04
 
-本文把“VNT 节点 + P2P 房间”方案细化为 ProjectRebound 可实施、可迁移和可验收的目标架构。它保留两项核心约束：社区志愿者提供 VNT 注册/打洞/中继节点；游戏流量不得经过中央 LA VPS。当前已实现的自研 Candidate/Connection/Edge Relay 路径见[当前 P2P 联机完整架构](online-architecture.zh-CN.md)，在本文完成上线前仍是实现事实。
+本文定义 ProjectRebound“VNT 节点 + P2P 房间”路径的完整目标架构。它保留两项核心约束：社区志愿者提供 VNT 注册/打洞/中继节点；游戏流量不得经过中央 LA VPS。后端 MVP 已随 `000036_player_entitlements_and_vnt.sql` 上线：Control Plane 现已实现相互独立的玩家权限、VNT 节点 Enrollment/生命周期 API、VNT P2P 房间 Session、加密房间秘密 Bootstrap、Rebind、Presence、到期清理和 OpenAPI 契约。现有 Candidate/Connection/Edge Relay 路径继续服务 `LEGACY_RELAY`；参见[当前 P2P 联机完整架构](online-architecture.zh-CN.md)。
+
+完整目标尚未达到 GA。固定生产版本的 VNT-Node 安装包、ToolBox 的特权 `vnt-cli` 集成与结构化就绪契约、大范围 NAT/互操作证据，以及完整的 VNT 管理和可观测性门禁仍是独立交付项。后端 API 可用不能被表述为端到端 VNT 数据面已经达到生产就绪。
 
 ## 1. 目标、非目标与关键决策
 
@@ -716,9 +718,9 @@ Admin Web 增加节点列表、详情、owner、endpoint、版本、fingerprint�
 
 ### 15.2 发布阶段
 
-1. **PoC 门禁**：固定 VNT 版本，验证游戏实际端口、`-match` 语义、Wintun 提权、NAT 类型矩阵、E2E 加密、fingerprint 和结构化就绪方案。
-2. **节点控制面**：新增 migrations、`internal/vntnode`、OpenAPI、Admin 只读视图和 VNT-Node wrapper；尚不允许建 VNT 房间。
-3. **房间 Shadow**：增加 `transport_kind`、VNT session/secret store 和 ToolBox 节点探测，只允许内部测试账号。
+1. **PoC 门禁（待完成）**：固定 VNT 版本，验证游戏实际端口、`-match` 语义、Wintun 提权、NAT 类型矩阵、E2E 加密、fingerprint 和结构化就绪方案。
+2. **节点控制面（后端已完成）**：已实现 migration `000036`、`internal/vnt`、玩家权限强制检查和 OpenAPI；Admin 只读诊断与生产 VNT-Node wrapper 仍待完成。
+3. **房间 Shadow（后端已完成）**：已实现 `transport_kind`、VNT session/secret store、Bootstrap、Presence、Rebind 和硬过期；ToolBox 节点探测、特权客户端监督与内部端到端放量仍待完成。
 4. **小流量 Beta**：按 feature flag/allowlist 开放 VNT 房间；Legacy 路径保持默认，监控建链、崩溃、rebind 和节点滥用。
 5. **默认切换**：达成验收阈值后新房间默认 VNT，保留显式 Legacy 回滚开关至少一个稳定发布周期。
 6. **Legacy 退役评审**：确认没有旧 ToolBox、运行房间或运维依赖后，才移除 Candidate/Connection/Edge Relay；这是独立变更，不包含在 VNT 首发中。
@@ -729,16 +731,16 @@ Admin Web 增加节点列表、详情、owner、endpoint、版本、fingerprint�
 
 | 工作项 | 仓库落点 |
 | --- | --- |
-| 节点表、凭据和 VNT session | `Backend/migrations/` 新增顺序 migration |
-| 节点领域 | 新建 `Backend/internal/vntnode/`，模式参考 `relayregistry` 但不复用 Relay Node Token |
-| 房间扩展 | `Backend/internal/p2proom/` 增加 transport 策略、8h expiry、VNT session 事务和 late bootstrap |
+| 节点、凭据、玩家权限和 VNT session 表 | `Backend/migrations/000036_player_entitlements_and_vnt.sql` |
+| 节点领域 | `Backend/internal/vnt/` 实现 Enrollment、Credential、发现、Heartbeat、轮换、退役和 Sweeper |
+| 房间扩展 | `Backend/internal/p2proom/` 实现 transport 策略、8h expiry、VNT session 事务、加密 Bootstrap、Presence 和 Rebind |
 | HTTP 路由 | `Backend/internal/controlplane/server.go` |
-| 机器契约 | `Backend/api/openapi/openapi.yaml`，同时更新权限矩阵和 API 文档 |
-| 配置 | `Backend/internal/config/` 增加 VNT feature flag、版本、时序、secret key 和限流；默认关闭 |
+| 机器契约 | 已实现在 `Backend/api/openapi/openapi.yaml`，并同步权限矩阵与 API 文档 |
+| 配置 | 生产环境强制要求 `VNT_SECRET_ENCRYPTION_KEY_BASE64`；版本固定、放量控制和其余运维参数仍属于 GA 工作 |
 | 后台任务 | node lease/reachability sweeper、5 分钟 hard-expiry sweeper、credential rotation alert |
 | ToolBox | 当前仓库尚无完整玩家 ToolBox P2P 客户端；需单独实现 API、探测、特权 helper、VNT 监督和 GameLaunchAdapter |
 | VNT-Node | 新建独立可发布程序及固定版本 `vnts.exe` 资产、许可证和校验清单 |
-| 管理面 | `AdminWeb` 增加 VNT 节点和房间诊断；不显示秘密 |
+| 管理面 | 邀请码创建已提供三项独立注册权限；`AdminWeb` 的 VNT 节点/房间诊断仍待完成，且不得显示秘密 |
 
 不得把 VNT 节点塞进现有 `relay_nodes`：两者的信任、协议、凭据、容量和控制流不同。可以共享 ID 生成、审计、限流、错误 envelope、数据库连接和可观测性基础设施。
 

@@ -103,7 +103,18 @@ Content-Type: application/json
 | PATCH | `/v1/admin/invite-codes/{id}` |`reason` and at least one of `batch_name`, `max_uses`, `expires_at`, `enabled`, `permissions`|Updated metadata|
 | POST | `/v1/admin/invite-codes/{id}/revoke` | `reason` | Idempotently disable and record revocation time |
 
-The clear text invitation code in the creation response is secret and appears only once; only the SHA-256 hash is stored in the database. `max_uses` shall not be reduced below `used_count`. Row-level locks are used to consume quotas when binding a new SteamID, so only one transaction will succeed in competing for the last quota concurrently. If an existing player binds again, the invitation code will not be consumed again.
+The clear text invitation code in the creation response is secret and appears only once; only the SHA-256 hash is stored in the database. `max_uses` shall not be reduced below `used_count`. Row-level locks protect every successful redemption, so only one transaction can claim the final use concurrently. A supplied code is consumed during Steam bind for both new and existing players; omitting `invite_code` on an existing-player bind does not consume anything.
+
+`permissions` is an immutable snapshot on each successful use. The Admin Web exposes these independent booleans when creating a batch:
+
+| Permission field | Effect |
+| --- | --- |
+| `allow_create_account` | Allows the code to satisfy mandatory invitation checks for a new player |
+| `allow_p2p_room_registration` | Grants `p2p_room_registration` |
+| `allow_game_server_registration` | Grants `game_server_registration` |
+| `allow_vnt_node_registration` | Grants `vnt_node_registration` |
+
+The capability deadline is copied from the invitation's `expires_at` at redemption time. No invitation expiry means a non-expiring grant. Expired grants are excluded from bind, refresh, and `/v1/users/me` capability responses and fail the corresponding authorization check. Editing or revoking the invitation later affects future redemptions only; it neither retracts nor expands existing grants. A later qualifying redemption may extend a player's deadline but never shortens it, and a non-expiring grant takes precedence.
 
 ### 3.2 Dashboard, risk events, and audit
 

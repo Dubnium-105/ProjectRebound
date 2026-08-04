@@ -21,6 +21,16 @@ go run ./cmd/load-bot -config tests/load/scenario-basic.yaml -report load-report
 
 Use `scenario: auth-bind` with a staging invite code to exercise concurrent bind/rate-limit behavior. Generated SteamIDs and Device IDs are deterministic per virtual client, so repeated runs are easy to correlate without logging credentials. Long scenarios must run only against isolated staging infrastructure.
 
+Supply the invitation through the environment instead of committing it to a scenario YAML. `PROJECT_REBOUND_LOADBOT_INVITE_CODE` overrides `auth.invite_code` after the file is loaded:
+
+```bash
+PROJECT_REBOUND_LOADBOT_INVITE_CODE='REPLACE_FROM_SECRET_MANAGER' \
+  go run ./cmd/load-bot -config tests/load/scenario-basic.yaml \
+  -report load-report.json -prometheus-report load-report.prom
+```
+
+Each successful virtual-client bind consumes one invitation use. Size `max_uses` for the client count and grant `allow_create_account`; scenarios that create P2P rooms also require `allow_p2p_room_registration`. The grant expires at the invitation's deadline, so the deadline must cover setup and the entire run. Never echo the environment variable, store it in reports, or target production with the load bot.
+
 `scenario: full`, `relay`, and `soak` are real end-to-end flows. They bind every virtual client, create and join rooms, establish authenticated WebSockets, publish candidate/check-result events, force direct-path failure, consume participant-specific Relay allocation events, execute UDP protocol-v2 BIND challenge/proof, and exchange authenticated Relay data. The clients maintain room heartbeats, rotate Refresh Tokens, inject configured WebSocket disconnects, reconnect with current credentials, and rebind when migration allocations arrive. No Relay Token is written to the report or logs.
 
 The standard gates are versioned as:

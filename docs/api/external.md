@@ -121,6 +121,17 @@ The session list returns only the session ID, a four-character device display su
 
 A Dedicated Server invitation's immutable permission snapshot must contain `allow_game_server_registration: true`. It can be consumed during any Steam bind (including an existing player's login); the legacy direct redemption on Registration Token issuance remains compatible. Consumption grants `game_server_registration` until the invitation's expiry timestamp at consumption time. Later invitation edits do not retroactively change that captured deadline or expand the permission snapshot. Redeeming another qualifying invitation may extend the deadline but never shortens it; a non-expiring grant takes precedence. The ten-minute Registration Token is bound to one `instance_id`; registration consumes it atomically, binds the instance to the player, and prevents another player from claiming that ID.
 
+Request the one-time Registration Token with the verified player's Access Token. Omit `invite_code` when the player already has an active grant; otherwise supply a qualifying player-specific code:
+
+```bash
+curl --fail-with-body -X POST 'https://api.project-rebound.space/v1/game-server-registration-tokens' \
+  -H "Authorization: Bearer $PLAYER_ACCESS_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data '{"instance_id":"hk-dedicated-01","invite_code":"REPLACE_IF_NEEDED"}'
+```
+
+The `data.registration_token` value is the `gsr_...` secret used once as `Authorization: GameServerRegistration <token>` on `POST /v1/game-servers`. It is not the server's runtime credential and must not be logged or persisted after successful registration.
+
 The node generates and retains its own Ed25519 private key, and registration submits a PKCS#10 CSR signed by that key. The backend issues a 24-hour certificate with identity `spiffe://projectrebound/game-server/{server_id}` and stores only its public key and certificate fingerprint; it never receives or generates the node private key.
 
 Every runtime write supplies the Bearer Token and `X-Game-Server-Certificate`, `X-Game-Server-Timestamp`, `X-Game-Server-Nonce`, `X-Game-Server-Generation`, and `X-Game-Server-Signature`. The Ed25519 signature covers a newline-delimited canonical value containing `PR-GAME-SERVER-V1`, uppercase method, raw path and query, hexadecimal body SHA-256, Unix timestamp, base64url nonce, Server ID, credential generation, and hexadecimal Token SHA-256. The timestamp window is 60 seconds; decoded nonces are 16–64 bytes and PostgreSQL prevents cross-process replay.
@@ -150,7 +161,7 @@ For the complete issuance, named-pipe, fallback, DPAPI, rotation, and production
 | --- | --- | --- | --- | --- |
 | GET | `/v1/p2p-rooms` | None | `region`, `mode`, `version`, `state`, `has_slots`, `cursor`, `limit` | 200 public directory |
 | GET | `/v1/p2p-rooms/{room_id}` | None | — | 200 public room status |
-| POST | `/v1/p2p-rooms` | Active Player | `display_name`, `region`, `mode`, `version`, `max_players` | 201 room + one-time `host_token` |
+| POST | `/v1/p2p-rooms` | Active Player | `display_name`, `region`, `mode`, `version`, `max_players`; optional `transport_kind`, `vnt_node_id` | 201 room + one-time `host_token` |
 | POST | `/v1/p2p-rooms/{room_id}/join` | Active Player | `version` | 200 joined; repeated calls are idempotent |
 | POST | `/v1/p2p-rooms/{room_id}/leave` | Active Player | — | 200 left; repeated calls are idempotent |
 | POST | `/v1/p2p-rooms/{room_id}/heartbeat` | Active Player + Host Token | `X-Room-Host-Token` |200 heartbeats|
@@ -268,6 +279,28 @@ requires `game_server_registration`.
 The VNT data plane never traverses the control-plane server. Public room and
 node responses exclude network tokens, E2E passwords, device IDs, credentials,
 and member virtual addresses.
+
+There is no single public "VNT token" endpoint. Node enrollment and room bootstrap return different secrets for different holders:
+
+1. A verified player with active `vnt_node_registration` requests a ten-minute Enrollment Code:
+
+   ```bash
+   curl --fail-with-body -X POST 'https://api.project-rebound.space/v1/vnt/node-enrollments' \
+     -H "Authorization: Bearer $PLAYER_ACCESS_TOKEN" \
+     -H 'Content-Type: application/json' \
+     --data '{"label":"hk-community-node-01"}'
+   ```
+
+2. The VNT-Node process consumes `data.enrollment_code` once. This returns `data.node_id` and a one-time `data.node_token`; subsequent heartbeat, rotation, and retirement calls use `Authorization: Bearer <node_token>`:
+
+   ```bash
+   curl --fail-with-body -X POST 'https://api.project-rebound.space/v1/vnt/nodes' \
+     -H "Authorization: VNTEnrollment $VNT_ENROLLMENT_CODE" \
+     -H 'Content-Type: application/json' \
+     --data '{"advertised_host":"203.0.113.20","port":29878,"region":"hk","location":"Hong Kong","vnts_version":"REPLACE_PINNED_VERSION","wrapper_version":"REPLACE_WRAPPER_VERSION","server_key_fingerprint":"REPLACE_SHA256_FINGERPRINT","supported_transports":["udp","tcp"],"max_rooms":100}'
+   ```
+
+3. VNT room `network_token` and `e2e_password` are never issued to a node owner or public directory client. Only an active member of a VNT room receives the current generation through `POST /v1/p2p-rooms/{room_id}/vnt/bootstrap`, and the response must remain in memory with `Cache-Control: no-store` handling.
 
 ## MetaServer route index
 

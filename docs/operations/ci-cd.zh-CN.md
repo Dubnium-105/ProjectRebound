@@ -39,6 +39,7 @@ Pull request 只构建和验证，不登录 GHCR，也不发布镜像。`main` �
 
 - main 的 CI 和镜像发布全部成功后，如果仓库变量 `ENABLE_STAGING_DEPLOY=true`，自动部署三个 staging target。
 - `workflow_dispatch` 可以手动选择 `staging`/`production` 和 `control-plane`/`meta-server`/`edge-relay`/`all`。
+- “部署除 Edge Relay 外的全部组件”需要针对同一个已通过 CI 的 SHA 发起两次 dispatch：先选 `control-plane`，成功后再选 `meta-server`。不要选择 `all`，因为它还会更新所有已配置的 Edge Relay target；发布记录中应同时保存两次成功 Run 的链接。
 - 对 `all` 和自动 staging，MetaServer 会等待控制面部署完成后再操作共享 Compose project；仅部署 MetaServer 时，控制面 job 跳过后仍可正常执行。
 - production 应通过 GitHub Environment Required Reviewers 审批，并启用 Prevent self-review。
 - 同一环境和 target 的部署使用 concurrency 串行化，不会互相取消。

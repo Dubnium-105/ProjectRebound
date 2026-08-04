@@ -2,7 +2,7 @@
 
 English | [简体中文](online-architecture.zh-CN.md)
 
-This document describes the P2P online backend, independent Edge Relay, player Launcher/Payload integration boundary, and optional P2P BattleLog v3 evidence pipeline currently implemented in this repository. It is the complete navigation and implementation baseline for P2P online play, but it does not replace the machine-readable protocol contracts. The not-yet-implemented replacement is documented in the [community VNT node online target architecture](vnt-community-online-architecture.md).
+This document describes the `LEGACY_RELAY` P2P backend, independent Edge Relay, player Launcher/Payload integration boundary, and optional P2P BattleLog v3 evidence pipeline. It remains the complete navigation and implementation baseline for the legacy data path, but it does not replace the machine-readable protocol contracts. The backend MVP and remaining end-to-end work for the parallel community VNT path are documented in the [community VNT node online target architecture](vnt-community-online-architecture.md).
 
 ## 1. Scope and sources of truth
 

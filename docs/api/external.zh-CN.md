@@ -121,6 +121,17 @@ verified bind 的 `data.integrity_challenge.nonce` 包含首次一次性 challen
 
 专服邀请码的不可变权限快照必须包含 `allow_game_server_registration: true`。新玩家或已有玩家都可以在 Steam bind 时消费；签发 Registration Token 时直接兑换邀请码的旧流程仍兼容。消费后授予的 `game_server_registration` 与消费当时的邀请码在同一时间到期；之后修改邀请码不会追溯改变已记录的截止时间或扩大权限。再次兑换合格邀请码只会延长、不会缩短权限，永久权限优先。Registration Token 有效 10 分钟且绑定一个 `instance_id`。注册会原子消费它并将实例绑定到玩家；其他玩家不能抢占同一实例 ID。
 
+使用已验证玩家的 Access Token 请求一次性 Registration Token。玩家已有有效权限时省略 `invite_code`；否则提交一枚属于该玩家且具备对应权限的邀请码：
+
+```bash
+curl --fail-with-body -X POST 'https://api.project-rebound.space/v1/game-server-registration-tokens' \
+  -H "Authorization: Bearer $PLAYER_ACCESS_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data '{"instance_id":"hk-dedicated-01","invite_code":"REPLACE_IF_NEEDED"}'
+```
+
+响应中的 `data.registration_token` 是 `gsr_...` 秘密，只能在 `POST /v1/game-servers` 中以 `Authorization: GameServerRegistration <token>` 使用一次。它不是服务器的运行凭据；注册成功后不得继续记录或保存。
+
 节点必须自行生成并仅在本机保存 Ed25519 私钥，注册提交由该私钥签名的 PKCS#10 CSR。后端签发 24 小时节点证书，身份 URI 为 `spiffe://projectrebound/game-server/{server_id}`；后端只保存公钥和证书指纹，不接收或生成节点私钥。
 
 所有运行写请求必须同时发送 Bearer Token、`X-Game-Server-Certificate`、`X-Game-Server-Timestamp`、`X-Game-Server-Nonce`、`X-Game-Server-Generation` 和 `X-Game-Server-Signature`。签名为 Ed25519 对以下以换行连接的规范串签名：`PR-GAME-SERVER-V1`、大写 HTTP 方法、原始 path+query、正文 SHA-256 十六进制、Unix 时间戳、base64url nonce、Server ID、凭证代数、Token SHA-256 十六进制。时间允许偏差 60 秒；nonce 解码后为 16–64 字节且由 PostgreSQL 全局防重放。
@@ -150,7 +161,7 @@ Token 与证书默认均有效 24 小时。轮转请求由当前私钥签名并�
 | --- | --- | --- | --- | --- |
 | GET | `/v1/p2p-rooms` | 无 | `region`, `mode`, `version`, `state`, `has_slots`, `cursor`, `limit` | 200 公共目录 |
 | GET | `/v1/p2p-rooms/{room_id}` | 无 | — | 200 公共房间状态 |
-| POST | `/v1/p2p-rooms` | Active Player | `display_name`, `region`, `mode`, `version`, `max_players` | 201 房间 + 一次性 `host_token` |
+| POST | `/v1/p2p-rooms` | Active Player | `display_name`, `region`, `mode`, `version`, `max_players`；可选 `transport_kind`, `vnt_node_id` | 201 房间 + 一次性 `host_token` |
 | POST | `/v1/p2p-rooms/{room_id}/join` | Active Player | `version` | 200 加入；重复调用幂等 |
 | POST | `/v1/p2p-rooms/{room_id}/leave` | Active Player | — | 200 离开；重复调用幂等 |
 | POST | `/v1/p2p-rooms/{room_id}/heartbeat` | Active Player + Host Token | `X-Room-Host-Token` | 200 心跳 |
@@ -247,6 +258,8 @@ Relay 分配事件示例：
 
 ### 3.7 社区 VNT 节点与房间
 
+VNT 节点注册由玩家的 `vnt_node_registration` 独立权限控制。创建 VNT 或 Legacy P2P 房间都要求 `p2p_room_registration`；Dedicated Server 注册则单独要求 `game_server_registration`。
+
 | 方法 | 路径 | 鉴权 | 用途 |
 | --- | --- | --- | --- |
 | POST | `/v1/vnt/node-enrollments` | verified 玩家 | 签发十分钟、单次使用的节点 enrollment code |
@@ -261,6 +274,28 @@ Relay 分配事件示例：
 | POST | `/v1/p2p-rooms/{room_id}/vnt/rebind` | 房主 + Host Token | 开局前换节点，并轮换 generation 和全部房间秘密 |
 
 VNT 数据面不经过 Control Plane。公共节点和房间响应不会包含 network token、E2E 密码、Node Credential、device ID 或成员虚拟地址。
+
+系统不存在一个公开的“VNT Token”接口。节点注册与房间 Bootstrap 面向不同持有者，返回的秘密也不同：
+
+1. 具备有效 `vnt_node_registration` 的已验证玩家先请求有效 10 分钟的 Enrollment Code：
+
+   ```bash
+   curl --fail-with-body -X POST 'https://api.project-rebound.space/v1/vnt/node-enrollments' \
+     -H "Authorization: Bearer $PLAYER_ACCESS_TOKEN" \
+     -H 'Content-Type: application/json' \
+     --data '{"label":"hk-community-node-01"}'
+   ```
+
+2. VNT-Node 进程一次性消费 `data.enrollment_code`，响应返回 `data.node_id` 和只显示一次的 `data.node_token`。之后的 Heartbeat、Rotation 和 Retirement 使用 `Authorization: Bearer <node_token>`：
+
+   ```bash
+   curl --fail-with-body -X POST 'https://api.project-rebound.space/v1/vnt/nodes' \
+     -H "Authorization: VNTEnrollment $VNT_ENROLLMENT_CODE" \
+     -H 'Content-Type: application/json' \
+     --data '{"advertised_host":"203.0.113.20","port":29878,"region":"hk","location":"Hong Kong","vnts_version":"REPLACE_PINNED_VERSION","wrapper_version":"REPLACE_WRAPPER_VERSION","server_key_fingerprint":"REPLACE_SHA256_FINGERPRINT","supported_transports":["udp","tcp"],"max_rooms":100}'
+   ```
+
+3. VNT 房间的 `network_token` 与 `e2e_password` 不会发给节点所有者，也不会出现在公共目录。只有 VNT 房间的活动成员可通过 `POST /v1/p2p-rooms/{room_id}/vnt/bootstrap` 获取当前 generation；客户端必须按 `Cache-Control: no-store` 处理并只保存在内存中。
 
 ## 4. HTTP 状态与重试
 

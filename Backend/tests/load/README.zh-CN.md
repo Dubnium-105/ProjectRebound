@@ -22,6 +22,16 @@ go run ./cmd/load-bot -config tests/load/scenario-basic.yaml -report load-report
 
 使用`scenario: auth-bind`使用暂存邀请代码来执行并发绑定/速率限制行为。生成的 SteamID 和设备 ID 对于每个虚拟客户端都是确定的，因此重复运行很容易关联，而无需记录凭据。长场景必须仅针对隔离的暂存基础架构运行。
 
+邀请码应通过环境变量提供，不得提交到场景 YAML。读取配置文件后，`PROJECT_REBOUND_LOADBOT_INVITE_CODE` 会覆盖 `auth.invite_code`：
+
+```bash
+PROJECT_REBOUND_LOADBOT_INVITE_CODE='REPLACE_FROM_SECRET_MANAGER' \
+  go run ./cmd/load-bot -config tests/load/scenario-basic.yaml \
+  -report load-report.json -prometheus-report load-report.prom
+```
+
+每个虚拟客户端成功 bind 都会消费一次邀请码。`max_uses` 必须覆盖客户端数量，并授予 `allow_create_account`；需要创建 P2P 房间的场景还必须授予 `allow_p2p_room_registration`。玩家权限与邀请码同时到期，因此截止时间必须覆盖初始化和完整测试时段。不得输出该环境变量、把它写进报告，或让 load bot 指向生产环境。
+
 `scenario: full`, `relay`， 和`soak`是真正的端到端流。它们绑定每个虚拟客户端，创建和加入房间，建立经过身份验证的 WebSocket，发布候选/检查结果事件，强制直接路径失败，使用特定于参与者的中继分配事件，执行 UDP 协议 v2 BIND 质询/证明，并交换经过身份验证的中继数据。客户端维护房间心跳、轮换刷新令牌、注入配置的 WebSocket 断开连接、使用当前凭据重新连接，并在迁移分配到达时重新绑定。没有中继令牌写入报告或日志。
 
 标准门的版本为：

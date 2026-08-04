@@ -16,13 +16,19 @@ Search and filter players, change account status or VIP, revoke sessions, and re
 
 ### Invitations
 
-Invitation plaintext is a one-time response. Store or export it to an approved location before closing the result; the database retains only SHA-256.
+- The creation wizard generates 1–100 codes and offers separate checkboxes for account creation, P2P room registration, Dedicated Server registration, and VNT node registration. Select only the capabilities intended for that batch.
+- Invitation plaintext is a one-time response. Store or export it to an approved location before closing the result; the database retains only SHA-256.
+- A player submits their code through ToolBox during Steam bind. Both a new-player bind and an existing-player bind consume one use when a code is supplied.
+- Granted capabilities expire at the invitation's deadline. A code without an expiry grants non-expiring capabilities. Later edits, disablement, or revocation affect future uses only; an existing grant keeps the deadline and permission snapshot captured at redemption.
+- Redeeming another qualifying code may extend an existing capability but cannot shorten it. Keep the batch expiry aligned with the intended access period rather than treating invitation expiry as only a redemption window.
 
 ### Online resources
 
 Drain servers or relays before disruptive work. Connection relay migration never accepts an operator-supplied address; the backend scheduler selects an eligible `READY` node. Relay revoke requires fresh MFA step-up.
 
 To enroll a Dedicated Server, use **Online / Dedicated Servers / Add server**. The operator needs `game_servers.register`, must complete a fresh MFA step-up, and must provide a stable instance ID, a 1–168 hour expiry, and an audit reason. The plaintext Registration Token is displayed once. Transfer it to only the matching server, confirm safe receipt before closing the dialog, and never put it in Git, logs, chat, or the reason field. Issuing another token for the same instance immediately revokes the previous unconsumed token. Continue with the [Dedicated Server registration guide](dedicated-server-registration.md).
+
+The player-facing registration actions are gated independently: creating a P2P room needs `p2p_room_registration`, requesting a Dedicated Server Registration Token needs `game_server_registration`, and requesting a VNT node enrollment needs `vnt_node_registration`. Administrator RBAC permissions such as `game_servers.register` do not grant these player capabilities.
 
 ### Client releases
 

@@ -2,10 +2,12 @@
 
 English | [简体中文](vnt-community-online-architecture.zh-CN.md)
 
-Status: target design, not implemented
-Baseline date: 2026-08-02
+Status: backend MVP implemented; client/node packaging and GA gates remain
+Baseline date: 2026-08-04
 
-This document turns the "VNT node + P2P room" proposal into an implementable, migratable, and testable target architecture for ProjectRebound. It preserves two primary constraints: community volunteers operate VNT registration/hole-punch/relay nodes, and gameplay traffic must never traverse the central LA VPS. The currently implemented custom Candidate/Connection/Edge Relay path remains the implementation truth until this design ships; see the [current complete P2P online architecture](online-architecture.md).
+This document defines the complete target architecture for ProjectRebound's "VNT node + P2P room" path. It preserves two primary constraints: community volunteers operate VNT registration/hole-punch/relay nodes, and gameplay traffic must never traverse the central LA VPS. The backend MVP shipped in migration `000036_player_entitlements_and_vnt.sql`: the Control Plane now implements independent player capabilities, VNT node enrollment/lifecycle APIs, VNT P2P room sessions, encrypted room-secret bootstrap, rebind, presence, expiry, and the OpenAPI contract. The existing Candidate/Connection/Edge Relay path remains available for `LEGACY_RELAY`; see the [current complete P2P online architecture](online-architecture.md).
+
+The target is not GA-complete. A production-pinned VNT-Node package, the ToolBox privileged `vnt-cli` integration and structured readiness contract, broad NAT/interoperability evidence, and full VNT administration/observability gates remain separate deliverables. Backend API availability must not be presented as proof that the end-to-end VNT data plane is production-ready.
 
 ## 1. Goals, non-goals, and key decisions
 
@@ -716,9 +718,9 @@ Suggested initial targets, not protocol constants: 99.9% monthly node-directory 
 
 ### 15.2 Rollout phases
 
-1. **PoC gate:** pin VNT versions and verify actual game ports, `-match` semantics, Wintun elevation, NAT matrix, E2E encryption, fingerprint, and structured readiness.
-2. **Node control plane:** add migrations, `internal/vntnode`, OpenAPI, Admin read-only view, and VNT-Node wrapper; VNT room creation stays disabled.
-3. **Room shadow:** add `transport_kind`, VNT session/secret store, and ToolBox node probes for internal test accounts only.
+1. **PoC gate (remaining):** pin VNT versions and verify actual game ports, `-match` semantics, Wintun elevation, NAT matrix, E2E encryption, fingerprint, and structured readiness.
+2. **Node control plane (backend complete):** migration `000036`, `internal/vnt`, player capability enforcement, and OpenAPI are implemented. The Admin read-only diagnostics and production VNT-Node wrapper remain.
+3. **Room shadow (backend complete):** `transport_kind`, VNT session/secret storage, bootstrap, presence, rebind, and hard expiry are implemented. ToolBox node probes, privileged client supervision, and internal end-to-end rollout remain.
 4. **Small beta:** enable VNT rooms through feature flag/allowlist while Legacy stays default; monitor setup, crashes, rebind, and node abuse.
 5. **Default switch:** after meeting acceptance thresholds, make VNT the default for new rooms and retain an explicit Legacy rollback switch for at least one stable release.
 6. **Legacy retirement review:** remove Candidate/Connection/Edge Relay only after no old ToolBox, running room, or operations dependency remains. This is a separate change, not part of the first VNT release.
@@ -729,16 +731,16 @@ Rollback disables creation of new VNT rooms. It does not mutate a running room's
 
 | Work item | Repository location |
 | --- | --- |
-| Node, credential, and VNT session tables | New ordered migration under `Backend/migrations/` |
-| Node domain | New `Backend/internal/vntnode/`; follow `relayregistry` patterns without reusing Relay Node Tokens |
-| Room extension | `Backend/internal/p2proom/` transport policy, eight-hour expiry, VNT transactions, and late bootstrap |
+| Node, credential, entitlement, and VNT session tables | `Backend/migrations/000036_player_entitlements_and_vnt.sql` |
+| Node domain | `Backend/internal/vnt/` enrollment, credentials, discovery, heartbeat, rotation, retirement, and sweepers |
+| Room extension | `Backend/internal/p2proom/` transport policy, eight-hour expiry, VNT transactions, encrypted bootstrap, presence, and rebind |
 | HTTP routes | `Backend/internal/controlplane/server.go` |
-| Machine contract | `Backend/api/openapi/openapi.yaml`, plus permission matrix and API docs |
-| Configuration | VNT feature flag, versions, timings, secret key, and rate limits under `Backend/internal/config/`; disabled by default |
+| Machine contract | Implemented in `Backend/api/openapi/openapi.yaml`, plus permission matrix and API docs |
+| Configuration | `VNT_SECRET_ENCRYPTION_KEY_BASE64` is mandatory in production; version pins, rollout controls, and remaining operational tunables still require GA work |
 | Background jobs | Node lease/reachability sweeper, five-minute hard-expiry sweeper, credential-rotation alerts |
 | ToolBox | This repository does not yet contain a complete player ToolBox P2P client; API, probe, privileged helper, VNT supervision, and GameLaunchAdapter require a separate implementation |
 | VNT-Node | New independently released program with pinned `vnts.exe`, licenses, and checksum manifest |
-| Administration | Add VNT node/room diagnostics to `AdminWeb`, never secrets |
+| Administration | Invite creation exposes the three independent registration capabilities; VNT node/room diagnostics in `AdminWeb` remain, and must never reveal secrets |
 
 Do not put VNT nodes into the existing `relay_nodes` table. Their trust, protocol, credentials, capacity, and control flow differ. They may share ID generation, audit, rate limiting, error envelope, database access, and observability infrastructure.
 

@@ -25,8 +25,12 @@ Turnstile、密码或账号是否正确不会通过不同错误文案泄露。�
 ### 邀请码
 
 - 创建向导可一次生成 1–100 枚邀请码。
+- 创建时分别选择“创建账号”“注册 P2P 房间”“注册 Dedicated Server”“注册 VNT 节点”；只勾选该批次实际需要解锁的权限。
 - 明文只在成功弹窗出现一次；关闭前复制或导出到受控位置。
 - 数据库只保存 SHA-256，之后的列表、详情和使用记录不会恢复明文。
+- 玩家在 ToolBox 的 Steam bind 流程中提交自己的邀请码；新玩家和已有玩家只要提交邀请码，都会消费一次使用次数。
+- 权限截止时间与邀请码一致；无到期时间的邀请码授予永久权限。之后编辑、停用或撤销邀请码只影响未来使用，已有权限保留兑换时捕获的期限和权限快照。
+- 玩家再次兑换合格邀请码时，可以延长已有权限但不能缩短。设置批次有效期时，应把它视为实际授权期限，而不只是“允许兑换到什么时候”。
 - 已撤销邀请码不应进入新的导出文件。
 
 ### 联机资源
@@ -37,6 +41,8 @@ Turnstile、密码或账号是否正确不会通过不同错误文案泄露。�
 - 节点撤销会停止新分配、断开控制身份并迁移或中断既有连接；需要重新注册才能恢复，并要求 MFA 二次确认。
 
 注册 Dedicated Server 时，进入**联机管理 / Dedicated Server / 添加服务器**。操作者必须具有 `game_servers.register` 权限、完成新的 MFA Step-up，并填写稳定的实例 ID、1–168 小时有效期和审计原因。明文 Registration Token 只显示一次；关闭弹窗前确认已经安全传给对应服务器，不得写入 Git、日志、聊天或原因字段。为同一实例再次签发会立即撤销此前尚未消费的 Token。后续步骤见[Dedicated Server 注册手册](dedicated-server-registration.zh-CN.md)。
+
+玩家侧三项注册操作相互独立：创建 P2P 房间需要 `p2p_room_registration`，请求 Dedicated Server Registration Token 需要 `game_server_registration`，请求 VNT 节点 Enrollment Code 需要 `vnt_node_registration`。`game_servers.register` 等管理员 RBAC 权限不会为玩家授予这些能力。
 
 ### 客户端发布
 

@@ -163,7 +163,7 @@ chmod +x scripts/*.sh deploy/deploy.sh
 chmod 600 deployments/control-plane/.env
 ```
 
-The generator creates independent Ed25519 Access Tokens, Relay Tokens, update signing keys, a device-fingerprint HMAC key, and separate ten-year Relay and Game Server CAs. It does not overwrite the existing `.env`, nor does it output the key text. Preserve `GAME_SERVER_CA_*` across rebuilds; replacing it prevents existing Dedicated Server certificates from being renewed normally.
+The generator creates independent Ed25519 Access Tokens, Relay Tokens, update signing keys, a device-fingerprint HMAC key, a 32-byte VNT room-secret encryption key, and separate ten-year Relay and Game Server CAs. It does not overwrite the existing `.env`, nor does it output the key text. Preserve `GAME_SERVER_CA_*` across rebuilds; replacing it prevents existing Dedicated Server certificates from being renewed normally.
 
 Before deploying a release that supports certificate-backed Dedicated Servers, check an existing environment without printing either secret:
 
@@ -173,6 +173,17 @@ test "$(grep -Ec '^GAME_SERVER_CA_(CERT|KEY)_PEM_BASE64=[A-Za-z0-9+/=]+$' "$env_
 ```
 
 If the check fails, generate a separate Game Server CA through the approved secret ceremony and add both values before deployment. Do not replace the complete environment file or reuse the Relay CA. Production Compose rejects a missing pair before changing the running release. The legacy `GAME_SERVER_REGISTRATION_TOKENS` variable is no longer read; remove it from old environments after confirming that all nodes use database-backed, instance-bound Registration Tokens.
+
+Before introducing VNT support into an existing production environment, verify the new key without printing it:
+
+```bash
+env_file=deployments/control-plane/.env
+vnt_key="$(sed -n 's/^VNT_SECRET_ENCRYPTION_KEY_BASE64=//p' "$env_file")"
+test "$(printf '%s' "$vnt_key" | base64 -d | wc -c)" -eq 32
+unset vnt_key
+```
+
+If it is missing, first make a permission-`600` backup of the existing environment file, generate exactly 32 random bytes through the approved secret manager, store their standard Base64 representation as `VNT_SECRET_ENCRYPTION_KEY_BASE64`, and rerun the check. Production Compose refuses a missing value, and the application refuses a missing or malformed value before serving traffic. Keep this key stable and back it up separately: it encrypts the per-room VNT network token, E2E password, and idempotent host-token recovery material. Replacing or losing it makes stored VNT room secrets unreadable; do not rotate it without a data re-encryption migration.
 
 Edit `deployments/control-plane/.env`:
 
@@ -184,6 +195,7 @@ Edit `deployments/control-plane/.env`:
 - `RELAY_CONTROL_SERVER_NAMES` must contain `control_server_name` used by the edge node, for example `control-plane,localhost,relay.example.com`.
 - Signing key IDs must be updated during rotation and old IDs cannot be reused after key changes.
 - Keep `DEVICE_FINGERPRINT_HMAC_KEY_BASE64` stable and backed up separately. Production refuses to start without it. Raw hardware factors are not stored, so existing device digests cannot be recomputed if this key is lost. Do not change it or `DEVICE_FINGERPRINT_KEY_ID` until a multi-key migration procedure is available.
+- Keep `VNT_SECRET_ENCRYPTION_KEY_BASE64` stable and in the same protected backup policy. Development may create an ephemeral key when this variable is empty, but production never does; an ephemeral key invalidates stored VNT room secrets after restart and is unsuitable for shared staging.
 - `STEAM_APP_ID` and the ticket-age settings remain accepted only for configuration and test-fixture compatibility; they do not gate real ticket acceptance. The image contains the standalone Go `/usr/local/bin/decrypt-ticket` verifier, while the official Steamworks Linux `libsdkencryptedappticket.so` and the title's 32-byte encrypted-ticket key must be supplied separately through `STEAM_ENCRYPTED_APP_TICKET_LIBRARY_HOST_PATH` and `STEAM_ENCRYPTED_APP_TICKET_KEY_HOST_PATH`. Both are mounted read-only and are never included in the image. The key file may contain exactly 32 raw bytes or 64 hexadecimal characters. Keep it owned by host root, assign its group to the container `app` GID (pinned to `999`), and use mode `0440`; keep the containing host directory owned by root with mode `0700`. A root-owned `0600` key is not readable by the non-root container process. Before replacing the running container, the deployment script executes an invalid-ciphertext verifier probe as `app` and refuses the release unless the key and native library load successfully. The verifier receives the ticket only on stdin and emits bounded JSON on stdout; the control plane does not contain or fall back to an in-process Steam decryption algorithm.
 - Put the canonical ToolBox certificate at `TOOLBOX_PUBKEY_HOST_PATH` and mount it read-only at `TOOLBOX_PUBKEY_PATH`. The exact PEM bytes, including line endings, are hashed into every integrity proof; do not reformat or base64-transform the file. Production refuses to start without this setting. `INTEGRITY_CHALLENGE_TTL_SECONDS` defaults to 120 and `INTEGRITY_MAXIMUM_FAILURES` must remain 3 unless the client and incident-response policy are updated together.
 
@@ -228,6 +240,8 @@ sudo docker compose --env-file deployments/control-plane/.env \
   -f deployments/control-plane/docker-compose.yaml --profile monitoring ps
 curl -fsS http://127.0.0.1:18080/health/ready
 ```
+
+For a release that adds VNT support, also confirm that migration `000036_player_entitlements_and_vnt.sql` completed and that `player_feature_grants`, `vnt_nodes`, and `p2p_vnt_sessions` exist before enabling client traffic. Do not infer migration success from HTTP liveness alone; `/health/ready` and the migration/table check must both pass.
 
 Access monitoring from the operations workstation:
 
