@@ -183,7 +183,9 @@ test "$(printf '%s' "$vnt_key" | base64 -d | wc -c)" -eq 32
 unset vnt_key
 ```
 
-若缺失，先为现有环境文件创建权限为 `600` 的备份，再通过批准的秘密管理器生成正好 32 个随机字节，把标准 Base64 结果保存为 `VNT_SECRET_ENCRYPTION_KEY_BASE64`，然后重新检查。生产 Compose 会拒绝空值，应用也会在对外服务前拒绝缺失或格式错误的值。该密钥用于加密每个房间的 VNT network token、E2E password 和幂等 Host Token 恢复材料，必须保持稳定并单独备份。替换或丢失密钥会使数据库中的 VNT 房间秘密无法解密；没有数据重加密迁移时不得轮换。
+若缺失，先为现有环境文件创建权限为 `600` 的备份，再通过批准的秘密管理器生成正好 32 个随机字节，把标准 Base64 结果保存为 `VNT_SECRET_ENCRYPTION_KEY_BASE64`，然后重新检查。生产 Compose 会拒绝空值，应用也会在对外服务前拒绝缺失或格式错误的值。该密钥用于加密每个房间的 VNT network token、E2E password 和幂等 Host Token 恢复材料，必须保持稳定并单独备份。若所有仍被引用的密钥副本都丢失，数据库中的 VNT 房间秘密将无法解密。
+
+VNT 秘密密钥轮换使用显式 keyring：设置新的唯一 `VNT_SECRET_ENCRYPTION_KEY_ID`，把 `VNT_SECRET_ENCRYPTION_KEY_BASE64` 替换为新的 32 字节密钥，并把旧密钥按 `key_id=base64_key` 加入分号分隔的 `VNT_SECRET_DECRYPTION_KEYS`。重启 Control Plane 后，必须验证旧幂等建房和旧 VNT 房间 bootstrap，才能移除历史密钥。新建/rebind 房间只使用当前活动 key ID；旧密钥保持只读，直到 `p2p_rooms.host_token_key_id` 与 `p2p_vnt_sessions.secret_key_id` 都不再引用它。重复/非法 key ID 或错误密钥会导致启动失败。
 
 编辑 `deployments/control-plane/.env`：
 
@@ -195,7 +197,7 @@ unset vnt_key
 - `RELAY_CONTROL_SERVER_NAMES` 必须包含边缘节点使用的 `control_server_name`，例如 `control-plane,localhost,relay.example.com`。
 - 签名密钥 ID 在轮换时必须更新，不能在密钥变化后继续复用旧 ID。
 - `DEVICE_FINGERPRINT_HMAC_KEY_BASE64` 必须保持稳定并单独备份；生产环境缺失时会拒绝启动。服务端不保存硬件因子原文，因此该密钥丢失后无法重算已有设备摘要。在多密钥迁移流程可用前，不得变更它或 `DEVICE_FINGERPRINT_KEY_ID`。
-- `VNT_SECRET_ENCRYPTION_KEY_BASE64` 必须保持稳定并采用同等级备份保护。开发环境在变量为空时可以创建临时密钥，但生产环境绝不会这样做；临时密钥会在重启后使已有 VNT 房间秘密失效，也不适合共享 staging。
+- 当前 `VNT_SECRET_ENCRYPTION_KEY_BASE64` 与全部 `VNT_SECRET_DECRYPTION_KEYS` 必须采用同等级备份保护。开发环境在活动密钥为空时可以创建临时密钥，但生产环境绝不会这样做；临时密钥会在重启后使已有 VNT 房间秘密失效，也不适合共享 staging。不得把同一个 `VNT_SECRET_ENCRYPTION_KEY_ID` 复用于不同密钥字节。
 - `STEAM_APP_ID` 与票龄设置仅为旧配置和测试夹具兼容而保留，不参与真实 ticket 准入。镜像内置独立的 Go `/usr/local/bin/decrypt-ticket` verifier，但官方 Steamworks Linux `libsdkencryptedappticket.so` 与该应用的 32 字节 encrypted-ticket key 必须分别通过 `STEAM_ENCRYPTED_APP_TICKET_LIBRARY_HOST_PATH` 和 `STEAM_ENCRYPTED_APP_TICKET_KEY_HOST_PATH` 提供。两者均只读挂载，绝不打入镜像。key 文件可以是正好 32 个原始字节或 64 个十六进制字符。宿主机上应保持 root 所有者，将文件组设置为容器 `app` 的 GID（固定为 `999`），权限设置为 `0440`；包含它的宿主目录保持 root 所有且权限为 `0700`。root 所有的 `0600` key 无法被容器内非 root 进程读取。部署脚本会在替换现有容器前以 `app` 身份执行无效密文探针；只有 key 与原生库均可加载时才允许发布。verifier 仅从 stdin 接收 ticket，并在 stdout 输出受限 JSON；控制面不包含、也不会回退到进程内 Steam 解密算法。
 - 将规范的 ToolBox 证书放到 `TOOLBOX_PUBKEY_HOST_PATH`，并只读挂载到 `TOOLBOX_PUBKEY_PATH`。每次完整性 proof 都会哈希 PEM 的精确字节（包括换行符），不得重新排版或转换成 base64；生产环境缺少该设置时拒绝启动。`INTEGRITY_CHALLENGE_TTL_SECONDS` 默认为 120，除非客户端和事件响应策略同时更新，否则 `INTEGRITY_MAXIMUM_FAILURES` 必须保持为 3。
 
@@ -241,7 +243,9 @@ sudo docker compose --env-file deployments/control-plane/.env \
 curl -fsS http://127.0.0.1:18080/health/ready
 ```
 
-部署包含 VNT 支持的版本时，还要确认 `000036_player_entitlements_and_vnt.sql` 已完成，并确认 `player_feature_grants`、`vnt_nodes`、`p2p_vnt_sessions` 三张表存在后再开放客户端流量。不能只凭 HTTP liveness 推断迁移成功；`/health/ready` 与 migration/table 检查必须同时通过。
+部署包含 VNT 支持的版本时，先保持 `VNT_ROOMS_ENABLED=false`，直到 migration 已执行到 `000038_vnt_security_audit.sql`，`player_feature_grants`、`vnt_nodes`、`p2p_vnt_sessions`、`vnt_security_audit_logs` 均存在，至少一个兼容节点健康，且 ToolBox 运行时门控通过。必须先设置精确且区分大小写的 CSV 白名单 `VNT_ALLOWED_VNTS_VERSIONS` 与 `VNT_ALLOWED_WRAPPER_VERSIONS`；任一列表为空或格式错误时，启用 VNT 会导致启动配置校验失败，房间创建/rebind 也会拒绝版本不在白名单中的节点。`VNT_CREDENTIAL_ROTATION_GRACE_SECONDS` 控制旧 Node Token 仅用于 heartbeat 的轮换重叠期，默认 60 秒，允许范围为 `1..600`；它不是旧 Token 的管理权限延长期。`VNT_MAX_NODES_PER_PLAYER` 默认为每位玩家最多 3 个非 `RETIRED` 节点，允许 `1..100`。独立限流默认值为每玩家每小时 5 次 enrollment、每来源 IP 每分钟 120 次目录查询、每玩家每分钟 30 次房间 bootstrap、每凭据每分钟 120 次 heartbeat、每凭据每小时 10 次 rotate/retire；分别通过 `VNT_ENROLLMENT_REQUESTS_PER_PLAYER_PER_HOUR`、`VNT_DIRECTORY_REQUESTS_PER_IP_PER_MINUTE`、`VNT_BOOTSTRAP_REQUESTS_PER_PLAYER_PER_MINUTE`、`VNT_HEARTBEAT_REQUESTS_PER_CREDENTIAL_PER_MINUTE`、`VNT_MANAGEMENT_REQUESTS_PER_CREDENTIAL_PER_HOUR` 调整。不能只凭 HTTP liveness 推断迁移成功；`/health/ready` 与 migration/table 检查必须同时通过。然后设置 `VNT_ROOMS_ENABLED=true`，只重建 Control Plane 容器，并在开放客户端流量前验证 `/v1/client/config` 返回 `features.vnt_rooms=true`。重新设为 `false` 会阻止新的 VNT 房间创建/rebind，同时允许已有会话排空。
+
+启用 VNT 前还要确认 `/internal/metrics` 中 `vnt_nodes_compatible_online >= 1`、`vnt_node_credentials_expired == 0`，且没有活动的 `NoCompatibleVNTNodeAvailable` 或 `VNTNodeCredentialExpired` 告警。`VNTNodeCredentialExpiringSoon` 应立即转为凭据轮换工单，不能等到运行时鉴权失败。
 
 从运维机访问监控：
 

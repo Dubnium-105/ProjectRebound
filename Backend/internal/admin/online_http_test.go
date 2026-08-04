@@ -13,6 +13,7 @@ import (
 
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/gameserver"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/gameserverregistration"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/vnt"
 )
 
 type registrationOnlineHTTPStub struct {
@@ -20,6 +21,21 @@ type registrationOnlineHTTPStub struct {
 	input  GameServerRegistrationInput
 	meta   RequestMeta
 	result GameServerRegistrationResult
+}
+
+func TestAdministrativeVNTNodeResponseDoesNotExposeCredentials(t *testing.T) {
+	encoded, err := json.Marshal(administrativeVNTNode(vnt.AdminNode{
+		Node: vnt.Node{ID: "vnt_test", ServerKeyFingerprint: "sha256:public-fingerprint"},
+	}, true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(encoded)
+	for _, forbidden := range []string{"node_token", "secret_hash", "credential_hash", "enrollment_code"} {
+		if strings.Contains(body, forbidden) {
+			t.Fatalf("administrator VNT response exposed %q: %s", forbidden, body)
+		}
+	}
 }
 
 func (s *registrationOnlineHTTPStub) CreateGameServerRegistration(

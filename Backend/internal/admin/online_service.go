@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -14,8 +15,14 @@ import (
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/gameserver"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/gameserverregistration"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/p2proom"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/vnt"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+var (
+	adminVNTNodeIDPattern = regexp.MustCompile(`^vnt_[A-Za-z0-9]+$`)
+	adminVNTLabelPattern  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 )
 
 type RoomConnectionCloser interface {
@@ -34,6 +41,8 @@ type OnlineService struct {
 	connections   RoomConnectionCloser
 	registrations *gameserverregistration.Repository
 	relays        RelayConnectionOperator
+	vntNodes      *vnt.Repository
+	vntPolicy     vnt.VersionPolicy
 	logger        *slog.Logger
 	now           func() time.Time
 }
@@ -53,6 +62,11 @@ func NewOnlineService(
 
 func (s *OnlineService) SetRelayConnectionOperator(operator RelayConnectionOperator) {
 	s.relays = operator
+}
+
+func (s *OnlineService) SetVNT(repository *vnt.Repository, policy vnt.VersionPolicy) {
+	s.vntNodes = repository
+	s.vntPolicy = policy
 }
 
 type OnlineOperationResult[T any] struct {
@@ -122,6 +136,144 @@ type ConnectionMigrationResult struct {
 	MigrationID    string
 	PreviousNodeID string
 	NewNodeID      string
+}
+
+type VNTNodeOperationResult struct {
+	Node        vnt.AdminNode
+	ClosedRooms int64
+}
+
+func (s *OnlineService) ListVNTNodes(ctx context.Context, filter vnt.AdminListFilter) (vnt.AdminListResult, error) {
+	if s.vntNodes == nil {
+		return vnt.AdminListResult{}, internal(errors.New("VNT repository is not configured"))
+	}
+	filter.State = strings.ToUpper(strings.TrimSpace(filter.State))
+	filter.Region = strings.TrimSpace(filter.Region)
+	filter.OwnerPlayerID = strings.TrimSpace(filter.OwnerPlayerID)
+	filter.Cursor = strings.TrimSpace(filter.Cursor)
+	if filter.Limit == 0 {
+		filter.Limit = 50
+	}
+	if filter.Limit < 1 || filter.Limit > 100 || (filter.State != "" && !vnt.ValidState(filter.State)) ||
+		(filter.Region != "" && !adminVNTLabelPattern.MatchString(filter.Region)) ||
+		len(filter.OwnerPlayerID) > 64 ||
+		(filter.Cursor != "" && (len(filter.Cursor) > 64 || !adminVNTNodeIDPattern.MatchString(filter.Cursor))) {
+		return vnt.AdminListResult{}, &ServiceError{Status: 400, Code: "INVALID_REQUEST", Message: "Invalid VNT node filter."}
+	}
+	limit := filter.Limit
+	filter.Limit++
+	items, err := s.vntNodes.AdminList(ctx, filter)
+	if err != nil {
+		return vnt.AdminListResult{}, internal(err)
+	}
+	nextCursor := ""
+	if len(items) > limit {
+		nextCursor = items[limit-1].ID
+		items = items[:limit]
+	}
+	for index := range items {
+		items[index].VersionCompatible = s.vntPolicy.Compatible(items[index].Node)
+	}
+	return vnt.AdminListResult{Items: items, NextCursor: nextCursor}, nil
+}
+
+func (s *OnlineService) GetVNTNode(ctx context.Context, nodeID string) (vnt.AdminNode, error) {
+	if s.vntNodes == nil {
+		return vnt.AdminNode{}, internal(errors.New("VNT repository is not configured"))
+	}
+	item, err := s.vntNodes.AdminGet(ctx, strings.TrimSpace(nodeID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return vnt.AdminNode{}, &ServiceError{Status: 404, Code: "VNT_NODE_NOT_FOUND", Message: "VNT node not found."}
+	}
+	if err != nil {
+		return vnt.AdminNode{}, internal(err)
+	}
+	item.VersionCompatible = s.vntPolicy.Compatible(item.Node)
+	return item, nil
+}
+
+func (s *OnlineService) ChangeVNTNodeState(
+	ctx context.Context,
+	nodeID, operation, reasonInput string,
+	meta RequestMeta,
+) (VNTNodeOperationResult, error) {
+	meta, reason, err := validateOnlineOperation(meta, reasonInput)
+	if err != nil {
+		return VNTNodeOperationResult{}, err
+	}
+	if s.vntNodes == nil {
+		return VNTNodeOperationResult{}, internal(errors.New("VNT repository is not configured"))
+	}
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return VNTNodeOperationResult{}, internal(err)
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	nodeID = strings.TrimSpace(nodeID)
+	now := s.now().UTC()
+	oldItem, err := s.vntNodes.GetForAllocation(ctx, tx, nodeID, now)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return VNTNodeOperationResult{}, &ServiceError{Status: 404, Code: "VNT_NODE_NOT_FOUND", Message: "VNT node not found."}
+	}
+	if err != nil {
+		return VNTNodeOperationResult{}, internal(err)
+	}
+	var updated vnt.Node
+	var closedRooms int64
+	var action string
+	switch operation {
+	case "drain":
+		if oldItem.State == vnt.StateRevoked || oldItem.State == vnt.StateRetired {
+			return VNTNodeOperationResult{}, &ServiceError{Status: 409, Code: "VNT_NODE_TERMINAL", Message: "A terminal VNT node cannot be drained."}
+		}
+		updated, err = s.vntNodes.AdminSetState(ctx, tx, nodeID, vnt.StateDraining, now)
+		action = "VNT_NODE_DRAINED"
+	case "revoke":
+		if oldItem.State == vnt.StateRevoked {
+			return VNTNodeOperationResult{}, &ServiceError{Status: 409, Code: "VNT_NODE_ALREADY_REVOKED", Message: "VNT node is already revoked."}
+		}
+		updated, closedRooms, err = s.vntNodes.AdminRevoke(ctx, tx, nodeID, now)
+		action = "VNT_NODE_REVOKED"
+	default:
+		return VNTNodeOperationResult{}, &ServiceError{Status: 400, Code: "INVALID_REQUEST", Message: "Invalid VNT node operation."}
+	}
+	if err != nil {
+		return VNTNodeOperationResult{}, internal(err)
+	}
+	if err := s.insertOnlineAudit(
+		ctx, tx, meta, action, "vnt_node", nodeID,
+		vntNodeAuditValue(oldItem, 0), vntNodeAuditValue(updated, closedRooms), reason, now,
+	); err != nil {
+		return VNTNodeOperationResult{}, internal(err)
+	}
+	if err := s.vntNodes.InsertSecurityAudit(ctx, tx, vnt.SecurityAudit{
+		ID: vnt.NewSecurityAuditID(), EventType: action, Result: vnt.AuditSucceeded,
+		ActorType: vnt.AuditActorAdmin, AdminID: meta.AdminID, NodeID: nodeID,
+		RequestID: meta.RequestID, IPAddress: meta.IPAddress, UserAgent: meta.UserAgent,
+		Details: map[string]any{
+			"previous_state": oldItem.State, "new_state": updated.State,
+			"closed_rooms": closedRooms, "reason": reason,
+		}, CreatedAt: now,
+	}); err != nil {
+		return VNTNodeOperationResult{}, internal(err)
+	}
+	item, err := s.vntNodes.AdminGetTx(ctx, tx, nodeID)
+	if err != nil {
+		return VNTNodeOperationResult{}, internal(err)
+	}
+	item.VersionCompatible = s.vntPolicy.Compatible(item.Node)
+	if err := tx.Commit(ctx); err != nil {
+		return VNTNodeOperationResult{}, internal(fmt.Errorf("commit administrator VNT node operation: %w", err))
+	}
+	return VNTNodeOperationResult{Node: item, ClosedRooms: closedRooms}, nil
+}
+
+func vntNodeAuditValue(item vnt.Node, closedRooms int64) map[string]any {
+	return map[string]any{
+		"state": item.State, "active_rooms": item.ActiveRooms,
+		"vnts_version": item.VNTSVersion, "wrapper_version": item.WrapperVersion,
+		"closed_rooms": closedRooms,
+	}
 }
 
 func (s *OnlineService) ListRoomMembers(

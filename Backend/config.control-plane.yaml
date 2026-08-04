@@ -163,6 +163,19 @@ relay_registry:
   allocation_ttl_seconds: 1800
   capacity_threshold_percent: 80
 
+vnt:
+  # Exact, case-sensitive allowlists. Both must be non-empty before
+  # update.vnt_rooms_enabled can be set to true.
+  allowed_vnts_versions: []
+  allowed_wrapper_versions: []
+  credential_rotation_grace_seconds: 60
+  enrollment_requests_per_player_per_hour: 5
+  directory_requests_per_ip_per_minute: 120
+  bootstrap_requests_per_player_per_minute: 30
+  heartbeat_requests_per_credential_per_minute: 120
+  management_requests_per_credential_per_hour: 10
+  max_nodes_per_player: 3
+
 update:
   product: "project-rebound"
   # Release descriptors are non-secret JSON files. The Ed25519 private key is
@@ -178,6 +191,7 @@ update:
     - "stun:stun.example.com:3478"
   api_version: "v1"
   protocol_version: 2
+  vnt_rooms_enabled: false
 
 logging:
   level: info

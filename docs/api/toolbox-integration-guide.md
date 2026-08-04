@@ -16,7 +16,7 @@ Implementation baseline: 2026-08-04.
 | Dedicated-server runtime registration | Implemented after a Registration Token is supplied. ToolBox generates the key and CSR, enrolls, stores identity with DPAPI, sends signed heartbeats, and rotates credentials. | Add the player-facing request for `/v1/game-server-registration-tokens`; integrate the existing `ServerManager` into the production launch path. |
 | Legacy P2P room browser/create/join | Basic API and UI are present. Room creation is capability-gated in the UI. | Preserve the one-time host token, run the host lifecycle, connect the selected room to game launch, and handle realtime/Relay signaling. |
 | VNT P2P client | Security-sensitive API, runtime verification, node selection, and session manager modules exist behind the `vnt` Cargo feature. | Enable only for approved builds, connect `VntManager` to UI/realtime/game launch, ship verified runtime assets, and satisfy release gates. |
-| Community VNT node enrollment | `VntApiClient::create_node_enrollment` exists. | Add the player-facing enrollment UI and provide a separate node Supervisor that consumes the code, stores node credentials, heartbeats, rotates, and retires. |
+| Community VNT node enrollment | `VntApiClient::create_node_enrollment` exists. | Add owner node listing/enrollment/recovery UX and a separate node Supervisor that consumes the code, stores node credentials, heartbeats, rotates, recovers, and retires. |
 
 Do not interpret a visible capability as a permanent grant. The backend remains authoritative at the time of each protected operation.
 
@@ -83,7 +83,7 @@ The backend returns only currently active capabilities from bind, refresh, and c
 | `Backend/internal/gameserverregistration/` | One-time Registration Token storage, hashing, consumption, and association with a stable instance ID. |
 | `Backend/internal/gameserver/` | Token issuance handler, server enrollment, heartbeat verification, and credential rotation. |
 | `Backend/internal/p2proom/` | Legacy Relay and VNT room state, host tokens, members, hard expiry, heartbeat, start/close, and generation rules. |
-| `Backend/internal/vnt/` | VNT Node Enrollment Codes, node registration/heartbeat/rotation/retirement, probing, node states, and sweeper. |
+| `Backend/internal/vnt/` | VNT owner query/quota/recovery, Enrollment Codes, node registration/heartbeat/rotation/retirement, security audit, independent limits, probing, node states, and sweeper. |
 | `Backend/internal/controlplane/server.go` | Public route registration and authentication middleware boundaries. |
 
 ## 4. Player login and invitation redemption
@@ -293,7 +293,7 @@ The VNT client is compiled only with:
 cargo build --release --features vnt
 ```
 
-It is also gated by the backend client configuration (`features.vnt_rooms`) and runtime verification. `src/vnt/runtime.rs` fail-closes unless the architecture, helper capabilities, Wintun, manifest, version, hashes, and release signatures are trusted. Release builds must embed the approved `PROJECT_REBOUND_VNT_MANIFEST_SHA256` value and ship exactly the assets described by that manifest.
+It is also gated by the backend client configuration (`features.vnt_rooms`) and runtime verification. The backend publishes this value from the deployment setting `VNT_ROOMS_ENABLED`, which defaults to `false`; the same gate rejects new VNT create/rebind operations server-side. Node discovery exposes `version_compatible`, computed from the exact `VNT_ALLOWED_VNTS_VERSIONS` and `VNT_ALLOWED_WRAPPER_VERSIONS` deployment allowlists. ToolBox must hide incompatible nodes and still handle `VNT_NODE_UNAVAILABLE`, because the backend rechecks compatibility transactionally during create/rebind. `src/vnt/runtime.rs` fail-closes unless the architecture, helper capabilities, Wintun, manifest, version, hashes, and release signatures are trusted. Release builds must embed the approved `PROJECT_REBOUND_VNT_MANIFEST_SHA256` value and ship exactly the assets described by that manifest.
 
 Do not expose VNT actions merely because `--features vnt` compiled. Both the server flag and runtime preflight must pass.
 
@@ -342,7 +342,7 @@ The player ToolBox must not become the long-running node supervisor and must nev
 
 ### 8.1 Player ToolBox: request an Enrollment Code
 
-Requirements: a live Steam-verified player session and active `vnt_node_registration`.
+Requirements: an ACTIVE, Steam-verified, integrity-trusted player session, active `vnt_node_registration`, and available ownership quota. The backend defaults to three non-`RETIRED` nodes per player and returns `409 VNT_NODE_QUOTA_EXCEEDED` at the limit.
 
 ```http
 POST /v1/vnt/node-enrollments
@@ -365,6 +365,8 @@ The label must match `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`. The response contains a 
 - shows the code once with a countdown and copy/export action;
 - never writes it to `app_config.json`, clipboard history telemetry, logs, crash reports, or process arguments;
 - clears it when consumed, expired, dismissed, or the player logs out.
+
+Use the paginated `GET /v1/users/me/vnt-nodes` route to show only the caller's nodes, safe lifecycle state, and credential-expiry metadata, and to recover a stable `node_id` after local state loss. This read-only route requires an ACTIVE, Steam-verified session but not integrity step-up; it never returns a node token or hash.
 
 ### 8.2 Node Supervisor: consume the Enrollment Code
 
@@ -401,6 +403,14 @@ The Supervisor then:
 3. rotates the node credential before expiry and atomically replaces the protected token;
 4. drains/retire via the delete endpoint instead of simply disappearing;
 5. treats approximately 90 seconds without heartbeat as stale and 5 minutes as offline from the control plane's perspective.
+
+A successful rotation returns the one-time replacement `node_token`, `credential_expires_at`, and `previous_valid_until`. Use the new token immediately for every management request. The old token is accepted only for heartbeat during the default 60-second overlap and cannot rotate again or retire the node. The Supervisor must atomically persist the replacement before switching heartbeat and finish before the deadline; if the response is lost, enter operator recovery instead of blindly retrying rotation with the old token.
+
+### 8.3 Owner recovery and retirement
+
+When a node credential or rotation response is lost, the owner completes integrity step-up, requests a fresh Enrollment Code, and gives it once to the Supervisor. The Supervisor calls `POST /v1/vnt/nodes/{node_id}/recover` with the normal registration body and `Authorization: VNTEnrollment <fresh-code>`. The backend verifies ownership, revokes every old credential immediately, preserves `DRAINING` or otherwise returns to `REGISTERING`, and returns one replacement credential. Endpoint or fingerprint changes are rejected while active rooms remain. A non-owner receives a non-enumerating `404`.
+
+The Supervisor normally retires with the current Node Credential. An integrity-trusted owner may also call `DELETE /v1/vnt/nodes/{node_id}` with Player Access; the backend verifies ownership. `DRAINING` must keep heartbeats and existing sessions alive until the sweeper reaches `RETIRED` and revokes credentials.
 
 No Node Supervisor implementation is currently present in ProjectReboundToolbox. It should be a separate service-oriented binary or repository with least privilege, not code hidden behind the player's launch button.
 
@@ -457,7 +467,8 @@ Preserve and display the backend `request_id` in a copyable diagnostic message. 
 
 ### Community VNT node
 
-- Request an Enrollment Code only with active `vnt_node_registration`; verify it expires in 10 minutes and is single-use.
+- Request an Enrollment Code only with ACTIVE/Steam-verified/integrity-trusted state, active `vnt_node_registration`, and free owner quota; verify it expires in 10 minutes and is single-use.
 - Verify the player ToolBox never receives or stores `node_token`.
 - Verify Supervisor DPAPI/service storage, 30-second heartbeat, ONLINE probing, 90-day rotation, stale/offline behavior, and drain/retire.
+- Verify owner-only node listing, credential-loss recovery, immediate old-token revocation, non-enumerating cross-owner failures, and the active-room identity-change guard.
 - Confirm secrets are absent from UI history, logs, telemetry, process lists, and configuration files.

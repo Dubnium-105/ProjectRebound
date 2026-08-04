@@ -197,6 +197,27 @@ paths:
                 $ref: "#/components/schemas/UserSessionListResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /v1/users/me/vnt-nodes:
+    get:
+      operationId: listOwnedVNTNodes
+      tags: [VNT]
+      description: Lists only the authenticated player's VNT nodes and safe lifecycle/credential-expiry metadata. Node credentials and hashes are never returned. Integrity step-up is not required for this read-only operation.
+      security:
+        - playerAccessToken: []
+      parameters:
+        - {in: query, name: status, schema: {type: string, enum: [REGISTERING, ONLINE, STALE, OFFLINE, DRAINING, REVOKED, RETIRED]}}
+        - {in: query, name: cursor, schema: {type: string, maxLength: 64, pattern: "^vnt_[A-Za-z0-9]+$"}}
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+      responses:
+        "200":
+          description: Paginated owned VNT nodes without plaintext credentials or hashes.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/OwnedVNTNodeListResponse"}
+        "400": {$ref: "#/components/responses/InvalidRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/RateLimited"}
   /v1/users/me/sessions/{session_id}:
     delete:
       operationId: revokeMySession
@@ -886,6 +907,32 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminAuditLogListResponse"
+  /v1/admin/vnt-security-events:
+    get:
+      operationId: adminListVNTSecurityEvents
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - {in: query, name: cursor, schema: {type: string, maxLength: 64, pattern: "^vsa_[A-Za-z0-9-]+$"}}
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+        - {in: query, name: event_type, schema: {type: string, maxLength: 64}}
+        - {in: query, name: result, schema: {type: string, enum: [SUCCEEDED, FAILED, DENIED]}}
+        - {in: query, name: actor_type, schema: {type: string, enum: [PLAYER, NODE, ADMIN, SYSTEM, UNKNOWN]}}
+        - {in: query, name: player_id, schema: {type: string, maxLength: 64}}
+        - {in: query, name: admin_id, schema: {type: string, maxLength: 128}}
+        - {in: query, name: node_id, schema: {type: string, maxLength: 64}}
+        - {in: query, name: room_id, schema: {type: string, maxLength: 64}}
+      responses:
+        "200":
+          description: Paginated VNT security lifecycle events. Details are recursively redacted and never contain credentials or room secrets.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/VNTSecurityAuditListResponse"}
+        "400": {$ref: "#/components/responses/InvalidRequest"}
+        "401": {$ref: "#/components/responses/AdminUnauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
   /v1/admin/audit-logs/{audit_id}:
     get:
       operationId: adminGetAuditLog
@@ -1541,6 +1588,86 @@ paths:
           content:
             application/json:
               schema: {$ref: "#/components/schemas/RelayNodeResponse"}
+  /v1/admin/vnt-nodes:
+    get:
+      operationId: adminListVNTNodes
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - {in: query, name: cursor, schema: {type: string, maxLength: 64, pattern: "^vnt_[A-Za-z0-9]+$"}}
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+        - {in: query, name: state, schema: {type: string, enum: [REGISTERING, ONLINE, STALE, OFFLINE, DRAINING, REVOKED, RETIRED]}}
+        - {in: query, name: region, schema: {type: string, maxLength: 64}}
+        - {in: query, name: owner_player_id, schema: {type: string, maxLength: 64}}
+      responses:
+        "200":
+          description: Administrative VNT-node page with owner and credential lease metadata, but no credentials or secret hashes.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminVNTNodeListResponse"}
+        "400": {$ref: "#/components/responses/InvalidRequest"}
+  /v1/admin/vnt-nodes/{node_id}:
+    get:
+      operationId: adminGetVNTNode
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+      parameters:
+        - {in: path, name: node_id, required: true, schema: {type: string}}
+      responses:
+        "200":
+          description: VNT-node detail with up to 100 recent referenced rooms and no secret credential material.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminVNTNodeResponse"}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /v1/admin/vnt-nodes/{node_id}/drain:
+    post:
+      operationId: adminDrainVNTNode
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+          adminStepUpToken: []
+      parameters:
+        - {in: path, name: node_id, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
+      responses:
+        "200":
+          description: Node entered DRAINING and will not receive new rooms; existing rooms and credentials remain active.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminVNTNodeOperationResponse"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/admin/vnt-nodes/{node_id}/revoke:
+    post:
+      operationId: adminRevokeVNTNode
+      tags: [Admin]
+      x-internal: true
+      security:
+        - adminAccessToken: []
+          adminStepUpToken: []
+      parameters:
+        - {in: path, name: node_id, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
+      responses:
+        "200":
+          description: Node credentials were revoked immediately and all non-terminal rooms referencing the node were closed.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminVNTNodeOperationResponse"}
+        "409": {$ref: "#/components/responses/Conflict"}
   /v1/admin/releases:
     get:
       operationId: adminListReleases
@@ -1886,13 +2013,15 @@ paths:
             schema: {$ref: "#/components/schemas/VNTNodeEnrollmentRequest"}
       responses:
         "201":
-          description: A single-use, ten-minute node enrollment code. Requires the vnt_node_registration player capability.
+          description: A single-use, ten-minute node enrollment code. Requires the vnt_node_registration player capability, an active Steam-verified player, an integrity-trusted session, and available ownership quota.
           headers:
             Cache-Control: {schema: {type: string, const: no-store}}
           content:
             application/json:
               schema: {$ref: "#/components/schemas/VNTNodeEnrollmentResponse"}
         "403": {$ref: "#/components/responses/Forbidden"}
+        "409": {$ref: "#/components/responses/Conflict"}
+        "429": {$ref: "#/components/responses/RateLimited"}
   /v1/vnt/nodes:
     get:
       operationId: listVNTNodes
@@ -1900,6 +2029,7 @@ paths:
       parameters:
         - {in: query, name: status, schema: {type: string, default: online}}
         - {in: query, name: region, schema: {type: string}}
+        - {in: query, name: cursor, schema: {type: string, maxLength: 64, pattern: "^vnt_[A-Za-z0-9]+$"}}
         - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 200, default: 100}}
       responses:
         "200":
@@ -1907,6 +2037,7 @@ paths:
           content:
             application/json:
               schema: {$ref: "#/components/schemas/VNTNodeListResponse"}
+        "429": {$ref: "#/components/responses/RateLimited"}
     post:
       operationId: registerVNTNode
       tags: [VNT]
@@ -1942,17 +2073,50 @@ paths:
       responses:
         "200": {description: Node lease refreshed.}
         "401": {$ref: "#/components/responses/Unauthorized"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+  /v1/vnt/nodes/{node_id}/recover:
+    post:
+      operationId: recoverVNTNode
+      tags: [VNT]
+      description: Consumes a fresh enrollment code issued to the existing integrity-trusted owner, immediately revokes every old node credential, and returns one replacement credential. Endpoint or server-key changes are rejected while active rooms remain.
+      security:
+        - vntEnrollmentCode: []
+      parameters:
+        - {in: path, name: node_id, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/VNTNodeRegistrationRequest"}
+      responses:
+        "200":
+          description: Existing node ownership recovered; the replacement node credential is returned only once.
+          headers:
+            Cache-Control: {schema: {type: string, const: no-store}}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/VNTNodeRecoveryResponse"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/Conflict"}
   /v1/vnt/nodes/{node_id}:
     delete:
       operationId: retireVNTNode
       tags: [VNT]
+      description: A node credential may request retirement directly. The owning player may perform the same operation only with an active Steam-verified, integrity-trusted access session; non-owners receive a non-enumerating 404.
       security:
         - vntNodeToken: []
+        - playerAccessToken: []
       parameters:
         - {in: path, name: node_id, required: true, schema: {type: string}}
       responses:
-        "200": {description: Node moved to DRAINING or RETIRED.}
+        "200":
+          description: Node moved to DRAINING or RETIRED. Runtime credentials remain valid while draining and are revoked when retirement completes.
         "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/Conflict"}
+        "429": {$ref: "#/components/responses/RateLimited"}
   /v1/vnt/nodes/{node_id}/credential/rotate:
     post:
       operationId: rotateVNTNodeCredential
@@ -1963,7 +2127,7 @@ paths:
         - {in: path, name: node_id, required: true, schema: {type: string}}
       responses:
         "200":
-          description: The old credential is revoked and the new credential is returned only once.
+          description: The new credential is returned only once. The previous credential remains valid for heartbeat only until previous_valid_until and cannot rotate credentials or retire the node.
           headers:
             Cache-Control: {schema: {type: string, const: no-store}}
           content:
@@ -1974,12 +2138,14 @@ paths:
                 properties:
                   data:
                     type: object
-                    required: [node_token, credential_expires_at]
+                    required: [node_token, credential_expires_at, previous_valid_until]
                     properties:
                       node_token: {type: string, writeOnly: true}
                       credential_expires_at: {type: string, format: date-time}
+                      previous_valid_until: {type: string, format: date-time}
                   request_id: {type: string}
         "401": {$ref: "#/components/responses/Unauthorized"}
+        "429": {$ref: "#/components/responses/RateLimited"}
   /v1/p2p-rooms:
     get:
       operationId: listP2PRooms
@@ -2198,6 +2364,7 @@ paths:
           content:
             application/json:
               schema: {$ref: "#/components/schemas/VNTBootstrapResponse"}
+        "429": {$ref: "#/components/responses/RateLimited"}
         "409": {$ref: "#/components/responses/Conflict"}
   /v1/p2p-rooms/{room_id}/vnt/presence/me:
     put:
@@ -3574,7 +3741,10 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
     RateLimited:
-      description: An authentication rate limit was exceeded. Retry-After is returned when applicable.
+      description: A request rate limit was exceeded. Retry-After is returned when applicable.
+      headers:
+        Retry-After:
+          schema: {type: integer, minimum: 1}
       content:
         application/json:
           schema:
@@ -5257,6 +5427,20 @@ components:
             heartbeat_interval_seconds: {type: integer, minimum: 1}
             credential_expires_at: {type: string, format: date-time}
         request_id: {type: string}
+    VNTNodeRecoveryResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [node_id, node_token, state, heartbeat_interval_seconds, credential_expires_at]
+          properties:
+            node_id: {type: string}
+            node_token: {type: string, writeOnly: true}
+            state: {type: string, enum: [REGISTERING, DRAINING]}
+            heartbeat_interval_seconds: {type: integer, minimum: 1}
+            credential_expires_at: {type: string, format: date-time}
+        request_id: {type: string}
     VNTNodeHeartbeatRequest:
       type: object
       additionalProperties: false
@@ -5291,9 +5475,155 @@ components:
       properties:
         data:
           type: object
-          required: [items]
+          required: [items, next_cursor]
           properties:
             items: {type: array, items: {$ref: "#/components/schemas/VNTNode"}}
+            next_cursor: {type: string}
+        request_id: {type: string}
+    OwnedVNTNode:
+      type: object
+      additionalProperties: false
+      description: Owner-visible lifecycle and credential-expiry metadata. Plaintext credentials and hashes are never included.
+      required: [node_id, host, port, region, location, state, vnts_version, wrapper_version, server_key_fingerprint, supported_transports, max_rooms, reported_sessions, active_rooms, version_compatible, credential_expires_at, credential_last_used_at, credential_revoked_at, last_heartbeat_at, last_reachable_at, created_at, updated_at, retired_at]
+      properties:
+        node_id: {type: string}
+        host: {type: string}
+        port: {type: integer, minimum: 1024, maximum: 65535}
+        region: {type: string}
+        location: {type: string}
+        state: {type: string, enum: [REGISTERING, ONLINE, STALE, OFFLINE, DRAINING, REVOKED, RETIRED]}
+        vnts_version: {type: string}
+        wrapper_version: {type: string}
+        server_key_fingerprint: {type: string}
+        supported_transports: {type: array, items: {type: string, enum: [udp, tcp]}}
+        max_rooms: {type: integer, minimum: 1}
+        reported_sessions: {type: integer, minimum: 0}
+        active_rooms: {type: integer, minimum: 0}
+        version_compatible: {type: boolean}
+        credential_expires_at: {type: [string, "null"], format: date-time}
+        credential_last_used_at: {type: [string, "null"], format: date-time}
+        credential_revoked_at: {type: [string, "null"], format: date-time}
+        last_heartbeat_at: {type: [string, "null"], format: date-time}
+        last_reachable_at: {type: [string, "null"], format: date-time}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        retired_at: {type: [string, "null"], format: date-time}
+    OwnedVNTNodeListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [items, next_cursor]
+          properties:
+            items: {type: array, items: {$ref: "#/components/schemas/OwnedVNTNode"}}
+            next_cursor: {type: string}
+        request_id: {type: string}
+    AdminVNTRoomReference:
+      type: object
+      additionalProperties: false
+      required: [room_id, room_state, session_state, generation, failure_reason, expires_at, session_updated_at]
+      properties:
+        room_id: {type: string}
+        room_state: {$ref: "#/components/schemas/P2PRoomState"}
+        session_state: {type: string, enum: [SELECTED, HOST_CONNECTING, HOST_READY, READY, ACTIVE, REBINDING, FAILED, CLOSED]}
+        generation: {type: integer, minimum: 1}
+        failure_reason: {type: string}
+        expires_at: {type: string, format: date-time}
+        session_updated_at: {type: string, format: date-time}
+    AdminVNTNode:
+      type: object
+      additionalProperties: false
+      required: [node_id, owner_player_id, owner_steam_id, owner_persona_name, owner_account_status, host, port, region, location, state, vnts_version, wrapper_version, version_compatible, server_key_fingerprint, supported_transports, max_rooms, reported_sessions, active_rooms, credential_expires_at, credential_last_used_at, credential_revoked_at, last_heartbeat_at, last_reachable_at, created_at, updated_at, retired_at]
+      properties:
+        node_id: {type: string}
+        owner_player_id: {type: string}
+        owner_steam_id: {type: string}
+        owner_persona_name: {type: string}
+        owner_account_status: {$ref: "#/components/schemas/AccountStatus"}
+        host: {type: string}
+        port: {type: integer, minimum: 1024, maximum: 65535}
+        region: {type: string}
+        location: {type: string}
+        state: {type: string, enum: [REGISTERING, ONLINE, STALE, OFFLINE, DRAINING, REVOKED, RETIRED]}
+        vnts_version: {type: string}
+        wrapper_version: {type: string}
+        version_compatible: {type: boolean}
+        server_key_fingerprint: {type: string}
+        supported_transports: {type: array, items: {type: string, enum: [udp, tcp]}}
+        max_rooms: {type: integer, minimum: 1}
+        reported_sessions: {type: integer, minimum: 0}
+        active_rooms: {type: integer, minimum: 0}
+        credential_expires_at: {type: [string, "null"], format: date-time}
+        credential_last_used_at: {type: [string, "null"], format: date-time}
+        credential_revoked_at: {type: [string, "null"], format: date-time}
+        last_heartbeat_at: {type: [string, "null"], format: date-time}
+        last_reachable_at: {type: [string, "null"], format: date-time}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        retired_at: {type: [string, "null"], format: date-time}
+        referenced_rooms:
+          type: array
+          maxItems: 100
+          items: {$ref: "#/components/schemas/AdminVNTRoomReference"}
+        referenced_rooms_truncated: {type: boolean}
+    AdminVNTNodeResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/AdminVNTNode"}
+        request_id: {type: string}
+    AdminVNTNodeListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [items, next_cursor]
+          properties:
+            items: {type: array, items: {$ref: "#/components/schemas/AdminVNTNode"}}
+            next_cursor: {type: string}
+        request_id: {type: string}
+    AdminVNTNodeOperationResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [node, closed_rooms]
+          properties:
+            node: {$ref: "#/components/schemas/AdminVNTNode"}
+            closed_rooms: {type: integer, format: int64, minimum: 0}
+        request_id: {type: string}
+    VNTSecurityAuditEntry:
+      type: object
+      additionalProperties: false
+      required: [id, event_type, result, actor_type, player_id, admin_id, node_id, room_id, request_id, ip_address, user_agent, reason_code, details, created_at]
+      properties:
+        id: {type: string}
+        event_type: {type: string}
+        result: {type: string, enum: [SUCCEEDED, FAILED, DENIED]}
+        actor_type: {type: string, enum: [PLAYER, NODE, ADMIN, SYSTEM, UNKNOWN]}
+        player_id: {type: string}
+        admin_id: {type: string}
+        node_id: {type: string}
+        room_id: {type: string}
+        request_id: {type: string}
+        ip_address: {type: string}
+        user_agent: {type: string}
+        reason_code: {type: string}
+        details: {type: object, additionalProperties: true}
+        created_at: {type: string, format: date-time}
+    VNTSecurityAuditListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [items, next_cursor]
+          properties:
+            items: {type: array, items: {$ref: "#/components/schemas/VNTSecurityAuditEntry"}}
+            next_cursor: {type: string}
         request_id: {type: string}
     VNTPresenceRequest:
       type: object
@@ -6152,11 +6482,12 @@ components:
             features:
               type: object
               additionalProperties: false
-              required: [p2p_rooms, relay, dedicated_servers]
+              required: [p2p_rooms, relay, dedicated_servers, vnt_rooms]
               properties:
                 p2p_rooms: {type: boolean}
                 relay: {type: boolean}
                 dedicated_servers: {type: boolean}
+                vnt_rooms: {type: boolean, description: Server-authoritative gate for creating or rebinding VNT rooms.}
         request_id: {type: string}
     MetaEndpoint:
       type: object

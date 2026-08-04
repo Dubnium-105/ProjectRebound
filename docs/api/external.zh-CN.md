@@ -62,6 +62,8 @@
 
 客户端配置不会返回具体 Relay 地址。具体 endpoint 只在 connection 被调度后通过 WebSocket 事件下发。
 
+`features.vnt_rooms` 是服务端权威的 VNT 房间开关。值为 `false` 时，客户端必须隐藏新的 VNT create/rebind 操作，相应受保护 API 也会拒绝这些操作。受控关闭期间，已有 VNT 房间仍可执行 bootstrap、heartbeat、presence、start、leave 与 close，以便安全排空活动会话。
+
 ### 3.2 登录和玩家
 
 | 方法 | 路径 | 鉴权 | 请求 | 成功 |
@@ -262,22 +264,32 @@ VNT 节点注册由玩家的 `vnt_node_registration` 独立权限控制。创建
 
 | 方法 | 路径 | 鉴权 | 用途 |
 | --- | --- | --- | --- |
-| POST | `/v1/vnt/node-enrollments` | verified 玩家 | 签发十分钟、单次使用的节点 enrollment code |
+| GET | `/v1/users/me/vnt-nodes` | ACTIVE、Steam verified 的节点所有者玩家 | 只列出调用者自己的节点及安全的生命周期/凭据到期信息；绝不返回凭据或哈希 |
+| POST | `/v1/vnt/node-enrollments` | ACTIVE、Steam verified、integrity trusted 玩家 | 签发十分钟、单次使用的节点 enrollment code |
 | POST | `/v1/vnt/nodes` | `VNTEnrollment` | 消费 enrollment code，Node Credential 仅返回一次 |
 | GET | `/v1/vnt/nodes` | 无 | 返回公开节点 endpoint、版本、位置和剩余容量 |
 | POST | `/v1/vnt/nodes/{node_id}/heartbeat` | VNT Node | 续租并提交健康遥测 |
-| POST | `/v1/vnt/nodes/{node_id}/credential/rotate` | VNT Node | 轮转 Node Credential，新值仅返回一次 |
-| DELETE | `/v1/vnt/nodes/{node_id}` | VNT Node | 进入 DRAINING 或 RETIRED |
+| POST | `/v1/vnt/nodes/{node_id}/credential/rotate` | 当前 VNT Node Credential | 新凭据仅返回一次，同时返回到期时间和旧 Token 心跳重叠截止时间 |
+| POST | `/v1/vnt/nodes/{node_id}/recover` | 所有者新签发的 `VNTEnrollment` Code | 重新认领未终止节点、撤销全部旧凭据并只返回一次替换凭据 |
+| DELETE | `/v1/vnt/nodes/{node_id}` | VNT Node 或完成完整性验证的所有者玩家 | 进入 DRAINING 或 RETIRED |
 | POST | `/v1/p2p-rooms/{room_id}/vnt/bootstrap` | 活动成员 | 返回当前 generation 的 VNT 运行秘密；响应为 `no-store` |
 | PUT | `/v1/p2p-rooms/{room_id}/vnt/presence/me` | 活动成员 | 上报本地隧道状态和实际路径 |
 | PUT | `/v1/p2p-rooms/{room_id}/vnt/host-ready` | 房主 + Host Token | 发布当前 generation 的房主就绪状态 |
 | POST | `/v1/p2p-rooms/{room_id}/vnt/rebind` | 房主 + Host Token | 开局前换节点，并轮换 generation 和全部房间秘密 |
 
+签发 Enrollment 还要求 integrity-trusted 会话，且默认每位玩家最多拥有 3 个非 `RETIRED` 节点。`GET /v1/users/me/vnt-nodes` 是只读接口，不要求完整性 Step-up，用于本地状态丢失后找回稳定 `node_id`；Recover 和 owner retirement 仍要求 Step-up。恢复 Code 必须属于原 owner，恢复会立即撤销全部旧 Node Credential；仍有活动房间时不能改变 endpoint/fingerprint。
+
 VNT 数据面不经过 Control Plane。公共节点和房间响应不会包含 network token、E2E 密码、Node Credential、device ID 或成员虚拟地址。
+
+`GET /v1/vnt/nodes` 使用基于 ID 的游标分页。将响应中的 `data.next_cursor` 作为下一次请求的 `cursor`；空值表示没有下一页。`limit` 范围为 `1..200`，默认值为 `100`。
+
+每个节点都包含 `version_compatible`，它由服务端对批准的 `vnts` 与 wrapper 版本白名单执行精确且区分大小写的匹配。ToolBox 应隐藏不兼容节点，但仍必须处理 `409 VNT_NODE_UNAVAILABLE`，因为 create/rebind 会在分配事务内再次检查状态、容量和两个版本。
+
+有活动房间的节点在请求退役后进入 `DRAINING`，并可继续发送心跳及轮换凭据，直到相关房间结束。节点一旦进入 `RETIRED`，其余节点凭据会被原子撤销。
 
 系统不存在一个公开的“VNT Token”接口。节点注册与房间 Bootstrap 面向不同持有者，返回的秘密也不同：
 
-1. 具备有效 `vnt_node_registration` 的已验证玩家先请求有效 10 分钟的 Enrollment Code：
+1. 具备有效 `vnt_node_registration`、当前为 ACTIVE/Steam verified/integrity trusted 且仍有 owner 配额的玩家先请求有效 10 分钟的 Enrollment Code：
 
    ```bash
    curl --fail-with-body -X POST 'https://api.project-rebound.space/v1/vnt/node-enrollments' \

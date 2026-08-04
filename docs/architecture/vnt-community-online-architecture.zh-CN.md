@@ -2,12 +2,12 @@
 
 [English](vnt-community-online-architecture.md) | 简体中文
 
-状态：后端 MVP 已实现；客户端/节点打包与 GA 门禁仍待完成
+状态：后端 VNT 核心、owner 恢复/配额、安全审计、独立滥用控制、版本门禁与管理 API 已实现；Admin Web 页面、客户端/节点打包与 GA 门禁仍待完成
 基线日期：2026-08-04
 
-本文定义 ProjectRebound“VNT 节点 + P2P 房间”路径的完整目标架构。它保留两项核心约束：社区志愿者提供 VNT 注册/打洞/中继节点；游戏流量不得经过中央 LA VPS。后端 MVP 已随 `000036_player_entitlements_and_vnt.sql` 上线：Control Plane 现已实现相互独立的玩家权限、VNT 节点 Enrollment/生命周期 API、VNT P2P 房间 Session、加密房间秘密 Bootstrap、Rebind、Presence、到期清理和 OpenAPI 契约。现有 Candidate/Connection/Edge Relay 路径继续服务 `LEGACY_RELAY`；参见[当前 P2P 联机完整架构](online-architecture.zh-CN.md)。
+本文定义 ProjectRebound“VNT 节点 + P2P 房间”路径的完整目标架构。它保留两项核心约束：社区志愿者提供 VNT 注册/打洞/中继节点；游戏流量不得经过中央 LA VPS。后端基础随 `000036_player_entitlements_and_vnt.sql` 上线，并通过 `000038_vnt_security_audit.sql` 补齐 VNT RBAC 与安全审计：Control Plane 现已实现相互独立的玩家权限、owner 配额/查询/恢复/退役、VNT 节点 Enrollment/生命周期 API、VNT P2P 房间 Session、加密房间秘密 Bootstrap、Rebind、Presence、到期清理、双版本白名单门禁、独立滥用限流、脱敏安全事件、Admin 节点查询/Drain/Revoke 和 OpenAPI 契约。现有 Candidate/Connection/Edge Relay 路径继续服务 `LEGACY_RELAY`；参见[当前 P2P 联机完整架构](online-architecture.zh-CN.md)。
 
-完整目标尚未达到 GA。固定生产版本的 VNT-Node 安装包、ToolBox 的特权 `vnt-cli` 集成与结构化就绪契约、大范围 NAT/互操作证据，以及完整的 VNT 管理和可观测性门禁仍是独立交付项。后端 API 可用不能被表述为端到端 VNT 数据面已经达到生产就绪。
+完整目标尚未达到 GA。固定生产版本的 VNT-Node 安装包、ToolBox 的特权 `vnt-cli` 集成与结构化就绪契约、大范围 NAT/互操作证据，以及 Admin Web 页面和完整可观测性门禁仍是独立交付项。后端 API 可用不能被表述为端到端 VNT 数据面已经达到生产就绪。
 
 ## 1. 目标、非目标与关键决策
 
@@ -273,9 +273,11 @@ CREATE TABLE p2p_vnt_member_sessions (
 | --- | --- | --- |
 | `POST /v1/vnt/node-enrollments` | Player Access | 签发 10 分钟、单次使用的 enrollment code |
 | `POST /v1/vnt/nodes` | Enrollment Code | 注册节点；原子消费 code；Node Credential 仅返回一次 |
+| `GET /v1/users/me/vnt-nodes` | ACTIVE、verified Owner Player Access | 只返回调用者自己的节点及安全的生命周期/凭据到期信息 |
 | `GET /v1/vnt/nodes?status=online&region=...` | 公开 | 返回可公开探测的 endpoint、位置、版本、容量和状态，不返回 owner/秘密 |
 | `POST /v1/vnt/nodes/{node_id}/heartbeat` | Node Credential | 更新租约、版本和自报资源；不能自行改变 owner/endpoint |
-| `POST /v1/vnt/nodes/{node_id}/credential/rotate` | Node Credential | 在剩余 25% 有效期内自助轮换；新凭据只返回一次，旧凭据短暂重叠后撤销 |
+| `POST /v1/vnt/nodes/{node_id}/credential/rotate` | 当前 Node Credential | 自助轮换（Supervisor 在剩余 25% 时调度）；新凭据只返回一次，旧凭据仅在短暂重叠期内允许心跳 |
+| `POST /v1/vnt/nodes/{node_id}/recover` | owner 新签发的 Enrollment Code | 恢复未终止节点、撤销全部旧凭据并只返回一次替换凭据 |
 | `DELETE /v1/vnt/nodes/{node_id}` | Node Credential 或 Owner Player Access | 停止新分配；无活动房间时退役，否则进入 DRAINING |
 
 Enrollment 请求由已登录 ToolBox 发起：
@@ -665,7 +667,7 @@ Supervisor 建议用 Go 实现，以复用仓库的 HTTP、配置、日志和 Wi
 - `cipher_model` 只允许项目审核过的 AEAD（首选 `chacha20_poly1305` 或 `aes_gcm`），禁止 `xor`、ECB 和无认证模式；
 - 强制 `server_encrypt=true`，并把服务端 fingerprint 与节点注册表值比对；
 - bootstrap 只允许当前 generation 的 Active member，响应 `Cache-Control: no-store`，禁止 CDN/浏览器缓存；
-- 房间秘密在 PostgreSQL 信封加密，密钥轮换支持多 `secret_key_id` 解密和新 key 写入；
+- 房间秘密在 PostgreSQL 信封加密；写入使用当前 `VNT_SECRET_ENCRYPTION_KEY_ID`，轮换期间由只读 `VNT_SECRET_DECRYPTION_KEYS` keyring 解密历史 `secret_key_id`；
 - 节点注册、endpoint 改动、revoke、rebind、fingerprint 变化和秘密解密失败全部进入安全审计；
 - 公共节点 API、enrollment、heartbeat、bootstrap 和探测都有独立 IP/player/node 限流；
 - 节点 endpoint 执行双层 SSRF 地址校验和 DNS rebind 防护；
@@ -693,11 +695,13 @@ Control Plane 至少输出：
 - 每节点引用房间数和 capacity saturation；
 - 中央 VPS 游戏数据面端口/字节应为零的发布门禁指标。
 
+当前后端已经输出按状态/区域/双版本/兼容性聚合的节点清单、逐节点 heartbeat/reachability age、容量与引用房间、房间/session/generation/path 分布、VNT 功能开关和凭据到期指标；Prometheus 会对“已启用但没有兼容容量”、凭据临期/失效、高容量和心跳超时告警。事件结果计数、host-ready 延迟、客户端建立耗时和外部“中央数据面为零”发布门禁，仍需随 Node Supervisor 与 ToolBox 遥测契约补齐。
+
 VNT-Node 至少输出 wrapper/vnts uptime、heartbeat 结果、监听状态、子进程重启次数和聚合会话数。日志不得包含 network token、E2E password、Node Credential 或玩家标识。
 
 ### 14.2 管理能力
 
-Admin Web 增加节点列表、详情、owner、endpoint、版本、fingerprint、租约、可达性、引用房间、Drain 和 Revoke。敏感写入要求既有 RBAC、step-up、原因和审计。管理端不能查看房间明文 token/password；排障只显示 key ID、generation 和安全摘要。
+后端已提供节点列表/详情及 Drain/Revoke API，覆盖 owner、endpoint、版本兼容性、fingerprint、最新凭据租约、可达性和引用房间，并提供已脱敏的 `GET /v1/admin/vnt-security-events` 生命周期事件流；Admin Web 页面仍需接入这些接口。敏感写入使用独立 RBAC、step-up、原因和事务审计。管理端不能查看房间明文 token/password 或 Node Credential；排障只显示 generation、状态、时间和安全摘要。Drain 保留现有房间，Revoke 立即撤销节点凭据并关闭关联的未终止房间。
 
 ### 14.3 运行目标
 

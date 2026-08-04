@@ -87,6 +87,35 @@ type LoginAuditFilter struct {
 	Limit   int
 }
 
+type VNTSecurityAuditFilter struct {
+	Cursor    string
+	EventType string
+	Result    string
+	ActorType string
+	PlayerID  string
+	AdminID   string
+	NodeID    string
+	RoomID    string
+	Limit     int
+}
+
+type VNTSecurityAuditEntry struct {
+	ID         string         `json:"id"`
+	EventType  string         `json:"event_type"`
+	Result     string         `json:"result"`
+	ActorType  string         `json:"actor_type"`
+	PlayerID   string         `json:"player_id"`
+	AdminID    string         `json:"admin_id"`
+	NodeID     string         `json:"node_id"`
+	RoomID     string         `json:"room_id"`
+	RequestID  string         `json:"request_id"`
+	IPAddress  string         `json:"ip_address"`
+	UserAgent  string         `json:"user_agent"`
+	ReasonCode string         `json:"reason_code"`
+	Details    map[string]any `json:"details"`
+	CreatedAt  time.Time      `json:"created_at"`
+}
+
 type LoginAuditEntry struct {
 	ID                       string    `json:"id"`
 	AdminID                  string    `json:"admin_id"`

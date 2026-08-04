@@ -41,7 +41,7 @@ DELETE /v1/admin/auth/sessions/{session_id}
 POST   /v1/admin/auth/step-up
 ```
 
-玩家 Access Token 和机器 Admin Token 均不能代替 Admin Web 的 Access Token。权限由服务端 RBAC 强制执行，前端菜单隐藏不构成安全边界。Relay 撤销还必须在 `X-Admin-Step-Up` 中携带二次 MFA 证明；证明只保存在浏览器内存并按配置的短时 TTL 过期。
+玩家 Access Token 和机器 Admin Token 均不能代替 Admin Web 的 Access Token。权限由服务端 RBAC 强制执行，前端菜单隐藏不构成安全边界。Relay 撤销以及 VNT 节点 Drain/Revoke 还必须在 `X-Admin-Step-Up` 中携带二次 MFA 证明；证明只保存在浏览器内存并按配置的短时 TTL 过期。
 
 首次管理员通过 `go run ./cmd/adminctl` 创建。密码只从 `ADMINCTL_PASSWORD` 环境变量读取；TOTP provisioning URI 和恢复码只在创建成功时显示一次。持久环境必须预先配置 `ADMIN_MFA_ENCRYPTION_KEY_BASE64`。
 
@@ -155,11 +155,19 @@ GET  /v1/admin/relay-nodes/{node_id}
 POST /v1/admin/relay-nodes/{node_id}/drain
 POST /v1/admin/relay-nodes/{node_id}/resume
 POST /v1/admin/relay-nodes/{node_id}/revoke
+
+GET  /v1/admin/vnt-nodes
+GET  /v1/admin/vnt-nodes/{node_id}
+POST /v1/admin/vnt-nodes/{node_id}/drain
+POST /v1/admin/vnt-nodes/{node_id}/revoke
+GET  /v1/admin/vnt-security-events
 ```
+
+`GET /v1/admin/vnt-security-events` 要求 `vnt_nodes.read`，返回已脱敏的 Enrollment、节点凭据、恢复、房间重绑定、密钥解密失败和管理员生命周期事件；可按事件/结果/参与者、玩家、管理员、节点或房间筛选。响应绝不包含 Enrollment Code、Node Credential、房间 Network Token、E2E Password、Secret Hash 或加密材料。
 
 读取 P2P BattleLog 标准化证据要求 `p2p.battlelog.read`；独立的原始证据接口要求 `p2p.battlelog.raw.read`，响应强制 `Cache-Control: no-store`，普通运维/客服角色不获得该权限。其报告标识和数据表与专用服务器 BattleLog 完全分离。
 
-所有写操作都必须提交 `reason`；Relay Drain 还可提交 `deadline_seconds` 和 `migrate_existing`。`POST /v1/admin/game-servers/registration-tokens` 还要求 `game_servers.register` 权限和 MFA Step-up；请求包含 `instance_id` 与 1–168 小时有效期，会撤销该实例之前尚未消费的凭据，只保存 SHA-256 哈希，并仅在带 `Cache-Control: no-store` 的创建响应中返回一次明文 `gsr_...` Token。停用专服会将其标记为离线并撤销 Server Token。房间操作返回 `connections_cleanup_complete`；若为 false，说明房间变更已成功，但需按 Runbook 确认下游连接清理。Connection 的 Relay 迁移不接受浏览器提交目标地址或节点，目标由后端调度器从合格的 READY 节点中选择。其他响应绝不包含房主 Token、节点 Token、Allocation Token、注册 Token 哈希、私钥或完整 ICE Candidate。
+所有写操作都必须提交 `reason`；Relay Drain 还可提交 `deadline_seconds` 和 `migrate_existing`。`POST /v1/admin/game-servers/registration-tokens` 还要求 `game_servers.register` 权限和 MFA Step-up；请求包含 `instance_id` 与 1–168 小时有效期，会撤销该实例之前尚未消费的凭据，只保存 SHA-256 哈希，并仅在带 `Cache-Control: no-store` 的创建响应中返回一次明文 `gsr_...` Token。VNT 节点 Drain 与 Revoke 都要求 MFA Step-up：Drain 停止新房间分配但保留活动房间和节点凭据；Revoke 立即撤销全部节点凭据、将 VNT session 标为失败、关闭受影响房间，并返回 `closed_rooms`。节点列表/详情只显示 owner、endpoint、版本、fingerprint、最新凭据租约时间、可达性和安全的房间引用，不返回凭据或房间秘密。停用专服会将其标记为离线并撤销 Server Token。房间操作返回 `connections_cleanup_complete`；若为 false，说明房间变更已成功，但需按 Runbook 确认下游连接清理。Connection 的 Relay 迁移不接受浏览器提交目标地址或节点，目标由后端调度器从合格的 READY 节点中选择。其他响应绝不包含房主 Token、节点 Token、Allocation Token、注册 Token 哈希、私钥或完整 ICE Candidate。
 
 ### 3.4 客户端发布管理
 

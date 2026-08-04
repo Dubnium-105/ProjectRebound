@@ -11,7 +11,8 @@ import (
 )
 
 type stubHTTPService struct {
-	room Room
+	room   Room
+	vntErr error
 }
 
 func (s *stubHTTPService) Create(context.Context, Actor, CreateInput) (CreateResult, error) {
@@ -37,6 +38,18 @@ func (s *stubHTTPService) Delete(context.Context, Actor, string, string) (Room, 
 	return s.room, nil
 }
 func (s *stubHTTPService) HeartbeatInterval() int { return 15 }
+func (s *stubHTTPService) VNTBootstrap(context.Context, Actor, string) (VNTBootstrap, error) {
+	return VNTBootstrap{}, s.vntErr
+}
+func (s *stubHTTPService) UpdateVNTPresence(context.Context, Actor, string, VNTPresenceInput) (Room, error) {
+	return s.room, s.vntErr
+}
+func (s *stubHTTPService) VNTHostReady(context.Context, Actor, string, string, int, string) (Room, error) {
+	return s.room, s.vntErr
+}
+func (s *stubHTTPService) VNTRebind(context.Context, Actor, string, string, string) (Room, error) {
+	return s.room, s.vntErr
+}
 
 func TestPublicRoomResponseDoesNotLeakCredentialsOrNetworkMetadata(t *testing.T) {
 	service := &stubHTTPService{room: Room{
@@ -61,5 +74,18 @@ func TestListRejectsInvalidHasSlots(t *testing.T) {
 	handler.List(recorder, httptest.NewRequest("GET", "/v1/p2p-rooms?has_slots=sometimes", nil))
 	if recorder.Code != 400 || !strings.Contains(recorder.Body.String(), "INVALID_REQUEST") {
 		t.Fatalf("response = %d %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestVNTBootstrapRateLimitSetsRetryAfter(t *testing.T) {
+	service := &stubHTTPService{vntErr: &ServiceError{
+		Status: 429, Code: "VNT_RATE_LIMITED", Message: "Too many VNT requests.",
+		Details: map[string]any{"retry_after_seconds": 7},
+	}}
+	handler := NewHTTPHandler(service, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	recorder := httptest.NewRecorder()
+	handler.VNTBootstrap(recorder, httptest.NewRequest("POST", "/v1/p2p-rooms/room_test/vnt/bootstrap", nil))
+	if recorder.Code != 429 || recorder.Header().Get("Retry-After") != "7" {
+		t.Fatalf("response = %d, Retry-After = %q", recorder.Code, recorder.Header().Get("Retry-After"))
 	}
 }

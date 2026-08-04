@@ -2,12 +2,12 @@
 
 English | [简体中文](vnt-community-online-architecture.zh-CN.md)
 
-Status: backend MVP implemented; client/node packaging and GA gates remain
+Status: backend VNT core, owner recovery/quota, security audit, independent abuse controls, version gate, and administrative API implemented; Admin Web UI, client/node packaging, and GA gates remain
 Baseline date: 2026-08-04
 
-This document defines the complete target architecture for ProjectRebound's "VNT node + P2P room" path. It preserves two primary constraints: community volunteers operate VNT registration/hole-punch/relay nodes, and gameplay traffic must never traverse the central LA VPS. The backend MVP shipped in migration `000036_player_entitlements_and_vnt.sql`: the Control Plane now implements independent player capabilities, VNT node enrollment/lifecycle APIs, VNT P2P room sessions, encrypted room-secret bootstrap, rebind, presence, expiry, and the OpenAPI contract. The existing Candidate/Connection/Edge Relay path remains available for `LEGACY_RELAY`; see the [current complete P2P online architecture](online-architecture.md).
+This document defines the complete target architecture for ProjectRebound's "VNT node + P2P room" path. It preserves two primary constraints: community volunteers operate VNT registration/hole-punch/relay nodes, and gameplay traffic must never traverse the central LA VPS. The backend base shipped in migration `000036_player_entitlements_and_vnt.sql`, with VNT RBAC and security-audit additions through `000038_vnt_security_audit.sql`: the Control Plane now implements independent player capabilities, owner quota/query/recovery/retirement, VNT node enrollment/lifecycle APIs, VNT P2P room sessions, encrypted room-secret bootstrap, rebind, presence, expiry, exact dual-version allowlisting, independent abuse limits, redacted security events, administrative node list/detail/drain/revoke APIs, and the OpenAPI contract. The existing Candidate/Connection/Edge Relay path remains available for `LEGACY_RELAY`; see the [current complete P2P online architecture](online-architecture.md).
 
-The target is not GA-complete. A production-pinned VNT-Node package, the ToolBox privileged `vnt-cli` integration and structured readiness contract, broad NAT/interoperability evidence, and full VNT administration/observability gates remain separate deliverables. Backend API availability must not be presented as proof that the end-to-end VNT data plane is production-ready.
+The target is not GA-complete. A production-pinned VNT-Node package, the ToolBox privileged `vnt-cli` integration and structured readiness contract, broad NAT/interoperability evidence, and the Admin Web UI plus complete observability gates remain separate deliverables. Backend API availability must not be presented as proof that the end-to-end VNT data plane is production-ready.
 
 ## 1. Goals, non-goals, and key decisions
 
@@ -273,9 +273,11 @@ All errors retain the existing `{error:{code,message,details}, request_id}` enve
 | --- | --- | --- |
 | `POST /v1/vnt/node-enrollments` | Player Access | Issue a ten-minute, one-use enrollment code |
 | `POST /v1/vnt/nodes` | Enrollment Code | Register a node, atomically consume the code, and return the Node Credential once |
+| `GET /v1/users/me/vnt-nodes` | Active verified Owner Player Access | Return only the caller's nodes and safe lifecycle/credential-expiry metadata |
 | `GET /v1/vnt/nodes?status=online&region=...` | Public | Return probeable endpoint, location, version, capacity, and status without owner or secrets |
 | `POST /v1/vnt/nodes/{node_id}/heartbeat` | Node Credential | Renew lease and report version/resources; cannot change owner or endpoint |
-| `POST /v1/vnt/nodes/{node_id}/credential/rotate` | Node Credential | Self-rotate in the final 25% of validity; return the new credential once and revoke the old after a short overlap |
+| `POST /v1/vnt/nodes/{node_id}/credential/rotate` | Current Node Credential | Self-rotate (the Supervisor schedules this in the final 25%); return the new credential once and retain the old credential for heartbeat only during a short overlap |
+| `POST /v1/vnt/nodes/{node_id}/recover` | Fresh owner Enrollment Code | Reclaim a non-terminal node, revoke all old credentials, and return one replacement credential |
 | `DELETE /v1/vnt/nodes/{node_id}` | Node Credential or Owner Player Access | Stop new assignments; retire when unused or enter DRAINING while active rooms remain |
 
 An authenticated ToolBox requests enrollment:
@@ -665,7 +667,7 @@ Operators must allow and forward the configured port over TCP and UDP. `29878` i
 - Allow only reviewed AEAD `cipher_model` values (prefer `chacha20_poly1305` or `aes_gcm`); reject `xor`, ECB, and unauthenticated modes.
 - Force `server_encrypt=true` and compare the server fingerprint with the node registry value.
 - Permit bootstrap only for an Active member of the current generation; return `Cache-Control: no-store` and disallow CDN/browser caching.
-- Envelope-encrypt room secrets in PostgreSQL. Key rotation can decrypt multiple `secret_key_id` versions while writing only with the new key.
+- Envelope-encrypt room secrets in PostgreSQL. The active `VNT_SECRET_ENCRYPTION_KEY_ID` is used for writes, while the read-only `VNT_SECRET_DECRYPTION_KEYS` keyring decrypts historical `secret_key_id` versions during rotation.
 - Audit node enrollment, endpoint change, revoke, rebind, fingerprint change, and secret decryption failure.
 - Give the public node API, enrollment, heartbeat, bootstrap, and probe separate IP/player/node rate limits.
 - Apply two-layer SSRF address validation and DNS-rebind protection to node endpoints.
@@ -693,11 +695,13 @@ Control Plane emits at least:
 - referenced-room count and capacity saturation per node;
 - a release-gate metric showing zero gameplay data-plane ports/bytes on the central VPS.
 
+The backend currently emits the node inventory grouped by state/region/versions/compatibility, per-node heartbeat and reachability age, capacity and referenced-room gauges, room/session/generation/path distributions, the VNT feature gate, and credential-expiry gauges. Prometheus alerts cover an enabled fleet with no compatible capacity, expiring/expired node credentials, high capacity, and overdue heartbeats. Event outcome counters, host-ready latency, client setup duration, and the external zero-data-plane release gate remain to be added with the Node Supervisor and ToolBox telemetry contract.
+
 VNT-Node reports wrapper/vnts uptime, heartbeat outcome, listen state, child restart count, and aggregate sessions. Logs never contain a network token, E2E password, Node Credential, or player identifier.
 
 ### 14.2 Administration
 
-Admin Web gains node list/detail, owner, endpoint, version, fingerprint, lease, reachability, referenced rooms, Drain, and Revoke. Sensitive writes require existing RBAC, step-up, reason, and audit controls. Administrators cannot view plaintext room tokens/passwords; diagnosis shows key ID, generation, and safe digests only.
+The backend now provides node list/detail and Drain/Revoke APIs covering owner, endpoint, version compatibility, fingerprint, latest credential lease, reachability, and referenced rooms, plus a redacted `GET /v1/admin/vnt-security-events` lifecycle feed; the Admin Web page still needs to integrate them. Sensitive writes use separate RBAC, step-up, reason, and transactional audit controls. Administrators cannot view plaintext room tokens/passwords or Node Credentials; diagnosis exposes only generation, state, timestamps, and safe summaries. Drain preserves existing rooms, while Revoke immediately revokes node credentials and closes referenced non-terminal rooms.
 
 ### 14.3 Service targets
 

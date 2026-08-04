@@ -102,5 +102,6 @@ type ClientConfig struct {
 		P2PRooms         bool `json:"p2p_rooms"`
 		Relay            bool `json:"relay"`
 		DedicatedServers bool `json:"dedicated_servers"`
+		VNTRooms         bool `json:"vnt_rooms"`
 	} `json:"features"`
 }

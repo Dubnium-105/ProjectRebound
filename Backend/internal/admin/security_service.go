@@ -221,6 +221,45 @@ func (s *SecurityService) GetAudit(ctx context.Context, id string) (AuditEntry, 
 	return item, nil
 }
 
+func (s *SecurityService) ListVNTSecurityAudit(
+	ctx context.Context,
+	filter VNTSecurityAuditFilter,
+) ([]VNTSecurityAuditEntry, string, error) {
+	filter.Cursor = strings.TrimSpace(filter.Cursor)
+	filter.EventType = strings.ToUpper(strings.TrimSpace(filter.EventType))
+	filter.Result = strings.ToUpper(strings.TrimSpace(filter.Result))
+	filter.ActorType = strings.ToUpper(strings.TrimSpace(filter.ActorType))
+	filter.PlayerID = strings.TrimSpace(filter.PlayerID)
+	filter.AdminID = strings.TrimSpace(filter.AdminID)
+	filter.NodeID = strings.TrimSpace(filter.NodeID)
+	filter.RoomID = strings.TrimSpace(filter.RoomID)
+	if filter.Limit == 0 {
+		filter.Limit = 50
+	}
+	if filter.Limit < 1 || filter.Limit > 100 ||
+		len(filter.Cursor) > 64 || (filter.Cursor != "" && !strings.HasPrefix(filter.Cursor, "vsa_")) ||
+		len(filter.EventType) > 64 || len(filter.PlayerID) > 64 || len(filter.AdminID) > 128 || len(filter.NodeID) > 64 || len(filter.RoomID) > 64 ||
+		(filter.Result != "" && filter.Result != "SUCCEEDED" && filter.Result != "FAILED" && filter.Result != "DENIED") ||
+		(filter.ActorType != "" && filter.ActorType != "PLAYER" && filter.ActorType != "NODE" &&
+			filter.ActorType != "ADMIN" && filter.ActorType != "SYSTEM" && filter.ActorType != "UNKNOWN") {
+		return nil, "", &ServiceError{Status: 400, Code: "INVALID_REQUEST", Message: "Invalid VNT security audit filter."}
+	}
+	filter.Limit++
+	items, err := s.repository.ListVNTSecurityAudit(ctx, filter)
+	if err != nil {
+		return nil, "", internal(err)
+	}
+	nextCursor := ""
+	if len(items) == filter.Limit {
+		items = items[:len(items)-1]
+		nextCursor = items[len(items)-1].ID
+	}
+	for index := range items {
+		items[index].Details = redactSensitiveMap(items[index].Details)
+	}
+	return items, nextCursor, nil
+}
+
 func (s *SecurityService) ListLoginAudit(ctx context.Context, filter LoginAuditFilter) ([]LoginAuditEntry, string, error) {
 	if filter.Limit == 0 {
 		filter.Limit = 50

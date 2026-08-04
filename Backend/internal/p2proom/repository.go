@@ -77,14 +77,15 @@ func (r *Repository) LockIdempotency(ctx context.Context, tx pgx.Tx, playerID, k
 	return err
 }
 
-func (r *Repository) FindIdempotent(ctx context.Context, tx pgx.Tx, playerID, key string) (string, []byte, []byte, []byte, error) {
-	var roomID string
+func (r *Repository) FindIdempotent(ctx context.Context, tx pgx.Tx, playerID, key string) (string, []byte, []byte, []byte, string, error) {
+	var roomID, keyID string
 	var requestHash, ciphertext, nonce []byte
 	err := tx.QueryRow(ctx, `
-		SELECT id, idempotency_request_hash, host_token_ciphertext, host_token_nonce
+		SELECT id, idempotency_request_hash, host_token_ciphertext, host_token_nonce,
+		       COALESCE(host_token_key_id, '')
 		FROM p2p_rooms WHERE host_player_id = $1 AND idempotency_key = $2
-	`, playerID, key).Scan(&roomID, &requestHash, &ciphertext, &nonce)
-	return roomID, requestHash, ciphertext, nonce, err
+	`, playerID, key).Scan(&roomID, &requestHash, &ciphertext, &nonce, &keyID)
+	return roomID, requestHash, ciphertext, nonce, keyID, err
 }
 
 func (r *Repository) Get(ctx context.Context, roomID string) (Room, error) {

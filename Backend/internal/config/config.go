@@ -28,6 +28,7 @@ type Config struct {
 	P2PBattleLog  P2PBattleLogConfig  `yaml:"p2p_battlelog"`
 	Connection    ConnectionConfig    `yaml:"connection"`
 	RelayRegistry RelayRegistryConfig `yaml:"relay_registry"`
+	VNT           VNTConfig           `yaml:"vnt"`
 	Update        UpdateConfig        `yaml:"update"`
 	Logging       LogConfig           `yaml:"logging"`
 }
@@ -221,6 +222,18 @@ type RelayRegistryConfig struct {
 	CapacityThresholdPercent   int      `yaml:"capacity_threshold_percent"`
 }
 
+type VNTConfig struct {
+	AllowedVNTSVersions                     []string `yaml:"allowed_vnts_versions"`
+	AllowedWrapperVersions                  []string `yaml:"allowed_wrapper_versions"`
+	CredentialRotationGraceSeconds          int      `yaml:"credential_rotation_grace_seconds"`
+	EnrollmentRequestsPerPlayerPerHour      int      `yaml:"enrollment_requests_per_player_per_hour"`
+	DirectoryRequestsPerIPPerMinute         int      `yaml:"directory_requests_per_ip_per_minute"`
+	BootstrapRequestsPerPlayerPerMinute     int      `yaml:"bootstrap_requests_per_player_per_minute"`
+	HeartbeatRequestsPerCredentialPerMinute int      `yaml:"heartbeat_requests_per_credential_per_minute"`
+	ManagementRequestsPerCredentialPerHour  int      `yaml:"management_requests_per_credential_per_hour"`
+	MaxNodesPerPlayer                       int      `yaml:"max_nodes_per_player"`
+}
+
 type UpdateConfig struct {
 	Product                 string   `yaml:"product"`
 	ManifestDirectory       string   `yaml:"manifest_directory"`
@@ -234,6 +247,7 @@ type UpdateConfig struct {
 	STUNServers             []string `yaml:"stun_servers"`
 	APIVersion              string   `yaml:"api_version"`
 	ProtocolVersion         int      `yaml:"protocol_version"`
+	VNTRoomsEnabled         bool     `yaml:"vnt_rooms_enabled"`
 }
 
 type LogConfig struct {
@@ -403,6 +417,15 @@ var Defaults = Config{
 		AllocationTTLSeconds:     1800,
 		CapacityThresholdPercent: 80,
 	},
+	VNT: VNTConfig{
+		CredentialRotationGraceSeconds:          60,
+		EnrollmentRequestsPerPlayerPerHour:      5,
+		DirectoryRequestsPerIPPerMinute:         120,
+		BootstrapRequestsPerPlayerPerMinute:     30,
+		HeartbeatRequestsPerCredentialPerMinute: 120,
+		ManagementRequestsPerCredentialPerHour:  10,
+		MaxNodesPerPlayer:                       3,
+	},
 	Update: UpdateConfig{
 		Product:              "project-rebound",
 		ManifestDirectory:    "deployments/updates",
@@ -415,6 +438,7 @@ var Defaults = Config{
 		STUNServers:          []string{"stun:stun.example.com:3478"},
 		APIVersion:           "v1",
 		ProtocolVersion:      2,
+		VNTRoomsEnabled:      false,
 	},
 	Logging: LogConfig{
 		Level:     "info",
@@ -547,6 +571,20 @@ func (c *Config) applyEnvOverrides() {
 	overrideString("UPDATE_DEFAULT_CHANNEL", &c.Update.DefaultChannel)
 	overrideString("UPDATE_MINIMUM_CLIENT_VERSION", &c.Update.MinimumClientVersion)
 	overrideString("UPDATE_REALTIME_URL", &c.Update.RealtimeURL)
+	overrideBool("VNT_ROOMS_ENABLED", &c.Update.VNTRoomsEnabled)
+	if raw := os.Getenv("VNT_ALLOWED_VNTS_VERSIONS"); raw != "" {
+		c.VNT.AllowedVNTSVersions = splitCSV(raw)
+	}
+	if raw := os.Getenv("VNT_ALLOWED_WRAPPER_VERSIONS"); raw != "" {
+		c.VNT.AllowedWrapperVersions = splitCSV(raw)
+	}
+	overrideInt("VNT_CREDENTIAL_ROTATION_GRACE_SECONDS", &c.VNT.CredentialRotationGraceSeconds)
+	overrideInt("VNT_ENROLLMENT_REQUESTS_PER_PLAYER_PER_HOUR", &c.VNT.EnrollmentRequestsPerPlayerPerHour)
+	overrideInt("VNT_DIRECTORY_REQUESTS_PER_IP_PER_MINUTE", &c.VNT.DirectoryRequestsPerIPPerMinute)
+	overrideInt("VNT_BOOTSTRAP_REQUESTS_PER_PLAYER_PER_MINUTE", &c.VNT.BootstrapRequestsPerPlayerPerMinute)
+	overrideInt("VNT_HEARTBEAT_REQUESTS_PER_CREDENTIAL_PER_MINUTE", &c.VNT.HeartbeatRequestsPerCredentialPerMinute)
+	overrideInt("VNT_MANAGEMENT_REQUESTS_PER_CREDENTIAL_PER_HOUR", &c.VNT.ManagementRequestsPerCredentialPerHour)
+	overrideInt("VNT_MAX_NODES_PER_PLAYER", &c.VNT.MaxNodesPerPlayer)
 	if raw := os.Getenv("HTTP_RATE_LIMIT_RPS"); raw != "" {
 		if value, err := strconv.ParseFloat(raw, 64); err == nil {
 			c.RateLimit.RequestsPerSecond = value
@@ -770,10 +808,47 @@ func (c *Config) ValidateControlPlane() error {
 		(strings.TrimSpace(c.Update.SigningPrivateKeyBase64) == "" || updateCDNURL.Scheme != "https" || realtimeURL.Scheme != "wss") {
 		errs = append(errs, errors.New("UPDATE_SIGNING_PRIVATE_KEY_BASE64 and secure update URLs are required in production"))
 	}
+	if c.Update.VNTRoomsEnabled &&
+		(!validVersionAllowlist(c.VNT.AllowedVNTSVersions) || !validVersionAllowlist(c.VNT.AllowedWrapperVersions)) {
+		errs = append(errs, errors.New("vnt version allowlists must contain valid entries when VNT rooms are enabled"))
+	}
+	if c.VNT.CredentialRotationGraceSeconds < 1 || c.VNT.CredentialRotationGraceSeconds > 600 {
+		errs = append(errs, errors.New("vnt credential rotation grace must be between 1 and 600 seconds"))
+	}
+	if c.VNT.EnrollmentRequestsPerPlayerPerHour < 1 || c.VNT.EnrollmentRequestsPerPlayerPerHour > 100 ||
+		c.VNT.DirectoryRequestsPerIPPerMinute < 1 || c.VNT.DirectoryRequestsPerIPPerMinute > 10_000 ||
+		c.VNT.BootstrapRequestsPerPlayerPerMinute < 1 || c.VNT.BootstrapRequestsPerPlayerPerMinute > 1_000 ||
+		c.VNT.HeartbeatRequestsPerCredentialPerMinute < 1 || c.VNT.HeartbeatRequestsPerCredentialPerMinute > 10_000 ||
+		c.VNT.ManagementRequestsPerCredentialPerHour < 1 || c.VNT.ManagementRequestsPerCredentialPerHour > 1_000 {
+		errs = append(errs, errors.New("vnt per-IP, per-player, and per-credential rate limits are invalid"))
+	}
+	if c.VNT.MaxNodesPerPlayer < 1 || c.VNT.MaxNodesPerPlayer > 100 {
+		errs = append(errs, errors.New("vnt max nodes per player must be between 1 and 100"))
+	}
 	if len(errs) > 0 {
 		return fmt.Errorf("invalid control-plane configuration: %w", errors.Join(errs...))
 	}
 	return nil
+}
+
+func validVersionAllowlist(values []string) bool {
+	if len(values) == 0 {
+		return false
+	}
+	seen := make(map[string]struct{}, len(values))
+	for _, raw := range values {
+		value := strings.TrimSpace(raw)
+		if value == "" || len(value) > 32 || strings.IndexFunc(value, func(r rune) bool {
+			return r <= ' ' || r == 0x7f
+		}) >= 0 {
+			return false
+		}
+		if _, exists := seen[value]; exists {
+			return false
+		}
+		seen[value] = struct{}{}
+	}
+	return true
 }
 
 func (c *Config) ValidateMetaServer() error {
@@ -939,6 +1014,10 @@ func (c GameServerConfig) SignatureMaxClockSkew() time.Duration {
 
 func (c GameServerConfig) SweepInterval() time.Duration {
 	return time.Duration(c.SweepIntervalSeconds) * time.Second
+}
+
+func (c VNTConfig) CredentialRotationGrace() time.Duration {
+	return time.Duration(c.CredentialRotationGraceSeconds) * time.Second
 }
 
 func (c P2PRoomConfig) SweepInterval() time.Duration {

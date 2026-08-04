@@ -62,6 +62,8 @@ Players at `account_status=BANNED` can still bind, refresh, logout, and read per
 
 Client configuration does not return specific Relay addresses. The specific endpoint is only delivered through WebSocket events after the connection is scheduled.
 
+`features.vnt_rooms` is the server-authoritative VNT room gate. Clients must hide new VNT create/rebind actions when it is `false`; the protected APIs also reject those operations. Existing VNT rooms may continue bootstrap, heartbeat, presence, start, leave, and close during a controlled disable so active sessions can drain safely.
+
 ### 3.2 Authentication and players
 
 | Method | Path | Authentication | Request | Success |
@@ -265,24 +267,38 @@ requires `game_server_registration`.
 
 | Method | Path | Authentication | Purpose |
 | --- | --- | --- | --- |
-| POST | `/v1/vnt/node-enrollments` | Verified Player | Issue a ten-minute, single-use node enrollment code |
+| GET | `/v1/users/me/vnt-nodes` | Active, Steam-verified owner player | List only the caller's nodes and safe lifecycle/credential-expiry metadata; never return credentials or hashes |
+| POST | `/v1/vnt/node-enrollments` | Active, Steam-verified, integrity-trusted Player | Issue a ten-minute, single-use node enrollment code |
 | POST | `/v1/vnt/nodes` | `VNTEnrollment` | Consume the code and return a node credential once |
 | GET | `/v1/vnt/nodes` | None | List public, eligible node endpoints and capacity |
 | POST | `/v1/vnt/nodes/{node_id}/heartbeat` | VNT Node | Renew health and capacity telemetry |
-| POST | `/v1/vnt/nodes/{node_id}/credential/rotate` | VNT Node | Rotate the node credential and return the replacement once |
-| DELETE | `/v1/vnt/nodes/{node_id}` | VNT Node | Drain or retire the node |
+| POST | `/v1/vnt/nodes/{node_id}/credential/rotate` | Current VNT Node credential | Return the replacement once plus its expiry and the old-token heartbeat overlap deadline |
+| POST | `/v1/vnt/nodes/{node_id}/recover` | Fresh owner-issued `VNTEnrollment` code | Reclaim an existing non-terminal node, revoke all old credentials, and return one replacement credential |
+| DELETE | `/v1/vnt/nodes/{node_id}` | VNT Node or integrity-trusted owner player | Drain or retire the node |
 | POST | `/v1/p2p-rooms/{room_id}/vnt/bootstrap` | Active member | Return the current encrypted-at-rest VNT runtime secrets; response is `no-store` |
 | PUT | `/v1/p2p-rooms/{room_id}/vnt/presence/me` | Active member | Report local tunnel state and observed path |
 | PUT | `/v1/p2p-rooms/{room_id}/vnt/host-ready` | Host + host token | Publish host readiness for the current generation |
 | POST | `/v1/p2p-rooms/{room_id}/vnt/rebind` | Host + host token | Select another node and rotate the generation and all room secrets before start |
 
+Enrollment issuance additionally requires an integrity-trusted session and defaults to at most three non-`RETIRED` nodes per player. `GET /v1/users/me/vnt-nodes` is read-only and does not require integrity step-up; it lets an owner recover the stable `node_id` after losing local state. Recover and owner retirement remain step-up operations. A recovery code must belong to the existing owner; recovery immediately revokes every old node credential, and endpoint/fingerprint changes are rejected while active rooms still reference the node.
+
 The VNT data plane never traverses the control-plane server. Public room and
 node responses exclude network tokens, E2E passwords, device IDs, credentials,
 and member virtual addresses.
 
+`GET /v1/vnt/nodes` uses ID-based cursor pagination. Pass the response
+`data.next_cursor` back as `cursor`; an empty value means there is no next page.
+The `limit` range is `1..200` and defaults to `100`.
+
+Each item includes `version_compatible`, computed by exact, case-sensitive matching against the server's approved `vnts` and wrapper version allowlists. ToolBox should hide incompatible nodes, but must still handle `409 VNT_NODE_UNAVAILABLE` because create/rebind rechecks state, capacity, and both versions inside the allocation transaction.
+
+A node with active rooms enters `DRAINING` when retirement is requested and may
+continue heartbeat and credential rotation until those rooms finish. Once it
+reaches `RETIRED`, all remaining node credentials are revoked atomically.
+
 There is no single public "VNT token" endpoint. Node enrollment and room bootstrap return different secrets for different holders:
 
-1. A verified player with active `vnt_node_registration` requests a ten-minute Enrollment Code:
+1. An active, Steam-verified, integrity-trusted player with active `vnt_node_registration` and available ownership quota requests a ten-minute Enrollment Code:
 
    ```bash
    curl --fail-with-body -X POST 'https://api.project-rebound.space/v1/vnt/node-enrollments' \

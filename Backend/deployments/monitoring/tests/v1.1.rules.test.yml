@@ -74,3 +74,26 @@ tests:
           - exp_labels: {severity: critical, service: backup}
             exp_annotations:
               summary: The latest backup verification failed
+
+  - name: VNT availability and expired credential alerts fire after hold periods
+    interval: 1m
+    input_series:
+      - series: vnt_rooms_enabled
+        values: 1x5
+      - series: vnt_nodes_compatible_online
+        values: 0x5
+      - series: vnt_node_credentials_expired
+        values: 1x5
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: NoCompatibleVNTNodeAvailable
+        exp_alerts:
+          - exp_labels: {severity: critical, service: vnt}
+            exp_annotations:
+              summary: VNT rooms are enabled but no compatible ONLINE node has capacity
+      - eval_time: 2m
+        alertname: VNTNodeCredentialExpired
+        exp_alerts:
+          - exp_labels: {severity: critical, service: vnt}
+            exp_annotations:
+              summary: One or more active VNT nodes have no valid credential

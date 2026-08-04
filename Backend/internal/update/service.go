@@ -334,6 +334,7 @@ func (s *Service) ClientConfig(ctx context.Context) (ClientConfig, error) {
 	result.Features.P2PRooms = true
 	result.Features.Relay = true
 	result.Features.DedicatedServers = true
+	result.Features.VNTRooms = s.cfg.VNTRoomsEnabled
 	return result, nil
 }
 

@@ -156,6 +156,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/users/me/vnt-nodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Lists only the authenticated player's VNT nodes and safe lifecycle/credential-expiry metadata. Node credentials and hashes are never returned. Integrity step-up is not required for this read-only operation. */
+        get: operations["listOwnedVNTNodes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/users/me/sessions/{session_id}": {
         parameters: {
             query?: never;
@@ -607,6 +624,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["adminListAuditLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/vnt-security-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["adminListVNTSecurityEvents"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1130,6 +1163,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/vnt-nodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["adminListVNTNodes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/vnt-nodes/{node_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["adminGetVNTNode"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/vnt-nodes/{node_id}/drain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["adminDrainVNTNode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/vnt-nodes/{node_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["adminRevokeVNTNode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/releases": {
         parameters: {
             query?: never;
@@ -1360,6 +1457,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/vnt/nodes/{node_id}/recover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Consumes a fresh enrollment code issued to the existing integrity-trusted owner, immediately revokes every old node credential, and returns one replacement credential. Endpoint or server-key changes are rejected while active rooms remain. */
+        post: operations["recoverVNTNode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/vnt/nodes/{node_id}": {
         parameters: {
             query?: never;
@@ -1370,6 +1484,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
+        /** @description A node credential may request retirement directly. The owning player may perform the same operation only with an active Steam-verified, integrity-trusted access session; non-owners receive a non-enumerating 404. */
         delete: operations["retireVNTNode"];
         options?: never;
         head?: never;
@@ -3484,6 +3599,18 @@ export interface components {
             };
             request_id: string;
         };
+        VNTNodeRecoveryResponse: {
+            data: {
+                node_id: string;
+                node_token: string;
+                /** @enum {string} */
+                state: "REGISTERING" | "DRAINING";
+                heartbeat_interval_seconds: number;
+                /** Format: date-time */
+                credential_expires_at: string;
+            };
+            request_id: string;
+        };
         VNTNodeHeartbeatRequest: {
             wrapper_version: string;
             vnts_version: string;
@@ -3512,6 +3639,146 @@ export interface components {
         VNTNodeListResponse: {
             data: {
                 items: components["schemas"]["VNTNode"][];
+                next_cursor: string;
+            };
+            request_id: string;
+        };
+        /** @description Owner-visible lifecycle and credential-expiry metadata. Plaintext credentials and hashes are never included. */
+        OwnedVNTNode: {
+            node_id: string;
+            host: string;
+            port: number;
+            region: string;
+            location: string;
+            /** @enum {string} */
+            state: "REGISTERING" | "ONLINE" | "STALE" | "OFFLINE" | "DRAINING" | "REVOKED" | "RETIRED";
+            vnts_version: string;
+            wrapper_version: string;
+            server_key_fingerprint: string;
+            supported_transports: ("udp" | "tcp")[];
+            max_rooms: number;
+            reported_sessions: number;
+            active_rooms: number;
+            version_compatible: boolean;
+            /** Format: date-time */
+            credential_expires_at: string | null;
+            /** Format: date-time */
+            credential_last_used_at: string | null;
+            /** Format: date-time */
+            credential_revoked_at: string | null;
+            /** Format: date-time */
+            last_heartbeat_at: string | null;
+            /** Format: date-time */
+            last_reachable_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            retired_at: string | null;
+        };
+        OwnedVNTNodeListResponse: {
+            data: {
+                items: components["schemas"]["OwnedVNTNode"][];
+                next_cursor: string;
+            };
+            request_id: string;
+        };
+        AdminVNTRoomReference: {
+            room_id: string;
+            room_state: components["schemas"]["P2PRoomState"];
+            /** @enum {string} */
+            session_state: "SELECTED" | "HOST_CONNECTING" | "HOST_READY" | "READY" | "ACTIVE" | "REBINDING" | "FAILED" | "CLOSED";
+            generation: number;
+            failure_reason: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            session_updated_at: string;
+        };
+        AdminVNTNode: {
+            node_id: string;
+            owner_player_id: string;
+            owner_steam_id: string;
+            owner_persona_name: string;
+            owner_account_status: components["schemas"]["AccountStatus"];
+            host: string;
+            port: number;
+            region: string;
+            location: string;
+            /** @enum {string} */
+            state: "REGISTERING" | "ONLINE" | "STALE" | "OFFLINE" | "DRAINING" | "REVOKED" | "RETIRED";
+            vnts_version: string;
+            wrapper_version: string;
+            version_compatible: boolean;
+            server_key_fingerprint: string;
+            supported_transports: ("udp" | "tcp")[];
+            max_rooms: number;
+            reported_sessions: number;
+            active_rooms: number;
+            /** Format: date-time */
+            credential_expires_at: string | null;
+            /** Format: date-time */
+            credential_last_used_at: string | null;
+            /** Format: date-time */
+            credential_revoked_at: string | null;
+            /** Format: date-time */
+            last_heartbeat_at: string | null;
+            /** Format: date-time */
+            last_reachable_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            retired_at: string | null;
+            referenced_rooms?: components["schemas"]["AdminVNTRoomReference"][];
+            referenced_rooms_truncated?: boolean;
+        };
+        AdminVNTNodeResponse: {
+            data: components["schemas"]["AdminVNTNode"];
+            request_id: string;
+        };
+        AdminVNTNodeListResponse: {
+            data: {
+                items: components["schemas"]["AdminVNTNode"][];
+                next_cursor: string;
+            };
+            request_id: string;
+        };
+        AdminVNTNodeOperationResponse: {
+            data: {
+                node: components["schemas"]["AdminVNTNode"];
+                /** Format: int64 */
+                closed_rooms: number;
+            };
+            request_id: string;
+        };
+        VNTSecurityAuditEntry: {
+            id: string;
+            event_type: string;
+            /** @enum {string} */
+            result: "SUCCEEDED" | "FAILED" | "DENIED";
+            /** @enum {string} */
+            actor_type: "PLAYER" | "NODE" | "ADMIN" | "SYSTEM" | "UNKNOWN";
+            player_id: string;
+            admin_id: string;
+            node_id: string;
+            room_id: string;
+            request_id: string;
+            ip_address: string;
+            user_agent: string;
+            reason_code: string;
+            details: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            created_at: string;
+        };
+        VNTSecurityAuditListResponse: {
+            data: {
+                items: components["schemas"]["VNTSecurityAuditEntry"][];
+                next_cursor: string;
             };
             request_id: string;
         };
@@ -4198,6 +4465,8 @@ export interface components {
                     p2p_rooms: boolean;
                     relay: boolean;
                     dedicated_servers: boolean;
+                    /** @description Server-authoritative gate for creating or rebinding VNT rooms. */
+                    vnt_rooms: boolean;
                 };
             };
             request_id: string;
@@ -4616,9 +4885,10 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
-        /** @description An authentication rate limit was exceeded. Retry-After is returned when applicable. */
+        /** @description A request rate limit was exceeded. Retry-After is returned when applicable. */
         RateLimited: {
             headers: {
+                "Retry-After"?: number;
                 [name: string]: unknown;
             };
             content: {
@@ -4916,6 +5186,34 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    listOwnedVNTNodes: {
+        parameters: {
+            query?: {
+                status?: "REGISTERING" | "ONLINE" | "STALE" | "OFFLINE" | "DRAINING" | "REVOKED" | "RETIRED";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated owned VNT nodes without plaintext credentials or hashes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnedVNTNodeListResponse"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
         };
     };
     revokeMySession: {
@@ -5678,6 +5976,39 @@ export interface operations {
                     "application/json": components["schemas"]["AdminAuditLogListResponse"];
                 };
             };
+        };
+    };
+    adminListVNTSecurityEvents: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                event_type?: string;
+                result?: "SUCCEEDED" | "FAILED" | "DENIED";
+                actor_type?: "PLAYER" | "NODE" | "ADMIN" | "SYSTEM" | "UNKNOWN";
+                player_id?: string;
+                admin_id?: string;
+                node_id?: string;
+                room_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated VNT security lifecycle events. Details are recursively redacted and never contain credentials or room secrets. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VNTSecurityAuditListResponse"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["AdminUnauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     adminGetAuditLog: {
@@ -6532,6 +6863,110 @@ export interface operations {
             };
         };
     };
+    adminListVNTNodes: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                state?: "REGISTERING" | "ONLINE" | "STALE" | "OFFLINE" | "DRAINING" | "REVOKED" | "RETIRED";
+                region?: string;
+                owner_player_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Administrative VNT-node page with owner and credential lease metadata, but no credentials or secret hashes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminVNTNodeListResponse"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+        };
+    };
+    adminGetVNTNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description VNT-node detail with up to 100 recent referenced rooms and no secret credential material. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminVNTNodeResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    adminDrainVNTNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminOperationReason"];
+            };
+        };
+        responses: {
+            /** @description Node entered DRAINING and will not receive new rooms; existing rooms and credentials remain active. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminVNTNodeOperationResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    adminRevokeVNTNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminOperationReason"];
+            };
+        };
+        responses: {
+            /** @description Node credentials were revoked immediately and all non-terminal rooms referencing the node were closed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminVNTNodeOperationResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
     adminListReleases: {
         parameters: {
             query?: {
@@ -6944,7 +7379,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description A single-use, ten-minute node enrollment code. Requires the vnt_node_registration player capability. */
+            /** @description A single-use, ten-minute node enrollment code. Requires the vnt_node_registration player capability, an active Steam-verified player, an integrity-trusted session, and available ownership quota. */
             201: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -6955,6 +7390,8 @@ export interface operations {
                 };
             };
             403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
         };
     };
     listVNTNodes: {
@@ -6962,6 +7399,7 @@ export interface operations {
             query?: {
                 status?: string;
                 region?: string;
+                cursor?: string;
                 limit?: number;
             };
             header?: never;
@@ -6979,6 +7417,7 @@ export interface operations {
                     "application/json": components["schemas"]["VNTNodeListResponse"];
                 };
             };
+            429: components["responses"]["RateLimited"];
         };
     };
     registerVNTNode: {
@@ -7030,6 +7469,37 @@ export interface operations {
                 content?: never;
             };
             401: components["responses"]["Unauthorized"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    recoverVNTNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VNTNodeRegistrationRequest"];
+            };
+        };
+        responses: {
+            /** @description Existing node ownership recovered; the replacement node credential is returned only once. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VNTNodeRecoveryResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     retireVNTNode: {
@@ -7043,7 +7513,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Node moved to DRAINING or RETIRED. */
+            /** @description Node moved to DRAINING or RETIRED. Runtime credentials remain valid while draining and are revoked when retirement completes. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -7051,6 +7521,10 @@ export interface operations {
                 content?: never;
             };
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
         };
     };
     rotateVNTNodeCredential: {
@@ -7064,7 +7538,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The old credential is revoked and the new credential is returned only once. */
+            /** @description The new credential is returned only once. The previous credential remains valid for heartbeat only until previous_valid_until and cannot rotate credentials or retire the node. */
             200: {
                 headers: {
                     "Cache-Control"?: "no-store";
@@ -7076,12 +7550,15 @@ export interface operations {
                             node_token: string;
                             /** Format: date-time */
                             credential_expires_at: string;
+                            /** Format: date-time */
+                            previous_valid_until: string;
                         };
                         request_id: string;
                     };
                 };
             };
             401: components["responses"]["Unauthorized"];
+            429: components["responses"]["RateLimited"];
         };
     };
     listP2PRooms: {
@@ -7367,6 +7844,7 @@ export interface operations {
                 };
             };
             409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
         };
     };
     updateP2PVNTPresence: {

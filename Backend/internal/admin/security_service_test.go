@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"strings"
 	"testing"
 )
 
@@ -13,6 +14,21 @@ func TestMaskIPAddress(t *testing.T) {
 	} {
 		if actual := maskIPAddress(input); actual != expected {
 			t.Errorf("maskIPAddress(%q) = %q, want %q", input, actual, expected)
+		}
+	}
+}
+
+func TestListVNTSecurityAuditRejectsInvalidFiltersBeforeRepositoryAccess(t *testing.T) {
+	service := &SecurityService{}
+	for _, filter := range []VNTSecurityAuditFilter{
+		{Result: "MAYBE"},
+		{ActorType: "ROBOT"},
+		{Cursor: "ada_wrong"},
+		{AdminID: strings.Repeat("a", 129)},
+		{Limit: 101},
+	} {
+		if _, _, err := service.ListVNTSecurityAudit(t.Context(), filter); err == nil {
+			t.Fatalf("invalid VNT audit filter was accepted: %#v", filter)
 		}
 	}
 }

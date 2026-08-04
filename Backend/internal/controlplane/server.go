@@ -112,6 +112,7 @@ func buildHandler(
 	router := chi.NewRouter()
 	metrics := observability.NewMetrics(dbPool.Pool)
 	metrics.SetRedisProbe(redisClient.Check)
+	metrics.SetVNTPolicy(cfg.Update.VNTRoomsEnabled, cfg.VNT.AllowedVNTSVersions, cfg.VNT.AllowedWrapperVersions)
 	healthHandler := health.NewHandler([]health.Dependency{
 		{Name: "postgres", Checker: dbPool},
 		{Name: "redis", Checker: redisClient},
@@ -158,8 +159,18 @@ func buildHandler(
 	}
 	authService.SetIntegritySessionManager(integrityService)
 	authHandler := auth.NewHTTPHandler(authService, logger, cfg.HTTP.TrustProxyHeaders)
-	vntService := vnt.NewService(vnt.NewRepository(dbPool.Pool), entitlementRepository)
+	vntRepository := vnt.NewRepository(dbPool.Pool)
+	vntVersionPolicy := vnt.NewVersionPolicy(cfg.VNT.AllowedVNTSVersions, cfg.VNT.AllowedWrapperVersions)
+	vntService := vnt.NewService(vntRepository, entitlementRepository)
+	vntService.SetVersionPolicy(vntVersionPolicy)
+	vntService.SetCredentialRotationGrace(cfg.VNT.CredentialRotationGrace())
+	vntService.SetMaxNodesPerPlayer(cfg.VNT.MaxNodesPerPlayer)
+	vntLimiter := vnt.NewLimiter(redisClient, cfg.VNT, logger)
+	vntLimiter.SetMetrics(metrics)
+	vntService.SetLimiter(vntLimiter)
 	vntHandler := vnt.NewHTTPHandler(vntService, logger)
+	vntHandler.SetAccessAuthenticator(authService)
+	vntHandler.SetTrustProxyHeaders(cfg.HTTP.TrustProxyHeaders)
 	integrityHandler := integrity.NewHTTPHandler(
 		integrityService,
 		logger,
@@ -172,6 +183,7 @@ func buildHandler(
 		router.With(auth.RequireAccess(authService, logger)).Post("/auth/logout", authHandler.Logout)
 		router.With(auth.RequireAccess(authService, logger)).Get("/users/me", authHandler.Me)
 		router.With(auth.RequireAccess(authService, logger)).Get("/users/me/sessions", authHandler.ListSessions)
+		router.With(auth.RequireAccess(authService, logger), auth.RequireActive, auth.RequireVerified).Get("/users/me/vnt-nodes", vntHandler.ListOwned)
 		router.With(auth.RequireAccess(authService, logger)).Delete("/users/me/sessions/{session_id}", authHandler.RevokeSession)
 		router.With(auth.RequireAccess(authService, logger)).Post("/users/me/sessions/revoke-others", authHandler.RevokeOtherSessions)
 		router.With(auth.RequireAccess(authService, logger)).Post("/integrity/challenge", integrityHandler.Challenge)
@@ -180,6 +192,7 @@ func buildHandler(
 		router.With(auth.RequireAccess(authService, logger)).Post("/diagnostic/report", diagnosticHandler.Submit)
 		router.With(auth.RequireAccess(authService, logger)).Post("/vnt/node-enrollments", vntHandler.CreateEnrollment)
 		router.Post("/vnt/nodes", vntHandler.Register)
+		router.Post("/vnt/nodes/{node_id}/recover", vntHandler.Recover)
 		router.Get("/vnt/nodes", vntHandler.List)
 		router.Post("/vnt/nodes/{node_id}/heartbeat", vntHandler.Heartbeat)
 		router.Post("/vnt/nodes/{node_id}/credential/rotate", vntHandler.RotateCredential)
@@ -305,6 +318,7 @@ func buildHandler(
 		router.With(admin.RequirePermission("risk_events.read")).Get("/risk-events/{event_id}", adminSecurityHandler.GetRiskEvent)
 		router.With(admin.RequirePermission("risk_events.resolve")).Post("/risk-events/{event_id}/resolve", adminSecurityHandler.ResolveRiskEvent)
 		router.With(admin.RequirePermission("audit_logs.read")).Get("/audit-logs", adminSecurityHandler.ListAudit)
+		router.With(admin.RequirePermission("vnt_nodes.read")).Get("/vnt-security-events", adminSecurityHandler.ListVNTSecurityAudit)
 		router.With(admin.RequirePermission("audit_logs.read")).Get("/audit-logs/{audit_id}", adminSecurityHandler.GetAudit)
 		router.With(admin.RequirePermission("audit_logs.read")).Get("/login-audit", adminSecurityHandler.ListLoginAudit)
 		router.With(admin.RequirePermission("admins.read")).Get("/admins", adminGovernanceHandler.ListAdmins)
@@ -366,20 +380,29 @@ func buildHandler(
 
 	p2pRoomService := p2proom.NewService(p2proom.NewRepository(dbPool.Pool), cfg.P2PRoom)
 	p2pRoomService.SetEntitlementChecker(entitlementRepository)
-	vntSecretBox, ephemeralVNTSecretKey, err := p2proom.NewSecretBox(os.Getenv("VNT_SECRET_ENCRYPTION_KEY_BASE64"), cfg.Environment)
+	vntSecretBox, ephemeralVNTSecretKey, err := p2proom.NewSecretBoxKeyring(
+		os.Getenv("VNT_SECRET_ENCRYPTION_KEY_BASE64"),
+		os.Getenv("VNT_SECRET_ENCRYPTION_KEY_ID"),
+		os.Getenv("VNT_SECRET_DECRYPTION_KEYS"),
+		cfg.Environment,
+	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("initialize VNT room secret encryption: %w", err)
 	}
 	if ephemeralVNTSecretKey {
 		logger.Warn("using ephemeral development VNT room key; rooms will not survive a restart")
 	}
-	p2pRoomService.SetVNT(vnt.NewRepository(dbPool.Pool), vntSecretBox)
+	p2pRoomService.SetVNT(vntRepository, vntSecretBox)
+	p2pRoomService.SetVNTEnabled(cfg.Update.VNTRoomsEnabled)
+	p2pRoomService.SetVNTVersionPolicy(vntVersionPolicy)
+	p2pRoomService.SetVNTLimiter(vntLimiter)
 	p2pBattleLogRepository := p2pbattlelog.NewRepository(dbPool.Pool)
 	p2pBattleLogService := p2pbattlelog.NewService(
 		p2pBattleLogRepository, cfg.P2PBattleLog,
 	)
 	p2pRoomService.SetMatchLifecycle(p2pBattleLogService)
 	p2pRoomHandler := p2proom.NewHTTPHandler(p2pRoomService, logger)
+	p2pRoomHandler.SetTrustProxyHeaders(cfg.HTTP.TrustProxyHeaders)
 	p2pBattleLogHandler := p2pbattlelog.NewHTTPHandler(
 		p2pBattleLogService, logger, cfg.P2PBattleLog.MaxReportBytes,
 	)
@@ -436,6 +459,7 @@ func buildHandler(
 		gameServerRegistrationRepository,
 		logger,
 	)
+	adminOnlineService.SetVNT(vntRepository, vntVersionPolicy)
 	adminOnlineHandler := admin.NewOnlineHTTPHandler(
 		adminOnlineService,
 		logger,
@@ -457,6 +481,16 @@ func buildHandler(
 		router.With(admin.RequirePermission("game_servers.drain")).Post("/game-servers/{server_id}/drain", adminOnlineHandler.DrainGameServer)
 		router.With(admin.RequirePermission("game_servers.drain")).Post("/game-servers/{server_id}/resume", adminOnlineHandler.ResumeGameServer)
 		router.With(admin.RequirePermission("game_servers.disable")).Post("/game-servers/{server_id}/disable", adminOnlineHandler.DisableGameServer)
+		router.With(admin.RequirePermission("vnt_nodes.read")).Get("/vnt-nodes", adminOnlineHandler.ListVNTNodes)
+		router.With(admin.RequirePermission("vnt_nodes.read")).Get("/vnt-nodes/{node_id}", adminOnlineHandler.GetVNTNode)
+		router.With(
+			admin.RequirePermission("vnt_nodes.drain"),
+			admin.RequireStepUp(adminAuthService),
+		).Post("/vnt-nodes/{node_id}/drain", adminOnlineHandler.DrainVNTNode)
+		router.With(
+			admin.RequirePermission("vnt_nodes.revoke"),
+			admin.RequireStepUp(adminAuthService),
+		).Post("/vnt-nodes/{node_id}/revoke", adminOnlineHandler.RevokeVNTNode)
 		router.With(admin.RequirePermission("connections.read")).Get("/connections", adminOnlineHandler.ListConnections)
 		router.With(admin.RequirePermission("connections.read")).Get("/connections/{connection_id}", adminOnlineHandler.GetConnection)
 		router.With(admin.RequirePermission("connections.close")).Post("/connections/{connection_id}/close", adminOnlineHandler.CloseConnection)

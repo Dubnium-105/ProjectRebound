@@ -164,6 +164,39 @@ groups:
         annotations:
           summary: A Meta public TLS certificate expires within 14 days
 
+  - name: project-rebound-vnt
+    rules:
+      - alert: NoCompatibleVNTNodeAvailable
+        expr: vnt_rooms_enabled == 1 and vnt_nodes_compatible_online < 1
+        for: 2m
+        labels: {severity: critical, service: vnt}
+        annotations:
+          summary: VNT rooms are enabled but no compatible ONLINE node has capacity
+      - alert: VNTNodeCredentialExpiringSoon
+        expr: vnt_node_credentials_expiring_7d > 0
+        for: 15m
+        labels: {severity: warning, service: vnt}
+        annotations:
+          summary: One or more active VNT node credentials expire within seven days
+      - alert: VNTNodeCredentialExpired
+        expr: vnt_node_credentials_expired > 0
+        for: 2m
+        labels: {severity: critical, service: vnt}
+        annotations:
+          summary: One or more active VNT nodes have no valid credential
+      - alert: VNTNodeCapacityHigh
+        expr: max(vnt_node_capacity_ratio{state="ONLINE"}) > 0.8
+        for: 5m
+        labels: {severity: warning, service: vnt}
+        annotations:
+          summary: An ONLINE VNT node exceeds 80% room capacity
+      - alert: VNTNodeHeartbeatOverdue
+        expr: max(vnt_node_heartbeat_age_seconds{state=~"REGISTERING|ONLINE"}) > 90
+        for: 2m
+        labels: {severity: warning, service: vnt}
+        annotations:
+          summary: A VNT node heartbeat is overdue
+
   - name: project-rebound-backup
     rules:
       - alert: DailyBackupMissing

@@ -16,7 +16,7 @@ HTTP 字段与状态码以机器可读的 [OpenAPI 契约](../../Backend/api/ope
 | 专服运行时注册 | 提供 Registration Token 后的流程已实现。ToolBox 会生成密钥与 CSR、注册、通过 DPAPI 保存身份、发送签名心跳并轮换凭据。 | 增加玩家侧 `/v1/game-server-registration-tokens` 请求；将现有 `ServerManager` 接入生产启动路径。 |
 | 传统 P2P 房间浏览/创建/加入 | 基础 API 和 UI 已存在，UI 会按权限控制创建。 | 保存只返回一次的房主 Token，运行完整房主生命周期，把选中房间接到游戏启动，并处理实时事件/Relay 信令。 |
 | VNT P2P 客户端 | 安全敏感的 API、运行时校验、节点选择和会话管理模块已存在，受 `vnt` Cargo feature 控制。 | 只在批准构建中启用；把 `VntManager` 接到 UI、实时事件和游戏启动；发布已验证运行时资产并满足发布门槛。 |
-| 社区 VNT 节点注册 | 已有 `VntApiClient::create_node_enrollment`。 | 增加玩家侧 Enrollment Code UI，并提供单独的节点 Supervisor 负责消费代码、保存节点凭据、心跳、轮换与退役。 |
+| 社区 VNT 节点注册 | 已有 `VntApiClient::create_node_enrollment`。 | 增加 owner 节点查询/Enrollment/恢复 UI，并提供单独的节点 Supervisor 负责消费代码、保存节点凭据、心跳、轮换、恢复与退役。 |
 
 UI 中可见的权限不代表永久授权。每次受保护操作仍以后端当时的判定为准。
 
@@ -83,7 +83,7 @@ bind、refresh 和当前玩家响应只返回当时仍有效的权限。如果�
 | `Backend/internal/gameserverregistration/` | 一次性 Registration Token 的保存、哈希、消费及与稳定 instance ID 的关联。 |
 | `Backend/internal/gameserver/` | Token 签发 handler、服务器注册、心跳验证和凭据轮换。 |
 | `Backend/internal/p2proom/` | 传统 Relay/VNT 房间状态、host token、成员、硬到期、心跳、start/close 与 generation 规则。 |
-| `Backend/internal/vnt/` | VNT Node Enrollment Code、节点注册/心跳/轮换/退役、探测、状态和 sweeper。 |
+| `Backend/internal/vnt/` | VNT owner 查询/配额/恢复、Enrollment Code、节点注册/心跳/轮换/退役、安全审计、独立限流、探测、状态和 sweeper。 |
 | `Backend/internal/controlplane/server.go` | 公网路由注册与认证中间件边界。 |
 
 ## 4. 玩家登录与邀请码兑换
@@ -293,7 +293,7 @@ VNT 客户端只在以下构建中编译：
 cargo build --release --features vnt
 ```
 
-它还受后端客户端配置 `features.vnt_rooms` 和运行时验证控制。`src/vnt/runtime.rs` 在架构、helper capability、Wintun、manifest、版本、哈希或发布签名不可信时会失败关闭。发布构建必须嵌入批准的 `PROJECT_REBOUND_VNT_MANIFEST_SHA256`，并精确携带 manifest 描述的资产。
+它还受后端客户端配置 `features.vnt_rooms` 和运行时验证控制。后端根据部署设置 `VNT_ROOMS_ENABLED` 发布该值，默认值为 `false`；同一开关也会在服务端拒绝新的 VNT create/rebind 操作。节点目录中的 `version_compatible` 由精确匹配的部署白名单 `VNT_ALLOWED_VNTS_VERSIONS` 与 `VNT_ALLOWED_WRAPPER_VERSIONS` 计算；ToolBox 应隐藏不兼容节点，同时仍处理 `VNT_NODE_UNAVAILABLE`，因为后端会在 create/rebind 事务中再次检查兼容性。`src/vnt/runtime.rs` 在架构、helper capability、Wintun、manifest、版本、哈希或发布签名不可信时会失败关闭。发布构建必须嵌入批准的 `PROJECT_REBOUND_VNT_MANIFEST_SHA256`，并精确携带 manifest 描述的资产。
 
 不能因为 `--features vnt` 编译成功就显示 VNT 操作；后端开关与运行时预检必须同时通过。
 
@@ -342,7 +342,7 @@ rebind 只允许在比赛开始前发生，并创建新 generation、轮换秘�
 
 ### 8.1 玩家 ToolBox：申请 Enrollment Code
 
-要求：有效且通过 Steam 验证的玩家会话，以及有效 `vnt_node_registration`。
+要求：ACTIVE、Steam verified、integrity trusted 的玩家会话、有效 `vnt_node_registration`，且仍有 owner 配额。后端默认每位玩家最多拥有 3 个非 `RETIRED` 节点，达到上限返回 `409 VNT_NODE_QUOTA_EXCEEDED`。
 
 ```http
 POST /v1/vnt/node-enrollments
@@ -365,6 +365,8 @@ label 必须匹配 `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`。响应包含一个 `vne_.
 - 代码只显示一次，并提供倒计时和复制/导出；
 - 禁止写入 `app_config.json`、剪贴板历史遥测、日志、崩溃报告或进程参数；
 - 消费、到期、关闭窗口或退出登录时立即清除。
+
+使用分页的 `GET /v1/users/me/vnt-nodes` 只展示调用者自己的节点、安全的生命周期状态和凭据到期信息，并在本地状态丢失后找回稳定 `node_id`。该只读接口要求 ACTIVE、Steam verified，但不要求完整性 Step-up；它绝不返回 Node Token 或哈希。
 
 ### 8.2 Node Supervisor：消费 Enrollment Code
 
@@ -401,6 +403,14 @@ Content-Type: application/json
 3. 到期前轮换节点凭据，并原子替换受保护 token；
 4. 使用 delete 端点 drain/retire，而不是直接消失；
 5. 从控制面角度，约 90 秒无心跳会 stale，5 分钟会 offline。
+
+轮换成功响应含只返回一次的新 `node_token`、`credential_expires_at` 和 `previous_valid_until`。新 Token 立即用于所有管理请求；旧 Token 在默认 60 秒重叠窗口内只允许 heartbeat，不能再次轮换或 retire。Supervisor 必须先原子持久化新 Token，再切换心跳，并在截止时间前完成；响应丢失时进入人工恢复状态，不能用旧 Token 盲目重复轮换。
+
+### 8.3 Owner 恢复与退役
+
+节点凭据或轮换响应丢失时，owner 完成完整性 Step-up、申请新的 Enrollment Code，并把它一次性交给 Supervisor。Supervisor 使用正常注册请求体和 `Authorization: VNTEnrollment <fresh-code>` 调用 `POST /v1/vnt/nodes/{node_id}/recover`。后端核对 owner、立即撤销全部旧凭据、保留 `DRAINING` 或回到 `REGISTERING`，并只返回一次替换凭据；仍有活动房间时拒绝 endpoint/fingerprint 变更。非 owner 收到不可枚举的 `404`。
+
+Supervisor 通常使用当前 Node Credential 退役；integrity-trusted owner 也可用 Player Access 调用 `DELETE /v1/vnt/nodes/{node_id}`，后端会核对 owner。进入 `DRAINING` 后必须继续 heartbeat 和既有 session，直到 sweeper 转为 `RETIRED` 并撤销凭据。
 
 ProjectReboundToolbox 当前没有 Node Supervisor 实现。它应是最小权限、面向服务的独立二进制或仓库，不能藏在玩家启动按钮后面。
 
@@ -457,7 +467,8 @@ ProjectReboundToolbox 当前没有 Node Supervisor 实现。它应是最小权�
 
 ### 社区 VNT 节点
 
-- 只有有效 `vnt_node_registration` 可申请 Enrollment Code；验证 10 分钟到期且只能使用一次。
+- 只有 ACTIVE/Steam verified/integrity trusted、具有有效 `vnt_node_registration` 且 owner 配额未满时可申请 Enrollment Code；验证 10 分钟到期且只能使用一次。
 - 验证玩家 ToolBox 永远不会收到或保存 `node_token`。
 - 验证 Supervisor DPAPI/服务存储、30 秒心跳、ONLINE 探测、90 天轮换、stale/offline 和 drain/retire。
+- 验证 owner-only 节点查询、凭据丢失恢复、旧 Token 立即撤销、跨 owner 不可枚举失败，以及活动房间期间的身份变更保护。
 - 确认 UI 历史、日志、遥测、进程列表和配置文件中不存在秘密。

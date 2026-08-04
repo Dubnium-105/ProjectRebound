@@ -3,10 +3,18 @@ package p2proom
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/player"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/vnt"
 )
+
+type rejectVNTLimit struct{}
+
+func (rejectVNTLimit) Check(context.Context, vnt.LimitOperation, string) vnt.LimitDecision {
+	return vnt.LimitDecision{RetryAfter: 1500 * time.Millisecond}
+}
 
 type deniedEntitlementChecker struct{}
 
@@ -29,5 +37,31 @@ func TestCreateRequiresP2PRoomRegistrationCapability(t *testing.T) {
 	status, code, _, _ := errorDetails(err)
 	if status != 403 || code != "P2P_ROOM_REGISTRATION_NOT_ALLOWED" {
 		t.Fatalf("error = %d %s %v", status, code, err)
+	}
+}
+
+func TestCreateVNTRequiresServerFeatureGate(t *testing.T) {
+	service := NewService(nil, config.Defaults.P2PRoom)
+	_, err := service.Create(context.Background(), Actor{
+		PlayerID: "player_host", AccountStatus: player.AccountStatusActive,
+	}, CreateInput{
+		DisplayName: "VNT Room", Region: "hk", Mode: "coop", Version: "1.0.0",
+		MaxPlayers: 4, TransportKind: TransportVNT, VNTNodeID: "vnt_node",
+	})
+	status, code, _, _ := errorDetails(err)
+	if status != 409 || code != "VNT_FEATURE_DISABLED" {
+		t.Fatalf("disabled VNT create error = %d %s %v", status, code, err)
+	}
+}
+
+func TestVNTBootstrapRateLimitRunsBeforeRepositoryAccess(t *testing.T) {
+	service := NewService(nil, config.Defaults.P2PRoom)
+	service.SetVNTLimiter(rejectVNTLimit{})
+	_, err := service.VNTBootstrap(t.Context(), Actor{
+		PlayerID: "player_host", AccountStatus: player.AccountStatusActive,
+	}, "room_test")
+	status, code, _, details := errorDetails(err)
+	if status != 429 || code != "VNT_RATE_LIMITED" || details["operation"] != vnt.LimitBootstrap || details["retry_after_seconds"] != 2 {
+		t.Fatalf("bootstrap rate-limit error = status %d code %q details %#v", status, code, details)
 	}
 }

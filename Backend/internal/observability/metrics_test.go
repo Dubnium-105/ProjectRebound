@@ -21,8 +21,10 @@ func TestMetricsExposeRequiredControlPlaneSeries(t *testing.T) {
 	disconnect()
 	metrics.RefreshTokenReuse()
 	metrics.BindRateLimited("device_id")
+	metrics.VNTRateLimited("heartbeat")
 	metrics.InviteCodeFailure()
 	metrics.RelayAllocationFailed()
+	metrics.SetVNTPolicy(true, []string{"1.0.0"}, []string{"0.1.0"})
 	recorder := httptest.NewRecorder()
 	metrics.Handler().ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/internal/metrics", nil))
 	for _, series := range []string{
@@ -34,10 +36,14 @@ func TestMetricsExposeRequiredControlPlaneSeries(t *testing.T) {
 		"p2p_battlelog_reports 0", "p2p_battlelog_quarantined_reports 0", "p2p_battlelog_matches_by_state",
 		"relay_nodes_by_state", "relay_allocations_active 0", "relay_allocation_failed_total 1",
 		"relay_migrations_total 0", "relay_migration_failed_total 0",
+		"vnt_rooms_enabled 1", "vnt_rooms_active 0", "vnt_nodes_by_state", "vnt_sessions_by_state",
+		"vnt_rooms_by_generation", "vnt_member_sessions_by_path", "vnt_nodes_compatible_online 0",
+		"vnt_node_credentials_expiring_7d 0", "vnt_node_credentials_expired 0",
 		"websocket_connections_active 0", "websocket_reconnect_total 1",
 		"redis_operation_duration_seconds", "background_job_duration_seconds", "background_job_failures_total 0",
 		"go_goroutines", "go_memory_alloc_bytes",
 		`auth_bind_rate_limited_total{dimension="device_id"} 1`,
+		`vnt_rate_limited_total{operation="heartbeat"} 1`,
 		"auth_invite_code_failure_total 1",
 		"auth_invite_use_total 0", "auth_risk_events_total 0", "postgres_available 0", "redis_available 0",
 	} {

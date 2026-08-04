@@ -23,6 +23,7 @@ type SecurityHTTPService interface {
 	ListAudit(context.Context, AuditFilter) ([]AuditEntry, string, error)
 	GetAudit(context.Context, string) (AuditEntry, error)
 	ListLoginAudit(context.Context, LoginAuditFilter) ([]LoginAuditEntry, string, error)
+	ListVNTSecurityAudit(context.Context, VNTSecurityAuditFilter) ([]VNTSecurityAuditEntry, string, error)
 	PlayerSessions(context.Context, string) ([]PlayerSessionEntry, error)
 	PlayerRiskEvents(context.Context, string) ([]AdminRiskEvent, error)
 	PlayerLoginEvents(context.Context, string) ([]PlayerLoginEventEntry, error)
@@ -136,6 +137,24 @@ func (h *SecurityHTTPHandler) ListLoginAudit(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	api.WriteData(w, r, 200, map[string]any{"items": items, "next_cursor": nextCursor})
+}
+
+func (h *SecurityHTTPHandler) ListVNTSecurityAudit(w http.ResponseWriter, r *http.Request) {
+	limit, ok := queryLimit(w, r)
+	if !ok {
+		return
+	}
+	items, nextCursor, err := h.service.ListVNTSecurityAudit(r.Context(), VNTSecurityAuditFilter{
+		Cursor: r.URL.Query().Get("cursor"), EventType: r.URL.Query().Get("event_type"),
+		Result: r.URL.Query().Get("result"), ActorType: r.URL.Query().Get("actor_type"),
+		PlayerID: r.URL.Query().Get("player_id"), AdminID: r.URL.Query().Get("admin_id"), NodeID: r.URL.Query().Get("node_id"),
+		RoomID: r.URL.Query().Get("room_id"), Limit: limit,
+	})
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	api.WriteData(w, r, http.StatusOK, map[string]any{"items": items, "next_cursor": nextCursor})
 }
 
 func (h *SecurityHTTPHandler) PlayerSessions(w http.ResponseWriter, r *http.Request) {

@@ -21,6 +21,16 @@ func TestLoadMissingFileAppliesEnvironment(t *testing.T) {
 	t.Setenv("P2P_BATTLELOG_ENABLED", "true")
 	t.Setenv("P2P_BATTLELOG_SHADOW_MODE", "false")
 	t.Setenv("P2P_BATTLELOG_COLLECTION_DEADLINE_SECONDS", "180")
+	t.Setenv("VNT_ROOMS_ENABLED", "true")
+	t.Setenv("VNT_ALLOWED_VNTS_VERSIONS", "1.2.3,1.2.4")
+	t.Setenv("VNT_ALLOWED_WRAPPER_VERSIONS", "0.4.0")
+	t.Setenv("VNT_CREDENTIAL_ROTATION_GRACE_SECONDS", "75")
+	t.Setenv("VNT_ENROLLMENT_REQUESTS_PER_PLAYER_PER_HOUR", "6")
+	t.Setenv("VNT_DIRECTORY_REQUESTS_PER_IP_PER_MINUTE", "122")
+	t.Setenv("VNT_BOOTSTRAP_REQUESTS_PER_PLAYER_PER_MINUTE", "31")
+	t.Setenv("VNT_HEARTBEAT_REQUESTS_PER_CREDENTIAL_PER_MINUTE", "121")
+	t.Setenv("VNT_MANAGEMENT_REQUESTS_PER_CREDENTIAL_PER_HOUR", "11")
+	t.Setenv("VNT_MAX_NODES_PER_PLAYER", "4")
 
 	cfg, err := Load(filepath.Join(t.TempDir(), "missing.yaml"))
 	if err != nil {
@@ -49,6 +59,81 @@ func TestLoadMissingFileAppliesEnvironment(t *testing.T) {
 	if !cfg.P2PBattleLog.Enabled || cfg.P2PBattleLog.ShadowMode ||
 		cfg.P2PBattleLog.CollectionDeadlineSeconds != 180 {
 		t.Fatalf("P2P BattleLog config = %#v", cfg.P2PBattleLog)
+	}
+	if !cfg.Update.VNTRoomsEnabled {
+		t.Fatal("VNT_ROOMS_ENABLED environment override was not applied")
+	}
+	if len(cfg.VNT.AllowedVNTSVersions) != 2 || cfg.VNT.AllowedWrapperVersions[0] != "0.4.0" ||
+		cfg.VNT.CredentialRotationGraceSeconds != 75 || cfg.VNT.EnrollmentRequestsPerPlayerPerHour != 6 ||
+		cfg.VNT.DirectoryRequestsPerIPPerMinute != 122 || cfg.VNT.BootstrapRequestsPerPlayerPerMinute != 31 ||
+		cfg.VNT.HeartbeatRequestsPerCredentialPerMinute != 121 || cfg.VNT.ManagementRequestsPerCredentialPerHour != 11 ||
+		cfg.VNT.MaxNodesPerPlayer != 4 {
+		t.Fatalf("VNT version policy = %#v", cfg.VNT)
+	}
+}
+
+func TestValidateControlPlaneRejectsInvalidVNTCredentialRotationGrace(t *testing.T) {
+	cfg := Defaults
+	cfg.VNT.CredentialRotationGraceSeconds = 0
+	if err := cfg.ValidateControlPlane(); err == nil {
+		t.Fatal("zero VNT credential rotation grace was accepted")
+	}
+	cfg.VNT.CredentialRotationGraceSeconds = 601
+	if err := cfg.ValidateControlPlane(); err == nil {
+		t.Fatal("excessive VNT credential rotation grace was accepted")
+	}
+}
+
+func TestValidateControlPlaneRejectsInvalidVNTRateLimits(t *testing.T) {
+	cfg := Defaults
+	cfg.VNT.EnrollmentRequestsPerPlayerPerHour = 0
+	if err := cfg.ValidateControlPlane(); err == nil {
+		t.Fatal("zero VNT enrollment rate limit was accepted")
+	}
+	cfg = Defaults
+	cfg.VNT.DirectoryRequestsPerIPPerMinute = 0
+	if err := cfg.ValidateControlPlane(); err == nil {
+		t.Fatal("zero VNT directory rate limit was accepted")
+	}
+	cfg = Defaults
+	cfg.VNT.BootstrapRequestsPerPlayerPerMinute = 1_001
+	if err := cfg.ValidateControlPlane(); err == nil {
+		t.Fatal("excessive VNT bootstrap rate limit was accepted")
+	}
+	cfg = Defaults
+	cfg.VNT.HeartbeatRequestsPerCredentialPerMinute = 10_001
+	if err := cfg.ValidateControlPlane(); err == nil {
+		t.Fatal("excessive VNT heartbeat rate limit was accepted")
+	}
+	cfg = Defaults
+	cfg.VNT.ManagementRequestsPerCredentialPerHour = 0
+	if err := cfg.ValidateControlPlane(); err == nil {
+		t.Fatal("zero VNT management rate limit was accepted")
+	}
+}
+
+func TestValidateControlPlaneRejectsInvalidVNTNodeQuota(t *testing.T) {
+	cfg := Defaults
+	cfg.VNT.MaxNodesPerPlayer = 0
+	if err := cfg.ValidateControlPlane(); err == nil {
+		t.Fatal("zero VNT node quota was accepted")
+	}
+	cfg.VNT.MaxNodesPerPlayer = 101
+	if err := cfg.ValidateControlPlane(); err == nil {
+		t.Fatal("excessive VNT node quota was accepted")
+	}
+}
+
+func TestValidateControlPlaneRequiresVNTVersionAllowlistsWhenEnabled(t *testing.T) {
+	cfg := Defaults
+	cfg.Update.VNTRoomsEnabled = true
+	if err := cfg.ValidateControlPlane(); err == nil {
+		t.Fatal("enabled VNT rooms without version allowlists were accepted")
+	}
+	cfg.VNT.AllowedVNTSVersions = []string{"1.2.3"}
+	cfg.VNT.AllowedWrapperVersions = []string{"0.4.0"}
+	if err := cfg.ValidateControlPlane(); err != nil {
+		t.Fatalf("valid VNT allowlists were rejected: %v", err)
 	}
 }
 

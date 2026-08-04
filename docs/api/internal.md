@@ -41,7 +41,7 @@ DELETE /v1/admin/auth/sessions/{session_id}
 POST   /v1/admin/auth/step-up
 ```
 
-Neither Player Access Tokens nor machine Admin Tokens can replace an Admin Web Access Token. RBAC is enforced server-side; hiding a frontend menu is not a security boundary. Relay revoke additionally requires the step-up proof in `X-Admin-Step-Up`; the proof stays in browser memory and expires after the configured short TTL.
+Neither Player Access Tokens nor machine Admin Tokens can replace an Admin Web Access Token. RBAC is enforced server-side; hiding a frontend menu is not a security boundary. Relay revoke and VNT-node Drain/Revoke additionally require the step-up proof in `X-Admin-Step-Up`; the proof stays in browser memory and expires after the configured short TTL.
 
 Create the first administrator with `go run ./cmd/adminctl`. The password is read only from the `ADMINCTL_PASSWORD` environment variable. The TOTP provisioning URI and recovery codes are displayed once after creation. Persistent environments must configure `ADMIN_MFA_ENCRYPTION_KEY_BASE64` first.
 
@@ -155,11 +155,19 @@ GET  /v1/admin/relay-nodes/{node_id}
 POST /v1/admin/relay-nodes/{node_id}/drain
 POST /v1/admin/relay-nodes/{node_id}/resume
 POST /v1/admin/relay-nodes/{node_id}/revoke
+
+GET  /v1/admin/vnt-nodes
+GET  /v1/admin/vnt-nodes/{node_id}
+POST /v1/admin/vnt-nodes/{node_id}/drain
+POST /v1/admin/vnt-nodes/{node_id}/revoke
+GET  /v1/admin/vnt-security-events
 ```
+
+`GET /v1/admin/vnt-security-events` requires `vnt_nodes.read` and returns redacted enrollment, credential, recovery, room-rebind, secret-decryption, and administrator lifecycle events. It can be filtered by event/result/actor, player, administrator, node, or room. The response never contains enrollment codes, node credentials, room network tokens, E2E passwords, secret hashes, or encryption material.
 
 P2P BattleLog normalized evidence requires `p2p.battlelog.read`. The separate raw endpoint requires `p2p.battlelog.raw.read`, returns `Cache-Control: no-store`, and is not granted to ordinary operations/support roles. Its report identifiers and tables are separate from dedicated-server BattleLog storage.
 
-Every write requires `reason`; Relay drain also accepts `deadline_seconds` and `migrate_existing`. `POST /v1/admin/game-servers/registration-tokens` additionally requires `game_servers.register` and MFA step-up. It accepts `instance_id` plus a 1–168 hour lifetime, revokes any older unconsumed token for that instance, stores only a SHA-256 hash, and returns the plaintext `gsr_...` token once with `Cache-Control: no-store`. Game-server disable marks the server offline and revokes its Server Token. Room actions report `connections_cleanup_complete`; a false value means the room mutation succeeded but the operator should follow the runbook to confirm downstream connection cleanup. Connection Relay migration never accepts a target address or node from the browser: the backend scheduler selects an eligible READY node. Other responses never include host tokens, node tokens, allocation tokens, registration-token hashes, private keys, or full ICE candidates.
+Every write requires `reason`; Relay drain also accepts `deadline_seconds` and `migrate_existing`. `POST /v1/admin/game-servers/registration-tokens` additionally requires `game_servers.register` and MFA step-up. It accepts `instance_id` plus a 1–168 hour lifetime, revokes any older unconsumed token for that instance, stores only a SHA-256 hash, and returns the plaintext `gsr_...` token once with `Cache-Control: no-store`. VNT-node Drain and Revoke both require MFA step-up. Drain stops new room allocations while preserving active rooms and node credentials. Revoke immediately revokes every node credential, marks VNT sessions failed, closes affected rooms, and returns `closed_rooms`; node list/detail expose owner, endpoint, versions, fingerprint, latest credential lease timestamps, reachability, and safe room references, but never credential material or room secrets. Game-server disable marks the server offline and revokes its Server Token. Room actions report `connections_cleanup_complete`; a false value means the room mutation succeeded but the operator should follow the runbook to confirm downstream connection cleanup. Connection Relay migration never accepts a target address or node from the browser: the backend scheduler selects an eligible READY node. Other responses never include host tokens, node tokens, allocation tokens, registration-token hashes, private keys, or full ICE candidates.
 
 ### 3.4 Managed client releases
 

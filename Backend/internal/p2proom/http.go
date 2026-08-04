@@ -10,6 +10,9 @@ import (
 
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/api"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/auth"
+	appmiddleware "github.com/Dubnium-105/ProjectRebound/Backend/internal/middleware"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/requestctx"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/vnt"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -35,13 +38,16 @@ type VNTHTTPService interface {
 }
 
 type HTTPHandler struct {
-	service HTTPService
-	logger  *slog.Logger
+	service           HTTPService
+	logger            *slog.Logger
+	trustProxyHeaders bool
 }
 
 func NewHTTPHandler(service HTTPService, logger *slog.Logger) *HTTPHandler {
 	return &HTTPHandler{service: service, logger: logger}
 }
+
+func (h *HTTPHandler) SetTrustProxyHeaders(value bool) { h.trustProxyHeaders = value }
 
 type createRequest struct {
 	DisplayName   string        `json:"display_name"`
@@ -200,7 +206,7 @@ func (h *HTTPHandler) VNTBootstrap(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, r, conflict("VNT_FEATURE_DISABLED", "VNT rooms are not available."))
 		return
 	}
-	result, err := service.VNTBootstrap(r.Context(), actorFromRequest(r), chi.URLParam(r, "room_id"))
+	result, err := service.VNTBootstrap(h.vntRequestContext(r), actorFromRequest(r), chi.URLParam(r, "room_id"))
 	if err != nil {
 		h.writeError(w, r, err)
 		return
@@ -227,7 +233,7 @@ func (h *HTTPHandler) UpdateVNTPresence(w http.ResponseWriter, r *http.Request) 
 		api.WriteError(w, r, 400, "INVALID_REQUEST", "Invalid request.", map[string]any{"body": err.Error()})
 		return
 	}
-	room, err := service.UpdateVNTPresence(r.Context(), actorFromRequest(r), chi.URLParam(r, "room_id"), VNTPresenceInput{
+	room, err := service.UpdateVNTPresence(h.vntRequestContext(r), actorFromRequest(r), chi.URLParam(r, "room_id"), VNTPresenceInput{
 		Generation: request.Generation, State: request.State, VirtualIP: request.VirtualIP,
 		ObservedPath: request.ObservedPath, ReasonCode: request.ReasonCode,
 	})
@@ -248,7 +254,7 @@ func (h *HTTPHandler) VNTHostReady(w http.ResponseWriter, r *http.Request) {
 		api.WriteError(w, r, 400, "INVALID_REQUEST", "Invalid request.", map[string]any{"body": err.Error()})
 		return
 	}
-	room, err := service.VNTHostReady(r.Context(), actorFromRequest(r), chi.URLParam(r, "room_id"), r.Header.Get(hostTokenHeader), request.Generation, request.VirtualIP)
+	room, err := service.VNTHostReady(h.vntRequestContext(r), actorFromRequest(r), chi.URLParam(r, "room_id"), r.Header.Get(hostTokenHeader), request.Generation, request.VirtualIP)
 	h.writeRoomOperation(w, r, room, err)
 }
 
@@ -265,8 +271,16 @@ func (h *HTTPHandler) VNTRebind(w http.ResponseWriter, r *http.Request) {
 		api.WriteError(w, r, 400, "INVALID_REQUEST", "Invalid request.", map[string]any{"body": err.Error()})
 		return
 	}
-	room, err := service.VNTRebind(r.Context(), actorFromRequest(r), chi.URLParam(r, "room_id"), r.Header.Get(hostTokenHeader), request.VNTNodeID)
+	room, err := service.VNTRebind(h.vntRequestContext(r), actorFromRequest(r), chi.URLParam(r, "room_id"), r.Header.Get(hostTokenHeader), request.VNTNodeID)
 	h.writeRoomOperation(w, r, room, err)
+}
+
+func (h *HTTPHandler) vntRequestContext(r *http.Request) context.Context {
+	return vnt.WithRequestMeta(r.Context(), vnt.RequestMeta{
+		RequestID: requestctx.RequestID(r.Context()),
+		IPAddress: appmiddleware.ClientIP(r, h.trustProxyHeaders),
+		UserAgent: r.UserAgent(),
+	})
 }
 
 func (h *HTTPHandler) writeRoomOperation(w http.ResponseWriter, r *http.Request, room Room, err error) {
@@ -279,6 +293,11 @@ func (h *HTTPHandler) writeRoomOperation(w http.ResponseWriter, r *http.Request,
 
 func (h *HTTPHandler) writeError(w http.ResponseWriter, r *http.Request, err error) {
 	status, code, message, details := errorDetails(err)
+	if status == http.StatusTooManyRequests && details != nil {
+		if retryAfter, ok := details["retry_after_seconds"].(int); ok && retryAfter > 0 {
+			w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
+		}
+	}
 	if status >= 500 {
 		h.logger.ErrorContext(r.Context(), "P2P room request failed", "code", code, "error", err)
 	}

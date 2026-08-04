@@ -226,6 +226,54 @@ func (r *SecurityRepository) GetAudit(ctx context.Context, id string) (AuditEntr
 	`, id))
 }
 
+func (r *SecurityRepository) ListVNTSecurityAudit(
+	ctx context.Context,
+	filter VNTSecurityAuditFilter,
+) ([]VNTSecurityAuditEntry, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, event_type, result, actor_type, COALESCE(player_id, ''),
+		       COALESCE(admin_id, ''), COALESCE(node_id, ''), COALESCE(room_id, ''), COALESCE(request_id, ''),
+		       COALESCE(ip_address::text, ''), user_agent, COALESCE(reason_code, ''),
+		       details, created_at
+		FROM vnt_security_audit_logs
+		WHERE ($1 = '' OR id > $1)
+		  AND ($2 = '' OR event_type = $2)
+		  AND ($3 = '' OR result = $3)
+		  AND ($4 = '' OR actor_type = $4)
+		  AND ($5 = '' OR player_id = $5)
+		  AND ($6 = '' OR admin_id = $6)
+		  AND ($7 = '' OR node_id = $7)
+		  AND ($8 = '' OR room_id = $8)
+		ORDER BY id
+		LIMIT $9
+	`, filter.Cursor, filter.EventType, filter.Result, filter.ActorType,
+		filter.PlayerID, filter.AdminID, filter.NodeID, filter.RoomID, filter.Limit)
+	if err != nil {
+		return nil, fmt.Errorf("list VNT security audit: %w", err)
+	}
+	defer rows.Close()
+	items := make([]VNTSecurityAuditEntry, 0, filter.Limit)
+	for rows.Next() {
+		var item VNTSecurityAuditEntry
+		var details []byte
+		if err := rows.Scan(
+			&item.ID, &item.EventType, &item.Result, &item.ActorType, &item.PlayerID,
+			&item.AdminID, &item.NodeID, &item.RoomID, &item.RequestID, &item.IPAddress, &item.UserAgent,
+			&item.ReasonCode, &details, &item.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan VNT security audit: %w", err)
+		}
+		if err := json.Unmarshal(details, &item.Details); err != nil {
+			return nil, fmt.Errorf("decode VNT security audit details: %w", err)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate VNT security audit: %w", err)
+	}
+	return items, nil
+}
+
 func (r *SecurityRepository) ListLoginAudit(ctx context.Context, filter LoginAuditFilter) ([]LoginAuditEntry, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, COALESCE(admin_id, ''), event_type, result,

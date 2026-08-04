@@ -12,6 +12,7 @@ import (
 	appmiddleware "github.com/Dubnium-105/ProjectRebound/Backend/internal/middleware"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/p2proom"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/requestctx"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/vnt"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -25,6 +26,9 @@ type OnlineHTTPService interface {
 	GetConnection(context.Context, string) (AdministrativeConnection, error)
 	CloseConnection(context.Context, string, string, RequestMeta) (OnlineOperationResult[AdministrativeConnection], error)
 	MigrateConnectionRelay(context.Context, string, string, RequestMeta) (ConnectionMigrationResult, error)
+	ListVNTNodes(context.Context, vnt.AdminListFilter) (vnt.AdminListResult, error)
+	GetVNTNode(context.Context, string) (vnt.AdminNode, error)
+	ChangeVNTNodeState(context.Context, string, string, string, RequestMeta) (VNTNodeOperationResult, error)
 }
 
 type OnlineHTTPHandler struct {
@@ -127,6 +131,37 @@ type administrativeRoomMemberResponse struct {
 	LeftAt        *time.Time `json:"left_at"`
 }
 
+type administrativeVNTNodeResponse struct {
+	NodeID                   string                   `json:"node_id"`
+	OwnerPlayerID            string                   `json:"owner_player_id"`
+	OwnerSteamID             string                   `json:"owner_steam_id"`
+	OwnerPersonaName         string                   `json:"owner_persona_name"`
+	OwnerAccountStatus       string                   `json:"owner_account_status"`
+	Host                     string                   `json:"host"`
+	Port                     int                      `json:"port"`
+	Region                   string                   `json:"region"`
+	Location                 string                   `json:"location"`
+	State                    string                   `json:"state"`
+	VNTSVersion              string                   `json:"vnts_version"`
+	WrapperVersion           string                   `json:"wrapper_version"`
+	VersionCompatible        bool                     `json:"version_compatible"`
+	ServerKeyFingerprint     string                   `json:"server_key_fingerprint"`
+	SupportedTransports      []string                 `json:"supported_transports"`
+	MaxRooms                 int                      `json:"max_rooms"`
+	ReportedSessions         int                      `json:"reported_sessions"`
+	ActiveRooms              int                      `json:"active_rooms"`
+	CredentialExpiresAt      *time.Time               `json:"credential_expires_at"`
+	CredentialLastUsedAt     *time.Time               `json:"credential_last_used_at"`
+	CredentialRevokedAt      *time.Time               `json:"credential_revoked_at"`
+	LastHeartbeatAt          *time.Time               `json:"last_heartbeat_at"`
+	LastReachableAt          *time.Time               `json:"last_reachable_at"`
+	CreatedAt                time.Time                `json:"created_at"`
+	UpdatedAt                time.Time                `json:"updated_at"`
+	RetiredAt                *time.Time               `json:"retired_at"`
+	ReferencedRooms          []vnt.AdminRoomReference `json:"referenced_rooms,omitempty"`
+	ReferencedRoomsTruncated bool                     `json:"referenced_rooms_truncated,omitempty"`
+}
+
 func NewOnlineHTTPHandler(service OnlineHTTPService, logger *slog.Logger, trustProxy bool) *OnlineHTTPHandler {
 	return &OnlineHTTPHandler{service: service, logger: logger, trustProxy: trustProxy}
 }
@@ -220,6 +255,62 @@ func (h *OnlineHTTPHandler) CreateGameServerRegistration(w http.ResponseWriter, 
 		InstanceID:        result.Credential.InstanceID,
 		RegistrationToken: result.Plaintext,
 		ExpiresAt:         result.Credential.ExpiresAt,
+	})
+}
+
+func (h *OnlineHTTPHandler) ListVNTNodes(w http.ResponseWriter, r *http.Request) {
+	limit, err := strconv.Atoi(defaultOnlineString(r.URL.Query().Get("limit"), "50"))
+	if err != nil {
+		api.WriteError(w, r, 400, "INVALID_REQUEST", "Invalid limit.", nil)
+		return
+	}
+	result, err := h.service.ListVNTNodes(r.Context(), vnt.AdminListFilter{
+		State: r.URL.Query().Get("state"), Region: r.URL.Query().Get("region"),
+		OwnerPlayerID: r.URL.Query().Get("owner_player_id"), Cursor: r.URL.Query().Get("cursor"), Limit: limit,
+	})
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	items := make([]administrativeVNTNodeResponse, 0, len(result.Items))
+	for _, item := range result.Items {
+		items = append(items, administrativeVNTNode(item, false))
+	}
+	api.WriteData(w, r, 200, map[string]any{"items": items, "next_cursor": result.NextCursor})
+}
+
+func (h *OnlineHTTPHandler) GetVNTNode(w http.ResponseWriter, r *http.Request) {
+	item, err := h.service.GetVNTNode(r.Context(), chi.URLParam(r, "node_id"))
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	api.WriteData(w, r, 200, administrativeVNTNode(item, true))
+}
+
+func (h *OnlineHTTPHandler) DrainVNTNode(w http.ResponseWriter, r *http.Request) {
+	h.changeVNTNodeState(w, r, "drain")
+}
+
+func (h *OnlineHTTPHandler) RevokeVNTNode(w http.ResponseWriter, r *http.Request) {
+	h.changeVNTNodeState(w, r, "revoke")
+}
+
+func (h *OnlineHTTPHandler) changeVNTNodeState(w http.ResponseWriter, r *http.Request, operation string) {
+	var request reasonRequest
+	if err := api.DecodeJSON(r, &request); err != nil {
+		api.WriteError(w, r, 400, "INVALID_REQUEST", "Invalid request.", nil)
+		return
+	}
+	result, err := h.service.ChangeVNTNodeState(
+		r.Context(), chi.URLParam(r, "node_id"), operation, request.Reason, h.requestMeta(r),
+	)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	api.WriteData(w, r, 200, map[string]any{
+		"node": administrativeVNTNode(result.Node, true), "closed_rooms": result.ClosedRooms,
 	})
 }
 
@@ -354,6 +445,27 @@ func administrativeConnection(item AdministrativeConnection) administrativeConne
 		UpdatedAt: item.Connection.UpdatedAt, ClosedAt: item.Connection.ClosedAt,
 		MigrationHistory: migrations,
 	}
+}
+
+func administrativeVNTNode(item vnt.AdminNode, includeRooms bool) administrativeVNTNodeResponse {
+	response := administrativeVNTNodeResponse{
+		NodeID: item.ID, OwnerPlayerID: item.OwnerPlayerID, OwnerSteamID: item.OwnerSteamID,
+		OwnerPersonaName: item.OwnerPersonaName, OwnerAccountStatus: item.OwnerAccountStatus,
+		Host: item.AdvertisedHost, Port: item.Port, Region: item.Region, Location: item.Location,
+		State: item.State, VNTSVersion: item.VNTSVersion, WrapperVersion: item.WrapperVersion,
+		VersionCompatible: item.VersionCompatible, ServerKeyFingerprint: item.ServerKeyFingerprint,
+		SupportedTransports: append([]string(nil), item.SupportedTransports...), MaxRooms: item.MaxRooms,
+		ReportedSessions: item.ReportedSessions, ActiveRooms: item.ActiveRooms,
+		CredentialExpiresAt: item.CredentialExpiresAt, CredentialLastUsedAt: item.CredentialLastUsedAt,
+		CredentialRevokedAt: item.CredentialRevokedAt, LastHeartbeatAt: item.LastHeartbeatAt,
+		LastReachableAt: item.LastReachableAt, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt,
+		RetiredAt: item.RetiredAt,
+	}
+	if includeRooms {
+		response.ReferencedRooms = append([]vnt.AdminRoomReference(nil), item.ReferencedRooms...)
+		response.ReferencedRoomsTruncated = item.ReferencedRoomsTruncated
+	}
+	return response
 }
 
 func (h *OnlineHTTPHandler) requestMeta(r *http.Request) RequestMeta {

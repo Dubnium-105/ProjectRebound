@@ -25,6 +25,7 @@ func (d fixedRelayDirectory) AvailableRegions(context.Context) ([]string, error)
 
 func TestSignedManifestCatalogAndChannels(t *testing.T) {
 	cfg := testUpdateConfig(t)
+	cfg.VNTRoomsEnabled = true
 	writeRelease(t, cfg.ManifestDirectory, "stable.json", SourceRelease{
 		SchemaVersion: 1, Product: cfg.Product, Platform: "windows", Architecture: "amd64", Channel: "stable",
 		Version: "1.2.0", MinimumSupportedVersion: "1.1.0", PublishedAt: time.Date(2026, 7, 18, 1, 2, 3, 0, time.UTC),
@@ -95,7 +96,8 @@ func TestSignedManifestCatalogAndChannels(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !clientConfig.Relay.Available || len(clientConfig.Relay.Regions) != 2 || clientConfig.RealtimeURL != cfg.RealtimeURL {
+	if !clientConfig.Relay.Available || len(clientConfig.Relay.Regions) != 2 ||
+		clientConfig.RealtimeURL != cfg.RealtimeURL || !clientConfig.Features.VNTRooms {
 		t.Fatalf("client config = %#v", clientConfig)
 	}
 }

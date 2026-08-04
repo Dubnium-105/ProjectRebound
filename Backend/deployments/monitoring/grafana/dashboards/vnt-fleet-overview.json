@@ -1,0 +1,81 @@
+{
+  "uid": "rebound-vnt-fleet",
+  "title": "Community VNT Fleet",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {"from": "now-6h", "to": "now"},
+  "templating": {
+    "list": [
+      {
+        "name": "vnt_node",
+        "type": "query",
+        "definition": "label_values(vnt_node_max_rooms, node_id)",
+        "query": {"query": "label_values(vnt_node_max_rooms, node_id)", "refId": "StandardVariableQuery"},
+        "multi": true,
+        "includeAll": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Fleet availability",
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 0},
+      "targets": [
+        {"expr": "vnt_rooms_enabled", "legendFormat": "feature enabled"},
+        {"expr": "vnt_nodes_compatible_online", "legendFormat": "compatible capacity"},
+        {"expr": "vnt_rooms_active", "legendFormat": "active rooms"}
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Credential health",
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 0},
+      "targets": [
+        {"expr": "vnt_node_credentials_expiring_7d", "legendFormat": "expires in 7d"},
+        {"expr": "vnt_node_credentials_expired", "legendFormat": "no valid credential"}
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Heartbeat and reachability age",
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 6},
+      "targets": [
+        {"expr": "vnt_node_heartbeat_age_seconds{node_id=~\"$vnt_node\"}", "legendFormat": "{{node_id}} heartbeat"},
+        {"expr": "vnt_node_reachability_age_seconds{node_id=~\"$vnt_node\"}", "legendFormat": "{{node_id}} reachability"}
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Room capacity",
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 6},
+      "targets": [
+        {"expr": "100 * vnt_node_capacity_ratio{node_id=~\"$vnt_node\"}", "legendFormat": "{{node_id}} %"},
+        {"expr": "vnt_node_referenced_rooms{node_id=~\"$vnt_node\"}", "legendFormat": "{{node_id}} references"}
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "VNT session states",
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 15},
+      "targets": [
+        {"expr": "vnt_sessions_by_state", "legendFormat": "{{state}}"}
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Observed client paths",
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 15},
+      "targets": [
+        {"expr": "vnt_member_sessions_by_path", "legendFormat": "{{path}}"}
+      ]
+    }
+  ]
+}
