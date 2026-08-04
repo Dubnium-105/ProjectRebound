@@ -315,7 +315,7 @@ func (r *Repository) Heartbeat(ctx context.Context, tx pgx.Tx, nodeID string, in
 		        WHEN state = 'DRAINING' THEN 'DRAINING'
 		        WHEN $2 = 'OFFLINE' THEN 'OFFLINE'
 		        WHEN last_reachable_at IS NULL THEN 'REGISTERING'
-		        WHEN last_reachable_at > $6 - INTERVAL '90 seconds' THEN 'ONLINE'
+		        WHEN last_reachable_at > ($6::timestamptz - INTERVAL '90 seconds') THEN 'ONLINE'
 		        ELSE 'STALE'
 		    END,
 		    wrapper_version = $3, vnts_version = $4,

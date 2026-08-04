@@ -102,6 +102,10 @@ func TestVNTRoomLifecycleAgainstPostgreSQL(t *testing.T) {
 	if _, err := service.Create(ctx, actors[0], incompatibleRequest); err == nil {
 		t.Fatal("room creation accepted a version-incompatible VNT node")
 	}
+	if len(entitlements.capabilities) != 1 || entitlements.capabilities[0] != entitlement.P2PRoomRegistration {
+		t.Fatalf("incompatible create checked capabilities = %#v", entitlements.capabilities)
+	}
+	entitlements.capabilities = nil
 	if _, err := pool.Exec(ctx, "UPDATE vnt_nodes SET wrapper_version = '1.0.0' WHERE id = $1", nodeIDs[0]); err != nil {
 		t.Fatal(err)
 	}
