@@ -1783,7 +1783,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Compatibility endpoint used only through MetaTunnel. Any playerId or loginToken field is ignored. Shipped Boundary clients that omit version are labeled boundary-legacy. */
+        /** @description Compatibility endpoint used only through MetaTunnel. Any playerId or loginToken field is ignored. The request must be one JSON object, but all of its release-specific fields and values are ignored. Shipped Boundary clients are labeled boundary-legacy and use the server protocol version. */
         post: operations["connectMetaServerCompatibility"];
         delete?: never;
         options?: never;
@@ -4014,24 +4014,8 @@ export interface components {
              */
             loginToken?: string;
         };
-        /** @description Shipped Boundary clients include release-specific legacy fields. Unknown fields are accepted and ignored only on the compatibility endpoint; identity always comes from the bearer token. */
+        /** @description Shipped Boundary clients include release-specific legacy fields whose names and JSON types vary. Every field is accepted and ignored only on the compatibility endpoint. Identity comes from the bearer token; client and protocol versions come from the server compatibility profile. */
         MetaConnectServerRequest: {
-            client_version?: string;
-            /** @description Compatibility alias for client_version. Empty values are labeled boundary-legacy. */
-            version?: string;
-            protocol_version?: number;
-            platform?: string;
-            /**
-             * @deprecated
-             * @description Ignored. Identity is always derived from the access token.
-             */
-            playerId?: string;
-            /**
-             * @deprecated
-             * @description Ignored. Authorization is accepted only through the bearer header.
-             */
-            loginToken?: string;
-        } & {
             [key: string]: unknown;
         };
         MetaSessionData: {

@@ -57,25 +57,37 @@ func TestSessionRequestNormalize(t *testing.T) {
 	}
 }
 
-func TestCompatibilityJSONAllowsUnknownLegacyFields(t *testing.T) {
+func TestCompatibilityJSONIgnoresLegacyFieldNamesAndTypes(t *testing.T) {
 	request := httptest.NewRequest(
 		"POST",
 		"/connectServer",
 		strings.NewReader(`{
-			"loginToken":"legacy-token",
-			"playerId":"legacy-player",
-			"version":"",
+			"loginToken":{"release":"legacy"},
+			"playerId":76561198000000000,
+			"version":42,
+			"client_version":["legacy"],
+			"protocol_version":"1",
+			"platform":false,
 			"legacyBuild":42,
 			"legacyMetadata":{"channel":"steam"}
 		}`),
 	)
-	var input sessionRequest
-	if err := decodeCompatibilityJSON(request, &input); err != nil {
+	if err := decodeCompatibilityJSONObject(request); err != nil {
 		t.Fatalf("decode compatibility request: %v", err)
 	}
-	input.normalize(7, boundaryLegacyClientVersion)
-	if input.ClientVersion != boundaryLegacyClientVersion || input.ProtocolVersion != 7 {
-		t.Fatalf("normalized compatibility request = %#v", input)
+}
+
+func TestCompatibilityJSONRequiresOneObject(t *testing.T) {
+	for _, body := range []string{
+		`null`,
+		`[]`,
+		`"legacy"`,
+		`{} {}`,
+	} {
+		request := httptest.NewRequest("POST", "/connectServer", strings.NewReader(body))
+		if err := decodeCompatibilityJSONObject(request); err == nil {
+			t.Fatalf("compatibility decoder accepted %s", body)
+		}
 	}
 }
 

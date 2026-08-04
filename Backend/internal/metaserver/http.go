@@ -122,20 +122,19 @@ func (h *HTTPHandler) Session(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ConnectServer preserves the game's field names while deriving identity only
-// from the authenticated control-plane principal. playerId and loginToken in
-// the request are deliberately ignored.
+// ConnectServer preserves the game's route and response shape while deriving
+// identity only from the authenticated control-plane principal. Shipped game
+// builds disagree on both the names and JSON types of their legacy fields, so
+// the compatibility body is validated as an object but otherwise ignored.
 func (h *HTTPHandler) ConnectServer(w http.ResponseWriter, r *http.Request) {
-	var input sessionRequest
-	if err := decodeCompatibilityJSON(r, &input); err != nil {
+	if err := decodeCompatibilityJSONObject(r); err != nil {
 		h.writeError(w, r, invalid(map[string]any{"body": err.Error()}))
 		return
 	}
-	input.normalize(h.service.ProtocolVersion(), boundaryLegacyClientVersion)
 	principal := auth.PrincipalFromContext(r.Context())
 	ticket, err := h.service.IssueSession(
 		r.Context(), principal.Player.ID, principal.SessionID,
-		input.ClientVersion, input.ProtocolVersion,
+		boundaryLegacyClientVersion, h.service.ProtocolVersion(),
 	)
 	if err != nil {
 		h.writeError(w, r, err)
@@ -448,8 +447,15 @@ func decodeJSON(r *http.Request, target any) error {
 	return decodeJSONValue(r, target, true)
 }
 
-func decodeCompatibilityJSON(r *http.Request, target any) error {
-	return decodeJSONValue(r, target, false)
+func decodeCompatibilityJSONObject(r *http.Request) error {
+	var input map[string]json.RawMessage
+	if err := decodeJSONValue(r, &input, false); err != nil {
+		return err
+	}
+	if input == nil {
+		return errors.New("request body must be a JSON object")
+	}
+	return nil
 }
 
 func decodeJSONValue(r *http.Request, target any, disallowUnknownFields bool) error {
