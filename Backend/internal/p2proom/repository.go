@@ -429,14 +429,14 @@ func (r *Repository) RebindVNT(ctx context.Context, tx pgx.Tx, session VNTSessio
 		INSERT INTO p2p_vnt_member_sessions (
 			room_id, generation, player_id, device_id, virtual_ip, state, created_at
 		)
-		SELECT $1, $2, member.player_id,
+		SELECT $1::varchar(64), $2, member.player_id,
 		       'vnd_' || md5(random()::text || member.player_id),
 		       ('10.26.0.' || (ROW_NUMBER() OVER (
 		           ORDER BY CASE WHEN member.role = 'HOST' THEN 0 ELSE 1 END, member.joined_at, member.player_id
 		       ) + 1)::text)::inet,
 		       'ISSUED', $3
 		FROM p2p_room_members member
-		WHERE member.room_id = $1 AND member.status = 'ACTIVE'
+		WHERE member.room_id = $1::varchar(64) AND member.status = 'ACTIVE'
 	`, session.RoomID, session.Generation, now)
 	return err
 }
