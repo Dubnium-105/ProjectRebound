@@ -55,12 +55,12 @@ func (s *TCPServer) getPlayerArchive(
 		}
 		role := &metaprotocol.PlayerRoleData{
 			RoleId:         requestedRoleID,
-			LeftPylon:      nativeSnapshotItem(snapshot, "leftPylon", 3),
-			RightPylon:     nativeSnapshotItem(snapshot, "rightPylon", 4),
-			MobilityModule: nativeSnapshotItem(snapshot, "mobilityModule", 6),
-			MeleeWeapon:    nativeSnapshotItem(snapshot, "meleeWeapon", 5),
-			PrimaryWeapon:  nativeSnapshotItem(snapshot, "primaryWeapon", 1),
-			SecondWeapon:   nativeSnapshotItem(snapshot, "secondaryWeapon", 2),
+			LeftPylon:      nativeSnapshotResponseItem(snapshot, "leftPylon", 3),
+			RightPylon:     nativeSnapshotResponseItem(snapshot, "rightPylon", 4),
+			MobilityModule: nativeSnapshotResponseItem(snapshot, "mobilityModule", 6),
+			MeleeWeapon:    nativeSnapshotResponseItem(snapshot, "meleeWeapon", 5),
+			PrimaryWeapon:  nativeSnapshotResponseItem(snapshot, "primaryWeapon", 1),
+			SecondWeapon:   nativeSnapshotResponseItem(snapshot, "secondaryWeapon", 2),
 		}
 		weaponIDs := make([]string, 0, 2)
 		for _, weaponID := range []string{role.SecondWeapon, role.PrimaryWeapon} {
@@ -370,9 +370,9 @@ func (s *TCPServer) mutateNativeLoadout(
 	return conflict("META_LOADOUT_REVISION_CONFLICT", "The loadout was updated concurrently.")
 }
 
-func nativeSnapshotItem(snapshot map[string]any, key string, slot int) string {
+func nativeSnapshotResponseItem(snapshot map[string]any, key string, slot int) string {
 	if value := nativeSnapshotString(snapshot, key); value != "" {
-		return value
+		return nativeResponseItem(value)
 	}
 	inventory, _ := snapshot["inventory"].(map[string]any)
 	slots, _ := inventory["slots"].([]any)
@@ -381,11 +381,21 @@ func nativeSnapshotItem(snapshot map[string]any, key string, slot int) string {
 		slotValue, _ := entry["slotType"].(float64)
 		if int(slotValue) == slot {
 			if itemID, _ := entry["itemId"].(string); itemID != "" {
-				return itemID
+				return nativeResponseItem(itemID)
 			}
 		}
 	}
-	return "None"
+	return ""
+}
+
+func nativeResponseItem(itemID string) string {
+	// The native client treats a literal "None" as an invalid item and restores
+	// the role default. An empty proto3 string omits the field and preserves the
+	// intentionally empty slot.
+	if strings.EqualFold(itemID, "None") {
+		return ""
+	}
+	return itemID
 }
 
 func nativeSnapshotString(snapshot map[string]any, keys ...string) string {

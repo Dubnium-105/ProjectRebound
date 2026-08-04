@@ -129,6 +129,41 @@ func TestNativeSlotMappingAndDefaults(t *testing.T) {
 	}
 }
 
+func TestNativePlayerArchiveOmitsNoneItems(t *testing.T) {
+	role := &metaprotocol.PlayerRoleData{
+		RoleId: "PEACE",
+		PrimaryWeapon: nativeSnapshotResponseItem(map[string]any{
+			"primaryWeapon": "None",
+		}, "primaryWeapon", 1),
+		SecondWeapon: nativeSnapshotResponseItem(map[string]any{
+			"secondaryWeapon": "PEACE_RU-APS",
+		}, "secondaryWeapon", 2),
+	}
+	raw, err := proto.Marshal(role)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value, ok := consumeStringField(raw, 6); ok {
+		t.Fatalf("primary weapon encoded as %q, want field omitted", value)
+	}
+	if value, ok := consumeStringField(raw, 7); !ok || value != "PEACE_RU-APS" {
+		t.Fatalf("second weapon=%q ok=%v", value, ok)
+	}
+}
+
+func TestNativePlayerArchiveOmitsNestedNoneItems(t *testing.T) {
+	snapshot := map[string]any{
+		"inventory": map[string]any{
+			"slots": []any{
+				map[string]any{"slotType": float64(1), "itemId": "None"},
+			},
+		},
+	}
+	if got := nativeSnapshotResponseItem(snapshot, "primaryWeapon", 1); got != "" {
+		t.Fatalf("primary weapon=%q, want empty response field", got)
+	}
+}
+
 func TestNativeDefaultLoadoutsUsePinnedDefinitions(t *testing.T) {
 	definitions, err := LoadDefinitionIndex()
 	if err != nil {
