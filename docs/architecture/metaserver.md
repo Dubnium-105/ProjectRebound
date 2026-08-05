@@ -38,13 +38,22 @@ with the control plane. Public port 443 is the only client ingress. Ports 6968,
 
 ## Identity flow
 
-The Browser authenticates against the existing control plane and passes the
-Access Token to MetaTunnel through stdin. MetaTunnel never accepts tokens in a
-command line, environment variable, URL, or log. It binds random loopback-only
-HTTP and TCP ports.
+The launcher authenticates against the existing control plane and passes the
+initial Access Token to MetaTunnel through stdin. It keeps the pipe open and
+writes each replacement token before the 15-minute Access Token expires.
+MetaTunnel never accepts tokens in a command line, environment variable, URL,
+or log. It binds random loopback-only HTTP and TCP ports.
 
-For `/connectServer`, MetaTunnel injects the bearer token. Shipped builds
-disagree on the legacy body's encoding, field names, and types, so MetaServer
+MetaTunnel is a fixed-origin reverse proxy: it preserves the HTTP method, path,
+query, body, response, streaming, and upgrade semantics for every MetaServer
+path while replacing any client-supplied Authorization header with the current
+launcher token. `/_meta-tunnel/health/live` is reserved for local tunnel health;
+MetaServer's `/health/live` continues upstream. Native TCP frames are bridged
+unchanged over certificate-verified TLS.
+
+For `/connectServer`, the tunnel additionally enforces the legacy body limit
+and rewrites the successful Logic endpoint to its local TCP listener. Shipped
+builds disagree on the legacy body's encoding, field names, and types, so MetaServer
 drains the size-limited body without decoding or trusting it. It derives player
 ID, auth session, account state, compatibility client label, and protocol
 version server-side. It stores a

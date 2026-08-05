@@ -27,9 +27,26 @@ func TestQueryAssetsUsesPinnedDefinitions(t *testing.T) {
 	if response.GetItemCount() != int32(len(definitions.Items)) {
 		t.Fatalf("item count=%d definitions=%d", response.GetItemCount(), len(definitions.Items))
 	}
-	if len(response.GetItemDatas()) == 0 ||
-		response.GetItemDatas()[0].GetItemId() == "" {
-		t.Fatal("query assets did not include pinned item IDs")
+	if len(response.GetItemDatas()) != len(definitions.Items) {
+		t.Fatalf("item data count=%d definitions=%d", len(response.GetItemDatas()), len(definitions.Items))
+	}
+	seen := make(map[string]struct{}, len(response.GetItemDatas()))
+	for _, item := range response.GetItemDatas() {
+		if item.GetItemId() == "" {
+			t.Fatal("query assets included an empty item ID")
+		}
+		if _, duplicate := seen[item.GetItemId()]; duplicate {
+			t.Fatalf("query assets duplicated %q", item.GetItemId())
+		}
+		seen[item.GetItemId()] = struct{}{}
+		if item.GetUnknown_1() != 1 || item.GetUnknown_2() != 1 || item.GetUnknown_3() != 1 {
+			t.Fatalf("query assets did not mark %q as available: %#v", item.GetItemId(), item)
+		}
+	}
+	for itemID := range definitions.Items {
+		if _, ok := seen[itemID]; !ok {
+			t.Fatalf("query assets omitted pinned item %q", itemID)
+		}
 	}
 }
 
@@ -48,78 +65,204 @@ func TestNativeIdentityMismatch(t *testing.T) {
 	}
 }
 
-func TestNativeWeaponConfig(t *testing.T) {
+func TestNativeWeaponArchiveBundle(t *testing.T) {
+	definitions, err := LoadDefinitionIndex()
+	if err != nil {
+		t.Fatal(err)
+	}
 	archive, err := proto.Marshal(&metaprotocol.WeaponArchiveV2{WeaponId: "weapon-a"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	config := nativeWeaponConfig(
-		[]string{"weapon-a", "weapon-a"}, map[string][]byte{"weapon-a": archive},
+	bundle := nativeWeaponArchiveBundle(
+		definitions, "PEACE", []string{"weapon-a", "weapon-a"},
+		map[string][]byte{"weapon-a": archive},
 	)
-	fields := 0
-	for len(config) > 0 {
-		number, typ, n := protowire.ConsumeTag(config)
+	archiveFields := 0
+	roleFields := 0
+	for len(bundle) > 0 {
+		number, typ, n := protowire.ConsumeTag(bundle)
 		if n < 0 {
-			t.Fatal("invalid weapon config tag")
+			t.Fatal("invalid weapon archive bundle tag")
 		}
-		config = config[n:]
-		if number != 1 || typ != protowire.BytesType {
+		bundle = bundle[n:]
+		if typ != protowire.BytesType {
 			t.Fatal("unexpected wire type")
 		}
-		value, n := protowire.ConsumeBytes(config)
+		value, n := protowire.ConsumeBytes(bundle)
 		if n < 0 {
-			t.Fatal("invalid weapon config value")
+			t.Fatal("invalid weapon archive bundle value")
 		}
-		var decoded metaprotocol.WeaponArchiveV2
-		if err := proto.Unmarshal(value, &decoded); err != nil {
-			t.Fatal(err)
+		switch number {
+		case 1:
+			if string(value) != "PEACE" {
+				t.Fatalf("role id=%q", value)
+			}
+			roleFields++
+		case 3:
+			var decoded metaprotocol.WeaponArchiveV2
+			if err := proto.Unmarshal(value, &decoded); err != nil {
+				t.Fatal(err)
+			}
+			if decoded.GetWeaponId() != "weapon-a" {
+				t.Fatalf("weapon id=%q", decoded.GetWeaponId())
+			}
+			archiveFields++
+		default:
+			t.Fatalf("unexpected bundle field %d", number)
 		}
-		if decoded.GetWeaponId() != "weapon-a" {
-			t.Fatalf("weapon id=%q", decoded.GetWeaponId())
-		}
-		fields++
-		config = config[n:]
+		bundle = bundle[n:]
 	}
-	if fields != 1 {
-		t.Fatalf("weapon archive fields=%d", fields)
+	if roleFields != 1 || archiveFields != 1 {
+		t.Fatalf("role fields=%d weapon archive fields=%d", roleFields, archiveFields)
 	}
 }
 
-func TestNativeSkinConfig(t *testing.T) {
-	config := nativeSkinConfig(map[string]any{
-		"skinModel": "skin-a", "skinPaint": "paint-a",
-		"armBadge": "badge-a", "headOrnament": "ornament-a",
-	})
-	suitRaw, ok := consumeBytesField(config, 1)
+func TestNativeDefaultWeaponArchiveUsesPinnedScopes(t *testing.T) {
+	definitions, err := LoadDefinitionIndex()
+	if err != nil {
+		t.Fatal(err)
+	}
+	archive, ok := nativeDefaultWeaponArchive(definitions, "PEACE_RU-AKM")
 	if !ok {
-		t.Fatal("skin config omitted suit")
+		t.Fatal("default AKM archive was not generated")
 	}
-	if model, ok := consumeStringField(suitRaw, 1); !ok || model != "skin-a" {
-		t.Fatalf("skin model=%q ok=%v", model, ok)
+	if archive.GetWeaponId() != "PEACE_RU-AKM" || len(archive.GetParts()) != 10 {
+		t.Fatalf("unexpected default AKM archive: %#v", archive)
 	}
-	if paint, ok := consumeStringField(suitRaw, 2); !ok || paint != "paint-a" {
-		t.Fatalf("skin paint=%q ok=%v", paint, ok)
+	if archive.GetParts()[0].GetPartId() != "RU-AKM_MZL-STD" ||
+		archive.GetParts()[1].GetPartId() != "RU-AKM_BRL-AK-STD" ||
+		archive.GetParts()[2].GetPartId() != "" {
+		t.Fatalf("unexpected default AKM parts: %#v", archive.GetParts())
 	}
-	if badge, ok := consumeStringField(config, 2); !ok || badge != "badge-a" {
-		t.Fatalf("arm badge=%q ok=%v", badge, ok)
+	if archive.GetSkin().GetSkinInfo().GetType() != "SkinAKMOriginal" ||
+		archive.GetSkin().GetSkinInfo().GetId() != "RU-AKM_Original_PTOriginal" ||
+		archive.GetSkin().GetWeaponOrnament() != "WO-NONE" {
+		t.Fatalf("unexpected default AKM skin: %#v", archive.GetSkin())
 	}
-	if ornament, ok := consumeStringField(config, 3); !ok || ornament != "ornament-a" {
-		t.Fatalf("head ornament=%q ok=%v", ornament, ok)
+	bundle := nativeWeaponArchiveBundle(
+		definitions, "PEACE", []string{"PEACE_RU-AKM"}, nil,
+	)
+	if len(bundle) == 0 {
+		t.Fatal("default weapon archive was omitted from role bundle")
+	}
+}
+
+func TestNativeWeaponArchiveUpdateValidatesInstantiatedPartsAndRoleScope(t *testing.T) {
+	definitions, err := LoadDefinitionIndex()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !definitions.HasPart("RU-AKM_MZL-STD") {
+		t.Fatal("instantiated weapon-part item was not recognized")
+	}
+	if !definitions.HasPart("MZL-STD") {
+		t.Fatal("reusable weapon-part definition was not recognized")
+	}
+
+	valid := validP2PAKMArchive()
+	if err := validateNativeWeaponArchiveUpdate(definitions, "PEACE", valid); err != nil {
+		t.Fatalf("valid native archive was rejected: %v", err)
+	}
+
+	wrongRole := proto.Clone(valid).(*metaprotocol.WeaponArchiveV2)
+	if err := validateNativeWeaponArchiveUpdate(definitions, "PROBE", wrongRole); err == nil {
+		t.Fatal("role-incompatible weapon archive was accepted")
+	}
+
+	wrongSlot := proto.Clone(valid).(*metaprotocol.WeaponArchiveV2)
+	wrongSlot.Parts[0].PartId = "RU-AKM_BRL-AK-STD"
+	if err := validateNativeWeaponArchiveUpdate(definitions, "PEACE", wrongSlot); err == nil {
+		t.Fatal("weapon part from the wrong slot was accepted")
+	}
+
+	otherWeapon := proto.Clone(valid).(*metaprotocol.WeaponArchiveV2)
+	otherWeapon.Parts[0].PartId = "GSW-DMR_MZL-STD"
+	if err := validateNativeWeaponArchiveUpdate(definitions, "PEACE", otherWeapon); err == nil {
+		t.Fatal("part from another weapon was accepted")
+	}
+}
+
+func TestNativeWeaponArchiveUpdateAcceptsSkinOnlyPartial(t *testing.T) {
+	definitions, err := LoadDefinitionIndex()
+	if err != nil {
+		t.Fatal(err)
+	}
+	archive := &metaprotocol.WeaponArchiveV2{
+		WeaponId: "PEACE_RU-AKM",
+		Skin: &metaprotocol.WeaponSkin{
+			SkinInfo: &metaprotocol.OrnamentInfo{
+				Type: "SkinAKMTiger", Id: "SkinAKMTiger_PTTiger",
+			},
+			WeaponOrnament: "WO-SUN",
+		},
+	}
+	if err := validateNativeWeaponArchiveUpdate(definitions, "PEACE", archive); err != nil {
+		t.Fatalf("skin-only native archive was rejected: %v", err)
+	}
+	if err := validateNativeWeaponArchiveUpdate(
+		definitions, "PEACE", &metaprotocol.WeaponArchiveV2{WeaponId: "PEACE_RU-AKM"},
+	); err == nil {
+		t.Fatal("archive with no effective part or skin update was accepted")
+	}
+}
+
+func TestNativeRoleUpdateRoutesByItemType(t *testing.T) {
+	definitions, err := LoadDefinitionIndex()
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := map[string]any{
+		"primaryWeapon": "old-primary", "secondaryWeapon": "old-secondary",
+		"leftPylon": "old-left", "rightPylon": "old-right",
+	}
+	applyNativeRoleUpdate(definitions, snapshot, &metaprotocol.UpdateRoleArchiveV2Request{
+		Operation: 6, RoleId: "PEACE", ItemId: "PEACE_RU-AKM",
+	}, &metaprotocol.SkinPayload{})
+	if snapshot["primaryWeapon"] != "PEACE_RU-AKM" || snapshot["rightPylon"] != "old-right" {
+		t.Fatalf("op 6 weapon routed incorrectly: %#v", snapshot)
+	}
+	applyNativeRoleUpdate(definitions, snapshot, &metaprotocol.UpdateRoleArchiveV2Request{
+		Operation: 7, RoleId: "PEACE", ItemId: "PEACE_RU-APS",
+	}, &metaprotocol.SkinPayload{})
+	if snapshot["secondaryWeapon"] != "PEACE_RU-APS" {
+		t.Fatalf("op 7 weapon routed incorrectly: %#v", snapshot)
+	}
+	applyNativeRoleUpdate(definitions, snapshot, &metaprotocol.UpdateRoleArchiveV2Request{
+		Operation: 6, RoleId: "PEACE", ItemId: "PEACE_TAC-EMP",
+	}, &metaprotocol.SkinPayload{})
+	if snapshot["rightPylon"] != "PEACE_TAC-EMP" || snapshot["primaryWeapon"] != "PEACE_RU-AKM" {
+		t.Fatalf("op 6 pod routed incorrectly: %#v", snapshot)
+	}
+}
+
+func TestNativeSkinOnlyUpdateDoesNotClearSlot(t *testing.T) {
+	definitions, err := LoadDefinitionIndex()
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := map[string]any{"primaryWeapon": "PEACE_RU-AKM"}
+	applyNativeRoleUpdate(definitions, snapshot, &metaprotocol.UpdateRoleArchiveV2Request{
+		Operation: 6,
+	}, &metaprotocol.SkinPayload{TokenId: "skin-a", OrnamentId: "paint-a"})
+	if snapshot["primaryWeapon"] != "PEACE_RU-AKM" {
+		t.Fatalf("skin-only update cleared primary weapon: %#v", snapshot)
+	}
+	if snapshot["skinModel"] != "skin-a" || snapshot["skinPaint"] != "paint-a" {
+		t.Fatalf("skin-only update was not persisted: %#v", snapshot)
 	}
 }
 
 func TestNativeSlotMappingAndDefaults(t *testing.T) {
 	want := map[int32]string{
-		1: "primaryWeapon", 2: "secondaryWeapon", 3: "meleeWeapon",
-		4: "mobilityModule", 5: "leftPylon", 6: "rightPylon",
+		1: "primaryWeapon", 2: "leftPylon", 3: "rightPylon",
+		4: "mobilityModule", 5: "meleeWeapon", 6: "primaryWeapon",
+		7: "secondaryWeapon",
 	}
 	for operation, key := range want {
 		if got := nativeOperationSlot(operation); got != key {
 			t.Fatalf("operation %d maps to %q, want %q", operation, got, key)
 		}
-	}
-	if got := nativeOperationSlot(7); got != "" {
-		t.Fatalf("skin operation maps to inventory key %q", got)
 	}
 	defaults := defaultNativeLoadoutSnapshot("SNIPER")
 	if defaults["primaryWeapon"] != "SNIPER_GSW-PSR" ||
@@ -180,33 +323,6 @@ func TestNativeDefaultLoadoutsUsePinnedDefinitions(t *testing.T) {
 			t.Fatalf("invalid defaults for %s: %v", roleID, err)
 		}
 	}
-}
-
-func consumeBytesField(data []byte, wanted protowire.Number) ([]byte, bool) {
-	for len(data) > 0 {
-		number, typ, n := protowire.ConsumeTag(data)
-		if n < 0 {
-			return nil, false
-		}
-		data = data[n:]
-		if typ != protowire.BytesType {
-			n = protowire.ConsumeFieldValue(number, typ, data)
-			if n < 0 {
-				return nil, false
-			}
-			data = data[n:]
-			continue
-		}
-		value, n := protowire.ConsumeBytes(data)
-		if n < 0 {
-			return nil, false
-		}
-		if number == wanted {
-			return value, true
-		}
-		data = data[n:]
-	}
-	return nil, false
 }
 
 func TestLoadoutSnapshotDefinitionValidation(t *testing.T) {

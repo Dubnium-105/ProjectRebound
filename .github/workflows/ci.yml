@@ -99,6 +99,20 @@ jobs:
           gofmt -l . | tee /tmp/projectrebound-gofmt.txt
           test ! -s /tmp/projectrebound-gofmt.txt
 
+      - name: Validate Windows launcher syntax
+        shell: pwsh
+        run: |
+          $errors = $null
+          [void] [Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path 'cmd/meta-tunnel/startgame.ps1'),
+            [ref] $null,
+            [ref] $errors
+          )
+          if ($errors.Count -gt 0) {
+            $errors | Format-List
+            exit 1
+          }
+
       - name: Verify modules
         run: go mod verify
 
@@ -141,7 +155,9 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: meta-tunnel-windows-amd64-${{ github.sha }}
-          path: Backend/meta-tunnel.exe
+          path: |
+            Backend/meta-tunnel.exe
+            Backend/cmd/meta-tunnel/startgame.ps1
           if-no-files-found: error
 
   admin-web:

@@ -12,11 +12,14 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
@@ -27,11 +30,13 @@ type tunnel struct {
 	metaBaseURL     *url.URL
 	logicAddress    string
 	logicServerName string
-	accessToken     string
+	accessToken     atomic.Value
 	localTCP        net.Listener
-	httpClient      *http.Client
+	httpProxy       *httputil.ReverseProxy
 	logger          *slog.Logger
 }
+
+type rewriteConnectEndpointKey struct{}
 
 func main() {
 	metaBase := flag.String("meta-base-url", "https://meta.dubnium.top", "public MetaServer HTTPS base URL")
@@ -44,7 +49,8 @@ func main() {
 
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 	baseURL, err := url.Parse(*metaBase)
-	if err != nil || baseURL.Scheme != "https" || baseURL.Host == "" || baseURL.RawQuery != "" {
+	if err != nil || baseURL.Scheme != "https" || baseURL.Host == "" || baseURL.User != nil ||
+		baseURL.RawQuery != "" || baseURL.Fragment != "" {
 		logger.Error("invalid MetaServer base URL")
 		os.Exit(2)
 	}
@@ -64,7 +70,8 @@ func main() {
 		logger.Error("an anonymous stdin pipe is required for the access token")
 		os.Exit(2)
 	}
-	token, err := readAccessToken(os.Stdin)
+	tokenReader := bufio.NewReaderSize(os.Stdin, 16*1024)
+	token, err := readAccessToken(tokenReader)
 	if err != nil {
 		logger.Error("read access token", "error", err)
 		os.Exit(2)
@@ -83,32 +90,27 @@ func main() {
 	}
 	instance := &tunnel{
 		metaBaseURL: baseURL, logicAddress: *logicAddress,
-		logicServerName: *logicServerName, accessToken: token, localTCP: localTCP,
-		httpClient: &http.Client{
-			Timeout: 15 * time.Second,
-			Transport: &http.Transport{
-				Proxy:           http.ProxyFromEnvironment,
-				TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12},
-			},
-		},
-		logger: logger,
+		logicServerName: *logicServerName, localTCP: localTCP, logger: logger,
 	}
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health/live", instance.health)
-	mux.HandleFunc("/connectServer", instance.connectServer)
+	instance.setAccessToken(token)
+	instance.httpProxy = instance.newHTTPProxy(&http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           (&net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
+		ForceAttemptHTTP2:     true,
+		TLSClientConfig:       &tls.Config{MinVersion: tls.VersionTLS12},
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: 15 * time.Second,
+		ExpectContinueTimeout: time.Second,
+		IdleConnTimeout:       90 * time.Second,
+	})
 	httpServer := &http.Server{
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("X-Content-Type-Options", "nosniff")
-			w.Header().Set("Cache-Control", "no-store")
-			mux.ServeHTTP(w, r)
-		}),
+		Handler:           http.HandlerFunc(instance.serveHTTP),
 		ReadHeaderTimeout: 3 * time.Second,
-		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      20 * time.Second,
-		IdleTimeout:       30 * time.Second,
+		IdleTimeout:       90 * time.Second,
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	go instance.watchAccessTokens(ctx, tokenReader)
 	errorsCh := make(chan error, 2)
 	go func() { errorsCh <- instance.serveTCP(ctx) }()
 	go func() { errorsCh <- httpServer.Serve(localHTTP) }()
@@ -131,10 +133,16 @@ func main() {
 	_ = httpServer.Shutdown(shutdownCtx)
 }
 
-func readAccessToken(reader io.Reader) (string, error) {
-	line, err := bufio.NewReader(io.LimitReader(reader, 16*1024)).ReadString('\n')
+func readAccessToken(reader *bufio.Reader) (string, error) {
+	line, err := reader.ReadString('\n')
 	if err != nil && !errors.Is(err, io.EOF) {
 		return "", err
+	}
+	if errors.Is(err, io.EOF) && len(line) == 0 {
+		return "", io.EOF
+	}
+	if len(line) > 16*1024 {
+		return "", errors.New("access token is too large")
 	}
 	token := strings.TrimSpace(line)
 	if len(token) < 32 || strings.ContainsAny(token, "\r\n\t ") {
@@ -143,9 +151,53 @@ func readAccessToken(reader io.Reader) (string, error) {
 	return token, nil
 }
 
-func (t *tunnel) health(w http.ResponseWriter, _ *http.Request) {
+func (t *tunnel) setAccessToken(token string) {
+	t.accessToken.Store(token)
+}
+
+func (t *tunnel) currentAccessToken() string {
+	return t.accessToken.Load().(string)
+}
+
+func (t *tunnel) watchAccessTokens(ctx context.Context, reader *bufio.Reader) {
+	for {
+		token, err := readAccessToken(reader)
+		if errors.Is(err, io.EOF) || ctx.Err() != nil {
+			return
+		}
+		if err != nil {
+			t.logger.Warn("ignored malformed access token update", "error", err)
+			continue
+		}
+		t.setAccessToken(token)
+		t.logger.Info("access token updated")
+	}
+}
+
+func (t *tunnel) serveHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Cache-Control", "no-store")
+	if r.URL.Path == "/_meta-tunnel/health/live" {
+		t.health(w, r)
+		return
+	}
+	if r.URL.Path == "/connectServer" {
+		t.connectServer(w, r)
+		return
+	}
+	t.httpProxy.ServeHTTP(w, r)
+}
+
+func (t *tunnel) health(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		w.Header().Set("Allow", "GET, HEAD")
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
-	_, _ = io.WriteString(w, `{"status":"live"}`+"\n")
+	if r.Method != http.MethodHead {
+		_, _ = io.WriteString(w, `{"status":"live"}`+"\n")
+	}
 }
 
 func (t *tunnel) connectServer(w http.ResponseWriter, r *http.Request) {
@@ -158,39 +210,58 @@ func (t *tunnel) connectServer(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "request body is too large", http.StatusRequestEntityTooLarge)
 		return
 	}
-	target := t.metaBaseURL.ResolveReference(&url.URL{Path: "/connectServer"})
-	request, err := http.NewRequestWithContext(r.Context(), http.MethodPost, target.String(), bytes.NewReader(body))
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	r.ContentLength = int64(len(body))
+	ctx := context.WithValue(r.Context(), rewriteConnectEndpointKey{}, true)
+	t.httpProxy.ServeHTTP(w, r.WithContext(ctx))
+}
+
+func (t *tunnel) newHTTPProxy(transport http.RoundTripper) *httputil.ReverseProxy {
+	return &httputil.ReverseProxy{
+		Rewrite: func(request *httputil.ProxyRequest) {
+			request.SetURL(t.metaBaseURL)
+			request.Out.Host = t.metaBaseURL.Host
+			request.Out.Header.Set("Authorization", "Bearer "+t.currentAccessToken())
+			request.Out.Header.Del("X-Forwarded-For")
+			request.Out.Header.Del("X-Forwarded-Host")
+			request.Out.Header.Del("X-Forwarded-Proto")
+			request.Out.Header.Del("Forwarded")
+			if request.Out.Context().Value(rewriteConnectEndpointKey{}) == true {
+				request.Out.Header.Set("Accept-Encoding", "identity")
+			}
+		},
+		ModifyResponse: t.modifyHTTPResponse,
+		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
+			t.logger.Warn("MetaServer HTTP bridge failed", "error", err)
+			http.Error(w, "MetaServer unavailable", http.StatusBadGateway)
+		},
+		Transport:     transport,
+		FlushInterval: -1,
+	}
+}
+
+func (t *tunnel) modifyHTTPResponse(response *http.Response) error {
+	if response.Request.Context().Value(rewriteConnectEndpointKey{}) != true ||
+		response.StatusCode < 200 || response.StatusCode >= 300 {
+		return nil
+	}
+	body, err := io.ReadAll(io.LimitReader(response.Body, maximumHTTPBody+1))
+	_ = response.Body.Close()
+	if err != nil || len(body) > maximumHTTPBody {
+		return errors.New("invalid MetaServer connect response")
+	}
+	body, err = rewriteConnectEndpoint(body, t.localTCP.Addr().String())
 	if err != nil {
-		http.Error(w, "create upstream request", http.StatusBadGateway)
-		return
+		return errors.New("invalid MetaServer connect response")
 	}
-	request.Header.Set("Authorization", "Bearer "+t.accessToken)
-	request.Header.Set("Content-Type", "application/json")
-	if requestID := strings.TrimSpace(r.Header.Get("X-Request-Id")); requestID != "" {
-		request.Header.Set("X-Request-Id", requestID)
-	}
-	response, err := t.httpClient.Do(request)
-	if err != nil {
-		t.logger.Warn("MetaServer HTTP bridge failed", "error", err)
-		http.Error(w, "MetaServer unavailable", http.StatusBadGateway)
-		return
-	}
-	defer response.Body.Close()
-	responseBody, err := io.ReadAll(io.LimitReader(response.Body, maximumHTTPBody+1))
-	if err != nil || len(responseBody) > maximumHTTPBody {
-		http.Error(w, "invalid MetaServer response", http.StatusBadGateway)
-		return
-	}
-	if response.StatusCode >= 200 && response.StatusCode < 300 {
-		responseBody, err = rewriteConnectEndpoint(responseBody, t.localTCP.Addr().String())
-		if err != nil {
-			http.Error(w, "invalid MetaServer response", http.StatusBadGateway)
-			return
-		}
-	}
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(response.StatusCode)
-	_, _ = w.Write(responseBody)
+	response.Body = io.NopCloser(bytes.NewReader(body))
+	response.ContentLength = int64(len(body))
+	response.Header.Set("Content-Length", strconv.Itoa(len(body)))
+	response.Header.Set("Content-Type", "application/json; charset=utf-8")
+	response.Header.Del("Content-Encoding")
+	response.Header.Del("Content-MD5")
+	response.Header.Del("ETag")
+	return nil
 }
 
 func rewriteConnectEndpoint(body []byte, endpoint string) ([]byte, error) {

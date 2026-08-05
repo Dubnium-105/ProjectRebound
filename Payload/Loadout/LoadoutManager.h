@@ -1,36 +1,15 @@
 #pragma once
 
-// ======================================================
-//  LoadoutManager — 配装管理器（原生大厅流程 + 局内 metaserver 桥接）
-// ======================================================
-//
-//  职责：
-//    通过 HasAuthority()/IsLocallyControlled() 判断网络角色，
-//    服务端权威在角色确认后从 BoundaryMetaServer 拉取配装并应用到游戏实体，
-//    Listen Server 下本地控制 Pawn 同时走客户端视觉路径。
-//    游戏客户端通过原生 GetPlayerArchiveV2 协议从 metaserver 获取
-//    默认配装；Payload 不接管大厅读写流程，只桥接局内应用流程。
-//
-//  使用方式：
-//    1. 在 Payload 启动时构造实例，网络角色自动感知
-//    2. 从 Hook 层转发 ProcessEvent pre 和角色确认信号
-//    3. 从 Worker/Tick Hook 转发 TickServer()
-//
-//  设计原则：
-//    - BoundaryMetaServer 是配装权威源
-//    - HasAuthority() 判定服务端权威操作，IsLocallyControlled() 判定本地视觉路径
-//    - 大厅配装继续使用原生 protobuf 协议
-//    - 还原原生游戏体验
+// Server-authoritative bridge between the community room metaserver loadout
+// and the in-match FieldMod/spawn flow. Client inventory/UI entry points stay
+// intentionally inert: the native QueryAssets/GetPlayerArchiveV2 flow owns
+// client archive state.
 
 #include <memory>
 #include <string>
 
-namespace SDK
-{
-    class APBPlayerController;
-    class FName;
-    class UObject;
-}
+#include "../SDK.hpp"
+#include "LoadoutStatePolicy.h"
 
 class LoadoutManager
 {
@@ -43,29 +22,76 @@ public:
     LoadoutManager(LoadoutManager&&) noexcept;
     LoadoutManager& operator=(LoadoutManager&&) noexcept;
 
-    // ---- 启动 / 菜单信号 ----
+    // Starts the server-only bridge. The URL must point at a loopback
+    // MetaTunnel and roomId must be the room represented by this listen host.
+    bool StartServer(std::string baseUrl, std::string roomId);
+    void StopServer();
+
+    void OnPlayerConnected(SDK::APBPlayerController* playerController);
+    void OnPlayerDisconnected(SDK::APBPlayerController* playerController);
+    void OnActorDestroyed(SDK::AActor* actor);
+
+    // A Deferred decision means the hook must not invoke the original RPC.
+    // TickServer replays it when the fetch finishes or the one-second grace
+    // expires. The replay re-enters this method and returns Ready/Fallback.
+    LoadoutRoleConfirmDecision BeginRoleConfirmation(
+        SDK::APBPlayerController* playerController,
+        const SDK::FName& roleId);
+    void CommitRoleConfirmationAfterOriginal(
+        SDK::APBPlayerController* playerController,
+        const SDK::FName& roleId);
+
+    // Called by the ServerPreOrderInventory hook after the native function has
+    // accepted the inventory. Manager-originated calls are ignored through an
+    // internal re-entry guard.
+    bool OnExternalPreOrderInventory(
+        SDK::APBPlayerController* playerController,
+        const SDK::FName& roleId,
+        const SDK::FPBInventoryNetworkConfig& inventory);
+
+    // Called before the native external RPC. Returns true when another
+    // connection owns the role's in-flight spawn lease; the manager copies
+    // and replays the latest submission after that lease is released.
+    bool DeferExternalPreOrderInventoryIfLeaseConflict(
+        SDK::APBPlayerController* playerController,
+        const SDK::FName& roleId,
+        const SDK::FPBInventoryNetworkConfig& inventory);
+    bool IsInternalPreOrderInProgress() const;
+
+    // Called after PBCharacter.K2_InventorySpawned.
+    bool IsCharacterTombstoned(SDK::APBCharacter* character) const;
+    void OnInventorySpawned(SDK::APBCharacter* character);
+
+    // LateJoin calls this immediately before creating a playable Pawn. A
+    // pending FieldMod cache verification holds the spawn for at most the
+    // same one-second grace used by role confirmation.
+    bool CanReleaseRoleSpawn(SDK::APBPlayerController* playerController);
+
+    // Brackets the concrete synchronous RestartPlayers/QuickRespawn dispatch.
+    // The request generation and pre-dispatch Pawn prevent an old same-role
+    // InventorySpawned event from releasing a newer role-cache lease.
+    void BeginSpawnDispatch(SDK::APBPlayerController* playerController);
+    void CompleteSpawnDispatch(SDK::APBPlayerController* playerController);
+    void FinalizeSpawnRequest(SDK::APBPlayerController* playerController);
+    void AbandonSpawnRequest(SDK::APBPlayerController* playerController);
+    void TickServer(float deltaSeconds = 0.0f);
+
+    // Client compatibility entry points. These must remain no-ops.
     void PreloadSnapshot();
     void NotifyMenuConstructed();
     void RememberMenuSelectedRole(const SDK::FName& roleId);
-
-    // ---- 服务端角色确认 ----
     void OnRoleSelectionConfirmed(
         SDK::APBPlayerController* playerController,
         const SDK::FName& roleId,
         bool isAuthoritative);
-
-    // ---- ProcessEvent Hook 桥接（客户端方法已为空桩） ----
     void OnClientProcessEventPre(SDK::UObject* object, const std::string& functionName, void* parms);
     void OnClientProcessEventPost(SDK::UObject* object, const std::string& functionName, void* parms);
     void OnServerProcessEventPre(SDK::UObject* object, const std::string& functionName, void* parms);
     void OnServerProcessEventPost(SDK::UObject* object, const std::string& functionName, void* parms);
-
-    // ---- Worker/Tick 桥接 ----
     void TickClient();
-    void TickServer();
-
-    // ---- 已弃用：保留兼容性（不再使用 __LDS__ 通道） ----
-    void OnServerLoadoutDataReceived(SDK::APBPlayerController* playerController, const std::string& jsonPayload);
+    void OnServerLoadoutDataReceived(
+        SDK::APBPlayerController* playerController,
+        const std::string& jsonPayload);
 
 private:
     class Impl;

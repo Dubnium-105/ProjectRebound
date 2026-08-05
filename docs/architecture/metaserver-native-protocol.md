@@ -42,6 +42,28 @@ matchmaking start, and matchmaking status/stop compatibility responses use
 statically generated messages. Unknown RPCs receive a compatibility error
 without crashing the connection.
 
+Asset and loadout RPCs preserve the captured wire contract:
+
+- `QueryAssets` returns every pinned `DT_ItemType` ID exactly once, sets all
+  three availability fields to `1`, and reports the same list length in
+  `ItemCount`.
+- `GetPlayerArchiveV2` fields 8-10 are the optional strings
+  `WeaponArchiveRaw`, `SkinToken`, and `OrnamentId`. `WeaponArchiveRaw` is the
+  lowercase hex encoding of a role archive bundle; default weapon part and
+  skin archives are generated from pinned definitions when the player has no
+  customized archive.
+- Native `PlayerLevel` remains the captured compatibility value `0`; ownership
+  comes from `QueryAssets`, independently of REST profile progression.
+- `UpdateRoleArchiveV2.Operation` is not a fixed slot number. The server routes
+  by pinned item type first, then uses the observed operation only to choose
+  between primary/secondary weapons or left/right pods. A skin-only update
+  never clears an equipment slot.
+
+The active Payload build does not compile or register the legacy
+`LoadoutManager`. Its client entry points remain no-ops if the server-side
+bridge is reintroduced, so Payload cannot overwrite native asset caches,
+showroom state, or equip completion results.
+
 `QueryUnityMatchmakingRes` fields whose upstream numbers remain tentative are
 not used to publish a match endpoint. The authoritative endpoint is available
 through the authenticated HTTP ticket resource until a sanitized capture fixes

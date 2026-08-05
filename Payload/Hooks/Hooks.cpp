@@ -3,7 +3,9 @@
 #include <Windows.h>
 #include <chrono>
 #include <iostream>
+#include <mutex>
 #include <thread>
+#include <vector>
 #include "../SDK.hpp"
 #include "../Network/NetDriverAccess.h"
 #include "../SDK/Engine_parameters.hpp"
@@ -12,6 +14,7 @@
 #include "../Libs/json.hpp"
 #include "../Replication/libreplicate.h"
 #include "../ServerLogic/LateJoinManager.h"
+#include "../Loadout/LoadoutManager.h"
 #include "../Config/Config.h"
 #include "../Debug/Debug.h"
 #include "../Debug/DebugTool.h"
@@ -23,8 +26,117 @@
 extern uintptr_t BaseAddress;
 extern LibReplicate* libReplicate;
 extern DebugTool* gDebugTool;
+extern LoadoutManager* gLoadoutManager;
+extern std::recursive_mutex gLoadoutManagerMutex;
 
 using namespace SDK;
+
+// Retained for link compatibility with dormant client/showroom helper code in
+// LoadoutManager.cpp. The production client never constructs the manager, but
+// generated ProcessEvent calls made inside those helpers must still have a
+// well-defined recursion guard if they are exercised in a diagnostic build.
+static thread_local unsigned int gClientProcessEventSuppressionDepth = 0;
+
+extern "C" void PayloadPushClientProcessEventSuppression()
+{
+    ++gClientProcessEventSuppressionDepth;
+}
+
+extern "C" void PayloadPopClientProcessEventSuppression()
+{
+    if (gClientProcessEventSuppressionDepth > 0)
+        --gClientProcessEventSuppressionDepth;
+}
+
+// NumExpectedPlayers can be established or changed after one or more role
+// confirmations have already arrived. Keep the start gate derived from the
+// authoritative confirmation set whenever either side of the quorum changes.
+// Before StartMatch this may also move true -> false when a new initial player
+// joins and raises the expected count.
+static void RecomputeMatchStartGate(const char* reason)
+{
+    NumPlayersSelectedRole = static_cast<int>(PlayersConfirmedRole.size());
+    if (DidProcStartMatch)
+        return;
+
+    const bool hasQuorum = NumExpectedPlayers > 0 &&
+        NumPlayersSelectedRole >= NumExpectedPlayers;
+    if (canStartMatch != hasQuorum)
+    {
+        std::cout << "[MATCH] Start gate " << (hasQuorum ? "ready" : "waiting")
+                  << " after " << (reason ? reason : "state update")
+                  << " (" << NumPlayersSelectedRole << "/" << NumExpectedPlayers << ")"
+                  << std::endl;
+    }
+    canStartMatch = hasQuorum;
+    if (hasQuorum)
+        StartMatchTimer = -1.0f;
+}
+
+static void CleanupDisconnectedPlayer(APBPlayerController* playerController, const char* reason)
+{
+    if (!playerController)
+        return;
+
+    // Tombstone first: teardown can re-enter PostLogin/role hooks before the
+    // native destroy/logout call has fully unwound.
+    DisconnectedPlayerControllers.insert(playerController);
+
+    {
+        std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+        if (gLoadoutManager)
+            gLoadoutManager->OnPlayerDisconnected(playerController);
+    }
+    if (gLateJoinManager)
+        gLateJoinManager->OnPlayerDisconnected(playerController);
+
+    PlayerRespawnAllowedMap.erase(playerController);
+    PlayersConfirmedRole.erase(playerController);
+    PendingNameUpdatePlayers.erase(playerController);
+    AppliedNameUpdatePlayers.erase(playerController);
+    ConnectedPlayerControllers.erase(playerController);
+    NumPlayersJoined = static_cast<int>(ConnectedPlayerControllers.size());
+    NumPlayersSelectedRole = static_cast<int>(PlayersConfirmedRole.size());
+    if (!DidProcStartMatch && NumExpectedPlayers > NumPlayersJoined)
+        NumExpectedPlayers = NumPlayersJoined;
+    RecomputeMatchStartGate(reason);
+}
+
+static bool IsCurrentConnectedController(APBPlayerController* playerController)
+{
+    return playerController &&
+        ConnectedPlayerControllers.contains(playerController) &&
+        !DisconnectedPlayerControllers.contains(playerController) &&
+        !playerController->bActorIsBeingDestroyed;
+}
+
+static bool IsCurrentSelectedRole(
+    APBPlayerController* playerController,
+    const FName& roleId)
+{
+    if (!IsCurrentConnectedController(playerController) ||
+        !playerController->PBPlayerState)
+    {
+        return false;
+    }
+
+    APBPlayerState* const expectedPlayerState = playerController->PBPlayerState;
+    bool hasSelectedRole = false;
+    try { hasSelectedRole = expectedPlayerState->HasSelectedRole(); }
+    catch (...) { return false; }
+
+    if (!IsCurrentConnectedController(playerController) ||
+        playerController->PBPlayerState != expectedPlayerState ||
+        !hasSelectedRole)
+    {
+        return false;
+    }
+
+    const std::string selected = expectedPlayerState->SelectedCharacterID.ToString();
+    const std::string submitted = roleId.ToString();
+    return !selected.empty() && selected != "None" &&
+        !submitted.empty() && submitted != "None" && selected == submitted;
+}
 
 // ======================================================
 //  SECTION 7 — HOOK DETOURS (ENGINE HOOKS)
@@ -36,6 +148,7 @@ void TickFlushHook(UNetDriver *NetDriver, float DeltaTime)
 {
     if (listening && NetDriver && UWorld::GetWorld())
     {
+        EnsureServerMatchWorld(UWorld::GetWorld());
         NetDriverAccess::Observe(NetDriver, UWorld::GetWorld(), NetDriverAccess::Source::HookArgument);
 
         if (PlayerJoinTimerSelectFuck > 0.0f)
@@ -44,28 +157,42 @@ void TickFlushHook(UNetDriver *NetDriver, float DeltaTime)
 
             if (PlayerJoinTimerSelectFuck <= 0.0f)
             {
+                DidBroadcastRoleSelection = true;
 
-                for (int i = SDK::UObject::GObjects->Num() - 1; i >= 0; i--)
+                std::vector<APBPlayerController*> rolePromptControllers(
+                    ConnectedPlayerControllers.begin(),
+                    ConnectedPlayerControllers.end());
+                for (APBPlayerController* playerController : rolePromptControllers)
                 {
-                    SDK::UObject *Obj = SDK::UObject::GObjects->GetByIndex(i);
-
-                    if (!Obj)
-                        continue;
-
-                    if (Obj->IsDefaultObject())
-                        continue;
-
-                    if (Obj->IsA(APBPlayerController::StaticClass()))
+                    if (!playerController ||
+                        !ConnectedPlayerControllers.contains(playerController) ||
+                        DisconnectedPlayerControllers.contains(playerController) ||
+                        playerController->bActorIsBeingDestroyed)
                     {
-                        if (((APBPlayerController *)Obj)->CanSelectRole())
+                        continue;
+                    }
+
+                    const bool canSelectRole = playerController->CanSelectRole();
+                    if (!ConnectedPlayerControllers.contains(playerController) ||
+                        DisconnectedPlayerControllers.contains(playerController) ||
+                        playerController->bActorIsBeingDestroyed)
+                    {
+                        continue;
+                    }
+                    if (canSelectRole)
+                    {
+                        std::cout << "Selecting role..." << std::endl;
+                        playerController->ClientSelectRole();
+                        if (gLateJoinManager &&
+                            ConnectedPlayerControllers.contains(playerController) &&
+                            !DisconnectedPlayerControllers.contains(playerController))
                         {
-                            std::cout << "Selecting role..." << std::endl;
-                            ((APBPlayerController *)Obj)->ClientSelectRole();
+                            gLateJoinManager->OnRoleSelectionPromptSent(playerController);
                         }
-                        else
-                        {
-                            std::cout << "CANT SELECT ROLE WEE WOO WEE WOO" << std::endl;
-                        }
+                    }
+                    else
+                    {
+                        std::cout << "CANT SELECT ROLE WEE WOO WEE WOO" << std::endl;
                     }
                 }
             }
@@ -163,6 +290,15 @@ void TickFlushHook(UNetDriver *NetDriver, float DeltaTime)
             }
         }
 
+        // Consume completed HTTP work and replay any role confirmation whose
+        // bounded loadout grace period has completed before LateJoin attempts
+        // to create a Pawn this frame.
+        {
+            std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+            if (gLoadoutManager)
+                gLoadoutManager->TickServer(DeltaTime);
+        }
+
         // Drive LateJoin state machine
         if (gLateJoinManager)
             gLateJoinManager->Tick(DeltaTime);
@@ -183,6 +319,7 @@ void TickFlushHook(UNetDriver *NetDriver, float DeltaTime)
                         MatchStartCountdown = 30.0f;
 
                         NumExpectedPlayers = NumPlayersJoined;
+                        RecomputeMatchStartGate("countdown initialized");
                     }
                     else
                     {
@@ -191,6 +328,7 @@ void TickFlushHook(UNetDriver *NetDriver, float DeltaTime)
                         if (NumExpectedPlayers > NumPlayersJoined)
                         {
                             NumExpectedPlayers = NumPlayersJoined;
+                            RecomputeMatchStartGate("player count decreased");
 
                             MatchStartCountdown += 15.0f;
                         }
@@ -204,6 +342,7 @@ void TickFlushHook(UNetDriver *NetDriver, float DeltaTime)
                             PlayerJoinTimerSelectFuck = 5.0f;
 
                             NumExpectedPlayers = NumPlayersJoined;
+                            RecomputeMatchStartGate("role selection opened");
                         }
                     }
                 }
@@ -221,7 +360,8 @@ void TickFlushHook(UNetDriver *NetDriver, float DeltaTime)
         }
     }
 
-    if (canStartMatch && !DidProcStartMatch)
+    if (canStartMatch && !DidProcStartMatch &&
+        (!gLateJoinManager || gLateJoinManager->AreInitialPlayersReadyForStart()))
     {
         DidProcStartMatch = true;
 
@@ -262,9 +402,24 @@ static SafetyHookInline NotifyActorDestroyed = {};
 
 bool NotifyActorDestroyedHook(UWorld *World, AActor *Actor, bool SomeShit, bool SomeShit2)
 {
+    if (listening && Actor)
+    {
+        if (Actor->IsA(APBPlayerController::StaticClass()))
+        {
+            CleanupDisconnectedPlayer(
+                static_cast<APBPlayerController*>(Actor), "controller destroyed");
+        }
+        else
+        {
+            std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+            if (gLoadoutManager)
+                gLoadoutManager->OnActorDestroyed(Actor);
+        }
+    }
+
     bool ret = NotifyActorDestroyed.call<bool>(World, Actor, SomeShit, SomeShit2);
 
-    if (listening)
+    if (listening && Actor && libReplicate)
     {
         LibReplicate::FActorInfo ActorInfo = LibReplicate::FActorInfo((void *)Actor, Actor->bNetTemporary);
 
@@ -350,16 +505,169 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
         }
     }
 
-    if (functionName.contains("QuickRespawn"))
+    // PBGameMode can restart a whole round in one batch. Split authoritative
+    // player controllers out of that batch and queue them through the same
+    // per-role lease/JIT seed path; AI and untracked controllers retain the
+    // native call. A matching managed permit is installed only by
+    // LateJoinManager immediately around its singleton replay.
+    if (functionName.contains("PBGameMode.RestartPlayers"))
     {
-        APBPlayerController *PBPlayerController = (APBPlayerController *)Object;
+        auto* restartParms = static_cast<Params::PBGameMode_RestartPlayers*>(Parms);
+        if (restartParms && gLateJoinManager)
+        {
+            TArray<AController*> nativeControllers{};
+            bool interceptedManagedPlayer = false;
+            for (AController* controller : restartParms->InControllers)
+            {
+                APBPlayerController* playerController =
+                    controller && controller->IsA(APBPlayerController::StaticClass())
+                        ? static_cast<APBPlayerController*>(controller)
+                        : nullptr;
+                if (!playerController ||
+                    !gLateJoinManager->IsManagedPlayer(playerController) ||
+                    gLateJoinManager->HasManagedRestartPermit(playerController))
+                {
+                    nativeControllers.Add(controller);
+                    continue;
+                }
 
-        PlayerRespawnAllowedMap[PBPlayerController] = true;
+                interceptedManagedPlayer = true;
+                const auto allowed = PlayerRespawnAllowedMap.find(playerController);
+                if (allowed == PlayerRespawnAllowedMap.end() || allowed->second)
+                    gLateJoinManager->QueueManagedRespawn(playerController);
+            }
+
+            if (interceptedManagedPlayer)
+            {
+                if (nativeControllers.Num() > 0)
+                {
+                    restartParms->InControllers = nativeControllers;
+                    ProcessEvent.call(Object, Function, Parms);
+                    BattleLog::OnProcessEventPost(
+                        BattleLog::ProcessSide::Server, Object, functionName, Parms);
+                }
+                return;
+            }
+        }
     }
 
-    if (functionName.contains("ServerRestartPlayer"))
+    // Backstop direct GameModeBase restart entry points that do not use the
+    // PBGameMode batch wrapper. Their first parameter is always NewPlayer.
+    if (functionName.contains("GameModeBase.RestartPlayer"))
+    {
+        AController* controller = nullptr;
+        if (functionName.contains("RestartPlayerAtPlayerStart"))
+        {
+            auto* restartParms =
+                static_cast<Params::GameModeBase_RestartPlayerAtPlayerStart*>(Parms);
+            controller = restartParms ? restartParms->NewPlayer : nullptr;
+        }
+        else if (functionName.contains("RestartPlayerAtTransform"))
+        {
+            auto* restartParms =
+                static_cast<Params::GameModeBase_RestartPlayerAtTransform*>(Parms);
+            controller = restartParms ? restartParms->NewPlayer : nullptr;
+        }
+        else
+        {
+            auto* restartParms = static_cast<Params::GameModeBase_RestartPlayer*>(Parms);
+            controller = restartParms ? restartParms->NewPlayer : nullptr;
+        }
+
+        APBPlayerController* playerController =
+            controller && controller->IsA(APBPlayerController::StaticClass())
+                ? static_cast<APBPlayerController*>(controller)
+                : nullptr;
+        if (playerController && gLateJoinManager &&
+            gLateJoinManager->IsManagedPlayer(playerController) &&
+            !gLateJoinManager->HasManagedRestartPermit(playerController))
+        {
+            const auto allowed = PlayerRespawnAllowedMap.find(playerController);
+            if (allowed == PlayerRespawnAllowedMap.end() || allowed->second)
+                gLateJoinManager->QueueManagedRespawn(playerController);
+            return;
+        }
+    }
+
+    // Last ProcessEvent-level backstop before a pawn is allocated. Native
+    // engine code can bypass the public restart wrappers, but any reflected
+    // SpawnDefaultPawn call for a tracked controller still requires the JIT
+    // seed permit.
+    if (functionName.contains("GameModeBase.SpawnDefaultPawn"))
+    {
+        AController* controller = nullptr;
+        APawn** returnValue = nullptr;
+        if (functionName.contains("SpawnDefaultPawnAtTransform"))
+        {
+            auto* spawnParms =
+                static_cast<Params::GameModeBase_SpawnDefaultPawnAtTransform*>(Parms);
+            if (spawnParms)
+            {
+                controller = spawnParms->NewPlayer;
+                returnValue = &spawnParms->ReturnValue;
+            }
+        }
+        else
+        {
+            auto* spawnParms = static_cast<Params::GameModeBase_SpawnDefaultPawnFor*>(Parms);
+            if (spawnParms)
+            {
+                controller = spawnParms->NewPlayer;
+                returnValue = &spawnParms->ReturnValue;
+            }
+        }
+
+        APBPlayerController* playerController =
+            controller && controller->IsA(APBPlayerController::StaticClass())
+                ? static_cast<APBPlayerController*>(controller)
+                : nullptr;
+        if (playerController && gLateJoinManager &&
+            gLateJoinManager->IsManagedPlayer(playerController) &&
+            !gLateJoinManager->HasManagedRestartPermit(playerController))
+        {
+            const auto allowed = PlayerRespawnAllowedMap.find(playerController);
+            if (allowed == PlayerRespawnAllowedMap.end() || allowed->second)
+                gLateJoinManager->QueueManagedRespawn(playerController);
+            if (returnValue) *returnValue = nullptr;
+            return;
+        }
+    }
+
+    if (functionName.contains("PBPlayerController.ServerQuickRespawn"))
     {
         APBPlayerController *PBPlayerController = (APBPlayerController *)Object;
+
+        if (PBPlayerController && gLateJoinManager &&
+            gLateJoinManager->IsManagedPlayer(PBPlayerController) &&
+            !gLateJoinManager->HasManagedRestartPermit(PBPlayerController))
+        {
+            const auto allowed = PlayerRespawnAllowedMap.find(PBPlayerController);
+            if (allowed == PlayerRespawnAllowedMap.end() || allowed->second)
+                gLateJoinManager->QueueManagedRespawn(PBPlayerController);
+            return;
+        }
+
+        if (PlayerRespawnAllowedMap.contains(PBPlayerController) &&
+            PlayerRespawnAllowedMap[PBPlayerController] == false)
+        {
+            std::cout << "Denied quick respawn until role/loadout confirmation!" << std::endl;
+            return;
+        }
+    }
+
+    if (functionName.contains("PlayerController.ServerRestartPlayer"))
+    {
+        APBPlayerController *PBPlayerController = (APBPlayerController *)Object;
+
+        if (PBPlayerController && gLateJoinManager &&
+            gLateJoinManager->IsManagedPlayer(PBPlayerController) &&
+            !gLateJoinManager->HasManagedRestartPermit(PBPlayerController))
+        {
+            const auto allowed = PlayerRespawnAllowedMap.find(PBPlayerController);
+            if (allowed == PlayerRespawnAllowedMap.end() || allowed->second)
+                gLateJoinManager->QueueManagedRespawn(PBPlayerController);
+            return;
+        }
 
         if (PlayerRespawnAllowedMap.contains(PBPlayerController) && PlayerRespawnAllowedMap[PBPlayerController] == false)
         {
@@ -375,45 +683,283 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
         return;
     }
 
-    // LateJoin: ServerConfirmRoleSelection
-    // Must call original ProcessEvent first, then advance LateJoin state
-    if (functionName.contains("ServerConfirmRoleSelection"))
+    // Capture a real in-match FieldMod submission only after the native RPC
+    // has accepted it. LoadoutManager uses an internal guard around its own
+    // baseline writes, so those calls are ignored here.
+    if (functionName.contains("PBPlayerController.ServerPreOrderInventory"))
     {
-        APBPlayerController *PBPlayerController = Object && Object->IsA(APBPlayerController::StaticClass())
-                                                      ? (APBPlayerController *)Object
-                                                      : nullptr;
-        QueuePendingPlayerNameUpdate(PBPlayerController);
+        APBPlayerController* playerController =
+            Object && Object->IsA(APBPlayerController::StaticClass())
+                ? static_cast<APBPlayerController*>(Object)
+                : nullptr;
+        auto* preOrderParms =
+            static_cast<Params::PBPlayerController_ServerPreOrderInventory*>(Parms);
 
-        // Late join player: execute original + advance state, skip match-start counting
-        if (gLateJoinManager && gLateJoinManager->IsLateJoinPlayer(PBPlayerController))
+        bool internalManagerWrite = false;
+        {
+            std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+            internalManagerWrite = gLoadoutManager &&
+                gLoadoutManager->IsInternalPreOrderInProgress();
+        }
+        if (internalManagerWrite)
         {
             ProcessEvent.call(Object, Function, Parms);
-            gLateJoinManager->OnRoleConfirmed(PBPlayerController);
+            BattleLog::OnProcessEventPost(
+                BattleLog::ProcessSide::Server, Object, functionName, Parms);
             return;
         }
 
-        if (PBPlayerController)
+        bool deferredForLease = false;
         {
-            const auto [_, inserted] = PlayersConfirmedRole.insert(PBPlayerController);
-            if (inserted)
+            std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+            if (gLoadoutManager && playerController && preOrderParms &&
+                ConnectedPlayerControllers.contains(playerController) &&
+                !DisconnectedPlayerControllers.contains(playerController) &&
+                !playerController->bActorIsBeingDestroyed)
             {
-                NumPlayersSelectedRole = static_cast<int>(PlayersConfirmedRole.size());
-                std::cout << "[MATCH] Role confirmed by "
-                    << PBPlayerController->GetFullName()
-                    << " (" << NumPlayersSelectedRole << "/" << NumExpectedPlayers << ")" << std::endl;
+                deferredForLease =
+                    gLoadoutManager->DeferExternalPreOrderInventoryIfLeaseConflict(
+                        playerController,
+                        preOrderParms->InRoleID,
+                        preOrderParms->InPreOrderingInventory);
+            }
+        }
+        if (deferredForLease)
+        {
+            if (gLateJoinManager && playerController && preOrderParms &&
+                IsCurrentSelectedRole(playerController, preOrderParms->InRoleID))
+            {
+                const auto allowed = PlayerRespawnAllowedMap.find(playerController);
+                if (allowed != PlayerRespawnAllowedMap.end() && !allowed->second)
+                    gLateJoinManager->QueueManagedRespawn(playerController);
+            }
+            return;
+        }
+
+        ProcessEvent.call(Object, Function, Parms);
+        bool recordedRuntimeOverride = false;
+        {
+            std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+            if (gLoadoutManager && playerController && preOrderParms &&
+                ConnectedPlayerControllers.contains(playerController) &&
+                !DisconnectedPlayerControllers.contains(playerController) &&
+                !playerController->bActorIsBeingDestroyed)
+            {
+                recordedRuntimeOverride = gLoadoutManager->OnExternalPreOrderInventory(
+                    playerController,
+                    preOrderParms->InRoleID,
+                    preOrderParms->InPreOrderingInventory);
+            }
+        }
+        // The native RPC has returned. Even when the loadout bridge is not
+        // running, the canonical p_ id is unavailable, or this controller is
+        // not bound to LoadoutManager, an already-spawned player waiting after
+        // death must be allowed into the serialized respawn path. The manager
+        // API itself rejects PendingRoleSelection and every first-spawn state.
+        if (gLateJoinManager && playerController && preOrderParms &&
+            IsCurrentSelectedRole(playerController, preOrderParms->InRoleID))
+        {
+            const auto allowed = PlayerRespawnAllowedMap.find(playerController);
+            if (allowed != PlayerRespawnAllowedMap.end() && !allowed->second)
+            {
+                const bool queued =
+                    gLateJoinManager->QueueManagedRespawn(playerController);
+                if (queued && !recordedRuntimeOverride)
+                {
+                    std::cout << "[LATEJOIN] Native inventory accepted; queued "
+                        "managed respawn without a recorded bridge override."
+                        << std::endl;
+                }
+            }
+        }
+        BattleLog::OnProcessEventPost(
+            BattleLog::ProcessSide::Server, Object, functionName, Parms);
+        return;
+    }
+
+    // Loadout/LateJoin: role confirmation can be deferred for at most one
+    // second without blocking the game thread. A deferred confirmation is
+    // replayed by LoadoutManager with copied parameters and a re-entry guard.
+    if (functionName.contains("PBPlayerController.ServerConfirmRoleSelection"))
+    {
+        APBPlayerController* playerController =
+            Object && Object->IsA(APBPlayerController::StaticClass())
+                ? static_cast<APBPlayerController*>(Object)
+                : nullptr;
+        auto* confirmParms =
+            static_cast<Params::PBPlayerController_ServerConfirmRoleSelection*>(Parms);
+
+        {
+            std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+            if (gLoadoutManager && playerController && confirmParms &&
+                IsCurrentConnectedController(playerController))
+            {
+                const LoadoutRoleConfirmDecision decision =
+                    gLoadoutManager->BeginRoleConfirmation(
+                        playerController, confirmParms->InRoleID);
+                if (decision == LoadoutRoleConfirmDecision::Deferred)
+                    return;
+            }
+        }
+
+        QueuePendingPlayerNameUpdate(playerController);
+        const bool isLateJoin = gLateJoinManager &&
+            gLateJoinManager->IsLateJoinPlayer(playerController);
+        const bool isDeferredInitialJoin = gLateJoinManager &&
+            gLateJoinManager->IsInitialJoinPlayer(playerController);
+
+        ProcessEvent.call(Object, Function, Parms);
+
+        const bool connectionStillCurrent =
+            IsCurrentConnectedController(playerController);
+        bool roleWasAccepted = connectionStillCurrent;
+        std::string committedRoleId;
+        if (roleWasAccepted && (!playerController->PBPlayerState || !confirmParms))
+            roleWasAccepted = false;
+        if (roleWasAccepted && playerController->PBPlayerState && confirmParms)
+        {
+            auto* playerState = playerController->PBPlayerState;
+            bool queriedSelectionState = false;
+            bool hasSelectedRole = false;
+            try
+            {
+                hasSelectedRole = playerState->HasSelectedRole();
+                queriedSelectionState = true;
+            }
+            catch (...)
+            {
+                // Keep compatibility with SDK revisions where this helper is
+                // unavailable; the concrete SelectedCharacterID check below
+                // can still reject a mismatched selection.
+            }
+
+            if (!IsCurrentConnectedController(playerController) ||
+                playerController->PBPlayerState != playerState)
+            {
+                roleWasAccepted = false;
+            }
+
+            const std::string acceptedRole = roleWasAccepted
+                ? playerState->SelectedCharacterID.ToString()
+                : std::string{};
+            const std::string requestedRole = confirmParms->InRoleID.ToString();
+            const bool acceptedRoleIsConcrete =
+                !acceptedRole.empty() && acceptedRole != "None";
+            const bool requestedRoleIsConcrete =
+                !requestedRole.empty() && requestedRole != "None";
+
+            // ServerConfirmRoleSelection is synchronous on the authoritative
+            // player state. Advance neither spawn nor quorum unless the state
+            // reports a selected role and it is exactly the requested one.
+            if ((queriedSelectionState && !hasSelectedRole) ||
+                !acceptedRoleIsConcrete || !requestedRoleIsConcrete ||
+                acceptedRole != requestedRole)
+            {
+                roleWasAccepted = false;
             }
             else
             {
-                std::cout << "[MATCH] Ignoring duplicate role confirmation from "
-                    << PBPlayerController->GetFullName() << std::endl;
-            }
-
-            if (!canStartMatch && NumExpectedPlayers > 0 && NumPlayersSelectedRole >= NumExpectedPlayers)
-            {
-                canStartMatch = true;
-                StartMatchTimer = -1.0f;
+                committedRoleId = acceptedRole;
             }
         }
+        if (!roleWasAccepted)
+        {
+            ClientLog("[LOADOUT] Role confirmation did not commit to the current connection");
+            BattleLog::OnProcessEventPost(
+                BattleLog::ProcessSide::Server, Object, functionName, Parms);
+            return;
+        }
+
+        {
+            std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+            if (gLoadoutManager && playerController && confirmParms &&
+                IsCurrentConnectedController(playerController))
+            {
+                gLoadoutManager->CommitRoleConfirmationAfterOriginal(
+                    playerController, confirmParms->InRoleID);
+            }
+        }
+
+        if (gLateJoinManager && (isLateJoin || isDeferredInitialJoin))
+            gLateJoinManager->OnRoleConfirmed(
+                playerController, committedRoleId);
+
+        if (!IsCurrentConnectedController(playerController))
+        {
+            BattleLog::OnProcessEventPost(
+                BattleLog::ProcessSide::Server, Object, functionName, Parms);
+            return;
+        }
+
+        // A player joining an already-running match must not alter the
+        // original match-start quorum. Initial joins still count normally.
+        if (!isLateJoin && playerController)
+        {
+            const auto [_, inserted] = PlayersConfirmedRole.insert(playerController);
+            if (inserted)
+            {
+                NumPlayersSelectedRole = static_cast<int>(PlayersConfirmedRole.size());
+                std::cout << "[MATCH] Role confirmed ("
+                    << NumPlayersSelectedRole << "/" << NumExpectedPlayers << ")"
+                    << std::endl;
+            }
+            else
+            {
+                std::cout << "[MATCH] Ignoring duplicate role confirmation."
+                    << std::endl;
+            }
+
+            RecomputeMatchStartGate(inserted ? "role confirmed" : "duplicate confirmation");
+        }
+
+        BattleLog::OnProcessEventPost(
+            BattleLog::ProcessSide::Server, Object, functionName, Parms);
+        return;
+    }
+
+    // Inventory actors now exist; detailed configs may safely be applied, but
+    // only when their live identities match the effective inventory.
+    if (functionName.contains("K2_InventorySpawned"))
+    {
+        APBCharacter* character =
+            Object && Object->IsA(APBCharacter::StaticClass())
+                ? static_cast<APBCharacter*>(Object)
+                : nullptr;
+        bool tombstonedBeforeOriginal = false;
+        {
+            std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+            tombstonedBeforeOriginal = gLoadoutManager && character &&
+                gLoadoutManager->IsCharacterTombstoned(character);
+        }
+        ProcessEvent.call(Object, Function, Parms);
+        {
+            std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+            const bool destroyedDuringOriginal =
+                gLoadoutManager && character && !tombstonedBeforeOriginal &&
+                gLoadoutManager->IsCharacterTombstoned(character);
+            if (gLoadoutManager && character && !destroyedDuringOriginal)
+                gLoadoutManager->OnInventorySpawned(character);
+        }
+        BattleLog::OnProcessEventPost(
+            BattleLog::ProcessSide::Server, Object, functionName, Parms);
+        return;
+    }
+
+    if (functionName.contains("K2_OnLogout"))
+    {
+        auto* logoutParms = static_cast<Params::GameModeBase_K2_OnLogout*>(Parms);
+        APBPlayerController* playerController =
+            logoutParms && logoutParms->ExitingController &&
+                    logoutParms->ExitingController->IsA(APBPlayerController::StaticClass())
+                ? static_cast<APBPlayerController*>(logoutParms->ExitingController)
+                : nullptr;
+
+        if (playerController)
+            CleanupDisconnectedPlayer(playerController, "player disconnected");
+        ProcessEvent.call(Object, Function, Parms);
+        BattleLog::OnProcessEventPost(
+            BattleLog::ProcessSide::Server, Object, functionName, Parms);
+        return;
     }
 
     if (functionName.contains("ReadyToMatchIntro_WaitingToStart"))
@@ -425,19 +971,63 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
         }
     }
 
-    if (functionName.contains("ClientBeKilled"))
+    if (functionName.contains("PBPlayerController.ClientBeKilled"))
     {
         std::cout << "Intercepted Player Kill!" << std::endl;
 
-        APBPlayerController *PBPlayerController = (APBPlayerController *)Object;
+        APBPlayerController* PBPlayerController =
+            Object && Object->IsA(APBPlayerController::StaticClass())
+                ? static_cast<APBPlayerController*>(Object)
+                : nullptr;
 
-        PlayerRespawnAllowedMap[PBPlayerController] = false;
+        if (PBPlayerController)
+            PlayerRespawnAllowedMap[PBPlayerController] = false;
+        if (gLateJoinManager && PBPlayerController)
+            gLateJoinManager->OnPlayerKilled(PBPlayerController);
+        // The FieldMod deploy/preorder (or a new role confirmation) reopens
+        // the managed respawn. Queuing here would immediately respawn the old
+        // role before the player's post-death selection arrives.
     }
 
-    if (functionName.contains("PlayerCanRestart"))
+    if (functionName.contains("PlayerController.CanRestartPlayer"))
     {
-        ((Params::GameModeBase_PlayerCanRestart *)Parms)->ReturnValue =
-            ((AGameModeBase *)Object)->HasMatchStarted();
+        APBPlayerController* playerController =
+            Object && Object->IsA(APBPlayerController::StaticClass())
+                ? static_cast<APBPlayerController*>(Object)
+                : nullptr;
+        if (playerController && gLateJoinManager &&
+            gLateJoinManager->IsManagedPlayer(playerController) &&
+            !gLateJoinManager->HasManagedRestartPermit(playerController))
+        {
+            auto* restartParms =
+                static_cast<Params::PlayerController_CanRestartPlayer*>(Parms);
+            if (restartParms) restartParms->ReturnValue = false;
+            return;
+        }
+    }
+
+    if (functionName.contains("GameModeBase.PlayerCanRestart"))
+    {
+        auto* restartParms = (Params::GameModeBase_PlayerCanRestart *)Parms;
+        APBPlayerController* playerController = restartParms && restartParms->Player &&
+                restartParms->Player->IsA(APBPlayerController::StaticClass())
+            ? static_cast<APBPlayerController*>(restartParms->Player)
+            : nullptr;
+        if (playerController && gLateJoinManager &&
+            gLateJoinManager->IsManagedPlayer(playerController))
+        {
+            if (gLateJoinManager->HasManagedRestartPermit(playerController))
+            {
+                restartParms->ReturnValue = true;
+                return;
+            }
+
+            restartParms->ReturnValue = false;
+            return;
+        }
+
+        restartParms->ReturnValue = ((AGameModeBase *)Object)->HasMatchStarted() ||
+            (gLateJoinManager && gLateJoinManager->CanRestartBeforeMatch(playerController));
         return;
     }
 
@@ -453,11 +1043,37 @@ static SafetyHookInline PostLoginHook;
 
 void *PostLogin(AGameMode *GameMode, APBPlayerController *PC)
 {
+    EnsureServerMatchWorld(UWorld::GetWorld());
+    if (PC)
+        DisconnectedPlayerControllers.erase(PC);
     void *Ret = PostLoginHook.call<void *>(GameMode, PC);
 
-    NumPlayersJoined++;
+    if (!PC || DisconnectedPlayerControllers.contains(PC) ||
+        PC->bActorIsBeingDestroyed)
+    {
+        std::cout << "[SERVER] Ignored PostLogin result for a disconnected controller."
+            << std::endl;
+        return Ret;
+    }
+    try
+    {
+        if (!PC->HasAuthority()) return Ret;
+    }
+    catch (...)
+    {
+        return Ret;
+    }
+
+    ConnectedPlayerControllers.insert(PC);
+    NumPlayersJoined = static_cast<int>(ConnectedPlayerControllers.size());
 
     std::cout << "Player Connected!" << std::endl;
+
+    {
+        std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+        if (gLoadoutManager)
+            gLoadoutManager->OnPlayerConnected(PC);
+    }
 
     // LateJoin detection
     if (gLateJoinManager && gLateJoinManager->OnPostLogin(GameMode, PC))
@@ -466,8 +1082,26 @@ void *PostLogin(AGameMode *GameMode, APBPlayerController *PC)
         return Ret;
     }
 
-    // Normal initial join uses the original immediate-respawn path.
-    // LateJoinManager remains active only for players joining an active match.
+    // This is a genuine pre-match participant. If the expected quorum was
+    // already established, include the new player and re-close a previously
+    // ready gate until this connection confirms a role.
+    if (!DidProcStartMatch && NumExpectedPlayers > 0)
+    {
+        NumExpectedPlayers = NumPlayersJoined;
+        RecomputeMatchStartGate("initial player connected");
+    }
+
+    // Initial joins use the same role-confirmation gate as mid-match joins so
+    // authoritative inventory can be seeded before the first playable Pawn is
+    // created.
+    if (gLateJoinManager)
+    {
+        gLateJoinManager->QueueInitialJoinPlayer(GameMode, PC);
+        return Ret;
+    }
+
+    // Preserve the native fallback when the deferred-spawn manager is not
+    // available.
     if (PC && PC->Pawn)
     {
         PC->ServerSuicide(0);   // triggers respawn
@@ -534,6 +1168,12 @@ void __fastcall FixBadgeOrnamentErrorHookFn(__int64 a1, int completionCode, __in
 
 void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
 {
+    if (gClientProcessEventSuppressionDepth > 0)
+    {
+        ProcessEventClient.call(Object, Function, Parms);
+        return;
+    }
+
     // 热键检测（游戏线程安全）— F6=dump, F7=reapply snapshot
     if (gDebugTool)
     {

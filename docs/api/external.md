@@ -335,6 +335,7 @@ The complete field-level contract and MetaTunnel flow are documented in the
 | GET | `/v1/users/me/loadouts` | Active Player | All role loadouts |
 | GET | `/v1/users/me/loadouts/{role_id}` | Active Player | One role loadout |
 | PUT | `/v1/users/me/loadouts/{role_id}` | Active Player | Definition-validated optimistic update |
+| GET | `/v1/meta/p2p-rooms/{room_id}/members/{player_id}/loadouts` | Active room host | Read one active member's server-authoritative loadout baselines through MetaTunnel |
 | POST | `/v1/meta/parties` | Active Player | Create a Party |
 | GET | `/v1/meta/parties/{party_id}` | Party member | Read Party state |
 | POST | `/v1/meta/parties/{party_id}/ready` | Party member | Update ready state |

@@ -21,7 +21,7 @@ namespace UC
 
 		inline int32 AllocCount = 0x0;
 
-		[[nodiscard]] inline void Init(void* ReallocAddress)
+		inline void Init(void* ReallocAddress)
 		{
 			EngineRealloc = reinterpret_cast<decltype(EngineRealloc)>(ReallocAddress);
 		}
@@ -442,14 +442,19 @@ namespace UC
 
 		inline void CopyFrom(const TArray& Other)
 		{
-			if (this == &Other || Other.NumElements == 0)
+			if (this == &Other)
 				return;
+			if (Other.NumElements == 0)
+			{
+				NumElements = 0;
+				return;
+			}
 
 			NumElements = Other.NumElements;
 
 			if (MaxElements >= Other.NumElements)
 			{
-				memcpy(Data, Other.Data, Other.NumElements);
+				memcpy(Data, Other.Data, Other.NumElements * ElementSize);
 				return;
 			}
 

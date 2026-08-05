@@ -84,6 +84,22 @@ namespace LoadoutSerializer
     // 若已是结构化格式则原样返回。
     json NormalizeLoadoutFormat(const json& loadoutOrRole);
 
+    // Strict adapter for the schema-v1 community-room HTTP contract. This is
+    // deliberately plain JSON work and is safe to run on a worker thread.
+    // weaponConfigs is keyed by weapon ID and each value is WeaponArchiveV2
+    // protojson encoded with protobuf field names (weapon_id, slot_id, ...).
+    bool NormalizeMetaserverRole(
+        const json& snapshot,
+        const json& weaponConfigs,
+        const std::string& roleId,
+        json& outRole,
+        std::string& outError);
+
+    bool NormalizeWeaponArchiveV2Map(
+        const json& weaponConfigs,
+        json& outWeaponConfigs,
+        std::string& outError);
+
     // ---- 武器存档 hex 解码 ----
     // 解码 _weaponArchiveRaw（hex 编码的 protobuf）为 { weaponId: { parts: [...] } } 映射。
     // 解码失败返回空 object。

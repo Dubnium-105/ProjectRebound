@@ -55,9 +55,14 @@ HTTP 201 响应包含 `user_id`、`gate_ticket`、`endpoint`、
 {"error":0,"userId":"...","aceId":"...","gateToken":"...","endpoint":"logic.dubnium.top:443"}
 ```
 
-Browser 启动 `meta-tunnel.exe` 后，只通过匿名 stdin 管道写入一行 Access Token，
-读取一行 readiness JSON，再把游戏 LogicServerURL 指向其中的 loopback HTTP 端口。
-MetaTunnel 将 endpoint 改写到本地 TCP listener 并校验远端 TLS 证书；应用不得实现
+启动器启动 `meta-tunnel.exe` 后，通过匿名 stdin 管道写入一行 Access Token，读取一行
+readiness JSON，再把游戏 LogicServerURL 指向其中的 loopback HTTP 端口。管道在游戏
+运行期间保持打开；启动器会在当前 token 到期前将每个刷新 token 作为新的一行写入。
+
+loopback HTTP listener 将全部 method、path、query、body、response、流式和 Upgrade
+请求转发到固定 MetaServer 上游，并注入最新 token；只有
+`/_meta-tunnel/health/live` 是本地接口。`/connectServer` 还会把 endpoint 改写到本地
+TCP listener。原生 listener 将游戏 frame 经证书校验的 TLS 透明桥接；应用不得实现
 证书绕过。
 
 ## 玩家档案与配装
@@ -71,6 +76,20 @@ MetaTunnel 将 endpoint 改写到本地 TCP listener 并校验远端 TLS 证书�
 
 只有首次创建使用 revision `0`，后续必须发送上次读/写返回的 revision。过期 revision
 返回 HTTP 409 `META_LOADOUT_REVISION_CONFLICT`；应重新读取并明确合并，不能盲重试。
+
+### P2P 房主读取成员配装
+
+社区 Listen Host 通过
+`GET /v1/meta/p2p-rooms/{room_id}/members/{player_id}/loadouts` 读取成员配装。
+该请求只能经本机 MetaTunnel 发出，由 MetaTunnel 注入房主 Player Access Token；游戏
+Payload 不接收也不保存任何认证凭据。
+
+调用者必须是房间的 `host_player_id`，房间必须未过期且处于 `CONNECTING` 或
+`RUNNING`，目标玩家必须是该房间的 `ACTIVE` 成员。响应使用统一 envelope，`data`
+包含 `schema_version`、`room_id`、`player_id` 和 `loadouts[]`；每项包含 `role_id`、
+`revision`、经 definitions 校验的 `snapshot`，以及该角色主副武器实际引用的已解码
+`weapon_configs`。非法角色快照不返回；缺失或非法的武器档案替换为固定 Definitions
+默认档案。响应设置 `Cache-Control: no-store`，且不超过 512 KiB。
 
 ## Party
 

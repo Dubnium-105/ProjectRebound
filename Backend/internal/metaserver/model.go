@@ -24,6 +24,20 @@ type Loadout struct {
 	UpdatedAt time.Time       `json:"updated_at"`
 }
 
+type P2PRoomMemberLoadouts struct {
+	SchemaVersion int                  `json:"schema_version"`
+	RoomID        string               `json:"room_id"`
+	PlayerID      string               `json:"player_id"`
+	Loadouts      []P2PRoomRoleLoadout `json:"loadouts"`
+}
+
+type P2PRoomRoleLoadout struct {
+	RoleID        string                     `json:"role_id"`
+	Revision      int64                      `json:"revision"`
+	Snapshot      json.RawMessage            `json:"snapshot"`
+	WeaponConfigs map[string]json.RawMessage `json:"weapon_configs"`
+}
+
 type Party struct {
 	ID              string        `json:"id"`
 	LeaderPlayerID  string        `json:"leader_player_id"`
