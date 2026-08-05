@@ -244,6 +244,50 @@ func (r *Repository) GetWeaponArchives(
 	return result, nil
 }
 
+func (r *Repository) AuthorizeP2PRoomLoadoutRead(
+	ctx context.Context,
+	requesterPlayerID, roomID, targetPlayerID string,
+) error {
+	var hostPlayerID, state string
+	var expiresAt time.Time
+	var memberStatus string
+	err := r.pool.QueryRow(ctx, `
+		SELECT room.host_player_id, room.state, room.expires_at,
+		       COALESCE(member.status, '')
+		FROM p2p_rooms AS room
+		LEFT JOIN p2p_room_members AS member
+		  ON member.room_id = room.id AND member.player_id = $2
+		WHERE room.id = $1
+	`, roomID, targetPlayerID).Scan(
+		&hostPlayerID, &state, &expiresAt, &memberStatus,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return notFound("META_P2P_ROOM_NOT_FOUND", "P2P room not found.")
+	}
+	if err != nil {
+		return internalError(fmt.Errorf("authorize P2P room loadout read: %w", err))
+	}
+	if hostPlayerID != requesterPlayerID {
+		return forbidden(
+			"META_P2P_ROOM_HOST_REQUIRED",
+			"Only the active P2P room host may read member loadouts.",
+		)
+	}
+	if (state != "CONNECTING" && state != "RUNNING") || !expiresAt.After(r.now().UTC()) {
+		return conflict(
+			"META_P2P_ROOM_NOT_RUNNING",
+			"The P2P room is not active for server-authoritative loadout reads.",
+		)
+	}
+	if memberStatus != "ACTIVE" {
+		return forbidden(
+			"META_P2P_ROOM_MEMBER_INACTIVE",
+			"The requested player is not an active member of this P2P room.",
+		)
+	}
+	return nil
+}
+
 func (r *Repository) CreateParty(
 	ctx context.Context,
 	playerID, mode, region, clientVersion string,

@@ -3519,6 +3519,35 @@ paths:
         "400": {$ref: "#/components/responses/InvalidRequest"}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "409": {$ref: "#/components/responses/Conflict"}
+  /v1/meta/p2p-rooms/{room_id}/members/{player_id}/loadouts:
+    parameters:
+      - {$ref: "#/components/parameters/P2PRoomID"}
+      - {$ref: "#/components/parameters/PlayerID"}
+    get:
+      operationId: getMetaP2PRoomMemberLoadouts
+      tags: [MetaServer]
+      description: >-
+        Returns definition-validated role snapshots and decoded primary/secondary
+        weapon configs to the authenticated host of an active P2P room. The
+        target player must be an active member of that room.
+      security:
+        - playerAccessToken: []
+      responses:
+        "200":
+          description: Loadout baselines for the active room member.
+          headers:
+            Cache-Control:
+              schema: {type: string, const: no-store}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MetaP2PRoomMemberLoadoutsResponse"}
+        "400": {$ref: "#/components/responses/InvalidRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/Conflict"}
+        "413":
+          description: The encoded response would exceed 512 KiB.
   /v1/meta/parties:
     post:
       operationId: createMetaParty
@@ -7513,6 +7542,42 @@ components:
             items:
               type: array
               items: {$ref: "#/components/schemas/MetaLoadout"}
+        request_id: {type: string}
+    MetaP2PRoomRoleLoadout:
+      type: object
+      additionalProperties: false
+      required: [role_id, revision, snapshot, weapon_configs]
+      properties:
+        role_id: {type: string, minLength: 1, maxLength: 128}
+        revision: {type: integer, format: int64, minimum: 1}
+        snapshot:
+          type: object
+          additionalProperties: true
+          description: Definition-validated snapshot with embedded weapon archives removed.
+        weapon_configs:
+          type: object
+          maxProperties: 2
+          additionalProperties:
+            type: object
+            additionalProperties: true
+          description: Decoded WeaponArchiveV2 protojson keyed by selected weapon ID.
+    MetaP2PRoomMemberLoadouts:
+      type: object
+      additionalProperties: false
+      required: [schema_version, room_id, player_id, loadouts]
+      properties:
+        schema_version: {type: integer, const: 1}
+        room_id: {type: string}
+        player_id: {type: string}
+        loadouts:
+          type: array
+          items: {$ref: "#/components/schemas/MetaP2PRoomRoleLoadout"}
+    MetaP2PRoomMemberLoadoutsResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/MetaP2PRoomMemberLoadouts"}
         request_id: {type: string}
     MetaPartyCreateRequest:
       type: object

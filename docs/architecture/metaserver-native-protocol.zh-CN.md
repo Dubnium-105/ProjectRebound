@@ -36,6 +36,22 @@ uint32_be payload_length | protobuf RequestWrapper payload
 发现、playlist 发现、匹配开始及匹配状态/停止兼容响应均使用静态生成的消息。未知 RPC
 返回兼容错误，不会使连接崩溃。
 
+资产与配装 RPC 严格保持已捕获的 wire contract：
+
+- `QueryAssets` 将固定 `DT_ItemType` 中的每个 ID 恰好返回一次，三个可用性字段均为
+  `1`，`ItemCount` 与列表长度一致。
+- `GetPlayerArchiveV2` 的 8-10 号字段依次为可选字符串 `WeaponArchiveRaw`、
+  `SkinToken` 和 `OrnamentId`。`WeaponArchiveRaw` 是角色武器档案 bundle 的小写十六
+  进制编码；玩家没有自定义武器档案时，从固定 definitions 生成默认部件与皮肤档案。
+- 原生 `PlayerLevel` 保持抓包实现的兼容值 `0`；物品所有权由 `QueryAssets` 提供，
+  不与 REST 档案进度等级耦合。
+- `UpdateRoleArchiveV2.Operation` 不是固定槽位编号。服务端先按固定物品类型路由，
+  再用已观察到的 operation 区分主/副武器或左/右挂载；仅更新皮肤时不得清空装备槽。
+
+当前 Payload 构建不编译、也不注册旧 `LoadoutManager`。以后若重新接入局内服务端桥，
+其客户端入口仍必须保持空桩，Payload 不得覆盖原生资产缓存、军械库展示状态或装备完成
+结果。
+
 上游字段编号仍为 tentative 的 `QueryUnityMatchmakingRes` 不用于发布匹配 endpoint。
 在脱敏抓包确认原生字段映射前，权威 endpoint 仅从已认证 HTTP Ticket 资源获得，避免
 猜测字段进入生产状态机。

@@ -1,14 +1,10 @@
 #pragma once
 
-// ======================================================
-//  LoadoutApplication — 服务端权威应用
-// ======================================================
-//  从 LoadoutManager.cpp 提取的服务端应用逻辑。
-//  负责在角色生成前后权威地应用配装快照到游戏实体。
+// Game-thread-only application helpers for a validated, normalized loadout.
 
 #include <string>
-#include <vector>
 #include <utility>
+#include <vector>
 
 #include "../Libs/json.hpp"
 #include "../SDK.hpp"
@@ -17,35 +13,101 @@ namespace LoadoutApplication
 {
     using json = nlohmann::json;
 
-    // ---- 角色 ID 解析 ----
+    enum class ApplyResult
+    {
+        Pending,
+        Applied,
+        IdentityMismatch,
+        Invalid,
+    };
+
+    enum class FieldModCacheState
+    {
+        ManagerMissing,
+        RoleMissing,
+        Match,
+        Mismatch,
+    };
+
     std::string ResolveCharacterRoleId(SDK::APBCharacter* character);
     std::string ResolveLiveCharacterRoleId(SDK::APBCharacter* character);
 
-    // ---- 对象查找 ----
     SDK::APBPlayerController* GetLocalPlayerController();
     SDK::APBCharacter* GetLocalCharacter();
     SDK::APBPlayerController* FindPlayerControllerForCharacter(SDK::APBCharacter* character);
     SDK::APBCharacter* GetControllerCharacter(SDK::APBPlayerController* playerController);
     bool IsCharacterAlive(SDK::APBCharacter* character);
     SDK::UPBFieldModManager* GetFieldModManager();
+    FieldModCacheState InspectFieldModCache(
+        const SDK::FName& roleId,
+        const SDK::FPBInventoryNetworkConfig& expected);
 
-    // ---- 库存构建 ----
-    std::vector<std::pair<std::string, SDK::FPBInventoryNetworkConfig>> BuildInventoryListFromSnapshot(const json& snapshot);
+    bool TryBuildRoleInventory(
+        const json& snapshot,
+        const std::string& roleId,
+        SDK::FPBInventoryNetworkConfig& outInventory,
+        std::string& outDetail);
 
-    // ---- 出生前库存推送 ----
-    bool PreSpawnApply(const json& snapshot, SDK::APBPlayerController* preferredController, std::string& outDetail);
+    ApplyResult PreSpawnApplyRole(
+        const json& snapshot,
+        const std::string& roleId,
+        SDK::APBPlayerController* playerController,
+        std::string& outDetail);
+
+    // Reasserts an already validated runtime inventory immediately before a
+    // spawn and verifies the authoritative FieldMod cache.
+    ApplyResult PreSpawnApplyInventory(
+        const std::string& roleId,
+        const SDK::FPBInventoryNetworkConfig& inventory,
+        SDK::APBPlayerController* playerController,
+        std::string& outDetail);
+
+    // Builds the role's six-slot inventory from the authoritative character
+    // definition asset and writes it through the same FieldMod path. This is
+    // required when no metaserver/runtime loadout exists so an old shared
+    // world+role cache cannot leak another player's inventory into the spawn.
+    ApplyResult PreSpawnApplyNativeDefault(
+        const std::string& roleId,
+        SDK::APBPlayerController* playerController,
+        std::string& outDetail);
+
+    // Resolves the native role definition without retaining a controller.
+    // Callers that track connection generations can revalidate the controller
+    // after asset loading and before issuing ServerPreOrderInventory.
+    ApplyResult TryBuildNativeDefaultInventory(
+        const std::string& roleId,
+        SDK::FPBInventoryNetworkConfig& outInventory,
+        std::string& outDetail);
+
+    // Compatibility wrapper retained for callers outside the new hook bridge.
+    bool PreSpawnApply(
+        const json& snapshot,
+        SDK::APBPlayerController* preferredController,
+        std::string& outDetail);
     void PushPreSpawnInventory(SDK::APBPlayerController* playerController);
 
-    // ---- 配装应用 ----
-    bool ApplyLauncherConfig(SDK::APBLauncher* launcher, const SDK::FPBLauncherNetworkConfig& config, bool& outChanged);
-    bool ApplyMeleeConfig(SDK::APBMeleeWeapon* meleeWeapon, const SDK::FPBMeleeWeaponNetworkConfig& config, bool& outChanged);
-    bool ApplyMobilityConfig(SDK::APBCharacter* character, const SDK::FPBMobilityModuleNetworkConfig& config, bool& outChanged);
+    ApplyResult PostSpawnApply(
+        SDK::APBCharacter* character,
+        const json& snapshot,
+        bool runtimeOverrideActive = false);
 
-    // ---- 出生后实时应用 ----
-    bool PostSpawnApply(SDK::APBCharacter* character, const json& snapshot);
+    bool ApplyLauncherConfig(
+        SDK::APBLauncher* launcher,
+        const SDK::FPBLauncherNetworkConfig& config,
+        bool& outChanged);
+    bool ApplyMeleeConfig(
+        SDK::APBMeleeWeapon* meleeWeapon,
+        const SDK::FPBMeleeWeaponNetworkConfig& config,
+        bool& outChanged);
+    bool ApplyMobilityConfig(
+        SDK::APBCharacter* character,
+        const SDK::FPBMobilityModuleNetworkConfig& config,
+        bool& outChanged);
 
-    // ---- 武器辅助 ----
-    SDK::APBWeapon* FindWeaponForConfig(SDK::APBCharacter* character, const SDK::FPBWeaponNetworkConfig& config, int preferredIndex);
+    SDK::APBWeapon* FindWeaponForConfig(
+        SDK::APBCharacter* character,
+        const SDK::FPBWeaponNetworkConfig& config,
+        int preferredIndex);
     void RefreshWeaponRuntimeVisuals(SDK::APBWeapon* weapon);
     void MarkActorForReplication(SDK::AActor* actor);
 }

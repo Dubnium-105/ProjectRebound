@@ -47,7 +47,7 @@ public:
     {
         PendingRoleSelection,   // 等待客户端选择角色
         RoleConfirmed,          // 角色已确认，准备生成可玩 Pawn
-        Spawned,                // 已成功生成可玩 Pawn（终态，将移除）
+        Spawned,                // 可玩 Pawn 已生成；保留至断线以统一后续复活
         TimedOut                // 超时放弃（终态，将移除）
     };
 
@@ -57,8 +57,12 @@ public:
         ELateJoinState State = ELateJoinState::PendingRoleSelection;
         float ElapsedSeconds = 0.0f;    // 当前阶段已持续时间（秒）
         int   SpawnAttempts   = 0;      // 已尝试生成的次数（最多 3 次）
-        bool  ClientStartSent = false;   // 是否已发送 ClientStart 序列
-        bool  bIsInitialJoin  = false;   // 是否为初始加入（比赛未开始时连接）
+        bool  ClientStartSent = false;   // Whether the mid-game ClientStart sequence was sent.
+        bool  bIsInitialJoin  = false;   // Connected before the match/round entered progress.
+        bool  InitialRoleSelectionSent = false; // Native pre-match prompt reached this connection.
+        bool  HasCompletedSpawn = false; // Suppress repeated mid-game lifecycle synchronization.
+        bool  AwaitingRoleTransitionDeath = false; // A->B accepted while the old Pawn remains alive.
+        std::string DesiredRoleId; // Last role accepted by the authoritative PlayerState.
     };
 
     // ------------------------------------------------------------------
@@ -67,6 +71,9 @@ public:
 
     // @brief 用于通知外部系统房间已启动（如后端心跳上报）
     using FReportRoomStarted = std::function<void()>;
+    using FCanReleasePlayerSpawn = std::function<bool(SDK::APBPlayerController*)>;
+    using FSpawnDispatchNotification =
+        std::function<void(SDK::APBPlayerController*)>;
 
     // ------------------------------------------------------------------
     //  构造 / 初始化
@@ -77,8 +84,14 @@ public:
     // @param InReportRoomStarted        回调 — 通知后端房间已启动
     LateJoinManager(
         const bool& InDidProcStartMatch,
+        const bool& InDidBroadcastRoleSelection,
         std::unordered_map<SDK::APBPlayerController*, bool>& InPlayerRespawnAllowedMap,
-        FReportRoomStarted InReportRoomStarted = nullptr
+        FReportRoomStarted InReportRoomStarted = nullptr,
+        FCanReleasePlayerSpawn InCanReleasePlayerSpawn = nullptr,
+        FSpawnDispatchNotification InBeginSpawnDispatch = nullptr,
+        FSpawnDispatchNotification InCompleteSpawnDispatch = nullptr,
+        FSpawnDispatchNotification InFinalizeSpawnRequest = nullptr,
+        FSpawnDispatchNotification InAbandonSpawnRequest = nullptr
     );
 
     // ------------------------------------------------------------------
@@ -114,7 +127,34 @@ public:
     //          2. 调用本方法
     //          3. return 跳过正常计数逻辑
     // @param PC 角色确认的 PlayerController
-    void OnRoleConfirmed(SDK::APBPlayerController* PC);
+    void OnRoleConfirmed(
+        SDK::APBPlayerController* PC,
+        const std::string& roleId);
+    void OnPlayerKilled(SDK::APBPlayerController* PC);
+
+    // Converts an engine-initiated restart into the same serialized spawn
+    // state machine. Only a current connection that has completed at least one
+    // playable spawn is eligible; in particular, PendingRoleSelection and the
+    // first RoleConfirmed -> Spawned transition can never be bypassed through
+    // this API. The caller must suppress the original restart unless the
+    // matching managed permit is active.
+    bool CanQueueManagedRespawn(SDK::APBPlayerController* PC) const;
+    bool QueueManagedRespawn(SDK::APBPlayerController* PC);
+    bool IsManagedPlayer(SDK::APBPlayerController* PC) const;
+    bool HasManagedRestartPermit(SDK::APBPlayerController* PC) const;
+
+    // Remove all deferred-spawn state for a disconnected controller. This is
+    // called from the authoritative K2_OnLogout hook before the UObject can be
+    // recycled for a later connection.
+    void OnPlayerDisconnected(SDK::APBPlayerController* PC);
+
+    // The native pre-match role prompt is broadcast once. Track recipients so
+    // late initial connections (and controllers not ready at broadcast time)
+    // can be prompted by Tick without duplicating successful deliveries.
+    void OnRoleSelectionPromptSent(SDK::APBPlayerController* PC);
+
+    // Drop pointer-keyed state when the server enters a different UWorld.
+    void ResetForWorldChange();
 
     // @brief TickFlush Hook 中调用。驱动状态机每帧更新。
     // @param DeltaTime 帧间隔时间（秒）
@@ -128,6 +168,11 @@ public:
 
     // @brief 查询中途加入窗口是否开放（比赛已开始或回合进行中）
     bool IsLateJoinWindowOpen() const;
+
+    // Initial players are spawned one at a time before StartMatch so a
+    // world+role FieldMod cache can never feed two same-role players.
+    bool CanRestartBeforeMatch(SDK::APBPlayerController* PC) const;
+    bool AreInitialPlayersReadyForStart() const;
 
 private:
     // ------------------------------------------------------------------
@@ -151,14 +196,22 @@ private:
     // ------------------------------------------------------------------
 
     const bool& DidProcStartMatch;                                                      // 比赛是否已启动
+    const bool& DidBroadcastRoleSelection;                                              // native prompt was broadcast
     std::unordered_map<SDK::APBPlayerController*, bool>& PlayerRespawnAllowedMap;       // 重生许可表
     FReportRoomStarted        ReportRoomStarted;                                        // 后端上报回调
+    FCanReleasePlayerSpawn    CanReleasePlayerSpawn;                                    // authoritative loadout gate
+    FSpawnDispatchNotification BeginSpawnDispatch;
+    FSpawnDispatchNotification CompleteSpawnDispatch;
+    FSpawnDispatchNotification FinalizeSpawnRequest;
+    FSpawnDispatchNotification AbandonSpawnRequest;
 
     // ------------------------------------------------------------------
     //  内部状态
     // ------------------------------------------------------------------
 
     std::unordered_map<SDK::APBPlayerController*, FLateJoinInfo> LateJoinPlayers;
+    SDK::APBPlayerController* ManagedRestartPermit = nullptr;
+    int ManagedRestartPermitDepth = 0;
 
     // ------------------------------------------------------------------
     //  可配置常量 — 未来可提取为配置项
@@ -177,7 +230,9 @@ private:
     SDK::APBGameMode*  GetPBGameMode() const;
     bool          IsRoundCurrentlyInProgress() const;
     static bool   IsSpectatorPawn(SDK::APawn* Pawn);
-    static bool   HasPlayableLateJoinPawn(SDK::APBPlayerController* PC);
+    static bool   HasPlayableLateJoinPawn(
+        SDK::APBPlayerController* PC,
+        const std::string& desiredRoleId = {});
 
     // ------------------------------------------------------------------
     //  私有方法 — 状态机动作
@@ -187,6 +242,6 @@ private:
     void SyncClientJoinState(SDK::APBPlayerController* PC, const FClientSyncOptions& Options);
     void SendLateJoinClientStart(SDK::APBPlayerController* PC);
     void PrepareLateJoinRespawn(SDK::APBPlayerController* PC);
-    void FinalizeLateJoinSpawn(SDK::APBPlayerController* PC);
-    void RequestLateJoinSpawn(SDK::APBPlayerController* PC, FLateJoinInfo& Info);
+    void FinalizeLateJoinSpawn(SDK::APBPlayerController* PC, FLateJoinInfo Info);
+    void RequestLateJoinSpawn(SDK::APBPlayerController* PC);
 };

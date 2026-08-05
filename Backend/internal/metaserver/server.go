@@ -150,6 +150,10 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 			router.Get("/users/me/loadouts", handler.ListLoadouts)
 			router.Get("/users/me/loadouts/{role_id}", handler.GetLoadout)
 			router.Put("/users/me/loadouts/{role_id}", handler.PutLoadout)
+			router.Get(
+				"/meta/p2p-rooms/{room_id}/members/{player_id}/loadouts",
+				handler.P2PRoomMemberLoadouts,
+			)
 			router.Post("/meta/parties", handler.CreateParty)
 			router.Get("/meta/parties/{party_id}", handler.GetParty)
 			router.Post("/meta/parties/{party_id}/ready", handler.Ready)

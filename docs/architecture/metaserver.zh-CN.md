@@ -34,11 +34,19 @@ Dedicated Server -- scoped token --> /internal/v1/meta/*
 
 ## 身份流程
 
-Browser 在现有控制面完成认证，通过 stdin 将 Access Token 交给 MetaTunnel。
+启动器在现有控制面完成认证，通过 stdin 将首个 Access Token 交给 MetaTunnel；匿名
+管道在游戏运行期间保持打开，并在 15 分钟 Access Token 到期前写入替换 token。
 MetaTunnel 不从命令行、环境变量、URL 或日志接收/输出 token，只绑定随机的
 loopback HTTP/TCP 端口。
 
-MetaTunnel 转发 `/connectServer` 时注入 bearer token。不同正式游戏版本的旧正文编码、
+MetaTunnel 是固定上游的反向代理：全部 MetaServer 路径均保留 HTTP method、path、
+query、body、response、流式及 Upgrade 语义，并以启动器当前 token 覆盖客户端传入的
+Authorization header。`/_meta-tunnel/health/live` 专用于本地隧道健康检查，MetaServer
+自身的 `/health/live` 仍转发到上游；原生 TCP frame 则不修改内容，经证书校验的 TLS
+透明桥接。
+
+对于 `/connectServer`，隧道还会执行旧正文大小限制，并把成功响应中的 Logic endpoint
+改写为本地 TCP listener。不同正式游戏版本的旧正文编码、
 字段名称及类型并不一致，因此 MetaServer 在全局大小限制内读取并丢弃正文，不解码也不
 信任其中内容；玩家、认证会话、账号状态、兼容客户端标签和协议版本均由服务端确定。
 服务端将以 SHA-256 为 Redis key 的 Gate 记录保存 60 秒，返回不透明的

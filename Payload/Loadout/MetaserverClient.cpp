@@ -1,19 +1,14 @@
-// ======================================================
-//  MetaserverClient - WinHTTP 实现
-// ======================================================
-//
-//  数据流：
-//    1. LoadoutManager 传入 metaserver baseUrl。
-//    2. 本模块拼接 /api/loadout/* REST 路径并执行 GET。
-//    3. 返回 nlohmann::json，由 LoadoutSerializer 适配为游戏内结构。
-
 #include "MetaserverClient.h"
+
+#include "LoadoutSerializer.h"
 
 #include <Windows.h>
 #include <winhttp.h>
 
 #include <algorithm>
 #include <cctype>
+#include <limits>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -21,13 +16,8 @@
 
 namespace LoadoutMetaserver
 {
-    // =====================================================================
-    //  内部工具
-    // =====================================================================
-
     namespace
     {
-        // WinHTTP 使用裸 HINTERNET 句柄，封装成 RAII 避免异常/早退时泄漏。
         struct WinHttpHandle
         {
             HINTERNET Handle = nullptr;
@@ -42,35 +32,44 @@ namespace LoadoutMetaserver
             explicit operator bool() const { return Handle != nullptr; }
         };
 
-        // WinHTTP API 使用 UTF-16，外部配置和 HTTP path 保持 UTF-8 字符串。
-        std::wstring ToWide(const std::string& value)
+        std::wstring ToWideUtf8(const std::string& value)
         {
-            if (value.empty()) return L"";
-            const int needed = MultiByteToWideChar(CP_UTF8, 0, value.data(), static_cast<int>(value.size()), nullptr, 0);
-            if (needed <= 0) return std::wstring(value.begin(), value.end());
-            std::wstring wide(static_cast<size_t>(needed), L'\0');
-            MultiByteToWideChar(CP_UTF8, 0, value.data(), static_cast<int>(value.size()), wide.data(), needed);
-            return wide;
+            if (value.empty()) return {};
+            const int count = MultiByteToWideChar(
+                CP_UTF8, MB_ERR_INVALID_CHARS, value.data(),
+                static_cast<int>(value.size()), nullptr, 0);
+            if (count <= 0) return {};
+
+            std::wstring result(static_cast<std::size_t>(count), L'\0');
+            if (MultiByteToWideChar(
+                CP_UTF8, MB_ERR_INVALID_CHARS, value.data(),
+                static_cast<int>(value.size()), result.data(), count) != count)
+            {
+                return {};
+            }
+            return result;
         }
 
         std::string Trim(std::string value)
         {
-            auto isSpace = [](unsigned char ch) { return std::isspace(ch) != 0; };
-            value.erase(value.begin(), std::find_if(value.begin(), value.end(), [&](char ch) { return !isSpace(static_cast<unsigned char>(ch)); }));
-            value.erase(std::find_if(value.rbegin(), value.rend(), [&](char ch) { return !isSpace(static_cast<unsigned char>(ch)); }).base(), value.end());
+            const auto isSpace = [](unsigned char ch) { return std::isspace(ch) != 0; };
+            value.erase(value.begin(), std::find_if(value.begin(), value.end(), [&](char ch) {
+                return !isSpace(static_cast<unsigned char>(ch));
+            }));
+            value.erase(std::find_if(value.rbegin(), value.rend(), [&](char ch) {
+                return !isSpace(static_cast<unsigned char>(ch));
+            }).base(), value.end());
             return value;
         }
 
         std::string NormalizeBaseUrl(std::string baseUrl)
         {
-            // 命令行参数可能带引号，也可能只给 host:port，这里统一成无尾斜杠 URL。
             baseUrl = Trim(std::move(baseUrl));
             if (baseUrl.size() >= 2 &&
                 ((baseUrl.front() == '"' && baseUrl.back() == '"') ||
                     (baseUrl.front() == '\'' && baseUrl.back() == '\'')))
             {
-                baseUrl = baseUrl.substr(1, baseUrl.size() - 2);
-                baseUrl = Trim(std::move(baseUrl));
+                baseUrl = Trim(baseUrl.substr(1, baseUrl.size() - 2));
             }
             if (baseUrl.empty()) baseUrl = "http://127.0.0.1:8000";
             if (baseUrl.find("://") == std::string::npos) baseUrl = "http://" + baseUrl;
@@ -80,56 +79,271 @@ namespace LoadoutMetaserver
 
         std::string UrlEncodePathSegment(const std::string& value)
         {
-            // playerId / roleId 属于 path segment，只编码单段，避免误处理分隔符。
-            static const char* hex = "0123456789ABCDEF";
-            std::string encoded;
-            for (unsigned char ch : value)
+            static constexpr char Hex[] = "0123456789ABCDEF";
+            std::string result;
+            result.reserve(value.size());
+            for (const unsigned char ch : value)
             {
-                const bool safe = std::isalnum(ch) || ch == '-' || ch == '_' || ch == '.' || ch == '~';
+                const bool safe = std::isalnum(ch) != 0 || ch == '-' || ch == '_' || ch == '.' || ch == '~';
                 if (safe)
                 {
-                    encoded.push_back(static_cast<char>(ch));
+                    result.push_back(static_cast<char>(ch));
+                    continue;
                 }
-                else
-                {
-                    encoded.push_back('%');
-                    encoded.push_back(hex[ch >> 4]);
-                    encoded.push_back(hex[ch & 0x0F]);
-                }
+                result.push_back('%');
+                result.push_back(Hex[ch >> 4]);
+                result.push_back(Hex[ch & 0x0F]);
             }
-            return encoded;
+            return result;
         }
 
-        bool CrackUrl(const std::string& url, std::wstring& host, INTERNET_PORT& port, std::wstring& path, bool& secure)
+        bool CrackUrl(
+            const std::string& url,
+            std::wstring& host,
+            INTERNET_PORT& port,
+            std::wstring& path,
+            bool& secure)
         {
-            // 交给 WinHTTP 解析协议、端口和 path，避免手写 URL 拆分规则。
-            const std::wstring wideUrl = ToWide(url);
+            const std::wstring wideUrl = ToWideUtf8(url);
+            if (wideUrl.empty()) return false;
+
             URL_COMPONENTS components{};
             components.dwStructSize = sizeof(components);
             components.dwSchemeLength = static_cast<DWORD>(-1);
             components.dwHostNameLength = static_cast<DWORD>(-1);
             components.dwUrlPathLength = static_cast<DWORD>(-1);
             components.dwExtraInfoLength = static_cast<DWORD>(-1);
-
             if (!WinHttpCrackUrl(wideUrl.c_str(), 0, 0, &components)) return false;
+            if (components.nScheme != INTERNET_SCHEME_HTTP &&
+                components.nScheme != INTERNET_SCHEME_HTTPS)
+            {
+                return false;
+            }
 
             host.assign(components.lpszHostName, components.dwHostNameLength);
             port = components.nPort;
             secure = components.nScheme == INTERNET_SCHEME_HTTPS;
-
+            path = L"/";
             if (components.lpszUrlPath && components.dwUrlPathLength > 0)
                 path.assign(components.lpszUrlPath, components.dwUrlPathLength);
-            else
-                path = L"/";
             if (components.lpszExtraInfo && components.dwExtraInfoLength > 0)
                 path.append(components.lpszExtraInfo, components.dwExtraInfoLength);
-            return !host.empty();
+            return !host.empty() && port != 0;
+        }
+
+        void SetTransportError(HttpResult& result, const char* message)
+        {
+            result.ErrorCode = HttpErrorCode::Transport;
+            result.NativeError = GetLastError();
+            result.ErrorMessage = message;
+        }
+
+        void ExtractEnvelopeMetadata(HttpResult& result)
+        {
+            if (!result.Body.is_object()) return;
+            const auto& body = result.Body;
+            if (body.contains("request_id") && body["request_id"].is_string())
+                result.RequestId = body["request_id"].get<std::string>();
+            if (!body.contains("error") || !body["error"].is_object()) return;
+
+            const auto& error = body["error"];
+            if (error.contains("code") && error["code"].is_string())
+                result.ApiErrorCode = error["code"].get<std::string>();
+            if (error.contains("message") && error["message"].is_string())
+                result.ErrorMessage = error["message"].get<std::string>();
+        }
+
+        void SetDtoError(
+            PlayerLoadoutsResult& result,
+            HttpErrorCode code,
+            std::string message)
+        {
+            result.Value.reset();
+            result.Http.ErrorCode = code;
+            result.Http.ErrorMessage = std::move(message);
+        }
+
+        bool ReadRequiredString(
+            const nlohmann::json& object,
+            const char* key,
+            std::string& value)
+        {
+            if (!object.is_object() || !object.contains(key) || !object[key].is_string()) return false;
+            value = object[key].get<std::string>();
+            return !value.empty();
+        }
+
+        PlayerLoadoutsResult ParsePlayerLoadouts(
+            HttpResult http,
+            const std::string& expectedRoomId,
+            const std::string& expectedPlayerId)
+        {
+            PlayerLoadoutsResult result;
+            result.Http = std::move(http);
+            if (!result.Http.Succeeded()) return result;
+
+            try
+            {
+                if (!result.Http.Body.is_object() ||
+                    !result.Http.Body.contains("data") ||
+                    !result.Http.Body["data"].is_object())
+                {
+                    SetDtoError(result, HttpErrorCode::InvalidEnvelope, "response data must be an object");
+                    return result;
+                }
+                if (result.Http.RequestId.empty())
+                {
+                    SetDtoError(result, HttpErrorCode::InvalidEnvelope, "response request_id is missing");
+                    return result;
+                }
+
+                const auto& data = result.Http.Body["data"];
+                if (!data.contains("schema_version") || !data["schema_version"].is_number_integer())
+                {
+                    SetDtoError(result, HttpErrorCode::InvalidEnvelope, "data.schema_version must be an integer");
+                    return result;
+                }
+                const int schemaVersion = data["schema_version"].get<int>();
+                if (schemaVersion != 1)
+                {
+                    SetDtoError(result, HttpErrorCode::UnsupportedSchema, "unsupported loadout schema_version");
+                    return result;
+                }
+
+                PlayerLoadoutsDto dto;
+                dto.SchemaVersion = schemaVersion;
+                if (!ReadRequiredString(data, "room_id", dto.RoomId) ||
+                    !ReadRequiredString(data, "player_id", dto.PlayerId))
+                {
+                    SetDtoError(result, HttpErrorCode::InvalidEnvelope, "data room_id/player_id is missing");
+                    return result;
+                }
+                if (dto.RoomId != expectedRoomId || dto.PlayerId != expectedPlayerId)
+                {
+                    SetDtoError(result, HttpErrorCode::IdentityMismatch, "response room_id/player_id does not match the request");
+                    return result;
+                }
+                if (!data.contains("loadouts") || !data["loadouts"].is_array())
+                {
+                    SetDtoError(result, HttpErrorCode::InvalidEnvelope, "data.loadouts must be an array");
+                    return result;
+                }
+                if (data["loadouts"].size() > 64)
+                {
+                    SetDtoError(result, HttpErrorCode::InvalidEnvelope, "data.loadouts exceeds the role limit");
+                    return result;
+                }
+
+                std::unordered_set<std::string> seenRoles;
+                dto.Loadouts.reserve(data["loadouts"].size());
+                for (const auto& entry : data["loadouts"])
+                {
+                    if (!entry.is_object())
+                    {
+                        SetDtoError(result, HttpErrorCode::InvalidEnvelope, "loadout entry must be an object");
+                        return result;
+                    }
+
+                    RoleLoadoutDto role;
+                    if (!ReadRequiredString(entry, "role_id", role.RoleId) || role.RoleId.size() > 128)
+                    {
+                        SetDtoError(result, HttpErrorCode::InvalidEnvelope, "loadout role_id is invalid");
+                        return result;
+                    }
+                    if (!seenRoles.insert(role.RoleId).second)
+                    {
+                        SetDtoError(result, HttpErrorCode::InvalidEnvelope, "loadout role_id is duplicated");
+                        return result;
+                    }
+                    if (!entry.contains("revision") || !entry["revision"].is_number_integer())
+                    {
+                        SetDtoError(result, HttpErrorCode::InvalidEnvelope, "loadout revision must be an integer");
+                        return result;
+                    }
+                    role.Revision = entry["revision"].get<std::int64_t>();
+                    if (role.Revision <= 0)
+                    {
+                        SetDtoError(result, HttpErrorCode::InvalidEnvelope, "loadout revision must be positive");
+                        return result;
+                    }
+                    if (!entry.contains("snapshot") || !entry["snapshot"].is_object() ||
+                        !entry.contains("weapon_configs") || !entry["weapon_configs"].is_object())
+                    {
+                        SetDtoError(result, HttpErrorCode::InvalidEnvelope, "loadout snapshot/weapon_configs must be objects");
+                        return result;
+                    }
+
+                    std::string normalizeError;
+                    if (!LoadoutSerializer::NormalizeMetaserverRole(
+                        entry["snapshot"], entry["weapon_configs"], role.RoleId,
+                        role.NormalizedRole, normalizeError))
+                    {
+                        SetDtoError(result, HttpErrorCode::InvalidEnvelope,
+                            "invalid loadout for role " + role.RoleId + ": " + normalizeError);
+                        return result;
+                    }
+                    dto.Loadouts.push_back(std::move(role));
+                }
+
+                result.Value = std::move(dto);
+                return result;
+            }
+            catch (const std::exception& error)
+            {
+                SetDtoError(result, HttpErrorCode::InvalidEnvelope, error.what());
+                return result;
+            }
+            catch (...)
+            {
+                SetDtoError(result, HttpErrorCode::InvalidEnvelope, "response DTO parsing failed");
+                return result;
+            }
         }
     }
 
-    // =====================================================================
-    //  公有接口
-    // =====================================================================
+    bool HttpResult::Succeeded() const
+    {
+        return ErrorCode == HttpErrorCode::None && StatusCode >= 200 && StatusCode < 300;
+    }
+
+    bool HttpResult::IsRetryable() const
+    {
+        if (ErrorCode == HttpErrorCode::Transport) return true;
+        if (ErrorCode != HttpErrorCode::HttpStatus) return false;
+        return StatusCode == 408 || StatusCode == 425 || StatusCode == 429 || StatusCode >= 500;
+    }
+
+    const RoleLoadoutDto* PlayerLoadoutsDto::FindRole(const std::string& roleId) const
+    {
+        const auto found = std::find_if(Loadouts.begin(), Loadouts.end(), [&](const RoleLoadoutDto& value) {
+            return value.RoleId == roleId;
+        });
+        return found == Loadouts.end() ? nullptr : &*found;
+    }
+
+    nlohmann::json PlayerLoadoutsDto::ToNormalizedSnapshot() const
+    {
+        nlohmann::json result = {
+            { "schemaVersion", SchemaVersion },
+            { "source", "metaserver-room-host" },
+            { "roomId", RoomId },
+            { "playerId", PlayerId },
+            { "roles", nlohmann::json::array() },
+        };
+        for (const auto& role : Loadouts)
+            result["roles"].push_back(role.NormalizedRole);
+        return result;
+    }
+
+    bool PlayerLoadoutsResult::Succeeded() const
+    {
+        return Http.Succeeded() && Value.has_value();
+    }
+
+    bool PlayerLoadoutsResult::IsRetryable() const
+    {
+        return Http.IsRetryable();
+    }
 
     MetaserverClient::MetaserverClient(std::string baseUrl)
     {
@@ -138,103 +352,112 @@ namespace LoadoutMetaserver
 
     void MetaserverClient::SetBaseUrl(std::string baseUrl)
     {
+        std::lock_guard lock(baseUrlMutex_);
         baseUrl_ = NormalizeBaseUrl(std::move(baseUrl));
     }
 
-    const std::string& MetaserverClient::BaseUrl() const
+    std::string MetaserverClient::BaseUrl() const
     {
+        std::lock_guard lock(baseUrlMutex_);
         return baseUrl_;
     }
 
-    bool MetaserverClient::IsAvailable() const
+    PlayerLoadoutsResult MetaserverClient::GetRoomMemberLoadouts(
+        const std::string& roomId,
+        const std::string& playerId) const
     {
-        // health 只作为启动期提示，不阻断后续 loadout 请求。
-        auto health = GetJson("/api/health");
-        return health && health->is_object() && health->value("status", "") == "ok";
+        if (roomId.empty() || roomId.size() > 128 ||
+            playerId.size() < 3 || playerId.size() > 128 || playerId.rfind("p_", 0) != 0)
+        {
+            PlayerLoadoutsResult result;
+            result.Http.ErrorCode = HttpErrorCode::InvalidArgument;
+            result.Http.ErrorMessage = "roomId or canonical playerId is invalid";
+            return result;
+        }
+
+        const std::string path =
+            "/v1/meta/p2p-rooms/" + UrlEncodePathSegment(roomId) +
+            "/members/" + UrlEncodePathSegment(playerId) + "/loadouts";
+        return ParsePlayerLoadouts(RequestJson(path), roomId, playerId);
     }
 
-    std::optional<nlohmann::json> MetaserverClient::GetPlayerLoadout(const std::string& playerId) const
+    HttpResult MetaserverClient::RequestJson(const std::string& path) const
     {
-        return GetJson("/api/loadout/" + UrlEncodePathSegment(playerId));
-    }
-
-    std::optional<nlohmann::json> MetaserverClient::GetPlayerRoleLoadout(const std::string& playerId, const std::string& roleId) const
-    {
-        return GetJson("/api/loadout/" + UrlEncodePathSegment(playerId) + "/" + UrlEncodePathSegment(roleId));
-    }
-
-    bool MetaserverClient::PutPlayerLoadout(const std::string& playerId, const nlohmann::json& snapshot) const
-    {
-        const std::string body = snapshot.dump();
-        auto response = RequestJson(
-            L"PUT",
-            "/api/loadout/" + UrlEncodePathSegment(playerId),
-            &body);
-        return response.has_value();
-    }
-
-    std::optional<nlohmann::json> MetaserverClient::GetJson(const std::string& path) const
-    {
-        return RequestJson(L"GET", path, nullptr);
-    }
-
-    std::optional<nlohmann::json> MetaserverClient::RequestJson(
-        const std::wstring& method,
-        const std::string& path,
-        const std::string* jsonBody) const
-    {
-        // 所有请求都是短连接同步 HTTP。角色选择发生在服务端确认阶段，
-        // 这里宁可快速失败，也不阻塞游戏线程太久。
+        HttpResult result;
         std::wstring host;
-        INTERNET_PORT port = 0;
         std::wstring requestPath;
+        INTERNET_PORT port = 0;
         bool secure = false;
-        const std::string fullUrl = baseUrl_ + path;
-        if (!CrackUrl(fullUrl, host, port, requestPath, secure)) return std::nullopt;
+        if (!CrackUrl(BaseUrl() + path, host, port, requestPath, secure))
+        {
+            result.ErrorCode = HttpErrorCode::InvalidBaseUrl;
+            result.ErrorMessage = "LogicServerURL is not a valid HTTP URL";
+            return result;
+        }
 
         WinHttpHandle session(WinHttpOpen(
-            L"ProjectReboundPayload/1.0",
-            WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+            L"ProjectReboundPayload/2.0",
+            WINHTTP_ACCESS_TYPE_NO_PROXY,
             WINHTTP_NO_PROXY_NAME,
             WINHTTP_NO_PROXY_BYPASS,
             0));
-        if (!session) return std::nullopt;
-
+        if (!session)
+        {
+            SetTransportError(result, "WinHttpOpen failed");
+            return result;
+        }
         WinHttpSetTimeouts(session.Handle, 3000, 3000, 3000, 3000);
 
         WinHttpHandle connection(WinHttpConnect(session.Handle, host.c_str(), port, 0));
-        if (!connection) return std::nullopt;
+        if (!connection)
+        {
+            SetTransportError(result, "WinHttpConnect failed");
+            return result;
+        }
 
+        static const wchar_t* AcceptTypes[] = { L"application/json", nullptr };
         const DWORD flags = secure ? WINHTTP_FLAG_SECURE : 0;
         WinHttpHandle request(WinHttpOpenRequest(
-            connection.Handle,
-            method.c_str(),
-            requestPath.c_str(),
-            nullptr,
-            WINHTTP_NO_REFERER,
-            WINHTTP_DEFAULT_ACCEPT_TYPES,
-            flags));
-        if (!request) return std::nullopt;
-
-        static constexpr wchar_t acceptHeader[] = L"Accept: application/json\r\n";
-        static constexpr wchar_t jsonHeader[] = L"Content-Type: application/json\r\nAccept: application/json\r\n";
-        const wchar_t* headers = jsonBody ? jsonHeader : acceptHeader;
-        const DWORD bodySize = jsonBody ? static_cast<DWORD>(jsonBody->size()) : 0;
-        void* bodyData = jsonBody && bodySize > 0
-            ? const_cast<char*>(jsonBody->data())
-            : WINHTTP_NO_REQUEST_DATA;
-        if (!WinHttpSendRequest(
-            request.Handle,
-            headers,
-            static_cast<DWORD>(-1),
-            bodyData,
-            bodySize,
-            bodySize,
-            0))
+            connection.Handle, L"GET", requestPath.c_str(), nullptr,
+            WINHTTP_NO_REFERER, AcceptTypes, flags));
+        if (!request)
         {
-            return std::nullopt;
+            SetTransportError(result, "WinHttpOpenRequest failed");
+            return result;
         }
-        if (!WinHttpReceiveResponse(request.Handle, nullptr)) return std::nullopt;
+
+        // The configured origin is the local MetaTunnel trust boundary. Never
+        // follow an upstream redirect or let WinHTTP synthesize credentials or
+        // cookie state for a different origin.
+        DWORD disabledFeatures =
+            WINHTTP_DISABLE_REDIRECTS |
+            WINHTTP_DISABLE_AUTHENTICATION |
+            WINHTTP_DISABLE_COOKIES;
+        if (!WinHttpSetOption(
+            request.Handle, WINHTTP_OPTION_DISABLE_FEATURE,
+            &disabledFeatures, sizeof(disabledFeatures)))
+        {
+            SetTransportError(result, "failed to disable WinHTTP redirect/auth state");
+            return result;
+        }
+
+        // MetaTunnel injects the current player's bearer token. Payload must not
+        // receive or synthesize an Authorization header.
+        static constexpr wchar_t Headers[] =
+            L"Accept: application/json\r\n"
+            L"Cache-Control: no-cache\r\n";
+        if (!WinHttpSendRequest(
+            request.Handle, Headers, static_cast<DWORD>(-1),
+            WINHTTP_NO_REQUEST_DATA, 0, 0, 0))
+        {
+            SetTransportError(result, "WinHttpSendRequest failed");
+            return result;
+        }
+        if (!WinHttpReceiveResponse(request.Handle, nullptr))
+        {
+            SetTransportError(result, "WinHttpReceiveResponse failed");
+            return result;
+        }
 
         DWORD status = 0;
         DWORD statusSize = sizeof(status);
@@ -242,29 +465,75 @@ namespace LoadoutMetaserver
             request.Handle,
             WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
             WINHTTP_HEADER_NAME_BY_INDEX,
-            &status,
-            &statusSize,
-            WINHTTP_NO_HEADER_INDEX))
+            &status, &statusSize, WINHTTP_NO_HEADER_INDEX))
         {
-            return std::nullopt;
+            SetTransportError(result, "HTTP status is unavailable");
+            return result;
         }
-        if (status < 200 || status >= 300) return std::nullopt;
+        result.StatusCode = static_cast<int>(status);
+
+        DWORD contentLength = 0;
+        DWORD contentLengthSize = sizeof(contentLength);
+        if (WinHttpQueryHeaders(
+            request.Handle,
+            WINHTTP_QUERY_CONTENT_LENGTH | WINHTTP_QUERY_FLAG_NUMBER,
+            WINHTTP_HEADER_NAME_BY_INDEX,
+            &contentLength, &contentLengthSize, WINHTTP_NO_HEADER_INDEX) &&
+            contentLength > MaxResponseBytes)
+        {
+            result.ErrorCode = HttpErrorCode::ResponseTooLarge;
+            result.ErrorMessage = "metaserver response exceeds 512 KiB";
+            return result;
+        }
 
         std::string body;
+        if (contentLength > 0) body.reserve(contentLength);
         for (;;)
         {
             DWORD available = 0;
-            if (!WinHttpQueryDataAvailable(request.Handle, &available)) return std::nullopt;
+            if (!WinHttpQueryDataAvailable(request.Handle, &available))
+            {
+                SetTransportError(result, "WinHttpQueryDataAvailable failed");
+                return result;
+            }
             if (available == 0) break;
+            if (available > MaxResponseBytes || body.size() > MaxResponseBytes - available)
+            {
+                result.ErrorCode = HttpErrorCode::ResponseTooLarge;
+                result.ErrorMessage = "metaserver response exceeds 512 KiB";
+                return result;
+            }
 
             std::vector<char> buffer(available);
             DWORD read = 0;
-            if (!WinHttpReadData(request.Handle, buffer.data(), available, &read)) return std::nullopt;
+            if (!WinHttpReadData(request.Handle, buffer.data(), available, &read))
+            {
+                SetTransportError(result, "WinHttpReadData failed");
+                return result;
+            }
             body.append(buffer.data(), read);
         }
 
-        auto parsed = nlohmann::json::parse(body, nullptr, false);
-        if (parsed.is_discarded()) return std::nullopt;
-        return parsed;
+        if (!body.empty())
+        {
+            result.Body = nlohmann::json::parse(body, nullptr, false);
+            if (result.Body.is_discarded()) result.Body = nlohmann::json();
+        }
+        ExtractEnvelopeMetadata(result);
+
+        if (status < 200 || status >= 300)
+        {
+            result.ErrorCode = HttpErrorCode::HttpStatus;
+            if (result.ErrorMessage.empty())
+                result.ErrorMessage = "metaserver returned HTTP " + std::to_string(status);
+            return result;
+        }
+        if (body.empty() || result.Body.is_null())
+        {
+            result.ErrorCode = HttpErrorCode::InvalidJson;
+            result.ErrorMessage = "metaserver returned invalid JSON";
+            return result;
+        }
+        return result;
     }
 }

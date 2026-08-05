@@ -16,6 +16,7 @@
 #include "Replication/libreplicate.h"
 #include "ServerLogic/LateJoinManager.h"
 #include "Communication/CommandFramework.h"
+#include "Loadout/LoadoutManager.h"
 
 #include "Config/Config.h"
 #include "Debug/Debug.h"
@@ -37,6 +38,8 @@ HMODULE gPayloadModule = nullptr;
 static CommandFramework* g_CmdFramework = nullptr;
 static std::mutex g_CmdFrameworkMutex;
 DebugTool* gDebugTool = nullptr;
+LoadoutManager* gLoadoutManager = nullptr;
+std::recursive_mutex gLoadoutManagerMutex;
 
 bool OnJoinFromPipe(const std::string& ip, const std::string& token)
 {
@@ -75,6 +78,19 @@ extern "C" __declspec(dllexport) void ShutdownPayloadCommandFramework()
         framework->Stop();
         delete framework;
     }
+
+    // Explicit unloaders invoke this outside the loader lock, so this is also
+    // the safe place to join the loadout HTTP worker.
+    {
+        std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+        LoadoutManager* loadoutManager = gLoadoutManager;
+        gLoadoutManager = nullptr;
+        if (loadoutManager)
+        {
+            loadoutManager->StopServer();
+            delete loadoutManager;
+        }
+    }
 }
 
 // ======================================================
@@ -84,7 +100,7 @@ extern "C" __declspec(dllexport) void ShutdownPayloadCommandFramework()
 void MainThread()
 {
     ClientLog("[BOOT] DLL injected, starting...");
-    ClientLog("[BOOT] Build profile: BattleLog extraction; equipment override disabled.");
+    ClientLog("[BOOT] Build profile: BattleLog extraction; server loadout bridge enabled when configured.");
     try
     {
         // Calms down the ui font missing panic
@@ -148,12 +164,65 @@ void MainThread()
             // Initialize LateJoinManager
             gLateJoinManager = new LateJoinManager(
                 DidProcStartMatch,
+                DidBroadcastRoleSelection,
                 PlayerRespawnAllowedMap,
-                ReportRoomStartedIfNeeded
+                ReportRoomStartedIfNeeded,
+                [](APBPlayerController* playerController)
+                {
+                    std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+                    return !gLoadoutManager ||
+                        gLoadoutManager->CanReleaseRoleSpawn(playerController);
+                },
+                [](APBPlayerController* playerController)
+                {
+                    std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+                    if (gLoadoutManager)
+                        gLoadoutManager->BeginSpawnDispatch(playerController);
+                },
+                [](APBPlayerController* playerController)
+                {
+                    std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+                    if (gLoadoutManager)
+                        gLoadoutManager->CompleteSpawnDispatch(playerController);
+                },
+                [](APBPlayerController* playerController)
+                {
+                    std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+                    if (gLoadoutManager)
+                        gLoadoutManager->FinalizeSpawnRequest(playerController);
+                },
+                [](APBPlayerController* playerController)
+                {
+                    std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+                    if (gLoadoutManager)
+                        gLoadoutManager->AbandonSpawnRequest(playerController);
+                }
             );
             Log("[SERVER] LateJoinManager initialized.");
 
-            StartServer();
+            const std::string logicServerUrl = GetCmdValue("-LogicServerURL=");
+            if (!HostRoomId.empty() && !logicServerUrl.empty())
+            {
+                auto manager = std::make_unique<LoadoutManager>();
+                if (manager->StartServer(logicServerUrl, HostRoomId))
+                {
+                    std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+                    gLoadoutManager = manager.release();
+                    Log("[LOADOUT] Community-room loadout bridge initialized.");
+                }
+                else
+                {
+                    Log("[LOADOUT] Bridge disabled; native defaults remain authoritative.");
+                }
+            }
+            else
+            {
+                Log("[LOADOUT] Missing -LogicServerURL or -roomid; using native defaults.");
+            }
+
+            // Publish the loadout bridge before the listen socket begins
+            // accepting players so PostLogin cannot race manager creation.
+            ::StartServer();
 
             // Toolbox owns enrollment and long-lived node credentials. The
             // in-process server exposes only non-secret runtime status over
