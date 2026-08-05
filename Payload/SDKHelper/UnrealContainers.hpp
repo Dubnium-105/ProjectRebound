@@ -170,10 +170,12 @@ namespace UC
 
 				inline void FitAllocation(const int32 OldNumElements, const int32 NewNumElements)
 				{
+					const int32 InlineElementCount = static_cast<int32>(NumInlineElements);
+
 					/* No need to do anything if NewSize still fits into InlineData */
-					if (NewNumElements <= NumInlineElements)
+					if (NewNumElements <= InlineElementCount)
 					{
-						if (OldNumElements > NumInlineElements && SecondaryData)
+						if (OldNumElements > InlineElementCount && SecondaryData)
 						{
 							memcpy(InlineData, SecondaryData, InlineDataSizeBytes);
 							FMemory::Free(SecondaryData);
@@ -185,7 +187,7 @@ namespace UC
 					/* Allocates if SecondaryData is nullptr */
 					SecondaryData = reinterpret_cast<ElementType*>(FMemory::Realloc(SecondaryData, NewNumElements * ElementSize, ElementAlign));
 
-					if (OldNumElements < NumInlineElements)
+					if (OldNumElements < InlineElementCount)
 						memcpy(SecondaryData, InlineData, InlineDataSizeBytes);
 				}
 
@@ -540,8 +542,11 @@ namespace UC
 			if (*this)
 			{
 				std::wstring WData(Data);
-#pragma warning(suppress: 4244)
-				return std::string(WData.begin(), WData.end());
+				std::string Result;
+				Result.reserve(WData.size());
+				for (const wchar_t Character : WData)
+					Result.push_back(static_cast<char>(Character));
+				return Result;
 			}
 
 			return "";
@@ -816,6 +821,25 @@ namespace UC
 				UnvisitedBitMask &= ~this->Mask;
 
 				FindFirstSetBit();
+
+				return *this;
+			}
+
+			inline FSetBitIterator& operator--()
+			{
+				const int32 SearchStart = CurrentBitIndex > Array.Num() ? Array.Num() : CurrentBitIndex;
+				for (int32 BitIndex = SearchStart - 1; BitIndex >= 0; --BitIndex)
+				{
+					if (!Array[BitIndex])
+						continue;
+
+					this->WordIndex = BitIndex >> NumBitsPerDWORDLogTwo;
+					this->Mask = 1U << (BitIndex & (NumBitsPerDWORD - 1));
+					UnvisitedBitMask = (~0U) << (BitIndex & (NumBitsPerDWORD - 1));
+					CurrentBitIndex = BitIndex;
+					BaseBitIndex = BitIndex & ~(NumBitsPerDWORD - 1);
+					return *this;
+				}
 
 				return *this;
 			}
