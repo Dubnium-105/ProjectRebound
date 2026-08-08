@@ -74,6 +74,7 @@ func TestSeparatedControlPlaneHasSecureNetworkAndPersistentSecrets(t *testing.T)
 		"RELAY_TOKEN_PRIVATE_KEY_BASE64", "UPDATE_SIGNING_PRIVATE_KEY_BASE64", "ADMIN_TOKENS",
 		"ADMIN_ACCESS_TOKEN_PRIVATE_KEY_BASE64", "ADMIN_MFA_ENCRYPTION_KEY_BASE64",
 		"TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY",
+		"DOWNLOAD_S3_ACCESS_KEY_ID", "DOWNLOAD_S3_SECRET_ACCESS_KEY",
 	}
 	for _, name := range requiredSecrets {
 		if _, ok := control.Environment[name]; !ok {
@@ -108,7 +109,7 @@ func TestSeparatedAdminWebHasOnlyEdgeNetworkAndNoSecrets(t *testing.T) {
 	var document struct {
 		Services map[string]struct {
 			Environment map[string]any `yaml:"environment"`
-			Networks    []string       `yaml:"networks"`
+			Networks    any            `yaml:"networks"`
 			ReadOnly    bool           `yaml:"read_only"`
 			CapDrop     []string       `yaml:"cap_drop"`
 			Expose      []string       `yaml:"expose"`
@@ -124,7 +125,8 @@ func TestSeparatedAdminWebHasOnlyEdgeNetworkAndNoSecrets(t *testing.T) {
 	if !ok {
 		t.Fatal("separated deployment is missing admin-web")
 	}
-	if len(adminWeb.Networks) != 1 || adminWeb.Networks[0] != "edge" {
+	adminNetworks := composeNetworkNames(adminWeb.Networks)
+	if len(adminNetworks) != 1 || adminNetworks[0] != "edge" {
 		t.Fatalf("admin-web must join only the edge network: %#v", adminWeb.Networks)
 	}
 	if !adminWeb.ReadOnly || len(adminWeb.CapDrop) != 1 || adminWeb.CapDrop[0] != "ALL" {
@@ -155,10 +157,100 @@ func TestSeparatedAdminWebHasOnlyEdgeNetworkAndNoSecrets(t *testing.T) {
 		"frame-src https://challenges.cloudflare.com",
 		"frame-ancestors 'none'",
 		"X-Frame-Options DENY",
+		"connect-src 'self' https://{$MINIO_S3_SITE:s3.example.com}",
 	} {
 		if !strings.Contains(string(caddy), policy) {
 			t.Fatalf("administrator Caddy policy is missing %q", policy)
 		}
+	}
+}
+
+func TestSelfHostedMinIOIsTheDefaultDownloadStorage(t *testing.T) {
+	type service struct {
+		Image       string         `yaml:"image"`
+		Environment map[string]any `yaml:"environment"`
+		Ports       []string       `yaml:"ports"`
+		Volumes     []string       `yaml:"volumes"`
+		ReadOnly    bool           `yaml:"read_only"`
+		Networks    any            `yaml:"networks"`
+	}
+	type composeDocument struct {
+		Services map[string]service `yaml:"services"`
+		Volumes  map[string]any     `yaml:"volumes"`
+		Networks map[string]struct {
+			Internal bool `yaml:"internal"`
+		} `yaml:"networks"`
+	}
+
+	for _, path := range []string{"docker-compose.yaml", "../control-plane/docker-compose.yaml"} {
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var document composeDocument
+		if err := yaml.Unmarshal(contents, &document); err != nil {
+			t.Fatalf("parse %s: %v", path, err)
+		}
+		minio, ok := document.Services["minio"]
+		if !ok || !strings.Contains(minio.Image, "quay.io/minio/minio:RELEASE.") {
+			t.Fatalf("%s does not pin a MinIO server image: %#v", path, minio)
+		}
+		if _, ok := document.Services["minio-provision"]; !ok {
+			t.Fatalf("%s is missing idempotent MinIO provisioning", path)
+		}
+		if _, ok := document.Volumes["minio-data"]; !ok {
+			t.Fatalf("%s does not persist MinIO data", path)
+		}
+		minioNetworks := composeNetworkNames(minio.Networks)
+		if len(minioNetworks) != 1 || minioNetworks[0] != "storage" || !document.Networks["storage"].Internal {
+			t.Fatalf("%s does not isolate MinIO on the internal storage network: %#v", path, minio.Networks)
+		}
+		for _, port := range minio.Ports {
+			if !strings.HasPrefix(port, "127.0.0.1:") {
+				t.Fatalf("%s exposes MinIO directly on a non-loopback port: %s", path, port)
+			}
+		}
+		control := document.Services["control-plane"]
+		if got := control.Environment["DOWNLOADS_ENABLED"]; got != "${DOWNLOADS_ENABLED:-true}" {
+			t.Fatalf("%s does not enable self-hosted downloads by default: %#v", path, got)
+		}
+		if _, exists := control.Environment["MINIO_ROOT_PASSWORD"]; exists {
+			t.Fatalf("%s leaks the MinIO root credential to the control plane", path)
+		}
+	}
+
+	provisioner, err := os.ReadFile("../minio/provision-downloads.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{
+		"s3:PutObject", "s3:GetObject", "s3:DeleteObject", "s3:AbortMultipartUpload",
+		"s3:ListMultipartUploadParts", "mc cors set", "mc anonymous set-json", "Deliberately omit s3:ListBucket",
+	} {
+		if !strings.Contains(string(provisioner), required) {
+			t.Fatalf("MinIO provisioning is missing %q", required)
+		}
+	}
+
+	productionCaddy, err := os.ReadFile("../control-plane/Caddyfile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{
+		"{$MINIO_S3_SITE:s3.example.com}", "{$DOWNLOADS_SITE:downloads.example.com}",
+		"method GET HEAD", "/{$DOWNLOAD_S3_BUCKET:project-rebound-downloads}/downloads/*",
+	} {
+		if !strings.Contains(string(productionCaddy), required) {
+			t.Fatalf("MinIO Caddy routing is missing %q", required)
+		}
+	}
+
+	developmentCaddy, err := os.ReadFile("../caddy/Caddyfile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(developmentCaddy), "connect-src 'self' http://minio.localhost:9000") {
+		t.Fatal("development admin CSP does not allow the local MinIO upload endpoint")
 	}
 }
 
@@ -175,7 +267,7 @@ func TestSeparatedMetaServerIsHardenedAndOptIn(t *testing.T) {
 			ReadOnly    bool           `yaml:"read_only"`
 			CapDrop     []string       `yaml:"cap_drop"`
 			PidsLimit   int            `yaml:"pids_limit"`
-			Networks    []string       `yaml:"networks"`
+			Networks    any            `yaml:"networks"`
 		} `yaml:"services"`
 	}
 	if err := yaml.Unmarshal(contents, &document); err != nil {
@@ -222,6 +314,27 @@ func TestSeparatedMetaServerIsHardenedAndOptIn(t *testing.T) {
 		if _, ok := meta.Environment[verifier]; !ok {
 			t.Fatalf("meta-server is missing verifier %s", verifier)
 		}
+	}
+}
+
+func composeNetworkNames(value any) []string {
+	switch networks := value.(type) {
+	case []any:
+		result := make([]string, 0, len(networks))
+		for _, network := range networks {
+			if name, ok := network.(string); ok {
+				result = append(result, name)
+			}
+		}
+		return result
+	case map[string]any:
+		result := make([]string, 0, len(networks))
+		for name := range networks {
+			result = append(result, name)
+		}
+		return result
+	default:
+		return nil
 	}
 }
 

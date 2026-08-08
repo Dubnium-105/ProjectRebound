@@ -1,55 +1,99 @@
-# 下载目录存储
+# 下载目录与本机 MinIO
 
 [English](download-catalog.md) | 简体中文
 
-通用下载目录与启动器更新 Manifest 相互独立，默认关闭。设置
-`DOWNLOADS_ENABLED=true` 前，先创建 S3 兼容桶和公开 CDN 域名。写入凭据只授予
-服务端生成对象前缀所需的最小权限，且不得写入 YAML 或日志。
+通用下载目录与启动器更新 Manifest 相互独立。Control Plane 的生产和开发 Compose
+默认启动本机 MinIO，并令管理台下载功能默认启用；直接运行二进制时仍保持显式配置，
+避免在缺少凭据时误启用。
 
-必填环境变量为 `DOWNLOAD_S3_ENDPOINT`、`DOWNLOAD_S3_REGION`、
-`DOWNLOAD_S3_BUCKET`、`DOWNLOAD_S3_ACCESS_KEY_ID`、
-`DOWNLOAD_S3_SECRET_ACCESS_KEY` 和 `DOWNLOAD_PUBLIC_BASE_URL`。R2 通常使用
-`auto` region，AWS S3 使用真实 region；MinIO endpoint 必须同时能被控制面和管理员
-浏览器访问。公开基址应把相同对象 key 映射到不可变对象，并支持 `HEAD`、`GET` 和 Range。
+## 默认拓扑
 
-## 桶 CORS
+生产部署使用三个入口：
 
-浏览器通过预签名 S3 URL 直传。桶 CORS 只允许实际 Admin Web 来源，允许 `PUT`、
-`HEAD`，允许全部签名/内容请求头，并暴露 `ETag`。使用凭据时不得配通配来源。R2
-配置说明见 [Cloudflare R2 CORS 文档](https://developers.cloudflare.com/r2/buckets/cors/)；
-风格最小配置如下：
+- `MINIO_S3_SITE`：MinIO S3 API 域名，供控制面和管理员浏览器使用预签名 PUT。
+- `DOWNLOADS_SITE`：只允许 `GET`、`HEAD`，且只代理
+  `/<bucket>/downloads/*` 的公开下载域名。
+- `127.0.0.1:MINIO_CONSOLE_PORT`：仅通过 SSH 隧道访问的 MinIO Console。
 
-```json
-[
-  {
-    "AllowedOrigins": ["https://admin.project-rebound.space"],
-    "AllowedMethods": ["PUT", "HEAD"],
-    "AllowedHeaders": ["*"],
-    "ExposeHeaders": ["ETag"],
-    "MaxAgeSeconds": 3600
-  }
-]
+为 `MINIO_S3_SITE` 和 `DOWNLOADS_SITE` 配置指向 Control Plane 主机的 DNS。Caddy
+自动申请 TLS，并在内部网络为这两个域名提供别名，避免控制面依赖公网回环路由。
+生产环境不得直接暴露 MinIO 的 9000/9001 端口。
+
+运行 `scripts/generate-control-plane-env.sh` 会生成彼此独立的 MinIO root 凭据和
+`DOWNLOAD_S3_*` 应用凭据。部署前把 `.env` 中的 `admin.example.com`、
+`s3.example.com`、`downloads.example.com` 替换为真实域名，并保持：
+
+```dotenv
+DOWNLOADS_ENABLED=true
+DOWNLOAD_S3_ENDPOINT=https://s3.example.com
+DOWNLOAD_S3_REGION=us-east-1
+DOWNLOAD_S3_BUCKET=project-rebound-downloads
+DOWNLOAD_PUBLIC_BASE_URL=https://downloads.example.com/project-rebound-downloads
+MINIO_CORS_ALLOWED_ORIGINS=https://admin.example.com
 ```
 
-## 生命周期与恢复
+公开基址必须包含桶名，因为服务随后直接追加服务端生成的
+`downloads/<item-slug>/<version-id>/<filename>` 对象 key。
 
-超过 64 MiB 的文件使用 16 MiB 分片，浏览器最多四路并发；会话 24 小时后过期，
-后台任务会中止过期 multipart。浏览器可恢复已上传分片，小文件的单次 PUT 也能续签。
-完成上传后，后台任务会流式复算对象大小与 SHA-256，通过后才能发布。
+## 自动初始化
 
-单文件 PUT 带 `If-None-Match: *`，因此尚未过期的签名也不能覆盖首次成功创建的对象；
-multipart 完成后，原 upload ID 不能再接收分片或重复完成。不要给管理员或无关服务
-授予该前缀的无条件覆盖权限；若所选供应商支持，可再启用版本控制或 Object Lock。
-底层前置条件语义见 [Amazon S3 条件写入文档](https://docs.aws.amazon.com/AmazonS3/latest/userguide/conditional-writes.html)。
+`minio-provision` 是可重复运行的一次性容器。每次部署时它会：
 
-发布和归档分别要求 `downloads.publish`、`downloads.archive`，并要求操作原因和当前
-会话 MFA Step-up。归档后的数据库记录与对象永久保留；确认桶生命周期规则不会删除
-该前缀，并把下载表和存储凭据纳入备份、轮换流程。审计仅记录 ID 与状态变化，严禁
-记录凭据、预签名 URL、ETag 或上传内容。
+1. 创建 `DOWNLOAD_S3_BUCKET`；
+2. 创建/更新独立的控制面应用用户；
+3. 仅授予 `downloads/*` 所需的 PUT、GET、DELETE 和 multipart 权限；
+4. 为管理台来源配置桶级 PUT/HEAD CORS，并暴露 `ETag`；
+5. 只为 `downloads/` 前缀授予匿名 `GetObject`，明确不授予桶列表权限。
 
-PostgreSQL 生命周期集成测试需要设置 `TEST_DATABASE_URL`。如需针对 MinIO/R2/S3
-执行真实的单文件与 multipart 对象测试，还要设置 `TEST_DOWNLOAD_S3_ENDPOINT`、
+MinIO root 凭据只进入 MinIO 与初始化容器，不会进入 Control Plane 或 Admin Web。
+管理台 CSP 只允许连接 `MINIO_S3_SITE`，公开下载域名不会接受上传和管理请求。
+
+MinIO CORS 管理说明见
+[MinIO CORS 文档](https://docs.min.io/aistor/administration/cors-configuration/)。
+
+## 运维
+
+MinIO Console 默认绑定回环地址，可用以下方式访问：
+
+```bash
+ssh -L 9001:127.0.0.1:9001 user@CONTROL_HOST
+```
+
+然后打开 `http://127.0.0.1:9001`。不要使用 root 凭据作为应用凭据，也不要把
+`.env`、预签名 URL 或 ETag 写入日志和工单。
+
+对象保存在 `minio-data` volume。单节点 volume 不是备份：生产环境应使用本地直连
+冗余磁盘或分布式 MinIO，并定期制作异机备份。不得给 `downloads/` 配置自动删除
+生命周期规则；归档后的数据库记录和对象需要永久保留。更换 MinIO 服务地址时，
+必须同时更新 S3 API 域名、公开基址、管理台 CSP 和桶 CORS。
+
+超过 64 MiB 的文件默认使用 16 MiB 分片，浏览器最多四路并发；会话 24 小时后
+过期。上传完成后，后台任务从 MinIO 流式复算大小与 SHA-256，校验通过后才能发布。
+
+## 验证
+
+启动默认部署：
+
+```bash
+docker compose --env-file deployments/control-plane/.env \
+  -f deployments/control-plane/docker-compose.yaml up -d
+```
+
+检查 MinIO 初始化和 Control Plane：
+
+```bash
+docker compose --env-file deployments/control-plane/.env \
+  -f deployments/control-plane/docker-compose.yaml logs minio-provision control-plane
+curl -fsS https://api.example.com/v1/downloads
+```
+
+真实对象集成测试应使用专用测试桶，并设置 `TEST_DOWNLOAD_S3_ENDPOINT`、
 `TEST_DOWNLOAD_S3_BUCKET`、`TEST_DOWNLOAD_S3_ACCESS_KEY_ID`、
-`TEST_DOWNLOAD_S3_SECRET_ACCESS_KEY`，并可选设置 `TEST_DOWNLOAD_S3_REGION`、
-`TEST_DOWNLOAD_S3_PUBLIC_BASE_URL`，然后运行 `go test ./internal/download -count=1`。
-请使用空的专用测试桶；测试只会创建并清理 `downloads/integration/` 下的对象。
+`TEST_DOWNLOAD_S3_SECRET_ACCESS_KEY`；可选设置 `TEST_DOWNLOAD_S3_REGION` 和
+`TEST_DOWNLOAD_S3_PUBLIC_BASE_URL`。运行：
+
+```bash
+go test ./internal/download -run TestS3StorageAgainstCompatibleService -count=1
+```
+
+测试只会创建并清理 `downloads/integration/` 下的对象。

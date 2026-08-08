@@ -3,7 +3,7 @@
 English | [简体中文](README.zh-CN.md)
 
 - Local all-in-one development: `compose/docker-compose.yaml`
-- Separated control plane: `control-plane/docker-compose.yaml`
+- Separated control plane: `control-plane/docker-compose.yaml` (includes local MinIO download storage and one-shot provisioning)
 - Separated Linux edge relay: `edge-relay/docker-compose.yaml`
 - Prometheus and Grafana: `monitoring/README.md`
 - Full Debian procedure: `../../docs/operations/deployment-guide.md`

@@ -58,6 +58,8 @@ META_REDIS_PASSWORD=$(random_hex 32)
 
 PUBLIC_API_SITE=http://:80
 ADMIN_WEB_SITE=admin.example.com
+MINIO_S3_SITE=s3.example.com
+DOWNLOADS_SITE=downloads.example.com
 PUBLIC_API_BIND_IP=0.0.0.0
 PUBLIC_API_HTTP_PORT=8080
 PUBLIC_API_HTTPS_PORT=443
@@ -125,14 +127,20 @@ UPDATE_MINIMUM_CLIENT_VERSION=1.0.0
 UPDATE_REALTIME_URL=wss://api.example.com/v1/realtime/connect
 UPDATE_STUN_SERVERS=stun:stun.example.com:3478
 
-# Enable only after configuring the S3-compatible bucket, CDN, and bucket CORS.
-DOWNLOADS_ENABLED=false
-DOWNLOAD_S3_ENDPOINT=https://ACCOUNT_ID.r2.cloudflarestorage.com
-DOWNLOAD_S3_REGION=auto
+# The default control-plane deployment starts and provisions its own MinIO.
+MINIO_IMAGE=quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z.hotfix.7aa24e772
+MINIO_CLIENT_IMAGE=quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
+MINIO_ROOT_USER=minio-root-$(random_hex 8)
+MINIO_ROOT_PASSWORD=$(random_hex 32)
+MINIO_CONSOLE_PORT=9001
+MINIO_CORS_ALLOWED_ORIGINS=https://admin.example.com
+DOWNLOADS_ENABLED=true
+DOWNLOAD_S3_ENDPOINT=https://s3.example.com
+DOWNLOAD_S3_REGION=us-east-1
 DOWNLOAD_S3_BUCKET=project-rebound-downloads
-DOWNLOAD_S3_ACCESS_KEY_ID=REPLACE_WHEN_ENABLED
-DOWNLOAD_S3_SECRET_ACCESS_KEY=REPLACE_WHEN_ENABLED
-DOWNLOAD_PUBLIC_BASE_URL=https://downloads.example.com
+DOWNLOAD_S3_ACCESS_KEY_ID=downloads-$(random_hex 8)
+DOWNLOAD_S3_SECRET_ACCESS_KEY=$(random_hex 32)
+DOWNLOAD_PUBLIC_BASE_URL=https://downloads.example.com/project-rebound-downloads
 DOWNLOAD_ALLOWED_EXTENSIONS=exe,msi,zip,7z,pdf,md,txt,docx
 DOWNLOAD_MAX_FILE_BYTES=2147483648
 DOWNLOAD_MULTIPART_THRESHOLD_BYTES=67108864

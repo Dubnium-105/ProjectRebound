@@ -34,6 +34,55 @@ services:
     networks:
       - data
 
+  minio:
+    image: "${MINIO_IMAGE:-quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z.hotfix.7aa24e772}"
+    command: ["server", "/data", "--address", ":9000", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:-projectrebound-root}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:-projectrebound_minio_root_dev_only}"
+    volumes:
+      - minio-data:/data
+    ports:
+      - "127.0.0.1:${MINIO_API_HOST_PORT:-9000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_HOST_PORT:-9001}:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    networks:
+      storage:
+        aliases:
+          - minio.localhost
+
+  minio-provision:
+    image: "${MINIO_CLIENT_IMAGE:-quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z}"
+    restart: "no"
+    entrypoint: ["/bin/sh", "/provision-minio.sh"]
+    environment:
+      MC_CONFIG_DIR: /tmp/mc
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:-projectrebound-root}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:-projectrebound_minio_root_dev_only}"
+      DOWNLOAD_S3_BUCKET: "${DOWNLOAD_S3_BUCKET:-project-rebound-downloads}"
+      DOWNLOAD_S3_ACCESS_KEY_ID: "${DOWNLOAD_S3_ACCESS_KEY_ID:-projectrebound-downloads-dev}"
+      DOWNLOAD_S3_SECRET_ACCESS_KEY: "${DOWNLOAD_S3_SECRET_ACCESS_KEY:-projectrebound_downloads_secret_dev_only}"
+      MINIO_CORS_ALLOWED_ORIGINS: "${MINIO_CORS_ALLOWED_ORIGINS:-http://localhost:8081,http://127.0.0.1:8081,http://localhost:5173,http://127.0.0.1:5173}"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ../minio/provision-downloads.sh:/provision-minio.sh:ro
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - storage
+
   control-plane:
     build:
       context: ../..
@@ -90,13 +139,13 @@ services:
       UPDATE_MANIFEST_DIRECTORY: "/deployments/updates"
       UPDATE_SIGNING_KEY_ID: "${UPDATE_SIGNING_KEY_ID:-update-dev-ephemeral}"
       UPDATE_SIGNING_PRIVATE_KEY_BASE64: "${UPDATE_SIGNING_PRIVATE_KEY_BASE64:-}"
-      DOWNLOADS_ENABLED: "${DOWNLOADS_ENABLED:-false}"
-      DOWNLOAD_S3_ENDPOINT: "${DOWNLOAD_S3_ENDPOINT:-}"
-      DOWNLOAD_S3_REGION: "${DOWNLOAD_S3_REGION:-auto}"
-      DOWNLOAD_S3_BUCKET: "${DOWNLOAD_S3_BUCKET:-}"
-      DOWNLOAD_S3_ACCESS_KEY_ID: "${DOWNLOAD_S3_ACCESS_KEY_ID:-}"
-      DOWNLOAD_S3_SECRET_ACCESS_KEY: "${DOWNLOAD_S3_SECRET_ACCESS_KEY:-}"
-      DOWNLOAD_PUBLIC_BASE_URL: "${DOWNLOAD_PUBLIC_BASE_URL:-}"
+      DOWNLOADS_ENABLED: "${DOWNLOADS_ENABLED:-true}"
+      DOWNLOAD_S3_ENDPOINT: "${DOWNLOAD_S3_ENDPOINT:-http://minio.localhost:9000}"
+      DOWNLOAD_S3_REGION: "${DOWNLOAD_S3_REGION:-us-east-1}"
+      DOWNLOAD_S3_BUCKET: "${DOWNLOAD_S3_BUCKET:-project-rebound-downloads}"
+      DOWNLOAD_S3_ACCESS_KEY_ID: "${DOWNLOAD_S3_ACCESS_KEY_ID:-projectrebound-downloads-dev}"
+      DOWNLOAD_S3_SECRET_ACCESS_KEY: "${DOWNLOAD_S3_SECRET_ACCESS_KEY:-projectrebound_downloads_secret_dev_only}"
+      DOWNLOAD_PUBLIC_BASE_URL: "${DOWNLOAD_PUBLIC_BASE_URL:-http://minio.localhost:9000/project-rebound-downloads}"
       DOWNLOAD_ALLOWED_EXTENSIONS: "${DOWNLOAD_ALLOWED_EXTENSIONS:-exe,msi,zip,7z,pdf,md,txt,docx}"
       LOG_LEVEL: debug
     depends_on:
@@ -104,6 +153,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      minio-provision:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "/control-plane", "-healthcheck", "http://127.0.0.1:8080/health/live"]
       interval: 5s
@@ -118,6 +169,7 @@ services:
       - data
       - edge
       - monitoring
+      - storage
 
   admin-web:
     build:
@@ -228,6 +280,7 @@ services:
 volumes:
   postgres-data:
   redis-data:
+  minio-data:
   relay-data:
   prometheus-data:
   grafana-data:
@@ -237,4 +290,6 @@ networks:
   data:
     internal: true
   monitoring:
+    internal: true
+  storage:
     internal: true

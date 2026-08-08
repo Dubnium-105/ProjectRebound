@@ -205,7 +205,7 @@ jobs:
       - name: Validate shell syntax and line endings
         shell: bash
         run: |
-          bash -n Backend/scripts/*.sh Backend/scripts/backup/*.sh Backend/scripts/release/*.sh Backend/deploy/deploy.sh Backend/tests/netem/run-relay-matrix.sh Backend/tests/integration/*.sh Backend/tests/load/longrun/*.sh
+          bash -n Backend/scripts/*.sh Backend/scripts/backup/*.sh Backend/scripts/release/*.sh Backend/deploy/deploy.sh Backend/deployments/minio/*.sh Backend/tests/netem/run-relay-matrix.sh Backend/tests/integration/*.sh Backend/tests/load/longrun/*.sh
           if grep -IUlr $'\r' Backend/scripts Backend/deploy Backend/tests/netem Backend/tests/integration Backend/tests/load/longrun; then
             echo "CRLF found in Linux shell scripts" >&2
             exit 1

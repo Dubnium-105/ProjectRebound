@@ -195,14 +195,15 @@ update:
   vnt_rooms_enabled: false
 
 # Generic public files are separate from the signed launcher update manifests.
+# The Compose deployment overrides these values with its local MinIO service.
 # Credentials are accepted only through DOWNLOAD_S3_ACCESS_KEY_ID and
-# DOWNLOAD_S3_SECRET_ACCESS_KEY. Keep disabled until the bucket and CDN exist.
+# DOWNLOAD_S3_SECRET_ACCESS_KEY; direct binary launches remain opt-in.
 downloads:
   enabled: false
-  s3_endpoint: "https://ACCOUNT_ID.r2.cloudflarestorage.com"
-  s3_region: "auto"
+  s3_endpoint: "http://minio.localhost:9000"
+  s3_region: "us-east-1"
   s3_bucket: "project-rebound-downloads"
-  public_base_url: "https://downloads.example.com"
+  public_base_url: "http://minio.localhost:9000/project-rebound-downloads"
   allowed_extensions: ["exe", "msi", "zip", "7z", "pdf", "md", "txt", "docx"]
   max_file_bytes: 2147483648
   multipart_threshold_bytes: 67108864

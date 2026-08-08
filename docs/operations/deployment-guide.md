@@ -163,7 +163,7 @@ chmod +x scripts/*.sh deploy/deploy.sh
 chmod 600 deployments/control-plane/.env
 ```
 
-The generator creates independent Ed25519 Access Tokens, Relay Tokens, update signing keys, a device-fingerprint HMAC key, a 32-byte VNT room-secret encryption key, and separate ten-year Relay and Game Server CAs. It does not overwrite the existing `.env`, nor does it output the key text. Preserve `GAME_SERVER_CA_*` across rebuilds; replacing it prevents existing Dedicated Server certificates from being renewed normally.
+The generator creates independent Ed25519 Access Tokens, Relay Tokens, update signing keys, a device-fingerprint HMAC key, a 32-byte VNT room-secret encryption key, separate MinIO root/application credentials, and separate ten-year Relay and Game Server CAs. It does not overwrite the existing `.env`, nor does it output key text. Preserve `GAME_SERVER_CA_*` and MinIO credentials across rebuilds; replacing them prevents existing Dedicated Server certificate renewal or removes management access to stored downloads.
 
 Before deploying a release that supports certificate-backed Dedicated Servers, check an existing environment without printing either secret:
 
@@ -193,6 +193,7 @@ Edit `deployments/control-plane/.env`:
 - Change `UPDATE_CDN_BASE_URL`, `UPDATE_REALTIME_URL`, `UPDATE_STUN_SERVERS` to real addresses.
 - Test/IP mode reserved for `PUBLIC_API_SITE=http://:80` and `PUBLIC_API_HTTP_PORT=8080`.
 - Domain name production mode settings `PUBLIC_API_SITE=api.example.com`, `PUBLIC_API_HTTP_PORT=80`; DNS A/AAAA points to the control plane and opens 80/443, Caddy automatically applies for a certificate.
+- Download management uses same-host MinIO by default. Replace the example hosts in `MINIO_S3_SITE`, `DOWNLOADS_SITE`, `DOWNLOAD_S3_ENDPOINT`, `DOWNLOAD_PUBLIC_BASE_URL`, and `MINIO_CORS_ALLOWED_ORIGINS` together; point both S3 and download DNS A/AAAA records at the Control Plane. The public base must include the bucket name, and the MinIO Console must remain reachable only through an SSH tunnel to `127.0.0.1:MINIO_CONSOLE_PORT`.
 - When FRPC and the control plane are deployed on the same machine, `RELAY_CONTROL_BIND_IP` must remain `127.0.0.1`; only when FRPC is located on another trusted private network/VPN host, it is changed to the corresponding private network address and should not be directly bound to `0.0.0.0`.
 - `RELAY_CONTROL_SERVER_NAMES` must contain `control_server_name` used by the edge node, for example `control-plane,localhost,relay.example.com`.
 - Signing key IDs must be updated during rotation and old IDs cannot be reused after key changes.
@@ -202,6 +203,7 @@ Edit `deployments/control-plane/.env`:
 - Put the canonical ToolBox certificate at `TOOLBOX_PUBKEY_HOST_PATH` and mount it read-only at `TOOLBOX_PUBKEY_PATH`. The exact PEM bytes, including line endings, are hashed into every integrity proof; do not reformat or base64-transform the file. Production refuses to start without this setting. `INTEGRITY_CHALLENGE_TTL_SECONDS` defaults to 120 and `INTEGRITY_MAXIMUM_FAILURES` must remain 3 unless the client and incident-response policy are updated together.
 
 `.env` must be kept in the host secret storage, the permission must be `600`, and it must not be submitted to Git, copied into a mirror, or written into a work order.
+Include the `minio-data` volume in a separate off-host backup plan. It is not a substitute for PostgreSQL backups and must not exist only as a single-host, single-disk copy.
 
 ### 5.2 Update descriptor
 

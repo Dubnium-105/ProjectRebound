@@ -4,7 +4,7 @@
 
 
 - 本地一体化开发：`compose/docker-compose.yaml`
-- 分离的控制平面：`control-plane/docker-compose.yaml`
+- 分离的控制平面：`control-plane/docker-compose.yaml`（包含本机 MinIO 下载存储与一次性自动初始化）
 - 分离的Linux边缘中继：`edge-relay/docker-compose.yaml`
 - 普罗米修斯和格拉法纳：`monitoring/README.md`
 - 完整的 Debian 程序：`../../docs/operations/deployment-guide.md`

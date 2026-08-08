@@ -42,6 +42,63 @@ services:
     networks:
       - data
 
+  minio:
+    image: "${MINIO_IMAGE:-quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z.hotfix.7aa24e772}"
+    restart: unless-stopped
+    command: ["server", "/data", "--address", ":9000", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 512
+    volumes:
+      - minio-data:/data
+    expose:
+      - "9000"
+    ports:
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks:
+      - storage
+
+  minio-provision:
+    image: "${MINIO_CLIENT_IMAGE:-quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z}"
+    restart: "no"
+    entrypoint: ["/bin/sh", "/provision-minio.sh"]
+    environment:
+      MC_CONFIG_DIR: /tmp/mc
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}"
+      DOWNLOAD_S3_BUCKET: "${DOWNLOAD_S3_BUCKET:-project-rebound-downloads}"
+      DOWNLOAD_S3_ACCESS_KEY_ID: "${DOWNLOAD_S3_ACCESS_KEY_ID:?DOWNLOAD_S3_ACCESS_KEY_ID is required}"
+      DOWNLOAD_S3_SECRET_ACCESS_KEY: "${DOWNLOAD_S3_SECRET_ACCESS_KEY:?DOWNLOAD_S3_SECRET_ACCESS_KEY is required}"
+      MINIO_CORS_ALLOWED_ORIGINS: "${MINIO_CORS_ALLOWED_ORIGINS:?MINIO_CORS_ALLOWED_ORIGINS is required}"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ../minio/provision-downloads.sh:/provision-minio.sh:ro
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - storage
+
   control-plane:
     build:
       context: ../..
@@ -133,13 +190,13 @@ services:
       UPDATE_MINIMUM_CLIENT_VERSION: "${UPDATE_MINIMUM_CLIENT_VERSION:-1.0.0}"
       UPDATE_REALTIME_URL: "${UPDATE_REALTIME_URL:?UPDATE_REALTIME_URL is required}"
       UPDATE_STUN_SERVERS: "${UPDATE_STUN_SERVERS:?UPDATE_STUN_SERVERS is required}"
-      DOWNLOADS_ENABLED: "${DOWNLOADS_ENABLED:-false}"
-      DOWNLOAD_S3_ENDPOINT: "${DOWNLOAD_S3_ENDPOINT:-}"
-      DOWNLOAD_S3_REGION: "${DOWNLOAD_S3_REGION:-auto}"
-      DOWNLOAD_S3_BUCKET: "${DOWNLOAD_S3_BUCKET:-}"
-      DOWNLOAD_S3_ACCESS_KEY_ID: "${DOWNLOAD_S3_ACCESS_KEY_ID:-}"
-      DOWNLOAD_S3_SECRET_ACCESS_KEY: "${DOWNLOAD_S3_SECRET_ACCESS_KEY:-}"
-      DOWNLOAD_PUBLIC_BASE_URL: "${DOWNLOAD_PUBLIC_BASE_URL:-}"
+      DOWNLOADS_ENABLED: "${DOWNLOADS_ENABLED:-true}"
+      DOWNLOAD_S3_ENDPOINT: "${DOWNLOAD_S3_ENDPOINT:?DOWNLOAD_S3_ENDPOINT is required}"
+      DOWNLOAD_S3_REGION: "${DOWNLOAD_S3_REGION:-us-east-1}"
+      DOWNLOAD_S3_BUCKET: "${DOWNLOAD_S3_BUCKET:-project-rebound-downloads}"
+      DOWNLOAD_S3_ACCESS_KEY_ID: "${DOWNLOAD_S3_ACCESS_KEY_ID:?DOWNLOAD_S3_ACCESS_KEY_ID is required}"
+      DOWNLOAD_S3_SECRET_ACCESS_KEY: "${DOWNLOAD_S3_SECRET_ACCESS_KEY:?DOWNLOAD_S3_SECRET_ACCESS_KEY is required}"
+      DOWNLOAD_PUBLIC_BASE_URL: "${DOWNLOAD_PUBLIC_BASE_URL:?DOWNLOAD_PUBLIC_BASE_URL is required}"
       DOWNLOAD_ALLOWED_EXTENSIONS: "${DOWNLOAD_ALLOWED_EXTENSIONS:-exe,msi,zip,7z,pdf,md,txt,docx}"
       DOWNLOAD_MAX_FILE_BYTES: "${DOWNLOAD_MAX_FILE_BYTES:-2147483648}"
       DOWNLOAD_MULTIPART_THRESHOLD_BYTES: "${DOWNLOAD_MULTIPART_THRESHOLD_BYTES:-67108864}"
@@ -153,6 +210,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      minio-provision:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "/control-plane", "-healthcheck", "http://127.0.0.1:8080/health/live"]
       interval: 5s
@@ -170,6 +229,7 @@ services:
       - data
       - edge
       - monitoring
+      - storage
 
   meta-postgres-provision:
     profiles: [meta]
@@ -310,6 +370,9 @@ services:
     environment:
       PUBLIC_API_SITE: "${PUBLIC_API_SITE:-http://:80}"
       ADMIN_WEB_SITE: "${ADMIN_WEB_SITE:?ADMIN_WEB_SITE is required}"
+      MINIO_S3_SITE: "${MINIO_S3_SITE:?MINIO_S3_SITE is required}"
+      DOWNLOADS_SITE: "${DOWNLOADS_SITE:?DOWNLOADS_SITE is required}"
+      DOWNLOAD_S3_BUCKET: "${DOWNLOAD_S3_BUCKET:-project-rebound-downloads}"
     ports:
       - "${PUBLIC_API_BIND_IP:-0.0.0.0}:${PUBLIC_API_HTTP_PORT:-8080}:80"
       - "${PUBLIC_API_BIND_IP:-0.0.0.0}:${PUBLIC_API_HTTPS_PORT:-443}:443"
@@ -325,8 +388,14 @@ services:
         condition: service_healthy
       admin-web:
         condition: service_started
+      minio:
+        condition: service_healthy
     networks:
-      - edge
+      edge:
+      storage:
+        aliases:
+          - "${MINIO_S3_SITE:?MINIO_S3_SITE is required}"
+          - "${DOWNLOADS_SITE:?DOWNLOADS_SITE is required}"
 
   blackbox-exporter:
     profiles: [monitoring]
@@ -393,6 +462,7 @@ services:
 volumes:
   postgres-data:
   redis-data:
+  minio-data:
   caddy-data:
   caddy-config:
   prometheus-data:
@@ -403,4 +473,6 @@ networks:
   data:
     internal: true
   monitoring:
+    internal: true
+  storage:
     internal: true

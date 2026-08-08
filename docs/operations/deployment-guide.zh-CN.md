@@ -163,7 +163,7 @@ chmod +x scripts/*.sh deploy/deploy.sh
 chmod 600 deployments/control-plane/.env
 ```
 
-生成器创建相互独立的 Ed25519 Access Token、Relay Token、更新签名密钥、设备指纹 HMAC 密钥、32 字节 VNT 房间秘密加密密钥，以及彼此独立的十年期 Relay CA 与 Game Server CA。它不会覆盖已有 `.env`，也不会输出密钥正文。重建时必须保留 `GAME_SERVER_CA_*`；直接替换会使现有 Dedicated Server 证书无法正常续期。
+生成器创建相互独立的 Ed25519 Access Token、Relay Token、更新签名密钥、设备指纹 HMAC 密钥、32 字节 VNT 房间秘密加密密钥、MinIO root/应用凭据，以及彼此独立的十年期 Relay CA 与 Game Server CA。它不会覆盖已有 `.env`，也不会输出密钥正文。重建时必须保留 `GAME_SERVER_CA_*` 和 MinIO 凭据；直接替换会使现有 Dedicated Server 证书无法正常续期或使下载对象失去管理访问。
 
 部署支持证书身份的 Dedicated Server 版本前，使用下列检查确认旧环境已经包含两个值，同时不输出秘密正文：
 
@@ -193,6 +193,7 @@ VNT 秘密密钥轮换使用显式 keyring：设置新的唯一 `VNT_SECRET_ENCR
 - 将 `UPDATE_CDN_BASE_URL`、`UPDATE_REALTIME_URL`、`UPDATE_STUN_SERVERS` 改成真实地址。
 - 测试/IP 模式保留 `PUBLIC_API_SITE=http://:80` 和 `PUBLIC_API_HTTP_PORT=8080`。
 - 域名生产模式设置 `PUBLIC_API_SITE=api.example.com`、`PUBLIC_API_HTTP_PORT=80`；DNS A/AAAA 指向控制面并开放 80/443，Caddy 自动申请证书。
+- 默认下载存储使用同机 MinIO。把 `MINIO_S3_SITE`、`DOWNLOADS_SITE`、`DOWNLOAD_S3_ENDPOINT`、`DOWNLOAD_PUBLIC_BASE_URL` 与 `MINIO_CORS_ALLOWED_ORIGINS` 中的示例域名一起替换；S3 和下载域名的 DNS A/AAAA 同样指向控制面。公开基址必须包含桶名，MinIO Console 只允许通过 `127.0.0.1:MINIO_CONSOLE_PORT` 的 SSH 隧道访问。
 - 当 FRPC 与控制面同机部署时，`RELAY_CONTROL_BIND_IP` 必须保持为 `127.0.0.1`；只有 FRPC 位于另一台可信私网/VPN 主机时才改为对应私网地址，不应直接绑定 `0.0.0.0`。
 - `RELAY_CONTROL_SERVER_NAMES` 必须包含边缘节点使用的 `control_server_name`，例如 `control-plane,localhost,relay.example.com`。
 - 签名密钥 ID 在轮换时必须更新，不能在密钥变化后继续复用旧 ID。
@@ -202,6 +203,7 @@ VNT 秘密密钥轮换使用显式 keyring：设置新的唯一 `VNT_SECRET_ENCR
 - 将规范的 ToolBox 证书放到 `TOOLBOX_PUBKEY_HOST_PATH`，并只读挂载到 `TOOLBOX_PUBKEY_PATH`。每次完整性 proof 都会哈希 PEM 的精确字节（包括换行符），不得重新排版或转换成 base64；生产环境缺少该设置时拒绝启动。`INTEGRITY_CHALLENGE_TTL_SECONDS` 默认为 120，除非客户端和事件响应策略同时更新，否则 `INTEGRITY_MAXIMUM_FAILURES` 必须保持为 3。
 
 `.env` 必须保留在主机秘密存储中，权限必须为 `600`，不得提交 Git、复制进镜像或写入工单。
+`minio-data` volume 必须进入独立的异机备份计划；它不是 PostgreSQL 备份的替代品，也不能只依赖单机单盘副本。
 
 ### 5.2 更新描述符
 

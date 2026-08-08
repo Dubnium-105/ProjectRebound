@@ -1,66 +1,105 @@
-# Download catalog storage
+# Download catalog and local MinIO
 
 English | [简体中文](download-catalog.zh-CN.md)
 
-The generic download catalog is independent of the launcher update manifest. It is
-disabled by default. Create an S3-compatible bucket and public CDN hostname before
-setting `DOWNLOADS_ENABLED=true`. Use credentials restricted to the server-generated
-object prefix and keep both credential values outside YAML and logs.
+The generic download catalog is independent from launcher update manifests. The
+production and development Control Plane Compose deployments start a local MinIO
+service and enable download management by default. Direct binary launches remain
+opt-in so missing storage credentials cannot accidentally enable the feature.
 
-Required environment values are `DOWNLOAD_S3_ENDPOINT`, `DOWNLOAD_S3_REGION`,
-`DOWNLOAD_S3_BUCKET`, `DOWNLOAD_S3_ACCESS_KEY_ID`,
-`DOWNLOAD_S3_SECRET_ACCESS_KEY`, and `DOWNLOAD_PUBLIC_BASE_URL`. R2 normally uses
-region `auto`; AWS S3 uses its actual region; MinIO uses the endpoint reachable by
-both the control plane and administrator browsers. The public base URL must map the
-same object keys to immutable objects and support `HEAD`, `GET`, and byte ranges.
+## Default topology
 
-## Bucket CORS
+Production uses three endpoints:
 
-The browser uploads directly to presigned S3 URLs. Configure bucket CORS to allow
-the exact Admin Web origins, methods `PUT` and `HEAD`, request headers `*` (or all
-AWS signing/content headers), and expose `ETag`. Do not use a wildcard origin with
-credentials. See the [Cloudflare R2 CORS guide](https://developers.cloudflare.com/r2/buckets/cors/).
-A minimal R2-style policy is:
+- `MINIO_S3_SITE` is the MinIO S3 API host used by the control plane and browser
+  presigned PUT requests.
+- `DOWNLOADS_SITE` accepts only `GET` and `HEAD` under `/<bucket>/downloads/*`.
+- `127.0.0.1:MINIO_CONSOLE_PORT` exposes the MinIO Console through an SSH tunnel.
 
-```json
-[
-  {
-    "AllowedOrigins": ["https://admin.project-rebound.space"],
-    "AllowedMethods": ["PUT", "HEAD"],
-    "AllowedHeaders": ["*"],
-    "ExposeHeaders": ["ETag"],
-    "MaxAgeSeconds": 3600
-  }
-]
+Point DNS for `MINIO_S3_SITE` and `DOWNLOADS_SITE` at the Control Plane host.
+Caddy obtains TLS and provides internal network aliases for both names, avoiding a
+dependency on public hairpin routing. Never expose MinIO ports 9000 or 9001
+directly in production.
+
+`scripts/generate-control-plane-env.sh` generates separate MinIO root and
+`DOWNLOAD_S3_*` application credentials. Replace the example admin, S3, and
+download hostnames before deployment and retain this relationship:
+
+```dotenv
+DOWNLOADS_ENABLED=true
+DOWNLOAD_S3_ENDPOINT=https://s3.example.com
+DOWNLOAD_S3_REGION=us-east-1
+DOWNLOAD_S3_BUCKET=project-rebound-downloads
+DOWNLOAD_PUBLIC_BASE_URL=https://downloads.example.com/project-rebound-downloads
+MINIO_CORS_ALLOWED_ORIGINS=https://admin.example.com
 ```
 
-## Lifecycle and recovery
+The public base must include the bucket because the service appends the
+server-generated `downloads/<item-slug>/<version-id>/<filename>` object key.
 
-Files over 64 MiB use 16 MiB multipart parts with at most four concurrent browser
-requests. Sessions expire after 24 hours; the worker aborts expired multipart uploads.
-The browser can resume uploaded parts, and it can renew the signed request for a small
-single-PUT upload. After completion, the worker streams the object and verifies size
-and SHA-256 before allowing publication.
+## Automatic provisioning
 
-Single-PUT requests carry `If-None-Match: *`, so a still-valid signature cannot replace
-an object after its first successful creation. Completed multipart upload IDs can no
-longer accept parts or be completed again. Do not grant operators or unrelated services
-unconditional overwrite permission on the catalog prefix. Provider-side versioning or
-object lock is useful additional defense where the selected provider supports it.
-See the [Amazon S3 conditional-write guide](https://docs.aws.amazon.com/AmazonS3/latest/userguide/conditional-writes.html)
-for the underlying precondition semantics.
+The repeatable `minio-provision` one-shot container:
 
-Publishing and archiving require `downloads.publish` or `downloads.archive`, an
-operation reason, and current-session MFA step-up. Archived database rows and objects
-are retained permanently. Confirm bucket lifecycle rules do not delete the catalog
-prefix, and include download tables plus storage credentials in backup/secret-rotation
-procedures. Audit records contain identifiers and state changes only—never credentials,
-presigned URLs, ETags, or uploaded content.
+1. creates `DOWNLOAD_S3_BUCKET`;
+2. creates or updates the dedicated control-plane application user;
+3. grants only the PUT, GET, DELETE, and multipart operations needed under
+   `downloads/*`;
+4. sets bucket PUT/HEAD CORS for the Admin Web origins and exposes `ETag`;
+5. grants anonymous `GetObject` only under `downloads/`, explicitly omitting bucket
+   listing permission.
 
-For PostgreSQL lifecycle integration tests, set `TEST_DATABASE_URL`. To exercise
-real single and multipart object operations against MinIO/R2/S3, also set
+Root credentials are injected only into MinIO and the provisioning container,
+never into the Control Plane or Admin Web. The Admin Web CSP permits only the S3
+API host, while the public download host rejects upload and management requests.
+See the [MinIO CORS documentation](https://docs.min.io/aistor/administration/cors-configuration/).
+
+## Operations
+
+The console is loopback-only. Access it with:
+
+```bash
+ssh -L 9001:127.0.0.1:9001 user@CONTROL_HOST
+```
+
+Then open `http://127.0.0.1:9001`. Do not use root credentials as application
+credentials or place `.env`, presigned URLs, or ETags in logs and tickets.
+
+Objects live in the `minio-data` volume. A single-node volume is not a backup:
+production should use locally attached redundant disks or distributed MinIO plus
+off-host backups. Do not configure an expiry lifecycle for `downloads/`; archived
+database rows and objects must be retained permanently. Changing MinIO endpoints
+requires updating the S3 host, public base, Admin Web CSP, and bucket CORS together.
+
+Files larger than 64 MiB use 16 MiB parts with up to four browser workers. Sessions
+expire after 24 hours. After completion, the background verifier streams the object
+from MinIO and recomputes its size and SHA-256 before publication is allowed.
+
+## Verification
+
+Start the default deployment:
+
+```bash
+docker compose --env-file deployments/control-plane/.env \
+  -f deployments/control-plane/docker-compose.yaml up -d
+```
+
+Inspect provisioning and the public catalog:
+
+```bash
+docker compose --env-file deployments/control-plane/.env \
+  -f deployments/control-plane/docker-compose.yaml logs minio-provision control-plane
+curl -fsS https://api.example.com/v1/downloads
+```
+
+Use a dedicated test bucket for real storage tests. Set
 `TEST_DOWNLOAD_S3_ENDPOINT`, `TEST_DOWNLOAD_S3_BUCKET`,
-`TEST_DOWNLOAD_S3_ACCESS_KEY_ID`, `TEST_DOWNLOAD_S3_SECRET_ACCESS_KEY`, and optionally
-`TEST_DOWNLOAD_S3_REGION`/`TEST_DOWNLOAD_S3_PUBLIC_BASE_URL`, then run
-`go test ./internal/download -count=1`. Use an empty dedicated test bucket because
-the test creates and removes objects under `downloads/integration/`.
+`TEST_DOWNLOAD_S3_ACCESS_KEY_ID`, and `TEST_DOWNLOAD_S3_SECRET_ACCESS_KEY`;
+`TEST_DOWNLOAD_S3_REGION` and `TEST_DOWNLOAD_S3_PUBLIC_BASE_URL` are optional.
+Run:
+
+```bash
+go test ./internal/download -run TestS3StorageAgainstCompatibleService -count=1
+```
+
+The test only creates and removes objects under `downloads/integration/`.
