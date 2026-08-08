@@ -47,9 +47,9 @@ grep -q 'already configured' <<<"$second_output"
 
 custom_env="$temporary_dir/custom.env"
 cat >"$custom_env" <<'EOF'
-ADMIN_WEB_SITE=https://console.example.net
-MINIO_S3_SITE=objects.example.net
-DOWNLOADS_SITE=files.example.net
+ADMIN_WEB_SITE="https://console.example.net"
+MINIO_S3_SITE='objects.example.net'
+DOWNLOADS_SITE="files.example.net"
 MINIO_ROOT_USER=existing-root
 MINIO_ROOT_PASSWORD=existing-password
 DOWNLOAD_S3_ACCESS_KEY_ID=existing-access
@@ -60,6 +60,12 @@ bash "$script_dir/ensure-download-storage-env.sh" \
 grep -qx 'MINIO_ROOT_PASSWORD=existing-password' "$custom_env"
 grep -qx 'DOWNLOAD_S3_ENDPOINT=https://objects.example.net' "$custom_env"
 grep -qx 'DOWNLOAD_PUBLIC_BASE_URL=https://files.example.net/project-rebound-downloads' "$custom_env"
+
+legacy_env="$temporary_dir/legacy.env"
+printf 'ADMIN_WEB_SITE=http://:8081\n' >"$legacy_env"
+bash "$script_dir/ensure-download-storage-env.sh" \
+  "$legacy_env" https://api.project-rebound.space >/dev/null
+grep -qx 'MINIO_CORS_ALLOWED_ORIGINS=https://admin.project-rebound.space' "$legacy_env"
 
 if bash "$script_dir/ensure-download-storage-env.sh" \
   "$env_file" https://project-rebound.space/path >/dev/null 2>&1; then

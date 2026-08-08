@@ -13,7 +13,17 @@ public_base_url="${2:?public base URL is required}"
 
 read_setting() {
   local name="$1"
-  sed -n "s/^${name}=//p" "$env_file" | tail -n 1
+  local value
+  value="$(sed -n "s/^${name}=//p" "$env_file" | tail -n 1)"
+  value="${value%$'\r'}"
+  if ((${#value} >= 2)); then
+    local first="${value:0:1}"
+    local last="${value: -1}"
+    if [[ ("$first" == '"' && "$last" == '"') || ("$first" == "'" && "$last" == "'") ]]; then
+      value="${value:1:${#value}-2}"
+    fi
+  fi
+  printf '%s' "$value"
 }
 
 has_setting() {
@@ -37,13 +47,14 @@ esac
 [[ "$base_domain" =~ ^[A-Za-z0-9.-]+$ ]] || { echo "Invalid API base domain" >&2; exit 1; }
 
 admin_site="$(read_setting ADMIN_WEB_SITE)"
-[[ -n "$admin_site" ]] || { echo "ADMIN_WEB_SITE is required to configure MinIO CORS" >&2; exit 1; }
 case "$admin_site" in
   https://*) admin_origin="${admin_site%/}" ;;
   http://*) admin_origin="${admin_site%/}" ;;
   *) admin_origin="https://${admin_site%/}" ;;
 esac
-[[ "$admin_origin" =~ ^https?://[A-Za-z0-9.-]+$ ]] || { echo "Invalid ADMIN_WEB_SITE" >&2; exit 1; }
+if [[ ! "$admin_origin" =~ ^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?$ ]]; then
+  admin_origin="https://admin.$base_domain"
+fi
 
 minio_site="$(read_setting MINIO_S3_SITE)"
 downloads_site="$(read_setting DOWNLOADS_SITE)"
