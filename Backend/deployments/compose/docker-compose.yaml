@@ -40,6 +40,8 @@ services:
     environment:
       MINIO_ROOT_USER: "${MINIO_ROOT_USER:-projectrebound-root}"
       MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:-projectrebound_minio_root_dev_only}"
+      MINIO_API_CORS_ALLOW_ORIGIN: "${MINIO_CORS_ALLOWED_ORIGINS:-http://localhost:8081,http://127.0.0.1:8081,http://localhost:5173,http://127.0.0.1:5173}"
+      MINIO_API_CORS_ALLOW_CREDENTIALS_WITH_WILDCARD: "off"
     volumes:
       - minio-data:/data
     ports:
@@ -67,7 +69,6 @@ services:
       DOWNLOAD_S3_BUCKET: "${DOWNLOAD_S3_BUCKET:-project-rebound-downloads}"
       DOWNLOAD_S3_ACCESS_KEY_ID: "${DOWNLOAD_S3_ACCESS_KEY_ID:-projectrebound-downloads-dev}"
       DOWNLOAD_S3_SECRET_ACCESS_KEY: "${DOWNLOAD_S3_SECRET_ACCESS_KEY:-projectrebound_downloads_secret_dev_only}"
-      MINIO_CORS_ALLOWED_ORIGINS: "${MINIO_CORS_ALLOWED_ORIGINS:-http://localhost:8081,http://127.0.0.1:8081,http://localhost:5173,http://127.0.0.1:5173}"
     read_only: true
     tmpfs:
       - /tmp:size=16m,mode=1777

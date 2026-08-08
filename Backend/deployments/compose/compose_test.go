@@ -198,6 +198,12 @@ func TestSelfHostedMinIOIsTheDefaultDownloadStorage(t *testing.T) {
 		if _, ok := document.Services["minio-provision"]; !ok {
 			t.Fatalf("%s is missing idempotent MinIO provisioning", path)
 		}
+		if _, ok := minio.Environment["MINIO_API_CORS_ALLOW_ORIGIN"]; !ok {
+			t.Fatalf("%s does not configure MinIO CORS at the dedicated server", path)
+		}
+		if got := minio.Environment["MINIO_API_CORS_ALLOW_CREDENTIALS_WITH_WILDCARD"]; got != "off" {
+			t.Fatalf("%s permits credentialed wildcard MinIO CORS: %#v", path, got)
+		}
 		if _, ok := document.Volumes["minio-data"]; !ok {
 			t.Fatalf("%s does not persist MinIO data", path)
 		}
@@ -225,7 +231,7 @@ func TestSelfHostedMinIOIsTheDefaultDownloadStorage(t *testing.T) {
 	}
 	for _, required := range []string{
 		"s3:PutObject", "s3:GetObject", "s3:DeleteObject", "s3:AbortMultipartUpload",
-		"s3:ListMultipartUploadParts", "mc cors set", "mc anonymous set-json", "Deliberately omit s3:ListBucket",
+		"s3:ListMultipartUploadParts", "mc anonymous set-json", "Deliberately omit s3:ListBucket",
 	} {
 		if !strings.Contains(string(provisioner), required) {
 			t.Fatalf("MinIO provisioning is missing %q", required)
