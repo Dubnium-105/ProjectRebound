@@ -161,7 +161,7 @@ func TestSeparatedAdminWebHasOnlyEdgeNetworkAndNoSecrets(t *testing.T) {
 		"script-src 'self' 'wasm-unsafe-eval' https://challenges.cloudflare.com",
 		"worker-src 'self'",
 		"@hash_worker path /assets/sha256.worker-*.js",
-		"Cache-Control \"public, max-age=0, must-revalidate\"",
+		">Cache-Control \"public, max-age=0, must-revalidate\"",
 	} {
 		if !strings.Contains(string(caddy), policy) {
 			t.Fatalf("administrator Caddy policy is missing %q", policy)
@@ -266,7 +266,7 @@ func TestSelfHostedMinIOIsTheDefaultDownloadStorage(t *testing.T) {
 		"script-src 'self' 'wasm-unsafe-eval' https://challenges.cloudflare.com",
 		"worker-src 'self'",
 		"@hash_worker path /assets/sha256.worker-*.js",
-		"Cache-Control \"public, max-age=0, must-revalidate\"",
+		">Cache-Control \"public, max-age=0, must-revalidate\"",
 	} {
 		if !strings.Contains(string(developmentCaddy), required) {
 			t.Fatalf("development admin CSP is missing %q", required)
