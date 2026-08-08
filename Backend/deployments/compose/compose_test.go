@@ -158,6 +158,8 @@ func TestSeparatedAdminWebHasOnlyEdgeNetworkAndNoSecrets(t *testing.T) {
 		"frame-ancestors 'none'",
 		"X-Frame-Options DENY",
 		"connect-src 'self' https://{$MINIO_S3_SITE:s3.example.com}",
+		"script-src 'self' 'wasm-unsafe-eval' https://challenges.cloudflare.com",
+		"worker-src 'self'",
 	} {
 		if !strings.Contains(string(caddy), policy) {
 			t.Fatalf("administrator Caddy policy is missing %q", policy)
@@ -257,6 +259,14 @@ func TestSelfHostedMinIOIsTheDefaultDownloadStorage(t *testing.T) {
 	}
 	if !strings.Contains(string(developmentCaddy), "connect-src 'self' http://minio.localhost:9000") {
 		t.Fatal("development admin CSP does not allow the local MinIO upload endpoint")
+	}
+	for _, required := range []string{
+		"script-src 'self' 'wasm-unsafe-eval' https://challenges.cloudflare.com",
+		"worker-src 'self'",
+	} {
+		if !strings.Contains(string(developmentCaddy), required) {
+			t.Fatalf("development admin CSP is missing %q", required)
+		}
 	}
 }
 
