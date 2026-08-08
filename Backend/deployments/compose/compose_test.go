@@ -160,6 +160,8 @@ func TestSeparatedAdminWebHasOnlyEdgeNetworkAndNoSecrets(t *testing.T) {
 		"connect-src 'self' https://{$MINIO_S3_SITE:s3.example.com}",
 		"script-src 'self' 'wasm-unsafe-eval' https://challenges.cloudflare.com",
 		"worker-src 'self'",
+		"@hash_worker path /assets/sha256.worker-*.js",
+		"Cache-Control \"public, max-age=0, must-revalidate\"",
 	} {
 		if !strings.Contains(string(caddy), policy) {
 			t.Fatalf("administrator Caddy policy is missing %q", policy)
@@ -263,6 +265,8 @@ func TestSelfHostedMinIOIsTheDefaultDownloadStorage(t *testing.T) {
 	for _, required := range []string{
 		"script-src 'self' 'wasm-unsafe-eval' https://challenges.cloudflare.com",
 		"worker-src 'self'",
+		"@hash_worker path /assets/sha256.worker-*.js",
+		"Cache-Control \"public, max-age=0, must-revalidate\"",
 	} {
 		if !strings.Contains(string(developmentCaddy), required) {
 			t.Fatalf("development admin CSP is missing %q", required)

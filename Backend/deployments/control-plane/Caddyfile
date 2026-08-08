@@ -41,6 +41,11 @@
 		-Server
 	}
 
+	# Worker response headers include CSP, so revalidate them independently of
+	# the content-hashed JavaScript cache lifetime.
+	@hash_worker path /assets/sha256.worker-*.js
+	header @hash_worker Cache-Control "public, max-age=0, must-revalidate"
+
 	handle /v1/admin/meta* {
 		reverse_proxy meta-server:8081
 	}
