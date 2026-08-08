@@ -61,6 +61,29 @@ grep -qx 'MINIO_ROOT_PASSWORD=existing-password' "$custom_env"
 grep -qx 'DOWNLOAD_S3_ENDPOINT=https://objects.example.net' "$custom_env"
 grep -qx 'DOWNLOAD_PUBLIC_BASE_URL=https://files.example.net/project-rebound-downloads' "$custom_env"
 
+internal_http_env="$temporary_dir/internal-http.env"
+cat >"$internal_http_env" <<'EOF'
+ADMIN_WEB_SITE=http://admin.project-rebound.space:80
+MINIO_CORS_ALLOWED_ORIGINS=http://admin.project-rebound.space:80
+EOF
+bash "$script_dir/ensure-download-storage-env.sh" \
+  "$internal_http_env" https://api.project-rebound.space >/dev/null
+grep -qx 'MINIO_CORS_ALLOWED_ORIGINS=https://admin.project-rebound.space' "$internal_http_env"
+before="$(sha256sum "$internal_http_env")"
+bash "$script_dir/ensure-download-storage-env.sh" \
+  "$internal_http_env" https://api.project-rebound.space >/dev/null
+after="$(sha256sum "$internal_http_env")"
+test "$before" = "$after"
+
+custom_cors_env="$temporary_dir/custom-cors.env"
+cat >"$custom_cors_env" <<'EOF'
+ADMIN_WEB_SITE=http://admin.project-rebound.space:80
+MINIO_CORS_ALLOWED_ORIGINS=https://console.example.net
+EOF
+bash "$script_dir/ensure-download-storage-env.sh" \
+  "$custom_cors_env" https://api.project-rebound.space >/dev/null
+grep -qx 'MINIO_CORS_ALLOWED_ORIGINS=https://console.example.net' "$custom_cors_env"
+
 legacy_env="$temporary_dir/legacy.env"
 printf 'ADMIN_WEB_SITE=http://:8081\n' >"$legacy_env"
 bash "$script_dir/ensure-download-storage-env.sh" \

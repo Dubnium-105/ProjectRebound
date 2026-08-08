@@ -49,10 +49,14 @@ esac
 admin_site="$(read_setting ADMIN_WEB_SITE)"
 case "$admin_site" in
   https://*) admin_origin="${admin_site%/}" ;;
-  http://*) admin_origin="${admin_site%/}" ;;
+  http://*)
+    admin_authority="${admin_site#http://}"
+    admin_authority="${admin_authority%/}"
+    admin_origin="https://${admin_authority%%:*}"
+    ;;
   *) admin_origin="https://${admin_site%/}" ;;
 esac
-if [[ ! "$admin_origin" =~ ^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?$ ]]; then
+if [[ ! "$admin_origin" =~ ^https://[A-Za-z0-9.-]+(:[0-9]{1,5})?$ ]]; then
   admin_origin="https://admin.$base_domain"
 fi
 
@@ -81,7 +85,16 @@ append_missing MINIO_S3_SITE "$minio_site"
 append_missing DOWNLOADS_SITE "$downloads_site"
 append_missing MINIO_ROOT_USER "minio-root-$(random_hex 8)"
 append_missing MINIO_ROOT_PASSWORD "$(random_hex 32)"
-append_missing MINIO_CORS_ALLOWED_ORIGINS "$admin_origin"
+existing_cors="$(read_setting MINIO_CORS_ALLOWED_ORIGINS)"
+if [[ -z "$existing_cors" ]]; then
+  append_missing MINIO_CORS_ALLOWED_ORIGINS "$admin_origin"
+elif [[ "$existing_cors" =~ ^http://([A-Za-z0-9.-]+)(:80)?$ &&
+        "$admin_origin" == "https://${BASH_REMATCH[1]}" ]]; then
+  sed "s|^MINIO_CORS_ALLOWED_ORIGINS=.*$|MINIO_CORS_ALLOWED_ORIGINS=$admin_origin|" \
+    "$temporary_file" >"${temporary_file}.cors"
+  mv "${temporary_file}.cors" "$temporary_file"
+  added_names+=(MINIO_CORS_ALLOWED_ORIGINS)
+fi
 append_missing DOWNLOADS_ENABLED true
 append_missing DOWNLOAD_S3_ENDPOINT "https://$minio_site"
 append_missing DOWNLOAD_S3_REGION us-east-1
