@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-required_variables="MINIO_ENDPOINT MINIO_ROOT_USER MINIO_ROOT_PASSWORD DOWNLOAD_S3_BUCKET DOWNLOAD_S3_ACCESS_KEY_ID DOWNLOAD_S3_SECRET_ACCESS_KEY MINIO_CORS_ALLOWED_ORIGINS"
+required_variables="MINIO_ENDPOINT MINIO_ROOT_USER MINIO_ROOT_PASSWORD DOWNLOAD_S3_BUCKET DOWNLOAD_S3_ACCESS_KEY_ID DOWNLOAD_S3_SECRET_ACCESS_KEY"
 for variable_name in $required_variables; do
   eval "variable_value=\${$variable_name:-}"
   if [ -z "$variable_value" ]; then
@@ -39,10 +39,12 @@ alias_name="rebound-local"
 policy_name="project-rebound-download-writer"
 policy_file="/tmp/download-writer-policy.json"
 public_policy_file="/tmp/download-public-policy.json"
-cors_file="/tmp/download-cors.xml"
 
+printf 'MINIO_PROVISION_STEP alias\n'
 mc alias set "$alias_name" "$MINIO_ENDPOINT" "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null
+printf 'MINIO_PROVISION_STEP ready\n'
 mc ready "$alias_name"
+printf 'MINIO_PROVISION_STEP bucket\n'
 mc mb --ignore-existing "$alias_name/$DOWNLOAD_S3_BUCKET"
 
 {
@@ -68,42 +70,12 @@ mc mb --ignore-existing "$alias_name/$DOWNLOAD_S3_BUCKET"
     '}'
 } >"$policy_file"
 
+printf 'MINIO_PROVISION_STEP application-user\n'
 mc admin user add "$alias_name" "$DOWNLOAD_S3_ACCESS_KEY_ID" "$DOWNLOAD_S3_SECRET_ACCESS_KEY" >/dev/null
+printf 'MINIO_PROVISION_STEP writer-policy\n'
 mc admin policy create "$alias_name" "$policy_name" "$policy_file" >/dev/null
+printf 'MINIO_PROVISION_STEP attach-policy\n'
 mc admin policy attach "$alias_name" "$policy_name" --user "$DOWNLOAD_S3_ACCESS_KEY_ID" >/dev/null
-
-{
-  printf '%s\n' '<CORSConfiguration>' '  <CORSRule>'
-  previous_ifs="$IFS"
-  IFS=','
-  for origin in $MINIO_CORS_ALLOWED_ORIGINS; do
-    case "$origin" in
-      http://*|https://*) ;;
-      *)
-        printf 'Invalid MinIO CORS origin: %s\n' "$origin" >&2
-        exit 1
-        ;;
-    esac
-    case "$origin" in
-      *[!A-Za-z0-9:/._-]*)
-        printf 'Invalid characters in MinIO CORS origin: %s\n' "$origin" >&2
-        exit 1
-        ;;
-    esac
-    printf '    <AllowedOrigin>%s</AllowedOrigin>\n' "$origin"
-  done
-  IFS="$previous_ifs"
-  printf '%s\n' \
-    '    <AllowedMethod>PUT</AllowedMethod>' \
-    '    <AllowedMethod>HEAD</AllowedMethod>' \
-    '    <AllowedHeader>*</AllowedHeader>' \
-    '    <ExposeHeader>ETag</ExposeHeader>' \
-    '    <MaxAgeSeconds>3600</MaxAgeSeconds>' \
-    '  </CORSRule>' \
-    '</CORSConfiguration>'
-} >"$cors_file"
-
-mc cors set "$alias_name/$DOWNLOAD_S3_BUCKET" "$cors_file"
 
 {
   printf '%s\n' \
@@ -125,7 +97,9 @@ mc cors set "$alias_name/$DOWNLOAD_S3_BUCKET" "$cors_file"
 
 # Deliberately omit s3:ListBucket: the catalog API, not object-store listing,
 # is the only supported discovery surface for published download versions.
+printf 'MINIO_PROVISION_STEP public-prefix-policy\n'
 mc anonymous set-json "$public_policy_file" "$alias_name/$DOWNLOAD_S3_BUCKET" >/dev/null
+printf 'MINIO_PROVISION_STEP verify\n'
 mc stat "$alias_name/$DOWNLOAD_S3_BUCKET" >/dev/null
 
 printf 'Provisioned MinIO bucket %s for ProjectRebound downloads.\n' "$DOWNLOAD_S3_BUCKET"

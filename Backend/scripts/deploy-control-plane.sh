@@ -97,7 +97,12 @@ printf 'CONTROL_PLANE_TICKET_VERIFIER_OK\n'
 
 printf 'CONTROL_PLANE_DEPLOY_SOURCE source=%s image=%s admin_web_image=%s\n' \
   "$deploy_source" "${image:-local-build}" "${admin_web_image:-local-build}"
-"${compose[@]}" up -d --remove-orphans
+if ! "${compose[@]}" up -d --remove-orphans; then
+  "${compose[@]}" ps >&2 || true
+  "${compose[@]}" logs --no-color --tail=200 minio minio-provision >&2 || true
+  echo "Control-plane Compose startup failed." >&2
+  exit 1
+fi
 
 admin_port="$(sed -n 's/^CONTROL_PLANE_ADMIN_PORT=//p' "$env_file" | tail -n 1)"
 admin_port="${admin_port:-18080}"

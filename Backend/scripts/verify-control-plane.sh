@@ -15,8 +15,14 @@ assert_response_contains() {
   local url="$1"
   local expected="$2"
   local response
-  response="$(curl -fsS "$url")"
-  grep -Fq "$expected" <<<"$response"
+  for _ in {1..30}; do
+    if response="$(curl -fsS "$url" 2>/dev/null)" && grep -Fq "$expected" <<<"$response"; then
+      return 0
+    fi
+    sleep 2
+  done
+  echo "Timed out waiting for $url" >&2
+  return 1
 }
 
 assert_response_contains "$public_url/health/live" '"status":"live"'

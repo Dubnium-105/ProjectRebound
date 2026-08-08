@@ -55,7 +55,7 @@ deploy_release() {
     fi
     if ! CONTROL_PLANE_ENV_FILE="$control_env_file" \
       PUBLIC_BASE_URL="$public_base_url" \
-        "$directory/Backend/scripts/verify-control-plane.sh"; then
+        "$release_dir/Backend/scripts/verify-control-plane.sh"; then
       return 1
     fi
   elif [[ "$target" == "meta-server" ]]; then

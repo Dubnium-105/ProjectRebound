@@ -164,6 +164,7 @@ grep -Fq "'GRANT UPDATE (last_used_at) ON TABLE auth_sessions TO %I'" "$provisio
 
 verify_script="$script_dir/verify-control-plane.sh"
 ! grep -Eq 'curl .*\|[[:space:]]*grep .*q' "$verify_script"
-grep -Fq 'response="$(curl -fsS "$url")"' "$verify_script"
+grep -Fq 'for _ in {1..30}' "$verify_script"
+grep -Fq 'response="$(curl -fsS "$url" 2>/dev/null)"' "$verify_script"
 
 printf 'DEPLOY_SOURCE_TEST_OK\n'
