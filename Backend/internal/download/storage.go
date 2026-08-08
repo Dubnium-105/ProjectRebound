@@ -50,9 +50,14 @@ func NewS3Storage(ctx context.Context, cfg config.DownloadConfig) (*S3Storage, e
 	client := s3.NewFromConfig(awsCfg, func(options *s3.Options) {
 		options.UsePathStyle = true
 	})
+	presignCfg := awsCfg
+	presignCfg.BaseEndpoint = aws.String(strings.TrimRight(cfg.UploadEndpoint(), "/"))
+	presignClient := s3.NewFromConfig(presignCfg, func(options *s3.Options) {
+		options.UsePathStyle = true
+	})
 	return &S3Storage{
 		bucket: cfg.S3Bucket, publicBase: strings.TrimRight(cfg.PublicBaseURL, "/"),
-		client: client, presigner: s3.NewPresignClient(client),
+		client: client, presigner: s3.NewPresignClient(presignClient),
 	}, nil
 }
 

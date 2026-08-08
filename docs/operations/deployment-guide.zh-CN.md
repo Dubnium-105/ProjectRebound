@@ -205,6 +205,9 @@ VNT 秘密密钥轮换使用显式 keyring：设置新的唯一 `VNT_SECRET_ENCR
 `.env` 必须保留在主机秘密存储中，权限必须为 `600`，不得提交 Git、复制进镜像或写入工单。
 `minio-data` volume 必须进入独立的异机备份计划；它不是 PostgreSQL 备份的替代品，也不能只依赖单机单盘副本。
 
+同机 MinIO 必须保持 `DOWNLOAD_S3_ENDPOINT=http://minio:9000`，并将公网 S3
+域名配置到 `DOWNLOAD_S3_UPLOAD_ENDPOINT`；前者供控制面校验和清理，后者只供浏览器预签名上传。
+
 ### 5.2 更新描述符
 
 按照 `Backend/deployments/updates/README.md` 把非秘密发布描述符放到 `Backend/deployments/updates`。生产模式缺少有效发布描述符或安全更新 URL 时会拒绝启动。大文件必须放在对象存储/CDN，API 仅返回下载元数据。

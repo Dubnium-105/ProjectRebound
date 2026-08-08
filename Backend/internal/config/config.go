@@ -254,6 +254,7 @@ type UpdateConfig struct {
 type DownloadConfig struct {
 	Enabled                  bool     `yaml:"enabled"`
 	S3Endpoint               string   `yaml:"s3_endpoint"`
+	S3UploadEndpoint         string   `yaml:"s3_upload_endpoint"`
 	S3Region                 string   `yaml:"s3_region"`
 	S3Bucket                 string   `yaml:"s3_bucket"`
 	S3AccessKeyID            string   `yaml:"-"`
@@ -603,6 +604,7 @@ func (c *Config) applyEnvOverrides() {
 	overrideString("UPDATE_REALTIME_URL", &c.Update.RealtimeURL)
 	overrideBool("DOWNLOADS_ENABLED", &c.Downloads.Enabled)
 	overrideString("DOWNLOAD_S3_ENDPOINT", &c.Downloads.S3Endpoint)
+	overrideString("DOWNLOAD_S3_UPLOAD_ENDPOINT", &c.Downloads.S3UploadEndpoint)
 	overrideString("DOWNLOAD_S3_REGION", &c.Downloads.S3Region)
 	overrideString("DOWNLOAD_S3_BUCKET", &c.Downloads.S3Bucket)
 	overrideString("DOWNLOAD_S3_ACCESS_KEY_ID", &c.Downloads.S3AccessKeyID)
@@ -864,8 +866,10 @@ func (c *Config) ValidateControlPlane() error {
 	}
 	if c.Downloads.Enabled {
 		endpoint, endpointErr := url.Parse(c.Downloads.S3Endpoint)
+		uploadEndpoint, uploadEndpointErr := url.Parse(c.Downloads.UploadEndpoint())
 		publicURL, publicErr := url.Parse(c.Downloads.PublicBaseURL)
 		if endpointErr != nil || endpoint.Host == "" || (endpoint.Scheme != "https" && endpoint.Scheme != "http") ||
+			uploadEndpointErr != nil || uploadEndpoint.Host == "" || (uploadEndpoint.Scheme != "https" && uploadEndpoint.Scheme != "http") ||
 			publicErr != nil || publicURL.Host == "" || (publicURL.Scheme != "https" && publicURL.Scheme != "http") ||
 			strings.TrimSpace(c.Downloads.S3Region) == "" || strings.TrimSpace(c.Downloads.S3Bucket) == "" ||
 			strings.TrimSpace(c.Downloads.S3AccessKeyID) == "" || strings.TrimSpace(c.Downloads.S3SecretAccessKey) == "" ||
@@ -877,7 +881,8 @@ func (c *Config) ValidateControlPlane() error {
 			c.Downloads.VerificationIntervalSecs < 1 || c.Downloads.VerificationIntervalSecs > 300 {
 			errs = append(errs, errors.New("download storage, limits, or timing settings are invalid"))
 		}
-		if strings.EqualFold(c.Environment, "production") && (endpoint.Scheme != "https" || publicURL.Scheme != "https") {
+		if strings.EqualFold(c.Environment, "production") &&
+			(!secureDownloadStorageEndpoint(endpoint) || uploadEndpoint.Scheme != "https" || publicURL.Scheme != "https") {
 			errs = append(errs, errors.New("secure download storage and public URLs are required in production"))
 		}
 	}
@@ -922,6 +927,21 @@ func validVersionAllowlist(values []string) bool {
 		seen[value] = struct{}{}
 	}
 	return true
+}
+
+func secureDownloadStorageEndpoint(endpoint *url.URL) bool {
+	if endpoint.Scheme == "https" {
+		return true
+	}
+	if endpoint.Scheme != "http" {
+		return false
+	}
+	host := strings.ToLower(endpoint.Hostname())
+	if host == "minio" || host == "localhost" || strings.HasSuffix(host, ".localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && (ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast())
 }
 
 func validDownloadExtensions(values []string) bool {
@@ -1159,6 +1179,13 @@ func (c RelayRegistryConfig) AllocationTTL() time.Duration {
 
 func (c DownloadConfig) UploadSessionTTL() time.Duration {
 	return time.Duration(c.UploadSessionTTLHours) * time.Hour
+}
+
+func (c DownloadConfig) UploadEndpoint() string {
+	if endpoint := strings.TrimSpace(c.S3UploadEndpoint); endpoint != "" {
+		return endpoint
+	}
+	return strings.TrimSpace(c.S3Endpoint)
 }
 
 func (c DownloadConfig) PresignTTL() time.Duration {

@@ -220,6 +220,10 @@ export function DownloadsPage() {
             message.error(tr("请选择要上传的文件。"));
             return;
         }
+        if (file.size < 1) {
+            message.error(tr("不能上传空文件。"));
+            return;
+        }
         if (file.size > capabilities.max_file_bytes) {
             message.error(tr(`文件超过 ${formatBytes(capabilities.max_file_bytes)} 上限。`));
             return;

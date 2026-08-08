@@ -35,7 +35,8 @@ func TestUploadValidationAndServerOwnedObjectKey(t *testing.T) {
 		input UploadInput
 		code  string
 	}{
-		{"too large", UploadInput{VersionLabel: "1", FileName: "a.zip", ContentType: "application/zip", SizeBytes: 11, SHA256: validHash, Reason: "test"}, "INVALID_DOWNLOAD_UPLOAD"},
+		{"empty", UploadInput{VersionLabel: "1", FileName: "a.zip", ContentType: "application/zip", SizeBytes: 0, SHA256: validHash, Reason: "test"}, "DOWNLOAD_FILE_EMPTY"},
+		{"too large", UploadInput{VersionLabel: "1", FileName: "a.zip", ContentType: "application/zip", SizeBytes: 11, SHA256: validHash, Reason: "test"}, "DOWNLOAD_FILE_TOO_LARGE"},
 		{"extension", UploadInput{VersionLabel: "1", FileName: "a.sh", ContentType: "text/plain", SizeBytes: 1, SHA256: validHash, Reason: "test"}, "DOWNLOAD_FILE_TYPE_NOT_ALLOWED"},
 		{"checksum", UploadInput{VersionLabel: "1", FileName: "a.zip", ContentType: "application/zip", SizeBytes: 1, SHA256: strings.Repeat("g", 64), Reason: "test"}, "INVALID_DOWNLOAD_CHECKSUM"},
 		{"reason", UploadInput{VersionLabel: "1", FileName: "a.zip", ContentType: "application/zip", SizeBytes: 1, SHA256: validHash}, "INVALID_OPERATION_REASON"},

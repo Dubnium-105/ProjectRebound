@@ -11,15 +11,16 @@ opt-in so missing storage credentials cannot accidentally enable the feature.
 
 Production uses three endpoints:
 
-- `MINIO_S3_SITE` is the MinIO S3 API host used by the control plane and browser
-  presigned PUT requests.
+- `MINIO_S3_SITE` is the public MinIO S3 API host used by browser presigned PUT
+  requests.
 - `DOWNLOADS_SITE` accepts only `GET` and `HEAD` under `/<bucket>/downloads/*`.
 - `127.0.0.1:MINIO_CONSOLE_PORT` exposes the MinIO Console through an SSH tunnel.
 
 Point DNS for `MINIO_S3_SITE` and `DOWNLOADS_SITE` at the Control Plane host.
-Caddy obtains TLS and provides internal network aliases for both names, avoiding a
-dependency on public hairpin routing. Never expose MinIO ports 9000 or 9001
-directly in production.
+Caddy obtains TLS for both names. Server-side verification, multipart completion,
+and cleanup use the private `http://minio:9000` Docker endpoint, so they never
+depend on Cloudflare or public hairpin routing. Never expose MinIO ports 9000 or
+9001 directly in production.
 
 `scripts/generate-control-plane-env.sh` generates separate MinIO root and
 `DOWNLOAD_S3_*` application credentials. Replace the example admin, S3, and
@@ -27,14 +28,18 @@ download hostnames before deployment and retain this relationship:
 
 ```dotenv
 DOWNLOADS_ENABLED=true
-DOWNLOAD_S3_ENDPOINT=https://s3.example.com
+DOWNLOAD_S3_ENDPOINT=http://minio:9000
+DOWNLOAD_S3_UPLOAD_ENDPOINT=https://s3.example.com
 DOWNLOAD_S3_REGION=us-east-1
 DOWNLOAD_S3_BUCKET=project-rebound-downloads
 DOWNLOAD_PUBLIC_BASE_URL=https://downloads.example.com/project-rebound-downloads
 MINIO_CORS_ALLOWED_ORIGINS=https://admin.example.com
 ```
 
-The public base must include the bucket because the service appends the
+`DOWNLOAD_S3_ENDPOINT` is the server-only API endpoint, while
+`DOWNLOAD_S3_UPLOAD_ENDPOINT` is embedded in browser presigned URLs. Do not set
+the server endpoint to the Cloudflare-proxied hostname for same-host MinIO. The
+public base must include the bucket because the service appends the
 server-generated `downloads/<item-slug>/<version-id>/<filename>` object key.
 
 ## Automatic provisioning
@@ -95,7 +100,8 @@ curl -fsS https://api.example.com/v1/downloads
 Use a dedicated test bucket for real storage tests. Set
 `TEST_DOWNLOAD_S3_ENDPOINT`, `TEST_DOWNLOAD_S3_BUCKET`,
 `TEST_DOWNLOAD_S3_ACCESS_KEY_ID`, and `TEST_DOWNLOAD_S3_SECRET_ACCESS_KEY`;
-`TEST_DOWNLOAD_S3_REGION` and `TEST_DOWNLOAD_S3_PUBLIC_BASE_URL` are optional.
+`TEST_DOWNLOAD_S3_REGION`, `TEST_DOWNLOAD_S3_UPLOAD_ENDPOINT`, and
+`TEST_DOWNLOAD_S3_PUBLIC_BASE_URL` are optional.
 Run:
 
 ```bash

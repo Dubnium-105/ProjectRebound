@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -14,6 +15,32 @@ import (
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
 	"github.com/google/uuid"
 )
+
+func TestPresignUsesDedicatedBrowserEndpoint(t *testing.T) {
+	storage, err := NewS3Storage(context.Background(), config.DownloadConfig{
+		S3Endpoint: "http://minio:9000", S3UploadEndpoint: "https://s3.example.com",
+		S3Region: "us-east-1", S3Bucket: "downloads", S3AccessKeyID: "test-access",
+		S3SecretAccessKey: "test-secret", PublicBaseURL: "https://downloads.example.com/downloads",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request, err := storage.PresignPut(context.Background(), Version{
+		ID: "dver_test", OriginalFileName: "fixture.zip", ContentType: "application/zip",
+		SHA256: strings.Repeat("a", 64), ObjectKey: "downloads/test/fixture.zip",
+	}, 5*time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := url.Parse(request.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parsed.Scheme != "https" || parsed.Host != "s3.example.com" ||
+		!strings.HasPrefix(parsed.Path, "/downloads/downloads/test/fixture.zip") {
+		t.Fatalf("presigned browser URL = %q", request.URL)
+	}
+}
 
 func TestS3StorageAgainstCompatibleService(t *testing.T) {
 	endpoint := os.Getenv("TEST_DOWNLOAD_S3_ENDPOINT")
@@ -31,7 +58,8 @@ func TestS3StorageAgainstCompatibleService(t *testing.T) {
 	}
 	storage, err := NewS3Storage(ctx, config.DownloadConfig{
 		S3Endpoint: endpoint, S3Region: envOr("TEST_DOWNLOAD_S3_REGION", "us-east-1"),
-		S3Bucket: bucket, S3AccessKeyID: accessKey, S3SecretAccessKey: secretKey, PublicBaseURL: publicBase,
+		S3UploadEndpoint: envOr("TEST_DOWNLOAD_S3_UPLOAD_ENDPOINT", endpoint),
+		S3Bucket:         bucket, S3AccessKeyID: accessKey, S3SecretAccessKey: secretKey, PublicBaseURL: publicBase,
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -96,7 +96,26 @@ elif [[ "$existing_cors" =~ ^http://([A-Za-z0-9.-]+)(:80)?$ &&
   added_names+=(MINIO_CORS_ALLOWED_ORIGINS)
 fi
 append_missing DOWNLOADS_ENABLED true
-append_missing DOWNLOAD_S3_ENDPOINT "https://$minio_site"
+download_endpoint="$(read_setting DOWNLOAD_S3_ENDPOINT)"
+download_upload_endpoint="$(read_setting DOWNLOAD_S3_UPLOAD_ENDPOINT)"
+inferred_upload_endpoint=""
+if [[ -z "$download_endpoint" ]]; then
+  append_missing DOWNLOAD_S3_ENDPOINT "http://minio:9000"
+  download_endpoint="http://minio:9000"
+  inferred_upload_endpoint="https://$minio_site"
+elif [[ "$download_endpoint" == "https://$minio_site" || "$download_endpoint" == "http://$minio_site" ]]; then
+  inferred_upload_endpoint="$download_endpoint"
+  sed "s|^DOWNLOAD_S3_ENDPOINT=.*$|DOWNLOAD_S3_ENDPOINT=http://minio:9000|" \
+    "$temporary_file" >"${temporary_file}.endpoint"
+  mv "${temporary_file}.endpoint" "$temporary_file"
+  added_names+=(DOWNLOAD_S3_ENDPOINT)
+  download_endpoint="http://minio:9000"
+elif [[ "$download_endpoint" == "http://minio:9000" ]]; then
+  inferred_upload_endpoint="https://$minio_site"
+fi
+if [[ -z "$download_upload_endpoint" ]]; then
+  append_missing DOWNLOAD_S3_UPLOAD_ENDPOINT "${inferred_upload_endpoint:-$download_endpoint}"
+fi
 append_missing DOWNLOAD_S3_REGION us-east-1
 append_missing DOWNLOAD_S3_BUCKET project-rebound-downloads
 append_missing DOWNLOAD_S3_ACCESS_KEY_ID "downloads-$(random_hex 8)"

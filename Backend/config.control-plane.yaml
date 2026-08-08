@@ -200,7 +200,8 @@ update:
 # DOWNLOAD_S3_SECRET_ACCESS_KEY; direct binary launches remain opt-in.
 downloads:
   enabled: false
-  s3_endpoint: "http://minio.localhost:9000"
+  s3_endpoint: "http://minio:9000"
+  s3_upload_endpoint: "http://minio.localhost:9000"
   s3_region: "us-east-1"
   s3_bucket: "project-rebound-downloads"
   public_base_url: "http://minio.localhost:9000/project-rebound-downloads"

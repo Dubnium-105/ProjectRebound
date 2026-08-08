@@ -1,6 +1,7 @@
 package config
 
 import (
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -33,6 +34,7 @@ func TestLoadMissingFileAppliesEnvironment(t *testing.T) {
 	t.Setenv("VNT_MAX_NODES_PER_PLAYER", "4")
 	t.Setenv("DOWNLOADS_ENABLED", "true")
 	t.Setenv("DOWNLOAD_S3_ENDPOINT", "http://127.0.0.1:9000")
+	t.Setenv("DOWNLOAD_S3_UPLOAD_ENDPOINT", "https://uploads.example.com")
 	t.Setenv("DOWNLOAD_S3_REGION", "us-east-1")
 	t.Setenv("DOWNLOAD_S3_BUCKET", "downloads")
 	t.Setenv("DOWNLOAD_S3_ACCESS_KEY_ID", "test-access")
@@ -80,6 +82,7 @@ func TestLoadMissingFileAppliesEnvironment(t *testing.T) {
 		t.Fatalf("VNT version policy = %#v", cfg.VNT)
 	}
 	if !cfg.Downloads.Enabled || cfg.Downloads.S3Bucket != "downloads" || cfg.Downloads.PartSizeBytes != 8<<20 ||
+		cfg.Downloads.UploadEndpoint() != "https://uploads.example.com" ||
 		len(cfg.Downloads.AllowedExtensions) != 2 {
 		t.Fatalf("download storage config = %#v", cfg.Downloads)
 	}
@@ -206,11 +209,17 @@ func TestValidateControlPlaneDownloadStorage(t *testing.T) {
 		t.Fatalf("valid development download storage rejected: %v", err)
 	}
 
+	privateEndpoint, err := url.Parse("http://minio:9000")
+	if err != nil || !secureDownloadStorageEndpoint(privateEndpoint) {
+		t.Fatal("private Docker MinIO endpoint was not considered secure")
+	}
+
 	for name, mutate := range map[string]func(*Config){
 		"missing credentials": func(cfg *Config) { cfg.Downloads.S3SecretAccessKey = "" },
 		"oversized maximum":   func(cfg *Config) { cfg.Downloads.MaxFileBytes = 2<<30 + 1 },
 		"small part":          func(cfg *Config) { cfg.Downloads.PartSizeBytes = 4 << 20 },
 		"unsafe extension":    func(cfg *Config) { cfg.Downloads.AllowedExtensions = []string{"zip", "../exe"} },
+		"invalid upload URL":  func(cfg *Config) { cfg.Downloads.S3UploadEndpoint = "://bad" },
 	} {
 		t.Run(name, func(t *testing.T) {
 			cfg := valid

@@ -25,12 +25,17 @@
 
 ```dotenv
 DOWNLOADS_ENABLED=true
-DOWNLOAD_S3_ENDPOINT=https://s3.example.com
+DOWNLOAD_S3_ENDPOINT=http://minio:9000
+DOWNLOAD_S3_UPLOAD_ENDPOINT=https://s3.example.com
 DOWNLOAD_S3_REGION=us-east-1
 DOWNLOAD_S3_BUCKET=project-rebound-downloads
 DOWNLOAD_PUBLIC_BASE_URL=https://downloads.example.com/project-rebound-downloads
 MINIO_CORS_ALLOWED_ORIGINS=https://admin.example.com
 ```
+
+`DOWNLOAD_S3_ENDPOINT` 是控制面专用的内网 API 地址；
+`DOWNLOAD_S3_UPLOAD_ENDPOINT` 只用于生成浏览器可访问的预签名上传 URL。
+同机 MinIO 不应让控制面的校验、分片完成和清理请求绕行 Cloudflare 公网域名。
 
 公开基址必须包含桶名，因为服务随后直接追加服务端生成的
 `downloads/<item-slug>/<version-id>/<filename>` 对象 key。
@@ -91,6 +96,8 @@ curl -fsS https://api.example.com/v1/downloads
 `TEST_DOWNLOAD_S3_BUCKET`、`TEST_DOWNLOAD_S3_ACCESS_KEY_ID`、
 `TEST_DOWNLOAD_S3_SECRET_ACCESS_KEY`；可选设置 `TEST_DOWNLOAD_S3_REGION` 和
 `TEST_DOWNLOAD_S3_PUBLIC_BASE_URL`。运行：
+
+如需分别测试内网 API 与浏览器上传入口，可额外设置 `TEST_DOWNLOAD_S3_UPLOAD_ENDPOINT`。
 
 ```bash
 go test ./internal/download -run TestS3StorageAgainstCompatibleService -count=1

@@ -807,8 +807,14 @@ func (s *Service) validateUploadInput(input UploadInput, meta ActorMeta) (Upload
 	input.FileName = safeFileName(input.FileName)
 	input.ContentType = strings.TrimSpace(input.ContentType)
 	input.SHA256 = strings.ToLower(strings.TrimSpace(input.SHA256))
+	if input.SizeBytes < 1 {
+		return UploadInput{}, "", invalid("DOWNLOAD_FILE_EMPTY", "The selected file is empty.", nil)
+	}
+	if input.SizeBytes > s.config.MaxFileBytes {
+		return UploadInput{}, "", invalid("DOWNLOAD_FILE_TOO_LARGE", "The selected file exceeds the configured size limit.", map[string]any{"max_file_bytes": s.config.MaxFileBytes})
+	}
 	if input.VersionLabel == "" || len(input.VersionLabel) > 64 || input.FileName == "" || len(input.FileName) > 255 ||
-		input.ContentType == "" || len(input.ContentType) > 255 || input.SizeBytes < 1 || input.SizeBytes > s.config.MaxFileBytes ||
+		input.ContentType == "" || len(input.ContentType) > 255 ||
 		len(input.SHA256) != 64 {
 		return UploadInput{}, "", invalid("INVALID_DOWNLOAD_UPLOAD", "Download version or file metadata is invalid.", nil)
 	}
