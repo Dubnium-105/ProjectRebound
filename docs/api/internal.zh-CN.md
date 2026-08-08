@@ -404,3 +404,26 @@ HTTP 错误仍使用统一 `error` + `request_id` envelope。管理写操作、�
 | POST | `/v1/admin/meta/matches/{match_id}/cancel` | `meta.matches.manage` + Step-up |
 | PUT | `/v1/admin/meta/playlists/{slug}` | `meta.content.manage` + Step-up |
 | PUT | `/v1/admin/meta/notifications/{notification_id}` | `meta.content.manage` + Step-up |
+
+## 11. 下载目录管理
+
+下载目录写操作使用人工管理员会话、操作原因和对应的 `downloads.*` 权限。
+发布与归档状态迁移还要求当前会话完成 MFA Step-up。审计详情严禁记录预签名 URL、
+对象存储凭据或文件内容。
+
+| 方法 | 路径 | 权限 |
+| --- | --- | --- |
+| GET | `/v1/admin/downloads/capabilities` | `downloads.read` |
+| GET, POST | `/v1/admin/download-categories` | `downloads.read` / `downloads.create` |
+| PATCH | `/v1/admin/download-categories/{category_id}` | `downloads.update` |
+| POST | `/v1/admin/download-categories/{category_id}/archive` | `downloads.archive` + Step-up |
+| GET, POST | `/v1/admin/downloads` | `downloads.read` / `downloads.create` |
+| GET, PATCH | `/v1/admin/downloads/{download_id}` | `downloads.read` / `downloads.update` |
+| POST | `/v1/admin/downloads/{download_id}/archive` | `downloads.archive` + Step-up |
+| POST | `/v1/admin/downloads/{download_id}/uploads` | `downloads.create` |
+| GET | `/v1/admin/download-uploads/{upload_id}` | `downloads.read` |
+| POST | `/v1/admin/download-uploads/{upload_id}/parts` | `downloads.create` |
+| POST | `/v1/admin/download-uploads/{upload_id}/complete` | `downloads.create` |
+| POST | `/v1/admin/download-uploads/{upload_id}/abort` | `downloads.create` |
+| POST | `/v1/admin/download-versions/{version_id}/publish` | `downloads.publish` + Step-up |
+| POST | `/v1/admin/download-versions/{version_id}/archive` | `downloads.archive` + Step-up |

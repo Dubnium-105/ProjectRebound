@@ -18,6 +18,7 @@ import (
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/connection"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/database"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/diagnostic"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/download"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/entitlement"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/gameserver"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/gameserverregistration"
@@ -585,6 +586,17 @@ func buildHandler(
 	adminReleaseHandler := admin.NewReleaseHTTPHandler(
 		adminReleaseService, logger, cfg.HTTP.TrustProxyHeaders,
 	)
+	downloadRepository := download.NewRepository(dbPool.Pool)
+	var downloadStorage download.ObjectStorage
+	if cfg.Downloads.Enabled {
+		downloadStorage, err = download.NewS3Storage(ctx, cfg.Downloads)
+		if err != nil {
+			return nil, nil, fmt.Errorf("initialize download object storage: %w", err)
+		}
+	}
+	downloadService := download.NewService(dbPool.Pool, downloadRepository, downloadStorage, cfg.Downloads)
+	downloadHandler := download.NewHTTPHandler(downloadService, logger)
+	adminDownloadHandler := admin.NewDownloadHTTPHandler(downloadService, logger, cfg.HTTP.TrustProxyHeaders)
 	adminRouter.Group(func(router chi.Router) {
 		router.Use(adminSessionAuthenticator.Middleware)
 		router.With(admin.RequirePermission("updates.read")).Get("/releases", adminReleaseHandler.List)
@@ -603,8 +615,39 @@ func buildHandler(
 			admin.RequirePermission("updates.rollback"),
 			admin.RequireStepUp(adminAuthService),
 		).Post("/releases/{release_id}/archive", adminReleaseHandler.Archive)
+		router.With(admin.RequirePermission("downloads.read")).Get("/downloads/capabilities", adminDownloadHandler.Capabilities)
+		router.With(admin.RequirePermission("downloads.read")).Get("/download-categories", adminDownloadHandler.ListCategories)
+		router.With(admin.RequirePermission("downloads.create")).Post("/download-categories", adminDownloadHandler.CreateCategory)
+		router.With(admin.RequirePermission("downloads.update")).Patch("/download-categories/{category_id}", adminDownloadHandler.UpdateCategory)
+		router.With(
+			admin.RequirePermission("downloads.archive"),
+			admin.RequireStepUp(adminAuthService),
+		).Post("/download-categories/{category_id}/archive", adminDownloadHandler.ArchiveCategory)
+		router.With(admin.RequirePermission("downloads.read")).Get("/downloads", adminDownloadHandler.ListEntries)
+		router.With(admin.RequirePermission("downloads.read")).Get("/downloads/{download_id}", adminDownloadHandler.GetEntry)
+		router.With(admin.RequirePermission("downloads.create")).Post("/downloads", adminDownloadHandler.CreateEntry)
+		router.With(admin.RequirePermission("downloads.update")).Patch("/downloads/{download_id}", adminDownloadHandler.UpdateEntry)
+		router.With(
+			admin.RequirePermission("downloads.archive"),
+			admin.RequireStepUp(adminAuthService),
+		).Post("/downloads/{download_id}/archive", adminDownloadHandler.ArchiveEntry)
+		router.With(admin.RequirePermission("downloads.create")).Post("/downloads/{download_id}/uploads", adminDownloadHandler.CreateUpload)
+		router.With(admin.RequirePermission("downloads.read")).Get("/download-uploads/{upload_id}", adminDownloadHandler.GetUpload)
+		router.With(admin.RequirePermission("downloads.create")).Post("/download-uploads/{upload_id}/parts", adminDownloadHandler.SignParts)
+		router.With(admin.RequirePermission("downloads.create")).Post("/download-uploads/{upload_id}/complete", adminDownloadHandler.CompleteUpload)
+		router.With(admin.RequirePermission("downloads.create")).Post("/download-uploads/{upload_id}/abort", adminDownloadHandler.AbortUpload)
+		router.With(
+			admin.RequirePermission("downloads.publish"),
+			admin.RequireStepUp(adminAuthService),
+		).Post("/download-versions/{version_id}/publish", adminDownloadHandler.Publish)
+		router.With(
+			admin.RequirePermission("downloads.archive"),
+			admin.RequireStepUp(adminAuthService),
+		).Post("/download-versions/{version_id}/archive", adminDownloadHandler.ArchiveVersion)
 	})
 	router.Mount("/v1/admin", adminRouter)
+	router.Get("/v1/downloads", downloadHandler.Catalog)
+	router.Get("/v1/downloads/files/{version_id}", downloadHandler.File)
 	router.Get("/v1/updates/check", updateHandler.Check)
 	router.Get("/v1/updates/{platform}/{version}/manifest", updateHandler.Manifest)
 	router.Get("/v1/updates/files/{file_id}", updateHandler.File)
@@ -624,9 +667,10 @@ func buildHandler(
 	p2pBattleLogFinalizer := p2pbattlelog.NewFinalizer(
 		p2pBattleLogService, cfg.P2PBattleLog.FinalizerInterval(), logger,
 	)
+	downloadWorker := download.NewWorker(downloadService, cfg.Downloads.VerificationInterval(), logger)
 	return appmiddleware.Chain(router, cfg, logger, limiter, metrics), []backgroundService{
 		gameServerSweeper, p2pRoomSweeper, vntNodeSweeper, connectionSweeper, relaySweeper, relayMigrationSweeper,
-		p2pBattleLogFinalizer, realtimeHub, relayControlServer,
+		p2pBattleLogFinalizer, downloadWorker, realtimeHub, relayControlServer,
 	}, nil
 }
 

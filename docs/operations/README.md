@@ -12,6 +12,7 @@ English | [简体中文](README.zh-CN.md)
 - [Dedicated Server registration](dedicated-server-registration.md): invitation/grant verification, one-time enrollment, Windows Agent, and rotating node identity;
 - [Admin Web operator guide](admin-console-user-guide.md): sign-in, player, online, release, governance, and audit workflows;
 - [Admin Web security guide](admin-console-security.md): access layers, secret boundaries, administrator lifecycle, and security checks.
+- [Download catalog storage](download-catalog.md): S3/R2/MinIO setup, browser CORS, upload verification, and recovery.
 
 ## Stability and data safety
 

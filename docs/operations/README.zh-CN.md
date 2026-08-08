@@ -12,6 +12,7 @@
 - [Dedicated Server 注册](dedicated-server-registration.zh-CN.md)：邀请码/资格验证、一次性注册、Windows Agent 与节点身份轮转；
 - [Admin Web 使用手册](admin-console-user-guide.zh-CN.md)：登录、玩家、联机、发布、治理和审计操作；
 - [Admin Web 安全手册](admin-console-security.zh-CN.md)：入口分层、Secret 边界、管理员生命周期与安全检查。
+- [下载目录存储](download-catalog.zh-CN.md)：S3/R2/MinIO、浏览器 CORS、上传校验与恢复。
 
 ## 稳定性与数据安全
 

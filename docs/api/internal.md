@@ -407,3 +407,27 @@ permission, step-up, reason, and audit.
 | POST | `/v1/admin/meta/matches/{match_id}/cancel` | `meta.matches.manage` + step-up |
 | PUT | `/v1/admin/meta/playlists/{slug}` | `meta.content.manage` + step-up |
 | PUT | `/v1/admin/meta/notifications/{notification_id}` | `meta.content.manage` + step-up |
+
+## 11. Download catalog administration
+
+Download catalog writes use the human administrator session, a reason, and the
+corresponding `downloads.*` permission. Publish and archive transitions also require
+current-session MFA step-up. Presigned URLs, storage credentials, and file contents
+must never be copied into audit details.
+
+| Method | Path | Permission |
+| --- | --- | --- |
+| GET | `/v1/admin/downloads/capabilities` | `downloads.read` |
+| GET, POST | `/v1/admin/download-categories` | `downloads.read` / `downloads.create` |
+| PATCH | `/v1/admin/download-categories/{category_id}` | `downloads.update` |
+| POST | `/v1/admin/download-categories/{category_id}/archive` | `downloads.archive` + step-up |
+| GET, POST | `/v1/admin/downloads` | `downloads.read` / `downloads.create` |
+| GET, PATCH | `/v1/admin/downloads/{download_id}` | `downloads.read` / `downloads.update` |
+| POST | `/v1/admin/downloads/{download_id}/archive` | `downloads.archive` + step-up |
+| POST | `/v1/admin/downloads/{download_id}/uploads` | `downloads.create` |
+| GET | `/v1/admin/download-uploads/{upload_id}` | `downloads.read` |
+| POST | `/v1/admin/download-uploads/{upload_id}/parts` | `downloads.create` |
+| POST | `/v1/admin/download-uploads/{upload_id}/complete` | `downloads.create` |
+| POST | `/v1/admin/download-uploads/{upload_id}/abort` | `downloads.create` |
+| POST | `/v1/admin/download-versions/{version_id}/publish` | `downloads.publish` + step-up |
+| POST | `/v1/admin/download-versions/{version_id}/archive` | `downloads.archive` + step-up |

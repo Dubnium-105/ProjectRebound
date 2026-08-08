@@ -38,6 +38,7 @@ cors:
     - "Content-Type"
     - "X-Request-Id"
     - "X-Room-Host-Token"
+    - "X-Admin-Step-Up"
   allow_credentials: true
   max_age_seconds: 600
 
@@ -192,6 +193,23 @@ update:
   api_version: "v1"
   protocol_version: 2
   vnt_rooms_enabled: false
+
+# Generic public files are separate from the signed launcher update manifests.
+# Credentials are accepted only through DOWNLOAD_S3_ACCESS_KEY_ID and
+# DOWNLOAD_S3_SECRET_ACCESS_KEY. Keep disabled until the bucket and CDN exist.
+downloads:
+  enabled: false
+  s3_endpoint: "https://ACCOUNT_ID.r2.cloudflarestorage.com"
+  s3_region: "auto"
+  s3_bucket: "project-rebound-downloads"
+  public_base_url: "https://downloads.example.com"
+  allowed_extensions: ["exe", "msi", "zip", "7z", "pdf", "md", "txt", "docx"]
+  max_file_bytes: 2147483648
+  multipart_threshold_bytes: 67108864
+  part_size_bytes: 16777216
+  upload_session_ttl_hours: 24
+  presign_ttl_minutes: 15
+  verification_interval_seconds: 5
 
 logging:
   level: info

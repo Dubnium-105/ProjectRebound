@@ -142,6 +142,22 @@ func TestDocumentHasRequiredOpenAPIShape(t *testing.T) {
 		"/v1/admin/releases/{release_id}/publish",
 		"/v1/admin/releases/{release_id}/rollback",
 		"/v1/admin/releases/{release_id}/archive",
+		"/v1/admin/downloads/capabilities",
+		"/v1/admin/download-categories",
+		"/v1/admin/download-categories/{category_id}",
+		"/v1/admin/download-categories/{category_id}/archive",
+		"/v1/admin/downloads",
+		"/v1/admin/downloads/{download_id}",
+		"/v1/admin/downloads/{download_id}/archive",
+		"/v1/admin/downloads/{download_id}/uploads",
+		"/v1/admin/download-uploads/{upload_id}",
+		"/v1/admin/download-uploads/{upload_id}/parts",
+		"/v1/admin/download-uploads/{upload_id}/complete",
+		"/v1/admin/download-uploads/{upload_id}/abort",
+		"/v1/admin/download-versions/{version_id}/publish",
+		"/v1/admin/download-versions/{version_id}/archive",
+		"/v1/downloads",
+		"/v1/downloads/files/{version_id}",
 		"/v1/game-server-registration-tokens",
 		"/v1/game-servers",
 		"/v1/game-servers/{server_id}",
@@ -190,9 +206,49 @@ func TestDocumentHasRequiredOpenAPIShape(t *testing.T) {
 			t.Errorf("required path %s is missing", path)
 		}
 	}
-	for _, schema := range []string{"BindRequest", "BindResponse", "RefreshRequest", "DiagnosticReportRequest", "DiagnosticReportResponse", "MeResponse", "UserSession", "UserSessionListResponse", "AdminAuthConfigResponse", "AdminLoginRequest", "AdminLoginResponse", "AdminMFAVerifyRequest", "AdminStepUpRequest", "AdminStepUpResponse", "CurrentAdmin", "AdminAccessResponse", "AdminSession", "AdminSessionListResponse", "GovernedAdministrator", "GovernedAdministratorCreateRequest", "GovernedAdministratorUpdateRequest", "GovernedAdministratorProvisioningResponse", "AdminPermissionDefinition", "GovernedRole", "GovernedRoleUpdateRequest", "GovernedRoleListResponse", "AdminFeatureMap", "AdminCapabilities", "AdminSetting", "AdminSettingsUpdateRequest", "AdminPlayerPatch", "AdminPlayerListResponse", "AdminPlayerSession", "AdminPlayerLoginEvent", "InviteCode", "InviteCodeCreateRequest", "InviteCodePatchRequest", "InviteCodeListResponse", "InviteCodeUse", "InviteCodeUseListResponse", "AdminDashboardSummary", "AdminP2PRoom", "AdminP2PRoomMember", "AdminP2PRoomMemberListResponse", "AdminGameServer", "AdminGameServerListResponse", "AdminGameServerRegistrationTokenCreateRequest", "AdminGameServerRegistrationToken", "AdminGameServerRegistrationTokenCreateResponse", "AdminConnection", "AdminRelayMigration", "AdminConnectionListResponse", "AdminConnectionMigrationResponse", "AdminRelease", "AdminReleaseCreateRequest", "AdminReleaseValidation", "AdminReleaseListResponse", "AdminRelayDrainRequest", "AdminDashboardPoint", "AdminDashboardAlert", "AuthRiskEvent", "AuthRiskEventListResponse", "AdminAuditLog", "AdminLoginAudit", "GameServerRegistrationTokenRequest", "GameServerRegistrationTokenResponse", "GameServerRegistrationRequest", "GameServerCredentialRotationRequest", "GameServerCredentialRotationResponse", "GameServerListResponse", "P2PRoomCreateRequest", "PublicP2PRoom", "P2PRoomListResponse", "P2PActiveMatch", "P2PReportCapability", "P2PPresenceRequest", "P2PBattleLogRawV3", "P2PBattleLogSubmission", "P2PBattleLogResultResponse", "ConnectionCreateRequest", "ConnectionData", "ConnectionRealtimeEvent", "ConnectionRelayAllocatedEvent", "ConnectionRelayMigratingEvent", "ConnectionRelayMigratedEvent", "RelayEnrollRequest", "RelayNode", "RelayNodeListResponse", "RelayTokenClaims", "BattleLogSubmitRequest", "BattleLogSubmission", "BattleLogSubmitResponse", "UpdateCheckResponse", "SignedUpdateManifest", "UpdateFileResponse", "ClientConfigResponse", "HealthSuccess", "Error", "ErrorResponse"} {
+	for _, schema := range []string{"BindRequest", "BindResponse", "RefreshRequest", "DiagnosticReportRequest", "DiagnosticReportResponse", "MeResponse", "UserSession", "UserSessionListResponse", "AdminAuthConfigResponse", "AdminLoginRequest", "AdminLoginResponse", "AdminMFAVerifyRequest", "AdminStepUpRequest", "AdminStepUpResponse", "CurrentAdmin", "AdminAccessResponse", "AdminSession", "AdminSessionListResponse", "GovernedAdministrator", "GovernedAdministratorCreateRequest", "GovernedAdministratorUpdateRequest", "GovernedAdministratorProvisioningResponse", "AdminPermissionDefinition", "GovernedRole", "GovernedRoleUpdateRequest", "GovernedRoleListResponse", "AdminFeatureMap", "AdminCapabilities", "AdminSetting", "AdminSettingsUpdateRequest", "AdminPlayerPatch", "AdminPlayerListResponse", "AdminPlayerSession", "AdminPlayerLoginEvent", "InviteCode", "InviteCodeCreateRequest", "InviteCodePatchRequest", "InviteCodeListResponse", "InviteCodeUse", "InviteCodeUseListResponse", "AdminDashboardSummary", "AdminP2PRoom", "AdminP2PRoomMember", "AdminP2PRoomMemberListResponse", "AdminGameServer", "AdminGameServerListResponse", "AdminGameServerRegistrationTokenCreateRequest", "AdminGameServerRegistrationToken", "AdminGameServerRegistrationTokenCreateResponse", "AdminConnection", "AdminRelayMigration", "AdminConnectionListResponse", "AdminConnectionMigrationResponse", "AdminRelease", "AdminReleaseCreateRequest", "AdminReleaseValidation", "AdminReleaseListResponse", "DownloadCategory", "DownloadEntry", "DownloadVersion", "DownloadUploadSession", "PublicDownloadCategory", "PublicDownloadEntry", "PublicDownloadVersion", "PublicDownloadCatalogResponse", "AdminRelayDrainRequest", "AdminDashboardPoint", "AdminDashboardAlert", "AuthRiskEvent", "AuthRiskEventListResponse", "AdminAuditLog", "AdminLoginAudit", "GameServerRegistrationTokenRequest", "GameServerRegistrationTokenResponse", "GameServerRegistrationRequest", "GameServerCredentialRotationRequest", "GameServerCredentialRotationResponse", "GameServerListResponse", "P2PRoomCreateRequest", "PublicP2PRoom", "P2PRoomListResponse", "P2PActiveMatch", "P2PReportCapability", "P2PPresenceRequest", "P2PBattleLogRawV3", "P2PBattleLogSubmission", "P2PBattleLogResultResponse", "ConnectionCreateRequest", "ConnectionData", "ConnectionRealtimeEvent", "ConnectionRelayAllocatedEvent", "ConnectionRelayMigratingEvent", "ConnectionRelayMigratedEvent", "RelayEnrollRequest", "RelayNode", "RelayNodeListResponse", "RelayTokenClaims", "BattleLogSubmitRequest", "BattleLogSubmission", "BattleLogSubmitResponse", "UpdateCheckResponse", "SignedUpdateManifest", "UpdateFileResponse", "ClientConfigResponse", "HealthSuccess", "Error", "ErrorResponse"} {
 		if _, ok := document.Components.Schemas[schema]; !ok {
 			t.Errorf("required schema %s is missing", schema)
+		}
+	}
+}
+
+func TestDownloadPublishAndArchiveRequireAdminStepUp(t *testing.T) {
+	contents, err := os.ReadFile("openapi.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document struct {
+		Paths map[string]struct {
+			Post *struct {
+				Security []map[string][]string `yaml:"security"`
+			} `yaml:"post"`
+		} `yaml:"paths"`
+	}
+	if err := yaml.Unmarshal(contents, &document); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{
+		"/v1/admin/download-categories/{category_id}/archive",
+		"/v1/admin/downloads/{download_id}/archive",
+		"/v1/admin/download-versions/{version_id}/publish",
+		"/v1/admin/download-versions/{version_id}/archive",
+	} {
+		operation := document.Paths[path].Post
+		if operation == nil {
+			t.Errorf("%s has no POST operation", path)
+			continue
+		}
+		found := false
+		for _, requirement := range operation.Security {
+			_, access := requirement["adminAccessToken"]
+			_, stepUp := requirement["adminStepUpToken"]
+			if access && stepUp {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("%s does not require admin access and step-up together", path)
 		}
 	}
 }

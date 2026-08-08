@@ -355,3 +355,15 @@ MetaTunnel 流程见 [MetaServer 外部 API](metaserver-external.zh-CN.md)。
 | POST | `/v1/meta/matchmaking/tickets` | 玩家/队长 | 单人或整队排队 |
 | GET | `/v1/meta/matchmaking/tickets/{ticket_id}` | Ticket 所有者/成员 | 轮询分配 |
 | DELETE | `/v1/meta/matchmaking/tickets/{ticket_id}` | Ticket 所有者/队长 | 取消排队 |
+
+## 6. 公共下载目录
+
+公共下载目录与启动器使用的签名更新 Manifest 相互独立。
+
+| 方法 | 路径 | 鉴权 | 用途 |
+| --- | --- | --- | --- |
+| GET | `/v1/downloads` | 无 | 返回启用分类、下载项目和全部已发布版本，支持 `ETag`/`If-None-Match` |
+| GET | `/v1/downloads/files/{version_id}` | 无 | 确认版本仍处于发布状态，再跳转至不可变 CDN 对象 |
+
+目录包含 `zh_cn`、`en` 双语文本、`latest_version_id`、文件大小、SHA-256、
+发布时间和稳定 API 下载路径。草稿、失败和已归档版本在文件入口统一表现为未知 ID。

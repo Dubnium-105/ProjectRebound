@@ -1818,6 +1818,328 @@ paths:
               schema: {$ref: "#/components/schemas/AdminReleaseResponse"}
         "409":
           $ref: "#/components/responses/Conflict"
+  /v1/admin/downloads/capabilities:
+    get:
+      operationId: adminGetDownloadCapabilities
+      tags: [Admin]
+      x-internal: true
+      security: [{adminAccessToken: []}]
+      responses:
+        "200":
+          description: Whether administrator object-storage uploads are configured.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminDownloadCapabilitiesResponse"}
+  /v1/admin/download-categories:
+    get:
+      operationId: adminListDownloadCategories
+      tags: [Admin]
+      x-internal: true
+      security: [{adminAccessToken: []}]
+      responses:
+        "200":
+          description: All active and archived download categories.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminDownloadCategoryListResponse"}
+    post:
+      operationId: adminCreateDownloadCategory
+      tags: [Admin]
+      x-internal: true
+      security: [{adminAccessToken: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminDownloadCategoryRequest"}
+      responses:
+        "201":
+          description: Download category created.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminDownloadCategoryResponse"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/admin/download-categories/{category_id}:
+    patch:
+      operationId: adminUpdateDownloadCategory
+      tags: [Admin]
+      x-internal: true
+      security: [{adminAccessToken: []}]
+      parameters:
+        - {in: path, name: category_id, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminDownloadCategoryRequest"}
+      responses:
+        "200":
+          description: Download category updated.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminDownloadCategoryResponse"}
+  /v1/admin/download-categories/{category_id}/archive:
+    post:
+      operationId: adminArchiveDownloadCategory
+      tags: [Admin]
+      x-internal: true
+      security: [{adminAccessToken: [], adminStepUpToken: []}]
+      parameters:
+        - {in: path, name: category_id, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
+      responses:
+        "200":
+          description: Empty download category archived.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminDownloadCategoryResponse"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/admin/downloads:
+    get:
+      operationId: adminListDownloads
+      tags: [Admin]
+      x-internal: true
+      security: [{adminAccessToken: []}]
+      responses:
+        "200":
+          description: Download items and every managed version.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminDownloadListResponse"}
+    post:
+      operationId: adminCreateDownload
+      tags: [Admin]
+      x-internal: true
+      security: [{adminAccessToken: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminDownloadRequest"}
+      responses:
+        "201":
+          description: Download item created.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminDownloadResponse"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/admin/downloads/{download_id}:
+    get:
+      operationId: adminGetDownload
+      tags: [Admin]
+      x-internal: true
+      security: [{adminAccessToken: []}]
+      parameters:
+        - {in: path, name: download_id, required: true, schema: {type: string}}
+      responses:
+        "200":
+          description: Download item and version detail.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminDownloadResponse"}
+    patch:
+      operationId: adminUpdateDownload
+      tags: [Admin]
+      x-internal: true
+      security: [{adminAccessToken: []}]
+      parameters:
+        - {in: path, name: download_id, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminDownloadRequest"}
+      responses:
+        "200":
+          description: Download item updated.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminDownloadResponse"}
+  /v1/admin/downloads/{download_id}/archive:
+    post:
+      operationId: adminArchiveDownload
+      tags: [Admin]
+      x-internal: true
+      security: [{adminAccessToken: [], adminStepUpToken: []}]
+      parameters:
+        - {in: path, name: download_id, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
+      responses:
+        "200":
+          description: Download item without published versions archived.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminDownloadResponse"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/admin/downloads/{download_id}/uploads:
+    post:
+      operationId: adminCreateDownloadUpload
+      tags: [Admin]
+      x-internal: true
+      security: [{adminAccessToken: []}]
+      parameters:
+        - {in: path, name: download_id, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminDownloadUploadRequest"}
+      responses:
+        "201":
+          description: Upload session and optional single-PUT signed request created.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminDownloadUploadCreatedResponse"}
+        "409": {$ref: "#/components/responses/Conflict"}
+        "503": {$ref: "#/components/responses/ServiceUnavailable"}
+  /v1/admin/download-uploads/{upload_id}:
+    get:
+      operationId: adminGetDownloadUpload
+      tags: [Admin]
+      x-internal: true
+      security: [{adminAccessToken: []}]
+      parameters:
+        - {in: path, name: upload_id, required: true, schema: {type: string}}
+      responses:
+        "200":
+          description: Upload state and already persisted multipart parts.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminDownloadUploadResponse"}
+  /v1/admin/download-uploads/{upload_id}/parts:
+    post:
+      operationId: adminSignDownloadUploadParts
+      tags: [Admin]
+      x-internal: true
+      security: [{adminAccessToken: []}]
+      parameters:
+        - {in: path, name: upload_id, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminDownloadPartRequest"}
+      responses:
+        "200":
+          description: Short-lived signed PUT requests for selected multipart parts, or logical part 1 when renewing a single-PUT session.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminDownloadSignedPartListResponse"}
+  /v1/admin/download-uploads/{upload_id}/complete:
+    post:
+      operationId: adminCompleteDownloadUpload
+      tags: [Admin]
+      x-internal: true
+      security: [{adminAccessToken: []}]
+      parameters:
+        - {in: path, name: upload_id, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
+      responses:
+        "200":
+          description: Object assembled and queued for server-side SHA-256 verification.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminDownloadUploadResponse"}
+  /v1/admin/download-uploads/{upload_id}/abort:
+    post:
+      operationId: adminAbortDownloadUpload
+      tags: [Admin]
+      x-internal: true
+      security: [{adminAccessToken: []}]
+      parameters:
+        - {in: path, name: upload_id, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
+      responses:
+        "200":
+          description: Active upload aborted and incomplete object removed.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminDownloadUploadResponse"}
+  /v1/admin/download-versions/{version_id}/publish:
+    post:
+      operationId: adminPublishDownloadVersion
+      tags: [Admin]
+      x-internal: true
+      security: [{adminAccessToken: [], adminStepUpToken: []}]
+      parameters:
+        - {in: path, name: version_id, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
+      responses:
+        "200":
+          description: Verified version published to the public catalog.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminDownloadVersionResponse"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/admin/download-versions/{version_id}/archive:
+    post:
+      operationId: adminArchiveDownloadVersion
+      tags: [Admin]
+      x-internal: true
+      security: [{adminAccessToken: [], adminStepUpToken: []}]
+      parameters:
+        - {in: path, name: version_id, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
+      responses:
+        "200":
+          description: Version hidden while its immutable object and audit history remain retained.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminDownloadVersionResponse"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/downloads:
+    get:
+      operationId: listPublicDownloads
+      tags: [Downloads]
+      responses:
+        "200":
+          description: Active categories, items, and every published file version.
+          headers:
+            ETag: {schema: {type: string}}
+            Cache-Control: {schema: {type: string}}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/PublicDownloadCatalogResponse"}
+        "304":
+          description: Catalog is unchanged for the supplied If-None-Match value.
+        "503": {$ref: "#/components/responses/ServiceUnavailable"}
+  /v1/downloads/files/{version_id}:
+    get:
+      operationId: downloadPublishedFile
+      tags: [Downloads]
+      parameters:
+        - {in: path, name: version_id, required: true, schema: {type: string}}
+      responses:
+        "302":
+          description: Redirects to the immutable public CDN object.
+          headers:
+            Location: {required: true, schema: {type: string, format: uri}}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "503": {$ref: "#/components/responses/ServiceUnavailable"}
   /v1/game-server-registration-tokens:
     post:
       operationId: issueGameServerRegistrationToken
@@ -5025,6 +5347,298 @@ components:
               type: array
               items: {$ref: "#/components/schemas/AdminRelease"}
             next_cursor: {type: string}
+        request_id: {type: string}
+    DownloadLocalizedText:
+      type: object
+      additionalProperties: false
+      required: [en, zh_cn]
+      properties:
+        en: {type: string}
+        zh_cn: {type: string}
+    DownloadCategory:
+      type: object
+      additionalProperties: false
+      required: [id, slug, title, description, sort_order, enabled, status, created_by, archived_by, created_at, updated_at, archived_at]
+      properties:
+        id: {type: string}
+        slug: {type: string, pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"}
+        title: {$ref: "#/components/schemas/DownloadLocalizedText"}
+        description: {$ref: "#/components/schemas/DownloadLocalizedText"}
+        sort_order: {type: integer}
+        enabled: {type: boolean}
+        status: {type: string, enum: [ACTIVE, ARCHIVED]}
+        created_by: {type: string}
+        archived_by: {type: string}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        archived_at: {type: [string, "null"], format: date-time}
+    DownloadVersion:
+      type: object
+      additionalProperties: false
+      required: [id, entry_id, version_label, original_file_name, content_type, size_bytes, sha256, status, created_by, published_by, archived_by, created_at, updated_at, verified_at, published_at, archived_at]
+      properties:
+        id: {type: string}
+        entry_id: {type: string}
+        version_label: {type: string, minLength: 1, maxLength: 64}
+        original_file_name: {type: string}
+        content_type: {type: string}
+        size_bytes: {type: integer, format: int64, minimum: 1}
+        sha256: {type: string, pattern: "^[0-9a-f]{64}$"}
+        status: {type: string, enum: [UPLOADING, VERIFYING, DRAFT, PUBLISHED, ARCHIVED, FAILED]}
+        failure_reason: {type: string}
+        created_by: {type: string}
+        published_by: {type: string}
+        archived_by: {type: string}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        verified_at: {type: [string, "null"], format: date-time}
+        published_at: {type: [string, "null"], format: date-time}
+        archived_at: {type: [string, "null"], format: date-time}
+        download_url: {type: string}
+    DownloadEntry:
+      type: object
+      additionalProperties: false
+      required: [id, category_id, category_slug, slug, title, description, sort_order, status, created_by, archived_by, created_at, updated_at, archived_at, versions, latest_version_id]
+      properties:
+        id: {type: string}
+        category_id: {type: string}
+        category_slug: {type: string}
+        slug: {type: string, pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"}
+        title: {$ref: "#/components/schemas/DownloadLocalizedText"}
+        description: {$ref: "#/components/schemas/DownloadLocalizedText"}
+        sort_order: {type: integer}
+        status: {type: string, enum: [ACTIVE, ARCHIVED]}
+        created_by: {type: string}
+        archived_by: {type: string}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        archived_at: {type: [string, "null"], format: date-time}
+        versions:
+          type: array
+          items: {$ref: "#/components/schemas/DownloadVersion"}
+        latest_version_id: {type: string}
+    PublicDownloadCategory:
+      type: object
+      additionalProperties: false
+      required: [id, slug, title, description, sort_order, enabled]
+      properties:
+        id: {type: string}
+        slug: {type: string, pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"}
+        title: {$ref: "#/components/schemas/DownloadLocalizedText"}
+        description: {$ref: "#/components/schemas/DownloadLocalizedText"}
+        sort_order: {type: integer}
+        enabled: {type: boolean, const: true}
+    PublicDownloadVersion:
+      type: object
+      additionalProperties: false
+      required: [id, version_label, original_file_name, content_type, size_bytes, sha256, status, published_at, download_url]
+      properties:
+        id: {type: string}
+        version_label: {type: string, minLength: 1, maxLength: 64}
+        original_file_name: {type: string}
+        content_type: {type: string}
+        size_bytes: {type: integer, format: int64, minimum: 1}
+        sha256: {type: string, pattern: "^[0-9a-f]{64}$"}
+        status: {type: string, const: PUBLISHED}
+        published_at: {type: string, format: date-time}
+        download_url: {type: string}
+    PublicDownloadEntry:
+      type: object
+      additionalProperties: false
+      required: [id, category_id, category_slug, slug, title, description, sort_order, versions, latest_version_id]
+      properties:
+        id: {type: string}
+        category_id: {type: string}
+        category_slug: {type: string}
+        slug: {type: string, pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"}
+        title: {$ref: "#/components/schemas/DownloadLocalizedText"}
+        description: {$ref: "#/components/schemas/DownloadLocalizedText"}
+        sort_order: {type: integer}
+        versions:
+          type: array
+          minItems: 1
+          items: {$ref: "#/components/schemas/PublicDownloadVersion"}
+        latest_version_id: {type: string}
+    AdminDownloadCategoryRequest:
+      type: object
+      additionalProperties: false
+      required: [slug, title_en, title_zh_cn, description_en, description_zh_cn, sort_order, enabled, reason]
+      properties:
+        slug: {type: string, minLength: 1, maxLength: 64, pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", description: Stable after creation.}
+        title_en: {type: string, minLength: 1, maxLength: 128}
+        title_zh_cn: {type: string, minLength: 1, maxLength: 128}
+        description_en: {type: string, maxLength: 2000}
+        description_zh_cn: {type: string, maxLength: 2000}
+        sort_order: {type: integer, minimum: -100000, maximum: 100000}
+        enabled: {type: boolean}
+        reason: {type: string, minLength: 1, maxLength: 500}
+    AdminDownloadRequest:
+      type: object
+      additionalProperties: false
+      required: [category_id, slug, title_en, title_zh_cn, description_en, description_zh_cn, sort_order, reason]
+      properties:
+        category_id: {type: string, minLength: 1}
+        slug: {type: string, minLength: 1, maxLength: 64, pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", description: Stable after creation.}
+        title_en: {type: string, minLength: 1, maxLength: 128}
+        title_zh_cn: {type: string, minLength: 1, maxLength: 128}
+        description_en: {type: string, maxLength: 4000}
+        description_zh_cn: {type: string, maxLength: 4000}
+        sort_order: {type: integer, minimum: -100000, maximum: 100000}
+        reason: {type: string, minLength: 1, maxLength: 500}
+    AdminDownloadUploadRequest:
+      type: object
+      additionalProperties: false
+      required: [version_label, file_name, content_type, size_bytes, sha256, reason]
+      properties:
+        version_label: {type: string, minLength: 1, maxLength: 64}
+        file_name: {type: string, minLength: 1, maxLength: 255}
+        content_type: {type: string, minLength: 1, maxLength: 255, description: Browser-observed type; the server stores an authoritative MIME type derived from the allowed extension.}
+        size_bytes: {type: integer, format: int64, minimum: 1, maximum: 2147483648}
+        sha256: {type: string, pattern: "^[0-9a-f]{64}$"}
+        reason: {type: string, minLength: 1, maxLength: 500}
+    DownloadSignedRequest:
+      type: object
+      additionalProperties: false
+      required: [url, method, headers, expires_at]
+      properties:
+        url: {type: string, format: uri}
+        method: {type: string, enum: [PUT]}
+        headers: {type: object, additionalProperties: {type: string}}
+        expires_at: {type: string, format: date-time}
+    DownloadUploadedPart:
+      type: object
+      additionalProperties: false
+      required: [part_number, etag]
+      properties:
+        part_number: {type: integer, minimum: 1}
+        etag: {type: string}
+        size_bytes: {type: integer, format: int64, minimum: 0}
+    DownloadUploadSession:
+      type: object
+      additionalProperties: false
+      required: [id, version_id, strategy, part_size_bytes, status, expires_at, created_at, updated_at, version, uploaded_parts]
+      properties:
+        id: {type: string}
+        version_id: {type: string}
+        strategy: {type: string, enum: [SINGLE, MULTIPART]}
+        part_size_bytes: {type: integer, format: int64, minimum: 1}
+        status: {type: string, enum: [ACTIVE, COMPLETED, ABORTED, EXPIRED]}
+        expires_at: {type: string, format: date-time}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        version: {$ref: "#/components/schemas/DownloadVersion"}
+        uploaded_parts:
+          type: array
+          items: {$ref: "#/components/schemas/DownloadUploadedPart"}
+    AdminDownloadPartRequest:
+      type: object
+      additionalProperties: false
+      required: [part_numbers]
+      properties:
+        part_numbers:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          items: {type: integer, minimum: 1}
+    DownloadSignedPart:
+      type: object
+      additionalProperties: false
+      required: [part_number, request]
+      properties:
+        part_number: {type: integer, minimum: 1}
+        request: {$ref: "#/components/schemas/DownloadSignedRequest"}
+    AdminDownloadCapabilitiesResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [enabled, max_file_bytes, allowed_extensions, multipart_threshold_bytes, part_size_bytes, upload_session_ttl_hours, presigned_request_ttl_minutes]
+          properties:
+            enabled: {type: boolean}
+            max_file_bytes: {type: integer, format: int64, minimum: 1, maximum: 2147483648}
+            allowed_extensions: {type: array, minItems: 1, uniqueItems: true, items: {type: string}}
+            multipart_threshold_bytes: {type: integer, format: int64, minimum: 1}
+            part_size_bytes: {type: integer, format: int64, minimum: 5242880}
+            upload_session_ttl_hours: {type: integer, minimum: 1, maximum: 168}
+            presigned_request_ttl_minutes: {type: integer, minimum: 1, maximum: 60}
+        request_id: {type: string}
+    AdminDownloadCategoryResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/DownloadCategory"}
+        request_id: {type: string}
+    AdminDownloadCategoryListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items: {type: array, items: {$ref: "#/components/schemas/DownloadCategory"}}
+        request_id: {type: string}
+    AdminDownloadResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/DownloadEntry"}
+        request_id: {type: string}
+    AdminDownloadListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items: {type: array, items: {$ref: "#/components/schemas/DownloadEntry"}}
+        request_id: {type: string}
+    AdminDownloadVersionResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/DownloadVersion"}
+        request_id: {type: string}
+    AdminDownloadUploadResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/DownloadUploadSession"}
+        request_id: {type: string}
+    AdminDownloadUploadCreatedResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [session]
+          properties:
+            session: {$ref: "#/components/schemas/DownloadUploadSession"}
+            request: {$ref: "#/components/schemas/DownloadSignedRequest"}
+        request_id: {type: string}
+    AdminDownloadSignedPartListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items: {type: array, items: {$ref: "#/components/schemas/DownloadSignedPart"}}
+        request_id: {type: string}
+    PublicDownloadCatalogResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [categories, items]
+          properties:
+            categories: {type: array, items: {$ref: "#/components/schemas/PublicDownloadCategory"}}
+            items: {type: array, items: {$ref: "#/components/schemas/PublicDownloadEntry"}}
         request_id: {type: string}
     AdminDashboardSummaryResponse:
       type: object

@@ -1324,6 +1324,262 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/downloads/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["adminGetDownloadCapabilities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/download-categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["adminListDownloadCategories"];
+        put?: never;
+        post: operations["adminCreateDownloadCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/download-categories/{category_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["adminUpdateDownloadCategory"];
+        trace?: never;
+    };
+    "/v1/admin/download-categories/{category_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["adminArchiveDownloadCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/downloads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["adminListDownloads"];
+        put?: never;
+        post: operations["adminCreateDownload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/downloads/{download_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["adminGetDownload"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["adminUpdateDownload"];
+        trace?: never;
+    };
+    "/v1/admin/downloads/{download_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["adminArchiveDownload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/downloads/{download_id}/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["adminCreateDownloadUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/download-uploads/{upload_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["adminGetDownloadUpload"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/download-uploads/{upload_id}/parts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["adminSignDownloadUploadParts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/download-uploads/{upload_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["adminCompleteDownloadUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/download-uploads/{upload_id}/abort": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["adminAbortDownloadUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/download-versions/{version_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["adminPublishDownloadVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/download-versions/{version_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["adminArchiveDownloadVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/downloads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPublicDownloads"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/downloads/files/{version_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["downloadPublishedFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/game-server-registration-tokens": {
         parameters: {
             query?: never;
@@ -3316,6 +3572,247 @@ export interface components {
             data: {
                 items: components["schemas"]["AdminRelease"][];
                 next_cursor: string;
+            };
+            request_id: string;
+        };
+        DownloadLocalizedText: {
+            en: string;
+            zh_cn: string;
+        };
+        DownloadCategory: {
+            id: string;
+            slug: string;
+            title: components["schemas"]["DownloadLocalizedText"];
+            description: components["schemas"]["DownloadLocalizedText"];
+            sort_order: number;
+            enabled: boolean;
+            /** @enum {string} */
+            status: "ACTIVE" | "ARCHIVED";
+            created_by: string;
+            archived_by: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            archived_at: string | null;
+        };
+        DownloadVersion: {
+            id: string;
+            entry_id: string;
+            version_label: string;
+            original_file_name: string;
+            content_type: string;
+            /** Format: int64 */
+            size_bytes: number;
+            sha256: string;
+            /** @enum {string} */
+            status: "UPLOADING" | "VERIFYING" | "DRAFT" | "PUBLISHED" | "ARCHIVED" | "FAILED";
+            failure_reason?: string;
+            created_by: string;
+            published_by: string;
+            archived_by: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            verified_at: string | null;
+            /** Format: date-time */
+            published_at: string | null;
+            /** Format: date-time */
+            archived_at: string | null;
+            download_url?: string;
+        };
+        DownloadEntry: {
+            id: string;
+            category_id: string;
+            category_slug: string;
+            slug: string;
+            title: components["schemas"]["DownloadLocalizedText"];
+            description: components["schemas"]["DownloadLocalizedText"];
+            sort_order: number;
+            /** @enum {string} */
+            status: "ACTIVE" | "ARCHIVED";
+            created_by: string;
+            archived_by: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            archived_at: string | null;
+            versions: components["schemas"]["DownloadVersion"][];
+            latest_version_id: string;
+        };
+        PublicDownloadCategory: {
+            id: string;
+            slug: string;
+            title: components["schemas"]["DownloadLocalizedText"];
+            description: components["schemas"]["DownloadLocalizedText"];
+            sort_order: number;
+            /** @constant */
+            enabled: true;
+        };
+        PublicDownloadVersion: {
+            id: string;
+            version_label: string;
+            original_file_name: string;
+            content_type: string;
+            /** Format: int64 */
+            size_bytes: number;
+            sha256: string;
+            /** @constant */
+            status: "PUBLISHED";
+            /** Format: date-time */
+            published_at: string;
+            download_url: string;
+        };
+        PublicDownloadEntry: {
+            id: string;
+            category_id: string;
+            category_slug: string;
+            slug: string;
+            title: components["schemas"]["DownloadLocalizedText"];
+            description: components["schemas"]["DownloadLocalizedText"];
+            sort_order: number;
+            versions: components["schemas"]["PublicDownloadVersion"][];
+            latest_version_id: string;
+        };
+        AdminDownloadCategoryRequest: {
+            /** @description Stable after creation. */
+            slug: string;
+            title_en: string;
+            title_zh_cn: string;
+            description_en: string;
+            description_zh_cn: string;
+            sort_order: number;
+            enabled: boolean;
+            reason: string;
+        };
+        AdminDownloadRequest: {
+            category_id: string;
+            /** @description Stable after creation. */
+            slug: string;
+            title_en: string;
+            title_zh_cn: string;
+            description_en: string;
+            description_zh_cn: string;
+            sort_order: number;
+            reason: string;
+        };
+        AdminDownloadUploadRequest: {
+            version_label: string;
+            file_name: string;
+            /** @description Browser-observed type; the server stores an authoritative MIME type derived from the allowed extension. */
+            content_type: string;
+            /** Format: int64 */
+            size_bytes: number;
+            sha256: string;
+            reason: string;
+        };
+        DownloadSignedRequest: {
+            /** Format: uri */
+            url: string;
+            /** @enum {string} */
+            method: "PUT";
+            headers: {
+                [key: string]: string;
+            };
+            /** Format: date-time */
+            expires_at: string;
+        };
+        DownloadUploadedPart: {
+            part_number: number;
+            etag: string;
+            /** Format: int64 */
+            size_bytes?: number;
+        };
+        DownloadUploadSession: {
+            id: string;
+            version_id: string;
+            /** @enum {string} */
+            strategy: "SINGLE" | "MULTIPART";
+            /** Format: int64 */
+            part_size_bytes: number;
+            /** @enum {string} */
+            status: "ACTIVE" | "COMPLETED" | "ABORTED" | "EXPIRED";
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            version: components["schemas"]["DownloadVersion"];
+            uploaded_parts: components["schemas"]["DownloadUploadedPart"][];
+        };
+        AdminDownloadPartRequest: {
+            part_numbers: number[];
+        };
+        DownloadSignedPart: {
+            part_number: number;
+            request: components["schemas"]["DownloadSignedRequest"];
+        };
+        AdminDownloadCapabilitiesResponse: {
+            data: {
+                enabled: boolean;
+                /** Format: int64 */
+                max_file_bytes: number;
+                allowed_extensions: string[];
+                /** Format: int64 */
+                multipart_threshold_bytes: number;
+                /** Format: int64 */
+                part_size_bytes: number;
+                upload_session_ttl_hours: number;
+                presigned_request_ttl_minutes: number;
+            };
+            request_id: string;
+        };
+        AdminDownloadCategoryResponse: {
+            data: components["schemas"]["DownloadCategory"];
+            request_id: string;
+        };
+        AdminDownloadCategoryListResponse: {
+            data: {
+                items: components["schemas"]["DownloadCategory"][];
+            };
+            request_id: string;
+        };
+        AdminDownloadResponse: {
+            data: components["schemas"]["DownloadEntry"];
+            request_id: string;
+        };
+        AdminDownloadListResponse: {
+            data: {
+                items: components["schemas"]["DownloadEntry"][];
+            };
+            request_id: string;
+        };
+        AdminDownloadVersionResponse: {
+            data: components["schemas"]["DownloadVersion"];
+            request_id: string;
+        };
+        AdminDownloadUploadResponse: {
+            data: components["schemas"]["DownloadUploadSession"];
+            request_id: string;
+        };
+        AdminDownloadUploadCreatedResponse: {
+            data: {
+                session: components["schemas"]["DownloadUploadSession"];
+                request?: components["schemas"]["DownloadSignedRequest"];
+            };
+            request_id: string;
+        };
+        AdminDownloadSignedPartListResponse: {
+            data: {
+                items: components["schemas"]["DownloadSignedPart"][];
+            };
+            request_id: string;
+        };
+        PublicDownloadCatalogResponse: {
+            data: {
+                categories: components["schemas"]["PublicDownloadCategory"][];
+                items: components["schemas"]["PublicDownloadEntry"][];
             };
             request_id: string;
         };
@@ -7149,6 +7646,479 @@ export interface operations {
                 };
             };
             409: components["responses"]["Conflict"];
+        };
+    };
+    adminGetDownloadCapabilities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Whether administrator object-storage uploads are configured. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDownloadCapabilitiesResponse"];
+                };
+            };
+        };
+    };
+    adminListDownloadCategories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All active and archived download categories. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDownloadCategoryListResponse"];
+                };
+            };
+        };
+    };
+    adminCreateDownloadCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminDownloadCategoryRequest"];
+            };
+        };
+        responses: {
+            /** @description Download category created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDownloadCategoryResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    adminUpdateDownloadCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                category_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminDownloadCategoryRequest"];
+            };
+        };
+        responses: {
+            /** @description Download category updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDownloadCategoryResponse"];
+                };
+            };
+        };
+    };
+    adminArchiveDownloadCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                category_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminOperationReason"];
+            };
+        };
+        responses: {
+            /** @description Empty download category archived. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDownloadCategoryResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    adminListDownloads: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Download items and every managed version. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDownloadListResponse"];
+                };
+            };
+        };
+    };
+    adminCreateDownload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminDownloadRequest"];
+            };
+        };
+        responses: {
+            /** @description Download item created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDownloadResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    adminGetDownload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                download_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Download item and version detail. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDownloadResponse"];
+                };
+            };
+        };
+    };
+    adminUpdateDownload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                download_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminDownloadRequest"];
+            };
+        };
+        responses: {
+            /** @description Download item updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDownloadResponse"];
+                };
+            };
+        };
+    };
+    adminArchiveDownload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                download_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminOperationReason"];
+            };
+        };
+        responses: {
+            /** @description Download item without published versions archived. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDownloadResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    adminCreateDownloadUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                download_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminDownloadUploadRequest"];
+            };
+        };
+        responses: {
+            /** @description Upload session and optional single-PUT signed request created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDownloadUploadCreatedResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    adminGetDownloadUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Upload state and already persisted multipart parts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDownloadUploadResponse"];
+                };
+            };
+        };
+    };
+    adminSignDownloadUploadParts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminDownloadPartRequest"];
+            };
+        };
+        responses: {
+            /** @description Short-lived signed PUT requests for selected multipart parts, or logical part 1 when renewing a single-PUT session. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDownloadSignedPartListResponse"];
+                };
+            };
+        };
+    };
+    adminCompleteDownloadUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminOperationReason"];
+            };
+        };
+        responses: {
+            /** @description Object assembled and queued for server-side SHA-256 verification. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDownloadUploadResponse"];
+                };
+            };
+        };
+    };
+    adminAbortDownloadUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminOperationReason"];
+            };
+        };
+        responses: {
+            /** @description Active upload aborted and incomplete object removed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDownloadUploadResponse"];
+                };
+            };
+        };
+    };
+    adminPublishDownloadVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminOperationReason"];
+            };
+        };
+        responses: {
+            /** @description Verified version published to the public catalog. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDownloadVersionResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    adminArchiveDownloadVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminOperationReason"];
+            };
+        };
+        responses: {
+            /** @description Version hidden while its immutable object and audit history remain retained. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDownloadVersionResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listPublicDownloads: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active categories, items, and every published file version. */
+            200: {
+                headers: {
+                    ETag?: string;
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicDownloadCatalogResponse"];
+                };
+            };
+            /** @description Catalog is unchanged for the supplied If-None-Match value. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    downloadPublishedFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirects to the immutable public CDN object. */
+            302: {
+                headers: {
+                    Location: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     issueGameServerRegistrationToken: {

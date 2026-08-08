@@ -11,7 +11,7 @@ const access: AdminAccess = {
     username: "support@example.com",
     display_name: "客服",
     roles: ["PLAYER_SUPPORT"],
-    permissions: ["players.read"]
+    permissions: ["players.read", "downloads.read"]
   }
 };
 
@@ -37,6 +37,12 @@ describe("Refine access control provider", () => {
     ).resolves.toMatchObject({can: true});
     await expect(
       accessControlProvider.can({resource: "players", action: "edit"})
+    ).resolves.toMatchObject({can: false});
+    await expect(
+      accessControlProvider.can({resource: "downloads", action: "list"})
+    ).resolves.toMatchObject({can: true});
+    await expect(
+      accessControlProvider.can({resource: "downloads", action: "create"})
     ).resolves.toMatchObject({can: false});
   });
 

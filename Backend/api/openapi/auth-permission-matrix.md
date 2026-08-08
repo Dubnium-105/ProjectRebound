@@ -43,6 +43,7 @@ Roles are permission bundles. Backend handlers check permission keys; they do no
 | VNT nodes and redacted VNT security events | `vnt_nodes.read` | `vnt_nodes.drain`, `vnt_nodes.revoke` |
 | Connections | `connections.read` | `connections.migrate`, `connections.close` |
 | Releases | `updates.read` | `updates.create`, `updates.publish`, `updates.rollback` (also archives non-published releases) |
+| Download catalog | `downloads.read` | `downloads.create`, `downloads.update`, `downloads.publish`, `downloads.archive` |
 | Administrators | `admins.read` | `admins.create`, `admins.update` |
 | Roles | — | `roles.manage` |
 | Audit | `audit_logs.read` | — |
@@ -55,6 +56,13 @@ eligibility reuses the existing `unverified`, `verified`, and `trusted`
 authentication levels captured when the roster is reserved; the raw game
 snapshot cannot assert or promote an authentication level.
 
-Dedicated Server registration-token creation, Relay revoke, VNT-node drain/revoke, release publish/rollback/archive, administrator create/update/MFA reset, role changes, settings changes, and every MetaServer administrative write also require a short-lived `X-Admin-Step-Up` proof bound to the current administrator session. Every write requires a reason and a backend audit record. The final active `SUPER_ADMIN` and the `SUPER_ADMIN` permission bundle have additional server-side invariants.
+`SUPER_ADMIN` and `RELEASE_MANAGER` receive every `downloads.*` permission by default;
+`VIEWER` receives only `downloads.read`. Other roles can be granted individual download
+permissions through role management. Dedicated Server registration-token creation,
+Relay revoke, VNT-node drain/revoke, release publish/rollback/archive, download publish/archive,
+administrator create/update/MFA reset, role changes, settings changes, and every MetaServer
+administrative write also require a short-lived `X-Admin-Step-Up` proof bound to the current
+administrator session. Every write requires a reason and a backend audit record. The final active
+`SUPER_ADMIN` and the `SUPER_ADMIN` permission bundle have additional server-side invariants.
 
 Refresh Tokens rotate on every use. The session row corresponding to the old token remains in a rotated state; reusing the old token revokes every session in the same `token_family_id` and records a `REFRESH_TOKEN_REUSE` audit event.

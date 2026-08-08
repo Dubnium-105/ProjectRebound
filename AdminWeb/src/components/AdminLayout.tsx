@@ -1,5 +1,5 @@
 import { tr } from "../i18n";
-import { ApartmentOutlined, AuditOutlined, CloudServerOutlined, DashboardOutlined, GlobalOutlined, KeyOutlined, LinkOutlined, RocketOutlined, LockOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, SafetyCertificateOutlined, TeamOutlined, UserSwitchOutlined, PartitionOutlined, SettingOutlined, UserOutlined } from "@ant-design/icons";
+import { ApartmentOutlined, AuditOutlined, CloudServerOutlined, DashboardOutlined, DownloadOutlined, GlobalOutlined, KeyOutlined, LinkOutlined, RocketOutlined, LockOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, SafetyCertificateOutlined, TeamOutlined, UserSwitchOutlined, PartitionOutlined, SettingOutlined, UserOutlined } from "@ant-design/icons";
 import { useGetIdentity, useLogout } from "@refinedev/core";
 import { Avatar, Button, Dropdown, Grid, Layout, Menu, Space, Tag, Typography } from "antd";
 import { useMemo, useState } from "react";
@@ -69,6 +69,12 @@ export function AdminLayout() {
             icon: <RocketOutlined />,
             label: <Link to="/releases">{tr("\u5BA2\u6237\u7AEF\u53D1\u5E03")}</Link>,
             visible: permissions.includes("updates.read")
+        },
+        {
+            key: "/downloads",
+            icon: <DownloadOutlined />,
+            label: <Link to="/downloads">{tr("下载管理")}</Link>,
+            visible: permissions.includes("downloads.read")
         },
         {
             key: "/risk-events",

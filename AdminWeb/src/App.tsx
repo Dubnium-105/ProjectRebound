@@ -2,7 +2,7 @@ import { tr } from "./i18n";
 import { Authenticated, Refine } from "@refinedev/core";
 import { useNotificationProvider } from "@refinedev/antd";
 import routerProvider, { CatchAllNavigate, DocumentTitleHandler, NavigateToResource, UnsavedChangesNotifier } from "@refinedev/react-router";
-import { ApartmentOutlined, CloudServerOutlined, DashboardOutlined, AuditOutlined, GlobalOutlined, KeyOutlined, LinkOutlined, RocketOutlined, SafetyCertificateOutlined, TeamOutlined, UserSwitchOutlined, PartitionOutlined, SettingOutlined } from "@ant-design/icons";
+import { ApartmentOutlined, CloudServerOutlined, DashboardOutlined, AuditOutlined, DownloadOutlined, GlobalOutlined, KeyOutlined, LinkOutlined, RocketOutlined, SafetyCertificateOutlined, TeamOutlined, UserSwitchOutlined, PartitionOutlined, SettingOutlined } from "@ant-design/icons";
 import { Spin } from "antd";
 import { lazy, Suspense } from "react";
 import { Navigate, Outlet, Route, Routes } from "react-router";
@@ -23,6 +23,7 @@ const GameServersPage = lazy(() => import("./pages/GameServersPage").then((modul
 const RelayNodesPage = lazy(() => import("./pages/RelayNodesPage").then((module) => ({ default: module.RelayNodesPage })));
 const ConnectionsPage = lazy(() => import("./pages/ConnectionsPage").then((module) => ({ default: module.ConnectionsPage })));
 const ReleasesPage = lazy(() => import("./pages/ReleasesPage").then((module) => ({ default: module.ReleasesPage })));
+const DownloadsPage = lazy(() => import("./pages/DownloadsPage").then((module) => ({ default: module.DownloadsPage })));
 const AdministratorsPage = lazy(() => import("./pages/AdministratorsPage").then((module) => ({ default: module.AdministratorsPage })));
 const RolesPage = lazy(() => import("./pages/RolesPage").then((module) => ({ default: module.RolesPage })));
 const SettingsPage = lazy(() => import("./pages/SettingsPage").then((module) => ({ default: module.SettingsPage })));
@@ -68,6 +69,11 @@ export function App() {
                 name: "releases",
                 list: "/releases",
                 meta: { label: tr("\u5BA2\u6237\u7AEF\u53D1\u5E03"), icon: <RocketOutlined /> }
+            },
+            {
+                name: "downloads",
+                list: "/downloads",
+                meta: { label: tr("下载管理"), icon: <DownloadOutlined /> }
             },
             {
                 name: "risk-events",
@@ -119,6 +125,7 @@ export function App() {
             <Route path="/online/relay-nodes" element={<RelayNodesPage />}/>
             <Route path="/online/connections" element={<ConnectionsPage />}/>
             <Route path="/releases" element={<ReleasesPage />}/>
+            <Route path="/downloads" element={<DownloadsPage />}/>
             <Route path="/risk-events" element={<RiskEventsPage />}/>
             <Route path="/security/sessions" element={<SessionsPage />}/>
             <Route path="/security/audit-logs" element={<AuditLogsPage />}/>

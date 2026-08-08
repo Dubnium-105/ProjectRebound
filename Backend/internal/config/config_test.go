@@ -31,6 +31,15 @@ func TestLoadMissingFileAppliesEnvironment(t *testing.T) {
 	t.Setenv("VNT_HEARTBEAT_REQUESTS_PER_CREDENTIAL_PER_MINUTE", "121")
 	t.Setenv("VNT_MANAGEMENT_REQUESTS_PER_CREDENTIAL_PER_HOUR", "11")
 	t.Setenv("VNT_MAX_NODES_PER_PLAYER", "4")
+	t.Setenv("DOWNLOADS_ENABLED", "true")
+	t.Setenv("DOWNLOAD_S3_ENDPOINT", "http://127.0.0.1:9000")
+	t.Setenv("DOWNLOAD_S3_REGION", "us-east-1")
+	t.Setenv("DOWNLOAD_S3_BUCKET", "downloads")
+	t.Setenv("DOWNLOAD_S3_ACCESS_KEY_ID", "test-access")
+	t.Setenv("DOWNLOAD_S3_SECRET_ACCESS_KEY", "test-secret")
+	t.Setenv("DOWNLOAD_PUBLIC_BASE_URL", "http://127.0.0.1:9000/downloads")
+	t.Setenv("DOWNLOAD_ALLOWED_EXTENSIONS", "zip,pdf")
+	t.Setenv("DOWNLOAD_PART_SIZE_BYTES", "8388608")
 
 	cfg, err := Load(filepath.Join(t.TempDir(), "missing.yaml"))
 	if err != nil {
@@ -69,6 +78,10 @@ func TestLoadMissingFileAppliesEnvironment(t *testing.T) {
 		cfg.VNT.HeartbeatRequestsPerCredentialPerMinute != 121 || cfg.VNT.ManagementRequestsPerCredentialPerHour != 11 ||
 		cfg.VNT.MaxNodesPerPlayer != 4 {
 		t.Fatalf("VNT version policy = %#v", cfg.VNT)
+	}
+	if !cfg.Downloads.Enabled || cfg.Downloads.S3Bucket != "downloads" || cfg.Downloads.PartSizeBytes != 8<<20 ||
+		len(cfg.Downloads.AllowedExtensions) != 2 {
+		t.Fatalf("download storage config = %#v", cfg.Downloads)
 	}
 }
 
@@ -177,5 +190,34 @@ func TestValidateControlPlaneRejectsP2PReportLargerThanHTTPBody(t *testing.T) {
 	cfg.P2PBattleLog.MaxReportBytes = 256 * 1024
 	if err := cfg.ValidateControlPlane(); err == nil {
 		t.Fatal("ValidateControlPlane() returned nil")
+	}
+}
+
+func TestValidateControlPlaneDownloadStorage(t *testing.T) {
+	valid := Defaults
+	valid.Downloads.Enabled = true
+	valid.Downloads.S3Endpoint = "http://127.0.0.1:9000"
+	valid.Downloads.S3Region = "us-east-1"
+	valid.Downloads.S3Bucket = "downloads"
+	valid.Downloads.S3AccessKeyID = "test-access"
+	valid.Downloads.S3SecretAccessKey = "test-secret"
+	valid.Downloads.PublicBaseURL = "http://127.0.0.1:9000/downloads"
+	if err := valid.ValidateControlPlane(); err != nil {
+		t.Fatalf("valid development download storage rejected: %v", err)
+	}
+
+	for name, mutate := range map[string]func(*Config){
+		"missing credentials": func(cfg *Config) { cfg.Downloads.S3SecretAccessKey = "" },
+		"oversized maximum":   func(cfg *Config) { cfg.Downloads.MaxFileBytes = 2<<30 + 1 },
+		"small part":          func(cfg *Config) { cfg.Downloads.PartSizeBytes = 4 << 20 },
+		"unsafe extension":    func(cfg *Config) { cfg.Downloads.AllowedExtensions = []string{"zip", "../exe"} },
+	} {
+		t.Run(name, func(t *testing.T) {
+			cfg := valid
+			mutate(&cfg)
+			if err := cfg.ValidateControlPlane(); err == nil {
+				t.Fatal("invalid download storage configuration was accepted")
+			}
+		})
 	}
 }

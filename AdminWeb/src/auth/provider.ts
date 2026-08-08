@@ -95,6 +95,13 @@ const permissionMap: Record<string, Partial<Record<string, string>>> = {
         show: "updates.read",
         create: "updates.create"
     },
+    downloads: {
+        list: "downloads.read",
+        show: "downloads.read",
+        create: "downloads.create",
+        edit: "downloads.update",
+        delete: "downloads.archive"
+    },
     administrators: {
         list: "admins.read",
         create: "admins.create",

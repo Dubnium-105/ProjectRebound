@@ -365,3 +365,16 @@ Only idempotent operations or operations with explicit idempotent semantics are 
 - Authentication matrix: `Backend/api/openapi/auth-permission-matrix.md`
 - Relay UDP protocol: `Backend/api/relay-protocol.md`
 - Internal API: `docs/api/internal.md`
+
+## 6. Public download catalog
+
+The public download catalog is independent of the signed launcher update manifest.
+
+| Method | Path | Authentication | Purpose |
+| --- | --- | --- | --- |
+| GET | `/v1/downloads` | None | Enabled categories, download entries, and every published version; supports `ETag`/`If-None-Match` |
+| GET | `/v1/downloads/files/{version_id}` | None | Validate that a version remains published, then redirect to its immutable CDN object |
+
+Catalog entries contain both `zh_cn` and `en` text, a `latest_version_id`, file size,
+SHA-256, publication time, and a stable API download path. Draft, failed, and archived
+versions are intentionally indistinguishable from an unknown ID at the file route.

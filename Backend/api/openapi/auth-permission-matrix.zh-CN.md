@@ -43,6 +43,7 @@ Admin API 不使用玩家矩阵，也绝不接受 Player Access Token。`/v1/adm
 | VNT 节点与已脱敏 VNT 安全事件 | `vnt_nodes.read` | `vnt_nodes.drain`, `vnt_nodes.revoke` |
 | Connection | `connections.read` | `connections.migrate`, `connections.close` |
 | 客户端发布 | `updates.read` | `updates.create`, `updates.publish`, `updates.rollback`（也用于归档非发布版本） |
+| 下载目录 | `downloads.read` | `downloads.create`, `downloads.update`, `downloads.publish`, `downloads.archive` |
 | 管理员 | `admins.read` | `admins.create`, `admins.update` |
 | 角色 | — | `roles.manage` |
 | 审计 | `audit_logs.read` | — |
@@ -53,6 +54,12 @@ Dedicated Server 的 BattleLog 上报不是管理员权限，而是使用仅限�
 `meta.battlelog.write` Game Server Token scope。玩家资格复用名单预留时固化的
 `unverified`、`verified`、`trusted` 认证等级；游戏原始快照不能声明或提升认证等级。
 
-创建 Dedicated Server 注册 Token、撤销中继节点、VNT 节点 Drain/Revoke、正式发布/回滚/归档、管理员创建/更新/MFA 重置、角色改权、系统设置更新及所有 MetaServer 管理写操作还必须提供与当前管理员 Session 绑定的短时 `X-Admin-Step-Up` 凭证。每个写操作必须填写原因并由后端写入审计。最后一个有效 `SUPER_ADMIN` 与 `SUPER_ADMIN` 权限集另有服务端不变量保护。
+`SUPER_ADMIN`、`RELEASE_MANAGER` 默认拥有全部 `downloads.*` 权限；`VIEWER`
+默认只有 `downloads.read`，其他角色可通过角色管理进行细粒度授权。创建 Dedicated
+Server 注册 Token、撤销中继节点、VNT 节点 Drain/Revoke、正式发布/回滚/归档、
+下载发布/归档、管理员创建/更新/MFA 重置、角色改权、系统设置更新及所有 MetaServer
+管理写操作还必须提供与当前管理员 Session 绑定的短时 `X-Admin-Step-Up` 凭证。
+每个写操作必须填写原因并由后端写入审计。最后一个有效 `SUPER_ADMIN` 与
+`SUPER_ADMIN` 权限集另有服务端不变量保护。
 
 Refresh Token 每次使用都会 rotation。旧 Token 对应的 session 行保留为已轮换状态；再次使用旧 Token 会撤销整个 `token_family_id` 下的 session，并记录 `REFRESH_TOKEN_REUSE` 审计事件。

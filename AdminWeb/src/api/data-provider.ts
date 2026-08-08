@@ -12,6 +12,7 @@ const paths: Record<string, string> = {
     "relay-nodes": "/v1/admin/relay-nodes",
     connections: "/v1/admin/connections",
     releases: "/v1/admin/releases",
+    downloads: "/v1/admin/downloads",
     administrators: "/v1/admin/admins"
 };
 function pathFor(resource: string): string {

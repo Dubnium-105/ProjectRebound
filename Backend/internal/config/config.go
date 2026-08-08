@@ -30,6 +30,7 @@ type Config struct {
 	RelayRegistry RelayRegistryConfig `yaml:"relay_registry"`
 	VNT           VNTConfig           `yaml:"vnt"`
 	Update        UpdateConfig        `yaml:"update"`
+	Downloads     DownloadConfig      `yaml:"downloads"`
 	Logging       LogConfig           `yaml:"logging"`
 }
 
@@ -250,6 +251,23 @@ type UpdateConfig struct {
 	VNTRoomsEnabled         bool     `yaml:"vnt_rooms_enabled"`
 }
 
+type DownloadConfig struct {
+	Enabled                  bool     `yaml:"enabled"`
+	S3Endpoint               string   `yaml:"s3_endpoint"`
+	S3Region                 string   `yaml:"s3_region"`
+	S3Bucket                 string   `yaml:"s3_bucket"`
+	S3AccessKeyID            string   `yaml:"-"`
+	S3SecretAccessKey        string   `yaml:"-"`
+	PublicBaseURL            string   `yaml:"public_base_url"`
+	AllowedExtensions        []string `yaml:"allowed_extensions"`
+	MaxFileBytes             int64    `yaml:"max_file_bytes"`
+	MultipartThresholdBytes  int64    `yaml:"multipart_threshold_bytes"`
+	PartSizeBytes            int64    `yaml:"part_size_bytes"`
+	UploadSessionTTLHours    int      `yaml:"upload_session_ttl_hours"`
+	PresignTTLMinutes        int      `yaml:"presign_ttl_minutes"`
+	VerificationIntervalSecs int      `yaml:"verification_interval_seconds"`
+}
+
 type LogConfig struct {
 	Level     string `yaml:"level"`
 	AddSource bool   `yaml:"add_source"`
@@ -288,6 +306,7 @@ var Defaults = Config{
 		},
 		AllowedHeaders: []string{
 			"Authorization", "Content-Type", "X-Request-Id", "X-Room-Host-Token", "X-P2P-Report-Token",
+			"X-Admin-Step-Up",
 			"X-Game-Server-Id", "X-Game-Server-Certificate", "X-Game-Server-Timestamp",
 			"X-Game-Server-Nonce", "X-Game-Server-Generation", "X-Game-Server-Signature",
 		},
@@ -440,6 +459,17 @@ var Defaults = Config{
 		ProtocolVersion:      2,
 		VNTRoomsEnabled:      false,
 	},
+	Downloads: DownloadConfig{
+		Enabled:                  false,
+		S3Region:                 "auto",
+		AllowedExtensions:        []string{"exe", "msi", "zip", "7z", "pdf", "md", "txt", "docx"},
+		MaxFileBytes:             2 << 30,
+		MultipartThresholdBytes:  64 << 20,
+		PartSizeBytes:            16 << 20,
+		UploadSessionTTLHours:    24,
+		PresignTTLMinutes:        15,
+		VerificationIntervalSecs: 5,
+	},
 	Logging: LogConfig{
 		Level:     "info",
 		AddSource: false,
@@ -571,6 +601,22 @@ func (c *Config) applyEnvOverrides() {
 	overrideString("UPDATE_DEFAULT_CHANNEL", &c.Update.DefaultChannel)
 	overrideString("UPDATE_MINIMUM_CLIENT_VERSION", &c.Update.MinimumClientVersion)
 	overrideString("UPDATE_REALTIME_URL", &c.Update.RealtimeURL)
+	overrideBool("DOWNLOADS_ENABLED", &c.Downloads.Enabled)
+	overrideString("DOWNLOAD_S3_ENDPOINT", &c.Downloads.S3Endpoint)
+	overrideString("DOWNLOAD_S3_REGION", &c.Downloads.S3Region)
+	overrideString("DOWNLOAD_S3_BUCKET", &c.Downloads.S3Bucket)
+	overrideString("DOWNLOAD_S3_ACCESS_KEY_ID", &c.Downloads.S3AccessKeyID)
+	overrideString("DOWNLOAD_S3_SECRET_ACCESS_KEY", &c.Downloads.S3SecretAccessKey)
+	overrideString("DOWNLOAD_PUBLIC_BASE_URL", &c.Downloads.PublicBaseURL)
+	overrideInt64("DOWNLOAD_MAX_FILE_BYTES", &c.Downloads.MaxFileBytes)
+	overrideInt64("DOWNLOAD_MULTIPART_THRESHOLD_BYTES", &c.Downloads.MultipartThresholdBytes)
+	overrideInt64("DOWNLOAD_PART_SIZE_BYTES", &c.Downloads.PartSizeBytes)
+	overrideInt("DOWNLOAD_UPLOAD_SESSION_TTL_HOURS", &c.Downloads.UploadSessionTTLHours)
+	overrideInt("DOWNLOAD_PRESIGN_TTL_MINUTES", &c.Downloads.PresignTTLMinutes)
+	overrideInt("DOWNLOAD_VERIFICATION_INTERVAL_SECONDS", &c.Downloads.VerificationIntervalSecs)
+	if raw := os.Getenv("DOWNLOAD_ALLOWED_EXTENSIONS"); raw != "" {
+		c.Downloads.AllowedExtensions = splitCSV(raw)
+	}
 	overrideBool("VNT_ROOMS_ENABLED", &c.Update.VNTRoomsEnabled)
 	if raw := os.Getenv("VNT_ALLOWED_VNTS_VERSIONS"); raw != "" {
 		c.VNT.AllowedVNTSVersions = splitCSV(raw)
@@ -616,6 +662,14 @@ func overrideString(name string, target *string) {
 func overrideInt(name string, target *int) {
 	if raw := os.Getenv(name); raw != "" {
 		if value, err := strconv.Atoi(raw); err == nil {
+			*target = value
+		}
+	}
+}
+
+func overrideInt64(name string, target *int64) {
+	if raw := os.Getenv(name); raw != "" {
+		if value, err := strconv.ParseInt(raw, 10, 64); err == nil {
 			*target = value
 		}
 	}
@@ -808,6 +862,25 @@ func (c *Config) ValidateControlPlane() error {
 		(strings.TrimSpace(c.Update.SigningPrivateKeyBase64) == "" || updateCDNURL.Scheme != "https" || realtimeURL.Scheme != "wss") {
 		errs = append(errs, errors.New("UPDATE_SIGNING_PRIVATE_KEY_BASE64 and secure update URLs are required in production"))
 	}
+	if c.Downloads.Enabled {
+		endpoint, endpointErr := url.Parse(c.Downloads.S3Endpoint)
+		publicURL, publicErr := url.Parse(c.Downloads.PublicBaseURL)
+		if endpointErr != nil || endpoint.Host == "" || (endpoint.Scheme != "https" && endpoint.Scheme != "http") ||
+			publicErr != nil || publicURL.Host == "" || (publicURL.Scheme != "https" && publicURL.Scheme != "http") ||
+			strings.TrimSpace(c.Downloads.S3Region) == "" || strings.TrimSpace(c.Downloads.S3Bucket) == "" ||
+			strings.TrimSpace(c.Downloads.S3AccessKeyID) == "" || strings.TrimSpace(c.Downloads.S3SecretAccessKey) == "" ||
+			!validDownloadExtensions(c.Downloads.AllowedExtensions) || c.Downloads.MaxFileBytes < 1 || c.Downloads.MaxFileBytes > 2<<30 ||
+			c.Downloads.MultipartThresholdBytes < 1 || c.Downloads.MultipartThresholdBytes > c.Downloads.MaxFileBytes ||
+			c.Downloads.PartSizeBytes < 5<<20 || c.Downloads.PartSizeBytes > 128<<20 ||
+			c.Downloads.UploadSessionTTLHours < 1 || c.Downloads.UploadSessionTTLHours > 168 ||
+			c.Downloads.PresignTTLMinutes < 1 || c.Downloads.PresignTTLMinutes > 60 ||
+			c.Downloads.VerificationIntervalSecs < 1 || c.Downloads.VerificationIntervalSecs > 300 {
+			errs = append(errs, errors.New("download storage, limits, or timing settings are invalid"))
+		}
+		if strings.EqualFold(c.Environment, "production") && (endpoint.Scheme != "https" || publicURL.Scheme != "https") {
+			errs = append(errs, errors.New("secure download storage and public URLs are required in production"))
+		}
+	}
 	if c.Update.VNTRoomsEnabled &&
 		(!validVersionAllowlist(c.VNT.AllowedVNTSVersions) || !validVersionAllowlist(c.VNT.AllowedWrapperVersions)) {
 		errs = append(errs, errors.New("vnt version allowlists must contain valid entries when VNT rooms are enabled"))
@@ -840,6 +913,26 @@ func validVersionAllowlist(values []string) bool {
 		value := strings.TrimSpace(raw)
 		if value == "" || len(value) > 32 || strings.IndexFunc(value, func(r rune) bool {
 			return r <= ' ' || r == 0x7f
+		}) >= 0 {
+			return false
+		}
+		if _, exists := seen[value]; exists {
+			return false
+		}
+		seen[value] = struct{}{}
+	}
+	return true
+}
+
+func validDownloadExtensions(values []string) bool {
+	if len(values) == 0 {
+		return false
+	}
+	seen := make(map[string]struct{}, len(values))
+	for _, raw := range values {
+		value := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(raw)), ".")
+		if value == "" || len(value) > 16 || strings.IndexFunc(value, func(r rune) bool {
+			return !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'))
 		}) >= 0 {
 			return false
 		}
@@ -1062,4 +1155,16 @@ func (c RelayRegistryConfig) RelayTokenTTL() time.Duration {
 
 func (c RelayRegistryConfig) AllocationTTL() time.Duration {
 	return time.Duration(c.AllocationTTLSeconds) * time.Second
+}
+
+func (c DownloadConfig) UploadSessionTTL() time.Duration {
+	return time.Duration(c.UploadSessionTTLHours) * time.Hour
+}
+
+func (c DownloadConfig) PresignTTL() time.Duration {
+	return time.Duration(c.PresignTTLMinutes) * time.Minute
+}
+
+func (c DownloadConfig) VerificationInterval() time.Duration {
+	return time.Duration(c.VerificationIntervalSecs) * time.Second
 }
