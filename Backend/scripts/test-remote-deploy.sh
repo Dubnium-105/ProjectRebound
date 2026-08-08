@@ -49,6 +49,10 @@ EOF
 #!/usr/bin/env bash
 exit 0
 EOF
+  cat >"$staging/Backend/scripts/ensure-download-storage-env.sh" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
   tar -C "$staging" -czf "$bundle" Backend
 }
 

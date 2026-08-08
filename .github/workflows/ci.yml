@@ -237,6 +237,9 @@ jobs:
       - name: Test CI artifact and source deployment modes
         run: Backend/scripts/test-deploy-source.sh
 
+      - name: Test download storage environment upgrade
+        run: Backend/scripts/test-download-storage-env.sh
+
       - name: Test release safety gates
         run: Backend/scripts/test-release.sh
 

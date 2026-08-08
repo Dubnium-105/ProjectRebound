@@ -85,6 +85,8 @@ if [[ "$target" == "control-plane" ]]; then
     echo "Control-plane Compose override file is missing" >&2
     exit 1
   }
+  "$release_dir/Backend/scripts/ensure-download-storage-env.sh" \
+    "$control_env_file" "$public_base_url"
   if docker info >/dev/null 2>&1; then docker_cmd=(docker); else docker_cmd=(sudo docker); fi
   if "${docker_cmd[@]}" ps --format '{{.Names}}' | grep -qx 'project-rebound-control-plane-postgres-1'; then
     CONTROL_PLANE_ENV_FILE="$control_env_file" \
