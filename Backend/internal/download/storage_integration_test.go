@@ -21,6 +21,7 @@ func TestPresignUsesDedicatedBrowserEndpoint(t *testing.T) {
 		S3Endpoint: "http://minio:9000", S3UploadEndpoint: "https://s3.example.com",
 		S3Region: "us-east-1", S3Bucket: "downloads", S3AccessKeyID: "test-access",
 		S3SecretAccessKey: "test-secret", PublicBaseURL: "https://downloads.example.com/downloads",
+		PublicProbeBaseURL: "http://minio:9000/downloads",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -39,6 +40,9 @@ func TestPresignUsesDedicatedBrowserEndpoint(t *testing.T) {
 	if parsed.Scheme != "https" || parsed.Host != "s3.example.com" ||
 		!strings.HasPrefix(parsed.Path, "/downloads/downloads/test/fixture.zip") {
 		t.Fatalf("presigned browser URL = %q", request.URL)
+	}
+	if got := storage.PublicProbeURL("downloads/test/fixture.zip"); got != "http://minio:9000/downloads/downloads/test/fixture.zip" {
+		t.Fatalf("internal public probe URL = %q", got)
 	}
 }
 

@@ -40,6 +40,7 @@ func TestLoadMissingFileAppliesEnvironment(t *testing.T) {
 	t.Setenv("DOWNLOAD_S3_ACCESS_KEY_ID", "test-access")
 	t.Setenv("DOWNLOAD_S3_SECRET_ACCESS_KEY", "test-secret")
 	t.Setenv("DOWNLOAD_PUBLIC_BASE_URL", "http://127.0.0.1:9000/downloads")
+	t.Setenv("DOWNLOAD_PUBLIC_PROBE_BASE_URL", "http://minio:9000/downloads")
 	t.Setenv("DOWNLOAD_ALLOWED_EXTENSIONS", "zip,pdf")
 	t.Setenv("DOWNLOAD_PART_SIZE_BYTES", "8388608")
 
@@ -83,6 +84,7 @@ func TestLoadMissingFileAppliesEnvironment(t *testing.T) {
 	}
 	if !cfg.Downloads.Enabled || cfg.Downloads.S3Bucket != "downloads" || cfg.Downloads.PartSizeBytes != 8<<20 ||
 		cfg.Downloads.UploadEndpoint() != "https://uploads.example.com" ||
+		cfg.Downloads.PublicProbeBase() != "http://minio:9000/downloads" ||
 		len(cfg.Downloads.AllowedExtensions) != 2 {
 		t.Fatalf("download storage config = %#v", cfg.Downloads)
 	}
@@ -220,6 +222,7 @@ func TestValidateControlPlaneDownloadStorage(t *testing.T) {
 		"small part":          func(cfg *Config) { cfg.Downloads.PartSizeBytes = 4 << 20 },
 		"unsafe extension":    func(cfg *Config) { cfg.Downloads.AllowedExtensions = []string{"zip", "../exe"} },
 		"invalid upload URL":  func(cfg *Config) { cfg.Downloads.S3UploadEndpoint = "://bad" },
+		"invalid probe URL":   func(cfg *Config) { cfg.Downloads.PublicProbeBaseURL = "://bad" },
 	} {
 		t.Run(name, func(t *testing.T) {
 			cfg := valid

@@ -27,11 +27,13 @@ type ObjectStorage interface {
 	Open(context.Context, string) (io.ReadCloser, error)
 	Delete(context.Context, string) error
 	PublicURL(string) string
+	PublicProbeURL(string) string
 }
 
 type S3Storage struct {
 	bucket     string
 	publicBase string
+	probeBase  string
 	client     *s3.Client
 	presigner  *s3.PresignClient
 }
@@ -57,7 +59,8 @@ func NewS3Storage(ctx context.Context, cfg config.DownloadConfig) (*S3Storage, e
 	})
 	return &S3Storage{
 		bucket: cfg.S3Bucket, publicBase: strings.TrimRight(cfg.PublicBaseURL, "/"),
-		client: client, presigner: s3.NewPresignClient(presignClient),
+		probeBase: strings.TrimRight(cfg.PublicProbeBase(), "/"),
+		client:    client, presigner: s3.NewPresignClient(presignClient),
 	}, nil
 }
 
@@ -195,6 +198,10 @@ func (s *S3Storage) Delete(ctx context.Context, objectKey string) error {
 
 func (s *S3Storage) PublicURL(objectKey string) string {
 	return s.publicBase + "/" + strings.TrimLeft(objectKey, "/")
+}
+
+func (s *S3Storage) PublicProbeURL(objectKey string) string {
+	return s.probeBase + "/" + strings.TrimLeft(objectKey, "/")
 }
 
 func signedRequest(rawURL, method string, headers http.Header, ttl time.Duration) SignedRequest {

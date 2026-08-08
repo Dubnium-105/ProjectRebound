@@ -30,12 +30,15 @@ DOWNLOAD_S3_UPLOAD_ENDPOINT=https://s3.example.com
 DOWNLOAD_S3_REGION=us-east-1
 DOWNLOAD_S3_BUCKET=project-rebound-downloads
 DOWNLOAD_PUBLIC_BASE_URL=https://downloads.example.com/project-rebound-downloads
+DOWNLOAD_PUBLIC_PROBE_BASE_URL=http://minio:9000/project-rebound-downloads
 MINIO_CORS_ALLOWED_ORIGINS=https://admin.example.com
 ```
 
 `DOWNLOAD_S3_ENDPOINT` 是控制面专用的内网 API 地址；
 `DOWNLOAD_S3_UPLOAD_ENDPOINT` 只用于生成浏览器可访问的预签名上传 URL。
 同机 MinIO 不应让控制面的校验、分片完成和清理请求绕行 Cloudflare 公网域名。
+`DOWNLOAD_PUBLIC_BASE_URL` 仍是用户下载跳转地址；发布前的匿名可访问性检查使用
+`DOWNLOAD_PUBLIC_PROBE_BASE_URL` 走 MinIO 内网，避免 Cloudflare 公网回环。
 
 公开基址必须包含桶名，因为服务随后直接追加服务端生成的
 `downloads/<item-slug>/<version-id>/<filename>` 对象 key。

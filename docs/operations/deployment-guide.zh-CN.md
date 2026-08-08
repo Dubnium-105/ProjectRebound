@@ -207,6 +207,8 @@ VNT 秘密密钥轮换使用显式 keyring：设置新的唯一 `VNT_SECRET_ENCR
 
 同机 MinIO 必须保持 `DOWNLOAD_S3_ENDPOINT=http://minio:9000`，并将公网 S3
 域名配置到 `DOWNLOAD_S3_UPLOAD_ENDPOINT`；前者供控制面校验和清理，后者只供浏览器预签名上传。
+用户下载跳转继续使用 `DOWNLOAD_PUBLIC_BASE_URL`；发布探针则应设置
+`DOWNLOAD_PUBLIC_PROBE_BASE_URL=http://minio:9000/<bucket>`，避免控制面绕行 Cloudflare。
 
 ### 5.2 更新描述符
 

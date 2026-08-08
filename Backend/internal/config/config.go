@@ -260,6 +260,7 @@ type DownloadConfig struct {
 	S3AccessKeyID            string   `yaml:"-"`
 	S3SecretAccessKey        string   `yaml:"-"`
 	PublicBaseURL            string   `yaml:"public_base_url"`
+	PublicProbeBaseURL       string   `yaml:"public_probe_base_url"`
 	AllowedExtensions        []string `yaml:"allowed_extensions"`
 	MaxFileBytes             int64    `yaml:"max_file_bytes"`
 	MultipartThresholdBytes  int64    `yaml:"multipart_threshold_bytes"`
@@ -610,6 +611,7 @@ func (c *Config) applyEnvOverrides() {
 	overrideString("DOWNLOAD_S3_ACCESS_KEY_ID", &c.Downloads.S3AccessKeyID)
 	overrideString("DOWNLOAD_S3_SECRET_ACCESS_KEY", &c.Downloads.S3SecretAccessKey)
 	overrideString("DOWNLOAD_PUBLIC_BASE_URL", &c.Downloads.PublicBaseURL)
+	overrideString("DOWNLOAD_PUBLIC_PROBE_BASE_URL", &c.Downloads.PublicProbeBaseURL)
 	overrideInt64("DOWNLOAD_MAX_FILE_BYTES", &c.Downloads.MaxFileBytes)
 	overrideInt64("DOWNLOAD_MULTIPART_THRESHOLD_BYTES", &c.Downloads.MultipartThresholdBytes)
 	overrideInt64("DOWNLOAD_PART_SIZE_BYTES", &c.Downloads.PartSizeBytes)
@@ -868,9 +870,11 @@ func (c *Config) ValidateControlPlane() error {
 		endpoint, endpointErr := url.Parse(c.Downloads.S3Endpoint)
 		uploadEndpoint, uploadEndpointErr := url.Parse(c.Downloads.UploadEndpoint())
 		publicURL, publicErr := url.Parse(c.Downloads.PublicBaseURL)
+		publicProbeURL, publicProbeErr := url.Parse(c.Downloads.PublicProbeBase())
 		if endpointErr != nil || endpoint.Host == "" || (endpoint.Scheme != "https" && endpoint.Scheme != "http") ||
 			uploadEndpointErr != nil || uploadEndpoint.Host == "" || (uploadEndpoint.Scheme != "https" && uploadEndpoint.Scheme != "http") ||
 			publicErr != nil || publicURL.Host == "" || (publicURL.Scheme != "https" && publicURL.Scheme != "http") ||
+			publicProbeErr != nil || publicProbeURL.Host == "" || (publicProbeURL.Scheme != "https" && publicProbeURL.Scheme != "http") ||
 			strings.TrimSpace(c.Downloads.S3Region) == "" || strings.TrimSpace(c.Downloads.S3Bucket) == "" ||
 			strings.TrimSpace(c.Downloads.S3AccessKeyID) == "" || strings.TrimSpace(c.Downloads.S3SecretAccessKey) == "" ||
 			!validDownloadExtensions(c.Downloads.AllowedExtensions) || c.Downloads.MaxFileBytes < 1 || c.Downloads.MaxFileBytes > 2<<30 ||
@@ -882,7 +886,8 @@ func (c *Config) ValidateControlPlane() error {
 			errs = append(errs, errors.New("download storage, limits, or timing settings are invalid"))
 		}
 		if strings.EqualFold(c.Environment, "production") &&
-			(!secureDownloadStorageEndpoint(endpoint) || uploadEndpoint.Scheme != "https" || publicURL.Scheme != "https") {
+			(!secureDownloadStorageEndpoint(endpoint) || uploadEndpoint.Scheme != "https" || publicURL.Scheme != "https" ||
+				!secureDownloadStorageEndpoint(publicProbeURL)) {
 			errs = append(errs, errors.New("secure download storage and public URLs are required in production"))
 		}
 	}
@@ -1186,6 +1191,13 @@ func (c DownloadConfig) UploadEndpoint() string {
 		return endpoint
 	}
 	return strings.TrimSpace(c.S3Endpoint)
+}
+
+func (c DownloadConfig) PublicProbeBase() string {
+	if endpoint := strings.TrimSpace(c.PublicProbeBaseURL); endpoint != "" {
+		return endpoint
+	}
+	return strings.TrimSpace(c.PublicBaseURL)
 }
 
 func (c DownloadConfig) PresignTTL() time.Duration {

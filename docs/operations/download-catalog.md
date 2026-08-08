@@ -33,13 +33,17 @@ DOWNLOAD_S3_UPLOAD_ENDPOINT=https://s3.example.com
 DOWNLOAD_S3_REGION=us-east-1
 DOWNLOAD_S3_BUCKET=project-rebound-downloads
 DOWNLOAD_PUBLIC_BASE_URL=https://downloads.example.com/project-rebound-downloads
+DOWNLOAD_PUBLIC_PROBE_BASE_URL=http://minio:9000/project-rebound-downloads
 MINIO_CORS_ALLOWED_ORIGINS=https://admin.example.com
 ```
 
 `DOWNLOAD_S3_ENDPOINT` is the server-only API endpoint, while
 `DOWNLOAD_S3_UPLOAD_ENDPOINT` is embedded in browser presigned URLs. Do not set
-the server endpoint to the Cloudflare-proxied hostname for same-host MinIO. The
-public base must include the bucket because the service appends the
+the server endpoint to the Cloudflare-proxied hostname for same-host MinIO.
+`DOWNLOAD_PUBLIC_BASE_URL` remains the external redirect target, while
+`DOWNLOAD_PUBLIC_PROBE_BASE_URL` lets publication verify anonymous object access
+directly over the private MinIO network without a Cloudflare hairpin. Both bases
+must include the bucket because the service appends the
 server-generated `downloads/<item-slug>/<version-id>/<filename>` object key.
 
 ## Automatic provisioning
@@ -74,7 +78,8 @@ Objects live in the `minio-data` volume. A single-node volume is not a backup:
 production should use locally attached redundant disks or distributed MinIO plus
 off-host backups. Do not configure an expiry lifecycle for `downloads/`; archived
 database rows and objects must be retained permanently. Changing MinIO endpoints
-requires updating the S3 host, public base, Admin Web CSP, and bucket CORS together.
+requires updating the browser upload host, external public base, internal probe
+base, Admin Web CSP, and bucket CORS together.
 
 Files larger than 64 MiB use 16 MiB parts with up to four browser workers. Sessions
 expire after 24 hours. After completion, the background verifier streams the object

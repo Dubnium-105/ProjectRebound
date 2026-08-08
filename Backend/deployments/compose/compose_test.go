@@ -230,6 +230,9 @@ func TestSelfHostedMinIOIsTheDefaultDownloadStorage(t *testing.T) {
 		if _, exists := control.Environment["DOWNLOAD_S3_UPLOAD_ENDPOINT"]; !exists {
 			t.Fatalf("%s does not configure a separate browser upload endpoint", path)
 		}
+		if _, exists := control.Environment["DOWNLOAD_PUBLIC_PROBE_BASE_URL"]; !exists {
+			t.Fatalf("%s does not configure a separate server-side public-object probe endpoint", path)
+		}
 		if _, exists := control.Environment["MINIO_ROOT_PASSWORD"]; exists {
 			t.Fatalf("%s leaks the MinIO root credential to the control plane", path)
 		}

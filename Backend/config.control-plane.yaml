@@ -205,6 +205,7 @@ downloads:
   s3_region: "us-east-1"
   s3_bucket: "project-rebound-downloads"
   public_base_url: "http://minio.localhost:9000/project-rebound-downloads"
+  public_probe_base_url: "http://minio:9000/project-rebound-downloads"
   allowed_extensions: ["exe", "msi", "zip", "7z", "pdf", "md", "txt", "docx"]
   max_file_bytes: 2147483648
   multipart_threshold_bytes: 67108864

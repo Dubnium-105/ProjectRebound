@@ -74,6 +74,9 @@ func (s *memoryStorage) Delete(_ context.Context, key string) error {
 	return nil
 }
 func (s *memoryStorage) PublicURL(key string) string { return "https://cdn.invalid/" + key }
+func (s *memoryStorage) PublicProbeURL(key string) string {
+	return "http://minio/downloads/" + key
+}
 
 func TestDownloadLifecycleAgainstPostgreSQL(t *testing.T) {
 	databaseURL := os.Getenv("TEST_DATABASE_URL")
@@ -119,7 +122,11 @@ func TestDownloadLifecycleAgainstPostgreSQL(t *testing.T) {
 	cfg.PartSizeBytes = 5
 	repository := NewRepository(pool)
 	service := NewService(pool, repository, storage, cfg)
-	service.probe = func(context.Context, string) error { return nil }
+	probedURL := ""
+	service.probe = func(_ context.Context, target string) error {
+		probedURL = target
+		return nil
+	}
 	meta := ActorMeta{AdminID: adminID, RequestID: "req-download-integration", IPAddress: "192.0.2.10", UserAgent: "download-test"}
 
 	category, err := service.CreateCategory(ctx, CategoryInput{
@@ -193,6 +200,9 @@ func TestDownloadLifecycleAgainstPostgreSQL(t *testing.T) {
 	published, err := service.Publish(ctx, verified.ID, "publish verified fixture", meta)
 	if err != nil || published.Status != VersionStatusPublished {
 		t.Fatalf("publish = %#v, %v", published, err)
+	}
+	if probedURL != storage.PublicProbeURL(verified.ObjectKey) {
+		t.Fatalf("public availability probe = %q", probedURL)
 	}
 	catalog, err := service.Catalog(ctx)
 	if err != nil || len(catalog.Items) != 1 || len(catalog.Items[0].Versions) != 1 || catalog.Items[0].LatestVersionID != verified.ID {

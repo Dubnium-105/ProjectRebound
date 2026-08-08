@@ -117,10 +117,23 @@ if [[ -z "$download_upload_endpoint" ]]; then
   append_missing DOWNLOAD_S3_UPLOAD_ENDPOINT "${inferred_upload_endpoint:-$download_endpoint}"
 fi
 append_missing DOWNLOAD_S3_REGION us-east-1
-append_missing DOWNLOAD_S3_BUCKET project-rebound-downloads
+download_bucket="$(read_setting DOWNLOAD_S3_BUCKET)"
+download_bucket="${download_bucket:-project-rebound-downloads}"
+append_missing DOWNLOAD_S3_BUCKET "$download_bucket"
 append_missing DOWNLOAD_S3_ACCESS_KEY_ID "downloads-$(random_hex 8)"
 append_missing DOWNLOAD_S3_SECRET_ACCESS_KEY "$(random_hex 32)"
-append_missing DOWNLOAD_PUBLIC_BASE_URL "https://$downloads_site/project-rebound-downloads"
+download_public_base="$(read_setting DOWNLOAD_PUBLIC_BASE_URL)"
+download_public_base="${download_public_base:-https://$downloads_site/$download_bucket}"
+append_missing DOWNLOAD_PUBLIC_BASE_URL "$download_public_base"
+download_public_probe_base="$(read_setting DOWNLOAD_PUBLIC_PROBE_BASE_URL)"
+if [[ -z "$download_public_probe_base" ]]; then
+  if [[ "$download_endpoint" == "http://minio:9000" ]]; then
+    download_public_probe_base="http://minio:9000/$download_bucket"
+  else
+    download_public_probe_base="$download_public_base"
+  fi
+  append_missing DOWNLOAD_PUBLIC_PROBE_BASE_URL "$download_public_probe_base"
+fi
 append_missing DOWNLOAD_ALLOWED_EXTENSIONS exe,msi,zip,7z,pdf,md,txt,docx
 append_missing DOWNLOAD_MAX_FILE_BYTES 2147483648
 append_missing DOWNLOAD_MULTIPART_THRESHOLD_BYTES 67108864

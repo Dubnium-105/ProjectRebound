@@ -578,7 +578,7 @@ func (s *Service) Publish(ctx context.Context, versionID, reasonInput string, me
 	if err != nil || metadata.SizeBytes != version.SizeBytes {
 		return Version{}, invalid("DOWNLOAD_OBJECT_UNAVAILABLE", "The verified object is not available in storage.", nil)
 	}
-	if err := s.probe(ctx, s.storage.PublicURL(version.ObjectKey)); err != nil {
+	if err := s.probe(ctx, s.storage.PublicProbeURL(version.ObjectKey)); err != nil {
 		return Version{}, &ServiceError{Status: http.StatusBadRequest, Code: "DOWNLOAD_PUBLIC_URL_UNAVAILABLE", Message: "The public CDN object is not available.", Cause: err}
 	}
 	var item Version

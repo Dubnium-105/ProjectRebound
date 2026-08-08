@@ -22,6 +22,7 @@ grep -qx 'MINIO_CORS_ALLOWED_ORIGINS=https://admin.project-rebound.space' "$env_
 grep -qx 'DOWNLOAD_S3_ENDPOINT=http://minio:9000' "$env_file"
 grep -qx 'DOWNLOAD_S3_UPLOAD_ENDPOINT=https://s3.project-rebound.space' "$env_file"
 grep -qx 'DOWNLOAD_PUBLIC_BASE_URL=https://downloads.project-rebound.space/project-rebound-downloads' "$env_file"
+grep -qx 'DOWNLOAD_PUBLIC_PROBE_BASE_URL=http://minio:9000/project-rebound-downloads' "$env_file"
 grep -qx 'EXISTING_SETTING=preserved' "$env_file"
 case "$(uname -s)" in
   MINGW*|MSYS*) ;;
@@ -62,6 +63,7 @@ grep -qx 'MINIO_ROOT_PASSWORD=existing-password' "$custom_env"
 grep -qx 'DOWNLOAD_S3_ENDPOINT=http://minio:9000' "$custom_env"
 grep -qx 'DOWNLOAD_S3_UPLOAD_ENDPOINT=https://objects.example.net' "$custom_env"
 grep -qx 'DOWNLOAD_PUBLIC_BASE_URL=https://files.example.net/project-rebound-downloads' "$custom_env"
+grep -qx 'DOWNLOAD_PUBLIC_PROBE_BASE_URL=http://minio:9000/project-rebound-downloads' "$custom_env"
 
 upgrade_env="$temporary_dir/upgrade.env"
 cat >"$upgrade_env" <<'EOF'
@@ -73,6 +75,7 @@ bash "$script_dir/ensure-download-storage-env.sh" \
   "$upgrade_env" https://api.project-rebound.space >/dev/null
 grep -qx 'DOWNLOAD_S3_ENDPOINT=http://minio:9000' "$upgrade_env"
 grep -qx 'DOWNLOAD_S3_UPLOAD_ENDPOINT=https://s3.project-rebound.space' "$upgrade_env"
+grep -qx 'DOWNLOAD_PUBLIC_PROBE_BASE_URL=http://minio:9000/project-rebound-downloads' "$upgrade_env"
 before="$(sha256sum "$upgrade_env")"
 bash "$script_dir/ensure-download-storage-env.sh" \
   "$upgrade_env" https://api.project-rebound.space >/dev/null
