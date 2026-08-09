@@ -207,6 +207,19 @@ type ObjectMetadata struct {
 	ContentType string
 }
 
+// ReleaseFile is the minimal verified object-storage metadata exposed to
+// administrators who can create managed client releases.
+type ReleaseFile struct {
+	ID               string    `json:"id"`
+	VersionLabel     string    `json:"version_label"`
+	OriginalFileName string    `json:"original_file_name"`
+	SizeBytes        int64     `json:"size_bytes"`
+	SHA256           string    `json:"sha256"`
+	ObjectKey        string    `json:"object_key"`
+	Status           string    `json:"status"`
+	VerifiedAt       time.Time `json:"verified_at"`
+}
+
 type Capabilities struct {
 	Enabled                    bool     `json:"enabled"`
 	MaxFileBytes               int64    `json:"max_file_bytes"`

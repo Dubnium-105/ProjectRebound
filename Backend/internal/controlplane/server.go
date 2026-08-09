@@ -615,6 +615,7 @@ func buildHandler(
 			admin.RequirePermission("updates.rollback"),
 			admin.RequireStepUp(adminAuthService),
 		).Post("/releases/{release_id}/archive", adminReleaseHandler.Archive)
+		router.With(admin.RequirePermission("updates.create")).Get("/release-files", adminDownloadHandler.ListReleaseFiles)
 		router.With(admin.RequirePermission("downloads.read")).Get("/downloads/capabilities", adminDownloadHandler.Capabilities)
 		router.With(admin.RequirePermission("downloads.read")).Get("/download-categories", adminDownloadHandler.ListCategories)
 		router.With(admin.RequirePermission("downloads.create")).Post("/download-categories", adminDownloadHandler.CreateCategory)

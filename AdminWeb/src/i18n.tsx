@@ -7,6 +7,15 @@ const STORAGE_KEY = "projectrebound.admin.locale";
 
 const englishCatalog: Record<string, string> = {
   ...generatedEnglishCatalog,
+  "\u4ECE\u5BF9\u8C61\u5B58\u50A8\u9009\u62E9\u6587\u4EF6": "Select files from object storage",
+  "\u4EC5\u663E\u793A\u901A\u8FC7\u4E0B\u8F7D\u7BA1\u7406\u4E0A\u4F20\u5E76\u5B8C\u6210\u670D\u52A1\u7AEF\u6821\u9A8C\u7684\u5BF9\u8C61\u3002\u9009\u62E9\u540E\u4F1A\u81EA\u52A8\u5E26\u5165 Object Key\u3001\u771F\u5B9E\u5927\u5C0F\u548C SHA-256\uFF1B\u53D1\u5E03\u524D\u6821\u9A8C\u4ECD\u4F1A\u901A\u8FC7\u66F4\u65B0 CDN \u6267\u884C HEAD \u53EF\u7528\u6027\u63A2\u6D4B\u3002": "Only objects uploaded through Download Management and verified by the server are shown. Selecting one fills in its Object Key, verified size, and SHA-256 automatically; pre-release validation still checks its availability through the update CDN with HEAD.",
+  "\u5237\u65B0\u6587\u4EF6": "Refresh files",
+  "\u65E0\u6CD5\u8BFB\u53D6\u5BF9\u8C61\u5B58\u50A8\u6587\u4EF6": "Unable to load object-storage files",
+  "\u5C1A\u65E0\u53EF\u9009\u6587\u4EF6": "No selectable files",
+  "\u8BF7\u5148\u5728\u4E0B\u8F7D\u7BA1\u7406\u4E2D\u4E0A\u4F20\u6587\u4EF6\uFF0C\u5E76\u7B49\u5F85\u670D\u52A1\u7AEF\u6821\u9A8C\u5B8C\u6210\u3002": "Upload a file in Download Management first and wait for server-side verification to complete.",
+  "\u5BF9\u8C61\u5B58\u50A8\u6587\u4EF6": "Object-storage file",
+  "\u8BF7\u9009\u62E9\u5BF9\u8C61\u5B58\u50A8\u6587\u4EF6\u3002": "Select an object-storage file.",
+  "\u9009\u62E9\u5DF2\u6821\u9A8C\u7684\u5BF9\u8C61\u5B58\u50A8\u6587\u4EF6": "Select a verified object-storage file",
   "取消": "Cancel",
   "确认": "Confirm",
   "刷新": "Refresh",

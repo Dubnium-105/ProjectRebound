@@ -19,6 +19,7 @@ type DownloadHTTPService interface {
 	UpdateCategory(context.Context, string, download.CategoryInput, download.ActorMeta) (download.Category, error)
 	ArchiveCategory(context.Context, string, string, download.ActorMeta) (download.Category, error)
 	ListEntries(context.Context) ([]download.Entry, error)
+	ListReleaseFiles(context.Context) ([]download.ReleaseFile, error)
 	GetEntry(context.Context, string) (download.Entry, error)
 	CreateEntry(context.Context, download.EntryInput, download.ActorMeta) (download.Entry, error)
 	UpdateEntry(context.Context, string, download.EntryInput, download.ActorMeta) (download.Entry, error)
@@ -139,6 +140,15 @@ func (h *DownloadHTTPHandler) categoryOperation(w http.ResponseWriter, r *http.R
 
 func (h *DownloadHTTPHandler) ListEntries(w http.ResponseWriter, r *http.Request) {
 	items, err := h.service.ListEntries(r.Context())
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	api.WriteData(w, r, http.StatusOK, map[string]any{"items": items})
+}
+
+func (h *DownloadHTTPHandler) ListReleaseFiles(w http.ResponseWriter, r *http.Request) {
+	items, err := h.service.ListReleaseFiles(r.Context())
 	if err != nil {
 		h.writeError(w, r, err)
 		return

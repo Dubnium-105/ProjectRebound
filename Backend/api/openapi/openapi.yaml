@@ -1818,6 +1818,20 @@ paths:
               schema: {$ref: "#/components/schemas/AdminReleaseResponse"}
         "409":
           $ref: "#/components/responses/Conflict"
+  /v1/admin/release-files:
+    get:
+      operationId: adminListReleaseFiles
+      tags: [Admin]
+      x-internal: true
+      security: [{adminAccessToken: []}]
+      responses:
+        "200":
+          description: Verified object-storage files eligible for managed client releases.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminReleaseFileListResponse"}
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /v1/admin/downloads/capabilities:
     get:
       operationId: adminGetDownloadCapabilities
@@ -5269,6 +5283,34 @@ components:
           type: string
           minLength: 1
           description: Relative object-storage key resolved only under the configured CDN base URL.
+    AdminReleaseFile:
+      type: object
+      additionalProperties: false
+      required: [id, version_label, original_file_name, size_bytes, sha256, object_key, status, verified_at]
+      properties:
+        id: {type: string}
+        version_label: {type: string, minLength: 1, maxLength: 64}
+        original_file_name: {type: string, minLength: 1, maxLength: 255}
+        size_bytes: {type: integer, format: int64, minimum: 1}
+        sha256: {type: string, pattern: "^[0-9a-f]{64}$"}
+        object_key:
+          type: string
+          minLength: 1
+          description: Internal key for a server-verified object managed by the download storage service.
+        status: {type: string, enum: [DRAFT, PUBLISHED]}
+        verified_at: {type: string, format: date-time}
+    AdminReleaseFileListResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: {$ref: "#/components/schemas/AdminReleaseFile"}
+        request_id: {type: string}
     AdminReleaseCreateRequest:
       type: object
       additionalProperties: false

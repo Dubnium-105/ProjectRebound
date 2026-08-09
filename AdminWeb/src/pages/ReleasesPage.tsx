@@ -5,7 +5,7 @@ import { Alert, App, Button, Card, Checkbox, Descriptions, Drawer, Form, Input, 
 import { useState } from "react";
 import { ApiError, apiRequest, authClient } from "../api/client";
 import { OperationReasonModal } from "../components/OperationReasonModal";
-import type { Release, ReleaseSourceFile } from "../types";
+import type { Release, ReleaseFile, ReleaseSourceFile } from "../types";
 type CreateValues = {
     platform: string;
     architecture: string;
@@ -22,6 +22,9 @@ export function ReleasesPage() {
     const [form] = Form.useForm<CreateValues>();
     const [createOpen, setCreateOpen] = useState(false);
     const [createStep, setCreateStep] = useState(0);
+    const [storageFiles, setStorageFiles] = useState<ReleaseFile[]>([]);
+    const [storageFilesLoading, setStorageFilesLoading] = useState(false);
+    const [storageFilesError, setStorageFilesError] = useState("");
     const [detail, setDetail] = useState<Release | null>(null);
     const [detailLoading, setDetailLoading] = useState(false);
     const [operation, setOperation] = useState<{
@@ -34,6 +37,25 @@ export function ReleasesPage() {
         resource: "releases",
         pagination: { pageSize: 100 }
     });
+    const selectedFiles = Form.useWatch("files", form) ?? [];
+    const selectedObjectKeys = new Set(selectedFiles.map((file) => file?.object_key).filter(Boolean));
+    const loadStorageFiles = async () => {
+        setStorageFilesLoading(true);
+        setStorageFilesError("");
+        try {
+            const data = await apiRequest<{ items: ReleaseFile[] }>("/v1/admin/release-files");
+            const files = data.items
+                .sort((left, right) => left.original_file_name.localeCompare(right.original_file_name, localeTag()));
+            setStorageFiles(files);
+        }
+        catch (error) {
+            setStorageFiles([]);
+            setStorageFilesError(errorMessage(error));
+        }
+        finally {
+            setStorageFilesLoading(false);
+        }
+    };
     const openCreate = () => {
         form.setFieldsValue({
             platform: "windows",
@@ -47,6 +69,24 @@ export function ReleasesPage() {
         });
         setCreateStep(0);
         setCreateOpen(true);
+        void loadStorageFiles();
+    };
+    const selectStorageFile = (index: number, objectKey: string) => {
+        const selected = storageFiles.find((file) => file.object_key === objectKey);
+        if (!selected)
+            return;
+        const files = [...(form.getFieldValue("files") ?? [])];
+        const current = files[index] ?? {} as ReleaseSourceFile;
+        const previous = storageFiles.find((file) => file.object_key === current.object_key);
+        files[index] = {
+            ...current,
+            file_id: !current.file_id || current.file_id === previous?.id ? selected.id : current.file_id,
+            path: !current.path || current.path === previous?.original_file_name ? selected.original_file_name : current.path,
+            size: selected.size_bytes,
+            sha256: selected.sha256,
+            object_key: selected.object_key
+        };
+        form.setFieldsValue({ files });
     };
     const nextStep = async () => {
         const fields = createStep === 0
@@ -223,13 +263,26 @@ export function ReleasesPage() {
           </div>
 
           <div style={{ display: createStep === 1 ? "block" : "none" }}>
-            <Alert type="info" showIcon message={tr("\u9009\u62E9\u5DF2\u4E0A\u4F20\u5230\u5BF9\u8C61\u5B58\u50A8\u7684\u6587\u4EF6")} description={tr("\u5F53\u524D\u7BA1\u7406 API \u4E0D\u63A5\u6536\u4EFB\u610F\u4E8C\u8FDB\u5236\u4E0A\u4F20\uFF1B\u8BF7\u586B\u5199\u53D7\u63A7 CDN \u4E0B\u7684 Object Key\u3001\u771F\u5B9E\u5927\u5C0F\u4E0E SHA-256\u3002\u6821\u9A8C\u4F1A\u4ECE\u670D\u52A1\u7AEF\u5BF9\u6BCF\u4E2A\u5BF9\u8C61\u6267\u884C HEAD \u53EF\u7528\u6027\u63A2\u6D4B\uFF0C\u5931\u8D25\u65F6\u4E0D\u80FD\u53D1\u5E03\u3002")} style={{ marginBottom: 16 }}/>
+            <Alert type="info" showIcon message={tr("\u4ECE\u5BF9\u8C61\u5B58\u50A8\u9009\u62E9\u6587\u4EF6")} description={tr("\u4EC5\u663E\u793A\u901A\u8FC7\u4E0B\u8F7D\u7BA1\u7406\u4E0A\u4F20\u5E76\u5B8C\u6210\u670D\u52A1\u7AEF\u6821\u9A8C\u7684\u5BF9\u8C61\u3002\u9009\u62E9\u540E\u4F1A\u81EA\u52A8\u5E26\u5165 Object Key\u3001\u771F\u5B9E\u5927\u5C0F\u548C SHA-256\uFF1B\u53D1\u5E03\u524D\u6821\u9A8C\u4ECD\u4F1A\u901A\u8FC7\u66F4\u65B0 CDN \u6267\u884C HEAD \u53EF\u7528\u6027\u63A2\u6D4B\u3002")} action={<Button size="small" icon={<ReloadOutlined />} loading={storageFilesLoading} onClick={() => void loadStorageFiles()}>{tr("\u5237\u65B0\u6587\u4EF6")}</Button>} style={{ marginBottom: 16 }}/>
+            {storageFilesError && (
+              <Alert type="error" showIcon message={tr("\u65E0\u6CD5\u8BFB\u53D6\u5BF9\u8C61\u5B58\u50A8\u6587\u4EF6")} description={storageFilesError} style={{ marginBottom: 16 }}/>
+            )}
+            {!storageFilesLoading && !storageFilesError && storageFiles.length === 0 && (
+              <Alert type="warning" showIcon message={tr("\u5C1A\u65E0\u53EF\u9009\u6587\u4EF6")} description={tr("\u8BF7\u5148\u5728\u4E0B\u8F7D\u7BA1\u7406\u4E2D\u4E0A\u4F20\u6587\u4EF6\uFF0C\u5E76\u7B49\u5F85\u670D\u52A1\u7AEF\u6821\u9A8C\u5B8C\u6210\u3002")} style={{ marginBottom: 16 }}/>
+            )}
             <Form.List name="files" rules={[{ validator: async (_, files) => {
                     if (!files?.length)
                         throw new Error(tr("\u81F3\u5C11\u6DFB\u52A0\u4E00\u4E2A\u6587\u4EF6\u3002"));
                 } }]}>
               {(fields, { add, remove }, { errors }) => (<Space direction="vertical" style={{ width: "100%" }}>
                   {fields.map((field, index) => (<Card key={field.key} size="small" title={tr(`文件 ${index + 1}`)} extra={fields.length > 1 && <Button danger type="text" icon={<MinusCircleOutlined />} onClick={() => remove(field.name)}>{tr("\u79FB\u9664")}</Button>}>
+                      <Form.Item {...field} label={tr("\u5BF9\u8C61\u5B58\u50A8\u6587\u4EF6")} name={[field.name, "object_key"]} rules={[{ required: true, message: tr("\u8BF7\u9009\u62E9\u5BF9\u8C61\u5B58\u50A8\u6587\u4EF6\u3002") }]}>
+                        <Select showSearch loading={storageFilesLoading} placeholder={tr("\u9009\u62E9\u5DF2\u6821\u9A8C\u7684\u5BF9\u8C61\u5B58\u50A8\u6587\u4EF6")} optionFilterProp="label" onChange={(value) => selectStorageFile(index, value)} options={storageFiles.map((file) => ({
+                            value: file.object_key,
+                            label: `${file.original_file_name} \u00B7 ${file.version_label} \u00B7 ${formatBytes(file.size_bytes)} \u00B7 ${file.status}`,
+                            disabled: selectedObjectKeys.has(file.object_key) && selectedFiles[index]?.object_key !== file.object_key
+                        }))}/>
+                      </Form.Item>
                       <Space align="start" wrap>
                         <Form.Item {...field} label="File ID" name={[field.name, "file_id"]} rules={[{ required: true }]}>
                           <Input placeholder="client_windows_140"/>
@@ -238,7 +291,7 @@ export function ReleasesPage() {
                           <Input placeholder="bin/game.exe"/>
                         </Form.Item>
                         <Form.Item {...field} label={tr("\u5927\u5C0F\uFF08\u5B57\u8282\uFF09")} name={[field.name, "size"]} rules={[{ required: true }]}>
-                          <InputNumber min={0}/>
+                          <InputNumber min={0} readOnly controls={false}/>
                         </Form.Item>
                         <Form.Item {...field} label={tr("\u538B\u7F29")} name={[field.name, "compression"]} rules={[{ required: true }]}>
                           <Select style={{ width: 120 }} options={["none", "gzip", "zstd"].map((value) => ({ label: value, value }))}/>
@@ -248,10 +301,7 @@ export function ReleasesPage() {
                     { required: true },
                     { pattern: /^[0-9a-f]{64}$/, message: tr("\u8BF7\u8F93\u5165 64 \u4F4D\u5C0F\u5199\u5341\u516D\u8FDB\u5236 SHA-256\u3002") }
                 ]}>
-                        <Input maxLength={64}/>
-                      </Form.Item>
-                      <Form.Item {...field} label="Object Key" name={[field.name, "object_key"]} rules={[{ required: true }]}>
-                        <Input placeholder="stable/1.4.0/game.exe.zst"/>
+                        <Input maxLength={64} readOnly/>
                       </Form.Item>
                     </Card>))}
                   <Button type="dashed" block icon={<PlusOutlined />} onClick={() => add({

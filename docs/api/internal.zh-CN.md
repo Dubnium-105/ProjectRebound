@@ -174,6 +174,7 @@ GET  /v1/admin/vnt-security-events
 ```text
 GET  /v1/admin/releases
 POST /v1/admin/releases
+GET  /v1/admin/release-files
 GET  /v1/admin/releases/{release_id}
 POST /v1/admin/releases/{release_id}/validate
 POST /v1/admin/releases/{release_id}/publish
@@ -413,6 +414,7 @@ HTTP 错误仍使用统一 `error` + `request_id` envelope。管理写操作、�
 
 | 方法 | 路径 | 权限 |
 | --- | --- | --- |
+| GET | `/v1/admin/release-files` | `updates.create` |
 | GET | `/v1/admin/downloads/capabilities` | `downloads.read` |
 | GET, POST | `/v1/admin/download-categories` | `downloads.read` / `downloads.create` |
 | PATCH | `/v1/admin/download-categories/{category_id}` | `downloads.update` |

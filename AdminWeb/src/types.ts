@@ -262,5 +262,6 @@ export type Connection = {
 };
 
 export type ReleaseSourceFile = components["schemas"]["AdminReleaseSourceFile"];
+export type ReleaseFile = components["schemas"]["AdminReleaseFile"];
 export type ReleaseValidation = components["schemas"]["AdminReleaseValidation"];
 export type Release = components["schemas"]["AdminRelease"];

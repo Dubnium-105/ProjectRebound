@@ -4,9 +4,32 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
 )
+
+func TestReleaseFilesOnlyIncludeVerifiedActiveObjects(t *testing.T) {
+	verifiedAt := time.Date(2026, time.August, 9, 3, 0, 0, 0, time.UTC)
+	entries := []Entry{{Versions: []Version{
+		{ID: "draft", VersionLabel: "1.0", OriginalFileName: "draft.zip", SizeBytes: 10,
+			SHA256: strings.Repeat("a", 64), ObjectKey: "downloads/draft.zip",
+			Status: VersionStatusDraft, VerifiedAt: &verifiedAt},
+		{ID: "published", VersionLabel: "2.0", OriginalFileName: "published.zip", SizeBytes: 20,
+			SHA256: strings.Repeat("b", 64), ObjectKey: "downloads/published.zip",
+			Status: VersionStatusPublished, VerifiedAt: &verifiedAt},
+		{ID: "verifying", Status: VersionStatusVerifying},
+		{ID: "archived", Status: VersionStatusArchived, VerifiedAt: &verifiedAt},
+	}}}
+
+	files := releaseFilesFromEntries(entries)
+	if len(files) != 2 || files[0].ID != "draft" || files[1].ID != "published" {
+		t.Fatalf("release files = %#v", files)
+	}
+	if files[0].ObjectKey != "downloads/draft.zip" || !files[0].VerifiedAt.Equal(verifiedAt) {
+		t.Fatalf("draft release file metadata = %#v", files[0])
+	}
+}
 
 func TestUploadValidationAndServerOwnedObjectKey(t *testing.T) {
 	service := &Service{config: config.DownloadConfig{
