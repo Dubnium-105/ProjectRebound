@@ -574,6 +574,9 @@ func buildHandler(
 	if updateService.EphemeralSigner() {
 		logger.Warn("using ephemeral development update-signing key; manifests will not verify after restart")
 	}
+	if cfg.Downloads.Enabled {
+		updateService.SetManagedReleaseBaseURL(cfg.Downloads.PublicBaseURL)
+	}
 	updateHandler := updateservice.NewHTTPHandler(updateService, logger)
 	adminReleaseService := admin.NewReleaseService(
 		dbPool.Pool,
