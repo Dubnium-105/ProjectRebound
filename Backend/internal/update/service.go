@@ -35,13 +35,14 @@ type ManagedCatalog interface {
 }
 
 type Service struct {
-	cfg                   config.UpdateConfig
-	managedReleaseBaseURL string
-	signer                *Signer
-	relay                 RelayDirectory
-	manifests             []Manifest
-	files                 map[string]FileDownload
-	managed               ManagedCatalog
+	cfg                        config.UpdateConfig
+	managedReleaseBaseURL      string
+	managedReleaseProbeBaseURL string
+	signer                     *Signer
+	relay                      RelayDirectory
+	manifests                  []Manifest
+	files                      map[string]FileDownload
+	managed                    ManagedCatalog
 }
 
 func NewService(cfg config.UpdateConfig, environment string, relay RelayDirectory) (*Service, error) {
@@ -58,7 +59,7 @@ func NewService(cfg config.UpdateConfig, environment string, relay RelayDirector
 		files = make(map[string]FileDownload)
 	}
 	return &Service{
-		cfg: cfg, managedReleaseBaseURL: cfg.CDNBaseURL,
+		cfg: cfg, managedReleaseBaseURL: cfg.CDNBaseURL, managedReleaseProbeBaseURL: cfg.CDNBaseURL,
 		signer: signer, relay: relay, manifests: manifests, files: files,
 	}, nil
 }
@@ -67,12 +68,16 @@ func (s *Service) EphemeralSigner() bool { return s.signer.Ephemeral() }
 
 func (s *Service) SetManagedCatalog(catalog ManagedCatalog) { s.managed = catalog }
 
-// SetManagedReleaseBaseURL keeps administrator-managed releases in the same
-// public namespace as the object-storage files they reference. The static
-// catalog continues to use UpdateConfig.CDNBaseURL.
-func (s *Service) SetManagedReleaseBaseURL(baseURL string) {
-	if value := strings.TrimSpace(baseURL); value != "" {
+// SetManagedReleaseURLs keeps administrator-managed releases in the same
+// public namespace as the object-storage files they reference while allowing
+// server-side availability checks to use an internal object-storage endpoint.
+// The static catalog continues to use UpdateConfig.CDNBaseURL.
+func (s *Service) SetManagedReleaseURLs(publicBaseURL, probeBaseURL string) {
+	if value := strings.TrimSpace(publicBaseURL); value != "" {
 		s.managedReleaseBaseURL = value
+	}
+	if value := strings.TrimSpace(probeBaseURL); value != "" {
+		s.managedReleaseProbeBaseURL = value
 	}
 }
 
@@ -92,10 +97,26 @@ func (s *Service) VerifySignedManifest(manifest Manifest) error {
 	return s.signer.Verify(manifest)
 }
 
-func (s *Service) VerifyReleaseObjects(ctx context.Context, manifest Manifest) error {
-	if len(manifest.Files) == 0 {
+func (s *Service) VerifyReleaseObjects(ctx context.Context, source SourceRelease) error {
+	if len(source.Files) == 0 {
 		return errors.New("release has no files to probe")
 	}
+	baseURL, err := url.Parse(s.managedReleaseProbeBaseURL)
+	if err != nil {
+		return fmt.Errorf("parse managed release probe base URL: %w", err)
+	}
+	files := make([]File, 0, len(source.Files))
+	for _, sourceFile := range source.Files {
+		probeURL, err := objectURL(baseURL, sourceFile.ObjectKey)
+		if err != nil {
+			return fmt.Errorf("file %q: %w", sourceFile.Path, err)
+		}
+		files = append(files, File{Path: sourceFile.Path, DownloadURL: probeURL})
+	}
+	return verifyReleaseObjectURLs(ctx, files)
+}
+
+func verifyReleaseObjectURLs(ctx context.Context, files []File) error {
 	const (
 		maxWorkers = 8
 		probeTTL   = 10 * time.Second
@@ -120,7 +141,7 @@ func (s *Service) VerifyReleaseObjects(ctx context.Context, manifest Manifest) e
 		},
 	}
 	jobs := make(chan File)
-	workerCount := min(maxWorkers, len(manifest.Files))
+	workerCount := min(maxWorkers, len(files))
 	var (
 		firstErr error
 		errOnce  sync.Once
@@ -167,7 +188,7 @@ func (s *Service) VerifyReleaseObjects(ctx context.Context, manifest Manifest) e
 		}()
 	}
 sendLoop:
-	for _, file := range manifest.Files {
+	for _, file := range files {
 		select {
 		case <-probeCtx.Done():
 			break sendLoop

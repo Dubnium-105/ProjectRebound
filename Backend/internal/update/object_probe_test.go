@@ -19,10 +19,10 @@ func TestVerifyReleaseObjectsProbesEveryObject(t *testing.T) {
 	}))
 	defer server.Close()
 
-	service := &Service{}
-	err := service.VerifyReleaseObjects(context.Background(), Manifest{Files: []File{
-		{Path: "bin/game.exe", DownloadURL: server.URL + "/game.exe"},
-		{Path: "bin/data.pack", DownloadURL: server.URL + "/data.pack"},
+	service := &Service{managedReleaseProbeBaseURL: server.URL + "/project-rebound-downloads"}
+	err := service.VerifyReleaseObjects(context.Background(), SourceRelease{Files: []SourceFile{
+		{Path: "bin/game.exe", ObjectKey: "downloads/game.exe"},
+		{Path: "bin/data.pack", ObjectKey: "downloads/data.pack"},
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -32,7 +32,8 @@ func TestVerifyReleaseObjectsProbesEveryObject(t *testing.T) {
 	for path := range requested {
 		seen[path] = true
 	}
-	if !seen["/game.exe"] || !seen["/data.pack"] {
+	if !seen["/project-rebound-downloads/downloads/game.exe"] ||
+		!seen["/project-rebound-downloads/downloads/data.pack"] {
 		t.Fatalf("probed paths = %#v", seen)
 	}
 }
@@ -43,9 +44,9 @@ func TestVerifyReleaseObjectsRejectsUnavailableObject(t *testing.T) {
 	}))
 	defer server.Close()
 
-	service := &Service{}
-	err := service.VerifyReleaseObjects(context.Background(), Manifest{Files: []File{
-		{Path: "missing.pack", DownloadURL: server.URL + "/missing.pack"},
+	service := &Service{managedReleaseProbeBaseURL: server.URL}
+	err := service.VerifyReleaseObjects(context.Background(), SourceRelease{Files: []SourceFile{
+		{Path: "missing.pack", ObjectKey: "missing.pack"},
 	}})
 	if err == nil || !strings.Contains(err.Error(), "HTTP status 404") {
 		t.Fatalf("error = %v, want HTTP status 404", err)
@@ -62,9 +63,9 @@ func TestVerifyReleaseObjectsRejectsCrossOriginRedirect(t *testing.T) {
 	}))
 	defer source.Close()
 
-	service := &Service{}
-	err := service.VerifyReleaseObjects(context.Background(), Manifest{Files: []File{
-		{Path: "redirect.pack", DownloadURL: source.URL + "/redirect.pack"},
+	service := &Service{managedReleaseProbeBaseURL: source.URL}
+	err := service.VerifyReleaseObjects(context.Background(), SourceRelease{Files: []SourceFile{
+		{Path: "redirect.pack", ObjectKey: "redirect.pack"},
 	}})
 	if err == nil || !strings.Contains(err.Error(), "cross-origin redirect rejected") {
 		t.Fatalf("error = %v, want cross-origin rejection", err)
