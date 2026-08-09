@@ -17,7 +17,7 @@ import (
 type ReleaseManifestService interface {
 	BuildAndSign(clientupdate.SourceRelease) (clientupdate.Manifest, error)
 	VerifySignedManifest(clientupdate.Manifest) error
-	VerifyReleaseObjects(context.Context, clientupdate.Manifest) error
+	VerifyReleaseObjects(context.Context, clientupdate.SourceRelease) error
 }
 
 type ReleaseService struct {
@@ -282,7 +282,7 @@ func (s *ReleaseService) validateManifest(
 	if err := s.manifests.VerifySignedManifest(manifest); err != nil {
 		return clientupdate.Manifest{}, ReleaseValidation{}, internal(err)
 	}
-	if err := s.manifests.VerifyReleaseObjects(ctx, manifest); err != nil {
+	if err := s.manifests.VerifyReleaseObjects(ctx, source); err != nil {
 		return clientupdate.Manifest{}, ReleaseValidation{}, &ServiceError{
 			Status: 400, Code: "RELEASE_OBJECT_UNAVAILABLE",
 			Message: "One or more release objects are unavailable.",

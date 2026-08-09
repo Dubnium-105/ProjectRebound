@@ -249,7 +249,7 @@ func (integrationReleaseManifestService) VerifySignedManifest(clientupdate.Manif
 	return nil
 }
 
-func (integrationReleaseManifestService) VerifyReleaseObjects(context.Context, clientupdate.Manifest) error {
+func (integrationReleaseManifestService) VerifyReleaseObjects(context.Context, clientupdate.SourceRelease) error {
 	return nil
 }
 

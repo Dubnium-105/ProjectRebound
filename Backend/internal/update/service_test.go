@@ -135,7 +135,10 @@ func TestManagedReleaseUsesDownloadStoragePublicBaseURL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service.SetManagedReleaseBaseURL(" https://downloads.example.test/project-rebound-downloads/ ")
+	service.SetManagedReleaseURLs(
+		" https://downloads.example.test/project-rebound-downloads/ ",
+		"http://minio:9000/project-rebound-downloads",
+	)
 	manifest, err := service.BuildAndSign(SourceRelease{
 		SchemaVersion: 1, Product: cfg.Product, Platform: "windows", Architecture: "amd64", Channel: "stable",
 		Version: "1.0.0", MinimumSupportedVersion: "1.0.0", PublishedAt: time.Now().UTC(),
