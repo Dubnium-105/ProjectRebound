@@ -6,17 +6,17 @@
 
 HTTP 字段与状态码以机器可读的 [OpenAPI 契约](../../Backend/api/openapi/openapi.yaml)为准；如果本文滞后，以后端实现和测试为准。以 `src/` 开头的路径相对于 `ProjectReboundToolbox` 仓库，以 `Backend/` 开头的路径相对于本仓库。
 
-实现基线日期：2026-08-04。
+实现基线日期：2026-08-09。以下状态以最新 Tauri/React 生产 UI 为准；旧 egui 路径只保留兼容性。
 
 ## 1. 当前实现状态
 
 | 流程 | ToolBox 当前状态 | 尚需接入的内容 |
 | --- | --- | --- |
-| 玩家登录与邀请码兑换 | 已实现。邀请码随 `/v1/auth/bind` 发送，返回的权限会保存并显示。 | 为已登录玩家增加明确的再次兑换入口；每次自动刷新后同步权限。 |
+| 玩家登录与邀请码兑换 | 已实现。已登录玩家可再次兑换；bind、自动 `401` refresh 和 `/v1/users/me` 都会原子更新 token 与 capabilities。 | 只剩真实账号/到期矩阵烟测。 |
 | 专服运行时注册 | 提供 Registration Token 后的流程已实现。ToolBox 会生成密钥与 CSR、注册、通过 DPAPI 保存身份、发送签名心跳并轮换凭据。 | 增加玩家侧 `/v1/game-server-registration-tokens` 请求；将现有 `ServerManager` 接入生产启动路径。 |
-| 传统 P2P 房间浏览/创建/加入 | 基础 API 和 UI 已存在，UI 会按权限控制创建。 | 保存只返回一次的房主 Token，运行完整房主生命周期，把选中房间接到游戏启动，并处理实时事件/Relay 信令。 |
-| VNT P2P 客户端 | 安全敏感的 API、运行时校验、节点选择和会话管理模块已存在，受 `vnt` Cargo feature 控制。 | 只在批准构建中启用；把 `VntManager` 接到 UI、实时事件和游戏启动；发布已验证运行时资产并满足发布门槛。 |
-| 社区 VNT 节点注册 | 已有 `VntApiClient::create_node_enrollment`。 | 增加 owner 节点查询/Enrollment/恢复 UI，并提供单独的节点 Supervisor 负责消费代码、保存节点凭据、心跳、轮换、恢复与退役。 |
+| 传统 P2P 房间浏览/创建/加入 | 已接入应用级 Active Room Controller、Realtime、直连候选、Relay v2、游戏启动和有序关闭。普通 UI 不显示传输类型。 | 真实双机/NAT/弱网矩阵。 |
+| VNT P2P 客户端 | 已接入透明 `TransportPlanner`、应用唯一 `VntManager`、固定版本嵌入运行时、实时事件、同节点重连/开局前 rebind 和游戏启动。 | 签名发布构建与真实双机烟测通过后才允许开启服务端开关。 |
+| 社区 VNT 节点注册 | 已有 VNT Node 页面和 ToolBox 自身的隐藏 supervisor 模式；一次性 Enrollment Code 只走受限命名管道，Node Token/私钥只在 supervisor 中 DPAPI 保存。 | 真实公网 TCP/UDP、端口转发、STALE/OFFLINE 与退役矩阵。 |
 
 UI 中可见的权限不代表永久授权。每次受保护操作仍以后端当时的判定为准。
 
@@ -41,14 +41,14 @@ bind、refresh 和当前玩家响应只返回当时仍有效的权限。如果�
 | 凭据 | 持有者 | 有效时间与用途 | 保存规则 |
 | --- | --- | --- | --- |
 | 邀请码 | 玩家 ToolBox | 玩家 bind 时消费；期限由管理员设置。 | 只保存到 bind 成功，禁止记录日志。 |
-| 玩家 access token | 玩家 ToolBox | 调用玩家 API 的短期 bearer token。 | 当前代码保存在 `app_config.json`；应迁移到操作系统保护的存储。禁止放入命令行。 |
+| 玩家 access token | 玩家 ToolBox | 调用玩家 API 的短期 bearer token。 | 配置整体使用当前用户 DPAPI 保护；禁止放入命令行、普通 JSON 或日志。 |
 | 玩家 refresh token | 玩家 ToolBox | 由 `/v1/auth/refresh` 轮换。 | 与 access token 同等保护；最终刷新失败或退出登录时全部清除。 |
 | 专服 Registration Token | 从玩家 ToolBox 交给一个服务器实例 | 一次性、10 分钟；只授权注册，不用于运行时流量。 | 只保留到启动/注册，消费成功后从配置中清除。 |
 | 专服运行时 token/密钥/证书 | 专服 ToolBox 进程 | 运行时身份；当前有效 24 小时，并在到期前轮换。 | DPAPI 保护的身份文件；不得交给游戏进程或 UI。 |
 | P2P host token | 房主 ToolBox 进程 | 创建房间时只返回一次，用于房主心跳/start/close；房间最长 8 小时。 | 只存内存；禁止写入 `app_config.json` 或日志。 |
 | VNT 房间/bootstrap 密钥材料 | 玩家 ToolBox 与 VNT helper | 短期，并绑定房间和 generation。 | 仅启动 helper 时写入受限临时文件，随后删除并清零。 |
-| VNT Node Enrollment Code | 从玩家 ToolBox 交给节点运营者/Supervisor | 一次性、10 分钟。 | 只展示/导出一次，交付后不再保留。 |
-| VNT node token | 仅 Node Supervisor | 节点运行时身份；当前 90 天，并支持轮换。 | 使用操作系统保护的服务存储；不得返回玩家 ToolBox。 |
+| VNT Node Enrollment Code | 玩家 ToolBox 父进程交给隐藏 Supervisor | 一次性、10 分钟。 | 仅通过当前用户受限命名管道的零化帧传递；不显示、不落盘、不进参数或日志。 |
+| VNT node token | 仅隐藏 Node Supervisor | 节点运行时身份；当前 90 天，并支持轮换。 | 当前用户 DPAPI 身份文件；不得返回 React 或父进程。 |
 
 ## 3. 模块与代码更改清单
 
@@ -58,9 +58,9 @@ bind、refresh 和当前玩家响应只返回当时仍有效的权限。如果�
 | --- | --- | --- |
 | `src/api/auth.rs` | bind/refresh DTO、邀请码字段和返回权限。 | 持续与 OpenAPI 同步；如果以后 API 返回权限到期元数据，也在此暴露。 |
 | `src/api/api_worker.rs` | 在 UI 线程外串行处理认证和传统房间操作。 | 把完整房间创建结果返回控制器；增加专服 Token 与节点 Enrollment 请求命令。 |
-| `src/api/http.rs` | 通用 HTTPS 客户端与 `401` 后一次刷新重试。 | 内部刷新 DTO 当前只保留 session token；应同时保存返回的 capabilities，并保留 `request_id`、结构化 details 与 `Retry-After`。 |
+| `src/api/http.rs` | 通用 HTTPS 客户端与 `401` 后一次刷新重试；会原子保存轮换 token 与 capabilities。 | 后续继续保留更多结构化 details 与 `Retry-After`。 |
 | `src/core/app.rs` | 自动 bind、自动刷新、登录状态和权限快照。 | 集中处理权限替换/清除，为已有玩家提供明确的邀请码兑换动作。 |
-| `src/config/config_types.rs` | 把玩家会话和权限持久化到 `app_config.json`。 | 将 bearer/refresh token 迁移到 Windows 凭据保护，只在 JSON 中保留非秘密偏好。 |
+| `src/config/config_types.rs` | 使用当前用户 DPAPI 保存玩家会话和权限，并兼容迁移旧配置。 | 普通诊断只能暴露凭据“存在/不存在”。 |
 | `src/pages/settings.rs` | 未登录时的邀请码输入和三项权限状态。 | 增加重新认证/兑换入口、到期/陈旧提示，以及受保护操作失败后的刷新。 |
 | `src/Server/config.rs` | 读取 `serverconfig.json`，包括一次性 `registrationToken` 和实例身份。 | Token 保持可选，只在用户明确启动注册时写入。 |
 | `src/Server/registration.rs` | CSR 注册、DPAPI 身份、签名心跳和凭据轮换。 | 通过 `ServerManager` 复用；只向 UI 暴露脱敏健康状态和可操作错误。 |
@@ -144,11 +144,11 @@ bind 请求的概念形式如下：
 4. 最终刷新失败时，清除 access token、refresh token、玩家身份和 capabilities，并回到未登录状态。
 5. 受保护操作返回 `403` 时，以后端为准；刷新状态、禁用对应动作，并提示邀请码权限可能已到期。
 
-当前注意事项：`src/api/http.rs` 的刷新路径只反序列化替换后的 session。应更新 DTO 和配置写入，让自动重试也替换 `capabilities`；否则设置页会一直显示旧状态，直到下一次显式认证操作。
+当前实现会在自动 `401` 刷新和 `/v1/users/me` 同步时替换 token 与 `capabilities`，并向 React 发送能力更新事件。
 
 ### 4.3 已有玩家兑换新邀请码
 
-当前 UI 只允许未登录时输入邀请码，因此已有玩家需要退出登录、输入新码并重新 bind。更完整的做法是增加明确的 **兑换邀请码** 动作：
+当前 React 设置页已经为已登录玩家提供明确的 **兑换邀请码** 动作：
 
 1. 要求有效 Steam ticket，不能只发送 bearer token 和邀请码；
 2. 使用已有 Steam 身份与新 `invite_code` 调用同一个 bind 操作；
@@ -293,7 +293,7 @@ VNT 客户端只在以下构建中编译：
 cargo build --release --features vnt
 ```
 
-它还受后端客户端配置 `features.vnt_rooms` 和运行时验证控制。后端根据部署设置 `VNT_ROOMS_ENABLED` 发布该值，默认值为 `false`；同一开关也会在服务端拒绝新的 VNT create/rebind 操作。节点目录中的 `version_compatible` 由精确匹配的部署白名单 `VNT_ALLOWED_VNTS_VERSIONS` 与 `VNT_ALLOWED_WRAPPER_VERSIONS` 计算；ToolBox 应隐藏不兼容节点，同时仍处理 `VNT_NODE_UNAVAILABLE`，因为后端会在 create/rebind 事务中再次检查兼容性。`src/vnt/runtime.rs` 在架构、helper capability、Wintun、manifest、版本、哈希或发布签名不可信时会失败关闭。发布构建必须嵌入批准的 `PROJECT_REBOUND_VNT_MANIFEST_SHA256`，并精确携带 manifest 描述的资产。
+它还受后端客户端配置 `features.vnt_rooms` 和运行时验证控制。后端根据部署设置 `VNT_ROOMS_ENABLED` 发布该值，默认值为 `false`；同一开关也会在服务端拒绝新的 VNT create/rebind 操作。节点目录中的 `version_compatible` 由精确匹配的部署白名单 `VNT_ALLOWED_VNTS_VERSIONS` 与 `VNT_ALLOWED_WRAPPER_VERSIONS` 计算；ToolBox 应隐藏不兼容节点，同时仍处理 `VNT_NODE_UNAVAILABLE`，因为后端会在 create/rebind 事务中再次检查兼容性。`src/vnt/runtime.rs` 会验证嵌入清单、精确版本、SHA-256、x64 PE 架构及每项资产声明的 Authenticode 信任策略，任一失败即关闭功能。当前固定的上游 VNT 可执行文件没有签名，只允许与嵌入哈希完全一致的文件；Wintun 必须具有可信签名。ToolBox 发布程序本身必须先完成 Authenticode 签名，生产环境中的隐藏节点 supervisor 安全门控才会允许运行。
 
 不能因为 `--features vnt` 编译成功就显示 VNT 操作；后端开关与运行时预检必须同时通过。
 
@@ -320,25 +320,18 @@ cargo build --release --features vnt
 
 rebind 只允许在比赛开始前发生，并创建新 generation、轮换秘密。重连仅限同一节点且次数有上限，不支持热迁移。关闭顺序为游戏、隧道/helper、后端 close/leave。
 
-### 7.4 尚缺的生产接线
+### 7.4 生产接线状态
 
-上述模块当前未接到 `src/core/app.rs` 或 `src/pages/launch.rs`，也没有生产 `GameLaunchAdapter`/实时 adapter 驱动它们。需要：
-
-- 创建由应用唯一持有的 `VntManager`，向 UI 暴露不可变视图状态；
-- create/join/rebind/reconnect/实时事件全部经过 manager，widget 不能直接调用；
-- 实现游戏 adapter，禁止传递 host/bootstrap/node 秘密；
-- 取消与应用退出必须调用 manager 的有序 shutdown；
-- 对预检、探测、就绪和后端错误码提供安全诊断；
-- 传统 Relay 只能按服务端策略选择/回退，不能静默降级一个 VNT 房间。
+生产 Tauri `AppState` 已唯一持有 `TransportPlanner`、`VntManager`、Legacy controller 与活动房间。React 只调用 `probe_room_route/create_room/join_room/launch_room/leave_room/get_active_room`；技术类型、host token、bootstrap 和游戏目标都不返回页面。后台循环统一处理 heartbeat、presence、Realtime、同节点有限重连、开局前空房 rebind 和有序关闭；房间创建后禁止混用传输。
 
 ## 8. 社区 VNT 节点注册
 
-社区节点接入刻意拆成两个程序：
+社区节点接入拆成同一签名 ToolBox 可执行文件的两个进程模式：
 
-- **玩家 ToolBox** 证明玩家身份和权限，然后申请短期 Enrollment Code；
-- **VNT Node Supervisor** 在节点主机运行，一次性消费代码，持有 node token，并负责心跳、轮换与退役。
+- **玩家 ToolBox UI 进程**证明玩家身份和权限，然后申请短期 Enrollment Code；
+- **ToolBox 隐藏 Node Supervisor 模式**通过当前用户受限命名管道一次性接收代码，持有 node token，并负责 `vnts`、心跳、轮换、恢复与本地身份清理。
 
-玩家 ToolBox 不能变成长驻节点 Supervisor，也绝不能收到最终的 node token。
+Supervisor 不安装 Windows 服务，只随 ToolBox 进程树运行；父进程与 React 绝不能收到最终的 node token。
 
 ### 8.1 玩家 ToolBox：申请 Enrollment Code
 
@@ -358,11 +351,11 @@ Content-Type: application/json
 
 label 必须匹配 `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`。响应包含一个 `vne_...` 一次性代码，10 分钟到期，并带 `Cache-Control: no-store`。
 
-`src/api/vnt.rs::create_node_enrollment` 已实现 API 调用，但没有 UI/控制器调用者。应增加设置页或 VNT 节点页：
+VNT Node 页面和控制器已经接入：
 
 - 本地 capability 只用于改善 UX，最终以后端 `403` 为准；
-- 只有用户明确确认后才申请；
-- 代码只显示一次，并提供倒计时和复制/导出；
+- 只有用户明确启动或恢复时才申请；
+- 代码不显示给 UI，只直接写入受限管道；
 - 禁止写入 `app_config.json`、剪贴板历史遥测、日志、崩溃报告或进程参数；
 - 消费、到期、关闭窗口或退出登录时立即清除。
 
@@ -412,7 +405,7 @@ Content-Type: application/json
 
 Supervisor 通常使用当前 Node Credential 退役；integrity-trusted owner 也可用 Player Access 调用 `DELETE /v1/vnt/nodes/{node_id}`，后端会核对 owner。进入 `DRAINING` 后必须继续 heartbeat 和既有 session，直到 sweeper 转为 `RETIRED` 并撤销凭据。
 
-ProjectReboundToolbox 当前没有 Node Supervisor 实现。它应是最小权限、面向服务的独立二进制或仓库，不能藏在玩家启动按钮后面。
+ProjectReboundToolbox 已实现自身隐藏 supervisor 模式：管道使用首实例和拒绝远程客户端，ACL 只允许 SYSTEM/当前对象所有者，父子进程双向校验 PID；父进程退出时 Job Object 终止 supervisor，supervisor 再终止 `vnts`，不会自动调用 retire。
 
 ## 9. 错误处理与重试规则
 

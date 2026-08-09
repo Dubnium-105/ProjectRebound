@@ -2369,7 +2369,7 @@ paths:
         - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 200, default: 100}}
       responses:
         "200":
-          description: Public VNT node directory without owner identity or credentials.
+          description: Paginated public VNT node directory used by clients during pre-room route planning. Owner identity and credentials are never returned; clients must follow next_cursor until it is empty.
           content:
             application/json:
               schema: {$ref: "#/components/schemas/VNTNodeListResponse"}
@@ -6522,6 +6522,7 @@ components:
         request_id: {type: string}
     P2PRoomCreateRequest:
       type: object
+      description: The client resolves automatic route selection before this request. The selected transport is pinned for the room transaction; AUTO is intentionally not a wire value and transports cannot be mixed within one room.
       additionalProperties: false
       required: [display_name, region, mode, version, max_players]
       properties:
@@ -6530,8 +6531,8 @@ components:
         mode: {type: string, minLength: 1, maxLength: 64}
         version: {type: string, minLength: 1, maxLength: 64}
         max_players: {type: integer, minimum: 2, maximum: 64}
-        transport_kind: {type: string, enum: [LEGACY_RELAY, VNT], default: LEGACY_RELAY}
-        vnt_node_id: {type: string}
+        transport_kind: {type: string, enum: [LEGACY_RELAY, VNT], default: LEGACY_RELAY, description: Concrete transport selected by the client before room creation.}
+        vnt_node_id: {type: string, description: Required when transport_kind is VNT and pinned for every room member.}
     P2PRoomJoinRequest:
       type: object
       additionalProperties: false
@@ -7147,6 +7148,7 @@ components:
         request_id: {type: string}
     MetaEndpoint:
       type: object
+      description: Public non-secret QoS target. ToolBox probes these endpoints before room creation and does not expose the selected transport implementation in the player UI.
       additionalProperties: false
       required: [protocol, host, port]
       properties:

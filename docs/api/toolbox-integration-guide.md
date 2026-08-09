@@ -6,17 +6,17 @@ This guide describes the current ProjectRebound ToolBox integration for player s
 
 The machine-readable [OpenAPI contract](../../Backend/api/openapi/openapi.yaml) is authoritative for HTTP fields and status codes. Backend implementation and tests take precedence if this guide becomes stale. Paths beginning with `src/` are relative to the `ProjectReboundToolbox` repository; paths beginning with `Backend/` are relative to this repository.
 
-Implementation baseline: 2026-08-04.
+Implementation baseline: 2026-08-09. The status below refers to the current Tauri/React production UI; the old egui path is compatibility-only.
 
 ## 1. Current implementation status
 
 | Flow | Current ToolBox state | Remaining integration |
 | --- | --- | --- |
-| Player sign-in and invitation redemption | Implemented. The invitation is sent with `/v1/auth/bind`; returned capabilities are saved and displayed. | Add an explicit re-redeem action for an already signed-in player; keep capabilities synchronized after every automatic refresh. |
+| Player sign-in and invitation redemption | Implemented. Signed-in players can redeem again; bind, automatic `401` refresh, and `/v1/users/me` atomically update tokens and capabilities. | Real-account and expiry-matrix smoke testing only. |
 | Dedicated-server runtime registration | Implemented after a Registration Token is supplied. ToolBox generates the key and CSR, enrolls, stores identity with DPAPI, sends signed heartbeats, and rotates credentials. | Add the player-facing request for `/v1/game-server-registration-tokens`; integrate the existing `ServerManager` into the production launch path. |
-| Legacy P2P room browser/create/join | Basic API and UI are present. Room creation is capability-gated in the UI. | Preserve the one-time host token, run the host lifecycle, connect the selected room to game launch, and handle realtime/Relay signaling. |
-| VNT P2P client | Security-sensitive API, runtime verification, node selection, and session manager modules exist behind the `vnt` Cargo feature. | Enable only for approved builds, connect `VntManager` to UI/realtime/game launch, ship verified runtime assets, and satisfy release gates. |
-| Community VNT node enrollment | `VntApiClient::create_node_enrollment` exists. | Add owner node listing/enrollment/recovery UX and a separate node Supervisor that consumes the code, stores node credentials, heartbeats, rotates, recovers, and retires. |
+| Legacy P2P room browser/create/join | Wired to the application Active Room Controller, Realtime, direct candidates, Relay v2, game launch, and ordered shutdown. The normal UI is transport-neutral. | Real two-machine/NAT/degraded-network matrix. |
+| VNT P2P client | Wired to transparent planning, one application-owned `VntManager`, pinned embedded runtime assets, realtime, bounded same-node reconnect/pre-start rebind, and game launch. | Keep the server gate off until signed release and real two-machine smoke gates pass. |
+| Community VNT node enrollment | Includes the VNT Node page and ToolBox's own hidden supervisor mode. Enrollment uses a restricted named pipe; node tokens and keys are DPAPI-persisted only in the supervisor. | Real public TCP/UDP, port-forward, STALE/OFFLINE, and retirement matrix. |
 
 Do not interpret a visible capability as a permanent grant. The backend remains authoritative at the time of each protected operation.
 
@@ -41,14 +41,14 @@ The backend returns only currently active capabilities from bind, refresh, and c
 | Credential | Holder | Lifetime and use | Storage rule |
 | --- | --- | --- | --- |
 | Invitation code | Player ToolBox | Consumed during player bind; expiry is configured by an administrator. | Keep only until bind succeeds. Never log it. |
-| Player access token | Player ToolBox | Short-lived bearer token for player APIs. | Current code stores it in `app_config.json`; migrate to an OS-protected store. Never pass on a command line. |
+| Player access token | Player ToolBox | Short-lived bearer token for player APIs. | The configuration is protected with current-user DPAPI. Never place it in arguments, ordinary JSON, or logs. |
 | Player refresh token | Player ToolBox | Rotated by `/v1/auth/refresh`. | Same protection as the access token. Clear both on terminal refresh failure/logout. |
 | Dedicated-server Registration Token | Player ToolBox to one server instance | Single use, 10 minutes. It authorizes enrollment, not runtime traffic. | Hold only long enough to launch/enroll; clear it from configuration after successful consumption. |
 | Dedicated-server runtime token/key/certificate | Dedicated-server ToolBox process | Runtime identity; currently issued for 24 hours and rotated before expiry. | DPAPI-protected identity file; never expose to the game process or UI. |
 | P2P host token | Host ToolBox process | Returned once when a room is created; controls host heartbeat/start/close. Room hard limit is 8 hours. | Memory only. Never save to `app_config.json` or logs. |
 | VNT room/bootstrap secrets | Player ToolBox and VNT helper | Short-lived, room- and generation-bound. | Restricted temporary file only while starting the helper, then delete and zeroize. |
-| VNT Node Enrollment Code | Player ToolBox to node operator/Supervisor | Single use, 10 minutes. | Show/export once; do not retain after transfer. |
-| VNT node token | Node Supervisor only | Node runtime identity; currently 90 days, with rotation. | OS-protected service storage. It must never return to the player ToolBox. |
+| VNT Node Enrollment Code | Player ToolBox parent to hidden supervisor | Single use, 10 minutes. | Transfer only in a zeroized frame over the current-user-restricted named pipe; never display, persist, log, or pass as an argument. |
+| VNT node token | Hidden Node Supervisor only | Node runtime identity; currently 90 days, with rotation. | Current-user DPAPI identity file. It never returns to React or the parent process. |
 
 ## 3. Module map and required code changes
 
@@ -58,9 +58,9 @@ The backend returns only currently active capabilities from bind, refresh, and c
 | --- | --- | --- |
 | `src/api/auth.rs` | Bind and refresh DTOs, invitation field, returned capabilities. | Keep DTOs aligned with OpenAPI and expose capability expiry metadata if the API adds it later. |
 | `src/api/api_worker.rs` | Serializes auth and legacy room work away from the UI thread. | Return complete room creation data to the controller; add commands for server token and node enrollment requests. |
-| `src/api/http.rs` | Shared HTTPS client and one-time `401` refresh retry. | Its internal refresh DTO currently keeps only session tokens. Update it to persist returned capabilities as well; preserve `request_id`, structured details, and `Retry-After`. |
+| `src/api/http.rs` | Shared HTTPS client and one-time `401` refresh retry; atomically persists rotated tokens and capabilities. | Preserve additional structured details and `Retry-After` in future revisions. |
 | `src/core/app.rs` | Auto-bind, auto-refresh, login state, and capability snapshot. | Centralize capability replacement/clearing and expose a deliberate invitation redemption action for existing players. |
-| `src/config/config_types.rs` | Persists player session and capabilities in `app_config.json`. | Move bearer/refresh tokens to Windows credential protection; keep only non-secret preferences in JSON. |
+| `src/config/config_types.rs` | Persists player session and capabilities under current-user DPAPI and migrates legacy configuration. | Diagnostics may expose presence only, never values. |
 | `src/pages/settings.rs` | Invitation input while logged out and three capability indicators. | Add re-auth/redeem UX, expiry/stale messaging, and protected action error refresh. |
 | `src/Server/config.rs` | Loads `serverconfig.json`, including one-time `registrationToken` and instance identity. | Keep the one-time token optional and avoid writing it until the user explicitly starts enrollment. |
 | `src/Server/registration.rs` | CSR enrollment, DPAPI identity, signed heartbeat, and credential rotation. | Reuse through `ServerManager`; surface only redacted health and actionable errors. |
@@ -148,7 +148,7 @@ Current caveat: the refresh path in `src/api/http.rs` deserializes only the repl
 
 ### 4.3 Redeeming a later invitation
 
-The current UI only accepts an invitation while logged out. An existing player therefore has to log out, enter the new code, and bind again. A better integration is an explicit **Redeem invitation** action that:
+The React settings page now provides an explicit **Redeem invitation** action for an already signed-in player:
 
 1. requires a live Steam ticket and never sends only a bearer token plus code;
 2. calls the same bind operation with the existing Steam identity and new `invite_code`;
@@ -293,7 +293,7 @@ The VNT client is compiled only with:
 cargo build --release --features vnt
 ```
 
-It is also gated by the backend client configuration (`features.vnt_rooms`) and runtime verification. The backend publishes this value from the deployment setting `VNT_ROOMS_ENABLED`, which defaults to `false`; the same gate rejects new VNT create/rebind operations server-side. Node discovery exposes `version_compatible`, computed from the exact `VNT_ALLOWED_VNTS_VERSIONS` and `VNT_ALLOWED_WRAPPER_VERSIONS` deployment allowlists. ToolBox must hide incompatible nodes and still handle `VNT_NODE_UNAVAILABLE`, because the backend rechecks compatibility transactionally during create/rebind. `src/vnt/runtime.rs` fail-closes unless the architecture, helper capabilities, Wintun, manifest, version, hashes, and release signatures are trusted. Release builds must embed the approved `PROJECT_REBOUND_VNT_MANIFEST_SHA256` value and ship exactly the assets described by that manifest.
+It is also gated by the backend client configuration (`features.vnt_rooms`) and runtime verification. The backend publishes this value from the deployment setting `VNT_ROOMS_ENABLED`, which defaults to `false`; the same gate rejects new VNT create/rebind operations server-side. Node discovery exposes `version_compatible`, computed from the exact `VNT_ALLOWED_VNTS_VERSIONS` and `VNT_ALLOWED_WRAPPER_VERSIONS` deployment allowlists. ToolBox must hide incompatible nodes and still handle `VNT_NODE_UNAVAILABLE`, because the backend rechecks compatibility transactionally during create/rebind. `src/vnt/runtime.rs` fail-closes unless the embedded manifest, exact versions, SHA-256 hashes, x64 PE architecture, and each asset's declared Authenticode trust policy validate. The pinned upstream VNT executables are currently unsigned and are accepted only at their exact embedded hashes; Wintun must have a trusted signature. The ToolBox release executable itself must be Authenticode-signed before the hidden node supervisor security gate can run in production.
 
 Do not expose VNT actions merely because `--features vnt` compiled. Both the server flag and runtime preflight must pass.
 
@@ -320,25 +320,18 @@ Do not expose VNT actions merely because `--features vnt` compiled. Both the ser
 
 Rebind is allowed only before match start and creates a new generation with rotated secrets. Reconnect is limited to the same node and a bounded number of attempts; there is no hot migration. Shutdown order is game, tunnel/helper, then backend close/leave.
 
-### 7.4 Missing production wiring
+### 7.4 Production wiring status
 
-The modules above are not currently connected to `src/core/app.rs` or `src/pages/launch.rs`, and no production `GameLaunchAdapter`/realtime adapter drives them. Required integration work is:
-
-- create one application-owned `VntManager` and expose immutable view state to the UI;
-- route create/join/rebind/reconnect/realtime events through the manager, not directly from widgets;
-- implement the game adapter without passing host/bootstrap/node secrets;
-- make cancellation and application exit call the manager's ordered shutdown;
-- render safe diagnostics for preflight, probing, readiness, and backend error codes;
-- keep the legacy Relay path selectable/fallback only according to server policy, never by silently downgrading a VNT room.
+The production Tauri `AppState` uniquely owns the `TransportPlanner`, `VntManager`, Legacy controller, and active room. React calls only `probe_room_route/create_room/join_room/launch_room/leave_room/get_active_room`; transport names, host tokens, bootstrap data, and game targets do not cross into the page. One background loop owns heartbeat, presence, Realtime, bounded same-node reconnect, empty-room pre-start rebind, and ordered shutdown. Transports cannot be mixed after room creation.
 
 ## 8. Community VNT node registration
 
-Community node onboarding is deliberately split between two programs:
+Community node onboarding is split between two process modes of the same signed ToolBox executable:
 
-- **Player ToolBox** proves player identity and permission, then requests a short-lived Enrollment Code.
-- **VNT Node Supervisor** runs on the node host, consumes that code once, owns the node token, heartbeats, rotates, and retires.
+- The **Player ToolBox UI process** proves player identity and permission, then requests a short-lived Enrollment Code.
+- The **hidden ToolBox Node Supervisor mode** receives it once over a current-user-restricted named pipe and owns `vnts`, the node token, heartbeat, rotation, recovery, and local identity cleanup.
 
-The player ToolBox must not become the long-running node supervisor and must never receive the resulting node token.
+The supervisor installs no Windows service and follows the ToolBox process tree. Neither the parent process nor React receives the resulting node token.
 
 ### 8.1 Player ToolBox: request an Enrollment Code
 
@@ -358,11 +351,11 @@ Content-Type: application/json
 
 The label must match `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`. The response contains a `vne_...` single-use code with a 10-minute expiry and `Cache-Control: no-store`.
 
-`src/api/vnt.rs::create_node_enrollment` already performs the API call, but there is no UI/controller caller. Add a settings or VNT-node page that:
+The VNT Node page and controller are wired:
 
 - checks the local capability to improve UX but accepts backend `403` as final;
-- requests only after an explicit confirmation;
-- shows the code once with a countdown and copy/export action;
+- requests only when the user explicitly starts or recovers a node;
+- never displays the code and writes it directly to the restricted pipe;
 - never writes it to `app_config.json`, clipboard history telemetry, logs, crash reports, or process arguments;
 - clears it when consumed, expired, dismissed, or the player logs out.
 
@@ -412,7 +405,7 @@ When a node credential or rotation response is lost, the owner completes integri
 
 The Supervisor normally retires with the current Node Credential. An integrity-trusted owner may also call `DELETE /v1/vnt/nodes/{node_id}` with Player Access; the backend verifies ownership. `DRAINING` must keep heartbeats and existing sessions alive until the sweeper reaches `RETIRED` and revokes credentials.
 
-No Node Supervisor implementation is currently present in ProjectReboundToolbox. It should be a separate service-oriented binary or repository with least privilege, not code hidden behind the player's launch button.
+ProjectReboundToolbox implements its own hidden supervisor mode. The pipe uses first-instance and reject-remote-client flags, a SYSTEM/current-owner ACL, and mutual PID verification. Parent exit closes a Job Object that terminates the supervisor, which in turn terminates `vnts`; this never calls retire automatically.
 
 ## 9. Error handling and retry rules
 
