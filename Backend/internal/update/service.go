@@ -35,12 +35,13 @@ type ManagedCatalog interface {
 }
 
 type Service struct {
-	cfg       config.UpdateConfig
-	signer    *Signer
-	relay     RelayDirectory
-	manifests []Manifest
-	files     map[string]FileDownload
-	managed   ManagedCatalog
+	cfg                   config.UpdateConfig
+	managedReleaseBaseURL string
+	signer                *Signer
+	relay                 RelayDirectory
+	manifests             []Manifest
+	files                 map[string]FileDownload
+	managed               ManagedCatalog
 }
 
 func NewService(cfg config.UpdateConfig, environment string, relay RelayDirectory) (*Service, error) {
@@ -56,15 +57,27 @@ func NewService(cfg config.UpdateConfig, environment string, relay RelayDirector
 		manifests = []Manifest{}
 		files = make(map[string]FileDownload)
 	}
-	return &Service{cfg: cfg, signer: signer, relay: relay, manifests: manifests, files: files}, nil
+	return &Service{
+		cfg: cfg, managedReleaseBaseURL: cfg.CDNBaseURL,
+		signer: signer, relay: relay, manifests: manifests, files: files,
+	}, nil
 }
 
 func (s *Service) EphemeralSigner() bool { return s.signer.Ephemeral() }
 
 func (s *Service) SetManagedCatalog(catalog ManagedCatalog) { s.managed = catalog }
 
+// SetManagedReleaseBaseURL keeps administrator-managed releases in the same
+// public namespace as the object-storage files they reference. The static
+// catalog continues to use UpdateConfig.CDNBaseURL.
+func (s *Service) SetManagedReleaseBaseURL(baseURL string) {
+	if value := strings.TrimSpace(baseURL); value != "" {
+		s.managedReleaseBaseURL = value
+	}
+}
+
 func (s *Service) BuildAndSign(source SourceRelease) (Manifest, error) {
-	baseURL, err := url.Parse(s.cfg.CDNBaseURL)
+	baseURL, err := url.Parse(s.managedReleaseBaseURL)
 	if err != nil {
 		return Manifest{}, err
 	}

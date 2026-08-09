@@ -129,6 +129,30 @@ func TestCanonicalManifestSigningIsDeterministic(t *testing.T) {
 	}
 }
 
+func TestManagedReleaseUsesDownloadStoragePublicBaseURL(t *testing.T) {
+	cfg := testUpdateConfig(t)
+	service, err := NewService(cfg, "test", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service.SetManagedReleaseBaseURL(" https://downloads.example.test/project-rebound-downloads/ ")
+	manifest, err := service.BuildAndSign(SourceRelease{
+		SchemaVersion: 1, Product: cfg.Product, Platform: "windows", Architecture: "amd64", Channel: "stable",
+		Version: "1.0.0", MinimumSupportedVersion: "1.0.0", PublishedAt: time.Now().UTC(),
+		Files: []SourceFile{{
+			FileID: "file_a", Path: "game.exe", Size: 1, SHA256: repeatHex("a"), Compression: "none",
+			ObjectKey: "downloads/client/dver_test/game.exe",
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "https://downloads.example.test/project-rebound-downloads/downloads/client/dver_test/game.exe"
+	if got := manifest.Files[0].DownloadURL; got != want {
+		t.Fatalf("managed release download URL = %q, want %q", got, want)
+	}
+}
+
 func TestCatalogRejectsUnsafeObjectKey(t *testing.T) {
 	cfg := testUpdateConfig(t)
 	writeRelease(t, cfg.ManifestDirectory, "unsafe.json", SourceRelease{
