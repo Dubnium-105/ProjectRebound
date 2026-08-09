@@ -1324,6 +1324,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/release-files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["adminListReleaseFiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/downloads/capabilities": {
         parameters: {
             query?: never;
@@ -3515,6 +3531,26 @@ export interface components {
             compression: "none" | "gzip" | "zstd";
             /** @description Relative object-storage key resolved only under the configured CDN base URL. */
             object_key: string;
+        };
+        AdminReleaseFile: {
+            id: string;
+            version_label: string;
+            original_file_name: string;
+            /** Format: int64 */
+            size_bytes: number;
+            sha256: string;
+            /** @description Internal key for a server-verified object managed by the download storage service. */
+            object_key: string;
+            /** @enum {string} */
+            status: "DRAFT" | "PUBLISHED";
+            /** Format: date-time */
+            verified_at: string;
+        };
+        AdminReleaseFileListResponse: {
+            data: {
+                items: components["schemas"]["AdminReleaseFile"][];
+            };
+            request_id: string;
         };
         AdminReleaseCreateRequest: {
             platform: string;
@@ -7646,6 +7682,27 @@ export interface operations {
                 };
             };
             409: components["responses"]["Conflict"];
+        };
+    };
+    adminListReleaseFiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Verified object-storage files eligible for managed client releases. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminReleaseFileListResponse"];
+                };
+            };
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     adminGetDownloadCapabilities: {

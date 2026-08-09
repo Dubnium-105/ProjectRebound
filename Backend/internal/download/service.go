@@ -183,6 +183,39 @@ func (s *Service) ListEntries(ctx context.Context) ([]Entry, error) {
 	return items, nil
 }
 
+func (s *Service) ListReleaseFiles(ctx context.Context) ([]ReleaseFile, error) {
+	if !s.Enabled() {
+		return nil, &ServiceError{
+			Status: http.StatusServiceUnavailable, Code: "DOWNLOAD_STORAGE_DISABLED",
+			Message: "Download storage is not configured.",
+		}
+	}
+	entries, err := s.repository.ListEntries(ctx, false)
+	if err != nil {
+		return nil, internal(err)
+	}
+	return releaseFilesFromEntries(entries), nil
+}
+
+func releaseFilesFromEntries(entries []Entry) []ReleaseFile {
+	files := make([]ReleaseFile, 0)
+	for _, entry := range entries {
+		for _, version := range entry.Versions {
+			if version.VerifiedAt == nil ||
+				(version.Status != VersionStatusDraft && version.Status != VersionStatusPublished) {
+				continue
+			}
+			files = append(files, ReleaseFile{
+				ID: version.ID, VersionLabel: version.VersionLabel,
+				OriginalFileName: version.OriginalFileName, SizeBytes: version.SizeBytes,
+				SHA256: version.SHA256, ObjectKey: version.ObjectKey,
+				Status: version.Status, VerifiedAt: *version.VerifiedAt,
+			})
+		}
+	}
+	return files
+}
+
 func (s *Service) GetEntry(ctx context.Context, id string) (Entry, error) {
 	item, err := s.repository.GetEntry(ctx, strings.TrimSpace(id))
 	if errors.Is(err, pgx.ErrNoRows) {

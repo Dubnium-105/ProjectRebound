@@ -142,6 +142,7 @@ func TestDocumentHasRequiredOpenAPIShape(t *testing.T) {
 		"/v1/admin/releases/{release_id}/publish",
 		"/v1/admin/releases/{release_id}/rollback",
 		"/v1/admin/releases/{release_id}/archive",
+		"/v1/admin/release-files",
 		"/v1/admin/downloads/capabilities",
 		"/v1/admin/download-categories",
 		"/v1/admin/download-categories/{category_id}",

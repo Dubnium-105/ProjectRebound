@@ -174,6 +174,7 @@ Every write requires `reason`; Relay drain also accepts `deadline_seconds` and `
 ```text
 GET  /v1/admin/releases
 POST /v1/admin/releases
+GET  /v1/admin/release-files
 GET  /v1/admin/releases/{release_id}
 POST /v1/admin/releases/{release_id}/validate
 POST /v1/admin/releases/{release_id}/publish
@@ -181,7 +182,7 @@ POST /v1/admin/releases/{release_id}/rollback
 POST /v1/admin/releases/{release_id}/archive
 ```
 
-Creation accepts platform, architecture, stable/beta/toolbox channel, semantic version information, forced-update policy, and object-storage file descriptors. Validation checks file paths, sizes, SHA-256 values, compression, CDN object keys and actual `HEAD` availability, compatibility ordering, and the generated Ed25519 signature. Only a `READY` release can be published. Publish, rollback, and archive require both an operation reason and server-enforced MFA step-up. The public update catalog reads only `PUBLISHED` managed manifests; rollback removes that release from future update checks without deleting its audit history. Archive accepts only `DRAFT`, `READY`, or `ROLLED_BACK`, uses `updates.rollback`, and preserves all records.
+Creation accepts platform, architecture, stable/beta/toolbox channel, semantic version information, forced-update policy, and object-storage file descriptors. `GET /v1/admin/release-files` exposes only server-verified `DRAFT` or `PUBLISHED` download-storage objects to administrators with `updates.create`; it does not expose bucket-listing credentials. Validation checks file paths, sizes, SHA-256 values, compression, CDN object keys and actual `HEAD` availability, compatibility ordering, and the generated Ed25519 signature. Only a `READY` release can be published. Publish, rollback, and archive require both an operation reason and server-enforced MFA step-up. The public update catalog reads only `PUBLISHED` managed manifests; rollback removes that release from future update checks without deleting its audit history. Archive accepts only `DRAFT`, `READY`, or `ROLLED_BACK`, uses `updates.rollback`, and preserves all records.
 
 ### 3.5 Administrator and role governance
 
@@ -417,6 +418,7 @@ must never be copied into audit details.
 
 | Method | Path | Permission |
 | --- | --- | --- |
+| GET | `/v1/admin/release-files` | `updates.create` |
 | GET | `/v1/admin/downloads/capabilities` | `downloads.read` |
 | GET, POST | `/v1/admin/download-categories` | `downloads.read` / `downloads.create` |
 | PATCH | `/v1/admin/download-categories/{category_id}` | `downloads.update` |
