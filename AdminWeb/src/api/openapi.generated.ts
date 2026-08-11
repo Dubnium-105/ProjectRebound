@@ -62,7 +62,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Replaces any outstanding one-time nonce for the authenticated Steam-ticket session. Returns an empty nonce when no in-memory ticket is available. */
+        /** @description Replaces any outstanding one-time nonce for the authenticated session. An untrusted session requires the raw Steam ticket retained from bind; a trusted session can always receive a ticket-less challenge from its persisted PEM fingerprint. An empty nonce means an untrusted session can no longer complete the bind proof and must bind again. */
         post: operations["createIntegrityChallenge"];
         delete?: never;
         options?: never;
@@ -79,7 +79,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Verifies SHA-256 over the configured ToolBox PEM bytes, the current session's raw encrypted Steam ticket, and the one-time nonce. A successful proof promotes the session to trusted. Three consecutive failures revoke it. */
+        /** @description For an untrusted bind session, verifies SHA-256 over the exact configured ToolBox PEM bytes, the retained raw encrypted Steam ticket, and the one-time nonce. For an already trusted session, verifies SHA-256 over the PEM bytes and nonce only after matching the persisted PEM fingerprint. Success persists integrity trust across refresh; every failure clears it immediately, and three consecutive failures revoke the session. */
         post: operations["submitIntegrityProof"];
         delete?: never;
         options?: never;
@@ -2826,7 +2826,7 @@ export interface components {
             request_id: string;
         };
         IntegrityChallengeData: {
-            /** @description Empty for sessions without an in-memory verified Steam ticket. */
+            /** @description Empty only when an untrusted session no longer has the bind-time Steam ticket in memory and must bind again. Trusted sessions receive a nonce without requiring a ticket. */
             nonce: string;
         };
         IntegrityChallengeResponse: {
@@ -4534,6 +4534,7 @@ export interface components {
             };
             request_id: string;
         };
+        /** @description The client resolves automatic route selection before this request. The selected transport is pinned for the room transaction; AUTO is intentionally not a wire value and transports cannot be mixed within one room. */
         P2PRoomCreateRequest: {
             display_name: string;
             region: string;
@@ -4541,10 +4542,12 @@ export interface components {
             version: string;
             max_players: number;
             /**
+             * @description Concrete transport selected by the client before room creation.
              * @default LEGACY_RELAY
              * @enum {string}
              */
             transport_kind: "LEGACY_RELAY" | "VNT";
+            /** @description Required when transport_kind is VNT and pinned for every room member. */
             vnt_node_id?: string;
         };
         P2PRoomJoinRequest: {
@@ -5004,6 +5007,7 @@ export interface components {
             };
             request_id: string;
         };
+        /** @description Public non-secret QoS target. ToolBox probes these endpoints before room creation and does not expose the selected transport implementation in the player UI. */
         MetaEndpoint: {
             /** @enum {string} */
             protocol: "udp";
@@ -8435,7 +8439,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Public VNT node directory without owner identity or credentials. */
+            /** @description Paginated public VNT node directory used by clients during pre-room route planning. Owner identity and credentials are never returned; clients must follow next_cursor until it is empty. */
             200: {
                 headers: {
                     [name: string]: unknown;
