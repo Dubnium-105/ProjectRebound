@@ -45,6 +45,7 @@ type Service struct {
 }
 
 type IntegritySessionManager interface {
+	PEMFingerprint() []byte
 	RegisterSession(sessionID string, ticket []byte, expiresAt time.Time) (IntegrityChallenge, error)
 	RotateSession(oldSessionID, newSessionID string, expiresAt time.Time)
 	RemoveSession(sessionID string)
@@ -303,6 +304,9 @@ func (s *Service) Bind(ctx context.Context, input BindInput, meta RequestMeta) (
 	if err != nil {
 		return BindResult{}, internalError(err)
 	}
+	if s.integritySessions != nil {
+		session.PEMFingerprint = s.integritySessions.PEMFingerprint()
+	}
 	integrityChallenge := IntegrityChallenge{}
 	integrityRegistered := false
 	if len(ticketBytes) > 0 && s.integritySessions != nil {
@@ -509,6 +513,8 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string, meta Request
 	if err != nil {
 		return RefreshResult{}, internalError(err)
 	}
+	replacement.PEMFingerprint = append([]byte(nil), current.PEMFingerprint...)
+	replacement.IntegrityTrusted = current.IntegrityTrusted
 	if len(replacement.DeviceIDHash) == 0 {
 		replacement.DeviceIDHash = current.DeviceIDHash
 		replacement.DeviceIDSuffix = current.DeviceIDSuffix
@@ -631,8 +637,10 @@ func (s *Service) AuthenticateAccess(ctx context.Context, accessToken string) (P
 	return Principal{
 		Player: item, SessionID: session.ID,
 		AuthProvider: session.AuthProvider, AuthLevel: session.AuthLevel,
-		SteamVerified: session.SteamVerified,
-		Capabilities:  capabilities,
+		SteamVerified:    session.SteamVerified,
+		PEMFingerprint:   append([]byte(nil), session.PEMFingerprint...),
+		IntegrityTrusted: session.IntegrityTrusted,
+		Capabilities:     capabilities,
 	}, nil
 }
 
@@ -708,6 +716,23 @@ func (s *Service) RecordIntegrityFailure(
 	}
 	if session.PlayerID != principal.Player.ID {
 		return unauthorized("Invalid access token.", nil)
+	}
+	cleared, err := s.repository.ClearIntegrityTrusted(
+		ctx,
+		tx,
+		principal.SessionID,
+		principal.Player.ID,
+		now,
+	)
+	if err != nil {
+		return internalError(err)
+	}
+	if !cleared {
+		return &ServiceError{
+			Status:  http.StatusUnauthorized,
+			Code:    CodeSessionRevoked,
+			Message: "Session is no longer eligible for integrity verification.",
+		}
 	}
 	if err := s.repository.InsertAudit(ctx, tx, AuditEvent{
 		ID: NewID("aal_"), PlayerID: principal.Player.ID, SteamID: principal.Player.SteamID,

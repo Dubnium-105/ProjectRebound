@@ -10,7 +10,6 @@ import (
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/api"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/auth"
 	appmiddleware "github.com/Dubnium-105/ProjectRebound/Backend/internal/middleware"
-	"github.com/Dubnium-105/ProjectRebound/Backend/internal/player"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/requestctx"
 	"github.com/go-chi/chi/v5"
 )
@@ -223,7 +222,7 @@ func actorFromPrincipal(principal *auth.Principal) Actor {
 	}
 	return Actor{
 		PlayerID: principal.Player.ID, AccountStatus: string(principal.Player.AccountStatus),
-		SteamVerified: principal.SteamVerified, IntegrityTrusted: principal.AuthLevel == player.AuthLevelTrusted,
+		SteamVerified: principal.SteamVerified, IntegrityTrusted: principal.IntegrityTrusted,
 	}
 }
 

@@ -4,7 +4,7 @@
 
 `POST /v1/auth/bind` 保持旧客户端兼容：省略 `encrypted_ticket` 时创建 `auth_provider=steam_client_asserted`、`auth_level=unverified` 会话。有效 Encrypted App Ticket 创建 `auth_provider=steam_ticket`、`auth_level=verified`、`steam_verified=true` 会话，且以解密出的 ticket SteamID 为权威身份。提交无效 ticket 时直接拒绝，绝不降级。
 
-verified 会话的 bind 响应会携带完整性 nonce。有效的 ToolBox PE/ticket proof 会把当前数据库会话以及玩家身份提升为 `auth_level=trusted`。该提升是单向的：此前签发的 verified Access Token 在 refresh 前仍可使用，但 unverified Token 绝不能继承 trusted 权限。连续三次 proof 失败会撤销会话。
+verified 会话的 bind 响应会携带完整性 nonce。有效的 ToolBox PEM/ticket proof 会在当前数据库 session 持久化 `integrity_trusted` 和 PEM 指纹，并同步 `auth_level=trusted` 以兼容现有 Token；refresh 继承这两个完整性字段，之后的 proof 不再包含 ticket。任何 proof 失败都会立即清除 session 完整性信任，连续三次失败会撤销 session。VNT 授权读取 `integrity_trusted`，不依赖兼容用的 auth-level 镜像。
 
 Access Token 是短期 Ed25519 JWT，包含玩家/用户 ID、session ID、provider、auth level、Steam 验证标记、签发/过期时间和 token version。认证等级按会话保存并由 refresh 继承。`account_status` 与 `is_vip` 不写入 Token；需要时始终从 PostgreSQL（或后续的短期 Redis 缓存）读取。
 

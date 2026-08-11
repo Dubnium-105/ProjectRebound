@@ -75,8 +75,8 @@ Client configuration does not return specific Relay addresses. The specific endp
 | GET | `/v1/users/me/sessions` | Player | None | 200 active sessions for the current player |
 | DELETE | `/v1/users/me/sessions/{session_id}` | Player | Path session ID | 200 specified session revoked |
 | POST | `/v1/users/me/sessions/revoke-others` | Player | None | 200 all sessions except the current session revoked |
-| POST | `/v1/integrity/challenge` | Player | None | 200 fresh one-time `nonce`; empty when no verified ticket is held in memory |
-| POST | `/v1/integrity/proof` | Player | `nonce`, `proof`, `component=toolbox` | 200 `ok`; success promotes the session to `trusted` |
+| POST | `/v1/integrity/challenge` | Player | None | 200 fresh one-time `nonce`; trusted sessions do not require a ticket, while an empty nonce means an untrusted session must bind again |
+| POST | `/v1/integrity/proof` | Player | `nonce`, `proof`, `component=toolbox` | 200 `ok`; success persists session integrity trust and every failure clears it immediately |
 | POST | `/v1/integrity/verify` | Player | Same as `/proof` | Deprecated compatibility alias |
 | POST | `/v1/diagnostic/report` | Player | Required raw diagnostic-text field `report` | 200 bare `{"ok":true}` after the text is stored |
 
@@ -97,7 +97,7 @@ Content-Type: application/json
 
 Old clients can continue to omit optional fields or send an opaque installation ID; these sessions remain `unverified`. New clients submit a hexadecimal `encrypted_ticket`. The backend passes it only through stdin to the configured external verifier and uses the decrypted SteamID as authoritative. A ticket is accepted when decryption succeeds and its SteamID matches the requested SteamID; AppID, issue time, VAC state, and prior use do not gate bind. Plaintext tickets are never persisted.
 
-For a verified bind, `data.integrity_challenge.nonce` contains the first one-time challenge. The client computes `SHA256(PE_certificate_bytes || decoded_encrypted_ticket_bytes || nonce_ascii)` and submits its 64-character hexadecimal digest to `/v1/integrity/proof`. Each challenge replaces the previous nonce. A correct proof sets the session to `trusted`; three consecutive failures revoke it. Challenge and raw-ticket state is process-local, so an empty nonce after a backend restart means the client must bind again.
+For a verified bind, `data.integrity_challenge.nonce` contains the first one-time challenge. The client computes `SHA256(PE_certificate_bytes || decoded_encrypted_ticket_bytes || nonce_ascii)` and submits its 64-character hexadecimal digest to `/v1/integrity/proof`. Success persists `integrity_trusted=true` and `SHA256(PE_certificate_bytes)` on that session, and refresh copies both values unchanged. Every later challenge uses `SHA256(PE_certificate_bytes || nonce_ascii)` without looking up the Steam ticket, including after a control-plane restart. Each challenge replaces the previous nonce; every failed proof immediately clears integrity trust and three consecutive failures revoke the session. Raw ticket bytes remain process-local only until the initial bind proof completes or expires, so an empty nonce for an untrusted session means the client must bind again.
 
 New clients may send `uuid|disk|cpu`. The server independently HMAC-hashes each factor. It also accepts `v1|uu:<digest>|ds:<digest>|cp:<digest>`, where each digest is exactly 16 hexadecimal characters. A factor may be omitted in the versioned form. Legacy opaque printable-ASCII values without pipes remain accepted.
 

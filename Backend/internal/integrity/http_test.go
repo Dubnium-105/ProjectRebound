@@ -59,7 +59,7 @@ func TestChallengeAndProofHTTP(t *testing.T) {
 		t.Fatalf("replaced nonce response: status=%d body=%s", proofRecorder.Code, proofRecorder.Body.String())
 	}
 
-	fresh, err := service.Challenge(principal.SessionID)
+	fresh, err := service.Challenge(principal)
 	if err != nil {
 		t.Fatal(err)
 	}

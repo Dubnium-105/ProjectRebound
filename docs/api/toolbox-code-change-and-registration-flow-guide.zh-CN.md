@@ -482,7 +482,7 @@ fn list_nodes_page(
 
 ### 6.1 阶段一：玩家 ToolBox 申请 Enrollment Code
 
-前置条件是 ACTIVE、Steam verified、已通过完整性挑战且当前 `auth_level=trusted` 的玩家，并具有 `vnt_node_registration`。后端默认限制每位玩家最多拥有 3 个非 `RETIRED` 节点；部署可用 `VNT_MAX_NODES_PER_PLAYER` 配置为 `1..100`。达到上限返回 `409 VNT_NODE_QUOTA_EXCEEDED`，玩家应先退役旧节点或联系管理员，不得通过并发申请绕过配额。
+前置条件是 ACTIVE、Steam verified、当前 session 的 `integrity_trusted=true`，并具有 `vnt_node_registration`。`auth_level=trusted` 仅是兼容镜像，不是 VNT 授权来源。后端默认限制每位玩家最多拥有 3 个非 `RETIRED` 节点；部署可用 `VNT_MAX_NODES_PER_PLAYER` 配置为 `1..100`。达到上限返回 `409 VNT_NODE_QUOTA_EXCEEDED`，玩家应先退役旧节点或联系管理员，不得通过并发申请绕过配额。
 
 ```http
 POST /v1/vnt/node-enrollments
@@ -640,7 +640,7 @@ DELETE /v1/vnt/nodes/{node_id}
 Authorization: Bearer <current-vnn-token>
 ```
 
-Node Supervisor 使用上面的 Node Credential。节点所有者也可在 Player Access Token 仍为 ACTIVE、Steam verified 且 `auth_level=trusted` 时调用同一路径：
+Node Supervisor 使用上面的 Node Credential。节点所有者也可在 Player Access Token 仍为 ACTIVE、Steam verified 且当前 session 的 `integrity_trusted=true` 时调用同一路径：
 
 ```http
 DELETE /v1/vnt/nodes/{node_id}

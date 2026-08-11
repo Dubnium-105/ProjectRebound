@@ -61,15 +61,16 @@ func (r *Repository) InsertSession(ctx context.Context, executor Executor, sessi
 	_, err := executor.Exec(ctx, `
 		INSERT INTO auth_sessions (
 			id, player_id, refresh_token_hash, token_family_id, token_version,
-			auth_provider, auth_level, steam_verified,
+			auth_provider, auth_level, steam_verified, pem_fingerprint, integrity_trusted,
 			device_id, device_id_hash, device_id_suffix, device_fingerprint_id,
 			ip_address, user_agent, expires_at, created_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, NULL, $9, NULLIF($10, ''), NULLIF($11, ''),
-			NULLIF($12, '')::inet, NULLIF($13, ''), $14, $15
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULL, $11, NULLIF($12, ''), NULLIF($13, ''),
+			NULLIF($14, '')::inet, NULLIF($15, ''), $16, $17
 		)
 	`, session.ID, session.PlayerID, session.RefreshTokenHash, session.TokenFamilyID,
 		session.TokenVersion, session.AuthProvider, session.AuthLevel, session.SteamVerified,
+		session.PEMFingerprint, session.IntegrityTrusted,
 		session.DeviceIDHash, session.DeviceIDSuffix, session.DeviceFingerprintID,
 		session.IPAddress, session.UserAgent,
 		session.ExpiresAt, session.CreatedAt)
@@ -100,7 +101,7 @@ func (r *Repository) GetSessionForAccess(ctx context.Context, queryer Executor, 
 	var revokedAt sql.NullTime
 	err := queryer.QueryRow(ctx, `
 		SELECT id, player_id, token_version, auth_provider, auth_level,
-		       steam_verified, device_id_hash,
+		       steam_verified, pem_fingerprint, integrity_trusted, device_id_hash,
 		       COALESCE(device_fingerprint_id, ''), revoked_at,
 		       COALESCE(revoked_reason, '')
 		FROM auth_sessions
@@ -112,6 +113,8 @@ func (r *Repository) GetSessionForAccess(ctx context.Context, queryer Executor, 
 		&session.AuthProvider,
 		&session.AuthLevel,
 		&session.SteamVerified,
+		&session.PEMFingerprint,
+		&session.IntegrityTrusted,
 		&session.DeviceIDHash,
 		&session.DeviceFingerprintID,
 		&revokedAt,
@@ -185,11 +188,13 @@ func (r *Repository) PromoteIntegrityTrusted(
 	tag, err := tx.Exec(ctx, `
 		UPDATE auth_sessions
 		SET auth_level = 'trusted',
+		    integrity_trusted = TRUE,
 		    last_used_at = $3
 		WHERE id = $1
 		  AND player_id = $2
 		  AND auth_level IN ('verified', 'trusted')
 		  AND steam_verified = TRUE
+		  AND pem_fingerprint IS NOT NULL
 		  AND revoked_at IS NULL
 		  AND expires_at > $3
 	`, sessionID, playerID, now)
@@ -210,6 +215,28 @@ func (r *Repository) PromoteIntegrityTrusted(
 		return false, fmt.Errorf("promote player integrity level: %w", err)
 	}
 	return true, nil
+}
+
+func (r *Repository) ClearIntegrityTrusted(
+	ctx context.Context,
+	tx pgx.Tx,
+	sessionID string,
+	playerID string,
+	now time.Time,
+) (bool, error) {
+	tag, err := tx.Exec(ctx, `
+		UPDATE auth_sessions
+		SET integrity_trusted = FALSE,
+		    auth_level = CASE WHEN steam_verified THEN 'verified' ELSE 'unverified' END,
+		    last_used_at = $3
+		WHERE id = $1
+		  AND player_id = $2
+		  AND revoked_at IS NULL
+	`, sessionID, playerID, now)
+	if err != nil {
+		return false, fmt.Errorf("clear integrity trust: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
 }
 
 func (r *Repository) RevokePlayerSessions(ctx context.Context, executor Executor, playerID string, now time.Time, reason string) (int64, error) {
@@ -444,7 +471,7 @@ func (r *Repository) IsDeviceFingerprintBanned(
 
 const sessionSelect = `
 	SELECT id, player_id, refresh_token_hash, token_family_id, token_version,
-	       auth_provider, auth_level, steam_verified,
+	       auth_provider, auth_level, steam_verified, pem_fingerprint, integrity_trusted,
 	       device_id_hash, COALESCE(device_id_suffix, RIGHT(device_id, 4), ''),
 	       COALESCE(device_fingerprint_id, ''),
 	       COALESCE(ip_address::text, ''), COALESCE(user_agent, ''),
@@ -465,6 +492,8 @@ func scanSession(row pgx.Row) (Session, error) {
 		&session.AuthProvider,
 		&session.AuthLevel,
 		&session.SteamVerified,
+		&session.PEMFingerprint,
+		&session.IntegrityTrusted,
 		&session.DeviceIDHash,
 		&session.DeviceIDSuffix,
 		&session.DeviceFingerprintID,

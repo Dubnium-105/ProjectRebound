@@ -12,9 +12,9 @@
 
 访问令牌是绑定到数据库会话的短期 Ed25519 JWT，包含 `user_id`、`auth_level` 和 `steam_verified`。数据库会话是权威来源，因此未验证 bind 不能继承同一玩家此前的 verified 权限。刷新令牌是存储为哈希值的不透明随机秘密；刷新时保留原会话认证等级、迁移内存中的完整性 ticket 状态，并签发同一系列的替代令牌。重用任何轮换令牌都会撤销该系列、记录高严重性事件、递增 `auth_refresh_reuse_total`，并需要新的绑定。注销和会话管理 API 会撤销数据库状态，因此之前签名的访问令牌将停止进行身份验证。
 
-对于 verified bind，解码后的 encrypted ticket 原始字节还会仅在进程内存中保留到该会话到期。bind 响应以及每次 `POST /v1/integrity/challenge` 都会返回新的 32 字节十六进制 nonce，并使上一个 nonce 失效。`POST /v1/integrity/proof` 使用常量时间比较 `SHA256(toolbox_pem_file_bytes || encrypted_ticket_raw_bytes || nonce_ascii)`。proof 成功后，数据库会话和玩家身份提升为 `trusted`；此前签发的 verified Access Token 在该单向提升后仍然有效，下一次 refresh 会在 claims 中携带 `trusted`。连续三次 proof 失败会撤销会话并写入 `INTEGRITY_FAILED` 审计和风险事件；若硬件指纹同时匹配封禁记录，最终风险等级提升为 critical。
+对于 verified bind，解码后的 encrypted ticket 原始字节只在首次 proof 完成或 session 状态过期前保存在进程内存。bind 响应以及每次 `POST /v1/integrity/challenge` 都会返回新的 32 字节十六进制 nonce，并使上一个 nonce 失效。未 trusted 的 bind session 使用常量时间比较 `SHA256(toolbox_pem_file_bytes || encrypted_ticket_raw_bytes || nonce_ascii)`；trusted session 则先匹配持久化的 `SHA256(toolbox_pem_file_bytes)` 指纹，再比较 `SHA256(toolbox_pem_file_bytes || nonce_ascii)`。成功后持久化 `integrity_trusted`，refresh 连同 PEM 指纹原样继承，因此控制服重启后 trusted session 也不需要 ticket。任何 proof 失败都会立即清除 session 完整性信任；连续三次失败会撤销会话并写入 `INTEGRITY_FAILED` 审计和风险事件，若硬件指纹同时匹配封禁记录，最终风险等级提升为 critical。
 
-ToolBox 证书从 `TOOLBOX_PUBKEY_PATH`（推荐）或 `TOOLBOX_PUBKEY` 读取。PEM 文件的精确字节（包括换行符）参与哈希，因此运维必须挂载客户端构建流程使用的同一份规范文件。challenge 状态和 ticket 明文不会写入 PostgreSQL，并会在进程重启时丢失；重启后 challenge 接口返回空 nonce，直到客户端重新 bind。
+ToolBox 证书从 `TOOLBOX_PUBKEY_PATH`（推荐）或 `TOOLBOX_PUBKEY` 读取。PEM 文件的精确字节（包括换行符）参与哈希，因此运维必须挂载客户端构建流程使用的同一份规范文件。challenge 状态和 ticket 明文不会写入 PostgreSQL，并会在进程重启时丢失。trusted session 可凭持久化的信任状态和指纹获取新的无 ticket challenge；只有未 trusted 且 bind-time ticket 已丢失的 session 才会收到空 nonce 并必须重新 bind。
 
 邀请代码在日志外部生成，存储为散列，受到期日和配额限制，并在与玩家/会话创建相同的 PostgreSQL 事务中使用。并发使用不能超过`max_uses`。管理员响应在创建时可能仅返回一次明文；列出/撤销响应则不会。
 

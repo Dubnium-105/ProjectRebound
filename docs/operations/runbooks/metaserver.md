@@ -15,7 +15,7 @@ English | [简体中文](metaserver.zh-CN.md)
 
 ## Readiness failure
 
-- PostgreSQL: confirm migration 35 exists and the restricted Meta role retains
+- PostgreSQL: confirm migration 40 exists and the restricted Meta role retains
   grants; do not grant schema-wide write privileges as a shortcut.
 - Redis: confirm the `projectrebound-meta` ACL user is enabled and limited to
   `meta:*`; a Redis restart invalidates outstanding Gate tickets, so clients

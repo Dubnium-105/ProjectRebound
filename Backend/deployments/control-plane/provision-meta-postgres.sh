@@ -15,11 +15,11 @@ until psql \
   --username "$POSTGRES_USER" \
   --dbname "$POSTGRES_DB" \
   --tuples-only --no-align \
-  --command "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 35)" 2>/dev/null |
+  --command "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 40)" 2>/dev/null |
   grep -qx t; do
   attempt=$((attempt + 1))
   if [ "$attempt" -ge 60 ]; then
-    printf 'MetaServer migration 35 was not applied within 120 seconds.\n' >&2
+    printf 'MetaServer migration 40 was not applied within 120 seconds.\n' >&2
     exit 1
   fi
   sleep 2
@@ -95,7 +95,7 @@ FROM (VALUES
   ('players', 'id, steam_id, auth_level, account_status, is_vip'),
   ('relay_nodes', 'id, region, state, load_state, public_endpoints, last_heartbeat_at, lease_expires_at'),
   ('schema_migrations', 'version'),
-  ('auth_sessions', 'id, player_id, token_version, auth_provider, auth_level, steam_verified, device_id_hash, device_fingerprint_id, expires_at, revoked_at, revoked_reason, last_used_at'),
+  ('auth_sessions', 'id, player_id, token_version, auth_provider, auth_level, steam_verified, pem_fingerprint, integrity_trusted, device_id_hash, device_fingerprint_id, expires_at, revoked_at, revoked_reason, last_used_at'),
   ('admin_users', 'id, username, display_name, status, last_login_at, created_at, updated_at, disabled_at'),
   ('admin_sessions', 'id, admin_id, token_version, expires_at, revoked_at'),
   ('admin_roles', 'id, name'),

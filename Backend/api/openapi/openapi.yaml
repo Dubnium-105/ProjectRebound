@@ -82,7 +82,7 @@ paths:
     post:
       operationId: createIntegrityChallenge
       tags: [Authentication]
-      description: Replaces any outstanding one-time nonce for the authenticated Steam-ticket session. Returns an empty nonce when no in-memory ticket is available.
+      description: Replaces any outstanding one-time nonce for the authenticated session. An untrusted session requires the raw Steam ticket retained from bind; a trusted session can always receive a ticket-less challenge from its persisted PEM fingerprint. An empty nonce means an untrusted session can no longer complete the bind proof and must bind again.
       security:
         - playerAccessToken: []
       responses:
@@ -98,7 +98,7 @@ paths:
     post:
       operationId: submitIntegrityProof
       tags: [Authentication]
-      description: Verifies SHA-256 over the configured ToolBox PEM bytes, the current session's raw encrypted Steam ticket, and the one-time nonce. A successful proof promotes the session to trusted. Three consecutive failures revoke it.
+      description: For an untrusted bind session, verifies SHA-256 over the exact configured ToolBox PEM bytes, the retained raw encrypted Steam ticket, and the one-time nonce. For an already trusted session, verifies SHA-256 over the PEM bytes and nonce only after matching the persisted PEM fingerprint. Success persists integrity trust across refresh; every failure clears it immediately, and three consecutive failures revoke the session.
       security:
         - playerAccessToken: []
       requestBody:
@@ -4218,7 +4218,7 @@ components:
         nonce:
           type: string
           pattern: "^$|^[0-9a-f]{64}$"
-          description: Empty for sessions without an in-memory verified Steam ticket.
+          description: Empty only when an untrusted session no longer has the bind-time Steam ticket in memory and must bind again. Trusted sessions receive a nonce without requiring a ticket.
     IntegrityChallengeResponse:
       type: object
       required: [data, request_id]

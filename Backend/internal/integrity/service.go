@@ -35,14 +35,15 @@ type Recorder interface {
 }
 
 type Service struct {
-	mu             sync.Mutex
-	publicKey      []byte
-	challengeTTL   time.Duration
-	maximumFailure int
-	recorder       Recorder
-	logger         *slog.Logger
-	now            func() time.Time
-	sessions       map[string]*sessionState
+	mu                   sync.Mutex
+	publicKey            []byte
+	publicKeyFingerprint []byte
+	challengeTTL         time.Duration
+	maximumFailure       int
+	recorder             Recorder
+	logger               *slog.Logger
+	now                  func() time.Time
+	sessions             map[string]*sessionState
 }
 
 type sessionState struct {
@@ -76,10 +77,18 @@ func NewService(cfg config.AuthConfig, recorder Recorder, logger *slog.Logger) (
 		now:            time.Now,
 		sessions:       make(map[string]*sessionState),
 	}
+	if len(publicKey) > 0 {
+		fingerprint := sha256.Sum256(publicKey)
+		service.publicKeyFingerprint = append([]byte(nil), fingerprint[:]...)
+	}
 	if len(publicKey) == 0 {
 		logger.Warn("integrity challenge is disabled because no ToolBox public certificate is configured")
 	}
 	return service, nil
+}
+
+func (s *Service) PEMFingerprint() []byte {
+	return append([]byte(nil), s.publicKeyFingerprint...)
 }
 
 func loadPublicKey(path string, inline string) ([]byte, error) {
@@ -167,8 +176,12 @@ func (s *Service) RemoveSession(sessionID string) {
 	}
 }
 
-func (s *Service) Challenge(sessionID string) (auth.IntegrityChallenge, error) {
+func (s *Service) Challenge(principal auth.Principal) (auth.IntegrityChallenge, error) {
 	if len(s.publicKey) == 0 {
+		return auth.IntegrityChallenge{}, nil
+	}
+	sessionID := strings.TrimSpace(principal.SessionID)
+	if sessionID == "" {
 		return auth.IntegrityChallenge{}, nil
 	}
 	nonce, err := newNonce()
@@ -180,8 +193,16 @@ func (s *Service) Challenge(sessionID string) (auth.IntegrityChallenge, error) {
 	defer s.mu.Unlock()
 	s.pruneExpiredLocked(now)
 	state, ok := s.sessions[sessionID]
-	if !ok {
-		return auth.IntegrityChallenge{}, nil
+	if !principal.IntegrityTrusted {
+		if !ok || len(state.ticket) == 0 {
+			return auth.IntegrityChallenge{}, nil
+		}
+	} else if !ok {
+		state = &sessionState{expiresAt: now.Add(s.challengeTTL)}
+		s.sessions[sessionID] = state
+	}
+	if !state.expiresAt.After(now) {
+		state.expiresAt = now.Add(s.challengeTTL)
 	}
 	state.nonce = nonce
 	state.nonceExpiresAt = now.Add(s.challengeTTL)
@@ -206,9 +227,17 @@ func (s *Service) Verify(
 	state, ok := s.sessions[principal.SessionID]
 	if !ok {
 		s.mu.Unlock()
-		return VerifyResult{}, nil
+		return s.recordFailure(ctx, principal, 1, component, "challenge_missing", meta)
 	}
-	expected := expectedProof(s.publicKey, state.ticket, nonce)
+	fingerprintMatches := len(principal.PEMFingerprint) == sha256.Size &&
+		len(s.publicKeyFingerprint) == sha256.Size &&
+		subtle.ConstantTimeCompare(principal.PEMFingerprint, s.publicKeyFingerprint) == 1
+	expected := ""
+	if principal.IntegrityTrusted {
+		expected = expectedIntegrityProof(s.publicKey, nonce)
+	} else if len(state.ticket) > 0 {
+		expected = expectedProof(s.publicKey, state.ticket, nonce)
+	}
 	reason := ""
 	switch {
 	case component != toolboxComponent:
@@ -219,6 +248,10 @@ func (s *Service) Verify(
 		reason = "challenge_expired"
 	case nonce != state.nonce:
 		reason = "nonce_mismatch"
+	case !fingerprintMatches:
+		reason = "pem_fingerprint_mismatch"
+	case !principal.IntegrityTrusted && len(state.ticket) == 0:
+		reason = "ticket_missing"
 	case !validProof(proof, expected):
 		reason = "proof_mismatch"
 	}
@@ -226,6 +259,10 @@ func (s *Service) Verify(
 	state.nonceExpiresAt = time.Time{}
 	if reason == "" {
 		state.failures = 0
+		if !principal.IntegrityTrusted {
+			clear(state.ticket)
+			state.ticket = nil
+		}
 		s.mu.Unlock()
 		if s.recorder != nil {
 			if err := s.recorder.PromoteIntegrityTrusted(ctx, principal, meta); err != nil {
@@ -237,8 +274,42 @@ func (s *Service) Verify(
 	state.failures++
 	failures := state.failures
 	terminal := failures >= s.maximumFailure
+	if principal.IntegrityTrusted {
+		clear(state.ticket)
+		state.ticket = nil
+	}
 	s.mu.Unlock()
+	return s.recordFailureWithCount(ctx, principal, failures, component, reason, terminal, meta)
+}
 
+func (s *Service) recordFailure(
+	ctx context.Context,
+	principal auth.Principal,
+	failures int,
+	component string,
+	reason string,
+	meta auth.RequestMeta,
+) (VerifyResult, error) {
+	return s.recordFailureWithCount(
+		ctx,
+		principal,
+		failures,
+		component,
+		reason,
+		failures >= s.maximumFailure,
+		meta,
+	)
+}
+
+func (s *Service) recordFailureWithCount(
+	ctx context.Context,
+	principal auth.Principal,
+	failures int,
+	component string,
+	reason string,
+	terminal bool,
+	meta auth.RequestMeta,
+) (VerifyResult, error) {
 	if s.recorder != nil {
 		if err := s.recorder.RecordIntegrityFailure(
 			ctx,
@@ -262,6 +333,13 @@ func expectedProof(publicKey []byte, ticket []byte, nonce string) string {
 	hash := sha256.New()
 	_, _ = hash.Write(publicKey)
 	_, _ = hash.Write(ticket)
+	_, _ = hash.Write([]byte(nonce))
+	return hex.EncodeToString(hash.Sum(nil))
+}
+
+func expectedIntegrityProof(publicKey []byte, nonce string) string {
+	hash := sha256.New()
+	_, _ = hash.Write(publicKey)
 	_, _ = hash.Write([]byte(nonce))
 	return hex.EncodeToString(hash.Sum(nil))
 }
