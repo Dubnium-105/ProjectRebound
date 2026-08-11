@@ -54,6 +54,27 @@ if grep -Eq '^[A-Z0-9_]+=CHANGE_ME$|example\.com' "$env_file"; then
 fi
 chmod 600 "$env_file"
 
+# The integrity protocol hashes the exact mounted PEM bytes. Emit only the
+# public certificate fingerprint so operators can compare it with the ToolBox
+# build without exposing the certificate contents or any session material.
+toolbox_pubkey_host_path="$(sed -n 's/^TOOLBOX_PUBKEY_HOST_PATH=//p' "$env_file" | tail -n 1)"
+if [[ -n "$toolbox_pubkey_host_path" ]]; then
+  [[ "$toolbox_pubkey_host_path" =~ ^/[A-Za-z0-9._/-]+$ ]] || {
+    echo "TOOLBOX_PUBKEY_HOST_PATH must be an absolute path." >&2
+    exit 1
+  }
+  [[ -f "$toolbox_pubkey_host_path" ]] || {
+    echo "Missing ToolBox public certificate: $toolbox_pubkey_host_path" >&2
+    exit 1
+  }
+  toolbox_pubkey_sha256="$(sha256sum "$toolbox_pubkey_host_path" | awk '{print $1}')"
+  [[ "$toolbox_pubkey_sha256" =~ ^[0-9a-f]{64}$ ]] || {
+    echo "Failed to fingerprint the ToolBox public certificate." >&2
+    exit 1
+  }
+  printf 'CONTROL_PLANE_TOOLBOX_PUBKEY_SHA256 %s\n' "$toolbox_pubkey_sha256"
+fi
+
 if docker info >/dev/null 2>&1; then
   docker_cmd=(docker)
 elif sudo -n docker info >/dev/null 2>&1; then

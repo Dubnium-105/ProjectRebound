@@ -40,7 +40,10 @@ EOF
 chmod +x "$temporary_dir/bin/docker" "$temporary_dir/bin/curl" "$temporary_dir/bin/uname"
 
 control_env="$temporary_dir/control.env"
-printf 'CONTROL_PLANE_ADMIN_PORT=18080\nMETA_SERVER_HTTP_PORT=18082\n' >"$control_env"
+toolbox_pubkey="$temporary_dir/signer.pem"
+printf '%s\n' '-----BEGIN PUBLIC KEY-----' 'dGVzdA==' '-----END PUBLIC KEY-----' >"$toolbox_pubkey"
+printf 'CONTROL_PLANE_ADMIN_PORT=18080\nMETA_SERVER_HTTP_PORT=18082\nTOOLBOX_PUBKEY_HOST_PATH=%s\n' \
+  "$toolbox_pubkey" >"$control_env"
 control_override="$temporary_dir/docker-compose.production.yaml"
 printf 'services: {}\n' >"$control_override"
 edge_env="$temporary_dir/edge.env"
@@ -56,10 +59,13 @@ if CONTROL_PLANE_ENV_FILE="$control_env" DEPLOY_SOURCE=ci CONTROL_PLANE_IMAGE=in
 fi
 
 : >"$docker_log"
+control_output="$temporary_dir/control.out"
 PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" \
   CONTROL_PLANE_ENV_FILE="$control_env" CONTROL_PLANE_COMPOSE_OVERRIDE_FILE="$control_override" \
   DEPLOY_SOURCE=ci CONTROL_PLANE_IMAGE="$control_image" \
-  bash "$test_backend/scripts/deploy-control-plane.sh" >/dev/null
+  bash "$test_backend/scripts/deploy-control-plane.sh" >"$control_output"
+expected_toolbox_pubkey_sha256="$(sha256sum "$toolbox_pubkey" | awk '{print $1}')"
+grep -qx "CONTROL_PLANE_TOOLBOX_PUBKEY_SHA256 $expected_toolbox_pubkey_sha256" "$control_output"
 grep -q ' pull$' "$docker_log"
 grep -Fq -- "-f $control_override --profile monitoring pull" "$docker_log"
 grep -Fq -- 'run --rm -T --no-deps --entrypoint /bin/sh control-plane -c' "$docker_log"
