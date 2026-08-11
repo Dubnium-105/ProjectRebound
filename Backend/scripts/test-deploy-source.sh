@@ -10,6 +10,8 @@ mkdir -p "$temporary_dir/bin" "$test_backend/scripts" \
   "$test_backend/deployments/control-plane" "$test_backend/deployments/edge-relay"
 cp "$script_dir/deploy-control-plane.sh" "$script_dir/deploy-meta-server.sh" \
   "$script_dir/deploy-edge-relay.sh" "$test_backend/scripts/"
+cp "$script_dir/../deployments/control-plane/toolbox-signer.pem" \
+  "$test_backend/deployments/control-plane/toolbox-signer.pem"
 touch "$test_backend/deployments/control-plane/docker-compose.yaml"
 touch "$test_backend/deployments/edge-relay/docker-compose.yaml"
 printf 'relay_id: relay-test\n' >"$test_backend/deployments/edge-relay/config.edge-relay.yaml"
@@ -43,12 +45,9 @@ EOF
 chmod +x "$temporary_dir/bin/docker" "$temporary_dir/bin/curl" "$temporary_dir/bin/uname"
 
 control_env="$temporary_dir/control.env"
-toolbox_pubkey="$temporary_dir/signer.pem"
-printf '%s\n' '-----BEGIN PUBLIC KEY-----' 'dGVzdA==' '-----END PUBLIC KEY-----' >"$toolbox_pubkey"
-expected_toolbox_pubkey_sha256="$(sha256sum "$toolbox_pubkey" | awk '{print $1}')"
+expected_toolbox_pubkey_sha256="$(sha256sum "$test_backend/deployments/control-plane/toolbox-signer.pem" | awk '{print $1}')"
 export FAKE_TOOLBOX_PUBKEY_SHA256="$expected_toolbox_pubkey_sha256"
-printf 'CONTROL_PLANE_ADMIN_PORT=18080\nMETA_SERVER_HTTP_PORT=18082\nTOOLBOX_PUBKEY_HOST_PATH=%s\n' \
-  "$toolbox_pubkey" >"$control_env"
+printf 'CONTROL_PLANE_ADMIN_PORT=18080\nMETA_SERVER_HTTP_PORT=18082\n' >"$control_env"
 control_override="$temporary_dir/docker-compose.production.yaml"
 printf 'services: {}\n' >"$control_override"
 edge_env="$temporary_dir/edge.env"

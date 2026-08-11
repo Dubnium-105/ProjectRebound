@@ -14,7 +14,7 @@
 
 对于 verified bind，解码后的 encrypted ticket 原始字节只在首次 proof 完成或 session 状态过期前保存在进程内存。bind 响应以及每次 `POST /v1/integrity/challenge` 都会返回新的 32 字节十六进制 nonce，并使上一个 nonce 失效。未 trusted 的 bind session 使用常量时间比较 `SHA256(toolbox_pem_file_bytes || encrypted_ticket_raw_bytes || nonce_ascii)`；trusted session 则先匹配持久化的 `SHA256(toolbox_pem_file_bytes)` 指纹，再比较 `SHA256(toolbox_pem_file_bytes || nonce_ascii)`。成功后持久化 `integrity_trusted`，refresh 连同 PEM 指纹原样继承，因此控制服重启后 trusted session 也不需要 ticket。任何 proof 失败都会立即清除 session 完整性信任；连续三次失败会撤销会话并写入 `INTEGRITY_FAILED` 审计和风险事件，若硬件指纹同时匹配封禁记录，最终风险等级提升为 critical。
 
-ToolBox 证书从 `TOOLBOX_PUBKEY_PATH`（推荐）或 `TOOLBOX_PUBKEY` 读取。PEM 文件的精确字节（包括换行符）参与哈希，因此运维必须挂载客户端构建流程使用的同一份规范文件。challenge 状态和 ticket 明文不会写入 PostgreSQL，并会在进程重启时丢失。trusted session 可凭持久化的信任状态和指纹获取新的无 ticket challenge；只有未 trusted 且 bind-time ticket 已丢失的 session 才会收到空 nonce 并必须重新 bind。
+ToolBox 证书从 `TOOLBOX_PUBKEY_PATH`（推荐）或 `TOOLBOX_PUBKEY` 读取，PEM 文件的精确字节（包括换行符）参与哈希。生产 Compose 镜像把规范 LF 证书版本化在 `/usr/share/projectrebound/toolbox-signer.pem`，镜像指纹与部署包资产不一致时部署直接失败；独立部署也必须提供完全相同的规范字节。challenge 状态和 ticket 明文不会写入 PostgreSQL，并会在进程重启时丢失。trusted session 可凭持久化的信任状态和指纹获取新的无 ticket challenge；只有未 trusted 且 bind-time ticket 已丢失的 session 才会收到空 nonce 并必须重新 bind。
 
 邀请代码在日志外部生成，存储为散列，受到期日和配额限制，并在与玩家/会话创建相同的 PostgreSQL 事务中使用。并发使用不能超过`max_uses`。管理员响应在创建时可能仅返回一次明文；列出/撤销响应则不会。
 

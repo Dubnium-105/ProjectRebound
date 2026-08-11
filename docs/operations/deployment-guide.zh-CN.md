@@ -200,7 +200,7 @@ VNT 秘密密钥轮换使用显式 keyring：设置新的唯一 `VNT_SECRET_ENCR
 - `DEVICE_FINGERPRINT_HMAC_KEY_BASE64` 必须保持稳定并单独备份；生产环境缺失时会拒绝启动。服务端不保存硬件因子原文，因此该密钥丢失后无法重算已有设备摘要。在多密钥迁移流程可用前，不得变更它或 `DEVICE_FINGERPRINT_KEY_ID`。
 - 当前 `VNT_SECRET_ENCRYPTION_KEY_BASE64` 与全部 `VNT_SECRET_DECRYPTION_KEYS` 必须采用同等级备份保护。开发环境在活动密钥为空时可以创建临时密钥，但生产环境绝不会这样做；临时密钥会在重启后使已有 VNT 房间秘密失效，也不适合共享 staging。不得把同一个 `VNT_SECRET_ENCRYPTION_KEY_ID` 复用于不同密钥字节。
 - `STEAM_APP_ID` 与票龄设置仅为旧配置和测试夹具兼容而保留，不参与真实 ticket 准入。镜像内置独立的 Go `/usr/local/bin/decrypt-ticket` verifier，但官方 Steamworks Linux `libsdkencryptedappticket.so` 与该应用的 32 字节 encrypted-ticket key 必须分别通过 `STEAM_ENCRYPTED_APP_TICKET_LIBRARY_HOST_PATH` 和 `STEAM_ENCRYPTED_APP_TICKET_KEY_HOST_PATH` 提供。两者均只读挂载，绝不打入镜像。key 文件可以是正好 32 个原始字节或 64 个十六进制字符。宿主机上应保持 root 所有者，将文件组设置为容器 `app` 的 GID（固定为 `999`），权限设置为 `0440`；包含它的宿主目录保持 root 所有且权限为 `0700`。root 所有的 `0600` key 无法被容器内非 root 进程读取。部署脚本会在替换现有容器前以 `app` 身份执行无效密文探针；只有 key 与原生库均可加载时才允许发布。verifier 仅从 stdin 接收 ticket，并在 stdout 输出受限 JSON；控制面不包含、也不会回退到进程内 Steam 解密算法。
-- 将规范的 ToolBox 证书放到 `TOOLBOX_PUBKEY_HOST_PATH`，并只读挂载到 `TOOLBOX_PUBKEY_PATH`。每次完整性 proof 都会哈希 PEM 的精确字节（包括换行符），不得重新排版或转换成 base64；生产环境缺少该设置时拒绝启动。`INTEGRITY_CHALLENGE_TTL_SECONDS` 默认为 120，除非客户端和事件响应策略同时更新，否则 `INTEGRITY_MAXIMUM_FAILURES` 必须保持为 3。
+- 生产 control-plane 镜像在 `/usr/share/projectrebound/toolbox-signer.pem` 内置规范 LF ToolBox 证书。每次部署都会将镜像 SHA-256 与版本化部署资产比较，漂移时 fail closed；不得再用主机挂载覆盖，也不得重新排版或转换成 base64。使用 `TOOLBOX_PUBKEY_PATH` 的独立部署必须提供完全相同的精确字节。`INTEGRITY_CHALLENGE_TTL_SECONDS` 默认为 120，除非客户端和事件响应策略同时更新，否则 `INTEGRITY_MAXIMUM_FAILURES` 必须保持为 3。
 
 `.env` 必须保留在主机秘密存储中，权限必须为 `600`，不得提交 Git、复制进镜像或写入工单。
 `minio-data` volume 必须进入独立的异机备份计划；它不是 PostgreSQL 备份的替代品，也不能只依赖单机单盘副本。

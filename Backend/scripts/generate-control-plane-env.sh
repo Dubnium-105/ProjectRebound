@@ -85,8 +85,6 @@ STEAM_ENCRYPTED_APP_TICKET_LIBRARY_HOST_PATH=/opt/projectrebound/libsdkencrypted
 STEAM_ENCRYPTED_APP_TICKET_LIBRARY=/usr/local/lib/libsdkencryptedappticket.so
 STEAM_ENCRYPTED_APP_TICKET_KEY_HOST_PATH=/opt/projectrebound/steam-encrypted-app-ticket.key
 STEAM_ENCRYPTED_APP_TICKET_KEY_FILE=/run/projectrebound/steam-encrypted-app-ticket.key
-TOOLBOX_PUBKEY_HOST_PATH=/opt/projectrebound/signer.pem
-TOOLBOX_PUBKEY_PATH=/run/projectrebound/toolbox-signer.pem
 INTEGRITY_CHALLENGE_TTL_SECONDS=120
 INTEGRITY_MAXIMUM_FAILURES=3
 ADMIN_TOKENS=operator=$(random_hex 48)
