@@ -22,6 +22,9 @@ if [[ "$*" == *"--entrypoint /bin/sh control-plane"* &&
       "${FAIL_TICKET_PREFLIGHT:-0}" == "1" ]]; then
   exit 1
 fi
+if [[ "$*" == *"sha256sum \"\$TOOLBOX_PUBKEY_PATH\""* ]]; then
+  printf '%s\n' "${FAKE_TOOLBOX_PUBKEY_SHA256:?}"
+fi
 case " $* " in
   *" ps --status running -q edge-relay "*) printf 'fake-container\n' ;;
   *" logs "*) printf 'relay control connected\n' ;;
@@ -42,6 +45,8 @@ chmod +x "$temporary_dir/bin/docker" "$temporary_dir/bin/curl" "$temporary_dir/b
 control_env="$temporary_dir/control.env"
 toolbox_pubkey="$temporary_dir/signer.pem"
 printf '%s\n' '-----BEGIN PUBLIC KEY-----' 'dGVzdA==' '-----END PUBLIC KEY-----' >"$toolbox_pubkey"
+expected_toolbox_pubkey_sha256="$(sha256sum "$toolbox_pubkey" | awk '{print $1}')"
+export FAKE_TOOLBOX_PUBKEY_SHA256="$expected_toolbox_pubkey_sha256"
 printf 'CONTROL_PLANE_ADMIN_PORT=18080\nMETA_SERVER_HTTP_PORT=18082\nTOOLBOX_PUBKEY_HOST_PATH=%s\n' \
   "$toolbox_pubkey" >"$control_env"
 control_override="$temporary_dir/docker-compose.production.yaml"
@@ -64,7 +69,6 @@ PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" \
   CONTROL_PLANE_ENV_FILE="$control_env" CONTROL_PLANE_COMPOSE_OVERRIDE_FILE="$control_override" \
   DEPLOY_SOURCE=ci CONTROL_PLANE_IMAGE="$control_image" \
   bash "$test_backend/scripts/deploy-control-plane.sh" >"$control_output"
-expected_toolbox_pubkey_sha256="$(sha256sum "$toolbox_pubkey" | awk '{print $1}')"
 grep -qx "CONTROL_PLANE_TOOLBOX_PUBKEY_SHA256 $expected_toolbox_pubkey_sha256" "$control_output"
 grep -q ' pull$' "$docker_log"
 grep -Fq -- "-f $control_override --profile monitoring pull" "$docker_log"

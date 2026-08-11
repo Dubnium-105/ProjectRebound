@@ -54,27 +54,6 @@ if grep -Eq '^[A-Z0-9_]+=CHANGE_ME$|example\.com' "$env_file"; then
 fi
 chmod 600 "$env_file"
 
-# The integrity protocol hashes the exact mounted PEM bytes. Emit only the
-# public certificate fingerprint so operators can compare it with the ToolBox
-# build without exposing the certificate contents or any session material.
-toolbox_pubkey_host_path="$(sed -n 's/^TOOLBOX_PUBKEY_HOST_PATH=//p' "$env_file" | tail -n 1)"
-if [[ -n "$toolbox_pubkey_host_path" ]]; then
-  [[ "$toolbox_pubkey_host_path" =~ ^/[A-Za-z0-9._/-]+$ ]] || {
-    echo "TOOLBOX_PUBKEY_HOST_PATH must be an absolute path." >&2
-    exit 1
-  }
-  [[ -f "$toolbox_pubkey_host_path" ]] || {
-    echo "Missing ToolBox public certificate: $toolbox_pubkey_host_path" >&2
-    exit 1
-  }
-  toolbox_pubkey_sha256="$(sha256sum "$toolbox_pubkey_host_path" | awk '{print $1}')"
-  [[ "$toolbox_pubkey_sha256" =~ ^[0-9a-f]{64}$ ]] || {
-    echo "Failed to fingerprint the ToolBox public certificate." >&2
-    exit 1
-  }
-  printf 'CONTROL_PLANE_TOOLBOX_PUBKEY_SHA256 %s\n' "$toolbox_pubkey_sha256"
-fi
-
 if docker info >/dev/null 2>&1; then
   docker_cmd=(docker)
 elif sudo -n docker info >/dev/null 2>&1; then
@@ -99,6 +78,23 @@ if [[ "$deploy_source" == "ci" ]]; then
 else
   "${compose[@]}" build --pull control-plane admin-web
 fi
+
+# The integrity protocol hashes the exact mounted PEM bytes. Inspect the
+# resolved container rather than the dotenv host path because production
+# Compose overrides may replace both the mount and TOOLBOX_PUBKEY_PATH. Emit
+# only the public certificate fingerprint, never certificate/session material.
+if ! toolbox_pubkey_sha256="$("${compose[@]}" run --rm -T --no-deps \
+  --entrypoint /bin/sh control-plane -c \
+  'sha256sum "$TOOLBOX_PUBKEY_PATH" | cut -d" " -f1')"; then
+  echo "Failed to fingerprint the mounted ToolBox public certificate." >&2
+  exit 1
+fi
+toolbox_pubkey_sha256="$(printf '%s' "$toolbox_pubkey_sha256" | tr -d '\r\n')"
+[[ "$toolbox_pubkey_sha256" =~ ^[0-9a-f]{64}$ ]] || {
+  echo "Mounted ToolBox public certificate returned an invalid fingerprint." >&2
+  exit 1
+}
+printf 'CONTROL_PLANE_TOOLBOX_PUBKEY_SHA256 %s\n' "$toolbox_pubkey_sha256"
 
 # Run the verifier as the image's non-root application user before replacing
 # the current container. Exit 1 means the key and native Steam library loaded
