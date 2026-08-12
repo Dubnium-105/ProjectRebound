@@ -86,6 +86,21 @@ export function ReleasesPage() {
             sha256: selected.sha256,
             object_key: selected.object_key
         };
+        if (form.getFieldValue("channel") === "toolbox" &&
+            selected.original_file_name.toLowerCase() !== "vnt-runtime-manifest.json") {
+            const sidecar = storageFiles.find((file) => file.version_label === selected.version_label &&
+                file.original_file_name.toLowerCase() === "vnt-runtime-manifest.json");
+            if (sidecar && !files.some((file) => file.object_key === sidecar.object_key)) {
+                files.push({
+                    file_id: sidecar.id,
+                    path: "vnt-runtime-manifest.json",
+                    size: sidecar.size_bytes,
+                    sha256: sidecar.sha256,
+                    compression: "none",
+                    object_key: sidecar.object_key
+                });
+            }
+        }
         form.setFieldsValue({ files });
     };
     const nextStep = async () => {
@@ -263,7 +278,7 @@ export function ReleasesPage() {
           </div>
 
           <div style={{ display: createStep === 1 ? "block" : "none" }}>
-            <Alert type="info" showIcon message={tr("\u4ECE\u5BF9\u8C61\u5B58\u50A8\u9009\u62E9\u6587\u4EF6")} description={tr("\u4EC5\u663E\u793A\u901A\u8FC7\u4E0B\u8F7D\u7BA1\u7406\u4E0A\u4F20\u5E76\u5B8C\u6210\u670D\u52A1\u7AEF\u6821\u9A8C\u7684\u5BF9\u8C61\u3002\u9009\u62E9\u540E\u4F1A\u81EA\u52A8\u5E26\u5165 Object Key\u3001\u771F\u5B9E\u5927\u5C0F\u548C SHA-256\uFF1B\u53D1\u5E03\u524D\u6821\u9A8C\u4ECD\u4F1A\u901A\u8FC7\u66F4\u65B0 CDN \u6267\u884C HEAD \u53EF\u7528\u6027\u63A2\u6D4B\u3002")} action={<Button size="small" icon={<ReloadOutlined />} loading={storageFilesLoading} onClick={() => void loadStorageFiles()}>{tr("\u5237\u65B0\u6587\u4EF6")}</Button>} style={{ marginBottom: 16 }}/>
+            <Alert type="info" showIcon message={tr("\u4ECE\u5BF9\u8C61\u5B58\u50A8\u9009\u62E9\u6587\u4EF6")} description={tr("\u4EC5\u663E\u793A\u901A\u8FC7\u4E0B\u8F7D\u7BA1\u7406\u4E0A\u4F20\u5E76\u5B8C\u6210\u670D\u52A1\u7AEF\u6821\u9A8C\u7684\u5BF9\u8C61\u3002\u9009\u62E9\u540E\u4F1A\u81EA\u52A8\u5E26\u5165 Object Key\u3001\u771F\u5B9E\u5927\u5C0F\u548C SHA-256\uFF1BToolBox \u53D1\u5E03\u4F1A\u81EA\u52A8\u9644\u52A0\u540C\u7248\u672C\u7684 vnt-runtime-manifest.json\uFF0C\u540E\u7AEF\u5C06\u4ECE\u4E2D\u8BFB\u53D6 VNT \u517C\u5BB9\u7248\u672C\u3002")} action={<Button size="small" icon={<ReloadOutlined />} loading={storageFilesLoading} onClick={() => void loadStorageFiles()}>{tr("\u5237\u65B0\u6587\u4EF6")}</Button>} style={{ marginBottom: 16 }}/>
             {storageFilesError && (
               <Alert type="error" showIcon message={tr("\u65E0\u6CD5\u8BFB\u53D6\u5BF9\u8C61\u5B58\u50A8\u6587\u4EF6")} description={storageFilesError} style={{ marginBottom: 16 }}/>
             )}
@@ -333,6 +348,7 @@ export function ReleasesPage() {
               <Descriptions.Item label={tr("\u5F3A\u5236\u66F4\u65B0")}>{detail.force_update ? tr("\u662F") : tr("\u5426")}</Descriptions.Item>
               <Descriptions.Item label="Manifest Hash" span={2}>{detail.manifest?.manifest_hash ?? tr("\u5C1A\u672A\u751F\u6210")}</Descriptions.Item>
               <Descriptions.Item label={tr("\u7B7E\u540D Key")} span={2}>{detail.manifest ? `${detail.manifest.signature_algorithm} · ${detail.manifest.key_id}` : tr("\u5C1A\u672A\u751F\u6210")}</Descriptions.Item>
+              {detail.vnt_runtime && <Descriptions.Item label="VNT Runtime" span={2}>{`vnts ${detail.vnt_runtime.vnts_version} / wrapper ${detail.vnt_runtime.wrapper_version}`}</Descriptions.Item>}
             </Descriptions>
             <div>
               <Typography.Title level={4}>{tr("\u53D1\u5E03\u524D\u68C0\u67E5")}</Typography.Title>

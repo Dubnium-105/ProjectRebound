@@ -224,6 +224,8 @@ type RelayRegistryConfig struct {
 }
 
 type VNTConfig struct {
+	// Deprecated compatibility inputs retained only so older deployment files
+	// continue to decode. Published ToolBox manifests are authoritative.
 	AllowedVNTSVersions                     []string `yaml:"allowed_vnts_versions"`
 	AllowedWrapperVersions                  []string `yaml:"allowed_wrapper_versions"`
 	CredentialRotationGraceSeconds          int      `yaml:"credential_rotation_grace_seconds"`
@@ -891,10 +893,6 @@ func (c *Config) ValidateControlPlane() error {
 			errs = append(errs, errors.New("secure download storage and public URLs are required in production"))
 		}
 	}
-	if c.Update.VNTRoomsEnabled &&
-		(!validVersionAllowlist(c.VNT.AllowedVNTSVersions) || !validVersionAllowlist(c.VNT.AllowedWrapperVersions)) {
-		errs = append(errs, errors.New("vnt version allowlists must contain valid entries when VNT rooms are enabled"))
-	}
 	if c.VNT.CredentialRotationGraceSeconds < 1 || c.VNT.CredentialRotationGraceSeconds > 600 {
 		errs = append(errs, errors.New("vnt credential rotation grace must be between 1 and 600 seconds"))
 	}
@@ -912,26 +910,6 @@ func (c *Config) ValidateControlPlane() error {
 		return fmt.Errorf("invalid control-plane configuration: %w", errors.Join(errs...))
 	}
 	return nil
-}
-
-func validVersionAllowlist(values []string) bool {
-	if len(values) == 0 {
-		return false
-	}
-	seen := make(map[string]struct{}, len(values))
-	for _, raw := range values {
-		value := strings.TrimSpace(raw)
-		if value == "" || len(value) > 32 || strings.IndexFunc(value, func(r rune) bool {
-			return r <= ' ' || r == 0x7f
-		}) >= 0 {
-			return false
-		}
-		if _, exists := seen[value]; exists {
-			return false
-		}
-		seen[value] = struct{}{}
-	}
-	return true
 }
 
 func secureDownloadStorageEndpoint(endpoint *url.URL) bool {

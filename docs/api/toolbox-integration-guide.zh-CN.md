@@ -293,7 +293,7 @@ VNT 客户端只在以下构建中编译：
 cargo build --release --features vnt
 ```
 
-它还受后端客户端配置 `features.vnt_rooms` 和运行时验证控制。后端根据部署设置 `VNT_ROOMS_ENABLED` 发布该值，默认值为 `false`；同一开关也会在服务端拒绝新的 VNT create/rebind 操作。节点目录中的 `version_compatible` 由精确匹配的部署白名单 `VNT_ALLOWED_VNTS_VERSIONS` 与 `VNT_ALLOWED_WRAPPER_VERSIONS` 计算；ToolBox 应隐藏不兼容节点，同时仍处理 `VNT_NODE_UNAVAILABLE`，因为后端会在 create/rebind 事务中再次检查兼容性。`src/vnt/runtime.rs` 会验证嵌入清单、精确版本、SHA-256、x64 PE 架构及每项资产声明的 Authenticode 信任策略，任一失败即关闭功能。当前固定的上游 VNT 可执行文件没有签名，只允许与嵌入哈希完全一致的文件；Wintun 必须具有可信签名。ToolBox 发布程序本身必须先完成 Authenticode 签名，生产环境中的隐藏节点 supervisor 安全门控才会允许运行。
+它还受后端客户端配置 `features.vnt_rooms` 和运行时验证控制。后端根据部署设置 `VNT_ROOMS_ENABLED` 发布该值，默认值为 `false`；同一开关也会在服务端拒绝新的 VNT create/rebind 操作。节点目录中的 `version_compatible` 由当前已发布 ToolBox 客户端版本中经过校验的 sidecar 自动提取出的精确运行时版本对计算；每个托管 ToolBox 发布必须把生成的 `vnt-runtime-manifest.json` 作为未压缩 sidecar 一并发布。该文件只作为服务端证明元数据，不改变公开更新 Manifest 的签名结构。ToolBox 应隐藏不兼容节点，同时仍处理 `VNT_NODE_UNAVAILABLE`，因为后端会在 create/rebind 事务中再次检查兼容性。`src/vnt/runtime.rs` 会验证嵌入清单、精确版本、SHA-256、x64 PE 架构及每项资产声明的 Authenticode 信任策略，任一失败即关闭功能。当前固定的上游 VNT 可执行文件没有签名，只允许与嵌入哈希完全一致的文件；Wintun 必须具有可信签名。ToolBox 发布程序本身必须先完成 Authenticode 签名，生产环境中的隐藏节点 supervisor 安全门控才会允许运行。
 
 不能因为 `--features vnt` 编译成功就显示 VNT 操作；后端开关与运行时预检必须同时通过。
 

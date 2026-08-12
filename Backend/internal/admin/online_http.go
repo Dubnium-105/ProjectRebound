@@ -18,8 +18,10 @@ import (
 
 type OnlineHTTPService interface {
 	CloseRoom(context.Context, string, string, RequestMeta) (OnlineOperationResult[p2proom.Room], error)
+	DeleteRoom(context.Context, string, string, RequestMeta) error
 	RemoveRoomMember(context.Context, string, string, string, RequestMeta) (OnlineOperationResult[p2proom.Room], error)
 	ChangeGameServerState(context.Context, string, string, string, RequestMeta) (gameserver.Server, error)
+	DeleteGameServer(context.Context, string, string, RequestMeta) error
 	CreateGameServerRegistration(context.Context, GameServerRegistrationInput, RequestMeta) (GameServerRegistrationResult, error)
 	ListRoomMembers(context.Context, string) ([]AdministrativeRoomMember, error)
 	ListConnections(context.Context, AdministrativeConnectionFilter) (AdministrativeConnectionList, error)
@@ -71,6 +73,10 @@ type administrativeGameServerResponse struct {
 	CertificateFingerprint string           `json:"certificate_fingerprint"`
 	CertificateExpiresAt   *time.Time       `json:"certificate_expires_at"`
 	LegacyAuthExpiresAt    *time.Time       `json:"legacy_auth_expires_at"`
+	IsBanned               bool             `json:"is_banned"`
+	BannedAt               *time.Time       `json:"banned_at"`
+	BannedBy               string           `json:"banned_by"`
+	BanReason              string           `json:"ban_reason"`
 	LastHeartbeatAt        time.Time        `json:"last_heartbeat_at"`
 	CreatedAt              time.Time        `json:"created_at"`
 	UpdatedAt              time.Time        `json:"updated_at"`
@@ -182,6 +188,20 @@ func (h *OnlineHTTPHandler) CloseRoom(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *OnlineHTTPHandler) DeleteRoom(w http.ResponseWriter, r *http.Request) {
+	var request reasonRequest
+	if err := api.DecodeJSON(r, &request); err != nil {
+		api.WriteError(w, r, 400, "INVALID_REQUEST", "Invalid request.", nil)
+		return
+	}
+	roomID := chi.URLParam(r, "room_id")
+	if err := h.service.DeleteRoom(r.Context(), roomID, request.Reason, h.requestMeta(r)); err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	api.WriteData(w, r, 200, map[string]any{"room_id": roomID, "deleted": true})
+}
+
 func (h *OnlineHTTPHandler) RemoveRoomMember(w http.ResponseWriter, r *http.Request) {
 	var request reasonRequest
 	if err := api.DecodeJSON(r, &request); err != nil {
@@ -228,6 +248,24 @@ func (h *OnlineHTTPHandler) ResumeGameServer(w http.ResponseWriter, r *http.Requ
 
 func (h *OnlineHTTPHandler) DisableGameServer(w http.ResponseWriter, r *http.Request) {
 	h.changeGameServerState(w, r, "disable")
+}
+
+func (h *OnlineHTTPHandler) BanGameServer(w http.ResponseWriter, r *http.Request) {
+	h.changeGameServerState(w, r, "ban")
+}
+
+func (h *OnlineHTTPHandler) DeleteGameServer(w http.ResponseWriter, r *http.Request) {
+	var request reasonRequest
+	if err := api.DecodeJSON(r, &request); err != nil {
+		api.WriteError(w, r, 400, "INVALID_REQUEST", "Invalid request.", nil)
+		return
+	}
+	serverID := chi.URLParam(r, "server_id")
+	if err := h.service.DeleteGameServer(r.Context(), serverID, request.Reason, h.requestMeta(r)); err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	api.WriteData(w, r, 200, map[string]any{"server_id": serverID, "deleted": true})
 }
 
 func (h *OnlineHTTPHandler) CreateGameServerRegistration(w http.ResponseWriter, r *http.Request) {
@@ -421,7 +459,9 @@ func administrativeGameServer(item gameserver.Server) administrativeGameServerRe
 		CertificateFingerprint: item.CertificateFingerprint,
 		CertificateExpiresAt:   item.CertificateExpiresAt,
 		LegacyAuthExpiresAt:    item.LegacyAuthExpiresAt,
-		LastHeartbeatAt:        item.LastHeartbeatAt, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt,
+		IsBanned:               item.BannedAt != nil, BannedAt: item.BannedAt,
+		BannedBy: item.BannedBy, BanReason: item.BanReason,
+		LastHeartbeatAt: item.LastHeartbeatAt, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt,
 	}
 }
 

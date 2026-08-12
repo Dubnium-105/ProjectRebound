@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/vnt"
 )
 
 func TestMetricsExposeRequiredControlPlaneSeries(t *testing.T) {
@@ -24,7 +26,7 @@ func TestMetricsExposeRequiredControlPlaneSeries(t *testing.T) {
 	metrics.VNTRateLimited("heartbeat")
 	metrics.InviteCodeFailure()
 	metrics.RelayAllocationFailed()
-	metrics.SetVNTPolicy(true, []string{"1.0.0"}, []string{"0.1.0"})
+	metrics.SetVNTPolicy(true, vnt.NewVersionPolicy([]string{"1.0.0"}, []string{"0.1.0"}))
 	recorder := httptest.NewRecorder()
 	metrics.Handler().ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/internal/metrics", nil))
 	for _, series := range []string{

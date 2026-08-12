@@ -50,27 +50,28 @@ type releaseCreateRequest struct {
 }
 
 type releaseResponse struct {
-	ID                      string                    `json:"id"`
-	Product                 string                    `json:"product"`
-	Platform                string                    `json:"platform"`
-	Architecture            string                    `json:"architecture"`
-	Channel                 string                    `json:"channel"`
-	Version                 string                    `json:"version"`
-	MinimumSupportedVersion string                    `json:"minimum_supported_version"`
-	ForceUpdate             bool                      `json:"force_update"`
-	Status                  string                    `json:"status"`
-	Files                   []clientupdate.SourceFile `json:"files"`
-	Manifest                *clientupdate.Manifest    `json:"manifest,omitempty"`
-	Validation              ReleaseValidation         `json:"validation"`
-	CreatedBy               string                    `json:"created_by"`
-	PublishedBy             string                    `json:"published_by"`
-	RolledBackBy            string                    `json:"rolled_back_by"`
-	ArchivedBy              string                    `json:"archived_by"`
-	CreatedAt               time.Time                 `json:"created_at"`
-	UpdatedAt               time.Time                 `json:"updated_at"`
-	PublishedAt             *time.Time                `json:"published_at"`
-	RolledBackAt            *time.Time                `json:"rolled_back_at"`
-	ArchivedAt              *time.Time                `json:"archived_at"`
+	ID                      string                          `json:"id"`
+	Product                 string                          `json:"product"`
+	Platform                string                          `json:"platform"`
+	Architecture            string                          `json:"architecture"`
+	Channel                 string                          `json:"channel"`
+	Version                 string                          `json:"version"`
+	MinimumSupportedVersion string                          `json:"minimum_supported_version"`
+	ForceUpdate             bool                            `json:"force_update"`
+	Status                  string                          `json:"status"`
+	Files                   []clientupdate.SourceFile       `json:"files"`
+	VNTRuntime              *clientupdate.VNTRuntimeRelease `json:"vnt_runtime,omitempty"`
+	Manifest                *clientupdate.Manifest          `json:"manifest,omitempty"`
+	Validation              ReleaseValidation               `json:"validation"`
+	CreatedBy               string                          `json:"created_by"`
+	PublishedBy             string                          `json:"published_by"`
+	RolledBackBy            string                          `json:"rolled_back_by"`
+	ArchivedBy              string                          `json:"archived_by"`
+	CreatedAt               time.Time                       `json:"created_at"`
+	UpdatedAt               time.Time                       `json:"updated_at"`
+	PublishedAt             *time.Time                      `json:"published_at"`
+	RolledBackAt            *time.Time                      `json:"rolled_back_at"`
+	ArchivedAt              *time.Time                      `json:"archived_at"`
 }
 
 func (h *ReleaseHTTPHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -195,7 +196,8 @@ func toReleaseResponse(item Release) releaseResponse {
 		Architecture: item.Architecture, Channel: item.Channel, Version: item.Version,
 		MinimumSupportedVersion: item.MinimumSupportedVersion,
 		ForceUpdate:             item.ForceUpdate, Status: item.Status, Files: files,
-		Manifest: item.Manifest, Validation: item.Validation, CreatedBy: item.CreatedBy,
+		VNTRuntime: item.Source.VNTRuntime,
+		Manifest:   item.Manifest, Validation: item.Validation, CreatedBy: item.CreatedBy,
 		PublishedBy: item.PublishedBy, RolledBackBy: item.RolledBackBy, ArchivedBy: item.ArchivedBy,
 		CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt,
 		PublishedAt: item.PublishedAt, RolledBackAt: item.RolledBackAt, ArchivedAt: item.ArchivedAt,

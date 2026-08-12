@@ -1,12 +1,12 @@
 import { localeTag, tr } from "../i18n";
-import { CopyOutlined, PauseCircleOutlined, PlusOutlined, ReloadOutlined, StopOutlined, SyncOutlined } from "@ant-design/icons";
+import { CopyOutlined, DeleteOutlined, PauseCircleOutlined, PlusOutlined, ReloadOutlined, StopOutlined, SyncOutlined, WarningOutlined } from "@ant-design/icons";
 import { useList } from "@refinedev/core";
 import { Alert, App, Button, Card, Form, Input, InputNumber, Modal, Space, Table, Tag, Typography, type TableColumnsType } from "antd";
 import { useState } from "react";
 import { ApiError, apiRequest, authClient } from "../api/client";
 import { OperationReasonModal } from "../components/OperationReasonModal";
 import type { GameServer } from "../types";
-type ServerOperation = "drain" | "resume" | "disable";
+type ServerOperation = "drain" | "resume" | "disable" | "ban" | "delete";
 type RegistrationValues = {
     instance_id: string;
     expires_in_hours: number;
@@ -85,9 +85,10 @@ export function GameServersPage() {
             title: tr("\u72B6\u6001"),
             dataIndex: "state",
             width: 130,
-            render: (value: GameServer["state"]) => (<Tag color={value === "READY" || value === "RUNNING" ? "green" : value === "OFFLINE" ? "default" : "orange"}>
-          {value}
-        </Tag>)
+            render: (value: GameServer["state"], item) => (<Space direction="vertical" size={0}>
+          <Tag color={value === "READY" || value === "RUNNING" ? "green" : value === "OFFLINE" ? "default" : "orange"}>{value}</Tag>
+          {item.is_banned && <Tag color="red">{tr("已封禁")}</Tag>}
+        </Space>)
         },
         {
             title: tr("凭证"),
@@ -103,12 +104,14 @@ export function GameServersPage() {
         {
             title: tr("\u64CD\u4F5C"),
             key: "actions",
-            width: 270,
+            width: 390,
             fixed: "right",
             render: (_, item) => (<Space size={2}>
-          {permissions.includes("game_servers.drain") && item.state !== "DRAINING" && item.state !== "OFFLINE" && (<Button type="link" icon={<PauseCircleOutlined />} onClick={() => setTarget({ server: item, operation: "drain" })}>{tr("\u8FDB\u5165\u7EF4\u62A4")}</Button>)}
-          {permissions.includes("game_servers.drain") && (item.state === "DRAINING" || item.state === "UNHEALTHY") && (<Button type="link" icon={<SyncOutlined />} onClick={() => setTarget({ server: item, operation: "resume" })}>{tr("\u6062\u590D\u63A5\u5165")}</Button>)}
-          {permissions.includes("game_servers.disable") && item.state !== "OFFLINE" && (<Button danger type="link" icon={<StopOutlined />} onClick={() => setTarget({ server: item, operation: "disable" })}>{tr("\u505C\u7528")}</Button>)}
+          {permissions.includes("game_servers.drain") && !item.is_banned && item.state !== "DRAINING" && item.state !== "OFFLINE" && (<Button type="link" icon={<PauseCircleOutlined />} onClick={() => setTarget({ server: item, operation: "drain" })}>{tr("\u8FDB\u5165\u7EF4\u62A4")}</Button>)}
+          {permissions.includes("game_servers.drain") && !item.is_banned && (item.state === "DRAINING" || item.state === "UNHEALTHY") && (<Button type="link" icon={<SyncOutlined />} onClick={() => setTarget({ server: item, operation: "resume" })}>{tr("\u6062\u590D\u63A5\u5165")}</Button>)}
+          {permissions.includes("game_servers.disable") && !item.is_banned && item.state !== "OFFLINE" && (<Button danger type="link" icon={<StopOutlined />} onClick={() => setTarget({ server: item, operation: "disable" })}>{tr("\u505C\u7528")}</Button>)}
+          {permissions.includes("game_servers.ban") && !item.is_banned && (<Button danger type="link" icon={<WarningOutlined />} onClick={() => setTarget({ server: item, operation: "ban" })}>{tr("封禁")}</Button>)}
+          {permissions.includes("game_servers.delete") && !item.is_banned && item.state === "OFFLINE" && (<Button danger type="link" icon={<DeleteOutlined />} onClick={() => setTarget({ server: item, operation: "delete" })}>{tr("删除")}</Button>)}
         </Space>)
         }
     ];
@@ -120,8 +123,12 @@ export function GameServersPage() {
         }
         setWorking(true);
         try {
-            await apiRequest(`/v1/admin/game-servers/${encodeURIComponent(target.server.server_id)}/${target.operation}`, { method: "POST", body: JSON.stringify({ reason }) });
-            message.success(target.operation === "drain" ? tr("\u4E13\u670D\u5DF2\u8FDB\u5165\u7EF4\u62A4\u6A21\u5F0F\u3002") : target.operation === "resume" ? tr("\u4E13\u670D\u5DF2\u6062\u590D\u63A5\u5165\u3002") : tr("\u4E13\u670D\u5DF2\u505C\u7528\u5E76\u64A4\u9500\u6CE8\u518C\u51ED\u636E\u3002"));
+            const basePath = `/v1/admin/game-servers/${encodeURIComponent(target.server.server_id)}`;
+            await apiRequest(target.operation === "delete" ? basePath : `${basePath}/${target.operation}`, {
+                method: target.operation === "delete" ? "DELETE" : "POST",
+                body: JSON.stringify({ reason })
+            });
+            message.success(operationSuccess(target.operation));
             setTarget(null);
             await query.refetch();
         }
@@ -147,7 +154,7 @@ export function GameServersPage() {
       <Card className="table-card">
         <Table<GameServer> rowKey="server_id" columns={columns} dataSource={result.data} loading={query.isLoading} pagination={false} scroll={{ x: 1200 }} locale={{ emptyText: tr("\u5F53\u524D\u6CA1\u6709\u5DF2\u6CE8\u518C\u7684 Dedicated Server\u3002") }}/>
       </Card>
-      <OperationReasonModal open={target !== null} title={operationTitle(target)} consequence={operationConsequence(target)} confirmLabel={target?.operation === "disable" ? tr("\u786E\u8BA4\u505C\u7528") : tr("\u786E\u8BA4\u6267\u884C")} danger={target?.operation === "disable"} loading={working} onCancel={() => setTarget(null)} onConfirm={execute}/>
+      <OperationReasonModal open={target !== null} title={operationTitle(target)} consequence={operationConsequence(target)} confirmLabel={target?.operation === "delete" ? tr("确认删除") : target?.operation === "ban" ? tr("确认封禁") : target?.operation === "disable" ? tr("\u786E\u8BA4\u505C\u7528") : tr("\u786E\u8BA4\u6267\u884C")} danger={target?.operation === "disable" || target?.operation === "ban" || target?.operation === "delete"} loading={working} onCancel={() => setTarget(null)} onConfirm={execute}/>
       <Modal open={registrationOpen} title={tr("添加 Dedicated Server")} okText={tr("生成注册 Token")} cancelText={tr("取消")} confirmLoading={working} onCancel={() => !working && setRegistrationOpen(false)} onOk={() => registrationForm.submit()} destroyOnHidden>
         <Alert type="info" showIcon message={tr("Token 仅绑定一台服务器并且只能成功使用一次")} description={tr("为同一实例重新生成 Token 会立即撤销之前尚未使用的 Token。注册成功后，Token 将在同一个数据库事务中失效。")} style={{ marginBottom: 16 }}/>
         <Form form={registrationForm} layout="vertical" onFinish={createRegistration} requiredMark="optional">
@@ -216,6 +223,10 @@ function operationTitle(target: {
         return tr(`让 ${target.server.display_name} 进入维护模式？`);
     if (target.operation === "resume")
         return tr(`恢复 ${target.server.display_name} 接收任务？`);
+    if (target.operation === "ban")
+        return tr(`封禁 ${target.server.display_name}？`);
+    if (target.operation === "delete")
+        return tr(`删除 ${target.server.display_name}？`);
     return tr(`停用 ${target.server.display_name}？`);
 }
 function operationConsequence(target: {
@@ -226,7 +237,22 @@ function operationConsequence(target: {
         return tr("\u4E13\u670D\u5C06\u505C\u6B62\u63A5\u6536\u65B0\u4EFB\u52A1\uFF0C\u73B0\u6709\u4F1A\u8BDD\u4E0D\u4F1A\u7531\u6B64\u6309\u94AE\u5F3A\u5236\u7EC8\u6B62\u3002");
     if (target?.operation === "resume")
         return tr("\u4E13\u670D\u5C06\u6062\u590D\u4E3A READY \u5E76\u53EF\u518D\u6B21\u63A5\u6536\u4EFB\u52A1\u3002");
+    if (target?.operation === "ban")
+        return tr("服务器会立即下线并撤销所有凭证；该实例将无法再次获取注册 Token 或重新注册。");
+    if (target?.operation === "delete")
+        return tr("已下线服务器会从目录中移除，但比赛、注册和审计历史仍会保留。");
     return tr("\u4E13\u670D\u5C06\u6807\u8BB0 OFFLINE\uFF0C\u6CE8\u518C Token \u88AB\u64A4\u9500\uFF1B\u6062\u590D\u9700\u8981\u91CD\u65B0\u6CE8\u518C\u3002");
+}
+function operationSuccess(operation: ServerOperation) {
+    if (operation === "drain")
+        return tr("\u4E13\u670D\u5DF2\u8FDB\u5165\u7EF4\u62A4\u6A21\u5F0F\u3002");
+    if (operation === "resume")
+        return tr("\u4E13\u670D\u5DF2\u6062\u590D\u63A5\u5165\u3002");
+    if (operation === "ban")
+        return tr("服务器已封禁，后续注册已被阻止。");
+    if (operation === "delete")
+        return tr("已下线服务器已从目录移除。");
+    return tr("\u4E13\u670D\u5DF2\u505C\u7528\u5E76\u64A4\u9500\u6CE8\u518C\u51ED\u636E\u3002");
 }
 function formatTime(value: string) {
     const date = new Date(value);

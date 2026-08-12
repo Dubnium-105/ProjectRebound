@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/vnt"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -59,8 +60,7 @@ type Metrics struct {
 	httpDurations  map[durationMetricKey]*durationMetric
 	redisDuration  *durationMetric
 	seenWebSockets map[string]struct{}
-	vntVersions    map[string]struct{}
-	vntWrappers    map[string]struct{}
+	vntPolicy      *vnt.VersionPolicy
 
 	httpActiveRequests         atomic.Int64
 	authBindTotal              atomic.Uint64
@@ -86,8 +86,6 @@ func NewMetrics(pool *pgxpool.Pool) *Metrics {
 		authBindRateLimited: make(map[string]uint64),
 		vntRateLimited:      make(map[string]uint64),
 		seenWebSockets:      make(map[string]struct{}),
-		vntVersions:         make(map[string]struct{}),
-		vntWrappers:         make(map[string]struct{}),
 	}
 }
 
@@ -165,11 +163,10 @@ func (m *Metrics) InviteCodeFailure() { m.inviteCodeFailureTotal.Add(1) }
 
 func (m *Metrics) RelayAllocationFailed() { m.relayAllocationFailedTotal.Add(1) }
 
-func (m *Metrics) SetVNTPolicy(enabled bool, vntsVersions, wrapperVersions []string) {
+func (m *Metrics) SetVNTPolicy(enabled bool, policy *vnt.VersionPolicy) {
 	m.vntRoomsEnabled.Store(enabled)
 	m.mu.Lock()
-	m.vntVersions = stringSet(vntsVersions)
-	m.vntWrappers = stringSet(wrapperVersions)
+	m.vntPolicy = policy
 	m.mu.Unlock()
 }
 
@@ -334,6 +331,17 @@ func (m *Metrics) writeDatabaseGauges(ctx context.Context, w http.ResponseWriter
 	if m.pool != nil {
 		queryCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
+		var versionSnapshot vnt.VersionSnapshot
+		m.mu.RLock()
+		versionPolicy := m.vntPolicy
+		m.mu.RUnlock()
+		if versionPolicy != nil {
+			var err error
+			versionSnapshot, err = versionPolicy.Resolve(queryCtx)
+			if err != nil {
+				scrapeError = 1
+			}
+		}
 		if err := m.pool.QueryRow(queryCtx, "SELECT COUNT(*) FROM auth_sessions WHERE revoked_at IS NULL AND expires_at > NOW()").Scan(&activeSessions); err != nil {
 			scrapeError = 1
 		}
@@ -419,7 +427,7 @@ func (m *Metrics) writeDatabaseGauges(ctx context.Context, w http.ResponseWriter
 					scrapeError = 1
 					break
 				}
-				item.Compatible = m.vntCompatible(item.VNTSVersion, item.WrapperVersion)
+				item.Compatible = versionSnapshot.CompatibleVersions(item.VNTSVersion, item.WrapperVersion)
 				vntNodes = append(vntNodes, item)
 			}
 			if err := rows.Err(); err != nil {
@@ -566,27 +574,6 @@ func writeVNTNodeMetrics(w http.ResponseWriter, nodes []vntNodeMetric) {
 		_, _ = fmt.Fprintf(w, "vnt_node_capacity_ratio{%s} %g\n", labels, ratio)
 		_, _ = fmt.Fprintf(w, "vnt_node_version_compatible{%s} %d\n", labels, boolGauge(node.Compatible))
 	}
-}
-
-func (m *Metrics) vntCompatible(vntsVersion, wrapperVersion string) bool {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	if len(m.vntVersions) == 0 || len(m.vntWrappers) == 0 {
-		return false
-	}
-	_, vntsAllowed := m.vntVersions[vntsVersion]
-	_, wrapperAllowed := m.vntWrappers[wrapperVersion]
-	return vntsAllowed && wrapperAllowed
-}
-
-func stringSet(values []string) map[string]struct{} {
-	result := make(map[string]struct{}, len(values))
-	for _, value := range values {
-		if value = strings.TrimSpace(value); value != "" {
-			result[value] = struct{}{}
-		}
-	}
-	return result
 }
 
 func boolGauge(value bool) int64 {

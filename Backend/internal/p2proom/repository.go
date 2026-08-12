@@ -83,24 +83,26 @@ func (r *Repository) FindIdempotent(ctx context.Context, tx pgx.Tx, playerID, ke
 	err := tx.QueryRow(ctx, `
 		SELECT id, idempotency_request_hash, host_token_ciphertext, host_token_nonce,
 		       COALESCE(host_token_key_id, '')
-		FROM p2p_rooms WHERE host_player_id = $1 AND idempotency_key = $2
+		FROM p2p_rooms
+		WHERE host_player_id = $1 AND idempotency_key = $2 AND deleted_at IS NULL
 	`, playerID, key).Scan(&roomID, &requestHash, &ciphertext, &nonce, &keyID)
 	return roomID, requestHash, ciphertext, nonce, keyID, err
 }
 
 func (r *Repository) Get(ctx context.Context, roomID string) (Room, error) {
-	return scanRoom(r.pool.QueryRow(ctx, `SELECT `+roomColumns+` FROM p2p_rooms WHERE id = $1`, roomID))
+	return scanRoom(r.pool.QueryRow(ctx, `SELECT `+roomColumns+` FROM p2p_rooms WHERE id = $1 AND deleted_at IS NULL`, roomID))
 }
 
 func (r *Repository) GetForUpdate(ctx context.Context, tx pgx.Tx, roomID string) (Room, error) {
-	return scanRoom(tx.QueryRow(ctx, `SELECT `+roomColumns+` FROM p2p_rooms WHERE id = $1 FOR UPDATE`, roomID))
+	return scanRoom(tx.QueryRow(ctx, `SELECT `+roomColumns+` FROM p2p_rooms WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`, roomID))
 }
 
 func (r *Repository) List(ctx context.Context, filter ListFilter, hasSlots int) ([]Room, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT `+roomColumns+`
 		FROM p2p_rooms
-		WHERE ($1 = '' OR id > $1)
+		WHERE deleted_at IS NULL
+		  AND ($1 = '' OR id > $1)
 		  AND ($2 = '' OR region = $2)
 		  AND ($3 = '' OR mode = $3)
 		  AND ($4 = '' OR version = $4)
@@ -208,7 +210,7 @@ func (r *Repository) UpdatePlayerCount(ctx context.Context, tx pgx.Tx, roomID st
 	return scanRoom(tx.QueryRow(ctx, `
 		UPDATE p2p_rooms
 		SET player_count = player_count + $2, updated_at = $3
-		WHERE id = $1
+		WHERE id = $1 AND deleted_at IS NULL
 		RETURNING `+roomColumns,
 		roomID, delta, now,
 	))
@@ -219,7 +221,7 @@ func (r *Repository) Heartbeat(ctx context.Context, tx pgx.Tx, roomID string, no
 		UPDATE p2p_rooms
 		SET state = CASE WHEN state = 'STALE' THEN 'LOBBY' ELSE state END,
 		    last_heartbeat_at = $2, updated_at = $2
-		WHERE id = $1
+		WHERE id = $1 AND deleted_at IS NULL
 		RETURNING `+roomColumns,
 		roomID, now,
 	))
@@ -236,7 +238,7 @@ func (r *Repository) Start(ctx context.Context, tx pgx.Tx, roomID string, now ti
 		UPDATE p2p_rooms
 		SET state = CASE WHEN transport_kind = 'VNT' THEN 'RUNNING' ELSE 'CONNECTING' END,
 		    updated_at = $2
-		WHERE id = $1
+		WHERE id = $1 AND deleted_at IS NULL
 		RETURNING `+roomColumns,
 		roomID, now,
 	))
@@ -246,7 +248,7 @@ func (r *Repository) MarkRunning(ctx context.Context, roomID string, now time.Ti
 	return scanRoom(r.pool.QueryRow(ctx, `
 		UPDATE p2p_rooms
 		SET state = 'RUNNING', updated_at = $2
-		WHERE id = $1 AND state IN ('LOBBY', 'CONNECTING')
+		WHERE id = $1 AND deleted_at IS NULL AND state IN ('LOBBY', 'CONNECTING')
 		RETURNING `+roomColumns,
 		roomID, now,
 	))
@@ -256,7 +258,7 @@ func (r *Repository) Close(ctx context.Context, tx pgx.Tx, roomID string, now ti
 	item, err := scanRoom(tx.QueryRow(ctx, `
 		UPDATE p2p_rooms
 		SET state = 'CLOSED', closed_at = COALESCE(closed_at, $2), updated_at = $2
-		WHERE id = $1
+		WHERE id = $1 AND deleted_at IS NULL
 		RETURNING `+roomColumns,
 		roomID, now,
 	))
@@ -292,7 +294,7 @@ func (r *Repository) SweepStale(ctx context.Context, now time.Time, staleAfter, 
 			    END,
 			    closed_at = CASE WHEN last_heartbeat_at <= $2 THEN COALESCE(closed_at, $1) ELSE closed_at END,
 			    updated_at = $1
-			WHERE state <> 'CLOSED' AND last_heartbeat_at <= $3
+			WHERE deleted_at IS NULL AND state <> 'CLOSED' AND last_heartbeat_at <= $3
 			RETURNING id, state
 		), closed_members AS (
 			UPDATE p2p_room_members AS member

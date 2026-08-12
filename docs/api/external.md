@@ -290,7 +290,7 @@ and member virtual addresses.
 `data.next_cursor` back as `cursor`; an empty value means there is no next page.
 The `limit` range is `1..200` and defaults to `100`.
 
-Each item includes `version_compatible`, computed by exact, case-sensitive matching against the server's approved `vnts` and wrapper version allowlists. ToolBox should hide incompatible nodes, but must still handle `409 VNT_NODE_UNAVAILABLE` because create/rebind rechecks state, capacity, and both versions inside the allocation transaction.
+Each item includes `version_compatible`, computed by exact, case-sensitive matching against VNT runtime pairs extracted from the verified sidecars of currently published ToolBox client releases. Publishing or rolling back a ToolBox release updates eligibility immediately; if no published release carries valid runtime metadata, the policy fails closed. The public update manifest and its signature schema remain unchanged for older-client compatibility. ToolBox should hide incompatible nodes, but must still handle `409 VNT_NODE_UNAVAILABLE` because create/rebind rechecks state, capacity, and both versions inside the allocation transaction.
 
 A node with active rooms enters `DRAINING` when retirement is requested and may
 continue heartbeat and credential rotation until those rooms finish. Once it

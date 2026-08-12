@@ -96,6 +96,10 @@ type administrativeServerResponse struct {
 	CertificateFingerprint string     `json:"certificate_fingerprint"`
 	CertificateExpiresAt   *time.Time `json:"certificate_expires_at"`
 	LegacyAuthExpiresAt    *time.Time `json:"legacy_auth_expires_at"`
+	IsBanned               bool       `json:"is_banned"`
+	BannedAt               *time.Time `json:"banned_at"`
+	BannedBy               string     `json:"banned_by"`
+	BanReason              string     `json:"ban_reason"`
 	LastHeartbeatAt        time.Time  `json:"last_heartbeat_at"`
 	CreatedAt              time.Time  `json:"created_at"`
 	UpdatedAt              time.Time  `json:"updated_at"`
@@ -331,6 +335,8 @@ func toAdministrativeResponse(item Server) administrativeServerResponse {
 		CredentialGeneration:   item.CredentialGeneration,
 		CertificateFingerprint: item.CertificateFingerprint,
 		CertificateExpiresAt:   item.CertificateExpiresAt, LegacyAuthExpiresAt: item.LegacyAuthExpiresAt,
+		IsBanned: item.BannedAt != nil, BannedAt: item.BannedAt,
+		BannedBy: item.BannedBy, BanReason: item.BanReason,
 		LastHeartbeatAt: item.LastHeartbeatAt, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt,
 	}
 }

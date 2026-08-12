@@ -3,7 +3,18 @@ package vnt
 import (
 	"context"
 	"testing"
+
+	clientupdate "github.com/Dubnium-105/ProjectRebound/Backend/internal/update"
 )
+
+type versionManifestCatalog struct {
+	runtimes []clientupdate.VNTRuntimeRelease
+	err      error
+}
+
+func (c versionManifestCatalog) PublishedVNTRuntimes(context.Context) ([]clientupdate.VNTRuntimeRelease, error) {
+	return c.runtimes, c.err
+}
 
 func TestValidateRegisterInputNormalizesTransports(t *testing.T) {
 	input := RegisterInput{
@@ -66,15 +77,43 @@ func TestPublicNodeCapacityUsesDatabaseAllocationCount(t *testing.T) {
 func TestVersionPolicyRequiresBothExactVersions(t *testing.T) {
 	policy := NewVersionPolicy([]string{"1.2.3"}, []string{"0.4.0"})
 	compatible := Node{VNTSVersion: "1.2.3", WrapperVersion: "0.4.0"}
-	if !policy.Compatible(compatible) {
+	snapshot, err := policy.Resolve(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !snapshot.Compatible(compatible) {
 		t.Fatal("matching versions were rejected")
 	}
 	compatible.WrapperVersion = "0.4.1"
-	if policy.Compatible(compatible) {
+	if snapshot.Compatible(compatible) {
 		t.Fatal("unlisted wrapper version was accepted")
 	}
-	if (VersionPolicy{}).Compatible(Node{VNTSVersion: "1", WrapperVersion: "1"}) {
+	empty, err := (&VersionPolicy{}).Resolve(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if empty.Compatible(Node{VNTSVersion: "1", WrapperVersion: "1"}) {
 		t.Fatal("empty policy must fail closed")
+	}
+}
+
+func TestVersionPolicyUsesPublishedClientRuntimePairs(t *testing.T) {
+	policy := NewVersionPolicy([]string{"fallback-vnts"}, []string{"fallback-wrapper"})
+	policy.SetPublishedCatalog(versionManifestCatalog{runtimes: []clientupdate.VNTRuntimeRelease{{
+		VNTSVersion: "1.2.12", WrapperVersion: "0.1.0",
+	}}})
+	snapshot, err := policy.Resolve(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !snapshot.Compatible(Node{VNTSVersion: "1.2.12", WrapperVersion: "0.1.0"}) {
+		t.Fatal("published ToolBox runtime pair was rejected")
+	}
+	if snapshot.Compatible(Node{VNTSVersion: "fallback-vnts", WrapperVersion: "fallback-wrapper"}) {
+		t.Fatal("deployment fallback remained active after the release catalog was attached")
+	}
+	if snapshot.Compatible(Node{VNTSVersion: "1.2.12", WrapperVersion: "fallback-wrapper"}) {
+		t.Fatal("versions from different pairs were combined")
 	}
 }
 

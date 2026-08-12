@@ -75,12 +75,14 @@ const permissionMap: Record<string, Partial<Record<string, string>>> = {
     },
     "p2p-rooms": {
         list: "rooms.read",
-        show: "rooms.read"
+        show: "rooms.read",
+        delete: "rooms.delete"
     },
     "game-servers": {
         list: "game_servers.read",
         show: "game_servers.read",
-        create: "game_servers.register"
+        create: "game_servers.register",
+        delete: "game_servers.delete"
     },
     "relay-nodes": {
         list: "relay_nodes.read",

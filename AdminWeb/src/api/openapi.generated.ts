@@ -834,7 +834,8 @@ export interface paths {
         get: operations["adminGetP2PRoom"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** @description Soft-deletes an already CLOSED room from administrative and public directories while retaining audit and match history. */
+        delete: operations["adminDeleteP2PRoom"];
         options?: never;
         head?: never;
         patch?: never;
@@ -965,7 +966,8 @@ export interface paths {
         get: operations["adminGetGameServer"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** @description Soft-deletes an OFFLINE, non-banned game server from directory views while retaining historical references. */
+        delete: operations["adminDeleteGameServer"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1013,6 +1015,23 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["adminDisableGameServer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/game-servers/{server_id}/ban": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Marks the instance permanently banned, takes it offline, revokes credentials, and blocks future credential issuance and registration. */
+        post: operations["adminBanGameServer"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3225,6 +3244,14 @@ export interface components {
             };
             request_id: string;
         };
+        AdminP2PRoomDeletionResponse: {
+            data: {
+                room_id: string;
+                /** @constant */
+                deleted: true;
+            };
+            request_id: string;
+        };
         AdminP2PRoomMember: {
             room_id: string;
             player_id: string;
@@ -3268,6 +3295,11 @@ export interface components {
             certificate_expires_at: string | null;
             /** Format: date-time */
             legacy_auth_expires_at: string | null;
+            is_banned: boolean;
+            /** Format: date-time */
+            banned_at: string | null;
+            banned_by: string;
+            ban_reason: string;
             /** Format: date-time */
             last_heartbeat_at: string;
             /** Format: date-time */
@@ -3295,6 +3327,14 @@ export interface components {
         };
         AdminGameServerResponse: {
             data: components["schemas"]["AdminGameServer"];
+            request_id: string;
+        };
+        AdminGameServerDeletionResponse: {
+            data: {
+                server_id: string;
+                /** @constant */
+                deleted: true;
+            };
             request_id: string;
         };
         AdminGameServerListResponse: {
@@ -3583,6 +3623,8 @@ export interface components {
             force_update: boolean;
             status: components["schemas"]["AdminReleaseStatus"];
             files: components["schemas"]["AdminReleaseSourceFile"][];
+            /** @description Server-side runtime attestation extracted from the ToolBox release sidecar; it is not part of the public update manifest. */
+            vnt_runtime?: components["schemas"]["VNTRuntimeRelease"];
             manifest?: components["schemas"]["SignedUpdateManifest"];
             validation: components["schemas"]["AdminReleaseValidation"];
             created_by: string;
@@ -4926,6 +4968,12 @@ export interface components {
             compression: "none" | "gzip" | "zstd";
             /** Format: uri */
             download_url: string;
+        };
+        VNTRuntimeRelease: {
+            /** @description Exact vnts version embedded in this published ToolBox client. */
+            vnts_version: string;
+            /** @description Exact Project Rebound VNT wrapper version embedded in this published ToolBox client. */
+            wrapper_version: string;
         };
         SignedUpdateManifest: {
             /** @constant */
@@ -6878,6 +6926,34 @@ export interface operations {
             };
         };
     };
+    adminDeleteP2PRoom: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                room_id: components["parameters"]["RoomID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminOperationReason"];
+            };
+        };
+        responses: {
+            /** @description Closed room removed from directory views. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminP2PRoomDeletionResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     adminCloseP2PRoom: {
         parameters: {
             query?: never;
@@ -7097,6 +7173,34 @@ export interface operations {
             };
         };
     };
+    adminDeleteGameServer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                server_id: components["parameters"]["GameServerID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminOperationReason"];
+            };
+        };
+        responses: {
+            /** @description Offline game server removed from directory views. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminGameServerDeletionResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     adminDrainGameServer: {
         parameters: {
             query?: never;
@@ -7173,6 +7277,34 @@ export interface operations {
                     "application/json": components["schemas"]["AdminGameServerResponse"];
                 };
             };
+        };
+    };
+    adminBanGameServer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                server_id: components["parameters"]["GameServerID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminOperationReason"];
+            };
+        };
+        responses: {
+            /** @description Game server instance banned. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminGameServerResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     adminListConnections: {

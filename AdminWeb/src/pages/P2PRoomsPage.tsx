@@ -1,5 +1,5 @@
 import { localeTag, tr } from "../i18n";
-import { EyeOutlined, ReloadOutlined, StopOutlined, UserDeleteOutlined } from "@ant-design/icons";
+import { DeleteOutlined, EyeOutlined, ReloadOutlined, StopOutlined, UserDeleteOutlined } from "@ant-design/icons";
 import { useList } from "@refinedev/core";
 import { App, Button, Card, Descriptions, Drawer, Progress, Space, Table, Tag, Typography, type TableColumnsType } from "antd";
 import { useState } from "react";
@@ -16,6 +16,7 @@ const roomStateColor: Record<P2PRoom["state"], string> = {
 export function P2PRoomsPage() {
     const { message } = App.useApp();
     const [selected, setSelected] = useState<P2PRoom | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<P2PRoom | null>(null);
     const [detail, setDetail] = useState<{
         room: P2PRoom;
         members: P2PRoomMember[];
@@ -28,6 +29,7 @@ export function P2PRoomsPage() {
         pagination: { pageSize: 100 }
     });
     const canClose = authClient.permissions().includes("rooms.close");
+    const canDelete = authClient.permissions().includes("rooms.delete");
     const canRemoveMember = authClient.permissions().includes("rooms.remove_member");
     const columns: TableColumnsType<P2PRoom> = [
         {
@@ -65,11 +67,12 @@ export function P2PRoomsPage() {
         {
             title: tr("\u64CD\u4F5C"),
             key: "actions",
-            width: 210,
+            width: 280,
             fixed: "right",
             render: (_, item) => (<Space size={2}>
           <Button type="link" icon={<EyeOutlined />} onClick={() => showDetail(item)}>{tr("\u6210\u5458")}</Button>
           {canClose && item.state !== "CLOSED" && (<Button danger type="link" icon={<StopOutlined />} onClick={() => setSelected(item)}>{tr("\u5173\u95ED\u623F\u95F4")}</Button>)}
+          {canDelete && item.state === "CLOSED" && (<Button danger type="link" icon={<DeleteOutlined />} onClick={() => setDeleteTarget(item)}>{tr("删除")}</Button>)}
         </Space>)
         }
     ];
@@ -142,6 +145,30 @@ export function P2PRoomsPage() {
             setWorking(false);
         }
     };
+    const deleteRoom = async ({ reason }: {
+        reason: string;
+    }) => {
+        if (!deleteTarget)
+            return;
+        setWorking(true);
+        try {
+            await apiRequest(`/v1/admin/p2p-rooms/${encodeURIComponent(deleteTarget.room_id)}`, {
+                method: "DELETE",
+                body: JSON.stringify({ reason })
+            });
+            if (detail?.room.room_id === deleteTarget.room_id)
+                setDetail(null);
+            setDeleteTarget(null);
+            message.success(tr("已关闭房间已从目录移除，历史记录仍保留。"));
+            await query.refetch();
+        }
+        catch (error) {
+            message.error(errorMessage(error));
+        }
+        finally {
+            setWorking(false);
+        }
+    };
     return (<div className="page-stack">
       <section className="page-heading">
         <div>
@@ -157,6 +184,7 @@ export function P2PRoomsPage() {
         <Table<P2PRoom> rowKey="room_id" columns={columns} dataSource={result.data} loading={query.isLoading} pagination={false} scroll={{ x: 1150 }} locale={{ emptyText: tr("\u5F53\u524D\u6CA1\u6709 P2P \u623F\u95F4\u3002") }}/>
       </Card>
       <OperationReasonModal open={selected !== null} title={tr(`关闭房间 ${selected?.display_name ?? ""}？`)} consequence={tr("\u623F\u95F4\u5C06\u8FDB\u5165 CLOSED\uFF0C\u6240\u6709\u6210\u5458\u79BB\u5F00\uFF0C\u6D3B\u52A8\u8FDE\u63A5\u548C Relay Allocation \u4F1A\u88AB\u6E05\u7406\u3002\u6B64\u64CD\u4F5C\u4E0D\u80FD\u4ECE\u9875\u9762\u64A4\u9500\u3002")} confirmLabel={tr("\u786E\u8BA4\u5173\u95ED\u623F\u95F4")} danger loading={working} onCancel={() => setSelected(null)} onConfirm={closeRoom}/>
+      <OperationReasonModal open={deleteTarget !== null} title={tr(`删除房间 ${deleteTarget?.display_name ?? ""}？`)} consequence={tr("房间会从服务器和房间列表中移除；成员、比赛与审计历史不会被物理删除。")} confirmLabel={tr("确认删除")} danger loading={working} onCancel={() => setDeleteTarget(null)} onConfirm={deleteRoom}/>
       <Drawer open={detail !== null} title={tr(`房间成员 · ${detail?.room.display_name ?? ""}`)} width={820} loading={detailLoading} onClose={() => setDetail(null)}>
         {detail && (<>
             <Descriptions bordered size="small" column={2} style={{ marginBottom: 20 }}>

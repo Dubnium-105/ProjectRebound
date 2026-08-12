@@ -253,6 +253,10 @@ func (integrationReleaseManifestService) VerifyReleaseObjects(context.Context, c
 	return nil
 }
 
+func (integrationReleaseManifestService) ResolveVNTRuntime(_ context.Context, source clientupdate.SourceRelease) (clientupdate.SourceRelease, error) {
+	return source, nil
+}
+
 func TestManagedReleaseLifecycleAgainstPostgreSQL(t *testing.T) {
 	databaseURL := os.Getenv("TEST_DATABASE_URL")
 	if databaseURL == "" {

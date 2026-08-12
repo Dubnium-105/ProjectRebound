@@ -283,7 +283,7 @@ VNT 数据面不经过 Control Plane。公共节点和房间响应不会包含 n
 
 `GET /v1/vnt/nodes` 使用基于 ID 的游标分页。将响应中的 `data.next_cursor` 作为下一次请求的 `cursor`；空值表示没有下一页。`limit` 范围为 `1..200`，默认值为 `100`。
 
-每个节点都包含 `version_compatible`，它由服务端对批准的 `vnts` 与 wrapper 版本白名单执行精确且区分大小写的匹配。ToolBox 应隐藏不兼容节点，但仍必须处理 `409 VNT_NODE_UNAVAILABLE`，因为 create/rebind 会在分配事务内再次检查状态、容量和两个版本。
+每个节点都包含 `version_compatible`，它由服务端对当前已发布 ToolBox 客户端版本中经过校验的 sidecar 所提取出的 VNT 运行时版本对执行精确且区分大小写的匹配。发布或回滚 ToolBox 版本会立即更新节点资格；若没有已发布版本携带有效运行时元数据，策略将 fail closed。公开更新 Manifest 及其签名结构保持不变，以兼容旧客户端。ToolBox 应隐藏不兼容节点，但仍必须处理 `409 VNT_NODE_UNAVAILABLE`，因为 create/rebind 会在分配事务内再次检查状态、容量和两个版本。
 
 有活动房间的节点在请求退役后进入 `DRAINING`，并可继续发送心跳及轮换凭据，直到相关房间结束。节点一旦进入 `RETIRED`，其余节点凭据会被原子撤销。
 

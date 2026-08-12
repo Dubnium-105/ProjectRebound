@@ -133,6 +133,7 @@ GET  /v1/admin/p2p-rooms
 GET  /v1/admin/p2p-rooms/{room_id}
 GET  /v1/admin/p2p-rooms/{room_id}/members
 POST /v1/admin/p2p-rooms/{room_id}/close
+DELETE /v1/admin/p2p-rooms/{room_id}
 POST /v1/admin/p2p-rooms/{room_id}/members/{player_id}/remove
 
 GET  /v1/admin/p2p-battlelog/matches/{match_id}
@@ -144,6 +145,8 @@ GET  /v1/admin/game-servers/{server_id}
 POST /v1/admin/game-servers/{server_id}/drain
 POST /v1/admin/game-servers/{server_id}/resume
 POST /v1/admin/game-servers/{server_id}/disable
+POST /v1/admin/game-servers/{server_id}/ban
+DELETE /v1/admin/game-servers/{server_id}
 
 GET  /v1/admin/connections
 GET  /v1/admin/connections/{connection_id}
@@ -167,7 +170,7 @@ GET  /v1/admin/vnt-security-events
 
 读取 P2P BattleLog 标准化证据要求 `p2p.battlelog.read`；独立的原始证据接口要求 `p2p.battlelog.raw.read`，响应强制 `Cache-Control: no-store`，普通运维/客服角色不获得该权限。其报告标识和数据表与专用服务器 BattleLog 完全分离。
 
-所有写操作都必须提交 `reason`；Relay Drain 还可提交 `deadline_seconds` 和 `migrate_existing`。`POST /v1/admin/game-servers/registration-tokens` 还要求 `game_servers.register` 权限和 MFA Step-up；请求包含 `instance_id` 与 1–168 小时有效期，会撤销该实例之前尚未消费的凭据，只保存 SHA-256 哈希，并仅在带 `Cache-Control: no-store` 的创建响应中返回一次明文 `gsr_...` Token。VNT 节点 Drain 与 Revoke 都要求 MFA Step-up：Drain 停止新房间分配但保留活动房间和节点凭据；Revoke 立即撤销全部节点凭据、将 VNT session 标为失败、关闭受影响房间，并返回 `closed_rooms`。节点列表/详情只显示 owner、endpoint、版本、fingerprint、最新凭据租约时间、可达性和安全的房间引用，不返回凭据或房间秘密。停用专服会将其标记为离线并撤销 Server Token。房间操作返回 `connections_cleanup_complete`；若为 false，说明房间变更已成功，但需按 Runbook 确认下游连接清理。Connection 的 Relay 迁移不接受浏览器提交目标地址或节点，目标由后端调度器从合格的 READY 节点中选择。其他响应绝不包含房主 Token、节点 Token、Allocation Token、注册 Token 哈希、私钥或完整 ICE Candidate。
+所有写操作都必须提交 `reason`；Relay Drain 还可提交 `deadline_seconds` 和 `migrate_existing`。`POST /v1/admin/game-servers/registration-tokens` 还要求 `game_servers.register` 权限和 MFA Step-up；请求包含 `instance_id` 与 1–168 小时有效期，会撤销该实例之前尚未消费的凭据，只保存 SHA-256 哈希，并仅在带 `Cache-Control: no-store` 的创建响应中返回一次明文 `gsr_...` Token。VNT 节点 Drain 与 Revoke 都要求 MFA Step-up：Drain 停止新房间分配但保留活动房间和节点凭据；Revoke 立即撤销全部节点凭据、将 VNT session 标为失败、关闭受影响房间，并返回 `closed_rooms`。节点列表/详情只显示 owner、endpoint、版本、fingerprint、最新凭据租约时间、可达性和安全的房间引用，不返回凭据或房间秘密。停用专服会将其标记为离线并撤销 Server Token；封禁还会持久阻止玩家/管理员签发注册凭据以及最终注册。删除采用带审计的软删除：只有 CLOSED 房间和 OFFLINE、未封禁专服可从目录移除，比赛、注册与审计历史均保留。房间操作返回 `connections_cleanup_complete`；若为 false，说明房间变更已成功，但需按 Runbook 确认下游连接清理。Connection 的 Relay 迁移不接受浏览器提交目标地址或节点，目标由后端调度器从合格的 READY 节点中选择。其他响应绝不包含房主 Token、节点 Token、Allocation Token、注册 Token 哈希、私钥或完整 ICE Candidate。
 
 ### 3.4 客户端发布管理
 
@@ -183,6 +186,8 @@ POST /v1/admin/releases/{release_id}/archive
 ```
 
 创建请求包含平台、架构、stable/beta/toolbox 渠道、语义化版本、强制更新策略和对象存储文件描述。校验会检查文件路径、大小、SHA-256、压缩方式、CDN Object Key 与实际 `HEAD` 可用性、兼容版本顺序以及生成的 Ed25519 签名。只有 `READY` 版本可发布；正式发布、回滚和归档都必须填写原因，并由后端强制执行 MFA Step-up。公开更新目录只读取 `PUBLISHED` 的管理版本；回滚会让该版本退出后续更新检查，但不会删除审计历史。归档只接受 `DRAFT`、`READY` 或 `ROLLED_BACK`，沿用 `updates.rollback` 权限并保留全部记录。
+
+ToolBox 发布必须把客户端生成的 `vnt-runtime-manifest.json` 作为未压缩的独立发布文件一并提交。后端校验其大小与 SHA-256，自动读取 `vnts.version` 和 `wrapperVersion`，并将精确版本对保存在受控发布元数据中。VNT 节点的 `version_compatible` 直接依据当前已发布客户端版本的运行时元数据计算；发布或回滚后立即生效，无需维护单独的部署白名单。sidecar 不属于安装载荷，公开更新 Manifest 及签名结构保持与旧客户端兼容。
 
 ### 3.5 管理员与角色治理
 

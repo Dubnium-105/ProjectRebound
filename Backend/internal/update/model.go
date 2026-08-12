@@ -35,15 +35,24 @@ type Manifest struct {
 }
 
 type SourceRelease struct {
-	SchemaVersion           int          `json:"schema_version"`
-	Product                 string       `json:"product"`
-	Platform                string       `json:"platform"`
-	Architecture            string       `json:"architecture"`
-	Channel                 string       `json:"channel"`
-	Version                 string       `json:"version"`
-	MinimumSupportedVersion string       `json:"minimum_supported_version"`
-	PublishedAt             time.Time    `json:"published_at"`
-	Files                   []SourceFile `json:"files"`
+	SchemaVersion           int                `json:"schema_version"`
+	Product                 string             `json:"product"`
+	Platform                string             `json:"platform"`
+	Architecture            string             `json:"architecture"`
+	Channel                 string             `json:"channel"`
+	Version                 string             `json:"version"`
+	MinimumSupportedVersion string             `json:"minimum_supported_version"`
+	PublishedAt             time.Time          `json:"published_at"`
+	VNTRuntime              *VNTRuntimeRelease `json:"vnt_runtime,omitempty"`
+	Files                   []SourceFile       `json:"files"`
+}
+
+// VNTRuntimeRelease is copied from the ToolBox runtime sidecar into the
+// server-side managed release metadata. VNT node eligibility uses this exact
+// pair, rather than a separately maintained deployment allowlist.
+type VNTRuntimeRelease struct {
+	VNTSVersion    string `json:"vnts_version"`
+	WrapperVersion string `json:"wrapper_version"`
 }
 
 type SourceFile struct {

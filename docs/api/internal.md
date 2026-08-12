@@ -133,6 +133,7 @@ GET  /v1/admin/p2p-rooms
 GET  /v1/admin/p2p-rooms/{room_id}
 GET  /v1/admin/p2p-rooms/{room_id}/members
 POST /v1/admin/p2p-rooms/{room_id}/close
+DELETE /v1/admin/p2p-rooms/{room_id}
 POST /v1/admin/p2p-rooms/{room_id}/members/{player_id}/remove
 
 GET  /v1/admin/p2p-battlelog/matches/{match_id}
@@ -144,6 +145,8 @@ GET  /v1/admin/game-servers/{server_id}
 POST /v1/admin/game-servers/{server_id}/drain
 POST /v1/admin/game-servers/{server_id}/resume
 POST /v1/admin/game-servers/{server_id}/disable
+POST /v1/admin/game-servers/{server_id}/ban
+DELETE /v1/admin/game-servers/{server_id}
 
 GET  /v1/admin/connections
 GET  /v1/admin/connections/{connection_id}
@@ -167,7 +170,7 @@ GET  /v1/admin/vnt-security-events
 
 P2P BattleLog normalized evidence requires `p2p.battlelog.read`. The separate raw endpoint requires `p2p.battlelog.raw.read`, returns `Cache-Control: no-store`, and is not granted to ordinary operations/support roles. Its report identifiers and tables are separate from dedicated-server BattleLog storage.
 
-Every write requires `reason`; Relay drain also accepts `deadline_seconds` and `migrate_existing`. `POST /v1/admin/game-servers/registration-tokens` additionally requires `game_servers.register` and MFA step-up. It accepts `instance_id` plus a 1–168 hour lifetime, revokes any older unconsumed token for that instance, stores only a SHA-256 hash, and returns the plaintext `gsr_...` token once with `Cache-Control: no-store`. VNT-node Drain and Revoke both require MFA step-up. Drain stops new room allocations while preserving active rooms and node credentials. Revoke immediately revokes every node credential, marks VNT sessions failed, closes affected rooms, and returns `closed_rooms`; node list/detail expose owner, endpoint, versions, fingerprint, latest credential lease timestamps, reachability, and safe room references, but never credential material or room secrets. Game-server disable marks the server offline and revokes its Server Token. Room actions report `connections_cleanup_complete`; a false value means the room mutation succeeded but the operator should follow the runbook to confirm downstream connection cleanup. Connection Relay migration never accepts a target address or node from the browser: the backend scheduler selects an eligible READY node. Other responses never include host tokens, node tokens, allocation tokens, registration-token hashes, private keys, or full ICE candidates.
+Every write requires `reason`; Relay drain also accepts `deadline_seconds` and `migrate_existing`. `POST /v1/admin/game-servers/registration-tokens` additionally requires `game_servers.register` and MFA step-up. It accepts `instance_id` plus a 1–168 hour lifetime, revokes any older unconsumed token for that instance, stores only a SHA-256 hash, and returns the plaintext `gsr_...` token once with `Cache-Control: no-store`. VNT-node Drain and Revoke both require MFA step-up. Drain stops new room allocations while preserving active rooms and node credentials. Revoke immediately revokes every node credential, marks VNT sessions failed, closes affected rooms, and returns `closed_rooms`; node list/detail expose owner, endpoint, versions, fingerprint, latest credential lease timestamps, reachability, and safe room references, but never credential material or room secrets. Game-server disable marks the server offline and revokes its Server Token. Ban additionally persists the instance ban and rejects player/admin credential issuance and final registration. Delete is an audited soft deletion: only CLOSED rooms and OFFLINE, non-banned game servers can be removed from directory views, while match, registration, and audit history remains intact. Room actions report `connections_cleanup_complete`; a false value means the room mutation succeeded but the operator should follow the runbook to confirm downstream connection cleanup. Connection Relay migration never accepts a target address or node from the browser: the backend scheduler selects an eligible READY node. Other responses never include host tokens, node tokens, allocation tokens, registration-token hashes, private keys, or full ICE candidates.
 
 ### 3.4 Managed client releases
 
@@ -182,7 +185,7 @@ POST /v1/admin/releases/{release_id}/rollback
 POST /v1/admin/releases/{release_id}/archive
 ```
 
-Creation accepts platform, architecture, stable/beta/toolbox channel, semantic version information, forced-update policy, and object-storage file descriptors. `GET /v1/admin/release-files` exposes only server-verified `DRAFT` or `PUBLISHED` download-storage objects to administrators with `updates.create`; it does not expose bucket-listing credentials. Validation checks file paths, sizes, SHA-256 values, compression, CDN object keys and actual `HEAD` availability, compatibility ordering, and the generated Ed25519 signature. Only a `READY` release can be published. Publish, rollback, and archive require both an operation reason and server-enforced MFA step-up. The public update catalog reads only `PUBLISHED` managed manifests; rollback removes that release from future update checks without deleting its audit history. Archive accepts only `DRAFT`, `READY`, or `ROLLED_BACK`, uses `updates.rollback`, and preserves all records.
+Creation accepts platform, architecture, stable/beta/toolbox channel, semantic version information, forced-update policy, and object-storage file descriptors. `GET /v1/admin/release-files` exposes only server-verified `DRAFT` or `PUBLISHED` download-storage objects to administrators with `updates.create`; it does not expose bucket-listing credentials. A ToolBox release must include the client-generated `vnt-runtime-manifest.json` sidecar as an uncompressed release file. Validation downloads that sidecar through the internal object-storage endpoint, verifies its declared size and SHA-256, reads `vnts.version` and `wrapperVersion`, and stores the resulting exact pair in the controlled release metadata; administrators do not enter a second VNT version allowlist. VNT node `version_compatible` is computed from the runtime metadata of currently published client releases and changes immediately after publish or rollback. The attestation sidecar is not an install payload, and the public update Manifest/signature schema stays byte-compatible with older clients. Validation also checks all file paths, sizes, SHA-256 values, compression, CDN object keys and actual `HEAD` availability, compatibility ordering, and the generated Ed25519 signature. Only a `READY` release can be published. Publish, rollback, and archive require both an operation reason and server-enforced MFA step-up. The public update catalog reads only `PUBLISHED` managed manifests; rollback removes that release from future update checks without deleting its audit history. Archive accepts only `DRAFT`, `READY`, or `ROLLED_BACK`, uses `updates.rollback`, and preserves all records.
 
 ### 3.5 Administrator and role governance
 

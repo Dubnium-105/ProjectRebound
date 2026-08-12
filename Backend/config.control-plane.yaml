@@ -167,8 +167,6 @@ relay_registry:
 vnt:
   # Exact, case-sensitive allowlists. Both must be non-empty before
   # update.vnt_rooms_enabled can be set to true.
-  allowed_vnts_versions: []
-  allowed_wrapper_versions: []
   credential_rotation_grace_seconds: 60
   enrollment_requests_per_player_per_hour: 5
   directory_requests_per_ip_per_minute: 120

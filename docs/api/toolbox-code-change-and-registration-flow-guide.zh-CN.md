@@ -474,7 +474,7 @@ fn list_nodes_page(
 | `src/vnt/manager.rs` | 编排已实现 | 接入应用、Realtime 和生产 GameLaunchAdapter |
 | `src/vnt/runtime.rs` | fail-closed 校验已实现 | 发布时打包签名资产并注入 manifest pin |
 
-当前后端已经按部署变量 `VNT_ALLOWED_VNTS_VERSIONS` 与 `VNT_ALLOWED_WRAPPER_VERSIONS` 精确计算 `VNTNode.version_compatible`，并在房间创建/rebind 的事务内再次校验。ToolBox 仍须校验随安装包发布的本地运行时清单与 SHA-256，不能仅因目录字段为 `true` 就跳过本地二进制验证。
+当前后端会从已发布 ToolBox 客户端版本中经过校验的 `vnt-runtime-manifest.json` sidecar 自动读取精确的 VNT 运行时版本对来计算 `VNTNode.version_compatible`，并在房间创建/rebind 的事务内再次校验。sidecar 只保存为服务端发布元数据，不改变公开更新 Manifest 的签名结构；ToolBox 本机仍须校验安装包内运行时清单与 SHA-256，不能仅因目录字段为 `true` 就跳过本地二进制验证。
 
 ## 6. 社区 VNT 节点注册与运行时接入
 
@@ -595,7 +595,7 @@ Authorization: Bearer <vnn-node-token>
 - 约 90 秒没有心跳时进入 STALE，约 5 分钟进入 OFFLINE；
 - `server_process_healthy=false` 会标为 OFFLINE；
 - 公共目录默认只返回 ONLINE；
-- 目录中的 `version_compatible` 由后端部署白名单 `VNT_ALLOWED_VNTS_VERSIONS` 与 `VNT_ALLOWED_WRAPPER_VERSIONS` 精确且区分大小写地计算；
+- 目录中的 `version_compatible` 由当前已发布 ToolBox 客户端版本的已校验 sidecar 中提取的版本对精确且区分大小写地计算；
 - ToolBox 必须隐藏不兼容节点，但 create/rebind 仍要处理 `409 VNT_NODE_UNAVAILABLE`，因为后端会在事务内重新检查节点状态、容量和版本；
 - TCP 探测不能替代真实 UDP/VNT 数据面监控。
 

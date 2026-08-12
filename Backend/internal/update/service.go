@@ -3,6 +3,7 @@ package update
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -34,6 +35,10 @@ type ManagedCatalog interface {
 	PublishedManifests(context.Context) ([]Manifest, error)
 }
 
+type ManagedVNTRuntimeCatalog interface {
+	PublishedVNTRuntimes(context.Context) ([]VNTRuntimeRelease, error)
+}
+
 type Service struct {
 	cfg                        config.UpdateConfig
 	managedReleaseBaseURL      string
@@ -42,6 +47,7 @@ type Service struct {
 	relay                      RelayDirectory
 	manifests                  []Manifest
 	files                      map[string]FileDownload
+	vntRuntimes                []VNTRuntimeRelease
 	managed                    ManagedCatalog
 }
 
@@ -50,17 +56,18 @@ func NewService(cfg config.UpdateConfig, environment string, relay RelayDirector
 	if err != nil {
 		return nil, err
 	}
-	manifests, files, err := loadCatalog(cfg, signer)
+	manifests, files, vntRuntimes, err := loadCatalog(cfg, signer)
 	if err != nil {
 		if !(os.IsNotExist(err) && !strings.EqualFold(environment, "production")) {
 			return nil, err
 		}
 		manifests = []Manifest{}
 		files = make(map[string]FileDownload)
+		vntRuntimes = []VNTRuntimeRelease{}
 	}
 	return &Service{
 		cfg: cfg, managedReleaseBaseURL: cfg.CDNBaseURL, managedReleaseProbeBaseURL: cfg.CDNBaseURL,
-		signer: signer, relay: relay, manifests: manifests, files: files,
+		signer: signer, relay: relay, manifests: manifests, files: files, vntRuntimes: vntRuntimes,
 	}, nil
 }
 
@@ -97,6 +104,89 @@ func (s *Service) VerifySignedManifest(manifest Manifest) error {
 	return s.signer.Verify(manifest)
 }
 
+// ResolveVNTRuntime reads the runtime sidecar shipped with a ToolBox release,
+// verifies it against the selected release-file descriptor, and copies only
+// the two version values needed by the control plane into server-side release
+// metadata. Administrators therefore never maintain a second compatibility
+// list, while the public signed manifest remains compatible with old clients.
+func (s *Service) ResolveVNTRuntime(ctx context.Context, source SourceRelease) (SourceRelease, error) {
+	if source.Channel != ChannelToolbox {
+		if source.VNTRuntime != nil {
+			return SourceRelease{}, errors.New("vnt_runtime is only valid for toolbox releases")
+		}
+		return source, nil
+	}
+
+	var sidecar *SourceFile
+	for index := range source.Files {
+		if strings.EqualFold(path.Base(path.Clean(source.Files[index].Path)), "vnt-runtime-manifest.json") {
+			if sidecar != nil {
+				return SourceRelease{}, errors.New("toolbox release contains multiple VNT runtime manifests")
+			}
+			sidecar = &source.Files[index]
+		}
+	}
+	if sidecar == nil {
+		return SourceRelease{}, errors.New("toolbox release must include vnt-runtime-manifest.json")
+	}
+	if sidecar.Compression != "none" {
+		return SourceRelease{}, errors.New("vnt-runtime-manifest.json must not be compressed")
+	}
+	baseURL, err := url.Parse(s.managedReleaseProbeBaseURL)
+	if err != nil {
+		return SourceRelease{}, fmt.Errorf("parse managed release probe base URL: %w", err)
+	}
+	downloadURL, err := objectURL(baseURL, sidecar.ObjectKey)
+	if err != nil {
+		return SourceRelease{}, fmt.Errorf("VNT runtime manifest: %w", err)
+	}
+	const maximumSidecarBytes = int64(64 << 10)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
+	if err != nil {
+		return SourceRelease{}, err
+	}
+	client := &http.Client{Timeout: 10 * time.Second, CheckRedirect: sameOriginRedirects}
+	response, err := client.Do(request)
+	if err != nil {
+		return SourceRelease{}, fmt.Errorf("read VNT runtime manifest: %w", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		return SourceRelease{}, fmt.Errorf("read VNT runtime manifest: unexpected HTTP status %d", response.StatusCode)
+	}
+	body, err := io.ReadAll(io.LimitReader(response.Body, maximumSidecarBytes+1))
+	if err != nil {
+		return SourceRelease{}, fmt.Errorf("read VNT runtime manifest: %w", err)
+	}
+	if int64(len(body)) > maximumSidecarBytes {
+		return SourceRelease{}, errors.New("vnt-runtime-manifest.json exceeds 64 KiB")
+	}
+	if int64(len(body)) != sidecar.Size {
+		return SourceRelease{}, errors.New("vnt-runtime-manifest.json size does not match release metadata")
+	}
+	digest := sha256.Sum256(body)
+	if fmt.Sprintf("%x", digest[:]) != sidecar.SHA256 {
+		return SourceRelease{}, errors.New("vnt-runtime-manifest.json SHA-256 does not match release metadata")
+	}
+	var runtimeManifest struct {
+		WrapperVersion string `json:"wrapperVersion"`
+		VNTS           struct {
+			Version string `json:"version"`
+		} `json:"vnts"`
+	}
+	if err := json.Unmarshal(body, &runtimeManifest); err != nil {
+		return SourceRelease{}, fmt.Errorf("decode VNT runtime manifest: %w", err)
+	}
+	source.VNTRuntime = &VNTRuntimeRelease{
+		VNTSVersion:    strings.TrimSpace(runtimeManifest.VNTS.Version),
+		WrapperVersion: strings.TrimSpace(runtimeManifest.WrapperVersion),
+	}
+	if err := validateVNTRuntime(*source.VNTRuntime); err != nil {
+		return SourceRelease{}, err
+	}
+	return source, nil
+}
+
 func (s *Service) VerifyReleaseObjects(ctx context.Context, source SourceRelease) error {
 	if len(source.Files) == 0 {
 		return errors.New("release has no files to probe")
@@ -123,23 +213,7 @@ func verifyReleaseObjectURLs(ctx context.Context, files []File) error {
 	)
 	probeCtx, cancel := context.WithTimeout(ctx, probeTTL)
 	defer cancel()
-	client := &http.Client{
-		Timeout: probeTTL,
-		CheckRedirect: func(request *http.Request, via []*http.Request) error {
-			if len(via) >= 5 {
-				return errors.New("too many redirects")
-			}
-			if len(via) == 0 {
-				return nil
-			}
-			origin := via[0].URL
-			if !strings.EqualFold(request.URL.Scheme, origin.Scheme) ||
-				!strings.EqualFold(request.URL.Host, origin.Host) {
-				return errors.New("cross-origin redirect rejected")
-			}
-			return nil
-		},
-	}
+	client := &http.Client{Timeout: probeTTL, CheckRedirect: sameOriginRedirects}
 	jobs := make(chan File)
 	workerCount := min(maxWorkers, len(files))
 	var (
@@ -342,6 +416,32 @@ func (s *Service) catalog(ctx context.Context) ([]Manifest, map[string]FileDownl
 	return manifests, files, nil
 }
 
+// PublishedManifests exposes the verified effective client catalog to
+// compatibility consumers. It contains both deployment descriptors and
+// administrator-published releases.
+func (s *Service) PublishedManifests(ctx context.Context) ([]Manifest, error) {
+	manifests, _, err := s.catalog(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return manifests, nil
+}
+
+// PublishedVNTRuntimes returns server-side release attestation metadata. It is
+// intentionally separate from the public signed update manifest so clients
+// that predate VNT metadata retain byte-for-byte signature compatibility.
+func (s *Service) PublishedVNTRuntimes(ctx context.Context) ([]VNTRuntimeRelease, error) {
+	result := append([]VNTRuntimeRelease(nil), s.vntRuntimes...)
+	if catalog, ok := s.managed.(ManagedVNTRuntimeCatalog); ok {
+		managed, err := catalog.PublishedVNTRuntimes(ctx)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, managed...)
+	}
+	return result, nil
+}
+
 func manifestCatalogKey(manifest Manifest) string {
 	return manifest.Platform + "\x00" + manifest.Architecture + "\x00" +
 		manifest.Channel + "\x00" + manifest.Version
@@ -372,17 +472,18 @@ func (s *Service) ClientConfig(ctx context.Context) (ClientConfig, error) {
 	return result, nil
 }
 
-func loadCatalog(cfg config.UpdateConfig, signer *Signer) ([]Manifest, map[string]FileDownload, error) {
+func loadCatalog(cfg config.UpdateConfig, signer *Signer) ([]Manifest, map[string]FileDownload, []VNTRuntimeRelease, error) {
 	entries, err := os.ReadDir(cfg.ManifestDirectory)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	baseURL, err := url.Parse(cfg.CDNBaseURL)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	var manifests []Manifest
 	files := make(map[string]FileDownload)
+	vntRuntimes := make([]VNTRuntimeRelease, 0)
 	seenReleases := make(map[string]struct{})
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(strings.ToLower(entry.Name()), ".json") {
@@ -391,29 +492,32 @@ func loadCatalog(cfg config.UpdateConfig, signer *Signer) ([]Manifest, map[strin
 		path := filepath.Join(cfg.ManifestDirectory, entry.Name())
 		source, err := decodeSourceRelease(path)
 		if err != nil {
-			return nil, nil, fmt.Errorf("load update descriptor %s: %w", entry.Name(), err)
+			return nil, nil, nil, fmt.Errorf("load update descriptor %s: %w", entry.Name(), err)
 		}
 		manifest, err := buildManifest(cfg, baseURL, source)
 		if err != nil {
-			return nil, nil, fmt.Errorf("validate update descriptor %s: %w", entry.Name(), err)
+			return nil, nil, nil, fmt.Errorf("validate update descriptor %s: %w", entry.Name(), err)
 		}
 		key := manifest.Platform + "\x00" + manifest.Architecture + "\x00" + manifest.Channel + "\x00" + manifest.Version
 		if _, duplicate := seenReleases[key]; duplicate {
-			return nil, nil, fmt.Errorf("duplicate update release %s/%s/%s/%s", manifest.Platform, manifest.Architecture, manifest.Channel, manifest.Version)
+			return nil, nil, nil, fmt.Errorf("duplicate update release %s/%s/%s/%s", manifest.Platform, manifest.Architecture, manifest.Channel, manifest.Version)
 		}
 		seenReleases[key] = struct{}{}
 		manifest, err = signer.Sign(manifest)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		for _, file := range manifest.Files {
 			download := FileDownload{FileID: file.FileID, Size: file.Size, SHA256: file.SHA256, DownloadURL: file.DownloadURL}
 			if existing, duplicate := files[file.FileID]; duplicate && existing != download {
-				return nil, nil, fmt.Errorf("file_id %q refers to multiple objects", file.FileID)
+				return nil, nil, nil, fmt.Errorf("file_id %q refers to multiple objects", file.FileID)
 			}
 			files[file.FileID] = download
 		}
 		manifests = append(manifests, manifest)
+		if source.Channel == ChannelToolbox && source.VNTRuntime != nil {
+			vntRuntimes = append(vntRuntimes, *source.VNTRuntime)
+		}
 	}
 	sort.Slice(manifests, func(i, j int) bool {
 		left, right := manifests[i], manifests[j]
@@ -429,7 +533,7 @@ func loadCatalog(cfg config.UpdateConfig, signer *Signer) ([]Manifest, map[strin
 		comparison, _ := compareVersions(left.Version, right.Version)
 		return comparison < 0
 	})
-	return manifests, files, nil
+	return manifests, files, vntRuntimes, nil
 }
 
 func decodeSourceRelease(path string) (SourceRelease, error) {
@@ -465,11 +569,19 @@ func buildManifest(cfg config.UpdateConfig, baseURL *url.URL, source SourceRelea
 	if comparison, _ := compareVersions(source.MinimumSupportedVersion, source.Version); comparison > 0 {
 		return Manifest{}, errors.New("minimum_supported_version cannot exceed version")
 	}
+	if source.Channel != ChannelToolbox && source.VNTRuntime != nil {
+		return Manifest{}, errors.New("vnt_runtime is only valid for toolbox releases")
+	}
 	manifest := Manifest{
 		SchemaVersion: source.SchemaVersion, Product: source.Product,
 		Platform: strings.ToLower(source.Platform), Architecture: strings.ToLower(source.Architecture), Channel: source.Channel,
 		Version: source.Version, MinimumSupportedVersion: source.MinimumSupportedVersion,
 		PublishedAt: source.PublishedAt.UTC(), Files: make([]File, 0, len(source.Files)),
+	}
+	if source.VNTRuntime != nil {
+		if err := validateVNTRuntime(*source.VNTRuntime); err != nil {
+			return Manifest{}, err
+		}
 	}
 	seenPaths := make(map[string]struct{})
 	for _, sourceFile := range source.Files {
@@ -488,10 +600,20 @@ func buildManifest(cfg config.UpdateConfig, baseURL *url.URL, source SourceRelea
 		if err != nil {
 			return Manifest{}, fmt.Errorf("file %q: %w", cleanPath, err)
 		}
+		// The runtime manifest is release attestation input, not an installed
+		// update payload. Its extracted version pair remains in server-side
+		// release metadata, while the sidecar itself stays out of the client's
+		// download/install file set.
+		if source.Channel == ChannelToolbox && strings.EqualFold(path.Base(cleanPath), "vnt-runtime-manifest.json") {
+			continue
+		}
 		manifest.Files = append(manifest.Files, File{
 			FileID: sourceFile.FileID, Path: cleanPath, Size: sourceFile.Size, SHA256: sourceFile.SHA256,
 			Compression: sourceFile.Compression, DownloadURL: downloadURL,
 		})
+	}
+	if len(manifest.Files) == 0 {
+		return Manifest{}, errors.New("release has no installable files")
 	}
 	sort.Slice(manifest.Files, func(i, j int) bool { return manifest.Files[i].Path < manifest.Files[j].Path })
 	return manifest, nil
@@ -523,4 +645,29 @@ func validChannel(value string) bool {
 	default:
 		return false
 	}
+}
+
+func validateVNTRuntime(runtime VNTRuntimeRelease) error {
+	if _, err := parseVersion(strings.TrimSpace(runtime.VNTSVersion)); err != nil {
+		return fmt.Errorf("vnt_runtime.vnts_version: %w", err)
+	}
+	if _, err := parseVersion(strings.TrimSpace(runtime.WrapperVersion)); err != nil {
+		return fmt.Errorf("vnt_runtime.wrapper_version: %w", err)
+	}
+	return nil
+}
+
+func sameOriginRedirects(request *http.Request, via []*http.Request) error {
+	if len(via) >= 5 {
+		return errors.New("too many redirects")
+	}
+	if len(via) == 0 {
+		return nil
+	}
+	origin := via[0].URL
+	if !strings.EqualFold(request.URL.Scheme, origin.Scheme) ||
+		!strings.EqualFold(request.URL.Host, origin.Host) {
+		return errors.New("cross-origin redirect rejected")
+	}
+	return nil
 }

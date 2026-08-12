@@ -1194,6 +1194,28 @@ paths:
           content:
             application/json:
               schema: {$ref: "#/components/schemas/P2PRoomResponse"}
+    delete:
+      operationId: adminDeleteP2PRoom
+      tags: [Admin]
+      x-internal: true
+      description: Soft-deletes an already CLOSED room from administrative and public directories while retaining audit and match history.
+      security:
+        - adminAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/RoomID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
+      responses:
+        "200":
+          description: Closed room removed from directory views.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminP2PRoomDeletionResponse"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/Conflict"}
   /v1/admin/p2p-rooms/{room_id}/close:
     post:
       operationId: adminCloseP2PRoom
@@ -1356,6 +1378,28 @@ paths:
           content:
             application/json:
               schema: {$ref: "#/components/schemas/AdminGameServerResponse"}
+    delete:
+      operationId: adminDeleteGameServer
+      tags: [Admin]
+      x-internal: true
+      description: Soft-deletes an OFFLINE, non-banned game server from directory views while retaining historical references.
+      security:
+        - adminAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/GameServerID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
+      responses:
+        "200":
+          description: Offline game server removed from directory views.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminGameServerDeletionResponse"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/Conflict"}
   /v1/admin/game-servers/{server_id}/drain:
     post:
       operationId: adminDrainGameServer
@@ -1416,6 +1460,29 @@ paths:
           content:
             application/json:
               schema: {$ref: "#/components/schemas/AdminGameServerResponse"}
+  /v1/admin/game-servers/{server_id}/ban:
+    post:
+      operationId: adminBanGameServer
+      tags: [Admin]
+      x-internal: true
+      description: Marks the instance permanently banned, takes it offline, revokes credentials, and blocks future credential issuance and registration.
+      security:
+        - adminAccessToken: []
+      parameters:
+        - $ref: "#/components/parameters/GameServerID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminOperationReason"}
+      responses:
+        "200":
+          description: Game server instance banned.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminGameServerResponse"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/Conflict"}
   /v1/admin/connections:
     get:
       operationId: adminListConnections
@@ -4842,6 +4909,19 @@ components:
             room: {$ref: "#/components/schemas/AdminP2PRoom"}
             connections_cleanup_complete: {type: boolean}
         request_id: {type: string}
+    AdminP2PRoomDeletionResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [room_id, deleted]
+          properties:
+            room_id: {type: string}
+            deleted: {type: boolean, const: true}
+        request_id: {type: string}
     AdminP2PRoomMember:
       type: object
       additionalProperties: false
@@ -4871,7 +4951,7 @@ components:
     AdminGameServer:
       type: object
       additionalProperties: false
-      required: [server_id, instance_id, display_name, region, mode, version, public_host, public_port, max_players, player_count, state, token_expires_at, token_revoked_at, credential_generation, certificate_fingerprint, certificate_expires_at, legacy_auth_expires_at, last_heartbeat_at, created_at, updated_at]
+      required: [server_id, instance_id, display_name, region, mode, version, public_host, public_port, max_players, player_count, state, token_expires_at, token_revoked_at, credential_generation, certificate_fingerprint, certificate_expires_at, legacy_auth_expires_at, is_banned, banned_at, banned_by, ban_reason, last_heartbeat_at, created_at, updated_at]
       properties:
         server_id: {type: string}
         instance_id: {type: string}
@@ -4890,6 +4970,10 @@ components:
         certificate_fingerprint: {type: string, pattern: "^$|^[0-9a-f]{64}$"}
         certificate_expires_at: {type: [string, "null"], format: date-time}
         legacy_auth_expires_at: {type: [string, "null"], format: date-time}
+        is_banned: {type: boolean}
+        banned_at: {type: [string, "null"], format: date-time}
+        banned_by: {type: string}
+        ban_reason: {type: string, maxLength: 500}
         last_heartbeat_at: {type: string, format: date-time}
         created_at: {type: string, format: date-time}
         updated_at: {type: string, format: date-time}
@@ -4935,6 +5019,19 @@ components:
       required: [data, request_id]
       properties:
         data: {$ref: "#/components/schemas/AdminGameServer"}
+        request_id: {type: string}
+    AdminGameServerDeletionResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [server_id, deleted]
+          properties:
+            server_id: {type: string}
+            deleted: {type: boolean, const: true}
         request_id: {type: string}
     AdminGameServerListResponse:
       type: object
@@ -5360,6 +5457,10 @@ components:
         files:
           type: array
           items: {$ref: "#/components/schemas/AdminReleaseSourceFile"}
+        vnt_runtime:
+          allOf:
+            - $ref: "#/components/schemas/VNTRuntimeRelease"
+          description: Server-side runtime attestation extracted from the ToolBox release sidecar; it is not part of the public update manifest.
         manifest: {$ref: "#/components/schemas/SignedUpdateManifest"}
         validation: {$ref: "#/components/schemas/AdminReleaseValidation"}
         created_by: {type: string}
@@ -7030,6 +7131,17 @@ components:
         sha256: {type: string, pattern: "^[0-9a-f]{64}$"}
         compression: {type: string, enum: [none, gzip, zstd]}
         download_url: {type: string, format: uri}
+    VNTRuntimeRelease:
+      type: object
+      additionalProperties: false
+      required: [vnts_version, wrapper_version]
+      properties:
+        vnts_version:
+          type: string
+          description: Exact vnts version embedded in this published ToolBox client.
+        wrapper_version:
+          type: string
+          description: Exact Project Rebound VNT wrapper version embedded in this published ToolBox client.
     SignedUpdateManifest:
       type: object
       additionalProperties: false
