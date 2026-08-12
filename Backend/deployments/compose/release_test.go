@@ -41,3 +41,24 @@ func TestLoadBotHasMinimalContainerImage(t *testing.T) {
 		}
 	}
 }
+
+func TestVNTCompatibilityDoesNotUseDeploymentAllowlists(t *testing.T) {
+	paths := []string{
+		"docker-compose.yaml",
+		".env.example",
+		filepath.Join("..", "control-plane", "docker-compose.yaml"),
+		filepath.Join("..", "control-plane", ".env.example"),
+		filepath.Join("..", "..", "config.control-plane.yaml"),
+		filepath.Join("..", "..", "scripts", "generate-control-plane-env.sh"),
+	}
+	for _, path := range paths {
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(contents), "VNT_ALLOWED_VNTS_VERSIONS") ||
+			strings.Contains(string(contents), "VNT_ALLOWED_WRAPPER_VERSIONS") {
+			t.Errorf("%s still configures a manual VNT version allowlist", path)
+		}
+	}
+}

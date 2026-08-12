@@ -75,7 +75,7 @@ func TestRetireAcceptsIntegrityTrustedOwnerAccess(t *testing.T) {
 	handler := NewHTTPHandler(service, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	handler.SetAccessAuthenticator(stubAccessAuthenticator{principal: auth.Principal{
 		Player:    player.Player{ID: "player_owner", AccountStatus: player.AccountStatusActive},
-		AuthLevel: player.AuthLevelTrusted, SteamVerified: true,
+		AuthLevel: player.AuthLevelVerified, SteamVerified: true, IntegrityTrusted: true,
 	}})
 	request := httptest.NewRequest("DELETE", "/v1/vnt/nodes/vnt_one", nil)
 	request.Header.Set("Authorization", "Bearer player.jwt.token")

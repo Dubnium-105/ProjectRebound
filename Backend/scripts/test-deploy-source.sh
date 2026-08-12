@@ -10,6 +10,8 @@ mkdir -p "$temporary_dir/bin" "$test_backend/scripts" \
   "$test_backend/deployments/control-plane" "$test_backend/deployments/edge-relay"
 cp "$script_dir/deploy-control-plane.sh" "$script_dir/deploy-meta-server.sh" \
   "$script_dir/deploy-edge-relay.sh" "$test_backend/scripts/"
+cp "$script_dir/../deployments/control-plane/toolbox-signer.pem" \
+  "$test_backend/deployments/control-plane/toolbox-signer.pem"
 touch "$test_backend/deployments/control-plane/docker-compose.yaml"
 touch "$test_backend/deployments/edge-relay/docker-compose.yaml"
 printf 'relay_id: relay-test\n' >"$test_backend/deployments/edge-relay/config.edge-relay.yaml"
@@ -21,6 +23,9 @@ printf '%s\n' "$*" >>"${DOCKER_LOG:?}"
 if [[ "$*" == *"--entrypoint /bin/sh control-plane"* &&
       "${FAIL_TICKET_PREFLIGHT:-0}" == "1" ]]; then
   exit 1
+fi
+if [[ "$*" == *"sha256sum \"\$TOOLBOX_PUBKEY_PATH\""* ]]; then
+  printf '%s\n' "${FAKE_TOOLBOX_PUBKEY_SHA256:?}"
 fi
 case " $* " in
   *" ps --status running -q edge-relay "*) printf 'fake-container\n' ;;
@@ -40,6 +45,8 @@ EOF
 chmod +x "$temporary_dir/bin/docker" "$temporary_dir/bin/curl" "$temporary_dir/bin/uname"
 
 control_env="$temporary_dir/control.env"
+expected_toolbox_pubkey_sha256="$(sha256sum "$test_backend/deployments/control-plane/toolbox-signer.pem" | awk '{print $1}')"
+export FAKE_TOOLBOX_PUBKEY_SHA256="$expected_toolbox_pubkey_sha256"
 printf 'CONTROL_PLANE_ADMIN_PORT=18080\nMETA_SERVER_HTTP_PORT=18082\n' >"$control_env"
 control_override="$temporary_dir/docker-compose.production.yaml"
 printf 'services: {}\n' >"$control_override"
@@ -56,10 +63,12 @@ if CONTROL_PLANE_ENV_FILE="$control_env" DEPLOY_SOURCE=ci CONTROL_PLANE_IMAGE=in
 fi
 
 : >"$docker_log"
+control_output="$temporary_dir/control.out"
 PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" \
   CONTROL_PLANE_ENV_FILE="$control_env" CONTROL_PLANE_COMPOSE_OVERRIDE_FILE="$control_override" \
   DEPLOY_SOURCE=ci CONTROL_PLANE_IMAGE="$control_image" \
-  bash "$test_backend/scripts/deploy-control-plane.sh" >/dev/null
+  bash "$test_backend/scripts/deploy-control-plane.sh" >"$control_output"
+grep -qx "CONTROL_PLANE_TOOLBOX_PUBKEY_SHA256 $expected_toolbox_pubkey_sha256" "$control_output"
 grep -q ' pull$' "$docker_log"
 grep -Fq -- "-f $control_override --profile monitoring pull" "$docker_log"
 grep -Fq -- 'run --rm -T --no-deps --entrypoint /bin/sh control-plane -c' "$docker_log"
@@ -159,7 +168,7 @@ for table in battlelog_matches battlelog_teams battlelog_participants \
   grep -Fq "('$table')" "$provision_script"
 done
 grep -Fq "('players', 'id, steam_id, auth_level, account_status, is_vip')" "$provision_script"
-grep -Fq "('auth_sessions', 'id, player_id, token_version, auth_provider, auth_level, steam_verified, device_id_hash, device_fingerprint_id, expires_at, revoked_at, revoked_reason, last_used_at')" "$provision_script"
+grep -Fq "('auth_sessions', 'id, player_id, token_version, auth_provider, auth_level, steam_verified, pem_fingerprint, integrity_trusted, device_id_hash, device_fingerprint_id, expires_at, revoked_at, revoked_reason, last_used_at')" "$provision_script"
 grep -Fq "'GRANT UPDATE (last_used_at) ON TABLE auth_sessions TO %I'" "$provision_script"
 
 verify_script="$script_dir/verify-control-plane.sh"

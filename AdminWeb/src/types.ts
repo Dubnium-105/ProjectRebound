@@ -194,6 +194,10 @@ export type GameServer = {
   certificate_fingerprint?: string;
   certificate_expires_at?: string | null;
   legacy_auth_expires_at?: string | null;
+  is_banned: boolean;
+  banned_at: string | null;
+  banned_by: string;
+  ban_reason: string;
 };
 
 export type RelayNode = {

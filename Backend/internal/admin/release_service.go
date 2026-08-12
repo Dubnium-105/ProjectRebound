@@ -18,6 +18,7 @@ type ReleaseManifestService interface {
 	BuildAndSign(clientupdate.SourceRelease) (clientupdate.Manifest, error)
 	VerifySignedManifest(clientupdate.Manifest) error
 	VerifyReleaseObjects(context.Context, clientupdate.SourceRelease) error
+	ResolveVNTRuntime(context.Context, clientupdate.SourceRelease) (clientupdate.SourceRelease, error)
 }
 
 type ReleaseService struct {
@@ -201,7 +202,7 @@ func (s *ReleaseService) transition(
 		}
 		source := oldItem.Source
 		source.PublishedAt = now
-		manifest, validation, err := s.validateManifest(ctx, source)
+		source, manifest, validation, err := s.validateManifest(ctx, source)
 		if err != nil {
 			return Release{}, err
 		}
@@ -219,7 +220,7 @@ func (s *ReleaseService) transition(
 		if oldItem.ForceUpdate {
 			source.MinimumSupportedVersion = source.Version
 		}
-		manifest, validation, err := s.validateManifest(ctx, source)
+		source, manifest, validation, err := s.validateManifest(ctx, source)
 		if err != nil {
 			return Release{}, err
 		}
@@ -271,19 +272,28 @@ func (s *ReleaseService) transition(
 func (s *ReleaseService) validateManifest(
 	ctx context.Context,
 	source clientupdate.SourceRelease,
-) (clientupdate.Manifest, ReleaseValidation, error) {
+) (clientupdate.SourceRelease, clientupdate.Manifest, ReleaseValidation, error) {
+	resolved, err := s.manifests.ResolveVNTRuntime(ctx, source)
+	if err != nil {
+		return clientupdate.SourceRelease{}, clientupdate.Manifest{}, ReleaseValidation{}, &ServiceError{
+			Status: 400, Code: "RELEASE_VNT_RUNTIME_INVALID",
+			Message: "The ToolBox VNT runtime manifest is missing or invalid.",
+			Details: map[string]any{"validation": err.Error()},
+		}
+	}
+	source = resolved
 	manifest, err := s.manifests.BuildAndSign(source)
 	if err != nil {
-		return clientupdate.Manifest{}, ReleaseValidation{}, &ServiceError{
+		return clientupdate.SourceRelease{}, clientupdate.Manifest{}, ReleaseValidation{}, &ServiceError{
 			Status: 400, Code: "RELEASE_VALIDATION_FAILED",
 			Message: "Release validation failed.", Details: map[string]any{"validation": err.Error()},
 		}
 	}
 	if err := s.manifests.VerifySignedManifest(manifest); err != nil {
-		return clientupdate.Manifest{}, ReleaseValidation{}, internal(err)
+		return clientupdate.SourceRelease{}, clientupdate.Manifest{}, ReleaseValidation{}, internal(err)
 	}
 	if err := s.manifests.VerifyReleaseObjects(ctx, source); err != nil {
-		return clientupdate.Manifest{}, ReleaseValidation{}, &ServiceError{
+		return clientupdate.SourceRelease{}, clientupdate.Manifest{}, ReleaseValidation{}, &ServiceError{
 			Status: 400, Code: "RELEASE_OBJECT_UNAVAILABLE",
 			Message: "One or more release objects are unavailable.",
 			Details: map[string]any{"validation": err.Error()},
@@ -299,7 +309,13 @@ func (s *ReleaseService) validateManifest(
 			{Key: "version_compatibility", Passed: true, Message: "Version and minimum-supported-version ordering is valid."},
 		},
 	}
-	return manifest, validation, nil
+	if source.Channel == clientupdate.ChannelToolbox {
+		validation.Checks = append(validation.Checks, ReleaseValidationCheck{
+			Key: "vnt_runtime_manifest", Passed: true,
+			Message: "ToolBox VNT runtime versions were read from the verified client release sidecar.",
+		})
+	}
+	return source, manifest, validation, nil
 }
 
 func (s *ReleaseService) PublishedManifests(ctx context.Context) ([]clientupdate.Manifest, error) {
@@ -313,6 +329,10 @@ func (s *ReleaseService) PublishedManifests(ctx context.Context) ([]clientupdate
 		}
 	}
 	return manifests, nil
+}
+
+func (s *ReleaseService) PublishedVNTRuntimes(ctx context.Context) ([]clientupdate.VNTRuntimeRelease, error) {
+	return s.repository.PublishedVNTRuntimes(ctx)
 }
 
 func (s *ReleaseService) insertReleaseAudit(
@@ -344,6 +364,9 @@ func releaseAuditValue(item Release) map[string]any {
 	if item.Manifest != nil {
 		value["manifest_hash"] = item.Manifest.ManifestHash
 		value["key_id"] = item.Manifest.KeyID
+	}
+	if item.Source.VNTRuntime != nil {
+		value["vnt_runtime"] = item.Source.VNTRuntime
 	}
 	return value
 }

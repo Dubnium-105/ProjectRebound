@@ -69,8 +69,8 @@ auth:
   ticket_clock_skew_seconds: 60
   ticket_maximum_hex_bytes: 4096
   ticket_maximum_output_bytes: 8192
-  # The exact PEM file bytes participate in the integrity proof. In production,
-  # mount signer.pem read-only and set TOOLBOX_PUBKEY_PATH.
+  # The exact PEM file bytes participate in the integrity proof. The production
+  # Compose image pins the canonical ToolBox certificate at a fixed path.
   integrity_public_key_path: ""
   integrity_challenge_ttl_seconds: 120
   integrity_maximum_failures: 3
@@ -167,8 +167,6 @@ relay_registry:
 vnt:
   # Exact, case-sensitive allowlists. Both must be non-empty before
   # update.vnt_rooms_enabled can be set to true.
-  allowed_vnts_versions: []
-  allowed_wrapper_versions: []
   credential_rotation_grace_seconds: 60
   enrollment_requests_per_player_per_hour: 5
   directory_requests_per_ip_per_minute: 120

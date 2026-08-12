@@ -3,6 +3,7 @@ package gameserver
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -51,10 +52,13 @@ func (r *Repository) Register(ctx context.Context, tx pgx.Tx, input Server) (Ser
 			previous_certificate_public_key = NULL,
 			previous_certificate_expires_at = NULL,
 			legacy_auth_expires_at = NULL,
+			deleted_at = NULL,
+			deleted_by = NULL,
+			delete_reason = NULL,
 			credential_generation = game_servers.credential_generation + 1,
 			last_heartbeat_at = EXCLUDED.last_heartbeat_at,
 			updated_at = EXCLUDED.updated_at
-		WHERE (
+		WHERE game_servers.banned_at IS NULL AND (
 			game_servers.owner_player_id = EXCLUDED.owner_player_id OR
 			(game_servers.owner_player_id IS NULL AND EXCLUDED.owner_player_id IS NULL)
 		)
@@ -89,15 +93,32 @@ func (r *Repository) BindCertificate(
 		    previous_certificate_expires_at = NULL,
 		    legacy_auth_expires_at = NULL,
 		    updated_at = $6
-		WHERE id = $1 AND token_revoked_at IS NULL
+		WHERE id = $1 AND deleted_at IS NULL AND banned_at IS NULL AND token_revoked_at IS NULL
 		RETURNING `+serverColumns,
 		serverID, certificate.Fingerprint, certificate.PublicKey,
 		certificate.Serial, certificate.ExpiresAt, now,
 	))
 }
 
+func (r *Repository) IsInstanceBanned(ctx context.Context, tx pgx.Tx, instanceID string) (bool, error) {
+	var bannedAt sql.NullTime
+	err := tx.QueryRow(ctx, `
+		SELECT banned_at
+		FROM game_servers
+		WHERE instance_id = $1
+		FOR SHARE
+	`, instanceID).Scan(&bannedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("check game server ban: %w", err)
+	}
+	return bannedAt.Valid, nil
+}
+
 func (r *Repository) Get(ctx context.Context, serverID string) (Server, error) {
-	item, err := scanServer(r.pool.QueryRow(ctx, `SELECT `+serverColumns+` FROM game_servers WHERE id = $1`, serverID))
+	item, err := scanServer(r.pool.QueryRow(ctx, `SELECT `+serverColumns+` FROM game_servers WHERE id = $1 AND deleted_at IS NULL`, serverID))
 	if err != nil {
 		return Server{}, fmt.Errorf("get game server: %w", err)
 	}
@@ -108,7 +129,8 @@ func (r *Repository) List(ctx context.Context, filter ListFilter) ([]Server, err
 	rows, err := r.pool.Query(ctx, `
 		SELECT `+serverColumns+`
 		FROM game_servers
-		WHERE ($1 = '' OR id > $1)
+		WHERE deleted_at IS NULL
+		  AND ($1 = '' OR id > $1)
 		  AND ($2 = '' OR region = $2)
 		  AND ($3 = '' OR mode = $3)
 		  AND ($4 = '' OR version = $4)
@@ -139,6 +161,7 @@ func (r *Repository) GetForManagement(ctx context.Context, tx pgx.Tx, serverID s
 		SELECT `+serverColumns+`
 		FROM game_servers
 		WHERE id = $1
+		  AND deleted_at IS NULL AND banned_at IS NULL
 		  AND (
 			server_token_hash = $2 OR
 			(previous_server_token_hash = $2 AND previous_token_expires_at > $3)
@@ -153,6 +176,7 @@ func (r *Repository) GetCurrentForManagement(ctx context.Context, tx pgx.Tx, ser
 		SELECT `+serverColumns+`
 		FROM game_servers
 		WHERE id = $1
+		  AND deleted_at IS NULL AND banned_at IS NULL
 		  AND server_token_hash = $2
 		  AND token_revoked_at IS NULL AND token_expires_at > $3
 		FOR UPDATE
@@ -186,7 +210,7 @@ func (r *Repository) RotateCredential(
 		    legacy_auth_expires_at = NULL,
 		    credential_generation = credential_generation + 1,
 		    updated_at = $9
-		WHERE id = $1 AND token_revoked_at IS NULL
+		WHERE id = $1 AND deleted_at IS NULL AND banned_at IS NULL AND token_revoked_at IS NULL
 		RETURNING `+serverColumns,
 		serverID, newTokenHash, previousValidUntil, newExpiresAt,
 		certificate.Fingerprint, certificate.PublicKey, certificate.Serial,
@@ -198,7 +222,7 @@ func (r *Repository) UpdateHeartbeat(ctx context.Context, tx pgx.Tx, serverID st
 	return scanServer(tx.QueryRow(ctx, `
 		UPDATE game_servers
 		SET state = $2, player_count = $3, last_heartbeat_at = $4, updated_at = $4
-		WHERE id = $1
+		WHERE id = $1 AND deleted_at IS NULL AND banned_at IS NULL
 		RETURNING `+serverColumns,
 		serverID, state, playerCount, now,
 	))
@@ -213,7 +237,7 @@ func (r *Repository) Deregister(ctx context.Context, tx pgx.Tx, serverID string,
 		    previous_certificate_public_key = NULL,
 		    previous_certificate_expires_at = NULL,
 		    updated_at = $2
-		WHERE id = $1
+		WHERE id = $1 AND deleted_at IS NULL
 	`, serverID, now)
 	if err != nil {
 		return fmt.Errorf("deregister game server: %w", err)
@@ -260,7 +284,8 @@ func (r *Repository) SweepStale(ctx context.Context, now time.Time, unhealthyAft
 		        ELSE state
 		    END,
 		    updated_at = $1
-		WHERE state <> 'OFFLINE' AND last_heartbeat_at <= $3
+		WHERE deleted_at IS NULL AND banned_at IS NULL
+		  AND state <> 'OFFLINE' AND last_heartbeat_at <= $3
 	`, now, now.Add(-offlineAfter), now.Add(-unhealthyAfter))
 	if err != nil {
 		return 0, fmt.Errorf("sweep stale game servers: %w", err)
@@ -277,13 +302,17 @@ const serverColumns = `
 	COALESCE(certificate_serial, ''), certificate_expires_at,
 	COALESCE(previous_certificate_fingerprint, ''), previous_certificate_public_key,
 	previous_certificate_expires_at, legacy_auth_expires_at,
-	token_revoked_at, last_heartbeat_at, created_at, updated_at
+	token_revoked_at,
+	banned_at, COALESCE(banned_by, ''), COALESCE(ban_reason, ''),
+	deleted_at, COALESCE(deleted_by, ''), COALESCE(delete_reason, ''),
+	last_heartbeat_at, created_at, updated_at
 `
 
 func scanServer(row pgx.Row) (Server, error) {
 	var item Server
 	var revokedAt, previousExpiresAt, certificateExpiresAt sql.NullTime
 	var previousCertificateExpiresAt, legacyAuthExpiresAt sql.NullTime
+	var bannedAt, deletedAt sql.NullTime
 	err := row.Scan(
 		&item.ID,
 		&item.InstanceID,
@@ -312,12 +341,24 @@ func scanServer(row pgx.Row) (Server, error) {
 		&previousCertificateExpiresAt,
 		&legacyAuthExpiresAt,
 		&revokedAt,
+		&bannedAt,
+		&item.BannedBy,
+		&item.BanReason,
+		&deletedAt,
+		&item.DeletedBy,
+		&item.DeleteReason,
 		&item.LastHeartbeatAt,
 		&item.CreatedAt,
 		&item.UpdatedAt,
 	)
 	if revokedAt.Valid {
 		item.TokenRevokedAt = &revokedAt.Time
+	}
+	if bannedAt.Valid {
+		item.BannedAt = &bannedAt.Time
+	}
+	if deletedAt.Valid {
+		item.DeletedAt = &deletedAt.Time
 	}
 	if previousExpiresAt.Valid {
 		item.PreviousTokenExpiresAt = &previousExpiresAt.Time

@@ -42,7 +42,7 @@ type OnlineService struct {
 	registrations *gameserverregistration.Repository
 	relays        RelayConnectionOperator
 	vntNodes      *vnt.Repository
-	vntPolicy     vnt.VersionPolicy
+	vntPolicy     *vnt.VersionPolicy
 	logger        *slog.Logger
 	now           func() time.Time
 }
@@ -64,7 +64,7 @@ func (s *OnlineService) SetRelayConnectionOperator(operator RelayConnectionOpera
 	s.relays = operator
 }
 
-func (s *OnlineService) SetVNT(repository *vnt.Repository, policy vnt.VersionPolicy) {
+func (s *OnlineService) SetVNT(repository *vnt.Repository, policy *vnt.VersionPolicy) {
 	s.vntNodes = repository
 	s.vntPolicy = policy
 }
@@ -166,13 +166,17 @@ func (s *OnlineService) ListVNTNodes(ctx context.Context, filter vnt.AdminListFi
 	if err != nil {
 		return vnt.AdminListResult{}, internal(err)
 	}
+	versions, err := s.vntPolicy.Resolve(ctx)
+	if err != nil {
+		return vnt.AdminListResult{}, internal(err)
+	}
 	nextCursor := ""
 	if len(items) > limit {
 		nextCursor = items[limit-1].ID
 		items = items[:limit]
 	}
 	for index := range items {
-		items[index].VersionCompatible = s.vntPolicy.Compatible(items[index].Node)
+		items[index].VersionCompatible = versions.Compatible(items[index].Node)
 	}
 	return vnt.AdminListResult{Items: items, NextCursor: nextCursor}, nil
 }
@@ -188,7 +192,11 @@ func (s *OnlineService) GetVNTNode(ctx context.Context, nodeID string) (vnt.Admi
 	if err != nil {
 		return vnt.AdminNode{}, internal(err)
 	}
-	item.VersionCompatible = s.vntPolicy.Compatible(item.Node)
+	versions, err := s.vntPolicy.Resolve(ctx)
+	if err != nil {
+		return vnt.AdminNode{}, internal(err)
+	}
+	item.VersionCompatible = versions.Compatible(item.Node)
 	return item, nil
 }
 
@@ -261,7 +269,11 @@ func (s *OnlineService) ChangeVNTNodeState(
 	if err != nil {
 		return VNTNodeOperationResult{}, internal(err)
 	}
-	item.VersionCompatible = s.vntPolicy.Compatible(item.Node)
+	versions, err := s.vntPolicy.Resolve(ctx)
+	if err != nil {
+		return VNTNodeOperationResult{}, internal(err)
+	}
+	item.VersionCompatible = versions.Compatible(item.Node)
 	if err := tx.Commit(ctx); err != nil {
 		return VNTNodeOperationResult{}, internal(fmt.Errorf("commit administrator VNT node operation: %w", err))
 	}
@@ -642,6 +654,59 @@ func (s *OnlineService) CloseRoom(
 	}, nil
 }
 
+func (s *OnlineService) DeleteRoom(
+	ctx context.Context,
+	roomID, reasonInput string,
+	meta RequestMeta,
+) error {
+	meta, reason, err := validateOnlineOperation(meta, reasonInput)
+	if err != nil {
+		return err
+	}
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return internal(err)
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	roomID = strings.TrimSpace(roomID)
+	oldRoom, err := queryAdministrativeRoom(ctx, tx, roomID, true)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return &ServiceError{Status: 404, Code: "ROOM_NOT_FOUND", Message: "P2P room not found."}
+	}
+	if err != nil {
+		return internal(err)
+	}
+	if oldRoom.State != p2proom.StateClosed {
+		return &ServiceError{
+			Status: http.StatusConflict, Code: "ROOM_MUST_BE_CLOSED",
+			Message: "Only closed P2P rooms can be deleted.",
+		}
+	}
+	now := s.now().UTC()
+	tag, err := tx.Exec(ctx, `
+		UPDATE p2p_rooms
+		SET deleted_at = $2, deleted_by = $3, delete_reason = $4,
+		    idempotency_key = NULL, idempotency_request_hash = NULL,
+		    host_token_ciphertext = NULL, host_token_nonce = NULL,
+		    host_token_key_id = NULL, updated_at = $2
+		WHERE id = $1 AND deleted_at IS NULL
+	`, roomID, now, meta.AdminID, reason)
+	if err != nil {
+		return internal(err)
+	}
+	if tag.RowsAffected() != 1 {
+		return &ServiceError{Status: 404, Code: "ROOM_NOT_FOUND", Message: "P2P room not found."}
+	}
+	if err := s.insertOnlineAudit(ctx, tx, meta, "P2P_ROOM_DELETED", "p2p_room", roomID,
+		roomAuditValue(oldRoom), map[string]any{"state": oldRoom.State, "deleted_at": now}, reason, now); err != nil {
+		return internal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return internal(fmt.Errorf("commit administrator room deletion: %w", err))
+	}
+	return nil
+}
+
 func (s *OnlineService) RemoveRoomMember(
 	ctx context.Context,
 	roomID, playerID, reasonInput string,
@@ -749,6 +814,12 @@ func (s *OnlineService) ChangeGameServerState(
 	if err != nil {
 		return gameserver.Server{}, internal(err)
 	}
+	if oldItem.BannedAt != nil {
+		return gameserver.Server{}, &ServiceError{
+			Status: http.StatusConflict, Code: "GAME_SERVER_ALREADY_BANNED",
+			Message: "Game server is already banned.",
+		}
+	}
 	var next gameserver.State
 	var action string
 	revokeToken := false
@@ -765,11 +836,18 @@ func (s *OnlineService) ChangeGameServerState(
 		next, action = gameserver.StateReady, "GAME_SERVER_RESUMED"
 	case "disable":
 		next, action, revokeToken = gameserver.StateOffline, "GAME_SERVER_DISABLED", true
+	case "ban":
+		next, action, revokeToken = gameserver.StateOffline, "GAME_SERVER_BANNED", true
 	default:
 		return gameserver.Server{}, &ServiceError{Status: 400, Code: "INVALID_REQUEST", Message: "Invalid game server operation."}
 	}
 	now := s.now().UTC()
-	item, err := updateAdministrativeGameServer(ctx, tx, serverID, next, revokeToken, now)
+	var item gameserver.Server
+	if operation == "ban" {
+		item, err = banAdministrativeGameServer(ctx, tx, serverID, meta.AdminID, reason, now)
+	} else {
+		item, err = updateAdministrativeGameServer(ctx, tx, serverID, next, revokeToken, now)
+	}
 	if err != nil {
 		return gameserver.Server{}, internal(err)
 	}
@@ -786,6 +864,66 @@ func (s *OnlineService) ChangeGameServerState(
 		return gameserver.Server{}, internal(fmt.Errorf("commit administrator game server operation: %w", err))
 	}
 	return item, nil
+}
+
+func (s *OnlineService) DeleteGameServer(
+	ctx context.Context,
+	serverID, reasonInput string,
+	meta RequestMeta,
+) error {
+	meta, reason, err := validateOnlineOperation(meta, reasonInput)
+	if err != nil {
+		return err
+	}
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return internal(err)
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	serverID = strings.TrimSpace(serverID)
+	oldItem, err := queryAdministrativeGameServer(ctx, tx, serverID, true)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return &ServiceError{Status: 404, Code: "GAME_SERVER_NOT_FOUND", Message: "Game server not found."}
+	}
+	if err != nil {
+		return internal(err)
+	}
+	if oldItem.State != gameserver.StateOffline {
+		return &ServiceError{
+			Status: http.StatusConflict, Code: "GAME_SERVER_MUST_BE_OFFLINE",
+			Message: "Only offline game servers can be deleted.",
+		}
+	}
+	if oldItem.BannedAt != nil {
+		return &ServiceError{
+			Status: http.StatusConflict, Code: "GAME_SERVER_BANNED",
+			Message: "Banned game servers must remain visible to administrators.",
+		}
+	}
+	now := s.now().UTC()
+	tag, err := tx.Exec(ctx, `
+		UPDATE game_servers
+		SET deleted_at = $2, deleted_by = $3, delete_reason = $4,
+		    token_revoked_at = COALESCE(token_revoked_at, $2), updated_at = $2
+		WHERE id = $1 AND deleted_at IS NULL
+	`, serverID, now, meta.AdminID, reason)
+	if err != nil {
+		return internal(err)
+	}
+	if tag.RowsAffected() != 1 {
+		return &ServiceError{Status: 404, Code: "GAME_SERVER_NOT_FOUND", Message: "Game server not found."}
+	}
+	if _, err := s.registrations.RevokeActiveForInstance(ctx, tx, oldItem.InstanceID, now); err != nil {
+		return internal(err)
+	}
+	if err := s.insertOnlineAudit(ctx, tx, meta, "GAME_SERVER_DELETED", "game_server", serverID,
+		gameServerAuditValue(oldItem), map[string]any{"state": oldItem.State, "deleted_at": now}, reason, now); err != nil {
+		return internal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return internal(fmt.Errorf("commit administrator game server deletion: %w", err))
+	}
+	return nil
 }
 
 func (s *OnlineService) CreateGameServerRegistration(
@@ -833,6 +971,22 @@ func (s *OnlineService) CreateGameServerRegistration(
 		return GameServerRegistrationResult{}, internal(err)
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	var bannedAt sql.NullTime
+	err = tx.QueryRow(ctx, `
+		SELECT banned_at
+		FROM game_servers
+		WHERE instance_id = $1
+		FOR SHARE
+	`, credential.InstanceID).Scan(&bannedAt)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return GameServerRegistrationResult{}, internal(err)
+	}
+	if bannedAt.Valid {
+		return GameServerRegistrationResult{}, &ServiceError{
+			Status: http.StatusForbidden, Code: "GAME_SERVER_BANNED",
+			Message: "This game server instance is banned.",
+		}
+	}
 	replaced, err := s.registrations.RevokeActiveForInstance(ctx, tx, credential.InstanceID, now)
 	if err != nil {
 		return GameServerRegistrationResult{}, internal(err)
@@ -895,7 +1049,7 @@ func queryAdministrativeRoom(ctx context.Context, queryer adminAuthExecutor, id 
 		       max_players, player_count, state, last_heartbeat_at,
 		       created_at, updated_at, closed_at
 		FROM p2p_rooms
-		WHERE id = $1
+		WHERE id = $1 AND deleted_at IS NULL
 	`+suffix, strings.TrimSpace(id)).Scan(
 		&item.ID, &item.HostPlayerID, &item.DisplayName, &item.Region, &item.Mode, &item.Version,
 		&item.MaxPlayers, &item.PlayerCount, &item.State, &item.LastHeartbeatAt,
@@ -939,10 +1093,38 @@ func queryAdministrativeGameServer(ctx context.Context, queryer adminAuthExecuto
 		       registration_issuer, token_expires_at, token_revoked_at,
 		       credential_generation, COALESCE(certificate_fingerprint, ''),
 		       certificate_expires_at, legacy_auth_expires_at,
+		       banned_at, COALESCE(banned_by, ''), COALESCE(ban_reason, ''),
 		       last_heartbeat_at, created_at, updated_at
 		FROM game_servers
-		WHERE id = $1
+		WHERE id = $1 AND deleted_at IS NULL
 	`+suffix, strings.TrimSpace(id)))
+}
+
+func banAdministrativeGameServer(
+	ctx context.Context,
+	tx pgx.Tx,
+	id, adminID, reason string,
+	now time.Time,
+) (gameserver.Server, error) {
+	return scanAdministrativeGameServer(tx.QueryRow(ctx, `
+		UPDATE game_servers
+		SET state = 'OFFLINE', player_count = 0,
+		    token_revoked_at = COALESCE(token_revoked_at, $4),
+		    previous_server_token_hash = NULL,
+		    previous_token_expires_at = NULL,
+		    previous_certificate_fingerprint = NULL,
+		    previous_certificate_public_key = NULL,
+		    previous_certificate_expires_at = NULL,
+		    banned_at = $4, banned_by = $2, ban_reason = $3, updated_at = $4
+		WHERE id = $1 AND deleted_at IS NULL AND banned_at IS NULL
+		RETURNING id, instance_id, display_name, region, mode, version,
+		          public_host, public_port, max_players, player_count, state,
+		          registration_issuer, token_expires_at, token_revoked_at,
+		          credential_generation, COALESCE(certificate_fingerprint, ''),
+		          certificate_expires_at, legacy_auth_expires_at,
+		          banned_at, COALESCE(banned_by, ''), COALESCE(ban_reason, ''),
+		          last_heartbeat_at, created_at, updated_at
+	`, id, adminID, reason, now))
 }
 
 func updateAdministrativeGameServer(
@@ -958,12 +1140,13 @@ func updateAdministrativeGameServer(
 		SET state = $2,
 		    token_revoked_at = CASE WHEN $3 THEN COALESCE(token_revoked_at, $4) ELSE token_revoked_at END,
 		    updated_at = $4
-		WHERE id = $1
+		WHERE id = $1 AND deleted_at IS NULL
 		RETURNING id, instance_id, display_name, region, mode, version,
 		          public_host, public_port, max_players, player_count, state,
 		          registration_issuer, token_expires_at, token_revoked_at,
 		          credential_generation, COALESCE(certificate_fingerprint, ''),
 		          certificate_expires_at, legacy_auth_expires_at,
+		          banned_at, COALESCE(banned_by, ''), COALESCE(ban_reason, ''),
 		          last_heartbeat_at, created_at, updated_at
 	`, id, state, revokeToken, now))
 }
@@ -971,12 +1154,14 @@ func updateAdministrativeGameServer(
 func scanAdministrativeGameServer(row pgx.Row) (gameserver.Server, error) {
 	var item gameserver.Server
 	var revokedAt, certificateExpiresAt, legacyAuthExpiresAt sql.NullTime
+	var bannedAt sql.NullTime
 	err := row.Scan(
 		&item.ID, &item.InstanceID, &item.DisplayName, &item.Region, &item.Mode, &item.Version,
 		&item.PublicHost, &item.PublicPort, &item.MaxPlayers, &item.PlayerCount, &item.State,
 		&item.RegistrationIssuer, &item.TokenExpiresAt, &revokedAt,
 		&item.CredentialGeneration, &item.CertificateFingerprint,
 		&certificateExpiresAt, &legacyAuthExpiresAt,
+		&bannedAt, &item.BannedBy, &item.BanReason,
 		&item.LastHeartbeatAt, &item.CreatedAt, &item.UpdatedAt,
 	)
 	if revokedAt.Valid {
@@ -988,6 +1173,9 @@ func scanAdministrativeGameServer(row pgx.Row) (gameserver.Server, error) {
 	if legacyAuthExpiresAt.Valid {
 		item.LegacyAuthExpiresAt = &legacyAuthExpiresAt.Time
 	}
+	if bannedAt.Valid {
+		item.BannedAt = &bannedAt.Time
+	}
 	return item, err
 }
 
@@ -996,7 +1184,10 @@ func roomAuditValue(item p2proom.Room) map[string]any {
 }
 
 func gameServerAuditValue(item gameserver.Server) map[string]any {
-	return map[string]any{"state": item.State, "token_revoked_at": item.TokenRevokedAt}
+	return map[string]any{
+		"state": item.State, "token_revoked_at": item.TokenRevokedAt,
+		"banned_at": item.BannedAt, "ban_reason": item.BanReason,
+	}
 }
 
 func queryAdministrativeConnection(

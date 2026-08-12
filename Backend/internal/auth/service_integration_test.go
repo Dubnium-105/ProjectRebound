@@ -38,6 +38,10 @@ type integrationIntegrityManager struct {
 	removed     string
 }
 
+func (m *integrationIntegrityManager) PEMFingerprint() []byte {
+	return []byte("0123456789abcdef0123456789abcdef")
+}
+
 func (m *integrationIntegrityManager) RegisterSession(
 	sessionID string,
 	ticket []byte,
@@ -157,7 +161,8 @@ func TestAuthenticationLifecycleAgainstPostgreSQL(t *testing.T) {
 
 		var verificationCount int
 		var sessionLevel string
-		var sessionVerified bool
+		var sessionVerified, integrityTrusted bool
+		var pemFingerprint []byte
 		if err := pool.QueryRow(ctx, `
 			SELECT COUNT(*) FROM auth_steam_ticket_verifications
 			WHERE player_id = $1 AND ticket_hash = $2
@@ -165,12 +170,26 @@ func TestAuthenticationLifecycleAgainstPostgreSQL(t *testing.T) {
 			t.Fatal(err)
 		}
 		if err := pool.QueryRow(ctx, `
-			SELECT auth_level, steam_verified FROM auth_sessions WHERE id = $1
-		`, bound.Tokens.SessionID).Scan(&sessionLevel, &sessionVerified); err != nil {
+			SELECT auth_level, steam_verified, pem_fingerprint, integrity_trusted
+			FROM auth_sessions WHERE id = $1
+		`, bound.Tokens.SessionID).Scan(
+			&sessionLevel,
+			&sessionVerified,
+			&pemFingerprint,
+			&integrityTrusted,
+		); err != nil {
 			t.Fatal(err)
 		}
-		if verificationCount != 1 || sessionLevel != player.AuthLevelVerified || !sessionVerified {
-			t.Fatalf("verification/session state = %d, %q, %v", verificationCount, sessionLevel, sessionVerified)
+		if verificationCount != 1 || sessionLevel != player.AuthLevelVerified || !sessionVerified ||
+			integrityTrusted || string(pemFingerprint) != string(integrityManager.PEMFingerprint()) {
+			t.Fatalf(
+				"verification/session state = %d, %q, %v, trusted=%v, fingerprint=%x",
+				verificationCount,
+				sessionLevel,
+				sessionVerified,
+				integrityTrusted,
+				pemFingerprint,
+			)
 		}
 
 		principal, err := service.AuthenticateAccess(ctx, bound.Tokens.AccessToken)
@@ -181,7 +200,7 @@ func TestAuthenticationLifecycleAgainstPostgreSQL(t *testing.T) {
 			t.Fatal(err)
 		}
 		principal, err = service.AuthenticateAccess(ctx, bound.Tokens.AccessToken)
-		if err != nil || principal.AuthLevel != player.AuthLevelTrusted {
+		if err != nil || principal.AuthLevel != player.AuthLevelTrusted || !principal.IntegrityTrusted {
 			t.Fatalf("trusted principal = %#v, %v", principal, err)
 		}
 
@@ -197,6 +216,17 @@ func TestAuthenticationLifecycleAgainstPostgreSQL(t *testing.T) {
 		if integrityManager.rotatedFrom != bound.Tokens.SessionID ||
 			integrityManager.sessionID != refreshed.Tokens.SessionID {
 			t.Fatalf("integrity rotation = %+v", integrityManager)
+		}
+		var refreshedTrusted bool
+		var refreshedFingerprint []byte
+		if err := pool.QueryRow(ctx, `
+			SELECT integrity_trusted, pem_fingerprint
+			FROM auth_sessions WHERE id = $1
+		`, refreshed.Tokens.SessionID).Scan(&refreshedTrusted, &refreshedFingerprint); err != nil {
+			t.Fatal(err)
+		}
+		if !refreshedTrusted || string(refreshedFingerprint) != string(pemFingerprint) {
+			t.Fatalf("refreshed integrity state = trusted=%v fingerprint=%x", refreshedTrusted, refreshedFingerprint)
 		}
 
 		replayed, err := service.Bind(ctx, BindInput{
@@ -273,6 +303,43 @@ func TestAuthenticationLifecycleAgainstPostgreSQL(t *testing.T) {
 					}
 				}
 			})
+		}
+	})
+
+	t.Run("failed integrity proof immediately clears session trust", func(t *testing.T) {
+		steamID := nextSteamID()
+		createdSteamIDs = append(createdSteamIDs, steamID)
+		now := service.now().UTC()
+		service.SetTicketVerifier(&integrationTicketVerifier{result: VerifiedTicket{
+			Valid: true, SteamID: steamID, AppID: authConfig.SteamAppID,
+			IssueTime: now.Unix(),
+		}})
+		bound, err := service.Bind(ctx, BindInput{
+			SteamID: steamID, PersonaName: "Integrity Failure",
+			EncryptedTicket: "1112131415161718191a1b1c1d1e1f20",
+		}, meta)
+		if err != nil {
+			t.Fatal(err)
+		}
+		principal, err := service.AuthenticateAccess(ctx, bound.Tokens.AccessToken)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := service.PromoteIntegrityTrusted(ctx, principal, meta); err != nil {
+			t.Fatal(err)
+		}
+		principal, err = service.AuthenticateAccess(ctx, bound.Tokens.AccessToken)
+		if err != nil || !principal.IntegrityTrusted {
+			t.Fatalf("trusted principal = %#v, %v", principal, err)
+		}
+		if err := service.RecordIntegrityFailure(
+			ctx, principal, 1, "toolbox", "proof_mismatch", false, meta,
+		); err != nil {
+			t.Fatal(err)
+		}
+		principal, err = service.AuthenticateAccess(ctx, bound.Tokens.AccessToken)
+		if err != nil || principal.IntegrityTrusted || principal.AuthLevel != player.AuthLevelVerified {
+			t.Fatalf("cleared principal = %#v, %v", principal, err)
 		}
 	})
 

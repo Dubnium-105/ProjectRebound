@@ -33,3 +33,5 @@
 ```
 
 `manifest_hash`SHA-256 优于确定性 JSON，排除两者`manifest_hash`和`signature`。然后通过确定性 JSON 计算 Ed25519 签名，其中包含`manifest_hash`但仅排除`signature`。客户端通过以下方式选择嵌入的公钥`key_id`，下载前验证签名，并在安装前验证每个下载文件的确切大小和 SHA-256。
+
+`toolbox` 静态描述文件还必须填写 `vnt_runtime`，其中的 `vnts_version` 与 `wrapper_version` 应精确复制自对应 ToolBox 构建的 `res/vnt/runtime/vnt-runtime-manifest.json`。通过管理后台创建的 ToolBox 发布则应把该 JSON 作为未压缩的 sidecar 文件一并加入发布；控制服会在发布校验时自动核对并提取版本，无需人工填写。

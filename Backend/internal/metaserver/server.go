@@ -37,7 +37,7 @@ type schemaChecker struct{ database *database.Pool }
 func (c schemaChecker) Check(ctx context.Context) error {
 	var applied bool
 	if err := c.database.QueryRow(ctx, `
-		SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 35)
+		SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 40)
 	`).Scan(&applied); err != nil {
 		return err
 	}

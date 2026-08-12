@@ -92,7 +92,7 @@ sudo env \
   ./scripts/deploy-meta-server.sh
 ```
 
-The script builds/pulls only MetaServer, waits for current migration 35,
+The script builds/pulls only MetaServer, waits for current migration 40,
 idempotently provisions a restricted PostgreSQL role and `meta:*` Redis ACL
 user, and executes `up -d --no-deps meta-server`. Verify:
 

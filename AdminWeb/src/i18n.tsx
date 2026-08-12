@@ -7,6 +7,14 @@ const STORAGE_KEY = "projectrebound.admin.locale";
 
 const englishCatalog: Record<string, string> = {
   ...generatedEnglishCatalog,
+  "确认封禁": "Confirm ban",
+  "确认删除": "Confirm deletion",
+  "服务器已封禁，后续注册已被阻止。": "The server has been banned and future registration is blocked.",
+  "已下线服务器已从目录移除。": "The offline server was removed from the directory.",
+  "已关闭房间已从目录移除，历史记录仍保留。": "The closed room was removed from the directory; history was retained.",
+  "房间会从服务器和房间列表中移除；成员、比赛与审计历史不会被物理删除。": "The room will be removed from server and room lists; member, match, and audit history will not be physically deleted.",
+  "服务器会立即下线并撤销所有凭证；该实例将无法再次获取注册 Token 或重新注册。": "The server will immediately go offline and all credentials will be revoked; the instance cannot obtain another registration token or register again.",
+  "已下线服务器会从目录中移除，但比赛、注册和审计历史仍会保留。": "The offline server will be removed from the directory while match, registration, and audit history remain available.",
   "\u4ECE\u5BF9\u8C61\u5B58\u50A8\u9009\u62E9\u6587\u4EF6": "Select files from object storage",
   "\u4EC5\u663E\u793A\u901A\u8FC7\u4E0B\u8F7D\u7BA1\u7406\u4E0A\u4F20\u5E76\u5B8C\u6210\u670D\u52A1\u7AEF\u6821\u9A8C\u7684\u5BF9\u8C61\u3002\u9009\u62E9\u540E\u4F1A\u81EA\u52A8\u5E26\u5165 Object Key\u3001\u771F\u5B9E\u5927\u5C0F\u548C SHA-256\uFF1B\u53D1\u5E03\u524D\u6821\u9A8C\u4ECD\u4F1A\u901A\u8FC7\u66F4\u65B0 CDN \u6267\u884C HEAD \u53EF\u7528\u6027\u63A2\u6D4B\u3002": "Only objects uploaded through Download Management and verified by the server are shown. Selecting one fills in its Object Key, verified size, and SHA-256 automatically; pre-release validation still checks its availability through the update CDN with HEAD.",
   "\u5237\u65B0\u6587\u4EF6": "Refresh files",

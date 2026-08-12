@@ -62,7 +62,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Replaces any outstanding one-time nonce for the authenticated Steam-ticket session. Returns an empty nonce when no in-memory ticket is available. */
+        /** @description Replaces any outstanding one-time nonce for the authenticated session. An untrusted session requires the raw Steam ticket retained from bind; a trusted session can always receive a ticket-less challenge from its persisted PEM fingerprint. An empty nonce means an untrusted session can no longer complete the bind proof and must bind again. */
         post: operations["createIntegrityChallenge"];
         delete?: never;
         options?: never;
@@ -79,7 +79,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Verifies SHA-256 over the configured ToolBox PEM bytes, the current session's raw encrypted Steam ticket, and the one-time nonce. A successful proof promotes the session to trusted. Three consecutive failures revoke it. */
+        /** @description For an untrusted bind session, verifies SHA-256 over the exact configured ToolBox PEM bytes, the retained raw encrypted Steam ticket, and the one-time nonce. For an already trusted session, verifies SHA-256 over the PEM bytes and nonce only after matching the persisted PEM fingerprint. Success persists integrity trust across refresh; every failure clears it immediately, and three consecutive failures revoke the session. */
         post: operations["submitIntegrityProof"];
         delete?: never;
         options?: never;
@@ -834,7 +834,8 @@ export interface paths {
         get: operations["adminGetP2PRoom"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** @description Soft-deletes an already CLOSED room from administrative and public directories while retaining audit and match history. */
+        delete: operations["adminDeleteP2PRoom"];
         options?: never;
         head?: never;
         patch?: never;
@@ -965,7 +966,8 @@ export interface paths {
         get: operations["adminGetGameServer"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** @description Soft-deletes an OFFLINE, non-banned game server from directory views while retaining historical references. */
+        delete: operations["adminDeleteGameServer"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1013,6 +1015,23 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["adminDisableGameServer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/game-servers/{server_id}/ban": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Marks the instance permanently banned, takes it offline, revokes credentials, and blocks future credential issuance and registration. */
+        post: operations["adminBanGameServer"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2826,7 +2845,7 @@ export interface components {
             request_id: string;
         };
         IntegrityChallengeData: {
-            /** @description Empty for sessions without an in-memory verified Steam ticket. */
+            /** @description Empty only when an untrusted session no longer has the bind-time Steam ticket in memory and must bind again. Trusted sessions receive a nonce without requiring a ticket. */
             nonce: string;
         };
         IntegrityChallengeResponse: {
@@ -3225,6 +3244,14 @@ export interface components {
             };
             request_id: string;
         };
+        AdminP2PRoomDeletionResponse: {
+            data: {
+                room_id: string;
+                /** @constant */
+                deleted: true;
+            };
+            request_id: string;
+        };
         AdminP2PRoomMember: {
             room_id: string;
             player_id: string;
@@ -3268,6 +3295,11 @@ export interface components {
             certificate_expires_at: string | null;
             /** Format: date-time */
             legacy_auth_expires_at: string | null;
+            is_banned: boolean;
+            /** Format: date-time */
+            banned_at: string | null;
+            banned_by: string;
+            ban_reason: string;
             /** Format: date-time */
             last_heartbeat_at: string;
             /** Format: date-time */
@@ -3295,6 +3327,14 @@ export interface components {
         };
         AdminGameServerResponse: {
             data: components["schemas"]["AdminGameServer"];
+            request_id: string;
+        };
+        AdminGameServerDeletionResponse: {
+            data: {
+                server_id: string;
+                /** @constant */
+                deleted: true;
+            };
             request_id: string;
         };
         AdminGameServerListResponse: {
@@ -3583,6 +3623,8 @@ export interface components {
             force_update: boolean;
             status: components["schemas"]["AdminReleaseStatus"];
             files: components["schemas"]["AdminReleaseSourceFile"][];
+            /** @description Server-side runtime attestation extracted from the ToolBox release sidecar; it is not part of the public update manifest. */
+            vnt_runtime?: components["schemas"]["VNTRuntimeRelease"];
             manifest?: components["schemas"]["SignedUpdateManifest"];
             validation: components["schemas"]["AdminReleaseValidation"];
             created_by: string;
@@ -4534,6 +4576,7 @@ export interface components {
             };
             request_id: string;
         };
+        /** @description The client resolves automatic route selection before this request. The selected transport is pinned for the room transaction; AUTO is intentionally not a wire value and transports cannot be mixed within one room. */
         P2PRoomCreateRequest: {
             display_name: string;
             region: string;
@@ -4541,10 +4584,12 @@ export interface components {
             version: string;
             max_players: number;
             /**
+             * @description Concrete transport selected by the client before room creation.
              * @default LEGACY_RELAY
              * @enum {string}
              */
             transport_kind: "LEGACY_RELAY" | "VNT";
+            /** @description Required when transport_kind is VNT and pinned for every room member. */
             vnt_node_id?: string;
         };
         P2PRoomJoinRequest: {
@@ -4924,6 +4969,12 @@ export interface components {
             /** Format: uri */
             download_url: string;
         };
+        VNTRuntimeRelease: {
+            /** @description Exact vnts version embedded in this published ToolBox client. */
+            vnts_version: string;
+            /** @description Exact Project Rebound VNT wrapper version embedded in this published ToolBox client. */
+            wrapper_version: string;
+        };
         SignedUpdateManifest: {
             /** @constant */
             schema_version: 1;
@@ -5004,6 +5055,7 @@ export interface components {
             };
             request_id: string;
         };
+        /** @description Public non-secret QoS target. ToolBox probes these endpoints before room creation and does not expose the selected transport implementation in the player UI. */
         MetaEndpoint: {
             /** @enum {string} */
             protocol: "udp";
@@ -6874,6 +6926,34 @@ export interface operations {
             };
         };
     };
+    adminDeleteP2PRoom: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                room_id: components["parameters"]["RoomID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminOperationReason"];
+            };
+        };
+        responses: {
+            /** @description Closed room removed from directory views. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminP2PRoomDeletionResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     adminCloseP2PRoom: {
         parameters: {
             query?: never;
@@ -7093,6 +7173,34 @@ export interface operations {
             };
         };
     };
+    adminDeleteGameServer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                server_id: components["parameters"]["GameServerID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminOperationReason"];
+            };
+        };
+        responses: {
+            /** @description Offline game server removed from directory views. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminGameServerDeletionResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     adminDrainGameServer: {
         parameters: {
             query?: never;
@@ -7169,6 +7277,34 @@ export interface operations {
                     "application/json": components["schemas"]["AdminGameServerResponse"];
                 };
             };
+        };
+    };
+    adminBanGameServer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                server_id: components["parameters"]["GameServerID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminOperationReason"];
+            };
+        };
+        responses: {
+            /** @description Game server instance banned. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminGameServerResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     adminListConnections: {
@@ -8435,7 +8571,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Public VNT node directory without owner identity or credentials. */
+            /** @description Paginated public VNT node directory used by clients during pre-room route planning. Owner identity and credentials are never returned; clients must follow next_cursor until it is empty. */
             200: {
                 headers: {
                     [name: string]: unknown;

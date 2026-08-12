@@ -113,7 +113,6 @@ func buildHandler(
 	router := chi.NewRouter()
 	metrics := observability.NewMetrics(dbPool.Pool)
 	metrics.SetRedisProbe(redisClient.Check)
-	metrics.SetVNTPolicy(cfg.Update.VNTRoomsEnabled, cfg.VNT.AllowedVNTSVersions, cfg.VNT.AllowedWrapperVersions)
 	healthHandler := health.NewHandler([]health.Dependency{
 		{Name: "postgres", Checker: dbPool},
 		{Name: "redis", Checker: redisClient},
@@ -161,7 +160,8 @@ func buildHandler(
 	authService.SetIntegritySessionManager(integrityService)
 	authHandler := auth.NewHTTPHandler(authService, logger, cfg.HTTP.TrustProxyHeaders)
 	vntRepository := vnt.NewRepository(dbPool.Pool)
-	vntVersionPolicy := vnt.NewVersionPolicy(cfg.VNT.AllowedVNTSVersions, cfg.VNT.AllowedWrapperVersions)
+	vntVersionPolicy := vnt.NewVersionPolicy(nil, nil)
+	metrics.SetVNTPolicy(cfg.Update.VNTRoomsEnabled, vntVersionPolicy)
 	vntService := vnt.NewService(vntRepository, entitlementRepository)
 	vntService.SetVersionPolicy(vntVersionPolicy)
 	vntService.SetCredentialRotationGrace(cfg.VNT.CredentialRotationGrace())
@@ -472,6 +472,7 @@ func buildHandler(
 		router.With(admin.RequirePermission("rooms.read")).Get("/p2p-rooms/{room_id}", p2pRoomHandler.Get)
 		router.With(admin.RequirePermission("rooms.read")).Get("/p2p-rooms/{room_id}/members", adminOnlineHandler.ListRoomMembers)
 		router.With(admin.RequirePermission("rooms.close")).Post("/p2p-rooms/{room_id}/close", adminOnlineHandler.CloseRoom)
+		router.With(admin.RequirePermission("rooms.delete")).Delete("/p2p-rooms/{room_id}", adminOnlineHandler.DeleteRoom)
 		router.With(admin.RequirePermission("rooms.remove_member")).Post("/p2p-rooms/{room_id}/members/{player_id}/remove", adminOnlineHandler.RemoveRoomMember)
 		router.With(admin.RequirePermission("game_servers.read")).Get("/game-servers", gameServerHandler.AdminList)
 		router.With(admin.RequirePermission("game_servers.read")).Get("/game-servers/{server_id}", gameServerHandler.AdminGet)
@@ -482,6 +483,8 @@ func buildHandler(
 		router.With(admin.RequirePermission("game_servers.drain")).Post("/game-servers/{server_id}/drain", adminOnlineHandler.DrainGameServer)
 		router.With(admin.RequirePermission("game_servers.drain")).Post("/game-servers/{server_id}/resume", adminOnlineHandler.ResumeGameServer)
 		router.With(admin.RequirePermission("game_servers.disable")).Post("/game-servers/{server_id}/disable", adminOnlineHandler.DisableGameServer)
+		router.With(admin.RequirePermission("game_servers.ban")).Post("/game-servers/{server_id}/ban", adminOnlineHandler.BanGameServer)
+		router.With(admin.RequirePermission("game_servers.delete")).Delete("/game-servers/{server_id}", adminOnlineHandler.DeleteGameServer)
 		router.With(admin.RequirePermission("vnt_nodes.read")).Get("/vnt-nodes", adminOnlineHandler.ListVNTNodes)
 		router.With(admin.RequirePermission("vnt_nodes.read")).Get("/vnt-nodes/{node_id}", adminOnlineHandler.GetVNTNode)
 		router.With(
@@ -586,6 +589,7 @@ func buildHandler(
 		cfg.Update.Product,
 	)
 	updateService.SetManagedCatalog(adminReleaseService)
+	vntVersionPolicy.SetPublishedCatalog(updateService)
 	adminReleaseHandler := admin.NewReleaseHTTPHandler(
 		adminReleaseService, logger, cfg.HTTP.TrustProxyHeaders,
 	)

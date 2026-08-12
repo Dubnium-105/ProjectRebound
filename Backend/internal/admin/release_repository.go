@@ -194,6 +194,34 @@ func (r *ReleaseRepository) PublishedManifests(ctx context.Context) ([]clientupd
 	return items, rows.Err()
 }
 
+func (r *ReleaseRepository) PublishedVNTRuntimes(ctx context.Context) ([]clientupdate.VNTRuntimeRelease, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT source_release
+		FROM admin_releases
+		WHERE status = 'PUBLISHED' AND channel = 'toolbox'
+		ORDER BY platform, architecture, published_at
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]clientupdate.VNTRuntimeRelease, 0)
+	for rows.Next() {
+		var encoded []byte
+		if err := rows.Scan(&encoded); err != nil {
+			return nil, err
+		}
+		var source clientupdate.SourceRelease
+		if err := json.Unmarshal(encoded, &source); err != nil {
+			return nil, fmt.Errorf("decode published source release: %w", err)
+		}
+		if source.VNTRuntime != nil {
+			items = append(items, *source.VNTRuntime)
+		}
+	}
+	return items, rows.Err()
+}
+
 const releaseColumns = `
 	id, product, platform, architecture, channel, version,
 	minimum_supported_version, force_update, status, source_release,

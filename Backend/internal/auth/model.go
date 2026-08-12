@@ -15,6 +15,8 @@ type Session struct {
 	AuthProvider        string
 	AuthLevel           string
 	SteamVerified       bool
+	PEMFingerprint      []byte
+	IntegrityTrusted    bool
 	DeviceIDHash        []byte
 	DeviceIDSuffix      string
 	DeviceFingerprintID string
@@ -73,12 +75,14 @@ type RefreshResult struct {
 }
 
 type Principal struct {
-	Player        player.Player
-	SessionID     string
-	AuthProvider  string
-	AuthLevel     string
-	SteamVerified bool
-	Capabilities  []string
+	Player           player.Player
+	SessionID        string
+	AuthProvider     string
+	AuthLevel        string
+	SteamVerified    bool
+	PEMFingerprint   []byte
+	IntegrityTrusted bool
+	Capabilities     []string
 }
 
 type AuditEvent struct {

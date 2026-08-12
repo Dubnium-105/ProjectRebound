@@ -4,8 +4,12 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -42,7 +46,8 @@ func TestSignedManifestCatalogAndChannels(t *testing.T) {
 	writeRelease(t, cfg.ManifestDirectory, "toolbox.json", SourceRelease{
 		SchemaVersion: 1, Product: cfg.Product, Platform: "windows", Architecture: "amd64", Channel: "toolbox",
 		Version: "0.9.0", MinimumSupportedVersion: "0.8.0", PublishedAt: time.Date(2026, 7, 18, 3, 4, 5, 0, time.UTC),
-		Files: []SourceFile{{FileID: "file_toolbox", Path: "Rebound_Toolbox.exe", Size: 40, SHA256: repeatHex("d"), Compression: "none", ObjectKey: "toolbox/0.9.0/Rebound_Toolbox.exe"}},
+		VNTRuntime: &VNTRuntimeRelease{VNTSVersion: "1.2.12", WrapperVersion: "0.1.0"},
+		Files:      []SourceFile{{FileID: "file_toolbox", Path: "Rebound_Toolbox.exe", Size: 40, SHA256: repeatHex("d"), Compression: "none", ObjectKey: "toolbox/0.9.0/Rebound_Toolbox.exe"}},
 	})
 	service, err := NewService(cfg, "test", fixedRelayDirectory{regions: []string{"hk", "us-west"}})
 	if err != nil {
@@ -68,6 +73,14 @@ func TestSignedManifestCatalogAndChannels(t *testing.T) {
 	}
 	if toolbox.LatestVersion != "0.9.0" || !toolbox.UpdateAvailable || toolbox.Channel != "toolbox" {
 		t.Fatalf("toolbox check = %#v", toolbox)
+	}
+	toolboxRuntimes, err := service.PublishedVNTRuntimes(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(toolboxRuntimes) != 1 || toolboxRuntimes[0].VNTSVersion != "1.2.12" ||
+		toolboxRuntimes[0].WrapperVersion != "0.1.0" {
+		t.Fatalf("toolbox VNT runtimes = %#v", toolboxRuntimes)
 	}
 	manifest, err := service.Manifest(context.Background(), "windows", "amd64", "stable", "1.2.0")
 	if err != nil {
@@ -99,6 +112,72 @@ func TestSignedManifestCatalogAndChannels(t *testing.T) {
 	if !clientConfig.Relay.Available || len(clientConfig.Relay.Regions) != 2 ||
 		clientConfig.RealtimeURL != cfg.RealtimeURL || !clientConfig.Features.VNTRooms {
 		t.Fatalf("client config = %#v", clientConfig)
+	}
+}
+
+func TestResolveVNTRuntimeReadsVerifiedToolboxReleaseSidecar(t *testing.T) {
+	body := []byte(`{"releaseId":"project-rebound-vnt-runtime-0.1.0","wrapperVersion":"0.1.0","vnts":{"version":"1.2.12"}}`)
+	digest := sha256.Sum256(body)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != "/objects/toolbox/0.9.0/vnt-runtime-manifest.json" {
+			http.NotFound(w, request)
+			return
+		}
+		_, _ = w.Write(body)
+	}))
+	defer server.Close()
+	cfg := testUpdateConfig(t)
+	service, err := NewService(cfg, "test", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service.SetManagedReleaseURLs(server.URL+"/public", server.URL+"/objects")
+	source := SourceRelease{
+		SchemaVersion: 1, Product: cfg.Product, Platform: "windows", Architecture: "amd64", Channel: ChannelToolbox,
+		Version: "0.9.0", MinimumSupportedVersion: "0.9.0", PublishedAt: time.Now().UTC(),
+		Files: []SourceFile{
+			{
+				FileID: "file_runtime", Path: "vnt-runtime-manifest.json", Size: int64(len(body)),
+				SHA256: fmt.Sprintf("%x", digest[:]), Compression: "none",
+				ObjectKey: "toolbox/0.9.0/vnt-runtime-manifest.json",
+			},
+			{
+				FileID: "file_toolbox", Path: "rebound_toolbox.exe", Size: 1,
+				SHA256: repeatHex("a"), Compression: "none", ObjectKey: "toolbox/0.9.0/rebound_toolbox.exe",
+			},
+		},
+	}
+	resolved, err := service.ResolveVNTRuntime(context.Background(), source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved.VNTRuntime == nil || resolved.VNTRuntime.VNTSVersion != "1.2.12" ||
+		resolved.VNTRuntime.WrapperVersion != "0.1.0" {
+		t.Fatalf("resolved VNT runtime = %#v", resolved.VNTRuntime)
+	}
+	manifest, err := service.BuildAndSign(resolved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.VerifySignedManifest(manifest); err != nil {
+		t.Fatal(err)
+	}
+	if len(manifest.Files) != 1 || manifest.Files[0].Path != "rebound_toolbox.exe" {
+		t.Fatalf("runtime attestation sidecar leaked into install files: %#v", manifest.Files)
+	}
+
+	tampered := source
+	tampered.Files = append([]SourceFile(nil), source.Files...)
+	tampered.Files[0].SHA256 = repeatHex("0")
+	if _, err := service.ResolveVNTRuntime(context.Background(), tampered); err == nil {
+		t.Fatal("runtime sidecar with a mismatched SHA-256 was accepted")
+	}
+
+	withoutSidecar := source
+	withoutSidecar.Files = append([]SourceFile(nil), source.Files[1:]...)
+	withoutSidecar.VNTRuntime = &VNTRuntimeRelease{VNTSVersion: "9.9.9", WrapperVersion: "9.9.9"}
+	if _, err := service.ResolveVNTRuntime(context.Background(), withoutSidecar); err == nil {
+		t.Fatal("caller-supplied runtime versions bypassed the required release sidecar")
 	}
 }
 

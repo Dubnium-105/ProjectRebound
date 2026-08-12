@@ -46,6 +46,12 @@ type Server struct {
 	PreviousCertificatePublicKey   []byte
 	PreviousCertificateExpiresAt   *time.Time
 	LegacyAuthExpiresAt            *time.Time
+	BannedAt                       *time.Time
+	BannedBy                       string
+	BanReason                      string
+	DeletedAt                      *time.Time
+	DeletedBy                      string
+	DeleteReason                   string
 	LastHeartbeatAt                time.Time
 	CreatedAt                      time.Time
 	UpdatedAt                      time.Time

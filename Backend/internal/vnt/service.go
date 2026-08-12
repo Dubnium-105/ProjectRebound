@@ -31,14 +31,14 @@ type Service struct {
 	rotationGrace     time.Duration
 	heartbeatInterval int
 	probeTimeout      time.Duration
-	versionPolicy     VersionPolicy
+	versionPolicy     *VersionPolicy
 	limiter           interface {
 		Check(context.Context, LimitOperation, string) LimitDecision
 	}
 	maxNodesPerPlayer int
 }
 
-func (s *Service) SetVersionPolicy(policy VersionPolicy) {
+func (s *Service) SetVersionPolicy(policy *VersionPolicy) {
 	s.versionPolicy = policy
 }
 
@@ -272,6 +272,10 @@ func (s *Service) List(ctx context.Context, filter ListFilter) (ListResult, erro
 	if err != nil {
 		return ListResult{}, internal(err)
 	}
+	versions, err := s.versionPolicy.Resolve(ctx)
+	if err != nil {
+		return ListResult{}, internal(err)
+	}
 	nextCursor := ""
 	if len(nodes) > limit {
 		nextCursor = nodes[limit-1].ID
@@ -279,7 +283,7 @@ func (s *Service) List(ctx context.Context, filter ListFilter) (ListResult, erro
 	}
 	result := make([]PublicNode, 0, len(nodes))
 	for _, node := range nodes {
-		result = append(result, node.Public(s.versionPolicy.Compatible(node)))
+		result = append(result, node.Public(versions.Compatible(node)))
 	}
 	return ListResult{Items: result, NextCursor: nextCursor}, nil
 }
@@ -308,6 +312,10 @@ func (s *Service) ListOwned(ctx context.Context, actor Actor, filter OwnedListFi
 	if err != nil {
 		return OwnedListResult{}, internal(err)
 	}
+	versions, err := s.versionPolicy.Resolve(ctx)
+	if err != nil {
+		return OwnedListResult{}, internal(err)
+	}
 	nextCursor := ""
 	if len(items) > limit {
 		nextCursor = items[limit-1].ID
@@ -315,7 +323,7 @@ func (s *Service) ListOwned(ctx context.Context, actor Actor, filter OwnedListFi
 	}
 	result := make([]OwnedNode, 0, len(items))
 	for index := range items {
-		items[index].VersionCompatible = s.versionPolicy.Compatible(items[index].Node)
+		items[index].VersionCompatible = versions.Compatible(items[index].Node)
 		result = append(result, items[index].Owned())
 	}
 	return OwnedListResult{Items: result, NextCursor: nextCursor}, nil

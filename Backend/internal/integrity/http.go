@@ -35,7 +35,7 @@ func (h *HTTPHandler) Challenge(w http.ResponseWriter, r *http.Request) {
 		api.WriteError(w, r, http.StatusUnauthorized, auth.CodeUnauthorized, "Authentication is required.", nil)
 		return
 	}
-	challenge, err := h.service.Challenge(principal.SessionID)
+	challenge, err := h.service.Challenge(*principal)
 	if err != nil {
 		h.writeError(w, r, err)
 		return

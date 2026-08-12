@@ -1,6 +1,8 @@
 package compose_test
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"strings"
 	"testing"
@@ -49,6 +51,7 @@ func TestSeparatedControlPlaneHasSecureNetworkAndPersistentSecrets(t *testing.T)
 		Services map[string]struct {
 			Environment map[string]any `yaml:"environment"`
 			Ports       []string       `yaml:"ports"`
+			Volumes     []string       `yaml:"volumes"`
 		} `yaml:"services"`
 	}
 	if err := yaml.Unmarshal(contents, &document); err != nil {
@@ -66,6 +69,29 @@ func TestSeparatedControlPlaneHasSecureNetworkAndPersistentSecrets(t *testing.T)
 	}
 	if control.Ports[1] != "${RELAY_CONTROL_BIND_IP:-127.0.0.1}:${RELAY_CONTROL_PORT:-9090}:9090" {
 		t.Fatalf("relay control endpoint must default to loopback: %#v", control.Ports)
+	}
+	if got := control.Environment["TOOLBOX_PUBKEY_PATH"]; got != "/usr/share/projectrebound/toolbox-signer.pem" {
+		t.Fatalf("control-plane does not pin the image-owned ToolBox certificate: %#v", got)
+	}
+	for _, volume := range control.Volumes {
+		if strings.Contains(volume, "toolbox-signer.pem") {
+			t.Fatalf("host volume can override the ToolBox certificate: %q", volume)
+		}
+	}
+	certificate, err := os.ReadFile("../control-plane/toolbox-signer.pem")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fingerprint := sha256.Sum256(certificate)
+	if got := hex.EncodeToString(fingerprint[:]); got != "75fa5daa280eeb3b01184ceb04a2b02a3459196911383cf077272163826ae967" {
+		t.Fatalf("canonical ToolBox certificate fingerprint drifted: %s", got)
+	}
+	dockerfile, err := os.ReadFile("control-plane.Dockerfile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(dockerfile), "toolbox-signer.pem /usr/share/projectrebound/toolbox-signer.pem") {
+		t.Fatal("control-plane image does not include the canonical ToolBox certificate")
 	}
 	requiredSecrets := []string{
 		"ACCESS_TOKEN_PRIVATE_KEY_BASE64", "GAME_SERVER_CA_CERT_PEM_BASE64", "GAME_SERVER_CA_KEY_PEM_BASE64",

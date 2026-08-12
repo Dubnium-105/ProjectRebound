@@ -33,7 +33,7 @@ type Service struct {
 	vntNodes         *vnt.Repository
 	vntSecrets       *SecretBox
 	vntEnabled       bool
-	vntVersionPolicy vnt.VersionPolicy
+	vntVersionPolicy *vnt.VersionPolicy
 	vntLimiter       interface {
 		Check(context.Context, vnt.LimitOperation, string) vnt.LimitDecision
 	}
@@ -84,7 +84,7 @@ func (s *Service) SetVNTEnabled(enabled bool) {
 	s.vntEnabled = enabled
 }
 
-func (s *Service) SetVNTVersionPolicy(policy vnt.VersionPolicy) {
+func (s *Service) SetVNTVersionPolicy(policy *vnt.VersionPolicy) {
 	s.vntVersionPolicy = policy
 }
 
@@ -191,8 +191,12 @@ func (s *Service) Create(ctx context.Context, actor Actor, input CreateInput) (C
 			}
 			return CreateResult{}, internal(err)
 		}
+		versions, err := s.vntVersionPolicy.Resolve(ctx)
+		if err != nil {
+			return CreateResult{}, internal(err)
+		}
 		if node.State != vnt.StateOnline || node.ActiveRooms >= node.MaxRooms ||
-			!s.vntVersionPolicy.Compatible(node) {
+			!versions.Compatible(node) {
 			return CreateResult{}, conflict("VNT_NODE_UNAVAILABLE", "The selected VNT node is unavailable.")
 		}
 		networkToken, err := newVNTSecret("vntk_")
@@ -752,9 +756,13 @@ func (s *Service) VNTRebind(ctx context.Context, actor Actor, roomID, hostToken,
 		if !room.ExpiresAt.After(now) {
 			return Room{}, conflict("ROOM_EXPIRED", "Room has expired.")
 		}
+		versions, err := s.vntVersionPolicy.Resolve(ctx)
+		if err != nil {
+			return Room{}, internal(err)
+		}
 		node, err := s.vntNodes.GetForAllocation(ctx, tx, requestedNodeID, now)
 		if err != nil || node.State != vnt.StateOnline || node.ActiveRooms >= node.MaxRooms ||
-			!s.vntVersionPolicy.Compatible(node) {
+			!versions.Compatible(node) {
 			return Room{}, conflict("VNT_NODE_UNAVAILABLE", "The selected VNT node is unavailable.")
 		}
 		previousNodeID := room.VNTNodeID

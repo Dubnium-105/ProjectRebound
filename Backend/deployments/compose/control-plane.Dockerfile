@@ -20,6 +20,7 @@ RUN apt-get update && \
 COPY --from=build /out/control-plane /control-plane
 COPY --from=build /out/decrypt-ticket /usr/local/bin/decrypt-ticket
 COPY --from=build /src/deployments/updates /deployments/updates
+COPY --from=build /src/deployments/control-plane/toolbox-signer.pem /usr/share/projectrebound/toolbox-signer.pem
 USER app
 EXPOSE 8080
 ENTRYPOINT ["/control-plane"]

@@ -64,6 +64,13 @@ func (s *Service) IssueRegistrationCredential(
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
 	now := s.now().UTC()
+	banned, err := s.repository.IsInstanceBanned(ctx, tx, input.InstanceID)
+	if err != nil {
+		return RegistrationCredentialResult{}, internal(err)
+	}
+	if banned {
+		return RegistrationCredentialResult{}, gameServerBanned()
+	}
 	inviteUseID, err := s.registrationTokens.FindPlayerInviteGrant(ctx, tx, input.PlayerID)
 	if errors.Is(err, gameserverregistration.ErrInvalidInviteGrant) {
 		inviteUseID, err = s.registrationTokens.RedeemPlayerInviteGrant(
@@ -117,6 +124,13 @@ func (s *Service) Register(ctx context.Context, input RegistrationInput, registr
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
 	now := s.now().UTC()
+	banned, err := s.repository.IsInstanceBanned(ctx, tx, strings.TrimSpace(input.InstanceID))
+	if err != nil {
+		return RegistrationResult{}, internal(err)
+	}
+	if banned {
+		return RegistrationResult{}, gameServerBanned()
+	}
 	credential, err := s.registrationTokens.LockActive(
 		ctx, tx, gameserverregistration.HashToken(registrationToken), now,
 	)
@@ -382,6 +396,14 @@ func validateRegistration(input RegistrationInput) error {
 
 func ValidInstanceID(value string) bool {
 	return instancePattern.MatchString(strings.TrimSpace(value))
+}
+
+func gameServerBanned() *ServiceError {
+	return &ServiceError{
+		Status:  http.StatusForbidden,
+		Code:    "GAME_SERVER_BANNED",
+		Message: "This game server instance is banned.",
+	}
 }
 
 func validTransition(current, next State) bool {

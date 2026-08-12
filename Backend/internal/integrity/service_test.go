@@ -2,6 +2,7 @@ package integrity
 
 import (
 	"context"
+	"crypto/sha256"
 	"io"
 	"log/slog"
 	"testing"
@@ -66,10 +67,19 @@ func newTestService(t *testing.T, recorder Recorder, now time.Time) *Service {
 }
 
 func testPrincipal(sessionID string) auth.Principal {
+	fingerprint := sha256.Sum256([]byte(testPublicKey))
 	return auth.Principal{
 		Player:    player.Player{ID: "p_test", SteamID: "76561198000000001"},
 		SessionID: sessionID, AuthLevel: player.AuthLevelVerified, SteamVerified: true,
+		PEMFingerprint: append([]byte(nil), fingerprint[:]...),
 	}
+}
+
+func trustedPrincipal(sessionID string) auth.Principal {
+	principal := testPrincipal(sessionID)
+	principal.AuthLevel = player.AuthLevelTrusted
+	principal.IntegrityTrusted = true
+	return principal
 }
 
 func TestIntegrityProofPromotesTrustedSession(t *testing.T) {
@@ -102,6 +112,20 @@ func TestIntegrityProofPromotesTrustedSession(t *testing.T) {
 	}
 }
 
+func TestPEMFingerprintUsesExactConfiguredBytes(t *testing.T) {
+	now := time.Date(2026, 8, 11, 12, 0, 0, 0, time.UTC)
+	service := newTestService(t, &recordingRecorder{}, now)
+	want := sha256.Sum256([]byte(testPublicKey))
+	got := service.PEMFingerprint()
+	if string(got) != string(want[:]) {
+		t.Fatalf("fingerprint=%x want=%x", got, want)
+	}
+	got[0] ^= 0xff
+	if string(service.PEMFingerprint()) != string(want[:]) {
+		t.Fatal("caller mutated the service PEM fingerprint")
+	}
+}
+
 func TestIntegrityProofRevokesAfterThreeConsecutiveFailures(t *testing.T) {
 	now := time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC)
 	recorder := &recordingRecorder{}
@@ -115,7 +139,7 @@ func TestIntegrityProofRevokesAfterThreeConsecutiveFailures(t *testing.T) {
 	}
 
 	for attempt := 1; attempt <= 3; attempt++ {
-		challenge, err := service.Challenge("ses_test")
+		challenge, err := service.Challenge(testPrincipal("ses_test"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -139,7 +163,7 @@ func TestIntegrityProofRevokesAfterThreeConsecutiveFailures(t *testing.T) {
 		!recorder.failures[2].terminal {
 		t.Fatalf("failures=%+v", recorder.failures)
 	}
-	challenge, err := service.Challenge("ses_test")
+	challenge, err := service.Challenge(testPrincipal("ses_test"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,16 +195,17 @@ func TestIntegrityNonceIsOneTimeAndExpires(t *testing.T) {
 		t.Fatalf("replay result=%+v error=%v failures=%+v", result, err, recorder.failures)
 	}
 
-	challenge, err = service.Challenge("ses_test")
+	trusted := trustedPrincipal("ses_test")
+	challenge, err = service.Challenge(trusted)
 	if err != nil {
 		t.Fatal(err)
 	}
 	service.now = func() time.Time {
 		return now.Add(time.Duration(config.Defaults.Auth.IntegrityChallengeTTLSeconds+1) * time.Second)
 	}
-	proof = expectedProof([]byte(testPublicKey), ticket, challenge.Nonce)
+	proof = expectedIntegrityProof([]byte(testPublicKey), challenge.Nonce)
 	if result, err := service.Verify(
-		context.Background(), testPrincipal("ses_test"), challenge.Nonce, proof,
+		context.Background(), trusted, challenge.Nonce, proof,
 		"toolbox", auth.RequestMeta{},
 	); err != nil || result.OK || recorder.failures[1].reason != "challenge_expired" {
 		t.Fatalf("expired result=%+v error=%v failures=%+v", result, err, recorder.failures)
@@ -194,9 +219,74 @@ func TestIntegritySessionRotatesWithoutRetainingNonce(t *testing.T) {
 		t.Fatal(err)
 	}
 	service.RotateSession("ses_old", "ses_new", now.Add(2*time.Hour))
-	oldChallenge, _ := service.Challenge("ses_old")
-	newChallenge, _ := service.Challenge("ses_new")
+	oldChallenge, _ := service.Challenge(testPrincipal("ses_old"))
+	newChallenge, _ := service.Challenge(testPrincipal("ses_new"))
 	if oldChallenge.Nonce != "" || len(newChallenge.Nonce) != 64 {
 		t.Fatalf("old=%+v new=%+v", oldChallenge, newChallenge)
+	}
+}
+
+func TestTrustedSessionUsesTicketlessProofAfterStateLoss(t *testing.T) {
+	now := time.Date(2026, 8, 11, 12, 0, 0, 0, time.UTC)
+	recorder := &recordingRecorder{}
+	service := newTestService(t, recorder, now)
+	principal := trustedPrincipal("ses_trusted")
+
+	challenge, err := service.Challenge(principal)
+	if err != nil || len(challenge.Nonce) != 64 {
+		t.Fatalf("challenge=%+v error=%v", challenge, err)
+	}
+	proof := expectedIntegrityProof([]byte(testPublicKey), challenge.Nonce)
+	result, err := service.Verify(
+		context.Background(), principal, challenge.Nonce, proof, toolboxComponent, auth.RequestMeta{},
+	)
+	if err != nil || !result.OK || recorder.promotions != 1 {
+		t.Fatalf("result=%+v error=%v recorder=%+v", result, err, recorder)
+	}
+}
+
+func TestTrustedSessionRejectsTicketedProof(t *testing.T) {
+	now := time.Date(2026, 8, 11, 12, 0, 0, 0, time.UTC)
+	recorder := &recordingRecorder{}
+	service := newTestService(t, recorder, now)
+	principal := trustedPrincipal("ses_trusted")
+	challenge, err := service.Challenge(principal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ticketedProof := expectedProof([]byte(testPublicKey), []byte{0x01}, challenge.Nonce)
+	result, err := service.Verify(
+		context.Background(), principal, challenge.Nonce, ticketedProof, toolboxComponent, auth.RequestMeta{},
+	)
+	if err != nil || result.OK || len(recorder.failures) != 1 || recorder.failures[0].reason != "proof_mismatch" {
+		t.Fatalf("result=%+v error=%v failures=%+v", result, err, recorder.failures)
+	}
+}
+
+func TestPEMFingerprintMismatchFailsClosed(t *testing.T) {
+	now := time.Date(2026, 8, 11, 12, 0, 0, 0, time.UTC)
+	recorder := &recordingRecorder{}
+	service := newTestService(t, recorder, now)
+	principal := trustedPrincipal("ses_trusted")
+	principal.PEMFingerprint = make([]byte, sha256.Size)
+	challenge, err := service.Challenge(principal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proof := expectedIntegrityProof([]byte(testPublicKey), challenge.Nonce)
+	result, err := service.Verify(
+		context.Background(), principal, challenge.Nonce, proof, toolboxComponent, auth.RequestMeta{},
+	)
+	if err != nil || result.OK || len(recorder.failures) != 1 || recorder.failures[0].reason != "pem_fingerprint_mismatch" {
+		t.Fatalf("result=%+v error=%v failures=%+v", result, err, recorder.failures)
+	}
+}
+
+func TestUntrustedSessionWithoutTicketGetsNoChallenge(t *testing.T) {
+	now := time.Date(2026, 8, 11, 12, 0, 0, 0, time.UTC)
+	service := newTestService(t, &recordingRecorder{}, now)
+	challenge, err := service.Challenge(testPrincipal("ses_untrusted"))
+	if err != nil || challenge.Nonce != "" {
+		t.Fatalf("challenge=%+v error=%v", challenge, err)
 	}
 }

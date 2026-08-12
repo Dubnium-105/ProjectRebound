@@ -79,6 +79,33 @@ else
   "${compose[@]}" build --pull control-plane admin-web
 fi
 
+# The integrity protocol hashes the exact PEM bytes. The production image owns
+# the versioned canonical certificate so a stale host override cannot silently
+# change the trust root. Emit only its public fingerprint.
+expected_toolbox_pubkey="$deployment_dir/toolbox-signer.pem"
+[[ -f "$expected_toolbox_pubkey" ]] || {
+  echo "The deployment bundle is missing the canonical ToolBox certificate." >&2
+  exit 1
+}
+expected_toolbox_pubkey_sha256="$(sha256sum "$expected_toolbox_pubkey" | awk '{print $1}')"
+if ! toolbox_pubkey_sha256="$("${compose[@]}" run --rm -T --no-deps \
+  --entrypoint /bin/sh control-plane -c \
+  'sha256sum "$TOOLBOX_PUBKEY_PATH" | cut -d" " -f1')"; then
+  echo "Failed to fingerprint the mounted ToolBox public certificate." >&2
+  exit 1
+fi
+toolbox_pubkey_sha256="$(printf '%s' "$toolbox_pubkey_sha256" | tr -d '\r\n')"
+[[ "$toolbox_pubkey_sha256" =~ ^[0-9a-f]{64}$ ]] || {
+  echo "Mounted ToolBox public certificate returned an invalid fingerprint." >&2
+  exit 1
+}
+[[ "$toolbox_pubkey_sha256" == "$expected_toolbox_pubkey_sha256" ]] || {
+  printf 'ToolBox public certificate mismatch: image=%s bundle=%s\n' \
+    "$toolbox_pubkey_sha256" "$expected_toolbox_pubkey_sha256" >&2
+  exit 1
+}
+printf 'CONTROL_PLANE_TOOLBOX_PUBKEY_SHA256 %s\n' "$toolbox_pubkey_sha256"
+
 # Run the verifier as the image's non-root application user before replacing
 # the current container. Exit 1 means the key and native Steam library loaded
 # successfully and the deliberately invalid ciphertext reached decryption;

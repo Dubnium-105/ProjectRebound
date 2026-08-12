@@ -75,8 +75,8 @@
 | GET | `/v1/users/me/sessions` | Player | 无 | 200 当前玩家的有效会话列表 |
 | DELETE | `/v1/users/me/sessions/{session_id}` | Player | Path session ID | 200 撤销属于当前玩家的指定会话 |
 | POST | `/v1/users/me/sessions/revoke-others` | Player | 无 | 200 撤销除调用会话外的全部会话 |
-| POST | `/v1/integrity/challenge` | Player | 无 | 200 返回新的一次性 `nonce`；内存中没有 verified ticket 时为空 |
-| POST | `/v1/integrity/proof` | Player | `nonce`、`proof`、`component=toolbox` | 200 返回 `ok`；成功后会话提升为 `trusted` |
+| POST | `/v1/integrity/challenge` | Player | 无 | 200 返回新的一次性 `nonce`；trusted 会话不需要 ticket，空 nonce 表示未 trusted 会话必须重新 bind |
+| POST | `/v1/integrity/proof` | Player | `nonce`、`proof`、`component=toolbox` | 200 返回 `ok`；成功持久化 session 完整性信任，任何失败都会立即清除信任 |
 | POST | `/v1/integrity/verify` | Player | 与 `/proof` 相同 | 已弃用的兼容别名 |
 | POST | `/v1/diagnostic/report` | Player | 必需的诊断文本字段 `report` | 文本存储后返回 200 裸响应 `{"ok":true}` |
 
@@ -97,7 +97,7 @@ Content-Type: application/json
 
 旧客户端可继续省略可选字段或发送不透明安装 ID，但会话保持 `unverified`。新客户端提交十六进制 `encrypted_ticket`。后端只通过 stdin 将其传给外部验证程序，并以解密出的 SteamID 为权威身份。只要解密成功且 ticket SteamID 与请求 SteamID 一致就接受；AppID、签发时间、VAC 状态和此前是否使用过均不再阻断 bind。系统绝不保存 ticket 明文。
 
-verified bind 的 `data.integrity_challenge.nonce` 包含首次一次性 challenge。客户端计算 `SHA256(PE_certificate_bytes || decoded_encrypted_ticket_bytes || nonce_ascii)`，并把 64 字符十六进制摘要提交到 `/v1/integrity/proof`。每次 challenge 都会替换前一个 nonce；proof 正确时会话提升为 `trusted`，连续三次失败则撤销会话。challenge 与 ticket 原始字节仅存在于进程内存，因此后端重启后返回空 nonce 表示客户端必须重新 bind。
+verified bind 的 `data.integrity_challenge.nonce` 包含首次一次性 challenge。客户端计算 `SHA256(PE_certificate_bytes || decoded_encrypted_ticket_bytes || nonce_ascii)`，并把 64 字符十六进制摘要提交到 `/v1/integrity/proof`。成功后 session 持久化 `integrity_trusted=true` 和 `SHA256(PE_certificate_bytes)`，refresh 原样继承两者；之后的 challenge（包括控制服重启后）统一使用不查询 ticket 的 `SHA256(PE_certificate_bytes || nonce_ascii)`。每次 challenge 都会替换前一个 nonce；任何 proof 失败都会立即清除完整性信任，连续三次失败则撤销会话。ticket 原始字节只在首次 bind proof 完成或过期前存在于进程内存；未 trusted 会话收到空 nonce 时必须重新 bind。
 
 新客户端可以发送 `uuid|disk|cpu`，服务端分别对三个因子执行 HMAC；也继续接受 `v1|uu:<摘要>|ds:<摘要>|cp:<摘要>`，其中摘要为 16 个十六进制字符，版本化格式允许省略无法取得的因子。无竖线的旧版不透明 Device ID 仍然兼容。
 
@@ -283,7 +283,7 @@ VNT 数据面不经过 Control Plane。公共节点和房间响应不会包含 n
 
 `GET /v1/vnt/nodes` 使用基于 ID 的游标分页。将响应中的 `data.next_cursor` 作为下一次请求的 `cursor`；空值表示没有下一页。`limit` 范围为 `1..200`，默认值为 `100`。
 
-每个节点都包含 `version_compatible`，它由服务端对批准的 `vnts` 与 wrapper 版本白名单执行精确且区分大小写的匹配。ToolBox 应隐藏不兼容节点，但仍必须处理 `409 VNT_NODE_UNAVAILABLE`，因为 create/rebind 会在分配事务内再次检查状态、容量和两个版本。
+每个节点都包含 `version_compatible`，它由服务端对当前已发布 ToolBox 客户端版本中经过校验的 sidecar 所提取出的 VNT 运行时版本对执行精确且区分大小写的匹配。发布或回滚 ToolBox 版本会立即更新节点资格；若没有已发布版本携带有效运行时元数据，策略将 fail closed。公开更新 Manifest 及其签名结构保持不变，以兼容旧客户端。ToolBox 应隐藏不兼容节点，但仍必须处理 `409 VNT_NODE_UNAVAILABLE`，因为 create/rebind 会在分配事务内再次检查状态、容量和两个版本。
 
 有活动房间的节点在请求退役后进入 `DRAINING`，并可继续发送心跳及轮换凭据，直到相关房间结束。节点一旦进入 `RETIRED`，其余节点凭据会被原子撤销。
 

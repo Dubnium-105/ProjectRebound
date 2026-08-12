@@ -23,8 +23,6 @@ func TestLoadMissingFileAppliesEnvironment(t *testing.T) {
 	t.Setenv("P2P_BATTLELOG_SHADOW_MODE", "false")
 	t.Setenv("P2P_BATTLELOG_COLLECTION_DEADLINE_SECONDS", "180")
 	t.Setenv("VNT_ROOMS_ENABLED", "true")
-	t.Setenv("VNT_ALLOWED_VNTS_VERSIONS", "1.2.3,1.2.4")
-	t.Setenv("VNT_ALLOWED_WRAPPER_VERSIONS", "0.4.0")
 	t.Setenv("VNT_CREDENTIAL_ROTATION_GRACE_SECONDS", "75")
 	t.Setenv("VNT_ENROLLMENT_REQUESTS_PER_PLAYER_PER_HOUR", "6")
 	t.Setenv("VNT_DIRECTORY_REQUESTS_PER_IP_PER_MINUTE", "122")
@@ -75,8 +73,7 @@ func TestLoadMissingFileAppliesEnvironment(t *testing.T) {
 	if !cfg.Update.VNTRoomsEnabled {
 		t.Fatal("VNT_ROOMS_ENABLED environment override was not applied")
 	}
-	if len(cfg.VNT.AllowedVNTSVersions) != 2 || cfg.VNT.AllowedWrapperVersions[0] != "0.4.0" ||
-		cfg.VNT.CredentialRotationGraceSeconds != 75 || cfg.VNT.EnrollmentRequestsPerPlayerPerHour != 6 ||
+	if cfg.VNT.CredentialRotationGraceSeconds != 75 || cfg.VNT.EnrollmentRequestsPerPlayerPerHour != 6 ||
 		cfg.VNT.DirectoryRequestsPerIPPerMinute != 122 || cfg.VNT.BootstrapRequestsPerPlayerPerMinute != 31 ||
 		cfg.VNT.HeartbeatRequestsPerCredentialPerMinute != 121 || cfg.VNT.ManagementRequestsPerCredentialPerHour != 11 ||
 		cfg.VNT.MaxNodesPerPlayer != 4 {
@@ -142,16 +139,11 @@ func TestValidateControlPlaneRejectsInvalidVNTNodeQuota(t *testing.T) {
 	}
 }
 
-func TestValidateControlPlaneRequiresVNTVersionAllowlistsWhenEnabled(t *testing.T) {
+func TestValidateControlPlaneUsesPublishedReleasesForVNTVersions(t *testing.T) {
 	cfg := Defaults
 	cfg.Update.VNTRoomsEnabled = true
-	if err := cfg.ValidateControlPlane(); err == nil {
-		t.Fatal("enabled VNT rooms without version allowlists were accepted")
-	}
-	cfg.VNT.AllowedVNTSVersions = []string{"1.2.3"}
-	cfg.VNT.AllowedWrapperVersions = []string{"0.4.0"}
 	if err := cfg.ValidateControlPlane(); err != nil {
-		t.Fatalf("valid VNT allowlists were rejected: %v", err)
+		t.Fatalf("published-release VNT policy still required deployment allowlists: %v", err)
 	}
 }
 
