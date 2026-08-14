@@ -1,6 +1,6 @@
 module github.com/Dubnium-105/ProjectRebound/Backend/tests/integration
 
-go 1.25.12
+go 1.25.13
 
 require (
 	github.com/testcontainers/testcontainers-go v0.42.0

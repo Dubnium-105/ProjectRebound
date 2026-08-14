@@ -1,6 +1,6 @@
 module github.com/projectrebound/admin-web-caddy
 
-go 1.25.12
+go 1.25.13
 
 require github.com/caddyserver/caddy/v2 v2.11.4
 
