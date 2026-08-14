@@ -171,9 +171,9 @@ namespace UC
 				inline void FitAllocation(const int32 OldNumElements, const int32 NewNumElements)
 				{
 					/* No need to do anything if NewSize still fits into InlineData */
-					if (NewNumElements <= NumInlineElements)
+					if (NewNumElements <= static_cast<int32>(NumInlineElements))
 					{
-						if (OldNumElements > NumInlineElements && SecondaryData)
+						if (OldNumElements > static_cast<int32>(NumInlineElements) && SecondaryData)
 						{
 							memcpy(InlineData, SecondaryData, InlineDataSizeBytes);
 							FMemory::Free(SecondaryData);
@@ -185,7 +185,7 @@ namespace UC
 					/* Allocates if SecondaryData is nullptr */
 					SecondaryData = reinterpret_cast<ElementType*>(FMemory::Realloc(SecondaryData, NewNumElements * ElementSize, ElementAlign));
 
-					if (OldNumElements < NumInlineElements)
+					if (OldNumElements < static_cast<int32>(NumInlineElements))
 						memcpy(SecondaryData, InlineData, InlineDataSizeBytes);
 				}
 
@@ -540,8 +540,15 @@ namespace UC
 			if (*this)
 			{
 				std::wstring WData(Data);
-#pragma warning(suppress: 4244)
-				return std::string(WData.begin(), WData.end());
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4244)
+#endif
+				std::string Result(WData.begin(), WData.end());
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+				return Result;
 			}
 
 			return "";
@@ -912,7 +919,6 @@ namespace UC
 
 		public:
 			inline TContainerIterator& operator++() { ++BitIterator; return *this; }
-			inline TContainerIterator& operator--() { --BitIterator; return *this; }
 
 			inline       auto& operator*() { return IteratedContainer[GetIndex()]; }
 			inline const auto& operator*() const { return IteratedContainer[GetIndex()]; }

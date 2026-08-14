@@ -1,5 +1,7 @@
 # Boundary 军械库 Frida 观测器
 
+[English](README.md) | 简体中文
+
 这组脚本用于确认 Meta `QueryAssets`、原生 `UPBArmoryManager::OwnedItems` 与
 `HasItem` 返回值之间的关系。探针不写游戏内存、不替换返回值，也不记录认证
 令牌。
