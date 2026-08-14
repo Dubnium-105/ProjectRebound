@@ -73,6 +73,16 @@ func (s *TCPServer) getPlayerArchive(
 		if err != nil {
 			return nil, err
 		}
+		if archives == nil {
+			archives = make(map[string][]byte)
+		}
+		for weaponID, raw := range nativeSnapshotWeaponArchives(
+			s.service.definitions, roleID, snapshot, weaponIDs,
+		) {
+			if len(archives[weaponID]) == 0 {
+				archives[weaponID] = raw
+			}
+		}
 		if bundle := nativeWeaponArchiveBundle(
 			s.service.definitions, roleID, weaponIDs, archives,
 		); len(bundle) > 0 {
@@ -409,9 +419,10 @@ func nativeSnapshotResponseItem(snapshot map[string]any, key string, slot int) s
 }
 
 func nativeResponseItem(itemID string) string {
-	// The native client treats a literal "None" as an invalid item and restores
-	// the role default. An empty proto3 string omits the field and preserves the
-	// intentionally empty slot.
+	// The native client restores the role default when this proto3 field is
+	// omitted. Do not serialize the literal sentinel as an item definition.
+	// A user can temporarily clear a slot in the live armory, but a subsequent
+	// archive initialization will therefore restore that role's native default.
 	if strings.EqualFold(itemID, "None") {
 		return ""
 	}
@@ -542,6 +553,105 @@ func nativeWeaponArchiveBundle(
 		return nil
 	}
 	return output
+}
+
+func nativeSnapshotWeaponArchives(
+	definitions *DefinitionIndex,
+	roleID string,
+	snapshot map[string]any,
+	weaponIDs []string,
+) map[string][]byte {
+	result := make(map[string][]byte)
+	allowed := make(map[string]struct{}, len(weaponIDs))
+	for _, weaponID := range weaponIDs {
+		if weaponID != "" && !strings.EqualFold(weaponID, "None") {
+			allowed[weaponID] = struct{}{}
+		}
+	}
+	merge := func(rawHex string) {
+		for weaponID, raw := range decodeNativeWeaponArchiveBundle(
+			definitions, roleID, rawHex, allowed,
+		) {
+			if len(result[weaponID]) == 0 {
+				result[weaponID] = raw
+			}
+		}
+	}
+	if values, ok := snapshot["_weaponArchives"].(map[string]any); ok {
+		for _, weaponID := range weaponIDs {
+			if rawHex, ok := values[weaponID].(string); ok {
+				merge(rawHex)
+			}
+		}
+	}
+	if rawHex, ok := snapshot["_weaponArchiveRaw"].(string); ok {
+		merge(rawHex)
+	}
+	return result
+}
+
+func decodeNativeWeaponArchiveBundle(
+	definitions *DefinitionIndex,
+	roleID string,
+	rawHex string,
+	allowed map[string]struct{},
+) map[string][]byte {
+	result := make(map[string][]byte)
+	if definitions == nil || len(rawHex) == 0 || len(rawHex) > 2<<20 {
+		return result
+	}
+	raw, err := hex.DecodeString(rawHex)
+	if err != nil || len(raw) == 0 {
+		return result
+	}
+	bundleRoleID := ""
+	archives := make([][]byte, 0, 2)
+	for len(raw) > 0 {
+		number, wireType, consumed := protowire.ConsumeTag(raw)
+		if consumed < 0 || wireType != protowire.BytesType || (number != 1 && number != 3) {
+			return map[string][]byte{}
+		}
+		raw = raw[consumed:]
+		value, consumed := protowire.ConsumeBytes(raw)
+		if consumed < 0 {
+			return map[string][]byte{}
+		}
+		raw = raw[consumed:]
+		if number == 1 {
+			if bundleRoleID != "" {
+				return map[string][]byte{}
+			}
+			bundleRoleID = string(value)
+			continue
+		}
+		archives = append(archives, append([]byte(nil), value...))
+	}
+	canonicalRoleID, ok := definitions.CanonicalRoleID(bundleRoleID)
+	if !ok || canonicalRoleID != roleID {
+		return map[string][]byte{}
+	}
+	for _, rawArchive := range archives {
+		var candidate metaprotocol.WeaponArchiveV2
+		if err := proto.Unmarshal(rawArchive, &candidate); err != nil {
+			return map[string][]byte{}
+		}
+		weaponID := candidate.GetWeaponId()
+		if _, ok := allowed[weaponID]; !ok ||
+			!definitions.ItemAllowedForRole(roleID, weaponID) ||
+			!p2pWeaponArchiveIsValid(definitions, &candidate) {
+			return map[string][]byte{}
+		}
+		complete, ok := p2pCompleteWeaponArchive(definitions, weaponID, &candidate)
+		if !ok {
+			return map[string][]byte{}
+		}
+		canonical, err := proto.Marshal(complete)
+		if err != nil {
+			return map[string][]byte{}
+		}
+		result[weaponID] = canonical
+	}
+	return result
 }
 
 func nativeDefaultWeaponArchive(

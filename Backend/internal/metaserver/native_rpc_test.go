@@ -1,6 +1,7 @@
 package metaserver
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -115,6 +116,66 @@ func TestNativeWeaponArchiveBundle(t *testing.T) {
 	}
 	if roleFields != 1 || archiveFields != 1 {
 		t.Fatalf("role fields=%d weapon archive fields=%d", roleFields, archiveFields)
+	}
+}
+
+func TestNativeSnapshotWeaponArchivesAcceptsValidatedLegacyBundle(t *testing.T) {
+	definitions, err := LoadDefinitionIndex()
+	if err != nil {
+		t.Fatal(err)
+	}
+	archiveRaw, err := proto.Marshal(validP2PAKMArchive())
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := protowire.AppendTag(nil, 1, protowire.BytesType)
+	bundle = protowire.AppendString(bundle, "PEACE")
+	bundle = protowire.AppendTag(bundle, 3, protowire.BytesType)
+	bundle = protowire.AppendBytes(bundle, archiveRaw)
+	snapshot := map[string]any{"_weaponArchiveRaw": hex.EncodeToString(bundle)}
+
+	archives := nativeSnapshotWeaponArchives(
+		definitions, "PEACE", snapshot, []string{"PEACE_RU-AKM"},
+	)
+	var decoded metaprotocol.WeaponArchiveV2
+	if err := proto.Unmarshal(archives["PEACE_RU-AKM"], &decoded); err != nil {
+		t.Fatalf("validated legacy archive was not projected: %v", err)
+	}
+	if decoded.GetWeaponId() != "PEACE_RU-AKM" || len(decoded.GetParts()) != 10 ||
+		decoded.GetParts()[0].GetOrnament().GetInfo().GetType() != "PartOri" {
+		t.Fatalf("unexpected projected legacy archive: %#v", &decoded)
+	}
+}
+
+func TestNativeSnapshotWeaponArchivesRejectsWrongRoleOrWeapon(t *testing.T) {
+	definitions, err := LoadDefinitionIndex()
+	if err != nil {
+		t.Fatal(err)
+	}
+	archiveRaw, err := proto.Marshal(validP2PAKMArchive())
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := protowire.AppendTag(nil, 1, protowire.BytesType)
+	bundle = protowire.AppendString(bundle, "PROBE")
+	bundle = protowire.AppendTag(bundle, 3, protowire.BytesType)
+	bundle = protowire.AppendBytes(bundle, archiveRaw)
+	snapshot := map[string]any{"_weaponArchiveRaw": hex.EncodeToString(bundle)}
+
+	if archives := nativeSnapshotWeaponArchives(
+		definitions, "PEACE", snapshot, []string{"PEACE_RU-AKM"},
+	); len(archives) != 0 {
+		t.Fatalf("wrong-role legacy bundle was accepted: %#v", archives)
+	}
+	bundle = protowire.AppendTag(nil, 1, protowire.BytesType)
+	bundle = protowire.AppendString(bundle, "PEACE")
+	bundle = protowire.AppendTag(bundle, 3, protowire.BytesType)
+	bundle = protowire.AppendBytes(bundle, archiveRaw)
+	snapshot["_weaponArchiveRaw"] = hex.EncodeToString(bundle)
+	if archives := nativeSnapshotWeaponArchives(
+		definitions, "PEACE", snapshot, []string{"PEACE_RU-APS"},
+	); len(archives) != 0 {
+		t.Fatalf("unselected legacy weapon was accepted: %#v", archives)
 	}
 }
 
