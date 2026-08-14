@@ -6,7 +6,7 @@ RUN npm ci
 COPY AdminWeb/ ./
 RUN npm run build
 
-FROM golang:1.25.13-alpine AS caddy-build
+FROM golang:1.26.6-alpine AS caddy-build
 ARG GOPROXY=https://proxy.golang.org,direct
 ARG GOSUMDB=sum.golang.org
 ENV GOPROXY=${GOPROXY}
