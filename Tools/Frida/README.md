@@ -63,6 +63,10 @@ IDA analysis of the current Steam build shows that
 and compares only the `FName` at offset 0x0. It does not read Count at offset
 0x8.
 
+Run `run_query_assets_status_ab.py --script query_assets_observe.js` for a
+read-only baseline. It reports the stable QueryAssets protobuf prefix without
+modifying the receive buffer.
+
 `query_assets_status_ab.js` is a separate reversible A/B probe. It rewrites
 the first field of the current QueryAssets payload from 40462 to an equal-width
 encoding of zero to determine whether the field is an item count or a
@@ -71,12 +75,26 @@ so it is not part of the default read-only probe. Stop the probe and restart
 the game to restore the original behavior.
 
 `query_assets_single_item_ab.js` is the second-stage A/B probe. It preserves
-the frame length, exposes only the `PEACE_RU-AKM` ItemData row, and rewrites
+the frame length, exposes only one ItemData row (`PEACE_RU-AKM` by default), and rewrites
 the top-level ItemCount to an equal-width encoding of one. This distinguishes
 between the entire oversized heterogeneous asset list being rejected and the
 three integer fields still having incorrect semantics. The script also checks
 the complete 1,615,627-byte QueryAssets payload window so it cannot match
 another RPC response accidentally.
+
+Use `run_query_assets_status_ab.py --target-item PEACE_GSW-IDW` with this
+script to select a normally locked row for a discriminating ownership test.
+Add `--top-level-value 0` to test whether field 1 is a success status rather
+than an item count; the default value remains 1.
+
+`query_assets_user_asset_ab.js` tests the runtime-reflected schema candidate
+directly. It hides the old top-level count, exposes only the selected row as a
+field-1 `UserAsset`, and preserves all buffer and frame lengths. Run it with
+`--script query_assets_user_asset_ab.js --target-item PEACE_GSW-IDW`.
+
+`player_archive_level_ab.js` rewrites the deployed GetPlayerArchiveV2
+top-level player level from 1 to the archived native value 0 without changing
+the payload or frame length.
 
 `persistent_armory_probe.js` is a one-shot read-only comparison of
 `PBPersistentUser_BP_C::ArmorySaved`, its runtime `Armorys`, and

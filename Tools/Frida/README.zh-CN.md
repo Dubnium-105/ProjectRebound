@@ -56,15 +56,30 @@ powershell -ExecutionPolicy Bypass -File .\Tools\Frida\run-armory-probe.ps1 -Pro
 当前 Steam 构建的 IDA 结果显示，`UPBArmoryManager::HasItem` 以 0x10 为步长遍历
 `FPBItem`，只比较偏移 0x0 的 `FName`，不会读取偏移 0x8 的 `Count`。
 
+运行 `run_query_assets_status_ab.py --script query_assets_observe.js` 可获得只读
+基线：它只报告稳定的 QueryAssets protobuf 前缀，不修改接收缓冲区。
+
 `query_assets_status_ab.js` 是单独的可选 A/B 探针。它只把当前 QueryAssets
 payload 开头字段 1 的 40462 原位改成等长编码的 0，用于验证该字段究竟是条目数
 还是状态/保留字段。它会修改本机游戏的接收缓冲区，因此不属于默认只读探针；
 停止探针并重启游戏即可恢复。
 
 `query_assets_single_item_ab.js` 是第二阶段 A/B：保持帧长不变，让客户端只看到
-`PEACE_RU-AKM` 这一条 ItemData，并把顶层 `ItemCount` 等长改写为 1，用于区分
+一条 ItemData（默认 `PEACE_RU-AKM`），并把顶层 `ItemCount` 等长改写为 1，用于区分
 “超大/混杂资产列表被整体拒绝”和“三个整数字段的语义仍不正确”。当前脚本还会
 校验完整的 1,615,627 字节 QueryAssets payload 窗口，避免匹配其他 RPC 响应。
+
+需要做有判别力的所有权测试时，可对该脚本使用
+`run_query_assets_status_ab.py --target-item PEACE_GSW-IDW`，只保留一个正常情况下
+明确锁定的条目。再加 `--top-level-value 0` 可验证字段 1 是否其实是成功状态码而非
+物品数量；默认测试值仍为 1。
+
+`query_assets_user_asset_ab.js` 会直接验证运行时反射得到的候选 schema：隐藏旧的
+顶层数量，只把所选行作为 field 1 `UserAsset` 暴露，同时保持缓冲区和帧长不变。
+运行时传入 `--script query_assets_user_asset_ab.js --target-item PEACE_GSW-IDW`。
+
+`player_archive_level_ab.js` 会把已部署 GetPlayerArchiveV2 的顶层玩家等级从 1
+原位改写为历史原生值 0，不改变 payload 或外层帧长。
 
 `persistent_armory_probe.js` 是一次性只读对照探针，用于比较
 `PBPersistentUser_BP_C::ArmorySaved`、其运行时 `Armorys` 和

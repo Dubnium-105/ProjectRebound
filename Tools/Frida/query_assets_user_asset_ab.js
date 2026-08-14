@@ -1,29 +1,28 @@
 'use strict';
 
 /*
- * Second controlled QueryAssets A/B.
+ * Controlled QueryAssetsRes/UserAsset schema A/B.
  *
- * In addition to rewriting top-level field 1 from 40462 to a selected test
- * value, this changes
- * the outer tag of every complete ItemData row except the selected target from
- * field 2 (0x12) to unknown field 3 (0x1a). The bytes and frame sizes stay
- * fixed; the native protobuf decoder therefore sees one known inventory item.
+ * The older server schema encodes a top-level field-1 count and field-2 rows.
+ * Runtime reflection instead exposes QueryAssetsRes and UserAsset.itemId. This
+ * probe preserves every byte and frame length while presenting one selected
+ * row as a field-1 UserAsset:
+ *
+ *   - top-level field 1 varint -> unknown field 3 varint
+ *   - selected field 2 row    -> field 1 row
+ *   - every other field 2 row -> unknown field 3 row
+ *
+ * Unknown fields inside the selected row remain untouched; protobuf clients
+ * should ignore them if UserAsset contains only itemId.
  */
 
-const TARGET_ITEM = globalThis.__PROJECT_REBOUND_TARGET_ITEM__ || 'PEACE_RU-AKM';
-const TOP_LEVEL_VALUE = typeof globalThis.__PROJECT_REBOUND_TOP_LEVEL_VALUE__ === 'number'
-    ? globalThis.__PROJECT_REBOUND_TOP_LEVEL_VALUE__
-    : 1;
+const TARGET_ITEM = globalThis.__PROJECT_REBOUND_TARGET_ITEM__ || 'PEACE_GSW-IDW';
 const QUERY_ASSETS_PREFIX = [0x08, 0x8e, 0xbc, 0x02, 0x12];
 const QUERY_ASSETS_PAYLOAD_BYTES = 1615627;
-// Equal-width, non-canonical varint encoding of zero or one. Keeping the
-// original three value bytes means recv() and the outer RPC frame lengths
-// remain untouched.
-const TOP_LEVEL_SAME_WIDTH = [0x80 | TOP_LEVEL_VALUE, 0x80, 0x00];
 
 function emit(event, details = {}) {
     send(Object.assign({
-        source: 'project-rebound-query-assets-single-item-ab',
+        source: 'project-rebound-query-assets-user-asset-ab',
         event,
         timestamp_ms: Date.now(),
         thread_id: Process.getCurrentThreadId(),
@@ -60,9 +59,9 @@ function ascii(bytes, start, length) {
 function initialize() {
     const winsock = Process.getModuleByName('ws2_32.dll');
     const recv = winsock.getExportByName('recv');
-    let statusRewrites = 0;
+    let responseRewrites = 0;
     let rowsHidden = 0;
-    let targetRowsKept = 0;
+    let targetRowsExposed = 0;
     let payloadBytesRemaining = 0;
 
     Interceptor.attach(recv, {
@@ -80,9 +79,9 @@ function initialize() {
                 return;
             }
             const bytes = new Uint8Array(raw);
-            let chunkHidden = 0;
-            let chunkKept = 0;
             let filterStart = payloadBytesRemaining > 0 ? 0 : -1;
+            let chunkHidden = 0;
+            let chunkExposed = 0;
 
             if (filterStart < 0) {
                 for (let index = 0; index + QUERY_ASSETS_PREFIX.length <= bytes.length; index += 1) {
@@ -90,13 +89,14 @@ function initialize() {
                     for (let offset = 0; offset < QUERY_ASSETS_PREFIX.length; offset += 1) {
                         matches = matches && bytes[index + offset] === QUERY_ASSETS_PREFIX[offset];
                     }
-                    if (matches) {
-                        this.buffer.add(index + 1).writeByteArray(TOP_LEVEL_SAME_WIDTH);
-                        statusRewrites += 1;
-                        payloadBytesRemaining = QUERY_ASSETS_PAYLOAD_BYTES;
-                        filterStart = index;
-                        break;
+                    if (!matches) {
+                        continue;
                     }
+                    this.buffer.add(index).writeU8(0x18);
+                    responseRewrites += 1;
+                    payloadBytesRemaining = QUERY_ASSETS_PAYLOAD_BYTES;
+                    filterStart = index;
+                    break;
                 }
             }
 
@@ -127,8 +127,9 @@ function initialize() {
                     continue;
                 }
                 if (itemId === TARGET_ITEM) {
-                    targetRowsKept += 1;
-                    chunkKept += 1;
+                    this.buffer.add(index).writeU8(0x0a);
+                    targetRowsExposed += 1;
+                    chunkExposed += 1;
                 } else {
                     this.buffer.add(index).writeU8(0x1a);
                     rowsHidden += 1;
@@ -138,26 +139,25 @@ function initialize() {
             }
             payloadBytesRemaining -= filterBytes;
 
-            if (chunkHidden > 0 || chunkKept > 0) {
-                emit('query_assets.rows_filtered', {
+            if (chunkHidden > 0 || chunkExposed > 0) {
+                emit('query_assets.user_asset_rewrite', {
                     received_bytes: received,
                     chunk_rows_hidden: chunkHidden,
-                    chunk_target_rows_kept: chunkKept,
+                    chunk_target_rows_exposed: chunkExposed,
                     total_rows_hidden: rowsHidden,
-                    total_target_rows_kept: targetRowsKept,
-                    status_rewrites: statusRewrites,
+                    total_target_rows_exposed: targetRowsExposed,
+                    response_rewrites: responseRewrites,
                     payload_bytes_remaining: payloadBytesRemaining,
                     target_item: TARGET_ITEM,
-                    top_level_value: TOP_LEVEL_VALUE,
                 });
             }
         },
     });
+
     emit('probe.ready', {
         pid: Process.id,
-        mode: 'local_query_assets_single_item_ab',
+        mode: 'local_query_assets_user_asset_ab',
         target_item: TARGET_ITEM,
-        top_level_value: TOP_LEVEL_VALUE,
     });
 }
 

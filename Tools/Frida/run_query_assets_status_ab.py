@@ -18,6 +18,16 @@ def main() -> int:
     parser.add_argument("--pid", required=True, type=int)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--script", default="query_assets_status_ab.js")
+    parser.add_argument(
+        "--target-item",
+        help="Override the probe's default ItemID for a discriminating A/B run.",
+    )
+    parser.add_argument(
+        "--top-level-value",
+        choices=(0, 1),
+        type=int,
+        help="Override QueryAssets field 1 while preserving its three-byte width.",
+    )
     args = parser.parse_args()
 
     script_path = Path(__file__).with_name(args.script)
@@ -32,7 +42,22 @@ def main() -> int:
     device = frida.get_local_device()
     session = device.attach(args.pid)
     session.on("detached", lambda *_: stop.set())
-    script = session.create_script(script_path.read_text(encoding="utf-8"))
+    script_source = script_path.read_text(encoding="utf-8")
+    if args.target_item:
+        target_assignment = (
+            "globalThis.__PROJECT_REBOUND_TARGET_ITEM__ = "
+            + json.dumps(args.target_item, ensure_ascii=False)
+            + ";\n"
+        )
+        script_source = target_assignment + script_source
+    if args.top_level_value is not None:
+        value_assignment = (
+            "globalThis.__PROJECT_REBOUND_TOP_LEVEL_VALUE__ = "
+            + str(args.top_level_value)
+            + ";\n"
+        )
+        script_source = value_assignment + script_source
+    script = session.create_script(script_source)
 
     with args.output.open("a", encoding="utf-8", buffering=1) as output:
         def on_message(message: dict[str, Any], data: bytes | None) -> None:
