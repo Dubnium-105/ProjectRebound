@@ -87,6 +87,10 @@ namespace LoadoutMetaserver
             const std::string& roomId,
             const std::string& playerId) const;
 
+        // Authenticated by the local MetaTunnel. This is the client-side
+        // baseline used before the game's native FieldMod consumers run.
+        PlayerLoadoutsResult GetCurrentUserLoadouts() const;
+
     private:
         HttpResult RequestJson(const std::string& path) const;
 

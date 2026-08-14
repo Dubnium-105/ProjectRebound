@@ -20,6 +20,8 @@
 #include "../Debug/DebugTool.h"
 #include "../ServerLogic/ServerLogic.h"
 #include "../ClientLogic/ClientLogic.h"
+#include "../ClientLogic/ClientArmorySync.h"
+#include "../ClientLogic/ClientLoadoutSync.h"
 #include "../Utility/Utility.h"
 #include "../BattleLog/BattleLogExtractor.h"
 
@@ -1235,6 +1237,26 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
         ClientLog("[PE] " + std::string(Object->GetFullName()) + " - " + functionName);
 
         ConnectToMatch();
+    }
+
+    if (functionName.ends_with("PBArmoryManager.HandleEnteredArmory"))
+    {
+        // QueryAssets and the local save can both refresh ownership. Reconcile
+        // the native mirrors immediately before the armory consumes them.
+        PrepareClientArmoryEntry();
+        PrepareClientLoadoutConsumer("armory-entry");
+    }
+
+    if (functionName.ends_with("PBFieldModManager.SelectCharacter"))
+    {
+        // SelectCharacter immediately consumes the pre-order map. Reconcile
+        // the authenticated online baseline before the original native call.
+        PrepareClientLoadoutConsumer("fieldmod-select-character");
+    }
+
+    if (functionName.ends_with("PBPlayerController.ConfirmRoleSelection"))
+    {
+        PrepareClientLoadoutConsumer("role-confirmation");
     }
 
     // 先执行原始 ProcessEvent，确保游戏状态已更新

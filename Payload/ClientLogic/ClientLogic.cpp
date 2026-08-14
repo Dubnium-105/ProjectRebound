@@ -1,4 +1,6 @@
 #include "ClientLogic.h"
+#include "ClientArmorySync.h"
+#include "ClientLoadoutSync.h"
 
 #include "../Communication/CommandProtocol.h"
 #include "../Config/Config.h"
@@ -87,6 +89,8 @@ void NotifyClientLoginCompleted()
 {
     gameThreadId.store(GetCurrentThreadId());
     loginCompleted.store(true);
+    ResetClientArmorySync();
+    ResetClientLoadoutSync();
 }
 
 void PumpPendingClientCommands()
@@ -107,6 +111,9 @@ void PumpPendingClientCommands()
         world->OwningGameInstance->LocalPlayers[0]);
     if (localPlayer == nullptr)
         return;
+
+    PumpClientArmorySync();
+    PumpClientLoadoutSync();
 
     const auto now = std::chrono::steady_clock::now();
     bool enterRange = false;

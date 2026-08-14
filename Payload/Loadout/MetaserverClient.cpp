@@ -299,6 +299,159 @@ namespace LoadoutMetaserver
                 return result;
             }
         }
+
+        PlayerLoadoutsResult ParseCurrentUserLoadouts(HttpResult http)
+        {
+            PlayerLoadoutsResult result;
+            result.Http = std::move(http);
+            if (!result.Http.Succeeded()) return result;
+
+            try
+            {
+                if (!result.Http.Body.is_object() ||
+                    !result.Http.Body.contains("data") ||
+                    !result.Http.Body["data"].is_object() ||
+                    !result.Http.Body["data"].contains("items") ||
+                    !result.Http.Body["data"]["items"].is_array())
+                {
+                    SetDtoError(result, HttpErrorCode::InvalidEnvelope,
+                        "response data.items must be an array");
+                    return result;
+                }
+                if (result.Http.RequestId.empty())
+                {
+                    SetDtoError(result, HttpErrorCode::InvalidEnvelope,
+                        "response request_id is missing");
+                    return result;
+                }
+
+                const auto& items = result.Http.Body["data"]["items"];
+                if (items.size() > 64)
+                {
+                    SetDtoError(result, HttpErrorCode::InvalidEnvelope,
+                        "data.items exceeds the role limit");
+                    return result;
+                }
+
+                PlayerLoadoutsDto dto;
+                dto.SchemaVersion = 1;
+                std::unordered_set<std::string> seenRoles;
+                dto.Loadouts.reserve(items.size());
+
+                for (const auto& entry : items)
+                {
+                    if (!entry.is_object())
+                    {
+                        SetDtoError(result, HttpErrorCode::InvalidEnvelope,
+                            "loadout entry must be an object");
+                        return result;
+                    }
+
+                    std::string playerId;
+                    RoleLoadoutDto role;
+                    if (!ReadRequiredString(entry, "player_id", playerId) ||
+                        playerId.size() < 3 || playerId.size() > 128 ||
+                        playerId.rfind("p_", 0) != 0 ||
+                        !ReadRequiredString(entry, "role_id", role.RoleId) ||
+                        role.RoleId.size() > 128)
+                    {
+                        SetDtoError(result, HttpErrorCode::InvalidEnvelope,
+                            "loadout player_id/role_id is invalid");
+                        return result;
+                    }
+                    if (dto.PlayerId.empty()) dto.PlayerId = playerId;
+                    if (dto.PlayerId != playerId)
+                    {
+                        SetDtoError(result, HttpErrorCode::IdentityMismatch,
+                            "loadout entries contain multiple player IDs");
+                        return result;
+                    }
+                    if (!seenRoles.insert(role.RoleId).second)
+                    {
+                        SetDtoError(result, HttpErrorCode::InvalidEnvelope,
+                            "loadout role_id is duplicated");
+                        return result;
+                    }
+                    if (!entry.contains("revision") ||
+                        !entry["revision"].is_number_integer())
+                    {
+                        SetDtoError(result, HttpErrorCode::InvalidEnvelope,
+                            "loadout revision must be an integer");
+                        return result;
+                    }
+                    role.Revision = entry["revision"].get<std::int64_t>();
+                    if (role.Revision <= 0 || !entry.contains("snapshot") ||
+                        !entry["snapshot"].is_object())
+                    {
+                        SetDtoError(result, HttpErrorCode::InvalidEnvelope,
+                            "loadout revision/snapshot is invalid");
+                        return result;
+                    }
+
+                    // The player list endpoint intentionally omits the large
+                    // WeaponArchiveV2 documents. Supply definition-only
+                    // archives for the two selected IDs; the native game
+                    // archive remains authoritative for their detailed parts.
+                    nlohmann::json definitionWeapons = nlohmann::json::object();
+                    const auto addSelectedWeapon = [&](std::initializer_list<const char*> keys)
+                    {
+                        for (const char* key : keys)
+                        {
+                            if (!entry["snapshot"].contains(key)) continue;
+                            const auto& selected = entry["snapshot"][key];
+                            std::string weaponId;
+                            if (selected.is_string())
+                            {
+                                weaponId = Trim(selected.get<std::string>());
+                            }
+                            else if (selected.is_object())
+                            {
+                                for (const char* idKey : {
+                                    "id", "itemId", "item_id", "weaponId", "weapon_id" })
+                                {
+                                    if (selected.contains(idKey) && selected[idKey].is_string())
+                                    {
+                                        weaponId = Trim(selected[idKey].get<std::string>());
+                                        break;
+                                    }
+                                }
+                            }
+                            if (!weaponId.empty() && weaponId != "None")
+                                definitionWeapons[weaponId] = { { "weapon_id", weaponId } };
+                            return;
+                        }
+                    };
+                    addSelectedWeapon({ "primaryWeapon", "primary_weapon" });
+                    addSelectedWeapon({
+                        "secondaryWeapon", "secondary_weapon", "secondWeapon", "second_weapon" });
+
+                    std::string normalizeError;
+                    if (!LoadoutSerializer::NormalizeMetaserverRole(
+                        entry["snapshot"], definitionWeapons, role.RoleId,
+                        role.NormalizedRole, normalizeError))
+                    {
+                        SetDtoError(result, HttpErrorCode::InvalidEnvelope,
+                            "invalid loadout for role " + role.RoleId + ": " + normalizeError);
+                        return result;
+                    }
+                    dto.Loadouts.push_back(std::move(role));
+                }
+
+                result.Value = std::move(dto);
+                return result;
+            }
+            catch (const std::exception& error)
+            {
+                SetDtoError(result, HttpErrorCode::InvalidEnvelope, error.what());
+                return result;
+            }
+            catch (...)
+            {
+                SetDtoError(result, HttpErrorCode::InvalidEnvelope,
+                    "current-user loadout parsing failed");
+                return result;
+            }
+        }
     }
 
     bool HttpResult::Succeeded() const
@@ -325,11 +478,13 @@ namespace LoadoutMetaserver
     {
         nlohmann::json result = {
             { "schemaVersion", SchemaVersion },
-            { "source", "metaserver-room-host" },
-            { "roomId", RoomId },
+            { "source", RoomId.empty()
+                ? "metaserver-current-user"
+                : "metaserver-room-host" },
             { "playerId", PlayerId },
             { "roles", nlohmann::json::array() },
         };
+        if (!RoomId.empty()) result["roomId"] = RoomId;
         for (const auto& role : Loadouts)
             result["roles"].push_back(role.NormalizedRole);
         return result;
@@ -379,6 +534,11 @@ namespace LoadoutMetaserver
             "/v1/meta/p2p-rooms/" + UrlEncodePathSegment(roomId) +
             "/members/" + UrlEncodePathSegment(playerId) + "/loadouts";
         return ParsePlayerLoadouts(RequestJson(path), roomId, playerId);
+    }
+
+    PlayerLoadoutsResult MetaserverClient::GetCurrentUserLoadouts() const
+    {
+        return ParseCurrentUserLoadouts(RequestJson("/v1/users/me/loadouts"));
     }
 
     HttpResult MetaserverClient::RequestJson(const std::string& path) const
