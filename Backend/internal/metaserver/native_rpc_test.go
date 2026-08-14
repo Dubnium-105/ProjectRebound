@@ -333,7 +333,7 @@ func TestNativeSlotMappingAndDefaults(t *testing.T) {
 	}
 }
 
-func TestNativePlayerArchiveOmitsNoneItems(t *testing.T) {
+func TestNativePlayerArchivePreservesNoneItems(t *testing.T) {
 	role := &metaprotocol.PlayerRoleData{
 		RoleId: "PEACE",
 		PrimaryWeapon: nativeSnapshotResponseItem(map[string]any{
@@ -347,15 +347,15 @@ func TestNativePlayerArchiveOmitsNoneItems(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if value, ok := consumeStringField(raw, 6); ok {
-		t.Fatalf("primary weapon encoded as %q, want field omitted", value)
+	if value, ok := consumeStringField(raw, 6); !ok || value != "None" {
+		t.Fatalf("primary weapon=%q ok=%v, want native None sentinel", value, ok)
 	}
 	if value, ok := consumeStringField(raw, 7); !ok || value != "PEACE_RU-APS" {
 		t.Fatalf("second weapon=%q ok=%v", value, ok)
 	}
 }
 
-func TestNativePlayerArchiveOmitsNestedNoneItems(t *testing.T) {
+func TestNativePlayerArchivePreservesNestedNoneItems(t *testing.T) {
 	snapshot := map[string]any{
 		"inventory": map[string]any{
 			"slots": []any{
@@ -363,8 +363,8 @@ func TestNativePlayerArchiveOmitsNestedNoneItems(t *testing.T) {
 			},
 		},
 	}
-	if got := nativeSnapshotResponseItem(snapshot, "primaryWeapon", 1); got != "" {
-		t.Fatalf("primary weapon=%q, want empty response field", got)
+	if got := nativeSnapshotResponseItem(snapshot, "primaryWeapon", 1); got != "None" {
+		t.Fatalf("primary weapon=%q, want native None sentinel", got)
 	}
 }
 

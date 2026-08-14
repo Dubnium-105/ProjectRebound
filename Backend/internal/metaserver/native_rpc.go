@@ -419,12 +419,11 @@ func nativeSnapshotResponseItem(snapshot map[string]any, key string, slot int) s
 }
 
 func nativeResponseItem(itemID string) string {
-	// The native client restores the role default when this proto3 field is
-	// omitted. Do not serialize the literal sentinel as an item definition.
-	// A user can temporarily clear a slot in the live armory, but a subsequent
-	// archive initialization will therefore restore that role's native default.
+	// "None" is the native protocol sentinel for an intentionally empty slot.
+	// Omitting the proto3 string makes the client treat the value as absent and
+	// restore the role default during archive initialization instead.
 	if strings.EqualFold(itemID, "None") {
-		return ""
+		return "None"
 	}
 	return itemID
 }
