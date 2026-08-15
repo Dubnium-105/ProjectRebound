@@ -174,7 +174,12 @@ type MetaServerConfig struct {
 	// NativePlayerLevel is the level reported by GetPlayerArchiveV2. Boundary
 	// consumes this value while initializing its native progression and FieldMod
 	// state; keep it configurable so ownership and progression can be A/B tested.
-	NativePlayerLevel           int  `yaml:"native_player_level"`
+	NativePlayerLevel int `yaml:"native_player_level"`
+	// NativeCharacterLevel is returned through GetDataStatisticsInfo for every
+	// playable operator. The current pinned Boundary build has 30 character
+	// levels; keeping it separate from the 70-level player progression prevents
+	// the native CareerManager from resetting operator rewards to level zero.
+	NativeCharacterLevel        int  `yaml:"native_character_level"`
 	DevelopmentLegacyLoadoutAPI bool `yaml:"development_legacy_loadout_api"`
 }
 
@@ -404,6 +409,7 @@ var Defaults = Config{
 		SchedulerIntervalSeconds:   2,
 		RelayFreshnessSeconds:      45,
 		NativePlayerLevel:          70,
+		NativeCharacterLevel:       30,
 	},
 	P2PRoom: P2PRoomConfig{
 		HeartbeatIntervalSeconds: 15,
@@ -554,6 +560,7 @@ func (c *Config) applyEnvOverrides() {
 	overrideInt("META_SCHEDULER_INTERVAL_SECONDS", &c.MetaServer.SchedulerIntervalSeconds)
 	overrideInt("META_RELAY_FRESHNESS_SECONDS", &c.MetaServer.RelayFreshnessSeconds)
 	overrideInt("META_NATIVE_PLAYER_LEVEL", &c.MetaServer.NativePlayerLevel)
+	overrideInt("META_NATIVE_CHARACTER_LEVEL", &c.MetaServer.NativeCharacterLevel)
 	overrideBool("META_DEVELOPMENT_LEGACY_LOADOUT_API", &c.MetaServer.DevelopmentLegacyLoadoutAPI)
 	overrideInt("REDIS_DB", &c.Redis.DB)
 	overrideInt("HTTP_RATE_LIMIT_BURST", &c.RateLimit.Burst)
@@ -1007,7 +1014,8 @@ func (c *Config) ValidateMetaServer() error {
 		c.MetaServer.RPCCallsPerPlayerPerMinute < 1 || c.MetaServer.MatchTicketTTLSeconds < 30 ||
 		c.MetaServer.MatchReservationTTLSeconds < 10 ||
 		c.MetaServer.SchedulerIntervalSeconds < 1 || c.MetaServer.RelayFreshnessSeconds < 1 ||
-		c.MetaServer.NativePlayerLevel < 1 || c.MetaServer.NativePlayerLevel > 127 {
+		c.MetaServer.NativePlayerLevel < 1 || c.MetaServer.NativePlayerLevel > 127 ||
+		c.MetaServer.NativeCharacterLevel < 1 || c.MetaServer.NativeCharacterLevel > 127 {
 		errs = append(errs, errors.New("meta_server protocol, timeout, queue, or rate settings are invalid"))
 	}
 	if strings.EqualFold(c.Environment, "production") && c.MetaServer.DevelopmentLegacyLoadoutAPI {

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
 	metaprotocol "github.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver/protocol"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
@@ -69,6 +70,48 @@ func TestQueryAssetsUsesPinnedDefinitions(t *testing.T) {
 			response.GetItemDatas()[index].GetItemId() {
 			t.Fatalf("query assets is not strictly FName-sorted at row %d", index)
 		}
+	}
+}
+
+func TestNativeProgressionStatisticsUseExactClientKeys(t *testing.T) {
+	server := &TCPServer{config: config.MetaServerConfig{
+		NativePlayerLevel: 70, NativeCharacterLevel: 30,
+	}}
+	raw, err := server.getDataStatisticsInfo()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var response metaprotocol.GetDataStatisticsInfoResponse
+	if err := proto.Unmarshal(raw, &response); err != nil {
+		t.Fatal(err)
+	}
+	want := []struct {
+		key   string
+		value int32
+	}{
+		{"Player_Level", 70}, {"Player_Exp", 0},
+		{"PEACE_Level", 30}, {"PEACE_Exp", 0},
+		{"PROBE_Level", 30}, {"PROBE_Exp", 0},
+		{"Sniper_Level", 30}, {"Sniper_Exp", 0},
+		{"FORT_Level", 30}, {"FORT_Exp", 0},
+		{"FIXER_Level", 30}, {"FIXER_Exp", 0},
+		{"SPIKE_Level", 30}, {"SPIKE_Exp", 0},
+	}
+	if response.GetStatusCode() != 0 || len(response.GetDatapoints()) != len(want) {
+		t.Fatalf("unexpected progression response: %#v", &response)
+	}
+	for index, expected := range want {
+		actual := response.GetDatapoints()[index]
+		if actual.GetKey() != expected.key || actual.GetValue() != expected.value {
+			t.Fatalf("datapoint %d=(%q,%d), want (%q,%d)", index,
+				actual.GetKey(), actual.GetValue(), expected.key, expected.value)
+		}
+	}
+	digest := sha256.Sum256(raw)
+	const reverseEngineeredWireGolden = "b16c986af2703bdf01ac32f754376f729be9b7ffb359b9d0d82bc1fc2bdaf8e1"
+	if got := hex.EncodeToString(digest[:]); got != reverseEngineeredWireGolden {
+		t.Fatalf("progression protobuf drifted: got %s, want %s",
+			got, reverseEngineeredWireGolden)
 	}
 }
 

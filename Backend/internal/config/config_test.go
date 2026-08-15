@@ -189,6 +189,22 @@ func TestValidateMetaServerRejectsInvalidNativePlayerLevel(t *testing.T) {
 	}
 }
 
+func TestValidateMetaServerRejectsInvalidNativeCharacterLevel(t *testing.T) {
+	for _, level := range []int{0, 128} {
+		cfg := Defaults
+		cfg.MetaServer.NativeCharacterLevel = level
+		if err := cfg.ValidateMetaServer(); err == nil {
+			t.Fatalf("native character level %d was accepted", level)
+		}
+	}
+
+	cfg := Defaults
+	cfg.MetaServer.NativeCharacterLevel = 30
+	if err := cfg.ValidateMetaServer(); err != nil {
+		t.Fatalf("validated native character level was rejected: %v", err)
+	}
+}
+
 func TestValidateControlPlaneAcceptsToolboxDefaultChannel(t *testing.T) {
 	cfg := Defaults
 	cfg.Update.DefaultChannel = "toolbox"

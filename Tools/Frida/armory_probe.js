@@ -35,6 +35,13 @@ const SETTINGS = {
         preOrderingMap: 0x98,
         mapElementSize: 0x30,
     },
+    career: {
+        queryUserProfileDataNative: 0x016E8240,
+        queryVirtualCallSites: [0x016E82EA, 0x016E830A],
+        userProfileData: 0x48,
+        characterDataMap: 0xF0,
+        characterMapElementSize: 0x88,
+    },
     persistentUser: {
         savedArmory: 0x48,
         runtimeArmory: 0x68,
@@ -57,6 +64,9 @@ const OBSERVED_FUNCTIONS = new Map([
     ['GetPreOrderingItemIDInSlotType', 'PBFieldModManager'],
     ['SpawnWeapon', 'PBFieldModManager'],
     ['ConfirmRoleSelection', 'PBPlayerController'],
+    ['QueryUserProfileData', 'PBCareerManager'],
+    ['GetCharacterProfileData', 'PBCareerManager'],
+    ['GetCharacterLevelUpExp', 'PBCareerManager'],
 ]);
 
 const textEncoderFallback = (value) => {
@@ -376,13 +386,33 @@ function parseWeaponArchiveUpdate(payload) {
     };
 }
 
+function parseDataStatistics(payload) {
+    const fields = parseProto(payload);
+    const datapoints = [];
+    for (const encoded of allBytes(fields, 2)) {
+        const point = parseProto(encoded);
+        const rawValue = firstVarint(point, 2, 0);
+        datapoints.push({
+            key: firstString(point, 1),
+            value: (rawValue >>> 1) ^ -(rawValue & 1),
+        });
+    }
+    return {
+        status_code: firstVarint(fields, 1, 0) | 0,
+        datapoint_count: datapoints.length,
+        datapoints,
+    };
+}
+
 const pendingRpc = new Map();
 
 function shouldCapturePayload(rpcPath) {
     // QueryAssets is a version-pinned public definition set used for the
-    // protobuf golden. Player archives and update payloads may contain full
-    // customization records or tokens and are summarized only.
-    return /QueryAssets/i.test(rpcPath);
+    // protobuf golden. The statistics request/response contains only the
+    // progression keys and integer datapoints needed to diagnose native
+    // operator-level initialization. Player archives and update payloads may
+    // contain full customization records or tokens and are summarized only.
+    return /QueryAssets|GetDataStatisticsInfo/i.test(rpcPath);
 }
 
 function captureRpcPayload(socket, direction, wrapper, rpcPath) {
@@ -476,11 +506,18 @@ function handleFrame(socket, direction, frame) {
     emit('rpc.response', response);
     captureRpcPayload(socket, direction, wrapper, rpcPath);
 
+    if (/GetDataStatisticsInfo/i.test(rpcPath)) {
+        startCareerMemoryMonitor(`rpc.response.${wrapper.messageId}`);
+    }
+
     try {
         if (/QueryAssets/i.test(rpcPath)) {
             emit('rpc.query_assets', Object.assign({}, response, parseQueryAssets(wrapper.payload)));
         } else if (/GetPlayerArchiveV2/i.test(rpcPath)) {
             emit('rpc.player_archive', Object.assign({}, response, parsePlayerArchive(wrapper.payload)));
+        } else if (/GetDataStatisticsInfo/i.test(rpcPath)) {
+            emit('progression.data_statistics', Object.assign(
+                {}, response, parseDataStatistics(wrapper.payload)));
         }
     } catch (error) {
         emit('rpc.payload_parse_error', Object.assign({}, response, { message: String(error) }));
@@ -762,6 +799,11 @@ let fieldModManager = null;
 const persistentUsers = new Map();
 const persistentSignatures = new Map();
 const playerLevelTables = new Map();
+const characterLevelTables = new Map();
+const localPlayers = new Map();
+const careerManagers = new Map();
+const careerSignatures = new Map();
+let careerMemoryMonitorActive = false;
 
 function fnameKey(address) {
     return `${address.readS32()}:${address.add(4).readU32()}`;
@@ -950,6 +992,152 @@ function dumpPlayerLevelTable(table) {
     };
 }
 
+function dumpCharacterLevelTable(table) {
+    const map = table.add(0x30);
+    const elements = map.readPointer();
+    const allocated = map.add(8).readS32();
+    const max = map.add(12).readS32();
+    const flagBits = map.add(0x28).readS32();
+    const secondaryFlags = map.add(0x20).readPointer();
+    const flags = secondaryFlags.isNull() ? map.add(0x10) : secondaryFlags;
+    if (allocated < 0 || max < allocated || flagBits < allocated ||
+        allocated > 1024 || (allocated > 0 && elements.isNull())) {
+        throw new Error(`invalid CharacterLevel RowMap allocated=${allocated} max=${max}`);
+    }
+    const rows = [];
+    let hash = 0x811C9DC5;
+    for (let index = 0; index < allocated; index += 1) {
+        const word = flags.add(Math.floor(index / 32) * 4).readU32();
+        if ((word & (1 << (index % 32))) === 0) continue;
+        const element = elements.add(index * 0x18);
+        const rowName = fnameToString(element);
+        const row = element.add(8).readPointer();
+        if (row.isNull()) continue;
+        const levelExp = readArrayHeader(row.add(8), 1024, 'character level exp');
+        const initialLevel = row.add(0x18).readS32();
+        const maxLevel = row.add(0x1C).readS32();
+        rows.push({
+            character_id: rowName,
+            initial_level: initialLevel,
+            max_level: maxLevel,
+            exp_entries: levelExp.num,
+        });
+        hash = fnvStep(hash, hashString(rowName));
+        hash = fnvStep(hash, initialLevel);
+        hash = fnvStep(hash, maxLevel);
+        hash = fnvStep(hash, levelExp.num);
+    }
+    rows.sort((left, right) => left.character_id.localeCompare(right.character_id));
+    return {
+        table: table.toString(),
+        row_count: rows.length,
+        rows,
+        row_set_hash: toHex(hash),
+    };
+}
+
+function dumpCareerState(manager) {
+    const profile = manager.add(SETTINGS.career.userProfileData);
+    const map = manager.add(SETTINGS.career.characterDataMap);
+    const elements = map.readPointer();
+    const allocated = map.add(8).readS32();
+    const max = map.add(12).readS32();
+    const flagBits = map.add(0x28).readS32();
+    const secondaryFlags = map.add(0x20).readPointer();
+    const flags = secondaryFlags.isNull() ? map.add(0x10) : secondaryFlags;
+    if (allocated < 0 || max < allocated || max > 128 || flagBits < allocated ||
+        (allocated > 0 && elements.isNull())) {
+        throw new Error(
+            `invalid Career CharacterData map allocated=${allocated} max=${max} flags=${flagBits}`);
+    }
+    const characters = [];
+    let hash = 0x811C9DC5;
+    for (let index = 0; index < allocated; index += 1) {
+        const word = flags.add(Math.floor(index / 32) * 4).readU32();
+        if ((word & (1 << (index % 32))) === 0) continue;
+        const element = elements.add(index * SETTINGS.career.characterMapElementSize);
+        const characterId = fnameToString(element);
+        const level = element.add(8).readS32();
+        const exp = element.add(0x0C).readS32();
+        characters.push({ character_id: characterId, level, exp });
+        hash = fnvStep(hash, hashString(characterId));
+        hash = fnvStep(hash, level);
+        hash = fnvStep(hash, exp);
+    }
+    characters.sort((left, right) => left.character_id.localeCompare(right.character_id));
+    const total = {
+        player_level: profile.add(0x44).readS32(),
+        player_exp: profile.add(0x48).readS32(),
+        last_player_level: profile.add(0x4C).readS32(),
+        last_player_exp: profile.add(0x50).readS32(),
+        space_coin: profile.add(0x54).readS32(),
+    };
+    for (const value of Object.values(total)) hash = fnvStep(hash, value);
+    return {
+        manager: manager.toString(),
+        total,
+        character_count: characters.length,
+        characters,
+        state_hash: toHex(hash),
+    };
+}
+
+function refreshCareerManager(manager, reason, force = false) {
+    const key = manager.toString();
+    try {
+        const snapshot = dumpCareerState(manager);
+        if (force || careerSignatures.get(key) !== snapshot.state_hash) {
+            careerSignatures.set(key, snapshot.state_hash);
+            emit('progression.career_snapshot', Object.assign({ reason }, snapshot));
+        }
+    } catch (error) {
+        reportError('progression.career_snapshot', error);
+    }
+}
+
+function startCareerMemoryMonitor(reason) {
+    if (careerManagers.size === 0) {
+        emit('progression.career_monitor_skipped', { reason, cause: 'manager_not_found' });
+        return;
+    }
+    try {
+        if (careerMemoryMonitorActive) MemoryAccessMonitor.disable();
+        const ranges = [];
+        for (const manager of careerManagers.values()) {
+            const pageBase = manager.and(ptr('0xfffffffffffff000'));
+            ranges.push({
+                base: pageBase,
+                size: Process.pageSize,
+            });
+        }
+        MemoryAccessMonitor.enable(ranges, {
+            onAccess(details) {
+                const from = details.from;
+                const fromPointer = from && typeof from.sub === 'function' ? from : null;
+                emit('progression.career_memory_access', {
+                    reason,
+                    operation: details.operation,
+                    address: details.address.toString(),
+                    from: from === undefined || from === null ? null : String(from),
+                    from_offset: fromPointer &&
+                        fromPointer.compare(gameModule.base) >= 0 &&
+                        fromPointer.compare(gameModule.base.add(gameModule.size)) < 0
+                        ? fromPointer.sub(gameModule.base).toString()
+                        : null,
+                    range_index: details.rangeIndex,
+                    page_index: details.pageIndex,
+                    pages_completed: details.pagesCompleted,
+                    pages_total: details.pagesTotal,
+                });
+            },
+        });
+        careerMemoryMonitorActive = true;
+        emit('progression.career_monitor_ready', { reason, ranges: ranges.length });
+    } catch (error) {
+        reportError('progression.career_monitor', error);
+    }
+}
+
 function emitFieldModSnapshot(reason) {
     if (fieldModManager === null) return;
     try {
@@ -1120,6 +1308,41 @@ function refreshInventory(manager, reason, force = false) {
 
 function considerObject(object) {
     const typeName = className(object);
+    if (typeName === 'PBCareerManager') {
+        const name = objectName(object);
+        if (!name.startsWith('Default__')) {
+            const key = object.toString();
+            if (!careerManagers.has(key)) {
+                careerManagers.set(key, object);
+                emit('progression.career_manager_found', {
+                    manager: key,
+                    object_name: name,
+                });
+            }
+            refreshCareerManager(object, 'object_scan', !careerSignatures.has(key));
+        }
+        return;
+    }
+    if (typeName.includes('PBLocalPlayer')) {
+        const name = objectName(object);
+        if (!name.startsWith('Default__')) {
+            const key = object.toString();
+            if (!localPlayers.has(key)) {
+                localPlayers.set(key, object);
+                const vtable = object.readPointer();
+                const queryTarget = vtable.add(0xE30).readPointer();
+                emit('progression.local_player_vtable', {
+                    object: key,
+                    object_name: name,
+                    class_name: typeName,
+                    vtable: vtable.toString(),
+                    query_target: queryTarget.toString(),
+                    query_target_offset: queryTarget.sub(gameModule.base).toString(),
+                });
+            }
+        }
+        return;
+    }
     if (typeName === 'PBArmoryManager') {
         const name = objectName(object);
         if (!name.startsWith('Default__')) {
@@ -1156,6 +1379,18 @@ function considerObject(object) {
             const key = object.toString();
             persistentUsers.set(key, object);
             refreshPersistentUser(object, 'object_scan', !persistentSignatures.has(key));
+        }
+        return;
+    }
+    if ((typeName === 'DataTable' || typeName === 'CompositeDataTable') &&
+        objectName(object).toLowerCase().includes('characterlevelexp')) {
+        const key = object.toString();
+        if (!characterLevelTables.has(key)) {
+            characterLevelTables.set(key, object);
+            emit('progression.character_level_table', Object.assign({
+                object_name: objectName(object),
+                class_name: typeName,
+            }, dumpCharacterLevelTable(object)));
         }
         return;
     }
@@ -1237,6 +1472,9 @@ function scanObjects() {
             fieldmod_manager_found: fieldModManager !== null,
             persistent_users_found: persistentUsers.size,
             player_level_tables_found: playerLevelTables.size,
+            character_level_tables_found: characterLevelTables.size,
+            local_players_found: localPlayers.size,
+            career_managers_found: careerManagers.size,
         });
         if (armoryManager !== null && inventoryState === null) {
             refreshInventory(armoryManager, 'object_scan_recovery', true);
@@ -1284,7 +1522,53 @@ function observedCallDetails(functionName, params, phase) {
         if (phase === 'leave') details.return_weapon = params.add(0x10).readPointer().toString();
         return details;
     }
+    if (functionName === 'GetCharacterProfileData') {
+        const details = { character_id: fnameToString(params) };
+        if (phase === 'leave') {
+            details.level = params.add(8).readS32();
+            details.exp = params.add(0x0C).readS32();
+        }
+        return details;
+    }
+    if (functionName === 'GetCharacterLevelUpExp') {
+        const details = {
+            character_id: fnameToString(params),
+            level: params.add(8).readU8(),
+        };
+        if (phase === 'leave') details.return_exp = params.add(0x0C).readFloat();
+        return details;
+    }
+    if (functionName === 'QueryUserProfileData') {
+        return { user_id_redacted: true };
+    }
     return {};
+}
+
+function hookCareerNativeDispatch() {
+    for (const offset of SETTINGS.career.queryVirtualCallSites) {
+        const address = gameModule.base.add(offset);
+        Interceptor.attach(address, {
+            onEnter() {
+                try {
+                    const vtable = this.context.rax;
+                    const target = vtable.add(0xE30).readPointer();
+                    emit('progression.query_native_dispatch', {
+                        call_site: address.toString(),
+                        target: target.toString(),
+                        target_offset: target.sub(gameModule.base).toString(),
+                    });
+                } catch (error) {
+                    reportError('progression.query_native_dispatch', error);
+                }
+            },
+        });
+    }
+    emit('progression.query_native_hook_ready', {
+        native_entry: gameModule.base.add(
+            SETTINGS.career.queryUserProfileDataNative).toString(),
+        call_sites: SETTINGS.career.queryVirtualCallSites.map(
+            (offset) => gameModule.base.add(offset).toString()),
+    });
 }
 
 function hookProcessEvent() {
@@ -1416,6 +1700,7 @@ function initialize() {
         });
         hookWinsock();
         hookProcessEvent();
+        hookCareerNativeDispatch();
         setTimeout(scanObjects, 1000);
         setInterval(() => {
             // PBFieldModManager instances are created lazily when a role is
@@ -1425,7 +1710,8 @@ function initialize() {
             // observed field-mod calls runs, so it is not a scan prerequisite.
             if (targetFunctions.size < OBSERVED_FUNCTIONS.size ||
                 armoryManager === null ||
-                persistentUsers.size === 0 || playerLevelTables.size === 0) {
+                persistentUsers.size === 0 || playerLevelTables.size === 0 ||
+                characterLevelTables.size === 0 || careerManagers.size === 0) {
                 scanObjects();
             }
             if (armoryManager !== null) {
@@ -1433,6 +1719,9 @@ function initialize() {
             }
             for (const user of persistentUsers.values()) {
                 refreshPersistentUser(user, 'poll', false);
+            }
+            for (const manager of careerManagers.values()) {
+                refreshCareerManager(manager, 'poll', false);
             }
         }, 2000);
     } catch (error) {

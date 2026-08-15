@@ -417,7 +417,14 @@ func (s *TCPServer) dispatch(
 		}
 		response.Message = message
 	case "/playerdata.PlayerDataClient/GetDataStatisticsInfo":
-		response.Message = EncodeStatusMessage(0)
+		message, err := s.getDataStatisticsInfo()
+		if err != nil {
+			s.logNativeRPCFailure(request, "get_data_statistics_info", err)
+			response.ErrorCode = rpcUnknownError
+			return response
+		}
+		response.Message = message
+		s.logNativeProgressionResponse(request.MessageID, message)
 	default:
 		response.ErrorCode = rpcUnknownError
 	}
@@ -514,6 +521,40 @@ func (s *TCPServer) logNativeAssetsResponse(messageID int32, payload []byte) {
 		"declared_item_count", response.GetItemCount(),
 		"row_count", len(response.GetItemDatas()),
 		"item_set_hash", nativeStringSetDigest(itemIDs),
+		"payload_bytes", len(payload))
+}
+
+func (s *TCPServer) logNativeProgressionResponse(messageID int32, payload []byte) {
+	if s.logger == nil {
+		return
+	}
+	var response metaprotocol.GetDataStatisticsInfoResponse
+	if err := proto.Unmarshal(payload, &response); err != nil {
+		s.logger.Warn("MetaServer native progression response could not be summarized",
+			"message_id", messageID, "error", err)
+		return
+	}
+	keys := make([]string, 0, len(response.GetDatapoints()))
+	playerLevel := int32(0)
+	characterLevel := int32(0)
+	characterCount := 0
+	for _, datapoint := range response.GetDatapoints() {
+		keys = append(keys, datapoint.GetKey())
+		switch {
+		case datapoint.GetKey() == "Player_Level":
+			playerLevel = datapoint.GetValue()
+		case strings.HasSuffix(datapoint.GetKey(), "_Level"):
+			characterLevel = datapoint.GetValue()
+			characterCount++
+		}
+	}
+	s.logger.Info("MetaServer native progression response",
+		"message_id", messageID,
+		"stage", "get_data_statistics_info",
+		"player_level", playerLevel,
+		"character_level", characterLevel,
+		"character_count", characterCount,
+		"datapoint_key_set_hash", nativeStringSetDigest(keys),
 		"payload_bytes", len(payload))
 }
 

@@ -76,6 +76,31 @@ func (s *TCPServer) getPlayerArchive(
 	return proto.Marshal(response)
 }
 
+// getDataStatisticsInfo returns the exact progression keys consumed by
+// UPBCareerManager in the pinned Steam executable. Static analysis of
+// EXE+0x16E5720 and EXE+0x16E3BC0 confirms the client formats the map lookups
+// as Player_{Level,Exp} and <CharacterFName>_{Level,Exp}. In particular, the
+// Sniper FName retains mixed casing in this build.
+func (s *TCPServer) getDataStatisticsInfo() ([]byte, error) {
+	response := &metaprotocol.GetDataStatisticsInfoResponse{
+		Datapoints: []*metaprotocol.PlayerDatapoint{
+			{Key: "Player_Level", Value: int32(s.config.NativePlayerLevel)},
+			{Key: "Player_Exp", Value: 0},
+		},
+	}
+	for _, characterID := range []string{
+		"PEACE", "PROBE", "Sniper", "FORT", "FIXER", "SPIKE",
+	} {
+		response.Datapoints = append(response.Datapoints,
+			&metaprotocol.PlayerDatapoint{
+				Key: characterID + "_Level", Value: int32(s.config.NativeCharacterLevel),
+			},
+			&metaprotocol.PlayerDatapoint{Key: characterID + "_Exp", Value: 0},
+		)
+	}
+	return proto.Marshal(response)
+}
+
 func nativePlayerRoleData(
 	requestedRoleID string,
 	snapshot map[string]any,

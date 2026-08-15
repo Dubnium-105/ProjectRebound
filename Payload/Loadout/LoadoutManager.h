@@ -87,23 +87,6 @@ public:
     void AbandonSpawnRequest(SDK::APBPlayerController* playerController);
     void TickServer(float deltaSeconds = 0.0f);
 
-    // Client compatibility entry points. These must remain no-ops.
-    void PreloadSnapshot();
-    void NotifyMenuConstructed();
-    void RememberMenuSelectedRole(const SDK::FName& roleId);
-    void OnRoleSelectionConfirmed(
-        SDK::APBPlayerController* playerController,
-        const SDK::FName& roleId,
-        bool isAuthoritative);
-    void OnClientProcessEventPre(SDK::UObject* object, const std::string& functionName, void* parms);
-    void OnClientProcessEventPost(SDK::UObject* object, const std::string& functionName, void* parms);
-    void OnServerProcessEventPre(SDK::UObject* object, const std::string& functionName, void* parms);
-    void OnServerProcessEventPost(SDK::UObject* object, const std::string& functionName, void* parms);
-    void TickClient();
-    void OnServerLoadoutDataReceived(
-        SDK::APBPlayerController* playerController,
-        const std::string& jsonPayload);
-
 private:
     class Impl;
     std::unique_ptr<Impl> impl_;

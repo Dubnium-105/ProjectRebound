@@ -25,6 +25,16 @@ message StatusResponse {
   int32 status_code = 1;
 }
 
+message PlayerDatapoint {
+  string key = 1;
+  sint32 value = 2;
+}
+
+message GetDataStatisticsInfoResponse {
+  int32 status_code = 1;
+  repeated PlayerDatapoint datapoints = 2;
+}
+
 message GetPlayerArchiveV2Request {
   repeated string role_ids = 1;
 }

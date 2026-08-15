@@ -145,6 +145,15 @@ def compact_console_line(payload: dict[str, Any]) -> str | None:
         "fieldmod.snapshot",
         "persistent_user.snapshot",
         "progression.player_level_table",
+        "progression.character_level_table",
+        "progression.data_statistics",
+        "progression.career_manager_found",
+        "progression.career_snapshot",
+        "progression.career_monitor_ready",
+        "progression.career_monitor_skipped",
+        "progression.career_memory_access",
+        "progression.query_native_dispatch",
+        "progression.local_player_vtable",
         "unreal.lifecycle",
     }:
         return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
@@ -271,6 +280,28 @@ def decode_captured_payload(rpc_path: str, direction: str, data: bytes) -> dict[
             "role_count": len(roles),
             "roles": roles,
         }
+    if method == "GetDataStatisticsInfo" and direction == "send":
+        return {
+            "kind": "data_statistics_request",
+            "player_id_bytes": len(proto_bytes(fields, 1)),
+        }
+    if method == "GetDataStatisticsInfo" and direction == "recv":
+        datapoints: list[dict[str, Any]] = []
+        for encoded_datapoint in proto_repeated_bytes(fields, 2):
+            datapoint = parse_proto(encoded_datapoint)
+            raw_value = proto_varint(datapoint, 2)
+            datapoints.append(
+                {
+                    "key": proto_text(datapoint, 1),
+                    "value": (raw_value >> 1) ^ -(raw_value & 1),
+                }
+            )
+        return {
+            "kind": "data_statistics_response",
+            "status_code": proto_varint(fields, 1),
+            "datapoint_count": len(datapoints),
+            "datapoints": datapoints,
+        }
     if method == "UpdateRoleArchiveV2" and direction == "send":
         return {
             "kind": "update_role_request",
@@ -303,11 +334,27 @@ def main() -> int:
     device = frida.get_local_device()
     existing_pids = set(enumerate_matching_pids(device, args.process_name))
     launcher: subprocess.Popen[Any] | None = None
+    preverified_image_path: Path | None = None
+    preverified_image_sha256: str | None = None
 
     if args.launch:
         startgame = args.startgame.resolve()
         if not startgame.is_file():
             raise FileNotFoundError(startgame)
+        # Hash the version-pinned image while startgame authenticates and
+        # starts MetaTunnel. Re-hashing the 100 MB executable after process
+        # creation misses the earliest native RPCs on fast machines.
+        candidate_image = (startgame.parent / args.process_name).resolve()
+        if not candidate_image.is_file():
+            raise FileNotFoundError(candidate_image)
+        preverified_image_path = candidate_image
+        preverified_image_sha256 = sha256_file(candidate_image)
+        if preverified_image_sha256.casefold() != EXPECTED_GAME_SHA256:
+            raise RuntimeError(
+                "Boundary executable hash mismatch: "
+                f"expected {EXPECTED_GAME_SHA256}, got {preverified_image_sha256} "
+                f"({candidate_image})"
+            )
         command = [
             "powershell.exe",
             "-NoProfile",
@@ -327,7 +374,14 @@ def main() -> int:
         pid = wait_for_process(device, args.process_name, args.attach_timeout, excluded)
 
     image_path = process_image_path(pid).resolve()
-    image_sha256 = sha256_file(image_path)
+    if (
+        preverified_image_path is not None
+        and os.path.normcase(str(preverified_image_path))
+        == os.path.normcase(str(image_path))
+    ):
+        image_sha256 = str(preverified_image_sha256)
+    else:
+        image_sha256 = sha256_file(image_path)
     if image_sha256.casefold() != EXPECTED_GAME_SHA256:
         raise RuntimeError(
             "Boundary executable hash mismatch: "
