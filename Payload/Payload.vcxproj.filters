@@ -36,6 +36,9 @@
     <ClInclude Include="Debug\DebugTool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Hooks\ArchiveCompletionPolicy.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="Communication\CommandFramework.h">
       <Filter>Communication</Filter>
     </ClInclude>

@@ -47,6 +47,15 @@ enable_strict_warnings(loadout_state_policy_tests)
 
 add_test(NAME loadout_state_policy_tests COMMAND loadout_state_policy_tests)
 
+add_executable(archive_completion_policy_tests
+    ArchiveCompletionPolicyTests.cpp
+)
+
+target_compile_features(archive_completion_policy_tests PRIVATE cxx_std_20)
+enable_strict_warnings(archive_completion_policy_tests)
+
+add_test(NAME archive_completion_policy_tests COMMAND archive_completion_policy_tests)
+
 if(WIN32)
     add_executable(command_framework_tests
         CommandFrameworkTests.cpp

@@ -1,11 +1,14 @@
 // Hooks.cpp
 #include "Hooks.h"
 #include <Windows.h>
+#include <atomic>
 #include <chrono>
 #include <iostream>
 #include <mutex>
+#include <string>
 #include <thread>
 #include <vector>
+#include "ArchiveCompletionPolicy.h"
 #include "../SDK.hpp"
 #include "../Network/NetDriverAccess.h"
 #include "../SDK/Engine_parameters.hpp"
@@ -1128,6 +1131,52 @@ void *OnFireWeapon(APBWeapon *Weapon)
 // ======================================================
 
 static SafetyHookInline ProcessEventClient;
+static SafetyHookInline FixEquipErrorHook;
+static SafetyHookInline FixSkinErrorHook;
+static SafetyHookInline FixBadgeOrnamentErrorHook;
+
+static void LogArchiveCompletionTranslation(
+    const char* completionKind,
+    std::atomic<unsigned long long>& translationCount)
+{
+    const auto count = translationCount.fetch_add(1, std::memory_order_relaxed) + 1;
+    ClientLog("[ARCHIVE] " + std::string(completionKind) +
+        " completion translated 404->0 after persisted update; count=" +
+        std::to_string(count));
+}
+
+void __fastcall FixEquipErrorHookFn(
+    __int64 a1, int completionCode, __int64 a3, __int64 a4, int a5)
+{
+    static std::atomic<unsigned long long> translationCount{0};
+    const int normalized =
+        ArchiveCompletionPolicy::NormalizePersistedCompletion(completionCode);
+    if (normalized != completionCode)
+        LogArchiveCompletionTranslation("role_equipment", translationCount);
+    FixEquipErrorHook.call<void>(a1, normalized, a3, a4, a5);
+}
+
+void __fastcall FixSkinErrorHookFn(
+    __int64 a1, int completionCode, __int64 a3, __int64 a4, __int64 a5)
+{
+    static std::atomic<unsigned long long> translationCount{0};
+    const int normalized =
+        ArchiveCompletionPolicy::NormalizePersistedCompletion(completionCode);
+    if (normalized != completionCode)
+        LogArchiveCompletionTranslation("weapon_skin", translationCount);
+    FixSkinErrorHook.call<void>(a1, normalized, a3, a4, a5);
+}
+
+void __fastcall FixBadgeOrnamentErrorHookFn(
+    __int64 a1, int completionCode, __int64 a3, __int64 a4, int a5)
+{
+    static std::atomic<unsigned long long> translationCount{0};
+    const int normalized =
+        ArchiveCompletionPolicy::NormalizePersistedCompletion(completionCode);
+    if (normalized != completionCode)
+        LogArchiveCompletionTranslation("badge_ornament", translationCount);
+    FixBadgeOrnamentErrorHook.call<void>(a1, normalized, a3, a4, a5);
+}
 
 void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
 {
@@ -1338,4 +1387,8 @@ void InitClientHook()
 {
     ProcessEventClient = safetyhook::create_inline((void *)(BaseAddress + 0x1BCBE40), ProcessEventHookClient);
     ClientDeathCrash = safetyhook::create_inline((void *)(BaseAddress + 0x16abe10), ClientDeathCrashHook);
+    FixEquipErrorHook = safetyhook::create_inline((void *)(BaseAddress + 0x16DD080), FixEquipErrorHookFn);
+    FixSkinErrorHook = safetyhook::create_inline((void *)(BaseAddress + 0x16DCEC0), FixSkinErrorHookFn);
+    FixBadgeOrnamentErrorHook = safetyhook::create_inline((void *)(BaseAddress + 0x16DCD80), FixBadgeOrnamentErrorHookFn);
+    ClientLog("[ARCHIVE] Installed pinned-build completion compatibility hooks (404->0 only).");
 }

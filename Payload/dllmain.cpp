@@ -317,8 +317,11 @@ void MainThread()
 
         const std::string commandLine = GetCommandLineA();
         const bool serverProcess = commandLine.find("-server") != std::string::npos;
-        if (!serverProcess)
-            ApplyNativeRpcFrameLimitPatch(BaseAddress);
+        if (!serverProcess && !ApplyNativeRpcFrameLimitPatch(BaseAddress))
+        {
+            ClientLog("[BOOT] Refusing client initialization: executable build guard failed.");
+            return;
+        }
 
         UC::FMemory::Init((void*)(BaseAddress + 0x18f4350));
 
