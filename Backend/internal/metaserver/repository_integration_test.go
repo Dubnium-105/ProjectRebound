@@ -212,9 +212,9 @@ func TestRepositoryIsolationAndConcurrentSchedulingAgainstPostgreSQL(t *testing.
 	readBackWeapon := nativeBundleArchiveForTest(
 		t, role.GetWeaponArchiveRaw(), "PEACE_RU-AKM",
 	)
-	if !proto.Equal(weaponArchive, &readBackWeapon) {
+	if !proto.Equal(weaponArchive, readBackWeapon) {
 		t.Fatalf("native weapon archive changed after read-back: got %#v want %#v",
-			&readBackWeapon, weaponArchive)
+			readBackWeapon, weaponArchive)
 	}
 
 	party, err := repository.CreateParty(
@@ -402,7 +402,7 @@ func nativeBundleArchiveForTest(
 	t *testing.T,
 	rawHex string,
 	wantedWeaponID string,
-) metaprotocol.WeaponArchiveV2 {
+) *metaprotocol.WeaponArchiveV2 {
 	t.Helper()
 	raw, err := hex.DecodeString(rawHex)
 	if err != nil {
@@ -427,11 +427,11 @@ func nativeBundleArchiveForTest(
 			t.Fatalf("decode native weapon archive: %v", err)
 		}
 		if archive.GetWeaponId() == wantedWeaponID {
-			return archive
+			return &archive
 		}
 	}
 	t.Fatalf("native weapon bundle omitted %s", wantedWeaponID)
-	return metaprotocol.WeaponArchiveV2{}
+	return nil
 }
 
 func metaErrorCode(err error) string {
