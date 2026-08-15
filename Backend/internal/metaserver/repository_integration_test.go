@@ -3,6 +3,7 @@ package metaserver
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +19,7 @@ import (
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/database"
 	metaprotocol "github.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver/protocol"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -207,14 +209,9 @@ func TestRepositoryIsolationAndConcurrentSchedulingAgainstPostgreSQL(t *testing.
 		role.GetOrnamentId() != "PEACE_ORIGINAL_PTOriginal" {
 		t.Fatalf("native role update did not round-trip: %#v", role)
 	}
-	readBackArchives := decodeNativeWeaponArchiveBundle(
-		definitions, "PEACE", role.GetWeaponArchiveRaw(),
-		map[string]struct{}{"PEACE_RU-AKM": {}},
+	readBackWeapon := nativeBundleArchiveForTest(
+		t, role.GetWeaponArchiveRaw(), "PEACE_RU-AKM",
 	)
-	var readBackWeapon metaprotocol.WeaponArchiveV2
-	if err := proto.Unmarshal(readBackArchives["PEACE_RU-AKM"], &readBackWeapon); err != nil {
-		t.Fatalf("native weapon archive did not round-trip: %v", err)
-	}
 	if !proto.Equal(weaponArchive, &readBackWeapon) {
 		t.Fatalf("native weapon archive changed after read-back: got %#v want %#v",
 			&readBackWeapon, weaponArchive)
@@ -399,6 +396,42 @@ func TestRepositoryIsolationAndConcurrentSchedulingAgainstPostgreSQL(t *testing.
 	if partyState != "ACTIVE" {
 		t.Fatalf("party state after reservation timeout = %s, want ACTIVE", partyState)
 	}
+}
+
+func nativeBundleArchiveForTest(
+	t *testing.T,
+	rawHex string,
+	wantedWeaponID string,
+) metaprotocol.WeaponArchiveV2 {
+	t.Helper()
+	raw, err := hex.DecodeString(rawHex)
+	if err != nil {
+		t.Fatalf("decode native weapon bundle: %v", err)
+	}
+	for len(raw) > 0 {
+		number, wireType, consumed := protowire.ConsumeTag(raw)
+		if consumed < 0 || wireType != protowire.BytesType {
+			t.Fatalf("invalid native weapon bundle tag")
+		}
+		raw = raw[consumed:]
+		value, consumed := protowire.ConsumeBytes(raw)
+		if consumed < 0 {
+			t.Fatalf("invalid native weapon bundle field %d", number)
+		}
+		raw = raw[consumed:]
+		if number != 3 {
+			continue
+		}
+		var archive metaprotocol.WeaponArchiveV2
+		if err := proto.Unmarshal(value, &archive); err != nil {
+			t.Fatalf("decode native weapon archive: %v", err)
+		}
+		if archive.GetWeaponId() == wantedWeaponID {
+			return archive
+		}
+	}
+	t.Fatalf("native weapon bundle omitted %s", wantedWeaponID)
+	return metaprotocol.WeaponArchiveV2{}
 }
 
 func metaErrorCode(err error) string {
