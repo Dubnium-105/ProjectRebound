@@ -2,6 +2,7 @@
 #include <string>
 #include <stdexcept>
 #include <ostream>
+#include <new>
 
 namespace UC
 {
@@ -441,15 +442,16 @@ namespace UC
 		}
 
 		// Generated Unreal structs can themselves contain TArray members. Their
-		// compiler-generated copy assignment expects a constructed (zeroed)
-		// destination, while the SDK allocator exposes raw storage. Use this
-		// insertion form for those nested-container values.
+		// compiler-generated copy assignment expects a constructed destination,
+		// while the SDK allocator exposes raw storage. Value-construct the target
+		// in place before assignment instead of clearing a non-trivial object with
+		// memset (which is both undefined C++ behavior and rejected by GCC).
 		inline void AddZeroed(const ArrayElementType& Element)
 		{
 			if (GetSlack() <= 0)
 				Reserve(3);
 
-			memset(&Data[NumElements], 0, ElementSize);
+			::new (static_cast<void*>(&Data[NumElements])) ArrayElementType();
 			Data[NumElements] = Element;
 			NumElements++;
 		}
