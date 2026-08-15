@@ -465,6 +465,9 @@ func nativeArchiveSlotDigest(response *metaprotocol.GetPlayerArchiveV2Response) 
 			role.GetRoleId(), role.GetLeftPylon(), role.GetRightPylon(),
 			role.GetMobilityModule(), role.GetMeleeWeapon(),
 			role.GetPrimaryWeapon(), role.GetSecondWeapon(),
+			nativePayloadDigest([]byte(role.GetWeaponArchiveRaw())),
+			nativePayloadDigest([]byte(role.GetSkinToken())),
+			nativePayloadDigest([]byte(role.GetOrnamentId())),
 		}, "\x1f"))
 	}
 	return nativeStringSetDigest(rows)

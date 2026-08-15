@@ -1137,11 +1137,14 @@ static SafetyHookInline FixBadgeOrnamentErrorHook;
 
 static void LogArchiveCompletionTranslation(
     const char* completionKind,
+    int completionCode,
+    int normalizedCode,
     std::atomic<unsigned long long>& translationCount)
 {
     const auto count = translationCount.fetch_add(1, std::memory_order_relaxed) + 1;
     ClientLog("[ARCHIVE] " + std::string(completionKind) +
-        " completion translated 404->0 after persisted update; count=" +
+        " completion translated " + std::to_string(completionCode) + "->" +
+        std::to_string(normalizedCode) + " after persisted update; count=" +
         std::to_string(count));
 }
 
@@ -1150,9 +1153,10 @@ void __fastcall FixEquipErrorHookFn(
 {
     static std::atomic<unsigned long long> translationCount{0};
     const int normalized =
-        ArchiveCompletionPolicy::NormalizePersistedCompletion(completionCode);
+        ArchiveCompletionPolicy::NormalizeEquipmentCompletion(completionCode);
     if (normalized != completionCode)
-        LogArchiveCompletionTranslation("role_equipment", translationCount);
+        LogArchiveCompletionTranslation(
+            "equipment_archive", completionCode, normalized, translationCount);
     FixEquipErrorHook.call<void>(a1, normalized, a3, a4, a5);
 }
 
@@ -1163,7 +1167,8 @@ void __fastcall FixSkinErrorHookFn(
     const int normalized =
         ArchiveCompletionPolicy::NormalizePersistedCompletion(completionCode);
     if (normalized != completionCode)
-        LogArchiveCompletionTranslation("weapon_skin", translationCount);
+        LogArchiveCompletionTranslation(
+            "weapon_skin", completionCode, normalized, translationCount);
     FixSkinErrorHook.call<void>(a1, normalized, a3, a4, a5);
 }
 
@@ -1174,7 +1179,8 @@ void __fastcall FixBadgeOrnamentErrorHookFn(
     const int normalized =
         ArchiveCompletionPolicy::NormalizePersistedCompletion(completionCode);
     if (normalized != completionCode)
-        LogArchiveCompletionTranslation("badge_ornament", translationCount);
+        LogArchiveCompletionTranslation(
+            "badge_ornament", completionCode, normalized, translationCount);
     FixBadgeOrnamentErrorHook.call<void>(a1, normalized, a3, a4, a5);
 }
 
@@ -1390,5 +1396,6 @@ void InitClientHook()
     FixEquipErrorHook = safetyhook::create_inline((void *)(BaseAddress + 0x16DD080), FixEquipErrorHookFn);
     FixSkinErrorHook = safetyhook::create_inline((void *)(BaseAddress + 0x16DCEC0), FixSkinErrorHookFn);
     FixBadgeOrnamentErrorHook = safetyhook::create_inline((void *)(BaseAddress + 0x16DCD80), FixBadgeOrnamentErrorHookFn);
-    ClientLog("[ARCHIVE] Installed pinned-build completion compatibility hooks (404->0 only).");
+    ClientLog("[ARCHIVE] Installed pinned-build completion compatibility hooks "
+        "(generic 404->0; equipment 404/9002->0).");
 }

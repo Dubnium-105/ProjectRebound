@@ -349,16 +349,19 @@ func (x *GetPlayerArchiveV2Request) GetRoleIds() []string {
 }
 
 type PlayerRoleData struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	RoleId         string                 `protobuf:"bytes,1,opt,name=role_id,json=roleId,proto3" json:"role_id,omitempty"`
-	LeftPylon      string                 `protobuf:"bytes,2,opt,name=left_pylon,json=leftPylon,proto3" json:"left_pylon,omitempty"`
-	RightPylon     string                 `protobuf:"bytes,3,opt,name=right_pylon,json=rightPylon,proto3" json:"right_pylon,omitempty"`
-	MobilityModule string                 `protobuf:"bytes,4,opt,name=mobility_module,json=mobilityModule,proto3" json:"mobility_module,omitempty"`
-	MeleeWeapon    string                 `protobuf:"bytes,5,opt,name=melee_weapon,json=meleeWeapon,proto3" json:"melee_weapon,omitempty"`
-	PrimaryWeapon  string                 `protobuf:"bytes,6,opt,name=primary_weapon,json=primaryWeapon,proto3" json:"primary_weapon,omitempty"`
-	SecondWeapon   string                 `protobuf:"bytes,7,opt,name=second_weapon,json=secondWeapon,proto3" json:"second_weapon,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	RoleId           string                 `protobuf:"bytes,1,opt,name=role_id,json=roleId,proto3" json:"role_id,omitempty"`
+	LeftPylon        string                 `protobuf:"bytes,2,opt,name=left_pylon,json=leftPylon,proto3" json:"left_pylon,omitempty"`
+	RightPylon       string                 `protobuf:"bytes,3,opt,name=right_pylon,json=rightPylon,proto3" json:"right_pylon,omitempty"`
+	MobilityModule   string                 `protobuf:"bytes,4,opt,name=mobility_module,json=mobilityModule,proto3" json:"mobility_module,omitempty"`
+	MeleeWeapon      string                 `protobuf:"bytes,5,opt,name=melee_weapon,json=meleeWeapon,proto3" json:"melee_weapon,omitempty"`
+	PrimaryWeapon    string                 `protobuf:"bytes,6,opt,name=primary_weapon,json=primaryWeapon,proto3" json:"primary_weapon,omitempty"`
+	SecondWeapon     string                 `protobuf:"bytes,7,opt,name=second_weapon,json=secondWeapon,proto3" json:"second_weapon,omitempty"`
+	WeaponArchiveRaw *string                `protobuf:"bytes,8,opt,name=weapon_archive_raw,json=weaponArchiveRaw,proto3,oneof" json:"weapon_archive_raw,omitempty"`
+	SkinToken        *string                `protobuf:"bytes,9,opt,name=skin_token,json=skinToken,proto3,oneof" json:"skin_token,omitempty"`
+	OrnamentId       *string                `protobuf:"bytes,10,opt,name=ornament_id,json=ornamentId,proto3,oneof" json:"ornament_id,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *PlayerRoleData) Reset() {
@@ -436,6 +439,27 @@ func (x *PlayerRoleData) GetPrimaryWeapon() string {
 func (x *PlayerRoleData) GetSecondWeapon() string {
 	if x != nil {
 		return x.SecondWeapon
+	}
+	return ""
+}
+
+func (x *PlayerRoleData) GetWeaponArchiveRaw() string {
+	if x != nil && x.WeaponArchiveRaw != nil {
+		return *x.WeaponArchiveRaw
+	}
+	return ""
+}
+
+func (x *PlayerRoleData) GetSkinToken() string {
+	if x != nil && x.SkinToken != nil {
+		return *x.SkinToken
+	}
+	return ""
+}
+
+func (x *PlayerRoleData) GetOrnamentId() string {
+	if x != nil && x.OrnamentId != nil {
+		return *x.OrnamentId
 	}
 	return ""
 }
@@ -2032,7 +2056,7 @@ const file_metaserver_proto_rawDesc = "" +
 	"datapoints\x18\x02 \x03(\v2'.projectrebound.meta.v1.PlayerDatapointR\n" +
 	"datapoints\"6\n" +
 	"\x19GetPlayerArchiveV2Request\x12\x19\n" +
-	"\brole_ids\x18\x01 \x03(\tR\aroleIds\"\x81\x02\n" +
+	"\brole_ids\x18\x01 \x03(\tR\aroleIds\"\xb4\x03\n" +
 	"\x0ePlayerRoleData\x12\x17\n" +
 	"\arole_id\x18\x01 \x01(\tR\x06roleId\x12\x1d\n" +
 	"\n" +
@@ -2042,7 +2066,16 @@ const file_metaserver_proto_rawDesc = "" +
 	"\x0fmobility_module\x18\x04 \x01(\tR\x0emobilityModule\x12!\n" +
 	"\fmelee_weapon\x18\x05 \x01(\tR\vmeleeWeapon\x12%\n" +
 	"\x0eprimary_weapon\x18\x06 \x01(\tR\rprimaryWeapon\x12#\n" +
-	"\rsecond_weapon\x18\a \x01(\tR\fsecondWeapon\"\x93\x01\n" +
+	"\rsecond_weapon\x18\a \x01(\tR\fsecondWeapon\x121\n" +
+	"\x12weapon_archive_raw\x18\b \x01(\tH\x00R\x10weaponArchiveRaw\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"skin_token\x18\t \x01(\tH\x01R\tskinToken\x88\x01\x01\x12$\n" +
+	"\vornament_id\x18\n" +
+	" \x01(\tH\x02R\n" +
+	"ornamentId\x88\x01\x01B\x15\n" +
+	"\x13_weapon_archive_rawB\r\n" +
+	"\v_skin_tokenB\x0e\n" +
+	"\f_ornament_id\"\x93\x01\n" +
 	"\x1aGetPlayerArchiveV2Response\x12R\n" +
 	"\x11player_role_datas\x18\x01 \x03(\v2&.projectrebound.meta.v1.PlayerRoleDataR\x0fplayerRoleDatas\x12!\n" +
 	"\fplayer_level\x18\x02 \x01(\x05R\vplayerLevel\"\x9c\x01\n" +
@@ -2238,6 +2271,7 @@ func file_metaserver_proto_init() {
 		return
 	}
 	file_metaserver_proto_msgTypes[0].OneofWrappers = []any{}
+	file_metaserver_proto_msgTypes[6].OneofWrappers = []any{}
 	file_metaserver_proto_msgTypes[8].OneofWrappers = []any{}
 	file_metaserver_proto_msgTypes[30].OneofWrappers = []any{}
 	type x struct{}

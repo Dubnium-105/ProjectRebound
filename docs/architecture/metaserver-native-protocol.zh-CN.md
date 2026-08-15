@@ -43,18 +43,21 @@ uint32_be payload_length | protobuf RequestWrapper payload
   以及生成式槽位、武器套装和角色套装涂装应用。受控诊断可设置为 `compact`，排除 37,721 条
   生成式涂装应用并将响应从约 1.31 MiB 降至 52,854 字节。每行其余标量元数据保持 protobuf
   默认值，因为原生所有权只比较物品 ID。
-- 当前固定版本 EXE 的内置描述符确认 `RoleArchiveDataV2` 只有 1-7 号字段：角色 ID、
-  左/右挂载、机动模块、近战、主武器和副武器。`GetPlayerArchiveV2` 不再发送 7 号以上
-  的字段。武器部件档案继续由 `UpdateWeaponArchiveV2` 独立持久化，不嵌入角色条目。
+- 运行时抓包和冷启动回放确认，`PlayerRoleData` 除 1-7 号字段中的角色 ID 与六个装备值外，
+  还会消费三个可选档案字段：field 8 是所选武器档案 bundle 的十六进制字符串，field 9 是
+  人物皮肤 token，field 10 是人物挂件/涂装 ID。`UpdateWeaponArchiveV2` 按玩家和武器 ID
+  持久化档案；`GetPlayerArchiveV2` 按角色当前所选武器重建 field 8，使后续进程能够恢复
+  武器配件和武器外观。
 - 原生 `PlayerLevel` 由 `META_NATIVE_PLAYER_LEVEL` 配置（有效范围 `1..127`）。当前固定
   构建的 `DT_PlayerLevelExp` 有 70 行，且军械库明确将锁定条目标记为角色等级奖励，因此
   生产环境使用本构建最高等级 `70`。
 - `UpdateRoleArchiveV2.Operation` 不是固定槽位编号。服务端先按固定物品类型路由，
   再用已观察到的 operation 区分主/副武器或左/右挂载；仅更新皮肤时不得清空装备槽。
 - `UpdateRoleArchiveV2` 和 `UpdateWeaponArchiveV2` 成功响应必须同时显式包含外层
-  `ResponseWrapper.ErrorCode=0` 的 `18 00`，以及内层状态字段 `08 00`。生成式 proto3
-  序列化器会省略零值，但对本客户端而言缺失并不等价：它会让原生异步任务保留初始
-  完成码 404，导致数据库虽已成功写入，界面仍显示 `UNKNOWN FAILURE`。
+  `ResponseWrapper.ErrorCode=0` 的 `18 00`，以及内层状态字段 `08 00`。即使两项都存在，
+  当前固定客户端仍可能以 404 完成已持久化更新，装备/武器 archive dispatcher 还可能
+  以 9002 完成。Payload 兼容钩子只归一化这些已观察、且路径限定的 sentinel；其余原生
+  完成码保持不变。
 
 当前 Payload 仅在专用服务端进程中构造服务端权威的 `LoadoutManager`。客户端不写入
 OwnedItems、PersistentUser 或 `PBFieldModManager + 0x98`，也不轮询或维护 archive 镜像。
@@ -63,7 +66,8 @@ OwnedItems、PersistentUser 或 `PBFieldModManager + 0x98`，也不轮询或维�
 本地玩家生命周期经认证读取一次当前用户配装；对每个 `PBCustomizeManager`，逐角色/槽位
 只调用一次当前版本固定的原生角色槽位完成入口；对每个本地 `APBPlayerState`，只调用一次
 `ClientInitFieldMod`。完成入口由游戏原生代码更新缓存并广播委托；Payload 不直接写
-manager map，也不改写装备错误码。角色配额从当前运行构建的角色定义表读取。
+manager map；唯一的完成码改写是上文路径限定的已持久化 sentinel 策略。角色配额从当前
+运行构建的角色定义表读取。
 `-NativeArchiveOnly` 会禁用这两种调用，使客户端保持完全只读用于诊断。
 
 服务端还可使用 `-NativeArchiveOnly`，或分别以 `=0` 禁用 `-LoadoutBaselineBridge`、

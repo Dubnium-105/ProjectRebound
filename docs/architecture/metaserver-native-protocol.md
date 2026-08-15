@@ -52,11 +52,13 @@ Asset and loadout RPCs preserve the captured wire contract:
   applications and reduce the response from about 1.31 MiB to 52,854 bytes.
   Per-row scalar metadata stays at its protobuf default because native
   ownership compares only the item ID.
-- The pinned executable's embedded descriptor defines `RoleArchiveDataV2`
-  with exactly fields 1-7: role ID, left/right pylon, mobility, melee,
-  primary weapon, and secondary weapon. `GetPlayerArchiveV2` emits no fields
-  above 7. Weapon-part archives remain independently persisted by
-  `UpdateWeaponArchiveV2`; they are not embedded in a role row.
+- Runtime packet capture and cold-start replay confirm that `PlayerRoleData`
+  consumes the six equipment values in fields 1-7 plus three optional archive
+  values: field 8 is the hex-encoded selected-weapon archive bundle, field 9 is
+  the operator skin token, and field 10 is its ornament/painting ID.
+  `UpdateWeaponArchiveV2` persists each archive by player and weapon ID;
+  `GetPlayerArchiveV2` rebuilds field 8 from the role's selected weapon IDs so
+  a later process can restore weapon parts and weapon cosmetics.
 - Native `PlayerLevel` is configured by `META_NATIVE_PLAYER_LEVEL` (validated
   range `1..127`). The current pinned build reports 70 rows in
   `DT_PlayerLevelExp`, and the armory identifies locked rows as operator-level
@@ -67,10 +69,11 @@ Asset and loadout RPCs preserve the captured wire contract:
   never clears an equipment slot.
 - Successful `UpdateRoleArchiveV2` and `UpdateWeaponArchiveV2` responses must
   contain both the outer `ResponseWrapper.ErrorCode=0` bytes `18 00` and the
-  inner status field bytes `08 00`. Generated proto3 serializers omit scalar
-  zero values, but absence is not equivalent for this client: it leaves the
-  native async task's initial completion code at 404 and the UI reports
-  `UNKNOWN FAILURE` even though the database update succeeded.
+  inner status field bytes `08 00`. Even with both fields present, the pinned
+  client can finish a persisted update with completion 404, or with 9002 on
+  the equipment/weapon archive dispatcher. The Payload compatibility hook
+  normalizes only those observed path-specific sentinels; every other native
+  completion code remains unchanged.
 
 The active Payload constructs the server-authoritative `LoadoutManager` only
 in dedicated-server processes. The client never writes OwnedItems,
@@ -83,10 +86,11 @@ read for each local-player lifecycle. It feeds each role/slot through the
 version-pinned native character-slot completion entry exactly once per
 `PBCustomizeManager`, and invokes `ClientInitFieldMod` exactly once per local
 `APBPlayerState`. The completion entry performs the game's own cache update and
-delegate broadcasts; Payload does not write the manager map or normalize equip
-errors. Role quotas are read from the running build's character definition
-table. `-NativeArchiveOnly` disables both calls and leaves all client state
-read-only for diagnostics.
+delegate broadcasts; Payload does not write the manager map or mutate equipment
+state directly. Its only completion-code rewrite is the path-specific persisted
+sentinel policy described above. Role quotas are read from the running build's
+character definition table. `-NativeArchiveOnly` disables both calls and leaves
+all client state read-only for diagnostics.
 
 Servers can also use `-NativeArchiveOnly`, or independently disable
 `-LoadoutBaselineBridge`, `-LoadoutPreOrderIntercept`,

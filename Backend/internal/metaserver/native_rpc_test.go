@@ -171,6 +171,38 @@ func TestNativeIdentityMismatch(t *testing.T) {
 	}
 }
 
+func TestNativeWeaponArchiveBundleRoundTripsSelectedArchive(t *testing.T) {
+	definitions, err := LoadDefinitionIndex()
+	if err != nil {
+		t.Fatal(err)
+	}
+	archive := validP2PAKMArchive()
+	raw, err := proto.Marshal(archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := nativeWeaponArchiveBundle(
+		definitions,
+		"PEACE",
+		[]string{archive.GetWeaponId(), archive.GetWeaponId()},
+		map[string][]byte{archive.GetWeaponId(): raw},
+	)
+	decoded := nativeSnapshotWeaponArchives(
+		definitions,
+		"PEACE",
+		map[string]any{"_weaponArchiveRaw": hex.EncodeToString(bundle)},
+		[]string{archive.GetWeaponId()},
+	)
+	var readBack metaprotocol.WeaponArchiveV2
+	if err := proto.Unmarshal(decoded[archive.GetWeaponId()], &readBack); err != nil {
+		t.Fatalf("bundled weapon archive was not decoded: %v", err)
+	}
+	expected, ok := p2pCompleteWeaponArchive(definitions, archive.GetWeaponId(), archive)
+	if !ok || !proto.Equal(expected, &readBack) {
+		t.Fatalf("bundled archive was not completed: got %#v want %#v", &readBack, expected)
+	}
+}
+
 func TestNativeDefaultWeaponArchiveUsesPinnedScopes(t *testing.T) {
 	definitions, err := LoadDefinitionIndex()
 	if err != nil {
@@ -354,7 +386,11 @@ func TestNativePlayerArchivePreservesNestedNoneItems(t *testing.T) {
 	}
 }
 
-func TestNativePlayerArchiveProjectsOnlySevenConfirmedRoleFields(t *testing.T) {
+func TestNativePlayerArchiveProjectsSlotsWeaponArchivesAndCosmetics(t *testing.T) {
+	definitions, err := LoadDefinitionIndex()
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, canonicalRoleID := range nativeDefaultRoleOrder {
 		t.Run(canonicalRoleID, func(t *testing.T) {
 			snapshot := defaultNativeLoadoutSnapshot(canonicalRoleID)
@@ -382,21 +418,39 @@ func TestNativePlayerArchiveProjectsOnlySevenConfirmedRoleFields(t *testing.T) {
 				}
 			}
 
+			weaponIDs := nativePlayerRoleWeaponIDs(role)
+			attachNativePlayerRoleArchive(
+				definitions, canonicalRoleID, snapshot, weaponIDs, nil, role,
+			)
+			if role.GetWeaponArchiveRaw() == "" {
+				t.Fatal("field 8 weapon archive was omitted")
+			}
+			if role.GetSkinToken() != nativeSnapshotString(snapshot, "skinModel") ||
+				role.GetOrnamentId() != nativeSnapshotString(snapshot, "skinPaint") {
+				t.Fatalf("field 9/10 cosmetics drifted: %#v", role)
+			}
 			raw, err := proto.Marshal(role)
 			if err != nil {
 				t.Fatal(err)
 			}
+			seen := make(map[protowire.Number]bool)
 			for len(raw) > 0 {
 				number, wireType, consumed := protowire.ConsumeTag(raw)
-				if consumed < 0 || number < 1 || number > 7 {
-					t.Fatalf("unexpected RoleArchiveDataV2 field %d", number)
+				if consumed < 0 || number < 1 || number > 10 {
+					t.Fatalf("unexpected PlayerRoleData field %d", number)
 				}
+				seen[number] = true
 				raw = raw[consumed:]
 				consumed = protowire.ConsumeFieldValue(number, wireType, raw)
 				if consumed < 0 {
-					t.Fatalf("invalid RoleArchiveDataV2 field %d", number)
+					t.Fatalf("invalid PlayerRoleData field %d", number)
 				}
 				raw = raw[consumed:]
+			}
+			for _, number := range []protowire.Number{8, 9, 10} {
+				if !seen[number] {
+					t.Fatalf("PlayerRoleData field %d was not serialized", number)
+				}
 			}
 		})
 	}
