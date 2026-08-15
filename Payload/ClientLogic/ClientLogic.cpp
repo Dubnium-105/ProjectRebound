@@ -6,6 +6,7 @@
 #include "../Loadout/LoadoutApplication.h"
 #include "../Loadout/LoadoutSerializer.h"
 #include "../Loadout/MetaserverClient.h"
+#include "../Loadout/WeaponArchivePolicy.h"
 #include "../SDK.hpp"
 #include "../SDK/Engine_parameters.hpp"
 #include "../SDK/ProjectBoundary_parameters.hpp"
@@ -503,6 +504,18 @@ namespace
                         continue;
                     if (skinId.empty() || paintingId.empty())
                     {
+                        // The pinned native client serializes two built-in
+                        // reset sentinels as half-pairs: PartOri without an
+                        // ID, and the receiver/fire-mode PTOriginal without a
+                        // type.  They are not independent cosmetics.  The
+                        // preceding weapon-slot completion plus the suite
+                        // completion establish the effective original/base
+                        // appearance, so do not reject the whole archive or
+                        // dispatch an invalid half-pair to the appearance
+                        // completion.
+                        if (WeaponArchivePolicy::IsNativeOriginalPartAppearanceSentinel(
+                            skinId, paintingId))
+                            continue;
                         outDetail = roleId + ": weapon part appearance pair is incomplete";
                         return false;
                     }

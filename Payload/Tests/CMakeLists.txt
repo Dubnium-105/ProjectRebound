@@ -56,6 +56,15 @@ enable_strict_warnings(archive_completion_policy_tests)
 
 add_test(NAME archive_completion_policy_tests COMMAND archive_completion_policy_tests)
 
+add_executable(weapon_archive_policy_tests
+    WeaponArchivePolicyTests.cpp
+)
+
+target_compile_features(weapon_archive_policy_tests PRIVATE cxx_std_20)
+enable_strict_warnings(weapon_archive_policy_tests)
+
+add_test(NAME weapon_archive_policy_tests COMMAND weapon_archive_policy_tests)
+
 if(WIN32)
     add_executable(command_framework_tests
         CommandFrameworkTests.cpp
