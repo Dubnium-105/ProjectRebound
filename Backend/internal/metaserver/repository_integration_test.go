@@ -205,15 +205,23 @@ func TestRepositoryIsolationAndConcurrentSchedulingAgainstPostgreSQL(t *testing.
 	if role.GetRoleId() != "peace" || role.GetRightPylon() != "PEACE_ATK-HE" {
 		t.Fatalf("native role update did not round-trip: %#v", role)
 	}
+	if role.GetPrimaryWeapon() != "PEACE_RU-AKM" ||
+		role.GetSecondWeapon() != "PEACE_RU-APS" {
+		t.Fatalf("native default weapons did not round-trip: %#v", role)
+	}
 	if role.GetSkinToken() != "PEACE_ORIGINAL" ||
 		role.GetOrnamentId() != "PEACE_ORIGINAL_PTOriginal" {
 		t.Fatalf("native role cosmetics did not round-trip in fields 9/10: %#v", role)
+	}
+	allowedWeapons := make(map[string]struct{})
+	for _, weaponID := range nativePlayerRoleWeaponIDs(role) {
+		allowedWeapons[weaponID] = struct{}{}
 	}
 	projected := decodeNativeWeaponArchiveBundle(
 		definitions,
 		"PEACE",
 		role.GetWeaponArchiveRaw(),
-		map[string]struct{}{weaponArchive.GetWeaponId(): {}},
+		allowedWeapons,
 	)
 	var projectedWeapon metaprotocol.WeaponArchiveV2
 	if err := proto.Unmarshal(projected[weaponArchive.GetWeaponId()], &projectedWeapon); err != nil {
