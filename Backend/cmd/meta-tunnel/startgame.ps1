@@ -223,7 +223,7 @@ function Restore-ReboundSession {
             -SteamId ([string] $cacheDocument.steam_id) `
             -PersonaName ([string] $cacheDocument.persona_name) `
             -IntegrityTrusted $true
-        Write-Host "[AUTH] Session restored for $($cacheDocument.persona_name)."
+        Write-Host '[AUTH] Session restored.'
         return $response.data.session
     }
     catch {
@@ -457,6 +457,34 @@ function Send-TunnelAccessToken {
     }
 }
 
+function Test-TunnelAuthentication {
+    param([Parameter(Mandatory = $true)] [string] $TunnelHttpUrl)
+
+    try {
+        # Exercise the exact reverse-proxy path used by the game. The response
+        # body contains profile data and is intentionally discarded.
+        $null = Invoke-RestMethod `
+            -Uri "$TunnelHttpUrl/v1/users/me/meta-profile" `
+            -Method Get `
+            -Headers @{ 'Accept' = 'application/json' } `
+            -TimeoutSec 10
+        return $true
+    }
+    catch {
+        $statusCode = 0
+        if ($null -ne $_.Exception.Response) {
+            try {
+                $statusCode = [int] $_.Exception.Response.StatusCode
+            }
+            catch {
+                $statusCode = 0
+            }
+        }
+        Write-Host "[WARN] MetaTunnel authenticated preflight failed with HTTP $statusCode." -ForegroundColor Yellow
+        return $false
+    }
+}
+
 function ConvertTo-NativeArgument {
     param([AllowEmptyString()] [string] $Value)
 
@@ -571,6 +599,17 @@ try {
     if ($health.status -ne 'live') {
         throw 'MetaTunnel local health check failed.'
     }
+
+    if (-not (Test-TunnelAuthentication -TunnelHttpUrl $tunnelHttpUrl)) {
+        Write-Host '[AUTH] Rotating the session after a rejected MetaTunnel preflight...'
+        $session = Get-ReboundSession -DeviceId $deviceId -RestoreOnly
+        Send-TunnelAccessToken -Session $session
+        Start-Sleep -Milliseconds 250
+        if (-not (Test-TunnelAuthentication -TunnelHttpUrl $tunnelHttpUrl)) {
+            throw 'MetaTunnel authentication preflight failed after one session rotation.'
+        }
+    }
+    Write-Host '[AUTH] MetaTunnel authenticated preflight accepted.'
 
     $forwardedArguments = @($GameArguments | Where-Object {
         $null -ne $_ -and -not [string]::IsNullOrWhiteSpace([string] $_)

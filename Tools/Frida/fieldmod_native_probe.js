@@ -26,6 +26,9 @@ const TARGETS = new Map([
     ['ClientInitFieldMod', 'PBPlayerState'],
     ['ClientRefreshRoleEquippingInventory', 'PBPlayerState'],
     ['ClientRefreshRolePreOrderingInventory', 'PBPlayerState'],
+    ['GetCharacterUsableQuotaByCharacterID', 'PBCustomizeManager'],
+    ['GetCharacterUsedQuotaByCharacterID', 'PBCustomizeManager'],
+    ['GetWeaponNetworkConfig', 'PBCustomizeManager'],
 ]);
 
 const game = Process.getModuleByName(SETTINGS.moduleName);
@@ -120,6 +123,7 @@ function scanObjects() {
 
     const found = [];
     const managers = [];
+    const customizeManagers = [];
     for (let index = 0; index < numElements; index += 1) {
         const chunkIndex = Math.floor(index / 0x10000);
         if (chunkIndex >= numChunks) break;
@@ -136,6 +140,15 @@ function scanObjects() {
             if (typeName.startsWith('PBFieldModManager') &&
                 !objectName(object).startsWith('Default__')) {
                 managers.push(dumpFieldModManager(object));
+                continue;
+            }
+            if (typeName.includes('Customize') &&
+                !objectName(object).startsWith('Default__')) {
+                customizeManagers.push({
+                    manager: object.toString(),
+                    object_name: objectName(object),
+                    class_name: typeName,
+                });
                 continue;
             }
             if (typeName !== 'Function') continue;
@@ -164,6 +177,7 @@ function scanObjects() {
         object_count: numElements,
         functions: found,
         managers,
+        customize_managers: customizeManagers,
     });
 }
 

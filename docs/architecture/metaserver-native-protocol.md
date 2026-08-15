@@ -66,10 +66,23 @@ Asset and loadout RPCs preserve the captured wire contract:
   between primary/secondary weapons or left/right pods. A skin-only update
   never clears an equipment slot.
 
-The active Payload build contains only the server-authoritative
-`LoadoutManager` bridge. Its client entry points are no-ops, and the former
-OwnedItems/PersistentUser/FieldMod polling and write modules are not compiled.
-Servers can use `-NativeArchiveOnly`, or independently disable
+The active Payload constructs the server-authoritative `LoadoutManager` only
+in dedicated-server processes. The client never writes OwnedItems,
+PersistentUser, or `PBFieldModManager + 0x98`, and it does not poll or maintain
+an archive mirror. Runtime tracing established that this build receives a
+valid `GetPlayerArchiveV2` response but does not dispatch it into either the
+menu `PBCustomizeManager` cache or native `ClientInitFieldMod`. As the narrow
+compatibility bridge, Payload performs one authenticated current-user loadout
+read for each local-player lifecycle. It feeds each role/slot through the
+version-pinned native character-slot completion entry exactly once per
+`PBCustomizeManager`, and invokes `ClientInitFieldMod` exactly once per local
+`APBPlayerState`. The completion entry performs the game's own cache update and
+delegate broadcasts; Payload does not write the manager map or normalize equip
+errors. Role quotas are read from the running build's character definition
+table. `-NativeArchiveOnly` disables both calls and leaves all client state
+read-only for diagnostics.
+
+Servers can also use `-NativeArchiveOnly`, or independently disable
 `-LoadoutBaselineBridge`, `-LoadoutPreOrderIntercept`,
 `-LoadoutConfirmDeferral`, and `-LoadoutSpawnBridge` with `=0`, to isolate the
 smallest bridge behavior still required after native-flow verification.

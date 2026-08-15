@@ -48,6 +48,14 @@ namespace LoadoutApplication
         SDK::FPBInventoryNetworkConfig& outInventory,
         std::string& outDetail);
 
+    // Resolves the role quota from the native character definition table.
+    // This keeps ClientInitFieldMod aligned with the exact game build rather
+    // than duplicating DT_CharacterDefinition values in Payload.
+    bool TryResolveRoleOwnedQuota(
+        const std::string& roleId,
+        int& outOwnedQuota,
+        std::string& outDetail);
+
     ApplyResult PreSpawnApplyRole(
         const json& snapshot,
         const std::string& roleId,

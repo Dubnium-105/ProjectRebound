@@ -52,9 +52,17 @@ uint32_be payload_length | protobuf RequestWrapper payload
 - `UpdateRoleArchiveV2.Operation` 不是固定槽位编号。服务端先按固定物品类型路由，
   再用已观察到的 operation 区分主/副武器或左/右挂载；仅更新皮肤时不得清空装备槽。
 
-当前 Payload 只保留服务端权威的 `LoadoutManager` 桥接，客户端入口为空桩，旧的
-OwnedItems/PersistentUser/FieldMod 轮询与写入模块不再编译。服务端可使用
-`-NativeArchiveOnly`，或分别以 `=0` 禁用 `-LoadoutBaselineBridge`、
+当前 Payload 仅在专用服务端进程中构造服务端权威的 `LoadoutManager`。客户端不写入
+OwnedItems、PersistentUser 或 `PBFieldModManager + 0x98`，也不轮询或维护 archive 镜像。
+运行时追踪已确认：本构建能收到有效的 `GetPlayerArchiveV2`，但不会把响应分派到菜单
+`PBCustomizeManager` 缓存或 `ClientInitFieldMod`。因此客户端只保留一个最小兼容桥：每个
+本地玩家生命周期经认证读取一次当前用户配装；对每个 `PBCustomizeManager`，逐角色/槽位
+只调用一次当前版本固定的原生角色槽位完成入口；对每个本地 `APBPlayerState`，只调用一次
+`ClientInitFieldMod`。完成入口由游戏原生代码更新缓存并广播委托；Payload 不直接写
+manager map，也不改写装备错误码。角色配额从当前运行构建的角色定义表读取。
+`-NativeArchiveOnly` 会禁用这两种调用，使客户端保持完全只读用于诊断。
+
+服务端还可使用 `-NativeArchiveOnly`，或分别以 `=0` 禁用 `-LoadoutBaselineBridge`、
 `-LoadoutPreOrderIntercept`、`-LoadoutConfirmDeferral`、`-LoadoutSpawnBridge`，逐项收缩到
 原生链确实无法覆盖的最小行为。
 

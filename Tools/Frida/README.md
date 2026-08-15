@@ -48,6 +48,10 @@ used by the online loadout, then enter one match.
   distribution, and NewItemCounter values.
 - `armory.has_item`: array presence, Count, bIsNew, and the native result.
 - `persistent_user.snapshot`: Saved and Runtime inventory sizes and set hashes.
+- `http.message`: loopback HTTP method/path or response status plus body size
+  and hash; authorization, cookies, and request bodies are never recorded.
+- `player_state.snapshot` / `player_state.changed`: passive snapshots of the
+  native `APBPlayerState` equipping map.
 - `fieldmod.native_call`: `ClientInitFieldMod`, both native refresh RPCs,
   selection calls, getters, and weapon-spawn boundaries.
 - `fieldmod.snapshot`: per-role pre-ordering slots before and after those calls.

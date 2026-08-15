@@ -440,6 +440,20 @@ namespace UC
 			NumElements++;
 		}
 
+		// Generated Unreal structs can themselves contain TArray members. Their
+		// compiler-generated copy assignment expects a constructed (zeroed)
+		// destination, while the SDK allocator exposes raw storage. Use this
+		// insertion form for those nested-container values.
+		inline void AddZeroed(const ArrayElementType& Element)
+		{
+			if (GetSlack() <= 0)
+				Reserve(3);
+
+			memset(&Data[NumElements], 0, ElementSize);
+			Data[NumElements] = Element;
+			NumElements++;
+		}
+
 		inline void CopyFrom(const TArray& Other)
 		{
 			if (this == &Other)

@@ -22,6 +22,9 @@ const SETTINGS = {
         name: 0x18,
         outer: 0x20,
     },
+    struct: {
+        super: 0x40,
+    },
     armory: {
         ownedItemsData: 0x40,
         ownedItemsNum: 0x48,
@@ -34,6 +37,13 @@ const SETTINGS = {
     fieldMod: {
         preOrderingMap: 0x98,
         mapElementSize: 0x30,
+    },
+    playerState: {
+        equippingMap: 0x6E0,
+        mapElementSize: 0x30,
+        clientRefreshPreOrdering: 0x700,
+        clientRefreshEquipping: 0x708,
+        clientInitFieldMod: 0x710,
     },
     career: {
         queryUserProfileDataNative: 0x016E8240,
@@ -530,8 +540,8 @@ function markSocket(socket, endpoint) {
     if (!socketStreams.has(key)) {
         socketStreams.set(key, {
             endpoint,
-            send: { bytes: new Uint8Array(0), rejected: false },
-            recv: { bytes: new Uint8Array(0), rejected: false },
+            send: { bytes: new Uint8Array(0), protocol: 'unknown', rejected: false },
+            recv: { bytes: new Uint8Array(0), protocol: 'unknown', rejected: false },
         });
         emit('network.loopback_socket', { socket: key, endpoint });
     }
@@ -561,6 +571,146 @@ function parseSockaddr(address, length) {
     return null;
 }
 
+function asciiPrefix(bytes, length) {
+    let value = '';
+    for (let index = 0; index < Math.min(bytes.length, length); index += 1) {
+        value += String.fromCharCode(bytes[index]);
+    }
+    return value;
+}
+
+function findHeaderEnd(bytes) {
+    for (let index = 0; index + 3 < bytes.length; index += 1) {
+        if (bytes[index] === 13 && bytes[index + 1] === 10 &&
+            bytes[index + 2] === 13 && bytes[index + 3] === 10) {
+            return index;
+        }
+    }
+    return -1;
+}
+
+function safeHTTPError(body) {
+    if (body.length === 0 || body.length > 64 * 1024) return null;
+    try {
+        const parsed = JSON.parse(decodeUtf8(body));
+        const error = parsed && typeof parsed.error === 'object' ? parsed.error : parsed;
+        if (!error || typeof error !== 'object') return null;
+        const code = error.code === undefined ? null : String(error.code).slice(0, 128);
+        const message = error.message === undefined ? null : String(error.message).slice(0, 256);
+        return code === null && message === null ? null : { code, message };
+    } catch (_) {
+        return null;
+    }
+}
+
+function handleHTTPMessage(socket, direction, headerText, body) {
+    const lines = headerText.split('\r\n');
+    const firstLine = lines[0] || '';
+    const headers = {};
+    for (let index = 1; index < lines.length; index += 1) {
+        const separator = lines[index].indexOf(':');
+        if (separator <= 0) continue;
+        const name = lines[index].slice(0, separator).trim().toLowerCase();
+        const value = lines[index].slice(separator + 1).trim();
+        // Only retain framing/content metadata. Authorization, cookies, and
+        // request bodies are deliberately never logged.
+        if (name === 'content-length' || name === 'content-type' ||
+            name === 'transfer-encoding' || name === 'connection') {
+            headers[name] = value.slice(0, 256);
+        }
+    }
+    const details = {
+        socket,
+        direction,
+        body_bytes: body.length,
+        body_hash: hashBytes(body),
+        content_type: headers['content-type'] || '',
+    };
+    if (firstLine.startsWith('HTTP/')) {
+        const parts = firstLine.split(/\s+/);
+        const status = parts.length > 1 ? parseInt(parts[1], 10) : 0;
+        details.kind = 'response';
+        details.status = Number.isFinite(status) ? status : 0;
+        if (details.status >= 400) {
+            details.error = safeHTTPError(body);
+        }
+    } else {
+        const parts = firstLine.split(/\s+/);
+        details.kind = 'request';
+        details.method = (parts[0] || '').slice(0, 16);
+        details.path = (parts[1] || '').slice(0, 512);
+    }
+    emit('http.message', details);
+}
+
+function parseHTTPStream(socket, direction, stream) {
+    while (stream.bytes.length > 0) {
+        const headerEnd = findHeaderEnd(stream.bytes);
+        if (headerEnd < 0) {
+            if (stream.bytes.length > 64 * 1024) {
+                stream.rejected = true;
+                stream.bytes = new Uint8Array(0);
+                emit('network.stream_rejected', {
+                    socket, direction, reason: 'http_header_limit',
+                });
+            }
+            return;
+        }
+        const headerText = decodeUtf8(stream.bytes.slice(0, headerEnd));
+        let contentLength = 0;
+        const lengthMatch = /(?:^|\r\n)content-length\s*:\s*(\d+)/i.exec(headerText);
+        if (lengthMatch !== null) {
+            contentLength = parseInt(lengthMatch[1], 10);
+        }
+        if (!Number.isFinite(contentLength) || contentLength < 0 ||
+            contentLength > SETTINGS.maxFrameBytes) {
+            stream.rejected = true;
+            stream.bytes = new Uint8Array(0);
+            emit('network.stream_rejected', {
+                socket, direction, reason: 'http_body_limit', content_length: contentLength,
+            });
+            return;
+        }
+        if (/(?:^|\r\n)transfer-encoding\s*:\s*chunked/i.test(headerText)) {
+            stream.rejected = true;
+            stream.bytes = new Uint8Array(0);
+            emit('network.stream_rejected', {
+                socket, direction, reason: 'http_chunked_not_observed',
+            });
+            return;
+        }
+        const messageLength = headerEnd + 4 + contentLength;
+        if (stream.bytes.length < messageLength) return;
+        const body = stream.bytes.slice(headerEnd + 4, messageLength);
+        stream.bytes = stream.bytes.slice(messageLength);
+        handleHTTPMessage(socket, direction, headerText, body);
+    }
+}
+
+function parseMetaStream(socket, direction, stream) {
+    while (stream.bytes.length >= 4) {
+        const frameLength = (
+            stream.bytes[0] * 0x1000000
+            + stream.bytes[1] * 0x10000
+            + stream.bytes[2] * 0x100
+            + stream.bytes[3]
+        );
+        if (frameLength <= 0 || frameLength > SETTINGS.maxFrameBytes) {
+            stream.rejected = true;
+            stream.bytes = new Uint8Array(0);
+            emit('network.stream_rejected', {
+                socket, direction, reason: 'invalid_meta_framing',
+                declared_frame_bytes: frameLength,
+            });
+            return;
+        }
+        if (stream.bytes.length < frameLength + 4) return;
+        const frame = stream.bytes.slice(4, frameLength + 4);
+        stream.bytes = stream.bytes.slice(frameLength + 4);
+        handleFrame(socket, direction, frame);
+    }
+}
+
 function captureSocketBytes(socket, direction, bytes) {
     const key = socketKey(socket);
     const socketState = socketStreams.get(key);
@@ -579,31 +729,18 @@ function captureSocketBytes(socket, direction, bytes) {
         return;
     }
 
-    while (stream.bytes.length >= 4) {
-        const frameLength = (
-            stream.bytes[0] * 0x1000000
-            + stream.bytes[1] * 0x10000
-            + stream.bytes[2] * 0x100
-            + stream.bytes[3]
-        );
-        if (frameLength <= 0 || frameLength > SETTINGS.maxFrameBytes) {
-            stream.rejected = true;
-            stream.bytes = new Uint8Array(0);
-            emit('network.stream_rejected', {
-                socket: key,
-                direction,
-                reason: 'not_meta_framing',
-                declared_frame_bytes: frameLength,
-            });
-            return;
+    if (stream.protocol === 'unknown' && stream.bytes.length >= 4) {
+        const prefix = asciiPrefix(stream.bytes, 8);
+        if (/^(HTTP|GET |POST|PUT |HEAD|DELE|OPTI|PATC|CONN)/.test(prefix)) {
+            stream.protocol = 'http';
+            emit('network.stream_protocol', { socket: key, direction, protocol: 'http' });
+        } else {
+            stream.protocol = 'meta';
+            emit('network.stream_protocol', { socket: key, direction, protocol: 'meta' });
         }
-        if (stream.bytes.length < frameLength + 4) {
-            return;
-        }
-        const frame = stream.bytes.slice(4, frameLength + 4);
-        stream.bytes = stream.bytes.slice(frameLength + 4);
-        handleFrame(key, direction, frame);
     }
+    if (stream.protocol === 'http') parseHTTPStream(key, direction, stream);
+    if (stream.protocol === 'meta') parseMetaStream(key, direction, stream);
 }
 
 function gatherWSABuffers(buffers, count, totalBytes) {
@@ -787,7 +924,9 @@ let gameModule;
 let appendString;
 const fnameCache = new Map();
 const classNameCache = new Map();
+const classInheritanceCache = new Map();
 const targetFunctions = new Map();
+const hookedNativeFunctions = new Map();
 let armoryManager = null;
 let inventoryState = null;
 let fieldModManager = null;
@@ -798,6 +937,8 @@ const characterLevelTables = new Map();
 const localPlayers = new Map();
 const careerManagers = new Map();
 const careerSignatures = new Map();
+const playerStates = new Map();
+const playerStateSignatures = new Map();
 let careerMemoryMonitorActive = false;
 
 function fnameKey(address) {
@@ -835,6 +976,31 @@ function className(object) {
         classNameCache.set(key, objectName(klass));
     }
     return classNameCache.get(key);
+}
+
+function classInherits(object, expectedBaseName) {
+    let klass = object.add(SETTINGS.object.class).readPointer();
+    const cacheKey = `${klass}:${expectedBaseName}`;
+    if (classInheritanceCache.has(cacheKey)) {
+        return classInheritanceCache.get(cacheKey);
+    }
+    for (let depth = 0; depth < 16 && !klass.isNull(); depth += 1) {
+        if (objectName(klass) === expectedBaseName) {
+            classInheritanceCache.set(cacheKey, true);
+            return true;
+        }
+        klass = klass.add(SETTINGS.struct.super).readPointer();
+    }
+    classInheritanceCache.set(cacheKey, false);
+    return false;
+}
+
+function moduleOffset(address) {
+    if (address.compare(gameModule.base) < 0 ||
+        address.compare(gameModule.base.add(gameModule.size)) >= 0) {
+        return null;
+    }
+    return address.sub(gameModule.base).toString();
 }
 
 function readArrayHeader(address, maximum, label) {
@@ -914,8 +1080,7 @@ function dumpSavedRoleConfig(address) {
     };
 }
 
-function dumpFieldModState(manager) {
-    const map = manager.add(SETTINGS.fieldMod.preOrderingMap);
+function dumpRoleInventoryMap(map, maximum, label, elementSize) {
     const elements = map.readPointer();
     const allocated = map.add(8).readS32();
     const max = map.add(12).readS32();
@@ -923,15 +1088,16 @@ function dumpFieldModState(manager) {
     const secondaryFlags = map.add(0x20).readPointer();
     const flags = secondaryFlags.isNull() ? map.add(0x10) : secondaryFlags;
     if (allocated < 0 || max < allocated || flagBits < allocated ||
-        allocated > 128 || (allocated > 0 && elements.isNull())) {
-        throw new Error(`invalid FieldMod map allocated=${allocated} max=${max} flags=${flagBits}`);
+        allocated > maximum || (allocated > 0 && elements.isNull())) {
+        throw new Error(
+            `invalid ${label} map allocated=${allocated} max=${max} flags=${flagBits}`);
     }
     const roles = [];
     let hash = 0x811C9DC5;
     for (let index = 0; index < allocated; index += 1) {
         const word = flags.add(Math.floor(index / 32) * 4).readU32();
         if ((word & (1 << (index % 32))) === 0) continue;
-        const element = elements.add(index * SETTINGS.fieldMod.mapElementSize);
+        const element = elements.add(index * elementSize);
         const roleId = fnameToString(element);
         const inventory = dumpInventoryConfig(element.add(8));
         roles.push({ role_id: roleId, inventory });
@@ -939,12 +1105,87 @@ function dumpFieldModState(manager) {
         hash = fnvStep(hash, parseInt(inventory.config_hash.slice(2), 16));
     }
     return {
-        manager: manager.toString(),
         allocated,
         max,
         roles,
         state_hash: toHex(hash),
     };
+}
+
+function dumpFieldModState(manager) {
+    return Object.assign({
+        manager: manager.toString(),
+    }, dumpRoleInventoryMap(
+        manager.add(SETTINGS.fieldMod.preOrderingMap),
+        128,
+        'FieldMod pre-ordering',
+        SETTINGS.fieldMod.mapElementSize));
+}
+
+function refreshPlayerState(object, reason, force = false) {
+    const key = object.toString();
+    try {
+        const currentName = objectName(object);
+        if (currentName.startsWith('Default__') || !classInherits(object, 'PBPlayerState')) {
+            playerStates.delete(key);
+            playerStateSignatures.delete(key);
+            emit('player_state.retired', { reason: 'object_reused', object: key });
+            return false;
+        }
+        const state = dumpRoleInventoryMap(
+            object.add(SETTINGS.playerState.equippingMap),
+            128,
+            'PlayerState equipping',
+            SETTINGS.playerState.mapElementSize);
+        const signature = `${state.allocated}:${state.state_hash}`;
+        if (force || playerStateSignatures.get(key) !== signature) {
+            playerStateSignatures.set(key, signature);
+            emit(force ? 'player_state.snapshot' : 'player_state.changed', Object.assign({
+                reason,
+                object: key,
+                object_name: currentName,
+                class_name: className(object),
+            }, state));
+        }
+        return true;
+    } catch (error) {
+        playerStates.delete(key);
+        playerStateSignatures.delete(key);
+        emit('player_state.retired', {
+            reason: 'unreadable', object: key, error: String(error),
+        });
+        return false;
+    }
+}
+
+function registerPlayerState(object, reason) {
+    const key = object.toString();
+    const firstSeen = !playerStates.has(key);
+    playerStates.set(key, object);
+    if (firstSeen) {
+        const vtable = object.readPointer();
+        const virtuals = {};
+        for (const [name, offset] of Object.entries({
+            client_refresh_pre_ordering: SETTINGS.playerState.clientRefreshPreOrdering,
+            client_refresh_equipping: SETTINGS.playerState.clientRefreshEquipping,
+            client_init_field_mod: SETTINGS.playerState.clientInitFieldMod,
+        })) {
+            const target = vtable.add(offset).readPointer();
+            virtuals[name] = {
+                target: target.toString(),
+                target_offset: moduleOffset(target),
+            };
+        }
+        emit('player_state.found', {
+            reason,
+            object: key,
+            object_name: objectName(object),
+            class_name: className(object),
+            vtable: vtable.toString(),
+            virtuals,
+        });
+    }
+    refreshPlayerState(object, reason, firstSeen);
 }
 
 function dumpPlayerLevelTable(table) {
@@ -1080,13 +1321,29 @@ function dumpCareerState(manager) {
 function refreshCareerManager(manager, reason, force = false) {
     const key = manager.toString();
     try {
+        const currentName = objectName(manager);
+        if (className(manager) !== 'PBCareerManager' ||
+            currentName.startsWith('Default__')) {
+            careerManagers.delete(key);
+            careerSignatures.delete(key);
+            emit('progression.career_manager_retired', {
+                reason: 'object_reused', manager: key,
+            });
+            return false;
+        }
         const snapshot = dumpCareerState(manager);
         if (force || careerSignatures.get(key) !== snapshot.state_hash) {
             careerSignatures.set(key, snapshot.state_hash);
             emit('progression.career_snapshot', Object.assign({ reason }, snapshot));
         }
+        return true;
     } catch (error) {
-        reportError('progression.career_snapshot', error);
+        careerManagers.delete(key);
+        careerSignatures.delete(key);
+        emit('progression.career_manager_retired', {
+            reason: 'unreadable', manager: key, error: String(error),
+        });
+        return false;
     }
 }
 
@@ -1135,11 +1392,155 @@ function startCareerMemoryMonitor(reason) {
 
 function emitFieldModSnapshot(reason) {
     if (fieldModManager === null) return;
+    const manager = fieldModManager;
     try {
-        emit('fieldmod.snapshot', Object.assign({ reason }, dumpFieldModState(fieldModManager)));
+        const currentClass = className(manager);
+        const currentName = objectName(manager);
+        if (!currentClass.startsWith('PBFieldModManager') ||
+            currentName.startsWith('Default__')) {
+            fieldModManager = null;
+            emit('fieldmod.manager_retired', {
+                reason: 'object_reused',
+                manager: manager.toString(),
+                object_name: currentName,
+                class_name: currentClass,
+            });
+            return;
+        }
+    } catch (error) {
+        fieldModManager = null;
+        emit('fieldmod.manager_retired', {
+            reason: 'object_unreadable',
+            manager: manager.toString(),
+            message: String(error),
+        });
+        return;
+    }
+    try {
+        emit('fieldmod.snapshot', Object.assign({ reason }, dumpFieldModState(manager)));
     } catch (error) {
         reportError('fieldmod.snapshot', error);
     }
+}
+
+function fnameValueToString(value) {
+    const storage = Memory.alloc(Process.pointerSize);
+    storage.writePointer(value);
+    return fnameToString(storage);
+}
+
+function customizeObjectDetails(object, objectClass) {
+    if (objectClass.includes('ListCSTM_Inventory')) {
+        const vtable = object.readPointer();
+        return {
+            character_id: fnameToString(object.add(0x278)),
+            character_slot: object.add(0x280).readU8(),
+            equipped_item_id: fnameToString(object.add(0x284)),
+            virtual_480_rva: vtable.add(0x480).readPointer().sub(gameModule.base).toString(),
+            virtual_488_rva: vtable.add(0x488).readPointer().sub(gameModule.base).toString(),
+            virtual_490_rva: vtable.add(0x490).readPointer().sub(gameModule.base).toString(),
+        };
+    }
+    if (objectClass.includes('ItemCSTM_Weapon')) {
+        return {
+            item_id: fnameToString(object.add(0x260)),
+            can_edit: object.add(0x268).readU8() !== 0,
+            is_equipped: object.add(0x269).readU8() !== 0,
+            is_locked: object.add(0x26A).readU8() !== 0,
+            character_id: fnameToString(object.add(0x270)),
+            character_slot: object.add(0x278).readU8(),
+        };
+    }
+    return {};
+}
+
+function nativeBacktrace(context) {
+    return Thread.backtrace(context, Backtracer.ACCURATE)
+        .filter((address) => address.compare(gameModule.base) >= 0 &&
+            address.compare(gameModule.base.add(gameModule.size)) < 0)
+        .slice(0, 16)
+        .map((address) => ({
+            address: address.toString(),
+            rva: address.sub(gameModule.base).toString(),
+        }));
+}
+
+function resolveLastDirectCall(execFunction) {
+    if (execFunction.isNull()) return null;
+
+    let instructionAddress = execFunction;
+    let lastCall = null;
+    for (let index = 0; index < 96; index += 1) {
+        const instruction = Instruction.parse(instructionAddress);
+        if (instruction.mnemonic === 'call' && /^0x[0-9a-f]+$/i.test(instruction.opStr)) {
+            const candidate = ptr(instruction.opStr);
+            if (candidate.compare(gameModule.base) >= 0 &&
+                candidate.compare(gameModule.base.add(gameModule.size)) < 0) {
+                lastCall = candidate;
+            }
+        }
+        instructionAddress = instruction.next;
+        if (instruction.mnemonic === 'ret') break;
+    }
+    return lastCall;
+}
+
+function hookFieldModNativeFunction(functionName, execFunction) {
+    if (functionName !== 'SelectCharacter' &&
+        functionName !== 'SelectCharacterSlot' &&
+        functionName !== 'SelectInventoryItem') {
+        return;
+    }
+
+    let nativeFunction;
+    try {
+        nativeFunction = resolveLastDirectCall(execFunction);
+    } catch (error) {
+        reportError(`fieldmod.resolve_native.${functionName}`, error);
+        return;
+    }
+    if (nativeFunction === null || hookedNativeFunctions.has(nativeFunction.toString())) return;
+
+    hookedNativeFunctions.set(nativeFunction.toString(), functionName);
+    emit('fieldmod.native_function_found', {
+        function_name: functionName,
+        exec_function: execFunction.toString(),
+        native_function: nativeFunction.toString(),
+        native_rva: nativeFunction.sub(gameModule.base).toString(),
+    });
+
+    Interceptor.attach(nativeFunction, {
+        onEnter(args) {
+            try {
+                this.functionName = functionName;
+                this.manager = args[0];
+                fieldModManager = args[0];
+                const details = functionName === 'SelectCharacterSlot'
+                    ? { slot: args[1].toInt32() & 0xFF }
+                    : { item_or_role_id: fnameValueToString(args[1]) };
+                emitFieldModSnapshot(`${functionName}.direct.before`);
+                emit('fieldmod.native_direct_call', Object.assign({
+                    function_name: functionName,
+                    phase: 'enter',
+                    object: args[0].toString(),
+                }, details));
+            } catch (error) {
+                reportError(`fieldmod.native_direct.${functionName}.enter`, error);
+            }
+        },
+        onLeave() {
+            try {
+                emit('fieldmod.native_direct_call', {
+                    function_name: this.functionName,
+                    phase: 'leave',
+                    object: this.manager.toString(),
+                });
+                emitFieldModSnapshot(`${this.functionName}.direct.after`);
+            } catch (error) {
+                reportError(`fieldmod.native_direct.${functionName}.leave`, error);
+            }
+        },
+    });
 }
 
 function persistentArraySummary(address, stride, withCount) {
@@ -1291,7 +1692,7 @@ function refreshInventory(manager, reason, force = false) {
                 count_negative: countNegative,
                 is_new_true: isNew,
                 signature_hash: toHex(hash),
-                owned_item_ids: itemIds,
+                owned_item_sample: compactSample(itemIds),
             });
         }
         return inventoryState;
@@ -1303,8 +1704,12 @@ function refreshInventory(manager, reason, force = false) {
 
 function considerObject(object) {
     const typeName = className(object);
+    const name = objectName(object);
+    if (!name.startsWith('Default__') && classInherits(object, 'PBPlayerState')) {
+        registerPlayerState(object, 'object_scan');
+        return;
+    }
     if (typeName === 'PBCareerManager') {
-        const name = objectName(object);
         if (!name.startsWith('Default__')) {
             const key = object.toString();
             if (!careerManagers.has(key)) {
@@ -1319,7 +1724,6 @@ function considerObject(object) {
         return;
     }
     if (typeName.includes('PBLocalPlayer')) {
-        const name = objectName(object);
         if (!name.startsWith('Default__')) {
             const key = object.toString();
             if (!localPlayers.has(key)) {
@@ -1339,7 +1743,6 @@ function considerObject(object) {
         return;
     }
     if (typeName === 'PBArmoryManager') {
-        const name = objectName(object);
         if (!name.startsWith('Default__')) {
             const changed = armoryManager === null || !armoryManager.equals(object);
             if (changed) {
@@ -1354,7 +1757,6 @@ function considerObject(object) {
         return;
     }
     if (typeName.startsWith('PBFieldModManager')) {
-        const name = objectName(object);
         if (!name.startsWith('Default__')) {
             const changed = fieldModManager === null || !fieldModManager.equals(object);
             fieldModManager = object;
@@ -1369,7 +1771,6 @@ function considerObject(object) {
         return;
     }
     if (typeName.includes('PersistentUser')) {
-        const name = objectName(object);
         if (!name.startsWith('Default__')) {
             const key = object.toString();
             persistentUsers.set(key, object);
@@ -1404,7 +1805,6 @@ function considerObject(object) {
     if (typeName !== 'Function') {
         return;
     }
-    const name = objectName(object);
     if (!OBSERVED_FUNCTIONS.has(name)) {
         return;
     }
@@ -1415,9 +1815,9 @@ function considerObject(object) {
             return;
         }
         targetFunctions.set(object.toString(), name);
-        let execFunction = '0x0';
+        let execFunction = ptr(0);
         try {
-            execFunction = object.add(0xD8).readPointer().toString();
+            execFunction = object.add(0xD8).readPointer();
         } catch (_) {
             // The ProcessEvent hook does not require ExecFunction.
         }
@@ -1425,8 +1825,9 @@ function considerObject(object) {
             function: object.toString(),
             function_name: name,
             owner_name: ownerName,
-            exec_function: execFunction,
+            exec_function: execFunction.toString(),
         });
+        hookFieldModNativeFunction(name, execFunction);
     }
 }
 
@@ -1470,6 +1871,7 @@ function scanObjects() {
             character_level_tables_found: characterLevelTables.size,
             local_players_found: localPlayers.size,
             career_managers_found: careerManagers.size,
+            player_states_found: playerStates.size,
         });
         if (armoryManager !== null && inventoryState === null) {
             refreshInventory(armoryManager, 'object_scan_recovery', true);
@@ -1573,8 +1975,36 @@ function hookProcessEvent() {
             this.probeKind = null;
             this.probeParams = ptr(0);
             this.probeObject = ptr(0);
+            this.customizeObject = ptr(0);
+            this.customizeClass = null;
+            this.customizeFunction = null;
             const functionName = targetFunctions.get(args[1].toString());
             if (functionName === undefined) {
+                try {
+                    const objectClass = className(args[0]);
+                    const invokedFunction = objectName(args[1]);
+                    if (objectClass.includes('Customize') || objectClass.includes('CSTM')) {
+                        if (/archive|character|complete|equip|init|inventory|load|query|refresh|slot|weapon/i.test(invokedFunction)) {
+                            const details = customizeObjectDetails(args[0], objectClass);
+                            if (/RefreshList|K2_OnRefreshList/i.test(invokedFunction)) {
+                                details.native_backtrace = nativeBacktrace(this.context);
+                            }
+                            emit('customize.process_event', Object.assign({
+                                object: args[0].toString(),
+                                object_class: objectClass,
+                                function_name: invokedFunction,
+                                phase: 'enter',
+                            }, details));
+                            if (/RefreshList|K2_OnRefreshList|OnEquipComplete/i.test(invokedFunction)) {
+                                this.customizeObject = args[0];
+                                this.customizeClass = objectClass;
+                                this.customizeFunction = invokedFunction;
+                            }
+                        }
+                    }
+                } catch (_) {
+                    // Diagnostic-only UI tracing must never disturb ProcessEvent.
+                }
                 return;
             }
             try {
@@ -1619,6 +2049,8 @@ function hookProcessEvent() {
                 this.probeObject = args[0];
                 if (OBSERVED_FUNCTIONS.get(functionName) === 'PBFieldModManager') {
                     fieldModManager = args[0];
+                } else if (OBSERVED_FUNCTIONS.get(functionName) === 'PBPlayerState') {
+                    registerPlayerState(args[0], `${functionName}.before`);
                 }
                 emitFieldModSnapshot(`${functionName}.before`);
                 emit('fieldmod.native_call', Object.assign({
@@ -1631,6 +2063,19 @@ function hookProcessEvent() {
             }
         },
         onLeave() {
+            if (this.customizeFunction !== null) {
+                try {
+                    emit('customize.process_event', Object.assign({
+                        object: this.customizeObject.toString(),
+                        object_class: this.customizeClass,
+                        function_name: this.customizeFunction,
+                        phase: 'leave',
+                    }, customizeObjectDetails(
+                        this.customizeObject, this.customizeClass)));
+                } catch (_) {
+                    // The widget may be retired by the event itself.
+                }
+            }
             if (this.probeKind === null) {
                 return;
             }
@@ -1657,6 +2102,10 @@ function hookProcessEvent() {
                         object: this.probeObject.toString(),
                     }, observedCallDetails(this.probeKind, this.probeParams, 'leave')));
                     emitFieldModSnapshot(`${this.probeKind}.after`);
+                    if (OBSERVED_FUNCTIONS.get(this.probeKind) === 'PBPlayerState') {
+                        refreshPlayerState(
+                            this.probeObject, `${this.probeKind}.after`, false);
+                    }
                     for (const user of persistentUsers.values()) {
                         refreshPersistentUser(user, `${this.probeKind}.after`, false);
                     }
@@ -1717,6 +2166,9 @@ function initialize() {
             }
             for (const manager of careerManagers.values()) {
                 refreshCareerManager(manager, 'poll', false);
+            }
+            for (const playerState of playerStates.values()) {
+                refreshPlayerState(playerState, 'poll', false);
             }
         }, 2000);
     } catch (error) {

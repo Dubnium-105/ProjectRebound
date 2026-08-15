@@ -1128,42 +1128,6 @@ void *OnFireWeapon(APBWeapon *Weapon)
 // ======================================================
 
 static SafetyHookInline ProcessEventClient;
-static SafetyHookInline FixEquipErrorHook;
-static SafetyHookInline FixSkinErrorHook;
-static SafetyHookInline FixBadgeOrnamentErrorHook;
-
-// The native async task starts with 404 and can reach these terminal resolvers
-// after the metaserver has already accepted the equip. Preserve the game's
-// known completion codes and prevent the stale initializer from reaching UMG.
-static int NormalizeEquipCompletionCode(int completionCode)
-{
-    switch (completionCode)
-    {
-    case 0:
-    case 200:
-    case 9001:
-    case 9002:
-    case 9003:
-        return completionCode;
-    default:
-        return 0;
-    }
-}
-
-void __fastcall FixEquipErrorHookFn(__int64 a1, int completionCode, __int64 a3, __int64 a4, int a5)
-{
-    FixEquipErrorHook.call<void>(a1, NormalizeEquipCompletionCode(completionCode), a3, a4, a5);
-}
-
-void __fastcall FixSkinErrorHookFn(__int64 a1, int completionCode, __int64 a3, __int64 a4, __int64 a5)
-{
-    FixSkinErrorHook.call<void>(a1, NormalizeEquipCompletionCode(completionCode), a3, a4, a5);
-}
-
-void __fastcall FixBadgeOrnamentErrorHookFn(__int64 a1, int completionCode, __int64 a3, __int64 a4, int a5)
-{
-    FixBadgeOrnamentErrorHook.call<void>(a1, NormalizeEquipCompletionCode(completionCode), a3, a4, a5);
-}
 
 void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
 {
@@ -1374,7 +1338,4 @@ void InitClientHook()
 {
     ProcessEventClient = safetyhook::create_inline((void *)(BaseAddress + 0x1BCBE40), ProcessEventHookClient);
     ClientDeathCrash = safetyhook::create_inline((void *)(BaseAddress + 0x16abe10), ClientDeathCrashHook);
-    FixEquipErrorHook = safetyhook::create_inline((void *)(BaseAddress + 0x16DD080), FixEquipErrorHookFn);
-    FixSkinErrorHook = safetyhook::create_inline((void *)(BaseAddress + 0x16DCEC0), FixSkinErrorHookFn);
-    FixBadgeOrnamentErrorHook = safetyhook::create_inline((void *)(BaseAddress + 0x16DCD80), FixBadgeOrnamentErrorHookFn);
 }

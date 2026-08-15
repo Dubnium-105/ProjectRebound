@@ -53,6 +53,33 @@ namespace
         destination = empty;
         Expect(destination.Num() == 0, "assigning an empty array clears the destination");
     }
+
+    void TestAddZeroedSupportsNestedContainers()
+    {
+        struct NestedArray
+        {
+            UC::TArray<std::uint64_t> Values;
+        };
+
+        NestedArray source{};
+        source.Values.Add(0x1122334455667788ULL);
+
+        UC::TArray<NestedArray> destination;
+        destination.AddZeroed(source);
+
+        Expect(destination.Num() == 1,
+            "zeroed insertion adds a nested-container element");
+        Expect(destination[0].Values.Num() == 1,
+            "zeroed insertion copies the nested element count");
+        Expect(destination[0].Values[0] == source.Values[0],
+            "zeroed insertion copies nested element data");
+        Expect(&destination[0].Values[0] != &source.Values[0],
+            "zeroed insertion owns an independent nested allocation");
+
+        // The generated TArray wrapper intentionally does not invoke element
+        // destructors, so release this test's nested allocation explicitly.
+        destination[0].Values.Free();
+    }
 }
 
 int main()
@@ -60,6 +87,7 @@ int main()
     UC::FMemory::EngineRealloc = &TestReallocate;
     TestCopyReusesCapacityWithoutTruncatingElements();
     TestCopyFromEmptyClearsLogicalContents();
+    TestAddZeroedSupportsNestedContainers();
     if (failures == 0)
         std::cout << "All Unreal container tests passed.\n";
     return failures == 0 ? 0 : 1;

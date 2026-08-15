@@ -1257,6 +1257,36 @@ namespace LoadoutSerializer
             }
             result["weaponConfigs"] = normalizedWeaponConfigs;
 
+            // RoleArchiveDataV2 always has six equipment fields. Preserve an
+            // explicit native None for every omitted slot so the menu cache and
+            // FieldMod initialization cannot retain a build-default item.
+            auto& normalizedSlots = result["inventory"]["slots"];
+            for (int slotType =
+                    static_cast<int>(SDK::EPBCharacterSlotType::FirstWeapon);
+                slotType < static_cast<int>(
+                    SDK::EPBCharacterSlotType::EPBCharacterSlotType_MAX);
+                ++slotType)
+            {
+                const bool found = std::any_of(
+                    normalizedSlots.begin(), normalizedSlots.end(),
+                    [slotType](const json& slot) {
+                        return slot.is_object() &&
+                            slot.value("slotType", 0) == slotType;
+                    });
+                if (!found)
+                {
+                    normalizedSlots.push_back({
+                        { "slotType", slotType },
+                        { "itemId", "None" },
+                    });
+                }
+            }
+            std::sort(
+                normalizedSlots.begin(), normalizedSlots.end(),
+                [](const json& left, const json& right) {
+                    return left.value("slotType", 0) < right.value("slotType", 0);
+                });
+
             std::string skinModel;
             std::string skinPaint;
             const char* skinModelKey = snapshot.contains("skinModel") ? "skinModel" :

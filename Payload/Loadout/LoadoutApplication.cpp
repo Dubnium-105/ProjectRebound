@@ -498,9 +498,10 @@ namespace LoadoutApplication
         {
             const auto slot = source.CharacterSlots[i];
             const int slotValue = static_cast<int>(slot);
+            const std::string itemId = NameToString(source.InventoryItems[i]);
             if (slotValue <= static_cast<int>(EPBCharacterSlotType::None) ||
                 slotValue >= static_cast<int>(EPBCharacterSlotType::EPBCharacterSlotType_MAX) ||
-                !IsUsableName(source.InventoryItems[i]) ||
+                itemId.empty() ||
                 !seenSlots.insert(slotValue).second)
             {
                 outDetail = "inventory-entry-invalid";
@@ -513,6 +514,47 @@ namespace LoadoutApplication
         }
 
         outDetail = "inventory-valid";
+        return true;
+    }
+
+    bool TryResolveRoleOwnedQuota(
+        const std::string& roleId,
+        int& outOwnedQuota,
+        std::string& outDetail)
+    {
+        outOwnedQuota = 0;
+        if (roleId.empty())
+        {
+            outDetail = "role-quota-target-invalid";
+            return false;
+        }
+
+        UEngineSubsystem* subsystem = USubsystemBlueprintLibrary::GetEngineSubsystem(
+            UPBDataTableManager::StaticClass());
+        if (!subsystem || !subsystem->IsA(UPBDataTableManager::StaticClass()))
+        {
+            outDetail = "role-quota-table-manager-pending";
+            return false;
+        }
+
+        auto* tables = static_cast<UPBDataTableManager*>(subsystem);
+        UDataTable* characterTable = ResolveDataTable(tables->CharacterDefinitionDataTable);
+        if (!characterTable)
+        {
+            outDetail = "role-quota-character-table-pending";
+            return false;
+        }
+
+        const auto* row = FindDefinitionRow<FPBCharacterDefinitionRow>(
+            characterTable, NameFromString(roleId), "PBCharacterDefinitionRow");
+        if (!row || row->OwnedQuota <= 0)
+        {
+            outDetail = "role-quota-definition-invalid";
+            return false;
+        }
+
+        outOwnedQuota = row->OwnedQuota;
+        outDetail = "role-quota-valid";
         return true;
     }
 

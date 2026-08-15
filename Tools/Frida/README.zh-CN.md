@@ -43,6 +43,10 @@ powershell -ExecutionPolicy Bypass -File .\Tools\Frida\run-armory-probe.ps1 -Pro
 - `armory.snapshot` / `armory.changed`：原生库存数量、Count 分布和 NewItemCounter。
 - `armory.has_item`：物品是否位于数组、Count、bIsNew 和原生返回值。
 - `persistent_user.snapshot`：Saved/Runtime 库存数量及集合哈希。
+- `http.message`：回环 HTTP 的方法/路径或响应状态，以及正文大小和哈希；绝不记录
+  Authorization、Cookie 或请求正文。
+- `player_state.snapshot` / `player_state.changed`：原生 `APBPlayerState` equipping map
+  的被动快照。
 - `fieldmod.native_call`：`ClientInitFieldMod`、两个 Refresh RPC、选择、getter
   和武器生成调用边界。
 - `fieldmod.snapshot`：上述调用前后的逐角色 pre-ordering 槽位。
