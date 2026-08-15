@@ -41,10 +41,27 @@ func DecodeRequestWrapper(data []byte) (RequestWrapper, error) {
 }
 
 func EncodeResponseWrapper(response ResponseWrapper) []byte {
-	output, _ := proto.Marshal(&metaprotocol.ResponseWrapper{
-		MessageId: response.MessageID, RpcPath: response.RPCPath,
-		ErrorCode: response.ErrorCode, Message: response.Message,
-	})
+	// The original protobufjs server serializes ErrorCode whenever the property
+	// is present, including success (18 00). Boundary's native async task starts
+	// with 404 and only overwrites it when field 3 is present, so generated Go
+	// proto3 output (which omits scalar zero) makes a successful archive update
+	// complete as UNKNOWN FAILURE. Keep ordinary proto3 omission rules for the
+	// other fields, but always put the transport completion code on the wire.
+	var output []byte
+	if response.MessageID != 0 {
+		output = protowire.AppendTag(output, 1, protowire.VarintType)
+		output = protowire.AppendVarint(output, uint64(response.MessageID))
+	}
+	if response.RPCPath != "" {
+		output = protowire.AppendTag(output, 2, protowire.BytesType)
+		output = protowire.AppendString(output, response.RPCPath)
+	}
+	output = protowire.AppendTag(output, 3, protowire.VarintType)
+	output = protowire.AppendVarint(output, uint64(response.ErrorCode))
+	if len(response.Message) != 0 {
+		output = protowire.AppendTag(output, 4, protowire.BytesType)
+		output = protowire.AppendBytes(output, response.Message)
+	}
 	return output
 }
 

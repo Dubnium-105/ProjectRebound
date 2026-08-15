@@ -56,6 +56,11 @@ const SETTINGS = {
         savedArmory: 0x48,
         runtimeArmory: 0x68,
     },
+    archiveCompletionEntries: [
+        { name: 'role_equipment', rva: 0x016DD080 },
+        { name: 'weapon_skin', rva: 0x016DCEC0 },
+        { name: 'badge_ornament', rva: 0x016DCD80 },
+    ],
     maxObjects: 2_000_000,
     maxOwnedItems: 250_000,
     maxFrameBytes: 64 * 1024 * 1024,
@@ -108,6 +113,22 @@ function reportError(scope, error) {
         scope,
         message: String(error && error.stack ? error.stack : error),
     });
+}
+
+function hookArchiveCompletionEntries() {
+    for (const entry of SETTINGS.archiveCompletionEntries) {
+        const target = gameModule.base.add(entry.rva);
+        Interceptor.attach(target, {
+            onEnter(args) {
+                emit('archive.native_completion', {
+                    completion_kind: entry.name,
+                    rva: toHex(entry.rva),
+                    task: args[0].toString(),
+                    completion_code: args[1].toInt32(),
+                });
+            },
+        });
+    }
 }
 
 function toHex(value) {
@@ -263,6 +284,7 @@ function parseWrapper(bytes, direction) {
         return {
             messageId: firstVarint(fields, 1, -1) | 0,
             rpcPath: firstString(fields, 2),
+            errorFieldPresent: false,
             errorCode: 0,
             payload: firstBytes(fields, 3),
         };
@@ -270,6 +292,7 @@ function parseWrapper(bytes, direction) {
     return {
         messageId: firstVarint(fields, 1, -1) | 0,
         rpcPath: firstString(fields, 2),
+        errorFieldPresent: (fields.get(3) || []).some((entry) => entry.wire === 0),
         errorCode: firstVarint(fields, 3, 0) | 0,
         payload: firstBytes(fields, 4),
     };
@@ -443,6 +466,7 @@ function captureRpcPayload(socket, direction, wrapper, rpcPath) {
         direction,
         message_id: wrapper.messageId,
         rpc_path: rpcPath,
+        error_field_present: wrapper.errorFieldPresent,
         error_code: wrapper.errorCode,
         payload_bytes: wrapper.payload.length,
         payload_hash: hashBytes(wrapper.payload),
@@ -514,6 +538,7 @@ function handleFrame(socket, direction, frame) {
         socket,
         message_id: wrapper.messageId,
         rpc_path: rpcPath,
+        error_field_present: wrapper.errorFieldPresent,
         error_code: wrapper.errorCode,
         payload_bytes: wrapper.payload.length,
         payload_hash: hashBytes(wrapper.payload),
@@ -2156,6 +2181,7 @@ function initialize() {
             mode: 'read_only',
         });
         hookWinsock();
+        hookArchiveCompletionEntries();
         hookProcessEvent();
         hookCareerNativeDispatch();
         setTimeout(scanObjects, 1000);

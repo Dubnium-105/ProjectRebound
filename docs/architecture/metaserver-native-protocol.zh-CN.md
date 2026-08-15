@@ -51,8 +51,9 @@ uint32_be payload_length | protobuf RequestWrapper payload
   生产环境使用本构建最高等级 `70`。
 - `UpdateRoleArchiveV2.Operation` 不是固定槽位编号。服务端先按固定物品类型路由，
   再用已观察到的 operation 区分主/副武器或左/右挂载；仅更新皮肤时不得清空装备槽。
-- `UpdateRoleArchiveV2` 和 `UpdateWeaponArchiveV2` 成功响应必须显式包含状态字段
-  `08 00`。对本客户端而言，空 proto3 消息并不等价：它会让原生异步任务保留初始
+- `UpdateRoleArchiveV2` 和 `UpdateWeaponArchiveV2` 成功响应必须同时显式包含外层
+  `ResponseWrapper.ErrorCode=0` 的 `18 00`，以及内层状态字段 `08 00`。生成式 proto3
+  序列化器会省略零值，但对本客户端而言缺失并不等价：它会让原生异步任务保留初始
   完成码 404，导致数据库虽已成功写入，界面仍显示 `UNKNOWN FAILURE`。
 
 当前 Payload 仅在专用服务端进程中构造服务端权威的 `LoadoutManager`。客户端不写入
