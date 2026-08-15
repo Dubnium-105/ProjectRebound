@@ -74,11 +74,13 @@ Run `run_query_assets_status_ab.py --script query_assets_observe.js` for a
 read-only baseline. It reports the stable QueryAssets protobuf prefix without
 modifying the receive buffer.
 
-The QueryAssets A/B probes are retained as regression diagnostics. A cold-start
-timeline established that the top-level `ItemCount` must equal the 40,462
-repeated ItemData rows. With `ItemCount=1`, the response still decodes but the
-native manager remains on its 268-item fallback. The `UserAsset` candidates
-also produced only 268 entries and are not used by MetaServer.
+The QueryAssets A/B probes are retained as regression diagnostics. Runtime
+inspection of the native consumer at `0x1416DF990` established that the
+top-level field named `ItemCount` is actually a result/status value: values
+above 299 are rejected before any ItemData row is examined. The captured
+success value is `1`; the repeated ItemData array independently contains all
+40,462 rows. The `UserAsset` candidates produce only the 268-row fallback and
+are not used by MetaServer.
 
 The native completion path was subsequently resolved as
 `FOnlineAsyncTaskQueryAssets -> LogicServer delegate -> PBArmoryManager`. The
@@ -87,7 +89,7 @@ does not read the three scalar fields. A production-sized 1,615,627-byte
 response completed as `result_code=-1` with zero committed rows at 5.03
 seconds, even after the heavyweight decoder was removed. MetaServer therefore
 keeps every deduplicated ItemId and omits the unused default-valued scalars,
-reducing the deterministic payload to 1,372,855 bytes without changing the
+reducing the deterministic payload to 1,372,853 bytes without changing the
 ownership set. The immutable serialized response and its observability digest
 are cached once, so subsequent armory entries do not rebuild, unmarshal, or
 rehash all 40,462 rows on the synchronous response path.

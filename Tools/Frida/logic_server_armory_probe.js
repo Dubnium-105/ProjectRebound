@@ -18,6 +18,7 @@ const OFFSETS = {
 };
 
 const hookedTargets = new Set();
+const hookedConsumerTargets = new Set();
 let armoryManager = ptr(0);
 
 function safeS32(address) {
@@ -102,6 +103,8 @@ function describeQueryAssetsSubscriber(module, entry, index) {
     const enabled = safeS32(entry.add(8));
     const vtable = safePointer(receiver);
     const callback = safePointer(vtable.add(0x50));
+    const consumer = safePointer(receiver.add(0x20));
+    installConsumerHook(module, consumer);
     return {
         index,
         entry: entry.toString(),
@@ -111,8 +114,40 @@ function describeQueryAssetsSubscriber(module, entry, index) {
         vtable_offset: vtable.isNull() ? null : vtable.sub(module.base).toString(),
         callback: callback.toString(),
         callback_offset: callback.isNull() ? null : callback.sub(module.base).toString(),
+        consumer: consumer.toString(),
+        consumer_offset: consumer.isNull() ? null : consumer.sub(module.base).toString(),
         is_armory_manager: !armoryManager.isNull() && receiver.equals(armoryManager),
     };
+}
+
+function installConsumerHook(module, target) {
+    const key = target.toString();
+    if (target.isNull() || hookedConsumerTargets.has(key)) return;
+    hookedConsumerTargets.add(key);
+    Interceptor.attach(target, {
+        onEnter(args) {
+            const receiver = args[0];
+            const itemArray = args[2];
+            emit('query_assets.consumer_call', {
+                target: target.toString(),
+                target_offset: target.sub(module.base).toString(),
+                receiver: receiver.toString(),
+                count_argument: args[1].toInt32(),
+                item_count: itemArray.isNull() ? -1 : safeS32(itemArray.add(8)),
+                receiver_is_armory_manager:
+                    !armoryManager.isNull() && receiver.equals(armoryManager),
+                receiver_array_data: safePointer(receiver.add(0x40)).toString(),
+                receiver_array_num: safeS32(receiver.add(0x48)),
+                receiver_array_max: safeS32(receiver.add(0x4C)),
+            });
+        },
+        onLeave(retval) {
+            emit('query_assets.consumer_return', {
+                target: target.toString(),
+                return_value: retval.toString(),
+            });
+        },
+    });
 }
 
 function initialize() {

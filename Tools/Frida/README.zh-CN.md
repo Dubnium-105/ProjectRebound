@@ -65,16 +65,17 @@ powershell -ExecutionPolicy Bypass -File .\Tools\Frida\run-armory-probe.ps1 -Pro
 运行 `run_query_assets_status_ab.py --script query_assets_observe.js` 可获得只读
 基线：它只报告稳定的 QueryAssets protobuf 前缀，不修改接收缓冲区。
 
-QueryAssets A/B 探针现保留为回归诊断。冷启动时间线确认顶层 `ItemCount` 必须等于
-40,462 条重复 ItemData。使用 `ItemCount=1` 时响应仍可解码，但原生 Manager 保留 268 条
-回退库存；`UserAsset` 候选同样只产生 268 条，因此 MetaServer 不采用该候选协议。
+QueryAssets A/B 探针现保留为回归诊断。对原生消费者 `0x1416DF990` 的运行时检查确认：
+顶层名为 `ItemCount` 的字段实际是结果/状态值，超过 299 会在读取任何 ItemData 前被拒绝。
+捕获到的成功值为 `1`；重复 ItemData 数组独立包含全部 40,462 条记录。`UserAsset` 候选
+仍只产生 268 条回退库存，因此 MetaServer 不采用该候选协议。
 
 后续已经解析出完整原生完成路径：
 `FOnlineAsyncTaskQueryAssets -> LogicServer delegate -> PBArmoryManager`。该任务具有硬编码
 的五秒截止时间，并且成功路径只复制每行的 `ItemId`，不会读取三个整数附加字段。
 生产大小的 1,615,627 字节响应即使移除重型解码探针，仍在 5.03 秒以
 `result_code=-1`、零提交行结束。因此 MetaServer 保留全部去重 ItemId，但把三个未使用
-的默认值字段从 wire 中省略，把确定性响应缩小到 1,372,855 字节，同时不改变所有权集合。
+的默认值字段从 wire 中省略，把确定性响应缩小到 1,372,853 字节，同时不改变所有权集合。
 不可变的序列化响应及其可观测性摘要只缓存一次，后续进入军械库不会在同步响应路径上
 重新构造、反序列化或计算全部 40,462 行的哈希。
 

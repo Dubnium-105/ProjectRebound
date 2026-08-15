@@ -264,19 +264,18 @@ func (s *TCPServer) queryAssets() ([]byte, error) {
 	s.queryAssetsOnce.Do(func() {
 		itemIDs := s.service.definitions.ItemIDs()
 		response := &metaprotocol.QueryAssetsResponse{
-			// Boundary validates the declared collection size before committing
-			// ItemDatas to PBArmoryManager.OwnedItems. A mismatched value leaves the
-			// manager on its 268-item built-in fallback even though the rows decode.
-			ItemCount: int32(len(itemIDs)),
+			// Despite the upstream name, field 1 is a native result/status value,
+			// not the repeated-row count. PBArmoryManager rejects values above 299
+			// before it examines ItemDatas; the captured success value is one.
+			ItemCount: 1,
 			ItemDatas: make([]*metaprotocol.ItemData, 0, len(itemIDs)),
 		}
 		for _, itemID := range itemIDs {
 			response.ItemDatas = append(response.ItemDatas, &metaprotocol.ItemData{
 				// The pinned client completion handler copies only ItemId into the
 				// native ownership array. Leaving the three unused scalar fields at
-				// their protobuf defaults saves six wire bytes per row, which keeps
-				// the complete definition set inside the client's five-second async
-				// task deadline without changing ownership semantics.
+				// their protobuf defaults saves six wire bytes per row without changing
+				// ownership semantics.
 				ItemId: itemID,
 			})
 		}
