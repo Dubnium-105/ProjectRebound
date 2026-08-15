@@ -403,7 +403,7 @@ var Defaults = Config{
 		MatchReservationTTLSeconds: 90,
 		SchedulerIntervalSeconds:   2,
 		RelayFreshnessSeconds:      45,
-		NativePlayerLevel:          1,
+		NativePlayerLevel:          70,
 	},
 	P2PRoom: P2PRoomConfig{
 		HeartbeatIntervalSeconds: 15,

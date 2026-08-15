@@ -990,25 +990,45 @@ function persistentArraySummary(address, stride, withCount) {
 }
 
 function refreshPersistentUser(object, reason, force = false) {
+    const key = object.toString();
     try {
+        const currentType = className(object);
+        const currentName = objectName(object);
+        if (!currentType.includes('PersistentUser') || currentName.startsWith('Default__')) {
+            persistentUsers.delete(key);
+            persistentSignatures.delete(key);
+            emit('persistent_user.retired', {
+                reason: 'object_reused',
+                object: key,
+                current_type: currentType,
+            });
+            return false;
+        }
         const saved = persistentArraySummary(
             object.add(SETTINGS.persistentUser.savedArmory), 8, false);
         const runtime = persistentArraySummary(
             object.add(SETTINGS.persistentUser.runtimeArmory), 0x10, true);
         const signature = `${saved.num}:${saved.set_hash}:${runtime.num}:${runtime.set_hash}`;
-        const key = object.toString();
         if (force || persistentSignatures.get(key) !== signature) {
             persistentSignatures.set(key, signature);
             emit('persistent_user.snapshot', {
                 reason,
                 object: key,
-                object_name: objectName(object),
+                object_name: currentName,
                 saved_armory: saved,
                 runtime_armory: runtime,
             });
         }
+        return true;
     } catch (error) {
-        reportError('persistent_user.snapshot', error);
+        persistentUsers.delete(key);
+        persistentSignatures.delete(key);
+        emit('persistent_user.retired', {
+            reason: 'unreadable',
+            object: key,
+            error: String(error),
+        });
+        return false;
     }
 }
 
@@ -1398,8 +1418,13 @@ function initialize() {
         hookProcessEvent();
         setTimeout(scanObjects, 1000);
         setInterval(() => {
+            // PBFieldModManager instances are created lazily when a role is
+            // opened. Re-scanning the full GUObject array while waiting for
+            // one stalls the game thread and can make menu input look hung.
+            // ProcessEvent supplies the live manager as soon as one of the
+            // observed field-mod calls runs, so it is not a scan prerequisite.
             if (targetFunctions.size < OBSERVED_FUNCTIONS.size ||
-                armoryManager === null || fieldModManager === null ||
+                armoryManager === null ||
                 persistentUsers.size === 0 || playerLevelTables.size === 0) {
                 scanObjects();
             }

@@ -74,10 +74,11 @@ Run `run_query_assets_status_ab.py --script query_assets_observe.js` for a
 read-only baseline. It reports the stable QueryAssets protobuf prefix without
 modifying the receive buffer.
 
-The QueryAssets A/B probes are retained as regression diagnostics. The
-completed experiment established the current wire shape as a top-level value
-of `1` plus 40,462 repeated ItemData rows. The `UserAsset` candidates produced
-only 268 native inventory entries and are not used by MetaServer.
+The QueryAssets A/B probes are retained as regression diagnostics. A cold-start
+timeline established that the top-level `ItemCount` must equal the 40,462
+repeated ItemData rows. With `ItemCount=1`, the response still decodes but the
+native manager remains on its 268-item fallback. The `UserAsset` candidates
+also produced only 268 entries and are not used by MetaServer.
 
 `query_assets_single_item_ab.js` is the second-stage A/B probe. It preserves
 the frame length, exposes only one ItemData row (`PEACE_RU-AKM` by default), and rewrites

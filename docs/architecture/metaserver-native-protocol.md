@@ -45,18 +45,18 @@ without crashing the connection.
 Asset and loadout RPCs preserve the captured wire contract:
 
 - `QueryAssets` returns every pinned `DT_ItemType` ID exactly once, sets all
-  three availability fields to `1`, and sets the captured top-level
-  availability/status field `ItemCount` to `1`. Collection size comes from the
-  repeated rows.
+  three availability fields to `1`, and declares the exact repeated-row count
+  in top-level `ItemCount`. Boundary decodes a mismatched response but leaves
+  `PBArmoryManager.OwnedItems` on its 268-item built-in fallback.
 - `GetPlayerArchiveV2` fields 8-10 are the optional strings
   `WeaponArchiveRaw`, `SkinToken`, and `OrnamentId`. `WeaponArchiveRaw` is the
   lowercase hex encoding of a role archive bundle; default weapon part and
   skin archives are generated from pinned definitions when the player has no
   customized archive.
-- Native `PlayerLevel` is configured by `META_NATIVE_PLAYER_LEVEL` (safe
-  baseline `1`, valid range `1..127`) so the current build's progression filters can
-  be tested independently from ownership. The low/high Frida A/B determines
-  whether production should switch to the runtime-discovered build maximum.
+- Native `PlayerLevel` is configured by `META_NATIVE_PLAYER_LEVEL` (validated
+  range `1..127`). The current pinned build reports 70 rows in
+  `DT_PlayerLevelExp`, and the armory identifies locked rows as operator-level
+  rewards, so production uses the build maximum of `70`.
 - `UpdateRoleArchiveV2.Operation` is not a fixed slot number. The server routes
   by pinned item type first, then uses the observed operation only to choose
   between primary/secondary weapons or left/right pods. A skin-only update

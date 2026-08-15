@@ -65,9 +65,9 @@ powershell -ExecutionPolicy Bypass -File .\Tools\Frida\run-armory-probe.ps1 -Pro
 运行 `run_query_assets_status_ab.py --script query_assets_observe.js` 可获得只读
 基线：它只报告稳定的 QueryAssets protobuf 前缀，不修改接收缓冲区。
 
-QueryAssets A/B 探针现保留为回归诊断。已完成的实验确认当前 wire shape 是顶层值
-`1` 加 40,462 条重复 ItemData；`UserAsset` 候选只产生 268 条原生库存，因此 MetaServer
-不采用该候选协议。
+QueryAssets A/B 探针现保留为回归诊断。冷启动时间线确认顶层 `ItemCount` 必须等于
+40,462 条重复 ItemData。使用 `ItemCount=1` 时响应仍可解码，但原生 Manager 保留 268 条
+回退库存；`UserAsset` 候选同样只产生 268 条，因此 MetaServer 不采用该候选协议。
 
 `query_assets_single_item_ab.js` 是第二阶段 A/B：保持帧长不变，让客户端只看到
 一条 ItemData（默认 `PEACE_RU-AKM`），并把顶层 `ItemCount` 等长改写为 1，用于区分

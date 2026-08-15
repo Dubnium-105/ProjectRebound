@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -76,6 +77,8 @@ func TestHTTPProxyForwardsCompleteRequestAndResponse(t *testing.T) {
 	defer upstream.Close()
 
 	instance := newTestTunnel(t, upstream.URL, upstream.Client().Transport)
+	var logOutput bytes.Buffer
+	instance.logger = slog.New(slog.NewJSONHandler(&logOutput, nil))
 	request := httptest.NewRequest(http.MethodPatch, "/v1/users/me/loadouts/PEACE?revision=7&mode=full", strings.NewReader(`{"snapshot":{}}`))
 	request.Header.Set("Authorization", "Bearer client-controlled-token")
 	request.Header.Set("X-Game-Header", "preserve-me")
@@ -96,6 +99,16 @@ func TestHTTPProxyForwardsCompleteRequestAndResponse(t *testing.T) {
 	}
 	if upstreamRequest.authorization != "Bearer "+strings.Repeat("a", 64) {
 		t.Fatalf("launcher authorization was not injected: %q", upstreamRequest.authorization)
+	}
+	logLine := logOutput.String()
+	if !strings.Contains(logLine, `"method":"PATCH"`) ||
+		!strings.Contains(logLine, `"path":"/v1/users/me/loadouts/PEACE"`) ||
+		!strings.Contains(logLine, `"status":207`) {
+		t.Fatalf("response summary log = %q", logLine)
+	}
+	if strings.Contains(logLine, "revision=7") || strings.Contains(logLine, "snapshot") ||
+		strings.Contains(logLine, strings.Repeat("a", 64)) {
+		t.Fatalf("response summary leaked request data: %q", logLine)
 	}
 }
 

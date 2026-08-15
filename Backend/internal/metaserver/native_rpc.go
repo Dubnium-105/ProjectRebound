@@ -237,9 +237,10 @@ func validateNativeWeaponArchiveUpdate(
 func (s *TCPServer) queryAssets() ([]byte, error) {
 	itemIDs := s.service.definitions.ItemIDs()
 	response := &metaprotocol.QueryAssetsResponse{
-		// The captured native schema uses this field as an availability/status
-		// value. The actual collection size is conveyed by repeated ItemDatas.
-		ItemCount: 1,
+		// Boundary validates the declared collection size before committing
+		// ItemDatas to PBArmoryManager.OwnedItems. A mismatched value leaves the
+		// manager on its 268-item built-in fallback even though the rows decode.
+		ItemCount: int32(len(itemIDs)),
 		ItemDatas: make([]*metaprotocol.ItemData, 0, len(itemIDs)),
 	}
 	for _, itemID := range itemIDs {

@@ -26,8 +26,9 @@ func TestQueryAssetsUsesPinnedDefinitions(t *testing.T) {
 	if err := proto.Unmarshal(raw, &response); err != nil {
 		t.Fatal(err)
 	}
-	if response.GetItemCount() != 1 {
-		t.Fatalf("item count/status=%d, want 1", response.GetItemCount())
+	if response.GetItemCount() != int32(len(definitions.Items)) {
+		t.Fatalf("declared item count=%d, rows=%d",
+			response.GetItemCount(), len(definitions.Items))
 	}
 	if len(response.GetItemDatas()) != len(definitions.Items) {
 		t.Fatalf("item data count=%d definitions=%d", len(response.GetItemDatas()), len(definitions.Items))
@@ -54,8 +55,11 @@ func TestQueryAssetsUsesPinnedDefinitions(t *testing.T) {
 		t.Fatalf("captured definition row count drifted: got %d, want 40462",
 			len(response.GetItemDatas()))
 	}
+	if len(raw) != 1615627 {
+		t.Fatalf("captured QueryAssets payload size drifted: got %d, want 1615627", len(raw))
+	}
 	digest := sha256.Sum256(raw)
-	const capturedSchemaGolden = "a04121355be352e2f0b2de249f5d9316ada7b2be6b5bd84ecfb9d95ca7c357bc"
+	const capturedSchemaGolden = "1b8006842514e737db01509dfb7e632ff1d199ec148308f88b3ca4eb79c21325"
 	if got := hex.EncodeToString(digest[:]); got != capturedSchemaGolden {
 		t.Fatalf("QueryAssets captured-schema protobuf drifted: got %s, want %s",
 			got, capturedSchemaGolden)

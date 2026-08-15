@@ -241,6 +241,30 @@ func (t *tunnel) newHTTPProxy(transport http.RoundTripper) *httputil.ReverseProx
 }
 
 func (t *tunnel) modifyHTTPResponse(response *http.Response) error {
+	requestPath := ""
+	requestMethod := ""
+	requestID := response.Header.Get("X-Request-ID")
+	if response.Request != nil {
+		requestMethod = response.Request.Method
+		if response.Request.URL != nil {
+			// Deliberately exclude RawQuery: compatibility requests may carry
+			// identifiers there and the tunnel must never log credentials or
+			// user-controlled payload data.
+			requestPath = response.Request.URL.Path
+		}
+	}
+	logFields := []any{
+		"method", requestMethod,
+		"path", requestPath,
+		"status", response.StatusCode,
+		"request_id", requestID,
+	}
+	if response.StatusCode >= http.StatusBadRequest {
+		t.logger.Warn("MetaServer HTTP bridge response", logFields...)
+	} else {
+		t.logger.Info("MetaServer HTTP bridge response", logFields...)
+	}
+
 	if response.Request.Context().Value(rewriteConnectEndpointKey{}) != true ||
 		response.StatusCode < 200 || response.StatusCode >= 300 {
 		return nil
