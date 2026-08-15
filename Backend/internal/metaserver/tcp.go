@@ -3,18 +3,23 @@ package metaserver
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net"
+	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
+	metaprotocol "github.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver/protocol"
 	"google.golang.org/protobuf/encoding/protowire"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -302,31 +307,39 @@ func (s *TCPServer) dispatch(
 	case "/assets.Assets/GetPlayerArchiveV2":
 		message, err := s.getPlayerArchive(ctx, session, request.Message)
 		if err != nil {
+			s.logNativeRPCFailure(request, "get_player_archive_v2", err)
 			response.ErrorCode = rpcUnknownError
 			return response
 		}
 		response.Message = message
+		s.logNativeArchiveResponse(request.MessageID, message)
 	case "/assets.Assets/UpdateRoleArchiveV2":
 		message, err := s.updateRoleArchive(ctx, session, request.Message)
 		if err != nil {
+			s.logNativeRPCFailure(request, "update_role_archive_v2", err)
 			response.ErrorCode = rpcUnknownError
 			return response
 		}
 		response.Message = message
+		s.logNativeRoleUpdate(request.MessageID, request.Message)
 	case "/assets.Assets/UpdateWeaponArchiveV2":
 		message, err := s.updateWeaponArchive(ctx, session, request.Message)
 		if err != nil {
+			s.logNativeRPCFailure(request, "update_weapon_archive_v2", err)
 			response.ErrorCode = rpcUnknownError
 			return response
 		}
 		response.Message = message
+		s.logNativeWeaponUpdate(request.MessageID, request.Message)
 	case "/assets.Assets/QueryAssets":
 		message, err := s.queryAssets()
 		if err != nil {
+			s.logNativeRPCFailure(request, "query_assets", err)
 			response.ErrorCode = rpcUnknownError
 			return response
 		}
 		response.Message = message
+		s.logNativeAssetsResponse(request.MessageID, message)
 	case "/notification.Notification/QueryNotification":
 		message, err := s.queryNotifications(ctx, request.Message)
 		if err != nil {
@@ -409,6 +422,135 @@ func (s *TCPServer) dispatch(
 		response.ErrorCode = rpcUnknownError
 	}
 	return response
+}
+
+func nativePayloadDigest(payload []byte) string {
+	digest := sha256.Sum256(payload)
+	return fmt.Sprintf("%x", digest[:8])
+}
+
+func nativeStringSetDigest(values []string) string {
+	canonical := append([]string(nil), values...)
+	sort.Strings(canonical)
+	hasher := sha256.New()
+	for _, value := range canonical {
+		_, _ = hasher.Write([]byte(value))
+		_, _ = hasher.Write([]byte{0})
+	}
+	return fmt.Sprintf("%x", hasher.Sum(nil)[:8])
+}
+
+func nativeArchiveSlotDigest(response *metaprotocol.GetPlayerArchiveV2Response) string {
+	rows := make([]string, 0, len(response.GetPlayerRoleDatas()))
+	for _, role := range response.GetPlayerRoleDatas() {
+		rows = append(rows, strings.Join([]string{
+			role.GetRoleId(), role.GetLeftPylon(), role.GetRightPylon(),
+			role.GetMobilityModule(), role.GetMeleeWeapon(),
+			role.GetPrimaryWeapon(), role.GetSecondWeapon(),
+			nativePayloadDigest([]byte(role.GetWeaponArchiveRaw())),
+			nativePayloadDigest([]byte(role.GetSkinToken())),
+			nativePayloadDigest([]byte(role.GetOrnamentId())),
+		}, "\x1f"))
+	}
+	return nativeStringSetDigest(rows)
+}
+
+func (s *TCPServer) logNativeRPCFailure(
+	request RequestWrapper,
+	stage string,
+	err error,
+) {
+	if s.logger == nil {
+		return
+	}
+	s.logger.Warn("MetaServer native archive RPC failed",
+		"message_id", request.MessageID,
+		"rpc_path", request.RPCPath,
+		"stage", stage,
+		"failure_reason", err)
+}
+
+func (s *TCPServer) logNativeArchiveResponse(messageID int32, payload []byte) {
+	if s.logger == nil {
+		return
+	}
+	var response metaprotocol.GetPlayerArchiveV2Response
+	if err := proto.Unmarshal(payload, &response); err != nil {
+		s.logger.Warn("MetaServer native archive response could not be summarized",
+			"message_id", messageID, "error", err)
+		return
+	}
+	roleIDs := make([]string, 0, len(response.GetPlayerRoleDatas()))
+	for _, role := range response.GetPlayerRoleDatas() {
+		roleIDs = append(roleIDs, role.GetRoleId())
+	}
+	s.logger.Info("MetaServer native archive response",
+		"message_id", messageID,
+		"stage", "get_player_archive_v2",
+		"role_ids", roleIDs,
+		"role_count", len(roleIDs),
+		"player_level", response.GetPlayerLevel(),
+		"slot_set_hash", nativeArchiveSlotDigest(&response),
+		"payload_bytes", len(payload))
+}
+
+func (s *TCPServer) logNativeAssetsResponse(messageID int32, payload []byte) {
+	if s.logger == nil {
+		return
+	}
+	var response metaprotocol.QueryAssetsResponse
+	if err := proto.Unmarshal(payload, &response); err != nil {
+		s.logger.Warn("MetaServer native ownership response could not be summarized",
+			"message_id", messageID, "error", err)
+		return
+	}
+	itemIDs := make([]string, 0, len(response.GetItemDatas()))
+	for _, item := range response.GetItemDatas() {
+		itemIDs = append(itemIDs, item.GetItemId())
+	}
+	s.logger.Info("MetaServer native ownership response",
+		"message_id", messageID,
+		"stage", "query_assets",
+		"declared_item_count", response.GetItemCount(),
+		"row_count", len(response.GetItemDatas()),
+		"item_set_hash", nativeStringSetDigest(itemIDs),
+		"payload_bytes", len(payload))
+}
+
+func (s *TCPServer) logNativeRoleUpdate(messageID int32, payload []byte) {
+	if s.logger == nil {
+		return
+	}
+	var request metaprotocol.UpdateRoleArchiveV2Request
+	if err := proto.Unmarshal(payload, &request); err != nil {
+		return
+	}
+	s.logger.Info("MetaServer native role archive persisted",
+		"message_id", messageID,
+		"stage", "update_role_archive_v2",
+		"role_id", request.GetRoleId(),
+		"operation", request.GetOperation(),
+		"item_id", request.GetItemId())
+}
+
+func (s *TCPServer) logNativeWeaponUpdate(messageID int32, payload []byte) {
+	if s.logger == nil {
+		return
+	}
+	var request metaprotocol.UpdateWeaponArchiveV2Request
+	if err := proto.Unmarshal(payload, &request); err != nil {
+		return
+	}
+	weaponID := ""
+	if request.GetWeaponArchive() != nil {
+		weaponID = request.GetWeaponArchive().GetWeaponId()
+	}
+	s.logger.Info("MetaServer native weapon archive persisted",
+		"message_id", messageID,
+		"stage", "update_weapon_archive_v2",
+		"role_id", request.GetRoleId(),
+		"weapon_id", weaponID,
+		"archive_hash", nativePayloadDigest(payload))
 }
 
 func activePartyID(ctx context.Context, repository *Repository, playerID string) string {

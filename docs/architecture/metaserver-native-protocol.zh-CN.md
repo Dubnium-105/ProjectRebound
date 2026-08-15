@@ -39,18 +39,22 @@ uint32_be payload_length | protobuf RequestWrapper payload
 资产与配装 RPC 严格保持已捕获的 wire contract：
 
 - `QueryAssets` 将固定 `DT_ItemType` 中的每个 ID 恰好返回一次，三个可用性字段均为
-  `1`，`ItemCount` 与列表长度一致。
+  `1`，并把已捕获协议中的顶层可用性/状态字段 `ItemCount` 设为 `1`；集合大小由重复
+  ItemData 行表达。
 - `GetPlayerArchiveV2` 的 8-10 号字段依次为可选字符串 `WeaponArchiveRaw`、
   `SkinToken` 和 `OrnamentId`。`WeaponArchiveRaw` 是角色武器档案 bundle 的小写十六
   进制编码；玩家没有自定义武器档案时，从固定 definitions 生成默认部件与皮肤档案。
-- 原生 `PlayerLevel` 保持抓包实现的兼容值 `0`；物品所有权由 `QueryAssets` 提供，
-  不与 REST 档案进度等级耦合。
+- 原生 `PlayerLevel` 由 `META_NATIVE_PLAYER_LEVEL` 配置（安全基线 `1`，有效范围
+  `1..127`），用于把当前构建的进度过滤与所有权分开做低/高 A/B；验证后仅在必要时改为
+  运行时发现的本构建最高等级。
 - `UpdateRoleArchiveV2.Operation` 不是固定槽位编号。服务端先按固定物品类型路由，
   再用已观察到的 operation 区分主/副武器或左/右挂载；仅更新皮肤时不得清空装备槽。
 
-当前 Payload 构建不编译、也不注册旧 `LoadoutManager`。以后若重新接入局内服务端桥，
-其客户端入口仍必须保持空桩，Payload 不得覆盖原生资产缓存、军械库展示状态或装备完成
-结果。
+当前 Payload 只保留服务端权威的 `LoadoutManager` 桥接，客户端入口为空桩，旧的
+OwnedItems/PersistentUser/FieldMod 轮询与写入模块不再编译。服务端可使用
+`-NativeArchiveOnly`，或分别以 `=0` 禁用 `-LoadoutBaselineBridge`、
+`-LoadoutPreOrderIntercept`、`-LoadoutConfirmDeferral`、`-LoadoutSpawnBridge`，逐项收缩到
+原生链确实无法覆盖的最小行为。
 
 上游字段编号仍为 tentative 的 `QueryUnityMatchmakingRes` 不用于发布匹配 endpoint。
 在脱敏抓包确认原生字段映射前，权威 endpoint 仅从已认证 HTTP Ticket 资源获得，避免

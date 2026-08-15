@@ -12,3 +12,16 @@ func TestEmbeddedDefinitionsMatchProvenance(t *testing.T) {
 			len(index.Roles), len(index.Items), len(index.Weapons), len(index.Parts))
 	}
 }
+
+func TestNativeFNameTextValidation(t *testing.T) {
+	for _, value := range []string{"PEACE_RU-AKM", "WeaponTest", "皮肤"} {
+		if !nativeFNameText(value) {
+			t.Fatalf("valid FName text %q was rejected", value)
+		}
+	}
+	for _, value := range []string{"", "bad\x00name", string([]byte{0xff})} {
+		if nativeFNameText(value) {
+			t.Fatalf("invalid FName text %q was accepted", value)
+		}
+	}
+}

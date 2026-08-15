@@ -152,26 +152,30 @@ type GameServerConfig struct {
 }
 
 type MetaServerConfig struct {
-	HTTPAddr                    string `yaml:"http_addr"`
-	LogicAddr                   string `yaml:"logic_addr"`
-	PublicHTTPBaseURL           string `yaml:"public_http_base_url"`
-	PublicLogicEndpoint         string `yaml:"public_logic_endpoint"`
-	LogicProxyProtocol          bool   `yaml:"logic_proxy_protocol"`
-	ProtocolVersion             int    `yaml:"protocol_version"`
-	GateTicketTTLSeconds        int    `yaml:"gate_ticket_ttl_seconds"`
-	MaxFrameBytes               int    `yaml:"max_frame_bytes"`
-	MaxWriteQueueBytes          int    `yaml:"max_write_queue_bytes"`
-	HandshakeTimeoutSeconds     int    `yaml:"handshake_timeout_seconds"`
-	FrameTimeoutSeconds         int    `yaml:"frame_timeout_seconds"`
-	IdleTimeoutSeconds          int    `yaml:"idle_timeout_seconds"`
-	MaxConnectionsPerIP         int    `yaml:"max_connections_per_ip"`
-	ConnectionsPerIPPerMinute   int    `yaml:"connections_per_ip_per_minute"`
-	RPCCallsPerPlayerPerMinute  int    `yaml:"rpc_calls_per_player_per_minute"`
-	MatchTicketTTLSeconds       int    `yaml:"match_ticket_ttl_seconds"`
-	MatchReservationTTLSeconds  int    `yaml:"match_reservation_ttl_seconds"`
-	SchedulerIntervalSeconds    int    `yaml:"scheduler_interval_seconds"`
-	RelayFreshnessSeconds       int    `yaml:"relay_freshness_seconds"`
-	DevelopmentLegacyLoadoutAPI bool   `yaml:"development_legacy_loadout_api"`
+	HTTPAddr                   string `yaml:"http_addr"`
+	LogicAddr                  string `yaml:"logic_addr"`
+	PublicHTTPBaseURL          string `yaml:"public_http_base_url"`
+	PublicLogicEndpoint        string `yaml:"public_logic_endpoint"`
+	LogicProxyProtocol         bool   `yaml:"logic_proxy_protocol"`
+	ProtocolVersion            int    `yaml:"protocol_version"`
+	GateTicketTTLSeconds       int    `yaml:"gate_ticket_ttl_seconds"`
+	MaxFrameBytes              int    `yaml:"max_frame_bytes"`
+	MaxWriteQueueBytes         int    `yaml:"max_write_queue_bytes"`
+	HandshakeTimeoutSeconds    int    `yaml:"handshake_timeout_seconds"`
+	FrameTimeoutSeconds        int    `yaml:"frame_timeout_seconds"`
+	IdleTimeoutSeconds         int    `yaml:"idle_timeout_seconds"`
+	MaxConnectionsPerIP        int    `yaml:"max_connections_per_ip"`
+	ConnectionsPerIPPerMinute  int    `yaml:"connections_per_ip_per_minute"`
+	RPCCallsPerPlayerPerMinute int    `yaml:"rpc_calls_per_player_per_minute"`
+	MatchTicketTTLSeconds      int    `yaml:"match_ticket_ttl_seconds"`
+	MatchReservationTTLSeconds int    `yaml:"match_reservation_ttl_seconds"`
+	SchedulerIntervalSeconds   int    `yaml:"scheduler_interval_seconds"`
+	RelayFreshnessSeconds      int    `yaml:"relay_freshness_seconds"`
+	// NativePlayerLevel is the level reported by GetPlayerArchiveV2. Boundary
+	// consumes this value while initializing its native progression and FieldMod
+	// state; keep it configurable so ownership and progression can be A/B tested.
+	NativePlayerLevel           int  `yaml:"native_player_level"`
+	DevelopmentLegacyLoadoutAPI bool `yaml:"development_legacy_loadout_api"`
 }
 
 type P2PRoomConfig struct {
@@ -399,6 +403,7 @@ var Defaults = Config{
 		MatchReservationTTLSeconds: 90,
 		SchedulerIntervalSeconds:   2,
 		RelayFreshnessSeconds:      45,
+		NativePlayerLevel:          1,
 	},
 	P2PRoom: P2PRoomConfig{
 		HeartbeatIntervalSeconds: 15,
@@ -548,6 +553,7 @@ func (c *Config) applyEnvOverrides() {
 	overrideInt("META_MATCH_RESERVATION_TTL_SECONDS", &c.MetaServer.MatchReservationTTLSeconds)
 	overrideInt("META_SCHEDULER_INTERVAL_SECONDS", &c.MetaServer.SchedulerIntervalSeconds)
 	overrideInt("META_RELAY_FRESHNESS_SECONDS", &c.MetaServer.RelayFreshnessSeconds)
+	overrideInt("META_NATIVE_PLAYER_LEVEL", &c.MetaServer.NativePlayerLevel)
 	overrideBool("META_DEVELOPMENT_LEGACY_LOADOUT_API", &c.MetaServer.DevelopmentLegacyLoadoutAPI)
 	overrideInt("REDIS_DB", &c.Redis.DB)
 	overrideInt("HTTP_RATE_LIMIT_BURST", &c.RateLimit.Burst)
@@ -1000,7 +1006,8 @@ func (c *Config) ValidateMetaServer() error {
 		c.MetaServer.MaxConnectionsPerIP < 1 || c.MetaServer.ConnectionsPerIPPerMinute < 1 ||
 		c.MetaServer.RPCCallsPerPlayerPerMinute < 1 || c.MetaServer.MatchTicketTTLSeconds < 30 ||
 		c.MetaServer.MatchReservationTTLSeconds < 10 ||
-		c.MetaServer.SchedulerIntervalSeconds < 1 || c.MetaServer.RelayFreshnessSeconds < 1 {
+		c.MetaServer.SchedulerIntervalSeconds < 1 || c.MetaServer.RelayFreshnessSeconds < 1 ||
+		c.MetaServer.NativePlayerLevel < 1 || c.MetaServer.NativePlayerLevel > 127 {
 		errs = append(errs, errors.New("meta_server protocol, timeout, queue, or rate settings are invalid"))
 	}
 	if strings.EqualFold(c.Environment, "production") && c.MetaServer.DevelopmentLegacyLoadoutAPI {

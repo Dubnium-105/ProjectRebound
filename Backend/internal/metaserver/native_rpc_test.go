@@ -1,6 +1,7 @@
 package metaserver
 
 import (
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"strings"
@@ -25,8 +26,8 @@ func TestQueryAssetsUsesPinnedDefinitions(t *testing.T) {
 	if err := proto.Unmarshal(raw, &response); err != nil {
 		t.Fatal(err)
 	}
-	if response.GetItemCount() != int32(len(definitions.Items)) {
-		t.Fatalf("item count=%d definitions=%d", response.GetItemCount(), len(definitions.Items))
+	if response.GetItemCount() != 1 {
+		t.Fatalf("item count/status=%d, want 1", response.GetItemCount())
 	}
 	if len(response.GetItemDatas()) != len(definitions.Items) {
 		t.Fatalf("item data count=%d definitions=%d", len(response.GetItemDatas()), len(definitions.Items))
@@ -47,6 +48,22 @@ func TestQueryAssetsUsesPinnedDefinitions(t *testing.T) {
 	for itemID := range definitions.Items {
 		if _, ok := seen[itemID]; !ok {
 			t.Fatalf("query assets omitted pinned item %q", itemID)
+		}
+	}
+	if len(response.GetItemDatas()) != 40462 {
+		t.Fatalf("captured definition row count drifted: got %d, want 40462",
+			len(response.GetItemDatas()))
+	}
+	digest := sha256.Sum256(raw)
+	const capturedSchemaGolden = "a04121355be352e2f0b2de249f5d9316ada7b2be6b5bd84ecfb9d95ca7c357bc"
+	if got := hex.EncodeToString(digest[:]); got != capturedSchemaGolden {
+		t.Fatalf("QueryAssets captured-schema protobuf drifted: got %s, want %s",
+			got, capturedSchemaGolden)
+	}
+	for index := 1; index < len(response.GetItemDatas()); index++ {
+		if response.GetItemDatas()[index-1].GetItemId() >=
+			response.GetItemDatas()[index].GetItemId() {
+			t.Fatalf("query assets is not strictly FName-sorted at row %d", index)
 		}
 	}
 }
@@ -365,6 +382,53 @@ func TestNativePlayerArchivePreservesNestedNoneItems(t *testing.T) {
 	}
 	if got := nativeSnapshotResponseItem(snapshot, "primaryWeapon", 1); got != "None" {
 		t.Fatalf("primary weapon=%q, want native None sentinel", got)
+	}
+}
+
+func TestNativePlayerArchiveProjectsAllSixRoleSlotsAndCosmetics(t *testing.T) {
+	definitions, err := LoadDefinitionIndex()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, canonicalRoleID := range nativeDefaultRoleOrder {
+		t.Run(canonicalRoleID, func(t *testing.T) {
+			snapshot := defaultNativeLoadoutSnapshot(canonicalRoleID)
+			requestedRoleID := strings.ToLower(canonicalRoleID)
+			role := nativePlayerRoleData(requestedRoleID, snapshot)
+			if role.GetRoleId() != requestedRoleID {
+				t.Fatalf("role casing=%q, want requested casing %q",
+					role.GetRoleId(), requestedRoleID)
+			}
+			wantSlots := []string{
+				nativeSnapshotResponseItem(snapshot, "leftPylon", 3),
+				nativeSnapshotResponseItem(snapshot, "rightPylon", 4),
+				nativeSnapshotResponseItem(snapshot, "mobilityModule", 6),
+				nativeSnapshotResponseItem(snapshot, "meleeWeapon", 5),
+				nativeSnapshotResponseItem(snapshot, "primaryWeapon", 1),
+				nativeSnapshotResponseItem(snapshot, "secondaryWeapon", 2),
+			}
+			gotSlots := []string{
+				role.GetLeftPylon(), role.GetRightPylon(), role.GetMobilityModule(),
+				role.GetMeleeWeapon(), role.GetPrimaryWeapon(), role.GetSecondWeapon(),
+			}
+			for index := range wantSlots {
+				if gotSlots[index] != wantSlots[index] {
+					t.Fatalf("slot %d=%q, want %q", index, gotSlots[index], wantSlots[index])
+				}
+			}
+
+			weaponIDs := nativePlayerRoleWeaponIDs(role)
+			attachNativePlayerRoleArchive(
+				definitions, canonicalRoleID, snapshot, weaponIDs, nil, role,
+			)
+			if role.GetWeaponArchiveRaw() == "" {
+				t.Fatal("field 8 weapon archive was omitted")
+			}
+			if role.GetSkinToken() != nativeSnapshotString(snapshot, "skinModel") ||
+				role.GetOrnamentId() != nativeSnapshotString(snapshot, "skinPaint") {
+				t.Fatalf("field 9/10 cosmetics drifted: %#v", role)
+			}
+		})
 	}
 }
 

@@ -45,24 +45,30 @@ without crashing the connection.
 Asset and loadout RPCs preserve the captured wire contract:
 
 - `QueryAssets` returns every pinned `DT_ItemType` ID exactly once, sets all
-  three availability fields to `1`, and reports the same list length in
-  `ItemCount`.
+  three availability fields to `1`, and sets the captured top-level
+  availability/status field `ItemCount` to `1`. Collection size comes from the
+  repeated rows.
 - `GetPlayerArchiveV2` fields 8-10 are the optional strings
   `WeaponArchiveRaw`, `SkinToken`, and `OrnamentId`. `WeaponArchiveRaw` is the
   lowercase hex encoding of a role archive bundle; default weapon part and
   skin archives are generated from pinned definitions when the player has no
   customized archive.
-- Native `PlayerLevel` remains the captured compatibility value `0`; ownership
-  comes from `QueryAssets`, independently of REST profile progression.
+- Native `PlayerLevel` is configured by `META_NATIVE_PLAYER_LEVEL` (safe
+  baseline `1`, valid range `1..127`) so the current build's progression filters can
+  be tested independently from ownership. The low/high Frida A/B determines
+  whether production should switch to the runtime-discovered build maximum.
 - `UpdateRoleArchiveV2.Operation` is not a fixed slot number. The server routes
   by pinned item type first, then uses the observed operation only to choose
   between primary/secondary weapons or left/right pods. A skin-only update
   never clears an equipment slot.
 
-The active Payload build does not compile or register the legacy
-`LoadoutManager`. Its client entry points remain no-ops if the server-side
-bridge is reintroduced, so Payload cannot overwrite native asset caches,
-showroom state, or equip completion results.
+The active Payload build contains only the server-authoritative
+`LoadoutManager` bridge. Its client entry points are no-ops, and the former
+OwnedItems/PersistentUser/FieldMod polling and write modules are not compiled.
+Servers can use `-NativeArchiveOnly`, or independently disable
+`-LoadoutBaselineBridge`, `-LoadoutPreOrderIntercept`,
+`-LoadoutConfirmDeferral`, and `-LoadoutSpawnBridge` with `=0`, to isolate the
+smallest bridge behavior still required after native-flow verification.
 
 `QueryUnityMatchmakingRes` fields whose upstream numbers remain tentative are
 not used to publish a match endpoint. The authoritative endpoint is available

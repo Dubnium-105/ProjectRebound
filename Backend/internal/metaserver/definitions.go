@@ -12,6 +12,7 @@ import (
 	"io/fs"
 	"sort"
 	"strings"
+	"unicode/utf8"
 )
 
 const (
@@ -93,7 +94,17 @@ func LoadDefinitionIndex() (*DefinitionIndex, error) {
 	if index.fileCount != 13 || len(index.Roles) == 0 || len(index.Items) == 0 {
 		return nil, errors.New("embedded definition index is incomplete")
 	}
+	for itemID := range index.Items {
+		if !nativeFNameText(itemID) {
+			return nil, fmt.Errorf("embedded item id %q cannot be represented as an Unreal FName", itemID)
+		}
+	}
 	return index, nil
+}
+
+func nativeFNameText(value string) bool {
+	return value != "" && utf8.ValidString(value) &&
+		utf8.RuneCountInString(value) < 1024 && !strings.ContainsRune(value, '\x00')
 }
 
 func canonicalSourceBytes(raw []byte) []byte {

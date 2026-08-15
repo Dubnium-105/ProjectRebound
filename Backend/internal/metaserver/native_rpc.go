@@ -54,21 +54,8 @@ func (s *TCPServer) getPlayerArchive(
 		if loadout, ok := byRole[roleID]; ok {
 			_ = json.Unmarshal(loadout.Snapshot, &snapshot)
 		}
-		role := &metaprotocol.PlayerRoleData{
-			RoleId:         requestedRoleID,
-			LeftPylon:      nativeSnapshotResponseItem(snapshot, "leftPylon", 3),
-			RightPylon:     nativeSnapshotResponseItem(snapshot, "rightPylon", 4),
-			MobilityModule: nativeSnapshotResponseItem(snapshot, "mobilityModule", 6),
-			MeleeWeapon:    nativeSnapshotResponseItem(snapshot, "meleeWeapon", 5),
-			PrimaryWeapon:  nativeSnapshotResponseItem(snapshot, "primaryWeapon", 1),
-			SecondWeapon:   nativeSnapshotResponseItem(snapshot, "secondaryWeapon", 2),
-		}
-		weaponIDs := make([]string, 0, 2)
-		for _, weaponID := range []string{role.SecondWeapon, role.PrimaryWeapon} {
-			if weaponID != "None" && weaponID != "" {
-				weaponIDs = append(weaponIDs, weaponID)
-			}
-		}
+		role := nativePlayerRoleData(requestedRoleID, snapshot)
+		weaponIDs := nativePlayerRoleWeaponIDs(role)
 		archives, err := s.service.repository.GetWeaponArchives(ctx, session.PlayerID, weaponIDs)
 		if err != nil {
 			return nil, err
@@ -76,36 +63,81 @@ func (s *TCPServer) getPlayerArchive(
 		if archives == nil {
 			archives = make(map[string][]byte)
 		}
-		for weaponID, raw := range nativeSnapshotWeaponArchives(
-			s.service.definitions, roleID, snapshot, weaponIDs,
-		) {
-			if len(archives[weaponID]) == 0 {
-				archives[weaponID] = raw
-			}
-		}
-		if bundle := nativeWeaponArchiveBundle(
-			s.service.definitions, roleID, weaponIDs, archives,
-		); len(bundle) > 0 {
-			value := hex.EncodeToString(bundle)
-			role.WeaponArchiveRaw = &value
-		}
-		if value := nativeSnapshotString(
-			snapshot, "skinModel", "_SkinBase", "_skinBase", "_skinToken", "skinToken",
-		); value != "" {
-			role.SkinToken = &value
-		}
-		if value := nativeSnapshotString(
-			snapshot, "skinPaint", "_SkinPaint", "_skinPaint", "_ornamentId", "ornamentId",
-		); value != "" {
-			role.OrnamentId = &value
-		}
+		attachNativePlayerRoleArchive(
+			s.service.definitions, roleID, snapshot, weaponIDs, archives, role,
+		)
 		response.PlayerRoleDatas = append(response.PlayerRoleDatas, role)
 	}
-	// The captured native implementation uses zero here. Asset ownership is
-	// carried by QueryAssets, so keep the native response independent from the
-	// REST profile's progression level.
-	response.PlayerLevel = 0
+	// QueryAssets establishes ownership, while the native archive level controls
+	// the progression filters used during FieldMod/armory initialization. Keep
+	// the value build-configurable and within the one-byte range validated by the
+	// controlled Frida A/B probe.
+	response.PlayerLevel = int32(s.config.NativePlayerLevel)
 	return proto.Marshal(response)
+}
+
+func nativePlayerRoleData(
+	requestedRoleID string,
+	snapshot map[string]any,
+) *metaprotocol.PlayerRoleData {
+	return &metaprotocol.PlayerRoleData{
+		RoleId:         requestedRoleID,
+		LeftPylon:      nativeSnapshotResponseItem(snapshot, "leftPylon", 3),
+		RightPylon:     nativeSnapshotResponseItem(snapshot, "rightPylon", 4),
+		MobilityModule: nativeSnapshotResponseItem(snapshot, "mobilityModule", 6),
+		MeleeWeapon:    nativeSnapshotResponseItem(snapshot, "meleeWeapon", 5),
+		PrimaryWeapon:  nativeSnapshotResponseItem(snapshot, "primaryWeapon", 1),
+		SecondWeapon:   nativeSnapshotResponseItem(snapshot, "secondaryWeapon", 2),
+	}
+}
+
+func nativePlayerRoleWeaponIDs(role *metaprotocol.PlayerRoleData) []string {
+	weaponIDs := make([]string, 0, 2)
+	for _, weaponID := range []string{role.GetSecondWeapon(), role.GetPrimaryWeapon()} {
+		if weaponID != "" && !strings.EqualFold(weaponID, "None") {
+			weaponIDs = append(weaponIDs, weaponID)
+		}
+	}
+	return weaponIDs
+}
+
+func attachNativePlayerRoleArchive(
+	definitions *DefinitionIndex,
+	roleID string,
+	snapshot map[string]any,
+	weaponIDs []string,
+	archives map[string][]byte,
+	role *metaprotocol.PlayerRoleData,
+) {
+	if role == nil {
+		return
+	}
+	if archives == nil {
+		archives = make(map[string][]byte)
+	}
+	for weaponID, raw := range nativeSnapshotWeaponArchives(
+		definitions, roleID, snapshot, weaponIDs,
+	) {
+		if len(archives[weaponID]) == 0 {
+			archives[weaponID] = raw
+		}
+	}
+	if bundle := nativeWeaponArchiveBundle(
+		definitions, roleID, weaponIDs, archives,
+	); len(bundle) > 0 {
+		value := hex.EncodeToString(bundle)
+		role.WeaponArchiveRaw = &value
+	}
+	if value := nativeSnapshotString(
+		snapshot, "skinModel", "_SkinBase", "_skinBase", "_skinToken", "skinToken",
+	); value != "" {
+		role.SkinToken = &value
+	}
+	if value := nativeSnapshotString(
+		snapshot, "skinPaint", "_SkinPaint", "_skinPaint", "_ornamentId", "ornamentId",
+	); value != "" {
+		role.OrnamentId = &value
+	}
 }
 
 func (s *TCPServer) updateRoleArchive(
@@ -205,7 +237,9 @@ func validateNativeWeaponArchiveUpdate(
 func (s *TCPServer) queryAssets() ([]byte, error) {
 	itemIDs := s.service.definitions.ItemIDs()
 	response := &metaprotocol.QueryAssetsResponse{
-		ItemCount: int32(len(itemIDs)),
+		// The captured native schema uses this field as an availability/status
+		// value. The actual collection size is conveyed by repeated ItemDatas.
+		ItemCount: 1,
 		ItemDatas: make([]*metaprotocol.ItemData, 0, len(itemIDs)),
 	}
 	for _, itemID := range itemIDs {
