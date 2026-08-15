@@ -21,7 +21,7 @@ func TestQueryAssetsUsesPinnedDefinitions(t *testing.T) {
 	server := NewTCPServer(
 		config.MetaServerConfig{}, &Service{definitions: definitions}, nil, nil, nil,
 	)
-	if len(server.queryAssetsPayload) == 0 || server.queryAssetsRowCount != 40462 {
+	if len(server.queryAssetsPayload) == 0 || server.queryAssetsRowCount != 2741 {
 		t.Fatal("query assets response was not prepared during server construction")
 	}
 	raw, err := server.queryAssets()
@@ -36,8 +36,9 @@ func TestQueryAssetsUsesPinnedDefinitions(t *testing.T) {
 		t.Fatalf("native query result=%d, want captured success value 1",
 			response.GetItemCount())
 	}
-	if len(response.GetItemDatas()) != len(definitions.Items) {
-		t.Fatalf("item data count=%d definitions=%d", len(response.GetItemDatas()), len(definitions.Items))
+	if len(response.GetItemDatas()) != len(definitions.NativeOwnershipItemIDs(false)) {
+		t.Fatalf("item data count=%d compact definitions=%d",
+			len(response.GetItemDatas()), len(definitions.NativeOwnershipItemIDs(false)))
 	}
 	seen := make(map[string]struct{}, len(response.GetItemDatas()))
 	for _, item := range response.GetItemDatas() {
@@ -52,20 +53,20 @@ func TestQueryAssetsUsesPinnedDefinitions(t *testing.T) {
 			t.Fatalf("query assets emitted unused scalar fields for %q: %#v", item.GetItemId(), item)
 		}
 	}
-	for itemID := range definitions.Items {
+	for _, itemID := range definitions.NativeOwnershipItemIDs(false) {
 		if _, ok := seen[itemID]; !ok {
 			t.Fatalf("query assets omitted pinned item %q", itemID)
 		}
 	}
-	if len(response.GetItemDatas()) != 40462 {
-		t.Fatalf("captured definition row count drifted: got %d, want 40462",
+	if len(response.GetItemDatas()) != 2741 {
+		t.Fatalf("compact ownership row count drifted: got %d, want 2741",
 			len(response.GetItemDatas()))
 	}
-	if len(raw) != 1372853 {
-		t.Fatalf("optimized QueryAssets payload size drifted: got %d, want 1372853", len(raw))
+	if len(raw) != 52854 {
+		t.Fatalf("compact QueryAssets payload size drifted: got %d, want %d", len(raw), 52854)
 	}
 	digest := sha256.Sum256(raw)
-	const capturedSchemaGolden = "d3aa4e84d75689e42ecc54f9735b6842762c56b5814e61ef8b2c5e01b4e31531"
+	const capturedSchemaGolden = "479303a46d698179e2514566b9b569dc6809d9bedf9e6aa511fb9bffa0cd8db4"
 	if got := hex.EncodeToString(digest[:]); got != capturedSchemaGolden {
 		t.Fatalf("QueryAssets optimized-schema protobuf drifted: got %s, want %s",
 			got, capturedSchemaGolden)
@@ -77,7 +78,8 @@ func TestQueryAssetsUsesPinnedDefinitions(t *testing.T) {
 	if len(cached) == 0 || &cached[0] != &raw[0] {
 		t.Fatal("query assets did not reuse its immutable serialized response")
 	}
-	if server.queryAssetsRowCount != 40462 || server.queryAssetsSetHash == "" {
+	if server.queryAssetsRowCount != 2741 || server.queryAssetsSetHash == "" ||
+		server.queryAssetsMode != "compact" {
 		t.Fatalf("query assets summary was not cached: rows=%d hash=%q",
 			server.queryAssetsRowCount, server.queryAssetsSetHash)
 	}
@@ -86,6 +88,29 @@ func TestQueryAssetsUsesPinnedDefinitions(t *testing.T) {
 			response.GetItemDatas()[index].GetItemId() {
 			t.Fatalf("query assets is not strictly FName-sorted at row %d", index)
 		}
+	}
+}
+
+func TestQueryAssetsFullDiagnosticMode(t *testing.T) {
+	definitions, err := LoadDefinitionIndex()
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := NewTCPServer(
+		config.MetaServerConfig{NativeOwnershipMode: "full"},
+		&Service{definitions: definitions}, nil, nil, nil,
+	)
+	raw, err := server.queryAssets()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var response metaprotocol.QueryAssetsResponse
+	if err := proto.Unmarshal(raw, &response); err != nil {
+		t.Fatal(err)
+	}
+	if len(response.GetItemDatas()) != 40462 || server.queryAssetsMode != "full" {
+		t.Fatalf("unexpected full ownership response: rows=%d mode=%q",
+			len(response.GetItemDatas()), server.queryAssetsMode)
 	}
 }
 

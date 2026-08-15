@@ -44,11 +44,14 @@ without crashing the connection.
 
 Asset and loadout RPCs preserve the captured wire contract:
 
-- `QueryAssets` returns every pinned `DT_ItemType` ID exactly once and uses the
-  captured top-level success value `ItemCount=1`. Per-row scalar metadata stays
-  at its protobuf default because native ownership compares only the item ID.
-  Boundary decodes a malformed response but leaves `PBArmoryManager.OwnedItems`
-  on its 268-item built-in fallback.
+- `QueryAssets` uses the captured top-level success value `ItemCount=1` and
+  returns every base gameplay item and cosmetic container exactly once. The
+  default `META_NATIVE_OWNERSHIP_MODE=compact` excludes the 37,721 generated
+  `WeaponSlotPainting`, `WeaponSuitePainting`, and `CharacterSuitePainting`
+  applications so the pinned client completes ownership initialization before
+  its one-shot FieldMod archive pass. `full` restores all 40,462 rows for a
+  controlled diagnostic rollback. Per-row scalar metadata stays at its
+  protobuf default because native ownership compares only the item ID.
 - The pinned executable's embedded descriptor defines `RoleArchiveDataV2`
   with exactly fields 1-7: role ID, left/right pylon, mobility, melee,
   primary weapon, and secondary weapon. `GetPlayerArchiveV2` emits no fields

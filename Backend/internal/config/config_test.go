@@ -205,6 +205,22 @@ func TestValidateMetaServerRejectsInvalidNativeCharacterLevel(t *testing.T) {
 	}
 }
 
+func TestValidateMetaServerRejectsInvalidNativeOwnershipMode(t *testing.T) {
+	for _, mode := range []string{"", "paint-only", "unknown"} {
+		cfg := Defaults
+		cfg.MetaServer.NativeOwnershipMode = mode
+		if err := cfg.ValidateMetaServer(); err == nil {
+			t.Fatalf("native ownership mode %q was accepted", mode)
+		}
+	}
+
+	cfg := Defaults
+	cfg.MetaServer.NativeOwnershipMode = "FULL"
+	if err := cfg.ValidateMetaServer(); err != nil {
+		t.Fatalf("valid native ownership mode was rejected: %v", err)
+	}
+}
+
 func TestValidateControlPlaneAcceptsToolboxDefaultChannel(t *testing.T) {
 	cfg := Defaults
 	cfg.Update.DefaultChannel = "toolbox"

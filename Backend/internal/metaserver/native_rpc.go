@@ -202,7 +202,11 @@ func validateNativeWeaponArchiveUpdate(
 
 func (s *TCPServer) queryAssets() ([]byte, error) {
 	s.queryAssetsOnce.Do(func() {
-		itemIDs := s.service.definitions.ItemIDs()
+		mode := strings.ToLower(strings.TrimSpace(s.config.NativeOwnershipMode))
+		if mode == "" {
+			mode = "compact"
+		}
+		itemIDs := s.service.definitions.NativeOwnershipItemIDs(mode == "full")
 		response := &metaprotocol.QueryAssetsResponse{
 			// Despite the upstream name, field 1 is a native result/status value,
 			// not the repeated-row count. PBArmoryManager rejects values above 299
@@ -221,6 +225,7 @@ func (s *TCPServer) queryAssets() ([]byte, error) {
 		}
 		s.queryAssetsRowCount = len(itemIDs)
 		s.queryAssetsSetHash = nativeStringSetDigest(itemIDs)
+		s.queryAssetsMode = mode
 		s.queryAssetsPayload, s.queryAssetsErr = proto.Marshal(response)
 	})
 	return s.queryAssetsPayload, s.queryAssetsErr

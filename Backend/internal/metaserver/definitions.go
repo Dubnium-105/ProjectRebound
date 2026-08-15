@@ -321,6 +321,33 @@ func (d *DefinitionIndex) ItemIDs() []string {
 	return result
 }
 
+var nativeDeferredPaintingTypes = map[string]struct{}{
+	"EPBItemType::WeaponSlotPainting":     {},
+	"EPBItemType::WeaponSuitePainting":    {},
+	"EPBItemType::CharacterSuitePainting": {},
+}
+
+// NativeOwnershipItemIDs returns the smallest definition-backed ownership set
+// that still contains every base gameplay item and player-facing cosmetic
+// container. The excluded rows are generated paint applications: sending all
+// 37,721 of them makes the pinned client finish QueryAssets after its one-shot
+// FieldMod archive initialization, which permanently replaces a valid online
+// weapon with the local default for that process.
+func (d *DefinitionIndex) NativeOwnershipItemIDs(full bool) []string {
+	if full {
+		return d.ItemIDs()
+	}
+	result := make([]string, 0, len(d.Items))
+	for itemID, itemType := range d.Items {
+		if _, deferred := nativeDeferredPaintingTypes[itemType]; deferred {
+			continue
+		}
+		result = append(result, itemID)
+	}
+	sort.Strings(result)
+	return result
+}
+
 func (d *DefinitionIndex) ValidateLoadoutSnapshot(
 	roleID string,
 	snapshot map[string]any,

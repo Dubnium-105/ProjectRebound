@@ -126,6 +126,7 @@ type TCPServer struct {
 	queryAssetsErr      error
 	queryAssetsRowCount int
 	queryAssetsSetHash  string
+	queryAssetsMode     string
 
 	mu        sync.Mutex
 	byIP      map[string]*connectionRate
@@ -517,6 +518,7 @@ func (s *TCPServer) logNativeAssetsResponse(messageID int32, payload []byte) {
 		"stage", "query_assets",
 		"declared_item_count", s.queryAssetsRowCount,
 		"row_count", s.queryAssetsRowCount,
+		"ownership_mode", s.queryAssetsMode,
 		"item_set_hash", s.queryAssetsSetHash,
 		"payload_bytes", len(payload))
 }

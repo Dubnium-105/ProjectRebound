@@ -179,8 +179,13 @@ type MetaServerConfig struct {
 	// playable operator. The current pinned Boundary build has 30 character
 	// levels; keeping it separate from the 70-level player progression prevents
 	// the native CareerManager from resetting operator rewards to level zero.
-	NativeCharacterLevel        int  `yaml:"native_character_level"`
-	DevelopmentLegacyLoadoutAPI bool `yaml:"development_legacy_loadout_api"`
+	NativeCharacterLevel int `yaml:"native_character_level"`
+	// NativeOwnershipMode controls the QueryAssets ownership set. "compact"
+	// excludes generated per-slot/suite painting instances that make the pinned
+	// client miss its one-shot FieldMod initialization window. "full" remains a
+	// diagnostic rollback mode for comparing the complete DT_ItemType table.
+	NativeOwnershipMode         string `yaml:"native_ownership_mode"`
+	DevelopmentLegacyLoadoutAPI bool   `yaml:"development_legacy_loadout_api"`
 }
 
 type P2PRoomConfig struct {
@@ -410,6 +415,7 @@ var Defaults = Config{
 		RelayFreshnessSeconds:      45,
 		NativePlayerLevel:          70,
 		NativeCharacterLevel:       30,
+		NativeOwnershipMode:        "compact",
 	},
 	P2PRoom: P2PRoomConfig{
 		HeartbeatIntervalSeconds: 15,
@@ -561,6 +567,7 @@ func (c *Config) applyEnvOverrides() {
 	overrideInt("META_RELAY_FRESHNESS_SECONDS", &c.MetaServer.RelayFreshnessSeconds)
 	overrideInt("META_NATIVE_PLAYER_LEVEL", &c.MetaServer.NativePlayerLevel)
 	overrideInt("META_NATIVE_CHARACTER_LEVEL", &c.MetaServer.NativeCharacterLevel)
+	overrideString("META_NATIVE_OWNERSHIP_MODE", &c.MetaServer.NativeOwnershipMode)
 	overrideBool("META_DEVELOPMENT_LEGACY_LOADOUT_API", &c.MetaServer.DevelopmentLegacyLoadoutAPI)
 	overrideInt("REDIS_DB", &c.Redis.DB)
 	overrideInt("HTTP_RATE_LIMIT_BURST", &c.RateLimit.Burst)
@@ -1015,7 +1022,8 @@ func (c *Config) ValidateMetaServer() error {
 		c.MetaServer.MatchReservationTTLSeconds < 10 ||
 		c.MetaServer.SchedulerIntervalSeconds < 1 || c.MetaServer.RelayFreshnessSeconds < 1 ||
 		c.MetaServer.NativePlayerLevel < 1 || c.MetaServer.NativePlayerLevel > 127 ||
-		c.MetaServer.NativeCharacterLevel < 1 || c.MetaServer.NativeCharacterLevel > 127 {
+		c.MetaServer.NativeCharacterLevel < 1 || c.MetaServer.NativeCharacterLevel > 127 ||
+		!validNativeOwnershipMode(c.MetaServer.NativeOwnershipMode) {
 		errs = append(errs, errors.New("meta_server protocol, timeout, queue, or rate settings are invalid"))
 	}
 	if strings.EqualFold(c.Environment, "production") && c.MetaServer.DevelopmentLegacyLoadoutAPI {
@@ -1025,6 +1033,15 @@ func (c *Config) ValidateMetaServer() error {
 		return fmt.Errorf("invalid MetaServer configuration: %w", errors.Join(errs...))
 	}
 	return nil
+}
+
+func validNativeOwnershipMode(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "compact", "full":
+		return true
+	default:
+		return false
+	}
 }
 
 func (c HTTPConfig) ReadHeaderTimeout() time.Duration {
