@@ -378,16 +378,44 @@ func p2pWeaponArchiveIsValid(
 			return false
 		}
 		if ornament := part.GetOrnament(); ornament != nil &&
-			!p2pCosmeticPairIsValid(
-				definitions, ornament.GetInfo(),
-				"EPBItemType::WeaponPartSkin",
-				"EPBItemType::WeaponSlotPainting",
+			!p2pWeaponPartOrnamentIsValid(
+				definitions, slotID, ornament.GetInfo(),
 			) {
 			return false
 		}
 		seenSlots[slotID] = struct{}{}
 	}
 	return true
+}
+
+func p2pWeaponPartOrnamentIsValid(
+	definitions *DefinitionIndex,
+	slotID int32,
+	info *metaprotocol.OrnamentInfo,
+) bool {
+	if info == nil {
+		return true
+	}
+	typeID, itemID := info.GetType(), info.GetId()
+	if typeID == "" && itemID == "" {
+		return true
+	}
+	// The pinned native client does not always serialize original part
+	// cosmetics as a complete inventory-backed pair. A newly selected part can
+	// carry the built-in PartOri suite without a painting ID, while the fire
+	// mode/receiver slot serializes its built-in painting as bare PTOriginal.
+	// These are native reset sentinels, not arbitrary half-pairs.
+	if typeID == "PartOri" && itemID == "" {
+		return true
+	}
+	if slotID == 4 && typeID == "" && itemID == "PTOriginal" {
+		return true
+	}
+	return p2pCosmeticPairIsValid(
+		definitions, info,
+		"EPBItemType::WeaponPartSkin",
+		"EPBItemType::WeaponSlotPainting",
+	)
 }
 
 func p2pWeaponArchiveHasEffectiveDelta(archive *metaprotocol.WeaponArchiveV2) bool {

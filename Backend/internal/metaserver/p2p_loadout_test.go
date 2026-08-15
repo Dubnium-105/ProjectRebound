@@ -211,6 +211,48 @@ func TestP2PRoomLoadoutsAcceptPinnedNativeDefaultsForEveryRole(t *testing.T) {
 	}
 }
 
+func TestP2PWeaponArchiveAcceptsPinnedNativeOriginalSentinels(t *testing.T) {
+	definitions, err := LoadDefinitionIndex()
+	if err != nil {
+		t.Fatal(err)
+	}
+	archive := &metaprotocol.WeaponArchiveV2{
+		WeaponId: "PEACE_GSW-AR",
+		Parts: []*metaprotocol.PartSlot{
+			{SlotId: 1, PartId: "GSW-AR_MZL-BRAKE", Ornament: &metaprotocol.PartOrnament{Info: &metaprotocol.OrnamentInfo{Type: "PartOri"}}},
+			{SlotId: 2, PartId: "GSW-AR_BRL-AR-STD", Ornament: &metaprotocol.PartOrnament{Info: &metaprotocol.OrnamentInfo{Type: "PartOri", Id: "GSW-AR_Barrel_PTOriginal"}}},
+			{SlotId: 3, PartId: "GSW-AR_HGD-STD", Ornament: &metaprotocol.PartOrnament{Info: &metaprotocol.OrnamentInfo{Type: "PartOri", Id: "GSW-AR_HandGuard_PTOriginal"}}},
+			{SlotId: 4, PartId: "GSW-AR_FRM-FULLAUTO", Ornament: &metaprotocol.PartOrnament{Info: &metaprotocol.OrnamentInfo{Id: "PTOriginal"}}},
+			{SlotId: 5, PartId: "GSW-AR_GRP-GSW-STD", Ornament: &metaprotocol.PartOrnament{Info: &metaprotocol.OrnamentInfo{Type: "PartOri", Id: "GSW-AR_Grip_PTOriginal"}}},
+			{SlotId: 6, PartId: "GSW-AR_SGT-IRON-FI-MID", Ornament: &metaprotocol.PartOrnament{Info: &metaprotocol.OrnamentInfo{Type: "PartOri", Id: "GSW-AR_SightOptical_PTOriginal"}}},
+			{SlotId: 7, Ornament: &metaprotocol.PartOrnament{Info: &metaprotocol.OrnamentInfo{}}},
+			{SlotId: 8, Ornament: &metaprotocol.PartOrnament{Info: &metaprotocol.OrnamentInfo{}}},
+			{SlotId: 9, PartId: "GSW-AR_MAG-AR-STD", Ornament: &metaprotocol.PartOrnament{Info: &metaprotocol.OrnamentInfo{Type: "PartOri", Id: "GSW-AR_AmmoStorageDevice_PTOriginal"}}},
+			{SlotId: 10, Ornament: &metaprotocol.PartOrnament{Info: &metaprotocol.OrnamentInfo{}}},
+		},
+		Skin: &metaprotocol.WeaponSkin{
+			SkinInfo: &metaprotocol.OrnamentInfo{
+				Type: "SkinAROriginal", Id: "GSW-AR_Original_PTOriginal",
+			},
+			WeaponOrnament: "WO-NONE",
+		},
+	}
+	if !p2pWeaponArchiveIsValid(definitions, archive) {
+		t.Fatal("pinned native GSW-AR archive was rejected")
+	}
+
+	invalidTypeOnly := proto.Clone(archive).(*metaprotocol.WeaponArchiveV2)
+	invalidTypeOnly.Parts[0].Ornament.Info.Type = "WO-NONE"
+	if p2pWeaponArchiveIsValid(definitions, invalidTypeOnly) {
+		t.Fatal("arbitrary type-only part cosmetic was accepted")
+	}
+	invalidIDOnly := proto.Clone(archive).(*metaprotocol.WeaponArchiveV2)
+	invalidIDOnly.Parts[3].Ornament.Info.Id = "GSW-AR_Muzzle_PTOriginal"
+	if p2pWeaponArchiveIsValid(definitions, invalidIDOnly) {
+		t.Fatal("arbitrary ID-only part cosmetic was accepted")
+	}
+}
+
 func TestP2PStructuredWeaponConfigFallsBackForInvalidArchives(t *testing.T) {
 	definitions, err := LoadDefinitionIndex()
 	if err != nil {
@@ -285,7 +327,8 @@ func TestP2PStructuredWeaponConfigFallsBackForInvalidArchives(t *testing.T) {
 		"part-painting-wrong-item-type": mutated(func(archive *metaprotocol.WeaponArchiveV2) {
 			archive.Parts[0].Ornament.Info.Id = "RU-AKM_Original_PTOriginal"
 		}),
-		"part-cosmetic-half-pair": mutated(func(archive *metaprotocol.WeaponArchiveV2) {
+		"part-cosmetic-arbitrary-half-pair": mutated(func(archive *metaprotocol.WeaponArchiveV2) {
+			archive.Parts[0].Ornament.Info.Type = "WO-NONE"
 			archive.Parts[0].Ornament.Info.Id = ""
 		}),
 	}
