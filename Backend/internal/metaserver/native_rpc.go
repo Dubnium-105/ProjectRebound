@@ -271,7 +271,12 @@ func (s *TCPServer) queryAssets() ([]byte, error) {
 	}
 	for _, itemID := range itemIDs {
 		response.ItemDatas = append(response.ItemDatas, &metaprotocol.ItemData{
-			ItemId: itemID, Unknown_1: 1, Unknown_2: 1, Unknown_3: 1,
+			// The pinned client completion handler copies only ItemId into the
+			// native ownership array. Leaving the three unused scalar fields at
+			// their protobuf defaults saves six wire bytes per row, which keeps
+			// the complete definition set inside the client's five-second async
+			// task deadline without changing ownership semantics.
+			ItemId: itemID,
 		})
 	}
 	return proto.Marshal(response)

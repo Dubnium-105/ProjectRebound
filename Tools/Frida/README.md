@@ -80,6 +80,21 @@ repeated ItemData rows. With `ItemCount=1`, the response still decodes but the
 native manager remains on its 268-item fallback. The `UserAsset` candidates
 also produced only 268 entries and are not used by MetaServer.
 
+The native completion path was subsequently resolved as
+`FOnlineAsyncTaskQueryAssets -> LogicServer delegate -> PBArmoryManager`. The
+task has a hard five-second deadline and copies only each row's `ItemId`; it
+does not read the three scalar fields. A production-sized 1,615,627-byte
+response completed as `result_code=-1` with zero committed rows at 5.03
+seconds, even after the heavyweight decoder was removed. MetaServer therefore
+keeps every deduplicated ItemId and omits the unused default-valued scalars,
+reducing the deterministic payload to 1,372,855 bytes without changing the
+ownership set.
+
+`logic_server_armory_probe.js` is the read-only probe for that final native
+path. It records the concrete LogicServer virtual targets, QueryAssets delegate
+result/count, subscriber callback, and the armory size before and after the
+broadcast. It never changes the receive buffer or game memory.
+
 `query_assets_single_item_ab.js` is the second-stage A/B probe. It preserves
 the frame length, exposes only one ItemData row (`PEACE_RU-AKM` by default), and rewrites
 the top-level ItemCount to an equal-width encoding of one. This distinguishes

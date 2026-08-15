@@ -69,6 +69,17 @@ QueryAssets A/B 探针现保留为回归诊断。冷启动时间线确认顶层 
 40,462 条重复 ItemData。使用 `ItemCount=1` 时响应仍可解码，但原生 Manager 保留 268 条
 回退库存；`UserAsset` 候选同样只产生 268 条，因此 MetaServer 不采用该候选协议。
 
+后续已经解析出完整原生完成路径：
+`FOnlineAsyncTaskQueryAssets -> LogicServer delegate -> PBArmoryManager`。该任务具有硬编码
+的五秒截止时间，并且成功路径只复制每行的 `ItemId`，不会读取三个整数附加字段。
+生产大小的 1,615,627 字节响应即使移除重型解码探针，仍在 5.03 秒以
+`result_code=-1`、零提交行结束。因此 MetaServer 保留全部去重 ItemId，但把三个未使用
+的默认值字段从 wire 中省略，把确定性响应缩小到 1,372,855 字节，同时不改变所有权集合。
+
+`logic_server_armory_probe.js` 是这条最终原生路径的只读探针。它记录实际 LogicServer
+虚表目标、QueryAssets delegate 的结果/行数、订阅者回调，以及广播前后的军械库大小；
+不会修改接收缓冲区或游戏内存。
+
 `query_assets_single_item_ab.js` 是第二阶段 A/B：保持帧长不变，让客户端只看到
 一条 ItemData（默认 `PEACE_RU-AKM`），并把顶层 `ItemCount` 等长改写为 1，用于区分
 “超大/混杂资产列表被整体拒绝”和“三个整数字段的语义仍不正确”。当前脚本还会

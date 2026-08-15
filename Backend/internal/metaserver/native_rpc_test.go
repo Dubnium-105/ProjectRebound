@@ -43,8 +43,8 @@ func TestQueryAssetsUsesPinnedDefinitions(t *testing.T) {
 			t.Fatalf("query assets duplicated %q", item.GetItemId())
 		}
 		seen[item.GetItemId()] = struct{}{}
-		if item.GetUnknown_1() != 1 || item.GetUnknown_2() != 1 || item.GetUnknown_3() != 1 {
-			t.Fatalf("query assets did not mark %q as available: %#v", item.GetItemId(), item)
+		if item.GetUnknown_1() != 0 || item.GetUnknown_2() != 0 || item.GetUnknown_3() != 0 {
+			t.Fatalf("query assets emitted unused scalar fields for %q: %#v", item.GetItemId(), item)
 		}
 	}
 	for itemID := range definitions.Items {
@@ -56,13 +56,13 @@ func TestQueryAssetsUsesPinnedDefinitions(t *testing.T) {
 		t.Fatalf("captured definition row count drifted: got %d, want 40462",
 			len(response.GetItemDatas()))
 	}
-	if len(raw) != 1615627 {
-		t.Fatalf("captured QueryAssets payload size drifted: got %d, want 1615627", len(raw))
+	if len(raw) != 1372855 {
+		t.Fatalf("optimized QueryAssets payload size drifted: got %d, want 1372855", len(raw))
 	}
 	digest := sha256.Sum256(raw)
-	const capturedSchemaGolden = "1b8006842514e737db01509dfb7e632ff1d199ec148308f88b3ca4eb79c21325"
+	const capturedSchemaGolden = "eeedecb642cc7ab1352496ae466a3a076d39e631d416bc6c0c815fe41f10a020"
 	if got := hex.EncodeToString(digest[:]); got != capturedSchemaGolden {
-		t.Fatalf("QueryAssets captured-schema protobuf drifted: got %s, want %s",
+		t.Fatalf("QueryAssets optimized-schema protobuf drifted: got %s, want %s",
 			got, capturedSchemaGolden)
 	}
 	for index := 1; index < len(response.GetItemDatas()); index++ {
