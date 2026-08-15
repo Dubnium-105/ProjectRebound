@@ -84,15 +84,17 @@ are not used by MetaServer.
 
 The native completion path was subsequently resolved as
 `FOnlineAsyncTaskQueryAssets -> LogicServer delegate -> PBArmoryManager`. The
-task has a hard five-second deadline and copies only each row's `ItemId`; it
-does not read the three scalar fields. A production-sized 1,615,627-byte
-response completed as `result_code=-1` with zero committed rows at 5.03
-seconds, even after the heavyweight decoder was removed. MetaServer therefore
-keeps every deduplicated ItemId and omits the unused default-valued scalars,
-reducing the deterministic payload to 1,372,853 bytes without changing the
-ownership set. The immutable serialized response and its observability digest
-are cached once, so subsequent armory entries do not rebuild, unmarshal, or
-rehash all 40,462 rows on the synchronous response path.
+task copies only each row's `ItemId`; it does not read the three scalar fields.
+The pinned client rejects frames above 1 MiB at `0x1409C37BB`, while its
+single-frame allocation, capacity calculation, and clear size are separately
+fixed at 1 MiB + 10 bytes. Payload therefore raises all four guarded constants
+to 2 MiB only for the exact supported executable SHA-256. Patching the length
+check alone reproduced an output-buffer overflow, so the four instructions
+must remain atomic. MetaServer keeps every deduplicated ItemId and omits the
+unused default-valued scalars, producing a deterministic 1,372,853-byte
+payload. The immutable response and its observability digest are cached once,
+so subsequent armory entries do not rebuild, unmarshal, or rehash all 40,462
+rows on the synchronous response path.
 
 `logic_server_armory_probe.js` is the read-only probe for that final native
 path. It records the concrete LogicServer virtual targets, QueryAssets delegate

@@ -71,13 +71,14 @@ QueryAssets A/B 探针现保留为回归诊断。对原生消费者 `0x1416DF990
 仍只产生 268 条回退库存，因此 MetaServer 不采用该候选协议。
 
 后续已经解析出完整原生完成路径：
-`FOnlineAsyncTaskQueryAssets -> LogicServer delegate -> PBArmoryManager`。该任务具有硬编码
-的五秒截止时间，并且成功路径只复制每行的 `ItemId`，不会读取三个整数附加字段。
-生产大小的 1,615,627 字节响应即使移除重型解码探针，仍在 5.03 秒以
-`result_code=-1`、零提交行结束。因此 MetaServer 保留全部去重 ItemId，但把三个未使用
-的默认值字段从 wire 中省略，把确定性响应缩小到 1,372,853 字节，同时不改变所有权集合。
-不可变的序列化响应及其可观测性摘要只缓存一次，后续进入军械库不会在同步响应路径上
-重新构造、反序列化或计算全部 40,462 行的哈希。
+`FOnlineAsyncTaskQueryAssets -> LogicServer delegate -> PBArmoryManager`。成功路径只复制
+每行的 `ItemId`，不会读取三个整数附加字段。固定版本客户端在 `0x1409C37BB` 拒绝超过
+1 MiB 的帧，同时单帧分配、容量计算和清零长度也分别固定为 1 MiB + 10 字节。因此
+Payload 仅对精确匹配 SHA-256 的 EXE，把四处带字节守卫的常量原子提升到 2 MiB；只修改
+长度检查已复现输出缓冲区溢出，四处不得拆分。MetaServer 保留全部去重 ItemId，并省略
+三个未使用的默认值字段，生成 1,372,853 字节的确定性响应。不可变响应及其可观测性摘要
+只缓存一次，后续进入军械库不会在同步响应路径上重新构造、反序列化或计算全部 40,462
+行的哈希。
 
 `logic_server_armory_probe.js` 是这条最终原生路径的只读探针。它记录实际 LogicServer
 虚表目标、QueryAssets delegate 的结果/行数、订阅者回调，以及广播前后的军械库大小；

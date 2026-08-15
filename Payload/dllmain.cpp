@@ -1,11 +1,17 @@
 // Main.cpp
 #include <Windows.h>
+#include <wincrypt.h>
+#include <array>
+#include <cstdint>
+#include <cstring>
 #include <thread>
 #include <fstream>
 #include <filesystem>
 #include <iostream>
+#include <iomanip>
 #include <memory>
 #include <mutex>
+#include <sstream>
 
 #include "SDK.hpp"
 #include "Network/NetDriverAccess.h"
@@ -43,6 +49,182 @@ std::recursive_mutex gLoadoutManagerMutex;
 
 namespace
 {
+constexpr char kSupportedExecutableSha256[] =
+    "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843";
+constexpr DWORD kSupportedExecutableImageSize = 105431040;
+constexpr uintptr_t kRpcFramePatchPageOffset = 0x009C3000;
+constexpr SIZE_T kRpcFramePatchPageSize = 0x1000;
+
+struct NativeRpcPatch
+{
+    uintptr_t offset;
+    const uint8_t* expected;
+    const uint8_t* replacement;
+    size_t size;
+};
+
+constexpr uint8_t kLengthGuardExpected[] = {0x81, 0xFE, 0x00, 0x00, 0x10, 0x00};
+constexpr uint8_t kLengthGuardReplacement[] = {0x81, 0xFE, 0x00, 0x00, 0x20, 0x00};
+constexpr uint8_t kOutputAllocationExpected[] = {0xBA, 0x0A, 0x00, 0x10, 0x00};
+constexpr uint8_t kOutputAllocationReplacement[] = {0xBA, 0x0A, 0x00, 0x20, 0x00};
+constexpr uint8_t kOutputCapacityExpected[] = {0x8D, 0x83, 0x0A, 0x00, 0x10, 0x00};
+constexpr uint8_t kOutputCapacityReplacement[] = {0x8D, 0x83, 0x0A, 0x00, 0x20, 0x00};
+constexpr uint8_t kOutputClearExpected[] = {0x41, 0xB8, 0x0A, 0x00, 0x10, 0x00};
+constexpr uint8_t kOutputClearReplacement[] = {0x41, 0xB8, 0x0A, 0x00, 0x20, 0x00};
+
+constexpr NativeRpcPatch kNativeRpcPatches[] = {
+    {0x009C37BB, kLengthGuardExpected, kLengthGuardReplacement,
+        sizeof(kLengthGuardExpected)},
+    {0x009C3B47, kOutputAllocationExpected, kOutputAllocationReplacement,
+        sizeof(kOutputAllocationExpected)},
+    {0x009C3B68, kOutputCapacityExpected, kOutputCapacityReplacement,
+        sizeof(kOutputCapacityExpected)},
+    {0x009C3B87, kOutputClearExpected, kOutputClearReplacement,
+        sizeof(kOutputClearExpected)},
+};
+
+bool HashExecutable(std::string& digest)
+{
+    std::array<wchar_t, 32768> path{};
+    const DWORD pathLength = GetModuleFileNameW(nullptr, path.data(),
+        static_cast<DWORD>(path.size()));
+    if (pathLength == 0 || pathLength >= path.size())
+        return false;
+
+    HANDLE file = CreateFileW(path.data(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE,
+        nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE)
+        return false;
+
+    HCRYPTPROV provider = 0;
+    HCRYPTHASH hash = 0;
+    bool success = CryptAcquireContextW(&provider, nullptr, nullptr, PROV_RSA_AES,
+        CRYPT_VERIFYCONTEXT) != FALSE;
+    if (success)
+        success = CryptCreateHash(provider, CALG_SHA_256, 0, 0, &hash) != FALSE;
+
+    std::array<BYTE, 64 * 1024> buffer{};
+    while (success)
+    {
+        DWORD bytesRead = 0;
+        if (!ReadFile(file, buffer.data(), static_cast<DWORD>(buffer.size()),
+            &bytesRead, nullptr))
+        {
+            success = false;
+            break;
+        }
+        if (bytesRead == 0)
+            break;
+        success = CryptHashData(hash, buffer.data(), bytesRead, 0) != FALSE;
+    }
+
+    std::array<BYTE, 32> hashBytes{};
+    DWORD hashSize = static_cast<DWORD>(hashBytes.size());
+    if (success)
+        success = CryptGetHashParam(hash, HP_HASHVAL, hashBytes.data(), &hashSize, 0) != FALSE &&
+            hashSize == hashBytes.size();
+
+    if (hash != 0)
+        CryptDestroyHash(hash);
+    if (provider != 0)
+        CryptReleaseContext(provider, 0);
+    CloseHandle(file);
+    if (!success)
+        return false;
+
+    std::ostringstream output;
+    output << std::hex << std::setfill('0');
+    for (BYTE value : hashBytes)
+        output << std::setw(2) << static_cast<unsigned int>(value);
+    digest = output.str();
+    return true;
+}
+
+bool ApplyNativeRpcFrameLimitPatch(uintptr_t moduleBase)
+{
+    const auto dosHeader = reinterpret_cast<const IMAGE_DOS_HEADER*>(moduleBase);
+    if (dosHeader->e_magic != IMAGE_DOS_SIGNATURE)
+    {
+        ClientLog("[NATIVE-RPC] Refusing frame patch: invalid DOS header.");
+        return false;
+    }
+    const auto ntHeaders = reinterpret_cast<const IMAGE_NT_HEADERS64*>(
+        moduleBase + dosHeader->e_lfanew);
+    if (ntHeaders->Signature != IMAGE_NT_SIGNATURE ||
+        ntHeaders->OptionalHeader.SizeOfImage != kSupportedExecutableImageSize)
+    {
+        ClientLog("[NATIVE-RPC] Refusing frame patch: unsupported executable image.");
+        return false;
+    }
+
+    std::string executableHash;
+    if (!HashExecutable(executableHash) || executableHash != kSupportedExecutableSha256)
+    {
+        ClientLog("[NATIVE-RPC] Refusing frame patch: executable SHA-256 mismatch.");
+        return false;
+    }
+
+    bool allExpected = true;
+    bool allPatched = true;
+    for (const NativeRpcPatch& patch : kNativeRpcPatches)
+    {
+        const void* address = reinterpret_cast<const void*>(moduleBase + patch.offset);
+        allExpected = allExpected && std::memcmp(address, patch.expected, patch.size) == 0;
+        allPatched = allPatched && std::memcmp(address, patch.replacement, patch.size) == 0;
+    }
+    if (allPatched)
+    {
+        ClientLog("[NATIVE-RPC] Two-megabyte frame limit already active.");
+        return true;
+    }
+    if (!allExpected)
+    {
+        ClientLog("[NATIVE-RPC] Refusing frame patch: instruction guard mismatch.");
+        return false;
+    }
+
+    void* patchPage = reinterpret_cast<void*>(moduleBase + kRpcFramePatchPageOffset);
+    DWORD oldProtection = 0;
+    if (!VirtualProtect(patchPage, kRpcFramePatchPageSize, PAGE_EXECUTE_READWRITE,
+        &oldProtection))
+    {
+        ClientLog("[NATIVE-RPC] Frame patch failed: VirtualProtect denied the patch page.");
+        return false;
+    }
+
+    for (const NativeRpcPatch& patch : kNativeRpcPatches)
+        std::memcpy(reinterpret_cast<void*>(moduleBase + patch.offset),
+            patch.replacement, patch.size);
+    FlushInstructionCache(GetCurrentProcess(), patchPage, kRpcFramePatchPageSize);
+
+    bool verified = true;
+    for (const NativeRpcPatch& patch : kNativeRpcPatches)
+    {
+        verified = verified && std::memcmp(
+            reinterpret_cast<const void*>(moduleBase + patch.offset),
+            patch.replacement, patch.size) == 0;
+    }
+    if (!verified)
+    {
+        for (const NativeRpcPatch& patch : kNativeRpcPatches)
+            std::memcpy(reinterpret_cast<void*>(moduleBase + patch.offset),
+                patch.expected, patch.size);
+        FlushInstructionCache(GetCurrentProcess(), patchPage, kRpcFramePatchPageSize);
+    }
+
+    DWORD ignoredProtection = 0;
+    const bool restored = VirtualProtect(patchPage, kRpcFramePatchPageSize,
+        oldProtection, &ignoredProtection) != FALSE;
+    if (!verified || !restored)
+    {
+        ClientLog("[NATIVE-RPC] Frame patch failed verification or page restoration.");
+        return false;
+    }
+
+    ClientLog("[NATIVE-RPC] Raised the pinned client frame and output-buffer limit to 2097152 bytes.");
+    return true;
+}
+
 bool LoadoutFeatureEnabled(const std::string& commandLine, const std::string& key)
 {
     const std::string disabled = key + "=0";
@@ -133,9 +315,14 @@ void MainThread()
 
         BaseAddress = (uintptr_t)GetModuleHandleA(nullptr);
 
+        const std::string commandLine = GetCommandLineA();
+        const bool serverProcess = commandLine.find("-server") != std::string::npos;
+        if (!serverProcess)
+            ApplyNativeRpcFrameLimitPatch(BaseAddress);
+
         UC::FMemory::Init((void*)(BaseAddress + 0x18f4350));
 
-        if (std::string(GetCommandLineA()).contains("-server"))
+        if (serverProcess)
         {
             amServer = true;
         }
