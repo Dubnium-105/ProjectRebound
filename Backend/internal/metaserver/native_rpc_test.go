@@ -89,13 +89,13 @@ func TestNativeProgressionStatisticsUseExactClientKeys(t *testing.T) {
 		key   string
 		value int32
 	}{
-		{"Player_Level", 70}, {"Player_Exp", 0},
-		{"PEACE_Level", 30}, {"PEACE_Exp", 0},
-		{"PROBE_Level", 30}, {"PROBE_Exp", 0},
-		{"Sniper_Level", 30}, {"Sniper_Exp", 0},
-		{"FORT_Level", 30}, {"FORT_Exp", 0},
-		{"FIXER_Level", 30}, {"FIXER_Exp", 0},
-		{"SPIKE_Level", 30}, {"SPIKE_Exp", 0},
+		{"Level_Player", 70}, {"Exp_Player", 0},
+		{"Level_PEACE", 30}, {"Exp_PEACE", 0},
+		{"Level_PROBE", 30}, {"Exp_PROBE", 0},
+		{"Level_Sniper", 30}, {"Exp_Sniper", 0},
+		{"Level_FORT", 30}, {"Exp_FORT", 0},
+		{"Level_FIXER", 30}, {"Exp_FIXER", 0},
+		{"Level_SPIKE", 30}, {"Exp_SPIKE", 0},
 	}
 	if response.GetStatusCode() != 0 || len(response.GetDatapoints()) != len(want) {
 		t.Fatalf("unexpected progression response: %#v", &response)
@@ -108,7 +108,7 @@ func TestNativeProgressionStatisticsUseExactClientKeys(t *testing.T) {
 		}
 	}
 	digest := sha256.Sum256(raw)
-	const reverseEngineeredWireGolden = "b16c986af2703bdf01ac32f754376f729be9b7ffb359b9d0d82bc1fc2bdaf8e1"
+	const reverseEngineeredWireGolden = "c3d7026906d2ce7e50fa667c600cc420967d14de5cf1aeee43a489170094b5b4"
 	if got := hex.EncodeToString(digest[:]); got != reverseEngineeredWireGolden {
 		t.Fatalf("progression protobuf drifted: got %s, want %s",
 			got, reverseEngineeredWireGolden)

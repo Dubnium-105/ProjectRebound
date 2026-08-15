@@ -78,14 +78,15 @@ func (s *TCPServer) getPlayerArchive(
 
 // getDataStatisticsInfo returns the exact progression keys consumed by
 // UPBCareerManager in the pinned Steam executable. Static analysis of
-// EXE+0x16E5720 and EXE+0x16E3BC0 confirms the client formats the map lookups
-// as Player_{Level,Exp} and <CharacterFName>_{Level,Exp}. In particular, the
-// Sniper FName retains mixed casing in this build.
+// EXE+0x16E5720 and EXE+0x16E3BC0 confirms the client passes Level/Exp as the
+// first Win64 variadic argument to the %s_%s formatter, followed by Player or
+// the character FName. The resulting keys are therefore Metric_Scope, not the
+// visually tempting reverse order. Sniper retains mixed casing in this build.
 func (s *TCPServer) getDataStatisticsInfo() ([]byte, error) {
 	response := &metaprotocol.GetDataStatisticsInfoResponse{
 		Datapoints: []*metaprotocol.PlayerDatapoint{
-			{Key: "Player_Level", Value: int32(s.config.NativePlayerLevel)},
-			{Key: "Player_Exp", Value: 0},
+			{Key: "Level_Player", Value: int32(s.config.NativePlayerLevel)},
+			{Key: "Exp_Player", Value: 0},
 		},
 	}
 	for _, characterID := range []string{
@@ -93,9 +94,9 @@ func (s *TCPServer) getDataStatisticsInfo() ([]byte, error) {
 	} {
 		response.Datapoints = append(response.Datapoints,
 			&metaprotocol.PlayerDatapoint{
-				Key: characterID + "_Level", Value: int32(s.config.NativeCharacterLevel),
+				Key: "Level_" + characterID, Value: int32(s.config.NativeCharacterLevel),
 			},
-			&metaprotocol.PlayerDatapoint{Key: characterID + "_Exp", Value: 0},
+			&metaprotocol.PlayerDatapoint{Key: "Exp_" + characterID, Value: 0},
 		)
 	}
 	return proto.Marshal(response)

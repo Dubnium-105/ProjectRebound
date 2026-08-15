@@ -541,9 +541,9 @@ func (s *TCPServer) logNativeProgressionResponse(messageID int32, payload []byte
 	for _, datapoint := range response.GetDatapoints() {
 		keys = append(keys, datapoint.GetKey())
 		switch {
-		case datapoint.GetKey() == "Player_Level":
+		case datapoint.GetKey() == "Level_Player":
 			playerLevel = datapoint.GetValue()
-		case strings.HasSuffix(datapoint.GetKey(), "_Level"):
+		case strings.HasPrefix(datapoint.GetKey(), "Level_"):
 			characterLevel = datapoint.GetValue()
 			characterCount++
 		}
