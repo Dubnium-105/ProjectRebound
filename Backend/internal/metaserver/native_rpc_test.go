@@ -18,7 +18,12 @@ func TestQueryAssetsUsesPinnedDefinitions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := &TCPServer{service: &Service{definitions: definitions}}
+	server := NewTCPServer(
+		config.MetaServerConfig{}, &Service{definitions: definitions}, nil, nil, nil,
+	)
+	if len(server.queryAssetsPayload) == 0 || server.queryAssetsRowCount != 40462 {
+		t.Fatal("query assets response was not prepared during server construction")
+	}
 	raw, err := server.queryAssets()
 	if err != nil {
 		t.Fatal(err)

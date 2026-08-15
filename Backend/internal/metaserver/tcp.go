@@ -140,10 +140,14 @@ func NewTCPServer(
 	metrics *MetaMetrics,
 	logger *slog.Logger,
 ) *TCPServer {
-	return &TCPServer{
+	server := &TCPServer{
 		config: cfg, service: service, gates: gates, metrics: metrics, logger: logger,
 		byIP: make(map[string]*connectionRate), rpcRate: make(map[string]*connectionRate),
 	}
+	if service != nil && service.definitions != nil {
+		_, _ = server.queryAssets()
+	}
+	return server
 }
 
 func (s *TCPServer) Run(ctx context.Context) error {
