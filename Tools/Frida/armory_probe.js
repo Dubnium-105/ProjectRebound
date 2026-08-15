@@ -58,8 +58,8 @@ const SETTINGS = {
     },
     archiveCompletionEntries: [
         { name: 'role_equipment', rva: 0x016DD080 },
-        { name: 'weapon_skin', rva: 0x016DCEC0 },
-        { name: 'badge_ornament', rva: 0x016DCD80 },
+        { name: 'character_skin_painting', rva: 0x016DCEC0 },
+        { name: 'character_appearance', rva: 0x016DCD80 },
         { name: 'weapon_ornament', rva: 0x016DD1D0 },
         { name: 'weapon_part_skin_painting', rva: 0x016DD490 },
         { name: 'weapon_part_slot', rva: 0x016DD5F0 },
@@ -124,12 +124,29 @@ function hookArchiveCompletionEntries() {
         const target = gameModule.base.add(entry.rva);
         Interceptor.attach(target, {
             onEnter(args) {
-                emit('archive.native_completion', {
+                const details = {
                     completion_kind: entry.name,
                     rva: toHex(entry.rva),
                     task: args[0].toString(),
                     completion_code: args[1].toInt32(),
-                });
+                };
+                // Character appearance completions are separate from the six
+                // equipment slots.  Retain only their item identifiers and
+                // enum selector so a save failure can be correlated without
+                // logging an archive payload or any account data.
+                if (entry.name === 'character_skin_painting') {
+                    details.skin_id = fnameValueToString(args[2]);
+                    details.painting_id = fnameValueToString(args[3]);
+                    details.role_id = fnameValueToString(args[4]);
+                } else if (entry.name === 'character_appearance') {
+                    details.item_id = fnameValueToString(args[2]);
+                    details.role_id = fnameValueToString(args[3]);
+                    // EPBSkinClass is an 8-bit enum.  Windows x64 does not
+                    // guarantee that the unused high bits of the argument
+                    // register are cleared, so only retain the low byte.
+                    details.selector = args[4].toUInt32() & 0xff;
+                }
+                emit('archive.native_completion', details);
             },
         });
     }
@@ -1011,6 +1028,12 @@ function fnameToString(address) {
     const value = data.readUtf16String() || '';
     fnameCache.set(key, value);
     return value;
+}
+
+function fnameValueToString(value) {
+    const storage = Memory.alloc(Process.pointerSize);
+    storage.writePointer(value);
+    return fnameToString(storage);
 }
 
 function objectName(object) {

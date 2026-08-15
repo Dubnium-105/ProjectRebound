@@ -1132,8 +1132,8 @@ void *OnFireWeapon(APBWeapon *Weapon)
 
 static SafetyHookInline ProcessEventClient;
 static SafetyHookInline FixEquipErrorHook;
-static SafetyHookInline FixSkinErrorHook;
-static SafetyHookInline FixBadgeOrnamentErrorHook;
+static SafetyHookInline FixCharacterSkinPaintingErrorHook;
+static SafetyHookInline FixCharacterAppearanceErrorHook;
 
 static void LogArchiveCompletionTranslation(
     const char* completionKind,
@@ -1160,7 +1160,7 @@ void __fastcall FixEquipErrorHookFn(
     FixEquipErrorHook.call<void>(a1, normalized, a3, a4, a5);
 }
 
-void __fastcall FixSkinErrorHookFn(
+void __fastcall FixCharacterSkinPaintingErrorHookFn(
     __int64 a1, int completionCode, __int64 a3, __int64 a4, __int64 a5)
 {
     static std::atomic<unsigned long long> translationCount{0};
@@ -1168,11 +1168,11 @@ void __fastcall FixSkinErrorHookFn(
         ArchiveCompletionPolicy::NormalizePersistedCompletion(completionCode);
     if (normalized != completionCode)
         LogArchiveCompletionTranslation(
-            "weapon_skin", completionCode, normalized, translationCount);
-    FixSkinErrorHook.call<void>(a1, normalized, a3, a4, a5);
+            "character_skin_painting", completionCode, normalized, translationCount);
+    FixCharacterSkinPaintingErrorHook.call<void>(a1, normalized, a3, a4, a5);
 }
 
-void __fastcall FixBadgeOrnamentErrorHookFn(
+void __fastcall FixCharacterAppearanceErrorHookFn(
     __int64 a1, int completionCode, __int64 a3, __int64 a4, int a5)
 {
     static std::atomic<unsigned long long> translationCount{0};
@@ -1180,8 +1180,8 @@ void __fastcall FixBadgeOrnamentErrorHookFn(
         ArchiveCompletionPolicy::NormalizePersistedCompletion(completionCode);
     if (normalized != completionCode)
         LogArchiveCompletionTranslation(
-            "badge_ornament", completionCode, normalized, translationCount);
-    FixBadgeOrnamentErrorHook.call<void>(a1, normalized, a3, a4, a5);
+            "character_appearance", completionCode, normalized, translationCount);
+    FixCharacterAppearanceErrorHook.call<void>(a1, normalized, a3, a4, a5);
 }
 
 void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
@@ -1394,8 +1394,10 @@ void InitClientHook()
     ProcessEventClient = safetyhook::create_inline((void *)(BaseAddress + 0x1BCBE40), ProcessEventHookClient);
     ClientDeathCrash = safetyhook::create_inline((void *)(BaseAddress + 0x16abe10), ClientDeathCrashHook);
     FixEquipErrorHook = safetyhook::create_inline((void *)(BaseAddress + 0x16DD080), FixEquipErrorHookFn);
-    FixSkinErrorHook = safetyhook::create_inline((void *)(BaseAddress + 0x16DCEC0), FixSkinErrorHookFn);
-    FixBadgeOrnamentErrorHook = safetyhook::create_inline((void *)(BaseAddress + 0x16DCD80), FixBadgeOrnamentErrorHookFn);
+    FixCharacterSkinPaintingErrorHook = safetyhook::create_inline(
+        (void *)(BaseAddress + 0x16DCEC0), FixCharacterSkinPaintingErrorHookFn);
+    FixCharacterAppearanceErrorHook = safetyhook::create_inline(
+        (void *)(BaseAddress + 0x16DCD80), FixCharacterAppearanceErrorHookFn);
     ClientLog("[ARCHIVE] Installed pinned-build completion compatibility hooks "
         "(generic 404->0; equipment 404/9002->0).");
 }

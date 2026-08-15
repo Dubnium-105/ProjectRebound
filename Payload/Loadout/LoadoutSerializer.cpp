@@ -1157,7 +1157,9 @@ namespace LoadoutSerializer
                 "rightPylon", "right_pylon", "leftPod", "left_pod", "rightPod",
                 "right_pod", "leftLauncher", "left_launcher", "rightLauncher",
                 "right_launcher", "meleeWeapon", "melee_weapon", "mobilityModule",
-                "mobility_module" })
+                "mobility_module", "skinModel", "skin_model", "skinPaint",
+                "skin_paint", "headOrnament", "head_ornament", "armBadge",
+                "arm_badge" })
             {
                 if (!snapshot.contains(key)) continue;
                 std::string unused;
@@ -1289,10 +1291,17 @@ namespace LoadoutSerializer
 
             std::string skinModel;
             std::string skinPaint;
+            std::string headOrnament;
+            std::string armBadge;
             const char* skinModelKey = snapshot.contains("skinModel") ? "skinModel" :
                 (snapshot.contains("skin_model") ? "skin_model" : nullptr);
             const char* skinPaintKey = snapshot.contains("skinPaint") ? "skinPaint" :
                 (snapshot.contains("skin_paint") ? "skin_paint" : nullptr);
+            const char* headOrnamentKey = snapshot.contains("headOrnament") ?
+                "headOrnament" :
+                (snapshot.contains("head_ornament") ? "head_ornament" : nullptr);
+            const char* armBadgeKey = snapshot.contains("armBadge") ? "armBadge" :
+                (snapshot.contains("arm_badge") ? "arm_badge" : nullptr);
             if (skinModelKey)
             {
                 if (!snapshot[skinModelKey].is_string())
@@ -1311,17 +1320,59 @@ namespace LoadoutSerializer
                 }
                 skinPaint = NormalizePlainIdentifier(snapshot[skinPaintKey].get<std::string>());
             }
-            if (!skinModel.empty() && skinModel != "None")
+            if (headOrnamentKey)
             {
-                result["characterData"]["skinClassArray"] = json::array({
-                    static_cast<int>(SDK::EPBSkinClass::Skin),
-                });
-                result["characterData"]["skinIdArray"] = json::array({ skinModel });
+                if (!snapshot[headOrnamentKey].is_string())
+                {
+                    outError = "snapshot headOrnament must be a string";
+                    return false;
+                }
+                headOrnament = NormalizePlainIdentifier(
+                    snapshot[headOrnamentKey].get<std::string>());
             }
-            if (!skinPaint.empty() && skinPaint != "None")
-                result["characterData"]["skinPaintingId"] = skinPaint;
+            if (armBadgeKey)
+            {
+                if (!snapshot[armBadgeKey].is_string())
+                {
+                    outError = "snapshot armBadge must be a string";
+                    return false;
+                }
+                armBadge = NormalizePlainIdentifier(
+                    snapshot[armBadgeKey].get<std::string>());
+            }
 
             auto& characterData = result["characterData"];
+            auto upsertCharacterAppearance = [&](SDK::EPBSkinClass appearanceClass,
+                                                  const std::string& appearanceId)
+            {
+                if (appearanceId.empty() || appearanceId == "None") return;
+                auto& classes = characterData["skinClassArray"];
+                auto& ids = characterData["skinIdArray"];
+                const int classValue = static_cast<int>(appearanceClass);
+                for (std::size_t index = 0;
+                    index < classes.size() && index < ids.size(); ++index)
+                {
+                    if (classes[index].is_number_integer() &&
+                        classes[index].get<int>() == classValue)
+                    {
+                        ids[index] = appearanceId;
+                        return;
+                    }
+                }
+                classes.push_back(classValue);
+                ids.push_back(appearanceId);
+            };
+            if (!skinModel.empty() && skinModel != "None")
+            {
+                upsertCharacterAppearance(SDK::EPBSkinClass::Skin, skinModel);
+            }
+            if (!skinPaint.empty() && skinPaint != "None")
+                characterData["skinPaintingId"] = skinPaint;
+            upsertCharacterAppearance(
+                SDK::EPBSkinClass::Ornaments, headOrnament);
+            upsertCharacterAppearance(
+                SDK::EPBSkinClass::SpecialSlot, armBadge);
+
             if (!characterData.is_object() ||
                 !characterData.contains("skinClassArray") ||
                 !characterData["skinClassArray"].is_array() ||

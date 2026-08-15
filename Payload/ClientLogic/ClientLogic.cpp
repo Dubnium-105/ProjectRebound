@@ -313,6 +313,8 @@ namespace
         const json& snapshot,
         int& outSlotCount,
         std::uint32_t& outSlotHash,
+        int& outCharacterAppearanceCount,
+        std::uint32_t& outCharacterAppearanceHash,
         int& outWeaponCount,
         int& outWeaponPartCount,
         std::uint32_t& outWeaponHash,
@@ -320,6 +322,10 @@ namespace
     {
         using CompleteCharacterSlotFn = void(__fastcall*)(
             UPBCustomizeManager*, int32, FName, FName, EPBCharacterSlotType);
+        using CompleteCharacterAppearanceFn = void(__fastcall*)(
+            UPBCustomizeManager*, int32, FName, FName, EPBSkinClass);
+        using CompleteCharacterSkinPaintingFn = void(__fastcall*)(
+            UPBCustomizeManager*, int32, FName, FName, FName);
         using CompleteWeaponSlotFn = void(__fastcall*)(
             UPBCustomizeManager*, int32, FName, FName, FName, EPBPartSlotType);
         using CompleteWeaponSuiteFn = void(__fastcall*)(
@@ -329,6 +335,8 @@ namespace
         using CompleteWeaponOrnamentFn = void(__fastcall*)(
             UPBCustomizeManager*, int32, FName, FName, FName);
         constexpr uintptr_t CompleteCharacterSlotRva = 0x16DD080;
+        constexpr uintptr_t CompleteCharacterAppearanceRva = 0x16DCD80;
+        constexpr uintptr_t CompleteCharacterSkinPaintingRva = 0x16DCEC0;
         constexpr uintptr_t CompleteWeaponSlotRva = 0x16DD5F0;
         constexpr uintptr_t CompleteWeaponSuiteRva = 0x16DD740;
         constexpr uintptr_t CompleteWeaponPartSkinPaintingRva = 0x16DD490;
@@ -337,6 +345,16 @@ namespace
         std::vector<std::string> roleIds;
         if (!manager || !TryGetSnapshotRoleIds(snapshot, roleIds, outDetail))
             return false;
+
+        const auto findRole = [&](const std::string& roleId) -> const json*
+        {
+            for (const auto& candidate : snapshot["roles"])
+            {
+                if (candidate.is_object() && candidate.value("roleId", "") == roleId)
+                    return &candidate;
+            }
+            return nullptr;
+        };
 
         // Validate every role before changing the native cache so malformed
         // snapshots cannot be partially applied.
@@ -349,10 +367,67 @@ namespace
                 outDetail = roleId + ": " + outDetail;
                 return false;
             }
+
+            const json* const role = findRole(roleId);
+            if (!role || !role->contains("characterData") ||
+                !(*role)["characterData"].is_object())
+            {
+                outDetail = roleId + ": character appearance is missing";
+                return false;
+            }
+            const auto& character = (*role)["characterData"];
+            if (!character.contains("skinClassArray") ||
+                !character["skinClassArray"].is_array() ||
+                !character.contains("skinIdArray") ||
+                !character["skinIdArray"].is_array() ||
+                character["skinClassArray"].size() !=
+                    character["skinIdArray"].size() ||
+                character["skinIdArray"].size() > 8 ||
+                !character.contains("skinPaintingId") ||
+                !character["skinPaintingId"].is_string() ||
+                character["skinPaintingId"].get_ref<const std::string&>().size() > 128)
+            {
+                outDetail = roleId + ": character appearance is invalid";
+                return false;
+            }
+            std::unordered_set<int> appearanceClasses;
+            bool hasSkin = false;
+            for (std::size_t index = 0;
+                index < character["skinIdArray"].size(); ++index)
+            {
+                const auto& appearanceClass = character["skinClassArray"][index];
+                const auto& appearanceId = character["skinIdArray"][index];
+                if (!appearanceClass.is_number_integer() ||
+                    appearanceClass.get<int>() <= static_cast<int>(EPBSkinClass::None) ||
+                    appearanceClass.get<int>() >= static_cast<int>(EPBSkinClass::EPBSkinClass_MAX) ||
+                    !appearanceId.is_string() ||
+                    appearanceId.get_ref<const std::string&>().empty() ||
+                    appearanceId.get_ref<const std::string&>().size() > 128 ||
+                    !appearanceClasses.insert(appearanceClass.get<int>()).second)
+                {
+                    outDetail = roleId + ": character appearance entry is invalid";
+                    return false;
+                }
+                hasSkin = hasSkin || appearanceClass.get<int>() ==
+                    static_cast<int>(EPBSkinClass::Skin);
+            }
+            const bool hasSkinPainting =
+                !character["skinPaintingId"].get_ref<const std::string&>().empty();
+            if (hasSkin != hasSkinPainting)
+            {
+                outDetail = roleId + ": character skin pair is incomplete";
+                return false;
+            }
         }
 
         auto* const completeCharacterSlot = reinterpret_cast<CompleteCharacterSlotFn>(
             BaseAddress + CompleteCharacterSlotRva);
+        auto* const completeCharacterAppearance =
+            reinterpret_cast<CompleteCharacterAppearanceFn>(
+                BaseAddress + CompleteCharacterAppearanceRva);
+        auto* const completeCharacterSkinPainting =
+            reinterpret_cast<CompleteCharacterSkinPaintingFn>(
+                BaseAddress + CompleteCharacterSkinPaintingRva);
         auto* const completeWeaponSlot = reinterpret_cast<CompleteWeaponSlotFn>(
             BaseAddress + CompleteWeaponSlotRva);
         auto* const completeWeaponSuite = reinterpret_cast<CompleteWeaponSuiteFn>(
@@ -363,7 +438,8 @@ namespace
         auto* const completeWeaponOrnament =
             reinterpret_cast<CompleteWeaponOrnamentFn>(
                 BaseAddress + CompleteWeaponOrnamentRva);
-        if (!completeCharacterSlot || !completeWeaponSlot || !completeWeaponSuite ||
+        if (!completeCharacterSlot || !completeCharacterAppearance ||
+            !completeCharacterSkinPainting || !completeWeaponSlot || !completeWeaponSuite ||
             !completeWeaponPartSkinPainting || !completeWeaponOrnament)
         {
             outDetail = "native completion entry is unavailable";
@@ -372,6 +448,8 @@ namespace
 
         outSlotCount = 0;
         outSlotHash = 2166136261U;
+        outCharacterAppearanceCount = 0;
+        outCharacterAppearanceHash = 2166136261U;
         outWeaponCount = 0;
         outWeaponPartCount = 0;
         outWeaponHash = 2166136261U;
@@ -399,6 +477,51 @@ namespace
                 outSlotHash = HashText(
                     outSlotHash, LoadoutSerializer::NameToString(itemId));
                 ++outSlotCount;
+            }
+
+            const json* const role = findRole(roleId);
+            const auto& character = (*role)["characterData"];
+            std::string skinId;
+            for (std::size_t index = 0;
+                index < character["skinIdArray"].size(); ++index)
+            {
+                const int classValue = character["skinClassArray"][index].get<int>();
+                const std::string appearanceId =
+                    character["skinIdArray"][index].get<std::string>();
+                if (classValue == static_cast<int>(EPBSkinClass::Skin))
+                {
+                    skinId = appearanceId;
+                    continue;
+                }
+                completeCharacterAppearance(
+                    manager, 0,
+                    LoadoutSerializer::NameFromString(appearanceId), roleName,
+                    static_cast<EPBSkinClass>(classValue));
+                outCharacterAppearanceHash = HashText(
+                    outCharacterAppearanceHash, roleId);
+                outCharacterAppearanceHash = HashText(
+                    outCharacterAppearanceHash, std::to_string(classValue));
+                outCharacterAppearanceHash = HashText(
+                    outCharacterAppearanceHash, appearanceId);
+                ++outCharacterAppearanceCount;
+            }
+            if (!skinId.empty())
+            {
+                const std::string paintingId =
+                    character["skinPaintingId"].get<std::string>();
+                completeCharacterSkinPainting(
+                    manager, 0,
+                    LoadoutSerializer::NameFromString(skinId),
+                    LoadoutSerializer::NameFromString(paintingId), roleName);
+                outCharacterAppearanceHash = HashText(
+                    outCharacterAppearanceHash, roleId);
+                outCharacterAppearanceHash = HashText(
+                    outCharacterAppearanceHash, "skin-painting");
+                outCharacterAppearanceHash = HashText(
+                    outCharacterAppearanceHash, skinId);
+                outCharacterAppearanceHash = HashText(
+                    outCharacterAppearanceHash, paintingId);
+                ++outCharacterAppearanceCount;
             }
         }
 
@@ -665,6 +788,8 @@ namespace
         {
             int slotCount = 0;
             std::uint32_t slotHash = 0;
+            int characterAppearanceCount = 0;
+            std::uint32_t characterAppearanceHash = 0;
             int weaponCount = 0;
             int weaponPartCount = 0;
             std::uint32_t weaponHash = 0;
@@ -673,6 +798,7 @@ namespace
             {
                 if (TryApplyCustomizeSnapshot(
                     customizeManager, snapshot, slotCount, slotHash,
+                    characterAppearanceCount, characterAppearanceHash,
                     weaponCount, weaponPartCount, weaponHash, detail))
                 {
                     {
@@ -684,6 +810,10 @@ namespace
                         std::to_string(snapshot["roles"].size()) +
                         " slots=" + std::to_string(slotCount) +
                         " slot_hash=" + HashHex(slotHash) +
+                        " character_appearances=" +
+                            std::to_string(characterAppearanceCount) +
+                        " character_appearance_hash=" +
+                            HashHex(characterAppearanceHash) +
                         " weapons=" + std::to_string(weaponCount) +
                         " weapon_parts=" + std::to_string(weaponPartCount) +
                         " weapon_hash=" + HashHex(weaponHash));

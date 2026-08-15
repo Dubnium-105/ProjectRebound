@@ -221,6 +221,20 @@ func sanitizeP2PSnapshotCosmetics(definitions *DefinitionIndex, object map[strin
 				delete(object, key)
 				continue
 			}
+		case "headornament":
+			if !p2pSnapshotCosmeticHasType(
+				definitions, value, "EPBItemType::HeadAccessory",
+			) {
+				delete(object, key)
+				continue
+			}
+		case "armbadge":
+			if !p2pSnapshotCosmeticHasType(
+				definitions, value, "EPBItemType::ArmBadge",
+			) {
+				delete(object, key)
+				continue
+			}
 		}
 		switch nested := value.(type) {
 		case map[string]any:

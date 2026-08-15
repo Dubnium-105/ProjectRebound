@@ -195,6 +195,8 @@ func TestP2PRoomLoadoutsSanitizeUnverifiableSnapshotCosmetics(t *testing.T) {
 			},
 			"skinModel":"PEACE_ORIGINAL",
 			"skinPaint":"PEACE_ORIGINAL_PTOriginal",
+			"headOrnament":"HONONE",
+			"armBadge":"ABGOrlanDefault",
 			"legacy":{"skin_model":"WO-NONE","skin_paint":"PartOri"}
 		}`),
 	}}
@@ -207,7 +209,9 @@ func TestP2PRoomLoadoutsSanitizeUnverifiableSnapshotCosmetics(t *testing.T) {
 		t.Fatal(err)
 	}
 	if cleaned["skinModel"] != "PEACE_ORIGINAL" ||
-		cleaned["skinPaint"] != "PEACE_ORIGINAL_PTOriginal" {
+		cleaned["skinPaint"] != "PEACE_ORIGINAL_PTOriginal" ||
+		cleaned["headOrnament"] != "HONONE" ||
+		cleaned["armBadge"] != "ABGOrlanDefault" {
 		t.Fatalf("validated flat character cosmetics were removed: %#v", cleaned)
 	}
 	melee := cleaned["meleeWeapon"].(map[string]any)
@@ -222,6 +226,36 @@ func TestP2PRoomLoadoutsSanitizeUnverifiableSnapshotCosmetics(t *testing.T) {
 	}
 	if len(character) != 0 || len(legacy) != 0 {
 		t.Fatalf("unverifiable character cosmetics survived: character=%#v legacy=%#v", character, legacy)
+	}
+}
+
+func TestP2PRoomLoadoutsStripWrongCharacterAppearanceTypes(t *testing.T) {
+	definitions, err := LoadDefinitionIndex()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored := []Loadout{{
+		RoleID: "PEACE", Revision: 1,
+		Snapshot: json.RawMessage(`{
+			"roleId":"PEACE",
+			"primaryWeapon":"PEACE_RU-AKM",
+			"headOrnament":"ABGOrlanDefault",
+			"armBadge":"HONONE"
+		}`),
+	}}
+	valid, _ := validateP2PRoomLoadouts(definitions, stored)
+	if len(valid) != 1 {
+		t.Fatalf("valid loadouts=%#v", valid)
+	}
+	var cleaned map[string]any
+	if err := json.Unmarshal(valid[0].loadout.Snapshot, &cleaned); err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := cleaned["headOrnament"]; exists {
+		t.Fatalf("arm badge survived as head ornament: %#v", cleaned)
+	}
+	if _, exists := cleaned["armBadge"]; exists {
+		t.Fatalf("head ornament survived as arm badge: %#v", cleaned)
 	}
 }
 
