@@ -24,6 +24,18 @@ type Loadout struct {
 	UpdatedAt time.Time       `json:"updated_at"`
 }
 
+// CurrentUserRoleLoadout is the backward-compatible current-user loadout
+// representation with an additive, definition-validated weapon projection.
+// The raw protobuf archives remain private to the native TCP service.
+type CurrentUserRoleLoadout struct {
+	PlayerID      string                     `json:"player_id"`
+	RoleID        string                     `json:"role_id"`
+	Snapshot      json.RawMessage            `json:"snapshot"`
+	Revision      int64                      `json:"revision"`
+	UpdatedAt     time.Time                  `json:"updated_at"`
+	WeaponConfigs map[string]json.RawMessage `json:"weapon_configs"`
+}
+
 type P2PRoomMemberLoadouts struct {
 	SchemaVersion int                  `json:"schema_version"`
 	RoomID        string               `json:"room_id"`

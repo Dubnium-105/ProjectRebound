@@ -159,7 +159,7 @@ func (h *HTTPHandler) Profile(w http.ResponseWriter, r *http.Request) {
 
 func (h *HTTPHandler) ListLoadouts(w http.ResponseWriter, r *http.Request) {
 	principal := auth.PrincipalFromContext(r.Context())
-	items, err := h.service.ListLoadouts(r.Context(), principal.Player.ID)
+	items, err := h.service.CurrentUserLoadouts(r.Context(), principal.Player.ID)
 	if err != nil {
 		h.writeError(w, r, err)
 		return

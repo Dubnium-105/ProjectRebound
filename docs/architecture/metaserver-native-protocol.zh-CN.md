@@ -63,12 +63,14 @@ uint32_be payload_length | protobuf RequestWrapper payload
 OwnedItems、PersistentUser 或 `PBFieldModManager + 0x98`，也不轮询或维护 archive 镜像。
 运行时追踪已确认：本构建能收到有效的 `GetPlayerArchiveV2`，但不会把响应分派到菜单
 `PBCustomizeManager` 缓存或 `ClientInitFieldMod`。因此客户端只保留一个最小兼容桥：每个
-本地玩家生命周期经认证读取一次当前用户配装；对每个 `PBCustomizeManager`，逐角色/槽位
-只调用一次当前版本固定的原生角色槽位完成入口；对每个本地 `APBPlayerState`，只调用一次
-`ClientInitFieldMod`。完成入口由游戏原生代码更新缓存并广播委托；Payload 不直接写
-manager map；唯一的完成码改写是上文路径限定的已持久化 sentinel 策略。角色配额从当前
-运行构建的角色定义表读取。
-`-NativeArchiveOnly` 会禁用这两种调用，使客户端保持完全只读用于诊断。
+本地玩家生命周期经认证读取一次当前用户配装。该响应为每个角色附加最多两份经定义校验、
+已解码的 `WeaponArchiveV2` 投影，不暴露数据库中的原始 protobuf。对每个
+`PBCustomizeManager`，Payload 逐角色/槽位调用一次当前版本固定的原生角色槽位完成入口，
+并将投影中的武器配件槽、武器套装、配件涂装及武器挂件分别送入对应的原生完成入口；对每个
+本地 `APBPlayerState` 只调用一次 `ClientInitFieldMod`。这些完成入口由游戏原生代码更新缓存
+并广播委托；Payload 不直接写 manager map；唯一的完成码改写是上文路径限定的已持久化
+sentinel 策略。角色配额从当前运行构建的角色定义表读取。`-NativeArchiveOnly` 会禁用这两种
+调用，使客户端保持完全只读用于诊断。
 
 服务端还可使用 `-NativeArchiveOnly`，或分别以 `=0` 禁用 `-LoadoutBaselineBridge`、
 `-LoadoutPreOrderIntercept`、`-LoadoutConfirmDeferral`、`-LoadoutSpawnBridge`，逐项收缩到

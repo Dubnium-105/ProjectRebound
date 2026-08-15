@@ -5225,6 +5225,12 @@ export interface components {
             snapshot: {
                 [key: string]: unknown;
             };
+            /** @description Optional decoded WeaponArchiveV2 projections keyed by selected weapon ID; present on current-user list responses. */
+            weapon_configs?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
             /** Format: int64 */
             revision: number;
             /** Format: date-time */

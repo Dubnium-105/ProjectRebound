@@ -7501,6 +7501,13 @@ components:
           type: object
           additionalProperties: true
           description: Canonical definition-validated JSON snapshot.
+        weapon_configs:
+          type: object
+          maxProperties: 2
+          additionalProperties:
+            type: object
+            additionalProperties: true
+          description: Optional decoded WeaponArchiveV2 projections keyed by selected weapon ID; present on current-user list responses.
         revision: {type: integer, format: int64, minimum: 1}
         updated_at: {type: string, format: date-time}
     MetaLoadoutUpdateRequest:

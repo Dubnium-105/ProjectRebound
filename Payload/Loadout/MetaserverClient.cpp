@@ -388,13 +388,26 @@ namespace LoadoutMetaserver
                         return result;
                     }
 
-                    // The player list endpoint intentionally omits the large
-                    // WeaponArchiveV2 documents. Supply definition-only
-                    // archives for the two selected IDs; the native game
-                    // archive remains authoritative for their detailed parts.
-                    nlohmann::json definitionWeapons = nlohmann::json::object();
+                    // New servers add definition-validated WeaponArchiveV2
+                    // projections to the existing response. Keep the
+                    // definition-only fallback for a rolling backend/client
+                    // deployment, but prefer the detailed projection whenever
+                    // it is present.
+                    nlohmann::json weaponConfigs = nlohmann::json::object();
+                    const bool hasProjectedWeapons = entry.contains("weapon_configs");
+                    if (hasProjectedWeapons)
+                    {
+                        if (!entry["weapon_configs"].is_object())
+                        {
+                            SetDtoError(result, HttpErrorCode::InvalidEnvelope,
+                                "loadout weapon_configs must be an object");
+                            return result;
+                        }
+                        weaponConfigs = entry["weapon_configs"];
+                    }
                     const auto addSelectedWeapon = [&](std::initializer_list<const char*> keys)
                     {
+                        if (hasProjectedWeapons) return;
                         for (const char* key : keys)
                         {
                             if (!entry["snapshot"].contains(key)) continue;
@@ -417,7 +430,7 @@ namespace LoadoutMetaserver
                                 }
                             }
                             if (!weaponId.empty() && weaponId != "None")
-                                definitionWeapons[weaponId] = { { "weapon_id", weaponId } };
+                                weaponConfigs[weaponId] = { { "weapon_id", weaponId } };
                             return;
                         }
                     };
@@ -427,7 +440,7 @@ namespace LoadoutMetaserver
 
                     std::string normalizeError;
                     if (!LoadoutSerializer::NormalizeMetaserverRole(
-                        entry["snapshot"], definitionWeapons, role.RoleId,
+                        entry["snapshot"], weaponConfigs, role.RoleId,
                         role.NormalizedRole, normalizeError))
                     {
                         SetDtoError(result, HttpErrorCode::InvalidEnvelope,

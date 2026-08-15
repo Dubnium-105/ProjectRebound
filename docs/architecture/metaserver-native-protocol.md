@@ -82,15 +82,19 @@ an archive mirror. Runtime tracing established that this build receives a
 valid `GetPlayerArchiveV2` response but does not dispatch it into either the
 menu `PBCustomizeManager` cache or native `ClientInitFieldMod`. As the narrow
 compatibility bridge, Payload performs one authenticated current-user loadout
-read for each local-player lifecycle. It feeds each role/slot through the
-version-pinned native character-slot completion entry exactly once per
-`PBCustomizeManager`, and invokes `ClientInitFieldMod` exactly once per local
-`APBPlayerState`. The completion entry performs the game's own cache update and
-delegate broadcasts; Payload does not write the manager map or mutate equipment
-state directly. Its only completion-code rewrite is the path-specific persisted
-sentinel policy described above. Role quotas are read from the running build's
-character definition table. `-NativeArchiveOnly` disables both calls and leaves
-all client state read-only for diagnostics.
+read for each local-player lifecycle. That response adds at most two decoded,
+definition-validated `WeaponArchiveV2` projections per role; it never exposes
+the stored raw protobuf. Payload feeds each role/slot through the version-pinned
+native character-slot completion and feeds the projected weapon part, suite,
+part-painting, and ornament values through their corresponding native
+completion entries exactly once per `PBCustomizeManager`. It invokes
+`ClientInitFieldMod` exactly once per local `APBPlayerState`. Those completion
+entries perform the game's own cache updates and delegate broadcasts; Payload
+does not write the manager map or mutate equipment state directly. Its only
+completion-code rewrite is the path-specific persisted sentinel policy
+described above. Role quotas are read from the running build's character
+definition table. `-NativeArchiveOnly` disables both calls and leaves all
+client state read-only for diagnostics.
 
 Servers can also use `-NativeArchiveOnly`, or independently disable
 `-LoadoutBaselineBridge`, `-LoadoutPreOrderIntercept`,

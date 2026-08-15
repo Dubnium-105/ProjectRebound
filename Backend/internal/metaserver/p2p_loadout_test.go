@@ -96,6 +96,46 @@ func TestP2PRoomLoadoutsProjectOnlyReferencedStructuredWeaponConfigs(t *testing.
 	}
 }
 
+func TestCurrentUserLoadoutsProjectValidatedWeaponConfigs(t *testing.T) {
+	definitions, err := LoadDefinitionIndex()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored := []Loadout{{
+		PlayerID: "p_current", RoleID: "PEACE", Revision: 7,
+		Snapshot: json.RawMessage(`{
+			"primaryWeapon":"PEACE_RU-AKM",
+			"secondaryWeapon":"PEACE_RU-APS"
+		}`),
+	}}
+	valid, weaponIDs := validateP2PRoomLoadouts(definitions, stored)
+	if len(valid) != 1 || len(weaponIDs) != 2 {
+		t.Fatalf("validated loadouts=%#v weapon IDs=%#v", valid, weaponIDs)
+	}
+	projected := buildCurrentUserRoleLoadouts(definitions, valid, nil)
+	if len(projected) != 1 || projected[0].PlayerID != "p_current" ||
+		projected[0].RoleID != "PEACE" || projected[0].Revision != 7 {
+		t.Fatalf("projected current-user loadouts=%#v", projected)
+	}
+	if len(projected[0].WeaponConfigs) != 2 {
+		t.Fatalf("weapon configs=%s", mustJSON(t, projected[0].WeaponConfigs))
+	}
+	for _, weaponID := range []string{"PEACE_RU-AKM", "PEACE_RU-APS"} {
+		var archive metaprotocol.WeaponArchiveV2
+		if err := protojson.Unmarshal(projected[0].WeaponConfigs[weaponID], &archive); err != nil {
+			t.Fatal(err)
+		}
+		if archive.GetWeaponId() != weaponID || len(archive.GetParts()) != 10 {
+			t.Fatalf("archive %s=%#v", weaponID, &archive)
+		}
+	}
+	encoded := string(mustJSON(t, projected[0]))
+	if !strings.Contains(encoded, `"weapon_configs"`) ||
+		strings.Contains(encoded, "weapon_archive_raw") {
+		t.Fatalf("current-user projection=%s", encoded)
+	}
+}
+
 func TestP2PRoomLoadoutsSkipInvalidOrRoleIncompatibleSnapshots(t *testing.T) {
 	definitions, err := LoadDefinitionIndex()
 	if err != nil {

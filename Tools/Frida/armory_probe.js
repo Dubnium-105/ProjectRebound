@@ -60,6 +60,10 @@ const SETTINGS = {
         { name: 'role_equipment', rva: 0x016DD080 },
         { name: 'weapon_skin', rva: 0x016DCEC0 },
         { name: 'badge_ornament', rva: 0x016DCD80 },
+        { name: 'weapon_ornament', rva: 0x016DD1D0 },
+        { name: 'weapon_part_skin_painting', rva: 0x016DD490 },
+        { name: 'weapon_part_slot', rva: 0x016DD5F0 },
+        { name: 'weapon_suite', rva: 0x016DD740 },
     ],
     maxObjects: 2_000_000,
     maxOwnedItems: 250_000,
@@ -377,6 +381,9 @@ function parsePlayerArchive(payload) {
     const roles = [];
     for (const encodedRole of allBytes(fields, 1)) {
         const role = parseProto(encodedRole);
+        const weaponArchive = firstBytes(role, 8);
+        const skinToken = firstBytes(role, 9);
+        const ornament = firstBytes(role, 10);
         roles.push({
             role_id: firstString(role, 1),
             left_pylon: firstString(role, 2),
@@ -385,6 +392,12 @@ function parsePlayerArchive(payload) {
             melee_weapon: firstString(role, 5),
             primary_weapon: firstString(role, 6),
             second_weapon: firstString(role, 7),
+            weapon_archive_hex_chars: weaponArchive.length,
+            weapon_archive_hash: hashBytes(weaponArchive),
+            skin_token_chars: skinToken.length,
+            skin_token_hash: hashBytes(skinToken),
+            ornament_chars: ornament.length,
+            ornament_hash: hashBytes(ornament),
             unknown_fields: Array.from(role.keys())
                 .filter((number) => number > 7)
                 .sort((left, right) => left - right),

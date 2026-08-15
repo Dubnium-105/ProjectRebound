@@ -312,11 +312,26 @@ namespace
         const json& snapshot,
         int& outSlotCount,
         std::uint32_t& outSlotHash,
+        int& outWeaponCount,
+        int& outWeaponPartCount,
+        std::uint32_t& outWeaponHash,
         std::string& outDetail)
     {
         using CompleteCharacterSlotFn = void(__fastcall*)(
             UPBCustomizeManager*, int32, FName, FName, EPBCharacterSlotType);
+        using CompleteWeaponSlotFn = void(__fastcall*)(
+            UPBCustomizeManager*, int32, FName, FName, FName, EPBPartSlotType);
+        using CompleteWeaponSuiteFn = void(__fastcall*)(
+            UPBCustomizeManager*, int32, FName, FName, FName, FName);
+        using CompleteWeaponPartSkinPaintingFn = void(__fastcall*)(
+            UPBCustomizeManager*, int32, FName, FName, FName, FName, FName);
+        using CompleteWeaponOrnamentFn = void(__fastcall*)(
+            UPBCustomizeManager*, int32, FName, FName, FName);
         constexpr uintptr_t CompleteCharacterSlotRva = 0x16DD080;
+        constexpr uintptr_t CompleteWeaponSlotRva = 0x16DD5F0;
+        constexpr uintptr_t CompleteWeaponSuiteRva = 0x16DD740;
+        constexpr uintptr_t CompleteWeaponPartSkinPaintingRva = 0x16DD490;
+        constexpr uintptr_t CompleteWeaponOrnamentRva = 0x16DD1D0;
 
         std::vector<std::string> roleIds;
         if (!manager || !TryGetSnapshotRoleIds(snapshot, roleIds, outDetail))
@@ -337,7 +352,18 @@ namespace
 
         auto* const completeCharacterSlot = reinterpret_cast<CompleteCharacterSlotFn>(
             BaseAddress + CompleteCharacterSlotRva);
-        if (!completeCharacterSlot)
+        auto* const completeWeaponSlot = reinterpret_cast<CompleteWeaponSlotFn>(
+            BaseAddress + CompleteWeaponSlotRva);
+        auto* const completeWeaponSuite = reinterpret_cast<CompleteWeaponSuiteFn>(
+            BaseAddress + CompleteWeaponSuiteRva);
+        auto* const completeWeaponPartSkinPainting =
+            reinterpret_cast<CompleteWeaponPartSkinPaintingFn>(
+                BaseAddress + CompleteWeaponPartSkinPaintingRva);
+        auto* const completeWeaponOrnament =
+            reinterpret_cast<CompleteWeaponOrnamentFn>(
+                BaseAddress + CompleteWeaponOrnamentRva);
+        if (!completeCharacterSlot || !completeWeaponSlot || !completeWeaponSuite ||
+            !completeWeaponPartSkinPainting || !completeWeaponOrnament)
         {
             outDetail = "native completion entry is unavailable";
             return false;
@@ -345,6 +371,9 @@ namespace
 
         outSlotCount = 0;
         outSlotHash = 2166136261U;
+        outWeaponCount = 0;
+        outWeaponPartCount = 0;
+        outWeaponHash = 2166136261U;
         ScopedClientProcessEventSuppression suppressProcessEventHooks;
         for (const std::string& roleId : roleIds)
         {
@@ -371,7 +400,135 @@ namespace
                 ++outSlotCount;
             }
         }
-        outDetail = "native customize completion applied";
+
+        // This build receives GetPlayerArchiveV2 but does not dispatch field 8
+        // into PBCustomizeManager. Reuse the manager's own success completions
+        // to populate its weapon cache; these paths perform the native map
+        // updates and delegate broadcasts without direct memory writes.
+        for (const std::string& roleId : roleIds)
+        {
+            const json* role = nullptr;
+            for (const auto& candidate : snapshot["roles"])
+            {
+                if (candidate.is_object() && candidate.value("roleId", "") == roleId)
+                {
+                    role = &candidate;
+                    break;
+                }
+            }
+            if (!role || !role->contains("weaponConfigs") ||
+                !(*role)["weaponConfigs"].is_object())
+            {
+                outDetail = roleId + ": weapon config map is missing";
+                return false;
+            }
+
+            const FName roleName = LoadoutSerializer::NameFromString(roleId);
+            for (const auto& [mapWeaponId, weapon] : (*role)["weaponConfigs"].items())
+            {
+                if (!weapon.is_object())
+                {
+                    outDetail = roleId + ": weapon config is invalid";
+                    return false;
+                }
+                const std::string weaponId = weapon.value("weaponId", "");
+                if (weaponId.empty() || weaponId != mapWeaponId ||
+                    !weapon.contains("parts") || !weapon["parts"].is_array())
+                {
+                    outDetail = roleId + ": weapon config identity is invalid";
+                    return false;
+                }
+
+                // A definition-only config is the rolling-deployment fallback
+                // used with older servers. It must not replace a native cache.
+                if (weapon["parts"].empty())
+                    continue;
+
+                const FName weaponName = LoadoutSerializer::NameFromString(weaponId);
+                outWeaponHash = HashText(outWeaponHash, roleId);
+                outWeaponHash = HashText(outWeaponHash, weaponId);
+
+                for (const auto& part : weapon["parts"])
+                {
+                    if (!part.is_object())
+                    {
+                        outDetail = roleId + ": weapon part is invalid";
+                        return false;
+                    }
+                    const int slotValue = part.value("slotType", 0);
+                    const std::string partId = part.value("weaponPartId", "");
+                    if (slotValue <= static_cast<int>(EPBPartSlotType::UnexistedSlot) ||
+                        slotValue >= static_cast<int>(EPBPartSlotType::Max) ||
+                        slotValue == static_cast<int>(EPBPartSlotType::SlotTypeMax) ||
+                        partId.empty())
+                    {
+                        outDetail = roleId + ": weapon part identity is invalid";
+                        return false;
+                    }
+                    completeWeaponSlot(
+                        manager, 0, LoadoutSerializer::NameFromString(partId),
+                        roleName, weaponName,
+                        static_cast<EPBPartSlotType>(slotValue));
+                    outWeaponHash = HashText(outWeaponHash, std::to_string(slotValue));
+                    outWeaponHash = HashText(outWeaponHash, partId);
+                    ++outWeaponPartCount;
+                }
+
+                const std::string suiteId = weapon.value("weaponSuitId", "");
+                const std::string suitePaintingId =
+                    weapon.value("weaponSuitPaintingId", "");
+                if (!suiteId.empty() || !suitePaintingId.empty())
+                {
+                    if (suiteId.empty() || suitePaintingId.empty())
+                    {
+                        outDetail = roleId + ": weapon suite pair is incomplete";
+                        return false;
+                    }
+                    completeWeaponSuite(
+                        manager, 0,
+                        LoadoutSerializer::NameFromString(suiteId),
+                        LoadoutSerializer::NameFromString(suitePaintingId),
+                        roleName, weaponName);
+                    outWeaponHash = HashText(outWeaponHash, suiteId);
+                    outWeaponHash = HashText(outWeaponHash, suitePaintingId);
+                }
+
+                for (const auto& part : weapon["parts"])
+                {
+                    const std::string partId = part.value("weaponPartId", "");
+                    const std::string skinId = part.value("weaponPartSkinId", "");
+                    const std::string paintingId =
+                        part.value("weaponPartSkinPaintingId", "");
+                    if (skinId.empty() && paintingId.empty())
+                        continue;
+                    if (skinId.empty() || paintingId.empty())
+                    {
+                        outDetail = roleId + ": weapon part appearance pair is incomplete";
+                        return false;
+                    }
+                    completeWeaponPartSkinPainting(
+                        manager, 0,
+                        LoadoutSerializer::NameFromString(skinId),
+                        LoadoutSerializer::NameFromString(paintingId),
+                        roleName, weaponName,
+                        LoadoutSerializer::NameFromString(partId));
+                    outWeaponHash = HashText(outWeaponHash, skinId);
+                    outWeaponHash = HashText(outWeaponHash, paintingId);
+                }
+
+                const std::string ornamentId = weapon.value("ornamentId", "");
+                if (!ornamentId.empty())
+                {
+                    completeWeaponOrnament(
+                        manager, 0,
+                        LoadoutSerializer::NameFromString(ornamentId),
+                        roleName, weaponName);
+                    outWeaponHash = HashText(outWeaponHash, ornamentId);
+                }
+                ++outWeaponCount;
+            }
+        }
+        outDetail = "native customize and weapon archive completions applied";
         return true;
     }
 
@@ -495,11 +652,15 @@ namespace
         {
             int slotCount = 0;
             std::uint32_t slotHash = 0;
+            int weaponCount = 0;
+            int weaponPartCount = 0;
+            std::uint32_t weaponHash = 0;
             std::string detail;
             try
             {
                 if (TryApplyCustomizeSnapshot(
-                    customizeManager, snapshot, slotCount, slotHash, detail))
+                    customizeManager, snapshot, slotCount, slotHash,
+                    weaponCount, weaponPartCount, weaponHash, detail))
                 {
                     {
                         std::lock_guard lock(nativeLoadoutMutex);
@@ -509,7 +670,10 @@ namespace
                     ClientLog("[LOADOUT] Native Customize completion applied: roles=" +
                         std::to_string(snapshot["roles"].size()) +
                         " slots=" + std::to_string(slotCount) +
-                        " slot_hash=" + HashHex(slotHash));
+                        " slot_hash=" + HashHex(slotHash) +
+                        " weapons=" + std::to_string(weaponCount) +
+                        " weapon_parts=" + std::to_string(weaponPartCount) +
+                        " weapon_hash=" + HashHex(weaponHash));
                 }
                 else
                 {

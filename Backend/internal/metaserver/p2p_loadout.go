@@ -31,6 +31,25 @@ type validatedP2PRoomLoadout struct {
 	weaponIDs []string
 }
 
+func (s *Service) CurrentUserLoadouts(
+	ctx context.Context,
+	playerID string,
+) ([]CurrentUserRoleLoadout, error) {
+	if s.definitions == nil {
+		return nil, internalError(nil)
+	}
+	stored, err := s.repository.ListLoadouts(ctx, playerID)
+	if err != nil {
+		return nil, internalError(err)
+	}
+	valid, allWeaponIDs := validateP2PRoomLoadouts(s.definitions, stored)
+	archives, err := s.repository.GetWeaponArchives(ctx, playerID, allWeaponIDs)
+	if err != nil {
+		return nil, err
+	}
+	return buildCurrentUserRoleLoadouts(s.definitions, valid, archives), nil
+}
+
 func (s *Service) P2PRoomMemberLoadouts(
 	ctx context.Context,
 	requesterPlayerID, roomID, targetPlayerID string,
@@ -76,19 +95,10 @@ func buildP2PRoomRoleLoadouts(
 ) []P2PRoomRoleLoadout {
 	result := make([]P2PRoomRoleLoadout, 0, len(valid))
 	for _, item := range valid {
-		configs := make(map[string]json.RawMessage, len(item.weaponIDs))
-		complete := true
-		for _, weaponID := range item.weaponIDs {
-			config, ok := p2pStructuredWeaponConfig(
-				definitions, weaponID, archives[weaponID],
-			)
-			if !ok {
-				complete = false
-				break
-			}
-			configs[weaponID] = config
-		}
-		if !complete {
+		configs, ok := buildStructuredWeaponConfigs(
+			definitions, item.weaponIDs, archives,
+		)
+		if !ok {
 			continue
 		}
 		result = append(result, P2PRoomRoleLoadout{
@@ -98,6 +108,47 @@ func buildP2PRoomRoleLoadouts(
 		})
 	}
 	return result
+}
+
+func buildCurrentUserRoleLoadouts(
+	definitions *DefinitionIndex,
+	valid []validatedP2PRoomLoadout,
+	archives map[string][]byte,
+) []CurrentUserRoleLoadout {
+	result := make([]CurrentUserRoleLoadout, 0, len(valid))
+	for _, item := range valid {
+		configs, ok := buildStructuredWeaponConfigs(
+			definitions, item.weaponIDs, archives,
+		)
+		if !ok {
+			continue
+		}
+		result = append(result, CurrentUserRoleLoadout{
+			PlayerID: item.loadout.PlayerID, RoleID: item.loadout.RoleID,
+			Snapshot: append(json.RawMessage(nil), item.loadout.Snapshot...),
+			Revision: item.loadout.Revision, UpdatedAt: item.loadout.UpdatedAt,
+			WeaponConfigs: configs,
+		})
+	}
+	return result
+}
+
+func buildStructuredWeaponConfigs(
+	definitions *DefinitionIndex,
+	weaponIDs []string,
+	archives map[string][]byte,
+) (map[string]json.RawMessage, bool) {
+	configs := make(map[string]json.RawMessage, len(weaponIDs))
+	for _, weaponID := range weaponIDs {
+		config, ok := p2pStructuredWeaponConfig(
+			definitions, weaponID, archives[weaponID],
+		)
+		if !ok {
+			return nil, false
+		}
+		configs[weaponID] = config
+	}
+	return configs, true
 }
 
 func validateP2PRoomLoadouts(
