@@ -1030,12 +1030,6 @@ function fnameToString(address) {
     return value;
 }
 
-function fnameValueToString(value) {
-    const storage = Memory.alloc(Process.pointerSize);
-    storage.writePointer(value);
-    return fnameToString(storage);
-}
-
 function objectName(object) {
     return fnameToString(object.add(SETTINGS.object.name));
 }
