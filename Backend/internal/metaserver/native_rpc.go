@@ -261,25 +261,30 @@ func validateNativeWeaponArchiveUpdate(
 }
 
 func (s *TCPServer) queryAssets() ([]byte, error) {
-	itemIDs := s.service.definitions.ItemIDs()
-	response := &metaprotocol.QueryAssetsResponse{
-		// Boundary validates the declared collection size before committing
-		// ItemDatas to PBArmoryManager.OwnedItems. A mismatched value leaves the
-		// manager on its 268-item built-in fallback even though the rows decode.
-		ItemCount: int32(len(itemIDs)),
-		ItemDatas: make([]*metaprotocol.ItemData, 0, len(itemIDs)),
-	}
-	for _, itemID := range itemIDs {
-		response.ItemDatas = append(response.ItemDatas, &metaprotocol.ItemData{
-			// The pinned client completion handler copies only ItemId into the
-			// native ownership array. Leaving the three unused scalar fields at
-			// their protobuf defaults saves six wire bytes per row, which keeps
-			// the complete definition set inside the client's five-second async
-			// task deadline without changing ownership semantics.
-			ItemId: itemID,
-		})
-	}
-	return proto.Marshal(response)
+	s.queryAssetsOnce.Do(func() {
+		itemIDs := s.service.definitions.ItemIDs()
+		response := &metaprotocol.QueryAssetsResponse{
+			// Boundary validates the declared collection size before committing
+			// ItemDatas to PBArmoryManager.OwnedItems. A mismatched value leaves the
+			// manager on its 268-item built-in fallback even though the rows decode.
+			ItemCount: int32(len(itemIDs)),
+			ItemDatas: make([]*metaprotocol.ItemData, 0, len(itemIDs)),
+		}
+		for _, itemID := range itemIDs {
+			response.ItemDatas = append(response.ItemDatas, &metaprotocol.ItemData{
+				// The pinned client completion handler copies only ItemId into the
+				// native ownership array. Leaving the three unused scalar fields at
+				// their protobuf defaults saves six wire bytes per row, which keeps
+				// the complete definition set inside the client's five-second async
+				// task deadline without changing ownership semantics.
+				ItemId: itemID,
+			})
+		}
+		s.queryAssetsRowCount = len(itemIDs)
+		s.queryAssetsSetHash = nativeStringSetDigest(itemIDs)
+		s.queryAssetsPayload, s.queryAssetsErr = proto.Marshal(response)
+	})
+	return s.queryAssetsPayload, s.queryAssetsErr
 }
 
 func (s *TCPServer) queryCurrency(

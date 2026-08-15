@@ -121,6 +121,12 @@ type TCPServer struct {
 	metrics *MetaMetrics
 	logger  *slog.Logger
 
+	queryAssetsOnce     sync.Once
+	queryAssetsPayload  []byte
+	queryAssetsErr      error
+	queryAssetsRowCount int
+	queryAssetsSetHash  string
+
 	mu        sync.Mutex
 	byIP      map[string]*connectionRate
 	rpcRate   map[string]*connectionRate
@@ -505,22 +511,12 @@ func (s *TCPServer) logNativeAssetsResponse(messageID int32, payload []byte) {
 	if s.logger == nil {
 		return
 	}
-	var response metaprotocol.QueryAssetsResponse
-	if err := proto.Unmarshal(payload, &response); err != nil {
-		s.logger.Warn("MetaServer native ownership response could not be summarized",
-			"message_id", messageID, "error", err)
-		return
-	}
-	itemIDs := make([]string, 0, len(response.GetItemDatas()))
-	for _, item := range response.GetItemDatas() {
-		itemIDs = append(itemIDs, item.GetItemId())
-	}
 	s.logger.Info("MetaServer native ownership response",
 		"message_id", messageID,
 		"stage", "query_assets",
-		"declared_item_count", response.GetItemCount(),
-		"row_count", len(response.GetItemDatas()),
-		"item_set_hash", nativeStringSetDigest(itemIDs),
+		"declared_item_count", s.queryAssetsRowCount,
+		"row_count", s.queryAssetsRowCount,
+		"item_set_hash", s.queryAssetsSetHash,
 		"payload_bytes", len(payload))
 }
 

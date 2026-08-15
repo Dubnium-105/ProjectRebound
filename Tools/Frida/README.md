@@ -88,7 +88,9 @@ response completed as `result_code=-1` with zero committed rows at 5.03
 seconds, even after the heavyweight decoder was removed. MetaServer therefore
 keeps every deduplicated ItemId and omits the unused default-valued scalars,
 reducing the deterministic payload to 1,372,855 bytes without changing the
-ownership set.
+ownership set. The immutable serialized response and its observability digest
+are cached once, so subsequent armory entries do not rebuild, unmarshal, or
+rehash all 40,462 rows on the synchronous response path.
 
 `logic_server_armory_probe.js` is the read-only probe for that final native
 path. It records the concrete LogicServer virtual targets, QueryAssets delegate

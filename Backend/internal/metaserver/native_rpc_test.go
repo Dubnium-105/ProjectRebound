@@ -65,6 +65,17 @@ func TestQueryAssetsUsesPinnedDefinitions(t *testing.T) {
 		t.Fatalf("QueryAssets optimized-schema protobuf drifted: got %s, want %s",
 			got, capturedSchemaGolden)
 	}
+	cached, err := server.queryAssets()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cached) == 0 || &cached[0] != &raw[0] {
+		t.Fatal("query assets did not reuse its immutable serialized response")
+	}
+	if server.queryAssetsRowCount != 40462 || server.queryAssetsSetHash == "" {
+		t.Fatalf("query assets summary was not cached: rows=%d hash=%q",
+			server.queryAssetsRowCount, server.queryAssetsSetHash)
+	}
 	for index := 1; index < len(response.GetItemDatas()); index++ {
 		if response.GetItemDatas()[index-1].GetItemId() >=
 			response.GetItemDatas()[index].GetItemId() {
