@@ -1,6 +1,7 @@
 package metaserver
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"net"
@@ -23,6 +24,15 @@ func TestDecodeRequestWrapper(t *testing.T) {
 	}
 	if got.MessageID != 42 || got.RPCPath != "/party.party/Create" || len(got.Message) != 3 {
 		t.Fatalf("unexpected wrapper: %+v", got)
+	}
+}
+
+func TestEncodeStatusMessagePreservesExplicitZero(t *testing.T) {
+	if got := EncodeStatusMessage(0); !bytes.Equal(got, []byte{0x08, 0x00}) {
+		t.Fatalf("success status wire = %x, want 0800", got)
+	}
+	if got := EncodeStatusMessage(404); !bytes.Equal(got, []byte{0x08, 0x94, 0x03}) {
+		t.Fatalf("nonzero status wire = %x, want 089403", got)
 	}
 }
 

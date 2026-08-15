@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	metaprotocol "github.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver/protocol"
+	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -48,6 +49,10 @@ func EncodeResponseWrapper(response ResponseWrapper) []byte {
 }
 
 func EncodeStatusMessage(status int32) []byte {
-	output, _ := proto.Marshal(&metaprotocol.StatusResponse{StatusCode: status})
-	return output
+	// Boundary distinguishes an explicit success field (08 00) from an empty
+	// response. Generated proto3 serializers omit scalar zero values, which
+	// leaves the client's async completion code at its initial 404 and makes a
+	// successfully persisted equipment change surface as "UNKNOWN FAILURE".
+	output := protowire.AppendTag(nil, 1, protowire.VarintType)
+	return protowire.AppendVarint(output, uint64(status))
 }

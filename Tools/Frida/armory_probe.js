@@ -275,6 +275,16 @@ function parseWrapper(bytes, direction) {
     };
 }
 
+function parseStatusResponse(payload) {
+    const fields = parseProto(payload);
+    const values = fields.get(1) || [];
+    const status = values.find((entry) => entry.wire === 0);
+    return {
+        status_field_present: status !== undefined,
+        status_code: status === undefined ? null : status.value | 0,
+    };
+}
+
 function parseQueryAssets(payload) {
     const fields = parseProto(payload);
     const itemRows = allBytes(fields, 2);
@@ -523,6 +533,9 @@ function handleFrame(socket, direction, frame) {
         } else if (/GetDataStatisticsInfo/i.test(rpcPath)) {
             emit('progression.data_statistics', Object.assign(
                 {}, response, parseDataStatistics(wrapper.payload)));
+        } else if (/Update(Role|Weapon)ArchiveV2/i.test(rpcPath)) {
+            emit('rpc.archive_update_response', Object.assign(
+                {}, response, parseStatusResponse(wrapper.payload)));
         }
     } catch (error) {
         emit('rpc.payload_parse_error', Object.assign({}, response, { message: String(error) }));

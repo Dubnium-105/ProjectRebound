@@ -313,6 +313,12 @@ def decode_captured_payload(rpc_path: str, direction: str, data: bytes) -> dict[
             "role_id": proto_text(fields, 1),
             "weapon_archive_bytes": len(proto_bytes(fields, 3)),
         }
+    if method in {"UpdateRoleArchiveV2", "UpdateWeaponArchiveV2"} and direction == "recv":
+        return {
+            "kind": "archive_update_response",
+            "status_field_present": 1 in fields,
+            "status_code": proto_varint(fields, 1) if 1 in fields else None,
+        }
     return {"kind": "unclassified", "top_level_fields": sorted(fields)}
 
 

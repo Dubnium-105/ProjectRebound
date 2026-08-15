@@ -65,6 +65,11 @@ Asset and loadout RPCs preserve the captured wire contract:
   by pinned item type first, then uses the observed operation only to choose
   between primary/secondary weapons or left/right pods. A skin-only update
   never clears an equipment slot.
+- Successful `UpdateRoleArchiveV2` and `UpdateWeaponArchiveV2` responses must
+  contain the explicit status field bytes `08 00`. An empty proto3 message is
+  not equivalent for this client: it leaves the native async task's initial
+  completion code at 404 and the UI reports `UNKNOWN FAILURE` even though the
+  database update succeeded.
 
 The active Payload constructs the server-authoritative `LoadoutManager` only
 in dedicated-server processes. The client never writes OwnedItems,
