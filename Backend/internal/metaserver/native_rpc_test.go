@@ -108,7 +108,7 @@ func TestNativeProgressionStatisticsUseExactClientKeys(t *testing.T) {
 		}
 	}
 	digest := sha256.Sum256(raw)
-	const reverseEngineeredWireGolden = "c3d7026906d2ce7e50fa667c600cc420967d14de5cf1aeee43a489170094b5b4"
+	const reverseEngineeredWireGolden = "6938b07f1ddc2d334d89468c14eff10e10c9c629645269df62f5c2089d567fae"
 	if got := hex.EncodeToString(digest[:]); got != reverseEngineeredWireGolden {
 		t.Fatalf("progression protobuf drifted: got %s, want %s",
 			got, reverseEngineeredWireGolden)

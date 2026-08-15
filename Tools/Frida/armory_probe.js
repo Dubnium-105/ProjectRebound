@@ -391,10 +391,9 @@ function parseDataStatistics(payload) {
     const datapoints = [];
     for (const encoded of allBytes(fields, 2)) {
         const point = parseProto(encoded);
-        const rawValue = firstVarint(point, 2, 0);
         datapoints.push({
             key: firstString(point, 1),
-            value: (rawValue >>> 1) ^ -(rawValue & 1),
+            value: firstVarint(point, 2, 0) | 0,
         });
     }
     return {

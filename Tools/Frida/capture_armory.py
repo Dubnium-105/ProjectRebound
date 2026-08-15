@@ -289,11 +289,10 @@ def decode_captured_payload(rpc_path: str, direction: str, data: bytes) -> dict[
         datapoints: list[dict[str, Any]] = []
         for encoded_datapoint in proto_repeated_bytes(fields, 2):
             datapoint = parse_proto(encoded_datapoint)
-            raw_value = proto_varint(datapoint, 2)
             datapoints.append(
                 {
                     "key": proto_text(datapoint, 1),
-                    "value": (raw_value >> 1) ^ -(raw_value & 1),
+                    "value": proto_varint(datapoint, 2),
                 }
             )
         return {

@@ -27,7 +27,10 @@ message StatusResponse {
 
 message PlayerDatapoint {
   string key = 1;
-  sint32 value = 2;
+  // The shipped client consumes this as a plain int32. The upstream mirror
+  // labels it sint32, but a controlled native write probe proved that ZigZag
+  // encoding doubles every value before UPBCareerManager stores it.
+  int32 value = 2;
 }
 
 message GetDataStatisticsInfoResponse {

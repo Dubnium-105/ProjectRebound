@@ -198,9 +198,12 @@ func (x *StatusResponse) GetStatusCode() int32 {
 }
 
 type PlayerDatapoint struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Value         int32                  `protobuf:"zigzag32,2,opt,name=value,proto3" json:"value,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Key   string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// The shipped client consumes this as a plain int32. The upstream mirror
+	// labels it sint32, but a controlled native write probe proved that ZigZag
+	// encoding doubles every value before UPBCareerManager stores it.
+	Value         int32 `protobuf:"varint,2,opt,name=value,proto3" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2045,7 +2048,7 @@ const file_metaserver_proto_rawDesc = "" +
 	"statusCode\"9\n" +
 	"\x0fPlayerDatapoint\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x11R\x05value\"\x89\x01\n" +
+	"\x05value\x18\x02 \x01(\x05R\x05value\"\x89\x01\n" +
 	"\x1dGetDataStatisticsInfoResponse\x12\x1f\n" +
 	"\vstatus_code\x18\x01 \x01(\x05R\n" +
 	"statusCode\x12G\n" +
