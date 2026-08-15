@@ -1353,7 +1353,7 @@ function considerObject(object) {
         }
         return;
     }
-    if (typeName === 'PBFieldModManager') {
+    if (typeName.startsWith('PBFieldModManager')) {
         const name = objectName(object);
         if (!name.startsWith('Default__')) {
             const changed = fieldModManager === null || !fieldModManager.equals(object);

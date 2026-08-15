@@ -38,11 +38,11 @@ uint32_be payload_length | protobuf RequestWrapper payload
 
 资产与配装 RPC 严格保持已捕获的 wire contract：
 
-- `QueryAssets` 顶层使用已捕获确认的成功值 `ItemCount=1`，并将基础玩法物品和外观容器
-  各返回一次。默认 `META_NATIVE_OWNERSHIP_MODE=compact` 会排除 37,721 条生成式
-  `WeaponSlotPainting`、`WeaponSuitePainting` 和 `CharacterSuitePainting` 应用实例，使固定
-  客户端能在一次性的 FieldMod 档案初始化前完成所有权写入。设置为 `full` 可在受控诊断时
-  恢复全部 40,462 行。每行其余标量元数据保持 protobuf 默认值，因为原生所有权只比较物品 ID。
+- `QueryAssets` 顶层使用已捕获确认的成功值 `ItemCount=1`。默认
+  `META_NATIVE_OWNERSHIP_MODE=full` 返回固定 `DT_ItemType` 中全部 40,462 行，覆盖基础物品
+  以及生成式槽位、武器套装和角色套装涂装应用。受控诊断可设置为 `compact`，排除 37,721 条
+  生成式涂装应用并将响应从约 1.31 MiB 降至 52,854 字节。每行其余标量元数据保持 protobuf
+  默认值，因为原生所有权只比较物品 ID。
 - 当前固定版本 EXE 的内置描述符确认 `RoleArchiveDataV2` 只有 1-7 号字段：角色 ID、
   左/右挂载、机动模块、近战、主武器和副武器。`GetPlayerArchiveV2` 不再发送 7 号以上
   的字段。武器部件档案继续由 `UpdateWeaponArchiveV2` 独立持久化，不嵌入角色条目。

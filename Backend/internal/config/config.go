@@ -180,10 +180,10 @@ type MetaServerConfig struct {
 	// levels; keeping it separate from the 70-level player progression prevents
 	// the native CareerManager from resetting operator rewards to level zero.
 	NativeCharacterLevel int `yaml:"native_character_level"`
-	// NativeOwnershipMode controls the QueryAssets ownership set. "compact"
-	// excludes generated per-slot/suite painting instances that make the pinned
-	// client miss its one-shot FieldMod initialization window. "full" remains a
-	// diagnostic rollback mode for comparing the complete DT_ItemType table.
+	// NativeOwnershipMode controls the QueryAssets ownership set. "full" is the
+	// production mode and includes every pinned DT_ItemType row. "compact"
+	// remains available only for controlled diagnostics that exclude generated
+	// per-slot/suite painting instances.
 	NativeOwnershipMode         string `yaml:"native_ownership_mode"`
 	DevelopmentLegacyLoadoutAPI bool   `yaml:"development_legacy_loadout_api"`
 }
@@ -415,7 +415,7 @@ var Defaults = Config{
 		RelayFreshnessSeconds:      45,
 		NativePlayerLevel:          70,
 		NativeCharacterLevel:       30,
-		NativeOwnershipMode:        "compact",
+		NativeOwnershipMode:        "full",
 	},
 	P2PRoom: P2PRoomConfig{
 		HeartbeatIntervalSeconds: 15,

@@ -21,7 +21,7 @@ func TestQueryAssetsUsesPinnedDefinitions(t *testing.T) {
 	server := NewTCPServer(
 		config.MetaServerConfig{}, &Service{definitions: definitions}, nil, nil, nil,
 	)
-	if len(server.queryAssetsPayload) == 0 || server.queryAssetsRowCount != 2741 {
+	if len(server.queryAssetsPayload) == 0 || server.queryAssetsRowCount != 40462 {
 		t.Fatal("query assets response was not prepared during server construction")
 	}
 	raw, err := server.queryAssets()
@@ -36,9 +36,9 @@ func TestQueryAssetsUsesPinnedDefinitions(t *testing.T) {
 		t.Fatalf("native query result=%d, want captured success value 1",
 			response.GetItemCount())
 	}
-	if len(response.GetItemDatas()) != len(definitions.NativeOwnershipItemIDs(false)) {
-		t.Fatalf("item data count=%d compact definitions=%d",
-			len(response.GetItemDatas()), len(definitions.NativeOwnershipItemIDs(false)))
+	if len(response.GetItemDatas()) != len(definitions.NativeOwnershipItemIDs(true)) {
+		t.Fatalf("item data count=%d full definitions=%d",
+			len(response.GetItemDatas()), len(definitions.NativeOwnershipItemIDs(true)))
 	}
 	seen := make(map[string]struct{}, len(response.GetItemDatas()))
 	for _, item := range response.GetItemDatas() {
@@ -53,20 +53,20 @@ func TestQueryAssetsUsesPinnedDefinitions(t *testing.T) {
 			t.Fatalf("query assets emitted unused scalar fields for %q: %#v", item.GetItemId(), item)
 		}
 	}
-	for _, itemID := range definitions.NativeOwnershipItemIDs(false) {
+	for _, itemID := range definitions.NativeOwnershipItemIDs(true) {
 		if _, ok := seen[itemID]; !ok {
 			t.Fatalf("query assets omitted pinned item %q", itemID)
 		}
 	}
-	if len(response.GetItemDatas()) != 2741 {
-		t.Fatalf("compact ownership row count drifted: got %d, want 2741",
+	if len(response.GetItemDatas()) != 40462 {
+		t.Fatalf("full ownership row count drifted: got %d, want 40462",
 			len(response.GetItemDatas()))
 	}
-	if len(raw) != 52854 {
-		t.Fatalf("compact QueryAssets payload size drifted: got %d, want %d", len(raw), 52854)
+	if len(raw) != 1372853 {
+		t.Fatalf("full QueryAssets payload size drifted: got %d, want %d", len(raw), 1372853)
 	}
 	digest := sha256.Sum256(raw)
-	const capturedSchemaGolden = "479303a46d698179e2514566b9b569dc6809d9bedf9e6aa511fb9bffa0cd8db4"
+	const capturedSchemaGolden = "d3aa4e84d75689e42ecc54f9735b6842762c56b5814e61ef8b2c5e01b4e31531"
 	if got := hex.EncodeToString(digest[:]); got != capturedSchemaGolden {
 		t.Fatalf("QueryAssets optimized-schema protobuf drifted: got %s, want %s",
 			got, capturedSchemaGolden)
@@ -78,8 +78,8 @@ func TestQueryAssetsUsesPinnedDefinitions(t *testing.T) {
 	if len(cached) == 0 || &cached[0] != &raw[0] {
 		t.Fatal("query assets did not reuse its immutable serialized response")
 	}
-	if server.queryAssetsRowCount != 2741 || server.queryAssetsSetHash == "" ||
-		server.queryAssetsMode != "compact" {
+	if server.queryAssetsRowCount != 40462 || server.queryAssetsSetHash == "" ||
+		server.queryAssetsMode != "full" {
 		t.Fatalf("query assets summary was not cached: rows=%d hash=%q",
 			server.queryAssetsRowCount, server.queryAssetsSetHash)
 	}
@@ -91,13 +91,13 @@ func TestQueryAssetsUsesPinnedDefinitions(t *testing.T) {
 	}
 }
 
-func TestQueryAssetsFullDiagnosticMode(t *testing.T) {
+func TestQueryAssetsCompactDiagnosticMode(t *testing.T) {
 	definitions, err := LoadDefinitionIndex()
 	if err != nil {
 		t.Fatal(err)
 	}
 	server := NewTCPServer(
-		config.MetaServerConfig{NativeOwnershipMode: "full"},
+		config.MetaServerConfig{NativeOwnershipMode: "compact"},
 		&Service{definitions: definitions}, nil, nil, nil,
 	)
 	raw, err := server.queryAssets()
@@ -108,8 +108,8 @@ func TestQueryAssetsFullDiagnosticMode(t *testing.T) {
 	if err := proto.Unmarshal(raw, &response); err != nil {
 		t.Fatal(err)
 	}
-	if len(response.GetItemDatas()) != 40462 || server.queryAssetsMode != "full" {
-		t.Fatalf("unexpected full ownership response: rows=%d mode=%q",
+	if len(response.GetItemDatas()) != 2741 || server.queryAssetsMode != "compact" {
+		t.Fatalf("unexpected compact ownership response: rows=%d mode=%q",
 			len(response.GetItemDatas()), server.queryAssetsMode)
 	}
 }

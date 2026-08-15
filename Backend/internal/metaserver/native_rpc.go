@@ -204,7 +204,7 @@ func (s *TCPServer) queryAssets() ([]byte, error) {
 	s.queryAssetsOnce.Do(func() {
 		mode := strings.ToLower(strings.TrimSpace(s.config.NativeOwnershipMode))
 		if mode == "" {
-			mode = "compact"
+			mode = "full"
 		}
 		itemIDs := s.service.definitions.NativeOwnershipItemIDs(mode == "full")
 		response := &metaprotocol.QueryAssetsResponse{

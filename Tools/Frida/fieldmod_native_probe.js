@@ -130,7 +130,11 @@ function scanObjects() {
 
         try {
             const typeName = className(object);
-            if (typeName === 'PBFieldModManager' && !objectName(object).startsWith('Default__')) {
+            // Armory worlds instantiate the Blueprint-derived
+            // PBFieldModManager_BP_C. Its native base layout is unchanged, so
+            // include both the native class and generated subclasses.
+            if (typeName.startsWith('PBFieldModManager') &&
+                !objectName(object).startsWith('Default__')) {
                 managers.push(dumpFieldModManager(object));
                 continue;
             }
