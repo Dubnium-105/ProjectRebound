@@ -20,8 +20,6 @@
 #include "../Debug/DebugTool.h"
 #include "../ServerLogic/ServerLogic.h"
 #include "../ClientLogic/ClientLogic.h"
-#include "../ClientLogic/ClientArmorySync.h"
-#include "../ClientLogic/ClientLoadoutSync.h"
 #include "../Utility/Utility.h"
 #include "../BattleLog/BattleLogExtractor.h"
 
@@ -33,10 +31,9 @@ extern std::recursive_mutex gLoadoutManagerMutex;
 
 using namespace SDK;
 
-// Retained for link compatibility with dormant client/showroom helper code in
-// LoadoutManager.cpp. The production client never constructs the manager, but
-// generated ProcessEvent calls made inside those helpers must still have a
-// well-defined recursion guard if they are exercised in a diagnostic build.
+// Retained for generated ProcessEvent calls made by server-side loadout
+// serialization/application helpers. The production client never constructs
+// LoadoutManager; this guard does not maintain a client archive mirror.
 static thread_local unsigned int gClientProcessEventSuppressionDepth = 0;
 
 extern "C" void PayloadPushClientProcessEventSuppression()
@@ -1237,26 +1234,6 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
         ClientLog("[PE] " + std::string(Object->GetFullName()) + " - " + functionName);
 
         ConnectToMatch();
-    }
-
-    if (functionName.ends_with("PBArmoryManager.HandleEnteredArmory"))
-    {
-        // QueryAssets and the local save can both refresh ownership. Reconcile
-        // the native mirrors immediately before the armory consumes them.
-        PrepareClientArmoryEntry();
-        PrepareClientLoadoutConsumer("armory-entry");
-    }
-
-    if (functionName.ends_with("PBFieldModManager.SelectCharacter"))
-    {
-        // SelectCharacter immediately consumes the pre-order map. Reconcile
-        // the authenticated online baseline before the original native call.
-        PrepareClientLoadoutConsumer("fieldmod-select-character");
-    }
-
-    if (functionName.ends_with("PBPlayerController.ConfirmRoleSelection"))
-    {
-        PrepareClientLoadoutConsumer("role-confirmation");
     }
 
     // 先执行原始 ProcessEvent，确保游戏状态已更新

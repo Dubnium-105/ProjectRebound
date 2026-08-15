@@ -11,6 +11,14 @@
 #include "../SDK.hpp"
 #include "LoadoutStatePolicy.h"
 
+struct LoadoutBridgeOptions
+{
+    bool BaselineOverride = true;
+    bool PreOrderIntercept = true;
+    bool ConfirmDeferral = true;
+    bool SpawnApplication = true;
+};
+
 class LoadoutManager
 {
 public:
@@ -24,7 +32,10 @@ public:
 
     // Starts the server-only bridge. The URL must point at a loopback
     // MetaTunnel and roomId must be the room represented by this listen host.
-    bool StartServer(std::string baseUrl, std::string roomId);
+    bool StartServer(
+        std::string baseUrl,
+        std::string roomId,
+        LoadoutBridgeOptions options = {});
     void StopServer();
 
     void OnPlayerConnected(SDK::APBPlayerController* playerController);

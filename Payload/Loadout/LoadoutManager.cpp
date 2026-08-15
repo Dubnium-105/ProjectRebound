@@ -235,6 +235,7 @@ namespace
 class LoadoutManager::Impl
 {
 public:
+    LoadoutBridgeOptions Options;
     struct ConnectionKey
     {
         std::string PlayerId;
@@ -1169,7 +1170,10 @@ LoadoutManager::~LoadoutManager()
 LoadoutManager::LoadoutManager(LoadoutManager&&) noexcept = default;
 LoadoutManager& LoadoutManager::operator=(LoadoutManager&&) noexcept = default;
 
-bool LoadoutManager::StartServer(std::string baseUrl, std::string roomId)
+bool LoadoutManager::StartServer(
+    std::string baseUrl,
+    std::string roomId,
+    LoadoutBridgeOptions options)
 {
     if (!impl_) return false;
     StopServer();
@@ -1183,6 +1187,7 @@ bool LoadoutManager::StartServer(std::string baseUrl, std::string roomId)
     }
 
     ++impl_->ServerEpoch;
+    impl_->Options = options;
     impl_->BaseUrl = std::move(baseUrl);
     impl_->RoomId = std::move(roomId);
     // The first authoritative TickServer call binds the UWorld. MainThread is
@@ -1191,7 +1196,11 @@ bool LoadoutManager::StartServer(std::string baseUrl, std::string roomId)
     impl_->HasBoundWorld = false;
     impl_->ServerActive = true;
     ClientLog("[LOADOUT] Server bridge started room=" + impl_->RoomId +
-        " tunnel=" + impl_->BaseUrl);
+        " tunnel=" + impl_->BaseUrl +
+        " baseline=" + (impl_->Options.BaselineOverride ? "1" : "0") +
+        " preorder=" + (impl_->Options.PreOrderIntercept ? "1" : "0") +
+        " confirm_deferral=" + (impl_->Options.ConfirmDeferral ? "1" : "0") +
+        " spawn=" + (impl_->Options.SpawnApplication ? "1" : "0"));
     return true;
 }
 
@@ -1257,7 +1266,19 @@ void LoadoutManager::OnPlayerConnected(APBPlayerController* playerController)
 
     impl_->Players.emplace(key, std::move(connection));
     impl_->ControllerBindings.emplace(playerController, key);
-    if (auto* player = impl_->Find(key)) impl_->StartFetch(*player);
+    if (auto* player = impl_->Find(key))
+    {
+        if (impl_->Options.BaselineOverride)
+        {
+            impl_->StartFetch(*player);
+        }
+        else
+        {
+            player->FetchTerminal = true;
+            ClientLog("[LOADOUT] Baseline fetch bypassed for native-flow A/B player=" +
+                player->Key.PlayerId);
+        }
+    }
 }
 
 void LoadoutManager::OnPlayerDisconnected(APBPlayerController* playerController)
@@ -1292,7 +1313,8 @@ void LoadoutManager::OnActorDestroyed(AActor* actor)
         return;
     }
 
-    if (!actor->IsA(APBCharacter::StaticClass())) return;
+    if (!actor->IsA(APBCharacter::StaticClass()) ||
+        !impl_->Options.SpawnApplication) return;
     auto* character = static_cast<APBCharacter*>(actor);
     impl_->DestroyedCharacters.insert(character);
     struct LeaseToRelease
@@ -1332,7 +1354,8 @@ LoadoutRoleConfirmDecision LoadoutManager::BeginRoleConfirmation(
     APBPlayerController* playerController,
     const FName& roleId)
 {
-    if (!impl_ || !impl_->ServerActive || !playerController)
+    if (!impl_ || !impl_->ServerActive || !impl_->Options.ConfirmDeferral ||
+        !playerController)
         return LoadoutRoleConfirmDecision::Fallback;
 
     Impl::PlayerConnection* player = impl_->Find(playerController);
@@ -1387,7 +1410,8 @@ bool LoadoutManager::OnExternalPreOrderInventory(
     const FName& roleId,
     const FPBInventoryNetworkConfig& inventory)
 {
-    if (!impl_ || !impl_->ServerActive || impl_->InternalPreOrderDepth > 0 ||
+    if (!impl_ || !impl_->ServerActive || !impl_->Options.PreOrderIntercept ||
+        impl_->InternalPreOrderDepth > 0 ||
         !playerController || !IsValidInventory(inventory))
     {
         return false;
@@ -1430,7 +1454,8 @@ bool LoadoutManager::DeferExternalPreOrderInventoryIfLeaseConflict(
     const FName& roleId,
     const FPBInventoryNetworkConfig& inventory)
 {
-    if (!impl_ || !impl_->ServerActive || impl_->InternalPreOrderDepth > 0 ||
+    if (!impl_ || !impl_->ServerActive || !impl_->Options.PreOrderIntercept ||
+        impl_->InternalPreOrderDepth > 0 ||
         !playerController || !IsValidInventory(inventory))
     {
         return false;
@@ -1468,12 +1493,14 @@ bool LoadoutManager::IsInternalPreOrderInProgress() const
 
 bool LoadoutManager::IsCharacterTombstoned(APBCharacter* character) const
 {
-    return impl_ && character && impl_->DestroyedCharacters.contains(character);
+    return impl_ && impl_->Options.SpawnApplication && character &&
+        impl_->DestroyedCharacters.contains(character);
 }
 
 void LoadoutManager::OnInventorySpawned(APBCharacter* character)
 {
-    if (!impl_ || !impl_->ServerActive || !character) return;
+    if (!impl_ || !impl_->ServerActive || !impl_->Options.SpawnApplication ||
+        !character) return;
     if (impl_->DestroyedCharacters.contains(character))
     {
         // The native K2 body may synchronously destroy its own Pawn. Preserve
@@ -1509,7 +1536,8 @@ void LoadoutManager::OnInventorySpawned(APBCharacter* character)
 
 bool LoadoutManager::CanReleaseRoleSpawn(APBPlayerController* playerController)
 {
-    if (!impl_ || !impl_->ServerActive || !playerController) return true;
+    if (!impl_ || !impl_->ServerActive || !impl_->Options.SpawnApplication ||
+        !playerController) return true;
     Impl::PlayerConnection* player = impl_->Find(playerController);
     if (!player || player->SelectedRoleId.empty()) return true;
 
@@ -1751,7 +1779,8 @@ bool LoadoutManager::CanReleaseRoleSpawn(APBPlayerController* playerController)
 
 void LoadoutManager::BeginSpawnDispatch(APBPlayerController* playerController)
 {
-    if (!impl_ || !impl_->ServerActive || !playerController) return;
+    if (!impl_ || !impl_->ServerActive || !impl_->Options.SpawnApplication ||
+        !playerController) return;
     Impl::PlayerConnection* player = impl_->Find(playerController);
     if (!player || player->ActiveSpawnRoleId.empty() ||
         player->ActiveSpawnRequestGeneration == 0 ||
@@ -1781,7 +1810,8 @@ void LoadoutManager::BeginSpawnDispatch(APBPlayerController* playerController)
 
 void LoadoutManager::CompleteSpawnDispatch(APBPlayerController* playerController)
 {
-    if (!impl_ || !impl_->ServerActive || !playerController) return;
+    if (!impl_ || !impl_->ServerActive || !impl_->Options.SpawnApplication ||
+        !playerController) return;
     Impl::PlayerConnection* player = impl_->Find(playerController);
     if (!player || player->ActiveSpawnRoleId.empty() ||
         player->ActiveSpawnRequestGeneration == 0)
@@ -1868,7 +1898,8 @@ void LoadoutManager::CompleteSpawnDispatch(APBPlayerController* playerController
 
 void LoadoutManager::FinalizeSpawnRequest(APBPlayerController* playerController)
 {
-    if (!impl_ || !impl_->ServerActive || !playerController) return;
+    if (!impl_ || !impl_->ServerActive || !impl_->Options.SpawnApplication ||
+        !playerController) return;
     Impl::PlayerConnection* player = impl_->Find(playerController);
     if (!player || player->ActiveSpawnRoleId.empty() ||
         player->ActiveSpawnRequestGeneration == 0)
@@ -1928,7 +1959,7 @@ void LoadoutManager::FinalizeSpawnRequest(APBPlayerController* playerController)
 
 void LoadoutManager::AbandonSpawnRequest(APBPlayerController* playerController)
 {
-    if (!impl_ || !playerController) return;
+    if (!impl_ || !impl_->Options.SpawnApplication || !playerController) return;
     Impl::PlayerConnection* player = impl_->Find(playerController);
     if (!player || player->ActiveSpawnRoleId.empty()) return;
     const std::uint64_t requestGeneration =

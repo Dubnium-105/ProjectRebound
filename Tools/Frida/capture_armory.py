@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
 import datetime as dt
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -19,6 +21,7 @@ import frida
 
 
 GAME_PROCESS = "ProjectBoundarySteam-Win64-Shipping.exe"
+EXPECTED_GAME_SHA256 = "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843"
 DEFAULT_STARTGAME = Path(
     r"C:\Steam\steamapps\common\Boundary\ProjectBoundary\Binaries\Win64\startgame.ps1"
 )
@@ -87,6 +90,42 @@ def wait_for_process(
     raise TimeoutError(f"process {process_name!r} did not appear within {timeout:.0f}s")
 
 
+def process_image_path(pid: int) -> Path:
+    """Resolve a Windows process image without optional third-party modules."""
+    process_query_limited_information = 0x1000
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenProcess.argtypes = [ctypes.c_uint32, ctypes.c_bool, ctypes.c_uint32]
+    kernel32.OpenProcess.restype = ctypes.c_void_p
+    kernel32.QueryFullProcessImageNameW.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+        ctypes.c_wchar_p,
+        ctypes.POINTER(ctypes.c_uint32),
+    ]
+    kernel32.QueryFullProcessImageNameW.restype = ctypes.c_bool
+    kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
+    handle = kernel32.OpenProcess(process_query_limited_information, False, pid)
+    if not handle:
+        raise OSError(ctypes.get_last_error(), f"OpenProcess({pid}) failed")
+    try:
+        capacity = 32768
+        buffer = ctypes.create_unicode_buffer(capacity)
+        length = ctypes.c_uint32(capacity)
+        if not kernel32.QueryFullProcessImageNameW(handle, 0, buffer, ctypes.byref(length)):
+            raise OSError(ctypes.get_last_error(), "QueryFullProcessImageNameW failed")
+        return Path(buffer.value)
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(4 * 1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def compact_console_line(payload: dict[str, Any]) -> str | None:
     event = str(payload.get("event", ""))
     if event in {
@@ -94,11 +133,18 @@ def compact_console_line(payload: dict[str, Any]) -> str | None:
         "probe.error",
         "rpc.query_assets",
         "rpc.player_archive",
+        "rpc.role_archive_update",
+        "rpc.weapon_archive_update",
         "rpc.payload_capture",
         "armory.manager_found",
         "armory.changed",
         "armory.snapshot",
         "armory.has_item",
+        "fieldmod.manager_found",
+        "fieldmod.native_call",
+        "fieldmod.snapshot",
+        "persistent_user.snapshot",
+        "progression.player_level_table",
         "unreal.lifecycle",
     }:
         return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
@@ -280,6 +326,14 @@ def main() -> int:
         excluded = existing_pids if args.launch else set()
         pid = wait_for_process(device, args.process_name, args.attach_timeout, excluded)
 
+    image_path = process_image_path(pid).resolve()
+    image_sha256 = sha256_file(image_path)
+    if image_sha256.casefold() != EXPECTED_GAME_SHA256:
+        raise RuntimeError(
+            "Boundary executable hash mismatch: "
+            f"expected {EXPECTED_GAME_SHA256}, got {image_sha256} ({image_path})"
+        )
+
     stop_event = threading.Event()
     session: frida.core.Session | None = None
 
@@ -294,9 +348,11 @@ def main() -> int:
         "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "pid": pid,
         "process_name": args.process_name,
+        "process_image": str(image_path),
+        "process_image_sha256": image_sha256,
         "probe": str(script_path.resolve()),
         "frida_version": frida.__version__,
-        "mode": "read_only",
+        "mode": "native_archive_read_only",
     }
     metadata_path.write_text(
         json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"

@@ -10,6 +10,8 @@
 
 const SETTINGS = {
     moduleName: 'ProjectBoundarySteam-Win64-Shipping.exe',
+    expectedModuleSize: 105431040,
+    expectedImageSha256: '181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843',
     offsets: {
         gObjects: 0x05D65FE0,
         appendString: 0x019D82B0,
@@ -29,10 +31,33 @@ const SETTINGS = {
         itemCount: 0x08,
         itemIsNew: 0x0C,
     },
+    fieldMod: {
+        preOrderingMap: 0x98,
+        mapElementSize: 0x30,
+    },
+    persistentUser: {
+        savedArmory: 0x48,
+        runtimeArmory: 0x68,
+    },
     maxObjects: 2_000_000,
     maxOwnedItems: 250_000,
     maxFrameBytes: 64 * 1024 * 1024,
 };
+
+const OBSERVED_FUNCTIONS = new Map([
+    ['HasItem', 'PBArmoryManager'],
+    ['HandleEnteredArmory', 'PBArmoryManager'],
+    ['ClientInitFieldMod', 'PBPlayerState'],
+    ['ClientRefreshRoleEquippingInventory', 'PBPlayerState'],
+    ['ClientRefreshRolePreOrderingInventory', 'PBPlayerState'],
+    ['SelectCharacter', 'PBFieldModManager'],
+    ['SelectCharacterSlot', 'PBFieldModManager'],
+    ['SelectInventoryItem', 'PBFieldModManager'],
+    ['GetEquippingItemIDInSlotType', 'PBFieldModManager'],
+    ['GetPreOrderingItemIDInSlotType', 'PBFieldModManager'],
+    ['SpawnWeapon', 'PBFieldModManager'],
+    ['ConfirmRoleSelection', 'PBPlayerController'],
+]);
 
 const textEncoderFallback = (value) => {
     const output = [];
@@ -299,8 +324,8 @@ function parsePlayerArchive(payload) {
     const roles = [];
     for (const encodedRole of allBytes(fields, 1)) {
         const role = parseProto(encodedRole);
-        const skinConfig = firstBytes(role, 8);
-        const weaponConfig = firstBytes(role, 9);
+        const weaponArchive = firstBytes(role, 8);
+        const skinToken = firstBytes(role, 9);
         roles.push({
             role_id: firstString(role, 1),
             left_pylon: firstString(role, 2),
@@ -309,11 +334,11 @@ function parsePlayerArchive(payload) {
             melee_weapon: firstString(role, 5),
             primary_weapon: firstString(role, 6),
             second_weapon: firstString(role, 7),
-            skin_config_bytes: skinConfig.length,
-            skin_config_hash: hashBytes(skinConfig),
-            weapon_config_bytes: weaponConfig.length,
-            weapon_config_hash: hashBytes(weaponConfig),
-            skin_paint: firstString(role, 10),
+            weapon_archive_hex_chars: weaponArchive.length,
+            weapon_archive_hash: hashBytes(weaponArchive),
+            skin_token_bytes: skinToken.length,
+            skin_token_hash: hashBytes(skinToken),
+            ornament_hash: hashBytes(firstBytes(role, 10)),
         });
     }
     return {
@@ -323,12 +348,41 @@ function parsePlayerArchive(payload) {
     };
 }
 
+function parseRoleArchiveUpdate(payload) {
+    const fields = parseProto(payload);
+    const skinPayload = firstBytes(fields, 4);
+    const skin = skinPayload.length === 0 ? new Map() : parseProto(skinPayload);
+    return {
+        operation: firstVarint(fields, 1, 0) | 0,
+        role_id: firstString(fields, 2),
+        item_id: firstString(fields, 3),
+        skin_payload_bytes: skinPayload.length,
+        skin_payload_hash: hashBytes(skinPayload),
+        skin_token_hash: hashBytes(firstBytes(skin, 1)),
+        ornament_hash: hashBytes(firstBytes(skin, 2)),
+    };
+}
+
+function parseWeaponArchiveUpdate(payload) {
+    const fields = parseProto(payload);
+    const archivePayload = firstBytes(fields, 3);
+    const archive = archivePayload.length === 0 ? new Map() : parseProto(archivePayload);
+    return {
+        role_id: firstString(fields, 1),
+        weapon_id: firstString(archive, 1),
+        part_count: allBytes(archive, 2).length,
+        archive_bytes: archivePayload.length,
+        archive_hash: hashBytes(archivePayload),
+    };
+}
+
 const pendingRpc = new Map();
 
 function shouldCapturePayload(rpcPath) {
-    return /(?:QueryAssets|GetPlayerArchiveV2|UpdateRoleArchiveV2|UpdateWeaponArchiveV2)/i.test(
-        rpcPath,
-    );
+    // QueryAssets is a version-pinned public definition set used for the
+    // protobuf golden. Player archives and update payloads may contain full
+    // customization records or tokens and are summarized only.
+    return /QueryAssets/i.test(rpcPath);
 }
 
 function captureRpcPayload(socket, direction, wrapper, rpcPath) {
@@ -379,6 +433,28 @@ function handleFrame(socket, direction, frame) {
                 payload_bytes: wrapper.payload.length,
             });
             captureRpcPayload(socket, direction, wrapper, wrapper.rpcPath);
+            try {
+                if (/UpdateRoleArchiveV2/i.test(wrapper.rpcPath)) {
+                    emit('rpc.role_archive_update', Object.assign({
+                        socket,
+                        message_id: wrapper.messageId,
+                        rpc_path: wrapper.rpcPath,
+                    }, parseRoleArchiveUpdate(wrapper.payload)));
+                } else if (/UpdateWeaponArchiveV2/i.test(wrapper.rpcPath)) {
+                    emit('rpc.weapon_archive_update', Object.assign({
+                        socket,
+                        message_id: wrapper.messageId,
+                        rpc_path: wrapper.rpcPath,
+                    }, parseWeaponArchiveUpdate(wrapper.payload)));
+                }
+            } catch (error) {
+                emit('rpc.payload_parse_error', {
+                    socket,
+                    message_id: wrapper.messageId,
+                    rpc_path: wrapper.rpcPath,
+                    message: String(error),
+                });
+            }
         }
         return;
     }
@@ -682,6 +758,10 @@ const classNameCache = new Map();
 const targetFunctions = new Map();
 let armoryManager = null;
 let inventoryState = null;
+let fieldModManager = null;
+const persistentUsers = new Map();
+const persistentSignatures = new Map();
+const playerLevelTables = new Map();
 
 function fnameKey(address) {
     return `${address.readS32()}:${address.add(4).readU32()}`;
@@ -718,6 +798,218 @@ function className(object) {
         classNameCache.set(key, objectName(klass));
     }
     return classNameCache.get(key);
+}
+
+function readArrayHeader(address, maximum, label) {
+    const data = address.readPointer();
+    const num = address.add(8).readS32();
+    const max = address.add(12).readS32();
+    if (num < 0 || max < num || max > maximum || (num > 0 && data.isNull())) {
+        throw new Error(`invalid ${label} TArray num=${num} max=${max} data=${data}`);
+    }
+    return { data, num, max };
+}
+
+function compactSample(values) {
+    return values.length > 12
+        ? values.slice(0, 6).concat(values.slice(-6))
+        : values;
+}
+
+function dumpFNameArray(address, maximum = 128) {
+    const header = readArrayHeader(address, maximum, 'FName');
+    const values = [];
+    let hash = 0x811C9DC5;
+    for (let index = 0; index < header.num; index += 1) {
+        const item = header.data.add(index * 8);
+        const value = fnameToString(item);
+        values.push(value);
+        hash = fnvStep(hash, hashString(value));
+    }
+    return { num: header.num, max: header.max, hash: toHex(hash), values };
+}
+
+function dumpIntArray(address, maximum = 128) {
+    const header = readArrayHeader(address, maximum, 'int32');
+    const values = [];
+    for (let index = 0; index < header.num; index += 1) {
+        values.push(header.data.add(index * 4).readS32());
+    }
+    return { num: header.num, max: header.max, values };
+}
+
+function dumpInventoryConfig(address) {
+    const slots = readArrayHeader(address, 32, 'inventory slots');
+    const items = readArrayHeader(address.add(0x10), 32, 'inventory items');
+    const count = Math.min(slots.num, items.num);
+    const entries = [];
+    let hash = 0x811C9DC5;
+    for (let index = 0; index < count; index += 1) {
+        const slot = slots.data.add(index).readU8();
+        const itemId = fnameToString(items.data.add(index * 8));
+        entries.push({ slot, item_id: itemId });
+        hash = fnvStep(hash, slot);
+        hash = fnvStep(hash, hashString(itemId));
+    }
+    return {
+        slot_count: slots.num,
+        item_count: items.num,
+        entries,
+        config_hash: toHex(hash),
+    };
+}
+
+function dumpSavedRoleConfig(address) {
+    const roles = readArrayHeader(address, 32, 'saved roles');
+    const inventories = readArrayHeader(address.add(0x10), 32, 'saved inventories');
+    const count = Math.min(roles.num, inventories.num);
+    const result = [];
+    for (let index = 0; index < count; index += 1) {
+        result.push({
+            role_id: fnameToString(roles.data.add(index * 8)),
+            inventory: dumpInventoryConfig(inventories.data.add(index * 0x20)),
+        });
+    }
+    return {
+        role_count: roles.num,
+        inventory_count: inventories.num,
+        roles: result,
+    };
+}
+
+function dumpFieldModState(manager) {
+    const map = manager.add(SETTINGS.fieldMod.preOrderingMap);
+    const elements = map.readPointer();
+    const allocated = map.add(8).readS32();
+    const max = map.add(12).readS32();
+    const flagBits = map.add(0x28).readS32();
+    const secondaryFlags = map.add(0x20).readPointer();
+    const flags = secondaryFlags.isNull() ? map.add(0x10) : secondaryFlags;
+    if (allocated < 0 || max < allocated || flagBits < allocated ||
+        allocated > 128 || (allocated > 0 && elements.isNull())) {
+        throw new Error(`invalid FieldMod map allocated=${allocated} max=${max} flags=${flagBits}`);
+    }
+    const roles = [];
+    let hash = 0x811C9DC5;
+    for (let index = 0; index < allocated; index += 1) {
+        const word = flags.add(Math.floor(index / 32) * 4).readU32();
+        if ((word & (1 << (index % 32))) === 0) continue;
+        const element = elements.add(index * SETTINGS.fieldMod.mapElementSize);
+        const roleId = fnameToString(element);
+        const inventory = dumpInventoryConfig(element.add(8));
+        roles.push({ role_id: roleId, inventory });
+        hash = fnvStep(hash, hashString(roleId));
+        hash = fnvStep(hash, parseInt(inventory.config_hash.slice(2), 16));
+    }
+    return {
+        manager: manager.toString(),
+        allocated,
+        max,
+        roles,
+        state_hash: toHex(hash),
+    };
+}
+
+function dumpPlayerLevelTable(table) {
+    const map = table.add(0x30);
+    const elements = map.readPointer();
+    const allocated = map.add(8).readS32();
+    const max = map.add(12).readS32();
+    const flagBits = map.add(0x28).readS32();
+    const secondaryFlags = map.add(0x20).readPointer();
+    const flags = secondaryFlags.isNull() ? map.add(0x10) : secondaryFlags;
+    if (allocated < 0 || max < allocated || flagBits < allocated ||
+        allocated > 1024 || (allocated > 0 && elements.isNull())) {
+        throw new Error(`invalid PlayerLevel RowMap allocated=${allocated} max=${max}`);
+    }
+    const rowNames = [];
+    let maximumNumericLevel = null;
+    for (let index = 0; index < allocated; index += 1) {
+        const word = flags.add(Math.floor(index / 32) * 4).readU32();
+        if ((word & (1 << (index % 32))) === 0) continue;
+        const rowName = fnameToString(elements.add(index * 0x18));
+        rowNames.push(rowName);
+        if (/^[0-9]+$/.test(rowName)) {
+            const level = parseInt(rowName, 10);
+            if (maximumNumericLevel === null || level > maximumNumericLevel) {
+                maximumNumericLevel = level;
+            }
+        }
+    }
+    const canonicalRows = rowNames.slice().sort();
+    let hash = 0x811C9DC5;
+    for (const rowName of canonicalRows) {
+        hash = fnvStep(hash, hashString(rowName));
+    }
+    return {
+        table: table.toString(),
+        row_count: rowNames.length,
+        maximum_numeric_level: maximumNumericLevel,
+        row_set_hash: toHex(hash),
+        row_sample: compactSample(canonicalRows),
+    };
+}
+
+function emitFieldModSnapshot(reason) {
+    if (fieldModManager === null) return;
+    try {
+        emit('fieldmod.snapshot', Object.assign({ reason }, dumpFieldModState(fieldModManager)));
+    } catch (error) {
+        reportError('fieldmod.snapshot', error);
+    }
+}
+
+function persistentArraySummary(address, stride, withCount) {
+    const header = readArrayHeader(address, SETTINGS.maxOwnedItems, 'persistent armory');
+    const ids = [];
+    let hash = 0x811C9DC5;
+    let countZero = 0;
+    let countPositive = 0;
+    for (let index = 0; index < header.num; index += 1) {
+        const item = header.data.add(index * stride);
+        const id = fnameToString(item);
+        ids.push(id);
+        hash = fnvStep(hash, item.readS32());
+        hash = fnvStep(hash, item.add(4).readU32());
+        if (withCount) {
+            const count = item.add(8).readS32();
+            hash = fnvStep(hash, count);
+            if (count === 0) countZero += 1;
+            if (count > 0) countPositive += 1;
+        }
+    }
+    return {
+        data: header.data.toString(),
+        num: header.num,
+        max: header.max,
+        count_zero: countZero,
+        count_positive: countPositive,
+        set_hash: toHex(hash),
+        item_sample: compactSample(ids),
+    };
+}
+
+function refreshPersistentUser(object, reason, force = false) {
+    try {
+        const saved = persistentArraySummary(
+            object.add(SETTINGS.persistentUser.savedArmory), 8, false);
+        const runtime = persistentArraySummary(
+            object.add(SETTINGS.persistentUser.runtimeArmory), 0x10, true);
+        const signature = `${saved.num}:${saved.set_hash}:${runtime.num}:${runtime.set_hash}`;
+        const key = object.toString();
+        if (force || persistentSignatures.get(key) !== signature) {
+            persistentSignatures.set(key, signature);
+            emit('persistent_user.snapshot', {
+                reason,
+                object: key,
+                object_name: objectName(object),
+                saved_armory: saved,
+                runtime_armory: runtime,
+            });
+        }
+    } catch (error) {
+        reportError('persistent_user.snapshot', error);
+    }
 }
 
 function inventoryRecordForKey(key) {
@@ -823,16 +1115,52 @@ function considerObject(object) {
         }
         return;
     }
+    if (typeName === 'PBFieldModManager') {
+        const name = objectName(object);
+        if (!name.startsWith('Default__')) {
+            const changed = fieldModManager === null || !fieldModManager.equals(object);
+            fieldModManager = object;
+            if (changed) {
+                emit('fieldmod.manager_found', {
+                    manager: object.toString(),
+                    object_name: name,
+                });
+                emitFieldModSnapshot('manager_found');
+            }
+        }
+        return;
+    }
+    if (typeName.includes('PersistentUser')) {
+        const name = objectName(object);
+        if (!name.startsWith('Default__')) {
+            const key = object.toString();
+            persistentUsers.set(key, object);
+            refreshPersistentUser(object, 'object_scan', !persistentSignatures.has(key));
+        }
+        return;
+    }
+    if ((typeName === 'DataTable' || typeName === 'CompositeDataTable') &&
+        objectName(object).toLowerCase().includes('playerlevelexp')) {
+        const key = object.toString();
+        if (!playerLevelTables.has(key)) {
+            playerLevelTables.set(key, object);
+            emit('progression.player_level_table', Object.assign({
+                object_name: objectName(object),
+                class_name: typeName,
+            }, dumpPlayerLevelTable(object)));
+        }
+        return;
+    }
     if (typeName !== 'Function') {
         return;
     }
     const name = objectName(object);
-    if (name !== 'HasItem' && name !== 'HandleEnteredArmory') {
+    if (!OBSERVED_FUNCTIONS.has(name)) {
         return;
     }
     const outer = object.add(SETTINGS.object.outer).readPointer();
     const ownerName = outer.isNull() ? '' : objectName(outer);
-    if (ownerName === 'PBArmoryManager') {
+    if (ownerName === OBSERVED_FUNCTIONS.get(name)) {
         if (targetFunctions.has(object.toString())) {
             return;
         }
@@ -885,7 +1213,10 @@ function scanObjects() {
             num_elements: numElements,
             num_chunks: numChunks,
             target_functions: targetFunctions.size,
-            manager_found: armoryManager !== null,
+            armory_manager_found: armoryManager !== null,
+            fieldmod_manager_found: fieldModManager !== null,
+            persistent_users_found: persistentUsers.size,
+            player_level_tables_found: playerLevelTables.size,
         });
         if (armoryManager !== null && inventoryState === null) {
             refreshInventory(armoryManager, 'object_scan_recovery', true);
@@ -895,11 +1226,54 @@ function scanObjects() {
     }
 }
 
+function observedCallDetails(functionName, params, phase) {
+    if (params.isNull()) return {};
+    if (functionName === 'ClientInitFieldMod' && phase === 'enter') {
+        return {
+            server_equipping_saved: dumpSavedRoleConfig(params),
+            role_ids: dumpFNameArray(params.add(0x20), 32),
+            owned_quotas: dumpIntArray(params.add(0x30), 32),
+        };
+    }
+    if ((functionName === 'ClientRefreshRoleEquippingInventory' ||
+         functionName === 'ClientRefreshRolePreOrderingInventory') && phase === 'enter') {
+        return {
+            role_id: fnameToString(params),
+            inventory: dumpInventoryConfig(params.add(8)),
+        };
+    }
+    if (functionName === 'SelectCharacter' ||
+        functionName === 'SelectInventoryItem' ||
+        functionName === 'ConfirmRoleSelection') {
+        return { item_or_role_id: fnameToString(params) };
+    }
+    if (functionName === 'SelectCharacterSlot') {
+        return { slot: params.readU8() };
+    }
+    if (functionName === 'GetEquippingItemIDInSlotType' ||
+        functionName === 'GetPreOrderingItemIDInSlotType') {
+        const details = { slot: params.readU8() };
+        if (phase === 'leave') details.return_item_id = fnameToString(params.add(4));
+        return details;
+    }
+    if (functionName === 'SpawnWeapon') {
+        const details = {
+            role_id: fnameToString(params),
+            weapon_id: fnameToString(params.add(8)),
+        };
+        if (phase === 'leave') details.return_weapon = params.add(0x10).readPointer().toString();
+        return details;
+    }
+    return {};
+}
+
 function hookProcessEvent() {
     const address = gameModule.base.add(SETTINGS.offsets.processEvent);
     Interceptor.attach(address, {
         onEnter(args) {
             this.probeKind = null;
+            this.probeParams = ptr(0);
+            this.probeObject = ptr(0);
             const functionName = targetFunctions.get(args[1].toString());
             if (functionName === undefined) {
                 return;
@@ -938,7 +1312,21 @@ function hookProcessEvent() {
                         count: record === null ? null : record.count,
                         is_new: record === null ? null : record.is_new,
                     };
+                    return;
                 }
+
+                this.probeKind = functionName;
+                this.probeParams = args[2];
+                this.probeObject = args[0];
+                if (OBSERVED_FUNCTIONS.get(functionName) === 'PBFieldModManager') {
+                    fieldModManager = args[0];
+                }
+                emitFieldModSnapshot(`${functionName}.before`);
+                emit('fieldmod.native_call', Object.assign({
+                    function_name: functionName,
+                    phase: 'enter',
+                    object: args[0].toString(),
+                }, observedCallDetails(functionName, args[2], 'enter')));
             } catch (error) {
                 reportError(`unreal.${functionName}.enter`, error);
             }
@@ -950,6 +1338,10 @@ function hookProcessEvent() {
             try {
                 if (this.probeKind === 'HandleEnteredArmory') {
                     refreshInventory(armoryManager, 'HandleEnteredArmory.after', true);
+                    emitFieldModSnapshot('HandleEnteredArmory.after');
+                    for (const user of persistentUsers.values()) {
+                        refreshPersistentUser(user, 'HandleEnteredArmory.after', true);
+                    }
                     emit('unreal.lifecycle', {
                         function_name: this.probeKind,
                         phase: 'leave',
@@ -959,6 +1351,16 @@ function hookProcessEvent() {
                     emit('armory.has_item', Object.assign({}, this.probeItem, {
                         return_value: this.probeParams.add(8).readU8() !== 0,
                     }));
+                } else {
+                    emit('fieldmod.native_call', Object.assign({
+                        function_name: this.probeKind,
+                        phase: 'leave',
+                        object: this.probeObject.toString(),
+                    }, observedCallDetails(this.probeKind, this.probeParams, 'leave')));
+                    emitFieldModSnapshot(`${this.probeKind}.after`);
+                    for (const user of persistentUsers.values()) {
+                        refreshPersistentUser(user, `${this.probeKind}.after`, false);
+                    }
                 }
             } catch (error) {
                 reportError(`unreal.${this.probeKind}.leave`, error);
@@ -971,6 +1373,11 @@ function hookProcessEvent() {
 function initialize() {
     try {
         gameModule = Process.getModuleByName(SETTINGS.moduleName);
+        if (gameModule.size !== SETTINGS.expectedModuleSize) {
+            throw new Error(
+                `unsupported Boundary image size=${gameModule.size} ` +
+                `expected=${SETTINGS.expectedModuleSize}`);
+        }
         appendString = new NativeFunction(
             gameModule.base.add(SETTINGS.offsets.appendString),
             'void',
@@ -983,6 +1390,7 @@ function initialize() {
             module: gameModule.name,
             module_base: gameModule.base.toString(),
             module_size: gameModule.size,
+            expected_image_sha256: SETTINGS.expectedImageSha256,
             offsets: SETTINGS.offsets,
             mode: 'read_only',
         });
@@ -990,10 +1398,16 @@ function initialize() {
         hookProcessEvent();
         setTimeout(scanObjects, 1000);
         setInterval(() => {
-            if (targetFunctions.size < 2 || armoryManager === null) {
+            if (targetFunctions.size < OBSERVED_FUNCTIONS.size ||
+                armoryManager === null || fieldModManager === null ||
+                persistentUsers.size === 0 || playerLevelTables.size === 0) {
                 scanObjects();
-            } else {
+            }
+            if (armoryManager !== null) {
                 refreshInventory(armoryManager, 'poll', false);
+            }
+            for (const user of persistentUsers.values()) {
+                refreshPersistentUser(user, 'poll', false);
             }
         }, 2000);
     } catch (error) {

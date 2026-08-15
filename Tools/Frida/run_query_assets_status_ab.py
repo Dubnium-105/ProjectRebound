@@ -12,6 +12,8 @@ from typing import Any
 
 import frida
 
+from capture_armory import EXPECTED_GAME_SHA256, process_image_path, sha256_file
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()
@@ -28,6 +30,12 @@ def main() -> int:
         type=int,
         help="Override QueryAssets field 1 while preserving its three-byte width.",
     )
+    parser.add_argument(
+        "--target-player-level",
+        choices=range(0, 128),
+        type=int,
+        help="Override GetPlayerArchiveV2 level for player_archive_level_ab.js.",
+    )
     args = parser.parse_args()
 
     script_path = Path(__file__).with_name(args.script)
@@ -38,6 +46,14 @@ def main() -> int:
     signal.signal(signal.SIGINT, lambda *_: stop.set())
     if hasattr(signal, "SIGTERM"):
         signal.signal(signal.SIGTERM, lambda *_: stop.set())
+
+    image_path = process_image_path(args.pid).resolve()
+    image_sha256 = sha256_file(image_path)
+    if image_sha256.casefold() != EXPECTED_GAME_SHA256:
+        raise RuntimeError(
+            "Boundary executable hash mismatch: "
+            f"expected {EXPECTED_GAME_SHA256}, got {image_sha256} ({image_path})"
+        )
 
     device = frida.get_local_device()
     session = device.attach(args.pid)
@@ -57,9 +73,27 @@ def main() -> int:
             + ";\n"
         )
         script_source = value_assignment + script_source
+    if args.target_player_level is not None:
+        level_assignment = (
+            "globalThis.__PROJECT_REBOUND_TARGET_PLAYER_LEVEL__ = "
+            + str(args.target_player_level)
+            + ";\n"
+        )
+        script_source = level_assignment + script_source
     script = session.create_script(script_source)
 
     with args.output.open("a", encoding="utf-8", buffering=1) as output:
+        identity = {
+            "source": "project-rebound-frida-controller",
+            "event": "probe.target_verified",
+            "pid": args.pid,
+            "process_image": str(image_path),
+            "process_image_sha256": image_sha256,
+            "probe": str(script_path.resolve()),
+        }
+        output.write(json.dumps(identity, ensure_ascii=False, separators=(",", ":")) + "\n")
+        print(json.dumps(identity, ensure_ascii=False, separators=(",", ":")), flush=True)
+
         def on_message(message: dict[str, Any], data: bytes | None) -> None:
             record = message.get("payload", message)
             output.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")

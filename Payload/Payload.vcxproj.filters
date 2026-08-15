@@ -57,12 +57,6 @@
     <ClInclude Include="Loadout\MetaserverClient.h">
       <Filter>Loadout</Filter>
     </ClInclude>
-    <ClInclude Include="ClientLogic\ClientArmorySync.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="ClientLogic\ClientLoadoutSync.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
@@ -129,12 +123,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ClientLogic\ClientLogic.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="ClientLogic\ClientArmorySync.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="ClientLogic\ClientLoadoutSync.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Config\Config.cpp">

@@ -5,7 +5,8 @@ English | [简体中文](README.zh-CN.md)
 These scripts correlate the Meta `QueryAssets` response with the native
 `UPBArmoryManager::OwnedItems` array and `HasItem` results. The default probe
 does not write game memory, replace return values, or record authentication
-tokens.
+tokens. Both Python controllers reject any executable whose SHA-256 is not
+`181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843`.
 
 ## Running
 
@@ -46,6 +47,12 @@ used by the online loadout, then enter one match.
 - `armory.snapshot` / `armory.changed`: native inventory size, Count
   distribution, and NewItemCounter values.
 - `armory.has_item`: array presence, Count, bIsNew, and the native result.
+- `persistent_user.snapshot`: Saved and Runtime inventory sizes and set hashes.
+- `fieldmod.native_call`: `ClientInitFieldMod`, both native refresh RPCs,
+  selection calls, getters, and weapon-spawn boundaries.
+- `fieldmod.snapshot`: per-role pre-ordering slots before and after those calls.
+- `progression.player_level_table`: runtime PlayerLevelExp row count and highest
+  numeric level for this exact executable.
 - `unreal.lifecycle`: snapshots around the native armory-entry lifecycle.
 
 Interpret the results as follows:
@@ -67,12 +74,10 @@ Run `run_query_assets_status_ab.py --script query_assets_observe.js` for a
 read-only baseline. It reports the stable QueryAssets protobuf prefix without
 modifying the receive buffer.
 
-`query_assets_status_ab.js` is a separate reversible A/B probe. It rewrites
-the first field of the current QueryAssets payload from 40462 to an equal-width
-encoding of zero to determine whether the field is an item count or a
-status/reserved value. This script modifies the local game's receive buffer,
-so it is not part of the default read-only probe. Stop the probe and restart
-the game to restore the original behavior.
+The QueryAssets A/B probes are retained as regression diagnostics. The
+completed experiment established the current wire shape as a top-level value
+of `1` plus 40,462 repeated ItemData rows. The `UserAsset` candidates produced
+only 268 native inventory entries and are not used by MetaServer.
 
 `query_assets_single_item_ab.js` is the second-stage A/B probe. It preserves
 the frame length, exposes only one ItemData row (`PEACE_RU-AKM` by default), and rewrites
@@ -92,16 +97,22 @@ directly. It hides the old top-level count, exposes only the selected row as a
 field-1 `UserAsset`, and preserves all buffer and frame lengths. Run it with
 `--script query_assets_user_asset_ab.js --target-item PEACE_GSW-IDW`.
 
-`player_archive_level_ab.js` rewrites the deployed GetPlayerArchiveV2
-top-level player level from 1 to the archived native value 0 without changing
-the payload or frame length.
+`player_archive_level_ab.js` parses the complete native frame and protobuf
+wrapper, then rewrites only the one-byte top-level PlayerLevel. Run controlled
+low/high arms with the hash-verifying controller:
+
+```powershell
+python .\Tools\Frida\run_query_assets_status_ab.py --pid 1234 --output .\level-low.jsonl --script player_archive_level_ab.js --target-player-level 1
+$maxLevel = 100 # replace with progression.player_level_table.maximum_numeric_level
+python .\Tools\Frida\run_query_assets_status_ab.py --pid 1234 --output .\level-high.jsonl --script player_archive_level_ab.js --target-player-level $maxLevel
+```
 
 `persistent_armory_probe.js` is a one-shot read-only comparison of
 `PBPersistentUser_BP_C::ArmorySaved`, its runtime `Armorys`, and
 `UPBArmoryManager::Armorys`. Run it against an existing game process with:
 
 ```powershell
-frida -p 1234 -l .\Tools\Frida\persistent_armory_probe.js
+python .\Tools\Frida\run_query_assets_status_ab.py --pid 1234 --output .\persistent.jsonl --script persistent_armory_probe.js
 ```
 
 After receiving `probe.done`, press `Ctrl+C` to exit. The probe does not write

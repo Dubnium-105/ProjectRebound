@@ -41,6 +41,31 @@ DebugTool* gDebugTool = nullptr;
 LoadoutManager* gLoadoutManager = nullptr;
 std::recursive_mutex gLoadoutManagerMutex;
 
+namespace
+{
+bool LoadoutFeatureEnabled(const std::string& commandLine, const std::string& key)
+{
+    const std::string disabled = key + "=0";
+    const std::string falseValue = key + "=false";
+    return commandLine.find(disabled) == std::string::npos &&
+        commandLine.find(falseValue) == std::string::npos;
+}
+
+LoadoutBridgeOptions GetLoadoutBridgeOptions()
+{
+    const std::string commandLine = GetCommandLineA();
+    if (commandLine.find("-NativeArchiveOnly") != std::string::npos)
+        return {false, false, false, false};
+
+    return {
+        LoadoutFeatureEnabled(commandLine, "-LoadoutBaselineBridge"),
+        LoadoutFeatureEnabled(commandLine, "-LoadoutPreOrderIntercept"),
+        LoadoutFeatureEnabled(commandLine, "-LoadoutConfirmDeferral"),
+        LoadoutFeatureEnabled(commandLine, "-LoadoutSpawnBridge"),
+    };
+}
+}
+
 bool OnJoinFromPipe(const std::string& ip, const std::string& token)
 {
     (void)token;
@@ -204,7 +229,8 @@ void MainThread()
             if (!HostRoomId.empty() && !logicServerUrl.empty())
             {
                 auto manager = std::make_unique<LoadoutManager>();
-                if (manager->StartServer(logicServerUrl, HostRoomId))
+                if (manager->StartServer(
+                    logicServerUrl, HostRoomId, GetLoadoutBridgeOptions()))
                 {
                     std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
                     gLoadoutManager = manager.release();
