@@ -38,12 +38,12 @@ uint32_be payload_length | protobuf RequestWrapper payload
 
 资产与配装 RPC 严格保持已捕获的 wire contract：
 
-- `QueryAssets` 将固定 `DT_ItemType` 中的每个 ID 恰好返回一次，三个可用性字段均为
-  `1`，顶层 `ItemCount` 必须与重复 ItemData 行数完全一致。数量不一致时客户端虽然
-  能解码响应，但 `PBArmoryManager.OwnedItems` 会保留 268 条内置回退库存。
-- `GetPlayerArchiveV2` 的 8-10 号字段依次为可选字符串 `WeaponArchiveRaw`、
-  `SkinToken` 和 `OrnamentId`。`WeaponArchiveRaw` 是角色武器档案 bundle 的小写十六
-  进制编码；玩家没有自定义武器档案时，从固定 definitions 生成默认部件与皮肤档案。
+- `QueryAssets` 将固定 `DT_ItemType` 中的每个 ID 恰好返回一次，顶层使用已捕获确认的
+  成功值 `ItemCount=1`。每行其余标量元数据保持 protobuf 默认值，因为原生所有权检查
+  只比较物品 ID。响应格式错误时，`PBArmoryManager.OwnedItems` 会保留 268 条内置回退库存。
+- 当前固定版本 EXE 的内置描述符确认 `RoleArchiveDataV2` 只有 1-7 号字段：角色 ID、
+  左/右挂载、机动模块、近战、主武器和副武器。`GetPlayerArchiveV2` 不再发送 7 号以上
+  的字段。武器部件档案继续由 `UpdateWeaponArchiveV2` 独立持久化，不嵌入角色条目。
 - 原生 `PlayerLevel` 由 `META_NATIVE_PLAYER_LEVEL` 配置（有效范围 `1..127`）。当前固定
   构建的 `DT_PlayerLevelExp` 有 70 行，且军械库明确将锁定条目标记为角色等级奖励，因此
   生产环境使用本构建最高等级 `70`。

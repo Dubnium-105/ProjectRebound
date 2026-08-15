@@ -269,9 +269,7 @@ def decode_captured_payload(rpc_path: str, direction: str, data: bytes) -> dict[
                     "melee_weapon": proto_text(role, 5),
                     "primary_weapon": proto_text(role, 6),
                     "second_weapon": proto_text(role, 7),
-                    "skin_config_bytes": len(proto_bytes(role, 8)),
-                    "weapon_config_bytes": len(proto_bytes(role, 9)),
-                    "skin_paint": proto_text(role, 10),
+                    "unknown_fields": sorted(number for number in role if number > 7),
                 }
             )
         return {

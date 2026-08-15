@@ -334,8 +334,6 @@ function parsePlayerArchive(payload) {
     const roles = [];
     for (const encodedRole of allBytes(fields, 1)) {
         const role = parseProto(encodedRole);
-        const weaponArchive = firstBytes(role, 8);
-        const skinToken = firstBytes(role, 9);
         roles.push({
             role_id: firstString(role, 1),
             left_pylon: firstString(role, 2),
@@ -344,11 +342,9 @@ function parsePlayerArchive(payload) {
             melee_weapon: firstString(role, 5),
             primary_weapon: firstString(role, 6),
             second_weapon: firstString(role, 7),
-            weapon_archive_hex_chars: weaponArchive.length,
-            weapon_archive_hash: hashBytes(weaponArchive),
-            skin_token_bytes: skinToken.length,
-            skin_token_hash: hashBytes(skinToken),
-            ornament_hash: hashBytes(firstBytes(role, 10)),
+            unknown_fields: Array.from(role.keys())
+                .filter((number) => number > 7)
+                .sort((left, right) => left - right),
         });
     }
     return {

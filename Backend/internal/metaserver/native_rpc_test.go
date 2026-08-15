@@ -146,119 +146,6 @@ func TestNativeIdentityMismatch(t *testing.T) {
 	}
 }
 
-func TestNativeWeaponArchiveBundle(t *testing.T) {
-	definitions, err := LoadDefinitionIndex()
-	if err != nil {
-		t.Fatal(err)
-	}
-	archive, err := proto.Marshal(&metaprotocol.WeaponArchiveV2{WeaponId: "weapon-a"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	bundle := nativeWeaponArchiveBundle(
-		definitions, "PEACE", []string{"weapon-a", "weapon-a"},
-		map[string][]byte{"weapon-a": archive},
-	)
-	archiveFields := 0
-	roleFields := 0
-	for len(bundle) > 0 {
-		number, typ, n := protowire.ConsumeTag(bundle)
-		if n < 0 {
-			t.Fatal("invalid weapon archive bundle tag")
-		}
-		bundle = bundle[n:]
-		if typ != protowire.BytesType {
-			t.Fatal("unexpected wire type")
-		}
-		value, n := protowire.ConsumeBytes(bundle)
-		if n < 0 {
-			t.Fatal("invalid weapon archive bundle value")
-		}
-		switch number {
-		case 1:
-			if string(value) != "PEACE" {
-				t.Fatalf("role id=%q", value)
-			}
-			roleFields++
-		case 3:
-			var decoded metaprotocol.WeaponArchiveV2
-			if err := proto.Unmarshal(value, &decoded); err != nil {
-				t.Fatal(err)
-			}
-			if decoded.GetWeaponId() != "weapon-a" {
-				t.Fatalf("weapon id=%q", decoded.GetWeaponId())
-			}
-			archiveFields++
-		default:
-			t.Fatalf("unexpected bundle field %d", number)
-		}
-		bundle = bundle[n:]
-	}
-	if roleFields != 1 || archiveFields != 1 {
-		t.Fatalf("role fields=%d weapon archive fields=%d", roleFields, archiveFields)
-	}
-}
-
-func TestNativeSnapshotWeaponArchivesAcceptsValidatedLegacyBundle(t *testing.T) {
-	definitions, err := LoadDefinitionIndex()
-	if err != nil {
-		t.Fatal(err)
-	}
-	archiveRaw, err := proto.Marshal(validP2PAKMArchive())
-	if err != nil {
-		t.Fatal(err)
-	}
-	bundle := protowire.AppendTag(nil, 1, protowire.BytesType)
-	bundle = protowire.AppendString(bundle, "PEACE")
-	bundle = protowire.AppendTag(bundle, 3, protowire.BytesType)
-	bundle = protowire.AppendBytes(bundle, archiveRaw)
-	snapshot := map[string]any{"_weaponArchiveRaw": hex.EncodeToString(bundle)}
-
-	archives := nativeSnapshotWeaponArchives(
-		definitions, "PEACE", snapshot, []string{"PEACE_RU-AKM"},
-	)
-	var decoded metaprotocol.WeaponArchiveV2
-	if err := proto.Unmarshal(archives["PEACE_RU-AKM"], &decoded); err != nil {
-		t.Fatalf("validated legacy archive was not projected: %v", err)
-	}
-	if decoded.GetWeaponId() != "PEACE_RU-AKM" || len(decoded.GetParts()) != 10 ||
-		decoded.GetParts()[0].GetOrnament().GetInfo().GetType() != "PartOri" {
-		t.Fatalf("unexpected projected legacy archive: %#v", &decoded)
-	}
-}
-
-func TestNativeSnapshotWeaponArchivesRejectsWrongRoleOrWeapon(t *testing.T) {
-	definitions, err := LoadDefinitionIndex()
-	if err != nil {
-		t.Fatal(err)
-	}
-	archiveRaw, err := proto.Marshal(validP2PAKMArchive())
-	if err != nil {
-		t.Fatal(err)
-	}
-	bundle := protowire.AppendTag(nil, 1, protowire.BytesType)
-	bundle = protowire.AppendString(bundle, "PROBE")
-	bundle = protowire.AppendTag(bundle, 3, protowire.BytesType)
-	bundle = protowire.AppendBytes(bundle, archiveRaw)
-	snapshot := map[string]any{"_weaponArchiveRaw": hex.EncodeToString(bundle)}
-
-	if archives := nativeSnapshotWeaponArchives(
-		definitions, "PEACE", snapshot, []string{"PEACE_RU-AKM"},
-	); len(archives) != 0 {
-		t.Fatalf("wrong-role legacy bundle was accepted: %#v", archives)
-	}
-	bundle = protowire.AppendTag(nil, 1, protowire.BytesType)
-	bundle = protowire.AppendString(bundle, "PEACE")
-	bundle = protowire.AppendTag(bundle, 3, protowire.BytesType)
-	bundle = protowire.AppendBytes(bundle, archiveRaw)
-	snapshot["_weaponArchiveRaw"] = hex.EncodeToString(bundle)
-	if archives := nativeSnapshotWeaponArchives(
-		definitions, "PEACE", snapshot, []string{"PEACE_RU-APS"},
-	); len(archives) != 0 {
-		t.Fatalf("unselected legacy weapon was accepted: %#v", archives)
-	}
-}
-
 func TestNativeDefaultWeaponArchiveUsesPinnedScopes(t *testing.T) {
 	definitions, err := LoadDefinitionIndex()
 	if err != nil {
@@ -280,12 +167,6 @@ func TestNativeDefaultWeaponArchiveUsesPinnedScopes(t *testing.T) {
 		archive.GetSkin().GetSkinInfo().GetId() != "RU-AKM_Original_PTOriginal" ||
 		archive.GetSkin().GetWeaponOrnament() != "WO-NONE" {
 		t.Fatalf("unexpected default AKM skin: %#v", archive.GetSkin())
-	}
-	bundle := nativeWeaponArchiveBundle(
-		definitions, "PEACE", []string{"PEACE_RU-AKM"}, nil,
-	)
-	if len(bundle) == 0 {
-		t.Fatal("default weapon archive was omitted from role bundle")
 	}
 }
 
@@ -448,11 +329,7 @@ func TestNativePlayerArchivePreservesNestedNoneItems(t *testing.T) {
 	}
 }
 
-func TestNativePlayerArchiveProjectsAllSixRoleSlotsAndCosmetics(t *testing.T) {
-	definitions, err := LoadDefinitionIndex()
-	if err != nil {
-		t.Fatal(err)
-	}
+func TestNativePlayerArchiveProjectsOnlySevenConfirmedRoleFields(t *testing.T) {
 	for _, canonicalRoleID := range nativeDefaultRoleOrder {
 		t.Run(canonicalRoleID, func(t *testing.T) {
 			snapshot := defaultNativeLoadoutSnapshot(canonicalRoleID)
@@ -480,16 +357,21 @@ func TestNativePlayerArchiveProjectsAllSixRoleSlotsAndCosmetics(t *testing.T) {
 				}
 			}
 
-			weaponIDs := nativePlayerRoleWeaponIDs(role)
-			attachNativePlayerRoleArchive(
-				definitions, canonicalRoleID, snapshot, weaponIDs, nil, role,
-			)
-			if role.GetWeaponArchiveRaw() == "" {
-				t.Fatal("field 8 weapon archive was omitted")
+			raw, err := proto.Marshal(role)
+			if err != nil {
+				t.Fatal(err)
 			}
-			if role.GetSkinToken() != nativeSnapshotString(snapshot, "skinModel") ||
-				role.GetOrnamentId() != nativeSnapshotString(snapshot, "skinPaint") {
-				t.Fatalf("field 9/10 cosmetics drifted: %#v", role)
+			for len(raw) > 0 {
+				number, wireType, consumed := protowire.ConsumeTag(raw)
+				if consumed < 0 || number < 1 || number > 7 {
+					t.Fatalf("unexpected RoleArchiveDataV2 field %d", number)
+				}
+				raw = raw[consumed:]
+				consumed = protowire.ConsumeFieldValue(number, wireType, raw)
+				if consumed < 0 {
+					t.Fatalf("invalid RoleArchiveDataV2 field %d", number)
+				}
+				raw = raw[consumed:]
 			}
 		})
 	}

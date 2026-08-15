@@ -44,15 +44,16 @@ without crashing the connection.
 
 Asset and loadout RPCs preserve the captured wire contract:
 
-- `QueryAssets` returns every pinned `DT_ItemType` ID exactly once, sets all
-  three availability fields to `1`, and declares the exact repeated-row count
-  in top-level `ItemCount`. Boundary decodes a mismatched response but leaves
-  `PBArmoryManager.OwnedItems` on its 268-item built-in fallback.
-- `GetPlayerArchiveV2` fields 8-10 are the optional strings
-  `WeaponArchiveRaw`, `SkinToken`, and `OrnamentId`. `WeaponArchiveRaw` is the
-  lowercase hex encoding of a role archive bundle; default weapon part and
-  skin archives are generated from pinned definitions when the player has no
-  customized archive.
+- `QueryAssets` returns every pinned `DT_ItemType` ID exactly once and uses the
+  captured top-level success value `ItemCount=1`. Per-row scalar metadata stays
+  at its protobuf default because native ownership compares only the item ID.
+  Boundary decodes a malformed response but leaves `PBArmoryManager.OwnedItems`
+  on its 268-item built-in fallback.
+- The pinned executable's embedded descriptor defines `RoleArchiveDataV2`
+  with exactly fields 1-7: role ID, left/right pylon, mobility, melee,
+  primary weapon, and secondary weapon. `GetPlayerArchiveV2` emits no fields
+  above 7. Weapon-part archives remain independently persisted by
+  `UpdateWeaponArchiveV2`; they are not embedded in a role row.
 - Native `PlayerLevel` is configured by `META_NATIVE_PLAYER_LEVEL` (validated
   range `1..127`). The current pinned build reports 70 rows in
   `DT_PlayerLevelExp`, and the armory identifies locked rows as operator-level
