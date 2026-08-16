@@ -277,7 +277,7 @@ func (s *TCPServer) serveConnection(ctx context.Context, connection net.Conn, ip
 			continue
 		}
 		malformed = 0
-		if !s.allowPlayerRPC(gate.PlayerID) {
+		if !s.allowNativeRPC(gate.PlayerID, request.RPCPath) {
 			s.metrics.rateLimitedTotal.Add(1)
 			return
 		}
@@ -302,6 +302,21 @@ func (s *TCPServer) serveConnection(ctx context.Context, connection net.Conn, ip
 
 func isKeepaliveFrame(payload []byte) bool {
 	return bytes.Equal(payload, []byte("//"))
+}
+
+func nativeRPCExemptFromPlayerBudget(rpcPath string) bool {
+	// The pinned Boundary client submits one TextFilter request for every
+	// user-visible compatibility string while it initializes the front-end.
+	// A full native inventory produces roughly 586 calls in a single burst,
+	// exhausting the shared 600-RPC player budget before an armory update can
+	// be sent. TextFilter is authenticated, read-only, stateless, frame-bounded,
+	// and still protected by the connection and bounded write-queue limits, so
+	// keep it out of the budget reserved for stateful native RPCs.
+	return rpcPath == "/chat.chat/TextFilter"
+}
+
+func (s *TCPServer) allowNativeRPC(playerID, rpcPath string) bool {
+	return nativeRPCExemptFromPlayerBudget(rpcPath) || s.allowPlayerRPC(playerID)
 }
 
 func (s *TCPServer) dispatch(
