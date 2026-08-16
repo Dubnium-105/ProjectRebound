@@ -128,6 +128,40 @@ namespace
         Expect(!LoadoutStatePolicy::IsResponseCurrent(std::nullopt, Identity{"p_player", 2, 7}),
             "disconnected player response must be dropped");
     }
+
+    void TestInventoryComparisonIgnoresContainerOrderOnly()
+    {
+        using Entry = LoadoutStatePolicy::InventoryEntry;
+        const std::vector<Entry> expected = {
+            {1, "PEACE_GSW-AR"},
+            {2, "PEACE_GSW-DMR"},
+            {3, "PEACE_ATK-HE"},
+            {4, "None"},
+            {5, "MELEE-KNIFE"},
+            {6, "PEACE_FCM-BRAKE"},
+        };
+        const std::vector<Entry> reordered = {
+            {6, "PEACE_FCM-BRAKE"},
+            {3, "PEACE_ATK-HE"},
+            {1, "PEACE_GSW-AR"},
+            {5, "MELEE-KNIFE"},
+            {2, "PEACE_GSW-DMR"},
+            {4, "None"},
+        };
+        Expect(LoadoutStatePolicy::SameInventoryEntries(expected, reordered),
+            "TMap iteration order must not change inventory equality");
+
+        auto wrongItem = reordered;
+        wrongItem[0].ItemId = "PEACE_FCM-GRAPPLE";
+        Expect(!LoadoutStatePolicy::SameInventoryEntries(expected, wrongItem),
+            "a different item in the same slot must remain a mismatch");
+
+        auto duplicateSlot = reordered;
+        duplicateSlot[0].Slot = 5;
+        duplicateSlot[0].ItemId = "MELEE-KNIFE";
+        Expect(!LoadoutStatePolicy::SameInventoryEntries(expected, duplicateSlot),
+            "duplicate slot entries must not hide a missing slot");
+    }
 }
 
 int main()
@@ -137,6 +171,7 @@ int main()
     TestTimeoutLateSnapshotAndSameRoleRespawn();
     TestPermanentFailureAndRoleSwitch();
     TestPriorityRetryAndStaleConnectionPolicy();
+    TestInventoryComparisonIgnoresContainerOrderOnly();
     std::cout << "loadout state policy tests passed\n";
     return 0;
 }

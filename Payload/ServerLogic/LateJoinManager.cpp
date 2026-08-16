@@ -26,6 +26,21 @@ using namespace SDK;
 
 namespace
 {
+    std::string DescribePlayerRoleIdentity(APBPlayerController* PC)
+    {
+        if (!PC || !PC->PBPlayerState)
+            return "selected=<missing> possessed=<missing>";
+        try
+        {
+            return "selected=" + PC->PBPlayerState->SelectedCharacterID.ToString() +
+                " possessed=" + PC->PBPlayerState->PossessedCharacterId.ToString();
+        }
+        catch (...)
+        {
+            return "selected=<unreadable> possessed=<unreadable>";
+        }
+    }
+
     bool IsCurrentServerConnection(APBPlayerController* PC)
     {
         return PC && ConnectedPlayerControllers.contains(PC) &&
@@ -143,7 +158,12 @@ bool LateJoinManager::OnProcessEvent(UObject* Object, const std::string& functio
     if (functionName.contains("CanPlayerSelectRole"))
     {
         auto* RoleParms = (Params::PBGameMode_CanPlayerSelectRole*)Parms;
-        if (RoleParms && IsLateJoinPlayer(RoleParms->Player))
+        const auto tracked = RoleParms
+            ? LateJoinPlayers.find(RoleParms->Player)
+            : LateJoinPlayers.end();
+        if (RoleParms && tracked != LateJoinPlayers.end() &&
+            (tracked->second.State == ELateJoinState::PendingRoleSelection ||
+             tracked->second.State == ELateJoinState::AwaitingRespawnInput))
         {
             RoleParms->ReturnValue = true;
             return true;    // 已拦截，跳过原始调用
@@ -158,7 +178,10 @@ bool LateJoinManager::OnProcessEvent(UObject* Object, const std::string& functio
             ? (APBPlayerController*)Object
             : nullptr;
 
-        if (IsLateJoinPlayer(PBPlayerController))
+        const auto tracked = LateJoinPlayers.find(PBPlayerController);
+        if (tracked != LateJoinPlayers.end() &&
+            (tracked->second.State == ELateJoinState::PendingRoleSelection ||
+             tracked->second.State == ELateJoinState::AwaitingRespawnInput))
         {
             auto* RoleParms = (Params::PBPlayerController_CanSelectRole*)Parms;
             if (RoleParms)
@@ -186,6 +209,23 @@ void LateJoinManager::OnRoleConfirmed(
     auto it = LateJoinPlayers.find(PC);
     if (it == LateJoinPlayers.end() || roleId.empty() || roleId == "None")
         return;
+
+    // ESC -> role selection is the explicit alternate to the native F respawn
+    // prompt. A dead controller can still retain its old Pawn briefly, so do
+    // not run the playable-Pawn/role-transition test in this state: the death
+    // that would release that transition has already happened.
+    if (it->second.State == ELateJoinState::AwaitingRespawnInput)
+    {
+        it->second.DesiredRoleId = roleId;
+        it->second.State = ELateJoinState::RoleConfirmed;
+        it->second.ElapsedSeconds = 0.0f;
+        it->second.SpawnAttempts = 0;
+        it->second.AwaitingRoleTransitionDeath = false;
+        PlayerRespawnAllowedMap[PC] = false;
+        std::cout << "[LATEJOIN] Post-death role selection confirmed; scheduling spawn."
+            << std::endl;
+        return;
+    }
 
     it->second.DesiredRoleId = roleId;
     const auto respawn = PlayerRespawnAllowedMap.find(PC);
@@ -227,16 +267,39 @@ void LateJoinManager::OnRoleConfirmed(
 void LateJoinManager::OnPlayerKilled(APBPlayerController* PC)
 {
     auto it = LateJoinPlayers.find(PC);
-    if (!IsCurrentServerConnection(PC) || it == LateJoinPlayers.end() ||
-        !it->second.AwaitingRoleTransitionDeath)
+    if (!IsCurrentServerConnection(PC) || it == LateJoinPlayers.end())
+        return;
+
+    if (it->second.AwaitingRoleTransitionDeath)
     {
+        it->second.AwaitingRoleTransitionDeath = false;
+        it->second.State = ELateJoinState::RoleConfirmed;
+        it->second.ElapsedSeconds = 0.0f;
+        it->second.SpawnAttempts = 0;
         return;
     }
 
-    it->second.AwaitingRoleTransitionDeath = false;
-    it->second.State = ELateJoinState::RoleConfirmed;
+    if (!it->second.HasCompletedSpawn)
+        return;
+
+    if (it->second.State == ELateJoinState::AwaitingRespawnInput)
+        return;
+
+    // Preserve the current role and loadout while the native death UI waits
+    // for player intent. F emits the normal restart RPC and is serialized by
+    // QueueManagedRespawn; ESC opens the game's own role-selection screen and
+    // eventually reaches OnRoleConfirmed. Do not synthesize ClientSelectRole
+    // here, because that bypasses the native F/ESC choice.
+    it->second.State = ELateJoinState::AwaitingRespawnInput;
     it->second.ElapsedSeconds = 0.0f;
     it->second.SpawnAttempts = 0;
+    it->second.AwaitingRoleTransitionDeath = false;
+    // Keep GameMode wave/automatic restart entry points closed. The explicit
+    // client ServerRestartPlayer/ServerQuickRespawn RPC is allowed to convert
+    // this state into a managed spawn by the hook layer.
+    PlayerRespawnAllowedMap[PC] = false;
+    std::cout << "[LATEJOIN] Player death is awaiting native F/ESC respawn input."
+        << std::endl;
 }
 
 bool LateJoinManager::CanQueueManagedRespawn(APBPlayerController* PC) const
@@ -278,6 +341,13 @@ bool LateJoinManager::QueueManagedRespawn(APBPlayerController* PC)
 bool LateJoinManager::IsManagedPlayer(APBPlayerController* PC) const
 {
     return PC && LateJoinPlayers.contains(PC);
+}
+
+bool LateJoinManager::IsAwaitingRespawnInput(APBPlayerController* PC) const
+{
+    const auto it = LateJoinPlayers.find(PC);
+    return PC && it != LateJoinPlayers.end() &&
+        it->second.State == ELateJoinState::AwaitingRespawnInput;
 }
 
 bool LateJoinManager::HasManagedRestartPermit(APBPlayerController* PC) const
@@ -756,27 +826,22 @@ void LateJoinManager::PrepareLateJoinRespawn(APBPlayerController* PC)
     if (!isTracked())
         return;
 
+    // Do not clear spectator-waiting or input state before the controlled
+    // restart. On this build ServerSetSpectatorWaiting(false) synchronously
+    // enters the native default-respawn path: it publishes FIXER pre-ordering
+    // and can possess a FIXER pawn before the requested role's RestartPlayers
+    // dispatch begins. FinalizeLateJoinSpawn clears those flags only after a
+    // live pawn with DesiredRoleId has been observed.
     PlayerRespawnAllowedMap[PC] = true;
-    PC->ServerSetSpectatorWaiting(false);
-    if (!isTracked()) return;
-    PC->ClientSetSpectatorWaiting(false);
-    if (!isTracked()) return;
-    PC->SetIgnoreMoveInput(false);
-    if (!isTracked()) return;
-    PC->SetIgnoreLookInput(false);
-    if (!isTracked()) return;
-    PC->ClientIgnoreMoveInput(false);
-    if (!isTracked()) return;
-    PC->ClientIgnoreLookInput(false);
-    if (!isTracked()) return;
 
     // 如果当前是旁观者 Pawn → 退出观察模式并释放
     if (PC->Pawn && IsSpectatorPawn(PC->Pawn))
     {
         std::cout << "[LATEJOIN] Clearing spectator pawn before playable spawn: "
             << PC->Pawn->GetFullName() << std::endl;
-        PC->ExitObserverState();
-        if (!isTracked()) return;
+        // ExitObserverState can also advance the native respawn state machine.
+        // Releasing possession is sufficient; the managed RestartPlayers call
+        // below owns the only pre-spawn transition.
         PC->UnPossess();
     }
 }
@@ -883,6 +948,17 @@ void LateJoinManager::RequestLateJoinSpawn(APBPlayerController* PC)
         return;
 
     ScopedRestartPermit permit(ManagedRestartPermit, ManagedRestartPermitDepth, PC);
+    std::cout << "[LATEJOIN] Pre-dispatch role identity: "
+        << DescribePlayerRoleIdentity(PC) << std::endl;
+    // RestartPlayers requires the controller to have left Observer state, but
+    // ServerSetSpectatorWaiting(false) is not safe here: it synchronously
+    // enters the default FIXER respawn path on this build. Run only the native
+    // state transition while the matching managed restart permit is active.
+    PC->ExitObserverState();
+    if (!IsCurrentServerConnection(PC) || !LateJoinPlayers.contains(PC))
+        return;
+    std::cout << "[LATEJOIN] Post-observer-exit role identity: "
+        << DescribePlayerRoleIdentity(PC) << std::endl;
     if (spawnAttempt == 0 && GameMode)
     {
         // 第 1 次：通过 GameMode 的标准 RestartPlayers 生成

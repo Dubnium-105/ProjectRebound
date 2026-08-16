@@ -32,6 +32,7 @@ extern std::string MatchPipeName;
 
 extern ServerConfig Config;
 extern bool amServer;
+extern bool amListenServer;
 
 std::string GetCmdValue(const std::string &key);
 void LoadConfig();

@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <vector>
 
 enum class LoadoutRoleConfirmDecision
 {
@@ -50,6 +51,39 @@ namespace LoadoutStatePolicy
                 ServerEpoch == other.ServerEpoch;
         }
     };
+
+    struct InventoryEntry
+    {
+        int Slot = 0;
+        std::string ItemId;
+    };
+
+    // Unreal's TMap iteration order is not stable across RPC publication and
+    // later inspection. Compare the inventory as a multiset of slot/item
+    // pairs so ordering alone cannot suppress the post-spawn detail overlay.
+    inline bool SameInventoryEntries(
+        const std::vector<InventoryEntry>& left,
+        const std::vector<InventoryEntry>& right)
+    {
+        if (left.size() != right.size()) return false;
+        std::vector<bool> matched(right.size(), false);
+        for (const auto& expected : left)
+        {
+            bool found = false;
+            for (std::size_t index = 0; index < right.size(); ++index)
+            {
+                if (!matched[index] && expected.Slot == right[index].Slot &&
+                    expected.ItemId == right[index].ItemId)
+                {
+                    matched[index] = true;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) return false;
+        }
+        return true;
+    }
 
     inline bool IsResponseCurrent(
         const std::optional<ConnectionIdentity>& active,

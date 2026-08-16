@@ -1,0 +1,4 @@
+interface:
+  display_name: "Boundary Native Debug"
+  short_description: "Reverse and debug Boundary native flows"
+  default_prompt: "Use $debug-boundary-native to diagnose, reverse, and verify this Boundary native loadout or Meta-tunnel issue against the pinned client build."

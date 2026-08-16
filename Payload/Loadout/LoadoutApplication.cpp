@@ -1,7 +1,10 @@
 #include "LoadoutApplication.h"
+#include "LoadoutStatePolicy.h"
 #include "LoadoutSerializer.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <iomanip>
 #include <sstream>
 #include <string>
 #include <unordered_set>
@@ -51,15 +54,132 @@ namespace LoadoutApplication
                 return false;
             }
 
+            std::vector<LoadoutStatePolicy::InventoryEntry> leftEntries;
+            std::vector<LoadoutStatePolicy::InventoryEntry> rightEntries;
+            leftEntries.reserve(left.CharacterSlots.Num());
+            rightEntries.reserve(right.CharacterSlots.Num());
             for (int i = 0; i < left.CharacterSlots.Num(); ++i)
             {
-                if (left.CharacterSlots[i] != right.CharacterSlots[i] ||
-                    !SameName(left.InventoryItems[i], right.InventoryItems[i]))
+                leftEntries.push_back({
+                    static_cast<int>(left.CharacterSlots[i]),
+                    NameToString(left.InventoryItems[i]),
+                });
+                rightEntries.push_back({
+                    static_cast<int>(right.CharacterSlots[i]),
+                    NameToString(right.InventoryItems[i]),
+                });
+            }
+            return LoadoutStatePolicy::SameInventoryEntries(
+                leftEntries, rightEntries);
+        }
+
+        bool SameWeaponConfig(
+            const FPBWeaponNetworkConfig& left,
+            const FPBWeaponNetworkConfig& right)
+        {
+            if (!SameName(left.WeaponID, right.WeaponID) ||
+                !SameName(left.WeaponClassID, right.WeaponClassID) ||
+                !SameName(left.OrnamentID, right.OrnamentID) ||
+                left.WeaponPartSlotTypeArray.Num() != right.WeaponPartSlotTypeArray.Num() ||
+                left.WeaponPartConfigs.Num() != right.WeaponPartConfigs.Num())
+            {
+                return false;
+            }
+
+            const int count = left.WeaponPartConfigs.Num();
+            for (int index = 0; index < count; ++index)
+            {
+                const auto& leftPart = left.WeaponPartConfigs[index];
+                const auto& rightPart = right.WeaponPartConfigs[index];
+                if (left.WeaponPartSlotTypeArray[index] !=
+                        right.WeaponPartSlotTypeArray[index] ||
+                    !SameName(leftPart.WeaponPartID, rightPart.WeaponPartID) ||
+                    !SameName(leftPart.WeaponPartSkinID, rightPart.WeaponPartSkinID) ||
+                    !SameName(leftPart.WeaponPartSpecialSkinID,
+                        rightPart.WeaponPartSpecialSkinID) ||
+                    !SameName(leftPart.WeaponPartSkinPaintingID,
+                        rightPart.WeaponPartSkinPaintingID))
                 {
                     return false;
                 }
             }
             return true;
+        }
+
+        std::string HashWeaponConfig(const FPBWeaponNetworkConfig& config)
+        {
+            std::uint64_t hash = 1469598103934665603ULL;
+            const auto appendByte = [&hash](std::uint8_t value)
+            {
+                hash ^= value;
+                hash *= 1099511628211ULL;
+            };
+            const auto appendText = [&appendByte](const std::string& value)
+            {
+                for (const unsigned char character : value) appendByte(character);
+                appendByte(0xFF);
+            };
+
+            appendText(NameToString(config.WeaponID));
+            appendText(NameToString(config.WeaponClassID));
+            appendText(NameToString(config.OrnamentID));
+            const int count = (std::min)(
+                config.WeaponPartSlotTypeArray.Num(), config.WeaponPartConfigs.Num());
+            for (int index = 0; index < count; ++index)
+            {
+                appendByte(static_cast<std::uint8_t>(
+                    config.WeaponPartSlotTypeArray[index]));
+                const auto& part = config.WeaponPartConfigs[index];
+                appendText(NameToString(part.WeaponPartID));
+                appendText(NameToString(part.WeaponPartSkinID));
+                appendText(NameToString(part.WeaponPartSpecialSkinID));
+                appendText(NameToString(part.WeaponPartSkinPaintingID));
+            }
+
+            std::ostringstream output;
+            output << std::hex << std::setw(16) << std::setfill('0') << hash;
+            return output.str();
+        }
+
+        FPBWeaponNetworkConfig MergeWeaponConfig(
+            const FPBWeaponNetworkConfig& live,
+            const FPBWeaponNetworkConfig& target)
+        {
+            // WeaponArchiveV2 intentionally omits empty definition slots and
+            // the runtime receiver slot. Start from the native instance so
+            // those slots remain present, then overlay every archived slot.
+            FPBWeaponNetworkConfig result = live;
+            if (IsUsableName(target.WeaponID)) result.WeaponID = target.WeaponID;
+            if (IsUsableName(target.WeaponClassID))
+                result.WeaponClassID = target.WeaponClassID;
+            if (IsUsableName(target.OrnamentID)) result.OrnamentID = target.OrnamentID;
+
+            const int targetCount = (std::min)(
+                target.WeaponPartSlotTypeArray.Num(), target.WeaponPartConfigs.Num());
+            for (int targetIndex = 0; targetIndex < targetCount; ++targetIndex)
+            {
+                const EPBPartSlotType targetSlot =
+                    target.WeaponPartSlotTypeArray[targetIndex];
+                bool replaced = false;
+                const int resultCount = (std::min)(
+                    result.WeaponPartSlotTypeArray.Num(),
+                    result.WeaponPartConfigs.Num());
+                for (int resultIndex = 0; resultIndex < resultCount; ++resultIndex)
+                {
+                    if (result.WeaponPartSlotTypeArray[resultIndex] != targetSlot)
+                        continue;
+                    result.WeaponPartConfigs[resultIndex] =
+                        target.WeaponPartConfigs[targetIndex];
+                    replaced = true;
+                    break;
+                }
+                if (!replaced)
+                {
+                    result.WeaponPartSlotTypeArray.Add(targetSlot);
+                    result.WeaponPartConfigs.Add(target.WeaponPartConfigs[targetIndex]);
+                }
+            }
+            return result;
         }
 
         bool TryGetSlotItem(
@@ -94,36 +214,39 @@ namespace LoadoutApplication
             return false;
         }
 
-        FieldModCacheState InspectFieldModCacheInternal(
+        PlayerStateInventoryState InspectPlayerStateInventoryInternal(
+            APBPlayerController* playerController,
             const FName& roleId,
-            const FPBInventoryNetworkConfig& expected)
+            const FPBInventoryNetworkConfig& expected,
+            bool equipping)
         {
-            UWorld* currentWorld = UWorld::GetWorld();
-            if (!currentWorld) return FieldModCacheState::ManagerMissing;
-            bool managerFound = false;
-            bool roleFound = false;
-            for (UObject* object : getObjectsOfClass(UPBFieldModManager::StaticClass(), false))
+            if (!playerController)
+                return PlayerStateInventoryState::PlayerStateMissing;
+            APBPlayerState* playerState = playerController->PBPlayerState;
+            if (!playerState && playerController->PlayerState &&
+                playerController->PlayerState->IsA(APBPlayerState::StaticClass()))
             {
-                if (!object || object->IsDefaultObject()) continue;
-                auto* manager = static_cast<UPBFieldModManager*>(object);
-                if (manager->Outer != currentWorld) continue;
-                managerFound = true;
-                if (!manager->CharacterPreOrderingInventoryConfigs.IsValid()) continue;
-
-                for (const auto& entry : manager->CharacterPreOrderingInventoryConfigs)
-                {
-                    if (!SameName(entry.Key(), roleId)) continue;
-                    roleFound = true;
-                    if (SameInventory(entry.Value(), expected))
-                    {
-                        return FieldModCacheState::Match;
-                    }
-                }
+                playerState = static_cast<APBPlayerState*>(playerController->PlayerState);
             }
-            if (!managerFound) return FieldModCacheState::ManagerMissing;
-            return roleFound
-                ? FieldModCacheState::Mismatch
-                : FieldModCacheState::RoleMissing;
+            if (!playerState)
+                return PlayerStateInventoryState::PlayerStateMissing;
+
+            constexpr std::ptrdiff_t PreOrderingOffset = 0x6C0;
+            constexpr std::ptrdiff_t EquippingOffset = 0x6E0;
+            const auto mapOffset = equipping ? EquippingOffset : PreOrderingOffset;
+            const auto* inventories = reinterpret_cast<const TMap<FName, FPBInventoryNetworkConfig>*>(
+                reinterpret_cast<const std::uint8_t*>(playerState) + mapOffset);
+            if (!inventories || !inventories->IsValid())
+                return PlayerStateInventoryState::RoleMissing;
+
+            for (const auto& entry : *inventories)
+            {
+                if (!SameName(entry.Key(), roleId)) continue;
+                return SameInventory(entry.Value(), expected)
+                    ? PlayerStateInventoryState::Match
+                    : PlayerStateInventoryState::Mismatch;
+            }
+            return PlayerStateInventoryState::RoleMissing;
         }
 
         ApplyResult MergeResult(ApplyResult current, ApplyResult next)
@@ -324,6 +447,7 @@ namespace LoadoutApplication
         ApplyResult ApplyWeaponIfEffective(
             APBCharacter* character,
             const FPBWeaponNetworkConfig& target,
+            const json* weaponJson,
             EPBCharacterSlotType slot,
             const FPBInventoryNetworkConfig& effectiveInventory,
             int preferredIndex)
@@ -355,45 +479,49 @@ namespace LoadoutApplication
                 return ApplyResult::IdentityMismatch;
             }
 
-            FPBWeaponNetworkConfig applied = target;
-            if (!IsUsableName(applied.OrnamentID))
-                applied.OrnamentID = weapon->PartNetworkConfig.OrnamentID;
-            weapon->InitWeapon(applied, false);
-            RefreshWeaponRuntimeVisuals(weapon);
+            const std::string beforeHash = HashWeaponConfig(
+                weapon->PartNetworkConfig);
+            FPBWeaponNetworkConfig applied = MergeWeaponConfig(
+                weapon->PartNetworkConfig, target);
+            const ApplyResult expansionResult = ExpandWeaponSuite(
+                weaponJson, applied);
+            if (expansionResult != ApplyResult::Applied) return expansionResult;
+
+            const std::string targetHash = HashWeaponConfig(applied);
+
+            // InitWeapon only copies InPartSaved while the live
+            // PartNetworkConfig has no WeaponClassID. Spawned match weapons
+            // are already initialized, so calling InitWeapon(target) alone
+            // simply rebuilds their default config. Write the replicated
+            // property first and invoke its exact native RepNotify path.
+            weapon->PartNetworkConfig = applied;
+            weapon->OnRep_PartNetworkConfig();
             MarkActorForReplication(weapon);
-            return ApplyResult::Applied;
+
+            const std::string afterHash = HashWeaponConfig(
+                weapon->PartNetworkConfig);
+            const bool copied = SameWeaponConfig(
+                weapon->PartNetworkConfig, applied);
+            ClientLog("[LOADOUT] stage=weapon-detail-overlay slot=" +
+                std::to_string(static_cast<int>(slot)) +
+                " weapon=" + NameToString(applied.WeaponID) +
+                " before_hash=" + beforeHash +
+                " target_hash=" + targetHash +
+                " after_hash=" + afterHash +
+                " result=" + (copied ? "applied" : "copy-mismatch"));
+            return copied ? ApplyResult::Applied : ApplyResult::Invalid;
         }
 
-        template <typename ConfigType>
-        bool EffectiveSlotMatches(
-            const FPBInventoryNetworkConfig& inventory,
-            EPBCharacterSlotType slot,
-            const ConfigType& config,
-            const FName& configId)
-        {
-            (void)config;
-            FName effectiveItem{};
-            return TryGetSlotItem(inventory, slot, effectiveItem) && SameName(effectiveItem, configId);
-        }
     }
 
-    UPBFieldModManager* GetFieldModManager()
-    {
-        UWorld* currentWorld = UWorld::GetWorld();
-        if (!currentWorld) return nullptr;
-        for (UObject* object : getObjectsOfClass(UPBFieldModManager::StaticClass(), false))
-        {
-            if (object && !object->IsDefaultObject() && object->Outer == currentWorld)
-                return static_cast<UPBFieldModManager*>(object);
-        }
-        return nullptr;
-    }
-
-    FieldModCacheState InspectFieldModCache(
+    PlayerStateInventoryState InspectPlayerStateInventory(
+        APBPlayerController* playerController,
         const FName& roleId,
-        const FPBInventoryNetworkConfig& expected)
+        const FPBInventoryNetworkConfig& expected,
+        bool equipping)
     {
-        return InspectFieldModCacheInternal(roleId, expected);
+        return InspectPlayerStateInventoryInternal(
+            playerController, roleId, expected, equipping);
     }
 
     APBPlayerController* GetLocalPlayerController()
@@ -581,20 +709,25 @@ namespace LoadoutApplication
         {
             playerController->ServerPreOrderInventory(roleName, inventory);
 
-            const FieldModCacheState cacheState =
-                InspectFieldModCacheInternal(roleName, inventory);
-            const bool verified = cacheState == FieldModCacheState::Match;
-            const char* cacheDetail = "mismatch";
-            switch (cacheState)
+            const PlayerStateInventoryState state =
+                InspectPlayerStateInventoryInternal(
+                    playerController, roleName, inventory, false);
+            const bool verified = state == PlayerStateInventoryState::Match;
+            const char* stateDetail = "mismatch";
+            switch (state)
             {
-            case FieldModCacheState::ManagerMissing: cacheDetail = "missing"; break;
-            case FieldModCacheState::RoleMissing: cacheDetail = "role-missing"; break;
-            case FieldModCacheState::Match: cacheDetail = "verified"; break;
-            case FieldModCacheState::Mismatch: cacheDetail = "mismatch"; break;
+            case PlayerStateInventoryState::PlayerStateMissing:
+                stateDetail = "player-state-missing"; break;
+            case PlayerStateInventoryState::RoleMissing:
+                stateDetail = "role-missing"; break;
+            case PlayerStateInventoryState::Match:
+                stateDetail = "verified"; break;
+            case PlayerStateInventoryState::Mismatch:
+                stateDetail = "mismatch"; break;
             }
             std::ostringstream detail;
             detail << "role=" << roleId << ", slots=" << inventory.CharacterSlots.Num()
-                   << ", fieldmod=" << cacheDetail;
+                   << ", player_state_preordering=" << stateDetail;
             outDetail = detail.str();
             return verified ? ApplyResult::Applied : ApplyResult::Pending;
         }
@@ -745,53 +878,10 @@ namespace LoadoutApplication
         (void)playerController;
     }
 
-    bool ApplyLauncherConfig(APBLauncher* launcher, const FPBLauncherNetworkConfig& config, bool& outChanged)
-    {
-        if (!HasLauncherConfig(config)) return true;
-        if (!launcher || !SameName(launcher->SavedData.ID, config.ID)) return false;
-        FPBLauncherNetworkConfig applied = config;
-        if (!IsUsableName(applied.SkinID)) applied.SkinID = launcher->SavedData.SkinID;
-        launcher->SavedData = applied;
-        launcher->OnRep_SavedData();
-        MarkActorForReplication(launcher);
-        outChanged = true;
-        return true;
-    }
-
-    bool ApplyMeleeConfig(APBMeleeWeapon* meleeWeapon, const FPBMeleeWeaponNetworkConfig& config, bool& outChanged)
-    {
-        if (!HasMeleeConfig(config)) return true;
-        if (!meleeWeapon || !SameName(meleeWeapon->MeleeNetworkConfig.ID, config.ID)) return false;
-        FPBMeleeWeaponNetworkConfig applied = config;
-        if (!IsUsableName(applied.SkinID))
-            applied.SkinID = meleeWeapon->MeleeNetworkConfig.SkinID;
-        meleeWeapon->MeleeNetworkConfig = applied;
-        meleeWeapon->OnRep_MeleeNetworkConfig();
-        MarkActorForReplication(meleeWeapon);
-        outChanged = true;
-        return true;
-    }
-
-    bool ApplyMobilityConfig(APBCharacter* character, const FPBMobilityModuleNetworkConfig& config, bool& outChanged)
-    {
-        if (!HasMobilityConfig(config)) return true;
-        if (!character || !character->CurrentMobilityModule ||
-            !SameName(character->CurrentMobilityModule->SavedData.MobilityModuleID, config.MobilityModuleID))
-        {
-            return false;
-        }
-        character->CurrentMobilityModule->SavedData = config;
-        character->OnRep_CurrentMobilityModule();
-        MarkActorForReplication(character->CurrentMobilityModule);
-        MarkActorForReplication(character);
-        outChanged = true;
-        return true;
-    }
-
     ApplyResult PostSpawnApply(
         APBCharacter* character,
         const json& snapshot,
-        bool runtimeOverrideActive)
+        const FPBInventoryNetworkConfig& expectedInventory)
     {
         if (!character) return ApplyResult::Invalid;
 
@@ -802,12 +892,20 @@ namespace LoadoutApplication
             if (roleId.empty() || !TryResolveRoleConfig(snapshot, roleId, roleConfig))
                 return ApplyResult::Invalid;
 
-            const FPBInventoryNetworkConfig& effective = roleConfig.InventoryData;
-            if (effective.CharacterSlots.Num() != effective.InventoryItems.Num())
+            if (expectedInventory.CharacterSlots.Num() != expectedInventory.InventoryItems.Num())
                 return ApplyResult::Invalid;
 
+            APBPlayerController* const playerController =
+                FindPlayerControllerForCharacter(character);
+            if (!playerController) return ApplyResult::Pending;
+            APBPlayerState* const playerState = playerController->PBPlayerState;
+            if (!playerState) return ApplyResult::Pending;
+            const std::string selectedRole = NameToString(playerState->SelectedCharacterID);
+            const std::string possessedRole = NameToString(playerState->PossessedCharacterId);
+            if (selectedRole != roleId || possessedRole != roleId)
+                return ApplyResult::IdentityMismatch;
+
             ApplyResult result = ApplyResult::Applied;
-            bool changed = false;
 
             if (HasCharacterAppearance(roleConfig.CharacterData))
             {
@@ -828,85 +926,17 @@ namespace LoadoutApplication
                     skinManager->RefreshCharacterSkin(character, appearance);
                 }
                 MarkActorForReplication(character);
-                changed = true;
             }
-
-            // An accepted in-match FieldMod override owns all equipment
-            // details in that case; even an unchanged weapon ID may carry new
-            // parts/skins, so applying baseline configs would violate runtime
-            // precedence. Character cosmetics remain safe and were applied
-            // above.
-            if (runtimeOverrideActive) return ApplyResult::Applied;
 
             const json* roleJson = FindRoleJson(snapshot, roleId);
-            const ApplyResult firstSuiteResult = ExpandWeaponSuite(
+            result = MergeResult(result, ApplyWeaponIfEffective(
+                character, roleConfig.FirstWeaponPartData,
                 FindWeaponJson(roleJson, roleConfig.FirstWeaponPartData.WeaponID),
-                roleConfig.FirstWeaponPartData);
-            const ApplyResult secondSuiteResult = ExpandWeaponSuite(
+                EPBCharacterSlotType::FirstWeapon, expectedInventory, 0));
+            result = MergeResult(result, ApplyWeaponIfEffective(
+                character, roleConfig.SecondWeaponPartData,
                 FindWeaponJson(roleJson, roleConfig.SecondWeaponPartData.WeaponID),
-                roleConfig.SecondWeaponPartData);
-            result = MergeResult(result, firstSuiteResult);
-            result = MergeResult(result, secondSuiteResult);
-
-            // Never feed an unvalidated suite/painting into InitWeapon.  A
-            // Pending table is retried; an invalid definition leaves the live
-            // actor untouched while the remaining independently validated
-            // equipment may still be applied.
-            if (firstSuiteResult == ApplyResult::Applied)
-            {
-                result = MergeResult(result, ApplyWeaponIfEffective(
-                    character, roleConfig.FirstWeaponPartData,
-                    EPBCharacterSlotType::FirstWeapon, effective, 0));
-            }
-            if (secondSuiteResult == ApplyResult::Applied)
-            {
-                result = MergeResult(result, ApplyWeaponIfEffective(
-                    character, roleConfig.SecondWeaponPartData,
-                    EPBCharacterSlotType::SecondWeapon, effective, 1));
-            }
-
-            if (HasMeleeConfig(roleConfig.MeleeWeaponData) &&
-                EffectiveSlotMatches(effective, EPBCharacterSlotType::MeleeWeapon,
-                    roleConfig.MeleeWeaponData, roleConfig.MeleeWeaponData.ID))
-            {
-                if (!character->CurrentMeleeWeapon) result = MergeResult(result, ApplyResult::Pending);
-                else if (!SameName(character->CurrentMeleeWeapon->MeleeNetworkConfig.ID,
-                    roleConfig.MeleeWeaponData.ID))
-                    result = MergeResult(result, ApplyResult::IdentityMismatch);
-                else if (!ApplyMeleeConfig(character->CurrentMeleeWeapon, roleConfig.MeleeWeaponData, changed))
-                    result = MergeResult(result, ApplyResult::Invalid);
-            }
-
-            auto applyLauncher = [&](APBLauncher* launcher,
-                const FPBLauncherNetworkConfig& config,
-                EPBCharacterSlotType slot)
-            {
-                if (!HasLauncherConfig(config) ||
-                    !EffectiveSlotMatches(effective, slot, config, config.ID)) return;
-                if (!launcher) result = MergeResult(result, ApplyResult::Pending);
-                else if (!SameName(launcher->SavedData.ID, config.ID))
-                    result = MergeResult(result, ApplyResult::IdentityMismatch);
-                else if (!ApplyLauncherConfig(launcher, config, changed))
-                    result = MergeResult(result, ApplyResult::Invalid);
-            };
-            applyLauncher(character->CurrentLeftLauncher, roleConfig.LeftLauncherData,
-                EPBCharacterSlotType::LeftPod);
-            applyLauncher(character->CurrentRightLauncher, roleConfig.RightLauncherData,
-                EPBCharacterSlotType::RightPod);
-
-            if (HasMobilityConfig(roleConfig.MobilityModuleData) &&
-                EffectiveSlotMatches(effective, EPBCharacterSlotType::Mobility,
-                    roleConfig.MobilityModuleData, roleConfig.MobilityModuleData.MobilityModuleID))
-            {
-                if (!character->CurrentMobilityModule) result = MergeResult(result, ApplyResult::Pending);
-                else if (!SameName(character->CurrentMobilityModule->SavedData.MobilityModuleID,
-                    roleConfig.MobilityModuleData.MobilityModuleID))
-                    result = MergeResult(result, ApplyResult::IdentityMismatch);
-                else if (!ApplyMobilityConfig(character, roleConfig.MobilityModuleData, changed))
-                    result = MergeResult(result, ApplyResult::Invalid);
-            }
-
-            (void)changed;
+                EPBCharacterSlotType::SecondWeapon, expectedInventory, 1));
             return result;
         }
         catch (...)
@@ -935,20 +965,10 @@ namespace LoadoutApplication
         return nullptr;
     }
 
-    void RefreshWeaponRuntimeVisuals(APBWeapon* weapon)
-    {
-        if (!weapon) return;
-        weapon->ApplyPartModification();
-        weapon->K2_InitSimulatedPartsComplete();
-        weapon->K2_RefreshSkin();
-        weapon->NotifyRecalculateSpecialPartOffset();
-        weapon->CalculateAimPointToSightSocketOffset();
-    }
-
     void MarkActorForReplication(AActor* actor)
     {
         if (!actor) return;
-        actor->ForceNetUpdate();
         actor->FlushNetDormancy();
+        actor->ForceNetUpdate();
     }
 }

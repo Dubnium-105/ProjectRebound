@@ -45,6 +45,7 @@ public:
     // @brief 中途加入玩家所处的阶段
     enum class ELateJoinState
     {
+        AwaitingRespawnInput,   // Dead; preserve role/loadout until native F/ESC input.
         PendingRoleSelection,   // 等待客户端选择角色
         RoleConfirmed,          // 角色已确认，准备生成可玩 Pawn
         Spawned,                // 可玩 Pawn 已生成；保留至断线以统一后续复活
@@ -142,6 +143,7 @@ public:
     bool QueueManagedRespawn(SDK::APBPlayerController* PC);
     bool IsManagedPlayer(SDK::APBPlayerController* PC) const;
     bool HasManagedRestartPermit(SDK::APBPlayerController* PC) const;
+    bool IsAwaitingRespawnInput(SDK::APBPlayerController* PC) const;
 
     // Remove all deferred-spawn state for a disconnected controller. This is
     // called from the authoritative K2_OnLogout hook before the UObject can be

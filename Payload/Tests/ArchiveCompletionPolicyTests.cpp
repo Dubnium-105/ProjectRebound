@@ -20,6 +20,7 @@ int main()
 {
     using ArchiveCompletionPolicy::NormalizeEquipmentCompletion;
     using ArchiveCompletionPolicy::NormalizePersistedCompletion;
+    using ArchiveCompletionPolicy::NormalizeWeaponCustomizationCompletion;
 
     ExpectEqual(NormalizePersistedCompletion(404), 0,
         "stale native pending sentinel should become success");
@@ -52,6 +53,19 @@ int main()
         "adjacent game error 9003 must remain unchanged");
     ExpectEqual(NormalizeEquipmentCompletion(-1), -1,
         "equipment archive negative internal error must remain unchanged");
+
+    ExpectEqual(NormalizeWeaponCustomizationCompletion(404), 0,
+        "weapon customization should accept the stale pending sentinel");
+    ExpectEqual(NormalizeWeaponCustomizationCompletion(0), 0,
+        "weapon customization native success must remain success");
+    ExpectEqual(NormalizeWeaponCustomizationCompletion(9002), 9002,
+        "weapon customization must not inherit the equipment-only 9002 rule");
+    ExpectEqual(NormalizeWeaponCustomizationCompletion(9001), 9001,
+        "weapon customization game errors must remain unchanged");
+    ExpectEqual(NormalizeWeaponCustomizationCompletion(503), 503,
+        "weapon customization transport errors must remain unchanged");
+    ExpectEqual(NormalizeWeaponCustomizationCompletion(-1), -1,
+        "weapon customization internal errors must remain unchanged");
 
     std::cout << "archive completion policy tests passed\n";
     return 0;

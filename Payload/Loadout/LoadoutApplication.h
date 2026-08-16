@@ -21,9 +21,9 @@ namespace LoadoutApplication
         Invalid,
     };
 
-    enum class FieldModCacheState
+    enum class PlayerStateInventoryState
     {
-        ManagerMissing,
+        PlayerStateMissing,
         RoleMissing,
         Match,
         Mismatch,
@@ -37,10 +37,11 @@ namespace LoadoutApplication
     SDK::APBPlayerController* FindPlayerControllerForCharacter(SDK::APBCharacter* character);
     SDK::APBCharacter* GetControllerCharacter(SDK::APBPlayerController* playerController);
     bool IsCharacterAlive(SDK::APBCharacter* character);
-    SDK::UPBFieldModManager* GetFieldModManager();
-    FieldModCacheState InspectFieldModCache(
+    PlayerStateInventoryState InspectPlayerStateInventory(
+        SDK::APBPlayerController* playerController,
         const SDK::FName& roleId,
-        const SDK::FPBInventoryNetworkConfig& expected);
+        const SDK::FPBInventoryNetworkConfig& expected,
+        bool equipping);
 
     bool TryBuildRoleInventory(
         const json& snapshot,
@@ -62,8 +63,9 @@ namespace LoadoutApplication
         SDK::APBPlayerController* playerController,
         std::string& outDetail);
 
-    // Reasserts an already validated runtime inventory immediately before a
-    // spawn and verifies the authoritative FieldMod cache.
+    // Writes through the original server RPC and verifies the authoritative
+    // per-player pre-ordering map. This function never writes PlayerState or
+    // FieldMod containers directly.
     ApplyResult PreSpawnApplyInventory(
         const std::string& roleId,
         const SDK::FPBInventoryNetworkConfig& inventory,
@@ -97,25 +99,11 @@ namespace LoadoutApplication
     ApplyResult PostSpawnApply(
         SDK::APBCharacter* character,
         const json& snapshot,
-        bool runtimeOverrideActive = false);
-
-    bool ApplyLauncherConfig(
-        SDK::APBLauncher* launcher,
-        const SDK::FPBLauncherNetworkConfig& config,
-        bool& outChanged);
-    bool ApplyMeleeConfig(
-        SDK::APBMeleeWeapon* meleeWeapon,
-        const SDK::FPBMeleeWeaponNetworkConfig& config,
-        bool& outChanged);
-    bool ApplyMobilityConfig(
-        SDK::APBCharacter* character,
-        const SDK::FPBMobilityModuleNetworkConfig& config,
-        bool& outChanged);
+        const SDK::FPBInventoryNetworkConfig& expectedInventory);
 
     SDK::APBWeapon* FindWeaponForConfig(
         SDK::APBCharacter* character,
         const SDK::FPBWeaponNetworkConfig& config,
         int preferredIndex);
-    void RefreshWeaponRuntimeVisuals(SDK::APBWeapon* weapon);
     void MarkActorForReplication(SDK::AActor* actor);
 }

@@ -1,5 +1,6 @@
 // Config.cpp
 #include "Config.h"
+#include "CommandLinePolicy.h"
 #include <Windows.h>
 #include <iostream>
 #include "../Debug/Debug.h"
@@ -19,21 +20,13 @@ std::string MatchPipeName = "";
 
 ServerConfig Config{};
 bool amServer = false;
+bool amListenServer = false;
 
 // Set up the dll to get values from the wrapper
 std::string GetCmdValue(const std::string &key)
 {
-    std::string cmd = GetCommandLineA();
-    size_t pos = cmd.find(key);
-    if (pos == std::string::npos)
-        return "";
-
-    pos += key.length();
-    size_t end = cmd.find(" ", pos);
-    if (end == std::string::npos)
-        end = cmd.length();
-
-    return cmd.substr(pos, end - pos);
+    const auto value = CommandLinePolicy::GetValue(GetCommandLineA(), key);
+    return value.value_or("");
 }
 
 void LoadConfig()
@@ -41,7 +34,7 @@ void LoadConfig()
     std::string cmd = GetCommandLineA();
 
     // PvE flag
-    Config.IsPvE = cmd.find("-pve") != std::string::npos;
+    Config.IsPvE = CommandLinePolicy::HasExactSwitch(cmd, "-pve");
 
     // Map
     std::string mapArg = GetCmdValue("-map=");
@@ -183,7 +176,7 @@ void LoadClientConfig()
     }
 
     // NEW: debug log flag
-    if (std::string(GetCommandLineA()).find("-debuglog") != std::string::npos)
+    if (CommandLinePolicy::HasExactSwitch(GetCommandLineA(), "-debuglog"))
     {
         ClientDebugLogEnabled = true;
     }

@@ -50,11 +50,15 @@ used by the online loadout, then enter one match.
 - `persistent_user.snapshot`: Saved and Runtime inventory sizes and set hashes.
 - `http.message`: loopback HTTP method/path or response status plus body size
   and hash; authorization, cookies, and request bodies are never recorded.
-- `player_state.snapshot` / `player_state.changed`: passive snapshots of the
-  native `APBPlayerState` equipping map.
+- `player_state.snapshot` / `player_state.changed`: passive snapshots of
+  selected/possessed role IDs plus the native `APBPlayerState` pre-ordering and
+  equipping maps.
 - `fieldmod.native_call`: `ClientInitFieldMod`, both native refresh RPCs,
-  selection calls, getters, and weapon-spawn boundaries.
+  selection calls, getters, weapon-spawn boundaries, and reflected match
+  loadout RPCs.
 - `fieldmod.snapshot`: per-role pre-ordering slots before and after those calls.
+- `match.native_boundary`: entry/leave boundaries for native server pre-order,
+  role confirmation, and possession-time pre-order-to-equipping promotion.
 - `progression.player_level_table`: runtime PlayerLevelExp row count and highest
   numeric level for this exact executable.
 - `unreal.lifecycle`: snapshots around the native armory-entry lifecycle.

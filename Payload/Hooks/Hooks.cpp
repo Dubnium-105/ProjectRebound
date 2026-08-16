@@ -459,6 +459,12 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
 {
     const std::string functionName = Function ? std::string(Function->GetFullName()) : "";
 
+    // A listen host owns both authority and a local player but can install only
+    // one inline ProcessEvent hook. Reuse this server hook for the small client
+    // lifecycle signal needed by native archive initialization.
+    if (amListenServer && functionName.contains("UMG_MainMenuBase_C.Construct"))
+        NotifyClientLoginCompleted();
+
     // 热键检测（游戏线程安全）— F6=dump, F7=reapply snapshot
     if (gDebugTool)
     {
@@ -535,8 +541,14 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
 
                 interceptedManagedPlayer = true;
                 const auto allowed = PlayerRespawnAllowedMap.find(playerController);
-                if (allowed == PlayerRespawnAllowedMap.end() || allowed->second)
+                const bool awaitingInput =
+                    gLateJoinManager->IsAwaitingRespawnInput(playerController);
+                if (!awaitingInput &&
+                    (allowed == PlayerRespawnAllowedMap.end() || allowed->second))
                     gLateJoinManager->QueueManagedRespawn(playerController);
+                else if (awaitingInput)
+                    std::cout << "[LATEJOIN] Suppressed automatic RestartPlayers "
+                                 "while awaiting native F/ESC input." << std::endl;
             }
 
             if (interceptedManagedPlayer)
@@ -585,7 +597,8 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
             !gLateJoinManager->HasManagedRestartPermit(playerController))
         {
             const auto allowed = PlayerRespawnAllowedMap.find(playerController);
-            if (allowed == PlayerRespawnAllowedMap.end() || allowed->second)
+            if (!gLateJoinManager->IsAwaitingRespawnInput(playerController) &&
+                (allowed == PlayerRespawnAllowedMap.end() || allowed->second))
                 gLateJoinManager->QueueManagedRespawn(playerController);
             return;
         }
@@ -628,7 +641,8 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
             !gLateJoinManager->HasManagedRestartPermit(playerController))
         {
             const auto allowed = PlayerRespawnAllowedMap.find(playerController);
-            if (allowed == PlayerRespawnAllowedMap.end() || allowed->second)
+            if (!gLateJoinManager->IsAwaitingRespawnInput(playerController) &&
+                (allowed == PlayerRespawnAllowedMap.end() || allowed->second))
                 gLateJoinManager->QueueManagedRespawn(playerController);
             if (returnValue) *returnValue = nullptr;
             return;
@@ -644,8 +658,16 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
             !gLateJoinManager->HasManagedRestartPermit(PBPlayerController))
         {
             const auto allowed = PlayerRespawnAllowedMap.find(PBPlayerController);
-            if (allowed == PlayerRespawnAllowedMap.end() || allowed->second)
+            const bool awaitingInput =
+                gLateJoinManager->IsAwaitingRespawnInput(PBPlayerController);
+            if (awaitingInput ||
+                allowed == PlayerRespawnAllowedMap.end() || allowed->second)
+            {
+                if (awaitingInput)
+                    std::cout << "[LATEJOIN] Native respawn intent received: "
+                                 "ServerQuickRespawn." << std::endl;
                 gLateJoinManager->QueueManagedRespawn(PBPlayerController);
+            }
             return;
         }
 
@@ -666,8 +688,16 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
             !gLateJoinManager->HasManagedRestartPermit(PBPlayerController))
         {
             const auto allowed = PlayerRespawnAllowedMap.find(PBPlayerController);
-            if (allowed == PlayerRespawnAllowedMap.end() || allowed->second)
+            const bool awaitingInput =
+                gLateJoinManager->IsAwaitingRespawnInput(PBPlayerController);
+            if (awaitingInput ||
+                allowed == PlayerRespawnAllowedMap.end() || allowed->second)
+            {
+                if (awaitingInput)
+                    std::cout << "[LATEJOIN] Native respawn intent received: "
+                                 "ServerRestartPlayer." << std::endl;
                 gLateJoinManager->QueueManagedRespawn(PBPlayerController);
+            }
             return;
         }
 
@@ -685,9 +715,9 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
         return;
     }
 
-    // Capture a real in-match FieldMod submission only after the native RPC
-    // has accepted it. LoadoutManager uses an internal guard around its own
-    // baseline writes, so those calls are ignored here.
+    // Always let the native server implementation validate and publish a
+    // pre-order first. The bridge records a runtime override only when the
+    // player's own +0x6C0 pre-ordering entry exactly matches afterwards.
     if (functionName.contains("PBPlayerController.ServerPreOrderInventory"))
     {
         APBPlayerController* playerController =
@@ -708,33 +738,6 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
             ProcessEvent.call(Object, Function, Parms);
             BattleLog::OnProcessEventPost(
                 BattleLog::ProcessSide::Server, Object, functionName, Parms);
-            return;
-        }
-
-        bool deferredForLease = false;
-        {
-            std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
-            if (gLoadoutManager && playerController && preOrderParms &&
-                ConnectedPlayerControllers.contains(playerController) &&
-                !DisconnectedPlayerControllers.contains(playerController) &&
-                !playerController->bActorIsBeingDestroyed)
-            {
-                deferredForLease =
-                    gLoadoutManager->DeferExternalPreOrderInventoryIfLeaseConflict(
-                        playerController,
-                        preOrderParms->InRoleID,
-                        preOrderParms->InPreOrderingInventory);
-            }
-        }
-        if (deferredForLease)
-        {
-            if (gLateJoinManager && playerController && preOrderParms &&
-                IsCurrentSelectedRole(playerController, preOrderParms->InRoleID))
-            {
-                const auto allowed = PlayerRespawnAllowedMap.find(playerController);
-                if (allowed != PlayerRespawnAllowedMap.end() && !allowed->second)
-                    gLateJoinManager->QueueManagedRespawn(playerController);
-            }
             return;
         }
 
@@ -975,20 +978,31 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
 
     if (functionName.contains("PBPlayerController.ClientBeKilled"))
     {
-        std::cout << "Intercepted Player Kill!" << std::endl;
-
         APBPlayerController* PBPlayerController =
             Object && Object->IsA(APBPlayerController::StaticClass())
                 ? static_cast<APBPlayerController*>(Object)
                 : nullptr;
+        auto* killedParms =
+            static_cast<Params::PBPlayerController_ClientBeKilled*>(Parms);
+        const bool isLocalVictim = PBPlayerController && killedParms &&
+            killedParms->VictimPlayerState &&
+            killedParms->VictimPlayerState == PBPlayerController->PBPlayerState;
 
-        if (PBPlayerController)
+        if (isLocalVictim)
             PlayerRespawnAllowedMap[PBPlayerController] = false;
-        if (gLateJoinManager && PBPlayerController)
+        // Deliver the native death notification first. The managed state
+        // machine changes only the server-side restart permit afterwards; the
+        // client retains its native F-to-respawn / ESC-to-select-role UI.
+        ProcessEvent.call(Object, Function, Parms);
+        if (gLateJoinManager && isLocalVictim)
+        {
+            std::cout << "[LATEJOIN] Intercepted local player death: role="
+                << killedParms->VictimRoleID.ToString() << std::endl;
             gLateJoinManager->OnPlayerKilled(PBPlayerController);
-        // The FieldMod deploy/preorder (or a new role confirmation) reopens
-        // the managed respawn. Queuing here would immediately respawn the old
-        // role before the player's post-death selection arrives.
+        }
+        BattleLog::OnProcessEventPost(
+            BattleLog::ProcessSide::Server, Object, functionName, Parms);
+        return;
     }
 
     if (functionName.contains("PlayerController.CanRestartPlayer"))
@@ -1003,7 +1017,11 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
         {
             auto* restartParms =
                 static_cast<Params::PlayerController_CanRestartPlayer*>(Parms);
-            if (restartParms) restartParms->ReturnValue = false;
+            if (restartParms)
+            {
+                restartParms->ReturnValue =
+                    gLateJoinManager->IsAwaitingRespawnInput(playerController);
+            }
             return;
         }
     }
@@ -1024,6 +1042,12 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
                 return;
             }
 
+            if (gLateJoinManager->IsAwaitingRespawnInput(playerController))
+            {
+                restartParms->ReturnValue = true;
+                return;
+            }
+
             restartParms->ReturnValue = false;
             return;
         }
@@ -1034,6 +1058,8 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
     }
 
     ProcessEvent.call(Object, Function, Parms);
+    if (amListenServer)
+        PumpPendingClientCommands();
     BattleLog::OnProcessEventPost(
         BattleLog::ProcessSide::Server,
         Object,
@@ -1134,6 +1160,10 @@ static SafetyHookInline ProcessEventClient;
 static SafetyHookInline FixEquipErrorHook;
 static SafetyHookInline FixCharacterSkinPaintingErrorHook;
 static SafetyHookInline FixCharacterAppearanceErrorHook;
+static SafetyHookInline FixWeaponOrnamentErrorHook;
+static SafetyHookInline FixWeaponPartSkinPaintingErrorHook;
+static SafetyHookInline FixWeaponPartSlotErrorHook;
+static SafetyHookInline FixWeaponSuiteErrorHook;
 
 static void LogArchiveCompletionTranslation(
     const char* completionKind,
@@ -1182,6 +1212,58 @@ void __fastcall FixCharacterAppearanceErrorHookFn(
         LogArchiveCompletionTranslation(
             "character_appearance", completionCode, normalized, translationCount);
     FixCharacterAppearanceErrorHook.call<void>(a1, normalized, a3, a4, a5);
+}
+
+void __fastcall FixWeaponOrnamentErrorHookFn(
+    __int64 a1, int completionCode, __int64 a3, __int64 a4, __int64 a5)
+{
+    static std::atomic<unsigned long long> translationCount{0};
+    const int normalized =
+        ArchiveCompletionPolicy::NormalizeWeaponCustomizationCompletion(completionCode);
+    if (normalized != completionCode)
+        LogArchiveCompletionTranslation(
+            "weapon_ornament", completionCode, normalized, translationCount);
+    FixWeaponOrnamentErrorHook.call<void>(a1, normalized, a3, a4, a5);
+}
+
+void __fastcall FixWeaponPartSkinPaintingErrorHookFn(
+    __int64 a1, int completionCode, __int64 a3, __int64 a4,
+    __int64 a5, __int64 a6, __int64 a7)
+{
+    static std::atomic<unsigned long long> translationCount{0};
+    const int normalized =
+        ArchiveCompletionPolicy::NormalizeWeaponCustomizationCompletion(completionCode);
+    if (normalized != completionCode)
+        LogArchiveCompletionTranslation(
+            "weapon_part_skin_painting", completionCode, normalized, translationCount);
+    FixWeaponPartSkinPaintingErrorHook.call<void>(
+        a1, normalized, a3, a4, a5, a6, a7);
+}
+
+void __fastcall FixWeaponPartSlotErrorHookFn(
+    __int64 a1, int completionCode, __int64 a3, __int64 a4,
+    __int64 a5, int a6)
+{
+    static std::atomic<unsigned long long> translationCount{0};
+    const int normalized =
+        ArchiveCompletionPolicy::NormalizeWeaponCustomizationCompletion(completionCode);
+    if (normalized != completionCode)
+        LogArchiveCompletionTranslation(
+            "weapon_part_slot", completionCode, normalized, translationCount);
+    FixWeaponPartSlotErrorHook.call<void>(a1, normalized, a3, a4, a5, a6);
+}
+
+void __fastcall FixWeaponSuiteErrorHookFn(
+    __int64 a1, int completionCode, __int64 a3, __int64 a4,
+    __int64 a5, __int64 a6)
+{
+    static std::atomic<unsigned long long> translationCount{0};
+    const int normalized =
+        ArchiveCompletionPolicy::NormalizeWeaponCustomizationCompletion(completionCode);
+    if (normalized != completionCode)
+        LogArchiveCompletionTranslation(
+            "weapon_suite", completionCode, normalized, translationCount);
+    FixWeaponSuiteErrorHook.call<void>(a1, normalized, a3, a4, a5, a6);
 }
 
 void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
@@ -1373,7 +1455,7 @@ void InitMessageBoxHook()
     MessageBoxWHook = safetyhook::create_inline(addr, MessageBoxW_Detour);
 }
 
-void InitServerHooks()
+void InitServerHooks(bool forceDedicatedMode)
 {
     NotifyActorDestroyed = safetyhook::create_inline((void *)(BaseAddress + 0x33403E0), NotifyActorDestroyedHook);
     NotifyAcceptingConnection = safetyhook::create_inline((void *)(BaseAddress + 0x36CDC90), NotifyAcceptingConnectionHook);
@@ -1384,20 +1466,37 @@ void InitServerHooks()
     ActorNeedsLoad = safetyhook::create_inline((void *)(BaseAddress + 0x3124E70), ActorNeedsLoadHook);
     OnFireWeaponHook = safetyhook::create_inline((void *)(BaseAddress + 0x1610500), OnFireWeapon);
     PostLoginHook = safetyhook::create_inline((void *)(BaseAddress + 0x32903B0), PostLogin);
-    IsDedicatedServerHook = safetyhook::create_inline((void *)(BaseAddress + 0x33266F0), IsDedicatedServer);
-    IsServerHook = safetyhook::create_inline((void *)(BaseAddress + 0x3326C60), IsServer);
-    IsStandaloneHook = safetyhook::create_inline((void *)(BaseAddress + 0x3326CE0), IsStandalone);
+    if (forceDedicatedMode)
+    {
+        IsDedicatedServerHook = safetyhook::create_inline((void *)(BaseAddress + 0x33266F0), IsDedicatedServer);
+        IsServerHook = safetyhook::create_inline((void *)(BaseAddress + 0x3326C60), IsServer);
+        IsStandaloneHook = safetyhook::create_inline((void *)(BaseAddress + 0x3326CE0), IsStandalone);
+    }
 }
 
-void InitClientHook()
+void InitClientArchiveHooks()
 {
-    ProcessEventClient = safetyhook::create_inline((void *)(BaseAddress + 0x1BCBE40), ProcessEventHookClient);
     ClientDeathCrash = safetyhook::create_inline((void *)(BaseAddress + 0x16abe10), ClientDeathCrashHook);
     FixEquipErrorHook = safetyhook::create_inline((void *)(BaseAddress + 0x16DD080), FixEquipErrorHookFn);
     FixCharacterSkinPaintingErrorHook = safetyhook::create_inline(
         (void *)(BaseAddress + 0x16DCEC0), FixCharacterSkinPaintingErrorHookFn);
     FixCharacterAppearanceErrorHook = safetyhook::create_inline(
         (void *)(BaseAddress + 0x16DCD80), FixCharacterAppearanceErrorHookFn);
+    FixWeaponOrnamentErrorHook = safetyhook::create_inline(
+        (void *)(BaseAddress + 0x16DD1D0), FixWeaponOrnamentErrorHookFn);
+    FixWeaponPartSkinPaintingErrorHook = safetyhook::create_inline(
+        (void *)(BaseAddress + 0x16DD490), FixWeaponPartSkinPaintingErrorHookFn);
+    FixWeaponPartSlotErrorHook = safetyhook::create_inline(
+        (void *)(BaseAddress + 0x16DD5F0), FixWeaponPartSlotErrorHookFn);
+    FixWeaponSuiteErrorHook = safetyhook::create_inline(
+        (void *)(BaseAddress + 0x16DD740), FixWeaponSuiteErrorHookFn);
     ClientLog("[ARCHIVE] Installed pinned-build completion compatibility hooks "
-        "(generic 404->0; equipment 404/9002->0).");
+        "(character/weapon customization 404->0; equipment 404/9002->0).");
+}
+
+void InitClientHook()
+{
+    ProcessEventClient = safetyhook::create_inline(
+        (void *)(BaseAddress + 0x1BCBE40), ProcessEventHookClient);
+    InitClientArchiveHooks();
 }

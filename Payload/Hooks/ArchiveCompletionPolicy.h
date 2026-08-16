@@ -21,4 +21,14 @@ namespace ArchiveCompletionPolicy
             ? 0
             : NormalizePersistedCompletion(completionCode);
     }
+
+    // Weapon customization updates use four different native completion
+    // entry points (part slot, suite/skin, part skin/painting and ornament),
+    // but share the generic persisted-update status contract. Keep a named
+    // policy here so those callbacks cannot accidentally inherit the
+    // equipment-only 9002 compatibility rule.
+    inline constexpr int NormalizeWeaponCustomizationCompletion(int completionCode)
+    {
+        return NormalizePersistedCompletion(completionCode);
+    }
 }

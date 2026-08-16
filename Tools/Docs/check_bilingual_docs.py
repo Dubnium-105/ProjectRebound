@@ -38,7 +38,7 @@ def maintained_english_docs() -> list[Path]:
     for path in REPOSITORY_ROOT.rglob("*.md"):
         relative = path.relative_to(REPOSITORY_ROOT)
         if any(
-            part in {".git", ".tmp", "build", "_deps", "node_modules", "dist", "target"}
+            part in {".git", ".agents", ".tmp", "build", "_deps", "node_modules", "dist", "target"}
             for part in relative.parts
         ):
             continue
@@ -118,7 +118,7 @@ def main() -> int:
     for path in REPOSITORY_ROOT.rglob("*.zh-CN.md"):
         relative = path.relative_to(REPOSITORY_ROOT)
         if any(
-            part in {".git", ".tmp", "build", "_deps", "node_modules", "dist", "target"}
+            part in {".git", ".agents", ".tmp", "build", "_deps", "node_modules", "dist", "target"}
             for part in relative.parts
         ):
             continue

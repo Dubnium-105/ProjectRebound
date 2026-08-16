@@ -39,6 +39,9 @@ const SETTINGS = {
         mapElementSize: 0x30,
     },
     playerState: {
+        selectedCharacterId: 0x334,
+        possessedCharacterId: 0x33C,
+        preOrderingMap: 0x6C0,
         equippingMap: 0x6E0,
         mapElementSize: 0x30,
         clientRefreshPreOrdering: 0x700,
@@ -56,6 +59,16 @@ const SETTINGS = {
         savedArmory: 0x48,
         runtimeArmory: 0x68,
     },
+    weapon: {
+        partNetworkConfig: 0x3E8,
+        initWeaponVirtual: 0x908,
+        partConfigSize: 0x20,
+    },
+    metaGateway: {
+        state: 0x31C,
+        setStateRva: 0x009C6B60,
+        updateWeaponArchiveRva: 0x009CF4D0,
+    },
     archiveCompletionEntries: [
         { name: 'role_equipment', rva: 0x016DD080 },
         { name: 'character_skin_painting', rva: 0x016DCEC0 },
@@ -64,6 +77,11 @@ const SETTINGS = {
         { name: 'weapon_part_skin_painting', rva: 0x016DD490 },
         { name: 'weapon_part_slot', rva: 0x016DD5F0 },
         { name: 'weapon_suite', rva: 0x016DD740 },
+    ],
+    matchNativeEntries: [
+        { name: 'server_confirm_role', rva: 0x015C0890, controller: true },
+        { name: 'server_preorder_inventory', rva: 0x015C1110, controller: true },
+        { name: 'possess_promote_inventory', rva: 0x0167FB20, controller: false },
     ],
     maxObjects: 2_000_000,
     maxOwnedItems: 250_000,
@@ -83,6 +101,27 @@ const OBSERVED_FUNCTIONS = new Map([
     ['GetPreOrderingItemIDInSlotType', 'PBFieldModManager'],
     ['SpawnWeapon', 'PBFieldModManager'],
     ['ConfirmRoleSelection', 'PBPlayerController'],
+    ['ServerConfirmRoleSelection', 'PBPlayerController'],
+    ['ServerPreOrderInventory', 'PBPlayerController'],
+    ['ClientBeKilled', 'PBPlayerController'],
+    ['ClientWaitingToRestart', 'PBPlayerController'],
+    ['ClientSelectRole', 'PBPlayerController'],
+    ['OpenInGameSelectRoleMenu', 'PBPlayerController'],
+    ['ToggleInGameSelectRoleMenu', 'PBPlayerController'],
+    ['CanSelectRole', 'PBPlayerController'],
+    ['EnterObserverState', 'PBPlayerController'],
+    ['ExitObserverState', 'PBPlayerController'],
+    ['ServerQuickRespawn', 'PBPlayerController'],
+    ['ClientSetSpectatorWaiting', 'PlayerController'],
+    ['ServerSetSpectatorWaiting', 'PlayerController'],
+    ['ServerRestartPlayer', 'PlayerController'],
+    ['CanRestartPlayer', 'PlayerController'],
+    ['PlayerCanRestart', 'GameModeBase'],
+    ['RestartPlayers', 'PBGameMode'],
+    ['K2_InventorySpawned', 'PBCharacter'],
+    ['InitWeapon', 'PBWeapon'],
+    ['OnRep_PartNetworkConfig', 'PBWeapon'],
+    ['OnRep_PossessedCharacterID', 'PBPlayerState'],
     ['QueryUserProfileData', 'PBCareerManager'],
     ['GetCharacterProfileData', 'PBCareerManager'],
     ['GetCharacterLevelUpExp', 'PBCareerManager'],
@@ -150,6 +189,67 @@ function hookArchiveCompletionEntries() {
             },
         });
     }
+}
+
+function nativeBacktraceRvas(context, limit = 16) {
+    return Thread.backtrace(context, Backtracer.ACCURATE)
+        .slice(0, limit)
+        .map((address) => {
+            const owner = Process.findModuleByAddress(address);
+            if (owner === null) {
+                return address.toString();
+            }
+            return `${owner.name}+${address.sub(owner.base)}`;
+        });
+}
+
+function hookMetaGatewayState() {
+    const stateTarget = gameModule.base.add(SETTINGS.metaGateway.setStateRva);
+    Interceptor.attach(stateTarget, {
+        onEnter(args) {
+            this.gateway = args[0];
+            this.oldState = this.gateway.add(SETTINGS.metaGateway.state).readS32();
+            this.requestedState = args[1].toInt32();
+            emit('meta_gateway.state_transition_enter', {
+                gateway: this.gateway.toString(),
+                old_state: this.oldState,
+                requested_state: this.requestedState,
+                backtrace: nativeBacktraceRvas(this.context),
+            });
+        },
+        onLeave() {
+            emit('meta_gateway.state_transition_leave', {
+                gateway: this.gateway.toString(),
+                old_state: this.oldState,
+                requested_state: this.requestedState,
+                current_state: this.gateway.add(SETTINGS.metaGateway.state).readS32(),
+            });
+        },
+    });
+
+    const updateWeaponTarget = gameModule.base.add(
+        SETTINGS.metaGateway.updateWeaponArchiveRva);
+    Interceptor.attach(updateWeaponTarget, {
+        onEnter(args) {
+            this.gateway = args[0];
+            this.gatewayState = this.gateway.add(SETTINGS.metaGateway.state).readS32();
+            emit('meta_gateway.update_weapon_enter', {
+                gateway: this.gateway.toString(),
+                state: this.gatewayState,
+            });
+        },
+        onLeave(returnValue) {
+            emit('meta_gateway.update_weapon_leave', {
+                gateway: this.gateway.toString(),
+                state_at_entry: this.gatewayState,
+                accepted: returnValue.toInt32() !== 0,
+            });
+        },
+    });
+    emit('meta_gateway.hooks_ready', {
+        state_rva: toHex(SETTINGS.metaGateway.setStateRva),
+        update_weapon_rva: toHex(SETTINGS.metaGateway.updateWeaponArchiveRva),
+    });
 }
 
 function toHex(value) {
@@ -1007,6 +1107,8 @@ const careerManagers = new Map();
 const careerSignatures = new Map();
 const playerStates = new Map();
 const playerStateSignatures = new Map();
+const gameModeVtables = new Map();
+const weaponSignatures = new Map();
 let careerMemoryMonitorActive = false;
 
 function fnameKey(address) {
@@ -1130,6 +1232,73 @@ function dumpInventoryConfig(address) {
     };
 }
 
+function dumpWeaponNetworkConfig(address) {
+    const slots = readArrayHeader(address, 32, 'weapon part slots');
+    const parts = readArrayHeader(address.add(0x10), 32, 'weapon part configs');
+    const count = Math.min(slots.num, parts.num);
+    const entries = [];
+    let hash = 0x811C9DC5;
+    for (let index = 0; index < count; index += 1) {
+        const slot = slots.data.add(index).readU8();
+        const part = parts.data.add(index * SETTINGS.weapon.partConfigSize);
+        const entry = {
+            slot,
+            part_id: fnameToString(part),
+            skin_id: fnameToString(part.add(8)),
+            special_skin_id: fnameToString(part.add(0x10)),
+            painting_id: fnameToString(part.add(0x18)),
+        };
+        entries.push(entry);
+        hash = fnvStep(hash, slot);
+        for (const value of [
+            entry.part_id,
+            entry.skin_id,
+            entry.special_skin_id,
+            entry.painting_id,
+        ]) {
+            hash = fnvStep(hash, hashString(value));
+        }
+    }
+    const ornamentId = fnameToString(address.add(0x20));
+    const weaponId = fnameToString(address.add(0x28));
+    const weaponClassId = fnameToString(address.add(0x30));
+    hash = fnvStep(hash, hashString(ornamentId));
+    hash = fnvStep(hash, hashString(weaponId));
+    hash = fnvStep(hash, hashString(weaponClassId));
+    return {
+        weapon_id: weaponId,
+        weapon_class_id: weaponClassId,
+        ornament_id: ornamentId,
+        slot_count: slots.num,
+        part_count: parts.num,
+        config_hash: toHex(hash),
+        parts: entries,
+    };
+}
+
+function refreshWeapon(object, reason, force) {
+    const key = object.toString();
+    const config = dumpWeaponNetworkConfig(
+        object.add(SETTINGS.weapon.partNetworkConfig));
+    const previous = weaponSignatures.get(key);
+    weaponSignatures.set(key, config.config_hash);
+    if (force || previous !== config.config_hash) {
+        const vtable = object.readPointer();
+        const initTarget = vtable.add(SETTINGS.weapon.initWeaponVirtual).readPointer();
+        emit(previous === undefined ? 'weapon.found' : 'weapon.changed', {
+            reason,
+            object: key,
+            object_name: objectName(object),
+            class_name: className(object),
+            vtable: vtable.toString(),
+            init_weapon_target: initTarget.toString(),
+            init_weapon_target_rva: moduleOffset(initTarget),
+            config,
+        });
+    }
+    return config;
+}
+
 function dumpSavedRoleConfig(address) {
     const roles = readArrayHeader(address, 32, 'saved roles');
     const inventories = readArrayHeader(address.add(0x10), 32, 'saved inventories');
@@ -1200,12 +1369,23 @@ function refreshPlayerState(object, reason, force = false) {
             emit('player_state.retired', { reason: 'object_reused', object: key });
             return false;
         }
-        const state = dumpRoleInventoryMap(
+        const preOrdering = dumpRoleInventoryMap(
+            object.add(SETTINGS.playerState.preOrderingMap),
+            128,
+            'PlayerState pre-ordering',
+            SETTINGS.playerState.mapElementSize);
+        const equipping = dumpRoleInventoryMap(
             object.add(SETTINGS.playerState.equippingMap),
             128,
             'PlayerState equipping',
             SETTINGS.playerState.mapElementSize);
-        const signature = `${state.allocated}:${state.state_hash}`;
+        const selectedRole = fnameToString(
+            object.add(SETTINGS.playerState.selectedCharacterId));
+        const possessedRole = fnameToString(
+            object.add(SETTINGS.playerState.possessedCharacterId));
+        const signature = `${selectedRole}:${possessedRole}:` +
+            `${preOrdering.allocated}:${preOrdering.state_hash}:` +
+            `${equipping.allocated}:${equipping.state_hash}`;
         if (force || playerStateSignatures.get(key) !== signature) {
             playerStateSignatures.set(key, signature);
             emit(force ? 'player_state.snapshot' : 'player_state.changed', Object.assign({
@@ -1213,7 +1393,10 @@ function refreshPlayerState(object, reason, force = false) {
                 object: key,
                 object_name: currentName,
                 class_name: className(object),
-            }, state));
+                selected_role_id: selectedRole,
+                possessed_role_id: possessedRole,
+                pre_ordering: preOrdering,
+            }, equipping));
         }
         return true;
     } catch (error) {
@@ -1223,6 +1406,16 @@ function refreshPlayerState(object, reason, force = false) {
             reason: 'unreadable', object: key, error: String(error),
         });
         return false;
+    }
+}
+
+function registerControllerPlayerState(controller, reason) {
+    if (controller.isNull()) return;
+    try {
+        const playerState = controller.add(0x5B8).readPointer();
+        if (!playerState.isNull()) registerPlayerState(playerState, reason);
+    } catch (error) {
+        reportError('player_state.from_controller', error);
     }
 }
 
@@ -1773,6 +1966,26 @@ function refreshInventory(manager, reason, force = false) {
 function considerObject(object) {
     const typeName = className(object);
     const name = objectName(object);
+    if (!name.startsWith('Default__') && classInherits(object, 'PBWeapon')) {
+        refreshWeapon(object, 'object_scan', !weaponSignatures.has(object.toString()));
+        return;
+    }
+    if (!name.startsWith('Default__') && classInherits(object, 'PBGameMode')) {
+        const key = object.toString();
+        if (!gameModeVtables.has(key)) {
+            const vtable = object.readPointer();
+            const confirmRoleTarget = vtable.add(0x790).readPointer();
+            gameModeVtables.set(key, object);
+            emit('match.game_mode_vtable', {
+                object: key,
+                object_name: name,
+                class_name: typeName,
+                vtable: vtable.toString(),
+                confirm_role_target: confirmRoleTarget.toString(),
+                confirm_role_target_rva: confirmRoleTarget.sub(gameModule.base).toString(),
+            });
+        }
+    }
     if (!name.startsWith('Default__') && classInherits(object, 'PBPlayerState')) {
         registerPlayerState(object, 'object_scan');
         return;
@@ -1951,6 +2164,12 @@ function scanObjects() {
 
 function observedCallDetails(functionName, params, phase) {
     if (params.isNull()) return {};
+    if (functionName === 'InitWeapon' && phase === 'enter') {
+        return {
+            requested_config: dumpWeaponNetworkConfig(params),
+            only_model: params.add(0x38).readU8() !== 0,
+        };
+    }
     if (functionName === 'ClientInitFieldMod' && phase === 'enter') {
         return {
             server_equipping_saved: dumpSavedRoleConfig(params),
@@ -1967,8 +2186,33 @@ function observedCallDetails(functionName, params, phase) {
     }
     if (functionName === 'SelectCharacter' ||
         functionName === 'SelectInventoryItem' ||
-        functionName === 'ConfirmRoleSelection') {
+        functionName === 'ConfirmRoleSelection' ||
+        functionName === 'ServerConfirmRoleSelection') {
         return { item_or_role_id: fnameToString(params) };
+    }
+    if (functionName === 'ServerPreOrderInventory' && phase === 'enter') {
+        return {
+            role_id: fnameToString(params),
+            inventory: dumpInventoryConfig(params.add(8)),
+        };
+    }
+    if (functionName === 'ClientBeKilled' && phase === 'enter') {
+        return {
+            victim_player_state: params.readPointer().toString(),
+            victim_role_id: fnameToString(params.add(Process.pointerSize)),
+        };
+    }
+    if (functionName === 'EnterObserverState' && phase === 'enter') {
+        return { delay_seconds: params.readFloat() };
+    }
+    if (functionName === 'ClientSetSpectatorWaiting' ||
+        functionName === 'ServerSetSpectatorWaiting') {
+        return { waiting: params.readU8() !== 0 };
+    }
+    if ((functionName === 'CanSelectRole' ||
+         functionName === 'CanRestartPlayer' ||
+         functionName === 'PlayerCanRestart') && phase === 'leave') {
+        return { return_value: params.readU8() !== 0 };
     }
     if (functionName === 'SelectCharacterSlot') {
         return { slot: params.readU8() };
@@ -2033,6 +2277,60 @@ function hookCareerNativeDispatch() {
             SETTINGS.career.queryUserProfileDataNative).toString(),
         call_sites: SETTINGS.career.queryVirtualCallSites.map(
             (offset) => gameModule.base.add(offset).toString()),
+    });
+}
+
+function hookMatchNativeEntries() {
+    for (const entry of SETTINGS.matchNativeEntries) {
+        const address = gameModule.base.add(entry.rva);
+        Interceptor.attach(address, {
+            onEnter(args) {
+                this.entry = entry;
+                this.controller = entry.controller ? args[0] : ptr(0);
+                try {
+                    if (entry.controller) {
+                        registerControllerPlayerState(
+                            this.controller, `${entry.name}.native.before`);
+                    }
+                    emit('match.native_boundary', {
+                        boundary_name: entry.name,
+                        phase: 'enter',
+                        rva: toHex(entry.rva),
+                        object: args[0].toString(),
+                        native_backtrace: nativeBacktrace(this.context),
+                    });
+                } catch (error) {
+                    reportError(`match.native.${entry.name}.enter`, error);
+                }
+            },
+            onLeave() {
+                try {
+                    if (this.entry.controller) {
+                        registerControllerPlayerState(
+                            this.controller, `${this.entry.name}.native.after`);
+                    } else {
+                        for (const playerState of playerStates.values()) {
+                            refreshPlayerState(
+                                playerState, `${this.entry.name}.native.after`, false);
+                        }
+                    }
+                    emit('match.native_boundary', {
+                        boundary_name: this.entry.name,
+                        phase: 'leave',
+                        rva: toHex(this.entry.rva),
+                        object: this.controller.toString(),
+                    });
+                } catch (error) {
+                    reportError(`match.native.${this.entry.name}.leave`, error);
+                }
+            },
+        });
+    }
+    emit('match.native_hooks_ready', {
+        entries: SETTINGS.matchNativeEntries.map((entry) => ({
+            name: entry.name,
+            rva: toHex(entry.rva),
+        })),
     });
 }
 
@@ -2115,10 +2413,16 @@ function hookProcessEvent() {
                 this.probeKind = functionName;
                 this.probeParams = args[2];
                 this.probeObject = args[0];
+                if (OBSERVED_FUNCTIONS.get(functionName) === 'PBWeapon') {
+                    this.probeWeaponBefore = refreshWeapon(
+                        args[0], `${functionName}.before`, true);
+                }
                 if (OBSERVED_FUNCTIONS.get(functionName) === 'PBFieldModManager') {
                     fieldModManager = args[0];
                 } else if (OBSERVED_FUNCTIONS.get(functionName) === 'PBPlayerState') {
                     registerPlayerState(args[0], `${functionName}.before`);
+                } else if (OBSERVED_FUNCTIONS.get(functionName) === 'PBPlayerController') {
+                    registerControllerPlayerState(args[0], `${functionName}.before`);
                 }
                 emitFieldModSnapshot(`${functionName}.before`);
                 emit('fieldmod.native_call', Object.assign({
@@ -2170,9 +2474,24 @@ function hookProcessEvent() {
                         object: this.probeObject.toString(),
                     }, observedCallDetails(this.probeKind, this.probeParams, 'leave')));
                     emitFieldModSnapshot(`${this.probeKind}.after`);
+                    if (OBSERVED_FUNCTIONS.get(this.probeKind) === 'PBWeapon') {
+                        const after = refreshWeapon(
+                            this.probeObject, `${this.probeKind}.after`, true);
+                        emit('weapon.native_call_result', {
+                            function_name: this.probeKind,
+                            object: this.probeObject.toString(),
+                            before_hash: this.probeWeaponBefore
+                                ? this.probeWeaponBefore.config_hash
+                                : null,
+                            after_hash: after.config_hash,
+                        });
+                    }
                     if (OBSERVED_FUNCTIONS.get(this.probeKind) === 'PBPlayerState') {
                         refreshPlayerState(
                             this.probeObject, `${this.probeKind}.after`, false);
+                    } else if (OBSERVED_FUNCTIONS.get(this.probeKind) === 'PBPlayerController') {
+                        registerControllerPlayerState(
+                            this.probeObject, `${this.probeKind}.after`);
                     }
                     for (const user of persistentUsers.values()) {
                         refreshPersistentUser(user, `${this.probeKind}.after`, false);
@@ -2211,8 +2530,10 @@ function initialize() {
             mode: 'read_only',
         });
         hookWinsock();
+        hookMetaGatewayState();
         hookArchiveCompletionEntries();
         hookProcessEvent();
+        hookMatchNativeEntries();
         hookCareerNativeDispatch();
         setTimeout(scanObjects, 1000);
         setInterval(() => {

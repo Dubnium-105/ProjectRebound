@@ -25,6 +25,7 @@
 #include "Loadout/LoadoutManager.h"
 
 #include "Config/Config.h"
+#include "Config/CommandLinePolicy.h"
 #include "Debug/Debug.h"
 #include "Debug/DebugTool.h"
 #include "ServerLogic/ServerLogic.h"
@@ -52,6 +53,7 @@ namespace
 constexpr char kSupportedExecutableSha256[] =
     "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843";
 constexpr DWORD kSupportedExecutableImageSize = 105431040;
+constexpr uintptr_t kGetNetModeRva = 0x036CC300;
 constexpr uintptr_t kRpcFramePatchPageOffset = 0x009C3000;
 constexpr SIZE_T kRpcFramePatchPageSize = 0x1000;
 
@@ -140,25 +142,70 @@ bool HashExecutable(std::string& digest)
     return true;
 }
 
-bool ApplyNativeRpcFrameLimitPatch(uintptr_t moduleBase)
+bool VerifySupportedExecutable(uintptr_t moduleBase, std::string& executableHash)
 {
-    const auto dosHeader = reinterpret_cast<const IMAGE_DOS_HEADER*>(moduleBase);
-    if (dosHeader->e_magic != IMAGE_DOS_SIGNATURE)
-    {
-        ClientLog("[NATIVE-RPC] Refusing frame patch: invalid DOS header.");
+    const auto* dosHeader = reinterpret_cast<const IMAGE_DOS_HEADER*>(moduleBase);
+    if (!dosHeader || dosHeader->e_magic != IMAGE_DOS_SIGNATURE)
         return false;
-    }
-    const auto ntHeaders = reinterpret_cast<const IMAGE_NT_HEADERS64*>(
+    const auto* ntHeaders = reinterpret_cast<const IMAGE_NT_HEADERS64*>(
         moduleBase + dosHeader->e_lfanew);
-    if (ntHeaders->Signature != IMAGE_NT_SIGNATURE ||
+    if (!ntHeaders || ntHeaders->Signature != IMAGE_NT_SIGNATURE ||
         ntHeaders->OptionalHeader.SizeOfImage != kSupportedExecutableImageSize)
     {
-        ClientLog("[NATIVE-RPC] Refusing frame patch: unsupported executable image.");
         return false;
     }
+    return HashExecutable(executableHash) &&
+        executableHash == kSupportedExecutableSha256;
+}
 
+int GetNativeNetMode(UWorld* world)
+{
+    if (!world || BaseAddress == 0) return -1;
+    using GetNetModeFn = int(__fastcall*)(const UWorld*);
+    const auto getNetMode = reinterpret_cast<GetNetModeFn>(
+        BaseAddress + kGetNetModeRva);
+    try { return getNetMode(world); }
+    catch (...) { return -1; }
+}
+
+const char* NetModeName(int mode)
+{
+    switch (mode)
+    {
+    case 0: return "standalone";
+    case 1: return "dedicated";
+    case 2: return "listen";
+    case 3: return "client";
+    default: return "invalid";
+    }
+}
+
+bool IsAuthoritativeListeningWorld(UWorld* world, std::string& detail)
+{
+    NetDriverAccess::Snapshot snapshot{};
+    const bool hasSnapshot =
+        NetDriverAccess::TryGetSnapshot(snapshot, false);
+    const bool hasAuthorityGameMode = world && world->AuthorityGameMode;
+    const bool worldMatches = hasSnapshot && snapshot.World == world &&
+        snapshot.WorldMatches;
+    const bool listeningDriver = hasSnapshot &&
+        snapshot.NetDriver && snapshot.ServerConnection == nullptr;
+
+    std::ostringstream output;
+    output << "authority_game_mode=" << (hasAuthorityGameMode ? 1 : 0)
+           << " net_driver=" << (hasSnapshot && snapshot.NetDriver ? 1 : 0)
+           << " world_matches=" << (worldMatches ? 1 : 0)
+           << " server_connection="
+           << (hasSnapshot && snapshot.ServerConnection ? 1 : 0)
+           << " listening=" << (listening ? 1 : 0);
+    detail = output.str();
+    return hasAuthorityGameMode && worldMatches && listeningDriver && listening;
+}
+
+bool ApplyNativeRpcFrameLimitPatch(uintptr_t moduleBase)
+{
     std::string executableHash;
-    if (!HashExecutable(executableHash) || executableHash != kSupportedExecutableSha256)
+    if (!VerifySupportedExecutable(moduleBase, executableHash))
     {
         ClientLog("[NATIVE-RPC] Refusing frame patch: executable SHA-256 mismatch.");
         return false;
@@ -227,16 +274,13 @@ bool ApplyNativeRpcFrameLimitPatch(uintptr_t moduleBase)
 
 bool LoadoutFeatureEnabled(const std::string& commandLine, const std::string& key)
 {
-    const std::string disabled = key + "=0";
-    const std::string falseValue = key + "=false";
-    return commandLine.find(disabled) == std::string::npos &&
-        commandLine.find(falseValue) == std::string::npos;
+    return CommandLinePolicy::FeatureEnabled(commandLine, key);
 }
 
 LoadoutBridgeOptions GetLoadoutBridgeOptions()
 {
     const std::string commandLine = GetCommandLineA();
-    if (commandLine.find("-NativeArchiveOnly") != std::string::npos)
+    if (CommandLinePolicy::HasExactSwitch(commandLine, "-NativeArchiveOnly"))
         return {false, false, false, false};
 
     return {
@@ -316,8 +360,16 @@ void MainThread()
         BaseAddress = (uintptr_t)GetModuleHandleA(nullptr);
 
         const std::string commandLine = GetCommandLineA();
-        const bool serverProcess = commandLine.find("-server") != std::string::npos;
-        if (!serverProcess && !ApplyNativeRpcFrameLimitPatch(BaseAddress))
+        const bool serverBootstrap =
+            CommandLinePolicy::HasExactSwitch(commandLine, "-server");
+        std::string executableHash;
+        if (!VerifySupportedExecutable(BaseAddress, executableHash))
+        {
+            ClientLog("[BOOT] Refusing initialization: executable build guard failed.");
+            return;
+        }
+        ClientLog("[BOOT] Pinned executable SHA-256=" + executableHash);
+        if (!serverBootstrap && !ApplyNativeRpcFrameLimitPatch(BaseAddress))
         {
             ClientLog("[BOOT] Refusing client initialization: executable build guard failed.");
             return;
@@ -325,7 +377,7 @@ void MainThread()
 
         UC::FMemory::Init((void*)(BaseAddress + 0x18f4350));
 
-        if (serverProcess)
+        if (serverBootstrap)
         {
             amServer = true;
         }
@@ -343,15 +395,51 @@ void MainThread()
                 *(__int8*)(BaseAddress + 0x5ce2404) = 0;
                 *(__int8*)(BaseAddress + 0x5ce2405) = 1;
             }
+            Sleep(1);
+        }
+
+        UWorld* const initialWorld = UWorld::GetWorld();
+        const int initialNetMode = GetNativeNetMode(initialWorld);
+        // A dedicated bootstrap has to create/travel the authoritative world
+        // later in StartServer. The temporary startup world can still report
+        // standalone/client even though the exact -server token requested the
+        // dedicated path. Treat that one transition as provisional, then
+        // verify the post-travel world below.
+        const int nativeNetMode = serverBootstrap &&
+            (initialNetMode == 0 || initialNetMode == 3)
+                ? 1
+                : initialNetMode;
+        const bool runServer = nativeNetMode == 1 || nativeNetMode == 2;
+        const bool runClient = nativeNetMode == 0 || nativeNetMode == 2 || nativeNetMode == 3;
+        ClientLog(std::string("[BOOT] bootstrap=") +
+            (serverBootstrap ? "server" : "client") +
+            " initial_net_mode=" + NetModeName(initialNetMode) +
+            " routed_net_mode=" + NetModeName(nativeNetMode));
+        if (nativeNetMode < 0 || nativeNetMode > 3 ||
+            (!serverBootstrap && nativeNetMode == 1))
+        {
+            ClientLog("[BOOT] Refusing initialization: bootstrap/native NetMode conflict.");
+            return;
+        }
+        amServer = runServer;
+        amListenServer = nativeNetMode == 2;
+        if (runClient && serverBootstrap && !ApplyNativeRpcFrameLimitPatch(BaseAddress))
+        {
+            ClientLog("[BOOT] Refusing listen-client initialization: frame patch failed.");
+            return;
         }
 
         // DebugLocateSubsystems();
         // DebugDumpSubsystemsToFile();
 
-        if (amServer)
+        if (runServer)
         {
-            InitServerHooks();
+            InitServerHooks(serverBootstrap || nativeNetMode == 1);
             Log("[SERVER] Hooks installed.");
+
+            // The room/tunnel identifiers are required before constructing
+            // LoadoutManager; StartServer also reloads them before map travel.
+            LoadConfig();
 
             // Wait for world
             Log("[SERVER] Waiting for UWorld...");
@@ -416,7 +504,24 @@ void MainThread()
             Log("[SERVER] LateJoinManager initialized.");
 
             const std::string logicServerUrl = GetCmdValue("-LogicServerURL=");
-            if (!HostRoomId.empty() && !logicServerUrl.empty())
+            const bool localPveLoadout = serverBootstrap && Config.IsPvE &&
+                CommandLinePolicy::HasExactSwitch(commandLine, "-LocalPveLoadout");
+            if (localPveLoadout && !logicServerUrl.empty())
+            {
+                auto manager = std::make_unique<LoadoutManager>();
+                if (manager->StartLocalPveServer(
+                    logicServerUrl, GetLoadoutBridgeOptions()))
+                {
+                    std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+                    gLoadoutManager = manager.release();
+                    Log("[LOADOUT] Local PVE current-user loadout bridge initialized.");
+                }
+                else
+                {
+                    Log("[LOADOUT] Local PVE bridge disabled; native defaults remain authoritative.");
+                }
+            }
+            else if (!HostRoomId.empty() && !logicServerUrl.empty())
             {
                 auto manager = std::make_unique<LoadoutManager>();
                 if (manager->StartServer(
@@ -433,12 +538,31 @@ void MainThread()
             }
             else
             {
-                Log("[LOADOUT] Missing -LogicServerURL or -roomid; using native defaults.");
+                Log("[LOADOUT] Missing a valid room bridge or explicit local-PVE bridge; using native defaults.");
             }
 
             // Publish the loadout bridge before the listen socket begins
             // accepting players so PostLogin cannot race manager creation.
             ::StartServer();
+            UWorld* const authoritativeWorld = UWorld::GetWorld();
+            const int postTravelNetMode = GetNativeNetMode(authoritativeWorld);
+            std::string authorityDetail;
+            const bool authoritativeListeningWorld =
+                IsAuthoritativeListeningWorld(authoritativeWorld, authorityDetail);
+            Log(std::string("[SERVER] Post-travel authority: net_mode=") +
+                NetModeName(postTravelNetMode) + " " + authorityDetail +
+                " result=" + (authoritativeListeningWorld ? "ready" : "invalid"));
+            if (!authoritativeListeningWorld)
+            {
+                std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+                if (gLoadoutManager)
+                {
+                    gLoadoutManager->StopServer();
+                    delete gLoadoutManager;
+                    gLoadoutManager = nullptr;
+                }
+                Log("[LOADOUT] Bridge disabled: post-travel world is not authoritative.");
+            }
 
             // Toolbox owns enrollment and long-lived node credentials. The
             // in-process server exposes only non-secret runtime status over
@@ -474,7 +598,7 @@ void MainThread()
             // Heartbeat thread (game + backend) – now wrapped in Network
             StartHeartbeatThread();
         }
-        else
+        if (runClient)
         {
             // We're client
             LoadClientConfig();
@@ -491,25 +615,28 @@ void MainThread()
             InitDebugConsole();
             EnableUnrealConsole();
 
-            InitClientHook();
+            if (runServer)
+                InitClientArchiveHooks();
+            else
+                InitClientHook();
 
             //*(const wchar_t***)(BaseAddress + 0x5C63C88) = &LocalURL;
             // auto dump below
             // std::thread(ClientAutoDumpThread).detach();
             // Init Hotkey Check
             // Only start the hotkey thread if the -debug flag is present
-            if (std::string(GetCommandLineA()).find("-debug") != std::string::npos)
+            if (CommandLinePolicy::HasExactSwitch(GetCommandLineA(), "-debug"))
             {
                 std::thread(HotkeyThreadWithDebugTool).detach();
             }
 
-            if (!MatchIP.empty())
+            if (!runServer && !MatchIP.empty())
             {
                 AutoConnectToMatchFromCmdline();
             }
 
             // Start CommandFramework if a pipe name was provided
-            if (!MatchPipeName.empty())
+            if (!runServer && !MatchPipeName.empty())
             {
                 auto framework = std::make_unique<CommandFramework>();
                 framework->SetPipeName(MatchPipeName);

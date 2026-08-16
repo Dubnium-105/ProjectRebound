@@ -2,6 +2,7 @@
 
 #include "../Communication/CommandProtocol.h"
 #include "../Config/Config.h"
+#include "../Config/CommandLinePolicy.h"
 #include "../Debug/Debug.h"
 #include "../Loadout/LoadoutApplication.h"
 #include "../Loadout/LoadoutSerializer.h"
@@ -132,7 +133,8 @@ namespace
     bool IsNativeArchiveOnly()
     {
         static const bool enabled =
-            std::string(GetCommandLineA()).find("-NativeArchiveOnly") != std::string::npos;
+            CommandLinePolicy::HasExactSwitch(
+                GetCommandLineA(), "-NativeArchiveOnly");
         return enabled;
     }
 

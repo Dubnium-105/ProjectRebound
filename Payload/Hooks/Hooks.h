@@ -2,5 +2,6 @@
 #pragma once
 
 void InitMessageBoxHook();
-void InitServerHooks();
+void InitServerHooks(bool forceDedicatedMode = true);
 void InitClientHook();
+void InitClientArchiveHooks();

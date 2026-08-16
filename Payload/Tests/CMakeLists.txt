@@ -21,6 +21,15 @@ enable_strict_warnings(command_protocol_tests)
 
 add_test(NAME command_protocol_tests COMMAND command_protocol_tests)
 
+add_executable(command_line_policy_tests
+    CommandLinePolicyTests.cpp
+)
+
+target_compile_features(command_line_policy_tests PRIVATE cxx_std_20)
+enable_strict_warnings(command_line_policy_tests)
+
+add_test(NAME command_line_policy_tests COMMAND command_line_policy_tests)
+
 add_executable(unreal_container_tests
     UnrealContainerTests.cpp
 )

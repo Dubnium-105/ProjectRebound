@@ -45,11 +45,13 @@ powershell -ExecutionPolicy Bypass -File .\Tools\Frida\run-armory-probe.ps1 -Pro
 - `persistent_user.snapshot`：Saved/Runtime 库存数量及集合哈希。
 - `http.message`：回环 HTTP 的方法/路径或响应状态，以及正文大小和哈希；绝不记录
   Authorization、Cookie 或请求正文。
-- `player_state.snapshot` / `player_state.changed`：原生 `APBPlayerState` equipping map
-  的被动快照。
+- `player_state.snapshot` / `player_state.changed`：选择/占有角色 ID，以及原生
+  `APBPlayerState` pre-ordering 与 equipping map 的被动快照。
 - `fieldmod.native_call`：`ClientInitFieldMod`、两个 Refresh RPC、选择、getter
-  和武器生成调用边界。
+  、武器生成和对局配装 reflected RPC 调用边界。
 - `fieldmod.snapshot`：上述调用前后的逐角色 pre-ordering 槽位。
+- `match.native_boundary`：原生服务端 pre-order、角色确认、占有时将 pre-ordering
+  提升为 equipping 的进入/离开边界。
 - `progression.player_level_table`：该精确 EXE 的运行时等级表行数与最高数字等级。
 - `unreal.lifecycle`：进入军械库原生事件前后的快照边界。
 

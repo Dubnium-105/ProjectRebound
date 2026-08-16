@@ -36,6 +36,13 @@ public:
         std::string baseUrl,
         std::string roomId,
         LoadoutBridgeOptions options = {});
+
+    // Starts the dedicated, loopback-only PVE bridge for the user currently
+    // authenticated by MetaTunnel. The caller must gate this behind exact
+    // -server, -pve and -LocalPveLoadout command-line switches.
+    bool StartLocalPveServer(
+        std::string baseUrl,
+        LoadoutBridgeOptions options = {});
     void StopServer();
 
     void OnPlayerConnected(SDK::APBPlayerController* playerController);
@@ -44,7 +51,8 @@ public:
 
     // A Deferred decision means the hook must not invoke the original RPC.
     // TickServer replays it when the fetch finishes or the one-second grace
-    // expires. The replay re-enters this method and returns Ready/Fallback.
+    // expires. A Ready decision first verifies the effective inventory through
+    // the original ServerPreOrderInventory path.
     LoadoutRoleConfirmDecision BeginRoleConfirmation(
         SDK::APBPlayerController* playerController,
         const SDK::FName& roleId);
@@ -52,17 +60,15 @@ public:
         SDK::APBPlayerController* playerController,
         const SDK::FName& roleId);
 
-    // Called by the ServerPreOrderInventory hook after the native function has
-    // accepted the inventory. Manager-originated calls are ignored through an
-    // internal re-entry guard.
+    // Called after the original ServerPreOrderInventory returns. The request is
+    // recorded only if the per-player native pre-ordering state matches.
     bool OnExternalPreOrderInventory(
         SDK::APBPlayerController* playerController,
         const SDK::FName& roleId,
         const SDK::FPBInventoryNetworkConfig& inventory);
 
-    // Called before the native external RPC. Returns true when another
-    // connection owns the role's in-flight spawn lease; the manager copies
-    // and replays the latest submission after that lease is released.
+    // Compatibility no-op retained for older hook callers. Native per-player
+    // state no longer requires a shared role lease and this always returns false.
     bool DeferExternalPreOrderInventoryIfLeaseConflict(
         SDK::APBPlayerController* playerController,
         const SDK::FName& roleId,
@@ -73,9 +79,9 @@ public:
     bool IsCharacterTombstoned(SDK::APBCharacter* character) const;
     void OnInventorySpawned(SDK::APBCharacter* character);
 
-    // LateJoin calls this immediately before creating a playable Pawn. A
-    // pending FieldMod cache verification holds the spawn for at most the
-    // same one-second grace used by role confirmation.
+    // Compatibility hooks retained for LateJoinManager. LoadoutManager no
+    // longer gates or serializes spawn dispatches; CanReleaseRoleSpawn is true
+    // and the dispatch notifications are no-ops.
     bool CanReleaseRoleSpawn(SDK::APBPlayerController* playerController);
 
     // Brackets the concrete synchronous RestartPlayers/QuickRespawn dispatch.
