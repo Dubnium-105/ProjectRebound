@@ -4,10 +4,10 @@
 
 ## 传输层
 
-客户端只允许经 MetaTunnel 连接 `logic.dubnium.top:443`。MetaTunnel 使用 Windows
-系统信任库并以 `logic.dubnium.top` 为服务器名称校验证书。公网网关终止 TLS，再将
-字节流经独立、启用 TLS 且使用 token 鉴权的 Meta FRP 通道转发。公网没有明文原生
-listener。
+客户端只允许经 MetaTunnel 连接 `logic.project-rebound.space:443`。MetaTunnel 使用
+Windows 系统信任库并以 `logic.project-rebound.space` 为服务器名称校验证书。公网网关
+终止 TLS，再将字节流经独立、启用 TLS 且使用 token 鉴权的 Meta FRP 通道转发。
+公网没有明文原生 listener。`dubnium.top` 已弃用，不作为兼容 fallback。
 
 每个帧的结构为：
 
