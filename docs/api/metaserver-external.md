@@ -2,7 +2,7 @@
 
 English | [简体中文](metaserver-external.zh-CN.md)
 
-Base URL: `https://meta.dubnium.top`. JSON endpoints other than
+Base URL: `https://meta.project-rebound.space`. JSON endpoints other than
 `/connectServer` use the standard envelope:
 
 ```json
@@ -57,7 +57,7 @@ Modern MetaServer endpoints continue to enforce their typed schemas. The
 compatibility path's direct game-shaped response is:
 
 ```json
-{"error":0,"userId":"...","aceId":"...","gateToken":"...","endpoint":"logic.dubnium.top:443"}
+{"error":0,"userId":"...","aceId":"...","gateToken":"...","endpoint":"logic.project-rebound.space:443"}
 ```
 
 The launcher starts `meta-tunnel.exe`, writes the Access Token followed by a
