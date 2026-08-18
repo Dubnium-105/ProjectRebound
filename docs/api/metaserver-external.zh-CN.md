@@ -2,7 +2,7 @@
 
 [English](metaserver-external.md) | 简体中文
 
-Base URL：`https://meta.dubnium.top`。除 `/connectServer` 外，JSON 成功响应使用统一
+Base URL：`https://meta.project-rebound.space`。除 `/connectServer` 外，JSON 成功响应使用统一
 envelope：
 
 ```json
@@ -10,21 +10,18 @@ envelope：
 ```
 
 错误响应为 `{"error":{"code":"...","message":"...","details":{}},"request_id":"req_..."}`。
-报告问题时提供 request ID；不得把 bearer token 或 Gate Ticket 放入 URL、query、
-日志、截图或 issue。
+报告问题时提供 request ID；不得把 bearer token 或 Gate Ticket 放入 URL、query、日志、截图或 issue。
 
 ## 认证与限流
 
-公开只读接口不需要凭据。玩家接口要求现有控制面签发的
-`Authorization: Bearer <access-token>`，复用相同的签名、过期、撤销、
-`RequireActive`、request ID、IP/玩家限流及封禁账号规则。请求中的玩家 ID 不作为身份。
+公开只读接口不需要凭据。玩家接口要求现有控制面签发的 `Authorization: Bearer <access-token>`，复用相同的签名、过期、撤销、`RequireActive`、request ID、IP/玩家限流及封禁账号规则。请求中的玩家 ID 不作为身份。
 
 ## 公开发现
 
 | 方法和路径 | 请求 | 响应 `data` |
 | --- | --- | --- |
 | `GET /health/live` | 无 | 进程存活 |
-| `GET /health/ready` | 无 | PostgreSQL、Redis 和 35 号迁移 readiness |
+| `GET /health/ready` | 无 | PostgreSQL、Redis 和 40 号迁移 readiness |
 | `GET /` | 无 | 服务/协议及动态 Relay 兼容列表 |
 | `GET /v1/meta/regions` | 无 | 区域及 `qos_endpoints[]` |
 | `GET /v1/meta/playlists` | 无 | 按 `sort_order` 排序的已启用 playlist |
@@ -40,30 +37,17 @@ Relay endpoint 不是静态配置；只有 READY、心跳新鲜且接受新 allo
 {"client_version":"1.1.0","protocol_version":1,"platform":"windows"}
 ```
 
-HTTP 201 响应包含 `user_id`、`gate_ticket`、`endpoint`、
-`expires_in_seconds` 和 `protocol_version`。Ticket 具有 256 位随机熵，最多 60 秒
-有效，且只能消费一次。
+HTTP 201 响应包含 `user_id`、`gate_ticket`、`endpoint`、`expires_in_seconds` 和 `protocol_version`。Ticket 具有 256 位随机熵，最多 60 秒有效，且只能消费一次。
 
-游戏兼容路径为 `POST /connectServer`。MetaTunnel 携带 bearer header 和受全局大小限制
-的游戏旧请求体调用。不同 Boundary 正式版本的正文编码、字段名称及值类型并不一致，
-因此兼容路径将正文视为不透明数据并直接丢弃，不执行 JSON 解码。服务端统一标记客户端
-为 `boundary-legacy` 并选用服务端协议版本；身份始终来自 bearer token，不采用旧
-`playerId` 或 `loginToken` 值。现代 MetaServer 接口仍严格校验字段类型和未知字段。
-兼容路径直接返回游戏形状：
+游戏兼容路径为 `POST /connectServer`。MetaTunnel 携带 bearer header 和受全局大小限制的游戏旧请求体调用。不同 Boundary 正式版本的正文编码、字段名称及值类型并不一致，因此兼容路径将正文视为不透明数据并直接丢弃，不执行 JSON 解码。服务端统一标记客户端为 `boundary-legacy` 并选用服务端协议版本；身份始终来自 bearer token，不采用旧 `playerId` 或 `loginToken` 值。现代 MetaServer 接口仍严格校验字段类型和未知字段。兼容路径直接返回游戏形状：
 
 ```json
-{"error":0,"userId":"...","aceId":"...","gateToken":"...","endpoint":"logic.dubnium.top:443"}
+{"error":0,"userId":"...","aceId":"...","gateToken":"...","endpoint":"logic.project-rebound.space:443"}
 ```
 
-启动器启动 `meta-tunnel.exe` 后，通过匿名 stdin 管道写入一行 Access Token，读取一行
-readiness JSON，再把游戏 LogicServerURL 指向其中的 loopback HTTP 端口。管道在游戏
-运行期间保持打开；启动器会在当前 token 到期前将每个刷新 token 作为新的一行写入。
+启动器启动 `meta-tunnel.exe` 后，通过匿名 stdin 管道写入一行 Access Token，读取一行 readiness JSON，再把游戏 LogicServerURL 指向其中的 loopback HTTP 端口。管道在游戏运行期间保持打开；启动器会在当前 token 到期前将每个刷新 token 作为新的一行写入。
 
-loopback HTTP listener 将全部 method、path、query、body、response、流式和 Upgrade
-请求转发到固定 MetaServer 上游，并注入最新 token；只有
-`/_meta-tunnel/health/live` 是本地接口。`/connectServer` 还会把 endpoint 改写到本地
-TCP listener。原生 listener 将游戏 frame 经证书校验的 TLS 透明桥接；应用不得实现
-证书绕过。
+loopback HTTP listener 将全部 method、path、query、body、response、流式和 Upgrade 请求转发到固定 MetaServer 上游，并注入最新 token；只有 `/_meta-tunnel/health/live` 是本地接口。`/connectServer` 还会把 endpoint 改写到本地 TCP listener。原生 listener 将游戏 frame 经证书校验的 TLS 透明桥接；应用不得实现证书绕过。
 
 ## 玩家档案与配装
 
@@ -74,22 +58,13 @@ TCP listener。原生 listener 将游戏 frame 经证书校验的 TLS 透明桥�
 | `GET /v1/users/me/loadouts/{role_id}` | 无 | 一个经 definitions 校验的快照与 revision |
 | `PUT /v1/users/me/loadouts/{role_id}` | `snapshot` 对象和当前 `revision` | 更新快照并递增 revision |
 
-只有首次创建使用 revision `0`，后续必须发送上次读/写返回的 revision。过期 revision
-返回 HTTP 409 `META_LOADOUT_REVISION_CONFLICT`；应重新读取并明确合并，不能盲重试。
+只有首次创建使用 revision `0`，后续必须发送上次读/写返回的 revision。过期 revision 返回 HTTP 409 `META_LOADOUT_REVISION_CONFLICT`；应重新读取并明确合并，不能盲重试。
 
 ### P2P 房主读取成员配装
 
-社区 Listen Host 通过
-`GET /v1/meta/p2p-rooms/{room_id}/members/{player_id}/loadouts` 读取成员配装。
-该请求只能经本机 MetaTunnel 发出，由 MetaTunnel 注入房主 Player Access Token；游戏
-Payload 不接收也不保存任何认证凭据。
+社区 Listen Host 通过 `GET /v1/meta/p2p-rooms/{room_id}/members/{player_id}/loadouts` 读取成员配装。该请求只能经本机 MetaTunnel 发出，由 MetaTunnel 注入房主 Player Access Token；游戏 Payload 不接收也不保存任何认证凭据。
 
-调用者必须是房间的 `host_player_id`，房间必须未过期且处于 `CONNECTING` 或
-`RUNNING`，目标玩家必须是该房间的 `ACTIVE` 成员。响应使用统一 envelope，`data`
-包含 `schema_version`、`room_id`、`player_id` 和 `loadouts[]`；每项包含 `role_id`、
-`revision`、经 definitions 校验的 `snapshot`，以及该角色主副武器实际引用的已解码
-`weapon_configs`。非法角色快照不返回；缺失或非法的武器档案替换为固定 Definitions
-默认档案。响应设置 `Cache-Control: no-store`，且不超过 512 KiB。
+调用者必须是房间的 `host_player_id`，房间必须未过期且处于 `CONNECTING` 或 `RUNNING`，目标玩家必须是该房间的 `ACTIVE` 成员。响应使用统一 envelope，`data` 包含 `schema_version`、`room_id`、`player_id` 和 `loadouts[]`；每项包含 `role_id`、`revision`、经 definitions 校验的 `snapshot`，以及该角色主副武器实际引用的已解码 `weapon_configs`。非法角色快照不返回；缺失或非法的武器档案替换为固定 Definitions 默认档案。响应设置 `Cache-Control: no-store`，且不超过 512 KiB。
 
 ## Party
 
@@ -100,8 +75,7 @@ Payload 不接收也不保存任何认证凭据。
 | `POST /v1/meta/parties/{party_id}/ready` | `{"ready":true}` | 更新后的 Party |
 | `POST /v1/meta/parties/{party_id}/presence` | `{"presence":"ONLINE"}` | 更新后的 Party |
 
-Presence 可为 `ONLINE`、`AWAY` 或 `IN_GAME`。每名玩家只能属于一个活动 Party；
-无成员资格的查询按 not found 隐藏。
+Presence 可为 `ONLINE`、`AWAY` 或 `IN_GAME`。每名玩家只能属于一个活动 Party；无成员资格的查询按 not found 隐藏。
 
 ## 匹配
 
@@ -111,11 +85,7 @@ Presence 可为 `ONLINE`、`AWAY` 或 `IN_GAME`。每名玩家只能属于一个
 {"party_id":"mp_...","mode":"default","region":"hgh","client_version":"1.1.0"}
 ```
 
-单人匹配省略 `party_id`。Party 整体排队且只有 leader 可发起。接口返回 HTTP 202。
-轮询 `GET /v1/meta/matchmaking/tickets/{ticket_id}`，直到 `state` 成为 `MATCHED`、
-`FAILED` 或 `TIMED_OUT`。`MATCHED` 时包含 `match_id` 和 Dedicated Server
-`endpoint`。队列中的 Ticket 可用 `DELETE` 取消，成功为 204。无 READY 服务器时不会
-自动降级为玩家 P2P Host。
+单人匹配省略 `party_id`。Party 整体排队且只有 leader 可发起。接口返回 HTTP 202。轮询 `GET /v1/meta/matchmaking/tickets/{ticket_id}`，直到 `state` 成为 `MATCHED`、`FAILED` 或 `TIMED_OUT`。`MATCHED` 时包含 `match_id` 和 Dedicated Server `endpoint`。队列中的 Ticket 可用 `DELETE` 取消，成功为 204。无 READY 服务器时不会自动降级为玩家 P2P Host。
 
 ## 常见 Meta 错误
 
@@ -134,6 +104,4 @@ Presence 可为 `ONLINE`、`AWAY` 或 `IN_GAME`。每名玩家只能属于一个
 | Ticket 失败 `META_MATCH_CANCELLED_BY_ADMIN` | 经审计的管理员操作取消了活动对局 |
 | 429 通用限流 code | 仅在指定等待时间后重试 |
 
-完整字段 Schema 见
-[`Backend/api/openapi/openapi.yaml`](../../Backend/api/openapi/openapi.yaml)，原生 TCP
-行为见[原生协议](../architecture/metaserver-native-protocol.zh-CN.md)。
+完整字段 Schema 见 [`Backend/api/openapi/openapi.yaml`](../../Backend/api/openapi/openapi.yaml)，原生 TCP 行为见[原生协议](../architecture/metaserver-native-protocol.zh-CN.md)。
