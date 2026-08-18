@@ -39,9 +39,9 @@ type tunnel struct {
 type rewriteConnectEndpointKey struct{}
 
 func main() {
-	metaBase := flag.String("meta-base-url", "https://meta.dubnium.top", "public MetaServer HTTPS base URL")
-	logicAddress := flag.String("logic-address", "logic.dubnium.top:443", "public MetaServer native TLS endpoint")
-	logicServerName := flag.String("logic-server-name", "logic.dubnium.top", "TLS server name for the native endpoint")
+	metaBase := flag.String("meta-base-url", "https://meta.project-rebound.space", "public MetaServer HTTPS base URL")
+	logicAddress := flag.String("logic-address", "logic.project-rebound.space:443", "public MetaServer native TLS endpoint")
+	logicServerName := flag.String("logic-server-name", "logic.project-rebound.space", "TLS server name for the native endpoint")
 	httpListen := flag.String("http-listen", "127.0.0.1:0", "loopback HTTP listen address")
 	tcpListen := flag.String("tcp-listen", "127.0.0.1:0", "loopback native TCP listen address")
 	tokenStdin := flag.Bool("token-stdin", true, "read the access token from stdin")
