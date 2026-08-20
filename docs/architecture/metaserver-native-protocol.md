@@ -4,11 +4,12 @@ English | [简体中文](metaserver-native-protocol.zh-CN.md)
 
 ## Transport
 
-Clients connect only through MetaTunnel to `logic.dubnium.top:443`. MetaTunnel
-validates the public certificate with the Windows system trust store and TLS
-server name `logic.dubnium.top`. The gateway terminates TLS and forwards the
-byte stream through the isolated, TLS-enabled and token-authenticated Meta FRP
-channel. No plaintext native listener is public.
+Clients connect only through MetaTunnel to `logic.project-rebound.space:443`.
+MetaTunnel validates the public certificate with the Windows system trust store
+and TLS server name `logic.project-rebound.space`. The gateway terminates TLS
+and forwards the byte stream through the isolated, TLS-enabled and
+token-authenticated Meta FRP channel. No plaintext native listener is public.
+`dubnium.top` is retired and is not a compatibility fallback.
 
 Each frame is:
 

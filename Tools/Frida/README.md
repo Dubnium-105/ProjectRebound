@@ -2,15 +2,11 @@
 
 English | [简体中文](README.zh-CN.md)
 
-These scripts correlate the Meta `QueryAssets` response with the native
-`UPBArmoryManager::OwnedItems` array and `HasItem` results. The default probe
-does not write game memory, replace return values, or record authentication
-tokens. Both Python controllers reject any executable whose SHA-256 is not
-`181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843`.
+These tools correlate the Meta `QueryAssets` response with native armory, archive, FieldMod, PlayerState, and match-spawn state for the pinned Boundary executable. The normal workflow is read-only: it does not write game memory, replace return values, or record authentication tokens. Controllers must reject an executable whose SHA-256 is not the pinned value documented in `.agents/skills/debug-boundary-native/references/current-findings.md`.
 
-## Running
+## Current workflow
 
-Start MetaTunnel and the game, then attach automatically:
+Use the unified probe for normal diagnosis:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\Tools\Frida\run-armory-probe.ps1
@@ -34,116 +30,47 @@ The default log directory is:
 %LOCALAPPDATA%\ProjectRebound\frida-captures\YYYYMMDD-HHMMSS\events.jsonl
 ```
 
-After entering the game, follow `NO -> customization -> HR&Armory`. Inspect a
-default item, an item that should be unlocked but appears locked, and an item
-used by the online loadout, then enter one match.
+After entering the game, follow `NO -> customization -> HR&Armory`, inspect representative items and loadouts, then enter a match when spawn-path validation is required.
 
 ## Important events
 
-- `rpc.query_assets`: the item-row count, `item_count`, and the distributions
-  of the three unknown integer fields received by the client.
-- `rpc.player_archive`: a summary of the online role loadouts received by the
-  client.
-- `armory.snapshot` / `armory.changed`: native inventory size, Count
-  distribution, and NewItemCounter values.
-- `armory.has_item`: array presence, Count, bIsNew, and the native result.
-- `persistent_user.snapshot`: Saved and Runtime inventory sizes and set hashes.
-- `http.message`: loopback HTTP method/path or response status plus body size
-  and hash; authorization, cookies, and request bodies are never recorded.
-- `player_state.snapshot` / `player_state.changed`: passive snapshots of
-  selected/possessed role IDs plus the native `APBPlayerState` pre-ordering and
-  equipping maps.
-- `fieldmod.native_call`: `ClientInitFieldMod`, both native refresh RPCs,
-  selection calls, getters, weapon-spawn boundaries, and reflected match
-  loadout RPCs.
-- `fieldmod.snapshot`: per-role pre-ordering slots before and after those calls.
-- `match.native_boundary`: entry/leave boundaries for native server pre-order,
-  role confirmation, and possession-time pre-order-to-equipping promotion.
-- `progression.player_level_table`: runtime PlayerLevelExp row count and highest
-  numeric level for this exact executable.
-- `unreal.lifecycle`: snapshots around the native armory-entry lifecycle.
+- `rpc.query_assets`: QueryAssets status and item-row summary received by the client.
+- `rpc.player_archive`: online role-loadout summary received by the client.
+- `armory.snapshot` / `armory.changed`: native inventory size and state changes.
+- `armory.has_item`: native ownership lookup evidence for selected IDs.
+- `persistent_user.snapshot`: saved/runtime inventory comparison hashes.
+- `http.message`: loopback HTTP method/path or response status plus body size/hash; authorization, cookies, query credentials, and bodies are not recorded.
+- `player_state.snapshot` / `player_state.changed`: selected/possessed role IDs and native pre-ordering/equipping maps.
+- `fieldmod.native_call`: `ClientInitFieldMod`, native refresh calls, selection/getter boundaries, weapon-spawn boundaries, and reflected match-loadout RPCs.
+- `fieldmod.snapshot`: per-role pre-ordering state around those calls.
+- `match.native_boundary`: native server pre-order, role confirmation, and possession-time promotion boundaries.
+- `progression.player_level_table`: runtime level-table summary for the exact executable.
+- `unreal.lifecycle`: armory lifecycle boundaries.
 
-Interpret the results as follows:
+Interpret ownership evidence as follows:
 
 | Result | Meaning |
 | --- | --- |
-| `present=true,count=0,return_value=true` | In this build, native `HasItem` matches only the FName; Count is not an ownership gate. |
-| `present=true,count=0,return_value=false` | The probe offset or target build changed and must be checked again in IDA. |
-| RPC contains the ID but OwnedItems does not | QueryAssets was not committed as inventory state, or it was overwritten. |
-| `HasItem=true` but the UI is locked | This is an item-type or UI compatibility filter, not ownership. |
-| The armory is correct but changes after entering a match | Match initialization overwrote the inventory or loadout. |
+| `present=true,count=0,return_value=true` | Native `HasItem` matches the item FName; Count is not an ownership gate in the pinned build. |
+| `present=true,count=0,return_value=false` | The target build or probe layout changed; re-validate in IDA before changing code. |
+| RPC contains the ID but OwnedItems does not | QueryAssets was not committed as native inventory state, or it was later overwritten. |
+| `HasItem=true` but the UI is locked | Investigate item-type, progression, compatibility, or UI filtering rather than ownership. |
+| Armory state is correct before a match but diverges during spawn | Investigate FieldMod/PlayerState/spawn application rather than QueryAssets. |
 
-IDA analysis of the current Steam build shows that
-`UPBArmoryManager::HasItem` iterates `FPBItem` entries with a 0x10-byte stride
-and compares only the `FName` at offset 0x0. It does not read Count at offset
-0x8.
+The current evidence for the pinned build is maintained in `current-findings.md`: QueryAssets field 1 is a result/status value, repeated field 2 contains the owned item rows, the native completion path is `FOnlineAsyncTaskQueryAssets -> LogicServer delegate -> PBArmoryManager`, and the deterministic full-ownership response is 1,372,853 bytes. The client frame patch raises the four linked 1 MiB constants atomically to 2 MiB only for the exact supported executable hash.
 
-Run `run_query_assets_status_ab.py --script query_assets_observe.js` for a
-read-only baseline. It reports the stable QueryAssets protobuf prefix without
-modifying the receive buffer.
+## Historical and A/B probes
 
-The QueryAssets A/B probes are retained as regression diagnostics. Runtime
-inspection of the native consumer at `0x1416DF990` established that the
-top-level field named `ItemCount` is actually a result/status value: values
-above 299 are rejected before any ItemData row is examined. The captured
-success value is `1`; the repeated ItemData array independently contains all
-40,462 rows. The `UserAsset` candidates produce only the 268-row fallback and
-are not used by MetaServer.
+`query_assets_*_ab.js`, `player_archive_level_ab.js`, `fieldmod_native_probe.js`, `persistent_armory_probe.js`, and similar one-off scripts are retained only as historical regression evidence. They are **not** part of the default diagnostic or production workflow.
 
-The native completion path was subsequently resolved as
-`FOnlineAsyncTaskQueryAssets -> LogicServer delegate -> PBArmoryManager`. The
-task copies only each row's `ItemId`; it does not read the three scalar fields.
-The pinned client rejects frames above 1 MiB at `0x1409C37BB`, while its
-single-frame allocation, capacity calculation, and clear size are separately
-fixed at 1 MiB + 10 bytes. Payload therefore raises all four guarded constants
-to 2 MiB only for the exact supported executable SHA-256. Patching the length
-check alone reproduced an output-buffer overflow, so the four instructions
-must remain atomic. MetaServer keeps every deduplicated ItemId and omits the
-unused default-valued scalars, producing a deterministic 1,372,853-byte
-payload. The immutable response and its observability digest are cached once,
-so subsequent armory entries do not rebuild, unmarshal, or rehash all 40,462
-rows on the synchronous response path.
+Some of those scripts intentionally rewrite buffers, return values, frame metadata, or selected fields. Their hard-coded payload lengths, offsets, and experimental assumptions describe the capture they were created for and must not be treated as current production constants. In particular, old references to a 1,615,627-byte QueryAssets window are historical and do not describe the current deterministic response.
 
-`logic_server_armory_probe.js` is the read-only probe for that final native
-path. It records the concrete LogicServer virtual targets, QueryAssets delegate
-result/count, subscriber callback, and the armory size before and after the
-broadcast. It never changes the receive buffer or game memory.
+Only reuse an A/B probe when all of the following are true:
 
-`query_assets_single_item_ab.js` is the second-stage A/B probe. It preserves
-the frame length, exposes only one ItemData row (`PEACE_RU-AKM` by default), and rewrites
-the top-level ItemCount to an equal-width encoding of one. This distinguishes
-between the entire oversized heterogeneous asset list being rejected and the
-three integer fields still having incorrect semantics. The script also checks
-the complete 1,615,627-byte QueryAssets payload window so it cannot match
-another RPC response accidentally.
+1. the executable SHA matches the probe's pinned build;
+2. `current-findings.md` still identifies the same hypothesis as unresolved or worth re-testing;
+3. the experiment changes one variable at a time and can be reverted immediately;
+4. results are compared against a read-only `armory_probe.js` baseline;
+5. any newly confirmed address, layout, or protocol semantic is moved into `current-findings.md` instead of leaving the A/B script as the source of truth.
 
-Use `run_query_assets_status_ab.py --target-item PEACE_GSW-IDW` with this
-script to select a normally locked row for a discriminating ownership test.
-Add `--top-level-value 0` to test whether field 1 is a success status rather
-than an item count; the default value remains 1.
-
-`query_assets_user_asset_ab.js` tests the runtime-reflected schema candidate
-directly. It hides the old top-level count, exposes only the selected row as a
-field-1 `UserAsset`, and preserves all buffer and frame lengths. Run it with
-`--script query_assets_user_asset_ab.js --target-item PEACE_GSW-IDW`.
-
-`player_archive_level_ab.js` parses the complete native frame and protobuf
-wrapper, then rewrites only the one-byte top-level PlayerLevel. Run controlled
-low/high arms with the hash-verifying controller:
-
-```powershell
-python .\Tools\Frida\run_query_assets_status_ab.py --pid 1234 --output .\level-low.jsonl --script player_archive_level_ab.js --target-player-level 1
-$maxLevel = 100 # replace with progression.player_level_table.maximum_numeric_level
-python .\Tools\Frida\run_query_assets_status_ab.py --pid 1234 --output .\level-high.jsonl --script player_archive_level_ab.js --target-player-level $maxLevel
-```
-
-`persistent_armory_probe.js` is a one-shot read-only comparison of
-`PBPersistentUser_BP_C::ArmorySaved`, its runtime `Armorys`, and
-`UPBArmoryManager::Armorys`. Run it against an existing game process with:
-
-```powershell
-python .\Tools\Frida\run_query_assets_status_ab.py --pid 1234 --output .\persistent.jsonl --script persistent_armory_probe.js
-```
-
-After receiving `probe.done`, press `Ctrl+C` to exit. The probe does not write
-game memory.
+`logic_server_armory_probe.js` remains useful as a read-only focused view of the native QueryAssets completion path, but new general observability should still be added to `armory_probe.js` first.

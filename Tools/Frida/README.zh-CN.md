@@ -2,14 +2,11 @@
 
 [English](README.md) | 简体中文
 
-这组脚本用于确认 Meta `QueryAssets`、原生 `UPBArmoryManager::OwnedItems` 与
-`HasItem` 返回值之间的关系。探针不写游戏内存、不替换返回值，也不记录认证
-令牌。两个 Python 控制器都会校验目标 EXE 的精确 SHA-256：
-`181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843`。
+这些工具用于把 Meta `QueryAssets` 响应与原生军械库、archive、FieldMod、PlayerState 以及对局出生状态放到同一时间线分析。常规流程保持只读：不写游戏内存、不替换返回值，也不记录认证 token。控制器必须校验目标 EXE 的 SHA-256，并以 `.agents/skills/debug-boundary-native/references/current-findings.md` 记录的固定构建为准。
 
-## 运行
+## 当前工作流
 
-启动 MetaTunnel、游戏并自动附加：
+常规诊断使用统一探针：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\Tools\Frida\run-armory-probe.ps1
@@ -27,98 +24,53 @@ powershell -ExecutionPolicy Bypass -File .\Tools\Frida\run-armory-probe.ps1 -Att
 powershell -ExecutionPolicy Bypass -File .\Tools\Frida\run-armory-probe.ps1 -ProcessId 1234
 ```
 
-默认日志位于：
+默认日志目录：
 
 ```text
 %LOCALAPPDATA%\ProjectRebound\frida-captures\YYYYMMDD-HHMMSS\events.jsonl
 ```
 
-进入游戏后按既定路径操作：`NO -> customization -> HR&Armory`，查看一个默认
-物品、一个应解锁但锁定的物品和线上配装使用的物品，然后进入一次对局。
+进入游戏后按 `NO -> customization -> HR&Armory` 操作，检查代表性物品和配装；只有需要验证出生链时再进入对局。
 
 ## 关键事件
 
-- `rpc.query_assets`：客户端真正收到的物品行数、`item_count` 和三个未知字段分布。
+- `rpc.query_assets`：客户端实际收到的 QueryAssets 状态和物品行摘要。
 - `rpc.player_archive`：客户端收到的线上角色配装摘要。
-- `armory.snapshot` / `armory.changed`：原生库存数量、Count 分布和 NewItemCounter。
-- `armory.has_item`：物品是否位于数组、Count、bIsNew 和原生返回值。
-- `persistent_user.snapshot`：Saved/Runtime 库存数量及集合哈希。
-- `http.message`：回环 HTTP 的方法/路径或响应状态，以及正文大小和哈希；绝不记录
-  Authorization、Cookie 或请求正文。
-- `player_state.snapshot` / `player_state.changed`：选择/占有角色 ID，以及原生
-  `APBPlayerState` pre-ordering 与 equipping map 的被动快照。
-- `fieldmod.native_call`：`ClientInitFieldMod`、两个 Refresh RPC、选择、getter
-  、武器生成和对局配装 reflected RPC 调用边界。
-- `fieldmod.snapshot`：上述调用前后的逐角色 pre-ordering 槽位。
-- `match.native_boundary`：原生服务端 pre-order、角色确认、占有时将 pre-ordering
-  提升为 equipping 的进入/离开边界。
-- `progression.player_level_table`：该精确 EXE 的运行时等级表行数与最高数字等级。
-- `unreal.lifecycle`：进入军械库原生事件前后的快照边界。
+- `armory.snapshot` / `armory.changed`：原生库存数量与状态变化。
+- `armory.has_item`：指定物品的原生所有权查询证据。
+- `persistent_user.snapshot`：saved/runtime 库存对照哈希。
+- `http.message`：回环 HTTP 方法/路径或响应状态，以及正文大小/哈希；不记录 Authorization、Cookie、查询凭据或正文。
+- `player_state.snapshot` / `player_state.changed`：选择/占有角色 ID，以及原生 pre-ordering/equipping map。
+- `fieldmod.native_call`：`ClientInitFieldMod`、原生 refresh、选择/getter、武器生成和对局配装 reflected RPC 的调用边界。
+- `fieldmod.snapshot`：上述调用前后的逐角色 pre-ordering 状态。
+- `match.native_boundary`：服务端 pre-order、角色确认以及占有时提升 equipping 的原生边界。
+- `progression.player_level_table`：该精确 EXE 的运行时等级表摘要。
+- `unreal.lifecycle`：军械库生命周期边界。
 
-判读重点：
+所有权证据按下面方式判读：
 
 | 结果 | 含义 |
 | --- | --- |
-| `present=true,count=0,return_value=true` | 当前版本的原生 `HasItem` 只按 FName 命中，Count 不是门槛 |
-| `present=true,count=0,return_value=false` | 探针偏移或目标版本已变化，需要重新核对 IDA |
-| RPC 有该 ID、OwnedItems 没有 | QueryAssets 整体未落地或被覆盖 |
-| `HasItem=true` 但 UI 锁定 | 类型/兼容性/UI 过滤问题，不是所有权 |
-| 军械库正确、进入对局后变化 | 对局初始化覆盖了库存或 Loadout |
+| `present=true,count=0,return_value=true` | 固定构建中原生 `HasItem` 按物品 FName 命中，Count 不是所有权门槛。 |
+| `present=true,count=0,return_value=false` | 目标构建或探针布局已变化，修改代码前先重新核对 IDA。 |
+| RPC 有该 ID、OwnedItems 没有 | QueryAssets 没有落入原生库存状态，或随后被覆盖。 |
+| `HasItem=true` 但 UI 锁定 | 优先检查物品类型、等级、兼容性或 UI 过滤，不再归因于所有权。 |
+| 对局前军械库正确、出生后状态偏离 | 优先检查 FieldMod/PlayerState/出生应用链，而不是 QueryAssets。 |
 
-当前 Steam 构建的 IDA 结果显示，`UPBArmoryManager::HasItem` 以 0x10 为步长遍历
-`FPBItem`，只比较偏移 0x0 的 `FName`，不会读取偏移 0x8 的 `Count`。
+固定构建的当前结论统一维护在 `current-findings.md`：QueryAssets field 1 是 result/status，repeated field 2 才是所有权物品行；原生完成链为 `FOnlineAsyncTaskQueryAssets -> LogicServer delegate -> PBArmoryManager`；当前确定性的全量所有权响应为 1,372,853 字节。客户端 frame patch 只对精确匹配的 EXE 哈希，把四个关联的 1 MiB 常量作为一个事务原子提升到 2 MiB。
 
-运行 `run_query_assets_status_ab.py --script query_assets_observe.js` 可获得只读
-基线：它只报告稳定的 QueryAssets protobuf 前缀，不修改接收缓冲区。
+## 历史与 A/B 探针
 
-QueryAssets A/B 探针现保留为回归诊断。对原生消费者 `0x1416DF990` 的运行时检查确认：
-顶层名为 `ItemCount` 的字段实际是结果/状态值，超过 299 会在读取任何 ItemData 前被拒绝。
-捕获到的成功值为 `1`；重复 ItemData 数组独立包含全部 40,462 条记录。`UserAsset` 候选
-仍只产生 268 条回退库存，因此 MetaServer 不采用该候选协议。
+`query_assets_*_ab.js`、`player_archive_level_ab.js`、`fieldmod_native_probe.js`、`persistent_armory_probe.js` 等专项脚本只作为历史回归证据保留，**不属于当前默认诊断链或生产行为**。
 
-后续已经解析出完整原生完成路径：
-`FOnlineAsyncTaskQueryAssets -> LogicServer delegate -> PBArmoryManager`。成功路径只复制
-每行的 `ItemId`，不会读取三个整数附加字段。固定版本客户端在 `0x1409C37BB` 拒绝超过
-1 MiB 的帧，同时单帧分配、容量计算和清零长度也分别固定为 1 MiB + 10 字节。因此
-Payload 仅对精确匹配 SHA-256 的 EXE，把四处带字节守卫的常量原子提升到 2 MiB；只修改
-长度检查已复现输出缓冲区溢出，四处不得拆分。MetaServer 保留全部去重 ItemId，并省略
-三个未使用的默认值字段，生成 1,372,853 字节的确定性响应。不可变响应及其可观测性摘要
-只缓存一次，后续进入军械库不会在同步响应路径上重新构造、反序列化或计算全部 40,462
-行的哈希。
+其中部分脚本会故意改写缓冲区、返回值、帧元数据或单个字段。脚本里的固定 payload 长度、偏移和实验假设只描述当时的捕获样本，不能继续当作当前生产常量。尤其是旧说明中的 `1,615,627` 字节 QueryAssets 窗口已经是历史数据，不代表当前 1,372,853 字节的确定性响应。
 
-`logic_server_armory_probe.js` 是这条最终原生路径的只读探针。它记录实际 LogicServer
-虚表目标、QueryAssets delegate 的结果/行数、订阅者回调，以及广播前后的军械库大小；
-不会修改接收缓冲区或游戏内存。
+只有同时满足以下条件才重新使用 A/B 探针：
 
-`query_assets_single_item_ab.js` 是第二阶段 A/B：保持帧长不变，让客户端只看到
-一条 ItemData（默认 `PEACE_RU-AKM`），并把顶层 `ItemCount` 等长改写为 1，用于区分
-“超大/混杂资产列表被整体拒绝”和“三个整数字段的语义仍不正确”。当前脚本还会
-校验完整的 1,615,627 字节 QueryAssets payload 窗口，避免匹配其他 RPC 响应。
+1. EXE SHA 与探针固定构建完全一致；
+2. `current-findings.md` 仍把对应假设列为未决或值得重新验证；
+3. 一次只改变一个变量，并能立即回滚；
+4. 结果必须与只读 `armory_probe.js` 基线对照；
+5. 新确认的地址、布局或协议语义应写回 `current-findings.md`，不能继续让 A/B 脚本充当事实来源。
 
-需要做有判别力的所有权测试时，可对该脚本使用
-`run_query_assets_status_ab.py --target-item PEACE_GSW-IDW`，只保留一个正常情况下
-明确锁定的条目。再加 `--top-level-value 0` 可验证字段 1 是否其实是成功状态码而非
-物品数量；默认测试值仍为 1。
-
-`query_assets_user_asset_ab.js` 会直接验证运行时反射得到的候选 schema：隐藏旧的
-顶层数量，只把所选行作为 field 1 `UserAsset` 暴露，同时保持缓冲区和帧长不变。
-运行时传入 `--script query_assets_user_asset_ab.js --target-item PEACE_GSW-IDW`。
-
-`player_archive_level_ab.js` 会解析完整原生帧和 protobuf wrapper，只改写单字节的
-顶层玩家等级。使用带 EXE 哈希校验的控制器运行低/高两组：
-
-```powershell
-python .\Tools\Frida\run_query_assets_status_ab.py --pid 1234 --output .\level-low.jsonl --script player_archive_level_ab.js --target-player-level 1
-$maxLevel = 100 # 替换成 progression.player_level_table.maximum_numeric_level
-python .\Tools\Frida\run_query_assets_status_ab.py --pid 1234 --output .\level-high.jsonl --script player_archive_level_ab.js --target-player-level $maxLevel
-```
-
-`persistent_armory_probe.js` 是一次性只读对照探针，用于比较
-`PBPersistentUser_BP_C::ArmorySaved`、其运行时 `Armorys` 和
-`UPBArmoryManager::Armorys`。可对已运行游戏执行：
-
-```powershell
-python .\Tools\Frida\run_query_assets_status_ab.py --pid 1234 --output .\persistent.jsonl --script persistent_armory_probe.js
-```
-
-收到 `probe.done` 后即可按 `Ctrl+C` 退出。它不会改写游戏内存。
+`logic_server_armory_probe.js` 仍可作为 QueryAssets 原生 completion 链的只读专项视图，但一般性的新增观测点仍应优先加入 `armory_probe.js`。

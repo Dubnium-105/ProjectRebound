@@ -53,12 +53,12 @@ func TestPrometheusScrapesInternalControlPlaneAndMetaMetrics(t *testing.T) {
 	}
 	if config.ScrapeConfigs[3].JobName != "project-rebound-meta-public" ||
 		config.ScrapeConfigs[3].MetricsPath != "/probe" ||
-		config.ScrapeConfigs[3].StaticConfigs[0].Targets[0] != "https://meta.dubnium.top/health/ready" {
+		config.ScrapeConfigs[3].StaticConfigs[0].Targets[0] != "https://meta.project-rebound.space/health/ready" {
 		t.Fatalf("unexpected public MetaServer probe config: %#v", config.ScrapeConfigs[3])
 	}
 	if config.ScrapeConfigs[4].JobName != "project-rebound-logic-public" ||
 		config.ScrapeConfigs[4].MetricsPath != "/probe" ||
-		config.ScrapeConfigs[4].StaticConfigs[0].Targets[0] != "logic.dubnium.top:443" {
+		config.ScrapeConfigs[4].StaticConfigs[0].Targets[0] != "logic.project-rebound.space:443" {
 		t.Fatalf("unexpected public Logic probe config: %#v", config.ScrapeConfigs[4])
 	}
 }

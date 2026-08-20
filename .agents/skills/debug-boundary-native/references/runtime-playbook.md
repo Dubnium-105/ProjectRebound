@@ -2,41 +2,50 @@
 
 本手册约束 Windows 本地 Meta-tunnel、Frida、游戏 UI 和 Payload DLL 的操作。只在用户请求修改或部署时写入文件；纯审计/诊断任务保持只读。
 
-## 1. 固定路径
+## 1. 运行时路径发现
 
-| 项目 | 路径 |
-| --- | --- |
-| 仓库 | `C:\wksp\ProjectRebound` |
-| MetaServer proto/log 辅助仓库 | `C:\wksp\BoundaryMetaServer` |
-| 游戏目录 | `C:\Steam\steamapps\common\Boundary\ProjectBoundary\Binaries\Win64` |
-| 游戏 EXE | `C:\Steam\steamapps\common\Boundary\ProjectBoundary\Binaries\Win64\ProjectBoundarySteam-Win64-Shipping.exe` |
-| 部署 DLL | `C:\Steam\steamapps\common\Boundary\ProjectBoundary\Binaries\Win64\Payload.dll` |
-| Meta-tunnel 启动器 | `C:\Steam\steamapps\common\Boundary\ProjectBoundary\Binaries\Win64\startgame.ps1` |
-| 本地 PVE 启动器 | `C:\Steam\steamapps\common\Boundary\ProjectBoundary\Binaries\Win64\start-local-pve.ps1` |
+不要把某台开发机的盘符或工作目录写成项目事实。每次会话先解析实际路径，并在后续命令中复用变量。
 
-不要把运行时 PID 写入文档；每次启动后重新解析并校验。
+建议变量：
+
+```powershell
+# 仓库：优先使用当前工作目录；否则显式传入实际 clone 路径。
+$RepoRoot = (Resolve-Path (Get-Location)).Path
+if (-not (Test-Path -LiteralPath (Join-Path $RepoRoot '.git'))) {
+    throw 'Set $RepoRoot to the active ProjectRebound checkout.'
+}
+
+# 游戏：优先由 Steam 库或用户提供的安装目录解析，不假设 C: 盘。
+$GameBin = '<Boundary ProjectBoundary\Binaries\Win64 actual path>'
+$GameExe = Join-Path $GameBin 'ProjectBoundarySteam-Win64-Shipping.exe'
+$PayloadDll = Join-Path $GameBin 'Payload.dll'
+$StartGame = Join-Path $GameBin 'startgame.ps1'
+$StartLocalPve = Join-Path $GameBin 'start-local-pve.ps1'
+```
+
+如果存在独立的 MetaServer proto/log 辅助仓库，也应通过当前 checkout、环境变量或用户提供的路径解析；不要硬编码为固定目录。不要把运行时 PID 写入文档；每次启动后重新解析并校验。
 
 ## 2. 启动或附加前检查
 
 1. 检查工作树并保留用户的无关改动：
 
 ```powershell
-git -C C:\wksp\ProjectRebound status --short
-git -C C:\wksp\ProjectRebound rev-parse HEAD
+git -C $RepoRoot status --short
+git -C $RepoRoot rev-parse HEAD
 ```
 
 2. 校验 EXE 和已部署 DLL：
 
 ```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath 'C:\Steam\steamapps\common\Boundary\ProjectBoundary\Binaries\Win64\ProjectBoundarySteam-Win64-Shipping.exe'
-Get-FileHash -Algorithm SHA256 -LiteralPath 'C:\Steam\steamapps\common\Boundary\ProjectBoundary\Binaries\Win64\Payload.dll'
+Get-FileHash -Algorithm SHA256 -LiteralPath $GameExe
+Get-FileHash -Algorithm SHA256 -LiteralPath $PayloadDll
 ```
 
 3. 只接受完整路径匹配的游戏进程：
 
 ```powershell
 Get-CimInstance Win32_Process |
-  Where-Object { $_.ExecutablePath -eq 'C:\Steam\steamapps\common\Boundary\ProjectBoundary\Binaries\Win64\ProjectBoundarySteam-Win64-Shipping.exe' } |
+  Where-Object { $_.ExecutablePath -eq $GameExe } |
   Select-Object ProcessId, ExecutablePath, CommandLine
 ```
 
@@ -53,10 +62,10 @@ Get-CimInstance Win32_Process |
 
 ## 4. Frida 只读联合探针
 
-首选统一探针：
+常规诊断只使用统一探针 `Tools/Frida/armory_probe.js` 及其启动器：
 
 ```powershell
-Set-Location C:\wksp\ProjectRebound
+Set-Location $RepoRoot
 powershell -ExecutionPolicy Bypass -File .\Tools\Frida\run-armory-probe.ps1
 ```
 
@@ -68,11 +77,11 @@ powershell -ExecutionPolicy Bypass -File .\Tools\Frida\run-armory-probe.ps1 -Pro
 
 执行规则：
 
-- 默认先用 `armory_probe.js`；把新的观测点加入统一事件时间线。
-- 对 QueryAssets frame、单物品或 player-level A/B，使用现有 `query_assets_*_ab.js`，不要把 A/B 写入常规运行构建。
+- 新观测点优先加入 `armory_probe.js` 的统一事件时间线，不新建重复的 FName/GObjects/ProcessEvent helper。
+- `query_assets_*_ab.js`、`player_archive_level_ab.js`、`fieldmod_native_probe.js`、`persistent_armory_probe.js` 等文件属于历史专项/A-B 证据工具，不是当前默认启动链。只有在复现对应固定构建假设、且 `current-findings.md` 明确要求时才使用。
+- 不把历史 A/B 探针的写内存、替换返回值或超时实验当成当前生产行为；若重新启用，必须固定 EXE SHA、限制单一变量、明确标注实验性质并可立即回滚。
 - 在日志中关联 message ID、RPC path、角色、槽位、集合数量/哈希、completion 类型和状态码。
 - 同时观察 Manager、PersistentUser saved/runtime、FieldMod pre-ordering、PlayerState equipping 和 UI/出生事件。
-- 探针默认只读。任何替换返回值或写内存的实验必须单独命名为 A/B、固定哈希、限制一次变量并可立即回滚。
 - 读取 `EPBSkinClass` 等小枚举时使用参数低字节，避免把寄存器高位脏数据误判为枚举。
 
 对局内配装按下面的同一时间线判读：
@@ -88,18 +97,18 @@ powershell -ExecutionPolicy Bypass -File .\Tools\Frida\run-armory-probe.ps1 -Pro
 无 Frida 时使用已安装启动器：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File 'C:\Steam\steamapps\common\Boundary\ProjectBoundary\Binaries\Win64\startgame.ps1'
+powershell -ExecutionPolicy Bypass -File $StartGame
 ```
 
-需要后台启动时使用隐藏窗口，并保留进程句柄或 PID 供后续精确检查：
+需要隐藏窗口启动时保留进程句柄或 PID 供后续精确检查：
 
 ```powershell
 Start-Process -FilePath 'powershell.exe' `
-  -ArgumentList @('-ExecutionPolicy', 'Bypass', '-File', 'C:\Steam\steamapps\common\Boundary\ProjectBoundary\Binaries\Win64\startgame.ps1') `
+  -ArgumentList @('-ExecutionPolicy', 'Bypass', '-File', $StartGame) `
   -WindowStyle Hidden -PassThru
 ```
 
-不要绕过 Meta-tunnel 直接启动 EXE 来验收线上 archive；那会改变被测路径。
+不要绕过 Meta-tunnel 直接启动 EXE 来验收线上 archive；那会改变被测路径。生产 MetaTunnel 默认连接 `https://meta.project-rebound.space` 与 `logic.project-rebound.space:443`；`dubnium.top` 已弃用，不得作为 fallback。
 `startgame.ps1` 只给游戏子进程追加 `NO_PROXY/no_proxy` 的 loopback 条目作为
 防御性提示；本构建 UE 4.25 的显式 `httpproxy` 路径可能忽略该环境变量，因此不能
 单凭它证明 `LogicServerURL` 已绕过系统代理。启动器不修改 Windows 全局代理设置。
@@ -110,7 +119,7 @@ Start-Process -FilePath 'powershell.exe' `
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File `
-  C:\Steam\steamapps\common\Boundary\ProjectBoundary\Binaries\Win64\start-local-pve.ps1 `
+  $StartLocalPve `
   -Map Warehouse -Difficulty normal -Port 7777
 ```
 
@@ -158,7 +167,7 @@ dedicated 若在 world travel 阶段无 crash dump 地提前退出，启动器�
 后端快速验证：
 
 ```powershell
-Set-Location C:\wksp\ProjectRebound\Backend
+Set-Location (Join-Path $RepoRoot 'Backend')
 gofmt -l .
 go vet ./...
 go test ./... -count=1
@@ -167,7 +176,7 @@ go test ./... -count=1
 Payload 策略测试：
 
 ```powershell
-Set-Location C:\wksp\ProjectRebound
+Set-Location $RepoRoot
 cmake -S Payload\Tests -B build\payload-tests -A x64
 cmake --build build\payload-tests --config Release --parallel
 ctest --test-dir build\payload-tests -C Release --output-on-failure
@@ -176,8 +185,8 @@ ctest --test-dir build\payload-tests -C Release --output-on-failure
 Frida 语法检查：
 
 ```powershell
-node --check C:\wksp\ProjectRebound\Tools\Frida\armory_probe.js
-python -m py_compile C:\wksp\ProjectRebound\Tools\Frida\capture_armory.py
+node --check (Join-Path $RepoRoot 'Tools\Frida\armory_probe.js')
+python -m py_compile (Join-Path $RepoRoot 'Tools\Frida\capture_armory.py')
 ```
 
 对 Payload 主 DLL 使用仓库现有 Visual Studio/x64 Release 配置。不要把旧 build 目录的成功当成本次源码已经重编。
@@ -198,9 +207,9 @@ python -m py_compile C:\wksp\ProjectRebound\Tools\Frida\capture_armory.py
 
 ```powershell
 $sourceDll = '<absolute-release-payload-path>'
-$targetDll = 'C:\Steam\steamapps\common\Boundary\ProjectBoundary\Binaries\Win64\Payload.dll'
+$targetDll = $PayloadDll
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-$backupDll = "C:\Steam\steamapps\common\Boundary\ProjectBoundary\Binaries\Win64\Payload.pre-$stamp.dll"
+$backupDll = Join-Path $GameBin "Payload.pre-$stamp.dll"
 Copy-Item -LiteralPath $targetDll -Destination $backupDll
 Copy-Item -LiteralPath $sourceDll -Destination $targetDll -Force
 Get-FileHash -Algorithm SHA256 -LiteralPath $sourceDll, $targetDll, $backupDll

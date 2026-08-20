@@ -17,8 +17,8 @@ AGPL 声明固定保存在 `Backend/api/proto/metaserver` 与
 
 ```text
 浏览器/启动器 -- 匿名管道传 Access Token --> MetaTunnel
-MetaTunnel -- HTTPS --> meta.dubnium.top -- FRP --> meta-server HTTP :8081
-游戏 -- 本地 TCP --> MetaTunnel -- 验证证书的 TLS --> logic.dubnium.top:443
+MetaTunnel -- HTTPS --> meta.project-rebound.space -- FRP --> meta-server HTTP :8081
+游戏 -- 本地 TCP --> MetaTunnel -- 验证证书的 TLS --> logic.project-rebound.space:443
 Logic 网关 -- TLS 终止 + 独立鉴权 FRP --> meta-server :6968
 
 meta-server --> PostgreSQL meta_* 表和少量只读控制数据
@@ -30,7 +30,8 @@ Dedicated Server -- scoped token --> /internal/v1/meta/*
 
 `meta-server` 是独立进程和镜像，不与控制面共用 listener、数据库角色、Redis ACL
 用户、FRP 用户、token、systemd unit 或回滚动作。客户端公网入口只有 443；6968、
-6969、8000、8081 和 9000 只允许私网或回环访问。
+6969、8000、8081 和 9000 只允许私网或回环访问。`dubnium.top` 已弃用，不属于生产
+信任边界，也不得作为 fallback。
 
 ## 身份流程
 
@@ -46,12 +47,11 @@ Authorization header。`/_meta-tunnel/health/live` 专用于本地隧道健康�
 透明桥接。
 
 对于 `/connectServer`，隧道还会执行旧正文大小限制，并把成功响应中的 Logic endpoint
-改写为本地 TCP listener。不同正式游戏版本的旧正文编码、
-字段名称及类型并不一致，因此 MetaServer 在全局大小限制内读取并丢弃正文，不解码也不
-信任其中内容；玩家、认证会话、账号状态、兼容客户端标签和协议版本均由服务端确定。
-服务端将以 SHA-256 为 Redis key 的 Gate 记录保存 60 秒，返回不透明的
-256 位 Ticket。原生 Gate 握手通过 Redis `GETDEL` 原子消费；并发消费或重放会失败，
-并记录重放指标和安全事件。
+改写为本地 TCP listener。不同正式游戏版本的旧正文编码、字段名称及类型并不一致，
+因此 MetaServer 在全局大小限制内读取并丢弃正文，不解码也不信任其中内容；玩家、认证
+会话、账号状态、兼容客户端标签和协议版本均由服务端确定。服务端将以 SHA-256 为 Redis
+key 的 Gate 记录保存 60 秒，返回不透明的 256 位 Ticket。原生 Gate 握手通过 Redis
+`GETDEL` 原子消费；并发消费或重放会失败，并记录重放指标和安全事件。
 
 ## 持久化与一致性
 
@@ -64,7 +64,7 @@ Authorization header。`/_meta-tunnel/health/live` 专用于本地隧道健康�
 - 调度器取得 PostgreSQL advisory transaction lock，以 `FOR UPDATE SKIP LOCKED`
   领取队列 Ticket 与 READY Game Server，并在同一事务中写入对局、名单、Ticket
   状态及 `READY -> RESERVED`。
-- 普通镜像回滚不回滚数据库；当前 MetaServer readiness 要求 35 号迁移，普通镜像回滚会保留 25–35 号迁移。
+- 普通镜像回滚不回滚数据库；当前 MetaServer readiness 要求 40 号迁移，普通镜像回滚会保留 25–40 号迁移。
 
 ## 可用性与动态发现
 

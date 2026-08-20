@@ -27,8 +27,8 @@ frontend public_tls_mux
     tcp-request inspect-delay 5s
     acl sni_relay req.ssl_sni -i RELAY_MTLS_HOST
     acl sni_boundary req.ssl_sni -i PUBLIC_API_HOST
-    acl sni_meta req.ssl_sni -i meta.dubnium.top
-    acl sni_logic req.ssl_sni -i logic.dubnium.top
+    acl sni_meta req.ssl_sni -i meta.project-rebound.space
+    acl sni_logic req.ssl_sni -i logic.project-rebound.space
     acl from_cloudflare src -f /etc/haproxy/cloudflare-ips.lst
     tcp-request content reject if sni_boundary !from_cloudflare
     tcp-request content reject if sni_meta !from_cloudflare
@@ -65,7 +65,7 @@ frontend public_http
     option httplog
     acl from_cloudflare src -f /etc/haproxy/cloudflare-ips.lst
     acl host_boundary hdr(host) -i PUBLIC_API_HOST
-    acl host_meta hdr(host) -i meta.dubnium.top
+    acl host_meta hdr(host) -i meta.project-rebound.space
     acl acme_challenge path_beg /.well-known/acme-challenge/
     http-request deny deny_status 403 if !from_cloudflare !acme_challenge
     http-request deny deny_status 403 if !host_boundary !host_meta !acme_challenge
@@ -87,7 +87,7 @@ frontend boundary_https
     default_backend control_http_origin
 
 frontend meta_https
-    bind 127.0.0.1:10445 ssl crt /etc/haproxy/certs/meta.dubnium.top.pem alpn h2,http/1.1
+    bind 127.0.0.1:10445 ssl crt /etc/haproxy/certs/meta.project-rebound.space.pem alpn h2,http/1.1
     mode http
     option httplog
     option forwardfor
@@ -100,7 +100,7 @@ frontend meta_https
     default_backend meta_http_origin
 
 frontend meta_logic_tls
-    bind 127.0.0.1:10446 accept-proxy ssl crt /etc/haproxy/certs/logic.dubnium.top.pem
+    bind 127.0.0.1:10446 accept-proxy ssl crt /etc/haproxy/certs/logic.project-rebound.space.pem
     mode tcp
     option tcplog
     timeout client 5m

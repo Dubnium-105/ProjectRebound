@@ -302,8 +302,8 @@ services:
       CONTROL_PLANE_ENVIRONMENT: production
       META_HTTP_ADDR: ":8081"
       META_LOGIC_ADDR: ":6968"
-      META_PUBLIC_HTTP_BASE_URL: "https://meta.dubnium.top"
-      META_PUBLIC_LOGIC_ENDPOINT: "logic.dubnium.top:443"
+      META_PUBLIC_HTTP_BASE_URL: "https://meta.project-rebound.space"
+      META_PUBLIC_LOGIC_ENDPOINT: "logic.project-rebound.space:443"
       META_LOGIC_PROXY_PROTOCOL: "${META_LOGIC_PROXY_PROTOCOL:-true}"
       META_PROTOCOL_VERSION: "${META_PROTOCOL_VERSION:-1}"
       META_GATE_TICKET_TTL_SECONDS: "${META_GATE_TICKET_TTL_SECONDS:-60}"
