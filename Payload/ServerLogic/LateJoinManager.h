@@ -59,7 +59,7 @@ public:
         ELateJoinState State = ELateJoinState::PendingRoleSelection;
         float ElapsedSeconds = 0.0f;    // 当前阶段已持续时间（秒）
         int   SpawnAttempts   = 0;      // 已尝试生成的次数（最多 3 次）
-        bool  ClientStartSent = false;   // Whether the mid-game ClientStart sequence was sent.
+        bool  ClientStartSent = false;   // Whether the client received the in-match UI/lifecycle sequence.
         bool  bIsInitialJoin  = false;   // Connected before the match/round entered progress.
         bool  InitialRoleSelectionSent = false; // Native pre-match prompt reached this connection.
         bool  HasCompletedSpawn = false; // Suppress repeated mid-game lifecycle synchronization.
@@ -251,6 +251,7 @@ private:
 
     void QueueLateJoinPlayer(SDK::APBPlayerController* PC);
     void SyncClientJoinState(SDK::APBPlayerController* PC, const FClientSyncOptions& Options);
+    void SendInitialJoinClientStart(SDK::APBPlayerController* PC);
     void SendLateJoinClientStart(SDK::APBPlayerController* PC);
     void PrepareLateJoinRespawn(SDK::APBPlayerController* PC);
     void FinalizeLateJoinSpawn(SDK::APBPlayerController* PC, FLateJoinInfo Info);

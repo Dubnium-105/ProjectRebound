@@ -65,6 +65,15 @@ enable_strict_warnings(respawn_state_policy_tests)
 
 add_test(NAME respawn_state_policy_tests COMMAND respawn_state_policy_tests)
 
+add_executable(join_ui_sync_policy_tests
+    JoinUiSyncPolicyTests.cpp
+)
+
+target_compile_features(join_ui_sync_policy_tests PRIVATE cxx_std_20)
+enable_strict_warnings(join_ui_sync_policy_tests)
+
+add_test(NAME join_ui_sync_policy_tests COMMAND join_ui_sync_policy_tests)
+
 add_executable(archive_completion_policy_tests
     ArchiveCompletionPolicyTests.cpp
 )

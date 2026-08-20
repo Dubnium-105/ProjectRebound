@@ -102,7 +102,8 @@ error\t{"code":"invalid_target","message":"port must be between 1 and 65535","re
 
 `join` 回调在监听线程执行，但不做任何 Unreal 操作，只校验并排队目标。客户端
 `ProcessEvent` Hook 在登录事件记录游戏线程 ID，后续只允许该确切线程泵送排队的跳转，
-并保留登录后、进入靶场后的稳定等待阶段。
+并保留登录后的稳定等待阶段；客户端先停用持久前端栈的顶层 widget，再直接执行网络
+travel，不再先进入靶场。
 
 ## 安全边界
 
