@@ -127,14 +127,23 @@ powershell -ExecutionPolicy Bypass -File `
 端口后启动带 `-match=127.0.0.1:<port>` 的客户端；已有客户端时应保持默认的
 server-only 模式，再从游戏控制台执行 `open 127.0.0.1:<port>`。
 
-自动连接在主菜单登录稳定后先停用 `PBMainMenuManager` 的顶层前端 widget，再直接执行
-`open <target>`，不得先调用 `GoToRange`。首发 UI 回归验收同时检查最新
-`clientlogs/clientlog-*.txt` 中依次存在 `Deactivated frontend menu` 与
-`Connecting directly to match`，且不存在 `Entering Shooting Range`；Frida 必须确认
-`GoToRange` 调用数为 0、`DeactivateWidget` 一次，并在服务器原生 StartMatch 后收到
+自动连接在主菜单登录稳定后只停用精确白名单中的 `UMG_EnterGame_C`、
+`UMG_LoginGate_C`、`UMG_MainMenuBase_C`，再直接执行 `open <target>`，不得先调用
+`GoToRange`。新战局 `UWorld` 激活后必须调用 `HideLoadingScreen`，并对精确的
+`UMG_LoginGate_C/UMG_Login_C` 实例执行 `RemoveFromParent`；只停用顶层 MainMenu
+会留下 `CONNECTING TO PLATFORM SERVER` 登录认证层。白名单不得扩展到
+`UMG_InGameOption_V2_C`、`ConfirmPage_C` 或未知 widget。
+
+首发 UI 回归验收同时检查最新 `clientlogs/clientlog-*.txt` 中依次存在
+`Hid direct-match frontend layer`、`Connecting directly to match`、
+`Finalized direct-travel loading/auth UI`，且不存在 `Entering Shooting Range`。Frida
+必须确认 `GoToRange=0`，并按 `object_class` 看到 `UMG_LoginGate_C`、`UMG_Login_C`
+各自的 `RemoveFromParent` enter/leave；单独看到 `HideLoadingScreen` 或
+`HideWaitingForServerTips` 不算通过。服务器原生 StartMatch 后还必须收到
 `ClientStartOnlineGame/ClientMatchHasStarted/ClientRoundHasStarted/ClientSelectRole`。
-完成首次出生后按 ESC 必须打开正常 `IN GAME` 角色界面，不能直接弹出靶场的退出确认页；
-同时确认 `ShowConfirm/ExitRange` 没有出现在该输入窗口。
+进入等待和角色选择阶段均不得出现 `CONNECTING TO PLATFORM SERVER`。完成首次出生后
+按 ESC 或点击齿轮必须打开 `YOU ARE IN GAMING / LEAVE MATCH` 正常对局菜单，不能直接
+弹出靶场的退出确认页；同时确认 `ShowConfirm/ExitRange` 没有出现在该输入窗口。
 
 固定客户端还会在登录前查询已退役的 Unity Multiplay fleet；该接口当前返回
 `404 fleet does not exist`，会使冷启动停在 `CONNECTING TO PLATFORM SERVER`。

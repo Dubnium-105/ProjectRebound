@@ -249,20 +249,25 @@ CompleteWeaponOrnament(manager, int32 code, FName ornament, FName role, FName we
 - `UPBLocalPlayer` 会跨 world travel 持续存在，且保存当前/排队确认 UI。`ShowConfirmPage` reflected thunk RVA `0x01823890` 调用 implementation RVA `0x01682310`，后者把 `0x78` 字节 `FConfirmInfo` 压入 LocalPlayer 内部数组并显示队首；`PBPlayerController::ShowConfirm` thunk RVA `0x01843EE0`、implementation RVA `0x015C46C0` 最终也转发到同一 LocalPlayer 队列。因此先进入 Range 再打开战局可以把靶场退出确认/输入状态带入首发连接。
 - `PBPlayerController::ExitRange` thunk RVA `0x018424A0`、implementation RVA `0x015AE450` 通过当前 LocalPlayer 执行退出范围动作。SDK 同时确认靶场蓝图控制器持有 `ShootingRangePanel`、`IsExitingRange`，ESC 事件为 `K2_InputKeyToExitRange`。
 - 修复前冷启动的首发玩家在完成角色选择和首次出生后，ESC 会直接显示 `LEAVE MATCH / PLEASE CONFIRM YOUR COMMAND`，而不是正常对局菜单。该次首发只观察到 `ClientReadyAtStartSpot`，没有中途加入分支会补发的 `ClientMatchHasStarted`、`ClientRoundHasStarted`、`NotifyGameStarted`；这解释了为什么晚加入可由完整 client-start 生命周期覆盖残留，而首发不能。
+- 正常登录会依次构造 `UMG_EnterGame_C -> UMG_LoginGate_C -> UMG_MainMenuBase_C`。旧直接连接只停用 `PBMainMenuManager` 返回的顶层 `UMG_MainMenuBase_C`；`GetTopMenuWidget` 在停用后仍返回同一 MainMenu，无法暴露下层认证 widget，结果 `UMG_LoginGate_C/UMG_Login_C` 的 `CONNECTING TO PLATFORM SERVER` 覆盖到战局 UI。
+- 固定构建中 `PBGameInstance::HideLoadingScreen` exec RVA `0x017F5800`、implementation RVA `0x01568110`；MainMenu handler RVA `0x0154FE20` 也会先调用该 implementation。但运行时单独调用 `HideLoadingScreen` 后覆盖层仍在。`PBCustomManager_BP_C::HideWaitingForServerTips` 同样无法清除，且失败窗口没有对应 `ShowWaitingForServerTips`，因此 loading movie/WaitingTips 均不是该覆盖层的 owner。
+- 决定性动态证据是：新战局 `UWorld` 激活后，对精确的 `UMG_LoginGate_C` 和 `UMG_Login_C` 实例调用 `UWidget::RemoveFromParent`，覆盖层立即消失；Frida 同时记录两类 widget 的 enter/leave，随后角色选择、装备刷新、`OnRep_PossessedCharacterID` 和 playable possession 正常完成。
 
 ### 修复边界
 
-- 客户端连接状态机只保留 `Idle -> Queued -> WaitingAfterLogin -> Idle`。登录稳定后先通过 `PBMainMenuManager_BP_C::GetTopMenuWidget` 找到当前前端 `CommonActivatableWidget`，执行 `Hidden + DeactivateWidget`，随后直接在记录的游戏线程执行 `open <target>`；删除 `WaitingAfterRange`、`RangeSettleDelay` 和全部自动 `GoToRange` 调用。A/B 验证表明“只直接 open”虽然能连上服务器，但持久 LocalPlayerSubsystem 的 `MenuStack` 仍会覆盖战局 UI，所以前端栈退场是必要的第二层修复。
+- 客户端连接状态机只保留 `Idle -> Queued -> WaitingAfterLogin -> Idle`。登录稳定后只对精确白名单 `UMG_EnterGame_C/UMG_LoginGate_C/UMG_MainMenuBase_C` 执行 `Hidden + DeactivateWidget`，随后直接在记录的游戏线程执行 `open <target>`；删除 `WaitingAfterRange`、`RangeSettleDelay` 和全部自动 `GoToRange` 调用。新战局 `UWorld` 激活后再调用原生 `HideLoadingScreen`，并对精确的 `UMG_LoginGate_C/UMG_Login_C` 实例执行 `Collapsed + RemoveFromParent`。30 秒维护窗口只重试上述前端白名单，不能扩展到确认页或局内菜单。
 - 首发服务器状态机在 `DidBroadcastRoleSelection` 证明原生 StartMatch 已完成后，补发 `ClientStartOnlineGame -> ClientMatchHasStarted -> ClientRoundHasStarted`，再延迟重试 `ClientSelectRole`。这与中途加入的比赛状态追赶语义对齐，但不会在 StartMatch 前提前宣告回合；纯策略边界由 `JoinUiSyncPolicyTests.cpp` 固定。
 - 不拦截 ESC、不伪造确认结果、也不在 travel 前强行清空 LocalPlayer 确认队列；修复只弹出前端菜单栈并补齐真实比赛生命周期，保留正常对局角色菜单和合法确认页语义。
-- `Tools/Frida/armory_probe.js` 已增加 GoToRange、Range ESC、前端 widget 激活/停用、战局菜单、确认页、GameInstance 和 client-start 生命周期观测点。
+- `Tools/Frida/armory_probe.js` 已增加 GoToRange、Range ESC、前端 widget 构造/激活/停用/移除、LoginGate、WaitingTips、战局菜单、确认页、GameInstance 和 client-start 生命周期观测点；`fieldmod.native_call` 记录 `object_class`，避免把同名 `Construct/RemoveFromParent` 误归类。
 
 ### 最终运行验收
 
 - 冷启动会话：`local-pve/20260820-194050`；客户端日志：`clientlogs/clientlog-20260820_194128.txt`；Frida：`frida-captures/20260820-range-ui-final-clean/events.jsonl`。
 - 客户端日志顺序为 `Match transition queued -> Deactivated frontend menu -> Connecting directly to match`。Frida 中 `GoToRange/K2_GoToRange=0`，`DeactivateWidget` 一次 enter/leave，随后各一次 `ClientStartOnlineGame`、`ClientMatchHasStarted`、`ClientRoundHasStarted`、`ClientSelectRole` enter/leave；`ShowConfirm=0`、`ExitRange=0`。
 - 首发玩家在没有进入靶场的情况下完成选角、装备确认和 FIXER 首生；ESC 显示正常的 `IN GAME` 角色界面，没有 `LEAVE MATCH / PLEASE CONFIRM YOUR COMMAND`。随后 AI 击杀触发 lifecycle 1，显式原生 `ServerRestartPlayer -> ServerQuickRespawn` attempt 0 完成，再次 `Spawn complete`，证明复活接线未回归。
-- 最终部署 `Payload.dll` SHA-256 为 `12D4F6E891B9D46A91B0C8341B67974A16778198DB70CD2CBEA4312CADB04920`。
+- 平台覆盖层基线为 `frida-captures/20260820-platform-overlay-direct-baseline/events.jsonl`；修复后探针会话为 `frida-captures/20260820-platform-overlay-auth-detach-cold1/events.jsonl`，冷启动会话为 `local-pve/20260820-235614`。事件顺序为新 world 的 `HideLoadingScreen`、`UMG_LoginGate_C::RemoveFromParent`、`UMG_Login_C::RemoveFromParent`，之后进入完整 client-start/选角/出生链。
+- 第二次不挂 Frida 的独立冷启动 `local-pve/20260821-000151` 中，20 秒时只显示对局的 `WAITING FOR THE GAME TO START`，40 秒后进入角色选择且平台连接层没有回弹；右上角齿轮打开 `YOU ARE IN GAMING / LEAVE MATCH` 正常对局菜单，而不是靶场确认页。
+- 最终 Release 构建与游戏目录部署的 `Payload.dll` SHA-256 均为 `B60AB8BD76EF6918CFDA8071B224E8077B2A67E0BB80DE0F34CCC4D07F803CD5`。
 
 ## 13. 原生 progression / quest 链（2026-08-20）
 

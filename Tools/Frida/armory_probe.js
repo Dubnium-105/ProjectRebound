@@ -234,11 +234,23 @@ const OBSERVED_FUNCTIONS = new Map([
     ['CleanupSessionOnReturnToMenu', 'PBGameInstance'],
     ['ShowLoadingScreen', 'PBGameInstance'],
     ['HideLoadingScreen', 'PBGameInstance'],
+    ['PlatformHandleSplashScreen', 'PBGameInstance'],
+    ['TryLoginGate', 'PBLoginGateWidget'],
+    ['K2_TryLoginGate', 'PBLoginGateWidget'],
+    ['K2_LoginGateFail', 'PBLoginGateWidget'],
+    ['Construct', ['UMG_EnterGame_C', 'UMG_LoginGate_C', 'UMG_MainMenuBase_C']],
+    ['ShowWaitingForServerTips', 'PBCustomManager_BP_C'],
+    ['HideWaitingForServerTips', 'PBCustomManager_BP_C'],
+    ['ShowIn', 'UMG_WaitingTips_C'],
+    ['WaitingForSeverCallBack', 'UMG_WaitingTips_C'],
+    ['WaitingForJoinTeam', 'UMG_WaitingTips_C'],
+    ['SetInfo', 'UMG_WaitingTips_C'],
     ['GetTopMenuWidget', 'PBMainMenuManager_BP_C'],
     ['GetTopInGameWidget', 'PBMainMenuManager_BP_C'],
     ['OnMatchFound', 'UMG_MainMenuBase_C'],
     ['ActivateWidget', 'CommonActivatableWidget'],
     ['DeactivateWidget', 'CommonActivatableWidget'],
+    ['RemoveFromParent', 'Widget'],
     ['K2_StartMatchEnding', 'PBGameState'],
     ['K2_StartShowingMatchResult', 'PBGameState'],
 ]);
@@ -2653,6 +2665,12 @@ function observedCallDetails(functionName, params, phase) {
             use_movie_player: params.add(1).readU8() !== 0,
         };
     }
+    if (functionName === 'PlatformHandleSplashScreen' && phase === 'enter') {
+        return { show_splash_screen: params.readU8() !== 0 };
+    }
+    if (functionName === 'K2_LoginGateFail' && phase === 'enter') {
+        return { error_code: params.readS32() };
+    }
     if (functionName === 'ClientSetSpectatorWaiting' ||
         functionName === 'ServerSetSpectatorWaiting') {
         return { waiting: params.readU8() !== 0 };
@@ -2923,6 +2941,7 @@ function hookProcessEvent() {
                     function_name: functionName,
                     phase: 'enter',
                     object: args[0].toString(),
+                    object_class: className(args[0]),
                 }, observedCallDetails(functionName, args[2], 'enter')));
             } catch (error) {
                 reportError(`unreal.${functionName}.enter`, error);
@@ -2976,6 +2995,7 @@ function hookProcessEvent() {
                         function_name: this.probeKind,
                         phase: 'leave',
                         object: this.probeObject.toString(),
+                        object_class: className(this.probeObject),
                     }, observedCallDetails(this.probeKind, this.probeParams, 'leave')));
                     emitFieldModSnapshot(`${this.probeKind}.after`);
                     if (OBSERVED_FUNCTIONS.get(this.probeKind) === 'PBWeapon') {

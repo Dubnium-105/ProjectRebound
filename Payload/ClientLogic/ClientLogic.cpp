@@ -1,5 +1,7 @@
 #include "ClientLogic.h"
 
+#include "DirectMatchUiCleanupPolicy.h"
+
 #include "../Communication/CommandProtocol.h"
 #include "../Config/Config.h"
 #include "../Config/CommandLinePolicy.h"
@@ -15,6 +17,7 @@
 
 #include <Windows.h>
 
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -97,40 +100,97 @@ namespace
     std::string currentTarget;
     ConnectStage connectStage = ConnectStage::Idle;
     std::chrono::steady_clock::time_point nextActionAt{};
+    std::chrono::steady_clock::time_point frontendCleanupUntil{};
+    std::chrono::steady_clock::time_point nextFrontendCleanupAt{};
+    UWorld* directTravelSourceWorld = nullptr;
+    bool directTravelUiFinalized = false;
     std::atomic<bool> loginCompleted{false};
     std::atomic<DWORD> gameThreadId{0};
 
     constexpr auto LoginSettleDelay = std::chrono::seconds(2);
+    constexpr auto FrontendCleanupDuration = std::chrono::seconds(30);
+    constexpr auto FrontendCleanupInterval = std::chrono::milliseconds(500);
 
-    void DeactivateFrontendMenuBeforeMatchTravel()
+    void HideDirectMatchFrontendLayers(bool logAllLayers)
     {
         // PBMainMenuManager is a persistent LocalPlayer subsystem. A raw
         // `open` changes the network world but does not pop its MenuStack, so
-        // the frontend remains interactive over the match UI. Normal
-        // matchmaking deactivates the top CommonActivatableWidget before
-        // travel; reproduce only that UI ownership transition here.
-        const auto managers = getObjectsOfClass(
-            UPBMainMenuManager_BP_C::StaticClass(), false);
-        for (auto it = managers.rbegin(); it != managers.rend(); ++it)
+        // the frontend remains interactive over the match UI. Login creates
+        // EnterGame -> LoginGate -> MainMenu layers. Deactivating only the top
+        // MainMenu reveals the still-active "CONNECTING TO PLATFORM SERVER"
+        // LoginGate. GetTopMenuWidget continues to report MainMenu after its
+        // deactivation, so the lower login layers must be addressed by their
+        // exact generated classes rather than inferred stack order.
+        const std::array<UClass*, 3> frontendClasses = {
+            UUMG_LoginGate_C::StaticClass(),
+            UUMG_EnterGame_C::StaticClass(),
+            UUMG_MainMenuBase_C::StaticClass(),
+        };
+
+        std::size_t cleanedCount = 0;
+        for (UClass* frontendClass : frontendClasses)
         {
-            auto* const manager = reinterpret_cast<UPBMainMenuManager_BP_C*>(*it);
-            if (!manager)
-                continue;
+            const auto widgets = getObjectsOfClass(frontendClass, false);
+            for (auto it = widgets.rbegin(); it != widgets.rend(); ++it)
+            {
+                if (cleanedCount >= DirectMatchUiCleanupPolicy::MaxFrontendWidgets)
+                {
+                    ClientLog("[CLIENT] Stopped direct-match frontend cleanup at its safety limit.");
+                    return;
+                }
 
-            UCommonActivatableWidget* topMenu = nullptr;
-            manager->GetTopMenuWidget(&topMenu);
-            if (!topMenu)
-                continue;
+                auto* const widget = reinterpret_cast<UCommonActivatableWidget*>(*it);
+                if (!widget)
+                    continue;
 
-            const std::string widgetName = topMenu->GetFullName();
-            topMenu->SetVisibility(ESlateVisibility::Hidden);
-            topMenu->DeactivateWidget();
-            ClientLog("[CLIENT] Deactivated frontend menu before direct match travel: " +
-                widgetName);
-            return;
+                const std::string widgetName = widget->GetFullName();
+                if (!DirectMatchUiCleanupPolicy::IsDirectMatchFrontendWidget(widgetName))
+                    continue;
+
+                const bool wasActivated = widget->IsActivated();
+                widget->SetVisibility(ESlateVisibility::Hidden);
+                if (wasActivated)
+                    widget->DeactivateWidget();
+                ++cleanedCount;
+                if (logAllLayers || wasActivated)
+                {
+                    ClientLog("[CLIENT] Hid direct-match frontend layer (activated=" +
+                        std::string(wasActivated ? "true" : "false") + "): " + widgetName);
+                }
+            }
         }
 
-        ClientLog("[CLIENT] No active frontend menu required cleanup before match travel.");
+        if (logAllLayers && cleanedCount == 0)
+            ClientLog("[CLIENT] No direct-match frontend layer required cleanup before travel.");
+    }
+
+    void DetachDirectMatchAuthLayersAfterTravel()
+    {
+        const std::array<UClass*, 2> authClasses = {
+            UUMG_LoginGate_C::StaticClass(),
+            UUMG_Login_C::StaticClass(),
+        };
+
+        std::size_t detachedCount = 0;
+        for (UClass* authClass : authClasses)
+        {
+            const auto widgets = getObjectsOfClass(authClass, false);
+            for (auto it = widgets.rbegin(); it != widgets.rend(); ++it)
+            {
+                if (detachedCount >= DirectMatchUiCleanupPolicy::MaxFrontendWidgets)
+                    return;
+
+                auto* const widget = reinterpret_cast<UWidget*>(*it);
+                if (!widget)
+                    continue;
+
+                const std::string widgetName = widget->GetFullName();
+                widget->SetVisibility(ESlateVisibility::Collapsed);
+                widget->RemoveFromParent();
+                ++detachedCount;
+                ClientLog("[CLIENT] Detached direct-travel auth layer: " + widgetName);
+            }
+        }
     }
 
     enum class NativeLoadoutStatus
@@ -910,6 +970,10 @@ bool QueueConnectToMatch(const std::string& target)
 
         pendingTarget = target;
         connectStage = ConnectStage::Queued;
+        frontendCleanupUntil = {};
+        nextFrontendCleanupAt = {};
+        directTravelSourceWorld = nullptr;
+        directTravelUiFinalized = false;
     }
     ClientLog("[CLIENT] Match transition queued: " + target);
     return true;
@@ -982,6 +1046,49 @@ void PumpPendingClientCommands()
 
     const auto now = std::chrono::steady_clock::now();
     std::optional<std::string> connectTarget;
+    bool maintainFrontendCleanup = false;
+    bool finalizeTravelUi = false;
+
+    {
+        std::lock_guard<std::mutex> lock(connectMutex);
+        if (frontendCleanupUntil != std::chrono::steady_clock::time_point{} &&
+            now < frontendCleanupUntil && now >= nextFrontendCleanupAt)
+        {
+            nextFrontendCleanupAt = now + FrontendCleanupInterval;
+            maintainFrontendCleanup = true;
+            if (!directTravelUiFinalized &&
+                directTravelSourceWorld != nullptr &&
+                world != directTravelSourceWorld)
+            {
+                directTravelUiFinalized = true;
+                finalizeTravelUi = true;
+            }
+        }
+        else if (frontendCleanupUntil != std::chrono::steady_clock::time_point{} &&
+            now >= frontendCleanupUntil)
+        {
+            frontendCleanupUntil = {};
+            nextFrontendCleanupAt = {};
+        }
+    }
+
+    if (maintainFrontendCleanup)
+        HideDirectMatchFrontendLayers(false);
+    if (finalizeTravelUi)
+    {
+        try
+        {
+            static_cast<UPBGameInstance*>(world->OwningGameInstance)->HideLoadingScreen();
+            DetachDirectMatchAuthLayersAfterTravel();
+            ClientLog("[CLIENT] Finalized direct-travel loading/auth UI after match world activation.");
+        }
+        catch (...)
+        {
+            std::lock_guard<std::mutex> lock(connectMutex);
+            directTravelUiFinalized = false;
+            ClientLog("[CLIENT] Failed to finalize direct-travel UI; retrying.");
+        }
+    }
 
     {
         std::lock_guard<std::mutex> lock(connectMutex);
@@ -1010,7 +1117,12 @@ void PumpPendingClientCommands()
         {
             const std::wstring command = L"open " +
                 std::wstring(connectTarget->begin(), connectTarget->end());
-            DeactivateFrontendMenuBeforeMatchTravel();
+            HideDirectMatchFrontendLayers(true);
+            {
+                std::lock_guard<std::mutex> lock(connectMutex);
+                directTravelSourceWorld = world;
+                directTravelUiFinalized = false;
+            }
             ClientLog("[CLIENT] Connecting directly to match: " + *connectTarget);
             UKismetSystemLibrary::ExecuteConsoleCommand(world, command.c_str(), nullptr);
             actionSucceeded = true;
@@ -1031,5 +1143,8 @@ void PumpPendingClientCommands()
         currentTarget = *connectTarget;
         pendingTarget.reset();
         connectStage = ConnectStage::Idle;
+        const auto cleanupStart = std::chrono::steady_clock::now();
+        frontendCleanupUntil = cleanupStart + FrontendCleanupDuration;
+        nextFrontendCleanupAt = cleanupStart;
     }
 }
