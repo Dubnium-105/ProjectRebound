@@ -2456,6 +2456,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/meta/p2p-rooms/{room_id}/members/{player_id}/loadouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                room_id: components["parameters"]["P2PRoomID"];
+                player_id: components["parameters"]["PlayerID"];
+            };
+            cookie?: never;
+        };
+        /** @description Returns definition-validated role snapshots and decoded primary/secondary weapon configs to the authenticated host of an active P2P room. The target player must be an active member of that room. */
+        get: operations["getMetaP2PRoomMemberLoadouts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/meta/parties": {
         parameters: {
             query?: never;
@@ -5205,6 +5225,12 @@ export interface components {
             snapshot: {
                 [key: string]: unknown;
             };
+            /** @description Optional decoded WeaponArchiveV2 projections keyed by selected weapon ID; present on current-user list responses. */
+            weapon_configs?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
             /** Format: int64 */
             revision: number;
             /** Format: date-time */
@@ -5236,6 +5262,32 @@ export interface components {
             data: {
                 items: components["schemas"]["MetaLoadout"][];
             };
+            request_id: string;
+        };
+        MetaP2PRoomRoleLoadout: {
+            role_id: string;
+            /** Format: int64 */
+            revision: number;
+            /** @description Definition-validated snapshot with embedded weapon archives removed. */
+            snapshot: {
+                [key: string]: unknown;
+            };
+            /** @description Decoded WeaponArchiveV2 protojson keyed by selected weapon ID. */
+            weapon_configs: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        MetaP2PRoomMemberLoadouts: {
+            /** @constant */
+            schema_version: 1;
+            room_id: string;
+            player_id: string;
+            loadouts: components["schemas"]["MetaP2PRoomRoleLoadout"][];
+        };
+        MetaP2PRoomMemberLoadoutsResponse: {
+            data: components["schemas"]["MetaP2PRoomMemberLoadouts"];
             request_id: string;
         };
         MetaPartyCreateRequest: {
@@ -10003,6 +10055,42 @@ export interface operations {
             400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthorized"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    getMetaP2PRoomMemberLoadouts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                room_id: components["parameters"]["P2PRoomID"];
+                player_id: components["parameters"]["PlayerID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Loadout baselines for the active room member. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaP2PRoomMemberLoadoutsResponse"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description The encoded response would exceed 512 KiB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     createMetaParty: {

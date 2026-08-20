@@ -348,6 +348,7 @@ MetaTunnel 流程见 [MetaServer 外部 API](metaserver-external.zh-CN.md)。
 | GET | `/v1/users/me/loadouts` | 活跃玩家 | 全部角色配装 |
 | GET | `/v1/users/me/loadouts/{role_id}` | 活跃玩家 | 单个角色配装 |
 | PUT | `/v1/users/me/loadouts/{role_id}` | 活跃玩家 | 定义校验和乐观锁更新 |
+| GET | `/v1/meta/p2p-rooms/{room_id}/members/{player_id}/loadouts` | 活跃房主 | 经 MetaTunnel 读取一名 ACTIVE 成员的服务端权威配装基线 |
 | POST | `/v1/meta/parties` | 活跃玩家 | 创建 Party |
 | GET | `/v1/meta/parties/{party_id}` | Party 成员 | 查询 Party |
 | POST | `/v1/meta/parties/{party_id}/ready` | Party 成员 | 更新准备状态 |

@@ -26,6 +26,7 @@ std::vector<APlayerController *> playerControllersPossessed = std::vector<APlaye
 int NumPlayersJoined = 0;
 float PlayerJoinTimerSelectFuck = -1.0f;
 bool DidProcFlow = false;
+bool DidBroadcastRoleSelection = false;
 float StartMatchTimer = -1.0f;
 int NumPlayersSelectedRole = 0;
 bool DidProcStartMatch = false;
@@ -35,6 +36,8 @@ float MatchStartCountdown = -1.0f;
 
 std::unordered_map<APBPlayerController *, bool> PlayerRespawnAllowedMap{};
 std::unordered_set<APBPlayerController *> PlayersConfirmedRole{};
+std::unordered_set<APBPlayerController *> ConnectedPlayerControllers{};
+std::unordered_set<APBPlayerController *> DisconnectedPlayerControllers{};
 std::unordered_set<APBPlayerController *> PendingNameUpdatePlayers{};
 std::unordered_set<APBPlayerController *> AppliedNameUpdatePlayers{};
 float PendingNameApplyAccumulator = 0.0f;
@@ -44,6 +47,7 @@ float ReplicationFlushAccumulator = 0.0f;
 LateJoinManager *gLateJoinManager = nullptr;
 
 bool listening = false;
+static UWorld *ObservedServerWorld = nullptr;
 
 // ======================================================
 //  Helpers used by TickFlushHook and LateJoinManager
@@ -85,6 +89,41 @@ int GetCurrentPlayerCount()
         return -1;
 
     return GS->PlayerArray.Num();
+}
+
+void ResetServerMatchStateForWorld(UWorld *world)
+{
+    ObservedServerWorld = world;
+    playerControllersPossessed.clear();
+    ConnectedPlayerControllers.clear();
+    DisconnectedPlayerControllers.clear();
+    NumPlayersJoined = 0;
+    PlayerJoinTimerSelectFuck = -1.0f;
+    DidProcFlow = false;
+    DidBroadcastRoleSelection = false;
+    StartMatchTimer = -1.0f;
+    NumPlayersSelectedRole = 0;
+    DidProcStartMatch = false;
+    canStartMatch = false;
+    NumExpectedPlayers = -1;
+    MatchStartCountdown = -1.0f;
+    ReplicationFlushAccumulator = 0.0f;
+    PendingNameApplyAccumulator = 0.0f;
+    PlayerRespawnAllowedMap.clear();
+    PlayersConfirmedRole.clear();
+    PendingNameUpdatePlayers.clear();
+    AppliedNameUpdatePlayers.clear();
+
+    if (gLateJoinManager)
+        gLateJoinManager->ResetForWorldChange();
+
+    Log("[SERVER] Reset match-scoped state for active world.");
+}
+
+void EnsureServerMatchWorld(UWorld *world)
+{
+    if (world != ObservedServerWorld)
+        ResetServerMatchStateForWorld(world);
 }
 
 void QueuePendingPlayerNameUpdate(APBPlayerController *PlayerController)
@@ -218,6 +257,10 @@ void StartServer()
 
     NetDriverAccess::Observe(NetDriver, World, NetDriverAccess::Source::ObjectScan);
     Log("[SERVER] NetDriver created successfully.");
+
+    // Establish the map generation before accepting PostLogin. This also
+    // clears state left by a previous world in a long-lived injected process.
+    ResetServerMatchStateForWorld(World);
 
     Log("[SERVER] Calling Listen()...");
     libReplicate->Listen(NetDriver, World, LibReplicate::EJoinMode::Open, Config.Port);

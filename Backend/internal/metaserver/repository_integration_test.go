@@ -14,8 +14,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/database"
+	metaprotocol "github.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver/protocol"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestRepositoryIsolationAndConcurrentSchedulingAgainstPostgreSQL(t *testing.T) {
@@ -133,6 +136,129 @@ func TestRepositoryIsolationAndConcurrentSchedulingAgainstPostgreSQL(t *testing.
 			"concurrent loadout updates: success=%d conflict=%d",
 			successfulUpdates.Load(), revisionConflicts.Load(),
 		)
+	}
+
+	definitions, err := LoadDefinitionIndex()
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := NewService(
+		repository, nil, 1, "127.0.0.1:18083",
+		5*time.Minute, 45*time.Second, 2<<20, definitions,
+	)
+	nativeServer := &TCPServer{
+		config:  config.MetaServerConfig{NativePlayerLevel: 1},
+		service: service,
+	}
+	session := GateSession{PlayerID: playerIDs[0]}
+	skinRaw, err := proto.Marshal(&metaprotocol.SkinPayload{
+		TokenId: "PEACE_ORIGINAL", OrnamentId: "PEACE_ORIGINAL_PTOriginal",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	roleUpdateRaw, err := proto.Marshal(&metaprotocol.UpdateRoleArchiveV2Request{
+		Operation: 3, RoleId: "peace", ItemId: "PEACE_ATK-HE", SkinData: skinRaw,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := nativeServer.updateRoleArchive(ctx, session, roleUpdateRaw); err != nil {
+		t.Fatalf("native role update failed: %v", err)
+	}
+
+	weaponArchive := validP2PAKMArchive()
+	weaponArchive.Skin = &metaprotocol.WeaponSkin{
+		SkinInfo: &metaprotocol.OrnamentInfo{
+			Type: "SkinAKMTiger", Id: "SkinAKMTiger_PTTiger",
+		},
+		WeaponOrnament: "WO-SUN",
+	}
+	weaponUpdateRaw, err := proto.Marshal(&metaprotocol.UpdateWeaponArchiveV2Request{
+		RoleId: "PEACE", WeaponArchive: weaponArchive,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := nativeServer.updateWeaponArchive(ctx, session, weaponUpdateRaw); err != nil {
+		t.Fatalf("native weapon update failed: %v", err)
+	}
+
+	archiveRequest, err := proto.Marshal(&metaprotocol.GetPlayerArchiveV2Request{
+		RoleIds: []string{"peace"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	archiveRaw, err := nativeServer.getPlayerArchive(ctx, session, archiveRequest)
+	if err != nil {
+		t.Fatalf("native archive read-back failed: %v", err)
+	}
+	var archiveResponse metaprotocol.GetPlayerArchiveV2Response
+	if err := proto.Unmarshal(archiveRaw, &archiveResponse); err != nil {
+		t.Fatal(err)
+	}
+	if archiveResponse.GetPlayerLevel() != 1 || len(archiveResponse.GetPlayerRoleDatas()) != 1 {
+		t.Fatalf("unexpected native archive envelope: %#v", &archiveResponse)
+	}
+	role := archiveResponse.GetPlayerRoleDatas()[0]
+	if role.GetRoleId() != "peace" || role.GetRightPylon() != "PEACE_ATK-HE" {
+		t.Fatalf("native role update did not round-trip: %#v", role)
+	}
+	if role.GetPrimaryWeapon() != "PEACE_RU-AKM" ||
+		role.GetSecondWeapon() != "PEACE_RU-APS" {
+		t.Fatalf("native default weapons did not round-trip: %#v", role)
+	}
+	if role.GetSkinToken() != "PEACE_ORIGINAL" ||
+		role.GetOrnamentId() != "PEACE_ORIGINAL_PTOriginal" {
+		t.Fatalf("native role cosmetics did not round-trip in fields 9/10: %#v", role)
+	}
+	allowedWeapons := make(map[string]struct{})
+	for _, weaponID := range nativePlayerRoleWeaponIDs(role) {
+		allowedWeapons[weaponID] = struct{}{}
+	}
+	projected := decodeNativeWeaponArchiveBundle(
+		definitions,
+		"PEACE",
+		role.GetWeaponArchiveRaw(),
+		allowedWeapons,
+	)
+	var projectedWeapon metaprotocol.WeaponArchiveV2
+	if err := proto.Unmarshal(projected[weaponArchive.GetWeaponId()], &projectedWeapon); err != nil {
+		t.Fatalf("field 8 weapon archive did not decode: %v", err)
+	}
+	expectedWeapon, ok := p2pCompleteWeaponArchive(
+		definitions, weaponArchive.GetWeaponId(), weaponArchive,
+	)
+	if !ok || !proto.Equal(expectedWeapon, &projectedWeapon) {
+		t.Fatalf("field 8 weapon archive did not round-trip: got %#v want %#v",
+			&projectedWeapon, expectedWeapon)
+	}
+	loadout, err = repository.GetLoadout(ctx, playerIDs[0], "PEACE")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var snapshot map[string]any
+	if err := json.Unmarshal(loadout.Snapshot, &snapshot); err != nil {
+		t.Fatal(err)
+	}
+	if snapshot["skinModel"] != "PEACE_ORIGINAL" ||
+		snapshot["skinPaint"] != "PEACE_ORIGINAL_PTOriginal" {
+		t.Fatalf("native cosmetics did not persist: %#v", snapshot)
+	}
+	archives, err := repository.GetWeaponArchives(
+		ctx, playerIDs[0], []string{"PEACE_RU-AKM"},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var readBackWeapon metaprotocol.WeaponArchiveV2
+	if err := proto.Unmarshal(archives["PEACE_RU-AKM"], &readBackWeapon); err != nil {
+		t.Fatal(err)
+	}
+	if !proto.Equal(weaponArchive, &readBackWeapon) {
+		t.Fatalf("native weapon archive changed after read-back: got %#v want %#v",
+			&readBackWeapon, weaponArchive)
 	}
 
 	party, err := repository.CreateParty(

@@ -173,6 +173,54 @@ func TestValidateControlPlaneRejectsInvalidConfiguration(t *testing.T) {
 	}
 }
 
+func TestValidateMetaServerRejectsInvalidNativePlayerLevel(t *testing.T) {
+	for _, level := range []int{0, 128} {
+		cfg := Defaults
+		cfg.MetaServer.NativePlayerLevel = level
+		if err := cfg.ValidateMetaServer(); err == nil {
+			t.Fatalf("native player level %d was accepted", level)
+		}
+	}
+
+	cfg := Defaults
+	cfg.MetaServer.NativePlayerLevel = 1
+	if err := cfg.ValidateMetaServer(); err != nil {
+		t.Fatalf("validated native player level was rejected: %v", err)
+	}
+}
+
+func TestValidateMetaServerRejectsInvalidNativeCharacterLevel(t *testing.T) {
+	for _, level := range []int{0, 128} {
+		cfg := Defaults
+		cfg.MetaServer.NativeCharacterLevel = level
+		if err := cfg.ValidateMetaServer(); err == nil {
+			t.Fatalf("native character level %d was accepted", level)
+		}
+	}
+
+	cfg := Defaults
+	cfg.MetaServer.NativeCharacterLevel = 30
+	if err := cfg.ValidateMetaServer(); err != nil {
+		t.Fatalf("validated native character level was rejected: %v", err)
+	}
+}
+
+func TestValidateMetaServerRejectsInvalidNativeOwnershipMode(t *testing.T) {
+	for _, mode := range []string{"", "paint-only", "unknown"} {
+		cfg := Defaults
+		cfg.MetaServer.NativeOwnershipMode = mode
+		if err := cfg.ValidateMetaServer(); err == nil {
+			t.Fatalf("native ownership mode %q was accepted", mode)
+		}
+	}
+
+	cfg := Defaults
+	cfg.MetaServer.NativeOwnershipMode = "FULL"
+	if err := cfg.ValidateMetaServer(); err != nil {
+		t.Fatalf("valid native ownership mode was rejected: %v", err)
+	}
+}
+
 func TestValidateControlPlaneAcceptsToolboxDefaultChannel(t *testing.T) {
 	cfg := Defaults
 	cfg.Update.DefaultChannel = "toolbox"

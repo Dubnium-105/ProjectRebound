@@ -1,156 +1,38 @@
-// ======================================================
-//  LoadoutManager — 配装管理器（原生大厅流程 + 局内 metaserver 桥接）
-// ======================================================
-//
-//  数据流：
-//    1. PreloadSnapshot → 服务端初始化 metaserver REST 客户端
-//    2. OnRoleSelectionConfirmed → 按 playerId + roleId 拉取角色配装
-//    3. PreSpawnApply → 出生前推送角色库存
-//    4. TickServer → 轮询待应用快照 → PostSpawnApply 权威应用
-//    5. OnServerProcessEventPre → 复活时重新推送库存
-//
-//  游戏客户端通过原生 GetPlayerArchiveV2 协议从 metaserver 获取
-//  默认配装；Payload 只在局内服务端路径读取同一份 metaserver 数据并应用到实体。
-
 #include "LoadoutManager.h"
-#include "LoadoutSerializer.h"
+
 #include "LoadoutApplication.h"
-#include "LoadoutShowroomApplication.h"
+#include "LoadoutSerializer.h"
 #include "MetaserverClient.h"
 
-#include <Windows.h>
-
 #include <algorithm>
+#include <chrono>
 #include <cctype>
 #include <cstdint>
-#include <cstdlib>
-#include <mutex>
+#include <future>
+#include <iomanip>
 #include <optional>
+#include <sstream>
 #include <string>
+#include <thread>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
-#include "../SDK.hpp"
-#include "../SDK/Engine_parameters.hpp"
-#include "../SDK/PBFieldModManager_BP_parameters.hpp"
-#include "../SDK/ProjectBoundary_parameters.hpp"
-#include "../Libs/json.hpp"
 #include "../Debug/Debug.h"
-#include "../Config/Config.h"
 
 using namespace SDK;
-using namespace LoadoutSerializer;
-using namespace LoadoutApplication;
-using namespace LoadoutShowroomApplication;
-
-std::vector<UObject*> getObjectsOfClass(UClass* theClass, bool includeDefault);
-UObject* GetLastOfType(UClass* theClass, bool includeDefault);
-
-extern bool LoginCompleted;
-extern "C" void PayloadPushClientProcessEventSuppression();
-extern "C" void PayloadPopClientProcessEventSuppression();
-
-// =====================================================================
-//  Impl — 内部状态
-// =====================================================================
-
-class LoadoutManager::Impl
-{
-public:
-    // ---- 按玩家快照存储 ----
-    struct PerPlayerSnapshot
-    {
-        nlohmann::json Snapshot;
-        std::string RoleId;
-        bool HasArrived = false;
-        bool Applied = false;
-        bool InventoryPushed = false;
-    };
-
-    std::mutex mutex;
-    std::unordered_map<APBPlayerController*, PerPlayerSnapshot> perPlayerSnapshots;
-
-    // ---- 局内 metaserver 桥接状态 ----
-    LoadoutMetaserver::MetaserverClient metaserver;
-    bool metaserverChecked = false;
-    bool metaserverAvailable = false;
-
-    // ---- 客户端军械库接管状态 ----
-    nlohmann::json clientSnapshot;
-    nlohmann::json clientPreviewSnapshot;
-    std::string clientPlayerId;
-    bool clientSnapshotLoaded = false;
-    bool clientPreviewActive = false;
-    bool clientWarnedNoSnapshot = false;
-    bool clientWarnedWaitingPlayerId = false;
-    ULONGLONG nextClientFetchAttemptMs = 0;
-
-    std::string pendingEquipRoleId;
-    std::string pendingEquipItemId;
-    EPBCharacterSlotType pendingEquipSlotType = EPBCharacterSlotType::None;
-    ULONGLONG pendingEquipAtMs = 0;
-
-    std::string pendingPreviewRoleId;
-    std::string pendingPreviewItemId;
-    EPBCharacterSlotType pendingPreviewSlotType = EPBCharacterSlotType::None;
-    ULONGLONG pendingPreviewAtMs = 0;
-
-    std::string lastCommittedRoleId;
-    std::string lastCommittedItemId;
-    EPBCharacterSlotType lastCommittedSlotType = EPBCharacterSlotType::None;
-    ULONGLONG lastCommittedAtMs = 0;
-
-    std::string clientInventoryCacheSignature;
-    ULONGLONG nextClientInventoryCachePushMs = 0;
-    ULONGLONG nextClientShowroomTickMs = 0;
-    ULONGLONG nextClientWidgetTickMs = 0;
-    ULONGLONG nextClientPlayerIdResolveMs = 0;
-    bool clientWarnedNoFieldModCache = false;
-};
-
-// =====================================================================
-//  构造 / 生命周期
-// =====================================================================
-
-LoadoutManager::LoadoutManager()
-    : impl_(std::make_unique<Impl>())
-{
-}
-
-LoadoutManager::~LoadoutManager() = default;
-LoadoutManager::LoadoutManager(LoadoutManager&&) noexcept = default;
-LoadoutManager& LoadoutManager::operator=(LoadoutManager&&) noexcept = default;
-
-// =====================================================================
-//  辅助函数
-// =====================================================================
 
 namespace
 {
-    class ScopedClientProcessEventSuppression
-    {
-    public:
-        ScopedClientProcessEventSuppression()
-        {
-            PayloadPushClientProcessEventSuppression();
-        }
+    using Clock = std::chrono::steady_clock;
+    using TimePoint = Clock::time_point;
+    using LoadoutApplication::ApplyResult;
+    using LoadoutApplication::PlayerStateInventoryState;
 
-        ~ScopedClientProcessEventSuppression()
-        {
-            PayloadPopClientProcessEventSuppression();
-        }
-
-        ScopedClientProcessEventSuppression(const ScopedClientProcessEventSuppression&) = delete;
-        ScopedClientProcessEventSuppression& operator=(const ScopedClientProcessEventSuppression&) = delete;
-    };
-
-    // -----------------------------------------------------------------
-    //  metaserver 配置 / 玩家身份解析
-    // -----------------------------------------------------------------
-
-    constexpr const char* kDefaultMetaserverUrl = "http://127.0.0.1:8000";
-    constexpr const char* kFallbackPlayerId = "76561198211631084";
+    constexpr auto kRoleConfirmationGrace = std::chrono::seconds(1);
+    constexpr auto kPostSpawnRetryWindow = std::chrono::seconds(2);
+    constexpr auto kPostSpawnRetryInterval = std::chrono::milliseconds(50);
 
     std::string TrimAscii(std::string value)
     {
@@ -172,3357 +54,1215 @@ namespace
         return value;
     }
 
-    std::string GetEnvValue(const char* name)
+    bool IsCanonicalPlayerId(const std::string& value)
     {
-        char* raw = nullptr;
-        size_t len = 0;
-        std::string value;
-        if (_dupenv_s(&raw, &len, name) == 0 && raw)
-        {
-            value = raw;
-        }
-        free(raw);
-        return TrimAscii(value);
-    }
-
-    std::string ResolveMetaserverBaseUrl()
-    {
-        // 专用服优先读取启动器传入的 LogicServerURL，便于与已有 metaserver 复用同一地址。
-        std::string url = TrimAscii(GetCmdValue("-LogicServerURL="));
-        if (url.empty()) url = GetEnvValue("PROJECT_REBOUND_METASERVER_URL");
-        if (url.empty()) url = kDefaultMetaserverUrl;
-        return url;
-    }
-
-    bool LooksLikePlayerId(const std::string& value)
-    {
-        if (value.empty() || value == "None" || value.size() > 128) return false;
-        for (unsigned char ch : value)
-        {
-            if (std::isspace(ch) || ch == '{' || ch == '}' || ch == '"' || ch == '\'') return false;
-        }
-        return true;
-    }
-
-    std::string FindPlayerIdInJson(const nlohmann::json& value)
-    {
-        if (value.is_string())
-        {
-            const std::string candidate = TrimAscii(value.get<std::string>());
-            return LooksLikePlayerId(candidate) ? candidate : "";
-        }
-        if (value.is_array())
-        {
-            for (const auto& entry : value)
-            {
-                const std::string found = FindPlayerIdInJson(entry);
-                if (!found.empty()) return found;
-            }
-            return "";
-        }
-        if (!value.is_object()) return "";
-
-        static const std::vector<std::string> preferredKeys = {
-            "playerid", "player_id", "userid", "user_id", "steamid", "steam_id",
-            "uniqueid", "unique_id", "uniquenetid", "platformid", "platform_id", "id"
-        };
-
-        for (auto it = value.begin(); it != value.end(); ++it)
-        {
-            const std::string key = ToLowerAscii(it.key());
-            if (std::find(preferredKeys.begin(), preferredKeys.end(), key) == preferredKeys.end()) continue;
-
-            const std::string found = FindPlayerIdInJson(it.value());
-            if (!found.empty()) return found;
-        }
-
-        for (auto it = value.begin(); it != value.end(); ++it)
-        {
-            const std::string found = FindPlayerIdInJson(it.value());
-            if (!found.empty()) return found;
-        }
-        return "";
-    }
-
-    std::string ResolvePlayerIdFromPlayerState(APBPlayerState* playerState)
-    {
-        if (!playerState) return "";
-
-        const std::string raw = TrimAscii(playerState->PlatformUniqueIDJsonString.ToString());
-        if (!raw.empty())
-        {
-            const auto parsed = nlohmann::json::parse(raw, nullptr, false);
-            if (!parsed.is_discarded())
-            {
-                const std::string found = FindPlayerIdInJson(parsed);
-                if (!found.empty()) return found;
-            }
-            if (LooksLikePlayerId(raw)) return raw;
-        }
-
-        try
-        {
-            ScopedClientProcessEventSuppression suppressProcessEventHooks;
-            const std::string userId = TrimAscii(playerState->GetUserIdstr().ToString());
-            if (LooksLikePlayerId(userId)) return userId;
-        }
-        catch (...) {}
-
-        try
-        {
-            ScopedClientProcessEventSuppression suppressProcessEventHooks;
-            const std::string platformId = TrimAscii(playerState->GetPlatformIDStr().ToString());
-            if (LooksLikePlayerId(platformId)) return platformId;
-        }
-        catch (...) {}
-
-        return "";
-    }
-
-    std::string ResolvePlayerId(APBPlayerController* playerController)
-    {
-        // 原生登录流程会把平台身份放在 PlayerState 的 JSON 字符串里。
-        // metaserver 侧完成真实绑定前，仍保留固定 ID 作为调试回退。
-        if (playerController && playerController->PlayerState &&
-            playerController->PlayerState->IsA(APBPlayerState::StaticClass()))
-        {
-            auto* playerState = static_cast<APBPlayerState*>(playerController->PlayerState);
-            const std::string raw = TrimAscii(playerState->PlatformUniqueIDJsonString.ToString());
-            if (!raw.empty())
-            {
-                const auto parsed = nlohmann::json::parse(raw, nullptr, false);
-                if (!parsed.is_discarded())
-                {
-                    const std::string found = FindPlayerIdInJson(parsed);
-                    if (!found.empty()) return found;
-                }
-                if (LooksLikePlayerId(raw)) return raw;
-            }
-        }
-        if (playerController && playerController->PlayerState &&
-            playerController->PlayerState->IsA(APBPlayerState::StaticClass()))
-        {
-            const std::string found = ResolvePlayerIdFromPlayerState(
-                static_cast<APBPlayerState*>(playerController->PlayerState));
-            if (!found.empty()) return found;
-        }
-        if (playerController && playerController->PBPlayerState)
-        {
-            const std::string found = ResolvePlayerIdFromPlayerState(playerController->PBPlayerState);
-            if (!found.empty()) return found;
-        }
-        return "";
-    }
-
-    bool SnapshotHasRole(const nlohmann::json& snapshot)
-    {
-        return snapshot.is_object() &&
-            snapshot.contains("roles") &&
-            snapshot["roles"].is_array() &&
-            !snapshot["roles"].empty();
-    }
-
-    nlohmann::json WrapSingleRoleSnapshot(nlohmann::json role, const std::string& roleId)
-    {
-        // 应用层仍消费 roles 数组，这里把 REST 单角色返回包成同一套 snapshot 形状。
-        if (!role.is_object()) return nlohmann::json();
-        if (!role.contains("roleId") || role.value("roleId", "").empty())
-        {
-            role["roleId"] = roleId;
-        }
-
-        nlohmann::json snapshot;
-        snapshot["schemaVersion"] = 2;
-        snapshot["source"] = "metaserver";
-        snapshot["roles"] = nlohmann::json::array({ role });
-        return snapshot;
-    }
-
-    nlohmann::json BuildSingleRoleSnapshot(const nlohmann::json& payload, const std::string& roleId)
-    {
-        // REST 可能返回 flat role、structured role、完整 loadout 或 loadoutSnapshot 包装。
-        // 统一交给 LoadoutSerializer 归一化，再裁剪成当前确认的单角色。
-        if (!payload.is_object()) return nlohmann::json();
-
-        nlohmann::json effectivePayload = payload;
-        if (payload.contains("loadoutSnapshot") && payload["loadoutSnapshot"].is_object())
-        {
-            effectivePayload = payload["loadoutSnapshot"];
-            if (!effectivePayload.contains("roleId") || effectivePayload.value("roleId", "").empty())
-            {
-                effectivePayload["roleId"] = payload.value("roleId", roleId);
-            }
-        }
-
-        nlohmann::json normalized = NormalizeLoadoutFormat(effectivePayload);
-        if (!normalized.is_object()) return nlohmann::json();
-
-        if (normalized.contains("roles"))
-        {
-            nlohmann::json roleSnapshot = ExtractSingleRoleFromSnapshot(normalized, roleId);
-            return SnapshotHasRole(roleSnapshot) ? roleSnapshot : nlohmann::json();
-        }
-
-        const std::string normalizedRoleId = normalized.value("roleId", "");
-        if (!normalizedRoleId.empty() && normalizedRoleId != roleId)
-        {
-            return nlohmann::json();
-        }
-        return WrapSingleRoleSnapshot(std::move(normalized), roleId);
-    }
-
-    void EnsureMetaserverConfigured(
-        LoadoutMetaserver::MetaserverClient& metaserver,
-        bool& checked,
-        bool& available)
-    {
-        // 只在服务端首次使用时探测一次，后续请求仍会按需尝试，避免 health 失败后永久短路。
-        if (checked) return;
-        metaserver.SetBaseUrl(ResolveMetaserverBaseUrl());
-        available = metaserver.IsAvailable();
-        checked = true;
-
-        ClientLog(std::string("[LOADOUT] Metaserver ") +
-            (available ? "available: " : "unavailable: ") +
-            metaserver.BaseUrl());
-    }
-
-    constexpr ULONGLONG kClientFetchRetryMs = 5000;
-
-    std::string ResolveClientPlayerId()
-    {
-        std::string playerId = TrimAscii(GetCmdValue("-ProjectReboundPlayerId="));
-        if (playerId.empty()) playerId = GetEnvValue("PROJECT_REBOUND_PLAYER_ID");
-        if (LooksLikePlayerId(playerId)) return playerId;
-
-        for (UObject* object : getObjectsOfClass(APBPlayerController::StaticClass(), false))
-        {
-            if (!object || object->IsDefaultObject()) continue;
-            auto* playerController = static_cast<APBPlayerController*>(object);
-            const std::string found = ResolvePlayerId(playerController);
-            if (found != kFallbackPlayerId && LooksLikePlayerId(found)) return found;
-        }
-
-        for (UObject* object : getObjectsOfClass(APBPlayerState::StaticClass(), false))
-        {
-            if (!object || object->IsDefaultObject()) continue;
-            const std::string found = ResolvePlayerIdFromPlayerState(static_cast<APBPlayerState*>(object));
-            if (LooksLikePlayerId(found)) return found;
-        }
-
-        for (UObject* object : getObjectsOfClass(APBLobbyPlayerState::StaticClass(), false))
-        {
-            if (!object || object->IsDefaultObject()) continue;
-            auto* lobbyPlayerState = static_cast<APBLobbyPlayerState*>(object);
-            const std::string platformId = TrimAscii(lobbyPlayerState->PlatformIdURL.ToString());
-            if (LooksLikePlayerId(platformId)) return platformId;
-
-            const auto parsed = nlohmann::json::parse(platformId, nullptr, false);
-            if (!parsed.is_discarded())
-            {
-                const std::string found = FindPlayerIdInJson(parsed);
-                if (LooksLikePlayerId(found)) return found;
-            }
-        }
-
-        return "";
-    }
-
-    nlohmann::json* FindRoleInSnapshot(nlohmann::json& snapshot, const std::string& roleId, bool createIfMissing)
-    {
-        if (roleId.empty()) return nullptr;
-        if (!snapshot.is_object())
-        {
-            if (!createIfMissing) return nullptr;
-            snapshot = nlohmann::json::object();
-        }
-        if (!snapshot.contains("roles") || !snapshot["roles"].is_array())
-        {
-            if (!createIfMissing) return nullptr;
-            snapshot["roles"] = nlohmann::json::array();
-        }
-
-        for (auto& role : snapshot["roles"])
-        {
-            if (role.is_object() && role.value("roleId", "") == roleId)
-                return &role;
-        }
-
-        if (!createIfMissing) return nullptr;
-        snapshot["roles"].push_back(EmptyRoleJson(roleId));
-        return &snapshot["roles"].back();
-    }
-
-    void UpsertInventorySlot(nlohmann::json& role, EPBCharacterSlotType slotType, const std::string& itemId)
-    {
-        if (!role.contains("inventory") || !role["inventory"].is_object())
-            role["inventory"] = EmptyInventoryJson();
-        if (!role["inventory"].contains("slots") || !role["inventory"]["slots"].is_array())
-            role["inventory"]["slots"] = nlohmann::json::array();
-
-        const int slotValue = static_cast<int>(slotType);
-        for (auto& slot : role["inventory"]["slots"])
-        {
-            if (!slot.is_object()) continue;
-            if (slot.value("slotType", 0) == slotValue)
-            {
-                slot["itemId"] = itemId;
-                return;
-            }
-        }
-
-        role["inventory"]["slots"].push_back({
-            { "slotType", slotValue },
-            { "itemId", itemId }
+        if (value.size() < 3 || value.size() > 128 || value.rfind("p_", 0) != 0)
+            return false;
+        return std::all_of(value.begin() + 2, value.end(), [](unsigned char ch) {
+            return std::isalnum(ch) != 0 || ch == '_' || ch == '-';
         });
     }
 
-    void EnsureWeaponConfig(nlohmann::json& role, const std::string& weaponId)
+    bool IsValidRoomId(const std::string& value)
     {
-        if (IsBlankText(weaponId)) return;
-        if (!role.contains("weaponConfigs") || !role["weaponConfigs"].is_object())
-            role["weaponConfigs"] = nlohmann::json::object();
-
-        nlohmann::json& weaponConfig = role["weaponConfigs"][weaponId];
-        if (!weaponConfig.is_object()) weaponConfig = EmptyWeaponJson();
-        weaponConfig["weaponId"] = weaponId;
+        if (value.empty() || value.size() > 128) return false;
+        return std::all_of(value.begin(), value.end(), [](unsigned char ch) {
+            return std::isalnum(ch) != 0 || ch == '_' || ch == '-';
+        });
     }
 
-    std::string JsonItemIdValue(const nlohmann::json& value)
+    bool IsLoopbackTunnelUrl(const std::string& input)
     {
-        if (value.is_string()) return value.get<std::string>();
-        if (!value.is_object()) return "";
-        for (const char* key : { "itemId", "id", "mobilityModuleId", "weaponId" })
+        const std::string url = ToLowerAscii(TrimAscii(input));
+        constexpr const char* prefix = "http://";
+        if (url.rfind(prefix, 0) != 0) return false;
+
+        const std::size_t authorityBegin = std::char_traits<char>::length(prefix);
+        const std::size_t authorityEnd = url.find_first_of("/?#", authorityBegin);
+        const std::string authority = url.substr(
+            authorityBegin,
+            authorityEnd == std::string::npos
+                ? std::string::npos
+                : authorityEnd - authorityBegin);
+        if (authority.empty() || authority.find('@') != std::string::npos) return false;
+        if (authorityEnd != std::string::npos && url.substr(authorityEnd) != "/") return false;
+
+        std::string host = authority;
+        std::string port;
+        if (authority.front() == '[')
         {
-            if (value.contains(key) && value[key].is_string())
+            const std::size_t close = authority.find(']');
+            if (close == std::string::npos) return false;
+            host = authority.substr(0, close + 1);
+            if (close + 1 < authority.size())
             {
-                const std::string itemId = value[key].get<std::string>();
-                if (!IsBlankText(itemId)) return itemId;
+                if (authority[close + 1] != ':') return false;
+                port = authority.substr(close + 2);
             }
         }
-        return "";
-    }
-
-    std::string GetRoleSlotItem(const nlohmann::json& role, EPBCharacterSlotType slotType)
-    {
-        if (!role.is_object() ||
-            !role.contains("inventory") ||
-            !role["inventory"].is_object() ||
-            !role["inventory"].contains("slots") ||
-            !role["inventory"]["slots"].is_array())
+        else
         {
-            return "";
-        }
-
-        const int slotValue = static_cast<int>(slotType);
-        for (const auto& slot : role["inventory"]["slots"])
-        {
-            if (!slot.is_object() || slot.value("slotType", 0) != slotValue) continue;
-            if (slot.contains("itemId")) return JsonItemIdValue(slot["itemId"]);
-            return JsonItemIdValue(slot);
-        }
-        return "";
-    }
-
-    std::string GetFirstRoleFieldItem(const nlohmann::json& role, const std::vector<const char*>& keys)
-    {
-        if (!role.is_object()) return "";
-        for (const char* key : keys)
-        {
-            if (!role.contains(key)) continue;
-            const std::string itemId = JsonItemIdValue(role[key]);
-            if (!IsBlankText(itemId)) return itemId;
-        }
-        return "";
-    }
-
-    std::string GetRoleSlotOrFieldItem(const nlohmann::json& role, EPBCharacterSlotType slotType)
-    {
-        const std::string slotItem = GetRoleSlotItem(role, slotType);
-        if (!IsBlankText(slotItem)) return slotItem;
-
-        switch (slotType)
-        {
-        case EPBCharacterSlotType::FirstWeapon:
-            return GetFirstRoleFieldItem(role, { "primaryWeapon" });
-        case EPBCharacterSlotType::SecondWeapon:
-            return GetFirstRoleFieldItem(role, { "secondaryWeapon" });
-        case EPBCharacterSlotType::LeftPod:
-            return GetFirstRoleFieldItem(role, { "leftLauncher", "leftPylon", "leftPod" });
-        case EPBCharacterSlotType::RightPod:
-            return GetFirstRoleFieldItem(role, { "rightLauncher", "rightPylon", "rightPod" });
-        case EPBCharacterSlotType::MeleeWeapon:
-            return GetFirstRoleFieldItem(role, { "meleeWeapon" });
-        case EPBCharacterSlotType::Mobility:
-            return GetFirstRoleFieldItem(role, { "mobilityModule" });
-        default:
-            return "";
-        }
-    }
-
-    void SyncRoleSummaryFromInventory(nlohmann::json& role)
-    {
-        if (!role.is_object()) return;
-
-        const std::string primary = GetRoleSlotOrFieldItem(role, EPBCharacterSlotType::FirstWeapon);
-        if (!IsBlankText(primary))
-        {
-            UpsertInventorySlot(role, EPBCharacterSlotType::FirstWeapon, primary);
-            role["primaryWeapon"] = primary;
-            EnsureWeaponConfig(role, primary);
-        }
-
-        const std::string secondary = GetRoleSlotOrFieldItem(role, EPBCharacterSlotType::SecondWeapon);
-        if (!IsBlankText(secondary))
-        {
-            UpsertInventorySlot(role, EPBCharacterSlotType::SecondWeapon, secondary);
-            role["secondaryWeapon"] = secondary;
-            EnsureWeaponConfig(role, secondary);
-        }
-
-        const std::string leftPod = GetRoleSlotOrFieldItem(role, EPBCharacterSlotType::LeftPod);
-        if (!IsBlankText(leftPod))
-        {
-            UpsertInventorySlot(role, EPBCharacterSlotType::LeftPod, leftPod);
-            role["leftLauncher"] = EmptyLauncherJson();
-            role["leftLauncher"]["id"] = leftPod;
-            role["leftPylon"] = leftPod;
-        }
-
-        const std::string rightPod = GetRoleSlotOrFieldItem(role, EPBCharacterSlotType::RightPod);
-        if (!IsBlankText(rightPod))
-        {
-            UpsertInventorySlot(role, EPBCharacterSlotType::RightPod, rightPod);
-            role["rightLauncher"] = EmptyLauncherJson();
-            role["rightLauncher"]["id"] = rightPod;
-            role["rightPylon"] = rightPod;
-        }
-
-        const std::string melee = GetRoleSlotOrFieldItem(role, EPBCharacterSlotType::MeleeWeapon);
-        if (!IsBlankText(melee))
-        {
-            UpsertInventorySlot(role, EPBCharacterSlotType::MeleeWeapon, melee);
-            role["meleeWeapon"] = EmptyMeleeJson();
-            role["meleeWeapon"]["id"] = melee;
-        }
-
-        const std::string mobility = GetRoleSlotOrFieldItem(role, EPBCharacterSlotType::Mobility);
-        if (!IsBlankText(mobility))
-        {
-            UpsertInventorySlot(role, EPBCharacterSlotType::Mobility, mobility);
-            role["mobilityModule"] = EmptyMobilityJson();
-            role["mobilityModule"]["mobilityModuleId"] = mobility;
-        }
-    }
-
-    void SyncSnapshotSummaryFromInventory(nlohmann::json& snapshot)
-    {
-        if (!snapshot.is_object() || !snapshot.contains("roles") || !snapshot["roles"].is_array()) return;
-        for (auto& role : snapshot["roles"])
-        {
-            SyncRoleSummaryFromInventory(role);
-        }
-    }
-
-    nlohmann::json BuildMetaserverPutSnapshot(const nlohmann::json& sourceSnapshot)
-    {
-        nlohmann::json snapshot = sourceSnapshot;
-        SyncSnapshotSummaryFromInventory(snapshot);
-
-        nlohmann::json payload;
-        payload["schemaVersion"] = snapshot.value("schemaVersion", 2);
-        payload["source"] = "payload-client";
-        payload["roles"] = nlohmann::json::object();
-
-        if (!snapshot.is_object() || !snapshot.contains("roles") || !snapshot["roles"].is_array())
-            return payload;
-
-        for (auto role : snapshot["roles"])
-        {
-            if (!role.is_object()) continue;
-            SyncRoleSummaryFromInventory(role);
-            const std::string roleId = role.value("roleId", "");
-            if (IsBlankText(roleId)) continue;
-
-            nlohmann::json storedRole = role;
-            storedRole["loadoutSnapshot"] = role;
-            payload["roles"][roleId] = std::move(storedRole);
-        }
-
-        return payload;
-    }
-
-    bool UpdateRoleSlotInSnapshot(
-        nlohmann::json& snapshot,
-        const std::string& roleId,
-        EPBCharacterSlotType slotType,
-        const std::string& itemId)
-    {
-        if (IsBlankText(roleId) || IsBlankText(itemId)) return false;
-        nlohmann::json* role = FindRoleInSnapshot(snapshot, roleId, true);
-        if (!role) return false;
-
-        const std::string before = role->dump();
-        UpsertInventorySlot(*role, slotType, itemId);
-
-        switch (slotType)
-        {
-        case EPBCharacterSlotType::FirstWeapon:
-            EnsureWeaponConfig(*role, itemId);
-            (*role)["primaryWeapon"] = itemId;
-            break;
-        case EPBCharacterSlotType::SecondWeapon:
-            EnsureWeaponConfig(*role, itemId);
-            (*role)["secondaryWeapon"] = itemId;
-            break;
-        case EPBCharacterSlotType::LeftPod:
-            (*role)["leftLauncher"] = EmptyLauncherJson();
-            (*role)["leftLauncher"]["id"] = itemId;
-            (*role)["leftPylon"] = itemId;
-            break;
-        case EPBCharacterSlotType::RightPod:
-            (*role)["rightLauncher"] = EmptyLauncherJson();
-            (*role)["rightLauncher"]["id"] = itemId;
-            (*role)["rightPylon"] = itemId;
-            break;
-        case EPBCharacterSlotType::MeleeWeapon:
-            (*role)["meleeWeapon"] = EmptyMeleeJson();
-            (*role)["meleeWeapon"]["id"] = itemId;
-            break;
-        case EPBCharacterSlotType::Mobility:
-            (*role)["mobilityModule"] = EmptyMobilityJson();
-            (*role)["mobilityModule"]["mobilityModuleId"] = itemId;
-            break;
-        default:
-            break;
-        }
-
-        SyncRoleSummaryFromInventory(*role);
-        return role->dump() != before;
-    }
-
-    bool TryReadInventoryWidget(
-        UObject* object,
-        std::string& outRoleId,
-        EPBCharacterSlotType& outSlotType,
-        std::string& outItemId)
-    {
-        if (!object || !object->IsA(UPBItemCSTM_Inventory::StaticClass())) return false;
-
-        auto* item = static_cast<UPBItemCSTM_Inventory*>(object);
-        outRoleId = NameToString(item->CharacterID);
-        outSlotType = item->CharacterSlotType;
-        outItemId = NameToString(item->ItemId);
-        return !IsBlankText(outRoleId) &&
-            !IsBlankText(outItemId) &&
-            outSlotType != EPBCharacterSlotType::None;
-    }
-
-    void RefreshInventoryWidgetsForSlot(
-        const std::string& roleId,
-        EPBCharacterSlotType slotType,
-        const std::string& itemId)
-    {
-        if (IsBlankText(roleId) || IsBlankText(itemId) || slotType == EPBCharacterSlotType::None) return;
-
-        for (UObject* object : getObjectsOfClass(UPBItemCSTM_Inventory::StaticClass(), false))
-        {
-            if (!object || object->IsDefaultObject()) continue;
-            auto* item = static_cast<UPBItemCSTM_Inventory*>(object);
-            if (NameToString(item->CharacterID) != roleId || item->CharacterSlotType != slotType) continue;
-
-            const bool isEquipped = NameToString(item->ItemId) == itemId;
-            item->bIsEquipped = isEquipped;
-            item->EquippedSlot = isEquipped ? slotType : EPBCharacterSlotType::None;
-            try
+            const std::size_t colon = authority.find(':');
+            if (colon != std::string::npos)
             {
-                ScopedClientProcessEventSuppression suppressProcessEventHooks;
-                item->RefreshItem();
+                if (authority.find(':', colon + 1) != std::string::npos) return false;
+                host = authority.substr(0, colon);
+                port = authority.substr(colon + 1);
             }
-            catch (...) {}
-            item->bIsEquipped = isEquipped;
-            item->EquippedSlot = isEquipped ? slotType : EPBCharacterSlotType::None;
         }
+
+        if (!port.empty())
+        {
+            if (!std::all_of(port.begin(), port.end(), [](unsigned char ch) {
+                return std::isdigit(ch) != 0;
+            })) return false;
+            unsigned long value = 0;
+            try { value = std::stoul(port); }
+            catch (...) { return false; }
+            if (value == 0 || value > 65535) return false;
+        }
+        else if (authority.back() == ':')
+        {
+            return false;
+        }
+
+        if (host == "localhost" || host == "[::1]") return true;
+        std::vector<unsigned int> octets;
+        std::size_t begin = 0;
+        while (begin <= host.size())
+        {
+            const std::size_t dot = host.find('.', begin);
+            const std::string part = host.substr(
+                begin, dot == std::string::npos ? std::string::npos : dot - begin);
+            if (part.empty() || part.size() > 3 ||
+                !std::all_of(part.begin(), part.end(), [](unsigned char ch) {
+                    return std::isdigit(ch) != 0;
+                })) return false;
+            const unsigned long value = std::stoul(part);
+            if (value > 255) return false;
+            octets.push_back(static_cast<unsigned int>(value));
+            if (dot == std::string::npos) break;
+            begin = dot + 1;
+        }
+        return octets.size() == 4 && octets.front() == 127;
     }
 
-    const nlohmann::json* FindRoleInSnapshotConst(
-        const nlohmann::json& snapshot,
+    bool IsUsableRoleId(const std::string& value)
+    {
+        if (value.empty() || value == "None" || value.size() > 128) return false;
+        return std::none_of(value.begin(), value.end(), [](unsigned char ch) {
+            return std::isspace(ch) != 0 || ch == '/' || ch == '\\' || ch == '"' || ch == '\'';
+        });
+    }
+
+    std::string ResolveCanonicalPlayerId(APBPlayerController* playerController)
+    {
+        if (!playerController) return {};
+        APBPlayerState* playerState = playerController->PBPlayerState;
+        if (!playerState && playerController->PlayerState &&
+            playerController->PlayerState->IsA(APBPlayerState::StaticClass()))
+        {
+            playerState = static_cast<APBPlayerState*>(playerController->PlayerState);
+        }
+        if (!playerState) return {};
+        try
+        {
+            const std::string playerId = TrimAscii(playerState->GetUserIdstr().ToString());
+            return IsCanonicalPlayerId(playerId) ? playerId : std::string{};
+        }
+        catch (...) { return {}; }
+    }
+
+    bool IsValidInventory(const FPBInventoryNetworkConfig& inventory)
+    {
+        if (inventory.CharacterSlots.Num() <= 0 ||
+            inventory.CharacterSlots.Num() != inventory.InventoryItems.Num() ||
+            inventory.CharacterSlots.Num() > 16)
+        {
+            return false;
+        }
+
+        std::unordered_set<int> slots;
+        bool hasConcreteItem = false;
+        for (int index = 0; index < inventory.CharacterSlots.Num(); ++index)
+        {
+            const int slot = static_cast<int>(inventory.CharacterSlots[index]);
+            const std::string item = LoadoutSerializer::NameToString(
+                inventory.InventoryItems[index]);
+            if (slot <= static_cast<int>(EPBCharacterSlotType::None) ||
+                slot >= static_cast<int>(EPBCharacterSlotType::EPBCharacterSlotType_MAX) ||
+                item.empty() || !slots.insert(slot).second)
+            {
+                return false;
+            }
+            hasConcreteItem = hasConcreteItem || item != "None";
+        }
+        return hasConcreteItem;
+    }
+
+    std::size_t HashInventory(const FPBInventoryNetworkConfig& inventory)
+    {
+        std::ostringstream signature;
+        const int count = (std::min)(
+            inventory.CharacterSlots.Num(), inventory.InventoryItems.Num());
+        for (int index = 0; index < count; ++index)
+        {
+            signature << static_cast<int>(inventory.CharacterSlots[index]) << ':'
+                << LoadoutSerializer::NameToString(inventory.InventoryItems[index]) << ';';
+        }
+        return std::hash<std::string>{}(signature.str());
+    }
+
+    std::size_t CombineHash(std::size_t left, std::size_t right)
+    {
+        return left ^ (right + static_cast<std::size_t>(0x9e3779b9U) +
+            (left << 6U) + (left >> 2U));
+    }
+
+    std::string HashText(std::size_t value)
+    {
+        std::ostringstream output;
+        output << "0x" << std::hex << value;
+        return output.str();
+    }
+
+    std::string PlayerTag(const std::string& playerId)
+    {
+        std::uint32_t hash = 2166136261U;
+        for (const unsigned char byte : playerId)
+        {
+            hash ^= byte;
+            hash *= 16777619U;
+        }
+        std::ostringstream output;
+        output << std::hex << std::setw(8) << std::setfill('0') << hash;
+        return output.str();
+    }
+
+    const char* ApplyResultName(ApplyResult result)
+    {
+        switch (result)
+        {
+        case ApplyResult::Pending: return "pending";
+        case ApplyResult::Applied: return "applied";
+        case ApplyResult::IdentityMismatch: return "identity-mismatch";
+        case ApplyResult::Invalid: return "invalid";
+        }
+        return "unknown";
+    }
+
+    const char* SourceName(LoadoutStatePolicy::EffectiveSource source)
+    {
+        switch (source)
+        {
+        case LoadoutStatePolicy::EffectiveSource::RuntimeOverride: return "runtime";
+        case LoadoutStatePolicy::EffectiveSource::MetaserverBaseline: return "baseline";
+        case LoadoutStatePolicy::EffectiveSource::NativeDefault: return "native-default";
+        }
+        return "unknown";
+    }
+}
+
+class LoadoutManager::Impl
+{
+public:
+    enum class BaselineScope
+    {
+        RoomMember,
+        CurrentTunnelUser,
+    };
+
+    struct ConnectionKey
+    {
+        std::string PlayerId;
+        std::uint64_t Generation = 0;
+
+        bool operator==(const ConnectionKey& other) const
+        {
+            return PlayerId == other.PlayerId && Generation == other.Generation;
+        }
+    };
+
+    struct ConnectionKeyHash
+    {
+        std::size_t operator()(const ConnectionKey& key) const
+        {
+            return CombineHash(std::hash<std::string>{}(key.PlayerId),
+                std::hash<std::uint64_t>{}(key.Generation));
+        }
+    };
+
+    struct BaselineRole
+    {
+        nlohmann::json Snapshot;
+        FPBInventoryNetworkConfig Inventory;
+        std::int64_t Revision = 0;
+        std::size_t ContentHash = 0;
+    };
+
+    struct RuntimeOverride
+    {
+        FPBInventoryNetworkConfig Inventory;
+        std::size_t ContentHash = 0;
+    };
+
+    struct PostSpawnState
+    {
+        APBCharacter* Pawn = nullptr;
+        FPBInventoryNetworkConfig ExpectedInventory;
+        std::uint64_t EventGeneration = 0;
+        std::size_t ContentHash = 0;
+        ApplyResult Result = ApplyResult::Pending;
+        bool Active = false;
+        bool Applying = false;
+        TimePoint Deadline{};
+        TimePoint NextAttempt{};
+    };
+
+    struct PlayerConnection
+    {
+        ConnectionKey Key;
+        APBPlayerController* Controller = nullptr;
+        std::unordered_map<std::string, BaselineRole> Baselines;
+        std::unordered_map<std::string, RuntimeOverride> RuntimeOverrides;
+        bool FetchInFlight = false;
+        bool FetchCompleted = false;
+        bool FetchTerminal = false;
+        unsigned int FailedAttempts = 0;
+        TimePoint NextFetchAt{};
+        std::string SelectedRoleId;
+        LoadoutStatePolicy::PendingRoleConfirmation Pending;
+        PostSpawnState PostSpawn;
+    };
+
+    struct FetchTask
+    {
+        ConnectionKey Key;
+        std::uint64_t ServerEpoch = 0;
+        std::future<LoadoutMetaserver::PlayerLoadoutsResult> Future;
+    };
+
+    struct PendingInventoryBinding
+    {
+        APBCharacter* Pawn = nullptr;
+        TimePoint Deadline{};
+        TimePoint NextAttempt{};
+    };
+
+    struct EffectiveInventory
+    {
+        LoadoutStatePolicy::EffectiveSource Source =
+            LoadoutStatePolicy::EffectiveSource::NativeDefault;
+        FPBInventoryNetworkConfig Inventory;
+        std::size_t ContentHash = 0;
+        std::int64_t Revision = 0;
+        bool HasInventory = false;
+    };
+
+    LoadoutBridgeOptions Options;
+    bool ServerActive = false;
+    std::uint64_t ServerEpoch = 0;
+    std::uint64_t NextConnectionGeneration = 1;
+    std::string BaseUrl;
+    std::string RoomId;
+    BaselineScope Scope = BaselineScope::RoomMember;
+    UWorld* BoundWorld = nullptr;
+    bool HasBoundWorld = false;
+    int InternalPreOrderDepth = 0;
+    std::unordered_map<ConnectionKey, PlayerConnection, ConnectionKeyHash> Players;
+    std::unordered_map<APBPlayerController*, ConnectionKey> ControllerBindings;
+    std::vector<FetchTask> FetchTasks;
+    std::vector<PendingInventoryBinding> PendingInventoryBindings;
+    std::unordered_set<APBCharacter*> DestroyedCharacters;
+
+    void BindCurrentWorld(UWorld* currentWorld)
+    {
+        if (!HasBoundWorld)
+        {
+            BoundWorld = currentWorld;
+            HasBoundWorld = true;
+            return;
+        }
+        if (currentWorld == BoundWorld) return;
+
+        ++ServerEpoch;
+        Players.clear();
+        ControllerBindings.clear();
+        PendingInventoryBindings.clear();
+        DestroyedCharacters.clear();
+        BoundWorld = currentWorld;
+        ClientLog("[LOADOUT] stage=world-change result=stale-state-discarded");
+    }
+
+    PlayerConnection* Find(APBPlayerController* controller)
+    {
+        const auto binding = ControllerBindings.find(controller);
+        if (binding == ControllerBindings.end()) return nullptr;
+        return Find(binding->second);
+    }
+
+    PlayerConnection* Find(const ConnectionKey& key)
+    {
+        const auto player = Players.find(key);
+        return player == Players.end() ? nullptr : &player->second;
+    }
+
+    bool IsCurrent(const FetchTask& task)
+    {
+        std::optional<LoadoutStatePolicy::ConnectionIdentity> active;
+        if (PlayerConnection* player = Find(task.Key))
+        {
+            active = LoadoutStatePolicy::ConnectionIdentity{
+                player->Key.PlayerId, player->Key.Generation, ServerEpoch,
+            };
+        }
+        return LoadoutStatePolicy::IsResponseCurrent(
+            active,
+            LoadoutStatePolicy::ConnectionIdentity{
+                task.Key.PlayerId, task.Key.Generation, task.ServerEpoch,
+            });
+    }
+
+    void StartFetch(PlayerConnection& player)
+    {
+        if (!ServerActive || player.FetchInFlight || player.FetchCompleted ||
+            player.FetchTerminal)
+        {
+            return;
+        }
+
+        player.FetchInFlight = true;
+        const std::string baseUrl = BaseUrl;
+        const std::string roomId = RoomId;
+        const std::string playerId = player.Key.PlayerId;
+        const BaselineScope scope = Scope;
+        FetchTask task;
+        task.Key = player.Key;
+        task.ServerEpoch = ServerEpoch;
+        task.Future = std::async(std::launch::async,
+            [baseUrl, roomId, playerId, scope]() {
+                LoadoutMetaserver::MetaserverClient client(baseUrl);
+                if (scope == BaselineScope::CurrentTunnelUser)
+                    return client.GetCurrentUserLoadouts();
+                return client.GetRoomMemberLoadouts(roomId, playerId);
+            });
+        FetchTasks.push_back(std::move(task));
+    }
+
+    EffectiveInventory ResolveEffective(
+        const PlayerConnection& player,
+        const std::string& roleId) const
+    {
+        EffectiveInventory result;
+        const auto runtime = player.RuntimeOverrides.find(roleId);
+        const auto baseline = player.Baselines.find(roleId);
+        result.Source = LoadoutStatePolicy::ChooseEffectiveSource(
+            runtime != player.RuntimeOverrides.end(),
+            baseline != player.Baselines.end());
+        if (runtime != player.RuntimeOverrides.end())
+        {
+            result.Inventory = runtime->second.Inventory;
+            result.ContentHash = runtime->second.ContentHash;
+            result.HasInventory = true;
+        }
+        else if (baseline != player.Baselines.end())
+        {
+            result.Inventory = baseline->second.Inventory;
+            result.ContentHash = baseline->second.ContentHash;
+            result.Revision = baseline->second.Revision;
+            result.HasInventory = true;
+        }
+        return result;
+    }
+
+    ApplyResult ApplyNativePreOrder(
+        const ConnectionKey& key,
+        APBPlayerController* expectedController,
+        const std::string& roleId,
+        const FPBInventoryNetworkConfig& inventory,
+        std::string& outDetail)
+    {
+        PlayerConnection* player = Find(key);
+        if (!player || player->Controller != expectedController)
+        {
+            outDetail = "connection-stale";
+            return ApplyResult::Invalid;
+        }
+
+        struct InternalPreOrderGuard
+        {
+            int& Depth;
+            explicit InternalPreOrderGuard(int& depth) : Depth(depth) { ++Depth; }
+            ~InternalPreOrderGuard() { --Depth; }
+        } guard(InternalPreOrderDepth);
+        return LoadoutApplication::PreSpawnApplyInventory(
+            roleId, inventory, expectedController, outDetail);
+    }
+
+    bool PrepareEffectiveRole(PlayerConnection& player, const std::string& roleId)
+    {
+        const EffectiveInventory effective = ResolveEffective(player, roleId);
+        if (!effective.HasInventory)
+            return true; // Preserve the native default/current pre-ordering.
+
+        const ConnectionKey key = player.Key;
+        APBPlayerController* const controller = player.Controller;
+        std::string detail;
+        const ApplyResult result = ApplyNativePreOrder(
+            key, controller, roleId, effective.Inventory, detail);
+        ClientLog("[LOADOUT] player=" + PlayerTag(key.PlayerId) +
+            " generation=" + std::to_string(key.Generation) +
+            " stage=confirm-preorder role=" + roleId +
+            " source=" + SourceName(effective.Source) +
+            " revision=" + std::to_string(effective.Revision) +
+            " inventory_hash=" + HashText(effective.ContentHash) +
+            " result=" + ApplyResultName(result) + " detail=" + detail);
+        return result == ApplyResult::Applied;
+    }
+
+    void ApplyLateBaselineForNextLife(
+        const ConnectionKey& key,
         const std::string& roleId)
     {
-        if (IsBlankText(roleId) ||
-            !snapshot.is_object() ||
-            !snapshot.contains("roles") ||
-            !snapshot["roles"].is_array())
+        PlayerConnection* player = Find(key);
+        if (!player || !player->Controller || player->SelectedRoleId != roleId ||
+            player->RuntimeOverrides.contains(roleId))
         {
-            return nullptr;
-        }
-
-        for (const auto& role : snapshot["roles"])
-        {
-            if (role.is_object() && role.value("roleId", "") == roleId)
-                return &role;
-        }
-        return nullptr;
-    }
-
-    std::string ResolveSingleSnapshotRoleId(const nlohmann::json& snapshot)
-    {
-        if (!snapshot.is_object() ||
-            !snapshot.contains("roles") ||
-            !snapshot["roles"].is_array() ||
-            snapshot["roles"].size() != 1)
-        {
-            return "";
-        }
-
-        const auto& role = snapshot["roles"][0];
-        return role.is_object() ? role.value("roleId", "") : "";
-    }
-
-    EPBCharacterSlotType FindEquippedSlotForItem(
-        const nlohmann::json& snapshot,
-        const std::string& roleId,
-        const std::string& itemId,
-        EPBCharacterSlotType preferredSlot)
-    {
-        if (IsBlankText(itemId)) return EPBCharacterSlotType::None;
-        const nlohmann::json* role = FindRoleInSnapshotConst(snapshot, roleId);
-        if (!role) return EPBCharacterSlotType::None;
-
-        if (GetRoleSlotOrFieldItem(*role, preferredSlot) == itemId)
-            return preferredSlot;
-
-        for (EPBCharacterSlotType slotType : {
-            EPBCharacterSlotType::FirstWeapon,
-            EPBCharacterSlotType::SecondWeapon,
-            EPBCharacterSlotType::LeftPod,
-            EPBCharacterSlotType::RightPod,
-            EPBCharacterSlotType::MeleeWeapon,
-            EPBCharacterSlotType::Mobility })
-        {
-            if (GetRoleSlotOrFieldItem(*role, slotType) == itemId)
-                return slotType;
-        }
-        return EPBCharacterSlotType::None;
-    }
-
-    bool CorrectInventoryWidgetFromSnapshot(
-        UPBItemCSTM_Inventory* item,
-        const nlohmann::json& snapshot,
-        bool refreshItem)
-    {
-        if (!item || item->IsDefaultObject()) return false;
-
-        const std::string roleId = NameToString(item->CharacterID);
-        const std::string itemId = NameToString(item->ItemId);
-        if (IsBlankText(roleId) || IsBlankText(itemId)) return false;
-
-        const EPBCharacterSlotType equippedSlot = FindEquippedSlotForItem(
-            snapshot,
-            roleId,
-            itemId,
-            item->CharacterSlotType);
-        const bool isEquipped = equippedSlot != EPBCharacterSlotType::None;
-        const bool changed = item->bIsEquipped != isEquipped || item->EquippedSlot != equippedSlot;
-
-        item->bIsEquipped = isEquipped;
-        item->EquippedSlot = equippedSlot;
-        if (refreshItem && changed)
-        {
-            try
-            {
-                ScopedClientProcessEventSuppression suppressProcessEventHooks;
-                item->RefreshItem();
-            }
-            catch (...) {}
-            item->bIsEquipped = isEquipped;
-            item->EquippedSlot = equippedSlot;
-        }
-        return changed;
-    }
-
-    bool ResolveActiveCustomizeContext(std::string& outRoleId, EPBCharacterSlotType& outSlotType)
-    {
-        for (UObject* object : getObjectsOfClass(UPBCustomizeWidget::StaticClass(), false))
-        {
-            if (!object || object->IsDefaultObject()) continue;
-            auto* widget = static_cast<UPBCustomizeWidget*>(object);
-            const std::string roleId = NameToString(widget->EditingCharacterID);
-            if (!IsBlankText(roleId) && widget->EditingCharacterSlot != EPBCharacterSlotType::None)
-            {
-                outRoleId = roleId;
-                outSlotType = widget->EditingCharacterSlot;
-                return true;
-            }
-        }
-
-        for (UObject* object : getObjectsOfClass(UPBPanelCSTM_EditCharacterSlot::StaticClass(), false))
-        {
-            if (!object || object->IsDefaultObject()) continue;
-            auto* panel = static_cast<UPBPanelCSTM_EditCharacterSlot*>(object);
-            const std::string roleId = NameToString(panel->EditingCharacterID);
-            if (!IsBlankText(roleId) && panel->EditingCharacterSlot != EPBCharacterSlotType::None)
-            {
-                outRoleId = roleId;
-                outSlotType = panel->EditingCharacterSlot;
-                return true;
-            }
-        }
-
-        for (UObject* object : getObjectsOfClass(UPBCustomizeUIManager::StaticClass(), false))
-        {
-            if (!object || object->IsDefaultObject()) continue;
-            auto* manager = static_cast<UPBCustomizeUIManager*>(object);
-            try
-            {
-                ScopedClientProcessEventSuppression suppressProcessEventHooks;
-                if (!manager->IsSetEditingCharacterID() || !manager->IsSetEditingCharacterSlotType()) continue;
-                const std::string roleId = NameToString(manager->GetEditingCharacterID());
-                const EPBCharacterSlotType slotType = manager->GetEditingCharacterSlotType();
-                if (!IsBlankText(roleId) && slotType != EPBCharacterSlotType::None)
-                {
-                    outRoleId = roleId;
-                    outSlotType = slotType;
-                    return true;
-                }
-            }
-            catch (...) {}
-        }
-
-        return false;
-    }
-
-    bool CorrectItemDetailWidgetFromSnapshot(
-        UPBItemDetailWidget* detail,
-        const nlohmann::json& snapshot,
-        bool refreshItem)
-    {
-        if (!detail || detail->IsDefaultObject()) return false;
-
-        std::string roleId;
-        EPBCharacterSlotType contextSlot = EPBCharacterSlotType::None;
-        if (!ResolveActiveCustomizeContext(roleId, contextSlot)) return false;
-
-        const std::string itemId = NameToString(detail->ItemId);
-        if (IsBlankText(itemId)) return false;
-
-        const EPBCharacterSlotType equippedSlot = FindEquippedSlotForItem(
-            snapshot,
-            roleId,
-            itemId,
-            contextSlot);
-        const bool isEquipped = equippedSlot != EPBCharacterSlotType::None;
-        const bool inFirstWeaponSlot = equippedSlot == EPBCharacterSlotType::FirstWeapon;
-        const bool isLeftPod = equippedSlot == EPBCharacterSlotType::LeftPod;
-        const bool isDisplayInSlot = equippedSlot == contextSlot;
-
-        const bool changed =
-            detail->bIsEquipped != isEquipped ||
-            detail->bIsEquippedInFirstWeaponSlot != inFirstWeaponSlot ||
-            detail->bIsLeftPod != isLeftPod ||
-            detail->bIsitemDisplayInSlot != isDisplayInSlot;
-
-        detail->bIsEquipped = isEquipped;
-        detail->bIsEquippedInFirstWeaponSlot = inFirstWeaponSlot;
-        detail->bIsLeftPod = isLeftPod;
-        detail->bIsitemDisplayInSlot = isDisplayInSlot;
-
-        if (refreshItem && changed)
-        {
-            try
-            {
-                ScopedClientProcessEventSuppression suppressProcessEventHooks;
-                detail->K2_NotifyRefreshItemDetail();
-            }
-            catch (...) {}
-            detail->bIsEquipped = isEquipped;
-            detail->bIsEquippedInFirstWeaponSlot = inFirstWeaponSlot;
-            detail->bIsLeftPod = isLeftPod;
-            detail->bIsitemDisplayInSlot = isDisplayInSlot;
-        }
-        return changed;
-    }
-
-    void RefreshItemDetailWidgetsForSnapshot(const nlohmann::json& snapshot, bool refreshItem)
-    {
-        for (UObject* object : getObjectsOfClass(UPBItemDetailWidget::StaticClass(), false))
-        {
-            if (!object || object->IsDefaultObject()) continue;
-            CorrectItemDetailWidgetFromSnapshot(
-                static_cast<UPBItemDetailWidget*>(object),
-                snapshot,
-                refreshItem);
-        }
-    }
-
-    bool TryResolveSnapshotItemForSlot(
-        const nlohmann::json& snapshot,
-        const std::string& roleId,
-        EPBCharacterSlotType slotType,
-        std::string& outItemId);
-    std::string ResolveSingleSnapshotRoleId(const nlohmann::json& snapshot);
-    std::string ResolveQueryRoleId(UObject* object);
-    template <typename ImplT>
-    bool TryResolvePendingPreview(
-        const ImplT& impl,
-        const std::string& roleId,
-        EPBCharacterSlotType slotType,
-        std::string& outItemId);
-
-    bool SameNameValue(const FName& left, const FName& right)
-    {
-        return left.ComparisonIndex == right.ComparisonIndex && left.Number == right.Number;
-    }
-
-    bool FNameMapEquals(const FName& left, const FName& right)
-    {
-        return SameNameValue(left, right);
-    }
-
-    void AddUniqueFieldModManager(
-        std::vector<UPBFieldModManager*>& managers,
-        UObject* object)
-    {
-        if (!object || object->IsDefaultObject() || !object->IsA(UPBFieldModManager::StaticClass()))
-            return;
-
-        auto* manager = static_cast<UPBFieldModManager*>(object);
-        if (std::find(managers.begin(), managers.end(), manager) == managers.end())
-            managers.push_back(manager);
-    }
-
-    UObject* ResolveWorldSubsystemContext(UObject* preferredContext)
-    {
-        if (preferredContext && !preferredContext->IsDefaultObject())
-            return preferredContext;
-
-        if (UWorld* world = UWorld::GetWorld())
-            return static_cast<UObject*>(world);
-
-        UObject* controller = GetLastOfType(APBPlayerController::StaticClass(), false);
-        if (controller) return controller;
-
-        return GetLastOfType(UPBUserWidget::StaticClass(), false);
-    }
-
-    UPBFieldModManager* ResolveFieldModManagerFromWorldSubsystem(UObject* contextObject)
-    {
-        UObject* context = ResolveWorldSubsystemContext(contextObject);
-        if (!context) return nullptr;
-
-        auto tryResolve = [&](UClass* managerClass) -> UPBFieldModManager*
-        {
-            if (!managerClass) return nullptr;
-
-            try
-            {
-                ScopedClientProcessEventSuppression suppressProcessEventHooks;
-                UWorldSubsystem* subsystem = USubsystemBlueprintLibrary::GetWorldSubsystem(
-                    context,
-                    TSubclassOf<UWorldSubsystem>(managerClass));
-                if (subsystem &&
-                    !subsystem->IsDefaultObject() &&
-                    subsystem->IsA(UPBFieldModManager::StaticClass()))
-                {
-                    return static_cast<UPBFieldModManager*>(subsystem);
-                }
-            }
-            catch (...) {}
-            return nullptr;
-        };
-
-        if (UPBFieldModManager* manager = tryResolve(UPBFieldModManager_BP_C::StaticClass()))
-            return manager;
-        return tryResolve(UPBFieldModManager::StaticClass());
-    }
-
-    std::vector<UPBFieldModManager*> CollectFieldModManagers(UObject* contextObject = nullptr)
-    {
-        std::vector<UPBFieldModManager*> managers;
-
-        AddUniqueFieldModManager(managers, ResolveFieldModManagerFromWorldSubsystem(contextObject));
-
-        for (UObject* object : getObjectsOfClass(UPBFieldModManager_BP_C::StaticClass(), false))
-            AddUniqueFieldModManager(managers, object);
-        for (UObject* object : getObjectsOfClass(UPBFieldModManager::StaticClass(), false))
-            AddUniqueFieldModManager(managers, object);
-
-        return managers;
-    }
-
-    bool TryGetFieldModSelectedRoleName(UPBFieldModManager* manager, FName& outRoleName)
-    {
-        if (!manager || manager->IsDefaultObject() || !manager->Class) return false;
-
-        UFunction* func = manager->Class->GetFunction("PBFieldModManager", "GetSelectCharacterID");
-        if (!func) return false;
-
-        Params::PBFieldModManager_GetSelectCharacterID getParms{};
-        ScopedClientProcessEventSuppression suppressProcessEventHooks;
-        manager->ProcessEvent(func, &getParms);
-        outRoleName = getParms.ReturnValue;
-        return !IsBlankName(outRoleName);
-    }
-
-    bool TryGetFieldModSelectedSlot(UPBFieldModManager* manager, EPBCharacterSlotType& outSlotType)
-    {
-        if (!manager || manager->IsDefaultObject() || !manager->Class) return false;
-
-        UFunction* func = manager->Class->GetFunction("PBFieldModManager", "GetSelectCharacterSlot");
-        if (!func) return false;
-
-        Params::PBFieldModManager_GetSelectCharacterSlot getParms{};
-        ScopedClientProcessEventSuppression suppressProcessEventHooks;
-        manager->ProcessEvent(func, &getParms);
-        outSlotType = getParms.ReturnValue;
-        return outSlotType != EPBCharacterSlotType::None;
-    }
-
-    void CaptureFieldModSnapshotWeapons(
-        UPBFieldModManager* manager,
-        const nlohmann::json& snapshot)
-    {
-        if (!manager || !manager->IsA(UPBFieldModManager_BP_C::StaticClass())) return;
-        if (!snapshot.is_object() || !snapshot.contains("roles") || !snapshot["roles"].is_array()) return;
-
-        auto* bpManager = static_cast<UPBFieldModManager_BP_C*>(manager);
-        for (const auto& role : snapshot["roles"])
-        {
-            if (!role.is_object()) continue;
-            const std::string roleId = role.value("roleId", "");
-            if (IsBlankText(roleId)) continue;
-
-            const FName roleName = NameFromString(roleId);
-            if (IsBlankName(roleName)) continue;
-
-            for (EPBCharacterSlotType slotType : {
-                EPBCharacterSlotType::FirstWeapon,
-                EPBCharacterSlotType::SecondWeapon })
-            {
-                std::string weaponId;
-                if (!TryResolveSnapshotItemForSlot(snapshot, roleId, slotType, weaponId)) continue;
-                const FName weaponName = NameFromString(weaponId);
-                if (IsBlankName(weaponName)) continue;
-
-                try
-                {
-                    ScopedClientProcessEventSuppression suppressProcessEventHooks;
-                    UFunction* func = bpManager->Class
-                        ? bpManager->Class->GetFunction("PBFieldModManager_BP_C", "CaptureSpecifyWeapons")
-                        : nullptr;
-                    if (!func) continue;
-
-                    Params::PBFieldModManager_BP_C_CaptureSpecifyWeapons captureParms{};
-                    captureParms.RoleId = roleName;
-                    captureParms.WeaponID = weaponName;
-                    bpManager->ProcessEvent(func, &captureParms);
-                }
-                catch (...) {}
-            }
-        }
-    }
-
-    bool CorrectCharacterSlotWidgetFromSnapshot(
-        UPBSlotWidget_Character* widget,
-        const nlohmann::json& snapshot,
-        bool refreshItem)
-    {
-        if (!widget || widget->IsDefaultObject()) return false;
-
-        const std::string roleId = NameToString(widget->CharacterID);
-        if (IsBlankText(roleId) || widget->CharacterSlotType == EPBCharacterSlotType::None)
-            return false;
-
-        std::string itemId;
-        if (!TryResolveSnapshotItemForSlot(snapshot, roleId, widget->CharacterSlotType, itemId))
-            return false;
-
-        const FName itemName = NameFromString(itemId);
-        const bool changed = !SameNameValue(widget->EquippedItemID, itemName);
-        widget->EquippedItemID = itemName;
-
-        if (refreshItem && changed)
-        {
-            try
-            {
-                ScopedClientProcessEventSuppression suppressProcessEventHooks;
-                widget->RefreshSlot();
-            }
-            catch (...) {}
-            widget->EquippedItemID = itemName;
-            try
-            {
-                ScopedClientProcessEventSuppression suppressProcessEventHooks;
-                widget->K2_OnRefreshSlot();
-            }
-            catch (...) {}
-            widget->EquippedItemID = itemName;
-        }
-        return changed;
-    }
-
-    bool CorrectFieldModSlotWidgetFromSnapshot(
-        UPBSlotFieldModWidget_Inventory* widget,
-        const nlohmann::json& snapshot,
-        bool refreshItem)
-    {
-        if (!widget || widget->IsDefaultObject()) return false;
-        if (widget->SpecifySlotType == EPBCharacterSlotType::None) return false;
-
-        std::string roleId = ResolveQueryRoleId(widget);
-        if (IsBlankText(roleId)) roleId = ResolveSingleSnapshotRoleId(snapshot);
-        if (IsBlankText(roleId)) return false;
-
-        std::string itemId;
-        if (!TryResolveSnapshotItemForSlot(snapshot, roleId, widget->SpecifySlotType, itemId))
-            return false;
-
-        const FName itemName = NameFromString(itemId);
-        const bool changed =
-            !SameNameValue(widget->EquippedItemID, itemName) ||
-            !SameNameValue(widget->PreorderItemID, itemName);
-
-        widget->EquippedItemID = itemName;
-        widget->PreorderItemID = itemName;
-
-        if (refreshItem && changed)
-        {
-            try
-            {
-                ScopedClientProcessEventSuppression suppressProcessEventHooks;
-                widget->RefreshOnSelectCharacterSlot();
-            }
-            catch (...) {}
-            widget->EquippedItemID = itemName;
-            widget->PreorderItemID = itemName;
-            try
-            {
-                ScopedClientProcessEventSuppression suppressProcessEventHooks;
-                widget->K2_OnRefreshSlot();
-            }
-            catch (...) {}
-            try
-            {
-                ScopedClientProcessEventSuppression suppressProcessEventHooks;
-                widget->K2_OnSelectCharacterSlot();
-            }
-            catch (...) {}
-            widget->EquippedItemID = itemName;
-            widget->PreorderItemID = itemName;
-        }
-        return changed;
-    }
-
-    bool CorrectEditCharacterSlotPanelFromSnapshot(
-        UPBPanelCSTM_EditCharacterSlot* panel,
-        const nlohmann::json& snapshot,
-        bool refreshItem)
-    {
-        if (!panel || panel->IsDefaultObject()) return false;
-
-        const std::string roleId = NameToString(panel->EditingCharacterID);
-        if (IsBlankText(roleId) || panel->EditingCharacterSlot == EPBCharacterSlotType::None)
-            return false;
-
-        std::string itemId;
-        if (!TryResolveSnapshotItemForSlot(snapshot, roleId, panel->EditingCharacterSlot, itemId))
-            return false;
-
-        const FName itemName = NameFromString(itemId);
-        const bool changed =
-            !SameNameValue(panel->EquippedInventoryID, itemName) ||
-            !SameNameValue(panel->PreviewInventoryID, itemName);
-
-        panel->EquippedInventoryID = itemName;
-        panel->PreviewInventoryID = itemName;
-
-        if (refreshItem && changed)
-        {
-            try
-            {
-                ScopedClientProcessEventSuppression suppressProcessEventHooks;
-                panel->K2_PreviewInventoryUpdated();
-            }
-            catch (...) {}
-            panel->EquippedInventoryID = itemName;
-            panel->PreviewInventoryID = itemName;
-        }
-        return changed;
-    }
-
-    bool ResolveActiveFieldModContext(std::string& outRoleId, EPBCharacterSlotType& outSlotType)
-    {
-        if (ResolveActiveCustomizeContext(outRoleId, outSlotType)) return true;
-
-        for (UPBFieldModManager* manager : CollectFieldModManagers(nullptr))
-        {
-            if (!manager) continue;
-            try
-            {
-                FName roleName{};
-                EPBCharacterSlotType slotType = EPBCharacterSlotType::None;
-                if (!TryGetFieldModSelectedRoleName(manager, roleName)) continue;
-                TryGetFieldModSelectedSlot(manager, slotType);
-                const std::string roleId = NameToString(roleName);
-                if (!IsBlankText(roleId))
-                {
-                    outRoleId = roleId;
-                    outSlotType = slotType;
-                    return true;
-                }
-            }
-            catch (...) {}
-        }
-
-        return false;
-    }
-
-    bool CorrectCstmInventoryListFromSnapshot(
-        UPBListCSTM_Inventory* list,
-        const nlohmann::json& snapshot)
-    {
-        if (!list || list->IsDefaultObject()) return false;
-
-        const std::string roleId = NameToString(list->CharacterID);
-        if (IsBlankText(roleId) || list->CharacterSlotType == EPBCharacterSlotType::None)
-            return false;
-
-        std::string itemId;
-        if (!TryResolveSnapshotItemForSlot(snapshot, roleId, list->CharacterSlotType, itemId))
-            return false;
-
-        const FName itemName = NameFromString(itemId);
-        const bool changed = !SameNameValue(list->EquippedItemID, itemName);
-        list->EquippedItemID = itemName;
-        if (changed)
-        {
-            try
-            {
-                ScopedClientProcessEventSuppression suppressProcessEventHooks;
-                list->K2_OnRefreshList();
-            }
-            catch (...) {}
-            list->EquippedItemID = itemName;
-        }
-        return changed;
-    }
-
-    bool CorrectFieldModInventoryItemWidgetFromSnapshot(
-        UPBItemFieldModWidget_Inventory* item,
-        const nlohmann::json& snapshot,
-        bool refreshItem)
-    {
-        if (!item || item->IsDefaultObject()) return false;
-
-        std::string roleId;
-        EPBCharacterSlotType contextSlot = EPBCharacterSlotType::None;
-        if (!ResolveActiveFieldModContext(roleId, contextSlot))
-        {
-            roleId = ResolveSingleSnapshotRoleId(snapshot);
-            contextSlot = EPBCharacterSlotType::None;
-        }
-        if (IsBlankText(roleId)) return false;
-
-        const std::string itemId = NameToString(item->ItemId);
-        if (IsBlankText(itemId)) return false;
-
-        const EPBCharacterSlotType equippedSlot = FindEquippedSlotForItem(
-            snapshot,
-            roleId,
-            itemId,
-            contextSlot);
-        const bool isEquipped = equippedSlot != EPBCharacterSlotType::None;
-        const bool changed =
-            item->bIsPreordering != isEquipped ||
-            item->bIsItemLock ||
-            item->bIsLocked;
-
-        item->bIsPreordering = isEquipped;
-        item->bIsItemLock = false;
-        item->bIsLocked = false;
-
-        if (refreshItem && changed)
-        {
-            try
-            {
-                ScopedClientProcessEventSuppression suppressProcessEventHooks;
-                item->RefreshItem();
-            }
-            catch (...) {}
-            item->bIsPreordering = isEquipped;
-            item->bIsItemLock = false;
-            item->bIsLocked = false;
-        }
-        return changed;
-    }
-
-    void RefreshSlotWidgetsForSnapshot(const nlohmann::json& snapshot, bool refreshItem)
-    {
-        for (UObject* object : getObjectsOfClass(UPBSlotWidget_Character::StaticClass(), false))
-        {
-            if (!object || object->IsDefaultObject()) continue;
-            CorrectCharacterSlotWidgetFromSnapshot(
-                static_cast<UPBSlotWidget_Character*>(object),
-                snapshot,
-                refreshItem);
-        }
-
-        for (UObject* object : getObjectsOfClass(UPBSlotFieldModWidget_Inventory::StaticClass(), false))
-        {
-            if (!object || object->IsDefaultObject()) continue;
-            CorrectFieldModSlotWidgetFromSnapshot(
-                static_cast<UPBSlotFieldModWidget_Inventory*>(object),
-                snapshot,
-                refreshItem);
-        }
-
-        for (UObject* object : getObjectsOfClass(UPBPanelCSTM_EditCharacterSlot::StaticClass(), false))
-        {
-            if (!object || object->IsDefaultObject()) continue;
-            CorrectEditCharacterSlotPanelFromSnapshot(
-                static_cast<UPBPanelCSTM_EditCharacterSlot*>(object),
-                snapshot,
-                refreshItem);
-        }
-
-        for (UObject* object : getObjectsOfClass(UPBListCSTM_Inventory::StaticClass(), false))
-        {
-            if (!object || object->IsDefaultObject()) continue;
-            CorrectCstmInventoryListFromSnapshot(
-                static_cast<UPBListCSTM_Inventory*>(object),
-                snapshot);
-        }
-
-        for (UObject* object : getObjectsOfClass(UPBItemFieldModWidget_Inventory::StaticClass(), false))
-        {
-            if (!object || object->IsDefaultObject()) continue;
-            CorrectFieldModInventoryItemWidgetFromSnapshot(
-                static_cast<UPBItemFieldModWidget_Inventory*>(object),
-                snapshot,
-                refreshItem);
-        }
-    }
-
-    void RefreshInventoryWidgetsForSnapshot(const nlohmann::json& snapshot, bool refreshItem)
-    {
-        for (UObject* object : getObjectsOfClass(UPBItemCSTM_Inventory::StaticClass(), false))
-        {
-            if (!object || object->IsDefaultObject()) continue;
-            CorrectInventoryWidgetFromSnapshot(
-                static_cast<UPBItemCSTM_Inventory*>(object),
-                snapshot,
-                refreshItem);
-        }
-        RefreshItemDetailWidgetsForSnapshot(snapshot, refreshItem);
-        RefreshSlotWidgetsForSnapshot(snapshot, refreshItem);
-    }
-
-    template <typename ImplT>
-    bool EnsureClientSnapshotLoaded(ImplT& impl, bool force)
-    {
-        const ULONGLONG now = GetTickCount64();
-        if (impl.clientSnapshotLoaded && !force && !impl.clientPlayerId.empty() &&
-            now < impl.nextClientPlayerIdResolveMs)
-        {
-            return true;
-        }
-        impl.nextClientPlayerIdResolveMs = now + 10000;
-
-        std::string resolvedPlayerId = ResolveClientPlayerId();
-        if (resolvedPlayerId.empty() && !impl.clientPlayerId.empty())
-        {
-            resolvedPlayerId = impl.clientPlayerId;
-        }
-        if (resolvedPlayerId.empty())
-        {
-            if (!impl.clientWarnedWaitingPlayerId)
-            {
-                ClientLog("[LOADOUT] Client waiting for resolved playerId");
-                impl.clientWarnedWaitingPlayerId = true;
-            }
-            return false;
-        }
-
-        if (impl.clientPlayerId != resolvedPlayerId)
-        {
-            if (!impl.clientPlayerId.empty())
-            {
-                ClientLog("[LOADOUT] Client playerId changed: " + impl.clientPlayerId +
-                    " -> " + resolvedPlayerId);
-            }
-            impl.clientPlayerId = resolvedPlayerId;
-            impl.clientSnapshotLoaded = false;
-            impl.clientPreviewSnapshot = nlohmann::json();
-            impl.clientPreviewActive = false;
-            impl.clientWarnedNoSnapshot = false;
-            impl.clientWarnedWaitingPlayerId = false;
-            impl.clientInventoryCacheSignature.clear();
-            impl.nextClientInventoryCachePushMs = 0;
-            impl.nextClientShowroomTickMs = 0;
-            impl.nextClientWidgetTickMs = 0;
-            impl.nextClientPlayerIdResolveMs = 0;
-            impl.nextClientFetchAttemptMs = 0;
-        }
-
-        if (impl.clientSnapshotLoaded && !force) return true;
-
-        if (!force && now < impl.nextClientFetchAttemptMs) return false;
-        impl.nextClientFetchAttemptMs = now + kClientFetchRetryMs;
-
-        EnsureMetaserverConfigured(
-            impl.metaserver,
-            impl.metaserverChecked,
-            impl.metaserverAvailable);
-
-        std::optional<nlohmann::json> payload = impl.metaserver.GetPlayerLoadout(impl.clientPlayerId);
-        if (!payload || !payload->is_object())
-        {
-            if (!impl.clientWarnedNoSnapshot)
-            {
-                ClientLog("[LOADOUT] Client loadout unavailable: playerId=" + impl.clientPlayerId);
-                impl.clientWarnedNoSnapshot = true;
-            }
-            return false;
-        }
-
-        nlohmann::json normalized = NormalizeLoadoutFormat(*payload);
-        if (!SnapshotHasRole(normalized))
-        {
-            ClientLog("[LOADOUT] Client loadout has no roles: playerId=" + impl.clientPlayerId);
-            return false;
-        }
-
-        impl.clientSnapshot = std::move(normalized);
-        impl.clientPreviewSnapshot = nlohmann::json();
-        impl.clientSnapshotLoaded = true;
-        impl.clientPreviewActive = false;
-        impl.clientWarnedNoSnapshot = false;
-
-        ClientLog("[LOADOUT] Client loadout loaded: playerId=" + impl.clientPlayerId +
-            " roles=" + std::to_string(impl.clientSnapshot["roles"].size()));
-        return true;
-    }
-
-    template <typename ImplT>
-    const nlohmann::json& GetActiveClientSnapshot(const ImplT& impl)
-    {
-        return impl.clientPreviewActive ? impl.clientPreviewSnapshot : impl.clientSnapshot;
-    }
-
-    bool TryResolveSnapshotItemForSlot(
-        const nlohmann::json& snapshot,
-        const std::string& roleId,
-        EPBCharacterSlotType slotType,
-        std::string& outItemId)
-    {
-        const nlohmann::json* role = FindRoleInSnapshotConst(snapshot, roleId);
-        if (!role) return false;
-
-        outItemId = GetRoleSlotOrFieldItem(*role, slotType);
-        return !IsBlankText(outItemId);
-    }
-
-    bool TryResolveSnapshotWeaponConfig(
-        const nlohmann::json& snapshot,
-        const std::string& roleId,
-        const std::string& weaponId,
-        FPBWeaponNetworkConfig& outConfig)
-    {
-        if (IsBlankText(roleId) || IsBlankText(weaponId)) return false;
-
-        FPBRoleNetworkConfig roleConfig{};
-        if (!TryResolveRoleConfig(snapshot, roleId, roleConfig)) return false;
-
-        if (NameToString(roleConfig.FirstWeaponPartData.WeaponID) == weaponId)
-        {
-            outConfig = roleConfig.FirstWeaponPartData;
-            return true;
-        }
-        if (NameToString(roleConfig.SecondWeaponPartData.WeaponID) == weaponId)
-        {
-            outConfig = roleConfig.SecondWeaponPartData;
-            return true;
-        }
-        return false;
-    }
-
-    bool TryResolveSnapshotWeaponConfigAnyRole(
-        const nlohmann::json& snapshot,
-        const std::string& weaponId,
-        std::string& outRoleId,
-        FPBWeaponNetworkConfig& outConfig)
-    {
-        if (IsBlankText(weaponId) ||
-            !snapshot.is_object() ||
-            !snapshot.contains("roles") ||
-            !snapshot["roles"].is_array())
-        {
-            return false;
-        }
-
-        for (const auto& role : snapshot["roles"])
-        {
-            if (!role.is_object()) continue;
-
-            const std::string roleId = role.value("roleId", "");
-            if (IsBlankText(roleId)) continue;
-
-            if (TryResolveSnapshotWeaponConfig(snapshot, roleId, weaponId, outConfig))
-            {
-                outRoleId = roleId;
-                return true;
-            }
-        }
-        return false;
-    }
-
-    bool TryResolveSnapshotInventoryConfig(
-        const nlohmann::json& snapshot,
-        const std::string& roleId,
-        FPBInventoryNetworkConfig& outConfig)
-    {
-        if (IsBlankText(roleId)) return false;
-
-        FPBRoleNetworkConfig roleConfig{};
-        if (!TryResolveRoleConfig(snapshot, roleId, roleConfig)) return false;
-
-        outConfig = roleConfig.InventoryData;
-        return outConfig.CharacterSlots.Num() > 0 && outConfig.InventoryItems.Num() > 0;
-    }
-
-    int PushClientFieldModCacheToManagers(
-        const nlohmann::json& snapshot,
-        bool refreshDisplay,
-        int* outManagerCount = nullptr)
-    {
-        if (!snapshot.is_object() || !snapshot.contains("roles") || !snapshot["roles"].is_array())
-            return 0;
-
-        int pushed = 0;
-        std::vector<UPBFieldModManager*> managers = CollectFieldModManagers(nullptr);
-        if (outManagerCount) *outManagerCount = static_cast<int>(managers.size());
-
-        for (UPBFieldModManager* manager : managers)
-        {
-            if (!manager) continue;
-            bool managerChanged = false;
-
-            for (const auto& role : snapshot["roles"])
-            {
-                if (!role.is_object()) continue;
-
-                const std::string roleId = role.value("roleId", "");
-                if (IsBlankText(roleId)) continue;
-
-                FPBInventoryNetworkConfig inventory{};
-                if (!TryResolveSnapshotInventoryConfig(snapshot, roleId, inventory)) continue;
-
-                const FName roleName = NameFromString(roleId);
-                if (IsBlankName(roleName)) continue;
-
-                if (manager->CharacterPreOrderingInventoryConfigs.IsValid())
-                {
-                    auto inventoryIt = manager->CharacterPreOrderingInventoryConfigs.Find(roleName, FNameMapEquals);
-                    if (inventoryIt != UC::end(manager->CharacterPreOrderingInventoryConfigs))
-                    {
-                        inventoryIt->Value() = inventory;
-                        managerChanged = true;
-                    }
-                }
-
-                if (manager->CharacterInventoryStatus.IsValid())
-                {
-                    auto statusIt = manager->CharacterInventoryStatus.Find(roleName, FNameMapEquals);
-                    if (statusIt != UC::end(manager->CharacterInventoryStatus) &&
-                        statusIt->Value().RoleItemMap.IsValid())
-                    {
-                        for (auto itemIt = UC::begin(statusIt->Value().RoleItemMap);
-                            itemIt != UC::end(statusIt->Value().RoleItemMap);
-                            ++itemIt)
-                        {
-                            const std::string itemId = NameToString(itemIt->Key());
-                            const EPBCharacterSlotType equippedSlot = FindEquippedSlotForItem(
-                                snapshot,
-                                roleId,
-                                itemId,
-                                EPBCharacterSlotType::None);
-                            itemIt->Value().InventoryStatus =
-                                equippedSlot == EPBCharacterSlotType::None
-                                ? EPBInventoryFieldModStatus::Normal
-                                : EPBInventoryFieldModStatus::Equipping;
-                            itemIt->Value().InventoryInSlot = equippedSlot;
-                        }
-                        managerChanged = true;
-                    }
-                }
-            }
-
-            if (managerChanged)
-            {
-                ++pushed;
-                (void)refreshDisplay;
-            }
-        }
-        return pushed;
-    }
-
-    APBPlayerState* ResolveClientPlayerState()
-    {
-        for (UObject* object : getObjectsOfClass(APBPlayerController::StaticClass(), false))
-        {
-            if (!object || object->IsDefaultObject()) continue;
-            auto* playerController = static_cast<APBPlayerController*>(object);
-            if (playerController->PBPlayerState) return playerController->PBPlayerState;
-            if (playerController->PlayerState &&
-                playerController->PlayerState->IsA(APBPlayerState::StaticClass()))
-            {
-                return static_cast<APBPlayerState*>(playerController->PlayerState);
-            }
-        }
-
-        for (UObject* object : getObjectsOfClass(APBPlayerState::StaticClass(), false))
-        {
-            if (!object || object->IsDefaultObject()) continue;
-            return static_cast<APBPlayerState*>(object);
-        }
-        return nullptr;
-    }
-
-    int PushClientInventoryCacheToPlayerState(const nlohmann::json& snapshot)
-    {
-        APBPlayerState* playerState = ResolveClientPlayerState();
-        if (!playerState) return 0;
-        if (!snapshot.is_object() || !snapshot.contains("roles") || !snapshot["roles"].is_array())
-            return 0;
-
-        int pushed = 0;
-        for (const auto& role : snapshot["roles"])
-        {
-            if (!role.is_object()) continue;
-
-            const std::string roleId = role.value("roleId", "");
-            FPBInventoryNetworkConfig inventory{};
-            if (!TryResolveSnapshotInventoryConfig(snapshot, roleId, inventory)) continue;
-
-            const FName roleName = NameFromString(roleId);
-            if (IsBlankName(roleName)) continue;
-
-            try
-            {
-                ScopedClientProcessEventSuppression suppressProcessEventHooks;
-                playerState->ClientRefreshRolePreOrderingInventory(roleName, inventory);
-                playerState->ClientRefreshRoleEquippingInventory(roleName, inventory);
-                ++pushed;
-            }
-            catch (...) {}
-        }
-        return pushed;
-    }
-
-    template <typename ImplT>
-    void PushClientInventoryCacheFromSnapshot(
-        ImplT& impl,
-        const nlohmann::json& snapshot,
-        bool force,
-        const std::string& reason)
-    {
-        if (!snapshot.is_object()) return;
-
-        const ULONGLONG now = GetTickCount64();
-        const std::string signature = snapshot.dump();
-        const bool signatureChanged = impl.clientInventoryCacheSignature != signature;
-        if (!force && !signatureChanged && now < impl.nextClientInventoryCachePushMs)
-            return;
-
-        const int pushed = PushClientInventoryCacheToPlayerState(snapshot);
-        int fieldModManagerCount = 0;
-        int fieldModPushed = 0;
-        if (force)
-        {
-            fieldModPushed = PushClientFieldModCacheToManagers(
-                snapshot,
-                true,
-                &fieldModManagerCount);
-        }
-        if (pushed > 0 || fieldModPushed > 0 || fieldModManagerCount > 0)
-        {
-            impl.clientInventoryCacheSignature = signature;
-            impl.nextClientInventoryCachePushMs = now + 5000;
-            if (force || signatureChanged)
-            {
-                ClientLog("[LOADOUT] Client native inventory cache pushed: reason=" + reason +
-                    " playerStateRoles=" + std::to_string(pushed) +
-                    " fieldModManagers=" + std::to_string(fieldModManagerCount) +
-                    " fieldModUpdated=" + std::to_string(fieldModPushed));
-            }
-        }
-        else
-        {
-            impl.nextClientInventoryCachePushMs = now + 1000;
-        }
-    }
-
-    template <typename ImplT>
-    void HandleClientSnapshotInventoryRefreshPre(
-        ImplT& impl,
-        const std::string& functionName,
-        void* parms)
-    {
-        if (!parms) return;
-
-        if (functionName.find("PBPlayerState.ClientRefreshRoleEquippingInventory") != std::string::npos)
-        {
-            if (!EnsureClientSnapshotLoaded(impl, false)) return;
-
-            auto* refreshParms = static_cast<Params::PBPlayerState_ClientRefreshRoleEquippingInventory*>(parms);
-            FPBInventoryNetworkConfig inventory{};
-            if (TryResolveSnapshotInventoryConfig(
-                impl.clientSnapshot,
-                NameToString(refreshParms->InRoleID),
-                inventory))
-            {
-                refreshParms->InEquippingInventory = inventory;
-            }
             return;
         }
+        const auto baseline = player->Baselines.find(roleId);
+        if (baseline == player->Baselines.end()) return;
 
-        if (functionName.find("PBPlayerState.ClientRefreshRolePreOrderingInventory") != std::string::npos)
-        {
-            if (!EnsureClientSnapshotLoaded(impl, false)) return;
-
-            auto* refreshParms = static_cast<Params::PBPlayerState_ClientRefreshRolePreOrderingInventory*>(parms);
-            FPBInventoryNetworkConfig inventory{};
-            if (TryResolveSnapshotInventoryConfig(
-                impl.clientSnapshot,
-                NameToString(refreshParms->InRoleID),
-                inventory))
-            {
-                refreshParms->InPreOrderingInventory = inventory;
-            }
-            return;
-        }
-
-        if (functionName.find("PBPlayerController.ClientPreOrderUnlockInventory") != std::string::npos)
-        {
-            if (!EnsureClientSnapshotLoaded(impl, false)) return;
-
-            auto* refreshParms = static_cast<Params::PBPlayerController_ClientPreOrderUnlockInventory*>(parms);
-            FPBInventoryNetworkConfig inventory{};
-            if (TryResolveSnapshotInventoryConfig(
-                impl.clientSnapshot,
-                NameToString(refreshParms->InRoleID),
-                inventory))
-            {
-                refreshParms->InPreOrderingInventory = inventory;
-            }
-            return;
-        }
+        const FPBInventoryNetworkConfig inventory = baseline->second.Inventory;
+        const std::int64_t revision = baseline->second.Revision;
+        const std::size_t hash = baseline->second.ContentHash;
+        APBPlayerController* const controller = player->Controller;
+        std::string detail;
+        const ApplyResult result = ApplyNativePreOrder(
+            key, controller, roleId, inventory, detail);
+        ClientLog("[LOADOUT] player=" + PlayerTag(key.PlayerId) +
+            " generation=" + std::to_string(key.Generation) +
+            " stage=late-baseline-next-life role=" + roleId +
+            " revision=" + std::to_string(revision) +
+            " inventory_hash=" + HashText(hash) +
+            " result=" + ApplyResultName(result) + " detail=" + detail);
     }
 
-    std::string ResolveFieldModSelectedRoleId(UObject* object)
+    void HandleFetchResult(
+        const ConnectionKey& key,
+        const LoadoutMetaserver::PlayerLoadoutsResult& result)
     {
-        UPBFieldModManager* manager = nullptr;
-        if (object && object->IsA(UPBFieldModManager::StaticClass()))
-            manager = static_cast<UPBFieldModManager*>(object);
-        if (!manager)
-            manager = ResolveFieldModManagerFromWorldSubsystem(object);
+        PlayerConnection* player = Find(key);
+        if (!player) return;
+        player->FetchInFlight = false;
 
-        if (manager)
+        if (result.Succeeded() && result.Value)
         {
-            try
+            if (Scope == BaselineScope::CurrentTunnelUser &&
+                result.Value->PlayerId != key.PlayerId)
             {
-                FName roleName{};
-                if (!TryGetFieldModSelectedRoleName(manager, roleName)) return "";
-                const std::string roleId = NameToString(roleName);
-                if (!IsBlankText(roleId)) return roleId;
-            }
-            catch (...) {}
-        }
-        return "";
-    }
-
-    std::string ResolveQueryRoleId(UObject* object)
-    {
-        std::string roleId;
-        EPBCharacterSlotType slotType = EPBCharacterSlotType::None;
-        if (ResolveActiveCustomizeContext(roleId, slotType)) return roleId;
-
-        roleId = ResolveFieldModSelectedRoleId(object);
-        if (!IsBlankText(roleId)) return roleId;
-
-        for (UPBFieldModManager* fieldModManager : CollectFieldModManagers(object))
-        {
-            roleId = ResolveFieldModSelectedRoleId(fieldModManager);
-            if (!IsBlankText(roleId)) return roleId;
-        }
-
-        return "";
-    }
-
-    template <typename ImplT>
-    void HandleClientSnapshotQueryPost(
-        ImplT& impl,
-        UObject* object,
-        const std::string& functionName,
-        void* parms)
-    {
-        if (!parms) return;
-        if (!EnsureClientSnapshotLoaded(impl, false)) return;
-
-        const nlohmann::json& snapshot = GetActiveClientSnapshot(impl);
-
-        if (functionName.find("PBFieldModManager.GetSelectCharacterID") != std::string::npos)
-        {
-            auto* queryParms = static_cast<Params::PBFieldModManager_GetSelectCharacterID*>(parms);
-            const std::string nativeRoleId = NameToString(queryParms->ReturnValue);
-            if (IsBlankText(nativeRoleId) || !FindRoleInSnapshotConst(snapshot, nativeRoleId))
-            {
-                const std::string roleId = ResolveSingleSnapshotRoleId(snapshot);
-                if (!IsBlankText(roleId))
-                    queryParms->ReturnValue = NameFromString(roleId);
-            }
-            return;
-        }
-
-        if (functionName.find("PBFieldModManager.GetEquippingItemIDInSlotType") != std::string::npos)
-        {
-            auto* queryParms = static_cast<Params::PBFieldModManager_GetEquippingItemIDInSlotType*>(parms);
-            std::string roleId = ResolveQueryRoleId(object);
-            if (IsBlankText(roleId)) roleId = ResolveSingleSnapshotRoleId(snapshot);
-            std::string itemId;
-            if (!TryResolveSnapshotItemForSlot(snapshot, roleId, queryParms->InSlotType, itemId))
-            {
-                const std::string fallbackRoleId = ResolveSingleSnapshotRoleId(snapshot);
-                if (fallbackRoleId != roleId)
-                    TryResolveSnapshotItemForSlot(snapshot, fallbackRoleId, queryParms->InSlotType, itemId);
-            }
-            if (!IsBlankText(itemId))
-            {
-                queryParms->ReturnValue = NameFromString(itemId);
-            }
-            return;
-        }
-
-        if (functionName.find("PBFieldModManager.GetPreOrderingItemIDInSlotType") != std::string::npos)
-        {
-            auto* queryParms = static_cast<Params::PBFieldModManager_GetPreOrderingItemIDInSlotType*>(parms);
-            std::string roleId = ResolveQueryRoleId(object);
-            if (IsBlankText(roleId)) roleId = ResolveSingleSnapshotRoleId(snapshot);
-            std::string itemId;
-            if (!TryResolveSnapshotItemForSlot(snapshot, roleId, queryParms->InSlotType, itemId))
-            {
-                const std::string fallbackRoleId = ResolveSingleSnapshotRoleId(snapshot);
-                if (fallbackRoleId != roleId)
-                    TryResolveSnapshotItemForSlot(snapshot, fallbackRoleId, queryParms->InSlotType, itemId);
-            }
-            if (!IsBlankText(itemId))
-            {
-                queryParms->ReturnValue = NameFromString(itemId);
-            }
-            return;
-        }
-
-        if (functionName.find("PBSMShowRoomInstance.GetPreviewInventoryID") != std::string::npos)
-        {
-            auto* queryParms = static_cast<Params::PBSMShowRoomInstance_GetPreviewInventoryID*>(parms);
-            std::string roleId;
-            EPBCharacterSlotType slotType = EPBCharacterSlotType::None;
-            if (!ResolveActiveCustomizeContext(roleId, slotType)) return;
-
-            std::string itemId;
-            if (TryResolvePendingPreview(impl, roleId, slotType, itemId) ||
-                TryResolveSnapshotItemForSlot(snapshot, roleId, slotType, itemId))
-            {
-                queryParms->ReturnValue = NameFromString(itemId);
-            }
-            return;
-        }
-
-        if (functionName.find("PBDisplayCharacter.GetChildByCharacterSlot") != std::string::npos)
-        {
-            if (!object || !object->IsA(APBDisplayCharacter::StaticClass())) return;
-            auto* displayCharacter = static_cast<APBDisplayCharacter*>(object);
-            auto* queryParms = static_cast<Params::PBDisplayCharacter_GetChildByCharacterSlot*>(parms);
-            const EPBCharacterSlotType slotType = queryParms->CharacterSlot;
-            if (slotType != EPBCharacterSlotType::FirstWeapon &&
-                slotType != EPBCharacterSlotType::SecondWeapon)
-            {
+                player->FetchTerminal = true;
+                ClientLog("[LOADOUT] player=" + PlayerTag(key.PlayerId) +
+                    " generation=" + std::to_string(key.Generation) +
+                    " stage=baseline-fetch result=identity-mismatch");
                 return;
             }
 
-            std::string roleId = NameToString(displayCharacter->RoleConfig.CharacterID);
-            if (IsBlankText(roleId)) roleId = NameToString(displayCharacter->ItemId);
-            if (IsBlankText(roleId)) roleId = ResolveSingleSnapshotRoleId(snapshot);
-
-            APBDisplayActor* actor = ApplySnapshotToCharacterSlotActor(
-                displayCharacter,
-                snapshot,
-                roleId,
-                slotType,
-                false);
-            if (actor && actor != queryParms->ReturnValue)
+            player->Baselines.clear();
+            std::size_t aggregateHash = 0;
+            for (const auto& role : result.Value->Loadouts)
             {
-                const std::string oldItem = queryParms->ReturnValue
-                    ? NameToString(queryParms->ReturnValue->ItemId)
-                    : "null";
-                queryParms->ReturnValue = actor;
-                ClientLog("[LOADOUT] GetChildByCharacterSlot overridden: role=" + roleId +
-                    " slot=" + std::to_string(static_cast<int>(slotType)) +
-                    " old=" + oldItem +
-                    " new=" + NameToString(actor->ItemId));
-            }
-            return;
-        }
+                if (!IsUsableRoleId(role.RoleId) || !role.NormalizedRole.is_object())
+                    continue;
 
-        if (functionName.find("PBCustomizeManager.GetWeaponNetworkConfig") != std::string::npos)
-        {
-            auto* queryParms = static_cast<Params::PBCustomizeManager_GetWeaponNetworkConfig*>(parms);
-            FPBWeaponNetworkConfig weaponConfig{};
-            if (TryResolveSnapshotWeaponConfig(
-                snapshot,
-                NameToString(queryParms->InCharacterID),
-                NameToString(queryParms->InWeaponID),
-                weaponConfig))
-            {
-                queryParms->ReturnValue = weaponConfig;
-            }
-            return;
-        }
+                nlohmann::json normalizedRole = role.NormalizedRole;
+                normalizedRole["roleId"] = role.RoleId;
+                nlohmann::json snapshot = {
+                    {"schemaVersion", 2},
+                    {"source", Scope == BaselineScope::CurrentTunnelUser
+                        ? "metaserver-current-user-pve"
+                        : "metaserver-room-host"},
+                    {"roles", nlohmann::json::array({std::move(normalizedRole)})},
+                };
 
-        if (functionName.find("PBFieldModManager.GetWeaponNetworkConfig") != std::string::npos)
-        {
-            auto* queryParms = static_cast<Params::PBFieldModManager_GetWeaponNetworkConfig*>(parms);
-            std::string roleId = NameToString(queryParms->InRoleID);
-            if (IsBlankText(roleId)) roleId = ResolveSingleSnapshotRoleId(snapshot);
-            FPBWeaponNetworkConfig weaponConfig{};
-            if (TryResolveSnapshotWeaponConfig(
-                snapshot,
-                roleId,
-                NameToString(queryParms->InWeaponID),
-                weaponConfig))
-            {
-                queryParms->ReturnValue = weaponConfig;
-            }
-            return;
-        }
-
-        if (functionName.find("PBPanelCSTM_EditWeaponSlot.GetEquippedWeaponConfig") != std::string::npos ||
-            functionName.find("PBPanelCSTM_EditWeaponSlot.GetPreviewWeaponConfig") != std::string::npos)
-        {
-            if (!object || !object->IsA(UPBPanelCSTM_EditWeaponSlot::StaticClass())) return;
-
-            auto* panel = static_cast<UPBPanelCSTM_EditWeaponSlot*>(object);
-            std::string roleId = NameToString(panel->EditingCharacterID);
-            std::string weaponId = NameToString(panel->EditingWeaponID);
-            if (IsBlankText(roleId)) roleId = ResolveQueryRoleId(object);
-
-            if (IsBlankText(weaponId))
-            {
-                std::string contextRoleId;
-                EPBCharacterSlotType contextSlot = EPBCharacterSlotType::None;
-                if (ResolveActiveCustomizeContext(contextRoleId, contextSlot))
+                std::string detail;
+                FPBInventoryNetworkConfig inventory{};
+                if (!LoadoutApplication::TryBuildRoleInventory(
+                    snapshot, role.RoleId, inventory, detail) ||
+                    !IsValidInventory(inventory))
                 {
-                    if (IsBlankText(roleId)) roleId = contextRoleId;
-                    TryResolveSnapshotItemForSlot(snapshot, roleId, contextSlot, weaponId);
+                    ClientLog("[LOADOUT] player=" + PlayerTag(key.PlayerId) +
+                        " stage=baseline-validate role=" + role.RoleId +
+                        " result=rejected reason=" + detail);
+                    continue;
                 }
+
+                BaselineRole baseline;
+                baseline.Revision = role.Revision;
+                baseline.ContentHash = CombineHash(
+                    std::hash<std::string>{}(snapshot.dump()), HashInventory(inventory));
+                baseline.Inventory = inventory;
+                baseline.Snapshot = std::move(snapshot);
+                aggregateHash = CombineHash(aggregateHash, baseline.ContentHash);
+                player->Baselines.emplace(role.RoleId, std::move(baseline));
             }
 
-            FPBWeaponNetworkConfig weaponConfig{};
-            if (!TryResolveSnapshotWeaponConfig(snapshot, roleId, weaponId, weaponConfig)) return;
+            player->FetchCompleted = true;
+            player->FetchTerminal = false;
+            ClientLog("[LOADOUT] player=" + PlayerTag(key.PlayerId) +
+                " generation=" + std::to_string(key.Generation) +
+                " stage=baseline-fetch result=ready roles=" +
+                std::to_string(player->Baselines.size()) +
+                " set_hash=" + HashText(aggregateHash));
 
-            if (functionName.find("GetEquippedWeaponConfig") != std::string::npos)
-            {
-                auto* queryParms = static_cast<Params::PBPanelCSTM_EditWeaponSlot_GetEquippedWeaponConfig*>(parms);
-                queryParms->ReturnValue = weaponConfig;
-            }
-            else
-            {
-                auto* queryParms = static_cast<Params::PBPanelCSTM_EditWeaponSlot_GetPreviewWeaponConfig*>(parms);
-                queryParms->ReturnValue = weaponConfig;
-            }
+            const std::string selectedRole = player->SelectedRoleId;
+            if (!selectedRole.empty() && !player->RuntimeOverrides.contains(selectedRole))
+                ApplyLateBaselineForNextLife(key, selectedRole);
             return;
         }
-    }
 
-    bool ApplyShowroomSlotFromSnapshot(
-        const nlohmann::json& snapshot,
-        const std::string& roleId,
-        EPBCharacterSlotType slotType,
-        const std::string& itemId,
-        const std::string& reason)
-    {
-        const bool isWeaponSlot =
-            slotType == EPBCharacterSlotType::FirstWeapon ||
-            slotType == EPBCharacterSlotType::SecondWeapon;
-
-        if (isWeaponSlot)
+        ++player->FailedAttempts;
+        if (result.IsRetryable())
         {
-            const bool applied = ApplySnapshotToCharacterSlot(snapshot, roleId, slotType, true);
-            ClientLog(std::string("[LOADOUT] Showroom character weapon ") +
-                (applied ? "applied" : "apply failed") +
-                ": reason=" + reason +
-                " role=" + roleId +
-                " slot=" + std::to_string(static_cast<int>(slotType)) +
-                " item=" + itemId);
-            return applied;
-        }
-
-        const bool spawned = SpawnInventoryPreview(roleId, itemId, &snapshot);
-        ClientLog(std::string("[LOADOUT] Showroom inventory ") +
-            (spawned ? "spawned" : "spawn failed") +
-            ": reason=" + reason +
-            " role=" + roleId +
-            " slot=" + std::to_string(static_cast<int>(slotType)) +
-            " item=" + itemId);
-        return spawned;
-    }
-
-    template <typename ImplT>
-    void ApplyActiveClientSnapshot(ImplT& impl, bool forceRefresh, const std::string& reason)
-    {
-        if (!EnsureClientSnapshotLoaded(impl, false)) return;
-        const nlohmann::json& snapshot = GetActiveClientSnapshot(impl);
-        PushClientInventoryCacheFromSnapshot(impl, snapshot, forceRefresh, reason);
-
-        if (forceRefresh)
-        {
-            RefreshInventoryWidgetsForSnapshot(snapshot, true);
-            ApplySnapshotToShowRoom(snapshot, true, reason);
-
-            std::string roleId;
-            EPBCharacterSlotType slotType = EPBCharacterSlotType::None;
-            if (ResolveActiveCustomizeContext(roleId, slotType))
-            {
-                std::string itemId;
-                if (TryResolveSnapshotItemForSlot(snapshot, roleId, slotType, itemId))
-                    ApplyShowroomSlotFromSnapshot(snapshot, roleId, slotType, itemId, reason);
-            }
-        }
-    }
-
-    template <typename ImplT>
-    void ApplyPreviewFromInventoryWidget(
-        ImplT& impl,
-        const std::string& roleId,
-        EPBCharacterSlotType slotType,
-        const std::string& itemId)
-    {
-        if (!EnsureClientSnapshotLoaded(impl, false)) return;
-
-        impl.clientPreviewSnapshot = impl.clientSnapshot;
-        if (!UpdateRoleSlotInSnapshot(impl.clientPreviewSnapshot, roleId, slotType, itemId)) return;
-        impl.clientPreviewActive = true;
-
-        RefreshInventoryWidgetsForSlot(roleId, slotType, itemId);
-        ApplySnapshotToShowRoom(impl.clientPreviewSnapshot, true, "preview-item");
-        ApplyShowroomSlotFromSnapshot(
-            impl.clientPreviewSnapshot,
-            roleId,
-            slotType,
-            itemId,
-            "preview-item");
-    }
-
-    template <typename ImplT>
-    bool CommitInventoryWidgetSelection(
-        ImplT& impl,
-        UPBItemCSTM_Inventory* item,
-        const std::string& roleId,
-        EPBCharacterSlotType slotType,
-        const std::string& itemId)
-    {
-        if (!EnsureClientSnapshotLoaded(impl, false)) return false;
-
-        const std::string beforeSnapshot = impl.clientSnapshot.dump();
-        bool changed = UpdateRoleSlotInSnapshot(impl.clientSnapshot, roleId, slotType, itemId);
-        SyncSnapshotSummaryFromInventory(impl.clientSnapshot);
-        changed = changed || impl.clientSnapshot.dump() != beforeSnapshot;
-        impl.clientPreviewSnapshot = nlohmann::json();
-        impl.clientPreviewActive = false;
-
-        PushClientInventoryCacheFromSnapshot(impl, impl.clientSnapshot, true, "equip-item");
-
-        if (item)
-        {
-            item->bIsEquipped = true;
-            item->EquippedSlot = slotType;
-            try
-            {
-                ScopedClientProcessEventSuppression suppressProcessEventHooks;
-                item->RefreshItem();
-            }
-            catch (...) {}
-            item->bIsEquipped = true;
-            item->EquippedSlot = slotType;
-        }
-        RefreshInventoryWidgetsForSlot(roleId, slotType, itemId);
-        RefreshInventoryWidgetsForSnapshot(impl.clientSnapshot, true);
-        ApplySnapshotToShowRoom(impl.clientSnapshot, true, "equip-item");
-        ApplyShowroomSlotFromSnapshot(
-            impl.clientSnapshot,
-            roleId,
-            slotType,
-            itemId,
-            "equip-item");
-
-        if (!changed)
-        {
-            ClientLog("[LOADOUT] Client loadout already current: playerId=" + impl.clientPlayerId +
-                " role=" + roleId + " item=" + itemId +
-                " slot=" + std::to_string(static_cast<int>(slotType)));
-            return true;
-        }
-
-        const nlohmann::json payload = BuildMetaserverPutSnapshot(impl.clientSnapshot);
-        if (impl.metaserver.PutPlayerLoadout(impl.clientPlayerId, payload))
-        {
-            ClientLog("[LOADOUT] Client loadout persisted: playerId=" + impl.clientPlayerId +
-                " role=" + roleId + " item=" + itemId);
+            player->NextFetchAt = Clock::now() +
+                LoadoutStatePolicy::RetryDelay(player->FailedAttempts);
         }
         else
         {
-            ClientLog("[LOADOUT] Client loadout persist failed: playerId=" + impl.clientPlayerId +
-                " role=" + roleId + " item=" + itemId);
+            player->FetchTerminal = true;
         }
-        return true;
+        ClientLog("[LOADOUT] player=" + PlayerTag(key.PlayerId) +
+            " generation=" + std::to_string(key.Generation) +
+            " stage=baseline-fetch result=failed status=" +
+            std::to_string(result.Http.StatusCode) +
+            " retry=" + (result.IsRetryable() ? "1" : "0") +
+            " reason=" + result.Http.ErrorMessage);
     }
 
-    template <typename ImplT>
-    void RememberPendingPreview(
-        ImplT& impl,
-        const std::string& roleId,
-        EPBCharacterSlotType slotType,
-        const std::string& itemId)
+    void ConsumeFetchTasks()
     {
-        if (IsBlankText(roleId) || IsBlankText(itemId) || slotType == EPBCharacterSlotType::None) return;
-        impl.pendingPreviewRoleId = roleId;
-        impl.pendingPreviewSlotType = slotType;
-        impl.pendingPreviewItemId = itemId;
-        impl.pendingPreviewAtMs = GetTickCount64();
-    }
-
-    template <typename ImplT>
-    bool TryResolvePendingPreview(
-        const ImplT& impl,
-        const std::string& roleId,
-        EPBCharacterSlotType slotType,
-        std::string& outItemId)
-    {
-        constexpr ULONGLONG kPendingPreviewWindowMs = 3000;
-        const ULONGLONG now = GetTickCount64();
-        if ((impl.pendingPreviewRoleId != roleId && !IsBlankText(roleId)) ||
-            impl.pendingPreviewSlotType != slotType ||
-            IsBlankText(impl.pendingPreviewItemId) ||
-            now - impl.pendingPreviewAtMs > kPendingPreviewWindowMs)
+        for (auto task = FetchTasks.begin(); task != FetchTasks.end();)
         {
-            return false;
-        }
-
-        outItemId = impl.pendingPreviewItemId;
-        return true;
-    }
-
-    template <typename ImplT>
-    void RememberPendingEquip(
-        ImplT& impl,
-        const std::string& roleId,
-        EPBCharacterSlotType slotType,
-        const std::string& itemId)
-    {
-        if (IsBlankText(roleId) || IsBlankText(itemId) || slotType == EPBCharacterSlotType::None) return;
-        impl.pendingEquipRoleId = roleId;
-        impl.pendingEquipSlotType = slotType;
-        impl.pendingEquipItemId = itemId;
-        impl.pendingEquipAtMs = GetTickCount64();
-    }
-
-    template <typename ImplT>
-    bool TryResolvePendingEquip(
-        ImplT& impl,
-        const std::string& roleId,
-        EPBCharacterSlotType slotType,
-        std::string& inOutItemId)
-    {
-        constexpr ULONGLONG kPendingEquipWindowMs = 5000;
-        const ULONGLONG now = GetTickCount64();
-        if (impl.pendingEquipRoleId != roleId ||
-            impl.pendingEquipSlotType != slotType ||
-            IsBlankText(impl.pendingEquipItemId) ||
-            now - impl.pendingEquipAtMs > kPendingEquipWindowMs)
-        {
-            return false;
-        }
-
-        if (inOutItemId != impl.pendingEquipItemId)
-        {
-            if (!IsBlankText(inOutItemId))
+            if (task->Future.wait_for(std::chrono::milliseconds(0)) !=
+                std::future_status::ready)
             {
-                ClientLog("[LOADOUT] Equip callback item overridden by pending request: role=" + roleId +
-                    " slot=" + std::to_string(static_cast<int>(slotType)) +
-                    " callbackItem=" + inOutItemId +
-                    " pendingItem=" + impl.pendingEquipItemId);
+                ++task;
+                continue;
             }
-            inOutItemId = impl.pendingEquipItemId;
-            return true;
-        }
-        return false;
-    }
-
-    template <typename ImplT>
-    bool ResolveShowroomSpawnInventoryItem(
-        ImplT& impl,
-        const std::string& incomingRoleId,
-        const std::string& incomingItemId,
-        std::string& outRoleId,
-        EPBCharacterSlotType& outSlotType,
-        std::string& outItemId)
-    {
-        if (!EnsureClientSnapshotLoaded(impl, false)) return false;
-
-        const nlohmann::json& snapshot = GetActiveClientSnapshot(impl);
-        std::string roleId = incomingRoleId;
-        EPBCharacterSlotType slotType = EPBCharacterSlotType::None;
-
-        std::string contextRoleId;
-        EPBCharacterSlotType contextSlotType = EPBCharacterSlotType::None;
-        if (ResolveActiveCustomizeContext(contextRoleId, contextSlotType))
-        {
-            if (IsBlankText(roleId)) roleId = contextRoleId;
-            if (roleId == contextRoleId && contextSlotType != EPBCharacterSlotType::None)
+            try
             {
-                slotType = contextSlotType;
+                auto result = task->Future.get();
+                if (IsCurrent(*task)) HandleFetchResult(task->Key, result);
             }
-        }
-
-        const std::string singleSnapshotRoleId = ResolveSingleSnapshotRoleId(snapshot);
-        if (!IsBlankText(roleId) &&
-            !FindRoleInSnapshotConst(snapshot, roleId) &&
-            !IsBlankText(singleSnapshotRoleId))
-        {
-            roleId = singleSnapshotRoleId;
-            if (contextRoleId == roleId && contextSlotType != EPBCharacterSlotType::None)
-                slotType = contextSlotType;
-        }
-
-        constexpr ULONGLONG kPendingSpawnContextMs = 3000;
-        const ULONGLONG now = GetTickCount64();
-        if (IsBlankText(roleId) &&
-            !IsBlankText(impl.pendingPreviewRoleId) &&
-            now - impl.pendingPreviewAtMs <= kPendingSpawnContextMs)
-        {
-            roleId = impl.pendingPreviewRoleId;
-        }
-        if (slotType == EPBCharacterSlotType::None &&
-            roleId == impl.pendingPreviewRoleId &&
-            now - impl.pendingPreviewAtMs <= kPendingSpawnContextMs)
-        {
-            slotType = impl.pendingPreviewSlotType;
-        }
-        if (slotType == EPBCharacterSlotType::None &&
-            roleId == impl.pendingEquipRoleId &&
-            now - impl.pendingEquipAtMs <= kPendingSpawnContextMs)
-        {
-            slotType = impl.pendingEquipSlotType;
-        }
-
-        if (slotType == EPBCharacterSlotType::None && !IsBlankText(roleId) && !IsBlankText(incomingItemId))
-        {
-            slotType = FindEquippedSlotForItem(snapshot, roleId, incomingItemId, EPBCharacterSlotType::None);
-        }
-
-        if (IsBlankText(roleId) || slotType == EPBCharacterSlotType::None) return false;
-
-        std::string itemId;
-        if (TryResolvePendingPreview(impl, roleId, slotType, itemId) ||
-            TryResolvePendingEquip(impl, roleId, slotType, itemId) ||
-            TryResolveSnapshotItemForSlot(snapshot, roleId, slotType, itemId))
-        {
-            if (IsBlankText(itemId)) return false;
-            outRoleId = roleId;
-            outSlotType = slotType;
-            outItemId = itemId;
-            return true;
-        }
-
-        return false;
-    }
-
-    template <typename ImplT>
-    void PatchFieldModSpawnWeaponPre(
-        ImplT& impl,
-        const std::string& functionName,
-        void* parms)
-    {
-        if (!parms) return;
-        if (functionName.find("PBFieldModManager.SpawnWeapon") == std::string::npos) return;
-        if (!EnsureClientSnapshotLoaded(impl, false)) return;
-
-        auto* spawnParms = static_cast<Params::PBFieldModManager_SpawnWeapon*>(parms);
-        const std::string incomingRoleId = NameToString(spawnParms->InRoleID);
-        const std::string incomingWeaponId = NameToString(spawnParms->InWeaponID);
-
-        std::string roleId;
-        std::string itemId;
-        EPBCharacterSlotType slotType = EPBCharacterSlotType::None;
-        if (!ResolveShowroomSpawnInventoryItem(impl, incomingRoleId, incomingWeaponId, roleId, slotType, itemId))
-            return;
-        if (slotType != EPBCharacterSlotType::FirstWeapon &&
-            slotType != EPBCharacterSlotType::SecondWeapon)
-            return;
-        if (itemId == incomingWeaponId && roleId == incomingRoleId) return;
-
-        spawnParms->InRoleID = NameFromString(roleId);
-        spawnParms->InWeaponID = NameFromString(itemId);
-
-        ClientLog("[LOADOUT] FieldMod SpawnWeapon overridden: role=" + roleId +
-            " slot=" + std::to_string(static_cast<int>(slotType)) +
-            " native=" + incomingWeaponId +
-            " payload=" + itemId);
-    }
-
-    bool IsShowRoomInventorySpawnFunction(const std::string& functionName)
-    {
-        return functionName.find("PBShowRoomManager.SpawnInventory") != std::string::npos;
-    }
-
-    template <typename ImplT>
-    void PatchShowroomSpawnInventoryPre(
-        ImplT& impl,
-        const std::string& functionName,
-        void* parms)
-    {
-        if (!parms) return;
-        if (functionName.find("PBShowRoomManager.SpawnInventorys") != std::string::npos) return;
-        if (functionName.find("PBShowRoomManager.SpawnInventory") == std::string::npos) return;
-
-        auto* spawnParms = static_cast<Params::PBShowRoomManager_SpawnInventory*>(parms);
-        const std::string incomingRoleId = NameToString(spawnParms->InCharacterID);
-        const std::string incomingItemId = NameToString(spawnParms->InInventoryID);
-
-        std::string roleId;
-        std::string itemId;
-        EPBCharacterSlotType slotType = EPBCharacterSlotType::None;
-        if (!ResolveShowroomSpawnInventoryItem(impl, incomingRoleId, incomingItemId, roleId, slotType, itemId))
-            return;
-
-        if (itemId == incomingItemId && roleId == incomingRoleId) return;
-
-        spawnParms->InCharacterID = NameFromString(roleId);
-        spawnParms->InInventoryID = NameFromString(itemId);
-
-        ClientLog("[LOADOUT] SpawnInventory overridden: role=" + roleId +
-            " slot=" + std::to_string(static_cast<int>(slotType)) +
-            " native=" + incomingItemId +
-            " payload=" + itemId);
-    }
-
-    template <typename ImplT>
-    bool PatchShowroomSpawnInventoryPost(
-        ImplT& impl,
-        const std::string& functionName,
-        void* parms)
-    {
-        if (!parms || !IsShowRoomInventorySpawnFunction(functionName)) return false;
-        if (!EnsureClientSnapshotLoaded(impl, false)) return true;
-
-        const nlohmann::json& snapshot = GetActiveClientSnapshot(impl);
-
-        if (functionName.find("PBShowRoomManager.SpawnInventorys") != std::string::npos)
-        {
-            auto* spawnParms = static_cast<Params::PBShowRoomManager_SpawnInventorys*>(parms);
-            if (spawnParms->ReturnValue.Num() != 1) return true;
-
-            const std::string roleId = NameToString(spawnParms->InCharacterID);
-            std::string itemId;
-            if (!TryResolveSnapshotItemForSlot(snapshot, roleId, spawnParms->InCharacterSlotType, itemId))
-                return true;
-
-            ApplySnapshotToInventoryActor(spawnParms->ReturnValue[0], snapshot, roleId, itemId, true);
-            return true;
-        }
-
-        auto* spawnParms = static_cast<Params::PBShowRoomManager_SpawnInventory*>(parms);
-        const std::string incomingRoleId = NameToString(spawnParms->InCharacterID);
-        const std::string incomingItemId = NameToString(spawnParms->InInventoryID);
-
-        std::string roleId = incomingRoleId;
-        std::string itemId = incomingItemId;
-        EPBCharacterSlotType slotType = EPBCharacterSlotType::None;
-        ResolveShowroomSpawnInventoryItem(impl, incomingRoleId, incomingItemId, roleId, slotType, itemId);
-
-        if (!IsBlankText(roleId) && !IsBlankText(itemId))
-        {
-            const bool changed = ApplySnapshotToInventoryActor(
-                spawnParms->ReturnValue,
-                snapshot,
-                roleId,
-                itemId,
-                true);
-            if (changed)
+            catch (const std::exception& exception)
             {
-                ClientLog("[LOADOUT] SpawnInventory actor patched: role=" + roleId +
-                    " slot=" + std::to_string(static_cast<int>(slotType)) +
-                    " item=" + itemId);
-            }
-        }
-        return true;
-    }
-
-    template <typename ImplT>
-    bool PatchShowroomCharacterSpawnPost(
-        ImplT& impl,
-        const std::string& functionName,
-        void* parms)
-    {
-        if (!parms) return false;
-        if (functionName.find("PBShowRoomManager.SpawnCharacter") == std::string::npos)
-            return false;
-        if (!EnsureClientSnapshotLoaded(impl, false)) return true;
-
-        const nlohmann::json& snapshot = GetActiveClientSnapshot(impl);
-
-        if (functionName.find("PBShowRoomManager.SpawnCharacters") != std::string::npos)
-        {
-            auto* spawnParms = static_cast<Params::PBShowRoomManager_SpawnCharacters*>(parms);
-            int patched = 0;
-            for (int i = 0; i < spawnParms->ReturnValue.Num(); ++i)
-            {
-                APBDisplayActor* actor = spawnParms->ReturnValue[i];
-                if (!actor || !actor->IsA(APBDisplayCharacter::StaticClass())) continue;
-
-                auto* displayCharacter = static_cast<APBDisplayCharacter*>(actor);
-                std::string roleId = NameToString(displayCharacter->RoleConfig.CharacterID);
-                if (IsBlankText(roleId)) roleId = NameToString(displayCharacter->ItemId);
-                if (IsBlankText(roleId) || !FindRoleInSnapshotConst(snapshot, roleId))
-                    roleId = ResolveSingleSnapshotRoleId(snapshot);
-
-                APBDisplayCharacter* patchedCharacter = ApplySnapshotToDisplayCharacterActor(
-                    displayCharacter,
-                    snapshot,
-                    roleId,
-                    true);
-                if (patchedCharacter && patchedCharacter != displayCharacter)
+                PlayerConnection* player = Find(task->Key);
+                if (player && IsCurrent(*task))
                 {
-                    spawnParms->ReturnValue[i] = patchedCharacter;
-                    ++patched;
+                    player->FetchInFlight = false;
+                    ++player->FailedAttempts;
+                    player->NextFetchAt = Clock::now() +
+                        LoadoutStatePolicy::RetryDelay(player->FailedAttempts);
+                    ClientLog("[LOADOUT] player=" + PlayerTag(task->Key.PlayerId) +
+                        " stage=baseline-fetch result=worker-exception reason=" +
+                        exception.what());
                 }
             }
-            if (patched > 0)
+            catch (...)
             {
-                ClientLog("[LOADOUT] SpawnCharacters return patched from snapshot: count=" +
-                    std::to_string(patched));
+                PlayerConnection* player = Find(task->Key);
+                if (player && IsCurrent(*task))
+                {
+                    player->FetchInFlight = false;
+                    ++player->FailedAttempts;
+                    player->NextFetchAt = Clock::now() +
+                        LoadoutStatePolicy::RetryDelay(player->FailedAttempts);
+                }
             }
-            return true;
+            task = FetchTasks.erase(task);
+        }
+    }
+
+    void RecordRuntimeOverride(
+        PlayerConnection& player,
+        const std::string& roleId,
+        const FPBInventoryNetworkConfig& inventory)
+    {
+        RuntimeOverride runtime;
+        runtime.Inventory = inventory;
+        runtime.ContentHash = HashInventory(inventory);
+        player.RuntimeOverrides[roleId] = std::move(runtime);
+        if (player.SelectedRoleId == roleId)
+            player.PostSpawn.Active = false;
+    }
+
+    void TryPostSpawnApply(const ConnectionKey& key, TimePoint now)
+    {
+        PlayerConnection* player = Find(key);
+        if (!player || !player->Controller) return;
+        APBPlayerController* const expectedController = player->Controller;
+        PostSpawnState& post = player->PostSpawn;
+        if (!post.Active || !post.Pawn || now < post.NextAttempt) return;
+
+        const std::string roleId = player->SelectedRoleId;
+        const auto baseline = player->Baselines.find(roleId);
+        if (baseline == player->Baselines.end())
+        {
+            post.Active = false;
+            post.Result = ApplyResult::Invalid;
+            return;
         }
 
-        auto* spawnParms = static_cast<Params::PBShowRoomManager_SpawnCharacter*>(parms);
-        if (!spawnParms->ReturnValue ||
-            !spawnParms->ReturnValue->IsA(APBDisplayCharacter::StaticClass()))
+        APBCharacter* const pawn = post.Pawn;
+        const std::uint64_t eventGeneration = post.EventGeneration;
+        const std::size_t contentHash = post.ContentHash;
+        const TimePoint deadline = post.Deadline;
+        const FPBInventoryNetworkConfig expectedInventory = post.ExpectedInventory;
+        const nlohmann::json snapshot = baseline->second.Snapshot;
+        // Applying weapon parts/skins synchronously raises K2_InventorySpawned
+        // again on this build. Mark the in-flight Pawn before crossing into
+        // native code so that the nested event cannot replace this generation.
+        post.Applying = true;
+        const ApplyResult result = LoadoutApplication::PostSpawnApply(
+            pawn, snapshot, expectedInventory);
+
+        player = Find(key);
+        if (!player || player->Controller != expectedController) return;
+        PostSpawnState& current = player->PostSpawn;
+        if (!current.Active || current.Pawn != pawn ||
+            current.EventGeneration != eventGeneration ||
+            current.ContentHash != contentHash)
+        {
+            return;
+        }
+
+        current.Applying = false;
+        current.Result = result;
+        if (result == ApplyResult::Pending && now < deadline)
+        {
+            current.NextAttempt = now + kPostSpawnRetryInterval;
+            return;
+        }
+        current.Active = false;
+        ClientLog("[LOADOUT] player=" + PlayerTag(key.PlayerId) +
+            " generation=" + std::to_string(key.Generation) +
+            " stage=detail-overlay role=" + roleId +
+            " event_generation=" + std::to_string(eventGeneration) +
+            " detail_hash=" + HashText(contentHash) +
+            " result=" + ApplyResultName(result));
+    }
+
+    bool TryBindInventorySpawn(APBCharacter* character, TimePoint now)
+    {
+        if (!character || DestroyedCharacters.contains(character)) return true;
+        APBPlayerController* const controller =
+            LoadoutApplication::FindPlayerControllerForCharacter(character);
+        if (DestroyedCharacters.contains(character)) return true;
+        if (!controller) return false;
+
+        PlayerConnection* player = Find(controller);
+        if (!player) return true;
+        if (player->PostSpawn.Active && player->PostSpawn.Applying &&
+            player->PostSpawn.Pawn == character)
         {
             return true;
         }
-
-        std::string roleId = NameToString(spawnParms->InCharacterID);
-        if (IsBlankText(roleId) || !FindRoleInSnapshotConst(snapshot, roleId))
-            roleId = ResolveSingleSnapshotRoleId(snapshot);
-
-        auto* displayCharacter = static_cast<APBDisplayCharacter*>(spawnParms->ReturnValue);
-        APBDisplayCharacter* patchedCharacter = ApplySnapshotToDisplayCharacterActor(
-            displayCharacter,
-            snapshot,
-            roleId,
-            true);
-        if (patchedCharacter && patchedCharacter != displayCharacter)
+        const ConnectionKey key = player->Key;
+        APBPlayerController* const expectedController = player->Controller;
+        const std::string liveRole =
+            LoadoutApplication::ResolveLiveCharacterRoleId(character);
+        player = Find(key);
+        if (!player || player->Controller != expectedController) return true;
+        if (!IsUsableRoleId(liveRole)) return false;
+        if (player->SelectedRoleId.empty() || player->SelectedRoleId != liveRole)
         {
-            spawnParms->ReturnValue = patchedCharacter;
-            ClientLog("[LOADOUT] SpawnCharacter return patched from snapshot: role=" + roleId +
-                " actor=" + patchedCharacter->GetFullName());
+            ClientLog("[LOADOUT] player=" + PlayerTag(key.PlayerId) +
+                " generation=" + std::to_string(key.Generation) +
+                " stage=inventory-spawn result=stale-role selected=" +
+                player->SelectedRoleId + " live=" + liveRole);
+            return true;
         }
+
+        const auto baseline = player->Baselines.find(liveRole);
+        if (baseline == player->Baselines.end()) return true;
+        const EffectiveInventory effective = ResolveEffective(*player, liveRole);
+        if (!effective.HasInventory) return true;
+
+        const PlayerStateInventoryState equipping =
+            LoadoutApplication::InspectPlayerStateInventory(
+                controller, LoadoutSerializer::NameFromString(liveRole),
+                effective.Inventory, true);
+        if (equipping == PlayerStateInventoryState::Mismatch)
+        {
+            // ClientRefreshRoleEquippingInventory is a client RPC on this
+            // build; the client receives the correct six slots while the
+            // authoritative PlayerState mirror can retain native defaults.
+            // Keep the mismatch observable, but let the post-spawn overlay
+            // validate the possessed role and each concrete weapon actor ID.
+            ClientLog("[LOADOUT] player=" + PlayerTag(key.PlayerId) +
+                " generation=" + std::to_string(key.Generation) +
+                " stage=inventory-spawn role=" + liveRole +
+                " source=" + SourceName(effective.Source) +
+                " inventory_hash=" + HashText(effective.ContentHash) +
+                " result=equipping-advisory-mismatch");
+        }
+
+        PostSpawnState& post = player->PostSpawn;
+        ++post.EventGeneration;
+        post.Pawn = character;
+        post.ExpectedInventory = effective.Inventory;
+        post.ContentHash = CombineHash(
+            baseline->second.ContentHash, effective.ContentHash);
+        post.Result = ApplyResult::Pending;
+        post.Active = true;
+        post.Applying = false;
+        post.Deadline = now + kPostSpawnRetryWindow;
+        post.NextAttempt = now;
+        TryPostSpawnApply(key, now);
         return true;
     }
+};
 
-    template <typename ImplT>
-    bool TryResolveShowroomSlotItem(
-        ImplT& impl,
-        const std::string& roleId,
-        EPBCharacterSlotType slotType,
-        const std::string& incomingItemId,
-        std::string& outItemId)
+LoadoutManager::LoadoutManager()
+    : impl_(std::make_unique<Impl>())
+{
+}
+
+LoadoutManager::~LoadoutManager()
+{
+    StopServer();
+}
+
+LoadoutManager::LoadoutManager(LoadoutManager&&) noexcept = default;
+LoadoutManager& LoadoutManager::operator=(LoadoutManager&&) noexcept = default;
+
+bool LoadoutManager::StartServer(
+    std::string baseUrl,
+    std::string roomId,
+    LoadoutBridgeOptions options)
+{
+    if (!impl_) return false;
+    StopServer();
+    baseUrl = TrimAscii(std::move(baseUrl));
+    roomId = TrimAscii(std::move(roomId));
+    if (!IsLoopbackTunnelUrl(baseUrl) || !IsValidRoomId(roomId))
     {
-        if (IsBlankText(roleId) || slotType == EPBCharacterSlotType::None) return false;
-        if (!EnsureClientSnapshotLoaded(impl, false)) return false;
-
-        std::string itemId = incomingItemId;
-        if (TryResolvePendingPreview(impl, roleId, slotType, itemId) ||
-            TryResolvePendingEquip(impl, roleId, slotType, itemId) ||
-            TryResolveSnapshotItemForSlot(GetActiveClientSnapshot(impl), roleId, slotType, itemId))
-        {
-            if (IsBlankText(itemId)) return false;
-            outItemId = itemId;
-            return true;
-        }
+        ClientLog("[LOADOUT] stage=bridge-start result=invalid-tunnel-or-room");
         return false;
     }
 
-    bool IsShowRoomDirectSpawnFunction(const std::string& functionName)
+    ++impl_->ServerEpoch;
+    impl_->Options = options;
+    impl_->BaseUrl = std::move(baseUrl);
+    impl_->RoomId = std::move(roomId);
+    impl_->Scope = Impl::BaselineScope::RoomMember;
+    impl_->BoundWorld = nullptr;
+    impl_->HasBoundWorld = false;
+    impl_->ServerActive = true;
+    ClientLog("[LOADOUT] stage=bridge-start result=ready baseline=" +
+        std::string(impl_->Options.BaselineOverride ? "1" : "0") +
+        " preorder=" + (impl_->Options.PreOrderIntercept ? "1" : "0") +
+        " confirm_deferral=" + (impl_->Options.ConfirmDeferral ? "1" : "0") +
+        " detail_overlay=" + (impl_->Options.SpawnApplication ? "1" : "0"));
+    return true;
+}
+
+bool LoadoutManager::StartLocalPveServer(
+    std::string baseUrl,
+    LoadoutBridgeOptions options)
+{
+    if (!impl_) return false;
+    StopServer();
+    baseUrl = TrimAscii(std::move(baseUrl));
+    if (!IsLoopbackTunnelUrl(baseUrl))
     {
-        return functionName.find("PBShowRoomManager.SpawnWeapon") != std::string::npos ||
-            functionName.find("PBShowRoomManager.SpawnMeleeWeapon") != std::string::npos ||
-            functionName.find("PBShowRoomManager.SpawnMobility") != std::string::npos ||
-            functionName.find("PBShowRoomManager.SpawnPod") != std::string::npos;
-    }
-
-    template <typename ImplT>
-    void PatchDisplayActorLibrarySpawnPre(
-        ImplT& impl,
-        const std::string& functionName,
-        void* parms)
-    {
-        if (!parms) return;
-        if (functionName.find("PBDisplayActorLibrary.SpawnDisplay") == std::string::npos) return;
-        if (!EnsureClientSnapshotLoaded(impl, false)) return;
-
-        const nlohmann::json& snapshot = GetActiveClientSnapshot(impl);
-
-        if (functionName.find("PBDisplayActorLibrary.SpawnDisplayCharacter") != std::string::npos)
-        {
-            auto* spawnParms = static_cast<Params::PBDisplayActorLibrary_SpawnDisplayCharacter*>(parms);
-            std::string roleId = NameToString(spawnParms->InCharacterConfig.CharacterID);
-            if (IsBlankText(roleId)) roleId = ResolveSingleSnapshotRoleId(snapshot);
-
-            FPBRoleNetworkConfig roleConfig{};
-            if (TryResolveRoleConfig(snapshot, roleId, roleConfig))
-            {
-                const std::string firstWeapon = NameToString(roleConfig.FirstWeaponPartData.WeaponID);
-                const std::string nativeFirst = NameToString(spawnParms->InCharacterConfig.FirstWeaponPartData.WeaponID);
-                spawnParms->InCharacterConfig = roleConfig;
-
-                if (firstWeapon != nativeFirst)
-                {
-                    ClientLog("[LOADOUT] SpawnDisplayCharacter config overridden: role=" + roleId +
-                        " nativeFirst=" + nativeFirst +
-                        " payloadFirst=" + firstWeapon);
-                }
-            }
-            return;
-        }
-
-        if (functionName.find("PBDisplayActorLibrary.SpawnDisplayWeapon") != std::string::npos &&
-            functionName.find("SpawnDisplayWeaponPart") == std::string::npos)
-        {
-            auto* spawnParms = static_cast<Params::PBDisplayActorLibrary_SpawnDisplayWeapon*>(parms);
-            const std::string weaponId = NameToString(spawnParms->InWeaponConfig.WeaponID);
-
-            std::string roleId;
-            FPBWeaponNetworkConfig weaponConfig{};
-            if (TryResolveSnapshotWeaponConfigAnyRole(snapshot, weaponId, roleId, weaponConfig))
-            {
-                spawnParms->InWeaponConfig = weaponConfig;
-                ClientLog("[LOADOUT] SpawnDisplayWeapon config overridden: role=" + roleId +
-                    " weapon=" + weaponId);
-            }
-            return;
-        }
-    }
-
-    template <typename ImplT>
-    bool PatchDisplayActorLibrarySpawnPost(
-        ImplT& impl,
-        const std::string& functionName,
-        void* parms)
-    {
-        if (!parms) return false;
-        if (functionName.find("PBDisplayActorLibrary.SpawnDisplay") == std::string::npos) return false;
-        if (!EnsureClientSnapshotLoaded(impl, false)) return true;
-
-        const nlohmann::json& snapshot = GetActiveClientSnapshot(impl);
-
-        if (functionName.find("PBDisplayActorLibrary.SpawnDisplayCharacter") != std::string::npos)
-        {
-            auto* spawnParms = static_cast<Params::PBDisplayActorLibrary_SpawnDisplayCharacter*>(parms);
-            if (spawnParms->ReturnValue)
-            {
-                std::string roleId = NameToString(spawnParms->InCharacterConfig.CharacterID);
-                if (IsBlankText(roleId)) roleId = ResolveSingleSnapshotRoleId(snapshot);
-
-                FPBRoleNetworkConfig roleConfig{};
-                if (TryResolveRoleConfig(snapshot, roleId, roleConfig))
-                {
-                    spawnParms->ReturnValue->RoleConfig = roleConfig;
-                    spawnParms->ReturnValue->ItemId = roleConfig.CharacterID;
-                }
-            }
-            return true;
-        }
-
-        if (functionName.find("PBDisplayActorLibrary.SpawnDisplayWeapon") != std::string::npos &&
-            functionName.find("SpawnDisplayWeaponPart") == std::string::npos)
-        {
-            auto* spawnParms = static_cast<Params::PBDisplayActorLibrary_SpawnDisplayWeapon*>(parms);
-            if (spawnParms->ReturnValue)
-            {
-                spawnParms->ReturnValue->WeaponPartConfig = spawnParms->InWeaponConfig;
-                spawnParms->ReturnValue->ItemId = spawnParms->InWeaponConfig.WeaponID;
-            }
-            return true;
-        }
-
+        ClientLog("[LOADOUT] stage=bridge-start result=invalid-local-pve-tunnel");
         return false;
     }
 
-    template <typename ImplT>
-    void PatchShowroomDirectSpawnPre(
-        ImplT& impl,
-        const std::string& functionName,
-        void* parms)
-    {
-        if (!parms || !IsShowRoomDirectSpawnFunction(functionName)) return;
-        if (functionName.find("SpawnWeaponPart") != std::string::npos ||
-            functionName.find("SpawnWeaponParts") != std::string::npos)
-        {
-            return;
-        }
-
-        if (functionName.find("PBShowRoomManager.SpawnWeapon") != std::string::npos)
-        {
-            auto* spawnParms = static_cast<Params::PBShowRoomManager_SpawnWeapon*>(parms);
-            const std::string incomingRoleId = NameToString(spawnParms->InCharacterID);
-            const std::string incomingItemId = NameToString(spawnParms->InWeaponID);
-            std::string roleId;
-            std::string itemId;
-            EPBCharacterSlotType slotType = EPBCharacterSlotType::None;
-            if (ResolveShowroomSpawnInventoryItem(impl, incomingRoleId, incomingItemId, roleId, slotType, itemId) &&
-                itemId != incomingItemId)
-            {
-                spawnParms->InCharacterID = NameFromString(roleId);
-                spawnParms->InWeaponID = NameFromString(itemId);
-                ClientLog("[LOADOUT] SpawnWeapon overridden: role=" + roleId +
-                    " slot=" + std::to_string(static_cast<int>(slotType)) +
-                    " native=" + incomingItemId +
-                    " payload=" + itemId);
-            }
-            return;
-        }
-
-        if (functionName.find("PBShowRoomManager.SpawnMeleeWeapon") != std::string::npos)
-        {
-            auto* spawnParms = static_cast<Params::PBShowRoomManager_SpawnMeleeWeapon*>(parms);
-            const std::string roleId = NameToString(spawnParms->InCharacterID);
-            const std::string incomingItemId = NameToString(spawnParms->InMeleeWeaponID);
-            std::string itemId;
-            if (TryResolveShowroomSlotItem(impl, roleId, EPBCharacterSlotType::MeleeWeapon, incomingItemId, itemId) &&
-                itemId != incomingItemId)
-            {
-                spawnParms->InMeleeWeaponID = NameFromString(itemId);
-                ClientLog("[LOADOUT] SpawnMeleeWeapon overridden: role=" + roleId +
-                    " native=" + incomingItemId +
-                    " payload=" + itemId);
-            }
-            return;
-        }
-
-        if (functionName.find("PBShowRoomManager.SpawnMobility") != std::string::npos)
-        {
-            auto* spawnParms = static_cast<Params::PBShowRoomManager_SpawnMobility*>(parms);
-            const std::string roleId = NameToString(spawnParms->InCharacterID);
-            const std::string incomingItemId = NameToString(spawnParms->InMobilityID);
-            std::string itemId;
-            if (TryResolveShowroomSlotItem(impl, roleId, EPBCharacterSlotType::Mobility, incomingItemId, itemId) &&
-                itemId != incomingItemId)
-            {
-                spawnParms->InMobilityID = NameFromString(itemId);
-                ClientLog("[LOADOUT] SpawnMobility overridden: role=" + roleId +
-                    " native=" + incomingItemId +
-                    " payload=" + itemId);
-            }
-            return;
-        }
-
-        if (functionName.find("PBShowRoomManager.SpawnPod") != std::string::npos)
-        {
-            auto* spawnParms = static_cast<Params::PBShowRoomManager_SpawnPod*>(parms);
-            std::string roleId;
-            EPBCharacterSlotType slotType = EPBCharacterSlotType::None;
-            if (!ResolveActiveCustomizeContext(roleId, slotType)) return;
-            if (slotType != EPBCharacterSlotType::LeftPod && slotType != EPBCharacterSlotType::RightPod) return;
-
-            const std::string incomingItemId = NameToString(spawnParms->InPodID);
-            std::string itemId;
-            if (TryResolveShowroomSlotItem(impl, roleId, slotType, incomingItemId, itemId) &&
-                itemId != incomingItemId)
-            {
-                spawnParms->InPodID = NameFromString(itemId);
-                ClientLog("[LOADOUT] SpawnPod overridden: role=" + roleId +
-                    " slot=" + std::to_string(static_cast<int>(slotType)) +
-                    " native=" + incomingItemId +
-                    " payload=" + itemId);
-            }
-        }
-    }
-
-    template <typename ImplT>
-    bool PatchShowroomDirectSpawnPost(
-        ImplT& impl,
-        const std::string& functionName,
-        void* parms)
-    {
-        if (!parms || !IsShowRoomDirectSpawnFunction(functionName)) return false;
-        if (functionName.find("SpawnWeaponPart") != std::string::npos ||
-            functionName.find("SpawnWeaponParts") != std::string::npos)
-        {
-            return false;
-        }
-        if (!EnsureClientSnapshotLoaded(impl, false)) return true;
-
-        const nlohmann::json& snapshot = GetActiveClientSnapshot(impl);
-
-        if (functionName.find("PBShowRoomManager.SpawnWeapon") != std::string::npos)
-        {
-            auto* spawnParms = static_cast<Params::PBShowRoomManager_SpawnWeapon*>(parms);
-            const std::string incomingRoleId = NameToString(spawnParms->InCharacterID);
-            const std::string incomingItemId = NameToString(spawnParms->InWeaponID);
-            std::string roleId = incomingRoleId;
-            std::string itemId = incomingItemId;
-            EPBCharacterSlotType slotType = EPBCharacterSlotType::None;
-            ResolveShowroomSpawnInventoryItem(impl, incomingRoleId, incomingItemId, roleId, slotType, itemId);
-            if (!IsBlankText(roleId) && !IsBlankText(itemId))
-            {
-                ApplySnapshotToInventoryActor(spawnParms->ReturnValue, snapshot, roleId, itemId, true);
-            }
-            return true;
-        }
-
-        if (functionName.find("PBShowRoomManager.SpawnMeleeWeapon") != std::string::npos)
-        {
-            auto* spawnParms = static_cast<Params::PBShowRoomManager_SpawnMeleeWeapon*>(parms);
-            const std::string roleId = NameToString(spawnParms->InCharacterID);
-            const std::string itemId = NameToString(spawnParms->InMeleeWeaponID);
-            ApplySnapshotToInventoryActor(spawnParms->ReturnValue, snapshot, roleId, itemId, true);
-            return true;
-        }
-
-        if (functionName.find("PBShowRoomManager.SpawnMobility") != std::string::npos)
-        {
-            auto* spawnParms = static_cast<Params::PBShowRoomManager_SpawnMobility*>(parms);
-            const std::string roleId = NameToString(spawnParms->InCharacterID);
-            const std::string itemId = NameToString(spawnParms->InMobilityID);
-            ApplySnapshotToInventoryActor(spawnParms->ReturnValue, snapshot, roleId, itemId, true);
-            return true;
-        }
-
-        if (functionName.find("PBShowRoomManager.SpawnPod") != std::string::npos)
-        {
-            auto* spawnParms = static_cast<Params::PBShowRoomManager_SpawnPod*>(parms);
-            ApplySnapshotToInventoryActor(spawnParms->ReturnValue, snapshot, "", NameToString(spawnParms->InPodID), true);
-            return true;
-        }
-
-        return false;
-    }
-
-    template <typename ImplT>
-    bool IsRecentCommittedEquip(
-        const ImplT& impl,
-        const std::string& roleId,
-        EPBCharacterSlotType slotType,
-        const std::string& itemId)
-    {
-        constexpr ULONGLONG kDuplicateCommitWindowMs = 1200;
-        const ULONGLONG now = GetTickCount64();
-        return impl.lastCommittedRoleId == roleId &&
-            impl.lastCommittedSlotType == slotType &&
-            impl.lastCommittedItemId == itemId &&
-            now - impl.lastCommittedAtMs <= kDuplicateCommitWindowMs;
-    }
-
-    template <typename ImplT>
-    void MarkCommittedEquip(
-        ImplT& impl,
-        const std::string& roleId,
-        EPBCharacterSlotType slotType,
-        const std::string& itemId)
-    {
-        impl.lastCommittedRoleId = roleId;
-        impl.lastCommittedSlotType = slotType;
-        impl.lastCommittedItemId = itemId;
-        impl.lastCommittedAtMs = GetTickCount64();
-    }
-
-    void SwallowClientEquipError(const std::string& functionName, void* parms);
-
-    template <typename ImplT>
-    void CommitConfirmedCharacterSlot(
-        ImplT& impl,
-        UObject* object,
-        const std::string& functionName,
-        EPBEquipErrorCode originalError,
-        FName itemName,
-        FName characterName,
-        EPBCharacterSlotType slotType)
-    {
-        if (originalError != EPBEquipErrorCode::NoError &&
-            originalError != EPBEquipErrorCode::UnknowError)
-        {
-            return;
-        }
-
-        const std::string roleId = NameToString(characterName);
-        std::string itemId = NameToString(itemName);
-        if (IsBlankText(roleId) || IsBlankText(itemId) || slotType == EPBCharacterSlotType::None)
-        {
-            ClientLog("[LOADOUT] Equip callback ignored: fn=" + functionName +
-                " role=" + roleId + " item=" + itemId +
-                " slot=" + std::to_string(static_cast<int>(slotType)));
-            return;
-        }
-
-        TryResolvePendingEquip(impl, roleId, slotType, itemId);
-        if (IsRecentCommittedEquip(impl, roleId, slotType, itemId))
-        {
-            return;
-        }
-
-        UPBItemCSTM_Inventory* itemWidget = nullptr;
-        if (object && object->IsA(UPBItemCSTM_Inventory::StaticClass()))
-            itemWidget = static_cast<UPBItemCSTM_Inventory*>(object);
-
-        if (CommitInventoryWidgetSelection(impl, itemWidget, roleId, slotType, itemId))
-        {
-            ClientLog("[LOADOUT] Equip callback commit: fn=" + functionName +
-                " role=" + roleId + " item=" + itemId +
-                " slot=" + std::to_string(static_cast<int>(slotType)) +
-                " err=" + std::to_string(static_cast<int>(originalError)));
-            MarkCommittedEquip(impl, roleId, slotType, itemId);
-        }
-    }
-
-    template <typename ImplT>
-    void HandleClientEquipComplete(
-        ImplT& impl,
-        UObject* object,
-        const std::string& functionName,
-        void* parms,
-        bool commit)
-    {
-        if (!parms) return;
-
-        if (functionName.find("PBItemCSTM_Inventory.OnEquipComplete") != std::string::npos)
-        {
-            auto* equipParms = static_cast<Params::PBItemCSTM_Inventory_OnEquipComplete*>(parms);
-            const EPBEquipErrorCode originalError = equipParms->ErrorCode;
-            if (equipParms->ErrorCode == EPBEquipErrorCode::UnknowError)
-                equipParms->ErrorCode = EPBEquipErrorCode::NoError;
-            if (commit)
-            {
-                CommitConfirmedCharacterSlot(
-                    impl, object, functionName, originalError,
-                    equipParms->InItemID, equipParms->InCharacterID, equipParms->InCharacterSlotType);
-            }
-            return;
-        }
-
-        if (functionName.find("PBDetailedWeaponDataWidget.OnEquipCharacterSlotComplete") != std::string::npos)
-        {
-            auto* equipParms = static_cast<Params::PBDetailedWeaponDataWidget_OnEquipCharacterSlotComplete*>(parms);
-            const EPBEquipErrorCode originalError = equipParms->ErrorCode;
-            if (equipParms->ErrorCode == EPBEquipErrorCode::UnknowError)
-                equipParms->ErrorCode = EPBEquipErrorCode::NoError;
-            if (commit)
-            {
-                CommitConfirmedCharacterSlot(
-                    impl, object, functionName, originalError,
-                    equipParms->InItemID, equipParms->InCharacterID, equipParms->InCharacterSlotType);
-            }
-            return;
-        }
-
-        if (functionName.find("PBPanelCSTM_EditCharacterSlot.OnEquipComplete") != std::string::npos)
-        {
-            auto* equipParms = static_cast<Params::PBPanelCSTM_EditCharacterSlot_OnEquipComplete*>(parms);
-            const EPBEquipErrorCode originalError = equipParms->ErrorCode;
-            if (equipParms->ErrorCode == EPBEquipErrorCode::UnknowError)
-                equipParms->ErrorCode = EPBEquipErrorCode::NoError;
-            if (commit)
-            {
-                CommitConfirmedCharacterSlot(
-                    impl, object, functionName, originalError,
-                    equipParms->InItemID, equipParms->InCharacterID, equipParms->InCharacterSlotType);
-            }
-            return;
-        }
-
-        if (functionName.find("PBSlotWidget_Character.OnEquipComplete") != std::string::npos)
-        {
-            auto* equipParms = static_cast<Params::PBSlotWidget_Character_OnEquipComplete*>(parms);
-            const EPBEquipErrorCode originalError = equipParms->ErrorCode;
-            if (equipParms->ErrorCode == EPBEquipErrorCode::UnknowError)
-                equipParms->ErrorCode = EPBEquipErrorCode::NoError;
-            if (commit)
-            {
-                CommitConfirmedCharacterSlot(
-                    impl, object, functionName, originalError,
-                    equipParms->InItemID, equipParms->InCharacterID, equipParms->InCharacterSlotType);
-            }
-            return;
-        }
-
-        if (!commit) SwallowClientEquipError(functionName, parms);
-    }
-
-    void SwallowClientEquipError(const std::string& functionName, void* parms)
-    {
-        if (!parms) return;
-
-        if (functionName.find("PBCustomizeWidget.K2_OnEquipComplete") != std::string::npos ||
-            functionName.find("PBCustomizeWidget.OnEquipComplete") != std::string::npos)
-        {
-            auto* equipParms = static_cast<Params::PBCustomizeWidget_K2_OnEquipComplete*>(parms);
-            if (equipParms->ErrorCode == EPBEquipErrorCode::UnknowError)
-                equipParms->ErrorCode = EPBEquipErrorCode::NoError;
-            return;
-        }
-
-        if (functionName.find("PBDetailedWeaponDataWidget.OnEquipCharacterSlotComplete") != std::string::npos)
-        {
-            auto* equipParms = static_cast<Params::PBDetailedWeaponDataWidget_OnEquipCharacterSlotComplete*>(parms);
-            if (equipParms->ErrorCode == EPBEquipErrorCode::UnknowError)
-                equipParms->ErrorCode = EPBEquipErrorCode::NoError;
-            return;
-        }
-
-        if (functionName.find("PBItemCSTM_Base.OnEquipItemComplete") != std::string::npos)
-        {
-            auto* equipParms = static_cast<Params::PBItemCSTM_Base_OnEquipItemComplete*>(parms);
-            if (equipParms->InErrorCode == static_cast<int32>(EPBEquipErrorCode::UnknowError))
-                equipParms->InErrorCode = static_cast<int32>(EPBEquipErrorCode::NoError);
-        }
-    }
-
-    bool IsShowRoomRefreshFunction(const std::string& functionName)
-    {
-        return functionName.find("PBShowRoomManager.SpawnCharacters") != std::string::npos ||
-            functionName.find("PBShowRoomManager.SpawnCharacter") != std::string::npos ||
-            functionName.find("PBCustomizeWidget.K2_EnterEditCharacter") != std::string::npos ||
-            functionName.find("PBCustomizeWidget.K2_EnterEditCharacterSlot") != std::string::npos ||
-            functionName.find("K2_EnterEditCharacter") != std::string::npos ||
-            functionName.find("K2_EnterEditCharacterSlot") != std::string::npos ||
-            functionName.find("K2_OnEquipComplete") != std::string::npos ||
-            functionName.find("K2_InRange") != std::string::npos ||
-            functionName.find("PBPanelCSTM_EditCharacterSlot.K2_PreviewInventoryUpdated") != std::string::npos ||
-            functionName.find("UMG_MainMenuBase_C.Construct") != std::string::npos;
-    }
-
-    bool IsClientLoadoutPreFunction(const std::string& functionName)
-    {
-        return IsShowRoomRefreshFunction(functionName) ||
-            functionName.find("PBPlayerState.ClientRefreshRole") != std::string::npos ||
-            functionName.find("PBPlayerController.ClientPreOrderUnlockInventory") != std::string::npos ||
-            functionName.find("PBItemCSTM_") != std::string::npos ||
-            functionName.find("PBItemWidget_Base.") != std::string::npos ||
-            functionName.find("PBItemFieldModWidget_Inventory.") != std::string::npos ||
-            functionName.find("PBFieldModManager.Select") != std::string::npos ||
-            functionName.find("PBFieldModManager.SpawnWeapon") != std::string::npos ||
-            functionName.find("PBFieldModManager.K2_CaptureSelectRoleWeapons") != std::string::npos ||
-            functionName.find("PBFieldModManager_BP_C.") != std::string::npos ||
-            functionName.find("WeaponCaptureActor_C.Capture") != std::string::npos ||
-            functionName.find("PBFieldModWidget.") != std::string::npos ||
-            functionName.find("PBFieldModInventoryWidget.") != std::string::npos ||
-            functionName.find("PBDetailedWeaponDataWidget.OnEquipCharacterSlotComplete") != std::string::npos ||
-            functionName.find("PBPanelCSTM_EditCharacterSlot.OnEquipComplete") != std::string::npos ||
-            functionName.find("PBSlotWidget_Character.OnEquipComplete") != std::string::npos ||
-            functionName.find("PBCustomizeWidget.K2_OnEquipComplete") != std::string::npos ||
-            functionName.find("PBCustomizeWidget.OnEquipComplete") != std::string::npos ||
-            functionName.find("PBDisplayActorLibrary.SpawnDisplay") != std::string::npos ||
-            functionName.find("PBShowRoomManager.Spawn") != std::string::npos ||
-            functionName.find("PBCustomizeUIManager.Exit") != std::string::npos ||
-            functionName.find("PBCustomizeWidget.K2_ExitEditCharacterSlot") != std::string::npos;
-    }
-
-    bool IsClientLoadoutPostFunction(const std::string& functionName)
-    {
-        return IsShowRoomRefreshFunction(functionName) ||
-            functionName.find("PBItemCSTM_") != std::string::npos ||
-            functionName.find("PBItemWidget_Base.") != std::string::npos ||
-            functionName.find("PBItemFieldModWidget_Inventory.") != std::string::npos ||
-            functionName.find("PBDetailedWeaponDataWidget.OnEquipCharacterSlotComplete") != std::string::npos ||
-            functionName.find("PBPanelCSTM_EditCharacterSlot.OnEquipComplete") != std::string::npos ||
-            functionName.find("PBSlotWidget_Character.OnEquipComplete") != std::string::npos ||
-            functionName.find("PBCustomizeWidget.K2_OnEquipComplete") != std::string::npos ||
-            functionName.find("PBCustomizeWidget.OnEquipComplete") != std::string::npos ||
-            functionName.find("PBFieldModManager.Get") != std::string::npos ||
-            functionName.find("PBFieldModManager.Select") != std::string::npos ||
-            functionName.find("PBFieldModManager.SpawnWeapon") != std::string::npos ||
-            functionName.find("PBFieldModManager.K2_CaptureSelectRoleWeapons") != std::string::npos ||
-            functionName.find("PBFieldModManager_BP_C.") != std::string::npos ||
-            functionName.find("WeaponCaptureActor_C.Capture") != std::string::npos ||
-            functionName.find("PBFieldModWidget.") != std::string::npos ||
-            functionName.find("PBFieldModInventoryWidget.") != std::string::npos ||
-            functionName.find("PBCustomizeManager.GetWeaponNetworkConfig") != std::string::npos ||
-            functionName.find("PBPanelCSTM_EditWeaponSlot.Get") != std::string::npos ||
-            functionName.find("PBSlotWidget_Base.") != std::string::npos ||
-            functionName.find("PBSlotFieldModWidget_Inventory.") != std::string::npos ||
-            functionName.find("PBPanelCSTM_EditCharacterSlot.K2_PreviewInventoryUpdated") != std::string::npos ||
-            functionName.find("PBItemDetailWidget.K2_NotifyRefreshItemDetail") != std::string::npos ||
-            functionName.find("PBSMShowRoomInstance.GetPreviewInventoryID") != std::string::npos ||
-            functionName.find("PBDisplayCharacter.GetChildByCharacterSlot") != std::string::npos ||
-            functionName.find("PBDisplayActorLibrary.SpawnDisplay") != std::string::npos ||
-            functionName.find("PBShowRoomManager.Spawn") != std::string::npos;
-    }
-
-    bool IsFieldModCacheRefreshFunction(const std::string& functionName)
-    {
-        return functionName.find("PBFieldModManager.SelectCharacter") != std::string::npos ||
-            functionName.find("PBFieldModManager.SelectCharacterSlot") != std::string::npos ||
-            functionName.find("PBFieldModManager.SelectInventoryItem") != std::string::npos ||
-            functionName.find("PBFieldModManager.K2_CaptureSelectRoleWeapons") != std::string::npos ||
-            functionName.find("PBFieldModWidget.K2_OnSelectCharacter") != std::string::npos ||
-            functionName.find("PBFieldModWidget.K2_OnSelectCharacterSlot") != std::string::npos ||
-            functionName.find("PBFieldModInventoryWidget.K2_OpenFieldModMenu") != std::string::npos ||
-            functionName.find("PBSlotFieldModWidget_Inventory.K2_OnSelectCharacterSlot") != std::string::npos ||
-            functionName.find("PBSlotFieldModWidget_Inventory.RefreshOnSelectCharacterSlot") != std::string::npos ||
-            functionName.find("PBItemFieldModWidget_Inventory.SelectItem") != std::string::npos ||
-            functionName.find("PBItemFieldModWidget_Inventory.PreOrderItem") != std::string::npos;
-    }
-
-    bool IsShowRoomExitFunction(const std::string& functionName)
-    {
-        return functionName.find("PBCustomizeWidget.K2_ExitEditCharacterSlot") != std::string::npos ||
-            functionName.find("PBCustomizeUIManager.ExitEditCharacterSlot") != std::string::npos ||
-            functionName.find("PBCustomizeUIManager.ExitCharacterSlotPanel") != std::string::npos;
-    }
+    ++impl_->ServerEpoch;
+    impl_->Options = options;
+    impl_->BaseUrl = std::move(baseUrl);
+    impl_->RoomId.clear();
+    impl_->Scope = Impl::BaselineScope::CurrentTunnelUser;
+    impl_->BoundWorld = nullptr;
+    impl_->HasBoundWorld = false;
+    impl_->ServerActive = true;
+    ClientLog("[LOADOUT] stage=bridge-start result=ready scope=current-tunnel-user-pve baseline=" +
+        std::string(impl_->Options.BaselineOverride ? "1" : "0") +
+        " preorder=" + (impl_->Options.PreOrderIntercept ? "1" : "0") +
+        " confirm_deferral=" + (impl_->Options.ConfirmDeferral ? "1" : "0") +
+        " detail_overlay=" + (impl_->Options.SpawnApplication ? "1" : "0"));
+    return true;
 }
 
-// =====================================================================
-//  公有接口 — 启动 / 菜单信号
-// =====================================================================
-
-void LoadoutManager::PreloadSnapshot()
+void LoadoutManager::StopServer()
 {
-    UWorld* World = UWorld::GetWorld();
-    if (!World) return;
-    AGameStateBase* GS = World->GameState;
-    if (!GS || !GS->HasAuthority()) return;
+    if (!impl_) return;
+    impl_->ServerActive = false;
+    ++impl_->ServerEpoch;
+    impl_->Players.clear();
+    impl_->ControllerBindings.clear();
+    impl_->PendingInventoryBindings.clear();
+    impl_->DestroyedCharacters.clear();
+    impl_->BoundWorld = nullptr;
+    impl_->HasBoundWorld = false;
+    impl_->InternalPreOrderDepth = 0;
 
-    EnsureMetaserverConfigured(
-        impl_->metaserver,
-        impl_->metaserverChecked,
-        impl_->metaserverAvailable);
+    for (auto& task : impl_->FetchTasks)
+    {
+        if (!task.Future.valid()) continue;
+        try { (void)task.Future.get(); }
+        catch (...) {}
+    }
+    impl_->FetchTasks.clear();
 }
 
-void LoadoutManager::NotifyMenuConstructed()
+void LoadoutManager::OnPlayerConnected(APBPlayerController* playerController)
 {
-    EnsureClientSnapshotLoaded(*impl_, true);
-    ApplyActiveClientSnapshot(*impl_, true, "menu-constructed");
-}
+    if (!impl_ || !impl_->ServerActive || !playerController) return;
+    impl_->BindCurrentWorld(UWorld::GetWorld());
+    if (impl_->ControllerBindings.contains(playerController)) return;
+    try
+    {
+        if (!playerController->HasAuthority()) return;
+    }
+    catch (...) { return; }
 
-void LoadoutManager::RememberMenuSelectedRole(const FName& roleId)
-{
-    // 不再需要 — 菜单操作由游戏原生协议处理
-    (void)roleId;
-}
-
-// =====================================================================
-//  公有接口 — 服务端角色确认
-// =====================================================================
-
-void LoadoutManager::OnRoleSelectionConfirmed(APBPlayerController* playerController, const FName& roleId, bool isAuthoritative)
-{
-    (void)isAuthoritative;
-    if (!playerController || !playerController->HasAuthority()) return;
-    if (IsBlankName(roleId)) return;
-
-    const std::string roleIdStr = NameToString(roleId);
-    const std::string playerId = ResolvePlayerId(playerController);
+    const std::string playerId = ResolveCanonicalPlayerId(playerController);
     if (playerId.empty())
     {
-        ClientLog("[LOADOUT] Role confirmed but playerId is unresolved: player=" +
-            playerController->GetFullName() + " role=" + roleIdStr);
-        return;
-    }
-    ClientLog("[LOADOUT] Role confirmed: player=" + playerController->GetFullName() +
-        " playerId=" + playerId + " role=" + roleIdStr);
-
-    // 从 BoundaryMetaServer 拉取本局权威角色配装。
-    EnsureMetaserverConfigured(
-        impl_->metaserver,
-        impl_->metaserverChecked,
-        impl_->metaserverAvailable);
-
-    std::optional<nlohmann::json> payload = impl_->metaserver.GetPlayerRoleLoadout(playerId, roleIdStr);
-    if (!payload || !payload->is_object())
-    {
-        ClientLog("[LOADOUT] Role endpoint miss, trying player loadout: playerId=" + playerId +
-            " role=" + roleIdStr);
-        payload = impl_->metaserver.GetPlayerLoadout(playerId);
-    }
-
-    if (!payload || !payload->is_object())
-    {
-        ClientLog("[LOADOUT] No metaserver loadout data available: playerId=" + playerId +
-            " role=" + roleIdStr);
+        ClientLog("[LOADOUT] stage=player-connect result=noncanonical-player-id");
         return;
     }
 
-    nlohmann::json loadoutJson = BuildSingleRoleSnapshot(*payload, roleIdStr);
-    if (!SnapshotHasRole(loadoutJson))
+    Impl::ConnectionKey key{playerId, impl_->NextConnectionGeneration++};
+    Impl::PlayerConnection connection;
+    connection.Key = key;
+    connection.Controller = playerController;
+    connection.NextFetchAt = Clock::now();
+    impl_->Players.emplace(key, std::move(connection));
+    impl_->ControllerBindings.emplace(playerController, key);
+
+    Impl::PlayerConnection* player = impl_->Find(key);
+    if (!player) return;
+    ClientLog("[LOADOUT] player=" + PlayerTag(playerId) +
+        " generation=" + std::to_string(key.Generation) +
+        " stage=player-connect result=bound");
+    if (impl_->Options.BaselineOverride)
+        impl_->StartFetch(*player);
+    else
+        player->FetchTerminal = true;
+}
+
+void LoadoutManager::OnPlayerDisconnected(APBPlayerController* playerController)
+{
+    if (!impl_ || !playerController) return;
+    APBCharacter* const character =
+        LoadoutApplication::GetControllerCharacter(playerController);
+    if (character)
     {
-        ClientLog("[LOADOUT] No metaserver loadout data for role: playerId=" + playerId +
-            " role=" + roleIdStr);
+        std::erase_if(impl_->PendingInventoryBindings,
+            [character](const auto& pending) { return pending.Pawn == character; });
+    }
+    const auto binding = impl_->ControllerBindings.find(playerController);
+    if (binding == impl_->ControllerBindings.end()) return;
+    impl_->Players.erase(binding->second);
+    impl_->ControllerBindings.erase(binding);
+}
+
+void LoadoutManager::OnActorDestroyed(AActor* actor)
+{
+    if (!impl_ || !actor) return;
+    if (actor->IsA(APBPlayerController::StaticClass()))
+    {
+        OnPlayerDisconnected(static_cast<APBPlayerController*>(actor));
+        return;
+    }
+    if (!actor->IsA(APBCharacter::StaticClass()) ||
+        !impl_->Options.SpawnApplication)
+    {
         return;
     }
 
-    // 存储按玩家快照
+    auto* const character = static_cast<APBCharacter*>(actor);
+    impl_->DestroyedCharacters.insert(character);
+    std::erase_if(impl_->PendingInventoryBindings,
+        [character](const auto& pending) { return pending.Pawn == character; });
+    for (auto& entry : impl_->Players)
     {
-        std::scoped_lock lock(impl_->mutex);
-        auto& perPlayer = impl_->perPlayerSnapshots[playerController];
-        perPlayer.Snapshot = loadoutJson;
-        perPlayer.RoleId = roleIdStr;
-        perPlayer.HasArrived = true;
-        perPlayer.Applied = false;
-        perPlayer.InventoryPushed = false;
-    }
-
-    // 推送出生前库存
-    {
-        std::string detail;
-        if (PreSpawnApply(loadoutJson, playerController, detail))
-        {
-            std::scoped_lock lock(impl_->mutex);
-            auto it = impl_->perPlayerSnapshots.find(playerController);
-            if (it != impl_->perPlayerSnapshots.end())
-            {
-                it->second.InventoryPushed = true;
-            }
-            ClientLog("[LOADOUT] Pre-spawn inventory pushed: " + detail);
-        }
-        else
-        {
-            ClientLog("[LOADOUT] Pre-spawn inventory push failed: " + detail);
-        }
+        if (entry.second.PostSpawn.Pawn == character)
+            entry.second.PostSpawn = Impl::PostSpawnState{};
     }
 }
 
-// =====================================================================
-//  公有接口 — ProcessEvent Hook 桥接
-// =====================================================================
-
-void LoadoutManager::OnClientProcessEventPre(UObject* object, const std::string& functionName, void* parms)
+LoadoutRoleConfirmDecision LoadoutManager::BeginRoleConfirmation(
+    APBPlayerController* playerController,
+    const FName& roleId)
 {
-    if (!IsClientLoadoutPreFunction(functionName))
+    if (!impl_ || !impl_->ServerActive || !playerController)
+        return LoadoutRoleConfirmDecision::Fallback;
+    Impl::PlayerConnection* player = impl_->Find(playerController);
+    if (!player) return LoadoutRoleConfirmDecision::Fallback;
+    const std::string role = LoadoutSerializer::NameToString(roleId);
+    if (!IsUsableRoleId(role)) return LoadoutRoleConfirmDecision::Fallback;
+
+    const bool hasEffective = player->RuntimeOverrides.contains(role) ||
+        player->Baselines.contains(role);
+    LoadoutRoleConfirmDecision decision = hasEffective
+        ? LoadoutRoleConfirmDecision::Ready
+        : LoadoutRoleConfirmDecision::Fallback;
+    if (impl_->Options.ConfirmDeferral)
     {
-        (void)object;
-        (void)parms;
-        return;
+        decision = LoadoutStatePolicy::BeginRoleConfirmation(
+            player->Pending, role, hasEffective,
+            player->FetchCompleted || player->FetchTerminal,
+            Clock::now(),
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                kRoleConfirmationGrace));
     }
+    if (decision == LoadoutRoleConfirmDecision::Deferred)
+        return decision;
 
-    HandleClientSnapshotInventoryRefreshPre(*impl_, functionName, parms);
-
-    if (IsFieldModCacheRefreshFunction(functionName) &&
-        EnsureClientSnapshotLoaded(*impl_, false))
+    const Impl::ConnectionKey key = player->Key;
+    if (decision == LoadoutRoleConfirmDecision::Ready &&
+        !impl_->PrepareEffectiveRole(*player, role))
     {
-        PushClientInventoryCacheFromSnapshot(*impl_, GetActiveClientSnapshot(*impl_), true, "fieldmod-event-pre");
+        if (Impl::PlayerConnection* current = impl_->Find(key))
+            current->Pending.ReplayDecision = LoadoutRoleConfirmDecision::Fallback;
+        return LoadoutRoleConfirmDecision::Fallback;
     }
-
-    if (functionName.find("PBItemCSTM_Base.PreviewItem") != std::string::npos ||
-        functionName.find(".PreviewItem") != std::string::npos)
-    {
-        std::string roleId;
-        std::string itemId;
-        EPBCharacterSlotType slotType = EPBCharacterSlotType::None;
-        if (TryReadInventoryWidget(object, roleId, slotType, itemId))
-        {
-            RememberPendingPreview(*impl_, roleId, slotType, itemId);
-        }
-    }
-
-    if (functionName.find("PBItemCSTM_Base.EquipItem") != std::string::npos ||
-        functionName.find(".EquipItem") != std::string::npos)
-    {
-        std::string roleId;
-        std::string itemId;
-        EPBCharacterSlotType slotType = EPBCharacterSlotType::None;
-        if (TryReadInventoryWidget(object, roleId, slotType, itemId))
-        {
-            RememberPendingEquip(*impl_, roleId, slotType, itemId);
-        }
-    }
-
-    PatchFieldModSpawnWeaponPre(*impl_, functionName, parms);
-    PatchShowroomSpawnInventoryPre(*impl_, functionName, parms);
-    PatchDisplayActorLibrarySpawnPre(*impl_, functionName, parms);
-    PatchShowroomDirectSpawnPre(*impl_, functionName, parms);
-
-    HandleClientEquipComplete(*impl_, object, functionName, parms, false);
-
-    if (IsShowRoomExitFunction(functionName))
-    {
-        impl_->clientPreviewSnapshot = nlohmann::json();
-        impl_->clientPreviewActive = false;
-    }
-
-    (void)object;
+    return decision;
 }
 
-void LoadoutManager::OnClientProcessEventPost(UObject* object, const std::string& functionName, void* parms)
+void LoadoutManager::CommitRoleConfirmationAfterOriginal(
+    APBPlayerController* playerController,
+    const FName& roleId)
 {
-    if (!IsClientLoadoutPostFunction(functionName))
+    if (!impl_ || !impl_->ServerActive) return;
+    Impl::PlayerConnection* player = impl_->Find(playerController);
+    if (!player) return;
+    const std::string role = LoadoutSerializer::NameToString(roleId);
+    if (!IsUsableRoleId(role)) return;
+    player->SelectedRoleId = role;
+    LoadoutStatePolicy::CompleteRoleConfirmation(player->Pending);
+}
+
+bool LoadoutManager::OnExternalPreOrderInventory(
+    APBPlayerController* playerController,
+    const FName& roleId,
+    const FPBInventoryNetworkConfig& inventory)
+{
+    if (!impl_ || !impl_->ServerActive || !impl_->Options.PreOrderIntercept ||
+        impl_->InternalPreOrderDepth > 0 || !playerController ||
+        !IsValidInventory(inventory))
     {
-        (void)object;
-        (void)parms;
-        return;
+        return false;
     }
 
-    HandleClientEquipComplete(*impl_, object, functionName, parms, true);
-    HandleClientSnapshotQueryPost(*impl_, object, functionName, parms);
+    Impl::PlayerConnection* player = impl_->Find(playerController);
+    if (!player) return false;
+    const std::string role = LoadoutSerializer::NameToString(roleId);
+    if (!IsUsableRoleId(role)) return false;
 
-    if (PatchShowroomSpawnInventoryPost(*impl_, functionName, parms))
+    const PlayerStateInventoryState state =
+        LoadoutApplication::InspectPlayerStateInventory(
+            playerController, roleId, inventory, false);
+    if (state != PlayerStateInventoryState::Match)
     {
-        return;
-    }
-    if (PatchShowroomCharacterSpawnPost(*impl_, functionName, parms))
-    {
-        return;
-    }
-    if (PatchDisplayActorLibrarySpawnPost(*impl_, functionName, parms))
-    {
-        return;
-    }
-    if (PatchShowroomDirectSpawnPost(*impl_, functionName, parms))
-    {
-        return;
+        ClientLog("[LOADOUT] player=" + PlayerTag(player->Key.PlayerId) +
+            " generation=" + std::to_string(player->Key.Generation) +
+            " stage=external-preorder role=" + role +
+            " inventory_hash=" + HashText(HashInventory(inventory)) +
+            " result=native-rejected-or-unpublished");
+        return false;
     }
 
-    if (IsFieldModCacheRefreshFunction(functionName) &&
-        EnsureClientSnapshotLoaded(*impl_, false))
-    {
-        const nlohmann::json& snapshot = GetActiveClientSnapshot(*impl_);
-        PushClientInventoryCacheFromSnapshot(*impl_, snapshot, true, "fieldmod-event-post");
-        RefreshSlotWidgetsForSnapshot(snapshot, true);
-        ApplySnapshotToShowRoom(snapshot, true, "fieldmod-event");
-    }
+    impl_->RecordRuntimeOverride(*player, role, inventory);
+    ClientLog("[LOADOUT] player=" + PlayerTag(player->Key.PlayerId) +
+        " generation=" + std::to_string(player->Key.Generation) +
+        " stage=external-preorder role=" + role +
+        " inventory_hash=" + HashText(HashInventory(inventory)) +
+        " result=accepted");
+    return true;
+}
 
-    if (functionName.find("PBItemCSTM_Base.PreviewItem") != std::string::npos ||
-        functionName.find(".PreviewItem") != std::string::npos)
+bool LoadoutManager::DeferExternalPreOrderInventoryIfLeaseConflict(
+    APBPlayerController* playerController,
+    const FName& roleId,
+    const FPBInventoryNetworkConfig& inventory)
+{
+    (void)playerController;
+    (void)roleId;
+    (void)inventory;
+    return false;
+}
+
+bool LoadoutManager::IsInternalPreOrderInProgress() const
+{
+    return impl_ && impl_->InternalPreOrderDepth > 0;
+}
+
+bool LoadoutManager::IsCharacterTombstoned(APBCharacter* character) const
+{
+    return impl_ && impl_->Options.SpawnApplication && character &&
+        impl_->DestroyedCharacters.contains(character);
+}
+
+void LoadoutManager::OnInventorySpawned(APBCharacter* character)
+{
+    if (!impl_ || !impl_->ServerActive || !impl_->Options.SpawnApplication ||
+        !character)
     {
-        std::string roleId;
-        std::string itemId;
-        EPBCharacterSlotType slotType = EPBCharacterSlotType::None;
-        if (TryReadInventoryWidget(object, roleId, slotType, itemId))
+        return;
+    }
+    if (impl_->DestroyedCharacters.contains(character))
+    {
+        APBPlayerController* const controller =
+            LoadoutApplication::FindPlayerControllerForCharacter(character);
+        if (!controller || controller->bActorIsBeingDestroyed ||
+            character->bActorIsBeingDestroyed ||
+            LoadoutApplication::GetControllerCharacter(controller) != character)
         {
-            ApplyPreviewFromInventoryWidget(*impl_, roleId, slotType, itemId);
+            return;
         }
+        impl_->DestroyedCharacters.erase(character);
+    }
+    else if (character->bActorIsBeingDestroyed)
+    {
         return;
     }
 
-    if (functionName.find("PBItemCSTM_Base.EquipItem") != std::string::npos ||
-        functionName.find(".EquipItem") != std::string::npos)
+    const TimePoint now = Clock::now();
+    if (impl_->TryBindInventorySpawn(character, now)) return;
+    const auto existing = std::find_if(
+        impl_->PendingInventoryBindings.begin(),
+        impl_->PendingInventoryBindings.end(),
+        [character](const auto& pending) { return pending.Pawn == character; });
+    if (existing == impl_->PendingInventoryBindings.end())
     {
-        std::string roleId;
-        std::string itemId;
-        EPBCharacterSlotType slotType = EPBCharacterSlotType::None;
-        if (TryReadInventoryWidget(object, roleId, slotType, itemId))
-        {
-            RememberPendingEquip(*impl_, roleId, slotType, itemId);
-            if (IsRecentCommittedEquip(*impl_, roleId, slotType, itemId))
-            {
-                return;
-            }
-            if (CommitInventoryWidgetSelection(
-                *impl_,
-                static_cast<UPBItemCSTM_Inventory*>(object),
-                roleId,
-                slotType,
-                itemId))
-            {
-                MarkCommittedEquip(*impl_, roleId, slotType, itemId);
-            }
-        }
-        return;
-    }
-
-    if (functionName.find("PBItemCSTM_Base.RefreshItem") != std::string::npos ||
-        functionName.find("PBItemCSTM_Base.K2_OnRefreshItem") != std::string::npos ||
-        functionName.find("PBItemWidget_Base.RefreshItem") != std::string::npos ||
-        functionName.find("PBItemWidget_Base.K2_OnRefreshItem") != std::string::npos)
-    {
-        if (object && EnsureClientSnapshotLoaded(*impl_, false))
-        {
-            const nlohmann::json& snapshot = GetActiveClientSnapshot(*impl_);
-            if (object->IsA(UPBItemCSTM_Inventory::StaticClass()))
-            {
-                CorrectInventoryWidgetFromSnapshot(
-                    static_cast<UPBItemCSTM_Inventory*>(object),
-                    snapshot,
-                    true);
-            }
-            else if (object->IsA(UPBItemFieldModWidget_Inventory::StaticClass()))
-            {
-                CorrectFieldModInventoryItemWidgetFromSnapshot(
-                    static_cast<UPBItemFieldModWidget_Inventory*>(object),
-                    snapshot,
-                    true);
-            }
-        }
-        return;
-    }
-
-    if (functionName.find("PBItemDetailWidget.K2_NotifyRefreshItemDetail") != std::string::npos)
-    {
-        if (object && object->IsA(UPBItemDetailWidget::StaticClass()) &&
-            EnsureClientSnapshotLoaded(*impl_, false))
-        {
-            CorrectItemDetailWidgetFromSnapshot(
-                static_cast<UPBItemDetailWidget*>(object),
-                GetActiveClientSnapshot(*impl_),
-                true);
-        }
-        return;
-    }
-
-    if (functionName.find("PBSlotWidget_Base.RefreshSlot") != std::string::npos ||
-        functionName.find("PBSlotWidget_Base.K2_OnRefreshSlot") != std::string::npos ||
-        functionName.find("PBSlotFieldModWidget_Inventory.RefreshOnSelectCharacterSlot") != std::string::npos ||
-        functionName.find("PBSlotFieldModWidget_Inventory.K2_OnSelectCharacterSlot") != std::string::npos ||
-        functionName.find("PBPanelCSTM_EditCharacterSlot.K2_PreviewInventoryUpdated") != std::string::npos)
-    {
-        if (EnsureClientSnapshotLoaded(*impl_, false))
-        {
-            const nlohmann::json& snapshot = GetActiveClientSnapshot(*impl_);
-            if (object && object->IsA(UPBSlotWidget_Character::StaticClass()))
-            {
-                CorrectCharacterSlotWidgetFromSnapshot(
-                    static_cast<UPBSlotWidget_Character*>(object),
-                    snapshot,
-                    true);
-            }
-            else if (object && object->IsA(UPBSlotFieldModWidget_Inventory::StaticClass()))
-            {
-                CorrectFieldModSlotWidgetFromSnapshot(
-                    static_cast<UPBSlotFieldModWidget_Inventory*>(object),
-                    snapshot,
-                    true);
-            }
-            else if (object && object->IsA(UPBPanelCSTM_EditCharacterSlot::StaticClass()))
-            {
-                CorrectEditCharacterSlotPanelFromSnapshot(
-                    static_cast<UPBPanelCSTM_EditCharacterSlot*>(object),
-                    snapshot,
-                    true);
-            }
-            else
-            {
-                RefreshSlotWidgetsForSnapshot(snapshot, true);
-            }
-        }
-        return;
-    }
-
-    if (IsShowRoomRefreshFunction(functionName))
-    {
-        EnsureClientSnapshotLoaded(*impl_, false);
-        ApplyActiveClientSnapshot(*impl_, true, "process-event:" + functionName);
+        impl_->PendingInventoryBindings.push_back({
+            character, now + kPostSpawnRetryWindow,
+            now + kPostSpawnRetryInterval,
+        });
     }
 }
 
-void LoadoutManager::OnServerProcessEventPre(UObject* object, const std::string& functionName, void* parms)
+bool LoadoutManager::CanReleaseRoleSpawn(APBPlayerController* playerController)
 {
-    // 复活时重新推送库存（仅服务端权威路径）
-    if (functionName.find("OnRestartInStartSpot") != std::string::npos)
+    (void)playerController;
+    return true;
+}
+
+void LoadoutManager::BeginSpawnDispatch(APBPlayerController* playerController)
+{
+    (void)playerController;
+}
+
+void LoadoutManager::CompleteSpawnDispatch(APBPlayerController* playerController)
+{
+    (void)playerController;
+}
+
+void LoadoutManager::FinalizeSpawnRequest(APBPlayerController* playerController)
+{
+    (void)playerController;
+}
+
+void LoadoutManager::AbandonSpawnRequest(APBPlayerController* playerController)
+{
+    (void)playerController;
+}
+
+void LoadoutManager::TickServer(float deltaSeconds)
+{
+    (void)deltaSeconds;
+    if (!impl_ || !impl_->ServerActive) return;
+    const TimePoint now = Clock::now();
+    impl_->BindCurrentWorld(UWorld::GetWorld());
+    impl_->ConsumeFetchTasks();
+
+    std::vector<Impl::PendingInventoryBinding> pending =
+        std::move(impl_->PendingInventoryBindings);
+    impl_->PendingInventoryBindings.clear();
+    for (auto& binding : pending)
     {
-        APBPlayerController* playerController = nullptr;
-        if (parms)
+        bool keep = now < binding.NextAttempt;
+        if (!keep)
         {
-            auto* restartParms = static_cast<Params::PBFieldModManager_OnRestartInStartSpot*>(parms);
-            if (restartParms && restartParms->InController &&
-                restartParms->InController->IsA(APBPlayerController::StaticClass()))
-            {
-                playerController = static_cast<APBPlayerController*>(restartParms->InController);
-            }
+            const bool bound = impl_->TryBindInventorySpawn(binding.Pawn, now);
+            keep = !bound && now < binding.Deadline &&
+                !impl_->DestroyedCharacters.contains(binding.Pawn);
+            if (keep) binding.NextAttempt = now + kPostSpawnRetryInterval;
         }
-
-        if (playerController && playerController->HasAuthority())
+        if (keep)
         {
-            std::scoped_lock lock(impl_->mutex);
-            auto it = impl_->perPlayerSnapshots.find(playerController);
-            if (it != impl_->perPlayerSnapshots.end() && it->second.HasArrived && !it->second.InventoryPushed)
-            {
-                std::string detail;
-                if (PreSpawnApply(it->second.Snapshot, playerController, detail))
-                {
-                    it->second.InventoryPushed = true;
-                }
-            }
-        }
-    }
-}
-
-void LoadoutManager::OnServerProcessEventPost(UObject* object, const std::string& functionName, void* parms)
-{
-    // 不需要恢复操作
-    (void)object; (void)functionName; (void)parms;
-}
-
-// =====================================================================
-//  公有接口 — Worker/Tick 桥接
-// =====================================================================
-
-void LoadoutManager::TickClient()
-{
-    if (!EnsureClientSnapshotLoaded(*impl_, false)) return;
-
-    PushClientInventoryCacheFromSnapshot(*impl_, impl_->clientSnapshot, false, "client-tick");
-}
-
-void LoadoutManager::TickServer()
-{
-    UWorld* World = UWorld::GetWorld();
-    if (!World) return;
-    AGameStateBase* GS = World->GameState;
-    if (!GS || !GS->HasAuthority()) return;
-
-    // 复制待应用列表（锁外操作）
-    std::vector<std::pair<APBPlayerController*, Impl::PerPlayerSnapshot>> pendingApplies;
-    {
-        std::scoped_lock lock(impl_->mutex);
-        for (auto& [controller, perPlayer] : impl_->perPlayerSnapshots)
-        {
-            if (perPlayer.HasArrived && !perPlayer.Applied)
-            {
-                pendingApplies.push_back({ controller, perPlayer });
-            }
+            const bool alreadyQueued = std::any_of(
+                impl_->PendingInventoryBindings.begin(),
+                impl_->PendingInventoryBindings.end(),
+                [&binding](const auto& live) { return live.Pawn == binding.Pawn; });
+            if (!alreadyQueued)
+                impl_->PendingInventoryBindings.push_back(std::move(binding));
         }
     }
 
-    for (auto& [playerController, perPlayer] : pendingApplies)
+    std::vector<Impl::ConnectionKey> playerKeys;
+    playerKeys.reserve(impl_->Players.size());
+    for (const auto& entry : impl_->Players) playerKeys.push_back(entry.first);
+    for (const Impl::ConnectionKey& key : playerKeys)
     {
-        APBCharacter* character = GetControllerCharacter(playerController);
-        if (!character || character->Inventory.Num() <= 0 || !IsCharacterAlive(character))
+        Impl::PlayerConnection* player = impl_->Find(key);
+        if (!player) continue;
+        if (!player->FetchInFlight && !player->FetchCompleted &&
+            !player->FetchTerminal && now >= player->NextFetchAt)
+        {
+            impl_->StartFetch(*player);
+        }
+        impl_->TryPostSpawnApply(key, now);
+    }
+
+    struct Replay
+    {
+        Impl::ConnectionKey Key;
+        APBPlayerController* Controller = nullptr;
+        std::string RoleId;
+    };
+    std::vector<Replay> replays;
+    for (auto& entry : impl_->Players)
+    {
+        Impl::PlayerConnection& player = entry.second;
+        const bool hasEffective = player.RuntimeOverrides.contains(player.Pending.RoleId) ||
+            player.Baselines.contains(player.Pending.RoleId);
+        const auto decision = LoadoutStatePolicy::PollRoleConfirmation(
+            player.Pending, hasEffective,
+            player.FetchCompleted || player.FetchTerminal, now);
+        if (decision)
+            replays.push_back({player.Key, player.Controller, player.Pending.RoleId});
+    }
+
+    for (const Replay& replay : replays)
+    {
+        Impl::PlayerConnection* current = impl_->Find(replay.Key);
+        if (!replay.Controller || !current || current->Controller != replay.Controller ||
+            !current->Pending.Replaying || current->Pending.RoleId != replay.RoleId)
         {
             continue;
         }
-
-        if (PostSpawnApply(character, perPlayer.Snapshot))
+        try
         {
-            std::scoped_lock lock(impl_->mutex);
-            auto it = impl_->perPlayerSnapshots.find(playerController);
-            if (it != impl_->perPlayerSnapshots.end())
-            {
-                it->second.Applied = true;
-            }
-
-            ClientLog("[LOADOUT] Server applied loadout for player=" +
-                playerController->GetFullName() + " role=" + perPlayer.RoleId);
+            replay.Controller->ServerConfirmRoleSelection(
+                LoadoutSerializer::NameFromString(replay.RoleId));
+        }
+        catch (...)
+        {
+            ClientLog("[LOADOUT] player=" + PlayerTag(replay.Key.PlayerId) +
+                " generation=" + std::to_string(replay.Key.Generation) +
+                " stage=confirm-replay result=exception");
+        }
+        if (Impl::PlayerConnection* player = impl_->Find(replay.Key);
+            player && player->Pending.Replaying)
+        {
+            LoadoutStatePolicy::CompleteRoleConfirmation(player->Pending);
         }
     }
-}
-
-// =====================================================================
-//  公有接口 — 已弃用（兼容性保留）
-// =====================================================================
-
-void LoadoutManager::OnServerLoadoutDataReceived(APBPlayerController* playerController, const std::string& jsonPayload)
-{
-    // __LDS__ 聊天通道已弃用。
-    // 配装数据通过 metaserver REST 拉取，不再通过游戏内聊天通道传输。
-    (void)playerController; (void)jsonPayload;
 }

@@ -15,12 +15,84 @@
 //    - DidProcStartMatch：由匹配流程设置，LateJoin 只读取
 
 #include "LateJoinManager.h"
+#include "ServerLogic.h"
 #include "../SDK.hpp"
 #include "../SDK/Engine_parameters.hpp"
 #include "../SDK/ProjectBoundary_parameters.hpp"
 #include <iostream>
+#include <vector>
 
 using namespace SDK;
+
+namespace
+{
+    std::string DescribePlayerRoleIdentity(APBPlayerController* PC)
+    {
+        if (!PC || !PC->PBPlayerState)
+            return "selected=<missing> possessed=<missing>";
+        try
+        {
+            return "selected=" + PC->PBPlayerState->SelectedCharacterID.ToString() +
+                " possessed=" + PC->PBPlayerState->PossessedCharacterId.ToString();
+        }
+        catch (...)
+        {
+            return "selected=<unreadable> possessed=<unreadable>";
+        }
+    }
+
+    bool IsCurrentServerConnection(APBPlayerController* PC)
+    {
+        return PC && ConnectedPlayerControllers.contains(PC) &&
+            !DisconnectedPlayerControllers.contains(PC) &&
+            !PC->bActorIsBeingDestroyed;
+    }
+
+    class ScopedRestartPermit
+    {
+    public:
+        ScopedRestartPermit(
+            APBPlayerController*& slot,
+            int& depth,
+            APBPlayerController* player)
+            : Slot(slot), Depth(depth), Previous(slot)
+        {
+            Slot = player;
+            ++Depth;
+        }
+
+        ~ScopedRestartPermit()
+        {
+            if (Depth > 0) --Depth;
+            Slot = Previous;
+        }
+
+    private:
+        APBPlayerController*& Slot;
+        int& Depth;
+        APBPlayerController* Previous;
+    };
+
+    class ScopedSpawnDispatchCompletion
+    {
+    public:
+        ScopedSpawnDispatchCompletion(
+            const std::function<void(APBPlayerController*)>& callback,
+            APBPlayerController* playerController)
+            : Callback(callback), PlayerController(playerController)
+        {
+        }
+
+        ~ScopedSpawnDispatchCompletion()
+        {
+            if (Callback) Callback(PlayerController);
+        }
+
+    private:
+        const std::function<void(APBPlayerController*)>& Callback;
+        APBPlayerController* PlayerController = nullptr;
+    };
+}
 
 // =====================================================================
 //  构造函数
@@ -28,12 +100,24 @@ using namespace SDK;
 
 LateJoinManager::LateJoinManager(
     const bool& InDidProcStartMatch,
+    const bool& InDidBroadcastRoleSelection,
     std::unordered_map<APBPlayerController*, bool>& InPlayerRespawnAllowedMap,
-    FReportRoomStarted InReportRoomStarted
+    FReportRoomStarted InReportRoomStarted,
+    FCanReleasePlayerSpawn InCanReleasePlayerSpawn,
+    FSpawnDispatchNotification InBeginSpawnDispatch,
+    FSpawnDispatchNotification InCompleteSpawnDispatch,
+    FSpawnDispatchNotification InFinalizeSpawnRequest,
+    FSpawnDispatchNotification InAbandonSpawnRequest
 )
     : DidProcStartMatch(InDidProcStartMatch)
+    , DidBroadcastRoleSelection(InDidBroadcastRoleSelection)
     , PlayerRespawnAllowedMap(InPlayerRespawnAllowedMap)
     , ReportRoomStarted(std::move(InReportRoomStarted))
+    , CanReleasePlayerSpawn(std::move(InCanReleasePlayerSpawn))
+    , BeginSpawnDispatch(std::move(InBeginSpawnDispatch))
+    , CompleteSpawnDispatch(std::move(InCompleteSpawnDispatch))
+    , FinalizeSpawnRequest(std::move(InFinalizeSpawnRequest))
+    , AbandonSpawnRequest(std::move(InAbandonSpawnRequest))
 {
 }
 
@@ -74,7 +158,12 @@ bool LateJoinManager::OnProcessEvent(UObject* Object, const std::string& functio
     if (functionName.contains("CanPlayerSelectRole"))
     {
         auto* RoleParms = (Params::PBGameMode_CanPlayerSelectRole*)Parms;
-        if (RoleParms && IsLateJoinPlayer(RoleParms->Player))
+        const auto tracked = RoleParms
+            ? LateJoinPlayers.find(RoleParms->Player)
+            : LateJoinPlayers.end();
+        if (RoleParms && tracked != LateJoinPlayers.end() &&
+            (tracked->second.State == ELateJoinState::PendingRoleSelection ||
+             tracked->second.State == ELateJoinState::AwaitingRespawnInput))
         {
             RoleParms->ReturnValue = true;
             return true;    // 已拦截，跳过原始调用
@@ -89,7 +178,10 @@ bool LateJoinManager::OnProcessEvent(UObject* Object, const std::string& functio
             ? (APBPlayerController*)Object
             : nullptr;
 
-        if (IsLateJoinPlayer(PBPlayerController))
+        const auto tracked = LateJoinPlayers.find(PBPlayerController);
+        if (tracked != LateJoinPlayers.end() &&
+            (tracked->second.State == ELateJoinState::PendingRoleSelection ||
+             tracked->second.State == ELateJoinState::AwaitingRespawnInput))
         {
             auto* RoleParms = (Params::PBPlayerController_CanSelectRole*)Parms;
             if (RoleParms)
@@ -110,19 +202,206 @@ bool LateJoinManager::OnProcessEvent(UObject* Object, const std::string& functio
 // @brief ServerConfirmRoleSelection 后的状态推进
 //  将中途加入玩家的状态从 PendingRoleSelection 推进到 RoleConfirmed，
 //  并重置生成计时器。
-void LateJoinManager::OnRoleConfirmed(APBPlayerController* PC)
+void LateJoinManager::OnRoleConfirmed(
+    APBPlayerController* PC,
+    const std::string& roleId)
 {
     auto it = LateJoinPlayers.find(PC);
-    if (it != LateJoinPlayers.end())
+    if (it == LateJoinPlayers.end() || roleId.empty() || roleId == "None")
+        return;
+
+    // ESC -> role selection is the explicit alternate to the native F respawn
+    // prompt. A dead controller can still retain its old Pawn briefly, so do
+    // not run the playable-Pawn/role-transition test in this state: the death
+    // that would release that transition has already happened.
+    if (it->second.State == ELateJoinState::AwaitingRespawnInput)
     {
-        const bool bInitialJoin = it->second.bIsInitialJoin;
+        it->second.DesiredRoleId = roleId;
         it->second.State = ELateJoinState::RoleConfirmed;
         it->second.ElapsedSeconds = 0.0f;
         it->second.SpawnAttempts = 0;
-        std::cout << "[LATEJOIN] Role confirmed; scheduling "
-            << (bInitialJoin ? "initial-join" : "single-player")
-            << " spawn." << std::endl;
+        it->second.AwaitingRoleTransitionDeath = false;
+        PlayerRespawnAllowedMap[PC] = false;
+        std::cout << "[LATEJOIN] Post-death role selection confirmed; scheduling spawn."
+            << std::endl;
+        return;
     }
+
+    it->second.DesiredRoleId = roleId;
+    const auto respawn = PlayerRespawnAllowedMap.find(PC);
+    const bool respawnWasBlocked =
+        respawn != PlayerRespawnAllowedMap.end() && !respawn->second;
+    const bool anyCurrentPawnPlayable = HasPlayableLateJoinPawn(PC);
+    it = LateJoinPlayers.find(PC);
+    if (it == LateJoinPlayers.end())
+        return;
+    const bool desiredPawnPlayable = anyCurrentPawnPlayable &&
+        HasPlayableLateJoinPawn(PC, roleId);
+    // The alive check may synchronously tear down the controller through gameplay
+    // callbacks. Never retain an unordered_map iterator across an SDK call.
+    it = LateJoinPlayers.find(PC);
+    if (it == LateJoinPlayers.end())
+        return;
+
+    if (desiredPawnPlayable && !respawnWasBlocked)
+    {
+        // Covers both an already-Spawned connection and the one-frame window
+        // where RestartPlayers produced a Pawn but Tick has not marked it yet.
+        std::cout << "[LATEJOIN] Ignored role confirmation while current pawn is playable."
+            << std::endl;
+        return;
+    }
+    const bool bInitialJoin = it->second.bIsInitialJoin;
+    it->second.State = ELateJoinState::RoleConfirmed;
+    it->second.ElapsedSeconds = 0.0f;
+    it->second.SpawnAttempts = 0;
+    it->second.ExplicitNativeRespawnDispatched = false;
+    it->second.AwaitingRoleTransitionDeath =
+        anyCurrentPawnPlayable && !desiredPawnPlayable;
+    if (it->second.AwaitingRoleTransitionDeath)
+        PlayerRespawnAllowedMap[PC] = false;
+    std::cout << "[LATEJOIN] Role confirmed; scheduling "
+        << (bInitialJoin ? "initial-join" : "single-player")
+        << " spawn." << std::endl;
+}
+
+void LateJoinManager::OnPlayerKilled(APBPlayerController* PC)
+{
+    auto it = LateJoinPlayers.find(PC);
+    if (!IsCurrentServerConnection(PC) || it == LateJoinPlayers.end())
+        return;
+
+    if (it->second.AwaitingRoleTransitionDeath)
+    {
+        it->second.AwaitingRoleTransitionDeath = false;
+        it->second.State = ELateJoinState::RoleConfirmed;
+        it->second.ElapsedSeconds = 0.0f;
+        it->second.SpawnAttempts = 0;
+        return;
+    }
+
+    if (!it->second.HasCompletedSpawn)
+        return;
+
+    if (it->second.State == ELateJoinState::AwaitingRespawnInput)
+        return;
+
+    // Preserve the current role and loadout while the native death UI waits
+    // for player intent. F emits the normal restart RPC and is serialized by
+    // QueueManagedRespawn; ESC opens the game's own role-selection screen and
+    // eventually reaches OnRoleConfirmed. Do not synthesize ClientSelectRole
+    // here, because that bypasses the native F/ESC choice.
+    it->second.State = ELateJoinState::AwaitingRespawnInput;
+    it->second.ElapsedSeconds = 0.0f;
+    it->second.SpawnAttempts = 0;
+    it->second.AwaitingRoleTransitionDeath = false;
+    it->second.ExplicitNativeRespawnDispatched = false;
+    it->second.RespawnLifecycleId = NextRespawnLifecycleId++;
+    // Keep GameMode wave/automatic restart entry points closed. The explicit
+    // client ServerRestartPlayer/ServerQuickRespawn RPC is allowed to convert
+    // this state into a managed spawn by the hook layer.
+    PlayerRespawnAllowedMap[PC] = false;
+    std::cout << "[LATEJOIN] Player death is awaiting native F/ESC respawn input. "
+        << "lifecycle_id=" << it->second.RespawnLifecycleId << std::endl;
+}
+
+bool LateJoinManager::CanQueueManagedRespawn(APBPlayerController* PC) const
+{
+    auto it = LateJoinPlayers.find(PC);
+    if (!IsCurrentServerConnection(PC) || it == LateJoinPlayers.end())
+        return false;
+
+    // HasCompletedSpawn is monotonic for a connection. It is the authority
+    // that distinguishes a real death/round restart from an engine callback
+    // occurring during initial role selection or the first spawn attempt.
+    // Keep the explicit state check as a defence against a future transition
+    // accidentally carrying the flag into a fresh PendingRoleSelection state.
+    return it->second.HasCompletedSpawn &&
+        it->second.State != ELateJoinState::PendingRoleSelection;
+}
+
+bool LateJoinManager::QueueManagedRespawn(APBPlayerController* PC)
+{
+    if (!CanQueueManagedRespawn(PC))
+        return false;
+
+    auto it = LateJoinPlayers.find(PC);
+    if (it == LateJoinPlayers.end())
+        return false;
+
+    if (!it->second.AwaitingRoleTransitionDeath)
+    {
+        it->second.State = ELateJoinState::RoleConfirmed;
+        it->second.ElapsedSeconds = 0.0f;
+        it->second.SpawnAttempts = 0;
+        it->second.ExplicitNativeRespawnDispatched = false;
+    }
+    // Close every native restart path until Tick has acquired the per-role
+    // loadout lease and installed the matching inventory seed.
+    PlayerRespawnAllowedMap[PC] = false;
+    return true;
+}
+
+bool LateJoinManager::DispatchManagedExplicitRespawn(
+    APBPlayerController* PC,
+    const char* requestKind,
+    const FExplicitRespawnDispatch& dispatch)
+{
+    if (!dispatch || !QueueManagedRespawn(PC))
+        return false;
+
+    auto it = LateJoinPlayers.find(PC);
+    if (!IsCurrentServerConnection(PC) || it == LateJoinPlayers.end())
+        return false;
+
+    // The forwarded native RPC is attempt 0. Mark one attempt consumed before
+    // crossing into native code so Tick cannot issue RestartPlayers on the next
+    // frame while a native restart is still settling.
+    it->second.ExplicitNativeRespawnDispatched = true;
+    it->second.SpawnAttempts = 1;
+    it->second.ElapsedSeconds = 0.0f;
+    const std::uint64_t lifecycleId = it->second.RespawnLifecycleId;
+    PlayerRespawnAllowedMap[PC] = true;
+
+    if (BeginSpawnDispatch) BeginSpawnDispatch(PC);
+    ScopedSpawnDispatchCompletion dispatchCompletion(
+        CompleteSpawnDispatch, PC);
+    if (!IsCurrentServerConnection(PC) || !LateJoinPlayers.contains(PC))
+        return false;
+
+    ScopedRestartPermit permit(ManagedRestartPermit, ManagedRestartPermitDepth, PC);
+    std::cout << "[RESPAWN] lifecycle_id=" << lifecycleId
+        << " attempt=0 origin=explicit_f request_kind="
+        << (requestKind ? requestKind : "unknown")
+        << " hook_action=forwarded_native pre="
+        << DescribePlayerRoleIdentity(PC) << std::endl;
+    dispatch();
+    if (IsCurrentServerConnection(PC) && LateJoinPlayers.contains(PC))
+    {
+        std::cout << "[RESPAWN] lifecycle_id=" << lifecycleId
+            << " attempt=0 origin=explicit_f request_kind="
+            << (requestKind ? requestKind : "unknown")
+            << " native_return post=" << DescribePlayerRoleIdentity(PC)
+            << std::endl;
+    }
+    return true;
+}
+
+bool LateJoinManager::IsManagedPlayer(APBPlayerController* PC) const
+{
+    return PC && LateJoinPlayers.contains(PC);
+}
+
+bool LateJoinManager::IsAwaitingRespawnInput(APBPlayerController* PC) const
+{
+    const auto it = LateJoinPlayers.find(PC);
+    return PC && it != LateJoinPlayers.end() &&
+        it->second.State == ELateJoinState::AwaitingRespawnInput;
+}
+
+bool LateJoinManager::HasManagedRestartPermit(APBPlayerController* PC) const
+{
+    return PC && ManagedRestartPermitDepth > 0 && ManagedRestartPermit == PC;
 }
 
 // @brief 每帧驱动中途加入状态机。
@@ -130,76 +409,197 @@ void LateJoinManager::OnRoleConfirmed(APBPlayerController* PC)
 //  根据当前阶段推进状态或执行超时清理。
 void LateJoinManager::Tick(float DeltaTime)
 {
-    for (auto it = LateJoinPlayers.begin(); it != LateJoinPlayers.end();)
-    {
-        APBPlayerController* PC = it->first;
-        FLateJoinInfo& Info = it->second;
+    // Every SDK call below may synchronously invoke Logout/Destroy and erase a
+    // player from LateJoinPlayers. Iterate a key snapshot and re-find the
+    // entry after each such call; never retain an iterator or reference across
+    // an engine boundary.
+    std::vector<APBPlayerController*> players;
+    players.reserve(LateJoinPlayers.size());
+    for (const auto& entry : LateJoinPlayers)
+        players.push_back(entry.first);
 
-        // 无效 PC → 清理
+    for (APBPlayerController* PC : players)
+    {
         if (!PC)
         {
-            it = LateJoinPlayers.erase(it);
+            LateJoinPlayers.erase(nullptr);
             continue;
         }
 
-        Info.ElapsedSeconds += DeltaTime;
+        auto it = LateJoinPlayers.find(PC);
+        if (it == LateJoinPlayers.end())
+            continue;
+        it->second.ElapsedSeconds += DeltaTime;
 
         // ---- 检测生成成功 ----
         // 如果角色已确认且已尝试过生成，且现在拥有非旁观者 Pawn，则完成
-        if (Info.State == ELateJoinState::RoleConfirmed
-            && Info.SpawnAttempts > 0
-            && HasPlayableLateJoinPawn(PC))
+        if (it->second.State == ELateJoinState::RoleConfirmed &&
+            it->second.SpawnAttempts > 0)
         {
-            FinalizeLateJoinSpawn(PC);
-            Info.State = ELateJoinState::Spawned;
-            std::cout << "[LATEJOIN] Spawn complete for late join player." << std::endl;
-            it = LateJoinPlayers.erase(it);
-            continue;
+            const std::string desiredRoleId = it->second.DesiredRoleId;
+            const bool hasPlayablePawn =
+                HasPlayableLateJoinPawn(PC, desiredRoleId);
+            it = LateJoinPlayers.find(PC);
+            if (it == LateJoinPlayers.end())
+                continue;
+
+            if (hasPlayablePawn)
+            {
+                const FLateJoinInfo snapshot = it->second;
+                FinalizeLateJoinSpawn(PC, snapshot);
+                it = LateJoinPlayers.find(PC);
+                if (it == LateJoinPlayers.end())
+                    continue;
+
+                it->second.State = ELateJoinState::Spawned;
+                it->second.HasCompletedSpawn = true;
+                if (FinalizeSpawnRequest) FinalizeSpawnRequest(PC);
+                if (!IsCurrentServerConnection(PC) ||
+                    !LateJoinPlayers.contains(PC))
+                {
+                    continue;
+                }
+                std::cout << "[LATEJOIN] Spawn complete for late join player." << std::endl;
+                continue;
+            }
         }
 
+        it = LateJoinPlayers.find(PC);
+        if (it == LateJoinPlayers.end())
+            continue;
+
         // ---- Phase 1: 等待角色选择 ----
-        if (Info.State == ELateJoinState::PendingRoleSelection)
+        if (it->second.State == ELateJoinState::PendingRoleSelection)
         {
+            // Initial players remain in the native pre-match role-selection
+            // lifecycle. Sending the mid-game sequence here would announce a
+            // match/round before StartMatch and can suppress native role
+            // confirmation. K2_OnLogout bounds this wait instead of the
+            // mid-game role-selection timeout.
+            if (it->second.bIsInitialJoin)
+            {
+                // ClientSelectRole is normally a one-shot server-wide
+                // broadcast. Prompt players that connected after it, and
+                // retry controllers that were not ready during the scan.
+                const bool shouldPrompt = DidBroadcastRoleSelection &&
+                    !it->second.InitialRoleSelectionSent &&
+                    it->second.ElapsedSeconds >= CLIENT_START_DELAY_SEC;
+                bool canSelectRole = false;
+                if (shouldPrompt)
+                    canSelectRole = PC->CanSelectRole();
+
+                it = LateJoinPlayers.find(PC);
+                if (it == LateJoinPlayers.end())
+                    continue;
+                if (shouldPrompt && canSelectRole &&
+                    it->second.State == ELateJoinState::PendingRoleSelection &&
+                    it->second.bIsInitialJoin &&
+                    !it->second.InitialRoleSelectionSent)
+                {
+                    PC->ClientSelectRole();
+                    it = LateJoinPlayers.find(PC);
+                    if (it == LateJoinPlayers.end())
+                        continue;
+                    it->second.InitialRoleSelectionSent = true;
+                    std::cout << "[LATEJOIN] Sent missed initial role-selection prompt." << std::endl;
+                }
+                continue;
+            }
+
             // 延迟 1s 后发送 ClientStart 序列（等待连接稳定）
-            if (!Info.ClientStartSent && Info.ElapsedSeconds >= CLIENT_START_DELAY_SEC)
+            if (!it->second.ClientStartSent &&
+                it->second.ElapsedSeconds >= CLIENT_START_DELAY_SEC)
             {
                 SendLateJoinClientStart(PC);
-                Info.ClientStartSent = true;
-                Info.ElapsedSeconds = 0.0f;
+                it = LateJoinPlayers.find(PC);
+                if (it == LateJoinPlayers.end())
+                    continue;
+                it->second.ClientStartSent = true;
+                it->second.ElapsedSeconds = 0.0f;
             }
             // 超时 30s 未选择角色 → 放弃
-            else if (Info.ClientStartSent && Info.ElapsedSeconds >= ROLE_SELECTION_TIMEOUT)
+            else if (it->second.ClientStartSent &&
+                it->second.ElapsedSeconds >= ROLE_SELECTION_TIMEOUT)
             {
-                Info.State = ELateJoinState::TimedOut;
+                it->second.State = ELateJoinState::TimedOut;
+                if (AbandonSpawnRequest) AbandonSpawnRequest(PC);
                 std::cout << "[LATEJOIN] Timed out waiting for role selection." << std::endl;
             }
         }
         // ---- Phase 2: 角色已确认，尝试生成 Pawn ----
-        else if (Info.State == ELateJoinState::RoleConfirmed)
+        else if (it->second.State == ELateJoinState::RoleConfirmed)
         {
-            // 首次立即尝试，之后每 2s 重试
-            if (Info.SpawnAttempts == 0 || Info.ElapsedSeconds >= SPAWN_RETRY_INTERVAL)
+            if (it->second.AwaitingRoleTransitionDeath)
             {
-                if (Info.SpawnAttempts < MAX_SPAWN_ATTEMPTS)
+                const std::string desiredRoleId = it->second.DesiredRoleId;
+                const bool desiredPawnPlayable =
+                    HasPlayableLateJoinPawn(PC, desiredRoleId);
+                it = LateJoinPlayers.find(PC);
+                if (it == LateJoinPlayers.end())
+                    continue;
+                if (desiredPawnPlayable)
                 {
-                    RequestLateJoinSpawn(PC, Info);
+                    it->second.AwaitingRoleTransitionDeath = false;
+                    it->second.State = ELateJoinState::Spawned;
+                    it->second.HasCompletedSpawn = true;
+                    if (FinalizeSpawnRequest) FinalizeSpawnRequest(PC);
+                    if (!IsCurrentServerConnection(PC) ||
+                        !LateJoinPlayers.contains(PC))
+                    {
+                        continue;
+                    }
+                    continue;
+                }
+
+                const bool oldPawnStillPlayable =
+                    HasPlayableLateJoinPawn(PC);
+                it = LateJoinPlayers.find(PC);
+                if (it == LateJoinPlayers.end())
+                    continue;
+                if (oldPawnStillPlayable)
+                    continue;
+                it->second.AwaitingRoleTransitionDeath = false;
+                it->second.ElapsedSeconds = 0.0f;
+            }
+
+            // 首次立即尝试，之后每 2s 重试
+            if (it->second.SpawnAttempts == 0 ||
+                it->second.ElapsedSeconds >= SPAWN_RETRY_INTERVAL)
+            {
+                if (it->second.SpawnAttempts < MAX_SPAWN_ATTEMPTS)
+                {
+                    // Reassert the per-player inventory immediately before
+                    // this concrete spawn attempt. The FieldMod cache is
+                    // world+role scoped, so LoadoutManager also serializes two
+                    // players choosing the same role until InventorySpawned.
+                    const bool canRelease =
+                        !CanReleasePlayerSpawn || CanReleasePlayerSpawn(PC);
+                    it = LateJoinPlayers.find(PC);
+                    if (it == LateJoinPlayers.end())
+                        continue;
+                    if (canRelease &&
+                        it->second.State == ELateJoinState::RoleConfirmed)
+                        RequestLateJoinSpawn(PC);
                 }
                 else
                 {
-                    Info.State = ELateJoinState::TimedOut;
+                    it->second.State = ELateJoinState::TimedOut;
+                    if (AbandonSpawnRequest) AbandonSpawnRequest(PC);
                     std::cout << "[LATEJOIN] Timed out spawning late join player." << std::endl;
                 }
             }
         }
 
         // ---- 终态清理 ----
-        if (Info.State == ELateJoinState::TimedOut)
+        it = LateJoinPlayers.find(PC);
+        if (it != LateJoinPlayers.end() &&
+            it->second.State == ELateJoinState::TimedOut)
         {
-            it = LateJoinPlayers.erase(it);
-        }
-        else
-        {
-            ++it;
+            // An initial participant must remain visible to the StartMatch
+            // readiness gate. Erasing it would silently count a failed spawn
+            // as ready; a later role confirmation can reset and retry it.
+            if (!it->second.bIsInitialJoin)
+                LateJoinPlayers.erase(it);
         }
     }
 }
@@ -222,11 +622,53 @@ bool LateJoinManager::IsInitialJoinPlayer(APBPlayerController* PC) const
     return it != LateJoinPlayers.end() && it->second.bIsInitialJoin;
 }
 
+void LateJoinManager::OnPlayerDisconnected(APBPlayerController* PC)
+{
+    if (!PC)
+        return;
+
+    LateJoinPlayers.erase(PC);
+    PlayerRespawnAllowedMap.erase(PC);
+}
+
+void LateJoinManager::OnRoleSelectionPromptSent(APBPlayerController* PC)
+{
+    auto it = LateJoinPlayers.find(PC);
+    if (it != LateJoinPlayers.end() && it->second.bIsInitialJoin)
+        it->second.InitialRoleSelectionSent = true;
+}
+
+void LateJoinManager::ResetForWorldChange()
+{
+    LateJoinPlayers.clear();
+    ManagedRestartPermit = nullptr;
+    ManagedRestartPermitDepth = 0;
+    NextRespawnLifecycleId = 1;
+}
+
 // @brief 查询中途加入窗口是否开放
 //  条件：比赛已调用 StartMatch（DidProcStartMatch）或回合正在进行中
 bool LateJoinManager::IsLateJoinWindowOpen() const
 {
     return DidProcStartMatch || IsRoundCurrentlyInProgress();
+}
+
+bool LateJoinManager::CanRestartBeforeMatch(APBPlayerController* PC) const
+{
+    auto it = LateJoinPlayers.find(PC);
+    return it != LateJoinPlayers.end() && it->second.bIsInitialJoin &&
+        it->second.State == ELateJoinState::RoleConfirmed;
+}
+
+bool LateJoinManager::AreInitialPlayersReadyForStart() const
+{
+    for (const auto& entry : LateJoinPlayers)
+    {
+        const FLateJoinInfo& info = entry.second;
+        if (info.bIsInitialJoin && info.State != ELateJoinState::Spawned)
+            return false;
+    }
+    return true;
 }
 
 // =====================================================================
@@ -264,9 +706,28 @@ bool LateJoinManager::IsSpectatorPawn(APawn* Pawn)
 }
 
 // @brief 判断玩家是否拥有可玩的（非旁观者）Pawn
-bool LateJoinManager::HasPlayableLateJoinPawn(APBPlayerController* PC)
+bool LateJoinManager::HasPlayableLateJoinPawn(
+    APBPlayerController* PC,
+    const std::string& desiredRoleId)
 {
-    return PC && PC->Pawn && !IsSpectatorPawn(PC->Pawn);
+    if (!PC || !PC->Pawn || IsSpectatorPawn(PC->Pawn))
+        return false;
+    if (!PC->Pawn->IsA(APBCharacter::StaticClass()))
+        return desiredRoleId.empty();
+    auto* character = static_cast<APBCharacter*>(PC->Pawn);
+    if (!desiredRoleId.empty() &&
+        character->CharacterID.ToString() != desiredRoleId)
+    {
+        return false;
+    }
+    try
+    {
+        return character->IsAlive();
+    }
+    catch (...)
+    {
+        return false;
+    }
 }
 
 // =====================================================================
@@ -276,11 +737,13 @@ bool LateJoinManager::HasPlayableLateJoinPawn(APBPlayerController* PC)
 // @brief 将玩家注册为中途加入，初始化跟踪信息
 void LateJoinManager::QueueLateJoinPlayer(APBPlayerController* PC)
 {
-    if (!PC)
+    if (!IsCurrentServerConnection(PC))
         return;
 
     LateJoinPlayers[PC] = FLateJoinInfo{};
-    PlayerRespawnAllowedMap[PC] = true;
+    // Mid-game joins must confirm a role before any native restart query can
+    // produce a default pawn.
+    PlayerRespawnAllowedMap[PC] = false;
     std::cout << "[LATEJOIN] Queued player for in-progress join: " << PC->GetFullName() << std::endl;
 }
 
@@ -289,7 +752,8 @@ void LateJoinManager::QueueLateJoinPlayer(APBPlayerController* PC)
 //  统一客户端状态推进并确保武器在角色确认后创建。
 void LateJoinManager::QueueInitialJoinPlayer(AGameMode* GameMode, APBPlayerController* PC)
 {
-    if (!PC)
+    (void)GameMode;
+    if (!IsCurrentServerConnection(PC))
         return;
 
     // 如果引擎已为该玩家创建了默认 Pawn，需要先清理掉，
@@ -302,14 +766,19 @@ void LateJoinManager::QueueInitialJoinPlayer(AGameMode* GameMode, APBPlayerContr
         if (IsSpectatorPawn(PC->Pawn))
         {
             PC->ExitObserverState();
+            if (!IsCurrentServerConnection(PC))
+                return;
         }
         PC->UnPossess();
+        if (!IsCurrentServerConnection(PC))
+            return;
     }
 
     FLateJoinInfo info{};
     info.bIsInitialJoin = true;
-    // 与中途加入统一：由状态机发送 ClientStart 序列
-    info.ClientStartSent = false;
+    // No synthetic ClientStart is pending. The existing server-wide native
+    // flow calls ClientSelectRole at the normal point in the countdown.
+    info.ClientStartSent = true;
     LateJoinPlayers[PC] = info;
     // 阻止角色确认前的自动重生（ServerRestartPlayer 拦截会检查此表）
     // PrepareLateJoinRespawn 会在生成时将其设为 true
@@ -322,34 +791,60 @@ void LateJoinManager::QueueInitialJoinPlayer(AGameMode* GameMode, APBPlayerContr
 //  通过参数控制发送哪些 RPC，避免初始加入/中途加入逻辑漂移。
 void LateJoinManager::SyncClientJoinState(APBPlayerController* PC, const FClientSyncOptions& Options)
 {
-    if (!PC)
+    const auto isTracked = [this, PC]() {
+        return IsCurrentServerConnection(PC) && LateJoinPlayers.contains(PC);
+    };
+    if (!isTracked())
         return;
 
     if (Options.SendStartOnlineGame)
+    {
         PC->ClientStartOnlineGame();
+        if (!isTracked()) return;
+    }
 
     if (Options.SendMatchHasStarted)
+    {
         PC->ClientMatchHasStarted();
+        if (!isTracked()) return;
+    }
 
     if (Options.SendRoundHasStarted)
+    {
         PC->ClientRoundHasStarted();
+        if (!isTracked()) return;
+    }
 
     if (Options.SendNotifyGameStarted)
+    {
         PC->NotifyGameStarted();
+        if (!isTracked()) return;
+    }
 
     if (Options.SendClientSelectRole)
+    {
         PC->ClientSelectRole();
+        if (!isTracked()) return;
+    }
 
     if (Options.SendReadyAtStartSpot)
+    {
         PC->ClientReadyAtStartSpot();
+        if (!isTracked()) return;
+    }
 
     if (Options.SendGotoPlaying)
+    {
         PC->ClientGotoState(UKismetStringLibrary::Conv_StringToName(L"Playing"));
+        if (!isTracked()) return;
+    }
 
     if (Options.SendRestartAndAcknowledge)
     {
         PC->ClientRestart(PC->Pawn);
+        if (!isTracked()) return;
         PC->ClientRetryClientRestart(PC->Pawn);
+        if (!isTracked()) return;
         PC->ServerAcknowledgePossession(PC->Pawn);
     }
 }
@@ -375,43 +870,62 @@ void LateJoinManager::SendLateJoinClientStart(APBPlayerController* PC)
 //  清除旁观者状态、解锁输入、释放旁观者 Pawn
 void LateJoinManager::PrepareLateJoinRespawn(APBPlayerController* PC)
 {
-    if (!PC)
+    const auto isTracked = [this, PC]() {
+        return IsCurrentServerConnection(PC) && LateJoinPlayers.contains(PC);
+    };
+    if (!isTracked())
         return;
 
+    // Do not clear spectator-waiting or input state before the controlled
+    // restart. On this build ServerSetSpectatorWaiting(false) synchronously
+    // enters the native default-respawn path: it publishes FIXER pre-ordering
+    // and can possess a FIXER pawn before the requested role's RestartPlayers
+    // dispatch begins. FinalizeLateJoinSpawn clears those flags only after a
+    // live pawn with DesiredRoleId has been observed.
     PlayerRespawnAllowedMap[PC] = true;
-    PC->ServerSetSpectatorWaiting(false);
-    PC->ClientSetSpectatorWaiting(false);
-    PC->SetIgnoreMoveInput(false);
-    PC->SetIgnoreLookInput(false);
-    PC->ClientIgnoreMoveInput(false);
-    PC->ClientIgnoreLookInput(false);
 
     // 如果当前是旁观者 Pawn → 退出观察模式并释放
     if (PC->Pawn && IsSpectatorPawn(PC->Pawn))
     {
         std::cout << "[LATEJOIN] Clearing spectator pawn before playable spawn: "
             << PC->Pawn->GetFullName() << std::endl;
-        PC->ExitObserverState();
+        // ExitObserverState can also advance the native respawn state machine.
+        // Releasing possession is sufficient; the managed RestartPlayers call
+        // below owns the only pre-spawn transition.
         PC->UnPossess();
     }
 }
 
 // @brief 生成成功后的最终化操作
 //  强制 Possess、通知客户端进入 Playing 状态、确认占有
-void LateJoinManager::FinalizeLateJoinSpawn(APBPlayerController* PC)
+void LateJoinManager::FinalizeLateJoinSpawn(APBPlayerController* PC, FLateJoinInfo Info)
 {
-    if (!HasPlayableLateJoinPawn(PC))
+    const auto isTracked = [this, PC]() {
+        return IsCurrentServerConnection(PC) && LateJoinPlayers.contains(PC);
+    };
+    if (!isTracked())
+        return;
+    const bool hasPlayablePawn =
+        HasPlayableLateJoinPawn(PC, Info.DesiredRoleId);
+    if (!hasPlayablePawn || !isTracked())
         return;
 
     // 确保重生许可和输入解锁（防御性重置）
     PlayerRespawnAllowedMap[PC] = true;
     PC->ServerSetSpectatorWaiting(false);
+    if (!isTracked()) return;
     PC->ClientSetSpectatorWaiting(false);
+    if (!isTracked()) return;
     PC->SetIgnoreMoveInput(false);
+    if (!isTracked()) return;
     PC->SetIgnoreLookInput(false);
+    if (!isTracked()) return;
     PC->ClientIgnoreMoveInput(false);
+    if (!isTracked()) return;
     PC->ClientIgnoreLookInput(false);
+    if (!isTracked()) return;
     PC->ExitObserverState();
+    if (!isTracked()) return;
 
     // 强制 Possess（如果 Pawn 的 Controller 不是当前 PC）
     if (PC->Pawn)
@@ -421,42 +935,111 @@ void LateJoinManager::FinalizeLateJoinSpawn(APBPlayerController* PC)
             std::cout << "[LATEJOIN] Forcing possess on spawned pawn: "
                 << PC->Pawn->GetFullName() << std::endl;
             PC->Possess(PC->Pawn);
+            if (!isTracked()) return;
         }
 
         PC->Pawn->ForceNetUpdate();
+        if (!isTracked()) return;
     }
 
-    // 向客户端发送完整的"已就绪"通知序列
+    // A forwarded explicit native respawn can create and possess the correct
+    // pawn without dismissing the client's death/observer input layer. Once a
+    // live desired-role pawn has been observed, re-sending the standard playing
+    // and restart notifications is idempotent and restores gameplay input.
+    // Do this only for an already-spawned connection; the initial spawn remains
+    // owned by the normal match lifecycle.
     PC->ForceNetUpdate();
-    FClientSyncOptions options{};
-    // 与中途加入一致：生成后推送 Playing 相关就绪状态。
-    options.SendMatchHasStarted = true;
-    options.SendRoundHasStarted = true;
-    options.SendNotifyGameStarted = true;
-    options.SendReadyAtStartSpot = true;
-    options.SendGotoPlaying = true;
-    options.SendRestartAndAcknowledge = true;
-    SyncClientJoinState(PC, options);
+    if (!isTracked()) return;
+    if (Info.HasCompletedSpawn)
+    {
+        FClientSyncOptions options{};
+        options.SendGotoPlaying = true;
+        options.SendRestartAndAcknowledge = true;
+        SyncClientJoinState(PC, options);
+        if (!isTracked()) return;
+        std::cout << "[RESPAWN] lifecycle_id=" << Info.RespawnLifecycleId
+            << " stage=client_playing_sync result=sent" << std::endl;
+    }
+    else if (!Info.bIsInitialJoin)
+    {
+        FClientSyncOptions options{};
+        options.SendMatchHasStarted = true;
+        options.SendRoundHasStarted = true;
+        options.SendNotifyGameStarted = true;
+        options.SendReadyAtStartSpot = true;
+        options.SendGotoPlaying = true;
+        options.SendRestartAndAcknowledge = true;
+        SyncClientJoinState(PC, options);
+        if (!isTracked()) return;
+    }
 
-    std::cout << "[LATEJOIN] Finalized playable possession: "
-        << PC->Pawn->GetFullName() << std::endl;
+    if (PC->Pawn)
+        std::cout << "[LATEJOIN] Finalized playable possession: "
+            << PC->Pawn->GetFullName() << std::endl;
 }
 
 // @brief 执行生成尝试（3 级回退策略）
-//  Attempt 0: RestartPlayers — 标准引擎生成路径
-//  Attempt 1: ServerQuickRespawn — 快速重生
-//  Attempt 2: ServerSuicide — 自杀触发重生（最后手段）
-void LateJoinManager::RequestLateJoinSpawn(APBPlayerController* PC, FLateJoinInfo& Info)
+//  Normal attempt 0: RestartPlayers; attempt 1: QuickRespawn; attempt 2: Suicide.
+//  Explicit-F attempt 0 is dispatched synchronously by the ProcessEvent hook;
+//  if it fails, attempt 1 is RestartPlayers and attempt 2 is Suicide.
+void LateJoinManager::RequestLateJoinSpawn(APBPlayerController* PC)
 {
-    if (!PC)
+    auto it = LateJoinPlayers.find(PC);
+    if (!IsCurrentServerConnection(PC) || it == LateJoinPlayers.end())
         return;
 
+    // Mutate the tracked state before crossing into the engine. RestartPlayers
+    // and the fallback RPCs may synchronously disconnect and erase this entry.
+    const int spawnAttempt = it->second.SpawnAttempts;
+    const bool explicitNativeRespawnDispatched =
+        it->second.ExplicitNativeRespawnDispatched;
+    const std::uint64_t lifecycleId = it->second.RespawnLifecycleId;
+    ++it->second.SpawnAttempts;
+    it->second.ElapsedSeconds = 0.0f;
+
     PrepareLateJoinRespawn(PC);
+    if (!IsCurrentServerConnection(PC) || !LateJoinPlayers.contains(PC))
+        return;
     PlayerRespawnAllowedMap[PC] = true;
 
     APBGameMode* GameMode = GetPBGameMode();
+    if (!IsCurrentServerConnection(PC) || !LateJoinPlayers.contains(PC))
+        return;
 
-    if (Info.SpawnAttempts == 0 && GameMode)
+    if (BeginSpawnDispatch) BeginSpawnDispatch(PC);
+    ScopedSpawnDispatchCompletion dispatchCompletion(
+        CompleteSpawnDispatch, PC);
+    if (!IsCurrentServerConnection(PC) || !LateJoinPlayers.contains(PC))
+        return;
+
+    ScopedRestartPermit permit(ManagedRestartPermit, ManagedRestartPermitDepth, PC);
+    std::cout << "[RESPAWN] lifecycle_id=" << lifecycleId
+        << " attempt=" << spawnAttempt
+        << " origin=" << (explicitNativeRespawnDispatched
+            ? "managed_explicit_fallback" : "managed_spawn")
+        << " hook_action=dispatch" << std::endl;
+    std::cout << "[LATEJOIN] Pre-dispatch role identity: "
+        << DescribePlayerRoleIdentity(PC) << std::endl;
+    // RestartPlayers requires the controller to have left Observer state, but
+    // ServerSetSpectatorWaiting(false) is not safe here: it synchronously
+    // enters the default FIXER respawn path on this build. Run only the native
+    // state transition while the matching managed restart permit is active.
+    PC->ExitObserverState();
+    if (!IsCurrentServerConnection(PC) || !LateJoinPlayers.contains(PC))
+        return;
+    std::cout << "[LATEJOIN] Post-observer-exit role identity: "
+        << DescribePlayerRoleIdentity(PC) << std::endl;
+    if (explicitNativeRespawnDispatched && spawnAttempt == 1 && GameMode)
+    {
+        // The exact native request already consumed attempt 0. Use the generic
+        // batch path only as a delayed, observable fallback.
+        TArray<AController*> Controllers{};
+        Controllers.Add((AController*)PC);
+        std::cout << "[LATEJOIN] Native explicit respawn did not produce a pawn; "
+                     "trying RestartPlayers fallback." << std::endl;
+        GameMode->RestartPlayers(Controllers);
+    }
+    else if (spawnAttempt == 0 && GameMode)
     {
         // 第 1 次：通过 GameMode 的标准 RestartPlayers 生成
         TArray<AController*> Controllers{};
@@ -464,19 +1047,17 @@ void LateJoinManager::RequestLateJoinSpawn(APBPlayerController* PC, FLateJoinInf
         std::cout << "[LATEJOIN] RestartPlayers for late join player." << std::endl;
         GameMode->RestartPlayers(Controllers);
     }
-    else if (Info.SpawnAttempts == 1)
+    else if (spawnAttempt == 1)
     {
         // 第 2 次：RestartPlayers 未生效，尝试 ServerQuickRespawn
         std::cout << "[LATEJOIN] RestartPlayers did not produce a pawn; trying ServerQuickRespawn." << std::endl;
         PC->ServerQuickRespawn();
     }
-    else if (Info.SpawnAttempts == 2)
+    else if (spawnAttempt == 2)
     {
         // 第 3 次：QuickRespawn 也未生效，用 ServerSuicide 触发重生链
         std::cout << "[LATEJOIN] Quick respawn did not produce a pawn; trying ServerSuicide fallback." << std::endl;
         PC->ServerSuicide(0);
     }
 
-    Info.SpawnAttempts++;
-    Info.ElapsedSeconds = 0.0f;
 }

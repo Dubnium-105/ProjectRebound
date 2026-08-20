@@ -20,8 +20,8 @@ capture confirms them.
 
 ```text
 Browser/launcher -- Access Token via anonymous pipe --> MetaTunnel
-MetaTunnel -- HTTPS --> meta.dubnium.top -- FRP --> meta-server HTTP :8081
-game -- loopback TCP --> MetaTunnel -- verified TLS --> logic.dubnium.top:443
+MetaTunnel -- HTTPS --> meta.project-rebound.space -- FRP --> meta-server HTTP :8081
+game -- loopback TCP --> MetaTunnel -- verified TLS --> logic.project-rebound.space:443
 logic gateway -- terminated TLS + isolated authenticated FRP --> meta-server :6968
 
 meta-server --> PostgreSQL meta_* tables and selected read-only control data
@@ -34,23 +34,33 @@ Administrator -- trusted network + session + permission + step-up --> /v1/admin/
 `meta-server` is a separate process and image. It does not share a listener,
 database role, Redis ACL user, FRP user, token, systemd unit, or rollback action
 with the control plane. Public port 443 is the only client ingress. Ports 6968,
-6969, 8000, 8081, and 9000 remain private or loopback-only.
+6969, 8000, 8081, and 9000 remain private or loopback-only. `dubnium.top` is
+retired and is not part of the production trust boundary or fallback path.
 
 ## Identity flow
 
-The Browser authenticates against the existing control plane and passes the
-Access Token to MetaTunnel through stdin. MetaTunnel never accepts tokens in a
-command line, environment variable, URL, or log. It binds random loopback-only
-HTTP and TCP ports.
+The launcher authenticates against the existing control plane and passes the
+initial Access Token to MetaTunnel through stdin. It keeps the pipe open and
+writes each replacement token before the 15-minute Access Token expires.
+MetaTunnel never accepts tokens in a command line, environment variable, URL,
+or log. It binds random loopback-only HTTP and TCP ports.
 
-For `/connectServer`, MetaTunnel injects the bearer token. Shipped builds
-disagree on the legacy body's encoding, field names, and types, so MetaServer
+MetaTunnel is a fixed-origin reverse proxy: it preserves the HTTP method, path,
+query, body, response, streaming, and upgrade semantics for every MetaServer
+path while replacing any client-supplied Authorization header with the current
+launcher token. `/_meta-tunnel/health/live` is reserved for local tunnel health;
+MetaServer's `/health/live` continues upstream. Native TCP frames are bridged
+unchanged over certificate-verified TLS.
+
+For `/connectServer`, the tunnel additionally enforces the legacy body limit
+and rewrites the successful Logic endpoint to its local TCP listener. Shipped
+builds disagree on the legacy body's encoding, field names, and types, so MetaServer
 drains the size-limited body without decoding or trusting it. It derives player
 ID, auth session, account state, compatibility client label, and protocol
-version server-side. It stores a
-SHA-256-keyed Gate record in Redis for 60 seconds and returns the opaque
-256-bit ticket. The native Gate handshake consumes it with Redis `GETDEL`; a
-concurrent or repeated use fails and emits a replay metric/security event.
+version server-side. It stores a SHA-256-keyed Gate record in Redis for 60
+seconds and returns the opaque 256-bit ticket. The native Gate handshake
+consumes it with Redis `GETDEL`; a concurrent or repeated use fails and emits a
+replay metric/security event.
 
 ## Persistence and consistency
 

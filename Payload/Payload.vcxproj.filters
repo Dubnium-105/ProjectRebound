@@ -22,6 +22,9 @@
     <Filter Include="BattleLog">
       <UniqueIdentifier>{c3d4e5f6-a7b8-9012-cdef-123456789012}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Loadout">
+      <UniqueIdentifier>{9e15e915-f1e8-4c84-9e5c-88738a4464e3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -33,6 +36,9 @@
     <ClInclude Include="Debug\DebugTool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Hooks\ArchiveCompletionPolicy.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="Communication\CommandFramework.h">
       <Filter>Communication</Filter>
     </ClInclude>
@@ -41,6 +47,18 @@
     </ClInclude>
     <ClInclude Include="BattleLog\BattleLogExtractor.h">
       <Filter>BattleLog</Filter>
+    </ClInclude>
+    <ClInclude Include="Loadout\LoadoutApplication.h">
+      <Filter>Loadout</Filter>
+    </ClInclude>
+    <ClInclude Include="Loadout\LoadoutManager.h">
+      <Filter>Loadout</Filter>
+    </ClInclude>
+    <ClInclude Include="Loadout\LoadoutSerializer.h">
+      <Filter>Loadout</Filter>
+    </ClInclude>
+    <ClInclude Include="Loadout\MetaserverClient.h">
+      <Filter>Loadout</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -58,6 +76,18 @@
     </ClCompile>
     <ClCompile Include="BattleLog\BattleLogExtractor.cpp">
       <Filter>BattleLog</Filter>
+    </ClCompile>
+    <ClCompile Include="Loadout\LoadoutApplication.cpp">
+      <Filter>Loadout</Filter>
+    </ClCompile>
+    <ClCompile Include="Loadout\LoadoutManager.cpp">
+      <Filter>Loadout</Filter>
+    </ClCompile>
+    <ClCompile Include="Loadout\LoadoutSerializer.cpp">
+      <Filter>Loadout</Filter>
+    </ClCompile>
+    <ClCompile Include="Loadout\MetaserverClient.cpp">
+      <Filter>Loadout</Filter>
     </ClCompile>
     <ClCompile Include="SDK\Basic.cpp">
       <Filter>Source Files</Filter>

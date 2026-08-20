@@ -3,18 +3,23 @@ package metaserver
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net"
+	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
+	metaprotocol "github.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver/protocol"
 	"google.golang.org/protobuf/encoding/protowire"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -116,6 +121,13 @@ type TCPServer struct {
 	metrics *MetaMetrics
 	logger  *slog.Logger
 
+	queryAssetsOnce     sync.Once
+	queryAssetsPayload  []byte
+	queryAssetsErr      error
+	queryAssetsRowCount int
+	queryAssetsSetHash  string
+	queryAssetsMode     string
+
 	mu        sync.Mutex
 	byIP      map[string]*connectionRate
 	rpcRate   map[string]*connectionRate
@@ -129,10 +141,14 @@ func NewTCPServer(
 	metrics *MetaMetrics,
 	logger *slog.Logger,
 ) *TCPServer {
-	return &TCPServer{
+	server := &TCPServer{
 		config: cfg, service: service, gates: gates, metrics: metrics, logger: logger,
 		byIP: make(map[string]*connectionRate), rpcRate: make(map[string]*connectionRate),
 	}
+	if service != nil && service.definitions != nil {
+		_, _ = server.queryAssets()
+	}
+	return server
 }
 
 func (s *TCPServer) Run(ctx context.Context) error {
@@ -261,7 +277,7 @@ func (s *TCPServer) serveConnection(ctx context.Context, connection net.Conn, ip
 			continue
 		}
 		malformed = 0
-		if !s.allowPlayerRPC(gate.PlayerID) {
+		if !s.allowNativeRPC(gate.PlayerID, request.RPCPath) {
 			s.metrics.rateLimitedTotal.Add(1)
 			return
 		}
@@ -288,6 +304,21 @@ func isKeepaliveFrame(payload []byte) bool {
 	return bytes.Equal(payload, []byte("//"))
 }
 
+func nativeRPCExemptFromPlayerBudget(rpcPath string) bool {
+	// The pinned Boundary client submits one TextFilter request for every
+	// user-visible compatibility string while it initializes the front-end.
+	// A full native inventory produces roughly 586 calls in a single burst,
+	// exhausting the shared 600-RPC player budget before an armory update can
+	// be sent. TextFilter is authenticated, read-only, stateless, frame-bounded,
+	// and still protected by the connection and bounded write-queue limits, so
+	// keep it out of the budget reserved for stateful native RPCs.
+	return rpcPath == "/chat.chat/TextFilter"
+}
+
+func (s *TCPServer) allowNativeRPC(playerID, rpcPath string) bool {
+	return nativeRPCExemptFromPlayerBudget(rpcPath) || s.allowPlayerRPC(playerID)
+}
+
 func (s *TCPServer) dispatch(
 	ctx context.Context,
 	session GateSession,
@@ -302,31 +333,39 @@ func (s *TCPServer) dispatch(
 	case "/assets.Assets/GetPlayerArchiveV2":
 		message, err := s.getPlayerArchive(ctx, session, request.Message)
 		if err != nil {
+			s.logNativeRPCFailure(request, "get_player_archive_v2", err)
 			response.ErrorCode = rpcUnknownError
 			return response
 		}
 		response.Message = message
+		s.logNativeArchiveResponse(request.MessageID, message)
 	case "/assets.Assets/UpdateRoleArchiveV2":
 		message, err := s.updateRoleArchive(ctx, session, request.Message)
 		if err != nil {
+			s.logNativeRPCFailure(request, "update_role_archive_v2", err)
 			response.ErrorCode = rpcUnknownError
 			return response
 		}
 		response.Message = message
+		s.logNativeRoleUpdate(request.MessageID, request.Message)
 	case "/assets.Assets/UpdateWeaponArchiveV2":
 		message, err := s.updateWeaponArchive(ctx, session, request.Message)
 		if err != nil {
+			s.logNativeRPCFailure(request, "update_weapon_archive_v2", err)
 			response.ErrorCode = rpcUnknownError
 			return response
 		}
 		response.Message = message
+		s.logNativeWeaponUpdate(request.MessageID, request.Message)
 	case "/assets.Assets/QueryAssets":
 		message, err := s.queryAssets()
 		if err != nil {
+			s.logNativeRPCFailure(request, "query_assets", err)
 			response.ErrorCode = rpcUnknownError
 			return response
 		}
 		response.Message = message
+		s.logNativeAssetsResponse(request.MessageID, message)
 	case "/notification.Notification/QueryNotification":
 		message, err := s.queryNotifications(ctx, request.Message)
 		if err != nil {
@@ -404,11 +443,172 @@ func (s *TCPServer) dispatch(
 		}
 		response.Message = message
 	case "/playerdata.PlayerDataClient/GetDataStatisticsInfo":
-		response.Message = EncodeStatusMessage(0)
+		message, err := s.getDataStatisticsInfo()
+		if err != nil {
+			s.logNativeRPCFailure(request, "get_data_statistics_info", err)
+			response.ErrorCode = rpcUnknownError
+			return response
+		}
+		response.Message = message
+		s.logNativeProgressionResponse(request.MessageID, message)
 	default:
 		response.ErrorCode = rpcUnknownError
 	}
 	return response
+}
+
+func nativePayloadDigest(payload []byte) string {
+	digest := sha256.Sum256(payload)
+	return fmt.Sprintf("%x", digest[:8])
+}
+
+func nativeStringSetDigest(values []string) string {
+	canonical := append([]string(nil), values...)
+	sort.Strings(canonical)
+	hasher := sha256.New()
+	for _, value := range canonical {
+		_, _ = hasher.Write([]byte(value))
+		_, _ = hasher.Write([]byte{0})
+	}
+	return fmt.Sprintf("%x", hasher.Sum(nil)[:8])
+}
+
+func nativeArchiveSlotDigest(response *metaprotocol.GetPlayerArchiveV2Response) string {
+	rows := make([]string, 0, len(response.GetPlayerRoleDatas()))
+	for _, role := range response.GetPlayerRoleDatas() {
+		rows = append(rows, strings.Join([]string{
+			role.GetRoleId(), role.GetLeftPylon(), role.GetRightPylon(),
+			role.GetMobilityModule(), role.GetMeleeWeapon(),
+			role.GetPrimaryWeapon(), role.GetSecondWeapon(),
+			nativePayloadDigest([]byte(role.GetWeaponArchiveRaw())),
+			nativePayloadDigest([]byte(role.GetSkinToken())),
+			nativePayloadDigest([]byte(role.GetOrnamentId())),
+		}, "\x1f"))
+	}
+	return nativeStringSetDigest(rows)
+}
+
+func (s *TCPServer) logNativeRPCFailure(
+	request RequestWrapper,
+	stage string,
+	err error,
+) {
+	if s.logger == nil {
+		return
+	}
+	s.logger.Warn("MetaServer native archive RPC failed",
+		"message_id", request.MessageID,
+		"rpc_path", request.RPCPath,
+		"stage", stage,
+		"failure_reason", err)
+}
+
+func (s *TCPServer) logNativeArchiveResponse(messageID int32, payload []byte) {
+	if s.logger == nil {
+		return
+	}
+	var response metaprotocol.GetPlayerArchiveV2Response
+	if err := proto.Unmarshal(payload, &response); err != nil {
+		s.logger.Warn("MetaServer native archive response could not be summarized",
+			"message_id", messageID, "error", err)
+		return
+	}
+	roleIDs := make([]string, 0, len(response.GetPlayerRoleDatas()))
+	for _, role := range response.GetPlayerRoleDatas() {
+		roleIDs = append(roleIDs, role.GetRoleId())
+	}
+	s.logger.Info("MetaServer native archive response",
+		"message_id", messageID,
+		"stage", "get_player_archive_v2",
+		"role_ids", roleIDs,
+		"role_count", len(roleIDs),
+		"player_level", response.GetPlayerLevel(),
+		"slot_set_hash", nativeArchiveSlotDigest(&response),
+		"payload_bytes", len(payload))
+}
+
+func (s *TCPServer) logNativeAssetsResponse(messageID int32, payload []byte) {
+	if s.logger == nil {
+		return
+	}
+	s.logger.Info("MetaServer native ownership response",
+		"message_id", messageID,
+		"stage", "query_assets",
+		"declared_item_count", s.queryAssetsRowCount,
+		"row_count", s.queryAssetsRowCount,
+		"ownership_mode", s.queryAssetsMode,
+		"item_set_hash", s.queryAssetsSetHash,
+		"payload_bytes", len(payload))
+}
+
+func (s *TCPServer) logNativeProgressionResponse(messageID int32, payload []byte) {
+	if s.logger == nil {
+		return
+	}
+	var response metaprotocol.GetDataStatisticsInfoResponse
+	if err := proto.Unmarshal(payload, &response); err != nil {
+		s.logger.Warn("MetaServer native progression response could not be summarized",
+			"message_id", messageID, "error", err)
+		return
+	}
+	keys := make([]string, 0, len(response.GetDatapoints()))
+	playerLevel := int32(0)
+	characterLevel := int32(0)
+	characterCount := 0
+	for _, datapoint := range response.GetDatapoints() {
+		keys = append(keys, datapoint.GetKey())
+		switch {
+		case datapoint.GetKey() == "Level_Player":
+			playerLevel = datapoint.GetValue()
+		case strings.HasPrefix(datapoint.GetKey(), "Level_"):
+			characterLevel = datapoint.GetValue()
+			characterCount++
+		}
+	}
+	s.logger.Info("MetaServer native progression response",
+		"message_id", messageID,
+		"stage", "get_data_statistics_info",
+		"player_level", playerLevel,
+		"character_level", characterLevel,
+		"character_count", characterCount,
+		"datapoint_key_set_hash", nativeStringSetDigest(keys),
+		"payload_bytes", len(payload))
+}
+
+func (s *TCPServer) logNativeRoleUpdate(messageID int32, payload []byte) {
+	if s.logger == nil {
+		return
+	}
+	var request metaprotocol.UpdateRoleArchiveV2Request
+	if err := proto.Unmarshal(payload, &request); err != nil {
+		return
+	}
+	s.logger.Info("MetaServer native role archive persisted",
+		"message_id", messageID,
+		"stage", "update_role_archive_v2",
+		"role_id", request.GetRoleId(),
+		"operation", request.GetOperation(),
+		"item_id", request.GetItemId())
+}
+
+func (s *TCPServer) logNativeWeaponUpdate(messageID int32, payload []byte) {
+	if s.logger == nil {
+		return
+	}
+	var request metaprotocol.UpdateWeaponArchiveV2Request
+	if err := proto.Unmarshal(payload, &request); err != nil {
+		return
+	}
+	weaponID := ""
+	if request.GetWeaponArchive() != nil {
+		weaponID = request.GetWeaponArchive().GetWeaponId()
+	}
+	s.logger.Info("MetaServer native weapon archive persisted",
+		"message_id", messageID,
+		"stage", "update_weapon_archive_v2",
+		"role_id", request.GetRoleId(),
+		"weapon_id", weaponID,
+		"archive_hash", nativePayloadDigest(payload))
 }
 
 func activePartyID(ctx context.Context, repository *Repository, playerID string) string {

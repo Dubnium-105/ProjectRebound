@@ -27,7 +27,7 @@ scrape_configs:
     params:
       module: [meta_http_2xx]
     static_configs:
-      - targets: [https://meta.dubnium.top/health/ready]
+      - targets: [https://meta.project-rebound.space/health/ready]
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
@@ -41,7 +41,7 @@ scrape_configs:
     params:
       module: [meta_logic_tls]
     static_configs:
-      - targets: [logic.dubnium.top:443]
+      - targets: [logic.project-rebound.space:443]
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target

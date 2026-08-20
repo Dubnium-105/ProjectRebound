@@ -10,8 +10,10 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <initializer_list>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "../SDK/Engine_parameters.hpp"
 #include "../SDK/ProjectBoundary_parameters.hpp"
@@ -595,11 +597,34 @@ namespace LoadoutSerializer
     {
         // metaserver REST 单角色接口返回的是扁平槽位字段，而不是游戏内结构化 role。
         return role.contains("primaryWeapon") ||
+            role.contains("primary_weapon") ||
             role.contains("secondaryWeapon") ||
+            role.contains("secondary_weapon") ||
+            role.contains("secondWeapon") ||
+            role.contains("second_weapon") ||
             role.contains("_weaponArchiveRaw") ||
             role.contains("_weaponArchives") ||
+            role.contains("inventory") ||
+            role.contains("skinModel") ||
+            role.contains("skinPaint") ||
+            role.contains("skin_model") ||
+            role.contains("skin_paint") ||
             role.contains("leftPylon") ||
-            role.contains("rightPylon");
+            role.contains("rightPylon") ||
+            role.contains("left_pylon") ||
+            role.contains("right_pylon") ||
+            role.contains("melee_weapon") ||
+            role.contains("mobility_module");
+    }
+
+    static std::string NormalizePlainIdentifier(const std::string& value)
+    {
+        // HTTP response normalization runs on a worker thread. Do not route
+        // identifiers through UE's Conv_StringToName here.
+        const auto first = value.find_first_not_of(" \t\r\n");
+        if (first == std::string::npos) return {};
+        const auto last = value.find_last_not_of(" \t\r\n");
+        return value.substr(first, last - first + 1);
     }
 
     static json NormalizeSingleRole(const json& role)
@@ -631,7 +656,9 @@ namespace LoadoutSerializer
             if (value.is_string()) return value.get<std::string>();
             if (value.is_object())
             {
-                for (const char* nestedKey : { "id", "mobilityModuleId", "weaponId" })
+                for (const char* nestedKey : {
+                    "id", "itemId", "item_id", "mobilityModuleId",
+                    "mobility_module_id", "weaponId", "weapon_id" })
                 {
                     if (value.contains(nestedKey) && value[nestedKey].is_string())
                     {
@@ -641,6 +668,20 @@ namespace LoadoutSerializer
                 }
             }
             return std::string();
+        };
+
+        auto equipmentSkinValue = [&](std::initializer_list<const char*> keys) -> std::string {
+            for (const char* key : keys)
+            {
+                if (!role.contains(key) || !role[key].is_object()) continue;
+                const auto& value = role[key];
+                for (const char* skinKey : { "skinId", "skin_id" })
+                {
+                    if (value.contains(skinKey) && value[skinKey].is_string())
+                        return value[skinKey].get<std::string>();
+                }
+            }
+            return {};
         };
 
         // 汇总所有可用的 weaponConfigs。新 metaserver 会按武器保存 _weaponArchives，
@@ -680,7 +721,19 @@ namespace LoadoutSerializer
         {
             for (const auto& entry : role["inventory"]["slots"])
             {
-                if (entry.is_object()) slots.push_back(entry);
+                if (!entry.is_object()) continue;
+                const json* slotType = nullptr;
+                if (entry.contains("slotType")) slotType = &entry["slotType"];
+                else if (entry.contains("slot_type")) slotType = &entry["slot_type"];
+                if (!slotType || !slotType->is_number_integer()) continue;
+
+                std::string itemId = itemIdValue(entry, "itemId");
+                if (itemId.empty()) itemId = itemIdValue(entry, "item_id");
+                if (itemId.empty()) continue;
+                slots.push_back({
+                    { "slotType", slotType->get<int>() },
+                    { "itemId", itemId },
+                });
             }
         }
 
@@ -698,9 +751,14 @@ namespace LoadoutSerializer
             slots.push_back({ { "slotType", slotType }, { "itemId", itemId } });
         };
 
-        const std::string primary = itemIdValue(role, "primaryWeapon");
-        const std::string secondary = itemIdValue(role, "secondaryWeapon");
-        const std::string meleeId = itemIdValue(role, "meleeWeapon");
+        std::string primary = itemIdValue(role, "primaryWeapon");
+        if (primary.empty()) primary = itemIdValue(role, "primary_weapon");
+        std::string secondary = itemIdValue(role, "secondaryWeapon");
+        if (secondary.empty()) secondary = itemIdValue(role, "secondary_weapon");
+        if (secondary.empty()) secondary = itemIdValue(role, "secondWeapon");
+        if (secondary.empty()) secondary = itemIdValue(role, "second_weapon");
+        std::string meleeId = itemIdValue(role, "meleeWeapon");
+        if (meleeId.empty()) meleeId = itemIdValue(role, "melee_weapon");
         auto firstStringValue = [&](const char* first, const char* second, const char* third) {
             // 同一槽位在不同 metaserver 版本里可能叫 Pod、Launcher 或 Pylon。
             for (const char* key : { first, second, third })
@@ -710,9 +768,20 @@ namespace LoadoutSerializer
             }
             return std::string();
         };
-        const std::string leftId = firstStringValue("leftPod", "leftLauncher", "leftPylon");
-        const std::string rightId = firstStringValue("rightPod", "rightLauncher", "rightPylon");
-        const std::string mobilityId = itemIdValue(role, "mobilityModule");
+        std::string leftId = firstStringValue("leftPod", "leftLauncher", "leftPylon");
+        if (leftId.empty()) leftId = firstStringValue("left_pod", "left_launcher", "left_pylon");
+        std::string rightId = firstStringValue("rightPod", "rightLauncher", "rightPylon");
+        if (rightId.empty()) rightId = firstStringValue("right_pod", "right_launcher", "right_pylon");
+        std::string mobilityId = itemIdValue(role, "mobilityModule");
+        if (mobilityId.empty()) mobilityId = itemIdValue(role, "mobility_module");
+        const std::string meleeSkinId = equipmentSkinValue({
+            "meleeWeapon", "melee_weapon" });
+        const std::string leftSkinId = equipmentSkinValue({
+            "leftPod", "leftLauncher", "leftPylon",
+            "left_pod", "left_launcher", "left_pylon" });
+        const std::string rightSkinId = equipmentSkinValue({
+            "rightPod", "rightLauncher", "rightPylon",
+            "right_pod", "right_launcher", "right_pylon" });
 
         upsertSlot(static_cast<int>(SDK::EPBCharacterSlotType::FirstWeapon), primary);
         upsertSlot(static_cast<int>(SDK::EPBCharacterSlotType::SecondWeapon), secondary);
@@ -727,7 +796,7 @@ namespace LoadoutSerializer
         for (auto& [key, wc] : weaponConfigs.items())
         {
             if (!wc.is_object()) continue;
-            const std::string nk = NameToString(NameFromString(key));
+            const std::string nk = NormalizePlainIdentifier(key);
             if (!nk.empty() && nk != "None")
             {
                 if (!wc.contains("weaponId") || wc["weaponId"].get<std::string>().empty())
@@ -740,7 +809,7 @@ namespace LoadoutSerializer
         for (const auto& wid : { primary, secondary })
         {
             if (wid.empty() || wid == "None") continue;
-            const std::string nk = NameToString(NameFromString(wid));
+            const std::string nk = NormalizePlainIdentifier(wid);
             if (nk.empty() || nk == "None") continue;
             if (!normalizedWeaponConfigs.contains(nk))
             {
@@ -769,17 +838,17 @@ namespace LoadoutSerializer
         if (!meleeId.empty() && meleeId != "None")
         {
             result["meleeWeapon"]["id"] = meleeId;
-            result["meleeWeapon"]["skinId"] = "";
+            result["meleeWeapon"]["skinId"] = meleeSkinId;
         }
         if (!leftId.empty() && leftId != "None")
         {
             result["leftLauncher"]["id"] = leftId;
-            result["leftLauncher"]["skinId"] = "";
+            result["leftLauncher"]["skinId"] = leftSkinId;
         }
         if (!rightId.empty() && rightId != "None")
         {
             result["rightLauncher"]["id"] = rightId;
-            result["rightLauncher"]["skinId"] = "";
+            result["rightLauncher"]["skinId"] = rightSkinId;
         }
         if (!mobilityId.empty() && mobilityId != "None")
         {
@@ -836,6 +905,592 @@ namespace LoadoutSerializer
 
         // 情况 2: 单角色 — 可能是新 flat 格式或旧结构化格式
         return NormalizeSingleRole(loadoutOrRole);
+    }
+
+    bool NormalizeWeaponArchiveV2Map(
+        const json& weaponConfigs,
+        json& outWeaponConfigs,
+        std::string& outError)
+    {
+        outWeaponConfigs = json::object();
+        outError.clear();
+        try
+        {
+            if (!weaponConfigs.is_object())
+            {
+                outError = "weapon_configs must be an object";
+                return false;
+            }
+            if (weaponConfigs.size() > 2)
+            {
+                outError = "weapon_configs may contain only the primary and secondary weapons";
+                return false;
+            }
+
+            const auto readOptionalString = [&](
+                const json& object,
+                const char* key,
+                std::string& output) -> bool
+            {
+                output.clear();
+                if (!object.contains(key)) return true;
+                if (!object[key].is_string())
+                {
+                    outError = std::string("weapon archive field ") + key + " must be a string";
+                    return false;
+                }
+                output = object[key].get<std::string>();
+                if (output.size() > 256)
+                {
+                    outError = std::string("weapon archive field ") + key + " is too long";
+                    return false;
+                }
+                return true;
+            };
+
+            for (const auto& [mapWeaponId, archive] : weaponConfigs.items())
+            {
+                const std::string normalizedMapId = NormalizePlainIdentifier(mapWeaponId);
+                if (normalizedMapId.empty() || normalizedMapId == "None" || normalizedMapId.size() > 128)
+                {
+                    outError = "weapon_configs contains an invalid weapon ID key";
+                    return false;
+                }
+                if (!archive.is_object())
+                {
+                    outError = "weapon_configs values must be objects";
+                    return false;
+                }
+
+                std::string weaponId;
+                if (!archive.contains("weapon_id") || !archive["weapon_id"].is_string())
+                {
+                    outError = "weapon archive weapon_id is missing";
+                    return false;
+                }
+                weaponId = NormalizePlainIdentifier(archive["weapon_id"].get<std::string>());
+                if (weaponId != normalizedMapId)
+                {
+                    outError = "weapon archive weapon_id does not match its map key";
+                    return false;
+                }
+
+                json normalized = EmptyWeaponJson();
+                normalized["weaponId"] = weaponId;
+                normalized["parts"] = json::array();
+
+                if (archive.contains("parts"))
+                {
+                    if (!archive["parts"].is_array() || archive["parts"].size() > 32)
+                    {
+                        outError = "weapon archive parts must be an array of at most 32 entries";
+                        return false;
+                    }
+                    std::unordered_set<int> seenSlots;
+                    for (const auto& part : archive["parts"])
+                    {
+                        if (!part.is_object() ||
+                            !part.contains("slot_id") || !part["slot_id"].is_number_integer())
+                        {
+                            outError = "weapon archive part slot_id is invalid";
+                            return false;
+                        }
+                        const int slotId = part["slot_id"].get<int>();
+                        if ((slotId < 1 || slotId > 12 || slotId == 11) || !seenSlots.insert(slotId).second)
+                        {
+                            outError = "weapon archive contains an invalid or duplicate slot_id";
+                            return false;
+                        }
+
+                        std::string partId;
+                        if (!readOptionalString(part, "part_id", partId)) return false;
+                        // Protojson omits empty scalar values. Empty definition
+                        // slots do not need a runtime part config entry.
+                        if (partId.empty()) continue;
+
+                        std::string partSkinType;
+                        std::string partSkinId;
+                        if (part.contains("ornament") && !part["ornament"].is_null())
+                        {
+                            if (!part["ornament"].is_object())
+                            {
+                                outError = "weapon part ornament must be an object";
+                                return false;
+                            }
+                            const auto& ornament = part["ornament"];
+                            if (ornament.contains("info") && !ornament["info"].is_null())
+                            {
+                                if (!ornament["info"].is_object())
+                                {
+                                    outError = "weapon part ornament info must be an object";
+                                    return false;
+                                }
+                                if (!readOptionalString(ornament["info"], "type", partSkinType) ||
+                                    !readOptionalString(ornament["info"], "id", partSkinId))
+                                {
+                                    return false;
+                                }
+                            }
+                        }
+
+                        normalized["parts"].push_back({
+                            { "slotType", slotId },
+                            { "weaponPartId", partId },
+                            // Keep an omitted ornament empty here.  Empty means
+                            // "inherit the selected weapon suite"; collapsing it
+                            // to PartOri would make that indistinguishable from
+                            // an explicit request for the original appearance.
+                            { "weaponPartSkinId", partSkinType },
+                            { "weaponPartSpecialSkinId", "None" },
+                            { "weaponPartSkinPaintingId", partSkinId },
+                        });
+                    }
+                }
+
+                if (archive.contains("skin") && !archive["skin"].is_null())
+                {
+                    if (!archive["skin"].is_object())
+                    {
+                        outError = "weapon archive skin must be an object";
+                        return false;
+                    }
+                    const auto& skin = archive["skin"];
+                    std::string weaponOrnament;
+                    if (!readOptionalString(skin, "weapon_ornament", weaponOrnament)) return false;
+                    normalized["ornamentId"] = weaponOrnament;
+
+                    if (skin.contains("skin_info") && !skin["skin_info"].is_null())
+                    {
+                        if (!skin["skin_info"].is_object())
+                        {
+                            outError = "weapon archive skin_info must be an object";
+                            return false;
+                        }
+                        std::string skinType;
+                        std::string skinId;
+                        if (!readOptionalString(skin["skin_info"], "type", skinType) ||
+                            !readOptionalString(skin["skin_info"], "id", skinId))
+                        {
+                            return false;
+                        }
+                        // WeaponArchiveV2 names these fields generically, but
+                        // captured values are a weapon-suite ID plus its suite
+                        // painting ID. They are expanded through the game's
+                        // loaded definition tables on the game thread.
+                        normalized["weaponSuitId"] = skinType;
+                        normalized["weaponSuitPaintingId"] = skinId;
+                    }
+                }
+
+                outWeaponConfigs[weaponId] = std::move(normalized);
+            }
+            return true;
+        }
+        catch (const std::exception& error)
+        {
+            outWeaponConfigs = json::object();
+            outError = error.what();
+            return false;
+        }
+        catch (...)
+        {
+            outWeaponConfigs = json::object();
+            outError = "weapon archive normalization failed";
+            return false;
+        }
+    }
+
+    bool NormalizeMetaserverRole(
+        const json& snapshot,
+        const json& weaponConfigs,
+        const std::string& roleId,
+        json& outRole,
+        std::string& outError)
+    {
+        outRole = json();
+        outError.clear();
+        try
+        {
+            const std::string canonicalRoleId = NormalizePlainIdentifier(roleId);
+            if (!snapshot.is_object() || canonicalRoleId.empty() ||
+                canonicalRoleId == "None" || canonicalRoleId.size() > 128)
+            {
+                outError = "snapshot or role_id is invalid";
+                return false;
+            }
+
+            for (const char* key : { "roleId", "role_id" })
+            {
+                if (!snapshot.contains(key)) continue;
+                if (!snapshot[key].is_string() ||
+                    NormalizePlainIdentifier(snapshot[key].get<std::string>()) != canonicalRoleId)
+                {
+                    outError = "snapshot role ID does not match role_id";
+                    return false;
+                }
+            }
+
+            const auto extractSnapshotItem = [&](const json& value, std::string& output) -> bool
+            {
+                output.clear();
+                if (value.is_string())
+                {
+                    output = NormalizePlainIdentifier(value.get<std::string>());
+                    return !output.empty() && output.size() <= 128;
+                }
+                if (!value.is_object()) return false;
+                for (const char* key : {
+                    "id", "itemId", "item_id", "weaponId", "weapon_id",
+                    "mobilityModuleId", "mobility_module_id" })
+                {
+                    if (!value.contains(key)) continue;
+                    if (!value[key].is_string()) return false;
+                    output = NormalizePlainIdentifier(value[key].get<std::string>());
+                    return !output.empty() && output.size() <= 128;
+                }
+                return false;
+            };
+
+            for (const char* key : {
+                "primaryWeapon", "primary_weapon", "secondaryWeapon", "secondary_weapon",
+                "secondWeapon", "second_weapon", "leftPylon", "left_pylon",
+                "rightPylon", "right_pylon", "leftPod", "left_pod", "rightPod",
+                "right_pod", "leftLauncher", "left_launcher", "rightLauncher",
+                "right_launcher", "meleeWeapon", "melee_weapon", "mobilityModule",
+                "mobility_module", "skinModel", "skin_model", "skinPaint",
+                "skin_paint", "headOrnament", "head_ornament", "armBadge",
+                "arm_badge" })
+            {
+                if (!snapshot.contains(key)) continue;
+                std::string unused;
+                if (!extractSnapshotItem(snapshot[key], unused))
+                {
+                    outError = std::string("snapshot field ") + key + " is invalid";
+                    return false;
+                }
+            }
+
+            for (const char* key : {
+                "meleeWeapon", "melee_weapon",
+                "leftPod", "left_pod", "leftLauncher", "left_launcher",
+                "leftPylon", "left_pylon", "rightPod", "right_pod",
+                "rightLauncher", "right_launcher", "rightPylon", "right_pylon" })
+            {
+                if (!snapshot.contains(key) || !snapshot[key].is_object()) continue;
+                for (const char* skinKey : { "skinId", "skin_id" })
+                {
+                    if (!snapshot[key].contains(skinKey)) continue;
+                    if (!snapshot[key][skinKey].is_string() ||
+                        snapshot[key][skinKey].get_ref<const std::string&>().size() > 128)
+                    {
+                        outError = std::string("snapshot field ") + key +
+                            "." + skinKey + " is invalid";
+                        return false;
+                    }
+                }
+            }
+
+            if (snapshot.contains("inventory"))
+            {
+                if (!snapshot["inventory"].is_object())
+                {
+                    outError = "snapshot inventory must be an object";
+                    return false;
+                }
+                const auto& inventory = snapshot["inventory"];
+                if (inventory.contains("slots"))
+                {
+                    if (!inventory["slots"].is_array() || inventory["slots"].size() > 6)
+                    {
+                        outError = "snapshot inventory slots must be an array of at most 6 entries";
+                        return false;
+                    }
+                    for (const auto& slot : inventory["slots"])
+                    {
+                        if (!slot.is_object())
+                        {
+                            outError = "snapshot inventory slot must be an object";
+                            return false;
+                        }
+                        const json* slotType = slot.contains("slotType") ? &slot["slotType"] :
+                            (slot.contains("slot_type") ? &slot["slot_type"] : nullptr);
+                        const json* item = slot.contains("itemId") ? &slot["itemId"] :
+                            (slot.contains("item_id") ? &slot["item_id"] : nullptr);
+                        std::string unused;
+                        if (!slotType || !slotType->is_number_integer() ||
+                            !item || !extractSnapshotItem(*item, unused))
+                        {
+                            outError = "snapshot inventory slot fields are invalid";
+                            return false;
+                        }
+                    }
+                }
+            }
+
+            json normalizedWeaponConfigs;
+            if (!NormalizeWeaponArchiveV2Map(weaponConfigs, normalizedWeaponConfigs, outError))
+                return false;
+
+            json source = snapshot;
+            source["roleId"] = canonicalRoleId;
+            source.erase("role_id");
+            // The room-host endpoint supplies decoded, definition-validated
+            // archives separately. Never parse legacy raw archive fields here.
+            source.erase("_weaponArchiveRaw");
+            source.erase("_weaponArchives");
+            source.erase("weapon_configs");
+            source["weaponConfigs"] = normalizedWeaponConfigs;
+
+            const json candidate = NormalizeSingleRole(source);
+            if (!candidate.is_object())
+            {
+                outError = "snapshot did not normalize to a role object";
+                return false;
+            }
+
+            // Always emit the complete existing structured shape, even for a
+            // role whose baseline contains only cosmetics.
+            json result = EmptyRoleJson(canonicalRoleId);
+            for (const char* key : {
+                "inventory", "characterData", "meleeWeapon", "leftLauncher",
+                "rightLauncher", "mobilityModule" })
+            {
+                if (candidate.contains(key) && candidate[key].is_object()) result[key] = candidate[key];
+            }
+            result["weaponConfigs"] = normalizedWeaponConfigs;
+
+            // RoleArchiveDataV2 always has six equipment fields. Preserve an
+            // explicit native None for every omitted slot so the menu cache and
+            // FieldMod initialization cannot retain a build-default item.
+            auto& normalizedSlots = result["inventory"]["slots"];
+            for (int slotType =
+                    static_cast<int>(SDK::EPBCharacterSlotType::FirstWeapon);
+                slotType < static_cast<int>(
+                    SDK::EPBCharacterSlotType::EPBCharacterSlotType_MAX);
+                ++slotType)
+            {
+                const bool found = std::any_of(
+                    normalizedSlots.begin(), normalizedSlots.end(),
+                    [slotType](const json& slot) {
+                        return slot.is_object() &&
+                            slot.value("slotType", 0) == slotType;
+                    });
+                if (!found)
+                {
+                    normalizedSlots.push_back({
+                        { "slotType", slotType },
+                        { "itemId", "None" },
+                    });
+                }
+            }
+            std::sort(
+                normalizedSlots.begin(), normalizedSlots.end(),
+                [](const json& left, const json& right) {
+                    return left.value("slotType", 0) < right.value("slotType", 0);
+                });
+
+            std::string skinModel;
+            std::string skinPaint;
+            std::string headOrnament;
+            std::string armBadge;
+            const char* skinModelKey = snapshot.contains("skinModel") ? "skinModel" :
+                (snapshot.contains("skin_model") ? "skin_model" : nullptr);
+            const char* skinPaintKey = snapshot.contains("skinPaint") ? "skinPaint" :
+                (snapshot.contains("skin_paint") ? "skin_paint" : nullptr);
+            const char* headOrnamentKey = snapshot.contains("headOrnament") ?
+                "headOrnament" :
+                (snapshot.contains("head_ornament") ? "head_ornament" : nullptr);
+            const char* armBadgeKey = snapshot.contains("armBadge") ? "armBadge" :
+                (snapshot.contains("arm_badge") ? "arm_badge" : nullptr);
+            if (skinModelKey)
+            {
+                if (!snapshot[skinModelKey].is_string())
+                {
+                    outError = "snapshot skinModel must be a string";
+                    return false;
+                }
+                skinModel = NormalizePlainIdentifier(snapshot[skinModelKey].get<std::string>());
+            }
+            if (skinPaintKey)
+            {
+                if (!snapshot[skinPaintKey].is_string())
+                {
+                    outError = "snapshot skinPaint must be a string";
+                    return false;
+                }
+                skinPaint = NormalizePlainIdentifier(snapshot[skinPaintKey].get<std::string>());
+            }
+            if (headOrnamentKey)
+            {
+                if (!snapshot[headOrnamentKey].is_string())
+                {
+                    outError = "snapshot headOrnament must be a string";
+                    return false;
+                }
+                headOrnament = NormalizePlainIdentifier(
+                    snapshot[headOrnamentKey].get<std::string>());
+            }
+            if (armBadgeKey)
+            {
+                if (!snapshot[armBadgeKey].is_string())
+                {
+                    outError = "snapshot armBadge must be a string";
+                    return false;
+                }
+                armBadge = NormalizePlainIdentifier(
+                    snapshot[armBadgeKey].get<std::string>());
+            }
+
+            auto& characterData = result["characterData"];
+            auto upsertCharacterAppearance = [&](SDK::EPBSkinClass appearanceClass,
+                                                  const std::string& appearanceId)
+            {
+                if (appearanceId.empty() || appearanceId == "None") return;
+                auto& classes = characterData["skinClassArray"];
+                auto& ids = characterData["skinIdArray"];
+                const int classValue = static_cast<int>(appearanceClass);
+                for (std::size_t index = 0;
+                    index < classes.size() && index < ids.size(); ++index)
+                {
+                    if (classes[index].is_number_integer() &&
+                        classes[index].get<int>() == classValue)
+                    {
+                        ids[index] = appearanceId;
+                        return;
+                    }
+                }
+                classes.push_back(classValue);
+                ids.push_back(appearanceId);
+            };
+            if (!skinModel.empty() && skinModel != "None")
+            {
+                upsertCharacterAppearance(SDK::EPBSkinClass::Skin, skinModel);
+            }
+            if (!skinPaint.empty() && skinPaint != "None")
+                characterData["skinPaintingId"] = skinPaint;
+            upsertCharacterAppearance(
+                SDK::EPBSkinClass::Ornaments, headOrnament);
+            upsertCharacterAppearance(
+                SDK::EPBSkinClass::SpecialSlot, armBadge);
+
+            if (!characterData.is_object() ||
+                !characterData.contains("skinClassArray") ||
+                !characterData["skinClassArray"].is_array() ||
+                !characterData.contains("skinIdArray") ||
+                !characterData["skinIdArray"].is_array() ||
+                characterData["skinClassArray"].size() !=
+                    characterData["skinIdArray"].size() ||
+                characterData["skinIdArray"].size() > 8 ||
+                !characterData.contains("skinPaintingId") ||
+                !characterData["skinPaintingId"].is_string() ||
+                characterData["skinPaintingId"].get_ref<const std::string&>().size() > 128)
+            {
+                outError = "normalized character appearance is invalid";
+                return false;
+            }
+            for (std::size_t index = 0;
+                index < characterData["skinIdArray"].size(); ++index)
+            {
+                const auto& skinClass = characterData["skinClassArray"][index];
+                const auto& skinId = characterData["skinIdArray"][index];
+                if (!skinClass.is_number_integer() || skinClass.get<int>() < 0 ||
+                    skinClass.get<int>() > 5 || !skinId.is_string() ||
+                    skinId.get_ref<const std::string&>().size() > 128)
+                {
+                    outError = "normalized character skin entry is invalid";
+                    return false;
+                }
+            }
+
+            for (const char* key : { "meleeWeapon", "leftLauncher", "rightLauncher" })
+            {
+                if (!result[key].is_object() || !result[key].contains("id") ||
+                    !result[key]["id"].is_string() ||
+                    result[key]["id"].get_ref<const std::string&>().size() > 128 ||
+                    !result[key].contains("skinId") || !result[key]["skinId"].is_string() ||
+                    result[key]["skinId"].get_ref<const std::string&>().size() > 128)
+                {
+                    outError = std::string("normalized ") + key + " config is invalid";
+                    return false;
+                }
+            }
+            if (!result["mobilityModule"].is_object() ||
+                !result["mobilityModule"].contains("mobilityModuleId") ||
+                !result["mobilityModule"]["mobilityModuleId"].is_string() ||
+                result["mobilityModule"]["mobilityModuleId"]
+                    .get_ref<const std::string&>().size() > 128)
+            {
+                outError = "normalized mobility module config is invalid";
+                return false;
+            }
+
+            if (!result["inventory"].contains("slots") || !result["inventory"]["slots"].is_array() ||
+                result["inventory"]["slots"].size() > 6)
+            {
+                outError = "normalized inventory slots are invalid";
+                return false;
+            }
+
+            std::unordered_set<int> seenInventorySlots;
+            std::unordered_set<std::string> effectiveWeaponIds;
+            for (const auto& slot : result["inventory"]["slots"])
+            {
+                if (!slot.is_object() || !slot.contains("slotType") ||
+                    !slot["slotType"].is_number_integer() ||
+                    !slot.contains("itemId") || !slot["itemId"].is_string())
+                {
+                    outError = "normalized inventory contains an invalid slot";
+                    return false;
+                }
+                const int slotType = slot["slotType"].get<int>();
+                const std::string itemId = NormalizePlainIdentifier(slot["itemId"].get<std::string>());
+                if (slotType < 1 || slotType > 6 || !seenInventorySlots.insert(slotType).second ||
+                    itemId.empty() || itemId.size() > 128)
+                {
+                    outError = "normalized inventory contains an invalid or duplicate slot";
+                    return false;
+                }
+                if ((slotType == static_cast<int>(SDK::EPBCharacterSlotType::FirstWeapon) ||
+                    slotType == static_cast<int>(SDK::EPBCharacterSlotType::SecondWeapon)) &&
+                    itemId != "None")
+                {
+                    effectiveWeaponIds.insert(itemId);
+                }
+            }
+
+            for (const auto& [weaponId, unused] : normalizedWeaponConfigs.items())
+            {
+                (void)unused;
+                if (!effectiveWeaponIds.contains(weaponId))
+                {
+                    outError = "weapon_configs contains a weapon not selected by the role";
+                    return false;
+                }
+            }
+            for (const auto& weaponId : effectiveWeaponIds)
+            {
+                if (!normalizedWeaponConfigs.contains(weaponId))
+                {
+                    outError = "selected weapon is missing its weapon_config";
+                    return false;
+                }
+            }
+
+            outRole = std::move(result);
+            return true;
+        }
+        catch (const std::exception& error)
+        {
+            outRole = json();
+            outError = error.what();
+            return false;
+        }
+        catch (...)
+        {
+            outRole = json();
+            outError = "metaserver role normalization failed";
+            return false;
+        }
     }
 
     // =====================================================================

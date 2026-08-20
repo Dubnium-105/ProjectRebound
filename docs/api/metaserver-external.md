@@ -2,7 +2,7 @@
 
 English | [简体中文](metaserver-external.zh-CN.md)
 
-Base URL: `https://meta.dubnium.top`. JSON endpoints other than
+Base URL: `https://meta.project-rebound.space`. JSON endpoints other than
 `/connectServer` use the standard envelope:
 
 ```json
@@ -57,14 +57,21 @@ Modern MetaServer endpoints continue to enforce their typed schemas. The
 compatibility path's direct game-shaped response is:
 
 ```json
-{"error":0,"userId":"...","aceId":"...","gateToken":"...","endpoint":"logic.dubnium.top:443"}
+{"error":0,"userId":"...","aceId":"...","gateToken":"...","endpoint":"logic.project-rebound.space:443"}
 ```
 
-The Browser must launch `meta-tunnel.exe`, write only the Access Token followed
-by a newline to its anonymous stdin pipe, read the one-line readiness JSON, then
-set the game's LogicServerURL to the reported loopback HTTP port. MetaTunnel
-rewrites the endpoint to its loopback TCP listener and validates the remote TLS
-certificate; applications must not implement a certificate bypass.
+The launcher starts `meta-tunnel.exe`, writes the Access Token followed by a
+newline to its anonymous stdin pipe, reads the one-line readiness JSON, then
+sets the game's LogicServerURL to the reported loopback HTTP port. The pipe
+stays open: the launcher writes each refreshed token as another line before the
+current token expires.
+
+The loopback HTTP listener forwards every method, path, query, body, response,
+stream, and upgrade to the fixed MetaServer origin and injects the latest token.
+Only `/_meta-tunnel/health/live` is local. `/connectServer` additionally rewrites
+the endpoint to the loopback TCP listener. The native listener transparently
+bridges game frames over certificate-verified TLS; applications must not
+implement a certificate bypass.
 
 ## Player profile and loadouts
 
@@ -79,6 +86,23 @@ Use revision `0` only for first creation. Every later update must send the
 revision returned by the last read/write. A stale value returns HTTP 409
 `META_LOADOUT_REVISION_CONFLICT`; read the resource and merge deliberately
 instead of blindly retrying.
+
+### P2P host member loadouts
+
+`GET /v1/meta/p2p-rooms/{room_id}/members/{player_id}/loadouts` is the
+server-side read path for a community listen host. It is called through the
+loopback MetaTunnel, which injects the host player's Access Token; the game
+Payload receives and stores no credential.
+
+The caller must be the room's `host_player_id`, the room must be unexpired and
+in `CONNECTING` or `RUNNING`, and the target must be an `ACTIVE` room member.
+The response uses the standard envelope and returns
+`schema_version`, `room_id`, `player_id`, and `loadouts[]`. Each loadout contains
+`role_id`, `revision`, a definition-validated `snapshot`, and decoded
+`weapon_configs` for only the primary and secondary weapons referenced by that
+role. Invalid role snapshots are omitted; a missing or invalid weapon archive
+is replaced with the pinned Definitions default for that weapon. Responses are
+`Cache-Control: no-store` and never exceed 512 KiB.
 
 ## Party
 

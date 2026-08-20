@@ -197,6 +197,113 @@ func (x *StatusResponse) GetStatusCode() int32 {
 	return 0
 }
 
+type PlayerDatapoint struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Key   string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// The shipped client consumes this as a plain int32. The upstream mirror
+	// labels it sint32, but a controlled native write probe proved that ZigZag
+	// encoding doubles every value before UPBCareerManager stores it.
+	Value         int32 `protobuf:"varint,2,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PlayerDatapoint) Reset() {
+	*x = PlayerDatapoint{}
+	mi := &file_metaserver_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PlayerDatapoint) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PlayerDatapoint) ProtoMessage() {}
+
+func (x *PlayerDatapoint) ProtoReflect() protoreflect.Message {
+	mi := &file_metaserver_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PlayerDatapoint.ProtoReflect.Descriptor instead.
+func (*PlayerDatapoint) Descriptor() ([]byte, []int) {
+	return file_metaserver_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *PlayerDatapoint) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *PlayerDatapoint) GetValue() int32 {
+	if x != nil {
+		return x.Value
+	}
+	return 0
+}
+
+type GetDataStatisticsInfoResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StatusCode    int32                  `protobuf:"varint,1,opt,name=status_code,json=statusCode,proto3" json:"status_code,omitempty"`
+	Datapoints    []*PlayerDatapoint     `protobuf:"bytes,2,rep,name=datapoints,proto3" json:"datapoints,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetDataStatisticsInfoResponse) Reset() {
+	*x = GetDataStatisticsInfoResponse{}
+	mi := &file_metaserver_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDataStatisticsInfoResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDataStatisticsInfoResponse) ProtoMessage() {}
+
+func (x *GetDataStatisticsInfoResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_metaserver_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDataStatisticsInfoResponse.ProtoReflect.Descriptor instead.
+func (*GetDataStatisticsInfoResponse) Descriptor() ([]byte, []int) {
+	return file_metaserver_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *GetDataStatisticsInfoResponse) GetStatusCode() int32 {
+	if x != nil {
+		return x.StatusCode
+	}
+	return 0
+}
+
+func (x *GetDataStatisticsInfoResponse) GetDatapoints() []*PlayerDatapoint {
+	if x != nil {
+		return x.Datapoints
+	}
+	return nil
+}
+
 type GetPlayerArchiveV2Request struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	RoleIds       []string               `protobuf:"bytes,1,rep,name=role_ids,json=roleIds,proto3" json:"role_ids,omitempty"`
@@ -206,7 +313,7 @@ type GetPlayerArchiveV2Request struct {
 
 func (x *GetPlayerArchiveV2Request) Reset() {
 	*x = GetPlayerArchiveV2Request{}
-	mi := &file_metaserver_proto_msgTypes[3]
+	mi := &file_metaserver_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -218,7 +325,7 @@ func (x *GetPlayerArchiveV2Request) String() string {
 func (*GetPlayerArchiveV2Request) ProtoMessage() {}
 
 func (x *GetPlayerArchiveV2Request) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[3]
+	mi := &file_metaserver_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -231,7 +338,7 @@ func (x *GetPlayerArchiveV2Request) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPlayerArchiveV2Request.ProtoReflect.Descriptor instead.
 func (*GetPlayerArchiveV2Request) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{3}
+	return file_metaserver_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetPlayerArchiveV2Request) GetRoleIds() []string {
@@ -242,24 +349,24 @@ func (x *GetPlayerArchiveV2Request) GetRoleIds() []string {
 }
 
 type PlayerRoleData struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	RoleId         string                 `protobuf:"bytes,1,opt,name=role_id,json=roleId,proto3" json:"role_id,omitempty"`
-	LeftPylon      string                 `protobuf:"bytes,2,opt,name=left_pylon,json=leftPylon,proto3" json:"left_pylon,omitempty"`
-	RightPylon     string                 `protobuf:"bytes,3,opt,name=right_pylon,json=rightPylon,proto3" json:"right_pylon,omitempty"`
-	MobilityModule string                 `protobuf:"bytes,4,opt,name=mobility_module,json=mobilityModule,proto3" json:"mobility_module,omitempty"`
-	MeleeWeapon    string                 `protobuf:"bytes,5,opt,name=melee_weapon,json=meleeWeapon,proto3" json:"melee_weapon,omitempty"`
-	PrimaryWeapon  string                 `protobuf:"bytes,6,opt,name=primary_weapon,json=primaryWeapon,proto3" json:"primary_weapon,omitempty"`
-	SecondWeapon   string                 `protobuf:"bytes,7,opt,name=second_weapon,json=secondWeapon,proto3" json:"second_weapon,omitempty"`
-	SkinConfig     []byte                 `protobuf:"bytes,8,opt,name=skin_config,json=skinConfig,proto3" json:"skin_config,omitempty"`
-	WeaponConfig   []byte                 `protobuf:"bytes,9,opt,name=weapon_config,json=weaponConfig,proto3" json:"weapon_config,omitempty"`
-	SkinPaint      string                 `protobuf:"bytes,10,opt,name=skin_paint,json=skinPaint,proto3" json:"skin_paint,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	RoleId           string                 `protobuf:"bytes,1,opt,name=role_id,json=roleId,proto3" json:"role_id,omitempty"`
+	LeftPylon        string                 `protobuf:"bytes,2,opt,name=left_pylon,json=leftPylon,proto3" json:"left_pylon,omitempty"`
+	RightPylon       string                 `protobuf:"bytes,3,opt,name=right_pylon,json=rightPylon,proto3" json:"right_pylon,omitempty"`
+	MobilityModule   string                 `protobuf:"bytes,4,opt,name=mobility_module,json=mobilityModule,proto3" json:"mobility_module,omitempty"`
+	MeleeWeapon      string                 `protobuf:"bytes,5,opt,name=melee_weapon,json=meleeWeapon,proto3" json:"melee_weapon,omitempty"`
+	PrimaryWeapon    string                 `protobuf:"bytes,6,opt,name=primary_weapon,json=primaryWeapon,proto3" json:"primary_weapon,omitempty"`
+	SecondWeapon     string                 `protobuf:"bytes,7,opt,name=second_weapon,json=secondWeapon,proto3" json:"second_weapon,omitempty"`
+	WeaponArchiveRaw *string                `protobuf:"bytes,8,opt,name=weapon_archive_raw,json=weaponArchiveRaw,proto3,oneof" json:"weapon_archive_raw,omitempty"`
+	SkinToken        *string                `protobuf:"bytes,9,opt,name=skin_token,json=skinToken,proto3,oneof" json:"skin_token,omitempty"`
+	OrnamentId       *string                `protobuf:"bytes,10,opt,name=ornament_id,json=ornamentId,proto3,oneof" json:"ornament_id,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *PlayerRoleData) Reset() {
 	*x = PlayerRoleData{}
-	mi := &file_metaserver_proto_msgTypes[4]
+	mi := &file_metaserver_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -271,7 +378,7 @@ func (x *PlayerRoleData) String() string {
 func (*PlayerRoleData) ProtoMessage() {}
 
 func (x *PlayerRoleData) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[4]
+	mi := &file_metaserver_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -284,7 +391,7 @@ func (x *PlayerRoleData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlayerRoleData.ProtoReflect.Descriptor instead.
 func (*PlayerRoleData) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{4}
+	return file_metaserver_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *PlayerRoleData) GetRoleId() string {
@@ -336,23 +443,23 @@ func (x *PlayerRoleData) GetSecondWeapon() string {
 	return ""
 }
 
-func (x *PlayerRoleData) GetSkinConfig() []byte {
-	if x != nil {
-		return x.SkinConfig
+func (x *PlayerRoleData) GetWeaponArchiveRaw() string {
+	if x != nil && x.WeaponArchiveRaw != nil {
+		return *x.WeaponArchiveRaw
 	}
-	return nil
+	return ""
 }
 
-func (x *PlayerRoleData) GetWeaponConfig() []byte {
-	if x != nil {
-		return x.WeaponConfig
+func (x *PlayerRoleData) GetSkinToken() string {
+	if x != nil && x.SkinToken != nil {
+		return *x.SkinToken
 	}
-	return nil
+	return ""
 }
 
-func (x *PlayerRoleData) GetSkinPaint() string {
-	if x != nil {
-		return x.SkinPaint
+func (x *PlayerRoleData) GetOrnamentId() string {
+	if x != nil && x.OrnamentId != nil {
+		return *x.OrnamentId
 	}
 	return ""
 }
@@ -367,7 +474,7 @@ type GetPlayerArchiveV2Response struct {
 
 func (x *GetPlayerArchiveV2Response) Reset() {
 	*x = GetPlayerArchiveV2Response{}
-	mi := &file_metaserver_proto_msgTypes[5]
+	mi := &file_metaserver_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -379,7 +486,7 @@ func (x *GetPlayerArchiveV2Response) String() string {
 func (*GetPlayerArchiveV2Response) ProtoMessage() {}
 
 func (x *GetPlayerArchiveV2Response) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[5]
+	mi := &file_metaserver_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -392,7 +499,7 @@ func (x *GetPlayerArchiveV2Response) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPlayerArchiveV2Response.ProtoReflect.Descriptor instead.
 func (*GetPlayerArchiveV2Response) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{5}
+	return file_metaserver_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetPlayerArchiveV2Response) GetPlayerRoleDatas() []*PlayerRoleData {
@@ -421,7 +528,7 @@ type UpdateRoleArchiveV2Request struct {
 
 func (x *UpdateRoleArchiveV2Request) Reset() {
 	*x = UpdateRoleArchiveV2Request{}
-	mi := &file_metaserver_proto_msgTypes[6]
+	mi := &file_metaserver_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -433,7 +540,7 @@ func (x *UpdateRoleArchiveV2Request) String() string {
 func (*UpdateRoleArchiveV2Request) ProtoMessage() {}
 
 func (x *UpdateRoleArchiveV2Request) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[6]
+	mi := &file_metaserver_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -446,7 +553,7 @@ func (x *UpdateRoleArchiveV2Request) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRoleArchiveV2Request.ProtoReflect.Descriptor instead.
 func (*UpdateRoleArchiveV2Request) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{6}
+	return file_metaserver_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *UpdateRoleArchiveV2Request) GetOperation() int32 {
@@ -479,15 +586,15 @@ func (x *UpdateRoleArchiveV2Request) GetSkinData() []byte {
 
 type SkinPayload struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	SkinModel     string                 `protobuf:"bytes,1,opt,name=skin_model,json=skinModel,proto3" json:"skin_model,omitempty"`
-	SkinPaint     string                 `protobuf:"bytes,2,opt,name=skin_paint,json=skinPaint,proto3" json:"skin_paint,omitempty"`
+	TokenId       string                 `protobuf:"bytes,1,opt,name=token_id,json=tokenId,proto3" json:"token_id,omitempty"`
+	OrnamentId    string                 `protobuf:"bytes,2,opt,name=ornament_id,json=ornamentId,proto3" json:"ornament_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SkinPayload) Reset() {
 	*x = SkinPayload{}
-	mi := &file_metaserver_proto_msgTypes[7]
+	mi := &file_metaserver_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -499,7 +606,7 @@ func (x *SkinPayload) String() string {
 func (*SkinPayload) ProtoMessage() {}
 
 func (x *SkinPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[7]
+	mi := &file_metaserver_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -512,19 +619,19 @@ func (x *SkinPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SkinPayload.ProtoReflect.Descriptor instead.
 func (*SkinPayload) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{7}
+	return file_metaserver_proto_rawDescGZIP(), []int{9}
 }
 
-func (x *SkinPayload) GetSkinModel() string {
+func (x *SkinPayload) GetTokenId() string {
 	if x != nil {
-		return x.SkinModel
+		return x.TokenId
 	}
 	return ""
 }
 
-func (x *SkinPayload) GetSkinPaint() string {
+func (x *SkinPayload) GetOrnamentId() string {
 	if x != nil {
-		return x.SkinPaint
+		return x.OrnamentId
 	}
 	return ""
 }
@@ -540,7 +647,7 @@ type WeaponArchiveV2 struct {
 
 func (x *WeaponArchiveV2) Reset() {
 	*x = WeaponArchiveV2{}
-	mi := &file_metaserver_proto_msgTypes[8]
+	mi := &file_metaserver_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -552,7 +659,7 @@ func (x *WeaponArchiveV2) String() string {
 func (*WeaponArchiveV2) ProtoMessage() {}
 
 func (x *WeaponArchiveV2) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[8]
+	mi := &file_metaserver_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -565,7 +672,7 @@ func (x *WeaponArchiveV2) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WeaponArchiveV2.ProtoReflect.Descriptor instead.
 func (*WeaponArchiveV2) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{8}
+	return file_metaserver_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *WeaponArchiveV2) GetWeaponId() string {
@@ -600,7 +707,7 @@ type PartSlot struct {
 
 func (x *PartSlot) Reset() {
 	*x = PartSlot{}
-	mi := &file_metaserver_proto_msgTypes[9]
+	mi := &file_metaserver_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -612,7 +719,7 @@ func (x *PartSlot) String() string {
 func (*PartSlot) ProtoMessage() {}
 
 func (x *PartSlot) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[9]
+	mi := &file_metaserver_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -625,7 +732,7 @@ func (x *PartSlot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PartSlot.ProtoReflect.Descriptor instead.
 func (*PartSlot) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{9}
+	return file_metaserver_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *PartSlot) GetSlotId() int32 {
@@ -658,7 +765,7 @@ type PartOrnament struct {
 
 func (x *PartOrnament) Reset() {
 	*x = PartOrnament{}
-	mi := &file_metaserver_proto_msgTypes[10]
+	mi := &file_metaserver_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -670,7 +777,7 @@ func (x *PartOrnament) String() string {
 func (*PartOrnament) ProtoMessage() {}
 
 func (x *PartOrnament) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[10]
+	mi := &file_metaserver_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -683,7 +790,7 @@ func (x *PartOrnament) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PartOrnament.ProtoReflect.Descriptor instead.
 func (*PartOrnament) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{10}
+	return file_metaserver_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *PartOrnament) GetInfo() *OrnamentInfo {
@@ -703,7 +810,7 @@ type OrnamentInfo struct {
 
 func (x *OrnamentInfo) Reset() {
 	*x = OrnamentInfo{}
-	mi := &file_metaserver_proto_msgTypes[11]
+	mi := &file_metaserver_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -715,7 +822,7 @@ func (x *OrnamentInfo) String() string {
 func (*OrnamentInfo) ProtoMessage() {}
 
 func (x *OrnamentInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[11]
+	mi := &file_metaserver_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -728,7 +835,7 @@ func (x *OrnamentInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrnamentInfo.ProtoReflect.Descriptor instead.
 func (*OrnamentInfo) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{11}
+	return file_metaserver_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *OrnamentInfo) GetType() string {
@@ -755,7 +862,7 @@ type WeaponSkin struct {
 
 func (x *WeaponSkin) Reset() {
 	*x = WeaponSkin{}
-	mi := &file_metaserver_proto_msgTypes[12]
+	mi := &file_metaserver_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -767,7 +874,7 @@ func (x *WeaponSkin) String() string {
 func (*WeaponSkin) ProtoMessage() {}
 
 func (x *WeaponSkin) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[12]
+	mi := &file_metaserver_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -780,7 +887,7 @@ func (x *WeaponSkin) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WeaponSkin.ProtoReflect.Descriptor instead.
 func (*WeaponSkin) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{12}
+	return file_metaserver_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *WeaponSkin) GetSkinInfo() *OrnamentInfo {
@@ -807,7 +914,7 @@ type UpdateWeaponArchiveV2Request struct {
 
 func (x *UpdateWeaponArchiveV2Request) Reset() {
 	*x = UpdateWeaponArchiveV2Request{}
-	mi := &file_metaserver_proto_msgTypes[13]
+	mi := &file_metaserver_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -819,7 +926,7 @@ func (x *UpdateWeaponArchiveV2Request) String() string {
 func (*UpdateWeaponArchiveV2Request) ProtoMessage() {}
 
 func (x *UpdateWeaponArchiveV2Request) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[13]
+	mi := &file_metaserver_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -832,7 +939,7 @@ func (x *UpdateWeaponArchiveV2Request) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateWeaponArchiveV2Request.ProtoReflect.Descriptor instead.
 func (*UpdateWeaponArchiveV2Request) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{13}
+	return file_metaserver_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *UpdateWeaponArchiveV2Request) GetRoleId() string {
@@ -861,7 +968,7 @@ type ItemData struct {
 
 func (x *ItemData) Reset() {
 	*x = ItemData{}
-	mi := &file_metaserver_proto_msgTypes[14]
+	mi := &file_metaserver_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -873,7 +980,7 @@ func (x *ItemData) String() string {
 func (*ItemData) ProtoMessage() {}
 
 func (x *ItemData) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[14]
+	mi := &file_metaserver_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -886,7 +993,7 @@ func (x *ItemData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ItemData.ProtoReflect.Descriptor instead.
 func (*ItemData) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{14}
+	return file_metaserver_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ItemData) GetItemId() string {
@@ -927,7 +1034,7 @@ type QueryAssetsResponse struct {
 
 func (x *QueryAssetsResponse) Reset() {
 	*x = QueryAssetsResponse{}
-	mi := &file_metaserver_proto_msgTypes[15]
+	mi := &file_metaserver_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -939,7 +1046,7 @@ func (x *QueryAssetsResponse) String() string {
 func (*QueryAssetsResponse) ProtoMessage() {}
 
 func (x *QueryAssetsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[15]
+	mi := &file_metaserver_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -952,7 +1059,7 @@ func (x *QueryAssetsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryAssetsResponse.ProtoReflect.Descriptor instead.
 func (*QueryAssetsResponse) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{15}
+	return file_metaserver_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *QueryAssetsResponse) GetItemCount() int32 {
@@ -982,7 +1089,7 @@ type QueryCurrencyResponse struct {
 
 func (x *QueryCurrencyResponse) Reset() {
 	*x = QueryCurrencyResponse{}
-	mi := &file_metaserver_proto_msgTypes[16]
+	mi := &file_metaserver_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -994,7 +1101,7 @@ func (x *QueryCurrencyResponse) String() string {
 func (*QueryCurrencyResponse) ProtoMessage() {}
 
 func (x *QueryCurrencyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[16]
+	mi := &file_metaserver_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1007,7 +1114,7 @@ func (x *QueryCurrencyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryCurrencyResponse.ProtoReflect.Descriptor instead.
 func (*QueryCurrencyResponse) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{16}
+	return file_metaserver_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *QueryCurrencyResponse) GetCurrencyA() int32 {
@@ -1057,7 +1164,7 @@ type QueryNotificationRequest struct {
 
 func (x *QueryNotificationRequest) Reset() {
 	*x = QueryNotificationRequest{}
-	mi := &file_metaserver_proto_msgTypes[17]
+	mi := &file_metaserver_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1069,7 +1176,7 @@ func (x *QueryNotificationRequest) String() string {
 func (*QueryNotificationRequest) ProtoMessage() {}
 
 func (x *QueryNotificationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[17]
+	mi := &file_metaserver_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1082,7 +1189,7 @@ func (x *QueryNotificationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryNotificationRequest.ProtoReflect.Descriptor instead.
 func (*QueryNotificationRequest) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{17}
+	return file_metaserver_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *QueryNotificationRequest) GetPlatform() string {
@@ -1130,7 +1237,7 @@ type NotificationEntity struct {
 
 func (x *NotificationEntity) Reset() {
 	*x = NotificationEntity{}
-	mi := &file_metaserver_proto_msgTypes[18]
+	mi := &file_metaserver_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1142,7 +1249,7 @@ func (x *NotificationEntity) String() string {
 func (*NotificationEntity) ProtoMessage() {}
 
 func (x *NotificationEntity) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[18]
+	mi := &file_metaserver_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1155,7 +1262,7 @@ func (x *NotificationEntity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NotificationEntity.ProtoReflect.Descriptor instead.
 func (*NotificationEntity) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{18}
+	return file_metaserver_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *NotificationEntity) GetId() string {
@@ -1232,7 +1339,7 @@ type QueryNotificationResponse struct {
 
 func (x *QueryNotificationResponse) Reset() {
 	*x = QueryNotificationResponse{}
-	mi := &file_metaserver_proto_msgTypes[19]
+	mi := &file_metaserver_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1244,7 +1351,7 @@ func (x *QueryNotificationResponse) String() string {
 func (*QueryNotificationResponse) ProtoMessage() {}
 
 func (x *QueryNotificationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[19]
+	mi := &file_metaserver_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1257,7 +1364,7 @@ func (x *QueryNotificationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryNotificationResponse.ProtoReflect.Descriptor instead.
 func (*QueryNotificationResponse) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{19}
+	return file_metaserver_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *QueryNotificationResponse) GetUnknown() int32 {
@@ -1292,7 +1399,7 @@ type CreatePartyResponse struct {
 
 func (x *CreatePartyResponse) Reset() {
 	*x = CreatePartyResponse{}
-	mi := &file_metaserver_proto_msgTypes[20]
+	mi := &file_metaserver_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1304,7 +1411,7 @@ func (x *CreatePartyResponse) String() string {
 func (*CreatePartyResponse) ProtoMessage() {}
 
 func (x *CreatePartyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[20]
+	mi := &file_metaserver_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1317,7 +1424,7 @@ func (x *CreatePartyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePartyResponse.ProtoReflect.Descriptor instead.
 func (*CreatePartyResponse) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{20}
+	return file_metaserver_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *CreatePartyResponse) GetStatusCode() int32 {
@@ -1350,7 +1457,7 @@ type PartyReadyRequest struct {
 
 func (x *PartyReadyRequest) Reset() {
 	*x = PartyReadyRequest{}
-	mi := &file_metaserver_proto_msgTypes[21]
+	mi := &file_metaserver_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1362,7 +1469,7 @@ func (x *PartyReadyRequest) String() string {
 func (*PartyReadyRequest) ProtoMessage() {}
 
 func (x *PartyReadyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[21]
+	mi := &file_metaserver_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1375,7 +1482,7 @@ func (x *PartyReadyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PartyReadyRequest.ProtoReflect.Descriptor instead.
 func (*PartyReadyRequest) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{21}
+	return file_metaserver_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *PartyReadyRequest) GetPartyId() string {
@@ -1394,7 +1501,7 @@ type SetPartyPresenceRequest struct {
 
 func (x *SetPartyPresenceRequest) Reset() {
 	*x = SetPartyPresenceRequest{}
-	mi := &file_metaserver_proto_msgTypes[22]
+	mi := &file_metaserver_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1406,7 +1513,7 @@ func (x *SetPartyPresenceRequest) String() string {
 func (*SetPartyPresenceRequest) ProtoMessage() {}
 
 func (x *SetPartyPresenceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[22]
+	mi := &file_metaserver_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1419,7 +1526,7 @@ func (x *SetPartyPresenceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetPartyPresenceRequest.ProtoReflect.Descriptor instead.
 func (*SetPartyPresenceRequest) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{22}
+	return file_metaserver_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *SetPartyPresenceRequest) GetPresence() string {
@@ -1439,7 +1546,7 @@ type PartyMemberPresence struct {
 
 func (x *PartyMemberPresence) Reset() {
 	*x = PartyMemberPresence{}
-	mi := &file_metaserver_proto_msgTypes[23]
+	mi := &file_metaserver_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1451,7 +1558,7 @@ func (x *PartyMemberPresence) String() string {
 func (*PartyMemberPresence) ProtoMessage() {}
 
 func (x *PartyMemberPresence) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[23]
+	mi := &file_metaserver_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1464,7 +1571,7 @@ func (x *PartyMemberPresence) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PartyMemberPresence.ProtoReflect.Descriptor instead.
 func (*PartyMemberPresence) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{23}
+	return file_metaserver_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *PartyMemberPresence) GetUserId() string {
@@ -1491,7 +1598,7 @@ type QueryPartyPresenceResponse struct {
 
 func (x *QueryPartyPresenceResponse) Reset() {
 	*x = QueryPartyPresenceResponse{}
-	mi := &file_metaserver_proto_msgTypes[24]
+	mi := &file_metaserver_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1503,7 +1610,7 @@ func (x *QueryPartyPresenceResponse) String() string {
 func (*QueryPartyPresenceResponse) ProtoMessage() {}
 
 func (x *QueryPartyPresenceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[24]
+	mi := &file_metaserver_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1516,7 +1623,7 @@ func (x *QueryPartyPresenceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryPartyPresenceResponse.ProtoReflect.Descriptor instead.
 func (*QueryPartyPresenceResponse) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{24}
+	return file_metaserver_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *QueryPartyPresenceResponse) GetStatusCode() int32 {
@@ -1543,7 +1650,7 @@ type MatchmakingRegion struct {
 
 func (x *MatchmakingRegion) Reset() {
 	*x = MatchmakingRegion{}
-	mi := &file_metaserver_proto_msgTypes[25]
+	mi := &file_metaserver_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1555,7 +1662,7 @@ func (x *MatchmakingRegion) String() string {
 func (*MatchmakingRegion) ProtoMessage() {}
 
 func (x *MatchmakingRegion) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[25]
+	mi := &file_metaserver_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1568,7 +1675,7 @@ func (x *MatchmakingRegion) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MatchmakingRegion.ProtoReflect.Descriptor instead.
 func (*MatchmakingRegion) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{25}
+	return file_metaserver_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *MatchmakingRegion) GetRegionId() string {
@@ -1595,7 +1702,7 @@ type QueryMatchmakingRegionResponse struct {
 
 func (x *QueryMatchmakingRegionResponse) Reset() {
 	*x = QueryMatchmakingRegionResponse{}
-	mi := &file_metaserver_proto_msgTypes[26]
+	mi := &file_metaserver_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1607,7 +1714,7 @@ func (x *QueryMatchmakingRegionResponse) String() string {
 func (*QueryMatchmakingRegionResponse) ProtoMessage() {}
 
 func (x *QueryMatchmakingRegionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[26]
+	mi := &file_metaserver_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1620,7 +1727,7 @@ func (x *QueryMatchmakingRegionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryMatchmakingRegionResponse.ProtoReflect.Descriptor instead.
 func (*QueryMatchmakingRegionResponse) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{26}
+	return file_metaserver_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *QueryMatchmakingRegionResponse) GetStatusCode() int32 {
@@ -1647,7 +1754,7 @@ type QueryPlaylistResponse struct {
 
 func (x *QueryPlaylistResponse) Reset() {
 	*x = QueryPlaylistResponse{}
-	mi := &file_metaserver_proto_msgTypes[27]
+	mi := &file_metaserver_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1659,7 +1766,7 @@ func (x *QueryPlaylistResponse) String() string {
 func (*QueryPlaylistResponse) ProtoMessage() {}
 
 func (x *QueryPlaylistResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[27]
+	mi := &file_metaserver_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1672,7 +1779,7 @@ func (x *QueryPlaylistResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryPlaylistResponse.ProtoReflect.Descriptor instead.
 func (*QueryPlaylistResponse) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{27}
+	return file_metaserver_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *QueryPlaylistResponse) GetStatusCode() int32 {
@@ -1699,7 +1806,7 @@ type UnknownMatchmakingMessage struct {
 
 func (x *UnknownMatchmakingMessage) Reset() {
 	*x = UnknownMatchmakingMessage{}
-	mi := &file_metaserver_proto_msgTypes[28]
+	mi := &file_metaserver_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1711,7 +1818,7 @@ func (x *UnknownMatchmakingMessage) String() string {
 func (*UnknownMatchmakingMessage) ProtoMessage() {}
 
 func (x *UnknownMatchmakingMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[28]
+	mi := &file_metaserver_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1724,7 +1831,7 @@ func (x *UnknownMatchmakingMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnknownMatchmakingMessage.ProtoReflect.Descriptor instead.
 func (*UnknownMatchmakingMessage) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{28}
+	return file_metaserver_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *UnknownMatchmakingMessage) GetRegionId() string {
@@ -1751,7 +1858,7 @@ type MatchmakingPayload struct {
 
 func (x *MatchmakingPayload) Reset() {
 	*x = MatchmakingPayload{}
-	mi := &file_metaserver_proto_msgTypes[29]
+	mi := &file_metaserver_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1763,7 +1870,7 @@ func (x *MatchmakingPayload) String() string {
 func (*MatchmakingPayload) ProtoMessage() {}
 
 func (x *MatchmakingPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[29]
+	mi := &file_metaserver_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1776,7 +1883,7 @@ func (x *MatchmakingPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MatchmakingPayload.ProtoReflect.Descriptor instead.
 func (*MatchmakingPayload) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{29}
+	return file_metaserver_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *MatchmakingPayload) GetMatchmakingRequestorUserId() string {
@@ -1803,7 +1910,7 @@ type StartMatchmakingRequest struct {
 
 func (x *StartMatchmakingRequest) Reset() {
 	*x = StartMatchmakingRequest{}
-	mi := &file_metaserver_proto_msgTypes[30]
+	mi := &file_metaserver_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1815,7 +1922,7 @@ func (x *StartMatchmakingRequest) String() string {
 func (*StartMatchmakingRequest) ProtoMessage() {}
 
 func (x *StartMatchmakingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[30]
+	mi := &file_metaserver_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1828,7 +1935,7 @@ func (x *StartMatchmakingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartMatchmakingRequest.ProtoReflect.Descriptor instead.
 func (*StartMatchmakingRequest) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{30}
+	return file_metaserver_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *StartMatchmakingRequest) GetPayload() *MatchmakingPayload {
@@ -1853,7 +1960,7 @@ type QueryUnityMatchmakingResponse struct {
 
 func (x *QueryUnityMatchmakingResponse) Reset() {
 	*x = QueryUnityMatchmakingResponse{}
-	mi := &file_metaserver_proto_msgTypes[31]
+	mi := &file_metaserver_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1865,7 +1972,7 @@ func (x *QueryUnityMatchmakingResponse) String() string {
 func (*QueryUnityMatchmakingResponse) ProtoMessage() {}
 
 func (x *QueryUnityMatchmakingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[31]
+	mi := &file_metaserver_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1878,7 +1985,7 @@ func (x *QueryUnityMatchmakingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryUnityMatchmakingResponse.ProtoReflect.Descriptor instead.
 func (*QueryUnityMatchmakingResponse) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{31}
+	return file_metaserver_proto_rawDescGZIP(), []int{33}
 }
 
 type StopUnityMatchmakingResponse struct {
@@ -1889,7 +1996,7 @@ type StopUnityMatchmakingResponse struct {
 
 func (x *StopUnityMatchmakingResponse) Reset() {
 	*x = StopUnityMatchmakingResponse{}
-	mi := &file_metaserver_proto_msgTypes[32]
+	mi := &file_metaserver_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1901,7 +2008,7 @@ func (x *StopUnityMatchmakingResponse) String() string {
 func (*StopUnityMatchmakingResponse) ProtoMessage() {}
 
 func (x *StopUnityMatchmakingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_metaserver_proto_msgTypes[32]
+	mi := &file_metaserver_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1914,7 +2021,7 @@ func (x *StopUnityMatchmakingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopUnityMatchmakingResponse.ProtoReflect.Descriptor instead.
 func (*StopUnityMatchmakingResponse) Descriptor() ([]byte, []int) {
-	return file_metaserver_proto_rawDescGZIP(), []int{32}
+	return file_metaserver_proto_rawDescGZIP(), []int{34}
 }
 
 var File_metaserver_proto protoreflect.FileDescriptor
@@ -1938,9 +2045,18 @@ const file_metaserver_proto_rawDesc = "" +
 	"\amessage\x18\x04 \x01(\fR\amessage\"1\n" +
 	"\x0eStatusResponse\x12\x1f\n" +
 	"\vstatus_code\x18\x01 \x01(\x05R\n" +
-	"statusCode\"6\n" +
+	"statusCode\"9\n" +
+	"\x0fPlayerDatapoint\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x05R\x05value\"\x89\x01\n" +
+	"\x1dGetDataStatisticsInfoResponse\x12\x1f\n" +
+	"\vstatus_code\x18\x01 \x01(\x05R\n" +
+	"statusCode\x12G\n" +
+	"\n" +
+	"datapoints\x18\x02 \x03(\v2'.projectrebound.meta.v1.PlayerDatapointR\n" +
+	"datapoints\"6\n" +
 	"\x19GetPlayerArchiveV2Request\x12\x19\n" +
-	"\brole_ids\x18\x01 \x03(\tR\aroleIds\"\xe6\x02\n" +
+	"\brole_ids\x18\x01 \x03(\tR\aroleIds\"\xb4\x03\n" +
 	"\x0ePlayerRoleData\x12\x17\n" +
 	"\arole_id\x18\x01 \x01(\tR\x06roleId\x12\x1d\n" +
 	"\n" +
@@ -1950,13 +2066,16 @@ const file_metaserver_proto_rawDesc = "" +
 	"\x0fmobility_module\x18\x04 \x01(\tR\x0emobilityModule\x12!\n" +
 	"\fmelee_weapon\x18\x05 \x01(\tR\vmeleeWeapon\x12%\n" +
 	"\x0eprimary_weapon\x18\x06 \x01(\tR\rprimaryWeapon\x12#\n" +
-	"\rsecond_weapon\x18\a \x01(\tR\fsecondWeapon\x12\x1f\n" +
-	"\vskin_config\x18\b \x01(\fR\n" +
-	"skinConfig\x12#\n" +
-	"\rweapon_config\x18\t \x01(\fR\fweaponConfig\x12\x1d\n" +
+	"\rsecond_weapon\x18\a \x01(\tR\fsecondWeapon\x121\n" +
+	"\x12weapon_archive_raw\x18\b \x01(\tH\x00R\x10weaponArchiveRaw\x88\x01\x01\x12\"\n" +
 	"\n" +
-	"skin_paint\x18\n" +
-	" \x01(\tR\tskinPaint\"\x93\x01\n" +
+	"skin_token\x18\t \x01(\tH\x01R\tskinToken\x88\x01\x01\x12$\n" +
+	"\vornament_id\x18\n" +
+	" \x01(\tH\x02R\n" +
+	"ornamentId\x88\x01\x01B\x15\n" +
+	"\x13_weapon_archive_rawB\r\n" +
+	"\v_skin_tokenB\x0e\n" +
+	"\f_ornament_id\"\x93\x01\n" +
 	"\x1aGetPlayerArchiveV2Response\x12R\n" +
 	"\x11player_role_datas\x18\x01 \x03(\v2&.projectrebound.meta.v1.PlayerRoleDataR\x0fplayerRoleDatas\x12!\n" +
 	"\fplayer_level\x18\x02 \x01(\x05R\vplayerLevel\"\x9c\x01\n" +
@@ -1966,12 +2085,11 @@ const file_metaserver_proto_rawDesc = "" +
 	"\aitem_id\x18\x03 \x01(\tR\x06itemId\x12 \n" +
 	"\tskin_data\x18\x04 \x01(\fH\x00R\bskinData\x88\x01\x01B\f\n" +
 	"\n" +
-	"_skin_data\"K\n" +
-	"\vSkinPayload\x12\x1d\n" +
-	"\n" +
-	"skin_model\x18\x01 \x01(\tR\tskinModel\x12\x1d\n" +
-	"\n" +
-	"skin_paint\x18\x02 \x01(\tR\tskinPaint\"\x9e\x01\n" +
+	"_skin_data\"I\n" +
+	"\vSkinPayload\x12\x19\n" +
+	"\btoken_id\x18\x01 \x01(\tR\atokenId\x12\x1f\n" +
+	"\vornament_id\x18\x02 \x01(\tR\n" +
+	"ornamentId\"\x9e\x01\n" +
 	"\x0fWeaponArchiveV2\x12\x1b\n" +
 	"\tweapon_id\x18\x01 \x01(\tR\bweaponId\x126\n" +
 	"\x05parts\x18\x02 \x03(\v2 .projectrebound.meta.v1.PartSlotR\x05parts\x126\n" +
@@ -2087,61 +2205,64 @@ func file_metaserver_proto_rawDescGZIP() []byte {
 	return file_metaserver_proto_rawDescData
 }
 
-var file_metaserver_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
+var file_metaserver_proto_msgTypes = make([]protoimpl.MessageInfo, 35)
 var file_metaserver_proto_goTypes = []any{
 	(*RequestWrapper)(nil),                 // 0: projectrebound.meta.v1.RequestWrapper
 	(*ResponseWrapper)(nil),                // 1: projectrebound.meta.v1.ResponseWrapper
 	(*StatusResponse)(nil),                 // 2: projectrebound.meta.v1.StatusResponse
-	(*GetPlayerArchiveV2Request)(nil),      // 3: projectrebound.meta.v1.GetPlayerArchiveV2Request
-	(*PlayerRoleData)(nil),                 // 4: projectrebound.meta.v1.PlayerRoleData
-	(*GetPlayerArchiveV2Response)(nil),     // 5: projectrebound.meta.v1.GetPlayerArchiveV2Response
-	(*UpdateRoleArchiveV2Request)(nil),     // 6: projectrebound.meta.v1.UpdateRoleArchiveV2Request
-	(*SkinPayload)(nil),                    // 7: projectrebound.meta.v1.SkinPayload
-	(*WeaponArchiveV2)(nil),                // 8: projectrebound.meta.v1.WeaponArchiveV2
-	(*PartSlot)(nil),                       // 9: projectrebound.meta.v1.PartSlot
-	(*PartOrnament)(nil),                   // 10: projectrebound.meta.v1.PartOrnament
-	(*OrnamentInfo)(nil),                   // 11: projectrebound.meta.v1.OrnamentInfo
-	(*WeaponSkin)(nil),                     // 12: projectrebound.meta.v1.WeaponSkin
-	(*UpdateWeaponArchiveV2Request)(nil),   // 13: projectrebound.meta.v1.UpdateWeaponArchiveV2Request
-	(*ItemData)(nil),                       // 14: projectrebound.meta.v1.ItemData
-	(*QueryAssetsResponse)(nil),            // 15: projectrebound.meta.v1.QueryAssetsResponse
-	(*QueryCurrencyResponse)(nil),          // 16: projectrebound.meta.v1.QueryCurrencyResponse
-	(*QueryNotificationRequest)(nil),       // 17: projectrebound.meta.v1.QueryNotificationRequest
-	(*NotificationEntity)(nil),             // 18: projectrebound.meta.v1.NotificationEntity
-	(*QueryNotificationResponse)(nil),      // 19: projectrebound.meta.v1.QueryNotificationResponse
-	(*CreatePartyResponse)(nil),            // 20: projectrebound.meta.v1.CreatePartyResponse
-	(*PartyReadyRequest)(nil),              // 21: projectrebound.meta.v1.PartyReadyRequest
-	(*SetPartyPresenceRequest)(nil),        // 22: projectrebound.meta.v1.SetPartyPresenceRequest
-	(*PartyMemberPresence)(nil),            // 23: projectrebound.meta.v1.PartyMemberPresence
-	(*QueryPartyPresenceResponse)(nil),     // 24: projectrebound.meta.v1.QueryPartyPresenceResponse
-	(*MatchmakingRegion)(nil),              // 25: projectrebound.meta.v1.MatchmakingRegion
-	(*QueryMatchmakingRegionResponse)(nil), // 26: projectrebound.meta.v1.QueryMatchmakingRegionResponse
-	(*QueryPlaylistResponse)(nil),          // 27: projectrebound.meta.v1.QueryPlaylistResponse
-	(*UnknownMatchmakingMessage)(nil),      // 28: projectrebound.meta.v1.UnknownMatchmakingMessage
-	(*MatchmakingPayload)(nil),             // 29: projectrebound.meta.v1.MatchmakingPayload
-	(*StartMatchmakingRequest)(nil),        // 30: projectrebound.meta.v1.StartMatchmakingRequest
-	(*QueryUnityMatchmakingResponse)(nil),  // 31: projectrebound.meta.v1.QueryUnityMatchmakingResponse
-	(*StopUnityMatchmakingResponse)(nil),   // 32: projectrebound.meta.v1.StopUnityMatchmakingResponse
+	(*PlayerDatapoint)(nil),                // 3: projectrebound.meta.v1.PlayerDatapoint
+	(*GetDataStatisticsInfoResponse)(nil),  // 4: projectrebound.meta.v1.GetDataStatisticsInfoResponse
+	(*GetPlayerArchiveV2Request)(nil),      // 5: projectrebound.meta.v1.GetPlayerArchiveV2Request
+	(*PlayerRoleData)(nil),                 // 6: projectrebound.meta.v1.PlayerRoleData
+	(*GetPlayerArchiveV2Response)(nil),     // 7: projectrebound.meta.v1.GetPlayerArchiveV2Response
+	(*UpdateRoleArchiveV2Request)(nil),     // 8: projectrebound.meta.v1.UpdateRoleArchiveV2Request
+	(*SkinPayload)(nil),                    // 9: projectrebound.meta.v1.SkinPayload
+	(*WeaponArchiveV2)(nil),                // 10: projectrebound.meta.v1.WeaponArchiveV2
+	(*PartSlot)(nil),                       // 11: projectrebound.meta.v1.PartSlot
+	(*PartOrnament)(nil),                   // 12: projectrebound.meta.v1.PartOrnament
+	(*OrnamentInfo)(nil),                   // 13: projectrebound.meta.v1.OrnamentInfo
+	(*WeaponSkin)(nil),                     // 14: projectrebound.meta.v1.WeaponSkin
+	(*UpdateWeaponArchiveV2Request)(nil),   // 15: projectrebound.meta.v1.UpdateWeaponArchiveV2Request
+	(*ItemData)(nil),                       // 16: projectrebound.meta.v1.ItemData
+	(*QueryAssetsResponse)(nil),            // 17: projectrebound.meta.v1.QueryAssetsResponse
+	(*QueryCurrencyResponse)(nil),          // 18: projectrebound.meta.v1.QueryCurrencyResponse
+	(*QueryNotificationRequest)(nil),       // 19: projectrebound.meta.v1.QueryNotificationRequest
+	(*NotificationEntity)(nil),             // 20: projectrebound.meta.v1.NotificationEntity
+	(*QueryNotificationResponse)(nil),      // 21: projectrebound.meta.v1.QueryNotificationResponse
+	(*CreatePartyResponse)(nil),            // 22: projectrebound.meta.v1.CreatePartyResponse
+	(*PartyReadyRequest)(nil),              // 23: projectrebound.meta.v1.PartyReadyRequest
+	(*SetPartyPresenceRequest)(nil),        // 24: projectrebound.meta.v1.SetPartyPresenceRequest
+	(*PartyMemberPresence)(nil),            // 25: projectrebound.meta.v1.PartyMemberPresence
+	(*QueryPartyPresenceResponse)(nil),     // 26: projectrebound.meta.v1.QueryPartyPresenceResponse
+	(*MatchmakingRegion)(nil),              // 27: projectrebound.meta.v1.MatchmakingRegion
+	(*QueryMatchmakingRegionResponse)(nil), // 28: projectrebound.meta.v1.QueryMatchmakingRegionResponse
+	(*QueryPlaylistResponse)(nil),          // 29: projectrebound.meta.v1.QueryPlaylistResponse
+	(*UnknownMatchmakingMessage)(nil),      // 30: projectrebound.meta.v1.UnknownMatchmakingMessage
+	(*MatchmakingPayload)(nil),             // 31: projectrebound.meta.v1.MatchmakingPayload
+	(*StartMatchmakingRequest)(nil),        // 32: projectrebound.meta.v1.StartMatchmakingRequest
+	(*QueryUnityMatchmakingResponse)(nil),  // 33: projectrebound.meta.v1.QueryUnityMatchmakingResponse
+	(*StopUnityMatchmakingResponse)(nil),   // 34: projectrebound.meta.v1.StopUnityMatchmakingResponse
 }
 var file_metaserver_proto_depIdxs = []int32{
-	4,  // 0: projectrebound.meta.v1.GetPlayerArchiveV2Response.player_role_datas:type_name -> projectrebound.meta.v1.PlayerRoleData
-	9,  // 1: projectrebound.meta.v1.WeaponArchiveV2.parts:type_name -> projectrebound.meta.v1.PartSlot
-	12, // 2: projectrebound.meta.v1.WeaponArchiveV2.skin:type_name -> projectrebound.meta.v1.WeaponSkin
-	10, // 3: projectrebound.meta.v1.PartSlot.ornament:type_name -> projectrebound.meta.v1.PartOrnament
-	11, // 4: projectrebound.meta.v1.PartOrnament.info:type_name -> projectrebound.meta.v1.OrnamentInfo
-	11, // 5: projectrebound.meta.v1.WeaponSkin.skin_info:type_name -> projectrebound.meta.v1.OrnamentInfo
-	8,  // 6: projectrebound.meta.v1.UpdateWeaponArchiveV2Request.weapon_archive:type_name -> projectrebound.meta.v1.WeaponArchiveV2
-	14, // 7: projectrebound.meta.v1.QueryAssetsResponse.item_datas:type_name -> projectrebound.meta.v1.ItemData
-	18, // 8: projectrebound.meta.v1.QueryNotificationResponse.notifications:type_name -> projectrebound.meta.v1.NotificationEntity
-	23, // 9: projectrebound.meta.v1.QueryPartyPresenceResponse.party_members:type_name -> projectrebound.meta.v1.PartyMemberPresence
-	25, // 10: projectrebound.meta.v1.QueryMatchmakingRegionResponse.regions:type_name -> projectrebound.meta.v1.MatchmakingRegion
-	28, // 11: projectrebound.meta.v1.MatchmakingPayload.unknown_message:type_name -> projectrebound.meta.v1.UnknownMatchmakingMessage
-	29, // 12: projectrebound.meta.v1.StartMatchmakingRequest.payload:type_name -> projectrebound.meta.v1.MatchmakingPayload
-	13, // [13:13] is the sub-list for method output_type
-	13, // [13:13] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	3,  // 0: projectrebound.meta.v1.GetDataStatisticsInfoResponse.datapoints:type_name -> projectrebound.meta.v1.PlayerDatapoint
+	6,  // 1: projectrebound.meta.v1.GetPlayerArchiveV2Response.player_role_datas:type_name -> projectrebound.meta.v1.PlayerRoleData
+	11, // 2: projectrebound.meta.v1.WeaponArchiveV2.parts:type_name -> projectrebound.meta.v1.PartSlot
+	14, // 3: projectrebound.meta.v1.WeaponArchiveV2.skin:type_name -> projectrebound.meta.v1.WeaponSkin
+	12, // 4: projectrebound.meta.v1.PartSlot.ornament:type_name -> projectrebound.meta.v1.PartOrnament
+	13, // 5: projectrebound.meta.v1.PartOrnament.info:type_name -> projectrebound.meta.v1.OrnamentInfo
+	13, // 6: projectrebound.meta.v1.WeaponSkin.skin_info:type_name -> projectrebound.meta.v1.OrnamentInfo
+	10, // 7: projectrebound.meta.v1.UpdateWeaponArchiveV2Request.weapon_archive:type_name -> projectrebound.meta.v1.WeaponArchiveV2
+	16, // 8: projectrebound.meta.v1.QueryAssetsResponse.item_datas:type_name -> projectrebound.meta.v1.ItemData
+	20, // 9: projectrebound.meta.v1.QueryNotificationResponse.notifications:type_name -> projectrebound.meta.v1.NotificationEntity
+	25, // 10: projectrebound.meta.v1.QueryPartyPresenceResponse.party_members:type_name -> projectrebound.meta.v1.PartyMemberPresence
+	27, // 11: projectrebound.meta.v1.QueryMatchmakingRegionResponse.regions:type_name -> projectrebound.meta.v1.MatchmakingRegion
+	30, // 12: projectrebound.meta.v1.MatchmakingPayload.unknown_message:type_name -> projectrebound.meta.v1.UnknownMatchmakingMessage
+	31, // 13: projectrebound.meta.v1.StartMatchmakingRequest.payload:type_name -> projectrebound.meta.v1.MatchmakingPayload
+	14, // [14:14] is the sub-list for method output_type
+	14, // [14:14] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_metaserver_proto_init() }
@@ -2151,14 +2272,15 @@ func file_metaserver_proto_init() {
 	}
 	file_metaserver_proto_msgTypes[0].OneofWrappers = []any{}
 	file_metaserver_proto_msgTypes[6].OneofWrappers = []any{}
-	file_metaserver_proto_msgTypes[28].OneofWrappers = []any{}
+	file_metaserver_proto_msgTypes[8].OneofWrappers = []any{}
+	file_metaserver_proto_msgTypes[30].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_metaserver_proto_rawDesc), len(file_metaserver_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   33,
+			NumMessages:   35,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -25,6 +25,19 @@ message StatusResponse {
   int32 status_code = 1;
 }
 
+message PlayerDatapoint {
+  string key = 1;
+  // The shipped client consumes this as a plain int32. The upstream mirror
+  // labels it sint32, but a controlled native write probe proved that ZigZag
+  // encoding doubles every value before UPBCareerManager stores it.
+  int32 value = 2;
+}
+
+message GetDataStatisticsInfoResponse {
+  int32 status_code = 1;
+  repeated PlayerDatapoint datapoints = 2;
+}
+
 message GetPlayerArchiveV2Request {
   repeated string role_ids = 1;
 }
@@ -37,9 +50,9 @@ message PlayerRoleData {
   string melee_weapon = 5;
   string primary_weapon = 6;
   string second_weapon = 7;
-  bytes skin_config = 8;
-  bytes weapon_config = 9;
-  string skin_paint = 10;
+  optional string weapon_archive_raw = 8;
+  optional string skin_token = 9;
+  optional string ornament_id = 10;
 }
 
 message GetPlayerArchiveV2Response {
@@ -55,8 +68,8 @@ message UpdateRoleArchiveV2Request {
 }
 
 message SkinPayload {
-  string skin_model = 1;
-  string skin_paint = 2;
+  string token_id = 1;
+  string ornament_id = 2;
 }
 
 message WeaponArchiveV2 {

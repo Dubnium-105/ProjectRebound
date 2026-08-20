@@ -63,3 +63,37 @@ func TestTCPRateLimitsRemainEnforced(t *testing.T) {
 	}
 	server.release("198.51.100.10")
 }
+
+func TestNativeTextFilterDoesNotConsumePlayerRPCBudget(t *testing.T) {
+	server := NewTCPServer(
+		config.MetaServerConfig{RPCCallsPerPlayerPerMinute: 1},
+		nil, nil, NewMetaMetrics(), nil,
+	)
+
+	for range 600 {
+		if !server.allowNativeRPC("player", "/chat.chat/TextFilter") {
+			t.Fatal("TextFilter compatibility burst was rejected")
+		}
+	}
+	if !server.allowNativeRPC("player", "/assets.Assets/UpdateWeaponArchiveV2") {
+		t.Fatal("TextFilter compatibility burst consumed the stateful RPC budget")
+	}
+	if server.allowNativeRPC("player", "/assets.Assets/UpdateRoleArchiveV2") {
+		t.Fatal("stateful RPC budget was no longer enforced")
+	}
+}
+
+func TestOnlyNativeTextFilterIsExemptFromPlayerRPCBudget(t *testing.T) {
+	for _, rpcPath := range []string{
+		"/assets.Assets/GetPlayerArchiveV2",
+		"/assets.Assets/QueryAssets",
+		"/assets.Assets/UpdateRoleArchiveV2",
+		"/assets.Assets/UpdateWeaponArchiveV2",
+		"/matchmaking.Matchmaking/StartUnityMatchmaking",
+		"/unknown.Service/UnknownMethod",
+	} {
+		if nativeRPCExemptFromPlayerBudget(rpcPath) {
+			t.Fatalf("stateful or unknown RPC unexpectedly exempt: %s", rpcPath)
+		}
+	}
+}

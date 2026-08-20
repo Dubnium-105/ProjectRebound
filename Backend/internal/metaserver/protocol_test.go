@@ -1,6 +1,7 @@
 package metaserver
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"net"
@@ -23,6 +24,40 @@ func TestDecodeRequestWrapper(t *testing.T) {
 	}
 	if got.MessageID != 42 || got.RPCPath != "/party.party/Create" || len(got.Message) != 3 {
 		t.Fatalf("unexpected wrapper: %+v", got)
+	}
+}
+
+func TestEncodeStatusMessagePreservesExplicitZero(t *testing.T) {
+	if got := EncodeStatusMessage(0); !bytes.Equal(got, []byte{0x08, 0x00}) {
+		t.Fatalf("success status wire = %x, want 0800", got)
+	}
+	if got := EncodeStatusMessage(404); !bytes.Equal(got, []byte{0x08, 0x94, 0x03}) {
+		t.Fatalf("nonzero status wire = %x, want 089403", got)
+	}
+}
+
+func TestEncodeResponseWrapperPreservesExplicitSuccess(t *testing.T) {
+	got := EncodeResponseWrapper(ResponseWrapper{
+		MessageID: 42,
+		RPCPath:   "/assets.Assets/UpdateRoleArchiveV2",
+		ErrorCode: 0,
+		Message:   []byte{0x08, 0x00},
+	})
+	want := []byte{
+		0x08, 0x2a,
+		0x12, 0x22,
+		'/', 'a', 's', 's', 'e', 't', 's', '.', 'A', 's', 's', 'e', 't', 's', '/',
+		'U', 'p', 'd', 'a', 't', 'e', 'R', 'o', 'l', 'e', 'A', 'r', 'c', 'h', 'i', 'v', 'e', 'V', '2',
+		0x18, 0x00,
+		0x22, 0x02, 0x08, 0x00,
+	}
+	if !bytes.Equal(got, want) {
+		t.Fatalf("success wrapper wire = %x, want %x", got, want)
+	}
+
+	failed := EncodeResponseWrapper(ResponseWrapper{MessageID: 1, ErrorCode: 404})
+	if !bytes.Equal(failed, []byte{0x08, 0x01, 0x18, 0x94, 0x03}) {
+		t.Fatalf("failure wrapper wire = %x", failed)
 	}
 }
 

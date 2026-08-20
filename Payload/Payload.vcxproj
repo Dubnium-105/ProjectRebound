@@ -73,6 +73,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;PAYLOAD_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
@@ -88,6 +89,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
@@ -107,6 +109,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;PAYLOAD_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
@@ -127,6 +130,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
@@ -142,7 +146,7 @@
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
     </Link>
   </ItemDefinitionGroup>
@@ -152,6 +156,12 @@
     <ClInclude Include="Communication\CommandFramework.h" />
     <ClInclude Include="Communication\CommandProtocol.h" />
     <ClInclude Include="Debug\DebugTool.h" />
+    <ClInclude Include="Hooks\ArchiveCompletionPolicy.h" />
+    <ClInclude Include="Loadout\LoadoutApplication.h" />
+    <ClInclude Include="Loadout\LoadoutManager.h" />
+    <ClInclude Include="Loadout\LoadoutSerializer.h" />
+    <ClInclude Include="Loadout\MetaserverClient.h" />
+    <ClInclude Include="ServerLogic\RespawnStatePolicy.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ClientLogic\ClientLogic.cpp" />
@@ -163,6 +173,10 @@
     <ClCompile Include="Communication\CommandFramework.cpp" />
     <ClCompile Include="Communication\CommandProtocol.cpp" />
     <ClCompile Include="Hooks\Hooks.cpp" />
+    <ClCompile Include="Loadout\LoadoutApplication.cpp" />
+    <ClCompile Include="Loadout\LoadoutManager.cpp" />
+    <ClCompile Include="Loadout\LoadoutSerializer.cpp" />
+    <ClCompile Include="Loadout\MetaserverClient.cpp" />
     <ClCompile Include="Network\NetDriverAccess.cpp" />
     <ClCompile Include="Network\Network.cpp" />
     <ClCompile Include="Replication\libreplicate.cpp" />

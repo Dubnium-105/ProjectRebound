@@ -4,10 +4,10 @@
 
 ## 传输层
 
-客户端只允许经 MetaTunnel 连接 `logic.dubnium.top:443`。MetaTunnel 使用 Windows
-系统信任库并以 `logic.dubnium.top` 为服务器名称校验证书。公网网关终止 TLS，再将
-字节流经独立、启用 TLS 且使用 token 鉴权的 Meta FRP 通道转发。公网没有明文原生
-listener。
+客户端只允许经 MetaTunnel 连接 `logic.project-rebound.space:443`。MetaTunnel 使用
+Windows 系统信任库并以 `logic.project-rebound.space` 为服务器名称校验证书。公网网关
+终止 TLS，再将字节流经独立、启用 TLS 且使用 token 鉴权的 Meta FRP 通道转发。
+公网没有明文原生 listener。`dubnium.top` 已弃用，不作为兼容 fallback。
 
 每个帧的结构为：
 
@@ -35,6 +35,46 @@ uint32_be payload_length | protobuf RequestWrapper payload
 生产 wrapper 只映射已审查的 RPC 标识。Gate/status、Party 创建/准备/Presence、区域
 发现、playlist 发现、匹配开始及匹配状态/停止兼容响应均使用静态生成的消息。未知 RPC
 返回兼容错误，不会使连接崩溃。
+
+资产与配装 RPC 严格保持已捕获的 wire contract：
+
+- `QueryAssets` 顶层使用已捕获确认的成功值 `ItemCount=1`。默认
+  `META_NATIVE_OWNERSHIP_MODE=full` 返回固定 `DT_ItemType` 中全部 40,462 行，覆盖基础物品
+  以及生成式槽位、武器套装和角色套装涂装应用。受控诊断可设置为 `compact`，排除 37,721 条
+  生成式涂装应用并将响应从约 1.31 MiB 降至 52,854 字节。每行其余标量元数据保持 protobuf
+  默认值，因为原生所有权只比较物品 ID。
+- 运行时抓包和冷启动回放确认，`PlayerRoleData` 除 1-7 号字段中的角色 ID 与六个装备值外，
+  还会消费三个可选档案字段：field 8 是所选武器档案 bundle 的十六进制字符串，field 9 是
+  人物皮肤 token，field 10 是人物挂件/涂装 ID。`UpdateWeaponArchiveV2` 按玩家和武器 ID
+  持久化档案；`GetPlayerArchiveV2` 按角色当前所选武器重建 field 8，使后续进程能够恢复
+  武器配件和武器外观。
+- 原生 `PlayerLevel` 由 `META_NATIVE_PLAYER_LEVEL` 配置（有效范围 `1..127`）。当前固定
+  构建的 `DT_PlayerLevelExp` 有 70 行，且军械库明确将锁定条目标记为角色等级奖励，因此
+  生产环境使用本构建最高等级 `70`。
+- `UpdateRoleArchiveV2.Operation` 不是固定槽位编号。服务端先按固定物品类型路由，
+  再用已观察到的 operation 区分主/副武器或左/右挂载；仅更新皮肤时不得清空装备槽。
+- `UpdateRoleArchiveV2` 和 `UpdateWeaponArchiveV2` 成功响应必须同时显式包含外层
+  `ResponseWrapper.ErrorCode=0` 的 `18 00`，以及内层状态字段 `08 00`。即使两项都存在，
+  当前固定客户端仍可能以 404 完成已持久化更新，装备/武器 archive dispatcher 还可能
+  以 9002 完成。Payload 兼容钩子只归一化这些已观察、且路径限定的 sentinel；其余原生
+  完成码保持不变。
+
+当前 Payload 仅在专用服务端进程中构造服务端权威的 `LoadoutManager`。客户端不写入
+OwnedItems、PersistentUser 或 `PBFieldModManager + 0x98`，也不轮询或维护 archive 镜像。
+运行时追踪已确认：本构建能收到有效的 `GetPlayerArchiveV2`，但不会把响应分派到菜单
+`PBCustomizeManager` 缓存或 `ClientInitFieldMod`。因此客户端只保留一个最小兼容桥：每个
+本地玩家生命周期经认证读取一次当前用户配装。该响应为每个角色附加最多两份经定义校验、
+已解码的 `WeaponArchiveV2` 投影，不暴露数据库中的原始 protobuf。对每个
+`PBCustomizeManager`，Payload 逐角色/槽位调用一次当前版本固定的原生角色槽位完成入口，
+并将投影中的武器配件槽、武器套装、配件涂装及武器挂件分别送入对应的原生完成入口；对每个
+本地 `APBPlayerState` 只调用一次 `ClientInitFieldMod`。这些完成入口由游戏原生代码更新缓存
+并广播委托；Payload 不直接写 manager map；唯一的完成码改写是上文路径限定的已持久化
+sentinel 策略。角色配额从当前运行构建的角色定义表读取。`-NativeArchiveOnly` 会禁用这两种
+调用，使客户端保持完全只读用于诊断。
+
+服务端还可使用 `-NativeArchiveOnly`，或分别以 `=0` 禁用 `-LoadoutBaselineBridge`、
+`-LoadoutPreOrderIntercept`、`-LoadoutConfirmDeferral`、`-LoadoutSpawnBridge`，逐项收缩到
+原生链确实无法覆盖的最小行为。
 
 上游字段编号仍为 tentative 的 `QueryUnityMatchmakingRes` 不用于发布匹配 endpoint。
 在脱敏抓包确认原生字段映射前，权威 endpoint 仅从已认证 HTTP Ticket 资源获得，避免

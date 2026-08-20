@@ -2,6 +2,7 @@
 #include <string>
 #include <stdexcept>
 #include <ostream>
+#include <new>
 
 namespace UC
 {
@@ -21,7 +22,7 @@ namespace UC
 
 		inline int32 AllocCount = 0x0;
 
-		[[nodiscard]] inline void Init(void* ReallocAddress)
+		inline void Init(void* ReallocAddress)
 		{
 			EngineRealloc = reinterpret_cast<decltype(EngineRealloc)>(ReallocAddress);
 		}
@@ -171,9 +172,9 @@ namespace UC
 				inline void FitAllocation(const int32 OldNumElements, const int32 NewNumElements)
 				{
 					/* No need to do anything if NewSize still fits into InlineData */
-					if (NewNumElements <= NumInlineElements)
+					if (NewNumElements <= static_cast<int32>(NumInlineElements))
 					{
-						if (OldNumElements > NumInlineElements && SecondaryData)
+						if (OldNumElements > static_cast<int32>(NumInlineElements) && SecondaryData)
 						{
 							memcpy(InlineData, SecondaryData, InlineDataSizeBytes);
 							FMemory::Free(SecondaryData);
@@ -185,7 +186,7 @@ namespace UC
 					/* Allocates if SecondaryData is nullptr */
 					SecondaryData = reinterpret_cast<ElementType*>(FMemory::Realloc(SecondaryData, NewNumElements * ElementSize, ElementAlign));
 
-					if (OldNumElements < NumInlineElements)
+					if (OldNumElements < static_cast<int32>(NumInlineElements))
 						memcpy(SecondaryData, InlineData, InlineDataSizeBytes);
 				}
 
@@ -440,16 +441,36 @@ namespace UC
 			NumElements++;
 		}
 
+		// Generated Unreal structs can themselves contain TArray members. Their
+		// compiler-generated copy assignment expects a constructed destination,
+		// while the SDK allocator exposes raw storage. Value-construct the target
+		// in place before assignment instead of clearing a non-trivial object with
+		// memset (which is both undefined C++ behavior and rejected by GCC).
+		inline void AddZeroed(const ArrayElementType& Element)
+		{
+			if (GetSlack() <= 0)
+				Reserve(3);
+
+			::new (static_cast<void*>(&Data[NumElements])) ArrayElementType();
+			Data[NumElements] = Element;
+			NumElements++;
+		}
+
 		inline void CopyFrom(const TArray& Other)
 		{
-			if (this == &Other || Other.NumElements == 0)
+			if (this == &Other)
 				return;
+			if (Other.NumElements == 0)
+			{
+				NumElements = 0;
+				return;
+			}
 
 			NumElements = Other.NumElements;
 
 			if (MaxElements >= Other.NumElements)
 			{
-				memcpy(Data, Other.Data, Other.NumElements);
+				memcpy(Data, Other.Data, Other.NumElements * ElementSize);
 				return;
 			}
 
@@ -535,8 +556,15 @@ namespace UC
 			if (*this)
 			{
 				std::wstring WData(Data);
-#pragma warning(suppress: 4244)
-				return std::string(WData.begin(), WData.end());
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4244)
+#endif
+				std::string Result(WData.begin(), WData.end());
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+				return Result;
 			}
 
 			return "";
@@ -907,7 +935,6 @@ namespace UC
 
 		public:
 			inline TContainerIterator& operator++() { ++BitIterator; return *this; }
-			inline TContainerIterator& operator--() { --BitIterator; return *this; }
 
 			inline       auto& operator*() { return IteratedContainer[GetIndex()]; }
 			inline const auto& operator*() const { return IteratedContainer[GetIndex()]; }

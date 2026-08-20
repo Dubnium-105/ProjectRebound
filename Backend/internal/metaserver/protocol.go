@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	metaprotocol "github.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver/protocol"
+	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -40,14 +41,35 @@ func DecodeRequestWrapper(data []byte) (RequestWrapper, error) {
 }
 
 func EncodeResponseWrapper(response ResponseWrapper) []byte {
-	output, _ := proto.Marshal(&metaprotocol.ResponseWrapper{
-		MessageId: response.MessageID, RpcPath: response.RPCPath,
-		ErrorCode: response.ErrorCode, Message: response.Message,
-	})
+	// The original protobufjs server serializes ErrorCode whenever the property
+	// is present, including success (18 00). Boundary's native async task starts
+	// with 404 and only overwrites it when field 3 is present, so generated Go
+	// proto3 output (which omits scalar zero) makes a successful archive update
+	// complete as UNKNOWN FAILURE. Keep ordinary proto3 omission rules for the
+	// other fields, but always put the transport completion code on the wire.
+	var output []byte
+	if response.MessageID != 0 {
+		output = protowire.AppendTag(output, 1, protowire.VarintType)
+		output = protowire.AppendVarint(output, uint64(response.MessageID))
+	}
+	if response.RPCPath != "" {
+		output = protowire.AppendTag(output, 2, protowire.BytesType)
+		output = protowire.AppendString(output, response.RPCPath)
+	}
+	output = protowire.AppendTag(output, 3, protowire.VarintType)
+	output = protowire.AppendVarint(output, uint64(response.ErrorCode))
+	if len(response.Message) != 0 {
+		output = protowire.AppendTag(output, 4, protowire.BytesType)
+		output = protowire.AppendBytes(output, response.Message)
+	}
 	return output
 }
 
 func EncodeStatusMessage(status int32) []byte {
-	output, _ := proto.Marshal(&metaprotocol.StatusResponse{StatusCode: status})
-	return output
+	// Boundary distinguishes an explicit success field (08 00) from an empty
+	// response. Generated proto3 serializers omit scalar zero values, which
+	// leaves the client's async completion code at its initial 404 and makes a
+	// successfully persisted equipment change surface as "UNKNOWN FAILURE".
+	output := protowire.AppendTag(nil, 1, protowire.VarintType)
+	return protowire.AppendVarint(output, uint64(status))
 }
