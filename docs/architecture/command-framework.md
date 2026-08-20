@@ -117,7 +117,8 @@ Clients must branch on `code`, not on the human-readable `message`.
 The `join` callback runs on the listener thread but performs no Unreal work. It only
 validates/queues a target. The client `ProcessEvent` hook records the game-thread ID at
 login and pumps the queued transition only on that exact thread, with the existing
-login/range settle delays.
+login settle delay. It deactivates the persistent top frontend widget, then performs direct
+network travel without entering the range.
 
 ## Security boundary
 

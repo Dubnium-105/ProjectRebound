@@ -11,6 +11,7 @@
 #include "../SDK.hpp"
 #include "../SDK/Engine_parameters.hpp"
 #include "../SDK/ProjectBoundary_parameters.hpp"
+#include "../Utility/Utility.h"
 
 #include <Windows.h>
 
@@ -88,8 +89,7 @@ namespace
     {
         Idle,
         Queued,
-        WaitingAfterLogin,
-        WaitingAfterRange
+        WaitingAfterLogin
     };
 
     std::mutex connectMutex;
@@ -101,7 +101,37 @@ namespace
     std::atomic<DWORD> gameThreadId{0};
 
     constexpr auto LoginSettleDelay = std::chrono::seconds(2);
-    constexpr auto RangeSettleDelay = std::chrono::seconds(1);
+
+    void DeactivateFrontendMenuBeforeMatchTravel()
+    {
+        // PBMainMenuManager is a persistent LocalPlayer subsystem. A raw
+        // `open` changes the network world but does not pop its MenuStack, so
+        // the frontend remains interactive over the match UI. Normal
+        // matchmaking deactivates the top CommonActivatableWidget before
+        // travel; reproduce only that UI ownership transition here.
+        const auto managers = getObjectsOfClass(
+            UPBMainMenuManager_BP_C::StaticClass(), false);
+        for (auto it = managers.rbegin(); it != managers.rend(); ++it)
+        {
+            auto* const manager = reinterpret_cast<UPBMainMenuManager_BP_C*>(*it);
+            if (!manager)
+                continue;
+
+            UCommonActivatableWidget* topMenu = nullptr;
+            manager->GetTopMenuWidget(&topMenu);
+            if (!topMenu)
+                continue;
+
+            const std::string widgetName = topMenu->GetFullName();
+            topMenu->SetVisibility(ESlateVisibility::Hidden);
+            topMenu->DeactivateWidget();
+            ClientLog("[CLIENT] Deactivated frontend menu before direct match travel: " +
+                widgetName);
+            return;
+        }
+
+        ClientLog("[CLIENT] No active frontend menu required cleanup before match travel.");
+    }
 
     enum class NativeLoadoutStatus
     {
@@ -951,7 +981,6 @@ void PumpPendingClientCommands()
     PumpNativeLoadoutInitialization(localPlayer);
 
     const auto now = std::chrono::steady_clock::now();
-    bool enterRange = false;
     std::optional<std::string> connectTarget;
 
     {
@@ -970,10 +999,6 @@ void PumpPendingClientCommands()
 
         if (connectStage == ConnectStage::WaitingAfterLogin)
         {
-            enterRange = true;
-        }
-        else if (connectStage == ConnectStage::WaitingAfterRange)
-        {
             connectTarget = pendingTarget;
         }
     }
@@ -981,17 +1006,12 @@ void PumpPendingClientCommands()
     bool actionSucceeded = false;
     try
     {
-        if (enterRange)
-        {
-            ClientLog("[CLIENT] Entering Shooting Range before match transition...");
-            localPlayer->GoToRange(0.0f);
-            actionSucceeded = true;
-        }
-        else if (connectTarget.has_value())
+        if (connectTarget.has_value())
         {
             const std::wstring command = L"open " +
                 std::wstring(connectTarget->begin(), connectTarget->end());
-            ClientLog("[CLIENT] Connecting to match: " + *connectTarget);
+            DeactivateFrontendMenuBeforeMatchTravel();
+            ClientLog("[CLIENT] Connecting directly to match: " + *connectTarget);
             UKismetSystemLibrary::ExecuteConsoleCommand(world, command.c_str(), nullptr);
             actionSucceeded = true;
         }
@@ -1004,13 +1024,8 @@ void PumpPendingClientCommands()
         return;
 
     std::lock_guard<std::mutex> lock(connectMutex);
-    if (enterRange && connectStage == ConnectStage::WaitingAfterLogin)
-    {
-        connectStage = ConnectStage::WaitingAfterRange;
-        nextActionAt = std::chrono::steady_clock::now() + RangeSettleDelay;
-    }
-    else if (connectTarget.has_value() &&
-        connectStage == ConnectStage::WaitingAfterRange &&
+    if (connectTarget.has_value() &&
+        connectStage == ConnectStage::WaitingAfterLogin &&
         pendingTarget == connectTarget)
     {
         currentTarget = *connectTarget;

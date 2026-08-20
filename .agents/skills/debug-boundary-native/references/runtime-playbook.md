@@ -127,6 +127,15 @@ powershell -ExecutionPolicy Bypass -File `
 端口后启动带 `-match=127.0.0.1:<port>` 的客户端；已有客户端时应保持默认的
 server-only 模式，再从游戏控制台执行 `open 127.0.0.1:<port>`。
 
+自动连接在主菜单登录稳定后先停用 `PBMainMenuManager` 的顶层前端 widget，再直接执行
+`open <target>`，不得先调用 `GoToRange`。首发 UI 回归验收同时检查最新
+`clientlogs/clientlog-*.txt` 中依次存在 `Deactivated frontend menu` 与
+`Connecting directly to match`，且不存在 `Entering Shooting Range`；Frida 必须确认
+`GoToRange` 调用数为 0、`DeactivateWidget` 一次，并在服务器原生 StartMatch 后收到
+`ClientStartOnlineGame/ClientMatchHasStarted/ClientRoundHasStarted/ClientSelectRole`。
+完成首次出生后按 ESC 必须打开正常 `IN GAME` 角色界面，不能直接弹出靶场的退出确认页；
+同时确认 `ShowConfirm/ExitRange` 没有出现在该输入窗口。
+
 固定客户端还会在登录前查询已退役的 Unity Multiplay fleet；该接口当前返回
 `404 fleet does not exist`，会使冷启动停在 `CONNECTING TO PLATFORM SERVER`。
 `-LaunchClient` 默认临时启动 `local-qos-compat.ps1`，在 loopback 提供最小

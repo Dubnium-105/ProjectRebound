@@ -278,8 +278,7 @@ terminating the listener.
 | --- | --- | --- |
 | `Idle` | No pending target | Producer queues target |
 | `Queued` | Target admitted | After login, start two-second settle delay |
-| `WaitingAfterLogin` | Menu settling | Call `GoToRange`, start one-second delay |
-| `WaitingAfterRange` | Range travel settling | Execute `open <target>`, return Idle |
+| `WaitingAfterLogin` | Menu settling | Deactivate the top frontend widget, execute `open <target>`, return Idle |
 
 ### `QueueConnectToMatch(target)`
 
@@ -306,6 +305,19 @@ Construct event, then publishes login completion.
 it is on that recorded thread. It validates World/GameInstance/LocalPlayer, advances one
 timed stage, and calls Unreal outside `connectMutex`. A `thread_local` recursion guard
 prevents synchronous nested ProcessEvent calls from consuming a second stage.
+
+The connection path must not call `GoToRange` first. `UPBLocalPlayer` persists across map
+travel, and entering the range establishes range-specific exit-confirmation/UI state.
+Opening the match afterwards can leave an initial player's Escape input on that range-exit
+path. A raw `open` is not sufficient either: `PBMainMenuManager` is a persistent LocalPlayer
+subsystem, so its `MenuStack` survives network travel. Before `open`, the pump resolves the
+top menu with `GetTopMenuWidget`, hides it, and calls `DeactivateWidget`. This reproduces the
+normal frontend ownership transition without invoking the whole `OnMatchFound` flow.
+
+After native StartMatch has completed, the server sends the initial direct connection the
+same match-state notifications used to catch up a late join, then retries role selection.
+The direct client therefore avoids the range while still reaching the correct in-match UI
+lifecycle.
 
 ## 8. DLL wiring and ownership
 

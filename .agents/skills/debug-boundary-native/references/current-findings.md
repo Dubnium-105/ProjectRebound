@@ -237,3 +237,29 @@ CompleteWeaponOrnament(manager, int32 code, FName ornament, FName role, FName we
 - PEACE/ORLAN 首次出生成功后，连续 6 次真实 `ClientBeKilled -> F -> ServerQuickRespawn` 均在 lifecycle `1..6`、attempt `0` 完成。每轮都观测到 PB Quick implementation、Engine Restart implementation、`RestartPlayer`、`SpawnDefaultPawn*` 返回非空 Pawn、RVA `0x0167FB20` promotion、`OnRep_PossessedCharacterID`、PEACE equipping hash、`ClientGotoState(Playing)`、`ClientRestart`、acknowledge、`Spawn complete`；没有 timeout 或 fallback。
 - 六轮结束时客户端均为可操作 HUD，无死亡/选角遮罩，`selected=PEACE`、`possessed=PEACE`。本次实际部署并验收的 `Payload.dll` SHA-256 为 `5C1FD98DB23FA4C6C6D491DBE539BFA05E7825A5CFF8D32F928C529CE778D446`；部署前回滚副本为 `Payload.pre-respawn-engine-normalize-20260820.dll`。
 - `Payload/Tests/RespawnStatePolicyTests.cpp` 覆盖 awaiting-input、重复/非法请求、A/B suppress/forward、permit pass-through，以及仅将 managed Engine restart 规范化到 QuickRespawn；2026-08-20 的 Release/x64 回归为 8/8 tests passed。
+
+## 12. 首发客户端靶场 UI 残留（2026-08-20）
+
+以下结论仅适用于第 1 节固定 EXE SHA-256。
+
+### 根因证据
+
+- 旧 `ClientLogic::PumpPendingClientCommands` 的真实连接顺序为：主菜单登录完成后等待 2 秒、调用 `UPBLocalPlayer::GoToRange(0)`、再等待 1 秒执行 `open <target>`。`clientlogs/clientlog-20260820_191500.txt` 和 Frida `frida-captures/20260820-range-ui-prefx/events.jsonl` 均观测到该顺序；其中 `GoToRange` reflected thunk/exec RVA 为 `0x01822DD0`，implementation RVA 为 `0x0166DFB0`。
+- `GoToRange(0)` 的 implementation 立即读取 `UPBLocalPlayer::RangeLevel` 并启动 RangeLevel travel。进入靶场不是网络连接的必要前置条件，而是旧自动连接代码为规避过早主菜单覆盖而保留的中转 world。
+- `UPBLocalPlayer` 会跨 world travel 持续存在，且保存当前/排队确认 UI。`ShowConfirmPage` reflected thunk RVA `0x01823890` 调用 implementation RVA `0x01682310`，后者把 `0x78` 字节 `FConfirmInfo` 压入 LocalPlayer 内部数组并显示队首；`PBPlayerController::ShowConfirm` thunk RVA `0x01843EE0`、implementation RVA `0x015C46C0` 最终也转发到同一 LocalPlayer 队列。因此先进入 Range 再打开战局可以把靶场退出确认/输入状态带入首发连接。
+- `PBPlayerController::ExitRange` thunk RVA `0x018424A0`、implementation RVA `0x015AE450` 通过当前 LocalPlayer 执行退出范围动作。SDK 同时确认靶场蓝图控制器持有 `ShootingRangePanel`、`IsExitingRange`，ESC 事件为 `K2_InputKeyToExitRange`。
+- 修复前冷启动的首发玩家在完成角色选择和首次出生后，ESC 会直接显示 `LEAVE MATCH / PLEASE CONFIRM YOUR COMMAND`，而不是正常对局菜单。该次首发只观察到 `ClientReadyAtStartSpot`，没有中途加入分支会补发的 `ClientMatchHasStarted`、`ClientRoundHasStarted`、`NotifyGameStarted`；这解释了为什么晚加入可由完整 client-start 生命周期覆盖残留，而首发不能。
+
+### 修复边界
+
+- 客户端连接状态机只保留 `Idle -> Queued -> WaitingAfterLogin -> Idle`。登录稳定后先通过 `PBMainMenuManager_BP_C::GetTopMenuWidget` 找到当前前端 `CommonActivatableWidget`，执行 `Hidden + DeactivateWidget`，随后直接在记录的游戏线程执行 `open <target>`；删除 `WaitingAfterRange`、`RangeSettleDelay` 和全部自动 `GoToRange` 调用。A/B 验证表明“只直接 open”虽然能连上服务器，但持久 LocalPlayerSubsystem 的 `MenuStack` 仍会覆盖战局 UI，所以前端栈退场是必要的第二层修复。
+- 首发服务器状态机在 `DidBroadcastRoleSelection` 证明原生 StartMatch 已完成后，补发 `ClientStartOnlineGame -> ClientMatchHasStarted -> ClientRoundHasStarted`，再延迟重试 `ClientSelectRole`。这与中途加入的比赛状态追赶语义对齐，但不会在 StartMatch 前提前宣告回合；纯策略边界由 `JoinUiSyncPolicyTests.cpp` 固定。
+- 不拦截 ESC、不伪造确认结果、也不在 travel 前强行清空 LocalPlayer 确认队列；修复只弹出前端菜单栈并补齐真实比赛生命周期，保留正常对局角色菜单和合法确认页语义。
+- `Tools/Frida/armory_probe.js` 已增加 GoToRange、Range ESC、前端 widget 激活/停用、战局菜单、确认页、GameInstance 和 client-start 生命周期观测点。
+
+### 最终运行验收
+
+- 冷启动会话：`local-pve/20260820-194050`；客户端日志：`clientlogs/clientlog-20260820_194128.txt`；Frida：`frida-captures/20260820-range-ui-final-clean/events.jsonl`。
+- 客户端日志顺序为 `Match transition queued -> Deactivated frontend menu -> Connecting directly to match`。Frida 中 `GoToRange/K2_GoToRange=0`，`DeactivateWidget` 一次 enter/leave，随后各一次 `ClientStartOnlineGame`、`ClientMatchHasStarted`、`ClientRoundHasStarted`、`ClientSelectRole` enter/leave；`ShowConfirm=0`、`ExitRange=0`。
+- 首发玩家在没有进入靶场的情况下完成选角、装备确认和 FIXER 首生；ESC 显示正常的 `IN GAME` 角色界面，没有 `LEAVE MATCH / PLEASE CONFIRM YOUR COMMAND`。随后 AI 击杀触发 lifecycle 1，显式原生 `ServerRestartPlayer -> ServerQuickRespawn` attempt 0 完成，再次 `Spawn complete`，证明复活接线未回归。
+- 最终部署 `Payload.dll` SHA-256 为 `12D4F6E891B9D46A91B0C8341B67974A16778198DB70CD2CBEA4312CADB04920`。

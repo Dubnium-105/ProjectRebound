@@ -114,6 +114,21 @@ const OBSERVED_FUNCTIONS = new Map([
     ['ClientBeKilled', 'PBPlayerController'],
     ['ClientWaitingToRestart', 'PBPlayerController'],
     ['ClientSelectRole', 'PBPlayerController'],
+    ['ClientMatchHasStarted', 'PBPlayerController'],
+    ['ClientRoundHasStarted', 'PBPlayerController'],
+    ['ClientReadyAtStartSpot', 'PBPlayerController'],
+    ['ClientStartOnlineGame', 'PBPlayerController'],
+    ['NotifyGameStarted', 'PBPlayerController'],
+    ['OpenInGameMenu', 'PBPlayerController'],
+    ['CloseInGameMenu', 'PBPlayerController'],
+    ['OpenExitMatchInGameMenu', 'PBPlayerController'],
+    ['CloseExitMatchInGameMenu', 'PBPlayerController'],
+    ['K2_OpenExitMatchInGameMenu', 'PBPlayerController'],
+    ['K2_CloseExitMatchInGameMenu', 'PBPlayerController'],
+    ['K2_InputKeyToExitRange', 'PBPlayerController'],
+    ['ExitRange', 'PBPlayerController'],
+    ['ShowConfirm', 'PBPlayerController'],
+    ['NotifyOnConfirmMessageShowUp', 'PBPlayerController'],
     ['CloseInGameSelectRoleMenu', 'PBPlayerController'],
     ['OpenInGameSelectRoleMenu', 'PBPlayerController'],
     ['ToggleInGameSelectRoleMenu', 'PBPlayerController'],
@@ -142,6 +157,21 @@ const OBSERVED_FUNCTIONS = new Map([
     ['QueryUserProfileData', 'PBCareerManager'],
     ['GetCharacterProfileData', 'PBCareerManager'],
     ['GetCharacterLevelUpExp', 'PBCareerManager'],
+    ['GoToRange', 'PBLocalPlayer'],
+    ['K2_GoToRange', 'PBLocalPlayer'],
+    ['K2_MatchHasStarted', 'PBLocalPlayer'],
+    ['K2_MatchHasEnded', 'PBLocalPlayer'],
+    ['ShowConfirmPage', 'PBLocalPlayer'],
+    ['K2_SetConfirmPage', 'PBLocalPlayer'],
+    ['OnlyCloseConfirmPage', 'PBLocalPlayer'],
+    ['GotoState', 'PBGameInstance'],
+    ['ShowLoadingScreen', 'PBGameInstance'],
+    ['HideLoadingScreen', 'PBGameInstance'],
+    ['GetTopMenuWidget', 'PBMainMenuManager_BP_C'],
+    ['GetTopInGameWidget', 'PBMainMenuManager_BP_C'],
+    ['OnMatchFound', 'UMG_MainMenuBase_C'],
+    ['ActivateWidget', 'CommonActivatableWidget'],
+    ['DeactivateWidget', 'CommonActivatableWidget'],
 ]);
 
 const textEncoderFallback = (value) => {
@@ -2221,6 +2251,20 @@ function observedCallDetails(functionName, params, phase) {
     }
     if (functionName === 'EnterObserverState' && phase === 'enter') {
         return { delay_seconds: params.readFloat() };
+    }
+    if ((functionName === 'GoToRange' ||
+         functionName === 'K2_GoToRange' ||
+         functionName === 'ExitRange') && phase === 'enter') {
+        return { delay_seconds: params.readFloat() };
+    }
+    if (functionName === 'GotoState' && phase === 'enter') {
+        return { new_state: fnameToString(params) };
+    }
+    if (functionName === 'ShowLoadingScreen' && phase === 'enter') {
+        return {
+            hide_on_post_load_map: params.readU8() !== 0,
+            use_movie_player: params.add(1).readU8() !== 0,
+        };
     }
     if (functionName === 'ClientSetSpectatorWaiting' ||
         functionName === 'ServerSetSpectatorWaiting') {

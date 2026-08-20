@@ -15,6 +15,7 @@
 //    - DidProcStartMatch：由匹配流程设置，LateJoin 只读取
 
 #include "LateJoinManager.h"
+#include "JoinUiSyncPolicy.h"
 #include "ServerLogic.h"
 #include "../SDK.hpp"
 #include "../SDK/Engine_parameters.hpp"
@@ -471,19 +472,43 @@ void LateJoinManager::Tick(float DeltaTime)
         // ---- Phase 1: 等待角色选择 ----
         if (it->second.State == ELateJoinState::PendingRoleSelection)
         {
-            // Initial players remain in the native pre-match role-selection
-            // lifecycle. Sending the mid-game sequence here would announce a
-            // match/round before StartMatch and can suppress native role
-            // confirmation. K2_OnLogout bounds this wait instead of the
-            // mid-game role-selection timeout.
+            // Initial players connect from the persistent frontend world. The
+            // native server-wide role-selection broadcast does not send the
+            // ClientMatchHasStarted lifecycle to a controller that arrived
+            // through our direct `open` path, so its LocalPlayer stays InHall
+            // and the main-menu stack remains active over the match world.
+            // Wait until the server has actually broadcast role selection
+            // (therefore StartMatch has completed), then send the same in-match
+            // lifecycle used by a late join before retrying ClientSelectRole.
             if (it->second.bIsInitialJoin)
             {
+                if (JoinUiSyncPolicy::ShouldSendInitialMatchState(
+                    it->second.bIsInitialJoin,
+                    DidBroadcastRoleSelection,
+                    it->second.ClientStartSent,
+                    it->second.ElapsedSeconds,
+                    CLIENT_START_DELAY_SEC))
+                {
+                    SendInitialJoinClientStart(PC);
+                    it = LateJoinPlayers.find(PC);
+                    if (it == LateJoinPlayers.end())
+                        continue;
+                    it->second.ClientStartSent = true;
+                    it->second.ElapsedSeconds = 0.0f;
+                    continue;
+                }
+
                 // ClientSelectRole is normally a one-shot server-wide
                 // broadcast. Prompt players that connected after it, and
                 // retry controllers that were not ready during the scan.
-                const bool shouldPrompt = DidBroadcastRoleSelection &&
-                    !it->second.InitialRoleSelectionSent &&
-                    it->second.ElapsedSeconds >= CLIENT_START_DELAY_SEC;
+                const bool shouldPrompt =
+                    JoinUiSyncPolicy::ShouldPromptInitialRoleSelection(
+                        it->second.bIsInitialJoin,
+                        DidBroadcastRoleSelection,
+                        it->second.ClientStartSent,
+                        it->second.InitialRoleSelectionSent,
+                        it->second.ElapsedSeconds,
+                        CLIENT_START_DELAY_SEC);
                 bool canSelectRole = false;
                 if (shouldPrompt)
                     canSelectRole = PC->CanSelectRole();
@@ -776,9 +801,10 @@ void LateJoinManager::QueueInitialJoinPlayer(AGameMode* GameMode, APBPlayerContr
 
     FLateJoinInfo info{};
     info.bIsInitialJoin = true;
-    // No synthetic ClientStart is pending. The existing server-wide native
-    // flow calls ClientSelectRole at the normal point in the countdown.
-    info.ClientStartSent = true;
+    // ClientStart is delayed until the server-wide role-selection broadcast
+    // proves StartMatch completed. This lets direct-connect clients leave the
+    // persistent frontend state without announcing a match prematurely.
+    info.ClientStartSent = false;
     LateJoinPlayers[PC] = info;
     // 阻止角色确认前的自动重生（ServerRestartPlayer 拦截会检查此表）
     // PrepareLateJoinRespawn 会在生成时将其设为 true
@@ -847,6 +873,24 @@ void LateJoinManager::SyncClientJoinState(APBPlayerController* PC, const FClient
         if (!isTracked()) return;
         PC->ServerAcknowledgePossession(PC->Pawn);
     }
+}
+
+// @brief 在原生 StartMatch 完成后补齐首发直连客户端的比赛 UI 生命周期。
+//  与中途加入使用相同的状态通知，但角色选择由首发分支单独重试，
+//  避免把状态同步和一次性 ClientSelectRole 广播重新耦合。
+void LateJoinManager::SendInitialJoinClientStart(APBPlayerController* PC)
+{
+    if (!PC)
+        return;
+
+    std::cout << "[LATEJOIN] Sending initial direct-connect match state before role selection."
+        << std::endl;
+    FClientSyncOptions options{};
+    options.SendStartOnlineGame = true;
+    options.SendMatchHasStarted = true;
+    options.SendRoundHasStarted = true;
+    options.SendNotifyGameStarted = true;
+    SyncClientJoinState(PC, options);
 }
 
 // @brief 向中途加入客户端发送"比赛已开始"的完整通知序列

@@ -311,8 +311,7 @@ timeout 为 0 时使用 `INFINITE`。
 | --- | --- | --- |
 | `Idle` | 无待处理目标 | 等待生产者 |
 | `Queued` | 已接收目标 | 登录完成后建立 2 秒稳定期 |
-| `WaitingAfterLogin` | 等待主菜单稳定 | 调用 `GoToRange`，建立 1 秒稳定期 |
-| `WaitingAfterRange` | 等待靶场 travel 初始化 | 执行 `open <target>`，回到 Idle |
+| `WaitingAfterLogin` | 等待主菜单稳定 | 停用顶层前端 widget，直接执行 `open <target>`，回到 Idle |
 
 `pendingTarget` 是未执行目标，`currentTarget` 是最近一次已开始连接的目标。登录完成标志和游戏
 线程 ID 是原子变量。
@@ -342,10 +341,22 @@ pending target 时写入并转到 `Queued`。释放锁后记录日志。返回�
 
 每次原始客户端 `ProcessEvent` 返回后调用，但只有当前线程 ID 等于已记录 ID 时才执行。函数
 先验证 World、GameInstance、LocalPlayer，再按 `steady_clock` 推进一个阶段。真正的
-`GoToRange` 和 `ExecuteConsoleCommand` 在 `connectMutex` 之外调用，避免 Unreal 重入时死锁。
+`ExecuteConsoleCommand` 在 `connectMutex` 之外调用，避免 Unreal 重入时死锁。
 
-`thread_local pumping` 防止这两个 Unreal 调用同步触发嵌套 ProcessEvent 时重复消费队列。
+`thread_local pumping` 防止 Unreal 调用同步触发嵌套 ProcessEvent 时重复消费队列。
 目标已经经过 ASCII 白名单，因此由窄字符串扩为 `wstring` 不会产生编码歧义。
+
+连接路径不得先调用 `GoToRange`。`UPBLocalPlayer` 会跨地图 travel 持续存在，而进入靶场会
+建立靶场专用的退出确认/UI 状态；随后再 `open` 战局会使首发玩家的 ESC 仍走靶场退出分支。
+单独执行 `open` 也不够：`PBMainMenuManager` 是持久 LocalPlayer 子系统，其 `MenuStack` 不会
+因网络 travel 自动弹出。连接泵在 `open` 前通过 `GetTopMenuWidget` 对当前前端
+`CommonActivatableWidget` 执行 `Hidden + DeactivateWidget`，只复现正常匹配的前端退场动作，
+不调用可能重新发起匹配的整套 `OnMatchFound`。
+
+服务器首发状态机还会等待原生角色选择广播（即 StartMatch 已完成），再补发
+`ClientStartOnlineGame`、`ClientMatchHasStarted`、`ClientRoundHasStarted`，最后重试
+`ClientSelectRole`。因此直连既不经过靶场，也能让首发 LocalPlayer 和比赛 UI 与中途加入保持
+一致。
 
 ## 8. DLL 接线与所有权
 
