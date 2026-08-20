@@ -48,12 +48,40 @@ const SETTINGS = {
         clientRefreshEquipping: 0x708,
         clientInitFieldMod: 0x710,
     },
+    gameMode: {
+        matchState: 0x2C0,
+        pbGameState: 0x3E8,
+        shutdownWaitFirstJoin: 0x3FC,
+        shutdownWaitRejoin: 0x400,
+        shutdownWaitCleanup: 0x404,
+        matchSubState: 0x408,
+        roundState: 0x410,
+    },
+    gameState: {
+        matchState: 0x270,
+        previousMatchState: 0x278,
+        matchSubState: 0x290,
+        roundState: 0x298,
+        currentRoundCount: 0x2A0,
+        maxRoundCount: 0x2A4,
+        remainingTime: 0x340,
+    },
     career: {
         queryUserProfileDataNative: 0x016E8240,
         queryVirtualCallSites: [0x016E82EA, 0x016E830A],
         userProfileData: 0x48,
         characterDataMap: 0xF0,
         characterMapElementSize: 0x88,
+    },
+    progression: {
+        lastUpdatedArray: 0x48,
+        progressionMap: 0x58,
+        questManager: 0xA8,
+        mapElementSize: 0x18,
+        questMap: 0x30,
+        progressMap: 0x80,
+        lastProgressMap: 0xD0,
+        progressElementSize: 0x68,
     },
     persistentUser: {
         savedArmory: 0x48,
@@ -115,6 +143,15 @@ const OBSERVED_FUNCTIONS = new Map([
     ['ClientWaitingToRestart', 'PBPlayerController'],
     ['ClientSelectRole', 'PBPlayerController'],
     ['ClientMatchHasStarted', 'PBPlayerController'],
+    ['ClientStartMatchEnding', 'PBPlayerController'],
+    ['ClientMatchHasEnded', 'PBPlayerController'],
+    ['ClientStartShowingMatchResult', 'PBPlayerController'],
+    ['ClientGameHasEnded', 'PBPlayerController'],
+    ['ClientEndOnlineGame', 'PBPlayerController'],
+    ['ClientSayGoodBye', 'PBPlayerController'],
+    ['ClientGameEnded', 'PlayerController'],
+    ['ClientReturnToMainMenu', 'PlayerController'],
+    ['ClientReturnToMainMenuWithTextReason', 'PlayerController'],
     ['ClientRoundHasStarted', 'PBPlayerController'],
     ['ClientReadyAtStartSpot', 'PBPlayerController'],
     ['ClientStartOnlineGame', 'PBPlayerController'],
@@ -147,7 +184,16 @@ const OBSERVED_FUNCTIONS = new Map([
     ['CanRestartPlayer', 'PlayerController'],
     ['PlayerCanRestart', 'GameModeBase'],
     ['RestartPlayers', 'PBGameMode'],
+    ['ReadyToEndGame_WaitingPostMatch', 'PBGameMode'],
+    ['ReadyToMatchEnding_WaitingPostMatch', 'PBGameMode'],
+    ['NotifyAllClientsReturnToMainMenu', 'PBGameMode'],
+    ['K2_OnSetMatchSubState', 'PBGameMode'],
+    ['K2_OnSetRoundState', 'PBGameMode'],
     ['RestartPlayer', 'GameModeBase'],
+    ['ReturnToMainMenuHost', 'GameModeBase'],
+    ['EndMatch', 'GameMode'],
+    ['RestartGame', 'GameMode'],
+    ['K2_OnSetMatchState', 'GameMode'],
     ['SpawnDefaultPawnFor', 'GameModeBase'],
     ['SpawnDefaultPawnAtTransform', 'GameModeBase'],
     ['K2_InventorySpawned', 'PBCharacter'],
@@ -157,14 +203,35 @@ const OBSERVED_FUNCTIONS = new Map([
     ['QueryUserProfileData', 'PBCareerManager'],
     ['GetCharacterProfileData', 'PBCareerManager'],
     ['GetCharacterLevelUpExp', 'PBCareerManager'],
+    ['GetAllCharacterLevelProgression', 'PBProgressionManager'],
+    ['GetAllWeaponProgressionEvents', 'PBProgressionManager'],
+    ['GetCharacterLevelProgression', 'PBProgressionManager'],
+    ['GetPlayerLevelProgression', 'PBProgressionManager'],
+    ['GetProgression', 'PBProgressionManager'],
+    ['GetWeaponIDArray', 'PBProgressionManager'],
+    ['GetWeaponProgressionArray', 'PBProgressionManager'],
+    ['HasCharacterNewItem', 'PBProgressionManager'],
+    ['HasWeaponNewItem', 'PBProgressionManager'],
+    ['IsNewItemRead', 'PBProgressionManager'],
+    ['MarkReadNewItem', 'PBProgressionManager'],
+    ['SortByEventProgress', 'PBProgressionManager'],
+    ['GetActivityEventCompletedCount', 'PBQuestManager'],
+    ['GetActivityQuestState', 'PBQuestManager'],
+    ['GetQuest', 'PBQuestManager'],
+    ['OnMatchHasStarted', 'PBQuestManager'],
+    ['RefreshProgress', 'PBProgression'],
     ['GoToRange', 'PBLocalPlayer'],
     ['K2_GoToRange', 'PBLocalPlayer'],
     ['K2_MatchHasStarted', 'PBLocalPlayer'],
-    ['K2_MatchHasEnded', 'PBLocalPlayer'],
+    ['K2_MatchHasEnded', ['PBLocalPlayer', 'PBGameState']],
+    ['ExitMatchReturnToMainMenu', 'PBLocalPlayer'],
+    ['GoToMainMenu', 'PBLocalPlayer'],
     ['ShowConfirmPage', 'PBLocalPlayer'],
     ['K2_SetConfirmPage', 'PBLocalPlayer'],
     ['OnlyCloseConfirmPage', 'PBLocalPlayer'],
     ['GotoState', 'PBGameInstance'],
+    ['SaveMatchResultInfo', 'PBGameInstance'],
+    ['CleanupSessionOnReturnToMenu', 'PBGameInstance'],
     ['ShowLoadingScreen', 'PBGameInstance'],
     ['HideLoadingScreen', 'PBGameInstance'],
     ['GetTopMenuWidget', 'PBMainMenuManager_BP_C'],
@@ -172,6 +239,36 @@ const OBSERVED_FUNCTIONS = new Map([
     ['OnMatchFound', 'UMG_MainMenuBase_C'],
     ['ActivateWidget', 'CommonActivatableWidget'],
     ['DeactivateWidget', 'CommonActivatableWidget'],
+    ['K2_StartMatchEnding', 'PBGameState'],
+    ['K2_StartShowingMatchResult', 'PBGameState'],
+]);
+
+const MATCH_LIFECYCLE_FUNCTIONS = new Set([
+    'ReadyToEndGame_WaitingPostMatch',
+    'ReadyToMatchEnding_WaitingPostMatch',
+    'NotifyAllClientsReturnToMainMenu',
+    'K2_OnSetMatchSubState',
+    'K2_OnSetRoundState',
+    'ReturnToMainMenuHost',
+    'EndMatch',
+    'RestartGame',
+    'K2_OnSetMatchState',
+    'K2_StartMatchEnding',
+    'K2_MatchHasEnded',
+    'K2_StartShowingMatchResult',
+    'ClientStartMatchEnding',
+    'ClientMatchHasEnded',
+    'ClientStartShowingMatchResult',
+    'ClientGameHasEnded',
+    'ClientEndOnlineGame',
+    'ClientSayGoodBye',
+    'ClientGameEnded',
+    'ClientReturnToMainMenu',
+    'ClientReturnToMainMenuWithTextReason',
+    'ExitMatchReturnToMainMenu',
+    'GoToMainMenu',
+    'SaveMatchResultInfo',
+    'CleanupSessionOnReturnToMenu',
 ]);
 
 const textEncoderFallback = (value) => {
@@ -1152,6 +1249,10 @@ const characterLevelTables = new Map();
 const localPlayers = new Map();
 const careerManagers = new Map();
 const careerSignatures = new Map();
+const progressionManagers = new Map();
+const progressionSignatures = new Map();
+const questManagers = new Map();
+const questSignatures = new Map();
 const playerStates = new Map();
 const playerStateSignatures = new Map();
 const gameModeVtables = new Map();
@@ -1210,6 +1311,52 @@ function classInherits(object, expectedBaseName) {
     }
     classInheritanceCache.set(cacheKey, false);
     return false;
+}
+
+function dumpPBGameStateLifecycle(gameState) {
+    if (gameState.isNull() || !classInherits(gameState, 'PBGameState')) return null;
+    return {
+        object: gameState.toString(),
+        object_name: objectName(gameState),
+        match_state: fnameToString(gameState.add(SETTINGS.gameState.matchState)),
+        previous_match_state: fnameToString(
+            gameState.add(SETTINGS.gameState.previousMatchState)),
+        match_sub_state: fnameToString(gameState.add(SETTINGS.gameState.matchSubState)),
+        round_state: fnameToString(gameState.add(SETTINGS.gameState.roundState)),
+        current_round: gameState.add(SETTINGS.gameState.currentRoundCount).readS32(),
+        max_rounds: gameState.add(SETTINGS.gameState.maxRoundCount).readS32(),
+        remaining_time: gameState.add(SETTINGS.gameState.remainingTime).readS32(),
+    };
+}
+
+function matchLifecycleSnapshot(object) {
+    try {
+        if (classInherits(object, 'PBGameMode')) {
+            const gameState = object.add(SETTINGS.gameMode.pbGameState).readPointer();
+            return {
+                object_kind: 'game_mode',
+                match_state: fnameToString(object.add(SETTINGS.gameMode.matchState)),
+                match_sub_state: fnameToString(object.add(SETTINGS.gameMode.matchSubState)),
+                round_state: fnameToString(object.add(SETTINGS.gameMode.roundState)),
+                shutdown_wait_first_join: object.add(
+                    SETTINGS.gameMode.shutdownWaitFirstJoin).readFloat(),
+                shutdown_wait_rejoin: object.add(
+                    SETTINGS.gameMode.shutdownWaitRejoin).readFloat(),
+                shutdown_wait_cleanup: object.add(
+                    SETTINGS.gameMode.shutdownWaitCleanup).readFloat(),
+                game_state: dumpPBGameStateLifecycle(gameState),
+            };
+        }
+        if (classInherits(object, 'PBGameState')) {
+            return {
+                object_kind: 'game_state',
+                game_state: dumpPBGameStateLifecycle(object),
+            };
+        }
+    } catch (error) {
+        return { error: String(error) };
+    }
+    return null;
 }
 
 function moduleOffset(address) {
@@ -1624,6 +1771,206 @@ function dumpCareerState(manager) {
         characters,
         state_hash: toHex(hash),
     };
+}
+
+function forEachTMapEntry(map, elementSize, maximumEntries, label, visitor) {
+    const elements = map.readPointer();
+    const allocated = map.add(8).readS32();
+    const max = map.add(12).readS32();
+    const flagBits = map.add(0x28).readS32();
+    const secondaryFlags = map.add(0x20).readPointer();
+    const flags = secondaryFlags.isNull() ? map.add(0x10) : secondaryFlags;
+    if (allocated < 0 || max < allocated || flagBits < allocated ||
+        allocated > maximumEntries || (allocated > 0 && elements.isNull())) {
+        throw new Error(
+            `invalid ${label} allocated=${allocated} max=${max} flags=${flagBits}`);
+    }
+    let live = 0;
+    for (let index = 0; index < allocated; index += 1) {
+        const word = flags.add(Math.floor(index / 32) * 4).readU32();
+        if ((word & (1 << (index % 32))) === 0) continue;
+        visitor(elements.add(index * elementSize), index);
+        live += 1;
+    }
+    return live;
+}
+
+function progressionDetail(progression, mapId) {
+    const pre = readArrayHeader(progression.add(0x58), 4096, 'progression prerequisites');
+    const items = readArrayHeader(progression.add(0x70), 4096, 'progression items');
+    const events = readArrayHeader(progression.add(0x88), 4096, 'progression events');
+    const itemSample = [];
+    for (let index = 0; index < Math.min(items.num, 8); index += 1) {
+        const item = items.data.add(index * 0x0C);
+        itemSample.push({
+            item_id: fnameToString(item),
+            amount: item.add(8).readS32(),
+        });
+    }
+    const quest = progression.add(0x30).readPointer();
+    return {
+        progression_id: mapId,
+        object_id: fnameToString(progression.add(0x28)),
+        quest_id: quest.isNull() ? null : fnameToString(quest.add(0x28)),
+        progression_type: progression.add(0x38).readU8(),
+        index: progression.add(0x80).readS32(),
+        state: progression.add(0x98).readU8(),
+        prerequisite_count: pre.num,
+        reward_count: items.num,
+        reward_sample: itemSample,
+        event_count: events.num,
+    };
+}
+
+function dumpProgressionManager(manager) {
+    const progressionIds = [];
+    const selected = [];
+    const typeCounts = {};
+    const stateCounts = {};
+    let hash = 0x811C9DC5;
+    const count = forEachTMapEntry(
+        manager.add(SETTINGS.progression.progressionMap),
+        SETTINGS.progression.mapElementSize,
+        10000,
+        'ProgressionMap',
+        (element) => {
+            const progressionId = fnameToString(element);
+            const progression = element.add(8).readPointer();
+            progressionIds.push(progressionId);
+            hash = fnvStep(hash, hashString(progressionId));
+            if (progression.isNull()) return;
+            const type = progression.add(0x38).readU8();
+            const state = progression.add(0x98).readU8();
+            typeCounts[type] = (typeCounts[type] || 0) + 1;
+            stateCounts[state] = (stateCounts[state] || 0) + 1;
+            hash = fnvStep(hash, type);
+            hash = fnvStep(hash, state);
+            if (selected.length < 8 ||
+                /^(Player_Level(?:1|2|69|70)|(?:PEACE|PROBE|Sniper|FORT|FIXER|SPIKE)_Level(?:1|2|29|30))$/.test(progressionId)) {
+                selected.push(progressionDetail(progression, progressionId));
+            }
+        });
+    progressionIds.sort();
+    selected.sort((left, right) => left.progression_id.localeCompare(right.progression_id));
+
+    const updated = readArrayHeader(
+        manager.add(SETTINGS.progression.lastUpdatedArray),
+        10000,
+        'LastUpdatedProgressionArray');
+    const lastUpdatedIds = [];
+    for (let index = 0; index < updated.num; index += 1) {
+        const progression = updated.data.add(index * Process.pointerSize).readPointer();
+        if (!progression.isNull()) {
+            lastUpdatedIds.push(fnameToString(progression.add(0x28)));
+        }
+    }
+    lastUpdatedIds.sort();
+    return {
+        manager: manager.toString(),
+        progression_count: count,
+        progression_ids: compactSample(progressionIds),
+        type_counts: typeCounts,
+        state_counts: stateCounts,
+        selected_progressions: selected.slice(0, 64),
+        last_updated_count: lastUpdatedIds.length,
+        last_updated_ids: compactSample(lastUpdatedIds),
+        quest_manager: manager.add(SETTINGS.progression.questManager).readPointer().toString(),
+        state_hash: toHex(hash),
+    };
+}
+
+function summarizeQuestProgressMap(map, label) {
+    const ids = [];
+    const completedIds = [];
+    let totalEvents = 0;
+    let hash = 0x811C9DC5;
+    const count = forEachTMapEntry(
+        map,
+        SETTINGS.progression.progressElementSize,
+        10000,
+        label,
+        (element) => {
+            const progressionId = fnameToString(element);
+            const completed = element.add(0x58).readU8() !== 0;
+            let eventCount = 0;
+            forEachTMapEntry(element.add(8), 0x18, 4096, `${label}.EventProgress`, (event) => {
+                eventCount += 1;
+                hash = fnvStep(hash, hashString(fnameToString(event)));
+                hash = fnvStep(hash, event.add(8).readS32());
+            });
+            ids.push(progressionId);
+            if (completed) completedIds.push(progressionId);
+            totalEvents += eventCount;
+            hash = fnvStep(hash, hashString(progressionId));
+            hash = fnvStep(hash, completed ? 1 : 0);
+        });
+    ids.sort();
+    completedIds.sort();
+    return {
+        count,
+        completed_count: completedIds.length,
+        total_event_count: totalEvents,
+        ids: compactSample(ids),
+        completed_ids: compactSample(completedIds),
+        hash: toHex(hash),
+    };
+}
+
+function dumpQuestManager(manager) {
+    const questIds = [];
+    const questCount = forEachTMapEntry(
+        manager.add(SETTINGS.progression.questMap),
+        SETTINGS.progression.mapElementSize,
+        10000,
+        'QuestMap',
+        (element) => questIds.push(fnameToString(element)));
+    questIds.sort();
+    const current = summarizeQuestProgressMap(
+        manager.add(SETTINGS.progression.progressMap), 'ProgressionProgress');
+    const previous = summarizeQuestProgressMap(
+        manager.add(SETTINGS.progression.lastProgressMap), 'LastProgressionProgress');
+    return {
+        manager: manager.toString(),
+        quest_count: questCount,
+        quest_ids: compactSample(questIds),
+        current,
+        previous,
+        state_hash: `${current.hash}:${previous.hash}`,
+    };
+}
+
+function refreshProgressionManager(manager, reason, force = false) {
+    const key = manager.toString();
+    try {
+        const snapshot = dumpProgressionManager(manager);
+        if (force || progressionSignatures.get(key) !== snapshot.state_hash) {
+            progressionSignatures.set(key, snapshot.state_hash);
+            emit('progression.manager_snapshot', Object.assign({ reason }, snapshot));
+        }
+        return true;
+    } catch (error) {
+        progressionManagers.delete(key);
+        progressionSignatures.delete(key);
+        emit('progression.manager_retired', { reason: 'unreadable', manager: key, error: String(error) });
+        return false;
+    }
+}
+
+function refreshQuestManager(manager, reason, force = false) {
+    const key = manager.toString();
+    try {
+        const snapshot = dumpQuestManager(manager);
+        if (force || questSignatures.get(key) !== snapshot.state_hash) {
+            questSignatures.set(key, snapshot.state_hash);
+            emit('progression.quest_snapshot', Object.assign({ reason }, snapshot));
+        }
+        return true;
+    } catch (error) {
+        questManagers.delete(key);
+        questSignatures.delete(key);
+        emit('progression.quest_manager_retired', { reason: 'unreadable', manager: key, error: String(error) });
+        return false;
+    }
 }
 
 function refreshCareerManager(manager, reason, force = false) {
@@ -2051,6 +2398,28 @@ function considerObject(object) {
         }
         return;
     }
+    if (typeName === 'PBProgressionManager') {
+        if (!name.startsWith('Default__')) {
+            const key = object.toString();
+            if (!progressionManagers.has(key)) {
+                progressionManagers.set(key, object);
+                emit('progression.manager_found', { manager: key, object_name: name });
+            }
+            refreshProgressionManager(object, 'object_scan', !progressionSignatures.has(key));
+        }
+        return;
+    }
+    if (typeName === 'PBQuestManager') {
+        if (!name.startsWith('Default__')) {
+            const key = object.toString();
+            if (!questManagers.has(key)) {
+                questManagers.set(key, object);
+                emit('progression.quest_manager_found', { manager: key, object_name: name });
+            }
+            refreshQuestManager(object, 'object_scan', !questSignatures.has(key));
+        }
+        return;
+    }
     if (typeName.includes('PBLocalPlayer')) {
         if (!name.startsWith('Default__')) {
             const key = object.toString();
@@ -2138,7 +2507,11 @@ function considerObject(object) {
     }
     const outer = object.add(SETTINGS.object.outer).readPointer();
     const ownerName = outer.isNull() ? '' : objectName(outer);
-    if (ownerName === OBSERVED_FUNCTIONS.get(name)) {
+    const expectedOwners = OBSERVED_FUNCTIONS.get(name);
+    const ownerMatches = Array.isArray(expectedOwners)
+        ? expectedOwners.includes(ownerName)
+        : ownerName === expectedOwners;
+    if (ownerMatches) {
         if (targetFunctions.has(object.toString())) {
             return;
         }
@@ -2199,6 +2572,8 @@ function scanObjects() {
             character_level_tables_found: characterLevelTables.size,
             local_players_found: localPlayers.size,
             career_managers_found: careerManagers.size,
+            progression_managers_found: progressionManagers.size,
+            quest_managers_found: questManagers.size,
             player_states_found: playerStates.size,
         });
         if (armoryManager !== null && inventoryState === null) {
@@ -2259,6 +2634,18 @@ function observedCallDetails(functionName, params, phase) {
     }
     if (functionName === 'GotoState' && phase === 'enter') {
         return { new_state: fnameToString(params) };
+    }
+    if ((functionName === 'K2_OnSetMatchState' ||
+         functionName === 'K2_OnSetMatchSubState' ||
+         functionName === 'K2_OnSetRoundState') && phase === 'enter') {
+        return { new_state: fnameToString(params) };
+    }
+    if (functionName === 'ClientStartMatchEnding' && phase === 'enter') {
+        return { duration_seconds: params.readS32() };
+    }
+    if ((functionName === 'ReadyToEndGame_WaitingPostMatch' ||
+         functionName === 'ReadyToMatchEnding_WaitingPostMatch') && phase === 'leave') {
+        return { return_value: params.readU8() !== 0 };
     }
     if (functionName === 'ShowLoadingScreen' && phase === 'enter') {
         return {
@@ -2437,6 +2824,7 @@ function hookProcessEvent() {
             this.probeKind = null;
             this.probeParams = ptr(0);
             this.probeObject = ptr(0);
+            this.matchLifecycle = false;
             this.customizeObject = ptr(0);
             this.customizeClass = null;
             this.customizeFunction = null;
@@ -2509,6 +2897,7 @@ function hookProcessEvent() {
                 this.probeKind = functionName;
                 this.probeParams = args[2];
                 this.probeObject = args[0];
+                this.matchLifecycle = MATCH_LIFECYCLE_FUNCTIONS.has(functionName);
                 if (OBSERVED_FUNCTIONS.get(functionName) === 'PBWeapon') {
                     this.probeWeaponBefore = refreshWeapon(
                         args[0], `${functionName}.before`, true);
@@ -2519,6 +2908,15 @@ function hookProcessEvent() {
                     registerPlayerState(args[0], `${functionName}.before`);
                 } else if (OBSERVED_FUNCTIONS.get(functionName) === 'PBPlayerController') {
                     registerControllerPlayerState(args[0], `${functionName}.before`);
+                }
+                if (this.matchLifecycle) {
+                    emit('match.lifecycle', Object.assign({
+                        function_name: functionName,
+                        phase: 'enter',
+                        object: args[0].toString(),
+                        object_class: className(args[0]),
+                        state: matchLifecycleSnapshot(args[0]),
+                    }, observedCallDetails(functionName, args[2], 'enter')));
                 }
                 emitFieldModSnapshot(`${functionName}.before`);
                 emit('fieldmod.native_call', Object.assign({
@@ -2564,6 +2962,16 @@ function hookProcessEvent() {
                         return_value: this.probeParams.add(8).readU8() !== 0,
                     }));
                 } else {
+                    if (this.matchLifecycle) {
+                        emit('match.lifecycle', Object.assign({
+                            function_name: this.probeKind,
+                            phase: 'leave',
+                            object: this.probeObject.toString(),
+                            object_class: className(this.probeObject),
+                            state: matchLifecycleSnapshot(this.probeObject),
+                        }, observedCallDetails(
+                            this.probeKind, this.probeParams, 'leave')));
+                    }
                     emit('fieldmod.native_call', Object.assign({
                         function_name: this.probeKind,
                         phase: 'leave',
@@ -2641,7 +3049,8 @@ function initialize() {
             if (targetFunctions.size < OBSERVED_FUNCTIONS.size ||
                 armoryManager === null ||
                 persistentUsers.size === 0 || playerLevelTables.size === 0 ||
-                characterLevelTables.size === 0 || careerManagers.size === 0) {
+                characterLevelTables.size === 0 || careerManagers.size === 0 ||
+                progressionManagers.size === 0 || questManagers.size === 0) {
                 scanObjects();
             }
             if (armoryManager !== null) {
@@ -2652,6 +3061,12 @@ function initialize() {
             }
             for (const manager of careerManagers.values()) {
                 refreshCareerManager(manager, 'poll', false);
+            }
+            for (const manager of progressionManagers.values()) {
+                refreshProgressionManager(manager, 'poll', false);
+            }
+            for (const manager of questManagers.values()) {
+                refreshQuestManager(manager, 'poll', false);
             }
             for (const playerState of playerStates.values()) {
                 refreshPlayerState(playerState, 'poll', false);

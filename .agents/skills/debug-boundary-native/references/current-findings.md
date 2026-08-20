@@ -263,3 +263,88 @@ CompleteWeaponOrnament(manager, int32 code, FName ornament, FName role, FName we
 - 客户端日志顺序为 `Match transition queued -> Deactivated frontend menu -> Connecting directly to match`。Frida 中 `GoToRange/K2_GoToRange=0`，`DeactivateWidget` 一次 enter/leave，随后各一次 `ClientStartOnlineGame`、`ClientMatchHasStarted`、`ClientRoundHasStarted`、`ClientSelectRole` enter/leave；`ShowConfirm=0`、`ExitRange=0`。
 - 首发玩家在没有进入靶场的情况下完成选角、装备确认和 FIXER 首生；ESC 显示正常的 `IN GAME` 角色界面，没有 `LEAVE MATCH / PLEASE CONFIRM YOUR COMMAND`。随后 AI 击杀触发 lifecycle 1，显式原生 `ServerRestartPlayer -> ServerQuickRespawn` attempt 0 完成，再次 `Spawn complete`，证明复活接线未回归。
 - 最终部署 `Payload.dll` SHA-256 为 `12D4F6E891B9D46A91B0C8341B67974A16778198DB70CD2CBEA4312CADB04920`。
+
+## 13. 原生 progression / quest 链（2026-08-20）
+
+以下结论仅适用于第 1 节固定 EXE SHA-256。
+
+### SDK 布局与原生实现
+
+- `UPBProgressionManager` 的 `ProgressionMap` 在 `+0x58`，`QuestManager` 在 `+0xA8`；`UPBQuestManager` 的 `QuestMap`、`ProgressionProgress`、`LastProgressionProgress` 分别在 `+0x30`、`+0x80`、`+0xD0`。固定构建运行时实际创建 762 个 progression 节点和 811 个 quest 定义；节点类型分布为 PlayerLevel 69、CharacterLevel 174、WeaponMaster 22、WeaponMain 491、WeaponChallenge 6。
+- `GetPlayerLevelProgression` exec RVA `0x0184EB00` 调用 RVA `0x01715FE0`，按 `Player_Level{N}` 构造 ID；`GetCharacterLevelProgression` exec RVA `0x0184E7F0` 调用 RVA `0x01714560`，按 `{Character}_Level{N}` 构造 ID；两者最终通过 RVA `0x01716350` 查询 `ProgressionMap`。
+- `UPBProgression::RefreshProgress` exec RVA `0x0184F8A0` 跳转 RVA `0x0172E7B0`：遍历节点 `EventArray (+0x88)`，从 QuestManager 当前进度读取事件完成数并写回事件 `+0x3C`，再更新节点 `ProgressionState (+0x98)`。Quest 读取核心 RVA `0x0175EFC0` / `0x0175F720` 使用 `ProgressionProgress (+0x80)`；`OnMatchHasStarted` exec RVA `0x0185A2F0` 跳转 RVA `0x0176B8F0`，把当前进度复制到 `LastProgressionProgress (+0xD0)`，形成赛前/赛后快照。
+- QuestManager 初始化 RVA `0x017631E0` 注册登录、查询完成和实时事件回调，然后由 RVA `0x01763EE0` 从数据表物化 QuestMap。登录回调 RVA `0x0176B7A0` 通过 MetaGateway 发出空请求；与同一登录时刻动态观测到的 `/mission.Mission/QueryProgress` 空 payload 对应。成功完成回调 RVA `0x0176E310` 把响应内两个容器解码到 `ProgressionProgress (+0x80)` 和私有运行时容器 `+0x120` 后广播刷新；实时事件回调 RVA `0x0176E670` 增量更新同两类容器。`QueryProgressResp` 的 protobuf 字段名和 `+0x120` 容器语义尚未完整恢复，不能按现有 tentative proto 猜测实现。
+
+### 固定构建动态证据
+
+- `frida-captures/20260820-progression-state/events.jsonl` 中，登录前 762 个 progression 节点状态全部为 0，811 个 quest 定义已存在，但当前/上一份 QuestProgress 都为空。样例节点包含 `Player_Level2 -> Player-LevelUp2 -> ABGNSFW01`、`Player_Level3 -> SpaceCoin x600` 和六角色 Level 2/29/30 外观奖励。
+- 登录后 `/playerdata.PlayerDataClient/GetDataStatisticsInfo` 成功返回 14 个精确 key，CareerManager 变为玩家 70 级、六角色 30 级；同批 `/mission.Mission/QueryProgress` 请求 payload 为 0，响应 `error_code=1` 且 payload 为 0，因此 QuestProgress 没有被写入。
+- 原生 PROGRESSION UI 随后能显示角色 Level 30 / MAX LEVEL，但各等级事件仍是 `0/N`、节点锁定；奖励 tile 同时有绿色 owned 标记。前者证明 Career 等级快照已经接通而 QueryProgress/QuestProgress 未接通，后者来自 `QueryAssets` 全定义 owned 兼容路径，不能当作 progression 奖励已结算。
+
+### 当前服务端缺口
+
+- `GetDataStatisticsInfo` 仍按全局配置返回固定等级和零 EXP，没有按已认证玩家读取 profile/repository；现有 profile 的 level、experience、statistics 字段没有进入该原生 RPC。
+- TCP dispatch 没有 `/mission.Mission/QueryProgress`，因此客户端收到通用错误 1；`mission.proto` 中 QueryProgress 请求/响应仍为空 tentative 声明，需先恢复准确 wire schema，再实现按玩家持久化的 quest/event progress。
+- `AddDataStatisticsInfo` / 对局后 settlement 写回没有 dispatch 或持久化实现。BattleLog 只记录对局日志，没有把经验、等级、事件进度、货币与奖励作为幂等事务写回 profile、QuestProgress 和 entitlement。
+- `QueryAssets` 全定义 owned 会掩盖真实奖励发放。完整接线需要把 entitlement 改成逐玩家所有权，并将 progression 完成、奖励发放、货币变更和新物品/已读状态放进同一可重试事务。
+
+## 14. Dedicated 对局结束与优雅退场（2026-08-20）
+
+以下结论仅适用于第 1 节固定 EXE SHA-256；仓库基线为 `08848b9e6160e2d76002d9402b7d0762bf7370b2`。
+
+### 原生生命周期与进程边界
+
+- `APBGameMode` 在 `WaitingPostMatch` 内按 `MatchSubState` 依次分派：`ShowingMatchResult -> vtable +0x9C0 / RVA 0x0162B190`、`MatchEnding -> +0x9C8 / RVA 0x0162AE80`、`WaitingToEndGame -> +0x9D0 / RVA 0x0162B1C0`。分派主体和倒计时 tick 分别在 RVA `0x0163FE70`、`0x016491E0`；GameState 的 `MatchSubState`、`RemainingTime` 分别在 `+0x290`、`+0x340`。
+- `ShowingMatchResult` 和 `MatchEnding` 分别装载配置 `ShowingMatchResultTime (+0x38C)`、`MatchEndingTime (+0x390)`。`WaitingToEndGame` thunk 从 GameMode `WaitingToCleanUp (+0x404)` 读取最终清理窗口、清 `+0x4C4`，再跳到 RVA `0x0163EFD0`。
+- RVA `0x0163EFD0` 在 dedicated NetMode 下以原生 `FTimerManager` 延迟调用 RVA `0x019EFEE0` 的 `RequestExit(false)`；等待值小于等于 0 时立即退出。因此固定构建的服务端是 **process-per-match**，外层 service/launcher 在退出后拉起新进程是设计边界，不应通过拦截 `RequestExit`、调用 `RestartGame` 或强留旧 world 改成进程内循环。
+
+### 掉线现象的两层根因
+
+1. `MatchEnding` 遍历服务器侧 PlayerController 并进入原生 `GameHasEnded`。PB override RVA `0x015A7770` 先调用 RVA `0x015C8CF0` 的 InGameMenu 退场，再转 Engine `ClientGameEnded`；headless controller 的本地 UI root `+0xF8` 为 null，但 RVA `0x015C8D0E` 仍读取其 `+0x118`，造成 access violation。
+2. 修复崩溃后，dedicated 的 `WaitingToEndGame` 分支会直接安排进程退出，却没有调用已经存在的 `APBGameMode::NotifyAllClientsReturnToMainMenu` RVA `0x01633990`。该函数原生遍历 controllers 并调用 `ClientReturnToMainMenuWithTextReason`；缺少它时，客户端只能在 socket 消失后走 `HOST CLOSED THE CONNECTION` 网络失败页。
+
+同一 null-read 栈已在 2026-04-21、2026-07-31、2026-08-16 和 2026-08-20 的 crash context 中重复出现。2026-08-20 会话的关键 RVA 栈为 `0x015C8D0E -> 0x015A7827 -> 0x0380A810 -> 0x01A68EC9 -> 0x01BCC122 -> Payload ProcessEvent hook -> 0x0162AFC4 -> 0x0163FF25`，故“服务重启”是崩溃或正常退出后的外层结果，不是最早故障点。
+
+### 当前最小兼容实现
+
+- 服务端在 RVA `0x015C8CF0` 只增加一个 headless guard：当 controller 为空或 `controller +0xF8` 为空时跳过不可能存在的本地 InGameMenu 操作；其余 controller 和后续原生 `ClientGameEnded` 生命周期保持原样。
+- 服务端在 RVA `0x0162B1C0` 进入最终清理窗口时先调用原生 RVA `0x01633990` 广播返回主菜单，然后显式复现该三指令 thunk 的 `+0x404` 读取、`+0x4C4` 清零，并调用原生 RVA `0x0163EFD0`。不能依赖 inline trampoline 重定位这个以无条件 `jmp` 结尾的短 thunk；实测那会发送 RPC，但不创建退出 timer。
+- 未伪造结算 UI、未直接 client travel、未压缩正常结果/MatchEnding 时间，也未吞掉 `RequestExit`。修复只补 headless 空指针边界和原生已有但 dedicated 分支漏掉的通知。
+
+### 固定构建运行时验收
+
+- 原始失败会话 `local-pve/20260820-173008` 在服务端/客户端均到达 `K2_StartShowingMatchResult` 和 `K2_MatchHasEnded` 后，于 17:45:59 在上述 null-read 崩溃；最新 crash 目录仍停留在 17:48:23，没有由修复后会话产生的新目录。
+- 完整通知会话 `local-pve/20260820-213429`；Frida 为 `frida-captures/20260820-match-lifecycle-final/{server,client2}/events.jsonl`。服务端依次到达 `ShowingMatchResult`、`MatchEnding`、`ReadyToEndGame=true`，记录 headless guard 和 native return-to-menu broadcast；随后原生 `ClientReturnToMainMenuWithTextReason` 完成，客户端进入 `ClientGotoState(Inactive)`，服务端 heartbeat 的 PlayerCount 从 6 变为 0。连接在进程退出前已主动退场，不再由 socket close 驱动。
+- 清理 timer 定点验收为 `frida-captures/20260820-match-lifecycle-cleanup-final/events.jsonl`：PID 16040、GameMode `0x221255FB050`。仅为缩短 smoke test 把 `WaitingToCleanUp` 从正式配置 60 秒临时设为 2 秒；hook 返回后 `FTimerHandle=436207637`（非零），进程随后由原生 timer/RequestExit 自行退出。
+- 最终 Release/x64 `Payload.dll` SHA-256 为 `B8D757EF0131D70D5792756E8E23A59FBEB7F5301306091A1F74BD0C8EF997D9`。原始回滚副本为 `%LOCALAPPDATA%\ProjectRebound\payload-backups\20260820-match-lifecycle\Payload.before-match-lifecycle.dll`，SHA-256 `12D4F6E891B9D46A91B0C8341B67974A16778198DB70CD2CBEA4312CADB04920`。
+
+## 15. 整局结束到下一局边界（2026-08-20）
+
+以下静态地址仍只适用于第 1 节固定 EXE SHA-256。此节把“下一回合”和“下一局”分开：前者在当前 World/进程内，后者不在 dedicated 对局状态机内。
+
+### 服务端结果冻结与分发
+
+- Engine `AGameMode::EndMatch` RVA `0x0327D9A0` 把 MatchState 切到 `WaitingPostMatch`，PB handler RVA `0x0162ABD0` 随后进入结果冻结函数 RVA `0x01637850`。
+- RVA `0x01637850` 先调用 APBGameMode vtable `+0xA38`（RVA `0x01639A20`）。该函数把 winner、队伍比分和 MVP 写入 `APBGameState::MatchResult (+0x408)`：`MatchWinnerTeamID +0x410`、`TeamMatchScores +0x418`、`MVPPBPlayerState +0x428`；每回合积累的 `RoundResults` 位于 `+0x430`。
+- 随后 RVA `0x01637850` 遍历 PlayerController，对满足 vtable `+0xA68` 判定的玩家调用 RVA `0x0183E010`。该函数是 `APBPlayerController::ClientMatchHasEnded(FPBMatchResult)` 的 RPC serializer，入参正是 `GameState +0x408`。最后还会清理在线 session 成员、调用赛后统计/事件汇总 RVA `0x01645770`，并把 GameMode 私有结束标记写成 `+0x420 = 4`、`+0x41C = -1`。
+- 客户端 RPC implementation RVA `0x015A7C10` 调用 RVA `0x01681300`，把收到的 `FPBMatchResult` 复制到客户端 `APBGameState::MatchResult`，然后进入 K2 `MatchHasEnded`。动态记录中 winner、`[0,2]` 队伍比分、MVP 和参与者统计均完整，说明比分/结果界面的原生数据链没有缺口。
+
+### 结果展示、退场与客户端 session cleanup
+
+- 结果冻结之后，服务器继续使用原生时序：`ShowingMatchResult`（本次配置/实测 5 秒）→ `MatchEnding`（10 秒）→ `WaitingToEndGame`。`StartMatchEnding` RVA `0x0162AE80` 会进入每个 controller 的 `GameHasEnded`；dedicated 只需要第 14 节的 headless UI guard，不能跳过后续 Engine/客户端退场逻辑。
+- `NotifyAllClientsReturnToMainMenu` RVA `0x01633990` 发出的 `ClientReturnToMainMenuWithTextReason` 在客户端经 RPC exec RVA `0x0380B860` 落到 PB override RVA `0x015A8430`。该 override 关闭局内 UI/状态后调用 `UPBGameInstance::GotoState` RVA `0x015650F0`，再调用 Engine 基类 RVA `0x034EF180` 执行正常断开/旅行。
+- 固定构建的 GameInstance FName 全局已由静态初始化表反解：`0x05C72990=None`、`0x05C72998=PendingInvite`、`0x05C729A0=WelcomeScreen`、`0x05C729A8=MainMenu`、`0x05C729B0=MessageMenu`、`0x05C729B8=Playing`。PB override 读取 `0x05C729A8`，明确把 pending state 设为 `MainMenu`，不是进入网络失败状态。
+- GameInstance 状态机 RVA `0x0156DB60` 比较 current `+0x200` 与 pending `+0x208`。从 `Playing` 退出到 `MainMenu` 时调用 RVA `0x0155D6C0`；普通对局（GameState mode 不是 `Menu`）由此进入 `CleanupSessionOnReturnToMenu` RVA `0x01553C80`，随后再进入 MainMenu handler RVA `0x0154FE20`。因此不应额外调用 `ExitMatchReturnToMainMenu`、直接 `ClientTravel` 或重复调用 session cleanup。
+
+### 下一回合、下一局与外层进程
+
+- `StartNextRoundLoop` 的 UFunction exec RVA `0x017F7480` 跳到 native RVA `0x01643F50`；它与 `CurrentRoundCount (+0x2A0)`、`RoundState (+0x298/+0x410)` 协作，只负责同一场 match 的下一回合。`RestartPlayers` 同样是出生/复活流程，二者都不是下一局。
+- SDK 和固定二进制的 APBGameMode 生命周期没有 `StartNextMatch`、`ReturnToLobby` 或赛后 `RestartGame/ServerTravel` 路径。专用服在 `WaitingToCleanUp (+0x404)` 结束后调用 `RequestExit(false)`；下一局必须由新进程承载。
+- `UPBMatchmakingManager` 的 `BP_FindGatheringMatch`、`StartConnectingMatchServer`、`ResetMatchmakingManager` 等入口属于返回主菜单后的 UI/subsystem 流程；没有从上述赛后 native 链自动重新排队的静态调用关系。玩家要开始下一局，原生边界是回到前端后再次匹配/加入，由控制面分配新的服务端进程。
+- C++ `ServerWrapper` 的 exit watcher 会把仍处于 Running 状态的任意子进程退出记为 `process exit` 并调用 `RequestRestart(true, ...)`，所以它会用新 PID 拉起下一台常驻可用服务（通常轮换地图）；这不是游戏二进制内的下一局。`Backend/cmd/meta-tunnel/startgame.ps1` 和 `Tools/PVE/start-local-pve.ps1` 则没有赛后循环，后者的重试只覆盖初始启动/world travel 失败。
+
+### 与奖励结算的边界
+
+- `APBGameMode::GetMatchResultInfo` native RVA `0x016294A0` 生成每名玩家的 `FMatchResultInfo`；`UPBGameInstance::SaveMatchResultInfo` exec RVA `0x017F6990` 调用 native RVA `0x01583520`，后者只深拷贝到 `GameInstance::LocalMatchResultInfo (+0x4F0)`。`ClientMatchHasEnded` RVA `0x015A7C10` 本身不调用它。
+- 本地 PVE 动态结果页已有完整 `FPBMatchResult`，但 `LocalMatchResultInfo`、career post-match settlement 和 `SaveMatchResultInfo` 参数仍为空。这更符合第 13 节尚未接通 `/mission`、statistics/settlement 写回的后端缺口，而不是回菜单时序缺口。
+- 在准确恢复原生 settlement wire schema 和幂等事务之前，不应从生命周期 hook 伪造 `FMatchResultInfo`、主动调用 `SaveMatchResultInfo` 或注入 career settlement；这些行为会把 UI 缓存当作权威结算，并产生重复奖励风险。

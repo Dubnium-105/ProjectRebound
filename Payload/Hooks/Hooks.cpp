@@ -401,6 +401,74 @@ void TickFlushHook(UNetDriver *NetDriver, float DeltaTime)
 
 static SafetyHookInline NotifyActorDestroyed = {};
 
+// APBPlayerController's match-ending implementation always tears down the
+// local InGameMenu before it forwards to the engine ClientGameEnded path. A
+// headless server-side controller has no local UI root at +0xF8, but the pinned
+// build still dereferences that pointer at RVA 0x015C8D0E. Keep the native
+// match lifecycle intact and skip only this impossible UI operation.
+static SafetyHookInline ServerInGameMenuTransition = {};
+static SafetyHookInline ServerStartWaitingToEndGame = {};
+
+__int64 ServerInGameMenuTransitionHook(APBPlayerController* playerController, bool opening)
+{
+    constexpr uintptr_t LocalUiRootOffset = 0xF8;
+    if (!playerController ||
+        !*reinterpret_cast<void**>(
+            reinterpret_cast<uintptr_t>(playerController) + LocalUiRootOffset))
+    {
+        static std::atomic_bool logged = false;
+        if (!logged.exchange(true))
+        {
+            std::cout << "[MATCH] Skipped headless InGameMenu transition; "
+                         "continuing native ClientGameEnded lifecycle."
+                      << std::endl;
+        }
+        return 0;
+    }
+
+    return ServerInGameMenuTransition.call<__int64>(playerController, opening);
+}
+
+void ServerStartWaitingToEndGameHook(APBGameMode* gameMode)
+{
+    // The pinned dedicated-server path starts its final cleanup/exit timer here,
+    // but never invokes PBGameMode's native return-to-menu broadcast. Send that
+    // RPC while the connection still has the configured cleanup window to flush,
+    // then leave the original process-per-match shutdown path untouched.
+    using NotifyAllClientsReturnToMainMenuFn = __int64(__fastcall*)(APBGameMode*);
+    const auto notifyAllClientsReturnToMainMenu =
+        reinterpret_cast<NotifyAllClientsReturnToMainMenuFn>(BaseAddress + 0x1633990);
+
+    if (gameMode)
+    {
+        notifyAllClientsReturnToMainMenu(gameMode);
+        std::cout << "[MATCH] Notified clients to return to the main menu; "
+                     "continuing native dedicated-server cleanup."
+                  << std::endl;
+    }
+
+    // RVA 0x0162B1C0 is a tiny thunk rather than a normal function:
+    //   movss xmm1, [rcx+404h]
+    //   mov   byte ptr [rcx+4C4h], 0
+    //   jmp   0x0163EFD0
+    // Reproduce it explicitly because relocating its terminal jump through an
+    // inline trampoline does not reliably reach the cleanup/timer body.
+    constexpr uintptr_t WaitingToCleanUpOffset = 0x404;
+    constexpr uintptr_t FinalCleanupStartedOffset = 0x4C4;
+    using BeginFinalCleanupFn = void(__fastcall*)(APBGameMode*, float);
+    const auto beginFinalCleanup =
+        reinterpret_cast<BeginFinalCleanupFn>(BaseAddress + 0x163EFD0);
+
+    if (gameMode)
+    {
+        const float cleanupWait = *reinterpret_cast<float*>(
+            reinterpret_cast<uintptr_t>(gameMode) + WaitingToCleanUpOffset);
+        *reinterpret_cast<uint8_t*>(
+            reinterpret_cast<uintptr_t>(gameMode) + FinalCleanupStartedOffset) = 0;
+        beginFinalCleanup(gameMode, cleanupWait);
+    }
+}
+
 bool NotifyActorDestroyedHook(UWorld *World, AActor *Actor, bool SomeShit, bool SomeShit2)
 {
     if (listening && Actor)
@@ -1516,6 +1584,10 @@ void InitServerHooks(bool forceDedicatedMode)
         << (IsExplicitNativeRespawnForwardEnabled() ? "enabled" : "disabled")
         << " switch=-RespawnExplicitNative" << std::endl;
     NotifyActorDestroyed = safetyhook::create_inline((void *)(BaseAddress + 0x33403E0), NotifyActorDestroyedHook);
+    ServerInGameMenuTransition = safetyhook::create_inline(
+        (void *)(BaseAddress + 0x15C8CF0), ServerInGameMenuTransitionHook);
+    ServerStartWaitingToEndGame = safetyhook::create_inline(
+        (void *)(BaseAddress + 0x162B1C0), ServerStartWaitingToEndGameHook);
     NotifyAcceptingConnection = safetyhook::create_inline((void *)(BaseAddress + 0x36CDC90), NotifyAcceptingConnectionHook);
     NotifyControlMessage = safetyhook::create_inline((void *)(BaseAddress + 0x36CDCE0), NotifyControlMessageHook);
     TickFlush = safetyhook::create_inline((void *)(BaseAddress + 0x33E05F0), TickFlushHook);
