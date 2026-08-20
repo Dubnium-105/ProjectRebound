@@ -12,6 +12,7 @@
 | 游戏 EXE | `C:\Steam\steamapps\common\Boundary\ProjectBoundary\Binaries\Win64\ProjectBoundarySteam-Win64-Shipping.exe` |
 | 部署 DLL | `C:\Steam\steamapps\common\Boundary\ProjectBoundary\Binaries\Win64\Payload.dll` |
 | Meta-tunnel 启动器 | `C:\Steam\steamapps\common\Boundary\ProjectBoundary\Binaries\Win64\startgame.ps1` |
+| 本地 PVE 启动器 | `C:\Steam\steamapps\common\Boundary\ProjectBoundary\Binaries\Win64\start-local-pve.ps1` |
 
 不要把运行时 PID 写入文档；每次启动后重新解析并校验。
 
@@ -99,6 +100,41 @@ Start-Process -FilePath 'powershell.exe' `
 ```
 
 不要绕过 Meta-tunnel 直接启动 EXE 来验收线上 archive；那会改变被测路径。
+`startgame.ps1` 只给游戏子进程追加 `NO_PROXY/no_proxy` 的 loopback 条目作为
+防御性提示；本构建 UE 4.25 的显式 `httpproxy` 路径可能忽略该环境变量，因此不能
+单凭它证明 `LogicServerURL` 已绕过系统代理。启动器不修改 Windows 全局代理设置。
+
+本地 Dedicated PVE 使用仓库 `Tools/PVE/start-local-pve.ps1`。它不会调用旧
+`ProjectReboundServerWrapper.exe`，而是通过独立 MetaTunnel 启动带精确
+`-server -pve -LocalPveLoadout` 的服务端。默认只启动服务端：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File `
+  C:\Steam\steamapps\common\Boundary\ProjectBoundary\Binaries\Win64\start-local-pve.ps1 `
+  -Map Warehouse -Difficulty normal -Port 7777
+```
+
+无 Boundary 客户端运行时可以增加 `-LaunchClient`，启动器会在服务端绑定 UDP
+端口后启动带 `-match=127.0.0.1:<port>` 的客户端；已有客户端时应保持默认的
+server-only 模式，再从游戏控制台执行 `open 127.0.0.1:<port>`。
+
+固定客户端还会在登录前查询已退役的 Unity Multiplay fleet；该接口当前返回
+`404 fleet does not exist`，会使冷启动停在 `CONNECTING TO PLATFORM SERVER`。
+`-LaunchClient` 默认临时启动 `local-qos-compat.ps1`，在 loopback 提供最小
+Discovery 响应和 Multiplay UDP echo，再通过 `UnityMatchmaker.ChinaDiscoverURL`
+的启动期 Frida patch 仅重定向本次本地 PVE 客户端；Shipping 构建不接受
+RuntimeOptions、`Engine.ini` ConsoleVariables 或 `ExecCmds` 设置该值。普通
+`startgame.ps1` 不启用该兼容层；诊断
+原始行为时可给 PVE 启动器传 `-DisableClientQosCompatibility`。
+该 patch 校验固定 EXE SHA-256，并在可执行文件入口点运行前等待原生
+OverseaDiscoverURL 初始化完成后原位改写；不修改 Payload 或对局内逻辑。
+
+启动器固定校验 EXE SHA-256、拒绝已占用端口与重复 dedicated 进程，并把两个
+MetaTunnel 启动日志写到 `%LOCALAPPDATA%\ProjectRebound\local-pve\<timestamp>`。
+客户端使用默认认证缓存；local PVE dedicated 使用独立的 `local-pve` 会话缓存，
+避免两个长驻 MetaTunnel 轮换同一个 refresh token 并触发整个 token family 撤销。
+dedicated 若在 world travel 阶段无 crash dump 地提前退出，启动器默认做一次有界
+重试，并在最终错误中返回每次 launcher exit code、日志目录和 stdout 尾部。
 
 ## 6. UI 操作与人工验收
 

@@ -36,6 +36,8 @@ int main()
         "explicit false should disable a feature");
     Expect(CommandLinePolicy::FeatureEnabled(server, "-LoadoutBaselineBridge"),
         "missing feature flags should retain the default");
+    Expect(CommandLinePolicy::FeatureEnabled(server, "-RespawnExplicitNative"),
+        "native explicit respawn forwarding should default on");
 
     const std::string enabled =
         R"(game.exe -LoadoutSpawnBridge=1 -NativeArchiveOnlyExtra)";
@@ -43,6 +45,10 @@ int main()
         "explicit one should enable a feature");
     Expect(!CommandLinePolicy::HasExactSwitch(enabled, "-NativeArchiveOnly"),
         "prefix-compatible switches must not be accepted");
+    Expect(!CommandLinePolicy::FeatureEnabled(
+        "game.exe -RespawnExplicitNative=false",
+        "-RespawnExplicitNative"),
+        "A/B must be able to select the legacy replacement chain");
 
     const std::string localPve =
         R"(game.exe -server -pve -LocalPveLoadout)";

@@ -79,9 +79,17 @@ const SETTINGS = {
         { name: 'weapon_suite', rva: 0x016DD740 },
     ],
     matchNativeEntries: [
-        { name: 'server_confirm_role', rva: 0x015C0890, controller: true },
-        { name: 'server_preorder_inventory', rva: 0x015C1110, controller: true },
-        { name: 'possess_promote_inventory', rva: 0x0167FB20, controller: false },
+        { name: 'server_confirm_role', rva: 0x015C0890, controllerArg: 0 },
+        { name: 'server_preorder_inventory', rva: 0x015C1110, controllerArg: 0 },
+        { name: 'server_quick_respawn', rva: 0x015C14C0, controllerArg: 0 },
+        { name: 'engine_server_restart_player', rva: 0x03506BD0, controllerArg: 0 },
+        { name: 'exit_observer_state', rva: 0x015AE240, controllerArg: 0 },
+        { name: 'restart_players', rva: 0x0163D420 },
+        // Parameter layout is not dereferenced until runtime evidence confirms
+        // the vtable-call ABI; the boundary/backtrace alone is sufficient to
+        // distinguish RestartPlayers from its per-controller consumer.
+        { name: 'restart_player', rva: 0x0163D250 },
+        { name: 'possess_promote_inventory', rva: 0x0167FB20 },
     ],
     maxObjects: 2_000_000,
     maxOwnedItems: 250_000,
@@ -106,18 +114,27 @@ const OBSERVED_FUNCTIONS = new Map([
     ['ClientBeKilled', 'PBPlayerController'],
     ['ClientWaitingToRestart', 'PBPlayerController'],
     ['ClientSelectRole', 'PBPlayerController'],
+    ['CloseInGameSelectRoleMenu', 'PBPlayerController'],
     ['OpenInGameSelectRoleMenu', 'PBPlayerController'],
     ['ToggleInGameSelectRoleMenu', 'PBPlayerController'],
     ['CanSelectRole', 'PBPlayerController'],
     ['EnterObserverState', 'PBPlayerController'],
     ['ExitObserverState', 'PBPlayerController'],
     ['ServerQuickRespawn', 'PBPlayerController'],
+    ['K2_ControllerClientRestart', 'PBPlayerController'],
+    ['ClientGotoState', 'PlayerController'],
+    ['ClientRestart', 'PlayerController'],
+    ['ClientRetryClientRestart', 'PlayerController'],
     ['ClientSetSpectatorWaiting', 'PlayerController'],
     ['ServerSetSpectatorWaiting', 'PlayerController'],
+    ['ServerAcknowledgePossession', 'PlayerController'],
     ['ServerRestartPlayer', 'PlayerController'],
     ['CanRestartPlayer', 'PlayerController'],
     ['PlayerCanRestart', 'GameModeBase'],
     ['RestartPlayers', 'PBGameMode'],
+    ['RestartPlayer', 'GameModeBase'],
+    ['SpawnDefaultPawnFor', 'GameModeBase'],
+    ['SpawnDefaultPawnAtTransform', 'GameModeBase'],
     ['K2_InventorySpawned', 'PBCharacter'],
     ['InitWeapon', 'PBWeapon'],
     ['OnRep_PartNetworkConfig', 'PBWeapon'],
@@ -2209,10 +2226,35 @@ function observedCallDetails(functionName, params, phase) {
         functionName === 'ServerSetSpectatorWaiting') {
         return { waiting: params.readU8() !== 0 };
     }
+    if (functionName === 'ClientGotoState' && phase === 'enter') {
+        return { state_name: fnameToString(params) };
+    }
+    if ((functionName === 'ClientRestart' ||
+         functionName === 'ClientRetryClientRestart' ||
+         functionName === 'ServerAcknowledgePossession') && phase === 'enter') {
+        return { pawn: params.readPointer().toString() };
+    }
     if ((functionName === 'CanSelectRole' ||
          functionName === 'CanRestartPlayer' ||
          functionName === 'PlayerCanRestart') && phase === 'leave') {
         return { return_value: params.readU8() !== 0 };
+    }
+    if (functionName === 'RestartPlayers' && phase === 'enter') {
+        return {
+            controller_count: params.add(8).readS32(),
+        };
+    }
+    if (functionName === 'RestartPlayer' && phase === 'enter') {
+        return { new_player: params.readPointer().toString() };
+    }
+    if (functionName === 'SpawnDefaultPawnFor' ||
+        functionName === 'SpawnDefaultPawnAtTransform') {
+        const details = { new_player: params.readPointer().toString() };
+        if (phase === 'leave') {
+            const returnOffset = functionName === 'SpawnDefaultPawnFor' ? 0x10 : 0x40;
+            details.return_pawn = params.add(returnOffset).readPointer().toString();
+        }
+        return details;
     }
     if (functionName === 'SelectCharacterSlot') {
         return { slot: params.readU8() };
@@ -2286,9 +2328,13 @@ function hookMatchNativeEntries() {
         Interceptor.attach(address, {
             onEnter(args) {
                 this.entry = entry;
-                this.controller = entry.controller ? args[0] : ptr(0);
+                this.object = args[0];
+                this.hasController = Number.isInteger(entry.controllerArg);
+                this.controller = this.hasController
+                    ? args[entry.controllerArg]
+                    : ptr(0);
                 try {
-                    if (entry.controller) {
+                    if (this.hasController && !this.controller.isNull()) {
                         registerControllerPlayerState(
                             this.controller, `${entry.name}.native.before`);
                     }
@@ -2296,7 +2342,10 @@ function hookMatchNativeEntries() {
                         boundary_name: entry.name,
                         phase: 'enter',
                         rva: toHex(entry.rva),
-                        object: args[0].toString(),
+                        object: this.object.toString(),
+                        controller: this.hasController
+                            ? this.controller.toString()
+                            : null,
                         native_backtrace: nativeBacktrace(this.context),
                     });
                 } catch (error) {
@@ -2305,7 +2354,7 @@ function hookMatchNativeEntries() {
             },
             onLeave() {
                 try {
-                    if (this.entry.controller) {
+                    if (this.hasController && !this.controller.isNull()) {
                         registerControllerPlayerState(
                             this.controller, `${this.entry.name}.native.after`);
                     } else {
@@ -2318,7 +2367,10 @@ function hookMatchNativeEntries() {
                         boundary_name: this.entry.name,
                         phase: 'leave',
                         rva: toHex(this.entry.rva),
-                        object: this.controller.toString(),
+                        object: this.object.toString(),
+                        controller: this.hasController
+                            ? this.controller.toString()
+                            : null,
                     });
                 } catch (error) {
                     reportError(`match.native.${this.entry.name}.leave`, error);

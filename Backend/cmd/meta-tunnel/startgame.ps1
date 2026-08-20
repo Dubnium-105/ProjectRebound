@@ -1,4 +1,10 @@
 param(
+    [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$')]
+    [string] $AuthSessionScope = 'default',
+
+    [ValidatePattern('^http://127\.0\.0\.1:\d{1,5}/servers$')]
+    [string] $LocalPveQosDiscoveryUrl,
+
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]] $GameArguments
 )
@@ -12,8 +18,15 @@ $tunnelExecutable = @(
     (Join-Path $gameDirectory 'meta-tunnel-diagnostic.exe')
 ) | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
 $steamHelperExecutable = Join-Path $gameDirectory 'steam_helper.exe'
+$qosPatchedLauncher = Join-Path $gameDirectory 'launch-qos-patched-boundary.py'
 $signerPublicKey = Join-Path $gameDirectory 'rebound-signer.pem'
-$authCache = Join-Path $gameDirectory '.project-rebound-auth.json'
+$authCacheName = if ($AuthSessionScope -eq 'default') {
+    '.project-rebound-auth.json'
+}
+else {
+    ".project-rebound-auth.$AuthSessionScope.json"
+}
+$authCache = Join-Path $gameDirectory $authCacheName
 $apiBaseUrl = if ([string]::IsNullOrWhiteSpace($env:PROJECT_REBOUND_API_BASE_URL)) {
     'https://api.project-rebound.space'
 }
@@ -553,6 +566,7 @@ try {
         throw "MetaTunnel not found in: $gameDirectory"
     }
 
+    Write-Host "[AUTH] Session scope: $AuthSessionScope"
     $deviceId = Get-DeviceFingerprint
     $session = Get-ReboundSession -DeviceId $deviceId
 
@@ -616,6 +630,22 @@ try {
     } | Where-Object {
         [string] $_ -notmatch '^-LogicServerURL='
     })
+    # powershell.exe -File treats -ini:<category>:... as parameter syntax and
+    # splits the token at the first colon. Reassemble only the well-formed UE
+    # command-line INI override so the game receives the original argument.
+    $normalizedForwardedArguments = New-Object 'System.Collections.Generic.List[string]'
+    for ($argumentIndex = 0; $argumentIndex -lt $forwardedArguments.Count; $argumentIndex++) {
+        $argument = [string] $forwardedArguments[$argumentIndex]
+        if ($argument -ieq '-ini' -and
+            $argumentIndex + 1 -lt $forwardedArguments.Count -and
+            [string] $forwardedArguments[$argumentIndex + 1] -match '^[A-Za-z][A-Za-z0-9_]*:\[[^\]]+\]:[^=]+=') {
+            $normalizedForwardedArguments.Add(('{0}:{1}' -f $argument, [string] $forwardedArguments[$argumentIndex + 1]))
+            $argumentIndex++
+            continue
+        }
+        $normalizedForwardedArguments.Add($argument)
+    }
+    $forwardedArguments = @($normalizedForwardedArguments)
     if ($forwardedArguments -notcontains '-debuglog') {
         $forwardedArguments += '-debuglog'
     }
@@ -624,15 +654,76 @@ try {
     Write-Host "[PARAM] $($arguments -join ' ')"
 
     $gameStartInfo = [Diagnostics.ProcessStartInfo]::new()
-    $gameStartInfo.FileName = $gameExecutable
     $gameStartInfo.WorkingDirectory = $gameDirectory
     $gameStartInfo.UseShellExecute = $false
-    $gameStartInfo.Arguments = ($arguments | ForEach-Object { ConvertTo-NativeArgument ([string] $_) }) -join ' '
-    $startedGame = [Diagnostics.Process]::new()
-    $startedGame.StartInfo = $gameStartInfo
-    if (-not $startedGame.Start()) {
+    if ([string]::IsNullOrWhiteSpace($LocalPveQosDiscoveryUrl)) {
+        $gameStartInfo.FileName = $gameExecutable
+        $gameStartInfo.Arguments = ($arguments | ForEach-Object { ConvertTo-NativeArgument ([string] $_) }) -join ' '
+    }
+    else {
+        if (-not (Test-Path -LiteralPath $qosPatchedLauncher -PathType Leaf)) {
+            throw "Local PVE QoS launcher not found: $qosPatchedLauncher"
+        }
+        $pythonExecutable = (Get-Command python.exe -ErrorAction Stop).Source
+        $qosReadyPath = Join-Path ([IO.Path]::GetTempPath()) (
+            'project-rebound-qos-{0}-{1}.json' -f $PID, [guid]::NewGuid().ToString('N'))
+        $controllerArguments = @(
+            $qosPatchedLauncher,
+            '--executable', $gameExecutable,
+            '--url', $LocalPveQosDiscoveryUrl,
+            '--ready-file', $qosReadyPath,
+            '--'
+        ) + $arguments
+        $gameStartInfo.FileName = $pythonExecutable
+        $gameStartInfo.Arguments = ($controllerArguments | ForEach-Object { ConvertTo-NativeArgument ([string] $_) }) -join ' '
+        $gameStartInfo.CreateNoWindow = $true
+        Write-Host '[START] Local PVE QoS patch is enabled for this client.'
+    }
+    $loopbackNoProxy = '127.0.0.1,localhost,::1'
+    $inheritedNoProxy = [string] $gameStartInfo.EnvironmentVariables['NO_PROXY']
+    $effectiveNoProxy = if ([string]::IsNullOrWhiteSpace($inheritedNoProxy)) {
+        $loopbackNoProxy
+    }
+    else {
+        "$inheritedNoProxy,$loopbackNoProxy"
+    }
+    $gameStartInfo.EnvironmentVariables['NO_PROXY'] = $effectiveNoProxy
+    $gameStartInfo.EnvironmentVariables['no_proxy'] = $effectiveNoProxy
+    Write-Host '[START] Loopback HTTP proxy bypass enabled for the game process.'
+    $startedGameProcess = [Diagnostics.Process]::new()
+    $startedGameProcess.StartInfo = $gameStartInfo
+    if (-not $startedGameProcess.Start()) {
         throw 'Failed to start Boundary.'
     }
+    if ([string]::IsNullOrWhiteSpace($LocalPveQosDiscoveryUrl)) {
+        $startedGame = $startedGameProcess
+    }
+    else {
+        if (-not $startedGameProcess.WaitForExit(20000)) {
+            if (-not $startedGameProcess.HasExited) {
+                $startedGameProcess.Kill()
+                $startedGameProcess.WaitForExit()
+            }
+            throw 'Local PVE QoS launcher did not become ready within 20 seconds.'
+        }
+        try {
+            if ($startedGameProcess.ExitCode -ne 0 -or
+                -not (Test-Path -LiteralPath $qosReadyPath -PathType Leaf)) {
+                throw "Local PVE QoS launcher failed with exit code $($startedGameProcess.ExitCode)."
+            }
+            $controllerReady = Get-Content -LiteralPath $qosReadyPath -Raw -Encoding UTF8 | ConvertFrom-Json
+            if ($controllerReady.event -ne 'ready' -or [int] $controllerReady.pid -le 0) {
+                throw 'Local PVE QoS launcher returned invalid readiness data.'
+            }
+        }
+        finally {
+            if (Test-Path -LiteralPath $qosReadyPath -PathType Leaf) {
+                Remove-Item -LiteralPath $qosReadyPath -Force
+            }
+        }
+        $startedGame = [Diagnostics.Process]::GetProcessById([int] $controllerReady.pid)
+    }
+    Write-Host "[START] Boundary PID: $($startedGame.Id)"
 
     $refreshAt = Get-AccessTokenRefreshAt -Session $session
     $session = $null

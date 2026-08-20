@@ -56,6 +56,15 @@ enable_strict_warnings(loadout_state_policy_tests)
 
 add_test(NAME loadout_state_policy_tests COMMAND loadout_state_policy_tests)
 
+add_executable(respawn_state_policy_tests
+    RespawnStatePolicyTests.cpp
+)
+
+target_compile_features(respawn_state_policy_tests PRIVATE cxx_std_20)
+enable_strict_warnings(respawn_state_policy_tests)
+
+add_test(NAME respawn_state_policy_tests COMMAND respawn_state_policy_tests)
+
 add_executable(archive_completion_policy_tests
     ArchiveCompletionPolicyTests.cpp
 )

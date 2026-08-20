@@ -22,6 +22,7 @@
 
 #include <unordered_map>
 #include <functional>
+#include <cstdint>
 #include <string>
 
 // Forward declarations — 与 SDK 命名空间保持一致
@@ -63,6 +64,8 @@ public:
         bool  InitialRoleSelectionSent = false; // Native pre-match prompt reached this connection.
         bool  HasCompletedSpawn = false; // Suppress repeated mid-game lifecycle synchronization.
         bool  AwaitingRoleTransitionDeath = false; // A->B accepted while the old Pawn remains alive.
+        bool  ExplicitNativeRespawnDispatched = false; // Attempt 0 was the exact F RPC, not RestartPlayers.
+        std::uint64_t RespawnLifecycleId = 0; // Monotonic within the current server world.
         std::string DesiredRoleId; // Last role accepted by the authoritative PlayerState.
     };
 
@@ -75,6 +78,7 @@ public:
     using FCanReleasePlayerSpawn = std::function<bool(SDK::APBPlayerController*)>;
     using FSpawnDispatchNotification =
         std::function<void(SDK::APBPlayerController*)>;
+    using FExplicitRespawnDispatch = std::function<void()>;
 
     // ------------------------------------------------------------------
     //  构造 / 初始化
@@ -141,6 +145,10 @@ public:
     // matching managed permit is active.
     bool CanQueueManagedRespawn(SDK::APBPlayerController* PC) const;
     bool QueueManagedRespawn(SDK::APBPlayerController* PC);
+    bool DispatchManagedExplicitRespawn(
+        SDK::APBPlayerController* PC,
+        const char* requestKind,
+        const FExplicitRespawnDispatch& dispatch);
     bool IsManagedPlayer(SDK::APBPlayerController* PC) const;
     bool HasManagedRestartPermit(SDK::APBPlayerController* PC) const;
     bool IsAwaitingRespawnInput(SDK::APBPlayerController* PC) const;
@@ -214,6 +222,7 @@ private:
     std::unordered_map<SDK::APBPlayerController*, FLateJoinInfo> LateJoinPlayers;
     SDK::APBPlayerController* ManagedRestartPermit = nullptr;
     int ManagedRestartPermitDepth = 0;
+    std::uint64_t NextRespawnLifecycleId = 1;
 
     // ------------------------------------------------------------------
     //  可配置常量 — 未来可提取为配置项

@@ -213,3 +213,27 @@ CompleteWeaponOrnament(manager, int32 code, FName ornament, FName role, FName we
 - Payload 启动会对所有 client/server 路径校验固定 EXE SHA-256，并用精确 argv token 识别 `-server`、`-debug`、`-NativeArchiveOnly` 与 loadout feature flags；不再允许 `-servername` 等前缀误触发。
 - `Tools/Frida/armory_probe.js` 同时记录 reflected `ServerPreOrderInventory`、`ServerConfirmRoleSelection`、`K2_InventorySpawned`、`OnRep_PossessedCharacterID`，以及原生 implementation RVA `0x015C1110`、`0x015C0890`、占有提升 RVA `0x0167FB20` 的调用边界。
 - `player_state.snapshot/changed` 现在在同一事件中记录 `SelectedCharacterID (+0x334)`、`PossessedCharacterId (+0x33C)`、pre-ordering `+0x6C0` 与 equipping `+0x6E0` 的逐角色槽位和集合哈希，可直接判定失败发生在 RPC 接受、角色确认、占有提升还是 actor 细节 overlay。
+
+## 11. 死亡后显式 F 复活接线（2026-08-20）
+
+以下结论仅适用于第 1 节固定 EXE SHA-256。
+
+### 原生入口与调用关系
+
+- `ServerQuickRespawn` reflected thunk RVA `0x01843870`，PB implementation RVA `0x015C14C0`，主体跳转到 RVA `0x015BDF90`。该主体先执行 PB controller/observer 相关动作，再通过生成的 `ServerRestartPlayer` wrapper 进入 Engine 重启链；不能把 reflected `ProcessEvent` enter/leave 当作 implementation 已接受请求。
+- Engine `ServerRestartPlayer` reflected thunk RVA `0x0380FF30`，implementation RVA `0x03506BD0`。其实现验证状态后直接调用 GameMode `RestartPlayer`，不会执行 PB QuickRespawn 的前置动作，因此对 managed 显式复活不能把它当作与 PB QuickRespawn 完全等价的入口。
+- `ExitObserverState` implementation RVA `0x015AE240`；`APBGameMode::RestartPlayers` / `RestartPlayer` RVA 分别为 `0x0163D420` / `0x0163D250`。出生后角色配置提升仍发生在 RVA `0x0167FB20`。
+
+### A/B 根因与修复
+
+- A（旧接线）在 `local-pve/20260820-160700/server-launcher.stdout.log` 和 `runtime-tests/20260816-pve-retest-9/server.stdout.log` 可复现：显式 F 的 `ServerQuickRespawn` 被 Payload 标记后直接 return，下一帧改走 generic `RestartPlayers`。日志停在 inventory-spawn，缺少 Finalized/Spawn complete，并在 QuickRespawn、ServerSuicide 重试后超时。UI intent 成立，但原始 PB implementation 没有进入。
+- 根因是 managed hook 把显式原生 RPC 吞掉并替换成异步通用出生入口，破坏了 PB QuickRespawn 自带的 observer/controller 清理与原生时序；`K2_InventorySpawned` 只能证明 actor 出现，不能证明 Pawn 已占有或 UI 已回到 Playing。
+- B（当前实现）只在玩家处于 `AwaitingRespawnInput` 且请求可排队时接受一次显式请求，并在 per-player restart permit 内同步转发原生调用。来自 `PlayerController.ServerRestartPlayer` 的 managed 显式请求在同一 permit 内规范化为 `ServerQuickRespawn`，从而统一经过 PB 前置动作；内部/非 managed/已有 permit 的调用保持 pass-through。旧的 suppressed 行为仍可用 `-RespawnExplicitNative=0` 做对照。
+- 原生返回后 manager 仅负责验证 live Pawn、selected/possessed role、占有与装备提升，并补发 `ClientGotoState(Playing)`、`ClientRestart`、`ClientRetryClientRestart`、`ServerAcknowledgePossession`；attempt 1/2 的 generic RestartPlayers/ServerSuicide 只保留为超时 fallback，不再与 attempt 0 双重接线。
+
+### 固定构建运行时验收
+
+- B 会话：`local-pve/20260820-174803/server-launcher.attempt-2.stdout.log`；client/server Frida：`frida-captures/20260820-respawn-normalized/{client,server}/events.jsonl`。
+- PEACE/ORLAN 首次出生成功后，连续 6 次真实 `ClientBeKilled -> F -> ServerQuickRespawn` 均在 lifecycle `1..6`、attempt `0` 完成。每轮都观测到 PB Quick implementation、Engine Restart implementation、`RestartPlayer`、`SpawnDefaultPawn*` 返回非空 Pawn、RVA `0x0167FB20` promotion、`OnRep_PossessedCharacterID`、PEACE equipping hash、`ClientGotoState(Playing)`、`ClientRestart`、acknowledge、`Spawn complete`；没有 timeout 或 fallback。
+- 六轮结束时客户端均为可操作 HUD，无死亡/选角遮罩，`selected=PEACE`、`possessed=PEACE`。本次实际部署并验收的 `Payload.dll` SHA-256 为 `5C1FD98DB23FA4C6C6D491DBE539BFA05E7825A5CFF8D32F928C529CE778D446`；部署前回滚副本为 `Payload.pre-respawn-engine-normalize-20260820.dll`。
+- `Payload/Tests/RespawnStatePolicyTests.cpp` 覆盖 awaiting-input、重复/非法请求、A/B suppress/forward、permit pass-through，以及仅将 managed Engine restart 规范化到 QuickRespawn；2026-08-20 的 Release/x64 回归为 8/8 tests passed。

@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import signal
 import threading
+import time
 from typing import Any
 
 import frida
@@ -17,7 +18,20 @@ from capture_armory import EXPECTED_GAME_SHA256, process_image_path, sha256_file
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--pid", required=True, type=int)
+    target = parser.add_mutually_exclusive_group(required=True)
+    target.add_argument("--pid", type=int)
+    target.add_argument(
+        "--wait-process-name",
+        help="Wait for a matching process before attaching (diagnostic cold starts).",
+    )
+    parser.add_argument(
+        "--exclude-pid",
+        action="append",
+        type=int,
+        default=[],
+        help="PID to ignore while waiting; may be repeated.",
+    )
+    parser.add_argument("--wait-timeout", type=float, default=90.0)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--script", default="query_assets_status_ab.js")
     parser.add_argument(
@@ -47,7 +61,30 @@ def main() -> int:
     if hasattr(signal, "SIGTERM"):
         signal.signal(signal.SIGTERM, lambda *_: stop.set())
 
-    image_path = process_image_path(args.pid).resolve()
+    device = frida.get_local_device()
+    target_pid = args.pid
+    if target_pid is None:
+        expected_name = args.wait_process_name.casefold()
+        excluded_pids = set(args.exclude_pid)
+        deadline = time.monotonic() + args.wait_timeout
+        while time.monotonic() < deadline:
+            matches = [
+                process.pid
+                for process in device.enumerate_processes()
+                if process.name.casefold() == expected_name
+                and process.pid not in excluded_pids
+            ]
+            if matches:
+                target_pid = matches[-1]
+                break
+            time.sleep(0.1)
+        if target_pid is None:
+            raise TimeoutError(
+                f"process {args.wait_process_name!r} did not appear within "
+                f"{args.wait_timeout:.0f}s"
+            )
+
+    image_path = process_image_path(target_pid).resolve()
     image_sha256 = sha256_file(image_path)
     if image_sha256.casefold() != EXPECTED_GAME_SHA256:
         raise RuntimeError(
@@ -55,8 +92,7 @@ def main() -> int:
             f"expected {EXPECTED_GAME_SHA256}, got {image_sha256} ({image_path})"
         )
 
-    device = frida.get_local_device()
-    session = device.attach(args.pid)
+    session = device.attach(target_pid)
     session.on("detached", lambda *_: stop.set())
     script_source = script_path.read_text(encoding="utf-8")
     if args.target_item:
@@ -86,7 +122,7 @@ def main() -> int:
         identity = {
             "source": "project-rebound-frida-controller",
             "event": "probe.target_verified",
-            "pid": args.pid,
+            "pid": target_pid,
             "process_image": str(image_path),
             "process_image_sha256": image_sha256,
             "probe": str(script_path.resolve()),

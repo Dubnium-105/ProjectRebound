@@ -255,6 +255,7 @@ void LateJoinManager::OnRoleConfirmed(
     it->second.State = ELateJoinState::RoleConfirmed;
     it->second.ElapsedSeconds = 0.0f;
     it->second.SpawnAttempts = 0;
+    it->second.ExplicitNativeRespawnDispatched = false;
     it->second.AwaitingRoleTransitionDeath =
         anyCurrentPawnPlayable && !desiredPawnPlayable;
     if (it->second.AwaitingRoleTransitionDeath)
@@ -294,12 +295,14 @@ void LateJoinManager::OnPlayerKilled(APBPlayerController* PC)
     it->second.ElapsedSeconds = 0.0f;
     it->second.SpawnAttempts = 0;
     it->second.AwaitingRoleTransitionDeath = false;
+    it->second.ExplicitNativeRespawnDispatched = false;
+    it->second.RespawnLifecycleId = NextRespawnLifecycleId++;
     // Keep GameMode wave/automatic restart entry points closed. The explicit
     // client ServerRestartPlayer/ServerQuickRespawn RPC is allowed to convert
     // this state into a managed spawn by the hook layer.
     PlayerRespawnAllowedMap[PC] = false;
-    std::cout << "[LATEJOIN] Player death is awaiting native F/ESC respawn input."
-        << std::endl;
+    std::cout << "[LATEJOIN] Player death is awaiting native F/ESC respawn input. "
+        << "lifecycle_id=" << it->second.RespawnLifecycleId << std::endl;
 }
 
 bool LateJoinManager::CanQueueManagedRespawn(APBPlayerController* PC) const
@@ -331,10 +334,56 @@ bool LateJoinManager::QueueManagedRespawn(APBPlayerController* PC)
         it->second.State = ELateJoinState::RoleConfirmed;
         it->second.ElapsedSeconds = 0.0f;
         it->second.SpawnAttempts = 0;
+        it->second.ExplicitNativeRespawnDispatched = false;
     }
     // Close every native restart path until Tick has acquired the per-role
     // loadout lease and installed the matching inventory seed.
     PlayerRespawnAllowedMap[PC] = false;
+    return true;
+}
+
+bool LateJoinManager::DispatchManagedExplicitRespawn(
+    APBPlayerController* PC,
+    const char* requestKind,
+    const FExplicitRespawnDispatch& dispatch)
+{
+    if (!dispatch || !QueueManagedRespawn(PC))
+        return false;
+
+    auto it = LateJoinPlayers.find(PC);
+    if (!IsCurrentServerConnection(PC) || it == LateJoinPlayers.end())
+        return false;
+
+    // The forwarded native RPC is attempt 0. Mark one attempt consumed before
+    // crossing into native code so Tick cannot issue RestartPlayers on the next
+    // frame while a native restart is still settling.
+    it->second.ExplicitNativeRespawnDispatched = true;
+    it->second.SpawnAttempts = 1;
+    it->second.ElapsedSeconds = 0.0f;
+    const std::uint64_t lifecycleId = it->second.RespawnLifecycleId;
+    PlayerRespawnAllowedMap[PC] = true;
+
+    if (BeginSpawnDispatch) BeginSpawnDispatch(PC);
+    ScopedSpawnDispatchCompletion dispatchCompletion(
+        CompleteSpawnDispatch, PC);
+    if (!IsCurrentServerConnection(PC) || !LateJoinPlayers.contains(PC))
+        return false;
+
+    ScopedRestartPermit permit(ManagedRestartPermit, ManagedRestartPermitDepth, PC);
+    std::cout << "[RESPAWN] lifecycle_id=" << lifecycleId
+        << " attempt=0 origin=explicit_f request_kind="
+        << (requestKind ? requestKind : "unknown")
+        << " hook_action=forwarded_native pre="
+        << DescribePlayerRoleIdentity(PC) << std::endl;
+    dispatch();
+    if (IsCurrentServerConnection(PC) && LateJoinPlayers.contains(PC))
+    {
+        std::cout << "[RESPAWN] lifecycle_id=" << lifecycleId
+            << " attempt=0 origin=explicit_f request_kind="
+            << (requestKind ? requestKind : "unknown")
+            << " native_return post=" << DescribePlayerRoleIdentity(PC)
+            << std::endl;
+    }
     return true;
 }
 
@@ -594,6 +643,7 @@ void LateJoinManager::ResetForWorldChange()
     LateJoinPlayers.clear();
     ManagedRestartPermit = nullptr;
     ManagedRestartPermitDepth = 0;
+    NextRespawnLifecycleId = 1;
 }
 
 // @brief 查询中途加入窗口是否开放
@@ -892,13 +942,25 @@ void LateJoinManager::FinalizeLateJoinSpawn(APBPlayerController* PC, FLateJoinIn
         if (!isTracked()) return;
     }
 
-    // Mid-game clients missed the original match lifecycle and need the full
-    // synchronization sequence. Initial clients already participate in that
-    // lifecycle; RestartPlayers owns their normal client restart and no
-    // match/round/playing notification may be synthesized here.
+    // A forwarded explicit native respawn can create and possess the correct
+    // pawn without dismissing the client's death/observer input layer. Once a
+    // live desired-role pawn has been observed, re-sending the standard playing
+    // and restart notifications is idempotent and restores gameplay input.
+    // Do this only for an already-spawned connection; the initial spawn remains
+    // owned by the normal match lifecycle.
     PC->ForceNetUpdate();
     if (!isTracked()) return;
-    if (!Info.bIsInitialJoin && !Info.HasCompletedSpawn)
+    if (Info.HasCompletedSpawn)
+    {
+        FClientSyncOptions options{};
+        options.SendGotoPlaying = true;
+        options.SendRestartAndAcknowledge = true;
+        SyncClientJoinState(PC, options);
+        if (!isTracked()) return;
+        std::cout << "[RESPAWN] lifecycle_id=" << Info.RespawnLifecycleId
+            << " stage=client_playing_sync result=sent" << std::endl;
+    }
+    else if (!Info.bIsInitialJoin)
     {
         FClientSyncOptions options{};
         options.SendMatchHasStarted = true;
@@ -917,9 +979,9 @@ void LateJoinManager::FinalizeLateJoinSpawn(APBPlayerController* PC, FLateJoinIn
 }
 
 // @brief 执行生成尝试（3 级回退策略）
-//  Attempt 0: RestartPlayers — 标准引擎生成路径
-//  Attempt 1: ServerQuickRespawn — 快速重生
-//  Attempt 2: ServerSuicide — 自杀触发重生（最后手段）
+//  Normal attempt 0: RestartPlayers; attempt 1: QuickRespawn; attempt 2: Suicide.
+//  Explicit-F attempt 0 is dispatched synchronously by the ProcessEvent hook;
+//  if it fails, attempt 1 is RestartPlayers and attempt 2 is Suicide.
 void LateJoinManager::RequestLateJoinSpawn(APBPlayerController* PC)
 {
     auto it = LateJoinPlayers.find(PC);
@@ -929,6 +991,9 @@ void LateJoinManager::RequestLateJoinSpawn(APBPlayerController* PC)
     // Mutate the tracked state before crossing into the engine. RestartPlayers
     // and the fallback RPCs may synchronously disconnect and erase this entry.
     const int spawnAttempt = it->second.SpawnAttempts;
+    const bool explicitNativeRespawnDispatched =
+        it->second.ExplicitNativeRespawnDispatched;
+    const std::uint64_t lifecycleId = it->second.RespawnLifecycleId;
     ++it->second.SpawnAttempts;
     it->second.ElapsedSeconds = 0.0f;
 
@@ -948,6 +1013,11 @@ void LateJoinManager::RequestLateJoinSpawn(APBPlayerController* PC)
         return;
 
     ScopedRestartPermit permit(ManagedRestartPermit, ManagedRestartPermitDepth, PC);
+    std::cout << "[RESPAWN] lifecycle_id=" << lifecycleId
+        << " attempt=" << spawnAttempt
+        << " origin=" << (explicitNativeRespawnDispatched
+            ? "managed_explicit_fallback" : "managed_spawn")
+        << " hook_action=dispatch" << std::endl;
     std::cout << "[LATEJOIN] Pre-dispatch role identity: "
         << DescribePlayerRoleIdentity(PC) << std::endl;
     // RestartPlayers requires the controller to have left Observer state, but
@@ -959,7 +1029,17 @@ void LateJoinManager::RequestLateJoinSpawn(APBPlayerController* PC)
         return;
     std::cout << "[LATEJOIN] Post-observer-exit role identity: "
         << DescribePlayerRoleIdentity(PC) << std::endl;
-    if (spawnAttempt == 0 && GameMode)
+    if (explicitNativeRespawnDispatched && spawnAttempt == 1 && GameMode)
+    {
+        // The exact native request already consumed attempt 0. Use the generic
+        // batch path only as a delayed, observable fallback.
+        TArray<AController*> Controllers{};
+        Controllers.Add((AController*)PC);
+        std::cout << "[LATEJOIN] Native explicit respawn did not produce a pawn; "
+                     "trying RestartPlayers fallback." << std::endl;
+        GameMode->RestartPlayers(Controllers);
+    }
+    else if (spawnAttempt == 0 && GameMode)
     {
         // 第 1 次：通过 GameMode 的标准 RestartPlayers 生成
         TArray<AController*> Controllers{};

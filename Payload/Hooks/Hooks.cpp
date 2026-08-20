@@ -17,8 +17,10 @@
 #include "../Libs/json.hpp"
 #include "../Replication/libreplicate.h"
 #include "../ServerLogic/LateJoinManager.h"
+#include "../ServerLogic/RespawnStatePolicy.h"
 #include "../Loadout/LoadoutManager.h"
 #include "../Config/Config.h"
+#include "../Config/CommandLinePolicy.h"
 #include "../Debug/Debug.h"
 #include "../Debug/DebugTool.h"
 #include "../ServerLogic/ServerLogic.h"
@@ -370,28 +372,25 @@ void TickFlushHook(UNetDriver *NetDriver, float DeltaTime)
         ((APBGameMode *)UWorld::GetWorld()->AuthorityGameMode)->StartMatch();
     }
 
-    if (GetAsyncKeyState(VK_F8) && amServer)
+    static bool wasF8Down = false;
+    const SHORT f8State = GetAsyncKeyState(VK_F8);
+    const bool isF8Down = (f8State & 0x8000) != 0;
+    const bool wasF8PressedSinceLastPoll = (f8State & 0x0001) != 0;
+    if ((wasF8PressedSinceLastPoll || (isF8Down && !wasF8Down)) && amServer)
     {
-        for (int i = SDK::UObject::GObjects->Num() - 1; i >= 0; i--)
+        // Debug-only local PVE death trigger. UObject history contains retired
+        // and AI controllers; invoking RPCs on all of them can terminate the
+        // dedicated process. Restrict the trigger to the authoritative current
+        // connection snapshot used by the production lifecycle hooks.
+        const std::vector<APBPlayerController*> currentPlayers(
+            ConnectedPlayerControllers.begin(), ConnectedPlayerControllers.end());
+        for (APBPlayerController* playerController : currentPlayers)
         {
-            SDK::UObject *Obj = SDK::UObject::GObjects->GetByIndex(i);
-
-            if (!Obj)
-                continue;
-
-            if (Obj->IsDefaultObject())
-                continue;
-
-            if (Obj->IsA(APBPlayerController::StaticClass()))
-            {
-                ((APBPlayerController *)Obj)->ServerSuicide(0);
-            }
-        }
-
-        while (GetAsyncKeyState(VK_F8))
-        {
+            if (IsCurrentConnectedController(playerController))
+                playerController->ServerSuicide(0);
         }
     }
+    wasF8Down = isF8Down;
 
     return TickFlush.call(NetDriver, DeltaTime);
 }
@@ -454,6 +453,88 @@ char NotifyControlMessageHook(unsigned __int64 ScuffedShit, __int64 a2, uint8_t 
 }
 
 static SafetyHookInline ProcessEvent;
+
+static bool IsExplicitNativeRespawnForwardEnabled()
+{
+    static const bool enabled = CommandLinePolicy::FeatureEnabled(
+        GetCommandLineA(), "-RespawnExplicitNative", true);
+    return enabled;
+}
+
+static bool HandleManagedExplicitRespawn(
+    APBPlayerController* playerController,
+    const char* requestKind,
+    UObject* object,
+    UFunction* function,
+    void* parms,
+    const std::string& functionName)
+{
+    const bool managed = playerController && gLateJoinManager &&
+        gLateJoinManager->IsManagedPlayer(playerController);
+    const bool permitted = managed &&
+        gLateJoinManager->HasManagedRestartPermit(playerController);
+    const bool awaitingInput = managed &&
+        gLateJoinManager->IsAwaitingRespawnInput(playerController);
+    const bool canQueue = managed &&
+        gLateJoinManager->CanQueueManagedRespawn(playerController);
+    const auto action = RespawnStatePolicy::DecideExplicitRequest(
+        managed, permitted, awaitingInput, canQueue,
+        IsExplicitNativeRespawnForwardEnabled());
+
+    using Action = RespawnStatePolicy::ExplicitRequestAction;
+    if (action == Action::PassThrough)
+        return false;
+
+    if (action == Action::Deny)
+    {
+        std::cout << "[RESPAWN] origin=explicit_f request_kind="
+            << requestKind
+            << " hook_action=denied awaiting_input=" << awaitingInput
+            << " can_queue=" << canQueue << std::endl;
+        return true;
+    }
+
+    if (action == Action::QueueAndSuppress)
+    {
+        const bool queued = gLateJoinManager->QueueManagedRespawn(playerController);
+        std::cout << "[RESPAWN] origin=explicit_f request_kind="
+            << requestKind
+            << " hook_action=" << (queued
+                ? "queued_and_suppressed" : "denied_queue_failed")
+            << " ab_mode=legacy_replacement" << std::endl;
+        return true;
+    }
+
+    const bool normalizeEngineRestartToQuick =
+        RespawnStatePolicy::ShouldNormalizeEngineRestartToQuickRespawn(
+            action,
+            functionName.contains("PlayerController.ServerRestartPlayer"));
+    const bool forwarded = gLateJoinManager->DispatchManagedExplicitRespawn(
+        playerController,
+        requestKind,
+        [&]() {
+            if (normalizeEngineRestartToQuick)
+            {
+                std::cout << "[RESPAWN] origin=explicit_f request_kind="
+                    << requestKind
+                    << " normalized_native=ServerQuickRespawn" << std::endl;
+                playerController->ServerQuickRespawn();
+                return;
+            }
+            ProcessEvent.call(object, function, parms);
+        });
+    if (!forwarded)
+    {
+        std::cout << "[RESPAWN] origin=explicit_f request_kind="
+            << requestKind
+            << " hook_action=denied_dispatch_failed" << std::endl;
+        return true;
+    }
+
+    BattleLog::OnProcessEventPost(
+        BattleLog::ProcessSide::Server, object, functionName, parms);
+    return true;
+}
 
 void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
 {
@@ -653,23 +734,10 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
     {
         APBPlayerController *PBPlayerController = (APBPlayerController *)Object;
 
-        if (PBPlayerController && gLateJoinManager &&
-            gLateJoinManager->IsManagedPlayer(PBPlayerController) &&
-            !gLateJoinManager->HasManagedRestartPermit(PBPlayerController))
-        {
-            const auto allowed = PlayerRespawnAllowedMap.find(PBPlayerController);
-            const bool awaitingInput =
-                gLateJoinManager->IsAwaitingRespawnInput(PBPlayerController);
-            if (awaitingInput ||
-                allowed == PlayerRespawnAllowedMap.end() || allowed->second)
-            {
-                if (awaitingInput)
-                    std::cout << "[LATEJOIN] Native respawn intent received: "
-                                 "ServerQuickRespawn." << std::endl;
-                gLateJoinManager->QueueManagedRespawn(PBPlayerController);
-            }
+        if (HandleManagedExplicitRespawn(
+            PBPlayerController, "ServerQuickRespawn",
+            Object, Function, Parms, functionName))
             return;
-        }
 
         if (PlayerRespawnAllowedMap.contains(PBPlayerController) &&
             PlayerRespawnAllowedMap[PBPlayerController] == false)
@@ -683,23 +751,10 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
     {
         APBPlayerController *PBPlayerController = (APBPlayerController *)Object;
 
-        if (PBPlayerController && gLateJoinManager &&
-            gLateJoinManager->IsManagedPlayer(PBPlayerController) &&
-            !gLateJoinManager->HasManagedRestartPermit(PBPlayerController))
-        {
-            const auto allowed = PlayerRespawnAllowedMap.find(PBPlayerController);
-            const bool awaitingInput =
-                gLateJoinManager->IsAwaitingRespawnInput(PBPlayerController);
-            if (awaitingInput ||
-                allowed == PlayerRespawnAllowedMap.end() || allowed->second)
-            {
-                if (awaitingInput)
-                    std::cout << "[LATEJOIN] Native respawn intent received: "
-                                 "ServerRestartPlayer." << std::endl;
-                gLateJoinManager->QueueManagedRespawn(PBPlayerController);
-            }
+        if (HandleManagedExplicitRespawn(
+            PBPlayerController, "ServerRestartPlayer",
+            Object, Function, Parms, functionName))
             return;
-        }
 
         if (PlayerRespawnAllowedMap.contains(PBPlayerController) && PlayerRespawnAllowedMap[PBPlayerController] == false)
         {
@@ -1457,6 +1512,9 @@ void InitMessageBoxHook()
 
 void InitServerHooks(bool forceDedicatedMode)
 {
+    std::cout << "[RESPAWN] explicit_native_forward="
+        << (IsExplicitNativeRespawnForwardEnabled() ? "enabled" : "disabled")
+        << " switch=-RespawnExplicitNative" << std::endl;
     NotifyActorDestroyed = safetyhook::create_inline((void *)(BaseAddress + 0x33403E0), NotifyActorDestroyedHook);
     NotifyAcceptingConnection = safetyhook::create_inline((void *)(BaseAddress + 0x36CDC90), NotifyAcceptingConnectionHook);
     NotifyControlMessage = safetyhook::create_inline((void *)(BaseAddress + 0x36CDCE0), NotifyControlMessageHook);
