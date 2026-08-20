@@ -74,6 +74,15 @@ enable_strict_warnings(join_ui_sync_policy_tests)
 
 add_test(NAME join_ui_sync_policy_tests COMMAND join_ui_sync_policy_tests)
 
+add_executable(direct_match_ui_cleanup_policy_tests
+    DirectMatchUiCleanupPolicyTests.cpp
+)
+
+target_compile_features(direct_match_ui_cleanup_policy_tests PRIVATE cxx_std_20)
+enable_strict_warnings(direct_match_ui_cleanup_policy_tests)
+
+add_test(NAME direct_match_ui_cleanup_policy_tests COMMAND direct_match_ui_cleanup_policy_tests)
+
 add_executable(archive_completion_policy_tests
     ArchiveCompletionPolicyTests.cpp
 )
