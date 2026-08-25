@@ -43,6 +43,28 @@ namespace LoadoutApplication
         const SDK::FPBInventoryNetworkConfig& expected,
         bool equipping);
 
+    // Resolves the exact FName value stored in the destination PlayerState.
+    // Native FieldMod lookup compares the full eight-byte FName, so a string
+    // round-trip is not an equivalent key on this pinned build.
+    bool TryResolvePlayerStateInventoryRoleName(
+        SDK::APBPlayerController* playerController,
+        const std::string& roleId,
+        SDK::FName& outRoleName);
+
+    // The pinned build destroys two visible FieldMod configs and three native
+    // sets with the source world but keeps PBPlayerState across seamless
+    // travel. Restore their exact constructor headers at the owned destination
+    // boundary; SeedSeamlessPlayerStateInventoryRoles then invokes the native
+    // ClientInitFieldMod implementation body to reconstruct the live indices.
+    bool NormalizeSeamlessPlayerStateInventoryContainers(
+        SDK::APBPlayerController* playerController,
+        std::string& outDetail);
+    bool SeedSeamlessPlayerStateInventoryRoles(
+        SDK::APBPlayerController* playerController,
+        const std::vector<std::pair<
+            std::string, const SDK::FPBInventoryNetworkConfig*>>& roles,
+        std::string& outDetail);
+
     bool TryBuildRoleInventory(
         const json& snapshot,
         const std::string& roleId,
@@ -70,7 +92,8 @@ namespace LoadoutApplication
         const std::string& roleId,
         const SDK::FPBInventoryNetworkConfig& inventory,
         SDK::APBPlayerController* playerController,
-        std::string& outDetail);
+        std::string& outDetail,
+        const SDK::FName* exactRoleName = nullptr);
 
     // Builds the role's six-slot inventory from the authoritative character
     // definition asset and writes it through the same FieldMod path. This is

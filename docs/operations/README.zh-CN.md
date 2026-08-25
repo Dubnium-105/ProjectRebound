@@ -10,6 +10,7 @@
 - [发布与回滚](release-and-rollback.zh-CN.md)：控制面发布与逐节点 Relay 滚动发布。
 - [MetaServer 部署](metaserver-deployment.zh-CN.md)：控制面、公网网关、Relay、客户端和回滚分离清单；
 - [Dedicated Server 注册](dedicated-server-registration.zh-CN.md)：邀请码/资格验证、一次性注册、Windows Agent 与节点身份轮转；
+- [Dedicated Server 单进程多局](dedicated-server-multimatch.zh-CN.md)：可选 playlist/投票、原生 seamless travel、失败回退与验收矩阵；
 - [Admin Web 使用手册](admin-console-user-guide.zh-CN.md)：登录、玩家、联机、发布、治理和审计操作；
 - [Admin Web 安全手册](admin-console-security.zh-CN.md)：入口分层、Secret 边界、管理员生命周期与安全检查。
 - [下载目录与本机 MinIO](download-catalog.zh-CN.md)：默认自建存储、浏览器 CORS、上传校验、备份与恢复。

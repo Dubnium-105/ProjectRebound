@@ -10,6 +10,9 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$securityModule = Join-Path $PSHOME (
+    'Modules\Microsoft.PowerShell.Security\Microsoft.PowerShell.Security.psd1')
+Import-Module -Name $securityModule -ErrorAction Stop
 
 $gameDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 $gameExecutable = Join-Path $gameDirectory 'ProjectBoundarySteam-Win64-Shipping.exe'

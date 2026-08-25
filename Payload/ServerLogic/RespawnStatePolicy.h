@@ -29,11 +29,13 @@ namespace RespawnStatePolicy
             : ExplicitRequestAction::QueueAndSuppress;
     }
 
-    // PB's quick-respawn implementation performs controller-specific cleanup
-    // before delegating to Engine.ServerRestartPlayer. A direct engine request
-    // for a managed explicit respawn must therefore enter the PB wrapper first;
-    // otherwise the pawn can be live while the client remains in death UI.
-    inline bool ShouldNormalizeEngineRestartToQuickRespawn(
+    // The death screen can emit Engine.ServerRestartPlayer before its PB
+    // ServerQuickRespawn RPC. Replacing the engine request with a server-side
+    // PB call creates a Pawn, but it does not reproduce the client's local
+    // ExitObserverState transition and leaves the death UI/input layer alive.
+    // Preserve the native PB sequence by waiting for the exact quick-respawn
+    // RPC instead of manufacturing it on the server.
+    inline bool ShouldDeferEngineRestartToPBQuickRespawn(
         ExplicitRequestAction action,
         bool isEngineRestartRequest)
     {

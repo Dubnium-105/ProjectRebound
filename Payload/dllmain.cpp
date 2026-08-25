@@ -21,6 +21,7 @@
 #include "Libs/json.hpp"
 #include "Replication/libreplicate.h"
 #include "ServerLogic/LateJoinManager.h"
+#include "ServerLogic/DedicatedMultiMatch.h"
 #include "Communication/CommandFramework.h"
 #include "Loadout/LoadoutManager.h"
 
@@ -440,6 +441,7 @@ void MainThread()
             // The room/tunnel identifiers are required before constructing
             // LoadoutManager; StartServer also reloads them before map travel.
             LoadConfig();
+            DedicatedMultiMatch::Initialize();
 
             // Wait for world
             Log("[SERVER] Waiting for UWorld...");
@@ -544,11 +546,20 @@ void MainThread()
             // Publish the loadout bridge before the listen socket begins
             // accepting players so PostLogin cannot race manager creation.
             ::StartServer();
-            UWorld* const authoritativeWorld = UWorld::GetWorld();
-            const int postTravelNetMode = GetNativeNetMode(authoritativeWorld);
+            UWorld* authoritativeWorld = nullptr;
+            int postTravelNetMode = -1;
             std::string authorityDetail;
-            const bool authoritativeListeningWorld =
-                IsAuthoritativeListeningWorld(authoritativeWorld, authorityDetail);
+            bool authoritativeListeningWorld = false;
+            for (int attempt = 0; attempt < 100; ++attempt)
+            {
+                authoritativeWorld = UWorld::GetWorld();
+                postTravelNetMode = GetNativeNetMode(authoritativeWorld);
+                authoritativeListeningWorld =
+                    IsAuthoritativeListeningWorld(authoritativeWorld, authorityDetail);
+                if (authoritativeListeningWorld)
+                    break;
+                Sleep(10);
+            }
             Log(std::string("[SERVER] Post-travel authority: net_mode=") +
                 NetModeName(postTravelNetMode) + " " + authorityDetail +
                 " result=" + (authoritativeListeningWorld ? "ready" : "invalid"));
@@ -577,10 +588,24 @@ void MainThread()
                         const nlohmann::json current = BuildServerStatusPayload();
                         const int reportedPlayerCount = current.value("playerCount", 0);
                         const int playerCount = reportedPlayerCount < 0 ? 0 : reportedPlayerCount;
+                        const std::string lifecycle =
+                            current.value("lifecycleState", "Disabled");
+                        std::string state = playerCount > 0 ? "RUNNING" : "READY";
+                        if (lifecycle == "Traveling" || lifecycle == "LoadingNext")
+                            state = "TRANSITIONING";
+                        else if (lifecycle == "Voting" || lifecycle == "WaitingToTravel")
+                            state = "VOTING";
+                        else if (lifecycle == "FallbackExit")
+                            state = "RESTARTING";
                         return nlohmann::json{
-                            {"state", playerCount > 0 ? "RUNNING" : "READY"},
+                            {"state", state},
                             {"player_count", playerCount},
-                            {"round_state", current.value("serverState", "Unknown")}
+                            {"round_state", current.value("serverState", "Unknown")},
+                            {"lifecycle_state", lifecycle},
+                            {"active_map", current.value("activeMap", current.value("map", ""))},
+                            {"next_map", current.value("nextMap", "")},
+                            {"match_generation", current.value("matchGeneration", 0ULL)},
+                            {"vote", current.value("vote", nlohmann::json::object())}
                         };
                     });
 

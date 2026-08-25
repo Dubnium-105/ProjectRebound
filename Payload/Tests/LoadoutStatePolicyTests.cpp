@@ -162,6 +162,100 @@ namespace
         Expect(!LoadoutStatePolicy::SameInventoryEntries(expected, duplicateSlot),
             "duplicate slot entries must not hide a missing slot");
     }
+
+    void TestSeamlessRoleSpawnGateIsScopedAndBounded()
+    {
+        const auto start = Clock::time_point{};
+        const auto deadline = start + 1s;
+        Expect(LoadoutStatePolicy::CanReleaseSeamlessRoleSpawn(
+            false, false, false, start, deadline),
+            "ordinary spawns must remain un-gated");
+        Expect(!LoadoutStatePolicy::CanReleaseSeamlessRoleSpawn(
+            true, false, false, start + 500ms, deadline),
+            "seamless rebound must wait for the client travel handshake");
+        Expect(!LoadoutStatePolicy::CanReleaseSeamlessRoleSpawn(
+            true, true, false, start + 500ms, deadline),
+            "a settled baseline must not race an incomplete client travel");
+        Expect(!LoadoutStatePolicy::CanReleaseSeamlessRoleSpawn(
+            true, false, true, start + 500ms, deadline),
+            "seamless rebound must wait for its fresh baseline");
+        Expect(LoadoutStatePolicy::CanReleaseSeamlessRoleSpawn(
+            true, true, true, start + 500ms, deadline),
+            "settled baseline and client travel must release the rebound spawn");
+        Expect(LoadoutStatePolicy::CanReleaseSeamlessRoleSpawn(
+            true, false, true, deadline, deadline),
+            "baseline failure may fall back only after client travel completes");
+        Expect(!LoadoutStatePolicy::CanReleaseSeamlessRoleSpawn(
+            true, false, false, deadline, deadline),
+            "the baseline deadline must not bypass client travel completion");
+    }
+
+    void TestSeamlessFieldModSeedWaitsForNativeTravelCompletion()
+    {
+        Expect(!LoadoutStatePolicy::CanAttemptSeamlessFieldModRoleSeed(
+            false, true, true, true),
+            "ordinary and P2P spawns must not synthesize FieldMod roles");
+        Expect(!LoadoutStatePolicy::CanAttemptSeamlessFieldModRoleSeed(
+            true, true, false, true),
+            "FieldMod roles must not be seeded before ServerNotifyLoadedWorld");
+        Expect(!LoadoutStatePolicy::CanAttemptSeamlessFieldModRoleSeed(
+            true, false, true, true),
+            "an unsettled or terminal fetch cannot publish a baseline");
+        Expect(!LoadoutStatePolicy::CanAttemptSeamlessFieldModRoleSeed(
+            true, true, true, false),
+            "an empty baseline must preserve the native fallback");
+        Expect(LoadoutStatePolicy::CanAttemptSeamlessFieldModRoleSeed(
+            true, true, true, true),
+            "owned seamless travel may seed only after its native handshake");
+    }
+
+    void TestFreshSeamlessRoleConfirmationWaitsForFieldModSeed()
+    {
+        Expect(LoadoutStatePolicy::CanDispatchFreshSeamlessRoleConfirmation(
+            false, false),
+            "ordinary initial role confirmation must remain native");
+        Expect(!LoadoutStatePolicy::CanDispatchFreshSeamlessRoleConfirmation(
+            true, false),
+            "fresh seamless role confirmation must wait for rebuilt containers");
+        Expect(LoadoutStatePolicy::CanDispatchFreshSeamlessRoleConfirmation(
+            true, true),
+            "fresh seamless role confirmation may dispatch after native seeding");
+    }
+
+    void TestSeamlessRoleValidatorBypassIsExact()
+    {
+        Expect(LoadoutStatePolicy::CanBypassSeamlessRoleValidator(
+            true, true, true, true, true),
+            "the exact guarded seamless recovery may bypass the transient set");
+        Expect(!LoadoutStatePolicy::CanBypassSeamlessRoleValidator(
+            false, true, true, true, true),
+            "ordinary RPC validation must remain native");
+        Expect(!LoadoutStatePolicy::CanBypassSeamlessRoleValidator(
+            true, false, true, true, true),
+            "a completed or ordinary spawn gate cannot bypass validation");
+        Expect(!LoadoutStatePolicy::CanBypassSeamlessRoleValidator(
+            true, true, false, true, true),
+            "a different controller cannot borrow the recovery permit");
+        Expect(!LoadoutStatePolicy::CanBypassSeamlessRoleValidator(
+            true, true, true, false, true),
+            "a different role cannot borrow the recovery permit");
+        Expect(!LoadoutStatePolicy::CanBypassSeamlessRoleValidator(
+            true, true, true, true, false),
+            "unverified native pre-order state cannot bypass validation");
+
+        Expect(LoadoutStatePolicy::CanBypassFreshSeamlessRoleValidator(
+            true, true, true),
+            "fresh selection may bypass only for an already-seeded role");
+        Expect(!LoadoutStatePolicy::CanBypassFreshSeamlessRoleValidator(
+            false, true, true),
+            "ordinary selection must retain the native validator");
+        Expect(!LoadoutStatePolicy::CanBypassFreshSeamlessRoleValidator(
+            true, false, true),
+            "fresh selection cannot bypass before FieldMod seeding");
+        Expect(!LoadoutStatePolicy::CanBypassFreshSeamlessRoleValidator(
+            true, true, false),
+            "a missing requested pre-order role cannot bypass validation");
+    }
 }
 
 int main()
@@ -172,6 +266,10 @@ int main()
     TestPermanentFailureAndRoleSwitch();
     TestPriorityRetryAndStaleConnectionPolicy();
     TestInventoryComparisonIgnoresContainerOrderOnly();
+    TestSeamlessRoleSpawnGateIsScopedAndBounded();
+    TestSeamlessFieldModSeedWaitsForNativeTravelCompletion();
+    TestFreshSeamlessRoleConfirmationWaitsForFieldModSeed();
+    TestSeamlessRoleValidatorBypassIsExact();
     std::cout << "loadout state policy tests passed\n";
     return 0;
 }

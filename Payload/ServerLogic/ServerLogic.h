@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <cstdint>
 #include <unordered_map>
 #include <unordered_set>
 #include "../SDK.hpp"
@@ -43,6 +44,17 @@ void ApplyPendingPlayerNameUpdates(const char *reason);
 // UWorlds. Seed this before Listen and observe it from game-thread hooks.
 void ResetServerMatchStateForWorld(SDK::UWorld *world);
 void EnsureServerMatchWorld(SDK::UWorld *world);
+bool BeginServerMatchGeneration(
+    SDK::UWorld* world,
+    SDK::UNetDriver* netDriver);
+std::uint64_t GetServerMatchGeneration();
+
+// Preserves the pinned build's native return-to-menu and cleanup sequence.
+// A null GameMode can only occur after a failed travel and falls back to the
+// engine's RequestExit(false) entry.
+void BeginGracefulDedicatedExit(
+    SDK::APBGameMode* gameMode,
+    const char* reason);
 
 // Server startup
 void StartServer();

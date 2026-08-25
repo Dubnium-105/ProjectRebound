@@ -13,6 +13,12 @@ powershell -ExecutionPolicy Bypass -File .\start-local-pve.ps1
 .EXAMPLE
 powershell -ExecutionPolicy Bypass -File .\start-local-pve.ps1 `
     -Map Warehouse -Difficulty normal -Port 7777 -LaunchClient
+
+.EXAMPLE
+powershell -ExecutionPolicy Bypass -File .\start-local-pve.ps1 `
+    -Map Warehouse -Difficulty normal -Port 7777 -LaunchClient `
+    -MultiMatchPlaylist 'Warehouse,OSS,DataCenter' `
+    -MultiMatchVoteDurationSeconds 10
 #>
 [CmdletBinding()]
 param(
@@ -41,6 +47,19 @@ param(
     [ValidateRange(1, 3)]
     [int] $ServerStartAttempts = 2,
 
+    [string] $MultiMatchPlaylist = '',
+
+    [ValidateRange(10, 180)]
+    [int] $MultiMatchTravelTimeoutSeconds = 45,
+
+    [ValidateRange(0, 60)]
+    [int] $MultiMatchVoteDurationSeconds = 15,
+
+    [ValidateRange(1, 3)]
+    [int] $MultiMatchVoteCandidateCount = 3,
+
+    [switch] $DisableMultiMatchVote,
+
     [switch] $DryRun
 )
 
@@ -64,6 +83,32 @@ $modeByDifficulty = @{
     hard = '/Game/Online/GameMode/BP_PBGameMode_Rush_PVE_Hard.BP_PBGameMode_Rush_PVE_Hard_C'
 }
 $modePath = $modeByDifficulty[$Difficulty]
+$pveMaps = @('Warehouse', 'OSS', 'MiniFarm', 'DataCenter', 'CircularX')
+$canonicalPveMaps = @{}
+foreach ($pveMap in $pveMaps) {
+    $canonicalPveMaps[$pveMap.ToLowerInvariant()] = $pveMap
+}
+
+$multiMatchMaps = [Collections.Generic.List[string]]::new()
+$seenMultiMatchMaps = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::OrdinalIgnoreCase)
+if (-not [string]::IsNullOrWhiteSpace($MultiMatchPlaylist)) {
+    foreach ($requestedMap in $MultiMatchPlaylist.Split(',')) {
+        $mapAlias = $requestedMap.Trim()
+        $mapKey = $mapAlias.ToLowerInvariant()
+        if (-not $canonicalPveMaps.ContainsKey($mapKey)) {
+            throw "Unknown or PVE-incompatible multi-match map: '$mapAlias'."
+        }
+        $canonicalMap = [string] $canonicalPveMaps[$mapKey]
+        if (-not $seenMultiMatchMaps.Add($canonicalMap)) {
+            throw "Duplicate multi-match map: '$canonicalMap'."
+        }
+        $multiMatchMaps.Add($canonicalMap)
+    }
+    if (-not $seenMultiMatchMaps.Contains($Map)) {
+        throw "The initial map '$Map' must be present in -MultiMatchPlaylist."
+    }
+}
 
 function ConvertTo-NativeArgument {
     param([Parameter(Mandatory = $true)] [string] $Value)
@@ -100,9 +145,35 @@ function ConvertTo-NativeArgument {
 }
 
 function Get-BoundaryProcesses {
-    @(Get-CimInstance Win32_Process -ErrorAction Stop | Where-Object {
-        $_.ExecutablePath -eq $gameExecutable
-    })
+    try {
+        return @(Get-CimInstance Win32_Process -ErrorAction Stop | Where-Object {
+            $_.ExecutablePath -eq $gameExecutable
+        } | ForEach-Object {
+            [pscustomobject]@{
+                ProcessId = [int] $_.ProcessId
+                ParentProcessId = [int] $_.ParentProcessId
+                ExecutablePath = [string] $_.ExecutablePath
+                CommandLine = [string] $_.CommandLine
+                InspectionComplete = $true
+                CreationDate = $_.CreationDate
+            }
+        })
+    }
+    catch {
+        return @(Get-Process -Name 'ProjectBoundarySteam-Win64-Shipping' `
+            -ErrorAction SilentlyContinue | Where-Object {
+                try { $_.Path -eq $gameExecutable } catch { $false }
+            } | ForEach-Object {
+                [pscustomobject]@{
+                    ProcessId = [int] $_.Id
+                    ParentProcessId = 0
+                    ExecutablePath = [string] $_.Path
+                    CommandLine = $null
+                    InspectionComplete = $false
+                    CreationDate = $_.StartTime
+                }
+            })
+    }
 }
 
 function Test-ExactServerSwitch {
@@ -159,8 +230,10 @@ function Wait-NewBoundaryProcess {
     while ([datetime]::UtcNow -lt $Deadline) {
         $candidate = Get-BoundaryProcesses | Where-Object {
             -not $ExistingPids.Contains([int] $_.ProcessId) -and
-            ($AllowIndirectChild -or [int] $_.ParentProcessId -eq $Launcher.Id) -and
-            (Test-ExactServerSwitch $_.CommandLine) -eq $ExpectServer
+            ($AllowIndirectChild -or -not $_.InspectionComplete -or
+                [int] $_.ParentProcessId -eq $Launcher.Id) -and
+            (-not $_.InspectionComplete -or
+                (Test-ExactServerSwitch $_.CommandLine) -eq $ExpectServer)
         } | Sort-Object CreationDate -Descending | Select-Object -First 1
         if ($null -ne $candidate) {
             $candidatePid = [int] $candidate.ProcessId
@@ -267,7 +340,28 @@ else {
     Join-Path $env:LOCALAPPDATA 'ProjectRebound\local-pve'
 }
 $sessionDirectory = Join-Path $sessionBaseDirectory $stamp
-
+$multiMatchConfigPath = Join-Path $sessionDirectory 'serverconfig.multimatch.json'
+$multiMatchConfig = $null
+if ($multiMatchMaps.Count -gt 0) {
+    $multiMatchConfig = [ordered]@{
+        map = $Map
+        mode = 'pve'
+        multiMatch = [ordered]@{
+            enabled = $true
+            playlist = @($multiMatchMaps)
+            travelTimeoutSeconds = $MultiMatchTravelTimeoutSeconds
+            vote = [ordered]@{
+                enabled = -not $DisableMultiMatchVote
+                durationSeconds = $MultiMatchVoteDurationSeconds
+                candidateCount = $MultiMatchVoteCandidateCount
+            }
+        }
+    }
+    $serverArguments += @(
+        '-DedicatedMultiMatch',
+        "-multimatchconfig=$multiMatchConfigPath"
+    )
+}
 if ($DryRun) {
     [pscustomobject]@{
         DryRun = $true
@@ -291,12 +385,25 @@ if ($DryRun) {
         }
         else { @() }
         ClientQosCompatibility = $LaunchClient -and -not $DisableClientQosCompatibility
+        MultiMatchConfigPath = if ($null -ne $multiMatchConfig) {
+            $multiMatchConfigPath
+        }
+        else { $null }
+        MultiMatchConfig = $multiMatchConfig
         SessionDirectory = $sessionDirectory
     }
     return
 }
 
 $existingProcesses = Get-BoundaryProcesses
+$incompletelyInspectedProcess = $existingProcesses | Where-Object {
+    -not $_.InspectionComplete
+} | Select-Object -First 1
+if ($null -ne $incompletelyInspectedProcess) {
+    throw (
+        "Boundary PID $($incompletelyInspectedProcess.ProcessId) is already running, " +
+        'but its command line is unavailable; refusing to guess whether it is a client or server.')
+}
 $existingServer = $existingProcesses | Where-Object {
     Test-ExactServerSwitch $_.CommandLine
 } | Select-Object -First 1
@@ -320,6 +427,13 @@ if ($null -ne $occupiedEndpoint) {
 }
 
 New-Item -ItemType Directory -Path $sessionDirectory -Force | Out-Null
+if ($null -ne $multiMatchConfig) {
+    $multiMatchJson = $multiMatchConfig | ConvertTo-Json -Depth 6
+    [IO.File]::WriteAllText(
+        $multiMatchConfigPath,
+        $multiMatchJson,
+        [Text.UTF8Encoding]::new($false))
+}
 $existingPids = [Collections.Generic.HashSet[int]]::new()
 foreach ($process in $existingProcesses) {
     [void] $existingPids.Add([int] $process.ProcessId)
@@ -398,6 +512,10 @@ $result = [ordered]@{
     ServerAttempts = $serverAttempt
     ServerEndpoint = "$($serverEndpoint.LocalAddress):$($serverEndpoint.LocalPort)"
     ServerArguments = $serverArguments
+    MultiMatchConfigPath = if ($null -ne $multiMatchConfig) {
+        $multiMatchConfigPath
+    }
+    else { $null }
     ClientLauncherPid = $null
     ClientPid = $null
     QosCompatibilityPid = $null

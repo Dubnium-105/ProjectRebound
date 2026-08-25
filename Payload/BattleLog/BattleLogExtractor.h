@@ -5,6 +5,7 @@
 namespace SDK
 {
     class UObject;
+    class UWorld;
 }
 
 namespace BattleLog
@@ -22,4 +23,8 @@ namespace BattleLog
         SDK::UObject* object,
         const std::string& functionName,
         void* parms);
+
+    // Explicit generation reset for seamless travel. Pointer comparison alone
+    // is insufficient because a new match can reuse a UWorld address.
+    void ResetForMatchGeneration(SDK::UWorld* world);
 }

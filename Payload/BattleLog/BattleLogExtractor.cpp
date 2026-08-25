@@ -63,6 +63,7 @@ namespace
     std::chrono::steady_clock::time_point gP2PTimelineStartedAt;
 
     constexpr size_t kMaximumP2PTimelineEvents = 4096;
+    constexpr int32 kMaximumSnapshotStringCodeUnits = 1 << 20;
 
     struct MatchClassification final
     {
@@ -387,14 +388,73 @@ namespace
         return result;
     }
 
+    bool IsReadableMemoryRange(const void* address, const size_t length)
+    {
+        if (!address || length == 0)
+            return false;
+
+        const auto begin = reinterpret_cast<uintptr_t>(address);
+        const auto end = begin + length;
+        if (end < begin)
+            return false;
+
+        auto cursor = begin;
+        while (cursor < end)
+        {
+            MEMORY_BASIC_INFORMATION memory{};
+            if (VirtualQuery(reinterpret_cast<const void*>(cursor), &memory, sizeof(memory))
+                != sizeof(memory))
+            {
+                return false;
+            }
+
+            const DWORD protection = memory.Protect & 0xff;
+            const bool readable = protection == PAGE_READONLY
+                || protection == PAGE_READWRITE
+                || protection == PAGE_WRITECOPY
+                || protection == PAGE_EXECUTE_READ
+                || protection == PAGE_EXECUTE_READWRITE
+                || protection == PAGE_EXECUTE_WRITECOPY;
+            if (memory.State != MEM_COMMIT
+                || (memory.Protect & PAGE_GUARD) != 0
+                || !readable)
+            {
+                return false;
+            }
+
+            const auto regionBegin = reinterpret_cast<uintptr_t>(memory.BaseAddress);
+            const auto regionEnd = regionBegin + memory.RegionSize;
+            if (regionEnd <= cursor)
+                return false;
+            cursor = (std::min)(end, regionEnd);
+        }
+        return true;
+    }
+
     std::string ToString(const FString& value)
     {
-        return WideToUtf8(value.ToWString());
+        const int32 length = value.Num();
+        if (length <= 0
+            || length > value.Max()
+            || length > kMaximumSnapshotStringCodeUnits)
+        {
+            return {};
+        }
+
+        const wchar_t* data = value.CStr();
+        const size_t byteLength = static_cast<size_t>(length) * sizeof(wchar_t);
+        if (!IsReadableMemoryRange(data, byteLength))
+            return {};
+
+        size_t textLength = static_cast<size_t>(length);
+        if (data[textLength - 1] == L'\0')
+            --textLength;
+        return WideToUtf8(std::wstring(data, textLength));
     }
 
     std::string ToString(const FText& value)
     {
-        if (!value.TextData)
+        if (!IsReadableMemoryRange(value.TextData, sizeof(FTextImpl::FTextData)))
             return {};
         return ToString(value.GetStringRef());
     }
@@ -1423,6 +1483,15 @@ namespace
 		}
         Log("[BATTLELOG] Raw post-match snapshot: " + outputPath.string());
     }
+}
+
+void ResetForMatchGeneration(SDK::UWorld* world)
+{
+    gObservedWorld = world;
+    gCapturedStages.clear();
+    gP2PContext = LoadP2PContext();
+    ResetP2PTimeline();
+    Log("[BATTLELOG] Reset match-scoped capture state for a new generation.");
 }
 
 void OnProcessEventPost(

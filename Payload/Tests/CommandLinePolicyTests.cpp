@@ -60,6 +60,18 @@ int main()
         R"(game.exe -LocalPveLoadout=1)", "-LocalPveLoadout"),
         "a similarly prefixed value must not enable local PVE loadouts");
 
+    const std::string multiMatch =
+        R"(game.exe -DedicatedMultiMatch -multimatchconfig="C:\Project Rebound\serverconfig.json")";
+    Expect(CommandLinePolicy::HasExactSwitch(multiMatch, "-DedicatedMultiMatch"),
+        "dedicated multi-match must require its exact opt-in switch");
+    Expect(!CommandLinePolicy::HasExactSwitch(
+        R"(game.exe -DedicatedMultiMatchBackup)", "-DedicatedMultiMatch"),
+        "a prefixed switch must not enable dedicated multi-match");
+    Expect(CommandLinePolicy::GetValue(
+        multiMatch, "-multimatchconfig=").value_or("") ==
+        R"(C:\Project Rebound\serverconfig.json)",
+        "the quoted multi-match config path must remain one token");
+
     std::cout << "command line policy tests passed\n";
     return 0;
 }

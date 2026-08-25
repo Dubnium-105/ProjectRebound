@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <iomanip>
 #include <sstream>
 #include <string>
@@ -16,6 +17,7 @@ using namespace SDK;
 
 extern std::vector<UObject*> getObjectsOfClass(UClass* theClass, bool includeDefault);
 extern UObject* GetLastOfType(UClass* theClass, bool includeDefault);
+extern uintptr_t BaseAddress;
 
 namespace LoadoutApplication
 {
@@ -23,6 +25,83 @@ namespace LoadoutApplication
 
     namespace
     {
+        constexpr std::ptrdiff_t FieldModPreOrderingOffset = 0x6C0;
+        constexpr std::ptrdiff_t FieldModEquippingOffset = 0x6E0;
+        constexpr std::ptrdiff_t FieldModExpandedRolesOffset = 0x700;
+        constexpr std::ptrdiff_t FieldModAllowedRolesOffset = 0x750;
+        constexpr std::ptrdiff_t FieldModOwnedQuotasOffset = 0x7A0;
+
+        // These are the exact writes performed by APBPlayerState's constructor
+        // for the pinned build's native TSet headers. Bytes +0x10/+0x18 are
+        // allocator-owned inline state and are intentionally left untouched.
+        void ResetNativeSetHeader(
+            std::uint8_t* playerStateBytes,
+            std::ptrdiff_t offset)
+        {
+            *reinterpret_cast<std::uint64_t*>(playerStateBytes + offset + 0x00) = 0;
+            *reinterpret_cast<std::uint64_t*>(playerStateBytes + offset + 0x08) = 0;
+            *reinterpret_cast<std::uint64_t*>(playerStateBytes + offset + 0x20) = 0;
+            *reinterpret_cast<std::int32_t*>(playerStateBytes + offset + 0x28) = 0;
+            *reinterpret_cast<std::int32_t*>(playerStateBytes + offset + 0x2C) = 0x80;
+            *reinterpret_cast<std::int32_t*>(playerStateBytes + offset + 0x30) = -1;
+            *reinterpret_cast<std::int32_t*>(playerStateBytes + offset + 0x34) = 0;
+            *reinterpret_cast<std::uint64_t*>(playerStateBytes + offset + 0x40) = 0;
+            *reinterpret_cast<std::int32_t*>(playerStateBytes + offset + 0x48) = 0;
+        }
+
+        bool IsNativeSetHeaderConstructorEmpty(
+            const std::uint8_t* playerStateBytes,
+            std::ptrdiff_t offset)
+        {
+            return
+                *reinterpret_cast<const std::uint64_t*>(
+                    playerStateBytes + offset + 0x00) == 0 &&
+                *reinterpret_cast<const std::uint64_t*>(
+                    playerStateBytes + offset + 0x08) == 0 &&
+                *reinterpret_cast<const std::uint64_t*>(
+                    playerStateBytes + offset + 0x20) == 0 &&
+                *reinterpret_cast<const std::int32_t*>(
+                    playerStateBytes + offset + 0x28) == 0 &&
+                *reinterpret_cast<const std::int32_t*>(
+                    playerStateBytes + offset + 0x2C) == 0x80 &&
+                *reinterpret_cast<const std::int32_t*>(
+                    playerStateBytes + offset + 0x30) == -1 &&
+                *reinterpret_cast<const std::int32_t*>(
+                    playerStateBytes + offset + 0x34) == 0 &&
+                *reinterpret_cast<const std::uint64_t*>(
+                    playerStateBytes + offset + 0x40) == 0 &&
+                *reinterpret_cast<const std::int32_t*>(
+                    playerStateBytes + offset + 0x48) == 0;
+        }
+
+        class ScopedRoleInventoryStorage
+        {
+        public:
+            explicit ScopedRoleInventoryStorage(
+                FPBFieldModRoleGameSavedNetworkConfig& saved)
+                : saved_(saved)
+            {
+            }
+
+            ~ScopedRoleInventoryStorage()
+            {
+                // Generated TArray frees the outer allocation only; release
+                // the two nested arrays copied into each inventory value.
+                for (auto& inventory : saved_.RoleInventoryNetworkConfigArray)
+                {
+                    inventory.CharacterSlots.Free();
+                    inventory.InventoryItems.Free();
+                }
+            }
+
+            ScopedRoleInventoryStorage(const ScopedRoleInventoryStorage&) = delete;
+            ScopedRoleInventoryStorage& operator=(
+                const ScopedRoleInventoryStorage&) = delete;
+
+        private:
+            FPBFieldModRoleGameSavedNetworkConfig& saved_;
+        };
+
         bool IsUsableName(const FName& name)
         {
             const std::string value = NameToString(name);
@@ -234,15 +313,26 @@ namespace LoadoutApplication
             constexpr std::ptrdiff_t PreOrderingOffset = 0x6C0;
             constexpr std::ptrdiff_t EquippingOffset = 0x6E0;
             const auto mapOffset = equipping ? EquippingOffset : PreOrderingOffset;
-            const auto* inventories = reinterpret_cast<const TMap<FName, FPBInventoryNetworkConfig>*>(
+            const auto* inventories =
+                reinterpret_cast<const FPBFieldModRoleGameSavedNetworkConfig*>(
                 reinterpret_cast<const std::uint8_t*>(playerState) + mapOffset);
-            if (!inventories || !inventories->IsValid())
+            if (!inventories)
                 return PlayerStateInventoryState::RoleMissing;
 
-            for (const auto& entry : *inventories)
+            const int roleCount = inventories->RoleArray.Num();
+            const int inventoryCount =
+                inventories->RoleInventoryNetworkConfigArray.Num();
+            if (roleCount <= 0 || roleCount != inventoryCount || roleCount > 32 ||
+                !inventories->RoleArray.IsValid() ||
+                !inventories->RoleInventoryNetworkConfigArray.IsValid())
             {
-                if (!SameName(entry.Key(), roleId)) continue;
-                return SameInventory(entry.Value(), expected)
+                return PlayerStateInventoryState::RoleMissing;
+            }
+            for (int index = 0; index < roleCount; ++index)
+            {
+                if (inventories->RoleArray[index] != roleId) continue;
+                return SameInventory(
+                    inventories->RoleInventoryNetworkConfigArray[index], expected)
                     ? PlayerStateInventoryState::Match
                     : PlayerStateInventoryState::Mismatch;
             }
@@ -524,6 +614,217 @@ namespace LoadoutApplication
             playerController, roleId, expected, equipping);
     }
 
+    bool TryResolvePlayerStateInventoryRoleName(
+        APBPlayerController* playerController,
+        const std::string& roleId,
+        FName& outRoleName)
+    {
+        if (!playerController || roleId.empty()) return false;
+        APBPlayerState* playerState = playerController->PBPlayerState;
+        if (!playerState && playerController->PlayerState &&
+            playerController->PlayerState->IsA(APBPlayerState::StaticClass()))
+        {
+            playerState = static_cast<APBPlayerState*>(playerController->PlayerState);
+        }
+        if (!playerState) return false;
+
+        const auto* config = reinterpret_cast<
+            const FPBFieldModRoleGameSavedNetworkConfig*>(
+                reinterpret_cast<const std::uint8_t*>(playerState) +
+                FieldModPreOrderingOffset);
+        const int roleCount = config->RoleArray.Num();
+        if (roleCount <= 0 || roleCount > 32 ||
+            roleCount != config->RoleInventoryNetworkConfigArray.Num() ||
+            !config->RoleArray.IsValid() ||
+            !config->RoleInventoryNetworkConfigArray.IsValid())
+        {
+            return false;
+        }
+        for (int index = 0; index < roleCount; ++index)
+        {
+            if (NameToString(config->RoleArray[index]) != roleId) continue;
+            outRoleName = config->RoleArray[index];
+            return true;
+        }
+        return false;
+    }
+
+    bool NormalizeSeamlessPlayerStateInventoryContainers(
+        APBPlayerController* playerController,
+        std::string& outDetail)
+    {
+        if (!playerController)
+        {
+            outDetail = "controller-missing";
+            return false;
+        }
+        APBPlayerState* playerState = playerController->PBPlayerState;
+        if (!playerState && playerController->PlayerState &&
+            playerController->PlayerState->IsA(APBPlayerState::StaticClass()))
+        {
+            playerState = static_cast<APBPlayerState*>(playerController->PlayerState);
+        }
+        if (!playerState)
+        {
+            outDetail = "player-state-missing";
+            return false;
+        }
+
+        static_assert(sizeof(FPBFieldModRoleGameSavedNetworkConfig) == 0x20);
+        auto* const bytes = reinterpret_cast<std::uint8_t*>(playerState);
+
+        // The source-world cleanup destructs the two visible FieldMod configs
+        // and three adjacent native sets even though PlayerState survives the
+        // seamless travel. Recreate the exact constructor state before asking
+        // the pinned build's own ClientInitFieldMod body to populate them.
+        std::memset(bytes + FieldModPreOrderingOffset, 0,
+            sizeof(FPBFieldModRoleGameSavedNetworkConfig));
+        std::memset(bytes + FieldModEquippingOffset, 0,
+            sizeof(FPBFieldModRoleGameSavedNetworkConfig));
+        ResetNativeSetHeader(bytes, FieldModExpandedRolesOffset);
+        ResetNativeSetHeader(bytes, FieldModAllowedRolesOffset);
+        ResetNativeSetHeader(bytes, FieldModOwnedQuotasOffset);
+        outDetail = "fieldmod-containers-native-empty";
+        return true;
+    }
+
+    bool SeedSeamlessPlayerStateInventoryRoles(
+        APBPlayerController* playerController,
+        const std::vector<std::pair<
+            std::string, const FPBInventoryNetworkConfig*>>& roles,
+        std::string& outDetail)
+    {
+        if (!playerController || roles.empty() || roles.size() > 32)
+        {
+            outDetail = "seed-input-invalid";
+            return false;
+        }
+
+        APBPlayerState* playerState = playerController->PBPlayerState;
+        if (!playerState && playerController->PlayerState &&
+            playerController->PlayerState->IsA(APBPlayerState::StaticClass()))
+        {
+            playerState = static_cast<APBPlayerState*>(playerController->PlayerState);
+        }
+        if (!playerState)
+        {
+            outDetail = "seed-player-state-missing";
+            return false;
+        }
+
+        for (const auto& [roleId, inventory] : roles)
+        {
+            if (roleId.empty() || roleId == "None" || !inventory)
+            {
+                outDetail = "seed-role-invalid";
+                return false;
+            }
+        }
+
+        static_assert(sizeof(FPBFieldModRoleGameSavedNetworkConfig) == 0x20);
+        constexpr std::uint8_t emptyContainer[0x20]{};
+        auto* const bytes = reinterpret_cast<std::uint8_t*>(playerState);
+
+        // Never Clear or append to retired native storage. Only proceed from
+        // the exact constructor state established at the destination boundary.
+        for (const std::ptrdiff_t offset : {
+            FieldModPreOrderingOffset, FieldModEquippingOffset})
+        {
+            if (std::memcmp(bytes + offset, emptyContainer,
+                sizeof(emptyContainer)) != 0)
+            {
+                outDetail = "seed-containers-not-default-empty";
+                return false;
+            }
+        }
+        if (!IsNativeSetHeaderConstructorEmpty(
+                bytes, FieldModExpandedRolesOffset) ||
+            !IsNativeSetHeaderConstructorEmpty(
+                bytes, FieldModAllowedRolesOffset) ||
+            !IsNativeSetHeaderConstructorEmpty(
+                bytes, FieldModOwnedQuotasOffset))
+        {
+            outDetail = "seed-native-sets-not-constructor-empty";
+            return false;
+        }
+
+        try
+        {
+            FPBFieldModRoleGameSavedNetworkConfig saved{};
+            ScopedRoleInventoryStorage releaseNestedStorage(saved);
+            TArray<FName> roleIds;
+            TArray<int32> ownedQuotas;
+            for (const auto& [roleId, inventory] : roles)
+            {
+                int ownedQuota = 0;
+                std::string quotaDetail;
+                if (!TryResolveRoleOwnedQuota(
+                        roleId, ownedQuota, quotaDetail))
+                {
+                    outDetail = roleId + ": " + quotaDetail;
+                    return false;
+                }
+
+                const FName roleName = NameFromString(roleId);
+                saved.RoleArray.Add(roleName);
+                saved.RoleInventoryNetworkConfigArray.AddZeroed(*inventory);
+                roleIds.Add(roleName);
+                ownedQuotas.Add(ownedQuota);
+            }
+
+            const int roleCount = static_cast<int>(roles.size());
+            if (saved.RoleArray.Num() != roleCount ||
+                saved.RoleInventoryNetworkConfigArray.Num() != roleCount ||
+                roleIds.Num() != roleCount || ownedQuotas.Num() != roleCount)
+            {
+                outDetail = "seed-array-alignment-failed";
+                return false;
+            }
+
+            // RVA 0x165D130 is the implementation body, not the RPC thunk.
+            // Calling the body on authority reconstructs +0x700/+0x7A0 in the
+            // same way as the game's original client initialization without
+            // forwarding the call back over the network.
+            using ClientInitFieldModNativeFn = void(__fastcall*)(
+                APBPlayerState*,
+                const FPBFieldModRoleGameSavedNetworkConfig&,
+                const TArray<FName>&,
+                const TArray<int32>&);
+            const auto clientInitFieldMod =
+                reinterpret_cast<ClientInitFieldModNativeFn>(
+                    BaseAddress + 0x165D130);
+            clientInitFieldMod(playerState, saved, roleIds, ownedQuotas);
+
+            const auto* preOrdering = reinterpret_cast<
+                const FPBFieldModRoleGameSavedNetworkConfig*>(
+                    bytes + FieldModPreOrderingOffset);
+            const auto* equipping = reinterpret_cast<
+                const FPBFieldModRoleGameSavedNetworkConfig*>(
+                    bytes + FieldModEquippingOffset);
+            const int expandedRoleCount =
+                *reinterpret_cast<const std::int32_t*>(
+                    bytes + FieldModExpandedRolesOffset + 0x08);
+            const int quotaCount =
+                *reinterpret_cast<const std::int32_t*>(
+                    bytes + FieldModOwnedQuotasOffset + 0x08);
+            if (preOrdering->RoleArray.Num() != roleCount ||
+                equipping->RoleArray.Num() != roleCount ||
+                expandedRoleCount != roleCount || quotaCount != roleCount)
+            {
+                outDetail = "native-client-init-fieldmod-verify-failed";
+                return false;
+            }
+        }
+        catch (...)
+        {
+            outDetail = "seed-container-exception";
+            return false;
+        }
+
+        outDetail = "native-client-init-fieldmod-applied";
+        return true;
+    }
+
     APBPlayerController* GetLocalPlayerController()
     {
         UWorld* world = UWorld::GetWorld();
@@ -690,7 +991,8 @@ namespace LoadoutApplication
         const std::string& roleId,
         const FPBInventoryNetworkConfig& inventory,
         APBPlayerController* playerController,
-        std::string& outDetail)
+        std::string& outDetail,
+        const FName* exactRoleName)
     {
         if (!playerController)
         {
@@ -698,7 +1000,9 @@ namespace LoadoutApplication
             return ApplyResult::Invalid;
         }
 
-        const FName roleName = NameFromString(roleId);
+        const FName roleName = exactRoleName && !IsBlankName(*exactRoleName)
+            ? *exactRoleName
+            : NameFromString(roleId);
         if (IsBlankName(roleName))
         {
             outDetail = "role-name-invalid";

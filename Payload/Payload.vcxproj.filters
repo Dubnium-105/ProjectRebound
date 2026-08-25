@@ -60,6 +60,18 @@
     <ClInclude Include="Loadout\MetaserverClient.h">
       <Filter>Loadout</Filter>
     </ClInclude>
+    <ClInclude Include="ServerLogic\ManagedPossessionSyncPolicy.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ClientLogic\SeamlessIntroCameraPolicy.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ServerLogic\DedicatedMultiMatch.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ServerLogic\DedicatedMultiMatchPolicy.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
@@ -150,6 +162,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ServerLogic\LateJoinManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ServerLogic\DedicatedMultiMatch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Replication\libreplicate.cpp">

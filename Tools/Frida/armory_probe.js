@@ -66,6 +66,18 @@ const SETTINGS = {
         maxRoundCount: 0x2A4,
         remainingTime: 0x340,
     },
+    world: {
+        netDriver: 0x38,
+        authorityGameMode: 0x118,
+        gameState: 0x120,
+        owningGameInstance: 0x180,
+    },
+    netDriver: {
+        serverConnection: 0x88,
+        clientConnections: 0x90,
+        world: 0x140,
+        replicationDriver: 0x700,
+    },
     career: {
         queryUserProfileDataNative: 0x016E8240,
         queryVirtualCallSites: [0x016E82EA, 0x016E830A],
@@ -107,10 +119,16 @@ const SETTINGS = {
         { name: 'weapon_suite', rva: 0x016DD740 },
     ],
     matchNativeEntries: [
+        { name: 'pb_start_showing_match_result', rva: 0x0162B190, lifecycle: true, skipPlayerRefresh: true },
+        { name: 'pb_start_match_ending', rva: 0x0162AE80, lifecycle: true, skipPlayerRefresh: true },
+        { name: 'pb_waiting_to_end_game', rva: 0x0162B1C0, lifecycle: true, skipPlayerRefresh: true },
+        { name: 'pb_final_dedicated_cleanup', rva: 0x0163EFD0, lifecycle: true, skipPlayerRefresh: true },
+        { name: 'engine_request_exit', rva: 0x019EFEE0, skipPlayerRefresh: true },
+        { name: 'engine_restart_game', rva: 0x03294830, lifecycle: true, skipPlayerRefresh: true },
         { name: 'server_confirm_role', rva: 0x015C0890, controllerArg: 0 },
         { name: 'server_preorder_inventory', rva: 0x015C1110, controllerArg: 0 },
         { name: 'server_quick_respawn', rva: 0x015C14C0, controllerArg: 0 },
-        { name: 'engine_server_restart_player', rva: 0x03506BD0, controllerArg: 0 },
+        { name: 'engine_server_restart_player', rva: 0x03506BD0, controllerArg: 1 },
         { name: 'exit_observer_state', rva: 0x015AE240, controllerArg: 0 },
         { name: 'restart_players', rva: 0x0163D420 },
         // Parameter layout is not dereferenced until runtime evidence confirms
@@ -119,6 +137,68 @@ const SETTINGS = {
         { name: 'restart_player', rva: 0x0163D250 },
         { name: 'possess_promote_inventory', rva: 0x0167FB20 },
     ],
+    serverTravelRva: 0x036D61B0,
+    interaction: {
+        playerController: {
+            inputComponent: 0xF8,
+            stateName: 0x248,
+            pawn: 0x250,
+            controllingDirTrackInst: 0x2A8,
+            acknowledgedPawn: 0x2A0,
+            playerCameraManager: 0x2B8,
+            playerInput: 0x348,
+            playerWaitingFlags: 0x3E0,
+            pbCharacter: 0x5B0,
+            pbPlayerCameraManager: 0x5C0,
+            observerActive: 0x629,
+            lastRestartedStartSpot: 0x670,
+            killCamFocusActor: 0x698,
+            manager: 0x978,
+            seamlessTravelCount: 0x468,
+            lastCompletedSeamlessTravelCount: 0x46A,
+        },
+        cameraManager: {
+            viewTarget: 0xE90,
+            pendingViewTarget: 0x14A0,
+        },
+        character: {
+            controller: 0x258,
+            characterMovement: 0x288,
+            pbCharacterMovement: 0x538,
+            inventory: 0xD00,
+            currentWeapon: 0x18A8,
+            pendingWeapon: 0x18B0,
+            readyInStartSpot: 0x1F41,
+            lifeStatus: 0x20E0,
+        },
+        movement: {
+            velocity: 0xC4,
+            movementMode: 0x168,
+        },
+        manager: {
+            objectInfoArray: 0x38,
+            interactor: 0x58,
+            currentObjectInfo: 0x60,
+        },
+        objectInfo: {
+            config: 0x08,
+            size: 0x10,
+        },
+        config: {
+            eventType: 0x28,
+            actionNames: 0x30,
+            priority: 0x40,
+            duration: 0x44,
+        },
+        nativeEntries: [
+            { name: 'bind_game_input_component_key', rva: 0x015C3570, kind: 'controller_bind' },
+            { name: 'interaction_input_pressed', rva: 0x015AF300, kind: 'input_pressed' },
+            { name: 'interaction_manager_pressed', rva: 0x0171C770, kind: 'manager_pressed' },
+            { name: 'interaction_manager_released', rva: 0x0171C810, kind: 'manager_released' },
+            { name: 'interaction_state_dispatch', rva: 0x0156A8A0, kind: 'state_dispatch' },
+            { name: 'server_interact_with_scene_outbound', rva: 0x017B7490, kind: 'scene_rpc_wrapper' },
+        ],
+    },
     maxObjects: 2_000_000,
     maxOwnedItems: 250_000,
     maxFrameBytes: 64 * 1024 * 1024,
@@ -150,6 +230,8 @@ const OBSERVED_FUNCTIONS = new Map([
     ['ClientEndOnlineGame', 'PBPlayerController'],
     ['ClientSayGoodBye', 'PBPlayerController'],
     ['ClientGameEnded', 'PlayerController'],
+    ['ClientTravel', 'PlayerController'],
+    ['ClientTravelInternal', 'PlayerController'],
     ['ClientReturnToMainMenu', 'PlayerController'],
     ['ClientReturnToMainMenuWithTextReason', 'PlayerController'],
     ['ClientRoundHasStarted', 'PBPlayerController'],
@@ -174,6 +256,8 @@ const OBSERVED_FUNCTIONS = new Map([
     ['ExitObserverState', 'PBPlayerController'],
     ['ServerQuickRespawn', 'PBPlayerController'],
     ['K2_ControllerClientRestart', 'PBPlayerController'],
+    ['BindGameInputComponetKey', 'PBPlayerController'],
+    ['UnBindGameInputComponetKey', 'PBPlayerController'],
     ['ClientGotoState', 'PlayerController'],
     ['ClientRestart', 'PlayerController'],
     ['ClientRetryClientRestart', 'PlayerController'],
@@ -197,6 +281,17 @@ const OBSERVED_FUNCTIONS = new Map([
     ['SpawnDefaultPawnFor', 'GameModeBase'],
     ['SpawnDefaultPawnAtTransform', 'GameModeBase'],
     ['K2_InventorySpawned', 'PBCharacter'],
+    ['ServerInteractWithScene', 'PBCharacter'],
+    ['StartInteraction', 'PBInteractiveObjectInterface'],
+    ['StopInteraction', 'PBInteractiveObjectInterface'],
+    ['FinishInteraction', 'PBInteractiveObjectInterface'],
+    ['MulticastInteractive', [
+        'PBAirLockController',
+        'PBAirLockHatch',
+        'PBExpressTransit',
+    ]],
+    ['GetInteractionArray', 'PBInteractionManager'],
+    ['GetPrimaryInteraction', 'PBInteractionManager'],
     ['InitWeapon', 'PBWeapon'],
     ['OnRep_PartNetworkConfig', 'PBWeapon'],
     ['OnRep_PossessedCharacterID', 'PBPlayerState'],
@@ -232,6 +327,8 @@ const OBSERVED_FUNCTIONS = new Map([
     ['GotoState', 'PBGameInstance'],
     ['SaveMatchResultInfo', 'PBGameInstance'],
     ['CleanupSessionOnReturnToMenu', 'PBGameInstance'],
+    ['HandleNetworkError', 'GameInstance'],
+    ['HandleTravelError', 'GameInstance'],
     ['ShowLoadingScreen', 'PBGameInstance'],
     ['HideLoadingScreen', 'PBGameInstance'],
     ['PlatformHandleSplashScreen', 'PBGameInstance'],
@@ -253,6 +350,40 @@ const OBSERVED_FUNCTIONS = new Map([
     ['RemoveFromParent', 'Widget'],
     ['K2_StartMatchEnding', 'PBGameState'],
     ['K2_StartShowingMatchResult', 'PBGameState'],
+    ['K2_HiddenMatchResult', 'PBHUD'],
+    ['K2_HiddenMatchResult_TDM', 'PBHUD'],
+    ['K2_HiddenRoundResult', 'PBHUD'],
+    ['K2_HiddenSummary', 'PBHUD'],
+    ['K2_ShowMatchResult', 'PBHUD'],
+    ['K2_ShowMatchResult_TDM', 'PBHUD'],
+    ['K2_ShowRoundResult', 'PBHUD'],
+    ['K2_ShowSummary', 'PBHUD'],
+    ['K2_StartKillCamera', 'PBHUD'],
+    ['K2_StartQuickRespawn', 'PBHUD'],
+    ['K2_StopKillCamera', 'PBHUD'],
+    ['K2_StopQuickRespawn', 'PBHUD'],
+    ['K2_WaitingToRestart', 'PBHUD'],
+    ['NotifyGameStart', 'PBHUD'],
+    ['GetMapVoteCount', 'PBGameState'],
+    ['GetSelectMapInfo', 'PBGameState'],
+    ['GetSelfSelectMap', 'PBGameState'],
+    ['ServerSay', 'PBPlayerController'],
+]);
+
+const RESPAWN_CONTROLLER_FUNCTIONS = new Set([
+    'ClientBeKilled',
+    'ClientWaitingToRestart',
+    'EnterObserverState',
+    'ExitObserverState',
+    'ServerQuickRespawn',
+    'K2_ControllerClientRestart',
+    'ClientGotoState',
+    'ClientRestart',
+    'ClientRetryClientRestart',
+    'ClientSetSpectatorWaiting',
+    'ServerSetSpectatorWaiting',
+    'ServerAcknowledgePossession',
+    'ServerRestartPlayer',
 ]);
 
 const MATCH_LIFECYCLE_FUNCTIONS = new Set([
@@ -268,6 +399,15 @@ const MATCH_LIFECYCLE_FUNCTIONS = new Set([
     'K2_StartMatchEnding',
     'K2_MatchHasEnded',
     'K2_StartShowingMatchResult',
+    'K2_HiddenMatchResult',
+    'K2_HiddenMatchResult_TDM',
+    'K2_HiddenRoundResult',
+    'K2_HiddenSummary',
+    'K2_ShowMatchResult',
+    'K2_ShowMatchResult_TDM',
+    'K2_ShowRoundResult',
+    'K2_ShowSummary',
+    'NotifyGameStart',
     'ClientStartMatchEnding',
     'ClientMatchHasEnded',
     'ClientStartShowingMatchResult',
@@ -275,12 +415,55 @@ const MATCH_LIFECYCLE_FUNCTIONS = new Set([
     'ClientEndOnlineGame',
     'ClientSayGoodBye',
     'ClientGameEnded',
+    'ClientTravel',
+    'ClientTravelInternal',
     'ClientReturnToMainMenu',
     'ClientReturnToMainMenuWithTextReason',
     'ExitMatchReturnToMainMenu',
     'GoToMainMenu',
     'SaveMatchResultInfo',
     'CleanupSessionOnReturnToMenu',
+    'HandleNetworkError',
+    'HandleTravelError',
+    'GetMapVoteCount',
+    'GetSelectMapInfo',
+    'GetSelfSelectMap',
+]);
+
+const INTERACTION_FUNCTIONS = new Set([
+    'BindGameInputComponetKey',
+    'UnBindGameInputComponetKey',
+    'ServerInteractWithScene',
+    'StartInteraction',
+    'StopInteraction',
+    'FinishInteraction',
+    'MulticastInteractive',
+    'GetInteractionArray',
+    'GetPrimaryInteraction',
+]);
+
+const INTERACTION_EVENT_NAMES = new Map([
+    [0, 'None'],
+    [1, 'CanPatchSuit'],
+    [2, 'PatchingSuit'],
+    [3, 'CanSupply'],
+    [4, 'Supplying'],
+    [5, 'CanPickUpWeapon'],
+    [6, 'PickingUpWeapon'],
+    [7, 'CanPickUpObject'],
+    [8, 'PickedUpObject'],
+    [9, 'PickingUpObject'],
+    [10, 'CanRescueTeammate'],
+    [11, 'RescuingTeammate'],
+    [12, 'BeingRescued'],
+    [13, 'CanRespawnSelf'],
+    [14, 'OpenAirLockHatch'],
+    [15, 'CloseAirLockHatch'],
+    [16, 'PressurizeAirLock'],
+    [17, 'DepressurizeAirLock'],
+    [18, 'AttachExpressTransit'],
+    [19, 'DetachExpressTransit'],
+    [20, 'ExpandThePlatform'],
 ]);
 
 const textEncoderFallback = (value) => {
@@ -1406,6 +1589,368 @@ function dumpFNameArray(address, maximum = 128) {
         hash = fnvStep(hash, hashString(value));
     }
     return { num: header.num, max: header.max, hash: toHex(hash), values };
+}
+
+function safeObjectSummary(object) {
+    if (object === null || object === undefined || object.isNull()) return null;
+    const summary = { address: object.toString() };
+    try {
+        summary.object_name = objectName(object);
+        summary.class_name = className(object);
+    } catch (error) {
+        summary.read_error = String(error);
+    }
+    return summary;
+}
+
+function safeFName(address) {
+    if (address === null || address === undefined || address.isNull()) return null;
+    try {
+        return fnameToString(address);
+    } catch (error) {
+        return `<unreadable:${String(error)}>`;
+    }
+}
+
+function safeFString(address, maximum = 2048) {
+    if (address === null || address === undefined || address.isNull()) return null;
+    try {
+        const header = readArrayHeader(address, maximum, 'FString');
+        if (header.num === 0) return '';
+        const length = header.data.add((header.num - 1) * 2).readU16() === 0
+            ? header.num - 1
+            : header.num;
+        return header.data.readUtf16String(length) || '';
+    } catch (error) {
+        return `<unreadable:${String(error)}>`;
+    }
+}
+
+function safeFStringArray(address, maximum = 64) {
+    try {
+        const header = readArrayHeader(address, maximum, 'FString');
+        const values = [];
+        for (let index = 0; index < header.num; index += 1) {
+            values.push(safeFString(header.data.add(index * 0x10)));
+        }
+        return { num: header.num, values };
+    } catch (error) {
+        return { error: String(error) };
+    }
+}
+
+function netDriverTravelSnapshot(netDriver) {
+    if (netDriver === null || netDriver === undefined || netDriver.isNull()) return null;
+    const result = { object: netDriver.toString() };
+    try {
+        result.world = netDriver.add(SETTINGS.netDriver.world).readPointer().toString();
+        result.server_connection = netDriver.add(
+            SETTINGS.netDriver.serverConnection).readPointer().toString();
+        result.replication_driver = netDriver.add(
+            SETTINGS.netDriver.replicationDriver).readPointer().toString();
+        const connections = readArrayHeader(
+            netDriver.add(SETTINGS.netDriver.clientConnections),
+            1024,
+            'UNetDriver.ClientConnections');
+        const connectionsSnapshot = [];
+        for (let index = 0; index < connections.num; index += 1) {
+            const connection = connections.data.add(
+                index * Process.pointerSize).readPointer();
+            const connectionState = { connection: connection.toString() };
+            if (!connection.isNull()) {
+                const controller = connection.add(0x30).readPointer();
+                connectionState.player_controller = controller.toString();
+                if (!controller.isNull()) {
+                    connectionState.seamless_travel_count = controller.add(
+                        SETTINGS.interaction.playerController.seamlessTravelCount).readU16();
+                    connectionState.last_completed_seamless_travel_count = controller.add(
+                        SETTINGS.interaction.playerController.lastCompletedSeamlessTravelCount).readU16();
+                }
+            }
+            connectionsSnapshot.push(connectionState);
+        }
+        result.client_connection_count = connections.num;
+        result.client_connections = compactSample(connectionsSnapshot);
+    } catch (error) {
+        result.read_error = String(error);
+    }
+    return result;
+}
+
+function worldTravelSnapshot(world) {
+    if (world === null || world === undefined || world.isNull()) return null;
+    const result = { object: world.toString() };
+    try {
+        const netDriver = world.add(SETTINGS.world.netDriver).readPointer();
+        const gameMode = world.add(SETTINGS.world.authorityGameMode).readPointer();
+        const gameState = world.add(SETTINGS.world.gameState).readPointer();
+        result.object_summary = safeObjectSummary(world);
+        result.authority_game_mode = safeObjectSummary(gameMode);
+        result.game_state = safeObjectSummary(gameState);
+        result.owning_game_instance = world.add(
+            SETTINGS.world.owningGameInstance).readPointer().toString();
+        result.net_driver = netDriverTravelSnapshot(netDriver);
+    } catch (error) {
+        result.read_error = String(error);
+    }
+    return result;
+}
+
+function interactionEventDetails(value) {
+    return {
+        interaction_event: value,
+        interaction_event_name: INTERACTION_EVENT_NAMES.get(value) || 'Unknown',
+    };
+}
+
+function interactionConfigSnapshot(config) {
+    if (config.isNull()) return null;
+    try {
+        const eventType = config.add(
+            SETTINGS.interaction.config.eventType).readU8();
+        return Object.assign({
+            config: safeObjectSummary(config),
+            action_names: dumpFNameArray(
+                config.add(SETTINGS.interaction.config.actionNames), 32).values,
+            priority: config.add(
+                SETTINGS.interaction.config.priority).readU8(),
+            duration_seconds: config.add(
+                SETTINGS.interaction.config.duration).readFloat(),
+        }, interactionEventDetails(eventType));
+    } catch (error) {
+        return {
+            config: safeObjectSummary(config),
+            read_error: String(error),
+        };
+    }
+}
+
+function interactionObjectInfoSnapshot(info) {
+    try {
+        const opaqueObjectField = info.readPointer();
+        const config = info.add(
+            SETTINGS.interaction.objectInfo.config).readPointer();
+        return {
+            // The SDK leaves the first eight bytes unnamed. Keep it raw until
+            // runtime evidence proves whether it is a UObject or interface.
+            opaque_object_field: opaqueObjectField.toString(),
+            interaction: interactionConfigSnapshot(config),
+        };
+    } catch (error) {
+        return { read_error: String(error) };
+    }
+}
+
+function interactionManagerSnapshot(manager) {
+    if (manager.isNull()) return null;
+    try {
+        const array = readArrayHeader(
+            manager.add(SETTINGS.interaction.manager.objectInfoArray),
+            256,
+            'interaction object info');
+        const sample = [];
+        for (let index = 0; index < Math.min(array.num, 8); index += 1) {
+            sample.push(interactionObjectInfoSnapshot(array.data.add(
+                index * SETTINGS.interaction.objectInfo.size)));
+        }
+        const interactor = manager.add(
+            SETTINGS.interaction.manager.interactor).readPointer();
+        return {
+            manager: safeObjectSummary(manager),
+            interactor: safeObjectSummary(interactor),
+            object_info_count: array.num,
+            object_info_max: array.max,
+            object_info_sample: sample,
+            current_object_info: interactionObjectInfoSnapshot(manager.add(
+                SETTINGS.interaction.manager.currentObjectInfo)),
+        };
+    } catch (error) {
+        return {
+            manager: safeObjectSummary(manager),
+            read_error: String(error),
+        };
+    }
+}
+
+function interactionControllerSnapshot(controller) {
+    if (controller.isNull()) return null;
+    try {
+        const offsets = SETTINGS.interaction.playerController;
+        const inputComponent = controller.add(
+            offsets.inputComponent).readPointer();
+        const playerInput = controller.add(offsets.playerInput).readPointer();
+        const pawn = controller.add(offsets.pawn).readPointer();
+        const acknowledgedPawn = controller.add(
+            offsets.acknowledgedPawn).readPointer();
+        const pbCharacter = controller.add(offsets.pbCharacter).readPointer();
+        const controllingDirTrackInst = controller.add(
+            offsets.controllingDirTrackInst).readPointer();
+        const playerCameraManager = controller.add(
+            offsets.playerCameraManager).readPointer();
+        const pbPlayerCameraManager = controller.add(
+            offsets.pbPlayerCameraManager).readPointer();
+        const lastRestartedStartSpot = controller.add(
+            offsets.lastRestartedStartSpot).readPointer();
+        const killCamFocusActor = controller.add(
+            offsets.killCamFocusActor).readPointer();
+        const manager = controller.add(offsets.manager).readPointer();
+        const playerWaitingFlags = controller.add(
+            offsets.playerWaitingFlags).readU8();
+        const character = interactionCharacterSnapshot(pbCharacter.isNull()
+            ? pawn
+            : pbCharacter);
+        const camera = interactionCameraSnapshot(playerCameraManager);
+        return {
+            controller: safeObjectSummary(controller),
+            state_name: safeFName(controller.add(offsets.stateName)),
+            input_component: safeObjectSummary(inputComponent),
+            player_input: safeObjectSummary(playerInput),
+            pawn: safeObjectSummary(pawn),
+            acknowledged_pawn: safeObjectSummary(acknowledgedPawn),
+            pb_character: safeObjectSummary(pbCharacter),
+            pawn_matches_acknowledged: !pawn.isNull() && pawn.equals(acknowledgedPawn),
+            pawn_matches_pb_character: !pawn.isNull() && pawn.equals(pbCharacter),
+            character,
+            controlling_dir_track_inst: safeObjectSummary(controllingDirTrackInst),
+            player_camera_manager: safeObjectSummary(playerCameraManager),
+            pb_player_camera_manager: safeObjectSummary(pbPlayerCameraManager),
+            camera,
+            observer_active_raw: controller.add(offsets.observerActive).readU8(),
+            player_waiting_flags_raw: playerWaitingFlags,
+            player_is_waiting: (playerWaitingFlags & 0x10) !== 0,
+            last_restarted_start_spot: safeObjectSummary(lastRestartedStartSpot),
+            kill_cam_focus_actor: safeObjectSummary(killCamFocusActor),
+            interaction_manager: interactionManagerSnapshot(manager),
+        };
+    } catch (error) {
+        return {
+            controller: safeObjectSummary(controller),
+            read_error: String(error),
+        };
+    }
+}
+
+function interactionCharacterSnapshot(character) {
+    if (character.isNull()) return null;
+    try {
+        const offsets = SETTINGS.interaction.character;
+        const movementOffsets = SETTINGS.interaction.movement;
+        const controller = character.add(offsets.controller).readPointer();
+        const movement = character.add(offsets.characterMovement).readPointer();
+        const pbMovement = character.add(offsets.pbCharacterMovement).readPointer();
+        const inventory = readArrayHeader(
+            character.add(offsets.inventory), 256, 'character inventory');
+        const velocitySource = movement.isNull() ? pbMovement : movement;
+        const snapshot = {
+            character: safeObjectSummary(character),
+            controller: safeObjectSummary(controller),
+            character_movement: safeObjectSummary(movement),
+            pb_character_movement: safeObjectSummary(pbMovement),
+            inventory_count: inventory.num,
+            current_weapon: safeObjectSummary(
+                character.add(offsets.currentWeapon).readPointer()),
+            pending_weapon: safeObjectSummary(
+                character.add(offsets.pendingWeapon).readPointer()),
+            ready_in_start_spot_raw: character.add(
+                offsets.readyInStartSpot).readU8(),
+            life_status_raw: character.add(offsets.lifeStatus).readU8(),
+        };
+        if (!velocitySource.isNull()) {
+            snapshot.movement_mode_raw = velocitySource.add(
+                movementOffsets.movementMode).readU8();
+            snapshot.velocity = {
+                x: velocitySource.add(movementOffsets.velocity).readFloat(),
+                y: velocitySource.add(movementOffsets.velocity + 4).readFloat(),
+                z: velocitySource.add(movementOffsets.velocity + 8).readFloat(),
+            };
+        }
+        return snapshot;
+    } catch (error) {
+        return {
+            character: safeObjectSummary(character),
+            read_error: String(error),
+        };
+    }
+}
+
+function interactionCameraSnapshot(cameraManager) {
+    if (cameraManager.isNull()) return null;
+    try {
+        const offsets = SETTINGS.interaction.cameraManager;
+        return {
+            view_target: safeObjectSummary(
+                cameraManager.add(offsets.viewTarget).readPointer()),
+            pending_view_target: safeObjectSummary(
+                cameraManager.add(offsets.pendingViewTarget).readPointer()),
+        };
+    } catch (error) {
+        return { read_error: String(error) };
+    }
+}
+
+function respawnControllerDetails(functionName, controller) {
+    if (!RESPAWN_CONTROLLER_FUNCTIONS.has(functionName)) return {};
+    return { respawn_controller_state: interactionControllerSnapshot(controller) };
+}
+
+function interactionConfigArraySnapshot(address) {
+    try {
+        const array = readArrayHeader(address, 256, 'interaction config');
+        const sample = [];
+        for (let index = 0; index < Math.min(array.num, 16); index += 1) {
+            sample.push(interactionConfigSnapshot(
+                array.data.add(index * Process.pointerSize).readPointer()));
+        }
+        return { num: array.num, max: array.max, sample };
+    } catch (error) {
+        return { read_error: String(error) };
+    }
+}
+
+function interactionProcessEventDetails(functionName, object, params, phase) {
+    if (functionName === 'BindGameInputComponetKey' ||
+        functionName === 'UnBindGameInputComponetKey') {
+        return { controller_state: interactionControllerSnapshot(object) };
+    }
+    if (params.isNull()) return {};
+    if (functionName === 'ServerInteractWithScene' && phase === 'enter') {
+        const eventType = params.add(8).readU8();
+        return Object.assign({
+            target: safeObjectSummary(params.readPointer()),
+            client_actor_location: {
+                x: params.add(0x0C).readFloat(),
+                y: params.add(0x10).readFloat(),
+                z: params.add(0x14).readFloat(),
+            },
+        }, interactionEventDetails(eventType));
+    }
+    if ((functionName === 'StartInteraction' ||
+         functionName === 'StopInteraction' ||
+         functionName === 'FinishInteraction') && phase === 'enter') {
+        return { interactor: safeObjectSummary(params.readPointer()) };
+    }
+    if (functionName === 'MulticastInteractive' && phase === 'enter') {
+        const details = {
+            interactor: safeObjectSummary(params.readPointer()),
+        };
+        if (className(object) === 'PBExpressTransit') {
+            Object.assign(details, interactionEventDetails(params.add(8).readU8()));
+        }
+        return details;
+    }
+    if (functionName === 'GetInteractionArray' && phase === 'leave') {
+        return {
+            returned_interactions: interactionConfigArraySnapshot(params),
+            manager_state: interactionManagerSnapshot(object),
+        };
+    }
+    if (functionName === 'GetPrimaryInteraction' && phase === 'leave') {
+        return {
+            returned_interaction: interactionConfigSnapshot(params.readPointer()),
+            manager_state: interactionManagerSnapshot(object),
+        };
+    }
+    return {};
 }
 
 function dumpIntArray(address, maximum = 128) {
@@ -2647,6 +3192,45 @@ function observedCallDetails(functionName, params, phase) {
     if (functionName === 'GotoState' && phase === 'enter') {
         return { new_state: fnameToString(params) };
     }
+    if ((functionName === 'ClientTravel' ||
+         functionName === 'ClientTravelInternal') && phase === 'enter') {
+        return {
+            url: safeFString(params),
+            travel_type: params.add(0x10).readU8(),
+            seamless: params.add(0x11).readU8() !== 0,
+        };
+    }
+    if (functionName === 'HandleNetworkError' && phase === 'enter') {
+        return {
+            failure_type: params.readU8(),
+            is_server: params.add(1).readU8() !== 0,
+        };
+    }
+    if (functionName === 'HandleTravelError' && phase === 'enter') {
+        return { failure_type: params.readU8() };
+    }
+    if (functionName === 'ServerSay' && phase === 'enter') {
+        const message = safeFString(params) || '';
+        if (message.toLowerCase().startsWith('/vote')) {
+            return { vote_command: message };
+        }
+        return {
+            message_redacted: true,
+            message_length: message.length,
+            message_hash: toHex(hashString(message)),
+        };
+    }
+    if (functionName === 'GetMapVoteCount') {
+        const details = { map_name: safeFString(params) };
+        if (phase === 'leave') details.return_count = params.add(0x10).readS32();
+        return details;
+    }
+    if (functionName === 'GetSelectMapInfo' && phase === 'leave') {
+        return { selected_maps: safeFStringArray(params) };
+    }
+    if (functionName === 'GetSelfSelectMap' && phase === 'leave') {
+        return { selected_map: safeFString(params) };
+    }
     if ((functionName === 'K2_OnSetMatchState' ||
          functionName === 'K2_OnSetMatchSubState' ||
          functionName === 'K2_OnSetRoundState') && phase === 'enter') {
@@ -2787,7 +3371,7 @@ function hookMatchNativeEntries() {
                         registerControllerPlayerState(
                             this.controller, `${entry.name}.native.before`);
                     }
-                    emit('match.native_boundary', {
+                    const details = {
                         boundary_name: entry.name,
                         phase: 'enter',
                         rva: toHex(entry.rva),
@@ -2796,7 +3380,18 @@ function hookMatchNativeEntries() {
                             ? this.controller.toString()
                             : null,
                         native_backtrace: nativeBacktrace(this.context),
-                    });
+                    };
+                    if (entry.lifecycle) {
+                        details.state = matchLifecycleSnapshot(this.object);
+                    }
+                    if (this.hasController && !this.controller.isNull()) {
+                        details.respawn_controller_state =
+                            interactionControllerSnapshot(this.controller);
+                    }
+                    if (entry.name === 'engine_request_exit') {
+                        details.force = args[0].toInt32() !== 0;
+                    }
+                    emit('match.native_boundary', details);
                 } catch (error) {
                     reportError(`match.native.${entry.name}.enter`, error);
                 }
@@ -2806,13 +3401,13 @@ function hookMatchNativeEntries() {
                     if (this.hasController && !this.controller.isNull()) {
                         registerControllerPlayerState(
                             this.controller, `${this.entry.name}.native.after`);
-                    } else {
+                    } else if (!this.entry.skipPlayerRefresh) {
                         for (const playerState of playerStates.values()) {
                             refreshPlayerState(
                                 playerState, `${this.entry.name}.native.after`, false);
                         }
                     }
-                    emit('match.native_boundary', {
+                    const details = {
                         boundary_name: this.entry.name,
                         phase: 'leave',
                         rva: toHex(this.entry.rva),
@@ -2820,7 +3415,15 @@ function hookMatchNativeEntries() {
                         controller: this.hasController
                             ? this.controller.toString()
                             : null,
-                    });
+                    };
+                    if (this.entry.lifecycle) {
+                        details.state = matchLifecycleSnapshot(this.object);
+                    }
+                    if (this.hasController && !this.controller.isNull()) {
+                        details.respawn_controller_state =
+                            interactionControllerSnapshot(this.controller);
+                    }
+                    emit('match.native_boundary', details);
                 } catch (error) {
                     reportError(`match.native.${this.entry.name}.leave`, error);
                 }
@@ -2835,6 +3438,154 @@ function hookMatchNativeEntries() {
     });
 }
 
+function hookServerTravel() {
+    const address = gameModule.base.add(SETTINGS.serverTravelRva);
+    Interceptor.attach(address, {
+        onEnter(args) {
+            this.world = args[0];
+            this.url = safeFString(args[1]);
+            this.absolute = args[2].toInt32() !== 0;
+            this.skipGameNotify = args[3].toInt32() !== 0;
+            try {
+                emit('match.server_travel', {
+                    phase: 'enter',
+                    rva: toHex(SETTINGS.serverTravelRva),
+                    url: this.url,
+                    absolute: this.absolute,
+                    skip_game_notify: this.skipGameNotify,
+                    world: worldTravelSnapshot(this.world),
+                    native_backtrace: nativeBacktrace(this.context),
+                });
+            } catch (error) {
+                reportError('match.server_travel.enter', error);
+            }
+        },
+        onLeave(retval) {
+            try {
+                emit('match.server_travel', {
+                    phase: 'leave',
+                    rva: toHex(SETTINGS.serverTravelRva),
+                    url: this.url,
+                    return_value: retval.toInt32() !== 0,
+                    world: worldTravelSnapshot(this.world),
+                });
+            } catch (error) {
+                reportError('match.server_travel.leave', error);
+            }
+        },
+    });
+    emit('match.server_travel_hook_ready', {
+        rva: toHex(SETTINGS.serverTravelRva),
+        address: address.toString(),
+        mode: 'read_only',
+    });
+}
+
+function interactionNativeDetails(entry, args) {
+    if (entry.kind === 'controller_bind') {
+        return { controller_state: interactionControllerSnapshot(args[0]) };
+    }
+    if (entry.kind === 'input_pressed') {
+        return {
+            controller_state: interactionControllerSnapshot(args[0]),
+            action_name_candidate: safeFName(args[1]),
+            raw_key_argument: args[2].toString(),
+            input_event: args[3].toInt32(),
+        };
+    }
+    if (entry.kind === 'manager_pressed' || entry.kind === 'manager_released') {
+        return {
+            manager_state: interactionManagerSnapshot(args[0]),
+            action_name: safeFName(args[1]),
+            raw_key_argument: entry.kind === 'manager_pressed'
+                ? args[2].toString()
+                : null,
+        };
+    }
+    if (entry.kind === 'state_dispatch') {
+        const state = args[3].toInt32() & 0xFF;
+        return {
+            character: safeObjectSummary(args[0]),
+            controller: safeObjectSummary(args[1]),
+            interactive_interface: args[2].toString(),
+            interaction_state: state,
+            is_finish_state: state === 3,
+        };
+    }
+    if (entry.kind === 'scene_rpc_wrapper') {
+        const eventType = args[2].toInt32() & 0xFF;
+        const details = Object.assign({
+            character: safeObjectSummary(args[0]),
+            target: safeObjectSummary(args[1]),
+            client_actor_location_pointer: args[3].toString(),
+        }, interactionEventDetails(eventType));
+        try {
+            if (!args[3].isNull()) {
+                details.client_actor_location = {
+                    x: args[3].readFloat(),
+                    y: args[3].add(4).readFloat(),
+                    z: args[3].add(8).readFloat(),
+                };
+            }
+        } catch (error) {
+            details.location_read_error = String(error);
+        }
+        return details;
+    }
+    return {};
+}
+
+function hookInteractionNativeEntries() {
+    for (const entry of SETTINGS.interaction.nativeEntries) {
+        const address = gameModule.base.add(entry.rva);
+        Interceptor.attach(address, {
+            onEnter(args) {
+                this.entry = entry;
+                this.primaryObject = args[0];
+                try {
+                    emit('interaction.native_boundary', Object.assign({
+                        boundary_name: entry.name,
+                        phase: 'enter',
+                        rva: toHex(entry.rva),
+                        native_backtrace: nativeBacktrace(this.context),
+                    }, interactionNativeDetails(entry, args)));
+                } catch (error) {
+                    reportError(`interaction.native.${entry.name}.enter`, error);
+                }
+            },
+            onLeave(retval) {
+                try {
+                    const details = {
+                        boundary_name: this.entry.name,
+                        phase: 'leave',
+                        rva: toHex(this.entry.rva),
+                        return_value: retval.toString(),
+                    };
+                    if (this.entry.kind === 'controller_bind') {
+                        details.controller_state =
+                            interactionControllerSnapshot(this.primaryObject);
+                    } else if (this.entry.kind === 'manager_pressed' ||
+                               this.entry.kind === 'manager_released') {
+                        details.manager_state =
+                            interactionManagerSnapshot(this.primaryObject);
+                    }
+                    emit('interaction.native_boundary', details);
+                } catch (error) {
+                    reportError(`interaction.native.${this.entry.name}.leave`, error);
+                }
+            },
+        });
+    }
+    emit('interaction.native_hooks_ready', {
+        entries: SETTINGS.interaction.nativeEntries.map((entry) => ({
+            name: entry.name,
+            kind: entry.kind,
+            rva: toHex(entry.rva),
+        })),
+        mode: 'read_only',
+    });
+}
+
 function hookProcessEvent() {
     const address = gameModule.base.add(SETTINGS.offsets.processEvent);
     Interceptor.attach(address, {
@@ -2843,6 +3594,7 @@ function hookProcessEvent() {
             this.probeParams = ptr(0);
             this.probeObject = ptr(0);
             this.matchLifecycle = false;
+            this.interactionEvent = false;
             this.customizeObject = ptr(0);
             this.customizeClass = null;
             this.customizeFunction = null;
@@ -2916,6 +3668,7 @@ function hookProcessEvent() {
                 this.probeParams = args[2];
                 this.probeObject = args[0];
                 this.matchLifecycle = MATCH_LIFECYCLE_FUNCTIONS.has(functionName);
+                this.interactionEvent = INTERACTION_FUNCTIONS.has(functionName);
                 if (OBSERVED_FUNCTIONS.get(functionName) === 'PBWeapon') {
                     this.probeWeaponBefore = refreshWeapon(
                         args[0], `${functionName}.before`, true);
@@ -2934,7 +3687,17 @@ function hookProcessEvent() {
                         object: args[0].toString(),
                         object_class: className(args[0]),
                         state: matchLifecycleSnapshot(args[0]),
-                    }, observedCallDetails(functionName, args[2], 'enter')));
+                    }, respawnControllerDetails(functionName, args[0]),
+                    observedCallDetails(functionName, args[2], 'enter')));
+                }
+                if (this.interactionEvent) {
+                    emit('interaction.process_event', Object.assign({
+                        function_name: functionName,
+                        phase: 'enter',
+                        object: args[0].toString(),
+                        object_class: className(args[0]),
+                    }, interactionProcessEventDetails(
+                        functionName, args[0], args[2], 'enter')));
                 }
                 emitFieldModSnapshot(`${functionName}.before`);
                 emit('fieldmod.native_call', Object.assign({
@@ -2942,7 +3705,8 @@ function hookProcessEvent() {
                     phase: 'enter',
                     object: args[0].toString(),
                     object_class: className(args[0]),
-                }, observedCallDetails(functionName, args[2], 'enter')));
+                }, respawnControllerDetails(functionName, args[0]),
+                observedCallDetails(functionName, args[2], 'enter')));
             } catch (error) {
                 reportError(`unreal.${functionName}.enter`, error);
             }
@@ -2989,14 +3753,29 @@ function hookProcessEvent() {
                             object_class: className(this.probeObject),
                             state: matchLifecycleSnapshot(this.probeObject),
                         }, observedCallDetails(
-                            this.probeKind, this.probeParams, 'leave')));
+                            this.probeKind, this.probeParams, 'leave'),
+                        respawnControllerDetails(
+                            this.probeKind, this.probeObject)));
+                    }
+                    if (this.interactionEvent) {
+                        emit('interaction.process_event', Object.assign({
+                            function_name: this.probeKind,
+                            phase: 'leave',
+                            object: this.probeObject.toString(),
+                            object_class: className(this.probeObject),
+                        }, interactionProcessEventDetails(
+                            this.probeKind,
+                            this.probeObject,
+                            this.probeParams,
+                            'leave')));
                     }
                     emit('fieldmod.native_call', Object.assign({
                         function_name: this.probeKind,
                         phase: 'leave',
                         object: this.probeObject.toString(),
                         object_class: className(this.probeObject),
-                    }, observedCallDetails(this.probeKind, this.probeParams, 'leave')));
+                    }, observedCallDetails(this.probeKind, this.probeParams, 'leave'),
+                    respawnControllerDetails(this.probeKind, this.probeObject)));
                     emitFieldModSnapshot(`${this.probeKind}.after`);
                     if (OBSERVED_FUNCTIONS.get(this.probeKind) === 'PBWeapon') {
                         const after = refreshWeapon(
@@ -3058,6 +3837,8 @@ function initialize() {
         hookArchiveCompletionEntries();
         hookProcessEvent();
         hookMatchNativeEntries();
+        hookServerTravel();
+        hookInteractionNativeEntries();
         hookCareerNativeDispatch();
         setTimeout(scanObjects, 1000);
         setInterval(() => {

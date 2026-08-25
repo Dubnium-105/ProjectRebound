@@ -14,6 +14,56 @@ namespace
         }
     }
 
+    void TestFreshSeamlessDestinationRestoresNativeIntroBoundary()
+    {
+        Expect(!JoinUiSyncPolicy::ShouldForwardReadyToMatchIntro(false),
+            "native MatchIntro must remain behind destination role confirmation");
+        Expect(JoinUiSyncPolicy::ShouldForwardReadyToMatchIntro(true),
+            "role-confirmed StartMatch may enter native MatchIntro");
+        Expect(!JoinUiSyncPolicy::ShouldForwardReadyToMatchIntro(true, true),
+            "a source generation gate must not advance the partial destination world");
+
+        Expect(!JoinUiSyncPolicy::
+                ShouldRestoreFreshDestinationReadyToMatchIntro(
+                    true, true, false, false),
+            "role confirmation must not start OSS MatchIntro before its Pawn exists");
+        Expect(JoinUiSyncPolicy::
+                ShouldRestoreFreshDestinationReadyToMatchIntro(
+                    true, true, true, false),
+            "a spawned fresh destination may restore retained PostLogin readiness");
+        Expect(!JoinUiSyncPolicy::
+                ShouldRestoreFreshDestinationReadyToMatchIntro(
+                    true, true, true, true),
+            "an already-ready destination must preserve its native result");
+        Expect(!JoinUiSyncPolicy::
+                ShouldRestoreFreshDestinationReadyToMatchIntro(
+                    true, false, true, false),
+            "a direct-connect generation must never receive the seamless override");
+
+        Expect(!JoinUiSyncPolicy::IsInitialPlayerReadyForMatchStart(
+                true, false),
+            "every initial-flow player must have a Pawn before native MatchIntro enumerates it");
+        Expect(JoinUiSyncPolicy::IsInitialPlayerReadyForMatchStart(
+                true, true),
+            "the initial flow may enter MatchIntro only after spawn completes");
+        Expect(JoinUiSyncPolicy::IsInitialPlayerReadyForMatchStart(
+                false, false),
+            "late joins do not participate in the initial MatchIntro quorum");
+
+        Expect(!JoinUiSyncPolicy::ShouldDispatchStartMatch(
+                true, false, true, false, true),
+            "StartMatch must not skip the replicated native MatchIntro boundary");
+        Expect(!JoinUiSyncPolicy::ShouldDispatchStartMatch(
+                true, false, true, true, false),
+            "StartMatch must preserve a complete native flush for MatchIntro replication");
+        Expect(JoinUiSyncPolicy::ShouldDispatchStartMatch(
+                true, false, true, true, true),
+            "StartMatch may run after native MatchIntro was flushed with a playable Pawn");
+        Expect(!JoinUiSyncPolicy::ShouldDispatchStartMatch(
+                true, false, false, true, true),
+            "MatchIntro alone must not start before the playable Pawn exists");
+    }
+
     void TestInitialMatchStateWaitsForNativeStart()
     {
         Expect(!JoinUiSyncPolicy::ShouldSendInitialMatchState(
@@ -33,6 +83,19 @@ namespace
             "late joins use their existing client-start branch");
     }
 
+    void TestNativeRolePromptIsDeferredUntilUiSync()
+    {
+        Expect(JoinUiSyncPolicy::ShouldDeferNativeInitialRoleSelectionPrompt(
+            true, false),
+            "the initial native prompt must wait for direct-connect UI sync");
+        Expect(!JoinUiSyncPolicy::ShouldDeferNativeInitialRoleSelectionPrompt(
+            true, true),
+            "the initial native prompt may run after direct-connect UI sync");
+        Expect(!JoinUiSyncPolicy::ShouldDeferNativeInitialRoleSelectionPrompt(
+            false, false),
+            "late joins use their own role-selection lifecycle");
+    }
+
     void TestRolePromptFollowsUiSync()
     {
         Expect(!JoinUiSyncPolicy::ShouldPromptInitialRoleSelection(
@@ -48,12 +111,28 @@ namespace
             true, true, true, true, 2.0f, 1.0f),
             "role selection retry must be one-shot");
     }
+
+    void TestRolePromptDeliveryIsRecordedOnlyAfterUiSync()
+    {
+        Expect(!JoinUiSyncPolicy::ShouldRecordInitialRoleSelectionPrompt(
+            true, false),
+            "a prompt hidden under the frontend state must remain retryable");
+        Expect(JoinUiSyncPolicy::ShouldRecordInitialRoleSelectionPrompt(
+            true, true),
+            "the post-sync native prompt should consume the one-shot retry");
+        Expect(!JoinUiSyncPolicy::ShouldRecordInitialRoleSelectionPrompt(
+            false, true),
+            "late joins do not use the initial prompt-delivery flag");
+    }
 }
 
 int main()
 {
+    TestFreshSeamlessDestinationRestoresNativeIntroBoundary();
     TestInitialMatchStateWaitsForNativeStart();
+    TestNativeRolePromptIsDeferredUntilUiSync();
     TestRolePromptFollowsUiSync();
+    TestRolePromptDeliveryIsRecordedOnlyAfterUiSync();
     std::cout << "join UI sync policy tests passed\n";
     return 0;
 }

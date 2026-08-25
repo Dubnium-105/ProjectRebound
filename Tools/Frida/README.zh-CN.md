@@ -44,6 +44,7 @@ powershell -ExecutionPolicy Bypass -File .\Tools\Frida\run-armory-probe.ps1 -Pro
 - `fieldmod.native_call`：`ClientInitFieldMod`、原生 refresh、选择/getter、武器生成和对局配装 reflected RPC 的调用边界。
 - `fieldmod.snapshot`：上述调用前后的逐角色 pre-ordering 状态。
 - `match.native_boundary`：服务端 pre-order、角色确认以及占有时提升 equipping 的原生边界。
+- `match.server_travel`：只读记录 ServerTravel URL/参数/返回值，以及 World、GameMode、GameState、NetDriver 和连接集合快照。
 - `progression.player_level_table`：该精确 EXE 的运行时等级表摘要。
 - `unreal.lifecycle`：军械库生命周期边界。
 

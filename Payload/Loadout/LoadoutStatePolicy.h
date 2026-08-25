@@ -163,4 +163,81 @@ namespace LoadoutStatePolicy
         pending.Active = false;
         pending.Replaying = false;
     }
+
+    // Only seamless rebound players use this gate.  Their controller and
+    // authoritative role survive travel, while LoadoutManager intentionally
+    // starts a fresh per-match connection record.  Do not dispatch the new
+    // Pawn until the remote controller has completed its native seamless
+    // travel handshake and that record has either restored its baseline or
+    // reached a bounded native-fallback deadline.  Callers must then rebuild
+    // the destination PlayerState role through native confirmation before
+    // dispatching RestartPlayers. The baseline fallback must never bypass
+    // ServerNotifyLoadedWorld completion.
+    inline bool CanReleaseSeamlessRoleSpawn(
+        bool gateActive,
+        bool fetchSettled,
+        bool clientTravelCompleted,
+        TimePoint now,
+        TimePoint deadline)
+    {
+        return !gateActive ||
+            (clientTravelCompleted && (fetchSettled || now >= deadline));
+    }
+
+    // Destination FieldMod configs and native indices are reconstructed from
+    // the fresh baseline through the pinned ClientInitFieldMod body, but the
+    // build can clear them again while completing the remote client's seamless
+    // travel handshake. Never rebuild before ServerNotifyLoadedWorld completes,
+    // and never do so for ordinary/P2P spawn or without a usable baseline.
+    inline bool CanAttemptSeamlessFieldModRoleSeed(
+        bool gateActive,
+        bool fetchCompleted,
+        bool clientTravelCompleted,
+        bool hasBaselines)
+    {
+        return gateActive && fetchCompleted && clientTravelCompleted &&
+            hasBaselines;
+    }
+
+    // A destination that keeps PlayerState but deliberately asks for a fresh
+    // role must not enter either ServerPreOrderInventory or
+    // ServerConfirmRoleSelection until ClientInitFieldMod has reconstructed
+    // the retained native containers. Ordinary first joins remain untouched.
+    inline bool CanDispatchFreshSeamlessRoleConfirmation(
+        bool freshSelectionActive,
+        bool fieldModRolesSeeded)
+    {
+        return !freshSelectionActive || fieldModRolesSeeded;
+    }
+
+    // The pinned build's reliable-RPC validator consults a transient hidden
+    // role set that is not reconstructed by ClientInitFieldMod after seamless
+    // travel. Bypass that validator only for the exact synchronous recovery
+    // transaction whose canonical role and pre-order state were already
+    // checked by CanReleaseRoleSpawn. The native RPC implementation still
+    // performs the inventory merge, SelectedCharacterID write, and restart.
+    inline bool CanBypassSeamlessRoleValidator(
+        bool recoveryGuardActive,
+        bool gateActive,
+        bool sameController,
+        bool sameCanonicalRole,
+        bool nativePreOrderReady)
+    {
+        return recoveryGuardActive && gateActive && sameController &&
+            sameCanonicalRole && nativePreOrderReady;
+    }
+
+    // The destination validator's hidden allowed-role set can remain stale
+    // even after ClientInitFieldMod has rebuilt the visible FieldMod state.
+    // A user-driven fresh selection may bypass it only when this exact
+    // controller is still in the fresh-owned-travel transaction and the
+    // requested FName is already present in the seeded native pre-order map.
+    inline bool CanBypassFreshSeamlessRoleValidator(
+        bool freshSelectionActive,
+        bool fieldModRolesSeeded,
+        bool requestedRolePresent)
+    {
+        return freshSelectionActive && fieldModRolesSeeded &&
+            requestedRolePresent;
+    }
 }

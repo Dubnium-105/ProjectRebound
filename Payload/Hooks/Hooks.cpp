@@ -11,12 +11,14 @@
 #include "ArchiveCompletionPolicy.h"
 #include "../SDK.hpp"
 #include "../Network/NetDriverAccess.h"
+#include "../Network/Network.h"
 #include "../SDK/Engine_parameters.hpp"
 #include "../SDK/ProjectBoundary_parameters.hpp"
 #include "../safetyhook/safetyhook.hpp"
 #include "../Libs/json.hpp"
 #include "../Replication/libreplicate.h"
 #include "../ServerLogic/LateJoinManager.h"
+#include "../ServerLogic/JoinUiSyncPolicy.h"
 #include "../ServerLogic/RespawnStatePolicy.h"
 #include "../Loadout/LoadoutManager.h"
 #include "../Config/Config.h"
@@ -24,7 +26,11 @@
 #include "../Debug/Debug.h"
 #include "../Debug/DebugTool.h"
 #include "../ServerLogic/ServerLogic.h"
+#include "../ServerLogic/DedicatedMultiMatch.h"
+#include "../ServerLogic/DedicatedMultiMatchPolicy.h"
 #include "../ClientLogic/ClientLogic.h"
+#include "../ClientLogic/DirectMatchUiCleanupPolicy.h"
+#include "../ClientLogic/SeamlessIntroCameraPolicy.h"
 #include "../Utility/Utility.h"
 #include "../BattleLog/BattleLogExtractor.h"
 
@@ -93,6 +99,7 @@ static void CleanupDisconnectedPlayer(APBPlayerController* playerController, con
     }
     if (gLateJoinManager)
         gLateJoinManager->OnPlayerDisconnected(playerController);
+    DedicatedMultiMatch::OnPlayerDisconnected(playerController);
 
     PlayerRespawnAllowedMap.erase(playerController);
     PlayersConfirmedRole.erase(playerController);
@@ -147,13 +154,235 @@ static bool IsCurrentSelectedRole(
 // ======================================================
 
 static SafetyHookInline TickFlush = {};
+static SafetyHookInline EngineBrowse = {};
+static SafetyHookInline DeferredTravelGameEngineTick = {};
+static SafetyHookInline WorldSeamlessTravel = {};
+static SafetyHookInline ScriptMulticastDelegateProcess = {};
+static std::once_flag TravelDeferralHooksOnce;
+static thread_local unsigned int GameEngineTickDepth = 0;
+static std::uint64_t MatchIntroFlushGeneration = 0;
+static unsigned int CompletedNativeMatchIntroFlushes = 0;
+static bool LoggedPendingNativeMatchIntroFlush = false;
+
+namespace
+{
+    struct DeferredSeamlessTravel
+    {
+        bool Pending = false;
+        SDK::UWorld* World = nullptr;
+        std::wstring Url;
+        bool Absolute = false;
+        SDK::FGuid PackageGuid{};
+        bool HasPackageGuid = false;
+    };
+
+    std::mutex DeferredSeamlessTravelMutex;
+    DeferredSeamlessTravel DeferredTravel;
+    // Null-owner delegates from a retired source world have now fired more
+    // than five minutes after ClientTravel in the pinned client. Their exact
+    // low addresses can never be valid UObject/delegate storage, so once an
+    // explicitly marked multi-match travel arms this compatibility guard,
+    // keep the fixed-build exact delegate allow-list active for the process
+    // session (including the role-selection RoundState member at +0x2C0).
+    // The broader PlayerState/GameInstance fallbacks retain a bounded window.
+    constexpr ULONGLONG OwnedTravelCompatibilityGuardDurationMs = 300000;
+    std::atomic<ULONGLONG> OwnedTravelCompatibilityGuardDeadlineMs = 0;
+    std::atomic<bool> OwnedTravelDelegateGuardArmed = false;
+    std::atomic<bool> InvalidTravelDelegateSuppressionLogged = false;
+
+    void ArmOwnedTravelDelegateGuard()
+    {
+        OwnedTravelDelegateGuardArmed.store(true, std::memory_order_release);
+        OwnedTravelCompatibilityGuardDeadlineMs.store(
+            ::GetTickCount64() + OwnedTravelCompatibilityGuardDurationMs,
+            std::memory_order_release);
+        InvalidTravelDelegateSuppressionLogged.store(false, std::memory_order_release);
+        std::cout << "[MULTIMATCH_TRACE] pinned-invalid-travel-delegate="
+                     "armed lifetime=multi-match-session compatibility_ms="
+                  << OwnedTravelCompatibilityGuardDurationMs
+                  << std::endl;
+    }
+
+    bool IsOwnedTravelDelegateGuardActive()
+    {
+        return OwnedTravelDelegateGuardArmed.load(std::memory_order_acquire);
+    }
+
+    bool IsOwnedTravelCompatibilityWindowActive()
+    {
+        const ULONGLONG deadline = OwnedTravelCompatibilityGuardDeadlineMs.load(
+            std::memory_order_acquire);
+        return deadline != 0 && ::GetTickCount64() <= deadline;
+    }
+
+    bool IsOwnedMultiMatchTravelUrl(const SDK::FString* url)
+    {
+        if (!url || url->Num() <= 1)
+            return false;
+        try
+        {
+            return DedicatedMultiMatchPolicy::IsOwnedTravelUrl(url->ToString());
+        }
+        catch (...)
+        {
+            return false;
+        }
+    }
+
+    void DispatchDeferredSeamlessTravel()
+    {
+        DeferredSeamlessTravel pending;
+        {
+            std::lock_guard<std::mutex> lock(DeferredSeamlessTravelMutex);
+            if (!DeferredTravel.Pending)
+                return;
+            pending = std::move(DeferredTravel);
+            DeferredTravel = DeferredSeamlessTravel{};
+        }
+
+        if (!pending.World || pending.World != SDK::UWorld::GetWorld() ||
+            pending.Url.empty())
+        {
+            std::cout << "[MULTIMATCH_TRACE] post-engine-tick seamless-travel=discarded "
+                         "reason=source-world-changed"
+                      << std::endl;
+            return;
+        }
+
+        SDK::FString url(pending.Url.c_str());
+        const SDK::FGuid* const packageGuid = pending.HasPackageGuid
+            ? &pending.PackageGuid
+            : nullptr;
+        WorldSeamlessTravel.call<void>(
+            pending.World, &url, pending.Absolute, packageGuid);
+        std::cout << "[MULTIMATCH_TRACE] post-engine-tick seamless-travel=dispatched"
+                  << std::endl;
+    }
+}
+
+void ScriptMulticastDelegateProcessHook(void* delegateThis, void* parameters)
+{
+    const bool ownedTravelWindow = IsOwnedTravelDelegateGuardActive();
+    if (DedicatedMultiMatchPolicy::ShouldSuppressInvalidTravelDelegate(
+            reinterpret_cast<std::uintptr_t>(delegateThis), ownedTravelWindow))
+    {
+        if (!InvalidTravelDelegateSuppressionLogged.exchange(
+                true, std::memory_order_acq_rel))
+        {
+            std::cout << "[MULTIMATCH_TRACE] pinned-invalid-travel-delegate="
+                         "suppressed this=0x"
+                      << std::hex << reinterpret_cast<std::uintptr_t>(delegateThis)
+                      << std::dec << std::endl;
+        }
+        return;
+    }
+
+    ScriptMulticastDelegateProcess.call<void>(delegateThis, parameters);
+}
+
+void WorldSeamlessTravelHook(
+    SDK::UWorld* world,
+    const SDK::FString* url,
+    bool absolute,
+    const SDK::FGuid* packageGuid)
+{
+    const bool ownedTravel = world && IsOwnedMultiMatchTravelUrl(url);
+    if (ownedTravel)
+        ArmOwnedTravelDelegateGuard();
+
+    if (GameEngineTickDepth == 0 || !ownedTravel)
+    {
+        WorldSeamlessTravel.call<void>(world, url, absolute, packageGuid);
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(DeferredSeamlessTravelMutex);
+    if (!DeferredTravel.Pending)
+    {
+        DeferredTravel.Pending = true;
+        DeferredTravel.World = world;
+        DeferredTravel.Url = std::wstring(url->CStr());
+        DeferredTravel.Absolute = absolute;
+        DeferredTravel.HasPackageGuid = packageGuid != nullptr;
+        if (packageGuid)
+            DeferredTravel.PackageGuid = *packageGuid;
+        std::cout << "[MULTIMATCH_TRACE] in-engine-tick seamless-travel=deferred"
+                  << std::endl;
+        return;
+    }
+
+    const bool duplicate = DeferredTravel.World == world &&
+        DeferredTravel.Url == std::wstring(url->CStr());
+    std::cout << "[MULTIMATCH_TRACE] in-engine-tick seamless-travel="
+              << (duplicate ? "duplicate-suppressed" : "collision-suppressed")
+              << std::endl;
+}
+
+void DeferredTravelGameEngineTickHook(
+    void* gameEngine,
+    float deltaSeconds,
+    bool idleMode)
+{
+    ++GameEngineTickDepth;
+    DeferredTravelGameEngineTick.call<void>(gameEngine, deltaSeconds, idleMode);
+    --GameEngineTickDepth;
+    if (GameEngineTickDepth == 0)
+    {
+        DispatchDeferredSeamlessTravel();
+        DedicatedMultiMatch::OnGameEnginePostTick();
+    }
+}
+
+void InitTravelDeferralHooks()
+{
+    std::call_once(TravelDeferralHooksOnce, []() {
+        // Pinned UGameEngine vtable +0x2B0 and UWorld::SeamlessTravel. The
+        // marker gate leaves every native/P2P URL on the original path; only
+        // the explicit dedicated multi-match URL is deferred beyond the old
+        // World's final UWorld::Tick/FTimerManager pass.
+        WorldSeamlessTravel = safetyhook::create_inline(
+            (void*)(BaseAddress + 0x36D3D10), WorldSeamlessTravelHook);
+        // Pinned TMulticastScriptDelegate::ProcessMulticastDelegate. During
+        // marked seamless travel only, the fixed game image can invoke it with
+        // the proven null-owner +0x2C0/+0x300/+0x310/+0x3B0/+0x3C0 member
+        // addresses.
+        // The hook otherwise forwards every call unchanged on both peers.
+        ScriptMulticastDelegateProcess = safetyhook::create_inline(
+            (void*)(BaseAddress + 0x8FB1B0), ScriptMulticastDelegateProcessHook);
+        DeferredTravelGameEngineTick = safetyhook::create_inline(
+            (void*)(BaseAddress + 0x32683F0), DeferredTravelGameEngineTickHook);
+    });
+}
+
+int EngineBrowseHook(
+    void* gameEngine,
+    void* worldContext,
+    void* url,
+    SDK::FString* error)
+{
+    const auto result = DedicatedMultiMatch::InterceptEngineBrowse(worldContext);
+    if (result == DedicatedMultiMatch::EngineBrowseInterceptResult::HandledSuccess)
+    {
+        // Pinned EBrowseReturnVal::Success.
+        return 0;
+    }
+    if (result == DedicatedMultiMatch::EngineBrowseInterceptResult::HandledFailure)
+    {
+        // Pinned EBrowseReturnVal::Failure. TickWorldTravel will clear its
+        // queued URL; the next server tick performs the normal fallback exit.
+        return 1;
+    }
+    return EngineBrowse.call<int>(gameEngine, worldContext, url, error);
+}
 
 void TickFlushHook(UNetDriver *NetDriver, float DeltaTime)
 {
     if (listening && NetDriver && UWorld::GetWorld())
     {
-        EnsureServerMatchWorld(UWorld::GetWorld());
-        NetDriverAccess::Observe(NetDriver, UWorld::GetWorld(), NetDriverAccess::Source::HookArgument);
+        UWorld* const currentWorld = UWorld::GetWorld();
+        NetDriverAccess::Observe(NetDriver, currentWorld, NetDriverAccess::Source::HookArgument);
+        EnsureServerMatchWorld(currentWorld);
+        RefreshServerStatusSnapshot();
 
         if (PlayerJoinTimerSelectFuck > 0.0f)
         {
@@ -173,6 +402,14 @@ void TickFlushHook(UNetDriver *NetDriver, float DeltaTime)
                         DisconnectedPlayerControllers.contains(playerController) ||
                         playerController->bActorIsBeingDestroyed)
                     {
+                        continue;
+                    }
+
+                    if (gLateJoinManager &&
+                        gLateJoinManager->ShouldDeferInitialRoleSelectionPrompt(playerController))
+                    {
+                        std::cout << "[LATEJOIN] Deferring initial role-selection prompt until client match-state sync."
+                                  << std::endl;
                         continue;
                     }
 
@@ -364,12 +601,49 @@ void TickFlushHook(UNetDriver *NetDriver, float DeltaTime)
         }
     }
 
-    if (canStartMatch && !DidProcStartMatch &&
-        (!gLateJoinManager || gLateJoinManager->AreInitialPlayersReadyForStart()))
+    UWorld* const currentWorld = UWorld::GetWorld();
+    APBGameMode* const currentGameMode = currentWorld &&
+            currentWorld->AuthorityGameMode
+        ? static_cast<APBGameMode*>(currentWorld->AuthorityGameMode)
+        : nullptr;
+    const std::uint64_t currentMatchGeneration = GetServerMatchGeneration();
+    if (MatchIntroFlushGeneration != currentMatchGeneration)
+    {
+        MatchIntroFlushGeneration = currentMatchGeneration;
+        CompletedNativeMatchIntroFlushes = 0;
+        LoggedPendingNativeMatchIntroFlush = false;
+    }
+    const bool initialPlayersReady = !gLateJoinManager ||
+        gLateJoinManager->AreInitialPlayersReadyForStart();
+    const bool matchIntroEntered = currentGameMode &&
+        currentGameMode->MatchSubState.ToString().contains("MatchIntro");
+    const bool awaitingNativeMatchIntroFlush = canStartMatch &&
+        !DidProcStartMatch && initialPlayersReady && matchIntroEntered &&
+        CompletedNativeMatchIntroFlushes == 0;
+    if (awaitingNativeMatchIntroFlush)
+    {
+        if (CurrentGameState)
+            CurrentGameState->ForceNetUpdate();
+        if (!LoggedPendingNativeMatchIntroFlush)
+        {
+            LoggedPendingNativeMatchIntroFlush = true;
+            std::cout << "[MATCH] Native MatchIntro observed; preserving one "
+                         "complete NetDriver flush before StartMatch."
+                      << std::endl;
+        }
+    }
+    if (JoinUiSyncPolicy::ShouldDispatchStartMatch(
+            canStartMatch,
+            DidProcStartMatch,
+            initialPlayersReady,
+            matchIntroEntered,
+            CompletedNativeMatchIntroFlushes > 0))
     {
         DidProcStartMatch = true;
-
-        ((APBGameMode *)UWorld::GetWorld()->AuthorityGameMode)->StartMatch();
+        std::cout << "[MATCH] Replicated native MatchIntro boundary completed; "
+                     "dispatching StartMatch."
+                  << std::endl;
+        currentGameMode->StartMatch();
     }
 
     static bool wasF8Down = false;
@@ -392,7 +666,32 @@ void TickFlushHook(UNetDriver *NetDriver, float DeltaTime)
     }
     wasF8Down = isF8Down;
 
-    return TickFlush.call(NetDriver, DeltaTime);
+    // Native TickFlush must finish before a queued multi-match seamless travel
+    // is allowed to replace World/NetDriver state. Starting the seamless
+    // handler from the pre-flush half of this detour can migrate channels while
+    // the driver is still on its own flush stack and strand the game thread.
+    TickFlush.call(NetDriver, DeltaTime);
+    UWorld* const postFlushWorld = UWorld::GetWorld();
+    APBGameMode* const postFlushGameMode = postFlushWorld &&
+            postFlushWorld->AuthorityGameMode
+        ? static_cast<APBGameMode*>(postFlushWorld->AuthorityGameMode)
+        : nullptr;
+    const bool stillAwaitingStartAfterFlush =
+        MatchIntroFlushGeneration == GetServerMatchGeneration() &&
+        postFlushWorld == currentWorld &&
+        postFlushGameMode == currentGameMode &&
+        canStartMatch && !DidProcStartMatch &&
+        (!gLateJoinManager || gLateJoinManager->AreInitialPlayersReadyForStart()) &&
+        postFlushGameMode &&
+        postFlushGameMode->MatchSubState.ToString().contains("MatchIntro");
+    if (stillAwaitingStartAfterFlush && CompletedNativeMatchIntroFlushes == 0)
+    {
+        CompletedNativeMatchIntroFlushes = 1;
+        std::cout << "[MATCH] Completed native MatchIntro NetDriver flush."
+                  << std::endl;
+    }
+    if (listening && NetDriver && UWorld::GetWorld())
+        DedicatedMultiMatch::Tick(DeltaTime, NetDriver);
 }
 
 // ======================================================
@@ -407,7 +706,12 @@ static SafetyHookInline NotifyActorDestroyed = {};
 // build still dereferences that pointer at RVA 0x015C8D0E. Keep the native
 // match lifecycle intact and skip only this impossible UI operation.
 static SafetyHookInline ServerInGameMenuTransition = {};
+static SafetyHookInline ServerEndMatch = {};
+static SafetyHookMid ServerNullResultMvp = {};
+static SafetyHookInline ServerConfirmRoleSelectionValidate = {};
+static SafetyHookInline ServerStartShowingMatchResult = {};
 static SafetyHookInline ServerStartWaitingToEndGame = {};
+static SafetyHookInline ServerBeginFinalCleanup = {};
 
 __int64 ServerInGameMenuTransitionHook(APBPlayerController* playerController, bool opening)
 {
@@ -429,44 +733,85 @@ __int64 ServerInGameMenuTransitionHook(APBPlayerController* playerController, bo
     return ServerInGameMenuTransition.call<__int64>(playerController, opening);
 }
 
+void ServerEndMatchHook(APBGameMode* gameMode)
+{
+    if (DedicatedMultiMatch::ShouldSuppressRetiredEndMatch(gameMode))
+    {
+        std::cout << "[MULTIMATCH] Suppressed stale/retired GameMode native "
+                     "EndMatch/result-freeze."
+                  << std::endl;
+        return;
+    }
+    ServerEndMatch.call<void>(gameMode);
+}
+
+void ServerNullResultMvpHook(SafetyHookContext& context)
+{
+    if (context.rdi != 0)
+        return;
+
+    auto* const gameMode = reinterpret_cast<APBGameMode*>(context.rbx);
+    if (!DedicatedMultiMatch::ShouldBypassNullResultMvp(gameMode))
+        return;
+
+    // APBGameMode's pinned result freezer obtains the selected MVP from
+    // GameState+0x428, then calls the player-state helper at 0x16728C0 without
+    // checking it. Continue at the native common path used when that helper
+    // reports no work; preserve later result-state/ShowingResult dispatches.
+    context.rip = BaseAddress + 0x163791C;
+    std::cout << "[MULTIMATCH] Skipped null MVP decoration; continuing native "
+                 "result lifecycle."
+              << std::endl;
+}
+
+bool ServerConfirmRoleSelectionValidateHook(
+    APBPlayerController* playerController,
+    const FName* roleId)
+{
+    bool bypass = false;
+    if (playerController && roleId)
+    {
+        std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+        bypass = gLoadoutManager &&
+            gLoadoutManager->ShouldBypassSeamlessRoleValidator(
+                playerController, *roleId);
+    }
+    if (bypass)
+    {
+        std::cout << "[MULTIMATCH] Bypassed transient destination role-set "
+                     "validator for seeded seamless confirmation: role="
+                  << roleId->ToString() << std::endl;
+        return true;
+    }
+
+    return ServerConfirmRoleSelectionValidate.call<bool>(
+        playerController, roleId);
+}
+
+void ServerStartShowingMatchResultHook(APBGameMode* gameMode)
+{
+    ServerStartShowingMatchResult.call<void>(gameMode);
+    DedicatedMultiMatch::OnShowingMatchResult(gameMode);
+}
+
 void ServerStartWaitingToEndGameHook(APBGameMode* gameMode)
 {
-    // The pinned dedicated-server path starts its final cleanup/exit timer here,
-    // but never invokes PBGameMode's native return-to-menu broadcast. Send that
-    // RPC while the connection still has the configured cleanup window to flush,
-    // then leave the original process-per-match shutdown path untouched.
-    using NotifyAllClientsReturnToMainMenuFn = __int64(__fastcall*)(APBGameMode*);
-    const auto notifyAllClientsReturnToMainMenu =
-        reinterpret_cast<NotifyAllClientsReturnToMainMenuFn>(BaseAddress + 0x1633990);
+    if (DedicatedMultiMatch::HandleWaitingToEndGame(gameMode))
+        return;
 
-    if (gameMode)
+    BeginGracefulDedicatedExit(gameMode, "process-per-match");
+}
+
+void ServerBeginFinalCleanupHook(APBGameMode* gameMode, float cleanupWait)
+{
+    if (DedicatedMultiMatch::ShouldSuppressNativeFinalCleanup(gameMode))
     {
-        notifyAllClientsReturnToMainMenu(gameMode);
-        std::cout << "[MATCH] Notified clients to return to the main menu; "
-                     "continuing native dedicated-server cleanup."
+        std::cout << "[MULTIMATCH] Suppressed retired GameMode native final cleanup/process exit."
                   << std::endl;
+        return;
     }
 
-    // RVA 0x0162B1C0 is a tiny thunk rather than a normal function:
-    //   movss xmm1, [rcx+404h]
-    //   mov   byte ptr [rcx+4C4h], 0
-    //   jmp   0x0163EFD0
-    // Reproduce it explicitly because relocating its terminal jump through an
-    // inline trampoline does not reliably reach the cleanup/timer body.
-    constexpr uintptr_t WaitingToCleanUpOffset = 0x404;
-    constexpr uintptr_t FinalCleanupStartedOffset = 0x4C4;
-    using BeginFinalCleanupFn = void(__fastcall*)(APBGameMode*, float);
-    const auto beginFinalCleanup =
-        reinterpret_cast<BeginFinalCleanupFn>(BaseAddress + 0x163EFD0);
-
-    if (gameMode)
-    {
-        const float cleanupWait = *reinterpret_cast<float*>(
-            reinterpret_cast<uintptr_t>(gameMode) + WaitingToCleanUpOffset);
-        *reinterpret_cast<uint8_t*>(
-            reinterpret_cast<uintptr_t>(gameMode) + FinalCleanupStartedOffset) = 0;
-        beginFinalCleanup(gameMode, cleanupWait);
-    }
+    ServerBeginFinalCleanup.call<void>(gameMode, cleanupWait);
 }
 
 bool NotifyActorDestroyedHook(UWorld *World, AActor *Actor, bool SomeShit, bool SomeShit2)
@@ -502,6 +847,12 @@ static SafetyHookInline NotifyAcceptingConnection = {};
 
 __int64 NotifyAcceptingConnectionHook(UObject *obj)
 {
+    // The travel proof deliberately requires the exact pre-travel connection
+    // set.  Do not admit a new connection while ownership of the world is in
+    // flux; accepting it would make both the proof and native channel handoff
+    // ambiguous.
+    if (DedicatedMultiMatch::OwnsWorldTransition())
+        return 0;
     return 1;
 }
 
@@ -573,22 +924,21 @@ static bool HandleManagedExplicitRespawn(
         return true;
     }
 
-    const bool normalizeEngineRestartToQuick =
-        RespawnStatePolicy::ShouldNormalizeEngineRestartToQuickRespawn(
+    const bool deferEngineRestartToPBQuick =
+        RespawnStatePolicy::ShouldDeferEngineRestartToPBQuickRespawn(
             action,
             functionName.contains("PlayerController.ServerRestartPlayer"));
+    if (deferEngineRestartToPBQuick)
+    {
+        std::cout << "[RESPAWN] request_kind=" << requestKind
+            << " hook_action=deferred_to_native_pb_quick" << std::endl;
+        return true;
+    }
+
     const bool forwarded = gLateJoinManager->DispatchManagedExplicitRespawn(
         playerController,
         requestKind,
         [&]() {
-            if (normalizeEngineRestartToQuick)
-            {
-                std::cout << "[RESPAWN] origin=explicit_f request_kind="
-                    << requestKind
-                    << " normalized_native=ServerQuickRespawn" << std::endl;
-                playerController->ServerQuickRespawn();
-                return;
-            }
             ProcessEvent.call(object, function, parms);
         });
     if (!forwarded)
@@ -658,6 +1008,9 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
                     // 抑制此聊天消息
                     return;
                 }
+
+                if (DedicatedMultiMatch::HandleServerSay(PBPlayerController, msg))
+                    return;
             }
         }
     }
@@ -831,6 +1184,53 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
         }
     }
 
+    // The destination PlayerState clears SelectedCharacterID even though the
+    // source role and FieldMod baseline were preserved. LoadoutManager replays
+    // the exact native confirmation once ServerNotifyLoadedWorld completes.
+    // Permit only the synchronous Can* queries nested under that one internal
+    // confirmation; client/UI submissions and ordinary/P2P queries stay native.
+    APBPlayerController* internalRoleQueryPlayer = nullptr;
+    if (functionName.contains("PBGameMode.CanPlayerSelectRole"))
+    {
+        auto* roleParms =
+            static_cast<Params::PBGameMode_CanPlayerSelectRole*>(Parms);
+        internalRoleQueryPlayer = roleParms ? roleParms->Player : nullptr;
+        bool allow = false;
+        {
+            std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+            allow = gLoadoutManager &&
+                gLoadoutManager->IsInternalSeamlessRoleReconfirmInProgress(
+                    internalRoleQueryPlayer);
+        }
+        if (allow)
+        {
+            roleParms->ReturnValue = true;
+            return;
+        }
+    }
+    else if (functionName.contains("PBPlayerController.CanSelectRole"))
+    {
+        internalRoleQueryPlayer =
+            Object && Object->IsA(APBPlayerController::StaticClass())
+            ? static_cast<APBPlayerController*>(Object)
+            : nullptr;
+        bool allow = false;
+        {
+            std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+            allow = gLoadoutManager &&
+                gLoadoutManager->IsInternalSeamlessRoleReconfirmInProgress(
+                    internalRoleQueryPlayer);
+        }
+        if (allow)
+        {
+            auto* roleParms =
+                static_cast<Params::PBPlayerController_CanSelectRole*>(Parms);
+            if (roleParms)
+                roleParms->ReturnValue = true;
+            return;
+        }
+    }
+
     // LateJoin: role-selection interception (CanPlayerSelectRole / CanSelectRole)
     if (gLateJoinManager && gLateJoinManager->OnProcessEvent(Object, functionName, Parms))
     {
@@ -851,10 +1251,21 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
             static_cast<Params::PBPlayerController_ServerPreOrderInventory*>(Parms);
 
         bool internalManagerWrite = false;
+        bool holdForSeamlessSeed = false;
         {
             std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
             internalManagerWrite = gLoadoutManager &&
                 gLoadoutManager->IsInternalPreOrderInProgress();
+            holdForSeamlessSeed = !internalManagerWrite && gLoadoutManager &&
+                playerController &&
+                gLoadoutManager->ShouldHoldExternalPreOrderForSeamlessSeed(
+                    playerController);
+        }
+        if (holdForSeamlessSeed)
+        {
+            std::cout << "[MULTIMATCH] Held destination native pre-order until "
+                         "FieldMod roles and client travel are ready." << std::endl;
+            return;
         }
         if (internalManagerWrite)
         {
@@ -916,6 +1327,18 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
                 : nullptr;
         auto* confirmParms =
             static_cast<Params::PBPlayerController_ServerConfirmRoleSelection*>(Parms);
+
+        const std::string requestedRole = confirmParms
+            ? confirmParms->InRoleID.ToString()
+            : std::string{};
+        if (gLateJoinManager && playerController && confirmParms &&
+            gLateJoinManager->IsRedundantSeamlessRoleConfirmation(
+                playerController, requestedRole))
+        {
+            std::cout << "[MULTIMATCH] Suppressed redundant destination role "
+                "confirmation: role=" << requestedRole << std::endl;
+            return;
+        }
 
         {
             std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
@@ -1093,8 +1516,45 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
     if (functionName.contains("ReadyToMatchIntro_WaitingToStart"))
     {
         ApplyPendingPlayerNameUpdates("ReadyToMatchIntro_WaitingToStart");
-        if (!canStartMatch)
+        if (!JoinUiSyncPolicy::ShouldForwardReadyToMatchIntro(
+                canStartMatch,
+                DedicatedMultiMatch::OwnsWorldTransition()))
         {
+            return;
+        }
+
+        const bool hasFreshSeamlessInitialPlayer = gLateJoinManager &&
+            gLateJoinManager->HasFreshSeamlessInitialPlayer();
+        if (hasFreshSeamlessInitialPlayer)
+        {
+            ProcessEvent.call(Object, Function, Parms);
+            auto* readyParms = static_cast<
+                Params::PBGameMode_ReadyToMatchIntro_WaitingToStart*>(Parms);
+            const bool nativeReady = readyParms && readyParms->ReturnValue;
+            const bool initialPlayersReady = gLateJoinManager &&
+                gLateJoinManager->AreInitialPlayersReadyForStart();
+            if (readyParms && JoinUiSyncPolicy::
+                    ShouldRestoreFreshDestinationReadyToMatchIntro(
+                        canStartMatch,
+                        hasFreshSeamlessInitialPlayer,
+                        initialPlayersReady,
+                        nativeReady))
+            {
+                readyParms->ReturnValue = true;
+                std::cout << "[MULTIMATCH] Restored post-spawn destination "
+                             "ReadyToMatchIntro result (native=0)."
+                          << std::endl;
+            }
+            else
+            {
+                std::cout << "[MULTIMATCH] Preserved pre-spawn destination "
+                             "ReadyToMatchIntro result="
+                          << (nativeReady ? 1 : 0)
+                          << " initial_players_ready="
+                          << (initialPlayersReady ? 1 : 0) << std::endl;
+            }
+            BattleLog::OnProcessEventPost(
+                BattleLog::ProcessSide::Server, Object, functionName, Parms);
             return;
         }
     }
@@ -1156,6 +1616,18 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
                 restartParms->Player->IsA(APBPlayerController::StaticClass())
             ? static_cast<APBPlayerController*>(restartParms->Player)
             : nullptr;
+        bool seamlessRecoveryPermit = false;
+        {
+            std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+            seamlessRecoveryPermit = gLoadoutManager &&
+                gLoadoutManager->IsInternalSeamlessRoleReconfirmInProgress(
+                    playerController);
+        }
+        if (restartParms && seamlessRecoveryPermit)
+        {
+            restartParms->ReturnValue = true;
+            return;
+        }
         if (playerController && gLateJoinManager &&
             gLateJoinManager->IsManagedPlayer(playerController))
         {
@@ -1421,6 +1893,58 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
 
     const std::string functionName = Function ? std::string(Function->GetFullName()) : "";
 
+    // The server arms this fixed-build delegate guard at UWorld::SeamlessTravel.
+    // The remote client reaches the same owned transition through the reflected
+    // ClientTravel RPC instead, before its local UWorld sees a marker-bearing
+    // seamless URL. Arm the identical exact-address guard on that peer here.
+    if (DirectMatchUiCleanupPolicy::
+            IsOwnedSeamlessTravelEvent(functionName))
+    {
+        auto* travelParms =
+            static_cast<Params::PlayerController_ClientTravel*>(Parms);
+        const bool ownedTravel = travelParms &&
+            IsOwnedMultiMatchTravelUrl(&travelParms->URL);
+        if (travelParms &&
+            DedicatedMultiMatchPolicy::ShouldArmClientTravelDelegateGuard(
+                ownedTravel, travelParms->bSeamless))
+        {
+            ArmOwnedTravelDelegateGuard();
+            ArmOwnedSeamlessDestinationUiCleanup();
+            ArmOwnedSeamlessIntroCameraRecovery();
+        }
+    }
+
+    if (DirectMatchUiCleanupPolicy::
+            IsOwnedSeamlessDestinationStartEvent(functionName) &&
+        Object && Object->IsA(APBPlayerController::StaticClass()))
+    {
+        // Run before the destination start RPC creates its new match layers.
+        // If the retained HUD is not ready yet the pending flag survives and
+        // the next start RPC retries on the same game thread.
+        TryFinalizeOwnedSeamlessDestinationUi(
+            static_cast<APBPlayerController*>(Object));
+    }
+
+    const bool nativeDeathEvent = DirectMatchUiCleanupPolicy::
+        IsNativeDeathEvent(functionName);
+    const bool nativeIntroCompletionEvent = SeamlessIntroCameraPolicy::
+        IsNativeIntroCompletionEvent(functionName);
+    const bool nativeCameraSettleEvent = SeamlessIntroCameraPolicy::
+        IsNativeCameraSettleEvent(functionName);
+    bool nativePlayableRestartEvent = false;
+    if (DirectMatchUiCleanupPolicy::IsNativePlayableRestartEvent(
+            functionName, Parms != nullptr))
+    {
+        const auto* restartParms =
+            static_cast<Params::PlayerController_ClientRestart*>(Parms);
+        nativePlayableRestartEvent = restartParms->NewPawn != nullptr;
+    }
+    if (nativeDeathEvent && Object &&
+        Object->IsA(APBPlayerController::StaticClass()))
+    {
+        ArmNativeRespawnUiCleanup();
+    }
+
     // TEMP LOGIN DEBUG DUMP (GameInstance only)
     // if (Object && Object->IsA(UPBGameInstance::StaticClass()))
     //{
@@ -1463,6 +1987,29 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
     // 先执行原始 ProcessEvent，确保游戏状态已更新
     ProcessEventClient.call(Object, Function, Parms);
 
+    if (nativeIntroCompletionEvent && Object &&
+        Object->IsA(APBGameState::StaticClass()))
+    {
+        // Do not recover in this same stack. PlayerCameraManager performs one
+        // final AutoManage/ViewTarget update on its following camera tick.
+        NotifyOwnedSeamlessIntroRoundBoundary();
+    }
+
+    if (nativeCameraSettleEvent && Object &&
+        Object->IsA(APlayerCameraManager::StaticClass()))
+    {
+        // The first owning camera tick after round start has now returned, so
+        // the intro camera can no longer overwrite the recovered ViewTarget.
+        TryFinalizeOwnedSeamlessIntroCamera();
+    }
+
+    if (nativePlayableRestartEvent && Object &&
+        Object->IsA(APBPlayerController::StaticClass()))
+    {
+        TryFinalizeNativeRespawnUi(
+            static_cast<APBPlayerController*>(Object));
+    }
+
     // Pipe and command-line match transitions are consumed only on this game thread.
     PumpPendingClientCommands();
 
@@ -1474,6 +2021,112 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
 }
 
 static SafetyHookInline ClientDeathCrash;
+static SafetyHookInline ClientOnRepPlayerState;
+static SafetyHookInline ClientTravelInputEligibility;
+static SafetyHookMid ClientMatchStartUnavailableGameInstance;
+
+void ClientOnRepPlayerStateHook(APBPlayerController* playerController)
+{
+    const bool ownedTravelWindow = IsOwnedTravelCompatibilityWindowActive();
+    bool playerStateUsable = playerController && playerController->PlayerState;
+    if (ownedTravelWindow && playerStateUsable)
+    {
+        try
+        {
+            playerStateUsable =
+                playerController->PlayerState->IsA(APBPlayerState::StaticClass());
+        }
+        catch (...)
+        {
+            playerStateUsable = false;
+        }
+    }
+    if (!DedicatedMultiMatchPolicy::ShouldUseInvalidPlayerStateTravelFallback(
+            ownedTravelWindow, playerStateUsable))
+    {
+        ClientOnRepPlayerState.call<void>(playerController);
+        return;
+    }
+
+    // Pinned APBPlayerController::OnRep_PlayerState starts by forwarding to
+    // AController::OnRep_PlayerState at RVA 0x031E79B0.  Keep that native
+    // replication notification, but do not enter the PB-only tail whose first
+    // virtual dispatch dereferences the transient null PlayerState.
+    using BaseOnRepPlayerStateFn = void(*)(APBPlayerController*);
+    reinterpret_cast<BaseOnRepPlayerStateFn>(
+        BaseAddress + 0x31E79B0)(playerController);
+    playerController->PBPlayerState = nullptr;
+
+    static std::atomic_bool logged = false;
+    if (!logged.exchange(true))
+    {
+        ClientLog("[MULTIMATCH] Preserved native Engine OnRep_PlayerState during "
+            "the seamless invalid-PlayerState phase.");
+    }
+}
+
+bool ClientTravelInputEligibilityHook(APBPlayerController* playerController)
+{
+    bool gameInstanceAvailable = true;
+    const bool ownedTravelWindow = IsOwnedTravelCompatibilityWindowActive();
+    if (ownedTravelWindow)
+    {
+        // This is the checked resolver called by the pinned helper immediately
+        // before its missing-null-check accessor at RVA 0x175D7D0.
+        using ResolvePBGameInstanceFn = void*(__fastcall*)(
+            APBPlayerController*);
+        gameInstanceAvailable =
+            reinterpret_cast<ResolvePBGameInstanceFn>(
+                BaseAddress + 0x153FF10)(playerController) != nullptr;
+    }
+    if (!DedicatedMultiMatchPolicy::
+            ShouldUseUnavailableGameInstanceTravelFallback(
+                ownedTravelWindow, gameInstanceAvailable))
+    {
+        return ClientTravelInputEligibility.call<bool>(playerController);
+    }
+
+    static std::atomic_bool logged = false;
+    if (!logged.exchange(true))
+    {
+        ClientLog("[MULTIMATCH] Suppressed transient seamless input query "
+            "while PBGameInstance resolution was unavailable.");
+    }
+    return false;
+}
+
+void ClientMatchStartUnavailableGameInstanceHook(SafetyHookContext& context)
+{
+    // APBPlayerController::ClientMatchHasStarted at the pinned RVA calls the
+    // same unchecked PBGameInstance accessor used by the input eligibility
+    // helper. A null resolver becomes 0x380, then the instruction at 0x15A873D
+    // reads +0x38 and crashes at 0x3B8. Preserve every earlier side effect and
+    // the remainder of the native function; only substitute false for this
+    // optional state byte during an explicitly owned seamless-travel window.
+    const bool gameInstanceAvailable = context.rax != 0x380;
+    if (!DedicatedMultiMatchPolicy::
+            ShouldUseUnavailableGameInstanceTravelFallback(
+                IsOwnedTravelCompatibilityWindowActive(),
+                gameInstanceAvailable))
+    {
+        return;
+    }
+
+    // Let the original `movzx edi, byte ptr [rax+38h]` execute in sequence.
+    // Jumping into the bytes adjacent to a mid-hook can land inside the hook's
+    // patched instruction range. A stable zero object preserves the exact
+    // native load and therefore gives the optional flag its safe false value.
+    static const std::uint8_t UnavailableMatchStartState[0x39]{};
+    context.rax = reinterpret_cast<std::uintptr_t>(
+        UnavailableMatchStartState);
+
+    static std::atomic_bool logged = false;
+    if (!logged.exchange(true))
+    {
+        ClientLog("[MULTIMATCH] Preserved ClientMatchHasStarted while the "
+            "destination PBGameInstance was transiently unavailable.");
+    }
+}
 
 __int64 ClientDeathCrashHook(__int64 a1)
 {
@@ -1580,17 +2233,33 @@ void InitMessageBoxHook()
 
 void InitServerHooks(bool forceDedicatedMode)
 {
+    InitTravelDeferralHooks();
     std::cout << "[RESPAWN] explicit_native_forward="
         << (IsExplicitNativeRespawnForwardEnabled() ? "enabled" : "disabled")
         << " switch=-RespawnExplicitNative" << std::endl;
     NotifyActorDestroyed = safetyhook::create_inline((void *)(BaseAddress + 0x33403E0), NotifyActorDestroyedHook);
     ServerInGameMenuTransition = safetyhook::create_inline(
         (void *)(BaseAddress + 0x15C8CF0), ServerInGameMenuTransitionHook);
+    ServerEndMatch = safetyhook::create_inline(
+        (void *)(BaseAddress + 0x162ABD0), ServerEndMatchHook);
+    ServerNullResultMvp = safetyhook::create_mid(
+        (void*)(BaseAddress + 0x163787B), ServerNullResultMvpHook);
+    ServerConfirmRoleSelectionValidate = safetyhook::create_inline(
+        (void *)(BaseAddress + 0x15C09C0),
+        ServerConfirmRoleSelectionValidateHook);
+    ServerStartShowingMatchResult = safetyhook::create_inline(
+        (void *)(BaseAddress + 0x162B190), ServerStartShowingMatchResultHook);
     ServerStartWaitingToEndGame = safetyhook::create_inline(
         (void *)(BaseAddress + 0x162B1C0), ServerStartWaitingToEndGameHook);
+    ServerBeginFinalCleanup = safetyhook::create_inline(
+        (void *)(BaseAddress + 0x163EFD0), ServerBeginFinalCleanupHook);
     NotifyAcceptingConnection = safetyhook::create_inline((void *)(BaseAddress + 0x36CDC90), NotifyAcceptingConnectionHook);
     NotifyControlMessage = safetyhook::create_inline((void *)(BaseAddress + 0x36CDCE0), NotifyControlMessageHook);
     TickFlush = safetyhook::create_inline((void *)(BaseAddress + 0x33E05F0), TickFlushHook);
+    // UGameEngine::Browse is vtable +0x450 in all three engine vtables that
+    // contain TickWorldTravel at +0x458 in the pinned image.
+    EngineBrowse = safetyhook::create_inline(
+        (void *)(BaseAddress + 0x36664D0), EngineBrowseHook);
     ProcessEvent = safetyhook::create_inline((void *)(BaseAddress + 0x1BCBE40), ProcessEventHook);
     ObjectNeedsLoad = safetyhook::create_inline((void *)(BaseAddress + 0x1B7B710), ObjectNeedsLoadHook);
     ActorNeedsLoad = safetyhook::create_inline((void *)(BaseAddress + 0x3124E70), ActorNeedsLoadHook);
@@ -1626,6 +2295,14 @@ void InitClientArchiveHooks()
 
 void InitClientHook()
 {
+    InitTravelDeferralHooks();
+    ClientOnRepPlayerState = safetyhook::create_inline(
+        (void*)(BaseAddress + 0x15BACC0), ClientOnRepPlayerStateHook);
+    ClientTravelInputEligibility = safetyhook::create_inline(
+        (void*)(BaseAddress + 0x15A60D0), ClientTravelInputEligibilityHook);
+    ClientMatchStartUnavailableGameInstance = safetyhook::create_mid(
+        (void*)(BaseAddress + 0x15A873D),
+        ClientMatchStartUnavailableGameInstanceHook);
     ProcessEventClient = safetyhook::create_inline(
         (void *)(BaseAddress + 0x1BCBE40), ProcessEventHookClient);
     InitClientArchiveHooks();

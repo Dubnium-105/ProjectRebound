@@ -353,3 +353,64 @@ CompleteWeaponOrnament(manager, int32 code, FName ornament, FName role, FName we
 - `APBGameMode::GetMatchResultInfo` native RVA `0x016294A0` 生成每名玩家的 `FMatchResultInfo`；`UPBGameInstance::SaveMatchResultInfo` exec RVA `0x017F6990` 调用 native RVA `0x01583520`，后者只深拷贝到 `GameInstance::LocalMatchResultInfo (+0x4F0)`。`ClientMatchHasEnded` RVA `0x015A7C10` 本身不调用它。
 - 本地 PVE 动态结果页已有完整 `FPBMatchResult`，但 `LocalMatchResultInfo`、career post-match settlement 和 `SaveMatchResultInfo` 参数仍为空。这更符合第 13 节尚未接通 `/mission`、statistics/settlement 写回的后端缺口，而不是回菜单时序缺口。
 - 在准确恢复原生 settlement wire schema 和幂等事务之前，不应从生命周期 hook 伪造 `FMatchResultInfo`、主动调用 `SaveMatchResultInfo` 或注入 career settlement；这些行为会把 UI 缓存当作权威结算，并产生重复奖励风险。
+
+## 16. 场景交互输入与受管控出生同步（2026-08-21）
+
+以下静态地址、SDK 布局和构建产物只适用于第 1 节固定 EXE SHA-256；实现基线为 `13fe6a7a0e17fa2cb0d3a88635c3a0ab8eea9cd0`。本节在实际对局验证前停止，因此不得把这里的静态接线和编译通过表述为舱门、滑索已经运行验收成功。
+
+### 固定构建静态链
+
+- `APBPlayerController::BindGameInputComponetKey` native RVA `0x015C3570` 为 `InteractAirLockController`、`InteractAirLockHatch`、`InteractExpressTransit` 安装特殊动作绑定，并进入公共 pressed callback RVA `0x015AF300`。该 callback 再进入 `UPBInteractionManager` pressed/released RVA `0x0171C770` / `0x0171C810`。
+- interaction state dispatcher RVA `0x0156A8A0` 只在状态低字节为 `Finish (3)` 时进入场景交互发送链；`ServerInteractWithScene` outbound wrapper RVA `0x017B7490`。其 ProcessEvent 参数为目标对象 `+0x00`、`EPBInteractionEventType +0x08`、客户端位置 `FVector +0x0C`，总大小 `0x18`。
+- 固定 SDK 中事件 `14..19` 依次为开/关舱门、加/减压、连接/脱离滑索。`UPBInteractionManager` 的对象信息数组、Interactor、CurrentInfo 分别在 `+0x38/+0x58/+0x60`；`FPBInteractiveObjectInfo` 大小 `0x10`，已知 Interaction config 指针在 `+0x08`。`UPBInteractionConfig` 的事件、动作名数组、优先级、持续时间在 `+0x28/+0x30/+0x40/+0x44`。
+- 用户反馈中的提示可见、长按不推进且射击/换弹正常，把首要缺口限定在特殊交互绑定到 Finish/场景 RPC 之前；它不支持直接修改舱门/滑索状态，也不支持由 Payload 主动调用交互 RPC。
+
+### 当前兼容实现
+
+- `Tools/Frida/armory_probe.js` 保持统一只读探针：新增特殊动作 Bind/Unbind、PlayerController 的 InputComponent/Pawn/AcknowledgedPawn/InteractionManager 快照、manager pressed/released、Start/Stop/Finish、scene RPC、airlock/transit Multicast 和上述 native boundary/backtrace。探针不写游戏内存、不改返回值、不主动调用 RPC；SDK 未命名的 `FPBInteractiveObjectInfo +0x00` 仅记录为 opaque raw pointer，不猜测语义。
+- 受管控首次出生、中途加入、重生和换角现在都进入 `FinalizeLateJoinSpawn`。首发首次补 `ClientReadyAtStartSpot -> ClientGotoState(Playing) -> ClientRestart -> ClientRetryClientRestart -> ServerAcknowledgePossession`；中途首次在此基础上补齐 match/round/game-start；后续重生和换角只恢复 Playing 与 possession 链。
+- `LastClientSyncedPawn + LastClientSyncedRespawnLifecycleId` 是客户端同步幂等键。死亡、活体换角和从 Spawned 状态直接排队的受管控重生都会取得新 lifecycle；同一对键不会重复发送，Pawn 或 lifecycle 任一变化都会作为新一代同步。活体换角检测到目标 Pawn 后不再绕过公共最终化。
+- `ManagedPossessionSyncPolicyTests.cpp` 固定首发首次、中途首次、后续生成和同代 no-op，并单独覆盖同 Pawn/新 lifecycle、同 lifecycle/新 Pawn。2026-08-21 顺序 Release 测试为 11/11 passed；`armory_probe.js` 经 Node.js v24.14.0 `--check` 通过。
+
+### 静态交付状态
+
+- `Release|x64` Payload 使用 Visual Studio 18.3 / MSVC 14.50 顺序构建成功，0 warning、0 error。构建产物为 `Payload/x64/Release/Payload.dll`，大小 `1,403,904` 字节，x64 PE，SHA-256 `6B4B02740038EAA1E078FE0F37A9885EFC002363B48958C20D99C33D45B8B430`。
+- 部署前游戏目录 `Payload.dll` 已备份到 `%LOCALAPPDATA%/ProjectRebound/payload-backups/20260821-interaction-sync/Payload.before-interaction-sync.dll`，备份 SHA-256 `B60AB8BD76EF6918CFDA8071B224E8077B2A67E0BB80DE0F34CCC4D07F803CD5`。部署后源文件和游戏目录目标文件 SHA-256 均为 `6B4B02740038EAA1E078FE0F37A9885EFC002363B48958C20D99C33D45B8B430`。
+- 本次按人工交付边界没有启动游戏、没有附加 Frida、没有创建服务器、没有进入实际对局。运行验收由用户在部署后执行，结果应另行追加，不能回填为本节已有证据。
+
+## 17. Dedicated seamless 目标图的上一局 HUD 根层（2026-08-24）
+
+以下结论仅适用于第 1 节固定 EXE SHA-256。
+
+### 动态根因与最小清理边界
+
+- 在保留同一客户端连接和 PlayerController 的 `Warehouse -> OSS` seamless travel 中，目标图角色选择前仍可观察到上一局雷达、弹药、手模和赛况层。此时目标图 controller 尚无可玩 Pawn；GObjects 中仍有上一局的 `HelmetHUDContainer_C`、`UMG_InGameHUD_Mother_C`、`UMG_InGameHUD_TopScoreBar_TDM_C`、`UMG_InGameTopScore_TDM_C`、`UMG_MatchState_C`、`Effect_WinBoard_C` 和 `UMG_EndGameScoreboardPage_C` 实例。原生返回主菜单会移除这些根层，但 opt-in seamless 路径不会经过该 teardown。
+- `APBPlayerController::NotifyClearInterface` 对目标图角色页上的残留无效；`PlayerController_BP_C::EventOnMatchEnd` 会错误地再次打开蓝/红结果板，不能作为清理入口。`APBHUD::K2_Hidden*` 能结束其自身结果/死亡状态，但不是雷达、弹药和手模根层的 owner。
+- 当前兼容层只在精确的 owned seamless `PlayerController.ClientTravelInternal` 上 arm 一次，并在目标图第一个 start RPC 进入前执行：`K2_StopKillCamera`、`K2_StopQuickRespawn`、`K2_HiddenRoundResult`、`K2_HiddenMatchResult`、`K2_HiddenMatchResult_TDM`、`K2_HiddenSummary`，随后仅对上述精确生成类 token、且 `IsInViewport()` 的旧 `UUserWidget` 根执行 `Collapsed -> RemoveFromParent()`。上限为 24；不匹配角色选择、局内菜单和通用消息层，不写 Pawn、camera、input 或武器字段，也不处理 F/F5。
+- 清理必须发生在目标图 start RPC 之前；这些生成类名也会被新局 HUD 复用，若在 `NotifyGameStarted` 返回后才枚举可能误删新建层。当前 gate 在 APBHUD 已就绪但 `detached=0` 时仍会消费；若未来样本证明旧根注册更晚，应把 `0` 视为有限重试条件，不能扩大白名单。
+
+### 本地跨图验收
+
+- 会话目录为 `local-pve/20260824-184132`，服务端 PID `11728` 在 `Warehouse -> OSS` 期间保持不变。服务端依次经过原生 `ShowingMatchResult -> MatchEnding -> WaitingToEndGame`，保留一个 engine tick 后进入 seamless travel，generation 从 1 增加到 2，同一连接在 OSS 被重新排入原生首发角色选择。
+- 客户端日志 `clientlogs/clientlog-20260824_184210.txt` 记录：owned travel arm 后，在第二局角色页之前精确 detached 3 个 `HelmetHUDContainer_C`，随后 `Destination source-match layers detached=3` 与 `Finalized retained HUD state at destination startup`。Computer Use 画面确认旧雷达、弹药、手模和战斗 HUD 消失，角色选择页保留；确认角色并 Deploy 后，新局雷达、弹药和武器 HUD 重新创建。
+- 服务端在第二局记录 `client_possession_sync result=native_initial_join`、非空 Pawn 和 `Spawn complete`；随后角色被 AI 击杀并进入原生等待复活输入。击杀后的客户端只读采样为 `StateName=Inactive, Pawn=0`，因此该样本不用于宣称第二局移动验收，只证明清理没有阻止新局 HUD 创建和服务端首次出生。
+- `DirectMatchUiCleanupPolicyTests` 覆盖精确白名单正例及角色选择、局内菜单、MatchMessage 反例；Release 配置全套 12/12 tests passed。构建产物与游戏目录部署的 `Payload.dll` SHA-256 均为 `C1C9159922FDE6C9BC69399FBC24613B3E3B90059FBCAE390B57E27796B3913E`，部署前备份位于 `.tmp/runtime-deploy/20260824-184117-multimatch`。
+
+## 18. OSS seamless 首命开场与相机边界（2026-08-25）
+
+以下结论仅适用于第 1 节固定 EXE SHA-256；动态验收会话为 `local-pve/20260825-034524`，playlist 为 `Warehouse,OSS`。
+
+### 根因与窄修复
+
+- `ViewTarget == Pawn` 不是第一人称相机已经恢复的充分条件。固定构建的 `StartThirdPersonCamera` 可以在 ViewTarget 仍指向 Pawn 时把相机放到身体后方；因此旧策略在 `viewTargetMatchesPawn` 时消费恢复请求会留下 OSS 首命第三人称/开场相机。
+- 更深一层的服务端 race 是 fresh seamless 目的图在角色确认栈内、Pawn 尚未生成时就把 native `ReadyToMatchIntro=false` 覆盖为 true。OSS 的开场镜头长于 DataCenter；提前 `StartMatch` 会让 bot 在 OSS 开场相机尚未交还时攻击/击杀首命，视觉上又会进入跟随身体的死亡相机。DataCenter 能正常播完开场并不能证明该 gate 正确，只说明其地图时序没有暴露同一 race。
+- `JoinUiSyncPolicy` 现在只在 fresh seamless 首发玩家已经满足 `AreInitialPlayersReadyForStart()` 后恢复一次 destination native Ready。预生成阶段保留 native false；`RestartPlayers -> Spawn complete` 后下一次评估才恢复 true，随后沿用原生 `MatchIntro -> one NetDriver flush -> StartMatch`。
+- 客户端 fallback 只在 owned seamless、已观察到目的图 round start、`Pawn == AcknowledgedPawn == PBCharacter`、角色 Alive 且相机 POV 已回到 Pawn 附近时执行一次原生 `StopKillCamera -> StopThirdPersonCamera`，并结束相应 HUD K2 状态。它不写相机/角色字段、不生成 ViewTarget RPC，也不处理 F/F5。
+
+### 动态验收与限制
+
+- 服务端日志的决定性顺序是：`Preserved pre-spawn destination ReadyToMatchIntro result=0 initial_players_ready=0` -> `RestartPlayers` -> `Spawn complete` -> `Restored post-spawn destination ReadyToMatchIntro result (native=0)` -> `Native MatchIntro observed` -> `Completed native MatchIntro NetDriver flush` -> `StartMatch`。
+- 客户端日志 `clientlogs/clientlog-20260825_034601.txt` 先记录远端 POV 距 Pawn `7876.77` uu，随后在 POV 回到 Pawn 附近时记录 `camera_action=stop-kill-and-third-person ... camera_distance=21.8231`。OSS 初始首命只读快照 `.tmp/camera-model-snapshot-034524-oss-before-w.json` 同步记录：`StateName=Playing`，`Pawn == AcknowledgedPawn == PBCharacter`，`life=Alive(0)`，`ready=1`，Current/PendingWeapon 非空；ViewTarget 为该 Pawn，实际 CameraComponent 为 `FirstPersonCamera`，camera cache `(3634.87,3026.80,-681.67)` 距 Pawn root `(3638.80,3026.80,-703.40)` 约 22 uu，不再位于身体后方。
+- 同会话后续生命的输入只读检查显示 `PBInputComponent`、`PlayerInput`、`PBCharacterMovement` 均非空，`IsMoveInputIgnored=false`、`IsLookInputIgnored=false`、MovementMode=Flying(5)、MaxWalkSpeed=600。Computer Use 的离散 W/A/S 合成按键没有产生 Axis/Velocity 事件；固定游戏对移动使用 raw input，故该自动化样本不能作为“实际键盘移动已通过”的证据，也不能反推游戏输入仍被锁。人工原始设备移动仍需作为最终 acceptance。
+- 原生 camera tracer 中 `StartThirdPersonCamera` 在角色存活一段时间后出现并约 8 秒后随 Pawn 清空而结束，与后续 bot 击杀/死亡相机吻合；不能把死亡相机重新归因于首命开场未结束。
+- Release 全套 14/14 tests passed。构建产物与游戏目录部署 DLL SHA-256 均为 `10B1CB19BE31123DA8F167502C99D262ABF156230894BC7558D8E1A79260A929`；部署前备份位于 `.tmp/runtime-deploy/20260825-034514-post-spawn-native-intro-ready-gate/Payload.previous.dll`。

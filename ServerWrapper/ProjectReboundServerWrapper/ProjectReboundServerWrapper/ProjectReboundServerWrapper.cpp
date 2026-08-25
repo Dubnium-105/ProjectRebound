@@ -64,6 +64,22 @@ int g_MaxPlayers = 10;
 bool OfflineMode = false;
 bool UseDX11 = false;
 
+// Dedicated multi-match is deliberately opt-in.  The payload owns the
+// in-process travel state; the wrapper only validates and passes this stable
+// configuration to the child process.
+struct MultiMatchConfig
+{
+    bool enabled = false;
+    std::vector<std::string> playlist;
+    int travelTimeoutSeconds = 45;
+    bool voteEnabled = true;
+    int voteDurationSeconds = 15;
+    int voteCandidateCount = 3;
+};
+
+MultiMatchConfig g_MultiMatch;
+std::string g_ServerConfigPath = "serverconfig.json";
+
 //Lifecycle Management
 std::mutex g_ServerMutex;
 std::mutex g_LogMutex;
@@ -96,6 +112,10 @@ void StartExitWatcher(HANDLE processHandle, uint64_t generation);
 
 void SaveConfigFile();
 bool LoadConfigFile();
+std::filesystem::path GetServerConfigPath();
+bool ValidateMultiMatchConfig(MultiMatchConfig& config, std::string& error);
+std::string PickNextPlaylistMap();
+void ObserveMultiMatchStatusLine(const std::string& line, uint64_t generation);
 
 // ======================================================
 //  LOGGING SYSTEM
@@ -272,7 +292,7 @@ struct MapInfo {
 };
 
 // List of maps with their PVE bug status
-const std::array<MapInfo, 11> MapList{ {    
+const std::array<MapInfo, 10> MapList{ {
     { "OSS",         false },
     { "MiniFarm",    false },
     { "Warehouse",   false },
@@ -297,6 +317,150 @@ std::unordered_map<std::string, size_t> BuildMapLookup()
     return lookup;
 }
 const std::unordered_map<std::string, size_t> g_MapLookup = BuildMapLookup(); //define then call
+
+const MapInfo* FindMapInfo(std::string_view name)
+{
+    const auto it = g_MapLookup.find(NormalizeKey(name));
+    if (it == g_MapLookup.end())
+        return nullptr;
+
+    return &MapList[it->second];
+}
+
+bool IsMapAllowedForCurrentMode(std::string_view name)
+{
+    const MapInfo* map = FindMapInfo(name);
+    if (!map)
+        return false;
+
+    return !(_stricmp(CurrentMode.c_str(), "pve") == 0 && map->pveBug);
+}
+
+std::filesystem::path GetServerConfigPath()
+{
+    std::error_code error;
+    const std::filesystem::path configuredPath(g_ServerConfigPath);
+    const std::filesystem::path absolutePath =
+        std::filesystem::absolute(configuredPath, error);
+
+    if (error)
+        return configuredPath;
+
+    return absolutePath.lexically_normal();
+}
+
+bool ValidateMultiMatchConfig(MultiMatchConfig& config, std::string& error)
+{
+    if (!config.enabled)
+        return true;
+
+    if (config.playlist.empty())
+    {
+        error = "playlist must contain at least one map";
+        return false;
+    }
+
+    if (config.travelTimeoutSeconds < 10 || config.travelTimeoutSeconds > 180)
+    {
+        error = "travelTimeoutSeconds must be between 10 and 180";
+        return false;
+    }
+
+    if (config.voteDurationSeconds < 0 || config.voteDurationSeconds > 60)
+    {
+        error = "vote.durationSeconds must be between 0 and 60";
+        return false;
+    }
+
+    if (config.voteCandidateCount < 1 || config.voteCandidateCount > 3)
+    {
+        error = "vote.candidateCount must be between 1 and 3";
+        return false;
+    }
+
+    std::vector<std::string> canonicalPlaylist;
+    canonicalPlaylist.reserve(config.playlist.size());
+
+    std::unordered_map<std::string, bool> seen;
+    seen.reserve(config.playlist.size());
+
+    for (const std::string& requestedMap : config.playlist)
+    {
+        const MapInfo* map = FindMapInfo(requestedMap);
+        if (!map)
+        {
+            error = "playlist contains unknown map '" + requestedMap + "'";
+            return false;
+        }
+
+        if (!IsMapAllowedForCurrentMode(requestedMap))
+        {
+            error = "playlist map '" + std::string(map->name) +
+                "' is not allowed for mode '" + CurrentMode + "'";
+            return false;
+        }
+
+        const std::string normalized = NormalizeKey(map->name);
+        if (seen.find(normalized) != seen.end())
+        {
+            error = "playlist contains duplicate map '" + std::string(map->name) + "'";
+            return false;
+        }
+
+        seen.emplace(normalized, true);
+        canonicalPlaylist.emplace_back(map->name);
+    }
+
+    // Store canonical game map names so later travel arguments are stable
+    // regardless of the spelling used in serverconfig.json.
+    config.playlist = std::move(canonicalPlaylist);
+    return true;
+}
+
+std::string PickNextPlaylistMap()
+{
+    if (!g_MultiMatch.enabled || g_MultiMatch.playlist.empty())
+        return CurrentMap;
+
+    for (size_t index = 0; index < g_MultiMatch.playlist.size(); ++index)
+    {
+        if (_stricmp(g_MultiMatch.playlist[index].c_str(), CurrentMap.c_str()) == 0)
+            return g_MultiMatch.playlist[(index + 1) % g_MultiMatch.playlist.size()];
+    }
+
+    return g_MultiMatch.playlist.front();
+}
+
+void ObserveMultiMatchStatusLine(const std::string& line, const uint64_t generation)
+{
+    constexpr std::string_view marker = "[MULTIMATCH_STATUS] ";
+    if (line.rfind(marker, 0) != 0)
+        return;
+
+    const std::string payload = line.substr(marker.size());
+    const json status = json::parse(payload, nullptr, false);
+    if (status.is_discarded() || !status.is_object() ||
+        !status.value("enabled", false) ||
+        !status.contains("activeMap") || !status["activeMap"].is_string())
+    {
+        return;
+    }
+
+    const std::string reportedMap = status["activeMap"].get<std::string>();
+    const MapInfo* const map = FindMapInfo(reportedMap);
+    if (!map)
+        return;
+
+    std::lock_guard<std::mutex> lock(g_ServerMutex);
+    if (generation != g_ServerGeneration.load() || !g_MultiMatch.enabled)
+        return;
+
+    if (_stricmp(CurrentMap.c_str(), map->name.data()) != 0)
+    {
+        CurrentMap = std::string(map->name);
+        LauncherLog("Observed in-process playlist advance to: " + CurrentMap);
+    }
+}
 
 //Picks a random map from the map list, but avoid picking the last played map to prevent back-to-back same map rotation. If all maps are ineligible, returns the last map used
 std::string PickRandomMapAvoidingLast()
@@ -521,6 +685,23 @@ void InitCommands()
         LauncherLog("External Port: " + std::to_string(g_ExternalPort));
         LauncherLog("Backend: " + (OfflineMode ? "Offline" : OnlineBackend));
         LauncherLog("State: " + std::string(ServerStateToString(state)));
+        LauncherLog("Multi-match: " + std::string(g_MultiMatch.enabled ? "Enabled" : "Disabled"));
+        if (g_MultiMatch.enabled)
+        {
+            std::string playlist;
+            for (size_t index = 0; index < g_MultiMatch.playlist.size(); ++index)
+            {
+                if (index != 0)
+                    playlist += " -> ";
+                playlist += g_MultiMatch.playlist[index];
+            }
+
+            LauncherLog("Multi-match playlist: " + playlist);
+            LauncherLog("Travel timeout: " + std::to_string(g_MultiMatch.travelTimeoutSeconds) + "s");
+            LauncherLog("Vote: " + std::string(g_MultiMatch.voteEnabled ? "Enabled" : "Disabled") +
+                ", duration=" + std::to_string(g_MultiMatch.voteDurationSeconds) + "s" +
+                ", candidates=" + std::to_string(g_MultiMatch.voteCandidateCount));
+        }
         });
 
     RegisterCommand("help", "Show all commands", [](const std::string& args) {
@@ -661,7 +842,7 @@ bool LoadConfigFile()
 {
     std::lock_guard<std::mutex> lock(g_ServerMutex);
 
-    const std::string path = "serverconfig.json";
+    const std::filesystem::path path = GetServerConfigPath();
 
     if (!std::filesystem::exists(path))
         return false;
@@ -718,7 +899,134 @@ bool LoadConfigFile()
     if (j.contains("dx11") && j["dx11"].is_boolean())
         UseDX11 = j["dx11"];
 
-    LauncherLog("Loaded configuration from serverconfig.json");
+    MultiMatchConfig loadedMultiMatch;
+    std::string multiMatchShapeError;
+    if (j.contains("multiMatch"))
+    {
+        const json& multiMatch = j["multiMatch"];
+        if (!multiMatch.is_object())
+        {
+            multiMatchShapeError = "multiMatch must be an object";
+        }
+        else
+        {
+            if (multiMatch.contains("enabled"))
+            {
+                if (multiMatch["enabled"].is_boolean())
+                    loadedMultiMatch.enabled = multiMatch["enabled"];
+                else
+                    multiMatchShapeError = "multiMatch.enabled must be a boolean";
+            }
+
+            if (multiMatch.contains("playlist"))
+            {
+                if (!multiMatch["playlist"].is_array())
+                {
+                    multiMatchShapeError = "multiMatch.playlist must be an array";
+                }
+                else
+                {
+                    for (const json& item : multiMatch["playlist"])
+                    {
+                        if (!item.is_string())
+                        {
+                            loadedMultiMatch.playlist.clear();
+                            multiMatchShapeError =
+                                "multiMatch.playlist contains a non-string entry";
+                            break;
+                        }
+                        loadedMultiMatch.playlist.emplace_back(item.get<std::string>());
+                    }
+                }
+            }
+
+            if (multiMatch.contains("travelTimeoutSeconds"))
+            {
+                if (multiMatch["travelTimeoutSeconds"].is_number_integer())
+                    loadedMultiMatch.travelTimeoutSeconds = multiMatch["travelTimeoutSeconds"];
+                else
+                    multiMatchShapeError =
+                        "multiMatch.travelTimeoutSeconds must be an integer";
+            }
+
+            if (multiMatch.contains("vote"))
+            {
+                if (!multiMatch["vote"].is_object())
+                {
+                    multiMatchShapeError = "multiMatch.vote must be an object";
+                }
+                else
+                {
+                    const json& vote = multiMatch["vote"];
+                    if (vote.contains("enabled"))
+                    {
+                        if (vote["enabled"].is_boolean())
+                            loadedMultiMatch.voteEnabled = vote["enabled"];
+                        else
+                            multiMatchShapeError =
+                                "multiMatch.vote.enabled must be a boolean";
+                    }
+                    if (vote.contains("durationSeconds"))
+                    {
+                        if (vote["durationSeconds"].is_number_integer())
+                            loadedMultiMatch.voteDurationSeconds = vote["durationSeconds"];
+                        else
+                            multiMatchShapeError =
+                                "multiMatch.vote.durationSeconds must be an integer";
+                    }
+                    if (vote.contains("candidateCount"))
+                    {
+                        if (vote["candidateCount"].is_number_integer())
+                            loadedMultiMatch.voteCandidateCount = vote["candidateCount"];
+                        else
+                            multiMatchShapeError =
+                                "multiMatch.vote.candidateCount must be an integer";
+                    }
+                }
+            }
+        }
+    }
+
+    std::string multiMatchError;
+    if (!multiMatchShapeError.empty())
+    {
+        LauncherLog("Invalid multi-match configuration: " + multiMatchShapeError +
+            "; multi-match remains disabled.");
+        loadedMultiMatch = MultiMatchConfig{};
+    }
+    else if (!ValidateMultiMatchConfig(loadedMultiMatch, multiMatchError))
+    {
+        LauncherLog("Invalid multi-match configuration: " + multiMatchError +
+            "; multi-match remains disabled.");
+        loadedMultiMatch = MultiMatchConfig{};
+    }
+
+    if (loadedMultiMatch.enabled)
+    {
+        bool currentMapInPlaylist = false;
+        for (const std::string& map : loadedMultiMatch.playlist)
+        {
+            if (_stricmp(map.c_str(), CurrentMap.c_str()) == 0)
+            {
+                currentMapInPlaylist = true;
+                break;
+            }
+        }
+
+        if (!currentMapInPlaylist)
+        {
+            LauncherLog("Configured map '" + CurrentMap +
+                "' is not in the multi-match playlist; starting with '" +
+                loadedMultiMatch.playlist.front() + "'.");
+            CurrentMap = loadedMultiMatch.playlist.front();
+        }
+    }
+
+    g_MultiMatch = std::move(loadedMultiMatch);
+
+    LauncherLog("Loaded configuration from " + path.string());
+    LauncherLog("Multi-match is " + std::string(g_MultiMatch.enabled ? "enabled" : "disabled") +
+        " for the next child launch.");
     return true;
 }
 
@@ -741,10 +1049,27 @@ void SaveConfigFile()
     j["offline"] = OfflineMode;
     j["dx11"] = UseDX11;
 
-    std::ofstream f("serverconfig.json");
+    j["multiMatch"] = {
+        {"enabled", g_MultiMatch.enabled},
+        {"playlist", g_MultiMatch.playlist},
+        {"travelTimeoutSeconds", g_MultiMatch.travelTimeoutSeconds},
+        {"vote", {
+            {"enabled", g_MultiMatch.voteEnabled},
+            {"durationSeconds", g_MultiMatch.voteDurationSeconds},
+            {"candidateCount", g_MultiMatch.voteCandidateCount}
+        }}
+    };
+
+    const std::filesystem::path path = GetServerConfigPath();
+    std::ofstream f(path);
+    if (!f.is_open())
+    {
+        LauncherLog("Failed to save configuration to " + path.string());
+        return;
+    }
     f << j.dump(4);
 
-    LauncherLog("Saved configuration to serverconfig.json");
+    LauncherLog("Saved configuration to " + path.string());
 }
 // ======================================================
 //  SERVER LIFECYCLE
@@ -850,8 +1175,16 @@ void RequestRestart(bool rotateMap, const std::string& reason)
     if (rotateMap)
     {
         LastMap = CurrentMap;
-        CurrentMap = PickRandomMapAvoidingLast();
-        LauncherLog("Auto-rotating map to: " + CurrentMap);
+        if (g_MultiMatch.enabled)
+        {
+            CurrentMap = PickNextPlaylistMap();
+            LauncherLog("Recovering multi-match from the next playlist map: " + CurrentMap);
+        }
+        else
+        {
+            CurrentMap = PickRandomMapAvoidingLast();
+            LauncherLog("Auto-rotating map to: " + CurrentMap);
+        }
     }
 
     if (!StopServerLocked())
@@ -870,6 +1203,7 @@ void PipeReader(HANDLE pipe, uint64_t generation)
 {
     char buffer[4096];
     DWORD bytesRead = 0;
+    std::string pendingLines;
 
     while (true)
     {
@@ -877,7 +1211,20 @@ void PipeReader(HANDLE pipe, uint64_t generation)
             break;
 
         buffer[bytesRead] = '\0';
-        std::string msg(buffer);
+        std::string msg(buffer, bytesRead);
+
+        pendingLines.append(msg);
+        size_t newline = std::string::npos;
+        while ((newline = pendingLines.find('\n')) != std::string::npos)
+        {
+            std::string line = pendingLines.substr(0, newline);
+            if (!line.empty() && line.back() == '\r')
+                line.pop_back();
+            ObserveMultiMatchStatusLine(line, generation);
+            pendingLines.erase(0, newline + 1);
+        }
+        if (pendingLines.size() > 64 * 1024)
+            pendingLines.clear();
 
         // Detect heartbeat
         if (msg.find("[HEARTBEAT]") != std::string::npos && generation == g_ServerGeneration.load())
@@ -1021,6 +1368,14 @@ bool IsPortAvailable(int port, bool useTCP = false)
 //  SERVER LAUNCHING
 // ======================================================
 
+std::wstring QuoteWindowsArgument(const std::filesystem::path& value)
+{
+    // The configuration path is passed as one explicit, quoted argument. A
+    // Windows path cannot contain a double quote, so no additional command
+    // line escaping is needed here.
+    return L"\"" + value.wstring() + L"\"";
+}
+
 bool LaunchServerLocked()
 {
     if (g_WrapperShuttingDown.load())
@@ -1139,6 +1494,14 @@ bool LaunchServerLocked()
     cmd += L"-maxplayers=" + std::to_wstring(g_MaxPlayers) + L" ";
     if (!ToolboxPipeName.empty())
         cmd += L"-pipe=" + std::wstring(ToolboxPipeName.begin(), ToolboxPipeName.end()) + L" ";
+
+    if (g_MultiMatch.enabled)
+    {
+        const std::filesystem::path configPath = GetServerConfigPath();
+        cmd += L"-DedicatedMultiMatch ";
+        cmd += L"-multimatchconfig=" + QuoteWindowsArgument(configPath) + L" ";
+        LauncherLog("Dedicated multi-match enabled; child config path=" + configPath.string());
+    }
 
     if (!CreateProcessW(
         NULL,

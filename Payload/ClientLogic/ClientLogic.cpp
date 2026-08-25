@@ -1,6 +1,7 @@
 #include "ClientLogic.h"
 
 #include "DirectMatchUiCleanupPolicy.h"
+#include "SeamlessIntroCameraPolicy.h"
 
 #include "../Communication/CommandProtocol.h"
 #include "../Config/Config.h"
@@ -20,6 +21,7 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <iomanip>
 #include <mutex>
@@ -104,6 +106,12 @@ namespace
     std::chrono::steady_clock::time_point nextFrontendCleanupAt{};
     UWorld* directTravelSourceWorld = nullptr;
     bool directTravelUiFinalized = false;
+    std::atomic<bool> ownedSeamlessDestinationUiCleanupPending{false};
+    std::atomic<bool> ownedSeamlessDestinationUiCleanupWaitLogged{false};
+    std::atomic<bool> ownedSeamlessIntroCameraRecoveryPending{false};
+    std::atomic<bool> ownedSeamlessIntroCameraRecoveryWaitLogged{false};
+    std::atomic<bool> ownedSeamlessIntroRoundBoundaryReached{false};
+    std::atomic<bool> nativeRespawnUiCleanupPending{false};
     std::atomic<bool> loginCompleted{false};
     std::atomic<DWORD> gameThreadId{0};
 
@@ -193,6 +201,79 @@ namespace
         }
     }
 
+    std::size_t DetachRetainedSourceMatchLayers()
+    {
+        std::size_t detachedCount = 0;
+        const auto widgets = getObjectsOfClass(UUserWidget::StaticClass(), false);
+        for (auto it = widgets.rbegin(); it != widgets.rend(); ++it)
+        {
+            if (detachedCount >=
+                DirectMatchUiCleanupPolicy::MaxRetainedMatchWidgets)
+            {
+                ClientLog("[MULTIMATCH] Stopped retained match-layer cleanup "
+                    "at its safety limit.");
+                break;
+            }
+
+            auto* const widget = static_cast<UUserWidget*>(*it);
+            if (!widget)
+                continue;
+
+            const std::string widgetName = widget->GetFullName();
+            if (!DirectMatchUiCleanupPolicy::IsRetainedSourceMatchWidget(
+                    widgetName) ||
+                !widget->IsInViewport())
+            {
+                continue;
+            }
+
+            widget->SetVisibility(ESlateVisibility::Collapsed);
+            ++detachedCount;
+            // Seamless travel does not run the normal return-to-menu teardown
+            // for these source-match roots. Use UMG's public detach path only;
+            // do not mutate viewport slots, widget trees, Pawn state or input.
+            widget->RemoveFromParent();
+            ClientLog("[MULTIMATCH] Detached retained source-match layer: " +
+                widgetName);
+        }
+        return detachedCount;
+    }
+
+    std::size_t StopRetainedPlayerHudMatchState(APBHUD* preferredHud)
+    {
+        std::unordered_set<APBHUD*> stopped;
+        const auto stopOne = [&stopped](APBHUD* hud) {
+            if (!hud || hud->IsDefaultObject() ||
+                hud->bActorIsBeingDestroyed || !stopped.insert(hud).second)
+            {
+                return;
+            }
+
+            // PlayerHUD_BP owns and reuses HUD_QuickRespawnTips_C. Let the
+            // owning native events hide the source death/result state; never
+            // collapse or detach the reusable widget root itself.
+            hud->K2_StopKillCamera();
+            hud->K2_StopQuickRespawn();
+            hud->K2_HiddenRoundResult();
+            hud->K2_HiddenMatchResult();
+            hud->K2_HiddenMatchResult_TDM();
+            hud->K2_HiddenSummary();
+        };
+
+        stopOne(preferredHud);
+        const auto retainedHuds =
+            getObjectsOfClass(APlayerHUD_BP_C::StaticClass(), false);
+        for (UObject* object : retainedHuds)
+        {
+            if (stopped.size() >= 4)
+                break;
+            if (!object || !object->IsA(APBHUD::StaticClass()))
+                continue;
+            stopOne(static_cast<APBHUD*>(object));
+        }
+        return stopped.size();
+    }
+
     enum class NativeLoadoutStatus
     {
         Idle,
@@ -207,6 +288,8 @@ namespace
         std::uint64_t Generation = 0;
         NativeLoadoutStatus Status = NativeLoadoutStatus::Idle;
         ULocalPlayer* LocalPlayer = nullptr;
+        UWorld* LastWorld = nullptr;
+        AGameStateBase* LastGameState = nullptr;
         json Snapshot;
         std::string Detail;
         bool ResultLogged = false;
@@ -311,11 +394,17 @@ namespace
         std::string baseUrl;
         {
             std::lock_guard lock(nativeLoadoutMutex);
+            UWorld* const currentWorld = UWorld::GetWorld();
+            AGameStateBase* const currentGameState = currentWorld
+                ? currentWorld->GameState
+                : nullptr;
             if (nativeLoadout.LocalPlayer != localPlayer)
             {
                 ++nativeLoadout.Generation;
                 nativeLoadout.Status = NativeLoadoutStatus::Idle;
                 nativeLoadout.LocalPlayer = localPlayer;
+                nativeLoadout.LastWorld = currentWorld;
+                nativeLoadout.LastGameState = currentGameState;
                 nativeLoadout.Snapshot = json();
                 nativeLoadout.Detail.clear();
                 nativeLoadout.ResultLogged = false;
@@ -323,6 +412,20 @@ namespace
                 nativeLoadout.AppliedPlayerStates.clear();
                 nativeLoadout.NextCustomizeApplyAt = {};
                 nativeLoadout.NextPlayerStateApplyAt = {};
+            }
+            else if (currentWorld && currentGameState &&
+                (nativeLoadout.LastWorld != currentWorld ||
+                 nativeLoadout.LastGameState != currentGameState))
+            {
+                nativeLoadout.LastWorld = currentWorld;
+                nativeLoadout.LastGameState = currentGameState;
+                // UPBCustomizeManager survives travel with LocalPlayer and the
+                // GameInstance. Keep its one-shot archive completion applied;
+                // only the match-scoped PlayerState needs a fresh FieldMod
+                // initialization for this World/GameState generation.
+                nativeLoadout.AppliedPlayerStates.clear();
+                nativeLoadout.NextPlayerStateApplyAt = {};
+                ClientLog("[LOADOUT] Native PlayerState consumer reset for a new match generation.");
             }
             if (nativeLoadout.Status != NativeLoadoutStatus::Idle)
                 return;
@@ -952,6 +1055,273 @@ namespace
             }
         }
     }
+}
+
+void ArmOwnedSeamlessDestinationUiCleanup()
+{
+    ownedSeamlessDestinationUiCleanupWaitLogged.store(
+        false, std::memory_order_release);
+    ownedSeamlessDestinationUiCleanupPending.store(
+        true, std::memory_order_release);
+    ClientLog("[MULTIMATCH] Armed one-shot destination HUD cleanup for owned seamless travel.");
+}
+
+void ArmOwnedSeamlessIntroCameraRecovery()
+{
+    ownedSeamlessIntroCameraRecoveryWaitLogged.store(
+        false, std::memory_order_release);
+    ownedSeamlessIntroRoundBoundaryReached.store(
+        false, std::memory_order_release);
+    ownedSeamlessIntroCameraRecoveryPending.store(
+        true, std::memory_order_release);
+    ClientLog("[CAMERA] Armed native post-round camera verification for owned seamless travel.");
+}
+
+void NotifyOwnedSeamlessIntroRoundBoundary()
+{
+    if (!ownedSeamlessIntroCameraRecoveryPending.load(
+            std::memory_order_acquire))
+    {
+        return;
+    }
+
+    ownedSeamlessIntroRoundBoundaryReached.store(
+        true, std::memory_order_release);
+    ClientLog("[CAMERA] Native round-start boundary completed; awaiting the next PlayerCameraManager tick.");
+}
+
+bool TryFinalizeOwnedSeamlessIntroCamera()
+{
+    const bool pending = ownedSeamlessIntroCameraRecoveryPending.load(
+        std::memory_order_acquire);
+    const bool roundBoundaryReached =
+        ownedSeamlessIntroRoundBoundaryReached.load(
+            std::memory_order_acquire);
+    if (!pending || !roundBoundaryReached)
+        return false;
+
+    try
+    {
+        UWorld* const world = UWorld::GetWorld();
+        UGameInstance* const gameInstance = world
+            ? world->OwningGameInstance
+            : nullptr;
+        ULocalPlayer* const localPlayer = gameInstance &&
+            gameInstance->LocalPlayers.Num() > 0
+            ? gameInstance->LocalPlayers[0]
+            : nullptr;
+        auto* const playerController = localPlayer &&
+            localPlayer->PlayerController &&
+            localPlayer->PlayerController->IsA(
+                APBPlayerController::StaticClass())
+            ? static_cast<APBPlayerController*>(
+                localPlayer->PlayerController)
+            : nullptr;
+        APawn* const pawn = playerController
+            ? playerController->Pawn
+            : nullptr;
+        APlayerCameraManager* const cameraManager = playerController
+            ? playerController->PlayerCameraManager
+            : nullptr;
+        const bool isLocalPlayerController = playerController &&
+            playerController->IsA(APBPlayerController::StaticClass()) &&
+            cameraManager && cameraManager->PCOwner == playerController;
+        const bool hasPlayablePawn = pawn &&
+            pawn->IsA(APBCharacter::StaticClass()) &&
+            !pawn->bActorIsBeingDestroyed;
+        const bool acknowledgedPawnMatches = playerController &&
+            playerController->AcknowledgedPawn == pawn;
+        const bool pbCharacterMatches = playerController &&
+            playerController->PBCharacter == pawn;
+        const bool pawnIsAlive = hasPlayablePawn &&
+            static_cast<APBCharacter*>(pawn)->CharacterLifeStatus ==
+                EPBCharacterLifeStatus::Alive;
+        constexpr float MaxSettledCameraDistance = 1000.0f;
+        float cameraDistanceToPawn = -1.0f;
+        bool cameraViewIsNearPawn = false;
+        if (cameraManager && pawn && pawn->RootComponent)
+        {
+            cameraDistanceToPawn = cameraManager->CameraCachePrivate.POV.
+                Location.GetDistanceTo(pawn->RootComponent->RelativeLocation);
+            cameraViewIsNearPawn = std::isfinite(cameraDistanceToPawn) &&
+                cameraDistanceToPawn <= MaxSettledCameraDistance;
+        }
+        const auto decision = SeamlessIntroCameraPolicy::Decide(
+            pending,
+            isLocalPlayerController,
+            hasPlayablePawn,
+            acknowledgedPawnMatches,
+            pbCharacterMatches,
+            pawnIsAlive,
+            cameraViewIsNearPawn);
+
+        if (decision ==
+            SeamlessIntroCameraPolicy::ERecoveryDecision::Wait)
+        {
+            if (!ownedSeamlessIntroCameraRecoveryWaitLogged.exchange(
+                    true, std::memory_order_acq_rel))
+            {
+                std::ostringstream wait;
+                wait << "[CAMERA] Waiting for the opening camera POV to return near the local Pawn; distance="
+                     << cameraDistanceToPawn;
+                ClientLog(wait.str());
+            }
+            return false;
+        }
+
+        // Consume before entering the reflected native function: its K2 event
+        // is synchronous and must never re-enter this one-shot generation.
+        ownedSeamlessIntroCameraRecoveryPending.store(
+            false, std::memory_order_release);
+        AActor* const previousViewTarget = cameraManager->ViewTarget.Target;
+        APBHUD* hud = playerController->MyPBHUD;
+        if (!hud && playerController->MyHUD &&
+            playerController->MyHUD->IsA(APBHUD::StaticClass()))
+        {
+            hud = static_cast<APBHUD*>(playerController->MyHUD);
+        }
+        std::size_t stoppedHudOwners = 0;
+        {
+            ScopedClientProcessEventSuppression suppressNestedHooks;
+            // A retained PlayerController can carry the source death-camera
+            // state into a living destination Pawn even after the HUD owner
+            // received its K2 stop events. At this alive, post-intro boundary
+            // any kill camera is necessarily stale, so use the controller's
+            // native paired teardown before ending third-person view.
+            playerController->StopKillCamera();
+            playerController->StopThirdPersonCamera();
+            // Destination start RPCs and the countdown can arrive before the
+            // retained death HUD replays its source-world state. Repeat only
+            // the native paired HUD teardown after K2_RoundHasStarted; do not
+            // detach the reusable quick-respawn root or synthesize input.
+            stoppedHudOwners = StopRetainedPlayerHudMatchState(hud);
+        }
+        const bool recovered =
+            cameraManager->ViewTarget.Target == playerController->Pawn;
+        std::ostringstream result;
+        result << "[CAMERA] Post-round camera-manager/HUD settle boundary "
+               << "camera_action="
+               << "stop-kill-and-third-person"
+               << " result=" << (recovered ? "pawn-target" : "mismatch")
+               << " previous_view_target=" << previousViewTarget
+               << " pawn=" << playerController->Pawn
+               << " camera_distance=" << cameraDistanceToPawn
+               << " hud_owners_stopped=" << stoppedHudOwners;
+        ClientLog(result.str());
+        return recovered;
+    }
+    catch (...)
+    {
+        ownedSeamlessIntroCameraRecoveryPending.store(
+            true, std::memory_order_release);
+        ClientLog("[CAMERA] Native post-round camera verification failed; one-shot remains pending.");
+        return false;
+    }
+}
+
+bool TryFinalizeOwnedSeamlessDestinationUi(
+    APBPlayerController* playerController)
+{
+    if (!ownedSeamlessDestinationUiCleanupPending.load(
+            std::memory_order_acquire))
+    {
+        return false;
+    }
+
+    APBHUD* hud = nullptr;
+    try
+    {
+        if (!playerController ||
+            !playerController->IsA(APBPlayerController::StaticClass()))
+        {
+            return false;
+        }
+
+        hud = playerController->MyPBHUD;
+        if (!hud && playerController->MyHUD &&
+            playerController->MyHUD->IsA(APBHUD::StaticClass()))
+        {
+            hud = static_cast<APBHUD*>(playerController->MyHUD);
+        }
+        if (!hud || !hud->IsA(APBHUD::StaticClass()))
+        {
+            if (!ownedSeamlessDestinationUiCleanupWaitLogged.exchange(
+                    true, std::memory_order_acq_rel))
+            {
+                ClientLog("[MULTIMATCH] Destination HUD cleanup is waiting for APBHUD replication.");
+            }
+            return false;
+        }
+
+        // Use the game's own paired teardown events. The retained HUD can
+        // otherwise carry death/quick-respawn and result widgets into the next
+        // world. The normal return-to-menu path also retires several top-level
+        // UMG roots, but seamless travel intentionally skips that path; detach
+        // only the exact source-match roots observed in the destination
+        // viewport. No camera pointers, Pawn state or input flags are written.
+        ScopedClientProcessEventSuppression suppressNestedHooks;
+        const std::size_t stoppedHudOwners =
+            StopRetainedPlayerHudMatchState(hud);
+        const std::size_t retiredMatchLayers =
+            DetachRetainedSourceMatchLayers();
+
+        ClientLog("[MULTIMATCH] Destination source-match HUD owners stopped=" +
+            std::to_string(stoppedHudOwners) + " layers retired=" +
+            std::to_string(retiredMatchLayers) + ".");
+    }
+    catch (...)
+    {
+        ClientLog("[MULTIMATCH] Destination HUD cleanup failed; retrying at the next start RPC.");
+        return false;
+    }
+
+    ownedSeamlessDestinationUiCleanupPending.store(
+        false, std::memory_order_release);
+    nativeRespawnUiCleanupPending.store(false, std::memory_order_release);
+    ClientLog("[MULTIMATCH] Finalized retained HUD state at destination startup.");
+    return true;
+}
+
+void ArmNativeRespawnUiCleanup()
+{
+    nativeRespawnUiCleanupPending.store(true, std::memory_order_release);
+}
+
+bool TryFinalizeNativeRespawnUi(APBPlayerController* playerController)
+{
+    if (!nativeRespawnUiCleanupPending.load(std::memory_order_acquire))
+        return false;
+
+    try
+    {
+        if (!playerController || !playerController->Pawn ||
+            !playerController->IsA(APBPlayerController::StaticClass()))
+        {
+            return false;
+        }
+
+        APBHUD* hud = playerController->MyPBHUD;
+        if (!hud && playerController->MyHUD &&
+            playerController->MyHUD->IsA(APBHUD::StaticClass()))
+        {
+            hud = static_cast<APBHUD*>(playerController->MyHUD);
+        }
+        if (!hud || !hud->IsA(APBHUD::StaticClass()))
+            return false;
+
+        ScopedClientProcessEventSuppression suppressNestedHooks;
+        hud->K2_StopKillCamera();
+        hud->K2_StopQuickRespawn();
+    }
+    catch (...)
+    {
+        ClientLog("[RESPAWN] Native restart HUD cleanup failed; keeping the one-shot pending.");
+        return false;
+    }
+
+    nativeRespawnUiCleanupPending.store(false, std::memory_order_release);
+    ClientLog("[RESPAWN] Finalized death HUD after native ClientRestart possession.");
+    return true;
 }
 
 bool QueueConnectToMatch(const std::string& target)

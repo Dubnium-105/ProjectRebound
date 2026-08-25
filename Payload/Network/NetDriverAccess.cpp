@@ -1,7 +1,9 @@
 #include "../framework.h"
 
 #include <atomic>
+#include <algorithm>
 #include <cstring>
+#include <iostream>
 
 #include "NetDriverAccess.h"
 #include "../SDK.hpp"
@@ -10,10 +12,11 @@ namespace {
 std::atomic<SDK::UNetDriver*> g_cachedNetDriver{ nullptr };
 std::atomic<SDK::UWorld*> g_cachedWorld{ nullptr };
 std::atomic<int> g_lastSource{ static_cast<int>(NetDriverAccess::Source::None) };
+std::atomic_bool g_hookArgumentRebindEnabled{ true };
 
-SDK::UNetDriver* ScanForNetDriver()
+SDK::UNetDriver* ScanForNetDriver(SDK::UWorld* world)
 {
-    if (!SDK::UObject::GObjects) {
+    if (!world || !SDK::UObject::GObjects) {
         return nullptr;
     }
 
@@ -24,7 +27,10 @@ SDK::UNetDriver* ScanForNetDriver()
         }
 
         if (object->IsA(SDK::UIpNetDriver::StaticClass())) {
-            return static_cast<SDK::UNetDriver*>(object);
+            auto* const candidate = static_cast<SDK::UNetDriver*>(object);
+            if (candidate->World == world && world->NetDriver == candidate) {
+                return candidate;
+            }
         }
     }
 
@@ -43,8 +49,56 @@ void NetDriverAccess::Observe(SDK::UNetDriver* netDriver, SDK::UWorld* world, So
     }
 
     if (world) {
-        world->NetDriver = netDriver;
-        netDriver->World = world;
+        bool worldOwnsDriver = world->NetDriver == netDriver;
+        bool driverOwnsWorld = netDriver->World == world;
+        if (!worldOwnsDriver && !driverOwnsWorld) {
+            const bool bothUnbound = !world->NetDriver && !netDriver->World;
+            const bool bootstrapScan =
+                bothUnbound && source == Source::ObjectScan;
+            const bool observedBootstrapTick =
+                source == Source::HookArgument && !world->NetDriver &&
+                !netDriver->ServerConnection &&
+                g_cachedNetDriver.load(std::memory_order_acquire) == netDriver;
+            if (!bootstrapScan && !observedBootstrapTick)
+                return;
+
+            // ResolveNamedUnboundForBootstrap selects a newly-created driver
+            // by exact name while excluding every pre-existing instance. The
+            // TickFlush hook is the runtime proof for the same cached driver if
+            // GWorld advances from the loading world to the final map world.
+            // Never replace a driver already owned by the destination world.
+            SDK::UWorld* const oldWorld = netDriver->World;
+            if (oldWorld && oldWorld != world && oldWorld->NetDriver == netDriver)
+                oldWorld->NetDriver = nullptr;
+            world->NetDriver = netDriver;
+            netDriver->World = world;
+            worldOwnsDriver = true;
+            driverOwnsWorld = true;
+            std::cout << "[SERVER] Bound unowned NetDriver from "
+                << (observedBootstrapTick ? "TickFlush" : "bootstrap scan")
+                << "." << std::endl;
+        }
+        if (worldOwnsDriver && !netDriver->World)
+            netDriver->World = world;
+        else if (driverOwnsWorld && !world->NetDriver)
+        {
+            // A TickFlush argument can outlive UWorld's public binding during
+            // EndMatch teardown.  Observing that argument proves the driver is
+            // still ticking, but it does not authorize mutating the world back
+            // into a pre-teardown shape.  Dedicated multi-match restores the
+            // validated pair explicitly at the instant it starts ServerTravel.
+            if (source == Source::HookArgument &&
+                !g_hookArgumentRebindEnabled.load(std::memory_order_acquire))
+                return;
+            world->NetDriver = netDriver;
+            if (source == Source::Cached)
+            {
+                std::cout << "[SERVER] Restored World NetDriver from validated cached binding."
+                    << std::endl;
+            }
+        }
+        if (world->NetDriver != netDriver || netDriver->World != world)
+            return;
         g_cachedWorld.store(world, std::memory_order_release);
     }
 
@@ -52,30 +106,126 @@ void NetDriverAccess::Observe(SDK::UNetDriver* netDriver, SDK::UWorld* world, So
     g_lastSource.store(static_cast<int>(source), std::memory_order_release);
 }
 
-SDK::UNetDriver* NetDriverAccess::Resolve(bool allowObjectScan)
+void NetDriverAccess::SetHookArgumentRebindEnabled(const bool enabled)
+{
+    g_hookArgumentRebindEnabled.store(enabled, std::memory_order_release);
+}
+
+std::vector<SDK::UNetDriver*> NetDriverAccess::SnapshotNetDrivers()
+{
+    std::vector<SDK::UNetDriver*> drivers;
+    if (!SDK::UObject::GObjects)
+        return drivers;
+
+    for (int i = SDK::UObject::GObjects->Num() - 1; i >= 0; --i) {
+        SDK::UObject* object = SDK::UObject::GObjects->GetByIndex(i);
+        if (object && !object->IsDefaultObject() &&
+            object->IsA(SDK::UIpNetDriver::StaticClass())) {
+            drivers.push_back(static_cast<SDK::UNetDriver*>(object));
+        }
+    }
+    return drivers;
+}
+
+SDK::UNetDriver* NetDriverAccess::ResolveNamedUnboundForBootstrap(
+    SDK::UWorld* world,
+    const SDK::FName& netDriverName,
+    const std::vector<SDK::UNetDriver*>& excludedDrivers)
+{
+    if (!world || !SDK::UObject::GObjects)
+        return nullptr;
+
+    for (int i = SDK::UObject::GObjects->Num() - 1; i >= 0; --i) {
+        SDK::UObject* object = SDK::UObject::GObjects->GetByIndex(i);
+        if (!object || object->IsDefaultObject() ||
+            !object->IsA(SDK::UIpNetDriver::StaticClass())) {
+            continue;
+        }
+
+        auto* const candidate = static_cast<SDK::UNetDriver*>(object);
+        if (std::find(excludedDrivers.begin(), excludedDrivers.end(), candidate) !=
+                excludedDrivers.end() ||
+            candidate->NetDriverName.ComparisonIndex != netDriverName.ComparisonIndex ||
+            candidate->NetDriverName.Number != netDriverName.Number ||
+            (candidate->World && candidate->World != world) ||
+            candidate->ServerConnection || candidate->ClientConnections.Num() != 0) {
+            continue;
+        }
+        return candidate;
+    }
+    return nullptr;
+}
+
+void NetDriverAccess::ResetForWorldChange(SDK::UWorld* world)
+{
+    g_hookArgumentRebindEnabled.store(true, std::memory_order_release);
+    SDK::UNetDriver* const cached = g_cachedNetDriver.load(std::memory_order_acquire);
+    if (!world || !cached || cached->World != world || world->NetDriver != cached) {
+        g_cachedNetDriver.store(nullptr, std::memory_order_release);
+        g_cachedWorld.store(world, std::memory_order_release);
+        g_lastSource.store(static_cast<int>(Source::None), std::memory_order_release);
+        return;
+    }
+
+    g_cachedWorld.store(world, std::memory_order_release);
+}
+
+SDK::UNetDriver* NetDriverAccess::Resolve(
+    bool allowObjectScan,
+    bool restoreCachedBinding)
 {
     SDK::UWorld* world = SDK::UWorld::GetWorld();
     if (world && world->NetDriver) {
-        Observe(world->NetDriver, world, Source::World);
-        return world->NetDriver;
+        SDK::UNetDriver* const worldNetDriver = world->NetDriver;
+        Observe(worldNetDriver, world, Source::World);
+        if (worldNetDriver->World == world)
+            return worldNetDriver;
     }
 
     SDK::UNetDriver* cachedNetDriver = g_cachedNetDriver.load(std::memory_order_acquire);
-    if (cachedNetDriver) {
-        Observe(cachedNetDriver, world ? world : g_cachedWorld.load(std::memory_order_acquire), Source::Cached);
-        return cachedNetDriver;
+    SDK::UWorld* cachedWorld = g_cachedWorld.load(std::memory_order_acquire);
+    if (cachedNetDriver && world && world == cachedWorld &&
+        cachedNetDriver->World == world &&
+        (!world->NetDriver || world->NetDriver == cachedNetDriver)) {
+        if (!restoreCachedBinding)
+            return cachedNetDriver;
+        Observe(cachedNetDriver, world, Source::Cached);
+        if (world->NetDriver == cachedNetDriver && cachedNetDriver->World == world)
+            return cachedNetDriver;
     }
 
     if (!allowObjectScan) {
         return nullptr;
     }
 
-    SDK::UNetDriver* scannedNetDriver = ScanForNetDriver();
+    SDK::UNetDriver* scannedNetDriver = ScanForNetDriver(world);
     if (scannedNetDriver) {
         Observe(scannedNetDriver, world, Source::ObjectScan);
     }
 
     return scannedNetDriver;
+}
+
+bool NetDriverAccess::RestoreValidatedBinding(
+    SDK::UWorld* world,
+    SDK::UNetDriver* netDriver)
+{
+    if (!world || !netDriver || world != SDK::UWorld::GetWorld())
+        return false;
+
+    SDK::UNetDriver* const cachedNetDriver =
+        g_cachedNetDriver.load(std::memory_order_acquire);
+    SDK::UWorld* const cachedWorld =
+        g_cachedWorld.load(std::memory_order_acquire);
+    if (cachedNetDriver != netDriver || cachedWorld != world ||
+        netDriver->World != world ||
+        (world->NetDriver && world->NetDriver != netDriver))
+    {
+        return false;
+    }
+
+    Observe(netDriver, world, Source::Cached);
+    return world->NetDriver == netDriver && netDriver->World == world;
 }
 
 bool NetDriverAccess::TryGetSnapshot(Snapshot& snapshot, bool allowObjectScan)

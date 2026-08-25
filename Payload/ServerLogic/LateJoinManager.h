@@ -65,7 +65,10 @@ public:
         bool  HasCompletedSpawn = false; // Suppress repeated mid-game lifecycle synchronization.
         bool  AwaitingRoleTransitionDeath = false; // A->B accepted while the old Pawn remains alive.
         bool  ExplicitNativeRespawnDispatched = false; // Attempt 0 was the exact F RPC, not RestartPlayers.
+        bool  bIsSeamlessRebound = false; // Controller/role survived an owned match transition.
         std::uint64_t RespawnLifecycleId = 0; // Monotonic within the current server world.
+        SDK::APawn* LastClientSyncedPawn = nullptr; // Idempotence key for the current Pawn generation.
+        std::uint64_t LastClientSyncedRespawnLifecycleId = 0;
         std::string DesiredRoleId; // Last role accepted by the authoritative PlayerState.
     };
 
@@ -114,7 +117,16 @@ public:
     //        以统一客户端状态推进与 UI 生命周期。
     // @param GameMode  当前 GameMode
     // @param PC        新连接的 PlayerController
-    void QueueInitialJoinPlayer(SDK::AGameMode* GameMode, SDK::APBPlayerController* PC);
+    void QueueInitialJoinPlayer(
+        SDK::AGameMode* GameMode,
+        SDK::APBPlayerController* PC,
+        bool IsFreshSeamlessDestination = false);
+
+    // Register a controller whose exact connection and playable Pawn were
+    // carried through an owned dedicated seamless transition. Returns false
+    // when the runtime shape is incomplete so the caller can use the ordinary
+    // initial-join/role-selection recovery path.
+    bool RegisterSeamlessReboundPlayer(SDK::APBPlayerController* PC);
 
     // @brief ProcessEvent Hook 中调用。拦截角色选择相关的 RPC。
     //        仅处理 CanPlayerSelectRole / CanSelectRole（强制返回 true）。
@@ -150,6 +162,9 @@ public:
         const char* requestKind,
         const FExplicitRespawnDispatch& dispatch);
     bool IsManagedPlayer(SDK::APBPlayerController* PC) const;
+    bool IsRedundantSeamlessRoleConfirmation(
+        SDK::APBPlayerController* PC,
+        const std::string& requestedRoleId) const;
     bool HasManagedRestartPermit(SDK::APBPlayerController* PC) const;
     bool IsAwaitingRespawnInput(SDK::APBPlayerController* PC) const;
 
@@ -176,6 +191,10 @@ public:
     // @brief 查询指定 PC 是否为初始加入玩家（注册到延迟生成流程但比赛未开始时连接）
     bool IsInitialJoinPlayer(SDK::APBPlayerController* PC) const;
 
+    // Keep the native role prompt behind the direct-connect match-state sync.
+    // This preserves a single visible ClientSelectRole delivery.
+    bool ShouldDeferInitialRoleSelectionPrompt(SDK::APBPlayerController* PC) const;
+
     // @brief 查询中途加入窗口是否开放（比赛已开始或回合进行中）
     bool IsLateJoinWindowOpen() const;
 
@@ -183,6 +202,7 @@ public:
     // world+role FieldMod cache can never feed two same-role players.
     bool CanRestartBeforeMatch(SDK::APBPlayerController* PC) const;
     bool AreInitialPlayersReadyForStart() const;
+    bool HasFreshSeamlessInitialPlayer() const;
 
 private:
     // ------------------------------------------------------------------

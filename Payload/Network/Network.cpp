@@ -2,6 +2,7 @@
 #include "Network.h"
 #include "../Config/Config.h"
 #include "../ServerLogic/ServerLogic.h"
+#include "../ServerLogic/DedicatedMultiMatch.h"
 #include "../Debug/Debug.h"
 #include "../SDK.hpp"
 #include "../SDK/Engine_parameters.hpp"
@@ -22,6 +23,7 @@ constexpr const char *BACKEND_PRIMARY = "https://api.project-rebound.space";
 namespace
 {
     std::atomic<int> ToolboxPlayerCount{0};
+    std::atomic<bool> ToolboxStatusReady{false};
     std::mutex ToolboxRoundStateMutex;
     std::string ToolboxRoundState = "Unknown";
 
@@ -29,8 +31,12 @@ namespace
     {
         ToolboxPlayerCount.store(playerCount < 0 ? 0 : playerCount, std::memory_order_release);
         std::string state = "Unknown";
-        UWorld *world = UWorld::GetWorld();
-        if (world && world->AuthorityGameMode && world->AuthorityGameMode->GameState)
+        if (DedicatedMultiMatch::OwnsWorldTransition())
+        {
+            state = "Transitioning";
+        }
+        else if (UWorld *world = UWorld::GetWorld();
+            world && world->AuthorityGameMode && world->AuthorityGameMode->GameState)
         {
             APBGameState *gameState = (APBGameState *)world->AuthorityGameMode->GameState;
             state = gameState->RoundState.ToString();
@@ -38,6 +44,16 @@ namespace
         std::lock_guard<std::mutex> lock(ToolboxRoundStateMutex);
         ToolboxRoundState = std::move(state);
     }
+}
+
+void RefreshServerStatusSnapshot()
+{
+    const bool transitioning = DedicatedMultiMatch::OwnsWorldTransition();
+    const int playerCount = transitioning
+        ? ToolboxPlayerCount.load(std::memory_order_acquire)
+        : GetCurrentPlayerCount();
+    RefreshToolboxServerStatus(playerCount);
+    ToolboxStatusReady.store(true, std::memory_order_release);
 }
 
 // ======================================================
@@ -62,7 +78,12 @@ nlohmann::json BuildServerStatusPayload()
 {
     const int playerCount = ToolboxPlayerCount.load(std::memory_order_acquire);
 
-    std::string map = std::string(Config.MapName.begin(), Config.MapName.end());
+    const nlohmann::json multiMatch = DedicatedMultiMatch::BuildStatusPayload();
+    std::string map;
+    if (multiMatch.value("enabled", false))
+        map = multiMatch.value("activeMap", "");
+    if (map.empty())
+        map = std::string(Config.MapName.begin(), Config.MapName.end());
     std::string mode = std::string(Config.FullModePath.begin(), Config.FullModePath.end());
 
     std::string state;
@@ -78,21 +99,23 @@ nlohmann::json BuildServerStatusPayload()
         {"map", map},
         {"port", Config.ExternalPort},
         {"playerCount", playerCount},
-        {"serverState", state}};
+        {"serverState", state},
+        {"lifecycleState", multiMatch.value("lifecycleState", "Disabled")},
+        {"activeMap", map},
+        {"nextMap", multiMatch.value("nextMap", "")},
+        {"matchGeneration", multiMatch.value("matchGeneration", 0ULL)},
+        {"vote", multiMatch.value("vote", nlohmann::json::object())}};
 
     return payload;
 }
 
 nlohmann::json BuildRoomHeartbeatPayload()
 {
-    int playerCount = GetCurrentPlayerCount();
-    std::string state = "Unknown";
-
-    UWorld *World = UWorld::GetWorld();
-    if (World && World->AuthorityGameMode && World->AuthorityGameMode->GameState)
+    const int playerCount = ToolboxPlayerCount.load(std::memory_order_acquire);
+    std::string state;
     {
-        APBGameState *GS = (APBGameState *)World->AuthorityGameMode->GameState;
-        state = GS->RoundState.ToString();
+        std::lock_guard<std::mutex> lock(ToolboxRoundStateMutex);
+        state = ToolboxRoundState;
     }
 
     nlohmann::json payload = {
@@ -246,17 +269,15 @@ void StartHeartbeatThread()
 {
     std::thread([]()
                 {
-        // Wait until Gamestate is Valid
-        while (!UWorld::GetWorld() ||
-            !UWorld::GetWorld()->AuthorityGameMode ||
-            !UWorld::GetWorld()->AuthorityGameMode->GameState)
+        // UObject state is sampled by the game-thread NetDriver tick.  The
+        // detached HTTP worker only consumes the resulting atomics/strings.
+        while (!ToolboxStatusReady.load(std::memory_order_acquire))
         {
             Sleep(100);
         }
         while (true)
         {
-            int pc = GetCurrentPlayerCount();
-            RefreshToolboxServerStatus(pc);
+            const int pc = ToolboxPlayerCount.load(std::memory_order_acquire);
             std::cout << "[HEARTBEAT] PlayerCount = " << pc << std::endl;
 
             if (!OnlineBackendAddress.empty())

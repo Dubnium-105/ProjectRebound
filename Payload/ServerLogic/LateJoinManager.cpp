@@ -16,6 +16,8 @@
 
 #include "LateJoinManager.h"
 #include "JoinUiSyncPolicy.h"
+#include "ManagedPossessionSyncPolicy.h"
+#include "DedicatedMultiMatchPolicy.h"
 #include "ServerLogic.h"
 #include "../SDK.hpp"
 #include "../SDK/Engine_parameters.hpp"
@@ -260,7 +262,10 @@ void LateJoinManager::OnRoleConfirmed(
     it->second.AwaitingRoleTransitionDeath =
         anyCurrentPawnPlayable && !desiredPawnPlayable;
     if (it->second.AwaitingRoleTransitionDeath)
+    {
+        it->second.RespawnLifecycleId = NextRespawnLifecycleId++;
         PlayerRespawnAllowedMap[PC] = false;
+    }
     std::cout << "[LATEJOIN] Role confirmed; scheduling "
         << (bInitialJoin ? "initial-join" : "single-player")
         << " spawn." << std::endl;
@@ -332,6 +337,8 @@ bool LateJoinManager::QueueManagedRespawn(APBPlayerController* PC)
 
     if (!it->second.AwaitingRoleTransitionDeath)
     {
+        if (it->second.State == ELateJoinState::Spawned)
+            it->second.RespawnLifecycleId = NextRespawnLifecycleId++;
         it->second.State = ELateJoinState::RoleConfirmed;
         it->second.ElapsedSeconds = 0.0f;
         it->second.SpawnAttempts = 0;
@@ -391,6 +398,27 @@ bool LateJoinManager::DispatchManagedExplicitRespawn(
 bool LateJoinManager::IsManagedPlayer(APBPlayerController* PC) const
 {
     return PC && LateJoinPlayers.contains(PC);
+}
+
+bool LateJoinManager::IsRedundantSeamlessRoleConfirmation(
+    APBPlayerController* PC,
+    const std::string& requestedRoleId) const
+{
+    const auto tracked = LateJoinPlayers.find(PC);
+    if (!PC || tracked == LateJoinPlayers.end())
+        return false;
+
+    const bool concrete = !requestedRoleId.empty() && requestedRoleId != "None";
+    // Destination PlayerState role fields are rebuilt by a native confirmation
+    // before the managed spawn. Once that spawn is playable, later automatic
+    // submissions belong to the retired source lifecycle and must not re-enter
+    // its pre-order container.
+    const bool suppress = DedicatedMultiMatchPolicy::
+        ShouldSuppressSeamlessDuplicateRoleConfirmation(
+            tracked->second.bIsSeamlessRebound,
+            concrete,
+            tracked->second.State == ELateJoinState::Spawned);
+    return suppress;
 }
 
 bool LateJoinManager::IsAwaitingRespawnInput(APBPlayerController* PC) const
@@ -454,6 +482,7 @@ void LateJoinManager::Tick(float DeltaTime)
 
                 it->second.State = ELateJoinState::Spawned;
                 it->second.HasCompletedSpawn = true;
+                it->second.ElapsedSeconds = 0.0f;
                 if (FinalizeSpawnRequest) FinalizeSpawnRequest(PC);
                 if (!IsCurrentServerConnection(PC) ||
                     !LateJoinPlayers.contains(PC))
@@ -565,8 +594,14 @@ void LateJoinManager::Tick(float DeltaTime)
                 if (desiredPawnPlayable)
                 {
                     it->second.AwaitingRoleTransitionDeath = false;
+                    const FLateJoinInfo snapshot = it->second;
+                    FinalizeLateJoinSpawn(PC, snapshot);
+                    it = LateJoinPlayers.find(PC);
+                    if (it == LateJoinPlayers.end())
+                        continue;
                     it->second.State = ELateJoinState::Spawned;
                     it->second.HasCompletedSpawn = true;
+                    it->second.ElapsedSeconds = 0.0f;
                     if (FinalizeSpawnRequest) FinalizeSpawnRequest(PC);
                     if (!IsCurrentServerConnection(PC) ||
                         !LateJoinPlayers.contains(PC))
@@ -615,6 +650,10 @@ void LateJoinManager::Tick(float DeltaTime)
             }
         }
 
+        it = LateJoinPlayers.find(PC);
+        if (it == LateJoinPlayers.end())
+            continue;
+
         // ---- 终态清理 ----
         it = LateJoinPlayers.find(PC);
         if (it != LateJoinPlayers.end() &&
@@ -647,6 +686,17 @@ bool LateJoinManager::IsInitialJoinPlayer(APBPlayerController* PC) const
     return it != LateJoinPlayers.end() && it->second.bIsInitialJoin;
 }
 
+bool LateJoinManager::ShouldDeferInitialRoleSelectionPrompt(APBPlayerController* PC) const
+{
+    if (!PC)
+        return false;
+    const auto it = LateJoinPlayers.find(PC);
+    return it != LateJoinPlayers.end()
+        && JoinUiSyncPolicy::ShouldDeferNativeInitialRoleSelectionPrompt(
+            it->second.bIsInitialJoin,
+            it->second.ClientStartSent);
+}
+
 void LateJoinManager::OnPlayerDisconnected(APBPlayerController* PC)
 {
     if (!PC)
@@ -659,8 +709,13 @@ void LateJoinManager::OnPlayerDisconnected(APBPlayerController* PC)
 void LateJoinManager::OnRoleSelectionPromptSent(APBPlayerController* PC)
 {
     auto it = LateJoinPlayers.find(PC);
-    if (it != LateJoinPlayers.end() && it->second.bIsInitialJoin)
+    if (it != LateJoinPlayers.end() &&
+        JoinUiSyncPolicy::ShouldRecordInitialRoleSelectionPrompt(
+            it->second.bIsInitialJoin,
+            it->second.ClientStartSent))
+    {
         it->second.InitialRoleSelectionSent = true;
+    }
 }
 
 void LateJoinManager::ResetForWorldChange()
@@ -690,10 +745,24 @@ bool LateJoinManager::AreInitialPlayersReadyForStart() const
     for (const auto& entry : LateJoinPlayers)
     {
         const FLateJoinInfo& info = entry.second;
-        if (info.bIsInitialJoin && info.State != ELateJoinState::Spawned)
+        const bool isSpawned = info.State == ELateJoinState::Spawned;
+        if (!JoinUiSyncPolicy::IsInitialPlayerReadyForMatchStart(
+                info.bIsInitialJoin,
+                isSpawned))
             return false;
     }
     return true;
+}
+
+bool LateJoinManager::HasFreshSeamlessInitialPlayer() const
+{
+    for (const auto& entry : LateJoinPlayers)
+    {
+        const FLateJoinInfo& info = entry.second;
+        if (info.bIsInitialJoin && info.bIsSeamlessRebound)
+            return true;
+    }
+    return false;
 }
 
 // =====================================================================
@@ -775,7 +844,10 @@ void LateJoinManager::QueueLateJoinPlayer(APBPlayerController* PC)
 // @brief 将初始加入玩家注册到与中途加入一致的延迟生成流程。
 //  初始加入同样走 ClientStart 序列 + 角色确认后生成，
 //  统一客户端状态推进并确保武器在角色确认后创建。
-void LateJoinManager::QueueInitialJoinPlayer(AGameMode* GameMode, APBPlayerController* PC)
+void LateJoinManager::QueueInitialJoinPlayer(
+    AGameMode* GameMode,
+    APBPlayerController* PC,
+    const bool IsFreshSeamlessDestination)
 {
     (void)GameMode;
     if (!IsCurrentServerConnection(PC))
@@ -801,6 +873,11 @@ void LateJoinManager::QueueInitialJoinPlayer(AGameMode* GameMode, APBPlayerContr
 
     FLateJoinInfo info{};
     info.bIsInitialJoin = true;
+    // A retained connection whose destination Pawn was rebuilt still uses the
+    // native initial role-selection/start flow, but it is not a direct-connect
+    // first spawn. Mark that distinction so the opening-camera owner can be
+    // returned to the new Pawn only after the native intro duration elapses.
+    info.bIsSeamlessRebound = IsFreshSeamlessDestination;
     // ClientStart is delayed until the server-wide role-selection broadcast
     // proves StartMatch completed. This lets direct-connect clients leave the
     // persistent frontend state without announcing a match prematurely.
@@ -810,7 +887,79 @@ void LateJoinManager::QueueInitialJoinPlayer(AGameMode* GameMode, APBPlayerContr
     // PrepareLateJoinRespawn 会在生成时将其设为 true
     PlayerRespawnAllowedMap[PC] = false;
     std::cout << "[LATEJOIN] Queued player for initial join (deferred spawn): "
-        << PC->GetFullName() << std::endl;
+        << PC->GetFullName()
+        << " fresh_seamless_destination="
+        << (IsFreshSeamlessDestination ? 1 : 0) << std::endl;
+}
+
+bool LateJoinManager::RegisterSeamlessReboundPlayer(APBPlayerController* PC)
+{
+    if (!IsCurrentServerConnection(PC))
+        return false;
+
+    const bool hasPlayablePawn = HasPlayableLateJoinPawn(PC) &&
+        PC->Pawn && !PC->Pawn->bActorIsBeingDestroyed;
+    // A retained PlayerState role without a destination Pawn is deliberately
+    // not a seamless carry. The caller will keep this connection/controller
+    // and queue it through the normal initial role-selection path so native
+    // role confirmation, intro, start-spot readiness, and equip all run again.
+    if (!hasPlayablePawn)
+    {
+        std::cout << "[MULTIMATCH] Seamless connection requires fresh destination "
+                     "role selection: "
+                  << PC->GetFullName() << std::endl;
+        return false;
+    }
+    std::string authoritativeRole;
+    try
+    {
+        if (hasPlayablePawn && PC->Pawn->IsA(APBCharacter::StaticClass()))
+        {
+            authoritativeRole =
+                static_cast<APBCharacter*>(PC->Pawn)->CharacterID.ToString();
+        }
+        if ((authoritativeRole.empty() || authoritativeRole == "None") &&
+            PC->PBPlayerState)
+        {
+            authoritativeRole = PC->PBPlayerState->SelectedCharacterID.ToString();
+        }
+        if ((authoritativeRole.empty() || authoritativeRole == "None") &&
+            PC->PBPlayerState)
+        {
+            authoritativeRole = PC->PBPlayerState->PossessedCharacterId.ToString();
+        }
+    }
+    catch (...)
+    {
+        authoritativeRole.clear();
+    }
+    if (authoritativeRole.empty() || authoritativeRole == "None")
+        return false;
+
+    FLateJoinInfo info{};
+    info.State = ELateJoinState::Spawned;
+    info.ClientStartSent = true;
+    info.InitialRoleSelectionSent = true;
+    // A carried Pawn has already completed the source/native possession and
+    // camera handshake. It must not enter the fresh destination handoff.
+    info.HasCompletedSpawn = true;
+    info.bIsSeamlessRebound = true;
+    info.RespawnLifecycleId = NextRespawnLifecycleId++;
+    info.DesiredRoleId = authoritativeRole;
+    if (hasPlayablePawn)
+    {
+        info.LastClientSyncedPawn = PC->Pawn;
+        info.LastClientSyncedRespawnLifecycleId = info.RespawnLifecycleId;
+    }
+
+    LateJoinPlayers[PC] = info;
+    PlayerRespawnAllowedMap[PC] = true;
+    std::cout << "[MULTIMATCH] Preserved seamless player lifecycle: "
+        << PC->GetFullName() << " pawn=" << PC->Pawn
+        << " role=" << info.DesiredRoleId
+        << " action=carry"
+        << std::endl;
+    return true;
 }
 
 // @brief 统一的客户端状态同步入口。
@@ -986,35 +1135,65 @@ void LateJoinManager::FinalizeLateJoinSpawn(APBPlayerController* PC, FLateJoinIn
         if (!isTracked()) return;
     }
 
-    // A forwarded explicit native respawn can create and possess the correct
-    // pawn without dismissing the client's death/observer input layer. Once a
-    // live desired-role pawn has been observed, re-sending the standard playing
-    // and restart notifications is idempotent and restores gameplay input.
-    // Do this only for an already-spawned connection; the initial spawn remains
-    // owned by the normal match lifecycle.
+    // Every managed spawn path converges here. The initial direct-connect path
+    // has already received match/round notifications before role selection,
+    // but still needs Ready, Playing, ClientRestart/Retry, and possession ack.
+    // Late join receives the complete first-spawn sequence. Later respawns and
+    // role changes only restore Playing and possession. Pawn+lifecycle makes
+    // this safe if multiple engine boundaries observe the same generation.
     PC->ForceNetUpdate();
     if (!isTracked()) return;
-    if (Info.HasCompletedSpawn)
+    APawn* const spawnedPawn = PC->Pawn;
+    auto tracked = LateJoinPlayers.find(PC);
+    if (!spawnedPawn || tracked == LateJoinPlayers.end())
+        return;
+    const std::uint64_t lifecycleId = tracked->second.RespawnLifecycleId;
+    const bool alreadySyncedCurrentPawn =
+        ManagedPossessionSyncPolicy::IsCurrentGenerationSynced(
+            spawnedPawn,
+            lifecycleId,
+            tracked->second.LastClientSyncedPawn,
+            tracked->second.LastClientSyncedRespawnLifecycleId);
+    const auto plan = ManagedPossessionSyncPolicy::BuildPlan(
+        tracked->second.bIsInitialJoin,
+        tracked->second.bIsSeamlessRebound,
+        tracked->second.HasCompletedSpawn,
+        alreadySyncedCurrentPawn);
+    if (plan.ShouldSync)
     {
         FClientSyncOptions options{};
-        options.SendGotoPlaying = true;
-        options.SendRestartAndAcknowledge = true;
+        options.SendMatchHasStarted = plan.SendMatchHasStarted;
+        options.SendRoundHasStarted = plan.SendRoundHasStarted;
+        options.SendNotifyGameStarted = plan.SendNotifyGameStarted;
+        options.SendReadyAtStartSpot = plan.SendReadyAtStartSpot;
+        options.SendGotoPlaying = plan.SendGotoPlaying;
+        options.SendRestartAndAcknowledge = plan.SendRestartAndAcknowledge;
         SyncClientJoinState(PC, options);
-        if (!isTracked()) return;
-        std::cout << "[RESPAWN] lifecycle_id=" << Info.RespawnLifecycleId
-            << " stage=client_playing_sync result=sent" << std::endl;
+        if (!isTracked() || PC->Pawn != spawnedPawn)
+            return;
+        tracked = LateJoinPlayers.find(PC);
+        if (tracked == LateJoinPlayers.end())
+            return;
+        tracked->second.LastClientSyncedPawn = PC->Pawn;
+        tracked->second.LastClientSyncedRespawnLifecycleId =
+            lifecycleId;
+        std::cout << "[RESPAWN] lifecycle_id=" << lifecycleId
+            << " stage=client_possession_sync result=sent pawn="
+            << PC->Pawn << std::endl;
     }
-    else if (!Info.bIsInitialJoin)
+    else
     {
-        FClientSyncOptions options{};
-        options.SendMatchHasStarted = true;
-        options.SendRoundHasStarted = true;
-        options.SendNotifyGameStarted = true;
-        options.SendReadyAtStartSpot = true;
-        options.SendGotoPlaying = true;
-        options.SendRestartAndAcknowledge = true;
-        SyncClientJoinState(PC, options);
-        if (!isTracked()) return;
+        const char* const syncResult = tracked->second.bIsSeamlessRebound
+            ? "native_seamless_rebound"
+            : (tracked->second.bIsInitialJoin &&
+                    !tracked->second.HasCompletedSpawn
+                ? "native_initial_join"
+                : "already_sent");
+        std::cout << "[RESPAWN] lifecycle_id=" << lifecycleId
+            << " stage=client_possession_sync result="
+            << syncResult
+            << " pawn="
+            << PC->Pawn << std::endl;
     }
 
     if (PC->Pawn)

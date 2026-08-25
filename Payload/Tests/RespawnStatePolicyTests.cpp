@@ -52,18 +52,18 @@ namespace
             "B must forward the exact explicit native request");
     }
 
-    void TestManagedEngineRestartUsesPBQuickRespawnCleanup()
+    void TestManagedEngineRestartWaitsForNativePBQuickRespawn()
     {
-        Expect(RespawnStatePolicy::ShouldNormalizeEngineRestartToQuickRespawn(
+        Expect(RespawnStatePolicy::ShouldDeferEngineRestartToPBQuickRespawn(
             ExplicitRequestAction::QueueAndForwardNative, true),
-            "managed explicit engine restart must enter the PB quick wrapper");
-        Expect(!RespawnStatePolicy::ShouldNormalizeEngineRestartToQuickRespawn(
+            "managed engine restart must wait for the native PB quick RPC");
+        Expect(!RespawnStatePolicy::ShouldDeferEngineRestartToPBQuickRespawn(
             ExplicitRequestAction::QueueAndForwardNative, false),
             "PB quick requests must remain exact native requests");
-        Expect(!RespawnStatePolicy::ShouldNormalizeEngineRestartToQuickRespawn(
+        Expect(!RespawnStatePolicy::ShouldDeferEngineRestartToPBQuickRespawn(
             ExplicitRequestAction::QueueAndSuppress, true),
-            "legacy A wiring must not dispatch a normalized native request");
-        Expect(!RespawnStatePolicy::ShouldNormalizeEngineRestartToQuickRespawn(
+            "legacy A wiring must retain its managed replacement path");
+        Expect(!RespawnStatePolicy::ShouldDeferEngineRestartToPBQuickRespawn(
             ExplicitRequestAction::PassThrough, true),
             "permitted and unmanaged engine requests must remain untouched");
     }
@@ -74,7 +74,7 @@ int main()
     TestUnmanagedAndPermittedCallsPassThrough();
     TestOnlyAwaitingInputAcceptsExplicitIntent();
     TestABSelectsOnlyTheDispatchWiring();
-    TestManagedEngineRestartUsesPBQuickRespawnCleanup();
+    TestManagedEngineRestartWaitsForNativePBQuickRespawn();
     std::cout << "respawn state policy tests passed\n";
     return 0;
 }
