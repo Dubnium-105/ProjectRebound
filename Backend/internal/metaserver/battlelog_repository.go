@@ -211,6 +211,7 @@ func resolveBattleLogMetaMatch(
 			FROM meta_matches
 			WHERE id = $1 AND game_server_id = $2
 			  AND state IN ('RESERVED', 'RUNNING')
+			  AND match_attempt_id IS NULL
 			FOR UPDATE
 		`, sourceMatchID, serverID).Scan(&matchID)
 		if err == nil {
@@ -219,7 +220,7 @@ func resolveBattleLogMetaMatch(
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return "", "", internalError(err)
 		}
-		if strings.HasPrefix(sourceMatchID, "mm_") {
+		if strings.HasPrefix(sourceMatchID, "mm_") || strings.HasPrefix(sourceMatchID, "mlm_") {
 			return "", "", forbidden(
 				"BATTLELOG_MATCH_FORBIDDEN",
 				"The match is not assigned to this Game Server.",
@@ -233,6 +234,7 @@ func resolveBattleLogMetaMatch(
 		SELECT id
 		FROM meta_matches
 		WHERE game_server_id = $1 AND state IN ('RESERVED', 'RUNNING')
+		  AND match_attempt_id IS NULL
 		FOR UPDATE
 	`, serverID).Scan(&matchID)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -551,6 +553,7 @@ func completeBattleLogMetaMatch(
 		SET state = 'COMPLETED', completed_at = $3, updated_at = $3
 		WHERE id = $1 AND game_server_id = $2
 		  AND state IN ('RESERVED', 'RUNNING')
+		  AND match_attempt_id IS NULL
 	`, metaMatchID, serverID, now)
 	if err != nil {
 		return internalError(err)

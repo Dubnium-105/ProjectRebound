@@ -25,6 +25,7 @@ import (
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/health"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/integrity"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/invite"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/matchlobby"
 	appmiddleware "github.com/Dubnium-105/ProjectRebound/Backend/internal/middleware"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/observability"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/p2pbattlelog"
@@ -410,6 +411,31 @@ func buildHandler(
 	p2pBattleLogAdminHandler := p2pbattlelog.NewAdminHTTPHandler(
 		p2pbattlelog.NewAdminService(p2pBattleLogRepository, cfg.P2PBattleLog.ShadowMode), logger,
 	)
+	matchSignerEnvironment := cfg.Environment
+	if !cfg.MatchLobby.StrictRosterV1Enabled {
+		matchSignerEnvironment = "strict-roster-disabled"
+	}
+	matchAdmissionSigner, err := matchlobby.NewAdmissionSigner(
+		cfg.MatchLobby.AdmissionSigningKeyID,
+		cfg.MatchLobby.AdmissionPrivateKeyBase64,
+		matchSignerEnvironment,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("initialize match admission signer: %w", err)
+	}
+	if matchAdmissionSigner.Ephemeral() && cfg.MatchLobby.StrictRosterV1Enabled {
+		logger.Warn("using ephemeral development match admission key; active attempts will not survive a restart")
+	}
+	matchLobbyService := matchlobby.NewService(
+		matchlobby.NewRepository(dbPool.Pool), cfg.MatchLobby, matchAdmissionSigner,
+		time.Duration(cfg.GameServer.UnhealthyAfterSeconds)*time.Second,
+	)
+	matchLobbyService.SetP2PTransport(p2pRoomService)
+	matchLobbyService.SetP2PMatchProjector(p2pBattleLogService)
+	if err := matchLobbyService.FailClosedDisabledAttempts(ctx); err != nil {
+		return nil, nil, fmt.Errorf("fail closed strict-roster attempts: %w", err)
+	}
+	matchLobbyHandler := matchlobby.NewHTTPHandler(matchLobbyService, logger)
 	router.Get("/v1/p2p-rooms", p2pRoomHandler.List)
 	router.Get("/v1/p2p-rooms/{room_id}", p2pRoomHandler.Get)
 	router.Group(func(router chi.Router) {
@@ -431,7 +457,39 @@ func buildHandler(
 		router.Put("/v1/p2p-matches/{match_id}/presence/me", p2pBattleLogHandler.Presence)
 		router.Put("/v1/p2p-matches/{match_id}/reports/{report_id}", p2pBattleLogHandler.SubmitReport)
 		router.Get("/v1/p2p-matches/{match_id}/result", p2pBattleLogHandler.Result)
+
+		router.Get("/v1/match-lobbies", matchLobbyHandler.List)
+		router.Get("/v1/match-lobbies/{lobby_id}", matchLobbyHandler.Get)
+		router.Post("/v1/match-lobbies", matchLobbyHandler.Create)
+		router.Post("/v1/match-lobbies/{lobby_id}/join", matchLobbyHandler.Join)
+		router.Put("/v1/match-lobbies/{lobby_id}/members/me/team", matchLobbyHandler.SelectTeam)
+		router.Put("/v1/match-lobbies/{lobby_id}/members/me/ready", matchLobbyHandler.SetReady)
+		router.Post("/v1/match-lobbies/{lobby_id}/presence", matchLobbyHandler.Presence)
+		router.Post("/v1/match-lobbies/{lobby_id}/leave", matchLobbyHandler.Leave)
+		router.Post("/v1/match-lobbies/{lobby_id}/start", matchLobbyHandler.Start)
+		router.Post("/v1/match-attempts/{attempt_id}/join-grant", matchLobbyHandler.JoinGrant)
+		router.Get("/v1/match-attempts/{attempt_id}/host/allocation", matchLobbyHandler.P2PHostAllocation)
+		router.Post("/v1/match-attempts/{attempt_id}/host/payload-installed", matchLobbyHandler.P2PPayloadInstalled)
+		router.Post("/v1/match-attempts/{attempt_id}/host/ready", matchLobbyHandler.P2PAuthorityReady)
+		router.Post("/v1/match-attempts/{attempt_id}/host/connected", matchLobbyHandler.P2PConnected)
+		router.Post("/v1/match-attempts/{attempt_id}/host/disconnected", matchLobbyHandler.P2PDisconnected)
+		router.Post("/v1/match-attempts/{attempt_id}/host/heartbeat", matchLobbyHandler.P2PAuthorityHeartbeat)
+		router.Post("/v1/match-attempts/{attempt_id}/host/complete", matchLobbyHandler.P2PComplete)
 	})
+	router.With(gameServerHandler.RequireCredentialProof).
+		Get("/v1/game-servers/{server_id}/match-attempts/{attempt_id}/allocation", matchLobbyHandler.DedicatedAllocation)
+	router.With(gameServerHandler.RequireCredentialProof).
+		Post("/v1/game-servers/{server_id}/match-attempts/{attempt_id}/payload-installed", matchLobbyHandler.DedicatedPayloadInstalled)
+	router.With(gameServerHandler.RequireCredentialProof).
+		Post("/v1/game-servers/{server_id}/match-attempts/{attempt_id}/ready", matchLobbyHandler.DedicatedAuthorityReady)
+	router.With(gameServerHandler.RequireCredentialProof).
+		Post("/v1/game-servers/{server_id}/match-attempts/{attempt_id}/connected", matchLobbyHandler.Connected)
+	router.With(gameServerHandler.RequireCredentialProof).
+		Post("/v1/game-servers/{server_id}/match-attempts/{attempt_id}/disconnected", matchLobbyHandler.Disconnected)
+	router.With(gameServerHandler.RequireCredentialProof).
+		Post("/v1/game-servers/{server_id}/match-attempts/{attempt_id}/heartbeat", matchLobbyHandler.AuthorityHeartbeat)
+	router.With(gameServerHandler.RequireCredentialProof).
+		Post("/v1/game-servers/{server_id}/match-attempts/{attempt_id}/complete", matchLobbyHandler.Complete)
 
 	realtimeHub := connection.NewHub(cfg.Connection.WebSocketQueueSize)
 	connectionService := connection.NewService(
@@ -574,6 +632,7 @@ func buildHandler(
 	if err != nil {
 		return nil, nil, fmt.Errorf("initialize update service: %w", err)
 	}
+	updateService.SetStrictRosterV1(cfg.MatchLobby.StrictRosterV1Enabled)
 	if updateService.EphemeralSigner() {
 		logger.Warn("using ephemeral development update-signing key; manifests will not verify after restart")
 	}
@@ -668,6 +727,9 @@ func buildHandler(
 	})
 	gameServerSweeper := gameserver.NewSweeper(gameServerService, cfg.GameServer.SweepInterval(), logger)
 	p2pRoomSweeper := p2proom.NewSweeper(p2pRoomService, cfg.P2PRoom.SweepInterval(), logger)
+	matchLobbySweeper := matchlobby.NewSweeper(
+		matchLobbyService, time.Duration(cfg.MatchLobby.SweepIntervalSeconds)*time.Second, logger,
+	)
 	vntNodeSweeper := vnt.NewSweeper(vntService, 30*time.Second, logger)
 	connectionSweeper := connection.NewSweeper(connectionService, cfg.Connection.SweepInterval(), logger)
 	relaySweeper := relayregistry.NewSweeper(relayService, cfg.RelayRegistry.SweepInterval(), logger)
@@ -677,7 +739,7 @@ func buildHandler(
 	)
 	downloadWorker := download.NewWorker(downloadService, cfg.Downloads.VerificationInterval(), logger)
 	return appmiddleware.Chain(router, cfg, logger, limiter, metrics), []backgroundService{
-		gameServerSweeper, p2pRoomSweeper, vntNodeSweeper, connectionSweeper, relaySweeper, relayMigrationSweeper,
+		gameServerSweeper, p2pRoomSweeper, matchLobbySweeper, vntNodeSweeper, connectionSweeper, relaySweeper, relayMigrationSweeper,
 		p2pBattleLogFinalizer, downloadWorker, realtimeHub, relayControlServer,
 	}, nil
 }

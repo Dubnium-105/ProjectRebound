@@ -3,6 +3,8 @@
 #include <wincrypt.h>
 #include <array>
 #include <atomic>
+#include <chrono>
+#include <charconv>
 #include <cstdint>
 #include <cstring>
 #include <thread>
@@ -25,6 +27,8 @@
 #include "ServerLogic/LateJoinManager.h"
 #include "ServerLogic/DedicatedMultiMatch.h"
 #include "Communication/CommandFramework.h"
+#include "Admission/Ed25519Verifier.h"
+#include "Admission/StrictRosterPolicy.h"
 #include "Loadout/LoadoutManager.h"
 
 #include "Config/Config.h"
@@ -56,12 +60,62 @@ namespace
 {
 constexpr char kSupportedExecutableSha256[] =
     "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843";
+constexpr char kStrictRosterPayloadVersion[] = "strict-roster-v1";
 constexpr DWORD kSupportedExecutableImageSize = 105431040;
 constexpr uintptr_t kGetNetModeRva = 0x036CC300;
 constexpr uintptr_t kQosDiscoveryFStringRva = 0x05C63C88;
 constexpr uintptr_t kQosDiscoveryInitializerRva = 0x0068ADE0;
 constexpr uintptr_t kRpcFramePatchPageOffset = 0x009C3000;
 constexpr SIZE_T kRpcFramePatchPageSize = 0x1000;
+
+// Runtime validation has not yet established a safe client NMT_Login
+// injection site, authoritative PreLogin interception for all three net modes,
+// or a native team-assignment API. The policy therefore remains fail closed
+// even though allocation/grant signature verification is implemented.
+StrictRoster::Policy gStrictRosterPolicy(StrictRoster::VerifyEd25519, false);
+std::string gVerifiedExecutableHash;
+
+std::int64_t EpochSecondsNow() noexcept
+{
+    return std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+bool ParseAuthorityTarget(
+    const std::string_view target,
+    std::string& endpointHost,
+    int& endpointPort) noexcept
+{
+    const std::size_t colon = target.rfind(':');
+    if (colon == std::string_view::npos || colon == 0 || colon + 1 >= target.size())
+        return false;
+    std::string_view host = target.substr(0, colon);
+    if (host.size() >= 2 && host.front() == '[' && host.back() == ']')
+        host = host.substr(1, host.size() - 2);
+    if (host.empty())
+        return false;
+    int port = 0;
+    const std::string_view portText = target.substr(colon + 1);
+    const auto parsed = std::from_chars(
+        portText.data(), portText.data() + portText.size(), port);
+    if (parsed.ec != std::errc{} || parsed.ptr != portText.data() + portText.size() ||
+        port < 1 || port > 65535)
+    {
+        return false;
+    }
+    endpointHost.assign(host);
+    endpointPort = port;
+    return true;
+}
+
+nlohmann::json PolicyResult(const StrictRoster::Decision& decision)
+{
+    return nlohmann::json{
+        {"accepted", decision.accepted},
+        {"code", decision.code},
+        {"message", decision.message}
+    };
+}
 
 struct NativeRpcPatch
 {
@@ -466,9 +520,77 @@ LoadoutBridgeOptions GetLoadoutBridgeOptions()
 
 bool OnJoinFromPipe(const std::string& ip, const std::string& token)
 {
-    (void)token;
-    ClientLog("[PIPE] Join request received: " + ip);
-    return QueueConnectToMatch(ip);
+    ClientLog("[PIPE] Join request received for target " + ip + ".");
+    if (token.empty())
+        return QueueConnectToMatch(ip);
+    return QueueConnectToMatchAuthorized(ip, token);
+}
+
+nlohmann::json OnInstallMatchAllocation(const nlohmann::json& arguments)
+{
+    if (gVerifiedExecutableHash != kSupportedExecutableSha256)
+    {
+        return nlohmann::json{
+            {"accepted", false},
+            {"code", "game_binary_unverified"},
+            {"message", "the locked game binary has not been verified"}
+        };
+    }
+    const StrictRoster::Decision decision = gStrictRosterPolicy.InstallAllocation(
+        arguments.value("allocation", ""),
+        arguments.value("admission_key_id", ""),
+        arguments.value("admission_public_key_base64", ""),
+        EpochSecondsNow());
+    if (!decision.accepted)
+    {
+        ClientLog("[STRICT-ROSTER] Allocation rejected: " + decision.code + ".");
+        return PolicyResult(decision);
+    }
+    ClientLog("[STRICT-ROSTER] Signed allocation installed; native admission remains gated.");
+    return nlohmann::json{
+        {"accepted", true},
+        {"code", "accepted"},
+        {"payload_version", kStrictRosterPayloadVersion},
+        {"game_binary_sha256", gVerifiedExecutableHash}
+    };
+}
+
+nlohmann::json OnStartMatchAuthority(const nlohmann::json& arguments)
+{
+    std::string endpointHost;
+    int endpointPort = 0;
+    if (!ParseAuthorityTarget(
+        arguments.value("transport_target", ""), endpointHost, endpointPort))
+    {
+        return nlohmann::json{
+            {"accepted", false},
+            {"code", "invalid_authority_endpoint"},
+            {"message", "the authority transport endpoint is invalid"}
+        };
+    }
+    // The local P2P host bypasses remote PreLogin. StartAuthority performs the
+    // native-path gate before host-seat binding; with the current pinned build
+    // gate set to false it cannot open a listen socket or report readiness.
+    const StrictRoster::Decision decision =
+        gStrictRosterPolicy.StartAuthority("", EpochSecondsNow());
+    if (!decision.accepted)
+    {
+        ClientLog("[STRICT-ROSTER] Authority start rejected: " + decision.code + ".");
+        return PolicyResult(decision);
+    }
+    ClientLog("[STRICT-ROSTER] Authority admission activated.");
+    return nlohmann::json{
+        {"accepted", true},
+        {"code", "accepted"},
+        {"endpoint_host", endpointHost},
+        {"endpoint_port", endpointPort}
+    };
+}
+
+void OnClearMatchAllocation()
+{
+    gStrictRosterPolicy.Reset();
+    ClientLog("[STRICT-ROSTER] Match allocation cleared.");
 }
 
 // Explicit DLL unloaders must call this outside DllMain before unloading the
@@ -541,6 +663,7 @@ void MainThread()
             return;
         }
         ClientLog("[BOOT] Pinned executable SHA-256=" + executableHash);
+        gVerifiedExecutableHash = executableHash;
         if (!serverBootstrap && !ApplyLocalPveQosRedirect(commandLine))
         {
             ClientLog("[BOOT] Refusing client initialization: local PvE QoS guard failed.");
@@ -759,6 +882,9 @@ void MainThread()
                 auto framework = std::make_unique<CommandFramework>();
                 framework->SetPipeName(MatchPipeName);
                 framework->SetLogCallback([](const std::string& msg) { Log(msg); });
+                framework->SetMatchAllocationCallback(OnInstallMatchAllocation);
+                framework->SetMatchAuthorityCallback(OnStartMatchAuthority);
+                framework->SetMatchClearCallback(OnClearMatchAllocation);
                 framework->SetServerStatusCallback([]()
                     {
                         const nlohmann::json current = BuildServerStatusPayload();
@@ -842,6 +968,9 @@ void MainThread()
                 auto framework = std::make_unique<CommandFramework>();
                 framework->SetPipeName(MatchPipeName);
                 framework->SetJoinCallback(OnJoinFromPipe);
+                framework->SetMatchAllocationCallback(OnInstallMatchAllocation);
+                framework->SetMatchAuthorityCallback(OnStartMatchAuthority);
+                framework->SetMatchClearCallback(OnClearMatchAllocation);
                 framework->SetLogCallback([](const std::string& msg) { ClientLog(msg); });
                 framework->SetDebugCallback([](const nlohmann::json& args) {
                     if (gDebugTool)

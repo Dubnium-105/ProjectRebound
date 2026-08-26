@@ -23,14 +23,14 @@ func (r *Repository) Create(ctx context.Context, tx pgx.Tx, room Room, vntSessio
 			version, max_players, player_count, state, last_heartbeat_at,
 			created_at, updated_at, transport_kind, expires_at, idempotency_key,
 			idempotency_request_hash, host_token_ciphertext, host_token_nonce,
-			host_token_key_id
+			host_token_key_id, managed_lobby_id
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, 'LOBBY', $9, $9, $9, $10, $11,
-		          NULLIF($12, ''), $13, $14, $15, NULLIF($16, ''))
+		          NULLIF($12, ''), $13, $14, $15, NULLIF($16, ''), NULLIF($17, ''))
 	`, room.ID, room.HostPlayerID, room.HostTokenHash, room.DisplayName,
 		room.Region, room.Mode, room.Version, room.MaxPlayers, room.CreatedAt,
 		room.TransportKind, room.ExpiresAt, room.IdempotencyKey,
 		room.IdempotencyRequestHash, room.HostTokenCiphertext, room.HostTokenNonce,
-		room.HostTokenKeyID)
+		room.HostTokenKeyID, room.ManagedLobbyID)
 	if err != nil {
 		return fmt.Errorf("insert P2P room: %w", err)
 	}
@@ -102,6 +102,7 @@ func (r *Repository) List(ctx context.Context, filter ListFilter, hasSlots int) 
 		SELECT `+roomColumns+`
 		FROM p2p_rooms
 		WHERE deleted_at IS NULL
+		  AND managed_lobby_id IS NULL
 		  AND ($1 = '' OR id > $1)
 		  AND ($2 = '' OR region = $2)
 		  AND ($3 = '' OR mode = $3)
@@ -127,6 +128,19 @@ func (r *Repository) List(ctx context.Context, filter ListFilter, hasSlots int) 
 		return nil, fmt.Errorf("iterate P2P rooms: %w", err)
 	}
 	return items, nil
+}
+
+func (r *Repository) ManagedLobbyAllowsPlayer(ctx context.Context, tx pgx.Tx, roomID, playerID string) (bool, error) {
+	var allowed bool
+	err := tx.QueryRow(ctx, `
+		SELECT room.managed_lobby_id IS NULL OR EXISTS (
+			SELECT 1 FROM match_lobby_members AS member
+			WHERE member.lobby_id = room.managed_lobby_id
+			  AND member.player_id = $2 AND member.membership_state = 'ACTIVE'
+		)
+		FROM p2p_rooms AS room WHERE room.id = $1
+	`, roomID, playerID).Scan(&allowed)
+	return allowed, err
 }
 
 func (r *Repository) GetMemberForUpdate(ctx context.Context, tx pgx.Tx, roomID, playerID string) (Member, error) {
@@ -456,6 +470,7 @@ const roomColumns = `
 	COALESCE((SELECT node_location_snapshot FROM p2p_vnt_sessions WHERE room_id = p2p_rooms.id), ''),
 	COALESCE((SELECT state FROM p2p_vnt_sessions WHERE room_id = p2p_rooms.id), ''),
 	COALESCE((SELECT generation FROM p2p_vnt_sessions WHERE room_id = p2p_rooms.id), 0)
+	, COALESCE(p2p_rooms.managed_lobby_id, '')
 `
 
 func scanRoom(row pgx.Row) (Room, error) {
@@ -468,6 +483,7 @@ func scanRoom(row pgx.Row) (Room, error) {
 		&item.CreatedAt, &item.UpdatedAt, &closedAt, &item.TransportKind,
 		&item.ExpiresAt, &item.VNTNodeID, &item.VNTHost, &item.VNTPort,
 		&item.VNTRegion, &item.VNTLocation, &item.VNTState, &item.VNTGeneration,
+		&item.ManagedLobbyID,
 	)
 	if closedAt.Valid {
 		item.ClosedAt = &closedAt.Time

@@ -253,6 +253,7 @@ func (s *Scheduler) expireAndRelease(ctx context.Context) error {
 		UPDATE meta_matches
 		SET state = 'FAILED', completed_at = $1, updated_at = $1
 		WHERE state = 'RESERVED' AND reserved_at <= $2
+		  AND match_attempt_id IS NULL
 		RETURNING game_server_id, ticket_id
 	`, now, now.Add(-s.reservationTTL))
 	if err != nil {
@@ -312,6 +313,7 @@ func (s *Scheduler) expireAndRelease(ctx context.Context) error {
 		FROM game_servers AS server
 		WHERE match.game_server_id = server.id
 		  AND match.state IN ('RESERVED', 'RUNNING')
+		  AND match.match_attempt_id IS NULL
 		  AND server.state IN ('DRAINING', 'UNHEALTHY', 'OFFLINE')
 		RETURNING match.game_server_id, match.ticket_id
 	`, now)

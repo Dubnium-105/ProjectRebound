@@ -57,6 +57,7 @@ type Room struct {
 	HostTokenCiphertext    []byte
 	HostTokenNonce         []byte
 	HostTokenKeyID         string
+	ManagedLobbyID         string
 }
 
 type Member struct {
@@ -77,6 +78,7 @@ type CreateInput struct {
 	TransportKind  TransportKind
 	VNTNodeID      string
 	IdempotencyKey string
+	ManagedLobbyID string
 }
 
 type VNTSession struct {

@@ -15,6 +15,14 @@ namespace
     constexpr unsigned int MaxProtocolErrorsPerConnection = 3;
     constexpr std::size_t MaxPipeNameBytes = 200;
 
+    void SecureClear(std::string& value) noexcept
+    {
+        volatile char* data = value.empty() ? nullptr : value.data();
+        for (std::size_t index = 0; data && index < value.size(); ++index)
+            data[index] = 0;
+        value.clear();
+    }
+
     bool IsSafePipeNameCharacter(const unsigned char ch) noexcept
     {
         return (ch >= 'a' && ch <= 'z') ||
@@ -121,6 +129,36 @@ void CommandFramework::SetServerStatusCallback(ServerStatusCallback callback)
     {
         std::lock_guard<std::mutex> callbackLock(callbackMutex);
         onServerStatus = std::move(callback);
+    }
+}
+
+void CommandFramework::SetMatchAllocationCallback(MatchAllocationCallback callback)
+{
+    std::lock_guard<std::mutex> lock(lifecycleMutex);
+    if (!running.load() && !stopping)
+    {
+        std::lock_guard<std::mutex> callbackLock(callbackMutex);
+        onMatchAllocation = std::move(callback);
+    }
+}
+
+void CommandFramework::SetMatchAuthorityCallback(MatchAuthorityCallback callback)
+{
+    std::lock_guard<std::mutex> lock(lifecycleMutex);
+    if (!running.load() && !stopping)
+    {
+        std::lock_guard<std::mutex> callbackLock(callbackMutex);
+        onMatchAuthority = std::move(callback);
+    }
+}
+
+void CommandFramework::SetMatchClearCallback(MatchClearCallback callback)
+{
+    std::lock_guard<std::mutex> lock(lifecycleMutex);
+    if (!running.load() && !stopping)
+    {
+        std::lock_guard<std::mutex> callbackLock(callbackMutex);
+        onMatchClear = std::move(callback);
     }
 }
 
@@ -866,7 +904,9 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
                     ? FrameResult::Processed
                     : FrameResult::TransportError;
             }
-            if (!joinCallback(target, token))
+            const bool accepted = joinCallback(target, token);
+            SecureClear(token);
+            if (!accepted)
             {
                 return SendError("busy", "a match transition is already pending", request.requestId)
                     ? FrameResult::Processed
@@ -878,6 +918,166 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
                 CommandProtocol::WithRequestId(
                     nlohmann::json{{"status", "accepted"}},
                     request.requestId))
+                ? FrameResult::Processed
+                : FrameResult::TransportError;
+        }
+
+        if (request.command == "install_match_allocation")
+        {
+            if (!request.requestId.has_value())
+            {
+                return SendError("invalid_request", "request_id is required")
+                    ? FrameResult::ProtocolError
+                    : FrameResult::TransportError;
+            }
+            const auto allocation = request.arguments.find("allocation");
+            const auto keyId = request.arguments.find("admission_key_id");
+            const auto publicKey = request.arguments.find("admission_public_key_base64");
+            if (allocation == request.arguments.end() || !allocation->is_string() ||
+                keyId == request.arguments.end() || !keyId->is_string() ||
+                publicKey == request.arguments.end() || !publicKey->is_string() ||
+                allocation->get_ref<const std::string&>().empty() ||
+                allocation->get_ref<const std::string&>().size() > 48U * 1024U ||
+                keyId->get_ref<const std::string&>().empty() ||
+                keyId->get_ref<const std::string&>().size() > 128U ||
+                publicKey->get_ref<const std::string&>().empty() ||
+                publicKey->get_ref<const std::string&>().size() > 256U)
+            {
+                return SendError(
+                    "invalid_request", "match allocation fields are invalid", request.requestId)
+                    ? FrameResult::ProtocolError
+                    : FrameResult::TransportError;
+            }
+            MatchAllocationCallback callback;
+            {
+                std::lock_guard<std::mutex> callbackLock(callbackMutex);
+                callback = onMatchAllocation;
+            }
+            if (!callback)
+            {
+                return SendError(
+                    "admission_unavailable", "strict admission handler is unavailable",
+                    request.requestId)
+                    ? FrameResult::Processed
+                    : FrameResult::TransportError;
+            }
+            const nlohmann::json result = callback(request.arguments);
+            if (!result.value("accepted", false))
+            {
+                return SendError(
+                    result.value("code", "allocation_rejected"),
+                    result.value("message", "Payload rejected the match allocation"),
+                    request.requestId)
+                    ? FrameResult::Processed
+                    : FrameResult::TransportError;
+            }
+            return SendResponse(
+                "install_match_allocation_ack",
+                CommandProtocol::WithRequestId(
+                    nlohmann::json{
+                        {"status", "accepted"},
+                        {"payload_version", result.value("payload_version", "")},
+                        {"game_binary_sha256", result.value("game_binary_sha256", "")}
+                    },
+                    request.requestId))
+                ? FrameResult::Processed
+                : FrameResult::TransportError;
+        }
+
+        if (request.command == "start_match_authority")
+        {
+            if (!request.requestId.has_value())
+            {
+                return SendError("invalid_request", "request_id is required")
+                    ? FrameResult::ProtocolError
+                    : FrameResult::TransportError;
+            }
+            const auto target = request.arguments.find("transport_target");
+            std::string targetError;
+            if (target == request.arguments.end() || !target->is_string() ||
+                !CommandProtocol::ValidateMatchTarget(
+                    target->get_ref<const std::string&>(), &targetError))
+            {
+                return SendError(
+                    "invalid_target", targetError.empty() ? "transport target is invalid" : targetError,
+                    request.requestId)
+                    ? FrameResult::ProtocolError
+                    : FrameResult::TransportError;
+            }
+            MatchAuthorityCallback callback;
+            {
+                std::lock_guard<std::mutex> callbackLock(callbackMutex);
+                callback = onMatchAuthority;
+            }
+            if (!callback)
+            {
+                return SendError(
+                    "admission_unavailable", "strict authority handler is unavailable",
+                    request.requestId)
+                    ? FrameResult::Processed
+                    : FrameResult::TransportError;
+            }
+            const nlohmann::json result = callback(request.arguments);
+            if (!result.value("accepted", false))
+            {
+                return SendError(
+                    result.value("code", "authority_rejected"),
+                    result.value("message", "Payload rejected authority startup"),
+                    request.requestId)
+                    ? FrameResult::Processed
+                    : FrameResult::TransportError;
+            }
+            const std::string endpointHost = result.value("endpoint_host", "");
+            const int endpointPort = result.value("endpoint_port", 0);
+            const std::string endpoint = endpointHost + ":" + std::to_string(endpointPort);
+            if (endpointPort < 1 || endpointPort > 65535 ||
+                !CommandProtocol::ValidateMatchTarget(endpoint))
+            {
+                return SendError(
+                    "invalid_authority_endpoint", "authority returned an invalid endpoint",
+                    request.requestId)
+                    ? FrameResult::Processed
+                    : FrameResult::TransportError;
+            }
+            return SendResponse(
+                "start_match_authority_ack",
+                CommandProtocol::WithRequestId(
+                    nlohmann::json{
+                        {"status", "ready"},
+                        {"endpoint_host", endpointHost},
+                        {"endpoint_port", endpointPort}
+                    },
+                    request.requestId))
+                ? FrameResult::Processed
+                : FrameResult::TransportError;
+        }
+
+        if (request.command == "clear_match_allocation")
+        {
+            if (!request.requestId.has_value())
+            {
+                return SendError("invalid_request", "request_id is required")
+                    ? FrameResult::ProtocolError
+                    : FrameResult::TransportError;
+            }
+            MatchClearCallback callback;
+            {
+                std::lock_guard<std::mutex> callbackLock(callbackMutex);
+                callback = onMatchClear;
+            }
+            if (!callback)
+            {
+                return SendError(
+                    "admission_unavailable", "strict admission clear handler is unavailable",
+                    request.requestId)
+                    ? FrameResult::Processed
+                    : FrameResult::TransportError;
+            }
+            callback();
+            return SendResponse(
+                "clear_match_allocation_ack",
+                CommandProtocol::WithRequestId(
+                    nlohmann::json{{"status", "cleared"}}, request.requestId))
                 ? FrameResult::Processed
                 : FrameResult::TransportError;
         }

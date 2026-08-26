@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"slices"
 	"sort"
@@ -47,6 +48,78 @@ func (s *Service) EnsureForRoomStart(
 		matchTypeFromMode(room.Mode), s.config.PolicyVersion, now,
 		now.Add(s.config.HardExpiry()),
 	)
+	return err
+}
+
+// FreezeManagedAttempt creates the P2P match session and roster inside the
+// authoritative match-lobby freeze transaction. Unlike legacy BattleLog
+// intake, this projection is required even when report collection is disabled:
+// transport startup must only reuse the already-frozen two-team roster.
+func (s *Service) FreezeManagedAttempt(
+	ctx context.Context,
+	tx pgx.Tx,
+	roomID, hostPlayerID, mode, attemptID string,
+	now time.Time,
+) error {
+	match, _, err := s.repository.EnsureMatchForRoomStart(
+		ctx, tx, newID("p2pm_"), roomID, hostPlayerID, mode,
+		matchTypeFromMode(mode), s.config.PolicyVersion, now,
+		now.Add(s.config.HardExpiry()),
+	)
+	if err != nil {
+		return err
+	}
+	var linkedAttemptID string
+	if err := tx.QueryRow(ctx, `
+		SELECT COALESCE(match_attempt_id, '')
+		FROM p2p_match_sessions WHERE id = $1
+	`, match.ID).Scan(&linkedAttemptID); err != nil {
+		return err
+	}
+	if linkedAttemptID != attemptID {
+		return fmt.Errorf("active P2P match session is not bound to frozen attempt %s", attemptID)
+	}
+	return nil
+}
+
+// CompleteManagedAttempt keeps the transport projection out of an active
+// state when the authoritative attempt ends. With BattleLog intake enabled a
+// successful match enters its normal collection window; otherwise it is
+// finalized as INCOMPLETE because no peer evidence can be collected.
+func (s *Service) CompleteManagedAttempt(
+	ctx context.Context,
+	tx pgx.Tx,
+	attemptID string,
+	success bool,
+	now time.Time,
+) error {
+	if !success {
+		_, err := tx.Exec(ctx, `
+			UPDATE p2p_match_sessions
+			SET state = 'ABORTED', finalized_at = $2, updated_at = $2
+			WHERE match_attempt_id = $1
+			  AND state IN ('STARTING', 'RUNNING', 'COLLECTING')
+		`, attemptID, now)
+		return err
+	}
+	if s.config.Enabled {
+		_, err := tx.Exec(ctx, `
+			UPDATE p2p_match_sessions
+			SET state = 'COLLECTING',
+			    collection_started_at = COALESCE(collection_started_at, $2),
+			    collection_deadline = COALESCE(collection_deadline, $3),
+			    updated_at = $2
+			WHERE match_attempt_id = $1
+			  AND state IN ('STARTING', 'RUNNING', 'COLLECTING')
+		`, attemptID, now, now.Add(s.config.CollectionDeadline()))
+		return err
+	}
+	_, err := tx.Exec(ctx, `
+		UPDATE p2p_match_sessions
+		SET state = 'INCOMPLETE', finalized_at = $2, updated_at = $2
+		WHERE match_attempt_id = $1
+		  AND state IN ('STARTING', 'RUNNING', 'COLLECTING')
+	`, attemptID, now)
 	return err
 }
 

@@ -198,6 +198,7 @@ func (h *HTTPHandler) Heartbeat(w http.ResponseWriter, r *http.Request) {
 	api.WriteData(w, r, 200, map[string]any{
 		"server":                 toPublicResponse(updated),
 		"next_heartbeat_seconds": h.service.HeartbeatInterval(),
+		"match_attempt":          updated.ActiveMatch,
 	})
 }
 

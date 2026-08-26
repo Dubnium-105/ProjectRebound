@@ -21,6 +21,28 @@ enable_strict_warnings(command_protocol_tests)
 
 add_test(NAME command_protocol_tests COMMAND command_protocol_tests)
 
+add_executable(strict_roster_policy_tests
+    StrictRosterPolicyTests.cpp
+)
+
+target_compile_features(strict_roster_policy_tests PRIVATE cxx_std_20)
+enable_strict_warnings(strict_roster_policy_tests)
+
+add_test(NAME strict_roster_policy_tests COMMAND strict_roster_policy_tests)
+
+if(WIN32)
+    add_executable(ed25519_verifier_tests
+        Ed25519VerifierTests.cpp
+        ../Admission/Ed25519Verifier.cpp
+    )
+
+    target_compile_features(ed25519_verifier_tests PRIVATE cxx_std_20)
+    enable_strict_warnings(ed25519_verifier_tests)
+    target_link_libraries(ed25519_verifier_tests PRIVATE Bcrypt)
+
+    add_test(NAME ed25519_verifier_tests COMMAND ed25519_verifier_tests)
+endif()
+
 add_executable(command_line_policy_tests
     CommandLinePolicyTests.cpp
 )

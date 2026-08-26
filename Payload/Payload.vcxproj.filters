@@ -25,8 +25,17 @@
     <Filter Include="Loadout">
       <UniqueIdentifier>{9e15e915-f1e8-4c84-9e5c-88738a4464e3}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Admission">
+      <UniqueIdentifier>{f0e5ab28-fd48-48b4-ae42-1342224273a1}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Admission\Ed25519Verifier.h">
+      <Filter>Admission</Filter>
+    </ClInclude>
+    <ClInclude Include="Admission\StrictRosterPolicy.h">
+      <Filter>Admission</Filter>
+    </ClInclude>
     <ClInclude Include="framework.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -77,6 +86,9 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Admission\Ed25519Verifier.cpp">
+      <Filter>Admission</Filter>
+    </ClCompile>
     <ClCompile Include="dllmain.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

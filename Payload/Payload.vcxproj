@@ -153,6 +153,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="framework.h" />
+    <ClInclude Include="Admission\Ed25519Verifier.h" />
+    <ClInclude Include="Admission\StrictRosterPolicy.h" />
     <ClInclude Include="BattleLog\BattleLogExtractor.h" />
     <ClInclude Include="Communication\CommandFramework.h" />
     <ClInclude Include="Communication\CommandProtocol.h" />
@@ -170,6 +172,7 @@
     <ClInclude Include="ServerLogic\DedicatedMultiMatchPolicy.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Admission\Ed25519Verifier.cpp" />
     <ClCompile Include="ClientLogic\ClientLogic.cpp" />
     <ClCompile Include="BattleLog\BattleLogExtractor.cpp" />
     <ClCompile Include="Config\Config.cpp" />

@@ -112,5 +112,6 @@ type ClientConfig struct {
 		Relay            bool `json:"relay"`
 		DedicatedServers bool `json:"dedicated_servers"`
 		VNTRooms         bool `json:"vnt_rooms"`
+		StrictRosterV1   bool `json:"strict_roster_v1"`
 	} `json:"features"`
 }

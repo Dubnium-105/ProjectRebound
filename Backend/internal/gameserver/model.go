@@ -55,6 +55,16 @@ type Server struct {
 	LastHeartbeatAt                time.Time
 	CreatedAt                      time.Time
 	UpdatedAt                      time.Time
+	ActiveMatch                    *MatchAssignment
+}
+
+// MatchAssignment is transient control-plane state returned only to the
+// authenticated server that owns the active strict-roster attempt. It is not
+// persisted in game_servers or exposed by the public server directory.
+type MatchAssignment struct {
+	AttemptID       string `json:"attempt_id"`
+	State           string `json:"state"`
+	RouteGeneration int    `json:"route_generation"`
 }
 
 type RegistrationInput struct {

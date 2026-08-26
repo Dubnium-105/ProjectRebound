@@ -184,14 +184,15 @@ func (h *MetaAdminHandler) CancelMatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(r.Context())) }()
-	var serverID, ticketID, state, partyID string
+	var serverID, ticketID, state, partyID, matchAttemptID string
 	err = tx.QueryRow(r.Context(), `
-		SELECT match.game_server_id, match.ticket_id, match.state, COALESCE(ticket.party_id, '')
+		SELECT match.game_server_id, match.ticket_id, match.state,
+		       COALESCE(ticket.party_id, ''), COALESCE(match.match_attempt_id, '')
 		FROM meta_matches AS match
 		JOIN meta_match_tickets AS ticket ON ticket.id = match.ticket_id
 		WHERE match.id = $1
 		FOR UPDATE OF match
-	`, matchID).Scan(&serverID, &ticketID, &state, &partyID)
+	`, matchID).Scan(&serverID, &ticketID, &state, &partyID, &matchAttemptID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		h.writeError(w, r, notFound("META_MATCH_NOT_FOUND", "Match not found."))
 		return
@@ -202,6 +203,10 @@ func (h *MetaAdminHandler) CancelMatch(w http.ResponseWriter, r *http.Request) {
 	}
 	if state != "RESERVED" && state != "RUNNING" {
 		h.writeError(w, r, conflict("META_MATCH_NOT_CANCELLABLE", "The match is not active."))
+		return
+	}
+	if matchAttemptID != "" {
+		h.writeError(w, r, conflict("STRICT_MATCH_LOBBY_OWNS_LIFECYCLE", "Strict-roster matches must be ended through their authoritative match attempt."))
 		return
 	}
 	now := time.Now().UTC()

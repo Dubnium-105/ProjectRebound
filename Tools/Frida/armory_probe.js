@@ -41,6 +41,13 @@ const SETTINGS = {
     playerState: {
         selectedCharacterId: 0x334,
         possessedCharacterId: 0x33C,
+        teamId: 0x344,
+        campId: 0x348,
+        platformUniqueIdJsonString: 0x3D8,
+        playerId: 0x224,
+        uniqueId: 0x250,
+        pbRole: 0x5E2,
+        playerIndex: 0x5E4,
         preOrderingMap: 0x6C0,
         equippingMap: 0x6E0,
         mapElementSize: 0x30,
@@ -139,6 +146,19 @@ const SETTINGS = {
         { name: 'possess_promote_inventory', rva: 0x0167FB20 },
     ],
     serverTravelRva: 0x036D61B0,
+    admission: {
+        preLoginEntries: [
+            { name: 'engine_pre_login', rva: 0x03290DE0 },
+            { name: 'pb_pre_login', rva: 0x01639D90 },
+        ],
+        notifyAcceptingConnectionRva: 0x036CDC90,
+        notifyControlMessageRva: 0x036CDCE0,
+        getNetModeRva: 0x036CC300,
+        gIsClientRva: 0x05CE2404,
+        gIsServerRva: 0x05CE2405,
+        // UE4 EControlChannelMessage::NMT_Login in this pinned build.
+        nmtLoginType: 0x0B,
+    },
     interaction: {
         playerController: {
             inputComponent: 0xF8,
@@ -296,6 +316,15 @@ const OBSERVED_FUNCTIONS = new Map([
     ['InitWeapon', 'PBWeapon'],
     ['OnRep_PartNetworkConfig', 'PBWeapon'],
     ['OnRep_PossessedCharacterID', 'PBPlayerState'],
+    ['OnRep_CampID', 'PBPlayerState'],
+    ['PlayerJoinsGameMatch', 'PBGameState'],
+    ['NotifyPlayerJionGameMatch', 'PBPlayerController'],
+    ['NotifyReceivedTeamNumber', 'PBPlayerController'],
+    ['GetCampID', 'PBPlayerState'],
+    ['GetGenericTeamId', 'PBPlayerState'],
+    ['GetPlatformIDStr', ['PBLocalPlayer', 'PBPlayerState']],
+    ['GetTeamId', 'PBPlayerState'],
+    ['GetUserIdstr', 'PBPlayerState'],
     ['QueryUserProfileData', 'PBCareerManager'],
     ['GetCharacterProfileData', 'PBCareerManager'],
     ['GetCharacterLevelUpExp', 'PBCareerManager'],
@@ -429,6 +458,18 @@ const MATCH_LIFECYCLE_FUNCTIONS = new Set([
     'GetMapVoteCount',
     'GetSelectMapInfo',
     'GetSelfSelectMap',
+]);
+
+const ROSTER_FUNCTIONS = new Set([
+    'PlayerJoinsGameMatch',
+    'NotifyPlayerJionGameMatch',
+    'NotifyReceivedTeamNumber',
+    'OnRep_CampID',
+    'GetCampID',
+    'GetGenericTeamId',
+    'GetPlatformIDStr',
+    'GetTeamId',
+    'GetUserIdstr',
 ]);
 
 const INTERACTION_FUNCTIONS = new Set([
@@ -1430,6 +1471,10 @@ function hookWinsock() {
 
 let gameModule;
 let appendString;
+let nativeGetNetMode;
+let nativeGetActiveWorld;
+let activeWorld = null;
+let lastNetModeSignature = null;
 const fnameCache = new Map();
 const classNameCache = new Map();
 const classInheritanceCache = new Map();
@@ -1635,6 +1680,40 @@ function safeFString(address, maximum = 2048) {
     }
 }
 
+// Identity-bearing FString/opaque wrappers are intentionally reduced to a
+// length and a local correlation hash.  Never emit their contents or raw
+// network-login bytes from this probe.
+function redactedFString(address, maximum = 2048) {
+    if (address === null || address === undefined || address.isNull()) {
+        return { present: false, length: 0, hash: null };
+    }
+    try {
+        const header = readArrayHeader(address, maximum, 'redacted FString');
+        if (header.num === 0) {
+            return { present: true, length: 0, hash: hashString('') };
+        }
+        const length = header.data.add((header.num - 1) * 2).readU16() === 0
+            ? header.num - 1
+            : header.num;
+        const value = header.data.readUtf16String(length) || '';
+        return { present: true, length: value.length, hash: hashString(value) };
+    } catch (error) {
+        return { present: true, read_error: String(error) };
+    }
+}
+
+function redactedMemory(address, length) {
+    if (address === null || address === undefined || address.isNull()) {
+        return { present: false, size: 0, hash: null };
+    }
+    try {
+        const bytes = readBytes(address, length);
+        return { present: true, size: bytes.length, hash: hashBytes(bytes) };
+    } catch (error) {
+        return { present: true, size: length, read_error: String(error) };
+    }
+}
+
 function safeFStringArray(address, maximum = 64) {
     try {
         const header = readArrayHeader(address, maximum, 'FString');
@@ -1703,6 +1782,42 @@ function worldTravelSnapshot(world) {
         result.read_error = String(error);
     }
     return result;
+}
+
+function nativeNetModeSnapshot(reason) {
+    if ((activeWorld === null || activeWorld.isNull()) && nativeGetActiveWorld !== undefined) {
+        try { activeWorld = nativeGetActiveWorld(); } catch (_) {}
+    }
+    if (activeWorld === null || activeWorld.isNull() || nativeGetNetMode === undefined) {
+        return null;
+    }
+    try {
+        const mode = nativeGetNetMode(activeWorld);
+        let globalFlags = null;
+        let globalFlagsError = null;
+        try {
+            globalFlags = {
+                g_is_client: gameModule.base.add(
+                    SETTINGS.admission.gIsClientRva).readU8(),
+                g_is_server: gameModule.base.add(
+                    SETTINGS.admission.gIsServerRva).readU8(),
+            };
+        } catch (error) {
+            globalFlags = null;
+            globalFlagsError = String(error);
+        }
+        return {
+            reason,
+            world: safeObjectSummary(activeWorld),
+            native_net_mode: mode,
+            native_net_mode_name: ['standalone', 'dedicated', 'listen', 'client'][mode] || 'unknown',
+            global_flags: globalFlags,
+            global_flags_error: globalFlagsError,
+            world_snapshot: worldTravelSnapshot(activeWorld),
+        };
+    } catch (error) {
+        return { reason, world: safeObjectSummary(activeWorld), read_error: String(error) };
+    }
 }
 
 function interactionEventDetails(value) {
@@ -2116,7 +2231,26 @@ function dumpFieldModState(manager) {
         manager.add(SETTINGS.fieldMod.preOrderingMap),
         128,
         'FieldMod pre-ordering',
-        SETTINGS.fieldMod.mapElementSize));
+    SETTINGS.fieldMod.mapElementSize));
+}
+
+function playerStateRosterSnapshot(object) {
+    if (object === null || object === undefined || object.isNull()) return null;
+    try {
+        return {
+            player_id: object.add(SETTINGS.playerState.playerId).readS32(),
+            unique_id_wrapper: redactedMemory(
+                object.add(SETTINGS.playerState.uniqueId), 0x28),
+            team_id: object.add(SETTINGS.playerState.teamId).readU8(),
+            camp_id: object.add(SETTINGS.playerState.campId).readS32(),
+            platform_id_json: redactedFString(
+                object.add(SETTINGS.playerState.platformUniqueIdJsonString)),
+            pb_role: object.add(SETTINGS.playerState.pbRole).readU8(),
+            player_index: object.add(SETTINGS.playerState.playerIndex).readU8(),
+        };
+    } catch (error) {
+        return { read_error: String(error) };
+    }
 }
 
 function refreshPlayerState(object, reason, force = false) {
@@ -2143,9 +2277,14 @@ function refreshPlayerState(object, reason, force = false) {
             object.add(SETTINGS.playerState.selectedCharacterId));
         const possessedRole = fnameToString(
             object.add(SETTINGS.playerState.possessedCharacterId));
+        const roster = playerStateRosterSnapshot(object);
+        const rosterSignature = roster === null
+            ? 'null'
+            : JSON.stringify(roster);
         const signature = `${selectedRole}:${possessedRole}:` +
             `${preOrdering.allocated}:${preOrdering.state_hash}:` +
-            `${equipping.allocated}:${equipping.state_hash}`;
+            `${equipping.allocated}:${equipping.state_hash}:` +
+            rosterSignature;
         if (force || playerStateSignatures.get(key) !== signature) {
             playerStateSignatures.set(key, signature);
             emit(force ? 'player_state.snapshot' : 'player_state.changed', Object.assign({
@@ -2155,6 +2294,7 @@ function refreshPlayerState(object, reason, force = false) {
                 class_name: className(object),
                 selected_role_id: selectedRole,
                 possessed_role_id: possessedRole,
+                roster,
                 pre_ordering: preOrdering,
             }, equipping));
         }
@@ -2926,6 +3066,23 @@ function refreshInventory(manager, reason, force = false) {
 function considerObject(object) {
     const typeName = className(object);
     const name = objectName(object);
+    if (typeName === 'World' && !name.startsWith('Default__')) {
+        try {
+            const netDriver = object.add(SETTINGS.world.netDriver).readPointer();
+            if (!netDriver.isNull()) {
+                if (activeWorld === null || !activeWorld.equals(object)) {
+                    activeWorld = object;
+                    lastNetModeSignature = null;
+                    emit('roster.world_found', {
+                        world: safeObjectSummary(object),
+                        net_driver: safeObjectSummary(netDriver),
+                    });
+                }
+            }
+        } catch (error) {
+            reportError('roster.world_scan', error);
+        }
+    }
     if (!name.startsWith('Default__') && classInherits(object, 'PBWeapon')) {
         refreshWeapon(object, 'object_scan', !weaponSignatures.has(object.toString()));
         return;
@@ -3353,6 +3510,52 @@ function observedCallDetails(functionName, params, phase) {
     return {};
 }
 
+function rosterProcessEventDetails(functionName, object, params, phase) {
+    const details = {};
+    if (functionName === 'PlayerJoinsGameMatch' ||
+        functionName === 'NotifyPlayerJionGameMatch') {
+        if (phase === 'enter' && params !== null && !params.isNull()) {
+            try {
+                const joinedPlayerState = params.readPointer();
+                details.joined_player_state = safeObjectSummary(joinedPlayerState);
+                details.joined_player_state_roster = playerStateRosterSnapshot(
+                    joinedPlayerState);
+            } catch (error) {
+                details.joined_player_state_read_error = String(error);
+            }
+        }
+        return details;
+    }
+    if (functionName === 'NotifyReceivedTeamNumber' ||
+        functionName === 'OnRep_CampID') {
+        details.player_state_roster = playerStateRosterSnapshot(object);
+        return details;
+    }
+    if (phase === 'leave' &&
+        (functionName === 'GetPlatformIDStr' || functionName === 'GetUserIdstr')) {
+        details.return_value = redactedFString(params);
+        return details;
+    }
+    if (phase === 'leave' &&
+        (functionName === 'GetCampID' || functionName === 'GetTeamId')) {
+        if (params !== null && !params.isNull()) {
+            try { details.return_value = params.readS32(); }
+            catch (error) { details.return_value_read_error = String(error); }
+        }
+        return details;
+    }
+    if (functionName === 'GetGenericTeamId' && phase === 'leave' &&
+        params !== null && !params.isNull()) {
+        try {
+            // FGenericTeamId is one byte in the pinned SDK.
+            details.return_generic_team_id = params.readU8();
+        } catch (error) {
+            details.return_value_read_error = String(error);
+        }
+    }
+    return details;
+}
+
 function hookCareerNativeDispatch() {
     for (const offset of SETTINGS.career.queryVirtualCallSites) {
         const address = gameModule.base.add(offset);
@@ -3377,6 +3580,104 @@ function hookCareerNativeDispatch() {
             SETTINGS.career.queryUserProfileDataNative).toString(),
         call_sites: SETTINGS.career.queryVirtualCallSites.map(
             (offset) => gameModule.base.add(offset).toString()),
+    });
+}
+
+function stackArgument(context, offset) {
+    try {
+        return context.rsp.add(offset).readPointer();
+    } catch (_) {
+        return ptr(0);
+    }
+}
+
+function hookAdmissionNativeEntries() {
+    for (const entry of SETTINGS.admission.preLoginEntries) {
+        const address = gameModule.base.add(entry.rva);
+        Interceptor.attach(address, {
+            onEnter(args) {
+                this.entry = entry;
+                this.game_mode = args[0];
+                this.options = redactedFString(args[1]);
+                this.address = redactedFString(args[2]);
+                this.unique_id = redactedMemory(args[3], 0x28);
+                this.error_message = stackArgument(this.context, 0x28);
+                emit('roster.pre_login', {
+                    phase: 'enter',
+                    boundary_name: entry.name,
+                    rva: toHex(entry.rva),
+                    game_mode: safeObjectSummary(this.game_mode),
+                    options: this.options,
+                    address: this.address,
+                    unique_id_wrapper: this.unique_id,
+                    error_message: redactedFString(this.error_message),
+                    native_backtrace: nativeBacktrace(this.context),
+                });
+            },
+            onLeave() {
+                try {
+                    emit('roster.pre_login', {
+                        phase: 'leave',
+                        boundary_name: this.entry.name,
+                        rva: toHex(this.entry.rva),
+                        game_mode: safeObjectSummary(this.game_mode),
+                        options: this.options,
+                        address: this.address,
+                        unique_id_wrapper: this.unique_id,
+                        error_message: redactedFString(this.error_message),
+                    });
+                } catch (error) {
+                    reportError(`roster.${this.entry.name}.leave`, error);
+                }
+            },
+        });
+    }
+
+    const acceptingAddress = gameModule.base.add(
+        SETTINGS.admission.notifyAcceptingConnectionRva);
+    Interceptor.attach(acceptingAddress, {
+        onEnter(args) {
+            emit('roster.notify_accepting_connection', {
+                phase: 'enter',
+                rva: toHex(SETTINGS.admission.notifyAcceptingConnectionRva),
+                object: args[0].toString(),
+                native_backtrace: nativeBacktrace(this.context),
+            });
+        },
+    });
+
+    const controlAddress = gameModule.base.add(
+        SETTINGS.admission.notifyControlMessageRva);
+    Interceptor.attach(controlAddress, {
+        onEnter(args) {
+            let messageType = null;
+            try { messageType = args[2].toUInt32() & 0xff; } catch (_) {}
+            emit('roster.notify_control_message', {
+                phase: 'enter',
+                rva: toHex(SETTINGS.admission.notifyControlMessageRva),
+                connection: args[0].toString(),
+                auxiliary: args[1].toString(),
+                message_type: messageType,
+                message_type_name: messageType === SETTINGS.admission.nmtLoginType
+                    ? 'NMT_Login_candidate'
+                    : null,
+                bunch_present: !args[3].isNull(),
+                // Deliberately do not read the Bunch or login payload.
+                native_backtrace: nativeBacktrace(this.context),
+            });
+        },
+    });
+    emit('roster.admission_native_hooks_ready', {
+        pre_login_entries: SETTINGS.admission.preLoginEntries.map((entry) => ({
+            name: entry.name,
+            rva: toHex(entry.rva),
+        })),
+        notify_accepting_connection_rva: toHex(
+            SETTINGS.admission.notifyAcceptingConnectionRva),
+        notify_control_message_rva: toHex(
+            SETTINGS.admission.notifyControlMessageRva),
+        nmt_login_type_candidate: SETTINGS.admission.nmtLoginType,
+        mode: 'read_only_redacted',
     });
 }
 
@@ -3619,6 +3920,7 @@ function hookProcessEvent() {
             this.probeParams = ptr(0);
             this.probeObject = ptr(0);
             this.matchLifecycle = false;
+            this.rosterEvent = false;
             this.interactionEvent = false;
             this.customizeObject = ptr(0);
             this.customizeClass = null;
@@ -3693,6 +3995,7 @@ function hookProcessEvent() {
                 this.probeParams = args[2];
                 this.probeObject = args[0];
                 this.matchLifecycle = MATCH_LIFECYCLE_FUNCTIONS.has(functionName);
+                this.rosterEvent = ROSTER_FUNCTIONS.has(functionName);
                 this.interactionEvent = INTERACTION_FUNCTIONS.has(functionName);
                 if (OBSERVED_FUNCTIONS.get(functionName) === 'PBWeapon') {
                     this.probeWeaponBefore = refreshWeapon(
@@ -3722,6 +4025,15 @@ function hookProcessEvent() {
                         object: args[0].toString(),
                         object_class: className(args[0]),
                     }, interactionProcessEventDetails(
+                        functionName, args[0], args[2], 'enter')));
+                }
+                if (this.rosterEvent) {
+                    emit('roster.process_event', Object.assign({
+                        function_name: functionName,
+                        phase: 'enter',
+                        object: args[0].toString(),
+                        object_class: className(args[0]),
+                    }, rosterProcessEventDetails(
                         functionName, args[0], args[2], 'enter')));
                 }
                 emitFieldModSnapshot(`${functionName}.before`);
@@ -3794,6 +4106,18 @@ function hookProcessEvent() {
                             this.probeParams,
                             'leave')));
                     }
+                    if (this.rosterEvent) {
+                        emit('roster.process_event', Object.assign({
+                            function_name: this.probeKind,
+                            phase: 'leave',
+                            object: this.probeObject.toString(),
+                            object_class: className(this.probeObject),
+                        }, rosterProcessEventDetails(
+                            this.probeKind,
+                            this.probeObject,
+                            this.probeParams,
+                            'leave')));
+                    }
                     emit('fieldmod.native_call', Object.assign({
                         function_name: this.probeKind,
                         phase: 'leave',
@@ -3847,6 +4171,20 @@ function initialize() {
             ['pointer', 'pointer'],
             'win64',
         );
+        nativeGetNetMode = new NativeFunction(
+            gameModule.base.add(SETTINGS.admission.getNetModeRva),
+            'int',
+            ['pointer'],
+            'win64',
+        );
+        try {
+            const payload = Process.getModuleByName('Payload.dll');
+            const getActiveWorldAddress = payload.getExportByName('PR_GetActiveWorld');
+            nativeGetActiveWorld = new NativeFunction(
+                getActiveWorldAddress, 'pointer', [], 'win64');
+        } catch (_) {
+            nativeGetActiveWorld = undefined;
+        }
         emit('probe.ready', {
             pid: Process.id,
             architecture: Process.arch,
@@ -3857,10 +4195,16 @@ function initialize() {
             offsets: SETTINGS.offsets,
             mode: 'read_only',
         });
+        emit('roster.net_mode_helper_ready', {
+            rva: toHex(SETTINGS.admission.getNetModeRva),
+            active_world_export: nativeGetActiveWorld !== undefined,
+            mode: 'read_only_native_helper',
+        });
         hookWinsock();
         hookMetaGatewayState();
         hookArchiveCompletionEntries();
         hookProcessEvent();
+        hookAdmissionNativeEntries();
         hookMatchNativeEntries();
         hookServerTravel();
         hookInteractionNativeEntries();
@@ -3881,6 +4225,20 @@ function initialize() {
             }
             if (armoryManager !== null) {
                 refreshInventory(armoryManager, 'poll', false);
+            }
+            const netModeSnapshot = nativeNetModeSnapshot('poll');
+            if (netModeSnapshot !== null) {
+                const signature = JSON.stringify({
+                    world: netModeSnapshot.world && netModeSnapshot.world.address,
+                    mode: netModeSnapshot.native_net_mode,
+                    driver: netModeSnapshot.world_snapshot &&
+                        netModeSnapshot.world_snapshot.net_driver &&
+                        netModeSnapshot.world_snapshot.net_driver.object,
+                });
+                if (signature !== lastNetModeSignature) {
+                    lastNetModeSignature = signature;
+                    emit('roster.net_mode', netModeSnapshot);
+                }
             }
             for (const user of persistentUsers.values()) {
                 refreshPersistentUser(user, 'poll', false);

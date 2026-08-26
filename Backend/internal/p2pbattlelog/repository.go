@@ -48,23 +48,53 @@ func (r *Repository) EnsureMatchForRoomStart(
 	`, roomID).Scan(&sequence); err != nil {
 		return MatchSession{}, false, fmt.Errorf("allocate P2P match sequence: %w", err)
 	}
+	var managedAttemptID string
+	rosterRevision := 1
+	managedErr := tx.QueryRow(ctx, `
+		SELECT attempt.id, attempt.roster_revision
+		FROM p2p_rooms AS room
+		JOIN match_lobbies AS lobby ON lobby.id = room.managed_lobby_id
+		JOIN match_attempts AS attempt ON attempt.id = lobby.current_attempt_id
+		WHERE room.id = $1 AND attempt.state IN ('PROVISIONING', 'CONNECTING', 'RUNNING')
+	`, roomID).Scan(&managedAttemptID, &rosterRevision)
+	if managedErr != nil && !errors.Is(managedErr, pgx.ErrNoRows) {
+		return MatchSession{}, false, fmt.Errorf("load authoritative P2P roster: %w", managedErr)
+	}
 	item := MatchSession{
 		ID: matchID, RoomID: roomID, RoomIDSnapshot: roomID, Sequence: sequence,
 		HostPlayerIDAtStart: hostPlayerID, Mode: mode, MatchType: matchType,
-		State: MatchStarting, RosterRevision: 1, PolicyVersion: policyVersion,
+		State: MatchStarting, RosterRevision: rosterRevision, PolicyVersion: policyVersion,
 		HardExpiresAt: hardExpiresAt, CreatedAt: now, UpdatedAt: now,
 	}
 	_, err = tx.Exec(ctx, `
 		INSERT INTO p2p_match_sessions (
 			id, room_id, room_id_snapshot, sequence, host_player_id_at_start,
 			mode, match_type, state, roster_revision, expected_reporter_count,
-			policy_version, hard_expires_at, created_at, updated_at
-		) VALUES ($1, $2, $2, $3, $4, $5, $6, 'STARTING', 1, 0, $7, $8, $9, $9)
-	`, item.ID, roomID, sequence, hostPlayerID, mode, matchType, policyVersion, hardExpiresAt, now)
+			policy_version, hard_expires_at, created_at, updated_at, match_attempt_id
+		) VALUES ($1, $2, $2, $3, $4, $5, $6, 'STARTING', $7, 0, $8, $9, $10, $10, NULLIF($11, ''))
+	`, item.ID, roomID, sequence, hostPlayerID, mode, matchType, rosterRevision, policyVersion, hardExpiresAt, now, managedAttemptID)
 	if err != nil {
 		return MatchSession{}, false, fmt.Errorf("insert P2P match session: %w", err)
 	}
-	_, err = tx.Exec(ctx, `
+	if managedAttemptID != "" {
+		_, err = tx.Exec(ctx, `
+			INSERT INTO p2p_match_roster (
+				match_id, player_id, platform_id, room_role, slot_index, team_id,
+				team_slot, connection_generation,
+				auth_level_at_start, steam_verified_at_start, is_spectator,
+				is_initial_roster, eligible_reporter, joined_room_at, created_at
+			)
+			SELECT $1, roster.player_id, roster.platform_id, roster.room_role,
+			       roster.logical_slot, roster.team_id, roster.team_slot,
+			       roster.connection_generation, roster.auth_level_at_freeze,
+			       roster.steam_verified_at_freeze, FALSE, TRUE,
+			       roster.steam_verified_at_freeze, roster.joined_lobby_at, $2
+			FROM match_attempt_roster AS roster
+			WHERE roster.attempt_id = $3
+			ORDER BY roster.logical_slot
+		`, item.ID, now, managedAttemptID)
+	} else {
+		_, err = tx.Exec(ctx, `
 		INSERT INTO p2p_match_roster (
 			match_id, player_id, platform_id, room_role, slot_index, team_id,
 			auth_level_at_start, steam_verified_at_start, is_spectator,
@@ -82,8 +112,14 @@ func (r *Repository) EnsureMatchForRoomStart(
 		JOIN players AS player ON player.id = member.player_id
 		WHERE member.room_id = $3 AND member.status = 'ACTIVE'
 	`, item.ID, now, roomID)
+	}
 	if err != nil {
 		return MatchSession{}, false, fmt.Errorf("snapshot P2P match roster: %w", err)
+	}
+	if managedAttemptID != "" {
+		if _, err := tx.Exec(ctx, `UPDATE match_attempts SET p2p_match_id = $2, updated_at = $3 WHERE id = $1`, managedAttemptID, item.ID, now); err != nil {
+			return MatchSession{}, false, fmt.Errorf("link authoritative P2P match: %w", err)
+		}
 	}
 	if err := tx.QueryRow(ctx, `
 		UPDATE p2p_match_sessions AS match
@@ -107,6 +143,7 @@ func (r *Repository) MarkRoomMatchRunning(ctx context.Context, roomID string, no
 		UPDATE p2p_match_sessions
 		SET state = 'RUNNING', updated_at = $2
 		WHERE room_id_snapshot = $1 AND state = 'STARTING'
+		  AND match_attempt_id IS NULL
 	`, roomID, now)
 	if err != nil {
 		return fmt.Errorf("mark P2P match running: %w", err)

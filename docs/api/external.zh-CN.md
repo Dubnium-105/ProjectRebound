@@ -172,7 +172,37 @@ Token 与证书默认均有效 24 小时。轮转请求由当前私钥签名并�
 
 公共房间响应不会返回候选地址、Host Token 或成员秘密。房主不能调用 leave，必须关闭房间。默认 45 秒无房主心跳进入过期处理，90 秒关闭。有效的房主心跳还会在同一数据库事务中续租该房间的所有非终态连接；终态连接不会被恢复。
 
-### 3.5 P2P BattleLog v3
+### 3.5 权威对局大厅（`strict_roster_v1`）
+
+Dedicated 与 P2P 共用这套流程。玩家必须先在 Toolbox 加入大厅并选择阵营，之后游戏进程才允许连接。阵营/席位修改携带 `expected_revision`；`409` 响应包含最新的完整公共大厅快照。准备和 Presence 不改变名单 revision；同阵营重复加入和重复开始保持幂等。
+
+Provisioning 默认期限为 120 秒。Authority-ready 后另行开启 120 秒初始连接窗口。截止时，只要冻结名单的两个阵营都至少已有一人连接，对局即进入 `RUNNING`，所有缺席者席位继续保留；任一阵营无人则中止 attempt、释放承载、带着原名单返回 `OPEN` 并清除准备状态。Dedicated authority 心跳超时在开局前会返回 `OPEN`，已经 `RUNNING` 的世界则将大厅终止为 `ABORTED`。
+
+| 方法 | 路径 | 用途 |
+| --- | --- | --- |
+| GET/POST | `/v1/match-lobbies` | 列出兼容的公开大厅，或创建固定为 `DEDICATED`/`P2P` 且具有双阵营容量的大厅 |
+| GET | `/v1/match-lobbies/{lobby_id}` | 读取两队完整名单、准备/在线租约、逻辑席位、状态和本地能力 |
+| POST | `/v1/match-lobbies/{lobby_id}/join` | 原子保留目标阵营最低空闲席位 |
+| PUT | `/v1/match-lobbies/{lobby_id}/members/me/team` | 移至另一阵营最低空闲席位，并清除所有成员的准备状态 |
+| PUT | `/v1/match-lobbies/{lobby_id}/members/me/ready` | 针对当前名单 revision 设置自己的准备状态 |
+| POST | `/v1/match-lobbies/{lobby_id}/presence` | 上报在线状态；显式离线立即阻止开始，但在 60 秒租约内保留席位 |
+| POST | `/v1/match-lobbies/{lobby_id}/start` | 仅房主可用；幂等冻结名单并创建新 attempt |
+| POST | `/v1/match-lobbies/{lobby_id}/leave` | `OPEN` 阶段离开；房主离开将关闭大厅且不迁移房主 |
+| POST | `/v1/match-attempts/{attempt_id}/join-grant` | 只为当前已认证的冻结成员签发 60 秒、单代次连接授权 |
+
+P2P Listen authority 使用 `/v1/match-attempts/{attempt_id}/host/allocation`、`payload-installed`、`ready`、`connected`、`disconnected`、`heartbeat` 和 `complete` 端点。这些请求要求冻结房主身份和仅存内存的 `X-Match-Authority-Session`；启动传输还要求 `X-Match-Transport-Host-Token`。Payload 安装确认和 authority-ready 都必须携带当前 `route_generation`。
+
+被分配的 Dedicated 节点只会在签名的游戏服务器心跳响应中收到私有 `match_attempt`，公开专服目录不会包含它。节点随后以签名游戏服务器请求调用 `/v1/game-servers/{server_id}/match-attempts/{attempt_id}/allocation`、`payload-installed`、`ready`、`connected`、`disconnected`、`heartbeat` 和 `complete`。Toolbox 注册 worker 会先在本地验证 Ed25519 allocation 作用域，再通过 Payload 命名管道安装。
+
+Dedicated 的 `meta_matches/meta_match_players` 只是严格 attempt 所拥有的承载投影。旧 scheduler、BattleLog 和管理员生命周期操作会忽略 `match_attempt_id` 非空的投影行，避免独立超时、取消或完成造成承载状态与权威大厅事务分叉。P2P 冻结也会直接从 `match_attempt_roster` 事务性生成 `p2p_match_sessions/p2p_match_roster`；旧 VNT/Relay 启动路径不得再按传输成员顺序推导阵营或席位。
+
+`AttemptView.payload_installed` 表示 Payload 已确认当前 `route_generation`，而不只是过去安装过。P2P authority 恢复会递增 route generation、使旧授权失效，并在同一 authority session 安装刷新后的签名 allocation 前阻止新 join grant。
+
+Allocation、join grant、authority session、传输 Host Token 和 JTI 只能存在于 Toolbox/server 核心及命名管道中，禁止进入命令行、URL、日志或 Tauri/UI DTO。只有 `/v1/client/config` 返回 `features.strict_roster_v1=true` 时客户端才可使用本流程；服务端开启前必须配置独立 Ed25519 密钥和锁定游戏 SHA-256。
+
+当前锁定构建的 Luna/Frida 只读动态探针已经确认测试 Dedicated 路径进入 Boundary 与 Engine 的 `PreLogin`，但尚未确认真实 `NMT_Login` 授权注入点、安全的原生服务端阵营写入路径、真正的 Listen authority world，以及 P2P 本地主机旁路。因此发布配置保持 `strict_roster_v1=false`；`PostLogin`、客户端 `ExpectedTeamID` 和直接写结构偏移都不是允许的回退方案。
+
+### 3.6 P2P BattleLog v3
 
 全部接口都要求 Active、Steam 已验证的 Player Access Token，并要求玩家属于服务端冻结的对局名单。P2P 证据与专用服务器的 `battlelog_*` 数据完全分开保存。
 
@@ -186,7 +216,7 @@ Token 与证书默认均有效 24 小时。轮转请求由当前私钥签名并�
 
 Launcher 必须自行保管报告 Token，只在上传时添加；注入 DLL 只能取得非秘密的 Match ID、Capability ID 与 server nonce。每位上报者只能提交一份不可变 `FINAL`。房主或玩家提前离开不会无限阻塞：首份 FINAL、全体上报者进入结果页/离开，或房间关闭都会开启收集截止窗口；窗口结束后将对局记为交叉确认、自报、争议、不完整或过期。`PARTIAL` 仅保留为证据，不计入最终法定人数。
 
-### 3.6 连接协调和 WebSocket
+### 3.7 连接协调和 WebSocket
 
 | 方法 | 路径 | 鉴权 | 请求 | 成功 |
 | --- | --- | --- | --- | --- |
@@ -242,7 +272,7 @@ Relay 分配事件示例：
 
 事件具体字段和枚举见 OpenAPI 中 `Connection*Event`、`ConnectionData`、`RelayTokenClaims`。客户端应按 `connection_id` 幂等处理事件，断线后重新 GET 当前连接状态，不应因重连重复创建房间或连接。
 
-### 3.6 更新
+### 3.8 更新
 
 | 方法 | 路径 | 鉴权 | 查询 | 成功 |
 | --- | --- | --- | --- | --- |
@@ -258,7 +288,7 @@ Relay 分配事件示例：
 4. 校验精确文件大小和 SHA-256；
 5. 任一步失败都不得安装。
 
-### 3.7 社区 VNT 节点与房间
+### 3.9 社区 VNT 节点与房间
 
 VNT 节点注册由玩家的 `vnt_node_registration` 独立权限控制。创建 VNT 或 Legacy P2P 房间都要求 `p2p_room_registration`；Dedicated Server 注册则单独要求 `game_server_registration`。
 

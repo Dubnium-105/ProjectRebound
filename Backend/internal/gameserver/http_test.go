@@ -54,3 +54,31 @@ func TestPublicGameServerResponseDoesNotLeakCredentials(t *testing.T) {
 		}
 	}
 }
+
+func TestHeartbeatReturnsPrivateStrictRosterAssignment(t *testing.T) {
+	service := &stubHTTPService{server: Server{
+		ID: "gs_test", DisplayName: "Dedicated", Region: "hk", Mode: "TDM",
+		Version: "1.0.0", PublicHost: "203.0.113.10", PublicPort: 7777,
+		MaxPlayers: 12, State: StateReserved, LastHeartbeatAt: time.Now(),
+		ActiveMatch: &MatchAssignment{
+			AttemptID: "mat_private", State: "PROVISIONING", RouteGeneration: 2,
+		},
+	}}
+	handler := NewHTTPHandler(service, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	heartbeat := httptest.NewRecorder()
+	handler.Heartbeat(heartbeat, httptest.NewRequest(
+		"POST", "/v1/game-servers/gs_test/heartbeat",
+		strings.NewReader(`{"state":"READY","player_count":0}`),
+	))
+	if body := heartbeat.Body.String(); !strings.Contains(body, `"attempt_id":"mat_private"`) ||
+		!strings.Contains(body, `"route_generation":2`) {
+		t.Fatalf("heartbeat omitted private match assignment: %s", body)
+	}
+
+	public := httptest.NewRecorder()
+	handler.Get(public, httptest.NewRequest("GET", "/v1/game-servers/gs_test", nil))
+	if strings.Contains(public.Body.String(), "mat_private") {
+		t.Fatalf("public server response leaked match assignment: %s", public.Body.String())
+	}
+}

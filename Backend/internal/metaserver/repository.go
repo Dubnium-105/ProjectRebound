@@ -892,6 +892,7 @@ func (r *Repository) MarkMatchPlayerConnected(
 		WHERE member.match_id = $1 AND member.player_id = $2
 		  AND match.id = member.match_id AND match.game_server_id = $3
 		  AND match.state IN ('RESERVED', 'RUNNING')
+		  AND match.match_attempt_id IS NULL
 	`, matchID, playerID, principal.ServerID, now)
 	if err != nil {
 		return internalError(err)
@@ -903,6 +904,7 @@ func (r *Repository) MarkMatchPlayerConnected(
 		UPDATE meta_matches
 		SET state = 'RUNNING', started_at = COALESCE(started_at, $3), updated_at = $3
 		WHERE id = $1 AND game_server_id = $2 AND state IN ('RESERVED', 'RUNNING')
+		  AND match_attempt_id IS NULL
 	`, matchID, principal.ServerID, now)
 	if err == nil {
 		_, err = tx.Exec(ctx, `
@@ -938,6 +940,7 @@ func (r *Repository) CompleteMatch(
 		UPDATE meta_matches
 		SET state = 'COMPLETED', completed_at = $3, updated_at = $3
 		WHERE id = $1 AND game_server_id = $2 AND state IN ('RESERVED', 'RUNNING')
+		  AND match_attempt_id IS NULL
 	`, matchID, principal.ServerID, now)
 	if err != nil {
 		return internalError(err)

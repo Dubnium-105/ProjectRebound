@@ -228,16 +228,31 @@ func (s *Service) Heartbeat(ctx context.Context, serverID, serverToken string, i
 	if input.PlayerCount < 0 || input.PlayerCount > current.MaxPlayers {
 		return Server{}, invalid("Invalid player count.", map[string]any{"player_count": "must be within server capacity"})
 	}
-	if !validTransition(current.State, input.State) {
+	assignment, err := s.repository.ActiveMatchAssignment(ctx, tx, serverID)
+	if err != nil {
+		return Server{}, internal(err)
+	}
+	reportedState := input.State
+	if assignment != nil {
+		// Meta owns reservation/running state for an assigned strict-roster
+		// attempt. A Payload heartbeat that still reports READY during
+		// provisioning must never make the node allocatable a second time.
+		reportedState = StateReserved
+		if assignment.State == "RUNNING" {
+			reportedState = StateRunning
+		}
+	}
+	if !validTransition(current.State, reportedState) {
 		return Server{}, &ServiceError{Status: http.StatusConflict, Code: "INVALID_STATE_TRANSITION", Message: "Invalid game server state transition."}
 	}
-	updated, err := s.repository.UpdateHeartbeat(ctx, tx, serverID, input.State, input.PlayerCount, now)
+	updated, err := s.repository.UpdateHeartbeat(ctx, tx, serverID, reportedState, input.PlayerCount, now)
 	if err != nil {
 		return Server{}, internal(err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return Server{}, internal(err)
 	}
+	updated.ActiveMatch = assignment
 	return updated, nil
 }
 

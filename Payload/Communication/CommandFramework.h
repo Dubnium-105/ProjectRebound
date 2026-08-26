@@ -18,6 +18,9 @@ public:
     using LogCallback = std::function<void(const std::string& message)>;
     using DebugCallback = std::function<nlohmann::json(const nlohmann::json& arguments)>;
     using ServerStatusCallback = std::function<nlohmann::json()>;
+    using MatchAllocationCallback = std::function<nlohmann::json(const nlohmann::json& arguments)>;
+    using MatchAuthorityCallback = std::function<nlohmann::json(const nlohmann::json& arguments)>;
+    using MatchClearCallback = std::function<void()>;
 
     CommandFramework();
     ~CommandFramework();
@@ -35,6 +38,9 @@ public:
     void SetLogCallback(LogCallback callback);
     void SetDebugCallback(DebugCallback callback);
     void SetServerStatusCallback(ServerStatusCallback callback);
+    void SetMatchAllocationCallback(MatchAllocationCallback callback);
+    void SetMatchAuthorityCallback(MatchAuthorityCallback callback);
+    void SetMatchClearCallback(MatchClearCallback callback);
 
     [[nodiscard]] bool Start();
     void Stop() noexcept;
@@ -154,6 +160,9 @@ private:
     LogCallback onLog;
     DebugCallback onDebug;
     ServerStatusCallback onServerStatus;
+    MatchAllocationCallback onMatchAllocation;
+    MatchAuthorityCallback onMatchAuthority;
+    MatchClearCallback onMatchClear;
 
     SECURITY_ATTRIBUTES securityAttributes{};
     SECURITY_DESCRIPTOR securityDescriptor{};

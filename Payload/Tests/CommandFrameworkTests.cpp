@@ -139,6 +139,7 @@ namespace
         const std::string pipeName = UniquePipeName("protocol");
         std::atomic<unsigned int> joinCalls{0};
         std::atomic<bool> joinRanOnListener{false};
+        std::atomic<unsigned int> clearCalls{0};
 
         framework.SetPipeName(pipeName);
         framework.SetWatchdogTimeout(3000);
@@ -156,6 +157,26 @@ namespace
                     {"round_state", "InProgress"}
                 };
             });
+        framework.SetMatchAllocationCallback([](const nlohmann::json& arguments)
+            {
+                return nlohmann::json{
+                    {"accepted", arguments.value("admission_key_id", "") == "adm_1"},
+                    {"code", "allocation_rejected"},
+                    {"message", "test rejection"},
+                    {"payload_version", "1.0.0"},
+                    {"game_binary_sha256",
+                        "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843"}
+                };
+            });
+        framework.SetMatchAuthorityCallback([](const nlohmann::json& arguments)
+            {
+                return nlohmann::json{
+                    {"accepted", arguments.value("transport_target", "") == "10.26.0.2:7777"},
+                    {"endpoint_host", "10.26.0.2"},
+                    {"endpoint_port", 7777}
+                };
+            });
+        framework.SetMatchClearCallback([&clearCalls]() { ++clearCalls; });
 
         Expect(framework.Start(), "framework starts");
         Expect(framework.IsRunning(), "framework reports running");
@@ -200,6 +221,33 @@ namespace
                 status.find("\"player_count\":2") != std::string::npos &&
                 status.find("\"request_id\":\"status-1\"") != std::string::npos,
                 "server status response is correlated");
+
+            Expect(WriteFrame(client.Get(),
+                "install_match_allocation\t{\"request_id\":\"allocation-1\",\"allocation\":\"signed.jwt.value\",\"admission_key_id\":\"adm_1\",\"admission_public_key_base64\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"),
+                "allocation request is written");
+            const std::string allocation = ReadFrame(client.Get());
+            Expect(allocation.find("install_match_allocation_ack\t") == 0 &&
+                allocation.find("\"request_id\":\"allocation-1\"") != std::string::npos &&
+                allocation.find("signed.jwt.value") == std::string::npos,
+                "allocation acknowledgement is correlated and does not echo secrets");
+
+            Expect(WriteFrame(client.Get(),
+                "start_match_authority\t{\"request_id\":\"authority-1\",\"transport_target\":\"10.26.0.2:7777\"}\n"),
+                "authority request is written");
+            const std::string authority = ReadFrame(client.Get());
+            Expect(authority.find("start_match_authority_ack\t") == 0 &&
+                authority.find("\"endpoint_port\":7777") != std::string::npos &&
+                authority.find("\"request_id\":\"authority-1\"") != std::string::npos,
+                "authority acknowledgement is correlated and public-only");
+
+            Expect(WriteFrame(client.Get(),
+                "clear_match_allocation\t{\"request_id\":\"clear-1\"}\n"),
+                "allocation clear request is written");
+            const std::string cleared = ReadFrame(client.Get());
+            Expect(cleared.find("clear_match_allocation_ack\t") == 0 &&
+                cleared.find("\"request_id\":\"clear-1\"") != std::string::npos &&
+                clearCalls.load() == 1,
+                "allocation clear acknowledgement is correlated");
         }
 
         framework.Stop();

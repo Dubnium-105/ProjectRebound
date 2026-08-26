@@ -2549,6 +2549,353 @@ paths:
                   request_id: {type: string}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "429": {$ref: "#/components/responses/RateLimited"}
+  /v1/match-lobbies:
+    get:
+      operationId: listMatchLobbies
+      tags: [Match Lobbies]
+      security: [{playerAccessToken: []}]
+      parameters:
+        - {in: query, name: hosting_kind, schema: {$ref: "#/components/schemas/MatchHostingKind"}}
+        - {in: query, name: region, schema: {type: string}}
+        - {in: query, name: mode, schema: {type: string}}
+        - {in: query, name: client_version, schema: {type: string}}
+        - {in: query, name: cursor, schema: {type: string}}
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+      responses:
+        "200":
+          description: Open strict-roster lobbies across dedicated and P2P hosting.
+          content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyListResponse"}}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+    post:
+      operationId: createMatchLobby
+      tags: [Match Lobbies]
+      security: [{playerAccessToken: []}]
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          schema: {type: string, minLength: 8, maxLength: 128}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyCreateRequest"}}}
+      responses:
+        "201":
+          description: Lobby and owner seat created. P2P host credentials are returned only here.
+          content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyCreateResponse"}}}
+        "400": {$ref: "#/components/responses/InvalidRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/match-lobbies/{lobby_id}:
+    parameters: [{$ref: "#/components/parameters/MatchLobbyID"}]
+    get:
+      operationId: getMatchLobby
+      tags: [Match Lobbies]
+      security: [{playerAccessToken: []}]
+      responses:
+        "200":
+          description: Authoritative two-team lobby snapshot.
+          content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /v1/match-lobbies/{lobby_id}/join:
+    post:
+      operationId: joinMatchLobby
+      tags: [Match Lobbies]
+      security: [{playerAccessToken: []}]
+      parameters: [{$ref: "#/components/parameters/MatchLobbyID"}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyJoinRequest"}}}
+      responses:
+        "200": {description: Seat reserved, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/match-lobbies/{lobby_id}/members/me/team:
+    put:
+      operationId: selectMatchLobbyTeam
+      tags: [Match Lobbies]
+      security: [{playerAccessToken: []}]
+      parameters: [{$ref: "#/components/parameters/MatchLobbyID"}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyJoinRequest"}}}
+      responses:
+        "200": {description: Team changed and all ready states cleared, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/match-lobbies/{lobby_id}/members/me/ready:
+    put:
+      operationId: setMatchLobbyReady
+      tags: [Match Lobbies]
+      security: [{playerAccessToken: []}]
+      parameters: [{$ref: "#/components/parameters/MatchLobbyID"}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyReadyRequest"}}}
+      responses:
+        "200": {description: Ready state updated, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/match-lobbies/{lobby_id}/presence:
+    post:
+      operationId: heartbeatMatchLobbyPresence
+      tags: [Match Lobbies]
+      security: [{playerAccessToken: []}]
+      parameters:
+        - {$ref: "#/components/parameters/MatchLobbyID"}
+        - {$ref: "#/components/parameters/MatchTransportHostToken"}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyPresenceRequest"}}}
+      responses:
+        "200": {description: Presence lease renewed, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
+  /v1/match-lobbies/{lobby_id}/leave:
+    post:
+      operationId: leaveMatchLobby
+      tags: [Match Lobbies]
+      security: [{playerAccessToken: []}]
+      parameters:
+        - {$ref: "#/components/parameters/MatchLobbyID"}
+        - {$ref: "#/components/parameters/MatchTransportHostToken"}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyRevisionRequest"}}}
+      responses:
+        "200": {description: Membership left or owner lobby closed, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/match-lobbies/{lobby_id}/start:
+    post:
+      operationId: startMatchLobby
+      tags: [Match Lobbies]
+      security: [{playerAccessToken: []}]
+      parameters: [{$ref: "#/components/parameters/MatchLobbyID"}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyRevisionRequest"}}}
+      responses:
+        "200": {description: Roster frozen and authority provisioning started, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/match-attempts/{attempt_id}/join-grant:
+    post:
+      operationId: issueMatchJoinGrant
+      tags: [Match Admission]
+      security: [{playerAccessToken: []}]
+      parameters: [{$ref: "#/components/parameters/MatchAttemptID"}]
+      responses:
+        "201":
+          description: Short-lived, seat-bound, one-generation admission grant.
+          headers: {Cache-Control: {schema: {type: string, const: no-store}}}
+          content: {application/json: {schema: {$ref: "#/components/schemas/MatchJoinGrantResponse"}}}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/match-attempts/{attempt_id}/host/allocation:
+    get:
+      operationId: getP2PMatchAllocation
+      tags: [Match Admission]
+      security: [{playerAccessToken: []}]
+      parameters: [{$ref: "#/components/parameters/MatchAttemptID"}]
+      responses:
+        "200": {description: Signed frozen allocation for the listen host, content: {application/json: {schema: {$ref: "#/components/schemas/MatchAllocationResponse"}}}}
+  /v1/match-attempts/{attempt_id}/host/ready:
+    post:
+      operationId: markP2PMatchAuthorityReady
+      tags: [Match Admission]
+      security: [{playerAccessToken: []}]
+      parameters:
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/MatchAuthoritySession"}
+        - {$ref: "#/components/parameters/MatchTransportHostToken"}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/P2PMatchAuthorityReadyRequest"}}}
+      responses:
+        "200": {description: Initial connection window opened, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/match-attempts/{attempt_id}/host/payload-installed:
+    post:
+      operationId: confirmP2PMatchPayloadInstalled
+      tags: [Match Admission]
+      security: [{playerAccessToken: []}]
+      parameters:
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/MatchAuthoritySession"}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/MatchPayloadInstalledRequest"}}}
+      responses:
+        "200": {description: Locked Payload and game build confirmed, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/match-attempts/{attempt_id}/host/connected:
+    post:
+      operationId: reportP2PMatchPlayerConnected
+      tags: [Match Admission]
+      security: [{playerAccessToken: []}]
+      parameters:
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/MatchAuthoritySession"}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/MatchConnectedReportRequest"}}}
+      responses:
+        "200": {description: Consumed grant recorded for the reserved seat, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/match-attempts/{attempt_id}/host/disconnected:
+    post:
+      operationId: reportP2PMatchPlayerDisconnected
+      tags: [Match Admission]
+      security: [{playerAccessToken: []}]
+      parameters:
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/MatchAuthoritySession"}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/MatchDisconnectedReportRequest"}}}
+      responses:
+        "200": {description: Current seat generation marked disconnected, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/match-attempts/{attempt_id}/host/heartbeat:
+    post:
+      operationId: heartbeatP2PMatchAuthority
+      tags: [Match Admission]
+      security: [{playerAccessToken: []}]
+      parameters:
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/MatchAuthoritySession"}
+      responses:
+        "200": {description: Authority continuity heartbeat accepted}
+        "403": {$ref: "#/components/responses/Forbidden"}
+  /v1/match-attempts/{attempt_id}/host/complete:
+    post:
+      operationId: completeP2PMatchAttempt
+      tags: [Match Admission]
+      security: [{playerAccessToken: []}]
+      parameters:
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/MatchAuthoritySession"}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/MatchCompleteRequest"}}}
+      responses:
+        "200": {description: Attempt reached a terminal state, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
+  /v1/game-servers/{server_id}/match-attempts/{attempt_id}/allocation:
+    get:
+      operationId: getDedicatedMatchAllocation
+      tags: [Match Admission]
+      x-internal: true
+      security: [{gameServerToken: [], gameServerSignature: []}]
+      parameters:
+        - {$ref: "#/components/parameters/GameServerID"}
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/GameServerCertificateFingerprint"}
+        - {$ref: "#/components/parameters/GameServerRequestTimestamp"}
+        - {$ref: "#/components/parameters/GameServerRequestNonce"}
+        - {$ref: "#/components/parameters/GameServerCredentialGeneration"}
+      responses:
+        "200": {description: Signed frozen allocation for the assigned dedicated authority, content: {application/json: {schema: {$ref: "#/components/schemas/MatchAllocationResponse"}}}}
+        "403": {$ref: "#/components/responses/Forbidden"}
+  /v1/game-servers/{server_id}/match-attempts/{attempt_id}/payload-installed:
+    post:
+      operationId: confirmDedicatedMatchPayloadInstalled
+      tags: [Match Admission]
+      x-internal: true
+      security: [{gameServerToken: [], gameServerSignature: []}]
+      parameters:
+        - {$ref: "#/components/parameters/GameServerID"}
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/MatchAuthoritySession"}
+        - {$ref: "#/components/parameters/GameServerCertificateFingerprint"}
+        - {$ref: "#/components/parameters/GameServerRequestTimestamp"}
+        - {$ref: "#/components/parameters/GameServerRequestNonce"}
+        - {$ref: "#/components/parameters/GameServerCredentialGeneration"}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/MatchPayloadInstalledRequest"}}}
+      responses:
+        "200": {description: Locked Payload and game build confirmed, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
+  /v1/game-servers/{server_id}/match-attempts/{attempt_id}/ready:
+    post:
+      operationId: markDedicatedMatchAuthorityReady
+      tags: [Match Admission]
+      x-internal: true
+      security: [{gameServerToken: [], gameServerSignature: []}]
+      parameters:
+        - {$ref: "#/components/parameters/GameServerID"}
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/MatchAuthoritySession"}
+        - {$ref: "#/components/parameters/GameServerCertificateFingerprint"}
+        - {$ref: "#/components/parameters/GameServerRequestTimestamp"}
+        - {$ref: "#/components/parameters/GameServerRequestNonce"}
+        - {$ref: "#/components/parameters/GameServerCredentialGeneration"}
+      responses:
+        "200": {description: Initial connection window opened, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
+  /v1/game-servers/{server_id}/match-attempts/{attempt_id}/connected:
+    post:
+      operationId: reportDedicatedMatchPlayerConnected
+      tags: [Match Admission]
+      x-internal: true
+      security: [{gameServerToken: [], gameServerSignature: []}]
+      parameters:
+        - {$ref: "#/components/parameters/GameServerID"}
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/MatchAuthoritySession"}
+        - {$ref: "#/components/parameters/GameServerCertificateFingerprint"}
+        - {$ref: "#/components/parameters/GameServerRequestTimestamp"}
+        - {$ref: "#/components/parameters/GameServerRequestNonce"}
+        - {$ref: "#/components/parameters/GameServerCredentialGeneration"}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/MatchConnectedReportRequest"}}}
+      responses:
+        "200": {description: Consumed grant recorded for the reserved seat, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
+  /v1/game-servers/{server_id}/match-attempts/{attempt_id}/disconnected:
+    post:
+      operationId: reportDedicatedMatchPlayerDisconnected
+      tags: [Match Admission]
+      x-internal: true
+      security: [{gameServerToken: [], gameServerSignature: []}]
+      parameters:
+        - {$ref: "#/components/parameters/GameServerID"}
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/MatchAuthoritySession"}
+        - {$ref: "#/components/parameters/GameServerCertificateFingerprint"}
+        - {$ref: "#/components/parameters/GameServerRequestTimestamp"}
+        - {$ref: "#/components/parameters/GameServerRequestNonce"}
+        - {$ref: "#/components/parameters/GameServerCredentialGeneration"}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/MatchDisconnectedReportRequest"}}}
+      responses:
+        "200": {description: Current seat generation marked disconnected, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
+  /v1/game-servers/{server_id}/match-attempts/{attempt_id}/heartbeat:
+    post:
+      operationId: heartbeatDedicatedMatchAuthority
+      tags: [Match Admission]
+      x-internal: true
+      security: [{gameServerToken: [], gameServerSignature: []}]
+      parameters:
+        - {$ref: "#/components/parameters/GameServerID"}
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/MatchAuthoritySession"}
+        - {$ref: "#/components/parameters/GameServerCertificateFingerprint"}
+        - {$ref: "#/components/parameters/GameServerRequestTimestamp"}
+        - {$ref: "#/components/parameters/GameServerRequestNonce"}
+        - {$ref: "#/components/parameters/GameServerCredentialGeneration"}
+      responses:
+        "200": {description: Authority heartbeat accepted}
+  /v1/game-servers/{server_id}/match-attempts/{attempt_id}/complete:
+    post:
+      operationId: completeDedicatedMatchAttempt
+      tags: [Match Admission]
+      x-internal: true
+      security: [{gameServerToken: [], gameServerSignature: []}]
+      parameters:
+        - {$ref: "#/components/parameters/GameServerID"}
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/MatchAuthoritySession"}
+        - {$ref: "#/components/parameters/GameServerCertificateFingerprint"}
+        - {$ref: "#/components/parameters/GameServerRequestTimestamp"}
+        - {$ref: "#/components/parameters/GameServerRequestNonce"}
+        - {$ref: "#/components/parameters/GameServerCredentialGeneration"}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/MatchCompleteRequest"}}}
+      responses:
+        "200": {description: Attempt reached a terminal state, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
   /v1/p2p-rooms:
     get:
       operationId: listP2PRooms
@@ -4046,6 +4393,28 @@ components:
       required: true
       schema:
         type: string
+    MatchLobbyID:
+      in: path
+      name: lobby_id
+      required: true
+      schema: {type: string, pattern: "^lby_[A-Za-z0-9_-]+$"}
+    MatchAttemptID:
+      in: path
+      name: attempt_id
+      required: true
+      schema: {type: string, pattern: "^mat_[A-Za-z0-9_-]+$"}
+    MatchTransportHostToken:
+      in: header
+      name: X-Match-Transport-Host-Token
+      required: false
+      description: P2P transport host credential retained only by the Toolbox core. Never expose it in UI DTOs or logs.
+      schema: {type: string, minLength: 64, writeOnly: true}
+    MatchAuthoritySession:
+      in: header
+      name: X-Match-Authority-Session
+      required: true
+      description: Opaque authority-session binding extracted only inside the Toolbox or server core from the signed allocation. Never expose it through UI DTOs or logs.
+      schema: {type: string, minLength: 16, writeOnly: true}
     P2PRoomID:
       in: path
       name: room_id
@@ -6116,6 +6485,10 @@ components:
         server:
           $ref: "#/components/schemas/PublicGameServer"
         next_heartbeat_seconds: {type: integer, minimum: 1}
+        match_attempt:
+          allOf:
+            - $ref: "#/components/schemas/DedicatedMatchAssignment"
+          nullable: true
     GameServerHeartbeatResponse:
       type: object
       required: [data, request_id]
@@ -6458,6 +6831,273 @@ components:
       properties:
         data: {$ref: "#/components/schemas/VNTBootstrap"}
         request_id: {type: string}
+    MatchHostingKind:
+      type: string
+      enum: [DEDICATED, P2P]
+    MatchTransportKind:
+      type: string
+      enum: [LEGACY_RELAY, VNT]
+    MatchLobbyState:
+      type: string
+      enum: [OPEN, FROZEN, PROVISIONING, CONNECTING, RUNNING, COMPLETED, ABORTED]
+    MatchAttemptState:
+      type: string
+      enum: [FROZEN, PROVISIONING, CONNECTING, RUNNING, COMPLETED, ABORTED]
+    DedicatedMatchAssignment:
+      type: object
+      additionalProperties: false
+      required: [attempt_id, state, route_generation]
+      properties:
+        attempt_id: {type: string, pattern: "^mat_[A-Za-z0-9_-]+$"}
+        state: {$ref: "#/components/schemas/MatchAttemptState"}
+        route_generation: {type: integer, minimum: 1}
+    MatchLobbyCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [display_name, hosting_kind, mode, region, client_version, protocol_version, team_capacities, team_id]
+      properties:
+        display_name: {type: string, minLength: 1, maxLength: 128}
+        hosting_kind: {$ref: "#/components/schemas/MatchHostingKind"}
+        transport_kind: {$ref: "#/components/schemas/MatchTransportKind"}
+        mode: {type: string, minLength: 1, maxLength: 64}
+        region: {type: string, minLength: 1, maxLength: 64}
+        client_version: {type: string, minLength: 1, maxLength: 64}
+        protocol_version: {type: integer, minimum: 1}
+        team_capacities:
+          type: object
+          additionalProperties: false
+          required: [team_1, team_2]
+          properties:
+            team_1: {type: integer, minimum: 1, maximum: 32}
+            team_2: {type: integer, minimum: 1, maximum: 32}
+        team_id: {type: integer, enum: [1, 2]}
+        vnt_node_id: {type: string, maxLength: 64}
+    MatchLobbyRevisionRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_revision]
+      properties:
+        expected_revision: {type: integer, format: int64, minimum: 1}
+    MatchLobbyJoinRequest:
+      allOf:
+        - {$ref: "#/components/schemas/MatchLobbyRevisionRequest"}
+        - type: object
+          required: [team_id]
+          properties:
+            team_id: {type: integer, enum: [1, 2]}
+    MatchLobbyReadyRequest:
+      allOf:
+        - {$ref: "#/components/schemas/MatchLobbyRevisionRequest"}
+        - type: object
+          required: [ready]
+          properties:
+            ready: {type: boolean}
+    MatchLobbyPresenceRequest:
+      type: object
+      additionalProperties: false
+      required: [online]
+      properties:
+        online: {type: boolean}
+    MatchRosterMember:
+      type: object
+      additionalProperties: false
+      required: [player_id, display_name, role, team_id, team_slot, ready, presence_state, presence_expires_at, joined_at]
+      properties:
+        player_id: {type: string}
+        display_name: {type: string}
+        role: {type: string, enum: [OWNER, MEMBER]}
+        team_id: {type: integer, enum: [1, 2]}
+        team_slot: {type: integer, minimum: 0}
+        ready: {type: boolean}
+        presence_state: {type: string, enum: [ONLINE, OFFLINE]}
+        presence_expires_at: {type: string, format: date-time}
+        joined_at: {type: string, format: date-time}
+    MatchTeamView:
+      type: object
+      additionalProperties: false
+      required: [team_id, capacity, members]
+      properties:
+        team_id: {type: integer, enum: [1, 2]}
+        capacity: {type: integer, minimum: 1, maximum: 32}
+        members:
+          type: array
+          items: {$ref: "#/components/schemas/MatchRosterMember"}
+    MatchLocalCapabilities:
+      type: object
+      additionalProperties: false
+      required: [is_member, is_owner, can_join, can_switch_team, can_set_ready, can_start, can_leave, can_retry_connection]
+      properties:
+        is_member: {type: boolean}
+        is_owner: {type: boolean}
+        can_join: {type: boolean}
+        can_switch_team: {type: boolean}
+        can_set_ready: {type: boolean}
+        can_start: {type: boolean}
+        can_leave: {type: boolean}
+        can_retry_connection: {type: boolean}
+    MatchAttemptView:
+      type: object
+      additionalProperties: false
+      required: [attempt_id, attempt_number, state, roster_revision, route_generation, payload_installed]
+      properties:
+        attempt_id: {type: string}
+        attempt_number: {type: integer, minimum: 1}
+        state: {$ref: "#/components/schemas/MatchAttemptState"}
+        roster_revision: {type: integer, format: int64, minimum: 1}
+        route_generation: {type: integer, minimum: 1}
+        payload_installed: {type: boolean}
+        endpoint_host: {type: string}
+        endpoint_port: {type: integer, minimum: 1, maximum: 65535}
+        connection_deadline: {type: string, format: date-time}
+        failure_code: {type: string}
+    MatchLobbySnapshot:
+      type: object
+      additionalProperties: false
+      required: [lobby_id, owner_player_id, display_name, hosting_kind, mode, region, client_version, protocol_version, state, roster_revision, teams, local, created_at, updated_at]
+      properties:
+        lobby_id: {type: string}
+        owner_player_id: {type: string}
+        p2p_room_id: {type: string}
+        display_name: {type: string}
+        hosting_kind: {$ref: "#/components/schemas/MatchHostingKind"}
+        transport_kind: {$ref: "#/components/schemas/MatchTransportKind"}
+        mode: {type: string}
+        region: {type: string}
+        client_version: {type: string}
+        protocol_version: {type: integer, minimum: 1}
+        state: {$ref: "#/components/schemas/MatchLobbyState"}
+        roster_revision: {type: integer, format: int64, minimum: 1}
+        teams:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items: {$ref: "#/components/schemas/MatchTeamView"}
+        attempt: {$ref: "#/components/schemas/MatchAttemptView"}
+        local: {$ref: "#/components/schemas/MatchLocalCapabilities"}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    MatchLobbyResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/MatchLobbySnapshot"}
+        request_id: {type: string}
+    MatchLobbyCreateResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [lobby]
+          properties:
+            lobby: {$ref: "#/components/schemas/MatchLobbySnapshot"}
+            transport_host_token: {type: string, writeOnly: true}
+        request_id: {type: string}
+    MatchLobbySummary:
+      type: object
+      additionalProperties: false
+      required: [lobby_id, owner_player_id, display_name, hosting_kind, mode, region, client_version, state, player_count, capacity, roster_revision, created_at]
+      properties:
+        lobby_id: {type: string}
+        owner_player_id: {type: string}
+        display_name: {type: string}
+        hosting_kind: {$ref: "#/components/schemas/MatchHostingKind"}
+        transport_kind: {$ref: "#/components/schemas/MatchTransportKind"}
+        mode: {type: string}
+        region: {type: string}
+        client_version: {type: string}
+        state: {$ref: "#/components/schemas/MatchLobbyState"}
+        player_count: {type: integer, minimum: 0}
+        capacity: {type: integer, minimum: 2, maximum: 64}
+        roster_revision: {type: integer, format: int64, minimum: 1}
+        created_at: {type: string, format: date-time}
+    MatchLobbyListResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [items, next_cursor]
+          properties:
+            items: {type: array, items: {$ref: "#/components/schemas/MatchLobbySummary"}}
+            next_cursor: {type: string}
+        request_id: {type: string}
+    MatchJoinGrantResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [attempt_id, endpoint_host, endpoint_port, join_grant, expires_at, connection_generation]
+          properties:
+            attempt_id: {type: string}
+            endpoint_host: {type: string}
+            endpoint_port: {type: integer, minimum: 1, maximum: 65535}
+            join_grant: {type: string, writeOnly: true}
+            expires_at: {type: string, format: date-time}
+            connection_generation: {type: integer, minimum: 1}
+        request_id: {type: string}
+    MatchAllocationResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [attempt_id, allocation, admission_key_id, admission_public_key_base64, expires_at]
+          properties:
+            attempt_id: {type: string}
+            allocation: {type: string, writeOnly: true}
+            admission_key_id: {type: string}
+            admission_public_key_base64: {type: string, writeOnly: true}
+            expires_at: {type: string, format: date-time}
+        request_id: {type: string}
+    MatchPayloadInstalledRequest:
+      type: object
+      additionalProperties: false
+      required: [payload_version, game_binary_sha256, route_generation]
+      properties:
+        payload_version: {type: string, minLength: 1, maxLength: 64}
+        game_binary_sha256: {type: string, pattern: "^[0-9a-f]{64}$"}
+        route_generation: {type: integer, minimum: 1}
+    MatchConnectedReportRequest:
+      type: object
+      additionalProperties: false
+      required: [player_id, grant_jti, connection_generation]
+      properties:
+        player_id: {type: string}
+        grant_jti: {type: string, minLength: 8, maxLength: 96, writeOnly: true}
+        connection_generation: {type: integer, minimum: 1}
+    MatchDisconnectedReportRequest:
+      type: object
+      additionalProperties: false
+      required: [player_id, connection_generation]
+      properties:
+        player_id: {type: string}
+        connection_generation: {type: integer, minimum: 1}
+    MatchCompleteRequest:
+      type: object
+      additionalProperties: false
+      required: [success]
+      properties:
+        success: {type: boolean}
+        failure_code: {type: string, maxLength: 64}
+    P2PMatchAuthorityReadyRequest:
+      type: object
+      additionalProperties: false
+      required: [endpoint_host, endpoint_port, route_generation]
+      properties:
+        endpoint_host: {type: string, minLength: 1, maxLength: 255}
+        endpoint_port: {type: integer, minimum: 1, maximum: 65535}
+        route_generation: {type: integer, minimum: 1}
     P2PRoomState:
       type: string
       enum: [LOBBY, CONNECTING, RUNNING, STALE, CLOSED]
@@ -7280,12 +7920,13 @@ components:
             features:
               type: object
               additionalProperties: false
-              required: [p2p_rooms, relay, dedicated_servers, vnt_rooms]
+              required: [p2p_rooms, relay, dedicated_servers, vnt_rooms, strict_roster_v1]
               properties:
                 p2p_rooms: {type: boolean}
                 relay: {type: boolean}
                 dedicated_servers: {type: boolean}
                 vnt_rooms: {type: boolean, description: Server-authoritative gate for creating or rebinding VNT rooms.}
+                strict_roster_v1: {type: boolean, description: Fail-closed gate for the locked-build authoritative roster flow.}
         request_id: {type: string}
     MetaEndpoint:
       type: object

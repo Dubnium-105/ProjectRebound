@@ -172,7 +172,42 @@ For the complete issuance, named-pipe, fallback, DPAPI, rotation, and production
 
 Public room responses do not return candidate addresses, host tokens, or member secrets. The host cannot call leave and must close the room. By default, if there is no host heartbeat for 45 seconds, it will enter the expiration process, and it will be closed after 90 seconds. A valid host heartbeat also renews all non-terminal connections to the room in the same database transaction; final connections are not restored.
 
-### 3.5 P2P BattleLog v3
+### 3.5 Authoritative match lobbies (`strict_roster_v1`)
+
+This flow is shared by dedicated and P2P hosting. A player joins and chooses a team before the game process connects. Team/seat mutations use `expected_revision`; a `409` response includes the latest public lobby snapshot. Ready and presence changes do not change the roster revision. A repeated join for the same team and a repeated start return the existing state.
+
+Provisioning has a configurable 120-second default deadline. Authority-ready starts a separate 120-second initial connection window. At that deadline, an attempt runs when both frozen teams have at least one connected member and continues to reserve every absent frozen seat; otherwise Meta aborts the attempt, releases the carrier, returns the retained roster to `OPEN`, and clears readiness. A Dedicated authority heartbeat timeout returns a pre-play attempt to `OPEN`, but aborts a lobby that was already `RUNNING`.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET/POST | `/v1/match-lobbies` | List compatible open lobbies or create one with fixed `DEDICATED`/`P2P` hosting and two team capacities |
+| GET | `/v1/match-lobbies/{lobby_id}` | Read both complete team lists, readiness, online leases, logical team slots, state, and local capabilities |
+| POST | `/v1/match-lobbies/{lobby_id}/join` | Atomically reserve the lowest free slot in the requested team |
+| PUT | `/v1/match-lobbies/{lobby_id}/members/me/team` | Move to the lowest free slot in the other team and clear every ready flag |
+| PUT | `/v1/match-lobbies/{lobby_id}/members/me/ready` | Set this member's ready flag against the current roster revision |
+| POST | `/v1/match-lobbies/{lobby_id}/presence` | Report `online`; an explicit offline report blocks start immediately while retaining the seat for 60 seconds |
+| POST | `/v1/match-lobbies/{lobby_id}/start` | Owner-only, idempotently freeze the roster and create a new attempt |
+| POST | `/v1/match-lobbies/{lobby_id}/leave` | Leave while open; owner departure aborts the lobby without host migration |
+| POST | `/v1/match-attempts/{attempt_id}/join-grant` | Issue a 60-second one-generation grant for only the authenticated frozen member |
+
+The P2P listen authority uses `/v1/match-attempts/{attempt_id}/host/allocation`, `/v1/match-attempts/{attempt_id}/host/payload-installed`, `/v1/match-attempts/{attempt_id}/host/ready`, `/v1/match-attempts/{attempt_id}/host/connected`, `/v1/match-attempts/{attempt_id}/host/disconnected`, `/v1/match-attempts/{attempt_id}/host/heartbeat`, and `/v1/match-attempts/{attempt_id}/host/complete`. These calls require the authenticated frozen owner and the in-memory `X-Match-Authority-Session`; transport startup also requires `X-Match-Transport-Host-Token`. Both Payload-installed and authority-ready reports carry the current `route_generation`.
+
+The assigned dedicated node receives a private `match_attempt` assignment in its signed heartbeat response; that field is never included in the public game-server directory. It then uses signed game-server requests at `/v1/game-servers/{server_id}/match-attempts/{attempt_id}/allocation`, `/v1/game-servers/{server_id}/match-attempts/{attempt_id}/payload-installed`, `/v1/game-servers/{server_id}/match-attempts/{attempt_id}/ready`, `/v1/game-servers/{server_id}/match-attempts/{attempt_id}/connected`, `/v1/game-servers/{server_id}/match-attempts/{attempt_id}/disconnected`, `/v1/game-servers/{server_id}/match-attempts/{attempt_id}/heartbeat`, and `/v1/game-servers/{server_id}/match-attempts/{attempt_id}/complete`. The registration worker locally verifies the Ed25519 allocation scope before installing it over the Payload pipe.
+
+The resulting `meta_matches` and `meta_match_players` rows are carrier projections owned by the strict attempt. Legacy scheduler, BattleLog, and admin lifecycle mutations ignore projected rows (`match_attempt_id` is non-null), preventing independent timeout, cancellation, or completion from diverging from the authoritative lobby transaction.
+
+`AttemptView.payload_installed` means that the confirmed Payload applies to the current `route_generation`, not merely that a Payload was seen earlier. A recovering P2P authority increments the route generation, invalidates outstanding grants, and temporarily clears this condition. Until the same authority session installs the refreshed signed allocation and confirms that generation, join-grant issuance fails with `MATCH_AUTHORITY_ROUTE_REFRESHING`.
+
+Allocation and join-grant bodies, authority sessions, transport host tokens, and grant JTIs stay in the Toolbox/server core and named pipe. They must not enter command lines, URLs, logs, or Tauri/UI DTOs. The feature is omitted from normal use unless `/v1/client/config` returns `features.strict_roster_v1=true`; the server requires an explicit Ed25519 key and the locked game SHA-256 before that flag can be enabled.
+
+The current locked-build, read-only dynamic probe has verified entry into both Boundary and Engine `PreLogin` implementations on the tested Dedicated route, but has not yet verified the real `NMT_Login` grant insertion point, a safe native server-side team writer, a true Listen authority world, or the local P2P host bypass. Therefore the shipped configuration keeps `strict_roster_v1=false`; `PostLogin`, client `ExpectedTeamID`, and direct structure-offset writes are explicitly not release fallbacks.
+
+Freezing a P2P lobby transactionally creates `p2p_match_sessions` and
+`p2p_match_roster` from `match_attempt_roster`, regardless of whether optional
+peer BattleLog intake is enabled. The later VNT/Legacy start path reuses this
+projection and cannot regenerate teams from room-member ordering.
+
+### 3.6 P2P BattleLog v3
 
 All endpoints require an active, Steam-verified Player access token and frozen-roster membership. P2P evidence is stored separately from dedicated-server `battlelog_*` data.
 
@@ -186,7 +221,7 @@ All endpoints require an active, Steam-verified Player access token and frozen-r
 
 Launcher must retain the report token and add it only during upload; the injected DLL receives only the non-secret match ID, capability ID, and server nonce. One immutable `FINAL` report is accepted per reporter. Missing reporters—including a host or player that leaves early—do not block indefinitely: the first final report, all reporters reaching result/left state, or closure of the room opens the collection deadline. The service then records peer-confirmed, self-reported, disputed, incomplete, or expired status. `PARTIAL` reports remain evidence but do not count toward final quorum.
 
-### 3.6 Connection coordination and WebSocket
+### 3.7 Connection coordination and WebSocket
 
 | Method | Path | Authentication | Request | Success |
 | --- | --- | --- | --- | --- |
@@ -242,7 +277,7 @@ Relay distribution event example:
 
 For the specific fields and enumerations of the event, see `Connection*Event`, `ConnectionData`, and `RelayTokenClaims` in OpenAPI. The client should handle events `connection_id` idempotently, re-GET the current connection status after disconnection, and should not repeatedly create rooms or connections due to reconnection.
 
-### 3.6 Update
+### 3.8 Update
 
 | Method | Path | Authentication | Query | Success |
 | --- | --- | --- | --- | --- |
@@ -258,7 +293,7 @@ For the specific fields and enumerations of the event, see `Connection*Event`, `
 4. Verify exact file size and SHA-256;
 5. Do not install if any step fails.
 
-### 3.7 VNT community nodes and rooms
+### 3.9 VNT community nodes and rooms
 
 VNT node registration is independently authorized by the player's
 `vnt_node_registration` capability. Creating either a VNT or legacy P2P room

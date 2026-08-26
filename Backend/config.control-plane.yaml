@@ -38,6 +38,8 @@ cors:
     - "Content-Type"
     - "X-Request-Id"
     - "X-Room-Host-Token"
+    - "X-Match-Transport-Host-Token"
+    - "X-Match-Authority-Session"
     - "X-Admin-Step-Up"
   allow_credentials: true
   max_age_seconds: 600
@@ -122,6 +124,21 @@ game_server:
   certificate_ttl_hours: 24
   signature_max_clock_skew_seconds: 60
   sweep_interval_seconds: 5
+
+match_lobby:
+  # Remains fail-closed until the locked native login/team path has passed the
+  # Dedicated NetMode=1, Listen NetMode=2, and local-host bypass validation.
+  strict_roster_v1_enabled: false
+  locked_game_sha256: "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843"
+  presence_grace_seconds: 60
+  provisioning_seconds: 120
+  initial_connection_seconds: 120
+  p2p_host_reconnect_seconds: 120
+  admission_grant_ttl_seconds: 60
+  sweep_interval_seconds: 5
+  admission_signing_key_id: "match-admission-dev-ephemeral"
+  # MATCH_ADMISSION_PRIVATE_KEY_BASE64 is required in production and is never
+  # read from this YAML file.
 
 p2p_room:
   heartbeat_interval_seconds: 15

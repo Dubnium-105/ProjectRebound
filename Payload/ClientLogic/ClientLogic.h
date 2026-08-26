@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 
 namespace SDK
 {
@@ -10,6 +11,12 @@ namespace SDK
 // Thread-safe producer API. The actual Unreal calls are performed by
 // PumpPendingClientCommands from the ProcessEvent game thread.
 [[nodiscard]] bool QueueConnectToMatch(const std::string& target);
+// Strict joins must carry their grant in NMT_Login. Until the pinned native
+// injection path has passed runtime validation this entry point fails closed
+// and never falls back to a direct `open` transition.
+[[nodiscard]] bool QueueConnectToMatchAuthorized(
+    const std::string& target,
+    std::string_view joinGrant);
 void ConnectToMatch();
 void AutoConnectToMatchFromCmdline();
 void NotifyClientLoginCompleted();

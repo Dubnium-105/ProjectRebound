@@ -1349,6 +1349,29 @@ bool QueueConnectToMatch(const std::string& target)
     return true;
 }
 
+bool QueueConnectToMatchAuthorized(
+    const std::string& target,
+    const std::string_view joinGrant)
+{
+    std::string validationError;
+    if (!CommandProtocol::ValidateMatchTarget(target, &validationError))
+    {
+        ClientLog("[STRICT-ROSTER] Rejected match target: " + validationError);
+        return false;
+    }
+    if (joinGrant.empty() || joinGrant.size() > CommandProtocol::MaxTokenBytes)
+    {
+        ClientLog("[STRICT-ROSTER] Rejected invalid join grant length.");
+        return false;
+    }
+
+    // A direct travel here would bypass NMT_Login admission and lose the
+    // signed roster claim. Keep strict joins closed until the locked build's
+    // client login-message injection site is proven dynamically.
+    ClientLog("[STRICT-ROSTER] Join rejected: pinned NMT_Login injection path is unverified.");
+    return false;
+}
+
 void ConnectToMatch()
 {
     std::string target;

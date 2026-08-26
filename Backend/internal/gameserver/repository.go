@@ -228,6 +228,29 @@ func (r *Repository) UpdateHeartbeat(ctx context.Context, tx pgx.Tx, serverID st
 	))
 }
 
+// ActiveMatchAssignment returns the strict-roster attempt currently bound to
+// this Dedicated Server. The game_servers row is already locked by Heartbeat;
+// this intentionally remains a plain MVCC read so completion (which locks the
+// attempt before releasing the server) cannot deadlock with a heartbeat.
+func (r *Repository) ActiveMatchAssignment(ctx context.Context, tx pgx.Tx, serverID string) (*MatchAssignment, error) {
+	var item MatchAssignment
+	err := tx.QueryRow(ctx, `
+		SELECT id, state, route_generation
+		FROM match_attempts
+		WHERE authority_id = $1 AND hosting_kind = 'DEDICATED'
+		  AND state IN ('FROZEN', 'PROVISIONING', 'CONNECTING', 'RUNNING')
+		ORDER BY created_at DESC, id DESC
+		LIMIT 1
+	`, serverID).Scan(&item.AttemptID, &item.State, &item.RouteGeneration)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
 func (r *Repository) Deregister(ctx context.Context, tx pgx.Tx, serverID string, now time.Time) error {
 	_, err := tx.Exec(ctx, `
 		UPDATE game_servers

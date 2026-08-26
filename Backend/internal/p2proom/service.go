@@ -133,6 +133,7 @@ func (s *Service) Create(ctx context.Context, actor Actor, input CreateInput) (C
 		PlayerCount: 1, State: StateLobby, LastHeartbeatAt: now,
 		CreatedAt: now, UpdatedAt: now,
 		TransportKind: input.TransportKind, ExpiresAt: now.Add(8 * time.Hour),
+		ManagedLobbyID: strings.TrimSpace(input.ManagedLobbyID),
 	}
 	requestHash := createRequestHash(room, input.VNTNodeID)
 	tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -314,6 +315,13 @@ func (s *Service) Join(ctx context.Context, actor Actor, roomID, version string)
 	if room.State != StateLobby {
 		return Room{}, conflict("ROOM_NOT_JOINABLE", "Room is not accepting new members.")
 	}
+	allowed, err := s.repository.ManagedLobbyAllowsPlayer(ctx, tx, room.ID, actor.PlayerID)
+	if err != nil {
+		return Room{}, internal(err)
+	}
+	if !allowed {
+		return Room{}, forbidden("MANAGED_LOBBY_MEMBERSHIP_REQUIRED", "Join the authoritative match lobby before joining its P2P transport.")
+	}
 	if strings.TrimSpace(version) != room.Version {
 		return Room{}, conflict("VERSION_MISMATCH", "Client and room versions do not match.")
 	}
@@ -445,6 +453,14 @@ func (s *Service) ensureConnection(ctx context.Context, room Room, peerPlayerID 
 }
 
 func (s *Service) Leave(ctx context.Context, actor Actor, roomID string) (Room, error) {
+	return s.leave(ctx, actor, roomID, false)
+}
+
+func (s *Service) LeaveManaged(ctx context.Context, actor Actor, roomID string) (Room, error) {
+	return s.leave(ctx, actor, roomID, true)
+}
+
+func (s *Service) leave(ctx context.Context, actor Actor, roomID string, allowManaged bool) (Room, error) {
 	if err := requireActive(actor); err != nil {
 		return Room{}, err
 	}
@@ -456,6 +472,9 @@ func (s *Service) Leave(ctx context.Context, actor Actor, roomID string) (Room, 
 	room, err := s.repository.GetForUpdate(ctx, tx, roomID)
 	if err != nil {
 		return Room{}, mapRoomError(err)
+	}
+	if room.ManagedLobbyID != "" && !allowManaged {
+		return Room{}, conflict("MANAGED_LOBBY_OPERATION_REQUIRED", "Leave this managed transport through its authoritative match lobby.")
 	}
 	member, err := s.repository.GetMemberForUpdate(ctx, tx, roomID, actor.PlayerID)
 	if err != nil {
@@ -514,7 +533,18 @@ func (s *Service) Heartbeat(ctx context.Context, actor Actor, roomID, hostToken 
 }
 
 func (s *Service) Start(ctx context.Context, actor Actor, roomID, hostToken string) (Room, error) {
+	return s.start(ctx, actor, roomID, hostToken, false)
+}
+
+func (s *Service) StartManaged(ctx context.Context, actor Actor, roomID, hostToken string) (Room, error) {
+	return s.start(ctx, actor, roomID, hostToken, true)
+}
+
+func (s *Service) start(ctx context.Context, actor Actor, roomID, hostToken string, allowManaged bool) (Room, error) {
 	room, err := s.hostOperation(ctx, actor, roomID, hostToken, func(ctx context.Context, tx pgx.Tx, room Room, now time.Time) (Room, error) {
+		if room.ManagedLobbyID != "" && !allowManaged {
+			return Room{}, conflict("MANAGED_LOBBY_OPERATION_REQUIRED", "Start this managed transport through its authoritative match lobby.")
+		}
 		if !room.ExpiresAt.After(now) {
 			return Room{}, conflict("ROOM_EXPIRED", "Room has expired.")
 		}
@@ -559,7 +589,18 @@ func (s *Service) Start(ctx context.Context, actor Actor, roomID, hostToken stri
 }
 
 func (s *Service) Delete(ctx context.Context, actor Actor, roomID, hostToken string) (Room, error) {
+	return s.delete(ctx, actor, roomID, hostToken, false)
+}
+
+func (s *Service) DeleteManaged(ctx context.Context, actor Actor, roomID, hostToken string) (Room, error) {
+	return s.delete(ctx, actor, roomID, hostToken, true)
+}
+
+func (s *Service) delete(ctx context.Context, actor Actor, roomID, hostToken string, allowManaged bool) (Room, error) {
 	room, err := s.hostOperation(ctx, actor, roomID, hostToken, func(ctx context.Context, tx pgx.Tx, room Room, now time.Time) (Room, error) {
+		if room.ManagedLobbyID != "" && !allowManaged {
+			return Room{}, conflict("MANAGED_LOBBY_OPERATION_REQUIRED", "Close this managed transport through its authoritative match lobby.")
+		}
 		if room.State == StateClosed {
 			return room, nil
 		}
@@ -894,9 +935,9 @@ func containsString(values []string, target string) bool {
 }
 
 func createRequestHash(room Room, vntNodeID string) []byte {
-	canonical := fmt.Sprintf("%s\x00%s\x00%s\x00%s\x00%d\x00%s\x00%s",
+	canonical := fmt.Sprintf("%s\x00%s\x00%s\x00%s\x00%d\x00%s\x00%s\x00%s",
 		room.DisplayName, room.Region, room.Mode, room.Version, room.MaxPlayers,
-		room.TransportKind, strings.TrimSpace(vntNodeID))
+		room.TransportKind, strings.TrimSpace(vntNodeID), room.ManagedLobbyID)
 	hash := sha256.Sum256([]byte(canonical))
 	return hash[:]
 }

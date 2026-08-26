@@ -24,6 +24,7 @@ type Config struct {
 	Admin         AdminConfig         `yaml:"admin"`
 	GameServer    GameServerConfig    `yaml:"game_server"`
 	MetaServer    MetaServerConfig    `yaml:"meta_server"`
+	MatchLobby    MatchLobbyConfig    `yaml:"match_lobby"`
 	P2PRoom       P2PRoomConfig       `yaml:"p2p_room"`
 	P2PBattleLog  P2PBattleLogConfig  `yaml:"p2p_battlelog"`
 	Connection    ConnectionConfig    `yaml:"connection"`
@@ -196,6 +197,19 @@ type P2PRoomConfig struct {
 	MaximumPlayers           int `yaml:"maximum_players"`
 }
 
+type MatchLobbyConfig struct {
+	StrictRosterV1Enabled     bool   `yaml:"strict_roster_v1_enabled"`
+	LockedGameSHA256          string `yaml:"locked_game_sha256"`
+	PresenceGraceSeconds      int    `yaml:"presence_grace_seconds"`
+	ProvisioningSeconds       int    `yaml:"provisioning_seconds"`
+	InitialConnectionSeconds  int    `yaml:"initial_connection_seconds"`
+	P2PHostReconnectSeconds   int    `yaml:"p2p_host_reconnect_seconds"`
+	AdmissionGrantTTLSeconds  int    `yaml:"admission_grant_ttl_seconds"`
+	SweepIntervalSeconds      int    `yaml:"sweep_interval_seconds"`
+	AdmissionSigningKeyID     string `yaml:"admission_signing_key_id"`
+	AdmissionPrivateKeyBase64 string `yaml:"-"`
+}
+
 type P2PBattleLogConfig struct {
 	Enabled                   bool   `yaml:"enabled"`
 	ShadowMode                bool   `yaml:"shadow_mode"`
@@ -324,6 +338,7 @@ var Defaults = Config{
 		},
 		AllowedHeaders: []string{
 			"Authorization", "Content-Type", "X-Request-Id", "X-Room-Host-Token", "X-P2P-Report-Token",
+			"X-Match-Transport-Host-Token", "X-Match-Authority-Session",
 			"X-Admin-Step-Up",
 			"X-Game-Server-Id", "X-Game-Server-Certificate", "X-Game-Server-Timestamp",
 			"X-Game-Server-Nonce", "X-Game-Server-Generation", "X-Game-Server-Signature",
@@ -416,6 +431,17 @@ var Defaults = Config{
 		NativePlayerLevel:          70,
 		NativeCharacterLevel:       30,
 		NativeOwnershipMode:        "full",
+	},
+	MatchLobby: MatchLobbyConfig{
+		StrictRosterV1Enabled:    false,
+		LockedGameSHA256:         "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+		PresenceGraceSeconds:     60,
+		ProvisioningSeconds:      120,
+		InitialConnectionSeconds: 120,
+		P2PHostReconnectSeconds:  120,
+		AdmissionGrantTTLSeconds: 60,
+		SweepIntervalSeconds:     5,
+		AdmissionSigningKeyID:    "match-admission-dev-ephemeral",
 	},
 	P2PRoom: P2PRoomConfig{
 		HeartbeatIntervalSeconds: 15,
@@ -569,6 +595,16 @@ func (c *Config) applyEnvOverrides() {
 	overrideInt("META_NATIVE_CHARACTER_LEVEL", &c.MetaServer.NativeCharacterLevel)
 	overrideString("META_NATIVE_OWNERSHIP_MODE", &c.MetaServer.NativeOwnershipMode)
 	overrideBool("META_DEVELOPMENT_LEGACY_LOADOUT_API", &c.MetaServer.DevelopmentLegacyLoadoutAPI)
+	overrideInt("MATCH_LOBBY_PRESENCE_GRACE_SECONDS", &c.MatchLobby.PresenceGraceSeconds)
+	overrideBool("STRICT_ROSTER_V1_ENABLED", &c.MatchLobby.StrictRosterV1Enabled)
+	overrideString("STRICT_ROSTER_LOCKED_GAME_SHA256", &c.MatchLobby.LockedGameSHA256)
+	overrideInt("MATCH_LOBBY_PROVISIONING_SECONDS", &c.MatchLobby.ProvisioningSeconds)
+	overrideInt("MATCH_LOBBY_INITIAL_CONNECTION_SECONDS", &c.MatchLobby.InitialConnectionSeconds)
+	overrideInt("MATCH_LOBBY_P2P_HOST_RECONNECT_SECONDS", &c.MatchLobby.P2PHostReconnectSeconds)
+	overrideInt("MATCH_ADMISSION_GRANT_TTL_SECONDS", &c.MatchLobby.AdmissionGrantTTLSeconds)
+	overrideInt("MATCH_LOBBY_SWEEP_INTERVAL_SECONDS", &c.MatchLobby.SweepIntervalSeconds)
+	overrideString("MATCH_ADMISSION_SIGNING_KEY_ID", &c.MatchLobby.AdmissionSigningKeyID)
+	overrideString("MATCH_ADMISSION_PRIVATE_KEY_BASE64", &c.MatchLobby.AdmissionPrivateKeyBase64)
 	overrideInt("REDIS_DB", &c.Redis.DB)
 	overrideInt("HTTP_RATE_LIMIT_BURST", &c.RateLimit.Burst)
 	overrideInt("AUTH_BIND_REQUESTS_PER_MINUTE", &c.Auth.BindRequestsPerMinute)
@@ -837,6 +873,25 @@ func (c *Config) ValidateControlPlane() error {
 		c.P2PRoom.ClosedAfterSeconds <= c.P2PRoom.StaleAfterSeconds ||
 		c.P2PRoom.SweepIntervalSeconds < 1 || c.P2PRoom.MaximumPlayers < 2 || c.P2PRoom.MaximumPlayers > 64 {
 		errs = append(errs, errors.New("p2p_room timing and capacity settings are invalid"))
+	}
+	if c.MatchLobby.PresenceGraceSeconds < 10 ||
+		c.MatchLobby.ProvisioningSeconds < 30 ||
+		c.MatchLobby.InitialConnectionSeconds < 30 ||
+		c.MatchLobby.P2PHostReconnectSeconds < 30 ||
+		c.MatchLobby.AdmissionGrantTTLSeconds < 15 ||
+		c.MatchLobby.AdmissionGrantTTLSeconds > c.MatchLobby.InitialConnectionSeconds ||
+		c.MatchLobby.SweepIntervalSeconds < 1 ||
+		strings.TrimSpace(c.MatchLobby.AdmissionSigningKeyID) == "" {
+		errs = append(errs, errors.New("match_lobby timing and admission signing settings are invalid"))
+	}
+	if c.MatchLobby.StrictRosterV1Enabled {
+		lockedHash := strings.ToLower(strings.TrimSpace(c.MatchLobby.LockedGameSHA256))
+		if len(lockedHash) != 64 || strings.Trim(lockedHash, "0123456789abcdef") != "" {
+			errs = append(errs, errors.New("strict_roster_v1 requires a 64-character locked game SHA-256"))
+		}
+		if strings.TrimSpace(c.MatchLobby.AdmissionPrivateKeyBase64) == "" {
+			errs = append(errs, errors.New("strict_roster_v1 requires MATCH_ADMISSION_PRIVATE_KEY_BASE64 in every environment"))
+		}
 	}
 	if strings.TrimSpace(c.P2PBattleLog.PolicyVersion) == "" ||
 		c.P2PBattleLog.MaxReportBytes < 16*1024 ||
