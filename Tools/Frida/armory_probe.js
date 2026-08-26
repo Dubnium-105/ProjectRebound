@@ -56,6 +56,8 @@ const SETTINGS = {
         shutdownWaitCleanup: 0x404,
         matchSubState: 0x408,
         roundState: 0x410,
+        deferredRespawnQueueMode: 0x428,
+        deferredRespawnQueue: 0x430,
     },
     gameState: {
         matchState: 0x270,
@@ -131,10 +133,9 @@ const SETTINGS = {
         { name: 'engine_server_restart_player', rva: 0x03506BD0, controllerArg: 1 },
         { name: 'exit_observer_state', rva: 0x015AE240, controllerArg: 0 },
         { name: 'restart_players', rva: 0x0163D420 },
-        // Parameter layout is not dereferenced until runtime evidence confirms
-        // the vtable-call ABI; the boundary/backtrace alone is sufficient to
-        // distinguish RestartPlayers from its per-controller consumer.
-        { name: 'restart_player', rva: 0x0163D250 },
+        // IDA confirms APBGameMode::RestartPlayer receives the target
+        // AController as its second x64 argument.
+        { name: 'restart_player', rva: 0x0163D250, controllerArg: 1, lifecycle: true },
         { name: 'possess_promote_inventory', rva: 0x0167FB20 },
     ],
     serverTravelRva: 0x036D61B0,
@@ -1450,6 +1451,7 @@ const questManagers = new Map();
 const questSignatures = new Map();
 const playerStates = new Map();
 const playerStateSignatures = new Map();
+const playerControllers = new Map();
 const gameModeVtables = new Map();
 const weaponSignatures = new Map();
 let careerMemoryMonitorActive = false;
@@ -1528,6 +1530,10 @@ function matchLifecycleSnapshot(object) {
     try {
         if (classInherits(object, 'PBGameMode')) {
             const gameState = object.add(SETTINGS.gameMode.pbGameState).readPointer();
+            const deferredRespawnQueue = readArrayHeader(
+                object.add(SETTINGS.gameMode.deferredRespawnQueue),
+                256,
+                'PBGameMode deferred respawn queue');
             return {
                 object_kind: 'game_mode',
                 match_state: fnameToString(object.add(SETTINGS.gameMode.matchState)),
@@ -1539,6 +1545,9 @@ function matchLifecycleSnapshot(object) {
                     SETTINGS.gameMode.shutdownWaitRejoin).readFloat(),
                 shutdown_wait_cleanup: object.add(
                     SETTINGS.gameMode.shutdownWaitCleanup).readFloat(),
+                deferred_respawn_queue_mode: object.add(
+                    SETTINGS.gameMode.deferredRespawnQueueMode).readS32(),
+                deferred_respawn_queue_count: deferredRespawnQueue.num,
                 game_state: dumpPBGameStateLifecycle(gameState),
             };
         }
@@ -2937,6 +2946,21 @@ function considerObject(object) {
             });
         }
     }
+    if (!name.startsWith('Default__') && classInherits(object, 'PBPlayerController')) {
+        const key = object.toString();
+        const firstSeen = !playerControllers.has(key);
+        playerControllers.set(key, object);
+        if (firstSeen) {
+            emit('interaction.controller_snapshot', {
+                reason: 'object_scan',
+                object: key,
+                object_name: name,
+                class_name: typeName,
+                controller_state: interactionControllerSnapshot(object),
+            });
+        }
+        return;
+    }
     if (!name.startsWith('Default__') && classInherits(object, 'PBPlayerState')) {
         registerPlayerState(object, 'object_scan');
         return;
@@ -3131,6 +3155,7 @@ function scanObjects() {
             career_managers_found: careerManagers.size,
             progression_managers_found: progressionManagers.size,
             quest_managers_found: questManagers.size,
+            player_controllers_found: playerControllers.size,
             player_states_found: playerStates.size,
         });
         if (armoryManager !== null && inventoryState === null) {

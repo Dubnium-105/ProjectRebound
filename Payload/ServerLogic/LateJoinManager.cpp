@@ -18,6 +18,7 @@
 #include "JoinUiSyncPolicy.h"
 #include "ManagedPossessionSyncPolicy.h"
 #include "DedicatedMultiMatchPolicy.h"
+#include "RespawnStatePolicy.h"
 #include "ServerLogic.h"
 #include "../SDK.hpp"
 #include "../SDK/Engine_parameters.hpp"
@@ -207,29 +208,74 @@ bool LateJoinManager::OnProcessEvent(UObject* Object, const std::string& functio
 //  并重置生成计时器。
 void LateJoinManager::OnRoleConfirmed(
     APBPlayerController* PC,
-    const std::string& roleId)
+    const std::string& roleId,
+    bool wasAwaitingRespawnInputBeforeConfirmation,
+    bool confirmationRestartWasSuppressed)
 {
     auto it = LateJoinPlayers.find(PC);
     if (it == LateJoinPlayers.end() || roleId.empty() || roleId == "None")
         return;
 
     // ESC -> role selection is the explicit alternate to the native F respawn
-    // prompt. A dead controller can still retain its old Pawn briefly, so do
-    // not run the playable-Pawn/role-transition test in this state: the death
-    // that would release that transition has already happened.
-    if (it->second.State == ELateJoinState::AwaitingRespawnInput)
+    // prompt. The selection RPC commits SelectedCharacterID/pre-ordering, but
+    // its synchronous APBGameMode::RestartPlayer is not the PB death-respawn
+    // entry point and is always suppressed for this scoped confirmation. The
+    // hook layer follows the commit with one native ServerQuickRespawn attempt;
+    // until then preserve the explicit wait without arming generic fallback.
+    // Do not infer this from the mutable state after the native confirmation.
+    // ServerConfirmRoleSelection can synchronously enter restart/pre-order
+    // callbacks that temporarily queue the managed player before it returns.
+    // The hook captures the death-wait state at RPC entry, which is the stable
+    // fact needed to distinguish a cooldown-time role commit from first spawn.
+    if (wasAwaitingRespawnInputBeforeConfirmation)
     {
         it->second.DesiredRoleId = roleId;
-        it->second.State = ELateJoinState::RoleConfirmed;
+        // When the scoped hook suppressed the raw restart, any same-role Pawn
+        // still attached here is the pre-death corpse, never a successful
+        // confirmation spawn.
+        const bool requestedPawnIsPlayable =
+            !confirmationRestartWasSuppressed &&
+            HasPlayableLateJoinPawn(PC, roleId);
+        it = LateJoinPlayers.find(PC);
+        if (it == LateJoinPlayers.end())
+            return;
+
         it->second.ElapsedSeconds = 0.0f;
-        it->second.SpawnAttempts = 0;
         it->second.AwaitingRoleTransitionDeath = false;
-        PlayerRespawnAllowedMap[PC] = false;
-        std::cout << "[LATEJOIN] Post-death role selection confirmed; scheduling spawn."
-            << std::endl;
+        if (RespawnStatePolicy::
+            ShouldRemainAwaitingRespawnAfterPostDeathRoleConfirmation(
+                true,
+                confirmationRestartWasSuppressed,
+                requestedPawnIsPlayable))
+        {
+            it->second.State = ELateJoinState::AwaitingRespawnInput;
+            it->second.SpawnAttempts = 0;
+            it->second.ExplicitNativeRespawnDispatched = false;
+            PlayerRespawnAllowedMap[PC] = false;
+            std::cout << "[RESPAWN] Post-death role/loadout committed; raw "
+                         "RestartPlayer removed before PB quick-respawn. role="
+                      << roleId << " lifecycle_id="
+                      << it->second.RespawnLifecycleId
+                      << " restart_suppressed="
+                      << (confirmationRestartWasSuppressed ? 1 : 0)
+                      << std::endl;
+            return;
+        }
+
+        // If the native confirmation itself produced the requested Pawn, let
+        // Tick run the common possession/HUD finalizer without dispatching a
+        // second restart.
+        it->second.State = ELateJoinState::RoleConfirmed;
+        it->second.SpawnAttempts = 1;
+        it->second.ExplicitNativeRespawnDispatched = true;
+        PlayerRespawnAllowedMap[PC] = true;
+        std::cout << "[RESPAWN] Native post-death role confirmation produced "
+                     "the requested pawn; finalizing. role="
+                  << roleId << std::endl;
         return;
     }
 
+    const bool wasSpawned = it->second.State == ELateJoinState::Spawned;
     it->second.DesiredRoleId = roleId;
     const auto respawn = PlayerRespawnAllowedMap.find(PC);
     const bool respawnWasBlocked =
@@ -245,6 +291,21 @@ void LateJoinManager::OnRoleConfirmed(
     it = LateJoinPlayers.find(PC);
     if (it == LateJoinPlayers.end())
         return;
+
+    if (wasSpawned && anyCurrentPawnPlayable)
+    {
+        // ServerConfirmRoleSelection has already updated the authoritative
+        // PlayerState and controller pre-order cache. Keep the current Pawn
+        // intact; the ordinary death -> F/ESC flow will consume this staged
+        // selection when it creates the next Pawn.
+        it->second.State = ELateJoinState::Spawned;
+        it->second.AwaitingRoleTransitionDeath = false;
+        it->second.ExplicitNativeRespawnDispatched = false;
+        std::cout << "[RESPAWN] Live role/loadout committed for next native "
+                     "respawn; current pawn preserved. role="
+                  << roleId << std::endl;
+        return;
+    }
 
     if (desiredPawnPlayable && !respawnWasBlocked)
     {
@@ -395,9 +456,130 @@ bool LateJoinManager::DispatchManagedExplicitRespawn(
     return true;
 }
 
+bool LateJoinManager::DispatchPostDeathRoleDeployRespawn(
+    APBPlayerController* PC,
+    const FExplicitRespawnDispatch& dispatch)
+{
+    if (!dispatch || !IsCurrentServerConnection(PC))
+        return false;
+
+    auto it = LateJoinPlayers.find(PC);
+    if (it == LateJoinPlayers.end() ||
+        it->second.State != ELateJoinState::AwaitingRespawnInput ||
+        !it->second.HasCompletedSpawn)
+    {
+        return false;
+    }
+
+    const std::string desiredRoleId = it->second.DesiredRoleId;
+    const std::uint64_t lifecycleId = it->second.RespawnLifecycleId;
+    if (desiredRoleId.empty() || desiredRoleId == "None")
+        return false;
+
+    // Preserve the same loadout/seamless gate as an ordinary managed spawn,
+    // but do not convert AwaitingRespawnInput into RoleConfirmed yet. Native
+    // ServerQuickRespawn owns the cooldown decision; a rejected request must
+    // leave no timer-driven fallback armed behind the death UI.
+    const bool canRelease =
+        !CanReleasePlayerSpawn || CanReleasePlayerSpawn(PC);
+    it = LateJoinPlayers.find(PC);
+    if (!IsCurrentServerConnection(PC) || it == LateJoinPlayers.end())
+        return false;
+    if (!canRelease ||
+        it->second.State != ELateJoinState::AwaitingRespawnInput)
+    {
+        std::cout << "[RESPAWN] lifecycle_id=" << lifecycleId
+            << " attempt=0 origin=death_role_deploy"
+            << " request_kind=ServerQuickRespawn"
+            << " native_result=spawn_gate_wait" << std::endl;
+        return true;
+    }
+
+    PlayerRespawnAllowedMap[PC] = true;
+    if (BeginSpawnDispatch) BeginSpawnDispatch(PC);
+    ScopedSpawnDispatchCompletion dispatchCompletion(
+        CompleteSpawnDispatch, PC);
+    if (!IsCurrentServerConnection(PC) || !LateJoinPlayers.contains(PC))
+        return false;
+
+    ScopedRestartPermit permit(
+        ManagedRestartPermit, ManagedRestartPermitDepth, PC);
+    std::cout << "[RESPAWN] lifecycle_id=" << lifecycleId
+        << " attempt=0 origin=death_role_deploy"
+        << " request_kind=ServerQuickRespawn"
+        << " hook_action=forwarded_native pre="
+        << DescribePlayerRoleIdentity(PC) << std::endl;
+    dispatch();
+
+    if (!IsCurrentServerConnection(PC) || !LateJoinPlayers.contains(PC))
+        return true;
+
+    // The pinned PB implementation either performs its restart synchronously
+    // or returns before touching controller state when the cooldown predicate
+    // rejects it. This makes the requested Pawn the authoritative result bit.
+    const bool requestedPawnIsPlayable =
+        HasPlayableLateJoinPawn(PC, desiredRoleId);
+    it = LateJoinPlayers.find(PC);
+    if (it == LateJoinPlayers.end())
+        return true;
+
+    it->second.ElapsedSeconds = 0.0f;
+    it->second.AwaitingRoleTransitionDeath = false;
+    if (requestedPawnIsPlayable)
+    {
+        // Let Tick use the common possession/HUD finalizer on the next frame.
+        it->second.State = ELateJoinState::RoleConfirmed;
+        it->second.SpawnAttempts = 1;
+        it->second.ExplicitNativeRespawnDispatched = true;
+        PlayerRespawnAllowedMap[PC] = true;
+        std::cout << "[RESPAWN] lifecycle_id=" << lifecycleId
+            << " attempt=0 origin=death_role_deploy"
+            << " request_kind=ServerQuickRespawn"
+            << " native_result=spawned post="
+            << DescribePlayerRoleIdentity(PC) << std::endl;
+    }
+    else
+    {
+        // Cooldown rejection is not a failed spawn attempt. Keep both the F
+        // prompt and a later Deploy click eligible to issue a fresh native RPC.
+        it->second.State = ELateJoinState::AwaitingRespawnInput;
+        it->second.SpawnAttempts = 0;
+        it->second.ExplicitNativeRespawnDispatched = false;
+        PlayerRespawnAllowedMap[PC] = false;
+        std::cout << "[RESPAWN] lifecycle_id=" << lifecycleId
+            << " attempt=0 origin=death_role_deploy"
+            << " request_kind=ServerQuickRespawn"
+            << " native_result=cooldown_wait post="
+            << DescribePlayerRoleIdentity(PC) << std::endl;
+    }
+
+    return true;
+}
+
 bool LateJoinManager::IsManagedPlayer(APBPlayerController* PC) const
 {
     return PC && LateJoinPlayers.contains(PC);
+}
+
+bool LateJoinManager::ShouldStageLiveRoleConfirmation(
+    APBPlayerController* PC,
+    const std::string& requestedRoleId) const
+{
+    const auto tracked = LateJoinPlayers.find(PC);
+    const bool managedPlayer = PC && tracked != LateJoinPlayers.end();
+    const bool playerAlreadySpawned = managedPlayer &&
+        tracked->second.State == ELateJoinState::Spawned;
+    const bool requestedRoleIsConcrete =
+        !requestedRoleId.empty() && requestedRoleId != "None";
+    const bool hasPlayablePawn = playerAlreadySpawned &&
+        HasPlayableLateJoinPawn(PC);
+
+    return RespawnStatePolicy::DecideLiveRoleConfirmation(
+        managedPlayer,
+        playerAlreadySpawned,
+        hasPlayablePawn,
+        requestedRoleIsConcrete) ==
+        RespawnStatePolicy::LiveRoleConfirmationAction::CommitForNextRespawn;
 }
 
 bool LateJoinManager::IsRedundantSeamlessRoleConfirmation(

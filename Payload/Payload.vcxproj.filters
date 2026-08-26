@@ -66,6 +66,9 @@
     <ClInclude Include="ClientLogic\SeamlessIntroCameraPolicy.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ClientLogic\LocalQosDiscoveryPolicy.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="ServerLogic\DedicatedMultiMatch.h">
       <Filter>Header Files</Filter>
     </ClInclude>

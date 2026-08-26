@@ -709,9 +709,53 @@ static SafetyHookInline ServerInGameMenuTransition = {};
 static SafetyHookInline ServerEndMatch = {};
 static SafetyHookMid ServerNullResultMvp = {};
 static SafetyHookInline ServerConfirmRoleSelectionValidate = {};
+static SafetyHookInline ServerRoleConfirmationRestartPlayer = {};
 static SafetyHookInline ServerStartShowingMatchResult = {};
 static SafetyHookInline ServerStartWaitingToEndGame = {};
 static SafetyHookInline ServerBeginFinalCleanup = {};
+
+static thread_local APBPlayerController*
+    gLiveRoleConfirmationController = nullptr;
+static thread_local RespawnStatePolicy::LiveRoleConfirmationAction
+    gLiveRoleConfirmationAction =
+        RespawnStatePolicy::LiveRoleConfirmationAction::NativeConfirmAndRestart;
+static thread_local bool gRoleConfirmationRestartWasSuppressed = false;
+
+class ScopedLiveRoleConfirmationRestartPolicy
+{
+public:
+    ScopedLiveRoleConfirmationRestartPolicy(
+        APBPlayerController* playerController,
+        RespawnStatePolicy::LiveRoleConfirmationAction action)
+        : PreviousController(gLiveRoleConfirmationController)
+        , PreviousAction(gLiveRoleConfirmationAction)
+        , PreviousRestartWasSuppressed(
+            gRoleConfirmationRestartWasSuppressed)
+    {
+        gLiveRoleConfirmationController = playerController;
+        gLiveRoleConfirmationAction = action;
+        gRoleConfirmationRestartWasSuppressed = false;
+    }
+
+    ~ScopedLiveRoleConfirmationRestartPolicy()
+    {
+        gLiveRoleConfirmationController = PreviousController;
+        gLiveRoleConfirmationAction = PreviousAction;
+        gRoleConfirmationRestartWasSuppressed =
+            PreviousRestartWasSuppressed;
+    }
+
+    bool WasRestartSuppressed() const
+    {
+        return gRoleConfirmationRestartWasSuppressed;
+    }
+
+private:
+    APBPlayerController* PreviousController = nullptr;
+    RespawnStatePolicy::LiveRoleConfirmationAction PreviousAction =
+        RespawnStatePolicy::LiveRoleConfirmationAction::NativeConfirmAndRestart;
+    bool PreviousRestartWasSuppressed = false;
+};
 
 __int64 ServerInGameMenuTransitionHook(APBPlayerController* playerController, bool opening)
 {
@@ -786,6 +830,52 @@ bool ServerConfirmRoleSelectionValidateHook(
 
     return ServerConfirmRoleSelectionValidate.call<bool>(
         playerController, roleId);
+}
+
+void ServerRoleConfirmationRestartPlayerHook(
+    APBGameMode* gameMode,
+    AController* newPlayer)
+{
+    // Fixed-build APBGameMode::RestartPlayer checks this int32 at
+    // RVA 0x0163D2D9. A non-zero value selects the native deferred-respawn
+    // branch, which notifies the client and appends the controller to the
+    // +0x430 queue instead of spawning a Pawn.
+    constexpr uintptr_t RespawnQueueModeOffset = 0x428;
+    APBPlayerController* playerController =
+        newPlayer && newPlayer->IsA(APBPlayerController::StaticClass())
+            ? static_cast<APBPlayerController*>(newPlayer)
+            : nullptr;
+    const bool sameController = playerController &&
+        playerController == gLiveRoleConfirmationController;
+    const bool controllerStillHasPawn =
+        playerController && playerController->Pawn;
+    const bool nativeRestartWouldEnterRespawnQueue = gameMode &&
+        *reinterpret_cast<const int32*>(
+            reinterpret_cast<const uint8*>(gameMode) +
+            RespawnQueueModeOffset) != 0;
+    if (RespawnStatePolicy::ShouldSuppressRoleConfirmationRestart(
+            gLiveRoleConfirmationAction,
+            sameController))
+    {
+        gRoleConfirmationRestartWasSuppressed = true;
+        const bool liveNextLife = gLiveRoleConfirmationAction ==
+            RespawnStatePolicy::
+                LiveRoleConfirmationAction::CommitForNextRespawn;
+        std::cout << "[RESPAWN] Suppressed ServerConfirmRoleSelection "
+                     "RestartPlayer; native role/loadout commit retained. "
+                     "reason="
+                  << (liveNextLife
+                        ? "live_next_life"
+                        : "post_death_replace_with_pb_quick")
+                  << " native_queue_mode="
+                  << (nativeRestartWouldEnterRespawnQueue ? 1 : 0)
+                  << " existing_pawn="
+                  << (controllerStillHasPawn ? 1 : 0)
+                  << std::endl;
+        return;
+    }
+
+    ServerRoleConfirmationRestartPlayer.call<void>(gameMode, newPlayer);
 }
 
 void ServerStartShowingMatchResultHook(APBGameMode* gameMode)
@@ -1249,6 +1339,12 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
                 : nullptr;
         auto* preOrderParms =
             static_cast<Params::PBPlayerController_ServerPreOrderInventory*>(Parms);
+        // Capture this before the native pre-order and bridge callbacks. The
+        // death screen replays all role configs before role confirmation, and
+        // configuration traffic must not consume explicit F/ESC intent.
+        const bool wasAwaitingRespawnInputBeforePreOrder =
+            gLateJoinManager && playerController &&
+            gLateJoinManager->IsAwaitingRespawnInput(playerController);
 
         bool internalManagerWrite = false;
         bool holdForSeamlessSeed = false;
@@ -1290,16 +1386,24 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
                     preOrderParms->InPreOrderingInventory);
             }
         }
-        // The native RPC has returned. Even when the loadout bridge is not
-        // running, the canonical p_ id is unavailable, or this controller is
-        // not bound to LoadoutManager, an already-spawned player waiting after
-        // death must be allowed into the serialized respawn path. The manager
-        // API itself rejects PendingRoleSelection and every first-spawn state.
-        if (gLateJoinManager && playerController && preOrderParms &&
-            IsCurrentSelectedRole(playerController, preOrderParms->InRoleID))
+        // The native RPC has returned. Retain the historical managed recovery
+        // only for a blocked, non-awaiting lifecycle (for example TimedOut),
+        // even when no bridge override was recorded. A pre-order that entered
+        // during the explicit death wait remains configuration-only; role
+        // confirmation or F owns the later respawn transition. The manager API
+        // itself still rejects PendingRoleSelection and every first-spawn state.
+        if (gLateJoinManager && playerController && preOrderParms)
         {
+            const bool isCurrentSelectedRole =
+                IsCurrentSelectedRole(playerController, preOrderParms->InRoleID);
             const auto allowed = PlayerRespawnAllowedMap.find(playerController);
-            if (allowed != PlayerRespawnAllowedMap.end() && !allowed->second)
+            const bool respawnIsBlocked =
+                allowed != PlayerRespawnAllowedMap.end() && !allowed->second;
+            if (RespawnStatePolicy::
+                ShouldQueueManagedRespawnAfterPreOrderReturn(
+                    isCurrentSelectedRole,
+                    respawnIsBlocked,
+                    wasAwaitingRespawnInputBeforePreOrder))
             {
                 const bool queued =
                     gLateJoinManager->QueueManagedRespawn(playerController);
@@ -1309,6 +1413,15 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
                         "managed respawn without a recorded bridge override."
                         << std::endl;
                 }
+            }
+            else if (isCurrentSelectedRole && respawnIsBlocked &&
+                wasAwaitingRespawnInputBeforePreOrder)
+            {
+                std::cout << "[RESPAWN] Pre-order returned while awaiting "
+                             "F/ESC; kept staged without queuing respawn. role="
+                          << preOrderParms->InRoleID.ToString()
+                          << " runtime_override="
+                          << (recordedRuntimeOverride ? 1 : 0) << std::endl;
             }
         }
         BattleLog::OnProcessEventPost(
@@ -1331,6 +1444,13 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
         const std::string requestedRole = confirmParms
             ? confirmParms->InRoleID.ToString()
             : std::string{};
+        // Capture this before BeginRoleConfirmation applies the effective
+        // pre-order and before the native confirmation enters its synchronous
+        // RestartPlayer path. Both can re-enter reflected callbacks and mutate
+        // the managed state before OnRoleConfirmed runs.
+        const bool wasAwaitingRespawnInputBeforeConfirmation =
+            gLateJoinManager && playerController &&
+            gLateJoinManager->IsAwaitingRespawnInput(playerController);
         if (gLateJoinManager && playerController && confirmParms &&
             gLateJoinManager->IsRedundantSeamlessRoleConfirmation(
                 playerController, requestedRole))
@@ -1359,7 +1479,31 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
         const bool isDeferredInitialJoin = gLateJoinManager &&
             gLateJoinManager->IsInitialJoinPlayer(playerController);
 
-        ProcessEvent.call(Object, Function, Parms);
+        const bool stageForNextRespawn = gLateJoinManager &&
+            playerController && confirmParms &&
+            gLateJoinManager->ShouldStageLiveRoleConfirmation(
+                playerController, requestedRole);
+        const bool requestedRoleIsConcrete =
+            !requestedRole.empty() && requestedRole != "None";
+        const auto liveConfirmationAction =
+            RespawnStatePolicy::DecideRoleConfirmationRestart(
+                stageForNextRespawn,
+                wasAwaitingRespawnInputBeforeConfirmation,
+                requestedRoleIsConcrete);
+        bool confirmationRestartWasSuppressed = false;
+        {
+            // The pinned native ServerConfirmRoleSelection implementation
+            // commits PlayerState.SelectedCharacterID and its merged
+            // pre-ordering cache before making this synchronous virtual
+            // RestartPlayer call. Scope the suppression to that exact call.
+            // A post-death confirmation is followed below by the PB-specific
+            // ServerQuickRespawn path, which owns cooldown and observer state.
+            ScopedLiveRoleConfirmationRestartPolicy restartPolicy(
+                playerController, liveConfirmationAction);
+            ProcessEvent.call(Object, Function, Parms);
+            confirmationRestartWasSuppressed =
+                restartPolicy.WasRestartSuppressed();
+        }
 
         const bool connectionStillCurrent =
             IsCurrentConnectedController(playerController);
@@ -1432,8 +1576,27 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
         }
 
         if (gLateJoinManager && (isLateJoin || isDeferredInitialJoin))
+        {
             gLateJoinManager->OnRoleConfirmed(
-                playerController, committedRoleId);
+                playerController, committedRoleId,
+                wasAwaitingRespawnInputBeforeConfirmation,
+                confirmationRestartWasSuppressed);
+
+            // Deploy on the post-death role screen is both a role commit and
+            // respawn intent. ServerConfirmRoleSelection's raw RestartPlayer
+            // was suppressed above; replay the intent through the exact PB RPC
+            // under a manager permit. If native cooldown rejects it, the
+            // manager restores AwaitingRespawnInput with no fallback armed.
+            if (wasAwaitingRespawnInputBeforeConfirmation &&
+                IsCurrentConnectedController(playerController))
+            {
+                gLateJoinManager->DispatchPostDeathRoleDeployRespawn(
+                    playerController,
+                    [playerController]() {
+                        playerController->ServerQuickRespawn();
+                    });
+            }
+        }
 
         if (!IsCurrentConnectedController(playerController))
         {
@@ -2247,6 +2410,9 @@ void InitServerHooks(bool forceDedicatedMode)
     ServerConfirmRoleSelectionValidate = safetyhook::create_inline(
         (void *)(BaseAddress + 0x15C09C0),
         ServerConfirmRoleSelectionValidateHook);
+    ServerRoleConfirmationRestartPlayer = safetyhook::create_inline(
+        (void *)(BaseAddress + 0x163D250),
+        ServerRoleConfirmationRestartPlayerHook);
     ServerStartShowingMatchResult = safetyhook::create_inline(
         (void *)(BaseAddress + 0x162B190), ServerStartShowingMatchResultHook);
     ServerStartWaitingToEndGame = safetyhook::create_inline(

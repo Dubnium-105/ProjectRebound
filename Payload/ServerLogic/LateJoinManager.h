@@ -146,7 +146,9 @@ public:
     // @param PC 角色确认的 PlayerController
     void OnRoleConfirmed(
         SDK::APBPlayerController* PC,
-        const std::string& roleId);
+        const std::string& roleId,
+        bool wasAwaitingRespawnInputBeforeConfirmation,
+        bool confirmationRestartWasSuppressed);
     void OnPlayerKilled(SDK::APBPlayerController* PC);
 
     // Converts an engine-initiated restart into the same serialized spawn
@@ -161,7 +163,21 @@ public:
         SDK::APBPlayerController* PC,
         const char* requestKind,
         const FExplicitRespawnDispatch& dispatch);
+    // A Deploy click from the post-death role screen has already committed the
+    // requested role. Try the game's PB-specific respawn RPC exactly once.
+    // If native cooldown rejects it, remain in AwaitingRespawnInput without
+    // entering the generic RestartPlayers/QuickRespawn/Suicide fallback chain.
+    bool DispatchPostDeathRoleDeployRespawn(
+        SDK::APBPlayerController* PC,
+        const FExplicitRespawnDispatch& dispatch);
     bool IsManagedPlayer(SDK::APBPlayerController* PC) const;
+    // A live, already-spawned managed player may use the in-match role screen
+    // to change the role/loadout for the next life. The native confirmation
+    // must still commit its role and pre-ordering cache, but its synchronous
+    // RestartPlayer call must be suppressed by the hook layer.
+    bool ShouldStageLiveRoleConfirmation(
+        SDK::APBPlayerController* PC,
+        const std::string& requestedRoleId) const;
     bool IsRedundantSeamlessRoleConfirmation(
         SDK::APBPlayerController* PC,
         const std::string& requestedRoleId) const;

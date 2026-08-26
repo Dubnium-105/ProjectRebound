@@ -30,6 +30,17 @@ enable_strict_warnings(command_line_policy_tests)
 
 add_test(NAME command_line_policy_tests COMMAND command_line_policy_tests)
 
+add_executable(local_qos_discovery_policy_tests
+    LocalQosDiscoveryPolicyTests.cpp
+)
+
+target_compile_features(local_qos_discovery_policy_tests PRIVATE cxx_std_20)
+enable_strict_warnings(local_qos_discovery_policy_tests)
+
+add_test(
+    NAME local_qos_discovery_policy_tests
+    COMMAND local_qos_discovery_policy_tests)
+
 add_executable(unreal_container_tests
     UnrealContainerTests.cpp
 )
