@@ -252,7 +252,7 @@ struct MapInfo
 };
 
 // List of maps with their PVE bug status
-const std::array<MapInfo, 11> MapList{{{"OSS", false},
+const std::array<MapInfo, 10> MapList{{{"OSS", false},
                                        {"MiniFarm", false},
                                        {"Warehouse", false},
                                        {"Dusty", true},

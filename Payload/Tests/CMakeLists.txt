@@ -30,6 +30,17 @@ enable_strict_warnings(command_line_policy_tests)
 
 add_test(NAME command_line_policy_tests COMMAND command_line_policy_tests)
 
+add_executable(local_qos_discovery_policy_tests
+    LocalQosDiscoveryPolicyTests.cpp
+)
+
+target_compile_features(local_qos_discovery_policy_tests PRIVATE cxx_std_20)
+enable_strict_warnings(local_qos_discovery_policy_tests)
+
+add_test(
+    NAME local_qos_discovery_policy_tests
+    COMMAND local_qos_discovery_policy_tests)
+
 add_executable(unreal_container_tests
     UnrealContainerTests.cpp
 )
@@ -65,6 +76,39 @@ enable_strict_warnings(respawn_state_policy_tests)
 
 add_test(NAME respawn_state_policy_tests COMMAND respawn_state_policy_tests)
 
+add_executable(managed_possession_sync_policy_tests
+    ManagedPossessionSyncPolicyTests.cpp
+)
+
+target_compile_features(managed_possession_sync_policy_tests PRIVATE cxx_std_20)
+enable_strict_warnings(managed_possession_sync_policy_tests)
+
+add_test(
+    NAME managed_possession_sync_policy_tests
+    COMMAND managed_possession_sync_policy_tests)
+
+add_executable(seamless_intro_camera_policy_tests
+    SeamlessIntroCameraPolicyTests.cpp
+)
+
+target_compile_features(seamless_intro_camera_policy_tests PRIVATE cxx_std_20)
+enable_strict_warnings(seamless_intro_camera_policy_tests)
+
+add_test(
+    NAME seamless_intro_camera_policy_tests
+    COMMAND seamless_intro_camera_policy_tests)
+
+add_executable(dedicated_multi_match_policy_tests
+    DedicatedMultiMatchPolicyTests.cpp
+)
+
+target_compile_features(dedicated_multi_match_policy_tests PRIVATE cxx_std_20)
+enable_strict_warnings(dedicated_multi_match_policy_tests)
+
+add_test(
+    NAME dedicated_multi_match_policy_tests
+    COMMAND dedicated_multi_match_policy_tests)
+
 add_executable(join_ui_sync_policy_tests
     JoinUiSyncPolicyTests.cpp
 )
@@ -73,6 +117,17 @@ target_compile_features(join_ui_sync_policy_tests PRIVATE cxx_std_20)
 enable_strict_warnings(join_ui_sync_policy_tests)
 
 add_test(NAME join_ui_sync_policy_tests COMMAND join_ui_sync_policy_tests)
+
+add_executable(replication_world_gate_policy_tests
+    ReplicationWorldGatePolicyTests.cpp
+)
+
+target_compile_features(replication_world_gate_policy_tests PRIVATE cxx_std_20)
+enable_strict_warnings(replication_world_gate_policy_tests)
+
+add_test(
+    NAME replication_world_gate_policy_tests
+    COMMAND replication_world_gate_policy_tests)
 
 add_executable(direct_match_ui_cleanup_policy_tests
     DirectMatchUiCleanupPolicyTests.cpp

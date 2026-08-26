@@ -353,3 +353,113 @@ CompleteWeaponOrnament(manager, int32 code, FName ornament, FName role, FName we
 - `APBGameMode::GetMatchResultInfo` native RVA `0x016294A0` 生成每名玩家的 `FMatchResultInfo`；`UPBGameInstance::SaveMatchResultInfo` exec RVA `0x017F6990` 调用 native RVA `0x01583520`，后者只深拷贝到 `GameInstance::LocalMatchResultInfo (+0x4F0)`。`ClientMatchHasEnded` RVA `0x015A7C10` 本身不调用它。
 - 本地 PVE 动态结果页已有完整 `FPBMatchResult`，但 `LocalMatchResultInfo`、career post-match settlement 和 `SaveMatchResultInfo` 参数仍为空。这更符合第 13 节尚未接通 `/mission`、statistics/settlement 写回的后端缺口，而不是回菜单时序缺口。
 - 在准确恢复原生 settlement wire schema 和幂等事务之前，不应从生命周期 hook 伪造 `FMatchResultInfo`、主动调用 `SaveMatchResultInfo` 或注入 career settlement；这些行为会把 UI 缓存当作权威结算，并产生重复奖励风险。
+
+## 16. 场景交互输入与受管控出生同步（2026-08-21）
+
+以下静态地址、SDK 布局和构建产物只适用于第 1 节固定 EXE SHA-256；实现基线为 `13fe6a7a0e17fa2cb0d3a88635c3a0ab8eea9cd0`。本节在实际对局验证前停止，因此不得把这里的静态接线和编译通过表述为舱门、滑索已经运行验收成功。
+
+### 固定构建静态链
+
+- `APBPlayerController::BindGameInputComponetKey` native RVA `0x015C3570` 为 `InteractAirLockController`、`InteractAirLockHatch`、`InteractExpressTransit` 安装特殊动作绑定，并进入公共 pressed callback RVA `0x015AF300`。该 callback 再进入 `UPBInteractionManager` pressed/released RVA `0x0171C770` / `0x0171C810`。
+- interaction state dispatcher RVA `0x0156A8A0` 只在状态低字节为 `Finish (3)` 时进入场景交互发送链；`ServerInteractWithScene` outbound wrapper RVA `0x017B7490`。其 ProcessEvent 参数为目标对象 `+0x00`、`EPBInteractionEventType +0x08`、客户端位置 `FVector +0x0C`，总大小 `0x18`。
+- 固定 SDK 中事件 `14..19` 依次为开/关舱门、加/减压、连接/脱离滑索。`UPBInteractionManager` 的对象信息数组、Interactor、CurrentInfo 分别在 `+0x38/+0x58/+0x60`；`FPBInteractiveObjectInfo` 大小 `0x10`，已知 Interaction config 指针在 `+0x08`。`UPBInteractionConfig` 的事件、动作名数组、优先级、持续时间在 `+0x28/+0x30/+0x40/+0x44`。
+- 用户反馈中的提示可见、长按不推进且射击/换弹正常，把首要缺口限定在特殊交互绑定到 Finish/场景 RPC 之前；它不支持直接修改舱门/滑索状态，也不支持由 Payload 主动调用交互 RPC。
+
+### 当前兼容实现
+
+- `Tools/Frida/armory_probe.js` 保持统一只读探针：新增特殊动作 Bind/Unbind、PlayerController 的 InputComponent/Pawn/AcknowledgedPawn/InteractionManager 快照、manager pressed/released、Start/Stop/Finish、scene RPC、airlock/transit Multicast 和上述 native boundary/backtrace。探针不写游戏内存、不改返回值、不主动调用 RPC；SDK 未命名的 `FPBInteractiveObjectInfo +0x00` 仅记录为 opaque raw pointer，不猜测语义。
+- 受管控首次出生、中途加入、重生和换角现在都进入 `FinalizeLateJoinSpawn`。首发首次补 `ClientReadyAtStartSpot -> ClientGotoState(Playing) -> ClientRestart -> ClientRetryClientRestart -> ServerAcknowledgePossession`；中途首次在此基础上补齐 match/round/game-start；后续重生和换角只恢复 Playing 与 possession 链。
+- `LastClientSyncedPawn + LastClientSyncedRespawnLifecycleId` 是客户端同步幂等键。死亡、活体换角和从 Spawned 状态直接排队的受管控重生都会取得新 lifecycle；同一对键不会重复发送，Pawn 或 lifecycle 任一变化都会作为新一代同步。活体换角检测到目标 Pawn 后不再绕过公共最终化。
+- `ManagedPossessionSyncPolicyTests.cpp` 固定首发首次、中途首次、后续生成和同代 no-op，并单独覆盖同 Pawn/新 lifecycle、同 lifecycle/新 Pawn。2026-08-21 顺序 Release 测试为 11/11 passed；`armory_probe.js` 经 Node.js v24.14.0 `--check` 通过。
+
+### 静态交付状态
+
+- `Release|x64` Payload 使用 Visual Studio 18.3 / MSVC 14.50 顺序构建成功，0 warning、0 error。构建产物为 `Payload/x64/Release/Payload.dll`，大小 `1,403,904` 字节，x64 PE，SHA-256 `6B4B02740038EAA1E078FE0F37A9885EFC002363B48958C20D99C33D45B8B430`。
+- 部署前游戏目录 `Payload.dll` 已备份到 `%LOCALAPPDATA%/ProjectRebound/payload-backups/20260821-interaction-sync/Payload.before-interaction-sync.dll`，备份 SHA-256 `B60AB8BD76EF6918CFDA8071B224E8077B2A67E0BB80DE0F34CCC4D07F803CD5`。部署后源文件和游戏目录目标文件 SHA-256 均为 `6B4B02740038EAA1E078FE0F37A9885EFC002363B48958C20D99C33D45B8B430`。
+- 本次按人工交付边界没有启动游戏、没有附加 Frida、没有创建服务器、没有进入实际对局。运行验收由用户在部署后执行，结果应另行追加，不能回填为本节已有证据。
+
+## 17. Dedicated seamless 目标图的上一局 HUD 根层（2026-08-24）
+
+以下结论仅适用于第 1 节固定 EXE SHA-256。
+
+### 动态根因与最小清理边界
+
+- 在保留同一客户端连接和 PlayerController 的 `Warehouse -> OSS` seamless travel 中，目标图角色选择前仍可观察到上一局雷达、弹药、手模和赛况层。此时目标图 controller 尚无可玩 Pawn；GObjects 中仍有上一局的 `HelmetHUDContainer_C`、`UMG_InGameHUD_Mother_C`、`UMG_InGameHUD_TopScoreBar_TDM_C`、`UMG_InGameTopScore_TDM_C`、`UMG_MatchState_C`、`Effect_WinBoard_C` 和 `UMG_EndGameScoreboardPage_C` 实例。原生返回主菜单会移除这些根层，但 opt-in seamless 路径不会经过该 teardown。
+- `APBPlayerController::NotifyClearInterface` 对目标图角色页上的残留无效；`PlayerController_BP_C::EventOnMatchEnd` 会错误地再次打开蓝/红结果板，不能作为清理入口。`APBHUD::K2_Hidden*` 能结束其自身结果/死亡状态，但不是雷达、弹药和手模根层的 owner。
+- 当前兼容层只在精确的 owned seamless `PlayerController.ClientTravelInternal` 上 arm 一次，并在目标图第一个 start RPC 进入前执行：`K2_StopKillCamera`、`K2_StopQuickRespawn`、`K2_HiddenRoundResult`、`K2_HiddenMatchResult`、`K2_HiddenMatchResult_TDM`、`K2_HiddenSummary`，随后仅对上述精确生成类 token、且 `IsInViewport()` 的旧 `UUserWidget` 根执行 `Collapsed -> RemoveFromParent()`。上限为 24；不匹配角色选择、局内菜单和通用消息层，不写 Pawn、camera、input 或武器字段，也不处理 F/F5。
+- 清理必须发生在目标图 start RPC 之前；这些生成类名也会被新局 HUD 复用，若在 `NotifyGameStarted` 返回后才枚举可能误删新建层。当前 gate 在 APBHUD 已就绪但 `detached=0` 时仍会消费；若未来样本证明旧根注册更晚，应把 `0` 视为有限重试条件，不能扩大白名单。
+
+### 本地跨图验收
+
+- 会话目录为 `local-pve/20260824-184132`，服务端 PID `11728` 在 `Warehouse -> OSS` 期间保持不变。服务端依次经过原生 `ShowingMatchResult -> MatchEnding -> WaitingToEndGame`，保留一个 engine tick 后进入 seamless travel，generation 从 1 增加到 2，同一连接在 OSS 被重新排入原生首发角色选择。
+- 客户端日志 `clientlogs/clientlog-20260824_184210.txt` 记录：owned travel arm 后，在第二局角色页之前精确 detached 3 个 `HelmetHUDContainer_C`，随后 `Destination source-match layers detached=3` 与 `Finalized retained HUD state at destination startup`。Computer Use 画面确认旧雷达、弹药、手模和战斗 HUD 消失，角色选择页保留；确认角色并 Deploy 后，新局雷达、弹药和武器 HUD 重新创建。
+- 服务端在第二局记录 `client_possession_sync result=native_initial_join`、非空 Pawn 和 `Spawn complete`；随后角色被 AI 击杀并进入原生等待复活输入。击杀后的客户端只读采样为 `StateName=Inactive, Pawn=0`，因此该样本不用于宣称第二局移动验收，只证明清理没有阻止新局 HUD 创建和服务端首次出生。
+- `DirectMatchUiCleanupPolicyTests` 覆盖精确白名单正例及角色选择、局内菜单、MatchMessage 反例；Release 配置全套 12/12 tests passed。构建产物与游戏目录部署的 `Payload.dll` SHA-256 均为 `C1C9159922FDE6C9BC69399FBC24613B3E3B90059FBCAE390B57E27796B3913E`，部署前备份位于 `.tmp/runtime-deploy/20260824-184117-multimatch`。
+
+## 18. OSS seamless 首命开场与相机边界（2026-08-25）
+
+以下结论仅适用于第 1 节固定 EXE SHA-256；动态验收会话为 `local-pve/20260825-034524`，playlist 为 `Warehouse,OSS`。
+
+### 根因与窄修复
+
+- `ViewTarget == Pawn` 不是第一人称相机已经恢复的充分条件。固定构建的 `StartThirdPersonCamera` 可以在 ViewTarget 仍指向 Pawn 时把相机放到身体后方；因此旧策略在 `viewTargetMatchesPawn` 时消费恢复请求会留下 OSS 首命第三人称/开场相机。
+- 更深一层的服务端 race 是 fresh seamless 目的图在角色确认栈内、Pawn 尚未生成时就把 native `ReadyToMatchIntro=false` 覆盖为 true。OSS 的开场镜头长于 DataCenter；提前 `StartMatch` 会让 bot 在 OSS 开场相机尚未交还时攻击/击杀首命，视觉上又会进入跟随身体的死亡相机。DataCenter 能正常播完开场并不能证明该 gate 正确，只说明其地图时序没有暴露同一 race。
+- `JoinUiSyncPolicy` 现在只在 fresh seamless 首发玩家已经满足 `AreInitialPlayersReadyForStart()` 后恢复一次 destination native Ready。预生成阶段保留 native false；`RestartPlayers -> Spawn complete` 后下一次评估才恢复 true，随后沿用原生 `MatchIntro -> one NetDriver flush -> StartMatch`。
+- 客户端 fallback 只在 owned seamless、已观察到目的图 round start、`Pawn == AcknowledgedPawn == PBCharacter`、角色 Alive 且相机 POV 已回到 Pawn 附近时执行一次原生 `StopKillCamera -> StopThirdPersonCamera`，并结束相应 HUD K2 状态。它不写相机/角色字段、不生成 ViewTarget RPC，也不处理 F/F5。
+
+### 动态验收与限制
+
+- 服务端日志的决定性顺序是：`Preserved pre-spawn destination ReadyToMatchIntro result=0 initial_players_ready=0` -> `RestartPlayers` -> `Spawn complete` -> `Restored post-spawn destination ReadyToMatchIntro result (native=0)` -> `Native MatchIntro observed` -> `Completed native MatchIntro NetDriver flush` -> `StartMatch`。
+- 客户端日志 `clientlogs/clientlog-20260825_034601.txt` 先记录远端 POV 距 Pawn `7876.77` uu，随后在 POV 回到 Pawn 附近时记录 `camera_action=stop-kill-and-third-person ... camera_distance=21.8231`。OSS 初始首命只读快照 `.tmp/camera-model-snapshot-034524-oss-before-w.json` 同步记录：`StateName=Playing`，`Pawn == AcknowledgedPawn == PBCharacter`，`life=Alive(0)`，`ready=1`，Current/PendingWeapon 非空；ViewTarget 为该 Pawn，实际 CameraComponent 为 `FirstPersonCamera`，camera cache `(3634.87,3026.80,-681.67)` 距 Pawn root `(3638.80,3026.80,-703.40)` 约 22 uu，不再位于身体后方。
+- 同会话后续生命的输入只读检查显示 `PBInputComponent`、`PlayerInput`、`PBCharacterMovement` 均非空，`IsMoveInputIgnored=false`、`IsLookInputIgnored=false`、MovementMode=Flying(5)、MaxWalkSpeed=600。Computer Use 的离散 W/A/S 合成按键没有产生 Axis/Velocity 事件；固定游戏对移动使用 raw input，故该自动化样本不能作为“实际键盘移动已通过”的证据，也不能反推游戏输入仍被锁。人工原始设备移动仍需作为最终 acceptance。
+- 原生 camera tracer 中 `StartThirdPersonCamera` 在角色存活一段时间后出现并约 8 秒后随 Pawn 清空而结束，与后续 bot 击杀/死亡相机吻合；不能把死亡相机重新归因于首命开场未结束。
+- Release 全套 14/14 tests passed。构建产物与游戏目录部署 DLL SHA-256 均为 `10B1CB19BE31123DA8F167502C99D262ABF156230894BC7558D8E1A79260A929`；部署前备份位于 `.tmp/runtime-deploy/20260825-034514-post-spawn-native-intro-ready-gate/Payload.previous.dll`。
+
+## 19. Toolbox 内建 MetaTunnel 与无脚本本地 PVE QoS（2026-08-25）
+
+以下固定地址与 Payload 策略只适用于第 1 节固定 EXE SHA-256；ProjectRebound 实现基线为
+`e7711e30ee82ff003520a37d7fb314b945d57757`，Toolbox 上游基线为
+`63e5ee598b860b8f5d53dd147d436921ad290098`。
+
+### Toolbox 进程与认证边界
+
+- MetaTunnel 由 Go 1.26.6 以 `GOOS=windows GOARCH=amd64 go build -buildvcs=false -trimpath` 固定构建，连续两次独立构建的大小均为 `9,819,136` 字节、SHA-256 均为 `24BE4159F3B49A2D8225E0C1BF32581A7B30FE735F7DFB7DDE238886E31CCBBD`。Toolbox 嵌入清单固定源码 revision、工具链、命令、大小、x64 PE 与完整哈希；提取目标按完整哈希分目录并在损坏时原子自修复。
+- PVP、加入房间和 Toolbox 本地 PVE 的玩家入口统一启动受管 MetaTunnel；监听端口均由 OS 在 loopback 随机分配。访问令牌只经匿名 stdin 发送，401 和到期前刷新共用认证 singleflight，动态 token pump 不把令牌暴露到参数、环境变量或日志。无账号本地冒烟已验证 readiness PID 精确匹配、随机 HTTP/TCP 均为 `127.0.0.1` 且 `/_meta-tunnel/health/live` 返回 `live`。
+- 状态跟踪改为带角色、协议、动态端口、owner PID 和精确 executable identity 的类型化记录；停止与 PID reuse 检查不再依赖固定 `127.0.0.1:8000`。Production Server 页面仍走原生产配置，不接收本地 PVE LogicServerURL。
+- 安装/更新不再自动安装 Node，也不会创建或覆盖已有 `BoundaryMetaServer-main`；只有显式卸载会清理旧 `nodejs` 与旧 MetaServer 目录。
+
+### 固定构建 QoS 改写边界
+
+- Toolbox 的 Rust QoS 服务复现旧兼容协议，但使用随机 loopback TCP/UDP：HTTP `GET/HEAD /servers` 返回固定 region/location 与动态 UDP 端口；UDP 只对长度至少 11 且首字节为 `0x59` 的请求返回 `[0x95,0] + request[11..]`。客户端仅收到 `-LocalPveQosDiscoveryUrl=http://127.0.0.1:<port>/servers` 和 `-LocalPveQosReadyEvent=Local\ProjectRebound.Qos.<32 lower hex>`。
+- 固定构建全局 FString `UnityMatchmaker.ChinaDiscoverURL` 位于 RVA `0x05C63C88`，原生 initializer 位于 RVA `0x0068ADE0`；Payload 只接受 initializer 精确前缀 `48 83 EC 28 BA 51 00 00 00 48 8D 0D 98 8E 5D 05` 和原始发现 URL。只有非服务端、两个 opt-in 参数均严格有效、完整 EXE SHA-256 与 SizeOfImage 已匹配时才可安装临时 initializer hook 或原位改写。
+- 改写还要求 FString 可读写、容量足够，并在写入、Num 更新和 readback 全部成功后才设置 readiness event；部分参数、URL/event 格式错误、原值/前缀/内存保护不符或 15 秒超时均 fail closed。普通客户端和服务器启动完全 no-op，不依赖 PowerShell、Python 或 Frida。
+
+### 构建、部署与验收状态
+
+- Toolbox Rust 单元测试 `169/169`、前端测试 `41/41`、格式检查、Tauri check、前端生产构建与 Tauri release 构建均通过；Payload Release/x64 全套 `15/15` tests passed。MetaTunnel Go tests 通过，嵌入 EXE 的独立本地 readiness/health 冒烟通过。
+- 新 `Payload.dll` 大小为 `1,564,160` 字节，构建源与游戏目录目标 SHA-256 均为 `C8306242FE602C0F8AFB164B4B4B3BD6AF0B2091EDBFF57CC0CF269E62305317`。部署前目标已备份到 `.tmp/runtime-deploy/20260825-153647-toolbox-metatunnel-qos/Payload.previous.dll`，备份 SHA-256 为 `10B1CB19BE31123DA8F167502C99D262ABF156230894BC7558D8E1A79260A929`。
+- 2026-08-26 使用与内嵌证书完全一致的项目签名材料为最终 Tauri release EXE 签名并加 Sectigo RFC3161 时间戳；最终 EXE 大小为 `47,317,392` 字节、SHA-256 为 `699CFDD1ED092095DCAEA708C5CDD26593FAB58A1785454F419F5A606F1E690D`，签名证书 SHA-256 为 `18440D9B14590787C0FC5217FEB64AFCFB8DBF64243B4AB031D5E0B12D7A7590`。自签根在本机 Authenticode 链状态为 `UntrustedRoot`，符合 Toolbox 完整性门允许的证书匹配边界；未绕过门禁。
+- 首轮签名构建和修复后的最终签名构建各完成一次独立 GUI 冷启动，均通过完整性门并进入主界面。首轮发现前端 `capabilities_updated` 处理器与后端 `fresh_token()` 无条件重发事件形成反馈循环；后端现只在身份配置实际变化时发事件并保留仅驻留运行时的 auth ticket。最终构建第二次冷启动中调试日志计数在 9 秒观察窗内保持 `14` 不变。
+- 2026-08-26 再次 `git fetch --prune origin` 后，Toolbox `origin/main` 仍为 `63e5ee598b860b8f5d53dd147d436921ad290098`，与集成基线一致；但 GUI 的发布策略仍显示本地 `0.9.0 -> 0.9.1`、`Update required`。同时固定游戏目录仍有 `41` 个未受当前 Toolbox 管理的旧 `meta-tunnel.exe`，触发 `Unexpected processes`。因此本节只把签名门禁和 GUI 冷启动记为动态通过，**没有**把本地 PVE 入局或 QoS readiness event 记为通过；清理旧进程并解决发布版本策略后仍需完成最终动态 acceptance。
+
+## 20. 死亡角色页 Deploy 与原生复活入口（2026-08-26）
+
+以下静态地址、运行时状态和部署产物只适用于第 1 节固定 EXE SHA-256；动态验收会话为 `local-pve/20260826-152025`，地图为 Warehouse PVE Normal。
+
+### 根因与固定构建语义
+
+- `APBGameMode::RestartPlayer` RVA `0x0163D250` 不是死亡角色页的完整复活入口。旧样本中 Controller 仍挂有死亡 Pawn 时，`ServerConfirmRoleSelection -> RestartPlayer` 会向客户端发送旧角色的 `ClientRestart`，随后尸体销毁并留下 `StateName=Inactive, Pawn=null`；当 Pawn 已清除后，重复 Deploy 仍然只进入同一 `RestartPlayer`，不会生成新 Pawn。
+- `APBGameMode +0x428/+0x430` 是另一套 deferred respawn queue mode/queue，不是当前 PVE 的冷却谓词。失败样本中 `+0x428=0`、queue count `0`，因此不能用该字段判断是否保留角色确认内的 raw restart。
+- PB 的死亡复活入口是 `APBPlayerController::ServerQuickRespawn` RVA `0x015C14C0`。它先执行本构建的复活许可/冷却判定，再进入 observer/controller 清理和 Engine restart 链；成功时在 RPC 返回前同步生成并占有目标 Pawn，冷却拒绝时不生成 Pawn。
+
+### 最小修复
+
+- 对从 `AwaitingRespawnInput` 进入的同 Controller `ServerConfirmRoleSelection`，保留原生角色与 pre-order commit，但无条件拦截其同步 `RestartPlayer`；Pawn 是否存在及 `+0x428` 只记录为观测值，不再参与决策。活体角色修改仍只提交下一命，初始角色确认和其他 Controller 保持原生。
+- 角色 commit 验证成功后，以 manager restart permit 调用一次精确的 `ServerQuickRespawn`。若目标角色 Pawn 已同步产生，则进入公共 possession/HUD finalizer；若没有 Pawn，则恢复 `AwaitingRespawnInput`、`SpawnAttempts=0`、`ExplicitNativeRespawnDispatched=false` 和 respawn gate=false。冷却拒绝不再进入 2 秒后的 `RestartPlayers -> QuickRespawn -> Suicide` 通用回退，因此后续 Deploy 或 F 可重新提交原生意图。
+- `ServerPreOrderInventory` 继续只表示配置变更，不会在死亡等待期间提前消费复活意图；普通 F 发出的精确 `ServerQuickRespawn` 转发路径未修改。
+
+### 动态验收与交付
+
+- 首生 PROBE 正常完成。首次死亡后从角色页选择 SPIKE 并 Deploy：日志记录 `restart_suppressed=1, existing_pawn=1, native_queue_mode=0`，随后 `origin=death_role_deploy ... native_result=spawned`；SPIKE 的两个 weapon-detail overlay 均为 `result=applied`，目标 Pawn 经公共 finalizer 完成。客户端人工确认视角、移动和 UI 表现正确。
+- 后续活体把 PEACE 提交为下一命，再次死亡后按原生 F：日志记录 `origin=explicit_f request_kind=ServerQuickRespawn`，返回 `selected=PEACE possessed=PEACE` 并完成公共 finalizer。继续测试到 lifecycle 9 时，角色页 Deploy 又正确生成 SPIKE、Sniper，普通 F 连续正确生成 SPIKE、Sniper；全程没有 `managed_explicit_fallback`、Suicide fallback 或 spawn timeout。这证明角色页修复没有破坏普通 F 复活路径。
+- `RespawnStatePolicyTests` 连同全套 Payload 策略测试为 Release `15/15` passed；主 DLL Release/x64 构建为 0 warning、0 error。源码产物与游戏目录 `Payload.dll` SHA-256 均为 `84CEE6BEF59A180049F876C54E25C5A48DCC254739F13BBE540F969AA8A0C2AE`，大小 `1,570,304` 字节。部署前版本备份为 `%LOCALAPPDATA%/ProjectRebound/payload-backups/20260826-152009-death-role-pb-quick/Payload.previous.dll`，SHA-256 `2011B8FB243F652D0DA846E3B7715BB9D394F1F6931DD70CAEB29BACB195F748`。

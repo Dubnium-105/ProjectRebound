@@ -147,6 +147,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>false</GenerateDebugInformation>
+      <GenerateMapFile>true</GenerateMapFile>
       <EnableUAC>false</EnableUAC>
     </Link>
   </ItemDefinitionGroup>
@@ -162,6 +163,11 @@
     <ClInclude Include="Loadout\LoadoutSerializer.h" />
     <ClInclude Include="Loadout\MetaserverClient.h" />
     <ClInclude Include="ServerLogic\RespawnStatePolicy.h" />
+    <ClInclude Include="ServerLogic\ManagedPossessionSyncPolicy.h" />
+    <ClInclude Include="ClientLogic\SeamlessIntroCameraPolicy.h" />
+    <ClInclude Include="ClientLogic\LocalQosDiscoveryPolicy.h" />
+    <ClInclude Include="ServerLogic\DedicatedMultiMatch.h" />
+    <ClInclude Include="ServerLogic\DedicatedMultiMatchPolicy.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ClientLogic\ClientLogic.cpp" />
@@ -196,6 +202,7 @@
     <ClCompile Include="SDK\UMG_LoginGate_functions.cpp" />
     <ClCompile Include="SDK\UMG_MainMenuLayout_functions.cpp" />
     <ClCompile Include="ServerLogic\LateJoinManager.cpp" />
+    <ClCompile Include="ServerLogic\DedicatedMultiMatch.cpp" />
     <ClCompile Include="ServerLogic\ServerLogic.cpp" />
     <ClCompile Include="Utility\Utility.cpp" />
   </ItemGroup>

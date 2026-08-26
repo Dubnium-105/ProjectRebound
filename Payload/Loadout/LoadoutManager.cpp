@@ -31,6 +31,9 @@ namespace
     using LoadoutApplication::PlayerStateInventoryState;
 
     constexpr auto kRoleConfirmationGrace = std::chrono::seconds(1);
+    constexpr auto kSeamlessRoleGateGrace = std::chrono::seconds(5);
+    constexpr auto kSeamlessRoleReconfirmRetry = std::chrono::seconds(1);
+    constexpr unsigned int kMaxSeamlessRoleReconfirmAttempts = 3;
     constexpr auto kPostSpawnRetryWindow = std::chrono::seconds(2);
     constexpr auto kPostSpawnRetryInterval = std::chrono::milliseconds(50);
 
@@ -331,6 +334,18 @@ public:
         unsigned int FailedAttempts = 0;
         TimePoint NextFetchAt{};
         std::string SelectedRoleId;
+        bool SeamlessRoleGateActive = false;
+        bool SeamlessRoleGateBlockedLogged = false;
+        TimePoint SeamlessRoleGateDeadline{};
+        unsigned int SeamlessRoleReconfirmAttempts = 0;
+        TimePoint NextSeamlessRoleReconfirmAt{};
+        bool SeamlessRoleReconfirmFailureLogged = false;
+        bool SeamlessNativePreOrderBlockedLogged = false;
+        bool SeamlessFieldModRolesSeeded = false;
+        bool SeamlessFieldModContainersReady = false;
+        bool FreshSeamlessRoleSelectionActive = false;
+        bool FreshSeamlessSeedBlockedLogged = false;
+        bool SeamlessFieldModSeedFailureLogged = false;
         LoadoutStatePolicy::PendingRoleConfirmation Pending;
         PostSpawnState PostSpawn;
     };
@@ -369,6 +384,10 @@ public:
     UWorld* BoundWorld = nullptr;
     bool HasBoundWorld = false;
     int InternalPreOrderDepth = 0;
+    int InternalSeamlessRoleReconfirmDepth = 0;
+    APBPlayerController* InternalSeamlessRoleReconfirmController = nullptr;
+    FName InternalSeamlessRoleReconfirmRole{};
+    bool InternalSeamlessRoleNativePreOrderReady = false;
     std::unordered_map<ConnectionKey, PlayerConnection, ConnectionKeyHash> Players;
     std::unordered_map<APBPlayerController*, ConnectionKey> ControllerBindings;
     std::vector<FetchTask> FetchTasks;
@@ -392,6 +411,18 @@ public:
         DestroyedCharacters.clear();
         BoundWorld = currentWorld;
         ClientLog("[LOADOUT] stage=world-change result=stale-state-discarded");
+    }
+
+    void ResetForMatchGeneration(UWorld* currentWorld)
+    {
+        ++ServerEpoch;
+        Players.clear();
+        ControllerBindings.clear();
+        PendingInventoryBindings.clear();
+        DestroyedCharacters.clear();
+        BoundWorld = currentWorld;
+        HasBoundWorld = currentWorld != nullptr;
+        ClientLog("[LOADOUT] stage=match-generation result=stale-state-discarded");
     }
 
     PlayerConnection* Find(APBPlayerController* controller)
@@ -475,12 +506,94 @@ public:
         return result;
     }
 
+    std::vector<std::pair<std::string, const FPBInventoryNetworkConfig*>>
+    BuildSeamlessFieldModSeedRoles(const PlayerConnection& player) const
+    {
+        std::vector<std::string> orderedRoles;
+        orderedRoles.reserve(player.Baselines.size());
+        for (const auto& baseline : player.Baselines)
+            orderedRoles.push_back(baseline.first);
+        std::sort(orderedRoles.begin(), orderedRoles.end());
+
+        std::vector<std::pair<
+            std::string, const FPBInventoryNetworkConfig*>> seedRoles;
+        seedRoles.reserve(orderedRoles.size());
+        for (const std::string& roleId : orderedRoles)
+        {
+            const auto baseline = player.Baselines.find(roleId);
+            if (baseline != player.Baselines.end())
+                seedRoles.emplace_back(roleId, &baseline->second.Inventory);
+        }
+        return seedRoles;
+    }
+
+    bool RequiresSeamlessFieldModSeed(const PlayerConnection& player) const
+    {
+        return player.SeamlessRoleGateActive ||
+            player.FreshSeamlessRoleSelectionActive;
+    }
+
+    bool TrySeedSeamlessFieldModRoles(
+        PlayerConnection& player,
+        const char* stage)
+    {
+        if (!RequiresSeamlessFieldModSeed(player))
+            return true;
+        if (player.SeamlessFieldModRolesSeeded)
+            return true;
+
+        APBPlayerController* const controller = player.Controller;
+        const bool clientTravelCompleted = controller &&
+            controller->SeamlessTravelCount != 0 &&
+            controller->SeamlessTravelCount ==
+                controller->LastCompletedSeamlessTravelCount;
+        const auto seedRoles = BuildSeamlessFieldModSeedRoles(player);
+        if (!LoadoutStatePolicy::CanAttemptSeamlessFieldModRoleSeed(
+                true, player.FetchCompleted, clientTravelCompleted,
+                !seedRoles.empty()))
+        {
+            return false;
+        }
+
+        if (!player.SeamlessFieldModContainersReady)
+        {
+            if (!player.FreshSeamlessSeedBlockedLogged)
+            {
+                player.FreshSeamlessSeedBlockedLogged = true;
+                ClientLog("[LOADOUT] player=" + PlayerTag(player.Key.PlayerId) +
+                    " generation=" + std::to_string(player.Key.Generation) +
+                    " stage=" + stage +
+                    " result=blocked detail=fieldmod-containers-not-ready");
+            }
+            return false;
+        }
+
+        std::string seedDetail;
+        player.SeamlessFieldModRolesSeeded =
+            LoadoutApplication::SeedSeamlessPlayerStateInventoryRoles(
+                controller, seedRoles, seedDetail);
+        if (player.SeamlessFieldModRolesSeeded ||
+            !player.SeamlessFieldModSeedFailureLogged)
+        {
+            ClientLog("[LOADOUT] player=" + PlayerTag(player.Key.PlayerId) +
+                " generation=" + std::to_string(player.Key.Generation) +
+                " stage=" + stage + " result=" +
+                (player.SeamlessFieldModRolesSeeded ? "seeded" : "blocked") +
+                " roles=" + std::to_string(seedRoles.size()) +
+                " detail=" + seedDetail);
+        }
+        player.SeamlessFieldModSeedFailureLogged =
+            !player.SeamlessFieldModRolesSeeded;
+        return player.SeamlessFieldModRolesSeeded;
+    }
+
     ApplyResult ApplyNativePreOrder(
         const ConnectionKey& key,
         APBPlayerController* expectedController,
         const std::string& roleId,
         const FPBInventoryNetworkConfig& inventory,
-        std::string& outDetail)
+        std::string& outDetail,
+        const FName* exactRoleName = nullptr)
     {
         PlayerConnection* player = Find(key);
         if (!player || player->Controller != expectedController)
@@ -496,10 +609,13 @@ public:
             ~InternalPreOrderGuard() { --Depth; }
         } guard(InternalPreOrderDepth);
         return LoadoutApplication::PreSpawnApplyInventory(
-            roleId, inventory, expectedController, outDetail);
+            roleId, inventory, expectedController, outDetail, exactRoleName);
     }
 
-    bool PrepareEffectiveRole(PlayerConnection& player, const std::string& roleId)
+    bool PrepareEffectiveRole(
+        PlayerConnection& player,
+        const std::string& roleId,
+        const FName* exactRoleName = nullptr)
     {
         const EffectiveInventory effective = ResolveEffective(player, roleId);
         if (!effective.HasInventory)
@@ -509,7 +625,7 @@ public:
         APBPlayerController* const controller = player.Controller;
         std::string detail;
         const ApplyResult result = ApplyNativePreOrder(
-            key, controller, roleId, effective.Inventory, detail);
+            key, controller, roleId, effective.Inventory, detail, exactRoleName);
         ClientLog("[LOADOUT] player=" + PlayerTag(key.PlayerId) +
             " generation=" + std::to_string(key.Generation) +
             " stage=confirm-preorder role=" + roleId +
@@ -609,6 +725,11 @@ public:
 
             player->FetchCompleted = true;
             player->FetchTerminal = false;
+            if (RequiresSeamlessFieldModSeed(*player))
+            {
+                (void)TrySeedSeamlessFieldModRoles(
+                    *player, "seamless-fieldmod-seed");
+            }
             ClientLog("[LOADOUT] player=" + PlayerTag(key.PlayerId) +
                 " generation=" + std::to_string(key.Generation) +
                 " stage=baseline-fetch result=ready roles=" +
@@ -616,8 +737,19 @@ public:
                 " set_hash=" + HashText(aggregateHash));
 
             const std::string selectedRole = player->SelectedRoleId;
-            if (!selectedRole.empty() && !player->RuntimeOverrides.contains(selectedRole))
+            if (!selectedRole.empty() &&
+                !player->RuntimeOverrides.contains(selectedRole) &&
+                !player->SeamlessRoleGateActive)
+            {
                 ApplyLateBaselineForNextLife(key, selectedRole);
+            }
+            else if (!selectedRole.empty() && player->SeamlessRoleGateActive)
+            {
+                ClientLog("[LOADOUT] player=" + PlayerTag(key.PlayerId) +
+                    " generation=" + std::to_string(key.Generation) +
+                    " stage=late-baseline-next-life role=" + selectedRole +
+                    " result=deferred reason=client-travel-pending");
+            }
             return;
         }
 
@@ -908,6 +1040,10 @@ void LoadoutManager::StopServer()
     impl_->BoundWorld = nullptr;
     impl_->HasBoundWorld = false;
     impl_->InternalPreOrderDepth = 0;
+    impl_->InternalSeamlessRoleReconfirmDepth = 0;
+    impl_->InternalSeamlessRoleReconfirmController = nullptr;
+    impl_->InternalSeamlessRoleReconfirmRole = {};
+    impl_->InternalSeamlessRoleNativePreOrderReady = false;
 
     for (auto& task : impl_->FetchTasks)
     {
@@ -916,6 +1052,13 @@ void LoadoutManager::StopServer()
         catch (...) {}
     }
     impl_->FetchTasks.clear();
+}
+
+void LoadoutManager::ResetForMatchGeneration(UWorld* currentWorld)
+{
+    if (!impl_ || !impl_->ServerActive)
+        return;
+    impl_->ResetForMatchGeneration(currentWorld);
 }
 
 void LoadoutManager::OnPlayerConnected(APBPlayerController* playerController)
@@ -953,6 +1096,75 @@ void LoadoutManager::OnPlayerConnected(APBPlayerController* playerController)
         impl_->StartFetch(*player);
     else
         player->FetchTerminal = true;
+}
+
+void LoadoutManager::RebindSeamlessRoleForMatchGeneration(
+    APBPlayerController* playerController,
+    const std::string& roleId)
+{
+    if (!impl_ || !impl_->ServerActive || !playerController ||
+        !IsUsableRoleId(roleId))
+    {
+        return;
+    }
+    Impl::PlayerConnection* player = impl_->Find(playerController);
+    if (!player) return;
+
+    std::string normalizationDetail;
+    const bool normalized =
+        LoadoutApplication::NormalizeSeamlessPlayerStateInventoryContainers(
+            playerController, normalizationDetail);
+    ClientLog("[LOADOUT] player=" + PlayerTag(player->Key.PlayerId) +
+        " generation=" + std::to_string(player->Key.Generation) +
+        " stage=seamless-fieldmod-containers result=" +
+        (normalized ? "normalized" : "blocked") +
+        " detail=" + normalizationDetail);
+    if (!normalized)
+        return;
+
+    player->SelectedRoleId = roleId;
+    player->SeamlessRoleGateActive = true;
+    player->SeamlessFieldModContainersReady = true;
+    player->SeamlessRoleGateBlockedLogged = false;
+    player->SeamlessRoleGateDeadline = Clock::now() + kSeamlessRoleGateGrace;
+    player->SeamlessRoleReconfirmAttempts = 0;
+    player->NextSeamlessRoleReconfirmAt = TimePoint{};
+    player->SeamlessRoleReconfirmFailureLogged = false;
+    player->SeamlessNativePreOrderBlockedLogged = false;
+    player->SeamlessFieldModRolesSeeded = false;
+    LoadoutStatePolicy::CompleteRoleConfirmation(player->Pending);
+    ClientLog("[LOADOUT] player=" + PlayerTag(player->Key.PlayerId) +
+        " generation=" + std::to_string(player->Key.Generation) +
+        " stage=seamless-role-rebind role=" + roleId +
+        " result=bound");
+}
+
+void LoadoutManager::PrepareFreshSeamlessRoleSelectionForMatchGeneration(
+    APBPlayerController* playerController)
+{
+    if (!impl_ || !impl_->ServerActive || !playerController)
+        return;
+    Impl::PlayerConnection* player = impl_->Find(playerController);
+    if (!player) return;
+
+    // Keep the guard active even if normalization cannot proceed. It is safer
+    // to leave Deploy pending than to pass a destructed source-world container
+    // into the pinned native ServerPreOrderInventory implementation.
+    player->FreshSeamlessRoleSelectionActive = true;
+    player->FreshSeamlessSeedBlockedLogged = false;
+    player->SeamlessFieldModSeedFailureLogged = false;
+    player->SeamlessFieldModRolesSeeded = false;
+
+    std::string normalizationDetail;
+    player->SeamlessFieldModContainersReady =
+        LoadoutApplication::NormalizeSeamlessPlayerStateInventoryContainers(
+            playerController, normalizationDetail);
+    ClientLog("[LOADOUT] player=" + PlayerTag(player->Key.PlayerId) +
+        " generation=" + std::to_string(player->Key.Generation) +
+        " stage=fresh-seamless-fieldmod-containers result=" +
+        (player->SeamlessFieldModContainersReady
+            ? "normalized" : "blocked") +
+        " detail=" + normalizationDetail);
 }
 
 void LoadoutManager::OnPlayerDisconnected(APBPlayerController* playerController)
@@ -1007,6 +1219,29 @@ LoadoutRoleConfirmDecision LoadoutManager::BeginRoleConfirmation(
     const std::string role = LoadoutSerializer::NameToString(roleId);
     if (!IsUsableRoleId(role)) return LoadoutRoleConfirmDecision::Fallback;
 
+    if (!LoadoutStatePolicy::CanDispatchFreshSeamlessRoleConfirmation(
+            player->FreshSeamlessRoleSelectionActive,
+            player->SeamlessFieldModRolesSeeded))
+    {
+        (void)impl_->TrySeedSeamlessFieldModRoles(
+            *player, "fresh-seamless-fieldmod-confirm-seed");
+        if (!player->SeamlessFieldModRolesSeeded)
+        {
+            // Record the exact requested role so TickServer can replay the
+            // original reliable RPC after the destination baseline and native
+            // travel handshake have rebuilt the retained PlayerState.
+            (void)LoadoutStatePolicy::BeginRoleConfirmation(
+                player->Pending, role, false, false, Clock::now(),
+                std::chrono::duration_cast<std::chrono::milliseconds>(
+                    kRoleConfirmationGrace));
+            ClientLog("[LOADOUT] player=" + PlayerTag(player->Key.PlayerId) +
+                " generation=" + std::to_string(player->Key.Generation) +
+                " stage=fresh-seamless-role-confirm role=" + role +
+                " result=deferred reason=fieldmod-seed-pending");
+            return LoadoutRoleConfirmDecision::Deferred;
+        }
+    }
+
     const bool hasEffective = player->RuntimeOverrides.contains(role) ||
         player->Baselines.contains(role);
     LoadoutRoleConfirmDecision decision = hasEffective
@@ -1025,8 +1260,23 @@ LoadoutRoleConfirmDecision LoadoutManager::BeginRoleConfirmation(
         return decision;
 
     const Impl::ConnectionKey key = player->Key;
-    if (decision == LoadoutRoleConfirmDecision::Ready &&
-        !impl_->PrepareEffectiveRole(*player, role))
+    const bool seededSeamlessRole =
+        impl_->RequiresSeamlessFieldModSeed(*player) &&
+        player->SeamlessFieldModRolesSeeded;
+    if (decision == LoadoutRoleConfirmDecision::Ready && seededSeamlessRole)
+    {
+        // The destination PlayerState already contains the authoritative
+        // baseline for every role. Reissuing ServerPreOrderInventory here is
+        // redundant and this pinned native implementation dereferences the
+        // result of its role lookup without checking INDEX_NONE. Let the
+        // original role-confirm RPC consume the seeded entry directly.
+        ClientLog("[LOADOUT] player=" + PlayerTag(key.PlayerId) +
+            " generation=" + std::to_string(key.Generation) +
+            " stage=confirm-preorder role=" + role +
+            " result=seeded-existing");
+    }
+    else if (decision == LoadoutRoleConfirmDecision::Ready &&
+        !impl_->PrepareEffectiveRole(*player, role, &roleId))
     {
         if (Impl::PlayerConnection* current = impl_->Find(key))
             current->Pending.ReplayDecision = LoadoutRoleConfirmDecision::Fallback;
@@ -1045,6 +1295,7 @@ void LoadoutManager::CommitRoleConfirmationAfterOriginal(
     const std::string role = LoadoutSerializer::NameToString(roleId);
     if (!IsUsableRoleId(role)) return;
     player->SelectedRoleId = role;
+    player->FreshSeamlessRoleSelectionActive = false;
     LoadoutStatePolicy::CompleteRoleConfirmation(player->Pending);
 }
 
@@ -1087,6 +1338,22 @@ bool LoadoutManager::OnExternalPreOrderInventory(
     return true;
 }
 
+bool LoadoutManager::ShouldHoldExternalPreOrderForSeamlessSeed(
+    APBPlayerController* playerController)
+{
+    if (!impl_ || !impl_->ServerActive || !playerController)
+        return false;
+    Impl::PlayerConnection* player = impl_->Find(playerController);
+    if (!player || !impl_->RequiresSeamlessFieldModSeed(*player))
+        return false;
+
+    const bool clientTravelCompleted =
+        playerController->SeamlessTravelCount != 0 &&
+        playerController->SeamlessTravelCount ==
+            playerController->LastCompletedSeamlessTravelCount;
+    return !player->SeamlessFieldModRolesSeeded || !clientTravelCompleted;
+}
+
 bool LoadoutManager::DeferExternalPreOrderInventoryIfLeaseConflict(
     APBPlayerController* playerController,
     const FName& roleId,
@@ -1101,6 +1368,51 @@ bool LoadoutManager::DeferExternalPreOrderInventoryIfLeaseConflict(
 bool LoadoutManager::IsInternalPreOrderInProgress() const
 {
     return impl_ && impl_->InternalPreOrderDepth > 0;
+}
+
+bool LoadoutManager::IsInternalSeamlessRoleReconfirmInProgress(
+    APBPlayerController* playerController) const
+{
+    return impl_ && playerController &&
+        impl_->InternalSeamlessRoleReconfirmDepth > 0 &&
+        impl_->InternalSeamlessRoleReconfirmController == playerController;
+}
+
+bool LoadoutManager::ShouldBypassSeamlessRoleValidator(
+    APBPlayerController* playerController,
+    const FName& roleId) const
+{
+    if (!impl_ || !playerController)
+        return false;
+
+    const auto binding = impl_->ControllerBindings.find(playerController);
+    if (binding == impl_->ControllerBindings.end() ||
+        !impl_->Players.contains(binding->second))
+    {
+        return false;
+    }
+
+    const Impl::PlayerConnection& player =
+        impl_->Players.at(binding->second);
+    FName nativePreOrderRoleName{};
+    const bool requestedRolePresent =
+        LoadoutApplication::TryResolvePlayerStateInventoryRoleName(
+            playerController, roleId.ToString(), nativePreOrderRoleName) &&
+        nativePreOrderRoleName == roleId;
+    if (LoadoutStatePolicy::CanBypassFreshSeamlessRoleValidator(
+            player.FreshSeamlessRoleSelectionActive,
+            player.SeamlessFieldModRolesSeeded,
+            requestedRolePresent))
+    {
+        return true;
+    }
+
+    return LoadoutStatePolicy::CanBypassSeamlessRoleValidator(
+        impl_->InternalSeamlessRoleReconfirmDepth > 0,
+        player.SeamlessRoleGateActive,
+        impl_->InternalSeamlessRoleReconfirmController == playerController,
+        impl_->InternalSeamlessRoleReconfirmRole == roleId,
+        impl_->InternalSeamlessRoleNativePreOrderReady);
 }
 
 bool LoadoutManager::IsCharacterTombstoned(APBCharacter* character) const
@@ -1150,7 +1462,218 @@ void LoadoutManager::OnInventorySpawned(APBCharacter* character)
 
 bool LoadoutManager::CanReleaseRoleSpawn(APBPlayerController* playerController)
 {
-    (void)playerController;
+    if (!impl_ || !impl_->ServerActive || !playerController)
+        return true;
+    Impl::PlayerConnection* player = impl_->Find(playerController);
+    if (!player || !player->SeamlessRoleGateActive)
+        return true;
+
+    const TimePoint now = Clock::now();
+    const bool fetchSettled = player->FetchCompleted || player->FetchTerminal;
+    // On the server, LastCompletedSeamlessTravelCount advances only after the
+    // remote client has loaded the destination and sent
+    // ServerNotifyLoadedWorld.  RestartPlayers before that handshake can
+    // create a valid authoritative Pawn whose ClientRestart is consumed while
+    // the client is still replacing its World, leaving the 999/999 HUD and no
+    // movement.  Ordinary and same-world respawns remain outside this gate.
+    const bool clientTravelCompleted =
+        playerController->SeamlessTravelCount != 0 &&
+        playerController->SeamlessTravelCount ==
+            playerController->LastCompletedSeamlessTravelCount;
+    if (!LoadoutStatePolicy::CanReleaseSeamlessRoleSpawn(
+        true, fetchSettled, clientTravelCompleted,
+        now, player->SeamlessRoleGateDeadline))
+    {
+        if (!player->SeamlessRoleGateBlockedLogged)
+        {
+            player->SeamlessRoleGateBlockedLogged = true;
+            ClientLog("[LOADOUT] player=" + PlayerTag(player->Key.PlayerId) +
+                " generation=" + std::to_string(player->Key.Generation) +
+                " stage=seamless-role-gate role=" + player->SelectedRoleId +
+                " result=waiting baseline=" +
+                (fetchSettled ? "settled" : "pending") +
+                " client_travel=" +
+                (clientTravelCompleted ? "complete" : "pending") +
+                " seamless_count=" +
+                std::to_string(playerController->SeamlessTravelCount) +
+                " last_completed=" +
+                std::to_string(
+                    playerController->LastCompletedSeamlessTravelCount));
+        }
+        return false;
+    }
+
+    const std::string selectedNativeRole = playerController->PBPlayerState
+        ? playerController->PBPlayerState->SelectedCharacterID.ToString()
+        : std::string{};
+    const bool nativeRoleReady = !player->SelectedRoleId.empty() &&
+        player->SelectedRoleId != "None" &&
+        selectedNativeRole == player->SelectedRoleId;
+    if (!nativeRoleReady)
+    {
+        // The destination arrays are seeded from the same metaserver baseline
+        // before any native inventory RPC is allowed.  Wait until the selected
+        // role is visible here, then let ServerConfirmRoleSelection perform the
+        // native pre-order/selection sequence after ServerNotifyLoadedWorld.
+        const Impl::EffectiveInventory effective =
+            impl_->ResolveEffective(*player, player->SelectedRoleId);
+        const FPBInventoryNetworkConfig emptyInventory{};
+        FName nativePreOrderRoleName{};
+        bool nativeRoleNameReady =
+            LoadoutApplication::TryResolvePlayerStateInventoryRoleName(
+                playerController, player->SelectedRoleId,
+                nativePreOrderRoleName);
+        if (!nativeRoleNameReady)
+        {
+            const auto seedRoles = impl_->BuildSeamlessFieldModSeedRoles(*player);
+            if (LoadoutStatePolicy::CanAttemptSeamlessFieldModRoleSeed(
+                true, player->FetchCompleted, clientTravelCompleted,
+                !seedRoles.empty()))
+            {
+                std::string seedDetail;
+                const bool seeded =
+                    LoadoutApplication::SeedSeamlessPlayerStateInventoryRoles(
+                        playerController, seedRoles, seedDetail);
+                player->SeamlessFieldModRolesSeeded = seeded;
+                ClientLog("[LOADOUT] player=" + PlayerTag(player->Key.PlayerId) +
+                    " generation=" + std::to_string(player->Key.Generation) +
+                    " stage=seamless-fieldmod-post-travel-seed result=" +
+                    (seeded ? "seeded" : "blocked") +
+                    " roles=" + std::to_string(seedRoles.size()) +
+                    " detail=" + seedDetail);
+                if (seeded)
+                {
+                    nativeRoleNameReady =
+                        LoadoutApplication::TryResolvePlayerStateInventoryRoleName(
+                            playerController, player->SelectedRoleId,
+                            nativePreOrderRoleName);
+                }
+            }
+        }
+        const PlayerStateInventoryState preOrderState =
+            nativeRoleNameReady
+            ? LoadoutApplication::InspectPlayerStateInventory(
+                playerController,
+                nativePreOrderRoleName,
+                effective.HasInventory ? effective.Inventory : emptyInventory,
+                false)
+            : PlayerStateInventoryState::RoleMissing;
+        const bool nativePreOrderReady =
+            preOrderState == PlayerStateInventoryState::Match ||
+            preOrderState == PlayerStateInventoryState::Mismatch;
+        if (!nativePreOrderReady)
+        {
+            if (!player->SeamlessNativePreOrderBlockedLogged)
+            {
+                player->SeamlessNativePreOrderBlockedLogged = true;
+                const char* stateName =
+                    preOrderState == PlayerStateInventoryState::PlayerStateMissing
+                    ? "player-state-missing" : "role-missing";
+                ClientLog("[LOADOUT] player=" + PlayerTag(player->Key.PlayerId) +
+                    " generation=" + std::to_string(player->Key.Generation) +
+                    " stage=seamless-role-native-preorder role=" +
+                    player->SelectedRoleId + " result=waiting state=" +
+                    stateName);
+            }
+            return false;
+        }
+
+        if (player->SeamlessRoleReconfirmAttempts >=
+            kMaxSeamlessRoleReconfirmAttempts)
+        {
+            if (!player->SeamlessRoleReconfirmFailureLogged)
+            {
+                player->SeamlessRoleReconfirmFailureLogged = true;
+                ClientLog("[LOADOUT] player=" + PlayerTag(player->Key.PlayerId) +
+                    " generation=" + std::to_string(player->Key.Generation) +
+                    " stage=seamless-role-native-confirm role=" +
+                    player->SelectedRoleId + " native_role=" +
+                    (selectedNativeRole.empty() ? "<empty>" : selectedNativeRole) +
+                    " result=retry-exhausted");
+            }
+            return false;
+        }
+        if (now < player->NextSeamlessRoleReconfirmAt)
+            return false;
+
+        // Mutate retry state before crossing the engine boundary. The native
+        // RPC synchronously re-enters the ProcessEvent hook, which prepares the
+        // destination pre-order inventory and may replace tracked UObject
+        // state. Do not dereference `player` after this call.
+        const Impl::ConnectionKey key = player->Key;
+        const std::string roleId = player->SelectedRoleId;
+        const unsigned int attempt = ++player->SeamlessRoleReconfirmAttempts;
+        player->NextSeamlessRoleReconfirmAt =
+            now + kSeamlessRoleReconfirmRetry;
+        ClientLog("[LOADOUT] player=" + PlayerTag(key.PlayerId) +
+            " generation=" + std::to_string(key.Generation) +
+            " stage=seamless-role-native-confirm role=" + roleId +
+            " native_role=" +
+            (selectedNativeRole.empty() ? "<empty>" : selectedNativeRole) +
+            " attempt=" + std::to_string(attempt) + " result=requested");
+        struct InternalSeamlessRoleReconfirmGuard
+        {
+            Impl& State;
+            APBPlayerController* PreviousController;
+            FName PreviousRole;
+            bool PreviousNativePreOrderReady;
+            InternalSeamlessRoleReconfirmGuard(
+                Impl& state,
+                APBPlayerController* controller,
+                const FName& role)
+                : State(state),
+                  PreviousController(state.InternalSeamlessRoleReconfirmController),
+                  PreviousRole(state.InternalSeamlessRoleReconfirmRole),
+                  PreviousNativePreOrderReady(
+                      state.InternalSeamlessRoleNativePreOrderReady)
+            {
+                ++State.InternalSeamlessRoleReconfirmDepth;
+                State.InternalSeamlessRoleReconfirmController = controller;
+                State.InternalSeamlessRoleReconfirmRole = role;
+                State.InternalSeamlessRoleNativePreOrderReady = true;
+            }
+            ~InternalSeamlessRoleReconfirmGuard()
+            {
+                --State.InternalSeamlessRoleReconfirmDepth;
+                if (State.InternalSeamlessRoleReconfirmDepth > 0)
+                {
+                    State.InternalSeamlessRoleReconfirmController =
+                        PreviousController;
+                    State.InternalSeamlessRoleReconfirmRole = PreviousRole;
+                    State.InternalSeamlessRoleNativePreOrderReady =
+                        PreviousNativePreOrderReady;
+                }
+                else
+                {
+                    State.InternalSeamlessRoleReconfirmController = nullptr;
+                    State.InternalSeamlessRoleReconfirmRole = {};
+                    State.InternalSeamlessRoleNativePreOrderReady = false;
+                }
+            }
+        } internalReconfirm(
+            *impl_, playerController, nativePreOrderRoleName);
+        try
+        {
+            playerController->ServerConfirmRoleSelection(
+                nativePreOrderRoleName);
+        }
+        catch (...)
+        {
+            ClientLog("[LOADOUT] player=" + PlayerTag(key.PlayerId) +
+                " generation=" + std::to_string(key.Generation) +
+                " stage=seamless-role-native-confirm role=" + roleId +
+                " attempt=" + std::to_string(attempt) + " result=exception");
+        }
+        return false;
+    }
+
+    player->SeamlessRoleGateActive = false;
+    ClientLog("[LOADOUT] player=" + PlayerTag(player->Key.PlayerId) +
+        " generation=" + std::to_string(player->Key.Generation) +
+        " stage=seamless-role-gate role=" + player->SelectedRoleId +
+        " result=" + (fetchSettled ? "baseline-settled" : "native-fallback") +
+        " client_travel=complete seamless_count=" +
+        std::to_string(playerController->SeamlessTravelCount));
     return true;
 }
 
@@ -1218,6 +1741,14 @@ void LoadoutManager::TickServer(float deltaSeconds)
         {
             impl_->StartFetch(*player);
         }
+        if (impl_->RequiresSeamlessFieldModSeed(*player) &&
+            !player->SeamlessFieldModRolesSeeded)
+        {
+            (void)impl_->TrySeedSeamlessFieldModRoles(
+                *player, player->FreshSeamlessRoleSelectionActive
+                    ? "fresh-seamless-fieldmod-tick-seed"
+                    : "seamless-fieldmod-tick-seed");
+        }
         impl_->TryPostSpawnApply(key, now);
     }
 
@@ -1231,6 +1762,14 @@ void LoadoutManager::TickServer(float deltaSeconds)
     for (auto& entry : impl_->Players)
     {
         Impl::PlayerConnection& player = entry.second;
+        if (!LoadoutStatePolicy::CanDispatchFreshSeamlessRoleConfirmation(
+                player.FreshSeamlessRoleSelectionActive,
+                player.SeamlessFieldModRolesSeeded))
+        {
+            // Never let the generic one-second baseline fallback replay the
+            // RPC against a source-world container that is still absent.
+            continue;
+        }
         const bool hasEffective = player.RuntimeOverrides.contains(player.Pending.RoleId) ||
             player.Baselines.contains(player.Pending.RoleId);
         const auto decision = LoadoutStatePolicy::PollRoleConfirmation(

@@ -2,6 +2,7 @@
 #include <Windows.h>
 #include <wincrypt.h>
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <cstring>
 #include <thread>
@@ -12,6 +13,7 @@
 #include <memory>
 #include <mutex>
 #include <sstream>
+#include <string_view>
 
 #include "SDK.hpp"
 #include "Network/NetDriverAccess.h"
@@ -21,6 +23,7 @@
 #include "Libs/json.hpp"
 #include "Replication/libreplicate.h"
 #include "ServerLogic/LateJoinManager.h"
+#include "ServerLogic/DedicatedMultiMatch.h"
 #include "Communication/CommandFramework.h"
 #include "Loadout/LoadoutManager.h"
 
@@ -30,6 +33,7 @@
 #include "Debug/DebugTool.h"
 #include "ServerLogic/ServerLogic.h"
 #include "ClientLogic/ClientLogic.h"
+#include "ClientLogic/LocalQosDiscoveryPolicy.h"
 #include "Hooks/Hooks.h"
 #include "Network/Network.h"
 #include "Utility/Utility.h"
@@ -54,6 +58,8 @@ constexpr char kSupportedExecutableSha256[] =
     "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843";
 constexpr DWORD kSupportedExecutableImageSize = 105431040;
 constexpr uintptr_t kGetNetModeRva = 0x036CC300;
+constexpr uintptr_t kQosDiscoveryFStringRva = 0x05C63C88;
+constexpr uintptr_t kQosDiscoveryInitializerRva = 0x0068ADE0;
 constexpr uintptr_t kRpcFramePatchPageOffset = 0x009C3000;
 constexpr SIZE_T kRpcFramePatchPageSize = 0x1000;
 
@@ -84,6 +90,172 @@ constexpr NativeRpcPatch kNativeRpcPatches[] = {
     {0x009C3B87, kOutputClearExpected, kOutputClearReplacement,
         sizeof(kOutputClearExpected)},
 };
+
+constexpr uint8_t kQosInitializerExpected[] = {
+    0x48, 0x83, 0xEC, 0x28, 0xBA, 0x51, 0x00, 0x00,
+    0x00, 0x48, 0x8D, 0x0D, 0x98, 0x8E, 0x5D, 0x05,
+};
+constexpr wchar_t kOriginalQosDiscoveryUrl[] =
+    L"https://qos.multiplay.com/v1/fleets/59e74bef-4124-464e-ac31-1a001c070829/servers";
+
+struct RawFString
+{
+    wchar_t* Data;
+    int32_t Num;
+    int32_t Max;
+};
+static_assert(sizeof(RawFString) == 16);
+
+enum class QosPatchResult : int
+{
+    Pending,
+    Success,
+    Failure,
+};
+
+SafetyHookInline gQosInitializerHook{};
+std::wstring gLocalQosDiscoveryUrl;
+std::atomic<QosPatchResult> gQosPatchResult{QosPatchResult::Pending};
+
+bool IsWritableRange(const void* address, size_t size)
+{
+    if (!address || size == 0)
+        return false;
+    MEMORY_BASIC_INFORMATION information{};
+    if (VirtualQuery(address, &information, sizeof(information)) != sizeof(information) ||
+        information.State != MEM_COMMIT ||
+        (information.Protect & (PAGE_GUARD | PAGE_NOACCESS)) != 0)
+    {
+        return false;
+    }
+    const DWORD protection = information.Protect & 0xFF;
+    const bool writable = protection == PAGE_READWRITE || protection == PAGE_WRITECOPY ||
+        protection == PAGE_EXECUTE_READWRITE || protection == PAGE_EXECUTE_WRITECOPY;
+    const uintptr_t begin = reinterpret_cast<uintptr_t>(address);
+    const uintptr_t regionEnd = reinterpret_cast<uintptr_t>(information.BaseAddress) +
+        information.RegionSize;
+    return writable && begin <= regionEnd && size <= regionEnd - begin;
+}
+
+QosPatchResult TryPatchQosDiscoveryUrl()
+{
+    auto* value = reinterpret_cast<RawFString*>(BaseAddress + kQosDiscoveryFStringRva);
+    if (!value->Data || value->Num <= 0 || value->Max <= 0)
+        return QosPatchResult::Pending;
+    if (value->Num > value->Max || value->Max > 4096 || gLocalQosDiscoveryUrl.empty())
+        return QosPatchResult::Failure;
+    const size_t capacity = static_cast<size_t>(value->Max);
+    if (!IsWritableRange(value->Data, capacity * sizeof(wchar_t)))
+        return QosPatchResult::Failure;
+    const size_t currentLength = wcsnlen_s(value->Data, capacity);
+    if (currentLength == capacity)
+        return QosPatchResult::Failure;
+    const std::wstring_view current(value->Data, currentLength);
+    if (current == gLocalQosDiscoveryUrl)
+        return QosPatchResult::Success;
+    if (current != kOriginalQosDiscoveryUrl || gLocalQosDiscoveryUrl.size() + 1 > capacity)
+        return QosPatchResult::Failure;
+
+    std::memcpy(value->Data, gLocalQosDiscoveryUrl.data(),
+        gLocalQosDiscoveryUrl.size() * sizeof(wchar_t));
+    value->Data[gLocalQosDiscoveryUrl.size()] = L'\0';
+    value->Num = static_cast<int32_t>(gLocalQosDiscoveryUrl.size() + 1);
+    std::atomic_thread_fence(std::memory_order_seq_cst);
+    const size_t verifiedLength = wcsnlen_s(value->Data, capacity);
+    return verifiedLength == gLocalQosDiscoveryUrl.size() &&
+        value->Num == static_cast<int32_t>(verifiedLength + 1) &&
+        std::wstring_view(value->Data, verifiedLength) == gLocalQosDiscoveryUrl
+        ? QosPatchResult::Success
+        : QosPatchResult::Failure;
+}
+
+void QosDiscoveryInitializerDetour()
+{
+    gQosInitializerHook.call<void>();
+    gQosPatchResult.store(TryPatchQosDiscoveryUrl(), std::memory_order_release);
+}
+
+bool SignalLocalQosReady(std::string_view eventName)
+{
+    const std::wstring wide(eventName.begin(), eventName.end());
+    HANDLE event = OpenEventW(EVENT_MODIFY_STATE, FALSE, wide.c_str());
+    if (!event)
+        return false;
+    const bool signaled = SetEvent(event) != FALSE;
+    CloseHandle(event);
+    return signaled;
+}
+
+bool ApplyLocalPveQosRedirect(const std::string& commandLine)
+{
+    const auto decision = LocalQosDiscoveryPolicy::Evaluate(commandLine);
+    if (decision.state == LocalQosDiscoveryPolicy::State::Disabled)
+        return true;
+    if (decision.state == LocalQosDiscoveryPolicy::State::Invalid)
+    {
+        ClientLog("[LOCAL-QOS] Refusing invalid opt-in: " + decision.error);
+        return false;
+    }
+
+    gLocalQosDiscoveryUrl.assign(
+        decision.discoveryUrl.begin(), decision.discoveryUrl.end());
+    QosPatchResult result = TryPatchQosDiscoveryUrl();
+    if (result == QosPatchResult::Pending)
+    {
+        const void* initializer = reinterpret_cast<const void*>(
+            BaseAddress + kQosDiscoveryInitializerRva);
+        if (std::memcmp(initializer, kQosInitializerExpected,
+            sizeof(kQosInitializerExpected)) != 0)
+        {
+            ClientLog("[LOCAL-QOS] Refusing initializer hook: instruction guard mismatch.");
+            return false;
+        }
+        gQosPatchResult.store(QosPatchResult::Pending, std::memory_order_release);
+        gQosInitializerHook = safetyhook::create_inline(
+            reinterpret_cast<void*>(BaseAddress + kQosDiscoveryInitializerRva),
+            QosDiscoveryInitializerDetour);
+        if (!gQosInitializerHook)
+        {
+            ClientLog("[LOCAL-QOS] Failed to install the temporary initializer hook.");
+            return false;
+        }
+
+        const ULONGLONG deadline = GetTickCount64() + 15000;
+        while (GetTickCount64() < deadline)
+        {
+            result = gQosPatchResult.load(std::memory_order_acquire);
+            if (result == QosPatchResult::Pending)
+            {
+                const QosPatchResult observed = TryPatchQosDiscoveryUrl();
+                if (observed == QosPatchResult::Success)
+                {
+                    result = observed;
+                    gQosPatchResult.store(result, std::memory_order_release);
+                }
+            }
+            if (result != QosPatchResult::Pending)
+                break;
+            Sleep(1);
+        }
+        // Give a detour that just published its result time to return through
+        // the trampoline before restoring the initializer bytes.
+        Sleep(10);
+        gQosInitializerHook.reset();
+    }
+
+    if (result != QosPatchResult::Success)
+    {
+        ClientLog("[LOCAL-QOS] QoS discovery FString did not pass guarded readback.");
+        return false;
+    }
+    if (!SignalLocalQosReady(decision.readyEvent))
+    {
+        ClientLog("[LOCAL-QOS] Failed to signal the Toolbox readiness event.");
+        return false;
+    }
+    ClientLog("[LOCAL-QOS] Guarded loopback QoS discovery redirect is active.");
+    return true;
+}
 
 bool HashExecutable(std::string& digest)
 {
@@ -369,6 +541,11 @@ void MainThread()
             return;
         }
         ClientLog("[BOOT] Pinned executable SHA-256=" + executableHash);
+        if (!serverBootstrap && !ApplyLocalPveQosRedirect(commandLine))
+        {
+            ClientLog("[BOOT] Refusing client initialization: local PvE QoS guard failed.");
+            return;
+        }
         if (!serverBootstrap && !ApplyNativeRpcFrameLimitPatch(BaseAddress))
         {
             ClientLog("[BOOT] Refusing client initialization: executable build guard failed.");
@@ -440,6 +617,7 @@ void MainThread()
             // The room/tunnel identifiers are required before constructing
             // LoadoutManager; StartServer also reloads them before map travel.
             LoadConfig();
+            DedicatedMultiMatch::Initialize();
 
             // Wait for world
             Log("[SERVER] Waiting for UWorld...");
@@ -544,11 +722,20 @@ void MainThread()
             // Publish the loadout bridge before the listen socket begins
             // accepting players so PostLogin cannot race manager creation.
             ::StartServer();
-            UWorld* const authoritativeWorld = UWorld::GetWorld();
-            const int postTravelNetMode = GetNativeNetMode(authoritativeWorld);
+            UWorld* authoritativeWorld = nullptr;
+            int postTravelNetMode = -1;
             std::string authorityDetail;
-            const bool authoritativeListeningWorld =
-                IsAuthoritativeListeningWorld(authoritativeWorld, authorityDetail);
+            bool authoritativeListeningWorld = false;
+            for (int attempt = 0; attempt < 100; ++attempt)
+            {
+                authoritativeWorld = UWorld::GetWorld();
+                postTravelNetMode = GetNativeNetMode(authoritativeWorld);
+                authoritativeListeningWorld =
+                    IsAuthoritativeListeningWorld(authoritativeWorld, authorityDetail);
+                if (authoritativeListeningWorld)
+                    break;
+                Sleep(10);
+            }
             Log(std::string("[SERVER] Post-travel authority: net_mode=") +
                 NetModeName(postTravelNetMode) + " " + authorityDetail +
                 " result=" + (authoritativeListeningWorld ? "ready" : "invalid"));
@@ -577,10 +764,24 @@ void MainThread()
                         const nlohmann::json current = BuildServerStatusPayload();
                         const int reportedPlayerCount = current.value("playerCount", 0);
                         const int playerCount = reportedPlayerCount < 0 ? 0 : reportedPlayerCount;
+                        const std::string lifecycle =
+                            current.value("lifecycleState", "Disabled");
+                        std::string state = playerCount > 0 ? "RUNNING" : "READY";
+                        if (lifecycle == "Traveling" || lifecycle == "LoadingNext")
+                            state = "TRANSITIONING";
+                        else if (lifecycle == "Voting" || lifecycle == "WaitingToTravel")
+                            state = "VOTING";
+                        else if (lifecycle == "FallbackExit")
+                            state = "RESTARTING";
                         return nlohmann::json{
-                            {"state", playerCount > 0 ? "RUNNING" : "READY"},
+                            {"state", state},
                             {"player_count", playerCount},
-                            {"round_state", current.value("serverState", "Unknown")}
+                            {"round_state", current.value("serverState", "Unknown")},
+                            {"lifecycle_state", lifecycle},
+                            {"active_map", current.value("activeMap", current.value("map", ""))},
+                            {"next_map", current.value("nextMap", "")},
+                            {"match_generation", current.value("matchGeneration", 0ULL)},
+                            {"vote", current.value("vote", nlohmann::json::object())}
                         };
                     });
 

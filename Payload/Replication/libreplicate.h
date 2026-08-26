@@ -130,6 +130,11 @@ private:
 private:
 	UActorChannel* GetChannelForActor(UNetConnection* Connection, AActor* Actor);
 
+	bool IsOpenActorChannelForActor(
+		UNetConnection* Connection,
+		UActorChannel* ActorChannel,
+		AActor* Actor) const;
+
 	bool HaveWeSentThisTemporaryActor(UNetConnection* Connection, AActor* Actor);
 
 	void AddActorChannelToChannels(UNetConnection* Connection, UActorChannel* ActorChannel, AActor* Actor);
@@ -157,6 +162,11 @@ public:
 	void Listen(void* NetDriver, void* World, EJoinMode InitialJoinMode, int Port);
 
 	void SetJoinMode(EJoinMode NewJoinMode);
+
+	// Drop compatibility-cache pointers at a world boundary. The authoritative
+	// native OpenChannels array is scanned lazily, so a retained controller
+	// channel is reused without retaining stale source-world pointers here.
+	void ResetForWorldChange();
 
 	void CallFromTickFlushHook(std::vector<FActorInfo>& Actors, std::vector<FPlayerControllerInfo>& PlayerControllers, std::vector<UNetConnection*>& Connections, void* ActorChannelName, UNetDriver* NetDriver);
 

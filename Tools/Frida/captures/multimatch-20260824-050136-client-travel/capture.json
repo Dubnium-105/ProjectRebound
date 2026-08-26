@@ -1,0 +1,10 @@
+{
+  "created_at": "2026-08-23T21:04:56.748202+00:00",
+  "pid": 32880,
+  "process_name": "ProjectBoundarySteam-Win64-Shipping.exe",
+  "process_image": "C:\\Steam\\steamapps\\common\\Boundary\\ProjectBoundary\\Binaries\\Win64\\ProjectBoundarySteam-Win64-Shipping.exe",
+  "process_image_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+  "probe": "C:\\wksp\\ProjectRebound\\Tools\\Frida\\armory_probe.js",
+  "frida_version": "17.17.0",
+  "mode": "native_archive_read_only"
+}

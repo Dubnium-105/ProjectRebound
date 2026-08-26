@@ -44,6 +44,7 @@ After entering the game, follow `NO -> customization -> HR&Armory`, inspect repr
 - `fieldmod.native_call`: `ClientInitFieldMod`, native refresh calls, selection/getter boundaries, weapon-spawn boundaries, and reflected match-loadout RPCs.
 - `fieldmod.snapshot`: per-role pre-ordering state around those calls.
 - `match.native_boundary`: native server pre-order, role confirmation, and possession-time promotion boundaries.
+- `match.server_travel`: read-only ServerTravel URL/argument/result evidence with World, GameMode, GameState, NetDriver, and connection snapshots.
 - `progression.player_level_table`: runtime level-table summary for the exact executable.
 - `unreal.lifecycle`: armory lifecycle boundaries.
 

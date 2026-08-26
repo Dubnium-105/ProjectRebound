@@ -46,8 +46,26 @@ public:
     void StopServer();
 
     void OnPlayerConnected(SDK::APBPlayerController* playerController);
+    // Rebinds the authoritative source-match role into the fresh match
+    // generation without replaying ServerConfirmRoleSelection or client UI.
+    // Spawn is held only until the fresh baseline fetch settles or the normal
+    // bounded fallback deadline expires.
+    void RebindSeamlessRoleForMatchGeneration(
+        SDK::APBPlayerController* playerController,
+        const std::string& roleId);
+    // A seamless destination can retain PlayerController/PlayerState while
+    // intentionally discarding the old Pawn and asking the player to select a
+    // role again. Source-world cleanup has already destructed the retained
+    // PlayerState FieldMod containers, so rebuild them before allowing either
+    // native pre-order or role-confirm RPCs to consume them.
+    void PrepareFreshSeamlessRoleSelectionForMatchGeneration(
+        SDK::APBPlayerController* playerController);
     void OnPlayerDisconnected(SDK::APBPlayerController* playerController);
     void OnActorDestroyed(SDK::AActor* actor);
+    // A seamless travel may recycle the same UWorld address. Advance the
+    // server epoch explicitly so pointer-keyed requests from the previous
+    // match cannot be accepted in the next generation.
+    void ResetForMatchGeneration(SDK::UWorld* currentWorld);
 
     // A Deferred decision means the hook must not invoke the original RPC.
     // TickServer replays it when the fetch finishes or the one-second grace
@@ -66,6 +84,8 @@ public:
         SDK::APBPlayerController* playerController,
         const SDK::FName& roleId,
         const SDK::FPBInventoryNetworkConfig& inventory);
+    bool ShouldHoldExternalPreOrderForSeamlessSeed(
+        SDK::APBPlayerController* playerController);
 
     // Compatibility no-op retained for older hook callers. Native per-player
     // state no longer requires a shared role lease and this always returns false.
@@ -74,14 +94,23 @@ public:
         const SDK::FName& roleId,
         const SDK::FPBInventoryNetworkConfig& inventory);
     bool IsInternalPreOrderInProgress() const;
+    // True only while CanReleaseRoleSpawn is synchronously replaying the
+    // preserved role through the native ServerConfirmRoleSelection path.
+    bool IsInternalSeamlessRoleReconfirmInProgress(
+        SDK::APBPlayerController* playerController) const;
+    // The native reliable-RPC validator may be bypassed only for the exact
+    // guarded destination-role recovery after canonical pre-order validation.
+    bool ShouldBypassSeamlessRoleValidator(
+        SDK::APBPlayerController* playerController,
+        const SDK::FName& roleId) const;
 
     // Called after PBCharacter.K2_InventorySpawned.
     bool IsCharacterTombstoned(SDK::APBCharacter* character) const;
     void OnInventorySpawned(SDK::APBCharacter* character);
 
-    // Compatibility hooks retained for LateJoinManager. LoadoutManager no
-    // longer gates or serializes spawn dispatches; CanReleaseRoleSpawn is true
-    // and the dispatch notifications are no-ops.
+    // Compatibility hooks retained for LateJoinManager. Only a seamless
+    // rebound role is gated while its fresh-generation baseline is settling;
+    // ordinary spawn dispatches remain un-gated and notifications are no-ops.
     bool CanReleaseRoleSpawn(SDK::APBPlayerController* playerController);
 
     // Brackets the concrete synchronous RestartPlayers/QuickRespawn dispatch.

@@ -2,8 +2,10 @@
 
 #include <Windows.h>
 #include <cstdint>
+#include <vector>
 
 namespace SDK {
+class FName;
 class UNetDriver;
 class UWorld;
 }
@@ -34,7 +36,17 @@ struct Snapshot {
 };
 
 void Observe(SDK::UNetDriver* netDriver, SDK::UWorld* world, Source source);
-SDK::UNetDriver* Resolve(bool allowObjectScan = true);
+void SetHookArgumentRebindEnabled(bool enabled);
+void ResetForWorldChange(SDK::UWorld* world);
+std::vector<SDK::UNetDriver*> SnapshotNetDrivers();
+SDK::UNetDriver* ResolveNamedUnboundForBootstrap(
+    SDK::UWorld* world,
+    const SDK::FName& netDriverName,
+    const std::vector<SDK::UNetDriver*>& excludedDrivers);
+SDK::UNetDriver* Resolve(
+    bool allowObjectScan = true,
+    bool restoreCachedBinding = true);
+bool RestoreValidatedBinding(SDK::UWorld* world, SDK::UNetDriver* netDriver);
 bool TryGetSnapshot(Snapshot& snapshot, bool allowObjectScan = true);
 const char* ToString(Source source);
 }

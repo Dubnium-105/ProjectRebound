@@ -94,7 +94,22 @@ powershell -ExecutionPolicy Bypass -File .\Tools\Frida\run-armory-probe.ps1 -Pro
 
 ## 5. Meta-tunnel 与游戏启动
 
-无 Frida 时使用已安装启动器：
+当前玩家启动主路径是 **已签名的 Project Rebound Toolbox 发布版**：PVP、加入房间和
+Toolbox 本地 PVE 客户端都会从 Toolbox 内嵌资产按完整 SHA-256 提取 MetaTunnel 到
+`%LOCALAPPDATA%\com.projectrebound.toolbox\runtime\meta-tunnel\<sha256>`，使用随机
+loopback HTTP/TCP 端口，并通过匿名 stdin 传递访问令牌。令牌刷新由 Toolbox 的共享
+singleflight 认证流程负责；不得把令牌放入参数、环境变量或日志。Production Server
+页面仍使用独立的生产配置，不得注入本地 PVE 的动态 LogicServerURL。
+
+Toolbox 本地 PVE 还会在 Rust 内启动随机 loopback TCP/UDP QoS 兼容服务，并只给本次
+客户端追加 `-LocalPveQosDiscoveryUrl` 与 `-LocalPveQosReadyEvent`。固定构建 Payload
+必须在完整 EXE SHA-256、SizeOfImage、精确原始 URL、FString 可写容量和初始化器前缀
+全部匹配后才改写发现 URL；成功回读后才设置命名事件。任一条件不匹配必须 fail closed，
+不能退回 PowerShell、Python 或 Frida 运行时 patch。Toolbox 自身完整性校验不得绕过；
+本地自编译 EXE 需使用项目认可的签名材料后才能做完整 GUI 冷启动验收。
+
+以下 `startgame.ps1` 与 `Tools/PVE/start-local-pve.ps1` 流程保留为旧版/诊断路径，
+不再是 Toolbox 的生产依赖。无 Frida 的旧版安装启动器调用方式为：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File $StartGame
@@ -147,14 +162,15 @@ server-only 模式，再从游戏控制台执行 `open 127.0.0.1:<port>`。
 
 固定客户端还会在登录前查询已退役的 Unity Multiplay fleet；该接口当前返回
 `404 fleet does not exist`，会使冷启动停在 `CONNECTING TO PLATFORM SERVER`。
-`-LaunchClient` 默认临时启动 `local-qos-compat.ps1`，在 loopback 提供最小
+旧版 PVE 脚本的 `-LaunchClient` 默认临时启动 `local-qos-compat.ps1`，在 loopback 提供最小
 Discovery 响应和 Multiplay UDP echo，再通过 `UnityMatchmaker.ChinaDiscoverURL`
 的启动期 Frida patch 仅重定向本次本地 PVE 客户端；Shipping 构建不接受
 RuntimeOptions、`Engine.ini` ConsoleVariables 或 `ExecCmds` 设置该值。普通
 `startgame.ps1` 不启用该兼容层；诊断
 原始行为时可给 PVE 启动器传 `-DisableClientQosCompatibility`。
 该 patch 校验固定 EXE SHA-256，并在可执行文件入口点运行前等待原生
-OverseaDiscoverURL 初始化完成后原位改写；不修改 Payload 或对局内逻辑。
+OverseaDiscoverURL 初始化完成后原位改写；它仅用于对照旧行为，不得作为 Toolbox
+集成路径已经通过的证据。
 
 启动器固定校验 EXE SHA-256、拒绝已占用端口与重复 dedicated 进程，并把两个
 MetaTunnel 启动日志写到 `%LOCALAPPDATA%\ProjectRebound\local-pve\<timestamp>`。

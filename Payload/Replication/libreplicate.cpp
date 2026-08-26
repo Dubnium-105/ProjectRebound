@@ -3,6 +3,7 @@
 
 #include "../framework.h"
 #include "../Replication/libreplicate.h"
+#include "../Replication/ReplicationWorldGatePolicy.h"
 #include <iostream>
 
 #include "../SDK.hpp"
@@ -72,16 +73,96 @@ void LibReplicate::SetJoinMode(EJoinMode NewJoinMode) {
 	this->JoinMode = NewJoinMode;
 }
 
+void LibReplicate::ResetForWorldChange() {
+	std::scoped_lock lock(this->ChannelsToCloseMutex);
+	// The NetDriver and its connection survive our owned seamless travel, but
+	// individual actor channels do not have to. This vector is not an owner and
+	// cannot keep channel pointers authoritative across the boundary. Clear it;
+	// GetChannelForActor scans the connection's native OpenChannels first and
+	// therefore still reuses a genuinely retained PlayerController channel.
+	this->Channels->clear();
+	this->SentTemporaries->clear();
+	// Native NotifyActorDestroyed owns the actual channel close. This legacy
+	// queue has never been dispatched; discard its non-owning pointers before
+	// the source channel objects can be reclaimed.
+	this->ChannelsToClose->clear();
+}
+
+bool LibReplicate::IsOpenActorChannelForActor(
+	UNetConnection* Connection,
+	UActorChannel* ActorChannel,
+	AActor* Actor) const {
+	if (!Connection || !ActorChannel || !Actor)
+		return false;
+
+	auto* NativeConnection =
+		reinterpret_cast<SDK::UNetConnection*>(Connection);
+	auto* NativeChannel =
+		reinterpret_cast<SDK::UActorChannel*>(ActorChannel);
+	auto* NativeActor = reinterpret_cast<SDK::AActor*>(Actor);
+	bool isStillOpen = false;
+	for (SDK::UChannel* OpenChannel : NativeConnection->OpenChannels) {
+		if (OpenChannel == NativeChannel) {
+			isStillOpen = true;
+			break;
+		}
+	}
+
+	// Do not dereference a cached channel until the native connection has
+	// proven it still owns that exact pointer.
+	if (!isStillOpen)
+		return false;
+
+	const bool actorStillMatches =
+		NativeChannel->IsA(SDK::UActorChannel::StaticClass()) &&
+		NativeChannel->Actor == NativeActor;
+	return ReplicationWorldGatePolicy::IsCachedActorChannelUsable(
+		isStillOpen, actorStillMatches);
+}
+
 LibReplicate::UActorChannel* LibReplicate::GetChannelForActor(UNetConnection* Connection, AActor* Actor) {
 	for (auto& Pair : *(this->Channels)) {
 		if (Pair.first == Connection) {
-			for (auto& SecondPair: Pair.second) {
-				if (SecondPair.second == Actor) {
-					return SecondPair.first;
+			for (auto it = Pair.second.begin(); it != Pair.second.end();) {
+				if (it->second != Actor) {
+					++it;
+					continue;
 				}
+
+				if (IsOpenActorChannelForActor(
+						Connection, it->first, Actor)) {
+					return it->first;
+				}
+
+				// Seamless cleanup may clear Channel->Actor before destroying the
+				// channel object. Evict that non-owning cache entry immediately.
+				it = Pair.second.erase(it);
 			}
 
 			break;
+		}
+	}
+
+	// The compatibility cache is not the channel authority.  Native seamless
+	// travel can keep a channel alive across the world boundary, and older
+	// payloads may already have discarded its cache entry.  Reuse the exact
+	// open native actor channel before considering CreateChannel.
+	auto* NativeConnection = reinterpret_cast<SDK::UNetConnection*>(Connection);
+	auto* NativeActor = reinterpret_cast<SDK::AActor*>(Actor);
+	if (NativeConnection && NativeActor) {
+		for (SDK::UChannel* OpenChannel : NativeConnection->OpenChannels) {
+			if (!OpenChannel ||
+				!OpenChannel->IsA(SDK::UActorChannel::StaticClass())) {
+				continue;
+			}
+
+			auto* ActorChannel = static_cast<SDK::UActorChannel*>(OpenChannel);
+			if (ActorChannel->Actor != NativeActor)
+				continue;
+
+			auto* CachedChannel = reinterpret_cast<UActorChannel*>(ActorChannel);
+			AddActorChannelToChannels(Connection, CachedChannel, Actor);
+			return CachedChannel;
 		}
 	}
 
@@ -91,6 +172,20 @@ LibReplicate::UActorChannel* LibReplicate::GetChannelForActor(UNetConnection* Co
 void LibReplicate::AddActorChannelToChannels(UNetConnection* Connection, UActorChannel* ActorChannel, AActor* Actor) {
 	for (auto& Pair : *(this->Channels)) {
 		if (Pair.first == Connection) {
+			Pair.second.erase(std::remove_if(
+				Pair.second.begin(), Pair.second.end(),
+				[this, Connection, ActorChannel, Actor](const auto& Existing) {
+					if (Existing.first != ActorChannel &&
+						Existing.second != Actor) {
+						return false;
+					}
+					return !IsOpenActorChannelForActor(
+						Connection, Existing.first, Existing.second);
+				}), Pair.second.end());
+			for (const auto& Existing : Pair.second) {
+				if (Existing.first == ActorChannel && Existing.second == Actor)
+					return;
+			}
 			Pair.second.push_back(std::make_pair(ActorChannel, Actor));
 
 			return;
@@ -125,6 +220,18 @@ void LibReplicate::CallFromTickFlushHook(std::vector<FActorInfo>& Actors, std::v
 	}
 
 	for (auto const& PlayerControllerInfo : PlayerControllers) {
+		auto* NativeConnection = reinterpret_cast<SDK::UNetConnection*>(
+			PlayerControllerInfo.OwningConnection);
+		auto* NativeController = NativeConnection
+			? NativeConnection->PlayerController
+			: nullptr;
+		if (NativeController &&
+			!ReplicationWorldGatePolicy::HasClientLoadedCurrentWorld(
+				NativeController->SeamlessTravelCount,
+				NativeController->LastCompletedSeamlessTravelCount)) {
+			continue;
+		}
+
 		this->CallPreReplicationFuncPtr(PlayerControllerInfo.PlayerController, NetDriver);
 
 		this->SendClientAdjustmentFuncPtr(PlayerControllerInfo.PlayerController);
@@ -136,18 +243,31 @@ void LibReplicate::CallFromTickFlushHook(std::vector<FActorInfo>& Actors, std::v
 			Channel = this->CreateChannelFuncPtr(PlayerControllerInfo.OwningConnection, (FName*)ActorChannelName, 1 << 1, -1);
 
 			if (Channel) {
-				AddActorChannelToChannels(PlayerControllerInfo.OwningConnection, Channel, PlayerControllerInfo.PlayerController);
-
 				this->SetChannelActorFuncPtr(Channel, PlayerControllerInfo.PlayerController, 0);
+				AddActorChannelToChannels(PlayerControllerInfo.OwningConnection, Channel, PlayerControllerInfo.PlayerController);
 			}
 		}
 
-		if (Channel) {
+		if (Channel && IsOpenActorChannelForActor(
+				PlayerControllerInfo.OwningConnection,
+				Channel,
+				PlayerControllerInfo.PlayerController)) {
 			this->ReplicateActorFuncPtr(Channel);
 		}
 	}
 
 	for (UNetConnection* Connection : Connections) {
+		auto* NativeConnection = reinterpret_cast<SDK::UNetConnection*>(Connection);
+		auto* NativeController = NativeConnection
+			? NativeConnection->PlayerController
+			: nullptr;
+		if (NativeController &&
+			!ReplicationWorldGatePolicy::HasClientLoadedCurrentWorld(
+				NativeController->SeamlessTravelCount,
+				NativeController->LastCompletedSeamlessTravelCount)) {
+			continue;
+		}
+
 		for (auto const &ActorInfo : Actors) {
 			if (ActorInfo.bNetTemporary && HaveWeSentThisTemporaryActor(Connection, ActorInfo.ActorPtr))
 				continue;
@@ -159,17 +279,17 @@ void LibReplicate::CallFromTickFlushHook(std::vector<FActorInfo>& Actors, std::v
 				Channel = this->CreateChannelFuncPtr(Connection, (FName*)ActorChannelName, 1 << 1, -1);
 
 				if (Channel) {
-					AddActorChannelToChannels(Connection, Channel, ActorInfo.ActorPtr);
-
 					this->SetChannelActorFuncPtr(Channel, ActorInfo.ActorPtr, 0);
+					AddActorChannelToChannels(Connection, Channel, ActorInfo.ActorPtr);
 				}
 			}
 
-			if (!(*(unsigned int*)((__int64)Channel + 0x88) & 0x2)) {
-				*(unsigned int*)((__int64)Channel + 0x88) |= 2;
-			}
+			if (Channel && IsOpenActorChannelForActor(
+					Connection, Channel, ActorInfo.ActorPtr)) {
+				if (!(*(unsigned int*)((__int64)Channel + 0x88) & 0x2)) {
+					*(unsigned int*)((__int64)Channel + 0x88) |= 2;
+				}
 
-			if (Channel) {
 				if (this->ReplicateActorFuncPtr(Channel)) {
 					//std::cout << ((SDK::UObject*)ActorInfo.ActorPtr)->GetFullName() << std::endl;
 				};
