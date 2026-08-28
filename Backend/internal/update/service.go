@@ -27,6 +27,8 @@ var (
 	sha256Pattern     = regexp.MustCompile(`^[0-9a-f]{64}$`)
 )
 
+const toolboxExecutablePath = "rebound_toolbox.exe"
+
 type RelayDirectory interface {
 	AvailableRegions(context.Context) ([]string, error)
 }
@@ -614,6 +616,12 @@ func buildManifest(cfg config.UpdateConfig, baseURL *url.URL, source SourceRelea
 	}
 	if len(manifest.Files) == 0 {
 		return Manifest{}, errors.New("release has no installable files")
+	}
+	if source.Channel == ChannelToolbox &&
+		(len(manifest.Files) != 1 ||
+			manifest.Files[0].Path != toolboxExecutablePath ||
+			manifest.Files[0].Compression != "none") {
+		return Manifest{}, errors.New("toolbox manifest must contain only uncompressed rebound_toolbox.exe")
 	}
 	sort.Slice(manifest.Files, func(i, j int) bool { return manifest.Files[i].Path < manifest.Files[j].Path })
 	return manifest, nil
