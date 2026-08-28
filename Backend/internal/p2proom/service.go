@@ -311,7 +311,7 @@ func (s *Service) Join(ctx context.Context, actor Actor, roomID, version string)
 	if !room.ExpiresAt.After(now) {
 		return Room{}, conflict("ROOM_EXPIRED", "Room has expired.")
 	}
-	if room.State != StateLobby {
+	if !allowsMemberAttach(room) {
 		return Room{}, conflict("ROOM_NOT_JOINABLE", "Room is not accepting new members.")
 	}
 	if strings.TrimSpace(version) != room.Version {
@@ -360,6 +360,13 @@ func (s *Service) Join(ctx context.Context, actor Actor, roomID, version string)
 		return Room{}, err
 	}
 	return room, nil
+}
+
+// Keep a live public authority joinable until capacity is reached. Join still
+// enforces authentication, expiry, version, capacity, and any managed-lobby
+// roster boundary before activating the member.
+func allowsMemberAttach(room Room) bool {
+	return room.State == StateLobby || room.State == StateConnecting || room.State == StateRunning
 }
 
 func (s *Service) ResolveConnectionParticipants(ctx context.Context, roomID, actorPlayerID, requestedPeerPlayerID string) (string, string, error) {

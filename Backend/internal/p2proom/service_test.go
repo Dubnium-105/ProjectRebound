@@ -65,3 +65,23 @@ func TestVNTBootstrapRateLimitRunsBeforeRepositoryAccess(t *testing.T) {
 		t.Fatalf("bootstrap rate-limit error = status %d code %q details %#v", status, code, details)
 	}
 }
+
+func TestMemberAttachStatePolicyKeepsOnlyLiveRoomsJoinable(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		state   State
+		allowed bool
+	}{
+		{name: "lobby", state: StateLobby, allowed: true},
+		{name: "connecting", state: StateConnecting, allowed: true},
+		{name: "running", state: StateRunning, allowed: true},
+		{name: "stale", state: StateStale, allowed: false},
+		{name: "closed", state: StateClosed, allowed: false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := allowsMemberAttach(Room{State: test.state}); got != test.allowed {
+				t.Fatalf("allowsMemberAttach() = %v, want %v", got, test.allowed)
+			}
+		})
+	}
+}
