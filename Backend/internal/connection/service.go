@@ -339,6 +339,20 @@ func (s *Service) AddCandidate(ctx context.Context, actor Actor, input Candidate
 		return Candidate{}, forbidden("CONNECTION_FORBIDDEN", "Connection access is restricted to its participants.")
 	}
 	if item.State != StateCreated && item.State != StateGatheringCandidates && item.State != StateCheckingDirect {
+		if acceptsStableCandidateReplay(item.State) {
+			existing, replayErr := s.repository.GetCandidateForUpdate(
+				ctx, tx, item.ID, actor.PlayerID, validated.Foundation,
+			)
+			if replayErr == nil && candidateMatchesInput(existing, validated) {
+				if err := tx.Commit(ctx); err != nil {
+					return Candidate{}, internal(err)
+				}
+				return existing, nil
+			}
+			if replayErr != nil && !errors.Is(replayErr, pgx.ErrNoRows) {
+				return Candidate{}, internal(replayErr)
+			}
+		}
 		return Candidate{}, conflict("INVALID_CONNECTION_STATE", "Connection is not gathering direct candidates.")
 	}
 	now := s.now().UTC()
@@ -631,6 +645,23 @@ func validateCandidate(input CandidateInput) (CandidateInput, error) {
 
 func isParticipant(item Connection, playerID string) bool {
 	return item.HostPlayerID == playerID || item.PeerPlayerID == playerID
+}
+
+func acceptsStableCandidateReplay(state State) bool {
+	return state == StateAllocatingRelay ||
+		state == StateRelayBinding ||
+		state == StateMigratingRelay ||
+		state == StateConnected
+}
+
+func candidateMatchesInput(candidate Candidate, input CandidateInput) bool {
+	return candidate.ConnectionID == input.ConnectionID &&
+		candidate.Foundation == input.Foundation &&
+		candidate.CandidateType == input.CandidateType &&
+		candidate.Protocol == input.Protocol &&
+		candidate.Address == input.Address &&
+		candidate.Port == input.Port &&
+		candidate.Priority == input.Priority
 }
 
 func isDirectPath(path Path) bool {

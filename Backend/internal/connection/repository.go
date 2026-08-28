@@ -90,6 +90,19 @@ func (r *Repository) ListCandidates(ctx context.Context, connectionID string) ([
 	return items, nil
 }
 
+func (r *Repository) GetCandidateForUpdate(
+	ctx context.Context,
+	tx pgx.Tx,
+	connectionID, playerID, foundation string,
+) (Candidate, error) {
+	return scanCandidate(tx.QueryRow(ctx, `
+		SELECT `+candidateColumns+`
+		FROM connection_candidates
+		WHERE connection_id = $1 AND player_id = $2 AND foundation = $3
+		FOR UPDATE
+	`, connectionID, playerID, foundation))
+}
+
 func (r *Repository) UpsertCandidate(ctx context.Context, tx pgx.Tx, item Candidate) (Candidate, error) {
 	return scanCandidate(tx.QueryRow(ctx, `
 		INSERT INTO connection_candidates (

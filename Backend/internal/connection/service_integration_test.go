@@ -92,10 +92,12 @@ func TestConnectionLifecycleAgainstPostgreSQL(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.AddCandidate(ctx, peer, CandidateInput{
+	peerLANInput := CandidateInput{
 		ConnectionID: connection.ID, Foundation: "peer-lan", CandidateType: CandidateLAN,
 		Protocol: "UDP", Address: "192.168.10.3", Port: 7777, Priority: 200,
-	}); err != nil {
+	}
+	peerLANCandidate, err := service.AddCandidate(ctx, peer, peerLANInput)
+	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.AddCandidate(ctx, peer, CandidateInput{
@@ -113,6 +115,15 @@ func TestConnectionLifecycleAgainstPostgreSQL(t *testing.T) {
 	})
 	if err != nil || connected.State != StateConnected || connected.SelectedPath != PathLAN {
 		t.Fatalf("direct path = %#v, %v", connected, err)
+	}
+	replayedCandidate, err := service.AddCandidate(ctx, peer, peerLANInput)
+	if err != nil || replayedCandidate.ID != peerLANCandidate.ID {
+		t.Fatalf("stable candidate replay after path selection = %#v, %v", replayedCandidate, err)
+	}
+	changedCandidate := peerLANInput
+	changedCandidate.Port++
+	if _, err := service.AddCandidate(ctx, peer, changedCandidate); connectionErrorCode(err) != "INVALID_CONNECTION_STATE" {
+		t.Fatalf("changed candidate after path selection error = %v", err)
 	}
 	runningRoom, err := roomService.Get(ctx, room.Room.ID)
 	if err != nil || runningRoom.State != p2proom.StateRunning {
