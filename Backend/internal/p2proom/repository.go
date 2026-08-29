@@ -16,6 +16,17 @@ type Repository struct {
 
 func NewRepository(pool *pgxpool.Pool) *Repository { return &Repository{pool: pool} }
 
+type managedHostCredential struct {
+	RoomID              string
+	HostPlayerID        string
+	ManagedLobbyID      string
+	IdempotencyKey      string
+	HostTokenHash       []byte
+	HostTokenCiphertext []byte
+	HostTokenNonce      []byte
+	HostTokenKeyID      string
+}
+
 func (r *Repository) Create(ctx context.Context, tx pgx.Tx, room Room, vntSession *VNTSession, hostSession *VNTMemberSession) error {
 	_, err := tx.Exec(ctx, `
 		INSERT INTO p2p_rooms (
@@ -91,6 +102,24 @@ func (r *Repository) FindIdempotent(ctx context.Context, tx pgx.Tx, playerID, ke
 
 func (r *Repository) Get(ctx context.Context, roomID string) (Room, error) {
 	return scanRoom(r.pool.QueryRow(ctx, `SELECT `+roomColumns+` FROM p2p_rooms WHERE id = $1 AND deleted_at IS NULL`, roomID))
+}
+
+func (r *Repository) ManagedHostCredential(ctx context.Context, roomID string) (managedHostCredential, error) {
+	var item managedHostCredential
+	err := r.pool.QueryRow(ctx, `
+		SELECT id, host_player_id, COALESCE(managed_lobby_id, ''),
+		       COALESCE(idempotency_key, ''), host_token_hash,
+		       host_token_ciphertext, host_token_nonce,
+		       COALESCE(host_token_key_id, '')
+		FROM p2p_rooms
+		WHERE id = $1 AND deleted_at IS NULL
+	`, roomID).Scan(
+		&item.RoomID, &item.HostPlayerID, &item.ManagedLobbyID,
+		&item.IdempotencyKey, &item.HostTokenHash,
+		&item.HostTokenCiphertext, &item.HostTokenNonce,
+		&item.HostTokenKeyID,
+	)
+	return item, err
 }
 
 func (r *Repository) GetForUpdate(ctx context.Context, tx pgx.Tx, roomID string) (Room, error) {

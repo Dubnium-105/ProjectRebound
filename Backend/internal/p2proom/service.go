@@ -124,29 +124,29 @@ func (s *Service) RecoverManagedHostToken(ctx context.Context, actor Actor, room
 	if err := requireActive(actor); err != nil {
 		return "", err
 	}
-	room, err := s.repository.Get(ctx, strings.TrimSpace(roomID))
+	credential, err := s.repository.ManagedHostCredential(ctx, strings.TrimSpace(roomID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", notFound("ROOM_NOT_FOUND", "Room not found.")
 	}
 	if err != nil {
 		return "", internal(err)
 	}
-	if room.HostPlayerID != actor.PlayerID || room.ManagedLobbyID == "" || room.ManagedLobbyID != strings.TrimSpace(managedLobbyID) {
+	if credential.HostPlayerID != actor.PlayerID || credential.ManagedLobbyID == "" || credential.ManagedLobbyID != strings.TrimSpace(managedLobbyID) {
 		return "", forbidden("HOST_UNAUTHORIZED", "Managed room host credentials are unavailable.")
 	}
-	if s.vntSecrets == nil || len(room.HostTokenCiphertext) == 0 || len(room.HostTokenNonce) == 0 || room.HostTokenKeyID == "" || room.IdempotencyKey == "" {
+	if s.vntSecrets == nil || len(credential.HostTokenCiphertext) == 0 || len(credential.HostTokenNonce) == 0 || credential.HostTokenKeyID == "" || credential.IdempotencyKey == "" {
 		return "", internal(errors.New("managed room host credential is not recoverable"))
 	}
 	plaintext, err := s.vntSecrets.Open(
-		room.HostTokenCiphertext,
-		room.HostTokenNonce,
-		roomHostTokenAAD(room.ID, actor.PlayerID, room.IdempotencyKey),
-		room.HostTokenKeyID,
+		credential.HostTokenCiphertext,
+		credential.HostTokenNonce,
+		roomHostTokenAAD(credential.RoomID, actor.PlayerID, credential.IdempotencyKey),
+		credential.HostTokenKeyID,
 	)
 	if err != nil {
 		return "", internal(fmt.Errorf("recover managed room host credential: %w", err))
 	}
-	if subtle.ConstantTimeCompare(room.HostTokenHash, hashHostToken(string(plaintext))) != 1 {
+	if subtle.ConstantTimeCompare(credential.HostTokenHash, hashHostToken(string(plaintext))) != 1 {
 		return "", internal(errors.New("recovered managed room host credential does not match"))
 	}
 	return string(plaintext), nil

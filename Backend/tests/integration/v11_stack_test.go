@@ -107,7 +107,8 @@ func TestV11ControlPlaneAndTwoRelays(t *testing.T) {
 		t.Fatalf("build current integration images: %v", err)
 	}
 	if err := stack.Up(ctx, compose.Wait(true)); err != nil {
-		t.Fatalf("start integration stack: %v", err)
+		logs := composeServiceLogs(ctx, filepath.Join(integrationDir, "docker-compose.yaml"), projectID, secrets)
+		t.Fatalf("start integration stack: %v\ncompose diagnostics:\n%s", err, logs)
 	}
 
 	nodes := waitForReadyRelays(t, ctx, 2)
@@ -254,6 +255,26 @@ func buildComposeImages(ctx context.Context, composeFile, projectID string, envi
 		return fmt.Errorf("%w: %s", err, output)
 	}
 	return nil
+}
+
+func composeServiceLogs(ctx context.Context, composeFile, projectID string, environment map[string]string) string {
+	diagnosticCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(
+		diagnosticCtx, "docker", "compose", "--project-name", projectID,
+		"--file", composeFile, "logs", "--no-color", "--timestamps",
+		"control-plane", "postgres", "redis",
+	)
+	cmd.Env = append(os.Environ(), environmentEntries(environment)...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Sprintf("unable to collect Compose service logs: %v: %s", err, output)
+	}
+	const maximumDiagnosticBytes = 64 * 1024
+	if len(output) > maximumDiagnosticBytes {
+		output = output[len(output)-maximumDiagnosticBytes:]
+	}
+	return string(output)
 }
 
 func environmentEntries(values map[string]string) []string {
