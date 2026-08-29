@@ -137,7 +137,7 @@ func (s *Service) FailClosedDisabledAttempts(ctx context.Context) error {
 		FROM match_lobbies AS lobby
 		WHERE member.lobby_id = lobby.id
 		  AND lobby.state IN ('OPEN', 'FROZEN', 'PROVISIONING', 'CONNECTING', 'RUNNING')
-	`, now); err != nil {
+	`); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, `
