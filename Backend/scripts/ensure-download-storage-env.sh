@@ -134,7 +134,29 @@ if [[ -z "$download_public_probe_base" ]]; then
   fi
   append_missing DOWNLOAD_PUBLIC_PROBE_BASE_URL "$download_public_probe_base"
 fi
-append_missing DOWNLOAD_ALLOWED_EXTENSIONS exe,msi,zip,7z,pdf,md,txt,docx
+download_allowed_extensions="$(read_setting DOWNLOAD_ALLOWED_EXTENSIONS)"
+if [[ -z "$download_allowed_extensions" ]]; then
+  append_missing DOWNLOAD_ALLOWED_EXTENSIONS exe,msi,zip,7z,pdf,md,txt,docx,json
+else
+  has_json_extension=false
+  IFS=',' read -ra download_extensions <<<"$download_allowed_extensions"
+  for extension in "${download_extensions[@]}"; do
+    extension="${extension#"${extension%%[![:space:]]*}"}"
+    extension="${extension%"${extension##*[![:space:]]}"}"
+    extension="${extension#.}"
+    if [[ "${extension,,}" == "json" ]]; then
+      has_json_extension=true
+      break
+    fi
+  done
+  if [[ "$has_json_extension" == false ]]; then
+    download_allowed_extensions="${download_allowed_extensions%,},json"
+    sed "s|^DOWNLOAD_ALLOWED_EXTENSIONS=.*$|DOWNLOAD_ALLOWED_EXTENSIONS=$download_allowed_extensions|" \
+      "$temporary_file" >"${temporary_file}.extensions"
+    mv "${temporary_file}.extensions" "$temporary_file"
+    added_names+=(DOWNLOAD_ALLOWED_EXTENSIONS)
+  fi
+fi
 append_missing DOWNLOAD_MAX_FILE_BYTES 2147483648
 append_missing DOWNLOAD_MULTIPART_THRESHOLD_BYTES 67108864
 append_missing DOWNLOAD_PART_SIZE_BYTES 16777216

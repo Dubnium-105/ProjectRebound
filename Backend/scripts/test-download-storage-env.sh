@@ -23,6 +23,7 @@ grep -qx 'DOWNLOAD_S3_ENDPOINT=http://minio:9000' "$env_file"
 grep -qx 'DOWNLOAD_S3_UPLOAD_ENDPOINT=https://s3.project-rebound.space' "$env_file"
 grep -qx 'DOWNLOAD_PUBLIC_BASE_URL=https://downloads.project-rebound.space/project-rebound-downloads' "$env_file"
 grep -qx 'DOWNLOAD_PUBLIC_PROBE_BASE_URL=http://minio:9000/project-rebound-downloads' "$env_file"
+grep -qx 'DOWNLOAD_ALLOWED_EXTENSIONS=exe,msi,zip,7z,pdf,md,txt,docx,json' "$env_file"
 grep -qx 'EXISTING_SETTING=preserved' "$env_file"
 case "$(uname -s)" in
   MINGW*|MSYS*) ;;
@@ -52,6 +53,7 @@ cat >"$custom_env" <<'EOF'
 ADMIN_WEB_SITE="https://console.example.net"
 MINIO_S3_SITE='objects.example.net'
 DOWNLOADS_SITE="files.example.net"
+DOWNLOAD_ALLOWED_EXTENSIONS=exe,msi,zip,7z,pdf,md,txt,docx
 MINIO_ROOT_USER=existing-root
 MINIO_ROOT_PASSWORD=existing-password
 DOWNLOAD_S3_ACCESS_KEY_ID=existing-access
@@ -64,6 +66,7 @@ grep -qx 'DOWNLOAD_S3_ENDPOINT=http://minio:9000' "$custom_env"
 grep -qx 'DOWNLOAD_S3_UPLOAD_ENDPOINT=https://objects.example.net' "$custom_env"
 grep -qx 'DOWNLOAD_PUBLIC_BASE_URL=https://files.example.net/project-rebound-downloads' "$custom_env"
 grep -qx 'DOWNLOAD_PUBLIC_PROBE_BASE_URL=http://minio:9000/project-rebound-downloads' "$custom_env"
+grep -qx 'DOWNLOAD_ALLOWED_EXTENSIONS=exe,msi,zip,7z,pdf,md,txt,docx,json' "$custom_env"
 
 upgrade_env="$temporary_dir/upgrade.env"
 cat >"$upgrade_env" <<'EOF'
