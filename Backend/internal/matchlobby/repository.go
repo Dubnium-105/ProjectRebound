@@ -42,6 +42,20 @@ func (r *Repository) ActiveLobbyForPlayer(ctx context.Context, tx pgx.Tx, player
 	return lobbyID, err
 }
 
+func (r *Repository) ActiveLobbyID(ctx context.Context, playerID string) (string, error) {
+	var lobbyID string
+	err := r.pool.QueryRow(ctx, `
+		SELECT lobby.id
+		FROM match_lobby_members AS member
+		JOIN match_lobbies AS lobby ON lobby.id = member.lobby_id
+		WHERE member.player_id = $1 AND member.membership_state = 'ACTIVE'
+		  AND lobby.state IN ('OPEN', 'FROZEN', 'PROVISIONING', 'CONNECTING', 'RUNNING')
+		ORDER BY lobby.created_at
+		LIMIT 1
+	`, playerID).Scan(&lobbyID)
+	return lobbyID, err
+}
+
 func (r *Repository) FindIdempotent(ctx context.Context, tx pgx.Tx, ownerID, key string) (Lobby, error) {
 	return scanLobby(tx.QueryRow(ctx, `
 		SELECT `+lobbyColumns+`
@@ -226,9 +240,19 @@ func (r *Repository) Snapshot(ctx context.Context, lobbyID, viewerPlayerID strin
 		local.CanLeave = lobby.State == StateOpen && local.IsMember
 		local.CanStart = lobby.State == StateOpen && local.IsOwner && allReadyOnline &&
 			len(teams[0].Members) > 0 && len(teams[1].Members) > 0
-		local.CanRetry = local.IsMember &&
-			!(lobby.HostingKind == HostingP2P && local.IsOwner) &&
-			(lobby.State == StateConnecting || lobby.State == StateRunning)
+		if local.IsMember && !(lobby.HostingKind == HostingP2P && local.IsOwner) &&
+			(lobby.State == StateConnecting || lobby.State == StateRunning) &&
+			lobby.CurrentAttemptID != "" {
+			if err := r.pool.QueryRow(ctx, `
+				SELECT EXISTS (
+					SELECT 1 FROM match_attempt_roster
+					WHERE attempt_id = $1 AND player_id = $2
+					  AND connection_state <> 'CONNECTED'
+				)
+			`, lobby.CurrentAttemptID, viewerPlayerID).Scan(&local.CanRetry); err != nil {
+				return Snapshot{}, fmt.Errorf("read local reconnect capability: %w", err)
+			}
+		}
 	}
 	snapshot := Snapshot{
 		LobbyID: lobby.ID, OwnerPlayerID: lobby.OwnerPlayerID, P2PRoomID: lobby.P2PRoomID,

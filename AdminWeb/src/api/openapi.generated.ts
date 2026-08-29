@@ -1798,6 +1798,392 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/match-lobbies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listMatchLobbies"];
+        put?: never;
+        post: operations["createMatchLobby"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/match-lobbies/{lobby_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lobby_id: components["parameters"]["MatchLobbyID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getMatchLobby"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/match-lobbies/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getActiveMatchLobby"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/match-lobbies/{lobby_id}/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["joinMatchLobby"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/match-lobbies/{lobby_id}/members/me/team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["selectMatchLobbyTeam"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/match-lobbies/{lobby_id}/members/me/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["setMatchLobbyReady"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/match-lobbies/{lobby_id}/presence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["heartbeatMatchLobbyPresence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/match-lobbies/{lobby_id}/leave": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["leaveMatchLobby"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/match-lobbies/{lobby_id}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["startMatchLobby"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/match-attempts/{attempt_id}/join-grant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["issueMatchJoinGrant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/match-attempts/{attempt_id}/host/allocation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getP2PMatchAllocation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/match-attempts/{attempt_id}/host/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["markP2PMatchAuthorityReady"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/match-attempts/{attempt_id}/host/payload-installed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["confirmP2PMatchPayloadInstalled"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/match-attempts/{attempt_id}/host/connected": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reportP2PMatchPlayerConnected"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/match-attempts/{attempt_id}/host/disconnected": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reportP2PMatchPlayerDisconnected"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/match-attempts/{attempt_id}/host/heartbeat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["heartbeatP2PMatchAuthority"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/match-attempts/{attempt_id}/host/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["completeP2PMatchAttempt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/game-servers/{server_id}/match-attempts/{attempt_id}/allocation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getDedicatedMatchAllocation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/game-servers/{server_id}/match-attempts/{attempt_id}/payload-installed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["confirmDedicatedMatchPayloadInstalled"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/game-servers/{server_id}/match-attempts/{attempt_id}/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["markDedicatedMatchAuthorityReady"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/game-servers/{server_id}/match-attempts/{attempt_id}/connected": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reportDedicatedMatchPlayerConnected"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/game-servers/{server_id}/match-attempts/{attempt_id}/disconnected": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reportDedicatedMatchPlayerDisconnected"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/game-servers/{server_id}/match-attempts/{attempt_id}/heartbeat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["heartbeatDedicatedMatchAuthority"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/game-servers/{server_id}/match-attempts/{attempt_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["completeDedicatedMatchAttempt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/p2p-rooms": {
         parameters: {
             query?: never;
@@ -4126,6 +4512,7 @@ export interface components {
         GameServerHeartbeatData: {
             server: components["schemas"]["PublicGameServer"];
             next_heartbeat_seconds: number;
+            match_attempt?: components["schemas"]["DedicatedMatchAssignment"] | null;
         };
         GameServerHeartbeatResponse: {
             data: components["schemas"]["GameServerHeartbeatData"];
@@ -4419,6 +4806,198 @@ export interface components {
         VNTBootstrapResponse: {
             data: components["schemas"]["VNTBootstrap"];
             request_id: string;
+        };
+        /** @enum {string} */
+        MatchHostingKind: "DEDICATED" | "P2P";
+        /** @enum {string} */
+        MatchTransportKind: "LEGACY_RELAY" | "VNT";
+        /** @enum {string} */
+        MatchLobbyState: "OPEN" | "FROZEN" | "PROVISIONING" | "CONNECTING" | "RUNNING" | "COMPLETED" | "ABORTED";
+        /** @enum {string} */
+        MatchAttemptState: "FROZEN" | "PROVISIONING" | "CONNECTING" | "RUNNING" | "COMPLETED" | "ABORTED";
+        DedicatedMatchAssignment: {
+            attempt_id: string;
+            state: components["schemas"]["MatchAttemptState"];
+            route_generation: number;
+        };
+        MatchLobbyCreateRequest: {
+            display_name: string;
+            hosting_kind: components["schemas"]["MatchHostingKind"];
+            transport_kind?: components["schemas"]["MatchTransportKind"];
+            mode: string;
+            region: string;
+            client_version: string;
+            protocol_version: number;
+            team_capacities: {
+                team_1: number;
+                team_2: number;
+            };
+            /** @enum {integer} */
+            team_id: 1 | 2;
+            vnt_node_id?: string;
+        };
+        MatchLobbyRevisionRequest: {
+            /** Format: int64 */
+            expected_revision: number;
+        };
+        MatchLobbyJoinRequest: components["schemas"]["MatchLobbyRevisionRequest"] & {
+            /** @enum {integer} */
+            team_id: 1 | 2;
+        };
+        MatchLobbyReadyRequest: components["schemas"]["MatchLobbyRevisionRequest"] & {
+            ready: boolean;
+        };
+        MatchLobbyPresenceRequest: {
+            online: boolean;
+        };
+        MatchRosterMember: {
+            player_id: string;
+            display_name: string;
+            /** @enum {string} */
+            role: "OWNER" | "MEMBER";
+            /** @enum {integer} */
+            team_id: 1 | 2;
+            team_slot: number;
+            ready: boolean;
+            /** @enum {string} */
+            presence_state: "ONLINE" | "OFFLINE";
+            /** Format: date-time */
+            presence_expires_at: string;
+            /** Format: date-time */
+            joined_at: string;
+        };
+        MatchTeamView: {
+            /** @enum {integer} */
+            team_id: 1 | 2;
+            capacity: number;
+            members: components["schemas"]["MatchRosterMember"][];
+        };
+        MatchLocalCapabilities: {
+            is_member: boolean;
+            is_owner: boolean;
+            can_join: boolean;
+            can_switch_team: boolean;
+            can_set_ready: boolean;
+            can_start: boolean;
+            can_leave: boolean;
+            can_retry_connection: boolean;
+        };
+        MatchAttemptView: {
+            attempt_id: string;
+            attempt_number: number;
+            state: components["schemas"]["MatchAttemptState"];
+            /** Format: int64 */
+            roster_revision: number;
+            route_generation: number;
+            payload_installed: boolean;
+            endpoint_host?: string;
+            endpoint_port?: number;
+            /** Format: date-time */
+            connection_deadline?: string;
+            failure_code?: string;
+        };
+        MatchLobbySnapshot: {
+            lobby_id: string;
+            owner_player_id: string;
+            p2p_room_id?: string;
+            display_name: string;
+            hosting_kind: components["schemas"]["MatchHostingKind"];
+            transport_kind?: components["schemas"]["MatchTransportKind"];
+            mode: string;
+            region: string;
+            client_version: string;
+            protocol_version: number;
+            state: components["schemas"]["MatchLobbyState"];
+            /** Format: int64 */
+            roster_revision: number;
+            teams: components["schemas"]["MatchTeamView"][];
+            attempt?: components["schemas"]["MatchAttemptView"];
+            local: components["schemas"]["MatchLocalCapabilities"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        MatchLobbyResponse: {
+            data: components["schemas"]["MatchLobbySnapshot"];
+            request_id: string;
+        };
+        MatchLobbyCreateResponse: {
+            data: {
+                lobby: components["schemas"]["MatchLobbySnapshot"];
+                transport_host_token?: string;
+            };
+            request_id: string;
+        };
+        MatchLobbySummary: {
+            lobby_id: string;
+            owner_player_id: string;
+            display_name: string;
+            hosting_kind: components["schemas"]["MatchHostingKind"];
+            transport_kind?: components["schemas"]["MatchTransportKind"];
+            mode: string;
+            region: string;
+            client_version: string;
+            state: components["schemas"]["MatchLobbyState"];
+            player_count: number;
+            capacity: number;
+            /** Format: int64 */
+            roster_revision: number;
+            /** Format: date-time */
+            created_at: string;
+        };
+        MatchLobbyListResponse: {
+            data: {
+                items: components["schemas"]["MatchLobbySummary"][];
+                next_cursor: string;
+            };
+            request_id: string;
+        };
+        MatchJoinGrantResponse: {
+            data: {
+                attempt_id: string;
+                endpoint_host: string;
+                endpoint_port: number;
+                join_grant: string;
+                /** Format: date-time */
+                expires_at: string;
+                connection_generation: number;
+            };
+            request_id: string;
+        };
+        MatchAllocationResponse: {
+            data: {
+                attempt_id: string;
+                allocation: string;
+                admission_key_id: string;
+                admission_public_key_base64: string;
+                /** Format: date-time */
+                expires_at: string;
+            };
+            request_id: string;
+        };
+        MatchPayloadInstalledRequest: {
+            payload_version: string;
+            game_binary_sha256: string;
+            route_generation: number;
+        };
+        MatchConnectedReportRequest: {
+            player_id: string;
+            grant_jti: string;
+            connection_generation: number;
+        };
+        MatchDisconnectedReportRequest: {
+            player_id: string;
+            connection_generation: number;
+        };
+        MatchCompleteRequest: {
+            success: boolean;
+            failure_code?: string;
+        };
+        P2PMatchAuthorityReadyRequest: {
+            endpoint_host: string;
+            endpoint_port: number;
+            route_generation: number;
         };
         /** @enum {string} */
         P2PRoomState: "LOBBY" | "CONNECTING" | "RUNNING" | "STALE" | "CLOSED";
@@ -5071,6 +5650,8 @@ export interface components {
                     dedicated_servers: boolean;
                     /** @description Server-authoritative gate for creating or rebinding VNT rooms. */
                     vnt_rooms: boolean;
+                    /** @description Fail-closed gate for the locked-build authoritative roster flow. */
+                    strict_roster_v1: boolean;
                 };
             };
             request_id: string;
@@ -5576,6 +6157,12 @@ export interface components {
         GameServerCredentialGeneration: number;
         PlayerID: string;
         GameServerID: string;
+        MatchLobbyID: string;
+        MatchAttemptID: string;
+        /** @description P2P transport host credential retained only by the Toolbox core. Never expose it in UI DTOs or logs. */
+        MatchTransportHostToken: string;
+        /** @description Opaque authority-session binding extracted only inside the Toolbox or server core from the signed allocation. Never expose it through UI DTOs or logs. */
+        MatchAuthoritySession: string;
         P2PRoomID: string;
         /** @description Independent high-entropy room host credential. It is returned only at room creation. */
         P2PRoomHostToken: string;
@@ -8774,6 +9361,722 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             429: components["responses"]["RateLimited"];
+        };
+    };
+    listMatchLobbies: {
+        parameters: {
+            query?: {
+                hosting_kind?: components["schemas"]["MatchHostingKind"];
+                region?: string;
+                mode?: string;
+                client_version?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Open strict-roster lobbies across dedicated and P2P hosting. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchLobbyListResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createMatchLobby: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchLobbyCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Lobby and owner seat created. P2P host credentials are returned only to the authenticated owner on create or active-lobby recovery. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchLobbyCreateResponse"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getMatchLobby: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lobby_id: components["parameters"]["MatchLobbyID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authoritative two-team lobby snapshot. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchLobbyResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getActiveMatchLobby: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The authenticated player's active authoritative lobby, including frozen or running attempts. */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    Pragma?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchLobbyCreateResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    joinMatchLobby: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lobby_id: components["parameters"]["MatchLobbyID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchLobbyJoinRequest"];
+            };
+        };
+        responses: {
+            /** @description Seat reserved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchLobbyResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    selectMatchLobbyTeam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lobby_id: components["parameters"]["MatchLobbyID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchLobbyJoinRequest"];
+            };
+        };
+        responses: {
+            /** @description Team changed and all ready states cleared */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchLobbyResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    setMatchLobbyReady: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lobby_id: components["parameters"]["MatchLobbyID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchLobbyReadyRequest"];
+            };
+        };
+        responses: {
+            /** @description Ready state updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchLobbyResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    heartbeatMatchLobbyPresence: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description P2P transport host credential retained only by the Toolbox core. Never expose it in UI DTOs or logs. */
+                "X-Match-Transport-Host-Token"?: components["parameters"]["MatchTransportHostToken"];
+            };
+            path: {
+                lobby_id: components["parameters"]["MatchLobbyID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchLobbyPresenceRequest"];
+            };
+        };
+        responses: {
+            /** @description Presence lease renewed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchLobbyResponse"];
+                };
+            };
+        };
+    };
+    leaveMatchLobby: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description P2P transport host credential retained only by the Toolbox core. Never expose it in UI DTOs or logs. */
+                "X-Match-Transport-Host-Token"?: components["parameters"]["MatchTransportHostToken"];
+            };
+            path: {
+                lobby_id: components["parameters"]["MatchLobbyID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchLobbyRevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Membership left or owner lobby closed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchLobbyResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    startMatchLobby: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lobby_id: components["parameters"]["MatchLobbyID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchLobbyRevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Roster frozen and authority provisioning started */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchLobbyResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    issueMatchJoinGrant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attempt_id: components["parameters"]["MatchAttemptID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Short-lived, seat-bound, one-generation admission grant. */
+            201: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchJoinGrantResponse"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getP2PMatchAllocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attempt_id: components["parameters"]["MatchAttemptID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed frozen allocation for the listen host */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchAllocationResponse"];
+                };
+            };
+        };
+    };
+    markP2PMatchAuthorityReady: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque authority-session binding extracted only inside the Toolbox or server core from the signed allocation. Never expose it through UI DTOs or logs. */
+                "X-Match-Authority-Session": components["parameters"]["MatchAuthoritySession"];
+                /** @description P2P transport host credential retained only by the Toolbox core. Never expose it in UI DTOs or logs. */
+                "X-Match-Transport-Host-Token"?: components["parameters"]["MatchTransportHostToken"];
+            };
+            path: {
+                attempt_id: components["parameters"]["MatchAttemptID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["P2PMatchAuthorityReadyRequest"];
+            };
+        };
+        responses: {
+            /** @description Initial connection window opened */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchLobbyResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    confirmP2PMatchPayloadInstalled: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque authority-session binding extracted only inside the Toolbox or server core from the signed allocation. Never expose it through UI DTOs or logs. */
+                "X-Match-Authority-Session": components["parameters"]["MatchAuthoritySession"];
+            };
+            path: {
+                attempt_id: components["parameters"]["MatchAttemptID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchPayloadInstalledRequest"];
+            };
+        };
+        responses: {
+            /** @description Locked Payload and game build confirmed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchLobbyResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    reportP2PMatchPlayerConnected: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque authority-session binding extracted only inside the Toolbox or server core from the signed allocation. Never expose it through UI DTOs or logs. */
+                "X-Match-Authority-Session": components["parameters"]["MatchAuthoritySession"];
+            };
+            path: {
+                attempt_id: components["parameters"]["MatchAttemptID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchConnectedReportRequest"];
+            };
+        };
+        responses: {
+            /** @description Consumed grant recorded for the reserved seat */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchLobbyResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    reportP2PMatchPlayerDisconnected: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque authority-session binding extracted only inside the Toolbox or server core from the signed allocation. Never expose it through UI DTOs or logs. */
+                "X-Match-Authority-Session": components["parameters"]["MatchAuthoritySession"];
+            };
+            path: {
+                attempt_id: components["parameters"]["MatchAttemptID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchDisconnectedReportRequest"];
+            };
+        };
+        responses: {
+            /** @description Current seat generation marked disconnected */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchLobbyResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    heartbeatP2PMatchAuthority: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque authority-session binding extracted only inside the Toolbox or server core from the signed allocation. Never expose it through UI DTOs or logs. */
+                "X-Match-Authority-Session": components["parameters"]["MatchAuthoritySession"];
+            };
+            path: {
+                attempt_id: components["parameters"]["MatchAttemptID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authority continuity heartbeat accepted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    completeP2PMatchAttempt: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque authority-session binding extracted only inside the Toolbox or server core from the signed allocation. Never expose it through UI DTOs or logs. */
+                "X-Match-Authority-Session": components["parameters"]["MatchAuthoritySession"];
+            };
+            path: {
+                attempt_id: components["parameters"]["MatchAttemptID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchCompleteRequest"];
+            };
+        };
+        responses: {
+            /** @description Attempt reached a terminal state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchLobbyResponse"];
+                };
+            };
+        };
+    };
+    getDedicatedMatchAllocation: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Game-Server-Certificate": components["parameters"]["GameServerCertificateFingerprint"];
+                "X-Game-Server-Timestamp": components["parameters"]["GameServerRequestTimestamp"];
+                "X-Game-Server-Nonce": components["parameters"]["GameServerRequestNonce"];
+                "X-Game-Server-Generation": components["parameters"]["GameServerCredentialGeneration"];
+            };
+            path: {
+                server_id: components["parameters"]["GameServerID"];
+                attempt_id: components["parameters"]["MatchAttemptID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed frozen allocation for the assigned dedicated authority */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchAllocationResponse"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    confirmDedicatedMatchPayloadInstalled: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque authority-session binding extracted only inside the Toolbox or server core from the signed allocation. Never expose it through UI DTOs or logs. */
+                "X-Match-Authority-Session": components["parameters"]["MatchAuthoritySession"];
+                "X-Game-Server-Certificate": components["parameters"]["GameServerCertificateFingerprint"];
+                "X-Game-Server-Timestamp": components["parameters"]["GameServerRequestTimestamp"];
+                "X-Game-Server-Nonce": components["parameters"]["GameServerRequestNonce"];
+                "X-Game-Server-Generation": components["parameters"]["GameServerCredentialGeneration"];
+            };
+            path: {
+                server_id: components["parameters"]["GameServerID"];
+                attempt_id: components["parameters"]["MatchAttemptID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchPayloadInstalledRequest"];
+            };
+        };
+        responses: {
+            /** @description Locked Payload and game build confirmed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchLobbyResponse"];
+                };
+            };
+        };
+    };
+    markDedicatedMatchAuthorityReady: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque authority-session binding extracted only inside the Toolbox or server core from the signed allocation. Never expose it through UI DTOs or logs. */
+                "X-Match-Authority-Session": components["parameters"]["MatchAuthoritySession"];
+                "X-Game-Server-Certificate": components["parameters"]["GameServerCertificateFingerprint"];
+                "X-Game-Server-Timestamp": components["parameters"]["GameServerRequestTimestamp"];
+                "X-Game-Server-Nonce": components["parameters"]["GameServerRequestNonce"];
+                "X-Game-Server-Generation": components["parameters"]["GameServerCredentialGeneration"];
+            };
+            path: {
+                server_id: components["parameters"]["GameServerID"];
+                attempt_id: components["parameters"]["MatchAttemptID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Initial connection window opened */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchLobbyResponse"];
+                };
+            };
+        };
+    };
+    reportDedicatedMatchPlayerConnected: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque authority-session binding extracted only inside the Toolbox or server core from the signed allocation. Never expose it through UI DTOs or logs. */
+                "X-Match-Authority-Session": components["parameters"]["MatchAuthoritySession"];
+                "X-Game-Server-Certificate": components["parameters"]["GameServerCertificateFingerprint"];
+                "X-Game-Server-Timestamp": components["parameters"]["GameServerRequestTimestamp"];
+                "X-Game-Server-Nonce": components["parameters"]["GameServerRequestNonce"];
+                "X-Game-Server-Generation": components["parameters"]["GameServerCredentialGeneration"];
+            };
+            path: {
+                server_id: components["parameters"]["GameServerID"];
+                attempt_id: components["parameters"]["MatchAttemptID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchConnectedReportRequest"];
+            };
+        };
+        responses: {
+            /** @description Consumed grant recorded for the reserved seat */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchLobbyResponse"];
+                };
+            };
+        };
+    };
+    reportDedicatedMatchPlayerDisconnected: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque authority-session binding extracted only inside the Toolbox or server core from the signed allocation. Never expose it through UI DTOs or logs. */
+                "X-Match-Authority-Session": components["parameters"]["MatchAuthoritySession"];
+                "X-Game-Server-Certificate": components["parameters"]["GameServerCertificateFingerprint"];
+                "X-Game-Server-Timestamp": components["parameters"]["GameServerRequestTimestamp"];
+                "X-Game-Server-Nonce": components["parameters"]["GameServerRequestNonce"];
+                "X-Game-Server-Generation": components["parameters"]["GameServerCredentialGeneration"];
+            };
+            path: {
+                server_id: components["parameters"]["GameServerID"];
+                attempt_id: components["parameters"]["MatchAttemptID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchDisconnectedReportRequest"];
+            };
+        };
+        responses: {
+            /** @description Current seat generation marked disconnected */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchLobbyResponse"];
+                };
+            };
+        };
+    };
+    heartbeatDedicatedMatchAuthority: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque authority-session binding extracted only inside the Toolbox or server core from the signed allocation. Never expose it through UI DTOs or logs. */
+                "X-Match-Authority-Session": components["parameters"]["MatchAuthoritySession"];
+                "X-Game-Server-Certificate": components["parameters"]["GameServerCertificateFingerprint"];
+                "X-Game-Server-Timestamp": components["parameters"]["GameServerRequestTimestamp"];
+                "X-Game-Server-Nonce": components["parameters"]["GameServerRequestNonce"];
+                "X-Game-Server-Generation": components["parameters"]["GameServerCredentialGeneration"];
+            };
+            path: {
+                server_id: components["parameters"]["GameServerID"];
+                attempt_id: components["parameters"]["MatchAttemptID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authority heartbeat accepted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    completeDedicatedMatchAttempt: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque authority-session binding extracted only inside the Toolbox or server core from the signed allocation. Never expose it through UI DTOs or logs. */
+                "X-Match-Authority-Session": components["parameters"]["MatchAuthoritySession"];
+                "X-Game-Server-Certificate": components["parameters"]["GameServerCertificateFingerprint"];
+                "X-Game-Server-Timestamp": components["parameters"]["GameServerRequestTimestamp"];
+                "X-Game-Server-Nonce": components["parameters"]["GameServerRequestNonce"];
+                "X-Game-Server-Generation": components["parameters"]["GameServerCredentialGeneration"];
+            };
+            path: {
+                server_id: components["parameters"]["GameServerID"];
+                attempt_id: components["parameters"]["MatchAttemptID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchCompleteRequest"];
+            };
+        };
+        responses: {
+            /** @description Attempt reached a terminal state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchLobbyResponse"];
+                };
+            };
         };
     };
     listP2PRooms: {

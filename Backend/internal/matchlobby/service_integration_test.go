@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -35,6 +36,11 @@ func TestStrictRosterP2PLifecycleAgainstPostgreSQL(t *testing.T) {
 	}
 
 	p2pService := p2proom.NewService(p2proom.NewRepository(pool), config.Defaults.P2PRoom)
+	secretBox, _, err := p2proom.NewSecretBox("", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p2pService.SetVNT(nil, secretBox)
 	battleLogConfig := config.Defaults.P2PBattleLog
 	battleLogService := p2pbattlelog.NewService(p2pbattlelog.NewRepository(pool), battleLogConfig)
 	p2pService.SetMatchLifecycle(battleLogService)
@@ -49,6 +55,7 @@ func TestStrictRosterP2PLifecycleAgainstPostgreSQL(t *testing.T) {
 	service.SetP2PMatchProjector(battleLogService)
 	currentTime := time.Now().UTC().Truncate(time.Second)
 	service.now = func() time.Time { return currentTime }
+	signer.now = func() time.Time { return currentTime }
 
 	suffix := uint64(time.Now().UnixNano()) % 10_000_000_000_000
 	actors := make([]Actor, 4)
@@ -72,6 +79,14 @@ func TestStrictRosterP2PLifecycleAgainstPostgreSQL(t *testing.T) {
 	}
 	if created.Snapshot.RosterRevision != 1 || created.TransportHostToken == "" {
 		t.Fatalf("unexpected create result: %+v", created.Snapshot)
+	}
+	restoredOwner, err := service.Active(ctx, actors[0])
+	if err != nil || restoredOwner.Snapshot.LobbyID != created.Snapshot.LobbyID ||
+		restoredOwner.TransportHostToken != created.TransportHostToken {
+		t.Fatalf("active owner recovery lost lobby or transport credential: %+v, %v", restoredOwner.Snapshot, err)
+	}
+	if _, err := service.Active(ctx, actors[1]); errorCode(err) != "MATCH_LOBBY_NOT_ACTIVE" {
+		t.Fatalf("player without a lobby recovered an active snapshot: %v", err)
 	}
 
 	type joinResult struct {
@@ -104,6 +119,10 @@ func TestStrictRosterP2PLifecycleAgainstPostgreSQL(t *testing.T) {
 	}
 	if winner.PlayerID == "" || loser.PlayerID == "" {
 		t.Fatalf("expected one serialized winner and one revision conflict: winner=%+v loser=%+v", winner, loser)
+	}
+	restoredMember, err := service.Active(ctx, winner)
+	if err != nil || restoredMember.Snapshot.LobbyID != created.Snapshot.LobbyID || restoredMember.TransportHostToken != "" {
+		t.Fatalf("active member recovery leaked or lost state: %+v, %v", restoredMember, err)
 	}
 	afterFirst, err := service.Get(ctx, created.Snapshot.LobbyID, actors[0].PlayerID)
 	if err != nil {
@@ -182,6 +201,23 @@ func TestStrictRosterP2PLifecycleAgainstPostgreSQL(t *testing.T) {
 	); err != nil {
 		t.Fatalf("authority ready retry was not idempotent: %v", err)
 	}
+	// Toolbox deliberately detaches and re-attaches the transport projection
+	// when it launches (and later reconnects) a frozen member. CONNECTING must
+	// permit that operation only for a member of the authoritative lobby.
+	if _, err := p2pService.LeaveManaged(ctx, toP2PActor(winner), connecting.P2PRoomID); err != nil {
+		t.Fatalf("detach frozen member transport while connecting: %v", err)
+	}
+	if _, err := p2pService.Join(ctx, toP2PActor(winner), connecting.P2PRoomID, connecting.ClientVersion); err != nil {
+		t.Fatalf("re-attach frozen member transport while connecting: %v", err)
+	}
+	if _, err := p2pService.Join(ctx, toP2PActor(actors[3]), connecting.P2PRoomID, connecting.ClientVersion); err == nil {
+		t.Fatal("non-roster player attached to a connecting managed transport")
+	} else {
+		var roomError *p2proom.ServiceError
+		if !errors.As(err, &roomError) || roomError.Code != "MANAGED_LOBBY_MEMBERSHIP_REQUIRED" {
+			t.Fatalf("non-roster connecting attach error = %v", err)
+		}
+	}
 	if _, err := service.JoinGrant(ctx, actors[0], attemptID); errorCode(err) != "MATCH_P2P_HOST_USES_ALLOCATION" {
 		t.Fatalf("P2P host received a remote grant: %v", err)
 	}
@@ -221,12 +257,54 @@ func TestStrictRosterP2PLifecycleAgainstPostgreSQL(t *testing.T) {
 	}
 	assertP2PProjectionMatchesAttempt(t, ctx, pool, attemptID)
 
+	connectedGrants := make(map[string]GrantResult)
 	for _, actor := range []Actor{winner, loser} {
 		grant, err := service.JoinGrant(ctx, actor, attemptID)
 		if err != nil {
 			t.Fatal(err)
 		}
+		connectedGrants[actor.PlayerID] = grant
 		jti := decodeJoinGrantJTI(t, grant.Grant)
+		if grant.GrantJTI != jti {
+			t.Fatalf("grant response JTI = %q, token JTI = %q", grant.GrantJTI, jti)
+		}
+		status, err := service.GrantDelivery(ctx, actor, attemptID, jti)
+		if err != nil || status.Delivered {
+			t.Fatalf("new grant delivery status = %+v, %v", status, err)
+		}
+		pending, err := service.P2PAuthorityAdmissions(
+			ctx, actors[0], authoritySession, attemptID,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var staged *AuthorityAdmission
+		for index := range pending.Items {
+			if pending.Items[index].GrantJTI == jti {
+				staged = &pending.Items[index]
+				break
+			}
+		}
+		if staged == nil || staged.PlayerID != actor.PlayerID ||
+			staged.JoinGrant != grant.Grant ||
+			staged.ConnectionGeneration != grant.ConnectionGeneration {
+			t.Fatalf("authority did not reconstruct issued grant: pending=%+v grant=%+v", pending, grant)
+		}
+		delivered, err := service.P2PMarkAdmissionDelivered(
+			ctx, actors[0], authoritySession, attemptID, jti,
+		)
+		if err != nil || !delivered.Delivered || delivered.DeliveredAt == nil {
+			t.Fatalf("authority delivery acknowledgement = %+v, %v", delivered, err)
+		}
+		if _, err := service.P2PMarkAdmissionDelivered(
+			ctx, actors[0], authoritySession, attemptID, jti,
+		); err != nil {
+			t.Fatalf("delivery acknowledgement retry was not idempotent: %v", err)
+		}
+		status, err = service.GrantDelivery(ctx, actor, attemptID, jti)
+		if err != nil || !status.Delivered {
+			t.Fatalf("delivered grant remained hidden from member: %+v, %v", status, err)
+		}
 		connected, err := service.P2PMarkConnected(
 			ctx, actors[0], authoritySession, attemptID, actor.PlayerID, jti,
 			grant.ConnectionGeneration,
@@ -244,6 +322,68 @@ func TestStrictRosterP2PLifecycleAgainstPostgreSQL(t *testing.T) {
 	}
 	if connecting.State != StateRunning || connecting.Attempt == nil || connecting.Attempt.State != AttemptRunning {
 		t.Fatalf("all connected players did not start early: %+v", connecting)
+	}
+	if _, err := p2pService.LeaveManaged(ctx, toP2PActor(winner), connecting.P2PRoomID); err != nil {
+		t.Fatalf("detach frozen member transport while running: %v", err)
+	}
+	if _, err := p2pService.Join(ctx, toP2PActor(winner), connecting.P2PRoomID, connecting.ClientVersion); err != nil {
+		t.Fatalf("re-attach frozen member transport while running: %v", err)
+	}
+	prior := connectedGrants[winner.PlayerID]
+	liveView, err := service.Get(ctx, created.Snapshot.LobbyID, winner.PlayerID)
+	if err != nil || liveView.Local.CanRetry {
+		t.Fatalf("live P2P member advertised reconnect capability: %+v, %v", liveView.Local, err)
+	}
+	if _, err := service.JoinGrant(ctx, winner, attemptID); errorCode(err) != "MATCH_CONNECTION_STILL_ACTIVE" {
+		t.Fatalf("live P2P connection received a reconnect grant: %v", err)
+	}
+	disconnected, err := service.P2PMarkDisconnected(
+		ctx, actors[0], authoritySession, attemptID, winner.PlayerID,
+		prior.ConnectionGeneration,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	disconnectedView, err := service.Get(ctx, disconnected.LobbyID, winner.PlayerID)
+	if err != nil || !disconnectedView.Local.CanRetry {
+		t.Fatalf("disconnected P2P member lacked reconnect capability: %+v, %v", disconnectedView.Local, err)
+	}
+	if _, err := service.P2PMarkDisconnected(
+		ctx, actors[0], authoritySession, attemptID, winner.PlayerID,
+		prior.ConnectionGeneration,
+	); err != nil {
+		t.Fatalf("repeated P2P disconnect was not idempotent: %v", err)
+	}
+	reconnect, err := service.JoinGrant(ctx, winner, attemptID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reconnect.ConnectionGeneration != prior.ConnectionGeneration+1 {
+		t.Fatalf("P2P reconnect generation = %d", reconnect.ConnectionGeneration)
+	}
+	reconnectClaims := decodeJoinGrantClaims(t, reconnect.Grant)
+	priorClaims := decodeJoinGrantClaims(t, prior.Grant)
+	if reconnectClaims.TeamID != priorClaims.TeamID ||
+		reconnectClaims.TeamSlot != priorClaims.TeamSlot ||
+		reconnectClaims.LogicalSlot != priorClaims.LogicalSlot {
+		t.Fatalf("P2P reconnect moved the frozen seat: prior=%+v reconnect=%+v", priorClaims, reconnectClaims)
+	}
+	if _, err := service.P2PMarkConnected(
+		ctx, actors[0], authoritySession, attemptID, winner.PlayerID,
+		decodeJoinGrantJTI(t, prior.Grant), prior.ConnectionGeneration,
+	); errorCode(err) != "MATCH_JOIN_GRANT_NOT_CONSUMABLE" {
+		t.Fatalf("old P2P grant remained consumable after reconnect: %v", err)
+	}
+	reconnected, err := service.P2PMarkConnected(
+		ctx, actors[0], authoritySession, attemptID, winner.PlayerID,
+		decodeJoinGrantJTI(t, reconnect.Grant), reconnect.ConnectionGeneration,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reconnectedView, err := service.Get(ctx, reconnected.LobbyID, winner.PlayerID)
+	if err != nil || reconnectedView.Local.CanRetry {
+		t.Fatalf("reconnected P2P member advertised reconnect capability: %+v, %v", reconnectedView.Local, err)
 	}
 	terminal, err := service.P2PComplete(ctx, actors[0], authoritySession, attemptID, true, "")
 	if err != nil || terminal.State != StateCompleted {
@@ -421,6 +561,10 @@ func decodeAllocationClaims(t *testing.T, token string) AllocationClaims {
 }
 
 func decodeJoinGrantJTI(t *testing.T, token string) string {
+	return decodeJoinGrantClaims(t, token).TokenID
+}
+
+func decodeJoinGrantClaims(t *testing.T, token string) JoinGrantClaims {
 	t.Helper()
 	parts := splitAdmissionToken(t, token)
 	body, err := base64.RawURLEncoding.DecodeString(parts[1])
@@ -431,7 +575,7 @@ func decodeJoinGrantJTI(t *testing.T, token string) string {
 	if err := json.Unmarshal(body, &claims); err != nil {
 		t.Fatal(err)
 	}
-	return claims.TokenID
+	return claims
 }
 
 func splitAdmissionToken(t *testing.T, token string) []string {

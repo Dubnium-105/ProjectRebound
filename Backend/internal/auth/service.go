@@ -197,6 +197,11 @@ func (s *Service) Bind(ctx context.Context, input BindInput, meta RequestMeta) (
 		verifiedSteamID = ticket.SteamID
 		authProvider = player.AuthProviderSteamTicket
 		authLevel = player.AuthLevelVerified
+	} else if developmentTrustedSteamID(s.config.DevelopmentTrustedSteamIDs, input.SteamID) {
+		// This path exists only for an isolated, development-mode two-machine
+		// lab whose exact Steam IDs were allowlisted at process startup. Config
+		// validation rejects the allowlist in every non-development environment.
+		authLevel = player.AuthLevelTrusted
 	}
 
 	deviceFingerprintID, err := s.resolveDeviceFingerprint(ctx, s.pool, deviceID, now)
@@ -382,6 +387,15 @@ func (s *Service) Bind(ctx context.Context, input BindInput, meta RequestMeta) (
 		Capabilities:       capabilities,
 		IntegrityChallenge: integrityChallenge,
 	}, nil
+}
+
+func developmentTrustedSteamID(allowlist []string, steamID string) bool {
+	for _, allowed := range allowlist {
+		if steamID == allowed {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Service) Refresh(ctx context.Context, refreshToken string, meta RequestMeta) (RefreshResult, error) {

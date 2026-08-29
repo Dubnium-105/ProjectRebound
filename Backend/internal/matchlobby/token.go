@@ -85,16 +85,23 @@ func (s *AdmissionSigner) SignAllocation(claims AllocationClaims, ttl time.Durat
 func (s *AdmissionSigner) SignJoinGrant(claims JoinGrantClaims, ttl time.Duration) (string, time.Time, error) {
 	now := s.now().UTC()
 	expires := now.Add(ttl)
+	token, err := s.SignJoinGrantWindow(claims, now, expires)
+	return token, expires, err
+}
+
+// SignJoinGrantWindow deterministically reconstructs a grant from the claims
+// persisted by Meta. This lets the authority receive the same one-use bearer
+// capability without storing the capability itself in PostgreSQL.
+func (s *AdmissionSigner) SignJoinGrantWindow(claims JoinGrantClaims, issuedAt, expiresAt time.Time) (string, error) {
 	claims.Issuer = "game-control-plane"
 	claims.Audience = joinGrantAudience
 	claims.KeyID = s.keyID
 	if claims.TokenID == "" {
 		claims.TokenID = newAdmissionID("mj_")
 	}
-	claims.NotBefore = now.Add(-5 * time.Second).Unix()
-	claims.ExpiresAt = expires.Unix()
-	token, err := s.sign("match-join+jwt", claims)
-	return token, expires, err
+	claims.NotBefore = issuedAt.UTC().Add(-5 * time.Second).Unix()
+	claims.ExpiresAt = expiresAt.UTC().Unix()
+	return s.sign("match-join+jwt", claims)
 }
 
 func (s *AdmissionSigner) sign(tokenType string, claims any) (string, error) {

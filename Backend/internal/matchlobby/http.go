@@ -18,6 +18,7 @@ const authoritySessionHeader = "X-Match-Authority-Session"
 type HTTPService interface {
 	Create(context.Context, Actor, CreateInput) (CreateResult, error)
 	Get(context.Context, string, string) (Snapshot, error)
+	Active(context.Context, Actor) (CreateResult, error)
 	List(context.Context, ListFilter) (ListResult, error)
 	Join(context.Context, Actor, string, int, int64) (Snapshot, error)
 	SelectTeam(context.Context, Actor, string, int, int64) (Snapshot, error)
@@ -32,6 +33,11 @@ type HTTPService interface {
 	DedicatedPayloadInstalled(context.Context, string, string, string, string, string, int) (Snapshot, error)
 	DedicatedAuthorityReady(context.Context, string, string, string) (Snapshot, error)
 	JoinGrant(context.Context, Actor, string) (GrantResult, error)
+	GrantDelivery(context.Context, Actor, string, string) (GrantDeliveryStatus, error)
+	AuthorityAdmissions(context.Context, string, string, string) (AuthorityAdmissionList, error)
+	P2PAuthorityAdmissions(context.Context, Actor, string, string) (AuthorityAdmissionList, error)
+	MarkAdmissionDelivered(context.Context, string, string, string, string) (GrantDeliveryStatus, error)
+	P2PMarkAdmissionDelivered(context.Context, Actor, string, string, string) (GrantDeliveryStatus, error)
 	MarkConnected(context.Context, string, string, string, string, string, int) (Snapshot, error)
 	P2PMarkConnected(context.Context, Actor, string, string, string, string, int) (Snapshot, error)
 	MarkDisconnected(context.Context, string, string, string, string, int) (Snapshot, error)
@@ -105,6 +111,21 @@ func (h *HTTPHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	api.WriteData(w, r, http.StatusOK, snapshot)
+}
+
+func (h *HTTPHandler) Active(w http.ResponseWriter, r *http.Request) {
+	result, err := h.service.Active(r.Context(), actorFromRequest(r))
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
+	payload := map[string]any{"lobby": result.Snapshot}
+	if result.TransportHostToken != "" {
+		payload["transport_host_token"] = result.TransportHostToken
+	}
+	api.WriteData(w, r, http.StatusOK, payload)
 }
 
 func (h *HTTPHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -199,6 +220,69 @@ func (h *HTTPHandler) JoinGrant(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Pragma", "no-cache")
 	api.WriteData(w, r, http.StatusCreated, result)
+}
+
+func (h *HTTPHandler) GrantDelivery(w http.ResponseWriter, r *http.Request) {
+	result, err := h.service.GrantDelivery(
+		r.Context(), actorFromRequest(r), chi.URLParam(r, "attempt_id"),
+		chi.URLParam(r, "grant_jti"),
+	)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	api.WriteData(w, r, http.StatusOK, result)
+}
+
+func (h *HTTPHandler) P2PAuthorityAdmissions(w http.ResponseWriter, r *http.Request) {
+	result, err := h.service.P2PAuthorityAdmissions(
+		r.Context(), actorFromRequest(r), r.Header.Get(authoritySessionHeader),
+		chi.URLParam(r, "attempt_id"),
+	)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	api.WriteData(w, r, http.StatusOK, result)
+}
+
+func (h *HTTPHandler) P2PAdmissionDelivered(w http.ResponseWriter, r *http.Request) {
+	result, err := h.service.P2PMarkAdmissionDelivered(
+		r.Context(), actorFromRequest(r), r.Header.Get(authoritySessionHeader),
+		chi.URLParam(r, "attempt_id"), chi.URLParam(r, "grant_jti"),
+	)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	api.WriteData(w, r, http.StatusOK, result)
+}
+
+func (h *HTTPHandler) DedicatedAuthorityAdmissions(w http.ResponseWriter, r *http.Request) {
+	result, err := h.service.AuthorityAdmissions(
+		r.Context(), chi.URLParam(r, "server_id"), r.Header.Get(authoritySessionHeader),
+		chi.URLParam(r, "attempt_id"),
+	)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	api.WriteData(w, r, http.StatusOK, result)
+}
+
+func (h *HTTPHandler) DedicatedAdmissionDelivered(w http.ResponseWriter, r *http.Request) {
+	result, err := h.service.MarkAdmissionDelivered(
+		r.Context(), chi.URLParam(r, "server_id"), r.Header.Get(authoritySessionHeader),
+		chi.URLParam(r, "attempt_id"), chi.URLParam(r, "grant_jti"),
+	)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	api.WriteData(w, r, http.StatusOK, result)
 }
 
 func (h *HTTPHandler) P2PHostAllocation(w http.ResponseWriter, r *http.Request) {

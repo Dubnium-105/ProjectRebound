@@ -14,6 +14,7 @@
 #include <iomanip>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <sstream>
 #include <string_view>
 
@@ -55,6 +56,7 @@ static std::mutex g_CmdFrameworkMutex;
 DebugTool* gDebugTool = nullptr;
 LoadoutManager* gLoadoutManager = nullptr;
 std::recursive_mutex gLoadoutManagerMutex;
+StrictRoster::Policy gStrictRosterPolicy(StrictRoster::VerifyEd25519, false);
 
 namespace
 {
@@ -68,12 +70,12 @@ constexpr uintptr_t kQosDiscoveryInitializerRva = 0x0068ADE0;
 constexpr uintptr_t kRpcFramePatchPageOffset = 0x009C3000;
 constexpr SIZE_T kRpcFramePatchPageSize = 0x1000;
 
-// Runtime validation has not yet established a safe client NMT_Login
-// injection site, authoritative PreLogin interception for all three net modes,
-// or a native team-assignment API. The policy therefore remains fail closed
-// even though allocation/grant signature verification is implemented.
-StrictRoster::Policy gStrictRosterPolicy(StrictRoster::VerifyEd25519, false);
 std::string gVerifiedExecutableHash;
+std::mutex gStrictAuthorityStartMutex;
+std::atomic_bool gStrictAuthorityRuntimeReady{false};
+std::atomic_bool gStrictNativeHooksReady{false};
+bool gStrictAuthorityServerStarted = false;
+bool gStrictHeartbeatStarted = false;
 
 std::int64_t EpochSecondsNow() noexcept
 {
@@ -555,6 +557,20 @@ nlohmann::json OnInstallMatchAllocation(const nlohmann::json& arguments)
     };
 }
 
+nlohmann::json OnInstallMatchJoinGrant(const nlohmann::json& arguments)
+{
+    const StrictRoster::Decision decision = gStrictRosterPolicy.StageJoinGrant(
+        arguments.value("join_grant", ""), EpochSecondsNow());
+    if (!decision.accepted)
+    {
+        ClientLog("[STRICT-ROSTER] Authority rejected a staged join grant: " +
+            decision.code + ".");
+        return PolicyResult(decision);
+    }
+    ClientLog("[STRICT-ROSTER] Authority staged one identity-bound join grant.");
+    return nlohmann::json{{"accepted", true}, {"code", "accepted"}};
+}
+
 nlohmann::json OnStartMatchAuthority(const nlohmann::json& arguments)
 {
     std::string endpointHost;
@@ -568,15 +584,79 @@ nlohmann::json OnStartMatchAuthority(const nlohmann::json& arguments)
             {"message", "the authority transport endpoint is invalid"}
         };
     }
-    // The local P2P host bypasses remote PreLogin. StartAuthority performs the
-    // native-path gate before host-seat binding; with the current pinned build
-    // gate set to false it cannot open a listen socket or report readiness.
-    const StrictRoster::Decision decision =
-        gStrictRosterPolicy.StartAuthority("", EpochSecondsNow());
+    if (amListenServer && !IsClientLoginReadyForTravel())
+    {
+        return nlohmann::json{
+            {"accepted", false},
+            {"code", "client_login_pending"},
+            {"message", "complete the local platform login before starting listen authority"}
+        };
+    }
+    const StrictRoster::SeatDecision decision =
+        gStrictRosterPolicy.StartAuthorityForAllocatedHost(EpochSecondsNow());
     if (!decision.accepted)
     {
         ClientLog("[STRICT-ROSTER] Authority start rejected: " + decision.code + ".");
         return PolicyResult(decision);
+    }
+    // StartServer synchronously creates the listen host PlayerController and
+    // invokes PostLogin before it returns. Publish the signed HOST seat first,
+    // so that local-host admission can bind without waiting for UniqueId.
+    SetStrictRosterLocalHostSeat(decision);
+    for (int wait = 0;
+        wait < 1500 && !gStrictAuthorityRuntimeReady.load(std::memory_order_acquire);
+        ++wait)
+    {
+        Sleep(10);
+    }
+    {
+        std::lock_guard<std::mutex> lock(gStrictAuthorityStartMutex);
+        if (!gStrictAuthorityRuntimeReady.load(std::memory_order_acquire))
+        {
+            ClearStrictRosterLocalHostSeat();
+            return nlohmann::json{
+                {"accepted", false},
+                {"code", "authority_runtime_not_ready"},
+                {"message", "the listen authority runtime is not initialized"}
+            };
+        }
+        if (!gStrictAuthorityServerStarted)
+        {
+            ::StartServer();
+            UWorld* authoritativeWorld = nullptr;
+            int postTravelNetMode = -1;
+            std::string authorityDetail;
+            bool authoritativeListeningWorld = false;
+            for (int attempt = 0; attempt < 200; ++attempt)
+            {
+                authoritativeWorld = UWorld::GetWorld();
+                postTravelNetMode = GetNativeNetMode(authoritativeWorld);
+                authoritativeListeningWorld =
+                    IsAuthoritativeListeningWorld(authoritativeWorld, authorityDetail);
+                if (authoritativeListeningWorld)
+                    break;
+                Sleep(10);
+            }
+            ClientLog(std::string("[STRICT-ROSTER] Post-travel authority: net_mode=") +
+                NetModeName(postTravelNetMode) + " " + authorityDetail +
+                " result=" + (authoritativeListeningWorld ? "ready" : "invalid"));
+            if (!authoritativeListeningWorld)
+            {
+                gStrictRosterPolicy.Reset();
+                ClearStrictRosterLocalHostSeat();
+                return nlohmann::json{
+                    {"accepted", false},
+                    {"code", "listen_authority_unavailable"},
+                    {"message", "the pinned listen world did not become authoritative"}
+                };
+            }
+            gStrictAuthorityServerStarted = true;
+            if (!gStrictHeartbeatStarted)
+            {
+                StartHeartbeatThread();
+                gStrictHeartbeatStarted = true;
+            }
+        }
     }
     ClientLog("[STRICT-ROSTER] Authority admission activated.");
     return nlohmann::json{
@@ -587,10 +667,97 @@ nlohmann::json OnStartMatchAuthority(const nlohmann::json& arguments)
     };
 }
 
+nlohmann::json OnMatchConnectionEvents(const nlohmann::json& arguments)
+{
+    const std::uint64_t afterSequence = arguments.value("after_sequence", 0ULL);
+    const auto events = gStrictRosterPolicy.ConnectionEventsAfter(afterSequence);
+    nlohmann::json items = nlohmann::json::array();
+    std::uint64_t nextSequence = afterSequence;
+    for (const auto& event : events)
+    {
+        nextSequence = event.sequence;
+        items.push_back(nlohmann::json{
+            {"sequence", event.sequence},
+            {"attempt_id", event.attemptId},
+            {"route_generation", event.routeGeneration},
+            {"player_id", event.playerId},
+            {"grant_jti", event.grantJti},
+            {"connection_generation", event.connectionGeneration},
+            {"state", event.connected ? "CONNECTED" : "DISCONNECTED"}
+        });
+    }
+    return nlohmann::json{
+        {"events", std::move(items)},
+        {"next_sequence", nextSequence}
+    };
+}
+
 void OnClearMatchAllocation()
 {
     gStrictRosterPolicy.Reset();
+    ClearStrictRosterLocalHostSeat();
     ClientLog("[STRICT-ROSTER] Match allocation cleared.");
+}
+
+bool StartServerCommandFramework()
+{
+    if (MatchPipeName.empty())
+        return true;
+    {
+        std::lock_guard<std::mutex> lock(g_CmdFrameworkMutex);
+        if (g_CmdFramework != nullptr)
+            return true;
+    }
+
+    auto framework = std::make_unique<CommandFramework>();
+    framework->SetPipeName(MatchPipeName);
+    framework->SetLogCallback([](const std::string& msg) { Log(msg); });
+    framework->SetMatchAllocationCallback(OnInstallMatchAllocation);
+    framework->SetMatchJoinGrantCallback(OnInstallMatchJoinGrant);
+    framework->SetMatchAuthorityCallback(OnStartMatchAuthority);
+    framework->SetMatchConnectionEventsCallback(OnMatchConnectionEvents);
+    framework->SetMatchClearCallback(OnClearMatchAllocation);
+    framework->SetServerStatusCallback([]()
+        {
+            const nlohmann::json current = BuildServerStatusPayload();
+            const int reportedPlayerCount = current.value("playerCount", 0);
+            const int playerCount = reportedPlayerCount < 0 ? 0 : reportedPlayerCount;
+            std::string authorityDetail;
+            const bool authorityReady = IsAuthoritativeListeningWorld(
+                UWorld::GetWorld(), authorityDetail);
+            const bool clientLoginReady =
+                !amListenServer || IsClientLoginReadyForTravel();
+            const std::string lifecycle =
+                current.value("lifecycleState", "Disabled");
+            std::string state = playerCount > 0 ? "RUNNING" : "READY";
+            if (lifecycle == "Traveling" || lifecycle == "LoadingNext")
+                state = "TRANSITIONING";
+            else if (lifecycle == "Voting" || lifecycle == "WaitingToTravel")
+                state = "VOTING";
+            else if (lifecycle == "FallbackExit")
+                state = "RESTARTING";
+            return nlohmann::json{
+                {"state", state},
+                {"player_count", playerCount},
+                {"round_state", current.value("serverState", "Unknown")},
+                {"lifecycle_state", lifecycle},
+                {"active_map", current.value("activeMap", current.value("map", ""))},
+                {"next_map", current.value("nextMap", "")},
+                {"match_generation", current.value("matchGeneration", 0ULL)},
+                {"authority_ready", authorityReady},
+                {"client_login_ready", clientLoginReady},
+                {"vote", current.value("vote", nlohmann::json::object())}
+            };
+        });
+
+    if (!framework->Start())
+    {
+        Log("[PIPE] Toolbox command framework failed to start.");
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(g_CmdFrameworkMutex);
+    g_CmdFramework = framework.release();
+    return true;
 }
 
 // Explicit DLL unloaders must call this outside DllMain before unloading the
@@ -656,6 +823,10 @@ void MainThread()
         const std::string commandLine = GetCommandLineA();
         const bool serverBootstrap =
             CommandLinePolicy::HasExactSwitch(commandLine, "-server");
+        const bool strictAuthorityBootstrap =
+            CommandLinePolicy::HasExactSwitch(commandLine, "-StrictRosterAuthority");
+        const bool roomAuthorityBootstrap =
+            CommandLinePolicy::HasExactSwitch(commandLine, "-RoomAuthority");
         std::string executableHash;
         if (!VerifySupportedExecutable(BaseAddress, executableHash))
         {
@@ -705,10 +876,13 @@ void MainThread()
         // standalone/client even though the exact -server token requested the
         // dedicated path. Treat that one transition as provisional, then
         // verify the post-travel world below.
-        const int nativeNetMode = serverBootstrap &&
+        const bool listenAuthorityBootstrap =
+            strictAuthorityBootstrap || roomAuthorityBootstrap;
+        const int nativeNetMode = listenAuthorityBootstrap &&
             (initialNetMode == 0 || initialNetMode == 3)
-                ? 1
-                : initialNetMode;
+                ? 2
+                : (serverBootstrap && (initialNetMode == 0 || initialNetMode == 3)
+                    ? 1 : initialNetMode);
         const bool runServer = nativeNetMode == 1 || nativeNetMode == 2;
         const bool runClient = nativeNetMode == 0 || nativeNetMode == 2 || nativeNetMode == 3;
         ClientLog(std::string("[BOOT] bootstrap=") +
@@ -716,7 +890,7 @@ void MainThread()
             " initial_net_mode=" + NetModeName(initialNetMode) +
             " routed_net_mode=" + NetModeName(nativeNetMode));
         if (nativeNetMode < 0 || nativeNetMode > 3 ||
-            (!serverBootstrap && nativeNetMode == 1))
+            (!serverBootstrap && !listenAuthorityBootstrap && nativeNetMode == 1))
         {
             ClientLog("[BOOT] Refusing initialization: bootstrap/native NetMode conflict.");
             return;
@@ -729,12 +903,45 @@ void MainThread()
             return;
         }
 
+        bool clientFrontendRuntimeInitialized = false;
+        bool clientArchiveHooksInitialized = false;
+        const auto initializeClientFrontendRuntime = [&]()
+        {
+            if (clientFrontendRuntimeInitialized)
+                return;
+            LoadClientConfig();
+            if (ClientDebugLogEnabled)
+            {
+                std::filesystem::create_directory("clientlogs");
+                const std::string path =
+                    "clientlogs/clientlog-" + CurrentTimestamp() + ".txt";
+                clientLogFile.open(path, std::ios::app);
+                std::cout << "[CLIENT] Debug logging enabled: " << path << std::endl;
+            }
+            InitDebugConsole();
+            EnableUnrealConsole();
+            clientFrontendRuntimeInitialized = true;
+        };
+        if (runServer && runClient)
+        {
+            // Listen authority must observe the native frontend login before
+            // it travels. Bring up its client logging and archive completions
+            // before the server worker begins waiting for that signal.
+            initializeClientFrontendRuntime();
+            InitClientArchiveHooks();
+            clientArchiveHooksInitialized = true;
+        }
+
         // DebugLocateSubsystems();
         // DebugDumpSubsystemsToFile();
 
         if (runServer)
         {
             InitServerHooks(serverBootstrap || nativeNetMode == 1);
+            const bool strictNativeHooksReady =
+                InitStrictRosterAdmissionHooks(&gStrictRosterPolicy);
+            gStrictNativeHooksReady.store(strictNativeHooksReady, std::memory_order_release);
+            gStrictRosterPolicy.SetNativeAdmissionPathReady(strictNativeHooksReady);
             Log("[SERVER] Hooks installed.");
 
             // The room/tunnel identifiers are required before constructing
@@ -842,108 +1049,75 @@ void MainThread()
                 Log("[LOADOUT] Missing a valid room bridge or explicit local-PVE bridge; using native defaults.");
             }
 
-            // Publish the loadout bridge before the listen socket begins
-            // accepting players so PostLogin cannot race manager creation.
-            ::StartServer();
-            UWorld* authoritativeWorld = nullptr;
-            int postTravelNetMode = -1;
-            std::string authorityDetail;
-            bool authoritativeListeningWorld = false;
-            for (int attempt = 0; attempt < 100; ++attempt)
+            // Listen authorities expose their per-launch status pipe while the
+            // local player is still on the frontend. Toolbox can then report
+            // login_pending without allowing any map travel to overtake login.
+            if (listenAuthorityBootstrap && !StartServerCommandFramework())
+                return;
+
+            if (roomAuthorityBootstrap)
             {
-                authoritativeWorld = UWorld::GetWorld();
-                postTravelNetMode = GetNativeNetMode(authoritativeWorld);
-                authoritativeListeningWorld =
-                    IsAuthoritativeListeningWorld(authoritativeWorld, authorityDetail);
-                if (authoritativeListeningWorld)
-                    break;
-                Sleep(10);
-            }
-            Log(std::string("[SERVER] Post-travel authority: net_mode=") +
-                NetModeName(postTravelNetMode) + " " + authorityDetail +
-                " result=" + (authoritativeListeningWorld ? "ready" : "invalid"));
-            if (!authoritativeListeningWorld)
-            {
-                std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
-                if (gLoadoutManager)
-                {
-                    gLoadoutManager->StopServer();
-                    delete gLoadoutManager;
-                    gLoadoutManager = nullptr;
-                }
-                Log("[LOADOUT] Bridge disabled: post-travel world is not authoritative.");
+                Log("[SERVER] Waiting for local platform login before listen travel.");
+                while (!IsClientLoginReadyForTravel())
+                    Sleep(50);
+                Log("[SERVER] Local platform login settled; starting listen travel.");
             }
 
-            // Toolbox owns enrollment and long-lived node credentials. The
-            // in-process server exposes only non-secret runtime status over
-            // the per-launch, same-user named pipe.
-            if (!MatchPipeName.empty())
+            if (!strictAuthorityBootstrap)
             {
-                auto framework = std::make_unique<CommandFramework>();
-                framework->SetPipeName(MatchPipeName);
-                framework->SetLogCallback([](const std::string& msg) { Log(msg); });
-                framework->SetMatchAllocationCallback(OnInstallMatchAllocation);
-                framework->SetMatchAuthorityCallback(OnStartMatchAuthority);
-                framework->SetMatchClearCallback(OnClearMatchAllocation);
-                framework->SetServerStatusCallback([]()
+                // Publish the loadout bridge before the listen socket begins
+                // accepting players so PostLogin cannot race manager creation.
+                ::StartServer();
+                UWorld* authoritativeWorld = nullptr;
+                int postTravelNetMode = -1;
+                std::string authorityDetail;
+                bool authoritativeListeningWorld = false;
+                for (int attempt = 0; attempt < 100; ++attempt)
+                {
+                    authoritativeWorld = UWorld::GetWorld();
+                    postTravelNetMode = GetNativeNetMode(authoritativeWorld);
+                    authoritativeListeningWorld =
+                        IsAuthoritativeListeningWorld(authoritativeWorld, authorityDetail);
+                    if (authoritativeListeningWorld)
+                        break;
+                    Sleep(10);
+                }
+                Log(std::string("[SERVER] Post-travel authority: net_mode=") +
+                    NetModeName(postTravelNetMode) + " " + authorityDetail +
+                    " result=" + (authoritativeListeningWorld ? "ready" : "invalid"));
+                if (!authoritativeListeningWorld)
+                {
+                    std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+                    if (gLoadoutManager)
                     {
-                        const nlohmann::json current = BuildServerStatusPayload();
-                        const int reportedPlayerCount = current.value("playerCount", 0);
-                        const int playerCount = reportedPlayerCount < 0 ? 0 : reportedPlayerCount;
-                        const std::string lifecycle =
-                            current.value("lifecycleState", "Disabled");
-                        std::string state = playerCount > 0 ? "RUNNING" : "READY";
-                        if (lifecycle == "Traveling" || lifecycle == "LoadingNext")
-                            state = "TRANSITIONING";
-                        else if (lifecycle == "Voting" || lifecycle == "WaitingToTravel")
-                            state = "VOTING";
-                        else if (lifecycle == "FallbackExit")
-                            state = "RESTARTING";
-                        return nlohmann::json{
-                            {"state", state},
-                            {"player_count", playerCount},
-                            {"round_state", current.value("serverState", "Unknown")},
-                            {"lifecycle_state", lifecycle},
-                            {"active_map", current.value("activeMap", current.value("map", ""))},
-                            {"next_map", current.value("nextMap", "")},
-                            {"match_generation", current.value("matchGeneration", 0ULL)},
-                            {"vote", current.value("vote", nlohmann::json::object())}
-                        };
-                    });
-
-                if (framework->Start())
-                {
-                    std::lock_guard<std::mutex> lock(g_CmdFrameworkMutex);
-                    g_CmdFramework = framework.release();
-                }
-                else
-                {
-                    Log("[PIPE] Toolbox command framework failed to start.");
+                        gLoadoutManager->StopServer();
+                        delete gLoadoutManager;
+                        gLoadoutManager = nullptr;
+                    }
+                    Log("[LOADOUT] Bridge disabled: post-travel world is not authoritative.");
                 }
             }
 
-            // Heartbeat thread (game + backend) – now wrapped in Network
-            StartHeartbeatThread();
+            // Dedicated bootstraps start the status pipe after travel. Listen
+            // bootstraps already started it above so this call is idempotent.
+            if (!StartServerCommandFramework())
+                return;
+
+            // A strict listen authority starts this only after its signed
+            // allocation has opened the socket.
+            if (!strictAuthorityBootstrap)
+                StartHeartbeatThread();
         }
         if (runClient)
         {
             // We're client
-            LoadClientConfig();
-            // Initialize client debug log
-            if (ClientDebugLogEnabled)
-            {
-                std::filesystem::create_directory("clientlogs");
-
-                std::string path = "clientlogs/clientlog-" + CurrentTimestamp() + ".txt";
-                clientLogFile.open(path, std::ios::app);
-
-                std::cout << "[CLIENT] Debug logging enabled: " << path << std::endl;
-            }
-            InitDebugConsole();
-            EnableUnrealConsole();
+            initializeClientFrontendRuntime();
 
             if (runServer)
-                InitClientArchiveHooks();
+            {
+                if (!clientArchiveHooksInitialized)
+                    InitClientArchiveHooks();
+            }
             else
                 InitClientHook();
 
@@ -969,6 +1143,7 @@ void MainThread()
                 framework->SetPipeName(MatchPipeName);
                 framework->SetJoinCallback(OnJoinFromPipe);
                 framework->SetMatchAllocationCallback(OnInstallMatchAllocation);
+                framework->SetMatchJoinGrantCallback(OnInstallMatchJoinGrant);
                 framework->SetMatchAuthorityCallback(OnStartMatchAuthority);
                 framework->SetMatchClearCallback(OnClearMatchAllocation);
                 framework->SetLogCallback([](const std::string& msg) { ClientLog(msg); });
@@ -987,6 +1162,12 @@ void MainThread()
                 {
                     ClientLog("[PIPE] Command framework failed to start.");
                 }
+            }
+            if (strictAuthorityBootstrap)
+            {
+                gStrictAuthorityRuntimeReady.store(
+                    gStrictNativeHooksReady.load(std::memory_order_acquire),
+                    std::memory_order_release);
             }
             /*
             Sleep(10 * 1000);

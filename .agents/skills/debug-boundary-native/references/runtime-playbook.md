@@ -101,6 +101,15 @@ loopback HTTP/TCP 端口，并通过匿名 stdin 传递访问令牌。令牌刷�
 singleflight 认证流程负责；不得把令牌放入参数、环境变量或日志。Production Server
 页面仍使用独立的生产配置，不得注入本地 PVE 的动态 LogicServerURL。
 
+带 `lab-testing` 的实验 CLI 在设置 `PROJECT_REBOUND_LAB_API_ORIGIN` 时必须使用按
+normalized origin SHA-256 隔离的
+`%LOCALAPPDATA%\com.projectrebound.toolbox\lab\<origin-sha256>` 配置/runtime 根；不得读取、
+登出或覆盖生产 `app_config.json`，也不得把 executable-adjacent legacy config 迁入 lab
+scope。若生产启动报 `obtain MetaTunnel access token`，先展开完整错误链；当底层为
+`refresh Project Rebound session: API 401 ... Invalid refresh token` 且缓存来自 lab
+临时签名域时，执行一次新的 Steam 登录。不要复制、打印或手工搬运 access/refresh
+token，也不要把该错误误判成 MetaTunnel EXE readiness 故障。
+
 Toolbox 本地 PVE 还会在 Rust 内启动随机 loopback TCP/UDP QoS 兼容服务，并只给本次
 客户端追加 `-LocalPveQosDiscoveryUrl` 与 `-LocalPveQosReadyEvent`。固定构建 Payload
 必须在完整 EXE SHA-256、SizeOfImage、精确原始 URL、FString 可写容量和初始化器前缀
@@ -275,3 +284,59 @@ Get-FileHash -Algorithm SHA256 -LiteralPath $sourceDll, $targetDll, $backupDll
 5. 验证 Manager/PlayerState 的 native 状态，再看 UI subscriber 是否刷新。
 6. 最后检查物品类型、角色/武器兼容性、隐藏/开发资产和等级过滤。
 7. 只有证明确有 native 缺口后才增加最小 hook；每次只改变一个假设并保留回滚。
+
+## 11. 严格名单双机重连验收
+
+1. 必须先完成首次双人出生，并确认两端 Pawn 均可移动、射击；仅有名单 `RUNNING`、角色选择页或等待开局画面不算通过。
+2. 只关闭远端成员的 Boundary 游戏进程，保留其 `Start-LabClient.ps1`/实验 CLI。不要退出房间、重新 join、手工 `open` 或关闭 P2P 主机。
+3. 等待 authority 侧明确记录 `DISCONNECTED` 和旧 connection generation；在此之前请求新授权应被 Meta 拒绝为连接仍存活。
+4. 在远端成员原 CLI 输入 `retry`。新 grant 的 generation 必须恰好 `+1`，attempt、team、team slot、logical slot 必须与冻结 roster 完全相同。
+5. authority 日志必须依次证明新 generation 的 `PreLogin` 准入、`PostLogin` 原生 Team/Camp 读回一致和 Meta `CONNECTED` 回报；旧 generation/JTI 的再次连接必须失败。
+6. 远端成员重新选择角色并 Deploy，确认新 Pawn、HUD、武器、移动和射击；同时确认主机 world 连续存在、旧 Pawn/连接已释放、名单没有新增成员。
+7. 可再重复一次，要求 generation 从 2 到 3。若关闭的是 P2P 主机或 authority/world 已丢失，attempt 必须中止，不能执行成员式 retry 或主机迁移。
+
+## 12. LAN 严格名单三服务预检
+
+1. 在启动游戏前分别验证 Control Plane HTTP、Meta HTTP `/health/live` 和 Meta Logic TCP；三项不能用同一个端口，也不能把 MetaTunnel upstream 指回 Control Plane。
+2. LAN 明文 Meta 只允许专用 lab 构建同时开启 private HTTP 与 private plain Logic 两个显式门禁；API、Meta HTTP、Meta Logic 必须解析为同一个私网/回环 IP literal。生产测试不得开启这些门禁。
+3. 两端必须使用同一构建包并在服务重启后创建全新 lobby/attempt。旧 token、allocation、join grant 或 frozen room 不可跨临时签名密钥复用。
+4. 从机若在 `CONNECTING` 收到 `ROOM_NOT_JOINABLE`，先核对 managed-room attach 版本；名单内冻结成员应允许重挂载，名单外账号则必须在权威名单检查中被拒绝。
+5. 若游戏显示 Meta 400，先检查 MetaServer stderr 与 `/connectServer` 路由，不要用手工 `open` 掩盖原生 Meta 层失败。
+
+## 13. Listen 主机远端登录 `0x70` 崩溃检查
+
+1. 先从 crash context 核对主机命令行包含精确 `-RoomAuthority`，异常为 read `0x70`，并确认栈包含固定构建 RVA `0x0156193B / 0x01561BB8 / 0x01584801 / 0x015A31E3 / 0x036CE872`。若地址或 EXE SHA 不同，不复用本节 hook。
+2. `UWorld::NotifyControlMessage` 外层出现 Payload trampoline 不等于 hook 破坏参数。固定崩溃点的真实数据链是：远端 APBPlayerController -> RVA `0x01584730` -> `GetLocalPlayer` RVA `0x034FB080` 返回 null -> PBGameViewportClient map RVA `0x01561A60` -> RVA `0x0156193B` 读取 null `+0x70`。
+3. Listen 启动日志必须同时出现 `server-only-load-overrides=native` 与 `remote-player-viewport-guard=enabled`；Dedicated 必须是 `enabled/disabled`。缺少日志时先核对实际安装目录 Payload 哈希，不要继续用旧 DLL 复测。
+4. 第二名玩家连接时主机控制台应只记录一次 `[LISTEN] Suppressed a remote PlayerController client viewport-layer request.`，随后仍出现 `Player Connected!`。不要通过跳过整个 PlayerController 初始化、PostLogin、NotifyControlMessage 或伪造 PBGameViewportClient map value 来避崩溃。
+5. 最小动态验收至少要求：第二客户端进入同一战局世界、authority 管道从 `player_count=1` 升为 2、`authority_ready` 持续为 true、两进程稳定 90 秒且不新增 crash。完成本地原生链回归后，仍需用签名 Toolbox 在真实两机 route 上验证 MetaTunnel、carrier、加入和实际出生。
+
+## 14. 运行时更新包出现 `ServerLauncher` 的处理
+
+1. `Project Rebound release ZIP contains an unmanaged path: ServerLauncher` 表示下载到的不是玩家运行时包；不要把 `ServerLauncher` 加入安装白名单，也不要关闭全归档预检。
+2. 先从生产 `/v1/downloads` 读取 slug 为 `rebound-release` 的唯一条目，按 `latest_version_id` 选择版本，并记录非敏感的版本、大小和 SHA-256。下载 URL 必须仍是同源 `/v1/downloads/files/<version-id>`。
+3. 下载后在解压前核对目录声明的大小与 SHA-256。玩家包顶层只能有 `Payload.dll`、`dxgi.dll`、`DT_ItemType.json`、`steam_appid.txt`、`project_rebound_version.txt`；历史 `BoundaryMetaServer-main` 只允许被验证后跳过，不能写入或覆盖现有用户副本。
+4. 若旧 Toolbox 把 `latest` 解析为 GitHub 历史标签并下载旧 `Release.zip`，应先升级 Toolbox 到包含受管目录解析的版本，再重试 Project Rebound 更新；不能通过手工复制旧完整包绕过。
+5. 发布前用临时目录解压最终 ZIP，逐项比较源/解压 SHA-256，并验证解压后的 Payload Authenticode 签名、RFC3161 时间戳和 `project_rebound_version.txt`。管理后台的版本标签、文件名、大小和 SHA-256 必须与该最终文件一致。
+
+## 15. Legacy carrier 卡在 `CHECKING_DIRECT` 或选路后被候选重放打断的处理
+
+1. 若错误同时包含 `state=CHECKING_DIRECT`、`candidates>0`、`selected_path=none`，说明候选已经进入 Control Plane，但探测/路径选择没有闭环；不要把它误判成无候选、地址格式错误或 Boundary 自身掉线。
+2. 若错误为 `INVALID_CONNECTION_STATE: Connection is not gathering direct candidates.`，先查同一 connection 的权威 check 与 selection。若数据库已存在成功的 `LAN/IPV6/UDP_PUNCH` check，说明选路已经完成，错误可能只是排队中的稳定候选重放被旧客户端误当成全局失败，不能据此宣判数据面不可用。
+3. 房主和从机都必须退出旧 Toolbox 并升级到 0.9.10 或更高版本。升级后创建全新房间和 connection；旧房间里的非重放事件、旧 selection 和旧 route generation 不作为复测证据。生产 Control Plane 还必须包含精确候选幂等重放热修复；内容发生变化的候选仍应返回 `INVALID_CONNECTION_STATE`。
+4. 若创建房间先报 `no online room route is currently advertised`，但 Meta region 目录实际有在线 Relay，检查 discovery 和 UDP QoS 是否共用一个总 deadline。0.9.10 为发现与探测分别保留有界窗口；已发现 Relay 但 UDP 不通时应返回明确的 UDP route-check 诊断，而不是伪装成没有在线路由。
+5. 不要用手工 `open`、直接启动 Boundary、把房间目录地址改成 `127.0.0.1`，也不要随意关闭防火墙或扩大端口白名单来掩盖协调层竞态。先让 Toolbox 的 carrier barrier 自己完成。
+6. 正常 direct 闭环应从候选汇合推进到 `LAN` 或 `UDP_PUNCH` 选路；直连不可用但 Relay UDP 可达时应推进到 relay。只有 carrier ready 后才允许启动 Boundary；列表中可见房间或两端游戏进程存在都不算完成。
+7. 若 0.9.10 的全新房间仍超时，保留同一次 attempt 的双方持久日志，记录脱敏后的 room/connection ID、Control Plane 状态推进、候选数量和最终选择，不收集 access/refresh token。重点区分“仍停在 `CHECKING_DIRECT`”、“已选路但客户端先消费了旧错误”和“选路完成后 UDP/Relay 数据面失败”。
+8. 最低动态通过标准是：双方日志均确认同一 connection 的 carrier ready，主从机随后由 Toolbox 启动 Boundary，进入同一战局并能看到彼此、移动和射击；仅进入等待画面不算通过。
+
+## 16. 权威清单模式的进房、恢复与启动检查
+
+1. 先读取同一生产 origin 的 `/v1/client/config`。只有 `features.strict_roster_v1=true` 才是权威模式；查询失败必须让房间操作 fail closed，不能猜测开启，也不能静默退回 Legacy。若为 `false`，先检查 Control Plane 的严格清单开关、锁定游戏哈希、admission key ID/private seed 是否完整，再决定是否切门。
+2. 严格模式的新房日志应依次出现 `create_match_lobby`、owner ready；从机应出现 `get_match_lobby`、`join_match_lobby`、member ready。任何新会话仍出现 `create_room`、`join_room` 或 `launch_room`，都表示 UI 未进入权威模式，优先检查双方版本、服务端 feature 投影和是否残留旧进程。
+3. Toolbox 或 React 页面重启后调用 `get_active_match_lobby`。无活动大厅的 `MATCH_LOBBY_NOT_ACTIVE` 应清空本地状态；成员只恢复公开清单；P2P owner 还应在 Rust controller 内恢复受管 host credential。日志、Tauri DTO、前端 state 和诊断导出中都不应出现 host token、join grant、allocation secret 或 authority session secret。
+4. owner 只能在 `local.can_start=true` 时冻结清单；成员永远没有手工启动按钮。冻结后观察 `match_lobby_frozen -> match_connection_changed -> match_carrier_ready -> match_auto_launch`。只有 carrier-ready 后出现 Boundary 进程才正确；列表可见、两端进程已启动或进入等待画面都不代表承载闭环。
+5. 冻结后的普通 leave 必须被拒绝。从机断线且 `local.can_retry_connection=true` 时只调用 `retry_match_connection`，确认新 connection generation 回收同一冻结席位；不要重新 join、另建 Legacy 房间或让 owner 尝试主机迁移。
+6. 若连接/启动失败，保留同一 lobby、attempt、route generation 的脱敏日志，按顺序检查：服务端清单 revision 和 ready 状态、attempt/grant 签发、受管 P2P room 投影、carrier barrier、Payload authority-ready、auto-launch。错误后若日志紧跟旧房间命令，应直接判定 fail-closed 边界被破坏。
+7. 发布 ToolBox 时上传签名后的原始 EXE，安装 path 必须逐字为小写 `rebound_toolbox.exe` 且 `compression=none`。同版本 `vnt-runtime-manifest.json` 只作为服务器校验 sidecar；发布后重新读取公开 Manifest，必须恰好一个文件且不能包含 sidecar。否则客户端会返回 `manifest must contain only uncompressed rebound_toolbox.exe`。
+8. 最低双机验收：双方退出所有旧 Toolbox 后强制升级到 0.9.12 或更高；创建全新 P2P 大厅；确认两个权威席位和队伍分配；owner 冻结同一 revision；双方 carrier-ready 后自动启动；进入同一战局看到彼此并完成移动、射击。把双方日志和服务端 attempt 状态作为同一次验收证据，未完成实机步骤时不得标记生产通过。

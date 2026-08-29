@@ -182,6 +182,7 @@ func TestDocumentHasRequiredOpenAPIShape(t *testing.T) {
 		"/v1/p2p-rooms/{room_id}/vnt/rebind",
 		"/v1/p2p-rooms/{room_id}/matches/active",
 		"/v1/match-lobbies",
+		"/v1/match-lobbies/active",
 		"/v1/match-lobbies/{lobby_id}",
 		"/v1/match-lobbies/{lobby_id}/join",
 		"/v1/match-lobbies/{lobby_id}/members/me/team",

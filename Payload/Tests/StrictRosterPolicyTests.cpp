@@ -134,16 +134,35 @@ int main()
         Token(GrantClaims(1, "grant_jti_1")), "steam_member", 110);
     Expect(first.accepted && first.teamId == 2 && first.logicalSlot == 32,
         "grant should recover its frozen team and logical seat");
+    Expect(policy.MarkConnected(first.playerId, first.connectionGeneration).accepted,
+        "native PostLogin should confirm the connected generation");
+    Expect(policy.MarkConnected(first.playerId, first.connectionGeneration).accepted,
+        "connected reporting should be idempotent");
+    auto connectionEvents = policy.ConnectionEventsAfter(0);
+    Expect(connectionEvents.size() == 1 && connectionEvents[0].connected &&
+        connectionEvents[0].connectionGeneration == 1 &&
+        connectionEvents[0].grantJti == "grant_jti_1",
+        "the first native connection should produce one correlated report event");
     Expect(!policy.ValidateJoinGrant(
         Token(GrantClaims(1, "grant_jti_1")), "steam_member", 110).accepted,
         "JTI replay must be rejected");
 	Expect(!policy.ValidateJoinGrant(
 		Token(GrantClaims(1, "same_generation_second_jti")), "steam_member", 110).accepted,
 		"two live connections cannot occupy the same generation and seat");
+    Expect(policy.MarkDisconnected(first.playerId, first.connectionGeneration).accepted,
+        "authority logout should release the connected generation");
+    Expect(policy.MarkDisconnected(first.playerId, first.connectionGeneration).accepted,
+        "disconnect reporting should be idempotent");
+    connectionEvents = policy.ConnectionEventsAfter(connectionEvents.back().sequence);
+    Expect(connectionEvents.size() == 1 && !connectionEvents[0].connected &&
+        connectionEvents[0].connectionGeneration == 1,
+        "native logout should produce one disconnected report event");
     const auto replacement = policy.ValidateJoinGrant(
         Token(GrantClaims(2, "grant_jti_2")), "steam_member", 111);
-    Expect(replacement.accepted && replacement.replacesConnection,
-        "next generation should replace the existing seat connection");
+    Expect(replacement.accepted && !replacement.replacesConnection,
+        "next generation should reclaim the disconnected frozen seat");
+    Expect(policy.MarkConnected(replacement.playerId, replacement.connectionGeneration).accepted,
+        "the reconnected generation should be reportable after native seat application");
     const auto latest = policy.ValidateJoinGrant(
         Token(GrantClaims(4, "grant_jti_4")), "steam_member", 112);
     Expect(latest.accepted && latest.replacesConnection,

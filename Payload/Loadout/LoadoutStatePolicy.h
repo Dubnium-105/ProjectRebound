@@ -110,6 +110,16 @@ namespace LoadoutStatePolicy
         }
     }
 
+    inline bool ShouldRetryBaselineFetch(
+        bool retryable,
+        unsigned int failedAttempts)
+    {
+        // Four failed requests cover the short transport/restart window
+        // (immediate, 500ms, 2s and 10s) without retrying forever. Native
+        // inventory remains the authoritative fallback for this connection.
+        return retryable && failedAttempts < 4;
+    }
+
     inline LoadoutRoleConfirmDecision BeginRoleConfirmation(
         PendingRoleConfirmation& pending,
         const std::string& roleId,

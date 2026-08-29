@@ -20,6 +20,8 @@ namespace SDK
 void ConnectToMatch();
 void AutoConnectToMatchFromCmdline();
 void NotifyClientLoginCompleted();
+[[nodiscard]] bool IsClientLoginCompleted();
+[[nodiscard]] bool IsClientLoginReadyForTravel();
 void PumpPendingClientCommands();
 
 // Owned multi-match seamless travel retains the local controller and HUD.

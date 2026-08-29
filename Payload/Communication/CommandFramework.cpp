@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <exception>
 #include <utility>
 
@@ -142,6 +143,16 @@ void CommandFramework::SetMatchAllocationCallback(MatchAllocationCallback callba
     }
 }
 
+void CommandFramework::SetMatchJoinGrantCallback(MatchJoinGrantCallback callback)
+{
+    std::lock_guard<std::mutex> lock(lifecycleMutex);
+    if (!running.load() && !stopping)
+    {
+        std::lock_guard<std::mutex> callbackLock(callbackMutex);
+        onMatchJoinGrant = std::move(callback);
+    }
+}
+
 void CommandFramework::SetMatchAuthorityCallback(MatchAuthorityCallback callback)
 {
     std::lock_guard<std::mutex> lock(lifecycleMutex);
@@ -149,6 +160,17 @@ void CommandFramework::SetMatchAuthorityCallback(MatchAuthorityCallback callback
     {
         std::lock_guard<std::mutex> callbackLock(callbackMutex);
         onMatchAuthority = std::move(callback);
+    }
+}
+
+void CommandFramework::SetMatchConnectionEventsCallback(
+    MatchConnectionEventsCallback callback)
+{
+    std::lock_guard<std::mutex> lock(lifecycleMutex);
+    if (!running.load() && !stopping)
+    {
+        std::lock_guard<std::mutex> callbackLock(callbackMutex);
+        onMatchConnectionEvents = std::move(callback);
     }
 }
 
@@ -984,6 +1006,55 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
                 : FrameResult::TransportError;
         }
 
+        if (request.command == "install_match_join_grant")
+        {
+            if (!request.requestId.has_value())
+            {
+                return SendError("invalid_request", "request_id is required")
+                    ? FrameResult::ProtocolError
+                    : FrameResult::TransportError;
+            }
+            const auto grant = request.arguments.find("join_grant");
+            if (grant == request.arguments.end() || !grant->is_string() ||
+                grant->get_ref<const std::string&>().empty() ||
+                grant->get_ref<const std::string&>().size() > CommandProtocol::MaxTokenBytes)
+            {
+                return SendError(
+                    "invalid_request", "join grant is missing or too large", request.requestId)
+                    ? FrameResult::ProtocolError
+                    : FrameResult::TransportError;
+            }
+            MatchJoinGrantCallback callback;
+            {
+                std::lock_guard<std::mutex> callbackLock(callbackMutex);
+                callback = onMatchJoinGrant;
+            }
+            if (!callback)
+            {
+                return SendError(
+                    "admission_unavailable", "strict join grant handler is unavailable",
+                    request.requestId)
+                    ? FrameResult::Processed
+                    : FrameResult::TransportError;
+            }
+            const nlohmann::json result = callback(request.arguments);
+            if (!result.value("accepted", false))
+            {
+                return SendError(
+                    result.value("code", "grant_rejected"),
+                    result.value("message", "Payload rejected the join grant"),
+                    request.requestId)
+                    ? FrameResult::Processed
+                    : FrameResult::TransportError;
+            }
+            return SendResponse(
+                "install_match_join_grant_ack",
+                CommandProtocol::WithRequestId(
+                    nlohmann::json{{"status", "staged"}}, request.requestId))
+                ? FrameResult::Processed
+                : FrameResult::TransportError;
+        }
+
         if (request.command == "start_match_authority")
         {
             if (!request.requestId.has_value())
@@ -1048,6 +1119,54 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
                         {"endpoint_port", endpointPort}
                     },
                     request.requestId))
+                ? FrameResult::Processed
+                : FrameResult::TransportError;
+        }
+
+        if (request.command == "match_connection_events")
+        {
+            if (!request.requestId.has_value())
+            {
+                return SendError("invalid_request", "request_id is required")
+                    ? FrameResult::ProtocolError
+                    : FrameResult::TransportError;
+            }
+            const auto after = request.arguments.find("after_sequence");
+            if (after == request.arguments.end() ||
+                (!after->is_number_unsigned() && !after->is_number_integer()) ||
+                (after->is_number_integer() && after->get<std::int64_t>() < 0))
+            {
+                return SendError(
+                    "invalid_request", "after_sequence must be a non-negative integer",
+                    request.requestId)
+                    ? FrameResult::ProtocolError
+                    : FrameResult::TransportError;
+            }
+            MatchConnectionEventsCallback callback;
+            {
+                std::lock_guard<std::mutex> callbackLock(callbackMutex);
+                callback = onMatchConnectionEvents;
+            }
+            if (!callback)
+            {
+                return SendError(
+                    "admission_unavailable", "strict connection event handler is unavailable",
+                    request.requestId)
+                    ? FrameResult::Processed
+                    : FrameResult::TransportError;
+            }
+            nlohmann::json result = callback(request.arguments);
+            if (!result.is_object())
+            {
+                return SendError(
+                    "connection_events_unavailable", "strict connection event snapshot is invalid",
+                    request.requestId)
+                    ? FrameResult::Processed
+                    : FrameResult::TransportError;
+            }
+            return SendResponse(
+                "match_connection_events_ack",
+                CommandProtocol::WithRequestId(std::move(result), request.requestId))
                 ? FrameResult::Processed
                 : FrameResult::TransportError;
         }

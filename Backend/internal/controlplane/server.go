@@ -154,6 +154,12 @@ func buildHandler(
 	authService.SetEntitlements(entitlementRepository)
 	authService.SetBindLimiter(auth.NewBindLimiter(redisClient, cfg.Auth, logger))
 	authService.SetMetrics(metrics)
+	if len(cfg.Auth.DevelopmentTrustedSteamIDs) > 0 {
+		logger.Warn(
+			"development Steam ticket bypass is enabled for an explicit lab allowlist",
+			"allowlisted_players", len(cfg.Auth.DevelopmentTrustedSteamIDs),
+		)
+	}
 	integrityService, err := integrity.NewService(cfg.Auth, authService, logger)
 	if err != nil {
 		return nil, nil, fmt.Errorf("initialize integrity challenge service: %w", err)
@@ -459,6 +465,7 @@ func buildHandler(
 		router.Get("/v1/p2p-matches/{match_id}/result", p2pBattleLogHandler.Result)
 
 		router.Get("/v1/match-lobbies", matchLobbyHandler.List)
+		router.Get("/v1/match-lobbies/active", matchLobbyHandler.Active)
 		router.Get("/v1/match-lobbies/{lobby_id}", matchLobbyHandler.Get)
 		router.Post("/v1/match-lobbies", matchLobbyHandler.Create)
 		router.Post("/v1/match-lobbies/{lobby_id}/join", matchLobbyHandler.Join)
@@ -468,7 +475,10 @@ func buildHandler(
 		router.Post("/v1/match-lobbies/{lobby_id}/leave", matchLobbyHandler.Leave)
 		router.Post("/v1/match-lobbies/{lobby_id}/start", matchLobbyHandler.Start)
 		router.Post("/v1/match-attempts/{attempt_id}/join-grant", matchLobbyHandler.JoinGrant)
+		router.Get("/v1/match-attempts/{attempt_id}/join-grants/{grant_jti}/delivery", matchLobbyHandler.GrantDelivery)
 		router.Get("/v1/match-attempts/{attempt_id}/host/allocation", matchLobbyHandler.P2PHostAllocation)
+		router.Get("/v1/match-attempts/{attempt_id}/host/admissions", matchLobbyHandler.P2PAuthorityAdmissions)
+		router.Post("/v1/match-attempts/{attempt_id}/host/admissions/{grant_jti}/delivered", matchLobbyHandler.P2PAdmissionDelivered)
 		router.Post("/v1/match-attempts/{attempt_id}/host/payload-installed", matchLobbyHandler.P2PPayloadInstalled)
 		router.Post("/v1/match-attempts/{attempt_id}/host/ready", matchLobbyHandler.P2PAuthorityReady)
 		router.Post("/v1/match-attempts/{attempt_id}/host/connected", matchLobbyHandler.P2PConnected)
@@ -478,6 +488,10 @@ func buildHandler(
 	})
 	router.With(gameServerHandler.RequireCredentialProof).
 		Get("/v1/game-servers/{server_id}/match-attempts/{attempt_id}/allocation", matchLobbyHandler.DedicatedAllocation)
+	router.With(gameServerHandler.RequireCredentialProof).
+		Get("/v1/game-servers/{server_id}/match-attempts/{attempt_id}/admissions", matchLobbyHandler.DedicatedAuthorityAdmissions)
+	router.With(gameServerHandler.RequireCredentialProof).
+		Post("/v1/game-servers/{server_id}/match-attempts/{attempt_id}/admissions/{grant_jti}/delivered", matchLobbyHandler.DedicatedAdmissionDelivered)
 	router.With(gameServerHandler.RequireCredentialProof).
 		Post("/v1/game-servers/{server_id}/match-attempts/{attempt_id}/payload-installed", matchLobbyHandler.DedicatedPayloadInstalled)
 	router.With(gameServerHandler.RequireCredentialProof).

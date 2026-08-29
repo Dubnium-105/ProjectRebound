@@ -56,6 +56,69 @@ func TestListenersMustBeLoopback(t *testing.T) {
 	}
 }
 
+func TestMetaBaseURLRequiresHTTPSExceptForExplicitPrivateLabOrigin(t *testing.T) {
+	for _, raw := range []string{
+		"https://meta.project-rebound.space",
+		"https://192.168.3.7:18080",
+	} {
+		if _, err := validateMetaBaseURL(raw, false); err != nil {
+			t.Fatalf("production URL %q was rejected: %v", raw, err)
+		}
+	}
+	for _, raw := range []string{
+		"http://127.0.0.1:18080",
+		"http://192.168.3.7:18080",
+		"http://[fd00::7]:18080",
+	} {
+		if _, err := validateMetaBaseURL(raw, true); err != nil {
+			t.Fatalf("private lab URL %q was rejected: %v", raw, err)
+		}
+	}
+	for _, test := range []struct {
+		raw      string
+		allowLab bool
+	}{
+		{"http://127.0.0.1:18080", false},
+		{"http://8.8.8.8:18080", true},
+		{"http://example.com:18080", true},
+		{"http://192.168.3.7", true},
+		{"http://192.168.3.7:18080/path", true},
+		{"ftp://192.168.3.7:18080", true},
+		{"http://user@192.168.3.7:18080", true},
+	} {
+		if _, err := validateMetaBaseURL(test.raw, test.allowLab); err == nil {
+			t.Fatalf("unsafe MetaServer URL %q was accepted (allowLab=%v)", test.raw, test.allowLab)
+		}
+	}
+}
+
+func TestPlainLogicIsRestrictedToExplicitPrivateLabEndpoint(t *testing.T) {
+	for _, endpoint := range []string{
+		"127.0.0.1:16968",
+		"192.168.3.7:16968",
+		"[fd00::7]:16968",
+	} {
+		if err := validateLogicEndpoint(endpoint, "", true); err != nil {
+			t.Fatalf("private lab endpoint %q was rejected: %v", endpoint, err)
+		}
+	}
+	for _, endpoint := range []string{
+		"8.8.8.8:16968",
+		"logic.example:16968",
+		"192.168.3.7",
+	} {
+		if err := validateLogicEndpoint(endpoint, "", true); err == nil {
+			t.Fatalf("unsafe lab endpoint %q was accepted", endpoint)
+		}
+	}
+	if err := validateLogicEndpoint("logic.project-rebound.space:443", "logic.project-rebound.space", false); err != nil {
+		t.Fatalf("production TLS endpoint was rejected: %v", err)
+	}
+	if err := validateLogicEndpoint("logic.project-rebound.space:443", "", false); err == nil {
+		t.Fatal("production endpoint without a TLS server name was accepted")
+	}
+}
+
 func TestHTTPProxyForwardsCompleteRequestAndResponse(t *testing.T) {
 	var upstreamRequest struct {
 		method, requestURI, body, authorization, customHeader string

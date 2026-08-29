@@ -46,6 +46,10 @@ func forbidden(code, message string) error {
 	return &ServiceError{Status: 403, Code: code, Message: message}
 }
 
+func notFound(code, message string) error {
+	return &ServiceError{Status: 404, Code: code, Message: message}
+}
+
 func internal(err error) error {
 	return &ServiceError{Status: 500, Code: "INTERNAL_ERROR", Message: "Internal server error.", Cause: err}
 }

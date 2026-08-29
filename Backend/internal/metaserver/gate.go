@@ -17,6 +17,16 @@ import (
 
 var ErrGateTicketInvalid = errors.New("gate ticket is invalid, expired, or already consumed")
 
+// Keep ticket consumption atomic without requiring Redis 6.2 GETDEL. The
+// deployment and local lab both support the Lua primitive on older Redis 6.0.
+var consumeGateTicketScript = redis.NewScript(`
+local value = redis.call("GET", KEYS[1])
+if value then
+    redis.call("DEL", KEYS[1])
+end
+return value
+`)
+
 type GateSession struct {
 	PlayerID        string    `json:"player_id"`
 	AuthSessionID   string    `json:"auth_session_id"`
@@ -66,7 +76,7 @@ func (s *GateStore) Consume(ctx context.Context, ticket string) (GateSession, er
 	if !strings.HasPrefix(ticket, "mgt_") || len(ticket) < 40 {
 		return GateSession{}, ErrGateTicketInvalid
 	}
-	value, err := s.redis.GetDel(ctx, gateKey(ticket)).Bytes()
+	value, err := consumeGateTicketScript.Run(ctx, s.redis, []string{gateKey(ticket)}).Text()
 	if errors.Is(err, redis.Nil) {
 		if s.metrics != nil {
 			s.metrics.ticketReplayTotal.Add(1)
@@ -77,7 +87,7 @@ func (s *GateStore) Consume(ctx context.Context, ticket string) (GateSession, er
 		return GateSession{}, fmt.Errorf("consume gate session: %w", err)
 	}
 	var session GateSession
-	if err := json.Unmarshal(value, &session); err != nil || session.PlayerID == "" || session.AuthSessionID == "" {
+	if err := json.Unmarshal([]byte(value), &session); err != nil || session.PlayerID == "" || session.AuthSessionID == "" {
 		return GateSession{}, ErrGateTicketInvalid
 	}
 	if s.metrics != nil {

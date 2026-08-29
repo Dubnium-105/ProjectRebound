@@ -1,12 +1,18 @@
 // Hooks.cpp
 #include "Hooks.h"
+#include "ServerHookPolicy.h"
 #include <Windows.h>
+#include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstdint>
+#include <cstring>
 #include <iostream>
 #include <mutex>
 #include <string>
 #include <thread>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include "ArchiveCompletionPolicy.h"
 #include "../SDK.hpp"
@@ -42,6 +48,439 @@ extern std::recursive_mutex gLoadoutManagerMutex;
 
 using namespace SDK;
 
+namespace
+{
+    constexpr uintptr_t kStrictRosterPreLoginRva = 0x01639D90;
+    constexpr uint8_t kStrictRosterPreLoginPrologue[] = {
+        0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C,
+        0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18, 0x57
+    };
+
+    // Pinned ProjectBoundarySteam-Win64-Shipping.exe
+    // SHA-256 181C49FFB522B3EB01014C84FD9D3A2A5C0B66AE80A6A6ADDFF4BDD6F8125843.
+    // APBPlayerState implements IGenericTeamAgentInterface in the secondary
+    // subobject at +0x320. Its SetGenericTeamId entry is vtable +0x10 and the
+    // concrete body below only accepts authority Role==3 before writing
+    // MyTeamID at player-state +0x344.
+    constexpr uintptr_t kStrictRosterSetTeamRva = 0x01681100;
+    constexpr uintptr_t kStrictRosterGetTeamRva = 0x016675B0;
+    constexpr uintptr_t kStrictRosterTeamInterfaceOffset = 0x0320;
+    constexpr uintptr_t kStrictRosterTeamSetterVtableOffset = 0x0010;
+    constexpr uintptr_t kStrictRosterTeamGetterVtableOffset = 0x0018;
+    constexpr uint8_t kStrictRosterSetTeamPrologue[] = {
+        0x80, 0xB9, 0xD0, 0xFD, 0xFF, 0xFF, 0x03, 0x75,
+        0x06, 0x0F, 0xB6, 0x02, 0x88, 0x41, 0x24, 0xC3
+    };
+    constexpr uint8_t kStrictRosterGetTeamPrologue[] = {
+        0x0F, 0xB6, 0x41, 0x24, 0x88, 0x02, 0x48, 0x8B,
+        0xC2, 0xC3
+    };
+
+    // Authority-only APBPlayerState camp setter. It writes MyCampID (+0x348),
+    // then executes the native actor replication/update path.
+    constexpr uintptr_t kStrictRosterSetCampRva = 0x01680EF0;
+    constexpr uint8_t kStrictRosterSetCampPrologue[] = {
+        0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x80, 0xB9,
+        0xF0, 0x00, 0x00, 0x00, 0x03, 0x48, 0x8B, 0xD9,
+        0x75, 0x53
+    };
+
+    // UPBTeamManager::QueryCorrespondingCampIDByTeamID native body. The
+    // world subsystem owns the current mode's TeamID -> CampID map, so the
+    // roster never assumes that the two enum values happen to be identical.
+    constexpr uintptr_t kStrictRosterQueryCampRva = 0x0167C9E0;
+    constexpr uint8_t kStrictRosterQueryCampPrologue[] = {
+        0x8B, 0x41, 0x50, 0x3B, 0x41, 0x7C, 0x74, 0x4E,
+        0x48, 0x63, 0x81, 0x90, 0x00, 0x00, 0x00, 0x4C
+    };
+
+    static_assert(offsetof(AActor, Role) == 0x00F0);
+    static_assert(offsetof(APlayerState, UniqueId) == 0x0250);
+    static_assert(offsetof(APBPlayerState, MyTeamID) == 0x0344);
+    static_assert(offsetof(APBPlayerState, MyCampID) == 0x0348);
+    static_assert(offsetof(APBPlayerController, PBPlayerState) == 0x05B8);
+
+    StrictRoster::Policy* gStrictRosterPolicy = nullptr;
+    SafetyHookInline gStrictRosterPreLoginHook;
+    std::atomic_bool gStrictRosterNativeSeatPathReady{false};
+    std::mutex gStrictRosterLocalHostSeatMutex;
+    std::optional<StrictRoster::SeatDecision> gStrictRosterLocalHostSeat;
+    std::mutex gStrictRosterControllerMutex;
+    std::unordered_map<APBPlayerController*, StrictRoster::SeatDecision>
+        gStrictRosterControllerSeats;
+
+    enum class StrictRosterSeatApplyResult
+    {
+        Inactive,
+        Applied,
+        Pending,
+        Rejected,
+    };
+
+    std::int64_t StrictRosterEpochSeconds() noexcept
+    {
+        return std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+    }
+
+    bool IsReadableAddress(const void* address, const size_t size) noexcept
+    {
+        if (!address || size == 0)
+            return false;
+        MEMORY_BASIC_INFORMATION memory{};
+        if (VirtualQuery(address, &memory, sizeof(memory)) != sizeof(memory) ||
+            memory.State != MEM_COMMIT || (memory.Protect & PAGE_GUARD) != 0 ||
+            memory.Protect == PAGE_NOACCESS)
+        {
+            return false;
+        }
+        const uintptr_t start = reinterpret_cast<uintptr_t>(address);
+        const uintptr_t end = start + size;
+        const uintptr_t regionEnd = reinterpret_cast<uintptr_t>(memory.BaseAddress) +
+            memory.RegionSize;
+        return end >= start && end <= regionEnd;
+    }
+
+    bool IsExecutableAddress(const void* address) noexcept
+    {
+        MEMORY_BASIC_INFORMATION memory{};
+        if (!address || VirtualQuery(address, &memory, sizeof(memory)) != sizeof(memory) ||
+            memory.State != MEM_COMMIT || (memory.Protect & PAGE_GUARD) != 0)
+        {
+            return false;
+        }
+        const DWORD protection = memory.Protect & 0xFFU;
+        return protection == PAGE_EXECUTE || protection == PAGE_EXECUTE_READ ||
+            protection == PAGE_EXECUTE_READWRITE || protection == PAGE_EXECUTE_WRITECOPY;
+    }
+
+    bool MatchesPinnedBytes(
+        const uintptr_t rva,
+        const uint8_t* expected,
+        const size_t expectedSize) noexcept
+    {
+        if (BaseAddress == 0 || !expected || expectedSize == 0)
+            return false;
+        const void* const address = reinterpret_cast<const void*>(BaseAddress + rva);
+        return IsReadableAddress(address, expectedSize) &&
+            std::memcmp(address, expected, expectedSize) == 0;
+    }
+
+    bool StrictRosterNativeSeatPathMatchesPinnedImage() noexcept
+    {
+        return MatchesPinnedBytes(
+                kStrictRosterSetTeamRva,
+                kStrictRosterSetTeamPrologue,
+                sizeof(kStrictRosterSetTeamPrologue)) &&
+            MatchesPinnedBytes(
+                kStrictRosterGetTeamRva,
+                kStrictRosterGetTeamPrologue,
+                sizeof(kStrictRosterGetTeamPrologue)) &&
+            MatchesPinnedBytes(
+                kStrictRosterSetCampRva,
+                kStrictRosterSetCampPrologue,
+                sizeof(kStrictRosterSetCampPrologue)) &&
+            MatchesPinnedBytes(
+                kStrictRosterQueryCampRva,
+                kStrictRosterQueryCampPrologue,
+                sizeof(kStrictRosterQueryCampPrologue));
+    }
+
+    bool ExtractStrictRosterPlatformId(
+        const FUniqueNetIdRepl* uniqueId,
+        std::string& platformId) noexcept
+    {
+        platformId.clear();
+        if (!IsReadableAddress(uniqueId, 0x18U))
+            return false;
+        void* const nativeId = *reinterpret_cast<void* const*>(
+            reinterpret_cast<const uint8_t*>(uniqueId) + 0x08U);
+        if (!IsReadableAddress(nativeId, sizeof(void*)))
+            return false;
+        void** const vtable = *reinterpret_cast<void***>(nativeId);
+        if (!IsReadableAddress(vtable, 0x38U))
+            return false;
+        void* const validityEntry = vtable[0x28U / sizeof(void*)];
+        void* const toStringEntry = vtable[0x30U / sizeof(void*)];
+        if (!IsExecutableAddress(validityEntry) || !IsExecutableAddress(toStringEntry))
+            return false;
+        using IsValidFn = bool(__fastcall*)(void*);
+        using ToStringFn = void(__fastcall*)(void*, FString*);
+        if (!reinterpret_cast<IsValidFn>(validityEntry)(nativeId))
+            return false;
+        FString value;
+        reinterpret_cast<ToStringFn>(toStringEntry)(nativeId, &value);
+        platformId = value.ToString();
+        return platformId.size() >= 15U && platformId.size() <= 20U &&
+            std::all_of(platformId.begin(), platformId.end(), [](const unsigned char ch) {
+                return ch >= '0' && ch <= '9';
+            });
+    }
+
+    void RejectStrictRosterPreLogin(FString* errorMessage, const wchar_t* reason)
+    {
+        if (errorMessage)
+            *errorMessage = FString(reason);
+    }
+
+    void StrictRosterPreLogin(
+        AGameMode* gameMode,
+        const FString* options,
+        const FString* address,
+        const FUniqueNetIdRepl* uniqueId,
+        FString* errorMessage)
+    {
+        gStrictRosterPreLoginHook.call<void>(
+            gameMode, options, address, uniqueId, errorMessage);
+        if (!gStrictRosterPolicy || !gStrictRosterPolicy->AdmissionActive())
+            return;
+        if (!errorMessage || !errorMessage->ToWString().empty())
+            return;
+        std::string platformId;
+        if (!ExtractStrictRosterPlatformId(uniqueId, platformId))
+        {
+            RejectStrictRosterPreLogin(errorMessage,
+                L"STRICT_ROSTER_IDENTITY_UNAVAILABLE");
+            std::cout << "[STRICT-ROSTER] PreLogin rejected an unreadable platform identity."
+                << std::endl;
+            return;
+        }
+        const StrictRoster::SeatDecision decision =
+            gStrictRosterPolicy->ConsumeStagedJoinGrant(
+                platformId, StrictRosterEpochSeconds());
+        if (!decision.accepted)
+        {
+            RejectStrictRosterPreLogin(errorMessage,
+                L"STRICT_ROSTER_ADMISSION_REQUIRED");
+            std::cout << "[STRICT-ROSTER] PreLogin rejected: " << decision.code << "."
+                << std::endl;
+            return;
+        }
+        std::cout << "[STRICT-ROSTER] PreLogin admitted frozen team="
+            << decision.teamId << " slot=" << decision.logicalSlot
+            << " generation=" << decision.connectionGeneration << "." << std::endl;
+    }
+
+    StrictRosterSeatApplyResult ApplyStrictRosterSeat(
+        APBPlayerController* playerController,
+        const char* stage)
+    {
+        if (!gStrictRosterPolicy || !gStrictRosterPolicy->AdmissionActive())
+            return StrictRosterSeatApplyResult::Inactive;
+        if (!playerController || playerController->bActorIsBeingDestroyed ||
+            !playerController->PBPlayerState)
+        {
+            return StrictRosterSeatApplyResult::Pending;
+        }
+
+        APBPlayerState* const playerState = playerController->PBPlayerState;
+        if (!IsReadableAddress(playerState, sizeof(APBPlayerState)) ||
+            playerState->Role != ENetRole::ROLE_Authority)
+        {
+            return StrictRosterSeatApplyResult::Rejected;
+        }
+
+        std::string platformId;
+        const bool hasPlatformIdentity =
+            ExtractStrictRosterPlatformId(&playerState->UniqueId, platformId);
+        std::optional<StrictRoster::SeatDecision> decision;
+        if (hasPlatformIdentity)
+            decision = gStrictRosterPolicy->ActiveDecision(platformId);
+
+        // A listen host does not traverse remote NMT_Login/PreLogin and the
+        // native PlayerState UniqueId is still empty when StartServer invokes
+        // PostLogin synchronously. Bind only the exact local controller to the
+        // HOST seat already authenticated by the signed allocation. If the
+        // native identity has become available, it must agree with that seat.
+        if (!decision && playerController == GetLocalPlayerController())
+        {
+            std::lock_guard<std::mutex> lock(gStrictRosterLocalHostSeatMutex);
+            if (gStrictRosterLocalHostSeat &&
+                (!hasPlatformIdentity ||
+                    gStrictRosterLocalHostSeat->platformId == platformId))
+            {
+                decision = gStrictRosterLocalHostSeat;
+            }
+        }
+
+        if (!decision || !decision->accepted ||
+            (decision->teamId != 1 && decision->teamId != 2) ||
+            decision->teamSlot < 0 || decision->logicalSlot < 0 ||
+            decision->connectionGeneration < 1)
+        {
+            if (!hasPlatformIdentity)
+                return StrictRosterSeatApplyResult::Pending;
+            std::cout << "[STRICT-ROSTER] Seat application rejected at "
+                << (stage ? stage : "unknown")
+                << ": no active frozen decision." << std::endl;
+            return StrictRosterSeatApplyResult::Rejected;
+        }
+
+        // The exact image hash and every native byte signature are verified
+        // once, before the strict authority can listen. Keep that startup
+        // result latched: read-only dynamic observers install transparent
+        // detours at these entries, so comparing the now-patched prologues on
+        // every spawn would incorrectly fail a path already proven at boot.
+        if (!gStrictRosterNativeSeatPathReady.load(std::memory_order_acquire))
+        {
+            std::cout << "[STRICT-ROSTER] Seat application rejected at "
+                << (stage ? stage : "unknown")
+                << ": pinned Team/Camp byte gate changed." << std::endl;
+            return StrictRosterSeatApplyResult::Rejected;
+        }
+
+        auto* const subsystem = USubsystemBlueprintLibrary::GetWorldSubsystem(
+            playerState, UPBTeamManager::StaticClass());
+        if (!subsystem || !subsystem->IsA(UPBTeamManager::StaticClass()))
+            return StrictRosterSeatApplyResult::Pending;
+        auto* const teamManager = static_cast<UPBTeamManager*>(subsystem);
+
+        void* const teamInterface = reinterpret_cast<uint8*>(playerState) +
+            kStrictRosterTeamInterfaceOffset;
+        if (!IsReadableAddress(teamInterface, sizeof(void*)))
+            return StrictRosterSeatApplyResult::Rejected;
+        void** const teamVtable = *reinterpret_cast<void***>(teamInterface);
+        if (!IsReadableAddress(
+                teamVtable,
+                kStrictRosterTeamGetterVtableOffset + sizeof(void*)) ||
+            teamVtable[kStrictRosterTeamSetterVtableOffset / sizeof(void*)] !=
+                reinterpret_cast<void*>(BaseAddress + kStrictRosterSetTeamRva) ||
+            teamVtable[kStrictRosterTeamGetterVtableOffset / sizeof(void*)] !=
+                reinterpret_cast<void*>(BaseAddress + kStrictRosterGetTeamRva))
+        {
+            std::cout << "[STRICT-ROSTER] Seat application rejected at "
+                << (stage ? stage : "unknown")
+                << ": IGenericTeamAgentInterface vtable gate failed." << std::endl;
+            return StrictRosterSeatApplyResult::Rejected;
+        }
+
+        using SetTeamFn = void(__fastcall*)(void*, const FGenericTeamId*);
+        using GetTeamFn = FGenericTeamId*(__fastcall*)(
+            const void*, FGenericTeamId*);
+        using SetCampFn = void(__fastcall*)(APBPlayerState*, int32);
+        using QueryCampFn = int32(__fastcall*)(
+            UPBTeamManager*, const FGenericTeamId*);
+
+        // The Meta contract defines public team 1 as native Solar (0) and
+        // public team 2 as native Star (1). Follow the exact native sequence
+        // seen in both fixed-build assignment callers: setter, getter,
+        // TeamManager mapping, then the authority-only Camp setter.
+        FGenericTeamId requestedNativeTeam{};
+        requestedNativeTeam.TeamID = static_cast<uint8>(decision->teamId - 1);
+        reinterpret_cast<SetTeamFn>(BaseAddress + kStrictRosterSetTeamRva)(
+            teamInterface, &requestedNativeTeam);
+        FGenericTeamId verifiedNativeTeam{};
+        reinterpret_cast<GetTeamFn>(BaseAddress + kStrictRosterGetTeamRva)(
+            teamInterface, &verifiedNativeTeam);
+        if (verifiedNativeTeam.TeamID != requestedNativeTeam.TeamID ||
+            playerState->MyTeamID.TeamID != requestedNativeTeam.TeamID)
+        {
+            std::cout << "[STRICT-ROSTER] Seat application rejected at "
+                << (stage ? stage : "unknown")
+                << ": native Team setter/getter readback mismatch." << std::endl;
+            return StrictRosterSeatApplyResult::Rejected;
+        }
+
+        const int32 nativeCamp = reinterpret_cast<QueryCampFn>(
+            BaseAddress + kStrictRosterQueryCampRva)(
+                teamManager, &verifiedNativeTeam);
+        if (nativeCamp != static_cast<int32>(EPBCamp::Friend) &&
+            nativeCamp != static_cast<int32>(EPBCamp::Enemy))
+        {
+            std::cout << "[STRICT-ROSTER] Seat application rejected at "
+                << (stage ? stage : "unknown")
+                << ": TeamManager returned a non-playable camp." << std::endl;
+            return StrictRosterSeatApplyResult::Rejected;
+        }
+
+        reinterpret_cast<SetCampFn>(BaseAddress + kStrictRosterSetCampRva)(
+            playerState, nativeCamp);
+
+        if (playerController->PBPlayerState != playerState ||
+            playerState->MyTeamID.TeamID != verifiedNativeTeam.TeamID ||
+            playerState->MyCampID != nativeCamp)
+        {
+            std::cout << "[STRICT-ROSTER] Seat application rejected at "
+                << (stage ? stage : "unknown")
+                << ": native Team/Camp readback mismatch." << std::endl;
+            return StrictRosterSeatApplyResult::Rejected;
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(gStrictRosterControllerMutex);
+            gStrictRosterControllerSeats[playerController] = *decision;
+        }
+        const StrictRoster::Decision connected =
+            gStrictRosterPolicy->MarkConnected(
+                decision->playerId, decision->connectionGeneration);
+        if (!connected.accepted)
+        {
+            std::lock_guard<std::mutex> lock(gStrictRosterControllerMutex);
+            gStrictRosterControllerSeats.erase(playerController);
+            std::cout << "[STRICT-ROSTER] Connected-seat report rejected at "
+                << (stage ? stage : "unknown") << ": " << connected.code << "."
+                << std::endl;
+            return StrictRosterSeatApplyResult::Rejected;
+        }
+        std::cout << "[STRICT-ROSTER] Applied frozen seat at "
+            << (stage ? stage : "unknown")
+            << ": team=" << decision->teamId
+            << " team_slot=" << decision->teamSlot
+            << " logical_slot=" << decision->logicalSlot
+            << " generation=" << decision->connectionGeneration
+            << " native_team=" << static_cast<int>(verifiedNativeTeam.TeamID)
+            << " native_camp=" << nativeCamp << "." << std::endl;
+        return StrictRosterSeatApplyResult::Applied;
+    }
+
+    void DisconnectStrictRosterSeat(APBPlayerController* playerController)
+    {
+        if (!playerController || !gStrictRosterPolicy)
+            return;
+        std::optional<StrictRoster::SeatDecision> decision;
+        {
+            std::lock_guard<std::mutex> lock(gStrictRosterControllerMutex);
+            const auto found = gStrictRosterControllerSeats.find(playerController);
+            if (found != gStrictRosterControllerSeats.end())
+            {
+                decision = found->second;
+                gStrictRosterControllerSeats.erase(found);
+            }
+        }
+        if (decision)
+        {
+            const StrictRoster::Decision result =
+                gStrictRosterPolicy->MarkDisconnected(
+                    decision->playerId, decision->connectionGeneration);
+            std::cout << "[STRICT-ROSTER] Released controller binding: generation="
+                << decision->connectionGeneration << " result=" << result.code
+                << "." << std::endl;
+        }
+    }
+}
+
+void SetStrictRosterLocalHostSeat(
+    const StrictRoster::SeatDecision& decision)
+{
+    std::lock_guard<std::mutex> lock(gStrictRosterLocalHostSeatMutex);
+    if (decision.accepted && decision.teamId >= 1 && decision.teamId <= 2 &&
+        decision.teamSlot >= 0 && decision.logicalSlot >= 0 &&
+        decision.connectionGeneration >= 1)
+    {
+        gStrictRosterLocalHostSeat = decision;
+    }
+    else
+    {
+        gStrictRosterLocalHostSeat.reset();
+    }
+}
+
+void ClearStrictRosterLocalHostSeat()
+{
+    std::lock_guard<std::mutex> lock(gStrictRosterLocalHostSeatMutex);
+    gStrictRosterLocalHostSeat.reset();
+}
+
 // Retained for generated ProcessEvent calls made by server-side loadout
 // serialization/application helpers. The production client never constructs
 // LoadoutManager; this guard does not maintain a client archive mirror.
@@ -56,6 +495,23 @@ extern "C" void PayloadPopClientProcessEventSuppression()
 {
     if (gClientProcessEventSuppressionDepth > 0)
         --gClientProcessEventSuppressionDepth;
+}
+
+static std::uint64_t ListenHostRecoveryGeneration = 0;
+static std::unordered_set<APBPlayerController*>
+    SynthesizedListenHostControllers;
+static std::unordered_set<APBPlayerController*>
+    ListenHostRoleConfirmationAttempts;
+
+static void SynchronizeListenHostRecoveryGeneration()
+{
+    const std::uint64_t generation = GetServerMatchGeneration();
+    if (ListenHostRecoveryGeneration == generation)
+        return;
+
+    ListenHostRecoveryGeneration = generation;
+    SynthesizedListenHostControllers.clear();
+    ListenHostRoleConfirmationAttempts.clear();
 }
 
 // NumExpectedPlayers can be established or changed after one or more role
@@ -83,6 +539,149 @@ static void RecomputeMatchStartGate(const char* reason)
         StartMatchTimer = -1.0f;
 }
 
+static bool IsCurrentGameStatePlayer(
+    UWorld* const world,
+    APBPlayerController* const playerController)
+{
+    if (!world || !world->GameState ||
+        !world->GameState->IsA(AGameState::StaticClass()) ||
+        !playerController || !playerController->PlayerState)
+    {
+        return false;
+    }
+    auto* const gameState = static_cast<AGameState*>(world->GameState);
+    for (APlayerState* const playerState : gameState->PlayerArray)
+    {
+        if (playerState == playerController->PlayerState)
+            return true;
+    }
+    return false;
+}
+
+static bool RegisterAuthoritativeMatchParticipant(
+    AGameMode* const gameMode,
+    APBPlayerController* const playerController,
+    const bool synthesizedListenHost)
+{
+    if (!gameMode || !playerController ||
+        DisconnectedPlayerControllers.contains(playerController) ||
+        playerController->bActorIsBeingDestroyed)
+    {
+        return false;
+    }
+    try
+    {
+        if (!playerController->HasAuthority())
+            return false;
+    }
+    catch (...)
+    {
+        return false;
+    }
+    if (ConnectedPlayerControllers.contains(playerController))
+        return true;
+
+    const StrictRosterSeatApplyResult strictSeatResult =
+        ApplyStrictRosterSeat(playerController,
+            synthesizedListenHost ? "ListenHostRecovery" : "PostLogin");
+    if (strictSeatResult == StrictRosterSeatApplyResult::Rejected)
+    {
+        std::cout << "[STRICT-ROSTER] Participant kept non-playable after a "
+                     "frozen-seat rejection." << std::endl;
+        return false;
+    }
+    if (strictSeatResult == StrictRosterSeatApplyResult::Pending)
+    {
+        std::cout << "[STRICT-ROSTER] Participant seat data is pending; "
+                     "RestartPlayer remains fail-closed." << std::endl;
+    }
+
+    ConnectedPlayerControllers.insert(playerController);
+    NumPlayersJoined = static_cast<int>(ConnectedPlayerControllers.size());
+    if (synthesizedListenHost)
+    {
+        SynthesizedListenHostControllers.insert(playerController);
+        std::cout << "[LISTEN] Registered the current local host in the match "
+                     "quorum after world activation."
+                  << std::endl;
+    }
+    else
+    {
+        std::cout << "Player Connected!" << std::endl;
+    }
+
+    {
+        std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
+        if (gLoadoutManager)
+            gLoadoutManager->OnPlayerConnected(playerController);
+    }
+
+    if (gLateJoinManager &&
+        gLateJoinManager->OnPostLogin(gameMode, playerController))
+    {
+        return true;
+    }
+
+    if (!DidProcStartMatch && NumExpectedPlayers > 0)
+    {
+        NumExpectedPlayers = NumPlayersJoined;
+        RecomputeMatchStartGate("initial player connected");
+    }
+
+    if (gLateJoinManager)
+    {
+        gLateJoinManager->QueueInitialJoinPlayer(
+            gameMode, playerController);
+        return true;
+    }
+
+    if (playerController->Pawn)
+        playerController->ServerSuicide(0);
+    return true;
+}
+
+static void EnsureListenHostMatchParticipant(UWorld* const world)
+{
+    SynchronizeListenHostRecoveryGeneration();
+    if (!amListenServer || !world || !world->AuthorityGameMode ||
+        !world->OwningGameInstance)
+    {
+        return;
+    }
+
+    using GetLocalPlayerFn = void*(__fastcall*)(APlayerController*);
+    const auto getLocalPlayer =
+        reinterpret_cast<GetLocalPlayerFn>(BaseAddress + 0x34FB080);
+    for (UObject* const object :
+        getObjectsOfClass(APBPlayerController::StaticClass(), false))
+    {
+        auto* const playerController =
+            object ? static_cast<APBPlayerController*>(object) : nullptr;
+        const bool currentWorldPlayer = IsCurrentGameStatePlayer(
+            world, playerController);
+        const bool alreadyRegistered = playerController &&
+            ConnectedPlayerControllers.contains(playerController);
+        if (!playerController || !currentWorldPlayer || alreadyRegistered ||
+            playerController->bActorIsBeingDestroyed ||
+            playerController->PBGameInstance != world->OwningGameInstance)
+        {
+            continue;
+        }
+        const bool hasLocalPlayer = getLocalPlayer(playerController) != nullptr;
+        if (!ServerHookPolicy::ShouldRegisterListenHostParticipant(
+                true, currentWorldPlayer, hasLocalPlayer,
+                alreadyRegistered))
+        {
+            continue;
+        }
+        RegisterAuthoritativeMatchParticipant(
+            static_cast<AGameMode*>(world->AuthorityGameMode),
+            playerController,
+            true);
+        return;
+    }
+}
+
 static void CleanupDisconnectedPlayer(APBPlayerController* playerController, const char* reason)
 {
     if (!playerController)
@@ -91,6 +690,7 @@ static void CleanupDisconnectedPlayer(APBPlayerController* playerController, con
     // Tombstone first: teardown can re-enter PostLogin/role hooks before the
     // native destroy/logout call has fully unwound.
     DisconnectedPlayerControllers.insert(playerController);
+    DisconnectStrictRosterSeat(playerController);
 
     {
         std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
@@ -103,6 +703,8 @@ static void CleanupDisconnectedPlayer(APBPlayerController* playerController, con
 
     PlayerRespawnAllowedMap.erase(playerController);
     PlayersConfirmedRole.erase(playerController);
+    SynthesizedListenHostControllers.erase(playerController);
+    ListenHostRoleConfirmationAttempts.erase(playerController);
     PendingNameUpdatePlayers.erase(playerController);
     AppliedNameUpdatePlayers.erase(playerController);
     ConnectedPlayerControllers.erase(playerController);
@@ -147,6 +749,82 @@ static bool IsCurrentSelectedRole(
     const std::string submitted = roleId.ToString();
     return !selected.empty() && selected != "None" &&
         !submitted.empty() && submitted != "None" && selected == submitted;
+}
+
+static void RecoverListenHostRoleConfirmation(UWorld* const world)
+{
+    SynchronizeListenHostRecoveryGeneration();
+    if (!amListenServer || !world || !world->OwningGameInstance ||
+        !gLateJoinManager || !DidBroadcastRoleSelection)
+    {
+        return;
+    }
+
+    const std::vector<APBPlayerController*> listenHosts(
+        SynthesizedListenHostControllers.begin(),
+        SynthesizedListenHostControllers.end());
+    for (APBPlayerController* const playerController : listenHosts)
+    {
+        const bool currentWorldPlayer =
+            IsCurrentConnectedController(playerController) &&
+            IsCurrentGameStatePlayer(world, playerController) &&
+            playerController->PBGameInstance == world->OwningGameInstance;
+        const bool initialJoin = currentWorldPlayer &&
+            gLateJoinManager->IsInitialJoinPlayer(playerController);
+        const bool alreadyConfirmed = playerController &&
+            PlayersConfirmedRole.contains(playerController);
+        const bool alreadyAttempted = playerController &&
+            ListenHostRoleConfirmationAttempts.contains(playerController);
+
+        APBPlayerState* playerState = currentWorldPlayer
+            ? playerController->PBPlayerState
+            : nullptr;
+        bool hasSelectedRole = false;
+        FName selectedRole{};
+        std::string selectedRoleId;
+        if (playerState)
+        {
+            try
+            {
+                hasSelectedRole = playerState->HasSelectedRole();
+                selectedRole = playerState->SelectedCharacterID;
+                selectedRoleId = selectedRole.ToString();
+            }
+            catch (...)
+            {
+                hasSelectedRole = false;
+                selectedRoleId.clear();
+            }
+        }
+
+        const bool stillCurrent = currentWorldPlayer &&
+            IsCurrentConnectedController(playerController) &&
+            IsCurrentGameStatePlayer(world, playerController) &&
+            playerController->PBPlayerState == playerState &&
+            playerController->PBGameInstance == world->OwningGameInstance;
+        const bool concreteRole = !selectedRoleId.empty() &&
+            selectedRoleId != "None";
+        if (!ServerHookPolicy::ShouldRecoverListenHostRoleConfirmation(
+                true,
+                SynthesizedListenHostControllers.contains(playerController),
+                stillCurrent,
+                initialJoin,
+                DidBroadcastRoleSelection,
+                alreadyConfirmed,
+                alreadyAttempted,
+                hasSelectedRole,
+                concreteRole))
+        {
+            continue;
+        }
+
+        // Mark before entering ProcessEvent: the generated RPC wrapper is
+        // synchronous and re-enters this module's role-confirmation hook.
+        ListenHostRoleConfirmationAttempts.insert(playerController);
+        std::cout << "[LISTEN] Replaying current local host role confirmation: role="
+                  << selectedRoleId << std::endl;
+        playerController->ServerConfirmRoleSelection(selectedRole);
+    }
 }
 
 // ======================================================
@@ -382,6 +1060,7 @@ void TickFlushHook(UNetDriver *NetDriver, float DeltaTime)
         UWorld* const currentWorld = UWorld::GetWorld();
         NetDriverAccess::Observe(NetDriver, currentWorld, NetDriverAccess::Source::HookArgument);
         EnsureServerMatchWorld(currentWorld);
+        EnsureListenHostMatchParticipant(currentWorld);
         RefreshServerStatusSnapshot();
 
         if (PlayerJoinTimerSelectFuck > 0.0f)
@@ -543,6 +1222,11 @@ void TickFlushHook(UNetDriver *NetDriver, float DeltaTime)
         // Drive LateJoin state machine
         if (gLateJoinManager)
             gLateJoinManager->Tick(DeltaTime);
+
+        // A listen host can already own a selected role when the shared prompt
+        // opens. In that state the client emits no new role-confirm RPC, so
+        // replay the existing role through the full authoritative path once.
+        RecoverListenHostRoleConfirmation(currentWorld);
     }
 
     APBGameState *CurrentGameState = GetPBGameState();
@@ -845,6 +1529,19 @@ void ServerRoleConfirmationRestartPlayerHook(
         newPlayer && newPlayer->IsA(APBPlayerController::StaticClass())
             ? static_cast<APBPlayerController*>(newPlayer)
             : nullptr;
+    const StrictRosterSeatApplyResult strictSeatResult =
+        ApplyStrictRosterSeat(playerController, "RestartPlayer");
+    if (strictSeatResult == StrictRosterSeatApplyResult::Pending ||
+        strictSeatResult == StrictRosterSeatApplyResult::Rejected)
+    {
+        gRoleConfirmationRestartWasSuppressed = true;
+        std::cout << "[STRICT-ROSTER] Suppressed RestartPlayer because the "
+                     "frozen native seat is not verified; result="
+                  << (strictSeatResult == StrictRosterSeatApplyResult::Pending
+                        ? "pending" : "rejected")
+                  << "." << std::endl;
+        return;
+    }
     const bool sameController = playerController &&
         playerController == gLiveRoleConfirmationController;
     const bool controllerStillHasPawn =
@@ -1047,12 +1744,29 @@ static bool HandleManagedExplicitRespawn(
 void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
 {
     const std::string functionName = Function ? std::string(Function->GetFullName()) : "";
-
     // A listen host owns both authority and a local player but can install only
-    // one inline ProcessEvent hook. Reuse this server hook for the small client
-    // lifecycle signal needed by native archive initialization.
-    if (amListenServer && functionName.contains("UMG_MainMenuBase_C.Construct"))
-        NotifyClientLoginCompleted();
+    // one inline ProcessEvent hook. Complete this lifecycle signal only after
+    // the native MainMenuBase Construct has returned so listen travel cannot
+    // overtake the platform-login UI transition.
+    const bool listenLoginCompletedEvent = amListenServer &&
+        functionName.contains("UMG_MainMenuBase_C.Construct");
+    const bool listenEnterGameEvent = amListenServer &&
+        (functionName.contains("UMG_EnterGame_C.Construct") ||
+            functionName.contains("UMG_EnterGame_C.BP_OnActivated"));
+    if (listenEnterGameEvent)
+    {
+        static std::atomic_bool listenAutoLoginQueued{false};
+        if (!listenAutoLoginQueued.exchange(true, std::memory_order_acq_rel))
+        {
+            ClientLog("[LOGIN] Listen EnterGame ready; forcing SPACE once.");
+            std::thread([]()
+                {
+                    Sleep(1000);
+                    PressSpace();
+                })
+                .detach();
+        }
+    }
 
     // 热键检测（游戏线程安全）— F6=dump, F7=reapply snapshot
     if (gDebugTool)
@@ -1816,6 +2530,8 @@ void ProcessEventHook(UObject *Object, UFunction *Function, void *Parms)
     }
 
     ProcessEvent.call(Object, Function, Parms);
+    if (listenLoginCompletedEvent)
+        NotifyClientLoginCompleted();
     if (amListenServer)
         PumpPendingClientCommands();
     BattleLog::OnProcessEventPost(
@@ -1841,58 +2557,7 @@ void *PostLogin(AGameMode *GameMode, APBPlayerController *PC)
             << std::endl;
         return Ret;
     }
-    try
-    {
-        if (!PC->HasAuthority()) return Ret;
-    }
-    catch (...)
-    {
-        return Ret;
-    }
-
-    ConnectedPlayerControllers.insert(PC);
-    NumPlayersJoined = static_cast<int>(ConnectedPlayerControllers.size());
-
-    std::cout << "Player Connected!" << std::endl;
-
-    {
-        std::lock_guard<std::recursive_mutex> lock(gLoadoutManagerMutex);
-        if (gLoadoutManager)
-            gLoadoutManager->OnPlayerConnected(PC);
-    }
-
-    // LateJoin detection
-    if (gLateJoinManager && gLateJoinManager->OnPostLogin(GameMode, PC))
-    {
-        // Handled as LateJoin player; skip normal first-life flow
-        return Ret;
-    }
-
-    // This is a genuine pre-match participant. If the expected quorum was
-    // already established, include the new player and re-close a previously
-    // ready gate until this connection confirms a role.
-    if (!DidProcStartMatch && NumExpectedPlayers > 0)
-    {
-        NumExpectedPlayers = NumPlayersJoined;
-        RecomputeMatchStartGate("initial player connected");
-    }
-
-    // Initial joins use the same role-confirmation gate as mid-match joins so
-    // authoritative inventory can be seeded before the first playable Pawn is
-    // created.
-    if (gLateJoinManager)
-    {
-        gLateJoinManager->QueueInitialJoinPlayer(GameMode, PC);
-        return Ret;
-    }
-
-    // Preserve the native fallback when the deferred-spawn manager is not
-    // available.
-    if (PC && PC->Pawn)
-    {
-        PC->ServerSuicide(0);   // triggers respawn
-    }
-
+    RegisterAuthoritativeMatchParticipant(GameMode, PC, false);
     return Ret;
 }
 
@@ -2135,11 +2800,10 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
                 PressSpace(); })
             .detach();
     }
-    // Detect login complete via MainMenuBase Construct
-    if (functionName.contains("UMG_MainMenuBase_C.Construct"))
-    {
-        NotifyClientLoginCompleted();
-    }
+    // Detect login completion after the native Construct returns below. This
+    // prevents a queued direct travel from racing the final platform UI stack.
+    const bool clientLoginCompletedEvent =
+        functionName.contains("UMG_MainMenuBase_C.Construct");
     if (functionName.contains("OnConnectMatchServerTimeOut"))
     {
         ClientLog("[PE] " + std::string(Object->GetFullName()) + " - " + functionName);
@@ -2149,6 +2813,8 @@ void ProcessEventHookClient(UObject *Object, UFunction *Function, void *Parms)
 
     // 先执行原始 ProcessEvent，确保游戏状态已更新
     ProcessEventClient.call(Object, Function, Parms);
+    if (clientLoginCompletedEvent)
+        NotifyClientLoginCompleted();
 
     if (nativeIntroCompletionEvent && Object &&
         Object->IsA(APBGameState::StaticClass()))
@@ -2314,6 +2980,39 @@ char ActorNeedsLoadHook(UObject *a1)
     return 1;
 }
 
+// Pinned APBPlayerController client-HUD helper at RVA 0x1584730. On a listen
+// host it is invoked for remote controllers too. The native body obtains the
+// ULocalPlayer at RVA 0x34FB080 but fails to validate the null result before
+// inserting it into PBGameViewportClient's player-layer map; the later
+// dereference at RVA 0x156193B reads null + 0x70 during NMT_Login.
+static SafetyHookInline PlayerViewportLayerRequest;
+static std::atomic_bool RemotePlayerViewportLayerGuardLogged{false};
+
+void PlayerViewportLayerRequestHook(
+    APlayerController* const playerController,
+    APlayerController* const viewportOwner,
+    const std::uint8_t layer,
+    const std::uint8_t inputMode)
+{
+    using GetLocalPlayerFn = void*(__fastcall*)(APlayerController*);
+    void* const localPlayer = viewportOwner
+        ? reinterpret_cast<GetLocalPlayerFn>(BaseAddress + 0x34FB080)(viewportOwner)
+        : nullptr;
+    if (!ServerHookPolicy::ShouldForwardPlayerViewportLayerRequest(
+            true, viewportOwner != nullptr, localPlayer != nullptr))
+    {
+        if (!RemotePlayerViewportLayerGuardLogged.exchange(true))
+        {
+            std::cout << "[LISTEN] Suppressed a remote PlayerController client "
+                         "viewport-layer request."
+                << std::endl;
+        }
+        return;
+    }
+    PlayerViewportLayerRequest.call<void>(
+        playerController, viewportOwner, layer, inputMode);
+}
+
 static SafetyHookInline MessageBoxWHook;
 
 int WINAPI MessageBoxW_Detour(HWND hWnd, LPCWSTR lpText, LPCWSTR lpCaption, UINT uType)
@@ -2394,8 +3093,57 @@ void InitMessageBoxHook()
     MessageBoxWHook = safetyhook::create_inline(addr, MessageBoxW_Detour);
 }
 
+bool InitStrictRosterAdmissionHooks(StrictRoster::Policy* policy)
+{
+    gStrictRosterNativeSeatPathReady.store(false, std::memory_order_release);
+    if (!policy || BaseAddress == 0)
+        return false;
+    policy->SetNativeAdmissionPathReady(false);
+    const void* const target = reinterpret_cast<const void*>(
+        BaseAddress + kStrictRosterPreLoginRva);
+    if (!MatchesPinnedBytes(
+            kStrictRosterPreLoginRva,
+            kStrictRosterPreLoginPrologue,
+            sizeof(kStrictRosterPreLoginPrologue)))
+    {
+        std::cout << "[STRICT-ROSTER] Pinned PreLogin byte gate failed."
+            << std::endl;
+        return false;
+    }
+    if (!StrictRosterNativeSeatPathMatchesPinnedImage())
+    {
+        std::cout << "[STRICT-ROSTER] Pinned Team/Camp native byte gate failed."
+            << std::endl;
+        return false;
+    }
+    try
+    {
+        gStrictRosterPolicy = policy;
+        gStrictRosterPreLoginHook = safetyhook::create_inline(
+            const_cast<void*>(target), StrictRosterPreLogin);
+    }
+    catch (...)
+    {
+        gStrictRosterPolicy = nullptr;
+        std::cout << "[STRICT-ROSTER] Pinned PreLogin hook installation failed."
+            << std::endl;
+        return false;
+    }
+    if (!gStrictRosterPreLoginHook)
+    {
+        gStrictRosterPolicy = nullptr;
+        return false;
+    }
+    gStrictRosterNativeSeatPathReady.store(true, std::memory_order_release);
+    std::cout << "[STRICT-ROSTER] Pinned PreLogin plus Team/Camp native paths "
+                 "verified at boot; identity hook installed." << std::endl;
+    return true;
+}
+
 void InitServerHooks(bool forceDedicatedMode)
 {
+    const ServerHookPolicy::InstallPlan installPlan =
+        ServerHookPolicy::BuildInstallPlan(forceDedicatedMode);
     InitTravelDeferralHooks();
     std::cout << "[RESPAWN] explicit_native_forward="
         << (IsExplicitNativeRespawnForwardEnabled() ? "enabled" : "disabled")
@@ -2427,11 +3175,27 @@ void InitServerHooks(bool forceDedicatedMode)
     EngineBrowse = safetyhook::create_inline(
         (void *)(BaseAddress + 0x36664D0), EngineBrowseHook);
     ProcessEvent = safetyhook::create_inline((void *)(BaseAddress + 0x1BCBE40), ProcessEventHook);
-    ObjectNeedsLoad = safetyhook::create_inline((void *)(BaseAddress + 0x1B7B710), ObjectNeedsLoadHook);
-    ActorNeedsLoad = safetyhook::create_inline((void *)(BaseAddress + 0x3124E70), ActorNeedsLoadHook);
+    if (installPlan.ForceServerOnlyObjectLoading)
+    {
+        ObjectNeedsLoad = safetyhook::create_inline(
+            (void *)(BaseAddress + 0x1B7B710), ObjectNeedsLoadHook);
+        ActorNeedsLoad = safetyhook::create_inline(
+            (void *)(BaseAddress + 0x3124E70), ActorNeedsLoadHook);
+    }
+    std::cout << "[SERVER] server-only-load-overrides="
+        << (installPlan.ForceServerOnlyObjectLoading ? "enabled" : "native")
+        << std::endl;
+    if (installPlan.GuardRemotePlayerViewportLayers)
+    {
+        PlayerViewportLayerRequest = safetyhook::create_inline(
+            (void *)(BaseAddress + 0x1584730), PlayerViewportLayerRequestHook);
+    }
+    std::cout << "[SERVER] remote-player-viewport-guard="
+        << (installPlan.GuardRemotePlayerViewportLayers ? "enabled" : "disabled")
+        << std::endl;
     OnFireWeaponHook = safetyhook::create_inline((void *)(BaseAddress + 0x1610500), OnFireWeapon);
     PostLoginHook = safetyhook::create_inline((void *)(BaseAddress + 0x32903B0), PostLogin);
-    if (forceDedicatedMode)
+    if (installPlan.ForceDedicatedNetMode)
     {
         IsDedicatedServerHook = safetyhook::create_inline((void *)(BaseAddress + 0x33266F0), IsDedicatedServer);
         IsServerHook = safetyhook::create_inline((void *)(BaseAddress + 0x3326C60), IsServer);

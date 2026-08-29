@@ -116,6 +116,14 @@ namespace
         Expect(LoadoutStatePolicy::RetryDelay(2) == 2s, "retry 2");
         Expect(LoadoutStatePolicy::RetryDelay(3) == 10s, "retry 3");
         Expect(LoadoutStatePolicy::RetryDelay(4) == 30s, "steady retry");
+        Expect(LoadoutStatePolicy::ShouldRetryBaselineFetch(true, 1),
+            "first retryable baseline failure should retry");
+        Expect(LoadoutStatePolicy::ShouldRetryBaselineFetch(true, 3),
+            "third retryable baseline failure should retry");
+        Expect(!LoadoutStatePolicy::ShouldRetryBaselineFetch(true, 4),
+            "fourth retryable baseline failure should fall back to native");
+        Expect(!LoadoutStatePolicy::ShouldRetryBaselineFetch(false, 1),
+            "permanent baseline failure should fall back immediately");
 
         using Identity = LoadoutStatePolicy::ConnectionIdentity;
         const std::optional<Identity> active = Identity{"p_player", 2, 7};

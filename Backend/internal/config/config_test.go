@@ -15,6 +15,7 @@ func TestLoadMissingFileAppliesEnvironment(t *testing.T) {
 	t.Setenv("AUTH_INVITE_REQUIRED", "true")
 	t.Setenv("TOOLBOX_PUBKEY_PATH", "/run/projectrebound/test-signer.pem")
 	t.Setenv("INTEGRITY_CHALLENGE_TTL_SECONDS", "90")
+	t.Setenv("DEVELOPMENT_TRUSTED_STEAM_IDS", "76561198000000001, 76561198000000002")
 	t.Setenv("RELAY_HEARTBEAT_INTERVAL_SECONDS", "2")
 	t.Setenv("RELAY_UNHEALTHY_AFTER_SECONDS", "6")
 	t.Setenv("RELAY_OFFLINE_AFTER_SECONDS", "10")
@@ -62,6 +63,10 @@ func TestLoadMissingFileAppliesEnvironment(t *testing.T) {
 		cfg.Auth.IntegrityChallengeTTLSeconds != 90 {
 		t.Fatalf("Auth integrity config = %#v", cfg.Auth)
 	}
+	if len(cfg.Auth.DevelopmentTrustedSteamIDs) != 2 ||
+		cfg.Auth.DevelopmentTrustedSteamIDs[1] != "76561198000000002" {
+		t.Fatalf("development Steam allowlist = %#v", cfg.Auth.DevelopmentTrustedSteamIDs)
+	}
 	if cfg.RelayRegistry.HeartbeatIntervalSeconds != 2 || cfg.RelayRegistry.UnhealthyAfterSeconds != 6 ||
 		cfg.RelayRegistry.OfflineAfterSeconds != 10 || cfg.RelayRegistry.SweepIntervalSeconds != 1 {
 		t.Fatalf("Relay registry timing = %#v", cfg.RelayRegistry)
@@ -84,6 +89,35 @@ func TestLoadMissingFileAppliesEnvironment(t *testing.T) {
 		cfg.Downloads.PublicProbeBase() != "http://minio:9000/downloads" ||
 		len(cfg.Downloads.AllowedExtensions) != 2 {
 		t.Fatalf("download storage config = %#v", cfg.Downloads)
+	}
+}
+
+func TestDevelopmentTrustedSteamIDsAreFailClosed(t *testing.T) {
+	valid := Defaults
+	valid.Auth.DevelopmentTrustedSteamIDs = []string{"76561198000000001"}
+	if err := valid.ValidateControlPlane(); err != nil {
+		t.Fatalf("valid development allowlist rejected: %v", err)
+	}
+
+	production := valid
+	production.Environment = "production"
+	if err := production.ValidateControlPlane(); err == nil {
+		t.Fatal("production accepted the development Steam allowlist")
+	}
+
+	invalid := Defaults
+	invalid.Auth.DevelopmentTrustedSteamIDs = []string{"not-a-steam-id"}
+	if err := invalid.ValidateControlPlane(); err == nil {
+		t.Fatal("invalid development SteamID was accepted")
+	}
+
+	duplicate := Defaults
+	duplicate.Auth.DevelopmentTrustedSteamIDs = []string{
+		"76561198000000001",
+		"76561198000000001",
+	}
+	if err := duplicate.ValidateControlPlane(); err == nil {
+		t.Fatal("duplicate development SteamID was accepted")
 	}
 }
 

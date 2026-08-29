@@ -79,29 +79,32 @@ type RateLimitConfig struct {
 // SteamAppID, TicketMaximumAgeSeconds, and TicketClockSkewSeconds are retained
 // for configuration compatibility but no longer participate in ticket acceptance.
 type AuthConfig struct {
-	Issuer                         string                  `yaml:"issuer"`
-	Audience                       string                  `yaml:"audience"`
-	AccessTokenKeyID               string                  `yaml:"access_token_key_id"`
-	AccessTokenPrivateKeyBase64    string                  `yaml:"access_token_private_key_base64"`
-	AccessTokenPublicKeyBase64     string                  `yaml:"access_token_public_key_base64"`
-	AccessTokenTTLMinutes          int                     `yaml:"access_token_ttl_minutes"`
-	RefreshTokenTTLDays            int                     `yaml:"refresh_token_ttl_days"`
-	DefaultPersonaName             string                  `yaml:"default_persona_name"`
-	InviteRequired                 bool                    `yaml:"invite_required"`
-	DeviceFingerprintKeyID         string                  `yaml:"device_fingerprint_key_id"`
-	DeviceFingerprintHMACKeyBase64 string                  `yaml:"-"`
-	SteamAppID                     uint32                  `yaml:"steam_app_id"`
-	TicketVerifierExecutable       string                  `yaml:"ticket_verifier_executable"`
-	TicketVerifierTimeoutSeconds   int                     `yaml:"ticket_verifier_timeout_seconds"`
-	TicketMaximumAgeSeconds        int                     `yaml:"ticket_maximum_age_seconds"`
-	TicketClockSkewSeconds         int                     `yaml:"ticket_clock_skew_seconds"`
-	TicketMaximumHexBytes          int                     `yaml:"ticket_maximum_hex_bytes"`
-	TicketMaximumOutputBytes       int                     `yaml:"ticket_maximum_output_bytes"`
-	IntegrityPublicKeyPath         string                  `yaml:"integrity_public_key_path"`
-	IntegrityPublicKeyPEM          string                  `yaml:"-"`
-	IntegrityChallengeTTLSeconds   int                     `yaml:"integrity_challenge_ttl_seconds"`
-	IntegrityMaximumFailures       int                     `yaml:"integrity_maximum_failures"`
-	BindRateLimit                  AuthBindRateLimitConfig `yaml:"bind_rate_limit"`
+	Issuer                         string `yaml:"issuer"`
+	Audience                       string `yaml:"audience"`
+	AccessTokenKeyID               string `yaml:"access_token_key_id"`
+	AccessTokenPrivateKeyBase64    string `yaml:"access_token_private_key_base64"`
+	AccessTokenPublicKeyBase64     string `yaml:"access_token_public_key_base64"`
+	AccessTokenTTLMinutes          int    `yaml:"access_token_ttl_minutes"`
+	RefreshTokenTTLDays            int    `yaml:"refresh_token_ttl_days"`
+	DefaultPersonaName             string `yaml:"default_persona_name"`
+	InviteRequired                 bool   `yaml:"invite_required"`
+	DeviceFingerprintKeyID         string `yaml:"device_fingerprint_key_id"`
+	DeviceFingerprintHMACKeyBase64 string `yaml:"-"`
+	SteamAppID                     uint32 `yaml:"steam_app_id"`
+	TicketVerifierExecutable       string `yaml:"ticket_verifier_executable"`
+	TicketVerifierTimeoutSeconds   int    `yaml:"ticket_verifier_timeout_seconds"`
+	TicketMaximumAgeSeconds        int    `yaml:"ticket_maximum_age_seconds"`
+	TicketClockSkewSeconds         int    `yaml:"ticket_clock_skew_seconds"`
+	TicketMaximumHexBytes          int    `yaml:"ticket_maximum_hex_bytes"`
+	TicketMaximumOutputBytes       int    `yaml:"ticket_maximum_output_bytes"`
+	IntegrityPublicKeyPath         string `yaml:"integrity_public_key_path"`
+	IntegrityPublicKeyPEM          string `yaml:"-"`
+	IntegrityChallengeTTLSeconds   int    `yaml:"integrity_challenge_ttl_seconds"`
+	IntegrityMaximumFailures       int    `yaml:"integrity_maximum_failures"`
+	// DevelopmentTrustedSteamIDs is an explicit local-lab allowlist. It is
+	// loaded only from the environment and is rejected outside development.
+	DevelopmentTrustedSteamIDs []string                `yaml:"-"`
+	BindRateLimit              AuthBindRateLimitConfig `yaml:"bind_rate_limit"`
 	// Deprecated: retained so existing configuration files continue to load.
 	BindRequestsPerMinute int `yaml:"bind_requests_per_minute"`
 	BindBurst             int `yaml:"bind_burst"`
@@ -553,6 +556,9 @@ func (c *Config) applyEnvOverrides() {
 	overrideString("DEVICE_FINGERPRINT_KEY_ID", &c.Auth.DeviceFingerprintKeyID)
 	overrideString("DEVICE_FINGERPRINT_HMAC_KEY_BASE64", &c.Auth.DeviceFingerprintHMACKeyBase64)
 	overrideString("STEAM_TICKET_VERIFIER_PATH", &c.Auth.TicketVerifierExecutable)
+	if raw := os.Getenv("DEVELOPMENT_TRUSTED_STEAM_IDS"); raw != "" {
+		c.Auth.DevelopmentTrustedSteamIDs = splitCSV(raw)
+	}
 	overrideString("TOOLBOX_PUBKEY_PATH", &c.Auth.IntegrityPublicKeyPath)
 	overrideString("TOOLBOX_PUBKEY", &c.Auth.IntegrityPublicKeyPEM)
 	overrideString("ADMIN_TOKENS", &c.Admin.TokenSet)
@@ -764,6 +770,18 @@ func splitCSV(raw string) []string {
 	return values
 }
 
+func validDevelopmentSteamID(value string) bool {
+	if len(value) != 17 {
+		return false
+	}
+	for _, character := range value {
+		if character < '0' || character > '9' {
+			return false
+		}
+	}
+	return strings.HasPrefix(value, "7656119")
+}
+
 func (c *Config) ValidateControlPlane() error {
 	var errs []error
 	if strings.TrimSpace(c.HTTP.Addr) == "" {
@@ -806,6 +824,26 @@ func (c *Config) ValidateControlPlane() error {
 	}
 	if c.Auth.IntegrityChallengeTTLSeconds < 1 || c.Auth.IntegrityMaximumFailures < 1 {
 		errs = append(errs, errors.New("integrity challenge settings are invalid"))
+	}
+	if len(c.Auth.DevelopmentTrustedSteamIDs) > 0 {
+		if !strings.EqualFold(c.Environment, "development") {
+			errs = append(errs, errors.New("DEVELOPMENT_TRUSTED_STEAM_IDS is allowed only in development"))
+		}
+		if len(c.Auth.DevelopmentTrustedSteamIDs) > 16 {
+			errs = append(errs, errors.New("DEVELOPMENT_TRUSTED_STEAM_IDS may contain at most 16 entries"))
+		}
+		seen := make(map[string]struct{}, len(c.Auth.DevelopmentTrustedSteamIDs))
+		for _, steamID := range c.Auth.DevelopmentTrustedSteamIDs {
+			if !validDevelopmentSteamID(steamID) {
+				errs = append(errs, errors.New("DEVELOPMENT_TRUSTED_STEAM_IDS contains an invalid SteamID"))
+				break
+			}
+			if _, exists := seen[steamID]; exists {
+				errs = append(errs, errors.New("DEVELOPMENT_TRUSTED_STEAM_IDS contains a duplicate SteamID"))
+				break
+			}
+			seen[steamID] = struct{}{}
+		}
 	}
 	if strings.EqualFold(c.Environment, "production") &&
 		strings.TrimSpace(c.Auth.IntegrityPublicKeyPath) == "" &&

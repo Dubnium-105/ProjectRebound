@@ -26,7 +26,8 @@ var sha256HexPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 const authorityHeartbeatStale = 30 * time.Second
 
 type P2PTransport interface {
-	Create(context.Context, p2proom.Actor, p2proom.CreateInput) (p2proom.CreateResult, error)
+	CreateManaged(context.Context, p2proom.Actor, p2proom.CreateInput) (p2proom.CreateResult, error)
+	RecoverManagedHostToken(context.Context, p2proom.Actor, string, string) (string, error)
 	Join(context.Context, p2proom.Actor, string, string) (p2proom.Room, error)
 	LeaveManaged(context.Context, p2proom.Actor, string) (p2proom.Room, error)
 	Heartbeat(context.Context, p2proom.Actor, string, string) (p2proom.Room, error)
@@ -212,7 +213,7 @@ func (s *Service) Create(ctx context.Context, actor Actor, input CreateInput) (C
 			s.repository.DeleteUnlinkedLobby(context.WithoutCancel(ctx), lobby.ID)
 			return CreateResult{}, conflict("P2P_TRANSPORT_UNAVAILABLE", "P2P transport is not available.", nil)
 		}
-		created, err := s.p2p.Create(ctx, toP2PActor(actor), s.p2pCreateInput(lobby.ID, input))
+		created, err := s.p2p.CreateManaged(ctx, toP2PActor(actor), s.p2pCreateInput(lobby.ID, input))
 		if err != nil {
 			s.repository.DeleteUnlinkedLobby(context.WithoutCancel(ctx), lobby.ID)
 			return CreateResult{}, internal(fmt.Errorf("create managed P2P transport: %w", err))
@@ -238,7 +239,7 @@ func (s *Service) recoverCreateResult(ctx context.Context, actor Actor, lobby Lo
 		if s.p2p == nil {
 			return CreateResult{}, conflict("P2P_TRANSPORT_UNAVAILABLE", "P2P transport is not available.", nil)
 		}
-		created, err := s.p2p.Create(ctx, toP2PActor(actor), s.p2pCreateInput(lobby.ID, input))
+		created, err := s.p2p.CreateManaged(ctx, toP2PActor(actor), s.p2pCreateInput(lobby.ID, input))
 		if err != nil {
 			return CreateResult{}, internal(fmt.Errorf("recover managed P2P transport: %w", err))
 		}
@@ -269,6 +270,45 @@ func (s *Service) Get(ctx context.Context, lobbyID, viewerPlayerID string) (Snap
 		return Snapshot{}, internal(err)
 	}
 	return snapshot, nil
+}
+
+func (s *Service) Active(ctx context.Context, actor Actor) (CreateResult, error) {
+	if err := s.requireEnabled(); err != nil {
+		return CreateResult{}, err
+	}
+	if err := requireActive(actor); err != nil {
+		return CreateResult{}, err
+	}
+	lobbyID, err := s.repository.ActiveLobbyID(ctx, actor.PlayerID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return CreateResult{}, notFound("MATCH_LOBBY_NOT_ACTIVE", "The player does not have an active match lobby.")
+	}
+	if err != nil {
+		return CreateResult{}, internal(err)
+	}
+	snapshot, err := s.repository.Snapshot(ctx, lobbyID, actor.PlayerID, s.now().UTC())
+	if errors.Is(err, pgx.ErrNoRows) {
+		return CreateResult{}, notFound("MATCH_LOBBY_NOT_ACTIVE", "The player does not have an active match lobby.")
+	}
+	if err != nil {
+		return CreateResult{}, internal(err)
+	}
+	result := CreateResult{Snapshot: snapshot}
+	if snapshot.HostingKind == HostingP2P && snapshot.OwnerPlayerID == actor.PlayerID {
+		if s.p2p == nil {
+			return CreateResult{}, conflict("P2P_TRANSPORT_UNAVAILABLE", "P2P transport is not available.", nil)
+		}
+		if snapshot.P2PRoomID == "" {
+			return CreateResult{}, internal(errors.New("active P2P lobby omitted its managed transport room"))
+		}
+		result.TransportHostToken, err = s.p2p.RecoverManagedHostToken(
+			ctx, toP2PActor(actor), snapshot.P2PRoomID, snapshot.LobbyID,
+		)
+		if err != nil {
+			return CreateResult{}, internal(fmt.Errorf("recover managed P2P transport credential: %w", err))
+		}
+	}
+	return result, nil
 }
 
 func (s *Service) List(ctx context.Context, filter ListFilter) (ListResult, error) {
@@ -682,8 +722,10 @@ func (s *Service) Start(ctx context.Context, actor Actor, lobbyID string, expect
 	}
 	attemptID := newAdmissionID("mat_")
 	authoritySessionID := newAdmissionID("mas_")
+	var hostReconnectDeadline any
 	if lobby.HostingKind == HostingP2P {
 		authorityID = actor.PlayerID
+		hostReconnectDeadline = now.Add(s.provisioningTimeout())
 	}
 	_, err = tx.Exec(ctx, `
 		INSERT INTO match_attempts (
@@ -692,11 +734,9 @@ func (s *Service) Start(ctx context.Context, actor Actor, lobbyID string, expect
 			endpoint_host, endpoint_port, host_reconnect_deadline, created_at, updated_at
 		) VALUES ($1, $2, $3, $4, 'FROZEN', $5, $6, $7, 1,
 		          NULLIF($8, ''), NULLIF($9, 0),
-		          CASE WHEN $4 = 'P2P' THEN $10 + ($11 * interval '1 second') ELSE NULL END,
-		          $10, $10)
+		          $10, $11, $11)
 	`, attemptID, lobby.ID, attemptNumber, lobby.HostingKind, lobby.RosterRevision,
-		authorityID, authoritySessionID, endpointHost, endpointPort, now,
-		s.config.ProvisioningSeconds)
+		authorityID, authoritySessionID, endpointHost, endpointPort, hostReconnectDeadline, now)
 	if err != nil {
 		return Snapshot{}, internal(err)
 	}
@@ -1131,6 +1171,7 @@ func (s *Service) JoinGrant(ctx context.Context, actor Actor, attemptID string) 
 	var endpointPort int
 	var priorGrantCount int
 	var roomRole string
+	var connectionState string
 	var payloadRouteReady bool
 	var hostReconnecting bool
 	var authorityFresh bool
@@ -1141,11 +1182,12 @@ func (s *Service) JoinGrant(ctx context.Context, actor Actor, attemptID string) 
 		       COALESCE(attempt.endpoint_host, ''), COALESCE(attempt.endpoint_port, 0),
 		       roster.platform_id, roster.room_role, roster.team_id, roster.team_slot,
 		       roster.logical_slot, roster.connection_generation,
+		       roster.connection_state,
 		       COALESCE(attempt.payload_route_generation = attempt.route_generation, FALSE),
 		       attempt.host_reconnect_deadline IS NOT NULL,
 		       COALESCE(attempt.authority_last_seen_at > $3, FALSE),
-		       (SELECT COUNT(*) FROM match_admission_grants grant
-		        WHERE grant.attempt_id = roster.attempt_id AND grant.player_id = roster.player_id)
+		       (SELECT COUNT(*) FROM match_admission_grants AS admission
+		        WHERE admission.attempt_id = roster.attempt_id AND admission.player_id = roster.player_id)
 		FROM match_attempts AS attempt
 		JOIN match_attempt_roster AS roster ON roster.attempt_id = attempt.id
 		WHERE attempt.id = $1 AND roster.player_id = $2
@@ -1155,6 +1197,7 @@ func (s *Service) JoinGrant(ctx context.Context, actor Actor, attemptID string) 
 		&claims.AuthoritySessionID, &claims.RosterRevision, &claims.RouteGeneration,
 		&endpointHost, &endpointPort, &claims.PlatformID, &roomRole, &claims.TeamID,
 		&claims.TeamSlot, &claims.LogicalSlot, &claims.ConnectionGeneration,
+		&connectionState,
 		&payloadRouteReady, &hostReconnecting, &authorityFresh,
 		&priorGrantCount,
 	)
@@ -1182,6 +1225,9 @@ func (s *Service) JoinGrant(ctx context.Context, actor Actor, attemptID string) 
 	if endpointHost == "" || endpointPort == 0 {
 		return GrantResult{}, conflict("MATCH_AUTHORITY_ENDPOINT_UNAVAILABLE", "The match authority endpoint is unavailable.", nil)
 	}
+	if priorGrantCount > 0 && connectionState == "CONNECTED" {
+		return GrantResult{}, conflict("MATCH_CONNECTION_STILL_ACTIVE", "The previous connection must be released by the authority before a reconnect grant is issued.", nil)
+	}
 	if priorGrantCount > 0 {
 		claims.ConnectionGeneration++
 		if _, err := tx.Exec(ctx, `
@@ -1205,7 +1251,8 @@ func (s *Service) JoinGrant(ctx context.Context, actor Actor, attemptID string) 
 	claims.AttemptID = attemptID
 	claims.PlayerID = actor.PlayerID
 	claims.TokenID = newAdmissionID("mj_")
-	token, expires, err := s.signer.SignJoinGrant(claims, s.grantTTL())
+	expires := now.Add(s.grantTTL())
+	token, err := s.signer.SignJoinGrantWindow(claims, now, expires)
 	if err != nil {
 		return GrantResult{}, internal(err)
 	}
@@ -1222,9 +1269,188 @@ func (s *Service) JoinGrant(ctx context.Context, actor Actor, attemptID string) 
 		return GrantResult{}, internal(err)
 	}
 	return GrantResult{
-		AttemptID: attemptID, EndpointHost: endpointHost, EndpointPort: endpointPort,
+		AttemptID: attemptID, GrantJTI: claims.TokenID,
+		EndpointHost: endpointHost, EndpointPort: endpointPort,
 		Grant: token, ExpiresAt: expires, ConnectionGeneration: claims.ConnectionGeneration,
 	}, nil
+}
+
+// AuthorityAdmissions returns grants which Meta has issued to frozen roster
+// members but which the scoped authority Payload has not acknowledged staging.
+// The bearer token is reconstructed from persisted claims and is never stored.
+func (s *Service) AuthorityAdmissions(ctx context.Context, authorityID, authoritySession, attemptID string) (AuthorityAdmissionList, error) {
+	if err := s.requireEnabled(); err != nil {
+		return AuthorityAdmissionList{}, err
+	}
+	authorityID = strings.TrimSpace(authorityID)
+	authoritySession = strings.TrimSpace(authoritySession)
+	if authorityID == "" || authoritySession == "" {
+		return AuthorityAdmissionList{}, forbidden("MATCH_AUTHORITY_SCOPE_REQUIRED", "A live authority session is required.")
+	}
+	now := s.now().UTC()
+	var scoped bool
+	if err := s.repository.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM match_attempts
+			WHERE id = $1 AND authority_id = $2 AND authority_session_id = $3
+			  AND state IN ('CONNECTING', 'RUNNING')
+		)
+	`, attemptID, authorityID, authoritySession).Scan(&scoped); err != nil {
+		return AuthorityAdmissionList{}, internal(err)
+	}
+	if !scoped {
+		return AuthorityAdmissionList{}, forbidden("MATCH_AUTHORITY_SCOPE_REQUIRED", "This authority is not assigned to the active match attempt.")
+	}
+	rows, err := s.repository.pool.Query(ctx, `
+		SELECT attempt.lobby_id, attempt.hosting_kind, attempt.authority_id,
+		       attempt.authority_session_id, attempt.roster_revision,
+		       admission.jti, admission.player_id, roster.platform_id,
+		       roster.team_id, roster.team_slot, roster.logical_slot,
+		       admission.connection_generation, admission.route_generation,
+		       admission.issued_at, admission.expires_at
+		FROM match_admission_grants AS admission
+		JOIN match_attempts AS attempt ON attempt.id = admission.attempt_id
+		JOIN match_attempt_roster AS roster
+		  ON roster.attempt_id = admission.attempt_id
+		 AND roster.player_id = admission.player_id
+		WHERE admission.attempt_id = $1
+		  AND attempt.authority_id = $2
+		  AND attempt.authority_session_id = $3
+		  AND attempt.state IN ('CONNECTING', 'RUNNING')
+		  AND admission.delivered_at IS NULL
+		  AND admission.consumed_at IS NULL
+		  AND admission.revoked_at IS NULL
+		  AND admission.expires_at > $4
+		ORDER BY admission.issued_at, admission.jti
+	`, attemptID, authorityID, authoritySession, now)
+	if err != nil {
+		return AuthorityAdmissionList{}, internal(err)
+	}
+	defer rows.Close()
+	result := AuthorityAdmissionList{Items: make([]AuthorityAdmission, 0)}
+	for rows.Next() {
+		var claims JoinGrantClaims
+		var issuedAt, expiresAt time.Time
+		if err := rows.Scan(
+			&claims.LobbyID, &claims.HostingKind, &claims.AuthorityID,
+			&claims.AuthoritySessionID, &claims.RosterRevision,
+			&claims.TokenID, &claims.PlayerID, &claims.PlatformID,
+			&claims.TeamID, &claims.TeamSlot, &claims.LogicalSlot,
+			&claims.ConnectionGeneration, &claims.RouteGeneration,
+			&issuedAt, &expiresAt,
+		); err != nil {
+			return AuthorityAdmissionList{}, internal(err)
+		}
+		claims.AttemptID = attemptID
+		token, err := s.signer.SignJoinGrantWindow(claims, issuedAt, expiresAt)
+		if err != nil {
+			return AuthorityAdmissionList{}, internal(err)
+		}
+		result.Items = append(result.Items, AuthorityAdmission{
+			AttemptID: attemptID, PlayerID: claims.PlayerID,
+			PlatformID: claims.PlatformID, GrantJTI: claims.TokenID,
+			JoinGrant: token, ConnectionGeneration: claims.ConnectionGeneration,
+			RouteGeneration: claims.RouteGeneration, ExpiresAt: expiresAt,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return AuthorityAdmissionList{}, internal(err)
+	}
+	return result, nil
+}
+
+func (s *Service) P2PAuthorityAdmissions(ctx context.Context, actor Actor, authoritySession, attemptID string) (AuthorityAdmissionList, error) {
+	if err := requireActive(actor); err != nil {
+		return AuthorityAdmissionList{}, err
+	}
+	return s.AuthorityAdmissions(ctx, actor.PlayerID, authoritySession, attemptID)
+}
+
+// MarkAdmissionDelivered is called only after the authority Payload verifies
+// and stages the grant. Retrying the acknowledgement is idempotent.
+func (s *Service) MarkAdmissionDelivered(ctx context.Context, authorityID, authoritySession, attemptID, grantJTI string) (GrantDeliveryStatus, error) {
+	if err := s.requireEnabled(); err != nil {
+		return GrantDeliveryStatus{}, err
+	}
+	grantJTI = strings.TrimSpace(grantJTI)
+	if grantJTI == "" {
+		return GrantDeliveryStatus{}, invalid("Invalid join grant identity.", nil)
+	}
+	now := s.now().UTC()
+	var status GrantDeliveryStatus
+	var deliveredAt sql.NullTime
+	err := s.repository.pool.QueryRow(ctx, `
+		UPDATE match_admission_grants AS admission
+		SET delivered_at = COALESCE(admission.delivered_at, $5)
+		FROM match_attempts AS attempt
+		WHERE admission.jti = $4 AND admission.attempt_id = $1
+		  AND attempt.id = admission.attempt_id
+		  AND attempt.authority_id = $2
+		  AND attempt.authority_session_id = $3
+		  AND attempt.state IN ('CONNECTING', 'RUNNING')
+		  AND admission.consumed_at IS NULL
+		  AND admission.revoked_at IS NULL
+		  AND admission.expires_at > $5
+		RETURNING admission.attempt_id, admission.jti,
+		          admission.delivered_at, admission.expires_at
+	`, attemptID, authorityID, authoritySession, grantJTI, now).Scan(
+		&status.AttemptID, &status.GrantJTI, &deliveredAt, &status.ExpiresAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return GrantDeliveryStatus{}, conflict("MATCH_JOIN_GRANT_NOT_DELIVERABLE", "The join grant is expired, revoked, consumed, or outside this authority session.", nil)
+	}
+	if err != nil {
+		return GrantDeliveryStatus{}, internal(err)
+	}
+	status.Delivered = deliveredAt.Valid
+	if deliveredAt.Valid {
+		value := deliveredAt.Time
+		status.DeliveredAt = &value
+	}
+	return status, nil
+}
+
+func (s *Service) P2PMarkAdmissionDelivered(ctx context.Context, actor Actor, authoritySession, attemptID, grantJTI string) (GrantDeliveryStatus, error) {
+	if err := requireActive(actor); err != nil {
+		return GrantDeliveryStatus{}, err
+	}
+	return s.MarkAdmissionDelivered(ctx, actor.PlayerID, authoritySession, attemptID, grantJTI)
+}
+
+func (s *Service) GrantDelivery(ctx context.Context, actor Actor, attemptID, grantJTI string) (GrantDeliveryStatus, error) {
+	if err := s.requireEnabled(); err != nil {
+		return GrantDeliveryStatus{}, err
+	}
+	if err := requireActive(actor); err != nil {
+		return GrantDeliveryStatus{}, err
+	}
+	var status GrantDeliveryStatus
+	var deliveredAt, revokedAt, consumedAt sql.NullTime
+	err := s.repository.pool.QueryRow(ctx, `
+		SELECT admission.attempt_id, admission.jti, admission.delivered_at,
+		       admission.expires_at, admission.revoked_at, admission.consumed_at
+		FROM match_admission_grants AS admission
+		WHERE admission.attempt_id = $1 AND admission.jti = $2
+		  AND admission.player_id = $3
+	`, attemptID, strings.TrimSpace(grantJTI), actor.PlayerID).Scan(
+		&status.AttemptID, &status.GrantJTI, &deliveredAt,
+		&status.ExpiresAt, &revokedAt, &consumedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return GrantDeliveryStatus{}, notFound("MATCH_JOIN_GRANT_NOT_FOUND", "Join grant not found.")
+	}
+	if err != nil {
+		return GrantDeliveryStatus{}, internal(err)
+	}
+	if revokedAt.Valid || consumedAt.Valid || !status.ExpiresAt.After(s.now().UTC()) {
+		return GrantDeliveryStatus{}, conflict("MATCH_JOIN_GRANT_INACTIVE", "The join grant is no longer active.", nil)
+	}
+	status.Delivered = deliveredAt.Valid
+	if deliveredAt.Valid {
+		value := deliveredAt.Time
+		status.DeliveredAt = &value
+	}
+	return status, nil
 }
 
 func (s *Service) MarkConnected(ctx context.Context, authorityID, authoritySession, attemptID, playerID, grantJTI string, generation int) (Snapshot, error) {
@@ -1270,12 +1496,12 @@ func (s *Service) MarkConnected(ctx context.Context, authorityID, authoritySessi
 		if err := tx.QueryRow(ctx, `
 			SELECT EXISTS (
 				SELECT 1
-				FROM match_admission_grants AS grant
+				FROM match_admission_grants AS admission
 				JOIN match_attempt_roster AS roster
-				  ON roster.attempt_id = grant.attempt_id AND roster.player_id = grant.player_id
-				WHERE grant.jti = $1 AND grant.attempt_id = $2 AND grant.player_id = $3
-				  AND grant.connection_generation = $4 AND grant.route_generation = $5
-				  AND grant.consumed_at IS NOT NULL
+				  ON roster.attempt_id = admission.attempt_id AND roster.player_id = admission.player_id
+				WHERE admission.jti = $1 AND admission.attempt_id = $2 AND admission.player_id = $3
+				  AND admission.connection_generation = $4 AND admission.route_generation = $5
+				  AND admission.consumed_at IS NOT NULL
 				  AND roster.connection_generation = $4 AND roster.connection_state = 'CONNECTED'
 			)
 		`, grantJTI, attemptID, playerID, generation, routeGeneration).Scan(&repeated); err != nil {
@@ -1376,7 +1602,11 @@ func (s *Service) P2PMarkConnected(ctx context.Context, actor Actor, authoritySe
 	if err := requireActive(actor); err != nil {
 		return Snapshot{}, err
 	}
-	return s.MarkConnected(ctx, actor.PlayerID, authoritySession, attemptID, playerID, grantJTI, generation)
+	snapshot, err := s.MarkConnected(ctx, actor.PlayerID, authoritySession, attemptID, playerID, grantJTI, generation)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	return s.Get(ctx, snapshot.LobbyID, actor.PlayerID)
 }
 
 func (s *Service) MarkDisconnected(ctx context.Context, authorityID, authoritySession, attemptID, playerID string, generation int) (Snapshot, error) {
@@ -1415,7 +1645,23 @@ func (s *Service) MarkDisconnected(ctx context.Context, authorityID, authoritySe
 		return Snapshot{}, internal(err)
 	}
 	if command.RowsAffected() != 1 {
-		return Snapshot{}, conflict("MATCH_CONNECTION_GENERATION_STALE", "The reported connection is stale or is not currently connected.", nil)
+		var repeated bool
+		if err := tx.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM match_attempt_roster
+				WHERE attempt_id = $1 AND player_id = $2
+				  AND connection_generation = $3 AND connection_state = 'DISCONNECTED'
+			)
+		`, attemptID, playerID, generation).Scan(&repeated); err != nil {
+			return Snapshot{}, internal(err)
+		}
+		if !repeated {
+			return Snapshot{}, conflict("MATCH_CONNECTION_GENERATION_STALE", "The reported connection is stale or is not currently connected.", nil)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return Snapshot{}, internal(err)
+		}
+		return s.Get(ctx, lobbyID, "")
 	}
 	if _, err := tx.Exec(ctx, `
 		UPDATE meta_match_players AS projected
@@ -1436,7 +1682,11 @@ func (s *Service) P2PMarkDisconnected(ctx context.Context, actor Actor, authorit
 	if err := requireActive(actor); err != nil {
 		return Snapshot{}, err
 	}
-	return s.MarkDisconnected(ctx, actor.PlayerID, authoritySession, attemptID, playerID, generation)
+	snapshot, err := s.MarkDisconnected(ctx, actor.PlayerID, authoritySession, attemptID, playerID, generation)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	return s.Get(ctx, snapshot.LobbyID, actor.PlayerID)
 }
 
 func (s *Service) AuthorityHeartbeat(ctx context.Context, authorityID, authoritySession, attemptID string) error {

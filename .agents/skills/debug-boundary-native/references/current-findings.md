@@ -440,6 +440,7 @@ CompleteWeaponOrnament(manager, int32 code, FName ornament, FName role, FName we
 - 新 `Payload.dll` 大小为 `1,564,160` 字节，构建源与游戏目录目标 SHA-256 均为 `C8306242FE602C0F8AFB164B4B4B3BD6AF0B2091EDBFF57CC0CF269E62305317`。部署前目标已备份到 `.tmp/runtime-deploy/20260825-153647-toolbox-metatunnel-qos/Payload.previous.dll`，备份 SHA-256 为 `10B1CB19BE31123DA8F167502C99D262ABF156230894BC7558D8E1A79260A929`。
 - 2026-08-26 使用与内嵌证书完全一致的项目签名材料为最终 Tauri release EXE 签名并加 Sectigo RFC3161 时间戳；最终 EXE 大小为 `47,317,392` 字节、SHA-256 为 `699CFDD1ED092095DCAEA708C5CDD26593FAB58A1785454F419F5A606F1E690D`，签名证书 SHA-256 为 `18440D9B14590787C0FC5217FEB64AFCFB8DBF64243B4AB031D5E0B12D7A7590`。自签根在本机 Authenticode 链状态为 `UntrustedRoot`，符合 Toolbox 完整性门允许的证书匹配边界；未绕过门禁。
 - 首轮签名构建和修复后的最终签名构建各完成一次独立 GUI 冷启动，均通过完整性门并进入主界面。首轮发现前端 `capabilities_updated` 处理器与后端 `fresh_token()` 无条件重发事件形成反馈循环；后端现只在身份配置实际变化时发事件并保留仅驻留运行时的 auth ticket。最终构建第二次冷启动中调试日志计数在 9 秒观察窗内保持 `14` 不变。
+- 2026-08-27 确认邀请码兑换的冷启动缺口：Toolbox 从持久化 session 恢复身份时按设计不恢复 Steam ticket，但旧兑换路径仍要求 `AuthIdentity.auth_ticket` 非空，因此稳定返回 `Steam verification ticket is unavailable`。当前实现不落盘 ticket；仅在兑换且内存票据缺失时调用内建 Steam helper 获取新票，并在提交邀请码前要求其 SteamID 与 Toolbox 当前身份精确一致。既有内存票据保持复用。Toolbox `cargo test --features lab-testing --lib` 为 `194/194`、Tauri tests 为 `7/7`；本次未消费真实一次性邀请码，因此只把回归与桌面壳接线记为自动验证通过，不把生产邀请码消费记为动态通过。
 - 2026-08-26 再次 `git fetch --prune origin` 后，Toolbox `origin/main` 仍为 `63e5ee598b860b8f5d53dd147d436921ad290098`，与集成基线一致；但 GUI 的发布策略仍显示本地 `0.9.0 -> 0.9.1`、`Update required`。同时固定游戏目录仍有 `41` 个未受当前 Toolbox 管理的旧 `meta-tunnel.exe`，触发 `Unexpected processes`。因此本节只把签名门禁和 GUI 冷启动记为动态通过，**没有**把本地 PVE 入局或 QoS readiness event 记为通过；清理旧进程并解决发布版本策略后仍需完成最终动态 acceptance。
 
 ## 20. 死亡角色页 Deploy 与原生复活入口（2026-08-26）
@@ -463,3 +464,179 @@ CompleteWeaponOrnament(manager, int32 code, FName ornament, FName role, FName we
 - 首生 PROBE 正常完成。首次死亡后从角色页选择 SPIKE 并 Deploy：日志记录 `restart_suppressed=1, existing_pawn=1, native_queue_mode=0`，随后 `origin=death_role_deploy ... native_result=spawned`；SPIKE 的两个 weapon-detail overlay 均为 `result=applied`，目标 Pawn 经公共 finalizer 完成。客户端人工确认视角、移动和 UI 表现正确。
 - 后续活体把 PEACE 提交为下一命，再次死亡后按原生 F：日志记录 `origin=explicit_f request_kind=ServerQuickRespawn`，返回 `selected=PEACE possessed=PEACE` 并完成公共 finalizer。继续测试到 lifecycle 9 时，角色页 Deploy 又正确生成 SPIKE、Sniper，普通 F 连续正确生成 SPIKE、Sniper；全程没有 `managed_explicit_fallback`、Suicide fallback 或 spawn timeout。这证明角色页修复没有破坏普通 F 复活路径。
 - `RespawnStatePolicyTests` 连同全套 Payload 策略测试为 Release `15/15` passed；主 DLL Release/x64 构建为 0 warning、0 error。源码产物与游戏目录 `Payload.dll` SHA-256 均为 `84CEE6BEF59A180049F876C54E25C5A48DCC254739F13BBE540F969AA8A0C2AE`，大小 `1,570,304` 字节。部署前版本备份为 `%LOCALAPPDATA%/ProjectRebound/payload-backups/20260826-152009-death-role-pb-quick/Payload.previous.dll`，SHA-256 `2011B8FB243F652D0DA846E3B7715BB9D394F1F6931DD70CAEB29BACB195F748`。
+
+## 21. 严格名单的 NMT_Login 收发链（2026-08-26）
+
+以下地址仅适用于第 1 节锁定 EXE。候选先由 Luna max/IDA 静态分析定位，随后在本地 Dedicated `NetMode=1` 与远端 Client `NetMode=3` 的真实连接中完成只读运行时验证；验证过程不采集 URL、Unique ID、token 或消息正文。
+
+### 已定位的静态收发链
+
+- 服务端 UWorld::NotifyControlMessage 候选位于 VA 0x1436CDCE0 / RVA 0x036CDCE0。其 case 5 为本构建的 Login 控制消息，依次读取 FString RequestURL、第二个 FString、Unique ID 和最后一个 FString。因此 Tools/Frida/armory_probe.js 的 nmtLoginType 已从错误的 0x0B 修正为 0x05。
+- 客户端高度可信的挑战处理/登录发送候选位于 VA 0x143484770 / RVA 0x03484770。其 case 3 构造 FOutBunch，并在 RVA 0x03484EDE 写入消息类型 5。
+- 同一路径的关键位置为：RVA 0x03484ED2 构造控制消息 bunch；0x03484F25 序列化 URL；0x03484F35 序列化第二个 FString；0x03484F48 序列化 Unique ID；0x03484F58 序列化最后一个 FString；随后经连接对象虚表 +712 发送。
+- 当前静态调用序列可表示为 Challenge(type=3) -> RVA 0x03484770 case 3 -> Login(type=5) -> 服务端 RVA 0x036CDCE0 case 5。
+
+### 未通过的安全门与下一步
+
+- 动态会话 `.tmp/native-admission-runtime-20260826` 已记录客户端 RVA `0x03484770` 收到 challenge type 3，紧接着 RVA `0x03484EDE` 写入 message type 5；服务端随后在 RVA `0x036CDCE0` 收到 type 5，并依次进入 PB PreLogin RVA `0x01639D90` 与 Engine PreLogin RVA `0x03290DE0`。客户端随后完成 PlayerState、角色选择与出生，证明这条收发/PreLogin 顺序在锁定构建的 Dedicated 路径上成立。
+- 本次只读 hook 没有读取发送对象、虚表目标或字段内容，因此没有单独证明连接对象类型和虚表 `+712` 的运行时归属；这些静态细节也不是启用准入写入的充分条件。
+- 尚未证明四个字段中哪个 FString 可安全扩展，也未验证 FString 的原生分配器、所有权、长度/容量及释放语义。不得把 join grant 猜测写入 RequestURL、命令行或其他字段。
+- 下一步应在同样的路径/进程/大小/SHA-256 门禁下恢复最后一个 FString 的原生构造与所有权，再实现只在 NMT_Login 组包瞬间写入的内存 grant，并在服务端 type 5 解码与进入 PlayerArray 之前完成验签和重放检查。
+- 在客户端 grant 注入、服务端 PreLogin 准入、原生阵营写入、Listen authority 和 P2P 本地主机旁路全部通过前，StrictRoster native gate 保持 false；direct open、PostLogin 回退和结构偏移写入均不允许。
+
+## 22. 严格名单成员断线重连闭环（2026-08-27）
+
+以下实现仍只适用于第 1 节锁定 EXE。它补齐的是已冻结成员在同一 authority/world 存续期间的重连；不允许名单外加入、P2P 主机迁移或 authority 进程丢失后的重建。
+
+### 连接事实与代次
+
+- authority Payload 只在 `PostLogin` 已完成 Meta 席位与原生 Team/Camp 读回后产生一次 `CONNECTED` 事件；对应 controller 退出时产生一次 `DISCONNECTED`。事件带单调 sequence、attempt、player、grant JTI、connection generation 与 route generation，经命名管道由 Toolbox 上报，不携带 bearer token 或签名 grant。
+- P2P 与 Dedicated 共用同一事件语义和 Meta 状态转换。重复的同 generation 连接/断线报告幂等；只有 Meta 已记录该席位 `DISCONNECTED` 后才可签发下一份 join grant。在 `CONNECTED` 状态直接请求重连返回 `MATCH_CONNECTION_STILL_ACTIVE`。
+- 新 grant 的 connection generation 必须精确加一，仍绑定冻结快照中的同一 team、team slot 和 logical slot。旧 generation、旧 JTI、重复消费或不匹配 route generation 均 fail closed。
+- P2P 本地主机的 authority-ready 已代表其本地席位接入，不走远端 `PreLogin` 重连。主机进程/world 丢失时必须中止 attempt；v1 不迁移主机，也不把 `retry` 用于主机恢复。
+
+### 构建和自动验证
+
+- Payload Release/x64 与测试构建均通过；CTest 为 `17/17`，覆盖 connected/disconnected 事件幂等、游标管道和重连授权消费。最终 `Payload.dll` 大小 `1,713,152` 字节，SHA-256 为 `EB61DAD112E06BFF5ADCD9EE34FF02B5DCAC85ED5CFC6DE5872D6E38C366F07F`。
+- Toolbox `cargo test --features lab-testing --lib` 为 `188/188`，Tauri tests 为 `7/7`；签名实验 CLI 大小 `26,515,232` 字节，SHA-256 为 `C25A91835EF348095C271333AC0FFFDD44E216B433BD58629413C9B4CF9637BF`。authority admission/connection 上报的瞬时失败保留游标重试，不再让实验 CLI 错误地销毁仍存续的对局。
+- 后端快速测试及真实 PostgreSQL 的 Dedicated/P2P lifecycle 集成测试通过；本地 `can_retry_connection` 只有在冻结席位不再是 `CONNECTED` 时才开放。实验控制平面 SHA-256 为 `F885E9F85A6E3BC7C3AE3F4246DC399AAC14EFA19EAC675430BCE66DF127EF92`。
+- 新 API 冒烟实际完成 `CONNECTED(gen=1) -> DISCONNECTED -> grant(gen=2) -> 拒绝旧 grant -> CONNECTED(gen=2) -> COMPLETED`；重复连接/断线回报均保持 `RUNNING`。最终交付包 `.tmp/strict-roster-lab-20260827-reconnect-r3.zip` SHA-256 为 `C340172AB9E5324CA35C78508C9C471231F272DB1511314BCA1A0AE8ADBDD77C`，解压后的 14 项 manifest 回读通过。
+- 两台机器上的真实验收仍需人工完成：先确认两名玩家各自拥有可移动/射击 Pawn，再只关闭从机游戏进程、保留其实验 CLI；authority 记录 `DISCONNECTED generation=1` 后在原 CLI 输入 `retry`，确认 generation=2 回收同一席位并第二次实际出生。未取得这份双机证据前，不把真实重连标记为动态通过。
+
+## 23. LAN 严格名单实验的 Meta 服务分层与冻结成员重挂载（2026-08-27）
+
+- Boundary 的 `-MetaServerUrl` HTTP 流程和后续原生 Logic TCP 都不是 match-lobby Control Plane 的接口。只把实验 MetaTunnel 指向 Control Plane 会令 `/connectServer` 得到 400/404；即使 Payload 的直接 travel 已排队，也不代表原生 Meta 会话成立。
+- 隔离 LAN 实验现在同时运行 `control-plane` 与 `meta-server`，两者共享临时 access/admin 验签材料。MetaTunnel 仍只监听 loopback；它把游戏 HTTP 转发到私网 Meta HTTP，并在显式 `--allow-private-http-lab --allow-private-plain-logic-lab` 双门禁下把本地 Logic TCP 桥接到同一私网 IP。三个 upstream 必须是同一个私网/回环 IPv4。生产路径仍要求 HTTPS、TLS Logic server name 与 TLS 1.2+。
+- 严格 P2P 房间在名单冻结后已经处于 `CONNECTING`，因此成员首次连接也表现为承载层重挂载。旧 `p2proom.Join` 的 `LOBBY-only` 前置检查会在权威名单校验前错误返回 `ROOM_NOT_JOINABLE`。新规则只为具有 `managed_lobby_id` 的房间开放 `CONNECTING/RUNNING` attach，并继续通过冻结名单投影拒绝未知账号；独立旧房间仍只能在 `LOBBY` 加入。
+- Toolbox 对控制面短暂传输错误保留约 28 秒重试窗口，错误只记录脱敏后的 HTTP method/endpoint；持续失败才终止实验。MetaTunnel 子进程退出诊断现在保留安全 stderr 摘要，避免只剩无上下文的 `exit code: 1`。
+- 自动验证包括 Backend 全套 Go tests、真实 PostgreSQL 的 P2P 生命周期/名单外拒绝、Toolbox `189/189` 核心测试和 Payload `17/17` 策略测试。最终双机出生与 generation 递增的重连仍以两台真实 Steam 账号的人工运行证据为准。
+- 最终房主实机探针使用真实 Steam 会话和服务端合成的另一阵营成员触发启动：游戏实际连接受管 MetaTunnel，Meta HTTP Profile 与 `POST /connectServer` 均返回 200，Tunnel 同时建立到实验 Meta HTTP `18081` 和 Logic `16968` 的连接，随后 Payload 回报 `Strict P2P authority ready`，Toolbox 进入 `CONNECTING / Connected`。本轮没有启动前的 Meta 400、`send request` 致命退出或意外 MetaTunnel 终止；测试结束输入 `quit` 后的受管进程强制退出不属于运行时故障。
+- 最终双机包为 `.tmp/strict-roster-lab-20260827-meta-r6.zip`，SHA-256 `560BEE53585AB572983C3DD8D88244E1B3ADD19B65C49D55A756FC3235F65E6D`；解压后的 15 项 manifest 回读通过。API 冒烟额外验证三服务健康和 `CONNECTED(gen=1) -> DISCONNECTED -> grant(gen=2) -> 旧授权拒绝 -> CONNECTED(gen=2) -> COMPLETED`。
+
+## 24. Toolbox lab/production 认证缓存隔离（2026-08-27）
+
+- 已复现 Toolbox 启动在 `obtain MetaTunnel access token` 前失败：持久日志只保留了顶层 context，但内置调试日志的先行认证请求明确返回 `refresh Project Rebound session: API 401 UNAUTHORIZED: Invalid refresh token.`。生产 Control Plane 的 live/ready 检查同时为 200，因此不是 MetaTunnel 提取、子进程 readiness 或普通断网故障。
+- 只读检查确认缓存 access JWT 的非秘密 header `kid=access-dev-ephemeral`，而当前 Toolbox API origin 为生产 `https://api.project-rebound.space`。根因是 `strict_roster_lab` 在显式 lab origin 下仍复用生产 `%LOCALAPPDATA%\com.projectrebound.toolbox\app_config.json`：lab bind 把临时 Control Plane 会话写回共享配置，后续生产刷新必然查不到对应 refresh session。
+- `lab-testing` 现在只要存在 `PROJECT_REBOUND_LAB_API_ORIGIN`，就把配置与 runtime 根定位到 `com.projectrebound.toolbox\lab\<normalized-origin-sha256>`，并禁止把 executable-adjacent legacy config 迁入该 scope。不同 lab origin、lab 与 production 均不再共享 access/refresh token、身份或 runtime 资产目录；路径只含 origin 哈希，不记录私网地址。
+- 终止性 refresh 401 现在带有明确的“sign out and sign in again”诊断；`complete_launch` 使用完整 anyhow chain，不再把 `obtain MetaTunnel access token` 之后的真实原因截断。既有已污染生产缓存需要一次新的 Steam 登录，不能把 lab refresh token 搬回生产。
+- Toolbox `cargo test --features lab-testing --lib` 为 `197/197`，Tauri tests 为 `7/7`，`cargo check --features lab-testing --bin strict_roster_lab` 通过；仅保留既有未使用函数 warning。
+
+## 25. P2P 房间路由目录与 10 人上限（2026-08-27）
+
+- 生产 `GET /v1/client/config` 当前明确返回 `relay=true`、`vnt_rooms=false`，可用 Relay region 为 `lax`；生产 VNT 在线节点目录为空。控制面 `https://api.project-rebound.space/v1/meta/regions` 返回 404，而 Meta 服务 `https://meta.project-rebound.space/v1/meta/regions` 正常返回 `lax` 及 `UDP 8443` QoS 端点。Toolbox 原先把 Meta region 路径交给通用 Control Plane HTTP origin，因此 Relay discovery 被稳定转成空候选，最终只留下 `No usable room route`。
+- Meta region discovery 现在固定使用生产 Meta HTTPS origin；显式 LAN lab scope 则继续要求 `PROJECT_REBOUND_LAB_META_HTTP_ORIGIN`，且只允许与 lab Control Plane 相同私网/回环 IP 上的显式 HTTP 端口。固定 origin 的 path 组装拒绝 authority 替换、非预期 scheme 和带 path/凭据的 origin。
+- 路由规划器不再把 VNT/Relay discovery 错误静默压成空列表。没有目录项、目录超时、目录请求失败及已发现 Relay 但 UDP QoS 全部无响应会返回不同的可操作诊断；100% loss 路由仍不被伪装成 ready。
+- 房间创建现在把实际选中的 route region 写入 VNT/Legacy room request，而不是把 UI 偏好值（例如 `us-west`）保存到实际 `lax` Relay 房间。否则后端按错误 region 调度 allocation 时无法命中已注册 Relay。
+- Boundary 房间容量在 Toolbox 核心固定为 2–10：React 下拉列表新增 10，旧 egui 输入同步为 2–10，native create path 和前端 mock bridge 均拒绝小于 2 或大于 10 的值。后端通用 P2P 配置仍可支持更高协议上限，本次没有把 Boundary 的游戏容量假设扩散为全局控制面常量。
+- 自动验证：Toolbox `cargo test --features lab-testing --lib` 为 `202/202`，Tauri tests 为 `7/7`；前端 5 组测试合计 `42/42`，前端生产构建、Tauri release `cargo check` 和 `cargo fmt --check` 通过。当前执行环境对公布的 Relay UDP 8443 探测未收到响应，因此本节不把真实生产房间创建记为动态通过；需要在签名候选构建及真实玩家网络上完成一次 route-ready/create 验收，若仍返回新的 UDP 无响应诊断，则继续检查 Relay 监听、防火墙/NAT 与 advertised port。
+
+## 26. Legacy LAN 加入端候选重放竞态（2026-08-28）
+
+- 已定位从机错误 `selected LAN path omitted the remote candidate`：房主的 `connection.candidate` 会先持久化到 Control Plane，再通过不重放历史的 Realtime 广播。房主可在从机完成认证 WebSocket 订阅前发布 LAN 候选；后端随后仍可根据房主探测选择 `LAN`，但从机本地 `PeerPath` 从未收到该远端候选，旧实现因此把正常的订阅竞态误判为终止性协商失败。
+- 加入端现在在认证 WebSocket ready 后读取一次权威 connection REST 快照，过滤自身、非 UDP 与未知类型，只把远端 `LAN/IPV6/SRFLX` 候选与握手后已排队的实时事件合并。该顺序覆盖“候选先于订阅提交”和“候选在快照后提交”两侧，不需要后端暴露秘密或新增重放接口。
+- `connection.path_selected` 与 `connection.candidate` 现在允许乱序：直接路径先到且候选暂缺时保留所选路径并等待，不再立即写入 `connection_errors`；匹配候选到达后安装 direct endpoint 并标记 route ready。房主已完成探测的 endpoint 继续优先保留，未补齐的路径最终仍由既有有界 readiness timeout 失败关闭。
+- Realtime 候选地址不再用 `address:port` 字符串拼接解析，而是先验证 `IpAddr` 和 `u16` 端口，再用 `SocketAddr::new` 构造，因此未加方括号的 IPv6 API 地址不会再在 Windows 路径上产生错误地址族文本。
+- 自动验证：普通核心测试 `205/205`、`lab-testing` 核心测试 `209/209`、Tauri `7/7`、前端 `43/43`，均为 0 失败；新增确定性用例覆盖 REST 快照过滤、IPv6 构造和 `path_selected -> candidate` 乱序恢复。签名 0.9.6 EXE 大小 `48,725,904` 字节，SHA-256 `0B63A1C8C88B9CD2319ED1943DE3E6EC51CC78FCBF28457B9FA04C8C921804C0`，文件/产品版本均为 0.9.6，签名者指纹 `0A95D2BF69633F170BC383A78B71A52667A45780`，含 Sectigo RFC3161 时间戳。独立冷启动加载 `tauri.localhost` 内嵌前端并显示 BUILD 0.9.6；真实双 Steam 身份的加入/出生仍需双机烟测，当前不把该项记为动态通过。
+
+## 27. Listen 主机在远端 NMT_Login 时的 PBGameViewportClient 空指针（2026-08-28）
+
+### 复现与静态根因
+
+- `-RoomAuthority` 主机在 Warehouse 等待阶段接收第二个客户端后稳定产生 `EXCEPTION_ACCESS_VIOLATION reading address 0x70`。失败样本 PID 25904、运行 351 秒，异常 RVA 为 `0x0156193B`；栈经 `0x01561BB8 -> 0x01584801 -> 0x015A31E3` 回到远端控制器创建链，再经 `UWorld::NotifyControlMessage` RVA `0x036CDCE0`。Payload 栈帧只是原函数外层 hook/trampoline，不能据此吞掉 NMT_Login。
+- RVA `0x01584730` 是 APBPlayerController 的客户端 HUD/viewport layer helper。它调用 RVA `0x034FB080` 读取 `PlayerController +0x298`，且只有对象属于 `ULocalPlayer` 时返回该指针；远端控制器必然返回 null。原函数随后仍把该 null 作为 key 传给 PBGameViewportClient 的 player-layer map RVA `0x01561A60`。map 插入默认 value 后，RVA `0x0156193B` 无检查地执行 `mov rdx, [rax+70h]`，其中 `rax=0`。
+- 这是客户端构建被用作原生 Listen authority 时暴露的客户端 HUD 假设：普通本地 PlayerController 有 ULocalPlayer，远端 PlayerController 没有；Dedicated 没有 GameViewport，因此不会进入该分支。仅把 `ObjectNeedsLoad/ActorNeedsLoad` 与强制 NetMode 限定回 Dedicated 是正确的模式隔离，但动态 A/B 证明它单独不能消除本次崩溃：SHA-256 `D4E88545...` 候选仍在同一 RVA 崩溃。
+
+### 最小兼容实现
+
+- `InitServerHooks(false)` 只为 Listen 安装 RVA `0x01584730` 的入口 guard。若 viewport owner 非空但 RVA `0x034FB080` 返回 null，则只跳过该远端控制器的客户端 viewport-layer 请求；本地主机控制器、原生 null-controller no-op、普通客户端和 Dedicated 路径全部转发原函数。
+- guard 不跳过 APBPlayerController 初始化、PostLogin、LateJoin、角色选择或 possession，也不修改 PBGameViewportClient map 内存；第一次命中记录 `[LISTEN] Suppressed a remote PlayerController client viewport-layer request.`。Listen 同时记录 `server-only-load-overrides=native` 和 `remote-player-viewport-guard=enabled`，Dedicated 则保留前者 `enabled`、后者 `disabled`。
+- `ServerHookPolicyTests` 固定 Dedicated/Listen 安装计划以及本地/远端/null-controller 转发矩阵。Payload Release 策略测试为 `18/18` passed。
+
+### 动态验收与交付
+
+- 同机双实例使用真实 UE 网络栈完成回归：PID 2480 以 `-RoomAuthority` 监听 `0.0.0.0:7777/UDP`，命名管道先报告 `authority_ready=true, player_count=1`；PID 13184 从 Unreal 控制台执行 `open 127.0.0.1:7777` 后进入 Warehouse，主机 guard 精确命中、记录第二次 `Player Connected!`，管道持续报告 `authority_ready=true, player_count=2`。
+- 稳定检查时主机/从机运行时长分别为 256/204 秒，双方仍在 Warehouse `WAITING FOR THE GAME TO START`，最新 crash 目录时间仍为修复前的 12:17:50，没有新 dump。该证据覆盖原生远端 NMT_Login/PlayerController/viewport 崩溃链；它不替代生产 MetaTunnel、Relay/LAN carrier 与两台真实机器的端到端路由验收。
+- 最终签名 `Payload.dll` 大小 `1,722,256` 字节，SHA-256 `69EA6630B6B0D2A8046D0737929C5EAE76D406D95ABD9A0DAFD03179A146D4F5`，签名者指纹 `0A95D2BF69633F170BC383A78B71A52667A45780`，含 RFC3161 时间戳。部署前备份位于 `%LOCALAPPDATA%\ProjectRebound\payload-backups\20260828-1228-listen-viewport-guard`。
+- 0.9.7 运行时 ZIP 大小 `881,426` 字节，SHA-256 `023085B90601BD0B241C94BB8EB0E2259CCC5B074164574836A02FED63206945`；解压回读为 5 项，内含同一签名 Payload 哈希和版本 `0.9.7`。
+
+## 28. Toolbox 受管运行时更新与旧 `ServerLauncher` 包隔离（2026-08-28）
+
+### 根因与发布边界
+
+- 从机启动前更新报 `Project Rebound release ZIP contains an unmanaged path: ServerLauncher`。安装器的拒绝是正确行为：玩家运行时发布包只允许顶层 `Payload.dll`、`dxgi.dll`、`DT_ItemType.json`、`steam_appid.txt`、`project_rebound_version.txt`；`ServerLauncher`、旧 JavaScript MetaServer 和开发仓库内容不能重新进入客户端安装边界。
+- 生产 `/v1/downloads` 的受管 `rebound-release` 最新项当时为 `0.9.1`，文件大小 `3,063,236`、SHA-256 `D2ED49593FE2E6036E23B6582FEF7E10E86F423B87DDE6C1ACB19F7326E706F2`。该归档本身没有 `ServerLauncher`，且现有安装器可在跳过旧 `BoundaryMetaServer-main` 后提取受管根文件。
+- 真正错误发生在 Toolbox 的 `latest` 解析：它先查询 GitHub latest，得到历史标签 `V0.8.4`，再以该标签匹配管理目录中的 `0.9.1`。版本标签不一致使目录查询落空，随后退回 GitHub 的旧完整 `Release.zip`，最终由受管路径门正确拒绝 `ServerLauncher`。
+
+### 当前修复与验证
+
+- `ReboundRelease` 的 `latest` 和显式版本现在只从生产受管下载目录解析；`v/V` 只在后接数字时规范化。目录必须恰好包含一个 `rebound-release` 条目和唯一的规范化版本标签。Project Rebound 运行时不再回退 GitHub 或未校验镜像。
+- 下载完成后必须同时匹配目录声明的 `size_bytes` 和 SHA-256，之后才进入全归档预检与提取。未知路径仍在写入任何文件前原子拒绝；专门回归固定了 `ServerLauncher/` 目录项的精确错误和零落盘结果。
+- 真实线上探针经新代码选择并下载上述 `0.9.1` 归档，回读大小和 SHA-256 完全一致，随后在临时目录成功提取 `Payload.dll`；未再走 GitHub 或触发 unmanaged path。
+- Toolbox 核心全目标测试为 `221 + 221`、Tauri 为 `7/7`、前端为 `43/43`，均 0 失败。创建房间的 React 与旧 egui 默认容量同时改为 10，协议校验仍固定 2–10。
+- 最终签名 EGUI 0.9.8 大小 `42,916,240` 字节、SHA-256 `9F5516B1991F18883A320FA4957C99D5F16145B5FDCCF7BD91246FACBFDBF2F0`；签名 Tauri 候选大小 `48,761,744` 字节、SHA-256 `D7C158E1CEE410B6C27958F1EC5880FC5F15D28BCDE312E34D3BEF413E9A2EA7`。二者签名者指纹均为 `0A95D2BF69633F170BC383A78B71A52667A45780`，包含 Sectigo RFC3161 时间戳。EGUI 候选独立冷启动通过完整性门并显示 `v0.9.8`。
+- 最终 0.9.8 玩家运行时 ZIP 大小 `885,938` 字节、SHA-256 `6D30BB8C06731B0AC6ACD4A04BFD3C66071107180F8397AD76F28A47A06441E2`。解压回读严格为上述 5 项；其中签名 `Payload.dll` 大小 `1,731,984` 字节、SHA-256 `6C7B5E05540AC72A6D7A9FA78F867917285FCE00081156EE13D237AA4D6C24A3`，版本标记为 `0.9.8`。
+
+## 29. Legacy carrier `CHECKING_DIRECT` 非重放反向竞态与 Toolbox 0.9.9（2026-08-28）
+
+### 失败事实与根因
+
+- 从机错误为 `Legacy carrier was not ready before timeout (state=CHECKING_DIRECT, candidates=3, selected_path=none, realtime=none, control_plane=none)`。`candidates=3` 证明候选已持久化，不能按“没有候选”或普通地址解析失败处理；真正缺失的是房主侧的探测与路径选择结果。
+- Legacy coordination WebSocket 不重放历史事件。旧修复只让从机从 REST 快照恢复房主候选；相反方向仍有竞态：从机可在房主认证 WebSocket 握手或重连窗口内提交候选，Control Plane 保存成功但房主漏收实时事件。房主因而没有启动 direct probe/check-result，连接长期停在 `CHECKING_DIRECT`，也不会产生 `path_selected`。
+
+### 有界恢复实现
+
+- 从机仅在 Control Plane 为 `CREATED/GATHERING_CANDIDATES/CHECKING_DIRECT` 时重报自己的稳定候选，退避为 500 ms、1 s、2 s，之后 4 s；一旦选择 direct/relay 或状态推进就停止。房主收到重报时回显自己的稳定候选，因此任一侧短暂错过非重放事件都可重新汇合，且不会形成无界广播。
+- 房主遇到未知 connection 的候选事件时，不再直接信任事件内容；它先从 REST 读取 connection，并精确验证 room、host player 和 connection ID 后才纳入本次协商。验证失败的跨房间、错误主机或未知连接继续 fail closed。
+- `wait_for_connection` 的权威 REST 快照现在持续送入路由线程。从机重复合并合法远端候选，并可从快照恢复错过的 direct `path_selected`。由 REST 新恢复或发生变化的 SRFLX 候选只发送一次 NAT priming probe，不对未变化地址重复打洞。
+- 新增确定性回归覆盖：房主在实时丢失后响应从机重报、快照恢复错过的 direct path、候选重报有界且在状态推进后停止，以及真实本地 UDP request/response 驱动房主成功上报 check-result 的闭环。
+
+### 构建、签名与剩余验收
+
+- Toolbox 控制器定向测试 `13/13`；`lab-testing` 核心与全目标、普通全目标合计执行 892 个 Rust 测试，0 失败；Tauri `7/7`，前端 5 组合计 `44/44`，生产构建与 `cargo fmt --check` 通过。仓库级 `clippy -D warnings` 仍被 78 个既有 lint 阻塞，本节没有把该基线债务记为通过。
+- 发布号提升到 0.9.9。前端页眉、设置页和诊断文案不再硬编码版本，统一从 `package.json` 派生；签名 Tauri 冷启动确认加载内嵌生产前端并显示 `BUILD 0.9.9`。
+- 签名 EGUI `Rebound_Toolbox.exe` 大小 `42,938,768` 字节，SHA-256 `62C1A3AAD389EA9F89660240044B1E053E2DC11596CD4C06941C06E265BA82B8`。签名 Tauri `Rebound_Toolbox_Tauri.exe` 大小 `48,791,440` 字节，SHA-256 `BD217B21C29F1DCB049690EAA54BA123BD6818E36A988256B2169D2E174C47F8`，文件/产品版本均为 0.9.9。两者签名者指纹均为 `0A95D2BF69633F170BC383A78B71A52667A45780`，包含 Sectigo RFC3161 时间戳。
+- 自动测试已覆盖丢事件恢复与真实本地 UDP 探测，但仍需两台真实 Steam 身份都升级 0.9.9、创建全新房间/connection 后完成端到端验收。在取得双方 carrier ready、Boundary 启动并实际进入同一战局的证据前，不把生产双机动态验收标记为通过。
+
+## 30. 选路后稳定候选重放竞态、Relay 探测预算与 Toolbox 0.9.10（2026-08-29）
+
+### 生产证据与根因
+
+- 房主创建 `room_5bfd44c30cf74b67927d0e09b723b54a` 时先显示 `Route ready: lax 175ms`，从机第一次加入却返回 `no online room route is currently advertised`；第二次加入返回 `INVALID_CONNECTION_STATE: Connection is not gathering direct candidates.`。生产数据库只读核对显示房间为 `RUNNING / lax / LEGACY_RELAY`，本次 connection 已保存 2 个 LAN 和 1 个 SRFLX 候选，且 LAN check 明确 `success=true, latency=10ms`。客户端在该成功 check 后约 1.19 秒主动关闭 connection，因此不能把第二次失败归因于 LAN 不通或没有候选。
+- 路由规划器原先让 Meta region discovery 与 UDP QoS probes 共用 3 秒总 deadline。目录请求接近耗尽该窗口时，Relay endpoint 虽已发现却没有获得第一次 UDP 探测机会，空结果随后被错误描述为“没有在线路由”。现在 discovery 与 probe 各有独立的 3 秒有界窗口；已发现但 UDP 全丢包继续返回专门的 route-check 诊断。
+- 0.9.9 从机会有界重报稳定候选以修复非重放 WebSocket 竞态。房主可先用第一次候选完成 LAN 选路，而已经进入队列的重复 candidate 随后才到达 Control Plane；旧后端在 `CONNECTED` 等推进状态返回 `INVALID_CONNECTION_STATE`，旧客户端又把任何 realtime `error` 都写成全局 `backend_error`，从而让过期错误抢先终止已成功的 carrier。
+
+### 双侧兼容修复
+
+- Toolbox 只把精确的 `INVALID_CONNECTION_STATE / Connection is not gathering direct candidates.` 识别为选路后稳定候选重放诊断，不再覆盖 connection 的 path-ready 结果。其他 realtime 错误仍保持 fail closed，匹配条件没有使用模糊子串。
+- Control Plane 在 `ALLOCATING_RELAY/RELAY_BINDING/MIGRATING_RELAY/CONNECTED` 中只允许同一参与者、同一 foundation 且类型、协议、地址、端口、优先级全部相同的候选幂等重放，返回原 candidate ID，不修改数据库也不重新广播。缺失候选或任何字段变化仍返回 `INVALID_CONNECTION_STATE`。
+- 后端热修复 commit `6c157daadbcd004ff77a56626d53224e6dcdb144` 已通过 GitHub CI 的真实 PostgreSQL race 测试、真实认证/房间/WebSocket/双 Relay UDP 集成、镜像 SBOM 与高危漏洞扫描，并部署到生产。外部 `/health/live` 与 `/health/ready` 均返回 200；生产 control-plane 容器使用 `sha-6c157d...` 且为 healthy。MetaServer 与 Edge Relay 保持原部署版本；同一 Control Plane Compose 栈中的无源码变化 AdminWeb 镜像随发布刷新。
+
+### 构建、签名与剩余验收
+
+- 普通 Toolbox 全目标两套各 `223/223`、`lab-testing` 两套各 `227/227`、Tauri `7/7`、前端 `44/44`，全部 0 失败；前端生产构建、Rust/Tauri release check、`cargo fmt --check` 和 Backend `go test ./...` 均通过。CI 的真实 PostgreSQL 用例额外固定“CONNECTED 后完全相同的候选重放成功，改变端口仍失败”。
+- 版本提升到 0.9.10。签名 Tauri EXE 大小 `48,798,096` 字节、SHA-256 `50E26BE171AA2F51570309AB58E68B08971DA8999E30285729669778B809D083`，文件版本 0.9.10；签名 EGUI EXE 大小 `42,940,816` 字节、SHA-256 `5A3A19641CCF3BBEFE97BC037F364A89AF31424F45295C3EF4E9434D5A960E22`。两者签名者指纹均为 `0A95D2BF69633F170BC383A78B71A52667A45780`，包含 RFC3161 时间戳。发布暂存目录为 `.tmp/release-0.9.10-20260829`。
+- 后端热修复可让既有 0.9.9 不再因完全相同的候选重放失败，但第一次 Relay discovery/probe 预算误报只能由 0.9.10 客户端修复。最终仍需主从机均升级 0.9.10、退出旧进程并创建全新房间，确认同一 connection carrier ready、Boundary 进入同一战局且能看到彼此、移动和射击；在取得该实机证据前不标记生产双机动态通过。
+
+## 31. 权威清单生产接线、活动大厅恢复与 Toolbox 0.9.12（2026-08-29）
+
+### 半成品绕过点与失败边界
+
+- Control Plane、Payload 和 Toolbox Rust 核心已经具备冻结清单、签名准入、承载 barrier 与自动启动能力，但生产 React 页面仍只调用旧 `list_rooms/create_room/join_room/launch_room`。因此此前的修复只存在于未被生产 UI 使用的核心层；实际玩家仍会经历 Legacy 房间的候选竞态、房主手工启动与非权威成员状态。
+- 生产 Compose 同时没有透传 `STRICT_ROSTER_V1_ENABLED`、锁定游戏哈希和 match-admission Ed25519 私钥。即使部署了代码，`/v1/client/config` 也不会安全公布 `strict_roster_v1=true`。这两个缺口共同构成此次“实现到一半”的根因。
+- 新 UI 首先读取服务端签名配置投影。查询失败时房间协议 fail closed；为 `false` 时保持既有 Legacy 行为；精确为 `true` 时只使用 match-lobby 命令，任何创建、加入、冻结或承载错误都不得回退到 Legacy 房间。
+
+### 完整权威链路
+
+- React 创建 P2P 权威大厅时按总容量拆成两队（10 人为 5+5），房主席位固定为 team 1，并立即提交 ready。加入端先读取最新 revision，选择仍有容量的队伍，最多重试一次并发 revision 冲突；席位创建后立即 ready。只有 owner 且全部成员 ready 时才显示“冻结清单并启动”，成员没有手工启动入口。
+- `start_match_lobby` 只负责冻结权威清单。后台随后签发 attempt/grant，Toolbox 的 match worker 建立 P2P carrier；只有 `match_carrier_ready` 后才触发 `match_auto_launch`。冻结后禁止普通离开；从机连接失败只使用 `retry_match_connection` 回收原席位，v1 不做主机迁移。
+- 增加 `GET /v1/match-lobbies/active` 解决 Toolbox/页面重启后的内存断层。普通成员只恢复公开 snapshot；P2P owner 的 host credential 由 Control Plane 从既有密文中解密并经受认证的 owner-only 响应交给 Rust controller，Tauri 命令和 React DTO 均不返回该 secret。不存在活动大厅时返回精确的 `MATCH_LOBBY_NOT_ACTIVE`，本地状态随之清除。
+- 前端监听 `match_lobby_updated`、`match_lobby_frozen`、`match_carrier_ready`、`match_auto_launch`、`match_connection_changed`、`match_returned_to_lobby` 和 `match_terminal`；严格模式下忽略旧 `rooms_updated`、`room_route_ready` 与 `active_room_changed`，避免两套状态机互相覆盖。
+
+### 配置、构建和验证
+
+- 生产与开发 Compose 已显式透传严格清单开关、锁定游戏 SHA-256、admission key ID 和 Ed25519 private seed；环境生成器为 admission 单独生成密钥。生产默认仍为 `false`，必须在 Control Plane、已签名玩家运行时和强制更新 Toolbox 同步可用后才切换。
+- Backend `go test ./...` 通过；match-lobby、P2P room、OpenAPI 与 Compose 定向测试通过。活动大厅 owner/member/无大厅断言已加入 PostgreSQL 集成测试，但本机没有 `TEST_DATABASE_URL`，该 DB-backed 用例按既有门禁跳过，不能冒充真实数据库动态通过。
+- Toolbox 普通 Rust 全目标两套各 `223/223`、`lab-testing` 两套各 `227/227`、Tauri `7/7`、前端 `48/48`，全部 0 失败；前端生产构建、Tauri release 构建、`cargo fmt --check` 与两仓库 `git diff --check` 通过。
+- 最终 Tauri 0.9.12 签名候选为 `.tmp/release-0.9.12-20260829/rebound_toolbox.exe`，大小 `48,850,320` 字节，SHA-256 `D7CAEEBC8E5E1BB7B82F2DB146F78A8582D5D5ABD1424864869A9047483EDBC0`，文件/产品版本均为 0.9.12。签名者指纹 `0A95D2BF69633F170BC383A78B71A52667A45780`，包含 Sectigo RFC3161 时间戳；本机链状态仅因项目私有根未受系统信任而为 `UntrustedRoot`。
+- 发布源需要同版本 `vnt-runtime-manifest.json` sidecar 供服务器提取运行时证明，但公开签名更新 Manifest 必须严格只含一个 `path=rebound_toolbox.exe, compression=none` 的文件。候选文件名已直接规范为小写，避免后台按对象原文件名自动填入 `Rebound_Toolbox.exe` 再触发客户端拒绝。
+- 尚未执行生产切门或两台真实 Steam 机器的最终验收。最低动态通过标准为：双方强制升级 0.9.12，创建全新 P2P 权威大厅，日志不出现旧 `create_room/join_room/launch_room`，owner 冻结同一 revision 后双方各自收到 carrier-ready 与 auto-launch，并进入同一战局看到彼此、移动和射击。取得这组证据前不把生产闭环标记为动态通过。

@@ -181,6 +181,7 @@ Provisioning has a configurable 120-second default deadline. Authority-ready sta
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET/POST | `/v1/match-lobbies` | List compatible open lobbies or create one with fixed `DEDICATED`/`P2P` hosting and two team capacities |
+| GET | `/v1/match-lobbies/active` | Restore the authenticated player's active lobby; only its P2P owner can recover the encrypted transport-host credential |
 | GET | `/v1/match-lobbies/{lobby_id}` | Read both complete team lists, readiness, online leases, logical team slots, state, and local capabilities |
 | POST | `/v1/match-lobbies/{lobby_id}/join` | Atomically reserve the lowest free slot in the requested team |
 | PUT | `/v1/match-lobbies/{lobby_id}/members/me/team` | Move to the lowest free slot in the other team and clear every ready flag |
@@ -200,7 +201,7 @@ The resulting `meta_matches` and `meta_match_players` rows are carrier projectio
 
 Allocation and join-grant bodies, authority sessions, transport host tokens, and grant JTIs stay in the Toolbox/server core and named pipe. They must not enter command lines, URLs, logs, or Tauri/UI DTOs. The feature is omitted from normal use unless `/v1/client/config` returns `features.strict_roster_v1=true`; the server requires an explicit Ed25519 key and the locked game SHA-256 before that flag can be enabled.
 
-The current locked-build, read-only dynamic probe has verified entry into both Boundary and Engine `PreLogin` implementations on the tested Dedicated route, but has not yet verified the real `NMT_Login` grant insertion point, a safe native server-side team writer, a true Listen authority world, or the local P2P host bypass. Therefore the shipped configuration keeps `strict_roster_v1=false`; `PostLogin`, client `ExpectedTeamID`, and direct structure-offset writes are explicitly not release fallbacks.
+The locked build now has signed-allocation/join-grant staging, fail-closed `PreLogin` admission, native Team/Camp setters with readback, a Listen authority path, and an exact signed host-seat bypass. Local two-process validation has covered remote `NMT_Login`, both players reaching the same Warehouse world, and stable authority player count. Production remains deployment-gated: enable `strict_roster_v1` only with the independent admission key, the exact locked game SHA-256, a compatible signed ToolBox, and a fresh two-machine acceptance run. `PostLogin`, client `ExpectedTeamID`, direct structure-offset writes, and fallback to standalone legacy rooms are not release fallbacks.
 
 Freezing a P2P lobby transactionally creates `p2p_match_sessions` and
 `p2p_match_roster` from `match_attempt_roster`, regardless of whether optional

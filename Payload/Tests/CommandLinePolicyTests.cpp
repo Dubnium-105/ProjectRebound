@@ -24,6 +24,14 @@ int main()
     Expect(CommandLinePolicy::HasExactSwitch(client, "-debuglog"),
         "exact debug switch should be found");
 
+    const std::string roomAuthority =
+        R"("C:\Boundary\game.exe" -RoomAuthority -roomid=room_1-alpha)";
+    Expect(CommandLinePolicy::HasExactSwitch(roomAuthority, "-roomauthority"),
+        "ordinary room authority switch should be case-insensitive");
+    Expect(!CommandLinePolicy::HasExactSwitch(
+        R"(game.exe -RoomAuthorityName=test)", "-RoomAuthority"),
+        "ordinary room authority requires an exact switch token");
+
     const std::string server =
         R"("C:\Boundary\game.exe" -server -servername="My Server" -LoadoutSpawnBridge=false)";
     Expect(CommandLinePolicy::HasExactSwitch(server, "-server"),

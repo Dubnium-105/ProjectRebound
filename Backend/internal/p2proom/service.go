@@ -95,10 +95,68 @@ func (s *Service) SetVNTLimiter(limiter interface {
 }
 
 func (s *Service) Create(ctx context.Context, actor Actor, input CreateInput) (CreateResult, error) {
+	if strings.TrimSpace(input.ManagedLobbyID) != "" {
+		return CreateResult{}, invalid("Invalid P2P room.", map[string]any{
+			"managed_lobby_id": "managed rooms can only be created by the match-lobby service",
+		})
+	}
+	return s.create(ctx, actor, input, true)
+}
+
+// CreateManaged creates the transport projection for an authoritative match
+// lobby. The lobby service has already authenticated the active player and
+// reserved the owner seat, so the legacy standalone-room registration
+// entitlement must not gate this internal projection.
+func (s *Service) CreateManaged(ctx context.Context, actor Actor, input CreateInput) (CreateResult, error) {
+	if strings.TrimSpace(input.ManagedLobbyID) == "" {
+		return CreateResult{}, invalid("Invalid managed P2P room.", map[string]any{
+			"managed_lobby_id": "is required",
+		})
+	}
+	return s.create(ctx, actor, input, false)
+}
+
+// RecoverManagedHostToken restores the encrypted host credential only for the
+// authenticated owner of the exact authoritative lobby projection. The token
+// remains absent from public room/lobby snapshots and does not need to be
+// persisted by the Toolbox frontend.
+func (s *Service) RecoverManagedHostToken(ctx context.Context, actor Actor, roomID, managedLobbyID string) (string, error) {
+	if err := requireActive(actor); err != nil {
+		return "", err
+	}
+	room, err := s.repository.Get(ctx, strings.TrimSpace(roomID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", notFound("ROOM_NOT_FOUND", "Room not found.")
+	}
+	if err != nil {
+		return "", internal(err)
+	}
+	if room.HostPlayerID != actor.PlayerID || room.ManagedLobbyID == "" || room.ManagedLobbyID != strings.TrimSpace(managedLobbyID) {
+		return "", forbidden("HOST_UNAUTHORIZED", "Managed room host credentials are unavailable.")
+	}
+	if s.vntSecrets == nil || len(room.HostTokenCiphertext) == 0 || len(room.HostTokenNonce) == 0 || room.HostTokenKeyID == "" || room.IdempotencyKey == "" {
+		return "", internal(errors.New("managed room host credential is not recoverable"))
+	}
+	plaintext, err := s.vntSecrets.Open(
+		room.HostTokenCiphertext,
+		room.HostTokenNonce,
+		roomHostTokenAAD(room.ID, actor.PlayerID, room.IdempotencyKey),
+		room.HostTokenKeyID,
+	)
+	if err != nil {
+		return "", internal(fmt.Errorf("recover managed room host credential: %w", err))
+	}
+	if subtle.ConstantTimeCompare(room.HostTokenHash, hashHostToken(string(plaintext))) != 1 {
+		return "", internal(errors.New("recovered managed room host credential does not match"))
+	}
+	return string(plaintext), nil
+}
+
+func (s *Service) create(ctx context.Context, actor Actor, input CreateInput, requireRegistration bool) (CreateResult, error) {
 	if err := requireActive(actor); err != nil {
 		return CreateResult{}, err
 	}
-	if s.entitlements != nil {
+	if requireRegistration && s.entitlements != nil {
 		allowed, err := s.entitlements.Has(ctx, actor.PlayerID, entitlement.P2PRoomRegistration)
 		if err != nil {
 			return CreateResult{}, internal(err)
@@ -312,7 +370,7 @@ func (s *Service) Join(ctx context.Context, actor Actor, roomID, version string)
 	if !room.ExpiresAt.After(now) {
 		return Room{}, conflict("ROOM_EXPIRED", "Room has expired.")
 	}
-	if room.State != StateLobby {
+	if !allowsMemberAttach(room) {
 		return Room{}, conflict("ROOM_NOT_JOINABLE", "Room is not accepting new members.")
 	}
 	allowed, err := s.repository.ManagedLobbyAllowsPlayer(ctx, tx, room.ID, actor.PlayerID)
@@ -368,6 +426,14 @@ func (s *Service) Join(ctx context.Context, actor Actor, roomID, version string)
 		return Room{}, err
 	}
 	return room, nil
+}
+
+// allowsMemberAttach keeps a live public authority joinable until capacity is
+// reached. Authentication, expiry, version and capacity remain enforced by
+// Join, while ManagedLobbyAllowsPlayer remains the additional frozen-roster
+// boundary for authoritative match lobbies.
+func allowsMemberAttach(room Room) bool {
+	return room.State == StateLobby || room.State == StateConnecting || room.State == StateRunning
 }
 
 func (s *Service) ResolveConnectionParticipants(ctx context.Context, roomID, actorPlayerID, requestedPeerPlayerID string) (string, string, error) {
@@ -444,6 +510,16 @@ func (s *Service) RelayRegion(ctx context.Context, roomID string) (string, error
 
 func (s *Service) ensureConnection(ctx context.Context, room Room, peerPlayerID string) error {
 	if room.TransportKind == TransportVNT || s.connectionCreator == nil || peerPlayerID == room.HostPlayerID {
+		return nil
+	}
+	// A strict-roster member is projected into the managed room while the
+	// authoritative lobby is still OPEN.  The listen host does not start its
+	// Legacy realtime route until the frozen attempt enters provisioning, so a
+	// connection created here would publish connection.created before the host
+	// can subscribe and the event would be lost.  Defer creation until the same
+	// frozen member attaches in CONNECTING/RUNNING; at that point both transport
+	// controllers are alive and can exchange candidates before game launch.
+	if room.ManagedLobbyID != "" && room.State == StateLobby {
 		return nil
 	}
 	if err := s.connectionCreator.EnsureForRoomPeer(ctx, room.ID, room.HostPlayerID, peerPlayerID); err != nil {

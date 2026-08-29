@@ -122,6 +122,32 @@ func TestAuthenticationLifecycleAgainstPostgreSQL(t *testing.T) {
 	})
 	meta := RequestMeta{RequestID: "req_integration", IPAddress: "192.0.2.10", UserAgent: "auth-integration-test"}
 
+	t.Run("explicit development allowlist creates a ticketless trusted lab session", func(t *testing.T) {
+		steamID := nextSteamID()
+		createdSteamIDs = append(createdSteamIDs, steamID)
+		service.config.DevelopmentTrustedSteamIDs = []string{steamID}
+		t.Cleanup(func() { service.config.DevelopmentTrustedSteamIDs = nil })
+
+		bound, err := service.Bind(ctx, BindInput{
+			SteamID: steamID, PersonaName: "Lab Player",
+		}, meta)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if bound.Player.AuthProvider != player.AuthProviderSteamClientAsserted ||
+			bound.Player.AuthLevel != player.AuthLevelTrusted ||
+			bound.AuthLevel != player.AuthLevelTrusted || !bound.SteamVerified {
+			t.Fatalf("development trusted bind = %#v", bound)
+		}
+		if bound.IntegrityChallenge.Nonce != "" {
+			t.Fatalf("ticketless lab bind unexpectedly registered a challenge: %#v", bound.IntegrityChallenge)
+		}
+		claims, err := tokenManager.Verify(bound.Tokens.AccessToken)
+		if err != nil || claims.AuthLevel != player.AuthLevelTrusted || !claims.SteamVerified {
+			t.Fatalf("development trusted claims = %#v, %v", claims, err)
+		}
+	})
+
 	t.Run("encrypted ticket establishes and preserves a verified session", func(t *testing.T) {
 		steamID := nextSteamID()
 		createdSteamIDs = append(createdSteamIDs, steamID)

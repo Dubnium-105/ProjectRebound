@@ -25,6 +25,48 @@ func TestValidateCandidateEnforcesAddressClass(t *testing.T) {
 	}
 }
 
+func TestStableCandidateReplayPolicy(t *testing.T) {
+	for _, state := range []State{
+		StateAllocatingRelay,
+		StateRelayBinding,
+		StateMigratingRelay,
+		StateConnected,
+	} {
+		if !acceptsStableCandidateReplay(state) {
+			t.Fatalf("state %s should accept an exact stable candidate replay", state)
+		}
+	}
+	for _, state := range []State{
+		StateCreated,
+		StateGatheringCandidates,
+		StateCheckingDirect,
+		StateFailed,
+		StateExpired,
+		StateClosed,
+	} {
+		if acceptsStableCandidateReplay(state) {
+			t.Fatalf("state %s should not use the advanced-state replay path", state)
+		}
+	}
+	input := candidateInput(CandidateLAN, "192.168.1.20")
+	candidate := Candidate{
+		ConnectionID:  input.ConnectionID,
+		Foundation:    input.Foundation,
+		CandidateType: input.CandidateType,
+		Protocol:      input.Protocol,
+		Address:       input.Address,
+		Port:          input.Port,
+		Priority:      input.Priority,
+	}
+	if !candidateMatchesInput(candidate, input) {
+		t.Fatal("exact candidate replay should match")
+	}
+	input.Port++
+	if candidateMatchesInput(candidate, input) {
+		t.Fatal("changed candidate must not match an existing stable candidate")
+	}
+}
+
 func candidateInput(candidateType CandidateType, address string) CandidateInput {
 	return CandidateInput{
 		ConnectionID: "conn_test", Foundation: "candidate-1", CandidateType: candidateType,

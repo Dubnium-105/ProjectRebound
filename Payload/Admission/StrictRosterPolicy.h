@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <mutex>
 #include <optional>
@@ -27,11 +28,25 @@ namespace StrictRoster
 
     struct SeatDecision : Decision
     {
+        std::string playerId;
+        std::string platformId;
+        std::string grantJti;
         int teamId = 0;
         int teamSlot = -1;
         int logicalSlot = -1;
         int connectionGeneration = 0;
         bool replacesConnection = false;
+    };
+
+    struct ConnectionEvent
+    {
+        std::uint64_t sequence = 0;
+        std::string attemptId;
+        std::string playerId;
+        std::string grantJti;
+        int connectionGeneration = 0;
+        int routeGeneration = 0;
+        bool connected = false;
     };
 
     using SignatureVerifier = std::function<bool(
@@ -167,6 +182,12 @@ namespace StrictRoster
 
         Policy(const Policy&) = delete;
         Policy& operator=(const Policy&) = delete;
+
+        void SetNativeAdmissionPathReady(const bool ready)
+        {
+            std::lock_guard lock(mutex_);
+            nativeAdmissionPathReady_ = ready;
+        }
 
         Decision InstallAllocation(
             const std::string_view allocation,
@@ -318,6 +339,7 @@ namespace StrictRoster
 				std::fill(allocation_->publicKey.begin(), allocation_->publicKey.end(),
 					static_cast<std::uint8_t>(0));
 				allocation_ = std::move(next);
+				connectionEvents_.clear();
 				if (wasStarted && allocation_->hostingKind == "P2P")
 				{
 					for (auto& [playerId, seat] : allocation_->seats)
@@ -357,73 +379,199 @@ namespace StrictRoster
             return Accept();
         }
 
-        SeatDecision ValidateJoinGrant(
-            const std::string_view grant,
+        SeatDecision StartAuthorityForAllocatedHost(const std::int64_t now)
+        {
+            std::lock_guard lock(mutex_);
+            if (!allocation_ || allocation_->expiresAt <= now)
+                return RejectSeat("allocation_unavailable", "a live allocation is not installed");
+            if (!nativeAdmissionPathReady_)
+                return RejectSeat("native_admission_unverified", "pinned PreLogin and team paths are not verified");
+            if (allocation_->hostingKind != "P2P")
+                return RejectSeat("host_binding_not_applicable", "only a P2P allocation has a local host seat");
+            const auto host = std::find_if(
+                allocation_->seats.begin(), allocation_->seats.end(),
+                [](const auto& entry) { return entry.second.roomRole == "HOST"; });
+            if (host == allocation_->seats.end())
+                return RejectSeat("host_seat_unavailable", "allocation has no unique local host seat");
+            host->second.connected = true;
+            authorityStarted_ = true;
+            SeatDecision decision;
+            decision.accepted = true;
+            decision.code = "accepted";
+            decision.playerId = host->second.playerId;
+            decision.platformId = host->second.platformId;
+            decision.teamId = host->second.teamId;
+            decision.teamSlot = host->second.teamSlot;
+            decision.logicalSlot = host->second.logicalSlot;
+            decision.connectionGeneration = host->second.generation;
+            activeDecisions_[decision.platformId] = decision;
+            return decision;
+        }
+
+        Decision StageJoinGrant(const std::string_view grant, const std::int64_t now)
+        {
+            std::lock_guard lock(mutex_);
+            if (!nativeAdmissionPathReady_ || !authorityStarted_ || !allocation_)
+                return Reject("admission_closed", "strict admission is not active");
+            if (allocation_->expiresAt <= now)
+                return Reject("allocation_expired", "strict admission allocation is expired");
+            const auto jwt = Detail::ParseJwt(grant);
+            if (!jwt || jwt->header.value("alg", "") != "EdDSA" ||
+                jwt->header.value("typ", "") != "match-join+jwt" ||
+                jwt->header.value("kid", "") != allocation_->keyId ||
+                !verifier_(allocation_->publicKey, jwt->signedData, jwt->signature))
+            {
+                return Reject("invalid_grant_signature", "join grant signature is invalid");
+            }
+            const auto& claims = jwt->claims;
+            PendingGrant pending;
+            pending.playerId = claims.value("player_id", "");
+            pending.platformId = claims.value("platform_id", "");
+            pending.jti = claims.value("jti", "");
+            pending.teamId = claims.value("team_id", 0);
+            pending.teamSlot = claims.value("team_slot", -1);
+            pending.logicalSlot = claims.value("logical_slot", -1);
+            pending.generation = claims.value("connection_generation", 0);
+            pending.expiresAt = claims.value("exp", std::int64_t{0});
+            if (claims.value("iss", "") != "game-control-plane" ||
+                claims.value("aud", "") != "project-rebound-match-client" ||
+                claims.value("kid", "") != allocation_->keyId ||
+                claims.value("attempt_id", "") != allocation_->attemptId ||
+                claims.value("lobby_id", "") != allocation_->lobbyId ||
+                claims.value("authority_id", "") != allocation_->authorityId ||
+                claims.value("authority_session_id", "") != allocation_->authoritySession ||
+                claims.value("hosting_kind", "") != allocation_->hostingKind ||
+                claims.value("roster_revision", std::int64_t{0}) != allocation_->rosterRevision ||
+                claims.value("route_generation", 0) != allocation_->routeGeneration ||
+                claims.value("nbf", std::int64_t{0}) > now + 5 ||
+                pending.expiresAt <= now ||
+                !Detail::SafeIdentifier(pending.jti, 96U) ||
+                !Detail::SafeIdentifier(pending.playerId) ||
+                !Detail::SafeIdentifier(pending.platformId))
+            {
+                return Reject("grant_claim_mismatch", "join grant claims do not match this authority");
+            }
+            const auto seatIt = allocation_->seats.find(pending.playerId);
+            if (seatIt == allocation_->seats.end())
+                return Reject("player_not_rostered", "player is not in the frozen roster");
+            const Seat& seat = seatIt->second;
+            if (allocation_->hostingKind == "P2P" && seat.roomRole == "HOST")
+                return Reject("host_uses_allocation", "the local P2P host cannot use a remote join grant");
+            if (pending.platformId != seat.platformId || pending.teamId != seat.teamId ||
+                pending.teamSlot != seat.teamSlot || pending.logicalSlot != seat.logicalSlot ||
+                pending.generation < seat.generation)
+            {
+                return Reject("seat_claim_mismatch", "join grant does not own the frozen seat");
+            }
+            if (usedJtis_.contains(pending.jti))
+                return Reject("grant_replayed", "join grant was already consumed");
+            const auto staged = stagedGrants_.find(pending.platformId);
+            if (staged != stagedGrants_.end())
+            {
+                if (staged->second.jti == pending.jti)
+                    return Accept();
+                if (pending.generation <= staged->second.generation)
+                    return Reject("grant_superseded", "a newer join grant is already staged for this seat");
+            }
+            stagedGrants_[pending.platformId] = std::move(pending);
+            return Accept();
+        }
+
+        SeatDecision ConsumeStagedJoinGrant(
             const std::string_view authenticatedPlatformId,
             const std::int64_t now)
         {
             std::lock_guard lock(mutex_);
             if (!nativeAdmissionPathReady_ || !authorityStarted_ || !allocation_)
                 return RejectSeat("admission_closed", "strict admission is not active");
-            if (allocation_->expiresAt <= now)
-                return RejectSeat("allocation_expired", "strict admission allocation is expired");
-            const auto jwt = Detail::ParseJwt(grant);
-			if (!jwt || jwt->header.value("alg", "") != "EdDSA" ||
-				jwt->header.value("typ", "") != "match-join+jwt" ||
-                jwt->header.value("kid", "") != allocation_->keyId ||
-                !verifier_(allocation_->publicKey, jwt->signedData, jwt->signature))
+            const auto staged = stagedGrants_.find(std::string(authenticatedPlatformId));
+            if (staged == stagedGrants_.end())
+                return RejectSeat("grant_not_staged", "no staged join grant matches the authenticated identity");
+            const PendingGrant pending = staged->second;
+            if (pending.expiresAt <= now)
             {
-                return RejectSeat("invalid_grant_signature", "join grant signature is invalid");
+                stagedGrants_.erase(staged);
+                return RejectSeat("grant_expired", "the staged join grant has expired");
             }
-            const auto& claims = jwt->claims;
-            const std::string playerId = claims.value("player_id", "");
-            const std::string platformId = claims.value("platform_id", "");
-            const std::string jti = claims.value("jti", "");
-			if (claims.value("iss", "") != "game-control-plane" ||
-				claims.value("aud", "") != "project-rebound-match-client" ||
-				claims.value("kid", "") != allocation_->keyId ||
-                claims.value("attempt_id", "") != allocation_->attemptId ||
-                claims.value("lobby_id", "") != allocation_->lobbyId ||
-                claims.value("authority_id", "") != allocation_->authorityId ||
-                claims.value("authority_session_id", "") != allocation_->authoritySession ||
-				claims.value("hosting_kind", "") != allocation_->hostingKind ||
-                claims.value("roster_revision", std::int64_t{0}) != allocation_->rosterRevision ||
-                claims.value("route_generation", 0) != allocation_->routeGeneration ||
-                claims.value("nbf", std::int64_t{0}) > now + 5 ||
-                claims.value("exp", std::int64_t{0}) <= now ||
-                platformId != authenticatedPlatformId || !Detail::SafeIdentifier(jti, 96U))
-            {
-                return RejectSeat("grant_claim_mismatch", "join grant claims do not match this authority");
-            }
-            const auto seatIt = allocation_->seats.find(playerId);
-            if (seatIt == allocation_->seats.end())
-                return RejectSeat("player_not_rostered", "player is not in the frozen roster");
+            const auto seatIt = allocation_->seats.find(pending.playerId);
+            if (seatIt == allocation_->seats.end() || seatIt->second.platformId != authenticatedPlatformId)
+                return RejectSeat("player_not_rostered", "authenticated identity is not in the frozen roster");
             Seat& seat = seatIt->second;
-			if (allocation_->hostingKind == "P2P" && seat.roomRole == "HOST")
-				return RejectSeat("host_uses_allocation", "the local P2P host cannot use a remote join grant");
-            const int generation = claims.value("connection_generation", 0);
-            if (platformId != seat.platformId || claims.value("team_id", 0) != seat.teamId ||
-                claims.value("team_slot", -1) != seat.teamSlot ||
-                claims.value("logical_slot", -1) != seat.logicalSlot ||
-                generation < seat.generation)
-            {
-                return RejectSeat("seat_claim_mismatch", "join grant does not own the frozen seat");
-            }
-            if (!usedJtis_.insert(jti).second)
+            if (!usedJtis_.insert(pending.jti).second)
                 return RejectSeat("grant_replayed", "join grant was already consumed");
-            if (seat.connected && generation == seat.generation)
+            if (seat.connected && pending.generation == seat.generation)
                 return RejectSeat("seat_already_connected", "seat already has a live connection");
             SeatDecision decision;
             decision.accepted = true;
             decision.code = "accepted";
-            decision.teamId = seat.teamId;
-            decision.teamSlot = seat.teamSlot;
-            decision.logicalSlot = seat.logicalSlot;
-            decision.connectionGeneration = generation;
-            decision.replacesConnection = seat.connected && generation > seat.generation;
-            seat.generation = generation;
+            decision.playerId = pending.playerId;
+            decision.platformId = pending.platformId;
+            decision.grantJti = pending.jti;
+            decision.teamId = pending.teamId;
+            decision.teamSlot = pending.teamSlot;
+            decision.logicalSlot = pending.logicalSlot;
+            decision.connectionGeneration = pending.generation;
+            decision.replacesConnection = seat.connected && pending.generation > seat.generation;
+            seat.generation = pending.generation;
             seat.connected = true;
+            seat.grantJti = pending.jti;
+            activeDecisions_[decision.platformId] = decision;
+            stagedGrants_.erase(staged);
             return decision;
+        }
+
+        SeatDecision ValidateJoinGrant(
+            const std::string_view grant,
+            const std::string_view authenticatedPlatformId,
+            const std::int64_t now)
+        {
+            const Decision staged = StageJoinGrant(grant, now);
+            if (!staged.accepted)
+                return RejectSeat(staged.code, staged.message);
+            return ConsumeStagedJoinGrant(authenticatedPlatformId, now);
+        }
+
+        std::optional<SeatDecision> ActiveDecision(const std::string_view platformId) const
+        {
+            std::lock_guard lock(mutex_);
+            const auto found = activeDecisions_.find(std::string(platformId));
+            return found == activeDecisions_.end()
+                ? std::nullopt : std::optional<SeatDecision>(found->second);
+        }
+
+        bool AdmissionActive() const
+        {
+            std::lock_guard lock(mutex_);
+            return nativeAdmissionPathReady_ && authorityStarted_ && allocation_.has_value();
+        }
+
+        Decision MarkConnected(const std::string_view playerId, const int generation)
+        {
+            std::lock_guard lock(mutex_);
+            if (!allocation_)
+                return Reject("allocation_unavailable", "allocation is unavailable");
+            const auto found = allocation_->seats.find(std::string(playerId));
+            if (found == allocation_->seats.end() || found->second.generation != generation ||
+                !found->second.connected)
+            {
+                return Reject("connection_generation_stale",
+                    "connected generation is stale or has no consumed grant");
+            }
+            Seat& seat = found->second;
+            if (seat.roomRole == "HOST")
+                return Accept();
+            if (seat.grantJti.empty())
+            {
+                return Reject("connection_generation_stale",
+                    "connected generation is stale or has no consumed grant");
+            }
+            if (!seat.reportObserved || !seat.reportedConnected)
+            {
+                seat.reportObserved = true;
+                seat.reportedConnected = true;
+                AppendConnectionEventLocked(seat, true);
+            }
+            return Accept();
         }
 
         Decision MarkDisconnected(const std::string_view playerId, const int generation)
@@ -434,8 +582,32 @@ namespace StrictRoster
             const auto found = allocation_->seats.find(std::string(playerId));
             if (found == allocation_->seats.end() || found->second.generation != generation)
                 return Reject("connection_generation_stale", "disconnect generation is stale");
-            found->second.connected = false;
+            Seat& seat = found->second;
+            seat.connected = false;
+            if (seat.reportObserved && seat.reportedConnected)
+            {
+                seat.reportedConnected = false;
+                AppendConnectionEventLocked(seat, false);
+            }
             return Accept();
+        }
+
+        std::vector<ConnectionEvent> ConnectionEventsAfter(
+            const std::uint64_t sequence,
+            const std::size_t maximum = 64U) const
+        {
+            std::lock_guard lock(mutex_);
+            std::vector<ConnectionEvent> result;
+            result.reserve((std::min)(maximum, connectionEvents_.size()));
+            for (const auto& event : connectionEvents_)
+            {
+                if (event.sequence <= sequence)
+                    continue;
+                result.push_back(event);
+                if (result.size() >= maximum)
+                    break;
+            }
+            return result;
         }
 
         void Reset() noexcept
@@ -455,6 +627,9 @@ namespace StrictRoster
             int logicalSlot = -1;
             int generation = 0;
             bool connected = false;
+            bool reportObserved = false;
+            bool reportedConnected = false;
+            std::string grantJti;
         };
 
         struct Allocation
@@ -472,6 +647,18 @@ namespace StrictRoster
 			int connectionWindowSeconds = 0;
             std::int64_t expiresAt = 0;
             std::unordered_map<std::string, Seat> seats;
+        };
+
+        struct PendingGrant
+        {
+            std::string playerId;
+            std::string platformId;
+            std::string jti;
+            int teamId = 0;
+            int teamSlot = -1;
+            int logicalSlot = -1;
+            int generation = 0;
+            std::int64_t expiresAt = 0;
         };
 
         static Decision Accept()
@@ -492,6 +679,24 @@ namespace StrictRoster
             return result;
         }
 
+        void AppendConnectionEventLocked(const Seat& seat, const bool connected)
+        {
+            if (!allocation_ || seat.grantJti.empty())
+                return;
+            ConnectionEvent event;
+            event.sequence = ++nextConnectionEventSequence_;
+            event.attemptId = allocation_->attemptId;
+            event.playerId = seat.playerId;
+            event.grantJti = seat.grantJti;
+            event.connectionGeneration = seat.generation;
+            event.routeGeneration = allocation_->routeGeneration;
+            event.connected = connected;
+            connectionEvents_.push_back(std::move(event));
+            constexpr std::size_t kMaximumRetainedConnectionEvents = 256U;
+            while (connectionEvents_.size() > kMaximumRetainedConnectionEvents)
+                connectionEvents_.pop_front();
+        }
+
         void ResetLocked() noexcept
         {
             if (allocation_)
@@ -503,14 +708,22 @@ namespace StrictRoster
             }
             allocation_.reset();
             usedJtis_.clear();
+            stagedGrants_.clear();
+            activeDecisions_.clear();
+            connectionEvents_.clear();
+            nextConnectionEventSequence_ = 0;
             authorityStarted_ = false;
         }
 
         SignatureVerifier verifier_;
         bool nativeAdmissionPathReady_ = false;
-        std::mutex mutex_;
+        mutable std::mutex mutex_;
         std::optional<Allocation> allocation_;
         std::unordered_set<std::string> usedJtis_;
+        std::unordered_map<std::string, PendingGrant> stagedGrants_;
+        std::unordered_map<std::string, SeatDecision> activeDecisions_;
+        std::deque<ConnectionEvent> connectionEvents_;
+        std::uint64_t nextConnectionEventSequence_ = 0;
         bool authorityStarted_ = false;
     };
 }

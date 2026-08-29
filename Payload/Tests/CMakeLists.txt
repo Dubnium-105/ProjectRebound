@@ -52,6 +52,15 @@ enable_strict_warnings(command_line_policy_tests)
 
 add_test(NAME command_line_policy_tests COMMAND command_line_policy_tests)
 
+add_executable(server_hook_policy_tests
+    ServerHookPolicyTests.cpp
+)
+
+target_compile_features(server_hook_policy_tests PRIVATE cxx_std_20)
+enable_strict_warnings(server_hook_policy_tests)
+
+add_test(NAME server_hook_policy_tests COMMAND server_hook_policy_tests)
+
 add_executable(local_qos_discovery_policy_tests
     LocalQosDiscoveryPolicyTests.cpp
 )

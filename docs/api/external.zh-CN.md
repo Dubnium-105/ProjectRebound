@@ -181,6 +181,7 @@ Provisioning 默认期限为 120 秒。Authority-ready 后另行开启 120 秒�
 | 方法 | 路径 | 用途 |
 | --- | --- | --- |
 | GET/POST | `/v1/match-lobbies` | 列出兼容的公开大厅，或创建固定为 `DEDICATED`/`P2P` 且具有双阵营容量的大厅 |
+| GET | `/v1/match-lobbies/active` | 恢复当前账号的活动权威大厅；仅 P2P 房主可同时恢复加密保存的传输 Host Token |
 | GET | `/v1/match-lobbies/{lobby_id}` | 读取两队完整名单、准备/在线租约、逻辑席位、状态和本地能力 |
 | POST | `/v1/match-lobbies/{lobby_id}/join` | 原子保留目标阵营最低空闲席位 |
 | PUT | `/v1/match-lobbies/{lobby_id}/members/me/team` | 移至另一阵营最低空闲席位，并清除所有成员的准备状态 |
@@ -200,7 +201,7 @@ Dedicated 的 `meta_matches/meta_match_players` 只是严格 attempt 所拥有�
 
 Allocation、join grant、authority session、传输 Host Token 和 JTI 只能存在于 Toolbox/server 核心及命名管道中，禁止进入命令行、URL、日志或 Tauri/UI DTO。只有 `/v1/client/config` 返回 `features.strict_roster_v1=true` 时客户端才可使用本流程；服务端开启前必须配置独立 Ed25519 密钥和锁定游戏 SHA-256。
 
-当前锁定构建的 Luna/Frida 只读动态探针已经确认测试 Dedicated 路径进入 Boundary 与 Engine 的 `PreLogin`，但尚未确认真实 `NMT_Login` 授权注入点、安全的原生服务端阵营写入路径、真正的 Listen authority world，以及 P2P 本地主机旁路。因此发布配置保持 `strict_roster_v1=false`；`PostLogin`、客户端 `ExpectedTeamID` 和直接写结构偏移都不是允许的回退方案。
+锁定构建现已具备签名 allocation/join grant 暂存、fail-closed `PreLogin` 准入、带读回的原生 Team/Camp setter、Listen authority 及精确签名房主席位旁路。本地双进程验证已覆盖远端 `NMT_Login`、双方进入同一 Warehouse 世界及 authority player count 稳定。生产仍受发布门禁约束：只有同时配置独立准入密钥、精确锁定游戏 SHA-256、兼容的签名 ToolBox，并完成一次全新双机验收后才可启用 `strict_roster_v1`。`PostLogin`、客户端 `ExpectedTeamID`、直接结构偏移写入以及回退独立旧房间都不是发布回退方案。
 
 ### 3.6 P2P BattleLog v3
 

@@ -754,7 +754,9 @@ public:
         }
 
         ++player->FailedAttempts;
-        if (result.IsRetryable())
+        const bool shouldRetry = LoadoutStatePolicy::ShouldRetryBaselineFetch(
+            result.IsRetryable(), player->FailedAttempts);
+        if (shouldRetry)
         {
             player->NextFetchAt = Clock::now() +
                 LoadoutStatePolicy::RetryDelay(player->FailedAttempts);
@@ -767,7 +769,8 @@ public:
             " generation=" + std::to_string(key.Generation) +
             " stage=baseline-fetch result=failed status=" +
             std::to_string(result.Http.StatusCode) +
-            " retry=" + (result.IsRetryable() ? "1" : "0") +
+            " retry=" + (shouldRetry ? "1" : "0") +
+            (shouldRetry ? "" : " fallback=native") +
             " reason=" + result.Http.ErrorMessage);
     }
 
@@ -793,11 +796,23 @@ public:
                 {
                     player->FetchInFlight = false;
                     ++player->FailedAttempts;
-                    player->NextFetchAt = Clock::now() +
-                        LoadoutStatePolicy::RetryDelay(player->FailedAttempts);
+                    const bool shouldRetry =
+                        LoadoutStatePolicy::ShouldRetryBaselineFetch(
+                            true, player->FailedAttempts);
+                    if (shouldRetry)
+                    {
+                        player->NextFetchAt = Clock::now() +
+                            LoadoutStatePolicy::RetryDelay(player->FailedAttempts);
+                    }
+                    else
+                    {
+                        player->FetchTerminal = true;
+                    }
                     ClientLog("[LOADOUT] player=" + PlayerTag(task->Key.PlayerId) +
                         " stage=baseline-fetch result=worker-exception reason=" +
-                        exception.what());
+                        exception.what() + " retry=" +
+                        (shouldRetry ? "1" : "0") +
+                        (shouldRetry ? "" : " fallback=native"));
                 }
             }
             catch (...)
@@ -807,8 +822,18 @@ public:
                 {
                     player->FetchInFlight = false;
                     ++player->FailedAttempts;
-                    player->NextFetchAt = Clock::now() +
-                        LoadoutStatePolicy::RetryDelay(player->FailedAttempts);
+                    const bool shouldRetry =
+                        LoadoutStatePolicy::ShouldRetryBaselineFetch(
+                            true, player->FailedAttempts);
+                    if (shouldRetry)
+                    {
+                        player->NextFetchAt = Clock::now() +
+                            LoadoutStatePolicy::RetryDelay(player->FailedAttempts);
+                    }
+                    else
+                    {
+                        player->FetchTerminal = true;
+                    }
                 }
             }
             task = FetchTasks.erase(task);

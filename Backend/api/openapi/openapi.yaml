@@ -2579,7 +2579,7 @@ paths:
         content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyCreateRequest"}}}
       responses:
         "201":
-          description: Lobby and owner seat created. P2P host credentials are returned only here.
+          description: Lobby and owner seat created. P2P host credentials are returned only to the authenticated owner on create or active-lobby recovery.
           content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyCreateResponse"}}}
         "400": {$ref: "#/components/responses/InvalidRequest"}
         "401": {$ref: "#/components/responses/Unauthorized"}
@@ -2594,6 +2594,20 @@ paths:
         "200":
           description: Authoritative two-team lobby snapshot.
           content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /v1/match-lobbies/active:
+    get:
+      operationId: getActiveMatchLobby
+      tags: [Match Lobbies]
+      security: [{playerAccessToken: []}]
+      responses:
+        "200":
+          description: The authenticated player's active authoritative lobby, including frozen or running attempts.
+          headers:
+            Cache-Control: {schema: {type: string}}
+            Pragma: {schema: {type: string}}
+          content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyCreateResponse"}}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
         "404": {$ref: "#/components/responses/NotFound"}
   /v1/match-lobbies/{lobby_id}/join:
     post:

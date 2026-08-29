@@ -113,9 +113,11 @@ namespace
     std::atomic<bool> ownedSeamlessIntroRoundBoundaryReached{false};
     std::atomic<bool> nativeRespawnUiCleanupPending{false};
     std::atomic<bool> loginCompleted{false};
+    std::atomic<ULONGLONG> loginTravelReadyAtTick{0};
     std::atomic<DWORD> gameThreadId{0};
 
     constexpr auto LoginSettleDelay = std::chrono::seconds(2);
+    constexpr ULONGLONG LoginTravelSettleMilliseconds = 2000;
     constexpr auto FrontendCleanupDuration = std::chrono::seconds(30);
     constexpr auto FrontendCleanupInterval = std::chrono::milliseconds(500);
 
@@ -1365,11 +1367,12 @@ bool QueueConnectToMatchAuthorized(
         return false;
     }
 
-    // A direct travel here would bypass NMT_Login admission and lose the
-    // signed roster claim. Keep strict joins closed until the locked build's
-    // client login-message injection site is proven dynamically.
-    ClientLog("[STRICT-ROSTER] Join rejected: pinned NMT_Login injection path is unverified.");
-    return false;
+    // Meta withholds launch until the scoped authority has verified and
+    // staged this one-use grant. The locked NMT_Login format cannot safely
+    // carry the JWT; the authority binds it to the authenticated UniqueId in
+    // PreLogin instead. Never place the bearer in the travel URL.
+    ClientLog("[STRICT-ROSTER] Authority staged admission; queuing identity-bound travel.");
+    return QueueConnectToMatch(target);
 }
 
 void ConnectToMatch()
@@ -1397,14 +1400,36 @@ void AutoConnectToMatchFromCmdline()
 
 void NotifyClientLoginCompleted()
 {
-    gameThreadId.store(GetCurrentThreadId());
-    loginCompleted.store(true);
+    bool expected = false;
+    if (!loginCompleted.compare_exchange_strong(
+            expected, true, std::memory_order_acq_rel))
+    {
+        return;
+    }
+    gameThreadId.store(GetCurrentThreadId(), std::memory_order_release);
+    loginTravelReadyAtTick.store(
+        GetTickCount64() + LoginTravelSettleMilliseconds,
+        std::memory_order_release);
     ClientLog("[ARCHIVE] Native QueryAssets/GetPlayerArchiveV2 ownership enabled; "
               "client archive mirrors are read-only.");
     if (IsNativeArchiveOnly())
     {
         ClientLog("[LOADOUT] NativeArchiveOnly active; client FieldMod initialization is read-only.");
     }
+}
+
+bool IsClientLoginCompleted()
+{
+    return loginCompleted.load(std::memory_order_acquire);
+}
+
+bool IsClientLoginReadyForTravel()
+{
+    if (!IsClientLoginCompleted())
+        return false;
+    const ULONGLONG readyAt =
+        loginTravelReadyAtTick.load(std::memory_order_acquire);
+    return readyAt != 0 && GetTickCount64() >= readyAt;
 }
 
 void PumpPendingClientCommands()

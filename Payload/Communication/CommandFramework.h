@@ -19,7 +19,9 @@ public:
     using DebugCallback = std::function<nlohmann::json(const nlohmann::json& arguments)>;
     using ServerStatusCallback = std::function<nlohmann::json()>;
     using MatchAllocationCallback = std::function<nlohmann::json(const nlohmann::json& arguments)>;
+    using MatchJoinGrantCallback = std::function<nlohmann::json(const nlohmann::json& arguments)>;
     using MatchAuthorityCallback = std::function<nlohmann::json(const nlohmann::json& arguments)>;
+    using MatchConnectionEventsCallback = std::function<nlohmann::json(const nlohmann::json& arguments)>;
     using MatchClearCallback = std::function<void()>;
 
     CommandFramework();
@@ -39,7 +41,9 @@ public:
     void SetDebugCallback(DebugCallback callback);
     void SetServerStatusCallback(ServerStatusCallback callback);
     void SetMatchAllocationCallback(MatchAllocationCallback callback);
+    void SetMatchJoinGrantCallback(MatchJoinGrantCallback callback);
     void SetMatchAuthorityCallback(MatchAuthorityCallback callback);
+    void SetMatchConnectionEventsCallback(MatchConnectionEventsCallback callback);
     void SetMatchClearCallback(MatchClearCallback callback);
 
     [[nodiscard]] bool Start();
@@ -161,7 +165,9 @@ private:
     DebugCallback onDebug;
     ServerStatusCallback onServerStatus;
     MatchAllocationCallback onMatchAllocation;
+    MatchJoinGrantCallback onMatchJoinGrant;
     MatchAuthorityCallback onMatchAuthority;
+    MatchConnectionEventsCallback onMatchConnectionEvents;
     MatchClearCallback onMatchClear;
 
     SECURITY_ATTRIBUTES securityAttributes{};

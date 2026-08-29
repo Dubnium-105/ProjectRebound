@@ -47,7 +47,7 @@ func TestSignedManifestCatalogAndChannels(t *testing.T) {
 		SchemaVersion: 1, Product: cfg.Product, Platform: "windows", Architecture: "amd64", Channel: "toolbox",
 		Version: "0.9.0", MinimumSupportedVersion: "0.8.0", PublishedAt: time.Date(2026, 7, 18, 3, 4, 5, 0, time.UTC),
 		VNTRuntime: &VNTRuntimeRelease{VNTSVersion: "1.2.12", WrapperVersion: "0.1.0"},
-		Files:      []SourceFile{{FileID: "file_toolbox", Path: "Rebound_Toolbox.exe", Size: 40, SHA256: repeatHex("d"), Compression: "none", ObjectKey: "toolbox/0.9.0/Rebound_Toolbox.exe"}},
+		Files:      []SourceFile{{FileID: "file_toolbox", Path: "rebound_toolbox.exe", Size: 40, SHA256: repeatHex("d"), Compression: "none", ObjectKey: "toolbox/0.9.0/Rebound_Toolbox.exe"}},
 	})
 	service, err := NewService(cfg, "test", fixedRelayDirectory{regions: []string{"hk", "us-west"}})
 	if err != nil {
@@ -115,6 +115,28 @@ func TestSignedManifestCatalogAndChannels(t *testing.T) {
 	}
 }
 
+func TestClientConfigUsesEmptyArraysWhenNoRelayRegionsAreAvailable(t *testing.T) {
+	cfg := testUpdateConfig(t)
+	service, err := NewService(cfg, "test", fixedRelayDirectory{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	clientConfig, err := service.ClientConfig(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if clientConfig.Relay.Regions == nil {
+		t.Fatal("relay regions must be an empty array, not nil")
+	}
+	encoded, err := json.Marshal(clientConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(encoded, []byte(`"regions":[]`)) {
+		t.Fatalf("client config JSON = %s", encoded)
+	}
+}
+
 func TestResolveVNTRuntimeReadsVerifiedToolboxReleaseSidecar(t *testing.T) {
 	body := []byte(`{"releaseId":"project-rebound-vnt-runtime-0.1.0","wrapperVersion":"0.1.0","vnts":{"version":"1.2.12"}}`)
 	digest := sha256.Sum256(body)
@@ -178,6 +200,45 @@ func TestResolveVNTRuntimeReadsVerifiedToolboxReleaseSidecar(t *testing.T) {
 	withoutSidecar.VNTRuntime = &VNTRuntimeRelease{VNTSVersion: "9.9.9", WrapperVersion: "9.9.9"}
 	if _, err := service.ResolveVNTRuntime(context.Background(), withoutSidecar); err == nil {
 		t.Fatal("caller-supplied runtime versions bypassed the required release sidecar")
+	}
+}
+
+func TestToolboxManifestRequiresCanonicalUncompressedExecutable(t *testing.T) {
+	cfg := testUpdateConfig(t)
+	service, err := NewService(cfg, "test", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := SourceRelease{
+		SchemaVersion: 1, Product: cfg.Product, Platform: "windows", Architecture: "amd64", Channel: ChannelToolbox,
+		Version: "0.9.12", MinimumSupportedVersion: "0.9.12", PublishedAt: time.Now().UTC(),
+		Files: []SourceFile{{
+			FileID: "file_toolbox", Path: toolboxExecutablePath, Size: 1,
+			SHA256: repeatHex("a"), Compression: "none", ObjectKey: "toolbox/0.9.12/rebound_toolbox.exe",
+		}},
+	}
+	if _, err := service.BuildAndSign(base); err != nil {
+		t.Fatalf("canonical toolbox manifest was rejected: %v", err)
+	}
+
+	for name, mutate := range map[string]func(*SourceRelease){
+		"wrong path case": func(source *SourceRelease) { source.Files[0].Path = "Rebound_Toolbox.exe" },
+		"compressed":      func(source *SourceRelease) { source.Files[0].Compression = "zstd" },
+		"extra payload": func(source *SourceRelease) {
+			source.Files = append(source.Files, SourceFile{
+				FileID: "file_extra", Path: "extra.bin", Size: 1,
+				SHA256: repeatHex("b"), Compression: "none", ObjectKey: "toolbox/0.9.12/extra.bin",
+			})
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			candidate := base
+			candidate.Files = append([]SourceFile(nil), base.Files...)
+			mutate(&candidate)
+			if _, err := service.BuildAndSign(candidate); err == nil {
+				t.Fatal("invalid toolbox manifest was accepted")
+			}
+		})
 	}
 }
 

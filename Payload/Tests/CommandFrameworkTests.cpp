@@ -168,12 +168,36 @@ namespace
                         "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843"}
                 };
             });
+        framework.SetMatchJoinGrantCallback([](const nlohmann::json& arguments)
+            {
+                return nlohmann::json{
+                    {"accepted", arguments.value("join_grant", "") == "signed.join.grant"},
+                    {"code", "grant_rejected"},
+                    {"message", "test rejection"}
+                };
+            });
         framework.SetMatchAuthorityCallback([](const nlohmann::json& arguments)
             {
                 return nlohmann::json{
                     {"accepted", arguments.value("transport_target", "") == "10.26.0.2:7777"},
                     {"endpoint_host", "10.26.0.2"},
                     {"endpoint_port", 7777}
+                };
+            });
+        framework.SetMatchConnectionEventsCallback([](const nlohmann::json& arguments)
+            {
+                const auto after = arguments.value("after_sequence", 0ULL);
+                return nlohmann::json{
+                    {"next_sequence", after + 1},
+                    {"events", nlohmann::json::array({nlohmann::json{
+                        {"sequence", after + 1},
+                        {"attempt_id", "mat_test"},
+                        {"route_generation", 1},
+                        {"player_id", "player_test"},
+                        {"grant_jti", "mj_test"},
+                        {"connection_generation", 2},
+                        {"state", "DISCONNECTED"}
+                    }})}
                 };
             });
         framework.SetMatchClearCallback([&clearCalls]() { ++clearCalls; });
@@ -232,6 +256,15 @@ namespace
                 "allocation acknowledgement is correlated and does not echo secrets");
 
             Expect(WriteFrame(client.Get(),
+                "install_match_join_grant\t{\"request_id\":\"grant-1\",\"join_grant\":\"signed.join.grant\"}\n"),
+                "join grant request is written");
+            const std::string staged = ReadFrame(client.Get());
+            Expect(staged.find("install_match_join_grant_ack\t") == 0 &&
+                staged.find("\"request_id\":\"grant-1\"") != std::string::npos &&
+                staged.find("signed.join.grant") == std::string::npos,
+                "join grant acknowledgement is correlated and does not echo secrets");
+
+            Expect(WriteFrame(client.Get(),
                 "start_match_authority\t{\"request_id\":\"authority-1\",\"transport_target\":\"10.26.0.2:7777\"}\n"),
                 "authority request is written");
             const std::string authority = ReadFrame(client.Get());
@@ -239,6 +272,16 @@ namespace
                 authority.find("\"endpoint_port\":7777") != std::string::npos &&
                 authority.find("\"request_id\":\"authority-1\"") != std::string::npos,
                 "authority acknowledgement is correlated and public-only");
+
+            Expect(WriteFrame(client.Get(),
+                "match_connection_events\t{\"request_id\":\"events-1\",\"after_sequence\":7}\n"),
+                "connection event request is written");
+            const std::string events = ReadFrame(client.Get());
+            Expect(events.find("match_connection_events_ack\t") == 0 &&
+                events.find("\"request_id\":\"events-1\"") != std::string::npos &&
+                events.find("\"next_sequence\":8") != std::string::npos &&
+                events.find("\"state\":\"DISCONNECTED\"") != std::string::npos,
+                "connection event response is correlated and generation-scoped");
 
             Expect(WriteFrame(client.Get(),
                 "clear_match_allocation\t{\"request_id\":\"clear-1\"}\n"),

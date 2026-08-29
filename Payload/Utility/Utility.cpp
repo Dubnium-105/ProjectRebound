@@ -48,16 +48,75 @@ SDK::UObject *GetLastOfType(SDK::UClass *theClass, bool includeDefault)
     return nullptr;
 }
 
-// Force press space when autoconnect so it wont stuck to wait for player to press
+namespace
+{
+    struct BoundaryWindowSearch
+    {
+        DWORD ProcessId = 0;
+        HWND Window = nullptr;
+    };
+
+    BOOL CALLBACK FindBoundaryGameWindow(HWND window, LPARAM parameter)
+    {
+        auto* const search = reinterpret_cast<BoundaryWindowSearch*>(parameter);
+        if (!search || !IsWindowVisible(window))
+            return TRUE;
+
+        DWORD processId = 0;
+        GetWindowThreadProcessId(window, &processId);
+        if (processId != search->ProcessId)
+            return TRUE;
+
+        wchar_t className[128]{};
+        GetClassNameW(window, className, static_cast<int>(_countof(className)));
+        if (_wcsicmp(className, L"UnrealWindow") == 0)
+        {
+            search->Window = window;
+            return FALSE;
+        }
+
+        // Keep a title-bound fallback for the pinned build, but never select
+        // the AllocConsole window whose title is the executable path.
+        wchar_t title[256]{};
+        GetWindowTextW(window, title, static_cast<int>(_countof(title)));
+        if (_wcsicmp(className, L"ConsoleWindowClass") != 0 &&
+            wcsstr(title, L"Boundary") != nullptr)
+        {
+            search->Window = window;
+            return FALSE;
+        }
+        return TRUE;
+    }
+}
+
+// Deliver auto-login only to this process's Unreal window. A debug console is
+// intentionally created by -debuglog and can otherwise steal foreground
+// SendInput, leaving the actual EnterGame widget untouched.
 void PressSpace()
 {
+    BoundaryWindowSearch search{GetCurrentProcessId(), nullptr};
+    EnumWindows(FindBoundaryGameWindow, reinterpret_cast<LPARAM>(&search));
+    if (!search.Window)
+        return;
+
+    const DWORD currentThread = GetCurrentThreadId();
+    const DWORD windowThread = GetWindowThreadProcessId(search.Window, nullptr);
+    const bool attached = currentThread != windowThread && windowThread != 0 &&
+        AttachThreadInput(currentThread, windowThread, TRUE) != FALSE;
+    ShowWindow(search.Window, SW_RESTORE);
+    BringWindowToTop(search.Window);
+    SetForegroundWindow(search.Window);
+    SetFocus(search.Window);
+    if (attached)
+        AttachThreadInput(currentThread, windowThread, FALSE);
+    if (GetForegroundWindow() != search.Window)
+        return;
+
     INPUT input{};
     input.type = INPUT_KEYBOARD;
     input.ki.wVk = VK_SPACE;
-
-    SendInput(1, &input, sizeof(INPUT));
-
-    // Key up
+    if (SendInput(1, &input, sizeof(INPUT)) != 1)
+        return;
     input.ki.dwFlags = KEYEVENTF_KEYUP;
     SendInput(1, &input, sizeof(INPUT));
 }

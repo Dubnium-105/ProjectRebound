@@ -153,11 +153,36 @@ const SETTINGS = {
         ],
         notifyAcceptingConnectionRva: 0x036CDC90,
         notifyControlMessageRva: 0x036CDCE0,
+        clientLoginChallengeHandlerRva: 0x03484770,
+        clientLoginTypeWriteRva: 0x03484EDE,
         getNetModeRva: 0x036CC300,
         gIsClientRva: 0x05CE2404,
         gIsServerRva: 0x05CE2405,
-        // UE4 EControlChannelMessage::NMT_Login in this pinned build.
-        nmtLoginType: 0x0B,
+        // UE4 EControlChannelMessage::NMT_Login. The locked build's
+        // UWorld::NotifyControlMessage switch handles Login in case 5.
+        nmtLoginType: 0x05,
+        // Read-only candidates recovered from the pinned image.  These hooks
+        // are deliberately observational until a runtime trace proves which
+        // native path owns gameplay team assignment for both Dedicated and
+        // Listen authority.
+        teamAssignmentEntries: [
+            {
+                name: 'pb_player_state_set_generic_team_id',
+                rva: 0x01681100,
+                interfaceOffset: 0x320,
+                teamPointerArg: 1,
+            },
+        ],
+        campAssignmentEntries: [
+            {
+                name: 'pb_player_state_set_camp_id',
+                rva: 0x01680EF0,
+                campValueArg: 1,
+            },
+        ],
+        queryCampByTeamRva: 0x0167C9E0,
+        playerJoinsGameMatchRva: 0x01659640,
+        postLoginRva: 0x032903B0,
     },
     interaction: {
         playerController: {
@@ -1677,6 +1702,14 @@ function safeFString(address, maximum = 2048) {
         return header.data.readUtf16String(length) || '';
     } catch (error) {
         return `<unreadable:${String(error)}>`;
+    }
+}
+
+function safeReadU8(address) {
+    try {
+        return address.readU8();
+    } catch (_) {
+        return null;
     }
 }
 
@@ -3592,6 +3625,36 @@ function stackArgument(context, offset) {
 }
 
 function hookAdmissionNativeEntries() {
+    const clientLoginHandlerAddress = gameModule.base.add(
+        SETTINGS.admission.clientLoginChallengeHandlerRva);
+    Interceptor.attach(clientLoginHandlerAddress, {
+        onEnter(args) {
+            let challengeType = null;
+            try { challengeType = args[2].toUInt32(); } catch (_) {}
+            if (challengeType !== 3)
+                return;
+            emit('roster.client_login_challenge', {
+                phase: 'enter',
+                rva: toHex(SETTINGS.admission.clientLoginChallengeHandlerRva),
+                challenge_type: challengeType,
+                mode: 'read_only_no_payload',
+            });
+        },
+    });
+
+    const clientLoginTypeWriteAddress = gameModule.base.add(
+        SETTINGS.admission.clientLoginTypeWriteRva);
+    Interceptor.attach(clientLoginTypeWriteAddress, {
+        onEnter() {
+            emit('roster.client_login_type_write', {
+                phase: 'enter',
+                rva: toHex(SETTINGS.admission.clientLoginTypeWriteRva),
+                message_type: SETTINGS.admission.nmtLoginType,
+                mode: 'read_only_no_payload',
+            });
+        },
+    });
+
     for (const entry of SETTINGS.admission.preLoginEntries) {
         const address = gameModule.base.add(entry.rva);
         Interceptor.attach(address, {
@@ -3667,6 +3730,128 @@ function hookAdmissionNativeEntries() {
             });
         },
     });
+
+    for (const entry of SETTINGS.admission.teamAssignmentEntries) {
+        const address = gameModule.base.add(entry.rva);
+        Interceptor.attach(address, {
+            onEnter(args) {
+                this.entry = entry;
+                this.object = args[0].sub(entry.interfaceOffset || 0);
+                this.team = null;
+                try { this.team = args[entry.teamPointerArg].readU8(); } catch (_) {}
+                emit('roster.native_team_assignment', {
+                    phase: 'enter',
+                    boundary_name: entry.name,
+                    rva: toHex(entry.rva),
+                    object: safeObjectSummary(this.object),
+                    requested_team: this.team,
+                    authority_role: safeReadU8(this.object.add(0xf0)),
+                    player_state_before: playerStateRosterSnapshot(this.object),
+                    native_backtrace: nativeBacktrace(this.context),
+                    mode: 'read_only',
+                });
+            },
+            onLeave() {
+                try {
+                    emit('roster.native_team_assignment', {
+                        phase: 'leave',
+                        boundary_name: this.entry.name,
+                        rva: toHex(this.entry.rva),
+                        object: safeObjectSummary(this.object),
+                        requested_team: this.team,
+                        authority_role: safeReadU8(this.object.add(0xf0)),
+                        player_state_after: playerStateRosterSnapshot(this.object),
+                        mode: 'read_only',
+                    });
+                } catch (error) {
+                    reportError(`roster.${this.entry.name}.leave`, error);
+                }
+            },
+        });
+    }
+    for (const entry of SETTINGS.admission.campAssignmentEntries) {
+        const address = gameModule.base.add(entry.rva);
+        Interceptor.attach(address, {
+            onEnter(args) {
+                this.entry = entry;
+                this.object = args[0];
+                this.camp = null;
+                try { this.camp = args[entry.campValueArg].toInt32(); } catch (_) {}
+                emit('roster.native_camp_assignment', {
+                    phase: 'enter',
+                    boundary_name: entry.name,
+                    rva: toHex(entry.rva),
+                    object: safeObjectSummary(this.object),
+                    requested_camp: this.camp,
+                    authority_role: safeReadU8(this.object.add(0xf0)),
+                    player_state_before: playerStateRosterSnapshot(this.object),
+                    native_backtrace: nativeBacktrace(this.context),
+                    mode: 'read_only',
+                });
+            },
+            onLeave() {
+                try {
+                    emit('roster.native_camp_assignment', {
+                        phase: 'leave',
+                        boundary_name: this.entry.name,
+                        rva: toHex(this.entry.rva),
+                        object: safeObjectSummary(this.object),
+                        requested_camp: this.camp,
+                        authority_role: safeReadU8(this.object.add(0xf0)),
+                        player_state_after: playerStateRosterSnapshot(this.object),
+                        mode: 'read_only',
+                    });
+                } catch (error) {
+                    reportError(`roster.${this.entry.name}.leave`, error);
+                }
+            },
+        });
+    }
+    const joinsAddress = gameModule.base.add(
+        SETTINGS.admission.playerJoinsGameMatchRva);
+    Interceptor.attach(joinsAddress, {
+        onEnter(args) {
+            this.playerState = args[1];
+            emit('roster.player_joins_game_match', {
+                phase: 'enter',
+                rva: toHex(SETTINGS.admission.playerJoinsGameMatchRva),
+                player_state: playerStateRosterSnapshot(this.playerState),
+                native_backtrace: nativeBacktrace(this.context),
+                mode: 'read_only',
+            });
+        },
+        onLeave() {
+            emit('roster.player_joins_game_match', {
+                phase: 'leave',
+                rva: toHex(SETTINGS.admission.playerJoinsGameMatchRva),
+                player_state: playerStateRosterSnapshot(this.playerState),
+                mode: 'read_only',
+            });
+        },
+    });
+    const postLoginAddress = gameModule.base.add(SETTINGS.admission.postLoginRva);
+    Interceptor.attach(postLoginAddress, {
+        onEnter(args) {
+            this.controller = args[1];
+            registerControllerPlayerState(this.controller, 'post_login.native.before');
+            emit('roster.post_login', {
+                phase: 'enter',
+                rva: toHex(SETTINGS.admission.postLoginRva),
+                controller: this.controller.toString(),
+                native_backtrace: nativeBacktrace(this.context),
+                mode: 'read_only',
+            });
+        },
+        onLeave() {
+            registerControllerPlayerState(this.controller, 'post_login.native.after');
+            emit('roster.post_login', {
+                phase: 'leave',
+                rva: toHex(SETTINGS.admission.postLoginRva),
+                controller: this.controller.toString(),
+                mode: 'read_only',
+            });
+        },
+    });
     emit('roster.admission_native_hooks_ready', {
         pre_login_entries: SETTINGS.admission.preLoginEntries.map((entry) => ({
             name: entry.name,
@@ -3676,7 +3861,23 @@ function hookAdmissionNativeEntries() {
             SETTINGS.admission.notifyAcceptingConnectionRva),
         notify_control_message_rva: toHex(
             SETTINGS.admission.notifyControlMessageRva),
+        client_login_challenge_handler_rva: toHex(
+            SETTINGS.admission.clientLoginChallengeHandlerRva),
+        client_login_type_write_rva: toHex(
+            SETTINGS.admission.clientLoginTypeWriteRva),
         nmt_login_type_candidate: SETTINGS.admission.nmtLoginType,
+        team_assignment_entries: SETTINGS.admission.teamAssignmentEntries.map((entry) => ({
+            name: entry.name,
+            rva: toHex(entry.rva),
+        })),
+        camp_assignment_entries: SETTINGS.admission.campAssignmentEntries.map((entry) => ({
+            name: entry.name,
+            rva: toHex(entry.rva),
+        })),
+        query_camp_by_team_rva: toHex(SETTINGS.admission.queryCampByTeamRva),
+        player_joins_game_match_rva: toHex(
+            SETTINGS.admission.playerJoinsGameMatchRva),
+        post_login_rva: toHex(SETTINGS.admission.postLoginRva),
         mode: 'read_only_redacted',
     });
 }

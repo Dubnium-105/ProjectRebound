@@ -38,6 +38,7 @@ func TestStrictRosterDedicatedLifecycleAgainstPostgreSQL(t *testing.T) {
 	service := NewService(NewRepository(pool), matchConfig, signer, 45*time.Second)
 	currentTime := time.Now().UTC().Truncate(time.Second)
 	service.now = func() time.Time { return currentTime }
+	signer.now = func() time.Time { return currentTime }
 
 	suffix := uint64(time.Now().UnixNano()) % 10_000_000_000_000
 	owner := insertStrictRosterPlayer(t, ctx, pool, fmt.Sprintf("%017d", 61_000_000_000_000_000+suffix))
@@ -141,11 +142,28 @@ func TestStrictRosterDedicatedLifecycleAgainstPostgreSQL(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	if _, err := service.JoinGrant(ctx, owner, attemptID); errorCode(err) != "MATCH_CONNECTION_STILL_ACTIVE" {
+		t.Fatalf("live Dedicated connection received a reconnect grant: %v", err)
+	}
+	liveView, err := service.Get(ctx, active.LobbyID, owner.PlayerID)
+	if err != nil || liveView.Local.CanRetry {
+		t.Fatalf("live Dedicated member advertised reconnect capability: %+v, %v", liveView.Local, err)
+	}
 	if _, err := service.MarkDisconnected(
 		ctx, serverID, allocationClaims.AuthoritySessionID, attemptID,
 		owner.PlayerID, connectedGrants[owner.PlayerID].ConnectionGeneration,
 	); err != nil {
 		t.Fatal(err)
+	}
+	disconnectedView, err := service.Get(ctx, active.LobbyID, owner.PlayerID)
+	if err != nil || !disconnectedView.Local.CanRetry {
+		t.Fatalf("disconnected Dedicated member lacked reconnect capability: %+v, %v", disconnectedView.Local, err)
+	}
+	if _, err := service.MarkDisconnected(
+		ctx, serverID, allocationClaims.AuthoritySessionID, attemptID,
+		owner.PlayerID, connectedGrants[owner.PlayerID].ConnectionGeneration,
+	); err != nil {
+		t.Fatalf("repeated Dedicated disconnect was not idempotent: %v", err)
 	}
 	reconnect, err := service.JoinGrant(ctx, owner, attemptID)
 	if err != nil {
@@ -166,6 +184,10 @@ func TestStrictRosterDedicatedLifecycleAgainstPostgreSQL(t *testing.T) {
 		owner.PlayerID, decodeJoinGrantJTI(t, reconnect.Grant), reconnect.ConnectionGeneration,
 	); err != nil {
 		t.Fatal(err)
+	}
+	reconnectedView, err := service.Get(ctx, active.LobbyID, owner.PlayerID)
+	if err != nil || reconnectedView.Local.CanRetry {
+		t.Fatalf("reconnected Dedicated member advertised reconnect capability: %+v, %v", reconnectedView.Local, err)
 	}
 	assertDedicatedProjectionMatchesAttempt(t, ctx, pool, attemptID)
 	terminal, err := service.Complete(ctx, serverID, allocationClaims.AuthoritySessionID, attemptID, true, "")

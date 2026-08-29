@@ -230,11 +230,37 @@ type JoinGrantClaims struct {
 
 type GrantResult struct {
 	AttemptID            string    `json:"attempt_id"`
+	GrantJTI             string    `json:"grant_jti"`
 	EndpointHost         string    `json:"endpoint_host"`
 	EndpointPort         int       `json:"endpoint_port"`
 	Grant                string    `json:"join_grant"`
 	ExpiresAt            time.Time `json:"expires_at"`
 	ConnectionGeneration int       `json:"connection_generation"`
+}
+
+// AuthorityAdmission is a short-lived grant delivered only to the scoped
+// match authority. It is never included in public lobby snapshots or UI DTOs.
+type AuthorityAdmission struct {
+	AttemptID            string    `json:"attempt_id"`
+	PlayerID             string    `json:"player_id"`
+	PlatformID           string    `json:"platform_id"`
+	GrantJTI             string    `json:"grant_jti"`
+	JoinGrant            string    `json:"join_grant"`
+	ConnectionGeneration int       `json:"connection_generation"`
+	RouteGeneration      int       `json:"route_generation"`
+	ExpiresAt            time.Time `json:"expires_at"`
+}
+
+type AuthorityAdmissionList struct {
+	Items []AuthorityAdmission `json:"items"`
+}
+
+type GrantDeliveryStatus struct {
+	AttemptID   string     `json:"attempt_id"`
+	GrantJTI    string     `json:"grant_jti"`
+	Delivered   bool       `json:"delivered"`
+	DeliveredAt *time.Time `json:"delivered_at,omitempty"`
+	ExpiresAt   time.Time  `json:"expires_at"`
 }
 
 type AllocationResult struct {

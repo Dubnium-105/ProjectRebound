@@ -28,6 +28,7 @@ openssl req -new -x509 -key "$temporary_dir/game-server-ca.key" \
   -addext 'keyUsage=critical,keyCertSign,cRLSign,digitalSignature' >/dev/null 2>&1
 openssl genpkey -algorithm ED25519 -out "$temporary_dir/access-token.key" >/dev/null 2>&1
 openssl genpkey -algorithm ED25519 -out "$temporary_dir/admin-access-token.key" >/dev/null 2>&1
+openssl genpkey -algorithm ED25519 -out "$temporary_dir/match-admission.key" >/dev/null 2>&1
 
 random_hex() { openssl rand -hex "$1"; }
 random_key() { openssl rand -base64 32 | tr -d '\r\n'; }
@@ -75,6 +76,10 @@ CORS_ALLOWED_ORIGINS=https://game.example.com
 ACCESS_TOKEN_KEY_ID=access-signing-key-$key_suffix
 ACCESS_TOKEN_PRIVATE_KEY_BASE64=$(ed25519_private_seed_base64 "$temporary_dir/access-token.key")
 ACCESS_TOKEN_PUBLIC_KEY_BASE64=$(ed25519_public_base64 "$temporary_dir/access-token.key")
+STRICT_ROSTER_V1_ENABLED=false
+STRICT_ROSTER_LOCKED_GAME_SHA256=181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843
+MATCH_ADMISSION_SIGNING_KEY_ID=match-admission-signing-key-$key_suffix
+MATCH_ADMISSION_PRIVATE_KEY_BASE64=$(ed25519_private_seed_base64 "$temporary_dir/match-admission.key")
 DEVICE_FINGERPRINT_KEY_ID=device-fingerprint-v1
 DEVICE_FINGERPRINT_HMAC_KEY_BASE64=$(random_key)
 STEAM_APP_ID=480

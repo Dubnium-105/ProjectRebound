@@ -27,6 +27,8 @@ var (
 	sha256Pattern     = regexp.MustCompile(`^[0-9a-f]{64}$`)
 )
 
+const toolboxExecutablePath = "rebound_toolbox.exe"
+
 type RelayDirectory interface {
 	AvailableRegions(context.Context) ([]string, error)
 }
@@ -462,8 +464,12 @@ func (s *Service) ClientConfig(ctx context.Context) (ClientConfig, error) {
 	result := ClientConfig{
 		APIVersion: s.cfg.APIVersion, ProtocolVersion: s.cfg.ProtocolVersion,
 		MinimumClientVersion: s.cfg.MinimumClientVersion, RealtimeURL: s.cfg.RealtimeURL,
-		STUNServers: append([]string(nil), s.cfg.STUNServers...),
+		STUNServers: append([]string{}, s.cfg.STUNServers...),
 	}
+	// Public collection fields are always JSON arrays. A nil slice would be
+	// encoded as null and breaks strict clients that correctly model regions as
+	// a sequence even when no relay nodes are currently registered.
+	result.Relay.Regions = make([]RelayRegion, 0, len(regions))
 	for _, region := range regions {
 		result.Relay.Regions = append(result.Relay.Regions, RelayRegion{ID: region, Available: true})
 	}
@@ -618,6 +624,12 @@ func buildManifest(cfg config.UpdateConfig, baseURL *url.URL, source SourceRelea
 	}
 	if len(manifest.Files) == 0 {
 		return Manifest{}, errors.New("release has no installable files")
+	}
+	if source.Channel == ChannelToolbox &&
+		(len(manifest.Files) != 1 ||
+			manifest.Files[0].Path != toolboxExecutablePath ||
+			manifest.Files[0].Compression != "none") {
+		return Manifest{}, errors.New("toolbox manifest must contain only uncompressed rebound_toolbox.exe")
 	}
 	sort.Slice(manifest.Files, func(i, j int) bool { return manifest.Files[i].Path < manifest.Files[j].Path })
 	return manifest, nil

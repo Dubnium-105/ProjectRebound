@@ -30,6 +30,7 @@ type tunnel struct {
 	metaBaseURL     *url.URL
 	logicAddress    string
 	logicServerName string
+	plainLogicLab   bool
 	accessToken     atomic.Value
 	localTCP        net.Listener
 	httpProxy       *httputil.ReverseProxy
@@ -40,6 +41,8 @@ type rewriteConnectEndpointKey struct{}
 
 func main() {
 	metaBase := flag.String("meta-base-url", "https://meta.project-rebound.space", "public MetaServer HTTPS base URL")
+	allowPrivateHTTPLab := flag.Bool("allow-private-http-lab", false, "allow an explicit private-IP HTTP MetaServer origin for isolated lab testing")
+	allowPrivatePlainLogicLab := flag.Bool("allow-private-plain-logic-lab", false, "allow an explicit private-IP plaintext native endpoint for isolated lab testing")
 	logicAddress := flag.String("logic-address", "logic.project-rebound.space:443", "public MetaServer native TLS endpoint")
 	logicServerName := flag.String("logic-server-name", "logic.project-rebound.space", "TLS server name for the native endpoint")
 	httpListen := flag.String("http-listen", "127.0.0.1:0", "loopback HTTP listen address")
@@ -48,17 +51,16 @@ func main() {
 	flag.Parse()
 
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
-	baseURL, err := url.Parse(*metaBase)
-	if err != nil || baseURL.Scheme != "https" || baseURL.Host == "" || baseURL.User != nil ||
-		baseURL.RawQuery != "" || baseURL.Fragment != "" {
+	baseURL, err := validateMetaBaseURL(*metaBase, *allowPrivateHTTPLab)
+	if err != nil {
 		logger.Error("invalid MetaServer base URL")
 		os.Exit(2)
 	}
-	if !validServerName(*logicServerName) {
-		logger.Error("invalid logic TLS server name")
+	if *allowPrivatePlainLogicLab && !*allowPrivateHTTPLab {
+		logger.Error("plaintext logic lab mode requires private HTTP lab mode")
 		os.Exit(2)
 	}
-	if _, _, err := net.SplitHostPort(*logicAddress); err != nil {
+	if err := validateLogicEndpoint(*logicAddress, *logicServerName, *allowPrivatePlainLogicLab); err != nil {
 		logger.Error("invalid logic endpoint")
 		os.Exit(2)
 	}
@@ -90,11 +92,18 @@ func main() {
 	}
 	instance := &tunnel{
 		metaBaseURL: baseURL, logicAddress: *logicAddress,
-		logicServerName: *logicServerName, localTCP: localTCP, logger: logger,
+		logicServerName: *logicServerName, plainLogicLab: *allowPrivatePlainLogicLab,
+		localTCP: localTCP, logger: logger,
 	}
 	instance.setAccessToken(token)
+	proxy := http.ProxyFromEnvironment
+	if baseURL.Scheme == "http" {
+		// A lab HTTP origin is necessarily a validated private/loopback literal.
+		// Never send that traffic through a workstation-configured proxy.
+		proxy = nil
+	}
 	instance.httpProxy = instance.newHTTPProxy(&http.Transport{
-		Proxy:                 http.ProxyFromEnvironment,
+		Proxy:                 proxy,
 		DialContext:           (&net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
 		ForceAttemptHTTP2:     true,
 		TLSClientConfig:       &tls.Config{MinVersion: tls.VersionTLS12},
@@ -321,12 +330,9 @@ func (t *tunnel) serveTCP(ctx context.Context) error {
 func (t *tunnel) bridge(local net.Conn) {
 	defer local.Close()
 	dialer := &net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}
-	remote, err := tls.DialWithDialer(dialer, "tcp", t.logicAddress, &tls.Config{
-		MinVersion: tls.VersionTLS12,
-		ServerName: t.logicServerName,
-	})
+	remote, err := t.dialLogic(dialer)
 	if err != nil {
-		t.logger.Warn("MetaServer TLS bridge failed", "error", err)
+		t.logger.Warn("MetaServer logic bridge failed", "error", err)
 		return
 	}
 	defer remote.Close()
@@ -335,7 +341,11 @@ func (t *tunnel) bridge(local net.Conn) {
 	go func() {
 		defer copyGroup.Done()
 		_, _ = io.Copy(remote, local)
-		_ = remote.CloseWrite()
+		if writer, ok := remote.(interface{ CloseWrite() error }); ok {
+			_ = writer.CloseWrite()
+		} else {
+			_ = remote.Close()
+		}
 	}()
 	go func() {
 		defer copyGroup.Done()
@@ -347,6 +357,16 @@ func (t *tunnel) bridge(local net.Conn) {
 	copyGroup.Wait()
 }
 
+func (t *tunnel) dialLogic(dialer *net.Dialer) (net.Conn, error) {
+	if t.plainLogicLab {
+		return dialer.Dial("tcp", t.logicAddress)
+	}
+	return tls.DialWithDialer(dialer, "tcp", t.logicAddress, &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		ServerName: t.logicServerName,
+	})
+}
+
 func isLoopbackListen(address string) bool {
 	host, _, err := net.SplitHostPort(address)
 	if err != nil {
@@ -354,6 +374,44 @@ func isLoopbackListen(address string) bool {
 	}
 	ip := net.ParseIP(host)
 	return ip != nil && ip.IsLoopback()
+}
+
+func validateMetaBaseURL(raw string, allowPrivateHTTPLab bool) (*url.URL, error) {
+	baseURL, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || baseURL.Host == "" || baseURL.User != nil ||
+		baseURL.RawQuery != "" || baseURL.Fragment != "" ||
+		(baseURL.Path != "" && baseURL.Path != "/") {
+		return nil, errors.New("invalid MetaServer base URL")
+	}
+	if baseURL.Scheme == "https" {
+		return baseURL, nil
+	}
+	if baseURL.Scheme != "http" || !allowPrivateHTTPLab || baseURL.Port() == "" {
+		return nil, errors.New("MetaServer base URL must use HTTPS")
+	}
+	ip := net.ParseIP(baseURL.Hostname())
+	if ip == nil || !(ip.IsLoopback() || ip.IsPrivate()) {
+		return nil, errors.New("lab MetaServer HTTP origin must use a private or loopback IP literal")
+	}
+	return baseURL, nil
+}
+
+func validateLogicEndpoint(address, serverName string, allowPrivatePlainLab bool) error {
+	host, _, err := net.SplitHostPort(strings.TrimSpace(address))
+	if err != nil {
+		return errors.New("invalid logic host and port")
+	}
+	if !allowPrivatePlainLab {
+		if !validServerName(serverName) {
+			return errors.New("invalid logic TLS server name")
+		}
+		return nil
+	}
+	ip := net.ParseIP(host)
+	if ip == nil || !(ip.IsLoopback() || ip.IsPrivate()) {
+		return errors.New("lab logic endpoint must use a private or loopback IP literal")
+	}
+	return nil
 }
 
 func validServerName(value string) bool {
