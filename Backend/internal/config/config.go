@@ -512,7 +512,7 @@ var Defaults = Config{
 	Downloads: DownloadConfig{
 		Enabled:                  false,
 		S3Region:                 "auto",
-		AllowedExtensions:        []string{"exe", "msi", "zip", "7z", "pdf", "md", "txt", "docx"},
+		AllowedExtensions:        []string{"exe", "msi", "zip", "7z", "pdf", "md", "txt", "docx", "json"},
 		MaxFileBytes:             2 << 30,
 		MultipartThresholdBytes:  64 << 20,
 		PartSizeBytes:            16 << 20,

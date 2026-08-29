@@ -34,7 +34,7 @@ func TestReleaseFilesOnlyIncludeVerifiedActiveObjects(t *testing.T) {
 func TestUploadValidationAndServerOwnedObjectKey(t *testing.T) {
 	service := &Service{config: config.DownloadConfig{
 		MaxFileBytes:      10,
-		AllowedExtensions: []string{"zip", ".PDF"},
+		AllowedExtensions: []string{"zip", ".PDF", "json"},
 	}}
 	meta := ActorMeta{AdminID: "adm_test"}
 	validHash := strings.Repeat("a", 64)
@@ -51,6 +51,16 @@ func TestUploadValidationAndServerOwnedObjectKey(t *testing.T) {
 	key := objectKey(Entry{Slug: "manual"}, Version{ID: "dver_server", OriginalFileName: input.FileName})
 	if key != "downloads/manual/dver_server/Release_Notes.PDF" {
 		t.Fatalf("object key = %q", key)
+	}
+	runtimeManifest, _, err := service.validateUploadInput(UploadInput{
+		VersionLabel: "0.9.12", FileName: "vnt-runtime-manifest.json",
+		ContentType: "application/octet-stream", SizeBytes: 10, SHA256: validHash, Reason: "runtime attestation",
+	}, meta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtimeManifest.ContentType != "application/json" {
+		t.Fatalf("runtime manifest content type = %q", runtimeManifest.ContentType)
 	}
 
 	cases := []struct {

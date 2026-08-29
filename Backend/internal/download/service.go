@@ -887,6 +887,8 @@ func contentTypeForExtension(extension string) string {
 		return "text/plain; charset=utf-8"
 	case "docx":
 		return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+	case "json":
+		return "application/json"
 	default:
 		return "application/octet-stream"
 	}

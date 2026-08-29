@@ -7,6 +7,15 @@ import (
 	"testing"
 )
 
+func TestDefaultDownloadExtensionsIncludeToolboxAttestation(t *testing.T) {
+	for _, extension := range Defaults.Downloads.AllowedExtensions {
+		if extension == "json" {
+			return
+		}
+	}
+	t.Fatal("default download extensions do not allow vnt-runtime-manifest.json")
+}
+
 func TestLoadMissingFileAppliesEnvironment(t *testing.T) {
 	t.Setenv("CONTROL_PLANE_HTTP_ADDR", ":9191")
 	t.Setenv("CORS_ALLOWED_ORIGINS", "https://one.example, https://two.example")
