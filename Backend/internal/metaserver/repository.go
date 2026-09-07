@@ -415,262 +415,18 @@ func (r *Repository) UpdatePartyMember(
 }
 
 func (r *Repository) CreateTicket(
-	ctx context.Context,
-	playerID, partyID, mode, region, clientVersion string,
-	protocolVersion int,
-	ttl time.Duration,
+	ctx context.Context, playerID, partyID, mode, region, clientVersion string,
+	protocolVersion int, ttl time.Duration,
 ) (MatchTicket, error) {
-	now := r.now().UTC()
-	item := MatchTicket{
-		ID: newMetaID("mt_"), PlayerID: playerID, PartyID: partyID,
-		Mode: mode, Region: region, ClientVersion: clientVersion,
-		ProtocolVersion: protocolVersion, State: "QUEUED",
-		ExpiresAt: now.Add(ttl), CreatedAt: now, UpdatedAt: now,
-	}
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
-	if err != nil {
-		return MatchTicket{}, internalError(err)
-	}
-	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
-	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, playerID); err != nil {
-		return MatchTicket{}, internalError(err)
-	}
-
-	if partyID == "" {
-		var activePartyID string
-		err = tx.QueryRow(ctx, `
-			SELECT party_id
-			FROM meta_party_members
-			WHERE player_id = $1 AND left_at IS NULL
-			FOR UPDATE
-		`, playerID).Scan(&activePartyID)
-		if err == nil {
-			return MatchTicket{}, conflict(
-				"META_PARTY_TICKET_REQUIRED",
-				"Players in an active party must queue as the party.",
-			)
-		}
-		if !errors.Is(err, pgx.ErrNoRows) {
-			return MatchTicket{}, internalError(err)
-		}
-	} else {
-		var leaderID, state string
-		err = tx.QueryRow(ctx, `
-			SELECT leader_player_id, state
-			FROM meta_parties
-			WHERE id = $1
-			FOR UPDATE
-		`, partyID).Scan(&leaderID, &state)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return MatchTicket{}, notFound("META_PARTY_NOT_FOUND", "Party not found.")
-		}
-		if err != nil {
-			return MatchTicket{}, internalError(err)
-		}
-		if leaderID != playerID || state != "ACTIVE" {
-			return MatchTicket{}, conflict(
-				"META_PARTY_NOT_QUEUEABLE",
-				"The party is not active or the player is not its leader.",
-			)
-		}
-		rows, err := tx.Query(ctx, `
-			SELECT player_id
-			FROM meta_party_members
-			WHERE party_id = $1 AND left_at IS NULL
-			ORDER BY player_id
-		`, partyID)
-		if err != nil {
-			return MatchTicket{}, internalError(err)
-		}
-		memberIDs := make([]string, 0)
-		for rows.Next() {
-			var memberID string
-			if err := rows.Scan(&memberID); err != nil {
-				rows.Close()
-				return MatchTicket{}, internalError(err)
-			}
-			memberIDs = append(memberIDs, memberID)
-		}
-		if err := rows.Err(); err != nil {
-			rows.Close()
-			return MatchTicket{}, internalError(err)
-		}
-		rows.Close()
-		for _, memberID := range memberIDs {
-			if _, err := tx.Exec(ctx, `
-				SELECT pg_advisory_xact_lock(hashtextextended($1, 0))
-			`, memberID); err != nil {
-				return MatchTicket{}, internalError(err)
-			}
-		}
-		lockedRows, err := tx.Query(ctx, `
-			SELECT player_id
-			FROM meta_party_members
-			WHERE party_id = $1 AND left_at IS NULL
-			ORDER BY player_id
-			FOR UPDATE
-		`, partyID)
-		if err != nil {
-			return MatchTicket{}, internalError(err)
-		}
-		lockedMemberCount := 0
-		for lockedRows.Next() {
-			var ignored string
-			if err := lockedRows.Scan(&ignored); err != nil {
-				lockedRows.Close()
-				return MatchTicket{}, internalError(err)
-			}
-			lockedMemberCount++
-		}
-		if err := lockedRows.Err(); err != nil {
-			lockedRows.Close()
-			return MatchTicket{}, internalError(err)
-		}
-		lockedRows.Close()
-		if lockedMemberCount != len(memberIDs) {
-			return MatchTicket{}, conflict(
-				"META_PARTY_NOT_QUEUEABLE",
-				"The party membership changed while matchmaking started.",
-			)
-		}
-		var queued bool
-		if err := tx.QueryRow(ctx, `
-			SELECT EXISTS (
-				SELECT 1 FROM meta_match_tickets
-				WHERE state = 'QUEUED'
-				  AND (party_id = $1 OR player_id = ANY($2::varchar[]))
-			)
-		`, partyID, memberIDs).Scan(&queued); err != nil {
-			return MatchTicket{}, internalError(err)
-		}
-		if queued {
-			return MatchTicket{}, conflict(
-				"META_MATCH_TICKET_EXISTS",
-				"A party member already has an active match ticket.",
-			)
-		}
-	}
-
-	_, err = tx.Exec(ctx, `
-		INSERT INTO meta_match_tickets (
-			id, player_id, party_id, mode, region, client_version,
-			protocol_version, state, expires_at, created_at, updated_at
-		) VALUES ($1, $2, NULLIF($3, ''), $4, $5, $6, $7, 'QUEUED', $8, $9, $9)
-	`, item.ID, playerID, partyID, mode, region, clientVersion,
-		protocolVersion, item.ExpiresAt, now,
-	)
-	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return MatchTicket{}, conflict("META_MATCH_TICKET_EXISTS", "The player or party already has an active match ticket.")
-		}
-		return MatchTicket{}, internalError(fmt.Errorf("create meta match ticket: %w", err))
-	}
-	if partyID != "" {
-		tag, err := tx.Exec(ctx, `
-			UPDATE meta_parties
-			SET state = 'MATCHMAKING', revision = revision + 1, updated_at = $2
-			WHERE id = $1 AND state = 'ACTIVE'
-		`, partyID, now)
-		if err != nil {
-			return MatchTicket{}, internalError(err)
-		}
-		if tag.RowsAffected() != 1 {
-			return MatchTicket{}, conflict("META_PARTY_NOT_QUEUEABLE", "The party is not active.")
-		}
-	}
-	if err := tx.Commit(ctx); err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && (pgErr.Code == "23505" || pgErr.Code == "40001") {
-			return MatchTicket{}, conflict(
-				"META_MATCH_TICKET_EXISTS",
-				"The player or party already has an active match ticket.",
-			)
-		}
-		return MatchTicket{}, internalError(err)
-	}
-	return item, nil
+	return MatchTicket{}, retiredMatchmaking()
 }
 
 func (r *Repository) GetTicket(ctx context.Context, ticketID, playerID string) (MatchTicket, error) {
-	var item MatchTicket
-	var completedAt *time.Time
-	err := r.pool.QueryRow(ctx, `
-		SELECT ticket.id, ticket.player_id, COALESCE(ticket.party_id, ''), ticket.mode,
-		       ticket.region, ticket.client_version, ticket.protocol_version,
-		       ticket.state, COALESCE(ticket.failure_code, ''),
-		       COALESCE(ticket.matched_id, ''), ticket.expires_at, ticket.created_at,
-		       ticket.updated_at, ticket.completed_at,
-		       COALESCE(match.endpoint_host || ':' || match.endpoint_port::text, '')
-		FROM meta_match_tickets AS ticket
-		LEFT JOIN meta_matches AS match ON match.id = ticket.matched_id
-		WHERE ticket.id = $1
-		  AND (
-		    ticket.player_id = $2 OR EXISTS (
-		      SELECT 1
-		      FROM meta_party_members AS member
-		      WHERE member.party_id = ticket.party_id
-		        AND member.player_id = $2
-		        AND member.left_at IS NULL
-		    )
-		  )
-	`, ticketID, playerID).Scan(
-		&item.ID, &item.PlayerID, &item.PartyID, &item.Mode, &item.Region,
-		&item.ClientVersion, &item.ProtocolVersion, &item.State, &item.FailureCode,
-		&item.MatchID, &item.ExpiresAt, &item.CreatedAt, &item.UpdatedAt,
-		&completedAt, &item.Endpoint,
-	)
-	item.CompletedAt = completedAt
-	if err != nil {
-		return MatchTicket{}, normalizeRepositoryError(err, "META_MATCH_TICKET_NOT_FOUND", "Match ticket not found.")
-	}
-	return item, nil
+	return MatchTicket{}, retiredMatchmaking()
 }
 
 func (r *Repository) CancelTicket(ctx context.Context, ticketID, playerID string) error {
-	now := r.now().UTC()
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return internalError(err)
-	}
-	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
-	var partyID string
-	err = tx.QueryRow(ctx, `
-		SELECT COALESCE(party_id, '')
-		FROM meta_match_tickets
-		WHERE id = $1 AND player_id = $2 AND state = 'QUEUED'
-		FOR UPDATE
-	`, ticketID, playerID).Scan(&partyID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return conflict("META_MATCH_TICKET_NOT_CANCELLABLE", "The match ticket is not queued.")
-	}
-	if err != nil {
-		return internalError(err)
-	}
-	tag, err := tx.Exec(ctx, `
-		UPDATE meta_match_tickets
-		SET state = 'CANCELLED', completed_at = $3, updated_at = $3
-		WHERE id = $1 AND player_id = $2 AND state = 'QUEUED'
-	`, ticketID, playerID, now)
-	if err != nil {
-		return internalError(err)
-	}
-	if tag.RowsAffected() == 0 {
-		return conflict("META_MATCH_TICKET_NOT_CANCELLABLE", "The match ticket is not queued.")
-	}
-	if partyID != "" {
-		if _, err := tx.Exec(ctx, `
-			UPDATE meta_parties
-			SET state = 'ACTIVE', revision = revision + 1, updated_at = $2
-			WHERE id = $1 AND state = 'MATCHMAKING'
-		`, partyID, now); err != nil {
-			return internalError(err)
-		}
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return internalError(err)
-	}
-	return nil
+	return retiredMatchmaking()
 }
 
 func (r *Repository) ListRegions(ctx context.Context, freshness time.Duration) ([]Region, error) {
@@ -856,6 +612,7 @@ func (r *Repository) GetMatchPlayerLoadout(
 			WHERE match.id = $1 AND member.player_id = $2
 			  AND match.game_server_id = $3
 			  AND match.state IN ('RESERVED', 'RUNNING')
+              AND match.match_attempt_id IS NOT NULL
 		)
 	`, matchID, playerID, principal.ServerID).Scan(&allowed)
 	if err != nil {
@@ -872,111 +629,13 @@ func (r *Repository) GetMatchPlayerLoadout(
 }
 
 func (r *Repository) MarkMatchPlayerConnected(
-	ctx context.Context,
-	principal GameServerPrincipal,
-	matchID, playerID string,
+	ctx context.Context, principal GameServerPrincipal, matchID, playerID string,
 ) error {
-	if !principal.HasScope("meta.matches.connect") {
-		return forbidden("META_GAME_SERVER_SCOPE_REQUIRED", "Game Server token scope is required.")
-	}
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return internalError(err)
-	}
-	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
-	now := r.now().UTC()
-	tag, err := tx.Exec(ctx, `
-		UPDATE meta_match_players AS member
-		SET connected_at = COALESCE(connected_at, $4)
-		FROM meta_matches AS match
-		WHERE member.match_id = $1 AND member.player_id = $2
-		  AND match.id = member.match_id AND match.game_server_id = $3
-		  AND match.state IN ('RESERVED', 'RUNNING')
-		  AND match.match_attempt_id IS NULL
-	`, matchID, playerID, principal.ServerID, now)
-	if err != nil {
-		return internalError(err)
-	}
-	if tag.RowsAffected() == 0 {
-		return forbidden("META_MATCH_PLAYER_FORBIDDEN", "The player is not assigned to this Game Server match.")
-	}
-	_, err = tx.Exec(ctx, `
-		UPDATE meta_matches
-		SET state = 'RUNNING', started_at = COALESCE(started_at, $3), updated_at = $3
-		WHERE id = $1 AND game_server_id = $2 AND state IN ('RESERVED', 'RUNNING')
-		  AND match_attempt_id IS NULL
-	`, matchID, principal.ServerID, now)
-	if err == nil {
-		_, err = tx.Exec(ctx, `
-			UPDATE game_servers SET state = 'RUNNING', updated_at = $2
-			WHERE id = $1 AND state = 'RESERVED'
-		`, principal.ServerID, now)
-	}
-	if err != nil {
-		return internalError(err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return internalError(err)
-	}
-	return nil
+	return retiredMatchmaking()
 }
 
 func (r *Repository) CompleteMatch(
-	ctx context.Context,
-	principal GameServerPrincipal,
-	matchID string,
-	result json.RawMessage,
+	ctx context.Context, principal GameServerPrincipal, matchID string, result json.RawMessage,
 ) error {
-	if !principal.HasScope("meta.matches.complete") {
-		return forbidden("META_GAME_SERVER_SCOPE_REQUIRED", "Game Server token scope is required.")
-	}
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return internalError(err)
-	}
-	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
-	now := r.now().UTC()
-	tag, err := tx.Exec(ctx, `
-		UPDATE meta_matches
-		SET state = 'COMPLETED', completed_at = $3, updated_at = $3
-		WHERE id = $1 AND game_server_id = $2 AND state IN ('RESERVED', 'RUNNING')
-		  AND match_attempt_id IS NULL
-	`, matchID, principal.ServerID, now)
-	if err != nil {
-		return internalError(err)
-	}
-	if tag.RowsAffected() == 0 {
-		return forbidden("META_MATCH_FORBIDDEN", "The match is not assigned to this Game Server.")
-	}
-	if len(result) > 0 {
-		_, err = tx.Exec(ctx, `
-			UPDATE meta_match_players SET result = $2::jsonb WHERE match_id = $1
-		`, matchID, result)
-	}
-	if err == nil {
-		_, err = tx.Exec(ctx, `
-			UPDATE game_servers
-			SET state = 'READY', updated_at = $2
-			WHERE id = $1 AND state IN ('RESERVED', 'RUNNING')
-		`, principal.ServerID, now)
-	}
-	if err == nil {
-		_, err = tx.Exec(ctx, `
-			UPDATE meta_parties
-			SET state = 'ACTIVE', revision = revision + 1, updated_at = $2
-			WHERE id IN (
-				SELECT ticket.party_id
-				FROM meta_match_tickets AS ticket
-				JOIN meta_matches AS match ON match.ticket_id = ticket.id
-				WHERE match.id = $1 AND ticket.party_id IS NOT NULL
-			)
-		`, matchID, now)
-	}
-	if err != nil {
-		return internalError(err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return internalError(err)
-	}
-	return nil
+	return retiredMatchmaking()
 }

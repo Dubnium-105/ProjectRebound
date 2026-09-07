@@ -34,6 +34,13 @@ func forbidden(code, message string) error {
 	return &ServiceError{Status: http.StatusForbidden, Code: code, Message: message}
 }
 
+func retiredMatchmaking() error {
+	return &ServiceError{
+		Status: http.StatusGone, Code: "META_MATCHMAKING_RETIRED",
+		Message: "Independent Meta matchmaking is retired. Use the authoritative MatchLobby and MatchAttempt APIs.",
+	}
+}
+
 func conflict(code, message string) error {
 	return &ServiceError{Status: http.StatusConflict, Code: code, Message: message}
 }

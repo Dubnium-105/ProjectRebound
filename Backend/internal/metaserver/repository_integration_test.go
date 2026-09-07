@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"log/slog"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -21,7 +19,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestRepositoryIsolationAndConcurrentSchedulingAgainstPostgreSQL(t *testing.T) {
+func TestRepositoryIsolationAndRetiredMatchmakingAgainstPostgreSQL(t *testing.T) {
 	databaseURL := os.Getenv("TEST_DATABASE_URL")
 	if databaseURL == "" {
 		t.Skip("TEST_DATABASE_URL is not set")
@@ -274,172 +272,35 @@ func TestRepositoryIsolationAndConcurrentSchedulingAgainstPostgreSQL(t *testing.
 	`, party.ID, playerIDs[1], now); err != nil {
 		t.Fatal(err)
 	}
-	partyTicket, err := repository.CreateTicket(
-		ctx, playerIDs[0], party.ID, "default", "hgh", "1.1.0", 1, 5*time.Minute,
-	)
-	if err != nil {
+	if _, err := repository.CreateTicket(ctx, playerIDs[0], party.ID, "default", "hgh", "1.1.0", 1, time.Minute); metaErrorCode(err) != "META_MATCHMAKING_RETIRED" {
+		t.Fatalf("legacy creation did not reject: %v", err)
+	}
+	if _, err := repository.GetTicket(ctx, "old-ticket", playerIDs[0]); metaErrorCode(err) != "META_MATCHMAKING_RETIRED" {
+		t.Fatalf("legacy polling did not reject: %v", err)
+	}
+	if err := repository.CancelTicket(ctx, "old-ticket", playerIDs[0]); metaErrorCode(err) != "META_MATCHMAKING_RETIRED" {
+		t.Fatalf("legacy cancellation did not reject: %v", err)
+	}
+	principal := GameServerPrincipal{ServerID: serverIDs[0]}
+	if err := repository.MarkMatchPlayerConnected(ctx, principal, "old-match", playerIDs[0]); metaErrorCode(err) != "META_MATCHMAKING_RETIRED" {
+		t.Fatalf("legacy connected write did not reject: %v", err)
+	}
+	if err := repository.CompleteMatch(ctx, principal, "old-match", nil); metaErrorCode(err) != "META_MATCHMAKING_RETIRED" {
+		t.Fatalf("legacy completion did not reject: %v", err)
+	}
+	var tickets, matches, readyServers int
+	if err := pool.QueryRow(ctx, `SELECT
+        (SELECT count(*) FROM meta_match_tickets WHERE player_id = ANY($1)),
+        (SELECT count(*) FROM meta_matches WHERE game_server_id = ANY($2)),
+        (SELECT count(*) FROM game_servers WHERE id = ANY($2) AND state = 'READY')`,
+		playerIDs, serverIDs).Scan(&tickets, &matches, &readyServers); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repository.GetTicket(ctx, partyTicket.ID, playerIDs[1]); err != nil {
-		t.Fatalf("party member cannot poll ticket: %v", err)
+	if tickets != 0 || matches != 0 || readyServers != 2 {
+		t.Fatalf("retired paths changed database state: tickets=%d matches=%d ready=%d", tickets, matches, readyServers)
 	}
-	if _, err := repository.GetTicket(ctx, partyTicket.ID, playerIDs[3]); metaErrorCode(err) != "META_MATCH_TICKET_NOT_FOUND" {
-		t.Fatalf("ticket IDOR was not hidden: %v", err)
-	}
+	t.Log("retired Meta ticket/connected/completed calls rejected; zero tickets, zero allocations, original server states intact")
 
-	var ticketSuccesses atomic.Int32
-	var ticketConflicts atomic.Int32
-	var ticketGroup sync.WaitGroup
-	for range 8 {
-		ticketGroup.Add(1)
-		go func() {
-			defer ticketGroup.Done()
-			_, ticketErr := repository.CreateTicket(
-				ctx, playerIDs[2], "", "default", "hgh", "1.1.0", 1, 5*time.Minute,
-			)
-			switch metaErrorCode(ticketErr) {
-			case "":
-				ticketSuccesses.Add(1)
-			case "META_MATCH_TICKET_EXISTS":
-				ticketConflicts.Add(1)
-			default:
-				t.Errorf("unexpected ticket creation error: %v", ticketErr)
-			}
-		}()
-	}
-	ticketGroup.Wait()
-	if ticketSuccesses.Load() != 1 || ticketConflicts.Load() != 7 {
-		t.Fatalf(
-			"concurrent tickets: success=%d conflict=%d",
-			ticketSuccesses.Load(), ticketConflicts.Load(),
-		)
-	}
-
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	scheduler := NewScheduler(
-		pool, time.Second, 90*time.Second, 90*time.Second, NewMetaMetrics(), logger,
-	)
-	scheduler.now = func() time.Time { return now }
-	var scheduleGroup sync.WaitGroup
-	errs := make(chan error, 16)
-	for range 16 {
-		scheduleGroup.Add(1)
-		go func() {
-			defer scheduleGroup.Done()
-			_, scheduleErr := scheduler.scheduleOne(ctx)
-			if scheduleErr != nil {
-				errs <- scheduleErr
-			}
-		}()
-	}
-	scheduleGroup.Wait()
-	close(errs)
-	for scheduleErr := range errs {
-		t.Errorf("concurrent scheduler error: %v", scheduleErr)
-	}
-	for {
-		scheduled, scheduleErr := scheduler.scheduleOne(ctx)
-		if scheduleErr != nil {
-			t.Fatal(scheduleErr)
-		}
-		if !scheduled {
-			break
-		}
-	}
-
-	var matchCount, distinctServerCount int
-	if err := pool.QueryRow(ctx, `
-		SELECT COUNT(*), COUNT(DISTINCT game_server_id)
-		FROM meta_matches
-		WHERE game_server_id = ANY($1)
-	`, serverIDs).Scan(&matchCount, &distinctServerCount); err != nil {
-		t.Fatal(err)
-	}
-	if matchCount != 2 || distinctServerCount != 2 {
-		t.Fatalf("matches=%d distinct_servers=%d, want 2/2", matchCount, distinctServerCount)
-	}
-
-	var partyMatchID, assignedServerID string
-	if err := pool.QueryRow(ctx, `
-		SELECT id, game_server_id FROM meta_matches WHERE ticket_id = $1
-	`, partyTicket.ID).Scan(&partyMatchID, &assignedServerID); err != nil {
-		t.Fatal(err)
-	}
-	assignedPrincipal, err := repository.AuthenticateGameServer(
-		ctx, assignedServerID, serverTokens[assignedServerID],
-	)
-	if err != nil {
-		t.Fatalf("authenticate assigned server: %v", err)
-	}
-	if _, err := repository.GetMatchPlayerLoadout(
-		ctx, assignedPrincipal, partyMatchID, playerIDs[1],
-	); err != nil {
-		t.Fatalf("assigned server cannot read roster member: %v", err)
-	}
-	if _, err := repository.GetMatchPlayerLoadout(
-		ctx, assignedPrincipal, partyMatchID, playerIDs[3],
-	); metaErrorCode(err) != "META_MATCH_PLAYER_FORBIDDEN" {
-		t.Fatalf("non-roster player was exposed: %v", err)
-	}
-	otherServerID := serverIDs[0]
-	if otherServerID == assignedServerID {
-		otherServerID = serverIDs[1]
-	}
-	otherPrincipal, err := repository.AuthenticateGameServer(
-		ctx, otherServerID, serverTokens[otherServerID],
-	)
-	if err != nil {
-		t.Fatalf("authenticate other server: %v", err)
-	}
-	if _, err := repository.GetMatchPlayerLoadout(
-		ctx, otherPrincipal, partyMatchID, playerIDs[0],
-	); metaErrorCode(err) != "META_MATCH_PLAYER_FORBIDDEN" {
-		t.Fatalf("cross-server match access was accepted: %v", err)
-	}
-
-	cleanupNow := now.Add(2 * time.Minute)
-	// Reservation expiry and heartbeat freshness are independent. Model live
-	// servers continuing to heartbeat while their clients fail to connect.
-	if _, err := pool.Exec(ctx, `
-		UPDATE game_servers
-		SET last_heartbeat_at = $2, updated_at = $2
-		WHERE id = ANY($1)
-	`, serverIDs, cleanupNow); err != nil {
-		t.Fatal(err)
-	}
-	scheduler.now = func() time.Time { return cleanupNow }
-	if err := scheduler.expireAndRelease(ctx); err != nil {
-		t.Fatalf("expire stale reservations: %v", err)
-	}
-	var failedMatches, readyServers, connectionTimeouts int
-	if err := pool.QueryRow(ctx, `
-		SELECT
-		  (SELECT COUNT(*) FROM meta_matches
-		   WHERE game_server_id = ANY($1) AND state = 'FAILED'),
-		  (SELECT COUNT(*) FROM game_servers
-		   WHERE id = ANY($1) AND state = 'READY'),
-		  (SELECT COUNT(*) FROM meta_match_tickets
-		   WHERE player_id = ANY($2)
-		     AND state = 'FAILED'
-		     AND failure_code = 'META_MATCH_CONNECTION_TIMEOUT')
-	`, serverIDs, playerIDs).Scan(
-		&failedMatches, &readyServers, &connectionTimeouts,
-	); err != nil {
-		t.Fatal(err)
-	}
-	if failedMatches != 2 || readyServers != 2 || connectionTimeouts != 2 {
-		t.Fatalf(
-			"reservation cleanup: failed_matches=%d ready_servers=%d connection_timeouts=%d",
-			failedMatches, readyServers, connectionTimeouts,
-		)
-	}
-	var partyState string
-	if err := pool.QueryRow(ctx, `SELECT state FROM meta_parties WHERE id = $1`, party.ID).Scan(&partyState); err != nil {
-		t.Fatal(err)
-	}
-	if partyState != "ACTIVE" {
-		t.Fatalf("party state after reservation timeout = %s, want ACTIVE", partyState)
-	}
 }
 
 func metaErrorCode(err error) string {

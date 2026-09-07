@@ -76,9 +76,6 @@ FROM (VALUES
   ('meta_weapon_archives'),
   ('meta_parties'),
   ('meta_party_members'),
-  ('meta_match_tickets'),
-  ('meta_matches'),
-  ('meta_match_players'),
   ('meta_notifications'),
   ('meta_playlists'),
   ('meta_settings'),
@@ -89,6 +86,14 @@ FROM (VALUES
   ('battlelog_rounds'),
   ('battlelog_score_breakdowns')
 ) AS allowed(table_name)
+\gexec
+
+-- MatchLobby owns these projections. MetaServer reads them for loadouts and
+-- report identity, and may only attach a report result to an existing member.
+SELECT format('GRANT SELECT ON TABLE %I TO %I', table_name, :'meta_user')
+FROM (VALUES ('meta_match_tickets'), ('meta_matches'), ('meta_match_players')) AS allowed(table_name)
+\gexec
+SELECT format('GRANT UPDATE (result) ON TABLE meta_match_players TO %I', :'meta_user')
 \gexec
 
 SELECT format(
@@ -108,12 +113,6 @@ FROM (VALUES
   ('admin_role_permissions', 'role_id, permission_id'),
   ('game_servers', 'id, region, mode, version, public_host, public_port, max_players, player_count, state, server_token_hash, token_expires_at, token_revoked_at, last_heartbeat_at, updated_at, token_scopes')
 ) AS allowed(table_name, columns)
-\gexec
-
-SELECT format(
-  'GRANT UPDATE (state, updated_at) ON TABLE game_servers TO %I',
-  :'meta_user'
-)
 \gexec
 
 SELECT format(

@@ -48,6 +48,10 @@ func TestRestrictedMetaServicePermissions(t *testing.T) {
 		`SELECT password_hash FROM admin_users LIMIT 0`,
 		`SELECT id FROM match_lobbies LIMIT 0`,
 		`UPDATE schema_migrations SET checksum = checksum WHERE false`,
+		`UPDATE game_servers SET state = state WHERE false`,
+		`UPDATE meta_matches SET state = state WHERE false`,
+		`DELETE FROM meta_match_tickets WHERE false`,
+		`UPDATE meta_match_players SET connected_at = connected_at WHERE false`,
 		`CREATE TABLE public.rebound_meta_forbidden_ddl_probe (id integer)`,
 	} {
 		tx, err := pool.Begin(ctx)

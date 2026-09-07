@@ -174,24 +174,7 @@ func (s *Service) CreateMatchTicket(
 	ctx context.Context,
 	playerID, partyID, mode, region, clientVersion string,
 ) (MatchTicket, error) {
-	mode, region = normalizeQueueLabels(mode, region)
-	if !metaLabelPattern.MatchString(mode) || !metaLabelPattern.MatchString(region) ||
-		!metaLabelPattern.MatchString(clientVersion) {
-		return MatchTicket{}, invalid(map[string]any{"queue": "mode, region, or client version is invalid"})
-	}
-	if partyID != "" {
-		leader, err := s.repository.IsPartyLeader(ctx, partyID, playerID)
-		if err != nil {
-			return MatchTicket{}, internalError(err)
-		}
-		if !leader {
-			return MatchTicket{}, forbidden("META_PARTY_LEADER_REQUIRED", "Only the party leader can start matchmaking.")
-		}
-	}
-	return s.repository.CreateTicket(
-		ctx, playerID, partyID, mode, region, clientVersion,
-		s.protocolVersion, s.matchTicketTTL,
-	)
+	return MatchTicket{}, retiredMatchmaking()
 }
 
 func normalizeQueueLabels(mode, region string) (string, string) {

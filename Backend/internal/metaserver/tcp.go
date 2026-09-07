@@ -419,22 +419,14 @@ func (s *TCPServer) dispatch(
 		}
 		raw, _ := json.Marshal(playlists)
 		response.Message = appendStringField(EncodeStatusMessage(0), 2, string(raw))
-	case "/matchmaking.Matchmaking/StartUnityMatchmaking":
-		mode, _ := consumeStringField(request.Message, 2)
-		if _, err := s.service.CreateMatchTicket(
-			ctx, session.PlayerID, activePartyID(ctx, s.service.repository, session.PlayerID),
-			mode, "auto", session.ClientVersion,
-		); err != nil {
-			response.ErrorCode = rpcUnknownError
-			return response
-		}
-		response.Message = EncodeStatusMessage(0)
-	case "/matchmaking.Matchmaking/QueryUnityMatchmaking",
+	case "/matchmaking.Matchmaking/StartUnityMatchmaking",
+		"/matchmaking.Matchmaking/QueryUnityMatchmaking",
 		"/matchmaking.Matchmaking/StopUnityMatchmaking":
-		// Upstream explicitly marks these message fields tentative. Until a
-		// sanitized capture confirms them, return the known empty response and
-		// keep state changes on the authenticated HTTP API.
-		response.Message = []byte{}
+		// Native online matchmaking is exclusively initiated by MatchLobby.
+		// Preserve the known nonzero RPC failure envelope, never an empty
+		// success or a compatibility ticket that can reserve a Game Server.
+		response.ErrorCode = rpcUnknownError
+		response.Message = EncodeStatusMessage(rpcUnknownError)
 	case "/profile.Profile/QueryCurrency", "/assets.Assets/QueryCurrency":
 		message, err := s.queryCurrency(ctx, session)
 		if err != nil {

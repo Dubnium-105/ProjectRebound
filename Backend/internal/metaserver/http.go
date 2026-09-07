@@ -266,45 +266,15 @@ func (h *HTTPHandler) Presence(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPHandler) CreateMatchTicket(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		PartyID       string `json:"party_id"`
-		Mode          string `json:"mode"`
-		Region        string `json:"region"`
-		ClientVersion string `json:"client_version"`
-	}
-	if err := decodeJSON(r, &input); err != nil {
-		h.writeError(w, r, invalid(map[string]any{"body": err.Error()}))
-		return
-	}
-	principal := auth.PrincipalFromContext(r.Context())
-	item, err := h.service.CreateMatchTicket(
-		r.Context(), principal.Player.ID, input.PartyID,
-		input.Mode, input.Region, input.ClientVersion,
-	)
-	if err != nil {
-		h.writeError(w, r, err)
-		return
-	}
-	api.WriteData(w, r, http.StatusAccepted, item)
+	h.writeError(w, r, retiredMatchmaking())
 }
 
 func (h *HTTPHandler) GetMatchTicket(w http.ResponseWriter, r *http.Request) {
-	principal := auth.PrincipalFromContext(r.Context())
-	item, err := h.repository.GetTicket(r.Context(), chi.URLParam(r, "ticket_id"), principal.Player.ID)
-	if err != nil {
-		h.writeError(w, r, err)
-		return
-	}
-	api.WriteData(w, r, http.StatusOK, item)
+	h.writeError(w, r, retiredMatchmaking())
 }
 
 func (h *HTTPHandler) CancelMatchTicket(w http.ResponseWriter, r *http.Request) {
-	principal := auth.PrincipalFromContext(r.Context())
-	if err := h.repository.CancelTicket(r.Context(), chi.URLParam(r, "ticket_id"), principal.Player.ID); err != nil {
-		h.writeError(w, r, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	h.writeError(w, r, retiredMatchmaking())
 }
 
 type gameServerPrincipalKey uint8
@@ -359,40 +329,11 @@ func (h *HTTPHandler) InternalLoadout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPHandler) InternalConnected(w http.ResponseWriter, r *http.Request) {
-	err := h.repository.MarkMatchPlayerConnected(
-		r.Context(), gameServerFromRequest(r),
-		chi.URLParam(r, "match_id"), chi.URLParam(r, "player_id"),
-	)
-	if err != nil {
-		h.writeError(w, r, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	h.writeError(w, r, retiredMatchmaking())
 }
 
 func (h *HTTPHandler) InternalCompleted(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		Result json.RawMessage `json:"result"`
-	}
-	if err := decodeJSON(r, &input); err != nil {
-		h.writeError(w, r, invalid(map[string]any{"body": err.Error()}))
-		return
-	}
-	if len(input.Result) == 0 {
-		input.Result = json.RawMessage(`{}`)
-	}
-	var object map[string]any
-	if err := json.Unmarshal(input.Result, &object); err != nil || object == nil {
-		h.writeError(w, r, invalid(map[string]any{"result": "must be a JSON object"}))
-		return
-	}
-	if err := h.repository.CompleteMatch(
-		r.Context(), gameServerFromRequest(r), chi.URLParam(r, "match_id"), input.Result,
-	); err != nil {
-		h.writeError(w, r, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	h.writeError(w, r, retiredMatchmaking())
 }
 
 func (h *HTTPHandler) InternalBattleLog(w http.ResponseWriter, r *http.Request) {

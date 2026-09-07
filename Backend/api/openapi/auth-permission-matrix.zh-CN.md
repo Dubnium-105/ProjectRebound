@@ -1,5 +1,7 @@
 # Access Token 权限矩阵
 
+在线匹配只通过 MatchLobby/MatchAttempt。Meta 独立匹配 ticket、原生 Start/Query/StopUnityMatchmaking、旧 connected/completed 和管理员 Meta cancel 已退役；HTTP 返回 410，原生 RPC 返回非零错误。Meta 不再运行独立调度器或修改 Game Server lifecycle。
+
 [English](auth-permission-matrix.md) | 简体中文
 
 `POST /v1/auth/bind` 保持旧客户端兼容：省略 `encrypted_ticket` 时创建 `auth_provider=steam_client_asserted`、`auth_level=unverified` 会话。有效 Encrypted App Ticket 创建 `auth_provider=steam_ticket`、`auth_level=verified`、`steam_verified=true` 会话，且以解密出的 ticket SteamID 为权威身份。提交无效 ticket 时直接拒绝，绝不降级。
@@ -20,10 +22,10 @@ Access Token 是短期 Ed25519 JWT，包含玩家/用户 ID、session ID、provi
 | 版本/更新读取 | 允许 | 允许 | 后续 Milestone 定义 |
 | 公开服务器/房间浏览 | 允许 | 可允许 | 后续 Milestone 定义 |
 | Meta 档案/内容读取 | 允许 | 拒绝 | 拒绝 |
-| Meta 配装、Party、Gate 和匹配写操作 | 允许 | 拒绝 | 拒绝 |
+| Meta 配装、Party 和 Gate 写操作 | 允许 | 拒绝 | 拒绝 |
 | 联机写操作 | 允许 | 拒绝 | 拒绝 |
 
-房间、连接、MetaServer session、Party、配装和匹配操作还要求会话满足 `steam_verified=true`，且 `auth_level` 为 `verified` 或 `trusted`。旧客户端的 unverified 会话仍可 bind、refresh、logout、管理个人/会话、读取公共目录和更新信息。
+MatchLobby 在线操作、连接、MetaServer session、Party 和配装操作还要求会话满足 `steam_verified=true`，且 `auth_level` 为 `verified` 或 `trusted`。旧客户端的 unverified 会话仍可 bind、refresh、logout、管理个人/会话、读取公共目录和更新信息。
 
 Admin API 不使用玩家矩阵，也绝不接受 Player Access Token。`/v1/admin/*` 人类管理接口要求可信来源网段，并使用只有在 Turnstile、密码和 TOTP/恢复码全部通过后才建立的独立管理员 Session。现有运维机器接口使用单独配置的静态 Admin Token；`/internal/v1/meta/*` Dedicated Server 路由同时要求绑定 server ID、有效期、scope、活动状态、已分配对局和名单的不透明 Game Server Token，以及由同一凭据代际绑定的节点证书私钥生成的 Ed25519 请求签名。Token 与证书成对轮转，配置的重叠窗口内仅允许上一对凭据继续普通运行流量，不能再次轮转或注销。这些机器凭据都不建立浏览器 Session。
 

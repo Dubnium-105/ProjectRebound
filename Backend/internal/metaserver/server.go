@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/admin"
@@ -23,13 +22,12 @@ import (
 )
 
 type Server struct {
-	cfg       *config.Config
-	logger    *slog.Logger
-	database  *database.Pool
-	cache     *cache.Client
-	http      *http.Server
-	tcp       *TCPServer
-	scheduler *Scheduler
+	cfg      *config.Config
+	logger   *slog.Logger
+	database *database.Pool
+	cache    *cache.Client
+	http     *http.Server
+	tcp      *TCPServer
 }
 
 type schemaChecker struct{ database *database.Pool }
@@ -209,26 +207,12 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 			IdleTimeout:       cfg.HTTP.IdleTimeout(),
 		},
 		tcp: NewTCPServer(cfg.MetaServer, service, gates, metrics, logger),
-		scheduler: NewScheduler(
-			dbPool.Pool,
-			time.Duration(cfg.MetaServer.SchedulerIntervalSeconds)*time.Second,
-			time.Duration(cfg.GameServer.UnhealthyAfterSeconds)*time.Second,
-			time.Duration(cfg.MetaServer.MatchReservationTTLSeconds)*time.Second,
-			metrics,
-			logger,
-		),
 	}, nil
 }
 
 func (s *Server) Run(ctx context.Context) error {
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	var background sync.WaitGroup
-	background.Add(1)
-	go func() {
-		defer background.Done()
-		s.scheduler.Run(runCtx)
-	}()
 	errorsCh := make(chan error, 2)
 	go func() {
 		s.logger.Info("MetaServer HTTP listening", "address", s.cfg.MetaServer.HTTPAddr)
@@ -249,11 +233,9 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.http.Shutdown(shutdownCtx); err != nil {
 			return fmt.Errorf("MetaServer HTTP shutdown: %w", err)
 		}
-		background.Wait()
 		return nil
 	case err := <-errorsCh:
 		cancel()
-		background.Wait()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return err
 		}

@@ -4129,6 +4129,7 @@ paths:
   /v1/meta/matchmaking/tickets:
     post:
       operationId: createMetaMatchTicket
+      deprecated: true
       tags: [MetaServer]
       security:
         - playerAccessToken: []
@@ -4137,42 +4138,33 @@ paths:
         content:
           application/json:
             schema: {$ref: "#/components/schemas/MetaMatchTicketCreateRequest"}
+      description: Retired. MatchLobby and MatchAttempt exclusively own online admission and lifecycle.
       responses:
-        "202":
-          description: Queued match ticket. No P2P fallback is implied.
-          content:
-            application/json:
-              schema: {$ref: "#/components/schemas/MetaMatchTicketResponse"}
-        "400": {$ref: "#/components/responses/InvalidRequest"}
+        "410": {description: "META_MATCHMAKING_RETIRED; no database or lifecycle mutation."}
         "401": {$ref: "#/components/responses/Unauthorized"}
-        "409": {$ref: "#/components/responses/Conflict"}
   /v1/meta/matchmaking/tickets/{ticket_id}:
     parameters:
       - {$ref: "#/components/parameters/MetaTicketID"}
     get:
       operationId: getMetaMatchTicket
+      deprecated: true
       tags: [MetaServer]
       security:
         - playerAccessToken: []
-      description: Ticket ownership is derived from the access token; cross-player access is hidden as not found.
+      description: Retired. MatchLobby and MatchAttempt exclusively own online admission and lifecycle.
       responses:
-        "200":
-          description: Current ticket state.
-          content:
-            application/json:
-              schema: {$ref: "#/components/schemas/MetaMatchTicketResponse"}
+        "410": {description: "META_MATCHMAKING_RETIRED; no database or lifecycle mutation."}
         "401": {$ref: "#/components/responses/Unauthorized"}
-        "404": {$ref: "#/components/responses/NotFound"}
     delete:
       operationId: cancelMetaMatchTicket
+      deprecated: true
       tags: [MetaServer]
       security:
         - playerAccessToken: []
+      description: Retired. MatchLobby and MatchAttempt exclusively own online admission and lifecycle.
       responses:
-        "204": {description: Ticket cancelled.}
+        "410": {description: "META_MATCHMAKING_RETIRED; no database or lifecycle mutation."}
         "401": {$ref: "#/components/responses/Unauthorized"}
-        "404": {$ref: "#/components/responses/NotFound"}
-        "409": {$ref: "#/components/responses/Conflict"}
   /internal/v1/meta/matches/{match_id}/players/{player_id}/loadout:
     get:
       operationId: getAssignedMetaPlayerLoadout
@@ -4184,7 +4176,7 @@ paths:
         - {$ref: "#/components/parameters/MetaMatchID"}
         - {$ref: "#/components/parameters/PlayerID"}
         - {$ref: "#/components/parameters/GameServerIdentity"}
-      description: Requires meta.loadouts.read scope and an active match assigned to this Game Server.
+      description: Requires meta.loadouts.read scope and an active MatchAttempt projection assigned to this Game Server; legacy standalone Meta matches are rejected.
       responses:
         "200":
           description: Match-bound loadout snapshot.
@@ -4196,26 +4188,25 @@ paths:
   /internal/v1/meta/matches/{match_id}/players/{player_id}/connected:
     post:
       operationId: markAssignedMetaPlayerConnected
+      deprecated: true
       tags: [MetaServer Internal]
       x-internal: true
-      description: Requires meta.matches.connect scope and the assigned active match/player.
       security:
         - gameServerToken: []
       parameters:
         - {$ref: "#/components/parameters/MetaMatchID"}
         - {$ref: "#/components/parameters/PlayerID"}
         - {$ref: "#/components/parameters/GameServerIdentity"}
+      description: Retired. MatchLobby and MatchAttempt exclusively own online admission and lifecycle.
       responses:
-        "204": {description: Player connection recorded.}
+        "410": {description: "META_MATCHMAKING_RETIRED; no database or lifecycle mutation."}
         "401": {$ref: "#/components/responses/Unauthorized"}
-        "404": {$ref: "#/components/responses/NotFound"}
-        "409": {$ref: "#/components/responses/Conflict"}
   /internal/v1/meta/matches/{match_id}/completed:
     post:
       operationId: completeAssignedMetaMatch
+      deprecated: true
       tags: [MetaServer Internal]
       x-internal: true
-      description: Requires meta.matches.complete scope and an active match assigned to this Game Server.
       security:
         - gameServerToken: []
       parameters:
@@ -4226,12 +4217,10 @@ paths:
         content:
           application/json:
             schema: {$ref: "#/components/schemas/MetaMatchCompleteRequest"}
+      description: Retired. MatchLobby and MatchAttempt exclusively own online admission and lifecycle.
       responses:
-        "204": {description: Match completed and Game Server returned to READY.}
-        "400": {$ref: "#/components/responses/InvalidRequest"}
+        "410": {description: "META_MATCHMAKING_RETIRED; no database or lifecycle mutation."}
         "401": {$ref: "#/components/responses/Unauthorized"}
-        "404": {$ref: "#/components/responses/NotFound"}
-        "409": {$ref: "#/components/responses/Conflict"}
   /internal/v1/meta/battlelog/reports/{report_id}:
     put:
       operationId: submitBattleLogReport
@@ -4343,6 +4332,7 @@ paths:
   /v1/admin/meta/matches/{match_id}/cancel:
     post:
       operationId: adminCancelMetaMatch
+      deprecated: true
       tags: [Admin MetaServer]
       security:
         - adminAccessToken: []
@@ -4354,12 +4344,10 @@ paths:
         content:
           application/json:
             schema: {$ref: "#/components/schemas/AdminReasonRequest"}
+      description: Retired. MatchLobby and MatchAttempt exclusively own online admission and lifecycle.
       responses:
-        "204": {description: "Match cancelled, reservation released, and action audited."}
-        "400": {$ref: "#/components/responses/InvalidRequest"}
-        "401": {$ref: "#/components/responses/AdminUnauthorized"}
-        "404": {$ref: "#/components/responses/NotFound"}
-        "409": {$ref: "#/components/responses/Conflict"}
+        "410": {description: "META_MATCHMAKING_RETIRED; no database or lifecycle mutation."}
+        "401": {$ref: "#/components/responses/Unauthorized"}
   /v1/admin/meta/playlists/{slug}:
     put:
       operationId: adminUpsertMetaPlaylist

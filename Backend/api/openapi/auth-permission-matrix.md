@@ -1,5 +1,7 @@
 # Access Token permission matrix
 
+Online matchmaking exclusively uses MatchLobby/MatchAttempt. Independent Meta tickets, native Start/Query/StopUnityMatchmaking, legacy connected/completed and administrator Meta cancel are retired: HTTP returns 410 and native RPC returns a nonzero error. Meta runs no independent scheduler and cannot change Game Server lifecycle.
+
 English | [简体中文](auth-permission-matrix.zh-CN.md)
 
 `POST /v1/auth/bind` keeps legacy compatibility: omitting `encrypted_ticket` creates an `auth_provider=steam_client_asserted`, `auth_level=unverified` session. A valid Encrypted App Ticket creates an `auth_provider=steam_ticket`, `auth_level=verified`, `steam_verified=true` session. The decrypted ticket SteamID is authoritative. A supplied invalid ticket is rejected and never downgraded.
@@ -20,10 +22,10 @@ The Access Token is a short-lived Ed25519 JWT containing the player/user ID, ses
 | Version/update reads | Allow | Allow | Defined by a later milestone |
 | Public server/room browsing | Allow | Allow | Defined by a later milestone |
 | Meta profile/content reads | Allow | Reject | Reject |
-| Meta loadout, Party, Gate, and matchmaking writes | Allow | Reject | Reject |
+| Meta loadout, Party, and Gate writes | Allow | Reject | Reject |
 | Online write operations | Allow | Reject | Reject |
 
-Room, connection, MetaServer session, party, loadout, and matchmaking operations additionally require a session with `steam_verified=true` and `auth_level` of `verified` or `trusted`. Unverified legacy sessions retain bind, refresh, logout, personal/session management, public directory, and update-read compatibility.
+MatchLobby online operations, connections, MetaServer sessions, parties, and loadouts additionally require a session with `steam_verified=true` and `auth_level` of `verified` or `trusted`. Unverified legacy sessions retain bind, refresh, logout, personal/session management, public directory, and update-read compatibility.
 
 The Admin API does not use the player matrix and never accepts Player Access Tokens. Human routes under `/v1/admin/*` require a trusted source network plus a dedicated administrator session created only after Turnstile, password, and TOTP/recovery-code verification. Existing operational machine routes use separately configured static Admin Tokens. Dedicated Server routes under `/internal/v1/meta/*` instead require an opaque Game Server Token bound to its server ID, expiry, scopes, active state, assigned match, and roster, plus an Ed25519 request signature from the node certificate bound to the same credential generation. The token and certificate rotate together; only the immediately previous pair is accepted during the configured overlap for routine runtime traffic, never for another rotation or deregistration. These machine credentials do not create a browser session.
 
