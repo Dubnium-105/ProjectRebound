@@ -1,0 +1,22 @@
+{
+  "crash_context_sha256": "49a522eb5f5ddc9a2ca88583828c4517bc1fd5bf2332aad21b56de7d891bfc3c",
+  "error": "Unhandled Exception: EXCEPTION_ACCESS_VIOLATION reading address 0x0000000000000028",
+  "stack": "ProjectBoundarySteam-Win64-Shipping 0x00007ff69bf00000 + 189d066 Payload 0x00007fface250000 + 9e84f Payload 0x00007fface250000 + 8df85 ProjectBoundarySteam-Win64-Shipping 0x00007ff69bf00000 + 368f625 ProjectBoundarySteam-Win64-Shipping 0x00007ff69bf00000 + 334d230 ProjectBoundarySteam-Win64-Shipping 0x00007ff69bf00000 + 1a420a1 ProjectBoundarySteam-Win64-Shipping 0x00007ff69bf00000 + 1a51076 ProjectBoundarySteam-Win64-Shipping 0x00007ff69bf00000 + 1a38063 ProjectBoundarySteam-Win64-Shipping 0x00007ff69bf00000 + 1a4fc05 ProjectBoundarySteam-Win64-Shipping 0x00007ff69bf00000 + 1a59f79 ProjectBoundarySteam-Win64-Shipping 0x00007ff69bf00000 + 1a55cf0 ProjectBoundarySteam-Win64-Shipping 0x00007ff69bf00000 + 19f03e7 ProjectBoundarySteam-Win64-Shipping 0x00007ff69bf00000 + 19ea331 KERNEL32 0x00007ffbc8a50000 + 2e8d7 ntdll 0x00007ffbc96e0000 + 8c40c",
+  "payload_map_sha256": "61bbe2e8e328bccba23e253b1b00b9f13a3302f771f75946a082ba3780cf0002",
+  "payload_symbols": [
+    {
+      "rva": "0x9e84f",
+      "nearest_symbol_rva": "0x9e7d0",
+      "symbol": "??$call@XPEAXPEAURawNativeFString@?A0x8dbe8ec0@@@InlineHook@safetyhook@@QEAAXPEAXPEAURawNativeFString@?A0x8dbe8ec0@@@Z",
+      "object": "f   Hooks.obj",
+      "offset": 127
+    },
+    {
+      "rva": "0x8df85",
+      "nearest_symbol_rva": "0x8d6c0",
+      "symbol": "?StrictRosterNmtFStringSerializerHook@?A0x8dbe8ec0@@YAXPEAXPEAURawNativeFString@1@@Z",
+      "object": "f   Hooks.obj",
+      "offset": 2245
+    }
+  ]
+}

@@ -1,0 +1,159 @@
+{
+  "executable_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+  "finding": "The FString serializer returns FArchive& in RAX; native callers immediately reuse RAX as RCX for chained serializations. A void hook loses the return value.",
+  "evidence_class": "static disassembly plus two actual B970 client crash stacks; fixed candidate runtime acceptance pending",
+  "ranges": [
+    {
+      "rva": "0x189d60b",
+      "bytes": "488bc7488b4d274833cce8165f8302488b9c24480100004881c400010000415f415e5f5e5dc3",
+      "instructions": [
+        {
+          "rva": "0x189d60b",
+          "mnemonic": "mov",
+          "operands": "rax, rdi"
+        },
+        {
+          "rva": "0x189d60e",
+          "mnemonic": "mov",
+          "operands": "rcx, qword ptr [rbp + 0x27]"
+        },
+        {
+          "rva": "0x189d612",
+          "mnemonic": "xor",
+          "operands": "rcx, rsp"
+        },
+        {
+          "rva": "0x189d615",
+          "mnemonic": "call",
+          "operands": "0x40d3530"
+        },
+        {
+          "rva": "0x189d61a",
+          "mnemonic": "mov",
+          "operands": "rbx, qword ptr [rsp + 0x148]"
+        },
+        {
+          "rva": "0x189d622",
+          "mnemonic": "add",
+          "operands": "rsp, 0x100"
+        },
+        {
+          "rva": "0x189d629",
+          "mnemonic": "pop",
+          "operands": "r15"
+        },
+        {
+          "rva": "0x189d62b",
+          "mnemonic": "pop",
+          "operands": "r14"
+        },
+        {
+          "rva": "0x189d62d",
+          "mnemonic": "pop",
+          "operands": "rdi"
+        },
+        {
+          "rva": "0x189d62e",
+          "mnemonic": "pop",
+          "operands": "rsi"
+        },
+        {
+          "rva": "0x189d62f",
+          "mnemonic": "pop",
+          "operands": "rbp"
+        },
+        {
+          "rva": "0x189d630",
+          "mnemonic": "ret",
+          "operands": ""
+        }
+      ]
+    },
+    {
+      "rva": "0x368f60e",
+      "bytes": "4c8bea4c8bf1e827da20fe488bc8498d5510e81bda20fe488bc8498d5528e80fda20fe488bc8498d5558e803da20fe488bc8498d5548e8376922fe488bd848",
+      "instructions": [
+        {
+          "rva": "0x368f60e",
+          "mnemonic": "mov",
+          "operands": "r13, rdx"
+        },
+        {
+          "rva": "0x368f611",
+          "mnemonic": "mov",
+          "operands": "r14, rcx"
+        },
+        {
+          "rva": "0x368f614",
+          "mnemonic": "call",
+          "operands": "0x189d040"
+        },
+        {
+          "rva": "0x368f619",
+          "mnemonic": "mov",
+          "operands": "rcx, rax"
+        },
+        {
+          "rva": "0x368f61c",
+          "mnemonic": "lea",
+          "operands": "rdx, [r13 + 0x10]"
+        },
+        {
+          "rva": "0x368f620",
+          "mnemonic": "call",
+          "operands": "0x189d040"
+        },
+        {
+          "rva": "0x368f625",
+          "mnemonic": "mov",
+          "operands": "rcx, rax"
+        },
+        {
+          "rva": "0x368f628",
+          "mnemonic": "lea",
+          "operands": "rdx, [r13 + 0x28]"
+        },
+        {
+          "rva": "0x368f62c",
+          "mnemonic": "call",
+          "operands": "0x189d040"
+        },
+        {
+          "rva": "0x368f631",
+          "mnemonic": "mov",
+          "operands": "rcx, rax"
+        },
+        {
+          "rva": "0x368f634",
+          "mnemonic": "lea",
+          "operands": "rdx, [r13 + 0x58]"
+        },
+        {
+          "rva": "0x368f638",
+          "mnemonic": "call",
+          "operands": "0x189d040"
+        },
+        {
+          "rva": "0x368f63d",
+          "mnemonic": "mov",
+          "operands": "rcx, rax"
+        },
+        {
+          "rva": "0x368f640",
+          "mnemonic": "lea",
+          "operands": "rdx, [r13 + 0x48]"
+        },
+        {
+          "rva": "0x368f644",
+          "mnemonic": "call",
+          "operands": "0x18b5f80"
+        },
+        {
+          "rva": "0x368f649",
+          "mnemonic": "mov",
+          "operands": "rbx, rax"
+        }
+      ]
+    }
+  ]
+}

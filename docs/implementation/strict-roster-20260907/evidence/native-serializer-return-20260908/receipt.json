@@ -1,0 +1,230 @@
+{
+  "recorded_at": "2026-09-07T19:19:04.220026+00:00",
+  "finding": "Pinned FString serializer returns FArchive&; the previous void detour lost RAX and crashed ordinary chained serialization before client login.",
+  "change": "Preserve the native pointer return through all forwarding paths; gate the pinned return bytes in addition to the existing callsite/prologue checks.",
+  "validation_scope": "23/23 CTest and actual DLL build succeeded. Two real cold clients subsequently completed native login and accepted a scoped nonempty-Grant join without the prior serializer crash. Full native admission did not pass.",
+  "candidate_sha256": "70a0f52d246e14bd243723b4e9cc0173408904e94355178bec003b01d51bbb40",
+  "release_ready": false,
+  "evidence_files": [
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-serializer-return-20260908/pinned-executable-disassembly.json",
+      "sha256": "89dc3a78d71103808f56220e53c380553084bda2f3e335f56b4116496598a42d",
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\native-serializer-return-abi-20260908.json",
+      "original_sha256": "89dc3a78d71103808f56220e53c380553084bda2f3e335f56b4116496598a42d"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-serializer-return-20260908/crash-0BBD9F664430EF2061FF8B9CE3C661BD.json",
+      "sha256": "a074c52b512c4e64f7e10dab6f59eabfa7ec87f66c50fd77ef96ec999aeb3842",
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T183905087676Z\\crash-0BBD9F664430EF2061FF8B9CE3C661BD.json",
+      "original_sha256": "a074c52b512c4e64f7e10dab6f59eabfa7ec87f66c50fd77ef96ec999aeb3842"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-serializer-return-20260908/crash-2604ADCD44A5C2EAB8276FAE1C41527E.json",
+      "sha256": "4fdbfd114b741e23cb43226b204874141bc9da5f090c9755be6a5205b0855177",
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T183905087676Z\\crash-2604ADCD44A5C2EAB8276FAE1C41527E.json",
+      "original_sha256": "4fdbfd114b741e23cb43226b204874141bc9da5f090c9755be6a5205b0855177"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-serializer-return-20260908/actual-candidate-build.json",
+      "sha256": "1cbb191ec5b1825dbbd9e8fe99ae641be54e02415c9dd905f011fc06e19d45e6",
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T190853926682Z\\result.json",
+      "original_sha256": "1cbb191ec5b1825dbbd9e8fe99ae641be54e02415c9dd905f011fc06e19d45e6"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-serializer-return-20260908/configure.log",
+      "sha256": "ec41c48489f49657768d8559ad03e742dd7e09afb5c14e8f8deb5f4d9b42967a",
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T190853926682Z\\configure.log",
+      "original_sha256": "ec41c48489f49657768d8559ad03e742dd7e09afb5c14e8f8deb5f4d9b42967a"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-serializer-return-20260908/tests-build.log",
+      "sha256": "46c4653188f1d8e7ae62333b046dfca9c556c13bf890ceb0e2cf114cd2f41c97",
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T190853926682Z\\tests-build.log",
+      "original_sha256": "46c4653188f1d8e7ae62333b046dfca9c556c13bf890ceb0e2cf114cd2f41c97"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-serializer-return-20260908/ctest.log",
+      "sha256": "54f23dfca08ab8e20a6209433d1bdd393b8560c61bcccf8f853e22660cb50368",
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T190853926682Z\\ctest.log",
+      "original_sha256": "54f23dfca08ab8e20a6209433d1bdd393b8560c61bcccf8f853e22660cb50368"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-serializer-return-20260908/payload-build.log",
+      "sha256": "7d3343532df16b0e97aee27a4ff2b219d3e14c64013dcdb1b09150b0b2d6f943",
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T190853926682Z\\payload-build.log",
+      "original_sha256": "7d3343532df16b0e97aee27a4ff2b219d3e14c64013dcdb1b09150b0b2d6f943"
+    }
+  ],
+  "real_native_runs": [
+    {
+      "run_id": "dynamic-root-20260907T191025704743Z",
+      "actual_outcome": "BLOCKED",
+      "failure": "Cannot bind argument to parameter 'Events' because it is an empty array.",
+      "summary_sha256": "b9b2597be51d24f435d72519c08c3fd7274f321c03e69b895b48b0322eacbd89",
+      "original_frames_sha256": "7fad7b625c8db4155b2a043461f398251c538ebc2522743669a0824904893b3e",
+      "selected_actual_frames": [
+        {
+          "label": "client_login_ready_poll",
+          "command": "payload_status_ack",
+          "request_id": "client-login-ready-b4afd21fd2354944a0350d92f2ac0c13",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": true,
+          "native_authority_admission_verified": false,
+          "match_login_completed": true,
+          "match_login_ready": true,
+          "match_state": "idle",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "client_world_1_2510e5ba8b0",
+          "observed_utc": "2026-09-07T19:11:20.9067383+00:00",
+          "match_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "client_join",
+          "command": "join_ack",
+          "request_id": "client-join-190348e057384ed9932c712ceb70052d",
+          "status": "accepted",
+          "code": "",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "operation_sequence": 1,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T19:11:21.2367201+00:00"
+        }
+      ],
+      "restored_payload_sha256": "6C7B5E05540AC72A6D7A9FA78F867917285FCE00081156EE13D237AA4D6C24A3"
+    },
+    {
+      "run_id": "dynamic-root-20260907T191237095397Z",
+      "actual_outcome": "BLOCKED_NATIVE_ADMISSION_NOT_CONNECTED",
+      "failure": null,
+      "summary_sha256": "1947448f0890e33379c96fc18e228b4817f717e75f936fb87304a22b8c1c9def",
+      "original_frames_sha256": "72b58081fa26a8fa7c8ee01937134c90fe36e7b9740ef6469de2acb8c1f0df99",
+      "selected_actual_frames": [
+        {
+          "label": "client_login_ready_poll",
+          "command": "payload_status_ack",
+          "request_id": "client-login-ready-1ef030efcc89493781b51ce81bccda29",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": true,
+          "native_authority_admission_verified": false,
+          "match_login_completed": true,
+          "match_login_ready": true,
+          "match_state": "idle",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "client_world_1_2591c4db890",
+          "observed_utc": "2026-09-07T19:13:32.9172884+00:00",
+          "match_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "client_join",
+          "command": "join_ack",
+          "request_id": "client-join-0615467769b741d08929d14b082baa84",
+          "status": "accepted",
+          "code": "",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "operation_sequence": 1,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T19:13:33.2514071+00:00"
+        }
+      ],
+      "restored_payload_sha256": "6C7B5E05540AC72A6D7A9FA78F867917285FCE00081156EE13D237AA4D6C24A3"
+    }
+  ]
+}

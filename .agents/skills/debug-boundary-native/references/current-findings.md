@@ -640,3 +640,10 @@ CompleteWeaponOrnament(manager, int32 code, FName ornament, FName role, FName we
 - 最终 Tauri 0.9.12 签名候选为 `.tmp/release-0.9.12-20260829/rebound_toolbox.exe`，大小 `48,850,320` 字节，SHA-256 `D7CAEEBC8E5E1BB7B82F2DB146F78A8582D5D5ABD1424864869A9047483EDBC0`，文件/产品版本均为 0.9.12。签名者指纹 `0A95D2BF69633F170BC383A78B71A52667A45780`，包含 Sectigo RFC3161 时间戳；本机链状态仅因项目私有根未受系统信任而为 `UntrustedRoot`。
 - 发布源需要同版本 `vnt-runtime-manifest.json` sidecar 供服务器提取运行时证明，但公开签名更新 Manifest 必须严格只含一个 `path=rebound_toolbox.exe, compression=none` 的文件。候选文件名已直接规范为小写，避免后台按对象原文件名自动填入 `Rebound_Toolbox.exe` 再触发客户端拒绝。
 - 尚未执行生产切门或两台真实 Steam 机器的最终验收。最低动态通过标准为：双方强制升级 0.9.12，创建全新 P2P 权威大厅，日志不出现旧 `create_room/join_room/launch_room`，owner 冻结同一 revision 后双方各自收到 carrier-ready 与 auto-launch，并进入同一战局看到彼此、移动和射击。取得这组证据前不把生产闭环标记为动态通过。
+
+## 32. FString 序列化 hook 必须保留原生返回值（2026-09-08）
+
+- 适用 EXE SHA-256 仍为第 1 节固定值。`RVA 0x0189D040` 的 ABI 是 `FArchive& (FArchive&, FString&)`，x64 参数在 RCX/RDX，返回的 archive 指针在 RAX；不能把返回类型声明为 `void`。
+- 固定函数尾 `0x0189D60B` 是 `mov rax,rdi`。普通原生调用者 `0x0368F614/0x0368F620/0x0368F62C` 连续调用该函数，每次立即 `mov rcx,rax`，因此透明转发分支也必须原样返回 trampoline 的结果。
+- B970 候选的两次真实客户端冷启动均在 `0x0189D066` 读取 `RCX+0x28` 时崩溃，栈包含 `StrictRosterNmtFStringSerializerHook`；该候选的 void 返回签名丢失了链式调用需要的 archive 指针。这发生在成员领取 Grant 之前，不能用关闭严格准入、空 Token 或直接 open 掩盖。
+- 修正后的 hook 使用 `void*` 表示原生引用返回值，各转发和注入分支保留实际返回值，并增加 `0x0189D60B` 原字节门。证据为 `.tmp/strict-roster-20260907/native-evidence/native-serializer-return-abi-20260908.json` 和同目录 B970 构建对应的两个 crash 摘要；本条记录的是静态确认和已复现失败，修正 DLL 的冷启动与准入通过仍需独立记录。

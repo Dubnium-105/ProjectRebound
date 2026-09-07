@@ -80,6 +80,10 @@ namespace
         0x48, 0x89, 0x5C, 0x24, 0x20, 0x55, 0x56, 0x57,
         0x41, 0x56, 0x41, 0x57, 0x48, 0x8D, 0x6C, 0x24
     };
+    constexpr uintptr_t kStrictRosterNmtFStringSerializerReturnRva = 0x0189D60B;
+    constexpr uint8_t kStrictRosterNmtFStringSerializerReturnBytes[] = {
+        0x48, 0x8B, 0xC7 // mov rax,rdi: return the same FArchive reference
+    };
     constexpr uintptr_t kStrictRosterNmtLoginField2SetupRva = 0x03484F2A;
     constexpr uintptr_t kStrictRosterNmtLoginField2CallsiteRva = 0x03484F35;
     constexpr uintptr_t kStrictRosterNmtLoginField2ReturnRva = 0x03484F3A;
@@ -764,10 +768,13 @@ namespace
             << "; awaiting native PostLogin confirmation." << std::endl;
     }
 
-    using StrictRosterNmtFStringSerializer = void(__fastcall *)(
+    // The pinned serializer returns FArchive& in RAX (RVA 0x189D60B:
+    // mov rax,rdi). Other native callers chain the returned archive into
+    // another serialization call, so a void detour corrupts their next RCX.
+    using StrictRosterNmtFStringSerializer = void*(__fastcall *)(
         void* archive, RawNativeFString* value);
 
-    void StrictRosterNmtFStringSerializerHook(
+    void* StrictRosterNmtFStringSerializerHook(
         void* archive,
         RawNativeFString* source)
     {
@@ -777,8 +784,7 @@ namespace
         if (!isField2Callsite || !IsStrictRosterNmtLoginArchive(archive) ||
             !source)
         {
-            gStrictRosterNmtFStringSerializerHook.call<void>(archive, source);
-            return;
+            return gStrictRosterNmtFStringSerializerHook.call<void*>(archive, source);
         }
 
         std::string grant;
@@ -788,13 +794,13 @@ namespace
         if (!CopyStagedNativeLoginGrant(grant) ||
             !CopyStagedNativeSteamTicket(encodedSteamTicket))
         {
-            gStrictRosterNmtFStringSerializerHook.call<void>(archive, source);
-            return;
+            return gStrictRosterNmtFStringSerializerHook.call<void*>(archive, source);
         }
 
         std::wstring injectedUrl;
         bool originalCalled = false;
         bool injected = false;
+        void* nativeResult = nullptr;
         try
         {
             if (IsReadableNativeFString(
@@ -813,16 +819,16 @@ namespace
                     // control flow show a synchronous save-only read.  The
                     // original field2 remains owned by the caller and is
                     // released at the pinned post-call site.
-                    gStrictRosterNmtFStringSerializerHook.call<void>(
-                        archive, &borrowed);
                     originalCalled = true;
+                    nativeResult = gStrictRosterNmtFStringSerializerHook.call<void*>(
+                        archive, &borrowed);
                     injected = true;
                 }
             }
             if (!originalCalled)
             {
                 originalCalled = true;
-                gStrictRosterNmtFStringSerializerHook.call<void>(archive, source);
+                nativeResult = gStrictRosterNmtFStringSerializerHook.call<void*>(archive, source);
             }
         }
         catch (...)
@@ -832,7 +838,7 @@ namespace
                 try
                 {
                     originalCalled = true;
-                    gStrictRosterNmtFStringSerializerHook.call<void>(archive, source);
+                    nativeResult = gStrictRosterNmtFStringSerializerHook.call<void*>(archive, source);
                 }
                 catch (...)
                 {
@@ -844,6 +850,7 @@ namespace
         SecureClearWide(injectedUrl);
         if (injected)
             MarkStagedNativeLoginGrantInjected();
+        return nativeResult;
     }
 
     StrictRosterSeatApplyResult ApplyStrictRosterSeat(
@@ -4370,6 +4377,10 @@ void InitClientArchiveHooks()
             kStrictRosterNmtFStringSerializerRva,
             kStrictRosterNmtFStringSerializerPrologue,
             sizeof(kStrictRosterNmtFStringSerializerPrologue)) &&
+        MatchesPinnedBytes(
+            kStrictRosterNmtFStringSerializerReturnRva,
+            kStrictRosterNmtFStringSerializerReturnBytes,
+            sizeof(kStrictRosterNmtFStringSerializerReturnBytes)) &&
         MatchesPinnedBytes(
             kStrictRosterNmtLoginField2SetupRva,
             kStrictRosterNmtLoginField2CallsiteBytes,
