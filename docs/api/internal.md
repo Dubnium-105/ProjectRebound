@@ -135,6 +135,7 @@ GET  /v1/admin/p2p-rooms/{room_id}/members
 POST /v1/admin/p2p-rooms/{room_id}/close
 DELETE /v1/admin/p2p-rooms/{room_id}
 POST /v1/admin/p2p-rooms/{room_id}/members/{player_id}/remove
+POST /v1/admin/match-attempts/{attempt_id}/force-abort
 
 GET  /v1/admin/p2p-battlelog/matches/{match_id}
 GET  /v1/admin/p2p-battlelog/reports/{evidence_id}/raw

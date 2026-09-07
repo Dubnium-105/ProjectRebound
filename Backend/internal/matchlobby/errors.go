@@ -13,6 +13,14 @@ type serviceError struct {
 	cause   error
 }
 
+// These safe accessors let boundary packages preserve the HTTP status and
+// public error code without depending on this package's private error type or
+// exposing its internal cause.
+func (e *serviceError) StatusCode() int              { return e.status }
+func (e *serviceError) ErrorCode() string            { return e.code }
+func (e *serviceError) ErrorMessage() string         { return e.message }
+func (e *serviceError) ErrorDetails() map[string]any { return e.details }
+
 func (e *serviceError) Error() string {
 	if e.cause != nil {
 		return e.message + ": " + e.cause.Error()

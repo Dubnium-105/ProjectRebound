@@ -1159,6 +1159,31 @@ paths:
               schema: {$ref: "#/components/schemas/AdminSettingListResponse"}
         "409":
           $ref: "#/components/responses/Conflict"
+  /v1/admin/match-attempts/{attempt_id}/force-abort:
+    post:
+      operationId: adminForceAbortMatchAttempt
+      tags: [Admin]
+      x-internal: true
+      description: Abort an active authoritative match attempt. This records an administrator audit event and leaves native/game-server cleanup pending until the scoped cleanup receipt is accepted.
+      security:
+        - adminAccessToken: []
+          adminStepUpToken: []
+      parameters:
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AdminMatchAttemptForceAbortRequest"}
+      responses:
+        "200":
+          description: Attempt aborted and cleanup retained as pending.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AdminMatchAttemptForceAbortResponse"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/Conflict"}
   /v1/admin/p2p-rooms:
     get:
       operationId: adminListP2PRooms
@@ -5160,6 +5185,28 @@ components:
           type: string
           minLength: 1
           maxLength: 500
+    AdminMatchAttemptForceAbortRequest:
+      type: object
+      additionalProperties: false
+      required: [failure_code, reason]
+      properties:
+        failure_code:
+          type: string
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 512
+    AdminMatchAttemptForceAbortResponse:
+      type: object
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          required: [attempt]
+          properties:
+            attempt: {$ref: "#/components/schemas/MatchLobbySnapshot"}
+        request_id: {type: string}
     AdminPlayerResponse:
       type: object
       required: [data, request_id]
@@ -8176,13 +8223,14 @@ components:
             features:
               type: object
               additionalProperties: false
-              required: [p2p_rooms, relay, dedicated_servers, vnt_rooms, strict_roster_v1]
+              required: [p2p_rooms, relay, dedicated_servers, vnt_rooms, strict_roster_v1, accept_new_lobbies]
               properties:
                 p2p_rooms: {type: boolean}
                 relay: {type: boolean}
                 dedicated_servers: {type: boolean}
                 vnt_rooms: {type: boolean, description: Server-authoritative gate for creating or rebinding VNT rooms.}
-                strict_roster_v1: {type: boolean, description: Fail-closed gate for the locked-build authoritative roster flow.}
+                strict_roster_v1: {type: boolean, const: true, description: The sole authoritative online roster protocol.}
+                accept_new_lobbies: {type: boolean, description: Operational drain switch for creating new match lobbies; existing attempts remain operable.}
         request_id: {type: string}
     MetaEndpoint:
       type: object

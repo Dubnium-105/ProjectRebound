@@ -51,6 +51,18 @@ type backgroundService interface {
 	Run(context.Context)
 }
 
+type matchLobbyAdminAdapter struct {
+	service *matchlobby.Service
+}
+
+func (a matchLobbyAdminAdapter) ForceAbort(
+	ctx context.Context, attemptID, failureCode, reason string, meta admin.RequestMeta,
+) (any, error) {
+	return a.service.AdminForceAbort(ctx, attemptID, failureCode, reason, matchlobby.AdministrativeAbortMeta{
+		AdminID: meta.AdminID, RequestID: meta.RequestID, IPAddress: meta.IPAddress, UserAgent: meta.UserAgent,
+	})
+}
+
 func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server, error) {
 	if err := cfg.ValidateControlPlane(); err != nil {
 		return nil, err
@@ -63,9 +75,18 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	if err != nil {
 		return nil, err
 	}
-	if err := database.NewMigrator(dbPool.Pool).Up(startupCtx); err != nil {
+	migrator := database.NewMigrator(dbPool.Pool)
+	if err := migrator.VerifyCompatible(startupCtx); err != nil {
+		dbPool.Close()
+		return nil, fmt.Errorf("verify database schema compatibility: %w", err)
+	}
+	if err := migrator.Up(startupCtx); err != nil {
 		dbPool.Close()
 		return nil, fmt.Errorf("apply database migrations: %w", err)
+	}
+	if err := migrator.VerifyCurrent(startupCtx); err != nil {
+		dbPool.Close()
+		return nil, fmt.Errorf("verify database schema: %w", err)
 	}
 
 	redisClient, err := cache.Open(startupCtx, cfg.Redis)
@@ -418,9 +439,6 @@ func buildHandler(
 		p2pbattlelog.NewAdminService(p2pBattleLogRepository, cfg.P2PBattleLog.ShadowMode), logger,
 	)
 	matchSignerEnvironment := cfg.Environment
-	if !cfg.MatchLobby.StrictRosterV1Enabled {
-		matchSignerEnvironment = "strict-roster-disabled"
-	}
 	matchAdmissionSigner, err := matchlobby.NewAdmissionSigner(
 		cfg.MatchLobby.AdmissionSigningKeyID,
 		cfg.MatchLobby.AdmissionPrivateKeyBase64,
@@ -429,9 +447,6 @@ func buildHandler(
 	if err != nil {
 		return nil, nil, fmt.Errorf("initialize match admission signer: %w", err)
 	}
-	if matchAdmissionSigner.Ephemeral() && cfg.MatchLobby.StrictRosterV1Enabled {
-		logger.Warn("using ephemeral development match admission key; active attempts will not survive a restart")
-	}
 	matchLobbyService := matchlobby.NewService(
 		matchlobby.NewRepository(dbPool.Pool), cfg.MatchLobby, matchAdmissionSigner,
 		time.Duration(cfg.GameServer.UnhealthyAfterSeconds)*time.Second,
@@ -439,6 +454,16 @@ func buildHandler(
 	matchLobbyService.SetP2PTransport(p2pRoomService)
 	matchLobbyService.SetP2PMatchProjector(p2pBattleLogService)
 	matchLobbyHandler := matchlobby.NewHTTPHandler(matchLobbyService, logger)
+	matchAttemptAdminHandler := admin.NewMatchAttemptHTTPHandler(
+		matchLobbyAdminAdapter{service: matchLobbyService}, logger, cfg.HTTP.TrustProxyHeaders,
+	)
+	adminRouter.Group(func(router chi.Router) {
+		router.Use(adminSessionAuthenticator.Middleware)
+		router.With(
+			admin.RequirePermission("rooms.close"),
+			admin.RequireStepUp(adminAuthService),
+		).Post("/match-attempts/{attempt_id}/force-abort", matchAttemptAdminHandler.ForceAbort)
+	})
 	// The standalone online room directory/CRUD is retired.  Managed
 	// transport is created and controlled only by MatchLobby/MatchAttempt.
 	router.Get("/v1/p2p-rooms", p2pRoomHandler.RetiredOnlineRoute)
@@ -654,7 +679,7 @@ func buildHandler(
 	if err != nil {
 		return nil, nil, fmt.Errorf("initialize update service: %w", err)
 	}
-	updateService.SetStrictRosterV1(cfg.MatchLobby.StrictRosterV1Enabled)
+	updateService.SetAcceptNewLobbies(cfg.MatchLobby.AcceptNewLobbies)
 	if updateService.EphemeralSigner() {
 		logger.Warn("using ephemeral development update-signing key; manifests will not verify after restart")
 	}

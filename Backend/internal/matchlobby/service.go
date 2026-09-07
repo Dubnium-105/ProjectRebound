@@ -113,8 +113,8 @@ func (s *Service) FailClosedDisabledAttempts(ctx context.Context) error {
 }
 
 func (s *Service) Create(ctx context.Context, actor Actor, input CreateInput) (CreateResult, error) {
-	if err := s.requireEnabled(); err != nil {
-		return CreateResult{}, err
+	if !s.config.AcceptNewLobbies {
+		return CreateResult{}, conflict("MATCH_LOBBY_CREATION_DISABLED", "New match lobbies are disabled while existing authoritative attempts drain.", nil)
 	}
 	if err := requireActive(actor); err != nil {
 		return CreateResult{}, err
@@ -222,9 +222,6 @@ func (s *Service) recoverCreateResult(ctx context.Context, actor Actor, lobby Lo
 }
 
 func (s *Service) Get(ctx context.Context, lobbyID, viewerPlayerID string) (Snapshot, error) {
-	if !s.config.StrictRosterV1Enabled {
-		return Snapshot{}, notFound("MATCH_LOBBY_NOT_FOUND", "Match lobby not found.")
-	}
 	snapshot, err := s.repository.Snapshot(ctx, strings.TrimSpace(lobbyID), viewerPlayerID, s.now().UTC())
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Snapshot{}, notFound("MATCH_LOBBY_NOT_FOUND", "Match lobby not found.")
@@ -236,9 +233,6 @@ func (s *Service) Get(ctx context.Context, lobbyID, viewerPlayerID string) (Snap
 }
 
 func (s *Service) Active(ctx context.Context, actor Actor) (CreateResult, error) {
-	if err := s.requireEnabled(); err != nil {
-		return CreateResult{}, err
-	}
 	if err := requireActive(actor); err != nil {
 		return CreateResult{}, err
 	}
@@ -275,9 +269,6 @@ func (s *Service) Active(ctx context.Context, actor Actor) (CreateResult, error)
 }
 
 func (s *Service) List(ctx context.Context, filter ListFilter) (ListResult, error) {
-	if !s.config.StrictRosterV1Enabled {
-		return ListResult{Items: []Summary{}}, nil
-	}
 	if filter.Limit == 0 {
 		filter.Limit = 50
 	}
@@ -300,9 +291,6 @@ func (s *Service) List(ctx context.Context, filter ListFilter) (ListResult, erro
 }
 
 func (s *Service) Join(ctx context.Context, actor Actor, lobbyID string, teamID int, expectedRevision int64) (Snapshot, error) {
-	if err := s.requireEnabled(); err != nil {
-		return Snapshot{}, err
-	}
 	if err := requireActive(actor); err != nil {
 		return Snapshot{}, err
 	}
@@ -386,9 +374,6 @@ func (s *Service) Join(ctx context.Context, actor Actor, lobbyID string, teamID 
 }
 
 func (s *Service) SelectTeam(ctx context.Context, actor Actor, lobbyID string, teamID int, expectedRevision int64) (Snapshot, error) {
-	if err := s.requireEnabled(); err != nil {
-		return Snapshot{}, err
-	}
 	if err := requireActive(actor); err != nil {
 		return Snapshot{}, err
 	}
@@ -448,9 +433,6 @@ func (s *Service) SelectTeam(ctx context.Context, actor Actor, lobbyID string, t
 }
 
 func (s *Service) SetReady(ctx context.Context, actor Actor, lobbyID string, ready bool, expectedRevision int64) (Snapshot, error) {
-	if err := s.requireEnabled(); err != nil {
-		return Snapshot{}, err
-	}
 	if err := requireActive(actor); err != nil {
 		return Snapshot{}, err
 	}
@@ -488,9 +470,6 @@ func (s *Service) SetReady(ctx context.Context, actor Actor, lobbyID string, rea
 }
 
 func (s *Service) Presence(ctx context.Context, actor Actor, lobbyID, transportHostToken string, online bool) (Snapshot, error) {
-	if err := s.requireEnabled(); err != nil {
-		return Snapshot{}, err
-	}
 	if err := requireActive(actor); err != nil {
 		return Snapshot{}, err
 	}
@@ -518,9 +497,6 @@ func (s *Service) Presence(ctx context.Context, actor Actor, lobbyID, transportH
 }
 
 func (s *Service) Leave(ctx context.Context, actor Actor, lobbyID, transportHostToken string, expectedRevision int64) (Snapshot, error) {
-	if err := s.requireEnabled(); err != nil {
-		return Snapshot{}, err
-	}
 	if err := requireActive(actor); err != nil {
 		return Snapshot{}, err
 	}
@@ -582,9 +558,6 @@ func (s *Service) Leave(ctx context.Context, actor Actor, lobbyID, transportHost
 }
 
 func (s *Service) Start(ctx context.Context, actor Actor, lobbyID string, expectedRevision int64) (Snapshot, error) {
-	if err := s.requireEnabled(); err != nil {
-		return Snapshot{}, err
-	}
 	if err := requireActive(actor); err != nil {
 		return Snapshot{}, err
 	}
@@ -818,9 +791,6 @@ func (s *Service) projectDedicated(ctx context.Context, tx pgx.Tx, lobby Lobby, 
 }
 
 func (s *Service) P2PAuthorityReady(ctx context.Context, actor Actor, attemptID, authoritySession, hostToken, endpointHost string, endpointPort, routeGeneration int, worldInstanceID, nativeConnectionNonce string) (Snapshot, error) {
-	if err := s.requireEnabled(); err != nil {
-		return Snapshot{}, err
-	}
 	if err := requireActive(actor); err != nil {
 		return Snapshot{}, err
 	}
@@ -1004,16 +974,10 @@ func (s *Service) P2PAuthorityReady(ctx context.Context, actor Actor, attemptID,
 }
 
 func (s *Service) DedicatedAllocation(ctx context.Context, serverID, attemptID string) (AllocationResult, error) {
-	if err := s.requireEnabled(); err != nil {
-		return AllocationResult{}, err
-	}
 	return s.allocation(ctx, attemptID, serverID, false)
 }
 
 func (s *Service) P2PHostAllocation(ctx context.Context, actor Actor, attemptID string) (AllocationResult, error) {
-	if err := s.requireEnabled(); err != nil {
-		return AllocationResult{}, err
-	}
 	if err := requireActive(actor); err != nil {
 		return AllocationResult{}, err
 	}
@@ -1078,9 +1042,6 @@ func (s *Service) P2PPayloadInstalled(ctx context.Context, actor Actor, attemptI
 }
 
 func (s *Service) payloadInstalled(ctx context.Context, attemptID, authorityID, authoritySession string, hosting HostingKind, payloadVersion, gameBinarySHA256 string, routeGeneration int) (Snapshot, error) {
-	if err := s.requireEnabled(); err != nil {
-		return Snapshot{}, err
-	}
 	payloadVersion = strings.TrimSpace(payloadVersion)
 	gameBinarySHA256 = strings.ToLower(strings.TrimSpace(gameBinarySHA256))
 	if !lobbyLabelPattern.MatchString(payloadVersion) || !sha256HexPattern.MatchString(gameBinarySHA256) || routeGeneration < 1 {
@@ -1159,9 +1120,6 @@ func (s *Service) payloadInstalled(ctx context.Context, attemptID, authorityID, 
 }
 
 func (s *Service) DedicatedAuthorityReady(ctx context.Context, serverID, attemptID, authoritySession, worldInstanceID, nativeConnectionNonce string) (Snapshot, error) {
-	if err := s.requireEnabled(); err != nil {
-		return Snapshot{}, err
-	}
 	worldInstanceID = strings.TrimSpace(worldInstanceID)
 	nativeConnectionNonce = strings.TrimSpace(nativeConnectionNonce)
 	if !worldInstancePattern.MatchString(worldInstanceID) {
@@ -1234,9 +1192,6 @@ func (s *Service) JoinGrantWithIdempotency(ctx context.Context, actor Actor, att
 }
 
 func (s *Service) joinGrant(ctx context.Context, actor Actor, attemptID, idempotencyKey string) (GrantResult, error) {
-	if err := s.requireEnabled(); err != nil {
-		return GrantResult{}, err
-	}
 	if err := requireActive(actor); err != nil {
 		return GrantResult{}, err
 	}
@@ -1423,9 +1378,6 @@ func (s *Service) joinGrant(ctx context.Context, actor Actor, attemptID, idempot
 // members but which the scoped authority Payload has not acknowledged staging.
 // The bearer token is reconstructed from persisted claims and is never stored.
 func (s *Service) AuthorityAdmissions(ctx context.Context, authorityID, authoritySession, attemptID string) (AuthorityAdmissionList, error) {
-	if err := s.requireEnabled(); err != nil {
-		return AuthorityAdmissionList{}, err
-	}
 	authorityID = strings.TrimSpace(authorityID)
 	authoritySession = strings.TrimSpace(authoritySession)
 	if authorityID == "" || authoritySession == "" {
@@ -1513,9 +1465,6 @@ func (s *Service) P2PAuthorityAdmissions(ctx context.Context, actor Actor, autho
 // MarkAdmissionDelivered is called only after the authority Payload verifies
 // and stages the grant. Retrying the acknowledgement is idempotent.
 func (s *Service) MarkAdmissionDelivered(ctx context.Context, authorityID, authoritySession, attemptID, grantJTI string) (GrantDeliveryStatus, error) {
-	if err := s.requireEnabled(); err != nil {
-		return GrantDeliveryStatus{}, err
-	}
 	grantJTI = strings.TrimSpace(grantJTI)
 	if grantJTI == "" {
 		return GrantDeliveryStatus{}, invalid("Invalid join grant identity.", nil)
@@ -1562,9 +1511,6 @@ func (s *Service) P2PMarkAdmissionDelivered(ctx context.Context, actor Actor, au
 }
 
 func (s *Service) GrantDelivery(ctx context.Context, actor Actor, attemptID, grantJTI string) (GrantDeliveryStatus, error) {
-	if err := s.requireEnabled(); err != nil {
-		return GrantDeliveryStatus{}, err
-	}
 	if err := requireActive(actor); err != nil {
 		return GrantDeliveryStatus{}, err
 	}
@@ -1619,9 +1565,6 @@ func (s *Service) ReserveAdmission(
 	authorityID, authoritySession, attemptID, worldInstanceID, playerID, grantJTI, nativeConnectionNonce string,
 	generation int,
 ) (AdmissionReservation, error) {
-	if err := s.requireEnabled(); err != nil {
-		return AdmissionReservation{}, err
-	}
 	authorityID = strings.TrimSpace(authorityID)
 	authoritySession = strings.TrimSpace(authoritySession)
 	attemptID = strings.TrimSpace(attemptID)
@@ -1752,9 +1695,6 @@ func (s *Service) ReleaseAdmission(
 	authorityID, authoritySession, attemptID, worldInstanceID, playerID, grantJTI, nativeConnectionNonce string,
 	generation int,
 ) error {
-	if err := s.requireEnabled(); err != nil {
-		return err
-	}
 	authorityID = strings.TrimSpace(authorityID)
 	authoritySession = strings.TrimSpace(authoritySession)
 	attemptID = strings.TrimSpace(attemptID)
@@ -1873,9 +1813,6 @@ func (s *Service) P2PReleaseAdmission(ctx context.Context, actor Actor, authorit
 // ConfirmConnected is the only backend operation that consumes an admission
 // grant and may promote a roster seat to CONNECTED/RUNNING.
 func (s *Service) ConfirmConnected(ctx context.Context, authorityID, authoritySession, attemptID, worldInstanceID, playerID, grantJTI, nativeConnectionNonce string, generation int) (Snapshot, error) {
-	if err := s.requireEnabled(); err != nil {
-		return Snapshot{}, err
-	}
 	authorityID = strings.TrimSpace(authorityID)
 	authoritySession = strings.TrimSpace(authoritySession)
 	attemptID = strings.TrimSpace(attemptID)
@@ -2051,9 +1988,6 @@ func (s *Service) P2PConfirmConnected(ctx context.Context, actor Actor, authorit
 }
 
 func (s *Service) MarkDisconnected(ctx context.Context, authorityID, authoritySession, attemptID, worldInstanceID, playerID, nativeConnectionNonce string, generation int) (Snapshot, error) {
-	if err := s.requireEnabled(); err != nil {
-		return Snapshot{}, err
-	}
 	worldInstanceID = strings.TrimSpace(worldInstanceID)
 	nativeConnectionNonce = strings.TrimSpace(nativeConnectionNonce)
 	if generation < 1 || !worldInstancePattern.MatchString(worldInstanceID) || !nativeConnectionNoncePattern.MatchString(nativeConnectionNonce) {
@@ -2162,9 +2096,6 @@ func (s *Service) P2PMarkDisconnected(ctx context.Context, actor Actor, authorit
 }
 
 func (s *Service) AuthorityHeartbeat(ctx context.Context, authorityID, authoritySession, attemptID string) error {
-	if err := s.requireEnabled(); err != nil {
-		return err
-	}
 	now := s.now().UTC()
 	tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -2226,9 +2157,6 @@ func (s *Service) P2PAuthorityHeartbeat(ctx context.Context, actor Actor, author
 }
 
 func (s *Service) Complete(ctx context.Context, authorityID, authoritySession, attemptID string, success bool, failureCode string) (Snapshot, error) {
-	if err := s.requireEnabled(); err != nil {
-		return Snapshot{}, err
-	}
 	failureCode = strings.TrimSpace(failureCode)
 	if success && failureCode != "" {
 		return Snapshot{}, invalid("Successful completion cannot include a failure code.", nil)
@@ -2345,6 +2273,181 @@ func (s *Service) Complete(ctx context.Context, authorityID, authoritySession, a
 	return s.Get(ctx, lobbyID, "")
 }
 
+// AdministrativeAbortMeta is the non-secret request context recorded for an
+// operator initiated abort. Authentication, rooms.close authorization, and
+// step-up verification are enforced by the admin HTTP route; the service
+// still requires an administrator identity so direct callers cannot perform
+// an unattributed state transition.
+type AdministrativeAbortMeta struct {
+	AdminID   string
+	RequestID string
+	IPAddress string
+	UserAgent string
+}
+
+// AdminForceAbort aborts one active attempt while retaining the normal
+// cleanup lease. It deliberately shares the same terminal transition shape
+// as an authority failure and never clears a game-server/P2P lease directly.
+func (s *Service) AdminForceAbort(
+	ctx context.Context,
+	attemptID, failureCode, reason string,
+	meta AdministrativeAbortMeta,
+) (Snapshot, error) {
+	attemptID = strings.TrimSpace(attemptID)
+	failureCode = strings.TrimSpace(failureCode)
+	reason = strings.TrimSpace(reason)
+	meta.AdminID = strings.TrimSpace(meta.AdminID)
+	if attemptID == "" || failureCode == "" || !lobbyLabelPattern.MatchString(failureCode) {
+		return Snapshot{}, invalid("A valid match attempt and failure code are required.", nil)
+	}
+	if meta.AdminID == "" {
+		return Snapshot{}, forbidden("ADMIN_UNAUTHORIZED", "Administrator authentication is required.")
+	}
+	if reason == "" || len([]rune(reason)) > 512 {
+		return Snapshot{}, invalid("A non-empty operator reason of at most 512 characters is required.", nil)
+	}
+	now := s.now().UTC()
+	tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return Snapshot{}, internal(err)
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	var lobbyID, hosting, authorityID, metaMatchID, storedFailureCode, cleanupState, lobbyState string
+	var currentState AttemptState
+	err = tx.QueryRow(ctx, `
+		SELECT attempt.lobby_id, attempt.hosting_kind, COALESCE(attempt.authority_id, ''),
+		       COALESCE(attempt.meta_match_id, ''), attempt.state,
+		       COALESCE(attempt.failure_code, ''), attempt.cleanup_state, lobby.state
+		FROM match_attempts AS attempt
+		JOIN match_lobbies AS lobby ON lobby.id = attempt.lobby_id
+		WHERE attempt.id = $1
+		FOR UPDATE OF attempt, lobby
+	`, attemptID).Scan(
+		&lobbyID, &hosting, &authorityID, &metaMatchID, &currentState,
+		&storedFailureCode, &cleanupState, &lobbyState,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Snapshot{}, notFound("MATCH_ATTEMPT_NOT_FOUND", "The match attempt was not found.")
+	}
+	if err != nil {
+		return Snapshot{}, internal(err)
+	}
+	if currentState == AttemptAborted {
+		if storedFailureCode != failureCode {
+			return Snapshot{}, conflict("MATCH_ATTEMPT_COMPLETION_CONFLICT", "The attempt already has a different terminal result.", nil)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return Snapshot{}, internal(err)
+		}
+		return s.Get(ctx, lobbyID, "")
+	}
+	if currentState == AttemptCompleted {
+		return Snapshot{}, conflict("MATCH_ATTEMPT_COMPLETION_CONFLICT", "The attempt already has a different terminal result.", nil)
+	}
+	if currentState != AttemptFrozen && currentState != AttemptProvisioning &&
+		currentState != AttemptConnecting && currentState != AttemptRunning {
+		return Snapshot{}, conflict("MATCH_ATTEMPT_NOT_ACTIVE", "The match attempt cannot be aborted from its current state.", nil)
+	}
+	oldValue := map[string]any{
+		"attempt_state": currentState, "lobby_state": lobbyState,
+		"cleanup_state": cleanupState, "failure_code": storedFailureCode,
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE match_attempts SET state = 'ABORTED', failure_code = $2,
+		       completed_at = $3, cleanup_state = 'PENDING',
+		       cleanup_requested_at = COALESCE(cleanup_requested_at, $3),
+		       cleanup_lease_expires_at = $4, cleanup_error = NULL,
+		       updated_at = $3
+		WHERE id = $1
+	`, attemptID, failureCode, now, now.Add(s.provisioningTimeout())); err != nil {
+		return Snapshot{}, internal(err)
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE match_lobbies SET state = 'ABORTED', closed_at = $2, updated_at = $2
+		WHERE id = $1
+	`, lobbyID, now); err != nil {
+		return Snapshot{}, internal(err)
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE match_admission_grants SET revoked_at = $2
+		WHERE attempt_id = $1 AND revoked_at IS NULL
+	`, attemptID, now); err != nil {
+		return Snapshot{}, internal(err)
+	}
+	if metaMatchID != "" {
+		if _, err := tx.Exec(ctx, `
+			UPDATE meta_matches SET state = 'FAILED', completed_at = $2, updated_at = $2
+			WHERE id = $1
+		`, metaMatchID, now); err != nil {
+			return Snapshot{}, internal(err)
+		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE meta_match_tickets AS ticket
+			SET state = 'FAILED', failure_code = $2, completed_at = $3, updated_at = $3
+			FROM meta_matches AS match
+			WHERE match.id = $1 AND ticket.id = match.ticket_id AND ticket.state = 'MATCHED'
+		`, metaMatchID, failureCode, now); err != nil {
+			return Snapshot{}, internal(err)
+		}
+	}
+	if hosting == string(HostingDedicated) {
+		if authorityID == "" {
+			return Snapshot{}, internal(errors.New("dedicated administrative abort omitted its authority server"))
+		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE game_servers SET state = 'CLEANUP_PENDING', updated_at = $2 WHERE id = $1
+		`, authorityID, now); err != nil {
+			return Snapshot{}, internal(err)
+		}
+	} else {
+		if s.p2pProjector == nil {
+			return Snapshot{}, internal(errors.New("authoritative P2P match projector is unavailable"))
+		}
+		if err := s.p2pProjector.CompleteManagedAttempt(ctx, tx, attemptID, false, now); err != nil {
+			return Snapshot{}, internal(err)
+		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE p2p_rooms SET state = 'CLOSED', closed_at = $2, updated_at = $2
+			WHERE managed_lobby_id = $1
+		`, lobbyID, now); err != nil {
+			return Snapshot{}, internal(err)
+		}
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE match_lobby_members SET presence_state = 'OFFLINE', ready = FALSE
+		WHERE lobby_id = $1 AND membership_state = 'ACTIVE'
+	`, lobbyID); err != nil {
+		return Snapshot{}, internal(err)
+	}
+	newValue := map[string]any{
+		"attempt_state": "ABORTED", "lobby_state": "ABORTED",
+		"cleanup_state": "PENDING", "failure_code": failureCode,
+	}
+	oldJSON, err := json.Marshal(oldValue)
+	if err != nil {
+		return Snapshot{}, internal(err)
+	}
+	newJSON, err := json.Marshal(newValue)
+	if err != nil {
+		return Snapshot{}, internal(err)
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO admin_audit_logs (
+			id, admin_id, action, target_type, target_id, old_value, new_value,
+			reason, request_id, ip_address, user_agent, result, created_at
+		) VALUES ($1, $2, 'MATCH_ATTEMPT_FORCE_ABORT', 'match_attempt', $3,
+		          $4::jsonb, $5::jsonb, $6, NULLIF($7, ''), NULLIF($8, '')::inet,
+		          NULLIF($9, ''), 'SUCCEEDED', $10)
+	`, newAdmissionID("ada_"), meta.AdminID, attemptID, oldJSON, newJSON,
+		reason, meta.RequestID, meta.IPAddress, meta.UserAgent, now); err != nil {
+		return Snapshot{}, internal(fmt.Errorf("audit administrative match abort: %w", err))
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Snapshot{}, internal(fmt.Errorf("commit administrative match abort: %w", err))
+	}
+	return s.Get(ctx, lobbyID, "")
+}
+
 func (s *Service) P2PComplete(ctx context.Context, actor Actor, authoritySession, attemptID string, success bool, failureCode string) (Snapshot, error) {
 	if err := requireActive(actor); err != nil {
 		return Snapshot{}, err
@@ -2389,9 +2492,6 @@ func (s *Service) nativeCleared(
 	evidence *OwnedProcessExitEvidence,
 	expectedHosting HostingKind,
 ) (Snapshot, error) {
-	if err := s.requireEnabled(); err != nil {
-		return Snapshot{}, err
-	}
 	authorityID = strings.TrimSpace(authorityID)
 	authoritySession = strings.TrimSpace(authoritySession)
 	attemptID = strings.TrimSpace(attemptID)
@@ -2736,13 +2836,6 @@ func (s *Service) provisioningTimeout() time.Duration {
 }
 func (s *Service) grantTTL() time.Duration {
 	return time.Duration(s.config.AdmissionGrantTTLSeconds) * time.Second
-}
-
-func (s *Service) requireEnabled() error {
-	if !s.config.StrictRosterV1Enabled {
-		return conflict("STRICT_ROSTER_V1_DISABLED", "Strict roster lobbies are disabled for the configured game binary.", nil)
-	}
-	return nil
 }
 
 func requireActive(actor Actor) error {

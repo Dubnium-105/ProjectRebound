@@ -51,7 +51,7 @@ type Service struct {
 	files                      map[string]FileDownload
 	vntRuntimes                []VNTRuntimeRelease
 	managed                    ManagedCatalog
-	strictRosterV1             bool
+	acceptNewLobbies           bool
 }
 
 func NewService(cfg config.UpdateConfig, environment string, relay RelayDirectory) (*Service, error) {
@@ -71,6 +71,7 @@ func NewService(cfg config.UpdateConfig, environment string, relay RelayDirector
 	return &Service{
 		cfg: cfg, managedReleaseBaseURL: cfg.CDNBaseURL, managedReleaseProbeBaseURL: cfg.CDNBaseURL,
 		signer: signer, relay: relay, manifests: manifests, files: files, vntRuntimes: vntRuntimes,
+		acceptNewLobbies: true,
 	}, nil
 }
 
@@ -78,7 +79,7 @@ func (s *Service) EphemeralSigner() bool { return s.signer.Ephemeral() }
 
 func (s *Service) SetManagedCatalog(catalog ManagedCatalog) { s.managed = catalog }
 
-func (s *Service) SetStrictRosterV1(enabled bool) { s.strictRosterV1 = enabled }
+func (s *Service) SetAcceptNewLobbies(enabled bool) { s.acceptNewLobbies = enabled }
 
 // SetManagedReleaseURLs keeps administrator-managed releases in the same
 // public namespace as the object-storage files they reference while allowing
@@ -481,7 +482,11 @@ func (s *Service) ClientConfig(ctx context.Context) (ClientConfig, error) {
 	result.Features.Relay = true
 	result.Features.DedicatedServers = true
 	result.Features.VNTRooms = s.cfg.VNTRoomsEnabled
-	result.Features.StrictRosterV1 = s.strictRosterV1
+	// The authoritative strict-roster protocol is the only online protocol;
+	// it is never a configurable capability bit. AcceptNewLobbies is solely a
+	// drain switch for creation and does not disable existing operations.
+	result.Features.StrictRosterV1 = true
+	result.Features.AcceptNewLobbies = s.acceptNewLobbies
 	return result, nil
 }
 

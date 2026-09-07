@@ -35,16 +35,7 @@ type Server struct {
 type schemaChecker struct{ database *database.Pool }
 
 func (c schemaChecker) Check(ctx context.Context) error {
-	var applied bool
-	if err := c.database.QueryRow(ctx, `
-		SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 40)
-	`).Scan(&applied); err != nil {
-		return err
-	}
-	if !applied {
-		return errors.New("MetaServer database migrations are not applied")
-	}
-	return nil
+	return database.NewMigrator(c.database.Pool).VerifyCurrent(ctx)
 }
 
 func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server, error) {
@@ -56,6 +47,10 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Server,
 	dbPool, err := database.Open(startupCtx, cfg.Database)
 	if err != nil {
 		return nil, err
+	}
+	if err := database.NewMigrator(dbPool.Pool).VerifyCurrent(startupCtx); err != nil {
+		dbPool.Close()
+		return nil, fmt.Errorf("verify database schema: %w", err)
 	}
 	redisClient, err := cache.Open(startupCtx, cfg.Redis)
 	if err != nil {

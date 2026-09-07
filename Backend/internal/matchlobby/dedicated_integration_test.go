@@ -30,8 +30,8 @@ func TestStrictRosterDedicatedLifecycleAgainstPostgreSQL(t *testing.T) {
 	}
 
 	matchConfig := config.Defaults.MatchLobby
-	matchConfig.StrictRosterV1Enabled = true
-	signer, err := NewAdmissionSigner("integration-dedicated-admission", "", "test")
+	matchConfig.AcceptNewLobbies = true
+	signer, err := NewAdmissionSigner("integration-dedicated-admission", testAdmissionPrivateKey(), "test")
 	if err != nil {
 		t.Fatal(err)
 	}

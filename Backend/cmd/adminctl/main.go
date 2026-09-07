@@ -67,8 +67,15 @@ func main() {
 		fatal("open database: %v", err)
 	}
 	defer pool.Close()
-	if err := database.NewMigrator(pool.Pool).Up(ctx); err != nil {
+	migrator := database.NewMigrator(pool.Pool)
+	if err := migrator.VerifyCompatible(ctx); err != nil {
+		fatal("verify database schema compatibility: %v", err)
+	}
+	if err := migrator.Up(ctx); err != nil {
 		fatal("apply database migrations: %v", err)
+	}
+	if err := migrator.VerifyCurrent(ctx); err != nil {
+		fatal("verify database schema: %v", err)
 	}
 	now := time.Now().UTC()
 	name := strings.TrimSpace(*displayName)

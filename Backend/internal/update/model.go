@@ -130,5 +130,6 @@ type ClientConfig struct {
 		DedicatedServers bool `json:"dedicated_servers"`
 		VNTRooms         bool `json:"vnt_rooms"`
 		StrictRosterV1   bool `json:"strict_roster_v1"`
+		AcceptNewLobbies bool `json:"accept_new_lobbies"`
 	} `json:"features"`
 }

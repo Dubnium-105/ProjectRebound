@@ -4,8 +4,17 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
+
+const testAdmissionPrivateKeyBase64 = "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA="
+
+func testControlPlaneConfig() Config {
+	cfg := Defaults
+	cfg.MatchLobby.AdmissionPrivateKeyBase64 = testAdmissionPrivateKeyBase64
+	return cfg
+}
 
 func TestDefaultDownloadExtensionsIncludeToolboxAttestation(t *testing.T) {
 	for _, extension := range Defaults.Downloads.AllowedExtensions {
@@ -102,7 +111,7 @@ func TestLoadMissingFileAppliesEnvironment(t *testing.T) {
 }
 
 func TestDevelopmentTrustedSteamIDsAreFailClosed(t *testing.T) {
-	valid := Defaults
+	valid := testControlPlaneConfig()
 	valid.Auth.DevelopmentTrustedSteamIDs = []string{"76561198000000001"}
 	if err := valid.ValidateControlPlane(); err != nil {
 		t.Fatalf("valid development allowlist rejected: %v", err)
@@ -114,13 +123,13 @@ func TestDevelopmentTrustedSteamIDsAreFailClosed(t *testing.T) {
 		t.Fatal("production accepted the development Steam allowlist")
 	}
 
-	invalid := Defaults
+	invalid := testControlPlaneConfig()
 	invalid.Auth.DevelopmentTrustedSteamIDs = []string{"not-a-steam-id"}
 	if err := invalid.ValidateControlPlane(); err == nil {
 		t.Fatal("invalid development SteamID was accepted")
 	}
 
-	duplicate := Defaults
+	duplicate := testControlPlaneConfig()
 	duplicate.Auth.DevelopmentTrustedSteamIDs = []string{
 		"76561198000000001",
 		"76561198000000001",
@@ -130,8 +139,21 @@ func TestDevelopmentTrustedSteamIDsAreFailClosed(t *testing.T) {
 	}
 }
 
+func TestValidateControlPlaneRejectsMissingAdmissionKeyInEveryEnvironment(t *testing.T) {
+	for _, environment := range []string{"development", "test", "production"} {
+		t.Run(environment, func(t *testing.T) {
+			cfg := testControlPlaneConfig()
+			cfg.Environment = environment
+			cfg.MatchLobby.AdmissionPrivateKeyBase64 = ""
+			if err := cfg.ValidateControlPlane(); err == nil || !strings.Contains(err.Error(), "MATCH_ADMISSION_PRIVATE_KEY_BASE64") {
+				t.Fatalf("missing admission key was accepted in %s: %v", environment, err)
+			}
+		})
+	}
+}
+
 func TestValidateControlPlaneRejectsInvalidVNTCredentialRotationGrace(t *testing.T) {
-	cfg := Defaults
+	cfg := testControlPlaneConfig()
 	cfg.VNT.CredentialRotationGraceSeconds = 0
 	if err := cfg.ValidateControlPlane(); err == nil {
 		t.Fatal("zero VNT credential rotation grace was accepted")
@@ -143,27 +165,27 @@ func TestValidateControlPlaneRejectsInvalidVNTCredentialRotationGrace(t *testing
 }
 
 func TestValidateControlPlaneRejectsInvalidVNTRateLimits(t *testing.T) {
-	cfg := Defaults
+	cfg := testControlPlaneConfig()
 	cfg.VNT.EnrollmentRequestsPerPlayerPerHour = 0
 	if err := cfg.ValidateControlPlane(); err == nil {
 		t.Fatal("zero VNT enrollment rate limit was accepted")
 	}
-	cfg = Defaults
+	cfg = testControlPlaneConfig()
 	cfg.VNT.DirectoryRequestsPerIPPerMinute = 0
 	if err := cfg.ValidateControlPlane(); err == nil {
 		t.Fatal("zero VNT directory rate limit was accepted")
 	}
-	cfg = Defaults
+	cfg = testControlPlaneConfig()
 	cfg.VNT.BootstrapRequestsPerPlayerPerMinute = 1_001
 	if err := cfg.ValidateControlPlane(); err == nil {
 		t.Fatal("excessive VNT bootstrap rate limit was accepted")
 	}
-	cfg = Defaults
+	cfg = testControlPlaneConfig()
 	cfg.VNT.HeartbeatRequestsPerCredentialPerMinute = 10_001
 	if err := cfg.ValidateControlPlane(); err == nil {
 		t.Fatal("excessive VNT heartbeat rate limit was accepted")
 	}
-	cfg = Defaults
+	cfg = testControlPlaneConfig()
 	cfg.VNT.ManagementRequestsPerCredentialPerHour = 0
 	if err := cfg.ValidateControlPlane(); err == nil {
 		t.Fatal("zero VNT management rate limit was accepted")
@@ -171,7 +193,7 @@ func TestValidateControlPlaneRejectsInvalidVNTRateLimits(t *testing.T) {
 }
 
 func TestValidateControlPlaneRejectsInvalidVNTNodeQuota(t *testing.T) {
-	cfg := Defaults
+	cfg := testControlPlaneConfig()
 	cfg.VNT.MaxNodesPerPlayer = 0
 	if err := cfg.ValidateControlPlane(); err == nil {
 		t.Fatal("zero VNT node quota was accepted")
@@ -183,7 +205,7 @@ func TestValidateControlPlaneRejectsInvalidVNTNodeQuota(t *testing.T) {
 }
 
 func TestValidateControlPlaneUsesPublishedReleasesForVNTVersions(t *testing.T) {
-	cfg := Defaults
+	cfg := testControlPlaneConfig()
 	cfg.Update.VNTRoomsEnabled = true
 	if err := cfg.ValidateControlPlane(); err != nil {
 		t.Fatalf("published-release VNT policy still required deployment allowlists: %v", err)
@@ -207,8 +229,39 @@ func TestLoadYAMLAndEnvironmentPrecedence(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsRetiredStrictRosterConfiguration(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "retired.yaml")
+	if err := os.WriteFile(path, []byte("match_lobby:\n  strict_roster_v1_enabled: false\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); err == nil || !strings.Contains(err.Error(), "strict_roster_v1_enabled is retired") {
+		t.Fatalf("retired YAML flag was accepted: %v", err)
+	}
+	t.Setenv("STRICT_ROSTER_V1_ENABLED", "false")
+	if _, err := Load(filepath.Join(t.TempDir(), "missing.yaml")); err == nil || !strings.Contains(err.Error(), "STRICT_ROSTER_V1_ENABLED is retired") {
+		t.Fatalf("retired environment flag was accepted: %v", err)
+	}
+}
+
+func TestAcceptNewLobbiesOnlyControlsCreation(t *testing.T) {
+	if !Defaults.MatchLobby.AcceptNewLobbies {
+		t.Fatal("strict authoritative defaults must accept new lobbies")
+	}
+	path := filepath.Join(t.TempDir(), "drain.yaml")
+	if err := os.WriteFile(path, []byte("match_lobby:\n  accept_new_lobbies: false\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.MatchLobby.AcceptNewLobbies {
+		t.Fatal("accept_new_lobbies=false was not loaded")
+	}
+}
+
 func TestValidateControlPlaneRejectsInvalidConfiguration(t *testing.T) {
-	cfg := Defaults
+	cfg := testControlPlaneConfig()
 	cfg.Database.URL = "sqlite://local.db"
 	cfg.RateLimit.Burst = 0
 	if err := cfg.ValidateControlPlane(); err == nil {
@@ -218,14 +271,14 @@ func TestValidateControlPlaneRejectsInvalidConfiguration(t *testing.T) {
 
 func TestValidateMetaServerRejectsInvalidNativePlayerLevel(t *testing.T) {
 	for _, level := range []int{0, 128} {
-		cfg := Defaults
+		cfg := testControlPlaneConfig()
 		cfg.MetaServer.NativePlayerLevel = level
 		if err := cfg.ValidateMetaServer(); err == nil {
 			t.Fatalf("native player level %d was accepted", level)
 		}
 	}
 
-	cfg := Defaults
+	cfg := testControlPlaneConfig()
 	cfg.MetaServer.NativePlayerLevel = 1
 	if err := cfg.ValidateMetaServer(); err != nil {
 		t.Fatalf("validated native player level was rejected: %v", err)
@@ -234,14 +287,14 @@ func TestValidateMetaServerRejectsInvalidNativePlayerLevel(t *testing.T) {
 
 func TestValidateMetaServerRejectsInvalidNativeCharacterLevel(t *testing.T) {
 	for _, level := range []int{0, 128} {
-		cfg := Defaults
+		cfg := testControlPlaneConfig()
 		cfg.MetaServer.NativeCharacterLevel = level
 		if err := cfg.ValidateMetaServer(); err == nil {
 			t.Fatalf("native character level %d was accepted", level)
 		}
 	}
 
-	cfg := Defaults
+	cfg := testControlPlaneConfig()
 	cfg.MetaServer.NativeCharacterLevel = 30
 	if err := cfg.ValidateMetaServer(); err != nil {
 		t.Fatalf("validated native character level was rejected: %v", err)
@@ -250,14 +303,14 @@ func TestValidateMetaServerRejectsInvalidNativeCharacterLevel(t *testing.T) {
 
 func TestValidateMetaServerRejectsInvalidNativeOwnershipMode(t *testing.T) {
 	for _, mode := range []string{"", "paint-only", "unknown"} {
-		cfg := Defaults
+		cfg := testControlPlaneConfig()
 		cfg.MetaServer.NativeOwnershipMode = mode
 		if err := cfg.ValidateMetaServer(); err == nil {
 			t.Fatalf("native ownership mode %q was accepted", mode)
 		}
 	}
 
-	cfg := Defaults
+	cfg := testControlPlaneConfig()
 	cfg.MetaServer.NativeOwnershipMode = "FULL"
 	if err := cfg.ValidateMetaServer(); err != nil {
 		t.Fatalf("valid native ownership mode was rejected: %v", err)
@@ -265,7 +318,7 @@ func TestValidateMetaServerRejectsInvalidNativeOwnershipMode(t *testing.T) {
 }
 
 func TestValidateControlPlaneAcceptsToolboxDefaultChannel(t *testing.T) {
-	cfg := Defaults
+	cfg := testControlPlaneConfig()
 	cfg.Update.DefaultChannel = "toolbox"
 	if err := cfg.ValidateControlPlane(); err != nil {
 		t.Fatalf("ValidateControlPlane() error = %v", err)
@@ -273,7 +326,7 @@ func TestValidateControlPlaneAcceptsToolboxDefaultChannel(t *testing.T) {
 }
 
 func TestValidateControlPlaneRejectsP2PReportLargerThanHTTPBody(t *testing.T) {
-	cfg := Defaults
+	cfg := testControlPlaneConfig()
 	cfg.HTTP.MaxRequestBodyBytes = 128 * 1024
 	cfg.P2PBattleLog.MaxReportBytes = 256 * 1024
 	if err := cfg.ValidateControlPlane(); err == nil {
@@ -282,7 +335,7 @@ func TestValidateControlPlaneRejectsP2PReportLargerThanHTTPBody(t *testing.T) {
 }
 
 func TestValidateControlPlaneDownloadStorage(t *testing.T) {
-	valid := Defaults
+	valid := testControlPlaneConfig()
 	valid.Downloads.Enabled = true
 	valid.Downloads.S3Endpoint = "http://127.0.0.1:9000"
 	valid.Downloads.S3Region = "us-east-1"

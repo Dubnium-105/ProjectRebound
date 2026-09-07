@@ -61,8 +61,14 @@ func TestAdmissionSignerBindsFrozenRosterAndJoinSeat(t *testing.T) {
 	}
 }
 
+func TestAdmissionSignerRejectsMissingConfiguredKey(t *testing.T) {
+	if _, err := NewAdmissionSigner("dev", "", "development"); err == nil {
+		t.Fatal("empty admission signing key was accepted")
+	}
+}
+
 func TestAdmissionSignerUsesSeparateTokenTypes(t *testing.T) {
-	signer, err := NewAdmissionSigner("dev", "", "development")
+	signer, err := NewAdmissionSigner("dev", testAdmissionPrivateKey(), "test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,6 +77,14 @@ func TestAdmissionSignerUsesSeparateTokenTypes(t *testing.T) {
 	if strings.Split(allocation, ".")[0] == strings.Split(grant, ".")[0] {
 		t.Fatal("allocation and join grant must use distinct protected token types")
 	}
+}
+
+func testAdmissionPrivateKey() string {
+	seed := make([]byte, ed25519.SeedSize)
+	for index := range seed {
+		seed[index] = byte(index + 1)
+	}
+	return base64.StdEncoding.EncodeToString(seed)
 }
 
 func verifyAdmissionToken(t *testing.T, signer *AdmissionSigner, token, expectedType string, claims any) {

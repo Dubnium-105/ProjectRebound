@@ -46,8 +46,8 @@ func TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL(t *testing.
 	battleLogService := p2pbattlelog.NewService(p2pbattlelog.NewRepository(pool), config.Defaults.P2PBattleLog)
 	p2pService.SetMatchLifecycle(battleLogService)
 	matchConfig := config.Defaults.MatchLobby
-	matchConfig.StrictRosterV1Enabled = true
-	signer, err := NewAdmissionSigner("integration-p2p-owned-exit", "", "test")
+	matchConfig.AcceptNewLobbies = true
+	signer, err := NewAdmissionSigner("integration-p2p-owned-exit", testAdmissionPrivateKey(), "test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -233,6 +233,88 @@ func TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL(t *testing.
 	_ = claims
 }
 
+func TestStrictRosterAdminForceAbortIsAuditedAndDrainKeepsReadsAgainstPostgreSQL(t *testing.T) {
+	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("TEST_DATABASE_URL is not set")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	pool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	if err := database.NewMigrator(pool).Up(ctx); err != nil {
+		t.Fatalf("migrate test database: %v", err)
+	}
+	p2pService := p2proom.NewService(p2proom.NewRepository(pool), config.Defaults.P2PRoom)
+	secretBox, _, err := p2proom.NewSecretBox("", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p2pService.SetVNT(nil, secretBox)
+	battleLogService := p2pbattlelog.NewService(p2pbattlelog.NewRepository(pool), config.Defaults.P2PBattleLog)
+	p2pService.SetMatchLifecycle(battleLogService)
+	matchConfig := config.Defaults.MatchLobby
+	matchConfig.AcceptNewLobbies = true
+	signer, err := NewAdmissionSigner("integration-admin-abort", testAdmissionPrivateKey(), "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := NewService(NewRepository(pool), matchConfig, signer, 45*time.Second)
+	service.SetP2PTransport(p2pService)
+	service.SetP2PMatchProjector(battleLogService)
+
+	suffix := uint64(time.Now().UnixNano()) % 10_000_000_000_000
+	owner := insertStrictRosterPlayer(t, ctx, pool, fmt.Sprintf("%017d", 81_000_000_000_000_000+suffix))
+	member := insertStrictRosterPlayer(t, ctx, pool, fmt.Sprintf("%017d", 82_000_000_000_000_000+suffix))
+	playerIDs := []string{owner.PlayerID, member.PlayerID}
+	t.Cleanup(func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cleanupCancel()
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM admin_audit_logs WHERE target_type = 'match_attempt' AND target_id IN (SELECT id FROM match_attempts WHERE lobby_id IN (SELECT id FROM match_lobbies WHERE owner_player_id = ANY($1)))", playerIDs)
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM match_lobbies WHERE owner_player_id = ANY($1)", playerIDs)
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM p2p_rooms WHERE host_player_id = ANY($1)", playerIDs)
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM players WHERE id = ANY($1)", playerIDs)
+	})
+
+	frozen, _ := createTwoPlayerReadyLobby(t, ctx, service, owner, member, "Admin Abort", "integration-admin-abort")
+	if frozen.Attempt == nil {
+		t.Fatal("admin abort fixture omitted its attempt")
+	}
+	aborted, err := service.AdminForceAbort(ctx, frozen.Attempt.AttemptID, "OPERATOR_ABORT", "E2E19 operator force abort", AdministrativeAbortMeta{
+		AdminID: "e2e19-operator", RequestID: "e2e19-admin-abort", IPAddress: "127.0.0.1", UserAgent: "integration-test",
+	})
+	if err != nil {
+		t.Fatalf("administrator force abort: %v", err)
+	}
+	if aborted.State != StateAborted || aborted.Attempt == nil || aborted.Attempt.CleanupState != "PENDING" || aborted.Attempt.FailureCode != "OPERATOR_ABORT" {
+		t.Fatalf("administrator abort did not retain cleanup lease: %+v", aborted)
+	}
+	var action, adminID, cleanup string
+	if err := pool.QueryRow(ctx, `
+		SELECT action, admin_id, new_value->>'cleanup_state'
+		FROM admin_audit_logs WHERE target_type = 'match_attempt' AND target_id = $1
+		ORDER BY created_at DESC LIMIT 1
+	`, frozen.Attempt.AttemptID).Scan(&action, &adminID, &cleanup); err != nil {
+		t.Fatalf("read administrative abort audit: %v", err)
+	}
+	if action != "MATCH_ATTEMPT_FORCE_ABORT" || adminID != "e2e19-operator" || cleanup != "PENDING" {
+		t.Fatalf("unexpected administrative abort audit: action=%q admin=%q cleanup=%q", action, adminID, cleanup)
+	}
+
+	drainConfig := matchConfig
+	drainConfig.AcceptNewLobbies = false
+	drainService := NewService(NewRepository(pool), drainConfig, signer, 45*time.Second)
+	if snapshot, err := drainService.Get(ctx, frozen.LobbyID, owner.PlayerID); err != nil || snapshot.State != StateAborted {
+		t.Fatalf("draining instance could not read existing attempt: snapshot=%+v err=%v", snapshot, err)
+	}
+	if _, err := drainService.Create(ctx, owner, strictP2PCreateInput("must be rejected", "integration-admin-abort-new")); errorCode(err) != "MATCH_LOBBY_CREATION_DISABLED" {
+		t.Fatalf("draining instance allowed new lobby creation: %v", err)
+	}
+}
+
 func TestStrictRosterP2PPreflightNativeProcessNotStartedCleanupAgainstPostgreSQL(t *testing.T) {
 	databaseURL := os.Getenv("TEST_DATABASE_URL")
 	if databaseURL == "" {
@@ -366,8 +448,8 @@ func setupStrictRosterP2PPreflightFixture(
 	battleLogService := p2pbattlelog.NewService(p2pbattlelog.NewRepository(pool), config.Defaults.P2PBattleLog)
 	p2pService.SetMatchLifecycle(battleLogService)
 	matchConfig := config.Defaults.MatchLobby
-	matchConfig.StrictRosterV1Enabled = true
-	signer, err := NewAdmissionSigner(idempotencyKey, "", "test")
+	matchConfig.AcceptNewLobbies = true
+	signer, err := NewAdmissionSigner(idempotencyKey, testAdmissionPrivateKey(), "test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -425,8 +507,8 @@ func TestStrictRosterP2PLifecycleAgainstPostgreSQL(t *testing.T) {
 	battleLogService := p2pbattlelog.NewService(p2pbattlelog.NewRepository(pool), battleLogConfig)
 	p2pService.SetMatchLifecycle(battleLogService)
 	matchConfig := config.Defaults.MatchLobby
-	matchConfig.StrictRosterV1Enabled = true
-	signer, err := NewAdmissionSigner("integration-admission", "", "test")
+	matchConfig.AcceptNewLobbies = true
+	signer, err := NewAdmissionSigner("integration-admission", testAdmissionPrivateKey(), "test")
 	if err != nil {
 		t.Fatal(err)
 	}

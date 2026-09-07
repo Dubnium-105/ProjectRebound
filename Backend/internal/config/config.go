@@ -201,7 +201,9 @@ type P2PRoomConfig struct {
 }
 
 type MatchLobbyConfig struct {
-	StrictRosterV1Enabled     bool   `yaml:"strict_roster_v1_enabled"`
+	// AcceptNewLobbies is an operational drain switch. The authoritative
+	// strict-roster protocol remains enabled for existing lobbies and attempts.
+	AcceptNewLobbies          bool   `yaml:"accept_new_lobbies"`
 	LockedGameSHA256          string `yaml:"locked_game_sha256"`
 	PresenceGraceSeconds      int    `yaml:"presence_grace_seconds"`
 	ProvisioningSeconds       int    `yaml:"provisioning_seconds"`
@@ -436,7 +438,7 @@ var Defaults = Config{
 		NativeOwnershipMode:        "full",
 	},
 	MatchLobby: MatchLobbyConfig{
-		StrictRosterV1Enabled:    false,
+		AcceptNewLobbies:         true,
 		LockedGameSHA256:         "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
 		PresenceGraceSeconds:     60,
 		ProvisioningSeconds:      120,
@@ -444,7 +446,7 @@ var Defaults = Config{
 		P2PHostReconnectSeconds:  120,
 		AdmissionGrantTTLSeconds: 60,
 		SweepIntervalSeconds:     5,
-		AdmissionSigningKeyID:    "match-admission-dev-ephemeral",
+		AdmissionSigningKeyID:    "match-admission-control-plane-v1",
 	},
 	P2PRoom: P2PRoomConfig{
 		HeartbeatIntervalSeconds: 15,
@@ -534,9 +536,15 @@ func Load(path string) (*Config, error) {
 			return nil, err
 		}
 	} else {
+		if strings.Contains(string(data), "strict_roster_v1_enabled") {
+			return nil, errors.New("strict_roster_v1_enabled is retired; use match_lobby.accept_new_lobbies")
+		}
 		if err := yaml.Unmarshal(data, &cfg); err != nil {
 			return nil, err
 		}
+	}
+	if _, ok := os.LookupEnv("STRICT_ROSTER_V1_ENABLED"); ok {
+		return nil, errors.New("STRICT_ROSTER_V1_ENABLED is retired; use ACCEPT_NEW_LOBBIES")
 	}
 	cfg.applyEnvOverrides()
 	return &cfg, nil
@@ -602,7 +610,7 @@ func (c *Config) applyEnvOverrides() {
 	overrideString("META_NATIVE_OWNERSHIP_MODE", &c.MetaServer.NativeOwnershipMode)
 	overrideBool("META_DEVELOPMENT_LEGACY_LOADOUT_API", &c.MetaServer.DevelopmentLegacyLoadoutAPI)
 	overrideInt("MATCH_LOBBY_PRESENCE_GRACE_SECONDS", &c.MatchLobby.PresenceGraceSeconds)
-	overrideBool("STRICT_ROSTER_V1_ENABLED", &c.MatchLobby.StrictRosterV1Enabled)
+	overrideBool("ACCEPT_NEW_LOBBIES", &c.MatchLobby.AcceptNewLobbies)
 	overrideString("STRICT_ROSTER_LOCKED_GAME_SHA256", &c.MatchLobby.LockedGameSHA256)
 	overrideInt("MATCH_LOBBY_PROVISIONING_SECONDS", &c.MatchLobby.ProvisioningSeconds)
 	overrideInt("MATCH_LOBBY_INITIAL_CONNECTION_SECONDS", &c.MatchLobby.InitialConnectionSeconds)
@@ -922,14 +930,12 @@ func (c *Config) ValidateControlPlane() error {
 		strings.TrimSpace(c.MatchLobby.AdmissionSigningKeyID) == "" {
 		errs = append(errs, errors.New("match_lobby timing and admission signing settings are invalid"))
 	}
-	if c.MatchLobby.StrictRosterV1Enabled {
-		lockedHash := strings.ToLower(strings.TrimSpace(c.MatchLobby.LockedGameSHA256))
-		if len(lockedHash) != 64 || strings.Trim(lockedHash, "0123456789abcdef") != "" {
-			errs = append(errs, errors.New("strict_roster_v1 requires a 64-character locked game SHA-256"))
-		}
-		if strings.TrimSpace(c.MatchLobby.AdmissionPrivateKeyBase64) == "" {
-			errs = append(errs, errors.New("strict_roster_v1 requires MATCH_ADMISSION_PRIVATE_KEY_BASE64 in every environment"))
-		}
+	lockedHash := strings.ToLower(strings.TrimSpace(c.MatchLobby.LockedGameSHA256))
+	if len(lockedHash) != 64 || strings.Trim(lockedHash, "0123456789abcdef") != "" {
+		errs = append(errs, errors.New("strict authoritative online mode requires a 64-character locked game SHA-256"))
+	}
+	if strings.TrimSpace(c.MatchLobby.AdmissionPrivateKeyBase64) == "" {
+		errs = append(errs, errors.New("strict authoritative online mode requires MATCH_ADMISSION_PRIVATE_KEY_BASE64 in every environment"))
 	}
 	if strings.TrimSpace(c.P2PBattleLog.PolicyVersion) == "" ||
 		c.P2PBattleLog.MaxReportBytes < 16*1024 ||

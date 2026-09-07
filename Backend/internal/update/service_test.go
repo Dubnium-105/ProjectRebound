@@ -54,6 +54,7 @@ func TestSignedManifestCatalogAndChannels(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	service.SetAcceptNewLobbies(true)
 	stable, err := service.Check(context.Background(), CheckInput{Platform: "windows", Version: "1.0.0"})
 	if err != nil {
 		t.Fatal(err)
@@ -111,7 +112,8 @@ func TestSignedManifestCatalogAndChannels(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !clientConfig.Relay.Available || len(clientConfig.Relay.Regions) != 2 ||
-		clientConfig.RealtimeURL != cfg.RealtimeURL || !clientConfig.Features.VNTRooms {
+		clientConfig.RealtimeURL != cfg.RealtimeURL || !clientConfig.Features.VNTRooms ||
+		!clientConfig.Features.StrictRosterV1 || !clientConfig.Features.AcceptNewLobbies {
 		t.Fatalf("client config = %#v", clientConfig)
 	}
 }

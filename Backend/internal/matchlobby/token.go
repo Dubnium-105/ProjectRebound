@@ -2,7 +2,6 @@ package matchlobby
 
 import (
 	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -29,42 +28,31 @@ type AdmissionSigner struct {
 	publicKey  ed25519.PublicKey
 	keyID      string
 	now        func() time.Time
-	ephemeral  bool
 }
 
-func NewAdmissionSigner(keyID, encodedPrivateKey, environment string) (*AdmissionSigner, error) {
+func NewAdmissionSigner(keyID, encodedPrivateKey, _ string) (*AdmissionSigner, error) {
 	keyID = strings.TrimSpace(keyID)
 	if keyID == "" {
 		return nil, errors.New("match admission signing key ID is required")
 	}
-	var privateKey ed25519.PrivateKey
-	ephemeral := false
 	if strings.TrimSpace(encodedPrivateKey) == "" {
-		if strings.EqualFold(environment, "production") {
-			return nil, errors.New("match admission private key is required in production")
-		}
-		_, generated, err := ed25519.GenerateKey(rand.Reader)
-		if err != nil {
-			return nil, fmt.Errorf("generate match admission key: %w", err)
-		}
-		privateKey = generated
-		ephemeral = true
-	} else {
-		decoded, err := decodeAdmissionKey(encodedPrivateKey)
-		if err != nil {
-			return nil, fmt.Errorf("decode match admission key: %w", err)
-		}
-		switch len(decoded) {
-		case ed25519.SeedSize:
-			privateKey = ed25519.NewKeyFromSeed(decoded)
-		case ed25519.PrivateKeySize:
-			privateKey = ed25519.PrivateKey(decoded)
-		default:
-			return nil, errors.New("match admission key must be a 32-byte seed or 64-byte Ed25519 private key")
-		}
+		return nil, errors.New("match admission private key is required in every environment")
+	}
+	decoded, err := decodeAdmissionKey(encodedPrivateKey)
+	if err != nil {
+		return nil, fmt.Errorf("decode match admission key: %w", err)
+	}
+	var privateKey ed25519.PrivateKey
+	switch len(decoded) {
+	case ed25519.SeedSize:
+		privateKey = ed25519.NewKeyFromSeed(decoded)
+	case ed25519.PrivateKeySize:
+		privateKey = ed25519.PrivateKey(decoded)
+	default:
+		return nil, errors.New("match admission key must be a 32-byte seed or 64-byte Ed25519 private key")
 	}
 	publicKey := privateKey.Public().(ed25519.PublicKey)
-	return &AdmissionSigner{privateKey: privateKey, publicKey: publicKey, keyID: keyID, now: time.Now, ephemeral: ephemeral}, nil
+	return &AdmissionSigner{privateKey: privateKey, publicKey: publicKey, keyID: keyID, now: time.Now}, nil
 }
 
 func (s *AdmissionSigner) SignAllocation(claims AllocationClaims, ttl time.Duration) (string, time.Time, error) {
@@ -122,8 +110,7 @@ func (s *AdmissionSigner) PublicKeyBase64() string {
 	return base64.RawStdEncoding.EncodeToString(s.publicKey)
 }
 
-func (s *AdmissionSigner) KeyID() string   { return s.keyID }
-func (s *AdmissionSigner) Ephemeral() bool { return s.ephemeral }
+func (s *AdmissionSigner) KeyID() string { return s.keyID }
 
 func newAdmissionID(prefix string) string {
 	return prefix + strings.ReplaceAll(uuid.NewString(), "-", "")
