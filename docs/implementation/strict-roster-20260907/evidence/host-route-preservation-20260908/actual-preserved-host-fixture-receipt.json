@@ -1,0 +1,81 @@
+{
+  "id": "toolbox-actual-preserved-host-wire-20260908",
+  "scope": "Rust consumption of actual Windows CommandFramework preservation ACK fixture",
+  "source": {
+    "toolbox_repo": "C:\\wksp\\ProjectReboundToolbox",
+    "head": "f72407870c59a1658eb71cb3020c97d512199403",
+    "dirty": true,
+    "status": [
+      " M src/api/multiplayer/lobbies.rs",
+      " M src/core/runtime.rs",
+      " M src/matchmaking/controller.rs",
+      " M src/server/pipe.rs",
+      "?? .tmp/strict-roster-20260907/",
+      "?? tests/fixtures/preserved-host-wire.jsonl"
+    ],
+    "pipe_rs_sha256": "017602E7CF680D29EDB6F2636828A2AB3BCA65C3C9975D207CD06BBAA93D2597",
+    "fixture_copy": {
+      "path": "C:\\wksp\\ProjectReboundToolbox\\tests\\fixtures\\preserved-host-wire.jsonl",
+      "sha256": "0D0E2DFF78F741E0E014759AF1CD0C1DAF83A0FDAE57C05FEA85FDA6B4C7C773",
+      "bytes": 562,
+      "source_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\wire-preserved-host-20260908\\preserved-host-wire.jsonl",
+      "source_sha256": "0D0E2DFF78F741E0E014759AF1CD0C1DAF83A0FDAE57C05FEA85FDA6B4C7C773",
+      "exact_byte_copy": true
+    }
+  },
+  "native_producer": {
+    "receipt_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\wire-preserved-host-20260908\\receipt.json",
+    "receipt_sha256": "C040571E96F10A98AA3E409C27FF4D8D18AFE6789C1C44581DB245FC3BD10ADF",
+    "command": [
+      "C:\\wksp\\ProjectRebound\\build\\strict-roster-current\\Release\\command_framework_tests.exe",
+      "--preserved-wire-output",
+      "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\wire-preserved-host-20260908\\preserved-host-wire.jsonl"
+    ],
+    "exit_code": 0,
+    "test_executable_sha256": "99c2bb106d0eff67439f6616cb93a62d7becb8f63b1a1446dd98722aeb912403",
+    "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\wire-preserved-host-20260908\\command-framework-wire.log",
+    "log_sha256": "92ebb446a4fea83e2acce9abd834ddcdda2a217e74b75811309fd9dd7b5806b3",
+    "fixture_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\wire-preserved-host-20260908\\preserved-host-wire.jsonl",
+    "fixture_sha256": "0d0e2dff78f741e0e014759af1cd0c1daf83a0fdae57c05fea85fda6b4c7c773"
+  },
+  "tests": [
+    {
+      "command": "cargo test --lib server::pipe::tests::actual_cpp_preserved_host_ack_consumes_exact_wire_and_rejects_scope_mutations -- --nocapture (initial compile attempt; retained failure)",
+      "exit_code": 101,
+      "log_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\actual-preserved-host-fixture-test.log",
+      "log_sha256": "3329C74FB8143364804327D0F38B5333969A11CA922F8792A034A3D952A86749"
+    },
+    {
+      "command": "cargo test --lib server::pipe::tests::actual_cpp_preserved_host_ack_consumes_exact_wire_and_rejects_scope_mutations -- --nocapture (after minimal test fix)",
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\actual-preserved-host-fixture-test-retry.log",
+      "log_sha256": "6AFC733EDA3F7378533AA34759ADBEC3C74AE5F8FCFF50D9A71275B7C1CB9278",
+      "passed": 1
+    },
+    {
+      "command": "cargo test --lib server::pipe::tests::actual_cpp_preserved_host_ack_consumes_exact_wire_and_rejects_scope_mutations -- --nocapture",
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\actual-preserved-host-fixture-test-final.log",
+      "log_sha256": "73F8A6BA02380E3729A3D5785B6E894EDE87C58E230C66FE61F08773B80A4172",
+      "passed": 1
+    },
+    {
+      "command": "cargo fmt --all -- --check",
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\actual-preserved-host-fixture-fmt-final.log",
+      "log_sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    }
+  ],
+  "test_assertions": [
+    "consumes the exact actual producer frame and matches full HOST scope, operation_sequence=12, and nonce",
+    "rejects missing preserved_host_connection",
+    "rejects missing nested operation_sequence",
+    "rejects changed route_generation, operation_sequence, and native_connection_nonce"
+  ],
+  "limitations": [
+    "The producer fixture is the actual Windows named-pipe CommandFramework test with a synthetic HOST callback proof; it is not a live Native game HOST acceptance.",
+    "The Rust negative cases mutate the captured ACK in-memory; they are parser/validator regression cases, not additional C++ producer outputs.",
+    "No full Rust suite was rerun for this added case; the prior 309-test result remains historical for the earlier source state."
+  ],
+  "commit": "not committed; Root owns commit"
+}

@@ -1292,28 +1292,49 @@ namespace StrictRoster
                 return Reject("native_connection_nonce_conflict",
                     "disconnect does not belong to the live native handshake");
             }
+            // A newer reservation may already have passed backend Reserve and
+            // native readback while the previous live generation is winding
+            // down.  The disconnect owns only the live generation's cleanup;
+            // it must not clear nativeAdmitted/backendReserved for that newer
+            // reservation.
+            const std::string disconnectedNonce = nativeConnectionNonce.empty()
+                ? seat.liveNativeConnectionNonce
+                : std::string(nativeConnectionNonce);
+            const bool pendingScopeIsLiveScope = !seat.reserved ||
+                (seat.reservedGeneration == generation &&
+                 seat.reservedNativeConnectionNonce == disconnectedNonce);
             seat.connected = false;
             seat.lastDisconnectedGeneration = generation;
             seat.lastDisconnectedGrantJti = seat.grantJti;
             seat.lastDisconnectedNativeConnectionNonce =
-                nativeConnectionNonce.empty()
-                    ? seat.liveNativeConnectionNonce
-                    : std::string(nativeConnectionNonce);
+                disconnectedNonce;
             seat.lastDisconnectedWorldInstanceId = seat.liveWorldInstanceId;
             seat.lastDisconnectedRouteGeneration = seat.liveRouteGeneration;
-            seat.nativeAdmitted = false;
-            seat.nativeAdmissionGeneration = 0;
-            seat.nativeAdmissionJti.clear();
-            seat.nativeAdmissionNonce.clear();
-            seat.nativeAdmissionWorldInstanceId.clear();
-            seat.nativeAdmissionRouteGeneration = 0;
             seat.liveNativeConnectionNonce.clear();
             seat.liveWorldInstanceId.clear();
             seat.liveRouteGeneration = 0;
-            seat.backendReserved = false;
+            if (pendingScopeIsLiveScope)
+            {
+                seat.nativeAdmitted = false;
+                seat.nativeAdmissionGeneration = 0;
+                seat.nativeAdmissionJti.clear();
+                seat.nativeAdmissionNonce.clear();
+                seat.nativeAdmissionWorldInstanceId.clear();
+                seat.nativeAdmissionRouteGeneration = 0;
+                seat.backendReserved = false;
+            }
             seat.reportObserved = true;
             seat.reportedConnected = false;
-            activeDecisions_.erase(seat.platformId);
+            const auto activeDecision = activeDecisions_.find(seat.platformId);
+            if (activeDecision != activeDecisions_.end() &&
+                activeDecision->second.connectionGeneration == generation &&
+                activeDecision->second.grantJti == seat.lastDisconnectedGrantJti &&
+                activeDecision->second.nativeConnectionNonce == disconnectedNonce)
+            {
+                // Do not erase a decision that belongs to a newer confirmed
+                // generation if an old disconnect arrives late.
+                activeDecisions_.erase(activeDecision);
+            }
             AppendConnectionEventLocked(
                 seat, "DISCONNECTED", seat.grantJti, generation,
                 seat.lastDisconnectedNativeConnectionNonce);

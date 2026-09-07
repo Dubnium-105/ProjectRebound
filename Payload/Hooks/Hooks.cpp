@@ -395,67 +395,8 @@ namespace
         if (!IsReadableNativeFString(raw, NativeLoginGrantPolicy::MaxUrlCharacters))
             return false;
 
-        const std::wstring_view url(raw->data, static_cast<std::size_t>(raw->num - 1));
-        constexpr std::wstring_view key = L"ReboundSteamTicket=";
-        std::size_t segmentStart = 0;
-        bool found = false;
-        while (segmentStart <= url.size())
-        {
-            if (segmentStart < url.size() && url[segmentStart] == L'?')
-            {
-                ++segmentStart;
-                continue;
-            }
-            if (segmentStart < url.size() && url[segmentStart] == L'#')
-                break;
-            const std::size_t separator = url.find_first_of(L"&#", segmentStart);
-            const std::size_t segmentEnd = separator == std::wstring_view::npos
-                ? url.size() : separator;
-            if (url.compare(segmentStart, key.size(), key) == 0)
-            {
-                if (found)
-                {
-                    SecureClearBytes(ticket);
-                    return false;
-                }
-                found = true;
-                const std::wstring_view encoded = url.substr(
-                    segmentStart + key.size(),
-                    segmentEnd - segmentStart - key.size());
-                if (encoded.empty() ||
-                    encoded.size() > NativeLoginGrantPolicy::MaxSteamTicketEncodedBytes)
-                {
-                    SecureClearBytes(ticket);
-                    return false;
-                }
-                std::string encodedAscii;
-                ScopedSecureGrant encodedAsciiGuard{encodedAscii};
-                encodedAscii.reserve(encoded.size());
-                for (const wchar_t character : encoded)
-                {
-                    if (character > 0x7FU)
-                    {
-                        SecureClearBytes(ticket);
-                        return false;
-                    }
-                    encodedAscii.push_back(static_cast<char>(character));
-                }
-                if (!NativeLoginGrantPolicy::DecodeSteamTicket(encodedAscii, ticket))
-                {
-                    SecureClearBytes(ticket);
-                    return false;
-                }
-            }
-            if (separator == std::wstring_view::npos)
-                break;
-            segmentStart = separator + 1U;
-        }
-        if (!found || ticket.empty())
-        {
-            SecureClearBytes(ticket);
-            return false;
-        }
-        return true;
+        return NativeLoginGrantPolicy::ExtractSteamTicketFromNativeOptions(
+            std::wstring_view(raw->data, static_cast<std::size_t>(raw->num - 1)), ticket);
     }
 
     bool ArmStrictRosterPlatformProof(

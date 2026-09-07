@@ -1,0 +1,20 @@
+   Compiling rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+warning: variable does not need to be mutable
+    --> src\server\pipe.rs:2343:13
+     |
+2343 |         let mut scope = MatchJoinScope {
+     |             ----^^^^^
+     |             |
+     |             help: remove this `mut`
+     |
+     = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: `rebound_toolbox` (lib test) generated 1 warning (run `cargo fix --lib -p rebound_toolbox --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 27.31s
+     Running unittests src\lib.rs (target\debug\deps\rebound_toolbox-531c06249e821c2c.exe)
+
+running 1 test
+test server::pipe::tests::actual_cpp_preserved_host_ack_consumes_exact_wire_and_rejects_scope_mutations ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 305 filtered out; finished in 0.00s
+

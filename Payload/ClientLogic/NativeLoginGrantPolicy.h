@@ -34,20 +34,27 @@ namespace NativeLoginGrantPolicy
             const auto afterFragment = fragment == std::wstring_view::npos
                 ? std::wstring_view{} : source.substr(fragment);
             const auto query = beforeFragment.find(L'?');
-            if (query == std::wstring_view::npos)
-                return std::wstring(source);
-            std::wstring result(beforeFragment.substr(0, query));
-            auto segmentStart = query + 1U;
+            const bool hasQuery = query != std::wstring_view::npos;
+            std::wstring result(hasQuery ? beforeFragment.substr(0, query) : std::wstring_view{});
+            auto segmentStart = hasQuery ? query + 1U : 0U;
             bool first = true;
+            bool removed = false;
             while (segmentStart <= beforeFragment.size())
             {
-                const auto separator = beforeFragment.find(L'&', segmentStart);
+                const auto separator = beforeFragment.find_first_of(L"?&", segmentStart);
                 const auto end = separator == std::wstring_view::npos ? beforeFragment.size() : separator;
                 const auto segment = beforeFragment.substr(segmentStart, end - segmentStart);
-                if (!segment.starts_with(L"ReboundGrant=") &&
-                    !segment.starts_with(L"ReboundSteamTicket=") && !segment.empty())
+                if (segment.starts_with(L"ReboundGrant=") ||
+                    segment.starts_with(L"ReboundSteamTicket="))
                 {
-                    result += first ? L'?' : L'&';
+                    removed = true;
+                }
+                else if (!segment.empty())
+                {
+                    if (first && hasQuery)
+                        result += L'?';
+                    else if (!first)
+                        result += beforeFragment[segmentStart - 1U];
                     result.append(segment);
                     first = false;
                 }
@@ -55,6 +62,8 @@ namespace NativeLoginGrantPolicy
                     break;
                 segmentStart = separator + 1U;
             }
+            if (!removed)
+                return std::wstring(source);
             result.append(afterFragment);
             return result;
         }
@@ -158,15 +167,16 @@ namespace NativeLoginGrantPolicy
         value.clear();
     }
 
-    inline bool ExtractGrantFromNativeOptions(
-        const std::wstring_view url, std::string& grant) noexcept
+    inline bool ExtractNativeCredentialOption(
+        const std::wstring_view url, const std::wstring_view key,
+        const std::size_t maximumBytes, const bool allowJwtSeparators,
+        std::string& grant) noexcept
     {
         SecureClearString(grant);
         if (url.size() >= MaxUrlCharacters || url.find(L'\0') != std::wstring_view::npos)
             return false;
         try
         {
-            constexpr std::wstring_view key = L"ReboundGrant=";
             std::size_t start = 0;
             bool found = false;
             while (start <= url.size())
@@ -182,7 +192,7 @@ namespace NativeLoginGrantPolicy
                 const auto end = separator == std::wstring_view::npos ? url.size() : separator;
                 if (url.compare(start, key.size(), key) == 0)
                 {
-                    if (found || end - start - key.size() > MaxGrantBytes)
+                    if (found || end - start - key.size() > maximumBytes)
                     {
                         SecureClearString(grant);
                         return false;
@@ -190,7 +200,7 @@ namespace NativeLoginGrantPolicy
                     found = true;
                     for (const wchar_t character : url.substr(start + key.size(), end - start - key.size()))
                     {
-                        if (character > 0x7FU || (character != L'.' &&
+                        if (character > 0x7FU || (!(allowJwtSeparators && character == L'.') &&
                             !IsBase64UrlCharacter(static_cast<char>(character))))
                         {
                             SecureClearString(grant);
@@ -205,12 +215,22 @@ namespace NativeLoginGrantPolicy
                     break;
                 start = separator + 1U;
             }
-            if (found && ValidateGrantTokenShape(grant))
+            if (found && !grant.empty())
                 return true;
         }
         catch (...)
         {
         }
+        SecureClearString(grant);
+        return false;
+    }
+
+    inline bool ExtractGrantFromNativeOptions(
+        const std::wstring_view url, std::string& grant) noexcept
+    {
+        if (ExtractNativeCredentialOption(url, L"ReboundGrant=", MaxGrantBytes, true, grant) &&
+            ValidateGrantTokenShape(grant))
+            return true;
         SecureClearString(grant);
         return false;
     }
@@ -318,6 +338,20 @@ namespace NativeLoginGrantPolicy
             return false;
         }
         return true;
+    }
+
+    inline bool ExtractSteamTicketFromNativeOptions(
+        const std::wstring_view url, std::vector<std::uint8_t>& ticket) noexcept
+    {
+        SecureClearBytes(ticket);
+        std::string encoded;
+        const bool valid = ExtractNativeCredentialOption(
+            url, L"ReboundSteamTicket=", MaxSteamTicketEncodedBytes, false, encoded) &&
+            DecodeSteamTicket(encoded, ticket);
+        SecureClearString(encoded);
+        if (!valid)
+            SecureClearBytes(ticket);
+        return valid;
     }
 
     // Build the exact URL FString view passed to the fixed serializer.  The

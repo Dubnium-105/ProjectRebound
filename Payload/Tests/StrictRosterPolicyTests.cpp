@@ -228,6 +228,95 @@ int main()
         connectionEvents[2].nativeConnectionNonce == NativeNonce("one"),
         "native reservation, readback, and backend confirmation should be correlated");
 
+    // A newer generation may already be backend-confirmed and native-admitted
+    // while the previous live generation is disconnecting.  The old
+    // disconnect must not erase the pending generation's confirmation state.
+    StrictRoster::Policy overlappingGenerations(verifier, true);
+    Expect(overlappingGenerations.InstallAllocation(
+        Token(AllocationClaims()), "adm_1", publicKey, 100).accepted,
+        "overlap fixture allocation should install");
+    Expect(overlappingGenerations.StartAuthority("steam_host", 100).accepted,
+        "overlap fixture authority should start");
+    overlappingGenerations.SetNativeWorldInstanceId("world_test_a");
+    const auto oldLive = StageValidateAndReserve(
+        overlappingGenerations, Token(GrantClaims(1, "overlap_grant_a")),
+        "steam_member", 110, NativeNonce("overlap-a"));
+    Expect(oldLive.accepted, "overlap fixture should reserve the old live generation");
+    Expect(overlappingGenerations.ConfirmAdmissionReserved(
+        oldLive.playerId, oldLive.connectionGeneration, oldLive.grantJti,
+        oldLive.nativeConnectionNonce).accepted,
+        "old live generation should receive backend reservation confirmation");
+    Expect(overlappingGenerations.MarkNativeAdmitted(
+        oldLive.playerId, oldLive.connectionGeneration, oldLive.grantJti,
+        oldLive.nativeConnectionNonce).accepted,
+        "old live generation should receive native admission");
+    Expect(overlappingGenerations.MarkConnected(
+        oldLive.playerId, oldLive.connectionGeneration, oldLive.grantJti,
+        oldLive.nativeConnectionNonce).accepted,
+        "old generation should become live");
+    const auto newerReserved = StageValidateAndReserve(
+        overlappingGenerations, Token(GrantClaims(2, "overlap_grant_b")),
+        "steam_member", 111, NativeNonce("overlap-b"));
+    Expect(newerReserved.accepted && newerReserved.replacesConnection,
+        "newer generation should reserve while the old generation remains live");
+    Expect(overlappingGenerations.ConfirmAdmissionReserved(
+        newerReserved.playerId, newerReserved.connectionGeneration,
+        newerReserved.grantJti, newerReserved.nativeConnectionNonce).accepted,
+        "newer generation should retain backend confirmation before old disconnect");
+    Expect(overlappingGenerations.MarkNativeAdmitted(
+        newerReserved.playerId, newerReserved.connectionGeneration,
+        newerReserved.grantJti, newerReserved.nativeConnectionNonce).accepted,
+        "newer generation should retain native admission before old disconnect");
+    Expect(!overlappingGenerations.MarkConnected(
+        newerReserved.playerId, newerReserved.connectionGeneration,
+        newerReserved.grantJti, oldLive.nativeConnectionNonce).accepted,
+        "new generation must not reuse the old live native nonce");
+    Expect(!overlappingGenerations.ValidateConnectionScope(
+        "att_1", "auth_session_1", 3, 1, oldLive.playerId,
+        oldLive.connectionGeneration, newerReserved.grantJti,
+        oldLive.nativeConnectionNonce).accepted,
+        "new reservation JTI must not validate against the old live nonce");
+    Expect(overlappingGenerations.MarkDisconnected(
+        oldLive.playerId, oldLive.connectionGeneration,
+        oldLive.nativeConnectionNonce).accepted,
+        "old live disconnect should be accepted while newer admission is pending");
+    const auto pendingAfterOldDisconnect =
+        overlappingGenerations.ReservedDecisionByPlayerId("p_member");
+    Expect(pendingAfterOldDisconnect.has_value() &&
+        pendingAfterOldDisconnect->grantJti == newerReserved.grantJti &&
+        pendingAfterOldDisconnect->nativeConnectionNonce ==
+            newerReserved.nativeConnectionNonce &&
+        pendingAfterOldDisconnect->backendReserved,
+        "old disconnect must preserve the newer reserved decision and backend receipt");
+    Expect(!overlappingGenerations.ActiveDecision("steam_member").has_value(),
+        "old disconnect should remove only the old live decision");
+    Expect(overlappingGenerations.ConfirmConnected(
+        newerReserved.playerId, newerReserved.connectionGeneration,
+        newerReserved.grantJti, newerReserved.nativeConnectionNonce).accepted,
+        "old disconnect must not clear newer backend/native admission state");
+    Expect(overlappingGenerations.ValidateConnectionScope(
+        "att_1", "auth_session_1", 3, 1, oldLive.playerId,
+        oldLive.connectionGeneration, oldLive.grantJti,
+        oldLive.nativeConnectionNonce).accepted,
+        "old disconnect receipt should retain the old JTI and nonce scope");
+    Expect(!overlappingGenerations.ValidateConnectionScope(
+        "att_1", "auth_session_1", 3, 1, oldLive.playerId,
+        oldLive.connectionGeneration, newerReserved.grantJti,
+        oldLive.nativeConnectionNonce).accepted,
+        "old disconnect receipt must reject the newer reservation JTI");
+    bool oldDisconnectRetainedOldGrant = false;
+    for (const auto& event : overlappingGenerations.ConnectionEventsAfter(0))
+    {
+        if (event.state == "DISCONNECTED")
+        {
+            oldDisconnectRetainedOldGrant =
+                event.grantJti == oldLive.grantJti &&
+                event.nativeConnectionNonce == oldLive.nativeConnectionNonce;
+        }
+    }
+    Expect(oldDisconnectRetainedOldGrant,
+        "old disconnect event must retain its own grant and nonce");
+
     // A scoped backend receipt must retain the world/route of the concrete
     // reservation or live socket. These checks exercise both the pending
     // reservation and the idempotent CONNECTED path before the route-refresh

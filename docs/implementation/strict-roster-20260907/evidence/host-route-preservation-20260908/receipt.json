@@ -1,0 +1,126 @@
+{
+  "recorded_at": "2026-09-07T21:15:20.889820+00:00",
+  "files": [
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/host-route-preservation-20260908/host-route-preserve-receipt.json",
+      "sha256": "f0e187ae06e22c5cd76c5941086d8c6ae070ac59405dc2631ffd53993596cdc9",
+      "bytes": 7777,
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\host-route-preserve-receipt.json"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/host-route-preservation-20260908/toolbox/runtime-route12.log",
+      "sha256": "ee3b507ad74be8dee567cfd0187540414b5ed43d002baed714f9776aa5580560",
+      "bytes": 392,
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\runtime-route12.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/host-route-preservation-20260908/toolbox/runtime-route123.log",
+      "sha256": "27b8097768fb9457b106176b0921b22354bbbe7810317f632020f7f504d306ea",
+      "bytes": 397,
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\runtime-route123.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/host-route-preservation-20260908/toolbox/runtime-released-route.log",
+      "sha256": "d520b67e02694b99838229c624b6b7911fef363d095c2c6d5bbf462f53249027",
+      "bytes": 393,
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\runtime-released-route.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/host-route-preservation-20260908/toolbox/runtime-old-disconnect.log",
+      "sha256": "87fba3bd7bba37306b2b95e5a0d94685abeab69c32b03747d773f4aaa97e92df",
+      "bytes": 386,
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\runtime-old-disconnect.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/host-route-preservation-20260908/toolbox/lobbies-disconnect-route.log",
+      "sha256": "ce0969c92f78ae5847d417f6b7a683f91baabfe59ccc826d7a6c9e5322c3aee8",
+      "bytes": 389,
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\lobbies-disconnect-route.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/host-route-preservation-20260908/toolbox/pipe-preserved-ack.log",
+      "sha256": "bf4ae0c38731343cff0c8d66d5ed542aa66039cd805ee3043f895e0672bc8e1a",
+      "bytes": 387,
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\pipe-preserved-ack.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/host-route-preservation-20260908/toolbox/fmt-check.log",
+      "sha256": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6",
+      "bytes": 2,
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\fmt-check.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/host-route-preservation-20260908/toolbox/cargo-test-lib-all-features.log",
+      "sha256": "4e4255fa58b914ebe3781b71548357550b819393ce485889d1d47e3af3b853ef",
+      "bytes": 28487,
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\cargo-test-lib-all-features.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/host-route-preservation-20260908/toolbox/tauri-tests-final.log",
+      "sha256": "82a4b90fce29b5b0d4c1e400fb2a3019bebfef743610ffdc3727e74a11eb466e",
+      "bytes": 1792,
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\tauri-tests-final.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/host-route-preservation-20260908/toolbox/cargo-check-all-targets-all-features-final.log",
+      "sha256": "0586efbdede5700456029460adea6de0289f0730946744388cf91da7da869d88",
+      "bytes": 144,
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\cargo-check-all-targets-all-features-final.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/host-route-preservation-20260908/actual-preserved-host-fixture-receipt.json",
+      "sha256": "d4ddb73693f347efcb77ab507a4812f96c64f101b735a75d77fb310c6375cffc",
+      "bytes": 4962,
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\actual-preserved-host-fixture-receipt.json"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/host-route-preservation-20260908/toolbox/actual-preserved-host-fixture-test.log",
+      "sha256": "3329c74fb8143364804327d0f38b5333969a11ca922f8792a034a3d952a86749",
+      "bytes": 1082,
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\actual-preserved-host-fixture-test.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/host-route-preservation-20260908/toolbox/actual-preserved-host-fixture-test-retry.log",
+      "sha256": "6afc733eda3f7378533aa34759adbec3c74ae5f8fcff50d9a71275b7c1cb9278",
+      "bytes": 924,
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\actual-preserved-host-fixture-test-retry.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/host-route-preservation-20260908/toolbox/actual-preserved-host-fixture-test-final.log",
+      "sha256": "73f8a6ba02380e3729a3d5785b6e894ede87c58e230c66fe61f08773b80a4172",
+      "bytes": 468,
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\actual-preserved-host-fixture-test-final.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/host-route-preservation-20260908/toolbox/actual-preserved-host-fixture-fmt-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\actual-preserved-host-fixture-fmt-final.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/host-route-preservation-20260908/native-producer/receipt.json",
+      "sha256": "c040571e96f10a98aa3e409c27ff4d8d18afe6789c1c44581db245fc3bd10adf",
+      "bytes": 1093,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\wire-preserved-host-20260908\\receipt.json"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/host-route-preservation-20260908/native-producer/preserved-host-wire.jsonl",
+      "sha256": "0d0e2dff78f741e0e014759af1cd0c1daf83a0fdae57c05fea85fda6b4c7c773",
+      "bytes": 562,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\wire-preserved-host-20260908\\preserved-host-wire.jsonl"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/host-route-preservation-20260908/native-producer/command-framework-wire.log",
+      "sha256": "92ebb446a4fea83e2acce9abd834ddcdda2a217e74b75811309fd9dd7b5806b3",
+      "bytes": 31,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\wire-preserved-host-20260908\\command-framework-wire.log"
+    }
+  ],
+  "reviewed_rebound_commit": "a7352db16ea1a7729947526e5642bc3738b5123b",
+  "reviewed_toolbox_commit": "7b7f98ee39f4ee800d1d41ee96831432382bd20a",
+  "producer_and_consumer_exact_bytes": true,
+  "wire_sha256": "0d0e2dff78f741e0e014759af1cd0c1daf83a0fdae57c05fea85fda6b4c7c773",
+  "scope": "Actual component execution only. The earlier Toolbox receipt correctly records the then-missing producer field; the later actual-producer fixture receipt resolves that wire defect. The 309-test suite predates the one additional consumer test; it is not relabeled as a 310-test execution. No native P2P HOST preservation game run is claimed.",
+  "native_host_preservation_passed": false,
+  "release_ready": false
+}

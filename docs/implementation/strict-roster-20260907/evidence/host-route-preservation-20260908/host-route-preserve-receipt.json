@@ -1,0 +1,150 @@
+{
+  "id": "toolbox-host-route-preserve-20260908",
+  "scope": "P2P HOST same-world route refresh, old-scope event drain, Backend disconnect route wire",
+  "source": {
+    "repo": "C:\\wksp\\ProjectReboundToolbox",
+    "head": "f72407870c59a1658eb71cb3020c97d512199403",
+    "dirty": true,
+    "status": [
+      " M src/api/multiplayer/lobbies.rs",
+      " M src/core/runtime.rs",
+      " M src/matchmaking/controller.rs",
+      " M src/server/pipe.rs",
+      "?? .tmp/strict-roster-20260907/"
+    ],
+    "modified_file_sha256": {
+      "src\\matchmaking\\controller.rs": "ED40FFA120968D1A78C374B2CD43678C328492464A1F5EDBA77CB9981DC94025",
+      "src\\api\\multiplayer\\lobbies.rs": "49C4B034C5349B3F5FD0584961D12A39AD8DF36E725E6325206E1E55BD4C8124",
+      "src\\core\\runtime.rs": "F9FB31765DCA7AA2D415319174073CB05E4EDBEFEAC2725021D6E5CC8A220696",
+      "src\\server\\pipe.rs": "F9363A4EB53D29DB35C8FC26CDC8C4223C14C38ABE26329BBEF1A20B66492866"
+    }
+  },
+  "implementation": {
+    "files": [
+      "src\\core\\runtime.rs",
+      "src\\api\\multiplayer\\lobbies.rs",
+      "src\\server\\pipe.rs",
+      "src\\matchmaking\\controller.rs"
+    ],
+    "behavior": [
+      "preserves the old HOST route/generation/nonce/operation through route 1->2->3 authority refreshes",
+      "keeps the native connection-event cursor across same-world allocation refresh",
+      "accepts only exact old HOST-scope DISCONNECTED events after preservation and reports their live old route_generation",
+      "serializes route_generation in host/disconnected request body",
+      "keeps strict preserved ACK equality; no compatibility fallback"
+    ]
+  },
+  "tests": [
+    {
+      "command": "cargo test --lib core::runtime::tests::live_host_route_refresh_requires_current_operation_and_exact_next_route -- --nocapture",
+      "exit_code": 0,
+      "pass_count": 1,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\runtime-route12.log",
+      "log_sha256": "EE3B507AD74BE8DEE567CFD0187540414B5ED43D002BAED714F9776AA5580560"
+    },
+    {
+      "command": "cargo test --lib core::runtime::tests::live_host_route_refresh_keeps_route_one_scope_across_two_authority_refreshes -- --nocapture",
+      "exit_code": 0,
+      "pass_count": 1,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\runtime-route123.log",
+      "log_sha256": "27B8097768FB9457B106176B0921B22354BBBE7810317F632020F7F504D306EA"
+    },
+    {
+      "command": "cargo test --lib core::runtime::tests::route_refresh_requires_released_old_host_scope_and_next_route_generation -- --nocapture",
+      "exit_code": 0,
+      "pass_count": 1,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\runtime-released-route.log",
+      "log_sha256": "D520B67E02694B99838229C624B6B7911FEF363D095C2C6D5BBF462F53249027"
+    },
+    {
+      "command": "cargo test --lib core::runtime::tests::preserved_route_event_scope_keeps_old_host_disconnect_proof_exact -- --nocapture",
+      "exit_code": 0,
+      "pass_count": 1,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\runtime-old-disconnect.log",
+      "log_sha256": "87FBA3BD7BBA37306B2B95E5A0D94685ABEAB69C32B03747D773F4AAA97E92DF"
+    },
+    {
+      "command": "cargo test --lib api::multiplayer::lobbies::tests::host_disconnect_report_carries_the_live_route_generation -- --nocapture",
+      "exit_code": 0,
+      "pass_count": 1,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\lobbies-disconnect-route.log",
+      "log_sha256": "CE0969C92F78AE5847D417F6B7A683F91BAABFE59CCC826D7A6C9E5322C3AEE8"
+    },
+    {
+      "command": "cargo test --lib server::pipe::tests::preserved_host_authority_ack_requires_exact_old_scope_and_operation -- --nocapture",
+      "exit_code": 0,
+      "pass_count": 1,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\pipe-preserved-ack.log",
+      "log_sha256": "BF4AE0C38731343CFF0C8D66D5ED542AA66039CD805EE3043F895E0672BC8E1A"
+    },
+    {
+      "command": "cargo fmt --all -- --check",
+      "exit_code": 0,
+      "pass_count": null,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\fmt-check.log",
+      "log_sha256": "7EB70257593DA06F682A3DDDA54A9D260D4FC514F645237F5CA74B08F8DA61A6"
+    },
+    {
+      "command": "cargo test --lib --all-features",
+      "exit_code": 0,
+      "pass_count": 309,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\cargo-test-lib-all-features.log",
+      "log_sha256": "4E4255FA58B914EBE3781B71548357550B819393CE485889D1D47E3AF3B853EF"
+    },
+    {
+      "command": "cargo test --manifest-path src-tauri\\Cargo.toml -- --nocapture",
+      "exit_code": 0,
+      "pass_count": 7,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\tauri-tests-final.log",
+      "log_sha256": "82A4B90FCE29B5B0D4C1E400FB2A3019BEBFEF743610FFDC3727E74A11EB466E"
+    },
+    {
+      "command": "cargo check --all-targets --all-features -j1",
+      "exit_code": 0,
+      "pass_count": null,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-route-preserve-20260908\\cargo-check-all-targets-all-features-final.log",
+      "log_sha256": "0586EFBDEDE5700456029460ADEA6DE0289F0730946744388CF91DA7DA869D88"
+    }
+  ],
+  "native_wire_fixture": {
+    "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\wire-scope-v2\\payload-wire-v2.jsonl",
+    "sha256": "B6DF8C7FF1172E31198F398E9D17E96AD2D722785AF2A04BAA9CAC5404BC9E01",
+    "status": "external source receipt; not regenerated in this Toolbox run"
+  },
+  "limitations": [
+    "Native CommandFramework.cpp must forward callback preserved_host_connection into start_match_authority_ack; current Rust parser intentionally rejects an ACK that omits it, so preservation E2E remains blocked until that producer is corrected.",
+    "Backend preserve-host HTTP/DB behavior is an external integration dependency; Toolbox tests cover DTO serialization and exact scope checks only.",
+    "No live Native/Backend/Steam run was performed in this receipt."
+  ],
+  "commit": "not committed; Root owns commit",
+  "latest_verification": {
+    "product_source_frozen": true,
+    "head_at_run": "f72407870c59a1658eb71cb3020c97d512199403",
+    "modified_product_files_sha256": {
+      "src\\matchmaking\\controller.rs": "ED40FFA120968D1A78C374B2CD43678C328492464A1F5EDBA77CB9981DC94025",
+      "src\\api\\multiplayer\\lobbies.rs": "49C4B034C5349B3F5FD0584961D12A39AD8DF36E725E6325206E1E55BD4C8124",
+      "src\\core\\runtime.rs": "F9FB31765DCA7AA2D415319174073CB05E4EDBEFEAC2725021D6E5CC8A220696",
+      "src\\server\\pipe.rs": "F9363A4EB53D29DB35C8FC26CDC8C4223C14C38ABE26329BBEF1A20B66492866"
+    },
+    "tauri_tests": {
+      "exit_code": 0,
+      "passed": 7,
+      "failed": 0,
+      "ignored": 0
+    },
+    "all_targets_all_features_check": {
+      "exit_code": 0
+    },
+    "native_preservation_fixture": "Awaiting Root Native CommandFramework forwarding fix; no production-fixture acceptance claimed."
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "recorded_at": "2026-09-07T20:58:52.738987+00:00",
+  "command": [
+    "C:\\wksp\\ProjectRebound\\build\\strict-roster-current\\Release\\command_framework_tests.exe",
+    "--preserved-wire-output",
+    "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\wire-preserved-host-20260908\\preserved-host-wire.jsonl"
+  ],
+  "exit_code": 0,
+  "test_executable_sha256": "99c2bb106d0eff67439f6616cb93a62d7becb8f63b1a1446dd98722aeb912403",
+  "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\wire-preserved-host-20260908\\command-framework-wire.log",
+  "log_sha256": "92ebb446a4fea83e2acce9abd834ddcdda2a217e74b75811309fd9dd7b5806b3",
+  "fixture_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\wire-preserved-host-20260908\\preserved-host-wire.jsonl",
+  "fixture_sha256": "0d0e2dff78f741e0e014759af1cd0c1daf83a0fdae57c05fea85fda6b4c7c773",
+  "scope": "Actual CommandFramework Windows named-pipe request and ACK round trip with synthetic HOST callback proof; not native game HOST acceptance."
+}

@@ -1,0 +1,19 @@
+   Compiling rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+error[E0609]: no field `native_connection_nonce` on type `server::pipe::MatchJoinScope`
+    --> src\server\pipe.rs:2399:15
+     |
+2399 |         scope.native_connection_nonce = "forged".into();
+     |               ^^^^^^^^^^^^^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `attempt_id`, `authority_session_id`, `world_instance_id`, `roster_revision`, `route_generation` ... and 4 others
+
+error[E0609]: no field `native_connection_nonce` on type `server::pipe::MatchJoinScope`
+    --> src\server\pipe.rs:2402:37
+     |
+2402 |             serde_json::json!(scope.native_connection_nonce);
+     |                                     ^^^^^^^^^^^^^^^^^^^^^^^ unknown field
+     |
+     = note: available fields are: `attempt_id`, `authority_session_id`, `world_instance_id`, `roster_revision`, `route_generation` ... and 4 others
+
+For more information about this error, try `rustc --explain E0609`.
+error: could not compile `rebound_toolbox` (lib test) due to 2 previous errors

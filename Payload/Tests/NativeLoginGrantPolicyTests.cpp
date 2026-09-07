@@ -98,6 +98,38 @@ int main()
     const std::wstring nativeGrant = L"?ReboundGrant=" + std::wstring(grant.begin(), grant.end());
     Expect(NativeLoginGrantPolicy::ExtractGrantFromNativeOptions(nativeGrant, extracted) && extracted == grant,
         "a Grant in the first native URL option must retain both JWT separators");
+    const std::wstring nativeTicket = L"ReboundSteamTicket=" +
+        std::wstring(encodedTicket.begin(), encodedTicket.end());
+    const std::wstring canonicalNativeOptions = nativeGrant + L"?" + nativeTicket +
+        L"?SplitscreenCount=1?Token=native-session-proof?Name=Player#fragment";
+    Expect(NativeLoginGrantPolicy::ExtractSteamTicketFromNativeOptions(carrierView, decodedTicket) &&
+        decodedTicket == std::vector<std::uint8_t>(ticketBytes.begin(), ticketBytes.end()),
+        "the native parser must recover the exact ticket from the real NMT URL encoder");
+    Expect(NativeLoginGrantPolicy::ExtractSteamTicketFromNativeOptions(canonicalNativeOptions, decodedTicket) &&
+        decodedTicket == std::vector<std::uint8_t>(ticketBytes.begin(), ticketBytes.end()),
+        "UE question-separated native options after the ticket must not enter its base64 value");
+    Expect(NativeLoginGrantPolicy::ExtractGrantFromNativeOptions(canonicalNativeOptions, extracted) && extracted == grant,
+        "UE question-separated native options must preserve the signed grant");
+    Expect(NativeLoginGrantPolicy::StripPayloadOwnedOptions(canonicalNativeOptions) ==
+        L"?SplitscreenCount=1?Token=native-session-proof?Name=Player#fragment",
+        "native PreLogin must receive all original question-separated options and nonempty Token");
+    Expect(NativeLoginGrantPolicy::StripPayloadOwnedOptions(
+        L"/Game/Maps/Test?" + nativeTicket + L"&Token=native-session-proof?Name=Player") ==
+        L"/Game/Maps/Test?Token=native-session-proof?Name=Player",
+        "removing the first carrier must preserve the path and first native query boundary");
+    Expect(NativeLoginGrantPolicy::StripPayloadOwnedOptions(
+        L"Token=native-session-proof&" + nativeTicket + L"&Name=Player") ==
+        L"Token=native-session-proof&Name=Player",
+        "native options without a leading question mark must retain their original Token");
+    Expect(!NativeLoginGrantPolicy::ExtractSteamTicketFromNativeOptions(
+        L"?" + nativeTicket + L"?" + nativeTicket, decodedTicket) && decodedTicket.empty(),
+        "duplicate native ticket options must fail closed and clear sensitive output");
+    Expect(!NativeLoginGrantPolicy::ExtractSteamTicketFromNativeOptions(
+        L"?ReboundSteamTicket=abc.invalid", decodedTicket) && decodedTicket.empty(),
+        "JWT separators are permitted only in grants, never in Steam ticket values");
+    Expect(!NativeLoginGrantPolicy::ExtractSteamTicketFromNativeOptions(
+        L"?Name=Player#" + nativeTicket, decodedTicket) && decodedTicket.empty(),
+        "a ticket hidden in a fragment cannot authorize native admission");
     Expect(!NativeLoginGrantPolicy::ExtractGrantFromNativeOptions(
         nativeGrant + L"&ReboundGrant=" + std::wstring(grant.begin(), grant.end()), extracted) && extracted.empty(),
         "duplicate native Grant options must reject and clear sensitive output");
