@@ -78,6 +78,18 @@ def main():
         path = given.resolve(strict=True)
         build_info = run("go", "version", "-m", str(path))
         artifact = {"path": str(path), "size": path.stat().st_size, "sha256": sha(path), "go_build_info": build_info}
+        if path.name in ("control-plane", "meta-server", "edge-relay"):
+            settings = {}
+            for line in build_info["output"].splitlines():
+                parts = line.strip().split(None, 1)
+                if len(parts) == 2 and parts[0] == "build" and "=" in parts[1]:
+                    key, value = parts[1].split("=", 1)
+                    settings[key] = value
+            artifact["embedded_source_provenance"] = settings
+            if build_info["exit_code"] or settings.get("vcs.revision") != repos.get("ProjectRebound", {}).get("commit"):
+                problems.append(path.name + " does not embed the reviewed source revision")
+            if settings.get("vcs.modified") != "false":
+                problems.append(path.name + " was not stamped as an unmodified source build")
         if path.name == "matchserver":
             artifact["release_eligible"] = False
             artifact["reason"] = "historical tracked binary excluded from all current source-built containers"
