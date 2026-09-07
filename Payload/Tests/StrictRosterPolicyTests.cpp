@@ -124,6 +124,7 @@ int main()
         "allocation should install");
     Expect(policy.StartAuthority("steam_host", 100).accepted,
         "the allocated host should bind locally");
+    policy.SetNativeWorldInstanceId("world_test_a");
 	Expect(!policy.StartAuthorityForAllocatedHost("", 100, NativeNonce("host")).accepted,
 		"P2P host startup rejects an empty local platform identity");
 	Expect(!policy.StartAuthorityForAllocatedHost("steam_other", 100, NativeNonce("host")).accepted,
@@ -189,6 +190,12 @@ int main()
         connectionEvents.back().connected &&
         connectionEvents.back().connectionGeneration == 1 &&
         connectionEvents.back().grantJti == "grant_jti_1" &&
+        connectionEvents[0].worldInstanceId == "world_test_a" &&
+        connectionEvents[1].worldInstanceId == "world_test_a" &&
+        connectionEvents[2].worldInstanceId == "world_test_a" &&
+        connectionEvents[0].routeGeneration == 1 &&
+        connectionEvents[1].routeGeneration == 1 &&
+        connectionEvents[2].routeGeneration == 1 &&
         connectionEvents[0].nativeConnectionNonce == NativeNonce("one") &&
         connectionEvents[1].nativeConnectionNonce == NativeNonce("one") &&
         connectionEvents[2].nativeConnectionNonce == NativeNonce("one"),
@@ -201,6 +208,7 @@ int main()
 		Token(GrantClaims(1, "same_generation_second_jti")), "steam_member", 110,
         NativeNonce("second")).accepted,
 		"two live connections cannot occupy the same generation and seat");
+    policy.SetNativeWorldInstanceId("world_test_b");
     Expect(policy.MarkDisconnected(first.playerId, first.connectionGeneration,
         first.nativeConnectionNonce).accepted,
         "authority logout should release the connected generation");
@@ -212,8 +220,10 @@ int main()
         "a stale disconnect nonce cannot mutate the already released generation");
     connectionEvents = policy.ConnectionEventsAfter(connectionEvents.back().sequence);
     Expect(connectionEvents.size() == 1 && !connectionEvents[0].connected &&
-        connectionEvents[0].connectionGeneration == 1,
-        "native logout should produce one disconnected report event");
+        connectionEvents[0].connectionGeneration == 1 &&
+        connectionEvents[0].worldInstanceId == "world_test_a" &&
+        connectionEvents[0].routeGeneration == 1,
+        "native logout must retain the connection's admission world and route");
     const auto replacement = policy.ValidateJoinGrant(
         Token(GrantClaims(2, "grant_jti_2")), "steam_member", 111,
         NativeNonce("two"));
@@ -267,11 +277,13 @@ int main()
 		Token(routeTwoGrant), "steam_member", 123, NativeNonce("route-two"));
 	Expect(afterRecovery.accepted && afterRecovery.replacesConnection,
 		"route recovery should reserve a new generation while retaining the old live connection");
-	const auto recoveryEvents = policy.ConnectionEventsAfter(0);
-	Expect(recoveryEvents.size() == beforeRecoveryReservationEvents + 1U &&
-		recoveryEvents.back().state == "RESERVED" &&
-		recoveryEvents.back().connected == false,
-		"route refresh reservation must not emit a connected event before native confirmation");
+    const auto recoveryEvents = policy.ConnectionEventsAfter(0);
+    Expect(recoveryEvents.size() == beforeRecoveryReservationEvents + 1U &&
+        recoveryEvents.back().state == "RESERVED" &&
+        recoveryEvents.back().connected == false &&
+        recoveryEvents.back().worldInstanceId == "world_test_b" &&
+        recoveryEvents.back().routeGeneration == 2,
+        "route refresh reservation must not emit a connected event before native confirmation");
 	Expect(!policy.InstallAllocation(Token(renewed), "adm_1", publicKey, 124).accepted,
 		"a prior route allocation must be rejected after recovery");
 
@@ -289,6 +301,21 @@ int main()
         hostReservation.playerId, hostReservation.connectionGeneration,
         hostReservation.grantJti, hostReservation.nativeConnectionNonce).accepted,
         "host recovery should confirm its first backend reservation");
+    Expect(!hostRecovery.ConfirmConnected(
+        hostReservation.playerId, hostReservation.connectionGeneration,
+        hostReservation.grantJti, hostReservation.nativeConnectionNonce).accepted,
+        "a local HOST cannot become connected before native seat readback");
+    Expect(!hostRecovery.MarkNativeAdmitted(
+        hostReservation.playerId, hostReservation.connectionGeneration,
+        hostReservation.grantJti, hostReservation.nativeConnectionNonce).accepted,
+        "a cold HOST cannot emit admission before its world has been observed");
+    Expect(hostRecovery.ConnectionEventsAfter(0).empty(),
+        "pending HOST world observation must not manufacture worldless events");
+    hostRecovery.SetNativeWorldInstanceId("world_host");
+    Expect(hostRecovery.MarkNativeAdmitted(
+        hostReservation.playerId, hostReservation.connectionGeneration,
+        hostReservation.grantJti, hostReservation.nativeConnectionNonce).accepted,
+        "observed HOST world and native seat readback admit the reserved generation");
     Expect(hostRecovery.ConfirmConnected(
         hostReservation.playerId, hostReservation.connectionGeneration,
         hostReservation.grantJti, hostReservation.nativeConnectionNonce).accepted,
@@ -308,6 +335,10 @@ int main()
         hostReservation.playerId, hostReservation.connectionGeneration,
         hostReservation.nativeConnectionNonce).accepted,
         "host recovery should clear the old live generation with its nonce");
+    const auto hostEvents = hostRecovery.ConnectionEventsAfter(0);
+    Expect(hostEvents.size() == 3 && hostEvents.back().state == "DISCONNECTED" &&
+        hostEvents.back().worldInstanceId == "world_host" && hostEvents.back().routeGeneration == 1,
+        "old HOST disconnect must preserve the admitted route after allocation refresh");
     const auto hostReplacement = hostRecovery.StartAuthorityForAllocatedHost(
         "steam_host", 101, NativeNonce("host-live-two"));
     Expect(hostReplacement.accepted && hostReplacement.connectionGeneration == 2 &&

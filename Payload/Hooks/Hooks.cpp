@@ -910,6 +910,17 @@ namespace
             return StrictRosterSeatApplyResult::Rejected;
         }
 
+        // StartServer invokes PostLogin synchronously, before the new
+        // UWorld/NetDriver can be observed by the game-thread boundary.  Do
+        // not emit a HOST admission event with an empty or previous-world
+        // identity.  The game-thread retry below applies the frozen seat only
+        // after the authoritative world snapshot is bound.
+        if (decision->hostSeat &&
+            !IsStrictAuthorityWorldListeningSnapshot())
+        {
+            return StrictRosterSeatApplyResult::Pending;
+        }
+
         // Remote players must still own the one-time Steam callback proof
         // bound to the exact nonce reserved in PreLogin. A readable PlayerId
         // or a policy seat alone cannot pass this boundary.
@@ -1138,6 +1149,14 @@ void SetStrictRosterLocalHostSeat(
     {
         gStrictRosterLocalHostSeat.reset();
     }
+}
+
+void ApplyStrictRosterLocalHostSeatOnGameThread()
+{
+    if (!IsStrictAuthorityWorldListeningSnapshot())
+        return;
+    (void)ApplyStrictRosterSeat(GetLocalPlayerController(),
+        "StrictAuthorityWorldObserved");
 }
 
 void ClearStrictRosterLocalHostSeat()
@@ -2098,6 +2117,13 @@ void DeferredTravelGameEngineTickHook(
     {
         DispatchDeferredSeamlessTravel();
         DedicatedMultiMatch::OnGameEnginePostTick();
+        // CommandFramework callbacks run on a listener thread.  Native world
+        // travel and NetDriver creation are dispatched only after the engine
+        // tick returns to this game-thread boundary.
+        UpdateStrictAuthorityWorldObservationOnGameThread();
+        PumpStrictAuthorityStartOnGameThread();
+        UpdateStrictAuthorityWorldObservationOnGameThread();
+        PumpStrictRosterClearOnGameThread();
     }
 }
 

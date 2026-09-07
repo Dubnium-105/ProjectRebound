@@ -75,6 +75,7 @@ namespace StrictRoster
         int routeGeneration = 0;
         std::string authoritySessionId;
         std::int64_t rosterRevision = 0;
+        std::string worldInstanceId;
         bool connected = false;
         // RESERVED and NATIVE_ADMITTED are observations before the backend
         // ConfirmConnected linearization point. CONNECTED/DISCONNECTED keep
@@ -344,6 +345,21 @@ namespace StrictRoster
             }
 			if (allocation_ && allocation_->tokenId == next.tokenId)
 				return Accept();
+			// Once native authority is live, a signed allocation may only refresh
+			// the route/generation of this same attempt/session/roster.  Do not
+			// replace a live world with a different authority scope and rely on a
+			// later pipe callback to discover the mismatch.
+			if (authorityStarted_ && allocation_ &&
+				(next.attemptId != allocation_->attemptId ||
+				 next.lobbyId != allocation_->lobbyId ||
+				 next.hostingKind != allocation_->hostingKind ||
+				 next.authorityId != allocation_->authorityId ||
+				 next.authoritySession != allocation_->authoritySession ||
+				 next.rosterRevision != allocation_->rosterRevision))
+			{
+				return Reject("authority_scope_active",
+					"a live native authority cannot adopt another allocation scope");
+			}
 			if (allocation_ && allocation_->attemptId == next.attemptId &&
 				allocation_->lobbyId == next.lobbyId &&
 				allocation_->hostingKind == next.hostingKind &&
@@ -398,9 +414,14 @@ namespace StrictRoster
 					seat.reservedGeneration = 0;
 					seat.reservedJti.clear();
 					seat.reservedNativeConnectionNonce.clear();
+					seat.reservedWorldInstanceId.clear();
+					seat.reservedRouteGeneration = 0;
 					seat.backendReserved = false;
 					seat.nativeAdmitted = false;
 					seat.nativeAdmissionGeneration = 0;
+					seat.nativeAdmissionWorldInstanceId.clear();
+					seat.nativeAdmissionRouteGeneration = 0;
+					seat.nativeAdmissionNonce.clear();
 					seat.nativeAdmissionJti.clear();
 					seat.nativeAdmissionNonce.clear();
 				}
@@ -520,6 +541,15 @@ namespace StrictRoster
             if (!allocation_)
                 return std::nullopt;
             return allocation_->hostingKind;
+        }
+
+        // The native world generation is supplied by the pinned world
+        // observer. Events retain this value at append time so a later world
+        // cannot relabel history that belongs to an older NetDriver.
+        void SetNativeWorldInstanceId(const std::string_view worldInstanceId)
+        {
+            std::lock_guard lock(mutex_);
+            nativeWorldInstanceId_ = std::string(worldInstanceId);
         }
 
         Decision StageJoinGrant(const std::string_view grant, const std::int64_t now)
@@ -686,6 +716,8 @@ namespace StrictRoster
                 return RejectSeat("admission_closed", "strict admission is not active");
             if (!Detail::SafeNativeConnectionNonce(nativeConnectionNonce))
                 return RejectSeat("native_connection_nonce_required", "a fresh native handshake nonce is required");
+            if (nativeWorldInstanceId_.empty())
+                return RejectSeat("native_world_unavailable", "the native authority world is not bound yet");
             const auto staged = stagedGrants_.find(std::string(authenticatedPlatformId));
             if (staged == stagedGrants_.end())
                 return RejectSeat("grant_not_staged", "no staged join grant matches the authenticated identity");
@@ -744,6 +776,8 @@ namespace StrictRoster
             seat.reservedGeneration = pending.generation;
             seat.reservedJti = pending.jti;
             seat.reservedNativeConnectionNonce = std::string(nativeConnectionNonce);
+            seat.reservedWorldInstanceId = nativeWorldInstanceId_;
+            seat.reservedRouteGeneration = allocation_->routeGeneration;
             seat.grantJti = pending.jti;
             seat.nativeAdmitted = false;
             seat.nativeAdmissionGeneration = 0;
@@ -924,10 +958,19 @@ namespace StrictRoster
                 return Reject("connection_generation_stale",
                     "native admission has no matching reservation");
             }
+            if (seat.reservedWorldInstanceId.empty())
+            {
+                if (nativeWorldInstanceId_.empty())
+                    return Reject("native_world_unavailable", "the native authority world is not bound yet");
+                seat.reservedWorldInstanceId = nativeWorldInstanceId_;
+                seat.reservedRouteGeneration = allocation_->routeGeneration;
+            }
             seat.nativeAdmitted = true;
             seat.nativeAdmissionGeneration = generation;
             seat.nativeAdmissionJti = std::string(grantJti);
             seat.nativeAdmissionNonce = std::string(nativeConnectionNonce);
+            seat.nativeAdmissionWorldInstanceId = seat.reservedWorldInstanceId;
+            seat.nativeAdmissionRouteGeneration = seat.reservedRouteGeneration;
             AppendConnectionEventLocked(
                 seat, "NATIVE_ADMITTED", grantJti, generation,
                 nativeConnectionNonce);
@@ -988,16 +1031,25 @@ namespace StrictRoster
                 return Reject("connection_generation_stale",
                     "native connection has no matching admission reservation");
             }
-            if (seat.roomRole != "HOST" &&
-                (!seat.nativeAdmitted ||
+            if (!seat.nativeAdmitted ||
                  seat.nativeAdmissionGeneration != generation ||
                  (!grantJti.empty() && seat.nativeAdmissionJti != grantJti) ||
                  seat.nativeAdmissionNonce != nativeConnectionNonce ||
-                 !seat.backendReserved))
+                 !seat.backendReserved)
             {
                 return Reject("backend_confirmation_required",
                     "native admission is waiting for the scoped backend reservation and confirmation");
             }
+            const std::string connectionWorldInstanceId =
+                !seat.nativeAdmissionWorldInstanceId.empty()
+                    ? seat.nativeAdmissionWorldInstanceId
+                    : seat.reservedWorldInstanceId;
+            const int connectionRouteGeneration =
+                seat.nativeAdmissionRouteGeneration != 0
+                    ? seat.nativeAdmissionRouteGeneration
+                    : seat.reservedRouteGeneration;
+            if (connectionWorldInstanceId.empty() || connectionRouteGeneration < 1)
+                return Reject("native_world_unavailable", "the native connection world scope is unavailable");
             if (seat.roomRole != "HOST" &&
                 !usedJtis_.insert(seat.reservedJti).second)
             {
@@ -1007,14 +1059,20 @@ namespace StrictRoster
             seat.liveGeneration = generation;
             seat.grantJti = seat.reservedJti;
             seat.liveNativeConnectionNonce = seat.reservedNativeConnectionNonce;
+            seat.liveWorldInstanceId = connectionWorldInstanceId;
+            seat.liveRouteGeneration = connectionRouteGeneration;
             seat.reserved = false;
             seat.reservedGeneration = 0;
             seat.reservedJti.clear();
             seat.reservedNativeConnectionNonce.clear();
+            seat.reservedWorldInstanceId.clear();
+            seat.reservedRouteGeneration = 0;
             seat.nativeAdmitted = false;
             seat.nativeAdmissionGeneration = 0;
             seat.nativeAdmissionJti.clear();
             seat.nativeAdmissionNonce.clear();
+            seat.nativeAdmissionWorldInstanceId.clear();
+            seat.nativeAdmissionRouteGeneration = 0;
             seat.backendReserved = false;
             seat.reportObserved = true;
             seat.reportedConnected = true;
@@ -1063,10 +1121,16 @@ namespace StrictRoster
                     seat.lastDisconnectedGeneration = generation;
                     seat.lastDisconnectedNativeConnectionNonce =
                         seat.reservedNativeConnectionNonce;
+                    seat.lastDisconnectedWorldInstanceId =
+                        seat.reservedWorldInstanceId;
+                    seat.lastDisconnectedRouteGeneration =
+                        seat.reservedRouteGeneration;
                     seat.reserved = false;
                     seat.reservedGeneration = 0;
                     seat.reservedJti.clear();
                     seat.reservedNativeConnectionNonce.clear();
+                    seat.reservedWorldInstanceId.clear();
+                    seat.reservedRouteGeneration = 0;
                     seat.backendReserved = false;
                     seat.nativeAdmitted = false;
                     seat.nativeAdmissionGeneration = 0;
@@ -1093,11 +1157,17 @@ namespace StrictRoster
                 nativeConnectionNonce.empty()
                     ? seat.liveNativeConnectionNonce
                     : std::string(nativeConnectionNonce);
+            seat.lastDisconnectedWorldInstanceId = seat.liveWorldInstanceId;
+            seat.lastDisconnectedRouteGeneration = seat.liveRouteGeneration;
             seat.nativeAdmitted = false;
             seat.nativeAdmissionGeneration = 0;
             seat.nativeAdmissionJti.clear();
             seat.nativeAdmissionNonce.clear();
+            seat.nativeAdmissionWorldInstanceId.clear();
+            seat.nativeAdmissionRouteGeneration = 0;
             seat.liveNativeConnectionNonce.clear();
+            seat.liveWorldInstanceId.clear();
+            seat.liveRouteGeneration = 0;
             seat.backendReserved = false;
             seat.reportObserved = true;
             seat.reportedConnected = false;
@@ -1210,13 +1280,21 @@ namespace StrictRoster
             int reservedGeneration = 0;
             std::string reservedJti;
             std::string reservedNativeConnectionNonce;
+            std::string reservedWorldInstanceId;
+            int reservedRouteGeneration = 0;
             bool backendReserved = false;
             bool nativeAdmitted = false;
             int nativeAdmissionGeneration = 0;
             std::string nativeAdmissionJti;
             std::string nativeAdmissionNonce;
+            std::string nativeAdmissionWorldInstanceId;
+            int nativeAdmissionRouteGeneration = 0;
             std::string liveNativeConnectionNonce;
+            std::string liveWorldInstanceId;
+            int liveRouteGeneration = 0;
             std::string lastDisconnectedNativeConnectionNonce;
+            std::string lastDisconnectedWorldInstanceId;
+            int lastDisconnectedRouteGeneration = 0;
             bool reportObserved = false;
             bool reportedConnected = false;
             std::string grantJti;
@@ -1332,7 +1410,26 @@ namespace StrictRoster
             event.connectionGeneration = generation != 0
                 ? generation
                 : (seat.liveGeneration != 0 ? seat.liveGeneration : seat.generation);
-            event.routeGeneration = allocation_->routeGeneration;
+            if (state == "RESERVED")
+            {
+                event.routeGeneration = seat.reservedRouteGeneration;
+                event.worldInstanceId = seat.reservedWorldInstanceId;
+            }
+            else if (state == "NATIVE_ADMITTED")
+            {
+                event.routeGeneration = seat.nativeAdmissionRouteGeneration;
+                event.worldInstanceId = seat.nativeAdmissionWorldInstanceId;
+            }
+            else if (state == "CONNECTED")
+            {
+                event.routeGeneration = seat.liveRouteGeneration;
+                event.worldInstanceId = seat.liveWorldInstanceId;
+            }
+            else if (state == "DISCONNECTED")
+            {
+                event.routeGeneration = seat.lastDisconnectedRouteGeneration;
+                event.worldInstanceId = seat.lastDisconnectedWorldInstanceId;
+            }
             event.authoritySessionId = allocation_->authoritySession;
             event.rosterRevision = allocation_->rosterRevision;
             event.state = state;
@@ -1361,12 +1458,20 @@ namespace StrictRoster
                     Detail::SecureClear(seat.grantJti);
                     Detail::SecureClear(seat.nativeAdmissionJti);
                     Detail::SecureClear(seat.reservedNativeConnectionNonce);
+                    Detail::SecureClear(seat.reservedWorldInstanceId);
                     Detail::SecureClear(seat.nativeAdmissionNonce);
+                    Detail::SecureClear(seat.nativeAdmissionWorldInstanceId);
                     Detail::SecureClear(seat.liveNativeConnectionNonce);
+                    Detail::SecureClear(seat.liveWorldInstanceId);
                     Detail::SecureClear(seat.lastDisconnectedNativeConnectionNonce);
+                    Detail::SecureClear(seat.lastDisconnectedWorldInstanceId);
                     seat.backendReserved = false;
                     seat.nativeAdmitted = false;
                     seat.nativeAdmissionGeneration = 0;
+                    seat.reservedRouteGeneration = 0;
+                    seat.nativeAdmissionRouteGeneration = 0;
+                    seat.liveRouteGeneration = 0;
+                    seat.lastDisconnectedRouteGeneration = 0;
                 }
             }
             allocation_.reset();
@@ -1375,6 +1480,7 @@ namespace StrictRoster
             activeDecisions_.clear();
             connectionEvents_.clear();
             nextConnectionEventSequence_ = 0;
+            Detail::SecureClear(nativeWorldInstanceId_);
             authorityStarted_ = false;
         }
 
@@ -1387,6 +1493,7 @@ namespace StrictRoster
         std::unordered_map<std::string, SeatDecision> activeDecisions_;
         std::deque<ConnectionEvent> connectionEvents_;
         std::uint64_t nextConnectionEventSequence_ = 0;
+        std::string nativeWorldInstanceId_;
         bool authorityStarted_ = false;
     };
 }

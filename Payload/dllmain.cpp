@@ -5,6 +5,7 @@
 #include <atomic>
 #include <chrono>
 #include <charconv>
+#include <condition_variable>
 #include <cstdint>
 #include <cstring>
 #include <thread>
@@ -30,6 +31,8 @@
 #include "Communication/CommandFramework.h"
 #include "Admission/Ed25519Verifier.h"
 #include "Admission/StrictRosterAdmissionGate.h"
+#include "Admission/StrictAuthorityStartDispatch.h"
+#include "Admission/StrictAuthorityLease.h"
 #include "Admission/StrictRosterPolicy.h"
 #include "Loadout/LoadoutManager.h"
 
@@ -60,6 +63,9 @@ LoadoutManager* gLoadoutManager = nullptr;
 std::recursive_mutex gLoadoutManagerMutex;
 StrictRoster::Policy gStrictRosterPolicy(StrictRoster::VerifyEd25519, false);
 
+nlohmann::json ProcessStrictRosterClearMatchAllocationResult(
+    const nlohmann::json& arguments);
+
 namespace
 {
 constexpr char kSupportedExecutableSha256[] =
@@ -79,8 +85,51 @@ std::string gVerifiedExecutableHash;
 std::mutex gStrictAuthorityStartMutex;
 std::atomic_bool gStrictAuthorityRuntimeReady{false};
 std::atomic_bool gStrictNativeHooksReady{false};
-bool gStrictAuthorityServerStarted = false;
-bool gStrictAuthorityAwaitingWorldTeardown = false;
+std::atomic_bool gStrictAuthorityServerStarted{false};
+std::atomic_bool gStrictAuthorityAwaitingWorldTeardown{false};
+// This is a game-thread observation.  Pipe callbacks may read it, but only
+// the engine tick updates it after inspecting UWorld/NetDriver.
+std::atomic_bool gStrictAuthorityWorldListening{false};
+std::atomic<int> gNativeNetModeSnapshot{-1};
+// Serializes allocation installation against an authority start transaction.
+// It stays held by the pipe callback while the scoped request is waiting, so a
+// late game-thread completion cannot be followed by a new allocation install.
+std::atomic_bool gStrictAuthorityMutationInFlight{false};
+
+// CommandFramework owns a worker/listener thread, but StartServer touches
+// UWorld, executes the native travel command, and creates the NetDriver.  It
+// must therefore run at the game-thread boundary.  Keep one scoped request so
+// a second pipe caller cannot race a different native travel or reuse a stale
+// response.
+struct StrictAuthorityStartRequest
+    : StrictAuthorityStartDispatch::Request
+{
+    std::string hostingKind;
+    std::string nativeConnectionNonce;
+    std::string worldInstanceId;
+    StrictRoster::AllocationScope allocationScope;
+    nlohmann::json result;
+    nlohmann::json cancellationResult;
+    nlohmann::json successResult;
+    // These fields belong exclusively to the game-thread producer. They
+    // survive listener timeout so a later tick can finish scoped cleanup.
+    bool nativeTravelRequested = false;
+    UWorld* previousWorld = nullptr;
+    UWorld* streamingWorld = nullptr;
+    std::chrono::steady_clock::time_point worldDeadline{};
+};
+
+StrictAuthorityStartDispatch::Queue gStrictAuthorityStartQueue;
+
+struct StrictRosterClearRequest
+    : StrictAuthorityStartDispatch::Request
+{
+    nlohmann::json arguments;
+    nlohmann::json result;
+};
+
+StrictAuthorityStartDispatch::Queue gStrictRosterClearQueue;
+
 std::mutex gStrictAuthorityWorldMutex;
 UWorld* gStrictAuthorityWorld = nullptr;
 std::string gStrictAuthorityWorldInstanceId;
@@ -100,6 +149,29 @@ struct StrictRosterCleanupState
     UNetDriver* retiredNetDriver = nullptr;
 };
 
+struct StrictAuthorityCleanupPlan
+{
+    StrictRosterCleanupState state;
+    std::string reason;
+};
+
+// A successful authority start is also the idempotency record for a retried
+// start/ACK request. The same allocation/world must replay the original native
+// handshake nonce; generating a fresh nonce while reusing the live world would
+// let an old response and the new response describe different handshakes.
+struct StrictAuthorityReadyLease
+{
+    bool active = false;
+    std::string hostingKind;
+    std::string nativeConnectionNonce;
+    std::string worldInstanceId;
+    std::optional<StrictRoster::AllocationScope> allocationScope;
+};
+
+StrictAuthorityReadyLease gStrictAuthorityReadyLease;
+
+using StrictAuthorityMutationLease = StrictAuthorityLease::MutationLease;
+
 std::mutex gStrictRosterCleanupMutex;
 StrictRosterCleanupState gStrictRosterCleanup;
 
@@ -113,16 +185,24 @@ std::string ObserveStrictAuthorityWorld(UWorld* const world)
 {
     if (!world)
         return {};
-    std::lock_guard<std::mutex> lock(gStrictAuthorityWorldMutex);
-    if (gStrictAuthorityWorld == world && !gStrictAuthorityWorldInstanceId.empty())
-        return gStrictAuthorityWorldInstanceId;
-    gStrictAuthorityWorld = world;
-    ++gStrictAuthorityWorldSequence;
-    std::ostringstream id;
-    id << "world_" << std::hex << gStrictAuthorityWorldSequence << "_"
-       << reinterpret_cast<std::uintptr_t>(world);
-    gStrictAuthorityWorldInstanceId = id.str();
-    return gStrictAuthorityWorldInstanceId;
+    std::string instanceId;
+    {
+        std::lock_guard<std::mutex> lock(gStrictAuthorityWorldMutex);
+        if (gStrictAuthorityWorld == world && !gStrictAuthorityWorldInstanceId.empty())
+            instanceId = gStrictAuthorityWorldInstanceId;
+        else
+        {
+            gStrictAuthorityWorld = world;
+            ++gStrictAuthorityWorldSequence;
+            std::ostringstream id;
+            id << "world_" << std::hex << gStrictAuthorityWorldSequence << "_"
+               << reinterpret_cast<std::uintptr_t>(world);
+            gStrictAuthorityWorldInstanceId = id.str();
+            instanceId = gStrictAuthorityWorldInstanceId;
+        }
+    }
+    gStrictRosterPolicy.SetNativeWorldInstanceId(instanceId);
+    return instanceId;
 }
 
 std::string CurrentStrictAuthorityWorldInstanceId()
@@ -164,6 +244,13 @@ bool StrictNativeWorldTeardownComplete()
         cleanup = gStrictRosterCleanup;
     }
     if (!cleanup.pending)
+        return false;
+
+    // A dispatched StartServer/clear path with no safely captured UObject or
+    // NetDriver has no local evidence of teardown.  An empty snapshot is not
+    // proof that the native world was never created; only the dedicated
+    // supervisor's process/creation-time proof can close that case.
+    if (!cleanup.retiredWorld && !cleanup.retiredNetDriver)
         return false;
 
     // Dedicated process-per-match cleanup is intentionally terminal from the
@@ -251,17 +338,26 @@ nlohmann::json BuildPayloadStatus()
         IsStrictRosterNativeClientGrantInjectionReady();
     // This remains a separate locked-build capability bit.  It is deliberately
     // independent of a current allocation/world so an idle authority can be
-    // checked without a scheduler self-lock.  The current fixed image still
-    // lacks a verified server-side platform-possession result, so it stays
-    // false even though the Team/Camp hooks and grant transport are present.
+    // checked without a scheduler self-lock. The complete native admission
+    // chain for this fixed image still needs a real-game execution receipt;
+    // component tests for Steam proof and Team/Camp hooks do not establish it.
     constexpr bool nativeAuthorityAdmissionVerified = false;
+    // Dedicated authority has no local client archive/NMT grant injector;
+    // requiring that client-only capability here would self-block a valid
+    // dedicated authority. Listen/P2P roles still require both native sides.
+    const bool nativeClientGrantInjectionRequired =
+        !(amServer && !amListenServer &&
+            CommandLinePolicy::HasExactSwitch(commandLine, "-server"));
+    const bool nativeAuthorityPathRequired = amServer;
     const bool strictReady = StrictRosterAdmissionGate::CanReportStrictOnlineReady(
         executableVerified, offlinePve, nativeAuthorityPath,
-        nativeAuthorityAdmissionVerified, nativeClientGrantInjection);
+        nativeAuthorityAdmissionVerified, nativeClientGrantInjection,
+        nativeClientGrantInjectionRequired, nativeAuthorityPathRequired);
     const bool payloadReady = StrictRosterAdmissionGate::CanReportPayloadReady(
         executableVerified, strictReady, offlinePve);
-    const UWorld* const world = UWorld::GetWorld();
-    const int netMode = GetNativeNetModeInternal(const_cast<UWorld*>(world));
+    // The pipe worker must not dereference a UWorld while the game thread
+    // replaces or destroys it. Before the first observed tick this is invalid.
+    const int netMode = gNativeNetModeSnapshot.load(std::memory_order_acquire);
     const nlohmann::json clientMatch = GetClientMatchStatus();
     return nlohmann::json{
         {"status", payloadReady ? "ready" : "blocked"},
@@ -273,7 +369,9 @@ nlohmann::json BuildPayloadStatus()
         {"game_binary_sha256", gVerifiedExecutableHash},
         {"net_mode", NetModeName(netMode)},
         {"native_authority_path_ready", nativeAuthorityPath},
+        {"native_authority_path_required", nativeAuthorityPathRequired},
         {"native_client_grant_injection_ready", nativeClientGrantInjection},
+        {"native_client_grant_injection_required", nativeClientGrantInjectionRequired},
         {"native_authority_admission_verified", nativeAuthorityAdmissionVerified},
         {"strict_online_ready", strictReady},
         {"offline_pve", offlinePve},
@@ -684,6 +782,734 @@ LoadoutBridgeOptions GetLoadoutBridgeOptions()
 }
 }
 
+namespace
+{
+    nlohmann::json StrictAuthorityStartFailure(
+        const char* code,
+        const char* message)
+    {
+        return nlohmann::json{
+            {"accepted", false},
+            {"code", code},
+            {"message", message}
+        };
+    }
+
+    // Capture the UObject/NetDriver pointers only on the game-thread pump.
+    // The resulting plan is later registered as a small, lock-only ownership
+    // record before a timed-out pipe request is published to its caller.
+    StrictAuthorityCleanupPlan CaptureStrictAuthorityCleanupPlan(
+        const StrictAuthorityStartRequest& request,
+        const std::string_view reason)
+    {
+        UWorld* retiredWorld = UWorld::GetWorld();
+        NetDriverAccess::Snapshot snapshot{};
+        if (NetDriverAccess::TryGetSnapshot(snapshot, false))
+        {
+            if (!retiredWorld)
+                retiredWorld = snapshot.World;
+        }
+        if (!retiredWorld)
+        {
+            std::lock_guard<std::mutex> worldLock(gStrictAuthorityWorldMutex);
+            retiredWorld = gStrictAuthorityWorld;
+        }
+        UNetDriver* retiredNetDriver = snapshot.NetDriver;
+        if (!retiredNetDriver && retiredWorld)
+            retiredNetDriver = retiredWorld->NetDriver;
+
+        std::string worldInstanceId = CurrentStrictAuthorityWorldInstanceId();
+        if (worldInstanceId.empty() && retiredWorld)
+            worldInstanceId = ObserveStrictAuthorityWorld(retiredWorld);
+        return StrictAuthorityCleanupPlan{
+            StrictRosterCleanupState{
+            true, false, false,
+            request.allocationScope.attemptId,
+            request.allocationScope.authoritySessionId,
+            worldInstanceId,
+            request.allocationScope.rosterRevision,
+            request.allocationScope.routeGeneration,
+            retiredWorld,
+            retiredNetDriver},
+            std::string(reason)};
+    }
+
+    // This is deliberately free of UWorld, UObject, Steam, policy reset, and
+    // logging calls.  CommitCompleted may hold its short queue/request
+    // critical section while this function records the cleanup lease.  The
+    // game-thread side effects run only after terminal publication.
+    bool RegisterStrictAuthorityCleanupOwner(
+        const StrictAuthorityCleanupPlan& plan)
+    {
+        const StrictRosterCleanupState& cleanup = plan.state;
+        {
+            std::lock_guard<std::mutex> lock(gStrictRosterCleanupMutex);
+            if (gStrictRosterCleanup.pending)
+            {
+                return StrictRosterCleanupScopeEquals(
+                    gStrictRosterCleanup,
+                    cleanup.attemptId,
+                    cleanup.authoritySessionId,
+                    cleanup.worldInstanceId,
+                    cleanup.rosterRevision,
+                    cleanup.routeGeneration);
+            }
+            gStrictRosterCleanup = cleanup;
+        }
+        gStrictAuthorityAwaitingWorldTeardown.store(
+            true, std::memory_order_release);
+        // Do not take gStrictAuthorityStartMutex while CommitCompleted holds
+        // the queue lock.  The game-thread post-publication phase clears the
+        // ReadyLease under that mutex after the terminal result is visible.
+        gStrictAuthorityServerStarted.store(false, std::memory_order_release);
+        gStrictAuthorityWorldListening.store(false, std::memory_order_release);
+        return true;
+    }
+
+    // Request the native cleanup only after the queue has published the
+    // scoped terminal result.  This function is called from the game-thread
+    // pump, never from CommitCompleted's queue critical section.
+    void ExecuteStrictAuthorityCleanup(
+        const StrictAuthorityCleanupPlan& plan)
+    {
+        if (!RegisterStrictAuthorityCleanupOwner(plan))
+            return;
+
+        gStrictRosterPolicy.Reset();
+        StrictRosterSteamAuth::ClearAllExpectedProofs();
+
+        const StrictRosterNativeTeardownRequestResult teardownResult =
+            RequestStrictRosterNativeWorldTeardown();
+        const bool requested = teardownResult !=
+            StrictRosterNativeTeardownRequestResult::NotRequested;
+        const bool processExitRequested = teardownResult ==
+            StrictRosterNativeTeardownRequestResult::DedicatedProcessExitRequested;
+        {
+            std::lock_guard<std::mutex> lock(gStrictRosterCleanupMutex);
+            if (gStrictRosterCleanup.pending &&
+                StrictRosterCleanupScopeEquals(
+                    gStrictRosterCleanup,
+                    plan.state.attemptId,
+                    plan.state.authoritySessionId,
+                    plan.state.worldInstanceId,
+                    plan.state.rosterRevision,
+                    plan.state.routeGeneration))
+            {
+                gStrictRosterCleanup.teardownRequested = requested;
+                gStrictRosterCleanup.processExitRequested = processExitRequested;
+            }
+        }
+        {
+            std::lock_guard<std::mutex> startLock(gStrictAuthorityStartMutex);
+            gStrictAuthorityReadyLease = StrictAuthorityReadyLease{};
+        }
+        ClearStrictRosterLocalHostSeat();
+        ClearStrictRosterControllerSeats();
+        ClientLog(std::string("[STRICT-ROSTER] Authority start entered scoped cleanup: ") +
+            plan.reason + (requested
+                ? "; teardown requested, native_cleared remains false."
+                : "; native teardown entry was unavailable, native_cleared remains false."));
+    }
+
+    // Compatibility wrapper for paths that already run on the game thread.
+    // It keeps registration and native side effects in their correct phases.
+    bool ArmStrictAuthorityStartCleanup(
+        const StrictAuthorityStartRequest& request,
+        const std::string_view reason,
+        const bool requestTeardown = true)
+    {
+        const StrictAuthorityCleanupPlan plan =
+            CaptureStrictAuthorityCleanupPlan(request, reason);
+        if (!RegisterStrictAuthorityCleanupOwner(plan))
+            return false;
+        if (requestTeardown)
+        {
+            ExecuteStrictAuthorityCleanup(plan);
+        }
+        return true;
+    }
+
+    void RequestArmedStrictAuthorityCleanup(
+        const StrictAuthorityStartRequest& request)
+    {
+        StrictRosterCleanupState cleanup;
+        {
+            std::lock_guard<std::mutex> lock(gStrictRosterCleanupMutex);
+            cleanup = gStrictRosterCleanup;
+        }
+        if (!StrictRosterCleanupScopeEquals(
+                cleanup,
+                request.allocationScope.attemptId,
+                request.allocationScope.authoritySessionId,
+                cleanup.worldInstanceId,
+                request.allocationScope.rosterRevision,
+                request.allocationScope.routeGeneration) ||
+            cleanup.teardownRequested)
+        {
+            return;
+        }
+        const StrictRosterNativeTeardownRequestResult teardownResult =
+            RequestStrictRosterNativeWorldTeardown();
+        const bool requested = teardownResult !=
+            StrictRosterNativeTeardownRequestResult::NotRequested;
+        const bool processExitRequested = teardownResult ==
+            StrictRosterNativeTeardownRequestResult::DedicatedProcessExitRequested;
+        {
+            std::lock_guard<std::mutex> lock(gStrictRosterCleanupMutex);
+            if (gStrictRosterCleanup.pending &&
+                gStrictRosterCleanup.attemptId == request.allocationScope.attemptId &&
+                gStrictRosterCleanup.authoritySessionId == request.allocationScope.authoritySessionId &&
+                gStrictRosterCleanup.rosterRevision == request.allocationScope.rosterRevision &&
+                gStrictRosterCleanup.routeGeneration == request.allocationScope.routeGeneration)
+            {
+                gStrictRosterCleanup.teardownRequested = requested;
+                gStrictRosterCleanup.processExitRequested = processExitRequested;
+            }
+        }
+        ClearStrictRosterLocalHostSeat();
+        ClearStrictRosterControllerSeats();
+    }
+
+    nlohmann::json QueueStrictAuthorityWorldStart(
+        const std::string_view hostingKind,
+        const std::string_view nativeConnectionNonce,
+        const std::string_view worldInstanceId,
+        const StrictRoster::AllocationScope& allocationScope)
+    {
+        auto request = std::make_shared<StrictAuthorityStartRequest>();
+        request->hostingKind = std::string(hostingKind);
+        request->nativeConnectionNonce = std::string(nativeConnectionNonce);
+        request->worldInstanceId = std::string(worldInstanceId);
+        request->allocationScope = allocationScope;
+        if (!gStrictAuthorityStartQueue.Enqueue(request))
+            return StrictAuthorityStartFailure(
+                "authority_start_in_progress",
+                "another native authority start is already pending");
+
+        std::unique_lock<std::mutex> requestLock(request->mutex);
+        const bool completed = request->completed.wait_for(
+            requestLock,
+            std::chrono::seconds(30),
+            [&request]() {
+                return request->state == StrictAuthorityStartDispatch::State::Completed ||
+                    request->state == StrictAuthorityStartDispatch::State::Cancelled;
+            });
+        if (!completed)
+        {
+            requestLock.unlock();
+            const auto cancelResult = gStrictAuthorityStartQueue.RequestCancel(request);
+            if (cancelResult == StrictAuthorityStartDispatch::CancelResult::AlreadyFinalizing)
+            {
+                // Finalizing is the linearization point: cancellation is
+                // frozen, so the listener must wait for the producer's
+                // terminal publication for a short bounded handoff window.
+                // If the game thread is stalled, return a scoped pending
+                // result; the request remains owned and its cancellation
+                // path will quarantine any late native side effect.
+                requestLock.lock();
+                const bool published = request->completed.wait_for(
+                    requestLock,
+                    std::chrono::seconds(2),
+                    [&request]() {
+                    return request->state == StrictAuthorityStartDispatch::State::Completed ||
+                        request->state == StrictAuthorityStartDispatch::State::Cancelled;
+                    });
+                if (published &&
+                    request->state == StrictAuthorityStartDispatch::State::Completed)
+                {
+                    const nlohmann::json result = request->result;
+                    requestLock.unlock();
+                    return result;
+                }
+                requestLock.unlock();
+                if (!published)
+                {
+                    return nlohmann::json{
+                        {"accepted", false},
+                        {"code", "authority_start_pending"},
+                        {"message", "native authority start remains owned by the game-thread cleanup path"},
+                        {"status", "cleanup_pending"},
+                        {"native_cleared", false},
+                        {"world_teardown_required", true},
+                        {"attempt_id", request->allocationScope.attemptId},
+                        {"authority_session_id", request->allocationScope.authoritySessionId},
+                        {"world_instance_id", CurrentStrictAuthorityWorldInstanceId()},
+                        {"roster_revision", request->allocationScope.rosterRevision},
+                        {"route_generation", request->allocationScope.routeGeneration}
+                    };
+                }
+            }
+            else if (cancelResult ==
+                    StrictAuthorityStartDispatch::CancelResult::AlreadyCompleted ||
+                cancelResult == StrictAuthorityStartDispatch::CancelResult::NotOwned)
+            {
+                // PublishCompleted clears the queue's active pointer before
+                // this listener reacquires it. Read the request terminal state
+                // before reporting a timeout; otherwise an accepted world can
+                // become an unowned success solely due to this race.
+                requestLock.lock();
+                if (request->state == StrictAuthorityStartDispatch::State::Completed)
+                {
+                    const nlohmann::json result = request->result;
+                    requestLock.unlock();
+                    return result;
+                }
+                requestLock.unlock();
+            }
+            else if (cancelResult ==
+                StrictAuthorityStartDispatch::CancelResult::CancelledProcessing)
+            {
+                // The game-thread consumer still owns the request. Return a
+                // scoped pending response; PumpStrictAuthorityStart will
+                // register quarantine before publishing its terminal result.
+                return nlohmann::json{
+                    {"accepted", false},
+                    {"code", "authority_start_pending"},
+                    {"status", "cleanup_pending"},
+                    {"message", "native authority start remains owned by the game-thread cleanup path"},
+                    {"native_cleared", false},
+                    {"world_teardown_required", true},
+                    {"attempt_id", request->allocationScope.attemptId},
+                    {"authority_session_id", request->allocationScope.authoritySessionId},
+                    {"world_instance_id", CurrentStrictAuthorityWorldInstanceId()},
+                    {"roster_revision", request->allocationScope.rosterRevision},
+                    {"route_generation", request->allocationScope.routeGeneration}
+                };
+            }
+            return StrictAuthorityStartFailure(
+                "authority_start_timeout",
+                "the native game-thread authority start did not complete in time");
+        }
+
+        const nlohmann::json result = request->result;
+        return result;
+    }
+}
+
+void UpdateStrictAuthorityWorldObservationOnGameThread()
+{
+    UWorld* const world = UWorld::GetWorld();
+    gNativeNetModeSnapshot.store(GetNativeNetModeInternal(world), std::memory_order_release);
+    std::string detail;
+    const bool listening = world && IsAuthoritativeListeningWorld(world, detail);
+    if (listening)
+        (void)ObserveStrictAuthorityWorld(world);
+    gStrictAuthorityWorldListening.store(listening, std::memory_order_release);
+    if (listening)
+        ApplyStrictRosterLocalHostSeatOnGameThread();
+}
+
+bool IsStrictAuthorityWorldListeningSnapshot()
+{
+    return gStrictAuthorityWorldListening.load(std::memory_order_acquire);
+}
+
+void PumpStrictAuthorityStartOnGameThread()
+{
+    std::shared_ptr<StrictAuthorityStartDispatch::Request> baseRequest =
+        gStrictAuthorityStartQueue.Claim();
+    if (!baseRequest)
+        baseRequest = gStrictAuthorityStartQueue.Processing();
+    if (!baseRequest)
+        return;
+    const std::shared_ptr<StrictAuthorityStartRequest> request =
+        std::static_pointer_cast<StrictAuthorityStartRequest>(baseRequest);
+
+    nlohmann::json result;
+    bool authoritativeListeningWorld = false;
+    std::string authorityDetail;
+    bool scopeStillCurrent = false;
+    bool startAttempted = request->nativeTravelRequested;
+
+    const auto scopeMatchesRequest = [&request](
+        const std::optional<StrictRoster::AllocationScope>& scope,
+        const std::optional<std::string>& hostingKind) {
+        return scope && hostingKind &&
+            scope->attemptId == request->allocationScope.attemptId &&
+            scope->authoritySessionId == request->allocationScope.authoritySessionId &&
+            scope->rosterRevision == request->allocationScope.rosterRevision &&
+            scope->routeGeneration == request->allocationScope.routeGeneration &&
+            *hostingKind == request->hostingKind;
+    };
+
+    if (!gStrictAuthorityRuntimeReady.load(std::memory_order_acquire))
+    {
+        result = StrictAuthorityStartFailure(
+            "authority_runtime_not_ready",
+            "the listen authority runtime is not initialized");
+    }
+    else
+    {
+        const auto scope = gStrictRosterPolicy.CurrentAllocationScope();
+        const auto hostingKind = gStrictRosterPolicy.CurrentHostingKind();
+        const std::string currentWorldInstanceId =
+            CurrentStrictAuthorityWorldInstanceId();
+        scopeStillCurrent = scopeMatchesRequest(scope, hostingKind) &&
+            (request->worldInstanceId.empty() ||
+                currentWorldInstanceId.empty() ||
+                request->worldInstanceId == currentWorldInstanceId);
+        if (!scopeStillCurrent)
+        {
+            result = StrictAuthorityStartFailure(
+                "authority_start_scope_stale",
+                "the allocation scope changed before native game-thread dispatch");
+        }
+        else
+        {
+            authoritativeListeningWorld =
+                gStrictAuthorityServerStarted.load(std::memory_order_acquire);
+            if (!authoritativeListeningWorld &&
+                !gStrictAuthorityStartQueue.IsCancellationRequested(baseRequest))
+            {
+                // Map travel needs subsequent engine ticks. Issue it once,
+                // then return to the engine until the new map and streaming
+                // levels are observed. Never sleep on this game thread.
+                bool listenCompleted = false;
+                try
+                {
+                    UWorld* const world = UWorld::GetWorld();
+                    if (!request->nativeTravelRequested)
+                    {
+                        request->nativeTravelRequested = true;
+                        request->previousWorld = world;
+                        request->worldDeadline = std::chrono::steady_clock::now() +
+                            std::chrono::seconds(25);
+                        startAttempted = true;
+                        if (BeginServerMapTravel())
+                            return;
+                        authorityDetail = "native server map travel could not be issued";
+                    }
+                    else if (std::chrono::steady_clock::now() >= request->worldDeadline)
+                    {
+                        authorityDetail = "native server map did not become ready within 25 seconds";
+                    }
+                    else if (request->streamingWorld && world != request->streamingWorld)
+                    {
+                        authorityDetail = "native world changed again during streaming readiness";
+                    }
+                    else if (!IsServerMapReady(world, request->previousWorld))
+                    {
+                        return;
+                    }
+                    else if (!request->streamingWorld)
+                    {
+                        request->streamingWorld = world;
+                        RequestServerStreamingLevels(world);
+                        return;
+                    }
+                    else if (!AreServerStreamingLevelsReady(world))
+                    {
+                        return;
+                    }
+                    else
+                    {
+                        listenCompleted = CompleteServerListen(world);
+                        if (!listenCompleted)
+                            authorityDetail = "native NetDriver could not be created for the new world";
+                    }
+                }
+                catch (...)
+                {
+                    authorityDetail = "native server bootstrap threw; cleanup is required";
+                    ClientLog("[STRICT-ROSTER] Native server bootstrap threw; "
+                              "the scoped cleanup owner remains active.");
+                }
+                UWorld* authoritativeWorld = UWorld::GetWorld();
+                const int postTravelNetMode =
+                    GetNativeNetModeInternal(authoritativeWorld);
+                authoritativeListeningWorld = listenCompleted &&
+                    IsAuthoritativeListeningWorld(authoritativeWorld, authorityDetail);
+                ClientLog(std::string("[STRICT-ROSTER] Post-travel authority: net_mode=") +
+                    NetModeName(postTravelNetMode) + " " + authorityDetail +
+                    " result=" + (authoritativeListeningWorld ? "ready" : "invalid"));
+                const auto postStartScope = gStrictRosterPolicy.CurrentAllocationScope();
+                const auto postStartHostingKind = gStrictRosterPolicy.CurrentHostingKind();
+                scopeStillCurrent = scopeMatchesRequest(postStartScope, postStartHostingKind);
+                if (authoritativeListeningWorld && scopeStillCurrent)
+                {
+                    std::lock_guard<std::mutex> lock(gStrictAuthorityStartMutex);
+                    const std::string worldInstanceId =
+                        ObserveStrictAuthorityWorld(authoritativeWorld);
+                    gStrictAuthorityServerStarted.store(true, std::memory_order_release);
+                    gStrictAuthorityAwaitingWorldTeardown.store(
+                        false, std::memory_order_release);
+                    gStrictAuthorityReadyLease.active = true;
+                    gStrictAuthorityReadyLease.hostingKind = request->hostingKind;
+                    gStrictAuthorityReadyLease.nativeConnectionNonce =
+                        request->nativeConnectionNonce;
+                    gStrictAuthorityReadyLease.worldInstanceId = worldInstanceId;
+                    gStrictAuthorityReadyLease.allocationScope = request->allocationScope;
+                }
+            }
+
+            if (gStrictAuthorityStartQueue.IsCancellationRequested(baseRequest))
+            {
+                result = StrictAuthorityStartFailure(
+                    "authority_start_cancelled",
+                    startAttempted
+                        ? "native authority start was cancelled after dispatch"
+                        : "native authority start was cancelled before dispatch");
+            }
+            else if (authoritativeListeningWorld && scopeStillCurrent)
+            {
+                result = nlohmann::json{
+                    {"accepted", true},
+                    {"code", "accepted"},
+                    {"native_connection_nonce", request->nativeConnectionNonce},
+                    {"hosting_kind", request->hostingKind},
+                    {"world_instance_id", CurrentStrictAuthorityWorldInstanceId()}
+                };
+            }
+            else
+            {
+                result = StrictAuthorityStartFailure(
+                    scopeStillCurrent
+                        ? "listen_authority_unavailable"
+                        : "authority_start_scope_stale",
+                    scopeStillCurrent
+                        ? "the pinned native world did not become authoritative"
+                        : "the allocation scope changed during native authority start");
+            }
+        }
+    }
+
+    std::optional<StrictAuthorityCleanupPlan> cleanupPlan;
+    if (startAttempted || authoritativeListeningWorld)
+    {
+        cleanupPlan = CaptureStrictAuthorityCleanupPlan(
+            *request, "native authority start requires scoped cleanup");
+    }
+    const auto addCleanupFields = [&request, &cleanupPlan](nlohmann::json& target) {
+        target["status"] = "cleanup_pending";
+        target["native_cleared"] = false;
+        target["world_teardown_required"] = true;
+        target["attempt_id"] = request->allocationScope.attemptId;
+        target["authority_session_id"] = request->allocationScope.authoritySessionId;
+        target["world_instance_id"] = cleanupPlan
+            ? cleanupPlan->state.worldInstanceId
+            : CurrentStrictAuthorityWorldInstanceId();
+        target["roster_revision"] = request->allocationScope.rosterRevision;
+        target["route_generation"] = request->allocationScope.routeGeneration;
+    };
+
+    // Any native travel attempt that did not produce the exact requested
+    // authoritative world is a side-effect failure. Register the cleanup
+    // owner before terminal publication; the actual UObject teardown request
+    // is issued after the queue slot is committed on this game-thread tick.
+    const bool cleanupRequired = startAttempted &&
+        (!authoritativeListeningWorld || !scopeStillCurrent);
+    if (cleanupRequired)
+    {
+        addCleanupFields(result);
+    }
+
+    request->successResult = std::move(result);
+    request->cancellationResult = StrictAuthorityStartFailure(
+        "authority_start_cancelled",
+        (startAttempted || authoritativeListeningWorld)
+            ? "the native authority completed after its pipe request timed out; teardown is pending"
+            : "the native authority start was cancelled before native dispatch");
+    if (startAttempted || authoritativeListeningWorld)
+        addCleanupFields(request->cancellationResult);
+    {
+        // Fail-closed is the preloaded result. CommitCompleted swaps in the
+        // success result only after it has atomically observed no cancellation.
+        std::lock_guard<std::mutex> lock(request->mutex);
+        request->result = request->cancellationResult;
+    }
+
+    bool cancellationRequested = false;
+    bool cleanupOwnerRegistered = false;
+    const bool committed = gStrictAuthorityStartQueue.CommitCompleted(
+        baseRequest,
+        cancellationRequested,
+        [request, &cleanupPlan, &cleanupOwnerRegistered,
+            cleanupRequired, startAttempted, authoritativeListeningWorld](
+            const bool cancelled) {
+            const bool needsCleanup = cleanupRequired ||
+                (cancelled && (startAttempted || authoritativeListeningWorld));
+            if (needsCleanup && cleanupPlan)
+            {
+                // Only the scoped owner registration and JSON selection are
+                // allowed in this critical section.  UWorld/NetDriver,
+                // policy, Steam, teardown, and logging happen below after
+                // terminal publication on the same game-thread pump.
+                cleanupOwnerRegistered = RegisterStrictAuthorityCleanupOwner(
+                    *cleanupPlan);
+            }
+            if (!cancelled)
+            {
+                request->result.swap(request->successResult);
+            }
+            // A cancelled result was prepared before taking the queue locks.
+            // Keep that result without allocating JSON or reading world state.
+        });
+    if (!committed)
+        return;
+    if (cleanupOwnerRegistered && cleanupPlan)
+    {
+        ExecuteStrictAuthorityCleanup(*cleanupPlan);
+    }
+    else if (cleanupRequired || cancellationRequested)
+    {
+        // A request cancelled before native dispatch has no world to tear
+        // down.  Keep this fallback fail-closed for a pre-existing owner.
+        RequestArmedStrictAuthorityCleanup(*request);
+    }
+}
+
+namespace
+{
+    nlohmann::json QueueStrictRosterClearOnGameThread(
+        const nlohmann::json& arguments)
+    {
+        StrictAuthorityMutationLease clearMutation(gStrictAuthorityMutationInFlight);
+        if (!clearMutation || gStrictAuthorityStartQueue.HasActive())
+        {
+            return nlohmann::json{
+                {"accepted", false},
+                {"code", "authority_transaction_in_progress"},
+                {"message", "allocation clear is serialized with native authority start/install"},
+                {"native_cleared", false},
+                {"world_teardown_required", true}
+            };
+        }
+        auto request = std::make_shared<StrictRosterClearRequest>();
+        request->arguments = arguments;
+        if (!gStrictRosterClearQueue.Enqueue(request))
+        {
+            return nlohmann::json{
+                {"accepted", false},
+                {"code", "clear_in_progress"},
+                {"message", "another scoped native clear is already pending"},
+                {"native_cleared", false},
+                {"world_teardown_required", true}
+            };
+        }
+
+        std::unique_lock<std::mutex> requestLock(request->mutex);
+        const bool completed = request->completed.wait_for(
+            requestLock,
+            std::chrono::seconds(30),
+            [&request]() {
+                return request->state == StrictAuthorityStartDispatch::State::Completed ||
+                    request->state == StrictAuthorityStartDispatch::State::Cancelled;
+            });
+        if (completed)
+            return request->result;
+
+        requestLock.unlock();
+        const auto cancelResult = gStrictRosterClearQueue.RequestCancel(request);
+        if (cancelResult == StrictAuthorityStartDispatch::CancelResult::AlreadyFinalizing)
+        {
+            // Clear owns teardown once processing starts. Give the game
+            // thread a bounded handoff window; after that, return scoped
+            // pending while the queue keeps the cleanup owner.
+            requestLock.lock();
+            const bool published = request->completed.wait_for(
+                requestLock,
+                std::chrono::seconds(2),
+                [&request]() {
+                return request->state == StrictAuthorityStartDispatch::State::Completed ||
+                    request->state == StrictAuthorityStartDispatch::State::Cancelled;
+                });
+            if (published)
+            {
+                const nlohmann::json result = request->result;
+                requestLock.unlock();
+                return result;
+            }
+            requestLock.unlock();
+            return nlohmann::json{
+                {"accepted", false},
+                {"code", "clear_pending"},
+                {"status", "cleanup_pending"},
+                {"message", "native clear remains owned by the game-thread observer"},
+                {"native_cleared", false},
+                {"world_teardown_required", true}
+            };
+        }
+        if (cancelResult ==
+            StrictAuthorityStartDispatch::CancelResult::CancelledProcessing)
+        {
+            return nlohmann::json{
+                {"accepted", false},
+                {"code", "clear_pending"},
+                {"status", "cleanup_pending"},
+                {"message", "native clear remains owned by the game-thread observer"},
+                {"native_cleared", false},
+                {"world_teardown_required", true},
+                {"attempt_id", request->arguments.value("attempt_id", "")},
+                {"authority_session_id", request->arguments.value("authority_session_id", "")},
+                {"world_instance_id", request->arguments.value("world_instance_id", "")},
+                {"roster_revision", request->arguments.value("roster_revision", 0)},
+                {"route_generation", request->arguments.value("route_generation", 0)}
+            };
+        }
+        if (cancelResult == StrictAuthorityStartDispatch::CancelResult::AlreadyCompleted ||
+            cancelResult == StrictAuthorityStartDispatch::CancelResult::NotOwned)
+        {
+            requestLock.lock();
+            if (request->state == StrictAuthorityStartDispatch::State::Completed)
+            {
+                const nlohmann::json result = request->result;
+                requestLock.unlock();
+                return result;
+            }
+            requestLock.unlock();
+        }
+        return nlohmann::json{
+            {"accepted", false},
+            {"code", "clear_timeout"},
+            {"message", "native clear was not completed within the bounded wait"},
+            {"native_cleared", false},
+            {"world_teardown_required", true}
+        };
+    }
+}
+
+void PumpStrictRosterClearOnGameThread()
+{
+    const std::shared_ptr<StrictAuthorityStartDispatch::Request> baseRequest =
+        gStrictRosterClearQueue.Claim();
+    if (!baseRequest)
+        return;
+    const std::shared_ptr<StrictRosterClearRequest> request =
+        std::static_pointer_cast<StrictRosterClearRequest>(baseRequest);
+
+    nlohmann::json result;
+    // Start and clear share the same game-thread boundary. If a start request
+    // has not yet been dispatched, leave the allocation untouched and let the
+    // caller retry after this explicit pending response.
+    if (gStrictAuthorityStartQueue.HasActive())
+    {
+        result = nlohmann::json{
+            {"accepted", false},
+            {"code", "clear_pending"},
+            {"message", "native authority start is still being dispatched"},
+            {"native_cleared", false},
+            {"world_teardown_required", true}
+        };
+    }
+    else
+    {
+        result = ProcessStrictRosterClearMatchAllocationResult(request->arguments);
+    }
+
+    bool cancellationRequested = false;
+    if (!gStrictRosterClearQueue.BeginFinalize(baseRequest, cancellationRequested))
+        return;
+    // Once a clear reaches game-thread processing, its native teardown and
+    // observer result remain authoritative even if the waiting pipe deadline
+    // has elapsed. Do not roll back a cleanup side effect here.
+    {
+        std::lock_guard<std::mutex> lock(request->mutex);
+        request->result = std::move(result);
+    }
+    (void)cancellationRequested;
+    (void)gStrictRosterClearQueue.PublishCompleted(baseRequest);
+}
+
 CommandFramework::JoinResult OnJoinFromPipe(
     const std::string& ip,
     const std::string& token)
@@ -704,6 +1530,22 @@ CommandFramework::JoinResult OnJoinFromPipe(
 
 nlohmann::json OnInstallMatchAllocation(const nlohmann::json& arguments)
 {
+    StrictAuthorityMutationLease installMutation(gStrictAuthorityMutationInFlight);
+    if (!installMutation)
+    {
+        return nlohmann::json{
+            {"accepted", false},
+            {"code", "authority_start_in_progress"},
+            {"message", "allocation installation is serialized with native authority start"},
+            {"native_cleared", false},
+            {"world_teardown_required", true}
+        };
+    }
+    // A timed-out worker still owns its queue until cleanup registration and
+    // terminal publication finish. Check that ownership before cleanup, and
+    // never hold the ready-lease mutex while acquiring a queue mutex.
+    if (gStrictAuthorityStartQueue.HasActive() || gStrictRosterClearQueue.HasActive())
+        return StrictAuthorityStartFailure("authority_active", "a native authority transaction is still active");
     {
         std::lock_guard<std::mutex> lock(gStrictRosterCleanupMutex);
         if (gStrictRosterCleanup.pending)
@@ -747,6 +1589,27 @@ nlohmann::json OnInstallMatchAllocation(const nlohmann::json& arguments)
 
 nlohmann::json OnInstallMatchJoinGrant(const nlohmann::json& arguments)
 {
+    StrictAuthorityMutationLease grantMutation(gStrictAuthorityMutationInFlight);
+    if (!grantMutation || gStrictAuthorityStartQueue.HasActive() ||
+        gStrictRosterClearQueue.HasActive())
+    {
+        return StrictAuthorityStartFailure(
+            "authority_start_in_progress", "another native authority transaction is still in progress");
+    }
+    {
+        std::lock_guard<std::mutex> lock(gStrictRosterCleanupMutex);
+        if (gStrictRosterCleanup.pending)
+        {
+            return nlohmann::json{
+                {"accepted", false},
+                {"code", "cleanup_pending"},
+                {"message", "the previous native world has not been cleared"},
+                {"native_cleared", false},
+                {"world_instance_id", gStrictRosterCleanup.worldInstanceId},
+                {"world_teardown_required", true}
+            };
+        }
+    }
     const StrictRoster::Decision decision = gStrictRosterPolicy.StageJoinGrant(
         arguments.value("join_grant", ""), EpochSecondsNow());
     if (!decision.accepted)
@@ -761,6 +1624,13 @@ nlohmann::json OnInstallMatchJoinGrant(const nlohmann::json& arguments)
 
 nlohmann::json OnStartMatchAuthority(const nlohmann::json& arguments)
 {
+    StrictAuthorityMutationLease startMutation(gStrictAuthorityMutationInFlight);
+    if (!startMutation || gStrictAuthorityStartQueue.HasActive() ||
+        gStrictRosterClearQueue.HasActive())
+    {
+        return StrictAuthorityStartFailure(
+            "authority_start_in_progress", "another native authority transaction is still in progress");
+    }
     {
         std::lock_guard<std::mutex> lock(gStrictRosterCleanupMutex);
         if (gStrictRosterCleanup.pending)
@@ -804,6 +1674,19 @@ nlohmann::json OnStartMatchAuthority(const nlohmann::json& arguments)
             {"message", "transport target must use the configured game listen port"}
         };
     }
+    // Validate the exact wire target before mutating the policy or queueing
+    // native travel.  A formatting failure after StartServer would leave a
+    // live world with no accepted authority response and would require an
+    // asynchronous teardown path merely to recover from malformed input.
+    if (CommandProtocol::FormatMatchTarget(
+            endpointHost, static_cast<std::uint16_t>(endpointPort)).empty())
+    {
+        return nlohmann::json{
+            {"accepted", false},
+            {"code", "invalid_authority_endpoint"},
+            {"message", "authority endpoint cannot be represented safely"}
+        };
+    }
     if (amListenServer && !IsClientLoginReadyForTravel())
     {
         return nlohmann::json{
@@ -820,6 +1703,104 @@ nlohmann::json OnStartMatchAuthority(const nlohmann::json& arguments)
             {"code", "allocation_unavailable"},
             {"message", "install the signed match allocation before starting authority"}
         };
+    }
+    const auto allocationScope = gStrictRosterPolicy.CurrentAllocationScope();
+    if (!allocationScope)
+    {
+        return nlohmann::json{
+            {"accepted", false},
+            {"code", "allocation_unavailable"},
+            {"message", "the signed match allocation scope is unavailable"}
+        };
+    }
+
+    // A retried start/ACK for the same live authority is an idempotent
+    // observation. Reuse the published nonce/world only when every scoped
+    // allocation field and the current native world match; never manufacture
+    // a second nonce for an already-listening world.
+    std::optional<StrictAuthorityReadyLease> readyLease;
+    bool authorityServerStarted = false;
+    bool sameWorldRouteRecovery = false;
+    {
+        std::lock_guard<std::mutex> lock(gStrictAuthorityStartMutex);
+        authorityServerStarted = gStrictAuthorityServerStarted.load(
+            std::memory_order_acquire);
+        if (authorityServerStarted && gStrictAuthorityReadyLease.active &&
+            gStrictAuthorityReadyLease.allocationScope &&
+            gStrictAuthorityReadyLease.hostingKind == *hostingKind &&
+            gStrictAuthorityReadyLease.allocationScope->attemptId ==
+                allocationScope->attemptId &&
+            gStrictAuthorityReadyLease.allocationScope->authoritySessionId ==
+                allocationScope->authoritySessionId &&
+            gStrictAuthorityReadyLease.allocationScope->rosterRevision ==
+                allocationScope->rosterRevision)
+        {
+            readyLease = gStrictAuthorityReadyLease;
+        }
+    }
+    if (authorityServerStarted)
+    {
+        if (!readyLease)
+        {
+            return nlohmann::json{
+                {"accepted", false},
+                {"code", "authority_state_unavailable"},
+                {"message", "the live native authority has no matching scoped lease"},
+                {"world_teardown_required", true}
+            };
+        }
+        // UWorld/NetDriver are observed by UpdateStrictAuthorityWorldObservation
+        // on the engine tick. The pipe callback only consumes that snapshot.
+        const bool worldStillListening =
+            gStrictAuthorityWorldListening.load(std::memory_order_acquire) &&
+            CurrentStrictAuthorityWorldInstanceId() == readyLease->worldInstanceId;
+        const StrictAuthorityLease::Decision leaseDecision =
+            StrictAuthorityLease::Classify(
+                readyLease->active,
+                readyLease->hostingKind,
+                *readyLease->allocationScope,
+                *hostingKind,
+                *allocationScope,
+                gStrictAuthorityWorldListening.load(std::memory_order_acquire),
+                worldStillListening);
+        if (leaseDecision == StrictAuthorityLease::Decision::SameRouteReplay)
+        {
+            return nlohmann::json{
+                {"accepted", true},
+                {"code", "accepted"},
+                {"endpoint_host", endpointHost},
+                {"endpoint_port", endpointPort},
+                {"world_instance_id", readyLease->worldInstanceId},
+                {"native_connection_nonce", readyLease->nativeConnectionNonce},
+                {"idempotent", true}
+            };
+        }
+        if (leaseDecision == StrictAuthorityLease::Decision::WorldUnavailable)
+        {
+            return nlohmann::json{
+                {"accepted", false},
+                {"code", "authority_world_not_cleared"},
+                {"message", "the recorded native authority world is no longer current"},
+                {"world_instance_id", readyLease->worldInstanceId},
+                {"world_teardown_required", true}
+            };
+        }
+        sameWorldRouteRecovery =
+            leaseDecision == StrictAuthorityLease::Decision::P2PRouteRecovery;
+        if (!sameWorldRouteRecovery)
+        {
+            return nlohmann::json{
+                {"accepted", false},
+                {"code", leaseDecision == StrictAuthorityLease::Decision::Unavailable
+                    ? "authority_state_unavailable"
+                    : "authority_route_generation_conflict"},
+                {"message", "the live native authority cannot adopt this allocation route"},
+                {"world_teardown_required", true}
+            };
+        }
+        // Continue through the policy's fresh HOST reservation below. It will
+        // reject a still-connected old generation and issue a new nonce only
+        // after the old HOST has emitted DISCONNECTED.
     }
     StrictRoster::SeatDecision hostDecision;
     if (*hostingKind == "P2P")
@@ -878,24 +1859,24 @@ nlohmann::json OnStartMatchAuthority(const nlohmann::json& arguments)
         ClientLog("[STRICT-ROSTER] Authority start rejected: " + hostDecision.code + ".");
         return PolicyResult(hostDecision);
     }
-    // StartServer synchronously creates the listen host PlayerController and
-    // invokes PostLogin before it returns. Publish the signed HOST seat first,
-    // so that local-host admission can bind without waiting for UniqueId.
+    // StartServer creates the listen host PlayerController and invokes
+    // PostLogin before it returns. Publish the signed HOST seat first, so
+    // local-host admission can bind without waiting for UniqueId. The actual
+    // native travel is queued to the game-thread boundary below.
     if (*hostingKind == "P2P")
         SetStrictRosterLocalHostSeat(hostDecision);
-    if (gStrictAuthorityAwaitingWorldTeardown)
+    if (gStrictAuthorityAwaitingWorldTeardown.load(std::memory_order_acquire))
     {
-        std::string detail;
-        if (IsAuthoritativeListeningWorld(UWorld::GetWorld(), detail))
-        {
-            ClearStrictRosterLocalHostSeat();
-            return nlohmann::json{
-                {"accepted", false},
-                {"code", "authority_world_not_cleared"},
-                {"message", "the previous native authority world is still listening"}
-            };
-        }
-        gStrictAuthorityAwaitingWorldTeardown = false;
+        // Cleanup ownership is released only by the game-thread observer once
+        // the old world/driver has disappeared.  Do not clear this flag or
+        // probe UWorld from a pipe callback.
+        ClearStrictRosterLocalHostSeat();
+        return nlohmann::json{
+            {"accepted", false},
+            {"code", "authority_world_not_cleared"},
+            {"message", "the previous native authority world is still being torn down"},
+            {"world_teardown_required", true}
+        };
     }
     for (int wait = 0;
         wait < 1500 && !gStrictAuthorityRuntimeReady.load(std::memory_order_acquire);
@@ -903,72 +1884,87 @@ nlohmann::json OnStartMatchAuthority(const nlohmann::json& arguments)
     {
         Sleep(10);
     }
+    if (!gStrictAuthorityRuntimeReady.load(std::memory_order_acquire))
     {
-        std::lock_guard<std::mutex> lock(gStrictAuthorityStartMutex);
-        if (!gStrictAuthorityRuntimeReady.load(std::memory_order_acquire))
-        {
-            ClearStrictRosterLocalHostSeat();
-            return nlohmann::json{
-                {"accepted", false},
-                {"code", "authority_runtime_not_ready"},
-                {"message", "the listen authority runtime is not initialized"}
-            };
-        }
-        if (!gStrictAuthorityServerStarted)
-        {
-            ::StartServer();
-            UWorld* authoritativeWorld = nullptr;
-            int postTravelNetMode = -1;
-            std::string authorityDetail;
-            bool authoritativeListeningWorld = false;
-            for (int attempt = 0; attempt < 200; ++attempt)
-            {
-                authoritativeWorld = UWorld::GetWorld();
-                postTravelNetMode = GetNativeNetModeInternal(authoritativeWorld);
-                authoritativeListeningWorld =
-                    IsAuthoritativeListeningWorld(authoritativeWorld, authorityDetail);
-                if (authoritativeListeningWorld)
-                    break;
-                Sleep(10);
-            }
-            ClientLog(std::string("[STRICT-ROSTER] Post-travel authority: net_mode=") +
-                NetModeName(postTravelNetMode) + " " + authorityDetail +
-                " result=" + (authoritativeListeningWorld ? "ready" : "invalid"));
-            if (!authoritativeListeningWorld)
-            {
-                gStrictRosterPolicy.Reset();
-                ClearStrictRosterLocalHostSeat();
-                ClearStrictRosterControllerSeats();
-                return nlohmann::json{
-                    {"accepted", false},
-                    {"code", "listen_authority_unavailable"},
-                    {"message", "the pinned listen world did not become authoritative"}
-                };
-            }
-            gStrictAuthorityServerStarted = true;
-            gStrictAuthorityAwaitingWorldTeardown = false;
-            ObserveStrictAuthorityWorld(authoritativeWorld);
-        }
-    }
-    ClientLog("[STRICT-ROSTER] Authority admission activated.");
-    const std::string formattedEndpoint = CommandProtocol::FormatMatchTarget(
-        endpointHost, static_cast<std::uint16_t>(endpointPort));
-    if (formattedEndpoint.empty())
-    {
+        gStrictRosterPolicy.Reset();
         ClearStrictRosterLocalHostSeat();
         return nlohmann::json{
             {"accepted", false},
-            {"code", "invalid_authority_endpoint"},
-            {"message", "authority endpoint cannot be represented safely"}
+            {"code", "authority_runtime_not_ready"},
+            {"message", "the listen authority runtime is not initialized"}
         };
     }
+
+    authorityServerStarted = false;
+    std::string authorityWorldInstanceId;
+    std::string authorityNonce = hostDecision.nativeConnectionNonce;
+    {
+        std::lock_guard<std::mutex> lock(gStrictAuthorityStartMutex);
+        authorityServerStarted = gStrictAuthorityServerStarted.load(
+            std::memory_order_acquire);
+    }
+    if (!authorityServerStarted)
+    {
+        // StartServer touches UWorld and must be dispatched by the game-thread
+        // boundary.  The listener thread waits for the scoped result instead
+        // of performing native travel itself.
+        const nlohmann::json nativeStart = QueueStrictAuthorityWorldStart(
+            *hostingKind,
+            hostDecision.nativeConnectionNonce,
+            CurrentStrictAuthorityWorldInstanceId(),
+            *allocationScope);
+        if (!nativeStart.value("accepted", false))
+        {
+            // A timed-out/late game-thread request owns a possible native
+            // side effect until its scoped cleanup is observed.  Resetting the
+            // policy here would let a new allocation race that old world.
+            const bool cleanupOwned =
+                nativeStart.value("status", std::string{}) == "cleanup_pending" ||
+                nativeStart.value("world_teardown_required", false) ||
+                gStrictAuthorityStartQueue.HasActive();
+            if (!cleanupOwned)
+            {
+                gStrictRosterPolicy.Reset();
+                ClearStrictRosterLocalHostSeat();
+            }
+            return nativeStart;
+        }
+        authorityWorldInstanceId = nativeStart.value(
+            "world_instance_id", std::string{});
+        authorityNonce = nativeStart.value(
+            "native_connection_nonce", std::string{});
+        if (authorityWorldInstanceId.empty() ||
+            authorityNonce != hostDecision.nativeConnectionNonce)
+        {
+            return nlohmann::json{
+                {"accepted", false},
+                {"code", "authority_start_scope_mismatch"},
+                {"message", "native authority returned a mismatched world or nonce"},
+                {"world_teardown_required", true}
+            };
+        }
+    }
+    else if (sameWorldRouteRecovery)
+    {
+        authorityWorldInstanceId = readyLease->worldInstanceId;
+        std::lock_guard<std::mutex> lock(gStrictAuthorityStartMutex);
+        if (gStrictAuthorityReadyLease.active &&
+            gStrictAuthorityReadyLease.worldInstanceId == authorityWorldInstanceId)
+        {
+            gStrictAuthorityReadyLease.nativeConnectionNonce = authorityNonce;
+            gStrictAuthorityReadyLease.allocationScope = *allocationScope;
+        }
+    }
+    if (authorityWorldInstanceId.empty())
+        authorityWorldInstanceId = CurrentStrictAuthorityWorldInstanceId();
+    ClientLog("[STRICT-ROSTER] Authority admission activated.");
     return nlohmann::json{
         {"accepted", true},
         {"code", "accepted"},
         {"endpoint_host", endpointHost},
         {"endpoint_port", endpointPort},
-        {"world_instance_id", CurrentStrictAuthorityWorldInstanceId()},
-        {"native_connection_nonce", hostDecision.nativeConnectionNonce}
+        {"world_instance_id", authorityWorldInstanceId},
+        {"native_connection_nonce", authorityNonce}
     };
 }
 
@@ -986,7 +1982,7 @@ nlohmann::json OnMatchConnectionEvents(const nlohmann::json& arguments)
             {"attempt_id", event.attemptId},
             {"authority_session_id", event.authoritySessionId},
             {"roster_revision", event.rosterRevision},
-            {"world_instance_id", CurrentStrictAuthorityWorldInstanceId()},
+            {"world_instance_id", event.worldInstanceId},
             {"route_generation", event.routeGeneration},
             {"player_id", event.playerId},
             {"grant_jti", event.grantJti},
@@ -1140,8 +2136,14 @@ namespace
             std::lock_guard<std::mutex> lock(gStrictRosterCleanupMutex);
             gStrictRosterCleanup = StrictRosterCleanupState{};
         }
-        gStrictAuthorityAwaitingWorldTeardown = false;
-        gStrictAuthorityServerStarted = false;
+        gStrictAuthorityAwaitingWorldTeardown.store(
+            false, std::memory_order_release);
+        gStrictAuthorityWorldListening.store(false, std::memory_order_release);
+        {
+            std::lock_guard<std::mutex> startLock(gStrictAuthorityStartMutex);
+            gStrictAuthorityServerStarted.store(false, std::memory_order_release);
+            gStrictAuthorityReadyLease = StrictAuthorityReadyLease{};
+        }
         ClientLog("[STRICT-ROSTER] Native world and NetDriver teardown observed; "
                   "allocation is cleared.");
         return nlohmann::json{
@@ -1159,7 +2161,8 @@ namespace
     }
 }
 
-nlohmann::json OnClearMatchAllocationResult(const nlohmann::json& arguments)
+nlohmann::json ProcessStrictRosterClearMatchAllocationResultInternal(
+    const nlohmann::json& arguments)
 {
     try
     {
@@ -1306,8 +2309,9 @@ nlohmann::json OnClearMatchAllocationResult(const nlohmann::json& arguments)
             std::lock_guard<std::mutex> lock(gStrictRosterCleanupMutex);
             gStrictRosterCleanup = cleanup;
         }
-        gStrictAuthorityAwaitingWorldTeardown = true;
-        gStrictAuthorityServerStarted = false;
+        gStrictAuthorityAwaitingWorldTeardown.store(
+            true, std::memory_order_release);
+        gStrictAuthorityServerStarted.store(false, std::memory_order_release);
 
         // Reset only releases the Payload's grant/seat caches.  The separate
         // world/driver observation above remains authoritative for NativeCleared.
@@ -1354,6 +2358,20 @@ nlohmann::json OnClearMatchAllocationResult(const nlohmann::json& arguments)
             {"world_teardown_required", true}
         };
     }
+}
+
+nlohmann::json ProcessStrictRosterClearMatchAllocationResult(
+    const nlohmann::json& arguments)
+{
+    return ProcessStrictRosterClearMatchAllocationResultInternal(arguments);
+}
+
+nlohmann::json OnClearMatchAllocationResult(const nlohmann::json& arguments)
+{
+    // UWorld/NetDriver observation and the native return-to-menu request are
+    // game-thread operations. The pipe callback only submits the fully scoped
+    // clear request and waits for the observer-backed result.
+    return QueueStrictRosterClearOnGameThread(arguments);
 }
 
 bool StartServerCommandFramework()

@@ -378,7 +378,7 @@ void ApplyPendingPlayerNameUpdates(const char *reason)
 //  SECTION 13 — SERVER STARTUP AND COMMAND RELATED LOGIC
 // ======================================================
 
-void StartServer()
+bool BeginServerMapTravel()
 {
     Log("[SERVER] Starting server...");
 
@@ -389,49 +389,64 @@ void StartServer()
     Log("[SERVER] Port: " + std::to_string(Config.Port));
 
     std::wstring openCmd = L"open " + Config.MapName + L"?game=" + Config.FullModePath;
-    Log("[SERVER] Executing open command");
-
-    UKismetSystemLibrary::ExecuteConsoleCommand(UWorld::GetWorld(), openCmd.c_str(), nullptr);
-
-    Log("[SERVER] Waiting for world to load...");
-    Sleep(8000);
-
-    UEngine *Engine = UEngine::GetEngine();
-    UWorld *World = UWorld::GetWorld();
-
-    if (!World)
+    UWorld* const world = UWorld::GetWorld();
+    if (!world)
     {
-        Log("[ERROR] World is NULL after map load!");
+        Log("[ERROR] No native world is available to request server map travel.");
+        return false;
+    }
+    Log("[SERVER] Requesting native server map travel.");
+    UKismetSystemLibrary::ExecuteConsoleCommand(world, openCmd.c_str(), nullptr);
+    return true;
+}
+
+bool IsServerMapReady(UWorld* const world, const UWorld* const previousWorld)
+{
+    if (!world || world == previousWorld || !world->PersistentLevel ||
+        !world->AuthorityGameMode || !world->GameState)
+        return false;
+    std::string expectedMap(Config.MapName.begin(), Config.MapName.end());
+    const auto slash = expectedMap.find_last_of("/\\");
+    if (slash != std::string::npos)
+        expectedMap.erase(0, slash + 1);
+    return UGameplayStatics::GetCurrentLevelName(world, true).ToString() == expectedMap;
+}
+
+void RequestServerStreamingLevels(UWorld* const world)
+{
+    if (!world)
         return;
-    }
-
-    Log("[SERVER] Forcing streaming levels to load...");
-
-    for (int i = SDK::UObject::GObjects->Num() - 1; i >= 0; i--)
+    for (ULevelStreaming* const level : world->StreamingLevels)
     {
-        SDK::UObject *Obj = SDK::UObject::GObjects->GetByIndex(i);
-
-        if (!Obj)
+        if (!level)
             continue;
-
-        if (Obj->IsDefaultObject())
-            continue;
-
-        if (Obj->IsA(ULevelStreaming::StaticClass()))
-        {
-            ULevelStreaming *LS = (ULevelStreaming *)Obj;
-
-            LS->SetShouldBeLoaded(true);
-            LS->SetShouldBeVisible(true);
-
-            Log("[SERVER] Streaming level loaded: " + std::string(Obj->GetFullName()));
-        }
+        level->SetShouldBeLoaded(true);
+        level->SetShouldBeVisible(true);
     }
+}
+
+bool AreServerStreamingLevelsReady(UWorld* const world)
+{
+    if (!world)
+        return false;
+    for (ULevelStreaming* const level : world->StreamingLevels)
+    {
+        if (level && (!level->IsLevelLoaded() || !level->IsLevelVisible()))
+            return false;
+    }
+    return true;
+}
+
+bool CompleteServerListen(UWorld* const World)
+{
+    UEngine* const Engine = UEngine::GetEngine();
+    if (!World || World != UWorld::GetWorld() || !Engine)
+        return false;
 
     if (!libReplicate)
     {
         Log("[ERROR] libReplicate is null before CreateNetDriver!");
-        return;
+        return false;
     }
 
     Log("[SERVER] Creating NetDriver...");
@@ -447,7 +462,7 @@ void StartServer()
     if (!NetDriver)
     {
         Log("[ERROR] NetDriver not found after CreateNetDriver!");
-        return;
+        return false;
     }
 
     NetDriverAccess::Observe(NetDriver, World, NetDriverAccess::Source::ObjectScan);
@@ -470,4 +485,17 @@ void StartServer()
     listening = true;
 
     Log("[SERVER] Server is now listening.");
+    return true;
+}
+
+void StartServer()
+{
+    // The existing explicit offline bootstrap owns its separate worker. The
+    // online authority uses the nonblocking phases above on the game thread.
+    if (!BeginServerMapTravel())
+        return;
+    Sleep(8000);
+    UWorld* const world = UWorld::GetWorld();
+    RequestServerStreamingLevels(world);
+    (void)CompleteServerListen(world);
 }

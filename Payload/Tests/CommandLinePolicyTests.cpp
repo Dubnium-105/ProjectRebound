@@ -129,6 +129,24 @@ int main()
     Expect(StrictRosterAdmissionGate::CanReportStrictOnlineReady(
         true, false, true, true, true),
         "strict online readiness requires both native proofs");
+    Expect(StrictRosterAdmissionGate::CanReportStrictOnlineReady(
+        true, false, true, true, false, false),
+        "dedicated authority readiness must not require the client-only grant injector");
+    Expect(!StrictRosterAdmissionGate::CanReportStrictOnlineReady(
+        true, false, true, true, false, true),
+        "listen/P2P readiness must require the native client grant injector");
+    Expect(StrictRosterAdmissionGate::CanReportStrictOnlineReady(
+        true, false, false, true, true, true, false),
+        "a Member requires the proven client path without installing server-only hooks");
+    Expect(!StrictRosterAdmissionGate::CanReportStrictOnlineReady(
+        true, false, false, true, false, true, false),
+        "a Member cannot report ready without its native injector");
+    Expect(!StrictRosterAdmissionGate::CanReportStrictOnlineReady(
+        true, false, true, false, true, true, false),
+        "role selection cannot substitute for locked native admission proof");
+    Expect(!StrictRosterAdmissionGate::CanReportStrictOnlineReady(
+        true, false, false, true, false, false, false),
+        "an online role cannot disable both required native paths");
     Expect(!StrictRosterAdmissionGate::CanReportPayloadReady(
         false, false, true),
         "an unverified executable must not report even isolated PVE as ready");

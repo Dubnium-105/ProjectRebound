@@ -57,4 +57,11 @@ void BeginGracefulDedicatedExit(
     const char* reason);
 
 // Server startup
+// Online authority startup invokes these phases on successive engine ticks.
+// No phase waits for a later tick or authorizes a player connection.
+bool BeginServerMapTravel();
+void RequestServerStreamingLevels(SDK::UWorld* world);
+bool IsServerMapReady(SDK::UWorld* world, const SDK::UWorld* previousWorld);
+bool AreServerStreamingLevelsReady(SDK::UWorld* world);
+bool CompleteServerListen(SDK::UWorld* world);
 void StartServer();

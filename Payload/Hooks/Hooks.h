@@ -39,6 +39,13 @@ bool TryGetStrictRosterLocalPlatformId(std::string& platformId);
 // Generates the opaque nonce that binds one native handshake to its scoped
 // backend reservation/confirmation.  Failure must fail closed.
 std::optional<std::string> GenerateStrictRosterNativeConnectionNonce();
+// Dispatches one pending strict authority travel on the game-engine thread.
+// CommandFramework's listener thread only queues and waits for this result.
+void PumpStrictAuthorityStartOnGameThread();
+void PumpStrictRosterClearOnGameThread();
+void UpdateStrictAuthorityWorldObservationOnGameThread();
+bool IsStrictAuthorityWorldListeningSnapshot();
+void ApplyStrictRosterLocalHostSeatOnGameThread();
 nlohmann::json QueueStrictRosterAdmissionReservation(
     const nlohmann::json& arguments);
 nlohmann::json QueueStrictRosterConnectionConfirmation(

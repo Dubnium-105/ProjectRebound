@@ -80,11 +80,16 @@ namespace StrictRosterAdmissionGate
         const bool offlinePve,
         const bool nativeAuthorityPathReady,
         const bool nativeAuthorityAdmissionVerified,
-        const bool nativeClientGrantInjectionVerified) noexcept
+        const bool nativeClientGrantInjectionVerified,
+        const bool nativeClientGrantInjectionRequired = true,
+        const bool nativeAuthorityPathRequired = true) noexcept
     {
         return executableVerified && !offlinePve &&
-            nativeAuthorityPathReady && nativeAuthorityAdmissionVerified &&
-            nativeClientGrantInjectionVerified;
+            (nativeAuthorityPathRequired || nativeClientGrantInjectionRequired) &&
+            (!nativeAuthorityPathRequired || nativeAuthorityPathReady) &&
+            nativeAuthorityAdmissionVerified &&
+            (!nativeClientGrantInjectionRequired ||
+                nativeClientGrantInjectionVerified);
     }
 
     inline bool CanReportPayloadReady(

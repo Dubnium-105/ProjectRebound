@@ -64,6 +64,22 @@ enable_strict_warnings(command_line_policy_tests)
 
 add_test(NAME command_line_policy_tests COMMAND command_line_policy_tests)
 
+add_executable(strict_authority_start_dispatch_tests
+    StrictAuthorityStartDispatchTests.cpp
+)
+
+target_compile_features(strict_authority_start_dispatch_tests PRIVATE cxx_std_20)
+enable_strict_warnings(strict_authority_start_dispatch_tests)
+
+add_test(
+    NAME strict_authority_start_dispatch_tests
+    COMMAND strict_authority_start_dispatch_tests)
+
+add_executable(strict_authority_lease_tests StrictAuthorityLeaseTests.cpp)
+target_compile_features(strict_authority_lease_tests PRIVATE cxx_std_20)
+enable_strict_warnings(strict_authority_lease_tests)
+add_test(NAME strict_authority_lease_tests COMMAND strict_authority_lease_tests)
+
 add_executable(native_login_grant_policy_tests
     NativeLoginGrantPolicyTests.cpp
 )
