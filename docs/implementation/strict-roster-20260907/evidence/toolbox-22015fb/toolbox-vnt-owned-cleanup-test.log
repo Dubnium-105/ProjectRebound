@@ -1,0 +1,17 @@
+   Compiling rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 43.36s
+     Running unittests src\lib.rs (target\debug\deps\rebound_toolbox-c3f2dfb68b3e9800.exe)
+
+running 9 tests
+test vnt::session::tests::named_lock_rejects_second_session ... ok
+test vnt::session::tests::yaml_contains_secrets_but_command_line_contract_does_not ... ok
+test vnt::session::tests::parses_pinned_upstream_readiness_output_without_logging_raw_addresses ... ok
+test vnt::session::tests::role_and_catalog_validation_is_fail_closed ... ok
+test vnt::session::tests::locked_secret_file_keeps_session_owned_until_cleanup_retry ... ok
+test vnt::session::tests::redactor_removes_tokens_authorization_and_public_ips ... ok
+test vnt::session::tests::fingerprint_mismatch_terminates_and_cleans_secret_file ... ok
+test vnt::session::tests::supervised_process_requires_structured_verified_ready ... ok
+test vnt::session::tests::structured_tunnel_loss_stops_process_and_releases_resources ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 277 filtered out; finished in 1.02s
+

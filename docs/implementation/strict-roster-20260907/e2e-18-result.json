@@ -1,0 +1,78 @@
+{
+  "id": "E2E-18",
+  "title": "前端一致性与旧入口消除",
+  "status": "partial",
+  "source_commit": "22015fb41fa06fea0b8767049109291c89758fff",
+  "source_inputs": [
+    {
+      "path": "C:\\wksp\\ProjectReboundToolbox\\frontend\\src\\App.jsx",
+      "sha256": "eb338f3d093d501200b94aa939e9b1f522a5010a18e67cd08bcdb2d7f159ee74"
+    },
+    {
+      "path": "C:\\wksp\\ProjectReboundToolbox\\frontend\\src\\lib\\tauriBridge.js",
+      "sha256": "8d00f53ebbc94bea263feb84c83fe786664f1f370de7507bde60d9a7fe05e90b"
+    },
+    {
+      "path": "C:\\wksp\\ProjectReboundToolbox\\frontend\\src\\pages\\LaunchPage.jsx",
+      "sha256": "6138ba230f16aef4a31988ad8c520f9132e34c0db61542cd3bfc9a12d0ca1ec2"
+    },
+    {
+      "path": "C:\\wksp\\ProjectReboundToolbox\\src\\pages\\launch.rs",
+      "sha256": "18d97e2bb58d817b4c8ae5c6a8b06f6aa1640e7a126c5c10c5a6136f152b1f55"
+    },
+    {
+      "path": "C:\\wksp\\ProjectReboundToolbox\\docs\\BUILD_TEST_RUN.md",
+      "sha256": "bf4777c9e4fc000b649bfacd9d950bff2ca239945836d4dd1d6952bbb88f8644"
+    },
+    {
+      "path": "C:\\wksp\\ProjectReboundToolbox\\docs\\BUILD_DEPLOY.md",
+      "sha256": "455129bb91936f9a2427236d5c6cac3bcbdce603d67b3a445ac78cb94d332d31"
+    }
+  ],
+  "steps": [
+    {
+      "id": "react_browser_mock_interactions",
+      "status": "pass",
+      "command": "mcp__cua_repl.js: createBrowserTab -> click/setValue -> getAXState after every action",
+      "exit_code": null,
+      "observed_result": "Actual browser create/join/leave/error and no-Mock gating observations are recorded; Mock roster with empty opposing team did not enable freeze/start.",
+      "log_paths": [
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\frontend\\browser-interaction-20260907.md"
+      ]
+    },
+    {
+      "id": "retired_egui_online_source_and_release_docs",
+      "status": "pass",
+      "command": "rg/Get-Content of src/pages/launch.rs and docs/BUILD_TEST_RUN.md, docs/BUILD_DEPLOY.md",
+      "exit_code": 0,
+      "observed_result": "Old EGUI launch view exposes offline PvE and an explicit strict-roster Tauri notice; current release docs retire EGUI online.",
+      "log_paths": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\pages\\launch.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\docs\\BUILD_TEST_RUN.md",
+        "C:\\wksp\\ProjectReboundToolbox\\docs\\BUILD_DEPLOY.md"
+      ]
+    },
+    {
+      "id": "packaged_tauri_real_lobby_and_operation_sequence",
+      "status": "not_run",
+      "command": null,
+      "exit_code": null,
+      "observed_result": "The packaged Tauri/Rust/backend/native scenario was not executed. Browser Mock and source review do not satisfy this full case.",
+      "log_paths": [
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\frontend\\browser-interaction-20260907.md"
+      ]
+    }
+  ],
+  "result": {
+    "environment": "Windows; actual Codex in-app browser and local Vite frontend. Explicit Mock bridge uses synthetic account/lobbies, then a separate page without Mock. No native game or backend mutation.",
+    "command_or_harness": "mcp__cua_repl.js UI interactions; exact human-readable sequence in browser-interaction-20260907.md",
+    "exit_code": null,
+    "exit_code_note": "UI calls have no process exit code. The dev server was intentionally stopped with Ctrl-C after observations (exit 1).",
+    "log_paths": [
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\frontend\\browser-interaction-20260907.md"
+    ],
+    "observed_result": "PARTIAL: frontend browser interactions and retired-entry source/docs were checked; packaged Tauri/native sequence remains NOT_RUN.",
+    "evidence_sha256": "a598d7dd5c704762b2513c3d7263c4c7caa66606c90c8437704452f9d9f61456"
+  },
+  "release_ready": false
+}

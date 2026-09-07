@@ -1,0 +1,16 @@
+   Compiling rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 29.72s
+     Running unittests src\lib.rs (target\debug\deps\rebound_toolbox-c3f2dfb68b3e9800.exe)
+
+running 8 tests
+test vnt::rooms::tests::heartbeat_waits_for_the_configured_interval ... ok
+test vnt::rooms::tests::managed_legacy_transport_selection_cannot_choose_vnt ... ok
+test vnt::rooms::tests::fatal_route_errors_are_classified_for_runtime_shutdown ... ok
+test vnt::rooms::tests::exhausted_realtime_carrier_requires_cleanup_instead_of_reusing_ready_state ... ok
+test vnt::rooms::tests::route_replanning_is_only_allowed_for_an_empty_prestart_host_room ... ok
+test vnt::rooms::tests::join_uses_only_the_room_pinned_node ... ok
+test vnt::rooms::tests::failed_route_startup_retains_connection_until_close_retry_succeeds ... ok
+test vnt::rooms::tests::public_active_room_view_has_no_route_secret_fields ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 277 filtered out; finished in 0.00s
+

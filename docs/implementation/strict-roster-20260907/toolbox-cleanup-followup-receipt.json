@@ -1,0 +1,61 @@
+{
+  "source_commit": "22015fb41fa06fea0b8767049109291c89758fff",
+  "source_dirty": false,
+  "modification_commits": [
+    "22015fb41fa06fea0b8767049109291c89758fff",
+    "10d8aeeec52d52340095815193b5be6f10cec36c"
+  ],
+  "changes": [
+    "Retain created transport connection before session handoff, retry failed close and block overlapping attachment.",
+    "Retain managed VNT startup resources; require observed child exit before reader joins, retain failed secret deletion and session lock for retry."
+  ],
+  "executions": [
+    {
+      "command": "cargo test --locked --lib --features vnt,lab-testing --no-fail-fast",
+      "exit_code": 0,
+      "passed": 286,
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-22015fb\\toolbox-final-all-features-test.log",
+      "sha256": "8f45bc83aff3eb5c0250b82af051e03d74242a17b7622bcda5c1a4d23d107d62",
+      "source_scope": "Full suite/check/Tauri ran at 22015fb; focused room test ran before 10d8aee commit, and focused VNT test ran before 22015fb commit. Their relevant source subtrees equal those commits."
+    },
+    {
+      "command": "cargo check --locked --all-targets --features vnt,lab-testing",
+      "exit_code": 0,
+      "passed": null,
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-22015fb\\toolbox-all-targets-final.log",
+      "sha256": "709aae19a33bf4be03a0f94e3fb8aaebe166fb7787385f854f15c4be0953a9ab",
+      "source_scope": "Full suite/check/Tauri ran at 22015fb; focused room test ran before 10d8aee commit, and focused VNT test ran before 22015fb commit. Their relevant source subtrees equal those commits."
+    },
+    {
+      "command": "cargo test --locked --manifest-path src-tauri/Cargo.toml",
+      "exit_code": 0,
+      "passed": 7,
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-22015fb\\toolbox-tauri-tests-final.log",
+      "sha256": "a3b8b68c68b92eccdc85c46161c7b3febc8e72b26f08f37230af6d8063719162",
+      "source_scope": "Full suite/check/Tauri ran at 22015fb; focused room test ran before 10d8aee commit, and focused VNT test ran before 22015fb commit. Their relevant source subtrees equal those commits."
+    },
+    {
+      "command": "cargo test --locked --lib --features vnt,lab-testing vnt::session::tests -- --nocapture",
+      "exit_code": 0,
+      "passed": 9,
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-22015fb\\toolbox-vnt-owned-cleanup-test.log",
+      "sha256": "a420c50256a2cd85376940066dde254b220e44d98c0c2c17ca6d70677df18403",
+      "source_scope": "Full suite/check/Tauri ran at 22015fb; focused room test ran before 10d8aee commit, and focused VNT test ran before 22015fb commit. Their relevant source subtrees equal those commits."
+    },
+    {
+      "command": "cargo test --locked --lib --features vnt,lab-testing vnt::rooms::tests -- --nocapture",
+      "exit_code": 0,
+      "passed": 8,
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-22015fb\\toolbox-prespawn-connection-close-test.log",
+      "sha256": "7c39522b6c4f5368c0d91b4d9e303f8b38ccda70a7738b03732afd1494b164c7",
+      "source_scope": "Full suite/check/Tauri ran at 22015fb; focused room test ran before 10d8aee commit, and focused VNT test ran before 22015fb commit. Their relevant source subtrees equal those commits."
+    }
+  ],
+  "preserved_invocation_failure": {
+    "command": "cargo fmt --all",
+    "exit_code": 1,
+    "observed_result": "Initial edit had an unclosed delimiter in rooms.rs at helper line 702; compiler stopped before tests. The missing closing brace was corrected before the focused/full runs. This observation comes from the tool transcript; no separate raw log file was retained."
+  },
+  "scope": "Component and real local Windows resource handling only; no VNT three-player or native gameplay acceptance.",
+  "release_ready": false
+}
