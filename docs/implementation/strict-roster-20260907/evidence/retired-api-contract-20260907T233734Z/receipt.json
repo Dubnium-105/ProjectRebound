@@ -1,0 +1,126 @@
+{
+  "recorded_at": "2026-09-07T23:37:36.425567+00:00",
+  "source_input_commit": "d1431e206097a9aeb3e7fc2c01ae5dedc51383c9",
+  "source_dirty": true,
+  "source_files": {
+    "Backend/api/openapi/openapi.yaml": "14b1e98d7c1c966d4bcbe9e7a74617e31a15d2509a1fbf3f46d125df4d25fd65",
+    "Backend/api/openapi/openapi_test.go": "89f7794436bec4da21365848cc9031ea99e7f13519578927de126a628e86c88b",
+    "Backend/internal/controlplane/server.go": "8ee9a5cec28c093db32ac9d0c165649b9a6b9a470d77dd5afd9b0cadbcea8282",
+    "docs/api/external.md": "81c1ca8d0fcb81aca37570caae058e50cffa3867aae62bc0fb60ef5f58df1a45"
+  },
+  "command": [
+    "C:/Program Files/Go/bin/go.exe",
+    "test",
+    "./api/openapi",
+    "-count=1",
+    "-v"
+  ],
+  "exit_code": 0,
+  "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\retired-api-contract-20260907T233734Z\\openapi-tests.log",
+  "log_sha256": "3a0192abd304bb5ec241c3fb04cd33fba82e174da2854bb2001defb2120d13c0",
+  "retired_route_contract_checks": [
+    {
+      "method": "GET",
+      "path": "/v1/p2p-rooms",
+      "deprecated": true,
+      "success_status_advertised": false
+    },
+    {
+      "method": "GET",
+      "path": "/v1/p2p-rooms/{room_id}",
+      "deprecated": true,
+      "success_status_advertised": false
+    },
+    {
+      "method": "POST",
+      "path": "/v1/p2p-rooms",
+      "deprecated": true,
+      "success_status_advertised": false
+    },
+    {
+      "method": "POST",
+      "path": "/v1/p2p-rooms/{room_id}/join",
+      "deprecated": true,
+      "success_status_advertised": false
+    },
+    {
+      "method": "POST",
+      "path": "/v1/p2p-rooms/{room_id}/leave",
+      "deprecated": true,
+      "success_status_advertised": false
+    },
+    {
+      "method": "POST",
+      "path": "/v1/p2p-rooms/{room_id}/heartbeat",
+      "deprecated": true,
+      "success_status_advertised": false
+    },
+    {
+      "method": "POST",
+      "path": "/v1/p2p-rooms/{room_id}/start",
+      "deprecated": true,
+      "success_status_advertised": false
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/p2p-rooms/{room_id}",
+      "deprecated": true,
+      "success_status_advertised": false
+    },
+    {
+      "method": "POST",
+      "path": "/v1/p2p-rooms/{room_id}/vnt/bootstrap",
+      "deprecated": true,
+      "success_status_advertised": false
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/p2p-rooms/{room_id}/vnt/presence/me",
+      "deprecated": true,
+      "success_status_advertised": false
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/p2p-rooms/{room_id}/vnt/host-ready",
+      "deprecated": true,
+      "success_status_advertised": false
+    },
+    {
+      "method": "POST",
+      "path": "/v1/p2p-rooms/{room_id}/vnt/rebind",
+      "deprecated": true,
+      "success_status_advertised": false
+    },
+    {
+      "method": "GET",
+      "path": "/v1/p2p-rooms/{room_id}/matches/active",
+      "deprecated": true,
+      "success_status_advertised": false
+    },
+    {
+      "method": "POST",
+      "path": "/v1/p2p-matches/{match_id}/report-capability",
+      "deprecated": true,
+      "success_status_advertised": false
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/p2p-matches/{match_id}/presence/me",
+      "deprecated": true,
+      "success_status_advertised": false
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/p2p-matches/{match_id}/reports/{report_id}",
+      "deprecated": true,
+      "success_status_advertised": false
+    },
+    {
+      "method": "GET",
+      "path": "/v1/p2p-matches/{match_id}/result",
+      "deprecated": true,
+      "success_status_advertised": false
+    }
+  ],
+  "scope": "Actual OpenAPI schema and reference tests plus comparison of 17 registered retired operations. No network/native E2E or operational credential claim."
+}

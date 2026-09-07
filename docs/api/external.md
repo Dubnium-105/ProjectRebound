@@ -157,20 +157,20 @@ The Rust Toolbox owns production enrollment, signed heartbeats, private keys, an
 
 For the complete issuance, named-pipe, fallback, DPAPI, rotation, and production-CA procedure, see [Dedicated Server registration and runtime identity](../operations/dedicated-server-registration.md).
 
-### 3.4 P2P Room
+### 3.4 Retired standalone P2P room routes
 
-| Method | Path | Authentication | Request/additional header | Success |
-| --- | --- | --- | --- | --- |
-| GET | `/v1/p2p-rooms` | None | `region`, `mode`, `version`, `state`, `has_slots`, `cursor`, `limit` | 200 public directory |
-| GET | `/v1/p2p-rooms/{room_id}` | None | — | 200 public room status |
-| POST | `/v1/p2p-rooms` | Active Player | `display_name`, `region`, `mode`, `version`, `max_players`; optional `transport_kind`, `vnt_node_id` | 201 room + one-time `host_token` |
-| POST | `/v1/p2p-rooms/{room_id}/join` | Active Player | `version` | 200 joined; repeated calls are idempotent |
-| POST | `/v1/p2p-rooms/{room_id}/leave` | Active Player | — | 200 left; repeated calls are idempotent |
-| POST | `/v1/p2p-rooms/{room_id}/heartbeat` | Active Player + Host Token | `X-Room-Host-Token` |200 heartbeats|
-| POST | `/v1/p2p-rooms/{room_id}/start` | Active Player + Host Token | `X-Room-Host-Token` | 200 `LOBBY -> CONNECTING` |
-| DELETE | `/v1/p2p-rooms/{room_id}` | Active Player + Host Token | `X-Room-Host-Token` |200 Close; call idempotent repeatedly|
+These routes return `410 ONLINE_P2P_ROOM_RETIRED` after any required player authentication. They do not create, join, start, or renew online rooms. Use the authoritative match lobby and attempt flow below.
 
-Public room responses do not return candidate addresses, host tokens, or member secrets. The host cannot call leave and must close the room. By default, if there is no host heartbeat for 45 seconds, it will enter the expiration process, and it will be closed after 90 seconds. A valid host heartbeat also renews all non-terminal connections to the room in the same database transaction; final connections are not restored.
+| Method | Path | Response |
+| --- | --- | --- |
+| GET | `/v1/p2p-rooms` | 410 retired |
+| GET | `/v1/p2p-rooms/{room_id}` | 410 retired |
+| POST | `/v1/p2p-rooms` | 410 retired |
+| POST | `/v1/p2p-rooms/{room_id}/join` | 410 retired |
+| POST | `/v1/p2p-rooms/{room_id}/leave` | 410 retired |
+| POST | `/v1/p2p-rooms/{room_id}/heartbeat` | 410 retired |
+| POST | `/v1/p2p-rooms/{room_id}/start` | 410 retired |
+| DELETE | `/v1/p2p-rooms/{room_id}` | 410 retired |
 
 ### 3.5 Authoritative match lobbies (`strict_roster_v1`)
 
@@ -200,28 +200,26 @@ The resulting `meta_matches` and `meta_match_players` rows are carrier projectio
 
 `AttemptView.payload_installed` means that the confirmed Payload applies to the current `route_generation`, not merely that a Payload was seen earlier. A recovering P2P authority increments the route generation, invalidates outstanding grants, and temporarily clears this condition. Until the same authority session installs the refreshed signed allocation and confirms that generation, join-grant issuance fails with `MATCH_AUTHORITY_ROUTE_REFRESHING`.
 
-Allocation and join-grant bodies, authority sessions, transport host tokens, and grant JTIs stay in the Toolbox/server core and named pipe. They must not enter command lines, URLs, logs, or Tauri/UI DTOs. The feature is omitted from normal use unless `/v1/client/config` returns `features.strict_roster_v1=true`; the server requires an explicit Ed25519 key and the locked game SHA-256 before that flag can be enabled.
+Allocation and join-grant bodies, authority sessions, transport host tokens, and grant JTIs stay in the Toolbox/server core and named pipe. They must not enter command lines, URLs, logs, or Tauri/UI DTOs. Strict roster admission is mandatory for online matches. The retired `strict_roster_v1_enabled` configuration is rejected; `match_lobby.accept_new_lobbies` controls creation only and cannot relax an existing attempt. The client capability and signed artifact compatibility gates must also be satisfied before online use.
 
-The current candidate is not release ready. Signed allocation/grant staging and scoped transactions exist, but client NMT_Login Grant injection, authenticated native identity, and field correspondence still require proof. Native Grant and aggregate online readiness remain false; previous local two-process/offline traces do not establish strict online acceptance. See `docs/implementation/strict-roster-20260907/` for actual source changes, executed component tests, and blocked native cases. Completion requires three-player admission, rejection, recovery, cleanup, and next-match evidence for every declared hosting/transport combination. `PostLogin`, client `ExpectedTeamID`, raw structure writes, and standalone legacy rooms are not release fallbacks.
+The current candidate is not release ready. Signed allocation/grant staging and scoped transactions exist. One real client has completed native admission and disconnect, while complete Playable, multi-player, rejection, recovery, and next-match acceptance remains incomplete. Native Grant and aggregate online readiness remain false; previous local two-process/offline traces do not establish strict online acceptance. See `docs/implementation/strict-roster-20260907/` for actual source changes, executed component tests, and blocked native cases. Completion requires three-player admission, rejection, recovery, cleanup, and next-match evidence for every declared hosting/transport combination. `PostLogin`, client `ExpectedTeamID`, raw structure writes, and standalone legacy rooms are not release fallbacks.
 
 Freezing a P2P lobby transactionally creates `p2p_match_sessions` and
 `p2p_match_roster` from `match_attempt_roster`, regardless of whether optional
 peer BattleLog intake is enabled. The later VNT/Legacy start path reuses this
 projection and cannot regenerate teams from room-member ordering.
 
-### 3.6 P2P BattleLog v3
+### 3.6 Retired independent P2P match routes
 
-All endpoints require an active, Steam-verified Player access token and frozen-roster membership. P2P evidence is stored separately from dedicated-server `battlelog_*` data.
+These routes return `410 ONLINE_MATCH_ROUTE_RETIRED` after active, Steam-verified player authentication. MatchAttempt exclusively owns the frozen roster, native admission, and lifecycle. Existing carrier projections remain internal records.
 
-| Method | Path | Additional authentication/body | Success |
-| --- | --- | --- | --- |
-| GET | `/v1/p2p-rooms/{room_id}/matches/active` | — | 200 server-created match context |
-| POST | `/v1/p2p-matches/{match_id}/report-capability` | — | 201 session-family-bound `report_token`, capability ID, and nonce |
-| PUT | `/v1/p2p-matches/{match_id}/presence/me` | Monotonic presence sequence and process/connection status | 200 presence or reconnect segment |
-| PUT | `/v1/p2p-matches/{match_id}/reports/{report_id}` | `X-P2P-Report-Token`; direct raw v3 JSON body | 200 accepted, quarantined, or idempotent duplicate |
-| GET | `/v1/p2p-matches/{match_id}/result` | — | 200 collection progress or final decision |
-
-Launcher must retain the report token and add it only during upload; the injected DLL receives only the non-secret match ID, capability ID, and server nonce. One immutable `FINAL` report is accepted per reporter. Missing reporters—including a host or player that leaves early—do not block indefinitely: the first final report, all reporters reaching result/left state, or closure of the room opens the collection deadline. The service then records peer-confirmed, self-reported, disputed, incomplete, or expired status. `PARTIAL` reports remain evidence but do not count toward final quorum.
+| Method | Path | Response |
+| --- | --- | --- |
+| GET | `/v1/p2p-rooms/{room_id}/matches/active` | 410 retired |
+| POST | `/v1/p2p-matches/{match_id}/report-capability` | 410 retired |
+| PUT | `/v1/p2p-matches/{match_id}/presence/me` | 410 retired |
+| PUT | `/v1/p2p-matches/{match_id}/reports/{report_id}` | 410 retired |
+| GET | `/v1/p2p-matches/{match_id}/result` | 410 retired |
 
 ### 3.7 Connection coordination and WebSocket
 
@@ -312,10 +310,10 @@ requires `game_server_registration`.
 | POST | `/v1/vnt/nodes/{node_id}/credential/rotate` | Current VNT Node credential | Return the replacement once plus its expiry and the old-token heartbeat overlap deadline |
 | POST | `/v1/vnt/nodes/{node_id}/recover` | Fresh owner-issued `VNTEnrollment` code | Reclaim an existing non-terminal node, revoke all old credentials, and return one replacement credential |
 | DELETE | `/v1/vnt/nodes/{node_id}` | VNT Node or integrity-trusted owner player | Drain or retire the node |
-| POST | `/v1/p2p-rooms/{room_id}/vnt/bootstrap` | Active member | Return the current encrypted-at-rest VNT runtime secrets; response is `no-store` |
-| PUT | `/v1/p2p-rooms/{room_id}/vnt/presence/me` | Active member | Report local tunnel state and observed path |
-| PUT | `/v1/p2p-rooms/{room_id}/vnt/host-ready` | Host + host token | Publish host readiness for the current generation |
-| POST | `/v1/p2p-rooms/{room_id}/vnt/rebind` | Host + host token | Select another node and rotate the generation and all room secrets before start |
+| POST | `/v1/p2p-rooms/{room_id}/vnt/bootstrap` | Active, Steam-verified player | 410 `ONLINE_P2P_ROOM_RETIRED`; use the scoped MatchAttempt transport flow |
+| PUT | `/v1/p2p-rooms/{room_id}/vnt/presence/me` | Active, Steam-verified player | 410 `ONLINE_P2P_ROOM_RETIRED`; use the scoped MatchAttempt transport flow |
+| PUT | `/v1/p2p-rooms/{room_id}/vnt/host-ready` | Active, Steam-verified player | 410 `ONLINE_P2P_ROOM_RETIRED`; use the scoped MatchAttempt transport flow |
+| POST | `/v1/p2p-rooms/{room_id}/vnt/rebind` | Active, Steam-verified player | 410 `ONLINE_P2P_ROOM_RETIRED`; use the scoped MatchAttempt transport flow |
 
 Enrollment issuance additionally requires an integrity-trusted session and defaults to at most three non-`RETIRED` nodes per player. `GET /v1/users/me/vnt-nodes` is read-only and does not require integrity step-up; it lets an owner recover the stable `node_id` after losing local state. Recover and owner retirement remain step-up operations. A recovery code must belong to the existing owner; recovery immediately revokes every old node credential, and endpoint/fingerprint changes are rejected while active rooms still reference the node.
 
@@ -353,7 +351,7 @@ There is no single public "VNT token" endpoint. Node enrollment and room bootstr
      --data '{"advertised_host":"203.0.113.20","port":29878,"region":"hk","location":"Hong Kong","vnts_version":"REPLACE_PINNED_VERSION","wrapper_version":"REPLACE_WRAPPER_VERSION","server_key_fingerprint":"REPLACE_SHA256_FINGERPRINT","supported_transports":["udp","tcp"],"max_rooms":100}'
    ```
 
-3. VNT room `network_token` and `e2e_password` are never issued to a node owner or public directory client. Only an active member of a VNT room receives the current generation through `POST /v1/p2p-rooms/{room_id}/vnt/bootstrap`, and the response must remain in memory with `Cache-Control: no-store` handling.
+3. Managed VNT `network_token` and `e2e_password` are delivered only through the scoped MatchAttempt transport flow and remain in core memory with `Cache-Control: no-store` handling. The standalone room bootstrap endpoint is retired; node enrollment does not grant access to match transport secrets.
 
 ## MetaServer route index
 

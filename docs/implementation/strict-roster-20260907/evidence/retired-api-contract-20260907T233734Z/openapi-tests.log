@@ -1,0 +1,10 @@
+=== RUN   TestDocumentValidatesAgainstOpenAPISchema
+--- PASS: TestDocumentValidatesAgainstOpenAPISchema (0.17s)
+=== RUN   TestReferenceDocsCoverEveryHTTPPath
+--- PASS: TestReferenceDocsCoverEveryHTTPPath (0.03s)
+=== RUN   TestDocumentHasRequiredOpenAPIShape
+--- PASS: TestDocumentHasRequiredOpenAPIShape (0.04s)
+=== RUN   TestDownloadPublishAndArchiveRequireAdminStepUp
+--- PASS: TestDownloadPublishAndArchiveRequireAdminStepUp (0.03s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/api/openapi	0.353s

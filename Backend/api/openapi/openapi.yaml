@@ -3065,434 +3065,297 @@ paths:
   /v1/p2p-rooms:
     get:
       operationId: listP2PRooms
-      tags: [P2P Rooms]
-      parameters:
-        - in: query
-          name: region
-          schema: {type: string}
-        - in: query
-          name: mode
-          schema: {type: string}
-        - in: query
-          name: version
-          schema: {type: string}
-        - in: query
-          name: state
-          schema:
-            $ref: "#/components/schemas/P2PRoomState"
-        - in: query
-          name: has_slots
-          schema: {type: boolean}
-        - in: query
-          name: cursor
-          schema: {type: string}
-        - in: query
-          name: limit
-          schema: {type: integer, minimum: 1, maximum: 100, default: 50}
+      tags: [Retired Online Routes]
+      deprecated: true
+      description: Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
       responses:
-        "200":
-          description: Public P2P room directory.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/P2PRoomListResponse"
+        "410":
+          description: ONLINE_P2P_ROOM_RETIRED. No room, grant, transport secret, or match state is issued or mutated.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ErrorResponse"}}}
     post:
       operationId: createP2PRoom
-      tags: [P2P Rooms]
-      security:
-        - playerAccessToken: []
-      parameters:
-        - in: header
-          name: Idempotency-Key
-          required: false
-          schema: {type: string, minLength: 8, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$"}
-          description: Recommended for all room creation and required by ToolBox for VNT creation; the same key and request return the same room and host token.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/P2PRoomCreateRequest"
+      tags: [Retired Online Routes]
+      deprecated: true
+      description: Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+      security: [{playerAccessToken: []}]
       responses:
-        "201":
-          description: Room created and its one-time host management credential issued.
-          headers:
-            Cache-Control: {schema: {type: string, const: no-store}}
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/P2PRoomCreateResponse"
-        "400":
-          $ref: "#/components/responses/InvalidRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          description: The authenticated account is not active.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "409": {$ref: "#/components/responses/Conflict"}
+        "410":
+          description: ONLINE_P2P_ROOM_RETIRED. No room, grant, transport secret, or match state is issued or mutated.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ErrorResponse"}}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
   /v1/p2p-rooms/{room_id}:
     parameters:
-      - $ref: "#/components/parameters/P2PRoomID"
+      - in: path
+        name: room_id
+        required: true
+        schema: {type: string}
     get:
       operationId: getP2PRoom
-      tags: [P2P Rooms]
+      tags: [Retired Online Routes]
+      deprecated: true
+      description: Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
       responses:
-        "200":
-          description: Public room state. Network candidates and credentials are never returned.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/P2PRoomResponse"
-        "404":
-          $ref: "#/components/responses/NotFound"
+        "410":
+          description: ONLINE_P2P_ROOM_RETIRED. No room, grant, transport secret, or match state is issued or mutated.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ErrorResponse"}}}
     delete:
       operationId: closeP2PRoom
-      tags: [P2P Rooms]
-      security:
-        - playerAccessToken: []
-      parameters:
-        - $ref: "#/components/parameters/P2PRoomHostToken"
+      tags: [Retired Online Routes]
+      deprecated: true
+      description: Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+      security: [{playerAccessToken: []}]
       responses:
-        "200":
-          description: Room closed idempotently.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/P2PRoomResponse"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          description: Account or independent host credential rejected.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "404":
-          $ref: "#/components/responses/NotFound"
+        "410":
+          description: ONLINE_P2P_ROOM_RETIRED. No room, grant, transport secret, or match state is issued or mutated.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ErrorResponse"}}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
   /v1/p2p-rooms/{room_id}/join:
+    parameters:
+      - in: path
+        name: room_id
+        required: true
+        schema: {type: string}
     post:
       operationId: joinP2PRoom
-      tags: [P2P Rooms]
-      security:
-        - playerAccessToken: []
-      parameters:
-        - $ref: "#/components/parameters/P2PRoomID"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/P2PRoomJoinRequest"
+      tags: [Retired Online Routes]
+      deprecated: true
+      description: Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+      security: [{playerAccessToken: []}]
       responses:
-        "200":
-          description: Membership activated; repeated joins are idempotent.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/P2PRoomResponse"
-        "409":
-          description: Room full, not joinable, or client version mismatch.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+        "410":
+          description: ONLINE_P2P_ROOM_RETIRED. No room, grant, transport secret, or match state is issued or mutated.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ErrorResponse"}}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
   /v1/p2p-rooms/{room_id}/leave:
+    parameters:
+      - in: path
+        name: room_id
+        required: true
+        schema: {type: string}
     post:
       operationId: leaveP2PRoom
-      tags: [P2P Rooms]
-      security:
-        - playerAccessToken: []
-      parameters:
-        - $ref: "#/components/parameters/P2PRoomID"
+      tags: [Retired Online Routes]
+      deprecated: true
+      description: Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+      security: [{playerAccessToken: []}]
       responses:
-        "200":
-          description: Membership deactivated; repeated leaves are idempotent.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/P2PRoomResponse"
-        "409":
-          description: Host must close the room instead of leaving it.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+        "410":
+          description: ONLINE_P2P_ROOM_RETIRED. No room, grant, transport secret, or match state is issued or mutated.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ErrorResponse"}}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
   /v1/p2p-rooms/{room_id}/heartbeat:
+    parameters:
+      - in: path
+        name: room_id
+        required: true
+        schema: {type: string}
     post:
       operationId: heartbeatP2PRoom
-      tags: [P2P Rooms]
-      security:
-        - playerAccessToken: []
-      parameters:
-        - $ref: "#/components/parameters/P2PRoomID"
-        - $ref: "#/components/parameters/P2PRoomHostToken"
+      tags: [Retired Online Routes]
+      deprecated: true
+      description: Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+      security: [{playerAccessToken: []}]
       responses:
-        "200":
-          description: Host heartbeat accepted; a stale room returns to LOBBY and all non-terminal room connection leases are renewed.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/P2PRoomHeartbeatResponse"
-        "403":
-          description: Account or independent host credential rejected.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+        "410":
+          description: ONLINE_P2P_ROOM_RETIRED. No room, grant, transport secret, or match state is issued or mutated.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ErrorResponse"}}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
   /v1/p2p-rooms/{room_id}/start:
+    parameters:
+      - in: path
+        name: room_id
+        required: true
+        schema: {type: string}
     post:
       operationId: startP2PRoom
-      tags: [P2P Rooms]
-      security:
-        - playerAccessToken: []
-      parameters:
-        - $ref: "#/components/parameters/P2PRoomID"
-        - $ref: "#/components/parameters/P2PRoomHostToken"
+      tags: [Retired Online Routes]
+      deprecated: true
+      description: Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+      security: [{playerAccessToken: []}]
       responses:
-        "200":
-          description: Legacy rooms transition to CONNECTING; an already host-ready VNT room transitions directly to RUNNING.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/P2PRoomResponse"
-        "409":
-          description: Room cannot start from its current state.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+        "410":
+          description: ONLINE_P2P_ROOM_RETIRED. No room, grant, transport secret, or match state is issued or mutated.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ErrorResponse"}}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
   /v1/p2p-rooms/{room_id}/vnt/bootstrap:
+    parameters:
+      - in: path
+        name: room_id
+        required: true
+        schema: {type: string}
     post:
       operationId: bootstrapP2PVNTSession
-      tags: [VNT]
-      security:
-        - playerAccessToken: []
-      parameters:
-        - $ref: "#/components/parameters/P2PRoomID"
+      tags: [Retired Online Routes]
+      deprecated: true
+      description: Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+      security: [{playerAccessToken: []}]
       responses:
-        "200":
-          description: Current-generation VNT runtime configuration for an active member.
-          headers:
-            Cache-Control: {schema: {type: string, const: no-store}}
-          content:
-            application/json:
-              schema: {$ref: "#/components/schemas/VNTBootstrapResponse"}
-        "429": {$ref: "#/components/responses/RateLimited"}
-        "409": {$ref: "#/components/responses/Conflict"}
+        "410":
+          description: ONLINE_P2P_ROOM_RETIRED. No room, grant, transport secret, or match state is issued or mutated.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ErrorResponse"}}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
   /v1/p2p-rooms/{room_id}/vnt/presence/me:
+    parameters:
+      - in: path
+        name: room_id
+        required: true
+        schema: {type: string}
     put:
       operationId: updateP2PVNTPresence
-      tags: [VNT]
-      security:
-        - playerAccessToken: []
-      parameters:
-        - $ref: "#/components/parameters/P2PRoomID"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: {$ref: "#/components/schemas/VNTPresenceRequest"}
+      tags: [Retired Online Routes]
+      deprecated: true
+      description: Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+      security: [{playerAccessToken: []}]
       responses:
-        "200": {description: Presence accepted, content: {application/json: {schema: {$ref: "#/components/schemas/P2PRoomResponse"}}}}
+        "410":
+          description: ONLINE_P2P_ROOM_RETIRED. No room, grant, transport secret, or match state is issued or mutated.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ErrorResponse"}}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
   /v1/p2p-rooms/{room_id}/vnt/host-ready:
+    parameters:
+      - in: path
+        name: room_id
+        required: true
+        schema: {type: string}
     put:
       operationId: markP2PVNTHostReady
-      tags: [VNT]
-      security:
-        - playerAccessToken: []
-      parameters:
-        - $ref: "#/components/parameters/P2PRoomID"
-        - $ref: "#/components/parameters/P2PRoomHostToken"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: {$ref: "#/components/schemas/VNTHostReadyRequest"}
+      tags: [Retired Online Routes]
+      deprecated: true
+      description: Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+      security: [{playerAccessToken: []}]
       responses:
-        "200": {description: Host readiness published, content: {application/json: {schema: {$ref: "#/components/schemas/P2PRoomResponse"}}}}
+        "410":
+          description: ONLINE_P2P_ROOM_RETIRED. No room, grant, transport secret, or match state is issued or mutated.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ErrorResponse"}}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
   /v1/p2p-rooms/{room_id}/vnt/rebind:
+    parameters:
+      - in: path
+        name: room_id
+        required: true
+        schema: {type: string}
     post:
       operationId: rebindP2PVNTSession
-      tags: [VNT]
-      security:
-        - playerAccessToken: []
-      parameters:
-        - $ref: "#/components/parameters/P2PRoomID"
-        - $ref: "#/components/parameters/P2PRoomHostToken"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required: [vnt_node_id]
-              properties:
-                vnt_node_id: {type: string}
+      tags: [Retired Online Routes]
+      deprecated: true
+      description: Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+      security: [{playerAccessToken: []}]
       responses:
-        "200": {description: VNT generation and room secrets rotated, content: {application/json: {schema: {$ref: "#/components/schemas/P2PRoomResponse"}}}}
-        "409": {$ref: "#/components/responses/Conflict"}
+        "410":
+          description: ONLINE_P2P_ROOM_RETIRED. No room, grant, transport secret, or match state is issued or mutated.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ErrorResponse"}}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
   /v1/p2p-rooms/{room_id}/matches/active:
+    parameters:
+      - in: path
+        name: room_id
+        required: true
+        schema: {type: string}
     get:
       operationId: getActiveP2PMatch
-      tags: [P2P BattleLog]
-      description: Returns the server-created match identity for a member of the frozen room roster.
-      security:
-        - playerAccessToken: []
-      parameters:
-        - $ref: "#/components/parameters/P2PRoomID"
+      tags: [Retired Online Routes]
+      deprecated: true
+      description: Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+      security: [{playerAccessToken: []}]
       responses:
-        "200":
-          description: Active P2P match collection state.
-          content:
-            application/json:
-              schema: {$ref: "#/components/schemas/P2PActiveMatchResponse"}
-        "403":
-          description: Verified frozen-roster membership is required.
-          content:
-            application/json:
-              schema: {$ref: "#/components/schemas/ErrorResponse"}
-        "404": {$ref: "#/components/responses/NotFound"}
+        "410":
+          description: ONLINE_MATCH_ROUTE_RETIRED. No room, grant, transport secret, or match state is issued or mutated.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ErrorResponse"}}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
   /v1/p2p-matches/{match_id}/report-capability:
+    parameters:
+      - in: path
+        name: match_id
+        required: true
+        schema: {type: string}
     post:
       operationId: issueP2PReportCapability
-      tags: [P2P BattleLog]
-      description: Rotates and returns a session-family-bound report capability for an eligible frozen-roster member.
-      security:
-        - playerAccessToken: []
-      parameters:
-        - $ref: "#/components/parameters/P2PMatchID"
+      tags: [Retired Online Routes]
+      deprecated: true
+      description: Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+      security: [{playerAccessToken: []}]
       responses:
-        "201":
-          description: Capability issued. The report token is shown only here and must not be passed to the injected payload.
-          content:
-            application/json:
-              schema: {$ref: "#/components/schemas/P2PReportCapabilityResponse"}
-        "403":
-          description: Verified eligible reporter membership is required.
-          content:
-            application/json:
-              schema: {$ref: "#/components/schemas/ErrorResponse"}
-        "404": {$ref: "#/components/responses/NotFound"}
-        "409":
-          description: Match is no longer accepting reports.
-          content:
-            application/json:
-              schema: {$ref: "#/components/schemas/ErrorResponse"}
+        "410":
+          description: ONLINE_MATCH_ROUTE_RETIRED. No room, grant, transport secret, or match state is issued or mutated.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ErrorResponse"}}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
   /v1/p2p-matches/{match_id}/presence/me:
+    parameters:
+      - in: path
+        name: match_id
+        required: true
+        schema: {type: string}
     put:
       operationId: updateOwnP2PMatchPresence
-      tags: [P2P BattleLog]
-      description: Records monotonic launcher presence, disconnect, reconnect, result-screen, and exit-intent checkpoints.
-      security:
-        - playerAccessToken: []
-      parameters:
-        - $ref: "#/components/parameters/P2PMatchID"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: {$ref: "#/components/schemas/P2PPresenceRequest"}
+      tags: [Retired Online Routes]
+      deprecated: true
+      description: Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+      security: [{playerAccessToken: []}]
       responses:
-        "200":
-          description: Presence checkpoint accepted or identified as an idempotent duplicate.
-          content:
-            application/json:
-              schema: {$ref: "#/components/schemas/P2PPresenceResponse"}
-        "400": {$ref: "#/components/responses/InvalidRequest"}
-        "403":
-          description: Verified frozen-roster membership is required.
-          content:
-            application/json:
-              schema: {$ref: "#/components/schemas/ErrorResponse"}
-        "409":
-          description: The match is finalized.
-          content:
-            application/json:
-              schema: {$ref: "#/components/schemas/ErrorResponse"}
+        "410":
+          description: ONLINE_MATCH_ROUTE_RETIRED. No room, grant, transport secret, or match state is issued or mutated.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ErrorResponse"}}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
   /v1/p2p-matches/{match_id}/reports/{report_id}:
+    parameters:
+      - in: path
+        name: match_id
+        required: true
+        schema: {type: string}
+      - in: path
+        name: report_id
+        required: true
+        schema: {type: string}
     put:
       operationId: submitP2PBattleLogV3
-      tags: [P2P BattleLog]
-      description: >-
-        Uploads one bounded raw v3 snapshot. Authentication requires both the
-        verified player access token and its session-bound report capability.
-        Idempotency is scoped to match, reporter, and report_id; a FINAL report
-        is immutable per reporter.
-      security:
-        - playerAccessToken: []
-      parameters:
-        - $ref: "#/components/parameters/P2PMatchID"
-        - $ref: "#/components/parameters/P2PReportID"
-        - $ref: "#/components/parameters/P2PReportToken"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: {$ref: "#/components/schemas/P2PBattleLogRawV3"}
+      tags: [Retired Online Routes]
+      deprecated: true
+      description: Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+      security: [{playerAccessToken: []}]
       responses:
-        "200":
-          description: Report stored, quarantined for review, or returned as an idempotent duplicate.
-          content:
-            application/json:
-              schema: {$ref: "#/components/schemas/P2PBattleLogSubmissionResponse"}
+        "410":
+          description: ONLINE_MATCH_ROUTE_RETIRED. No room, grant, transport secret, or match state is issued or mutated.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ErrorResponse"}}}
         "401": {$ref: "#/components/responses/Unauthorized"}
-        "403":
-          description: Verified reporter identity or report context rejected.
-          content:
-            application/json:
-              schema: {$ref: "#/components/schemas/ErrorResponse"}
-        "409":
-          description: Conflicting report ID/final report, or finalized match.
-          content:
-            application/json:
-              schema: {$ref: "#/components/schemas/ErrorResponse"}
-        "413":
-          description: Snapshot exceeds the configured P2P report limit.
-          content:
-            application/json:
-              schema: {$ref: "#/components/schemas/ErrorResponse"}
-        "415":
-          description: Content-Type is not application/json.
-          content:
-            application/json:
-              schema: {$ref: "#/components/schemas/ErrorResponse"}
-        "422":
-          description: Snapshot, roster identity, or timeline chain is invalid.
-          content:
-            application/json:
-              schema: {$ref: "#/components/schemas/ErrorResponse"}
+        "403": {$ref: "#/components/responses/Forbidden"}
   /v1/p2p-matches/{match_id}/result:
+    parameters:
+      - in: path
+        name: match_id
+        required: true
+        schema: {type: string}
     get:
       operationId: getP2PBattleLogResult
-      tags: [P2P BattleLog]
-      description: Returns collection progress or the immutable deadline/quorum decision to a frozen-roster member.
-      security:
-        - playerAccessToken: []
-      parameters:
-        - $ref: "#/components/parameters/P2PMatchID"
+      tags: [Retired Online Routes]
+      deprecated: true
+      description: Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+      security: [{playerAccessToken: []}]
       responses:
-        "200":
-          description: Current collection or finalized P2P result.
-          content:
-            application/json:
-              schema: {$ref: "#/components/schemas/P2PBattleLogResultResponse"}
-        "403":
-          description: Verified frozen-roster membership is required.
-          content:
-            application/json:
-              schema: {$ref: "#/components/schemas/ErrorResponse"}
-        "404": {$ref: "#/components/responses/NotFound"}
+        "410":
+          description: ONLINE_MATCH_ROUTE_RETIRED. No room, grant, transport secret, or match state is issued or mutated.
+          content: {application/json: {schema: {$ref: "#/components/schemas/ErrorResponse"}}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
   /v1/connections:
     post:
       operationId: createConnection
       tags: [Connections]
       security:
         - playerAccessToken: []
-      description: Idempotently creates a host-to-peer session. Joining a P2P room also creates this session automatically.
+      description: Coordinates a host-to-peer transport session within an authoritative attempt. It does not grant native admission or create an independent online room.
       requestBody:
         required: true
         content:
