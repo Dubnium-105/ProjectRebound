@@ -192,7 +192,8 @@ namespace
                     {"accepted", arguments.value("transport_target", "") == "10.26.0.2:7777"},
                     {"endpoint_host", "10.26.0.2"},
                     {"endpoint_port", 7777},
-                    {"world_instance_id", "world_test_1"}
+                    {"world_instance_id", "world_test_1"},
+                    {"native_connection_nonce", "host_nonce_0123456789abcdef"}
                 };
             });
         framework.SetMatchConnectionEventsCallback([](const nlohmann::json& arguments)
@@ -381,6 +382,7 @@ namespace
             const std::string authority = ReadFrame(client.Get());
             Expect(authority.find("start_match_authority_ack\t") == 0 &&
                 authority.find("\"endpoint_port\":7777") != std::string::npos &&
+                authority.find("\"native_connection_nonce\":\"host_nonce_0123456789abcdef\"") != std::string::npos &&
                 authority.find("\"request_id\":\"authority-1\"") != std::string::npos,
                 "authority acknowledgement is correlated and public-only");
 

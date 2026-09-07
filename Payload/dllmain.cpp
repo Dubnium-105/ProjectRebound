@@ -851,6 +851,16 @@ nlohmann::json OnStartMatchAuthority(const nlohmann::json& arguments)
     }
     else
     {
+        const auto nativeConnectionNonce =
+            GenerateStrictRosterNativeConnectionNonce();
+        if (!nativeConnectionNonce)
+        {
+            return nlohmann::json{
+                {"accepted", false},
+                {"code", "native_connection_nonce_unavailable"},
+                {"message", "the native Dedicated authority nonce could not be generated"}
+            };
+        }
         const StrictRoster::Decision authorityDecision =
             gStrictRosterPolicy.StartAuthority("", EpochSecondsNow());
         if (!authorityDecision.accepted)
@@ -861,6 +871,7 @@ nlohmann::json OnStartMatchAuthority(const nlohmann::json& arguments)
         }
         hostDecision.accepted = true;
         hostDecision.code = "accepted";
+        hostDecision.nativeConnectionNonce = *nativeConnectionNonce;
     }
     if (!hostDecision.accepted)
     {

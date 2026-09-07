@@ -1194,16 +1194,23 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
             const std::string endpointHost = result.value("endpoint_host", "");
             const int endpointPort = result.value("endpoint_port", 0);
             const std::string worldInstanceId = result.value("world_instance_id", "");
+            const std::string nativeConnectionNonce =
+                result.value("native_connection_nonce", "");
             const std::string endpoint = endpointPort >= 1 && endpointPort <= 65535
                 ? CommandProtocol::FormatMatchTarget(
                     endpointHost, static_cast<std::uint16_t>(endpointPort))
                 : std::string{};
-            if (endpoint.empty() || worldInstanceId.empty())
+            if (endpoint.empty() || worldInstanceId.empty() ||
+                nativeConnectionNonce.empty())
             {
                 return SendError(
-                    endpoint.empty() ? "invalid_authority_endpoint" : "authority_world_unverified",
+                    endpoint.empty() ? "invalid_authority_endpoint" :
+                        (worldInstanceId.empty() ? "authority_world_unverified" :
+                            "native_connection_nonce_unavailable"),
                     endpoint.empty() ? "authority returned an invalid endpoint" :
-                        "authority did not return a verified world instance",
+                        (worldInstanceId.empty() ?
+                            "authority did not return a verified world instance" :
+                            "authority did not return a native connection nonce"),
                     request.requestId)
                     ? FrameResult::Processed
                     : FrameResult::TransportError;
@@ -1215,7 +1222,8 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
                         {"status", "ready"},
                         {"endpoint_host", endpointHost},
                         {"endpoint_port", endpointPort},
-                        {"world_instance_id", result.value("world_instance_id", "")}
+                        {"world_instance_id", result.value("world_instance_id", "")},
+                        {"native_connection_nonce", nativeConnectionNonce}
                     },
                     request.requestId))
                 ? FrameResult::Processed
