@@ -1,0 +1,39 @@
+{
+  "public_key": "0EqyMnQrtKs6E2i9RhXk5tAiSrcaAWuvhSCjMsl3hzc=",
+  "manifest": {
+    "online_compatibility": {
+      "contract_version": "strict-authoritative-online-v1",
+      "admission_mode": "strict_roster_v1",
+      "frontend": "tauri",
+      "ipc_protocol": "strict-roster-v2",
+      "backend_schema": 46,
+      "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+      "payload_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "backend_commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "toolbox_commit": "cccccccccccccccccccccccccccccccccccccccc",
+      "acceptance_report_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "schema_version": 1,
+    "product": "project-rebound",
+    "platform": "windows",
+    "architecture": "amd64",
+    "channel": "toolbox",
+    "version": "0.9.12",
+    "minimum_supported_version": "0.9.12",
+    "published_at": "2026-09-07T00:00:00Z",
+    "files": [
+      {
+        "file_id": "strict-test-executable",
+        "path": "rebound_toolbox.exe",
+        "size": 1234,
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "compression": "none",
+        "download_url": "https://fixture.invalid/toolbox.exe?a=1\u0026b=2"
+      }
+    ],
+    "manifest_hash": "13069ac8b16ad311f29fc61104a032affea0ce1f587b49ee19f99c91c1bea6da",
+    "signature_algorithm": "Ed25519",
+    "key_id": "interop-test-key",
+    "signature": "efQFqsQBR0fs/t3Wve/84nka2Dn6upImQu00/3DwZAcj1AnY1NLKqRKd3/bDMm089kJMlHBCLXeXyxFSuzzpAg=="
+  }
+}

@@ -18,33 +18,50 @@ type File struct {
 	DownloadURL string `json:"download_url"`
 }
 
+// OnlineCompatibility is signed together with the executable digest. There is
+// one released online frontend and one exact native/DB contract.
+type OnlineCompatibility struct {
+	ContractVersion        string `json:"contract_version"`
+	AdmissionMode          string `json:"admission_mode"`
+	Frontend               string `json:"frontend"`
+	IPCProtocol            string `json:"ipc_protocol"`
+	BackendSchema          int    `json:"backend_schema"`
+	GameBinarySHA256       string `json:"game_binary_sha256"`
+	PayloadSHA256          string `json:"payload_sha256"`
+	BackendCommit          string `json:"backend_commit"`
+	ToolboxCommit          string `json:"toolbox_commit"`
+	AcceptanceReportSHA256 string `json:"acceptance_report_sha256"`
+}
+
 type Manifest struct {
-	SchemaVersion           int       `json:"schema_version"`
-	Product                 string    `json:"product"`
-	Platform                string    `json:"platform"`
-	Architecture            string    `json:"architecture"`
-	Channel                 string    `json:"channel"`
-	Version                 string    `json:"version"`
-	MinimumSupportedVersion string    `json:"minimum_supported_version"`
-	PublishedAt             time.Time `json:"published_at"`
-	Files                   []File    `json:"files"`
-	ManifestHash            string    `json:"manifest_hash"`
-	SignatureAlgorithm      string    `json:"signature_algorithm"`
-	KeyID                   string    `json:"key_id"`
-	Signature               string    `json:"signature"`
+	OnlineCompatibility     *OnlineCompatibility `json:"online_compatibility,omitempty"`
+	SchemaVersion           int                  `json:"schema_version"`
+	Product                 string               `json:"product"`
+	Platform                string               `json:"platform"`
+	Architecture            string               `json:"architecture"`
+	Channel                 string               `json:"channel"`
+	Version                 string               `json:"version"`
+	MinimumSupportedVersion string               `json:"minimum_supported_version"`
+	PublishedAt             time.Time            `json:"published_at"`
+	Files                   []File               `json:"files"`
+	ManifestHash            string               `json:"manifest_hash"`
+	SignatureAlgorithm      string               `json:"signature_algorithm"`
+	KeyID                   string               `json:"key_id"`
+	Signature               string               `json:"signature"`
 }
 
 type SourceRelease struct {
-	SchemaVersion           int                `json:"schema_version"`
-	Product                 string             `json:"product"`
-	Platform                string             `json:"platform"`
-	Architecture            string             `json:"architecture"`
-	Channel                 string             `json:"channel"`
-	Version                 string             `json:"version"`
-	MinimumSupportedVersion string             `json:"minimum_supported_version"`
-	PublishedAt             time.Time          `json:"published_at"`
-	VNTRuntime              *VNTRuntimeRelease `json:"vnt_runtime,omitempty"`
-	Files                   []SourceFile       `json:"files"`
+	OnlineCompatibility     *OnlineCompatibility `json:"online_compatibility,omitempty"`
+	SchemaVersion           int                  `json:"schema_version"`
+	Product                 string               `json:"product"`
+	Platform                string               `json:"platform"`
+	Architecture            string               `json:"architecture"`
+	Channel                 string               `json:"channel"`
+	Version                 string               `json:"version"`
+	MinimumSupportedVersion string               `json:"minimum_supported_version"`
+	PublishedAt             time.Time            `json:"published_at"`
+	VNTRuntime              *VNTRuntimeRelease   `json:"vnt_runtime,omitempty"`
+	Files                   []SourceFile         `json:"files"`
 }
 
 // VNTRuntimeRelease is copied from the ToolBox runtime sidecar into the

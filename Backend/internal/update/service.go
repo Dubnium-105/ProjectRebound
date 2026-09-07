@@ -106,6 +106,9 @@ func (s *Service) BuildAndSign(source SourceRelease) (Manifest, error) {
 }
 
 func (s *Service) VerifySignedManifest(manifest Manifest) error {
+	if err := validateOnlineCompatibility(manifest.Channel, manifest.OnlineCompatibility); err != nil {
+		return err
+	}
 	return s.signer.Verify(manifest)
 }
 
@@ -565,6 +568,9 @@ func decodeSourceRelease(path string) (SourceRelease, error) {
 }
 
 func buildManifest(cfg config.UpdateConfig, baseURL *url.URL, source SourceRelease) (Manifest, error) {
+	if err := validateOnlineCompatibility(source.Channel, source.OnlineCompatibility); err != nil {
+		return Manifest{}, err
+	}
 	if source.SchemaVersion != 1 || source.Product != cfg.Product ||
 		!identifierPattern.MatchString(source.Platform) || !identifierPattern.MatchString(source.Architecture) ||
 		!validChannel(source.Channel) || source.PublishedAt.IsZero() || len(source.Files) == 0 {
@@ -583,7 +589,8 @@ func buildManifest(cfg config.UpdateConfig, baseURL *url.URL, source SourceRelea
 		return Manifest{}, errors.New("vnt_runtime is only valid for toolbox releases")
 	}
 	manifest := Manifest{
-		SchemaVersion: source.SchemaVersion, Product: source.Product,
+		OnlineCompatibility: source.OnlineCompatibility,
+		SchemaVersion:       source.SchemaVersion, Product: source.Product,
 		Platform: strings.ToLower(source.Platform), Architecture: strings.ToLower(source.Architecture), Channel: source.Channel,
 		Version: source.Version, MinimumSupportedVersion: source.MinimumSupportedVersion,
 		PublishedAt: source.PublishedAt.UTC(), Files: make([]File, 0, len(source.Files)),
@@ -684,6 +691,27 @@ func sameOriginRedirects(request *http.Request, via []*http.Request) error {
 	if !strings.EqualFold(request.URL.Scheme, origin.Scheme) ||
 		!strings.EqualFold(request.URL.Host, origin.Host) {
 		return errors.New("cross-origin redirect rejected")
+	}
+	return nil
+}
+
+func validateOnlineCompatibility(channel string, compatibility *OnlineCompatibility) error {
+	if channel != ChannelToolbox {
+		if compatibility != nil {
+			return errors.New("online_compatibility belongs to toolbox releases only")
+		}
+		return nil
+	}
+	if compatibility == nil {
+		return errors.New("toolbox release requires signed online_compatibility")
+	}
+	c := compatibility
+	if c.ContractVersion != "strict-authoritative-online-v1" || c.AdmissionMode != "strict_roster_v1" || c.Frontend != "tauri" ||
+		c.IPCProtocol != "strict-roster-v2" || c.BackendSchema != 46 ||
+		c.GameBinarySHA256 != "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843" ||
+		!sha256Pattern.MatchString(c.PayloadSHA256) || !sha256Pattern.MatchString(c.AcceptanceReportSHA256) ||
+		!regexp.MustCompile(`^[0-9a-f]{40}$`).MatchString(c.BackendCommit) || !regexp.MustCompile(`^[0-9a-f]{40}$`).MatchString(c.ToolboxCommit) {
+		return errors.New("toolbox online compatibility does not match the sole supported strict release")
 	}
 	return nil
 }

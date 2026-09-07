@@ -76,7 +76,8 @@ func (s *Signer) Sign(manifest Manifest) (Manifest, error) {
 
 func CanonicalUnsigned(manifest Manifest) ([]byte, error) {
 	return json.Marshal(unsignedPayload{
-		SchemaVersion: manifest.SchemaVersion, Product: manifest.Product, Platform: manifest.Platform,
+		OnlineCompatibility: manifest.OnlineCompatibility,
+		SchemaVersion:       manifest.SchemaVersion, Product: manifest.Product, Platform: manifest.Platform,
 		Architecture: manifest.Architecture, Channel: manifest.Channel, Version: manifest.Version,
 		MinimumSupportedVersion: manifest.MinimumSupportedVersion, PublishedAt: manifest.PublishedAt,
 		Files: manifest.Files, ManifestHash: manifest.ManifestHash,
@@ -113,37 +114,40 @@ func (s *Signer) Verify(manifest Manifest) error {
 func (s *Signer) Ephemeral() bool { return s.ephemeral }
 
 type unsignedPayload struct {
-	SchemaVersion           int       `json:"schema_version"`
-	Product                 string    `json:"product"`
-	Platform                string    `json:"platform"`
-	Architecture            string    `json:"architecture"`
-	Channel                 string    `json:"channel"`
-	Version                 string    `json:"version"`
-	MinimumSupportedVersion string    `json:"minimum_supported_version"`
-	PublishedAt             time.Time `json:"published_at"`
-	Files                   []File    `json:"files"`
-	ManifestHash            string    `json:"manifest_hash"`
-	SignatureAlgorithm      string    `json:"signature_algorithm"`
-	KeyID                   string    `json:"key_id"`
+	OnlineCompatibility     *OnlineCompatibility `json:"online_compatibility,omitempty"`
+	SchemaVersion           int                  `json:"schema_version"`
+	Product                 string               `json:"product"`
+	Platform                string               `json:"platform"`
+	Architecture            string               `json:"architecture"`
+	Channel                 string               `json:"channel"`
+	Version                 string               `json:"version"`
+	MinimumSupportedVersion string               `json:"minimum_supported_version"`
+	PublishedAt             time.Time            `json:"published_at"`
+	Files                   []File               `json:"files"`
+	ManifestHash            string               `json:"manifest_hash"`
+	SignatureAlgorithm      string               `json:"signature_algorithm"`
+	KeyID                   string               `json:"key_id"`
 }
 
 type manifestHashPayload struct {
-	SchemaVersion           int       `json:"schema_version"`
-	Product                 string    `json:"product"`
-	Platform                string    `json:"platform"`
-	Architecture            string    `json:"architecture"`
-	Channel                 string    `json:"channel"`
-	Version                 string    `json:"version"`
-	MinimumSupportedVersion string    `json:"minimum_supported_version"`
-	PublishedAt             time.Time `json:"published_at"`
-	Files                   []File    `json:"files"`
-	SignatureAlgorithm      string    `json:"signature_algorithm"`
-	KeyID                   string    `json:"key_id"`
+	OnlineCompatibility     *OnlineCompatibility `json:"online_compatibility,omitempty"`
+	SchemaVersion           int                  `json:"schema_version"`
+	Product                 string               `json:"product"`
+	Platform                string               `json:"platform"`
+	Architecture            string               `json:"architecture"`
+	Channel                 string               `json:"channel"`
+	Version                 string               `json:"version"`
+	MinimumSupportedVersion string               `json:"minimum_supported_version"`
+	PublishedAt             time.Time            `json:"published_at"`
+	Files                   []File               `json:"files"`
+	SignatureAlgorithm      string               `json:"signature_algorithm"`
+	KeyID                   string               `json:"key_id"`
 }
 
 func hashPayload(manifest Manifest) manifestHashPayload {
 	return manifestHashPayload{
-		SchemaVersion: manifest.SchemaVersion, Product: manifest.Product, Platform: manifest.Platform,
+		OnlineCompatibility: manifest.OnlineCompatibility,
+		SchemaVersion:       manifest.SchemaVersion, Product: manifest.Product, Platform: manifest.Platform,
 		Architecture: manifest.Architecture, Channel: manifest.Channel, Version: manifest.Version,
 		MinimumSupportedVersion: manifest.MinimumSupportedVersion, PublishedAt: manifest.PublishedAt,
 		Files: manifest.Files, SignatureAlgorithm: manifest.SignatureAlgorithm, KeyID: manifest.KeyID,

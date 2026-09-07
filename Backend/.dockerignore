@@ -1,0 +1,11 @@
+# Runtime images are built from ./cmd; historical binaries are never build inputs.
+matchserver
+matchserver.db*
+*.exe
+*.dll
+*.log
+.tmp
+backups
+release-record.json
+.env
+**/.env

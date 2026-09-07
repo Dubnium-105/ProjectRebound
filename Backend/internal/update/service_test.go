@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -44,7 +45,7 @@ func TestSignedManifestCatalogAndChannels(t *testing.T) {
 		Files: []SourceFile{{FileID: "file_beta", Path: "game.exe", Size: 30, SHA256: repeatHex("c"), Compression: "none", ObjectKey: "beta/1.3.0-beta.1/game.exe"}},
 	})
 	writeRelease(t, cfg.ManifestDirectory, "toolbox.json", SourceRelease{
-		SchemaVersion: 1, Product: cfg.Product, Platform: "windows", Architecture: "amd64", Channel: "toolbox",
+		SchemaVersion: 1, Product: cfg.Product, Platform: "windows", Architecture: "amd64", Channel: "toolbox", OnlineCompatibility: testOnlineCompatibility(),
 		Version: "0.9.0", MinimumSupportedVersion: "0.8.0", PublishedAt: time.Date(2026, 7, 18, 3, 4, 5, 0, time.UTC),
 		VNTRuntime: &VNTRuntimeRelease{VNTSVersion: "1.2.12", WrapperVersion: "0.1.0"},
 		Files:      []SourceFile{{FileID: "file_toolbox", Path: "rebound_toolbox.exe", Size: 40, SHA256: repeatHex("d"), Compression: "none", ObjectKey: "toolbox/0.9.0/Rebound_Toolbox.exe"}},
@@ -155,7 +156,7 @@ func TestResolveVNTRuntimeReadsVerifiedToolboxReleaseSidecar(t *testing.T) {
 	}
 	service.SetManagedReleaseURLs(server.URL+"/public", server.URL+"/objects")
 	source := SourceRelease{
-		SchemaVersion: 1, Product: cfg.Product, Platform: "windows", Architecture: "amd64", Channel: ChannelToolbox,
+		SchemaVersion: 1, Product: cfg.Product, Platform: "windows", Architecture: "amd64", Channel: ChannelToolbox, OnlineCompatibility: testOnlineCompatibility(),
 		Version: "0.9.0", MinimumSupportedVersion: "0.9.0", PublishedAt: time.Now().UTC(),
 		Files: []SourceFile{
 			{
@@ -210,7 +211,7 @@ func TestToolboxManifestRequiresCanonicalUncompressedExecutable(t *testing.T) {
 		t.Fatal(err)
 	}
 	base := SourceRelease{
-		SchemaVersion: 1, Product: cfg.Product, Platform: "windows", Architecture: "amd64", Channel: ChannelToolbox,
+		SchemaVersion: 1, Product: cfg.Product, Platform: "windows", Architecture: "amd64", Channel: ChannelToolbox, OnlineCompatibility: testOnlineCompatibility(),
 		Version: "0.9.12", MinimumSupportedVersion: "0.9.12", PublishedAt: time.Now().UTC(),
 		Files: []SourceFile{{
 			FileID: "file_toolbox", Path: toolboxExecutablePath, Size: 1,
@@ -361,3 +362,43 @@ func writeRelease(t *testing.T, directory, name string, release SourceRelease) {
 }
 
 func repeatHex(character string) string { return string(bytes.Repeat([]byte(character), 64)) }
+
+func testOnlineCompatibility() *OnlineCompatibility {
+	return &OnlineCompatibility{ContractVersion: "strict-authoritative-online-v1", AdmissionMode: "strict_roster_v1", Frontend: "tauri", IPCProtocol: "strict-roster-v2", BackendSchema: 46,
+		GameBinarySHA256: "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843", PayloadSHA256: strings.Repeat("a", 64), BackendCommit: strings.Repeat("b", 40), ToolboxCommit: strings.Repeat("c", 40), AcceptanceReportSHA256: strings.Repeat("d", 64)}
+}
+
+func TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded(t *testing.T) {
+	for name, mutate := range map[string]func(*OnlineCompatibility){
+		"old IPC":          func(c *OnlineCompatibility) { c.IPCProtocol = "strict-roster-v1" },
+		"old frontend":     func(c *OnlineCompatibility) { c.Frontend = "egui" },
+		"old DB":           func(c *OnlineCompatibility) { c.BackendSchema = 24 },
+		"admission bypass": func(c *OnlineCompatibility) { c.AdmissionMode = "open" },
+		"wrong game":       func(c *OnlineCompatibility) { c.GameBinarySHA256 = strings.Repeat("0", 64) },
+		"missing evidence": func(c *OnlineCompatibility) { c.AcceptanceReportSHA256 = "" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			c := testOnlineCompatibility()
+			mutate(c)
+			if validateOnlineCompatibility(ChannelToolbox, c) == nil {
+				t.Fatal("incompatible release accepted")
+			}
+		})
+	}
+	if validateOnlineCompatibility(ChannelToolbox, nil) == nil {
+		t.Fatal("old unscoped toolbox accepted")
+	}
+	cfg := testUpdateConfig(t)
+	signer, err := NewSigner(cfg, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := signer.Sign(Manifest{Channel: ChannelToolbox, OnlineCompatibility: testOnlineCompatibility()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.OnlineCompatibility.ToolboxCommit = strings.Repeat("e", 40)
+	if signer.Verify(m) == nil {
+		t.Fatal("signed compatibility tampering accepted")
+	}
+}
