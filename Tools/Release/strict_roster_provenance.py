@@ -192,6 +192,15 @@ def validate_candidate_binding(inventory_path, candidate_path, artifact_paths, r
                     or subtree.get("git_tree") != current_tree
                     or subtree.get("matches_reviewed_source_pair") is not True):
                 problems.append("Payload inventory lacks a verified reviewed-source subtree")
+    binding["inventory_artifacts"] = {
+        kind: {
+            "role": entry.get("role"),
+            "sha256": entry.get("sha256"),
+            "signature_status": entry.get("signature_status"),
+            "compatibility_status": entry.get("compatibility_status"),
+        }
+        for kind, entry in by_kind.items()
+    }
     required_kinds = {artifact_kind(path) for path in artifact_paths}
     required_kinds.discard(None)
     for kind in sorted(required_kinds):
@@ -244,6 +253,12 @@ def validate_candidate_binding(inventory_path, candidate_path, artifact_paths, r
     binding["candidate_build_manifest_path"] = str(selected_candidate) if selected_candidate else None
     if selected_candidate and selected_candidate.is_file():
         binding["candidate_build_manifest_sha256"] = sha(selected_candidate)
+    inventory_generation = inventory.get("generation_id")
+    candidate_generation = candidate.get("generation_id")
+    if not isinstance(candidate_generation, str) or not candidate_generation.strip():
+        problems.append("candidate build manifest lacks generation_id")
+    elif candidate_generation != inventory_generation:
+        problems.append("candidate build manifest generation_id does not match artifact inventory")
     if candidate.get("source_commit") != reviewed_pair.get("Toolbox"):
         problems.append("candidate source_commit does not match the reviewed Toolbox source")
     if candidate.get("source_dirty") is not False:
@@ -272,6 +287,62 @@ def validate_candidate_binding(inventory_path, candidate_path, artifact_paths, r
     return problems, binding
 
 
+def release_artifact_attestation_problems(artifacts, inventory_artifacts, acceptance_artifacts):
+    """Bind release-status claims to role, bytes, and inventory observations.
+
+    The acceptance report is a coverage record, not an authority to upgrade a
+    candidate by repeating PASS beside a matching digest.  Inventory status is
+    the independent status observed while freezing the exact artifact bytes;
+    both status dimensions must already be PASS before an acceptance report
+    can make an artifact eligible.
+    """
+    problems = []
+    matched = {}
+    if not isinstance(acceptance_artifacts, list):
+        return ["acceptance report artifact_hashes must be a list"], matched
+    if not isinstance(inventory_artifacts, dict):
+        return ["candidate binding lacks inventory artifact observations"], matched
+    for artifact in artifacts:
+        kind = artifact.get("kind")
+        digest = artifact.get("sha256")
+        if kind is None or not valid_sha256(digest):
+            problems.append("release artifact lacks a valid role or sha256")
+            continue
+        candidates = []
+        for item in acceptance_artifacts:
+            if not isinstance(item, dict):
+                continue
+            item_kind = artifact_kind(item.get("role", item.get("kind", "")))
+            item_digest = item.get("sha256")
+            if item_kind == kind and isinstance(item_digest, str) and item_digest.lower() == digest.lower():
+                candidates.append(item)
+        if len(candidates) != 1:
+            problems.append(Path(artifact["path"]).name + " lacks exactly one role-and-sha acceptance proof")
+            continue
+        attestation = candidates[0]
+        inventory_item = inventory_artifacts.get(kind)
+        if not isinstance(inventory_item, dict):
+            problems.append(Path(artifact["path"]).name + " lacks a matching inventory role")
+            continue
+        if (not isinstance(inventory_item.get("sha256"), str)
+                or inventory_item["sha256"].lower() != digest.lower()):
+            problems.append(Path(artifact["path"]).name + " inventory role has a different sha256")
+            continue
+        status_verified = True
+        for status_name in ("signature_status", "compatibility_status"):
+            inventory_status = inventory_item.get(status_name)
+            acceptance_status = attestation.get(status_name)
+            if inventory_status != "PASS":
+                status_verified = False
+                problems.append(Path(artifact["path"]).name + " inventory " + status_name + " is not PASS")
+            if acceptance_status != inventory_status:
+                status_verified = False
+                problems.append(Path(artifact["path"]).name + " acceptance " + status_name + " does not match inventory")
+        if status_verified:
+            matched[kind] = attestation
+    return problems, matched
+
+
 def artifact_inventory_problems(paths):
     expected = {"control-plane", "meta-server", "edge-relay", "payload.dll",
                 "rebound_toolbox_tauri.exe"}
@@ -288,6 +359,38 @@ def _resolve_evidence_path(value, report_path=None):
     if not path.is_absolute() and report_path is not None:
         path = report_path.parent / path
     return path
+
+
+def _step_log_hashes(step, log_paths):
+    """Normalize the supported per-step log digest shapes.
+
+    Existing receipts use either one ``log_sha256`` for one log or a
+    ``log_hashes`` mapping/list when a step has multiple logs.  A missing
+    digest is deliberately not treated as an unverifiable success.
+    """
+    raw = step.get("log_hashes")
+    if raw is None:
+        raw = step.get("log_sha256")
+    if isinstance(raw, str):
+        values = [raw] if len(log_paths) == 1 else None
+    elif isinstance(raw, dict):
+        values = [raw.get(path) for path in log_paths]
+    elif isinstance(raw, list):
+        if all(isinstance(item, dict) for item in raw):
+            by_path = {
+                item.get("path"): item.get("sha256", item.get("hash"))
+                for item in raw
+            }
+            values = [by_path.get(path) for path in log_paths]
+        else:
+            values = raw
+    else:
+        values = None
+    if not isinstance(values, list) or len(values) != len(log_paths):
+        return None
+    if any(not valid_sha256(value) for value in values):
+        return None
+    return dict(zip(log_paths, values))
 
 
 def _execution_step_problems(case, evidence, report_path=None):
@@ -337,6 +440,14 @@ def _execution_step_problems(case, evidence, report_path=None):
                 path = _resolve_evidence_path(item, report_path)
                 if path is None or not path.is_file():
                     problems.append(prefix + " references missing log " + str(item))
+        log_hashes = _step_log_hashes(step, logs if isinstance(logs, list) else [])
+        if log_hashes is None:
+            problems.append(prefix + " has no complete log sha256 evidence")
+        elif report_path is not None:
+            for item, expected_digest in log_hashes.items():
+                path = _resolve_evidence_path(item, report_path)
+                if path is not None and path.is_file() and sha(path).lower() != expected_digest.lower():
+                    problems.append(prefix + " log sha256 changed for " + str(item))
         if not step.get("observed_result"):
             problems.append(prefix + " has no observed_result")
         observed_exit = step.get("exit_code")
@@ -590,14 +701,19 @@ def main():
         for name, repo in repos.items():
             if expected_commits.get(name) != repo["commit"]:
                 problems.append(name + " acceptance commit does not match the checked out source")
-        attested_artifacts = {item.get("sha256"): item for item in result.get("artifact_hashes", []) if isinstance(item, dict)}
+        attestation_problems, attested_artifacts = release_artifact_attestation_problems(
+            artifacts,
+            candidate_binding.get("inventory_artifacts", {}),
+            result.get("artifact_hashes", []),
+        )
+        problems.extend(attestation_problems)
         for artifact in artifacts:
-            attestation = attested_artifacts.get(artifact["sha256"], {})
-            if attestation.get("signature_status") != "PASS" or attestation.get("compatibility_status") != "PASS":
-                problems.append(Path(artifact["path"]).name + " has no matching verified artifact/signature/compatibility evidence")
-            elif artifact["release_eligible"] is not False and (
+            attestation = attested_artifacts.get(artifact.get("kind"), {})
+            if (attestation.get("signature_status") == "PASS"
+                    and attestation.get("compatibility_status") == "PASS"
+                    and artifact["release_eligible"] is not False and (
                     artifact.get("kind") not in ("payload.dll", "rebound_toolbox_tauri.exe")
-                    or candidate_binding.get("validated")):
+                    or candidate_binding.get("validated"))):
                 artifact["release_eligible"] = True
                 artifact["reason"] = "exact digest linked to supplied verified acceptance evidence"
         if result.get("release_ready") is not True:

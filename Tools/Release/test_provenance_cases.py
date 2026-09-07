@@ -14,6 +14,7 @@ from strict_roster_provenance import (
     initial_artifact_release_state,
     sha,
     source_tree_state,
+    _execution_step_problems,
     validate_candidate_binding,
 )
 
@@ -52,6 +53,7 @@ class AcceptanceCaseGateTests(unittest.TestCase):
                         "command": "synthetic e2e step one",
                         "exit_code": 0,
                         "log_paths": ["synthetic-step-0.log"],
+                        "log_sha256": "a" * 64,
                         "observed_result": "step one observed",
                     },
                     {
@@ -61,6 +63,7 @@ class AcceptanceCaseGateTests(unittest.TestCase):
                         "command": "synthetic e2e step two",
                         "exit_code": 0,
                         "log_paths": ["synthetic-step-1.log"],
+                        "log_sha256": "b" * 64,
                         "observed_result": "step two observed",
                     },
                 ],
@@ -147,6 +150,30 @@ class AcceptanceCaseGateTests(unittest.TestCase):
         step.pop("log_paths")
         self.assertIn("E2E-01 execution step 1 has no log_paths", acceptance_case_problems(report))
 
+    def test_e2e_step_log_digest_is_required_and_detects_tampering(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            log = root / "step.log"
+            log.write_text("original\n", encoding="utf-8")
+            case = {"id": "E2E-X", "steps": ["one"]}
+            evidence = {"execution_steps": [{
+                "id": "step-one", "status": "PASS", "contract_step_indices": [0],
+                "command": "synthetic", "exit_code": 0,
+                "log_paths": [log.name], "log_sha256": sha(log),
+                "observed_result": "original",
+            }]}
+            report_path = root / "acceptance.json"
+            self.assertEqual(_execution_step_problems(case, evidence, report_path), [])
+
+            missing = copy.deepcopy(evidence)
+            del missing["execution_steps"][0]["log_sha256"]
+            self.assertIn("E2E-X execution step 0 has no complete log sha256 evidence",
+                          _execution_step_problems(case, missing, report_path))
+
+            log.write_text("tampered\n", encoding="utf-8")
+            self.assertTrue(any("E2E-X execution step 0 log sha256 changed for" in item
+                                for item in _execution_step_problems(case, evidence, report_path)))
+
     def test_e2e_execution_report_binds_real_source_result_and_steps(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -154,6 +181,9 @@ class AcceptanceCaseGateTests(unittest.TestCase):
             (root / "synthetic-step-0.log").write_text("step 0\n", encoding="utf-8")
             (root / "synthetic-step-1.log").write_text("step 1\n", encoding="utf-8")
             report = self.report()
+            for e2e_case in report["e2e_tests"]:
+                e2e_case["result"]["execution_steps"][0]["log_sha256"] = sha(root / "synthetic-step-0.log")
+                e2e_case["result"]["execution_steps"][1]["log_sha256"] = sha(root / "synthetic-step-1.log")
             pair = report["commit_pair"]
             def actual_for(case):
                 evidence = case["result"]
@@ -308,6 +338,7 @@ class ArtifactInventoryGateTests(unittest.TestCase):
             candidate_data = {
                 "source_commit": repositories["Toolbox"]["commit"],
                 "source_dirty": False,
+                "generation_id": "test-generation",
                 "payload_path": str(artifacts[3]), "payload_sha256": sha(artifacts[3]),
                 "toolbox_path": str(artifacts[4]), "toolbox_sha256": sha(artifacts[4]),
                 "game_sha256": sha(game),
@@ -326,7 +357,9 @@ class ArtifactInventoryGateTests(unittest.TestCase):
                 owner = "Toolbox" if kind == "rebound_toolbox_tauri.exe" else "ProjectRebound"
                 entry = {"role": kind, "path": str(path), "sha256": sha(path),
                          "bytes": path.stat().st_size, "source_repository": owner,
-                         "source_pair_commit": repositories[owner]["commit"]}
+                         "source_pair_commit": repositories[owner]["commit"],
+                         "signature_status": "PASS",
+                         "compatibility_status": "PASS"}
                 if kind == "payload.dll":
                     tree = subprocess.run(["git", "rev-parse", "HEAD:Payload"], cwd=project,
                                           text=True, capture_output=True, check=True).stdout.strip()
@@ -344,6 +377,101 @@ class ArtifactInventoryGateTests(unittest.TestCase):
                     problems, _ = validate_candidate_binding(inventory, candidate, artifacts, repositories)
                     self.assertIn(artifact_kind(path) + " supplied artifact sha256 does not match inventory", problems)
                     path.write_bytes(original)
+
+    def test_candidate_generation_must_match_inventory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            toolbox = root / "toolbox"
+            project.mkdir()
+            toolbox.mkdir()
+            (project / "Payload").mkdir()
+            (project / "Payload" / "source.cpp").write_text("strict payload\n", encoding="utf-8")
+            (toolbox / "Cargo.lock").write_text("# lock\n", encoding="utf-8")
+
+            def commit(repo, path, message):
+                subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+                subprocess.run(["git", "add", str(path)], cwd=repo, check=True)
+                subprocess.run(
+                    ["git", "-c", "user.name=provenance-test", "-c",
+                     "user.email=provenance-test@example.invalid", "commit", "-qm", message],
+                    cwd=repo, check=True)
+
+            commit(project, Path("Payload"), "payload")
+            commit(toolbox, Path("Cargo.lock"), "toolbox")
+            repositories = {"ProjectRebound": source_tree_state(project),
+                            "Toolbox": source_tree_state(toolbox)}
+            artifacts = []
+            for name, data in (
+                ("control-plane", b"control"), ("meta-server", b"meta"),
+                ("edge-relay", b"edge"), ("Payload.dll", b"payload"),
+                ("rebound_toolbox_tauri.exe", b"tauri")):
+                path = root / name
+                path.write_bytes(data)
+                artifacts.append(path)
+            game = root / "Boundary.exe"
+            game.write_bytes(b"pinned game")
+            candidate = root / "candidate.json"
+            candidate_data = {
+                "source_commit": repositories["Toolbox"]["commit"],
+                "source_dirty": False,
+                "generation_id": "wrong-generation",
+                "payload_path": str(artifacts[3]), "payload_sha256": sha(artifacts[3]),
+                "toolbox_path": str(artifacts[4]), "toolbox_sha256": sha(artifacts[4]),
+                "game_sha256": sha(game),
+            }
+            candidate.write_text(json.dumps(candidate_data), encoding="utf-8")
+            inventory = root / "artifact-inventory.json"
+            inventory_data = {
+                "schema_version": 1, "generation_id": "expected-generation",
+                "source_commits": {name: value["commit"] for name, value in repositories.items()},
+                "artifacts": [],
+                "candidate_build_manifest": {"path": str(candidate), "sha256": sha(candidate)},
+                "pinned_game_reference": {"path": str(game), "sha256": sha(game)},
+            }
+            for path in artifacts:
+                kind = artifact_kind(path)
+                owner = "Toolbox" if kind == "rebound_toolbox_tauri.exe" else "ProjectRebound"
+                entry = {"role": kind, "path": str(path), "sha256": sha(path),
+                         "bytes": path.stat().st_size, "source_repository": owner,
+                         "source_pair_commit": repositories[owner]["commit"],
+                         "signature_status": "PASS", "compatibility_status": "PASS"}
+                if kind == "payload.dll":
+                    tree = subprocess.run(["git", "rev-parse", "HEAD:Payload"], cwd=project,
+                                          text=True, capture_output=True, check=True).stdout.strip()
+                    entry.update(build_source_commit=repositories["ProjectRebound"]["commit"],
+                                 verified_source_subtree={"path": "Payload", "git_tree": tree,
+                                                          "matches_reviewed_source_pair": True})
+                inventory_data["artifacts"].append(entry)
+            inventory.write_text(json.dumps(inventory_data), encoding="utf-8")
+
+            problems, binding = validate_candidate_binding(inventory, candidate, artifacts, repositories)
+            self.assertFalse(binding["validated"])
+            self.assertIn("candidate build manifest generation_id does not match artifact inventory", problems)
+
+    def test_acceptance_status_cannot_override_inventory_status_or_role(self):
+        artifacts = [
+            {"kind": "control-plane", "path": "control-plane", "sha256": "1" * 64},
+            {"kind": "meta-server", "path": "meta-server", "sha256": "2" * 64},
+        ]
+        inventory = {
+            "control-plane": {"role": "control-plane", "sha256": "1" * 64,
+                               "signature_status": "BLOCKED", "compatibility_status": "PASS"},
+            "meta-server": {"role": "meta-server", "sha256": "2" * 64,
+                             "signature_status": "PASS", "compatibility_status": "PASS"},
+        }
+        acceptance = [
+            {"role": "control-plane", "sha256": "1" * 64,
+             "signature_status": "PASS", "compatibility_status": "PASS"},
+            {"role": "wrong-role", "sha256": "2" * 64,
+             "signature_status": "PASS", "compatibility_status": "PASS"},
+        ]
+        from strict_roster_provenance import release_artifact_attestation_problems
+        problems, matched = release_artifact_attestation_problems(artifacts, inventory, acceptance)
+        self.assertNotIn("control-plane", matched)
+        self.assertNotIn("meta-server", matched)
+        self.assertIn("control-plane inventory signature_status is not PASS", problems)
+        self.assertIn("meta-server lacks exactly one role-and-sha acceptance proof", problems)
 
     def test_go_source_failure_cannot_become_release_eligible(self):
         state, reason = initial_artifact_release_state(Path("CONTROL-PLANE"), ["bad source stamp"])

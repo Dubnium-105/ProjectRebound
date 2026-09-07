@@ -1,0 +1,27 @@
+test_aggregate_result_requires_individual_execution_records (__main__.AcceptanceCaseGateTests.test_aggregate_result_requires_individual_execution_records) ... ok
+test_complete_synthetic_case_inventory (__main__.AcceptanceCaseGateTests.test_complete_synthetic_case_inventory) ... ok
+test_e2e_execution_report_binds_real_source_result_and_steps (__main__.AcceptanceCaseGateTests.test_e2e_execution_report_binds_real_source_result_and_steps) ... ok
+test_e2e_pass_requires_step_mapping_and_current_execution_source (__main__.AcceptanceCaseGateTests.test_e2e_pass_requires_step_mapping_and_current_execution_source) ... ok
+test_e2e_step_log_digest_is_required_and_detects_tampering (__main__.AcceptanceCaseGateTests.test_e2e_step_log_digest_is_required_and_detects_tampering) ... ok
+test_e2e_step_without_evidence_cannot_pass (__main__.AcceptanceCaseGateTests.test_e2e_step_without_evidence_cannot_pass) ... ok
+test_historical_pass_cannot_hide_nested_candidate_blocker (__main__.AcceptanceCaseGateTests.test_historical_pass_cannot_hide_nested_candidate_blocker) ... ok
+test_pass_cannot_hide_failure_or_empty_execution (__main__.AcceptanceCaseGateTests.test_pass_cannot_hide_failure_or_empty_execution) ... ok
+test_pass_requires_matching_source_and_artifact_scope (__main__.AcceptanceCaseGateTests.test_pass_requires_matching_source_and_artifact_scope) ... ok
+test_pass_without_required_evidence_is_rejected (__main__.AcceptanceCaseGateTests.test_pass_without_required_evidence_is_rejected) ... ok
+test_same_count_cannot_hide_duplicate_or_unknown_case (__main__.AcceptanceCaseGateTests.test_same_count_cannot_hide_duplicate_or_unknown_case) ... ok
+test_skip_or_not_run_never_counts_as_pass (__main__.AcceptanceCaseGateTests.test_skip_or_not_run_never_counts_as_pass) ... ok
+test_acceptance_status_cannot_override_inventory_status_or_role (__main__.ArtifactInventoryGateTests.test_acceptance_status_cannot_override_inventory_status_or_role) ... ok
+test_all_five_artifacts_are_required (__main__.ArtifactInventoryGateTests.test_all_five_artifacts_are_required) ... ok
+test_candidate_generation_must_match_inventory (__main__.ArtifactInventoryGateTests.test_candidate_generation_must_match_inventory) ... ok
+test_candidate_inventory_binds_all_supplied_artifact_bytes (__main__.ArtifactInventoryGateTests.test_candidate_inventory_binds_all_supplied_artifact_bytes) ... ok
+test_case_insensitive_go_role_still_requires_vcs_stamp (__main__.ArtifactInventoryGateTests.test_case_insensitive_go_role_still_requires_vcs_stamp) ... ok
+test_duplicate_cannot_substitute_for_missing_artifact (__main__.ArtifactInventoryGateTests.test_duplicate_cannot_substitute_for_missing_artifact) ... ok
+test_go_source_failure_cannot_become_release_eligible (__main__.ArtifactInventoryGateTests.test_go_source_failure_cannot_become_release_eligible) ... ok
+test_legacy_or_unknown_binary_cannot_enter_the_release_set (__main__.ArtifactInventoryGateTests.test_legacy_or_unknown_binary_cannot_enter_the_release_set) ... ok
+test_unproven_non_go_artifacts_are_blocked_without_inventory (__main__.ArtifactInventoryGateTests.test_unproven_non_go_artifacts_are_blocked_without_inventory) ... ok
+test_untracked_source_is_dirty (__main__.ArtifactInventoryGateTests.test_untracked_source_is_dirty) ... ok
+
+----------------------------------------------------------------------
+Ran 22 tests in 4.643s
+
+OK

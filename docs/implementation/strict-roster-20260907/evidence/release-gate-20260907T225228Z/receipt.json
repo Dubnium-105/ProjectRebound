@@ -1,0 +1,18 @@
+{
+  "source_commit": "dc49017e488e8b5bf6f6544b4428c46d230c0abd",
+  "source_dirty": true,
+  "source_sha256": {
+    "Tools/Release/strict_roster_provenance.py": "63b431c1c6998a23fa01ca5731ab7362c46e3efb4aa5f3d85ea40da874e890b5",
+    "Tools/Release/test_provenance_cases.py": "d5b9388043e61053fb4b90fca050bc8ec36889e706f6eb93d6187536ddea9c17"
+  },
+  "command": [
+    "C:\\Python314\\python.exe",
+    "-B",
+    "C:\\wksp\\ProjectRebound\\Tools\\Release\\test_provenance_cases.py"
+  ],
+  "exit_code": 0,
+  "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\release-gate-20260907T225228Z\\gate-tests.log",
+  "log_sha256": "ec4caf8288d61a1cb5e0458f601471c0107c584a5d66439d17ba1c90dff62ed3",
+  "finished_at": "2026-09-07T22:52:33.440944+00:00",
+  "scope": "Actual release gate regression run; no native acceptance or artifact signature claimed."
+}
