@@ -181,7 +181,8 @@ namespace
                 return nlohmann::json{
                     {"accepted", arguments.value("transport_target", "") == "10.26.0.2:7777"},
                     {"endpoint_host", "10.26.0.2"},
-                    {"endpoint_port", 7777}
+                    {"endpoint_port", 7777},
+                    {"world_instance_id", "world_test_1"}
                 };
             });
         framework.SetMatchConnectionEventsCallback([](const nlohmann::json& arguments)
@@ -200,7 +201,80 @@ namespace
                     }})}
                 };
             });
-        framework.SetMatchClearCallback([&clearCalls]() { ++clearCalls; });
+        framework.SetMatchAdmissionReservationCallback([](const nlohmann::json& arguments)
+            {
+                return nlohmann::json{
+                    {"accepted", true},
+                    {"code", "accepted"},
+                    {"status", "queued"},
+                    {"native_connection_nonce", arguments.value("native_connection_nonce", "")}
+                };
+            });
+        framework.SetMatchConnectionConfirmationCallback([](const nlohmann::json& arguments)
+            {
+                return nlohmann::json{
+                    {"accepted", true},
+                    {"code", "accepted"},
+                    {"status", "queued"},
+                    {"native_connection_nonce", arguments.value("native_connection_nonce", "")}
+                };
+            });
+        framework.SetMatchAdmissionReleaseCallback([](const nlohmann::json& arguments)
+            {
+                return nlohmann::json{
+                    {"accepted", true},
+                    {"code", "accepted"},
+                    {"status", "queued"},
+                    {"native_connection_nonce", arguments.value("native_connection_nonce", "")}
+                };
+            });
+        framework.SetMatchClearResultCallback([&clearCalls](
+            const nlohmann::json& arguments)
+            {
+                const bool scoped = arguments.value("attempt_id", "") == "att_clear" &&
+                    arguments.value("authority_session_id", "") == "auth_clear" &&
+                    arguments.value("world_instance_id", "world_clear") == "world_clear" &&
+                    arguments.value("roster_revision", 0) == 4 &&
+                    arguments.value("route_generation", 0) == 2;
+                if (!scoped)
+                {
+                    return nlohmann::json{
+                        {"accepted", false},
+                        {"code", "clear_scope_required"},
+                        {"message", "test clear scope is required"},
+                        {"native_cleared", false}
+                    };
+                }
+                const int call = ++clearCalls;
+                if (call == 1)
+                {
+                    return nlohmann::json{
+                        {"accepted", false},
+                        {"code", "cleanup_pending"},
+                        {"status", "cleanup_pending"},
+                        {"message", "test native teardown is pending"},
+                        {"native_cleared", false},
+                        {"attempt_id", "att_clear"},
+                        {"authority_session_id", "auth_clear"},
+                        {"world_instance_id", "world_clear"},
+                        {"roster_revision", 4},
+                        {"route_generation", 2},
+                        {"world_teardown_required", true}
+                    };
+                }
+                return nlohmann::json{
+                    {"accepted", true},
+                    {"code", "cleared"},
+                    {"status", "cleared"},
+                    {"native_cleared", true},
+                    {"attempt_id", "att_clear"},
+                    {"authority_session_id", "auth_clear"},
+                    {"world_instance_id", "world_clear"},
+                    {"roster_revision", 4},
+                    {"route_generation", 2},
+                    {"world_teardown_required", false}
+                };
+            });
 
         Expect(framework.Start(), "framework starts");
         Expect(framework.IsRunning(), "framework reports running");
@@ -216,20 +290,27 @@ namespace
                 "pong echoes request id");
 
             Expect(WriteFrame(client.Get(),
-                "join\t{\"ip\":\"127.0.0.1:7777\",\"request_id\":\"join-1\"}\n"),
+                "join\t{\"ip\":\"127.0.0.1:7777\",\"token\":\"signed.join.grant\",\"request_id\":\"join-1\"}\n"),
                 "join request is written");
             Expect(ReadFrame(client.Get()).find("join_ack\t") == 0,
                 "accepted join receives join_ack");
             Expect(joinRanOnListener.load(), "join callback runs on listener thread");
 
             Expect(WriteFrame(client.Get(),
-                "join\t{\"ip\":\"127.0.0.1:7777\",\"request_id\":\"join-2\"}\n"),
+                "join\t{\"ip\":\"127.0.0.1:7777\",\"token\":\"signed.join.grant-2\",\"request_id\":\"join-2\"}\n"),
                 "second join request is written");
             const std::string busy = ReadFrame(client.Get());
             Expect(busy.find("error\t") == 0 &&
                 busy.find("\"code\":\"busy\"") != std::string::npos &&
                 busy.find("\"request_id\":\"join-2\"") != std::string::npos,
                 "rejected join receives correlated busy error");
+
+            Expect(WriteFrame(client.Get(),
+                "join\t{\"ip\":\"127.0.0.1:7777\",\"request_id\":\"join-empty-token\"}\n"),
+                "empty-token join request is written");
+            const std::string emptyToken = ReadFrame(client.Get());
+            Expect(emptyToken.find("\"code\":\"native_admission_required\"") != std::string::npos,
+                "empty-token online join is rejected before callback");
 
             Expect(WriteFrame(client.Get(), "join\t{\"ip\":\"127.0.0.1:0\"}\n"),
                 "invalid join request is written");
@@ -283,14 +364,62 @@ namespace
                 events.find("\"state\":\"DISCONNECTED\"") != std::string::npos,
                 "connection event response is correlated and generation-scoped");
 
+            const std::string scopedReceipt =
+                "{\"request_id\":\"receipt-1\",\"attempt_id\":\"att_test\","
+                "\"authority_session_id\":\"auth_test\",\"world_instance_id\":\"world_test\","
+                "\"roster_revision\":1,\"route_generation\":1,\"player_id\":\"p_test\","
+                "\"grant_jti\":\"mj_test\",\"native_connection_nonce\":"
+                "\"0123456789abcdef0123456789abcdef\",\"connection_generation\":1}";
             Expect(WriteFrame(client.Get(),
-                "clear_match_allocation\t{\"request_id\":\"clear-1\"}\n"),
-                "allocation clear request is written");
+                "confirm_match_admission\t" + scopedReceipt + "\n"),
+                "backend reservation receipt is written");
+            const std::string reserved = ReadFrame(client.Get());
+            Expect(reserved.find("confirm_match_admission_ack\t") == 0 &&
+                reserved.find("\"request_id\":\"receipt-1\"") != std::string::npos &&
+                reserved.find("\"native_connection_nonce\":\"0123456789abcdef0123456789abcdef\"") != std::string::npos,
+                "backend reservation receipt is correlated");
+
+            Expect(WriteFrame(client.Get(),
+                "confirm_match_connection\t" + scopedReceipt + "\n"),
+                "backend connection receipt is written");
+            const std::string confirmed = ReadFrame(client.Get());
+            Expect(confirmed.find("confirm_match_connection_ack\t") == 0 &&
+                confirmed.find("\"request_id\":\"receipt-1\"") != std::string::npos &&
+                confirmed.find("\"native_connection_nonce\":\"0123456789abcdef0123456789abcdef\"") != std::string::npos,
+                "backend connection receipt is correlated");
+
+            Expect(WriteFrame(client.Get(),
+                "release_match_admission\t" + scopedReceipt + "\n"),
+                "backend release receipt is written");
+            const std::string released = ReadFrame(client.Get());
+            Expect(released.find("release_match_admission_ack\t") == 0 &&
+                released.find("\"request_id\":\"receipt-1\"") != std::string::npos &&
+                released.find("\"native_connection_nonce\":\"0123456789abcdef0123456789abcdef\"") != std::string::npos,
+                "backend release receipt is correlated");
+
+            const std::string clearScope =
+                "{\"attempt_id\":\"att_clear\",\"authority_session_id\":\"auth_clear\","
+                "\"world_instance_id\":\"world_clear\",\"roster_revision\":4,"
+                "\"route_generation\":2";
+            Expect(WriteFrame(client.Get(),
+                "clear_match_allocation\t" + clearScope +
+                    ",\"request_id\":\"clear-1\"}\n"),
+                "scoped allocation clear request is written");
+            const std::string pending = ReadFrame(client.Get());
+            Expect(pending.find("clear_match_allocation_pending\t") == 0 &&
+                pending.find("\"request_id\":\"clear-1\"") != std::string::npos &&
+                pending.find("\"native_cleared\":false") != std::string::npos,
+                "allocation clear reports pending native teardown");
+            Expect(WriteFrame(client.Get(),
+                "clear_match_allocation\t" + clearScope +
+                    ",\"request_id\":\"clear-2\"}\n"),
+                "scoped allocation clear retry is written");
             const std::string cleared = ReadFrame(client.Get());
             Expect(cleared.find("clear_match_allocation_ack\t") == 0 &&
-                cleared.find("\"request_id\":\"clear-1\"") != std::string::npos &&
-                clearCalls.load() == 1,
-                "allocation clear acknowledgement is correlated");
+                cleared.find("\"request_id\":\"clear-2\"") != std::string::npos &&
+                cleared.find("\"native_cleared\":true") != std::string::npos &&
+                clearCalls.load() == 2,
+                "allocation clear acknowledgement is correlated after teardown");
         }
 
         framework.Stop();

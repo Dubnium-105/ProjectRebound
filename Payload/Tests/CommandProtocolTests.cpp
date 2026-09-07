@@ -1,8 +1,12 @@
 #include "../Communication/CommandProtocol.h"
 
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace
 {
@@ -99,6 +103,15 @@ namespace
         Expect(CommandProtocol::ValidateMatchTarget("127.0.0.1:7777"), "IPv4 target accepted");
         Expect(CommandProtocol::ValidateMatchTarget("game.example.test:443"), "hostname target accepted");
         Expect(CommandProtocol::ValidateMatchTarget("[2001:db8::1]:7777"), "bracketed IPv6 target accepted");
+        const auto ipv6 = CommandProtocol::ParseMatchTarget("[2001:db8::1]:7777");
+        Expect(ipv6 && ipv6->host == "2001:db8::1" && ipv6->port == 7777,
+            "bracketed IPv6 target is decoded into host and port");
+        Expect(CommandProtocol::FormatMatchTarget("2001:db8::1", 7777) ==
+            "[2001:db8::1]:7777", "IPv6 endpoint is encoded with brackets");
+        Expect(CommandProtocol::FormatMatchTarget("[2001:db8::1]", 7777) ==
+            "[2001:db8::1]:7777", "already-bracketed IPv6 endpoint is normalized");
+        Expect(!CommandProtocol::ValidateMatchTarget("[2001:db8:::1]:7777"),
+            "malformed bracketed IPv6 target rejected");
         Expect(!CommandProtocol::ValidateMatchTarget("127.0.0.1"), "missing port rejected");
         Expect(!CommandProtocol::ValidateMatchTarget("127.0.0.1:0"), "zero port rejected");
         Expect(!CommandProtocol::ValidateMatchTarget("127.0.0.1:65536"), "oversized port rejected");
@@ -127,15 +140,179 @@ namespace
             "server_status_ack\t{\"player_count\":2,\"state\":\"RUNNING\"}\n",
             "server status response is encoded deterministically");
     }
+
+    void WriteWireFixtures(const std::string& path)
+    {
+        const std::string nonce = "0123456789abcdef0123456789abcdef";
+        const std::string binaryHash =
+            "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843";
+        const nlohmann::json scope{
+            {"attempt_id", "fixture_attempt"},
+            {"authority_session_id", "fixture_authority"},
+            {"world_instance_id", "fixture_world"},
+            {"roster_revision", 7},
+            {"route_generation", 3}
+        };
+
+        std::vector<std::pair<std::string, nlohmann::json>> responses;
+        responses.emplace_back(
+            "payload_status_ack",
+            nlohmann::json{
+                {"status", "blocked"},
+                {"ready", false},
+                {"code", "native_client_grant_injection_unverified"},
+                {"protocol_version", "strict-roster-v2"},
+                {"native_authority_path_ready", true},
+                {"native_client_grant_injection_ready", false},
+                {"strict_online_ready", false},
+                {"offline_pve", false},
+                {"world_instance_id", "fixture_world"},
+                {"match", nlohmann::json{{"state", "world_ready"}, {"operation_sequence", 12}}},
+                {"request_id", "fixture-status"}
+            });
+        responses.emplace_back(
+            "join_ack",
+            nlohmann::json{
+                {"request_id", "fixture-join"},
+                {"status", "accepted"}
+            });
+        responses.emplace_back(
+            "install_match_allocation_ack",
+            nlohmann::json{
+                {"status", "accepted"},
+                {"request_id", "fixture-install"},
+                {"payload_version", "strict-roster-v2"},
+                {"game_binary_sha256", binaryHash}
+            });
+        responses.emplace_back(
+            "start_match_authority_ack",
+            nlohmann::json{
+                {"status", "ready"},
+                {"request_id", "fixture-authority"},
+                {"endpoint_host", "127.0.0.1"},
+                {"endpoint_port", 7777},
+                {"world_instance_id", "fixture_world"},
+                {"native_connection_nonce", nonce}
+            });
+        responses.emplace_back(
+            "match_connection_events_ack",
+            nlohmann::json{
+                {"request_id", "fixture-events"},
+                {"next_sequence", 4},
+                {"events", nlohmann::json::array({
+                    nlohmann::json{
+                        {"sequence", 4},
+                        {"attempt_id", "fixture_attempt"},
+                        {"authority_session_id", "fixture_authority"},
+                        {"roster_revision", 7},
+                        {"world_instance_id", "fixture_world"},
+                        {"route_generation", 3},
+                        {"player_id", "fixture_player"},
+                        {"grant_jti", "fixture-jti"},
+                        {"connection_generation", 2},
+                        {"native_connection_nonce", nonce},
+                        {"state", "CONNECTED"}
+                    }
+                })}
+            });
+        responses.emplace_back(
+            "confirm_match_admission_ack",
+            nlohmann::json{
+                {"accepted", true},
+                {"code", "accepted"},
+                {"status", "queued"},
+                {"request_id", "fixture-reserve"},
+                {"native_connection_nonce", nonce}
+            });
+        responses.emplace_back(
+            "confirm_match_connection_ack",
+            nlohmann::json{
+                {"accepted", true},
+                {"code", "accepted"},
+                {"status", "accepted"},
+                {"request_id", "fixture-confirm"},
+                {"native_connection_nonce", nonce}
+            });
+
+        nlohmann::json pending = scope;
+        pending["status"] = "cleanup_pending";
+        pending["code"] = "cleanup_pending";
+        pending["message"] = "native teardown is pending";
+        pending["native_cleared"] = false;
+        pending["world_teardown_required"] = true;
+        pending["request_id"] = "fixture-clear-pending";
+        responses.emplace_back("clear_match_allocation_pending", std::move(pending));
+
+        nlohmann::json cleared = scope;
+        cleared["status"] = "cleared";
+        cleared["code"] = "cleared";
+        cleared["native_cleared"] = true;
+        cleared["world_teardown_required"] = false;
+        cleared["request_id"] = "fixture-clear-final";
+        responses.emplace_back("clear_match_allocation_ack", std::move(cleared));
+
+        const std::filesystem::path outputPath(path);
+        if (outputPath.has_parent_path())
+            std::filesystem::create_directories(outputPath.parent_path());
+        std::ofstream output(outputPath, std::ios::binary | std::ios::trunc);
+        if (!output)
+            throw std::runtime_error("unable to open wire fixture output: " + path);
+
+        for (const auto& [command, payload] : responses)
+            output << CommandProtocol::EncodeFrame(command, payload);
+        output.flush();
+        if (!output)
+            throw std::runtime_error("unable to write wire fixture output: " + path);
+        std::cout << "Wire fixtures written: " << path << " ("
+                  << responses.size() << " frames)\n";
+    }
+
+    void WriteWireNegativeFixtures(const std::string& path)
+    {
+        const std::vector<std::pair<std::string, nlohmann::json>> responses{
+            {
+                "error",
+                nlohmann::json{
+                    {"code", "busy"},
+                    {"message", "join is already in progress"},
+                    {"request_id", "fixture-busy"}
+                }
+            },
+            {
+                "pong",
+                nlohmann::json{{"request_id", "fixture-wrong-command"}}
+            }
+        };
+
+        const std::filesystem::path outputPath(path);
+        if (outputPath.has_parent_path())
+            std::filesystem::create_directories(outputPath.parent_path());
+        std::ofstream output(outputPath, std::ios::binary | std::ios::trunc);
+        if (!output)
+            throw std::runtime_error("unable to open negative wire fixture output: " + path);
+
+        for (const auto& [command, payload] : responses)
+            output << CommandProtocol::EncodeFrame(command, payload);
+        output.flush();
+        if (!output)
+            throw std::runtime_error("unable to write negative wire fixture output: " + path);
+        std::cout << "Negative wire fixtures written: " << path << " ("
+                  << responses.size() << " frames)\n";
+    }
 }
 
-int main()
+int main(const int argc, char* const argv[])
 {
     TestValidFrames();
     TestInvalidFrames();
     TestFrameSizeBoundary();
     TestMatchTargets();
     TestResponses();
+
+    if (argc > 1)
+        WriteWireFixtures(argv[1]);
+    if (argc > 2)
+        WriteWireNegativeFixtures(argv[2]);
 
     if (failures != 0)
     {

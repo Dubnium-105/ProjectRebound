@@ -2,11 +2,14 @@
 #include "Hooks.h"
 #include "ServerHookPolicy.h"
 #include <Windows.h>
+#include <bcrypt.h>
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <deque>
 #include <iostream>
 #include <mutex>
 #include <string>
@@ -39,6 +42,8 @@
 #include "../ClientLogic/SeamlessIntroCameraPolicy.h"
 #include "../Utility/Utility.h"
 #include "../BattleLog/BattleLogExtractor.h"
+
+#pragma comment(lib, "bcrypt.lib")
 
 extern uintptr_t BaseAddress;
 extern LibReplicate* libReplicate;
@@ -108,11 +113,34 @@ namespace
     std::mutex gStrictRosterControllerMutex;
     std::unordered_map<APBPlayerController*, StrictRoster::SeatDecision>
         gStrictRosterControllerSeats;
+    struct StrictRosterBackendReceipt
+    {
+        enum class Kind
+        {
+            Reserve,
+            Confirm,
+            Release
+        };
+        Kind kind = Kind::Reserve;
+        std::string attemptId;
+        std::string authoritySessionId;
+        std::string worldInstanceId;
+        std::string playerId;
+        std::string grantJti;
+        std::string nativeConnectionNonce;
+        std::int64_t rosterRevision = 0;
+        int routeGeneration = 0;
+        int generation = 0;
+        unsigned int attempts = 0;
+    };
+    std::mutex gStrictRosterBackendReceiptMutex;
+    std::deque<StrictRosterBackendReceipt> gStrictRosterBackendReceipts;
 
     enum class StrictRosterSeatApplyResult
     {
         Inactive,
         Applied,
+        AwaitingBackendConfirmation,
         Pending,
         Rejected,
     };
@@ -121,6 +149,32 @@ namespace
     {
         return std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()).count();
+    }
+
+    // BCryptGenRandom is used at the first native PreLogin/host handshake
+    // boundary.  The nonce is opaque, printable and long enough for the
+    // backend's strict native_connection_nonce contract; it is never derived
+    // from a UI value, PID, Grant JTI, or connection generation.
+    std::optional<std::string> GenerateStrictRosterNativeConnectionNonceInternal()
+    {
+        std::array<std::uint8_t, 16> bytes{};
+        if (BCryptGenRandom(
+                nullptr,
+                bytes.data(),
+                static_cast<ULONG>(bytes.size()),
+                BCRYPT_USE_SYSTEM_PREFERRED_RNG) < 0)
+        {
+            return std::nullopt;
+        }
+        static constexpr char kHex[] = "0123456789abcdef";
+        std::string nonce;
+        nonce.reserve(bytes.size() * 2U);
+        for (const auto byte : bytes)
+        {
+            nonce.push_back(kHex[(byte >> 4U) & 0x0FU]);
+            nonce.push_back(kHex[byte & 0x0FU]);
+        }
+        return nonce;
     }
 
     bool IsReadableAddress(const void* address, const size_t size) noexcept
@@ -245,9 +299,19 @@ namespace
                 << std::endl;
             return;
         }
+        const auto nativeConnectionNonce =
+            GenerateStrictRosterNativeConnectionNonceInternal();
+        if (!nativeConnectionNonce)
+        {
+            RejectStrictRosterPreLogin(errorMessage,
+                L"STRICT_ROSTER_NONCE_UNAVAILABLE");
+            std::cout << "[STRICT-ROSTER] PreLogin rejected because the native "
+                         "handshake nonce generator is unavailable." << std::endl;
+            return;
+        }
         const StrictRoster::SeatDecision decision =
             gStrictRosterPolicy->ConsumeStagedJoinGrant(
-                platformId, StrictRosterEpochSeconds());
+                platformId, StrictRosterEpochSeconds(), *nativeConnectionNonce);
         if (!decision.accepted)
         {
             RejectStrictRosterPreLogin(errorMessage,
@@ -256,9 +320,11 @@ namespace
                 << std::endl;
             return;
         }
-        std::cout << "[STRICT-ROSTER] PreLogin admitted frozen team="
+        std::cout << "[STRICT-ROSTER] PreLogin reserved frozen team="
             << decision.teamId << " slot=" << decision.logicalSlot
-            << " generation=" << decision.connectionGeneration << "." << std::endl;
+            << " generation=" << decision.connectionGeneration
+            << " nonce=" << decision.nativeConnectionNonce
+            << "; awaiting native PostLogin confirmation." << std::endl;
     }
 
     StrictRosterSeatApplyResult ApplyStrictRosterSeat(
@@ -284,8 +350,17 @@ namespace
         const bool hasPlatformIdentity =
             ExtractStrictRosterPlatformId(&playerState->UniqueId, platformId);
         std::optional<StrictRoster::SeatDecision> decision;
+        {
+            std::lock_guard<std::mutex> lock(gStrictRosterControllerMutex);
+            const auto existing = gStrictRosterControllerSeats.find(playerController);
+            if (existing != gStrictRosterControllerSeats.end())
+                decision = existing->second;
+        }
         if (hasPlatformIdentity)
-            decision = gStrictRosterPolicy->ActiveDecision(platformId);
+        {
+            if (!decision)
+                decision = gStrictRosterPolicy->ReservedDecision(platformId);
+        }
 
         // A listen host does not traverse remote NMT_Login/PreLogin and the
         // native PlayerState UniqueId is still empty when StartServer invokes
@@ -314,6 +389,17 @@ namespace
                 << (stage ? stage : "unknown")
                 << ": no active frozen decision." << std::endl;
             return StrictRosterSeatApplyResult::Rejected;
+        }
+
+        if (gStrictRosterPolicy->IsConnected(
+                decision->playerId,
+                decision->connectionGeneration,
+                decision->grantJti))
+        {
+            decision->confirmed = true;
+            std::lock_guard<std::mutex> lock(gStrictRosterControllerMutex);
+            gStrictRosterControllerSeats[playerController] = *decision;
+            return StrictRosterSeatApplyResult::Applied;
         }
 
         // The exact image hash and every native byte signature are verified
@@ -406,21 +492,47 @@ namespace
             return StrictRosterSeatApplyResult::Rejected;
         }
 
+        const StrictRoster::Decision nativeAdmitted =
+            gStrictRosterPolicy->MarkNativeAdmitted(
+                decision->playerId,
+                decision->connectionGeneration,
+                decision->grantJti,
+                decision->nativeConnectionNonce);
+        if (!nativeAdmitted.accepted)
+        {
+            std::cout << "[STRICT-ROSTER] Native admission observation rejected at "
+                << (stage ? stage : "unknown") << ": " << nativeAdmitted.code << "."
+                << std::endl;
+            return StrictRosterSeatApplyResult::Rejected;
+        }
+        if (decision->hostSeat)
+        {
+            const StrictRoster::Decision connected =
+                gStrictRosterPolicy->ConfirmConnected(
+                    decision->playerId,
+                    decision->connectionGeneration,
+                    decision->grantJti,
+                    decision->nativeConnectionNonce);
+            if (!connected.accepted)
+            {
+                std::cout << "[STRICT-ROSTER] HOST connected-seat report rejected at "
+                    << (stage ? stage : "unknown") << ": " << connected.code << "."
+                    << std::endl;
+                return StrictRosterSeatApplyResult::Rejected;
+            }
+            decision->confirmed = true;
+        }
         {
             std::lock_guard<std::mutex> lock(gStrictRosterControllerMutex);
             gStrictRosterControllerSeats[playerController] = *decision;
         }
-        const StrictRoster::Decision connected =
-            gStrictRosterPolicy->MarkConnected(
-                decision->playerId, decision->connectionGeneration);
-        if (!connected.accepted)
+        if (!decision->hostSeat)
         {
-            std::lock_guard<std::mutex> lock(gStrictRosterControllerMutex);
-            gStrictRosterControllerSeats.erase(playerController);
-            std::cout << "[STRICT-ROSTER] Connected-seat report rejected at "
-                << (stage ? stage : "unknown") << ": " << connected.code << "."
+            std::cout << "[STRICT-ROSTER] Native seat admitted at "
+                << (stage ? stage : "unknown")
+                << " but remains quarantined until scoped backend confirmation."
                 << std::endl;
-            return StrictRosterSeatApplyResult::Rejected;
+            return StrictRosterSeatApplyResult::AwaitingBackendConfirmation;
         }
         std::cout << "[STRICT-ROSTER] Applied frozen seat at "
             << (stage ? stage : "unknown")
@@ -449,14 +561,25 @@ namespace
         }
         if (decision)
         {
-            const StrictRoster::Decision result =
-                gStrictRosterPolicy->MarkDisconnected(
-                    decision->playerId, decision->connectionGeneration);
+            const StrictRoster::Decision result = decision->confirmed
+                ? gStrictRosterPolicy->MarkDisconnected(
+                    decision->playerId, decision->connectionGeneration,
+                    decision->nativeConnectionNonce)
+                : gStrictRosterPolicy->ReleaseAdmission(
+                    decision->playerId, decision->connectionGeneration,
+                    decision->grantJti,
+                    decision->nativeConnectionNonce);
             std::cout << "[STRICT-ROSTER] Released controller binding: generation="
                 << decision->connectionGeneration << " result=" << result.code
+                << " phase=" << (decision->confirmed ? "connected" : "reserved")
                 << "." << std::endl;
         }
     }
+}
+
+std::optional<std::string> GenerateStrictRosterNativeConnectionNonce()
+{
+    return GenerateStrictRosterNativeConnectionNonceInternal();
 }
 
 void SetStrictRosterLocalHostSeat(
@@ -465,7 +588,9 @@ void SetStrictRosterLocalHostSeat(
     std::lock_guard<std::mutex> lock(gStrictRosterLocalHostSeatMutex);
     if (decision.accepted && decision.teamId >= 1 && decision.teamId <= 2 &&
         decision.teamSlot >= 0 && decision.logicalSlot >= 0 &&
-        decision.connectionGeneration >= 1)
+        decision.connectionGeneration >= 1 &&
+        StrictRoster::Detail::SafeNativeConnectionNonce(
+            decision.nativeConnectionNonce))
     {
         gStrictRosterLocalHostSeat = decision;
     }
@@ -479,6 +604,228 @@ void ClearStrictRosterLocalHostSeat()
 {
     std::lock_guard<std::mutex> lock(gStrictRosterLocalHostSeatMutex);
     gStrictRosterLocalHostSeat.reset();
+}
+
+void ClearStrictRosterControllerSeats()
+{
+    std::lock_guard<std::mutex> lock(gStrictRosterControllerMutex);
+    gStrictRosterControllerSeats.clear();
+    std::lock_guard<std::mutex> receiptLock(gStrictRosterBackendReceiptMutex);
+    gStrictRosterBackendReceipts.clear();
+}
+
+bool RequestStrictRosterNativeWorldTeardown()
+{
+    std::vector<APBPlayerController*> controllers;
+    {
+        std::lock_guard<std::mutex> lock(gStrictRosterControllerMutex);
+        controllers.reserve(gStrictRosterControllerSeats.size() + 1U);
+        for (const auto& [controller, decision] : gStrictRosterControllerSeats)
+        {
+            (void)decision;
+            if (controller)
+                controllers.push_back(controller);
+        }
+    }
+
+    // A listen authority's local controller is not always in the controller
+    // map yet (StartServer creates it synchronously before native identity
+    // readback), but it still owns the native return-to-menu path.
+    if (APBPlayerController* const local = GetLocalPlayerController(); local)
+    {
+        if (std::find(controllers.begin(), controllers.end(), local) ==
+            controllers.end())
+        {
+            controllers.push_back(local);
+        }
+    }
+
+    std::size_t requested = 0;
+    for (APBPlayerController* const controller : controllers)
+    {
+        if (!controller || controller->bActorIsBeingDestroyed)
+            continue;
+        try
+        {
+            controller->ClientReturnToMainMenu(
+                FString(L"STRICT_ROSTER_ALLOCATION_CLEARED"));
+            ++requested;
+        }
+        catch (...)
+        {
+            std::cout << "[STRICT-ROSTER] Native return-to-menu request threw; "
+                         "teardown remains pending." << std::endl;
+        }
+    }
+
+    // The authority must enter the pinned engine return-to-menu lifecycle as
+    // well.  This is a native transition request; it is not evidence that
+    // the old World/NetDriver has already been destroyed (that observation is
+    // performed by the scoped clear handler).
+    UWorld* const world = UWorld::GetWorld();
+    if (amServer && world && world->AuthorityGameMode &&
+        world->AuthorityGameMode->IsA(APBGameMode::StaticClass()))
+    {
+        try
+        {
+            auto* const gameMode =
+                static_cast<APBGameMode*>(world->AuthorityGameMode);
+            gameMode->NotifyAllClientsReturnToMainMenu();
+            if (amListenServer)
+                gameMode->ReturnToMainMenuHost();
+            ++requested;
+        }
+        catch (...)
+        {
+            std::cout << "[STRICT-ROSTER] Native authority return-to-menu "
+                         "request threw; teardown remains pending." << std::endl;
+        }
+    }
+    std::cout << "[STRICT-ROSTER] Native world teardown requested for "
+              << requested << " controller(s)." << std::endl;
+    return requested != 0;
+}
+
+bool TryGetStrictRosterLocalPlatformId(std::string& platformId)
+{
+    platformId.clear();
+    APBPlayerController* const playerController = GetLocalPlayerController();
+    if (!playerController || !playerController->PBPlayerState)
+        return false;
+    return ExtractStrictRosterPlatformId(
+        &playerController->PBPlayerState->UniqueId, platformId);
+}
+
+namespace
+{
+    bool ParseStrictRosterBackendReceipt(
+        const nlohmann::json& arguments,
+        StrictRosterBackendReceipt& receipt,
+        std::string& failure)
+    {
+        const auto attemptId = arguments.find("attempt_id");
+        const auto authoritySessionId = arguments.find("authority_session_id");
+        const auto worldInstanceId = arguments.find("world_instance_id");
+        const auto rosterRevision = arguments.find("roster_revision");
+        const auto routeGeneration = arguments.find("route_generation");
+        const auto playerId = arguments.find("player_id");
+        const auto grantJti = arguments.find("grant_jti");
+        const auto nativeConnectionNonce = arguments.find(
+            "native_connection_nonce");
+        const auto generation = arguments.find("connection_generation");
+        if (attemptId == arguments.end() || !attemptId->is_string() ||
+            attemptId->get_ref<const std::string&>().empty() ||
+            authoritySessionId == arguments.end() ||
+            !authoritySessionId->is_string() ||
+            authoritySessionId->get_ref<const std::string&>().empty() ||
+            worldInstanceId == arguments.end() ||
+            !worldInstanceId->is_string() ||
+            worldInstanceId->get_ref<const std::string&>().empty() ||
+            rosterRevision == arguments.end() ||
+            (!rosterRevision->is_number_integer() &&
+             !rosterRevision->is_number_unsigned()) ||
+            rosterRevision->get<std::int64_t>() < 1 ||
+            routeGeneration == arguments.end() ||
+            (!routeGeneration->is_number_integer() &&
+             !routeGeneration->is_number_unsigned()) ||
+            routeGeneration->get<int>() < 1 ||
+            playerId == arguments.end() || !playerId->is_string() ||
+            playerId->get_ref<const std::string&>().empty() ||
+            grantJti == arguments.end() || !grantJti->is_string() ||
+            grantJti->get_ref<const std::string&>().empty() ||
+            nativeConnectionNonce == arguments.end() ||
+            !nativeConnectionNonce->is_string() ||
+            !StrictRoster::Detail::SafeNativeConnectionNonce(
+                nativeConnectionNonce->get_ref<const std::string&>()) ||
+            generation == arguments.end() ||
+            (!generation->is_number_integer() &&
+             !generation->is_number_unsigned()) ||
+            generation->get<int>() < 1)
+        {
+            failure = "attempt/session/world/roster/route/player/grant/nonce/generation are required";
+            return false;
+        }
+        receipt.attemptId = attemptId->get<std::string>();
+        receipt.authoritySessionId = authoritySessionId->get<std::string>();
+        receipt.worldInstanceId = worldInstanceId->get<std::string>();
+        receipt.rosterRevision = rosterRevision->get<std::int64_t>();
+        receipt.routeGeneration = routeGeneration->get<int>();
+        receipt.playerId = playerId->get<std::string>();
+        receipt.grantJti = grantJti->get<std::string>();
+        receipt.nativeConnectionNonce =
+            nativeConnectionNonce->get<std::string>();
+        receipt.generation = generation->get<int>();
+        return true;
+    }
+
+    nlohmann::json QueueStrictRosterBackendReceipt(
+        const nlohmann::json& arguments,
+        const StrictRosterBackendReceipt::Kind kind)
+    {
+        StrictRosterBackendReceipt receipt;
+        receipt.kind = kind;
+        std::string failure;
+        if (!ParseStrictRosterBackendReceipt(arguments, receipt, failure))
+        {
+            return nlohmann::json{
+                {"accepted", false},
+                {"code", "invalid_request"},
+                {"message", failure}
+            };
+        }
+        {
+            std::lock_guard<std::mutex> lock(gStrictRosterBackendReceiptMutex);
+            if (gStrictRosterBackendReceipts.size() >= 128U)
+            {
+                return nlohmann::json{
+                    {"accepted", false},
+                    {"code", "busy"},
+                    {"message", "too many pending native admission receipts"}
+                };
+            }
+            gStrictRosterBackendReceipts.push_back(std::move(receipt));
+        }
+        nlohmann::json result{
+            {"accepted", true},
+            {"code", "accepted"},
+            {"status", "queued"}
+        };
+        // Echo the complete scope in the ACK so the controller can correlate
+        // a queued receipt without treating the queue ACK as a connection
+        // confirmation.  These values were validated before enqueueing.
+        for (const char* const key : {
+                "attempt_id", "authority_session_id", "world_instance_id",
+                "roster_revision", "route_generation", "player_id",
+                "grant_jti", "native_connection_nonce",
+                "connection_generation"})
+        {
+            const auto value = arguments.find(key);
+            if (value != arguments.end())
+                result[key] = *value;
+        }
+        return result;
+    }
+}
+
+nlohmann::json QueueStrictRosterAdmissionReservation(
+    const nlohmann::json& arguments)
+{
+    return QueueStrictRosterBackendReceipt(
+        arguments, StrictRosterBackendReceipt::Kind::Reserve);
+}
+
+nlohmann::json QueueStrictRosterConnectionConfirmation(
+    const nlohmann::json& arguments)
+{
+    return QueueStrictRosterBackendReceipt(
+        arguments, StrictRosterBackendReceipt::Kind::Confirm);
+}
+
+nlohmann::json QueueStrictRosterAdmissionRelease(
+    const nlohmann::json& arguments)
+{
+    return QueueStrictRosterBackendReceipt(
+        arguments, StrictRosterBackendReceipt::Kind::Release);
 }
 
 // Retained for generated ProcessEvent calls made by server-side loadout
@@ -592,8 +939,20 @@ static bool RegisterAuthoritativeMatchParticipant(
     }
     if (strictSeatResult == StrictRosterSeatApplyResult::Pending)
     {
+        if (gStrictRosterPolicy->AdmissionActive())
+        {
+            std::cout << "[STRICT-ROSTER] Participant admission is not native-confirmed; "
+                         "keeping the controller out of the playable set." << std::endl;
+            return false;
+        }
         std::cout << "[STRICT-ROSTER] Participant seat data is pending; "
                      "RestartPlayer remains fail-closed." << std::endl;
+    }
+    if (strictSeatResult == StrictRosterSeatApplyResult::AwaitingBackendConfirmation)
+    {
+        std::cout << "[STRICT-ROSTER] Native seat is quarantined until the scoped "
+                     "backend ConfirmConnected receipt arrives." << std::endl;
+        return false;
     }
 
     ConnectedPlayerControllers.insert(playerController);
@@ -638,6 +997,125 @@ static bool RegisterAuthoritativeMatchParticipant(
     if (playerController->Pawn)
         playerController->ServerSuicide(0);
     return true;
+}
+
+void PumpStrictRosterBackendReceipts()
+{
+    if (!gStrictRosterPolicy)
+        return;
+    std::deque<StrictRosterBackendReceipt> receipts;
+    {
+        std::lock_guard<std::mutex> lock(gStrictRosterBackendReceiptMutex);
+        constexpr std::size_t kMaximumReceiptsPerTick = 16U;
+        while (!gStrictRosterBackendReceipts.empty() &&
+            receipts.size() < kMaximumReceiptsPerTick)
+        {
+            receipts.push_back(std::move(gStrictRosterBackendReceipts.front()));
+            gStrictRosterBackendReceipts.pop_front();
+        }
+    }
+    for (const auto& receipt : receipts)
+    {
+        const StrictRoster::Decision scope =
+            gStrictRosterPolicy->ValidateConnectionScope(
+                receipt.attemptId,
+                receipt.authoritySessionId,
+                receipt.rosterRevision,
+                receipt.routeGeneration,
+                receipt.playerId,
+                receipt.generation,
+                receipt.grantJti,
+                receipt.nativeConnectionNonce);
+        if (!scope.accepted)
+        {
+            std::cout << "[STRICT-ROSTER] Dropped stale scoped backend receipt: "
+                      << scope.code << "." << std::endl;
+            continue;
+        }
+        StrictRoster::Decision result;
+        switch (receipt.kind)
+        {
+        case StrictRosterBackendReceipt::Kind::Reserve:
+            result = gStrictRosterPolicy->ConfirmAdmissionReserved(
+                receipt.playerId, receipt.generation, receipt.grantJti,
+                receipt.nativeConnectionNonce);
+            break;
+        case StrictRosterBackendReceipt::Kind::Confirm:
+            result = gStrictRosterPolicy->ConfirmConnected(
+                receipt.playerId, receipt.generation, receipt.grantJti,
+                receipt.nativeConnectionNonce);
+            break;
+        case StrictRosterBackendReceipt::Kind::Release:
+            result = gStrictRosterPolicy->ReleaseAdmission(
+                receipt.playerId, receipt.generation, receipt.grantJti,
+                receipt.nativeConnectionNonce);
+            break;
+        }
+        if (!result.accepted)
+        {
+            if (receipt.kind == StrictRosterBackendReceipt::Kind::Confirm &&
+                result.code == "backend_confirmation_required" &&
+                receipt.attempts < 300U)
+            {
+                StrictRosterBackendReceipt retry = receipt;
+                ++retry.attempts;
+                std::lock_guard<std::mutex> lock(gStrictRosterBackendReceiptMutex);
+                gStrictRosterBackendReceipts.push_back(std::move(retry));
+                continue;
+            }
+            std::cout << "[STRICT-ROSTER] Scoped backend receipt rejected: "
+                      << result.code << "." << std::endl;
+            continue;
+        }
+
+        APBPlayerController* controller = nullptr;
+        StrictRoster::SeatDecision controllerDecision;
+        {
+            std::lock_guard<std::mutex> lock(gStrictRosterControllerMutex);
+            for (const auto& [candidate, decision] : gStrictRosterControllerSeats)
+            {
+                if (decision.playerId == receipt.playerId &&
+                    decision.connectionGeneration == receipt.generation &&
+                    decision.nativeConnectionNonce == receipt.nativeConnectionNonce &&
+                    (receipt.grantJti.empty() ||
+                     decision.grantJti == receipt.grantJti))
+                {
+                    controller = candidate;
+                    controllerDecision = decision;
+                    break;
+                }
+            }
+            if (controller != nullptr &&
+                receipt.kind == StrictRosterBackendReceipt::Kind::Confirm)
+            {
+                controllerDecision.confirmed = true;
+                gStrictRosterControllerSeats[controller] = controllerDecision;
+            }
+        }
+
+        if (receipt.kind == StrictRosterBackendReceipt::Kind::Release)
+        {
+            if (controller && !controller->bActorIsBeingDestroyed)
+            {
+                controller->ClientReturnToMainMenu(
+                    FString(L"STRICT_ROSTER_BACKEND_ADMISSION_RELEASED"));
+            }
+            continue;
+        }
+        if (receipt.kind != StrictRosterBackendReceipt::Kind::Confirm ||
+            !controller || controller->bActorIsBeingDestroyed)
+        {
+            continue;
+        }
+        UWorld* const world = UWorld::GetWorld();
+        if (world && world->AuthorityGameMode)
+        {
+            RegisterAuthoritativeMatchParticipant(
+                static_cast<AGameMode*>(world->AuthorityGameMode),
+                controller,
+                false);
+        }
+    }
 }
 
 static void EnsureListenHostMatchParticipant(UWorld* const world)
@@ -1055,6 +1533,7 @@ int EngineBrowseHook(
 
 void TickFlushHook(UNetDriver *NetDriver, float DeltaTime)
 {
+    PumpStrictRosterBackendReceipts();
     if (listening && NetDriver && UWorld::GetWorld())
     {
         UWorld* const currentWorld = UWorld::GetWorld();

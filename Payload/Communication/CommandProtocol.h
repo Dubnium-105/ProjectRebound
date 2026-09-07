@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -37,11 +38,28 @@ namespace CommandProtocol
         }
     };
 
+    struct MatchEndpoint
+    {
+        std::string host;
+        std::uint16_t port = 0;
+    };
+
     [[nodiscard]] ParseResult ParseFrame(std::string_view frame);
 
     [[nodiscard]] bool ValidateMatchTarget(
         std::string_view target,
         std::string* failureReason = nullptr);
+
+    // Parse and format the one endpoint representation shared by the Payload
+    // command channel and the transport controller. IPv6 is always emitted
+    // as [address]:port; a bare address or zero port is never accepted.
+    [[nodiscard]] std::optional<MatchEndpoint> ParseMatchTarget(
+        std::string_view target,
+        std::string* failureReason = nullptr);
+
+    [[nodiscard]] std::string FormatMatchTarget(
+        std::string_view host,
+        std::uint16_t port);
 
     [[nodiscard]] nlohmann::json WithRequestId(
         nlohmann::json payload,

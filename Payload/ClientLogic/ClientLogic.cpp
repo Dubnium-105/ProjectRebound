@@ -94,7 +94,12 @@ namespace
     {
         Idle,
         Queued,
-        WaitingAfterLogin
+        WaitingAfterLogin,
+        TravelRequested,
+        WorldReady,
+        Playable,
+        Failed,
+        Cancelled
     };
 
     std::mutex connectMutex;
@@ -102,6 +107,9 @@ namespace
     std::string currentTarget;
     ConnectStage connectStage = ConnectStage::Idle;
     std::chrono::steady_clock::time_point nextActionAt{};
+    std::chrono::steady_clock::time_point travelDeadline{};
+    std::uint64_t connectSequence = 0;
+    std::string lastConnectError;
     std::chrono::steady_clock::time_point frontendCleanupUntil{};
     std::chrono::steady_clock::time_point nextFrontendCleanupAt{};
     UWorld* directTravelSourceWorld = nullptr;
@@ -117,9 +125,32 @@ namespace
     std::atomic<DWORD> gameThreadId{0};
 
     constexpr auto LoginSettleDelay = std::chrono::seconds(2);
+    constexpr auto TravelTimeout = std::chrono::seconds(90);
     constexpr ULONGLONG LoginTravelSettleMilliseconds = 2000;
     constexpr auto FrontendCleanupDuration = std::chrono::seconds(30);
     constexpr auto FrontendCleanupInterval = std::chrono::milliseconds(500);
+
+    const char* ConnectStageName(const ConnectStage stage) noexcept
+    {
+        switch (stage)
+        {
+        case ConnectStage::Idle: return "idle";
+        case ConnectStage::Queued: return "queued";
+        case ConnectStage::WaitingAfterLogin: return "waiting_game_login";
+        case ConnectStage::TravelRequested: return "travel_requested";
+        case ConnectStage::WorldReady: return "world_ready";
+        case ConnectStage::Playable: return "playable";
+        case ConnectStage::Failed: return "failed";
+        case ConnectStage::Cancelled: return "cancelled";
+        }
+        return "unknown";
+    }
+
+    bool IsOfflinePveClient() noexcept
+    {
+        const std::string commandLine = GetCommandLineA();
+        return CommandLinePolicy::HasExactSwitch(commandLine, "-pve");
+    }
 
     void HideDirectMatchFrontendLayers(bool logAllLayers)
     {
@@ -1328,6 +1359,12 @@ bool TryFinalizeNativeRespawnUi(APBPlayerController* playerController)
 
 bool QueueConnectToMatch(const std::string& target)
 {
+    if (!IsOfflinePveClient())
+    {
+        ClientLog("[STRICT-ROSTER] Refused an online direct-open request; "
+                  "a verified native Join Grant is required.");
+        return false;
+    }
     std::string validationError;
     if (!CommandProtocol::ValidateMatchTarget(target, &validationError))
     {
@@ -1342,6 +1379,9 @@ bool QueueConnectToMatch(const std::string& target)
 
         pendingTarget = target;
         connectStage = ConnectStage::Queued;
+        travelDeadline = {};
+        ++connectSequence;
+        lastConnectError.clear();
         frontendCleanupUntil = {};
         nextFrontendCleanupAt = {};
         directTravelSourceWorld = nullptr;
@@ -1367,12 +1407,14 @@ bool QueueConnectToMatchAuthorized(
         return false;
     }
 
-    // Meta withholds launch until the scoped authority has verified and
-    // staged this one-use grant. The locked NMT_Login format cannot safely
-    // carry the JWT; the authority binds it to the authenticated UniqueId in
-    // PreLogin instead. Never place the bearer in the travel URL.
-    ClientLog("[STRICT-ROSTER] Authority staged admission; queuing identity-bound travel.");
-    return QueueConnectToMatch(target);
+    // The current pinned client has no verified NMT_Login extension point for
+    // carrying this bearer. Calling `open` here would silently turn strict
+    // admission into direct-open, so keep the request fail closed until the
+    // fixed-build native injection is implemented and traced at PreLogin.
+    (void)target;
+    (void)joinGrant;
+    ClientLog("[STRICT-ROSTER] Refused strict join: native Grant injection is unverified.");
+    return false;
 }
 
 void ConnectToMatch()
@@ -1508,6 +1550,71 @@ void PumpPendingClientCommands()
         }
     }
 
+    // ExecuteConsoleCommand only proves that Unreal accepted the console
+    // command. Keep the operation alive until the destination world and the
+    // local Pawn/PlayerState become native-playable, or until the bounded
+    // travel deadline expires.
+    bool travelTimedOut = false;
+    bool destinationWorldReady = false;
+    bool destinationPlayable = false;
+    APBPlayerController* localPlayerController = nullptr;
+    if (world->OwningGameInstance &&
+        world->OwningGameInstance->LocalPlayers.Num() > 0)
+    {
+        auto* const candidate = world->OwningGameInstance->LocalPlayers[0]
+            ? world->OwningGameInstance->LocalPlayers[0]->PlayerController
+            : nullptr;
+        if (candidate && candidate->IsA(APBPlayerController::StaticClass()))
+            localPlayerController = static_cast<APBPlayerController*>(candidate);
+    }
+    {
+        std::lock_guard<std::mutex> lock(connectMutex);
+        const bool watchingTravel = connectStage == ConnectStage::TravelRequested ||
+            connectStage == ConnectStage::WorldReady;
+        if (watchingTravel)
+        {
+            destinationWorldReady = directTravelSourceWorld != nullptr &&
+                world != directTravelSourceWorld && world->GameState != nullptr;
+            const APawn* const pawn = localPlayerController
+                ? localPlayerController->Pawn : nullptr;
+            destinationPlayable = destinationWorldReady && pawn &&
+                pawn->IsA(APBCharacter::StaticClass()) &&
+                !pawn->bActorIsBeingDestroyed &&
+                localPlayerController->AcknowledgedPawn == pawn &&
+                localPlayerController->PBCharacter == pawn &&
+                static_cast<const APBCharacter*>(pawn)->CharacterLifeStatus ==
+                    EPBCharacterLifeStatus::Alive;
+            if (destinationPlayable)
+            {
+                connectStage = ConnectStage::Playable;
+                pendingTarget.reset();
+                ClientLog("[CLIENT] Native travel reached Playable; transition completed.");
+            }
+            else if (destinationWorldReady && connectStage == ConnectStage::TravelRequested)
+            {
+                connectStage = ConnectStage::WorldReady;
+                ClientLog("[CLIENT] Native travel reached WorldReady; awaiting PawnReady/Playable.");
+            }
+            else if (travelDeadline != std::chrono::steady_clock::time_point{} &&
+                now >= travelDeadline)
+            {
+                connectStage = ConnectStage::Failed;
+                lastConnectError = destinationWorldReady
+                    ? "playable_pawn_timeout" : "world_ready_timeout";
+                pendingTarget.reset();
+                frontendCleanupUntil = {};
+                nextFrontendCleanupAt = {};
+                travelTimedOut = true;
+            }
+        }
+    }
+    if (travelTimedOut)
+    {
+        ClientLog("[CLIENT] Native travel failed: bounded readiness timeout (" +
+            lastConnectError + ").");
+        return;
+    }
+
     {
         std::lock_guard<std::mutex> lock(connectMutex);
         if (!pendingTarget.has_value())
@@ -1540,6 +1647,9 @@ void PumpPendingClientCommands()
                 std::lock_guard<std::mutex> lock(connectMutex);
                 directTravelSourceWorld = world;
                 directTravelUiFinalized = false;
+                currentTarget = *connectTarget;
+                connectStage = ConnectStage::TravelRequested;
+                travelDeadline = std::chrono::steady_clock::now() + TravelTimeout;
             }
             ClientLog("[CLIENT] Connecting directly to match: " + *connectTarget);
             UKismetSystemLibrary::ExecuteConsoleCommand(world, command.c_str(), nullptr);
@@ -1551,18 +1661,64 @@ void PumpPendingClientCommands()
         ClientLog("[CLIENT] Match transition failed on the game thread.");
     }
     if (!actionSucceeded)
+    {
+        std::lock_guard<std::mutex> lock(connectMutex);
+        connectStage = ConnectStage::Failed;
+        lastConnectError = "travel_command_rejected";
+        pendingTarget.reset();
+        frontendCleanupUntil = {};
+        nextFrontendCleanupAt = {};
         return;
+    }
 
     std::lock_guard<std::mutex> lock(connectMutex);
-    if (connectTarget.has_value() &&
-        connectStage == ConnectStage::WaitingAfterLogin &&
+    if (connectTarget.has_value() && connectStage == ConnectStage::TravelRequested &&
         pendingTarget == connectTarget)
     {
-        currentTarget = *connectTarget;
-        pendingTarget.reset();
-        connectStage = ConnectStage::Idle;
         const auto cleanupStart = std::chrono::steady_clock::now();
         frontendCleanupUntil = cleanupStart + FrontendCleanupDuration;
         nextFrontendCleanupAt = cleanupStart;
     }
+}
+
+nlohmann::json GetClientMatchStatus()
+{
+    std::lock_guard<std::mutex> lock(connectMutex);
+    const bool pending = pendingTarget.has_value();
+    return nlohmann::json{
+        {"state", ConnectStageName(connectStage)},
+        {"operation_sequence", connectSequence},
+        {"pending", pending},
+        {"login_completed", IsClientLoginCompleted()},
+        {"login_ready", IsClientLoginReadyForTravel()},
+        {"last_error", lastConnectError}
+    };
+}
+
+nlohmann::json CancelPendingClientTransition()
+{
+    std::lock_guard<std::mutex> lock(connectMutex);
+    if (!pendingTarget.has_value() &&
+        connectStage != ConnectStage::TravelRequested &&
+        connectStage != ConnectStage::WorldReady)
+    {
+        return nlohmann::json{
+            {"accepted", true},
+            {"status", ConnectStageName(connectStage)},
+            {"code", "already_terminal"}
+        };
+    }
+    pendingTarget.reset();
+    connectStage = ConnectStage::Cancelled;
+    lastConnectError = "cancelled";
+    frontendCleanupUntil = {};
+    nextFrontendCleanupAt = {};
+    travelDeadline = {};
+    ++connectSequence;
+    ClientLog("[CLIENT] Cancelled pending native travel operation.");
+    return nlohmann::json{
+        {"accepted", true},
+        {"status", "cancelled"},
+        {"code", "cancelled"}
+    };
 }

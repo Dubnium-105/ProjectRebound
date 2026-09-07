@@ -184,6 +184,69 @@ void CommandFramework::SetMatchClearCallback(MatchClearCallback callback)
     }
 }
 
+void CommandFramework::SetMatchClearResultCallback(MatchClearResultCallback callback)
+{
+    std::lock_guard<std::mutex> lock(lifecycleMutex);
+    if (!running.load() && !stopping)
+    {
+        std::lock_guard<std::mutex> callbackLock(callbackMutex);
+        onMatchClearResult = std::move(callback);
+    }
+}
+
+void CommandFramework::SetPayloadStatusCallback(PayloadStatusCallback callback)
+{
+    std::lock_guard<std::mutex> lock(lifecycleMutex);
+    if (!running.load() && !stopping)
+    {
+        std::lock_guard<std::mutex> callbackLock(callbackMutex);
+        onPayloadStatus = std::move(callback);
+    }
+}
+
+void CommandFramework::SetMatchCancelCallback(MatchCancelCallback callback)
+{
+    std::lock_guard<std::mutex> lock(lifecycleMutex);
+    if (!running.load() && !stopping)
+    {
+        std::lock_guard<std::mutex> callbackLock(callbackMutex);
+        onMatchCancel = std::move(callback);
+    }
+}
+
+void CommandFramework::SetMatchAdmissionReservationCallback(
+    MatchAdmissionReceiptCallback callback)
+{
+    std::lock_guard<std::mutex> lock(lifecycleMutex);
+    if (!running.load() && !stopping)
+    {
+        std::lock_guard<std::mutex> callbackLock(callbackMutex);
+        onMatchAdmissionReservation = std::move(callback);
+    }
+}
+
+void CommandFramework::SetMatchConnectionConfirmationCallback(
+    MatchAdmissionReceiptCallback callback)
+{
+    std::lock_guard<std::mutex> lock(lifecycleMutex);
+    if (!running.load() && !stopping)
+    {
+        std::lock_guard<std::mutex> callbackLock(callbackMutex);
+        onMatchConnectionConfirmation = std::move(callback);
+    }
+}
+
+void CommandFramework::SetMatchAdmissionReleaseCallback(
+    MatchAdmissionReceiptCallback callback)
+{
+    std::lock_guard<std::mutex> lock(lifecycleMutex);
+    if (!running.load() && !stopping)
+    {
+        std::lock_guard<std::mutex> callbackLock(callbackMutex);
+        onMatchAdmissionRelease = std::move(callback);
+    }
+}
+
 bool CommandFramework::BuildPipePath(std::string& failureReason)
 {
     if (pipeName.empty() || pipeName.size() > MaxPipeNameBytes)
@@ -915,6 +978,21 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
                 }
             }
 
+            // Online joins are always identity-bound. An empty token used to
+            // fall through to the direct-open client path, which made a pipe
+            // request an unrostered online entry point. Offline/PvE launchers
+            // use their isolated command-line path and do not use this join
+            // command.
+            if (token.empty())
+            {
+                return SendError(
+                    "native_admission_required",
+                    "online join requires a signed short-lived grant",
+                    request.requestId)
+                    ? FrameResult::Processed
+                    : FrameResult::TransportError;
+            }
+
             JoinCallback joinCallback;
             {
                 std::lock_guard<std::mutex> callbackLock(callbackMutex);
@@ -1100,12 +1178,17 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
             }
             const std::string endpointHost = result.value("endpoint_host", "");
             const int endpointPort = result.value("endpoint_port", 0);
-            const std::string endpoint = endpointHost + ":" + std::to_string(endpointPort);
-            if (endpointPort < 1 || endpointPort > 65535 ||
-                !CommandProtocol::ValidateMatchTarget(endpoint))
+            const std::string worldInstanceId = result.value("world_instance_id", "");
+            const std::string endpoint = endpointPort >= 1 && endpointPort <= 65535
+                ? CommandProtocol::FormatMatchTarget(
+                    endpointHost, static_cast<std::uint16_t>(endpointPort))
+                : std::string{};
+            if (endpoint.empty() || worldInstanceId.empty())
             {
                 return SendError(
-                    "invalid_authority_endpoint", "authority returned an invalid endpoint",
+                    endpoint.empty() ? "invalid_authority_endpoint" : "authority_world_unverified",
+                    endpoint.empty() ? "authority returned an invalid endpoint" :
+                        "authority did not return a verified world instance",
                     request.requestId)
                     ? FrameResult::Processed
                     : FrameResult::TransportError;
@@ -1116,7 +1199,8 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
                     nlohmann::json{
                         {"status", "ready"},
                         {"endpoint_host", endpointHost},
-                        {"endpoint_port", endpointPort}
+                        {"endpoint_port", endpointPort},
+                        {"world_instance_id", result.value("world_instance_id", "")}
                     },
                     request.requestId))
                 ? FrameResult::Processed
@@ -1171,6 +1255,62 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
                 : FrameResult::TransportError;
         }
 
+        if (request.command == "confirm_match_admission" ||
+            request.command == "confirm_match_connection" ||
+            request.command == "release_match_admission")
+        {
+            if (!request.requestId.has_value())
+            {
+                return SendError("invalid_request", "request_id is required")
+                    ? FrameResult::ProtocolError
+                    : FrameResult::TransportError;
+            }
+            MatchAdmissionReceiptCallback callback;
+            std::string responseCommand;
+            {
+                std::lock_guard<std::mutex> callbackLock(callbackMutex);
+                if (request.command == "confirm_match_admission")
+                {
+                    callback = onMatchAdmissionReservation;
+                    responseCommand = "confirm_match_admission_ack";
+                }
+                else if (request.command == "confirm_match_connection")
+                {
+                    callback = onMatchConnectionConfirmation;
+                    responseCommand = "confirm_match_connection_ack";
+                }
+                else
+                {
+                    callback = onMatchAdmissionRelease;
+                    responseCommand = "release_match_admission_ack";
+                }
+            }
+            if (!callback)
+            {
+                return SendError(
+                    "admission_unavailable",
+                    "scoped native admission receipt handler is unavailable",
+                    request.requestId)
+                    ? FrameResult::Processed
+                    : FrameResult::TransportError;
+            }
+            const nlohmann::json result = callback(request.arguments);
+            if (!result.value("accepted", false))
+            {
+                return SendError(
+                    result.value("code", "admission_receipt_rejected"),
+                    result.value("message", "Payload rejected the scoped admission receipt"),
+                    request.requestId)
+                    ? FrameResult::Processed
+                    : FrameResult::TransportError;
+            }
+            return SendResponse(
+                responseCommand,
+                CommandProtocol::WithRequestId(result, request.requestId))
+                ? FrameResult::Processed
+                : FrameResult::TransportError;
+        }
+
         if (request.command == "clear_match_allocation")
         {
             if (!request.requestId.has_value())
@@ -1180,11 +1320,13 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
                     : FrameResult::TransportError;
             }
             MatchClearCallback callback;
+            MatchClearResultCallback resultCallback;
             {
                 std::lock_guard<std::mutex> callbackLock(callbackMutex);
                 callback = onMatchClear;
+                resultCallback = onMatchClearResult;
             }
-            if (!callback)
+            if (!callback && !resultCallback)
             {
                 return SendError(
                     "admission_unavailable", "strict admission clear handler is unavailable",
@@ -1192,11 +1334,76 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
                     ? FrameResult::Processed
                     : FrameResult::TransportError;
             }
-            callback();
+            nlohmann::json result = resultCallback
+                ? resultCallback(request.arguments)
+                : (callback(), nlohmann::json{{"accepted", true}, {"code", "cleared"}});
+            if (!result.value("accepted", false))
+            {
+                const nlohmann::json pending = CommandProtocol::WithRequestId(
+                    nlohmann::json{
+                        {"code", result.value("code", "cleanup_pending")},
+                        {"message", result.value("message", "native match cleanup is still pending")},
+                        {"status", result.value("status", "cleanup_pending")},
+                        {"native_cleared", result.value("native_cleared", false)},
+                        {"attempt_id", result.value("attempt_id", "")},
+                        {"authority_session_id", result.value("authority_session_id", "")},
+                        {"world_instance_id", result.value("world_instance_id", "")},
+                        {"roster_revision", result.value("roster_revision", 0)},
+                        {"route_generation", result.value("route_generation", 0)},
+                        {"world_teardown_required", result.value("world_teardown_required", true)}
+                    }, request.requestId);
+                return SendResponse(
+                    "clear_match_allocation_pending", pending)
+                    ? FrameResult::Processed
+                    : FrameResult::TransportError;
+            }
             return SendResponse(
                 "clear_match_allocation_ack",
                 CommandProtocol::WithRequestId(
-                    nlohmann::json{{"status", "cleared"}}, request.requestId))
+                    nlohmann::json{
+                        {"code", result.value("code", "cleared")},
+                        {"message", result.value("message", "")},
+                        {"status", result.value("status", "cleared")},
+                        {"native_cleared", result.value("native_cleared", true)},
+                        {"attempt_id", result.value("attempt_id", "")},
+                        {"authority_session_id", result.value("authority_session_id", "")},
+                        {"world_instance_id", result.value("world_instance_id", "")},
+                        {"roster_revision", result.value("roster_revision", 0)},
+                        {"route_generation", result.value("route_generation", 0)},
+                        {"world_teardown_required", result.value("world_teardown_required", false)}
+                    }, request.requestId))
+                ? FrameResult::Processed
+                : FrameResult::TransportError;
+        }
+
+        if (request.command == "cancel_match_transition")
+        {
+            MatchCancelCallback callback;
+            {
+                std::lock_guard<std::mutex> callbackLock(callbackMutex);
+                callback = onMatchCancel;
+            }
+            if (!callback)
+            {
+                return SendError(
+                    "unavailable", "match cancellation is not available",
+                    request.requestId)
+                    ? FrameResult::Processed
+                    : FrameResult::TransportError;
+            }
+            const nlohmann::json result = callback();
+            if (!result.value("accepted", false))
+            {
+                return SendError(
+                    result.value("code", "cancel_rejected"),
+                    result.value("message", "match transition could not be cancelled"),
+                    request.requestId)
+                    ? FrameResult::Processed
+                    : FrameResult::TransportError;
+            }
+            return SendResponse(
+                "cancel_match_transition_ack",
+                CommandProtocol::WithRequestId(result, request.requestId))
                 ? FrameResult::Processed
                 : FrameResult::TransportError;
         }
@@ -1242,6 +1449,27 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
             return SendResponse(
                 "server_status_ack",
                 CommandProtocol::WithRequestId(statusCallback(), request.requestId))
+                ? FrameResult::Processed
+                : FrameResult::TransportError;
+        }
+
+        if (request.command == "payload_status")
+        {
+            PayloadStatusCallback callback;
+            {
+                std::lock_guard<std::mutex> callbackLock(callbackMutex);
+                callback = onPayloadStatus;
+            }
+            if (!callback)
+            {
+                return SendError(
+                    "unavailable", "payload status is not available", request.requestId)
+                    ? FrameResult::Processed
+                    : FrameResult::TransportError;
+            }
+            return SendResponse(
+                "payload_status_ack",
+                CommandProtocol::WithRequestId(callback(), request.requestId))
                 ? FrameResult::Processed
                 : FrameResult::TransportError;
         }

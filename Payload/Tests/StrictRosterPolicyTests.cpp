@@ -84,6 +84,11 @@ namespace
             {"route_generation", 1}, {"nbf", 90}, {"exp", 160}
         };
     }
+
+    std::string NativeNonce(const char* suffix)
+    {
+        return std::string("native_nonce_0123456789_") + suffix;
+    }
 }
 
 int main()
@@ -108,8 +113,9 @@ int main()
 		"short allocation should install");
 	Expect(expiring.StartAuthority("steam_host", 100).accepted,
 		"short allocation should start while live");
-	const auto expiredDecision = expiring.ValidateJoinGrant(
-		Token(GrantClaims(1, "grant_after_allocation_expiry")), "steam_member", 106);
+    const auto expiredDecision = expiring.ValidateJoinGrant(
+        Token(GrantClaims(1, "grant_after_allocation_expiry")), "steam_member", 106,
+        NativeNonce("expiry"));
 	Expect(!expiredDecision.accepted && expiredDecision.code == "allocation_expired",
 		"join grants must not outlive their authority allocation");
 
@@ -118,57 +124,121 @@ int main()
         "allocation should install");
     Expect(policy.StartAuthority("steam_host", 100).accepted,
         "the allocated host should bind locally");
+	Expect(!policy.StartAuthorityForAllocatedHost("", 100, NativeNonce("host")).accepted,
+		"P2P host startup rejects an empty local platform identity");
+	Expect(!policy.StartAuthorityForAllocatedHost("steam_other", 100, NativeNonce("host")).accepted,
+		"P2P host startup rejects a non-rostered local platform identity");
+	Expect(policy.StartAuthorityForAllocatedHost("steam_host", 100, NativeNonce("host")).accepted,
+		"P2P host startup binds the signed HOST seat to the local identity");
+	Expect(!policy.StartAuthorityForAllocatedHost("steam_host", 100, NativeNonce("host-race")).accepted,
+		"a competing native host handshake nonce cannot replace the reserved HOST seat");
 	const auto hostGrant = GrantClaims(1, "host_grant_jti");
 	auto hostClaims = hostGrant;
 	hostClaims["player_id"] = "p_host";
 	hostClaims["platform_id"] = "steam_host";
 	hostClaims["team_id"] = 1;
 	hostClaims["logical_slot"] = 0;
-	Expect(!policy.ValidateJoinGrant(Token(hostClaims), "steam_host", 110).accepted,
+	Expect(!policy.ValidateJoinGrant(Token(hostClaims), "steam_host", 110, NativeNonce("forged-host")).accepted,
 		"the local P2P host must not attach through a remote grant");
 	auto forgedTeam = GrantClaims(1, "forged_team_jti");
 	forgedTeam["team_id"] = 1;
-	Expect(!policy.ValidateJoinGrant(Token(forgedTeam), "steam_member", 110).accepted,
+	Expect(!policy.ValidateJoinGrant(Token(forgedTeam), "steam_member", 110, NativeNonce("forged-team")).accepted,
 		"a signed identity cannot claim a team other than its frozen seat");
     const auto first = policy.ValidateJoinGrant(
-        Token(GrantClaims(1, "grant_jti_1")), "steam_member", 110);
+        Token(GrantClaims(1, "grant_jti_1")), "steam_member", 110,
+        NativeNonce("one"));
     Expect(first.accepted && first.teamId == 2 && first.logicalSlot == 32,
         "grant should recover its frozen team and logical seat");
-    Expect(policy.MarkConnected(first.playerId, first.connectionGeneration).accepted,
+    Expect(first.nativeConnectionNonce == NativeNonce("one"),
+        "native reservation must retain the concrete handshake nonce");
+    const auto competingNonce = policy.ValidateJoinGrant(
+        Token(GrantClaims(1, "grant_jti_1")), "steam_member", 110,
+        NativeNonce("competing"));
+    Expect(!competingNonce.accepted &&
+        competingNonce.code == "native_connection_nonce_conflict",
+        "a different nonce cannot reserve the same grant and generation");
+    Expect(!policy.MarkConnected(
+        first.playerId, first.connectionGeneration, first.grantJti,
+        first.nativeConnectionNonce).accepted,
+        "native reservation cannot mark CONNECTED before backend confirmation");
+    Expect(policy.ConfirmAdmissionReserved(
+        first.playerId, first.connectionGeneration, first.grantJti,
+        first.nativeConnectionNonce).accepted,
+        "backend ReserveAdmission should bind the same grant reservation");
+    Expect(!policy.ConfirmAdmissionReserved(
+        first.playerId, first.connectionGeneration, first.grantJti,
+        NativeNonce("wrong-reservation")).accepted,
+        "backend reservation with another native nonce must be rejected");
+    Expect(policy.MarkNativeAdmitted(
+        first.playerId, first.connectionGeneration, first.grantJti,
+        first.nativeConnectionNonce).accepted,
+        "native team/camp readback should remain a pre-confirmation state");
+    Expect(policy.MarkConnected(
+        first.playerId, first.connectionGeneration, first.grantJti,
+        first.nativeConnectionNonce).accepted,
         "native PostLogin should confirm the connected generation");
-    Expect(policy.MarkConnected(first.playerId, first.connectionGeneration).accepted,
+    Expect(policy.MarkConnected(
+        first.playerId, first.connectionGeneration, first.grantJti,
+        first.nativeConnectionNonce).accepted,
         "connected reporting should be idempotent");
     auto connectionEvents = policy.ConnectionEventsAfter(0);
-    Expect(connectionEvents.size() == 1 && connectionEvents[0].connected &&
-        connectionEvents[0].connectionGeneration == 1 &&
-        connectionEvents[0].grantJti == "grant_jti_1",
-        "the first native connection should produce one correlated report event");
+    Expect(connectionEvents.size() == 3 &&
+        connectionEvents[0].state == "RESERVED" &&
+        connectionEvents[1].state == "NATIVE_ADMITTED" &&
+        connectionEvents[2].state == "CONNECTED" &&
+        connectionEvents.back().connected &&
+        connectionEvents.back().connectionGeneration == 1 &&
+        connectionEvents.back().grantJti == "grant_jti_1" &&
+        connectionEvents[0].nativeConnectionNonce == NativeNonce("one") &&
+        connectionEvents[1].nativeConnectionNonce == NativeNonce("one") &&
+        connectionEvents[2].nativeConnectionNonce == NativeNonce("one"),
+        "native reservation, readback, and backend confirmation should be correlated");
     Expect(!policy.ValidateJoinGrant(
-        Token(GrantClaims(1, "grant_jti_1")), "steam_member", 110).accepted,
+        Token(GrantClaims(1, "grant_jti_1")), "steam_member", 110,
+        NativeNonce("replay")).accepted,
         "JTI replay must be rejected");
 	Expect(!policy.ValidateJoinGrant(
-		Token(GrantClaims(1, "same_generation_second_jti")), "steam_member", 110).accepted,
+		Token(GrantClaims(1, "same_generation_second_jti")), "steam_member", 110,
+        NativeNonce("second")).accepted,
 		"two live connections cannot occupy the same generation and seat");
-    Expect(policy.MarkDisconnected(first.playerId, first.connectionGeneration).accepted,
+    Expect(policy.MarkDisconnected(first.playerId, first.connectionGeneration,
+        first.nativeConnectionNonce).accepted,
         "authority logout should release the connected generation");
-    Expect(policy.MarkDisconnected(first.playerId, first.connectionGeneration).accepted,
+    Expect(policy.MarkDisconnected(first.playerId, first.connectionGeneration,
+        first.nativeConnectionNonce).accepted,
         "disconnect reporting should be idempotent");
+    Expect(!policy.MarkDisconnected(first.playerId, first.connectionGeneration,
+        NativeNonce("wrong-disconnect")).accepted,
+        "a stale disconnect nonce cannot mutate the already released generation");
     connectionEvents = policy.ConnectionEventsAfter(connectionEvents.back().sequence);
     Expect(connectionEvents.size() == 1 && !connectionEvents[0].connected &&
         connectionEvents[0].connectionGeneration == 1,
         "native logout should produce one disconnected report event");
     const auto replacement = policy.ValidateJoinGrant(
-        Token(GrantClaims(2, "grant_jti_2")), "steam_member", 111);
+        Token(GrantClaims(2, "grant_jti_2")), "steam_member", 111,
+        NativeNonce("two"));
     Expect(replacement.accepted && !replacement.replacesConnection,
         "next generation should reclaim the disconnected frozen seat");
-    Expect(policy.MarkConnected(replacement.playerId, replacement.connectionGeneration).accepted,
+    Expect(policy.ConfirmAdmissionReserved(
+        replacement.playerId, replacement.connectionGeneration, replacement.grantJti,
+        replacement.nativeConnectionNonce).accepted,
+        "replacement generation should require a fresh backend reservation");
+    Expect(policy.MarkNativeAdmitted(
+        replacement.playerId, replacement.connectionGeneration, replacement.grantJti,
+        replacement.nativeConnectionNonce).accepted,
+        "replacement native admission should remain quarantined");
+    Expect(policy.MarkConnected(
+        replacement.playerId, replacement.connectionGeneration, replacement.grantJti,
+        replacement.nativeConnectionNonce).accepted,
         "the reconnected generation should be reportable after native seat application");
     const auto latest = policy.ValidateJoinGrant(
-        Token(GrantClaims(4, "grant_jti_4")), "steam_member", 112);
+        Token(GrantClaims(4, "grant_jti_4")), "steam_member", 112,
+        NativeNonce("four"));
     Expect(latest.accepted && latest.replacesConnection,
         "a newer signed generation should invalidate skipped grants and replace the seat");
-    Expect(!policy.ValidateJoinGrant(
-        Token(GrantClaims(3, "grant_jti_3")), "someone_else", 112).accepted,
+	Expect(!policy.ValidateJoinGrant(
+		Token(GrantClaims(3, "grant_jti_3")), "someone_else", 112,
+        NativeNonce("wrong-player")).accepted,
         "platform identity mismatch must be rejected");
 
 	auto renewed = AllocationClaims();
@@ -178,7 +248,8 @@ int main()
 	Expect(policy.InstallAllocation(Token(renewed), "adm_1", publicKey, 120).accepted,
 		"same-route allocation renewal should be idempotent");
 	Expect(!policy.ValidateJoinGrant(
-		Token(GrantClaims(1, "grant_jti_1")), "steam_member", 121).accepted,
+		Token(GrantClaims(1, "grant_jti_1")), "steam_member", 121,
+        NativeNonce("old-route")).accepted,
 		"allocation renewal must preserve consumed JTI replay state");
 
 	auto recovered = AllocationClaims();
@@ -190,15 +261,62 @@ int main()
 		"one-step route recovery should refresh signed seat generations");
 	auto routeTwoGrant = GrantClaims(5, "grant_jti_route_2");
 	routeTwoGrant["route_generation"] = 2;
+	const auto beforeRecoveryReservationEvents =
+		policy.ConnectionEventsAfter(0).size();
 	const auto afterRecovery = policy.ValidateJoinGrant(
-		Token(routeTwoGrant), "steam_member", 123);
-	Expect(afterRecovery.accepted && !afterRecovery.replacesConnection,
-		"route recovery should reserve the same logical seat without a stale live connection");
+		Token(routeTwoGrant), "steam_member", 123, NativeNonce("route-two"));
+	Expect(afterRecovery.accepted && afterRecovery.replacesConnection,
+		"route recovery should reserve a new generation while retaining the old live connection");
+	const auto recoveryEvents = policy.ConnectionEventsAfter(0);
+	Expect(recoveryEvents.size() == beforeRecoveryReservationEvents + 1U &&
+		recoveryEvents.back().state == "RESERVED" &&
+		recoveryEvents.back().connected == false,
+		"route refresh reservation must not emit a connected event before native confirmation");
 	Expect(!policy.InstallAllocation(Token(renewed), "adm_1", publicKey, 124).accepted,
 		"a prior route allocation must be rejected after recovery");
+
+    StrictRoster::Policy hostRecovery(verifier, true);
+    auto hostRecoveryAllocation = AllocationClaims();
+    hostRecoveryAllocation["jti"] = "allocation_jti_host_recovery";
+    Expect(hostRecovery.InstallAllocation(
+        Token(hostRecoveryAllocation), "adm_1", publicKey, 100).accepted,
+        "host recovery allocation should install");
+    const auto hostReservation = hostRecovery.StartAuthorityForAllocatedHost(
+        "steam_host", 100, NativeNonce("host-live-one"));
+    Expect(hostReservation.accepted && hostReservation.connectionGeneration == 1,
+        "host recovery should reserve the first native generation");
+    Expect(hostRecovery.ConfirmAdmissionReserved(
+        hostReservation.playerId, hostReservation.connectionGeneration,
+        hostReservation.grantJti, hostReservation.nativeConnectionNonce).accepted,
+        "host recovery should confirm its first backend reservation");
+    Expect(hostRecovery.ConfirmConnected(
+        hostReservation.playerId, hostReservation.connectionGeneration,
+        hostReservation.grantJti, hostReservation.nativeConnectionNonce).accepted,
+        "host recovery should mark the first native generation live");
+    auto hostRecoveryRefresh = AllocationClaims();
+    hostRecoveryRefresh["jti"] = "allocation_jti_host_recovery_2";
+    hostRecoveryRefresh["route_generation"] = 2;
+    hostRecoveryRefresh["roster"][0]["connection_generation"] = 2;
+    hostRecoveryRefresh["roster"][1]["connection_generation"] = 2;
+    Expect(hostRecovery.InstallAllocation(
+        Token(hostRecoveryRefresh), "adm_1", publicKey, 101).accepted,
+        "host recovery should accept a one-step route refresh");
+    Expect(!hostRecovery.StartAuthorityForAllocatedHost(
+        "steam_host", 101, NativeNonce("host-live-two")).accepted,
+        "host recovery must not promote an old live socket to the new generation");
+    Expect(hostRecovery.MarkDisconnected(
+        hostReservation.playerId, hostReservation.connectionGeneration,
+        hostReservation.nativeConnectionNonce).accepted,
+        "host recovery should clear the old live generation with its nonce");
+    const auto hostReplacement = hostRecovery.StartAuthorityForAllocatedHost(
+        "steam_host", 101, NativeNonce("host-live-two"));
+    Expect(hostReplacement.accepted && hostReplacement.connectionGeneration == 2 &&
+        hostReplacement.nativeConnectionNonce == NativeNonce("host-live-two"),
+        "host recovery should require a fresh nonce for the new generation");
+
 	policy.Reset();
 	Expect(!policy.ValidateJoinGrant(
-		Token(routeTwoGrant), "steam_member", 125).accepted,
+		Token(routeTwoGrant), "steam_member", 125, NativeNonce("route-two-late")).accepted,
 		"clearing a completed assignment must revoke its in-memory admission state");
 	Expect(!policy.StartAuthority("steam_host", 125).accepted,
 		"cleared allocation must not restart an authority");

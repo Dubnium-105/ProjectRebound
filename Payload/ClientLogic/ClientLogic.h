@@ -2,6 +2,7 @@
 
 #include <string>
 #include <string_view>
+#include "../Libs/json.hpp"
 
 namespace SDK
 {
@@ -17,6 +18,8 @@ namespace SDK
 [[nodiscard]] bool QueueConnectToMatchAuthorized(
     const std::string& target,
     std::string_view joinGrant);
+[[nodiscard]] nlohmann::json GetClientMatchStatus();
+[[nodiscard]] nlohmann::json CancelPendingClientTransition();
 void ConnectToMatch();
 void AutoConnectToMatchFromCmdline();
 void NotifyClientLoginCompleted();

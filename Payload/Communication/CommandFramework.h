@@ -23,6 +23,14 @@ public:
     using MatchAuthorityCallback = std::function<nlohmann::json(const nlohmann::json& arguments)>;
     using MatchConnectionEventsCallback = std::function<nlohmann::json(const nlohmann::json& arguments)>;
     using MatchClearCallback = std::function<void()>;
+    // A clear is scoped to the allocation/world that requested it.  Keeping
+    // the arguments on this callback prevents a delayed pipe frame from
+    // resetting a newer Attempt.
+    using MatchClearResultCallback = std::function<nlohmann::json(const nlohmann::json& arguments)>;
+    using PayloadStatusCallback = std::function<nlohmann::json()>;
+    using MatchCancelCallback = std::function<nlohmann::json()>;
+    using MatchAdmissionReceiptCallback =
+        std::function<nlohmann::json(const nlohmann::json& arguments)>;
 
     CommandFramework();
     ~CommandFramework();
@@ -45,6 +53,15 @@ public:
     void SetMatchAuthorityCallback(MatchAuthorityCallback callback);
     void SetMatchConnectionEventsCallback(MatchConnectionEventsCallback callback);
     void SetMatchClearCallback(MatchClearCallback callback);
+    void SetMatchClearResultCallback(MatchClearResultCallback callback);
+    void SetPayloadStatusCallback(PayloadStatusCallback callback);
+    void SetMatchCancelCallback(MatchCancelCallback callback);
+    void SetMatchAdmissionReservationCallback(
+        MatchAdmissionReceiptCallback callback);
+    void SetMatchConnectionConfirmationCallback(
+        MatchAdmissionReceiptCallback callback);
+    void SetMatchAdmissionReleaseCallback(
+        MatchAdmissionReceiptCallback callback);
 
     [[nodiscard]] bool Start();
     void Stop() noexcept;
@@ -169,6 +186,12 @@ private:
     MatchAuthorityCallback onMatchAuthority;
     MatchConnectionEventsCallback onMatchConnectionEvents;
     MatchClearCallback onMatchClear;
+    MatchClearResultCallback onMatchClearResult;
+    PayloadStatusCallback onPayloadStatus;
+    MatchCancelCallback onMatchCancel;
+    MatchAdmissionReceiptCallback onMatchAdmissionReservation;
+    MatchAdmissionReceiptCallback onMatchConnectionConfirmation;
+    MatchAdmissionReceiptCallback onMatchAdmissionRelease;
 
     SECURITY_ATTRIBUTES securityAttributes{};
     SECURITY_DESCRIPTOR securityDescriptor{};

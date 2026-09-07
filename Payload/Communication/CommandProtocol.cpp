@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <stdexcept>
 
 namespace
@@ -41,6 +42,120 @@ namespace
         }
 
         return port != 0;
+    }
+
+    bool IsIpv4Octet(std::string_view text) noexcept
+    {
+        if (text.empty() || text.size() > 3U)
+            return false;
+        unsigned int value = 0;
+        for (const unsigned char ch : text)
+        {
+            if (ch < '0' || ch > '9')
+                return false;
+            value = value * 10U + static_cast<unsigned int>(ch - '0');
+            if (value > 255U)
+                return false;
+        }
+        return true;
+    }
+
+    bool IsIpv4Literal(std::string_view text) noexcept
+    {
+        std::size_t start = 0;
+        unsigned int octets = 0;
+        while (start <= text.size())
+        {
+            const std::size_t end = text.find('.', start);
+            const std::size_t length = end == std::string_view::npos
+                ? text.size() - start : end - start;
+            if (!IsIpv4Octet(text.substr(start, length)))
+                return false;
+            ++octets;
+            if (end == std::string_view::npos)
+                break;
+            start = end + 1U;
+        }
+        return octets == 4U;
+    }
+
+    bool IsIpv6Group(std::string_view group) noexcept
+    {
+        if (group.empty() || group.size() > 4U)
+            return false;
+        return std::all_of(group.begin(), group.end(), [](const unsigned char ch)
+            {
+                return std::isxdigit(ch) != 0;
+            });
+    }
+
+    // Keep the validation independent of Winsock so the protocol regression
+    // harness remains portable. A compressed IPv6 literal must expand to
+    // fewer than eight 16-bit groups; an embedded IPv4 literal occupies two.
+    bool IsIpv6Literal(std::string_view text) noexcept
+    {
+        if (text.empty())
+            return false;
+
+        const std::size_t zone = text.find('%');
+        if (zone != std::string_view::npos)
+        {
+            if (zone == 0 || zone + 1U >= text.size())
+                return false;
+            text = text.substr(0, zone);
+        }
+
+        const std::size_t compression = text.find("::");
+        if (compression != std::string_view::npos &&
+            text.find("::", compression + 2U) != std::string_view::npos)
+        {
+            return false;
+        }
+        const bool compressed = compression != std::string_view::npos;
+        const std::string_view left = compressed
+            ? text.substr(0, compression)
+            : text;
+        const std::string_view right = compressed
+            ? text.substr(compression + 2U)
+            : std::string_view{};
+
+        const auto countGroups = [](const std::string_view part) noexcept
+        {
+            if (part.empty())
+                return 0;
+            int groups = 0;
+            std::size_t start = 0;
+            while (start <= part.size())
+            {
+                const std::size_t end = part.find(':', start);
+                const std::size_t length = end == std::string_view::npos
+                    ? part.size() - start : end - start;
+                const std::string_view group = part.substr(start, length);
+                if (group.find('.') != std::string_view::npos)
+                {
+                    if (end != std::string_view::npos || !IsIpv4Literal(group))
+                        return -1;
+                    groups += 2;
+                }
+                else
+                {
+                    if (!IsIpv6Group(group))
+                        return -1;
+                    ++groups;
+                }
+                if (end == std::string_view::npos)
+                    break;
+                start = end + 1U;
+            }
+            return groups;
+        };
+
+        const int leftGroups = countGroups(left);
+        const int rightGroups = countGroups(right);
+        if (leftGroups < 0 || rightGroups < 0)
+            return false;
+        const int totalGroups = leftGroups + rightGroups;
+        return compressed ? totalGroups < 8 : totalGroups == 8;
     }
 
     CommandProtocol::ParseResult Failure(
@@ -126,7 +241,7 @@ namespace CommandProtocol
         }
     }
 
-    bool ValidateMatchTarget(
+    std::optional<MatchEndpoint> ParseMatchTarget(
         const std::string_view target,
         std::string* const failureReason)
     {
@@ -137,7 +252,7 @@ namespace CommandProtocol
         {
             if (failureReason != nullptr)
                 *failureReason = reason;
-            return false;
+            return std::nullopt;
         };
 
         if (target.empty())
@@ -182,16 +297,56 @@ namespace CommandProtocol
             port = target.substr(colon + 1);
         }
 
-        const bool hostValid = std::all_of(host.begin(), host.end(), [isBracketedIpv6](const unsigned char ch)
+        if (isBracketedIpv6)
+        {
+            if (!std::all_of(host.begin(), host.end(), [](const unsigned char ch)
+                {
+                    return IsIpv6Character(ch);
+                }) || !IsIpv6Literal(host))
             {
-                return isBracketedIpv6 ? IsIpv6Character(ch) : IsHostCharacter(ch);
-            });
-        if (!hostValid)
+                return fail("bracketed target host is not a valid IPv6 literal");
+            }
+        }
+        else if (!std::all_of(host.begin(), host.end(), [](const unsigned char ch)
+            {
+                return IsHostCharacter(ch);
+            }))
+        {
             return fail("host contains unsupported characters");
+        }
         if (!ParsePort(port))
             return fail("port must be between 1 and 65535");
 
-        return true;
+        unsigned int parsedPort = 0;
+        for (const unsigned char ch : port)
+            parsedPort = parsedPort * 10U + static_cast<unsigned int>(ch - '0');
+        return MatchEndpoint{std::string(host), static_cast<std::uint16_t>(parsedPort)};
+    }
+
+    bool ValidateMatchTarget(
+        const std::string_view target,
+        std::string* const failureReason)
+    {
+        return ParseMatchTarget(target, failureReason).has_value();
+    }
+
+    std::string FormatMatchTarget(
+        const std::string_view host,
+        const std::uint16_t port)
+    {
+        if (host.empty() || port == 0)
+            return {};
+        std::string normalizedHost(host);
+        if (normalizedHost.size() >= 2U && normalizedHost.front() == '[' &&
+            normalizedHost.back() == ']')
+        {
+            normalizedHost = normalizedHost.substr(1, normalizedHost.size() - 2U);
+        }
+        const bool ipv6 = normalizedHost.find(':') != std::string::npos;
+        const std::string target = ipv6
+            ? "[" + normalizedHost + "]:" + std::to_string(port)
+            : normalizedHost + ":" + std::to_string(port);
+        return ValidateMatchTarget(target) ? target : std::string{};
     }
 
     nlohmann::json WithRequestId(
