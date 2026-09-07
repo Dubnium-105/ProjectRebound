@@ -6,7 +6,7 @@
       "admission_mode": "strict_roster_v1",
       "frontend": "tauri",
       "ipc_protocol": "strict-roster-v2",
-      "backend_schema": 46,
+      "backend_schema": 47,
       "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
       "payload_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "backend_commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -31,9 +31,9 @@
         "download_url": "https://fixture.invalid/toolbox.exe?a=1\u0026b=2"
       }
     ],
-    "manifest_hash": "13069ac8b16ad311f29fc61104a032affea0ce1f587b49ee19f99c91c1bea6da",
+    "manifest_hash": "74572a3aa262bdfba12d8809b500c746fc475ed5da49e45ec256effb87a30697",
     "signature_algorithm": "Ed25519",
     "key_id": "interop-test-key",
-    "signature": "efQFqsQBR0fs/t3Wve/84nka2Dn6upImQu00/3DwZAcj1AnY1NLKqRKd3/bDMm089kJMlHBCLXeXyxFSuzzpAg=="
+    "signature": "MVS0HyQWpgRalwBGI+ey67cKz+C06adFTRhqVtPB6N1+n8LKWtU2sZfhIoSxC49YQ8hNtekIiRlSjC6hN/FEAw=="
   }
 }
