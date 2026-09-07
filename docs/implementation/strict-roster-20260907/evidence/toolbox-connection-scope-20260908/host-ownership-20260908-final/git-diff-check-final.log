@@ -1,0 +1,9 @@
+warning: in the working copy of 'src/api/multiplayer/lobbies.rs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/core/runtime.rs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/launching/controller.rs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/launching/launch.rs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/matchmaking/controller.rs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/matchmaking/mod.rs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/server/pipe.rs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/server/pipe_cpp_fixture_tests.rs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/fixtures/payload-wire-v2.jsonl', LF will be replaced by CRLF the next time Git touches it

@@ -1,0 +1,64 @@
+{
+  "id": "toolbox-host-ownership-20260908-final",
+  "status": "PASS_FOR_EXECUTED_SCOPE",
+  "source": {
+    "repository": "C:/wksp/ProjectReboundToolbox",
+    "head": "d3f501051b129533904818aa153bcb70b45a98fc",
+    "dirty": true,
+    "diff_patch": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-ownership-20260908-final\\toolbox-source-diff.patch",
+    "diff_sha256": "D91EA91CF4EE81B577D7CF5C425C1FB7ABC17B5969C25AEC301192554418B59B",
+    "status_lines": [
+      " M src/api/multiplayer/lobbies.rs",
+      " M src/core/runtime.rs",
+      " M src/launching/controller.rs",
+      " M src/launching/launch.rs",
+      " M src/matchmaking/controller.rs",
+      " M src/matchmaking/mod.rs",
+      " M src/server/pipe.rs",
+      " M src/server/pipe_cpp_fixture_tests.rs",
+      " M tests/fixtures/payload-wire-v2.jsonl",
+      "?? .tmp/strict-roster-20260907/"
+    ]
+  },
+  "changes": [
+    "RuntimeState retains exact Backend-confirmed HOST scope, native nonce, operation sequence, operation id, run id, and session epoch",
+    "Exact DISCONNECTED plus successful Backend host_disconnected moves old ownership to released ledger",
+    "Route refresh requires released old scope and strictly higher route generation"
+  ],
+  "tests": [
+    {
+      "log": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-ownership-20260908-final\\cargo-test-lib-final.log",
+      "sha256": "2398209CFD26320A3C6B63C55EB61FAD636C2B6B1CB28BE378F3B2938735261B",
+      "exit_code": 0,
+      "summary": "test result: ok. 296 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.24s"
+    },
+    {
+      "log": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-ownership-20260908-final\\cargo-test-tauri-final.log",
+      "sha256": "D9D54A475D5C1280CE4360FB97D71C99181311E6C1B72DFC61E02824CD1E4E46",
+      "exit_code": 0,
+      "summary": "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    },
+    {
+      "log": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-ownership-20260908-final\\cargo-check-all-targets-final.log",
+      "sha256": "A332C75FF1A537534C1F912979189A5090392B36C8242DF051255D0D9CCAC08B",
+      "exit_code": 0,
+      "summary": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 33.94s"
+    },
+    {
+      "log": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-ownership-20260908-final\\cargo-fmt-check-final.log",
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+      "exit_code": 0,
+      "summary": null
+    },
+    {
+      "log": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-ownership-20260908-final\\git-diff-check-final.log",
+      "sha256": "4C003BB33CB2063B1E79AA50827C80C268376D65765FAC51FAE8363E70EA98AF",
+      "exit_code": 0,
+      "summary": null
+    }
+  ],
+  "limitations": [
+    "Native disconnect IPC is not yet wired in Toolbox because Backend/Native contract is pending; no fake DISCONNECTED or release was introduced",
+    "Previous 294-lib/7-Tauri receipt remains historical and was not overwritten"
+  ]
+}

@@ -1,0 +1,190 @@
+{
+  "id": "toolbox-wire-scope-final-20260908",
+  "generated_at_utc": "2026-09-07T19:40:45.595196+00:00",
+  "source": {
+    "repository": "C:\\wksp\\ProjectReboundToolbox",
+    "head": "d3f501051b129533904818aa153bcb70b45a98fc",
+    "dirty": true,
+    "status_porcelain": [
+      "M src/api/multiplayer/lobbies.rs",
+      " M src/core/runtime.rs",
+      " M src/launching/controller.rs",
+      " M src/launching/launch.rs",
+      " M src/matchmaking/controller.rs",
+      " M src/server/pipe.rs",
+      " M src/server/pipe_cpp_fixture_tests.rs",
+      " M tests/fixtures/payload-wire-v2.jsonl",
+      "?? .tmp/strict-roster-20260907/"
+    ],
+    "tracked_diff_paths": [
+      "src/api/multiplayer/lobbies.rs",
+      "src/core/runtime.rs",
+      "src/launching/controller.rs",
+      "src/launching/launch.rs",
+      "src/matchmaking/controller.rs",
+      "src/server/pipe.rs",
+      "src/server/pipe_cpp_fixture_tests.rs",
+      "tests/fixtures/payload-wire-v2.jsonl"
+    ],
+    "modified_file_count": 8,
+    "modified_files": [
+      {
+        "path": "src/api/multiplayer/lobbies.rs",
+        "sha256": "E9B5C011D787F63EACB2906BA9C0FBDC355C75CE53A3182149B6A330129DFC66",
+        "bytes": 25250
+      },
+      {
+        "path": "src/core/runtime.rs",
+        "sha256": "89101E3714193C460C73C847C119F75E484E72345BB51F7B16C88BB072050024",
+        "bytes": 266130
+      },
+      {
+        "path": "src/launching/controller.rs",
+        "sha256": "B287F4DD86D2E0522A22FAE4905188379F7C47A48225B4531ACF4D748BA1F033",
+        "bytes": 6959
+      },
+      {
+        "path": "src/launching/launch.rs",
+        "sha256": "D9615835C11FD513AF725B4642738459204893DF9F1C268A62C265CD4BBD360B",
+        "bytes": 70936
+      },
+      {
+        "path": "src/matchmaking/controller.rs",
+        "sha256": "D4CC7396B8F4B93CDA1EF49ED1B33FE30F4ED63C4DF9E0076DB3A51BDDC399C6",
+        "bytes": 57783
+      },
+      {
+        "path": "src/server/pipe.rs",
+        "sha256": "AD9D56934AD6A18A201FF0C03186B953D8AA54FD68F0F3DF3BF946BABDF861E9",
+        "bytes": 91360
+      },
+      {
+        "path": "src/server/pipe_cpp_fixture_tests.rs",
+        "sha256": "D15813A3563723885D5EDD0A2E486D5F13371B4FE745C0CE75DED19F7E400771",
+        "bytes": 7501
+      },
+      {
+        "path": "tests/fixtures/payload-wire-v2.jsonl",
+        "sha256": "B6DF8C7FF1172E31198F398E9D17E96AD2D722785AF2A04BAA9CAC5404BC9E01",
+        "bytes": 2956
+      }
+    ]
+  },
+  "fixture": {
+    "generator_receipt_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\wire-scope-20260908-1926\\payload-wire-v2.jsonl",
+    "generator_fixture_sha256": "B6DF8C7FF1172E31198F398E9D17E96AD2D722785AF2A04BAA9CAC5404BC9E01",
+    "toolbox_fixture_path": "C:\\wksp\\ProjectReboundToolbox\\tests\\fixtures\\payload-wire-v2.jsonl",
+    "toolbox_fixture_sha256": "B6DF8C7FF1172E31198F398E9D17E96AD2D722785AF2A04BAA9CAC5404BC9E01",
+    "byte_copy_matches": true,
+    "source_is_cpp_generated": true
+  },
+  "tests": [
+    {
+      "command": "cargo test --lib server::pipe:: --no-fail-fast -j 1",
+      "path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\wire-scope-20260908-1926\\cargo-test-pipe-final.log",
+      "sha256": "C9F7F1598CC87C782C015D89D7CDDF7395B592715056F5C0DA6462DEBB359D83",
+      "exit_code": 0,
+      "result": {
+        "pass_count": 16,
+        "fail_count": 0,
+        "ignored_count": 0,
+        "measured_count": 0,
+        "filtered_count": 278
+      }
+    },
+    {
+      "command": "cargo test --lib connection_proof_retries_only_the_explicit_pending_conflict --no-fail-fast -j 1",
+      "exit_code": 0,
+      "path": null,
+      "sha256": null,
+      "result": {
+        "pass_count": 1,
+        "fail_count": 0,
+        "ignored_count": 0,
+        "measured_count": 0,
+        "filtered_count": 293
+      },
+      "note": "Executed before the final full-lib receipt; terminal output was not persisted as a separate log."
+    },
+    {
+      "command": "cargo test --lib --no-fail-fast -j 1",
+      "path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\wire-scope-20260908-1926\\cargo-test-lib-final.log",
+      "sha256": "D29C74369B740D0DBE17B96228C92A35929BA944FD85EE8900F956FB9986F9BC",
+      "exit_code": 0,
+      "result": {
+        "pass_count": 294,
+        "fail_count": 0,
+        "ignored_count": 0,
+        "measured_count": 0,
+        "filtered_count": 0
+      }
+    },
+    {
+      "command": "cargo check --all-targets -j 1",
+      "path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\wire-scope-20260908-1926\\cargo-check-all-targets-final.log",
+      "sha256": "05B0E0EEA466103368EDF9E5831A98D95A155DB17F5855A20710B7F4E1F28392",
+      "exit_code": 0,
+      "result": null
+    },
+    {
+      "command": "cargo test --manifest-path src-tauri/Cargo.toml --no-fail-fast -j 1",
+      "path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\wire-scope-20260908-1926\\cargo-test-tauri-final.log",
+      "sha256": "5E136B07666936A98D9ABABCD5314555BFEB7658FFC8B86941A940BA9D53F84C",
+      "exit_code": 0,
+      "result": {
+        "pass_count": 7,
+        "fail_count": 0,
+        "ignored_count": 0,
+        "measured_count": 0,
+        "filtered_count": 0
+      }
+    }
+  ],
+  "checks": [
+    {
+      "command": "cargo fmt --all -- --check",
+      "exit_code": 0,
+      "log_path": null,
+      "log_sha256": null,
+      "note": "Terminal output only; no separate log persisted."
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "log_path": null,
+      "log_sha256": null,
+      "note": "Terminal output only; no separate log persisted."
+    }
+  ],
+  "unlogged_attempts": [
+    {
+      "command": "cargo test --lib server::pipe:: --no-fail-fast -j 1",
+      "exit_code": 1,
+      "log_path": null,
+      "log_sha256": null,
+      "reason": "Initial test-only compile caught a moved serde_json::Value in the new negative test; fixed with an explicit clone before the retained passing run."
+    }
+  ],
+  "limitations": [
+    {
+      "id": "host-route-plus-one-recovery-order",
+      "status": "BLOCKED_STATIC_GAP",
+      "scope": "read-only source audit; no Native game or Backend dynamic run",
+      "evidence": [
+        "C:/wksp/ProjectRebound/Payload/Admission/StrictRosterPolicy.h:494-501",
+        "C:/wksp/ProjectRebound/Payload/dllmain.cpp:1873-1888,1915-1916,2057-2067",
+        "C:/wksp/ProjectRebound/Payload/ClientLogic/ClientLogic.cpp:1732-1818,2473-2555",
+        "C:/wksp/ProjectReboundToolbox/src/core/runtime.rs:1827-2010",
+        "C:/wksp/ProjectReboundToolbox/src/core/runtime.rs:2789-2929",
+        "C:/wksp/ProjectRebound/Payload/Communication/CommandFramework.cpp:1440-1467"
+      ],
+      "finding": "Native StartAuthorityForAllocatedHost rejects a connected old HOST seat with host_live_connection_pending_disconnect until MarkDisconnected has emitted the old nonce. The route-refresh handler calls this policy before StageLocalAuthorityClientScope; the latter clears local native scope but does not release the policy seat. Toolbox refresh_p2p_authority installs the allocation and calls start_match_authority without sending cancel_match_transition first. The connection-event pump can report DISCONNECTED to Backend only after it observes the event, so the required old DISCONNECTED -> Backend release -> old client-scope cancel -> new Stage ordering is not proven and can reject route+1 recovery.",
+      "required_dynamic_evidence": "A same-world route+1 run showing the old HOST DISCONNECTED event/nonce, Backend release/ack, old native client scope cancellation, then new operation sequence/nonce and StageLocalAuthorityClientScope success."
+    },
+    {
+      "id": "native-positive-runtime",
+      "status": "NOT_RUN",
+      "finding": "The C++ generated fixture was consumed and negative-tested, but no real Native/Steam/Backend positive playable run was performed in this receipt."
+    }
+  ]
+}

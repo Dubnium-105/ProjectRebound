@@ -1,0 +1,165 @@
+{
+  "recorded_at": "2026-09-07T20:04:31.947936+00:00",
+  "product_commit": "f72407870c59a1658eb71cb3020c97d512199403",
+  "actual_test_input_head": "d3f501051b129533904818aa153bcb70b45a98fc",
+  "actual_test_input_dirty": true,
+  "tested_patch_sha256": "d91ea91cf4ee81b577d7cf5c425c1fb7abc17b5969c25aec301192554418b59b",
+  "committed_diff_raw_sha256": "328183aedc6d60c9f02b1b7cbb4da4fb7eb280f6965efb4583ed3e9a067ed3f6",
+  "tested_patch_matches_committed_change_after_crlf_normalization": true,
+  "test_scope": "296 Rust library tests and 7 Tauri tests passed. all-targets check and formatting completed. Earlier 294/7 logs are retained as historical results.",
+  "limitations": [
+    "Native disconnect IPC is not yet wired in Toolbox because Backend/Native contract is pending; no fake DISCONNECTED or release was introduced",
+    "Previous 294-lib/7-Tauri receipt remains historical and was not overwritten"
+  ],
+  "native_online_acceptance": "NOT_PASSED",
+  "source_hash_observation": "Collected after execution and commit; not a claim that the test runner captured these at launch.",
+  "sources": [
+    {
+      "path": "src/api/multiplayer/lobbies.rs",
+      "observed_working_file_sha256_after_test": "e9b5c011d787f63eacb2906ba9c0fbdc355c75ce53a3182149b6a330129dfc66",
+      "committed_git_blob_sha256": "e9b5c011d787f63eacb2906ba9c0fbdc355c75ce53a3182149b6a330129dfc66"
+    },
+    {
+      "path": "src/core/runtime.rs",
+      "observed_working_file_sha256_after_test": "3960739de7cc861b65263f4c8af9755e211411d8a8d77b062a819ac3bad3bc0f",
+      "committed_git_blob_sha256": "3960739de7cc861b65263f4c8af9755e211411d8a8d77b062a819ac3bad3bc0f"
+    },
+    {
+      "path": "src/launching/controller.rs",
+      "observed_working_file_sha256_after_test": "b287f4dd86d2e0522a22fae4905188379f7c47a48225b4531acf4d748ba1f033",
+      "committed_git_blob_sha256": "b287f4dd86d2e0522a22fae4905188379f7c47a48225b4531acf4d748ba1f033"
+    },
+    {
+      "path": "src/launching/launch.rs",
+      "observed_working_file_sha256_after_test": "d9615835c11fd513af725b4642738459204893df9f1c268a62c265cd4bbd360b",
+      "committed_git_blob_sha256": "d9615835c11fd513af725b4642738459204893df9f1c268a62c265cd4bbd360b"
+    },
+    {
+      "path": "src/matchmaking/controller.rs",
+      "observed_working_file_sha256_after_test": "d4cc7396b8f4b93cda1ef49ed1b33fe30f4ed63c4df9e0076db3a51bddc399c6",
+      "committed_git_blob_sha256": "d4cc7396b8f4b93cda1ef49ed1b33fe30f4ed63c4df9e0076db3a51bddc399c6"
+    },
+    {
+      "path": "src/matchmaking/mod.rs",
+      "observed_working_file_sha256_after_test": "d594e31f696ea4379849c1796fc146bc5958e90a518eba6180f94ebf352f4931",
+      "committed_git_blob_sha256": "d594e31f696ea4379849c1796fc146bc5958e90a518eba6180f94ebf352f4931"
+    },
+    {
+      "path": "src/server/pipe.rs",
+      "observed_working_file_sha256_after_test": "ad9d56934ad6a18a201ff0c03186b953d8aa54fd68f0f3df3bf946babdf861e9",
+      "committed_git_blob_sha256": "ad9d56934ad6a18a201ff0c03186b953d8aa54fd68f0f3df3bf946babdf861e9"
+    },
+    {
+      "path": "src/server/pipe_cpp_fixture_tests.rs",
+      "observed_working_file_sha256_after_test": "d15813a3563723885d5edd0a2e486d5f13371b4fe745c0ce75ded19f7e400771",
+      "committed_git_blob_sha256": "d15813a3563723885d5edd0a2e486d5f13371b4fe745c0ce75ded19f7e400771"
+    },
+    {
+      "path": "tests/fixtures/payload-wire-v2.jsonl",
+      "observed_working_file_sha256_after_test": "b6df8c7ff1172e31198f398e9d17e96ad2d722785af2a04baa9cac5404bc9e01",
+      "committed_git_blob_sha256": "b6df8c7ff1172e31198f398e9d17e96ad2d722785af2a04baa9cac5404bc9e01"
+    }
+  ],
+  "evidence_files": [
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/toolbox-connection-scope-20260908/wire-scope-20260908-1926/cargo-check-all-targets-final.log",
+      "sha256": "05b0e0eea466103368edf9e5831a98d95a155db17f5855a20710b7f4e1f28392",
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\wire-scope-20260908-1926\\cargo-check-all-targets-final.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/toolbox-connection-scope-20260908/wire-scope-20260908-1926/cargo-check-all-targets-j1.log",
+      "sha256": "0169d199b1d0eea231806339e683000b1b49852b1de5f5e4823f1bf656dcb35e",
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\wire-scope-20260908-1926\\cargo-check-all-targets-j1.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/toolbox-connection-scope-20260908/wire-scope-20260908-1926/cargo-test-lib-final.log",
+      "sha256": "d29c74369b740d0dbe17b96228c92a35929ba944fd85ee8900f956fb9986f9bc",
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\wire-scope-20260908-1926\\cargo-test-lib-final.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/toolbox-connection-scope-20260908/wire-scope-20260908-1926/cargo-test-lib-full.log",
+      "sha256": "41b7107cc67ad308e1b9c88fb1d7c25463e08812a4279549dd72a190dc44ef6c",
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\wire-scope-20260908-1926\\cargo-test-lib-full.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/toolbox-connection-scope-20260908/wire-scope-20260908-1926/cargo-test-pipe-final.log",
+      "sha256": "c9f7f1598cc87c782c015d89d7cddf7395b592715056f5c0da6462debb359d83",
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\wire-scope-20260908-1926\\cargo-test-pipe-final.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/toolbox-connection-scope-20260908/wire-scope-20260908-1926/cargo-test-tauri-final.log",
+      "sha256": "5e136b07666936a98d9ababcd5314555bfeb7658ffc8b86941a940ba9d53f84c",
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\wire-scope-20260908-1926\\cargo-test-tauri-final.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/toolbox-connection-scope-20260908/wire-scope-20260908-1926/cargo-test-tauri.log",
+      "sha256": "189ca6851c2de3bc7e3e9011150470605e801f397d5713248b3baa8e7c44423c",
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\wire-scope-20260908-1926\\cargo-test-tauri.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/toolbox-connection-scope-20260908/wire-scope-20260908-1926/fixture-copy-verification.log",
+      "sha256": "a0d9033cf164e1d789bf6194799240e6710cf23e7e3c25fcfa14258ca581af62",
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\wire-scope-20260908-1926\\fixture-copy-verification.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/toolbox-connection-scope-20260908/wire-scope-20260908-1926/toolbox-wire-scope-final-receipt.json",
+      "sha256": "5096bbe846686964673b9740f40a6a64b4f72471c774bda4a1552cdf0d71aaae",
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\wire-scope-20260908-1926\\toolbox-wire-scope-final-receipt.json"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/toolbox-connection-scope-20260908/host-ownership-20260908-final/cargo-check-all-targets-final.log",
+      "sha256": "a332c75ff1a537534c1f912979189a5090392b36c8242df051255d0d9ccac08b",
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-ownership-20260908-final\\cargo-check-all-targets-final.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/toolbox-connection-scope-20260908/host-ownership-20260908-final/cargo-fmt-check-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-ownership-20260908-final\\cargo-fmt-check-final.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/toolbox-connection-scope-20260908/host-ownership-20260908-final/cargo-test-lib-final.log",
+      "sha256": "2398209cfd26320a3c6b63c55eb61fad636c2b6b1cb28be378f3b2938735261b",
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-ownership-20260908-final\\cargo-test-lib-final.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/toolbox-connection-scope-20260908/host-ownership-20260908-final/cargo-test-tauri-final.log",
+      "sha256": "d9d54a475d5c1280ce4360fb97d71c99181311e6c1b72dfc61e02824cd1e4e46",
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-ownership-20260908-final\\cargo-test-tauri-final.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/toolbox-connection-scope-20260908/host-ownership-20260908-final/git-diff-check-final.log",
+      "sha256": "4c003bb33cb2063b1e79aa50827c80c268376d65765fac51fae8363e70ea98af",
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-ownership-20260908-final\\git-diff-check-final.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/toolbox-connection-scope-20260908/host-ownership-20260908-final/toolbox-host-ownership-final-receipt.json",
+      "sha256": "0e3c14f90ff70675f755a1fad60b3ffca333d6e0afd02c4de97bfe29a0427e88",
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-ownership-20260908-final\\toolbox-host-ownership-final-receipt.json"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/toolbox-connection-scope-20260908/host-ownership-20260908-final/toolbox-source-diff.patch",
+      "sha256": "d91ea91cf4ee81b577d7cf5c425c1fb7abc17b5969c25aec301192554418b59b",
+      "original_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\host-ownership-20260908-final\\toolbox-source-diff.patch"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/toolbox-connection-scope-20260908/actual-cpp-fixture/generate.log",
+      "sha256": "1d29d5af93c1eecef3b281c7f1f90a2ea8b9f76ccd86e183d23eeab1ef6ebe08",
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\wire-scope-20260908-1926\\generate.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/toolbox-connection-scope-20260908/actual-cpp-fixture/payload-wire-negative-v2.jsonl",
+      "sha256": "2ecc55feaa6868c77271ed62642da1a8e68237ddfffd677d167030a61b1d5557",
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\wire-scope-20260908-1926\\payload-wire-negative-v2.jsonl"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/toolbox-connection-scope-20260908/actual-cpp-fixture/payload-wire-v2.jsonl",
+      "sha256": "b6df8c7ff1172e31198f398e9d17e96ad2d722785af2a04baa9cac5404bc9e01",
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\wire-scope-20260908-1926\\payload-wire-v2.jsonl"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/toolbox-connection-scope-20260908/actual-cpp-fixture/receipt.json",
+      "sha256": "2c193b4d18c9a2a3031f7f9d7568b977be1352a7f7716f0b1adc26df71ca4032",
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\wire-scope-20260908-1926\\receipt.json"
+    }
+  ]
+}

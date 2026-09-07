@@ -1,0 +1,328 @@
+{
+  "recorded_at": "2026-09-07T19:58:48.971808+00:00",
+  "status": "PASS",
+  "scope": "Exact committed evidence byte equality only; not product/native acceptance.",
+  "checked_files": 40,
+  "files": [
+    {
+      "commit": "16f74a4853729f76d9cc103067e3a9c2d8692965",
+      "path": "docs/implementation/strict-roster-20260907/evidence/backend-go-test-race-go1266-member-scope-final-summary.json",
+      "bytes": 4701,
+      "git_blob_sha256": "1cf9e75d2a625c17593e8eba7d39ac00ab36d2818e1c5aa7d00002db0a50f99f",
+      "working_file_sha256": "1cf9e75d2a625c17593e8eba7d39ac00ab36d2818e1c5aa7d00002db0a50f99f",
+      "identical": true
+    },
+    {
+      "commit": "16f74a4853729f76d9cc103067e3a9c2d8692965",
+      "path": "docs/implementation/strict-roster-20260907/evidence/backend-go-test-race-go1266-member-scope-final.log",
+      "bytes": 77185,
+      "git_blob_sha256": "177b6d4424fbc4cbece8bb5161d0de7420118284fa01a4057af3733df7d97824",
+      "working_file_sha256": "177b6d4424fbc4cbece8bb5161d0de7420118284fa01a4057af3733df7d97824",
+      "identical": true
+    },
+    {
+      "commit": "16f74a4853729f76d9cc103067e3a9c2d8692965",
+      "path": "docs/implementation/strict-roster-20260907/evidence/backend-go-test-race-go1266-member-scope-goroot-env-attempt.log",
+      "bytes": 60,
+      "git_blob_sha256": "15329862f85702d8d4f3a5e2da15ae778dbbd6b6c0f6cc4f8997dc29f6b645a9",
+      "working_file_sha256": "15329862f85702d8d4f3a5e2da15ae778dbbd6b6c0f6cc4f8997dc29f6b645a9",
+      "identical": true
+    },
+    {
+      "commit": "16f74a4853729f76d9cc103067e3a9c2d8692965",
+      "path": "docs/implementation/strict-roster-20260907/evidence/backend-matchlobby-full-pg55439-20260908-05.log",
+      "bytes": 2245,
+      "git_blob_sha256": "46bbabeb0d5a6b23f1a9134717f058e4871be80a4ab458b071494c09b3821f52",
+      "working_file_sha256": "46bbabeb0d5a6b23f1a9134717f058e4871be80a4ab458b071494c09b3821f52",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/dynamic-root-20260907T191025704743Z/summary.json",
+      "bytes": 3172,
+      "git_blob_sha256": "b9b2597be51d24f435d72519c08c3fd7274f321c03e69b895b48b0322eacbd89",
+      "working_file_sha256": "b9b2597be51d24f435d72519c08c3fd7274f321c03e69b895b48b0322eacbd89",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/dynamic-root-20260907T191237095397Z/summary.json",
+      "bytes": 3194,
+      "git_blob_sha256": "1947448f0890e33379c96fc18e228b4817f717e75f936fb87304a22b8c1c9def",
+      "working_file_sha256": "1947448f0890e33379c96fc18e228b4817f717e75f936fb87304a22b8c1c9def",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/dynamic-root-20260907T191804827748Z/summary.json",
+      "bytes": 3091,
+      "git_blob_sha256": "a7ae137b901674bb4dccb1956460a64b57f303af7bf25da30d15c8642eb4c9aa",
+      "working_file_sha256": "a7ae137b901674bb4dccb1956460a64b57f303af7bf25da30d15c8642eb4c9aa",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/dynamic-root-20260907T192313543853Z/summary.json",
+      "bytes": 3222,
+      "git_blob_sha256": "4ee45cf13a6ac35526935f337acac527ef59d29b7c0e8fe585447c900eda3fd4",
+      "working_file_sha256": "4ee45cf13a6ac35526935f337acac527ef59d29b7c0e8fe585447c900eda3fd4",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/dynamic-root-20260907T192832343465Z/summary.json",
+      "bytes": 3210,
+      "git_blob_sha256": "3b446cca3bb3c08f38e1339fa7eb83549b6714faff9786a140f0baba806c1c33",
+      "working_file_sha256": "3b446cca3bb3c08f38e1339fa7eb83549b6714faff9786a140f0baba806c1c33",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/dynamic-root-20260907T195141266711Z/summary.json",
+      "bytes": 3218,
+      "git_blob_sha256": "eb7d59d85049884838e6994c1a02cbbb378c67428a43c9579c44868417ca3832",
+      "working_file_sha256": "eb7d59d85049884838e6994c1a02cbbb378c67428a43c9579c44868417ca3832",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/receipt.json",
+      "bytes": 179986,
+      "git_blob_sha256": "e1ce77baa22c8e975cb8fdba3e5e37e8dce8ea7e6014ca5fa15668e95a15b307",
+      "working_file_sha256": "e1ce77baa22c8e975cb8fdba3e5e37e8dce8ea7e6014ca5fa15668e95a15b307",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T190411910390Z/configure.log",
+      "bytes": 141,
+      "git_blob_sha256": "8332897490d732e86975e592c28b1f7e350251f01ca6fc1b925d694167c7ccdd",
+      "working_file_sha256": "8332897490d732e86975e592c28b1f7e350251f01ca6fc1b925d694167c7ccdd",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T190411910390Z/ctest.log",
+      "bytes": 4357,
+      "git_blob_sha256": "78374d92c6ec990578137fb38d306ca4820e60ef5172b4937a8862b591daab52",
+      "working_file_sha256": "78374d92c6ec990578137fb38d306ca4820e60ef5172b4937a8862b591daab52",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T190411910390Z/result.json",
+      "bytes": 5454,
+      "git_blob_sha256": "c14d69f2ec217b59e825151cf1faa946c65cffe20afc26092845c75858e25c08",
+      "working_file_sha256": "c14d69f2ec217b59e825151cf1faa946c65cffe20afc26092845c75858e25c08",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T190411910390Z/tests-build.log",
+      "bytes": 3284,
+      "git_blob_sha256": "85ca6e476eea40b94e0f56ded5ad34230c31930fea4922762834684b62e5f85b",
+      "working_file_sha256": "85ca6e476eea40b94e0f56ded5ad34230c31930fea4922762834684b62e5f85b",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T190704265296Z/configure.log",
+      "bytes": 141,
+      "git_blob_sha256": "ec41c48489f49657768d8559ad03e742dd7e09afb5c14e8f8deb5f4d9b42967a",
+      "working_file_sha256": "ec41c48489f49657768d8559ad03e742dd7e09afb5c14e8f8deb5f4d9b42967a",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T190704265296Z/ctest.log",
+      "bytes": 3010,
+      "git_blob_sha256": "36da518e972da84a90ececf46d9ac57bac0990cd23114aa43ae8beecb2adada7",
+      "working_file_sha256": "36da518e972da84a90ececf46d9ac57bac0990cd23114aa43ae8beecb2adada7",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T190704265296Z/payload-build.log",
+      "bytes": 837,
+      "git_blob_sha256": "7fe4217c72bbed14ca5ebe8a2b574f2cbe741dac8a812c324a179b122a6b5aab",
+      "working_file_sha256": "7fe4217c72bbed14ca5ebe8a2b574f2cbe741dac8a812c324a179b122a6b5aab",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T190704265296Z/result.json",
+      "bytes": 6749,
+      "git_blob_sha256": "b62679fb5a795c128c80f52bdd2b3c987eb7c8056dc5bbf4da43e015d54fbf38",
+      "working_file_sha256": "b62679fb5a795c128c80f52bdd2b3c987eb7c8056dc5bbf4da43e015d54fbf38",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T190704265296Z/tests-build.log",
+      "bytes": 3383,
+      "git_blob_sha256": "f0d287c7d93e5d20bd40e614a8b3cb33913b7f1b0c6aa67070427b594f8b47dc",
+      "working_file_sha256": "f0d287c7d93e5d20bd40e614a8b3cb33913b7f1b0c6aa67070427b594f8b47dc",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T190853926682Z/configure.log",
+      "bytes": 141,
+      "git_blob_sha256": "ec41c48489f49657768d8559ad03e742dd7e09afb5c14e8f8deb5f4d9b42967a",
+      "working_file_sha256": "ec41c48489f49657768d8559ad03e742dd7e09afb5c14e8f8deb5f4d9b42967a",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T190853926682Z/ctest.log",
+      "bytes": 3010,
+      "git_blob_sha256": "54f23dfca08ab8e20a6209433d1bdd393b8560c61bcccf8f853e22660cb50368",
+      "working_file_sha256": "54f23dfca08ab8e20a6209433d1bdd393b8560c61bcccf8f853e22660cb50368",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T190853926682Z/payload-build.log",
+      "bytes": 601,
+      "git_blob_sha256": "7d3343532df16b0e97aee27a4ff2b219d3e14c64013dcdb1b09150b0b2d6f943",
+      "working_file_sha256": "7d3343532df16b0e97aee27a4ff2b219d3e14c64013dcdb1b09150b0b2d6f943",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T190853926682Z/result.json",
+      "bytes": 7416,
+      "git_blob_sha256": "1cbb191ec5b1825dbbd9e8fe99ae641be54e02415c9dd905f011fc06e19d45e6",
+      "working_file_sha256": "1cbb191ec5b1825dbbd9e8fe99ae641be54e02415c9dd905f011fc06e19d45e6",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T190853926682Z/tests-build.log",
+      "bytes": 3206,
+      "git_blob_sha256": "46c4653188f1d8e7ae62333b046dfca9c556c13bf890ceb0e2cf114cd2f41c97",
+      "working_file_sha256": "46c4653188f1d8e7ae62333b046dfca9c556c13bf890ceb0e2cf114cd2f41c97",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T191630777412Z/configure.log",
+      "bytes": 141,
+      "git_blob_sha256": "609d83237f63a5fabbb32f144a534ea90acf18fe576a28cd257ef0bc84870c69",
+      "working_file_sha256": "609d83237f63a5fabbb32f144a534ea90acf18fe576a28cd257ef0bc84870c69",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T191630777412Z/ctest.log",
+      "bytes": 3010,
+      "git_blob_sha256": "d40b80db45be0f3722080fb193276a9467141e232e403a1e8bb35a9db8ae6735",
+      "working_file_sha256": "d40b80db45be0f3722080fb193276a9467141e232e403a1e8bb35a9db8ae6735",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T191630777412Z/payload-build.log",
+      "bytes": 612,
+      "git_blob_sha256": "33eb8319afed3a5ef110ce583eb9cc51420d7d2227fd3c48ad5694ffb540d2c7",
+      "working_file_sha256": "33eb8319afed3a5ef110ce583eb9cc51420d7d2227fd3c48ad5694ffb540d2c7",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T191630777412Z/result.json",
+      "bytes": 8112,
+      "git_blob_sha256": "4789e4c702e536b3cc8ef16482e57a100ff1c79c3abcdaba9ba6a01f1ac1565c",
+      "working_file_sha256": "4789e4c702e536b3cc8ef16482e57a100ff1c79c3abcdaba9ba6a01f1ac1565c",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T191630777412Z/tests-build.log",
+      "bytes": 3280,
+      "git_blob_sha256": "f5ea9c023ac9b349d7ff40eb125eea526ea63526b39ff333ed4a06c76914cf5d",
+      "working_file_sha256": "f5ea9c023ac9b349d7ff40eb125eea526ea63526b39ff333ed4a06c76914cf5d",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T192712452302Z/configure.log",
+      "bytes": 141,
+      "git_blob_sha256": "d99b6dfa8cedb92f5570f7952dede04fb95c3914c800188f5aff3af75a1bcbd7",
+      "working_file_sha256": "d99b6dfa8cedb92f5570f7952dede04fb95c3914c800188f5aff3af75a1bcbd7",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T192712452302Z/ctest.log",
+      "bytes": 3010,
+      "git_blob_sha256": "9da337f2241cb2ac016f55f6025dffd8f80475488a43bebd9b3e18964c943b3c",
+      "working_file_sha256": "9da337f2241cb2ac016f55f6025dffd8f80475488a43bebd9b3e18964c943b3c",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T192712452302Z/payload-build.log",
+      "bytes": 583,
+      "git_blob_sha256": "a8c567c6a3b683b2994a7858b80525b4ea492dec864e391dab2d948f8329ce98",
+      "working_file_sha256": "a8c567c6a3b683b2994a7858b80525b4ea492dec864e391dab2d948f8329ce98",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T192712452302Z/result.json",
+      "bytes": 7797,
+      "git_blob_sha256": "84af30240809a01cf26e57a9d62af5061c7931d61a33119b4a8c74542e9ea29f",
+      "working_file_sha256": "84af30240809a01cf26e57a9d62af5061c7931d61a33119b4a8c74542e9ea29f",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T192712452302Z/tests-build.log",
+      "bytes": 3206,
+      "git_blob_sha256": "1bbe4d572d7a0b06a85b6578e3a578ef4f16d0bee7cb41f71f15b2d8446e15ab",
+      "working_file_sha256": "1bbe4d572d7a0b06a85b6578e3a578ef4f16d0bee7cb41f71f15b2d8446e15ab",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T195027648656Z/configure.log",
+      "bytes": 141,
+      "git_blob_sha256": "c2a0b7aef13b54faef53c0bce505bbef989c711c49407c108dc00026b0d8bb8f",
+      "working_file_sha256": "c2a0b7aef13b54faef53c0bce505bbef989c711c49407c108dc00026b0d8bb8f",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T195027648656Z/ctest.log",
+      "bytes": 3010,
+      "git_blob_sha256": "99d813a4032f1ce3bd5d11b3f63cff54198162178cfec863566efe47b0433730",
+      "working_file_sha256": "99d813a4032f1ce3bd5d11b3f63cff54198162178cfec863566efe47b0433730",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T195027648656Z/payload-build.log",
+      "bytes": 611,
+      "git_blob_sha256": "4817c00c01bdb46fc616fdb08c8fab8b3526f47acdac842ff932f16a24d8c976",
+      "working_file_sha256": "4817c00c01bdb46fc616fdb08c8fab8b3526f47acdac842ff932f16a24d8c976",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T195027648656Z/result.json",
+      "bytes": 8112,
+      "git_blob_sha256": "c25b8fd74f2614d347096d880e9543dad0d13201fd7d38dd5fd8c58f0d182b7a",
+      "working_file_sha256": "c25b8fd74f2614d347096d880e9543dad0d13201fd7d38dd5fd8c58f0d182b7a",
+      "identical": true
+    },
+    {
+      "commit": "cc0beeba40e330b29923c18959001a0c6899cf81",
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T195027648656Z/tests-build.log",
+      "bytes": 3206,
+      "git_blob_sha256": "ca15ac675e9c19ba310eefb15736d66e4d94c4ef324cd5bc8689f06a58560eb4",
+      "working_file_sha256": "ca15ac675e9c19ba310eefb15736d66e4d94c4ef324cd5bc8689f06a58560eb4",
+      "identical": true
+    }
+  ]
+}

@@ -1,0 +1,2556 @@
+diff --git a/src/api/multiplayer/lobbies.rs b/src/api/multiplayer/lobbies.rs
+index c8732dc..460d394 100644
+--- a/src/api/multiplayer/lobbies.rs
++++ b/src/api/multiplayer/lobbies.rs
+@@ -163,6 +163,14 @@ struct PresenceRequest {
+ #[derive(Deserialize)]
+ pub struct JoinGrantData {
+     pub attempt_id: String,
++    /// Backend-signed scope returned alongside the one-use grant.  The
++    /// client never reconstructs the authority session or player identity
++    /// from local state; missing fields fail closed before IPC delivery.
++    pub authority_session_id: String,
++    pub world_instance_id: String,
++    pub roster_revision: i64,
++    pub route_generation: i32,
++    pub player_id: String,
+     pub grant_jti: String,
+     pub endpoint_host: String,
+     pub endpoint_port: u16,
+@@ -210,6 +218,25 @@ pub struct GrantDeliveryStatus {
+     pub expires_at: String,
+ }
+ 
++/// The player's authenticated view of the authority's native CONNECTED
++/// receipt.  It is intentionally fetched after the Native local join request
++/// and before the Toolbox sends `confirm_client_match_connection`; the client
++/// cannot supply the nonce itself.
++#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
++pub struct MemberConnectionProof {
++    pub attempt_id: String,
++    pub authority_session_id: String,
++    pub world_instance_id: String,
++    pub roster_revision: i64,
++    pub route_generation: i32,
++    pub player_id: String,
++    pub role: String,
++    pub grant_jti: String,
++    pub connection_generation: i32,
++    pub native_connection_nonce: String,
++    pub connection_state: String,
++}
++
+ #[derive(Deserialize)]
+ pub struct AllocationData {
+     pub attempt_id: String,
+@@ -480,6 +507,16 @@ pub fn grant_delivery(
+     )
+ }
+ 
++pub fn member_connection(token: &str, attempt_id: &str) -> Result<MemberConnectionProof> {
++    http::get_auth(
++        &format!(
++            "/v1/match-attempts/{}/members/me/connection",
++            encode_path_segment(attempt_id)
++        ),
++        token,
++    )
++}
++
+ pub fn host_admissions(
+     token: &str,
+     attempt_id: &str,
+diff --git a/src/core/runtime.rs b/src/core/runtime.rs
+index b5bd18e..e3fed04 100644
+--- a/src/core/runtime.rs
++++ b/src/core/runtime.rs
+@@ -93,6 +93,7 @@ pub struct MatchRosterConnectionReport {
+ pub struct LaunchOutput {
+     pub msg: String,
+     pub pids: Vec<u32>,
++    pub playable_evidence: Option<server::pipe::PayloadPlayableEvidence>,
+ }
+ 
+ #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+@@ -176,6 +177,18 @@ struct RuntimeState {
+     active_match_authority_pipe: Option<crate::vnt::types::SecretString>,
+     active_match_authority_pid: Option<u32>,
+     active_match_connection_cursor: u64,
++    /// The last Backend-confirmed Native HOST connection owned by the active
++    /// P2P operation.  This is deliberately retained separately from the
++    /// current lobby snapshot: a route refresh advances the backend route
++    /// generation before the old HOST seat is released, so rebuilding this
++    /// value from the new snapshot would lose the old nonce/generation and
++    /// make a scoped disconnect unsafe.
++    active_match_host_connection: Option<HostConnectionOwnership>,
++    /// The exact HOST proof whose DISCONNECTED event was accepted by
++    /// Backend.  Keeping this release receipt lets a later route refresh
++    /// prove that the old scope was actually released without reconstructing
++    /// it from the new Attempt snapshot.
++    last_released_match_host_connection: Option<HostConnectionOwnership>,
+     pending_match_native_cleanup: Option<MatchNativeCleanupContext>,
+     match_cleanup_requested: bool,
+     managed_cleanup_barrier: bool,
+@@ -204,6 +217,20 @@ struct MatchNativeCleanupContext {
+     allow_empty_world_owned_exit: bool,
+ }
+ 
++/// Exact ownership proof for the local P2P HOST client transition.  The
++/// Backend nonce and Native operation sequence are copied only from the
++/// corresponding successful proof/start ACK; no caller may synthesize them
++/// from a later Attempt snapshot.
++#[derive(Debug, Clone, PartialEq, Eq)]
++struct HostConnectionOwnership {
++    scope: server::pipe::MatchJoinScope,
++    operation_sequence: u64,
++    native_connection_nonce: String,
++    operation_id: String,
++    run_id: String,
++    session_epoch: u64,
++}
++
+ pub struct ToolboxRuntime {
+     state: Mutex<RuntimeState>,
+     /// Serializes account transitions (cleanup plus login/logout).  Token
+@@ -301,6 +328,8 @@ impl ToolboxRuntime {
+                 active_match_authority_pipe: None,
+                 active_match_authority_pid: None,
+                 active_match_connection_cursor: 0,
++                active_match_host_connection: None,
++                last_released_match_host_connection: None,
+                 pending_match_native_cleanup: None,
+                 match_cleanup_requested: false,
+                 managed_cleanup_barrier: false,
+@@ -1189,6 +1218,138 @@ impl ToolboxRuntime {
+         }
+     }
+ 
++    /// Retain the proof that belongs to the currently owned P2P HOST client
++    /// transition.  Route recovery must not rebuild this from the latest
++    /// lobby snapshot: that snapshot may already carry the next route
++    /// generation while the old native nonce is still live.
++    fn remember_host_connection_ownership(
++        &self,
++        proof: &server::pipe::ClientMatchConnectionProof,
++        operation_sequence: u64,
++        operation_id: &str,
++        run_id: &str,
++        session_epoch: u64,
++    ) -> Result<()> {
++        ensure!(
++            operation_sequence > 0,
++            "P2P HOST operation sequence is invalid"
++        );
++        ensure!(
++            proof.scope.room_role.as_deref() == Some("HOST") && proof.scope.grant_jti.is_empty(),
++            "P2P HOST proof has an invalid role or grant"
++        );
++        ensure!(
++            !proof.native_connection_nonce.trim().is_empty(),
++            "P2P HOST proof omitted the native connection nonce"
++        );
++        ensure!(
++            !operation_id.trim().is_empty(),
++            "P2P HOST operation ID is empty"
++        );
++        ensure!(!run_id.trim().is_empty(), "P2P HOST run ID is empty");
++        let ownership = HostConnectionOwnership {
++            scope: proof.scope.clone(),
++            operation_sequence,
++            native_connection_nonce: proof.native_connection_nonce.clone(),
++            operation_id: operation_id.to_owned(),
++            run_id: run_id.to_owned(),
++            session_epoch,
++        };
++        let mut state = self
++            .state
++            .lock()
++            .map_err(|error| anyhow::anyhow!(error.to_string()))?;
++        if let Some(current) = state.active_match_host_connection.as_ref() {
++            ensure!(
++                current == &ownership,
++                "a different P2P HOST connection is still owned; release its exact scope before replacing it"
++            );
++            return Ok(());
++        }
++        state.active_match_host_connection = Some(ownership);
++        state.last_released_match_host_connection = None;
++        Ok(())
++    }
++
++    /// A route refresh can advance only after the previous HOST ownership has
++    /// been observed as disconnected and released by Backend.  This check is
++    /// intentionally strict about the old attempt/session/world/player and
++    /// permits only a lower route generation than the refreshed material.
++    fn host_connection_ownership_for_refresh(
++        &self,
++        material: &crate::matchmaking::AuthorityRefreshMaterial,
++    ) -> Result<HostConnectionOwnership> {
++        let (active, released) = {
++            let state = self
++                .state
++                .lock()
++                .map_err(|error| anyhow::anyhow!(error.to_string()))?;
++            (
++                state.active_match_host_connection.is_some(),
++                state.last_released_match_host_connection.clone(),
++            )
++        };
++        ensure!(
++            !active,
++            "P2P HOST connection is still owned; its exact disconnect and Backend release are required before route recovery"
++        );
++        let ownership = released
++            .context("P2P HOST disconnect/release proof is unavailable for route recovery")?;
++        let scope = &ownership.scope;
++        ensure!(
++            scope.attempt_id == material.attempt_id.as_str()
++                && scope.authority_session_id == material.authority_session.expose()
++                && scope.world_instance_id == material.previous_world_instance_id.as_str()
++                && scope.roster_revision == material.roster_revision.value()
++                && scope.player_id == material.player_id.as_str()
++                && scope.room_role.as_deref() == Some("HOST")
++                && scope.grant_jti.is_empty(),
++            "P2P HOST ownership proof belongs to a different Attempt/world"
++        );
++        ensure!(
++            scope.route_generation < material.route_generation.value(),
++            "P2P route recovery did not advance beyond the owned HOST generation"
++        );
++        ensure!(
++            ownership.operation_sequence > 0
++                && !ownership.native_connection_nonce.trim().is_empty(),
++            "P2P HOST ownership proof is incomplete"
++        );
++        Ok(ownership)
++    }
++
++    /// Clear only the exact proof whose Native DISCONNECTED event has just
++    /// been accepted by Backend.  A late event from an older route can never
++    /// clear a newer HOST ownership record.
++    fn clear_host_connection_ownership_if_matches(
++        &self,
++        event: &server::pipe::MatchConnectionEvent,
++    ) {
++        if event.state != "DISCONNECTED" {
++            return;
++        }
++        if let Ok(mut state) = self.state.lock()
++            && state
++                .active_match_host_connection
++                .as_ref()
++                .is_some_and(|current| {
++                    current.scope.attempt_id == event.attempt_id
++                        && current.scope.authority_session_id == event.authority_session_id
++                        && current.scope.world_instance_id == event.world_instance_id
++                        && current.scope.roster_revision == event.roster_revision
++                        && current.scope.route_generation == event.route_generation
++                        && current.scope.player_id == event.player_id
++                        && current.scope.connection_generation == event.connection_generation
++                        && current.scope.grant_jti == event.grant_jti
++                        && current.native_connection_nonce == event.native_connection_nonce
++                })
++        {
++            if let Some(current) = state.active_match_host_connection.take() {
++                state.last_released_match_host_connection = Some(current);
++            }
++        }
++    }
++
+     /// Hold the launch gate while a worker is reclaiming resources it still
+     /// owns. The active launch/receipt is deliberately kept in RuntimeState
+     /// until the cleanup path has finished; clearing it first would allow a
+@@ -1626,8 +1787,14 @@ impl ToolboxRuntime {
+     /// carrier-ready ACK, a live process, or a transport connection is not a
+     /// launch success: the native telemetry must carry the strict protocol,
+     /// the scoped world, and the `playable` match state.
+-    fn wait_for_match_payload_playable(&self, cancel: &AtomicBool) -> Result<()> {
+-        let (pipe_name, payload_pid, expected_world) = {
++    fn wait_for_match_payload_playable(
++        &self,
++        cancel: &AtomicBool,
++        expected_scope: &server::pipe::MatchJoinScope,
++        expected_operation_sequence: u64,
++        backend_native_connection_nonce: &str,
++    ) -> Result<server::pipe::PayloadPlayableEvidence> {
++        let (pipe_name, payload_pid) = {
+             let state = self
+                 .state
+                 .lock()
+@@ -1640,15 +1807,10 @@ impl ToolboxRuntime {
+             let payload_pid = state
+                 .active_match_authority_pid
+                 .context("P2P Payload process identity is unavailable")?;
+-            let expected_world = state
+-                .pending_match_native_cleanup
+-                .as_ref()
+-                .map(|context| context.world_instance_id.clone())
+-                .context("P2P native world scope is unavailable")?;
+-            (pipe_name, payload_pid, expected_world)
++            (pipe_name, payload_pid)
+         };
+         ensure!(
+-            !expected_world.trim().is_empty(),
++            !expected_scope.world_instance_id.trim().is_empty(),
+             "P2P native world scope is empty"
+         );
+         let mut pipe = server::pipe::connect(
+@@ -1672,7 +1834,7 @@ impl ToolboxRuntime {
+                 "Payload reported an unsupported strict protocol version"
+             );
+             ensure!(
+-                status.world_instance_id == expected_world,
++                status.world_instance_id == expected_scope.world_instance_id,
+                 "Payload status world does not match the active authority Attempt"
+             );
+             ensure!(
+@@ -1697,7 +1859,13 @@ impl ToolboxRuntime {
+                 && !status.offline_pve
+                 && native_state == "playable"
+             {
+-                return Ok(());
++                return status.playable_evidence(
++                    expected_scope,
++                    expected_operation_sequence,
++                    backend_native_connection_nonce,
++                    None,
++                    "HOST",
++                );
+             }
+             if matches!(native_state, "failed" | "cancelled") || status.status == "blocked" {
+                 let detail = status
+@@ -1826,6 +1994,7 @@ impl ToolboxRuntime {
+         cancel: Arc<AtomicBool>,
+     ) -> Result<Vec<u32>> {
+         ensure_match_operation_active(&cancel)?;
++        let session_epoch = config::load_config().session_epoch;
+         self.emit(RuntimeEvent::MatchAutoLaunch(MatchAutoLaunch {
+             lobby_id: lobby_id.to_string(),
+             attempt_id: attempt_id.to_string(),
+@@ -1843,6 +2012,11 @@ impl ToolboxRuntime {
+             material.attempt_id.as_str() == attempt_id,
+             "P2P authority refresh attempt changed"
+         );
++        // Keep the old Backend proof as the recovery fence.  A route refresh
++        // may not reconstruct an old nonce/generation from the new Attempt
++        // snapshot; the ownership is cleared only by an exact DISCONNECTED
++        // event after Backend host_disconnected succeeds.
++        let _previous_host = self.host_connection_ownership_for_refresh(&material)?;
+         {
+             let state = self
+                 .state
+@@ -1921,6 +2095,10 @@ impl ToolboxRuntime {
+             &authority_target,
+             Duration::from_secs(15),
+         )?;
++        ensure!(
++            authority.operation_sequence > 0,
++            "P2P authority did not return a HOST operation sequence"
++        );
+         ensure_match_operation_active(&cancel)?;
+         let owned_process = self
+             .state
+@@ -2009,13 +2187,48 @@ impl ToolboxRuntime {
+             "Native authority endpoint and world scope were published",
+             Vec::new(),
+         );
+-        self.wait_for_match_payload_playable(&cancel)?;
+-        if let Some(notice) = self
+-            .match_lobby
+-            .lock()
+-            .ok()
+-            .and_then(|mut controller| controller.mark_playable())
+-        {
++        let proof = self.wait_for_host_connection_proof(
++            material.attempt_id.as_str(),
++            material.authority_session.expose(),
++            &authority.world_instance_id,
++            material.roster_revision.value(),
++            material.route_generation.value(),
++            material.player_id.as_str(),
++            &authority.native_connection_nonce,
++            session_epoch,
++            &cancel,
++        )?;
++        self.remember_host_connection_ownership(
++            &proof,
++            authority.operation_sequence,
++            operation_id,
++            run_id,
++            session_epoch,
++        )?;
++        server::pipe::confirm_client_match_connection(
++            &mut pipe,
++            &format!("route-host-confirm-{:032x}", rand::random::<u128>()),
++            "HOST",
++            &proof,
++            authority.operation_sequence,
++            Duration::from_secs(15),
++        )?;
++        let evidence = self.wait_for_match_payload_playable(
++            &cancel,
++            &proof.scope,
++            authority.operation_sequence,
++            &proof.native_connection_nonce,
++        )?;
++        if let Some(notice) = self.ensure_and_mark_host_playable(
++            operation_id,
++            run_id,
++            lobby_id,
++            attempt_id,
++            session_epoch,
++            &cancel,
++            &proof.scope,
++            &evidence,
++        )? {
+             self.emit_match_notice(notice);
+         }
+         Ok(Vec::new())
+@@ -2168,7 +2381,7 @@ impl ToolboxRuntime {
+                             "Authoritative join grant delivery confirmed; native join is pending",
+                             Vec::new(),
+                         );
+-                        Ok(grant.join_grant)
++                        Ok(grant)
+                     },
+                     || {
+                         self.ensure_member_launch_scope(
+@@ -2179,6 +2392,9 @@ impl ToolboxRuntime {
+                             &cancel,
+                         )
+                     },
++                    |scope, _operation_sequence| {
++                        self.wait_for_member_connection_proof(scope, session_epoch, &cancel)
++                    },
+                 )
+             },
+         );
+@@ -2202,6 +2418,10 @@ impl ToolboxRuntime {
+             run_id,
+             session_epoch,
+             &cancel,
++            output
++                .playable_evidence
++                .as_ref()
++                .context("Member launch completed without strict Playable evidence")?,
+         )? {
+             self.emit_match_notice(notice);
+         }
+@@ -2251,6 +2471,161 @@ impl ToolboxRuntime {
+             .ensure_connection_material_current(material)
+     }
+ 
++    /// Poll the authenticated player's Backend view until the authority has
++    /// recorded this exact native connection as CONNECTED.  The nonce is
++    /// never read from or synthesized by the client Payload; it is copied
++    /// only from this scoped Backend proof into the native confirmation IPC.
++    fn wait_for_member_connection_proof(
++        &self,
++        expected_scope: &server::pipe::MatchJoinScope,
++        session_epoch: u64,
++        cancel: &AtomicBool,
++    ) -> Result<server::pipe::ClientMatchConnectionProof> {
++        let deadline = std::time::Instant::now() + Duration::from_secs(180);
++        loop {
++            ensure_match_operation_active(cancel)?;
++            ensure!(
++                config::load_config().session_epoch == session_epoch,
++                "authentication session changed while waiting for Backend connection proof"
++            );
++            let token = self.fresh_token()?;
++            match api::multiplayer::lobbies::member_connection(
++                &token,
++                expected_scope.attempt_id.as_str(),
++            ) {
++                Ok(proof) => {
++                    ensure!(
++                        proof.connection_state == "CONNECTED",
++                        "Backend returned a non-CONNECTED member connection proof"
++                    );
++                    let actual_scope = server::pipe::MatchJoinScope {
++                        attempt_id: proof.attempt_id,
++                        authority_session_id: proof.authority_session_id,
++                        world_instance_id: proof.world_instance_id,
++                        roster_revision: proof.roster_revision,
++                        route_generation: proof.route_generation,
++                        player_id: proof.player_id,
++                        grant_jti: proof.grant_jti,
++                        connection_generation: proof.connection_generation,
++                        room_role: None,
++                    };
++                    ensure!(
++                        proof.role == "MEMBER",
++                        "Backend returned a non-MEMBER connection proof"
++                    );
++                    ensure!(
++                        actual_scope == *expected_scope,
++                        "Backend member connection proof belongs to a different join scope"
++                    );
++                    ensure!(
++                        !proof.native_connection_nonce.trim().is_empty(),
++                        "Backend member connection proof omitted native connection nonce"
++                    );
++                    return Ok(server::pipe::ClientMatchConnectionProof {
++                        scope: actual_scope,
++                        native_connection_nonce: proof.native_connection_nonce,
++                    });
++                }
++                Err(error)
++                    if should_retry_connection_proof_error(&error)
++                        && std::time::Instant::now() < deadline => {}
++                Err(error) => {
++                    return Err(error.context("wait for Backend member CONNECTED proof"));
++                }
++            }
++            ensure_match_operation_active(cancel)?;
++            ensure!(
++                std::time::Instant::now() < deadline,
++                "Backend did not publish the member CONNECTED proof within 180 seconds"
++            );
++            thread::sleep(Duration::from_millis(500));
++        }
++    }
++
++    /// Poll the authenticated Backend host-seat proof after `host_ready`.
++    /// P2P HOST has no MemberGrant/JTI; the persisted CONNECTED nonce and
++    /// generation are still required before Native can promote its local
++    /// authority client to Playable.
++    fn wait_for_host_connection_proof(
++        &self,
++        attempt_id: &str,
++        authority_session_id: &str,
++        world_instance_id: &str,
++        roster_revision: i64,
++        route_generation: i32,
++        player_id: &str,
++        expected_native_connection_nonce: &str,
++        session_epoch: u64,
++        cancel: &AtomicBool,
++    ) -> Result<server::pipe::ClientMatchConnectionProof> {
++        ensure!(!expected_native_connection_nonce.trim().is_empty());
++        let deadline = std::time::Instant::now() + Duration::from_secs(180);
++        loop {
++            ensure_match_operation_active(cancel)?;
++            ensure!(
++                config::load_config().session_epoch == session_epoch,
++                "authentication session changed while waiting for Backend HOST connection proof"
++            );
++            let token = self.fresh_token()?;
++            match api::multiplayer::lobbies::member_connection(&token, attempt_id) {
++                Ok(proof) => {
++                    ensure!(
++                        proof.connection_state == "CONNECTED",
++                        "Backend returned a non-CONNECTED HOST connection proof"
++                    );
++                    ensure!(
++                        proof.role == "HOST",
++                        "Backend returned a non-HOST connection proof"
++                    );
++                    ensure!(
++                        proof.grant_jti.trim().is_empty(),
++                        "Backend HOST connection proof unexpectedly carried a Member grant"
++                    );
++                    ensure!(
++                        proof.native_connection_nonce == expected_native_connection_nonce,
++                        "Backend HOST connection proof nonce changed"
++                    );
++                    ensure!(
++                        proof.attempt_id == attempt_id
++                            && proof.authority_session_id == authority_session_id
++                            && proof.world_instance_id == world_instance_id
++                            && proof.roster_revision == roster_revision
++                            && proof.route_generation == route_generation
++                            && proof.player_id == player_id,
++                        "Backend HOST connection proof belongs to a different frozen scope"
++                    );
++                    let scope = server::pipe::MatchJoinScope {
++                        attempt_id: proof.attempt_id,
++                        authority_session_id: proof.authority_session_id,
++                        world_instance_id: proof.world_instance_id,
++                        roster_revision: proof.roster_revision,
++                        route_generation: proof.route_generation,
++                        player_id: proof.player_id,
++                        grant_jti: proof.grant_jti,
++                        connection_generation: proof.connection_generation,
++                        room_role: Some("HOST".into()),
++                    };
++                    return Ok(server::pipe::ClientMatchConnectionProof {
++                        scope,
++                        native_connection_nonce: proof.native_connection_nonce,
++                    });
++                }
++                Err(error)
++                    if should_retry_connection_proof_error(&error)
++                        && std::time::Instant::now() < deadline => {}
++                Err(error) => {
++                    return Err(error.context("wait for Backend HOST CONNECTED proof"));
++                }
++            }
++            ensure_match_operation_active(cancel)?;
++            ensure!(
++                std::time::Instant::now() < deadline,
++                "Backend did not publish the HOST CONNECTED proof within 180 seconds"
++            );
++            thread::sleep(Duration::from_millis(500));
++        }
++    }
++
+     /// Validate the frozen runtime operation and the live controller under one
+     /// controller lock before promoting it to Playable.  A snapshot adoption
+     /// between a standalone scope check and mark_playable could otherwise
+@@ -2263,12 +2638,25 @@ impl ToolboxRuntime {
+         run_id: &str,
+         session_epoch: u64,
+         cancel: &AtomicBool,
++        evidence: &server::pipe::PayloadPlayableEvidence,
+     ) -> Result<Option<ControllerNotice>> {
+         ensure_match_operation_active(cancel)?;
+         ensure!(
+             config::load_config().session_epoch == session_epoch,
+             "authentication session changed during the Member launch"
+         );
++        ensure!(
++            evidence.scope.attempt_id == material.attempt_id.as_str()
++                && evidence.scope.world_instance_id == material.world_instance_id.as_str()
++                && evidence.scope.roster_revision == material.roster_revision.value()
++                && evidence.scope.route_generation == material.route_generation.value(),
++            "Member Playable evidence does not match the frozen controller material"
++        );
++        ensure!(
++            !evidence.local_world_instance_id.trim().is_empty()
++                && !evidence.native_connection_nonce.trim().is_empty(),
++            "Member Playable evidence omitted native world or connection proof"
++        );
+         // Keep the RuntimeState guard short.  The controller is independently
+         // locked below, and other runtime paths follow the same
+         // state-then-controller sequence with the state guard released before
+@@ -2312,6 +2700,83 @@ impl ToolboxRuntime {
+         Ok(controller.mark_playable())
+     }
+ 
++    /// Revalidate the frozen P2P HOST scope and atomically promote the same
++    /// controller snapshot that was checked.  Native telemetry alone cannot
++    /// move a newer Attempt to Playable.
++    fn ensure_and_mark_host_playable(
++        &self,
++        operation_id: &str,
++        run_id: &str,
++        lobby_id: &str,
++        attempt_id: &str,
++        session_epoch: u64,
++        cancel: &AtomicBool,
++        expected_scope: &server::pipe::MatchJoinScope,
++        evidence: &server::pipe::PayloadPlayableEvidence,
++    ) -> Result<Option<ControllerNotice>> {
++        ensure_match_operation_active(cancel)?;
++        ensure!(
++            config::load_config().session_epoch == session_epoch,
++            "authentication session changed during the HOST launch"
++        );
++        ensure!(
++            evidence.room_role == "HOST",
++            "HOST Playable evidence has the wrong role"
++        );
++        ensure!(
++            evidence.scope == *expected_scope
++                && expected_scope.room_role.as_deref() == Some("HOST")
++                && expected_scope.grant_jti.trim().is_empty(),
++            "HOST Playable evidence changed its Backend proof scope"
++        );
++        ensure!(
++            evidence.scope.attempt_id == attempt_id
++                && evidence.scope.room_role.as_deref() == Some("HOST")
++                && evidence.scope.grant_jti.trim().is_empty(),
++            "HOST Playable evidence does not carry the frozen HOST scope"
++        );
++        ensure!(
++            !evidence.local_world_instance_id.trim().is_empty()
++                && !evidence.native_connection_nonce.trim().is_empty(),
++            "HOST Playable evidence omitted native world or connection proof"
++        );
++        {
++            let state = self
++                .state
++                .lock()
++                .map_err(|error| anyhow::anyhow!(error.to_string()))?;
++            ensure!(
++                state.active_match_operation_id.as_deref() == Some(operation_id)
++                    && state.active_match_run_id.as_deref() == Some(run_id),
++                "HOST launch operation scope is no longer active"
++            );
++            let operation = state
++                .launch_operations
++                .get(operation_id)
++                .context("HOST launch operation record is unavailable")?;
++            ensure!(
++                operation.view.mode == "match"
++                    && operation.view.role.as_deref() == Some("host")
++                    && operation.view.lobby_id.as_deref() == Some(lobby_id)
++                    && operation.view.attempt_id.as_deref() == Some(attempt_id)
++                    && operation.view.session_epoch == Some(session_epoch)
++                    && !operation.view.status.is_terminal(),
++                "HOST launch operation scope changed"
++            );
++        }
++        let mut controller = self
++            .match_lobby
++            .lock()
++            .map_err(|error| anyhow::anyhow!(error.to_string()))?;
++        controller.ensure_host_scope_current(&evidence.scope)?;
++        ensure_match_operation_active(cancel)?;
++        ensure!(
++            config::load_config().session_epoch == session_epoch,
++            "authentication session changed before publishing HOST Playable"
++        );
++        Ok(controller.mark_playable())
++    }
++
+     fn wait_for_authority_delivery(
+         &self,
+         token: &str,
+@@ -2636,6 +3101,11 @@ impl ToolboxRuntime {
+                 )?,
+                 _ => unreachable!("pipe parser validates connection event states"),
+             };
++            // Only the successful Backend host_disconnected response above
++            // authorizes moving this exact HOST proof into the released
++            // ledger.  A stale event or a failed HTTP call leaves ownership
++            // intact for retry and cannot clear a newer route's scope.
++            self.clear_host_connection_ownership_if_matches(&event);
+             {
+                 let mut state = self
+                     .state
+@@ -2671,6 +3141,7 @@ impl ToolboxRuntime {
+         cancel: Arc<AtomicBool>,
+     ) -> Result<Vec<u32>> {
+         ensure_match_operation_active(&cancel)?;
++        let session_epoch = config::load_config().session_epoch;
+         self.set_match_operation_context(operation_id, run_id);
+         self.emit(RuntimeEvent::MatchAutoLaunch(MatchAutoLaunch {
+             lobby_id: lobby_id.to_string(),
+@@ -2839,6 +3310,10 @@ impl ToolboxRuntime {
+             payload_pid,
+             owned_process,
+         } = result;
++        ensure!(
++            authority.operation_sequence > 0,
++            "P2P authority did not return a HOST operation sequence"
++        );
+         let command_pipe_name = command_pipe.expose().to_owned();
+         self.state
+             .lock()
+@@ -2935,13 +3410,58 @@ impl ToolboxRuntime {
+             "Native authority endpoint and world scope were published",
+             output.pids.clone(),
+         );
+-        self.wait_for_match_payload_playable(&cancel)?;
+-        if let Some(notice) = self
+-            .match_lobby
+-            .lock()
+-            .ok()
+-            .and_then(|mut controller| controller.mark_playable())
+-        {
++        let proof = self.wait_for_host_connection_proof(
++            material.attempt_id.as_str(),
++            material.authority_session.expose(),
++            &authority.world_instance_id,
++            material.roster_revision.value(),
++            material.route_generation.value(),
++            material.player_id.as_str(),
++            &authority.native_connection_nonce,
++            session_epoch,
++            &cancel,
++        )?;
++        // Capture the exact Backend proof before any native confirmation can
++        // fail.  A failed confirmation still owns the old HOST seat and must
++        // be cleaned using this nonce/generation rather than a later snapshot.
++        self.remember_host_connection_ownership(
++            &proof,
++            authority.operation_sequence,
++            operation_id,
++            run_id,
++            session_epoch,
++        )?;
++        let mut confirm_pipe = server::pipe::connect(
++            &command_pipe_name,
++            cancel.as_ref(),
++            Duration::from_secs(15),
++            None,
++            payload_pid,
++        )?;
++        server::pipe::confirm_client_match_connection(
++            &mut confirm_pipe,
++            &format!("host-confirm-{:032x}", rand::random::<u128>()),
++            "HOST",
++            &proof,
++            authority.operation_sequence,
++            Duration::from_secs(15),
++        )?;
++        let evidence = self.wait_for_match_payload_playable(
++            &cancel,
++            &proof.scope,
++            authority.operation_sequence,
++            &proof.native_connection_nonce,
++        )?;
++        if let Some(notice) = self.ensure_and_mark_host_playable(
++            operation_id,
++            run_id,
++            lobby_id,
++            attempt_id,
++            session_epoch,
++            &cancel,
++            &proof.scope,
++            &evidence,
++        )? {
+             self.emit_match_notice(notice);
+         }
+         room.lock()
+@@ -4222,6 +4742,7 @@ impl ToolboxRuntime {
+         let output = LaunchOutput {
+             msg: result.msg,
+             pids: result.pids,
++            playable_evidence: result.playable_evidence,
+         };
+         if emit_completion {
+             self.emit(RuntimeEvent::LaunchComplete(LaunchComplete {
+@@ -4977,6 +5498,23 @@ fn ensure_match_operation_active(cancel: &AtomicBool) -> Result<()> {
+     Ok(())
+ }
+ 
++/// The connection-proof endpoint deliberately uses a typed 409 while the
++/// native connection is still progressing.  Only that exact pending code is
++/// retryable: a different 409 must surface immediately instead of being
++/// hidden by the generic diagnostic classifier (which also recognizes words
++/// such as "connection" in arbitrary API messages).
++fn should_retry_connection_proof_error(error: &anyhow::Error) -> bool {
++    if let Some(api_error) = error
++        .chain()
++        .find_map(|cause| cause.downcast_ref::<crate::api::infrastructure::http::HttpApiError>())
++    {
++        if api_error.status == 409 {
++            return api_error.code == "MATCH_CONNECTION_NOT_CONNECTED";
++        }
++    }
++    api::infrastructure::http::is_transient_error(error)
++}
++
+ /// Parse the backend's grant expiry and reserve a small handoff margin for
+ /// the native pipe request. The wait loop may never extend beyond this
+ /// derived deadline, even when the service's configured TTL is longer.
+@@ -5365,6 +5903,8 @@ mod tests {
+                 active_match_authority_pipe: None,
+                 active_match_authority_pid: None,
+                 active_match_connection_cursor: 0,
++                active_match_host_connection: None,
++                last_released_match_host_connection: None,
+                 pending_match_native_cleanup: None,
+                 match_cleanup_requested: false,
+                 managed_cleanup_barrier: false,
+@@ -5420,6 +5960,148 @@ mod tests {
+         );
+     }
+ 
++    #[test]
++    fn host_connection_ownership_keeps_old_nonce_until_exact_backend_disconnect() {
++        let runtime = test_runtime_for_cleanup();
++        let scope = server::pipe::MatchJoinScope {
++            attempt_id: "attempt-1".into(),
++            authority_session_id: "authority-1".into(),
++            world_instance_id: "world-1".into(),
++            roster_revision: 7,
++            route_generation: 1,
++            player_id: "player-1".into(),
++            grant_jti: String::new(),
++            connection_generation: 3,
++            room_role: Some("HOST".into()),
++        };
++        let proof = server::pipe::ClientMatchConnectionProof {
++            scope: scope.clone(),
++            native_connection_nonce: "host_nonce_old".into(),
++        };
++        runtime
++            .remember_host_connection_ownership(&proof, 12, "operation-1", "run-1", 9)
++            .unwrap();
++
++        let replacement = server::pipe::ClientMatchConnectionProof {
++            scope: server::pipe::MatchJoinScope {
++                route_generation: 2,
++                ..scope.clone()
++            },
++            native_connection_nonce: "host_nonce_new".into(),
++        };
++        assert!(
++            runtime
++                .remember_host_connection_ownership(&replacement, 13, "operation-2", "run-2", 9)
++                .is_err()
++        );
++
++        let mut stale_event = server::pipe::MatchConnectionEvent {
++            sequence: 4,
++            attempt_id: scope.attempt_id.clone(),
++            authority_session_id: scope.authority_session_id.clone(),
++            roster_revision: scope.roster_revision,
++            world_instance_id: scope.world_instance_id.clone(),
++            route_generation: scope.route_generation,
++            player_id: scope.player_id.clone(),
++            grant_jti: String::new(),
++            connection_generation: scope.connection_generation,
++            native_connection_nonce: "forged_or_late_nonce".into(),
++            state: "DISCONNECTED".into(),
++        };
++        runtime.clear_host_connection_ownership_if_matches(&stale_event);
++        {
++            let state = runtime.state.lock().unwrap();
++            assert!(state.active_match_host_connection.is_some());
++            assert!(state.last_released_match_host_connection.is_none());
++        }
++
++        stale_event.native_connection_nonce = proof.native_connection_nonce.clone();
++        runtime.clear_host_connection_ownership_if_matches(&stale_event);
++        let state = runtime.state.lock().unwrap();
++        assert!(state.active_match_host_connection.is_none());
++        assert_eq!(
++            state
++                .last_released_match_host_connection
++                .as_ref()
++                .unwrap()
++                .operation_sequence,
++            12
++        );
++        let released = state.last_released_match_host_connection.as_ref().unwrap();
++        assert_eq!(released.operation_id, "operation-1");
++        assert_eq!(released.run_id, "run-1");
++        assert_eq!(released.session_epoch, 9);
++    }
++
++    #[test]
++    fn route_refresh_requires_released_old_host_scope_and_next_route_generation() {
++        let runtime = test_runtime_for_cleanup();
++        let scope = server::pipe::MatchJoinScope {
++            attempt_id: "attempt-1".into(),
++            authority_session_id: "authority-1".into(),
++            world_instance_id: "world-1".into(),
++            roster_revision: 7,
++            route_generation: 1,
++            player_id: "player-1".into(),
++            grant_jti: String::new(),
++            connection_generation: 3,
++            room_role: Some("HOST".into()),
++        };
++        let proof = server::pipe::ClientMatchConnectionProof {
++            scope: scope.clone(),
++            native_connection_nonce: "host_nonce_old".into(),
++        };
++        runtime
++            .remember_host_connection_ownership(&proof, 12, "operation-1", "run-1", 9)
++            .unwrap();
++        let material = crate::matchmaking::AuthorityRefreshMaterial {
++            attempt_id: crate::matchmaking::AttemptId::new("attempt-1").unwrap(),
++            player_id: crate::matchmaking::PlayerId::new("player-1").unwrap(),
++            room_id: crate::matchmaking::P2pRoomId::new("room-1").unwrap(),
++            authority_session: crate::matchmaking::AuthoritySessionId::new("authority-1").unwrap(),
++            roster_revision: crate::matchmaking::RosterRevision::new(7).unwrap(),
++            route_generation: crate::matchmaking::RouteGeneration::new(2).unwrap(),
++            previous_world_instance_id: crate::matchmaking::WorldInstanceId::new("world-1")
++                .unwrap(),
++            allocation: crate::vnt::types::SecretString::new("allocation"),
++            admission_key_id: "key-1".into(),
++            admission_public_key: crate::vnt::types::SecretString::new("public-key"),
++        };
++        assert!(
++            runtime
++                .host_connection_ownership_for_refresh(&material)
++                .is_err()
++        );
++
++        let disconnected = server::pipe::MatchConnectionEvent {
++            sequence: 8,
++            attempt_id: scope.attempt_id.clone(),
++            authority_session_id: scope.authority_session_id.clone(),
++            roster_revision: scope.roster_revision,
++            world_instance_id: scope.world_instance_id.clone(),
++            route_generation: scope.route_generation,
++            player_id: scope.player_id.clone(),
++            grant_jti: String::new(),
++            connection_generation: scope.connection_generation,
++            native_connection_nonce: proof.native_connection_nonce.clone(),
++            state: "DISCONNECTED".into(),
++        };
++        runtime.clear_host_connection_ownership_if_matches(&disconnected);
++        assert!(
++            runtime
++                .host_connection_ownership_for_refresh(&material)
++                .is_ok()
++        );
++
++        let mut same_generation = material;
++        same_generation.route_generation = crate::matchmaking::RouteGeneration::new(1).unwrap();
++        assert!(
++            runtime
++                .host_connection_ownership_for_refresh(&same_generation)
++                .is_err()
++        );
++    }
++
+     #[test]
+     fn repeated_cleanup_cannot_clear_a_newer_native_scope() {
+         let old = test_native_cleanup_context("attempt-1", "world-1");
+@@ -5537,6 +6219,7 @@ mod tests {
+             lobby_id: crate::matchmaking::LobbyId::new("lobby-1").unwrap(),
+             room_id: crate::matchmaking::P2pRoomId::new("room-1").unwrap(),
+             attempt_id: crate::matchmaking::AttemptId::new("attempt-1").unwrap(),
++            player_id: crate::matchmaking::ids::PlayerId::new("player-1").unwrap(),
+             authority_session: crate::matchmaking::AuthoritySessionId::new("authority-1").unwrap(),
+             roster_revision: crate::matchmaking::RosterRevision::new(7).unwrap(),
+             route_generation: crate::matchmaking::RouteGeneration::new(2).unwrap(),
+@@ -5626,6 +6309,45 @@ mod tests {
+         assert!(ensure_match_operation_active(&cancel).is_err());
+     }
+ 
++    #[test]
++    fn connection_proof_retries_only_the_explicit_pending_conflict() {
++        let pending = anyhow::Error::new(crate::api::infrastructure::http::HttpApiError {
++            status: 409,
++            code: "MATCH_CONNECTION_NOT_CONNECTED".into(),
++            message: "native connection is still progressing".into(),
++            details: None,
++            request_id: Some("req-pending".into()),
++        });
++        assert!(should_retry_connection_proof_error(&pending));
++
++        let other_conflict = anyhow::Error::new(crate::api::infrastructure::http::HttpApiError {
++            status: 409,
++            code: "MATCH_CONNECTION_SCOPE_MISMATCH".into(),
++            message: "connection is not connected for this scope".into(),
++            details: None,
++            request_id: Some("req-conflict".into()),
++        });
++        assert!(!should_retry_connection_proof_error(&other_conflict));
++
++        let unavailable = anyhow::Error::new(crate::api::infrastructure::http::HttpApiError {
++            status: 503,
++            code: "SERVICE_UNAVAILABLE".into(),
++            message: "Backend is unavailable".into(),
++            details: None,
++            request_id: Some("req-unavailable".into()),
++        });
++        assert!(should_retry_connection_proof_error(&unavailable));
++
++        let unauthorized = anyhow::Error::new(crate::api::infrastructure::http::HttpApiError {
++            status: 401,
++            code: "UNAUTHORIZED".into(),
++            message: "session expired".into(),
++            details: None,
++            request_id: Some("req-unauthorized".into()),
++        });
++        assert!(!should_retry_connection_proof_error(&unauthorized));
++    }
++
+     #[test]
+     fn logout_operation_barrier_rejects_new_launches_without_stopping_runtime() {
+         let runtime = Arc::new(test_runtime_for_cleanup());
+@@ -5867,6 +6589,8 @@ mod tests {
+                 active_match_authority_pipe: None,
+                 active_match_authority_pid: None,
+                 active_match_connection_cursor: 0,
++                active_match_host_connection: None,
++                last_released_match_host_connection: None,
+                 pending_match_native_cleanup: None,
+                 match_cleanup_requested: false,
+                 managed_cleanup_barrier: false,
+diff --git a/src/launching/controller.rs b/src/launching/controller.rs
+index 2edc15d..963b616 100644
+--- a/src/launching/controller.rs
++++ b/src/launching/controller.rs
+@@ -52,17 +52,22 @@ pub fn execute_with_cancel(
+ /// native client-login-ready checkpoint. The callback also owns any bounded
+ /// backend delivery wait, so no grant is sent to the Payload before the
+ /// authority has staged the matching Attempt.
+-pub fn execute_authorized_join_with_cancel<F, G>(
++pub fn execute_authorized_join_with_cancel<F, G, C>(
+     game_path: &str,
+     match_target: &str,
+     progress: &Progress,
+     cancel: Arc<AtomicBool>,
+     grant_provider: F,
+     scope_guard: G,
++    connection_proof_provider: C,
+ ) -> Result<LaunchResult>
+ where
+-    F: FnOnce() -> Result<SecretString>,
++    F: FnOnce() -> Result<crate::matchmaking::MemberJoinGrant>,
+     G: Fn() -> Result<()>,
++    C: Fn(
++        &crate::server::pipe::MatchJoinScope,
++        u64,
++    ) -> Result<crate::server::pipe::ClientMatchConnectionProof>,
+ {
+     launch::launch_authorized_join_blocking_with_progress_and_cancel_after_login(
+         game_path,
+@@ -71,6 +76,7 @@ where
+         cancel,
+         grant_provider,
+         scope_guard,
++        connection_proof_provider,
+     )
+ }
+ 
+diff --git a/src/launching/launch.rs b/src/launching/launch.rs
+index a829809..bbe2ace 100644
+--- a/src/launching/launch.rs
++++ b/src/launching/launch.rs
+@@ -3,7 +3,7 @@
+ // PvP: MetaServer -> Game client (no dedicated server).
+ // Single permanent worker (LaunchCmd pattern) handles all launch requests.
+ 
+-use anyhow::{Context, Result};
++use anyhow::{Context, Result, ensure};
+ use sha2::{Digest, Sha256};
+ use std::collections::HashSet;
+ use std::io::Read;
+@@ -100,6 +100,10 @@ pub struct LaunchResult {
+     pub msg: String,
+     pub pids: Vec<u32>,
+     pub tracking: crate::util::status_helper::LaunchTracking,
++    /// Strict online launches retain the exact native/backend Playable
++    /// evidence until Runtime atomically promotes the frozen controller
++    /// scope. Offline/PvE launches leave this absent.
++    pub playable_evidence: Option<crate::server::pipe::PayloadPlayableEvidence>,
+ }
+ 
+ pub struct MatchAuthorityLaunchResult {
+@@ -644,6 +648,7 @@ fn validated_launch_result(
+         msg: msg.into(),
+         pids,
+         tracking,
++        playable_evidence: None,
+     })
+ }
+ 
+@@ -885,7 +890,11 @@ fn wait_for_payload_playable(
+     game_pid: u32,
+     pipe: &mut std::fs::File,
+     progress: &Progress,
+-) -> Result<crate::server::pipe::PayloadStatus> {
++    expected_scope: &crate::server::pipe::MatchJoinScope,
++    expected_operation_sequence: u64,
++    backend_native_connection_nonce: &str,
++    prior_local_world_instance_id: Option<&str>,
++) -> Result<crate::server::pipe::PayloadPlayableEvidence> {
+     let deadline = Instant::now() + STRICT_PLAYABLE_TIMEOUT;
+     loop {
+         ctx.ensure_running(game_pid, "Game client")?;
+@@ -901,18 +910,13 @@ fn wait_for_payload_playable(
+             .map(|match_status| match_status.state.as_str())
+             .unwrap_or("idle");
+         if status.ready && native_state == "playable" {
+-            anyhow::ensure!(
+-                status.status == "ready"
+-                    && status.code == "ready"
+-                    && status.protocol_version
+-                        == crate::server::pipe::STRICT_ROSTER_PAYLOAD_VERSION
+-                    && status.game_binary_sha256 == crate::security::strict_build::GAME_SHA256
+-                    && status.strict_online_ready
+-                    && !status.offline_pve
+-                    && !status.native_authority_path_required
+-                    && status.native_authority_admission_verified,
+-                "Member Payload reached Playable without the strict client capability proof"
+-            );
++            let evidence = status.playable_evidence(
++                expected_scope,
++                expected_operation_sequence,
++                backend_native_connection_nonce,
++                prior_local_world_instance_id,
++                "MEMBER",
++            )?;
+             anyhow::ensure!(
+                 status.native_client_grant_injection_required,
+                 "Member Payload did not declare its required client Grant injector"
+@@ -921,7 +925,11 @@ fn wait_for_payload_playable(
+                 status.native_client_grant_injection_ready,
+                 "Member Payload reached Playable without the required client Grant injector"
+             );
+-            return Ok(status);
++            anyhow::ensure!(
++                !status.native_authority_path_required,
++                "Member Payload unexpectedly required the authority path"
++            );
++            return Ok(evidence);
+         }
+         if matches!(native_state, "failed" | "cancelled") || status.status == "blocked" {
+             let detail = status
+@@ -942,6 +950,61 @@ fn wait_for_payload_playable(
+     }
+ }
+ 
++fn wait_for_local_pawn_ready(
++    ctx: &mut LaunchCtx,
++    game_pid: u32,
++    pipe: &mut std::fs::File,
++    progress: &Progress,
++) -> Result<()> {
++    let deadline = Instant::now() + STRICT_PLAYABLE_TIMEOUT;
++    loop {
++        ctx.ensure_running(game_pid, "Member game client")?;
++        let request_id = format!("member-local-ready-{:032x}", rand::random::<u128>());
++        let status = crate::server::pipe::request_payload_status(
++            pipe,
++            &request_id,
++            STRICT_PIPE_RESPONSE_TIMEOUT,
++        )?;
++        let match_status = status.match_status.as_ref();
++        let native_state = match_status
++            .map(|value| value.state.as_str())
++            .unwrap_or("idle");
++        if status.status == "blocked" || matches!(native_state, "failed" | "cancelled") {
++            let detail = match_status
++                .map(|value| value.last_error.as_str())
++                .filter(|value| !value.is_empty())
++                .unwrap_or(status.code.as_str());
++            anyhow::bail!("Payload native client readiness was rejected: {detail}");
++        }
++        if match_status.is_some_and(|value| value.local_pawn_ready && value.native_net_ready) {
++            anyhow::ensure!(
++                status.status == "ready"
++                    && status.ready
++                    && status.strict_online_ready
++                    && !status.offline_pve
++                    && !status.native_authority_path_required
++                    && status.native_client_grant_injection_required
++                    && status.native_client_grant_injection_ready,
++                "Payload local pawn readiness lacks strict client capability proof"
++            );
++            anyhow::ensure!(
++                !match_status
++                    .map(|value| value.local_world_instance_id.trim().is_empty())
++                    .unwrap_or(true),
++                "Payload local pawn readiness omitted local world observation"
++            );
++            return Ok(());
++        }
++        set_progress(progress, 3, 3, &format!("Native match ({native_state})"));
++        anyhow::ensure!(
++            Instant::now() < deadline,
++            "Payload native client did not reach local pawn readiness within {} seconds",
++            STRICT_PLAYABLE_TIMEOUT.as_secs()
++        );
++        thread::sleep(Duration::from_millis(250));
++    }
++}
++
+ fn spawn_monitor(mut cleanup: LaunchCleanup, game_pid: u32, name: &str) -> Result<()> {
+     let monitor_name = name.to_string();
+     let thread_name = monitor_name.clone();
+@@ -990,17 +1053,22 @@ pub fn launch_pve_blocking_with_progress_and_cancel(
+ /// Launch without a match argument. The one-use seat grant is requested
+ /// through grant_provider only after native client login-ready, then
+ /// delivered through the private per-launch pipe before travel begins.
+-pub fn launch_authorized_join_blocking_with_progress_and_cancel_after_login<F, G>(
++pub fn launch_authorized_join_blocking_with_progress_and_cancel_after_login<F, G, C>(
+     game_path: &str,
+     match_target: &str,
+     progress: &Progress,
+     cancel: std::sync::Arc<AtomicBool>,
+     grant_provider: F,
+     scope_guard: G,
++    connection_proof_provider: C,
+ ) -> Result<LaunchResult>
+ where
+-    F: FnOnce() -> Result<crate::vnt::types::SecretString>,
++    F: FnOnce() -> Result<crate::matchmaking::MemberJoinGrant>,
+     G: Fn() -> Result<()>,
++    C: Fn(
++        &crate::server::pipe::MatchJoinScope,
++        u64,
++    ) -> Result<crate::server::pipe::ClientMatchConnectionProof>,
+ {
+     do_launch_authorized_join(
+         game_path,
+@@ -1009,6 +1077,7 @@ where
+         Some(cancel),
+         grant_provider,
+         scope_guard,
++        connection_proof_provider,
+     )
+ }
+ 
+@@ -1215,7 +1284,7 @@ fn wait_for_client_login_ready(
+             .as_ref()
+             .map(|match_status| match_status.state.as_str())
+             .unwrap_or("idle");
+-        if matches!(native_state, "failed" | "cancelled") {
++        if status.status == "blocked" || matches!(native_state, "failed" | "cancelled") {
+             let detail = status
+                 .match_status
+                 .as_ref()
+@@ -1248,9 +1317,13 @@ fn do_launch_authorized_join<F>(
+     cancel: Option<std::sync::Arc<AtomicBool>>,
+     grant_provider: F,
+     scope_guard: impl Fn() -> Result<()>,
++    connection_proof_provider: impl Fn(
++        &crate::server::pipe::MatchJoinScope,
++        u64,
++    ) -> Result<crate::server::pipe::ClientMatchConnectionProof>,
+ ) -> Result<LaunchResult>
+ where
+-    F: FnOnce() -> Result<crate::vnt::types::SecretString>,
++    F: FnOnce() -> Result<crate::matchmaking::MemberJoinGrant>,
+ {
+     let mut ctx = LaunchCtx::new_with_cancel(game_path, cancel.clone())?;
+     ctx.check_cancelled()?;
+@@ -1289,30 +1362,71 @@ where
+     // may report transport readiness before the native login/archive path has
+     // reached its travel-safe checkpoint. Payload match.login_ready is the
+     // native cold-start/login proof required before signing a Member grant.
+-    let _login_status = wait_for_client_login_ready(&mut ctx, game_pid, &mut pipe, progress)?;
++    let login_status = wait_for_client_login_ready(&mut ctx, game_pid, &mut pipe, progress)?;
+     set_progress(progress, 3, 3, "Admission (3/3)");
+     let join_grant = grant_provider()?;
++    let expected_scope = crate::server::pipe::MatchJoinScope {
++        attempt_id: join_grant.attempt_id.as_str().to_owned(),
++        authority_session_id: join_grant.authority_session_id.expose().to_owned(),
++        world_instance_id: join_grant.world_instance_id.as_str().to_owned(),
++        roster_revision: join_grant.roster_revision.value(),
++        route_generation: join_grant.route_generation.value(),
++        player_id: join_grant.player_id.as_str().to_owned(),
++        grant_jti: join_grant.grant_jti.as_str().to_owned(),
++        connection_generation: join_grant.connection_generation.value(),
++        room_role: None,
++    };
+     ctx.ensure_running(game_pid, "Member game client")?;
+     ensure_not_cancelled(cancel.as_deref())?;
+     scope_guard().context("Member launch scope changed before native grant delivery")?;
+-    crate::server::pipe::request_join_authorized(
++    let join_ack = crate::server::pipe::request_join_authorized(
+         &mut pipe,
+         match_target,
+-        &join_grant,
++        &join_grant.join_grant,
++        &expected_scope,
++        STRICT_PIPE_RESPONSE_TIMEOUT,
++    )?;
++    let login_local_world = login_status
++        .match_status
++        .as_ref()
++        .map(|match_status| match_status.local_world_instance_id.as_str());
++    wait_for_local_pawn_ready(&mut ctx, game_pid, &mut pipe, progress)?;
++    let proof = connection_proof_provider(&expected_scope, join_ack.operation_sequence)?;
++    ensure!(
++        proof.scope == expected_scope,
++        "Backend client connection proof does not match the frozen join scope"
++    );
++    scope_guard().context("Member launch scope changed before native connection confirmation")?;
++    crate::server::pipe::confirm_client_match_connection(
++        &mut pipe,
++        &format!("member-confirm-{:032x}", rand::random::<u128>()),
++        "MEMBER",
++        &proof,
++        join_ack.operation_sequence,
+         STRICT_PIPE_RESPONSE_TIMEOUT,
+     )?;
+-    let _payload_status = wait_for_payload_playable(&mut ctx, game_pid, &mut pipe, progress)?;
++    let payload_evidence = wait_for_payload_playable(
++        &mut ctx,
++        game_pid,
++        &mut pipe,
++        progress,
++        &expected_scope,
++        join_ack.operation_sequence,
++        &proof.native_connection_nonce,
++        login_local_world,
++    )?;
+     ctx.ensure_running(game_pid, "Member game client")?;
+     ensure_not_cancelled(cancel.as_deref())?;
+     scope_guard().context("Member launch scope changed after native Playable")?;
+ 
+     let tracking = build_tracking(&ctx, game_pid, None)?;
+-    let result = validated_launch_result(
++    let mut result = validated_launch_result(
+         "Strict roster join ready",
+         vec![meta_pid, game_pid],
+         2,
+         tracking,
+     )?;
++    result.playable_evidence = Some(payload_evidence);
+     let cleanup = ctx.into_cleanup(None);
+     spawn_monitor(cleanup, game_pid, "StrictJoinLaunchMonitor")?;
+     Ok(result)
+@@ -1699,6 +1813,13 @@ mod tests {
+                 pending: false,
+                 login_completed: false,
+                 login_ready: false,
++                local_pawn_ready: false,
++                native_net_ready: false,
++                scope: None,
++                playable_scope: None,
++                scope_verified: false,
++                local_world_instance_id: String::new(),
++                native_connection_nonce: String::new(),
+                 last_error: String::new(),
+             }),
+             request_id: "status_1".into(),
+diff --git a/src/matchmaking/controller.rs b/src/matchmaking/controller.rs
+index fda3a8b..f132c90 100644
+--- a/src/matchmaking/controller.rs
++++ b/src/matchmaking/controller.rs
+@@ -90,6 +90,7 @@ pub struct HostProvisioningMaterial {
+     pub lobby_id: LobbyId,
+     pub room_id: P2pRoomId,
+     pub attempt_id: AttemptId,
++    pub player_id: crate::matchmaking::ids::PlayerId,
+     pub authority_session: AuthoritySessionId,
+     pub roster_revision: RosterRevision,
+     pub route_generation: RouteGeneration,
+@@ -118,6 +119,11 @@ pub struct ConnectionMaterial {
+ /// a different endpoint or connection generation.
+ pub struct MemberJoinGrant {
+     pub attempt_id: AttemptId,
++    pub authority_session_id: AuthoritySessionId,
++    pub world_instance_id: WorldInstanceId,
++    pub roster_revision: RosterRevision,
++    pub route_generation: RouteGeneration,
++    pub player_id: crate::matchmaking::ids::PlayerId,
+     pub connection_generation: ConnectionGeneration,
+     pub grant_jti: GrantJti,
+     pub endpoint_host: String,
+@@ -135,6 +141,7 @@ pub struct AuthorityAdmissionContext {
+ 
+ pub struct AuthorityRefreshMaterial {
+     pub attempt_id: AttemptId,
++    pub player_id: crate::matchmaking::ids::PlayerId,
+     pub room_id: P2pRoomId,
+     pub authority_session: AuthoritySessionId,
+     pub roster_revision: RosterRevision,
+@@ -425,6 +432,8 @@ impl MatchLobbyController {
+             lobby_id: LobbyId::new(snapshot.lobby_id.clone()).map_err(anyhow::Error::msg)?,
+             room_id: P2pRoomId::new(room_id).map_err(anyhow::Error::msg)?,
+             attempt_id: AttemptId::new(attempt.attempt_id.clone()).map_err(anyhow::Error::msg)?,
++            player_id: crate::matchmaking::ids::PlayerId::new(snapshot.owner_player_id.clone())
++                .map_err(anyhow::Error::msg)?,
+             authority_session: AuthoritySessionId::new(
+                 active
+                     .authority_session
+@@ -556,6 +565,48 @@ impl MatchLobbyController {
+         Ok(())
+     }
+ 
++    /// Verify the frozen P2P HOST authority scope immediately before native
++    /// promotion.  The HOST has no MemberGrant/JTI, so its identity comes
++    /// from the signed allocation and the backend's persisted host seat.
++    pub fn ensure_host_scope_current(
++        &self,
++        expected: &crate::server::pipe::MatchJoinScope,
++    ) -> Result<()> {
++        ensure!(
++            expected.room_role.as_deref() == Some("HOST") && expected.grant_jti.trim().is_empty(),
++            "P2P HOST scope has an invalid role or grant"
++        );
++        let active = self.active.as_ref().context("No active match lobby")?;
++        let snapshot = &active.snapshot;
++        ensure!(
++            snapshot.hosting_kind == "P2P" && snapshot.local.is_owner,
++            "Only the local P2P owner can publish HOST Playable"
++        );
++        let attempt = snapshot
++            .attempt
++            .as_ref()
++            .context("P2P lobby has no active Attempt")?;
++        ensure!(
++            matches!(attempt.state.as_str(), "CONNECTING" | "RUNNING"),
++            "P2P HOST Attempt is no longer active"
++        );
++        let authority = active
++            .authority_session
++            .as_ref()
++            .context("P2P authority session is unavailable")?;
++        ensure!(
++            attempt.attempt_id == expected.attempt_id
++                && authority.expose() == expected.authority_session_id
++                && attempt.world_instance_id.as_deref()
++                    == Some(expected.world_instance_id.as_str())
++                && attempt.roster_revision == expected.roster_revision
++                && attempt.route_generation == expected.route_generation
++                && snapshot.owner_player_id == expected.player_id,
++            "P2P HOST scope changed before native Playable promotion"
++        );
++        Ok(())
++    }
++
+     /// Issue the Member grant after the caller has proved local native login
+     /// readiness. The controller still owns the original Attempt/route and
+     /// idempotency key, so retries return the same unconsumed grant while a
+@@ -583,8 +634,31 @@ impl MatchLobbyController {
+                 && grant.endpoint_port == material.endpoint_port,
+             "Late join grant endpoint does not match the frozen Attempt route"
+         );
++        ensure!(
++            grant.world_instance_id == material.world_instance_id.as_str(),
++            "Late join grant world does not match the frozen Attempt scope"
++        );
++        ensure!(
++            grant.roster_revision == material.roster_revision.value()
++                && grant.route_generation == material.route_generation.value(),
++            "Late join grant roster/route generation does not match the frozen Attempt scope"
++        );
++        ensure!(
++            !grant.authority_session_id.trim().is_empty() && !grant.player_id.trim().is_empty(),
++            "Late join grant omitted its authoritative player scope"
++        );
+         Ok(MemberJoinGrant {
+             attempt_id: AttemptId::new(grant.attempt_id).map_err(anyhow::Error::msg)?,
++            authority_session_id: AuthoritySessionId::new(grant.authority_session_id)
++                .map_err(anyhow::Error::msg)?,
++            world_instance_id: WorldInstanceId::new(grant.world_instance_id)
++                .map_err(anyhow::Error::msg)?,
++            roster_revision: RosterRevision::new(grant.roster_revision)
++                .map_err(anyhow::Error::msg)?,
++            route_generation: RouteGeneration::new(grant.route_generation)
++                .map_err(anyhow::Error::msg)?,
++            player_id: crate::matchmaking::ids::PlayerId::new(grant.player_id)
++                .map_err(anyhow::Error::msg)?,
+             connection_generation: ConnectionGeneration::new(grant.connection_generation)
+                 .map_err(anyhow::Error::msg)?,
+             grant_jti: GrantJti::new(grant.grant_jti).map_err(anyhow::Error::msg)?,
+@@ -670,6 +744,8 @@ impl MatchLobbyController {
+         );
+         Ok(AuthorityRefreshMaterial {
+             attempt_id: AttemptId::new(attempt.attempt_id.clone()).map_err(anyhow::Error::msg)?,
++            player_id: crate::matchmaking::ids::PlayerId::new(snapshot.owner_player_id.clone())
++                .map_err(anyhow::Error::msg)?,
+             room_id: P2pRoomId::new(
+                 snapshot
+                     .p2p_room_id
+diff --git a/src/matchmaking/mod.rs b/src/matchmaking/mod.rs
+index 33ddb52..273eb27 100644
+--- a/src/matchmaking/mod.rs
++++ b/src/matchmaking/mod.rs
+@@ -4,8 +4,9 @@ mod controller;
+ pub mod ids;
+ 
+ pub use controller::{
+-    ConnectionMaterial, ConnectionPhase, ControllerAction, ControllerNotice, ControllerTick,
+-    CreateMatchLobbyInput, HostProvisioningMaterial, MatchLobbyController, MemberJoinGrant,
++    AuthorityRefreshMaterial, ConnectionMaterial, ConnectionPhase, ControllerAction,
++    ControllerNotice, ControllerTick, CreateMatchLobbyInput, HostProvisioningMaterial,
++    MatchLobbyController, MemberJoinGrant,
+ };
+ pub use ids::{
+     AttemptId, AuthorityId, AuthoritySessionId, ConnectionGeneration, GrantJti, LobbyId,
+diff --git a/src/server/pipe.rs b/src/server/pipe.rs
+index 725645a..07b0155 100644
+--- a/src/server/pipe.rs
++++ b/src/server/pipe.rs
+@@ -67,6 +67,10 @@ pub struct MatchAuthorityReadyAck {
+     /// Native host handshake identity.  The P2P host has no MemberGrant; the
+     /// backend records this nonce as the independent live host seat receipt.
+     pub native_connection_nonce: String,
++    /// A Dedicated authority reports zero because it has no local client
++    /// transition.  A P2P authority must return the non-zero operation that
++    /// was staged for its signed HOST seat.
++    pub operation_sequence: u64,
+ }
+ 
+ #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+@@ -101,7 +105,7 @@ pub struct MatchConnectionEventBatch {
+ /// authority/world/roster generation that produced the native handshake;
+ /// omitting any of these values would permit an old connection event to be
+ /// replayed into a new attempt.
+-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
++#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+ pub struct MatchAdmissionReceipt {
+     pub attempt_id: String,
+     pub authority_session_id: String,
+@@ -114,6 +118,52 @@ pub struct MatchAdmissionReceipt {
+     pub connection_generation: i32,
+ }
+ 
++/// The complete frozen scope sent with a Member join request.  The authority
++/// world is deliberately a separate field from the client-local world
++/// observation returned in `PayloadMatchStatus`; a client cannot manufacture
++/// either the authority nonce or a backend connection receipt.
++#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
++pub struct MatchJoinScope {
++    pub attempt_id: String,
++    pub authority_session_id: String,
++    pub world_instance_id: String,
++    pub roster_revision: i64,
++    pub route_generation: i32,
++    pub player_id: String,
++    pub grant_jti: String,
++    pub connection_generation: i32,
++    /// Native includes the role in HOST scope/status objects.  It is omitted
++    /// from the Member join request (the eight signed scope fields remain the
++    /// wire contract) and is required as HOST on the authority path.
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub room_role: Option<String>,
++}
++
++#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
++pub struct MatchJoinAck {
++    pub status: String,
++    pub request_id: String,
++    pub operation_sequence: u64,
++}
++
++/// Backend proof consumed by the native client confirmation command.  The
++/// nonce is intentionally supplied by the authenticated Backend proof path,
++/// never by the client status frame.
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub struct ClientMatchConnectionProof {
++    pub scope: MatchJoinScope,
++    pub native_connection_nonce: String,
++}
++
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub struct PayloadPlayableEvidence {
++    pub scope: MatchJoinScope,
++    pub room_role: String,
++    pub operation_sequence: u64,
++    pub native_connection_nonce: String,
++    pub local_world_instance_id: String,
++}
++
+ /// Scope used when retiring a native match allocation. Cleanup is bound to
+ /// the same attempt/authority/world/roster/route tuple as admission so a late
+ /// clear cannot reset the allocation of a newer attempt on a reused pipe.
+@@ -138,6 +188,30 @@ pub struct PayloadMatchStatus {
+     #[serde(default)]
+     pub login_ready: bool,
+     #[serde(default)]
++    pub local_pawn_ready: bool,
++    #[serde(default)]
++    pub native_net_ready: bool,
++    /// Scope is present only after the native client has accepted the exact
++    /// join operation.  Missing scope is valid diagnostic state but can never
++    /// satisfy the strict Playable predicate.
++    #[serde(default)]
++    pub scope: Option<MatchJoinScope>,
++    /// Native only fills this after the exact local+Backend confirmation has
++    /// been promoted to Playable.  A pre-confirmation `scope` is not enough
++    /// evidence for the Runtime to publish success.
++    #[serde(default)]
++    pub playable_scope: Option<MatchJoinScope>,
++    #[serde(default)]
++    pub scope_verified: bool,
++    /// This is the native client's local world observation.  It must not be
++    /// compared as if it were the authority world identity.
++    #[serde(default)]
++    pub local_world_instance_id: String,
++    /// Set only after the native side consumed the Backend-confirmed nonce.
++    /// A client-reported value is not accepted as proof by itself.
++    #[serde(default)]
++    pub native_connection_nonce: String,
++    #[serde(default)]
+     pub last_error: String,
+ }
+ 
+@@ -178,6 +252,117 @@ pub struct PayloadStatus {
+     pub request_id: String,
+ }
+ 
++impl PayloadStatus {
++    /// Validate the complete Native + Backend Playable evidence for one
++    /// operation.  `world_instance_id` is the authority world from the
++    /// top-level status; `local_world_instance_id` is kept separate and is
++    /// only required to be a non-empty new local observation.  In particular,
++    /// this method never treats a client-reported nonce as the Backend proof.
++    pub fn playable_evidence(
++        &self,
++        expected_scope: &MatchJoinScope,
++        expected_operation_sequence: u64,
++        backend_native_connection_nonce: &str,
++        prior_local_world_instance_id: Option<&str>,
++        expected_room_role: &str,
++    ) -> Result<PayloadPlayableEvidence> {
++        ensure!(
++            self.status == "ready"
++                && self.ready
++                && self.code == "ready"
++                && self.protocol_version == STRICT_ROSTER_PAYLOAD_VERSION
++                && self.strict_online_ready
++                && !self.offline_pve,
++            "Payload is not strictly ready for Playable evidence"
++        );
++        ensure!(
++            self.native_authority_admission_verified,
++            "Payload has no native authority admission proof"
++        );
++        ensure!(
++            self.game_binary_sha256 == crate::security::strict_build::GAME_SHA256,
++            "Payload Playable evidence used an unsupported game binary"
++        );
++        let match_status = self
++            .match_status
++            .as_ref()
++            .context("Payload omitted match telemetry")?;
++        ensure!(
++            match_status.state == "playable",
++            "Payload has not reached native Playable state"
++        );
++        ensure!(
++            match_status.local_pawn_ready && match_status.native_net_ready,
++            "Payload Playable telemetry lacks local pawn or native NetConnection readiness"
++        );
++        ensure!(
++            match_status.operation_sequence == expected_operation_sequence,
++            "Payload Playable telemetry belongs to a different operation sequence"
++        );
++        ensure!(
++            match_status.scope_verified,
++            "Payload Playable telemetry has no verified join scope"
++        );
++        let scope = match_status
++            .playable_scope
++            .clone()
++            .context("Payload Playable telemetry omitted its promoted scope")?;
++        validate_match_join_scope(&scope)?;
++        ensure!(
++            &scope == expected_scope,
++            "Payload Playable telemetry belongs to a different join scope"
++        );
++        let actual_room_role = scope.room_role.as_deref().unwrap_or("MEMBER").to_owned();
++        ensure!(
++            actual_room_role == expected_room_role,
++            "Payload Playable telemetry belongs to a different room role"
++        );
++        if expected_room_role == "HOST" {
++            // A P2P HOST is also the local authority.  Its status frame is
++            // therefore the one role for which the top-level authority world
++            // is meaningful and must match the frozen scope.
++            ensure!(
++                self.world_instance_id == expected_scope.world_instance_id,
++                "Payload authority world does not match the frozen HOST scope"
++            );
++        } else {
++            // A MEMBER process has no authority world.  Native reports the
++            // remote authority world only in playable_scope; local_world is
++            // the separate client observation checked below.  Reject a
++            // non-empty top-level value rather than treating it as proof.
++            ensure!(
++                self.world_instance_id.trim().is_empty(),
++                "Payload MEMBER status carried an authority world it does not own"
++            );
++        }
++        ensure!(
++            !match_status.local_world_instance_id.trim().is_empty(),
++            "Payload Playable telemetry omitted the local world observation"
++        );
++        if let Some(previous) = prior_local_world_instance_id
++            .map(str::trim)
++            .filter(|value| !value.is_empty())
++        {
++            ensure!(
++                match_status.local_world_instance_id != previous,
++                "Payload reused the pre-join local world observation"
++            );
++        }
++        ensure!(
++            !backend_native_connection_nonce.trim().is_empty()
++                && match_status.native_connection_nonce == backend_native_connection_nonce,
++            "Payload Playable telemetry does not carry the Backend-confirmed native nonce"
++        );
++        Ok(PayloadPlayableEvidence {
++            scope,
++            room_role: actual_room_role,
++            operation_sequence: match_status.operation_sequence,
++            native_connection_nonce: match_status.native_connection_nonce.clone(),
++            local_world_instance_id: match_status.local_world_instance_id.clone(),
++        })
++    }
++}
++
+ /// Generate a high-entropy pipe name with 192-bit random suffix.
+ /// Format: `ProjectRebound_Toolbox_{pid}_{48_hex_chars}`.
+ /// The Payload is the pipe server; ToolBox connects as the client.
+@@ -311,18 +496,27 @@ pub fn request_join_authorized(
+     pipe: &mut File,
+     match_target: &str,
+     join_grant: &SecretString,
++    expected_scope: &MatchJoinScope,
+     timeout: Duration,
+-) -> Result<()> {
++) -> Result<MatchJoinAck> {
+     ensure!(!join_grant.is_empty(), "join grant is unavailable");
+-    request_join_with_grant(pipe, match_target, Some(join_grant.expose()), timeout)
++    validate_match_join_scope(expected_scope)?;
++    request_join_with_grant(
++        pipe,
++        match_target,
++        Some(join_grant.expose()),
++        expected_scope,
++        timeout,
++    )
+ }
+ 
+ fn request_join_with_grant(
+     pipe: &mut File,
+     match_target: &str,
+     join_grant: Option<&str>,
++    expected_scope: &MatchJoinScope,
+     timeout: Duration,
+-) -> Result<()> {
++) -> Result<MatchJoinAck> {
+     let match_target = match_target.trim();
+     ensure!(
+         !match_target.is_empty() && match_target.len() <= 255,
+@@ -340,9 +534,12 @@ fn request_join_with_grant(
+     let request_id = format!("join-{:032x}", rand::random::<u128>());
+     let frame = zeroize::Zeroizing::new(format!(
+         "join\t{}\n",
+-        serde_json::to_string(
+-            &json!({"ip": match_target, "token": grant, "request_id": request_id})
+-        )?
++        serde_json::to_string(&json!({
++            "ip": match_target,
++            "token": grant,
++            "request_id": request_id,
++            "expected_scope": expected_scope,
++        }))?
+     ));
+     ensure!(frame.len() <= MAX_FRAME_BYTES, "join frame is too large");
+     pipe.write_all(frame.as_bytes())
+@@ -353,6 +550,80 @@ fn request_join_with_grant(
+     parse_join_ack_frame(&response, &request_id)
+ }
+ 
++/// Confirm the Backend's exact CONNECTED receipt at the native boundary.
++/// The command is intentionally separate from `join`: an accepted join only
++/// starts travel, while this receipt is the second half of the Native
++/// local-pawn + Backend-connected Playable predicate.
++pub fn confirm_client_match_connection(
++    pipe: &mut File,
++    request_id: &str,
++    room_role: &str,
++    proof: &ClientMatchConnectionProof,
++    operation_sequence: u64,
++    timeout: Duration,
++) -> Result<()> {
++    validate_request_id(request_id)?;
++    ensure!(
++        matches!(room_role, "HOST" | "MEMBER"),
++        "native client confirmation room role is invalid"
++    );
++    validate_match_join_scope(&proof.scope)?;
++    ensure!(
++        proof.scope.room_role.as_deref().unwrap_or("MEMBER") == room_role,
++        "native client confirmation room role does not match its scope"
++    );
++    ensure!(
++        operation_sequence > 0,
++        "native join operation sequence is invalid"
++    );
++    ensure!(
++        !proof.native_connection_nonce.is_empty()
++            && proof.native_connection_nonce.len() <= 128
++            && proof
++                .native_connection_nonce
++                .bytes()
++                .all(|byte| { byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b':') }),
++        "Backend native connection nonce is invalid"
++    );
++    let mut arguments = json!({
++        "request_id": request_id,
++        "attempt_id": proof.scope.attempt_id,
++        "authority_session_id": proof.scope.authority_session_id,
++        "world_instance_id": proof.scope.world_instance_id,
++        "roster_revision": proof.scope.roster_revision,
++        "route_generation": proof.scope.route_generation,
++        "player_id": proof.scope.player_id,
++        "grant_jti": proof.scope.grant_jti,
++        "connection_generation": proof.scope.connection_generation,
++        "operation_sequence": operation_sequence,
++        "native_connection_nonce": proof.native_connection_nonce.as_str(),
++    });
++    if room_role == "HOST" {
++        arguments["room_role"] = json!("HOST");
++    }
++    let frame = zeroize::Zeroizing::new(format!(
++        "confirm_client_match_connection\t{}\n",
++        serde_json::to_string(&arguments)?
++    ));
++    ensure!(
++        frame.len() <= MAX_FRAME_BYTES,
++        "confirmation frame is too large"
++    );
++    pipe.write_all(frame.as_bytes())
++        .context("write client connection confirmation")?;
++    pipe.flush()
++        .context("flush client connection confirmation")?;
++    let response = read_frame_until(pipe, Instant::now() + timeout)?;
++    parse_client_match_connection_ack(
++        &response,
++        request_id,
++        room_role,
++        &proof.scope,
++        operation_sequence,
++        proof.native_connection_nonce.as_str(),
++    )
++}
++
+ pub fn install_match_allocation(
+     pipe: &mut File,
+     request_id: &str,
+@@ -909,7 +1180,68 @@ fn parse_payload_status_frame(frame: &str, expected_request_id: &str) -> Result<
+     Ok(status)
+ }
+ 
+-fn parse_join_ack_frame(frame: &str, expected_request_id: &str) -> Result<()> {
++fn validate_match_join_scope(scope: &MatchJoinScope) -> Result<()> {
++    for (name, value) in [
++        ("attempt_id", scope.attempt_id.as_str()),
++        ("authority_session_id", scope.authority_session_id.as_str()),
++        ("world_instance_id", scope.world_instance_id.as_str()),
++        ("player_id", scope.player_id.as_str()),
++    ] {
++        ensure!(
++            !value.trim().is_empty()
++                && value.len() <= 256
++                && value.bytes().all(|byte| {
++                    byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b':')
++                }),
++            "match join scope {name} is invalid"
++        );
++    }
++    ensure!(
++        scope.roster_revision > 0,
++        "match join scope roster revision is invalid"
++    );
++    ensure!(
++        scope.route_generation > 0,
++        "match join scope route generation is invalid"
++    );
++    ensure!(
++        scope.connection_generation > 0,
++        "match join scope connection generation is invalid"
++    );
++    if let Some(role) = scope.room_role.as_deref() {
++        ensure!(
++            matches!(role, "HOST" | "MEMBER"),
++            "match join scope room role is invalid"
++        );
++        if role == "HOST" {
++            ensure!(
++                scope.grant_jti.is_empty(),
++                "HOST match scope must not carry a Member grant JTI"
++            );
++        } else {
++            ensure!(
++                !scope.grant_jti.trim().is_empty()
++                    && scope.grant_jti.len() <= 256
++                    && scope.grant_jti.bytes().all(|byte| {
++                        byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b':')
++                    }),
++                "Member match scope grant JTI is invalid"
++            );
++        }
++    } else {
++        ensure!(
++            !scope.grant_jti.trim().is_empty()
++                && scope.grant_jti.len() <= 256
++                && scope.grant_jti.bytes().all(|byte| {
++                    byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b':')
++                }),
++            "match join scope grant JTI is invalid"
++        );
++    }
++    Ok(())
++}
++
++fn parse_join_ack_frame(frame: &str, expected_request_id: &str) -> Result<MatchJoinAck> {
+     let (command, payload) = frame
+         .split_once('\t')
+         .context("join response is missing its delimiter")?;
+@@ -928,12 +1260,97 @@ fn parse_join_ack_frame(frame: &str, expected_request_id: &str) -> Result<()> {
+         bail!("Payload rejected join: {message}");
+     }
+     ensure!(command == "join_ack", "unexpected join response command");
++    let ack: MatchJoinAck = serde_json::from_value(value)?;
++    ensure!(
++        ack.request_id == expected_request_id,
++        "join acknowledgement request ID mismatch"
++    );
++    ensure!(ack.status == "accepted", "Payload did not acknowledge join");
++    ensure!(
++        ack.operation_sequence > 0,
++        "Payload join acknowledgement omitted operation sequence"
++    );
++    Ok(ack)
++}
++
++fn parse_client_match_connection_ack(
++    frame: &str,
++    expected_request_id: &str,
++    expected_room_role: &str,
++    expected_scope: &MatchJoinScope,
++    expected_operation_sequence: u64,
++    expected_native_connection_nonce: &str,
++) -> Result<()> {
++    let value = response_payload(frame, "confirm_client_match_connection_ack")?;
++    let request_id = value
++        .get("request_id")
++        .and_then(serde_json::Value::as_str)
++        .context("client connection acknowledgement omitted request ID")?;
++    ensure!(
++        request_id == expected_request_id,
++        "client connection acknowledgement request ID mismatch"
++    );
++    ensure!(
++        value.get("accepted").and_then(serde_json::Value::as_bool) == Some(true),
++        "Payload did not accept Backend client connection confirmation"
++    );
++    let code = value
++        .get("code")
++        .and_then(serde_json::Value::as_str)
++        .context("client connection acknowledgement omitted result code")?;
++    ensure!(
++        matches!(code, "accepted" | "already_confirmed" | "playable"),
++        "Payload returned an invalid client connection confirmation code"
++    );
++    let status = value
++        .get("status")
++        .and_then(serde_json::Value::as_str)
++        .context("client connection acknowledgement omitted native phase")?;
+     ensure!(
+         matches!(
+-            value.get("status").and_then(serde_json::Value::as_str),
+-            Some("accepted")
++            status,
++            "queued"
++                | "waiting_game_login"
++                | "travel_requested"
++                | "world_ready"
++                | "local_pawn_ready"
++                | "waiting_backend_confirmation"
++                | "local_authority_pending"
++                | "playable"
+         ),
+-        "Payload did not acknowledge join"
++        "Payload returned an invalid client connection confirmation phase"
++    );
++    let operation_sequence = value
++        .get("operation_sequence")
++        .and_then(serde_json::Value::as_u64)
++        .context("client connection acknowledgement omitted operation sequence")?;
++    ensure!(
++        operation_sequence == expected_operation_sequence,
++        "Payload client connection acknowledgement operation sequence changed"
++    );
++    let native_connection_nonce = value
++        .get("native_connection_nonce")
++        .and_then(serde_json::Value::as_str)
++        .context("client connection acknowledgement omitted native connection nonce")?;
++    ensure!(
++        native_connection_nonce == expected_native_connection_nonce,
++        "Payload client connection acknowledgement nonce changed"
++    );
++    let scope: MatchJoinScope = serde_json::from_value(
++        value
++            .get("scope")
++            .cloned()
++            .context("client connection acknowledgement omitted scope")?,
++    )?;
++    validate_match_join_scope(&scope)?;
++    let response_role = scope.room_role.as_deref().unwrap_or("MEMBER");
++    ensure!(
++        response_role == expected_room_role,
++        "Payload client connection acknowledgement room role changed"
++    );
++    ensure!(
++        &scope == expected_scope,
++        "Payload client connection acknowledgement scope changed"
+     );
+     Ok(())
+ }
+@@ -999,6 +1416,9 @@ fn parse_authority_ready_ack(
+                 .all(|byte| { byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b':') }),
+         "Payload did not return a verified native authority nonce"
+     );
++    // Dedicated returns zero because it has no local client transition.  The
++    // P2P caller applies the stricter non-zero HOST requirement after this
++    // role-neutral wire parser returns.
+     Ok(ack)
+ }
+ 
+@@ -1364,38 +1784,314 @@ mod tests {
+     fn join_response_requires_an_explicit_success_ack() {
+         assert!(
+             parse_join_ack_frame(
+-                "join_ack\t{\"status\":\"accepted\",\"request_id\":\"r1\"}",
++                "join_ack\t{\"status\":\"accepted\",\"request_id\":\"r1\",\"operation_sequence\":1}",
+                 "r1"
+             )
+             .is_ok()
+         );
+         assert!(
+             parse_join_ack_frame(
+-                "join_ack\t{\"status\":\"accepted\",\"request_id\":\"r0\"}",
++                "join_ack\t{\"status\":\"accepted\",\"request_id\":\"r0\",\"operation_sequence\":1}",
+                 "r1"
+             )
+             .is_err()
+         );
+-        assert!(parse_join_ack_frame("join_ack\t{\"status\":\"accepted\"}", "r1").is_err());
+         assert!(
+-            parse_join_ack_frame("join_ack\t{\"status\":\"ok\",\"request_id\":\"r1\"}", "r1")
+-                .is_err()
++            parse_join_ack_frame(
++                "join_ack\t{\"status\":\"accepted\",\"request_id\":\"r1\"}",
++                "r1"
++            )
++            .is_err()
+         );
+         assert!(
+             parse_join_ack_frame(
+-                "join_ack\t{\"status\":\"failed\",\"request_id\":\"r1\"}",
++                "join_ack\t{\"status\":\"ok\",\"request_id\":\"r1\",\"operation_sequence\":1}",
+                 "r1"
+             )
+             .is_err()
+         );
+-        assert!(parse_join_ack_frame("pong\t{\"request_id\":\"r1\"}", "r1").is_err());
+         assert!(
+             parse_join_ack_frame(
+-                "error\t{\"msg\":\"bad target\",\"request_id\":\"r1\"}",
++                "join_ack\t{\"status\":\"failed\",\"request_id\":\"r1\",\"operation_sequence\":1}",
+                 "r1"
+             )
+             .is_err()
+         );
++        assert!(
++            parse_join_ack_frame(
++                "pong\t{\"request_id\":\"r1\",\"operation_sequence\":1}",
++                "r1"
++            )
++            .is_err()
++        );
++        assert!(
++            parse_join_ack_frame(
++                "error\t{\"msg\":\"bad target\",\"request_id\":\"r1\",\"operation_sequence\":1}",
++                "r1"
++            )
++            .is_err()
++        );
++    }
++
++    fn test_join_scope() -> MatchJoinScope {
++        MatchJoinScope {
++            attempt_id: "attempt_1".into(),
++            authority_session_id: "authority_1".into(),
++            world_instance_id: "authority_world_1".into(),
++            roster_revision: 7,
++            route_generation: 3,
++            player_id: "player_1".into(),
++            grant_jti: "grant_1".into(),
++            connection_generation: 2,
++            room_role: None,
++        }
++    }
++
++    #[test]
++    fn playable_evidence_requires_exact_scope_nonce_operation_and_local_world() {
++        let scope = test_join_scope();
++        let frame = format!(
++            "payload_status_ack\t{}",
++            serde_json::json!({
++                "status": "ready",
++                "ready": true,
++                "code": "ready",
++                "protocol_version": STRICT_ROSTER_PAYLOAD_VERSION,
++                "game_binary_sha256": crate::security::strict_build::GAME_SHA256,
++                "native_authority_path_required": false,
++                "native_authority_path_ready": true,
++                "native_client_grant_injection_ready": true,
++                "native_client_grant_injection_required": true,
++                "native_authority_admission_verified": true,
++                "strict_online_ready": true,
++                "offline_pve": false,
++                "world_instance_id": "",
++                "match": {
++                    "state": "playable",
++                    "operation_sequence": 9,
++                    "pending": false,
++                    "local_pawn_ready": true,
++                    "native_net_ready": true,
++                    "scope": scope,
++                    "playable_scope": scope,
++                    "scope_verified": true,
++                    "local_world_instance_id": "client_world_99",
++                    "native_connection_nonce": "backend_nonce_1"
++                },
++                "request_id": "status_1"
++            })
++        );
++        let status = parse_payload_status_frame(&frame, "status_1").unwrap();
++        let evidence = status
++            .playable_evidence(&test_join_scope(), 9, "backend_nonce_1", None, "MEMBER")
++            .unwrap();
++        assert_eq!(evidence.local_world_instance_id, "client_world_99");
++        assert!(
++            status
++                .playable_evidence(&test_join_scope(), 8, "backend_nonce_1", None, "MEMBER")
++                .is_err()
++        );
++        assert!(
++            status
++                .playable_evidence(&test_join_scope(), 9, "client_nonce_forged", None, "MEMBER")
++                .is_err()
++        );
++        let mut wrong_scope = test_join_scope();
++        wrong_scope.world_instance_id = "authority_world_old".into();
++        assert!(
++            status
++                .playable_evidence(&wrong_scope, 9, "backend_nonce_1", None, "MEMBER")
++                .is_err()
++        );
++    }
++
++    #[test]
++    fn playable_evidence_keeps_authority_and_local_world_identities_separate() {
++        let scope = test_join_scope();
++        let status = PayloadStatus {
++            status: "ready".into(),
++            ready: true,
++            code: "ready".into(),
++            protocol_version: STRICT_ROSTER_PAYLOAD_VERSION.into(),
++            game_binary_sha256: crate::security::strict_build::GAME_SHA256.into(),
++            native_authority_path_required: false,
++            native_authority_path_ready: true,
++            native_client_grant_injection_ready: true,
++            native_client_grant_injection_required: true,
++            strict_online_ready: true,
++            offline_pve: false,
++            native_authority_admission_verified: true,
++            world_instance_id: String::new(),
++            match_status: Some(PayloadMatchStatus {
++                state: "playable".into(),
++                operation_sequence: 1,
++                pending: false,
++                login_completed: true,
++                login_ready: true,
++                local_pawn_ready: true,
++                native_net_ready: true,
++                scope: Some(scope.clone()),
++                playable_scope: Some(scope.clone()),
++                scope_verified: true,
++                local_world_instance_id: "client_world_1".into(),
++                native_connection_nonce: "backend_nonce_1".into(),
++                last_error: String::new(),
++            }),
++            request_id: "status_1".into(),
++        };
++        let evidence = status
++            .playable_evidence(
++                &scope,
++                1,
++                "backend_nonce_1",
++                Some("client_world_0"),
++                "MEMBER",
++            )
++            .unwrap();
++        assert_ne!(evidence.local_world_instance_id, scope.world_instance_id);
++        assert!(
++            status
++                .playable_evidence(
++                    &scope,
++                    1,
++                    "backend_nonce_1",
++                    Some("client_world_1"),
++                    "MEMBER"
++                )
++                .is_err()
++        );
++    }
++
++    #[test]
++    fn host_playable_evidence_requires_the_native_host_scope() {
++        let mut scope = test_join_scope();
++        scope.grant_jti.clear();
++        scope.room_role = Some("HOST".into());
++        let status = PayloadStatus {
++            status: "ready".into(),
++            ready: true,
++            code: "ready".into(),
++            protocol_version: STRICT_ROSTER_PAYLOAD_VERSION.into(),
++            game_binary_sha256: crate::security::strict_build::GAME_SHA256.into(),
++            native_authority_path_required: true,
++            native_authority_path_ready: true,
++            native_client_grant_injection_ready: true,
++            native_client_grant_injection_required: true,
++            strict_online_ready: true,
++            offline_pve: false,
++            native_authority_admission_verified: true,
++            world_instance_id: scope.world_instance_id.clone(),
++            match_status: Some(PayloadMatchStatus {
++                state: "playable".into(),
++                operation_sequence: 17,
++                pending: false,
++                login_completed: true,
++                login_ready: true,
++                local_pawn_ready: true,
++                native_net_ready: true,
++                scope: Some(scope.clone()),
++                playable_scope: Some(scope.clone()),
++                scope_verified: true,
++                local_world_instance_id: "host_local_world_2".into(),
++                native_connection_nonce: "host_nonce_1".into(),
++                last_error: String::new(),
++            }),
++            request_id: "host_status".into(),
++        };
++        let evidence = status
++            .playable_evidence(&scope, 17, "host_nonce_1", None, "HOST")
++            .unwrap();
++        assert_eq!(evidence.room_role, "HOST");
++        assert!(
++            status
++                .playable_evidence(&scope, 17, "host_nonce_1", None, "MEMBER")
++                .is_err()
++        );
++
++        let mut member_scope = scope.clone();
++        member_scope.room_role = None;
++        member_scope.grant_jti = "grant_1".into();
++        assert!(
++            status
++                .playable_evidence(&member_scope, 17, "host_nonce_1", None, "HOST")
++                .is_err()
++        );
++    }
++
++    #[test]
++    fn client_connection_ack_requires_nested_exact_scope_and_nonce() {
++        let scope = test_join_scope();
++        let value = serde_json::json!({
++            "request_id": "confirm_1",
++            "accepted": true,
++            "code": "accepted",
++            "status": "travel_requested",
++            "operation_sequence": 9,
++            "scope": scope.clone(),
++            "native_connection_nonce": "nonce_1",
++        });
++        let frame = format!("confirm_client_match_connection_ack\t{value}");
++        parse_client_match_connection_ack(
++            &frame,
++            "confirm_1",
++            "MEMBER",
++            &test_join_scope(),
++            9,
++            "nonce_1",
++        )
++        .unwrap();
++        let mut wrong = value.clone();
++        wrong["scope"]["world_instance_id"] = serde_json::json!("authority_world_old");
++        let frame = format!("confirm_client_match_connection_ack\t{wrong}");
++        assert!(
++            parse_client_match_connection_ack(
++                &frame,
++                "confirm_1",
++                "MEMBER",
++                &test_join_scope(),
++                9,
++                "nonce_1",
++            )
++            .is_err()
++        );
++
++        let mut wrong_nonce = value;
++        wrong_nonce["native_connection_nonce"] = serde_json::json!("forged_nonce");
++        let frame = format!("confirm_client_match_connection_ack\t{wrong_nonce}");
++        assert!(
++            parse_client_match_connection_ack(
++                &frame,
++                "confirm_1",
++                "MEMBER",
++                &test_join_scope(),
++                9,
++                "nonce_1",
++            )
++            .is_err()
++        );
++
++        let mut host_scope = test_join_scope();
++        host_scope.grant_jti.clear();
++        host_scope.room_role = Some("HOST".into());
++        let host_value = serde_json::json!({
++            "request_id": "host_confirm_1",
++            "accepted": true,
++            "code": "already_confirmed",
++            "status": "playable",
++            "operation_sequence": 17,
++            "scope": host_scope.clone(),
++            "native_connection_nonce": "host_nonce_1",
++        });
++        let host_frame = format!("confirm_client_match_connection_ack\t{host_value}");
++        parse_client_match_connection_ack(
++            &host_frame,
++            "host_confirm_1",
++            "HOST",
++            &host_scope,
++            17,
++            "host_nonce_1",
++        )
++        .unwrap();
+     }
+ 
+     #[test]
+@@ -1411,7 +2107,7 @@ mod tests {
+             "req_1",
+         ).is_err());
+         let ready = parse_authority_ready_ack(
+-            "start_match_authority_ack\t{\"status\":\"ready\",\"request_id\":\"req_2\",\"endpoint_host\":\"10.26.0.2\",\"endpoint_port\":7777,\"world_instance_id\":\"world_2\",\"native_connection_nonce\":\"0123456789abcdef\"}",
++            "start_match_authority_ack\t{\"status\":\"ready\",\"request_id\":\"req_2\",\"endpoint_host\":\"10.26.0.2\",\"endpoint_port\":7777,\"world_instance_id\":\"world_2\",\"native_connection_nonce\":\"0123456789abcdef\",\"operation_sequence\":0}",
+             "req_2",
+         )
+         .unwrap();
+diff --git a/src/server/pipe_cpp_fixture_tests.rs b/src/server/pipe_cpp_fixture_tests.rs
+index 98305ad..f21f45e 100644
+--- a/src/server/pipe_cpp_fixture_tests.rs
++++ b/src/server/pipe_cpp_fixture_tests.rs
+@@ -1,5 +1,7 @@
+ //! Fixtures emitted by the actual C++ CommandProtocol::EncodeFrame executable.
+-//! Source: ProjectRebound/Payload/Tests/CommandProtocolTests.cpp.
++//! Source receipt: ProjectRebound/.tmp/strict-roster-20260907/native-evidence/
++//! wire-scope-20260908-1926/payload-wire-v2.jsonl
++//! SHA-256: B6DF8C7FF1172E31198F398E9D17E96AD2D722785AF2A04BAA9CAC5404BC9E01
+ use super::*;
+ 
+ fn frames() -> std::collections::HashMap<&'static str, &'static str> {
+@@ -12,7 +14,8 @@ fn frames() -> std::collections::HashMap<&'static str, &'static str> {
+ #[test]
+ fn actual_cpp_frames_decode_in_rust_without_promoting_queued_or_pending_to_ready() {
+     let frames = frames();
+-    parse_join_ack_frame(frames["join_ack"], "fixture-join").unwrap();
++    let join = parse_join_ack_frame(frames["join_ack"], "fixture-join").unwrap();
++    assert_eq!(join.operation_sequence, 12);
+     let blocked =
+         parse_payload_status_frame(frames["payload_status_ack"], "fixture-status").unwrap();
+     assert!(!blocked.ready && !blocked.strict_online_ready);
+@@ -45,6 +48,26 @@ fn actual_cpp_frames_decode_in_rust_without_promoting_queued_or_pending_to_ready
+         events.events[0].native_connection_nonce,
+         authority.native_connection_nonce
+     );
++    let client_scope = MatchJoinScope {
++        attempt_id: "fixture_attempt".into(),
++        authority_session_id: "fixture_authority".into(),
++        world_instance_id: "fixture_world".into(),
++        roster_revision: 7,
++        route_generation: 3,
++        player_id: "fixture_player".into(),
++        grant_jti: "fixture_grant".into(),
++        connection_generation: 2,
++        room_role: None,
++    };
++    parse_client_match_connection_ack(
++        frames["confirm_client_match_connection_ack"],
++        "fixture-client-confirm",
++        "MEMBER",
++        &client_scope,
++        12,
++        authority.native_connection_nonce.as_str(),
++    )
++    .unwrap();
+     parse_scoped_admission_ack(
+         frames["confirm_match_admission_ack"],
+         "confirm_match_admission_ack",
+@@ -91,6 +114,85 @@ fn actual_cpp_frames_decode_in_rust_without_promoting_queued_or_pending_to_ready
+     );
+ }
+ 
++#[test]
++fn actual_cpp_client_confirmation_rejects_wrong_acceptance_scope_or_nonce() {
++    let frames = frames();
++    let mut value: serde_json::Value = serde_json::from_str(
++        frames["confirm_client_match_connection_ack"]
++            .split_once('\t')
++            .unwrap()
++            .1,
++    )
++    .unwrap();
++    let expected_scope = MatchJoinScope {
++        attempt_id: "fixture_attempt".into(),
++        authority_session_id: "fixture_authority".into(),
++        world_instance_id: "fixture_world".into(),
++        roster_revision: 7,
++        route_generation: 3,
++        player_id: "fixture_player".into(),
++        grant_jti: "fixture_grant".into(),
++        connection_generation: 2,
++        room_role: None,
++    };
++
++    value["accepted"] = serde_json::json!(false);
++    let frame = format!("confirm_client_match_connection_ack\t{value}");
++    assert!(
++        parse_client_match_connection_ack(
++            &frame,
++            "fixture-client-confirm",
++            "MEMBER",
++            &expected_scope,
++            12,
++            "0123456789abcdef0123456789abcdef",
++        )
++        .is_err()
++    );
++
++    let mut value: serde_json::Value = serde_json::from_str(
++        frames["confirm_client_match_connection_ack"]
++            .split_once('\t')
++            .unwrap()
++            .1,
++    )
++    .unwrap();
++    value["scope"]["route_generation"] = serde_json::json!(4);
++    let frame = format!("confirm_client_match_connection_ack\t{value}");
++    assert!(
++        parse_client_match_connection_ack(
++            &frame,
++            "fixture-client-confirm",
++            "MEMBER",
++            &expected_scope,
++            12,
++            "0123456789abcdef0123456789abcdef",
++        )
++        .is_err()
++    );
++
++    let mut value: serde_json::Value = serde_json::from_str(
++        frames["confirm_client_match_connection_ack"]
++            .split_once('\t')
++            .unwrap()
++            .1,
++    )
++    .unwrap();
++    value["native_connection_nonce"] = serde_json::json!("forged_nonce");
++    let frame = format!("confirm_client_match_connection_ack\t{value}");
++    assert!(
++        parse_client_match_connection_ack(
++            &frame,
++            "fixture-client-confirm",
++            "MEMBER",
++            &expected_scope,
++            12,
++            "0123456789abcdef0123456789abcdef",
++        )
++        .is_err()
++    );
++}
++
+ #[test]
+ fn cpp_frames_reject_wrong_request_command_and_replayed_event_cursor() {
+     let frames = frames();
+diff --git a/tests/fixtures/payload-wire-v2.jsonl b/tests/fixtures/payload-wire-v2.jsonl
+index 122768f..be54c0f 100644
+--- a/tests/fixtures/payload-wire-v2.jsonl
++++ b/tests/fixtures/payload-wire-v2.jsonl
+@@ -1,7 +1,8 @@
+ payload_status_ack	{"code":"native_client_grant_injection_unverified","match":{"operation_sequence":12,"state":"world_ready"},"native_authority_path_ready":true,"native_client_grant_injection_ready":false,"offline_pve":false,"protocol_version":"strict-roster-v2","ready":false,"request_id":"fixture-status","status":"blocked","strict_online_ready":false,"world_instance_id":"fixture_world"}
+-join_ack	{"request_id":"fixture-join","status":"accepted"}
++join_ack	{"operation_sequence":12,"request_id":"fixture-join","status":"accepted"}
+ install_match_allocation_ack	{"game_binary_sha256":"181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843","payload_version":"strict-roster-v2","request_id":"fixture-install","status":"accepted"}
+-start_match_authority_ack	{"endpoint_host":"127.0.0.1","endpoint_port":7777,"native_connection_nonce":"0123456789abcdef0123456789abcdef","request_id":"fixture-authority","status":"ready","world_instance_id":"fixture_world"}
++start_match_authority_ack	{"endpoint_host":"127.0.0.1","endpoint_port":7777,"native_connection_nonce":"0123456789abcdef0123456789abcdef","operation_sequence":0,"request_id":"fixture-authority","status":"ready","world_instance_id":"fixture_world"}
++confirm_client_match_connection_ack	{"accepted":true,"code":"accepted","local_pawn_ready":false,"local_world_instance_id":"client_world_fixture","native_connection_nonce":"0123456789abcdef0123456789abcdef","native_net_ready":false,"operation_sequence":12,"request_id":"fixture-client-confirm","scope":{"attempt_id":"fixture_attempt","authority_session_id":"fixture_authority","connection_generation":2,"grant_jti":"fixture_grant","player_id":"fixture_player","roster_revision":7,"route_generation":3,"world_instance_id":"fixture_world"},"scope_verified":false,"status":"travel_requested"}
+ match_connection_events_ack	{"events":[{"attempt_id":"fixture_attempt","authority_session_id":"fixture_authority","connection_generation":2,"grant_jti":"fixture-jti","native_connection_nonce":"0123456789abcdef0123456789abcdef","player_id":"fixture_player","roster_revision":7,"route_generation":3,"sequence":4,"state":"CONNECTED","world_instance_id":"fixture_world"}],"next_sequence":4,"request_id":"fixture-events"}
+ confirm_match_admission_ack	{"accepted":true,"code":"accepted","native_connection_nonce":"0123456789abcdef0123456789abcdef","request_id":"fixture-reserve","status":"queued"}
+ confirm_match_connection_ack	{"accepted":true,"code":"accepted","native_connection_nonce":"0123456789abcdef0123456789abcdef","request_id":"fixture-confirm","status":"accepted"}

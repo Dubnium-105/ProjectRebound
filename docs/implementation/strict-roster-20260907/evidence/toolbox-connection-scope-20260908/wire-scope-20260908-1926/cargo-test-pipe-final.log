@@ -1,0 +1,26 @@
+   Compiling rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 16.12s
+     Running unittests src\lib.rs (target\debug\deps\rebound_toolbox-531c06249e821c2c.exe)
+
+running 16 tests
+test server::pipe::tests::playable_evidence_keeps_authority_and_local_world_identities_separate ... ok
+test server::pipe::tests::status_response_requires_correlation_and_valid_state ... ok
+test server::pipe::tests::host_playable_evidence_requires_the_native_host_scope ... ok
+test server::pipe::tests::playable_evidence_requires_exact_scope_nonce_operation_and_local_world ... ok
+test server::pipe::tests::pipe_names_are_high_entropy_and_protocol_safe ... ok
+test server::pipe::tests::join_response_requires_an_explicit_success_ack ... ok
+test server::pipe::cpp_fixture_tests::actual_cpp_client_confirmation_rejects_wrong_acceptance_scope_or_nonce ... ok
+test server::pipe::cpp_fixture_tests::cpp_frames_reject_wrong_request_command_and_replayed_event_cursor ... ok
+test server::pipe::tests::client_connection_ack_requires_nested_exact_scope_and_nonce ... ok
+test server::pipe::tests::strict_match_acknowledgements_are_correlated_and_bounded ... ok
+test server::pipe::cpp_fixture_tests::actual_cpp_frames_decode_in_rust_without_promoting_queued_or_pending_to_ready ... ok
+test server::pipe::tests::payload_status_requires_correlated_native_lifecycle_state ... ok
+test server::pipe::windows_pipe_tests::actual_windows_pipe_rejects_wrong_server_pid_before_sending_credentials ... ok
+test server::pipe::windows_pipe_tests::actual_windows_pipe_limits_each_frame_independently ... ok
+test server::pipe::windows_pipe_tests::actual_windows_message_pipe_preserves_fragmented_and_coalesced_frames ... ok
+test server::pipe::windows_pipe_tests::actual_windows_pipe_no_response_has_a_bounded_deadline ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 278 filtered out; finished in 0.06s
+
+
+exit_code=0

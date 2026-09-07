@@ -1,0 +1,6 @@
+command=Get-FileHash source and Toolbox fixture -Algorithm SHA256
+source=C:\wksp\ProjectRebound\.tmp\strict-roster-20260907\native-evidence\wire-scope-20260908-1926\payload-wire-v2.jsonl
+source_sha256=B6DF8C7FF1172E31198F398E9D17E96AD2D722785AF2A04BAA9CAC5404BC9E01
+toolbox_fixture=C:\wksp\ProjectReboundToolbox\tests\fixtures\payload-wire-v2.jsonl
+toolbox_fixture_sha256=B6DF8C7FF1172E31198F398E9D17E96AD2D722785AF2A04BAA9CAC5404BC9E01
+byte_copy=matched

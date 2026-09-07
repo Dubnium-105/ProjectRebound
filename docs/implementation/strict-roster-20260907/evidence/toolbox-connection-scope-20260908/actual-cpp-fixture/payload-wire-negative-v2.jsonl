@@ -1,0 +1,2 @@
+error	{"code":"busy","message":"join is already in progress","request_id":"fixture-busy"}
+pong	{"request_id":"fixture-wrong-command"}
