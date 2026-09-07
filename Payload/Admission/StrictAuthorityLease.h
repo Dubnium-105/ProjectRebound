@@ -35,6 +35,14 @@ namespace StrictAuthorityLease
         RouteConflict,
     };
 
+    inline bool OwnedWorldMatches(
+        const void* currentWorld, const std::string_view currentId,
+        const void* ownedWorld, const std::string_view ownedId) noexcept
+    {
+        return currentWorld && ownedWorld && currentWorld == ownedWorld &&
+            !ownedId.empty() && currentId == ownedId;
+    }
+
     inline bool SameIdentity(
         const StrictRoster::AllocationScope& left,
         const StrictRoster::AllocationScope& right) noexcept

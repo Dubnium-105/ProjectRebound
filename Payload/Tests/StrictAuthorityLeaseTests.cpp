@@ -22,6 +22,16 @@ namespace
 int main()
 {
     using namespace StrictAuthorityLease;
+    const int worldA = 0, worldB = 0;
+    Expect(OwnedWorldMatches(&worldA, "world_a", &worldA, "world_a"),
+        "the exact observed native world may publish readiness");
+    Expect(!OwnedWorldMatches(&worldB, "world_a", &worldA, "world_a"),
+        "a replacement native world cannot inherit the frozen world identity");
+    Expect(!OwnedWorldMatches(&worldA, "world_b", &worldA, "world_a"),
+        "reused world storage cannot inherit a different world generation");
+    Expect(!OwnedWorldMatches(nullptr, "world_a", &worldA, "world_a") &&
+        !OwnedWorldMatches(&worldA, "", &worldA, ""),
+        "missing world observations must never authorize readiness or cleanup");
     const StrictRoster::AllocationScope original{"attempt_a", "session_a", 7, 1};
     auto requested = original;
     const auto classify = [&](const char* kind, bool listening = true, bool sameWorld = true) {

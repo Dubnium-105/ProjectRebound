@@ -116,6 +116,7 @@ struct StrictAuthorityStartRequest
     bool nativeTravelRequested = false;
     UWorld* previousWorld = nullptr;
     UWorld* streamingWorld = nullptr;
+    std::string streamingWorldInstanceId;
     std::chrono::steady_clock::time_point worldDeadline{};
 };
 
@@ -147,6 +148,7 @@ struct StrictRosterCleanupState
     int routeGeneration = 0;
     UWorld* retiredWorld = nullptr;
     UNetDriver* retiredNetDriver = nullptr;
+    bool quarantined = false;
 };
 
 struct StrictAuthorityCleanupPlan
@@ -236,6 +238,26 @@ bool StrictRosterCleanupScopeEquals(
         cleanup.routeGeneration == routeGeneration;
 }
 
+StrictRosterNativeTeardownRequestResult RequestScopedStrictRosterWorldTeardown(
+    const StrictRosterCleanupState& cleanup)
+{
+    UWorld* const world = UWorld::GetWorld();
+    const bool ownsWorld = StrictAuthorityLease::OwnedWorldMatches(
+        world, CurrentStrictAuthorityWorldInstanceId(),
+        cleanup.retiredWorld, cleanup.worldInstanceId);
+    if (cleanup.quarantined || !ownsWorld ||
+        (cleanup.retiredNetDriver && world->NetDriver != cleanup.retiredNetDriver))
+    {
+        std::lock_guard<std::mutex> lock(gStrictRosterCleanupMutex);
+        if (StrictRosterCleanupScopeEquals(
+                gStrictRosterCleanup, cleanup.attemptId, cleanup.authoritySessionId,
+                cleanup.worldInstanceId, cleanup.rosterRevision, cleanup.routeGeneration))
+            gStrictRosterCleanup.quarantined = true;
+        return StrictRosterNativeTeardownRequestResult::NotRequested;
+    }
+    return RequestStrictRosterNativeWorldTeardown();
+}
+
 bool StrictNativeWorldTeardownComplete()
 {
     StrictRosterCleanupState cleanup;
@@ -243,7 +265,7 @@ bool StrictNativeWorldTeardownComplete()
         std::lock_guard<std::mutex> lock(gStrictRosterCleanupMutex);
         cleanup = gStrictRosterCleanup;
     }
-    if (!cleanup.pending)
+    if (!cleanup.pending || cleanup.quarantined)
         return false;
 
     // A dispatched StartServer/clear path with no safely captured UObject or
@@ -802,25 +824,15 @@ namespace
         const StrictAuthorityStartRequest& request,
         const std::string_view reason)
     {
-        UWorld* retiredWorld = UWorld::GetWorld();
-        NetDriverAccess::Snapshot snapshot{};
-        if (NetDriverAccess::TryGetSnapshot(snapshot, false))
-        {
-            if (!retiredWorld)
-                retiredWorld = snapshot.World;
-        }
-        if (!retiredWorld)
-        {
-            std::lock_guard<std::mutex> worldLock(gStrictAuthorityWorldMutex);
-            retiredWorld = gStrictAuthorityWorld;
-        }
-        UNetDriver* retiredNetDriver = snapshot.NetDriver;
-        if (!retiredNetDriver && retiredWorld)
-            retiredNetDriver = retiredWorld->NetDriver;
-
-        std::string worldInstanceId = CurrentStrictAuthorityWorldInstanceId();
-        if (worldInstanceId.empty() && retiredWorld)
-            worldInstanceId = ObserveStrictAuthorityWorld(retiredWorld);
+        const std::string& worldInstanceId = request.streamingWorldInstanceId;
+        UWorld* const currentWorld = UWorld::GetWorld();
+        UWorld* const retiredWorld = StrictAuthorityLease::OwnedWorldMatches(
+            currentWorld, CurrentStrictAuthorityWorldInstanceId(),
+            request.streamingWorld, worldInstanceId) ? request.streamingWorld : nullptr;
+        // Never bind cleanup to whichever world happens to be current after
+        // an unexpected swap. Missing ownership retains quarantine and needs
+        // the external supervisor's exact owned-process exit proof.
+        UNetDriver* const retiredNetDriver = retiredWorld ? retiredWorld->NetDriver : nullptr;
         return StrictAuthorityCleanupPlan{
             StrictRosterCleanupState{
             true, false, false,
@@ -830,7 +842,7 @@ namespace
             request.allocationScope.rosterRevision,
             request.allocationScope.routeGeneration,
             retiredWorld,
-            retiredNetDriver},
+            retiredNetDriver, retiredWorld == nullptr},
             std::string(reason)};
     }
 
@@ -879,7 +891,7 @@ namespace
         StrictRosterSteamAuth::ClearAllExpectedProofs();
 
         const StrictRosterNativeTeardownRequestResult teardownResult =
-            RequestStrictRosterNativeWorldTeardown();
+            RequestScopedStrictRosterWorldTeardown(plan.state);
         const bool requested = teardownResult !=
             StrictRosterNativeTeardownRequestResult::NotRequested;
         const bool processExitRequested = teardownResult ==
@@ -949,7 +961,7 @@ namespace
             return;
         }
         const StrictRosterNativeTeardownRequestResult teardownResult =
-            RequestStrictRosterNativeWorldTeardown();
+            RequestScopedStrictRosterWorldTeardown(cleanup);
         const bool requested = teardownResult !=
             StrictRosterNativeTeardownRequestResult::NotRequested;
         const bool processExitRequested = teardownResult ==
@@ -1033,7 +1045,7 @@ namespace
                         {"world_teardown_required", true},
                         {"attempt_id", request->allocationScope.attemptId},
                         {"authority_session_id", request->allocationScope.authoritySessionId},
-                        {"world_instance_id", CurrentStrictAuthorityWorldInstanceId()},
+                        {"world_instance_id", request->worldInstanceId},
                         {"roster_revision", request->allocationScope.rosterRevision},
                         {"route_generation", request->allocationScope.routeGeneration}
                     };
@@ -1071,7 +1083,7 @@ namespace
                     {"world_teardown_required", true},
                     {"attempt_id", request->allocationScope.attemptId},
                     {"authority_session_id", request->allocationScope.authoritySessionId},
-                    {"world_instance_id", CurrentStrictAuthorityWorldInstanceId()},
+                    {"world_instance_id", request->worldInstanceId},
                     {"roster_revision", request->allocationScope.rosterRevision},
                     {"route_generation", request->allocationScope.routeGeneration}
                 };
@@ -1144,10 +1156,13 @@ void PumpStrictAuthorityStartOnGameThread()
         const auto hostingKind = gStrictRosterPolicy.CurrentHostingKind();
         const std::string currentWorldInstanceId =
             CurrentStrictAuthorityWorldInstanceId();
-        scopeStillCurrent = scopeMatchesRequest(scope, hostingKind) &&
-            (request->worldInstanceId.empty() ||
-                currentWorldInstanceId.empty() ||
+        const bool worldScopeCurrent = request->streamingWorld
+            ? StrictAuthorityLease::OwnedWorldMatches(
+                UWorld::GetWorld(), currentWorldInstanceId,
+                request->streamingWorld, request->streamingWorldInstanceId)
+            : (request->nativeTravelRequested || request->worldInstanceId.empty() ||
                 request->worldInstanceId == currentWorldInstanceId);
+        scopeStillCurrent = scopeMatchesRequest(scope, hostingKind) && worldScopeCurrent;
         if (!scopeStillCurrent)
         {
             result = StrictAuthorityStartFailure(
@@ -1194,6 +1209,7 @@ void PumpStrictAuthorityStartOnGameThread()
                     else if (!request->streamingWorld)
                     {
                         request->streamingWorld = world;
+                        request->streamingWorldInstanceId = ObserveStrictAuthorityWorld(world);
                         RequestServerStreamingLevels(world);
                         return;
                     }
@@ -1218,6 +1234,9 @@ void PumpStrictAuthorityStartOnGameThread()
                 const int postTravelNetMode =
                     GetNativeNetModeInternal(authoritativeWorld);
                 authoritativeListeningWorld = listenCompleted &&
+                    StrictAuthorityLease::OwnedWorldMatches(
+                        authoritativeWorld, CurrentStrictAuthorityWorldInstanceId(),
+                        request->streamingWorld, request->streamingWorldInstanceId) &&
                     IsAuthoritativeListeningWorld(authoritativeWorld, authorityDetail);
                 ClientLog(std::string("[STRICT-ROSTER] Post-travel authority: net_mode=") +
                     NetModeName(postTravelNetMode) + " " + authorityDetail +
@@ -2215,7 +2234,7 @@ nlohmann::json ProcessStrictRosterClearMatchAllocationResultInternal(
                 if (!cleanup.teardownRequested)
                 {
                     const StrictRosterNativeTeardownRequestResult teardownResult =
-                        RequestStrictRosterNativeWorldTeardown();
+                        RequestScopedStrictRosterWorldTeardown(cleanup);
                     const bool requested = teardownResult !=
                         StrictRosterNativeTeardownRequestResult::NotRequested;
                     const bool processExitRequested = teardownResult ==
@@ -2318,7 +2337,7 @@ nlohmann::json ProcessStrictRosterClearMatchAllocationResultInternal(
         gStrictRosterPolicy.Reset();
         StrictRosterSteamAuth::ClearAllExpectedProofs();
         const StrictRosterNativeTeardownRequestResult teardownResult =
-            RequestStrictRosterNativeWorldTeardown();
+            RequestScopedStrictRosterWorldTeardown(cleanup);
         const bool requested = teardownResult !=
             StrictRosterNativeTeardownRequestResult::NotRequested;
         const bool processExitRequested = teardownResult ==
