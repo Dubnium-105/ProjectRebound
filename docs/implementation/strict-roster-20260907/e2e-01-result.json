@@ -1,0 +1,41 @@
+{
+  "id": "E2E-01",
+  "title": "在线旧入口与能力拒绝",
+  "status": "PARTIAL",
+  "steps": [
+    {
+      "status": "PARTIAL",
+      "command": "TEST_DATABASE_URL=<isolated schema47 PostgreSQL> go test ./internal/metaserver -run '^(TestRepositoryIsolationAndRetiredMatchmakingAgainstPostgreSQL|TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess|TestRetiredNativeMatchmakingRPCsReturnNonzeroFailure)$' -count=1 -v",
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\meta-retirement-pg.log",
+      "observed": "Removed the actual old Meta scheduler and writers; real PostgreSQL plus HTTP/RPC component calls reject without changing server state. The full external old-room, arbitrary-address, empty-Grant and no-capability matrix was not run."
+    },
+    {
+      "status": "NOT_RUN",
+      "command": null,
+      "exit_code": null,
+      "log_path": null,
+      "observed": "The same production UI creating a real signed native match was not run. E2E-18 browser preview is separately PARTIAL."
+    }
+  ],
+  "result": {
+    "environment": {
+      "database": "isolated PostgreSQL47 at WSL:55439",
+      "http": "in-process httptest; nil repositories for retired handlers",
+      "native_rpc": "real Go dispatch wrapper only; no game"
+    },
+    "command_or_harness": "TEST_DATABASE_URL=<isolated schema47 PostgreSQL> go test ./internal/metaserver -run '^(TestRepositoryIsolationAndRetiredMatchmakingAgainstPostgreSQL|TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess|TestRetiredNativeMatchmakingRPCsReturnNonzeroFailure)$' -count=1 -v",
+    "exit_code": 0,
+    "log_paths": [
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\meta-retirement-pg.log",
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\meta-retirement-receipt.json"
+    ],
+    "observed_result": "PARTIAL: actual old Meta allocation/lifecycle code removed and rejection components passed; full original E2E matrix remains incomplete.",
+    "modification_commits": {
+      "ProjectRebound": [
+        "ec4add769bb71362bccb1e57f9349d92f24c1747"
+      ]
+    },
+    "source_scope": "Commands executed before the commit against reviewed dirty files; the modification commit records the subsequent implementation, not a retroactive execution HEAD."
+  }
+}

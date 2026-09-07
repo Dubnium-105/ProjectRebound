@@ -1,0 +1,18 @@
+=== RUN   TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess
+=== RUN   TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess/cancel
+=== RUN   TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess/connected
+=== RUN   TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess/completed
+=== RUN   TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess/admin-cancel
+=== RUN   TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess/create
+=== RUN   TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess/poll
+--- PASS: TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess (0.00s)
+    --- PASS: TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess/cancel (0.00s)
+    --- PASS: TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess/connected (0.00s)
+    --- PASS: TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess/completed (0.00s)
+    --- PASS: TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess/admin-cancel (0.00s)
+    --- PASS: TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess/create (0.00s)
+    --- PASS: TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess/poll (0.00s)
+=== RUN   TestRetiredNativeMatchmakingRPCsReturnNonzeroFailure
+--- PASS: TestRetiredNativeMatchmakingRPCsReturnNonzeroFailure (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver	0.137s

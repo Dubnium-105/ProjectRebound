@@ -42,9 +42,40 @@
     ],
     "log_paths": [
       "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\e2e-21-meta-permissions\\20260907144749\\restricted-product-permissions-test.log",
-      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\meta-permissions-receipt.json"
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\meta-permissions-receipt.json",
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\meta-retirement-receipt.json",
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\restricted-product-permissions-test.log"
     ],
-    "observed_result": "The actual restricted DB/Redis component passed after three deployment fixes. The full cross-purpose and offline/native matrix was not run."
+    "observed_result": "The actual restricted DB/Redis component passed after three deployment fixes. The full cross-purpose and offline/native matrix was not run.",
+    "supplemental_executions": [
+      {
+        "command": [
+          "wsl",
+          "-e",
+          "env",
+          "<synthetic-fixture-password>",
+          "TEST_META_REDIS_ADDRESS=127.0.0.1:56384",
+          "TEST_META_REDIS_USERNAME=rebound-meta-e2e21-20260907151144",
+          "<synthetic-fixture-password>",
+          "/tmp/rebound-strict-roster-20260907-go1266/go/bin/go",
+          "-C",
+          "/mnt/c/wksp/ProjectRebound/Backend",
+          "test",
+          "./internal/metaserver",
+          "-run",
+          "^TestRestrictedMetaServicePermissions$",
+          "-count=1",
+          "-v"
+        ],
+        "exit_code": 0,
+        "pass_count": 1,
+        "skip_names": [],
+        "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\restricted-product-permissions-test.log",
+        "sha256": "df5d3b3a0586ce17ed1ac7bacd1998f57aba3259c2fb81c8cf230552793e9f4c",
+        "scope": "Actual restricted role: nine SQL privilege denials, five Redis ACL denials, schema verification and exactly one successful gate consumer among sixteen."
+      }
+    ],
+    "supplemental_modification_commit": "ec4add769bb71362bccb1e57f9349d92f24c1747"
   },
   "title": "身份隔离与在线/离线边界",
   "steps": [

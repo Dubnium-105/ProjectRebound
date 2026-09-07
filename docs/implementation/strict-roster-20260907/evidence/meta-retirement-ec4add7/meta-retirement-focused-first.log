@@ -1,0 +1,5 @@
+# github.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver [github.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver.test]
+internal\metaserver\http.go:305:41: undefined: gameServerKey
+internal\metaserver\http.go:311:36: undefined: gameServerKey
+FAIL	github.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver [build failed]
+FAIL

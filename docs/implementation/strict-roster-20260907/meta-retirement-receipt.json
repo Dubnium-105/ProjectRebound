@@ -1,0 +1,727 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-07T15:18:04.376266+00:00",
+  "status": "PASS",
+  "scope": "Retired Meta matchmaking and lifecycle writer components; full native E2E is separate.",
+  "modification_commit": "ec4add769bb71362bccb1e57f9349d92f24c1747",
+  "tests": [
+    {
+      "command": "go test ./internal/metaserver -run 'RetiredMeta|RetiredNative' -count=1 -v",
+      "exit_code": 1,
+      "pass_count": 0,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\meta-retirement-focused-first.log",
+      "sha256": "639dbdb470c99280ef0acf95ede1a037a9ad47b08df89955ab7f0b5cc9488256",
+      "scope": "Historical compile failure: bounded edit accidentally removed the adjacent gameServerKey declaration; corrected before tests ran."
+    },
+    {
+      "command": "go test ./internal/metaserver -run 'RetiredMeta|RetiredNative' -count=1 -v",
+      "exit_code": 0,
+      "pass_count": 2,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\meta-retirement-focused-corrected.log",
+      "sha256": "6de0f7f6c008012aff1fc213d6a40a2840466b40c3a29e8cc67af1658a1fbc1d",
+      "scope": "HTTP handlers with nil database dependencies and native RPC failure/correlation checks; not external HTTP/native game."
+    },
+    {
+      "command": "TEST_DATABASE_URL=<isolated schema47 PostgreSQL> go test ./internal/metaserver -run '^(TestRepositoryIsolationAndRetiredMatchmakingAgainstPostgreSQL|TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess|TestRetiredNativeMatchmakingRPCsReturnNonzeroFailure)$' -count=1 -v",
+      "exit_code": 0,
+      "pass_count": 3,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\meta-retirement-pg.log",
+      "sha256": "111090838dd51361289fad6615a0665d0e5ed32b6a6dfa536fe94b3114cf29ff",
+      "scope": "Actual PostgreSQL and in-process HTTP/RPC regression; no legacy tickets, allocations or server state writes. Includes six HTTP subtests."
+    },
+    {
+      "command": "go test ./api/openapi -count=1 -v",
+      "exit_code": 0,
+      "pass_count": 4,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\meta-retirement-openapi.log",
+      "sha256": "e2f61f6553a592883eac4947e047a45fbbb31551b7a05eecf83603f5d5b8fa7c",
+      "scope": "Actual schema/reference/document tests; ancillary Python YAML inspection was unavailable, not passed."
+    },
+    {
+      "command": [
+        "wsl",
+        "-e",
+        "env",
+        "<synthetic-fixture-password>",
+        "TEST_META_REDIS_ADDRESS=127.0.0.1:56384",
+        "TEST_META_REDIS_USERNAME=rebound-meta-e2e21-20260907151144",
+        "<synthetic-fixture-password>",
+        "/tmp/rebound-strict-roster-20260907-go1266/go/bin/go",
+        "-C",
+        "/mnt/c/wksp/ProjectRebound/Backend",
+        "test",
+        "./internal/metaserver",
+        "-run",
+        "^TestRestrictedMetaServicePermissions$",
+        "-count=1",
+        "-v"
+      ],
+      "exit_code": 0,
+      "pass_count": 1,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\restricted-product-permissions-test.log",
+      "sha256": "df5d3b3a0586ce17ed1ac7bacd1998f57aba3259c2fb81c8cf230552793e9f4c",
+      "scope": "Actual restricted role: nine SQL privilege denials, five Redis ACL denials, schema verification and exactly one successful gate consumer among sixteen."
+    }
+  ],
+  "restricted_permission_execution": {
+    "status": "PASS",
+    "scope": "Real PostgreSQL/Redis deployment permission component; full E2E-21 native/player/node/admin matrix remains separate.",
+    "generated_at": "2026-09-07T15:12:04.522939+00:00",
+    "postgres_database": "rebound_e2e21_20260907151144",
+    "postgres_role": "rebound_meta_e2e21_20260907151144",
+    "postgres_authentication_scope": "Isolated lab uses trust authentication; role privileges were tested, password rejection was not.",
+    "redis_version": "7.4.11",
+    "redis_user": "rebound-meta-e2e21-20260907151144",
+    "redis_address": "127.0.0.1:56384",
+    "records": [
+      {
+        "name": "create-isolated-database",
+        "command": [
+          "wsl",
+          "-e",
+          "createdb",
+          "-h",
+          "127.0.0.1",
+          "-p",
+          "55439",
+          "-U",
+          "phanthy",
+          "rebound_e2e21_20260907151144"
+        ],
+        "exit_code": 0,
+        "expected_exit_code": 0,
+        "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\create-isolated-database.log",
+        "sha256": "b280c454d6f559e56eb3f5ed39f3ba084b8d1744a3ff7fe016b21ff86dea1aca",
+        "stable_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\create-isolated-database.log"
+      },
+      {
+        "name": "restore-schema47-fixture",
+        "command": [
+          "wsl",
+          "-e",
+          "pg_restore",
+          "-h",
+          "127.0.0.1",
+          "-p",
+          "55439",
+          "-U",
+          "phanthy",
+          "-d",
+          "rebound_e2e21_20260907151144",
+          "--no-owner",
+          "--no-privileges",
+          "--exit-on-error",
+          "/mnt/c/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/backend-schema47-source-20260907-authority-final.dump"
+        ],
+        "exit_code": 0,
+        "expected_exit_code": 0,
+        "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\restore-schema47-fixture.log",
+        "sha256": "b280c454d6f559e56eb3f5ed39f3ba084b8d1744a3ff7fe016b21ff86dea1aca",
+        "stable_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\restore-schema47-fixture.log"
+      },
+      {
+        "name": "restored-schema",
+        "command": [
+          "wsl",
+          "-e",
+          "psql",
+          "-h",
+          "127.0.0.1",
+          "-p",
+          "55439",
+          "-U",
+          "phanthy",
+          "-d",
+          "rebound_e2e21_20260907151144",
+          "-X",
+          "-A",
+          "-t",
+          "-v",
+          "ON_ERROR_STOP=1",
+          "-c",
+          "SELECT count(*),max(version) FROM schema_migrations"
+        ],
+        "exit_code": 0,
+        "expected_exit_code": 0,
+        "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\restored-schema.log",
+        "sha256": "56dd0277bcfc725e7b5394d16e23eeb8e1d14e8cf34888165cf18f7482c01726",
+        "stable_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\restored-schema.log"
+      },
+      {
+        "name": "baseline-provision",
+        "command": [
+          "wsl",
+          "-e",
+          "env",
+          "PGPORT=55439",
+          "POSTGRES_HOST=127.0.0.1",
+          "POSTGRES_USER=phanthy",
+          "<synthetic-fixture-password>",
+          "POSTGRES_DB=rebound_e2e21_20260907151144",
+          "META_POSTGRES_USER=rebound_meta_e2e21_20260907151144",
+          "<synthetic-fixture-password>",
+          "sh",
+          "/mnt/c/wksp/ProjectRebound/.tmp/e2e21-acl/20260907151144/baseline-provision.sh"
+        ],
+        "exit_code": 0,
+        "expected_exit_code": 0,
+        "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\baseline-provision.log",
+        "sha256": "6eddcdadb802fa8c0e5cb7310a01b04e404b86cedfd748e460dfb656751d3639",
+        "stable_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\baseline-provision.log"
+      },
+      {
+        "name": "baseline-schema-identities-denied",
+        "command": [
+          "wsl",
+          "-e",
+          "psql",
+          "-h",
+          "127.0.0.1",
+          "-p",
+          "55439",
+          "-U",
+          "rebound_meta_e2e21_20260907151144",
+          "-d",
+          "rebound_e2e21_20260907151144",
+          "-X",
+          "-A",
+          "-t",
+          "-v",
+          "ON_ERROR_STOP=1",
+          "-c",
+          "SELECT version,name,checksum FROM schema_migrations LIMIT 0"
+        ],
+        "exit_code": 1,
+        "expected_exit_code": 1,
+        "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\baseline-schema-identities-denied.log",
+        "sha256": "22e132f3397dd406375759bc1c042dabf7b0e16f0ee0224f32f4fd108f00d472",
+        "observed": "Historical Meta role cannot read the columns required by actual VerifyCurrent.",
+        "stable_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\baseline-schema-identities-denied.log"
+      },
+      {
+        "name": "baseline-public-create-allowed",
+        "command": [
+          "wsl",
+          "-e",
+          "psql",
+          "-h",
+          "127.0.0.1",
+          "-p",
+          "55439",
+          "-U",
+          "rebound_meta_e2e21_20260907151144",
+          "-d",
+          "rebound_e2e21_20260907151144",
+          "-X",
+          "-A",
+          "-t",
+          "-v",
+          "ON_ERROR_STOP=1",
+          "-c",
+          "BEGIN; CREATE TABLE public.rebound_meta_forbidden_ddl_probe(id integer); ROLLBACK;"
+        ],
+        "exit_code": 0,
+        "expected_exit_code": 0,
+        "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\baseline-public-create-allowed.log",
+        "sha256": "864fa87bb4acea958019831d2da966e71689e5120cde6d066eee1a8b55a92e7f",
+        "observed": "Historical direct REVOKE does not remove PUBLIC CREATE; test DDL succeeded and rolled back.",
+        "stable_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\baseline-public-create-allowed.log"
+      },
+      {
+        "name": "assert-redis-port-free",
+        "command": [
+          "wsl",
+          "-e",
+          "python3",
+          "-c",
+          "import socket; s=socket.socket(); s.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1); s.bind((\"127.0.0.1\",56384)); s.close()"
+        ],
+        "exit_code": 0,
+        "expected_exit_code": 0,
+        "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\assert-redis-port-free.log",
+        "sha256": "b280c454d6f559e56eb3f5ed39f3ba084b8d1744a3ff7fe016b21ff86dea1aca",
+        "stable_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\assert-redis-port-free.log"
+      },
+      {
+        "name": "start-owned-redis7411",
+        "command": [
+          "wsl",
+          "-e",
+          "/tmp/rebound-e2e21-redis7411-20260907/redis-7.4.11/src/redis-server",
+          "--bind",
+          "127.0.0.1",
+          "--port",
+          "56384",
+          "--save",
+          "",
+          "--appendonly",
+          "no",
+          "--daemonize",
+          "yes",
+          "--pidfile",
+          "/mnt/c/wksp/ProjectRebound/.tmp/e2e21-acl/20260907151144/redis.pid",
+          "--logfile",
+          "/mnt/c/wksp/ProjectRebound/.tmp/e2e21-acl/20260907151144/redis-server.log"
+        ],
+        "exit_code": 0,
+        "expected_exit_code": 0,
+        "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\start-owned-redis7411.log",
+        "sha256": "b280c454d6f559e56eb3f5ed39f3ba084b8d1744a3ff7fe016b21ff86dea1aca",
+        "stable_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\start-owned-redis7411.log"
+      },
+      {
+        "name": "owned-redis-process-identity",
+        "command": [
+          "wsl",
+          "-e",
+          "python3",
+          "-c",
+          "import os,json; p='95803'; executable=os.readlink(\"/proc/\"+p+\"/exe\"); print(json.dumps({\"pid\":int(p),\"executable\":executable})); assert executable=='/tmp/rebound-e2e21-redis7411-20260907/redis-7.4.11/src/redis-server'"
+        ],
+        "exit_code": 0,
+        "expected_exit_code": 0,
+        "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\owned-redis-process-identity.log",
+        "sha256": "43868b221cc8abb9e223cb56984e74f4ab93475339662725e0b12e67cbe26faf",
+        "stable_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\owned-redis-process-identity.log"
+      },
+      {
+        "name": "baseline-compose-acl",
+        "command": [
+          "wsl",
+          "-e",
+          "/tmp/rebound-e2e21-redis7411-20260907/redis-7.4.11/src/redis-cli",
+          "-p",
+          "56384",
+          "--raw",
+          "ACL",
+          "SETUSER",
+          "rebound-meta-e2e21-20260907151144",
+          "reset",
+          "on",
+          "<synthetic-fixture-password>",
+          "~meta:*",
+          "+@connection",
+          "+get",
+          "+set",
+          "+getdel",
+          "+del",
+          "+unlink",
+          "+expire",
+          "+pexpire",
+          "+ttl",
+          "+pttl"
+        ],
+        "exit_code": 0,
+        "expected_exit_code": 0,
+        "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\baseline-compose-acl.log",
+        "sha256": "c708cd7bd6d480e5be7c1bff19e23776b21e5b9c0d7f1ad924d307aaa6e10278",
+        "extracted_acl_commands": [
+          "+@connection",
+          "+get",
+          "+set",
+          "+getdel",
+          "+del",
+          "+unlink",
+          "+expire",
+          "+pexpire",
+          "+ttl",
+          "+pttl"
+        ],
+        "source_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\baseline-compose.yaml",
+        "source_sha256": "0aa968757e4d47b742d17bb8fb4d9becd87fef26b5f25b63ef4680ecf5c6f665",
+        "stable_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\baseline-compose-acl.log"
+      },
+      {
+        "name": "baseline-lua-consumption-denied",
+        "command": [
+          "wsl",
+          "-e",
+          "/tmp/rebound-e2e21-redis7411-20260907/redis-7.4.11/src/redis-cli",
+          "-p",
+          "56384",
+          "--raw",
+          "--user",
+          "rebound-meta-e2e21-20260907151144",
+          "-a",
+          "<synthetic-fixture-password>",
+          "--no-auth-warning",
+          "EVAL",
+          "return redis.call(\"GET\",KEYS[1])",
+          "1",
+          "meta:gate:e2e21-probe"
+        ],
+        "exit_code": 0,
+        "expected_exit_code": 0,
+        "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\baseline-lua-consumption-denied.log",
+        "sha256": "027a97c9965a775956ea192a7f04438e518de7fa5ac552d70d5537d9f88f015b",
+        "observed": "Actual Redis 7.4.11 refuses Lua under the deployed historical ACL. redis-cli exit 0 is not application success.",
+        "stable_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\baseline-lua-consumption-denied.log"
+      },
+      {
+        "name": "fixed-provision",
+        "command": [
+          "wsl",
+          "-e",
+          "env",
+          "PGPORT=55439",
+          "POSTGRES_HOST=127.0.0.1",
+          "POSTGRES_USER=phanthy",
+          "<synthetic-fixture-password>",
+          "POSTGRES_DB=rebound_e2e21_20260907151144",
+          "META_POSTGRES_USER=rebound_meta_e2e21_20260907151144",
+          "<synthetic-fixture-password>",
+          "sh",
+          "/mnt/c/wksp/ProjectRebound/.tmp/e2e21-acl/20260907151144/fixed-provision.sh"
+        ],
+        "exit_code": 0,
+        "expected_exit_code": 0,
+        "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\fixed-provision.log",
+        "sha256": "e6d0c1cc06af6c4d4a6a15ababddb4f046b563282755f7d1370a7269b4a5c8d0",
+        "stable_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\fixed-provision.log"
+      },
+      {
+        "name": "fixed-compose-acl",
+        "command": [
+          "wsl",
+          "-e",
+          "/tmp/rebound-e2e21-redis7411-20260907/redis-7.4.11/src/redis-cli",
+          "-p",
+          "56384",
+          "--raw",
+          "ACL",
+          "SETUSER",
+          "rebound-meta-e2e21-20260907151144",
+          "reset",
+          "on",
+          "<synthetic-fixture-password>",
+          "~meta:*",
+          "+@connection",
+          "+get",
+          "+set",
+          "+del",
+          "+unlink",
+          "+eval",
+          "+evalsha",
+          "+expire",
+          "+pexpire",
+          "+ttl",
+          "+pttl"
+        ],
+        "exit_code": 0,
+        "expected_exit_code": 0,
+        "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\fixed-compose-acl.log",
+        "sha256": "c708cd7bd6d480e5be7c1bff19e23776b21e5b9c0d7f1ad924d307aaa6e10278",
+        "extracted_acl_commands": [
+          "+@connection",
+          "+get",
+          "+set",
+          "+del",
+          "+unlink",
+          "+eval",
+          "+evalsha",
+          "+expire",
+          "+pexpire",
+          "+ttl",
+          "+pttl"
+        ],
+        "source_path": "C:\\wksp\\ProjectRebound\\Backend\\deployments\\control-plane\\docker-compose.yaml",
+        "source_sha256": "c25c62ede21f7f602db02f16b13bd06bc64ffe86a8b0de08795e280082337917",
+        "stable_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\fixed-compose-acl.log"
+      },
+      {
+        "name": "restricted-product-permissions-test",
+        "command": [
+          "wsl",
+          "-e",
+          "env",
+          "<synthetic-fixture-password>",
+          "TEST_META_REDIS_ADDRESS=127.0.0.1:56384",
+          "TEST_META_REDIS_USERNAME=rebound-meta-e2e21-20260907151144",
+          "<synthetic-fixture-password>",
+          "/tmp/rebound-strict-roster-20260907-go1266/go/bin/go",
+          "-C",
+          "/mnt/c/wksp/ProjectRebound/Backend",
+          "test",
+          "./internal/metaserver",
+          "-run",
+          "^TestRestrictedMetaServicePermissions$",
+          "-count=1",
+          "-v"
+        ],
+        "exit_code": 0,
+        "expected_exit_code": null,
+        "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\restricted-product-permissions-test.log",
+        "sha256": "df5d3b3a0586ce17ed1ac7bacd1998f57aba3259c2fb81c8cf230552793e9f4c",
+        "stable_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\restricted-product-permissions-test.log"
+      },
+      {
+        "name": "stop-owned-redis",
+        "command": [
+          "wsl",
+          "-e",
+          "/tmp/rebound-e2e21-redis7411-20260907/redis-7.4.11/src/redis-cli",
+          "-p",
+          "56384",
+          "SHUTDOWN",
+          "NOSAVE"
+        ],
+        "exit_code": 0,
+        "expected_exit_code": null,
+        "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\stop-owned-redis.log",
+        "sha256": "b280c454d6f559e56eb3f5ed39f3ba084b8d1744a3ff7fe016b21ff86dea1aca",
+        "stable_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\stop-owned-redis.log"
+      },
+      {
+        "name": "assert-owned-redis-stopped",
+        "command": [
+          "wsl",
+          "-e",
+          "python3",
+          "-c",
+          "import socket,os,json; p='95803'; s=socket.socket(); s.settimeout(2); refused=s.connect_ex((\"127.0.0.1\",56384))!=0; s.close(); alive=os.path.exists(\"/proc/\"+p+\"/exe\"); print(json.dumps({\"pid\":int(p),\"executable_alive\":alive,\"listener_refused\":refused})); assert refused and not alive"
+        ],
+        "exit_code": 0,
+        "expected_exit_code": null,
+        "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\assert-owned-redis-stopped.log",
+        "sha256": "1035f956e5384df1c6ff117bad1e4bc3aa6aa0e07ed3d9b0e5a87991e78a37b4",
+        "stable_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\assert-owned-redis-stopped.log"
+      },
+      {
+        "name": "disable-owned-meta-role",
+        "command": [
+          "wsl",
+          "-e",
+          "psql",
+          "-h",
+          "127.0.0.1",
+          "-p",
+          "55439",
+          "-U",
+          "phanthy",
+          "-d",
+          "rebound_e2e21_20260907151144",
+          "-X",
+          "-A",
+          "-t",
+          "-v",
+          "ON_ERROR_STOP=1",
+          "-c",
+          "ALTER ROLE rebound_meta_e2e21_20260907151144 NOLOGIN"
+        ],
+        "exit_code": 0,
+        "expected_exit_code": null,
+        "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\disable-owned-meta-role.log",
+        "sha256": "a87e724ad993cfaadb5d485b6e1663a60ec381b53de2deecae583c8ddea3329a",
+        "stable_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\disable-owned-meta-role.log"
+      }
+    ],
+    "source_commit": "53cbaaf30da9f2f6946b45cafbb787d53fe2ff93",
+    "source_dirty": true,
+    "source_files": {
+      "C:\\wksp\\ProjectRebound\\Backend\\deployments\\control-plane\\provision-meta-postgres.sh": "81fcc5c83cf334b68c83c33b0c230a3509323b9036dc28aec0f4da7fbfbc14bb",
+      "C:\\wksp\\ProjectRebound\\Backend\\deployments\\control-plane\\docker-compose.yaml": "c25c62ede21f7f602db02f16b13bd06bc64ffe86a8b0de08795e280082337917",
+      "C:\\wksp\\ProjectRebound\\Backend\\internal\\metaserver\\permissions_integration_test.go": "b324f99b63c4617335522ce8e23b9a2f2da068f812562b1a7dbb722b42b7aae4"
+    }
+  },
+  "copies": [
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\meta-retirement-focused-first.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\meta-retirement-focused-first.log",
+      "sha256": "639dbdb470c99280ef0acf95ede1a037a9ad47b08df89955ab7f0b5cc9488256",
+      "bytes": 359
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\meta-retirement-focused-corrected.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\meta-retirement-focused-corrected.log",
+      "sha256": "6de0f7f6c008012aff1fc213d6a40a2840466b40c3a29e8cc67af1658a1fbc1d",
+      "bytes": 1357
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\meta-retirement-pg.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\meta-retirement-pg.log",
+      "sha256": "111090838dd51361289fad6615a0665d0e5ed32b6a6dfa536fe94b3114cf29ff",
+      "bytes": 1670
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\meta-retirement-openapi.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\meta-retirement-openapi.log",
+      "sha256": "e2f61f6553a592883eac4947e047a45fbbb31551b7a05eecf83603f5d5b8fa7c",
+      "bytes": 521
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\assert-owned-redis-stopped.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\assert-owned-redis-stopped.log",
+      "sha256": "1035f956e5384df1c6ff117bad1e4bc3aa6aa0e07ed3d9b0e5a87991e78a37b4",
+      "bytes": 200
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\assert-redis-port-free.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\assert-redis-port-free.log",
+      "sha256": "b280c454d6f559e56eb3f5ed39f3ba084b8d1744a3ff7fe016b21ff86dea1aca",
+      "bytes": 132
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\baseline-compose-acl.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\baseline-compose-acl.log",
+      "sha256": "c708cd7bd6d480e5be7c1bff19e23776b21e5b9c0d7f1ad924d307aaa6e10278",
+      "bytes": 135
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\baseline-lua-consumption-denied.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\baseline-lua-consumption-denied.log",
+      "sha256": "027a97c9965a775956ea192a7f04438e518de7fa5ac552d70d5537d9f88f015b",
+      "bytes": 224
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\baseline-provision.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\baseline-provision.log",
+      "sha256": "6eddcdadb802fa8c0e5cb7310a01b04e404b86cedfd748e460dfb656751d3639",
+      "bytes": 367
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\baseline-provision.sh",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\baseline-provision.sh",
+      "sha256": "4249aedc8593a8af0742dc0b4803b720eac683b0ff00efbfb21951b53648b5fd",
+      "bytes": 4089
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\baseline-public-create-allowed.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\baseline-public-create-allowed.log",
+      "sha256": "864fa87bb4acea958019831d2da966e71689e5120cde6d066eee1a8b55a92e7f",
+      "bytes": 141
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\baseline-schema-identities-denied.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\baseline-schema-identities-denied.log",
+      "sha256": "22e132f3397dd406375759bc1c042dabf7b0e16f0ee0224f32f4fd108f00d472",
+      "bytes": 186
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\create-isolated-database.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\create-isolated-database.log",
+      "sha256": "b280c454d6f559e56eb3f5ed39f3ba084b8d1744a3ff7fe016b21ff86dea1aca",
+      "bytes": 132
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\disable-owned-meta-role.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\disable-owned-meta-role.log",
+      "sha256": "a87e724ad993cfaadb5d485b6e1663a60ec381b53de2deecae583c8ddea3329a",
+      "bytes": 143
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\fixed-compose-acl.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\fixed-compose-acl.log",
+      "sha256": "c708cd7bd6d480e5be7c1bff19e23776b21e5b9c0d7f1ad924d307aaa6e10278",
+      "bytes": 135
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\fixed-provision.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\fixed-provision.log",
+      "sha256": "e6d0c1cc06af6c4d4a6a15ababddb4f046b563282755f7d1370a7269b4a5c8d0",
+      "bytes": 362
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\fixed-provision.sh",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\fixed-provision.sh",
+      "sha256": "81fcc5c83cf334b68c83c33b0c230a3509323b9036dc28aec0f4da7fbfbc14bb",
+      "bytes": 4634
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\owned-redis-process-identity.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\owned-redis-process-identity.log",
+      "sha256": "43868b221cc8abb9e223cb56984e74f4ab93475339662725e0b12e67cbe26faf",
+      "bytes": 232
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\redis-server.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\redis-server.log",
+      "sha256": "3bf1db167e0675983f623c3ad60c1a8509a820a030b3a1ce2a8691cb783625ad",
+      "bytes": 1036
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\restore-schema47-fixture.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\restore-schema47-fixture.log",
+      "sha256": "b280c454d6f559e56eb3f5ed39f3ba084b8d1744a3ff7fe016b21ff86dea1aca",
+      "bytes": 132
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\restored-schema.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\restored-schema.log",
+      "sha256": "56dd0277bcfc725e7b5394d16e23eeb8e1d14e8cf34888165cf18f7482c01726",
+      "bytes": 138
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\restricted-product-permissions-test.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\restricted-product-permissions-test.log",
+      "sha256": "df5d3b3a0586ce17ed1ac7bacd1998f57aba3259c2fb81c8cf230552793e9f4c",
+      "bytes": 2300
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\result.json",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\result.json",
+      "sha256": "d98fa456f9d06cfa0520ba6ed946a046fe03187aa6b66618e5133f1e21ce8c18",
+      "bytes": 14869
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\start-owned-redis7411.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\start-owned-redis7411.log",
+      "sha256": "b280c454d6f559e56eb3f5ed39f3ba084b8d1744a3ff7fe016b21ff86dea1aca",
+      "bytes": 132
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907151144\\stop-owned-redis.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\stop-owned-redis.log",
+      "sha256": "b280c454d6f559e56eb3f5ed39f3ba084b8d1744a3ff7fe016b21ff86dea1aca",
+      "bytes": 132
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\Backend\\internal\\metaserver\\permissions_integration_test.go",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\restricted-permission-rerun\\permissions_integration_test.go",
+      "sha256": "b324f99b63c4617335522ce8e23b9a2f2da068f812562b1a7dbb722b42b7aae4",
+      "bytes": 4831
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\retire_meta_matchmaking.py",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\retire_meta_matchmaking.py",
+      "sha256": "3f208041d584ac6b81f522df39e193ecada8934af7947b2673d94f89e769b188",
+      "bytes": 6562
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\document_meta_retirement.py",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\meta-retirement-ec4add7\\document_meta_retirement.py",
+      "sha256": "e1faab2a740d4a6693a15f1a746dfb6d175dcde3b297febcce4965c6d3e6ccb4",
+      "bytes": 3140
+    }
+  ],
+  "source_files": {
+    "C:\\wksp\\ProjectRebound\\Backend\\api\\openapi\\auth-permission-matrix.md": "49c1baedfe95a2f7eb2fbf63569bceb9a8db904bd6dda0d3a9c4e0cb9ba64e5b",
+    "C:\\wksp\\ProjectRebound\\Backend\\api\\openapi\\auth-permission-matrix.zh-CN.md": "f4e1ee304135f4c8d4244fe8ccfadef9f04ad52ec153fcb4585d0373c6cdd5d1",
+    "C:\\wksp\\ProjectRebound\\Backend\\api\\openapi\\openapi.yaml": "f760c4e4af4ffc7ad4b0397c24e5af38f681df180671d9bbb72f505c003f9795",
+    "C:\\wksp\\ProjectRebound\\Backend\\deployments\\control-plane\\provision-meta-postgres.sh": "81fcc5c83cf334b68c83c33b0c230a3509323b9036dc28aec0f4da7fbfbc14bb",
+    "C:\\wksp\\ProjectRebound\\Backend\\internal\\metaserver\\admin.go": "8824b2befcb698fbddc561a34df578ee11f463b2a8babd3cc6d2147d28f1f49e",
+    "C:\\wksp\\ProjectRebound\\Backend\\internal\\metaserver\\errors.go": "4e9ce6e1dbcaab1adf6a9f7a81e79471e1bbfe39558dd5c4c8ce9f12f1e4c53b",
+    "C:\\wksp\\ProjectRebound\\Backend\\internal\\metaserver\\http.go": "5ac6695b8c2c4ebbc3263d9e413a100d503d476c5e506c63caa165d52df9037f",
+    "C:\\wksp\\ProjectRebound\\Backend\\internal\\metaserver\\legacy_matchmaking_test.go": "3f153ec05f10e3fa452b354d6bac9c5b7b0a8fef27fdaf15d69eeb0b13bd4611",
+    "C:\\wksp\\ProjectRebound\\Backend\\internal\\metaserver\\permissions_integration_test.go": "b324f99b63c4617335522ce8e23b9a2f2da068f812562b1a7dbb722b42b7aae4",
+    "C:\\wksp\\ProjectRebound\\Backend\\internal\\metaserver\\repository.go": "710e6676e5126e6b40ec1537d820db053ca70ca3570065f9f1fc8ccbe1ae0210",
+    "C:\\wksp\\ProjectRebound\\Backend\\internal\\metaserver\\repository_integration_test.go": "a2b070ba958bb7a5d22712e887940b3c56b6e43c89a3316fef78f02ace1f9fcf",
+    "C:\\wksp\\ProjectRebound\\Backend\\internal\\metaserver\\server.go": "f4264542162962a5a8b67e9ebc9277212d8cd39db0f2e9f5e6dbc568780bc56a",
+    "C:\\wksp\\ProjectRebound\\Backend\\internal\\metaserver\\service.go": "ec3a9fc35df050883fb18d041bf4e1d0b0b0c610c42e4cd43733d8fbcf4b6aaf",
+    "C:\\wksp\\ProjectRebound\\Backend\\internal\\metaserver\\tcp.go": "2d386e98b1a59e1ca309908757919a3a80d7289fd77eea86f372f77d3873ff7d"
+  },
+  "source_scope": "Commands executed before the commit against reviewed dirty files; the modification commit records the subsequent implementation, not a retroactive execution HEAD.",
+  "historical_failure_notes": [
+    "First focused command exited 1 before executing tests because gameServerKey was missing; restored and reran successfully.",
+    "Ancillary Python YAML inspection exited 1 because PyYAML was unavailable. The real Go OpenAPI schema/reference suite ran successfully; Python was not reported as passed."
+  ],
+  "limitations": [
+    "HTTP handlers were tested through httptest, not through an authenticated running MetaServer listener.",
+    "The first complete E2E-01 old-entry/new-UI/native-admission matrix remains unrun.",
+    "BattleLog legacy lifecycle writing was found separately and assigned for correction; this retirement receipt does not claim that pending work passed."
+  ]
+}
