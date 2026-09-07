@@ -647,3 +647,10 @@ CompleteWeaponOrnament(manager, int32 code, FName ornament, FName role, FName we
 - 固定函数尾 `0x0189D60B` 是 `mov rax,rdi`。普通原生调用者 `0x0368F614/0x0368F620/0x0368F62C` 连续调用该函数，每次立即 `mov rcx,rax`，因此透明转发分支也必须原样返回 trampoline 的结果。
 - B970 候选的两次真实客户端冷启动均在 `0x0189D066` 读取 `RCX+0x28` 时崩溃，栈包含 `StrictRosterNmtFStringSerializerHook`；该候选的 void 返回签名丢失了链式调用需要的 archive 指针。这发生在成员领取 Grant 之前，不能用关闭严格准入、空 Token 或直接 open 掩盖。
 - 修正后的 hook 使用 `void*` 表示原生引用返回值，各转发和注入分支保留实际返回值，并增加 `0x0189D60B` 原字节门。证据为 `.tmp/strict-roster-20260907/native-evidence/native-serializer-return-abi-20260908.json` 和同目录 B970 构建对应的两个 crash 摘要；本条记录的是静态确认和已复现失败，修正 DLL 的冷启动与准入通过仍需独立记录。
+
+## 33. 固定 NMT_Login archive 写入函数的静态所有权边界（2026-09-08）
+
+- 只适用于 EXE SHA-256 `181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843`。field2 调用点 `0x03484F35` 使用的 archive 由 `0x031CF3D0` 构造，最终虚表为 VA `0x145007AF0`；已独立用 PE 原字节校验调用目标与虚表槽位。
+- 虚表 `+0x10` 是 VA `0x14086AFF0` 空操作返回，仅接收长度/容量；`+0x150` 是 VA `0x1419CD9F0` 同步 writer。writer 将完整 64 位 source 指针从 RDX 经 R15 传入 `0x1419D1A30`，不能采用 IDA 自动推断的 `int` 参数类型。
+- writer 只扩容自己的 `+0x98` 缓冲并同步复制。bit-copy 为无调用的叶函数，只读 source、写 destination；没有保留输入指针或异步派发。serializer 保存分支的释放仅针对自己的编码/换字节序临时区，不针对输入 FString 或 Data；Payload 中间 NUL 拒绝与原调用点约束限定了这项结论的适用范围。
+- 完整静态记录、原始 IDA 输出和原字节验证在 `docs/implementation/strict-roster-20260907/evidence/serializer-static-callees-20260908/`。这补齐了此前未解析虚调用的静态证据缺口；动态 sidecar 的零覆盖仍不算通过，原生完整负向矩阵、Playable/多人验收仍独立阻塞，不能据此打开 verified 标志。
