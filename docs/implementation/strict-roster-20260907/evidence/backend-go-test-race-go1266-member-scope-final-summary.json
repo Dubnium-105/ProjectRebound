@@ -1,0 +1,109 @@
+{
+  "command": "wsl.exe -d Ubuntu-22.04 -- bash /mnt/c/wksp/ProjectRebound/.tmp/strict-roster-20260907/run-backend-race-member-scope-final.sh",
+  "toolchain": "go1.26.6 linux/amd64",
+  "database": "127.0.0.1:55439/rebound_backend_restore_authority_20260907_final",
+  "redis": "127.0.0.1:56380",
+  "race": "-race -p 1 ./... -count=1 -v",
+  "exit_code": 0,
+  "top_level_pass": 402,
+  "subtest_pass": 143,
+  "fail_count": 0,
+  "skip_names": [
+    "TestS3StorageAgainstCompatibleService",
+    "TestNormalizeBattleLogFixtureWhenConfigured",
+    "TestRestrictedMetaServicePermissions",
+    "TestStrictRosterRustRelayClients"
+  ],
+  "raw_log": "docs/implementation/strict-roster-20260907/evidence/backend-go-test-race-go1266-member-scope-final.log",
+  "raw_log_sha256": "177b6d4424fbc4cbece8bb5161d0de7420118284fa01a4057af3733df7d97824",
+  "raw_log_bytes": 77185,
+  "backend_dirty_diff_sha256": "f21bca443013298abbebe7d9ce8adeb2360cad8a36af7bab305a8a2353febbcf",
+  "scoped_source_hashes": [
+    {
+      "path": "Backend/internal/matchlobby/model.go",
+      "sha256": "0e303d18dd24757b22987ef961d8caf323f8d9aa9951291d1228cc21d35e6a9e",
+      "bytes": 12098
+    },
+    {
+      "path": "Backend/internal/matchlobby/repository.go",
+      "sha256": "fa4729e027e4f82c3fa0d06bc7d0db824e5b7714b5da6e78ff88d382e85e0864",
+      "bytes": 18497
+    },
+    {
+      "path": "Backend/internal/matchlobby/service.go",
+      "sha256": "b83142a4723f539b36440da96831e5d6cff9982e8b540690217fa9b4b363b57b",
+      "bytes": 130822
+    },
+    {
+      "path": "Backend/internal/matchlobby/http.go",
+      "sha256": "5bc9216f9fedf41ea7f6998f503fcb32144c5d4865fcf4a1ff16a945b7b07f45",
+      "bytes": 27859
+    },
+    {
+      "path": "Backend/internal/controlplane/server.go",
+      "sha256": "8ee9a5cec28c093db32ac9d0c165649b9a6b9a470d77dd5afd9b0cadbcea8282",
+      "bytes": 44314
+    },
+    {
+      "path": "Backend/internal/matchlobby/dedicated_integration_test.go",
+      "sha256": "358d562ac8efdb230eb59d8568ff71a7e716f6bb8862f3427be98f34ef3ace11",
+      "bytes": 20109
+    },
+    {
+      "path": "Backend/internal/matchlobby/service_integration_test.go",
+      "sha256": "156d258ab33e8f070161a1b68aed33ab1b4087e0a3164b9aa52ef3aa2f3c60fd",
+      "bytes": 55904
+    },
+    {
+      "path": "Backend/internal/matchlobby/token_test.go",
+      "sha256": "5049351aa10cee7f3bf785cdd96ce27ef83e56d1a069fe1e2a13ebbec951a852",
+      "bytes": 4230
+    },
+    {
+      "path": "Backend/internal/matchlobby/member_connection_evidence_test.go",
+      "sha256": "f335c9bb68aa277c01d4313aba5b7bd46841350e4c9d7560c0fbedc7fefd4492",
+      "bytes": 469
+    },
+    {
+      "path": "Backend/internal/matchlobby/member_connection_http_test.go",
+      "sha256": "22089fb7a531d3e66ba020be060ae961b20687dadfa80e2f511c73e202cba029",
+      "bytes": 4418
+    },
+    {
+      "path": "Backend/api/openapi/openapi.yaml",
+      "sha256": "5ee7cee794b60d9810446a2a537d5a1da37b9c662751f0ca1d5ce201ad64461f",
+      "bytes": 340230
+    },
+    {
+      "path": "docs/api/external.md",
+      "sha256": "d89edfd9f1739cbf3dc862a5d21679e685eb51289272cc82fc79f0a8cdb5dbd5",
+      "bytes": 39896
+    }
+  ],
+  "notes": [
+    "No DATA RACE warning observed.",
+    "The four SKIPs are explicit and are not counted as PASS.",
+    "Earlier wrapper attempts are retained separately and are not this result.",
+    "Credential-shaped scan found no matching values in the raw log."
+  ],
+  "observed_head_after_run": "438d0ae082cc71c9f7b80b571208ea2806bff5bb",
+  "observed_head_tree_after_run": "bfaec1bd0597a186d506ace532d41c3b9cf2c132",
+  "head_observation_time": "2026-09-08T03:40:51.6924538+08:00",
+  "input_head_observation": {
+    "captured_by_runner": false,
+    "head": null,
+    "tree": null,
+    "note": "The runner script did not capture HEAD/tree before starting go test. The summary's head fields are post-run observations. HEAD 438d0ae082cc71c9f7b80b571208ea2806bff5bb was committed at 2026-09-08T03:19:34+08:00, before the race log creation at 2026-09-08T03:23:07.3478427+08:00; no later HEAD movement was present in the inspected reflog."
+  },
+  "targeted_matchlobby_validation": {
+    "command": "go test ./internal/matchlobby -count=1 -v",
+    "database": "127.0.0.1:55439/rebound_member_proof_20260908_06",
+    "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-matchlobby-full-pg55439-20260908-05.log",
+    "exit_code": 0,
+    "top_level_pass": 15,
+    "fail_count": 0,
+    "skip_count": 0,
+    "log_sha256": "46bbabeb0d5a6b23f1a9134717f058e4871be80a4ab458b071494c09b3821f52",
+    "log_bytes": 2245
+  }
+}

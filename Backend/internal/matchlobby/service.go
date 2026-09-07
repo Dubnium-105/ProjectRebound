@@ -232,6 +232,33 @@ func (s *Service) Get(ctx context.Context, lobbyID, viewerPlayerID string) (Snap
 	return snapshot, nil
 }
 
+// CurrentMemberConnection returns a server-validated connection receipt for
+// the authenticated player only.  A normal MEMBER must have a consumed grant
+// whose route, generation, and nonce match the frozen roster projection.  A
+// P2P HOST has no JoinGrant; that branch is accepted only from its persisted
+// CONNECTED live native nonce after authority readiness.
+func (s *Service) CurrentMemberConnection(ctx context.Context, actor Actor, attemptID string) (MemberConnectionEvidence, error) {
+	if err := requireActive(actor); err != nil {
+		return MemberConnectionEvidence{}, err
+	}
+	attemptID = strings.TrimSpace(attemptID)
+	if attemptID == "" {
+		return MemberConnectionEvidence{}, invalid("Invalid match attempt.", nil)
+	}
+	evidence, err := s.repository.MemberConnectionEvidence(ctx, attemptID, actor.PlayerID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return MemberConnectionEvidence{}, conflict(
+			"MATCH_CONNECTION_NOT_CONNECTED",
+			"The authenticated player has no current server-validated connection for this match attempt.",
+			nil,
+		)
+	}
+	if err != nil {
+		return MemberConnectionEvidence{}, internal(err)
+	}
+	return evidence, nil
+}
+
 func (s *Service) Active(ctx context.Context, actor Actor) (CreateResult, error) {
 	if err := requireActive(actor); err != nil {
 		return CreateResult{}, err
@@ -1217,13 +1244,14 @@ func (s *Service) joinGrant(ctx context.Context, actor Actor, attemptID, idempot
 	var priorGrantCount int
 	var roomRole string
 	var connectionState string
+	var worldInstanceID string
 	var payloadRouteReady bool
 	var hostReconnecting bool
 	var authorityFresh bool
 	err = tx.QueryRow(ctx, `
 		SELECT attempt.lobby_id, attempt.hosting_kind, attempt.state,
 		       COALESCE(attempt.authority_id, ''), attempt.authority_session_id,
-		       attempt.roster_revision, attempt.route_generation,
+		       COALESCE(attempt.world_instance_id, ''), attempt.roster_revision, attempt.route_generation,
 		       COALESCE(attempt.endpoint_host, ''), COALESCE(attempt.endpoint_port, 0),
 		       roster.platform_id, roster.room_role, roster.team_id, roster.team_slot,
 		       roster.logical_slot, roster.connection_generation,
@@ -1239,7 +1267,7 @@ func (s *Service) joinGrant(ctx context.Context, actor Actor, attemptID, idempot
 		FOR UPDATE OF attempt, roster
 	`, attemptID, actor.PlayerID, now.Add(-authorityHeartbeatStale)).Scan(
 		&claims.LobbyID, &claims.HostingKind, &state, &claims.AuthorityID,
-		&claims.AuthoritySessionID, &claims.RosterRevision, &claims.RouteGeneration,
+		&claims.AuthoritySessionID, &worldInstanceID, &claims.RosterRevision, &claims.RouteGeneration,
 		&endpointHost, &endpointPort, &claims.PlatformID, &roomRole, &claims.TeamID,
 		&claims.TeamSlot, &claims.LogicalSlot, &claims.ConnectionGeneration,
 		&connectionState,
@@ -1264,6 +1292,10 @@ func (s *Service) joinGrant(ctx context.Context, actor Actor, attemptID, idempot
 	if !payloadRouteReady {
 		return GrantResult{}, conflict("MATCH_AUTHORITY_ROUTE_REFRESHING", "The match authority is refreshing admission for the current route generation.", nil)
 	}
+	if worldInstanceID == "" {
+		return GrantResult{}, conflict("MATCH_WORLD_INSTANCE_REQUIRED", "The match authority has not published a native world instance.", nil)
+	}
+	claims.WorldInstanceID = worldInstanceID
 	if claims.HostingKind == HostingP2P && roomRole == "HOST" {
 		return GrantResult{}, forbidden("MATCH_P2P_HOST_USES_ALLOCATION", "The local P2P host is admitted only through its signed allocation.")
 	}
@@ -1314,7 +1346,10 @@ func (s *Service) joinGrant(ctx context.Context, actor Actor, attemptID, idempot
 				return GrantResult{}, internal(err)
 			}
 			return GrantResult{
-				AttemptID: attemptID, GrantJTI: priorJTI,
+				AttemptID: attemptID, AuthoritySessionID: claims.AuthoritySessionID,
+				WorldInstanceID: claims.WorldInstanceID, RosterRevision: claims.RosterRevision,
+				RouteGeneration: claims.RouteGeneration, PlayerID: claims.PlayerID,
+				GrantJTI:     priorJTI,
 				EndpointHost: endpointHost, EndpointPort: endpointPort,
 				Grant: token, ExpiresAt: expiresAt, ConnectionGeneration: priorGeneration,
 			}, nil
@@ -1368,7 +1403,10 @@ func (s *Service) joinGrant(ctx context.Context, actor Actor, attemptID, idempot
 		return GrantResult{}, internal(err)
 	}
 	return GrantResult{
-		AttemptID: attemptID, GrantJTI: claims.TokenID,
+		AttemptID: attemptID, AuthoritySessionID: claims.AuthoritySessionID,
+		WorldInstanceID: claims.WorldInstanceID, RosterRevision: claims.RosterRevision,
+		RouteGeneration: claims.RouteGeneration, PlayerID: claims.PlayerID,
+		GrantJTI:     claims.TokenID,
 		EndpointHost: endpointHost, EndpointPort: endpointPort,
 		Grant: token, ExpiresAt: expires, ConnectionGeneration: claims.ConnectionGeneration,
 	}, nil
@@ -1400,6 +1438,7 @@ func (s *Service) AuthorityAdmissions(ctx context.Context, authorityID, authorit
 	rows, err := s.repository.pool.Query(ctx, `
 		SELECT attempt.lobby_id, attempt.hosting_kind, attempt.authority_id,
 		       attempt.authority_session_id, attempt.roster_revision,
+		       COALESCE(attempt.world_instance_id, ''),
 		       admission.jti, admission.player_id, roster.platform_id,
 		       roster.team_id, roster.team_slot, roster.logical_slot,
 		       admission.connection_generation, admission.route_generation,
@@ -1413,6 +1452,7 @@ func (s *Service) AuthorityAdmissions(ctx context.Context, authorityID, authorit
 		  AND attempt.authority_id = $2
 		  AND attempt.authority_session_id = $3
 		  AND attempt.state IN ('CONNECTING', 'RUNNING')
+		  AND COALESCE(attempt.world_instance_id, '') <> ''
 		  AND admission.delivered_at IS NULL
 		  AND admission.consumed_at IS NULL
 		  AND admission.revoked_at IS NULL
@@ -1429,7 +1469,7 @@ func (s *Service) AuthorityAdmissions(ctx context.Context, authorityID, authorit
 		var issuedAt, expiresAt time.Time
 		if err := rows.Scan(
 			&claims.LobbyID, &claims.HostingKind, &claims.AuthorityID,
-			&claims.AuthoritySessionID, &claims.RosterRevision,
+			&claims.AuthoritySessionID, &claims.RosterRevision, &claims.WorldInstanceID,
 			&claims.TokenID, &claims.PlayerID, &claims.PlatformID,
 			&claims.TeamID, &claims.TeamSlot, &claims.LogicalSlot,
 			&claims.ConnectionGeneration, &claims.RouteGeneration,

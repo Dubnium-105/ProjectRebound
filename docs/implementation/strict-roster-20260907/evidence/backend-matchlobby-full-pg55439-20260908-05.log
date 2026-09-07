@@ -1,0 +1,32 @@
+=== RUN   TestStrictRosterDedicatedLifecycleAgainstPostgreSQL
+--- PASS: TestStrictRosterDedicatedLifecycleAgainstPostgreSQL (4.25s)
+=== RUN   TestJoinGrantHTTPReturnsSignedScopeAlongsideGrant
+--- PASS: TestJoinGrantHTTPReturnsSignedScopeAlongsideGrant (0.00s)
+=== RUN   TestMemberConnectionHTTPReturnsNoStoreValidatedEvidence
+--- PASS: TestMemberConnectionHTTPReturnsNoStoreValidatedEvidence (0.00s)
+=== RUN   TestMemberConnectionHTTPDoesNotExposeMissingEvidence
+--- PASS: TestMemberConnectionHTTPDoesNotExposeMissingEvidence (0.00s)
+=== RUN   TestDedicatedNativeClearedRejectsUnscopedOwnedProcessEvidence
+--- PASS: TestDedicatedNativeClearedRejectsUnscopedOwnedProcessEvidence (0.00s)
+=== RUN   TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL (0.36s)
+=== RUN   TestStrictRosterAdminForceAbortIsAuditedAndDrainKeepsReadsAgainstPostgreSQL
+--- PASS: TestStrictRosterAdminForceAbortIsAuditedAndDrainKeepsReadsAgainstPostgreSQL (0.19s)
+=== RUN   TestStrictRosterP2PPreflightNativeProcessNotStartedCleanupAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PPreflightNativeProcessNotStartedCleanupAgainstPostgreSQL (0.24s)
+=== RUN   TestStrictRosterP2PPreflightNotStartedRejectsInstalledPayloadAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PPreflightNotStartedRejectsInstalledPayloadAgainstPostgreSQL (0.21s)
+=== RUN   TestStrictRosterP2PLifecycleAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PLifecycleAgainstPostgreSQL (0.95s)
+=== RUN   TestCreateValidationLocksHostingKindAndTwoTeamCapacity
+--- PASS: TestCreateValidationLocksHostingKindAndTwoTeamCapacity (0.00s)
+=== RUN   TestOpenRevisionFailsClosedAfterFreezeOrConflict
+--- PASS: TestOpenRevisionFailsClosedAfterFreezeOrConflict (0.00s)
+=== RUN   TestAdmissionSignerBindsFrozenRosterAndJoinSeat
+--- PASS: TestAdmissionSignerBindsFrozenRosterAndJoinSeat (0.00s)
+=== RUN   TestAdmissionSignerRejectsMissingConfiguredKey
+--- PASS: TestAdmissionSignerRejectsMissingConfiguredKey (0.00s)
+=== RUN   TestAdmissionSignerUsesSeparateTokenTypes
+--- PASS: TestAdmissionSignerUsesSeparateTokenTypes (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/matchlobby	6.293s

@@ -87,6 +87,9 @@ func TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL(t *testing.
 	if _, err := service.P2PPayloadInstalled(ctx, owner, attemptID, authoritySession, strictNativeAdmissionVersion, matchConfig.LockedGameSHA256, frozen.Attempt.RouteGeneration); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := service.CurrentMemberConnection(ctx, owner, attemptID); errorCode(err) != "MATCH_CONNECTION_NOT_CONNECTED" {
+		t.Fatalf("P2P HOST exposed connection evidence before native host confirmation: %v", err)
+	}
 	connecting, err := service.P2PAuthorityReady(
 		ctx, owner, attemptID, authoritySession, transportHostToken,
 		"10.88.0.9", 7788, frozen.Attempt.RouteGeneration,
@@ -94,6 +97,22 @@ func TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL(t *testing.
 	)
 	if err != nil || connecting.Attempt == nil || connecting.Attempt.State != AttemptConnecting {
 		t.Fatalf("P2P authority ready = %+v, %v", connecting, err)
+	}
+	assertMemberConnectionEvidence(t, ctx, service, owner, attemptID, MemberConnectionEvidence{
+		AttemptID: attemptID, AuthoritySessionID: authoritySession,
+		WorldInstanceID: "world-p2p-owned-exit", RosterRevision: connecting.Attempt.RosterRevision,
+		RouteGeneration: connecting.Attempt.RouteGeneration, PlayerID: owner.PlayerID,
+		Role: "HOST", GrantJTI: "", ConnectionGeneration: 1,
+		NativeConnectionNonce: "native-host-owned-exit", ConnectionState: "CONNECTED",
+	})
+	if _, err := pool.Exec(ctx, "UPDATE match_attempts SET route_generation = route_generation + 1 WHERE id = $1", attemptID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.CurrentMemberConnection(ctx, owner, attemptID); errorCode(err) != "MATCH_CONNECTION_NOT_CONNECTED" {
+		t.Fatalf("P2P HOST exposed evidence for a route without the current Payload projection: %v", err)
+	}
+	if _, err := pool.Exec(ctx, "UPDATE match_attempts SET route_generation = route_generation - 1 WHERE id = $1", attemptID); err != nil {
+		t.Fatal(err)
 	}
 
 	grant, err := service.JoinGrant(ctx, member, attemptID)

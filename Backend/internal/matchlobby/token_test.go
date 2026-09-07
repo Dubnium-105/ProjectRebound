@@ -46,7 +46,8 @@ func TestAdmissionSignerBindsFrozenRosterAndJoinSeat(t *testing.T) {
 	grant, _, err := signer.SignJoinGrant(JoinGrantClaims{
 		AttemptID: "mat_1", LobbyID: "lby_1", HostingKind: HostingP2P,
 		AuthorityID: "player_host", AuthoritySessionID: "mas_1",
-		PlayerID: "player_a", PlatformID: "76561198000000001", RosterRevision: 7,
+		WorldInstanceID: "world_1",
+		PlayerID:        "player_a", PlatformID: "76561198000000001", RosterRevision: 7,
 		TeamID: 2, TeamSlot: 1, LogicalSlot: 5, ConnectionGeneration: 3, RouteGeneration: 2,
 	}, time.Minute)
 	if err != nil {
@@ -56,7 +57,8 @@ func TestAdmissionSignerBindsFrozenRosterAndJoinSeat(t *testing.T) {
 	verifyAdmissionToken(t, signer, grant, "match-join+jwt", &grantClaims)
 	if grantClaims.Audience != joinGrantAudience ||
 		grantClaims.PlayerID != "player_a" || grantClaims.TeamID != 2 ||
-		grantClaims.ConnectionGeneration != 3 || grantClaims.ExpiresAt-fixedNow.Unix() != 60 {
+		grantClaims.WorldInstanceID != "world_1" || grantClaims.ConnectionGeneration != 3 ||
+		grantClaims.ExpiresAt-fixedNow.Unix() != 60 {
 		t.Fatalf("join grant lost reserved seat claims: %+v", grantClaims)
 	}
 }

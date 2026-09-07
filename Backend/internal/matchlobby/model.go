@@ -221,6 +221,7 @@ type JoinGrantClaims struct {
 	HostingKind          HostingKind `json:"hosting_kind"`
 	AuthorityID          string      `json:"authority_id"`
 	AuthoritySessionID   string      `json:"authority_session_id"`
+	WorldInstanceID      string      `json:"world_instance_id"`
 	PlayerID             string      `json:"player_id"`
 	PlatformID           string      `json:"platform_id"`
 	RosterRevision       int64       `json:"roster_revision"`
@@ -235,6 +236,11 @@ type JoinGrantClaims struct {
 
 type GrantResult struct {
 	AttemptID            string    `json:"attempt_id"`
+	AuthoritySessionID   string    `json:"authority_session_id"`
+	WorldInstanceID      string    `json:"world_instance_id"`
+	RosterRevision       int64     `json:"roster_revision"`
+	RouteGeneration      int       `json:"route_generation"`
+	PlayerID             string    `json:"player_id"`
 	GrantJTI             string    `json:"grant_jti"`
 	EndpointHost         string    `json:"endpoint_host"`
 	EndpointPort         int       `json:"endpoint_port"`
@@ -268,18 +274,37 @@ type GrantDeliveryStatus struct {
 	ExpiresAt   time.Time  `json:"expires_at"`
 }
 
+// MemberConnectionEvidence is the server-validated identity of the
+// authenticated player's current native connection.  It is deliberately
+// narrower than a lobby snapshot: no join grant or roster for other players
+// is exposed, and a row is returned only after the exact generation/route/
+// world/nonce has been consumed and projected as CONNECTED.
+type MemberConnectionEvidence struct {
+	AttemptID             string `json:"attempt_id"`
+	AuthoritySessionID    string `json:"authority_session_id"`
+	WorldInstanceID       string `json:"world_instance_id"`
+	RosterRevision        int64  `json:"roster_revision"`
+	RouteGeneration       int    `json:"route_generation"`
+	PlayerID              string `json:"player_id"`
+	Role                  string `json:"role"`
+	GrantJTI              string `json:"grant_jti"`
+	ConnectionGeneration  int    `json:"connection_generation"`
+	NativeConnectionNonce string `json:"native_connection_nonce"`
+	ConnectionState       string `json:"connection_state"`
+}
+
 // AdmissionReservation is the bounded handoff between a verified native
 // identity and ConfirmConnected.  Reserving a grant never changes the roster
 // connection state; only confirmation may do that.
 type AdmissionReservation struct {
-	AttemptID            string    `json:"attempt_id"`
-	GrantJTI             string    `json:"grant_jti"`
-	PlayerID             string    `json:"player_id"`
-	WorldInstanceID      string    `json:"world_instance_id"`
-	NativeConnectionNonce string   `json:"native_connection_nonce"`
-	ConnectionGeneration int       `json:"connection_generation"`
-	RouteGeneration      int       `json:"route_generation"`
-	ReservedUntil        time.Time `json:"reserved_until"`
+	AttemptID             string    `json:"attempt_id"`
+	GrantJTI              string    `json:"grant_jti"`
+	PlayerID              string    `json:"player_id"`
+	WorldInstanceID       string    `json:"world_instance_id"`
+	NativeConnectionNonce string    `json:"native_connection_nonce"`
+	ConnectionGeneration  int       `json:"connection_generation"`
+	RouteGeneration       int       `json:"route_generation"`
+	ReservedUntil         time.Time `json:"reserved_until"`
 }
 
 type AllocationResult struct {

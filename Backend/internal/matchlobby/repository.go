@@ -274,6 +274,60 @@ func (r *Repository) Snapshot(ctx context.Context, lobbyID, viewerPlayerID strin
 	return snapshot, nil
 }
 
+// MemberConnectionEvidence returns only the authenticated player's current
+// connected seat.  The grant join is intentionally strict: for MEMBER seats
+// the consumed grant, current route/generation, and persisted native nonce
+// must all agree.  P2P HOST seats have no JoinGrant; their persisted live
+// nonce is the authority-ready proof and is returned with an empty GrantJTI.
+func (r *Repository) MemberConnectionEvidence(ctx context.Context, attemptID, playerID string) (MemberConnectionEvidence, error) {
+	var item MemberConnectionEvidence
+	err := r.pool.QueryRow(ctx, `
+		SELECT attempt.id, attempt.authority_session_id,
+		       COALESCE(attempt.world_instance_id, ''), attempt.roster_revision,
+		       attempt.route_generation, roster.player_id, roster.room_role,
+		       COALESCE(admission.jti, ''), roster.connection_generation,
+		       COALESCE(roster.live_native_connection_nonce, ''),
+		       roster.connection_state
+		FROM match_attempts AS attempt
+		JOIN match_lobbies AS lobby
+		  ON lobby.id = attempt.lobby_id
+		JOIN match_attempt_roster AS roster
+		  ON roster.attempt_id = attempt.id AND roster.player_id = $2
+		LEFT JOIN LATERAL (
+			SELECT grant_row.jti
+			FROM match_admission_grants AS grant_row
+			WHERE grant_row.attempt_id = attempt.id
+			  AND grant_row.player_id = roster.player_id
+			  AND roster.room_role = 'MEMBER'
+			  AND grant_row.connection_generation = roster.connection_generation
+			  AND grant_row.route_generation = attempt.route_generation
+			  AND grant_row.consumed_at IS NOT NULL
+			  AND grant_row.revoked_at IS NULL
+			  AND grant_row.consumed_connection_nonce = roster.live_native_connection_nonce
+			ORDER BY grant_row.consumed_at DESC, grant_row.jti DESC
+			LIMIT 1
+		) AS admission ON TRUE
+		WHERE attempt.id = $1
+		  AND lobby.current_attempt_id = attempt.id
+		  AND attempt.state IN ('CONNECTING', 'RUNNING')
+		  AND attempt.payload_route_generation = attempt.route_generation
+		  AND attempt.authority_session_id <> ''
+		  AND COALESCE(attempt.world_instance_id, '') <> ''
+		  AND roster.connection_state = 'CONNECTED'
+		  AND COALESCE(roster.live_native_connection_nonce, '') <> ''
+		  AND (
+			(attempt.hosting_kind = 'P2P' AND roster.room_role = 'HOST' AND admission.jti IS NULL)
+			OR (roster.room_role = 'MEMBER' AND admission.jti IS NOT NULL)
+		  )
+	`, attemptID, playerID).Scan(
+		&item.AttemptID, &item.AuthoritySessionID, &item.WorldInstanceID,
+		&item.RosterRevision, &item.RouteGeneration, &item.PlayerID, &item.Role,
+		&item.GrantJTI, &item.ConnectionGeneration,
+		&item.NativeConnectionNonce, &item.ConnectionState,
+	)
+	return item, err
+}
+
 func (r *Repository) List(ctx context.Context, filter ListFilter) (ListResult, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT lobby.id, lobby.owner_player_id, lobby.display_name, lobby.hosting_kind,

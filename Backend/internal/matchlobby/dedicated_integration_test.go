@@ -112,6 +112,9 @@ func TestStrictRosterDedicatedLifecycleAgainstPostgreSQL(t *testing.T) {
 		t.Fatalf("restart Dedicated attempt: %+v, %v", active, err)
 	}
 	attemptID := active.Attempt.AttemptID
+	if _, err := service.CurrentMemberConnection(ctx, member, first.Attempt.AttemptID); errorCode(err) != "MATCH_CONNECTION_NOT_CONNECTED" {
+		t.Fatalf("superseded Dedicated attempt exposed connection evidence: %v", err)
+	}
 	allocation, err := service.DedicatedAllocation(ctx, serverID, attemptID)
 	if err != nil {
 		t.Fatal(err)
@@ -129,12 +132,64 @@ func TestStrictRosterDedicatedLifecycleAgainstPostgreSQL(t *testing.T) {
 	if _, err := service.DedicatedAuthorityReady(ctx, serverID, attemptID, allocationClaims.AuthoritySessionID, "world-dedicated-primary", "native-host-dedicated-primary"); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := service.CurrentMemberConnection(ctx, member, attemptID); errorCode(err) != "MATCH_CONNECTION_NOT_CONNECTED" {
+		t.Fatalf("unconfirmed Dedicated member exposed connection evidence: %v", err)
+	}
 
 	connectedGrants := make(map[string]GrantResult)
 	for _, actor := range []Actor{owner, member} {
-		grant, err := service.JoinGrant(ctx, actor, attemptID)
+		var grant GrantResult
+		var err error
+		if actor.PlayerID == member.PlayerID {
+			grant, err = service.JoinGrantWithIdempotency(ctx, actor, attemptID, "member-scope-proof")
+		} else {
+			grant, err = service.JoinGrant(ctx, actor, attemptID)
+		}
 		if err != nil {
 			t.Fatal(err)
+		}
+		if grant.AuthoritySessionID != allocationClaims.AuthoritySessionID ||
+			grant.WorldInstanceID != "world-dedicated-primary" ||
+			grant.RosterRevision != active.Attempt.RosterRevision ||
+			grant.RouteGeneration != active.Attempt.RouteGeneration ||
+			grant.PlayerID != actor.PlayerID || grant.GrantJTI == "" {
+			t.Fatalf("join grant omitted exact signed scope: %+v", grant)
+		}
+		grantClaims := decodeJoinGrantClaims(t, grant.Grant)
+		if grantClaims.AuthoritySessionID != grant.AuthoritySessionID ||
+			grantClaims.WorldInstanceID != grant.WorldInstanceID ||
+			grantClaims.RosterRevision != grant.RosterRevision ||
+			grantClaims.RouteGeneration != grant.RouteGeneration ||
+			grantClaims.PlayerID != grant.PlayerID || grantClaims.TokenID != grant.GrantJTI {
+			t.Fatalf("join grant JWT scope differs from response: claims=%+v response=%+v", grantClaims, grant)
+		}
+		if actor.PlayerID == member.PlayerID {
+			replayed, replayErr := service.JoinGrantWithIdempotency(ctx, actor, attemptID, "member-scope-proof")
+			if replayErr != nil {
+				t.Fatalf("idempotent join grant replay: %v", replayErr)
+			}
+			if replayed.GrantJTI != grant.GrantJTI || replayed.Grant != grant.Grant ||
+				replayed.AuthoritySessionID != grant.AuthoritySessionID ||
+				replayed.WorldInstanceID != grant.WorldInstanceID ||
+				replayed.RosterRevision != grant.RosterRevision ||
+				replayed.RouteGeneration != grant.RouteGeneration ||
+				replayed.PlayerID != grant.PlayerID ||
+				replayed.ConnectionGeneration != grant.ConnectionGeneration {
+				t.Fatalf("idempotent replay changed signed scope: first=%+v replay=%+v", grant, replayed)
+			}
+			if _, err := pool.Exec(ctx, `
+				UPDATE match_admission_grants SET expires_at = $2 WHERE jti = $1
+			`, grant.GrantJTI, currentTime.Add(-time.Minute)); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := service.JoinGrantWithIdempotency(ctx, actor, attemptID, "member-scope-proof"); errorCode(err) != "MATCH_JOIN_INTENT_COMPLETED" {
+				t.Fatalf("expired join intent was replayed: %v", err)
+			}
+			if _, err := pool.Exec(ctx, `
+				UPDATE match_admission_grants SET expires_at = $2 WHERE jti = $1
+			`, grant.GrantJTI, grant.ExpiresAt); err != nil {
+				t.Fatal(err)
+			}
 		}
 		connectedGrants[actor.PlayerID] = grant
 		grantJTI := decodeJoinGrantJTI(t, grant.Grant)
@@ -157,6 +212,44 @@ func TestStrictRosterDedicatedLifecycleAgainstPostgreSQL(t *testing.T) {
 		); err != nil {
 			t.Fatal(err)
 		}
+		assertMemberConnectionEvidence(t, ctx, service, actor, attemptID, MemberConnectionEvidence{
+			AttemptID: attemptID, AuthoritySessionID: allocationClaims.AuthoritySessionID,
+			WorldInstanceID: "world-dedicated-primary", RosterRevision: active.Attempt.RosterRevision,
+			RouteGeneration: active.Attempt.RouteGeneration, PlayerID: actor.PlayerID,
+			Role: "MEMBER", GrantJTI: grantJTI, ConnectionGeneration: grant.ConnectionGeneration,
+			NativeConnectionNonce: nativeNonce, ConnectionState: "CONNECTED",
+		})
+		if actor.PlayerID == owner.PlayerID {
+			if _, err := service.CurrentMemberConnection(ctx, member, attemptID); errorCode(err) != "MATCH_CONNECTION_NOT_CONNECTED" {
+				t.Fatalf("wrong Dedicated player received connection evidence: %v", err)
+			}
+		}
+	}
+	if _, err := pool.Exec(ctx, `
+		UPDATE match_attempt_roster
+		SET connection_generation = connection_generation + 1
+		WHERE attempt_id = $1 AND player_id = $2
+	`, attemptID, member.PlayerID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.CurrentMemberConnection(ctx, member, attemptID); errorCode(err) != "MATCH_CONNECTION_NOT_CONNECTED" {
+		t.Fatalf("stale Dedicated generation exposed connection evidence: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		UPDATE match_attempt_roster
+		SET connection_generation = connection_generation - 1
+		WHERE attempt_id = $1 AND player_id = $2
+	`, attemptID, member.PlayerID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, "UPDATE match_attempts SET route_generation = route_generation + 1 WHERE id = $1", attemptID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.CurrentMemberConnection(ctx, member, attemptID); errorCode(err) != "MATCH_CONNECTION_NOT_CONNECTED" {
+		t.Fatalf("stale Dedicated route exposed connection evidence: %v", err)
+	}
+	if _, err := pool.Exec(ctx, "UPDATE match_attempts SET route_generation = route_generation - 1 WHERE id = $1", attemptID); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := service.JoinGrant(ctx, owner, attemptID); errorCode(err) != "MATCH_CONNECTION_STILL_ACTIVE" {
 		t.Fatalf("live Dedicated connection received a reconnect grant: %v", err)
@@ -185,6 +278,9 @@ func TestStrictRosterDedicatedLifecycleAgainstPostgreSQL(t *testing.T) {
 		connectedGrants[owner.PlayerID].ConnectionGeneration,
 	); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := service.CurrentMemberConnection(ctx, owner, attemptID); errorCode(err) != "MATCH_CONNECTION_NOT_CONNECTED" {
+		t.Fatalf("disconnected Dedicated member exposed connection evidence: %v", err)
 	}
 	disconnectedView, err := service.Get(ctx, active.LobbyID, owner.PlayerID)
 	if err != nil || !disconnectedView.Local.CanRetry {

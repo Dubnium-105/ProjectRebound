@@ -499,6 +499,7 @@ func buildHandler(
 		router.Post("/v1/match-lobbies/{lobby_id}/leave", matchLobbyHandler.Leave)
 		router.Post("/v1/match-lobbies/{lobby_id}/start", matchLobbyHandler.Start)
 		router.Post("/v1/match-attempts/{attempt_id}/join-grant", matchLobbyHandler.JoinGrant)
+		router.Get("/v1/match-attempts/{attempt_id}/members/me/connection", matchLobbyHandler.MemberConnection)
 		router.Get("/v1/match-attempts/{attempt_id}/join-grants/{grant_jti}/delivery", matchLobbyHandler.GrantDelivery)
 		router.Get("/v1/match-attempts/{attempt_id}/host/allocation", matchLobbyHandler.P2PHostAllocation)
 		router.Get("/v1/match-attempts/{attempt_id}/host/admissions", matchLobbyHandler.P2PAuthorityAdmissions)

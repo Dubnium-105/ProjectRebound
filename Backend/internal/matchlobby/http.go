@@ -18,6 +18,7 @@ const authoritySessionHeader = "X-Match-Authority-Session"
 type HTTPService interface {
 	Create(context.Context, Actor, CreateInput) (CreateResult, error)
 	Get(context.Context, string, string) (Snapshot, error)
+	CurrentMemberConnection(context.Context, Actor, string) (MemberConnectionEvidence, error)
 	Active(context.Context, Actor) (CreateResult, error)
 	List(context.Context, ListFilter) (ListResult, error)
 	Join(context.Context, Actor, string, int, int64) (Snapshot, error)
@@ -119,6 +120,19 @@ func (h *HTTPHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	api.WriteData(w, r, http.StatusOK, snapshot)
+}
+
+func (h *HTTPHandler) MemberConnection(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
+	evidence, err := h.service.CurrentMemberConnection(
+		r.Context(), actorFromRequest(r), chi.URLParam(r, "attempt_id"),
+	)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	api.WriteData(w, r, http.StatusOK, evidence)
 }
 
 func (h *HTTPHandler) Active(w http.ResponseWriter, r *http.Request) {

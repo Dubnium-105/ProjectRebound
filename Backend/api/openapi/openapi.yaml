@@ -2724,6 +2724,22 @@ paths:
           content: {application/json: {schema: {$ref: "#/components/schemas/MatchJoinGrantResponse"}}}
         "403": {$ref: "#/components/responses/Forbidden"}
         "409": {$ref: "#/components/responses/Conflict"}
+  /v1/match-attempts/{attempt_id}/members/me/connection:
+    get:
+      operationId: getCurrentMatchMemberConnection
+      tags: [Match Admission]
+      security: [{playerAccessToken: []}]
+      parameters: [{$ref: "#/components/parameters/MatchAttemptID"}]
+      responses:
+        "200":
+          description: Exact server-validated CONNECTED evidence for the authenticated member's current generation.
+          headers:
+            Cache-Control: {schema: {type: string, const: no-store}}
+            Pragma: {schema: {type: string, const: no-cache}}
+          content: {application/json: {schema: {$ref: "#/components/schemas/MatchMemberConnectionResponse"}}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409": {$ref: "#/components/responses/Conflict"}
   /v1/match-attempts/{attempt_id}/host/allocation:
     get:
       operationId: getP2PMatchAllocation
@@ -7221,14 +7237,43 @@ components:
         data:
           type: object
           additionalProperties: false
-          required: [attempt_id, endpoint_host, endpoint_port, join_grant, expires_at, connection_generation]
+          required: [attempt_id, authority_session_id, world_instance_id, roster_revision, route_generation, player_id, grant_jti, endpoint_host, endpoint_port, join_grant, expires_at, connection_generation]
           properties:
             attempt_id: {type: string}
+            authority_session_id: {type: string, minLength: 1, maxLength: 128}
+            world_instance_id: {type: string, minLength: 1, maxLength: 128}
+            roster_revision: {type: integer, format: int64, minimum: 1}
+            route_generation: {type: integer, minimum: 1}
+            player_id: {type: string, minLength: 1, maxLength: 128}
+            grant_jti: {type: string, minLength: 8, maxLength: 128}
             endpoint_host: {type: string}
             endpoint_port: {type: integer, minimum: 1, maximum: 65535}
             join_grant: {type: string, writeOnly: true}
             expires_at: {type: string, format: date-time}
             connection_generation: {type: integer, minimum: 1}
+        request_id: {type: string}
+    MatchMemberConnectionEvidence:
+      type: object
+      additionalProperties: false
+      required: [attempt_id, authority_session_id, world_instance_id, roster_revision, route_generation, player_id, role, grant_jti, connection_generation, native_connection_nonce, connection_state]
+      properties:
+        attempt_id: {type: string}
+        authority_session_id: {type: string, minLength: 1, maxLength: 128}
+        world_instance_id: {type: string, minLength: 1, maxLength: 128}
+        roster_revision: {type: integer, format: int64, minimum: 1}
+        route_generation: {type: integer, minimum: 1}
+        player_id: {type: string, minLength: 1, maxLength: 128}
+        role: {type: string, enum: [HOST, MEMBER]}
+        grant_jti: {type: string, description: "Empty for a P2P HOST seat, which has no JoinGrant."}
+        connection_generation: {type: integer, minimum: 1}
+        native_connection_nonce: {type: string, minLength: 16, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$"}
+        connection_state: {type: string, const: CONNECTED}
+    MatchMemberConnectionResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/MatchMemberConnectionEvidence"}
         request_id: {type: string}
     MatchAllocationResponse:
       type: object
