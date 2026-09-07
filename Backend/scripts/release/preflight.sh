@@ -7,7 +7,15 @@ env_file="${CONTROL_PLANE_ENV_FILE:-$backend_dir/deployments/control-plane/.env}
 compose_file="$backend_dir/deployments/control-plane/docker-compose.yaml"
 openapi_file="$backend_dir/api/openapi/openapi.yaml"
 image="${CONTROL_PLANE_IMAGE:?CONTROL_PLANE_IMAGE is required}"
-schema_version="${EXPECTED_SCHEMA_VERSION:-24}"
+latest_migration_file="$(find "$backend_dir/migrations" -maxdepth 1 -type f -name '[0-9][0-9][0-9][0-9][0-9][0-9]_*.sql' -printf '%f\n' | sort | tail -n 1)"
+[[ -n "$latest_migration_file" ]] || { printf 'PREFLIGHT_FAILED check=migration-files\n' >&2; exit 1; }
+latest_migration_version_text="${latest_migration_file%%_*}"
+latest_migration_version="$((10#$latest_migration_version_text))"
+if [[ -n "${EXPECTED_SCHEMA_VERSION:-}" && "${EXPECTED_SCHEMA_VERSION}" != "$latest_migration_version" ]]; then
+  printf 'PREFLIGHT_FAILED check=migration-contract-version expected=%s actual=%s\n' "$EXPECTED_SCHEMA_VERSION" "$latest_migration_version" >&2
+  exit 1
+fi
+schema_version="$latest_migration_version"
 backup_dir="${BACKUP_DIRECTORY:-$backend_dir/backups/postgres}"
 record_file="${RELEASE_RECORD_FILE:-$backend_dir/release-record.json}"
 

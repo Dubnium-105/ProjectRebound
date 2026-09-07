@@ -469,8 +469,19 @@ func (s *Service) ResolveConnectionParticipants(ctx context.Context, roomID, act
 }
 
 func (s *Service) MarkConnectionEstablished(ctx context.Context, roomID string) error {
+	room, err := s.repository.Get(ctx, roomID)
+	if err != nil {
+		return mapRoomError(err)
+	}
+	if room.ManagedLobbyID != "" {
+		// Managed transport connectivity is an observation only.  The
+		// authoritative MatchAttempt owns CONNECTING/RUNNING and advances only
+		// after native admission confirmations; a peer socket cannot freeze or
+		// start the roster.
+		return nil
+	}
 	now := s.now().UTC()
-	_, err := s.repository.MarkRunning(ctx, roomID, now)
+	_, err = s.repository.MarkRunning(ctx, roomID, now)
 	if err == nil {
 		if s.matchLifecycle != nil {
 			if lifecycleErr := s.matchLifecycle.MarkRoomRunning(ctx, roomID, now); lifecycleErr != nil {

@@ -104,6 +104,11 @@ type AttemptView struct {
 	EndpointPort       int          `json:"endpoint_port,omitempty"`
 	ConnectionDeadline *time.Time   `json:"connection_deadline,omitempty"`
 	FailureCode        string       `json:"failure_code,omitempty"`
+	CleanupState       string       `json:"cleanup_state"`
+	CleanupRequestedAt *time.Time   `json:"cleanup_requested_at,omitempty"`
+	NativeClearedAt    *time.Time   `json:"native_cleared_at,omitempty"`
+	CleanupError       string       `json:"cleanup_error,omitempty"`
+	WorldInstanceID    string       `json:"world_instance_id,omitempty"`
 }
 
 type Snapshot struct {
@@ -261,6 +266,20 @@ type GrantDeliveryStatus struct {
 	Delivered   bool       `json:"delivered"`
 	DeliveredAt *time.Time `json:"delivered_at,omitempty"`
 	ExpiresAt   time.Time  `json:"expires_at"`
+}
+
+// AdmissionReservation is the bounded handoff between a verified native
+// identity and ConfirmConnected.  Reserving a grant never changes the roster
+// connection state; only confirmation may do that.
+type AdmissionReservation struct {
+	AttemptID            string    `json:"attempt_id"`
+	GrantJTI             string    `json:"grant_jti"`
+	PlayerID             string    `json:"player_id"`
+	WorldInstanceID      string    `json:"world_instance_id"`
+	NativeConnectionNonce string   `json:"native_connection_nonce"`
+	ConnectionGeneration int       `json:"connection_generation"`
+	RouteGeneration      int       `json:"route_generation"`
+	ReservedUntil        time.Time `json:"reserved_until"`
 }
 
 type AllocationResult struct {

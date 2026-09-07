@@ -438,31 +438,30 @@ func buildHandler(
 	)
 	matchLobbyService.SetP2PTransport(p2pRoomService)
 	matchLobbyService.SetP2PMatchProjector(p2pBattleLogService)
-	if err := matchLobbyService.FailClosedDisabledAttempts(ctx); err != nil {
-		return nil, nil, fmt.Errorf("fail closed strict-roster attempts: %w", err)
-	}
 	matchLobbyHandler := matchlobby.NewHTTPHandler(matchLobbyService, logger)
-	router.Get("/v1/p2p-rooms", p2pRoomHandler.List)
-	router.Get("/v1/p2p-rooms/{room_id}", p2pRoomHandler.Get)
+	// The standalone online room directory/CRUD is retired.  Managed
+	// transport is created and controlled only by MatchLobby/MatchAttempt.
+	router.Get("/v1/p2p-rooms", p2pRoomHandler.RetiredOnlineRoute)
+	router.Get("/v1/p2p-rooms/{room_id}", p2pRoomHandler.RetiredOnlineRoute)
 	router.Group(func(router chi.Router) {
 		router.Use(auth.RequireAccess(authService, logger))
 		router.Use(auth.RequireActive)
 		router.Use(auth.RequireVerified)
-		router.Post("/v1/p2p-rooms", p2pRoomHandler.Create)
-		router.Post("/v1/p2p-rooms/{room_id}/join", p2pRoomHandler.Join)
-		router.Post("/v1/p2p-rooms/{room_id}/leave", p2pRoomHandler.Leave)
-		router.Post("/v1/p2p-rooms/{room_id}/heartbeat", p2pRoomHandler.Heartbeat)
-		router.Post("/v1/p2p-rooms/{room_id}/start", p2pRoomHandler.Start)
-		router.Delete("/v1/p2p-rooms/{room_id}", p2pRoomHandler.Delete)
-		router.Post("/v1/p2p-rooms/{room_id}/vnt/bootstrap", p2pRoomHandler.VNTBootstrap)
-		router.Put("/v1/p2p-rooms/{room_id}/vnt/presence/me", p2pRoomHandler.UpdateVNTPresence)
-		router.Put("/v1/p2p-rooms/{room_id}/vnt/host-ready", p2pRoomHandler.VNTHostReady)
-		router.Post("/v1/p2p-rooms/{room_id}/vnt/rebind", p2pRoomHandler.VNTRebind)
-		router.Get("/v1/p2p-rooms/{room_id}/matches/active", p2pBattleLogHandler.ActiveMatch)
-		router.Post("/v1/p2p-matches/{match_id}/report-capability", p2pBattleLogHandler.IssueCapability)
-		router.Put("/v1/p2p-matches/{match_id}/presence/me", p2pBattleLogHandler.Presence)
-		router.Put("/v1/p2p-matches/{match_id}/reports/{report_id}", p2pBattleLogHandler.SubmitReport)
-		router.Get("/v1/p2p-matches/{match_id}/result", p2pBattleLogHandler.Result)
+		router.Post("/v1/p2p-rooms", p2pRoomHandler.RetiredOnlineRoute)
+		router.Post("/v1/p2p-rooms/{room_id}/join", p2pRoomHandler.RetiredOnlineRoute)
+		router.Post("/v1/p2p-rooms/{room_id}/leave", p2pRoomHandler.RetiredOnlineRoute)
+		router.Post("/v1/p2p-rooms/{room_id}/heartbeat", p2pRoomHandler.RetiredOnlineRoute)
+		router.Post("/v1/p2p-rooms/{room_id}/start", p2pRoomHandler.RetiredOnlineRoute)
+		router.Delete("/v1/p2p-rooms/{room_id}", p2pRoomHandler.RetiredOnlineRoute)
+		router.Post("/v1/p2p-rooms/{room_id}/vnt/bootstrap", p2pRoomHandler.RetiredOnlineRoute)
+		router.Put("/v1/p2p-rooms/{room_id}/vnt/presence/me", p2pRoomHandler.RetiredOnlineRoute)
+		router.Put("/v1/p2p-rooms/{room_id}/vnt/host-ready", p2pRoomHandler.RetiredOnlineRoute)
+		router.Post("/v1/p2p-rooms/{room_id}/vnt/rebind", p2pRoomHandler.RetiredOnlineRoute)
+		router.Get("/v1/p2p-rooms/{room_id}/matches/active", p2pBattleLogHandler.RetiredOnlineRoute)
+		router.Post("/v1/p2p-matches/{match_id}/report-capability", p2pBattleLogHandler.RetiredOnlineRoute)
+		router.Put("/v1/p2p-matches/{match_id}/presence/me", p2pBattleLogHandler.RetiredOnlineRoute)
+		router.Put("/v1/p2p-matches/{match_id}/reports/{report_id}", p2pBattleLogHandler.RetiredOnlineRoute)
+		router.Get("/v1/p2p-matches/{match_id}/result", p2pBattleLogHandler.RetiredOnlineRoute)
 
 		router.Get("/v1/match-lobbies", matchLobbyHandler.List)
 		router.Get("/v1/match-lobbies/active", matchLobbyHandler.Active)
@@ -479,12 +478,15 @@ func buildHandler(
 		router.Get("/v1/match-attempts/{attempt_id}/host/allocation", matchLobbyHandler.P2PHostAllocation)
 		router.Get("/v1/match-attempts/{attempt_id}/host/admissions", matchLobbyHandler.P2PAuthorityAdmissions)
 		router.Post("/v1/match-attempts/{attempt_id}/host/admissions/{grant_jti}/delivered", matchLobbyHandler.P2PAdmissionDelivered)
+		router.Post("/v1/match-attempts/{attempt_id}/host/admissions/{grant_jti}/reserve", matchLobbyHandler.P2PAdmissionReserve)
+		router.Post("/v1/match-attempts/{attempt_id}/host/admissions/{grant_jti}/release", matchLobbyHandler.P2PAdmissionRelease)
 		router.Post("/v1/match-attempts/{attempt_id}/host/payload-installed", matchLobbyHandler.P2PPayloadInstalled)
 		router.Post("/v1/match-attempts/{attempt_id}/host/ready", matchLobbyHandler.P2PAuthorityReady)
 		router.Post("/v1/match-attempts/{attempt_id}/host/connected", matchLobbyHandler.P2PConnected)
 		router.Post("/v1/match-attempts/{attempt_id}/host/disconnected", matchLobbyHandler.P2PDisconnected)
 		router.Post("/v1/match-attempts/{attempt_id}/host/heartbeat", matchLobbyHandler.P2PAuthorityHeartbeat)
 		router.Post("/v1/match-attempts/{attempt_id}/host/complete", matchLobbyHandler.P2PComplete)
+		router.Post("/v1/match-attempts/{attempt_id}/host/native-cleared", matchLobbyHandler.P2PNativeCleared)
 	})
 	router.With(gameServerHandler.RequireCredentialProof).
 		Get("/v1/game-servers/{server_id}/match-attempts/{attempt_id}/allocation", matchLobbyHandler.DedicatedAllocation)
@@ -492,6 +494,10 @@ func buildHandler(
 		Get("/v1/game-servers/{server_id}/match-attempts/{attempt_id}/admissions", matchLobbyHandler.DedicatedAuthorityAdmissions)
 	router.With(gameServerHandler.RequireCredentialProof).
 		Post("/v1/game-servers/{server_id}/match-attempts/{attempt_id}/admissions/{grant_jti}/delivered", matchLobbyHandler.DedicatedAdmissionDelivered)
+	router.With(gameServerHandler.RequireCredentialProof).
+		Post("/v1/game-servers/{server_id}/match-attempts/{attempt_id}/admissions/{grant_jti}/reserve", matchLobbyHandler.DedicatedAdmissionReserve)
+	router.With(gameServerHandler.RequireCredentialProof).
+		Post("/v1/game-servers/{server_id}/match-attempts/{attempt_id}/admissions/{grant_jti}/release", matchLobbyHandler.DedicatedAdmissionRelease)
 	router.With(gameServerHandler.RequireCredentialProof).
 		Post("/v1/game-servers/{server_id}/match-attempts/{attempt_id}/payload-installed", matchLobbyHandler.DedicatedPayloadInstalled)
 	router.With(gameServerHandler.RequireCredentialProof).
@@ -504,6 +510,8 @@ func buildHandler(
 		Post("/v1/game-servers/{server_id}/match-attempts/{attempt_id}/heartbeat", matchLobbyHandler.AuthorityHeartbeat)
 	router.With(gameServerHandler.RequireCredentialProof).
 		Post("/v1/game-servers/{server_id}/match-attempts/{attempt_id}/complete", matchLobbyHandler.Complete)
+	router.With(gameServerHandler.RequireCredentialProof).
+		Post("/v1/game-servers/{server_id}/match-attempts/{attempt_id}/native-cleared", matchLobbyHandler.NativeCleared)
 
 	realtimeHub := connection.NewHub(cfg.Connection.WebSocketQueueSize)
 	connectionService := connection.NewService(

@@ -27,25 +27,32 @@ type HTTPService interface {
 	Leave(context.Context, Actor, string, string, int64) (Snapshot, error)
 	Start(context.Context, Actor, string, int64) (Snapshot, error)
 	P2PPayloadInstalled(context.Context, Actor, string, string, string, string, int) (Snapshot, error)
-	P2PAuthorityReady(context.Context, Actor, string, string, string, string, int, int) (Snapshot, error)
+	P2PAuthorityReady(context.Context, Actor, string, string, string, string, int, int, string, string) (Snapshot, error)
 	P2PHostAllocation(context.Context, Actor, string) (AllocationResult, error)
 	DedicatedAllocation(context.Context, string, string) (AllocationResult, error)
 	DedicatedPayloadInstalled(context.Context, string, string, string, string, string, int) (Snapshot, error)
-	DedicatedAuthorityReady(context.Context, string, string, string) (Snapshot, error)
+	DedicatedAuthorityReady(context.Context, string, string, string, string, string) (Snapshot, error)
 	JoinGrant(context.Context, Actor, string) (GrantResult, error)
+	JoinGrantWithIdempotency(context.Context, Actor, string, string) (GrantResult, error)
 	GrantDelivery(context.Context, Actor, string, string) (GrantDeliveryStatus, error)
 	AuthorityAdmissions(context.Context, string, string, string) (AuthorityAdmissionList, error)
 	P2PAuthorityAdmissions(context.Context, Actor, string, string) (AuthorityAdmissionList, error)
 	MarkAdmissionDelivered(context.Context, string, string, string, string) (GrantDeliveryStatus, error)
 	P2PMarkAdmissionDelivered(context.Context, Actor, string, string, string) (GrantDeliveryStatus, error)
-	MarkConnected(context.Context, string, string, string, string, string, int) (Snapshot, error)
-	P2PMarkConnected(context.Context, Actor, string, string, string, string, int) (Snapshot, error)
-	MarkDisconnected(context.Context, string, string, string, string, int) (Snapshot, error)
-	P2PMarkDisconnected(context.Context, Actor, string, string, string, int) (Snapshot, error)
+	ReserveAdmission(context.Context, string, string, string, string, string, string, string, int) (AdmissionReservation, error)
+	P2PReserveAdmission(context.Context, Actor, string, string, string, string, string, string, int) (AdmissionReservation, error)
+	ReleaseAdmission(context.Context, string, string, string, string, string, string, string, int) error
+	P2PReleaseAdmission(context.Context, Actor, string, string, string, string, string, string, int) error
+	ConfirmConnected(context.Context, string, string, string, string, string, string, string, int) (Snapshot, error)
+	P2PConfirmConnected(context.Context, Actor, string, string, string, string, string, string, int) (Snapshot, error)
+	MarkDisconnected(context.Context, string, string, string, string, string, string, int) (Snapshot, error)
+	P2PMarkDisconnected(context.Context, Actor, string, string, string, string, string, int) (Snapshot, error)
 	AuthorityHeartbeat(context.Context, string, string, string) error
 	P2PAuthorityHeartbeat(context.Context, Actor, string, string) error
 	Complete(context.Context, string, string, string, bool, string) (Snapshot, error)
 	P2PComplete(context.Context, Actor, string, string, bool, string) (Snapshot, error)
+	NativeCleared(context.Context, string, string, string, string, int64, int) (Snapshot, error)
+	P2PNativeCleared(context.Context, Actor, string, string, string, int64, int) (Snapshot, error)
 }
 
 type HTTPHandler struct {
@@ -212,7 +219,12 @@ func (h *HTTPHandler) Start(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPHandler) JoinGrant(w http.ResponseWriter, r *http.Request) {
-	result, err := h.service.JoinGrant(r.Context(), actorFromRequest(r), chi.URLParam(r, "attempt_id"))
+	intentKey := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	if intentKey == "" {
+		api.WriteError(w, r, http.StatusBadRequest, "MATCH_JOIN_IDEMPOTENCY_REQUIRED", "Idempotency-Key is required for a join intent.", nil)
+		return
+	}
+	result, err := h.service.JoinGrantWithIdempotency(r.Context(), actorFromRequest(r), chi.URLParam(r, "attempt_id"), intentKey)
 	if err != nil {
 		h.writeError(w, r, err)
 		return
@@ -260,6 +272,49 @@ func (h *HTTPHandler) P2PAdmissionDelivered(w http.ResponseWriter, r *http.Reque
 	api.WriteData(w, r, http.StatusOK, result)
 }
 
+func (h *HTTPHandler) P2PAdmissionReserve(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		PlayerID              string `json:"player_id"`
+		WorldInstanceID       string `json:"world_instance_id"`
+		NativeConnectionNonce string `json:"native_connection_nonce"`
+		ConnectionGeneration  int    `json:"connection_generation"`
+	}
+	if !h.decode(w, r, &request) {
+		return
+	}
+	result, err := h.service.P2PReserveAdmission(
+		r.Context(), actorFromRequest(r), r.Header.Get(authoritySessionHeader),
+		chi.URLParam(r, "attempt_id"), request.WorldInstanceID, request.PlayerID,
+		chi.URLParam(r, "grant_jti"), request.NativeConnectionNonce, request.ConnectionGeneration,
+	)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	api.WriteData(w, r, http.StatusOK, result)
+}
+
+func (h *HTTPHandler) P2PAdmissionRelease(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		PlayerID              string `json:"player_id"`
+		WorldInstanceID       string `json:"world_instance_id"`
+		NativeConnectionNonce string `json:"native_connection_nonce"`
+		ConnectionGeneration  int    `json:"connection_generation"`
+	}
+	if !h.decode(w, r, &request) {
+		return
+	}
+	if err := h.service.P2PReleaseAdmission(
+		r.Context(), actorFromRequest(r), r.Header.Get(authoritySessionHeader),
+		chi.URLParam(r, "attempt_id"), request.WorldInstanceID, request.PlayerID,
+		chi.URLParam(r, "grant_jti"), request.NativeConnectionNonce, request.ConnectionGeneration,
+	); err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	api.WriteData(w, r, http.StatusOK, map[string]bool{"released": true})
+}
+
 func (h *HTTPHandler) DedicatedAuthorityAdmissions(w http.ResponseWriter, r *http.Request) {
 	result, err := h.service.AuthorityAdmissions(
 		r.Context(), chi.URLParam(r, "server_id"), r.Header.Get(authoritySessionHeader),
@@ -285,6 +340,49 @@ func (h *HTTPHandler) DedicatedAdmissionDelivered(w http.ResponseWriter, r *http
 	api.WriteData(w, r, http.StatusOK, result)
 }
 
+func (h *HTTPHandler) DedicatedAdmissionReserve(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		PlayerID              string `json:"player_id"`
+		WorldInstanceID       string `json:"world_instance_id"`
+		NativeConnectionNonce string `json:"native_connection_nonce"`
+		ConnectionGeneration  int    `json:"connection_generation"`
+	}
+	if !h.decode(w, r, &request) {
+		return
+	}
+	result, err := h.service.ReserveAdmission(
+		r.Context(), chi.URLParam(r, "server_id"), r.Header.Get(authoritySessionHeader),
+		chi.URLParam(r, "attempt_id"), request.WorldInstanceID, request.PlayerID,
+		chi.URLParam(r, "grant_jti"), request.NativeConnectionNonce, request.ConnectionGeneration,
+	)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	api.WriteData(w, r, http.StatusOK, result)
+}
+
+func (h *HTTPHandler) DedicatedAdmissionRelease(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		PlayerID              string `json:"player_id"`
+		WorldInstanceID       string `json:"world_instance_id"`
+		NativeConnectionNonce string `json:"native_connection_nonce"`
+		ConnectionGeneration  int    `json:"connection_generation"`
+	}
+	if !h.decode(w, r, &request) {
+		return
+	}
+	if err := h.service.ReleaseAdmission(
+		r.Context(), chi.URLParam(r, "server_id"), r.Header.Get(authoritySessionHeader),
+		chi.URLParam(r, "attempt_id"), request.WorldInstanceID, request.PlayerID,
+		chi.URLParam(r, "grant_jti"), request.NativeConnectionNonce, request.ConnectionGeneration,
+	); err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	api.WriteData(w, r, http.StatusOK, map[string]bool{"released": true})
+}
+
 func (h *HTTPHandler) P2PHostAllocation(w http.ResponseWriter, r *http.Request) {
 	result, err := h.service.P2PHostAllocation(r.Context(), actorFromRequest(r), chi.URLParam(r, "attempt_id"))
 	if err != nil {
@@ -297,9 +395,11 @@ func (h *HTTPHandler) P2PHostAllocation(w http.ResponseWriter, r *http.Request) 
 
 func (h *HTTPHandler) P2PAuthorityReady(w http.ResponseWriter, r *http.Request) {
 	var request struct {
-		EndpointHost    string `json:"endpoint_host"`
-		EndpointPort    int    `json:"endpoint_port"`
-		RouteGeneration int    `json:"route_generation"`
+		EndpointHost          string `json:"endpoint_host"`
+		EndpointPort          int    `json:"endpoint_port"`
+		RouteGeneration       int    `json:"route_generation"`
+		WorldInstanceID       string `json:"world_instance_id"`
+		NativeConnectionNonce string `json:"native_connection_nonce"`
 	}
 	if !h.decode(w, r, &request) {
 		return
@@ -307,7 +407,7 @@ func (h *HTTPHandler) P2PAuthorityReady(w http.ResponseWriter, r *http.Request) 
 	snapshot, err := h.service.P2PAuthorityReady(
 		r.Context(), actorFromRequest(r), chi.URLParam(r, "attempt_id"),
 		r.Header.Get(authoritySessionHeader), r.Header.Get(transportHostTokenHeader), request.EndpointHost,
-		request.EndpointPort, request.RouteGeneration,
+		request.EndpointPort, request.RouteGeneration, request.WorldInstanceID, request.NativeConnectionNonce,
 	)
 	h.writeSnapshot(w, r, snapshot, err)
 }
@@ -331,31 +431,35 @@ func (h *HTTPHandler) P2PPayloadInstalled(w http.ResponseWriter, r *http.Request
 
 func (h *HTTPHandler) P2PConnected(w http.ResponseWriter, r *http.Request) {
 	var request struct {
-		PlayerID             string `json:"player_id"`
-		GrantJTI             string `json:"grant_jti"`
-		ConnectionGeneration int    `json:"connection_generation"`
+		PlayerID              string `json:"player_id"`
+		GrantJTI              string `json:"grant_jti"`
+		WorldInstanceID       string `json:"world_instance_id"`
+		NativeConnectionNonce string `json:"native_connection_nonce"`
+		ConnectionGeneration  int    `json:"connection_generation"`
 	}
 	if !h.decode(w, r, &request) {
 		return
 	}
-	snapshot, err := h.service.P2PMarkConnected(
+	snapshot, err := h.service.P2PConfirmConnected(
 		r.Context(), actorFromRequest(r), r.Header.Get(authoritySessionHeader), chi.URLParam(r, "attempt_id"),
-		request.PlayerID, request.GrantJTI, request.ConnectionGeneration,
+		request.WorldInstanceID, request.PlayerID, request.GrantJTI, request.NativeConnectionNonce, request.ConnectionGeneration,
 	)
 	h.writeSnapshot(w, r, snapshot, err)
 }
 
 func (h *HTTPHandler) P2PDisconnected(w http.ResponseWriter, r *http.Request) {
 	var request struct {
-		PlayerID             string `json:"player_id"`
-		ConnectionGeneration int    `json:"connection_generation"`
+		PlayerID              string `json:"player_id"`
+		WorldInstanceID       string `json:"world_instance_id"`
+		NativeConnectionNonce string `json:"native_connection_nonce"`
+		ConnectionGeneration  int    `json:"connection_generation"`
 	}
 	if !h.decode(w, r, &request) {
 		return
 	}
 	snapshot, err := h.service.P2PMarkDisconnected(
 		r.Context(), actorFromRequest(r), r.Header.Get(authoritySessionHeader), chi.URLParam(r, "attempt_id"),
-		request.PlayerID, request.ConnectionGeneration,
+		request.WorldInstanceID, request.PlayerID, request.NativeConnectionNonce, request.ConnectionGeneration,
 	)
 	h.writeSnapshot(w, r, snapshot, err)
 }
@@ -379,6 +483,22 @@ func (h *HTTPHandler) P2PComplete(w http.ResponseWriter, r *http.Request) {
 	snapshot, err := h.service.P2PComplete(
 		r.Context(), actorFromRequest(r), r.Header.Get(authoritySessionHeader), chi.URLParam(r, "attempt_id"),
 		request.Success, request.FailureCode,
+	)
+	h.writeSnapshot(w, r, snapshot, err)
+}
+
+func (h *HTTPHandler) P2PNativeCleared(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		WorldInstanceID string `json:"world_instance_id"`
+		RosterRevision  int64  `json:"roster_revision"`
+		RouteGeneration int    `json:"route_generation"`
+	}
+	if !h.decode(w, r, &request) {
+		return
+	}
+	snapshot, err := h.service.P2PNativeCleared(
+		r.Context(), actorFromRequest(r), r.Header.Get(authoritySessionHeader),
+		chi.URLParam(r, "attempt_id"), request.WorldInstanceID, request.RosterRevision, request.RouteGeneration,
 	)
 	h.writeSnapshot(w, r, snapshot, err)
 }
@@ -411,32 +531,43 @@ func (h *HTTPHandler) DedicatedAllocation(w http.ResponseWriter, r *http.Request
 }
 
 func (h *HTTPHandler) DedicatedAuthorityReady(w http.ResponseWriter, r *http.Request) {
-	snapshot, err := h.service.DedicatedAuthorityReady(r.Context(), chi.URLParam(r, "server_id"), chi.URLParam(r, "attempt_id"), r.Header.Get(authoritySessionHeader))
+	var request struct {
+		WorldInstanceID       string `json:"world_instance_id"`
+		NativeConnectionNonce string `json:"native_connection_nonce"`
+	}
+	if !h.decode(w, r, &request) {
+		return
+	}
+	snapshot, err := h.service.DedicatedAuthorityReady(r.Context(), chi.URLParam(r, "server_id"), chi.URLParam(r, "attempt_id"), r.Header.Get(authoritySessionHeader), request.WorldInstanceID, request.NativeConnectionNonce)
 	h.writeSnapshot(w, r, snapshot, err)
 }
 
 func (h *HTTPHandler) Connected(w http.ResponseWriter, r *http.Request) {
 	var request struct {
-		PlayerID             string `json:"player_id"`
-		GrantJTI             string `json:"grant_jti"`
-		ConnectionGeneration int    `json:"connection_generation"`
+		PlayerID              string `json:"player_id"`
+		GrantJTI              string `json:"grant_jti"`
+		WorldInstanceID       string `json:"world_instance_id"`
+		NativeConnectionNonce string `json:"native_connection_nonce"`
+		ConnectionGeneration  int    `json:"connection_generation"`
 	}
 	if !h.decode(w, r, &request) {
 		return
 	}
-	snapshot, err := h.service.MarkConnected(r.Context(), chi.URLParam(r, "server_id"), r.Header.Get(authoritySessionHeader), chi.URLParam(r, "attempt_id"), request.PlayerID, request.GrantJTI, request.ConnectionGeneration)
+	snapshot, err := h.service.ConfirmConnected(r.Context(), chi.URLParam(r, "server_id"), r.Header.Get(authoritySessionHeader), chi.URLParam(r, "attempt_id"), request.WorldInstanceID, request.PlayerID, request.GrantJTI, request.NativeConnectionNonce, request.ConnectionGeneration)
 	h.writeSnapshot(w, r, snapshot, err)
 }
 
 func (h *HTTPHandler) Disconnected(w http.ResponseWriter, r *http.Request) {
 	var request struct {
-		PlayerID             string `json:"player_id"`
-		ConnectionGeneration int    `json:"connection_generation"`
+		PlayerID              string `json:"player_id"`
+		WorldInstanceID       string `json:"world_instance_id"`
+		NativeConnectionNonce string `json:"native_connection_nonce"`
+		ConnectionGeneration  int    `json:"connection_generation"`
 	}
 	if !h.decode(w, r, &request) {
 		return
 	}
-	snapshot, err := h.service.MarkDisconnected(r.Context(), chi.URLParam(r, "server_id"), r.Header.Get(authoritySessionHeader), chi.URLParam(r, "attempt_id"), request.PlayerID, request.ConnectionGeneration)
+	snapshot, err := h.service.MarkDisconnected(r.Context(), chi.URLParam(r, "server_id"), r.Header.Get(authoritySessionHeader), chi.URLParam(r, "attempt_id"), request.WorldInstanceID, request.PlayerID, request.NativeConnectionNonce, request.ConnectionGeneration)
 	h.writeSnapshot(w, r, snapshot, err)
 }
 
@@ -457,6 +588,22 @@ func (h *HTTPHandler) Complete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	snapshot, err := h.service.Complete(r.Context(), chi.URLParam(r, "server_id"), r.Header.Get(authoritySessionHeader), chi.URLParam(r, "attempt_id"), request.Success, request.FailureCode)
+	h.writeSnapshot(w, r, snapshot, err)
+}
+
+func (h *HTTPHandler) NativeCleared(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		WorldInstanceID string `json:"world_instance_id"`
+		RosterRevision  int64  `json:"roster_revision"`
+		RouteGeneration int    `json:"route_generation"`
+	}
+	if !h.decode(w, r, &request) {
+		return
+	}
+	snapshot, err := h.service.NativeCleared(
+		r.Context(), chi.URLParam(r, "server_id"), r.Header.Get(authoritySessionHeader),
+		chi.URLParam(r, "attempt_id"), request.WorldInstanceID, request.RosterRevision, request.RouteGeneration,
+	)
 	h.writeSnapshot(w, r, snapshot, err)
 }
 

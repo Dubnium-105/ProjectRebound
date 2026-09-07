@@ -128,7 +128,8 @@ func (s *Service) Sweep(ctx context.Context) error {
 	// cannot be reconstructed and therefore ends terminally.
 	staleBefore := now.Add(-authorityHeartbeatStale)
 	dedicatedRows, err := tx.Query(ctx, `
-		SELECT id, lobby_id, COALESCE(authority_id, ''), state
+		SELECT id, lobby_id, COALESCE(authority_id, ''), state,
+		       payload_installed_at IS NOT NULL
 		FROM match_attempts
 		WHERE hosting_kind = 'DEDICATED'
 		  AND (
@@ -144,11 +145,12 @@ func (s *Service) Sweep(ctx context.Context) error {
 	type failedDedicated struct {
 		attemptID, lobbyID, authorityID string
 		state                           AttemptState
+		payloadInstalled                bool
 	}
 	var failedDedicatedAttempts []failedDedicated
 	for dedicatedRows.Next() {
 		var item failedDedicated
-		if err := dedicatedRows.Scan(&item.attemptID, &item.lobbyID, &item.authorityID, &item.state); err != nil {
+		if err := dedicatedRows.Scan(&item.attemptID, &item.lobbyID, &item.authorityID, &item.state, &item.payloadInstalled); err != nil {
 			dedicatedRows.Close()
 			return err
 		}
@@ -164,11 +166,19 @@ func (s *Service) Sweep(ctx context.Context) error {
 		if item.state == AttemptProvisioning {
 			failureCode = "DEDICATED_PROVISIONING_TIMEOUT"
 		}
+		cleanupState := "CLEARED"
+		if item.payloadInstalled || item.state == AttemptRunning {
+			cleanupState = "PENDING"
+		}
 		if _, err := tx.Exec(ctx, `
 			UPDATE match_attempts
-			SET state = 'ABORTED', failure_code = $2, completed_at = $3, updated_at = $3
+			SET state = 'ABORTED', failure_code = $2, completed_at = $3,
+			    cleanup_state = $4::varchar,
+			    cleanup_requested_at = CASE WHEN $4::varchar = 'PENDING' THEN COALESCE(cleanup_requested_at, $3::timestamptz) ELSE cleanup_requested_at END,
+			    cleanup_lease_expires_at = CASE WHEN $4::varchar = 'PENDING' THEN $3::timestamptz + ($5::int * interval '1 second') ELSE NULL END,
+			    updated_at = $3
 			WHERE id = $1
-		`, item.attemptID, failureCode, now); err != nil {
+		`, item.attemptID, failureCode, now, cleanupState, s.config.ProvisioningSeconds); err != nil {
 			return err
 		}
 		if item.state == AttemptRunning {
@@ -221,16 +231,19 @@ func (s *Service) Sweep(ctx context.Context) error {
 		`, item.attemptID, failureCode, now); err != nil {
 			return err
 		}
+		serverState := "READY"
+		if cleanupState == "PENDING" {
+			serverState = "CLEANUP_PENDING"
+		}
 		if _, err := tx.Exec(ctx, `
 			UPDATE game_servers
-			SET state = CASE
-			      WHEN last_heartbeat_at > $3
-			       AND token_revoked_at IS NULL AND token_expires_at > $2
-			      THEN 'READY' ELSE 'UNHEALTHY'
-			    END,
+			SET state = CASE WHEN $4::varchar = 'CLEANUP_PENDING' THEN 'CLEANUP_PENDING'
+			      WHEN last_heartbeat_at > $3::timestamptz
+			       AND token_revoked_at IS NULL AND token_expires_at > $2::timestamptz
+			      THEN 'READY' ELSE 'UNHEALTHY' END,
 			    player_count = 0, updated_at = $2
-			WHERE id = $1 AND state IN ('RESERVED', 'RUNNING')
-		`, item.authorityID, now, now.Add(-s.serverFreshness)); err != nil {
+			WHERE id = $1 AND state IN ('RESERVED', 'RUNNING', 'CLEANUP_PENDING')
+		`, item.authorityID, now, now.Add(-s.serverFreshness), serverState); err != nil {
 			return err
 		}
 	}
@@ -275,7 +288,17 @@ func (s *Service) Sweep(ctx context.Context) error {
 			}
 			continue
 		}
-		if _, err := tx.Exec(ctx, `UPDATE match_attempts SET state = 'ABORTED', failure_code = 'INITIAL_TEAM_EMPTY', completed_at = $2, updated_at = $2 WHERE id = $1`, attempt.id, now); err != nil {
+		// A connection window ending is a cleanup boundary even when no player
+		// reached RUNNING: the authority may already have installed Payload or a
+		// transport/world allocation. Keep the attempt isolated until the scoped
+		// NativeCleared acknowledgement arrives.
+		if _, err := tx.Exec(ctx, `
+			UPDATE match_attempts
+			SET state = 'ABORTED', failure_code = 'INITIAL_TEAM_EMPTY', completed_at = $2,
+			    cleanup_state = 'PENDING', cleanup_requested_at = COALESCE(cleanup_requested_at, $2),
+			    cleanup_lease_expires_at = $2 + ($3 * interval '1 second'), updated_at = $2
+			WHERE id = $1
+		`, attempt.id, now, s.config.ProvisioningSeconds); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `
@@ -307,7 +330,7 @@ func (s *Service) Sweep(ctx context.Context) error {
 			return err
 		}
 		if attempt.hosting == string(HostingDedicated) {
-			if _, err := tx.Exec(ctx, `UPDATE game_servers SET state = 'READY', player_count = 0, updated_at = $2 WHERE id = $1`, attempt.authorityID, now); err != nil {
+			if _, err := tx.Exec(ctx, `UPDATE game_servers SET state = 'CLEANUP_PENDING', player_count = 0, updated_at = $2 WHERE id = $1 AND state IN ('RESERVED', 'RUNNING', 'CLEANUP_PENDING')`, attempt.authorityID, now); err != nil {
 				return err
 			}
 		} else {
@@ -356,7 +379,13 @@ func (s *Service) Sweep(ctx context.Context) error {
 	}
 	hostRows.Close()
 	for _, item := range expiredHosts {
-		if _, err := tx.Exec(ctx, `UPDATE match_attempts SET state = 'ABORTED', failure_code = 'P2P_HOST_RECONNECT_TIMEOUT', completed_at = $2, updated_at = $2 WHERE id = $1`, item.attemptID, now); err != nil {
+		if _, err := tx.Exec(ctx, `
+			UPDATE match_attempts
+			SET state = 'ABORTED', failure_code = 'P2P_HOST_RECONNECT_TIMEOUT', completed_at = $2,
+			    cleanup_state = 'PENDING', cleanup_requested_at = COALESCE(cleanup_requested_at, $2),
+			    cleanup_lease_expires_at = $2 + ($3 * interval '1 second'), updated_at = $2
+			WHERE id = $1
+		`, item.attemptID, now, s.config.ProvisioningSeconds); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `UPDATE match_lobbies SET state = 'ABORTED', closed_at = $2, updated_at = $2 WHERE id = $1`, item.lobbyID, now); err != nil {

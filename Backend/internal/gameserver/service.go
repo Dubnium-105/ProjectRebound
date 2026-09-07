@@ -17,6 +17,9 @@ import (
 
 var labelPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 var instancePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
+var sha256HexPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
+
+const strictNativeAdmissionVersion = "strict-roster-v2"
 
 type Service struct {
 	repository         *Repository
@@ -209,6 +212,28 @@ func (s *Service) Heartbeat(ctx context.Context, serverID, serverToken string, i
 	if !isReportedState(input.State) {
 		return Server{}, invalid("Invalid game server state.", map[string]any{"state": "must be STARTING, READY, RESERVED, RUNNING, or DRAINING"})
 	}
+	if input.NativeAdmissionVerified {
+		input.NativeAdmissionVersion = strings.TrimSpace(input.NativeAdmissionVersion)
+		input.NativeAdmissionGameSHA256 = strings.ToLower(strings.TrimSpace(input.NativeAdmissionGameSHA256))
+		if !labelPattern.MatchString(input.NativeAdmissionVersion) || !sha256HexPattern.MatchString(input.NativeAdmissionGameSHA256) {
+			return Server{}, invalid("Invalid native admission capability.", map[string]any{
+				"native_admission_version": "a version label and lowercase game SHA-256 are required when verified",
+			})
+		}
+		if input.NativeAdmissionVersion != strictNativeAdmissionVersion {
+			// Legacy protocol attestations are never eligible for strict
+			// allocation. Clear the capability in this heartbeat transaction so
+			// an old proof cannot remain true while the node is registered.
+			input.NativeAdmissionVerified = false
+			input.NativeAdmissionVersion = ""
+			input.NativeAdmissionGameSHA256 = ""
+		}
+	} else {
+		// A process which no longer proves the capability must immediately lose
+		// eligibility.  Do not retain a previous true value across restarts.
+		input.NativeAdmissionVersion = ""
+		input.NativeAdmissionGameSHA256 = ""
+	}
 	if !strings.HasPrefix(serverToken, "gst_") || len(serverToken) < 64 {
 		return Server{}, unauthorized()
 	}
@@ -233,6 +258,15 @@ func (s *Service) Heartbeat(ctx context.Context, serverID, serverToken string, i
 		return Server{}, internal(err)
 	}
 	reportedState := input.State
+	cleanupPending, err := s.repository.HasPendingCleanup(ctx, tx, serverID)
+	if err != nil {
+		return Server{}, internal(err)
+	}
+	if cleanupPending {
+		// Cleanup is an independent lease. A stale READY heartbeat can never
+		// return an instance to the allocation pool before NativeCleared.
+		reportedState = StateCleanupPending
+	}
 	if assignment != nil {
 		// Meta owns reservation/running state for an assigned strict-roster
 		// attempt. A Payload heartbeat that still reports READY during
@@ -242,8 +276,17 @@ func (s *Service) Heartbeat(ctx context.Context, serverID, serverToken string, i
 			reportedState = StateRunning
 		}
 	}
+	if cleanupPending {
+		reportedState = StateCleanupPending
+	}
 	if !validTransition(current.State, reportedState) {
 		return Server{}, &ServiceError{Status: http.StatusConflict, Code: "INVALID_STATE_TRANSITION", Message: "Invalid game server state transition."}
+	}
+	if err := s.repository.UpdateStrictAdmissionCapability(
+		ctx, tx, serverID, input.NativeAdmissionVerified,
+		input.NativeAdmissionVersion, input.NativeAdmissionGameSHA256, now,
+	); err != nil {
+		return Server{}, internal(err)
 	}
 	updated, err := s.repository.UpdateHeartbeat(ctx, tx, serverID, reportedState, input.PlayerCount, now)
 	if err != nil {
@@ -425,6 +468,9 @@ func validTransition(current, next State) bool {
 	if current == StateOffline {
 		return false
 	}
+	if current == StateCleanupPending {
+		return next == StateCleanupPending
+	}
 	if current == StateDraining {
 		return next == StateDraining
 	}
@@ -447,7 +493,7 @@ func isReportedState(state State) bool {
 }
 
 func isState(state State) bool {
-	return isReportedState(state) || state == StateUnhealthy || state == StateOffline
+	return isReportedState(state) || state == StateUnhealthy || state == StateOffline || state == StateCleanupPending
 }
 
 func truncate(value string, maximum int) string {

@@ -56,6 +56,10 @@ func (r *Repository) Register(ctx context.Context, tx pgx.Tx, input Server) (Ser
 			deleted_by = NULL,
 			delete_reason = NULL,
 			credential_generation = game_servers.credential_generation + 1,
+			native_admission_verified = FALSE,
+			native_admission_version = NULL,
+			native_admission_game_sha256 = NULL,
+			native_admission_verified_at = NULL,
 			last_heartbeat_at = EXCLUDED.last_heartbeat_at,
 			updated_at = EXCLUDED.updated_at
 		WHERE game_servers.banned_at IS NULL AND (
@@ -228,6 +232,29 @@ func (r *Repository) UpdateHeartbeat(ctx context.Context, tx pgx.Tx, serverID st
 	))
 }
 
+// UpdateStrictAdmissionCapability records the attested capability advertised
+// by the server process.  The match allocator only consumes rows where this
+// value is true and the hash matches the control-plane locked build.
+func (r *Repository) UpdateStrictAdmissionCapability(
+	ctx context.Context,
+	tx pgx.Tx,
+	serverID string,
+	verified bool,
+	version, gameSHA256 string,
+	now time.Time,
+) error {
+	_, err := tx.Exec(ctx, `
+		UPDATE game_servers
+		SET native_admission_verified = $2,
+		    native_admission_version = NULLIF($3, ''),
+		    native_admission_game_sha256 = NULLIF($4, ''),
+		    native_admission_verified_at = CASE WHEN $2 THEN $5::timestamptz ELSE NULL::timestamptz END,
+		    updated_at = $5::timestamptz
+		WHERE id = $1 AND deleted_at IS NULL AND banned_at IS NULL
+	`, serverID, verified, version, gameSHA256, now)
+	return err
+}
+
 // ActiveMatchAssignment returns the strict-roster attempt currently bound to
 // this Dedicated Server. The game_servers row is already locked by Heartbeat;
 // this intentionally remains a plain MVCC read so completion (which locks the
@@ -235,13 +262,17 @@ func (r *Repository) UpdateHeartbeat(ctx context.Context, tx pgx.Tx, serverID st
 func (r *Repository) ActiveMatchAssignment(ctx context.Context, tx pgx.Tx, serverID string) (*MatchAssignment, error) {
 	var item MatchAssignment
 	err := tx.QueryRow(ctx, `
-		SELECT id, state, route_generation
+		SELECT id, state, authority_session_id,
+		       COALESCE(world_instance_id, ''), roster_revision, route_generation
 		FROM match_attempts
 		WHERE authority_id = $1 AND hosting_kind = 'DEDICATED'
 		  AND state IN ('FROZEN', 'PROVISIONING', 'CONNECTING', 'RUNNING')
 		ORDER BY created_at DESC, id DESC
 		LIMIT 1
-	`, serverID).Scan(&item.AttemptID, &item.State, &item.RouteGeneration)
+	`, serverID).Scan(
+		&item.AttemptID, &item.State, &item.AuthoritySessionID,
+		&item.WorldInstanceID, &item.RosterRevision, &item.RouteGeneration,
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -249,6 +280,20 @@ func (r *Repository) ActiveMatchAssignment(ctx context.Context, tx pgx.Tx, serve
 		return nil, err
 	}
 	return &item, nil
+}
+
+func (r *Repository) HasPendingCleanup(ctx context.Context, tx pgx.Tx, serverID string) (bool, error) {
+	var pending bool
+	err := tx.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM match_attempts
+			WHERE authority_id = $1 AND hosting_kind = 'DEDICATED'
+			  AND cleanup_state = 'PENDING'
+			  AND state IN ('COMPLETED', 'ABORTED')
+		)
+	`, serverID).Scan(&pending)
+	return pending, err
 }
 
 func (r *Repository) Deregister(ctx context.Context, tx pgx.Tx, serverID string, now time.Time) error {
@@ -302,6 +347,7 @@ func (r *Repository) SweepStale(ctx context.Context, now time.Time, unhealthyAft
 	tag, err := r.pool.Exec(ctx, `
 		UPDATE game_servers
 		SET state = CASE
+		        WHEN state = 'CLEANUP_PENDING' THEN 'CLEANUP_PENDING'
 		        WHEN last_heartbeat_at <= $2 THEN 'OFFLINE'
 		        WHEN last_heartbeat_at <= $3 THEN 'UNHEALTHY'
 		        ELSE state
@@ -329,6 +375,8 @@ const serverColumns = `
 	banned_at, COALESCE(banned_by, ''), COALESCE(ban_reason, ''),
 	deleted_at, COALESCE(deleted_by, ''), COALESCE(delete_reason, ''),
 	last_heartbeat_at, created_at, updated_at
+	, native_admission_verified, COALESCE(native_admission_version, ''),
+	  COALESCE(native_admission_game_sha256, ''), native_admission_verified_at
 `
 
 func scanServer(row pgx.Row) (Server, error) {
@@ -336,6 +384,7 @@ func scanServer(row pgx.Row) (Server, error) {
 	var revokedAt, previousExpiresAt, certificateExpiresAt sql.NullTime
 	var previousCertificateExpiresAt, legacyAuthExpiresAt sql.NullTime
 	var bannedAt, deletedAt sql.NullTime
+	var nativeAdmissionVerifiedAt sql.NullTime
 	err := row.Scan(
 		&item.ID,
 		&item.InstanceID,
@@ -373,7 +422,15 @@ func scanServer(row pgx.Row) (Server, error) {
 		&item.LastHeartbeatAt,
 		&item.CreatedAt,
 		&item.UpdatedAt,
+		&item.NativeAdmissionVerified,
+		&item.NativeAdmissionVersion,
+		&item.NativeAdmissionGameSHA256,
+		&nativeAdmissionVerifiedAt,
 	)
+	if nativeAdmissionVerifiedAt.Valid {
+		value := nativeAdmissionVerifiedAt.Time
+		item.NativeAdmissionVerifiedAt = &value
+	}
 	if revokedAt.Valid {
 		item.TokenRevokedAt = &revokedAt.Time
 	}

@@ -22,6 +22,12 @@ import (
 var lobbyLabelPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 var lobbyIdempotencyPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$`)
 var sha256HexPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
+var worldInstancePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
+var nativeConnectionNoncePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$`)
+
+// The admission mode remains strict_roster_v1. This is the native receipt
+// protocol version carried by the Payload pipe and backend capability proof.
+const strictNativeAdmissionVersion = "strict-roster-v2"
 
 const authorityHeartbeatStale = 30 * time.Second
 
@@ -61,92 +67,12 @@ func (s *Service) SetP2PMatchProjector(projector P2PMatchProjector) {
 }
 
 func (s *Service) FailClosedDisabledAttempts(ctx context.Context) error {
-	if s.config.StrictRosterV1Enabled {
-		return nil
-	}
-	now := s.now().UTC()
-	tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
-	rows, err := tx.Query(ctx, `
-		SELECT id, lobby_id, COALESCE(authority_id, ''), hosting_kind
-		FROM match_attempts
-		WHERE state IN ('FROZEN', 'PROVISIONING', 'CONNECTING', 'RUNNING')
-		FOR UPDATE
-	`)
-	if err != nil {
-		return err
-	}
-	type activeAttempt struct{ id, lobbyID, authorityID, hosting string }
-	var attempts []activeAttempt
-	for rows.Next() {
-		var item activeAttempt
-		if err := rows.Scan(&item.id, &item.lobbyID, &item.authorityID, &item.hosting); err != nil {
-			rows.Close()
-			return err
-		}
-		attempts = append(attempts, item)
-	}
-	if err := rows.Err(); err != nil {
-		rows.Close()
-		return err
-	}
-	rows.Close()
-	for _, attempt := range attempts {
-		if _, err := tx.Exec(ctx, `UPDATE match_attempts SET state = 'ABORTED', failure_code = 'STRICT_ROSTER_V1_DISABLED', completed_at = $2, updated_at = $2 WHERE id = $1`, attempt.id, now); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(ctx, `UPDATE match_admission_grants SET revoked_at = $2 WHERE attempt_id = $1 AND revoked_at IS NULL`, attempt.id, now); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(ctx, `UPDATE meta_matches SET state = 'FAILED', completed_at = $2, updated_at = $2 WHERE match_attempt_id = $1`, attempt.id, now); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(ctx, `
-			UPDATE meta_match_tickets AS ticket
-			SET state = 'FAILED', failure_code = 'STRICT_ROSTER_V1_DISABLED',
-			    completed_at = $2, updated_at = $2
-			FROM meta_matches AS match
-			WHERE match.match_attempt_id = $1 AND ticket.id = match.ticket_id
-			  AND ticket.state = 'MATCHED'
-		`, attempt.id, now); err != nil {
-			return err
-		}
-		if attempt.hosting == string(HostingDedicated) && attempt.authorityID != "" {
-			if _, err := tx.Exec(ctx, `UPDATE game_servers SET state = 'READY', player_count = 0, updated_at = $2 WHERE id = $1`, attempt.authorityID, now); err != nil {
-				return err
-			}
-		}
-		if _, err := tx.Exec(ctx, `UPDATE p2p_match_sessions SET state = 'ABORTED', finalized_at = $2, updated_at = $2 WHERE match_attempt_id = $1 AND state IN ('STARTING', 'RUNNING', 'COLLECTING')`, attempt.id, now); err != nil {
-			return err
-		}
-	}
-	if _, err := tx.Exec(ctx, `
-		UPDATE p2p_rooms AS room SET state = 'CLOSED', closed_at = $1, updated_at = $1
-		FROM match_lobbies AS lobby
-		WHERE room.managed_lobby_id = lobby.id
-		  AND lobby.state IN ('OPEN', 'FROZEN', 'PROVISIONING', 'CONNECTING', 'RUNNING')
-	`, now); err != nil {
-		return err
-	}
-	if _, err := tx.Exec(ctx, `
-		UPDATE match_lobby_members AS member
-		SET presence_state = 'OFFLINE', ready = FALSE
-		FROM match_lobbies AS lobby
-		WHERE member.lobby_id = lobby.id
-		  AND lobby.state IN ('OPEN', 'FROZEN', 'PROVISIONING', 'CONNECTING', 'RUNNING')
-	`); err != nil {
-		return err
-	}
-	if _, err := tx.Exec(ctx, `
-		UPDATE match_lobbies SET state = 'ABORTED', closed_at = $1, updated_at = $1
-		WHERE state IN ('OPEN', 'FROZEN', 'PROVISIONING', 'CONNECTING', 'RUNNING')
-	`, now); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
+	// Configuration validation is fail-closed for new work.  It must never
+	// mutate shared match attempts: a second instance starting with a different
+	// configuration cannot abort lobbies owned by the first instance.  Explicit
+	// operator cancellation and the normal lease sweeper are the only paths
+	// allowed to terminate an active attempt.
+	return nil
 }
 
 func (s *Service) Create(ctx context.Context, actor Actor, input CreateInput) (CreateResult, error) {
@@ -644,6 +570,19 @@ func (s *Service) Start(ctx context.Context, actor Actor, lobbyID string, expect
 		}
 		return s.Get(ctx, lobby.ID, actor.PlayerID)
 	}
+	var cleanupPending bool
+	if err := tx.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM match_attempts
+			WHERE lobby_id = $1 AND state IN ('COMPLETED', 'ABORTED')
+			  AND cleanup_state = 'PENDING'
+		)
+	`, lobby.ID).Scan(&cleanupPending); err != nil {
+		return Snapshot{}, internal(err)
+	}
+	if cleanupPending {
+		return Snapshot{}, conflict("MATCH_ATTEMPT_CLEANUP_PENDING", "The previous match attempt is still releasing its native world and transport resources.", nil)
+	}
 	if err := requireOpenRevision(lobby, expectedRevision); err != nil {
 		return Snapshot{}, err
 	}
@@ -679,11 +618,14 @@ func (s *Service) Start(ctx context.Context, actor Actor, lobbyID string, expect
 			  AND max_players - player_count >= $4
 			  AND last_heartbeat_at > $5 AND token_revoked_at IS NULL
 			  AND token_expires_at > $6
+			  AND native_admission_verified = TRUE
+			  AND native_admission_game_sha256 = $7
+			  AND native_admission_version = $8
 			ORDER BY CASE WHEN region = $3 THEN 0 ELSE 1 END,
 			         player_count::float / max_players, last_heartbeat_at DESC, id
 			FOR UPDATE SKIP LOCKED LIMIT 1
 		`, lobby.Mode, lobby.ClientVersion, lobby.Region, teamOne+teamTwo,
-			now.Add(-s.serverFreshness), now).Scan(&authorityID, &endpointHost, &endpointPort)
+			now.Add(-s.serverFreshness), now, strings.ToLower(strings.TrimSpace(s.config.LockedGameSHA256)), strictNativeAdmissionVersion).Scan(&authorityID, &endpointHost, &endpointPort)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Snapshot{}, conflict("MATCH_LOBBY_NO_DEDICATED_SERVER", "No compatible dedicated server is currently available.", nil)
 		}
@@ -838,12 +780,20 @@ func (s *Service) projectDedicated(ctx context.Context, tx pgx.Tx, lobby Lobby, 
 	return err
 }
 
-func (s *Service) P2PAuthorityReady(ctx context.Context, actor Actor, attemptID, authoritySession, hostToken, endpointHost string, endpointPort, routeGeneration int) (Snapshot, error) {
+func (s *Service) P2PAuthorityReady(ctx context.Context, actor Actor, attemptID, authoritySession, hostToken, endpointHost string, endpointPort, routeGeneration int, worldInstanceID, nativeConnectionNonce string) (Snapshot, error) {
 	if err := s.requireEnabled(); err != nil {
 		return Snapshot{}, err
 	}
 	if err := requireActive(actor); err != nil {
 		return Snapshot{}, err
+	}
+	worldInstanceID = strings.TrimSpace(worldInstanceID)
+	nativeConnectionNonce = strings.TrimSpace(nativeConnectionNonce)
+	if !worldInstancePattern.MatchString(worldInstanceID) {
+		return Snapshot{}, invalid("Invalid P2P world instance identity.", nil)
+	}
+	if !nativeConnectionNoncePattern.MatchString(nativeConnectionNonce) {
+		return Snapshot{}, invalid("Invalid P2P native connection nonce.", nil)
 	}
 	endpointIP := net.ParseIP(strings.TrimSpace(endpointHost))
 	if endpointIP == nil || endpointPort < 1 || endpointPort > 65535 || routeGeneration < 1 {
@@ -851,7 +801,7 @@ func (s *Service) P2PAuthorityReady(ctx context.Context, actor Actor, attemptID,
 	}
 	endpointHost = endpointIP.String()
 	queryNow := s.now().UTC()
-	var lobbyID, roomID, ownerID, storedEndpointHost string
+	var lobbyID, roomID, ownerID, storedEndpointHost, storedWorldInstanceID, storedHostNonce, storedHostState string
 	var expectedRouteGeneration int
 	var storedEndpointPort int
 	var state AttemptState
@@ -861,6 +811,13 @@ func (s *Service) P2PAuthorityReady(ctx context.Context, actor Actor, attemptID,
 		SELECT lobby.id, COALESCE(lobby.p2p_room_id, ''), lobby.owner_player_id,
 		       attempt.route_generation, attempt.state,
 		       COALESCE(attempt.endpoint_host, ''), COALESCE(attempt.endpoint_port, 0),
+		       COALESCE(attempt.world_instance_id, ''),
+		       COALESCE((SELECT connection_state FROM match_attempt_roster
+		                  WHERE attempt_id = attempt.id AND room_role = 'HOST'
+		                  LIMIT 1), ''),
+		       COALESCE((SELECT live_native_connection_nonce FROM match_attempt_roster
+		                  WHERE attempt_id = attempt.id AND room_role = 'HOST'
+		                  LIMIT 1), ''),
 		       attempt.host_reconnect_deadline,
 		       attempt.payload_installed_at IS NOT NULL
 		         AND attempt.payload_route_generation = attempt.route_generation
@@ -870,7 +827,7 @@ func (s *Service) P2PAuthorityReady(ctx context.Context, actor Actor, attemptID,
 		  AND attempt.authority_session_id = $2
 	`, attemptID, authoritySession).Scan(
 		&lobbyID, &roomID, &ownerID, &expectedRouteGeneration, &state,
-		&storedEndpointHost, &storedEndpointPort, &hostDeadline, &payloadInstalled,
+		&storedEndpointHost, &storedEndpointPort, &storedWorldInstanceID, &storedHostState, &storedHostNonce, &hostDeadline, &payloadInstalled,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Snapshot{}, conflict("MATCH_ATTEMPT_NOT_PROVISIONING", "The P2P attempt is not waiting for its authority.", nil)
@@ -885,8 +842,62 @@ func (s *Service) P2PAuthorityReady(ctx context.Context, actor Actor, attemptID,
 		return Snapshot{}, conflict("MATCH_ROUTE_GENERATION_STALE", "The P2P route generation changed; refresh the allocation before publishing readiness.", map[string]any{"route_generation": expectedRouteGeneration})
 	}
 	if state == AttemptConnecting || state == AttemptRunning {
-		if storedEndpointHost != endpointHost || storedEndpointPort != endpointPort {
+		if storedEndpointHost == endpointHost && storedEndpointPort == endpointPort &&
+			storedWorldInstanceID == worldInstanceID && storedHostNonce == nativeConnectionNonce &&
+			storedHostState == "CONNECTED" {
+			return s.Get(ctx, lobbyID, actor.PlayerID)
+		}
+		if (state != AttemptConnecting && state != AttemptRunning) || !payloadInstalled || storedHostState != "DISCONNECTED" {
 			return Snapshot{}, conflict("MATCH_AUTHORITY_ENDPOINT_CONFLICT", "The P2P authority is already ready at a different endpoint.", nil)
+		}
+		if storedWorldInstanceID == "" || storedWorldInstanceID != worldInstanceID {
+			return Snapshot{}, conflict("MATCH_WORLD_INSTANCE_CONFLICT", "A recovering P2P authority must retain the persisted native world instance.", nil)
+		}
+		if s.p2p == nil {
+			return Snapshot{}, conflict("P2P_TRANSPORT_UNAVAILABLE", "P2P transport is not available.", nil)
+		}
+		if _, err := s.p2p.StartManaged(ctx, toP2PActor(actor), roomID, hostToken); err != nil {
+			return Snapshot{}, conflict("MATCH_P2P_TRANSPORT_NOT_READY", "The P2P transport is not ready to start.", nil)
+		}
+		now := s.now().UTC()
+		deadline := now.Add(s.initialConnectionWindow())
+		tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			return Snapshot{}, internal(err)
+		}
+		defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+		command, err := tx.Exec(ctx, `
+			UPDATE match_attempts
+			SET endpoint_host = $2, endpoint_port = $3, world_instance_id = $4,
+			    connection_deadline = $5, authority_last_seen_at = $6,
+			    host_reconnect_deadline = NULL, updated_at = $6
+			WHERE id = $1 AND authority_id = $7 AND authority_session_id = $8
+			  AND state IN ('CONNECTING', 'RUNNING') AND route_generation = $9
+			  AND payload_route_generation = $9
+			  AND world_instance_id = $4
+		`, attemptID, endpointHost, endpointPort, worldInstanceID, deadline, now,
+			actor.PlayerID, authoritySession, routeGeneration)
+		if err != nil {
+			return Snapshot{}, internal(err)
+		}
+		if command.RowsAffected() != 1 {
+			return Snapshot{}, conflict("MATCH_ATTEMPT_STATE_CONFLICT", "The P2P attempt changed while publishing authority readiness.", nil)
+		}
+		command, err = tx.Exec(ctx, `
+			UPDATE match_attempt_roster
+			SET connection_state = 'CONNECTED', connected_at = COALESCE(connected_at, $3),
+			    disconnected_at = NULL, live_native_connection_nonce = $4, updated_at = $3
+			WHERE attempt_id = $1 AND player_id = $2 AND room_role = 'HOST'
+			  AND connection_state = 'DISCONNECTED'
+		`, attemptID, actor.PlayerID, now, nativeConnectionNonce)
+		if err != nil {
+			return Snapshot{}, internal(err)
+		}
+		if command.RowsAffected() != 1 {
+			return Snapshot{}, conflict("MATCH_HOST_ROSTER_REQUIRED", "The P2P authority has no disconnected frozen host seat.", nil)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return Snapshot{}, internal(err)
 		}
 		return s.Get(ctx, lobbyID, actor.PlayerID)
 	}
@@ -909,22 +920,31 @@ func (s *Service) P2PAuthorityReady(ctx context.Context, actor Actor, attemptID,
 	command, err := tx.Exec(ctx, `
 		UPDATE match_attempts SET state = 'CONNECTING', endpoint_host = $2,
 		       endpoint_port = $3, route_generation = $4,
-		       connection_deadline = $5, authority_last_seen_at = $6,
-		       host_reconnect_deadline = NULL, updated_at = $6
-		WHERE id = $1 AND state = 'PROVISIONING' AND authority_id = $7
-		  AND authority_session_id = $8 AND route_generation = $4
-		  AND host_reconnect_deadline > $6
-	`, attemptID, endpointHost, endpointPort, routeGeneration, deadline, now, actor.PlayerID, authoritySession)
+		       world_instance_id = $5, connection_deadline = $6,
+		       authority_last_seen_at = $7, host_reconnect_deadline = NULL,
+		       updated_at = $7
+		WHERE id = $1 AND state = 'PROVISIONING' AND authority_id = $8
+		  AND authority_session_id = $9 AND route_generation = $4
+		  AND host_reconnect_deadline > $7
+	`, attemptID, endpointHost, endpointPort, routeGeneration, worldInstanceID, deadline, now, actor.PlayerID, authoritySession)
 	if err != nil {
 		return Snapshot{}, internal(err)
 	}
 	if command.RowsAffected() != 1 {
 		_ = tx.Rollback(context.WithoutCancel(ctx))
+		var latestHostNonce string
+		_ = s.repository.pool.QueryRow(ctx, `
+			SELECT COALESCE(live_native_connection_nonce, '')
+			FROM match_attempt_roster
+			WHERE attempt_id = $1 AND player_id = $2 AND room_role = 'HOST'
+		`, attemptID, actor.PlayerID).Scan(&latestHostNonce)
 		latest, latestErr := s.Get(ctx, lobbyID, actor.PlayerID)
 		if latestErr == nil && latest.Attempt != nil &&
 			(latest.Attempt.State == AttemptConnecting || latest.Attempt.State == AttemptRunning) &&
 			latest.Attempt.RouteGeneration == routeGeneration &&
-			latest.Attempt.EndpointHost == endpointHost && latest.Attempt.EndpointPort == endpointPort {
+			latest.Attempt.EndpointHost == endpointHost && latest.Attempt.EndpointPort == endpointPort &&
+			latest.Attempt.WorldInstanceID == worldInstanceID &&
+			latestHostNonce == nativeConnectionNonce {
 			return latest, nil
 		}
 		return Snapshot{}, conflict("MATCH_ATTEMPT_STATE_CONFLICT", "The match attempt changed while publishing authority readiness.", nil)
@@ -935,9 +955,9 @@ func (s *Service) P2PAuthorityReady(ctx context.Context, actor Actor, attemptID,
 	if _, err := tx.Exec(ctx, `
 		UPDATE match_attempt_roster
 		SET connection_state = 'CONNECTED', connected_at = COALESCE(connected_at, $3),
-		    disconnected_at = NULL, updated_at = $3
+		    disconnected_at = NULL, live_native_connection_nonce = $4, updated_at = $3
 		WHERE attempt_id = $1 AND player_id = $2 AND room_role = 'HOST'
-	`, attemptID, actor.PlayerID, now); err != nil {
+	`, attemptID, actor.PlayerID, now, nativeConnectionNonce); err != nil {
 		return Snapshot{}, internal(err)
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -1101,9 +1121,17 @@ func (s *Service) payloadInstalled(ctx context.Context, attemptID, authorityID, 
 	return s.Get(ctx, lobbyID, "")
 }
 
-func (s *Service) DedicatedAuthorityReady(ctx context.Context, serverID, attemptID, authoritySession string) (Snapshot, error) {
+func (s *Service) DedicatedAuthorityReady(ctx context.Context, serverID, attemptID, authoritySession, worldInstanceID, nativeConnectionNonce string) (Snapshot, error) {
 	if err := s.requireEnabled(); err != nil {
 		return Snapshot{}, err
+	}
+	worldInstanceID = strings.TrimSpace(worldInstanceID)
+	nativeConnectionNonce = strings.TrimSpace(nativeConnectionNonce)
+	if !worldInstancePattern.MatchString(worldInstanceID) {
+		return Snapshot{}, invalid("Invalid dedicated world instance identity.", nil)
+	}
+	if !nativeConnectionNoncePattern.MatchString(nativeConnectionNonce) {
+		return Snapshot{}, invalid("Invalid dedicated native connection nonce.", nil)
 	}
 	now := s.now().UTC()
 	deadline := now.Add(s.initialConnectionWindow())
@@ -1115,21 +1143,25 @@ func (s *Service) DedicatedAuthorityReady(ctx context.Context, serverID, attempt
 	var lobbyID string
 	err = tx.QueryRow(ctx, `
 		UPDATE match_attempts SET state = 'CONNECTING', connection_deadline = $3,
-		       authority_last_seen_at = $2, updated_at = $2
+		       authority_last_seen_at = $2, world_instance_id = $6, updated_at = $2
 		WHERE id = $1 AND authority_id = $4 AND hosting_kind = 'DEDICATED'
 		  AND state = 'PROVISIONING' AND authority_session_id = $5
 		  AND payload_installed_at IS NOT NULL
 		  AND payload_route_generation = route_generation
 		RETURNING lobby_id
-	`, attemptID, now, deadline, serverID, authoritySession).Scan(&lobbyID)
+	`, attemptID, now, deadline, serverID, authoritySession, worldInstanceID).Scan(&lobbyID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		var state AttemptState
+		var storedWorldInstanceID string
 		lookupErr := tx.QueryRow(ctx, `
-			SELECT lobby_id, state FROM match_attempts
+			SELECT lobby_id, state, COALESCE(world_instance_id, '') FROM match_attempts
 			WHERE id = $1 AND authority_id = $2 AND hosting_kind = 'DEDICATED'
 			  AND authority_session_id = $3
-		`, attemptID, serverID, authoritySession).Scan(&lobbyID, &state)
-		if lookupErr == nil && (state == AttemptConnecting || state == AttemptRunning) {
+		`, attemptID, serverID, authoritySession).Scan(&lobbyID, &state, &storedWorldInstanceID)
+		// Dedicated authority readiness identifies the native server process, while
+		// its player seats remain MEMBER rows and bind disconnects to each consumed
+		// admission nonce. Only a P2P player HOST has a live roster nonce.
+		if lookupErr == nil && (state == AttemptConnecting || state == AttemptRunning) && storedWorldInstanceID == worldInstanceID {
 			if commitErr := tx.Commit(ctx); commitErr != nil {
 				return Snapshot{}, internal(commitErr)
 			}
@@ -1153,11 +1185,32 @@ func (s *Service) DedicatedAuthorityReady(ctx context.Context, serverID, attempt
 }
 
 func (s *Service) JoinGrant(ctx context.Context, actor Actor, attemptID string) (GrantResult, error) {
+	return s.joinGrant(ctx, actor, attemptID, "")
+}
+
+// JoinGrantWithIdempotency binds a network retry to one join intent. A new
+// key is required for an intentional replacement connection; retrying the
+// same key returns the original unconsumed grant without advancing the seat
+// generation.
+func (s *Service) JoinGrantWithIdempotency(ctx context.Context, actor Actor, attemptID, idempotencyKey string) (GrantResult, error) {
+	return s.joinGrant(ctx, actor, attemptID, idempotencyKey)
+}
+
+func (s *Service) joinGrant(ctx context.Context, actor Actor, attemptID, idempotencyKey string) (GrantResult, error) {
 	if err := s.requireEnabled(); err != nil {
 		return GrantResult{}, err
 	}
 	if err := requireActive(actor); err != nil {
 		return GrantResult{}, err
+	}
+	idempotencyKey = strings.TrimSpace(idempotencyKey)
+	if idempotencyKey != "" && !lobbyIdempotencyPattern.MatchString(idempotencyKey) {
+		return GrantResult{}, invalid("Invalid join idempotency key.", nil)
+	}
+	var intentHash []byte
+	if idempotencyKey != "" {
+		hash := sha256.Sum256([]byte(attemptID + "\x00" + actor.PlayerID + "\x00" + idempotencyKey))
+		intentHash = hash[:]
 	}
 	now := s.now().UTC()
 	tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -1225,6 +1278,59 @@ func (s *Service) JoinGrant(ctx context.Context, actor Actor, attemptID string) 
 	if endpointHost == "" || endpointPort == 0 {
 		return GrantResult{}, conflict("MATCH_AUTHORITY_ENDPOINT_UNAVAILABLE", "The match authority endpoint is unavailable.", nil)
 	}
+	if idempotencyKey != "" {
+		var priorJTI string
+		var priorGeneration, priorRoute int
+		var issuedAt, expiresAt time.Time
+		var consumedAt, revokedAt sql.NullTime
+		lookupErr := tx.QueryRow(ctx, `
+			SELECT jti, connection_generation, route_generation,
+			       issued_at, expires_at, consumed_at, revoked_at
+			FROM match_admission_grants
+			WHERE attempt_id = $1 AND player_id = $2 AND idempotency_key = $3
+			FOR UPDATE
+		`, attemptID, actor.PlayerID, idempotencyKey).Scan(
+			&priorJTI, &priorGeneration, &priorRoute, &issuedAt, &expiresAt,
+			&consumedAt, &revokedAt,
+		)
+		if lookupErr == nil {
+			if priorRoute != claims.RouteGeneration || priorGeneration != claims.ConnectionGeneration {
+				return GrantResult{}, conflict("MATCH_JOIN_INTENT_STALE", "The join intent belongs to an older route or seat generation; use a new idempotency key.", nil)
+			}
+			if intentHash != nil {
+				var storedHash []byte
+				if err := tx.QueryRow(ctx, `SELECT COALESCE(idempotency_request_hash, ''::bytea) FROM match_admission_grants WHERE jti = $1`, priorJTI).Scan(&storedHash); err != nil {
+					return GrantResult{}, internal(err)
+				}
+				if subtle.ConstantTimeCompare(storedHash, intentHash) != 1 {
+					return GrantResult{}, conflict("MATCH_JOIN_IDEMPOTENCY_CONFLICT", "The idempotency key was already used for a different join intent.", nil)
+				}
+			}
+			if consumedAt.Valid || revokedAt.Valid || !expiresAt.After(now) {
+				return GrantResult{}, conflict("MATCH_JOIN_INTENT_COMPLETED", "The join intent already reached a terminal result; use a new idempotency key to reconnect.", nil)
+			}
+			claims.AttemptID = attemptID
+			claims.PlayerID = actor.PlayerID
+			claims.TokenID = priorJTI
+			claims.ConnectionGeneration = priorGeneration
+			claims.RouteGeneration = priorRoute
+			token, signErr := s.signer.SignJoinGrantWindow(claims, issuedAt, expiresAt)
+			if signErr != nil {
+				return GrantResult{}, internal(signErr)
+			}
+			if err := tx.Commit(ctx); err != nil {
+				return GrantResult{}, internal(err)
+			}
+			return GrantResult{
+				AttemptID: attemptID, GrantJTI: priorJTI,
+				EndpointHost: endpointHost, EndpointPort: endpointPort,
+				Grant: token, ExpiresAt: expiresAt, ConnectionGeneration: priorGeneration,
+			}, nil
+		}
+		if !errors.Is(lookupErr, pgx.ErrNoRows) {
+			return GrantResult{}, internal(lookupErr)
+		}
+	}
 	if priorGrantCount > 0 && connectionState == "CONNECTED" {
 		return GrantResult{}, conflict("MATCH_CONNECTION_STILL_ACTIVE", "The previous connection must be released by the authority before a reconnect grant is issued.", nil)
 	}
@@ -1259,10 +1365,11 @@ func (s *Service) JoinGrant(ctx context.Context, actor Actor, attemptID string) 
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO match_admission_grants (
 			jti, attempt_id, player_id, connection_generation,
-			route_generation, issued_at, expires_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7)
+			route_generation, issued_at, expires_at, idempotency_key,
+			idempotency_request_hash
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''), $9)
 	`, claims.TokenID, attemptID, actor.PlayerID, claims.ConnectionGeneration,
-		claims.RouteGeneration, now, expires); err != nil {
+		claims.RouteGeneration, now, expires, idempotencyKey, intentHash); err != nil {
 		return GrantResult{}, internal(err)
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -1453,12 +1560,294 @@ func (s *Service) GrantDelivery(ctx context.Context, actor Actor, attemptID, gra
 	return status, nil
 }
 
-func (s *Service) MarkConnected(ctx context.Context, authorityID, authoritySession, attemptID, playerID, grantJTI string, generation int) (Snapshot, error) {
+// admissionReservationTTL is intentionally shorter than the grant lifetime:
+// native authentication gets a bounded handoff window, while a lost native
+// connection cannot leave a roster seat reserved until the grant expires.
+func (s *Service) admissionReservationTTL() time.Duration {
+	ttl := s.grantTTL() / 3
+	if ttl > 10*time.Second {
+		ttl = 10 * time.Second
+	}
+	if ttl < 3*time.Second {
+		ttl = 3 * time.Second
+	}
+	return ttl
+}
+
+// ReserveAdmission is the backend linearization point after the native side
+// has authenticated a platform identity.  It locks the attempt, roster seat,
+// and grant together, but deliberately leaves the roster CONNECTING.
+func (s *Service) ReserveAdmission(
+	ctx context.Context,
+	authorityID, authoritySession, attemptID, worldInstanceID, playerID, grantJTI, nativeConnectionNonce string,
+	generation int,
+) (AdmissionReservation, error) {
+	if err := s.requireEnabled(); err != nil {
+		return AdmissionReservation{}, err
+	}
+	authorityID = strings.TrimSpace(authorityID)
+	authoritySession = strings.TrimSpace(authoritySession)
+	attemptID = strings.TrimSpace(attemptID)
+	worldInstanceID = strings.TrimSpace(worldInstanceID)
+	playerID = strings.TrimSpace(playerID)
+	grantJTI = strings.TrimSpace(grantJTI)
+	nativeConnectionNonce = strings.TrimSpace(nativeConnectionNonce)
+	if authorityID == "" || authoritySession == "" || attemptID == "" || playerID == "" || grantJTI == "" ||
+		!worldInstancePattern.MatchString(worldInstanceID) || !nativeConnectionNoncePattern.MatchString(nativeConnectionNonce) || generation < 1 {
+		return AdmissionReservation{}, invalid("Invalid admission reservation identity.", nil)
+	}
+	now := s.now().UTC()
+	tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return AdmissionReservation{}, internal(err)
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	var routeGeneration, rosterGeneration, grantRouteGeneration, storedGeneration int
+	var storedWorld, connectionState string
+	var grantExpires time.Time
+	var deliveredAt, consumedAt, revokedAt sql.NullTime
+	var reservedAt, reservationExpires sql.NullTime
+	var reservedAuthority, reservedSession, reservedWorld, reservationNonce string
+	err = tx.QueryRow(ctx, `
+		SELECT attempt.route_generation, COALESCE(attempt.world_instance_id, ''),
+		       roster.connection_state, roster.connection_generation,
+		       admission.connection_generation, admission.route_generation,
+		       admission.expires_at, admission.delivered_at,
+		       admission.consumed_at, admission.revoked_at, admission.reserved_at,
+		       admission.reservation_expires_at,
+		       COALESCE(admission.reservation_authority_id, ''),
+		       COALESCE(admission.reservation_authority_session_id, ''),
+		       COALESCE(admission.reservation_world_instance_id, ''),
+		       COALESCE(admission.reservation_nonce, '')
+		FROM match_attempts AS attempt
+		JOIN match_attempt_roster AS roster ON roster.attempt_id = attempt.id AND roster.player_id = $4
+		JOIN match_admission_grants AS admission
+		  ON admission.attempt_id = attempt.id AND admission.player_id = roster.player_id
+		 AND admission.jti = $5
+		WHERE attempt.id = $1 AND attempt.authority_id = $2
+		  AND attempt.authority_session_id = $3
+		  AND attempt.state IN ('CONNECTING', 'RUNNING')
+		FOR UPDATE OF attempt, roster, admission
+	`, attemptID, authorityID, authoritySession, playerID, grantJTI).Scan(
+		&routeGeneration, &storedWorld, &connectionState, &rosterGeneration,
+		&storedGeneration, &grantRouteGeneration,
+		&grantExpires, &deliveredAt, &consumedAt, &revokedAt,
+		&reservedAt, &reservationExpires, &reservedAuthority, &reservedSession, &reservedWorld,
+		&reservationNonce,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return AdmissionReservation{}, forbidden("MATCH_AUTHORITY_SCOPE_REQUIRED", "The authority session or admission grant is not active for this attempt.")
+	}
+	if err != nil {
+		return AdmissionReservation{}, internal(err)
+	}
+	if storedWorld == "" {
+		return AdmissionReservation{}, conflict("MATCH_WORLD_INSTANCE_REQUIRED", "The attempt has no persisted native world identity.", nil)
+	}
+	if storedWorld != worldInstanceID {
+		return AdmissionReservation{}, conflict("MATCH_WORLD_INSTANCE_CONFLICT", "The admission belongs to a different world instance.", nil)
+	}
+	if consumedAt.Valid || revokedAt.Valid || !grantExpires.After(now) || !deliveredAt.Valid {
+		return AdmissionReservation{}, conflict("MATCH_JOIN_GRANT_NOT_RESERVABLE", "The join grant is not delivered, active, or current.", nil)
+	}
+	if rosterGeneration != generation || storedGeneration != generation {
+		return AdmissionReservation{}, conflict("MATCH_CONNECTION_GENERATION_STALE", "The admission generation is stale.", nil)
+	}
+	if grantRouteGeneration != routeGeneration {
+		return AdmissionReservation{}, conflict("MATCH_ROUTE_GENERATION_STALE", "The admission route generation is stale.", nil)
+	}
+	if connectionState == "CONNECTED" {
+		return AdmissionReservation{}, conflict("MATCH_CONNECTION_ALREADY_ACTIVE", "The roster seat already has an active connection.", nil)
+	}
+	if reservedAt.Valid && reservationExpires.Valid && reservationExpires.Time.After(now) {
+		if reservedAuthority != authorityID || reservedSession != authoritySession || reservedWorld != worldInstanceID || reservationNonce != nativeConnectionNonce {
+			return AdmissionReservation{}, conflict("MATCH_ADMISSION_RESERVED", "The admission is reserved by another authority session.", nil)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return AdmissionReservation{}, internal(err)
+		}
+		return AdmissionReservation{
+			AttemptID: attemptID, GrantJTI: grantJTI, PlayerID: playerID,
+			WorldInstanceID: worldInstanceID, NativeConnectionNonce: nativeConnectionNonce,
+			ConnectionGeneration: generation, RouteGeneration: routeGeneration,
+			ReservedUntil: reservationExpires.Time,
+		}, nil
+	}
+	reservedUntil := now.Add(s.admissionReservationTTL())
+	if grantExpires.Before(reservedUntil) {
+		reservedUntil = grantExpires
+	}
+	if !reservedUntil.After(now) {
+		return AdmissionReservation{}, conflict("MATCH_JOIN_GRANT_NOT_RESERVABLE", "The join grant expires before a native admission reservation can be established.", nil)
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE match_admission_grants
+		SET reserved_at = $2, reservation_expires_at = $3,
+		    reservation_authority_id = $4, reservation_authority_session_id = $5,
+		    reservation_world_instance_id = $6, reservation_nonce = $7
+		WHERE jti = $1 AND consumed_at IS NULL AND revoked_at IS NULL
+	`, grantJTI, now, reservedUntil, authorityID, authoritySession, worldInstanceID, nativeConnectionNonce); err != nil {
+		return AdmissionReservation{}, internal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return AdmissionReservation{}, internal(err)
+	}
+	return AdmissionReservation{
+		AttemptID: attemptID, GrantJTI: grantJTI, PlayerID: playerID,
+		WorldInstanceID: worldInstanceID, NativeConnectionNonce: nativeConnectionNonce,
+		ConnectionGeneration: generation, RouteGeneration: routeGeneration,
+		ReservedUntil: reservedUntil,
+	}, nil
+}
+
+func (s *Service) P2PReserveAdmission(ctx context.Context, actor Actor, authoritySession, attemptID, worldInstanceID, playerID, grantJTI, nativeConnectionNonce string, generation int) (AdmissionReservation, error) {
+	if err := requireActive(actor); err != nil {
+		return AdmissionReservation{}, err
+	}
+	return s.ReserveAdmission(ctx, actor.PlayerID, authoritySession, attemptID, worldInstanceID, playerID, grantJTI, nativeConnectionNonce, generation)
+}
+
+// ReleaseAdmission revokes a reserved grant and returns a still-connecting
+// seat to DISCONNECTED.  It is idempotent after the grant has already been
+// revoked or consumed, and never changes a connected roster member.
+func (s *Service) ReleaseAdmission(
+	ctx context.Context,
+	authorityID, authoritySession, attemptID, worldInstanceID, playerID, grantJTI, nativeConnectionNonce string,
+	generation int,
+) error {
+	if err := s.requireEnabled(); err != nil {
+		return err
+	}
+	authorityID = strings.TrimSpace(authorityID)
+	authoritySession = strings.TrimSpace(authoritySession)
+	attemptID = strings.TrimSpace(attemptID)
+	worldInstanceID = strings.TrimSpace(worldInstanceID)
+	playerID = strings.TrimSpace(playerID)
+	grantJTI = strings.TrimSpace(grantJTI)
+	nativeConnectionNonce = strings.TrimSpace(nativeConnectionNonce)
+	if authorityID == "" || authoritySession == "" || attemptID == "" || playerID == "" || grantJTI == "" ||
+		!worldInstancePattern.MatchString(worldInstanceID) || !nativeConnectionNoncePattern.MatchString(nativeConnectionNonce) || generation < 1 {
+		return invalid("Invalid admission release identity.", nil)
+	}
+	now := s.now().UTC()
+	tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return internal(err)
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	var storedWorld, state, reservationAuthority, reservationSession, reservationWorld, connectionState string
+	var routeGeneration, storedGeneration int
+	var consumedAt, revokedAt, reservedAt, reservationExpires sql.NullTime
+	var reservationNonce, consumedNonce string
+	err = tx.QueryRow(ctx, `
+		SELECT COALESCE(attempt.world_instance_id, ''), attempt.state,
+		       attempt.route_generation, roster.connection_state,
+		       admission.connection_generation, admission.consumed_at, admission.revoked_at,
+		       admission.reserved_at, admission.reservation_expires_at,
+		       COALESCE(admission.reservation_authority_id, ''),
+		       COALESCE(admission.reservation_authority_session_id, ''),
+		       COALESCE(admission.reservation_world_instance_id, ''),
+		       COALESCE(admission.reservation_nonce, ''),
+		       COALESCE(admission.consumed_connection_nonce, '')
+		FROM match_attempts AS attempt
+		JOIN match_attempt_roster AS roster ON roster.attempt_id = attempt.id AND roster.player_id = $4
+		JOIN match_admission_grants AS admission
+		  ON admission.attempt_id = attempt.id AND admission.player_id = roster.player_id
+		 AND admission.jti = $5
+		WHERE attempt.id = $1 AND attempt.authority_id = $2
+		  AND attempt.authority_session_id = $3
+		  AND attempt.state IN ('CONNECTING', 'RUNNING', 'COMPLETED', 'ABORTED')
+		FOR UPDATE OF attempt, roster, admission
+	`, attemptID, authorityID, authoritySession, playerID, grantJTI).Scan(
+		&storedWorld, &state, &routeGeneration, &connectionState, &storedGeneration,
+		&consumedAt, &revokedAt, &reservedAt, &reservationExpires,
+		&reservationAuthority, &reservationSession, &reservationWorld,
+		&reservationNonce, &consumedNonce,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return forbidden("MATCH_AUTHORITY_SCOPE_REQUIRED", "The authority session or admission grant is not scoped to this attempt.")
+	}
+	if err != nil {
+		return internal(err)
+	}
+	if storedWorld == "" {
+		return conflict("MATCH_WORLD_INSTANCE_REQUIRED", "The attempt has no persisted native world identity.", nil)
+	}
+	if storedWorld != worldInstanceID {
+		return conflict("MATCH_WORLD_INSTANCE_CONFLICT", "The admission belongs to a different world instance.", nil)
+	}
+	if consumedAt.Valid {
+		if consumedNonce != nativeConnectionNonce {
+			return conflict("MATCH_JOIN_GRANT_NOT_CONSUMABLE", "The admission was consumed by a different native connection.", nil)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return internal(err)
+		}
+		return nil
+	}
+	if revokedAt.Valid && !reservedAt.Valid {
+		if err := tx.Commit(ctx); err != nil {
+			return internal(err)
+		}
+		return nil
+	}
+	if reservedAt.Valid && reservationExpires.Valid && reservationExpires.Time.After(now) &&
+		(reservationAuthority != authorityID || reservationSession != authoritySession || reservationWorld != worldInstanceID || reservationNonce != nativeConnectionNonce) {
+		return conflict("MATCH_ADMISSION_RESERVED", "The admission is reserved by another authority session.", nil)
+	}
+	if storedGeneration != generation || routeGeneration < 1 {
+		return conflict("MATCH_CONNECTION_GENERATION_STALE", "The admission generation is stale.", nil)
+	}
+	if connectionState == "CONNECTED" {
+		return conflict("MATCH_CONNECTION_ALREADY_ACTIVE", "A connected roster member cannot be released through an admission failure.", nil)
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE match_admission_grants
+		SET revoked_at = COALESCE(revoked_at, $2), reserved_at = NULL,
+		    reservation_expires_at = NULL, reservation_authority_id = NULL,
+		    reservation_authority_session_id = NULL, reservation_world_instance_id = NULL,
+		    reservation_nonce = NULL
+		WHERE jti = $1
+	`, grantJTI, now); err != nil {
+		return internal(err)
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE match_attempt_roster
+		SET connection_state = 'DISCONNECTED', disconnected_at = COALESCE(disconnected_at, $3), updated_at = $3
+		WHERE attempt_id = $1 AND player_id = $2 AND connection_generation = $4
+		  AND connection_state IN ('CONNECTING', 'DISCONNECTED')
+	`, attemptID, playerID, now, generation); err != nil {
+		return internal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return internal(err)
+	}
+	_ = state
+	return nil
+}
+
+func (s *Service) P2PReleaseAdmission(ctx context.Context, actor Actor, authoritySession, attemptID, worldInstanceID, playerID, grantJTI, nativeConnectionNonce string, generation int) error {
+	if err := requireActive(actor); err != nil {
+		return err
+	}
+	return s.ReleaseAdmission(ctx, actor.PlayerID, authoritySession, attemptID, worldInstanceID, playerID, grantJTI, nativeConnectionNonce, generation)
+}
+
+// ConfirmConnected is the only backend operation that consumes an admission
+// grant and may promote a roster seat to CONNECTED/RUNNING.
+func (s *Service) ConfirmConnected(ctx context.Context, authorityID, authoritySession, attemptID, worldInstanceID, playerID, grantJTI, nativeConnectionNonce string, generation int) (Snapshot, error) {
 	if err := s.requireEnabled(); err != nil {
 		return Snapshot{}, err
 	}
+	authorityID = strings.TrimSpace(authorityID)
+	authoritySession = strings.TrimSpace(authoritySession)
+	attemptID = strings.TrimSpace(attemptID)
+	worldInstanceID = strings.TrimSpace(worldInstanceID)
+	playerID = strings.TrimSpace(playerID)
 	grantJTI = strings.TrimSpace(grantJTI)
-	if generation < 1 || grantJTI == "" {
+	nativeConnectionNonce = strings.TrimSpace(nativeConnectionNonce)
+	if generation < 1 || grantJTI == "" || authorityID == "" || authoritySession == "" || attemptID == "" || playerID == "" ||
+		!worldInstancePattern.MatchString(worldInstanceID) || !nativeConnectionNoncePattern.MatchString(nativeConnectionNonce) {
 		return Snapshot{}, invalid("Invalid connection generation.", nil)
 	}
 	now := s.now().UTC()
@@ -1467,27 +1856,41 @@ func (s *Service) MarkConnected(ctx context.Context, authorityID, authoritySessi
 		return Snapshot{}, internal(err)
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
-	var lobbyID string
+	var lobbyID, storedWorldInstanceID string
 	var routeGeneration int
 	err = tx.QueryRow(ctx, `
-		SELECT lobby_id, route_generation FROM match_attempts
+		SELECT lobby_id, route_generation, COALESCE(world_instance_id, '') FROM match_attempts
 		WHERE id = $1 AND authority_id = $2 AND authority_session_id = $3
 		  AND state IN ('CONNECTING', 'RUNNING')
 		FOR UPDATE
-	`, attemptID, authorityID, authoritySession).Scan(&lobbyID, &routeGeneration)
+	`, attemptID, authorityID, authoritySession).Scan(&lobbyID, &routeGeneration, &storedWorldInstanceID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Snapshot{}, forbidden("MATCH_AUTHORITY_SCOPE_REQUIRED", "This authority is not assigned to the active match attempt.")
 	}
 	if err != nil {
 		return Snapshot{}, internal(err)
 	}
+	if storedWorldInstanceID == "" {
+		return Snapshot{}, conflict("MATCH_WORLD_INSTANCE_REQUIRED", "The attempt has no persisted native world identity.", nil)
+	}
+	if storedWorldInstanceID != worldInstanceID {
+		return Snapshot{}, conflict("MATCH_WORLD_INSTANCE_CONFLICT", "The connection belongs to a different world instance.", nil)
+	}
 	grantCommand, err := tx.Exec(ctx, `
 		UPDATE match_admission_grants
-		SET consumed_at = $6
+		SET consumed_at = $6, consumed_connection_nonce = $10, reservation_nonce = NULL, reserved_at = NULL,
+		    reservation_expires_at = NULL, reservation_authority_id = NULL,
+		    reservation_authority_session_id = NULL, reservation_world_instance_id = NULL
 		WHERE jti = $1 AND attempt_id = $2 AND player_id = $3
 		  AND connection_generation = $4 AND route_generation = $5
+		  AND delivered_at IS NOT NULL
 		  AND revoked_at IS NULL AND consumed_at IS NULL AND expires_at > $6
-	`, grantJTI, attemptID, playerID, generation, routeGeneration, now)
+		  AND reserved_at IS NOT NULL AND reservation_expires_at > $6
+		  AND reservation_authority_id = $7
+		  AND reservation_authority_session_id = $8
+		  AND reservation_world_instance_id = $9
+		  AND reservation_nonce = $10
+	`, grantJTI, attemptID, playerID, generation, routeGeneration, now, authorityID, authoritySession, worldInstanceID, nativeConnectionNonce)
 	if err != nil {
 		return Snapshot{}, internal(err)
 	}
@@ -1501,10 +1904,11 @@ func (s *Service) MarkConnected(ctx context.Context, authorityID, authoritySessi
 				  ON roster.attempt_id = admission.attempt_id AND roster.player_id = admission.player_id
 				WHERE admission.jti = $1 AND admission.attempt_id = $2 AND admission.player_id = $3
 				  AND admission.connection_generation = $4 AND admission.route_generation = $5
-				  AND admission.consumed_at IS NOT NULL
-				  AND roster.connection_generation = $4 AND roster.connection_state = 'CONNECTED'
+			  AND admission.consumed_at IS NOT NULL
+			  AND admission.consumed_connection_nonce = $6
+			  AND roster.connection_generation = $4 AND roster.connection_state = 'CONNECTED'
 			)
-		`, grantJTI, attemptID, playerID, generation, routeGeneration).Scan(&repeated); err != nil {
+		`, grantJTI, attemptID, playerID, generation, routeGeneration, nativeConnectionNonce).Scan(&repeated); err != nil {
 			return Snapshot{}, internal(err)
 		}
 		if !repeated {
@@ -1518,9 +1922,9 @@ func (s *Service) MarkConnected(ctx context.Context, authorityID, authoritySessi
 	command, err := tx.Exec(ctx, `
 		UPDATE match_attempt_roster SET connection_state = 'CONNECTED',
 		       connected_at = COALESCE(connected_at, $4), disconnected_at = NULL,
-		       updated_at = $4
+		       live_native_connection_nonce = $5, updated_at = $4
 		WHERE attempt_id = $1 AND player_id = $2 AND connection_generation = $3
-	`, attemptID, playerID, generation, now)
+	`, attemptID, playerID, generation, now, nativeConnectionNonce)
 	if err != nil {
 		return Snapshot{}, internal(err)
 	}
@@ -1598,22 +2002,24 @@ func (s *Service) syncProjectionGenerations(ctx context.Context, tx pgx.Tx, atte
 	return nil
 }
 
-func (s *Service) P2PMarkConnected(ctx context.Context, actor Actor, authoritySession, attemptID, playerID, grantJTI string, generation int) (Snapshot, error) {
+func (s *Service) P2PConfirmConnected(ctx context.Context, actor Actor, authoritySession, attemptID, worldInstanceID, playerID, grantJTI, nativeConnectionNonce string, generation int) (Snapshot, error) {
 	if err := requireActive(actor); err != nil {
 		return Snapshot{}, err
 	}
-	snapshot, err := s.MarkConnected(ctx, actor.PlayerID, authoritySession, attemptID, playerID, grantJTI, generation)
+	snapshot, err := s.ConfirmConnected(ctx, actor.PlayerID, authoritySession, attemptID, worldInstanceID, playerID, grantJTI, nativeConnectionNonce, generation)
 	if err != nil {
 		return Snapshot{}, err
 	}
 	return s.Get(ctx, snapshot.LobbyID, actor.PlayerID)
 }
 
-func (s *Service) MarkDisconnected(ctx context.Context, authorityID, authoritySession, attemptID, playerID string, generation int) (Snapshot, error) {
+func (s *Service) MarkDisconnected(ctx context.Context, authorityID, authoritySession, attemptID, worldInstanceID, playerID, nativeConnectionNonce string, generation int) (Snapshot, error) {
 	if err := s.requireEnabled(); err != nil {
 		return Snapshot{}, err
 	}
-	if generation < 1 {
+	worldInstanceID = strings.TrimSpace(worldInstanceID)
+	nativeConnectionNonce = strings.TrimSpace(nativeConnectionNonce)
+	if generation < 1 || !worldInstancePattern.MatchString(worldInstanceID) || !nativeConnectionNoncePattern.MatchString(nativeConnectionNonce) {
 		return Snapshot{}, invalid("Invalid connection generation.", nil)
 	}
 	now := s.now().UTC()
@@ -1622,25 +2028,43 @@ func (s *Service) MarkDisconnected(ctx context.Context, authorityID, authoritySe
 		return Snapshot{}, internal(err)
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
-	var lobbyID string
+	var lobbyID, storedWorldInstanceID string
+	var routeGeneration int
 	err = tx.QueryRow(ctx, `
-		SELECT lobby_id FROM match_attempts
+		SELECT lobby_id, route_generation, COALESCE(world_instance_id, '') FROM match_attempts
 		WHERE id = $1 AND authority_id = $2 AND authority_session_id = $3
 		  AND state IN ('CONNECTING', 'RUNNING')
 		FOR UPDATE
-	`, attemptID, authorityID, authoritySession).Scan(&lobbyID)
+	`, attemptID, authorityID, authoritySession).Scan(&lobbyID, &routeGeneration, &storedWorldInstanceID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Snapshot{}, forbidden("MATCH_AUTHORITY_SESSION_REQUIRED", "The authority session does not match the active attempt.")
 	}
 	if err != nil {
 		return Snapshot{}, internal(err)
 	}
+	if storedWorldInstanceID == "" {
+		return Snapshot{}, conflict("MATCH_WORLD_INSTANCE_REQUIRED", "The attempt has no persisted native world identity.", nil)
+	}
+	if storedWorldInstanceID != worldInstanceID {
+		return Snapshot{}, conflict("MATCH_WORLD_INSTANCE_CONFLICT", "The disconnect belongs to a different world instance.", nil)
+	}
 	command, err := tx.Exec(ctx, `
 		UPDATE match_attempt_roster
 		SET connection_state = 'DISCONNECTED', disconnected_at = $4, updated_at = $4
 		WHERE attempt_id = $1 AND player_id = $2 AND connection_generation = $3
 		  AND connection_state = 'CONNECTED'
-	`, attemptID, playerID, generation, now)
+		  AND (
+			(room_role = 'HOST' AND live_native_connection_nonce = $6)
+			OR (room_role = 'MEMBER' AND EXISTS (
+				SELECT 1 FROM match_admission_grants AS admission
+				WHERE admission.attempt_id = $1 AND admission.player_id = $2
+				  AND admission.connection_generation = $3
+				  AND admission.route_generation = $5
+				  AND admission.consumed_at IS NOT NULL
+				  AND admission.consumed_connection_nonce = $6
+			))
+		  )
+	`, attemptID, playerID, generation, now, routeGeneration, nativeConnectionNonce)
 	if err != nil {
 		return Snapshot{}, internal(err)
 	}
@@ -1648,11 +2072,22 @@ func (s *Service) MarkDisconnected(ctx context.Context, authorityID, authoritySe
 		var repeated bool
 		if err := tx.QueryRow(ctx, `
 			SELECT EXISTS (
-				SELECT 1 FROM match_attempt_roster
-				WHERE attempt_id = $1 AND player_id = $2
-				  AND connection_generation = $3 AND connection_state = 'DISCONNECTED'
+				SELECT 1 FROM match_attempt_roster AS roster
+				LEFT JOIN match_admission_grants AS admission
+				  ON admission.attempt_id = roster.attempt_id
+				 AND admission.player_id = roster.player_id
+				 AND admission.connection_generation = roster.connection_generation
+				WHERE roster.attempt_id = $1 AND roster.player_id = $2
+				  AND roster.connection_generation = $3
+				  AND roster.connection_state = 'DISCONNECTED'
+				  AND (
+					(roster.room_role = 'HOST' AND roster.live_native_connection_nonce = $5)
+					OR (roster.room_role = 'MEMBER' AND admission.route_generation = $4
+					    AND admission.consumed_at IS NOT NULL
+					    AND admission.consumed_connection_nonce = $5)
+				  )
 			)
-		`, attemptID, playerID, generation).Scan(&repeated); err != nil {
+		`, attemptID, playerID, generation, routeGeneration, nativeConnectionNonce).Scan(&repeated); err != nil {
 			return Snapshot{}, internal(err)
 		}
 		if !repeated {
@@ -1678,11 +2113,11 @@ func (s *Service) MarkDisconnected(ctx context.Context, authorityID, authoritySe
 	return s.Get(ctx, lobbyID, "")
 }
 
-func (s *Service) P2PMarkDisconnected(ctx context.Context, actor Actor, authoritySession, attemptID, playerID string, generation int) (Snapshot, error) {
+func (s *Service) P2PMarkDisconnected(ctx context.Context, actor Actor, authoritySession, attemptID, worldInstanceID, playerID, nativeConnectionNonce string, generation int) (Snapshot, error) {
 	if err := requireActive(actor); err != nil {
 		return Snapshot{}, err
 	}
-	snapshot, err := s.MarkDisconnected(ctx, actor.PlayerID, authoritySession, attemptID, playerID, generation)
+	snapshot, err := s.MarkDisconnected(ctx, actor.PlayerID, authoritySession, attemptID, worldInstanceID, playerID, nativeConnectionNonce, generation)
 	if err != nil {
 		return Snapshot{}, err
 	}
@@ -1726,19 +2161,12 @@ func (s *Service) AuthorityHeartbeat(ctx context.Context, authorityID, authority
 			UPDATE match_attempt_roster SET connection_generation = connection_generation + 1,
 			       connection_state = CASE WHEN connection_state = 'CONNECTED' THEN 'DISCONNECTED' ELSE connection_state END,
 			       disconnected_at = CASE WHEN connection_state = 'CONNECTED' THEN $2 ELSE disconnected_at END,
+			       live_native_connection_nonce = CASE WHEN room_role = 'HOST' THEN NULL ELSE live_native_connection_nonce END,
 			       updated_at = $2 WHERE attempt_id = $1
 		`, attemptID, now); err != nil {
 			return internal(err)
 		}
 		if err := s.syncProjectionGenerations(ctx, tx, attemptID); err != nil {
-			return internal(err)
-		}
-		if _, err := tx.Exec(ctx, `
-			UPDATE match_attempt_roster SET connection_state = 'CONNECTED',
-			       connected_at = COALESCE(connected_at, $3), disconnected_at = NULL,
-			       updated_at = $3
-			WHERE attempt_id = $1 AND player_id = $2 AND room_role = 'HOST'
-		`, attemptID, authorityID, now); err != nil {
 			return internal(err)
 		}
 		if _, err := tx.Exec(ctx, `UPDATE match_admission_grants SET revoked_at = $2 WHERE attempt_id = $1 AND revoked_at IS NULL`, attemptID, now); err != nil {
@@ -1778,16 +2206,17 @@ func (s *Service) Complete(ctx context.Context, authorityID, authoritySession, a
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
 	var lobbyID, hosting string
-	var metaMatchID, storedFailureCode string
+	var metaMatchID, storedFailureCode, cleanupState string
 	var currentState AttemptState
 	err = tx.QueryRow(ctx, `
 		SELECT lobby_id, hosting_kind, COALESCE(meta_match_id, ''), state,
-		       COALESCE(failure_code, '')
+		       COALESCE(failure_code, ''), cleanup_state
 		FROM match_attempts
 		WHERE id = $1 AND authority_id = $2 AND authority_session_id = $3
 		FOR UPDATE
 	`, attemptID, authorityID, authoritySession).Scan(
 		&lobbyID, &hosting, &metaMatchID, &currentState, &storedFailureCode,
+		&cleanupState,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Snapshot{}, forbidden("MATCH_AUTHORITY_SCOPE_REQUIRED", "This authority is not assigned to the active match attempt.")
@@ -1819,8 +2248,11 @@ func (s *Service) Complete(ctx context.Context, authorityID, authoritySession, a
 	}
 	if _, err := tx.Exec(ctx, `
 		UPDATE match_attempts SET state = $3, failure_code = NULLIF($4, ''),
-		       completed_at = $5, updated_at = $5 WHERE id = $1 AND authority_id = $2
-	`, attemptID, authorityID, attemptState, failureCode, now); err != nil {
+		       completed_at = $5, cleanup_state = 'PENDING',
+		       cleanup_requested_at = COALESCE(cleanup_requested_at, $5),
+		       cleanup_lease_expires_at = $6, cleanup_error = NULL,
+		       updated_at = $5 WHERE id = $1 AND authority_id = $2
+	`, attemptID, authorityID, attemptState, failureCode, now, now.Add(s.provisioningTimeout())); err != nil {
 		return Snapshot{}, internal(err)
 	}
 	if _, err := tx.Exec(ctx, `UPDATE match_lobbies SET state = $2, closed_at = $3, updated_at = $3 WHERE id = $1`, lobbyID, lobbyState, now); err != nil {
@@ -1846,7 +2278,9 @@ func (s *Service) Complete(ctx context.Context, authorityID, authoritySession, a
 		}
 	}
 	if hosting == string(HostingDedicated) {
-		if _, err := tx.Exec(ctx, `UPDATE game_servers SET state = 'READY', player_count = 0, updated_at = $2 WHERE id = $1`, authorityID, now); err != nil {
+		// Keep the instance isolated until NativeCleared confirms that the
+		// process/world and transport resources have actually been released.
+		if _, err := tx.Exec(ctx, `UPDATE game_servers SET state = 'CLEANUP_PENDING', updated_at = $2 WHERE id = $1`, authorityID, now); err != nil {
 			return Snapshot{}, internal(err)
 		}
 	} else {
@@ -1881,6 +2315,120 @@ func (s *Service) P2PComplete(ctx context.Context, actor Actor, authoritySession
 	return s.Complete(ctx, actor.PlayerID, authoritySession, attemptID, success, failureCode)
 }
 
+// NativeCleared is the only transition which releases a completed authority
+// back to the allocation pool.  A database terminal state is not evidence
+// that the game process, world, transport mappings, and cached grants are
+// gone, so the lease remains pending until this scoped acknowledgement.
+func (s *Service) NativeCleared(
+	ctx context.Context,
+	authorityID, authoritySession, attemptID, worldInstanceID string,
+	rosterRevision int64, routeGeneration int,
+) (Snapshot, error) {
+	if err := s.requireEnabled(); err != nil {
+		return Snapshot{}, err
+	}
+	authorityID = strings.TrimSpace(authorityID)
+	authoritySession = strings.TrimSpace(authoritySession)
+	attemptID = strings.TrimSpace(attemptID)
+	worldInstanceID = strings.TrimSpace(worldInstanceID)
+	if authorityID == "" || authoritySession == "" || attemptID == "" || worldInstanceID == "" || len(worldInstanceID) > 128 || rosterRevision < 1 || routeGeneration < 1 {
+		return Snapshot{}, invalid("Invalid native cleanup acknowledgement.", nil)
+	}
+	now := s.now().UTC()
+	tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return Snapshot{}, internal(err)
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	var lobbyID, hosting, storedWorld string
+	var cleanupState string
+	var currentState AttemptState
+	var storedRosterRevision int64
+	var storedRouteGeneration int
+	err = tx.QueryRow(ctx, `
+		SELECT lobby_id, hosting_kind, state, cleanup_state,
+		       COALESCE(world_instance_id, ''), roster_revision, route_generation
+		FROM match_attempts
+		WHERE id = $1 AND authority_id = $2 AND authority_session_id = $3
+		  AND state IN ('COMPLETED', 'ABORTED')
+		FOR UPDATE
+	`, attemptID, authorityID, authoritySession).Scan(
+		&lobbyID, &hosting, &currentState, &cleanupState, &storedWorld,
+		&storedRosterRevision, &storedRouteGeneration,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Snapshot{}, forbidden("MATCH_AUTHORITY_SCOPE_REQUIRED", "The authority session does not own a terminal match attempt.")
+	}
+	if err != nil {
+		return Snapshot{}, internal(err)
+	}
+	if cleanupState == "CLEARED" {
+		if storedWorld == "" {
+			return Snapshot{}, conflict("MATCH_WORLD_INSTANCE_REQUIRED", "The attempt has no persisted native world identity.", nil)
+		}
+		if storedWorld != worldInstanceID {
+			return Snapshot{}, conflict("MATCH_WORLD_INSTANCE_CONFLICT", "The cleanup acknowledgement belongs to a different world instance.", nil)
+		}
+		if storedRosterRevision != rosterRevision {
+			return Snapshot{}, conflict("MATCH_ROSTER_REVISION_CONFLICT", "The cleanup acknowledgement belongs to a different frozen roster.", nil)
+		}
+		if storedRouteGeneration != routeGeneration {
+			return Snapshot{}, conflict("MATCH_ROUTE_GENERATION_STALE", "The cleanup acknowledgement belongs to a stale authority route.", nil)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return Snapshot{}, internal(err)
+		}
+		return s.Get(ctx, lobbyID, "")
+	}
+	if storedWorld == "" {
+		return Snapshot{}, conflict("MATCH_WORLD_INSTANCE_REQUIRED", "The attempt has no persisted native world identity.", nil)
+	}
+	if storedWorld != worldInstanceID {
+		return Snapshot{}, conflict("MATCH_WORLD_INSTANCE_CONFLICT", "The cleanup acknowledgement belongs to a different world instance.", nil)
+	}
+	if storedRosterRevision != rosterRevision {
+		return Snapshot{}, conflict("MATCH_ROSTER_REVISION_CONFLICT", "The cleanup acknowledgement belongs to a different frozen roster.", nil)
+	}
+	if storedRouteGeneration != routeGeneration {
+		return Snapshot{}, conflict("MATCH_ROUTE_GENERATION_STALE", "The cleanup acknowledgement belongs to a stale authority route.", nil)
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE match_attempts
+		SET cleanup_state = 'CLEARED', native_cleared_at = $2,
+		    cleanup_error = NULL, cleanup_lease_expires_at = NULL,
+		    updated_at = $2
+		WHERE id = $1 AND cleanup_state = 'PENDING' AND world_instance_id = $3
+		  AND roster_revision = $4 AND route_generation = $5
+	`, attemptID, now, worldInstanceID, rosterRevision, routeGeneration); err != nil {
+		return Snapshot{}, internal(err)
+	}
+	if hosting == string(HostingDedicated) {
+		if _, err := tx.Exec(ctx, `
+			UPDATE game_servers AS server
+			SET state = CASE
+			      WHEN server.last_heartbeat_at > $2
+			       AND server.token_revoked_at IS NULL
+			       AND server.token_expires_at > $3
+			      THEN 'READY' ELSE 'UNHEALTHY' END,
+			    player_count = 0, updated_at = $3
+			WHERE server.id = $1 AND server.state = 'CLEANUP_PENDING'
+		`, authorityID, now.Add(-s.serverFreshness), now); err != nil {
+			return Snapshot{}, internal(err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Snapshot{}, internal(err)
+	}
+	return s.Get(ctx, lobbyID, "")
+}
+
+func (s *Service) P2PNativeCleared(ctx context.Context, actor Actor, authoritySession, attemptID, worldInstanceID string, rosterRevision int64, routeGeneration int) (Snapshot, error) {
+	if err := requireActive(actor); err != nil {
+		return Snapshot{}, err
+	}
+	return s.NativeCleared(ctx, actor.PlayerID, authoritySession, attemptID, worldInstanceID, rosterRevision, routeGeneration)
+}
+
 func (s *Service) compensateJoin(ctx context.Context, lobbyID, playerID string) error {
 	now := s.now().UTC()
 	tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -1896,6 +2444,30 @@ func (s *Service) compensateJoin(ctx context.Context, lobbyID, playerID string) 
 		  AND lobby.id = member.lobby_id AND lobby.state = 'OPEN'
 	`, lobbyID, playerID, now)
 	if err != nil {
+		return err
+	}
+	// Join commits the lobby seat before projecting it into the managed room.
+	// If the transport call fails after its own commit, compensate both sides
+	// in this transaction so a retry cannot observe a ghost transport member.
+	if _, err := tx.Exec(ctx, `
+		UPDATE p2p_room_members AS transport_member
+		SET status = 'LEFT', left_at = COALESCE(transport_member.left_at, $2)
+		FROM p2p_rooms AS room
+		WHERE room.managed_lobby_id = $1
+		  AND transport_member.room_id = room.id
+		  AND transport_member.player_id = $3
+		  AND transport_member.status = 'ACTIVE'
+	`, lobbyID, now, playerID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE p2p_rooms AS room
+		SET player_count = (
+			SELECT COUNT(*) FROM p2p_room_members AS member
+			WHERE member.room_id = room.id AND member.status = 'ACTIVE'
+		), updated_at = $2
+		WHERE room.managed_lobby_id = $1
+	`, lobbyID, now); err != nil {
 		return err
 	}
 	if command.RowsAffected() == 0 {

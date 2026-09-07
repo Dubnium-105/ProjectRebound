@@ -183,23 +183,39 @@ func TestStrictRosterP2PLifecycleAgainstPostgreSQL(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := service.P2PPayloadInstalled(
-		ctx, actors[0], attemptID, authoritySession, "strict-roster-v1",
+		ctx, actors[0], attemptID, authoritySession, "strict-roster-v2",
 		matchConfig.LockedGameSHA256, frozen.Attempt.RouteGeneration,
 	); err != nil {
 		t.Fatal(err)
 	}
 	connecting, err := service.P2PAuthorityReady(
 		ctx, actors[0], attemptID, authoritySession, created.TransportHostToken,
-		"10.88.0.1", 7777, frozen.Attempt.RouteGeneration,
+		"10.88.0.1", 7777, frozen.Attempt.RouteGeneration, "world-p2p-primary", "native-host-p2p-primary",
 	)
 	if err != nil || connecting.State != StateConnecting {
 		t.Fatalf("authority ready = %+v, %v", connecting, err)
 	}
 	if _, err := service.P2PAuthorityReady(
 		ctx, actors[0], attemptID, authoritySession, created.TransportHostToken,
-		"10.88.0.1", 7777, frozen.Attempt.RouteGeneration,
+		"10.88.0.1", 7777, frozen.Attempt.RouteGeneration, "world-p2p-primary", "native-host-p2p-primary",
 	); err != nil {
 		t.Fatalf("authority ready retry was not idempotent: %v", err)
+	}
+	var storedHostNonce string
+	if err := pool.QueryRow(ctx, `
+		SELECT COALESCE(live_native_connection_nonce, '')
+		FROM match_attempt_roster WHERE attempt_id = $1 AND player_id = $2
+	`, attemptID, actors[0].PlayerID).Scan(&storedHostNonce); err != nil {
+		t.Fatal(err)
+	}
+	if storedHostNonce != "native-host-p2p-primary" {
+		t.Fatalf("P2P host native nonce was not persisted: %q", storedHostNonce)
+	}
+	if _, err := service.P2PMarkDisconnected(
+		ctx, actors[0], authoritySession, attemptID, "world-p2p-primary", actors[0].PlayerID,
+		"native-host-p2p-stale-xxxxxxxx", 1,
+	); errorCode(err) != "MATCH_CONNECTION_GENERATION_STALE" {
+		t.Fatalf("stale P2P host disconnect nonce was accepted: %v", err)
 	}
 	// Toolbox deliberately detaches and re-attaches the transport projection
 	// when it launches (and later reconnects) a frozen member. CONNECTING must
@@ -250,10 +266,32 @@ func TestStrictRosterP2PLifecycleAgainstPostgreSQL(t *testing.T) {
 		t.Fatalf("refreshed allocation route generation = %d", refreshed.RouteGeneration)
 	}
 	if _, err := service.P2PPayloadInstalled(
-		ctx, actors[0], attemptID, authoritySession, "strict-roster-v1",
+		ctx, actors[0], attemptID, authoritySession, "strict-roster-v2",
 		matchConfig.LockedGameSHA256, 2,
 	); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := service.P2PAuthorityReady(
+		ctx, actors[0], attemptID, authoritySession, created.TransportHostToken,
+		"10.88.0.1", 7777, 2, "world-p2p-replaced", "native-host-p2p-recovered",
+	); errorCode(err) != "MATCH_WORLD_INSTANCE_CONFLICT" {
+		t.Fatalf("P2P recovery accepted a replaced native world: %v", err)
+	}
+	recoveredReady, err := service.P2PAuthorityReady(
+		ctx, actors[0], attemptID, authoritySession, created.TransportHostToken,
+		"10.88.0.1", 7777, 2, "world-p2p-primary", "native-host-p2p-recovered",
+	)
+	if err != nil || recoveredReady.State != StateConnecting {
+		t.Fatalf("recovered P2P authority ready = %+v, %v", recoveredReady, err)
+	}
+	if err := pool.QueryRow(ctx, `
+		SELECT COALESCE(live_native_connection_nonce, '')
+		FROM match_attempt_roster WHERE attempt_id = $1 AND player_id = $2
+	`, attemptID, actors[0].PlayerID).Scan(&storedHostNonce); err != nil {
+		t.Fatal(err)
+	}
+	if storedHostNonce != "native-host-p2p-recovered" {
+		t.Fatalf("recovered P2P host nonce was not replaced: %q", storedHostNonce)
 	}
 	assertP2PProjectionMatchesAttempt(t, ctx, pool, attemptID)
 
@@ -263,8 +301,8 @@ func TestStrictRosterP2PLifecycleAgainstPostgreSQL(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		connectedGrants[actor.PlayerID] = grant
 		jti := decodeJoinGrantJTI(t, grant.Grant)
+		nativeNonce := "native-handshake-" + actor.PlayerID
 		if grant.GrantJTI != jti {
 			t.Fatalf("grant response JTI = %q, token JTI = %q", grant.GrantJTI, jti)
 		}
@@ -305,16 +343,106 @@ func TestStrictRosterP2PLifecycleAgainstPostgreSQL(t *testing.T) {
 		if err != nil || !status.Delivered {
 			t.Fatalf("delivered grant remained hidden from member: %+v, %v", status, err)
 		}
-		connected, err := service.P2PMarkConnected(
-			ctx, actors[0], authoritySession, attemptID, actor.PlayerID, jti,
-			grant.ConnectionGeneration,
+		reservation, err := service.P2PReserveAdmission(
+			ctx, actors[0], authoritySession, attemptID, "world-p2p-primary",
+			actor.PlayerID, jti, nativeNonce, grant.ConnectionGeneration,
+		)
+		if err != nil || reservation.GrantJTI != jti {
+			t.Fatalf("admission reservation = %+v, %v", reservation, err)
+		}
+		repeatedReservation, err := service.P2PReserveAdmission(
+			ctx, actors[0], authoritySession, attemptID, "world-p2p-primary",
+			actor.PlayerID, jti, nativeNonce, grant.ConnectionGeneration,
+		)
+		if err != nil || !repeatedReservation.ReservedUntil.Equal(reservation.ReservedUntil) {
+			t.Fatalf("reservation retry was not idempotent: first=%+v retry=%+v err=%v", reservation, repeatedReservation, err)
+		}
+		if _, err := service.P2PReserveAdmission(
+			ctx, actors[0], authoritySession, attemptID, "world-p2p-primary",
+			actor.PlayerID, jti, "native-competing-handshake-"+actor.PlayerID, grant.ConnectionGeneration,
+		); errorCode(err) != "MATCH_ADMISSION_RESERVED" {
+			t.Fatalf("a second native handshake borrowed the active reservation: %v", err)
+		}
+		if _, err := service.P2PReserveAdmission(
+			ctx, actors[0], authoritySession, attemptID, "world-p2p-primary",
+			actor.PlayerID, jti, nativeNonce, grant.ConnectionGeneration-1,
+		); errorCode(err) != "MATCH_CONNECTION_GENERATION_STALE" {
+			t.Fatalf("old connection generation was accepted: %v", err)
+		}
+		var currentRouteGeneration int
+		if err := pool.QueryRow(ctx, `SELECT route_generation FROM match_attempts WHERE id = $1`, attemptID).Scan(&currentRouteGeneration); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx, `UPDATE match_admission_grants SET route_generation = route_generation - 1 WHERE jti = $1`, jti); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := service.P2PReserveAdmission(
+			ctx, actors[0], authoritySession, attemptID, "world-p2p-primary",
+			actor.PlayerID, jti, nativeNonce, grant.ConnectionGeneration,
+		); errorCode(err) != "MATCH_ROUTE_GENERATION_STALE" {
+			t.Fatalf("old route generation was accepted: %v", err)
+		}
+		if _, err := pool.Exec(ctx, `UPDATE match_admission_grants SET route_generation = $2 WHERE jti = $1`, jti, currentRouteGeneration); err != nil {
+			t.Fatal(err)
+		}
+		var currentRosterGeneration int
+		if err := pool.QueryRow(ctx, `SELECT connection_generation FROM match_attempt_roster WHERE attempt_id = $1 AND player_id = $2`, attemptID, actor.PlayerID).Scan(&currentRosterGeneration); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx, `UPDATE match_attempt_roster SET connection_generation = connection_generation + 1 WHERE attempt_id = $1 AND player_id = $2`, attemptID, actor.PlayerID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := service.P2PReserveAdmission(
+			ctx, actors[0], authoritySession, attemptID, "world-p2p-primary",
+			actor.PlayerID, jti, nativeNonce, grant.ConnectionGeneration,
+		); errorCode(err) != "MATCH_CONNECTION_GENERATION_STALE" {
+			t.Fatalf("roster generation drift was accepted: %v", err)
+		}
+		if _, err := pool.Exec(ctx, `UPDATE match_attempt_roster SET connection_generation = $3 WHERE attempt_id = $1 AND player_id = $2`, attemptID, actor.PlayerID, currentRosterGeneration); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := service.P2PReserveAdmission(
+			ctx, actors[0], authoritySession, attemptID, "world-p2p-old",
+			actor.PlayerID, jti, nativeNonce, grant.ConnectionGeneration,
+		); errorCode(err) != "MATCH_WORLD_INSTANCE_CONFLICT" {
+			t.Fatalf("old-world reservation was accepted: %v", err)
+		}
+		if actor.PlayerID == loser.PlayerID {
+			if err := service.P2PReleaseAdmission(
+				ctx, actors[0], authoritySession, attemptID, "world-p2p-primary",
+				actor.PlayerID, jti, nativeNonce, grant.ConnectionGeneration,
+			); err != nil {
+				t.Fatal(err)
+			}
+			replacement, replacementErr := service.JoinGrant(ctx, actor, attemptID)
+			if replacementErr != nil {
+				t.Fatal(replacementErr)
+			}
+			grant = replacement
+			jti = decodeJoinGrantJTI(t, grant.Grant)
+			nativeNonce = "native-replacement-" + actor.PlayerID
+			if _, err := service.P2PMarkAdmissionDelivered(ctx, actors[0], authoritySession, attemptID, jti); err != nil {
+				t.Fatal(err)
+			}
+			reservation, err = service.P2PReserveAdmission(
+				ctx, actors[0], authoritySession, attemptID, "world-p2p-primary",
+				actor.PlayerID, jti, nativeNonce, grant.ConnectionGeneration,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		connectedGrants[actor.PlayerID] = grant
+		connected, err := service.P2PConfirmConnected(
+			ctx, actors[0], authoritySession, attemptID, reservation.WorldInstanceID,
+			actor.PlayerID, jti, nativeNonce, grant.ConnectionGeneration,
 		)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := service.P2PMarkConnected(
-			ctx, actors[0], authoritySession, attemptID, actor.PlayerID, jti,
-			grant.ConnectionGeneration,
+		if _, err := service.P2PConfirmConnected(
+			ctx, actors[0], authoritySession, attemptID, "world-p2p-primary",
+			actor.PlayerID, jti, nativeNonce, grant.ConnectionGeneration,
 		); err != nil {
 			t.Fatalf("connected report retry was not idempotent: %v", err)
 		}
@@ -337,8 +465,21 @@ func TestStrictRosterP2PLifecycleAgainstPostgreSQL(t *testing.T) {
 	if _, err := service.JoinGrant(ctx, winner, attemptID); errorCode(err) != "MATCH_CONNECTION_STILL_ACTIVE" {
 		t.Fatalf("live P2P connection received a reconnect grant: %v", err)
 	}
+	if _, err := service.P2PMarkDisconnected(
+		ctx, actors[0], authoritySession, attemptID, "world-p2p-old", winner.PlayerID,
+		"native-handshake-"+winner.PlayerID, prior.ConnectionGeneration,
+	); errorCode(err) != "MATCH_WORLD_INSTANCE_CONFLICT" {
+		t.Fatalf("old P2P world was accepted for disconnect: %v", err)
+	}
+	if _, err := service.P2PMarkDisconnected(
+		ctx, actors[0], authoritySession, attemptID, "world-p2p-primary", winner.PlayerID,
+		"native-handshake-stale-xxxxxxxx", prior.ConnectionGeneration,
+	); errorCode(err) != "MATCH_CONNECTION_GENERATION_STALE" {
+		t.Fatalf("old P2P disconnect nonce was accepted: %v", err)
+	}
 	disconnected, err := service.P2PMarkDisconnected(
-		ctx, actors[0], authoritySession, attemptID, winner.PlayerID,
+		ctx, actors[0], authoritySession, attemptID, "world-p2p-primary", winner.PlayerID,
+		"native-handshake-"+winner.PlayerID,
 		prior.ConnectionGeneration,
 	)
 	if err != nil {
@@ -349,7 +490,8 @@ func TestStrictRosterP2PLifecycleAgainstPostgreSQL(t *testing.T) {
 		t.Fatalf("disconnected P2P member lacked reconnect capability: %+v, %v", disconnectedView.Local, err)
 	}
 	if _, err := service.P2PMarkDisconnected(
-		ctx, actors[0], authoritySession, attemptID, winner.PlayerID,
+		ctx, actors[0], authoritySession, attemptID, "world-p2p-primary", winner.PlayerID,
+		"native-handshake-"+winner.PlayerID,
 		prior.ConnectionGeneration,
 	); err != nil {
 		t.Fatalf("repeated P2P disconnect was not idempotent: %v", err)
@@ -368,15 +510,26 @@ func TestStrictRosterP2PLifecycleAgainstPostgreSQL(t *testing.T) {
 		reconnectClaims.LogicalSlot != priorClaims.LogicalSlot {
 		t.Fatalf("P2P reconnect moved the frozen seat: prior=%+v reconnect=%+v", priorClaims, reconnectClaims)
 	}
-	if _, err := service.P2PMarkConnected(
-		ctx, actors[0], authoritySession, attemptID, winner.PlayerID,
-		decodeJoinGrantJTI(t, prior.Grant), prior.ConnectionGeneration,
+	reconnectJTI := decodeJoinGrantJTI(t, reconnect.Grant)
+	reconnectNonce := "native-reconnect-" + winner.PlayerID
+	if _, err := service.P2PMarkAdmissionDelivered(ctx, actors[0], authoritySession, attemptID, reconnectJTI); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.P2PReserveAdmission(
+		ctx, actors[0], authoritySession, attemptID, "world-p2p-primary", winner.PlayerID,
+		reconnectJTI, reconnectNonce, reconnect.ConnectionGeneration,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.P2PConfirmConnected(
+		ctx, actors[0], authoritySession, attemptID, "world-p2p-primary",
+		winner.PlayerID, decodeJoinGrantJTI(t, prior.Grant), "native-handshake-"+winner.PlayerID, prior.ConnectionGeneration,
 	); errorCode(err) != "MATCH_JOIN_GRANT_NOT_CONSUMABLE" {
 		t.Fatalf("old P2P grant remained consumable after reconnect: %v", err)
 	}
-	reconnected, err := service.P2PMarkConnected(
-		ctx, actors[0], authoritySession, attemptID, winner.PlayerID,
-		decodeJoinGrantJTI(t, reconnect.Grant), reconnect.ConnectionGeneration,
+	reconnected, err := service.P2PConfirmConnected(
+		ctx, actors[0], authoritySession, attemptID, "world-p2p-primary",
+		winner.PlayerID, reconnectJTI, reconnectNonce, reconnect.ConnectionGeneration,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -398,6 +551,28 @@ func TestStrictRosterP2PLifecycleAgainstPostgreSQL(t *testing.T) {
 	}
 	if projectedTerminalState != "INCOMPLETE" {
 		t.Fatalf("disabled BattleLog projection remained active after completion: %s", projectedTerminalState)
+	}
+	var cleanupState string
+	if err := pool.QueryRow(ctx, `SELECT cleanup_state FROM match_attempts WHERE id = $1`, attemptID).Scan(&cleanupState); err != nil {
+		t.Fatal(err)
+	}
+	if cleanupState != "PENDING" {
+		t.Fatalf("completed P2P attempt cleanup state = %s, want PENDING", cleanupState)
+	}
+	if _, err := service.P2PNativeCleared(ctx, actors[0], authoritySession, attemptID, "world-p2p-old", reconnected.Attempt.RosterRevision, reconnected.Attempt.RouteGeneration); errorCode(err) != "MATCH_WORLD_INSTANCE_CONFLICT" {
+		t.Fatalf("old-world cleanup acknowledgement was accepted: %v", err)
+	}
+	if _, err := service.P2PNativeCleared(ctx, actors[0], authoritySession, attemptID, "world-p2p-primary", reconnected.Attempt.RosterRevision, reconnected.Attempt.RouteGeneration-1); errorCode(err) != "MATCH_ROUTE_GENERATION_STALE" {
+		t.Fatalf("stale P2P cleanup route was accepted: %v", err)
+	}
+	if _, err := service.P2PNativeCleared(ctx, actors[0], authoritySession, attemptID, "world-p2p-primary", reconnected.Attempt.RosterRevision, reconnected.Attempt.RouteGeneration); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT cleanup_state FROM match_attempts WHERE id = $1`, attemptID).Scan(&cleanupState); err != nil {
+		t.Fatal(err)
+	}
+	if cleanupState != "CLEARED" {
+		t.Fatalf("cleared P2P attempt cleanup state = %s", cleanupState)
 	}
 	if _, err := service.JoinGrant(ctx, winner, attemptID); errorCode(err) != "MATCH_ATTEMPT_NOT_CONNECTABLE" {
 		t.Fatalf("terminal attempt still issued a grant: %v", err)
@@ -443,13 +618,13 @@ func TestStrictRosterP2PLifecycleAgainstPostgreSQL(t *testing.T) {
 	if err := pool.QueryRow(ctx, "SELECT authority_session_id FROM match_attempts WHERE id = $1", timeoutAttempt.AttemptID).Scan(&timeoutSession); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.P2PPayloadInstalled(ctx, actors[0], timeoutAttempt.AttemptID, timeoutSession, "strict-roster-v1", matchConfig.LockedGameSHA256, timeoutAttempt.RouteGeneration); err != nil {
+	if _, err := service.P2PPayloadInstalled(ctx, actors[0], timeoutAttempt.AttemptID, timeoutSession, "strict-roster-v2", matchConfig.LockedGameSHA256, timeoutAttempt.RouteGeneration); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.P2PAuthorityReady(
 		ctx, actors[0], timeoutAttempt.AttemptID, timeoutSession,
 		timeoutHostToken, "10.88.0.2", 7777,
-		timeoutAttempt.RouteGeneration,
+		timeoutAttempt.RouteGeneration, "world-p2p-timeout", "native-host-p2p-timeout",
 	); err != nil {
 		t.Fatal(err)
 	}

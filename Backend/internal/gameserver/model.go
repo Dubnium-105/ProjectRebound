@@ -16,6 +16,9 @@ const (
 	StateDraining  State = "DRAINING"
 	StateUnhealthy State = "UNHEALTHY"
 	StateOffline   State = "OFFLINE"
+	// StateCleanupPending keeps a server out of the allocation pool until the
+	// authority has acknowledged native process/world and transport cleanup.
+	StateCleanupPending State = "CLEANUP_PENDING"
 )
 
 type Server struct {
@@ -56,15 +59,22 @@ type Server struct {
 	CreatedAt                      time.Time
 	UpdatedAt                      time.Time
 	ActiveMatch                    *MatchAssignment
+	NativeAdmissionVerified        bool
+	NativeAdmissionVersion         string
+	NativeAdmissionGameSHA256      string
+	NativeAdmissionVerifiedAt      *time.Time
 }
 
 // MatchAssignment is transient control-plane state returned only to the
 // authenticated server that owns the active strict-roster attempt. It is not
 // persisted in game_servers or exposed by the public server directory.
 type MatchAssignment struct {
-	AttemptID       string `json:"attempt_id"`
-	State           string `json:"state"`
-	RouteGeneration int    `json:"route_generation"`
+	AttemptID          string `json:"attempt_id"`
+	State              string `json:"state"`
+	AuthoritySessionID string `json:"authority_session_id"`
+	WorldInstanceID    string `json:"world_instance_id"`
+	RosterRevision     int64  `json:"roster_revision"`
+	RouteGeneration    int    `json:"route_generation"`
 }
 
 type RegistrationInput struct {
@@ -132,8 +142,11 @@ type SignedRequestPrincipal struct {
 }
 
 type HeartbeatInput struct {
-	State       State
-	PlayerCount int
+	State                     State
+	PlayerCount               int
+	NativeAdmissionVerified   bool
+	NativeAdmissionVersion    string
+	NativeAdmissionGameSHA256 string
 }
 
 type ListFilter struct {

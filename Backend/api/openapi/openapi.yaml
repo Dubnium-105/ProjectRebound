@@ -2689,7 +2689,9 @@ paths:
       operationId: issueMatchJoinGrant
       tags: [Match Admission]
       security: [{playerAccessToken: []}]
-      parameters: [{$ref: "#/components/parameters/MatchAttemptID"}]
+      parameters:
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/MatchJoinIdempotencyKey"}
       responses:
         "201":
           description: Short-lived, seat-bound, one-generation admission grant.
@@ -2733,6 +2735,36 @@ paths:
         content: {application/json: {schema: {$ref: "#/components/schemas/MatchPayloadInstalledRequest"}}}
       responses:
         "200": {description: Locked Payload and game build confirmed, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/match-attempts/{attempt_id}/host/admissions/{grant_jti}/reserve:
+    post:
+      operationId: reserveP2PMatchAdmission
+      tags: [Match Admission]
+      security: [{playerAccessToken: []}]
+      parameters:
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/MatchAuthoritySession"}
+        - {$ref: "#/components/parameters/MatchGrantJTI"}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/MatchAdmissionReservationRequest"}}}
+      responses:
+        "200": {description: Native admission reservation established without changing roster connectivity, content: {application/json: {schema: {$ref: "#/components/schemas/MatchAdmissionReservationResponse"}}}}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/match-attempts/{attempt_id}/host/admissions/{grant_jti}/release:
+    post:
+      operationId: releaseP2PMatchAdmission
+      tags: [Match Admission]
+      security: [{playerAccessToken: []}]
+      parameters:
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/MatchAuthoritySession"}
+        - {$ref: "#/components/parameters/MatchGrantJTI"}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/MatchAdmissionReservationRequest"}}}
+      responses:
+        "200": {description: Native admission reservation released, content: {application/json: {schema: {$ref: "#/components/schemas/MatchAdmissionReleaseResponse"}}}}
         "409": {$ref: "#/components/responses/Conflict"}
   /v1/match-attempts/{attempt_id}/host/connected:
     post:
@@ -2786,6 +2818,20 @@ paths:
         content: {application/json: {schema: {$ref: "#/components/schemas/MatchCompleteRequest"}}}
       responses:
         "200": {description: Attempt reached a terminal state, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
+  /v1/match-attempts/{attempt_id}/host/native-cleared:
+    post:
+      operationId: acknowledgeP2PMatchNativeCleared
+      tags: [Match Admission]
+      security: [{playerAccessToken: []}]
+      parameters:
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/MatchAuthoritySession"}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/MatchNativeClearedRequest"}}}
+      responses:
+        "200": {description: Native world and transport cleanup acknowledged, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
+        "409": {$ref: "#/components/responses/Conflict"}
   /v1/game-servers/{server_id}/match-attempts/{attempt_id}/allocation:
     get:
       operationId: getDedicatedMatchAllocation
@@ -2821,6 +2867,48 @@ paths:
         content: {application/json: {schema: {$ref: "#/components/schemas/MatchPayloadInstalledRequest"}}}
       responses:
         "200": {description: Locked Payload and game build confirmed, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
+  /v1/game-servers/{server_id}/match-attempts/{attempt_id}/admissions/{grant_jti}/reserve:
+    post:
+      operationId: reserveDedicatedMatchAdmission
+      tags: [Match Admission]
+      x-internal: true
+      security: [{gameServerToken: [], gameServerSignature: []}]
+      parameters:
+        - {$ref: "#/components/parameters/GameServerID"}
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/MatchAuthoritySession"}
+        - {$ref: "#/components/parameters/MatchGrantJTI"}
+        - {$ref: "#/components/parameters/GameServerCertificateFingerprint"}
+        - {$ref: "#/components/parameters/GameServerRequestTimestamp"}
+        - {$ref: "#/components/parameters/GameServerRequestNonce"}
+        - {$ref: "#/components/parameters/GameServerCredentialGeneration"}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/MatchAdmissionReservationRequest"}}}
+      responses:
+        "200": {description: Native admission reservation established without changing roster connectivity, content: {application/json: {schema: {$ref: "#/components/schemas/MatchAdmissionReservationResponse"}}}}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/game-servers/{server_id}/match-attempts/{attempt_id}/admissions/{grant_jti}/release:
+    post:
+      operationId: releaseDedicatedMatchAdmission
+      tags: [Match Admission]
+      x-internal: true
+      security: [{gameServerToken: [], gameServerSignature: []}]
+      parameters:
+        - {$ref: "#/components/parameters/GameServerID"}
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/MatchAuthoritySession"}
+        - {$ref: "#/components/parameters/MatchGrantJTI"}
+        - {$ref: "#/components/parameters/GameServerCertificateFingerprint"}
+        - {$ref: "#/components/parameters/GameServerRequestTimestamp"}
+        - {$ref: "#/components/parameters/GameServerRequestNonce"}
+        - {$ref: "#/components/parameters/GameServerCredentialGeneration"}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/MatchAdmissionReservationRequest"}}}
+      responses:
+        "200": {description: Native admission reservation released, content: {application/json: {schema: {$ref: "#/components/schemas/MatchAdmissionReleaseResponse"}}}}
+        "409": {$ref: "#/components/responses/Conflict"}
   /v1/game-servers/{server_id}/match-attempts/{attempt_id}/ready:
     post:
       operationId: markDedicatedMatchAuthorityReady
@@ -2835,6 +2923,9 @@ paths:
         - {$ref: "#/components/parameters/GameServerRequestTimestamp"}
         - {$ref: "#/components/parameters/GameServerRequestNonce"}
         - {$ref: "#/components/parameters/GameServerCredentialGeneration"}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/MatchNativeWorldReadyRequest"}}}
       responses:
         "200": {description: Initial connection window opened, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
   /v1/game-servers/{server_id}/match-attempts/{attempt_id}/connected:
@@ -2910,6 +3001,26 @@ paths:
         content: {application/json: {schema: {$ref: "#/components/schemas/MatchCompleteRequest"}}}
       responses:
         "200": {description: Attempt reached a terminal state, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
+  /v1/game-servers/{server_id}/match-attempts/{attempt_id}/native-cleared:
+    post:
+      operationId: acknowledgeDedicatedMatchNativeCleared
+      tags: [Match Admission]
+      x-internal: true
+      security: [{gameServerToken: [], gameServerSignature: []}]
+      parameters:
+        - {$ref: "#/components/parameters/GameServerID"}
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/MatchAuthoritySession"}
+        - {$ref: "#/components/parameters/GameServerCertificateFingerprint"}
+        - {$ref: "#/components/parameters/GameServerRequestTimestamp"}
+        - {$ref: "#/components/parameters/GameServerRequestNonce"}
+        - {$ref: "#/components/parameters/GameServerCredentialGeneration"}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/MatchNativeClearedRequest"}}}
+      responses:
+        "200": {description: Native world and transport cleanup acknowledged, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
+        "409": {$ref: "#/components/responses/Conflict"}
   /v1/p2p-rooms:
     get:
       operationId: listP2PRooms
@@ -4417,6 +4528,17 @@ components:
       name: attempt_id
       required: true
       schema: {type: string, pattern: "^mat_[A-Za-z0-9_-]+$"}
+    MatchJoinIdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: true
+      description: Stable key for one join intent. Reuse it only to retry the same lost response; use a new key for an intentional reconnect.
+      schema: {type: string, minLength: 8, maxLength: 128}
+    MatchGrantJTI:
+      in: path
+      name: grant_jti
+      required: true
+      schema: {type: string, minLength: 8, maxLength: 96}
     MatchTransportHostToken:
       in: header
       name: X-Match-Transport-Host-Token
@@ -5836,6 +5958,10 @@ components:
           minItems: 1
           maxItems: 1000
           items: {$ref: "#/components/schemas/AdminReleaseSourceFile"}
+        online_compatibility:
+          allOf:
+            - $ref: "#/components/schemas/OnlineCompatibility"
+          description: Signed strict-authoritative-online contract metadata. Required by toolbox releases and rejected for stable/beta releases.
         reason: {type: string, minLength: 1, maxLength: 500}
     AdminReleaseValidation:
       type: object
@@ -6857,13 +6983,19 @@ components:
     MatchAttemptState:
       type: string
       enum: [FROZEN, PROVISIONING, CONNECTING, RUNNING, COMPLETED, ABORTED]
+    MatchCleanupState:
+      type: string
+      enum: [CLEARED, PENDING]
     DedicatedMatchAssignment:
       type: object
       additionalProperties: false
-      required: [attempt_id, state, route_generation]
+      required: [attempt_id, state, authority_session_id, world_instance_id, roster_revision, route_generation]
       properties:
         attempt_id: {type: string, pattern: "^mat_[A-Za-z0-9_-]+$"}
         state: {$ref: "#/components/schemas/MatchAttemptState"}
+        authority_session_id: {type: string, minLength: 1, maxLength: 128}
+        world_instance_id: {type: string, maxLength: 128}
+        roster_revision: {type: integer, format: int64, minimum: 1}
         route_generation: {type: integer, minimum: 1}
     MatchLobbyCreateRequest:
       type: object
@@ -6952,7 +7084,7 @@ components:
     MatchAttemptView:
       type: object
       additionalProperties: false
-      required: [attempt_id, attempt_number, state, roster_revision, route_generation, payload_installed]
+      required: [attempt_id, attempt_number, state, roster_revision, route_generation, payload_installed, cleanup_state]
       properties:
         attempt_id: {type: string}
         attempt_number: {type: integer, minimum: 1}
@@ -6960,6 +7092,11 @@ components:
         roster_revision: {type: integer, format: int64, minimum: 1}
         route_generation: {type: integer, minimum: 1}
         payload_installed: {type: boolean}
+        cleanup_state: {$ref: "#/components/schemas/MatchCleanupState"}
+        cleanup_requested_at: {type: string, format: date-time}
+        native_cleared_at: {type: string, format: date-time}
+        cleanup_error: {type: string}
+        world_instance_id: {type: string}
         endpoint_host: {type: string}
         endpoint_port: {type: integer, minimum: 1, maximum: 65535}
         connection_deadline: {type: string, format: date-time}
@@ -7082,20 +7219,71 @@ components:
         payload_version: {type: string, minLength: 1, maxLength: 64}
         game_binary_sha256: {type: string, pattern: "^[0-9a-f]{64}$"}
         route_generation: {type: integer, minimum: 1}
+    MatchNativeWorldReadyRequest:
+      type: object
+      additionalProperties: false
+      required: [world_instance_id, native_connection_nonce]
+      properties:
+        world_instance_id: {type: string, minLength: 1, maxLength: 128}
+        native_connection_nonce: {type: string, minLength: 16, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$", writeOnly: true}
+    MatchAdmissionReservationRequest:
+      type: object
+      additionalProperties: false
+      required: [player_id, world_instance_id, native_connection_nonce, connection_generation]
+      properties:
+        player_id: {type: string, minLength: 1, maxLength: 64}
+        world_instance_id: {type: string, minLength: 1, maxLength: 128}
+        native_connection_nonce: {type: string, minLength: 16, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$"}
+        connection_generation: {type: integer, minimum: 1}
+    MatchAdmissionReservationResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [attempt_id, grant_jti, player_id, world_instance_id, native_connection_nonce, connection_generation, route_generation, reserved_until]
+          properties:
+            attempt_id: {type: string}
+            grant_jti: {type: string, writeOnly: true}
+            player_id: {type: string}
+            world_instance_id: {type: string}
+            native_connection_nonce: {type: string, minLength: 16, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$", writeOnly: true}
+            connection_generation: {type: integer, minimum: 1}
+            route_generation: {type: integer, minimum: 1}
+            reserved_until: {type: string, format: date-time}
+        request_id: {type: string}
+    MatchAdmissionReleaseResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [released]
+          properties:
+            released: {type: boolean, const: true}
+        request_id: {type: string}
     MatchConnectedReportRequest:
       type: object
       additionalProperties: false
-      required: [player_id, grant_jti, connection_generation]
+      required: [player_id, grant_jti, world_instance_id, native_connection_nonce, connection_generation]
       properties:
         player_id: {type: string}
         grant_jti: {type: string, minLength: 8, maxLength: 96, writeOnly: true}
+        world_instance_id: {type: string, minLength: 1, maxLength: 128}
+        native_connection_nonce: {type: string, minLength: 16, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$", writeOnly: true}
         connection_generation: {type: integer, minimum: 1}
     MatchDisconnectedReportRequest:
       type: object
       additionalProperties: false
-      required: [player_id, connection_generation]
+      required: [player_id, world_instance_id, native_connection_nonce, connection_generation]
       properties:
         player_id: {type: string}
+        world_instance_id: {type: string, minLength: 1, maxLength: 128}
+        native_connection_nonce: {type: string, minLength: 16, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$", writeOnly: true}
         connection_generation: {type: integer, minimum: 1}
     MatchCompleteRequest:
       type: object
@@ -7104,14 +7292,24 @@ components:
       properties:
         success: {type: boolean}
         failure_code: {type: string, maxLength: 64}
+    MatchNativeClearedRequest:
+      type: object
+      additionalProperties: false
+      required: [world_instance_id, roster_revision, route_generation]
+      properties:
+        world_instance_id: {type: string, minLength: 1, maxLength: 128}
+        roster_revision: {type: integer, minimum: 1}
+        route_generation: {type: integer, minimum: 1}
     P2PMatchAuthorityReadyRequest:
       type: object
       additionalProperties: false
-      required: [endpoint_host, endpoint_port, route_generation]
+      required: [endpoint_host, endpoint_port, route_generation, world_instance_id, native_connection_nonce]
       properties:
         endpoint_host: {type: string, minLength: 1, maxLength: 255}
         endpoint_port: {type: integer, minimum: 1, maximum: 65535}
         route_generation: {type: integer, minimum: 1}
+        world_instance_id: {type: string, minLength: 1, maxLength: 128}
+        native_connection_nonce: {type: string, minLength: 16, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$", writeOnly: true}
     P2PRoomState:
       type: string
       enum: [LOBBY, CONNECTING, RUNNING, STALE, CLOSED]
@@ -7814,6 +8012,22 @@ components:
         sha256: {type: string, pattern: "^[0-9a-f]{64}$"}
         compression: {type: string, enum: [none, gzip, zstd]}
         download_url: {type: string, format: uri}
+    OnlineCompatibility:
+      type: object
+      additionalProperties: false
+      required: [contract_version, admission_mode, frontend, ipc_protocol, backend_schema, game_binary_sha256, payload_sha256, backend_commit, toolbox_commit, acceptance_report_sha256]
+      description: Exact signed compatibility contract for the sole authoritative online release. The field is optional on stable/beta manifests and mandatory on toolbox source releases and manifests.
+      properties:
+        contract_version: {type: string, const: strict-authoritative-online-v1}
+        admission_mode: {type: string, const: strict_roster_v1}
+        frontend: {type: string, const: tauri}
+        ipc_protocol: {type: string, const: strict-roster-v2}
+        backend_schema: {type: integer, const: 47}
+        game_binary_sha256: {type: string, pattern: "^[0-9a-f]{64}$"}
+        payload_sha256: {type: string, pattern: "^[0-9a-f]{64}$"}
+        backend_commit: {type: string, pattern: "^[0-9a-f]{7,64}$"}
+        toolbox_commit: {type: string, pattern: "^[0-9a-f]{7,64}$"}
+        acceptance_report_sha256: {type: string, pattern: "^[0-9a-f]{64}$"}
     VNTRuntimeRelease:
       type: object
       additionalProperties: false
@@ -7830,6 +8044,10 @@ components:
       additionalProperties: false
       required: [schema_version, product, platform, architecture, channel, version, minimum_supported_version, published_at, files, manifest_hash, signature_algorithm, key_id, signature]
       properties:
+        online_compatibility:
+          allOf:
+            - $ref: "#/components/schemas/OnlineCompatibility"
+          description: Required when channel is toolbox; omitted for stable and beta manifests.
         schema_version: {type: integer, const: 1}
         product: {type: string}
         platform: {type: string}

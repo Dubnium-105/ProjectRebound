@@ -32,6 +32,13 @@ func NewHTTPHandler(service HTTPService, logger *slog.Logger, maxReportBytes int
 	return &HTTPHandler{service: service, logger: logger, maxReportBytes: maxReportBytes}
 }
 
+// RetiredOnlineRoute prevents the legacy independent match/presence writer
+// from becoming a second online state machine.  Authoritative attempts expose
+// their scoped admission and reporting paths through matchlobby instead.
+func (h *HTTPHandler) RetiredOnlineRoute(w http.ResponseWriter, r *http.Request) {
+	api.WriteError(w, r, http.StatusGone, "ONLINE_MATCH_ROUTE_RETIRED", "Standalone online P2P matches are retired; use an authoritative match attempt.", nil)
+}
+
 func (h *HTTPHandler) ActiveMatch(w http.ResponseWriter, r *http.Request) {
 	match, err := h.service.ActiveMatch(r.Context(), actorFromRequest(r), chi.URLParam(r, "room_id"))
 	if err != nil {

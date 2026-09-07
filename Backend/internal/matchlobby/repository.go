@@ -326,21 +326,31 @@ func (r *Repository) List(ctx context.Context, filter ListFilter) (ListResult, e
 
 func (r *Repository) getAttempt(ctx context.Context, attemptID string) (AttemptView, error) {
 	var item AttemptView
-	var deadline sql.NullTime
+	var deadline, cleanupRequestedAt, nativeClearedAt sql.NullTime
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, attempt_number, state, roster_revision,
 		       route_generation, COALESCE(endpoint_host, ''), COALESCE(endpoint_port, 0),
 		       COALESCE(payload_installed_at IS NOT NULL
 		         AND payload_route_generation = route_generation, FALSE),
-		       connection_deadline, COALESCE(failure_code, '')
+		       connection_deadline, COALESCE(failure_code, ''),
+		       cleanup_state, cleanup_requested_at, native_cleared_at,
+		       COALESCE(cleanup_error, ''), COALESCE(world_instance_id, '')
 		FROM match_attempts WHERE id = $1
 	`, attemptID).Scan(
 		&item.AttemptID, &item.AttemptNumber, &item.State, &item.RosterRevision,
 		&item.RouteGeneration, &item.EndpointHost, &item.EndpointPort,
 		&item.PayloadInstalled, &deadline, &item.FailureCode,
+		&item.CleanupState, &cleanupRequestedAt, &nativeClearedAt,
+		&item.CleanupError, &item.WorldInstanceID,
 	)
 	if deadline.Valid {
 		item.ConnectionDeadline = &deadline.Time
+	}
+	if cleanupRequestedAt.Valid {
+		item.CleanupRequestedAt = &cleanupRequestedAt.Time
+	}
+	if nativeClearedAt.Valid {
+		item.NativeClearedAt = &nativeClearedAt.Time
 	}
 	return item, err
 }

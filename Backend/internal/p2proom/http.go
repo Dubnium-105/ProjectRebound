@@ -49,6 +49,13 @@ func NewHTTPHandler(service HTTPService, logger *slog.Logger) *HTTPHandler {
 
 func (h *HTTPHandler) SetTrustProxyHeaders(value bool) { h.trustProxyHeaders = value }
 
+// RetiredOnlineRoute is kept as an explicit terminal response for clients
+// which still call the pre-authoritative P2P room API.  Managed transport
+// remains available only through MatchLobby/MatchAttempt internal calls.
+func (h *HTTPHandler) RetiredOnlineRoute(w http.ResponseWriter, r *http.Request) {
+	api.WriteError(w, r, http.StatusGone, "ONLINE_P2P_ROOM_RETIRED", "Standalone online P2P rooms are retired; create or join an authoritative match lobby.", nil)
+}
+
 type createRequest struct {
 	DisplayName   string        `json:"display_name"`
 	Region        string        `json:"region"`

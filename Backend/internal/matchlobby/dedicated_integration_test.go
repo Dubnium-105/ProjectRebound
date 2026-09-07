@@ -50,11 +50,13 @@ func TestStrictRosterDedicatedLifecycleAgainstPostgreSQL(t *testing.T) {
 			id, instance_id, display_name, region, mode, version,
 			public_host, public_port, max_players, player_count, state,
 			server_token_hash, registration_issuer, token_expires_at,
-			last_heartbeat_at, created_at, updated_at
+			last_heartbeat_at, created_at, updated_at,
+			native_admission_verified, native_admission_version,
+			native_admission_game_sha256, native_admission_verified_at
 		) VALUES ($1, $2, 'Strict Dedicated Integration', 'hk', 'TDM', '1.0.0',
 		          '127.0.0.1', 7777, 8, 0, 'READY', $3, 'integration',
-		          $4, $5, $5, $5)
-	`, serverID, serverID, tokenHash[:], currentTime.Add(time.Hour), currentTime); err != nil {
+		          $4, $5, $5, $5, TRUE, 'strict-roster-v2', $6, $5)
+	`, serverID, serverID, tokenHash[:], currentTime.Add(time.Hour), currentTime, matchConfig.LockedGameSHA256); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
@@ -120,11 +122,11 @@ func TestStrictRosterDedicatedLifecycleAgainstPostgreSQL(t *testing.T) {
 	}
 	if _, err := service.DedicatedPayloadInstalled(
 		ctx, serverID, attemptID, allocationClaims.AuthoritySessionID,
-		"strict-roster-v1", matchConfig.LockedGameSHA256, active.Attempt.RouteGeneration,
+		"strict-roster-v2", matchConfig.LockedGameSHA256, active.Attempt.RouteGeneration,
 	); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.DedicatedAuthorityReady(ctx, serverID, attemptID, allocationClaims.AuthoritySessionID); err != nil {
+	if _, err := service.DedicatedAuthorityReady(ctx, serverID, attemptID, allocationClaims.AuthoritySessionID, "world-dedicated-primary", "native-host-dedicated-primary"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -135,9 +137,23 @@ func TestStrictRosterDedicatedLifecycleAgainstPostgreSQL(t *testing.T) {
 			t.Fatal(err)
 		}
 		connectedGrants[actor.PlayerID] = grant
-		if _, err := service.MarkConnected(
+		grantJTI := decodeJoinGrantJTI(t, grant.Grant)
+		nativeNonce := "native-dedicated-" + actor.PlayerID
+		if _, err := service.MarkAdmissionDelivered(
+			ctx, serverID, allocationClaims.AuthoritySessionID, attemptID, grantJTI,
+		); err != nil {
+			t.Fatal(err)
+		}
+		reservation, err := service.ReserveAdmission(
 			ctx, serverID, allocationClaims.AuthoritySessionID, attemptID,
-			actor.PlayerID, decodeJoinGrantJTI(t, grant.Grant), grant.ConnectionGeneration,
+			"world-dedicated-primary", actor.PlayerID, grantJTI, nativeNonce, grant.ConnectionGeneration,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := service.ConfirmConnected(
+			ctx, serverID, allocationClaims.AuthoritySessionID, attemptID,
+			reservation.WorldInstanceID, actor.PlayerID, grantJTI, nativeNonce, grant.ConnectionGeneration,
 		); err != nil {
 			t.Fatal(err)
 		}
@@ -151,7 +167,22 @@ func TestStrictRosterDedicatedLifecycleAgainstPostgreSQL(t *testing.T) {
 	}
 	if _, err := service.MarkDisconnected(
 		ctx, serverID, allocationClaims.AuthoritySessionID, attemptID,
-		owner.PlayerID, connectedGrants[owner.PlayerID].ConnectionGeneration,
+		"world-dedicated-old", owner.PlayerID, "native-dedicated-"+owner.PlayerID,
+		connectedGrants[owner.PlayerID].ConnectionGeneration,
+	); errorCode(err) != "MATCH_WORLD_INSTANCE_CONFLICT" {
+		t.Fatalf("old Dedicated world was accepted for disconnect: %v", err)
+	}
+	if _, err := service.MarkDisconnected(
+		ctx, serverID, allocationClaims.AuthoritySessionID, attemptID,
+		"world-dedicated-primary", owner.PlayerID, "native-dedicated-stale-xxxxxxxx",
+		connectedGrants[owner.PlayerID].ConnectionGeneration,
+	); errorCode(err) != "MATCH_CONNECTION_GENERATION_STALE" {
+		t.Fatalf("old Dedicated disconnect nonce was accepted: %v", err)
+	}
+	if _, err := service.MarkDisconnected(
+		ctx, serverID, allocationClaims.AuthoritySessionID, attemptID,
+		"world-dedicated-primary", owner.PlayerID, "native-dedicated-"+owner.PlayerID,
+		connectedGrants[owner.PlayerID].ConnectionGeneration,
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -161,7 +192,8 @@ func TestStrictRosterDedicatedLifecycleAgainstPostgreSQL(t *testing.T) {
 	}
 	if _, err := service.MarkDisconnected(
 		ctx, serverID, allocationClaims.AuthoritySessionID, attemptID,
-		owner.PlayerID, connectedGrants[owner.PlayerID].ConnectionGeneration,
+		"world-dedicated-primary", owner.PlayerID, "native-dedicated-"+owner.PlayerID,
+		connectedGrants[owner.PlayerID].ConnectionGeneration,
 	); err != nil {
 		t.Fatalf("repeated Dedicated disconnect was not idempotent: %v", err)
 	}
@@ -172,16 +204,29 @@ func TestStrictRosterDedicatedLifecycleAgainstPostgreSQL(t *testing.T) {
 	if reconnect.ConnectionGeneration != connectedGrants[owner.PlayerID].ConnectionGeneration+1 {
 		t.Fatalf("reconnect generation = %d", reconnect.ConnectionGeneration)
 	}
-	if _, err := service.MarkConnected(
+	reconnectJTI := decodeJoinGrantJTI(t, reconnect.Grant)
+	reconnectNonce := "native-dedicated-reconnect-" + owner.PlayerID
+	if _, err := service.MarkAdmissionDelivered(
+		ctx, serverID, allocationClaims.AuthoritySessionID, attemptID, reconnectJTI,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.ReserveAdmission(
 		ctx, serverID, allocationClaims.AuthoritySessionID, attemptID,
-		owner.PlayerID, decodeJoinGrantJTI(t, connectedGrants[owner.PlayerID].Grant),
-		connectedGrants[owner.PlayerID].ConnectionGeneration,
+		"world-dedicated-primary", owner.PlayerID, reconnectJTI, reconnectNonce, reconnect.ConnectionGeneration,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.ConfirmConnected(
+		ctx, serverID, allocationClaims.AuthoritySessionID, attemptID,
+		"world-dedicated-primary", owner.PlayerID, decodeJoinGrantJTI(t, connectedGrants[owner.PlayerID].Grant),
+		"native-dedicated-"+owner.PlayerID, connectedGrants[owner.PlayerID].ConnectionGeneration,
 	); errorCode(err) != "MATCH_JOIN_GRANT_NOT_CONSUMABLE" {
 		t.Fatalf("old Dedicated grant remained consumable: %v", err)
 	}
-	if _, err := service.MarkConnected(
+	if _, err := service.ConfirmConnected(
 		ctx, serverID, allocationClaims.AuthoritySessionID, attemptID,
-		owner.PlayerID, decodeJoinGrantJTI(t, reconnect.Grant), reconnect.ConnectionGeneration,
+		"world-dedicated-primary", owner.PlayerID, reconnectJTI, reconnectNonce, reconnect.ConnectionGeneration,
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -193,6 +238,28 @@ func TestStrictRosterDedicatedLifecycleAgainstPostgreSQL(t *testing.T) {
 	terminal, err := service.Complete(ctx, serverID, allocationClaims.AuthoritySessionID, attemptID, true, "")
 	if err != nil || terminal.State != StateCompleted {
 		t.Fatalf("complete Dedicated attempt: %+v, %v", terminal, err)
+	}
+	var cleanupState string
+	if err := pool.QueryRow(ctx, `SELECT cleanup_state FROM match_attempts WHERE id = $1`, attemptID).Scan(&cleanupState); err != nil {
+		t.Fatal(err)
+	}
+	if cleanupState != "PENDING" {
+		t.Fatalf("completed Dedicated attempt cleanup state = %s, want PENDING", cleanupState)
+	}
+	if _, err := service.NativeCleared(ctx, serverID, allocationClaims.AuthoritySessionID, attemptID, "world-dedicated-old", active.Attempt.RosterRevision, active.Attempt.RouteGeneration); errorCode(err) != "MATCH_WORLD_INSTANCE_CONFLICT" {
+		t.Fatalf("old-world Dedicated cleanup acknowledgement was accepted: %v", err)
+	}
+	if _, err := service.NativeCleared(ctx, serverID, allocationClaims.AuthoritySessionID, attemptID, "world-dedicated-primary", active.Attempt.RosterRevision, active.Attempt.RouteGeneration+1); errorCode(err) != "MATCH_ROUTE_GENERATION_STALE" {
+		t.Fatalf("stale Dedicated cleanup route was accepted: %v", err)
+	}
+	if _, err := service.NativeCleared(ctx, serverID, allocationClaims.AuthoritySessionID, attemptID, "world-dedicated-primary", active.Attempt.RosterRevision, active.Attempt.RouteGeneration); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT cleanup_state FROM match_attempts WHERE id = $1`, attemptID).Scan(&cleanupState); err != nil {
+		t.Fatal(err)
+	}
+	if cleanupState != "CLEARED" {
+		t.Fatalf("cleared Dedicated attempt cleanup state = %s", cleanupState)
 	}
 }
 

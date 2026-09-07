@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -227,6 +228,13 @@ func TestGameServerRegistryAgainstPostgreSQL(t *testing.T) {
 	ready, err := service.Heartbeat(ctx, first.Server.ID, secondRegistration.ServerToken, HeartbeatInput{State: StateReady, PlayerCount: 2})
 	if err != nil || ready.State != StateReady || ready.PlayerCount != 2 {
 		t.Fatalf("heartbeat = %#v, %v", ready, err)
+	}
+	legacyCapability, err := service.Heartbeat(ctx, first.Server.ID, secondRegistration.ServerToken, HeartbeatInput{
+		State: StateReady, PlayerCount: 2, NativeAdmissionVerified: true,
+		NativeAdmissionVersion: "strict-roster-v1", NativeAdmissionGameSHA256: strings.Repeat("a", 64),
+	})
+	if err != nil || legacyCapability.NativeAdmissionVerified || legacyCapability.NativeAdmissionVersion != "" {
+		t.Fatalf("legacy native admission capability was retained: %#v, %v", legacyCapability, err)
 	}
 	rotationPrivateKey, rotationCSR, err := NewNodeIdentity("rotated-server")
 	if err != nil {

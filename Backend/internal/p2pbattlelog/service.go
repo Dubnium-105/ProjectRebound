@@ -249,7 +249,7 @@ func (s *Service) UpdatePresence(
 	if input.Status == "ACTIVE" && match.State == MatchStarting {
 		if _, err := tx.Exec(ctx, `
 			UPDATE p2p_match_sessions SET state = 'RUNNING', updated_at = $2
-			WHERE id = $1 AND state = 'STARTING'
+			WHERE id = $1 AND state = 'STARTING' AND match_attempt_id IS NULL
 		`, match.ID, now); err != nil {
 			return PresenceResult{}, internal(err)
 		}

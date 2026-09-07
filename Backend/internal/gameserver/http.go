@@ -52,8 +52,11 @@ type registrationCredentialRequest struct {
 }
 
 type heartbeatRequest struct {
-	State       State `json:"state"`
-	PlayerCount int   `json:"player_count"`
+	State                     State  `json:"state"`
+	PlayerCount               int    `json:"player_count"`
+	NativeAdmissionVerified   bool   `json:"native_admission_verified"`
+	NativeAdmissionVersion    string `json:"native_admission_version"`
+	NativeAdmissionGameSHA256 string `json:"native_admission_game_sha256"`
 }
 
 type credentialRotationRequest struct {
@@ -190,6 +193,9 @@ func (h *HTTPHandler) Heartbeat(w http.ResponseWriter, r *http.Request) {
 	}
 	updated, err := h.service.Heartbeat(r.Context(), chi.URLParam(r, "server_id"), bearerToken(r), HeartbeatInput{
 		State: request.State, PlayerCount: request.PlayerCount,
+		NativeAdmissionVerified:   request.NativeAdmissionVerified,
+		NativeAdmissionVersion:    request.NativeAdmissionVersion,
+		NativeAdmissionGameSHA256: request.NativeAdmissionGameSHA256,
 	})
 	if err != nil {
 		h.writeError(w, r, err)
