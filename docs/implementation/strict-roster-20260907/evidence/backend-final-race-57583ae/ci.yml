@@ -1,0 +1,479 @@
+name: CI and Images
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  command-protocol:
+    name: C++ command protocol
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Configure protocol tests
+        run: cmake -S Payload/Tests -B build/command-protocol -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build protocol tests with warnings as errors
+        run: cmake --build build/command-protocol --parallel
+
+      - name: Run protocol tests
+        run: ctest --test-dir build/command-protocol --output-on-failure
+
+  command-pipe-windows:
+    name: Windows named-pipe integration
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Configure named-pipe tests
+        run: cmake -S Payload/Tests -B build/command-pipe-tests -A x64
+
+      - name: Build named-pipe tests with warnings as errors
+        run: cmake --build build/command-pipe-tests --config Release --parallel
+
+      - name: Run named-pipe tests
+        run: ctest --test-dir build/command-pipe-tests -C Release --output-on-failure
+
+  backend:
+    name: Go backend and PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: Backend
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: projectrebound_test
+          POSTGRES_USER: projectrebound
+          POSTGRES_PASSWORD: ci-postgres-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U projectrebound -d projectrebound_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgres://projectrebound:ci-postgres-only@127.0.0.1:5432/projectrebound_test?sslmode=disable
+      TEST_REDIS_ADDRESS: 127.0.0.1:6379
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: Backend/go.mod
+          cache-dependency-path: Backend/go.sum
+
+      - name: Check formatting
+        shell: bash
+        run: |
+          gofmt -l . | tee /tmp/projectrebound-gofmt.txt
+          test ! -s /tmp/projectrebound-gofmt.txt
+
+      - name: Validate Windows launcher syntax
+        shell: pwsh
+        run: |
+          $errors = $null
+          [void] [Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path 'cmd/meta-tunnel/startgame.ps1'),
+            [ref] $null,
+            [ref] $errors
+          )
+          if ($errors.Count -gt 0) {
+            $errors | Format-List
+            exit 1
+          }
+
+      - name: Verify modules
+        run: go mod verify
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test with race detector
+        # Integration packages share this PostgreSQL database and fixed Steam
+        # fixtures. Serialize packages; -race still checks each package's
+        # concurrent operations without cross-package unique-key collisions.
+        run: go test -race -p 1 ./... -count=1
+
+      - name: Fuzz MetaServer framing
+        run: go test ./internal/metaserver -run=^$ -fuzz=FuzzReadFrame -fuzztime=100000x
+
+      - name: Verify generated MetaServer protobuf
+        shell: bash
+        run: |
+          curl -fsSLo /tmp/protoc.zip \
+            https://github.com/protocolbuffers/protobuf/releases/download/v30.2/protoc-30.2-linux-x86_64.zip
+          unzip -q /tmp/protoc.zip -d /tmp/protoc
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
+          PATH="/tmp/protoc/bin:$(go env GOPATH)/bin:$PATH" \
+            protoc --proto_path=api/proto/metaserver \
+              --go_out=. \
+              --go_opt=module=github.com/Dubnium-105/ProjectRebound/Backend \
+              api/proto/metaserver/metaserver.proto
+          git diff --exit-code -- internal/metaserver/protocol
+
+      - name: Check known Go vulnerabilities
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+      - name: Build control plane, Steam ticket verifier, MetaServer, MetaTunnel and edge relay
+        run: |
+          go build -trimpath ./cmd/control-plane
+          go build -trimpath ./cmd/decrypt-ticket
+          go build -trimpath ./cmd/meta-server
+          go build -trimpath ./cmd/meta-import
+          go build -trimpath ./cmd/edge-relay
+          GOOS=windows GOARCH=amd64 go build -trimpath -o meta-tunnel.exe ./cmd/meta-tunnel
+
+      - name: Upload Windows MetaTunnel
+        uses: actions/upload-artifact@v6
+        with:
+          name: meta-tunnel-windows-amd64-${{ github.sha }}
+          path: |
+            Backend/meta-tunnel.exe
+            Backend/cmd/meta-tunnel/startgame.ps1
+          if-no-files-found: error
+
+  admin-web:
+    name: Independent administrator web
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: AdminWeb
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: AdminWeb/package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Audit all administrator web dependencies
+        run: npm audit
+
+      - name: Verify generated OpenAPI types
+        run: |
+          npm run generate:api
+          git diff --exit-code -- src/api/openapi.generated.ts
+
+      - name: Run administrator web tests
+        run: npm test
+
+      - name: Build administrator web
+        run: npm run build
+
+      - name: Install Chromium for administrator E2E
+        run: npx playwright install --with-deps chromium
+
+      - name: Run administrator E2E
+        run: npm run test:e2e
+
+  deployment-config:
+    name: Deployment and workflow configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Go for actionlint
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.6"
+          cache: false
+
+      - name: Validate GitHub Actions
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+
+      - name: Validate shell syntax and line endings
+        shell: bash
+        run: |
+          bash -n Backend/scripts/*.sh Backend/scripts/backup/*.sh Backend/scripts/release/*.sh Backend/deploy/deploy.sh Backend/deployments/minio/*.sh Backend/tests/netem/run-relay-matrix.sh Backend/tests/integration/*.sh Backend/tests/load/longrun/*.sh
+          if grep -IUlr $'\r' Backend/scripts Backend/deploy Backend/tests/netem Backend/tests/integration Backend/tests/load/longrun; then
+            echo "CRLF found in Linux shell scripts" >&2
+            exit 1
+          fi
+
+      - name: Validate long stability harness
+        env:
+          V11_CONTROL_PLANE_IMAGE: example.invalid/projectrebound-control-plane:ci
+          V11_EDGE_RELAY_IMAGE: example.invalid/projectrebound-edge-relay:ci
+          V11_LOAD_BOT_IMAGE: example.invalid/projectrebound-load-bot:ci
+          V11_ADMIN_TOKEN: ci-admin-token
+          V11_RELAY_A_BOOTSTRAP_TOKEN: ci-relay-a-token
+          V11_RELAY_B_BOOTSTRAP_TOKEN: ci-relay-b-token
+          V11_ACCESS_TOKEN_PRIVATE_KEY_BASE64: Y2ktYWNjZXNz
+          V11_RELAY_TOKEN_PRIVATE_KEY_BASE64: Y2ktcmVsYXk=
+          V11_UPDATE_SIGNING_PRIVATE_KEY_BASE64: Y2ktdXBkYXRl
+          V11_RELAY_CA_CERT_PEM_BASE64: Y2ktY2VydA==
+          V11_RELAY_CA_KEY_PEM_BASE64: Y2kta2V5
+        run: |
+          python -m py_compile Backend/tests/load/longrun/*.py
+          docker compose -f Backend/tests/load/longrun/docker-compose.yaml config -q
+
+      - name: Test release activation and automatic rollback
+        run: Backend/scripts/test-remote-deploy.sh
+
+      - name: Test SSH deployment bundle
+        run: Backend/scripts/test-deploy-over-ssh.sh
+
+      - name: Test CI artifact and source deployment modes
+        run: Backend/scripts/test-deploy-source.sh
+
+      - name: Test download storage environment upgrade
+        run: Backend/scripts/test-download-storage-env.sh
+
+      - name: Test release safety gates
+        run: Backend/scripts/test-release.sh
+
+      - name: Validate local Markdown links
+        run: |
+          python Tools/Docs/check_markdown_links.py
+          python Tools/Docs/check_bilingual_docs.py
+
+      - name: Generate production-shaped secrets
+        run: |
+          Backend/scripts/generate-control-plane-env.sh /tmp/projectrebound-control-plane.env
+          test "$(stat -c '%a' /tmp/projectrebound-control-plane.env)" = "600"
+
+      - name: Validate separated Compose files
+        run: |
+          cp Backend/deployments/edge-relay/config.edge-relay.yaml.example \
+             Backend/deployments/edge-relay/config.edge-relay.yaml
+          docker compose --env-file /tmp/projectrebound-control-plane.env \
+            -f Backend/deployments/control-plane/docker-compose.yaml \
+            --profile monitoring config -q
+          docker compose --env-file Backend/deployments/edge-relay/.env.example \
+            -f Backend/deployments/edge-relay/docker-compose.yaml config -q
+
+      - name: Validate Prometheus configuration and alert expressions
+        run: |
+          docker run --rm --entrypoint /bin/promtool \
+            -v "$GITHUB_WORKSPACE/Backend/deployments/monitoring:/etc/prometheus:ro" \
+            prom/prometheus:v2.55.1 check config /etc/prometheus/prometheus.yml
+          docker run --rm --entrypoint /bin/promtool \
+            -w /etc/prometheus/tests \
+            -v "$GITHUB_WORKSPACE/Backend/deployments/monitoring:/etc/prometheus:ro" \
+            prom/prometheus:v2.55.1 test rules v1.1.rules.test.yml
+
+  v11-integration:
+    name: V1.1 disposable control plane and two-Relay integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: Backend/tests/integration/go.mod
+          cache-dependency-path: |
+            Backend/go.sum
+            Backend/tests/integration/go.sum
+
+      - name: Install isolated network fault tools
+        run: sudo apt-get update && sudo apt-get install -y iproute2
+
+      - name: Run real auth, room, WebSocket and Relay UDP flow
+        working-directory: Backend/tests/integration
+        env:
+          V11_INTEGRATION_I_UNDERSTAND: disposable-docker-stack
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+        run: |
+          set -o pipefail
+          bash ./run-gate.sh 2>&1 | tee integration-gate.log
+
+      - name: Validate public Caddy policy
+        if: ${{ !cancelled() }}
+        run: |
+          docker run --rm \
+            -e PUBLIC_API_SITE=http://:80 \
+            -e ADMIN_WEB_SITE=http://admin.localhost \
+            -v "$GITHUB_WORKSPACE/Backend/deployments/control-plane/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
+
+      - name: Upload integration diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: v11-integration-${{ github.sha }}-${{ github.run_attempt }}
+          path: Backend/tests/integration/integration-gate.log
+          if-no-files-found: warn
+          retention-days: 7
+
+  container-images:
+    name: Build and package ${{ matrix.name }} image
+    needs: [backend, admin-web, deployment-config, v11-integration]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: control-plane
+            dockerfile: Backend/deployments/compose/control-plane.Dockerfile
+            context: Backend
+          - name: edge-relay
+            dockerfile: Backend/deployments/relay/Dockerfile
+            context: Backend
+          - name: meta-server
+            dockerfile: Backend/deployments/compose/meta-server.Dockerfile
+            context: Backend
+          - name: load-bot
+            dockerfile: Backend/deployments/load-bot/Dockerfile
+            context: Backend
+          - name: admin-web
+            dockerfile: AdminWeb/Dockerfile
+            context: .
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Resolve lowercase GHCR image name
+        id: image
+        shell: bash
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "name=ghcr.io/${owner}/projectrebound-${{ matrix.name }}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate OCI metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ steps.image.outputs.name }}
+          tags: |
+            type=raw,value=sha-${{ github.sha }}
+            type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+
+      - name: Build image and publish CI artifact
+        id: push
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+      - name: Attest image provenance
+        if: github.event_name != 'pull_request'
+        uses: actions/attest@v4
+        with:
+          subject-name: ${{ steps.image.outputs.name }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Generate image SBOM
+        if: github.event_name != 'pull_request'
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ steps.image.outputs.name }}@${{ steps.push.outputs.digest }}
+          artifact-name: sbom-${{ matrix.name }}-${{ github.sha }}.spdx.json
+          format: spdx-json
+
+      - name: Scan image for high and critical vulnerabilities
+        if: github.event_name != 'pull_request'
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.image.outputs.name }}@${{ steps.push.outputs.digest }}
+          format: table
+          exit-code: "1"
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+
+      - name: Set up Go for release record
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: Backend/go.mod
+          cache: false
+
+      - name: Write immutable build record
+        shell: bash
+        env:
+          IMAGE_NAME: ${{ steps.image.outputs.name }}
+          IMAGE_DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          mkdir -p release-record
+          definitions_sha256="$(sha256sum Backend/internal/metaserver/assets/definitions/MANIFEST.sha256 | cut -d' ' -f1)"
+          latest_migration="$(find Backend/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | tail -n 1)"
+          if [[ ! "$latest_migration" =~ ^([0-9]+)_ ]]; then
+            echo "Unable to derive database schema version from Backend/migrations" >&2
+            exit 1
+          fi
+          database_schema_version="$((10#${BASH_REMATCH[1]}))"
+          printf '%s\n' \
+            "git_commit=${GITHUB_SHA}" \
+            "build_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            "go_version=$(go env GOVERSION)" \
+            "image=${IMAGE_NAME}" \
+            "image_digest=${IMAGE_DIGEST}" \
+            "relay_protocol_version=2" \
+            "meta_protocol_version=1" \
+            "database_schema_version=${database_schema_version}" \
+            "definitions_sha256=${definitions_sha256}" \
+            "definitions_upstream_commit=d68e717267abf14e32d4e39618f9b7680ed93046" \
+            > "release-record/${{ matrix.name }}.txt"
+
+      - name: Upload build record
+        uses: actions/upload-artifact@v6
+        with:
+          name: release-record-${{ matrix.name }}-${{ github.sha }}
+          path: release-record/${{ matrix.name }}.txt
+          if-no-files-found: error

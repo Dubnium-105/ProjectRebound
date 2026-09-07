@@ -1,0 +1,31 @@
+{
+  "command": [
+    "wsl",
+    "-e",
+    "env",
+    "TEST_DATABASE_URL=postgres://phanthy@127.0.0.1:55439/rebound_e2e21_20260907153904?sslmode=disable",
+    "TEST_META_DATABASE_URL=postgres://rebound_meta_e2e21_20260907153904@127.0.0.1:55439/rebound_e2e21_20260907153904?sslmode=disable",
+    "/tmp/rebound-strict-roster-20260907-go1266/go/bin/go",
+    "-C",
+    "/mnt/c/wksp/ProjectRebound/Backend",
+    "test",
+    "-race",
+    "./internal/metaserver",
+    "-run",
+    "^TestBattleLogSubmissionAgainstPostgreSQL$",
+    "-count=1",
+    "-v"
+  ],
+  "exit_code": 0,
+  "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\battlelog-restricted-race-20260907154552.log",
+  "sha256": "74cc243231132a64c7b59acc6523258d1f4749d19008ddae857e6e9670903588",
+  "scope": "Actual Linux Go race, PostgreSQL admin fixture setup and deployed restricted Meta role. Lab trust authentication; no password-rejection claim.",
+  "source_commit": "85073009a7865779135fa7a4cc4f86fffa284862",
+  "source_dirty": true,
+  "source_files": {
+    "C:\\wksp\\ProjectRebound\\Backend\\internal\\metaserver\\battlelog_repository.go": "a32a855671d45e5d90d046815072066dc6a35d055d2ab41266fd9134682c923d",
+    "C:\\wksp\\ProjectRebound\\Backend\\internal\\metaserver\\battlelog_repository_integration_test.go": "a25b9a3909fefe30e5385f0ffd04ba005ec47fafc34f59eb5cc50160d521cdcf",
+    "C:\\wksp\\ProjectRebound\\Backend\\internal\\metaserver\\repository.go": "20944c4d7aae05ae92603cdafdcba929c809d237314a612bb18cc47dac3c36ac",
+    "C:\\wksp\\ProjectRebound\\Backend\\deployments\\control-plane\\provision-meta-postgres.sh": "e9c1a64da59e511502d0f901478d2baf0ec6b1e4d730fd9c59b0ab9b32ee6507"
+  }
+}

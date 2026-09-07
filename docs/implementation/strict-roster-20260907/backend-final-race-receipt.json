@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-07T16:04:32.043570+00:00",
+  "status": "COMPLETED_WITH_EXPLICIT_SKIPS",
+  "source_commit": "57583ae8ddec46838e118e5eef46dc932784b9bf",
+  "backend_tree": "62d041817ff50d1a0791a97d60d583e6e5b17f8d",
+  "executions": [
+    {
+      "source_commit": "57583ae8ddec46838e118e5eef46dc932784b9bf",
+      "backend_tree": "62d041817ff50d1a0791a97d60d583e6e5b17f8d",
+      "source_scope": "Committed Backend source; unrelated report files may be dirty. Native component fixture uses a different isolated database.",
+      "command": [
+        "wsl",
+        "-e",
+        "env",
+        "TEST_DATABASE_URL=postgres://phanthy@127.0.0.1:55439/rebound_backend_restore_authority_20260907_final?sslmode=disable",
+        "TEST_REDIS_ADDRESS=127.0.0.1:56380",
+        "/tmp/rebound-strict-roster-20260907-go1266/go/bin/go",
+        "-C",
+        "/mnt/c/wksp/ProjectRebound/Backend",
+        "test",
+        "-race",
+        "./...",
+        "-count=1",
+        "-v"
+      ],
+      "exit_code": 1,
+      "pass_count": 395,
+      "subtest_pass_count": 127,
+      "skip_names": [
+        "TestS3StorageAgainstCompatibleService (0.00s)",
+        "TestNormalizeBattleLogFixtureWhenConfigured (0.00s)",
+        "TestRestrictedMetaServicePermissions (0.00s)",
+        "TestStrictRosterRustRelayClients (0.00s)"
+      ],
+      "fail_names": [
+        "TestAdministratorIssuesAndRevokesInstanceBoundGameServerToken (0.02s)",
+        "TestAuthenticationLifecycleAgainstPostgreSQL (0.05s)",
+        "TestGameServerRegistryAgainstPostgreSQL (0.04s)",
+        "TestBattleLogSubmissionAgainstPostgreSQL (1.30s)",
+        "TestBattleLogSubmissionAgainstPostgreSQL/pve_claim_non_official (0.34s)"
+      ],
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\final-backend-race\\20260907155627\\backend-go-test-race.log",
+      "sha256": "dc3e8a35f65d0a1b4e0b44497cac8f236e3fee484d525c1224a22b781d4f1cca",
+      "backend_tree_unchanged": true,
+      "stable_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-final-race-57583ae\\20260907155627\\backend-go-test-race.log",
+      "result_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-final-race-57583ae\\20260907155627\\result.json",
+      "result_sha256": "ce5ee7bd33f33d3bf70f0537d04d5019a1ca1b5b1bfca01cc8f33486c24d6258"
+    },
+    {
+      "source_commit": "57583ae8ddec46838e118e5eef46dc932784b9bf",
+      "backend_tree": "62d041817ff50d1a0791a97d60d583e6e5b17f8d",
+      "source_scope": "Committed Backend source; unrelated report files may be dirty. Native component fixture uses a different isolated database.",
+      "command": [
+        "wsl",
+        "-e",
+        "env",
+        "TEST_DATABASE_URL=postgres://phanthy@127.0.0.1:55439/rebound_backend_restore_authority_20260907_final?sslmode=disable",
+        "TEST_REDIS_ADDRESS=127.0.0.1:56380",
+        "/tmp/rebound-strict-roster-20260907-go1266/go/bin/go",
+        "-C",
+        "/mnt/c/wksp/ProjectRebound/Backend",
+        "test",
+        "-race",
+        "-p",
+        "1",
+        "./...",
+        "-count=1",
+        "-v"
+      ],
+      "exit_code": 0,
+      "pass_count": 399,
+      "subtest_pass_count": 143,
+      "skip_names": [
+        "TestS3StorageAgainstCompatibleService (0.00s)",
+        "TestNormalizeBattleLogFixtureWhenConfigured (0.00s)",
+        "TestRestrictedMetaServicePermissions (0.00s)",
+        "TestStrictRosterRustRelayClients (0.00s)"
+      ],
+      "fail_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\final-backend-race\\20260907155910\\backend-go-test-race.log",
+      "sha256": "d3137db3370ed069b181c57b4165d5e57489c7c6338f309198852477af86f909",
+      "backend_tree_unchanged": true,
+      "stable_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-final-race-57583ae\\20260907155910\\backend-go-test-race.log",
+      "result_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-final-race-57583ae\\20260907155910\\result.json",
+      "result_sha256": "109e35e50fe4e7b98ff9ec30d93d65ac4c8cf93bc24af063380bbf8f7b66f338"
+    }
+  ],
+  "final_command_exit_code": 0,
+  "final_top_level_pass_count": 399,
+  "final_subtest_pass_count": 143,
+  "skip_names": [
+    "TestS3StorageAgainstCompatibleService (0.00s)",
+    "TestNormalizeBattleLogFixtureWhenConfigured (0.00s)",
+    "TestRestrictedMetaServicePermissions (0.00s)",
+    "TestStrictRosterRustRelayClients (0.00s)"
+  ],
+  "historical_failure": "The first Root invocation omitted the repository CI package-serialization flag. The shared database migration fault injection temporarily published schema48/zero checksum while other packages started, and a concurrent sweep changed the BattleLog fixture server state. The complete failing log is retained; no product schema gate was relaxed.",
+  "correction": "Reran the complete suite with the existing .github/workflows/ci.yml command shape: go test -race -p 1 ./... -count=1. Packages share the isolated PostgreSQL fixture; race detection and each test internal concurrency remain enabled.",
+  "limitations": [
+    "Four configured external-fixture tests were actually SKIP, never converted to PASS. Separate MinIO, restricted-role and Go/Rust relay runs have their own receipts.",
+    "The game BattleLog fixture remains unrun. This suite is not a native gameplay or release acceptance run."
+  ]
+}

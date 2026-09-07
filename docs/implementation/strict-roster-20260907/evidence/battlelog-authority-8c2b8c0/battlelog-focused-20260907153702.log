@@ -1,0 +1,11 @@
+=== RUN   TestBattleLogSubmissionAgainstPostgreSQL
+=== RUN   TestBattleLogSubmissionAgainstPostgreSQL/running
+=== RUN   TestBattleLogSubmissionAgainstPostgreSQL/completed_late_report
+--- PASS: TestBattleLogSubmissionAgainstPostgreSQL (0.66s)
+    --- PASS: TestBattleLogSubmissionAgainstPostgreSQL/running (0.42s)
+    --- PASS: TestBattleLogSubmissionAgainstPostgreSQL/completed_late_report (0.24s)
+=== RUN   TestRepositoryIsolationAndRetiredMatchmakingAgainstPostgreSQL
+    repository_integration_test.go:302: retired Meta ticket/connected/completed calls rejected; zero tickets, zero allocations, original server states intact
+--- PASS: TestRepositoryIsolationAndRetiredMatchmakingAgainstPostgreSQL (0.39s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver	1.127s

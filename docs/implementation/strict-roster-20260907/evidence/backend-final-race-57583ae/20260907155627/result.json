@@ -1,0 +1,39 @@
+{
+  "source_commit": "57583ae8ddec46838e118e5eef46dc932784b9bf",
+  "backend_tree": "62d041817ff50d1a0791a97d60d583e6e5b17f8d",
+  "source_scope": "Committed Backend source; unrelated report files may be dirty. Native component fixture uses a different isolated database.",
+  "command": [
+    "wsl",
+    "-e",
+    "env",
+    "TEST_DATABASE_URL=postgres://phanthy@127.0.0.1:55439/rebound_backend_restore_authority_20260907_final?sslmode=disable",
+    "TEST_REDIS_ADDRESS=127.0.0.1:56380",
+    "/tmp/rebound-strict-roster-20260907-go1266/go/bin/go",
+    "-C",
+    "/mnt/c/wksp/ProjectRebound/Backend",
+    "test",
+    "-race",
+    "./...",
+    "-count=1",
+    "-v"
+  ],
+  "exit_code": 1,
+  "pass_count": 395,
+  "subtest_pass_count": 127,
+  "skip_names": [
+    "TestS3StorageAgainstCompatibleService (0.00s)",
+    "TestNormalizeBattleLogFixtureWhenConfigured (0.00s)",
+    "TestRestrictedMetaServicePermissions (0.00s)",
+    "TestStrictRosterRustRelayClients (0.00s)"
+  ],
+  "fail_names": [
+    "TestAdministratorIssuesAndRevokesInstanceBoundGameServerToken (0.02s)",
+    "TestAuthenticationLifecycleAgainstPostgreSQL (0.05s)",
+    "TestGameServerRegistryAgainstPostgreSQL (0.04s)",
+    "TestBattleLogSubmissionAgainstPostgreSQL (1.30s)",
+    "TestBattleLogSubmissionAgainstPostgreSQL/pve_claim_non_official (0.34s)"
+  ],
+  "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\final-backend-race\\20260907155627\\backend-go-test-race.log",
+  "sha256": "dc3e8a35f65d0a1b4e0b44497cac8f236e3fee484d525c1224a22b781d4f1cca",
+  "backend_tree_unchanged": true
+}

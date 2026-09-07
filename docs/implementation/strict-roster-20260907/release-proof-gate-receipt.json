@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "modification_commit": "cab759835a63f0dbff6a480b21dbeff993987091",
+  "tests": [
+    {
+      "command": "C:/Python314/python.exe -B -m unittest -v test_provenance_cases.py",
+      "cwd": "C:\\wksp\\ProjectRebound\\Tools\\Release",
+      "exit_code": 0,
+      "pass_count": 15,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\release-proof-gate-cab7598\\provenance-toolbox-tests-20260908.log",
+      "sha256": "d14cd5bfcb2ee7b1041213ab3842634ad127b7d5ac81a55ab8b26fbde1c7ecab",
+      "source_scope": "Historical intermediate source; the exact earlier source snapshot was not retained. This log is not relabeled as the final source."
+    },
+    {
+      "command": "C:/Python314/python.exe -B -m unittest -v test_provenance_cases.py",
+      "cwd": "C:\\wksp\\ProjectRebound\\Tools\\Release",
+      "exit_code": 0,
+      "pass_count": 18,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\release-proof-gate-cab7598\\provenance-toolbox-tests-20260908-postfix.log",
+      "sha256": "bc191b06af0088e7f33a24f6d2f6418b1a4ab90268ce0ac9805a4512ba1c9288",
+      "source_scope": "Historical intermediate source before the nested candidate-blocker regression; not the final source."
+    },
+    {
+      "command": "C:/Python314/python.exe -B -m unittest -v test_provenance_cases.py",
+      "cwd": "C:\\wksp\\ProjectRebound\\Tools\\Release",
+      "exit_code": 0,
+      "pass_count": 19,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\release-proof-gate-cab7598\\provenance-root-final-20260908.log",
+      "sha256": "8f916ffb8bf42778166ebbcda6aa8d931a3fd3ca5558c5ec074e8d283e55c87e",
+      "source_scope": "Actual final source bytes; test run occurred before commit, at parent HEAD 8dad279 with these two release tools modified.",
+      "source_input_commit": "8dad279d0147569fbeedf1a37923a1203bd04c70",
+      "source_dirty": true,
+      "source_modification_commit": "cab759835a63f0dbff6a480b21dbeff993987091",
+      "verified_final_source_files": [
+        {
+          "source": "C:\\wksp\\ProjectRebound\\Tools\\Release\\strict_roster_provenance.py",
+          "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\release-proof-gate-cab7598\\strict_roster_provenance.py",
+          "sha256": "d06f86728a949eb46bc3a8b911b9e22a306608e1173171851963b9f228be4dc3",
+          "bytes": 34690
+        },
+        {
+          "source": "C:\\wksp\\ProjectRebound\\Tools\\Release\\test_provenance_cases.py",
+          "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\release-proof-gate-cab7598\\test_provenance_cases.py",
+          "sha256": "dc6a86c000c4169748262732266524716be29a337b82605d67479d48d8c880a5",
+          "bytes": 18076
+        }
+      ]
+    }
+  ],
+  "files": [
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\provenance-toolbox-tests-20260908.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\release-proof-gate-cab7598\\provenance-toolbox-tests-20260908.log",
+      "sha256": "d14cd5bfcb2ee7b1041213ab3842634ad127b7d5ac81a55ab8b26fbde1c7ecab",
+      "bytes": 2477
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\provenance-toolbox-tests-20260908-postfix.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\release-proof-gate-cab7598\\provenance-toolbox-tests-20260908-postfix.log",
+      "sha256": "bc191b06af0088e7f33a24f6d2f6418b1a4ab90268ce0ac9805a4512ba1c9288",
+      "bytes": 2999
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\provenance-root-final-20260908.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\release-proof-gate-cab7598\\provenance-root-final-20260908.log",
+      "sha256": "8f916ffb8bf42778166ebbcda6aa8d931a3fd3ca5558c5ec074e8d283e55c87e",
+      "bytes": 3171
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\Tools\\Release\\strict_roster_provenance.py",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\release-proof-gate-cab7598\\strict_roster_provenance.py",
+      "sha256": "d06f86728a949eb46bc3a8b911b9e22a306608e1173171851963b9f228be4dc3",
+      "bytes": 34690
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\Tools\\Release\\test_provenance_cases.py",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\release-proof-gate-cab7598\\test_provenance_cases.py",
+      "sha256": "dc6a86c000c4169748262732266524716be29a337b82605d67479d48d8c880a5",
+      "bytes": 18076
+    }
+  ],
+  "release_ready": false,
+  "scope": "Executable provenance-gate regression tests with synthetic manifests and temporary source/artifact fixtures; no gameplay, signing or release acceptance."
+}

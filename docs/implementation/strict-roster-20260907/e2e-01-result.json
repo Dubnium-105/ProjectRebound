@@ -37,5 +37,14 @@
       ]
     },
     "source_scope": "Commands executed before the commit against reviewed dirty files; the modification commit records the subsequent implementation, not a retroactive execution HEAD."
-  }
+  },
+  "supplementary_component_receipts": [
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\battlelog-authority-receipt.json",
+      "sha256": "d763476b04a0391e4c6a3ca90a517ed2479bb1287a2f3ae47cdf38fce247e2f7",
+      "status": "PASS",
+      "scope": "Canonical Meta BattleLog/loadout and deployment-permission components only.",
+      "modification_commit": "8c2b8c08891320ee08c9924cc7c23ee5112a3235"
+    }
+  ]
 }
