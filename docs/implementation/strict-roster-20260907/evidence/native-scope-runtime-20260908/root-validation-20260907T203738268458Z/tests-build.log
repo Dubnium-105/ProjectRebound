@@ -1,0 +1,89 @@
+适用于 .NET Framework MSBuild 版本 18.3.0-release-26070-10+3972042b7
+
+  archive_completion_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\archive_completion_policy_tests.exe
+  dedicated_multi_match_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\dedicated_multi_match_policy_tests.exe
+  direct_match_ui_cleanup_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\direct_match_ui_cleanup_policy_tests.exe
+  command_protocol_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\command_protocol_tests.exe
+  command_framework_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\command_framework_tests.exe
+  command_line_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\command_line_policy_tests.exe
+  ed25519_verifier_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\ed25519_verifier_tests.exe
+  local_qos_discovery_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\local_qos_discovery_policy_tests.exe
+  join_ui_sync_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\join_ui_sync_policy_tests.exe
+  loadout_state_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\loadout_state_policy_tests.exe
+  managed_possession_sync_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\managed_possession_sync_policy_tests.exe
+  native_login_grant_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\native_login_grant_policy_tests.exe
+  native_match_scope_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\native_match_scope_tests.exe
+  replication_world_gate_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\replication_world_gate_policy_tests.exe
+  respawn_state_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\respawn_state_policy_tests.exe
+  seamless_intro_camera_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\seamless_intro_camera_policy_tests.exe
+  server_hook_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\server_hook_policy_tests.exe
+  strict_roster_steam_auth_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\strict_roster_steam_auth_tests.exe
+  StrictRosterPolicyTests.cpp
+  StrictAuthorityLeaseTests.cpp
+  StrictAuthorityStartDispatchTests.cpp
+  unreal_container_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\unreal_container_tests.exe
+  weapon_archive_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\weapon_archive_policy_tests.exe
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(417,22): error C2017: 非法的转义序列 [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(417,23): error C2001: 常量中有换行符 [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(416,34): error C2660: “StrictRoster::Policy::ValidateNativeJoinGrantForPlayer”: 函数不接受 2 个参数 [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+      C:\wksp\ProjectRebound\Payload\Admission\StrictRosterPolicy.h(684,22):
+      参见“StrictRoster::Policy::ValidateNativeJoinGrantForPlayer”的声明
+      C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(416,34):
+      尝试匹配参数列表“(const std::string, const char [100])”时
+  
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(418,86): error C2143: 语法错误: 缺少“)”(在“;”的前面) [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(420,22): error C2017: 非法的转义序列 [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(420,23): error C2001: 常量中有换行符 [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(419,34): error C2660: “StrictRoster::Policy::ValidateNativeJoinGrantForPlayer”: 函数不接受 2 个参数 [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+      C:\wksp\ProjectRebound\Payload\Admission\StrictRosterPolicy.h(684,22):
+      参见“StrictRoster::Policy::ValidateNativeJoinGrantForPlayer”的声明
+      C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(419,34):
+      尝试匹配参数列表“(const std::string, const char [89])”时
+  
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(421,75): error C2143: 语法错误: 缺少“)”(在“;”的前面) [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(425,39): error C2017: 非法的转义序列 [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(425,40): error C2001: 常量中有换行符 [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(424,35): error C2660: “StrictRoster::Policy::ValidateNativeJoinGrantForPlayer”: 函数不接受 2 个参数 [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+      C:\wksp\ProjectRebound\Payload\Admission\StrictRosterPolicy.h(684,22):
+      参见“StrictRoster::Policy::ValidateNativeJoinGrantForPlayer”的声明
+      C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(424,35):
+      尝试匹配参数列表“(std::string, const char [103])”时
+  
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(424,12): error C2088: 内置运算符“!”无法应用于类型为“StrictRoster::SeatDecision”的操作数 [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(426,89): error C2143: 语法错误: 缺少“)”(在“;”的前面) [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(424,5): error C2660: “`anonymous-namespace'::Expect”: 函数不接受 1 个参数 [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+      C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(9,10):
+      参见“`anonymous-namespace'::Expect”的声明
+      C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(424,5):
+      尝试匹配参数列表“()”时
+  
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(494,26): error C2017: 非法的转义序列 [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(494,27): error C2001: 常量中有换行符 [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(493,25): error C2660: “StrictRoster::Policy::ValidateNativeJoinGrantForPlayer”: 函数不接受 2 个参数 [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+      C:\wksp\ProjectRebound\Payload\Admission\StrictRosterPolicy.h(684,22):
+      参见“StrictRoster::Policy::ValidateNativeJoinGrantForPlayer”的声明
+      C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(493,25):
+      尝试匹配参数列表“(const std::string, const char [90])”时
+  
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(495,76): error C2143: 语法错误: 缺少“)”(在“;”的前面) [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(498,26): error C2017: 非法的转义序列 [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(498,27): error C2001: 常量中有换行符 [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(499,5): error C2146: 语法错误: 缺少“)”(在标识符“Expect”的前面) [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(497,52): error C2660: “StrictRoster::Policy::ValidateNativeJoinGrantForPlayer”: 函数不接受 2 个参数 [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+      C:\wksp\ProjectRebound\Payload\Admission\StrictRosterPolicy.h(684,22):
+      参见“StrictRoster::Policy::ValidateNativeJoinGrantForPlayer”的声明
+      C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(497,52):
+      尝试匹配参数列表“(const std::string, const char [17])”时
+  
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(499,5): error C2146: 语法错误: 缺少“;”(在标识符“Expect”的前面) [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(509,26): error C2017: 非法的转义序列 [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(509,27): error C2001: 常量中有换行符 [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(508,25): error C2660: “StrictRoster::Policy::ValidateNativeJoinGrantForPlayer”: 函数不接受 2 个参数 [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+      C:\wksp\ProjectRebound\Payload\Admission\StrictRosterPolicy.h(684,22):
+      参见“StrictRoster::Policy::ValidateNativeJoinGrantForPlayer”的声明
+      C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(508,25):
+      尝试匹配参数列表“(const std::string, const char [95])”时
+  
+C:\wksp\ProjectRebound\Payload\Tests\StrictRosterPolicyTests.cpp(510,81): error C2143: 语法错误: 缺少“)”(在“;”的前面) [C:\wksp\ProjectRebound\build\strict-roster-current\strict_roster_policy_tests.vcxproj]
+  strict_authority_start_dispatch_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\strict_authority_start_dispatch_tests.exe
+  strict_authority_lease_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\strict_authority_lease_tests.exe

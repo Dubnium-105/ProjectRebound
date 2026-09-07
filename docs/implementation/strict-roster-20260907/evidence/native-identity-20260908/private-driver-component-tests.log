@@ -1,0 +1,36 @@
+=== RUN   TestWaitForClientReadyMarkerAcceptsExactScope
+--- PASS: TestWaitForClientReadyMarkerAcceptsExactScope (0.00s)
+=== RUN   TestWaitForClientReadyMarkerRejectsWrongScope
+--- PASS: TestWaitForClientReadyMarkerRejectsWrongScope (0.35s)
+=== RUN   TestWaitForClientReadyMarkerRequiresPath
+--- PASS: TestWaitForClientReadyMarkerRequiresPath (0.00s)
+=== RUN   TestClientReadyMarkerRequiresFreshOwnedAuthority
+=== RUN   TestClientReadyMarkerRequiresFreshOwnedAuthority/missing-live-proof
+=== RUN   TestClientReadyMarkerRequiresFreshOwnedAuthority/wrong-native-nonce
+=== RUN   TestClientReadyMarkerRequiresFreshOwnedAuthority/stale-observation
+--- PASS: TestClientReadyMarkerRequiresFreshOwnedAuthority (0.21s)
+    --- PASS: TestClientReadyMarkerRequiresFreshOwnedAuthority/missing-live-proof (0.06s)
+    --- PASS: TestClientReadyMarkerRequiresFreshOwnedAuthority/wrong-native-nonce (0.06s)
+    --- PASS: TestClientReadyMarkerRequiresFreshOwnedAuthority/stale-observation (0.08s)
+=== RUN   TestValidateEventCursorRequiresOrderedNextSequence
+--- PASS: TestValidateEventCursorRequiresOrderedNextSequence (0.00s)
+=== RUN   TestValidateEventCursorRejectsSameSequenceMutation
+--- PASS: TestValidateEventCursorRejectsSameSequenceMutation (0.00s)
+=== RUN   TestReadNativeEventBatchRequiresNextSequence
+--- PASS: TestReadNativeEventBatchRequiresNextSequence (0.00s)
+=== RUN   TestFixtureDatabaseNameGate
+--- PASS: TestFixtureDatabaseNameGate (0.00s)
+=== RUN   TestReadRealPlayerIDRequiresPrivateExactIdentity
+=== RUN   TestReadRealPlayerIDRequiresPrivateExactIdentity/missing
+=== RUN   TestReadRealPlayerIDRequiresPrivateExactIdentity/wrong_length
+=== RUN   TestReadRealPlayerIDRequiresPrivateExactIdentity/unsafe_character
+--- PASS: TestReadRealPlayerIDRequiresPrivateExactIdentity (0.01s)
+    --- PASS: TestReadRealPlayerIDRequiresPrivateExactIdentity/missing (0.00s)
+    --- PASS: TestReadRealPlayerIDRequiresPrivateExactIdentity/wrong_length (0.00s)
+    --- PASS: TestReadRealPlayerIDRequiresPrivateExactIdentity/unsafe_character (0.00s)
+=== RUN   TestCanAdminAbortFixtureIsNarrow
+--- PASS: TestCanAdminAbortFixtureIsNarrow (0.00s)
+=== RUN   TestCleanupEvidenceStatusIsAuditable
+--- PASS: TestCleanupEvidenceStatusIsAuditable (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/.tmp-native-fixture	0.635s

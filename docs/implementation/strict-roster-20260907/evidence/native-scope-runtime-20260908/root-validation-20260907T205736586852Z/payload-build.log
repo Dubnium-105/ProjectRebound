@@ -1,0 +1,14 @@
+适用于 .NET Framework MSBuild 版本 18.3.0-release-26070-10+3972042b7
+
+  ClientLogic.cpp
+  CommandFramework.cpp
+  Hooks.cpp
+  StrictRosterSteamAuth.cpp
+  dllmain.cpp
+    正在创建库 C:\wksp\ProjectRebound\Payload\x64\Release\Payload.lib 和对象 C:\wksp\ProjectRebound\Payload\x64\Release\Payload.exp
+  正在生成代码
+  462 of 15307 functions ( 3.0%) were compiled, the rest were copied from previous compilation.
+    14 functions were new in current compilation
+    679 functions had inline decision re-evaluated but remain unchanged
+  已完成代码的生成
+  Payload.vcxproj -> C:\wksp\ProjectRebound\Payload\x64\Release\Payload.dll

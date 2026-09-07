@@ -1,0 +1,51 @@
+Test project C:/wksp/ProjectRebound/build/strict-roster-current
+      Start  1: command_protocol_tests
+ 1/23 Test  #1: command_protocol_tests ..................   Passed    0.02 sec
+      Start  2: strict_roster_policy_tests
+ 2/23 Test  #2: strict_roster_policy_tests ..............   Passed    0.02 sec
+      Start  3: ed25519_verifier_tests
+ 3/23 Test  #3: ed25519_verifier_tests ..................   Passed    0.02 sec
+      Start  4: strict_roster_steam_auth_tests
+ 4/23 Test  #4: strict_roster_steam_auth_tests ..........   Passed    0.02 sec
+      Start  5: command_line_policy_tests
+ 5/23 Test  #5: command_line_policy_tests ...............   Passed    0.01 sec
+      Start  6: strict_authority_start_dispatch_tests
+ 6/23 Test  #6: strict_authority_start_dispatch_tests ...   Passed    0.02 sec
+      Start  7: strict_authority_lease_tests
+ 7/23 Test  #7: strict_authority_lease_tests ............   Passed    0.02 sec
+      Start  8: native_login_grant_policy_tests
+ 8/23 Test  #8: native_login_grant_policy_tests .........   Passed    0.02 sec
+      Start  9: native_match_scope_tests
+ 9/23 Test  #9: native_match_scope_tests ................   Passed    0.01 sec
+      Start 10: server_hook_policy_tests
+10/23 Test #10: server_hook_policy_tests ................   Passed    0.02 sec
+      Start 11: local_qos_discovery_policy_tests
+11/23 Test #11: local_qos_discovery_policy_tests ........   Passed    0.02 sec
+      Start 12: unreal_container_tests
+12/23 Test #12: unreal_container_tests ..................   Passed    0.02 sec
+      Start 13: loadout_state_policy_tests
+13/23 Test #13: loadout_state_policy_tests ..............   Passed    0.01 sec
+      Start 14: respawn_state_policy_tests
+14/23 Test #14: respawn_state_policy_tests ..............   Passed    0.01 sec
+      Start 15: managed_possession_sync_policy_tests
+15/23 Test #15: managed_possession_sync_policy_tests ....   Passed    0.02 sec
+      Start 16: seamless_intro_camera_policy_tests
+16/23 Test #16: seamless_intro_camera_policy_tests ......   Passed    0.01 sec
+      Start 17: dedicated_multi_match_policy_tests
+17/23 Test #17: dedicated_multi_match_policy_tests ......   Passed    0.01 sec
+      Start 18: join_ui_sync_policy_tests
+18/23 Test #18: join_ui_sync_policy_tests ...............   Passed    0.01 sec
+      Start 19: replication_world_gate_policy_tests
+19/23 Test #19: replication_world_gate_policy_tests .....   Passed    0.01 sec
+      Start 20: direct_match_ui_cleanup_policy_tests
+20/23 Test #20: direct_match_ui_cleanup_policy_tests ....   Passed    0.02 sec
+      Start 21: archive_completion_policy_tests
+21/23 Test #21: archive_completion_policy_tests .........   Passed    0.02 sec
+      Start 22: weapon_archive_policy_tests
+22/23 Test #22: weapon_archive_policy_tests .............   Passed    0.02 sec
+      Start 23: command_framework_tests
+23/23 Test #23: command_framework_tests .................   Passed    0.35 sec
+
+100% tests passed, 0 tests failed out of 23
+
+Total Test time (real) =   0.75 sec
