@@ -7,18 +7,22 @@ from strict_roster_provenance import acceptance_case_problems, artifact_inventor
 
 class AcceptanceCaseGateTests(unittest.TestCase):
     def report(self):
-        return {
+        pair = {"ProjectRebound": "a" * 40, "Toolbox": "b" * 40}
+        artifacts = [{"sha256": str(index) * 64} for index in range(1, 6)]
+        report = {
             field: [
                 {"id": f"{prefix}{index:0{width}}", "status": "PASS",
                  "required_evidence_fields": ["command_or_harness", "exit_code"],
                  "result": {"command_or_harness": "synthetic gate fixture", "exit_code": 0,
-                            "commit_pair": {}, "artifact_hashes": [], "environment": "gate unit test",
-                            "log_paths": [], "observed_result": "synthetic manifest shape"}}
+                            "commit_pair": dict(pair), "artifact_hashes": copy.deepcopy(artifacts), "environment": "gate unit test",
+                            "log_paths": ["synthetic-gate-fixture.log"], "observed_result": "synthetic manifest shape"}}
                 for index in range(1, count + 1)
             ]
             for field, prefix, width, count in (
                 ("component_tests", "AC-", 3, 52), ("e2e_tests", "E2E-", 2, 22))
         }
+        report.update(commit_pair=pair, artifact_hashes=artifacts)
+        return report
 
     def test_complete_synthetic_case_inventory(self):
         self.assertEqual(acceptance_case_problems(self.report()), [])
@@ -47,6 +51,31 @@ class AcceptanceCaseGateTests(unittest.TestCase):
         del report["component_tests"][0]["result"]["exit_code"]
         self.assertIn("AC-001 is missing evidence field exit_code",
                       acceptance_case_problems(report))
+
+    def test_pass_requires_matching_source_and_artifact_scope(self):
+        for key, value in (("commit_pair", {}), ("artifact_hashes", []),
+                           ("commit_pair", {"ProjectRebound": "c" * 40, "Toolbox": "b" * 40}),
+                           ("artifact_hashes", [{"sha256": "f" * 64}])):
+            with self.subTest(key=key, value=value):
+                report = self.report()
+                report["component_tests"][0]["result"][key] = value
+                self.assertTrue(acceptance_case_problems(report))
+
+    def test_pass_cannot_hide_failure_or_empty_execution(self):
+        for key, value in (("exit_code", 1), ("exit_code", None), ("exit_code", False),
+                           ("environment", ""), ("command_or_harness", None),
+                           ("log_paths", []), ("observed_result", [])):
+            with self.subTest(key=key, value=value):
+                report = self.report()
+                report["e2e_tests"][0]["result"][key] = value
+                self.assertTrue(acceptance_case_problems(report))
+
+    def test_aggregate_result_requires_individual_execution_records(self):
+        report = self.report()
+        result = report["component_tests"][0]["result"]
+        result["exit_code"] = None
+        result["execution_records"] = [{"command": "synthetic gate fixture", "exit_code": 0}]
+        self.assertEqual(acceptance_case_problems(report), [])
 
 
 class ArtifactInventoryGateTests(unittest.TestCase):

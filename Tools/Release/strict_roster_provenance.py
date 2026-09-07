@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import re
 import subprocess
 import tomllib
 from pathlib import Path
@@ -54,6 +55,32 @@ def acceptance_case_problems(report):
             for key in sorted(required | set(case.get("required_evidence_fields", []))):
                 if key not in evidence:
                     problems.append(case_id + " is missing evidence field " + key)
+            if case.get("status", "").lower() not in ("passed", "pass"):
+                continue
+            pair = evidence.get("commit_pair")
+            if (not isinstance(pair, dict) or set(pair) != {"ProjectRebound", "Toolbox"}
+                    or any(not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{40}", value)
+                           for value in pair.values()) or pair != report.get("commit_pair")):
+                problems.append(case_id + " has no exact matching source commit pair")
+            hashes = evidence.get("artifact_hashes")
+            expected_hashes = report.get("artifact_hashes")
+            def digest_set(items):
+                if not isinstance(items, list) or not items:
+                    return None
+                values = [item.get("sha256") if isinstance(item, dict) else None for item in items]
+                if any(not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value) for value in values):
+                    return None
+                return set(values) if len(set(values)) == len(values) else None
+            if digest_set(hashes) is None or digest_set(hashes) != digest_set(expected_hashes):
+                problems.append(case_id + " has no exact matching artifact digest inventory")
+            for key in ("environment", "command_or_harness", "log_paths", "observed_result"):
+                if not evidence.get(key):
+                    problems.append(case_id + " has empty execution evidence field " + key)
+            if evidence.get("exit_code") is None:
+                if not evidence.get("execution_records"):
+                    problems.append(case_id + " has no individual execution records for its aggregate result")
+            elif type(evidence["exit_code"]) is not int or evidence["exit_code"] != 0:
+                problems.append(case_id + " is marked passed with an unsuccessful exit code")
     return problems
 
 
