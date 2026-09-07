@@ -84,7 +84,14 @@ func (s *S3Storage) PresignPut(ctx context.Context, version Version, ttl time.Du
 	if err != nil {
 		return SignedRequest{}, fmt.Errorf("presign S3 object upload: %w", err)
 	}
-	return signedRequest(result.URL, result.Method, result.SignedHeader, ttl), nil
+	request := signedRequest(result.URL, result.Method, result.SignedHeader, ttl)
+	// The AWS SDK's presigner does not always include Content-Type in
+	// SignedHeader when targeting a custom S3 endpoint.  It is still a valid
+	// unsigned request header, and the browser must send it so providers store
+	// the immutable object's declared media type instead of their binary
+	// default.  Keep the value bound to the server-validated version metadata.
+	request.Headers["Content-Type"] = version.ContentType
+	return request, nil
 }
 
 func (s *S3Storage) CreateMultipart(ctx context.Context, version Version) (string, error) {
