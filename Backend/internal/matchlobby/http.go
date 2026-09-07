@@ -28,7 +28,7 @@ type HTTPService interface {
 	Leave(context.Context, Actor, string, string, int64) (Snapshot, error)
 	Start(context.Context, Actor, string, int64) (Snapshot, error)
 	P2PPayloadInstalled(context.Context, Actor, string, string, string, string, int) (Snapshot, error)
-	P2PAuthorityReady(context.Context, Actor, string, string, string, string, int, int, string, string) (Snapshot, error)
+	P2PAuthorityReady(context.Context, Actor, string, string, string, string, int, int, string, string, ...P2PHostLiveConnectionScope) (Snapshot, error)
 	P2PHostAllocation(context.Context, Actor, string) (AllocationResult, error)
 	DedicatedAllocation(context.Context, string, string) (AllocationResult, error)
 	DedicatedPayloadInstalled(context.Context, string, string, string, string, string, int) (Snapshot, error)
@@ -46,8 +46,8 @@ type HTTPService interface {
 	P2PReleaseAdmission(context.Context, Actor, string, string, string, string, string, string, int) error
 	ConfirmConnected(context.Context, string, string, string, string, string, string, string, int) (Snapshot, error)
 	P2PConfirmConnected(context.Context, Actor, string, string, string, string, string, string, int) (Snapshot, error)
-	MarkDisconnected(context.Context, string, string, string, string, string, string, int) (Snapshot, error)
-	P2PMarkDisconnected(context.Context, Actor, string, string, string, string, string, int) (Snapshot, error)
+	MarkDisconnected(context.Context, string, string, string, string, string, string, int, int) (Snapshot, error)
+	P2PMarkDisconnected(context.Context, Actor, string, string, string, string, string, int, int) (Snapshot, error)
 	AuthorityHeartbeat(context.Context, string, string, string) error
 	P2PAuthorityHeartbeat(context.Context, Actor, string, string) error
 	Complete(context.Context, string, string, string, bool, string) (Snapshot, error)
@@ -410,19 +410,24 @@ func (h *HTTPHandler) P2PHostAllocation(w http.ResponseWriter, r *http.Request) 
 
 func (h *HTTPHandler) P2PAuthorityReady(w http.ResponseWriter, r *http.Request) {
 	var request struct {
-		EndpointHost          string `json:"endpoint_host"`
-		EndpointPort          int    `json:"endpoint_port"`
-		RouteGeneration       int    `json:"route_generation"`
-		WorldInstanceID       string `json:"world_instance_id"`
-		NativeConnectionNonce string `json:"native_connection_nonce"`
+		EndpointHost           string                      `json:"endpoint_host"`
+		EndpointPort           int                         `json:"endpoint_port"`
+		RouteGeneration        int                         `json:"route_generation"`
+		WorldInstanceID        string                      `json:"world_instance_id"`
+		NativeConnectionNonce  string                      `json:"native_connection_nonce"`
+		PreserveHostConnection *P2PHostLiveConnectionScope `json:"preserve_host_connection,omitempty"`
 	}
 	if !h.decode(w, r, &request) {
 		return
 	}
+	var preserve []P2PHostLiveConnectionScope
+	if request.PreserveHostConnection != nil {
+		preserve = append(preserve, *request.PreserveHostConnection)
+	}
 	snapshot, err := h.service.P2PAuthorityReady(
 		r.Context(), actorFromRequest(r), chi.URLParam(r, "attempt_id"),
 		r.Header.Get(authoritySessionHeader), r.Header.Get(transportHostTokenHeader), request.EndpointHost,
-		request.EndpointPort, request.RouteGeneration, request.WorldInstanceID, request.NativeConnectionNonce,
+		request.EndpointPort, request.RouteGeneration, request.WorldInstanceID, request.NativeConnectionNonce, preserve...,
 	)
 	h.writeSnapshot(w, r, snapshot, err)
 }
@@ -468,13 +473,14 @@ func (h *HTTPHandler) P2PDisconnected(w http.ResponseWriter, r *http.Request) {
 		WorldInstanceID       string `json:"world_instance_id"`
 		NativeConnectionNonce string `json:"native_connection_nonce"`
 		ConnectionGeneration  int    `json:"connection_generation"`
+		RouteGeneration       int    `json:"route_generation"`
 	}
 	if !h.decode(w, r, &request) {
 		return
 	}
 	snapshot, err := h.service.P2PMarkDisconnected(
 		r.Context(), actorFromRequest(r), r.Header.Get(authoritySessionHeader), chi.URLParam(r, "attempt_id"),
-		request.WorldInstanceID, request.PlayerID, request.NativeConnectionNonce, request.ConnectionGeneration,
+		request.WorldInstanceID, request.PlayerID, request.NativeConnectionNonce, request.ConnectionGeneration, request.RouteGeneration,
 	)
 	h.writeSnapshot(w, r, snapshot, err)
 }
@@ -589,11 +595,12 @@ func (h *HTTPHandler) Disconnected(w http.ResponseWriter, r *http.Request) {
 		WorldInstanceID       string `json:"world_instance_id"`
 		NativeConnectionNonce string `json:"native_connection_nonce"`
 		ConnectionGeneration  int    `json:"connection_generation"`
+		RouteGeneration       int    `json:"route_generation"`
 	}
 	if !h.decode(w, r, &request) {
 		return
 	}
-	snapshot, err := h.service.MarkDisconnected(r.Context(), chi.URLParam(r, "server_id"), r.Header.Get(authoritySessionHeader), chi.URLParam(r, "attempt_id"), request.WorldInstanceID, request.PlayerID, request.NativeConnectionNonce, request.ConnectionGeneration)
+	snapshot, err := h.service.MarkDisconnected(r.Context(), chi.URLParam(r, "server_id"), r.Header.Get(authoritySessionHeader), chi.URLParam(r, "attempt_id"), request.WorldInstanceID, request.PlayerID, request.NativeConnectionNonce, request.ConnectionGeneration, request.RouteGeneration)
 	h.writeSnapshot(w, r, snapshot, err)
 }
 

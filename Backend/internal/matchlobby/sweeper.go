@@ -276,9 +276,25 @@ func (s *Service) Sweep(ctx context.Context) error {
 	for _, attempt := range expired {
 		var teamOne, teamTwo int
 		if err := tx.QueryRow(ctx, `
-			SELECT COUNT(*) FILTER (WHERE team_id = 1 AND connection_state = 'CONNECTED'),
-			       COUNT(*) FILTER (WHERE team_id = 2 AND connection_state = 'CONNECTED')
-			FROM match_attempt_roster WHERE attempt_id = $1
+		SELECT COUNT(*) FILTER (WHERE roster.team_id = 1 AND roster.connection_state = 'CONNECTED'
+		                              AND COALESCE(roster.live_connection_generation, 0) = roster.connection_generation
+		                              AND (
+			                              (roster.room_role = 'HOST'
+			                               AND COALESCE(roster.host_live_scope_preserved, FALSE)
+			                               AND COALESCE(roster.live_route_generation, 0) <= attempt.route_generation)
+			                              OR COALESCE(roster.live_route_generation, 0) = attempt.route_generation
+		                              )),
+		       COUNT(*) FILTER (WHERE roster.team_id = 2 AND roster.connection_state = 'CONNECTED'
+		                              AND COALESCE(roster.live_connection_generation, 0) = roster.connection_generation
+		                              AND (
+			                              (roster.room_role = 'HOST'
+			                               AND COALESCE(roster.host_live_scope_preserved, FALSE)
+			                               AND COALESCE(roster.live_route_generation, 0) <= attempt.route_generation)
+			                              OR COALESCE(roster.live_route_generation, 0) = attempt.route_generation
+		                              ))
+		FROM match_attempt_roster AS roster
+		JOIN match_attempts AS attempt ON attempt.id = roster.attempt_id
+		WHERE roster.attempt_id = $1
 		`, attempt.id).Scan(&teamOne, &teamTwo); err != nil {
 			return err
 		}

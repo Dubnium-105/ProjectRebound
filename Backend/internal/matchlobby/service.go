@@ -817,7 +817,7 @@ func (s *Service) projectDedicated(ctx context.Context, tx pgx.Tx, lobby Lobby, 
 	return err
 }
 
-func (s *Service) P2PAuthorityReady(ctx context.Context, actor Actor, attemptID, authoritySession, hostToken, endpointHost string, endpointPort, routeGeneration int, worldInstanceID, nativeConnectionNonce string) (Snapshot, error) {
+func (s *Service) P2PAuthorityReady(ctx context.Context, actor Actor, attemptID, authoritySession, hostToken, endpointHost string, endpointPort, routeGeneration int, worldInstanceID, nativeConnectionNonce string, preserve ...P2PHostLiveConnectionScope) (Snapshot, error) {
 	if err := requireActive(actor); err != nil {
 		return Snapshot{}, err
 	}
@@ -837,13 +837,15 @@ func (s *Service) P2PAuthorityReady(ctx context.Context, actor Actor, attemptID,
 	queryNow := s.now().UTC()
 	var lobbyID, roomID, ownerID, storedEndpointHost, storedWorldInstanceID, storedHostNonce, storedHostState string
 	var expectedRouteGeneration int
+	var storedHostAuthorizationGeneration, storedHostLiveGeneration, storedHostLiveRouteGeneration int
+	var rosterRevision int64
 	var storedEndpointPort int
 	var state AttemptState
 	var hostDeadline sql.NullTime
 	var payloadInstalled bool
 	err := s.repository.pool.QueryRow(ctx, `
 		SELECT lobby.id, COALESCE(lobby.p2p_room_id, ''), lobby.owner_player_id,
-		       attempt.route_generation, attempt.state,
+		       attempt.route_generation, attempt.roster_revision, attempt.state,
 		       COALESCE(attempt.endpoint_host, ''), COALESCE(attempt.endpoint_port, 0),
 		       COALESCE(attempt.world_instance_id, ''),
 		       COALESCE((SELECT connection_state FROM match_attempt_roster
@@ -852,16 +854,27 @@ func (s *Service) P2PAuthorityReady(ctx context.Context, actor Actor, attemptID,
 		       COALESCE((SELECT live_native_connection_nonce FROM match_attempt_roster
 		                  WHERE attempt_id = attempt.id AND room_role = 'HOST'
 		                  LIMIT 1), ''),
+		       COALESCE((SELECT connection_generation FROM match_attempt_roster
+		                  WHERE attempt_id = attempt.id AND room_role = 'HOST'
+		                  LIMIT 1), 0),
+		       COALESCE((SELECT live_connection_generation FROM match_attempt_roster
+		                  WHERE attempt_id = attempt.id AND room_role = 'HOST'
+		                  LIMIT 1), 0),
+		       COALESCE((SELECT live_route_generation FROM match_attempt_roster
+		                  WHERE attempt_id = attempt.id AND room_role = 'HOST'
+		                  LIMIT 1), 0),
 		       attempt.host_reconnect_deadline,
-		       attempt.payload_installed_at IS NOT NULL
-		         AND attempt.payload_route_generation = attempt.route_generation
+		       COALESCE(attempt.payload_installed_at IS NOT NULL
+		         AND attempt.payload_route_generation = attempt.route_generation, FALSE)
 		FROM match_attempts AS attempt
 		JOIN match_lobbies AS lobby ON lobby.id = attempt.lobby_id
 		WHERE attempt.id = $1 AND attempt.hosting_kind = 'P2P'
 		  AND attempt.authority_session_id = $2
 	`, attemptID, authoritySession).Scan(
-		&lobbyID, &roomID, &ownerID, &expectedRouteGeneration, &state,
-		&storedEndpointHost, &storedEndpointPort, &storedWorldInstanceID, &storedHostState, &storedHostNonce, &hostDeadline, &payloadInstalled,
+		&lobbyID, &roomID, &ownerID, &expectedRouteGeneration, &rosterRevision, &state,
+		&storedEndpointHost, &storedEndpointPort, &storedWorldInstanceID, &storedHostState, &storedHostNonce,
+		&storedHostAuthorizationGeneration, &storedHostLiveGeneration, &storedHostLiveRouteGeneration,
+		&hostDeadline, &payloadInstalled,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Snapshot{}, conflict("MATCH_ATTEMPT_NOT_PROVISIONING", "The P2P attempt is not waiting for its authority.", nil)
@@ -875,13 +888,116 @@ func (s *Service) P2PAuthorityReady(ctx context.Context, actor Actor, attemptID,
 	if routeGeneration != expectedRouteGeneration {
 		return Snapshot{}, conflict("MATCH_ROUTE_GENERATION_STALE", "The P2P route generation changed; refresh the allocation before publishing readiness.", map[string]any{"route_generation": expectedRouteGeneration})
 	}
+	if len(preserve) > 1 {
+		return Snapshot{}, invalid("Only one preserved P2P HOST connection scope may be supplied.", nil)
+	}
 	if state == AttemptConnecting || state == AttemptRunning {
-		if storedEndpointHost == endpointHost && storedEndpointPort == endpointPort &&
-			storedWorldInstanceID == worldInstanceID && storedHostNonce == nativeConnectionNonce &&
-			storedHostState == "CONNECTED" {
+		if len(preserve) == 1 {
+			scope := preserve[0]
+			if scope.AttemptID != attemptID || scope.AuthoritySessionID != authoritySession ||
+				scope.WorldInstanceID != storedWorldInstanceID || scope.RosterRevision != rosterRevision ||
+				scope.PlayerID != ownerID || scope.GrantJTI != "" ||
+				scope.RouteGeneration != storedHostLiveRouteGeneration ||
+				scope.ConnectionGeneration != storedHostLiveGeneration ||
+				scope.NativeConnectionNonce != storedHostNonce || nativeConnectionNonce != storedHostNonce {
+				return Snapshot{}, conflict("MATCH_HOST_LIVE_SCOPE_CONFLICT", "The preserved P2P HOST connection scope is not the persisted live scope.", nil)
+			}
+			if storedHostState != "CONNECTED" || storedHostLiveGeneration != storedHostAuthorizationGeneration || storedHostNonce == "" {
+				return Snapshot{}, conflict("MATCH_HOST_LIVE_SCOPE_CONFLICT", "The preserved P2P HOST connection is no longer live.", nil)
+			}
+			if !payloadInstalled {
+				return Snapshot{}, conflict("MATCH_AUTHORITY_ROUTE_REFRESHING", "The current route Payload projection is not installed.", nil)
+			}
+			now := s.now().UTC()
+			deadline := now.Add(s.initialConnectionWindow())
+			tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
+			if err != nil {
+				return Snapshot{}, internal(err)
+			}
+			defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+			var lockedAttemptID string
+			if err := tx.QueryRow(ctx, `
+				SELECT attempt.id
+				FROM match_attempts AS attempt
+				JOIN match_attempt_roster AS host
+				  ON host.attempt_id = attempt.id AND host.room_role = 'HOST'
+				WHERE attempt.id = $1 AND attempt.authority_id = $2
+				  AND attempt.authority_session_id = $3
+				  AND attempt.state IN ('CONNECTING', 'RUNNING')
+				  AND attempt.route_generation = $4
+				  AND attempt.payload_route_generation = $4
+				  AND attempt.world_instance_id = $5
+				  AND attempt.roster_revision = $6
+				  AND host.player_id = $2
+				  AND host.connection_state = 'CONNECTED'
+				  AND host.connection_generation = $7
+				  AND host.live_connection_generation = $7
+				  AND host.live_route_generation = $8
+				  AND host.live_native_connection_nonce = $9
+				FOR UPDATE OF attempt, host
+			`, attemptID, actor.PlayerID, authoritySession, routeGeneration, worldInstanceID,
+				rosterRevision, scope.ConnectionGeneration, scope.RouteGeneration, scope.NativeConnectionNonce).Scan(&lockedAttemptID); err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					return Snapshot{}, conflict("MATCH_HOST_LIVE_SCOPE_CONFLICT", "The preserved P2P HOST connection scope changed before authority readiness was committed.", nil)
+				}
+				return Snapshot{}, internal(err)
+			}
+			command, err := tx.Exec(ctx, `
+				UPDATE match_attempts
+				SET endpoint_host = $2, endpoint_port = $3, world_instance_id = $4,
+				    connection_deadline = $5, authority_last_seen_at = $6,
+				    host_reconnect_deadline = NULL, updated_at = $6
+				WHERE id = $1 AND authority_id = $7 AND authority_session_id = $8
+				  AND state IN ('CONNECTING', 'RUNNING')
+				  AND route_generation = $9 AND payload_route_generation = $9
+				  AND world_instance_id = $4
+			`, attemptID, endpointHost, endpointPort, worldInstanceID, deadline, now,
+				actor.PlayerID, authoritySession, routeGeneration)
+			if err != nil {
+				return Snapshot{}, internal(err)
+			}
+			if command.RowsAffected() != 1 {
+				return Snapshot{}, conflict("MATCH_ATTEMPT_STATE_CONFLICT", "The preserved P2P HOST scope changed while publishing authority readiness.", nil)
+			}
+			command, err = tx.Exec(ctx, `
+				UPDATE match_attempt_roster
+				SET host_live_scope_preserved = TRUE, updated_at = $3
+				WHERE attempt_id = $1 AND player_id = $2 AND room_role = 'HOST'
+				  AND connection_state = 'CONNECTED'
+				  AND connection_generation = $4
+				  AND live_connection_generation = $4
+				  AND live_route_generation = $5
+				  AND live_native_connection_nonce = $6
+			`, attemptID, actor.PlayerID, now, scope.ConnectionGeneration, scope.RouteGeneration, scope.NativeConnectionNonce)
+			if err != nil {
+				return Snapshot{}, internal(err)
+			}
+			if command.RowsAffected() != 1 {
+				return Snapshot{}, conflict("MATCH_HOST_LIVE_SCOPE_CONFLICT", "The preserved P2P HOST connection changed while recording its acknowledgement.", nil)
+			}
+			if err := tx.Commit(ctx); err != nil {
+				return Snapshot{}, internal(err)
+			}
 			return s.Get(ctx, lobbyID, actor.PlayerID)
 		}
-		if (state != AttemptConnecting && state != AttemptRunning) || !payloadInstalled || storedHostState != "DISCONNECTED" {
+		if storedEndpointHost == endpointHost && storedEndpointPort == endpointPort &&
+			storedWorldInstanceID == worldInstanceID && storedHostNonce == nativeConnectionNonce &&
+			storedHostState == "CONNECTED" && storedHostLiveGeneration == storedHostAuthorizationGeneration &&
+			storedHostLiveRouteGeneration == expectedRouteGeneration {
+			return s.Get(ctx, lobbyID, actor.PlayerID)
+		}
+		// A route refresh may advance the authority route while the old native
+		// HOST remains live. It must be acknowledged with the exact preserved
+		// scope above; a normal Ready call can only install a fresh nonce after
+		// the native DISCONNECTED event has been accepted.
+		if storedHostState == "CONNECTED" &&
+			(storedHostLiveGeneration != storedHostAuthorizationGeneration || storedHostLiveRouteGeneration != expectedRouteGeneration) {
+			return Snapshot{}, conflict("MATCH_HOST_LIVE_CONNECTION_PENDING_DISCONNECT", "The previous native host connection must report DISCONNECTED before a replacement authority can be ready.", nil)
+		}
+		if !payloadInstalled {
+			return Snapshot{}, conflict("MATCH_AUTHORITY_ROUTE_REFRESHING", "The current route Payload projection is not installed.", nil)
+		}
+		if storedHostState != "DISCONNECTED" {
 			return Snapshot{}, conflict("MATCH_AUTHORITY_ENDPOINT_CONFLICT", "The P2P authority is already ready at a different endpoint.", nil)
 		}
 		if storedWorldInstanceID == "" || storedWorldInstanceID != worldInstanceID {
@@ -920,10 +1036,13 @@ func (s *Service) P2PAuthorityReady(ctx context.Context, actor Actor, attemptID,
 		command, err = tx.Exec(ctx, `
 			UPDATE match_attempt_roster
 			SET connection_state = 'CONNECTED', connected_at = COALESCE(connected_at, $3),
-			    disconnected_at = NULL, live_native_connection_nonce = $4, updated_at = $3
+			    disconnected_at = NULL, live_native_connection_nonce = $4,
+			    live_connection_generation = connection_generation,
+			    last_disconnected_native_connection_nonce = NULL,
+			    live_route_generation = $5, host_live_scope_preserved = TRUE, updated_at = $3
 			WHERE attempt_id = $1 AND player_id = $2 AND room_role = 'HOST'
 			  AND connection_state = 'DISCONNECTED'
-		`, attemptID, actor.PlayerID, now, nativeConnectionNonce)
+		`, attemptID, actor.PlayerID, now, nativeConnectionNonce, routeGeneration)
 		if err != nil {
 			return Snapshot{}, internal(err)
 		}
@@ -989,9 +1108,12 @@ func (s *Service) P2PAuthorityReady(ctx context.Context, actor Actor, attemptID,
 	if _, err := tx.Exec(ctx, `
 		UPDATE match_attempt_roster
 		SET connection_state = 'CONNECTED', connected_at = COALESCE(connected_at, $3),
-		    disconnected_at = NULL, live_native_connection_nonce = $4, updated_at = $3
+		    disconnected_at = NULL, live_native_connection_nonce = $4,
+		    live_connection_generation = connection_generation,
+		    last_disconnected_native_connection_nonce = NULL,
+		    live_route_generation = $5, host_live_scope_preserved = TRUE, updated_at = $3
 		WHERE attempt_id = $1 AND player_id = $2 AND room_role = 'HOST'
-	`, attemptID, actor.PlayerID, now, nativeConnectionNonce); err != nil {
+	`, attemptID, actor.PlayerID, now, nativeConnectionNonce, routeGeneration); err != nil {
 		return Snapshot{}, internal(err)
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -1244,6 +1366,8 @@ func (s *Service) joinGrant(ctx context.Context, actor Actor, attemptID, idempot
 	var priorGrantCount int
 	var roomRole string
 	var connectionState string
+	var liveConnectionGeneration int
+	var liveRouteGeneration int
 	var worldInstanceID string
 	var payloadRouteReady bool
 	var hostReconnecting bool
@@ -1255,7 +1379,8 @@ func (s *Service) joinGrant(ctx context.Context, actor Actor, attemptID, idempot
 		       COALESCE(attempt.endpoint_host, ''), COALESCE(attempt.endpoint_port, 0),
 		       roster.platform_id, roster.room_role, roster.team_id, roster.team_slot,
 		       roster.logical_slot, roster.connection_generation,
-		       roster.connection_state,
+		       roster.connection_state, COALESCE(roster.live_connection_generation, 0),
+		       COALESCE(roster.live_route_generation, 0),
 		       COALESCE(attempt.payload_route_generation = attempt.route_generation, FALSE),
 		       attempt.host_reconnect_deadline IS NOT NULL,
 		       COALESCE(attempt.authority_last_seen_at > $3, FALSE),
@@ -1270,7 +1395,7 @@ func (s *Service) joinGrant(ctx context.Context, actor Actor, attemptID, idempot
 		&claims.AuthoritySessionID, &worldInstanceID, &claims.RosterRevision, &claims.RouteGeneration,
 		&endpointHost, &endpointPort, &claims.PlatformID, &roomRole, &claims.TeamID,
 		&claims.TeamSlot, &claims.LogicalSlot, &claims.ConnectionGeneration,
-		&connectionState,
+		&connectionState, &liveConnectionGeneration, &liveRouteGeneration,
 		&payloadRouteReady, &hostReconnecting, &authorityFresh,
 		&priorGrantCount,
 	)
@@ -1358,11 +1483,15 @@ func (s *Service) joinGrant(ctx context.Context, actor Actor, attemptID, idempot
 			return GrantResult{}, internal(lookupErr)
 		}
 	}
-	if priorGrantCount > 0 && connectionState == "CONNECTED" {
+	if priorGrantCount > 0 && connectionState == "CONNECTED" &&
+		liveConnectionGeneration == claims.ConnectionGeneration &&
+		liveRouteGeneration == claims.RouteGeneration {
 		return GrantResult{}, conflict("MATCH_CONNECTION_STILL_ACTIVE", "The previous connection must be released by the authority before a reconnect grant is issued.", nil)
 	}
 	if priorGrantCount > 0 {
-		claims.ConnectionGeneration++
+		if liveConnectionGeneration == claims.ConnectionGeneration && liveRouteGeneration == claims.RouteGeneration {
+			claims.ConnectionGeneration++
+		}
 		if _, err := tx.Exec(ctx, `
 			UPDATE match_attempt_roster SET connection_generation = $3,
 			       connection_state = 'CONNECTING', updated_at = $4
@@ -1920,7 +2049,10 @@ func (s *Service) ConfirmConnected(ctx context.Context, authorityID, authoritySe
 				  AND admission.connection_generation = $4 AND admission.route_generation = $5
 			  AND admission.consumed_at IS NOT NULL
 			  AND admission.consumed_connection_nonce = $6
-			  AND roster.connection_generation = $4 AND roster.connection_state = 'CONNECTED'
+			  AND roster.connection_generation = $4
+			  AND COALESCE(roster.live_connection_generation, 0) = $4
+			  AND COALESCE(roster.live_route_generation, 0) = $5
+			  AND roster.connection_state = 'CONNECTED'
 			)
 		`, grantJTI, attemptID, playerID, generation, routeGeneration, nativeConnectionNonce).Scan(&repeated); err != nil {
 			return Snapshot{}, internal(err)
@@ -1936,9 +2068,12 @@ func (s *Service) ConfirmConnected(ctx context.Context, authorityID, authoritySe
 	command, err := tx.Exec(ctx, `
 		UPDATE match_attempt_roster SET connection_state = 'CONNECTED',
 		       connected_at = COALESCE(connected_at, $4), disconnected_at = NULL,
-		       live_native_connection_nonce = $5, updated_at = $4
+		       live_native_connection_nonce = $5,
+		       live_connection_generation = connection_generation,
+		       last_disconnected_native_connection_nonce = NULL,
+		       live_route_generation = $6, updated_at = $4
 		WHERE attempt_id = $1 AND player_id = $2 AND connection_generation = $3
-	`, attemptID, playerID, generation, now, nativeConnectionNonce)
+	`, attemptID, playerID, generation, now, nativeConnectionNonce, routeGeneration)
 	if err != nil {
 		return Snapshot{}, internal(err)
 	}
@@ -1956,7 +2091,15 @@ func (s *Service) ConfirmConnected(ctx context.Context, authorityID, authoritySe
 		return Snapshot{}, internal(err)
 	}
 	var missing int
-	if err := tx.QueryRow(ctx, `SELECT COUNT(*) FROM match_attempt_roster WHERE attempt_id = $1 AND connection_state <> 'CONNECTED'`, attemptID).Scan(&missing); err != nil {
+	if err := tx.QueryRow(ctx, `
+		SELECT COUNT(*) FROM match_attempt_roster
+		WHERE attempt_id = $1
+		  AND (connection_state <> 'CONNECTED'
+		       OR COALESCE(live_connection_generation, 0) <> connection_generation
+		       OR (room_role = 'MEMBER' AND COALESCE(live_route_generation, 0) <> (
+				SELECT route_generation FROM match_attempts WHERE id = $1
+			)))
+	`, attemptID).Scan(&missing); err != nil {
 		return Snapshot{}, internal(err)
 	}
 	if missing == 0 {
@@ -2027,10 +2170,10 @@ func (s *Service) P2PConfirmConnected(ctx context.Context, actor Actor, authorit
 	return s.Get(ctx, snapshot.LobbyID, actor.PlayerID)
 }
 
-func (s *Service) MarkDisconnected(ctx context.Context, authorityID, authoritySession, attemptID, worldInstanceID, playerID, nativeConnectionNonce string, generation int) (Snapshot, error) {
+func (s *Service) MarkDisconnected(ctx context.Context, authorityID, authoritySession, attemptID, worldInstanceID, playerID, nativeConnectionNonce string, generation, routeGeneration int) (Snapshot, error) {
 	worldInstanceID = strings.TrimSpace(worldInstanceID)
 	nativeConnectionNonce = strings.TrimSpace(nativeConnectionNonce)
-	if generation < 1 || !worldInstancePattern.MatchString(worldInstanceID) || !nativeConnectionNoncePattern.MatchString(nativeConnectionNonce) {
+	if generation < 1 || routeGeneration < 1 || !worldInstancePattern.MatchString(worldInstanceID) || !nativeConnectionNoncePattern.MatchString(nativeConnectionNonce) {
 		return Snapshot{}, invalid("Invalid connection generation.", nil)
 	}
 	now := s.now().UTC()
@@ -2039,14 +2182,27 @@ func (s *Service) MarkDisconnected(ctx context.Context, authorityID, authoritySe
 		return Snapshot{}, internal(err)
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
-	var lobbyID, storedWorldInstanceID string
-	var routeGeneration int
+	var lobbyID, storedWorldInstanceID, roomRole, connectionState, liveNonce, lastDisconnectedNonce string
+	var currentRouteGeneration, authorizationGeneration, liveGeneration, liveRouteGeneration int
 	err = tx.QueryRow(ctx, `
-		SELECT lobby_id, route_generation, COALESCE(world_instance_id, '') FROM match_attempts
-		WHERE id = $1 AND authority_id = $2 AND authority_session_id = $3
+		SELECT attempt.lobby_id, attempt.route_generation,
+		       COALESCE(attempt.world_instance_id, ''),
+		       roster.room_role, roster.connection_state,
+		       roster.connection_generation,
+		       COALESCE(roster.live_connection_generation, 0),
+		       COALESCE(roster.live_route_generation, 0),
+		       COALESCE(roster.live_native_connection_nonce, ''),
+	       COALESCE(roster.last_disconnected_native_connection_nonce, '')
+		FROM match_attempts AS attempt
+		JOIN match_attempt_roster AS roster
+		  ON roster.attempt_id = attempt.id AND roster.player_id = $4
+		WHERE attempt.id = $1 AND attempt.authority_id = $2 AND attempt.authority_session_id = $3
 		  AND state IN ('CONNECTING', 'RUNNING')
-		FOR UPDATE
-	`, attemptID, authorityID, authoritySession).Scan(&lobbyID, &routeGeneration, &storedWorldInstanceID)
+		FOR UPDATE OF attempt, roster
+	`, attemptID, authorityID, authoritySession, playerID).Scan(
+		&lobbyID, &currentRouteGeneration, &storedWorldInstanceID, &roomRole,
+		&connectionState, &authorizationGeneration, &liveGeneration, &liveRouteGeneration, &liveNonce, &lastDisconnectedNonce,
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Snapshot{}, forbidden("MATCH_AUTHORITY_SESSION_REQUIRED", "The authority session does not match the active attempt.")
 	}
@@ -2059,21 +2215,69 @@ func (s *Service) MarkDisconnected(ctx context.Context, authorityID, authoritySe
 	if storedWorldInstanceID != worldInstanceID {
 		return Snapshot{}, conflict("MATCH_WORLD_INSTANCE_CONFLICT", "The disconnect belongs to a different world instance.", nil)
 	}
-	command, err := tx.Exec(ctx, `
-		UPDATE match_attempt_roster
-		SET connection_state = 'DISCONNECTED', disconnected_at = $4, updated_at = $4
-		WHERE attempt_id = $1 AND player_id = $2 AND connection_generation = $3
-		  AND connection_state = 'CONNECTED'
-		  AND (
-			(room_role = 'HOST' AND live_native_connection_nonce = $6)
-			OR (room_role = 'MEMBER' AND EXISTS (
+	if liveGeneration != generation {
+		return Snapshot{}, conflict("MATCH_CONNECTION_GENERATION_STALE", "The reported connection is stale or has already been replaced.", nil)
+	}
+	if liveRouteGeneration != routeGeneration {
+		return Snapshot{}, conflict("MATCH_ROUTE_GENERATION_STALE", "The reported native connection route is stale or has already been replaced.", nil)
+	}
+	if liveNonce != "" && liveNonce != nativeConnectionNonce {
+		return Snapshot{}, conflict("MATCH_CONNECTION_GENERATION_STALE", "The reported native connection nonce is stale.", nil)
+	}
+	if liveNonce == "" && lastDisconnectedNonce != "" && lastDisconnectedNonce != nativeConnectionNonce {
+		return Snapshot{}, conflict("MATCH_CONNECTION_GENERATION_STALE", "The reported native connection nonce is stale.", nil)
+	}
+	if liveNonce == "" && connectionState != "DISCONNECTED" &&
+		!(connectionState == "CONNECTING" && liveGeneration != authorizationGeneration) {
+		return Snapshot{}, conflict("MATCH_CONNECTION_GENERATION_STALE", "The reported connection is not currently live.", nil)
+	}
+	if roomRole == "MEMBER" {
+		var consumed bool
+		if err := tx.QueryRow(ctx, `
+			SELECT EXISTS (
 				SELECT 1 FROM match_admission_grants AS admission
 				WHERE admission.attempt_id = $1 AND admission.player_id = $2
 				  AND admission.connection_generation = $3
-				  AND admission.route_generation = $5
+				  AND admission.route_generation = $4
 				  AND admission.consumed_at IS NOT NULL
-				  AND admission.consumed_connection_nonce = $6
-			))
+				  AND admission.consumed_connection_nonce = $5
+			)
+		`, attemptID, playerID, generation, routeGeneration, nativeConnectionNonce).Scan(&consumed); err != nil {
+			return Snapshot{}, internal(err)
+		}
+		if !consumed {
+			return Snapshot{}, conflict("MATCH_CONNECTION_GENERATION_STALE", "The reported native connection nonce is not bound to this member seat.", nil)
+		}
+	} else if roomRole != "HOST" {
+		return Snapshot{}, conflict("MATCH_CONNECTION_GENERATION_STALE", "The roster seat has no disconnectable native connection.", nil)
+	}
+	firstDisconnect := liveNonce != ""
+	command, err := tx.Exec(ctx, `
+		UPDATE match_attempt_roster
+		SET connection_state = CASE
+				WHEN connection_generation = live_connection_generation THEN 'DISCONNECTED'
+				WHEN connection_state = 'CONNECTED' THEN 'DISCONNECTED'
+				ELSE connection_state
+			END,
+			disconnected_at = CASE
+				WHEN connection_generation = live_connection_generation OR connection_state = 'CONNECTED' THEN $4
+				ELSE disconnected_at
+			END,
+			last_disconnected_native_connection_nonce = CASE
+				WHEN live_native_connection_nonce IS NOT NULL THEN live_native_connection_nonce
+				ELSE last_disconnected_native_connection_nonce
+			END,
+			live_native_connection_nonce = NULL,
+			host_live_scope_preserved = CASE WHEN room_role = 'HOST' THEN FALSE ELSE host_live_scope_preserved END,
+			updated_at = $4
+		WHERE attempt_id = $1 AND player_id = $2
+		  AND live_connection_generation = $3
+		  AND live_route_generation = $5
+		  AND (
+			live_native_connection_nonce = $6
+			OR (live_native_connection_nonce IS NULL
+			    AND last_disconnected_native_connection_nonce = $6
+			    AND connection_state IN ('DISCONNECTED', 'CONNECTING'))
 		  )
 	`, attemptID, playerID, generation, now, routeGeneration, nativeConnectionNonce)
 	if err != nil {
@@ -2084,19 +2288,12 @@ func (s *Service) MarkDisconnected(ctx context.Context, authorityID, authoritySe
 		if err := tx.QueryRow(ctx, `
 			SELECT EXISTS (
 				SELECT 1 FROM match_attempt_roster AS roster
-				LEFT JOIN match_admission_grants AS admission
-				  ON admission.attempt_id = roster.attempt_id
-				 AND admission.player_id = roster.player_id
-				 AND admission.connection_generation = roster.connection_generation
 				WHERE roster.attempt_id = $1 AND roster.player_id = $2
-				  AND roster.connection_generation = $3
-				  AND roster.connection_state = 'DISCONNECTED'
-				  AND (
-					(roster.room_role = 'HOST' AND roster.live_native_connection_nonce = $5)
-					OR (roster.room_role = 'MEMBER' AND admission.route_generation = $4
-					    AND admission.consumed_at IS NOT NULL
-					    AND admission.consumed_connection_nonce = $5)
-				  )
+				  AND COALESCE(roster.live_connection_generation, 0) = $3
+				  AND COALESCE(roster.live_route_generation, 0) = $4
+				  AND roster.connection_state IN ('DISCONNECTED', 'CONNECTING')
+				  AND roster.live_native_connection_nonce IS NULL
+				  AND roster.last_disconnected_native_connection_nonce = $5
 			)
 		`, attemptID, playerID, generation, routeGeneration, nativeConnectionNonce).Scan(&repeated); err != nil {
 			return Snapshot{}, internal(err)
@@ -2118,17 +2315,88 @@ func (s *Service) MarkDisconnected(ctx context.Context, authorityID, authoritySe
 	`, attemptID, playerID, now, generation); err != nil {
 		return Snapshot{}, internal(err)
 	}
+	// A real P2P HOST disconnect is the only event that invalidates the live
+	// authority connection and opens a route refresh.  Heartbeat timeout alone
+	// never relabels the old live connection.  If heartbeat already advanced
+	// the authorization generation, this branch is intentionally skipped: the
+	// old native event only clears its own live generation.
+	if roomRole == "HOST" && firstDisconnect && authorizationGeneration == generation && currentRouteGeneration == liveRouteGeneration {
+		command, err := tx.Exec(ctx, `
+			UPDATE match_attempts
+			SET route_generation = route_generation + 1,
+			    payload_route_generation = NULL,
+			    host_reconnect_deadline = CASE WHEN host_reconnect_deadline IS NULL
+			                                  THEN $2::timestamptz + ($3::double precision * interval '1 second')
+			                                  ELSE host_reconnect_deadline END,
+			    authority_last_seen_at = $2, updated_at = $2
+			WHERE id = $1 AND authority_id = $4 AND authority_session_id = $5
+			  AND route_generation = $6
+		`, attemptID, now, s.config.P2PHostReconnectSeconds, authorityID, authoritySession, currentRouteGeneration)
+		if err != nil {
+			return Snapshot{}, internal(err)
+		}
+		if command.RowsAffected() != 1 {
+			return Snapshot{}, conflict("MATCH_ATTEMPT_STATE_CONFLICT", "The P2P attempt changed while recording native disconnect.", nil)
+		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE match_attempt_roster
+			SET connection_generation = connection_generation + 1, updated_at = $2
+			WHERE attempt_id = $1
+		`, attemptID, now); err != nil {
+			return Snapshot{}, internal(err)
+		}
+		if err := s.syncProjectionGenerations(ctx, tx, attemptID); err != nil {
+			return Snapshot{}, internal(err)
+		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE match_admission_grants SET revoked_at = $2
+			WHERE attempt_id = $1 AND revoked_at IS NULL
+		`, attemptID, now); err != nil {
+			return Snapshot{}, internal(err)
+		}
+	} else if roomRole == "HOST" && firstDisconnect {
+		// Heartbeat may already have moved the authority route while the old
+		// HOST was still live.  The native event clears only that old scope but
+		// must still open/refresh the bounded same-world recovery window.
+		if _, err := tx.Exec(ctx, `
+			UPDATE match_attempts
+			SET host_reconnect_deadline = CASE WHEN host_reconnect_deadline IS NULL
+			                                  THEN $2::timestamptz + ($3::double precision * interval '1 second')
+			                                  ELSE host_reconnect_deadline END,
+			    payload_route_generation = NULL,
+			    authority_last_seen_at = $2, updated_at = $2
+			WHERE id = $1 AND authority_id = $4 AND authority_session_id = $5
+		`, attemptID, now, s.config.P2PHostReconnectSeconds, authorityID, authoritySession); err != nil {
+			return Snapshot{}, internal(err)
+		}
+		// The old HOST connection was live under an earlier authorization
+		// route.  Once its native DISCONNECTED event is accepted, advance the
+		// HOST seat generation before a fresh same-world Ready can install its
+		// new nonce.  This keeps the old live scope and the replacement scope
+		// distinct even though the world is retained.
+		if _, err := tx.Exec(ctx, `
+			UPDATE match_attempt_roster
+			SET connection_generation = connection_generation + 1, updated_at = $3
+			WHERE attempt_id = $1 AND player_id = $2 AND room_role = 'HOST'
+			  AND connection_generation = live_connection_generation
+		`, attemptID, playerID, now); err != nil {
+			return Snapshot{}, internal(err)
+		}
+		if err := s.syncProjectionGenerations(ctx, tx, attemptID); err != nil {
+			return Snapshot{}, internal(err)
+		}
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return Snapshot{}, internal(err)
 	}
 	return s.Get(ctx, lobbyID, "")
 }
 
-func (s *Service) P2PMarkDisconnected(ctx context.Context, actor Actor, authoritySession, attemptID, worldInstanceID, playerID, nativeConnectionNonce string, generation int) (Snapshot, error) {
+func (s *Service) P2PMarkDisconnected(ctx context.Context, actor Actor, authoritySession, attemptID, worldInstanceID, playerID, nativeConnectionNonce string, generation, routeGeneration int) (Snapshot, error) {
 	if err := requireActive(actor); err != nil {
 		return Snapshot{}, err
 	}
-	snapshot, err := s.MarkDisconnected(ctx, actor.PlayerID, authoritySession, attemptID, worldInstanceID, playerID, nativeConnectionNonce, generation)
+	snapshot, err := s.MarkDisconnected(ctx, actor.PlayerID, authoritySession, attemptID, worldInstanceID, playerID, nativeConnectionNonce, generation, routeGeneration)
 	if err != nil {
 		return Snapshot{}, err
 	}
@@ -2142,35 +2410,46 @@ func (s *Service) AuthorityHeartbeat(ctx context.Context, authorityID, authority
 		return internal(err)
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
-	var reconnecting bool
+	var reconnecting, hostLiveCurrent bool
 	err = tx.QueryRow(ctx, `
-		SELECT host_reconnect_deadline IS NOT NULL
-		FROM match_attempts
-		WHERE id = $1 AND authority_id = $2 AND authority_session_id = $3
-		  AND state IN ('CONNECTING', 'RUNNING')
-		FOR UPDATE
-	`, attemptID, authorityID, authoritySession).Scan(&reconnecting)
+		SELECT attempt.host_reconnect_deadline IS NOT NULL,
+		       COALESCE(host.connection_state = 'CONNECTED'
+		                AND host.live_connection_generation = host.connection_generation
+		                AND host.live_route_generation <= attempt.route_generation
+		                AND host.host_live_scope_preserved
+		                AND attempt.payload_route_generation = attempt.route_generation,
+		                FALSE)
+		FROM match_attempts AS attempt
+		LEFT JOIN match_attempt_roster AS host
+		  ON host.attempt_id = attempt.id AND host.room_role = 'HOST'
+		WHERE attempt.id = $1 AND attempt.authority_id = $2 AND attempt.authority_session_id = $3
+		  AND attempt.state IN ('CONNECTING', 'RUNNING')
+		FOR UPDATE OF attempt
+	`, attemptID, authorityID, authoritySession).Scan(&reconnecting, &hostLiveCurrent)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return forbidden("MATCH_AUTHORITY_SCOPE_REQUIRED", "This authority is not assigned to the active match attempt.")
 	}
 	if err != nil {
 		return internal(err)
 	}
-	if reconnecting {
+	// A recovery window is opened by the sweeper or by a real native HOST
+	// DISCONNECTED event.  Only a still-live HOST causes this heartbeat to
+	// advance the authorization route.  The old live generation/nonce remains
+	// untouched until its native DISCONNECTED event arrives; reconnecting after
+	// a prior route refresh merely keeps the attempt alive.
+	if reconnecting && hostLiveCurrent {
 		if _, err := tx.Exec(ctx, `
 			UPDATE match_attempts SET authority_last_seen_at = $3,
-			       host_reconnect_deadline = NULL, route_generation = route_generation + 1,
+			       route_generation = route_generation + 1,
 			       payload_route_generation = NULL,
 			       updated_at = $3 WHERE id = $1 AND authority_id = $2
 		`, attemptID, authorityID, now); err != nil {
 			return internal(err)
 		}
 		if _, err := tx.Exec(ctx, `
-			UPDATE match_attempt_roster SET connection_generation = connection_generation + 1,
-			       connection_state = CASE WHEN connection_state = 'CONNECTED' THEN 'DISCONNECTED' ELSE connection_state END,
-			       disconnected_at = CASE WHEN connection_state = 'CONNECTED' THEN $2 ELSE disconnected_at END,
-			       live_native_connection_nonce = CASE WHEN room_role = 'HOST' THEN NULL ELSE live_native_connection_nonce END,
-			       updated_at = $2 WHERE attempt_id = $1
+			UPDATE match_attempt_roster SET connection_generation = CASE WHEN room_role = 'MEMBER' THEN connection_generation + 1 ELSE connection_generation END,
+			       host_live_scope_preserved = CASE WHEN room_role = 'HOST' THEN FALSE ELSE host_live_scope_preserved END,
+			       updated_at = $2 WHERE attempt_id = $1 AND room_role IN ('HOST', 'MEMBER')
 		`, attemptID, now); err != nil {
 			return internal(err)
 		}

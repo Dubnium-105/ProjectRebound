@@ -247,7 +247,11 @@ func (r *Repository) Snapshot(ctx context.Context, lobbyID, viewerPlayerID strin
 				SELECT EXISTS (
 					SELECT 1 FROM match_attempt_roster
 					WHERE attempt_id = $1 AND player_id = $2
-					  AND connection_state <> 'CONNECTED'
+					  AND (connection_state <> 'CONNECTED'
+					       OR COALESCE(live_connection_generation, 0) <> connection_generation
+					       OR COALESCE(live_route_generation, 0) <> (
+								SELECT route_generation FROM match_attempts WHERE id = $1
+							))
 				)
 			`, lobby.CurrentAttemptID, viewerPlayerID).Scan(&local.CanRetry); err != nil {
 				return Snapshot{}, fmt.Errorf("read local reconnect capability: %w", err)
@@ -284,7 +288,7 @@ func (r *Repository) MemberConnectionEvidence(ctx context.Context, attemptID, pl
 	err := r.pool.QueryRow(ctx, `
 		SELECT attempt.id, attempt.authority_session_id,
 		       COALESCE(attempt.world_instance_id, ''), attempt.roster_revision,
-		       attempt.route_generation, roster.player_id, roster.room_role,
+		       COALESCE(roster.live_route_generation, attempt.route_generation), roster.player_id, roster.room_role,
 		       COALESCE(admission.jti, ''), roster.connection_generation,
 		       COALESCE(roster.live_native_connection_nonce, ''),
 		       roster.connection_state
@@ -314,10 +318,13 @@ func (r *Repository) MemberConnectionEvidence(ctx context.Context, attemptID, pl
 		  AND attempt.authority_session_id <> ''
 		  AND COALESCE(attempt.world_instance_id, '') <> ''
 		  AND roster.connection_state = 'CONNECTED'
+		  AND COALESCE(roster.live_connection_generation, 0) = roster.connection_generation
 		  AND COALESCE(roster.live_native_connection_nonce, '') <> ''
 		  AND (
 			(attempt.hosting_kind = 'P2P' AND roster.room_role = 'HOST' AND admission.jti IS NULL)
-			OR (roster.room_role = 'MEMBER' AND admission.jti IS NOT NULL)
+			OR (roster.room_role = 'MEMBER'
+			    AND COALESCE(roster.live_route_generation, 0) = attempt.route_generation
+			    AND admission.jti IS NOT NULL)
 		  )
 	`, attemptID, playerID).Scan(
 		&item.AttemptID, &item.AuthoritySessionID, &item.WorldInstanceID,

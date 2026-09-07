@@ -293,6 +293,22 @@ type MemberConnectionEvidence struct {
 	ConnectionState       string `json:"connection_state"`
 }
 
+// P2PHostLiveConnectionScope proves that a route refresh is preserving the
+// already-connected local HOST.  It is supplied only on the P2P authority
+// ready call; GrantJTI is intentionally empty because the HOST is admitted
+// by its signed allocation, not a member JoinGrant.
+type P2PHostLiveConnectionScope struct {
+	AttemptID             string `json:"attempt_id"`
+	AuthoritySessionID    string `json:"authority_session_id"`
+	WorldInstanceID       string `json:"world_instance_id"`
+	RosterRevision        int64  `json:"roster_revision"`
+	PlayerID              string `json:"player_id"`
+	GrantJTI              string `json:"grant_jti"`
+	RouteGeneration       int    `json:"route_generation"`
+	ConnectionGeneration  int    `json:"connection_generation"`
+	NativeConnectionNonce string `json:"native_connection_nonce"`
+}
+
 // AdmissionReservation is the bounded handoff between a verified native
 // identity and ConfirmConnected.  Reserving a grant never changes the roster
 // connection state; only confirmation may do that.

@@ -712,7 +712,7 @@ func validateOnlineCompatibility(channel string, compatibility *OnlineCompatibil
 	}
 	c := compatibility
 	if c.ContractVersion != "strict-authoritative-online-v1" || c.AdmissionMode != "strict_roster_v1" || c.Frontend != "tauri" ||
-		c.IPCProtocol != "strict-roster-v2" || c.BackendSchema != 47 ||
+		c.IPCProtocol != "strict-roster-v2" || c.BackendSchema != 48 ||
 		c.GameBinarySHA256 != "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843" ||
 		!sha256Pattern.MatchString(c.PayloadSHA256) || !sha256Pattern.MatchString(c.AcceptanceReportSHA256) ||
 		!regexp.MustCompile(`^[0-9a-f]{40}$`).MatchString(c.BackendCommit) || !regexp.MustCompile(`^[0-9a-f]{40}$`).MatchString(c.ToolboxCommit) {

@@ -7306,6 +7306,24 @@ components:
       properties:
         world_instance_id: {type: string, minLength: 1, maxLength: 128}
         native_connection_nonce: {type: string, minLength: 16, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$", writeOnly: true}
+        preserve_host_connection:
+          type: object
+          description: >-
+            P2P-only proof that the route refresh preserves the already-live
+            HOST. The backend verifies this exact old scope and never replaces
+            the HOST nonce or generation on this path.
+          additionalProperties: false
+          required: [attempt_id, authority_session_id, world_instance_id, roster_revision, player_id, grant_jti, route_generation, connection_generation, native_connection_nonce]
+          properties:
+            attempt_id: {type: string, minLength: 1, maxLength: 64}
+            authority_session_id: {type: string, minLength: 1, maxLength: 128, writeOnly: true}
+            world_instance_id: {type: string, minLength: 1, maxLength: 128}
+            roster_revision: {type: integer, minimum: 1}
+            player_id: {type: string, minLength: 1, maxLength: 64}
+            grant_jti: {type: string, const: ""}
+            route_generation: {type: integer, minimum: 1}
+            connection_generation: {type: integer, minimum: 1}
+            native_connection_nonce: {type: string, minLength: 16, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$", writeOnly: true}
     MatchAdmissionReservationRequest:
       type: object
       additionalProperties: false
@@ -7359,12 +7377,13 @@ components:
     MatchDisconnectedReportRequest:
       type: object
       additionalProperties: false
-      required: [player_id, world_instance_id, native_connection_nonce, connection_generation]
+      required: [player_id, world_instance_id, native_connection_nonce, connection_generation, route_generation]
       properties:
         player_id: {type: string}
         world_instance_id: {type: string, minLength: 1, maxLength: 128}
         native_connection_nonce: {type: string, minLength: 16, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$", writeOnly: true}
         connection_generation: {type: integer, minimum: 1}
+        route_generation: {type: integer, minimum: 1}
     MatchCompleteRequest:
       type: object
       additionalProperties: false

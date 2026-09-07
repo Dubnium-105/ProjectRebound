@@ -366,7 +366,7 @@ func writeRelease(t *testing.T, directory, name string, release SourceRelease) {
 func repeatHex(character string) string { return string(bytes.Repeat([]byte(character), 64)) }
 
 func testOnlineCompatibility() *OnlineCompatibility {
-	return &OnlineCompatibility{ContractVersion: "strict-authoritative-online-v1", AdmissionMode: "strict_roster_v1", Frontend: "tauri", IPCProtocol: "strict-roster-v2", BackendSchema: 47,
+	return &OnlineCompatibility{ContractVersion: "strict-authoritative-online-v1", AdmissionMode: "strict_roster_v1", Frontend: "tauri", IPCProtocol: "strict-roster-v2", BackendSchema: 48,
 		GameBinarySHA256: "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843", PayloadSHA256: strings.Repeat("a", 64), BackendCommit: strings.Repeat("b", 40), ToolboxCommit: strings.Repeat("c", 40), AcceptanceReportSHA256: strings.Repeat("d", 64)}
 }
 
@@ -375,6 +375,7 @@ func TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded(t *testing.T) {
 		"old IPC":          func(c *OnlineCompatibility) { c.IPCProtocol = "strict-roster-v1" },
 		"old frontend":     func(c *OnlineCompatibility) { c.Frontend = "egui" },
 		"old DB":           func(c *OnlineCompatibility) { c.BackendSchema = 24 },
+		"pre-live-scope DB": func(c *OnlineCompatibility) { c.BackendSchema = 47 },
 		"admission bypass": func(c *OnlineCompatibility) { c.AdmissionMode = "open" },
 		"wrong game":       func(c *OnlineCompatibility) { c.GameBinarySHA256 = strings.Repeat("0", 64) },
 		"missing evidence": func(c *OnlineCompatibility) { c.AcceptanceReportSHA256 = "" },

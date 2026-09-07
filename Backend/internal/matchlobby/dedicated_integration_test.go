@@ -261,21 +261,21 @@ func TestStrictRosterDedicatedLifecycleAgainstPostgreSQL(t *testing.T) {
 	if _, err := service.MarkDisconnected(
 		ctx, serverID, allocationClaims.AuthoritySessionID, attemptID,
 		"world-dedicated-old", owner.PlayerID, "native-dedicated-"+owner.PlayerID,
-		connectedGrants[owner.PlayerID].ConnectionGeneration,
+		connectedGrants[owner.PlayerID].ConnectionGeneration, connectedGrants[owner.PlayerID].RouteGeneration,
 	); errorCode(err) != "MATCH_WORLD_INSTANCE_CONFLICT" {
 		t.Fatalf("old Dedicated world was accepted for disconnect: %v", err)
 	}
 	if _, err := service.MarkDisconnected(
 		ctx, serverID, allocationClaims.AuthoritySessionID, attemptID,
 		"world-dedicated-primary", owner.PlayerID, "native-dedicated-stale-xxxxxxxx",
-		connectedGrants[owner.PlayerID].ConnectionGeneration,
+		connectedGrants[owner.PlayerID].ConnectionGeneration, connectedGrants[owner.PlayerID].RouteGeneration,
 	); errorCode(err) != "MATCH_CONNECTION_GENERATION_STALE" {
 		t.Fatalf("old Dedicated disconnect nonce was accepted: %v", err)
 	}
 	if _, err := service.MarkDisconnected(
 		ctx, serverID, allocationClaims.AuthoritySessionID, attemptID,
 		"world-dedicated-primary", owner.PlayerID, "native-dedicated-"+owner.PlayerID,
-		connectedGrants[owner.PlayerID].ConnectionGeneration,
+		connectedGrants[owner.PlayerID].ConnectionGeneration, connectedGrants[owner.PlayerID].RouteGeneration,
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -289,7 +289,7 @@ func TestStrictRosterDedicatedLifecycleAgainstPostgreSQL(t *testing.T) {
 	if _, err := service.MarkDisconnected(
 		ctx, serverID, allocationClaims.AuthoritySessionID, attemptID,
 		"world-dedicated-primary", owner.PlayerID, "native-dedicated-"+owner.PlayerID,
-		connectedGrants[owner.PlayerID].ConnectionGeneration,
+		connectedGrants[owner.PlayerID].ConnectionGeneration, connectedGrants[owner.PlayerID].RouteGeneration,
 	); err != nil {
 		t.Fatalf("repeated Dedicated disconnect was not idempotent: %v", err)
 	}
