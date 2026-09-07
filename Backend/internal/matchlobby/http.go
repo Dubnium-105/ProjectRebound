@@ -53,7 +53,7 @@ type HTTPService interface {
 	P2PComplete(context.Context, Actor, string, string, bool, string) (Snapshot, error)
 	NativeCleared(context.Context, string, string, string, string, int64, int) (Snapshot, error)
 	DedicatedNativeCleared(context.Context, string, string, string, string, int64, int, OwnedProcessExitEvidence) (Snapshot, error)
-	P2PNativeCleared(context.Context, Actor, string, string, string, int64, int) (Snapshot, error)
+	P2PNativeCleared(context.Context, Actor, string, string, string, int64, int, ...OwnedProcessExitEvidence) (Snapshot, error)
 }
 
 type HTTPHandler struct {
@@ -490,16 +490,27 @@ func (h *HTTPHandler) P2PComplete(w http.ResponseWriter, r *http.Request) {
 
 func (h *HTTPHandler) P2PNativeCleared(w http.ResponseWriter, r *http.Request) {
 	var request struct {
-		WorldInstanceID string `json:"world_instance_id"`
-		RosterRevision  int64  `json:"roster_revision"`
-		RouteGeneration int    `json:"route_generation"`
+		WorldInstanceID         string `json:"world_instance_id"`
+		RosterRevision          int64  `json:"roster_revision"`
+		RouteGeneration         int    `json:"route_generation"`
+		EvidenceKind            string `json:"evidence_kind"`
+		OwnedProcessID          uint32 `json:"owned_process_id"`
+		ProcessStartFingerprint string `json:"process_start_fingerprint"`
 	}
 	if !h.decode(w, r, &request) {
 		return
 	}
+	var evidence []OwnedProcessExitEvidence
+	if request.EvidenceKind != "" || request.OwnedProcessID != 0 || request.ProcessStartFingerprint != "" {
+		evidence = append(evidence, OwnedProcessExitEvidence{
+			EvidenceKind:            request.EvidenceKind,
+			OwnedProcessID:          request.OwnedProcessID,
+			ProcessStartFingerprint: request.ProcessStartFingerprint,
+		})
+	}
 	snapshot, err := h.service.P2PNativeCleared(
 		r.Context(), actorFromRequest(r), r.Header.Get(authoritySessionHeader),
-		chi.URLParam(r, "attempt_id"), request.WorldInstanceID, request.RosterRevision, request.RouteGeneration,
+		chi.URLParam(r, "attempt_id"), request.WorldInstanceID, request.RosterRevision, request.RouteGeneration, evidence...,
 	)
 	h.writeSnapshot(w, r, snapshot, err)
 }

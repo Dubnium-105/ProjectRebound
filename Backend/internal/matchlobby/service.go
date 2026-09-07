@@ -16,7 +16,9 @@ import (
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/p2proom"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/player"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/vnt"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 var lobbyLabelPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
@@ -57,12 +59,38 @@ type Service struct {
 	now             func() time.Time
 }
 
-// OwnedProcessExitEvidence is accepted only by the signed Dedicated game
-// server cleanup endpoint. P2P authorities cannot self-report process exit.
+// OwnedProcessExitEvidence is a scoped cleanup receipt from the supervisor.
+// The owned-process-exited kind requires a non-zero process id and Windows
+// start fingerprint; the native-process-not-started kind requires both fields
+// to be absent. Neither kind is a remote proof by itself: the exact
+// attempt/session/world/roster/route scope is checked in PostgreSQL, while the
+// supervisor owns the local child-handle evidence.
 type OwnedProcessExitEvidence struct {
 	EvidenceKind            string
 	OwnedProcessID          uint32
 	ProcessStartFingerprint string
+}
+
+func validateOwnedProcessExitEvidence(evidence OwnedProcessExitEvidence) error {
+	if evidence.EvidenceKind != "owned_process_exited" || evidence.OwnedProcessID == 0 ||
+		!processStartFingerprintPattern.MatchString(evidence.ProcessStartFingerprint) {
+		return invalid("Invalid owned process exit evidence.", nil)
+	}
+	return nil
+}
+
+func validateP2PNativeCleanupEvidence(evidence OwnedProcessExitEvidence) error {
+	switch evidence.EvidenceKind {
+	case "owned_process_exited":
+		return validateOwnedProcessExitEvidence(evidence)
+	case "native_process_not_started":
+		if evidence.OwnedProcessID != 0 || evidence.ProcessStartFingerprint != "" {
+			return invalid("Invalid native process not-started evidence.", nil)
+		}
+		return nil
+	default:
+		return invalid("Invalid native cleanup evidence.", nil)
+	}
 }
 
 func NewService(repository *Repository, cfg config.MatchLobbyConfig, signer *AdmissionSigner, serverFreshness time.Duration) *Service {
@@ -2324,17 +2352,18 @@ func (s *Service) P2PComplete(ctx context.Context, actor Actor, authoritySession
 	return s.Complete(ctx, actor.PlayerID, authoritySession, attemptID, success, failureCode)
 }
 
-// NativeCleared is the P2P cleanup transition. P2P never receives an owned
-// process-exit claim and therefore always requires a persisted world identity.
+// NativeCleared is the native-world acknowledgement branch. It always
+// requires a persisted world identity; the P2P HOST owned-process receipt is
+// accepted only through P2PNativeCleared's explicit evidence argument.
 func (s *Service) NativeCleared(
 	ctx context.Context,
 	authorityID, authoritySession, attemptID, worldInstanceID string,
 	rosterRevision int64, routeGeneration int,
 ) (Snapshot, error) {
-	return s.nativeCleared(ctx, authorityID, authoritySession, attemptID, worldInstanceID, rosterRevision, routeGeneration, nil)
+	return s.nativeCleared(ctx, authorityID, authoritySession, attemptID, worldInstanceID, rosterRevision, routeGeneration, nil, "")
 }
 
-// DedicatedNativeCleared is the only cleanup transition which may carry an
+// DedicatedNativeCleared is the Dedicated cleanup transition carrying an
 // owned-process exit claim. The caller is the signed Dedicated node, and the
 // claim is still validated against the terminal attempt scope in PostgreSQL.
 func (s *Service) DedicatedNativeCleared(
@@ -2343,20 +2372,22 @@ func (s *Service) DedicatedNativeCleared(
 	rosterRevision int64, routeGeneration int,
 	evidence OwnedProcessExitEvidence,
 ) (Snapshot, error) {
-	if evidence.EvidenceKind != "owned_process_exited" || evidence.OwnedProcessID == 0 ||
-		!processStartFingerprintPattern.MatchString(evidence.ProcessStartFingerprint) {
-		return Snapshot{}, invalid("Invalid owned process exit evidence.", nil)
+	if err := validateOwnedProcessExitEvidence(evidence); err != nil {
+		return Snapshot{}, err
 	}
-	return s.nativeCleared(ctx, authorityID, authoritySession, attemptID, worldInstanceID, rosterRevision, routeGeneration, &evidence)
+	return s.nativeCleared(ctx, authorityID, authoritySession, attemptID, worldInstanceID, rosterRevision, routeGeneration, &evidence, HostingDedicated)
 }
 
-// nativeCleared is shared by the two signed routes. An empty world is only
-// accepted for Dedicated cleanup with a validated owned-process claim.
+// nativeCleared is shared by the Dedicated and P2P cleanup routes. An empty
+// world is accepted only for a validated owned-process claim when that
+// authority never published a world; once a world is persisted, every route
+// must echo it. P2P cleanup also requires the frozen HOST row.
 func (s *Service) nativeCleared(
 	ctx context.Context,
 	authorityID, authoritySession, attemptID, worldInstanceID string,
 	rosterRevision int64, routeGeneration int,
 	evidence *OwnedProcessExitEvidence,
+	expectedHosting HostingKind,
 ) (Snapshot, error) {
 	if err := s.requireEnabled(); err != nil {
 		return Snapshot{}, err
@@ -2379,16 +2410,18 @@ func (s *Service) nativeCleared(
 	var currentState AttemptState
 	var storedRosterRevision int64
 	var storedRouteGeneration int
+	var payloadInstalled bool
 	err = tx.QueryRow(ctx, `
 		SELECT lobby_id, hosting_kind, state, cleanup_state,
-		       COALESCE(world_instance_id, ''), roster_revision, route_generation
+		       COALESCE(world_instance_id, ''), roster_revision, route_generation,
+		       payload_installed_at IS NOT NULL
 		FROM match_attempts
 		WHERE id = $1 AND authority_id = $2 AND authority_session_id = $3
 		  AND state IN ('COMPLETED', 'ABORTED')
 		FOR UPDATE
 	`, attemptID, authorityID, authoritySession).Scan(
 		&lobbyID, &hosting, &currentState, &cleanupState, &storedWorld,
-		&storedRosterRevision, &storedRouteGeneration,
+		&storedRosterRevision, &storedRouteGeneration, &payloadInstalled,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Snapshot{}, forbidden("MATCH_AUTHORITY_SCOPE_REQUIRED", "The authority session does not own a terminal match attempt.")
@@ -2396,9 +2429,34 @@ func (s *Service) nativeCleared(
 	if err != nil {
 		return Snapshot{}, internal(err)
 	}
+	if expectedHosting != "" && hosting != string(expectedHosting) {
+		return Snapshot{}, forbidden("MATCH_HOSTING_KIND_REQUIRED", "This cleanup evidence is not valid for the authority hosting mode.")
+	}
+	if expectedHosting == HostingP2P {
+		var hostAuthority bool
+		if err := tx.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM match_attempt_roster
+				WHERE attempt_id = $1 AND player_id = $2 AND room_role = 'HOST'
+			)
+		`, attemptID, authorityID).Scan(&hostAuthority); err != nil {
+			return Snapshot{}, internal(err)
+		}
+		if !hostAuthority {
+			return Snapshot{}, forbidden("MATCH_HOST_AUTHORITY_REQUIRED", "Only the frozen P2P HOST may acknowledge native cleanup.")
+		}
+	}
+	if evidence != nil && evidence.EvidenceKind == "native_process_not_started" {
+		if expectedHosting != HostingP2P || hosting != string(HostingP2P) {
+			return Snapshot{}, forbidden("MATCH_HOSTING_KIND_REQUIRED", "The native process not-started receipt is valid only for a P2P HOST.")
+		}
+		if payloadInstalled || storedWorld != "" {
+			return Snapshot{}, conflict("MATCH_NATIVE_PROCESS_NOT_STARTED_INVALID", "The attempt already published a native world or installed Payload.", nil)
+		}
+	}
 	if cleanupState == "CLEARED" {
 		if storedWorld == "" {
-			if evidence == nil || hosting != string(HostingDedicated) || worldInstanceID != "" {
+			if evidence == nil || (hosting != string(HostingDedicated) && hosting != string(HostingP2P)) || worldInstanceID != "" {
 				return Snapshot{}, conflict("MATCH_WORLD_INSTANCE_REQUIRED", "The attempt has no persisted native world identity.", nil)
 			}
 		} else if storedWorld != worldInstanceID {
@@ -2416,7 +2474,7 @@ func (s *Service) nativeCleared(
 		return s.Get(ctx, lobbyID, "")
 	}
 	if storedWorld == "" {
-		if evidence == nil || hosting != string(HostingDedicated) || worldInstanceID != "" {
+		if evidence == nil || (hosting != string(HostingDedicated) && hosting != string(HostingP2P)) || worldInstanceID != "" {
 			return Snapshot{}, conflict("MATCH_WORLD_INSTANCE_REQUIRED", "The attempt has no persisted native world identity.", nil)
 		}
 	} else if storedWorld != worldInstanceID {
@@ -2428,9 +2486,10 @@ func (s *Service) nativeCleared(
 	if storedRouteGeneration != routeGeneration {
 		return Snapshot{}, conflict("MATCH_ROUTE_GENERATION_STALE", "The cleanup acknowledgement belongs to a stale authority route.", nil)
 	}
+	var updateTag pgconn.CommandTag
 	var updateErr error
 	if storedWorld == "" {
-		_, updateErr = tx.Exec(ctx, `
+		updateTag, updateErr = tx.Exec(ctx, `
 			UPDATE match_attempts
 			SET cleanup_state = 'CLEARED', native_cleared_at = $2,
 			    cleanup_error = NULL, cleanup_lease_expires_at = NULL,
@@ -2439,7 +2498,7 @@ func (s *Service) nativeCleared(
 			  AND roster_revision = $3 AND route_generation = $4
 		`, attemptID, now, rosterRevision, routeGeneration)
 	} else {
-		_, updateErr = tx.Exec(ctx, `
+		updateTag, updateErr = tx.Exec(ctx, `
 			UPDATE match_attempts
 			SET cleanup_state = 'CLEARED', native_cleared_at = $2,
 			    cleanup_error = NULL, cleanup_lease_expires_at = NULL,
@@ -2450,6 +2509,12 @@ func (s *Service) nativeCleared(
 	}
 	if updateErr != nil {
 		return Snapshot{}, internal(updateErr)
+	}
+	if updateTag.RowsAffected() != 1 {
+		return Snapshot{}, conflict("MATCH_CLEANUP_STATE_CHANGED", "The native cleanup lease changed before this acknowledgement committed.", nil)
+	}
+	if err := insertNativeCleanupAudit(ctx, tx, lobbyID, attemptID, authorityID, hosting, authoritySession, worldInstanceID, rosterRevision, routeGeneration, evidence, now); err != nil {
+		return Snapshot{}, internal(err)
 	}
 	if hosting == string(HostingDedicated) {
 		if _, err := tx.Exec(ctx, `
@@ -2471,11 +2536,79 @@ func (s *Service) nativeCleared(
 	return s.Get(ctx, lobbyID, "")
 }
 
-func (s *Service) P2PNativeCleared(ctx context.Context, actor Actor, authoritySession, attemptID, worldInstanceID string, rosterRevision int64, routeGeneration int) (Snapshot, error) {
+// insertNativeCleanupAudit persists the first successful cleanup receipt in
+// the existing security-audit stream. It runs in the same transaction as the
+// CLEARED transition; duplicate acknowledgements return above without adding
+// or replacing the original receipt. The fields are scoped operational
+// metadata, not a substitute for the supervisor's local child-handle proof.
+func insertNativeCleanupAudit(
+	ctx context.Context,
+	tx pgx.Tx,
+	lobbyID, attemptID, authorityID, hosting, authoritySession, worldInstanceID string,
+	rosterRevision int64,
+	routeGeneration int,
+	evidence *OwnedProcessExitEvidence,
+	createdAt time.Time,
+) error {
+	evidenceKind := ""
+	ownedProcessID := uint32(0)
+	processStartFingerprint := ""
+	if evidence != nil {
+		evidenceKind = evidence.EvidenceKind
+		ownedProcessID = evidence.OwnedProcessID
+		processStartFingerprint = evidence.ProcessStartFingerprint
+	}
+	authoritySessionSHA256 := fmt.Sprintf("%x", sha256.Sum256([]byte(authoritySession)))
+	details, err := json.Marshal(map[string]any{
+		"attempt_id":                attemptID,
+		"authority_id":              authorityID,
+		"authority_session_sha256":  authoritySessionSHA256,
+		"lobby_id":                  lobbyID,
+		"world_instance_id":         worldInstanceID,
+		"roster_revision":           rosterRevision,
+		"route_generation":          routeGeneration,
+		"hosting_kind":              hosting,
+		"evidence_kind":             evidenceKind,
+		"owned_process_id":          ownedProcessID,
+		"process_start_fingerprint": processStartFingerprint,
+	})
+	if err != nil {
+		return fmt.Errorf("marshal native cleanup audit details: %w", err)
+	}
+	playerID := ""
+	if hosting == string(HostingP2P) {
+		playerID = authorityID
+	}
+	_, err = tx.Exec(ctx, `
+		INSERT INTO vnt_security_audit_logs (
+			id, event_type, result, actor_type, player_id, node_id, room_id,
+			request_id, reason_code, details, created_at
+		) VALUES (
+			$1, 'MATCH_NATIVE_CLEANUP_CLEARED', 'SUCCEEDED', 'SYSTEM',
+			NULLIF($2, ''), NULLIF($3, ''), NULLIF($4, ''),
+			NULLIF($5, ''), 'MATCH_NATIVE_CLEARED', $6, $7
+		)
+	`, vnt.NewSecurityAuditID(), playerID, "", "", attemptID, details, createdAt)
+	if err != nil {
+		return fmt.Errorf("insert native cleanup audit: %w", err)
+	}
+	return nil
+}
+
+func (s *Service) P2PNativeCleared(ctx context.Context, actor Actor, authoritySession, attemptID, worldInstanceID string, rosterRevision int64, routeGeneration int, evidence ...OwnedProcessExitEvidence) (Snapshot, error) {
 	if err := requireActive(actor); err != nil {
 		return Snapshot{}, err
 	}
-	return s.NativeCleared(ctx, actor.PlayerID, authoritySession, attemptID, worldInstanceID, rosterRevision, routeGeneration)
+	if len(evidence) > 1 {
+		return Snapshot{}, invalid("At most one owned process exit evidence receipt is allowed.", nil)
+	}
+	if len(evidence) == 1 {
+		if err := validateP2PNativeCleanupEvidence(evidence[0]); err != nil {
+			return Snapshot{}, err
+		}
+		return s.nativeCleared(ctx, actor.PlayerID, authoritySession, attemptID, worldInstanceID, rosterRevision, routeGeneration, &evidence[0], HostingP2P)
+	}
+	return s.nativeCleared(ctx, actor.PlayerID, authoritySession, attemptID, worldInstanceID, rosterRevision, routeGeneration, nil, HostingP2P)
 }
 
 func (s *Service) compensateJoin(ctx context.Context, lobbyID, playerID string) error {

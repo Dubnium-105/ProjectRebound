@@ -7295,11 +7295,24 @@ components:
     MatchNativeClearedRequest:
       type: object
       additionalProperties: false
+      description: >-
+        A native-world acknowledgement must match the persisted world, roster
+        revision, and route generation. For an owned process exit, provide all
+        three evidence fields; partial evidence is rejected. A P2P HOST may
+        send an empty world only when no world was persisted before its owned
+        child exited, or may send `evidence_kind=native_process_not_started`
+        with empty process fields before Payload/world publication; a
+        persisted world must be echoed exactly. The process ID and start
+        fingerprint are supervisor evidence metadata and do not replace local
+        proof that the owned child handle signaled.
       required: [world_instance_id, roster_revision, route_generation]
       properties:
-        world_instance_id: {type: string, minLength: 1, maxLength: 128}
+        world_instance_id: {type: string, maxLength: 128}
         roster_revision: {type: integer, minimum: 1}
         route_generation: {type: integer, minimum: 1}
+        evidence_kind: {type: string, enum: [owned_process_exited, native_process_not_started]}
+        owned_process_id: {type: integer, minimum: 0}
+        process_start_fingerprint: {type: string, maxLength: 64, pattern: "^(|win-filetime:[0-9a-f]{16})$"}
     DedicatedMatchNativeClearedRequest:
       type: object
       additionalProperties: false

@@ -2,11 +2,13 @@ package matchlobby
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -18,6 +20,384 @@ import (
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/player"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+func TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL(t *testing.T) {
+	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("TEST_DATABASE_URL is not set")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	pool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	if err := database.NewMigrator(pool).Up(ctx); err != nil {
+		t.Fatalf("migrate test database: %v", err)
+	}
+
+	p2pService := p2proom.NewService(p2proom.NewRepository(pool), config.Defaults.P2PRoom)
+	secretBox, _, err := p2proom.NewSecretBox("", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p2pService.SetVNT(nil, secretBox)
+	battleLogService := p2pbattlelog.NewService(p2pbattlelog.NewRepository(pool), config.Defaults.P2PBattleLog)
+	p2pService.SetMatchLifecycle(battleLogService)
+	matchConfig := config.Defaults.MatchLobby
+	matchConfig.StrictRosterV1Enabled = true
+	signer, err := NewAdmissionSigner("integration-p2p-owned-exit", "", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := NewService(NewRepository(pool), matchConfig, signer, 45*time.Second)
+	service.SetP2PTransport(p2pService)
+	service.SetP2PMatchProjector(battleLogService)
+	currentTime := time.Now().UTC().Truncate(time.Second)
+	service.now = func() time.Time { return currentTime }
+	signer.now = func() time.Time { return currentTime }
+
+	suffix := uint64(time.Now().UnixNano()) % 10_000_000_000_000
+	owner := insertStrictRosterPlayer(t, ctx, pool, fmt.Sprintf("%017d", 71_000_000_000_000_000+suffix))
+	member := insertStrictRosterPlayer(t, ctx, pool, fmt.Sprintf("%017d", 72_000_000_000_000_000+suffix))
+	playerIDs := []string{owner.PlayerID, member.PlayerID}
+	t.Cleanup(func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cleanupCancel()
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM match_lobbies WHERE owner_player_id = ANY($1)", playerIDs)
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM p2p_rooms WHERE host_player_id = ANY($1)", playerIDs)
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM players WHERE id = ANY($1)", playerIDs)
+	})
+
+	frozen, transportHostToken := createTwoPlayerReadyLobby(t, ctx, service, owner, member, "P2P Owned Exit", "integration-p2p-owned-exit")
+	if frozen.Attempt == nil {
+		t.Fatal("P2P owned-process lobby omitted its attempt")
+	}
+	attemptID := frozen.Attempt.AttemptID
+	allocation, err := service.P2PHostAllocation(ctx, owner, attemptID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claims := decodeAllocationClaims(t, allocation.Allocation)
+	var authoritySession string
+	if err := pool.QueryRow(ctx, "SELECT authority_session_id FROM match_attempts WHERE id = $1", attemptID).Scan(&authoritySession); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.P2PPayloadInstalled(ctx, owner, attemptID, authoritySession, strictNativeAdmissionVersion, matchConfig.LockedGameSHA256, frozen.Attempt.RouteGeneration); err != nil {
+		t.Fatal(err)
+	}
+	connecting, err := service.P2PAuthorityReady(
+		ctx, owner, attemptID, authoritySession, transportHostToken,
+		"10.88.0.9", 7788, frozen.Attempt.RouteGeneration,
+		"world-p2p-owned-exit", "native-host-owned-exit",
+	)
+	if err != nil || connecting.Attempt == nil || connecting.Attempt.State != AttemptConnecting {
+		t.Fatalf("P2P authority ready = %+v, %v", connecting, err)
+	}
+
+	grant, err := service.JoinGrant(ctx, member, attemptID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	grantJTI := decodeJoinGrantJTI(t, grant.Grant)
+	nativeNonce := "native-owned-exit-member"
+	if _, err := service.P2PMarkAdmissionDelivered(ctx, owner, authoritySession, attemptID, grantJTI); err != nil {
+		t.Fatal(err)
+	}
+	reservation, err := service.P2PReserveAdmission(
+		ctx, owner, authoritySession, attemptID, "world-p2p-owned-exit", member.PlayerID,
+		grantJTI, nativeNonce, grant.ConnectionGeneration,
+	)
+	if err != nil || reservation.GrantJTI != grantJTI {
+		t.Fatalf("P2P reservation = %+v, %v", reservation, err)
+	}
+	if _, err := service.P2PConfirmConnected(
+		ctx, owner, authoritySession, attemptID, "world-p2p-owned-exit", member.PlayerID,
+		grantJTI, nativeNonce, grant.ConnectionGeneration,
+	); err != nil {
+		t.Fatal(err)
+	}
+	terminal, err := service.P2PComplete(ctx, owner, authoritySession, attemptID, true, "")
+	if err != nil || terminal.State != StateCompleted {
+		t.Fatalf("complete P2P attempt = %+v, %v", terminal, err)
+	}
+
+	evidence := OwnedProcessExitEvidence{
+		EvidenceKind:            "owned_process_exited",
+		OwnedProcessID:          61234,
+		ProcessStartFingerprint: "win-filetime:0123456789abcdef",
+	}
+	if _, err := service.P2PNativeCleared(
+		ctx, member, authoritySession, attemptID, "world-p2p-owned-exit",
+		connecting.Attempt.RosterRevision, connecting.Attempt.RouteGeneration, evidence,
+	); errorCode(err) != "MATCH_AUTHORITY_SCOPE_REQUIRED" {
+		t.Fatalf("non-HOST owned-process cleanup was accepted: %v", err)
+	}
+	if _, err := service.P2PNativeCleared(
+		ctx, owner, authoritySession, attemptID, "world-p2p-owned-exit",
+		connecting.Attempt.RosterRevision, connecting.Attempt.RouteGeneration,
+		OwnedProcessExitEvidence{EvidenceKind: "pid_string", OwnedProcessID: evidence.OwnedProcessID, ProcessStartFingerprint: evidence.ProcessStartFingerprint},
+	); errorCode(err) != "INVALID_REQUEST" {
+		t.Fatalf("malformed owned-process evidence was accepted: %v", err)
+	}
+	if _, err := service.P2PNativeCleared(
+		ctx, owner, authoritySession, attemptID, "world-p2p-old",
+		connecting.Attempt.RosterRevision, connecting.Attempt.RouteGeneration, evidence,
+	); errorCode(err) != "MATCH_WORLD_INSTANCE_CONFLICT" {
+		t.Fatalf("old-world owned-process cleanup was accepted: %v", err)
+	}
+	if _, err := service.P2PNativeCleared(
+		ctx, owner, authoritySession, attemptID, "world-p2p-owned-exit",
+		connecting.Attempt.RosterRevision, connecting.Attempt.RouteGeneration+1, evidence,
+	); errorCode(err) != "MATCH_ROUTE_GENERATION_STALE" {
+		t.Fatalf("stale-route owned-process cleanup was accepted: %v", err)
+	}
+	if _, err := service.P2PNativeCleared(
+		ctx, owner, authoritySession, attemptID, "world-p2p-owned-exit",
+		connecting.Attempt.RosterRevision, connecting.Attempt.RouteGeneration, evidence,
+	); err != nil {
+		t.Fatal(err)
+	}
+	var cleanupState string
+	if err := pool.QueryRow(ctx, "SELECT cleanup_state FROM match_attempts WHERE id = $1", attemptID).Scan(&cleanupState); err != nil {
+		t.Fatal(err)
+	}
+	if cleanupState != "CLEARED" {
+		t.Fatalf("P2P owned-process cleanup state = %s, want CLEARED", cleanupState)
+	}
+	if _, err := service.P2PNativeCleared(
+		ctx, owner, authoritySession, attemptID, "world-p2p-owned-exit",
+		connecting.Attempt.RosterRevision, connecting.Attempt.RouteGeneration, evidence,
+	); err != nil {
+		t.Fatalf("same-scope cleanup retry failed: %v", err)
+	}
+	var auditEvent string
+	var auditDetails []byte
+	if err := pool.QueryRow(ctx, `
+		SELECT event_type, details
+		FROM vnt_security_audit_logs
+		WHERE event_type = 'MATCH_NATIVE_CLEANUP_CLEARED'
+		  AND details->>'lobby_id' = $1 AND details->>'attempt_id' = $2
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, frozen.LobbyID, attemptID).Scan(&auditEvent, &auditDetails); err != nil {
+		t.Fatalf("native cleanup audit missing: %v", err)
+	}
+	if auditEvent != "MATCH_NATIVE_CLEANUP_CLEARED" {
+		t.Fatalf("native cleanup audit event = %q", auditEvent)
+	}
+	var audited struct {
+		AttemptID               string `json:"attempt_id"`
+		AuthorityID             string `json:"authority_id"`
+		AuthoritySessionSHA256  string `json:"authority_session_sha256"`
+		LobbyID                 string `json:"lobby_id"`
+		WorldInstanceID         string `json:"world_instance_id"`
+		RosterRevision          int64  `json:"roster_revision"`
+		RouteGeneration         int    `json:"route_generation"`
+		EvidenceKind            string `json:"evidence_kind"`
+		OwnedProcessID          uint32 `json:"owned_process_id"`
+		ProcessStartFingerprint string `json:"process_start_fingerprint"`
+	}
+	if strings.Contains(string(auditDetails), authoritySession) {
+		t.Fatalf("native cleanup audit retained the authority session bearer")
+	}
+	if err := json.Unmarshal(auditDetails, &audited); err != nil {
+		t.Fatalf("decode native cleanup audit: %v", err)
+	}
+	expectedAuthoritySessionSHA256 := fmt.Sprintf("%x", sha256.Sum256([]byte(authoritySession)))
+	if audited.AttemptID != attemptID || audited.AuthorityID != owner.PlayerID ||
+		audited.AuthoritySessionSHA256 != expectedAuthoritySessionSHA256 || audited.LobbyID != frozen.LobbyID ||
+		audited.WorldInstanceID != "world-p2p-owned-exit" || audited.RosterRevision != connecting.Attempt.RosterRevision ||
+		audited.RouteGeneration != connecting.Attempt.RouteGeneration || audited.EvidenceKind != evidence.EvidenceKind ||
+		audited.OwnedProcessID != evidence.OwnedProcessID || audited.ProcessStartFingerprint != evidence.ProcessStartFingerprint {
+		t.Fatalf("native cleanup audit scope/evidence = %+v", audited)
+	}
+	var auditCount int
+	if err := pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM vnt_security_audit_logs
+		WHERE event_type = 'MATCH_NATIVE_CLEANUP_CLEARED'
+		  AND details->>'lobby_id' = $1 AND details->>'attempt_id' = $2
+	`, frozen.LobbyID, attemptID).Scan(&auditCount); err != nil {
+		t.Fatal(err)
+	}
+	if auditCount != 1 {
+		t.Fatalf("native cleanup audit count = %d, want one receipt after duplicate ACK", auditCount)
+	}
+	if _, err := service.P2PNativeCleared(
+		ctx, owner, authoritySession, attemptID, "world-p2p-old",
+		connecting.Attempt.RosterRevision, connecting.Attempt.RouteGeneration, evidence,
+	); errorCode(err) != "MATCH_WORLD_INSTANCE_CONFLICT" {
+		t.Fatalf("idempotent cleanup accepted a different world: %v", err)
+	}
+	_ = claims
+}
+
+func TestStrictRosterP2PPreflightNativeProcessNotStartedCleanupAgainstPostgreSQL(t *testing.T) {
+	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("TEST_DATABASE_URL is not set")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	pool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	if err := database.NewMigrator(pool).Up(ctx); err != nil {
+		t.Fatalf("migrate test database: %v", err)
+	}
+	service, _, owner, member, frozen, authoritySession := setupStrictRosterP2PPreflightFixture(t, ctx, pool, "P2P Preflight No Process", "integration-p2p-preflight-no-process")
+	if frozen.Attempt == nil {
+		t.Fatal("P2P preflight lobby omitted its attempt")
+	}
+	attemptID := frozen.Attempt.AttemptID
+	if _, err := service.P2PHostAllocation(ctx, owner, attemptID); err != nil {
+		t.Fatal(err)
+	}
+	terminal, err := service.P2PComplete(ctx, owner, authoritySession, attemptID, false, "PRE_READY_PROCESS_NOT_STARTED")
+	if err != nil || terminal.State != StateAborted {
+		t.Fatalf("preflight P2P abort = %+v, %v", terminal, err)
+	}
+	evidence := OwnedProcessExitEvidence{EvidenceKind: "native_process_not_started"}
+	if _, err := service.P2PNativeCleared(
+		ctx, member, authoritySession, attemptID, "", frozen.Attempt.RosterRevision, frozen.Attempt.RouteGeneration, evidence,
+	); errorCode(err) != "MATCH_AUTHORITY_SCOPE_REQUIRED" {
+		t.Fatalf("non-HOST preflight cleanup was accepted: %v", err)
+	}
+	if _, err := service.P2PNativeCleared(
+		ctx, owner, authoritySession, attemptID, "preflight-world", frozen.Attempt.RosterRevision, frozen.Attempt.RouteGeneration, evidence,
+	); errorCode(err) != "MATCH_WORLD_INSTANCE_REQUIRED" {
+		t.Fatalf("non-empty preflight world was accepted: %v", err)
+	}
+	if _, err := service.P2PNativeCleared(
+		ctx, owner, authoritySession, attemptID, "", frozen.Attempt.RosterRevision, frozen.Attempt.RouteGeneration,
+		OwnedProcessExitEvidence{EvidenceKind: "native_process_not_started", OwnedProcessID: 7},
+	); errorCode(err) != "INVALID_REQUEST" {
+		t.Fatalf("preflight receipt with a process id was accepted: %v", err)
+	}
+	if _, err := service.P2PNativeCleared(
+		ctx, owner, authoritySession, attemptID, "", frozen.Attempt.RosterRevision, frozen.Attempt.RouteGeneration, evidence,
+	); err != nil {
+		t.Fatalf("scoped preflight cleanup failed: %v", err)
+	}
+	var cleanupState string
+	if err := pool.QueryRow(ctx, "SELECT cleanup_state FROM match_attempts WHERE id = $1", attemptID).Scan(&cleanupState); err != nil {
+		t.Fatal(err)
+	}
+	if cleanupState != "CLEARED" {
+		t.Fatalf("preflight cleanup state = %s, want CLEARED", cleanupState)
+	}
+	var details []byte
+	if err := pool.QueryRow(ctx, `
+		SELECT details
+		FROM vnt_security_audit_logs
+		WHERE event_type = 'MATCH_NATIVE_CLEANUP_CLEARED'
+		  AND details->>'lobby_id' = $1 AND details->>'attempt_id' = $2
+		LIMIT 1
+	`, frozen.LobbyID, attemptID).Scan(&details); err != nil {
+		t.Fatalf("preflight cleanup audit missing: %v", err)
+	}
+	var audited struct {
+		WorldInstanceID         string `json:"world_instance_id"`
+		EvidenceKind            string `json:"evidence_kind"`
+		OwnedProcessID          uint32 `json:"owned_process_id"`
+		ProcessStartFingerprint string `json:"process_start_fingerprint"`
+	}
+	if err := json.Unmarshal(details, &audited); err != nil {
+		t.Fatalf("decode preflight cleanup audit: %v", err)
+	}
+	if audited.WorldInstanceID != "" || audited.EvidenceKind != evidence.EvidenceKind || audited.OwnedProcessID != 0 || audited.ProcessStartFingerprint != "" {
+		t.Fatalf("preflight cleanup audit = %+v", audited)
+	}
+}
+
+func TestStrictRosterP2PPreflightNotStartedRejectsInstalledPayloadAgainstPostgreSQL(t *testing.T) {
+	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("TEST_DATABASE_URL is not set")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	pool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	if err := database.NewMigrator(pool).Up(ctx); err != nil {
+		t.Fatalf("migrate test database: %v", err)
+	}
+	service, matchConfig, owner, _, frozen, authoritySession := setupStrictRosterP2PPreflightFixture(t, ctx, pool, "P2P Preflight Installed Payload", "integration-p2p-preflight-installed-payload")
+	if frozen.Attempt == nil {
+		t.Fatal("P2P installed-payload lobby omitted its attempt")
+	}
+	attemptID := frozen.Attempt.AttemptID
+	if _, err := service.P2PHostAllocation(ctx, owner, attemptID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.P2PPayloadInstalled(ctx, owner, attemptID, authoritySession, strictNativeAdmissionVersion, matchConfig.LockedGameSHA256, frozen.Attempt.RouteGeneration); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.P2PComplete(ctx, owner, authoritySession, attemptID, false, "PRE_READY_PAYLOAD_INSTALLED"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.P2PNativeCleared(
+		ctx, owner, authoritySession, attemptID, "", frozen.Attempt.RosterRevision, frozen.Attempt.RouteGeneration,
+		OwnedProcessExitEvidence{EvidenceKind: "native_process_not_started"},
+	); errorCode(err) != "MATCH_NATIVE_PROCESS_NOT_STARTED_INVALID" {
+		t.Fatalf("not-started receipt after Payload installation was accepted: %v", err)
+	}
+}
+
+func setupStrictRosterP2PPreflightFixture(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	label, idempotencyKey string,
+) (*Service, config.MatchLobbyConfig, Actor, Actor, Snapshot, string) {
+	t.Helper()
+	p2pService := p2proom.NewService(p2proom.NewRepository(pool), config.Defaults.P2PRoom)
+	secretBox, _, err := p2proom.NewSecretBox("", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p2pService.SetVNT(nil, secretBox)
+	battleLogService := p2pbattlelog.NewService(p2pbattlelog.NewRepository(pool), config.Defaults.P2PBattleLog)
+	p2pService.SetMatchLifecycle(battleLogService)
+	matchConfig := config.Defaults.MatchLobby
+	matchConfig.StrictRosterV1Enabled = true
+	signer, err := NewAdmissionSigner(idempotencyKey, "", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := NewService(NewRepository(pool), matchConfig, signer, 45*time.Second)
+	service.SetP2PTransport(p2pService)
+	service.SetP2PMatchProjector(battleLogService)
+	currentTime := time.Now().UTC().Truncate(time.Second)
+	service.now = func() time.Time { return currentTime }
+	signer.now = func() time.Time { return currentTime }
+	suffix := uint64(time.Now().UnixNano()) % 10_000_000_000_000
+	owner := insertStrictRosterPlayer(t, ctx, pool, fmt.Sprintf("%017d", 73_000_000_000_000_000+suffix))
+	member := insertStrictRosterPlayer(t, ctx, pool, fmt.Sprintf("%017d", 74_000_000_000_000_000+suffix))
+	playerIDs := []string{owner.PlayerID, member.PlayerID}
+	t.Cleanup(func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cleanupCancel()
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM match_lobbies WHERE owner_player_id = ANY($1)", playerIDs)
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM p2p_rooms WHERE host_player_id = ANY($1)", playerIDs)
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM players WHERE id = ANY($1)", playerIDs)
+	})
+	frozen, _ := createTwoPlayerReadyLobby(t, ctx, service, owner, member, label, idempotencyKey)
+	var authoritySession string
+	if frozen.Attempt == nil {
+		t.Fatal("preflight fixture omitted its attempt")
+	}
+	if err := pool.QueryRow(ctx, "SELECT authority_session_id FROM match_attempts WHERE id = $1", frozen.Attempt.AttemptID).Scan(&authoritySession); err != nil {
+		t.Fatal(err)
+	}
+	return service, matchConfig, owner, member, frozen, authoritySession
+}
 
 func TestStrictRosterP2PLifecycleAgainstPostgreSQL(t *testing.T) {
 	databaseURL := os.Getenv("TEST_DATABASE_URL")
