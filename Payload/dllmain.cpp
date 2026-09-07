@@ -185,12 +185,11 @@ bool StrictNativeWorldTeardownComplete()
     {
         if (currentWorld && currentWorld->NetDriver == cleanup.retiredNetDriver)
             return false;
-        NetDriverAccess::Snapshot snapshot{};
-        if (NetDriverAccess::TryGetSnapshot(snapshot, false) &&
-            snapshot.NetDriver == cleanup.retiredNetDriver)
-        {
-            return false;
-        }
+        // Do not ask NetDriverAccess to resolve its cached binding here.  Its
+        // no-scan path may inspect the cached driver pointer, which is exactly
+        // the object whose destruction this observer is waiting to prove.
+        // The current World reference and the native object-array scan below
+        // are the safe observations after teardown has started.
         for (UNetDriver* const driver : NetDriverAccess::SnapshotNetDrivers())
         {
             if (driver == cleanup.retiredNetDriver)
