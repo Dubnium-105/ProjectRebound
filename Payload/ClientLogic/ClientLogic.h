@@ -9,6 +9,13 @@ namespace SDK
     class APBPlayerController;
 }
 
+struct AuthorizedJoinResult
+{
+    bool accepted = false;
+    std::string code;
+    std::string message;
+};
+
 // Thread-safe producer API. The actual Unreal calls are performed by
 // PumpPendingClientCommands from the ProcessEvent game thread.
 [[nodiscard]] bool QueueConnectToMatch(const std::string& target);
@@ -16,6 +23,12 @@ namespace SDK
 // injection path has passed runtime validation this entry point fails closed
 // and never falls back to a direct `open` transition.
 [[nodiscard]] bool QueueConnectToMatchAuthorized(
+    const std::string& target,
+    std::string_view joinGrant);
+// Structured result for the command channel.  A false return from the
+// legacy bool wrapper cannot distinguish a real queue conflict from the
+// deliberately fail-closed, unverified native NMT_Login injection path.
+[[nodiscard]] AuthorizedJoinResult QueueConnectToMatchAuthorizedDetailed(
     const std::string& target,
     std::string_view joinGrant);
 [[nodiscard]] nlohmann::json GetClientMatchStatus();

@@ -29,6 +29,7 @@
 #include "ServerLogic/DedicatedMultiMatch.h"
 #include "Communication/CommandFramework.h"
 #include "Admission/Ed25519Verifier.h"
+#include "Admission/StrictRosterAdmissionGate.h"
 #include "Admission/StrictRosterPolicy.h"
 #include "Loadout/LoadoutManager.h"
 
@@ -78,7 +79,6 @@ std::mutex gStrictAuthorityStartMutex;
 std::atomic_bool gStrictAuthorityRuntimeReady{false};
 std::atomic_bool gStrictNativeHooksReady{false};
 bool gStrictAuthorityServerStarted = false;
-bool gStrictHeartbeatStarted = false;
 bool gStrictAuthorityAwaitingWorldTeardown = false;
 std::mutex gStrictAuthorityWorldMutex;
 UWorld* gStrictAuthorityWorld = nullptr;
@@ -89,6 +89,7 @@ struct StrictRosterCleanupState
 {
     bool pending = false;
     bool teardownRequested = false;
+    bool processExitRequested = false;
     std::string attemptId;
     std::string authoritySessionId;
     std::string worldInstanceId;
@@ -164,6 +165,14 @@ bool StrictNativeWorldTeardownComplete()
     if (!cleanup.pending)
         return false;
 
+    // Dedicated process-per-match cleanup is intentionally terminal from the
+    // Payload's point of view.  The old process may exit before another pipe
+    // frame can be served; only the external supervisor can prove the old
+    // PID plus creation-time is gone and register a fresh instance.  Never
+    // turn a local world observation into NativeCleared for this mode.
+    if (cleanup.processExitRequested)
+        return false;
+
     UWorld* const currentWorld = UWorld::GetWorld();
     if (cleanup.retiredWorld && currentWorld == cleanup.retiredWorld)
         return false;
@@ -229,7 +238,7 @@ nlohmann::json BuildPayloadStatus()
 {
     const std::string commandLine = GetCommandLineA();
     const bool offlinePve =
-        CommandLinePolicy::HasExactSwitch(commandLine, "-pve");
+        StrictRosterAdmissionGate::IsExplicitOfflinePve(commandLine);
     const bool executableVerified =
         gVerifiedExecutableHash == kSupportedExecutableSha256;
     const bool nativeAuthorityPath =
@@ -238,22 +247,33 @@ nlohmann::json BuildPayloadStatus()
     // capability. A verified PreLogin hook on the authority does not prove
     // that a member's JWT reaches NMT_Login.
     constexpr bool nativeClientGrantInjection = false;
-    const bool strictReady = executableVerified &&
-        (amServer ? nativeAuthorityPath : nativeClientGrantInjection);
+    // This is deliberately a separate locked-build capability bit.  Hook
+    // installation and an active policy are prerequisites for admission, but
+    // this binary has not yet proved the native Team/Camp admission path and
+    // therefore must keep the capability false.  It is independent of a
+    // current allocation/world so an idle authority can be checked without a
+    // scheduler self-lock.
+    constexpr bool nativeAuthorityAdmissionVerified = false;
+    const bool strictReady = StrictRosterAdmissionGate::CanReportStrictOnlineReady(
+        executableVerified, offlinePve, nativeAuthorityPath,
+        nativeAuthorityAdmissionVerified, nativeClientGrantInjection);
+    const bool payloadReady = StrictRosterAdmissionGate::CanReportPayloadReady(
+        executableVerified, strictReady, offlinePve);
     const UWorld* const world = UWorld::GetWorld();
     const int netMode = GetNativeNetMode(const_cast<UWorld*>(world));
     const nlohmann::json clientMatch = GetClientMatchStatus();
     return nlohmann::json{
-        {"status", strictReady || offlinePve ? "ready" : "blocked"},
-        {"ready", strictReady || offlinePve},
+        {"status", payloadReady ? "ready" : "blocked"},
+        {"ready", payloadReady},
         {"code", executableVerified
-            ? (strictReady || offlinePve ? "ready" : "native_admission_unverified")
+            ? (payloadReady ? "ready" : "native_admission_unverified")
             : "game_binary_unverified"},
         {"protocol_version", kStrictRosterPayloadVersion},
         {"game_binary_sha256", gVerifiedExecutableHash},
         {"net_mode", NetModeName(netMode)},
         {"native_authority_path_ready", nativeAuthorityPath},
         {"native_client_grant_injection_ready", nativeClientGrantInjection},
+        {"native_authority_admission_verified", nativeAuthorityAdmissionVerified},
         {"strict_online_ready", strictReady},
         {"offline_pve", offlinePve},
         {"world_instance_id", CurrentStrictAuthorityWorldInstanceId()},
@@ -663,12 +683,22 @@ LoadoutBridgeOptions GetLoadoutBridgeOptions()
 }
 }
 
-bool OnJoinFromPipe(const std::string& ip, const std::string& token)
+CommandFramework::JoinResult OnJoinFromPipe(
+    const std::string& ip,
+    const std::string& token)
 {
     ClientLog("[PIPE] Join request received for target " + ip + ".");
     if (token.empty())
-        return QueueConnectToMatch(ip);
-    return QueueConnectToMatchAuthorized(ip, token);
+    {
+        return CommandFramework::JoinResult{
+            false,
+            "native_admission_required",
+            "online join requires a signed short-lived grant"};
+    }
+    const AuthorizedJoinResult result =
+        QueueConnectToMatchAuthorizedDetailed(ip, token);
+    return CommandFramework::JoinResult{
+        result.accepted, result.code, result.message};
 }
 
 nlohmann::json OnInstallMatchAllocation(const nlohmann::json& arguments)
@@ -906,11 +936,6 @@ nlohmann::json OnStartMatchAuthority(const nlohmann::json& arguments)
             gStrictAuthorityServerStarted = true;
             gStrictAuthorityAwaitingWorldTeardown = false;
             ObserveStrictAuthorityWorld(authoritativeWorld);
-            if (!gStrictHeartbeatStarted)
-            {
-                StartHeartbeatThread();
-                gStrictHeartbeatStarted = true;
-            }
         }
     }
     ClientLog("[STRICT-ROSTER] Authority admission activated.");
@@ -1060,7 +1085,9 @@ namespace
         const std::string_view authoritySessionId,
         const std::string_view worldInstanceId,
         const std::int64_t rosterRevision,
-        const int routeGeneration)
+        const int routeGeneration,
+        const bool teardownRequested = false,
+        const bool processExitRequested = false)
     {
         return nlohmann::json{
             {"accepted", false},
@@ -1073,7 +1100,11 @@ namespace
             {"world_instance_id", worldInstanceId},
             {"roster_revision", rosterRevision},
             {"route_generation", routeGeneration},
-            {"world_teardown_required", true}
+            {"world_teardown_required", true},
+            {"native_teardown_mode", processExitRequested
+                ? "process_exit"
+                : (teardownRequested ? "world_return_to_menu" : "not_requested")},
+            {"process_exit_manager_required", processExitRequested}
         };
     }
 
@@ -1156,8 +1187,12 @@ nlohmann::json OnClearMatchAllocationResult(const nlohmann::json& arguments)
             {
                 if (!cleanup.teardownRequested)
                 {
-                    const bool requested =
+                    const StrictRosterNativeTeardownRequestResult teardownResult =
                         RequestStrictRosterNativeWorldTeardown();
+                    const bool requested = teardownResult !=
+                        StrictRosterNativeTeardownRequestResult::NotRequested;
+                    const bool processExitRequested = teardownResult ==
+                        StrictRosterNativeTeardownRequestResult::DedicatedProcessExitRequested;
                     std::lock_guard<std::mutex> lock(gStrictRosterCleanupMutex);
                     if (gStrictRosterCleanup.pending &&
                         StrictRosterCleanupScopeEquals(
@@ -1166,13 +1201,18 @@ nlohmann::json OnClearMatchAllocationResult(const nlohmann::json& arguments)
                             rosterRevision, routeGeneration))
                     {
                         gStrictRosterCleanup.teardownRequested = requested;
+                        gStrictRosterCleanup.processExitRequested = processExitRequested;
+                        cleanup.teardownRequested = requested;
+                        cleanup.processExitRequested = processExitRequested;
                     }
                 }
                 return StrictRosterCleanupPendingResult(
                     "cleanup_pending",
                     "native world and NetDriver teardown is still pending",
                     attemptId, authoritySessionId, worldInstanceId,
-                    rosterRevision, routeGeneration);
+                    rosterRevision, routeGeneration,
+                    cleanup.teardownRequested,
+                    cleanup.processExitRequested);
             }
             return StrictRosterCleanupClearedResult(cleanup);
         }
@@ -1236,7 +1276,7 @@ nlohmann::json OnClearMatchAllocationResult(const nlohmann::json& arguments)
         if (!retiredNetDriver && retiredWorld)
             retiredNetDriver = retiredWorld->NetDriver;
         cleanup = StrictRosterCleanupState{
-            true, false, attemptId, authoritySessionId, worldInstanceId,
+            true, false, false, attemptId, authoritySessionId, worldInstanceId,
             rosterRevision, routeGeneration, retiredWorld, retiredNetDriver};
         {
             std::lock_guard<std::mutex> lock(gStrictRosterCleanupMutex);
@@ -1248,11 +1288,19 @@ nlohmann::json OnClearMatchAllocationResult(const nlohmann::json& arguments)
         // Reset only releases the Payload's grant/seat caches.  The separate
         // world/driver observation above remains authoritative for NativeCleared.
         gStrictRosterPolicy.Reset();
-        const bool requested = RequestStrictRosterNativeWorldTeardown();
+        const StrictRosterNativeTeardownRequestResult teardownResult =
+            RequestStrictRosterNativeWorldTeardown();
+        const bool requested = teardownResult !=
+            StrictRosterNativeTeardownRequestResult::NotRequested;
+        const bool processExitRequested = teardownResult ==
+            StrictRosterNativeTeardownRequestResult::DedicatedProcessExitRequested;
         {
             std::lock_guard<std::mutex> lock(gStrictRosterCleanupMutex);
             if (gStrictRosterCleanup.pending)
+            {
                 gStrictRosterCleanup.teardownRequested = requested;
+                gStrictRosterCleanup.processExitRequested = processExitRequested;
+            }
             cleanup = gStrictRosterCleanup;
         }
         ClearStrictRosterLocalHostSeat();
@@ -1267,7 +1315,9 @@ nlohmann::json OnClearMatchAllocationResult(const nlohmann::json& arguments)
                 ? "native return-to-menu requested; world teardown is still pending"
                 : "native controller return-to-menu was unavailable; world teardown is still pending",
             attemptId, authoritySessionId, worldInstanceId,
-            rosterRevision, routeGeneration);
+            rosterRevision, routeGeneration,
+            cleanup.teardownRequested,
+            cleanup.processExitRequested);
     }
     catch (...)
     {
@@ -1414,6 +1464,8 @@ void MainThread()
             CommandLinePolicy::HasExactSwitch(commandLine, "-StrictRosterAuthority");
         const bool roomAuthorityBootstrap =
             CommandLinePolicy::HasExactSwitch(commandLine, "-RoomAuthority");
+        const bool explicitOfflinePveBootstrap =
+            StrictRosterAdmissionGate::IsExplicitOfflinePve(commandLine);
         std::string executableHash;
         if (!VerifySupportedExecutable(BaseAddress, executableHash))
         {
@@ -1464,7 +1516,11 @@ void MainThread()
         // dedicated path. Treat that one transition as provisional, then
         // verify the post-travel world below.
         const bool listenAuthorityBootstrap =
-            strictAuthorityBootstrap || roomAuthorityBootstrap;
+            StrictRosterAdmissionGate::IsListenAuthorityBootstrap(
+                serverBootstrap, strictAuthorityBootstrap, roomAuthorityBootstrap);
+        const bool dedicatedAuthorityBootstrap =
+            StrictRosterAdmissionGate::IsDedicatedAuthorityBootstrap(
+                serverBootstrap, strictAuthorityBootstrap);
         const int nativeNetMode = listenAuthorityBootstrap &&
             (initialNetMode == 0 || initialNetMode == 3)
                 ? 2
@@ -1476,6 +1532,11 @@ void MainThread()
             (serverBootstrap ? "server" : "client") +
             " initial_net_mode=" + NetModeName(initialNetMode) +
             " routed_net_mode=" + NetModeName(nativeNetMode));
+        if (dedicatedAuthorityBootstrap && nativeNetMode == 2)
+        {
+            ClientLog("[BOOT] Refusing strict dedicated bootstrap: routed to listen mode.");
+            return;
+        }
         if (nativeNetMode < 0 || nativeNetMode > 3 ||
             (!serverBootstrap && !listenAuthorityBootstrap && nativeNetMode == 1))
         {
@@ -1530,6 +1591,28 @@ void MainThread()
             gStrictNativeHooksReady.store(strictNativeHooksReady, std::memory_order_release);
             gStrictRosterPolicy.SetNativeAdmissionPathReady(strictNativeHooksReady);
             Log("[SERVER] Hooks installed.");
+
+            // Any server process outside the explicitly isolated local-PVE
+            // launcher is an online authority.  Do not leave the native
+            // listener reachable when the pinned PreLogin/Team/Camp gates did
+            // not install, and do not allow a bare -server bootstrap to fall
+            // back to the original unrestricted listener.
+            const bool onlineAuthorityBootstrap =
+                runServer && !explicitOfflinePveBootstrap;
+            if (onlineAuthorityBootstrap && !strictAuthorityBootstrap)
+            {
+                Log("[STRICT-ROSTER] Refusing online authority bootstrap: "
+                    "use the signed StrictRosterAuthority path.");
+                return;
+            }
+            if (!StrictRosterAdmissionGate::MayStartOnlineAuthority(
+                    runServer, explicitOfflinePveBootstrap,
+                    strictAuthorityBootstrap, strictNativeHooksReady))
+            {
+                Log("[STRICT-ROSTER] Refusing online authority bootstrap: "
+                    "pinned native admission hooks are not ready.");
+                return;
+            }
 
             // The room/tunnel identifiers are required before constructing
             // LoadoutManager; StartServer also reloads them before map travel.
@@ -1616,7 +1699,8 @@ void MainThread()
                     Log("[LOADOUT] Local PVE bridge disabled; native defaults remain authoritative.");
                 }
             }
-            else if (!HostRoomId.empty() && !logicServerUrl.empty())
+            else if (!strictAuthorityBootstrap && !roomAuthorityBootstrap &&
+                !HostRoomId.empty() && !logicServerUrl.empty())
             {
                 auto manager = std::make_unique<LoadoutManager>();
                 if (manager->StartServer(
@@ -1690,9 +1774,10 @@ void MainThread()
             if (!StartServerCommandFramework())
                 return;
 
-            // A strict listen authority starts this only after its signed
-            // allocation has opened the socket.
-            if (!strictAuthorityBootstrap)
+            // The retired room heartbeat path is isolated to local PVE. An
+            // online authority reports through the scoped Toolbox/backend
+            // contract after strict allocation, never through /rooms/*.
+            if (explicitOfflinePveBootstrap)
                 StartHeartbeatThread();
         }
         if (runClient)

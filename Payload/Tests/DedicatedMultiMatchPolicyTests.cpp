@@ -260,6 +260,28 @@ namespace
             "repair must preserve the exact source connection set");
     }
 
+    void TestStrictRosterNativeProcessCleanupGate()
+    {
+        using DedicatedMultiMatchPolicy::
+            ShouldBeginStrictRosterNativeProcessCleanup;
+
+        Expect(ShouldBeginStrictRosterNativeProcessCleanup(
+            true, true, true, false),
+            "strict cleanup may release the native process path for the current dedicated authority");
+        Expect(!ShouldBeginStrictRosterNativeProcessCleanup(
+            false, true, true, false),
+            "ordinary cleanup must not release native final cleanup");
+        Expect(!ShouldBeginStrictRosterNativeProcessCleanup(
+            true, false, true, false),
+            "listen/client authority must not use the dedicated process path");
+        Expect(!ShouldBeginStrictRosterNativeProcessCleanup(
+            true, true, false, false),
+            "a stale GameMode must not release native final cleanup");
+        Expect(!ShouldBeginStrictRosterNativeProcessCleanup(
+            true, true, true, true),
+            "an already-fallback lifecycle must not re-enter native cleanup");
+    }
+
     void TestSeamlessGameModePlayerCountRepairGate()
     {
         using DedicatedMultiMatchPolicy::
@@ -350,6 +372,7 @@ int main()
     TestWaitingToEndTravelBoundary();
     TestPinnedInvalidTravelDelegateGuard();
     TestRetiredGameModeEndMatchGate();
+    TestStrictRosterNativeProcessCleanupGate();
     TestDestinationNetDriverRepairGate();
     TestSeamlessGameModePlayerCountRepairGate();
     TestSeamlessReboundPlayerGate();

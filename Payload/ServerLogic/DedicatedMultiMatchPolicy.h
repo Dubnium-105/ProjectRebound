@@ -175,6 +175,21 @@ namespace DedicatedMultiMatchPolicy
             gameModeIsCurrentAuthority && !mvpPlayerAvailable;
     }
 
+    // A strict allocation clear may deliberately leave the long-lived
+    // multi-match lifecycle and enter the pinned process-per-match cleanup
+    // path. Release that path only for the exact cleanup request and current
+    // authority; a stale/retired GameMode or ordinary transition must keep
+    // native final-cleanup suppression in place.
+    inline bool ShouldBeginStrictRosterNativeProcessCleanup(
+        const bool strictCleanupPending,
+        const bool dedicatedAuthority,
+        const bool authorityWorldMatches,
+        const bool fallbackAlreadyStarted)
+    {
+        return strictCleanupPending && dedicatedAuthority &&
+            authorityWorldMatches && !fallbackAlreadyStarted;
+    }
+
     // The pinned dedicated bootstrap creates and owns the listening driver,
     // while native seamless travel temporarily clears both sides of its
     // World binding.  Repair is permitted only for the already-proven source

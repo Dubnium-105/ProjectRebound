@@ -1,4 +1,5 @@
 #include "../Config/CommandLinePolicy.h"
+#include "../Admission/StrictRosterAdmissionGate.h"
 
 #include <cstdlib>
 #include <iostream>
@@ -67,6 +68,73 @@ int main()
     Expect(!CommandLinePolicy::HasExactSwitch(
         R"(game.exe -LocalPveLoadout=1)", "-LocalPveLoadout"),
         "a similarly prefixed value must not enable local PVE loadouts");
+    Expect(StrictRosterAdmissionGate::IsExplicitOfflinePve(localPve),
+        "only the complete local PVE bootstrap may bypass strict roster admission");
+    Expect(!StrictRosterAdmissionGate::IsExplicitOfflinePve(
+        R"(game.exe -server -pve)"),
+        "bare PVE server mode must not bypass strict roster admission");
+    Expect(!StrictRosterAdmissionGate::IsExplicitOfflinePve(
+        R"(game.exe -server -LocalPveLoadout)"),
+        "local PVE loadout without the PVE mode must not bypass strict roster admission");
+    Expect(StrictRosterAdmissionGate::IsListenAuthorityBootstrap(
+        false, true, false),
+        "a client strict authority may route its frontend world to listen mode");
+    Expect(StrictRosterAdmissionGate::IsListenAuthorityBootstrap(
+        false, false, true),
+        "the legacy room switch is classified as a client listen bootstrap before rejection");
+    Expect(!StrictRosterAdmissionGate::IsListenAuthorityBootstrap(
+        true, true, false),
+        "an explicit strict server must never be routed to listen mode");
+    Expect(!StrictRosterAdmissionGate::IsListenAuthorityBootstrap(
+        true, false, true),
+        "a server room switch must not create a listen-client path");
+    Expect(StrictRosterAdmissionGate::IsDedicatedAuthorityBootstrap(true, true),
+        "strict server bootstrap is dedicated");
+    Expect(!StrictRosterAdmissionGate::IsDedicatedAuthorityBootstrap(false, true),
+        "strict client bootstrap is not dedicated");
+    Expect(StrictRosterAdmissionGate::EvaluatePreLogin(
+        true, false, false) ==
+        StrictRosterAdmissionGate::PreLoginDecision::OfflinePveBypass,
+        "explicit local PVE must remain an isolated offline bypass");
+    Expect(StrictRosterAdmissionGate::EvaluatePreLogin(
+        false, false, false) ==
+        StrictRosterAdmissionGate::PreLoginDecision::RejectAllocationUnavailable,
+        "online PreLogin must reject before any allocation is installed");
+    Expect(StrictRosterAdmissionGate::EvaluatePreLogin(
+        false, true, false) ==
+        StrictRosterAdmissionGate::PreLoginDecision::RejectNativeGrantUnverified,
+        "online PreLogin must reject when NMT grant possession is unverified");
+    Expect(StrictRosterAdmissionGate::EvaluatePreLogin(
+        false, true, true) ==
+        StrictRosterAdmissionGate::PreLoginDecision::AcceptForVerifiedNativeGrant,
+        "the gate only admits a future verified native-grant path");
+    Expect(StrictRosterAdmissionGate::MayStartOnlineAuthority(
+        true, true, false, false),
+        "explicit local PVE may start its isolated dedicated server");
+    Expect(!StrictRosterAdmissionGate::MayStartOnlineAuthority(
+        true, false, false, true),
+        "bare online or retired RoomAuthority bootstrap must not reach the native listener");
+    Expect(!StrictRosterAdmissionGate::MayStartOnlineAuthority(
+        true, false, true, false),
+        "strict authority must stop when pinned native hooks are not ready");
+    Expect(StrictRosterAdmissionGate::MayStartOnlineAuthority(
+        true, false, true, true),
+        "strict authority may start only after pinned native hooks are ready");
+    Expect(!StrictRosterAdmissionGate::CanReportStrictOnlineReady(
+        true, false, true, false, false),
+        "installed hooks and a started path must not report strict online readiness");
+    Expect(!StrictRosterAdmissionGate::CanReportStrictOnlineReady(
+        true, false, true, true, false),
+        "native authority proof cannot substitute for the unverified client grant path");
+    Expect(StrictRosterAdmissionGate::CanReportStrictOnlineReady(
+        true, false, true, true, true),
+        "strict online readiness requires both native proofs");
+    Expect(!StrictRosterAdmissionGate::CanReportPayloadReady(
+        false, false, true),
+        "an unverified executable must not report even isolated PVE as ready");
+    Expect(StrictRosterAdmissionGate::CanReportPayloadReady(
+        true, false, true),
+        "the verified explicit local PVE launcher may report ready");
 
     const std::string multiMatch =
         R"(game.exe -DedicatedMultiMatch -multimatchconfig="C:\Project Rebound\serverconfig.json")";

@@ -147,7 +147,17 @@ namespace
         framework.SetJoinCallback([&](const std::string&, const std::string&)
             {
                 joinRanOnListener.store(framework.IsListenerThread());
-                return ++joinCalls == 1;
+                const unsigned int call = ++joinCalls;
+                if (call == 1)
+                    return CommandFramework::JoinResult{
+                        true, "accepted", "join queued"};
+                if (call == 2)
+                    return CommandFramework::JoinResult{
+                        false, "busy", "a match transition is already pending"};
+                return CommandFramework::JoinResult{
+                    false,
+                    "native_client_grant_injection_unverified",
+                    "native NMT_Login Grant injection is not verified for this build"};
             });
         framework.SetServerStatusCallback([]()
             {
@@ -312,11 +322,31 @@ namespace
             Expect(emptyToken.find("\"code\":\"native_admission_required\"") != std::string::npos,
                 "empty-token online join is rejected before callback");
 
-            Expect(WriteFrame(client.Get(), "join\t{\"ip\":\"127.0.0.1:0\"}\n"),
+            Expect(WriteFrame(client.Get(),
+                "join\t{\"ip\":\"127.0.0.1:0\",\"request_id\":\"join-invalid-target\"}\n"),
                 "invalid join request is written");
             Expect(ReadFrame(client.Get()).find("\"code\":\"invalid_target\"") !=
                 std::string::npos,
                 "invalid target is rejected");
+
+            Expect(WriteFrame(client.Get(),
+                "join\t{\"ip\":\"127.0.0.1:7777\",\"token\":\"signed.join.grant-3\",\"request_id\":\"join-unverified\"}\n"),
+                "unverified join request is written");
+            const std::string unverified = ReadFrame(client.Get());
+            Expect(unverified.find("\"code\":\"native_client_grant_injection_unverified\"") !=
+                std::string::npos &&
+                unverified.find("\"request_id\":\"join-unverified\"") !=
+                std::string::npos,
+                "unverified native injection is not reported as busy");
+
+            Expect(WriteFrame(client.Get(),
+                "join\t{\"ip\":\"127.0.0.1:7777\",\"token\":\"signed.join.grant\"}\n"),
+                "uncorrelated join request is written");
+            const std::string missingJoinRequestId = ReadFrame(client.Get());
+            Expect(missingJoinRequestId.find("error\t") == 0 &&
+                missingJoinRequestId.find("\"code\":\"invalid_request\"") != std::string::npos &&
+                missingJoinRequestId.find("\"request_id\":") == std::string::npos,
+                "join without request id is rejected before native admission");
 
             Expect(WriteFrame(client.Get(),
                 "server_status\t{\"request_id\":\"status-1\"}\n"),

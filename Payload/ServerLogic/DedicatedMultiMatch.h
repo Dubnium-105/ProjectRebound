@@ -48,6 +48,12 @@ namespace DedicatedMultiMatch
     // WaitingToEndGame and requesting process exit.  Suppress that terminal
     // cleanup only while multi-match still owns the process lifecycle.
     bool ShouldSuppressNativeFinalCleanup(SDK::APBGameMode* gameMode);
+    // The strict allocation clear is the one explicit exception to the
+    // multi-match suppression. It is called only after a scoped cleanup
+    // request has stopped new admissions and verified the current authority;
+    // the caller remains responsible for holding NativeCleared until the
+    // managed process supervisor proves PID/creation-time exit.
+    bool PrepareStrictRosterNativeFinalCleanup(SDK::APBGameMode* gameMode);
     bool HandleServerSay(
         SDK::APBPlayerController* playerController,
         const std::string& message);

@@ -942,6 +942,16 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
 
         if (request.command == "join")
         {
+            // Join transitions are asynchronous and can outlive the pipe
+            // write that started them.  Require the correlation key before
+            // validating or invoking the native join callback so the caller
+            // can never receive an uncorrelated admission result.
+            if (!request.requestId.has_value())
+            {
+                return SendError("invalid_request", "request_id is required")
+                    ? FrameResult::ProtocolError
+                    : FrameResult::TransportError;
+            }
             const auto ip = request.arguments.find("ip");
             if (ip == request.arguments.end() || !ip->is_string())
             {
@@ -1004,11 +1014,16 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
                     ? FrameResult::Processed
                     : FrameResult::TransportError;
             }
-            const bool accepted = joinCallback(target, token);
+            const JoinResult result = joinCallback(target, token);
             SecureClear(token);
-            if (!accepted)
+            if (!result.accepted)
             {
-                return SendError("busy", "a match transition is already pending", request.requestId)
+                const std::string code = result.code.empty() ?
+                    "busy" : result.code;
+                const std::string message = result.message.empty()
+                    ? "a match transition is already pending"
+                    : result.message;
+                return SendError(code, message, request.requestId)
                     ? FrameResult::Processed
                     : FrameResult::TransportError;
             }
@@ -1350,7 +1365,9 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
                         {"world_instance_id", result.value("world_instance_id", "")},
                         {"roster_revision", result.value("roster_revision", 0)},
                         {"route_generation", result.value("route_generation", 0)},
-                        {"world_teardown_required", result.value("world_teardown_required", true)}
+                        {"world_teardown_required", result.value("world_teardown_required", true)},
+                        {"native_teardown_mode", result.value("native_teardown_mode", "not_requested")},
+                        {"process_exit_manager_required", result.value("process_exit_manager_required", false)}
                     }, request.requestId);
                 return SendResponse(
                     "clear_match_allocation_pending", pending)
@@ -1370,7 +1387,9 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
                         {"world_instance_id", result.value("world_instance_id", "")},
                         {"roster_revision", result.value("roster_revision", 0)},
                         {"route_generation", result.value("route_generation", 0)},
-                        {"world_teardown_required", result.value("world_teardown_required", false)}
+                        {"world_teardown_required", result.value("world_teardown_required", false)},
+                        {"native_teardown_mode", result.value("native_teardown_mode", "world_return_to_menu")},
+                        {"process_exit_manager_required", result.value("process_exit_manager_required", false)}
                     }, request.requestId))
                 ? FrameResult::Processed
                 : FrameResult::TransportError;

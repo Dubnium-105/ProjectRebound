@@ -65,16 +65,42 @@ void InitDebugConsole()
 
 void EnableUnrealConsole()
 {
-    SDK::UInputSettings::GetDefaultObj()->ConsoleKeys[0].KeyName =
+    // The pinned executable also enters this helper on a dedicated bootstrap.
+    // Dedicated worlds have no viewport, so the old unconditional assignment
+    // at UGameViewportClient::ViewportConsole (offset 0x40) crashed before
+    // the strict listener could fail closed.  Keep the debug console as an
+    // optional client facility and leave the authority path alive when the
+    // native frontend objects do not exist.
+    UEngine* const engine = UEngine::GetEngine();
+    if (!engine || !engine->GameViewport || !engine->ConsoleClass)
+    {
+        ClientLog("[DEBUG] Unreal Console unavailable: no game viewport");
+        return;
+    }
+
+    SDK::UInputSettings* const inputSettings =
+        SDK::UInputSettings::GetDefaultObj();
+    if (!inputSettings || inputSettings->ConsoleKeys.Num() == 0)
+    {
+        ClientLog("[DEBUG] Unreal Console unavailable: no console key settings");
+        return;
+    }
+
+    inputSettings->ConsoleKeys[0].KeyName =
         SDK::UKismetStringLibrary::Conv_StringToName(L"F2");
 
-    SDK::UObject* NewObject =
+    SDK::UObject* const newObject =
         SDK::UGameplayStatics::SpawnObject(
-            UEngine::GetEngine()->ConsoleClass,
-            UEngine::GetEngine()->GameViewport);
+            engine->ConsoleClass,
+            engine->GameViewport);
+    if (!newObject)
+    {
+        ClientLog("[DEBUG] Unreal Console unavailable: spawn failed");
+        return;
+    }
 
-    UEngine::GetEngine()->GameViewport->ViewportConsole =
-        static_cast<SDK::UConsole*>(NewObject);
+    engine->GameViewport->ViewportConsole =
+        static_cast<SDK::UConsole*>(newObject);
 
     ClientLog("[DEBUG] Unreal Console => F2");
 }

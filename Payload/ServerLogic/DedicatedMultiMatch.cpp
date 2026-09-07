@@ -1119,6 +1119,44 @@ bool ShouldSuppressNativeFinalCleanup(APBGameMode* gameMode)
     return gameMode && gState.Config.Enabled && !gState.FallbackStarted;
 }
 
+bool PrepareStrictRosterNativeFinalCleanup(APBGameMode* gameMode)
+{
+    std::lock_guard<std::recursive_mutex> lock(gMutex);
+    UWorld* const world = UWorld::GetWorld();
+    const bool currentAuthority = gameMode && world &&
+        world->AuthorityGameMode == gameMode;
+    if (!currentAuthority)
+    {
+        std::cout << "[MULTIMATCH_GATE] strict-roster-native-cleanup="
+                     "rejected reason=authority-world-mismatch" << std::endl;
+        return false;
+    }
+
+    // With multi-match disabled there is no suppression to release, but the
+    // current-authority proof above is still required before entering the
+    // fixed native final-cleanup entry.
+    if (!gState.Config.Enabled)
+        return true;
+    if (gState.FallbackStarted)
+        return true;
+
+    if (!DedicatedMultiMatchPolicy::ShouldBeginStrictRosterNativeProcessCleanup(
+            true, true, currentAuthority, gState.FallbackStarted))
+    {
+        std::cout << "[MULTIMATCH_GATE] strict-roster-native-cleanup="
+                     "rejected reason=lifecycle-owned" << std::endl;
+        return false;
+    }
+
+    gState.FallbackStarted = true;
+    NetDriverAccess::SetHookArgumentRebindEnabled(true);
+    SetLifecycleLocked(LifecycleState::FallbackExit);
+    std::cout << "[MULTIMATCH] Released native final cleanup for the scoped "
+                 "strict-roster process teardown; supervisor confirmation "
+                 "is still required before instance reuse." << std::endl;
+    return true;
+}
+
 bool HandleServerSay(APBPlayerController* playerController, const std::string& message)
 {
     if (!IsVoteCommand(message))

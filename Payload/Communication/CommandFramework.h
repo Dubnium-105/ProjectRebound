@@ -14,7 +14,14 @@
 class CommandFramework
 {
 public:
-    using JoinCallback = std::function<bool(const std::string& ip, const std::string& token)>;
+    struct JoinResult
+    {
+        bool accepted = false;
+        std::string code;
+        std::string message;
+    };
+
+    using JoinCallback = std::function<JoinResult(const std::string& ip, const std::string& token)>;
     using LogCallback = std::function<void(const std::string& message)>;
     using DebugCallback = std::function<nlohmann::json(const nlohmann::json& arguments)>;
     using ServerStatusCallback = std::function<nlohmann::json()>;

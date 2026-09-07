@@ -1,5 +1,6 @@
 // Hooks.cpp
 #include "Hooks.h"
+#include "../Admission/StrictRosterAdmissionGate.h"
 #include "ServerHookPolicy.h"
 #include <Windows.h>
 #include <bcrypt.h>
@@ -286,10 +287,39 @@ namespace
     {
         gStrictRosterPreLoginHook.call<void>(
             gameMode, options, address, uniqueId, errorMessage);
-        if (!gStrictRosterPolicy || !gStrictRosterPolicy->AdmissionActive())
-            return;
         if (!errorMessage || !errorMessage->ToWString().empty())
             return;
+
+        // The fixed client has no proven way to put a signed grant into this
+        // build's NMT_Login FString set.  Keep the online authority fail
+        // closed even when a caller has staged a grant through the pipe: a
+        // platform UniqueId readback alone does not prove that this native
+        // handshake possesses that grant.  The only bypass is the explicitly
+        // isolated local-PVE server bootstrap.
+        const std::string commandLine = GetCommandLineA();
+        const auto gate = StrictRosterAdmissionGate::EvaluatePreLogin(
+            StrictRosterAdmissionGate::IsExplicitOfflinePve(commandLine),
+            gStrictRosterPolicy && gStrictRosterPolicy->AdmissionActive(),
+            false);
+        if (gate == StrictRosterAdmissionGate::PreLoginDecision::OfflinePveBypass)
+            return;
+        if (gate == StrictRosterAdmissionGate::PreLoginDecision::RejectAllocationUnavailable)
+        {
+            RejectStrictRosterPreLogin(
+                errorMessage, L"STRICT_ROSTER_ADMISSION_REQUIRED");
+            std::cout << "[STRICT-ROSTER] PreLogin rejected: no active signed "
+                         "allocation/authority." << std::endl;
+            return;
+        }
+        if (gate == StrictRosterAdmissionGate::PreLoginDecision::RejectNativeGrantUnverified)
+        {
+            RejectStrictRosterPreLogin(
+                errorMessage, L"STRICT_ROSTER_NATIVE_GRANT_UNVERIFIED");
+            std::cout << "[STRICT-ROSTER] PreLogin rejected: native NMT_Login "
+                         "grant possession is unverified." << std::endl;
+            return;
+        }
+
         std::string platformId;
         if (!ExtractStrictRosterPlatformId(uniqueId, platformId))
         {
@@ -614,7 +644,7 @@ void ClearStrictRosterControllerSeats()
     gStrictRosterBackendReceipts.clear();
 }
 
-bool RequestStrictRosterNativeWorldTeardown()
+StrictRosterNativeTeardownRequestResult RequestStrictRosterNativeWorldTeardown()
 {
     std::vector<APBPlayerController*> controllers;
     {
@@ -641,6 +671,8 @@ bool RequestStrictRosterNativeWorldTeardown()
     }
 
     std::size_t requested = 0;
+    StrictRosterNativeTeardownRequestResult result =
+        StrictRosterNativeTeardownRequestResult::NotRequested;
     for (APBPlayerController* const controller : controllers)
     {
         if (!controller || controller->bActorIsBeingDestroyed)
@@ -650,6 +682,7 @@ bool RequestStrictRosterNativeWorldTeardown()
             controller->ClientReturnToMainMenu(
                 FString(L"STRICT_ROSTER_ALLOCATION_CLEARED"));
             ++requested;
+            result = StrictRosterNativeTeardownRequestResult::WorldReturnToMenuRequested;
         }
         catch (...)
         {
@@ -670,10 +703,31 @@ bool RequestStrictRosterNativeWorldTeardown()
         {
             auto* const gameMode =
                 static_cast<APBGameMode*>(world->AuthorityGameMode);
-            gameMode->NotifyAllClientsReturnToMainMenu();
             if (amListenServer)
+            {
+                gameMode->NotifyAllClientsReturnToMainMenu();
                 gameMode->ReturnToMainMenuHost();
-            ++requested;
+                ++requested;
+                result = StrictRosterNativeTeardownRequestResult::WorldReturnToMenuRequested;
+            }
+            else if (DedicatedMultiMatch::PrepareStrictRosterNativeFinalCleanup(gameMode))
+            {
+                // This is the existing pinned process-per-match native
+                // sequence. It may terminate the dedicated process; the
+                // external supervisor must prove PID+creation-time exit and
+                // register a fresh process before the allocation can return
+                // to the pool. No NativeCleared ACK is emitted here.
+                BeginGracefulDedicatedExit(
+                    gameMode, "strict-roster-process-cleanup");
+                ++requested;
+                result = StrictRosterNativeTeardownRequestResult::DedicatedProcessExitRequested;
+            }
+            else
+            {
+                std::cout << "[STRICT-ROSTER] Dedicated native final cleanup "
+                             "was not released for the current authority; "
+                             "teardown remains pending." << std::endl;
+            }
         }
         catch (...)
         {
@@ -683,7 +737,7 @@ bool RequestStrictRosterNativeWorldTeardown()
     }
     std::cout << "[STRICT-ROSTER] Native world teardown requested for "
               << requested << " controller(s)." << std::endl;
-    return requested != 0;
+    return result;
 }
 
 bool TryGetStrictRosterLocalPlatformId(std::string& platformId)

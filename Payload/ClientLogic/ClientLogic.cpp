@@ -1391,7 +1391,7 @@ bool QueueConnectToMatch(const std::string& target)
     return true;
 }
 
-bool QueueConnectToMatchAuthorized(
+AuthorizedJoinResult QueueConnectToMatchAuthorizedDetailed(
     const std::string& target,
     const std::string_view joinGrant)
 {
@@ -1399,12 +1399,14 @@ bool QueueConnectToMatchAuthorized(
     if (!CommandProtocol::ValidateMatchTarget(target, &validationError))
     {
         ClientLog("[STRICT-ROSTER] Rejected match target: " + validationError);
-        return false;
+        return AuthorizedJoinResult{
+            false, "invalid_target", validationError};
     }
     if (joinGrant.empty() || joinGrant.size() > CommandProtocol::MaxTokenBytes)
     {
         ClientLog("[STRICT-ROSTER] Rejected invalid join grant length.");
-        return false;
+        return AuthorizedJoinResult{
+            false, "invalid_join_grant", "join grant is missing or too large"};
     }
 
     // The current pinned client has no verified NMT_Login extension point for
@@ -1414,7 +1416,17 @@ bool QueueConnectToMatchAuthorized(
     (void)target;
     (void)joinGrant;
     ClientLog("[STRICT-ROSTER] Refused strict join: native Grant injection is unverified.");
-    return false;
+    return AuthorizedJoinResult{
+        false,
+        "native_client_grant_injection_unverified",
+        "native NMT_Login Grant injection is not verified for this build"};
+}
+
+bool QueueConnectToMatchAuthorized(
+    const std::string& target,
+    const std::string_view joinGrant)
+{
+    return QueueConnectToMatchAuthorizedDetailed(target, joinGrant).accepted;
 }
 
 void ConnectToMatch()
