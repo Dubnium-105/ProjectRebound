@@ -1,0 +1,20 @@
+[
+  {
+    "name": "host_to_peer",
+    "receiver_role": 2,
+    "synthetic_recipient_token": "synthetic-peer-token",
+    "handle": 7,
+    "sequence": 17,
+    "packet_hex": "50524c590205000000000000000701000000000000000011b4d67977212bff21bfe6aa43cb723491686f73742d746f2d6d656d626572",
+    "payload_hex": "686f73742d746f2d6d656d626572"
+  },
+  {
+    "name": "peer_to_host",
+    "receiver_role": 1,
+    "synthetic_recipient_token": "synthetic-host-token",
+    "handle": 7,
+    "sequence": 19,
+    "packet_hex": "50524c590205000000000000000702000000000000000013171cb6fe4a1f6548d6d9b44abf2a13ab6d656d6265722d746f2d686f7374",
+    "payload_hex": "6d656d6265722d746f2d686f7374"
+  }
+]
