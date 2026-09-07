@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import subprocess
+import tomllib
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -44,6 +45,35 @@ def main():
             problems.append(name + " source provenance is not a clean committed tree")
     artifacts = []
     components = {}
+    lockfiles = []
+    if args.toolbox_repo:
+        for relative in ("Cargo.lock", "src-tauri/Cargo.lock", "frontend/package-lock.json"):
+            path = args.toolbox_repo / relative
+            if not path.is_file():
+                problems.append("dependency lockfile missing: " + relative)
+                continue
+            lockfiles.append({"path": str(path.resolve()), "sha256": sha(path)})
+            if path.suffix == ".lock":
+                packages = tomllib.loads(path.read_text(encoding="utf-8"))["package"]
+                for package in packages:
+                    if "source" not in package:
+                        continue
+                    name, version = package["name"], package["version"]
+                    components[("cargo", name, version)] = {
+                        "type": "library", "name": name, "version": version,
+                        "purl": "pkg:cargo/" + name + "@" + version,
+                    }
+            else:
+                packages = json.loads(path.read_text(encoding="utf-8"))["packages"]
+                for location, package in packages.items():
+                    if "node_modules/" not in location or "version" not in package:
+                        continue
+                    name = package.get("name", location.rsplit("node_modules/", 1)[1])
+                    version = package["version"]
+                    components[("npm", name, version)] = {
+                        "type": "library", "name": name, "version": version,
+                        "purl": "pkg:npm/" + name.replace("@", "%40") + "@" + version,
+                    }
     for given in args.artifact:
         path = given.resolve(strict=True)
         build_info = run("go", "version", "-m", str(path))
@@ -59,7 +89,7 @@ def main():
             parts = line.strip().split()
             if len(parts) >= 3 and parts[0] == "dep":
                 name, version = parts[1:3]
-                components[(name, version)] = {"type": "library", "name": name, "version": version, "purl": "pkg:golang/" + name + "@" + version}
+                components[("golang", name, version)] = {"type": "library", "name": name, "version": version, "purl": "pkg:golang/" + name + "@" + version}
         artifacts.append(artifact)
     if not artifacts:
         problems.append("no release artifacts supplied")
@@ -98,7 +128,9 @@ def main():
     output = args.output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     manifest = {"schema_version": 1, "generated_at": datetime.now(timezone.utc).isoformat(), "mode": "read_only_provenance", "repositories": repos,
-                "artifacts": artifacts, "acceptance_report": report, "release_ready": not problems, "blockers": problems}
+                "artifacts": artifacts, "dependency_lockfiles": lockfiles,
+                "sbom_scope": "Go artifact build metadata plus locked Cargo/npm dependencies; no container scan or license attestation",
+                "acceptance_report": report, "release_ready": not problems, "blockers": problems}
     output.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     sbom = {"bomFormat": "CycloneDX", "specVersion": "1.5", "version": 1, "components": list(components.values())}
     output.with_suffix(".sbom.json").write_text(json.dumps(sbom, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

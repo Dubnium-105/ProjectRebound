@@ -120,7 +120,10 @@ jobs:
         run: go vet ./...
 
       - name: Test with race detector
-        run: go test -race ./... -count=1
+        # Integration packages share this PostgreSQL database and fixed Steam
+        # fixtures. Serialize packages; -race still checks each package's
+        # concurrent operations without cross-package unique-key collisions.
+        run: go test -race -p 1 ./... -count=1
 
       - name: Fuzz MetaServer framing
         run: go test ./internal/metaserver -run=^$ -fuzz=FuzzReadFrame -fuzztime=100000x
