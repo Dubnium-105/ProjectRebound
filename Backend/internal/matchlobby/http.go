@@ -52,6 +52,7 @@ type HTTPService interface {
 	Complete(context.Context, string, string, string, bool, string) (Snapshot, error)
 	P2PComplete(context.Context, Actor, string, string, bool, string) (Snapshot, error)
 	NativeCleared(context.Context, string, string, string, string, int64, int) (Snapshot, error)
+	DedicatedNativeCleared(context.Context, string, string, string, string, int64, int, OwnedProcessExitEvidence) (Snapshot, error)
 	P2PNativeCleared(context.Context, Actor, string, string, string, int64, int) (Snapshot, error)
 }
 
@@ -593,16 +594,24 @@ func (h *HTTPHandler) Complete(w http.ResponseWriter, r *http.Request) {
 
 func (h *HTTPHandler) NativeCleared(w http.ResponseWriter, r *http.Request) {
 	var request struct {
-		WorldInstanceID string `json:"world_instance_id"`
-		RosterRevision  int64  `json:"roster_revision"`
-		RouteGeneration int    `json:"route_generation"`
+		WorldInstanceID         string `json:"world_instance_id"`
+		RosterRevision          int64  `json:"roster_revision"`
+		RouteGeneration         int    `json:"route_generation"`
+		EvidenceKind            string `json:"evidence_kind"`
+		OwnedProcessID          uint32 `json:"owned_process_id"`
+		ProcessStartFingerprint string `json:"process_start_fingerprint"`
 	}
 	if !h.decode(w, r, &request) {
 		return
 	}
-	snapshot, err := h.service.NativeCleared(
+	snapshot, err := h.service.DedicatedNativeCleared(
 		r.Context(), chi.URLParam(r, "server_id"), r.Header.Get(authoritySessionHeader),
 		chi.URLParam(r, "attempt_id"), request.WorldInstanceID, request.RosterRevision, request.RouteGeneration,
+		OwnedProcessExitEvidence{
+			EvidenceKind:            request.EvidenceKind,
+			OwnedProcessID:          request.OwnedProcessID,
+			ProcessStartFingerprint: request.ProcessStartFingerprint,
+		},
 	)
 	h.writeSnapshot(w, r, snapshot, err)
 }

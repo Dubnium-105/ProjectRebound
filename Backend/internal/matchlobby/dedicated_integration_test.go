@@ -252,7 +252,18 @@ func TestStrictRosterDedicatedLifecycleAgainstPostgreSQL(t *testing.T) {
 	if _, err := service.NativeCleared(ctx, serverID, allocationClaims.AuthoritySessionID, attemptID, "world-dedicated-primary", active.Attempt.RosterRevision, active.Attempt.RouteGeneration+1); errorCode(err) != "MATCH_ROUTE_GENERATION_STALE" {
 		t.Fatalf("stale Dedicated cleanup route was accepted: %v", err)
 	}
-	if _, err := service.NativeCleared(ctx, serverID, allocationClaims.AuthoritySessionID, attemptID, "world-dedicated-primary", active.Attempt.RosterRevision, active.Attempt.RouteGeneration); err != nil {
+	evidence := OwnedProcessExitEvidence{
+		EvidenceKind:            "owned_process_exited",
+		OwnedProcessID:          45123,
+		ProcessStartFingerprint: "win-filetime:0123456789abcdef",
+	}
+	if _, err := service.DedicatedNativeCleared(ctx, serverID, allocationClaims.AuthoritySessionID, attemptID, "world-dedicated-old", active.Attempt.RosterRevision, active.Attempt.RouteGeneration, evidence); errorCode(err) != "MATCH_WORLD_INSTANCE_CONFLICT" {
+		t.Fatalf("Dedicated owned-process cleanup accepted a stale world: %v", err)
+	}
+	if _, err := service.DedicatedNativeCleared(ctx, serverID, allocationClaims.AuthoritySessionID, attemptID, "world-dedicated-primary", active.Attempt.RosterRevision, active.Attempt.RouteGeneration+1, evidence); errorCode(err) != "MATCH_ROUTE_GENERATION_STALE" {
+		t.Fatalf("Dedicated owned-process cleanup accepted a stale route: %v", err)
+	}
+	if _, err := service.DedicatedNativeCleared(ctx, serverID, allocationClaims.AuthoritySessionID, attemptID, "world-dedicated-primary", active.Attempt.RosterRevision, active.Attempt.RouteGeneration, evidence); err != nil {
 		t.Fatal(err)
 	}
 	if err := pool.QueryRow(ctx, `SELECT cleanup_state FROM match_attempts WHERE id = $1`, attemptID).Scan(&cleanupState); err != nil {

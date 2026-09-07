@@ -24,6 +24,7 @@ var lobbyIdempotencyPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{7,
 var sha256HexPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 var worldInstancePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
 var nativeConnectionNoncePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$`)
+var processStartFingerprintPattern = regexp.MustCompile(`^win-filetime:[0-9a-f]{16}$`)
 
 // The admission mode remains strict_roster_v1. This is the native receipt
 // protocol version carried by the Payload pipe and backend capability proof.
@@ -54,6 +55,14 @@ type Service struct {
 	p2pProjector    P2PMatchProjector
 	serverFreshness time.Duration
 	now             func() time.Time
+}
+
+// OwnedProcessExitEvidence is accepted only by the signed Dedicated game
+// server cleanup endpoint. P2P authorities cannot self-report process exit.
+type OwnedProcessExitEvidence struct {
+	EvidenceKind            string
+	OwnedProcessID          uint32
+	ProcessStartFingerprint string
 }
 
 func NewService(repository *Repository, cfg config.MatchLobbyConfig, signer *AdmissionSigner, serverFreshness time.Duration) *Service {
@@ -2315,14 +2324,39 @@ func (s *Service) P2PComplete(ctx context.Context, actor Actor, authoritySession
 	return s.Complete(ctx, actor.PlayerID, authoritySession, attemptID, success, failureCode)
 }
 
-// NativeCleared is the only transition which releases a completed authority
-// back to the allocation pool.  A database terminal state is not evidence
-// that the game process, world, transport mappings, and cached grants are
-// gone, so the lease remains pending until this scoped acknowledgement.
+// NativeCleared is the P2P cleanup transition. P2P never receives an owned
+// process-exit claim and therefore always requires a persisted world identity.
 func (s *Service) NativeCleared(
 	ctx context.Context,
 	authorityID, authoritySession, attemptID, worldInstanceID string,
 	rosterRevision int64, routeGeneration int,
+) (Snapshot, error) {
+	return s.nativeCleared(ctx, authorityID, authoritySession, attemptID, worldInstanceID, rosterRevision, routeGeneration, nil)
+}
+
+// DedicatedNativeCleared is the only cleanup transition which may carry an
+// owned-process exit claim. The caller is the signed Dedicated node, and the
+// claim is still validated against the terminal attempt scope in PostgreSQL.
+func (s *Service) DedicatedNativeCleared(
+	ctx context.Context,
+	authorityID, authoritySession, attemptID, worldInstanceID string,
+	rosterRevision int64, routeGeneration int,
+	evidence OwnedProcessExitEvidence,
+) (Snapshot, error) {
+	if evidence.EvidenceKind != "owned_process_exited" || evidence.OwnedProcessID == 0 ||
+		!processStartFingerprintPattern.MatchString(evidence.ProcessStartFingerprint) {
+		return Snapshot{}, invalid("Invalid owned process exit evidence.", nil)
+	}
+	return s.nativeCleared(ctx, authorityID, authoritySession, attemptID, worldInstanceID, rosterRevision, routeGeneration, &evidence)
+}
+
+// nativeCleared is shared by the two signed routes. An empty world is only
+// accepted for Dedicated cleanup with a validated owned-process claim.
+func (s *Service) nativeCleared(
+	ctx context.Context,
+	authorityID, authoritySession, attemptID, worldInstanceID string,
+	rosterRevision int64, routeGeneration int,
+	evidence *OwnedProcessExitEvidence,
 ) (Snapshot, error) {
 	if err := s.requireEnabled(); err != nil {
 		return Snapshot{}, err
@@ -2331,7 +2365,7 @@ func (s *Service) NativeCleared(
 	authoritySession = strings.TrimSpace(authoritySession)
 	attemptID = strings.TrimSpace(attemptID)
 	worldInstanceID = strings.TrimSpace(worldInstanceID)
-	if authorityID == "" || authoritySession == "" || attemptID == "" || worldInstanceID == "" || len(worldInstanceID) > 128 || rosterRevision < 1 || routeGeneration < 1 {
+	if authorityID == "" || authoritySession == "" || attemptID == "" || len(worldInstanceID) > 128 || rosterRevision < 1 || routeGeneration < 1 || (worldInstanceID == "" && evidence == nil) {
 		return Snapshot{}, invalid("Invalid native cleanup acknowledgement.", nil)
 	}
 	now := s.now().UTC()
@@ -2364,9 +2398,10 @@ func (s *Service) NativeCleared(
 	}
 	if cleanupState == "CLEARED" {
 		if storedWorld == "" {
-			return Snapshot{}, conflict("MATCH_WORLD_INSTANCE_REQUIRED", "The attempt has no persisted native world identity.", nil)
-		}
-		if storedWorld != worldInstanceID {
+			if evidence == nil || hosting != string(HostingDedicated) || worldInstanceID != "" {
+				return Snapshot{}, conflict("MATCH_WORLD_INSTANCE_REQUIRED", "The attempt has no persisted native world identity.", nil)
+			}
+		} else if storedWorld != worldInstanceID {
 			return Snapshot{}, conflict("MATCH_WORLD_INSTANCE_CONFLICT", "The cleanup acknowledgement belongs to a different world instance.", nil)
 		}
 		if storedRosterRevision != rosterRevision {
@@ -2381,9 +2416,10 @@ func (s *Service) NativeCleared(
 		return s.Get(ctx, lobbyID, "")
 	}
 	if storedWorld == "" {
-		return Snapshot{}, conflict("MATCH_WORLD_INSTANCE_REQUIRED", "The attempt has no persisted native world identity.", nil)
-	}
-	if storedWorld != worldInstanceID {
+		if evidence == nil || hosting != string(HostingDedicated) || worldInstanceID != "" {
+			return Snapshot{}, conflict("MATCH_WORLD_INSTANCE_REQUIRED", "The attempt has no persisted native world identity.", nil)
+		}
+	} else if storedWorld != worldInstanceID {
 		return Snapshot{}, conflict("MATCH_WORLD_INSTANCE_CONFLICT", "The cleanup acknowledgement belongs to a different world instance.", nil)
 	}
 	if storedRosterRevision != rosterRevision {
@@ -2392,15 +2428,28 @@ func (s *Service) NativeCleared(
 	if storedRouteGeneration != routeGeneration {
 		return Snapshot{}, conflict("MATCH_ROUTE_GENERATION_STALE", "The cleanup acknowledgement belongs to a stale authority route.", nil)
 	}
-	if _, err := tx.Exec(ctx, `
-		UPDATE match_attempts
-		SET cleanup_state = 'CLEARED', native_cleared_at = $2,
-		    cleanup_error = NULL, cleanup_lease_expires_at = NULL,
-		    updated_at = $2
-		WHERE id = $1 AND cleanup_state = 'PENDING' AND world_instance_id = $3
-		  AND roster_revision = $4 AND route_generation = $5
-	`, attemptID, now, worldInstanceID, rosterRevision, routeGeneration); err != nil {
-		return Snapshot{}, internal(err)
+	var updateErr error
+	if storedWorld == "" {
+		_, updateErr = tx.Exec(ctx, `
+			UPDATE match_attempts
+			SET cleanup_state = 'CLEARED', native_cleared_at = $2,
+			    cleanup_error = NULL, cleanup_lease_expires_at = NULL,
+			    updated_at = $2
+			WHERE id = $1 AND cleanup_state = 'PENDING' AND COALESCE(world_instance_id, '') = ''
+			  AND roster_revision = $3 AND route_generation = $4
+		`, attemptID, now, rosterRevision, routeGeneration)
+	} else {
+		_, updateErr = tx.Exec(ctx, `
+			UPDATE match_attempts
+			SET cleanup_state = 'CLEARED', native_cleared_at = $2,
+			    cleanup_error = NULL, cleanup_lease_expires_at = NULL,
+			    updated_at = $2
+			WHERE id = $1 AND cleanup_state = 'PENDING' AND world_instance_id = $3
+			  AND roster_revision = $4 AND route_generation = $5
+		`, attemptID, now, worldInstanceID, rosterRevision, routeGeneration)
+	}
+	if updateErr != nil {
+		return Snapshot{}, internal(updateErr)
 	}
 	if hosting == string(HostingDedicated) {
 		if _, err := tx.Exec(ctx, `

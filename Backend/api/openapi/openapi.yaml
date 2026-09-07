@@ -3017,7 +3017,7 @@ paths:
         - {$ref: "#/components/parameters/GameServerCredentialGeneration"}
       requestBody:
         required: true
-        content: {application/json: {schema: {$ref: "#/components/schemas/MatchNativeClearedRequest"}}}
+        content: {application/json: {schema: {$ref: "#/components/schemas/DedicatedMatchNativeClearedRequest"}}}
       responses:
         "200": {description: Native world and transport cleanup acknowledged, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
         "409": {$ref: "#/components/responses/Conflict"}
@@ -7300,6 +7300,17 @@ components:
         world_instance_id: {type: string, minLength: 1, maxLength: 128}
         roster_revision: {type: integer, minimum: 1}
         route_generation: {type: integer, minimum: 1}
+    DedicatedMatchNativeClearedRequest:
+      type: object
+      additionalProperties: false
+      required: [world_instance_id, roster_revision, route_generation, evidence_kind, owned_process_id, process_start_fingerprint]
+      properties:
+        world_instance_id: {type: string, maxLength: 128}
+        roster_revision: {type: integer, minimum: 1}
+        route_generation: {type: integer, minimum: 1}
+        evidence_kind: {type: string, enum: [owned_process_exited]}
+        owned_process_id: {type: integer, minimum: 1}
+        process_start_fingerprint: {type: string, minLength: 26, maxLength: 64, pattern: "^win-filetime:[0-9a-f]{16}$"}
     P2PMatchAuthorityReadyRequest:
       type: object
       additionalProperties: false
