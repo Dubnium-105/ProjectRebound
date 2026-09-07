@@ -80,6 +80,11 @@ target_compile_features(strict_authority_lease_tests PRIVATE cxx_std_20)
 enable_strict_warnings(strict_authority_lease_tests)
 add_test(NAME strict_authority_lease_tests COMMAND strict_authority_lease_tests)
 
+add_executable(strict_roster_cleanup_receipt_tests StrictRosterCleanupReceiptTests.cpp)
+target_compile_features(strict_roster_cleanup_receipt_tests PRIVATE cxx_std_20)
+enable_strict_warnings(strict_roster_cleanup_receipt_tests)
+add_test(NAME strict_roster_cleanup_receipt_tests COMMAND strict_roster_cleanup_receipt_tests)
+
 add_executable(native_login_grant_policy_tests
     NativeLoginGrantPolicyTests.cpp
 )

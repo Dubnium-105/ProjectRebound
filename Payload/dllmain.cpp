@@ -33,6 +33,7 @@
 #include "Admission/StrictRosterAdmissionGate.h"
 #include "Admission/StrictAuthorityStartDispatch.h"
 #include "Admission/StrictAuthorityLease.h"
+#include "Admission/StrictRosterCleanupReceipt.h"
 #include "Admission/StrictRosterPolicy.h"
 #include "Loadout/LoadoutManager.h"
 
@@ -183,6 +184,7 @@ using StrictAuthorityMutationLease = StrictAuthorityLease::MutationLease;
 
 std::mutex gStrictRosterCleanupMutex;
 StrictRosterCleanupState gStrictRosterCleanup;
+StrictRosterCleanupReceipt::Journal gStrictRosterCleanupReceiptJournal;
 
 std::int64_t EpochSecondsNow() noexcept
 {
@@ -2332,18 +2334,70 @@ namespace
         };
     }
 
+    StrictRosterCleanupReceipt::Scope StrictRosterCleanupReceiptScope(
+        const StrictRosterCleanupState& cleanup)
+    {
+        return StrictRosterCleanupReceipt::Scope{
+            cleanup.attemptId,
+            cleanup.authoritySessionId,
+            cleanup.worldInstanceId,
+            cleanup.rosterRevision,
+            cleanup.routeGeneration};
+    }
+
+    nlohmann::json StrictRosterCleanupReplayResult(
+        const StrictRosterCleanupReceipt::Scope& scope)
+    {
+        // This is deliberately a pure response.  It is only reachable when
+        // the exact completed scope is journaled and no newer allocation or
+        // cleanup lease exists; it must never repeat Steam/policy/world work.
+        return nlohmann::json{
+            {"accepted", true},
+            {"code", "cleared"},
+            {"status", "cleared"},
+            {"native_cleared", true},
+            {"attempt_id", scope.attemptId},
+            {"authority_session_id", scope.authoritySessionId},
+            {"world_instance_id", scope.worldInstanceId},
+            {"roster_revision", scope.rosterRevision},
+            {"route_generation", scope.routeGeneration},
+            {"world_teardown_required", false}
+        };
+    }
+
     nlohmann::json StrictRosterCleanupClearedResult(
         const StrictRosterCleanupState& cleanup)
     {
         // The final ACK is emitted only after the native world/driver observer
-        // proves teardown.  Any Steam proof still cached at this boundary is
-        // revoked before the allocation can be reused.
-        StrictRosterSteamAuth::ClearAllExpectedProofs();
-        ClearStrictAuthorityWorldIdentity(cleanup.retiredWorld);
+        // proves teardown.  Commit the exact completed scope before releasing
+        // the live cleanup state so a lost ACK can be replayed without
+        // repeating Steam/policy/world side effects.
+        const StrictRosterCleanupReceipt::Scope receiptScope =
+            StrictRosterCleanupReceiptScope(cleanup);
         {
             std::lock_guard<std::mutex> lock(gStrictRosterCleanupMutex);
+            if (!gStrictRosterCleanupReceiptJournal.RecordCompleted(
+                    receiptScope, true))
+            {
+                return StrictRosterCleanupPendingResult(
+                    "cleanup_receipt_unavailable",
+                    "native teardown was observed but its scoped receipt could not be recorded",
+                    cleanup.attemptId, cleanup.authoritySessionId,
+                    cleanup.worldInstanceId, cleanup.rosterRevision,
+                    cleanup.routeGeneration);
+            }
             gStrictRosterCleanup = StrictRosterCleanupState{};
         }
+
+        // Any policy/Steam proof still cached at this boundary is revoked
+        // before the allocation can be reused.  The live-connection path
+        // intentionally deferred Reset until the world teardown was observed
+        // so real disconnect callbacks could finish against the old scope.
+        gStrictRosterPolicy.Reset();
+        StrictRosterSteamAuth::ClearAllExpectedProofs();
+        ClearStrictAuthorityWorldIdentity(cleanup.retiredWorld);
+        ClearStrictRosterLocalHostSeat();
+        ClearStrictRosterControllerSeats();
         gStrictAuthorityAwaitingWorldTeardown.store(
             false, std::memory_order_release);
         gStrictAuthorityWorldListening.store(false, std::memory_order_release);
@@ -2455,6 +2509,17 @@ nlohmann::json ProcessStrictRosterClearMatchAllocationResultInternal(
         const auto allocationScope = gStrictRosterPolicy.CurrentAllocationScope();
         if (!allocationScope)
         {
+            const StrictRosterCleanupReceipt::Scope requestedScope{
+                attemptId, authoritySessionId, worldInstanceId,
+                rosterRevision, routeGeneration};
+            bool canReplay = false;
+            {
+                std::lock_guard<std::mutex> lock(gStrictRosterCleanupMutex);
+                canReplay = gStrictRosterCleanupReceiptJournal.CanReplay(
+                    requestedScope, false, gStrictRosterCleanup.pending);
+            }
+            if (canReplay)
+                return StrictRosterCleanupReplayResult(requestedScope);
             return nlohmann::json{
                 {"accepted", false},
                 {"code", "allocation_unavailable"},
@@ -2488,18 +2553,6 @@ nlohmann::json ProcessStrictRosterClearMatchAllocationResultInternal(
                 {"world_teardown_required", true}
             };
         }
-        if (gStrictRosterPolicy.HasLiveConnections() ||
-            gStrictRosterPolicy.HasPendingAdmissions())
-        {
-            ClientLog("[STRICT-ROSTER] Allocation clear deferred: native connections "
-                "or admission reservations remain active.");
-            return StrictRosterCleanupPendingResult(
-                "cleanup_pending",
-                "native connections and admission reservations must clear before teardown",
-                attemptId, authoritySessionId, worldInstanceId,
-                rosterRevision, routeGeneration);
-        }
-
         UWorld* retiredWorld = UWorld::GetWorld();
         NetDriverAccess::Snapshot snapshot{};
         if (NetDriverAccess::TryGetSnapshot(snapshot, false))
@@ -2510,9 +2563,61 @@ nlohmann::json ProcessStrictRosterClearMatchAllocationResultInternal(
         UNetDriver* retiredNetDriver = snapshot.NetDriver;
         if (!retiredNetDriver && retiredWorld)
             retiredNetDriver = retiredWorld->NetDriver;
-        cleanup = StrictRosterCleanupState{
+        const StrictRosterCleanupState capturedCleanup{
             true, false, false, attemptId, authoritySessionId, worldInstanceId,
-            rosterRevision, routeGeneration, retiredWorld, retiredNetDriver};
+            rosterRevision, routeGeneration, retiredWorld, retiredNetDriver,
+            retiredWorld == nullptr};
+
+        if (gStrictRosterPolicy.HasLiveConnections() ||
+            gStrictRosterPolicy.HasPendingAdmissions())
+        {
+            // A live connection or reservation is the reason teardown has not
+            // started yet.  Register the exact cleanup owner first, then ask
+            // the native world to return/exit so those connections can produce
+            // their real disconnect callbacks.  Do not Reset the policy or
+            // fabricate DISCONNECTED here: the pending state must own the
+            // still-live world until the observer proves it is gone.
+            cleanup = capturedCleanup;
+            const StrictAuthorityCleanupPlan plan{
+                cleanup,
+                "allocation clear deferred while native connections or admissions remain"};
+            if (!RegisterStrictAuthorityCleanupOwner(plan))
+            {
+                std::lock_guard<std::mutex> lock(gStrictRosterCleanupMutex);
+                cleanup = gStrictRosterCleanup;
+            }
+            else
+            {
+                const StrictRosterNativeTeardownRequestResult teardownResult =
+                    RequestScopedStrictRosterWorldTeardown(cleanup);
+                const bool requested = teardownResult !=
+                    StrictRosterNativeTeardownRequestResult::NotRequested;
+                const bool processExitRequested = teardownResult ==
+                    StrictRosterNativeTeardownRequestResult::DedicatedProcessExitRequested;
+                std::lock_guard<std::mutex> lock(gStrictRosterCleanupMutex);
+                if (gStrictRosterCleanup.pending &&
+                    StrictRosterCleanupScopeEquals(
+                        gStrictRosterCleanup, attemptId, authoritySessionId,
+                        worldInstanceId, rosterRevision, routeGeneration))
+                {
+                    gStrictRosterCleanup.teardownRequested = requested;
+                    gStrictRosterCleanup.processExitRequested = processExitRequested;
+                    cleanup.teardownRequested = requested;
+                    cleanup.processExitRequested = processExitRequested;
+                }
+            }
+            ClientLog("[STRICT-ROSTER] Allocation clear deferred: native connections "
+                "or admission reservations remain active; scoped teardown requested.");
+            return StrictRosterCleanupPendingResult(
+                "cleanup_pending",
+                "native connections and admission reservations remain; native teardown is pending",
+                attemptId, authoritySessionId, worldInstanceId,
+                rosterRevision, routeGeneration,
+                cleanup.teardownRequested,
+                cleanup.processExitRequested);
+        }
+
+        cleanup = capturedCleanup;
         {
             std::lock_guard<std::mutex> lock(gStrictRosterCleanupMutex);
             gStrictRosterCleanup = cleanup;
