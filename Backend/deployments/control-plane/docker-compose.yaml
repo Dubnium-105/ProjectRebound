@@ -272,7 +272,7 @@ services:
         redis-cli -h redis -a "$${REDIS_PASSWORD}" --no-auth-warning
         ACL SETUSER "$${META_REDIS_USERNAME}" reset on
         ">$${META_REDIS_PASSWORD}" "~meta:*"
-        "+@connection" "+get" "+set" "+getdel" "+del" "+unlink"
+        "+@connection" "+get" "+set" "+del" "+unlink" "+eval" "+evalsha"
         "+expire" "+pexpire" "+ttl" "+pttl"
     depends_on:
       redis:
