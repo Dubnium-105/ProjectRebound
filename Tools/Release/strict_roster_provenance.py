@@ -22,6 +22,15 @@ def sha(path):
     return digest.hexdigest()
 
 
+def artifact_inventory_problems(paths):
+    expected = {"control-plane", "meta-server", "edge-relay", "payload.dll",
+                "rebound_toolbox_tauri.exe"}
+    names = [Path(path).name.lower() for path in paths]
+    if len(names) != len(expected) or set(names) != expected:
+        return ["release artifacts must contain exactly control-plane, meta-server, edge-relay, Payload.dll, and rebound_toolbox_tauri.exe"]
+    return []
+
+
 def acceptance_case_problems(report):
     problems = []
     required = {"commit_pair", "artifact_hashes", "environment", "command_or_harness",
@@ -57,7 +66,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--require-release-ready", action="store_true")
     args = parser.parse_args()
-    problems = []
+    problems = artifact_inventory_problems(args.artifact)
     repos = {}
     for name, repo in [("ProjectRebound", args.repo), ("Toolbox", args.toolbox_repo)]:
         if repo is None:

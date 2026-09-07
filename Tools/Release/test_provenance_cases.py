@@ -2,7 +2,7 @@
 import copy
 import unittest
 
-from strict_roster_provenance import acceptance_case_problems
+from strict_roster_provenance import acceptance_case_problems, artifact_inventory_problems
 
 
 class AcceptanceCaseGateTests(unittest.TestCase):
@@ -47,6 +47,28 @@ class AcceptanceCaseGateTests(unittest.TestCase):
         del report["component_tests"][0]["result"]["exit_code"]
         self.assertIn("AC-001 is missing evidence field exit_code",
                       acceptance_case_problems(report))
+
+
+class ArtifactInventoryGateTests(unittest.TestCase):
+    complete = ["control-plane", "meta-server", "edge-relay", "Payload.dll",
+                "rebound_toolbox_tauri.exe"]
+
+    def test_all_five_artifacts_are_required(self):
+        self.assertEqual(artifact_inventory_problems(self.complete), [])
+        for missing in range(len(self.complete)):
+            with self.subTest(missing=self.complete[missing]):
+                self.assertTrue(artifact_inventory_problems(
+                    self.complete[:missing] + self.complete[missing + 1:]))
+
+    def test_duplicate_cannot_substitute_for_missing_artifact(self):
+        self.assertTrue(artifact_inventory_problems(
+            self.complete[:-1] + [self.complete[0]]))
+
+    def test_legacy_or_unknown_binary_cannot_enter_the_release_set(self):
+        for path in ("matchserver", "rebound_toolbox.exe", "unknown.exe"):
+            with self.subTest(path=path):
+                self.assertTrue(artifact_inventory_problems(self.complete + [path]))
+                self.assertTrue(artifact_inventory_problems(self.complete[:-1] + [path]))
 
 
 if __name__ == "__main__":
