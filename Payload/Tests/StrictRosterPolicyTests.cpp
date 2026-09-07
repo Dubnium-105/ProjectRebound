@@ -70,14 +70,18 @@ namespace
         };
     }
 
-    nlohmann::json GrantClaims(const int generation, const std::string& jti)
+    nlohmann::json GrantClaims(
+        const int generation,
+        const std::string& jti,
+        const std::string& worldInstanceId = "world_test_a")
     {
         return {
 			{"iss", "game-control-plane"},
 			{"aud", "project-rebound-match-client"}, {"kid", "adm_1"}, {"jti", jti},
             {"attempt_id", "att_1"}, {"lobby_id", "lby_1"},
-			{"hosting_kind", "P2P"},
+            {"hosting_kind", "P2P"},
             {"authority_id", "p_host"}, {"authority_session_id", "auth_session_1"},
+            {"world_instance_id", worldInstanceId},
             {"player_id", "p_member"}, {"platform_id", "steam_member"},
             {"roster_revision", 3}, {"team_id", 2}, {"team_slot", 0},
             {"logical_slot", 32}, {"connection_generation", generation},
@@ -113,6 +117,7 @@ int main()
 		"short allocation should install");
 	Expect(expiring.StartAuthority("steam_host", 100).accepted,
 		"short allocation should start while live");
+    expiring.SetNativeWorldInstanceId("world_test_a");
     const auto expiredDecision = expiring.ValidateJoinGrant(
         Token(GrantClaims(1, "grant_after_allocation_expiry")), "steam_member", 106,
         NativeNonce("expiry"));
@@ -225,7 +230,7 @@ int main()
         connectionEvents[0].routeGeneration == 1,
         "native logout must retain the connection's admission world and route");
     const auto replacement = policy.ValidateJoinGrant(
-        Token(GrantClaims(2, "grant_jti_2")), "steam_member", 111,
+        Token(GrantClaims(2, "grant_jti_2", "world_test_b")), "steam_member", 111,
         NativeNonce("two"));
     Expect(replacement.accepted && !replacement.replacesConnection,
         "next generation should reclaim the disconnected frozen seat");
@@ -242,12 +247,12 @@ int main()
         replacement.nativeConnectionNonce).accepted,
         "the reconnected generation should be reportable after native seat application");
     const auto latest = policy.ValidateJoinGrant(
-        Token(GrantClaims(4, "grant_jti_4")), "steam_member", 112,
+        Token(GrantClaims(4, "grant_jti_4", "world_test_b")), "steam_member", 112,
         NativeNonce("four"));
     Expect(latest.accepted && latest.replacesConnection,
         "a newer signed generation should invalidate skipped grants and replace the seat");
 	Expect(!policy.ValidateJoinGrant(
-		Token(GrantClaims(3, "grant_jti_3")), "someone_else", 112,
+		Token(GrantClaims(3, "grant_jti_3", "world_test_b")), "someone_else", 112,
         NativeNonce("wrong-player")).accepted,
         "platform identity mismatch must be rejected");
 
@@ -258,7 +263,7 @@ int main()
 	Expect(policy.InstallAllocation(Token(renewed), "adm_1", publicKey, 120).accepted,
 		"same-route allocation renewal should be idempotent");
 	Expect(!policy.ValidateJoinGrant(
-		Token(GrantClaims(1, "grant_jti_1")), "steam_member", 121,
+		Token(GrantClaims(1, "grant_jti_1", "world_test_b")), "steam_member", 121,
         NativeNonce("old-route")).accepted,
 		"allocation renewal must preserve consumed JTI replay state");
 
@@ -269,7 +274,7 @@ int main()
 	recovered["roster"][1]["connection_generation"] = 5;
 	Expect(policy.InstallAllocation(Token(recovered), "adm_1", publicKey, 122).accepted,
 		"one-step route recovery should refresh signed seat generations");
-	auto routeTwoGrant = GrantClaims(5, "grant_jti_route_2");
+	auto routeTwoGrant = GrantClaims(5, "grant_jti_route_2", "world_test_b");
 	routeTwoGrant["route_generation"] = 2;
 	const auto beforeRecoveryReservationEvents =
 		policy.ConnectionEventsAfter(0).size();
@@ -358,6 +363,7 @@ int main()
         "native grant validation allocation should install");
     Expect(nativeGrantValidation.StartAuthority("steam_host", 100).accepted,
         "native grant validation authority should start");
+    nativeGrantValidation.SetNativeWorldInstanceId("world_test_a");
     const std::string nativeGrant = Token(GrantClaims(1, "native_grant_jti"));
     Expect(nativeGrantValidation.StageJoinGrant(nativeGrant, 110).accepted,
         "the backend-staged grant should be retained for native login");
@@ -372,5 +378,54 @@ int main()
     Expect(!nativeGrantValidation.ValidateNativeJoinGrant(
         Token(mismatchedNativeGrant), "steam_member", 110).accepted,
         "a signed grant with the staged JTI but different seat claims must be rejected");
+
+    StrictRoster::Policy worldBinding(verifier, true);
+    Expect(worldBinding.InstallAllocation(
+        Token(AllocationClaims()), "adm_1", publicKey, 100).accepted,
+        "world binding allocation should install");
+    Expect(worldBinding.StartAuthority("steam_host", 100).accepted,
+        "world binding authority should start");
+    worldBinding.SetNativeWorldInstanceId("world_test_a");
+    auto missingWorldGrant = GrantClaims(1, "world_missing_jti");
+    missingWorldGrant.erase("world_instance_id");
+    const auto missingWorldDecision = worldBinding.StageJoinGrant(
+        Token(missingWorldGrant), 110);
+    Expect(!missingWorldDecision.accepted &&
+        missingWorldDecision.code == "grant_world_mismatch",
+        "a Join Grant without the signed native world must be rejected at staging");
+    auto wrongWorldGrant = GrantClaims(1, "world_wrong_jti", "world_test_b");
+    const auto wrongWorldDecision = worldBinding.StageJoinGrant(
+        Token(wrongWorldGrant), 110);
+    Expect(!wrongWorldDecision.accepted &&
+        wrongWorldDecision.code == "grant_world_mismatch",
+        "a Join Grant for another native world must be rejected at staging");
+    const std::string worldBoundGrant = Token(
+        GrantClaims(1, "world_bound_jti", "world_test_a"));
+    Expect(worldBinding.StageJoinGrant(worldBoundGrant, 110).accepted,
+        "a Join Grant for the observed native world should stage");
+    Expect(worldBinding.StageJoinGrant(worldBoundGrant, 110).accepted,
+        "retransmitting the same world-bound Join Grant should remain idempotent");
+    Expect(worldBinding.ValidateNativeJoinGrant(
+        worldBoundGrant, "steam_member", 110).accepted,
+        "the staged Join Grant should validate while its world is current");
+    worldBinding.SetNativeWorldInstanceId("world_test_b");
+    const auto staleWorldValidation = worldBinding.ValidateNativeJoinGrant(
+        worldBoundGrant, "steam_member", 110);
+    Expect(!staleWorldValidation.accepted &&
+        staleWorldValidation.code == "grant_world_mismatch",
+        "NMT_Login validation must reject a staged grant after the authority world changes");
+    const auto staleWorldReservation = worldBinding.ReserveAdmission(
+        "steam_member", 110, NativeNonce("world-binding"));
+    Expect(!staleWorldReservation.accepted &&
+        staleWorldReservation.code == "grant_world_mismatch",
+        "native reservation must reject a staged grant after the authority world changes");
+    worldBinding.SetNativeWorldInstanceId("world_test_a");
+    Expect(worldBinding.ValidateNativeJoinGrant(
+        worldBoundGrant, "steam_member", 110).accepted,
+        "the exact staged grant should remain retryable when its world returns");
+    const auto worldReservation = worldBinding.ReserveAdmission(
+        "steam_member", 110, NativeNonce("world-binding"));
+    Expect(worldReservation.accepted,
+        "native reservation should bind the exact signed world after it is current again");
     return 0;
 }

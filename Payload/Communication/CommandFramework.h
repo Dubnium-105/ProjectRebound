@@ -3,6 +3,7 @@
 #include <windows.h>
 
 #include <atomic>
+#include <cstdint>
 #include <functional>
 #include <mutex>
 #include <string>
@@ -19,9 +20,11 @@ public:
         bool accepted = false;
         std::string code;
         std::string message;
+        std::uint64_t operationSequence = 0;
     };
 
-    using JoinCallback = std::function<JoinResult(const std::string& ip, const std::string& token)>;
+    using JoinCallback = std::function<JoinResult(const std::string& ip, const std::string& token,
+        const nlohmann::json& expectedScope)>;
     using LogCallback = std::function<void(const std::string& message)>;
     using DebugCallback = std::function<nlohmann::json(const nlohmann::json& arguments)>;
     using ServerStatusCallback = std::function<nlohmann::json()>;
@@ -68,6 +71,8 @@ public:
     void SetMatchConnectionConfirmationCallback(
         MatchAdmissionReceiptCallback callback);
     void SetMatchAdmissionReleaseCallback(
+        MatchAdmissionReceiptCallback callback);
+    void SetClientMatchConnectionConfirmationCallback(
         MatchAdmissionReceiptCallback callback);
 
     [[nodiscard]] bool Start();
@@ -199,6 +204,7 @@ private:
     MatchAdmissionReceiptCallback onMatchAdmissionReservation;
     MatchAdmissionReceiptCallback onMatchConnectionConfirmation;
     MatchAdmissionReceiptCallback onMatchAdmissionRelease;
+    MatchAdmissionReceiptCallback onClientMatchConnectionConfirmation;
 
     SECURITY_ATTRIBUTES securityAttributes{};
     SECURITY_DESCRIPTOR securityDescriptor{};

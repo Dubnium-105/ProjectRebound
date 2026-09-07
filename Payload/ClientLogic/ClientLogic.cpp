@@ -41,6 +41,9 @@ using namespace SDK;
 extern "C" void PayloadPushClientProcessEventSuppression();
 extern "C" void PayloadPopClientProcessEventSuppression();
 extern uintptr_t BaseAddress;
+// Defined by dllmain.cpp. This is a synchronized authority-world identity
+// snapshot; ClientLogic never dereferences a UWorld from the pipe thread.
+extern std::string ReadStrictAuthorityWorldInstanceId();
 
 namespace
 {
@@ -100,6 +103,9 @@ namespace
         WaitingAfterLogin,
         TravelRequested,
         WorldReady,
+        LocalPawnReady,
+        WaitingBackendConfirmation,
+        LocalAuthorityPending,
         Playable,
         Failed,
         Cancelled
@@ -117,6 +123,19 @@ namespace
     // raw ticket bytes stay inside StrictRosterSteamAuth.
     std::string stagedNativeSteamTicket;
     bool stagedNativeLoginGrantInjected = false;
+    // This non-secret correlation scope is supplied by the guarded Toolbox
+    // pipe alongside the opaque Grant. The client never treats unverified JWT
+    // claims as an admission proof.
+    std::optional<NativeMatchScope> stagedNativeMatchScope;
+    std::optional<NativeMatchScope> confirmedNativeMatchScope;
+    bool stagedNativeHostScope = false;
+    std::string stagedNativeConnectionNonce;
+    std::string confirmedNativeConnectionNonce;
+    bool nativeBackendConnectionConfirmed = false;
+    bool localNativePawnReady = false;
+    bool localNativeNetReady = false;
+    std::chrono::steady_clock::time_point nativeReadinessObservedAt{};
+    bool localAuthorityClientScopePending = false;
     std::string currentTarget;
     ConnectStage connectStage = ConnectStage::Idle;
     std::chrono::steady_clock::time_point nextActionAt{};
@@ -131,6 +150,9 @@ namespace
     std::chrono::steady_clock::time_point nextFrontendCleanupAt{};
     UWorld* directTravelSourceWorld = nullptr;
     bool directTravelUiFinalized = false;
+    UWorld* localWorldIdentity = nullptr;
+    std::uint64_t localWorldSequence = 0;
+    std::string localWorldInstanceId;
     std::atomic<bool> ownedSeamlessDestinationUiCleanupPending{false};
     std::atomic<bool> ownedSeamlessDestinationUiCleanupWaitLogged{false};
     std::atomic<bool> ownedSeamlessIntroCameraRecoveryPending{false};
@@ -163,6 +185,68 @@ namespace
         stagedNativeLoginGrantInjected = false;
     }
 
+    void ClearNativeMatchScopeLocked() noexcept
+    {
+        stagedNativeMatchScope.reset();
+        confirmedNativeMatchScope.reset();
+        stagedNativeHostScope = false;
+        SecureClearNativeGrant(stagedNativeConnectionNonce);
+        SecureClearNativeGrant(confirmedNativeConnectionNonce);
+        nativeBackendConnectionConfirmed = false;
+        localNativePawnReady = false;
+        localNativeNetReady = false;
+        nativeReadinessObservedAt = {};
+        localAuthorityClientScopePending = false;
+        localWorldIdentity = nullptr;
+        localWorldInstanceId.clear();
+    }
+
+    std::string ObserveLocalWorldLocked(UWorld* const world)
+    {
+        if (!world)
+            return {};
+        if (localWorldIdentity != world || localWorldInstanceId.empty())
+        {
+            localNativePawnReady = false;
+            localNativeNetReady = false;
+            nativeReadinessObservedAt = {};
+            localWorldIdentity = world;
+            ++localWorldSequence;
+            std::ostringstream id;
+            id << "client_world_" << std::hex << localWorldSequence << "_"
+               << reinterpret_cast<std::uintptr_t>(world);
+            localWorldInstanceId = id.str();
+        }
+        return localWorldInstanceId;
+    }
+
+    bool TryPromoteClientPlayableLocked()
+    {
+        if (!stagedNativeMatchScope || !confirmedNativeMatchScope ||
+            !nativeBackendConnectionConfirmed || !localNativePawnReady ||
+            !localNativeNetReady ||
+            !stagedNativeMatchScope->Matches(*confirmedNativeMatchScope) ||
+            (stagedNativeHostScope &&
+                (stagedNativeConnectionNonce.empty() ||
+                    stagedNativeConnectionNonce != confirmedNativeConnectionNonce)))
+        {
+            return false;
+        }
+        connectStage = ConnectStage::Playable;
+        pendingTarget.reset();
+        localAuthorityClientScopePending = false;
+        nativeTicketDeadline = {};
+        ClearStagedNativeLoginGrantLocked();
+        return true;
+    }
+
+    bool NativeReadinessSnapshotCurrentLocked()
+    {
+        return nativeReadinessObservedAt != std::chrono::steady_clock::time_point{} &&
+            std::chrono::steady_clock::now() - nativeReadinessObservedAt <=
+                std::chrono::seconds(2);
+    }
+
     const char* ConnectStageName(const ConnectStage stage) noexcept
     {
         switch (stage)
@@ -172,6 +256,11 @@ namespace
         case ConnectStage::WaitingAfterLogin: return "waiting_game_login";
         case ConnectStage::TravelRequested: return "travel_requested";
         case ConnectStage::WorldReady: return "world_ready";
+        case ConnectStage::LocalPawnReady: return "local_pawn_ready";
+        case ConnectStage::WaitingBackendConfirmation:
+            return "waiting_backend_confirmation";
+        case ConnectStage::LocalAuthorityPending:
+            return "local_authority_pending";
         case ConnectStage::Playable: return "playable";
         case ConnectStage::Failed: return "failed";
         case ConnectStage::Cancelled: return "cancelled";
@@ -1411,6 +1500,7 @@ bool QueueConnectToMatch(const std::string& target)
             return false;
 
         ClearStagedNativeLoginGrantLocked();
+        ClearNativeMatchScopeLocked();
         pendingTarget = target;
         connectStage = ConnectStage::Queued;
         travelDeadline = {};
@@ -1434,7 +1524,9 @@ bool CopyStagedNativeLoginGrant(std::string& grant)
         (connectStage != ConnectStage::Queued &&
             connectStage != ConnectStage::WaitingAfterLogin &&
             connectStage != ConnectStage::TravelRequested &&
-            connectStage != ConnectStage::WorldReady))
+            connectStage != ConnectStage::WorldReady &&
+            connectStage != ConnectStage::LocalPawnReady &&
+            connectStage != ConnectStage::WaitingBackendConfirmation))
     {
         return false;
     }
@@ -1450,7 +1542,9 @@ bool CopyStagedNativeSteamTicket(std::string& encodedTicket)
         (connectStage != ConnectStage::Queued &&
             connectStage != ConnectStage::WaitingAfterLogin &&
             connectStage != ConnectStage::TravelRequested &&
-            connectStage != ConnectStage::WorldReady))
+            connectStage != ConnectStage::WorldReady &&
+            connectStage != ConnectStage::LocalPawnReady &&
+            connectStage != ConnectStage::WaitingBackendConfirmation))
     {
         return false;
     }
@@ -1481,10 +1575,34 @@ void ClearStagedNativeLoginGrant()
     ClearStagedNativeLoginGrantLocked();
 }
 
-AuthorizedJoinResult QueueConnectToMatchAuthorizedDetailed(
-    const std::string& target,
-    const std::string_view joinGrant)
+namespace
 {
+    bool IsNativeClientTransitionBusyLocked() noexcept
+    {
+        return pendingTarget.has_value() ||
+            connectStage == ConnectStage::Queued ||
+            connectStage == ConnectStage::WaitingAfterLogin ||
+            connectStage == ConnectStage::TravelRequested ||
+            connectStage == ConnectStage::WorldReady ||
+            connectStage == ConnectStage::LocalPawnReady ||
+            connectStage == ConnectStage::WaitingBackendConfirmation ||
+            connectStage == ConnectStage::LocalAuthorityPending ||
+            connectStage == ConnectStage::Playable;
+    }
+
+    AuthorizedJoinResult QueueConnectToMatchAuthorizedWithScope(
+    const std::string& target,
+        const std::string_view joinGrant,
+        const NativeMatchScope& expectedScope)
+    {
+        std::string scopeError;
+        if (!expectedScope.IsValid(&scopeError))
+        {
+            ClientLog("[STRICT-ROSTER] Rejected strict join: " + scopeError);
+            return AuthorizedJoinResult{
+                false, "invalid_scope", scopeError};
+        }
+
     std::string validationError;
     if (!CommandProtocol::ValidateMatchTarget(target, &validationError))
     {
@@ -1515,12 +1633,10 @@ AuthorizedJoinResult QueueConnectToMatchAuthorizedDetailed(
     }
 
     bool queueBusyAfterTicket = false;
+    std::uint64_t operationSequence = 0;
     {
         std::lock_guard<std::mutex> lock(connectMutex);
-        if (pendingTarget.has_value() ||
-            connectStage == ConnectStage::TravelRequested ||
-            connectStage == ConnectStage::WorldReady ||
-            connectStage == ConnectStage::Playable)
+        if (IsNativeClientTransitionBusyLocked())
         {
             return AuthorizedJoinResult{
                 false, "busy", "another native match transition is pending"};
@@ -1543,10 +1659,7 @@ AuthorizedJoinResult QueueConnectToMatchAuthorizedDetailed(
 
     {
         std::lock_guard<std::mutex> lock(connectMutex);
-        if (pendingTarget.has_value() ||
-            connectStage == ConnectStage::TravelRequested ||
-            connectStage == ConnectStage::WorldReady ||
-            connectStage == ConnectStage::Playable)
+        if (IsNativeClientTransitionBusyLocked())
         {
             // The ticket belongs to the request that raced this queue.  Do
             // not leave an unscoped Steam handle alive after rejecting it.
@@ -1556,8 +1669,11 @@ AuthorizedJoinResult QueueConnectToMatchAuthorizedDetailed(
         }
         else
         {
+            ClearStagedNativeLoginGrantLocked();
+            ClearNativeMatchScopeLocked();
             pendingTarget = target;
             stagedNativeLoginGrant = std::string(joinGrant);
+            stagedNativeMatchScope = expectedScope;
             stagedNativeLoginGrantInjected = false;
             connectStage = ConnectStage::Queued;
             travelDeadline = {};
@@ -1565,7 +1681,7 @@ AuthorizedJoinResult QueueConnectToMatchAuthorizedDetailed(
                     StrictRosterSteamAuth::ClientTicketState::Pending
                 ? std::chrono::steady_clock::now() + NativeTicketTimeout
                 : std::chrono::steady_clock::time_point{};
-            ++connectSequence;
+            operationSequence = ++connectSequence;
             lastConnectError.clear();
             frontendCleanupUntil = {};
             nextFrontendCleanupAt = {};
@@ -1582,14 +1698,264 @@ AuthorizedJoinResult QueueConnectToMatchAuthorizedDetailed(
     ClientLog(ticketState == StrictRosterSteamAuth::ClientTicketState::Ready
         ? "[STRICT-ROSTER] Signed native join queued with a verified Steam ticket carrier."
         : "[STRICT-ROSTER] Signed native join queued; waiting for the Steam ticket callback.");
-    return AuthorizedJoinResult{true, "accepted", "native join queued"};
+    return AuthorizedJoinResult{
+        true, "accepted", "native join queued", operationSequence};
+    }
 }
 
-bool QueueConnectToMatchAuthorized(
+AuthorizedJoinResult QueueConnectToMatchAuthorizedDetailed(
     const std::string& target,
-    const std::string_view joinGrant)
+    const std::string_view joinGrant,
+    const nlohmann::json& expectedScope)
 {
-    return QueueConnectToMatchAuthorizedDetailed(target, joinGrant).accepted;
+    const auto role = expectedScope.find("room_role");
+    if (role != expectedScope.end() &&
+        (!role->is_string() || role->get<std::string>() != "MEMBER"))
+    {
+        return AuthorizedJoinResult{
+            false,
+            "invalid_scope",
+            "remote native joins require room_role MEMBER"};
+    }
+    std::string scopeError;
+    const auto scope = NativeMatchScope::FromJson(expectedScope, &scopeError);
+    if (!scope)
+    {
+        return AuthorizedJoinResult{
+            false,
+            "invalid_scope",
+            scopeError.empty() ? "strict admission scope is invalid" : scopeError};
+    }
+    return QueueConnectToMatchAuthorizedWithScope(target, joinGrant, *scope);
+}
+
+nlohmann::json StageLocalAuthorityClientScope(
+    const nlohmann::json& hostScope,
+    const std::string_view nativeConnectionNonce)
+{
+    std::string scopeError;
+    const auto scope = NativeMatchScope::FromHostJson(hostScope, &scopeError);
+    if (!scope)
+    {
+        return nlohmann::json{
+            {"accepted", false},
+            {"code", "invalid_host_scope"},
+            {"message", scopeError.empty()
+                ? "P2P HOST scope is invalid" : scopeError}};
+    }
+    if (!NativeMatchScopeDetail::IsSafeNonce(std::string(nativeConnectionNonce)))
+    {
+        return nlohmann::json{
+            {"accepted", false},
+            {"code", "native_connection_nonce_required"},
+            {"message", "a fresh native HOST connection nonce is required"}};
+    }
+
+    const std::string currentAuthorityWorldId =
+        ReadStrictAuthorityWorldInstanceId();
+    if (currentAuthorityWorldId.empty() ||
+        currentAuthorityWorldId != scope->worldInstanceId)
+    {
+        return nlohmann::json{
+            {"accepted", false},
+            {"code", "authority_world_mismatch"},
+            {"message", "HOST scope must match the observed native authority world"}};
+    }
+
+    std::uint64_t operationSequence = 0;
+    {
+        std::lock_guard<std::mutex> lock(connectMutex);
+        if (stagedNativeHostScope && stagedNativeMatchScope &&
+            stagedNativeMatchScope->Matches(*scope) &&
+            stagedNativeConnectionNonce == nativeConnectionNonce &&
+            (localAuthorityClientScopePending ||
+                connectStage == ConnectStage::LocalPawnReady ||
+                connectStage == ConnectStage::Playable))
+        {
+            nlohmann::json already{
+                {"accepted", true},
+                {"code", "already_staged"},
+                {"status", ConnectStageName(connectStage)},
+                {"operation_sequence", connectSequence},
+                {"native_connection_nonce", stagedNativeConnectionNonce},
+                {"scope", scope->ToJson()},
+                {"room_role", "HOST"}};
+            already["scope"]["room_role"] = "HOST";
+            return already;
+        }
+        if (IsNativeClientTransitionBusyLocked() || localAuthorityClientScopePending)
+        {
+            return nlohmann::json{
+                {"accepted", false},
+                {"code", "busy"},
+                {"message", "another native client transition is pending"},
+                {"operation_sequence", connectSequence}};
+        }
+
+        ClearStagedNativeLoginGrantLocked();
+        ClearNativeMatchScopeLocked();
+        stagedNativeMatchScope = *scope;
+        stagedNativeHostScope = true;
+        stagedNativeConnectionNonce = std::string(nativeConnectionNonce);
+        localAuthorityClientScopePending = true;
+        localNativePawnReady = false;
+        localNativeNetReady = false;
+        nativeBackendConnectionConfirmed = false;
+        confirmedNativeMatchScope.reset();
+        SecureClearNativeGrant(confirmedNativeConnectionNonce);
+        pendingTarget.reset();
+        connectStage = ConnectStage::LocalAuthorityPending;
+        travelDeadline = std::chrono::steady_clock::now() + TravelTimeout;
+        nativeTicketDeadline = {};
+        operationSequence = ++connectSequence;
+        lastConnectError.clear();
+        frontendCleanupUntil = {};
+        nextFrontendCleanupAt = {};
+        directTravelSourceWorld = nullptr;
+        directTravelUiFinalized = false;
+    }
+
+    nlohmann::json result{
+        {"accepted", true},
+        {"code", "staged"},
+        {"status", "local_authority_pending"},
+        {"operation_sequence", operationSequence},
+        {"native_connection_nonce", std::string(nativeConnectionNonce)},
+        {"scope", scope->ToJson()},
+        {"room_role", "HOST"}};
+    result["scope"]["room_role"] = "HOST";
+    return result;
+}
+
+nlohmann::json ConfirmClientMatchConnection(
+    const nlohmann::json& arguments)
+{
+    std::string parseError;
+    const auto confirmation =
+        NativeClientMatchConfirmation::FromJson(arguments, &parseError);
+    if (!confirmation)
+    {
+        return nlohmann::json{
+            {"accepted", false},
+            {"code", "invalid_confirmation"},
+            {"message", parseError.empty()
+                ? "native client confirmation is invalid" : parseError}};
+    }
+
+    std::lock_guard<std::mutex> lock(connectMutex);
+    const auto reject = [&](const char* code, const char* message) {
+        return nlohmann::json{
+            {"accepted", false},
+            {"code", code},
+            {"message", message},
+            {"status", ConnectStageName(connectStage)},
+            {"operation_sequence", connectSequence}};
+    };
+
+    const bool sameConfirmedConnection =
+        nativeBackendConnectionConfirmed && confirmedNativeMatchScope &&
+        stagedNativeHostScope == confirmation->hostScope &&
+        confirmedNativeMatchScope->Matches(confirmation->scope) &&
+        confirmedNativeConnectionNonce == confirmation->nativeConnectionNonce &&
+        confirmation->operationSequence == connectSequence;
+    if (sameConfirmedConnection)
+    {
+        nlohmann::json result{
+            {"accepted", true},
+            {"code", "already_confirmed"},
+            {"message", "native client connection confirmation already applied"},
+            {"status", ConnectStageName(connectStage)},
+            {"operation_sequence", connectSequence},
+            {"scope_verified", connectStage == ConnectStage::Playable &&
+                NativeReadinessSnapshotCurrentLocked() && localNativePawnReady && localNativeNetReady},
+            {"local_pawn_ready", localNativePawnReady},
+            {"native_net_ready", localNativeNetReady},
+            {"native_connection_nonce", confirmedNativeConnectionNonce},
+            {"local_world_instance_id", localWorldInstanceId}};
+        result["scope"] = confirmation->scope.ToJson();
+        if (confirmation->hostScope)
+            result["scope"]["room_role"] = "HOST";
+        return result;
+    }
+
+    if (!stagedNativeMatchScope ||
+        !stagedNativeMatchScope->Matches(confirmation->scope))
+    {
+        return reject(
+            "scope_mismatch",
+            "native client confirmation does not match the staged admission scope");
+    }
+    if (confirmation->operationSequence != connectSequence)
+    {
+        return reject(
+            "stale_operation",
+            "native client confirmation operation sequence is stale");
+    }
+    if (stagedNativeHostScope != confirmation->hostScope)
+    {
+        return reject(
+            "scope_role_mismatch",
+            "native client confirmation role does not match the staged operation");
+    }
+    if (stagedNativeHostScope &&
+        (stagedNativeConnectionNonce.empty() ||
+            stagedNativeConnectionNonce != confirmation->nativeConnectionNonce))
+    {
+        return reject(
+            "native_connection_nonce_mismatch",
+            "native HOST confirmation nonce does not match the staged authority nonce");
+    }
+    if (!pendingTarget.has_value() && !localAuthorityClientScopePending &&
+        connectStage != ConnectStage::Playable)
+    {
+        return reject(
+            "transition_not_pending",
+            "native client confirmation arrived outside the active transition");
+    }
+    if (connectStage == ConnectStage::Failed ||
+        connectStage == ConnectStage::Cancelled ||
+        connectStage == ConnectStage::Idle)
+    {
+        return reject(
+            "transition_not_pending",
+            "native client confirmation arrived after transition termination");
+    }
+    if (nativeBackendConnectionConfirmed &&
+        (!confirmedNativeMatchScope ||
+            !confirmedNativeMatchScope->Matches(confirmation->scope) ||
+            confirmedNativeConnectionNonce != confirmation->nativeConnectionNonce))
+    {
+        return reject(
+            "confirmation_conflict",
+            "a different native connection is already confirmed for this operation");
+    }
+
+    confirmedNativeMatchScope = confirmation->scope;
+    confirmedNativeConnectionNonce = confirmation->nativeConnectionNonce;
+    nativeBackendConnectionConfirmed = true;
+    // A pipe confirmation records backend proof only. Promotion is performed
+    // by the next game-thread observation of the current world and socket.
+    const bool promoted = false;
+    if (!promoted && localNativePawnReady)
+        connectStage = ConnectStage::LocalPawnReady;
+
+    nlohmann::json result{
+        {"accepted", true},
+        {"code", promoted ? "playable" : "accepted"},
+        {"message", promoted
+            ? "native client connection confirmed and local readiness is complete"
+            : "native client connection confirmed; awaiting local native readiness"},
+        {"status", ConnectStageName(connectStage)},
+        {"operation_sequence", connectSequence},
+        {"scope_verified", promoted},
+        {"local_pawn_ready", localNativePawnReady},
+        {"native_net_ready", localNativeNetReady},
+        {"native_connection_nonce", confirmedNativeConnectionNonce},
+        {"local_world_instance_id", localWorldInstanceId}};
+    result["scope"] = confirmation->scope.ToJson();
+    if (confirmation->hostScope)
+        result["scope"]["room_role"] = "HOST";
+    return result;
 }
 
 void ConnectToMatch()
@@ -1669,6 +2035,10 @@ void PumpPendingClientCommands()
     if (world == nullptr || world->OwningGameInstance == nullptr ||
         world->OwningGameInstance->LocalPlayers.Num() == 0)
     {
+        std::lock_guard<std::mutex> lock(connectMutex);
+        localNativePawnReady = false;
+        localNativeNetReady = false;
+        nativeReadinessObservedAt = {};
         return;
     }
 
@@ -1676,6 +2046,24 @@ void PumpPendingClientCommands()
         world->OwningGameInstance->LocalPlayers[0]);
     if (localPlayer == nullptr)
         return;
+
+    bool cancelTicketForWorldReplacement = false;
+    {
+        std::lock_guard<std::mutex> lock(connectMutex);
+        if (!localAuthorityClientScopePending && localWorldIdentity != world)
+        {
+            if (connectStage == ConnectStage::Playable && stagedNativeMatchScope)
+            {
+                ClearNativeMatchScopeLocked();
+                connectStage = ConnectStage::Failed;
+                lastConnectError = "confirmed_native_world_replaced";
+                cancelTicketForWorldReplacement = true;
+            }
+            (void)ObserveLocalWorldLocked(world);
+        }
+    }
+    if (cancelTicketForWorldReplacement)
+        StrictRosterSteamAuth::CancelClientAuthTicket();
 
     PumpNativeLoadoutInitialization(localPlayer);
 
@@ -1732,7 +2120,8 @@ void PumpPendingClientCommands()
     bool travelTimedOut = false;
     bool cancelSteamTicketAfterTravelFailure = false;
     bool destinationWorldReady = false;
-    bool destinationPlayable = false;
+    bool destinationLocalPawnReady = false;
+    bool destinationNativeNetReady = false;
     APBPlayerController* localPlayerController = nullptr;
     if (world->OwningGameInstance &&
         world->OwningGameInstance->LocalPlayers.Num() > 0)
@@ -1745,35 +2134,124 @@ void PumpPendingClientCommands()
     }
     {
         std::lock_guard<std::mutex> lock(connectMutex);
-        const bool watchingTravel = connectStage == ConnectStage::TravelRequested ||
-            connectStage == ConnectStage::WorldReady;
+        const bool watchingTravel = localAuthorityClientScopePending ||
+            connectStage == ConnectStage::TravelRequested ||
+            connectStage == ConnectStage::WorldReady ||
+            connectStage == ConnectStage::LocalPawnReady ||
+            connectStage == ConnectStage::WaitingBackendConfirmation ||
+            connectStage == ConnectStage::Playable;
         if (watchingTravel)
         {
-            destinationWorldReady = directTravelSourceWorld != nullptr &&
-                world != directTravelSourceWorld && world->GameState != nullptr;
+            if (stagedNativeHostScope)
+            {
+                destinationWorldReady = world->GameState != nullptr &&
+                    world->NetDriver != nullptr &&
+                    world->NetDriver->World == world &&
+                    stagedNativeHostScope && stagedNativeMatchScope &&
+                    ReadStrictAuthorityWorldInstanceId() ==
+                        stagedNativeMatchScope->worldInstanceId;
+            }
+            else
+            {
+                destinationWorldReady = directTravelSourceWorld != nullptr &&
+                    world != directTravelSourceWorld && world->GameState != nullptr;
+            }
             const APawn* const pawn = localPlayerController
                 ? localPlayerController->Pawn : nullptr;
-            destinationPlayable = destinationWorldReady && pawn &&
+            destinationLocalPawnReady = destinationWorldReady && pawn &&
                 pawn->IsA(APBCharacter::StaticClass()) &&
                 !pawn->bActorIsBeingDestroyed &&
                 localPlayerController->AcknowledgedPawn == pawn &&
                 localPlayerController->PBCharacter == pawn &&
                 static_cast<const APBCharacter*>(pawn)->CharacterLifeStatus ==
                     EPBCharacterLifeStatus::Alive;
-            if (destinationPlayable)
+            if (stagedNativeHostScope)
             {
-                connectStage = ConnectStage::Playable;
-                pendingTarget.reset();
-                nativeTicketDeadline = {};
-                ClearStagedNativeLoginGrantLocked();
-                ClientLog("[CLIENT] Native travel reached Playable; transition completed.");
+                // A listen HOST owns the authority NetDriver and its local
+                // PlayerController does not have a remote NetConnection.
+                // Require the local player, authority world/driver, and
+                // AuthorityGameMode instead of inventing a client socket.
+                destinationNativeNetReady = destinationLocalPawnReady &&
+                    localPlayer != nullptr &&
+                    localPlayerController != nullptr &&
+                    localPlayerController->Player != nullptr &&
+                    world->NetDriver != nullptr &&
+                    world->NetDriver->World == world &&
+                    world->AuthorityGameMode != nullptr;
             }
-            else if (destinationWorldReady && connectStage == ConnectStage::TravelRequested)
+            else
             {
-                connectStage = ConnectStage::WorldReady;
-                ClientLog("[CLIENT] Native travel reached WorldReady; awaiting PawnReady/Playable.");
+                const auto* const serverConnection = world->NetDriver
+                    ? world->NetDriver->ServerConnection : nullptr;
+                destinationNativeNetReady = destinationLocalPawnReady &&
+                    world->NetDriver != nullptr &&
+                    world->NetDriver->World == world &&
+                    localPlayerController != nullptr &&
+                    serverConnection != nullptr &&
+                    serverConnection->Driver == world->NetDriver &&
+                    serverConnection->PlayerController == localPlayerController;
             }
-            else if (travelDeadline != std::chrono::steady_clock::time_point{} &&
+            if (destinationWorldReady)
+            {
+                ObserveLocalWorldLocked(world);
+                localNativePawnReady = destinationLocalPawnReady;
+                localNativeNetReady = destinationNativeNetReady;
+                nativeReadinessObservedAt = now;
+
+                // Explicit offline PvE is the only path that may complete
+                // without an authority scope.  Online Playable requires the
+                // exact backend/native confirmation and the same-world
+                // network objects below.
+                if (connectStage == ConnectStage::Playable)
+                {
+                    // Continue refreshing readiness through respawn and
+                    // disconnect; a historical Pawn is never a fresh proof.
+                }
+                else if (destinationLocalPawnReady && destinationNativeNetReady &&
+                    IsOfflinePveClient())
+                {
+                    connectStage = ConnectStage::Playable;
+                    pendingTarget.reset();
+                    nativeTicketDeadline = {};
+                    ClearStagedNativeLoginGrantLocked();
+                    ClientLog("[CLIENT] Offline PvE travel reached Playable; transition completed.");
+                }
+                else if (TryPromoteClientPlayableLocked())
+                {
+                    ClientLog("[CLIENT] Strict native travel reached Playable after exact backend scope confirmation.");
+                }
+                else if (destinationLocalPawnReady)
+                {
+                    connectStage = localAuthorityClientScopePending
+                        ? ConnectStage::LocalPawnReady
+                        : (nativeBackendConnectionConfirmed
+                            ? ConnectStage::LocalPawnReady
+                            : ConnectStage::WaitingBackendConfirmation);
+                    ClientLog(nativeBackendConnectionConfirmed
+                        ? "[CLIENT] Native Pawn is ready; awaiting same-world NetConnection readiness."
+                        : "[CLIENT] Native Pawn/NetDriver are ready; awaiting exact backend connection confirmation.");
+                }
+                else if (connectStage == ConnectStage::TravelRequested ||
+                    connectStage == ConnectStage::LocalPawnReady ||
+                    connectStage == ConnectStage::WaitingBackendConfirmation ||
+                    localAuthorityClientScopePending)
+                {
+                    connectStage = localAuthorityClientScopePending
+                        ? ConnectStage::LocalAuthorityPending
+                        : ConnectStage::WorldReady;
+                    ClientLog(localAuthorityClientScopePending
+                        ? "[CLIENT] Native HOST world is listening; awaiting local Pawn/NetConnection."
+                        : "[CLIENT] Native travel reached WorldReady; awaiting native Pawn/NetConnection.");
+                }
+            }
+            else
+            {
+                localNativePawnReady = false;
+                localNativeNetReady = false;
+                nativeReadinessObservedAt = now;
+            }
+            if (connectStage != ConnectStage::Playable &&
+                travelDeadline != std::chrono::steady_clock::time_point{} &&
                 now >= travelDeadline)
             {
                 connectStage = ConnectStage::Failed;
@@ -1782,6 +2260,7 @@ void PumpPendingClientCommands()
                 pendingTarget.reset();
                 nativeTicketDeadline = {};
                 ClearStagedNativeLoginGrantLocked();
+                ClearNativeMatchScopeLocked();
                 frontendCleanupUntil = {};
                 nextFrontendCleanupAt = {};
                 travelTimedOut = true;
@@ -1800,7 +2279,15 @@ void PumpPendingClientCommands()
 
     {
         std::unique_lock<std::mutex> lock(connectMutex);
-        if (!pendingTarget.has_value())
+        const bool localAuthorityPending = localAuthorityClientScopePending;
+        if (!pendingTarget.has_value() && !localAuthorityPending)
+            return;
+
+        // A staged P2P HOST is already on the local authority travel path;
+        // it has no remote Grant or client Steam ticket to inject. Its only
+        // completion path is the local world/Pawn/NetConnection observation
+        // above plus the exact HOST CONNECTED confirmation.
+        if (localAuthorityPending)
             return;
 
         // A strict transition may reach this pump only with the signed grant
@@ -1814,6 +2301,7 @@ void PumpPendingClientCommands()
             pendingTarget.reset();
             nativeTicketDeadline = {};
             ClearStagedNativeLoginGrantLocked();
+            ClearNativeMatchScopeLocked();
             frontendCleanupUntil = {};
             nextFrontendCleanupAt = {};
             lock.unlock();
@@ -1831,6 +2319,7 @@ void PumpPendingClientCommands()
                 pendingTarget.reset();
                 nativeTicketDeadline = {};
                 ClearStagedNativeLoginGrantLocked();
+                ClearNativeMatchScopeLocked();
                 frontendCleanupUntil = {};
                 nextFrontendCleanupAt = {};
                 lock.unlock();
@@ -1848,6 +2337,7 @@ void PumpPendingClientCommands()
                 pendingTarget.reset();
                 nativeTicketDeadline = {};
                 ClearStagedNativeLoginGrantLocked();
+                ClearNativeMatchScopeLocked();
                 frontendCleanupUntil = {};
                 nextFrontendCleanupAt = {};
                 lock.unlock();
@@ -1877,6 +2367,12 @@ void PumpPendingClientCommands()
             connectTarget = pendingTarget;
         }
     }
+
+    // Once travel has been dispatched, later ticks only observe the world and
+    // admission. Having no new command on such a tick is not a travel failure;
+    // preserve the staged Grant/ticket until NMT_Login and confirmation finish.
+    if (!connectTarget.has_value())
+        return;
 
     bool actionSucceeded = false;
     try
@@ -1911,6 +2407,7 @@ void PumpPendingClientCommands()
         pendingTarget.reset();
         nativeTicketDeadline = {};
         ClearStagedNativeLoginGrantLocked();
+        ClearNativeMatchScopeLocked();
         frontendCleanupUntil = {};
         nextFrontendCleanupAt = {};
         lock.unlock();
@@ -1932,6 +2429,25 @@ nlohmann::json GetClientMatchStatus()
 {
     std::lock_guard<std::mutex> lock(connectMutex);
     const bool pending = pendingTarget.has_value();
+    const bool scopeVerified = connectStage == ConnectStage::Playable &&
+        nativeBackendConnectionConfirmed && NativeReadinessSnapshotCurrentLocked() && localNativePawnReady &&
+        localNativeNetReady && stagedNativeMatchScope &&
+        confirmedNativeMatchScope &&
+        stagedNativeMatchScope->Matches(*confirmedNativeMatchScope);
+    nlohmann::json scope = nlohmann::json::object();
+    if (stagedNativeMatchScope)
+    {
+        scope = stagedNativeMatchScope->ToJson();
+        if (stagedNativeHostScope)
+            scope["room_role"] = "HOST";
+    }
+    nlohmann::json playableScope = nlohmann::json::object();
+    if (confirmedNativeMatchScope)
+    {
+        playableScope = confirmedNativeMatchScope->ToJson();
+        if (stagedNativeHostScope)
+            playableScope["room_role"] = "HOST";
+    }
     return nlohmann::json{
         {"state", ConnectStageName(connectStage)},
         {"operation_sequence", connectSequence},
@@ -1940,6 +2456,16 @@ nlohmann::json GetClientMatchStatus()
         {"login_ready", IsClientLoginReadyForTravel()},
         {"native_grant_staged", pending && !stagedNativeLoginGrant.empty()},
         {"native_grant_injected", pending && stagedNativeLoginGrantInjected},
+        {"scope", std::move(scope)},
+        {"playable_scope", std::move(playableScope)},
+        {"scope_verified", scopeVerified},
+        {"local_pawn_ready", localNativePawnReady},
+        {"native_net_ready", localNativeNetReady},
+        {"local_authority_scope_pending", localAuthorityClientScopePending},
+        {"native_connection_nonce", nativeBackendConnectionConfirmed
+            ? confirmedNativeConnectionNonce
+            : (stagedNativeHostScope ? stagedNativeConnectionNonce : std::string{})},
+        {"local_world_instance_id", localWorldInstanceId},
         {"last_error", lastConnectError}
     };
 }
@@ -1948,9 +2474,12 @@ nlohmann::json CancelPendingClientTransition()
 {
     bool shouldCancelSteamTicket = false;
     bool wasTerminal = false;
+    std::string terminalStatus;
+    std::string terminalCode;
+    std::uint64_t terminalSequence = 0;
     {
         std::lock_guard<std::mutex> lock(connectMutex);
-        if (!pendingTarget.has_value() &&
+        if (!pendingTarget.has_value() && !localAuthorityClientScopePending &&
             connectStage != ConnectStage::TravelRequested &&
             connectStage != ConnectStage::WorldReady)
         {
@@ -1964,11 +2493,23 @@ nlohmann::json CancelPendingClientTransition()
             shouldCancelSteamTicket = true;
             nativeTicketDeadline = {};
             ClearStagedNativeLoginGrantLocked();
+            const bool wasPlayable = connectStage == ConnectStage::Playable;
+            ClearNativeMatchScopeLocked();
+            if (wasPlayable)
+            {
+                connectStage = ConnectStage::Cancelled;
+                lastConnectError = "cancelled";
+                ++connectSequence;
+            }
+            terminalStatus = ConnectStageName(connectStage);
+            terminalCode = wasPlayable ? "cancelled" : "already_terminal";
+            terminalSequence = connectSequence;
         }
         else
         {
             pendingTarget.reset();
             ClearStagedNativeLoginGrantLocked();
+            ClearNativeMatchScopeLocked();
             connectStage = ConnectStage::Cancelled;
             lastConnectError = "cancelled";
             frontendCleanupUntil = {};
@@ -1984,8 +2525,9 @@ nlohmann::json CancelPendingClientTransition()
     if (wasTerminal)
         return nlohmann::json{
             {"accepted", true},
-            {"status", ConnectStageName(connectStage)},
-            {"code", "already_terminal"}
+            {"status", terminalStatus},
+            {"code", terminalCode},
+            {"operation_sequence", terminalSequence}
         };
     ClientLog("[CLIENT] Cancelled pending native travel operation.");
     return nlohmann::json{

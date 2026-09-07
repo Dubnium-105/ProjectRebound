@@ -13,7 +13,9 @@ namespace CommandProtocol
     inline constexpr char Delimiter = '\t';
     inline constexpr char Newline = '\n';
     inline constexpr std::size_t MaxFrameBytes = 64U * 1024U;
-    inline constexpr std::size_t MaxCommandBytes = 32U;
+    // Includes scoped acknowledgement names such as
+    // confirm_client_match_connection_ack.
+    inline constexpr std::size_t MaxCommandBytes = 64U;
     inline constexpr std::size_t MaxRequestIdBytes = 128U;
     inline constexpr std::size_t MaxMatchTargetBytes = 512U;
     inline constexpr std::size_t MaxTokenBytes = 4096U;

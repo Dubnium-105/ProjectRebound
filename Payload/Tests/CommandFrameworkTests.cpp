@@ -144,13 +144,16 @@ namespace
         framework.SetPipeName(pipeName);
         framework.SetWatchdogTimeout(3000);
         framework.SetWriteTimeout(1000);
-        framework.SetJoinCallback([&](const std::string&, const std::string&)
+        framework.SetJoinCallback([&](const std::string&, const std::string&,
+            const nlohmann::json& expectedScope)
             {
+                Expect(expectedScope.value("attempt_id", "") == "att_join",
+                    "join callback receives the frozen scope");
                 joinRanOnListener.store(framework.IsListenerThread());
                 const unsigned int call = ++joinCalls;
                 if (call == 1)
                     return CommandFramework::JoinResult{
-                        true, "accepted", "join queued"};
+                        true, "accepted", "join queued", 17};
                 if (call == 2)
                     return CommandFramework::JoinResult{
                         false, "busy", "a match transition is already pending"};
@@ -165,6 +168,14 @@ namespace
                     {"state", "RUNNING"},
                     {"player_count", 2},
                     {"round_state", "InProgress"}
+                };
+            });
+        framework.SetClientMatchConnectionConfirmationCallback(
+            [](const nlohmann::json& arguments) {
+                return nlohmann::json{
+                    {"accepted", arguments.value("operation_sequence", 0) == 17},
+                    {"code", "operation_scope_mismatch"},
+                    {"message", "the native client operation does not match"}
                 };
             });
         framework.SetMatchAllocationCallback([](const nlohmann::json& arguments)
@@ -301,14 +312,16 @@ namespace
                 "pong echoes request id");
 
             Expect(WriteFrame(client.Get(),
-                "join\t{\"ip\":\"127.0.0.1:7777\",\"token\":\"signed.join.grant\",\"request_id\":\"join-1\"}\n"),
+                "join\t{\"ip\":\"127.0.0.1:7777\",\"token\":\"signed.join.grant\",\"expected_scope\":{\"attempt_id\":\"att_join\"},\"request_id\":\"join-1\"}\n"),
                 "join request is written");
-            Expect(ReadFrame(client.Get()).find("join_ack\t") == 0,
-                "accepted join receives join_ack");
+            const std::string joined = ReadFrame(client.Get());
+            Expect(joined.find("join_ack\t") == 0 &&
+                joined.find("\"operation_sequence\":17") != std::string::npos,
+                "accepted join receives its actual native operation sequence");
             Expect(joinRanOnListener.load(), "join callback runs on listener thread");
 
             Expect(WriteFrame(client.Get(),
-                "join\t{\"ip\":\"127.0.0.1:7777\",\"token\":\"signed.join.grant-2\",\"request_id\":\"join-2\"}\n"),
+                "join\t{\"ip\":\"127.0.0.1:7777\",\"token\":\"signed.join.grant-2\",\"expected_scope\":{\"attempt_id\":\"att_join\"},\"request_id\":\"join-2\"}\n"),
                 "second join request is written");
             const std::string busy = ReadFrame(client.Get());
             Expect(busy.find("error\t") == 0 &&
@@ -331,7 +344,7 @@ namespace
                 "invalid target is rejected");
 
             Expect(WriteFrame(client.Get(),
-                "join\t{\"ip\":\"127.0.0.1:7777\",\"token\":\"signed.join.grant-3\",\"request_id\":\"join-unverified\"}\n"),
+                "join\t{\"ip\":\"127.0.0.1:7777\",\"token\":\"signed.join.grant-3\",\"expected_scope\":{\"attempt_id\":\"att_join\"},\"request_id\":\"join-unverified\"}\n"),
                 "unverified join request is written");
             const std::string unverified = ReadFrame(client.Get());
             Expect(unverified.find("\"code\":\"native_client_grant_injection_unverified\"") !=
@@ -348,6 +361,29 @@ namespace
                 missingJoinRequestId.find("\"code\":\"invalid_request\"") != std::string::npos &&
                 missingJoinRequestId.find("\"request_id\":") == std::string::npos,
                 "join without request id is rejected before native admission");
+
+            Expect(WriteFrame(client.Get(),
+                "join\t{\"ip\":\"127.0.0.1:7777\",\"token\":\"signed.join.grant\",\"request_id\":\"join-no-scope\"}\n"),
+                "join without scope request is written");
+            const std::string missingScope = ReadFrame(client.Get());
+            Expect(missingScope.find("\"code\":\"scope_required\"") != std::string::npos &&
+                joinCalls.load() == 3,
+                "join without scope never calls the native transition handler");
+
+            Expect(WriteFrame(client.Get(),
+                "confirm_client_match_connection\t{\"operation_sequence\":17,\"request_id\":\"client-confirm-1\"}\n"),
+                "client confirmation request is written");
+            const std::string clientConfirmed = ReadFrame(client.Get());
+            Expect(clientConfirmed.find("confirm_client_match_connection_ack\t") == 0 &&
+                clientConfirmed.find("\"request_id\":\"client-confirm-1\"") != std::string::npos,
+                "client connection confirmation uses the client callback and correlated ACK");
+            Expect(WriteFrame(client.Get(),
+                "confirm_client_match_connection\t{\"operation_sequence\":16,\"request_id\":\"client-confirm-stale\"}\n"),
+                "stale client confirmation request is written");
+            const std::string staleClientConfirmation = ReadFrame(client.Get());
+            Expect(staleClientConfirmation.find("\"code\":\"operation_scope_mismatch\"") != std::string::npos &&
+                staleClientConfirmation.find("\"request_id\":\"client-confirm-stale\"") != std::string::npos,
+                "client confirmation preserves native scoped rejection");
 
             Expect(WriteFrame(client.Get(),
                 "server_status\t{\"request_id\":\"status-1\"}\n"),

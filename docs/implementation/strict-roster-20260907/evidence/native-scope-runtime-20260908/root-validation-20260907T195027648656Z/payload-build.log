@@ -1,0 +1,12 @@
+适用于 .NET Framework MSBuild 版本 18.3.0-release-26070-10+3972042b7
+
+  ClientLogic.cpp
+  Hooks.cpp
+  dllmain.cpp
+    正在创建库 C:\wksp\ProjectRebound\Payload\x64\Release\Payload.lib 和对象 C:\wksp\ProjectRebound\Payload\x64\Release\Payload.exp
+  正在生成代码
+  531 of 15250 functions ( 3.5%) were compiled, the rest were copied from previous compilation.
+    8 functions were new in current compilation
+    451 functions had inline decision re-evaluated but remain unchanged
+  已完成代码的生成
+  Payload.vcxproj -> C:\wksp\ProjectRebound\Payload\x64\Release\Payload.dll

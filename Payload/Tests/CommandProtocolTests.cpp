@@ -121,6 +121,19 @@ namespace
 
     void TestResponses()
     {
+        const auto confirmedFrame = CommandProtocol::EncodeFrame(
+            "confirm_client_match_connection_ack", nlohmann::json::object());
+        Expect(CommandProtocol::ParseFrame(confirmedFrame.substr(0, confirmedFrame.size() - 1)).Succeeded(),
+            "scoped client acknowledgement fits the shared command limit");
+        const std::string maximumCommand(CommandProtocol::MaxCommandBytes, 'a');
+        Expect(CommandProtocol::ParseFrame(maximumCommand + "\t{}").Succeeded(),
+            "maximum bounded command name is accepted");
+        Expect(!CommandProtocol::ParseFrame(maximumCommand + "a\t{}").Succeeded(),
+            "command name exceeding the shared limit is rejected");
+        bool rejectedOversizedCommand = false;
+        try { (void)CommandProtocol::EncodeFrame(maximumCommand + "a", nlohmann::json::object()); }
+        catch (const std::invalid_argument&) { rejectedOversizedCommand = true; }
+        Expect(rejectedOversizedCommand, "response command exceeding the shared limit is rejected");
         const auto payload = CommandProtocol::WithRequestId(
             nlohmann::json{{"status", "accepted"}},
             std::optional<std::string>("req-2"));
@@ -174,7 +187,8 @@ namespace
             "join_ack",
             nlohmann::json{
                 {"request_id", "fixture-join"},
-                {"status", "accepted"}
+                {"status", "accepted"},
+                {"operation_sequence", 12}
             });
         responses.emplace_back(
             "install_match_allocation_ack",
@@ -192,7 +206,25 @@ namespace
                 {"endpoint_host", "127.0.0.1"},
                 {"endpoint_port", 7777},
                 {"world_instance_id", "fixture_world"},
-                {"native_connection_nonce", nonce}
+                {"native_connection_nonce", nonce},
+                {"operation_sequence", 0}
+            });
+        nlohmann::json clientScope = scope;
+        clientScope["player_id"] = "fixture_player";
+        clientScope["grant_jti"] = "fixture_grant";
+        clientScope["connection_generation"] = 2;
+        responses.emplace_back(
+            "confirm_client_match_connection_ack",
+            nlohmann::json{
+                {"accepted", true}, {"code", "accepted"},
+                {"status", "travel_requested"},
+                {"request_id", "fixture-client-confirm"},
+                {"operation_sequence", 12},
+                {"scope", clientScope},
+                {"native_connection_nonce", nonce},
+                {"scope_verified", false},
+                {"local_pawn_ready", false}, {"native_net_ready", false},
+                {"local_world_instance_id", "client_world_fixture"}
             });
         responses.emplace_back(
             "match_connection_events_ack",

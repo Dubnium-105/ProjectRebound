@@ -577,6 +577,14 @@ namespace StrictRoster
             pending.logicalSlot = claims.value("logical_slot", -1);
             pending.generation = claims.value("connection_generation", 0);
             pending.expiresAt = claims.value("exp", std::int64_t{0});
+            const auto worldInstanceClaim = claims.find("world_instance_id");
+            if (worldInstanceClaim == claims.end() ||
+                !worldInstanceClaim->is_string())
+            {
+                return Reject("grant_world_mismatch",
+                    "join grant is missing its signed native world instance");
+            }
+            pending.worldInstanceId = worldInstanceClaim->get<std::string>();
             if (claims.value("iss", "") != "game-control-plane" ||
                 claims.value("aud", "") != "project-rebound-match-client" ||
                 claims.value("kid", "") != allocation_->keyId ||
@@ -591,9 +599,16 @@ namespace StrictRoster
                 pending.expiresAt <= now ||
                 !Detail::SafeIdentifier(pending.jti, 96U) ||
                 !Detail::SafeIdentifier(pending.playerId) ||
-                !Detail::SafeIdentifier(pending.platformId))
+                !Detail::SafeIdentifier(pending.platformId) ||
+                !Detail::SafeIdentifier(pending.worldInstanceId))
             {
                 return Reject("grant_claim_mismatch", "join grant claims do not match this authority");
+            }
+            if (nativeWorldInstanceId_.empty() ||
+                pending.worldInstanceId != nativeWorldInstanceId_)
+            {
+                return Reject("grant_world_mismatch",
+                    "join grant belongs to a different native authority world");
             }
             const auto seatIt = allocation_->seats.find(pending.playerId);
             if (seatIt == allocation_->seats.end())
@@ -648,6 +663,13 @@ namespace StrictRoster
             {
                 return Reject("native_identity_mismatch", "the native identity is not the staged seat");
             }
+            if (!Detail::SafeIdentifier(pending.worldInstanceId) ||
+                nativeWorldInstanceId_.empty() ||
+                pending.worldInstanceId != nativeWorldInstanceId_)
+            {
+                return Reject("grant_world_mismatch",
+                    "the staged grant belongs to a different native authority world");
+            }
 
             std::string validatedGrantJti;
             try
@@ -669,6 +691,15 @@ namespace StrictRoster
                 const int logicalSlot = claims.value("logical_slot", -1);
                 const int generation = claims.value("connection_generation", 0);
                 const std::int64_t expiresAt = claims.value("exp", std::int64_t{0});
+                const auto worldInstanceClaim = claims.find("world_instance_id");
+                if (worldInstanceClaim == claims.end() ||
+                    !worldInstanceClaim->is_string())
+                {
+                    return Reject("native_grant_mismatch",
+                        "the NMT_Login grant has no signed native world instance");
+                }
+                const std::string worldInstanceId =
+                    worldInstanceClaim->get<std::string>();
                 if (claims.value("iss", "") != "game-control-plane" ||
                     claims.value("aud", "") != "project-rebound-match-client" ||
                     claims.value("kid", "") != allocation_->keyId ||
@@ -684,7 +715,10 @@ namespace StrictRoster
                     !Detail::SafeIdentifier(jti, 96U) ||
                     !Detail::SafeIdentifier(playerId) ||
                     !Detail::SafeIdentifier(platformId) ||
+                    !Detail::SafeIdentifier(worldInstanceId) ||
                     playerId != pending.playerId || platformId != pending.platformId ||
+                    worldInstanceId != pending.worldInstanceId ||
+                    worldInstanceId != nativeWorldInstanceId_ ||
                     jti != pending.jti || teamId != pending.teamId ||
                     teamSlot != pending.teamSlot || logicalSlot != pending.logicalSlot ||
                     generation != pending.generation || expiresAt != pending.expiresAt ||
@@ -726,6 +760,12 @@ namespace StrictRoster
             {
                 stagedGrants_.erase(staged);
                 return RejectSeat("grant_expired", "the staged join grant has expired");
+            }
+            if (!Detail::SafeIdentifier(pending.worldInstanceId) ||
+                pending.worldInstanceId != nativeWorldInstanceId_)
+            {
+                return RejectSeat("grant_world_mismatch",
+                    "the staged grant belongs to a different native authority world");
             }
             const auto seatIt = allocation_->seats.find(pending.playerId);
             if (seatIt == allocation_->seats.end() || seatIt->second.platformId != authenticatedPlatformId)
@@ -1322,6 +1362,7 @@ namespace StrictRoster
             std::string playerId;
             std::string platformId;
             std::string jti;
+            std::string worldInstanceId;
             int teamId = 0;
             int teamSlot = -1;
             int logicalSlot = -1;

@@ -167,10 +167,14 @@ struct StrictAuthorityReadyLease
     std::string hostingKind;
     std::string nativeConnectionNonce;
     std::string worldInstanceId;
+    std::uint64_t clientOperationSequence = 0;
     std::optional<StrictRoster::AllocationScope> allocationScope;
+    UWorld* world = nullptr;
+    UNetDriver* netDriver = nullptr;
 };
 
 StrictAuthorityReadyLease gStrictAuthorityReadyLease;
+std::optional<StrictAuthorityCleanupPlan> gStrictAuthorityFailedStageCleanup;
 
 using StrictAuthorityMutationLease = StrictAuthorityLease::MutationLease;
 
@@ -804,6 +808,11 @@ LoadoutBridgeOptions GetLoadoutBridgeOptions()
 }
 }
 
+std::string ReadStrictAuthorityWorldInstanceId()
+{
+    return CurrentStrictAuthorityWorldInstanceId();
+}
+
 namespace
 {
     nlohmann::json StrictAuthorityStartFailure(
@@ -921,6 +930,41 @@ namespace
             plan.reason + (requested
                 ? "; teardown requested, native_cleared remains false."
                 : "; native teardown entry was unavailable, native_cleared remains false."));
+    }
+
+    // The pipe listener may only copy the world/driver ownership captured at
+    // the successful game-thread start. Native teardown is deferred to a tick.
+    bool QueueFailedHostStageCleanup(
+        const StrictRoster::AllocationScope& scope,
+        const std::string& worldInstanceId,
+        const std::string& nativeConnectionNonce)
+    {
+        StrictAuthorityCleanupPlan plan{
+            StrictRosterCleanupState{true, false, false, scope.attemptId,
+                scope.authoritySessionId, worldInstanceId, scope.rosterRevision,
+                scope.routeGeneration, nullptr, nullptr, true},
+            "local HOST scope staging failed"};
+        {
+            std::lock_guard<std::mutex> lock(gStrictAuthorityStartMutex);
+            const auto& lease = gStrictAuthorityReadyLease;
+            if (lease.active && lease.allocationScope &&
+                lease.worldInstanceId == worldInstanceId &&
+                lease.nativeConnectionNonce == nativeConnectionNonce &&
+                lease.allocationScope->attemptId == scope.attemptId &&
+                lease.allocationScope->authoritySessionId == scope.authoritySessionId &&
+                lease.allocationScope->rosterRevision == scope.rosterRevision &&
+                lease.allocationScope->routeGeneration == scope.routeGeneration)
+            {
+                plan.state.retiredWorld = lease.world;
+                plan.state.retiredNetDriver = lease.netDriver;
+                plan.state.quarantined = lease.world == nullptr;
+            }
+        }
+        if (!RegisterStrictAuthorityCleanupOwner(plan))
+            return false;
+        std::lock_guard<std::mutex> lock(gStrictAuthorityStartMutex);
+        gStrictAuthorityFailedStageCleanup = plan;
+        return true;
     }
 
     // Compatibility wrapper for paths that already run on the game thread.
@@ -1118,6 +1162,16 @@ bool IsStrictAuthorityWorldListeningSnapshot()
 
 void PumpStrictAuthorityStartOnGameThread()
 {
+    std::optional<StrictAuthorityCleanupPlan> failedStageCleanup;
+    {
+        std::lock_guard<std::mutex> lock(gStrictAuthorityStartMutex);
+        failedStageCleanup.swap(gStrictAuthorityFailedStageCleanup);
+    }
+    if (failedStageCleanup)
+    {
+        ExecuteStrictAuthorityCleanup(*failedStageCleanup);
+        return;
+    }
     std::shared_ptr<StrictAuthorityStartDispatch::Request> baseRequest =
         gStrictAuthorityStartQueue.Claim();
     if (!baseRequest)
@@ -1257,7 +1311,10 @@ void PumpStrictAuthorityStartOnGameThread()
                     gStrictAuthorityReadyLease.nativeConnectionNonce =
                         request->nativeConnectionNonce;
                     gStrictAuthorityReadyLease.worldInstanceId = worldInstanceId;
+                    gStrictAuthorityReadyLease.clientOperationSequence = 0;
                     gStrictAuthorityReadyLease.allocationScope = request->allocationScope;
+                    gStrictAuthorityReadyLease.world = authoritativeWorld;
+                    gStrictAuthorityReadyLease.netDriver = authoritativeWorld->NetDriver;
                 }
             }
 
@@ -1531,7 +1588,8 @@ void PumpStrictRosterClearOnGameThread()
 
 CommandFramework::JoinResult OnJoinFromPipe(
     const std::string& ip,
-    const std::string& token)
+    const std::string& token,
+    const nlohmann::json& expectedScope)
 {
     ClientLog("[PIPE] Join request received for target " + ip + ".");
     if (token.empty())
@@ -1542,9 +1600,9 @@ CommandFramework::JoinResult OnJoinFromPipe(
             "online join requires a signed short-lived grant"};
     }
     const AuthorizedJoinResult result =
-        QueueConnectToMatchAuthorizedDetailed(ip, token);
+        QueueConnectToMatchAuthorizedDetailed(ip, token, expectedScope);
     return CommandFramework::JoinResult{
-        result.accepted, result.code, result.message};
+        result.accepted, result.code, result.message, result.operationSequence};
 }
 
 nlohmann::json OnInstallMatchAllocation(const nlohmann::json& arguments)
@@ -1784,6 +1842,13 @@ nlohmann::json OnStartMatchAuthority(const nlohmann::json& arguments)
                 worldStillListening);
         if (leaseDecision == StrictAuthorityLease::Decision::SameRouteReplay)
         {
+            if (*hostingKind == "P2P" && readyLease->clientOperationSequence == 0)
+            {
+                return nlohmann::json{
+                    {"accepted", false}, {"code", "native_host_scope_unavailable"},
+                    {"message", "the live authority has no staged local HOST operation"},
+                    {"world_teardown_required", true}};
+            }
             return nlohmann::json{
                 {"accepted", true},
                 {"code", "accepted"},
@@ -1791,6 +1856,7 @@ nlohmann::json OnStartMatchAuthority(const nlohmann::json& arguments)
                 {"endpoint_port", endpointPort},
                 {"world_instance_id", readyLease->worldInstanceId},
                 {"native_connection_nonce", readyLease->nativeConnectionNonce},
+                {"operation_sequence", readyLease->clientOperationSequence},
                 {"idempotent", true}
             };
         }
@@ -1976,6 +2042,39 @@ nlohmann::json OnStartMatchAuthority(const nlohmann::json& arguments)
     }
     if (authorityWorldInstanceId.empty())
         authorityWorldInstanceId = CurrentStrictAuthorityWorldInstanceId();
+    std::uint64_t clientOperationSequence = 0;
+    if (*hostingKind == "P2P")
+    {
+        const nlohmann::json localHostScope{
+            {"attempt_id", allocationScope->attemptId},
+            {"authority_session_id", allocationScope->authoritySessionId},
+            {"world_instance_id", authorityWorldInstanceId},
+            {"roster_revision", allocationScope->rosterRevision},
+            {"route_generation", allocationScope->routeGeneration},
+            {"player_id", hostDecision.playerId},
+            {"grant_jti", ""}, {"room_role", "HOST"},
+            {"connection_generation", hostDecision.connectionGeneration}};
+        const auto staged = StageLocalAuthorityClientScope(localHostScope, authorityNonce);
+        clientOperationSequence = staged.value("operation_sequence", 0ULL);
+        if (!staged.value("accepted", false) || clientOperationSequence == 0)
+        {
+            const bool cleanupOwned = QueueFailedHostStageCleanup(
+                *allocationScope, authorityWorldInstanceId, authorityNonce);
+            return nlohmann::json{
+                {"accepted", false},
+                {"status", "cleanup_pending"},
+                {"cleanup_owner_registered", cleanupOwned},
+                {"native_cleared", false},
+                {"code", staged.value("code", "native_host_scope_unavailable")},
+                {"message", "the native authority world started but its local HOST scope could not be staged"},
+                {"world_instance_id", authorityWorldInstanceId},
+                {"world_teardown_required", true}};
+        }
+        std::lock_guard<std::mutex> lock(gStrictAuthorityStartMutex);
+        if (gStrictAuthorityReadyLease.active &&
+            gStrictAuthorityReadyLease.worldInstanceId == authorityWorldInstanceId)
+            gStrictAuthorityReadyLease.clientOperationSequence = clientOperationSequence;
+    }
     ClientLog("[STRICT-ROSTER] Authority admission activated.");
     return nlohmann::json{
         {"accepted", true},
@@ -1983,7 +2082,8 @@ nlohmann::json OnStartMatchAuthority(const nlohmann::json& arguments)
         {"endpoint_host", endpointHost},
         {"endpoint_port", endpointPort},
         {"world_instance_id", authorityWorldInstanceId},
-        {"native_connection_nonce", authorityNonce}
+        {"native_connection_nonce", authorityNonce},
+        {"operation_sequence", clientOperationSequence}
     };
 }
 
@@ -2416,6 +2516,7 @@ bool StartServerCommandFramework()
     framework->SetMatchAdmissionReservationCallback(OnConfirmMatchAdmission);
     framework->SetMatchConnectionConfirmationCallback(OnConfirmMatchConnection);
     framework->SetMatchAdmissionReleaseCallback(OnReleaseMatchAdmission);
+    framework->SetClientMatchConnectionConfirmationCallback(ConfirmClientMatchConnection);
     framework->SetServerStatusCallback([]()
         {
             const nlohmann::json current = BuildServerStatusPayload();
@@ -2896,6 +2997,7 @@ void MainThread()
                 framework->SetMatchAdmissionReservationCallback(OnConfirmMatchAdmission);
                 framework->SetMatchConnectionConfirmationCallback(OnConfirmMatchConnection);
                 framework->SetMatchAdmissionReleaseCallback(OnReleaseMatchAdmission);
+                framework->SetClientMatchConnectionConfirmationCallback(ConfirmClientMatchConnection);
                 framework->SetLogCallback([](const std::string& msg) { ClientLog(msg); });
                 framework->SetDebugCallback([](const nlohmann::json& args) {
                     if (gDebugTool)

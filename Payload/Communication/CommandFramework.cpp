@@ -247,6 +247,17 @@ void CommandFramework::SetMatchAdmissionReleaseCallback(
     }
 }
 
+void CommandFramework::SetClientMatchConnectionConfirmationCallback(
+    MatchAdmissionReceiptCallback callback)
+{
+    std::lock_guard<std::mutex> lock(lifecycleMutex);
+    if (!running.load() && !stopping)
+    {
+        std::lock_guard<std::mutex> callbackLock(callbackMutex);
+        onClientMatchConnectionConfirmation = std::move(callback);
+    }
+}
+
 bool CommandFramework::BuildPipePath(std::string& failureReason)
 {
     if (pipeName.empty() || pipeName.size() > MaxPipeNameBytes)
@@ -1003,6 +1014,15 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
                     : FrameResult::TransportError;
             }
 
+            const auto expectedScope = request.arguments.find("expected_scope");
+            if (expectedScope == request.arguments.end() ||
+                !expectedScope->is_object() || expectedScope->empty())
+            {
+                SecureClear(token);
+                return SendError("scope_required",
+                    "online join requires its frozen expected scope", request.requestId)
+                    ? FrameResult::Processed : FrameResult::TransportError;
+            }
             JoinCallback joinCallback;
             {
                 std::lock_guard<std::mutex> callbackLock(callbackMutex);
@@ -1014,7 +1034,7 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
                     ? FrameResult::Processed
                     : FrameResult::TransportError;
             }
-            const JoinResult result = joinCallback(target, token);
+            const JoinResult result = joinCallback(target, token, *expectedScope);
             SecureClear(token);
             if (!result.accepted)
             {
@@ -1028,10 +1048,17 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
                     : FrameResult::TransportError;
             }
 
+            if (result.operationSequence == 0)
+            {
+                return SendError("operation_sequence_unavailable",
+                    "native join did not return its operation sequence", request.requestId)
+                    ? FrameResult::Processed : FrameResult::TransportError;
+            }
             return SendResponse(
                 "join_ack",
                 CommandProtocol::WithRequestId(
-                    nlohmann::json{{"status", "accepted"}},
+                    nlohmann::json{{"status", "accepted"},
+                        {"operation_sequence", result.operationSequence}},
                     request.requestId))
                 ? FrameResult::Processed
                 : FrameResult::TransportError;
@@ -1223,7 +1250,8 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
                         {"endpoint_host", endpointHost},
                         {"endpoint_port", endpointPort},
                         {"world_instance_id", result.value("world_instance_id", "")},
-                        {"native_connection_nonce", nativeConnectionNonce}
+                        {"native_connection_nonce", nativeConnectionNonce},
+                        {"operation_sequence", result.value("operation_sequence", 0ULL)}
                     },
                     request.requestId))
                 ? FrameResult::Processed
@@ -1280,6 +1308,7 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
 
         if (request.command == "confirm_match_admission" ||
             request.command == "confirm_match_connection" ||
+            request.command == "confirm_client_match_connection" ||
             request.command == "release_match_admission")
         {
             if (!request.requestId.has_value())
@@ -1301,6 +1330,11 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
                 {
                     callback = onMatchConnectionConfirmation;
                     responseCommand = "confirm_match_connection_ack";
+                }
+                else if (request.command == "confirm_client_match_connection")
+                {
+                    callback = onClientMatchConnectionConfirmation;
+                    responseCommand = "confirm_client_match_connection_ack";
                 }
                 else
                 {

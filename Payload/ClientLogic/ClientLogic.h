@@ -1,8 +1,10 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include "../Libs/json.hpp"
+#include "NativeMatchScope.h"
 
 namespace SDK
 {
@@ -14,6 +16,9 @@ struct AuthorizedJoinResult
     bool accepted = false;
     std::string code;
     std::string message;
+    // Correlates the join ACK with the one staged native transition.  It is
+    // never reused for another Grant or world.
+    std::uint64_t operationSequence = 0;
 };
 
 // Thread-safe producer API. The actual Unreal calls are performed by
@@ -22,15 +27,28 @@ struct AuthorizedJoinResult
 // Strict joins carry their grant in the fixed NMT_Login field2 serializer.
 // The queue remains fail-closed until that pinned hook is installed and never
 // falls back to an unscoped direct `open` transition.
-[[nodiscard]] bool QueueConnectToMatchAuthorized(
-    const std::string& target,
-    std::string_view joinGrant);
-// Structured result for the command channel.  A false return from the
-// legacy bool wrapper cannot distinguish a real queue conflict from the
-// deliberately fail-closed, unverified native NMT_Login injection path.
+// Strict online joins must carry the frozen scope delivered by the guarded
+// Toolbox pipe alongside the opaque Grant.  Payload does not parse that Grant
+// as a source of trust; it binds this correlation scope to this operation and
+// waits for the later exact backend/native confirmation.
 [[nodiscard]] AuthorizedJoinResult QueueConnectToMatchAuthorizedDetailed(
     const std::string& target,
-    std::string_view joinGrant);
+    std::string_view joinGrant,
+    const nlohmann::json& expectedScope);
+// P2P HOST uses its local native socket rather than a remote Grant. The
+// explicit HOST scope must carry room_role=HOST and an empty grant_jti; the
+// native nonce is the exact nonce returned by StartAuthorityForAllocatedHost.
+// This only stages the local-authority observation. Playable still requires
+// the later scoped backend HOST CONNECTED confirmation plus local readiness.
+[[nodiscard]] nlohmann::json StageLocalAuthorityClientScope(
+    const nlohmann::json& hostScope,
+    std::string_view nativeConnectionNonce);
+// Called by the guarded command channel after Backend ConfirmConnected and
+// the native authority have returned the exact scope/nonce.  The command is
+// idempotent for the same operation sequence and rejects stale or mismatched
+// scope data.
+[[nodiscard]] nlohmann::json ConfirmClientMatchConnection(
+    const nlohmann::json& arguments);
 // The fixed-build NMT_Login serializer borrows this copy only for the
 // synchronous save call.  The grant remains staged until the native travel
 // operation reaches a terminal state so reliable retransmits receive the same

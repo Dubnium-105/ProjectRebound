@@ -89,6 +89,15 @@ enable_strict_warnings(native_login_grant_policy_tests)
 
 add_test(NAME native_login_grant_policy_tests COMMAND native_login_grant_policy_tests)
 
+add_executable(native_match_scope_tests
+    NativeMatchScopeTests.cpp
+)
+
+target_compile_features(native_match_scope_tests PRIVATE cxx_std_20)
+enable_strict_warnings(native_match_scope_tests)
+
+add_test(NAME native_match_scope_tests COMMAND native_match_scope_tests)
+
 add_executable(server_hook_policy_tests
     ServerHookPolicyTests.cpp
 )

@@ -1,0 +1,10 @@
+适用于 .NET Framework MSBuild 版本 18.3.0-release-26070-10+3972042b7
+
+  ClientLogic.cpp
+  CommandFramework.cpp
+  CommandProtocol.cpp
+  Hooks.cpp
+  dllmain.cpp
+    正在创建库 C:\wksp\ProjectRebound\Payload\x64\Release\Payload.lib 和对象 C:\wksp\ProjectRebound\Payload\x64\Release\Payload.exp
+ClientLogic.obj : error LNK2001: 无法解析的外部符号 "class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > __cdecl CurrentStrictAuthorityWorldInstanceId(void)" (?CurrentStrictAuthorityWorldInstanceId@@YA?AV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@XZ) [C:\wksp\ProjectRebound\Payload\Payload.vcxproj]
+C:\wksp\ProjectRebound\Payload\x64\Release\Payload.dll : fatal error LNK1120: 1 个无法解析的外部命令 [C:\wksp\ProjectRebound\Payload\Payload.vcxproj]
