@@ -22,6 +22,32 @@ def sha(path):
     return digest.hexdigest()
 
 
+def acceptance_case_problems(report):
+    problems = []
+    required = {"commit_pair", "artifact_hashes", "environment", "command_or_harness",
+                "exit_code", "log_paths", "observed_result"}
+    for field, expected in (
+        ("component_tests", {f"AC-{index:03}" for index in range(1, 53)}),
+        ("e2e_tests", {f"E2E-{index:02}" for index in range(1, 23)}),
+    ):
+        cases = report.get(field, [])
+        actual = [case.get("id") for case in cases]
+        if len(actual) != len(expected) or set(actual) != expected:
+            problems.append(field + " must contain every required case exactly once")
+        for case in cases:
+            case_id = str(case.get("id"))
+            if case.get("status", "").lower() not in ("passed", "pass"):
+                problems.append(case_id + " is not passed")
+            evidence = case.get("result")
+            if not isinstance(evidence, dict) or not evidence:
+                problems.append(case_id + " has no recorded evidence")
+                continue
+            for key in sorted(required | set(case.get("required_evidence_fields", []))):
+                if key not in evidence:
+                    problems.append(case_id + " is missing evidence field " + key)
+    return problems
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, required=True)
@@ -110,14 +136,7 @@ def main():
         path = args.acceptance_report.resolve(strict=True)
         result = json.loads(path.read_text(encoding="utf-8-sig"))
         report = {"path": str(path), "sha256": sha(path)}
-        tests = result.get("component_tests", []) + result.get("e2e_tests", [])
-        if len(result.get("component_tests", [])) != 52 or len(result.get("e2e_tests", [])) != 22:
-            problems.append("acceptance report must contain all 52 component and 22 E2E cases")
-        for test in tests:
-            if test.get("status", "").lower() not in ("passed", "pass"):
-                problems.append(str(test.get("id")) + " is not passed")
-            if not test.get("result"):
-                problems.append(str(test.get("id")) + " has no recorded evidence")
+        problems.extend(acceptance_case_problems(result))
         expected_commits = result.get("commit_pair", {})
         for name, repo in repos.items():
             if expected_commits.get(name) != repo["commit"]:
