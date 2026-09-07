@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -18,6 +19,50 @@ namespace NativeLoginGrantPolicy
     inline constexpr std::size_t MaxSteamTicketBytes = 4096U;
     inline constexpr std::size_t MaxSteamTicketEncodedBytes = 8192U;
     inline constexpr std::size_t MaxUrlCharacters = 8192U;
+
+    inline std::optional<std::wstring> StripPayloadOwnedOptions(
+        const std::wstring_view source) noexcept
+    {
+        if (source.size() >= MaxUrlCharacters || source.find(L'\0') != std::wstring_view::npos)
+            return std::nullopt;
+        try
+        {
+            const auto fragment = source.find(L'#');
+            // Every view borrows the caller's live input; never a temporary
+            // std::wstring returned by substr().
+            const auto beforeFragment = source.substr(0, fragment);
+            const auto afterFragment = fragment == std::wstring_view::npos
+                ? std::wstring_view{} : source.substr(fragment);
+            const auto query = beforeFragment.find(L'?');
+            if (query == std::wstring_view::npos)
+                return std::wstring(source);
+            std::wstring result(beforeFragment.substr(0, query));
+            auto segmentStart = query + 1U;
+            bool first = true;
+            while (segmentStart <= beforeFragment.size())
+            {
+                const auto separator = beforeFragment.find(L'&', segmentStart);
+                const auto end = separator == std::wstring_view::npos ? beforeFragment.size() : separator;
+                const auto segment = beforeFragment.substr(segmentStart, end - segmentStart);
+                if (!segment.starts_with(L"ReboundGrant=") &&
+                    !segment.starts_with(L"ReboundSteamTicket=") && !segment.empty())
+                {
+                    result += first ? L'?' : L'&';
+                    result.append(segment);
+                    first = false;
+                }
+                if (separator == std::wstring_view::npos)
+                    break;
+                segmentStart = separator + 1U;
+            }
+            result.append(afterFragment);
+            return result;
+        }
+        catch (...)
+        {
+            return std::nullopt;
+        }
+    }
 
     inline bool IsBase64UrlCharacter(const char value) noexcept
     {
@@ -65,8 +110,8 @@ namespace NativeLoginGrantPolicy
                 return false;
             if (url.compare(segmentStart, key.size(), key) == 0)
                 return true;
-            const std::size_t separator = url.find_first_of(L"&#", segmentStart);
-            if (separator == std::wstring_view::npos)
+            const std::size_t separator = url.find_first_of(L"?&#", segmentStart);
+            if (separator == std::wstring_view::npos || url[separator] == L'#')
                 return false;
             segmentStart = separator + 1U;
         }
@@ -88,8 +133,8 @@ namespace NativeLoginGrantPolicy
                 return false;
             if (url.compare(segmentStart, key.size(), key) == 0)
                 return true;
-            const std::size_t separator = url.find_first_of(L"&#", segmentStart);
-            if (separator == std::wstring_view::npos)
+            const std::size_t separator = url.find_first_of(L"?&#", segmentStart);
+            if (separator == std::wstring_view::npos || url[separator] == L'#')
                 return false;
             segmentStart = separator + 1U;
         }
@@ -111,6 +156,63 @@ namespace NativeLoginGrantPolicy
         for (std::size_t index = 0; data && index < value.size(); ++index)
             data[index] = 0;
         value.clear();
+    }
+
+    inline bool ExtractGrantFromNativeOptions(
+        const std::wstring_view url, std::string& grant) noexcept
+    {
+        SecureClearString(grant);
+        if (url.size() >= MaxUrlCharacters || url.find(L'\0') != std::wstring_view::npos)
+            return false;
+        try
+        {
+            constexpr std::wstring_view key = L"ReboundGrant=";
+            std::size_t start = 0;
+            bool found = false;
+            while (start <= url.size())
+            {
+                if (start < url.size() && (url[start] == L'?' || url[start] == L'&'))
+                {
+                    ++start;
+                    continue;
+                }
+                if (start < url.size() && url[start] == L'#')
+                    break;
+                const auto separator = url.find_first_of(L"?&#", start);
+                const auto end = separator == std::wstring_view::npos ? url.size() : separator;
+                if (url.compare(start, key.size(), key) == 0)
+                {
+                    if (found || end - start - key.size() > MaxGrantBytes)
+                    {
+                        SecureClearString(grant);
+                        return false;
+                    }
+                    found = true;
+                    for (const wchar_t character : url.substr(start + key.size(), end - start - key.size()))
+                    {
+                        if (character > 0x7FU || (character != L'.' &&
+                            !IsBase64UrlCharacter(static_cast<char>(character))))
+                        {
+                            SecureClearString(grant);
+                            return false;
+                        }
+                        grant.push_back(static_cast<char>(character));
+                    }
+                }
+                if (separator == std::wstring_view::npos)
+                    break;
+                if (url[separator] == L'#')
+                    break;
+                start = separator + 1U;
+            }
+            if (found && ValidateGrantTokenShape(grant))
+                return true;
+        }
+        catch (...)
+        {
+        }
+        SecureClearString(grant);
+        return false;
     }
 
     inline void SecureClearWideString(std::wstring& value) noexcept

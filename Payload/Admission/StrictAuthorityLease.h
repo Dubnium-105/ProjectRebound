@@ -1,6 +1,7 @@
 #pragma once
 
 #include "StrictRosterPolicy.h"
+#include "../ClientLogic/NativeMatchScope.h"
 
 #include <string_view>
 #include <atomic>
@@ -50,6 +51,51 @@ namespace StrictAuthorityLease
         return left.attemptId == right.attemptId &&
             left.authoritySessionId == right.authoritySessionId &&
             left.rosterRevision == right.rosterRevision;
+    }
+
+    // A new authority route does not create a new local HOST connection.
+    // Correlate an explicit preservation request with the fresh game-thread
+    // client snapshot; the caller must separately verify the signed live seat.
+    inline std::optional<NativeClientMatchConfirmation> PreservedHost(
+        const nlohmann::json& request,
+        const nlohmann::json& clientStatus,
+        const StrictRoster::AllocationScope& allocation,
+        const std::string_view worldInstanceId,
+        const int previousAuthorityRoute,
+        const std::string_view publishedNonce,
+        const std::uint64_t publishedOperation) noexcept
+    {
+        try
+        {
+            const auto proof = NativeClientMatchConfirmation::FromJson(request);
+            if (!proof || !proof->hostScope ||
+                proof->scope.attemptId != allocation.attemptId ||
+                proof->scope.authoritySessionId != allocation.authoritySessionId ||
+                proof->scope.worldInstanceId != worldInstanceId ||
+                proof->scope.rosterRevision != allocation.rosterRevision ||
+                proof->scope.routeGeneration > previousAuthorityRoute ||
+                previousAuthorityRoute > allocation.routeGeneration ||
+                proof->nativeConnectionNonce != publishedNonce ||
+                proof->operationSequence != publishedOperation ||
+                clientStatus.value("state", "") != "playable" ||
+                !clientStatus.value("scope_verified", false) ||
+                !clientStatus.value("local_pawn_ready", false) ||
+                !clientStatus.value("native_net_ready", false) ||
+                clientStatus.value("local_world_instance_id", "").empty() ||
+                clientStatus.value("operation_sequence", 0ULL) != proof->operationSequence ||
+                clientStatus.value("native_connection_nonce", "") != proof->nativeConnectionNonce)
+                return std::nullopt;
+            const auto staged = NativeMatchScope::FromHostJson(clientStatus.at("scope"));
+            const auto confirmed = NativeMatchScope::FromHostJson(clientStatus.at("playable_scope"));
+            if (!staged || !confirmed || !proof->scope.Matches(*staged) ||
+                !proof->scope.Matches(*confirmed))
+                return std::nullopt;
+            return proof;
+        }
+        catch (...)
+        {
+            return std::nullopt;
+        }
     }
 
     // Pure scope classification used by the pipe callback.  It never inspects

@@ -535,6 +535,39 @@ namespace StrictRoster
             return decision;
         }
 
+        // Preserve a real local HOST connection when only the authority's
+        // admission route advances. This never changes its live scope or
+        // nonce, reserves a seat, or emits another CONNECTED event.
+        SeatDecision ValidatePreservedHost(
+            const std::string_view playerId,
+            const std::string_view localPlatformId,
+            const std::string_view worldInstanceId,
+            const int liveRouteGeneration,
+            const int liveConnectionGeneration,
+            const std::string_view nativeConnectionNonce,
+            const std::int64_t now) const
+        {
+            std::lock_guard lock(mutex_);
+            if (!allocation_ || allocation_->hostingKind != "P2P" ||
+                !authorityStarted_ || !nativeAdmissionPathReady_ || allocation_->expiresAt <= now)
+                return RejectSeat("admission_closed", "the signed P2P authority is not active");
+            const auto found = allocation_->seats.find(std::string(playerId));
+            if (found == allocation_->seats.end())
+                return RejectSeat("host_identity_mismatch", "the preserved HOST is not allocated");
+            const Seat& host = found->second;
+            if (host.roomRole != "HOST" || host.platformId != localPlatformId ||
+                !host.connected || host.generation != liveConnectionGeneration ||
+                host.liveGeneration != liveConnectionGeneration ||
+                host.liveRouteGeneration != liveRouteGeneration ||
+                liveRouteGeneration > allocation_->routeGeneration ||
+                host.liveWorldInstanceId != worldInstanceId ||
+                nativeWorldInstanceId_ != worldInstanceId ||
+                host.liveNativeConnectionNonce != nativeConnectionNonce ||
+                !Detail::SafeNativeConnectionNonce(nativeConnectionNonce))
+                return RejectSeat("host_connection_scope_mismatch", "the preserved HOST live connection changed");
+            return BuildConfirmedDecisionLocked(host);
+        }
+
         std::optional<std::string> CurrentHostingKind() const
         {
             std::lock_guard lock(mutex_);
@@ -642,36 +675,25 @@ namespace StrictRoster
         // present the same grant until ReserveAdmission linearizes the
         // handshake.  The platform identity is still a separate native
         // possession proof at the hook boundary.
-        Decision ValidateNativeJoinGrant(
+        // Validate the signed NMT grant against the native account identity
+        // carried by FUniqueNetId.  That value is the backend Player.ID (the
+        // roster's player_id), not the Steam platform_id.  The signed grant
+        // is verified before its platform_id is used, and the returned seat
+        // decision carries both identities for the subsequent Steam proof
+        // and native reservation steps.
+        SeatDecision ValidateNativeJoinGrantForPlayer(
             const std::string_view grant,
-            const std::string_view authenticatedPlatformId,
+            const std::string_view nativePlayerId,
             const std::int64_t now)
         {
             std::lock_guard lock(mutex_);
             if (!nativeAdmissionPathReady_ || !authorityStarted_ || !allocation_)
-                return Reject("admission_closed", "strict admission is not active");
+                return RejectSeat("admission_closed", "strict admission is not active");
             if (allocation_->expiresAt <= now)
-                return Reject("allocation_expired", "strict admission allocation is expired");
-            const auto staged = stagedGrants_.find(std::string(authenticatedPlatformId));
-            if (staged == stagedGrants_.end())
-                return Reject("grant_not_staged", "no staged grant matches the native identity");
-            const PendingGrant& pending = staged->second;
-            if (pending.expiresAt <= now)
-                return Reject("grant_expired", "the staged join grant has expired");
-            if (Detail::SafeIdentifier(pending.platformId) == false ||
-                pending.platformId != authenticatedPlatformId)
-            {
-                return Reject("native_identity_mismatch", "the native identity is not the staged seat");
-            }
-            if (!Detail::SafeIdentifier(pending.worldInstanceId) ||
-                nativeWorldInstanceId_.empty() ||
-                pending.worldInstanceId != nativeWorldInstanceId_)
-            {
-                return Reject("grant_world_mismatch",
-                    "the staged grant belongs to a different native authority world");
-            }
+                return RejectSeat("allocation_expired", "a live allocation is expired");
+            if (!Detail::SafeIdentifier(std::string(nativePlayerId)))
+                return RejectSeat("native_identity_mismatch", "the native account identity is malformed");
 
-            std::string validatedGrantJti;
             try
             {
                 const auto jwt = Detail::ParseJwt(grant);
@@ -680,7 +702,7 @@ namespace StrictRoster
                     jwt->header.value("kid", "") != allocation_->keyId ||
                     !verifier_(allocation_->publicKey, jwt->signedData, jwt->signature))
                 {
-                    return Reject("native_grant_invalid", "the NMT_Login grant signature is invalid");
+                    return RejectSeat("native_grant_invalid", "the NMT_Login grant signature is invalid");
                 }
                 const auto& claims = jwt->claims;
                 const std::string playerId = claims.value("player_id", "");
@@ -692,14 +714,14 @@ namespace StrictRoster
                 const int generation = claims.value("connection_generation", 0);
                 const std::int64_t expiresAt = claims.value("exp", std::int64_t{0});
                 const auto worldInstanceClaim = claims.find("world_instance_id");
-                if (worldInstanceClaim == claims.end() ||
-                    !worldInstanceClaim->is_string())
+                if (worldInstanceClaim == claims.end() || !worldInstanceClaim->is_string())
                 {
-                    return Reject("native_grant_mismatch",
+                    return RejectSeat("native_grant_mismatch",
                         "the NMT_Login grant has no signed native world instance");
                 }
-                const std::string worldInstanceId =
-                    worldInstanceClaim->get<std::string>();
+                const std::string worldInstanceId = worldInstanceClaim->get<std::string>();
+                if (nativeWorldInstanceId_.empty() || worldInstanceId != nativeWorldInstanceId_)
+                    return RejectSeat("grant_world_mismatch", "the signed grant belongs to another native world");
                 if (claims.value("iss", "") != "game-control-plane" ||
                     claims.value("aud", "") != "project-rebound-match-client" ||
                     claims.value("kid", "") != allocation_->keyId ||
@@ -716,46 +738,87 @@ namespace StrictRoster
                     !Detail::SafeIdentifier(playerId) ||
                     !Detail::SafeIdentifier(platformId) ||
                     !Detail::SafeIdentifier(worldInstanceId) ||
-                    playerId != pending.playerId || platformId != pending.platformId ||
-                    worldInstanceId != pending.worldInstanceId ||
+                    playerId != nativePlayerId ||
+                    nativeWorldInstanceId_.empty() ||
                     worldInstanceId != nativeWorldInstanceId_ ||
-                    jti != pending.jti || teamId != pending.teamId ||
-                    teamSlot != pending.teamSlot || logicalSlot != pending.logicalSlot ||
-                    generation != pending.generation || expiresAt != pending.expiresAt ||
                     usedJtis_.contains(jti))
                 {
-                    return Reject("native_grant_mismatch", "the NMT_Login grant is not the staged seat grant");
+                    return RejectSeat("native_identity_mismatch",
+                        "the signed grant player identity is not the native account");
                 }
-                validatedGrantJti = jti;
+
+                const auto staged = stagedGrants_.find(platformId);
+                if (staged == stagedGrants_.end())
+                    return RejectSeat("grant_not_staged", "no staged grant matches the signed platform seat");
+                const PendingGrant& pending = staged->second;
+                const auto seatIt = allocation_->seats.find(playerId);
+                if (seatIt == allocation_->seats.end())
+                    return RejectSeat("player_not_rostered", "player is not in the frozen roster");
+                const Seat& seat = seatIt->second;
+                if (pending.expiresAt <= now ||
+                    pending.playerId != playerId || pending.platformId != platformId ||
+                    pending.jti != jti || pending.teamId != teamId ||
+                    pending.teamSlot != teamSlot || pending.logicalSlot != logicalSlot ||
+                    pending.generation != generation || pending.expiresAt != expiresAt ||
+                    pending.worldInstanceId != worldInstanceId ||
+                    seat.platformId != platformId || seat.teamId != teamId ||
+                    seat.teamSlot != teamSlot || seat.logicalSlot != logicalSlot ||
+                    generation < seat.generation)
+                {
+                    return RejectSeat("native_grant_mismatch",
+                        "the signed grant is not the staged frozen seat");
+                }
+
+                SeatDecision result;
+                result.accepted = true;
+                result.code = "accepted";
+                result.playerId = playerId;
+                result.platformId = platformId;
+                result.grantJti = jti;
+                result.teamId = teamId;
+                result.teamSlot = teamSlot;
+                result.logicalSlot = logicalSlot;
+                result.connectionGeneration = generation;
+                result.hostSeat = seat.roomRole == "HOST";
+                return result;
             }
             catch (...)
             {
-                return Reject("native_grant_invalid", "the NMT_Login grant claims are invalid");
+                return RejectSeat("native_grant_invalid", "the NMT_Login grant claims are invalid");
             }
-            Decision result = Accept();
-            result.grantJti = std::move(validatedGrantJti);
-            return result;
         }
 
-        // Reserve authorization for the native PreLogin/handshake. This is
-        // intentionally not CONNECTED: only the native PostLogin/team/camp
-        // readback may call ConfirmConnected.
-        SeatDecision ReserveAdmission(
+        // The native account identity and Steam platform identity are both
+        // required at the reservation linearization point.  This prevents a
+        // second staged seat with the same Steam identity, or an identity
+        // supplied by another connection, from consuming the validated
+        // reservation between PreLogin checks and ReserveAdmission.
+        SeatDecision ReserveAdmissionForNativePlayer(
+            const std::string_view nativePlayerId,
             const std::string_view authenticatedPlatformId,
+            const std::string_view expectedGrantJti,
             const std::int64_t now,
             const std::string_view nativeConnectionNonce)
         {
             std::lock_guard lock(mutex_);
+            if (!Detail::SafeIdentifier(std::string(nativePlayerId)))
+                return RejectSeat("native_identity_mismatch", "the native account identity is malformed");
             if (!nativeAdmissionPathReady_ || !authorityStarted_ || !allocation_)
                 return RejectSeat("admission_closed", "strict admission is not active");
+            if (allocation_->expiresAt <= now)
+                return RejectSeat("allocation_expired", "strict admission allocation is expired");
             if (!Detail::SafeNativeConnectionNonce(nativeConnectionNonce))
                 return RejectSeat("native_connection_nonce_required", "a fresh native handshake nonce is required");
             if (nativeWorldInstanceId_.empty())
                 return RejectSeat("native_world_unavailable", "the native authority world is not bound yet");
             const auto staged = stagedGrants_.find(std::string(authenticatedPlatformId));
             if (staged == stagedGrants_.end())
-                return RejectSeat("grant_not_staged", "no staged join grant matches the authenticated identity");
+                return RejectSeat("grant_not_staged", "no staged grant matches the signed platform seat");
             const PendingGrant pending = staged->second;
+            if (pending.playerId != nativePlayerId)
+                return RejectSeat("native_identity_mismatch", "the staged seat is not the native account");
+            if (pending.jti != expectedGrantJti || !Detail::SafeIdentifier(pending.jti, 96U))
+                return RejectSeat("native_grant_changed", "the staged grant changed during platform authentication");
             if (pending.expiresAt <= now)
             {
                 stagedGrants_.erase(staged);
@@ -768,14 +831,18 @@ namespace StrictRoster
                     "the staged grant belongs to a different native authority world");
             }
             const auto seatIt = allocation_->seats.find(pending.playerId);
-            if (seatIt == allocation_->seats.end() || seatIt->second.platformId != authenticatedPlatformId)
-                return RejectSeat("player_not_rostered", "authenticated identity is not in the frozen roster");
+            if (seatIt == allocation_->seats.end() ||
+                seatIt->second.platformId != authenticatedPlatformId)
+            {
+                return RejectSeat("player_not_rostered", "the signed seat is not in the frozen roster");
+            }
             Seat& seat = seatIt->second;
+            if (pending.generation < seat.generation)
+                return RejectSeat("grant_superseded", "the signed seat authorization advanced during platform authentication");
             if (usedJtis_.contains(pending.jti))
                 return RejectSeat("grant_replayed", "join grant was already consumed");
             if (seat.connected && pending.generation <= seat.liveGeneration)
                 return RejectSeat("seat_already_connected", "seat already has a live connection");
-
             if (seat.reserved)
             {
                 if (seat.reservedJti == pending.jti &&
@@ -788,13 +855,10 @@ namespace StrictRoster
                     seat.reservedGeneration == pending.generation)
                 {
                     return RejectSeat("native_connection_nonce_conflict",
-                        "the join grant and generation are already reserved by another native handshake");
+                        "the grant and generation are already reserved by another native handshake");
                 }
                 if (pending.generation <= seat.reservedGeneration)
-                {
-                    return RejectSeat("grant_superseded",
-                        "a newer join grant is already reserved for this seat");
-                }
+                    return RejectSeat("grant_superseded", "a newer join grant is already reserved for this seat");
             }
             SeatDecision decision;
             decision.accepted = true;
@@ -818,7 +882,8 @@ namespace StrictRoster
             seat.reservedNativeConnectionNonce = std::string(nativeConnectionNonce);
             seat.reservedWorldInstanceId = nativeWorldInstanceId_;
             seat.reservedRouteGeneration = allocation_->routeGeneration;
-            seat.grantJti = pending.jti;
+            // grantJti belongs to the live connection. A replacement
+            // reservation must not relabel that still-live socket.
             seat.nativeAdmitted = false;
             seat.nativeAdmissionGeneration = 0;
             seat.nativeAdmissionJti.clear();
@@ -826,28 +891,6 @@ namespace StrictRoster
             stagedGrants_.erase(staged);
             AppendConnectionEventLocked(seat, "RESERVED", pending.jti, pending.generation);
             return decision;
-        }
-
-        // Kept as a source-compatible name for existing hook callers. It no
-        // longer consumes a grant or marks a socket live.
-        SeatDecision ConsumeStagedJoinGrant(
-            const std::string_view authenticatedPlatformId,
-            const std::int64_t now,
-            const std::string_view nativeConnectionNonce)
-        {
-            return ReserveAdmission(authenticatedPlatformId, now, nativeConnectionNonce);
-        }
-
-        SeatDecision ValidateJoinGrant(
-            const std::string_view grant,
-            const std::string_view authenticatedPlatformId,
-            const std::int64_t now,
-            const std::string_view nativeConnectionNonce)
-        {
-            const Decision staged = StageJoinGrant(grant, now);
-            if (!staged.accepted)
-                return RejectSeat(staged.code, staged.message);
-            return ReserveAdmission(authenticatedPlatformId, now, nativeConnectionNonce);
         }
 
         std::optional<SeatDecision> ActiveDecision(const std::string_view platformId) const
@@ -875,6 +918,18 @@ namespace StrictRoster
                 : std::optional<SeatDecision>(BuildReservedDecisionLocked(seat->second));
         }
 
+        std::optional<SeatDecision> ReservedDecisionByPlayerId(
+            const std::string_view playerId) const
+        {
+            std::lock_guard lock(mutex_);
+            if (!allocation_)
+                return std::nullopt;
+            const auto seat = allocation_->seats.find(std::string(playerId));
+            if (seat == allocation_->seats.end() || !seat->second.reserved)
+                return std::nullopt;
+            return std::optional<SeatDecision>(BuildReservedDecisionLocked(seat->second));
+        }
+
         // Toolbox calls this after the scoped backend ReserveAdmission
         // transaction succeeds. It is intentionally separate from
         // ConfirmConnected: the roster remains non-CONNECTED until the
@@ -898,7 +953,10 @@ namespace StrictRoster
                 (grantJti.empty() || seat.grantJti == grantJti) &&
                 seat.liveNativeConnectionNonce == nativeConnectionNonce)
             {
-                return Accept();
+                return !nativeWorldInstanceId_.empty() &&
+                    seat.liveWorldInstanceId == nativeWorldInstanceId_
+                    ? Accept()
+                    : Reject("native_world_scope_mismatch", "the live connection belongs to another native world");
             }
             if (!seat.reserved || seat.reservedGeneration != generation ||
                 (seat.roomRole != "HOST" && seat.reservedJti != grantJti) ||
@@ -938,15 +996,34 @@ namespace StrictRoster
             if (found == allocation_->seats.end())
                 return Reject("player_not_rostered", "player is not in the frozen roster");
             const Seat& seat = found->second;
+            // Allocation refreshes retain the old live fields so a HOST can
+            // be preserved, but a backend receipt must still bind to the
+            // exact native world and route that owns this handshake.
+            const bool currentWorldBound = !nativeWorldInstanceId_.empty();
             const bool reservedMatch = seat.reserved &&
+                (seat.roomRole == "HOST" ? grantJti.empty() :
+                    !grantJti.empty() && seat.reservedJti == grantJti) &&
                 seat.reservedGeneration == generation &&
+                seat.reservedRouteGeneration == routeGeneration &&
+                currentWorldBound &&
+                seat.reservedWorldInstanceId == nativeWorldInstanceId_ &&
                 seat.reservedNativeConnectionNonce == nativeConnectionNonce;
             const bool connectedMatch = seat.connected &&
+                (seat.roomRole == "HOST" ? grantJti.empty() :
+                    !grantJti.empty() && seat.grantJti == grantJti) &&
                 seat.liveGeneration == generation &&
+                seat.liveRouteGeneration == routeGeneration &&
+                currentWorldBound &&
+                seat.liveWorldInstanceId == nativeWorldInstanceId_ &&
                 seat.liveNativeConnectionNonce == nativeConnectionNonce;
             if (!reservedMatch && !connectedMatch)
             {
                 if (seat.lastDisconnectedGeneration == generation &&
+                    (seat.roomRole == "HOST" ? grantJti.empty() :
+                        !grantJti.empty() && seat.lastDisconnectedGrantJti == grantJti) &&
+                    seat.lastDisconnectedRouteGeneration == routeGeneration &&
+                    currentWorldBound &&
+                    seat.lastDisconnectedWorldInstanceId == nativeWorldInstanceId_ &&
                     seat.lastDisconnectedNativeConnectionNonce == nativeConnectionNonce)
                     return Accept();
                 return Reject("connection_generation_stale",
@@ -975,21 +1052,30 @@ namespace StrictRoster
                 return Reject("allocation_unavailable", "allocation is unavailable");
             if (!Detail::SafeNativeConnectionNonce(nativeConnectionNonce))
                 return Reject("native_connection_nonce_required", "native admission requires the concrete handshake nonce");
+            if (nativeWorldInstanceId_.empty())
+                return Reject("native_world_unavailable", "native admission requires a current authority world");
             const auto found = allocation_->seats.find(std::string(playerId));
             if (found == allocation_->seats.end())
                 return Reject("connection_generation_stale",
                     "native admission generation is unknown");
             Seat& seat = found->second;
             if (seat.connected && seat.liveGeneration == generation)
-                return seat.liveNativeConnectionNonce == nativeConnectionNonce
+            {
+                if (seat.liveNativeConnectionNonce != nativeConnectionNonce)
+                    return Reject("native_connection_nonce_conflict", "the live connection belongs to another native handshake");
+                return seat.liveWorldInstanceId == nativeWorldInstanceId_
                     ? Accept()
-                    : Reject("native_connection_nonce_conflict", "the live connection belongs to another native handshake");
+                    : Reject("native_world_scope_mismatch", "the live connection belongs to another native world");
+            }
             if (seat.nativeAdmitted &&
                 seat.nativeAdmissionGeneration == generation &&
                 (seat.roomRole == "HOST" || seat.nativeAdmissionJti == grantJti) &&
                 seat.nativeAdmissionNonce == nativeConnectionNonce)
             {
-                return Accept();
+                if (seat.nativeAdmissionWorldInstanceId == nativeWorldInstanceId_ &&
+                    seat.nativeAdmissionRouteGeneration == allocation_->routeGeneration)
+                    return Accept();
+                return Reject("native_world_scope_mismatch", "native admission belongs to another world or route");
             }
             if (!seat.reserved || seat.reservedGeneration != generation ||
                 (seat.roomRole != "HOST" && seat.reservedJti != grantJti) ||
@@ -1000,10 +1086,13 @@ namespace StrictRoster
             }
             if (seat.reservedWorldInstanceId.empty())
             {
-                if (nativeWorldInstanceId_.empty())
-                    return Reject("native_world_unavailable", "the native authority world is not bound yet");
                 seat.reservedWorldInstanceId = nativeWorldInstanceId_;
                 seat.reservedRouteGeneration = allocation_->routeGeneration;
+            }
+            else if (seat.reservedWorldInstanceId != nativeWorldInstanceId_ ||
+                seat.reservedRouteGeneration != allocation_->routeGeneration)
+            {
+                return Reject("native_world_scope_mismatch", "the reserved native handshake belongs to another world or route");
             }
             seat.nativeAdmitted = true;
             seat.nativeAdmissionGeneration = generation;
@@ -1061,7 +1150,15 @@ namespace StrictRoster
                 (grantJti.empty() || seat.grantJti == grantJti) &&
                 seat.liveNativeConnectionNonce == nativeConnectionNonce)
             {
-                return Accept();
+                const bool currentLiveWorld = !nativeWorldInstanceId_.empty() &&
+                    seat.liveWorldInstanceId == nativeWorldInstanceId_;
+                const bool currentLiveRoute = seat.roomRole == "HOST"
+                    ? seat.liveRouteGeneration > 0 && seat.liveRouteGeneration <= allocation_->routeGeneration &&
+                        seat.generation == generation
+                    : seat.liveRouteGeneration == allocation_->routeGeneration;
+                return currentLiveWorld && currentLiveRoute
+                    ? Accept()
+                    : Reject("native_world_scope_mismatch", "the live connection belongs to another native world or authorization route");
             }
             if (!seat.reserved || seat.reservedGeneration != generation ||
                 (seat.roomRole != "HOST" &&
@@ -1090,6 +1187,10 @@ namespace StrictRoster
                     : seat.reservedRouteGeneration;
             if (connectionWorldInstanceId.empty() || connectionRouteGeneration < 1)
                 return Reject("native_world_unavailable", "the native connection world scope is unavailable");
+            if (nativeWorldInstanceId_.empty() ||
+                connectionWorldInstanceId != nativeWorldInstanceId_ ||
+                connectionRouteGeneration != allocation_->routeGeneration)
+                return Reject("native_world_scope_mismatch", "the native connection belongs to another world or route");
             if (seat.roomRole != "HOST" &&
                 !usedJtis_.insert(seat.reservedJti).second)
             {
@@ -1159,6 +1260,7 @@ namespace StrictRoster
                             "disconnect does not belong to the reserved native handshake");
                     }
                     seat.lastDisconnectedGeneration = generation;
+                    seat.lastDisconnectedGrantJti = seat.reservedJti;
                     seat.lastDisconnectedNativeConnectionNonce =
                         seat.reservedNativeConnectionNonce;
                     seat.lastDisconnectedWorldInstanceId =
@@ -1176,7 +1278,6 @@ namespace StrictRoster
                     seat.nativeAdmissionGeneration = 0;
                     seat.nativeAdmissionJti.clear();
                     seat.nativeAdmissionNonce.clear();
-                    seat.grantJti.clear();
                     return Accept();
                 }
                 return seat.lastDisconnectedGeneration == generation
@@ -1193,6 +1294,7 @@ namespace StrictRoster
             }
             seat.connected = false;
             seat.lastDisconnectedGeneration = generation;
+            seat.lastDisconnectedGrantJti = seat.grantJti;
             seat.lastDisconnectedNativeConnectionNonce =
                 nativeConnectionNonce.empty()
                     ? seat.liveNativeConnectionNonce
@@ -1315,6 +1417,7 @@ namespace StrictRoster
             // may remain older than `generation` during a route refresh.
             int liveGeneration = 0;
             int lastDisconnectedGeneration = 0;
+            std::string lastDisconnectedGrantJti;
             bool connected = false;
             bool reserved = false;
             int reservedGeneration = 0;
@@ -1505,6 +1608,7 @@ namespace StrictRoster
                     Detail::SecureClear(seat.liveNativeConnectionNonce);
                     Detail::SecureClear(seat.liveWorldInstanceId);
                     Detail::SecureClear(seat.lastDisconnectedNativeConnectionNonce);
+                    Detail::SecureClear(seat.lastDisconnectedGrantJti);
                     Detail::SecureClear(seat.lastDisconnectedWorldInstanceId);
                     seat.backendReserved = false;
                     seat.nativeAdmitted = false;

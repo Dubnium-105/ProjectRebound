@@ -930,6 +930,51 @@ namespace StrictRosterSteamAuth
         }
     }
 
+    bool TryGetLocalPlatformId(std::string& platformId) noexcept
+    {
+        platformId.clear();
+        std::lock_guard lock(gMutex);
+        if (gShuttingDown)
+            return false;
+
+        // Read the already initialized Steam runtime. This query does not
+        // create a ticket, register callbacks, or initialize a second user.
+        const HMODULE steamApi = GetModuleHandleA("steam_api64.dll");
+        if (!steamApi)
+            return false;
+        using IsLoggedOn = bool(__cdecl *)(void*);
+        using GetSteamId = std::uint64_t(__cdecl *)(void*);
+        const auto getUser = reinterpret_cast<SteamUserAccessor>(
+            GetProcAddress(steamApi, "SteamAPI_SteamUser_v023"));
+        const auto isLoggedOn = reinterpret_cast<IsLoggedOn>(
+            GetProcAddress(steamApi, "SteamAPI_ISteamUser_BLoggedOn"));
+        const auto getSteamId = reinterpret_cast<GetSteamId>(
+            GetProcAddress(steamApi, "SteamAPI_ISteamUser_GetSteamID"));
+        if (!getUser || !isLoggedOn || !getSteamId)
+            return false;
+        void* const user = getUser();
+        if (!user || !isLoggedOn(user))
+            return false;
+        const std::uint64_t steamId = getSteamId(user);
+        if (steamId == 0)
+            return false;
+        std::array<char, 20> decimal{};
+        const auto converted = std::to_chars(
+            decimal.data(), decimal.data() + decimal.size(), steamId);
+        if (converted.ec != std::errc{})
+            return false;
+        try
+        {
+            platformId.assign(decimal.data(), converted.ptr);
+        }
+        catch (...)
+        {
+            platformId.clear();
+            return false;
+        }
+        return true;
+    }
+
     ClientTicketState InitializeClientTicket() noexcept
     {
         std::lock_guard lock(gMutex);

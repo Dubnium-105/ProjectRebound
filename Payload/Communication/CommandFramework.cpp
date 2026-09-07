@@ -1242,18 +1242,19 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
                     ? FrameResult::Processed
                     : FrameResult::TransportError;
             }
-            return SendResponse(
-                "start_match_authority_ack",
-                CommandProtocol::WithRequestId(
-                    nlohmann::json{
+            nlohmann::json acknowledgement{
                         {"status", "ready"},
                         {"endpoint_host", endpointHost},
                         {"endpoint_port", endpointPort},
                         {"world_instance_id", result.value("world_instance_id", "")},
                         {"native_connection_nonce", nativeConnectionNonce},
                         {"operation_sequence", result.value("operation_sequence", 0ULL)}
-                    },
-                    request.requestId))
+                    };
+            if (result.contains("preserved_host_connection"))
+                acknowledgement["preserved_host_connection"] = result.at("preserved_host_connection");
+            return SendResponse(
+                "start_match_authority_ack",
+                CommandProtocol::WithRequestId(std::move(acknowledgement), request.requestId))
                 ? FrameResult::Processed
                 : FrameResult::TransportError;
         }

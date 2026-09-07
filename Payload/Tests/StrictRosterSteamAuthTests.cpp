@@ -39,6 +39,10 @@ namespace
 
 int main()
 {
+    std::string localIdentity = "must-not-survive-an-unavailable-native-user";
+    Expect(!StrictRosterSteamAuth::TryGetLocalPlatformId(localIdentity) &&
+        localIdentity.empty(),
+        "a process without a logged-in Steam runtime cannot claim a local HOST identity");
     constexpr std::uint64_t steamId = 76561198123456789ULL;
     constexpr std::string_view platformId = "76561198123456789";
     constexpr std::string_view jti = "jti-1";

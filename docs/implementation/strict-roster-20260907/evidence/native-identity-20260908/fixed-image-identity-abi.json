@@ -1,0 +1,51 @@
+{
+  "evidence_class": "static_fixed_binary",
+  "executable": "C:\\Steam\\steamapps\\common\\Boundary\\ProjectBoundary\\Binaries\\Win64\\ProjectBoundarySteam-Win64-Shipping.exe",
+  "executable_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+  "image_base": "0x140000000",
+  "engine_prelogin_rva": "0x03290DE0",
+  "engine_prelogin_identity_read": "mov rcx,[r9+0x08]; mov rax,[rcx]; call [rax+0x28]; test al,al",
+  "fixed_native_identity_wrapper": {
+    "wrapper_rva": "0x009326C0",
+    "native_pointer_read": "mov rcx,[rdi+0x08]",
+    "is_valid_call": "call [rcx+0x28]",
+    "to_string_call": "lea rdx,[rsp+0x30]; call [rcx+0x30]",
+    "to_string_entry_rva": "0x009326A0",
+    "to_string_entry": "mov rbx,rdx; lea rdx,[rcx+0x18]; mov rcx,rbx; call 0x14086D640; mov rax,rbx",
+    "native_string_storage": "FString at native_id+0x18; Num at +0x20 and Max at +0x24",
+    "is_valid_entry_rva": "0x0091C310",
+    "is_valid_entry": "cmp dword ptr [rcx+0x20],1; setg al; ret",
+    "vtable_rva": "0x041D30B0",
+    "vtable_slots": {
+      "is_valid_plus_0x28": "0x0091C310",
+      "to_string_plus_0x30": "0x009326A0"
+    },
+    "identity_shape": "opaque ASCII-safe backend account/player identifier; not a Steam decimal ID"
+  },
+  "identity_contract_source": {
+    "path": "Backend/internal/metaserver/http.go",
+    "connect_server_response_line": 145,
+    "userId_source": "authenticated principal.Player.ID",
+    "aceId_source": "authenticated principal.Player.ID",
+    "session_user_id_source": "authenticated principal.Player.ID",
+    "mapping_rule": "native FString must match signed roster player_id; signed roster platform_id is the only Steam auth identity"
+  },
+  "member_fstring_return_callsites": [
+    {
+      "surrounding": "mov r9,[rdi]; lea rdx,[rsp+0x30]; mov r8,rbx; mov rcx,rdi",
+      "bytes": "41 FF 51 30",
+      "rva": "0x034C7E94",
+      "interpretation": "RCX=this, RDX=FString return storage, call vtable +0x30"
+    },
+    {
+      "surrounding": "mov r9,[rdi]; lea rdx,[rsp+0x20]; mov r8,rbx; mov rcx,rdi",
+      "bytes": "41 FF 51 30",
+      "rva": "0x034C963B",
+      "interpretation": "RCX=this, RDX=FString return storage, call vtable +0x30"
+    }
+  ],
+  "source_path": "Payload/Hooks/Hooks.cpp",
+  "source_change": "strict native player identity extractor uses FString* member return (this, return_storage), verifies returned pointer equals storage, validates RawNativeFString and SafeIdentifier, then matches signed player_id; signed platform_id remains separate for Steam proof",
+  "sensitive_values_logged": false,
+  "live_acceptance": "NOT_RUN"
+}

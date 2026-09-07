@@ -50,8 +50,10 @@ int main()
     expectedSource.push_back(L'\0');
     Expect(source == expectedSource,
         "the caller-owned URL storage must remain unchanged");
+    std::wstring duplicateGrant = L"/Game/Maps/Test?ReboundGrant=old";
+    duplicateGrant.push_back(L'\0');
     Expect(!NativeLoginGrantPolicy::BuildUrlWithGrant(
-        L"/Game/Maps/Test?ReboundGrant=old\0", grant, output),
+        duplicateGrant, grant, output),
         "a pre-existing grant option must not be duplicated on retransmission");
 
     const std::array<std::uint8_t, 5> ticketBytes{0U, 1U, 2U, 0xFEU, 0xFFU};
@@ -73,9 +75,38 @@ int main()
         carrierView.find(L"ReboundSteamTicket=") != std::wstring::npos &&
         carrier.back() == L'\0',
         "the carrier must include both options before its fragment");
+    std::wstring duplicateTicket = L"/Game/Maps/Test?ReboundSteamTicket=old";
+    duplicateTicket.push_back(L'\0');
     Expect(!NativeLoginGrantPolicy::BuildUrlWithGrantAndSteamTicket(
-        L"/Game/Maps/Test?ReboundSteamTicket=old\0",
+        duplicateTicket,
         grant, encodedTicket, carrier),
         "a pre-existing ticket option must not be duplicated on retransmission");
+    const std::wstring nativeOptions = L"/Game/Maps/Test?Name=" + std::wstring(300, L'n') +
+        L"&Token=native-session-proof&Option=preserved#native-fragment";
+    std::wstring sensitiveCarrier;
+    Expect(NativeLoginGrantPolicy::BuildUrlWithGrantAndSteamTicket(
+        nativeOptions + L'\0', grant, encodedTicket, sensitiveCarrier),
+        "long native options should accept the bounded Payload carrier");
+    const auto stripped = NativeLoginGrantPolicy::StripPayloadOwnedOptions(
+        std::wstring_view(sensitiveCarrier.data(), sensitiveCarrier.size() - 1U));
+    Expect(stripped && *stripped == nativeOptions,
+        "native PreLogin must retain every original option, nonempty Token and fragment after removing only Payload credentials");
+    std::string extracted;
+    Expect(NativeLoginGrantPolicy::ExtractGrantFromNativeOptions(
+        std::wstring_view(sensitiveCarrier.data(), sensitiveCarrier.size() - 1U), extracted) && extracted == grant,
+        "the authority must recover the exact three-segment JWT emitted by the real NMT URL encoder");
+    const std::wstring nativeGrant = L"?ReboundGrant=" + std::wstring(grant.begin(), grant.end());
+    Expect(NativeLoginGrantPolicy::ExtractGrantFromNativeOptions(nativeGrant, extracted) && extracted == grant,
+        "a Grant in the first native URL option must retain both JWT separators");
+    Expect(!NativeLoginGrantPolicy::ExtractGrantFromNativeOptions(
+        nativeGrant + L"&ReboundGrant=" + std::wstring(grant.begin(), grant.end()), extracted) && extracted.empty(),
+        "duplicate native Grant options must reject and clear sensitive output");
+    Expect(!NativeLoginGrantPolicy::ExtractGrantFromNativeOptions(L"?ReboundGrant=a..c", extracted) && extracted.empty(),
+        "an empty JWT segment cannot enter native admission");
+    Expect(NativeLoginGrantPolicy::StripPayloadOwnedOptions(nativeOptions) == nativeOptions,
+        "sanitizing a native URL without Payload credentials must leave it unchanged");
+    Expect(!NativeLoginGrantPolicy::StripPayloadOwnedOptions(
+        std::wstring(NativeLoginGrantPolicy::MaxUrlCharacters, L'x')),
+        "the native options filter must reject an oversized input");
     return 0;
 }

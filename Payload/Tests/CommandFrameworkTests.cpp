@@ -5,6 +5,7 @@
 #include <atomic>
 #include <chrono>
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -12,6 +13,7 @@
 namespace
 {
     int failures = 0;
+    std::string capturedPreservedHostFrame;
 
     void Expect(const bool condition, const char* const description)
     {
@@ -199,13 +201,19 @@ namespace
             });
         framework.SetMatchAuthorityCallback([](const nlohmann::json& arguments)
             {
-                return nlohmann::json{
+                nlohmann::json result{
                     {"accepted", arguments.value("transport_target", "") == "10.26.0.2:7777"},
                     {"endpoint_host", "10.26.0.2"},
                     {"endpoint_port", 7777},
                     {"world_instance_id", "world_test_1"},
                     {"native_connection_nonce", "host_nonce_0123456789abcdef"}
                 };
+                if (arguments.contains("preserve_host_connection"))
+                {
+                    result["preserved_host_connection"] = arguments.at("preserve_host_connection");
+                    result["operation_sequence"] = result["preserved_host_connection"]["operation_sequence"];
+                }
+                return result;
             });
         framework.SetMatchConnectionEventsCallback([](const nlohmann::json& arguments)
             {
@@ -422,6 +430,25 @@ namespace
                 authority.find("\"request_id\":\"authority-1\"") != std::string::npos,
                 "authority acknowledgement is correlated and public-only");
 
+            const nlohmann::json preservedHost{
+                {"attempt_id", "attempt_a"}, {"authority_session_id", "session_a"},
+                {"world_instance_id", "world_test_1"}, {"roster_revision", 7},
+                {"route_generation", 1}, {"player_id", "p_host"}, {"grant_jti", ""},
+                {"connection_generation", 1}, {"room_role", "HOST"},
+                {"native_connection_nonce", "host_nonce_0123456789abcdef"}, {"operation_sequence", 12}};
+            const nlohmann::json preservedRequest{
+                {"request_id", "preserve-1"}, {"transport_target", "10.26.0.2:7777"},
+                {"preserve_host_connection", preservedHost}};
+            Expect(WriteFrame(client.Get(), "start_match_authority\t" + preservedRequest.dump() + "\n"),
+                "HOST preservation request is written through the actual Windows pipe");
+            capturedPreservedHostFrame = ReadFrame(client.Get());
+            const auto separator = capturedPreservedHostFrame.find('\t');
+            const auto preservedAck = nlohmann::json::parse(capturedPreservedHostFrame.substr(separator + 1U));
+            Expect(capturedPreservedHostFrame.starts_with("start_match_authority_ack\t") &&
+                preservedAck.at("request_id") == "preserve-1" && preservedAck.at("operation_sequence") == 12 &&
+                preservedAck.at("preserved_host_connection") == preservedHost,
+                "CommandFramework must transmit every preserved HOST scope field, nonce and original operation unchanged");
+
             Expect(WriteFrame(client.Get(),
                 "match_connection_events\t{\"request_id\":\"events-1\",\"after_sequence\":7}\n"),
                 "connection event request is written");
@@ -511,7 +538,7 @@ namespace
     }
 }
 
-int main()
+int main(int argc, char** argv)
 {
     TestInvalidConfiguration();
     TestProtocolAndRestart();
@@ -521,6 +548,13 @@ int main()
     {
         std::cerr << failures << " test(s) failed\n";
         return 1;
+    }
+    if (argc == 3 && std::string_view(argv[1]) == "--preserved-wire-output")
+    {
+        std::ofstream output(argv[2], std::ios::binary);
+        output << capturedPreservedHostFrame;
+        if (!output || capturedPreservedHostFrame.empty())
+            return 2;
     }
 
     std::cout << "CommandFramework tests passed\n";

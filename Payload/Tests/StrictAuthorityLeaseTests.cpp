@@ -22,7 +22,10 @@ namespace
 int main()
 {
     using namespace StrictAuthorityLease;
-    const int worldA = 0, worldB = 0;
+    int worldA = 1, worldB = 2;
+    std::cout << "Owned world fixture: distinct_addresses=" << (&worldA != &worldB)
+        << " same_result=" << OwnedWorldMatches(&worldA, "world_a", &worldA, "world_a")
+        << " other_result=" << OwnedWorldMatches(&worldB, "world_a", &worldA, "world_a") << '\n';
     Expect(OwnedWorldMatches(&worldA, "world_a", &worldA, "world_a"),
         "the exact observed native world may publish readiness");
     Expect(!OwnedWorldMatches(&worldB, "world_a", &worldA, "world_a"),
@@ -60,6 +63,47 @@ int main()
     maxRoute.routeGeneration = (std::numeric_limits<int>::max)();
     Expect(Classify(true, "P2P", maxRoute, "P2P", original, true, true) == Decision::RouteConflict,
         "maximum route generation must reject rollback without signed overflow");
+
+    NativeClientMatchConfirmation hostProof{
+        {"attempt_a", "session_a", "world_a", 7, 1, "p_host", "", 1},
+        std::string(32, 'c'), 12, true};
+    const auto preservation = hostProof.ToJson();
+    auto hostScope = hostProof.scope.ToJson();
+    hostScope["room_role"] = "HOST";
+    nlohmann::json clientStatus{
+        {"state", "playable"}, {"scope_verified", true},
+        {"local_pawn_ready", true}, {"native_net_ready", true},
+        {"local_world_instance_id", "local_world_a"},
+        {"operation_sequence", 12}, {"native_connection_nonce", std::string(32, 'c')},
+        {"scope", hostScope}, {"playable_scope", hostScope}};
+    auto nextAuthority = original;
+    nextAuthority.routeGeneration = 2;
+    Expect(PreservedHost(preservation, clientStatus, nextAuthority, "world_a", 1,
+        hostProof.nativeConnectionNonce, 12).has_value(),
+        "fresh exact HOST proof may preserve route 1 while authority advances to route 2");
+    nextAuthority.routeGeneration = 3;
+    Expect(PreservedHost(preservation, clientStatus, nextAuthority, "world_a", 2,
+        hostProof.nativeConnectionNonce, 12).has_value(),
+        "a second authority refresh must keep the original HOST live route unchanged");
+    for (const char* field : {"scope_verified", "local_pawn_ready", "native_net_ready"})
+    {
+        auto stale = clientStatus;
+        stale[field] = false;
+        Expect(!PreservedHost(preservation, stale, nextAuthority, "world_a", 2,
+            hostProof.nativeConnectionNonce, 12), "stale native readiness must reject preservation");
+    }
+    auto changed = preservation;
+    changed["operation_sequence"] = 13;
+    Expect(!PreservedHost(changed, clientStatus, nextAuthority, "world_a", 2,
+        hostProof.nativeConnectionNonce, 12), "another operation cannot preserve the live HOST");
+    changed = preservation;
+    changed["route_generation"] = 2;
+    Expect(!PreservedHost(changed, clientStatus, nextAuthority, "world_a", 2,
+        hostProof.nativeConnectionNonce, 12), "a refreshed authority cannot relabel the client's live route");
+    Expect(!PreservedHost(preservation, clientStatus, nextAuthority, "world_b", 2,
+        hostProof.nativeConnectionNonce, 12), "another world cannot inherit a HOST proof");
+    Expect(!PreservedHost(preservation, clientStatus, nextAuthority, "world_a", 2,
+        std::string(32, 'd'), 12), "a nonce mismatch must reject preservation");
 
     std::atomic_bool owner{false};
     std::atomic<int> winners{0};

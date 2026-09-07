@@ -33,9 +33,12 @@ enum class StrictRosterNativeTeardownRequestResult
 // The caller must still observe the old UWorld/UNetDriver teardown before it
 // reports NativeCleared; this function is only the teardown request boundary.
 StrictRosterNativeTeardownRequestResult RequestStrictRosterNativeWorldTeardown();
-// Reads the local platform identity from the native PlayerState UniqueId.
-// This is intentionally not sourced from the IPC request or UI metadata.
+// Reads the local trusted Steam platform identity from SteamUser.  The
+// native PlayerState UniqueId carries the separate backend player_id.
 bool TryGetStrictRosterLocalPlatformId(std::string& platformId);
+// Reads the native backend Player.ID from the local PlayerState UniqueId.
+// This is a separate identity from the Steam platform ID above.
+bool TryGetStrictRosterLocalPlayerId(std::string& playerId);
 // Generates the opaque nonce that binds one native handshake to its scoped
 // backend reservation/confirmation.  Failure must fail closed.
 std::optional<std::string> GenerateStrictRosterNativeConnectionNonce();

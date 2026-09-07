@@ -1,0 +1,280 @@
+{
+  "schema": "native-netmode-fixed-image-v1",
+  "generated_at_utc": "2026-09-07T20:55:24.025138Z",
+  "status": "PASS_STATIC_DISASSEMBLY",
+  "scope": "read_only_fixed_exe_disassembly",
+  "no_online_search": true,
+  "no_payload_edit": true,
+  "no_build_or_game_run": true,
+  "image": {
+    "path": "C:\\Steam\\steamapps\\common\\Boundary\\ProjectBoundary\\Binaries\\Win64\\ProjectBoundarySteam-Win64-Shipping.exe",
+    "sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+    "sha256_matches_locked_probe": true,
+    "file_bytes": 102362112,
+    "image_base": "0x140000000",
+    "size_of_image": 105431040,
+    "size_of_image_hex": "0x648C000",
+    "entry_rva": "0x40D401C"
+  },
+  "locked_rva_contract": {
+    "source": "C:/wksp/ProjectRebound/Tools/Frida/armory_probe.js",
+    "source_sha256": "4eb2fd236de89d18ee03f07953e5b2a2aacae2891c0c997f4481cc28b65e9c42",
+    "get_net_mode_rva": "0x036CC300",
+    "g_is_client_rva": "0x05CE2404",
+    "g_is_server_rva": "0x05CE2405",
+    "payload_reference": "C:/wksp/ProjectRebound/Payload/dllmain.cpp:78,693-703"
+  },
+  "functions": [
+    {
+      "symbol_label": "UWorld::GetNetMode (fixed-image entry used by the locked probe)",
+      "record": {
+        "rva": "0x036CC300",
+        "raw_file_offset": "0x36CB900",
+        "section": ".text",
+        "bytes": "40534881ec900000004883793800488bd9740eb8030000004881c4900000005bc3488b89e00000004885c9740d4881c4900000005be9960bd0ff488b0d1f597d",
+        "instructions": [
+          {
+            "rva": "0x036CC300",
+            "bytes": "4053",
+            "mnemonic": "push",
+            "operands": "rbx"
+          },
+          {
+            "rva": "0x036CC302",
+            "bytes": "4881ec90000000",
+            "mnemonic": "sub",
+            "operands": "rsp, 0x90"
+          },
+          {
+            "rva": "0x036CC309",
+            "bytes": "4883793800",
+            "mnemonic": "cmp",
+            "operands": "qword ptr [rcx + 0x38], 0"
+          },
+          {
+            "rva": "0x036CC30E",
+            "bytes": "488bd9",
+            "mnemonic": "mov",
+            "operands": "rbx, rcx"
+          },
+          {
+            "rva": "0x036CC311",
+            "bytes": "740e",
+            "mnemonic": "je",
+            "operands": "0x36cc321"
+          },
+          {
+            "rva": "0x036CC313",
+            "bytes": "b803000000",
+            "mnemonic": "mov",
+            "operands": "eax, 3"
+          },
+          {
+            "rva": "0x036CC318",
+            "bytes": "4881c490000000",
+            "mnemonic": "add",
+            "operands": "rsp, 0x90"
+          },
+          {
+            "rva": "0x036CC31F",
+            "bytes": "5b",
+            "mnemonic": "pop",
+            "operands": "rbx"
+          },
+          {
+            "rva": "0x036CC320",
+            "bytes": "c3",
+            "mnemonic": "ret",
+            "operands": ""
+          },
+          {
+            "rva": "0x036CC321",
+            "bytes": "488b89e0000000",
+            "mnemonic": "mov",
+            "operands": "rcx, qword ptr [rcx + 0xe0]"
+          },
+          {
+            "rva": "0x036CC328",
+            "bytes": "4885c9",
+            "mnemonic": "test",
+            "operands": "rcx, rcx"
+          },
+          {
+            "rva": "0x036CC32B",
+            "bytes": "740d",
+            "mnemonic": "je",
+            "operands": "0x36cc33a"
+          },
+          {
+            "rva": "0x036CC32D",
+            "bytes": "4881c490000000",
+            "mnemonic": "add",
+            "operands": "rsp, 0x90"
+          },
+          {
+            "rva": "0x036CC334",
+            "bytes": "5b",
+            "mnemonic": "pop",
+            "operands": "rbx"
+          },
+          {
+            "rva": "0x036CC335",
+            "bytes": "e9960bd0ff",
+            "mnemonic": "jmp",
+            "operands": "0x33cced0"
+          }
+        ]
+      },
+      "control_flow": [
+        "RCX is the UWorld object; qword [RCX+0x38] is tested first.",
+        "When [RCX+0x38] is non-null, the function immediately returns EAX=3.",
+        "When [RCX+0x38] is null, it loads qword [RCX+0xE0]; if present it tail-jumps to 0x033CCED0."
+      ]
+    },
+    {
+      "symbol_label": "UNetDriver::GetNetMode (fixed-image target of the UWorld fallback)",
+      "record": {
+        "rva": "0x033CCED0",
+        "raw_file_offset": "0x33CC4D0",
+        "section": ".text",
+        "bytes": "4883ec28488b01ff907803000084c0741233c038051b5591020f95c0ffc04883c428c3b8030000004883c428c3cccccc",
+        "instructions": [
+          {
+            "rva": "0x033CCED0",
+            "bytes": "4883ec28",
+            "mnemonic": "sub",
+            "operands": "rsp, 0x28"
+          },
+          {
+            "rva": "0x033CCED4",
+            "bytes": "488b01",
+            "mnemonic": "mov",
+            "operands": "rax, qword ptr [rcx]"
+          },
+          {
+            "rva": "0x033CCED7",
+            "bytes": "ff9078030000",
+            "mnemonic": "call",
+            "operands": "qword ptr [rax + 0x378]"
+          },
+          {
+            "rva": "0x033CCEDD",
+            "bytes": "84c0",
+            "mnemonic": "test",
+            "operands": "al, al"
+          },
+          {
+            "rva": "0x033CCEDF",
+            "bytes": "7412",
+            "mnemonic": "je",
+            "operands": "0x33ccef3"
+          },
+          {
+            "rva": "0x033CCEE1",
+            "bytes": "33c0",
+            "mnemonic": "xor",
+            "operands": "eax, eax"
+          },
+          {
+            "rva": "0x033CCEE3",
+            "bytes": "38051b559102",
+            "mnemonic": "cmp",
+            "operands": "byte ptr [rip + 0x291551b], al"
+          },
+          {
+            "rva": "0x033CCEE9",
+            "bytes": "0f95c0",
+            "mnemonic": "setne",
+            "operands": "al"
+          },
+          {
+            "rva": "0x033CCEEC",
+            "bytes": "ffc0",
+            "mnemonic": "inc",
+            "operands": "eax"
+          },
+          {
+            "rva": "0x033CCEEE",
+            "bytes": "4883c428",
+            "mnemonic": "add",
+            "operands": "rsp, 0x28"
+          },
+          {
+            "rva": "0x033CCEF2",
+            "bytes": "c3",
+            "mnemonic": "ret",
+            "operands": ""
+          },
+          {
+            "rva": "0x033CCEF3",
+            "bytes": "b803000000",
+            "mnemonic": "mov",
+            "operands": "eax, 3"
+          },
+          {
+            "rva": "0x033CCEF8",
+            "bytes": "4883c428",
+            "mnemonic": "add",
+            "operands": "rsp, 0x28"
+          },
+          {
+            "rva": "0x033CCEFC",
+            "bytes": "c3",
+            "mnemonic": "ret",
+            "operands": ""
+          },
+          {
+            "rva": "0x033CCEFD",
+            "bytes": "cc",
+            "mnemonic": "int3",
+            "operands": ""
+          },
+          {
+            "rva": "0x033CCEFE",
+            "bytes": "cc",
+            "mnemonic": "int3",
+            "operands": ""
+          },
+          {
+            "rva": "0x033CCEFF",
+            "bytes": "cc",
+            "mnemonic": "int3",
+            "operands": ""
+          }
+        ]
+      },
+      "control_flow": [
+        "RCX is the driver object; the function calls the driver vtable slot at +0x378.",
+        "If that predicate is false, it returns EAX=3.",
+        "If true, it returns 1 plus the byte at RIP-relative target 0x05CE2404, yielding 1 or 2; the target is the locked gIsClient RVA."
+      ]
+    }
+  ],
+  "interpretation": {
+    "raw_world_mode_3_does_not_prove_listen_failure": true,
+    "reason": "The locked UWorld entry has a direct non-null NetDriver fast path that returns 3 before invoking the driver classifier. The value therefore cannot independently distinguish a failed listen setup from a world that currently owns a NetDriver.",
+    "server_listen_discriminator": "Use the separately observed NetDriver/World binding, driver-side GetNetMode path, server/listen flags, and post-travel readiness evidence. Do not classify from the raw UWorld mode value alone.",
+    "sdk_layout_fact": "The fixed image reads UWorld.NetDriver at +0x38 in this entry; this is the exact static observation, not a guessed offset."
+  },
+  "withdrawn_conclusions": [
+    {
+      "finding": "A raw world mode=3 observation independently proves that listen-server setup failed.",
+      "status": "RETRACTED",
+      "replacement": "Mode 3 is ambiguous at the UWorld entry; the fixed-image control flow requires NetDriver/driver/server readiness evidence."
+    },
+    {
+      "finding": "RequestScopedStrictRosterWorldTeardown necessarily dereferences a null world through the NetDriver check.",
+      "status": "RETRACTED",
+      "replacement": "OwnedWorldMatches returns false for a null world and the cleanup expression short-circuits on !ownsWorld before evaluating the world->NetDriver term."
+    }
+  ],
+  "verification_commands": [
+    "python -c \"import pefile,capstone; ... get_offset_from_rva(0x036CC300/0x033CCED0); disassemble locked image\"",
+    "Get-FileHash -Algorithm SHA256 C:\\Steam\\steamapps\\common\\Boundary\\ProjectBoundary\\Binaries\\Win64\\ProjectBoundarySteam-Win64-Shipping.exe"
+  ],
+  "acceptance": {
+    "static_disassembly": "PASS",
+    "native_online_acceptance": "UNCHANGED_NOT_RUN",
+    "runtime_listen_failure_claim": "RETRACTED"
+  }
+}

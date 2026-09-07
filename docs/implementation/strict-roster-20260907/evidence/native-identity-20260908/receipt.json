@@ -1,0 +1,38 @@
+{
+  "recorded_at": "2026-09-07T21:00:23.827212+00:00",
+  "files": [
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-identity-20260908/fixed-image-identity-abi.json",
+      "sha256": "ab2b9f82d817e6c1ee6fba071825fc3f07991ebde60e21755e22b1d94db037ab",
+      "bytes": 2621,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\identity-abi-prelogin-sret-20260908.json"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-identity-20260908/authenticated-player-fixture-provenance.json",
+      "sha256": "9f58192076c6e944d6789b4b24448aa292d33c731dc163277ccd69451b48dc23",
+      "bytes": 1404,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\native-player-id-private.provenance.json"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-identity-20260908/private-driver-component-tests.log",
+      "sha256": "3dce8f12dd8c6e47dfebcf31b5e6c8c49ae54e3ccc1fe09ae60e9dde5dcb335c",
+      "bytes": 2347,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\real-player-driver-tests-20260908.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-identity-20260908/fixed-image-world-netmode.json",
+      "sha256": "db769fcd2ac6ed4dda8a4bb194f9ed2170a26b9f5d1b9d7e13d1c191e0e61287",
+      "bytes": 9353,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\native-netmode-fixed-image-20260908.json"
+    }
+  ],
+  "private_native_player_identity": {
+    "length": 34,
+    "sha256": "20636dadde45c06cc52c9446a51a2c0fd549306d8c3489525c1289283885a17a"
+  },
+  "private_driver_test_top_passes": 11,
+  "private_driver_test_sub_passes": 6,
+  "scope": "Actual authenticated identity provenance, fixed-image ABI analysis, and private driver component execution only. Runtime admission results are separately retained in native-scope-runtime-20260908. No private identity or credential is copied.",
+  "native_admission_passed": false,
+  "release_ready": false
+}

@@ -138,6 +138,20 @@ namespace
     static_assert(offsetof(APBPlayerState, MyCampID) == 0x0348);
     static_assert(offsetof(APBPlayerController, PBPlayerState) == 0x05B8);
 
+    // The generated FUniqueNetIdRepl layout intentionally omits the native
+    // FUniqueNetId pointer held by the wrapper.  The fixed Boundary image
+    // reads that pointer at +0x08 in Engine::PreLogin (RVA 0x03290DE0),
+    // while ReplicationBytes remains the reflected field at +0x18.  Keep the
+    // two independent offsets explicit so a regenerated SDK cannot silently
+    // move the native readback used by strict admission.
+    constexpr std::size_t kUniqueNetIdNativePointerOffset = 0x08U;
+    constexpr std::size_t kUniqueNetIdVtableIsValidOffset = 0x28U;
+    constexpr std::size_t kUniqueNetIdVtableToStringOffset = 0x30U;
+    static_assert(sizeof(FUniqueNetIdRepl) == 0x28U);
+    static_assert(offsetof(FUniqueNetIdRepl, ReplicationBytes) == 0x18U);
+    static_assert(kUniqueNetIdNativePointerOffset <
+        offsetof(FUniqueNetIdRepl, ReplicationBytes));
+
     StrictRoster::Policy* gStrictRosterPolicy = nullptr;
     SafetyHookInline gStrictRosterPreLoginHook;
     SafetyHookInline gStrictRosterNmtFStringSerializerHook;
@@ -241,6 +255,26 @@ namespace
         const DWORD protection = memory.Protect & 0xFFU;
         return protection == PAGE_EXECUTE || protection == PAGE_EXECUTE_READ ||
             protection == PAGE_EXECUTE_READWRITE || protection == PAGE_EXECUTE_WRITECOPY;
+    }
+
+    bool TryGetPinnedModuleRva(
+        const void* address,
+        std::uintptr_t& rva) noexcept
+    {
+        rva = 0;
+        if (!BaseAddress || !IsExecutableAddress(address))
+            return false;
+        MEMORY_BASIC_INFORMATION memory{};
+        if (VirtualQuery(address, &memory, sizeof(memory)) != sizeof(memory) ||
+            memory.AllocationBase != reinterpret_cast<void*>(BaseAddress))
+        {
+            return false;
+        }
+        const std::uintptr_t absolute = reinterpret_cast<std::uintptr_t>(address);
+        if (absolute < BaseAddress)
+            return false;
+        rva = absolute - BaseAddress;
+        return true;
     }
 
     bool MatchesPinnedBytes(
@@ -348,59 +382,8 @@ namespace
         if (!IsReadableNativeFString(raw, NativeLoginGrantPolicy::MaxUrlCharacters))
             return false;
 
-        const std::wstring_view url(raw->data, static_cast<std::size_t>(raw->num - 1));
-        constexpr std::wstring_view key = L"ReboundGrant=";
-        std::size_t segmentStart = 0;
-        bool found = false;
-        while (segmentStart <= url.size())
-        {
-            if (segmentStart < url.size() && url[segmentStart] == L'?')
-            {
-                ++segmentStart;
-                continue;
-            }
-            if (segmentStart < url.size() && url[segmentStart] == L'#')
-                break;
-            const std::size_t separator = url.find_first_of(L"&#", segmentStart);
-            const std::size_t segmentEnd = separator == std::wstring_view::npos
-                ? url.size() : separator;
-            if (url.compare(segmentStart, key.size(), key) == 0)
-            {
-                if (found)
-                {
-                    SecureClearGrant(grant);
-                    return false;
-                }
-                found = true;
-                const std::wstring_view value = url.substr(
-                    segmentStart + key.size(), segmentEnd - segmentStart - key.size());
-                if (value.empty() || value.size() > NativeLoginGrantPolicy::MaxGrantBytes)
-                {
-                    SecureClearGrant(grant);
-                    return false;
-                }
-                grant.reserve(value.size());
-                for (const wchar_t character : value)
-                {
-                    if (character > 0x7FU || !NativeLoginGrantPolicy::IsBase64UrlCharacter(
-                        static_cast<char>(character)))
-                    {
-                        SecureClearGrant(grant);
-                        return false;
-                    }
-                    grant.push_back(static_cast<char>(character));
-                }
-            }
-            if (separator == std::wstring_view::npos)
-                break;
-            segmentStart = separator + 1U;
-        }
-        if (!found || !NativeLoginGrantPolicy::ValidateGrantTokenShape(grant))
-        {
-            SecureClearGrant(grant);
-            return false;
-        }
-        return true;
+        return NativeLoginGrantPolicy::ExtractGrantFromNativeOptions(
+            std::wstring_view(raw->data, static_cast<std::size_t>(raw->num - 1)), grant);
     }
 
     bool ExtractStrictRosterSteamTicket(
@@ -475,17 +458,16 @@ namespace
         return true;
     }
 
-    bool HasVerifiedStrictRosterPlatformPossession(
+    bool ArmStrictRosterPlatformProof(
         const FUniqueNetIdRepl* uniqueId,
-        const std::string_view extractedPlatformId,
+        const std::string_view signedPlatformId,
         const std::string_view grantJti,
         const std::string_view nativeConnectionNonce) noexcept
     {
-        // FUniqueNetIdRepl is still only an input claim.  Authorization is
-        // consumed from the registered Steamworks
-        // ValidateAuthTicketResponse_t callback, whose SteamID must match the
-        // exact decimal native identity and is single-use/short-lived.
-        if (!uniqueId || extractedPlatformId.empty() ||
+        // The signed seat binds the native Player.ID to the Steam identity.
+        // Arming this handshake is not possession proof: BeginAuthSession
+        // and the matching ValidateAuthTicketResponse must both succeed.
+        if (!uniqueId || signedPlatformId.empty() ||
             !StrictRosterSteamAuth::CallbackRegistered())
         {
             return false;
@@ -493,7 +475,7 @@ namespace
         const std::uint64_t nowMilliseconds =
             static_cast<std::uint64_t>(GetTickCount64());
         return StrictRosterSteamAuth::ArmExpectedGrant(
-            extractedPlatformId, grantJti, nativeConnectionNonce,
+            signedPlatformId, grantJti, nativeConnectionNonce,
             nowMilliseconds);
     }
 
@@ -517,35 +499,307 @@ namespace
                 sizeof(kStrictRosterQueryCampPrologue));
     }
 
-    bool ExtractStrictRosterPlatformId(
-        const FUniqueNetIdRepl* uniqueId,
-        std::string& platformId) noexcept
+    enum class StrictRosterNativeIdentityProbeFailure : std::uint8_t
     {
-        platformId.clear();
-        if (!IsReadableAddress(uniqueId, 0x18U))
+        None,
+        UniqueIdUnreadable,
+        NativeNull,
+        NativeUnreadable,
+        VtableNull,
+        VtableUnreadable,
+        ValidityEntryUnexecutable,
+        ToStringEntryUnexecutable,
+        NativeInvalid,
+        StringObjectUnreadable,
+        StringValueInvalid,
+        StringLengthInvalid,
+        StringIdentifierInvalid,
+        StringConversionFailed,
+        StringReturnMismatch
+    };
+
+    struct StrictRosterNativeIdentityProbe
+    {
+        StrictRosterNativeIdentityProbeFailure failure =
+            StrictRosterNativeIdentityProbeFailure::None;
+        bool uniqueIdReadable = false;
+        bool nativePresent = false;
+        bool nativeReadable = false;
+        bool vtablePresent = false;
+        bool vtableReadable = false;
+        bool validityExecutable = false;
+        bool toStringExecutable = false;
+        bool nativeValid = false;
+        bool stringObjectReadable = false;
+        bool stringValueValid = false;
+        bool stringDecimal = false;
+        bool stringIdentifierSafe = false;
+        bool stringReturnMatchesStorage = false;
+        std::int32_t stringNum = 0;
+        std::int32_t stringMax = 0;
+        std::size_t stringLength = 0;
+        bool validityModuleRelative = false;
+        bool toStringModuleRelative = false;
+        std::uintptr_t validityRva = 0;
+        std::uintptr_t toStringRva = 0;
+    };
+
+    const char* StrictRosterNativeIdentityProbeFailureName(
+        const StrictRosterNativeIdentityProbeFailure failure) noexcept
+    {
+        switch (failure)
+        {
+        case StrictRosterNativeIdentityProbeFailure::None:
+            return "none";
+        case StrictRosterNativeIdentityProbeFailure::UniqueIdUnreadable:
+            return "unique_id_unreadable";
+        case StrictRosterNativeIdentityProbeFailure::NativeNull:
+            return "native_id_null";
+        case StrictRosterNativeIdentityProbeFailure::NativeUnreadable:
+            return "native_id_unreadable";
+        case StrictRosterNativeIdentityProbeFailure::VtableNull:
+            return "native_vtable_null";
+        case StrictRosterNativeIdentityProbeFailure::VtableUnreadable:
+            return "native_vtable_unreadable";
+        case StrictRosterNativeIdentityProbeFailure::ValidityEntryUnexecutable:
+            return "is_valid_entry_unexecutable";
+        case StrictRosterNativeIdentityProbeFailure::ToStringEntryUnexecutable:
+            return "to_string_entry_unexecutable";
+        case StrictRosterNativeIdentityProbeFailure::NativeInvalid:
+            return "native_id_invalid";
+        case StrictRosterNativeIdentityProbeFailure::StringObjectUnreadable:
+            return "string_object_unreadable";
+        case StrictRosterNativeIdentityProbeFailure::StringValueInvalid:
+            return "string_value_invalid";
+        case StrictRosterNativeIdentityProbeFailure::StringLengthInvalid:
+            return "string_length_invalid";
+        case StrictRosterNativeIdentityProbeFailure::StringIdentifierInvalid:
+            return "string_identifier_invalid";
+        case StrictRosterNativeIdentityProbeFailure::StringConversionFailed:
+            return "string_conversion_failed";
+        case StrictRosterNativeIdentityProbeFailure::StringReturnMismatch:
+            return "string_return_mismatch";
+        }
+        return "unknown";
+    }
+
+    void LogStrictRosterNativeIdentityProbe(
+        const StrictRosterNativeIdentityProbe& probe) noexcept
+    {
+        // Never print the native pointer, the platform ID, or any ticket.  A
+        // stage-only record is sufficient to distinguish an invalid native
+        // identity from an FString ABI/layout failure on the fixed image.
+        std::cout << "[STRICT-ROSTER] identity_probe failure="
+            << StrictRosterNativeIdentityProbeFailureName(probe.failure)
+            << " unique_readable=" << (probe.uniqueIdReadable ? 1 : 0)
+            << " native_present=" << (probe.nativePresent ? 1 : 0)
+            << " native_readable=" << (probe.nativeReadable ? 1 : 0)
+            << " vtable_present=" << (probe.vtablePresent ? 1 : 0)
+            << " vtable_readable=" << (probe.vtableReadable ? 1 : 0)
+            << " is_valid_exec=" << (probe.validityExecutable ? 1 : 0)
+            << " to_string_exec=" << (probe.toStringExecutable ? 1 : 0)
+            << " is_valid_scope="
+            << (!probe.validityExecutable
+                ? "unavailable"
+                : (probe.validityModuleRelative ? "image" : "external"))
+            << " is_valid_rva=0x" << std::hex << probe.validityRva
+            << std::dec
+            << " to_string_scope="
+            << (!probe.toStringExecutable
+                ? "unavailable"
+                : (probe.toStringModuleRelative ? "image" : "external"))
+            << " to_string_rva=0x" << std::hex << probe.toStringRva
+            << std::dec
+            << " native_valid=" << (probe.nativeValid ? 1 : 0)
+            << " string_object_readable="
+            << (probe.stringObjectReadable ? 1 : 0)
+            << " string_value_valid=" << (probe.stringValueValid ? 1 : 0)
+            << " string_decimal=" << (probe.stringDecimal ? 1 : 0)
+            << " string_identifier_safe="
+            << (probe.stringIdentifierSafe ? 1 : 0)
+            << " string_return_matches_storage="
+            << (probe.stringReturnMatchesStorage ? 1 : 0)
+            << " string_num=" << probe.stringNum
+            << " string_max=" << probe.stringMax
+            << " string_length=" << probe.stringLength
+            << std::endl;
+    }
+
+    bool ExtractStrictRosterNativePlayerId(
+        const FUniqueNetIdRepl* uniqueId,
+        std::string& nativePlayerId,
+        StrictRosterNativeIdentityProbe* probe = nullptr) noexcept
+    {
+        nativePlayerId.clear();
+        if (probe)
+            *probe = {};
+
+        const auto fail = [probe](
+            const StrictRosterNativeIdentityProbeFailure failure) noexcept {
+            if (probe)
+                probe->failure = failure;
             return false;
+        };
+
+        if (!IsReadableAddress(uniqueId,
+                offsetof(FUniqueNetIdRepl, ReplicationBytes)))
+        {
+            return fail(StrictRosterNativeIdentityProbeFailure::UniqueIdUnreadable);
+        }
+        if (probe)
+            probe->uniqueIdReadable = true;
+
         void* const nativeId = *reinterpret_cast<void* const*>(
-            reinterpret_cast<const uint8_t*>(uniqueId) + 0x08U);
+            reinterpret_cast<const std::uint8_t*>(uniqueId) +
+            kUniqueNetIdNativePointerOffset);
+        if (!nativeId)
+            return fail(StrictRosterNativeIdentityProbeFailure::NativeNull);
+        if (probe)
+            probe->nativePresent = true;
         if (!IsReadableAddress(nativeId, sizeof(void*)))
-            return false;
+        {
+            return fail(StrictRosterNativeIdentityProbeFailure::NativeUnreadable);
+        }
+        if (probe)
+            probe->nativeReadable = true;
+
         void** const vtable = *reinterpret_cast<void***>(nativeId);
-        if (!IsReadableAddress(vtable, 0x38U))
-            return false;
-        void* const validityEntry = vtable[0x28U / sizeof(void*)];
-        void* const toStringEntry = vtable[0x30U / sizeof(void*)];
-        if (!IsExecutableAddress(validityEntry) || !IsExecutableAddress(toStringEntry))
-            return false;
+        if (!vtable)
+            return fail(StrictRosterNativeIdentityProbeFailure::VtableNull);
+        if (probe)
+            probe->vtablePresent = true;
+        const std::size_t vtableBytes =
+            kUniqueNetIdVtableToStringOffset + sizeof(void*);
+        if (!IsReadableAddress(vtable, vtableBytes))
+        {
+            return fail(StrictRosterNativeIdentityProbeFailure::VtableUnreadable);
+        }
+        if (probe)
+            probe->vtableReadable = true;
+
+        void* const validityEntry = vtable[
+            kUniqueNetIdVtableIsValidOffset / sizeof(void*)];
+        void* const toStringEntry = vtable[
+            kUniqueNetIdVtableToStringOffset / sizeof(void*)];
+        if (!IsExecutableAddress(validityEntry))
+        {
+            return fail(
+                StrictRosterNativeIdentityProbeFailure::ValidityEntryUnexecutable);
+        }
+        if (probe)
+            probe->validityExecutable = true;
+        if (probe)
+        {
+            probe->validityModuleRelative = TryGetPinnedModuleRva(
+                validityEntry, probe->validityRva);
+        }
+        if (!IsExecutableAddress(toStringEntry))
+        {
+            return fail(
+                StrictRosterNativeIdentityProbeFailure::ToStringEntryUnexecutable);
+        }
+        if (probe)
+            probe->toStringExecutable = true;
+        if (probe)
+        {
+            probe->toStringModuleRelative = TryGetPinnedModuleRva(
+                toStringEntry, probe->toStringRva);
+        }
+
         using IsValidFn = bool(__fastcall*)(void*);
-        using ToStringFn = void(__fastcall*)(void*, FString*);
         if (!reinterpret_cast<IsValidFn>(validityEntry)(nativeId))
-            return false;
+            return fail(StrictRosterNativeIdentityProbeFailure::NativeInvalid);
+        if (probe)
+            probe->nativeValid = true;
+
         FString value;
-        reinterpret_cast<ToStringFn>(toStringEntry)(nativeId, &value);
-        platformId = value.ToString();
-        return platformId.size() >= 15U && platformId.size() <= 20U &&
-            std::all_of(platformId.begin(), platformId.end(), [](const unsigned char ch) {
-                return ch >= '0' && ch <= '9';
-            });
+        // FUniqueNetId::ToString is declared `FString ToString() const`.
+        // For a non-static MSVC x64 member function the native `this` pointer
+        // remains the first register argument and the hidden return storage
+        // follows it.  The fixed Steam vtable therefore receives
+        // (this, FString*) even though a free function would receive its
+        // hidden return storage first.  The same order is visible in the
+        // fixed UniqueNetId wrapper at RVA 0x009326C0. Its observed
+        // ToString entry at 0x009326A0 reads this+0x18 and copies the
+        // FString into the RDX return storage, returning that storage in RAX.
+        using ToStringFn = FString* (__fastcall*)(const void*, FString*);
+        FString* const returnedValue =
+            reinterpret_cast<ToStringFn>(toStringEntry)(nativeId, &value);
+        if (returnedValue != &value)
+        {
+            return fail(
+                StrictRosterNativeIdentityProbeFailure::StringReturnMismatch);
+        }
+        if (probe)
+            probe->stringReturnMatchesStorage = true;
+
+        const auto* const rawValue =
+            reinterpret_cast<const RawNativeFString*>(&value);
+        if (!IsReadableAddress(rawValue, sizeof(RawNativeFString)))
+        {
+            return fail(
+                StrictRosterNativeIdentityProbeFailure::StringObjectUnreadable);
+        }
+        if (probe)
+        {
+            probe->stringObjectReadable = true;
+            probe->stringNum = rawValue->num;
+            probe->stringMax = rawValue->max;
+        }
+        // The fixed image stores the backend Player.ID here.  It is an
+        // opaque signed-roster account identifier, not a Steam decimal ID;
+        // keep the bound at the policy identifier maximum and validate its
+        // alphabet below instead of guessing a platform representation.
+        if (!IsReadableNativeFString(rawValue, 129U))
+        {
+            return fail(StrictRosterNativeIdentityProbeFailure::StringValueInvalid);
+        }
+        const std::size_t length =
+            static_cast<std::size_t>(rawValue->num - 1);
+        if (probe)
+        {
+            probe->stringValueValid = true;
+            probe->stringLength = length;
+        }
+        if (length == 0U || length > 128U)
+            return fail(StrictRosterNativeIdentityProbeFailure::StringLengthInvalid);
+
+        try
+        {
+            nativePlayerId.reserve(length);
+            for (std::size_t index = 0; index < length; ++index)
+            {
+                const wchar_t character = rawValue->data[index];
+                if (character > 0x7FU)
+                {
+                    nativePlayerId.clear();
+                    return fail(StrictRosterNativeIdentityProbeFailure::StringIdentifierInvalid);
+                }
+                nativePlayerId.push_back(static_cast<char>(character));
+            }
+        }
+        catch (...)
+        {
+            nativePlayerId.clear();
+            return fail(
+                StrictRosterNativeIdentityProbeFailure::StringConversionFailed);
+        }
+        if (!StrictRoster::Detail::SafeIdentifier(nativePlayerId))
+        {
+            nativePlayerId.clear();
+            return fail(StrictRosterNativeIdentityProbeFailure::StringIdentifierInvalid);
+        }
+        if (probe)
+        {
+            probe->stringDecimal = std::all_of(
+                nativePlayerId.begin(), nativePlayerId.end(),
+                [](const char character) {
+                    return character >= '0' && character <= '9';
+                });
+            probe->stringIdentifierSafe = true;
+            probe->failure = StrictRosterNativeIdentityProbeFailure::None;
+        }
+        return true;
     }
 
     void RejectStrictRosterPreLogin(FString* errorMessage, const wchar_t* reason)
@@ -560,54 +814,8 @@ namespace
         const auto* const raw = reinterpret_cast<const RawNativeFString*>(options);
         if (!IsReadableNativeFString(raw, NativeLoginGrantPolicy::MaxUrlCharacters))
             return std::nullopt;
-        try
-        {
-            std::wstring source(
-                raw->data, static_cast<std::size_t>(raw->num - 1));
-            ScopedSecureWide sourceGuard{source};
-            const std::size_t fragment = source.find(L'#');
-            const std::wstring_view beforeFragment = source.substr(0, fragment);
-            const std::wstring_view afterFragment = fragment == std::wstring_view::npos
-                ? std::wstring_view{}
-                : source.substr(fragment);
-            const std::size_t query = beforeFragment.find(L'?');
-            if (query == std::wstring_view::npos)
-                return source + L'\0';
-
-            std::wstring result(beforeFragment.substr(0, query));
-            std::size_t segmentStart = query + 1U;
-            bool first = true;
-            while (segmentStart <= beforeFragment.size())
-            {
-                const std::size_t separator = beforeFragment.find(
-                    L'&', segmentStart);
-                const std::size_t segmentEnd = separator == std::wstring_view::npos
-                    ? beforeFragment.size() : separator;
-                const std::wstring_view segment = beforeFragment.substr(
-                    segmentStart, segmentEnd - segmentStart);
-                const bool sensitive =
-                    segment.starts_with(L"ReboundGrant=") ||
-                    segment.starts_with(L"ReboundSteamTicket=");
-                if (!sensitive && !segment.empty())
-                {
-                    result += first ? L'?' : L'&';
-                    result.append(segment);
-                    first = false;
-                }
-                if (separator == std::wstring_view::npos)
-                    break;
-                segmentStart = separator + 1U;
-            }
-            result.append(afterFragment);
-            if (result.size() + 1U > NativeLoginGrantPolicy::MaxUrlCharacters)
-                return std::nullopt;
-            result.push_back(L'\0');
-            return result;
-        }
-        catch (...)
-        {
-            return std::nullopt;
-        }
+        return NativeLoginGrantPolicy::StripPayloadOwnedOptions(std::wstring_view(
+            raw->data, static_cast<std::size_t>(raw->num - 1)));
     }
 
     void StrictRosterPreLogin(
@@ -631,7 +839,13 @@ namespace
         gStrictRosterPreLoginHook.call<void>(
             gameMode, optionsForNativePreLogin, address, uniqueId, errorMessage);
         if (!errorMessage || !errorMessage->ToWString().empty())
+        {
+            std::cout << "[STRICT-ROSTER] PreLogin rejected by the original native admission: "
+                << "error_storage=" << (errorMessage ? 1 : 0)
+                << " error_characters=" << (errorMessage ? errorMessage->ToWString().size() : 0)
+                << "." << std::endl;
             return;
+        }
 
         // The only bypass is the explicitly isolated local-PVE server
         // bootstrap.  Online admission requires all three independent facts:
@@ -650,12 +864,15 @@ namespace
             return;
         }
 
-        std::string platformId;
-        if (!ExtractStrictRosterPlatformId(uniqueId, platformId))
+        std::string nativePlayerId;
+        StrictRosterNativeIdentityProbe identityProbe;
+        if (!ExtractStrictRosterNativePlayerId(
+                uniqueId, nativePlayerId, &identityProbe))
         {
             RejectStrictRosterPreLogin(errorMessage,
                 L"STRICT_ROSTER_IDENTITY_UNAVAILABLE");
-            std::cout << "[STRICT-ROSTER] PreLogin rejected an unreadable platform identity."
+            LogStrictRosterNativeIdentityProbe(identityProbe);
+            std::cout << "[STRICT-ROSTER] PreLogin rejected an unreadable native account identity."
                 << std::endl;
             return;
         }
@@ -668,16 +885,28 @@ namespace
                          "carry one valid staged-grant option." << std::endl;
             return;
         }
-        const StrictRoster::Decision grantDecision =
-            gStrictRosterPolicy->ValidateNativeJoinGrant(
-                nativeGrant, platformId, StrictRosterEpochSeconds());
+        const StrictRoster::SeatDecision grantDecision =
+            gStrictRosterPolicy->ValidateNativeJoinGrantForPlayer(
+                nativeGrant, nativePlayerId, StrictRosterEpochSeconds());
         SecureClearGrant(nativeGrant);
         if (!grantDecision.accepted)
         {
             RejectStrictRosterPreLogin(
                 errorMessage, L"STRICT_ROSTER_NATIVE_GRANT_UNVERIFIED");
             std::cout << "[STRICT-ROSTER] PreLogin rejected: staged NMT_Login "
-                         "grant validation failed." << std::endl;
+                         "grant validation failed: " << grantDecision.code << "." << std::endl;
+            return;
+        }
+        // The signed seat is the only source of the Steam platform identity.
+        // The native UniqueNetId string above is the backend player/account
+        // identity and must never be parsed or passed to Steamworks.
+        const std::string& platformId = grantDecision.platformId;
+        if (!StrictRoster::Detail::SafeIdentifier(platformId))
+        {
+            RejectStrictRosterPreLogin(
+                errorMessage, L"STRICT_ROSTER_PLATFORM_ID_UNAVAILABLE");
+            std::cout << "[STRICT-ROSTER] PreLogin rejected: signed seat has no "
+                         "safe platform identity." << std::endl;
             return;
         }
         std::vector<std::uint8_t> nativeSteamTicket;
@@ -700,7 +929,7 @@ namespace
                          "handshake nonce generator is unavailable." << std::endl;
             return;
         }
-        if (!HasVerifiedStrictRosterPlatformPossession(
+        if (!ArmStrictRosterPlatformProof(
                 uniqueId, platformId, grantDecision.grantJti,
                 *nativeConnectionNonce))
         {
@@ -750,8 +979,9 @@ namespace
             return;
         }
         const StrictRoster::SeatDecision decision =
-            gStrictRosterPolicy->ConsumeStagedJoinGrant(
-                platformId, StrictRosterEpochSeconds(), *nativeConnectionNonce);
+            gStrictRosterPolicy->ReserveAdmissionForNativePlayer(
+                nativePlayerId, platformId, grantDecision.grantJti, StrictRosterEpochSeconds(),
+                *nativeConnectionNonce);
         if (!decision.accepted)
         {
             StrictRosterSteamAuth::RevokeConnectionBinding(*nativeConnectionNonce);
@@ -872,9 +1102,9 @@ namespace
             return StrictRosterSeatApplyResult::Rejected;
         }
 
-        std::string platformId;
-        const bool hasPlatformIdentity =
-            ExtractStrictRosterPlatformId(&playerState->UniqueId, platformId);
+        std::string nativePlayerId;
+        const bool hasNativePlayerIdentity =
+            ExtractStrictRosterNativePlayerId(&playerState->UniqueId, nativePlayerId);
         std::optional<StrictRoster::SeatDecision> decision;
         {
             std::lock_guard<std::mutex> lock(gStrictRosterControllerMutex);
@@ -882,10 +1112,10 @@ namespace
             if (existing != gStrictRosterControllerSeats.end())
                 decision = existing->second;
         }
-        if (hasPlatformIdentity)
+        if (hasNativePlayerIdentity)
         {
             if (!decision)
-                decision = gStrictRosterPolicy->ReservedDecision(platformId);
+                decision = gStrictRosterPolicy->ReservedDecisionByPlayerId(nativePlayerId);
         }
 
         // A listen host does not traverse remote NMT_Login/PreLogin and the
@@ -897,8 +1127,8 @@ namespace
         {
             std::lock_guard<std::mutex> lock(gStrictRosterLocalHostSeatMutex);
             if (gStrictRosterLocalHostSeat &&
-                (!hasPlatformIdentity ||
-                    gStrictRosterLocalHostSeat->platformId == platformId))
+                (!hasNativePlayerIdentity ||
+                    gStrictRosterLocalHostSeat->playerId == nativePlayerId))
             {
                 decision = gStrictRosterLocalHostSeat;
             }
@@ -909,11 +1139,18 @@ namespace
             decision->teamSlot < 0 || decision->logicalSlot < 0 ||
             decision->connectionGeneration < 1)
         {
-            if (!hasPlatformIdentity)
+            if (!hasNativePlayerIdentity)
                 return StrictRosterSeatApplyResult::Pending;
             std::cout << "[STRICT-ROSTER] Seat application rejected at "
                 << (stage ? stage : "unknown")
                 << ": no active frozen decision." << std::endl;
+            return StrictRosterSeatApplyResult::Rejected;
+        }
+
+        if (hasNativePlayerIdentity && decision->playerId != nativePlayerId)
+        {
+            std::cout << "[STRICT-ROSTER] Seat application rejected: native account "
+                         "does not match the bound controller seat." << std::endl;
             return StrictRosterSeatApplyResult::Rejected;
         }
 
@@ -932,9 +1169,9 @@ namespace
         // bound to the exact nonce reserved in PreLogin. A readable PlayerId
         // or a policy seat alone cannot pass this boundary.
         if (!decision->hostSeat &&
-            (!hasPlatformIdentity ||
+            (!hasNativePlayerIdentity ||
              !StrictRosterSteamAuth::IsConnectionBindingActive(
-                 platformId,
+                 decision->platformId,
                  decision->nativeConnectionNonce,
                  static_cast<std::uint64_t>(GetTickCount64()))))
         {
@@ -1278,12 +1515,20 @@ StrictRosterNativeTeardownRequestResult RequestStrictRosterNativeWorldTeardown()
 
 bool TryGetStrictRosterLocalPlatformId(std::string& platformId)
 {
-    platformId.clear();
+    // FUniqueNetIdRepl::ToString is the backend Player.ID, not Steam's
+    // decimal platform identity.  Read the latter only through the trusted
+    // initialized SteamUser interface for the signed local HOST seat.
+    return StrictRosterSteamAuth::TryGetLocalPlatformId(platformId);
+}
+
+bool TryGetStrictRosterLocalPlayerId(std::string& playerId)
+{
+    playerId.clear();
     APBPlayerController* const playerController = GetLocalPlayerController();
     if (!playerController || !playerController->PBPlayerState)
         return false;
-    return ExtractStrictRosterPlatformId(
-        &playerController->PBPlayerState->UniqueId, platformId);
+    return ExtractStrictRosterNativePlayerId(
+        &playerController->PBPlayerState->UniqueId, playerId);
 }
 
 namespace

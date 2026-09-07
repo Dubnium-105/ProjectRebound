@@ -153,6 +153,8 @@ namespace
     UWorld* localWorldIdentity = nullptr;
     std::uint64_t localWorldSequence = 0;
     std::string localWorldInstanceId;
+    UWorld* playableWorldIdentity = nullptr;
+    std::string playableLocalWorldInstanceId;
     std::atomic<bool> ownedSeamlessDestinationUiCleanupPending{false};
     std::atomic<bool> ownedSeamlessDestinationUiCleanupWaitLogged{false};
     std::atomic<bool> ownedSeamlessIntroCameraRecoveryPending{false};
@@ -199,6 +201,8 @@ namespace
         localAuthorityClientScopePending = false;
         localWorldIdentity = nullptr;
         localWorldInstanceId.clear();
+        playableWorldIdentity = nullptr;
+        playableLocalWorldInstanceId.clear();
     }
 
     std::string ObserveLocalWorldLocked(UWorld* const world)
@@ -232,6 +236,12 @@ namespace
         {
             return false;
         }
+        if (!localWorldIdentity || localWorldInstanceId.empty() ||
+            (playableWorldIdentity && (playableWorldIdentity != localWorldIdentity ||
+                playableLocalWorldInstanceId != localWorldInstanceId)))
+            return false;
+        playableWorldIdentity = localWorldIdentity;
+        playableLocalWorldInstanceId = localWorldInstanceId;
         connectStage = ConnectStage::Playable;
         pendingTarget.reset();
         localAuthorityClientScopePending = false;
@@ -243,6 +253,8 @@ namespace
     bool NativeReadinessSnapshotCurrentLocked()
     {
         return nativeReadinessObservedAt != std::chrono::steady_clock::time_point{} &&
+            (!playableWorldIdentity || (playableWorldIdentity == localWorldIdentity &&
+                playableLocalWorldInstanceId == localWorldInstanceId)) &&
             std::chrono::steady_clock::now() - nativeReadinessObservedAt <=
                 std::chrono::seconds(2);
     }

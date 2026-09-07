@@ -47,6 +47,11 @@ namespace StrictRosterSteamAuth
     bool CopyClientAuthTicket(std::string& encodedTicket) noexcept;
     void CancelClientAuthTicket() noexcept;
 
+    // Read the authenticated local Steam user from the initialized
+    // SteamUser interface.  This is used only for the signed P2P HOST seat;
+    // the game's FUniqueNetId string is the separate backend player_id.
+    bool TryGetLocalPlatformId(std::string& platformId) noexcept;
+
     // Dedicated authority side.  BeginAuthSession is issued only after the
     // exact Grant/JTI has been armed for this nonce and ticket carrier.  The
     // successful Steam callback can therefore wake only this pending scope.

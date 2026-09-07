@@ -133,6 +133,9 @@ StrictAuthorityStartDispatch::Queue gStrictRosterClearQueue;
 
 std::mutex gStrictAuthorityWorldMutex;
 UWorld* gStrictAuthorityWorld = nullptr;
+UWorld* gObservedAuthorityWorld = nullptr;
+UNetDriver* gObservedAuthorityNetDriver = nullptr;
+std::chrono::steady_clock::time_point gAuthorityWorldObservedAt{};
 std::string gStrictAuthorityWorldInstanceId;
 std::uint64_t gStrictAuthorityWorldSequence = 0;
 
@@ -217,12 +220,26 @@ std::string CurrentStrictAuthorityWorldInstanceId()
     return gStrictAuthorityWorldInstanceId;
 }
 
+bool CurrentStrictAuthorityWorldMatches(const StrictAuthorityReadyLease& lease)
+{
+    std::lock_guard<std::mutex> lock(gStrictAuthorityWorldMutex);
+    return StrictAuthorityLease::OwnedWorldMatches(
+        gObservedAuthorityWorld, gStrictAuthorityWorldInstanceId, lease.world, lease.worldInstanceId) &&
+        gStrictAuthorityWorld == lease.world && lease.netDriver &&
+        gObservedAuthorityNetDriver == lease.netDriver &&
+        gAuthorityWorldObservedAt != std::chrono::steady_clock::time_point{} &&
+        std::chrono::steady_clock::now() - gAuthorityWorldObservedAt <= std::chrono::seconds(2);
+}
+
 void ClearStrictAuthorityWorldIdentity(const UWorld* expectedWorld)
 {
     std::lock_guard<std::mutex> lock(gStrictAuthorityWorldMutex);
     if (!expectedWorld || gStrictAuthorityWorld == expectedWorld)
     {
         gStrictAuthorityWorld = nullptr;
+        gObservedAuthorityWorld = nullptr;
+        gObservedAuthorityNetDriver = nullptr;
+        gAuthorityWorldObservedAt = {};
         gStrictAuthorityWorldInstanceId.clear();
     }
 }
@@ -1148,6 +1165,12 @@ void UpdateStrictAuthorityWorldObservationOnGameThread()
     gNativeNetModeSnapshot.store(GetNativeNetModeInternal(world), std::memory_order_release);
     std::string detail;
     const bool listening = world && IsAuthoritativeListeningWorld(world, detail);
+    {
+        std::lock_guard<std::mutex> lock(gStrictAuthorityWorldMutex);
+        gObservedAuthorityWorld = listening ? world : nullptr;
+        gObservedAuthorityNetDriver = listening ? world->NetDriver : nullptr;
+        gAuthorityWorldObservedAt = std::chrono::steady_clock::now();
+    }
     if (listening)
         (void)ObserveStrictAuthorityWorld(world);
     gStrictAuthorityWorldListening.store(listening, std::memory_order_release);
@@ -1830,7 +1853,7 @@ nlohmann::json OnStartMatchAuthority(const nlohmann::json& arguments)
         // on the engine tick. The pipe callback only consumes that snapshot.
         const bool worldStillListening =
             gStrictAuthorityWorldListening.load(std::memory_order_acquire) &&
-            CurrentStrictAuthorityWorldInstanceId() == readyLease->worldInstanceId;
+            CurrentStrictAuthorityWorldMatches(*readyLease);
         const StrictAuthorityLease::Decision leaseDecision =
             StrictAuthorityLease::Classify(
                 readyLease->active,
@@ -1840,6 +1863,62 @@ nlohmann::json OnStartMatchAuthority(const nlohmann::json& arguments)
                 *allocationScope,
                 gStrictAuthorityWorldListening.load(std::memory_order_acquire),
                 worldStillListening);
+        if (const auto requestedHost = arguments.find("preserve_host_connection");
+            requestedHost != arguments.end())
+        {
+            if (*hostingKind != "P2P" ||
+                (leaseDecision != StrictAuthorityLease::Decision::SameRouteReplay &&
+                 leaseDecision != StrictAuthorityLease::Decision::P2PRouteRecovery))
+                return StrictAuthorityStartFailure("host_preservation_scope_mismatch",
+                    "HOST preservation requires this live P2P world and a contiguous authority route");
+            const auto preserved = StrictAuthorityLease::PreservedHost(
+                *requestedHost, GetClientMatchStatus(), *allocationScope,
+                readyLease->worldInstanceId, readyLease->allocationScope->routeGeneration,
+                readyLease->nativeConnectionNonce, readyLease->clientOperationSequence);
+            if (!preserved)
+                return StrictAuthorityStartFailure("host_preservation_proof_unavailable",
+                    "the exact HOST connection has no fresh confirmed native Playable observation");
+            std::string localPlatformId;
+            if (!TryGetStrictRosterLocalPlatformId(localPlatformId))
+                return StrictAuthorityStartFailure("host_identity_unavailable",
+                    "the authenticated local Steam user is unavailable");
+            const auto liveHost = gStrictRosterPolicy.ValidatePreservedHost(
+                preserved->scope.playerId, localPlatformId, preserved->scope.worldInstanceId,
+                preserved->scope.routeGeneration, preserved->scope.connectionGeneration,
+                preserved->nativeConnectionNonce, EpochSecondsNow());
+            if (!liveHost.accepted)
+                return PolicyResult(liveHost);
+            {
+                std::scoped_lock ownerLock(gStrictRosterCleanupMutex, gStrictAuthorityStartMutex);
+                if (gStrictRosterCleanup.pending ||
+                    gStrictAuthorityAwaitingWorldTeardown.load(std::memory_order_acquire) ||
+                    !gStrictAuthorityServerStarted.load(std::memory_order_acquire) ||
+                    !gStrictAuthorityWorldListening.load(std::memory_order_acquire) ||
+                    !gStrictAuthorityReadyLease.active || !gStrictAuthorityReadyLease.allocationScope ||
+                    !CurrentStrictAuthorityWorldMatches(*readyLease) ||
+                    gStrictAuthorityReadyLease.worldInstanceId != readyLease->worldInstanceId ||
+                    gStrictAuthorityReadyLease.nativeConnectionNonce != preserved->nativeConnectionNonce ||
+                    gStrictAuthorityReadyLease.clientOperationSequence != preserved->operationSequence ||
+                    !StrictAuthorityLease::SameIdentity(*gStrictAuthorityReadyLease.allocationScope,
+                        *readyLease->allocationScope) ||
+                    gStrictAuthorityReadyLease.allocationScope->routeGeneration !=
+                        readyLease->allocationScope->routeGeneration)
+                    return StrictAuthorityStartFailure("host_preservation_owner_changed",
+                        "the native authority entered cleanup or changed ownership during route refresh");
+                // Advance the authority's admission route only. The client
+                // operation, live seat, native nonce and Playable scope remain
+                // the original connection; no synthetic disconnect/rejoin.
+                gStrictAuthorityReadyLease.allocationScope = *allocationScope;
+            }
+            return nlohmann::json{
+                {"accepted", true}, {"code", "accepted"},
+                {"endpoint_host", endpointHost}, {"endpoint_port", endpointPort},
+                {"world_instance_id", readyLease->worldInstanceId},
+                {"native_connection_nonce", preserved->nativeConnectionNonce},
+                {"operation_sequence", preserved->operationSequence},
+                {"preserved_host_connection", preserved->ToJson()},
+                {"idempotent", leaseDecision == StrictAuthorityLease::Decision::SameRouteReplay}};
+        }
         if (leaseDecision == StrictAuthorityLease::Decision::SameRouteReplay)
         {
             if (*hostingKind == "P2P" && readyLease->clientOperationSequence == 0)
@@ -1886,6 +1965,11 @@ nlohmann::json OnStartMatchAuthority(const nlohmann::json& arguments)
         // Continue through the policy's fresh HOST reservation below. It will
         // reject a still-connected old generation and issue a new nonce only
         // after the old HOST has emitted DISCONNECTED.
+    }
+    else if (arguments.contains("preserve_host_connection"))
+    {
+        return StrictAuthorityStartFailure("host_preservation_owner_unavailable",
+            "a missing native authority cannot preserve an old HOST connection");
     }
     StrictRoster::SeatDecision hostDecision;
     if (*hostingKind == "P2P")
@@ -1943,6 +2027,11 @@ nlohmann::json OnStartMatchAuthority(const nlohmann::json& arguments)
     {
         ClientLog("[STRICT-ROSTER] Authority start rejected: " + hostDecision.code + ".");
         return PolicyResult(hostDecision);
+    }
+    if (sameWorldRouteRecovery && hostDecision.confirmed)
+    {
+        return StrictAuthorityStartFailure("host_preservation_proof_required",
+            "a live HOST requires its exact preserved connection proof when the authority route advances");
     }
     // StartServer creates the listen host PlayerController and invokes
     // PostLogin before it returns. Publish the signed HOST seat first, so
