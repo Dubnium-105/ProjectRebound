@@ -24,6 +24,10 @@ namespace StrictRoster
         bool accepted = false;
         std::string code;
         std::string message;
+        // The validated Grant JTI is carried to the native Steam proof gate;
+        // it prevents a callback for one staged handshake from authorizing a
+        // different handshake for the same platform identity.
+        std::string grantJti;
     };
 
     // Immutable identity carried by a match-allocation cleanup request.  The
@@ -585,6 +589,88 @@ namespace StrictRoster
             }
             stagedGrants_[pending.platformId] = std::move(pending);
             return Accept();
+        }
+
+        // Verify the exact signed grant that arrived in NMT_Login against the
+        // grant staged by the scoped command channel.  This is deliberately a
+        // non-consuming check: reliable native retransmits must be able to
+        // present the same grant until ReserveAdmission linearizes the
+        // handshake.  The platform identity is still a separate native
+        // possession proof at the hook boundary.
+        Decision ValidateNativeJoinGrant(
+            const std::string_view grant,
+            const std::string_view authenticatedPlatformId,
+            const std::int64_t now)
+        {
+            std::lock_guard lock(mutex_);
+            if (!nativeAdmissionPathReady_ || !authorityStarted_ || !allocation_)
+                return Reject("admission_closed", "strict admission is not active");
+            if (allocation_->expiresAt <= now)
+                return Reject("allocation_expired", "strict admission allocation is expired");
+            const auto staged = stagedGrants_.find(std::string(authenticatedPlatformId));
+            if (staged == stagedGrants_.end())
+                return Reject("grant_not_staged", "no staged grant matches the native identity");
+            const PendingGrant& pending = staged->second;
+            if (pending.expiresAt <= now)
+                return Reject("grant_expired", "the staged join grant has expired");
+            if (Detail::SafeIdentifier(pending.platformId) == false ||
+                pending.platformId != authenticatedPlatformId)
+            {
+                return Reject("native_identity_mismatch", "the native identity is not the staged seat");
+            }
+
+            std::string validatedGrantJti;
+            try
+            {
+                const auto jwt = Detail::ParseJwt(grant);
+                if (!jwt || jwt->header.value("alg", "") != "EdDSA" ||
+                    jwt->header.value("typ", "") != "match-join+jwt" ||
+                    jwt->header.value("kid", "") != allocation_->keyId ||
+                    !verifier_(allocation_->publicKey, jwt->signedData, jwt->signature))
+                {
+                    return Reject("native_grant_invalid", "the NMT_Login grant signature is invalid");
+                }
+                const auto& claims = jwt->claims;
+                const std::string playerId = claims.value("player_id", "");
+                const std::string platformId = claims.value("platform_id", "");
+                const std::string jti = claims.value("jti", "");
+                const int teamId = claims.value("team_id", 0);
+                const int teamSlot = claims.value("team_slot", -1);
+                const int logicalSlot = claims.value("logical_slot", -1);
+                const int generation = claims.value("connection_generation", 0);
+                const std::int64_t expiresAt = claims.value("exp", std::int64_t{0});
+                if (claims.value("iss", "") != "game-control-plane" ||
+                    claims.value("aud", "") != "project-rebound-match-client" ||
+                    claims.value("kid", "") != allocation_->keyId ||
+                    claims.value("attempt_id", "") != allocation_->attemptId ||
+                    claims.value("lobby_id", "") != allocation_->lobbyId ||
+                    claims.value("authority_id", "") != allocation_->authorityId ||
+                    claims.value("authority_session_id", "") != allocation_->authoritySession ||
+                    claims.value("hosting_kind", "") != allocation_->hostingKind ||
+                    claims.value("roster_revision", std::int64_t{0}) != allocation_->rosterRevision ||
+                    claims.value("route_generation", 0) != allocation_->routeGeneration ||
+                    claims.value("nbf", std::int64_t{0}) > now + 5 ||
+                    expiresAt <= now ||
+                    !Detail::SafeIdentifier(jti, 96U) ||
+                    !Detail::SafeIdentifier(playerId) ||
+                    !Detail::SafeIdentifier(platformId) ||
+                    playerId != pending.playerId || platformId != pending.platformId ||
+                    jti != pending.jti || teamId != pending.teamId ||
+                    teamSlot != pending.teamSlot || logicalSlot != pending.logicalSlot ||
+                    generation != pending.generation || expiresAt != pending.expiresAt ||
+                    usedJtis_.contains(jti))
+                {
+                    return Reject("native_grant_mismatch", "the NMT_Login grant is not the staged seat grant");
+                }
+                validatedGrantJti = jti;
+            }
+            catch (...)
+            {
+                return Reject("native_grant_invalid", "the NMT_Login grant claims are invalid");
+            }
+            Decision result = Accept();
+            result.grantJti = std::move(validatedGrantJti);
+            return result;
         }
 
         // Reserve authorization for the native PreLogin/handshake. This is
@@ -1167,7 +1253,7 @@ namespace StrictRoster
 
         static Decision Accept()
         {
-            return {true, "accepted", {}};
+            return {true, "accepted", {}, {}};
         }
 
         static Decision Reject(std::string code, std::string message)

@@ -41,6 +41,7 @@
 #include "ClientLogic/ClientLogic.h"
 #include "ClientLogic/LocalQosDiscoveryPolicy.h"
 #include "Hooks/Hooks.h"
+#include "Hooks/StrictRosterSteamAuth.h"
 #include "Network/Network.h"
 #include "Utility/Utility.h"
 
@@ -208,7 +209,7 @@ bool StrictNativeWorldTeardownComplete()
     return true;
 }
 
-int GetNativeNetMode(UWorld* world);
+int GetNativeNetModeInternal(UWorld* world);
 const char* NetModeName(int mode);
 
 bool ParseAuthorityTarget(
@@ -246,13 +247,13 @@ nlohmann::json BuildPayloadStatus()
     // The client-side Grant injection point is intentionally a separate
     // capability. A verified PreLogin hook on the authority does not prove
     // that a member's JWT reaches NMT_Login.
-    constexpr bool nativeClientGrantInjection = false;
-    // This is deliberately a separate locked-build capability bit.  Hook
-    // installation and an active policy are prerequisites for admission, but
-    // this binary has not yet proved the native Team/Camp admission path and
-    // therefore must keep the capability false.  It is independent of a
-    // current allocation/world so an idle authority can be checked without a
-    // scheduler self-lock.
+    const bool nativeClientGrantInjection =
+        IsStrictRosterNativeClientGrantInjectionReady();
+    // This remains a separate locked-build capability bit.  It is deliberately
+    // independent of a current allocation/world so an idle authority can be
+    // checked without a scheduler self-lock.  The current fixed image still
+    // lacks a verified server-side platform-possession result, so it stays
+    // false even though the Team/Camp hooks and grant transport are present.
     constexpr bool nativeAuthorityAdmissionVerified = false;
     const bool strictReady = StrictRosterAdmissionGate::CanReportStrictOnlineReady(
         executableVerified, offlinePve, nativeAuthorityPath,
@@ -260,7 +261,7 @@ nlohmann::json BuildPayloadStatus()
     const bool payloadReady = StrictRosterAdmissionGate::CanReportPayloadReady(
         executableVerified, strictReady, offlinePve);
     const UWorld* const world = UWorld::GetWorld();
-    const int netMode = GetNativeNetMode(const_cast<UWorld*>(world));
+    const int netMode = GetNativeNetModeInternal(const_cast<UWorld*>(world));
     const nlohmann::json clientMatch = GetClientMatchStatus();
     return nlohmann::json{
         {"status", payloadReady ? "ready" : "blocked"},
@@ -548,7 +549,7 @@ bool VerifySupportedExecutable(uintptr_t moduleBase, std::string& executableHash
         executableHash == kSupportedExecutableSha256;
 }
 
-int GetNativeNetMode(UWorld* world)
+int GetNativeNetModeInternal(UWorld* world)
 {
     if (!world || BaseAddress == 0) return -1;
     using GetNetModeFn = int(__fastcall*)(const UWorld*);
@@ -912,7 +913,7 @@ nlohmann::json OnStartMatchAuthority(const nlohmann::json& arguments)
             for (int attempt = 0; attempt < 200; ++attempt)
             {
                 authoritativeWorld = UWorld::GetWorld();
-                postTravelNetMode = GetNativeNetMode(authoritativeWorld);
+                postTravelNetMode = GetNativeNetModeInternal(authoritativeWorld);
                 authoritativeListeningWorld =
                     IsAuthoritativeListeningWorld(authoritativeWorld, authorityDetail);
                 if (authoritativeListeningWorld)
@@ -1076,6 +1077,14 @@ nlohmann::json OnReleaseMatchAdmission(const nlohmann::json& arguments)
     return QueueStrictRosterAdmissionRelease(arguments);
 }
 
+// Hooks.cpp needs the pinned native net-mode read without depending on the
+// bootstrap's anonymous-namespace implementation.  Keep the RVA logic in the
+// internal helper while exposing this narrow read-only bridge.
+int GetNativeNetMode(UWorld* world)
+{
+    return GetNativeNetModeInternal(world);
+}
+
 namespace
 {
     nlohmann::json StrictRosterCleanupPendingResult(
@@ -1111,6 +1120,10 @@ namespace
     nlohmann::json StrictRosterCleanupClearedResult(
         const StrictRosterCleanupState& cleanup)
     {
+        // The final ACK is emitted only after the native world/driver observer
+        // proves teardown.  Any Steam proof still cached at this boundary is
+        // revoked before the allocation can be reused.
+        StrictRosterSteamAuth::ClearAllExpectedProofs();
         ClearStrictAuthorityWorldIdentity(cleanup.retiredWorld);
         {
             std::lock_guard<std::mutex> lock(gStrictRosterCleanupMutex);
@@ -1288,6 +1301,7 @@ nlohmann::json OnClearMatchAllocationResult(const nlohmann::json& arguments)
         // Reset only releases the Payload's grant/seat caches.  The separate
         // world/driver observation above remains authoritative for NativeCleared.
         gStrictRosterPolicy.Reset();
+        StrictRosterSteamAuth::ClearAllExpectedProofs();
         const StrictRosterNativeTeardownRequestResult teardownResult =
             RequestStrictRosterNativeWorldTeardown();
         const bool requested = teardownResult !=
@@ -1427,6 +1441,7 @@ extern "C" __declspec(dllexport) void ShutdownPayloadCommandFramework()
         framework->Stop();
         delete framework;
     }
+    ShutdownStrictRosterPlatformAuth();
 
     // Explicit unloaders invoke this outside the loader lock, so this is also
     // the safe place to join the loadout HTTP worker.
@@ -1587,7 +1602,8 @@ void MainThread()
         {
             InitServerHooks(serverBootstrap || nativeNetMode == 1);
             const bool strictNativeHooksReady =
-                InitStrictRosterAdmissionHooks(&gStrictRosterPolicy);
+                InitStrictRosterAdmissionHooks(
+                    &gStrictRosterPolicy, strictAuthorityBootstrap);
             gStrictNativeHooksReady.store(strictNativeHooksReady, std::memory_order_release);
             gStrictRosterPolicy.SetNativeAdmissionPathReady(strictNativeHooksReady);
             Log("[SERVER] Hooks installed.");

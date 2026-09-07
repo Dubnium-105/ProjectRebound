@@ -19,9 +19,9 @@ struct AuthorizedJoinResult
 // Thread-safe producer API. The actual Unreal calls are performed by
 // PumpPendingClientCommands from the ProcessEvent game thread.
 [[nodiscard]] bool QueueConnectToMatch(const std::string& target);
-// Strict joins must carry their grant in NMT_Login. Until the pinned native
-// injection path has passed runtime validation this entry point fails closed
-// and never falls back to a direct `open` transition.
+// Strict joins carry their grant in the fixed NMT_Login field2 serializer.
+// The queue remains fail-closed until that pinned hook is installed and never
+// falls back to an unscoped direct `open` transition.
 [[nodiscard]] bool QueueConnectToMatchAuthorized(
     const std::string& target,
     std::string_view joinGrant);
@@ -31,6 +31,14 @@ struct AuthorizedJoinResult
 [[nodiscard]] AuthorizedJoinResult QueueConnectToMatchAuthorizedDetailed(
     const std::string& target,
     std::string_view joinGrant);
+// The fixed-build NMT_Login serializer borrows this copy only for the
+// synchronous save call.  The grant remains staged until the native travel
+// operation reaches a terminal state so reliable retransmits receive the same
+// signed value; callers never receive the owner string itself.
+[[nodiscard]] bool CopyStagedNativeLoginGrant(std::string& grant);
+[[nodiscard]] bool CopyStagedNativeSteamTicket(std::string& encodedTicket);
+void MarkStagedNativeLoginGrantInjected();
+void ClearStagedNativeLoginGrant();
 [[nodiscard]] nlohmann::json GetClientMatchStatus();
 [[nodiscard]] nlohmann::json CancelPendingClientTransition();
 void ConnectToMatch();

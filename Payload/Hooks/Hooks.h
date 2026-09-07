@@ -10,7 +10,15 @@ void InitMessageBoxHook();
 void InitServerHooks(bool forceDedicatedMode = true);
 void InitClientHook();
 void InitClientArchiveHooks();
-bool InitStrictRosterAdmissionHooks(StrictRoster::Policy* policy);
+// True only after the fixed executable serializer and the exact NMT_Login
+// field2 callsite both pass their byte gates and the inline hook is installed.
+// This capability does not imply platform possession or authority proof.
+bool IsStrictRosterNativeClientGrantInjectionReady();
+bool InitStrictRosterAdmissionHooks(
+    StrictRoster::Policy* policy,
+    bool authorityGameServer);
+// Unregisters the official Steam callback before an explicit DLL unload.
+void ShutdownStrictRosterPlatformAuth();
 void SetStrictRosterLocalHostSeat(
     const StrictRoster::SeatDecision& decision);
 void ClearStrictRosterLocalHostSeat();

@@ -182,6 +182,7 @@
     <ClCompile Include="Communication\CommandFramework.cpp" />
     <ClCompile Include="Communication\CommandProtocol.cpp" />
     <ClCompile Include="Hooks\Hooks.cpp" />
+    <ClCompile Include="Hooks\StrictRosterSteamAuth.cpp" />
     <ClCompile Include="Loadout\LoadoutApplication.cpp" />
     <ClCompile Include="Loadout\LoadoutManager.cpp" />
     <ClCompile Include="Loadout\LoadoutSerializer.cpp" />

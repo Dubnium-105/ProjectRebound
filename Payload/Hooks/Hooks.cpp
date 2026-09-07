@@ -4,6 +4,7 @@
 #include "ServerHookPolicy.h"
 #include <Windows.h>
 #include <bcrypt.h>
+#include <intrin.h>
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -40,6 +41,8 @@
 #include "../ServerLogic/DedicatedMultiMatchPolicy.h"
 #include "../ClientLogic/ClientLogic.h"
 #include "../ClientLogic/DirectMatchUiCleanupPolicy.h"
+#include "../ClientLogic/NativeLoginGrantPolicy.h"
+#include "StrictRosterSteamAuth.h"
 #include "../ClientLogic/SeamlessIntroCameraPolicy.h"
 #include "../Utility/Utility.h"
 #include "../BattleLog/BattleLogExtractor.h"
@@ -54,6 +57,11 @@ extern std::recursive_mutex gLoadoutManagerMutex;
 
 using namespace SDK;
 
+// Defined by the Payload bootstrap after it has resolved the native world
+// mode.  The Steam gameserver callback flag follows the actual authority
+// interface (including listen-server mode), not merely a command-line token.
+extern int GetNativeNetMode(UWorld* world);
+
 namespace
 {
     constexpr uintptr_t kStrictRosterPreLoginRva = 0x01639D90;
@@ -61,6 +69,26 @@ namespace
         0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C,
         0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18, 0x57
     };
+
+    // NMT_Login field2 is the URL FString.  The fixed serializer below is a
+    // synchronous save-only call: the source object is read through
+    // [Data,Num,Max], while any temporary encoding buffer is owned and freed
+    // by the serializer itself.  The grant hook is therefore restricted to
+    // this callsite and this exact executable build.
+    constexpr uintptr_t kStrictRosterNmtFStringSerializerRva = 0x0189D040;
+    constexpr uint8_t kStrictRosterNmtFStringSerializerPrologue[] = {
+        0x48, 0x89, 0x5C, 0x24, 0x20, 0x55, 0x56, 0x57,
+        0x41, 0x56, 0x41, 0x57, 0x48, 0x8D, 0x6C, 0x24
+    };
+    constexpr uintptr_t kStrictRosterNmtLoginField2SetupRva = 0x03484F2A;
+    constexpr uintptr_t kStrictRosterNmtLoginField2CallsiteRva = 0x03484F35;
+    constexpr uintptr_t kStrictRosterNmtLoginField2ReturnRva = 0x03484F3A;
+    constexpr uint8_t kStrictRosterNmtLoginField2CallsiteBytes[] = {
+        0x48, 0x8D, 0x55, 0x10, 0x48, 0x8D, 0x8D, 0x90,
+        0x00, 0x00, 0x00, 0xE8, 0x06, 0x81, 0x41, 0xFE
+    };
+    static_assert(kStrictRosterNmtLoginField2ReturnRva ==
+        kStrictRosterNmtLoginField2CallsiteRva + 0x05U);
 
     // Pinned ProjectBoundarySteam-Win64-Shipping.exe
     // SHA-256 181C49FFB522B3EB01014C84FD9D3A2A5C0B66AE80A6A6ADDFF4BDD6F8125843.
@@ -108,6 +136,8 @@ namespace
 
     StrictRoster::Policy* gStrictRosterPolicy = nullptr;
     SafetyHookInline gStrictRosterPreLoginHook;
+    SafetyHookInline gStrictRosterNmtFStringSerializerHook;
+    std::atomic_bool gStrictRosterNativeClientGrantInjectionReady{false};
     std::atomic_bool gStrictRosterNativeSeatPathReady{false};
     std::mutex gStrictRosterLocalHostSeatMutex;
     std::optional<StrictRoster::SeatDecision> gStrictRosterLocalHostSeat;
@@ -221,6 +251,248 @@ namespace
             std::memcmp(address, expected, expectedSize) == 0;
     }
 
+    struct RawNativeFString
+    {
+        wchar_t* data = nullptr;
+        std::int32_t num = 0;
+        std::int32_t max = 0;
+    };
+
+    static_assert(sizeof(RawNativeFString) == 0x10);
+
+    void SecureClearWide(std::wstring& value) noexcept
+    {
+        volatile wchar_t* data = value.empty() ? nullptr : value.data();
+        for (std::size_t index = 0; data && index < value.size(); ++index)
+            data[index] = L'\0';
+        value.clear();
+    }
+
+    void SecureClearBytes(std::vector<std::uint8_t>& value) noexcept
+    {
+        volatile std::uint8_t* data = value.empty() ? nullptr : value.data();
+        for (std::size_t index = 0; data && index < value.size(); ++index)
+            data[index] = 0;
+        value.clear();
+    }
+
+    void SecureClearGrant(std::string& value) noexcept
+    {
+        volatile char* data = value.empty() ? nullptr : value.data();
+        for (std::size_t index = 0; data && index < value.size(); ++index)
+            data[index] = 0;
+        value.clear();
+    }
+
+    struct ScopedSecureWide
+    {
+        std::wstring& value;
+        ~ScopedSecureWide() { SecureClearWide(value); }
+    };
+
+    struct ScopedSecureBytes
+    {
+        std::vector<std::uint8_t>& value;
+        ~ScopedSecureBytes() { SecureClearBytes(value); }
+    };
+
+    struct ScopedSecureGrant
+    {
+        std::string& value;
+        ~ScopedSecureGrant() { SecureClearGrant(value); }
+    };
+
+    bool IsReadableNativeFString(
+        const RawNativeFString* value,
+        std::size_t maximumCharacters) noexcept
+    {
+        if (!IsReadableAddress(value, sizeof(RawNativeFString)) ||
+            value->num <= 0 || value->max < value->num ||
+            static_cast<std::size_t>(value->num) > maximumCharacters ||
+            !value->data)
+        {
+            return false;
+        }
+        const std::size_t count = static_cast<std::size_t>(value->num);
+        if (!IsReadableAddress(value->data, count * sizeof(wchar_t)) ||
+            value->data[count - 1U] != L'\0')
+        {
+            return false;
+        }
+        for (std::size_t index = 0; index + 1U < count; ++index)
+        {
+            if (value->data[index] == L'\0')
+                return false;
+        }
+        return true;
+    }
+
+    bool IsStrictRosterNmtLoginArchive(const void* archive) noexcept
+    {
+        if (!archive)
+            return false;
+        const auto* const flags = reinterpret_cast<const std::uint8_t*>(archive) + 0x28U;
+        return IsReadableAddress(flags, sizeof(std::uint8_t)) && *flags == 0x82U;
+    }
+
+    bool ExtractStrictRosterNativeGrant(
+        const FString* options,
+        std::string& grant) noexcept
+    {
+        SecureClearGrant(grant);
+        const auto* const raw = reinterpret_cast<const RawNativeFString*>(options);
+        if (!IsReadableNativeFString(raw, NativeLoginGrantPolicy::MaxUrlCharacters))
+            return false;
+
+        const std::wstring_view url(raw->data, static_cast<std::size_t>(raw->num - 1));
+        constexpr std::wstring_view key = L"ReboundGrant=";
+        std::size_t segmentStart = 0;
+        bool found = false;
+        while (segmentStart <= url.size())
+        {
+            if (segmentStart < url.size() && url[segmentStart] == L'?')
+            {
+                ++segmentStart;
+                continue;
+            }
+            if (segmentStart < url.size() && url[segmentStart] == L'#')
+                break;
+            const std::size_t separator = url.find_first_of(L"&#", segmentStart);
+            const std::size_t segmentEnd = separator == std::wstring_view::npos
+                ? url.size() : separator;
+            if (url.compare(segmentStart, key.size(), key) == 0)
+            {
+                if (found)
+                {
+                    SecureClearGrant(grant);
+                    return false;
+                }
+                found = true;
+                const std::wstring_view value = url.substr(
+                    segmentStart + key.size(), segmentEnd - segmentStart - key.size());
+                if (value.empty() || value.size() > NativeLoginGrantPolicy::MaxGrantBytes)
+                {
+                    SecureClearGrant(grant);
+                    return false;
+                }
+                grant.reserve(value.size());
+                for (const wchar_t character : value)
+                {
+                    if (character > 0x7FU || !NativeLoginGrantPolicy::IsBase64UrlCharacter(
+                        static_cast<char>(character)))
+                    {
+                        SecureClearGrant(grant);
+                        return false;
+                    }
+                    grant.push_back(static_cast<char>(character));
+                }
+            }
+            if (separator == std::wstring_view::npos)
+                break;
+            segmentStart = separator + 1U;
+        }
+        if (!found || !NativeLoginGrantPolicy::ValidateGrantTokenShape(grant))
+        {
+            SecureClearGrant(grant);
+            return false;
+        }
+        return true;
+    }
+
+    bool ExtractStrictRosterSteamTicket(
+        const FString* options,
+        std::vector<std::uint8_t>& ticket) noexcept
+    {
+        SecureClearBytes(ticket);
+        const auto* const raw = reinterpret_cast<const RawNativeFString*>(options);
+        if (!IsReadableNativeFString(raw, NativeLoginGrantPolicy::MaxUrlCharacters))
+            return false;
+
+        const std::wstring_view url(raw->data, static_cast<std::size_t>(raw->num - 1));
+        constexpr std::wstring_view key = L"ReboundSteamTicket=";
+        std::size_t segmentStart = 0;
+        bool found = false;
+        while (segmentStart <= url.size())
+        {
+            if (segmentStart < url.size() && url[segmentStart] == L'?')
+            {
+                ++segmentStart;
+                continue;
+            }
+            if (segmentStart < url.size() && url[segmentStart] == L'#')
+                break;
+            const std::size_t separator = url.find_first_of(L"&#", segmentStart);
+            const std::size_t segmentEnd = separator == std::wstring_view::npos
+                ? url.size() : separator;
+            if (url.compare(segmentStart, key.size(), key) == 0)
+            {
+                if (found)
+                {
+                    SecureClearBytes(ticket);
+                    return false;
+                }
+                found = true;
+                const std::wstring_view encoded = url.substr(
+                    segmentStart + key.size(),
+                    segmentEnd - segmentStart - key.size());
+                if (encoded.empty() ||
+                    encoded.size() > NativeLoginGrantPolicy::MaxSteamTicketEncodedBytes)
+                {
+                    SecureClearBytes(ticket);
+                    return false;
+                }
+                std::string encodedAscii;
+                ScopedSecureGrant encodedAsciiGuard{encodedAscii};
+                encodedAscii.reserve(encoded.size());
+                for (const wchar_t character : encoded)
+                {
+                    if (character > 0x7FU)
+                    {
+                        SecureClearBytes(ticket);
+                        return false;
+                    }
+                    encodedAscii.push_back(static_cast<char>(character));
+                }
+                if (!NativeLoginGrantPolicy::DecodeSteamTicket(encodedAscii, ticket))
+                {
+                    SecureClearBytes(ticket);
+                    return false;
+                }
+            }
+            if (separator == std::wstring_view::npos)
+                break;
+            segmentStart = separator + 1U;
+        }
+        if (!found || ticket.empty())
+        {
+            SecureClearBytes(ticket);
+            return false;
+        }
+        return true;
+    }
+
+    bool HasVerifiedStrictRosterPlatformPossession(
+        const FUniqueNetIdRepl* uniqueId,
+        const std::string_view extractedPlatformId,
+        const std::string_view grantJti,
+        const std::string_view nativeConnectionNonce) noexcept
+    {
+        // FUniqueNetIdRepl is still only an input claim.  Authorization is
+        // consumed from the registered Steamworks
+        // ValidateAuthTicketResponse_t callback, whose SteamID must match the
+        // exact decimal native identity and is single-use/short-lived.
+        if (!uniqueId || extractedPlatformId.empty() ||
+            !StrictRosterSteamAuth::CallbackRegistered())
+        {
+            return false;
+        }
+        const std::uint64_t nowMilliseconds =
+            static_cast<std::uint64_t>(GetTickCount64());
+        return StrictRosterSteamAuth::ArmExpectedGrant(
+            extractedPlatformId, grantJti, nativeConnectionNonce,
+            nowMilliseconds);
+    }
+
     bool StrictRosterNativeSeatPathMatchesPinnedImage() noexcept
     {
         return MatchesPinnedBytes(
@@ -278,6 +550,62 @@ namespace
             *errorMessage = FString(reason);
     }
 
+    std::optional<std::wstring> StripStrictRosterSensitiveOptions(
+        const FString* options) noexcept
+    {
+        const auto* const raw = reinterpret_cast<const RawNativeFString*>(options);
+        if (!IsReadableNativeFString(raw, NativeLoginGrantPolicy::MaxUrlCharacters))
+            return std::nullopt;
+        try
+        {
+            std::wstring source(
+                raw->data, static_cast<std::size_t>(raw->num - 1));
+            ScopedSecureWide sourceGuard{source};
+            const std::size_t fragment = source.find(L'#');
+            const std::wstring_view beforeFragment = source.substr(0, fragment);
+            const std::wstring_view afterFragment = fragment == std::wstring_view::npos
+                ? std::wstring_view{}
+                : source.substr(fragment);
+            const std::size_t query = beforeFragment.find(L'?');
+            if (query == std::wstring_view::npos)
+                return source + L'\0';
+
+            std::wstring result(beforeFragment.substr(0, query));
+            std::size_t segmentStart = query + 1U;
+            bool first = true;
+            while (segmentStart <= beforeFragment.size())
+            {
+                const std::size_t separator = beforeFragment.find(
+                    L'&', segmentStart);
+                const std::size_t segmentEnd = separator == std::wstring_view::npos
+                    ? beforeFragment.size() : separator;
+                const std::wstring_view segment = beforeFragment.substr(
+                    segmentStart, segmentEnd - segmentStart);
+                const bool sensitive =
+                    segment.starts_with(L"ReboundGrant=") ||
+                    segment.starts_with(L"ReboundSteamTicket=");
+                if (!sensitive && !segment.empty())
+                {
+                    result += first ? L'?' : L'&';
+                    result.append(segment);
+                    first = false;
+                }
+                if (separator == std::wstring_view::npos)
+                    break;
+                segmentStart = separator + 1U;
+            }
+            result.append(afterFragment);
+            if (result.size() + 1U > NativeLoginGrantPolicy::MaxUrlCharacters)
+                return std::nullopt;
+            result.push_back(L'\0');
+            return result;
+        }
+        catch (...)
+        {
+            return std::nullopt;
+        }
+    }
+
     void StrictRosterPreLogin(
         AGameMode* gameMode,
         const FString* options,
@@ -285,38 +613,36 @@ namespace
         const FUniqueNetIdRepl* uniqueId,
         FString* errorMessage)
     {
+        // The fixed engine may log LoginOptions before this hook returns.
+        // Strip only the two Payload-owned sensitive options for that native
+        // call while retaining the original FString for our exact verifier.
+        const auto sanitizedOptions = StripStrictRosterSensitiveOptions(options);
+        std::optional<FString> sanitizedNativeOptions;
+        const FString* optionsForNativePreLogin = options;
+        if (sanitizedOptions)
+        {
+            sanitizedNativeOptions.emplace(sanitizedOptions->c_str());
+            optionsForNativePreLogin = &*sanitizedNativeOptions;
+        }
         gStrictRosterPreLoginHook.call<void>(
-            gameMode, options, address, uniqueId, errorMessage);
+            gameMode, optionsForNativePreLogin, address, uniqueId, errorMessage);
         if (!errorMessage || !errorMessage->ToWString().empty())
             return;
 
-        // The fixed client has no proven way to put a signed grant into this
-        // build's NMT_Login FString set.  Keep the online authority fail
-        // closed even when a caller has staged a grant through the pipe: a
-        // platform UniqueId readback alone does not prove that this native
-        // handshake possesses that grant.  The only bypass is the explicitly
-        // isolated local-PVE server bootstrap.
+        // The only bypass is the explicitly isolated local-PVE server
+        // bootstrap.  Online admission requires all three independent facts:
+        // a live allocation, the exact signed grant staged for this identity,
+        // and a server-side platform-possession result.  URL parsing and
+        // UniqueId readback alone never authorize the connection.
         const std::string commandLine = GetCommandLineA();
-        const auto gate = StrictRosterAdmissionGate::EvaluatePreLogin(
-            StrictRosterAdmissionGate::IsExplicitOfflinePve(commandLine),
-            gStrictRosterPolicy && gStrictRosterPolicy->AdmissionActive(),
-            false);
-        if (gate == StrictRosterAdmissionGate::PreLoginDecision::OfflinePveBypass)
+        if (StrictRosterAdmissionGate::IsExplicitOfflinePve(commandLine))
             return;
-        if (gate == StrictRosterAdmissionGate::PreLoginDecision::RejectAllocationUnavailable)
+        if (!gStrictRosterPolicy || !gStrictRosterPolicy->AdmissionActive())
         {
             RejectStrictRosterPreLogin(
                 errorMessage, L"STRICT_ROSTER_ADMISSION_REQUIRED");
             std::cout << "[STRICT-ROSTER] PreLogin rejected: no active signed "
                          "allocation/authority." << std::endl;
-            return;
-        }
-        if (gate == StrictRosterAdmissionGate::PreLoginDecision::RejectNativeGrantUnverified)
-        {
-            RejectStrictRosterPreLogin(
-                errorMessage, L"STRICT_ROSTER_NATIVE_GRANT_UNVERIFIED");
-            std::cout << "[STRICT-ROSTER] PreLogin rejected: native NMT_Login "
-                         "grant possession is unverified." << std::endl;
             return;
         }
 
@@ -329,6 +655,37 @@ namespace
                 << std::endl;
             return;
         }
+        std::string nativeGrant;
+        if (!ExtractStrictRosterNativeGrant(options, nativeGrant))
+        {
+            RejectStrictRosterPreLogin(
+                errorMessage, L"STRICT_ROSTER_NATIVE_GRANT_UNVERIFIED");
+            std::cout << "[STRICT-ROSTER] PreLogin rejected: NMT_Login did not "
+                         "carry one valid staged-grant option." << std::endl;
+            return;
+        }
+        const StrictRoster::Decision grantDecision =
+            gStrictRosterPolicy->ValidateNativeJoinGrant(
+                nativeGrant, platformId, StrictRosterEpochSeconds());
+        SecureClearGrant(nativeGrant);
+        if (!grantDecision.accepted)
+        {
+            RejectStrictRosterPreLogin(
+                errorMessage, L"STRICT_ROSTER_NATIVE_GRANT_UNVERIFIED");
+            std::cout << "[STRICT-ROSTER] PreLogin rejected: staged NMT_Login "
+                         "grant validation failed." << std::endl;
+            return;
+        }
+        std::vector<std::uint8_t> nativeSteamTicket;
+        ScopedSecureBytes nativeSteamTicketGuard{nativeSteamTicket};
+        if (!ExtractStrictRosterSteamTicket(options, nativeSteamTicket))
+        {
+            RejectStrictRosterPreLogin(
+                errorMessage, L"STRICT_ROSTER_PLATFORM_TICKET_UNAVAILABLE");
+            std::cout << "[STRICT-ROSTER] PreLogin rejected: native Steam ticket "
+                         "carrier is absent or malformed." << std::endl;
+            return;
+        }
         const auto nativeConnectionNonce =
             GenerateStrictRosterNativeConnectionNonceInternal();
         if (!nativeConnectionNonce)
@@ -339,11 +696,61 @@ namespace
                          "handshake nonce generator is unavailable." << std::endl;
             return;
         }
+        if (!HasVerifiedStrictRosterPlatformPossession(
+                uniqueId, platformId, grantDecision.grantJti,
+                *nativeConnectionNonce))
+        {
+            RejectStrictRosterPreLogin(
+                errorMessage, L"STRICT_ROSTER_PLATFORM_POSSESSION_UNVERIFIED");
+            std::cout << "[STRICT-ROSTER] PreLogin rejected: native platform "
+                         "possession proof is unavailable." << std::endl;
+            return;
+        }
+        if (!StrictRosterSteamAuth::BeginServerAuthSession(
+                platformId,
+                grantDecision.grantJti,
+                *nativeConnectionNonce,
+                nativeSteamTicket.data(),
+                nativeSteamTicket.size(),
+                static_cast<std::uint64_t>(GetTickCount64())))
+        {
+            StrictRosterSteamAuth::CancelExpectedGrant(
+                platformId, grantDecision.grantJti, *nativeConnectionNonce);
+            RejectStrictRosterPreLogin(
+                errorMessage, L"STRICT_ROSTER_PLATFORM_TICKET_UNVERIFIED");
+            std::cout << "[STRICT-ROSTER] PreLogin rejected: Steam ticket "
+                         "BeginAuthSession was not accepted." << std::endl;
+            return;
+        }
+        const auto authWaitStartedAt =
+            static_cast<std::uint64_t>(GetTickCount64());
+        if (!StrictRosterSteamAuth::WaitForExpectedGrantProof(
+                platformId,
+                grantDecision.grantJti,
+                *nativeConnectionNonce,
+                authWaitStartedAt,
+                StrictRosterSteamAuth::kValidateAuthTicketWaitMilliseconds) ||
+            !StrictRosterSteamAuth::ConsumeExpectedGrantProof(
+                platformId,
+                grantDecision.grantJti,
+                *nativeConnectionNonce,
+                static_cast<std::uint64_t>(GetTickCount64())))
+        {
+            StrictRosterSteamAuth::EndServerAuthSession(*nativeConnectionNonce);
+            StrictRosterSteamAuth::CancelExpectedGrant(
+                platformId, grantDecision.grantJti, *nativeConnectionNonce);
+            RejectStrictRosterPreLogin(
+                errorMessage, L"STRICT_ROSTER_PLATFORM_POSSESSION_PENDING");
+            std::cout << "[STRICT-ROSTER] PreLogin rejected: Steam platform "
+                         "callback proof is pending for this native handshake." << std::endl;
+            return;
+        }
         const StrictRoster::SeatDecision decision =
             gStrictRosterPolicy->ConsumeStagedJoinGrant(
                 platformId, StrictRosterEpochSeconds(), *nativeConnectionNonce);
         if (!decision.accepted)
         {
+            StrictRosterSteamAuth::RevokeConnectionBinding(*nativeConnectionNonce);
             RejectStrictRosterPreLogin(errorMessage,
                 L"STRICT_ROSTER_ADMISSION_REQUIRED");
             std::cout << "[STRICT-ROSTER] PreLogin rejected: " << decision.code << "."
@@ -355,6 +762,88 @@ namespace
             << " generation=" << decision.connectionGeneration
             << " nonce=" << decision.nativeConnectionNonce
             << "; awaiting native PostLogin confirmation." << std::endl;
+    }
+
+    using StrictRosterNmtFStringSerializer = void(__fastcall *)(
+        void* archive, RawNativeFString* value);
+
+    void StrictRosterNmtFStringSerializerHook(
+        void* archive,
+        RawNativeFString* source)
+    {
+        const uintptr_t returnAddress = reinterpret_cast<uintptr_t>(_ReturnAddress());
+        const bool isField2Callsite = BaseAddress != 0 &&
+            returnAddress == BaseAddress + kStrictRosterNmtLoginField2ReturnRva;
+        if (!isField2Callsite || !IsStrictRosterNmtLoginArchive(archive) ||
+            !source)
+        {
+            gStrictRosterNmtFStringSerializerHook.call<void>(archive, source);
+            return;
+        }
+
+        std::string grant;
+        std::string encodedSteamTicket;
+        ScopedSecureGrant grantGuard{grant};
+        ScopedSecureGrant encodedSteamTicketGuard{encodedSteamTicket};
+        if (!CopyStagedNativeLoginGrant(grant) ||
+            !CopyStagedNativeSteamTicket(encodedSteamTicket))
+        {
+            gStrictRosterNmtFStringSerializerHook.call<void>(archive, source);
+            return;
+        }
+
+        std::wstring injectedUrl;
+        bool originalCalled = false;
+        bool injected = false;
+        try
+        {
+            if (IsReadableNativeFString(
+                    source, NativeLoginGrantPolicy::MaxUrlCharacters))
+            {
+                std::wstring sourceUrl(source->data, source->num);
+                ScopedSecureWide sourceUrlGuard{sourceUrl};
+                if (NativeLoginGrantPolicy::BuildUrlWithGrantAndSteamTicket(
+                    sourceUrl, grant, encodedSteamTicket, injectedUrl))
+                {
+                    RawNativeFString borrowed{
+                        injectedUrl.data(),
+                        static_cast<std::int32_t>(injectedUrl.size()),
+                        static_cast<std::int32_t>(injectedUrl.size())};
+                    // The static callsite proof and the fixed serializer
+                    // control flow show a synchronous save-only read.  The
+                    // original field2 remains owned by the caller and is
+                    // released at the pinned post-call site.
+                    gStrictRosterNmtFStringSerializerHook.call<void>(
+                        archive, &borrowed);
+                    originalCalled = true;
+                    injected = true;
+                }
+            }
+            if (!originalCalled)
+            {
+                originalCalled = true;
+                gStrictRosterNmtFStringSerializerHook.call<void>(archive, source);
+            }
+        }
+        catch (...)
+        {
+            if (!originalCalled)
+            {
+                try
+                {
+                    originalCalled = true;
+                    gStrictRosterNmtFStringSerializerHook.call<void>(archive, source);
+                }
+                catch (...)
+                {
+                    // Preserve the native failure boundary.  No fallback
+                    // connection or direct-open path is permitted here.
+                }
+            }
+        }
+        SecureClearWide(injectedUrl);
+        if (injected)
+            MarkStagedNativeLoginGrantInjected();
     }
 
     StrictRosterSeatApplyResult ApplyStrictRosterSeat(
@@ -418,6 +907,23 @@ namespace
             std::cout << "[STRICT-ROSTER] Seat application rejected at "
                 << (stage ? stage : "unknown")
                 << ": no active frozen decision." << std::endl;
+            return StrictRosterSeatApplyResult::Rejected;
+        }
+
+        // Remote players must still own the one-time Steam callback proof
+        // bound to the exact nonce reserved in PreLogin. A readable PlayerId
+        // or a policy seat alone cannot pass this boundary.
+        if (!decision->hostSeat &&
+            (!hasPlatformIdentity ||
+             !StrictRosterSteamAuth::IsConnectionBindingActive(
+                 platformId,
+                 decision->nativeConnectionNonce,
+                 static_cast<std::uint64_t>(GetTickCount64()))))
+        {
+            std::cout << "[STRICT-ROSTER] Seat application rejected at "
+                << (stage ? stage : "unknown")
+                << ": Steam platform proof binding is absent or expired."
+                << std::endl;
             return StrictRosterSeatApplyResult::Rejected;
         }
 
@@ -591,6 +1097,10 @@ namespace
         }
         if (decision)
         {
+            StrictRosterSteamAuth::EndServerAuthSession(
+                decision->nativeConnectionNonce);
+            StrictRosterSteamAuth::RevokeConnectionBinding(
+                decision->nativeConnectionNonce);
             const StrictRoster::Decision result = decision->confirmed
                 ? gStrictRosterPolicy->MarkDisconnected(
                     decision->playerId, decision->connectionGeneration,
@@ -1247,6 +1757,54 @@ static void CleanupDisconnectedPlayer(APBPlayerController* playerController, con
     RecomputeMatchStartGate(reason);
 }
 
+// Steam's ValidateAuthTicketResponse_t negative result can arrive on the
+// dedicated callback thread after the controller has already crossed the
+// native admission boundary.  StrictRosterSteamAuth queues only the exact
+// connection nonce that was revoked; consume that queue on the game thread so
+// the controller teardown and backend ReleaseAdmission use the same scope.
+// The callback thread never touches UE objects and this drain never guesses a
+// native socket/RVA.  ClientReturnToMainMenu is the pinned engine-facing
+// recovery path; CleanupDisconnectedPlayer then performs the authoritative
+// seat release and local quarantine.
+static void DrainStrictRosterSteamRevocations()
+{
+    std::string revokedNonce;
+    while (StrictRosterSteamAuth::TryConsumeRevokedConnectionNonce(revokedNonce))
+    {
+        APBPlayerController* revokedController = nullptr;
+        {
+            std::lock_guard<std::mutex> lock(gStrictRosterControllerMutex);
+            for (const auto& [candidate, decision] : gStrictRosterControllerSeats)
+            {
+                if (candidate &&
+                    decision.nativeConnectionNonce == revokedNonce)
+                {
+                    revokedController = candidate;
+                    break;
+                }
+            }
+        }
+
+        if (!revokedController)
+        {
+            std::cout << "[STRICT-ROSTER] Steam auth revocation had no live "
+                         "controller for the scoped native nonce; release was "
+                         "already consumed or still pending." << std::endl;
+            revokedNonce.clear();
+            continue;
+        }
+
+        if (!revokedController->bActorIsBeingDestroyed)
+        {
+            revokedController->ClientReturnToMainMenu(
+                FString(L"STRICT_ROSTER_STEAM_AUTH_REVOKED"));
+        }
+        CleanupDisconnectedPlayer(
+            revokedController, "Steam platform auth revoked");
+        revokedNonce.clear();
+    }
+}
+
 static bool IsCurrentConnectedController(APBPlayerController* playerController)
 {
     return playerController &&
@@ -1587,6 +2145,7 @@ int EngineBrowseHook(
 
 void TickFlushHook(UNetDriver *NetDriver, float DeltaTime)
 {
+    DrainStrictRosterSteamRevocations();
     PumpStrictRosterBackendReceipts();
     if (listening && NetDriver && UWorld::GetWorld())
     {
@@ -2180,6 +2739,7 @@ static SafetyHookInline NotifyControlMessage = {};
 
 char NotifyControlMessageHook(unsigned __int64 ScuffedShit, __int64 a2, uint8_t a3, __int64 a4)
 {
+    DrainStrictRosterSteamRevocations();
     if (UWorld *World = UWorld::GetWorld())
     {
         if (UNetDriver *ActiveNetDriver = NetDriverAccess::Resolve())
@@ -3626,7 +4186,9 @@ void InitMessageBoxHook()
     MessageBoxWHook = safetyhook::create_inline(addr, MessageBoxW_Detour);
 }
 
-bool InitStrictRosterAdmissionHooks(StrictRoster::Policy* policy)
+bool InitStrictRosterAdmissionHooks(
+    StrictRoster::Policy* policy,
+    const bool authorityGameServer)
 {
     gStrictRosterNativeSeatPathReady.store(false, std::memory_order_release);
     if (!policy || BaseAddress == 0)
@@ -3649,6 +4211,22 @@ bool InitStrictRosterAdmissionHooks(StrictRoster::Policy* policy)
             << std::endl;
         return false;
     }
+    // The bootstrap caller has already classified this process as the strict
+    // authority.  During listen startup the provisional UWorld still reports
+    // client/standalone (net mode 0/3), so inferring the Steam callback queue
+    // from the current world silently registered the client callback and left
+    // the later authority without an owned GameServer pump.
+    const bool gameserverInterface = authorityGameServer;
+    if (!StrictRosterSteamAuth::Initialize(
+            gameserverInterface))
+    {
+        std::cout << "[STRICT-ROSTER] Steam ValidateAuthTicketResponse "
+                     "callback registration failed; online identity proof "
+                     "remains fail-closed." << std::endl;
+        return false;
+    }
+    std::cout << "[STRICT-ROSTER] Steam ValidateAuthTicketResponse callback "
+                 "registered; online identity proof remains per-connection." << std::endl;
     try
     {
         gStrictRosterPolicy = policy;
@@ -3658,6 +4236,11 @@ bool InitStrictRosterAdmissionHooks(StrictRoster::Policy* policy)
     catch (...)
     {
         gStrictRosterPolicy = nullptr;
+        // Steam auth initialization may have created an owned GameServer
+        // pipe and callback pump.  Do not leave that listener alive when the
+        // pinned PreLogin hook itself could not be installed; the caller will
+        // fail closed and no online authority may retain native resources.
+        StrictRosterSteamAuth::Shutdown();
         std::cout << "[STRICT-ROSTER] Pinned PreLogin hook installation failed."
             << std::endl;
         return false;
@@ -3665,6 +4248,7 @@ bool InitStrictRosterAdmissionHooks(StrictRoster::Policy* policy)
     if (!gStrictRosterPreLoginHook)
     {
         gStrictRosterPolicy = nullptr;
+        StrictRosterSteamAuth::Shutdown();
         return false;
     }
     gStrictRosterNativeSeatPathReady.store(true, std::memory_order_release);
@@ -3738,6 +4322,8 @@ void InitServerHooks(bool forceDedicatedMode)
 
 void InitClientArchiveHooks()
 {
+    gStrictRosterNativeClientGrantInjectionReady.store(
+        false, std::memory_order_release);
     ClientDeathCrash = safetyhook::create_inline((void *)(BaseAddress + 0x16abe10), ClientDeathCrashHook);
     FixEquipErrorHook = safetyhook::create_inline((void *)(BaseAddress + 0x16DD080), FixEquipErrorHookFn);
     FixCharacterSkinPaintingErrorHook = safetyhook::create_inline(
@@ -3752,8 +4338,55 @@ void InitClientArchiveHooks()
         (void *)(BaseAddress + 0x16DD5F0), FixWeaponPartSlotErrorHookFn);
     FixWeaponSuiteErrorHook = safetyhook::create_inline(
         (void *)(BaseAddress + 0x16DD740), FixWeaponSuiteErrorHookFn);
+
+    const bool nmtSerializerBytesMatch =
+        MatchesPinnedBytes(
+            kStrictRosterNmtFStringSerializerRva,
+            kStrictRosterNmtFStringSerializerPrologue,
+            sizeof(kStrictRosterNmtFStringSerializerPrologue)) &&
+        MatchesPinnedBytes(
+            kStrictRosterNmtLoginField2SetupRva,
+            kStrictRosterNmtLoginField2CallsiteBytes,
+            sizeof(kStrictRosterNmtLoginField2CallsiteBytes));
+    if (!nmtSerializerBytesMatch)
+    {
+        ClientLog("[STRICT-ROSTER] NMT_Login field2 serializer byte gate failed; "
+            "native Grant injection remains unavailable.");
+    }
+    else
+    {
+        try
+        {
+            gStrictRosterNmtFStringSerializerHook = safetyhook::create_inline(
+                reinterpret_cast<void*>(BaseAddress + kStrictRosterNmtFStringSerializerRva),
+                StrictRosterNmtFStringSerializerHook);
+        }
+        catch (...)
+        {
+            ClientLog("[STRICT-ROSTER] NMT_Login serializer hook installation failed; "
+                "native Grant injection remains unavailable.");
+        }
+        if (gStrictRosterNmtFStringSerializerHook)
+        {
+            gStrictRosterNativeClientGrantInjectionReady.store(
+                true, std::memory_order_release);
+            ClientLog("[STRICT-ROSTER] Fixed NMT_Login field2 Grant injection hook installed; "
+                "source FString ownership remains native.");
+        }
+    }
     ClientLog("[ARCHIVE] Installed pinned-build completion compatibility hooks "
         "(character/weapon customization 404->0; equipment 404/9002->0).");
+}
+
+bool IsStrictRosterNativeClientGrantInjectionReady()
+{
+    return gStrictRosterNativeClientGrantInjectionReady.load(
+        std::memory_order_acquire);
+}
+
+void ShutdownStrictRosterPlatformAuth()
+{
+    StrictRosterSteamAuth::Shutdown();
 }
 
 void InitClientHook()

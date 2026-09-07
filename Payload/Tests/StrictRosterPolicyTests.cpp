@@ -320,5 +320,26 @@ int main()
 		"clearing a completed assignment must revoke its in-memory admission state");
 	Expect(!policy.StartAuthority("steam_host", 125).accepted,
 		"cleared allocation must not restart an authority");
+
+    StrictRoster::Policy nativeGrantValidation(verifier, true);
+    Expect(nativeGrantValidation.InstallAllocation(
+        Token(AllocationClaims()), "adm_1", publicKey, 100).accepted,
+        "native grant validation allocation should install");
+    Expect(nativeGrantValidation.StartAuthority("steam_host", 100).accepted,
+        "native grant validation authority should start");
+    const std::string nativeGrant = Token(GrantClaims(1, "native_grant_jti"));
+    Expect(nativeGrantValidation.StageJoinGrant(nativeGrant, 110).accepted,
+        "the backend-staged grant should be retained for native login");
+    Expect(nativeGrantValidation.ValidateNativeJoinGrant(
+        nativeGrant, "steam_member", 110).accepted,
+        "NMT_Login must validate the exact staged signed grant without consuming it");
+    Expect(nativeGrantValidation.ValidateNativeJoinGrant(
+        nativeGrant, "steam_member", 110).accepted,
+        "reliable NMT_Login retransmit validation must remain idempotent");
+    auto mismatchedNativeGrant = GrantClaims(1, "native_grant_jti");
+    mismatchedNativeGrant["logical_slot"] = 33;
+    Expect(!nativeGrantValidation.ValidateNativeJoinGrant(
+        Token(mismatchedNativeGrant), "steam_member", 110).accepted,
+        "a signed grant with the staged JTI but different seat claims must be rejected");
     return 0;
 }

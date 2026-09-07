@@ -41,6 +41,18 @@ if(WIN32)
     target_link_libraries(ed25519_verifier_tests PRIVATE Bcrypt)
 
     add_test(NAME ed25519_verifier_tests COMMAND ed25519_verifier_tests)
+
+    add_executable(strict_roster_steam_auth_tests
+        StrictRosterSteamAuthTests.cpp
+        ../Hooks/StrictRosterSteamAuth.cpp
+    )
+
+    target_compile_features(strict_roster_steam_auth_tests PRIVATE cxx_std_20)
+    enable_strict_warnings(strict_roster_steam_auth_tests)
+    target_compile_definitions(strict_roster_steam_auth_tests PRIVATE
+        STRICT_ROSTER_STEAM_AUTH_TEST=1)
+
+    add_test(NAME strict_roster_steam_auth_tests COMMAND strict_roster_steam_auth_tests)
 endif()
 
 add_executable(command_line_policy_tests
@@ -51,6 +63,15 @@ target_compile_features(command_line_policy_tests PRIVATE cxx_std_20)
 enable_strict_warnings(command_line_policy_tests)
 
 add_test(NAME command_line_policy_tests COMMAND command_line_policy_tests)
+
+add_executable(native_login_grant_policy_tests
+    NativeLoginGrantPolicyTests.cpp
+)
+
+target_compile_features(native_login_grant_policy_tests PRIVATE cxx_std_20)
+enable_strict_warnings(native_login_grant_policy_tests)
+
+add_test(NAME native_login_grant_policy_tests COMMAND native_login_grant_policy_tests)
 
 add_executable(server_hook_policy_tests
     ServerHookPolicyTests.cpp

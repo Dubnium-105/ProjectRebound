@@ -1,12 +1,15 @@
 #include "ClientLogic.h"
 
 #include "DirectMatchUiCleanupPolicy.h"
+#include "NativeLoginGrantPolicy.h"
 #include "SeamlessIntroCameraPolicy.h"
 
 #include "../Communication/CommandProtocol.h"
 #include "../Config/Config.h"
 #include "../Config/CommandLinePolicy.h"
 #include "../Debug/Debug.h"
+#include "../Hooks/Hooks.h"
+#include "../Hooks/StrictRosterSteamAuth.h"
 #include "../Loadout/LoadoutApplication.h"
 #include "../Loadout/LoadoutSerializer.h"
 #include "../Loadout/MetaserverClient.h"
@@ -104,10 +107,24 @@ namespace
 
     std::mutex connectMutex;
     std::optional<std::string> pendingTarget;
+    // Retain the signed grant for the complete native travel operation.  The
+    // fixed NMT_Login serializer can be re-entered for reliable retransmits;
+    // a successful first serialization therefore marks the grant injected but
+    // must not erase it until Playable, cancellation, or a bounded failure.
+    std::string stagedNativeLoginGrant;
+    // Base64url Steam ticket carrier for the same native NMT_Login attempt.
+    // It is retained through reliable retransmits and cleared with the Grant;
+    // raw ticket bytes stay inside StrictRosterSteamAuth.
+    std::string stagedNativeSteamTicket;
+    bool stagedNativeLoginGrantInjected = false;
     std::string currentTarget;
     ConnectStage connectStage = ConnectStage::Idle;
     std::chrono::steady_clock::time_point nextActionAt{};
     std::chrono::steady_clock::time_point travelDeadline{};
+    // Steam's GetAuthSessionTicket callback is asynchronous.  Keep this
+    // request on its own bounded deadline so a missing callback cannot leave
+    // a staged Grant and ticket handle pending forever.
+    std::chrono::steady_clock::time_point nativeTicketDeadline{};
     std::uint64_t connectSequence = 0;
     std::string lastConnectError;
     std::chrono::steady_clock::time_point frontendCleanupUntil{};
@@ -126,9 +143,25 @@ namespace
 
     constexpr auto LoginSettleDelay = std::chrono::seconds(2);
     constexpr auto TravelTimeout = std::chrono::seconds(90);
+    constexpr auto NativeTicketTimeout = std::chrono::seconds(10);
     constexpr ULONGLONG LoginTravelSettleMilliseconds = 2000;
     constexpr auto FrontendCleanupDuration = std::chrono::seconds(30);
     constexpr auto FrontendCleanupInterval = std::chrono::milliseconds(500);
+
+    void SecureClearNativeGrant(std::string& value) noexcept
+    {
+        volatile char* data = value.empty() ? nullptr : value.data();
+        for (std::size_t index = 0; data && index < value.size(); ++index)
+            data[index] = 0;
+        value.clear();
+    }
+
+    void ClearStagedNativeLoginGrantLocked() noexcept
+    {
+        SecureClearNativeGrant(stagedNativeLoginGrant);
+        SecureClearNativeGrant(stagedNativeSteamTicket);
+        stagedNativeLoginGrantInjected = false;
+    }
 
     const char* ConnectStageName(const ConnectStage stage) noexcept
     {
@@ -1373,13 +1406,15 @@ bool QueueConnectToMatch(const std::string& target)
     }
 
     {
-        std::lock_guard<std::mutex> lock(connectMutex);
+        std::unique_lock<std::mutex> lock(connectMutex);
         if (pendingTarget.has_value())
             return false;
 
+        ClearStagedNativeLoginGrantLocked();
         pendingTarget = target;
         connectStage = ConnectStage::Queued;
         travelDeadline = {};
+        nativeTicketDeadline = {};
         ++connectSequence;
         lastConnectError.clear();
         frontendCleanupUntil = {};
@@ -1389,6 +1424,61 @@ bool QueueConnectToMatch(const std::string& target)
     }
     ClientLog("[CLIENT] Match transition queued: " + target);
     return true;
+}
+
+bool CopyStagedNativeLoginGrant(std::string& grant)
+{
+    SecureClearNativeGrant(grant);
+    std::lock_guard<std::mutex> lock(connectMutex);
+    if (!pendingTarget.has_value() || stagedNativeLoginGrant.empty() ||
+        (connectStage != ConnectStage::Queued &&
+            connectStage != ConnectStage::WaitingAfterLogin &&
+            connectStage != ConnectStage::TravelRequested &&
+            connectStage != ConnectStage::WorldReady))
+    {
+        return false;
+    }
+    grant = stagedNativeLoginGrant;
+    return true;
+}
+
+bool CopyStagedNativeSteamTicket(std::string& encodedTicket)
+{
+    SecureClearNativeGrant(encodedTicket);
+    std::lock_guard<std::mutex> lock(connectMutex);
+    if (!pendingTarget.has_value() || stagedNativeLoginGrant.empty() ||
+        (connectStage != ConnectStage::Queued &&
+            connectStage != ConnectStage::WaitingAfterLogin &&
+            connectStage != ConnectStage::TravelRequested &&
+            connectStage != ConnectStage::WorldReady))
+    {
+        return false;
+    }
+    if (!stagedNativeSteamTicket.empty())
+    {
+        encodedTicket = stagedNativeSteamTicket;
+        return true;
+    }
+    if (!StrictRosterSteamAuth::CopyClientAuthTicket(encodedTicket))
+        return false;
+    stagedNativeSteamTicket = encodedTicket;
+    return true;
+}
+
+void MarkStagedNativeLoginGrantInjected()
+{
+    std::lock_guard<std::mutex> lock(connectMutex);
+    if (pendingTarget.has_value() && !stagedNativeLoginGrant.empty() &&
+        !stagedNativeSteamTicket.empty())
+    {
+        stagedNativeLoginGrantInjected = true;
+    }
+}
+
+void ClearStagedNativeLoginGrant()
+{
+    std::lock_guard<std::mutex> lock(connectMutex);
+    ClearStagedNativeLoginGrantLocked();
 }
 
 AuthorizedJoinResult QueueConnectToMatchAuthorizedDetailed(
@@ -1409,17 +1499,90 @@ AuthorizedJoinResult QueueConnectToMatchAuthorizedDetailed(
             false, "invalid_join_grant", "join grant is missing or too large"};
     }
 
-    // The current pinned client has no verified NMT_Login extension point for
-    // carrying this bearer. Calling `open` here would silently turn strict
-    // admission into direct-open, so keep the request fail closed until the
-    // fixed-build native injection is implemented and traced at PreLogin.
-    (void)target;
-    (void)joinGrant;
-    ClientLog("[STRICT-ROSTER] Refused strict join: native Grant injection is unverified.");
-    return AuthorizedJoinResult{
-        false,
-        "native_client_grant_injection_unverified",
-        "native NMT_Login Grant injection is not verified for this build"};
+    if (!IsStrictRosterNativeClientGrantInjectionReady())
+    {
+        ClientLog("[STRICT-ROSTER] Refused strict join: native Grant injection is unverified.");
+        return AuthorizedJoinResult{
+            false,
+            "native_client_grant_injection_unverified",
+            "native NMT_Login Grant injection is not verified for this build"};
+    }
+    if (!NativeLoginGrantPolicy::ValidateGrantTokenShape(joinGrant))
+    {
+        ClientLog("[STRICT-ROSTER] Rejected strict join: Grant transport shape is invalid.");
+        return AuthorizedJoinResult{
+            false, "invalid_join_grant", "join grant transport shape is invalid"};
+    }
+
+    bool queueBusyAfterTicket = false;
+    {
+        std::lock_guard<std::mutex> lock(connectMutex);
+        if (pendingTarget.has_value() ||
+            connectStage == ConnectStage::TravelRequested ||
+            connectStage == ConnectStage::WorldReady ||
+            connectStage == ConnectStage::Playable)
+        {
+            return AuthorizedJoinResult{
+                false, "busy", "another native match transition is pending"};
+        }
+    }
+
+    // Obtain the ticket on the same Steam client that will carry this Grant
+    // through NMT_Login.  The callback is asynchronous; PumpPendingClientCommands
+    // keeps the travel in the waiting state until the exact handle/result is
+    // confirmed by Steam's ordinary dispatcher.
+    const auto ticketState = StrictRosterSteamAuth::RequestClientAuthTicket();
+    if (ticketState == StrictRosterSteamAuth::ClientTicketState::Unavailable)
+    {
+        ClientLog("[STRICT-ROSTER] Refused strict join: Steam auth ticket is unavailable.");
+        return AuthorizedJoinResult{
+            false,
+            "native_platform_ticket_unavailable",
+            "Steam platform auth ticket could not be acquired"};
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(connectMutex);
+        if (pendingTarget.has_value() ||
+            connectStage == ConnectStage::TravelRequested ||
+            connectStage == ConnectStage::WorldReady ||
+            connectStage == ConnectStage::Playable)
+        {
+            // The ticket belongs to the request that raced this queue.  Do
+            // not leave an unscoped Steam handle alive after rejecting it.
+            // CancelClientAuthTicket takes its own mutex after this scope is
+            // released below.
+            queueBusyAfterTicket = true;
+        }
+        else
+        {
+            pendingTarget = target;
+            stagedNativeLoginGrant = std::string(joinGrant);
+            stagedNativeLoginGrantInjected = false;
+            connectStage = ConnectStage::Queued;
+            travelDeadline = {};
+            nativeTicketDeadline = ticketState ==
+                    StrictRosterSteamAuth::ClientTicketState::Pending
+                ? std::chrono::steady_clock::now() + NativeTicketTimeout
+                : std::chrono::steady_clock::time_point{};
+            ++connectSequence;
+            lastConnectError.clear();
+            frontendCleanupUntil = {};
+            nextFrontendCleanupAt = {};
+            directTravelSourceWorld = nullptr;
+            directTravelUiFinalized = false;
+        }
+    }
+    if (queueBusyAfterTicket)
+    {
+        StrictRosterSteamAuth::CancelClientAuthTicket();
+        return AuthorizedJoinResult{
+            false, "busy", "another native match transition is pending"};
+    }
+    ClientLog(ticketState == StrictRosterSteamAuth::ClientTicketState::Ready
+        ? "[STRICT-ROSTER] Signed native join queued with a verified Steam ticket carrier."
+        : "[STRICT-ROSTER] Signed native join queued; waiting for the Steam ticket callback.");
+    return AuthorizedJoinResult{true, "accepted", "native join queued"};
 }
 
 bool QueueConnectToMatchAuthorized(
@@ -1567,6 +1730,7 @@ void PumpPendingClientCommands()
     // local Pawn/PlayerState become native-playable, or until the bounded
     // travel deadline expires.
     bool travelTimedOut = false;
+    bool cancelSteamTicketAfterTravelFailure = false;
     bool destinationWorldReady = false;
     bool destinationPlayable = false;
     APBPlayerController* localPlayerController = nullptr;
@@ -1600,6 +1764,8 @@ void PumpPendingClientCommands()
             {
                 connectStage = ConnectStage::Playable;
                 pendingTarget.reset();
+                nativeTicketDeadline = {};
+                ClearStagedNativeLoginGrantLocked();
                 ClientLog("[CLIENT] Native travel reached Playable; transition completed.");
             }
             else if (destinationWorldReady && connectStage == ConnectStage::TravelRequested)
@@ -1614,23 +1780,88 @@ void PumpPendingClientCommands()
                 lastConnectError = destinationWorldReady
                     ? "playable_pawn_timeout" : "world_ready_timeout";
                 pendingTarget.reset();
+                nativeTicketDeadline = {};
+                ClearStagedNativeLoginGrantLocked();
                 frontendCleanupUntil = {};
                 nextFrontendCleanupAt = {};
                 travelTimedOut = true;
+                cancelSteamTicketAfterTravelFailure = true;
             }
         }
     }
     if (travelTimedOut)
     {
+        if (cancelSteamTicketAfterTravelFailure)
+            StrictRosterSteamAuth::CancelClientAuthTicket();
         ClientLog("[CLIENT] Native travel failed: bounded readiness timeout (" +
             lastConnectError + ").");
         return;
     }
 
     {
-        std::lock_guard<std::mutex> lock(connectMutex);
+        std::unique_lock<std::mutex> lock(connectMutex);
         if (!pendingTarget.has_value())
             return;
+
+        // A strict transition may reach this pump only with the signed grant
+        // still staged.  Keep the local-PVE direct-open path separate; an
+        // online request whose staged bearer was cleared or never installed
+        // must fail before ExecuteConsoleCommand can be reached.
+        if (!IsOfflinePveClient() && stagedNativeLoginGrant.empty())
+        {
+            connectStage = ConnectStage::Failed;
+            lastConnectError = "native_grant_missing";
+            pendingTarget.reset();
+            nativeTicketDeadline = {};
+            ClearStagedNativeLoginGrantLocked();
+            frontendCleanupUntil = {};
+            nextFrontendCleanupAt = {};
+            lock.unlock();
+            ClientLog("[STRICT-ROSTER] Refused native travel: staged Grant is missing.");
+            return;
+        }
+
+        if (!IsOfflinePveClient())
+        {
+            const auto ticketState = StrictRosterSteamAuth::GetClientTicketState();
+            if (ticketState == StrictRosterSteamAuth::ClientTicketState::Unavailable)
+            {
+                connectStage = ConnectStage::Failed;
+                lastConnectError = "native_platform_ticket_unavailable";
+                pendingTarget.reset();
+                nativeTicketDeadline = {};
+                ClearStagedNativeLoginGrantLocked();
+                frontendCleanupUntil = {};
+                nextFrontendCleanupAt = {};
+                lock.unlock();
+                StrictRosterSteamAuth::CancelClientAuthTicket();
+                ClientLog("[STRICT-ROSTER] Refused native travel: Steam ticket "
+                          "callback failed or the ticket carrier is unavailable.");
+                return;
+            }
+            if (ticketState != StrictRosterSteamAuth::ClientTicketState::Ready &&
+                nativeTicketDeadline != std::chrono::steady_clock::time_point{} &&
+                now >= nativeTicketDeadline)
+            {
+                connectStage = ConnectStage::Failed;
+                lastConnectError = "native_platform_ticket_timeout";
+                pendingTarget.reset();
+                nativeTicketDeadline = {};
+                ClearStagedNativeLoginGrantLocked();
+                frontendCleanupUntil = {};
+                nextFrontendCleanupAt = {};
+                lock.unlock();
+                StrictRosterSteamAuth::CancelClientAuthTicket();
+                ClientLog("[STRICT-ROSTER] Refused native travel: Steam ticket "
+                          "callback did not arrive before the bounded request deadline.");
+                return;
+            }
+            if (ticketState != StrictRosterSteamAuth::ClientTicketState::Ready)
+            {
+                nextActionAt = now + std::chrono::milliseconds(100);
+                return;
+            }
+        }
 
         if (connectStage == ConnectStage::Queued)
         {
@@ -1674,12 +1905,16 @@ void PumpPendingClientCommands()
     }
     if (!actionSucceeded)
     {
-        std::lock_guard<std::mutex> lock(connectMutex);
+        std::unique_lock<std::mutex> lock(connectMutex);
         connectStage = ConnectStage::Failed;
         lastConnectError = "travel_command_rejected";
         pendingTarget.reset();
+        nativeTicketDeadline = {};
+        ClearStagedNativeLoginGrantLocked();
         frontendCleanupUntil = {};
         nextFrontendCleanupAt = {};
+        lock.unlock();
+        StrictRosterSteamAuth::CancelClientAuthTicket();
         return;
     }
 
@@ -1703,30 +1938,55 @@ nlohmann::json GetClientMatchStatus()
         {"pending", pending},
         {"login_completed", IsClientLoginCompleted()},
         {"login_ready", IsClientLoginReadyForTravel()},
+        {"native_grant_staged", pending && !stagedNativeLoginGrant.empty()},
+        {"native_grant_injected", pending && stagedNativeLoginGrantInjected},
         {"last_error", lastConnectError}
     };
 }
 
 nlohmann::json CancelPendingClientTransition()
 {
-    std::lock_guard<std::mutex> lock(connectMutex);
-    if (!pendingTarget.has_value() &&
-        connectStage != ConnectStage::TravelRequested &&
-        connectStage != ConnectStage::WorldReady)
+    bool shouldCancelSteamTicket = false;
+    bool wasTerminal = false;
     {
+        std::lock_guard<std::mutex> lock(connectMutex);
+        if (!pendingTarget.has_value() &&
+            connectStage != ConnectStage::TravelRequested &&
+            connectStage != ConnectStage::WorldReady)
+        {
+            wasTerminal = true;
+            // A Playable connection keeps its auth-session ticket alive until
+            // the explicit disconnect/return-to-menu cleanup.  The terminal
+            // command is that cleanup boundary; never cancel it merely when
+            // Playable was first reached.  The helper is idempotent, so every
+            // terminal cleanup also closes a ticket left by a failed/expired
+            // transition that raced one of the bounded failure paths.
+            shouldCancelSteamTicket = true;
+            nativeTicketDeadline = {};
+            ClearStagedNativeLoginGrantLocked();
+        }
+        else
+        {
+            pendingTarget.reset();
+            ClearStagedNativeLoginGrantLocked();
+            connectStage = ConnectStage::Cancelled;
+            lastConnectError = "cancelled";
+            frontendCleanupUntil = {};
+            nextFrontendCleanupAt = {};
+            travelDeadline = {};
+            nativeTicketDeadline = {};
+            ++connectSequence;
+            shouldCancelSteamTicket = true;
+        }
+    }
+    if (shouldCancelSteamTicket)
+        StrictRosterSteamAuth::CancelClientAuthTicket();
+    if (wasTerminal)
         return nlohmann::json{
             {"accepted", true},
             {"status", ConnectStageName(connectStage)},
             {"code", "already_terminal"}
         };
-    }
-    pendingTarget.reset();
-    connectStage = ConnectStage::Cancelled;
-    lastConnectError = "cancelled";
-    frontendCleanupUntil = {};
-    nextFrontendCleanupAt = {};
-    travelDeadline = {};
-    ++connectSequence;
     ClientLog("[CLIENT] Cancelled pending native travel operation.");
     return nlohmann::json{
         {"accepted", true},
