@@ -1,0 +1,485 @@
+name: project-rebound-control-plane
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:?POSTGRES_DB is required}"
+      POSTGRES_USER: "${POSTGRES_USER:?POSTGRES_USER is required}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" --no-auth-warning ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    ports:
+      - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - data
+
+  minio:
+    image: "${MINIO_IMAGE:-quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z.hotfix.7aa24e772}"
+    restart: unless-stopped
+    command: ["server", "/data", "--address", ":9000", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}"
+      MINIO_API_CORS_ALLOW_ORIGIN: "${MINIO_CORS_ALLOWED_ORIGINS:?MINIO_CORS_ALLOWED_ORIGINS is required}"
+      MINIO_API_CORS_ALLOW_CREDENTIALS_WITH_WILDCARD: "off"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 512
+    volumes:
+      - minio-data:/data
+    expose:
+      - "9000"
+    ports:
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks:
+      - storage
+
+  minio-provision:
+    image: "${MINIO_CLIENT_IMAGE:-quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z}"
+    restart: "no"
+    entrypoint: ["/bin/sh", "/provision-minio.sh"]
+    environment:
+      MC_CONFIG_DIR: /tmp/mc
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}"
+      DOWNLOAD_S3_BUCKET: "${DOWNLOAD_S3_BUCKET:-project-rebound-downloads}"
+      DOWNLOAD_S3_ACCESS_KEY_ID: "${DOWNLOAD_S3_ACCESS_KEY_ID:?DOWNLOAD_S3_ACCESS_KEY_ID is required}"
+      DOWNLOAD_S3_SECRET_ACCESS_KEY: "${DOWNLOAD_S3_SECRET_ACCESS_KEY:?DOWNLOAD_S3_SECRET_ACCESS_KEY is required}"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ../minio/provision-downloads.sh:/provision-minio.sh:ro
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - storage
+
+  control-plane:
+    build:
+      context: ../..
+      dockerfile: deployments/compose/control-plane.Dockerfile
+      args:
+        GOPROXY: "${GOPROXY:-https://proxy.golang.org,direct}"
+        GOSUMDB: "${GOSUMDB:-sum.golang.org}"
+    image: "${CONTROL_PLANE_IMAGE:-project-rebound/control-plane:local}"
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      CONTROL_PLANE_ENVIRONMENT: production
+      CONTROL_PLANE_HTTP_ADDR: ":8080"
+      DATABASE_URL: "postgres://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}?sslmode=disable"
+      REDIS_ADDRESS: "redis:6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"
+      CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS is required}"
+      TRUST_PROXY_HEADERS: "true"
+      HTTP_RATE_LIMIT_RPS: "${HTTP_RATE_LIMIT_RPS:-100}"
+      HTTP_RATE_LIMIT_BURST: "${HTTP_RATE_LIMIT_BURST:-200}"
+      AUTH_BIND_REQUESTS_PER_MINUTE: "${AUTH_BIND_REQUESTS_PER_MINUTE:-60}"
+      AUTH_BIND_BURST: "${AUTH_BIND_BURST:-20}"
+      AUTH_BIND_PER_IP_PER_MINUTE: "${AUTH_BIND_PER_IP_PER_MINUTE:-5}"
+      AUTH_BIND_PER_DEVICE_PER_MINUTE: "${AUTH_BIND_PER_DEVICE_PER_MINUTE:-3}"
+      AUTH_BIND_PER_STEAM_ID_PER_MINUTE: "${AUTH_BIND_PER_STEAM_ID_PER_MINUTE:-3}"
+      AUTH_INVITE_REQUIRED: "${AUTH_INVITE_REQUIRED:-false}"
+      P2P_BATTLELOG_ENABLED: "${P2P_BATTLELOG_ENABLED:-false}"
+      P2P_BATTLELOG_SHADOW_MODE: "${P2P_BATTLELOG_SHADOW_MODE:-true}"
+      P2P_BATTLELOG_POLICY_VERSION: "${P2P_BATTLELOG_POLICY_VERSION:-p2p-v1}"
+      P2P_BATTLELOG_MAX_REPORT_BYTES: "${P2P_BATTLELOG_MAX_REPORT_BYTES:-524288}"
+      P2P_BATTLELOG_MAX_EVENTS: "${P2P_BATTLELOG_MAX_EVENTS:-4096}"
+      P2P_BATTLELOG_COLLECTION_DEADLINE_SECONDS: "${P2P_BATTLELOG_COLLECTION_DEADLINE_SECONDS:-300}"
+      P2P_BATTLELOG_HARD_EXPIRY_HOURS: "${P2P_BATTLELOG_HARD_EXPIRY_HOURS:-8}"
+      P2P_BATTLELOG_CAPABILITY_TTL_HOURS: "${P2P_BATTLELOG_CAPABILITY_TTL_HOURS:-24}"
+      P2P_BATTLELOG_FINALIZER_INTERVAL_SECONDS: "${P2P_BATTLELOG_FINALIZER_INTERVAL_SECONDS:-5}"
+      STEAM_APP_ID: "${STEAM_APP_ID:-480}"
+      STEAM_TICKET_VERIFIER_PATH: "${STEAM_TICKET_VERIFIER_PATH:-/usr/local/bin/decrypt-ticket}"
+      STEAM_TICKET_VERIFIER_TIMEOUT_SECONDS: "${STEAM_TICKET_VERIFIER_TIMEOUT_SECONDS:-3}"
+      STEAM_TICKET_MAXIMUM_AGE_SECONDS: "${STEAM_TICKET_MAXIMUM_AGE_SECONDS:-300}"
+      STEAM_ENCRYPTED_APP_TICKET_LIBRARY: "${STEAM_ENCRYPTED_APP_TICKET_LIBRARY:-/usr/local/lib/libsdkencryptedappticket.so}"
+      STEAM_ENCRYPTED_APP_TICKET_KEY_FILE: "${STEAM_ENCRYPTED_APP_TICKET_KEY_FILE:-/run/projectrebound/steam-encrypted-app-ticket.key}"
+      TOOLBOX_PUBKEY_PATH: "/usr/share/projectrebound/toolbox-signer.pem"
+      INTEGRITY_CHALLENGE_TTL_SECONDS: "${INTEGRITY_CHALLENGE_TTL_SECONDS:-120}"
+      INTEGRITY_MAXIMUM_FAILURES: "${INTEGRITY_MAXIMUM_FAILURES:-3}"
+      ACCESS_TOKEN_KEY_ID: "${ACCESS_TOKEN_KEY_ID:?ACCESS_TOKEN_KEY_ID is required}"
+      ACCESS_TOKEN_PRIVATE_KEY_BASE64: "${ACCESS_TOKEN_PRIVATE_KEY_BASE64:?ACCESS_TOKEN_PRIVATE_KEY_BASE64 is required}"
+      ACCEPT_NEW_LOBBIES: "${ACCEPT_NEW_LOBBIES:-true}"
+      STRICT_ROSTER_LOCKED_GAME_SHA256: "${STRICT_ROSTER_LOCKED_GAME_SHA256:-181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843}"
+      MATCH_ADMISSION_SIGNING_KEY_ID: "${MATCH_ADMISSION_SIGNING_KEY_ID:?MATCH_ADMISSION_SIGNING_KEY_ID is required}"
+      MATCH_ADMISSION_PRIVATE_KEY_BASE64: "${MATCH_ADMISSION_PRIVATE_KEY_BASE64:?MATCH_ADMISSION_PRIVATE_KEY_BASE64 is required}"
+      DEVICE_FINGERPRINT_KEY_ID: "${DEVICE_FINGERPRINT_KEY_ID:-device-fingerprint-v1}"
+      DEVICE_FINGERPRINT_HMAC_KEY_BASE64: "${DEVICE_FINGERPRINT_HMAC_KEY_BASE64:?DEVICE_FINGERPRINT_HMAC_KEY_BASE64 is required}"
+      ADMIN_TOKENS: "${ADMIN_TOKENS:?ADMIN_TOKENS is required}"
+      ADMIN_TRUSTED_CIDRS: "${ADMIN_TRUSTED_CIDRS:-127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1/128,fc00::/7}"
+      ADMIN_ACCESS_TOKEN_KEY_ID: "${ADMIN_ACCESS_TOKEN_KEY_ID:?ADMIN_ACCESS_TOKEN_KEY_ID is required}"
+      ADMIN_ACCESS_TOKEN_PRIVATE_KEY_BASE64: "${ADMIN_ACCESS_TOKEN_PRIVATE_KEY_BASE64:?ADMIN_ACCESS_TOKEN_PRIVATE_KEY_BASE64 is required}"
+      ADMIN_MFA_ENCRYPTION_KEY_BASE64: "${ADMIN_MFA_ENCRYPTION_KEY_BASE64:?ADMIN_MFA_ENCRYPTION_KEY_BASE64 is required}"
+      TURNSTILE_SITE_KEY: "${TURNSTILE_SITE_KEY:?TURNSTILE_SITE_KEY is required}"
+      TURNSTILE_SECRET_KEY: "${TURNSTILE_SECRET_KEY:?TURNSTILE_SECRET_KEY is required}"
+      TURNSTILE_EXPECTED_HOSTNAME: "${TURNSTILE_EXPECTED_HOSTNAME:?TURNSTILE_EXPECTED_HOSTNAME is required}"
+      TURNSTILE_EXPECTED_ACTION: "${TURNSTILE_EXPECTED_ACTION:-admin_login}"
+      GAME_SERVER_CA_CERT_PEM_BASE64: "${GAME_SERVER_CA_CERT_PEM_BASE64:?GAME_SERVER_CA_CERT_PEM_BASE64 is required}"
+      GAME_SERVER_CA_KEY_PEM_BASE64: "${GAME_SERVER_CA_KEY_PEM_BASE64:?GAME_SERVER_CA_KEY_PEM_BASE64 is required}"
+      VNT_SECRET_ENCRYPTION_KEY_BASE64: "${VNT_SECRET_ENCRYPTION_KEY_BASE64:?VNT_SECRET_ENCRYPTION_KEY_BASE64 is required}"
+      VNT_SECRET_ENCRYPTION_KEY_ID: "${VNT_SECRET_ENCRYPTION_KEY_ID:-vnt-room-v1}"
+      VNT_SECRET_DECRYPTION_KEYS: "${VNT_SECRET_DECRYPTION_KEYS:-}"
+      VNT_ROOMS_ENABLED: "${VNT_ROOMS_ENABLED:-false}"
+      VNT_CREDENTIAL_ROTATION_GRACE_SECONDS: "${VNT_CREDENTIAL_ROTATION_GRACE_SECONDS:-60}"
+      VNT_ENROLLMENT_REQUESTS_PER_PLAYER_PER_HOUR: "${VNT_ENROLLMENT_REQUESTS_PER_PLAYER_PER_HOUR:-5}"
+      VNT_DIRECTORY_REQUESTS_PER_IP_PER_MINUTE: "${VNT_DIRECTORY_REQUESTS_PER_IP_PER_MINUTE:-120}"
+      VNT_BOOTSTRAP_REQUESTS_PER_PLAYER_PER_MINUTE: "${VNT_BOOTSTRAP_REQUESTS_PER_PLAYER_PER_MINUTE:-30}"
+      VNT_HEARTBEAT_REQUESTS_PER_CREDENTIAL_PER_MINUTE: "${VNT_HEARTBEAT_REQUESTS_PER_CREDENTIAL_PER_MINUTE:-120}"
+      VNT_MANAGEMENT_REQUESTS_PER_CREDENTIAL_PER_HOUR: "${VNT_MANAGEMENT_REQUESTS_PER_CREDENTIAL_PER_HOUR:-10}"
+      VNT_MAX_NODES_PER_PLAYER: "${VNT_MAX_NODES_PER_PLAYER:-3}"
+      RELAY_CONTROL_ADDR: ":9090"
+      RELAY_CONTROL_SERVER_NAMES: "${RELAY_CONTROL_SERVER_NAMES:-control-plane,localhost}"
+      RELAY_BOOTSTRAP_TOKENS: "${RELAY_BOOTSTRAP_TOKENS:?RELAY_BOOTSTRAP_TOKENS is required}"
+      RELAY_CA_CERT_PEM_BASE64: "${RELAY_CA_CERT_PEM_BASE64:?RELAY_CA_CERT_PEM_BASE64 is required}"
+      RELAY_CA_KEY_PEM_BASE64: "${RELAY_CA_KEY_PEM_BASE64:?RELAY_CA_KEY_PEM_BASE64 is required}"
+      RELAY_TOKEN_KEY_ID: "${RELAY_TOKEN_KEY_ID:?RELAY_TOKEN_KEY_ID is required}"
+      RELAY_TOKEN_PRIVATE_KEY_BASE64: "${RELAY_TOKEN_PRIVATE_KEY_BASE64:?RELAY_TOKEN_PRIVATE_KEY_BASE64 is required}"
+      UPDATE_MANIFEST_DIRECTORY: "/deployments/updates"
+      UPDATE_CDN_BASE_URL: "${UPDATE_CDN_BASE_URL:?UPDATE_CDN_BASE_URL is required}"
+      UPDATE_SIGNING_KEY_ID: "${UPDATE_SIGNING_KEY_ID:?UPDATE_SIGNING_KEY_ID is required}"
+      UPDATE_SIGNING_PRIVATE_KEY_BASE64: "${UPDATE_SIGNING_PRIVATE_KEY_BASE64:?UPDATE_SIGNING_PRIVATE_KEY_BASE64 is required}"
+      UPDATE_DEFAULT_CHANNEL: "${UPDATE_DEFAULT_CHANNEL:-stable}"
+      UPDATE_MINIMUM_CLIENT_VERSION: "${UPDATE_MINIMUM_CLIENT_VERSION:-1.0.0}"
+      UPDATE_REALTIME_URL: "${UPDATE_REALTIME_URL:?UPDATE_REALTIME_URL is required}"
+      UPDATE_STUN_SERVERS: "${UPDATE_STUN_SERVERS:?UPDATE_STUN_SERVERS is required}"
+      DOWNLOADS_ENABLED: "${DOWNLOADS_ENABLED:-true}"
+      DOWNLOAD_S3_ENDPOINT: "${DOWNLOAD_S3_ENDPOINT:-http://minio:9000}"
+      DOWNLOAD_S3_UPLOAD_ENDPOINT: "${DOWNLOAD_S3_UPLOAD_ENDPOINT:?DOWNLOAD_S3_UPLOAD_ENDPOINT is required}"
+      DOWNLOAD_S3_REGION: "${DOWNLOAD_S3_REGION:-us-east-1}"
+      DOWNLOAD_S3_BUCKET: "${DOWNLOAD_S3_BUCKET:-project-rebound-downloads}"
+      DOWNLOAD_S3_ACCESS_KEY_ID: "${DOWNLOAD_S3_ACCESS_KEY_ID:?DOWNLOAD_S3_ACCESS_KEY_ID is required}"
+      DOWNLOAD_S3_SECRET_ACCESS_KEY: "${DOWNLOAD_S3_SECRET_ACCESS_KEY:?DOWNLOAD_S3_SECRET_ACCESS_KEY is required}"
+      DOWNLOAD_PUBLIC_BASE_URL: "${DOWNLOAD_PUBLIC_BASE_URL:?DOWNLOAD_PUBLIC_BASE_URL is required}"
+      DOWNLOAD_PUBLIC_PROBE_BASE_URL: "${DOWNLOAD_PUBLIC_PROBE_BASE_URL:?DOWNLOAD_PUBLIC_PROBE_BASE_URL is required}"
+      DOWNLOAD_ALLOWED_EXTENSIONS: "${DOWNLOAD_ALLOWED_EXTENSIONS:-exe,msi,zip,7z,pdf,md,txt,docx,json}"
+      DOWNLOAD_MAX_FILE_BYTES: "${DOWNLOAD_MAX_FILE_BYTES:-2147483648}"
+      DOWNLOAD_MULTIPART_THRESHOLD_BYTES: "${DOWNLOAD_MULTIPART_THRESHOLD_BYTES:-67108864}"
+      DOWNLOAD_PART_SIZE_BYTES: "${DOWNLOAD_PART_SIZE_BYTES:-16777216}"
+      DOWNLOAD_UPLOAD_SESSION_TTL_HOURS: "${DOWNLOAD_UPLOAD_SESSION_TTL_HOURS:-24}"
+      DOWNLOAD_PRESIGN_TTL_MINUTES: "${DOWNLOAD_PRESIGN_TTL_MINUTES:-15}"
+      DOWNLOAD_VERIFICATION_INTERVAL_SECONDS: "${DOWNLOAD_VERIFICATION_INTERVAL_SECONDS:-5}"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-provision:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/control-plane", "-healthcheck", "http://127.0.0.1:8080/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    ports:
+      - "127.0.0.1:${CONTROL_PLANE_ADMIN_PORT:-18080}:8080"
+      - "${RELAY_CONTROL_BIND_IP:-127.0.0.1}:${RELAY_CONTROL_PORT:-9090}:9090"
+    volumes:
+      - ../updates:/deployments/updates:ro
+      - "${STEAM_ENCRYPTED_APP_TICKET_LIBRARY_HOST_PATH:?STEAM_ENCRYPTED_APP_TICKET_LIBRARY_HOST_PATH is required}:${STEAM_ENCRYPTED_APP_TICKET_LIBRARY:-/usr/local/lib/libsdkencryptedappticket.so}:ro"
+      - "${STEAM_ENCRYPTED_APP_TICKET_KEY_HOST_PATH:?STEAM_ENCRYPTED_APP_TICKET_KEY_HOST_PATH is required}:${STEAM_ENCRYPTED_APP_TICKET_KEY_FILE:-/run/projectrebound/steam-encrypted-app-ticket.key}:ro"
+    networks:
+      - data
+      - edge
+      - monitoring
+      - storage
+
+  meta-postgres-provision:
+    profiles: [meta]
+    image: postgres:17-alpine
+    restart: "no"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: "${POSTGRES_DB:?POSTGRES_DB is required}"
+      POSTGRES_USER: "${POSTGRES_USER:?POSTGRES_USER is required}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+      META_POSTGRES_USER: "${META_POSTGRES_USER:-projectrebound_meta}"
+      META_POSTGRES_PASSWORD: "${META_POSTGRES_PASSWORD:?META_POSTGRES_PASSWORD is required}"
+    entrypoint: ["/bin/sh", "/provision-meta-postgres.sh"]
+    volumes:
+      - ./provision-meta-postgres.sh:/provision-meta-postgres.sh:ro
+    depends_on:
+      control-plane:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - data
+
+  meta-redis-provision:
+    profiles: [meta]
+    image: redis:7-alpine
+    restart: "no"
+    environment:
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"
+      META_REDIS_USERNAME: "${META_REDIS_USERNAME:-projectrebound-meta}"
+      META_REDIS_PASSWORD: "${META_REDIS_PASSWORD:?META_REDIS_PASSWORD is required}"
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - >-
+        redis-cli -h redis -a "$${REDIS_PASSWORD}" --no-auth-warning
+        ACL SETUSER "$${META_REDIS_USERNAME}" reset on
+        ">$${META_REDIS_PASSWORD}" "~meta:*"
+        "+@connection" "+get" "+set" "+getdel" "+del" "+unlink"
+        "+expire" "+pexpire" "+ttl" "+pttl"
+    depends_on:
+      redis:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - data
+
+  meta-server:
+    profiles: [meta]
+    build:
+      context: ../..
+      dockerfile: deployments/compose/meta-server.Dockerfile
+      args:
+        GOPROXY: "${GOPROXY:-https://proxy.golang.org,direct}"
+        GOSUMDB: "${GOSUMDB:-sum.golang.org}"
+    image: "${META_SERVER_IMAGE:-project-rebound/meta-server:local}"
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 512m
+    cpus: 1.0
+    environment:
+      CONTROL_PLANE_ENVIRONMENT: production
+      META_HTTP_ADDR: ":8081"
+      META_LOGIC_ADDR: ":6968"
+      META_PUBLIC_HTTP_BASE_URL: "https://meta.project-rebound.space"
+      META_PUBLIC_LOGIC_ENDPOINT: "logic.project-rebound.space:443"
+      META_LOGIC_PROXY_PROTOCOL: "${META_LOGIC_PROXY_PROTOCOL:-true}"
+      META_PROTOCOL_VERSION: "${META_PROTOCOL_VERSION:-1}"
+      META_GATE_TICKET_TTL_SECONDS: "${META_GATE_TICKET_TTL_SECONDS:-60}"
+      META_MAX_FRAME_BYTES: "${META_MAX_FRAME_BYTES:-2097152}"
+      META_MAX_WRITE_QUEUE_BYTES: "${META_MAX_WRITE_QUEUE_BYTES:-4194304}"
+      META_MATCH_TICKET_TTL_SECONDS: "${META_MATCH_TICKET_TTL_SECONDS:-300}"
+      META_MATCH_RESERVATION_TTL_SECONDS: "${META_MATCH_RESERVATION_TTL_SECONDS:-90}"
+      META_NATIVE_PLAYER_LEVEL: "${META_NATIVE_PLAYER_LEVEL:-70}"
+      META_NATIVE_CHARACTER_LEVEL: "${META_NATIVE_CHARACTER_LEVEL:-30}"
+      META_NATIVE_OWNERSHIP_MODE: "${META_NATIVE_OWNERSHIP_MODE:-full}"
+      DATABASE_URL: "postgres://${META_POSTGRES_USER:-projectrebound_meta}:${META_POSTGRES_PASSWORD:?META_POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}?sslmode=disable"
+      REDIS_ADDRESS: "redis:6379"
+      REDIS_USERNAME: "${META_REDIS_USERNAME:-projectrebound-meta}"
+      REDIS_PASSWORD: "${META_REDIS_PASSWORD:?META_REDIS_PASSWORD is required}"
+      ACCESS_TOKEN_KEY_ID: "${ACCESS_TOKEN_KEY_ID:?ACCESS_TOKEN_KEY_ID is required}"
+      ACCESS_TOKEN_PUBLIC_KEY_BASE64: "${ACCESS_TOKEN_PUBLIC_KEY_BASE64:?ACCESS_TOKEN_PUBLIC_KEY_BASE64 is required}"
+      ADMIN_TRUSTED_CIDRS: "${ADMIN_TRUSTED_CIDRS:-127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1/128,fc00::/7}"
+      ADMIN_ACCESS_TOKEN_KEY_ID: "${ADMIN_ACCESS_TOKEN_KEY_ID:?ADMIN_ACCESS_TOKEN_KEY_ID is required}"
+      ADMIN_ACCESS_TOKEN_PUBLIC_KEY_BASE64: "${ADMIN_ACCESS_TOKEN_PUBLIC_KEY_BASE64:?ADMIN_ACCESS_TOKEN_PUBLIC_KEY_BASE64 is required}"
+      TRUST_PROXY_HEADERS: "true"
+      HTTP_RATE_LIMIT_RPS: "${META_HTTP_RATE_LIMIT_RPS:-100}"
+      HTTP_RATE_LIMIT_BURST: "${META_HTTP_RATE_LIMIT_BURST:-200}"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+    depends_on:
+      meta-postgres-provision:
+        condition: service_completed_successfully
+      meta-redis-provision:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/meta-server", "-healthcheck", "http://127.0.0.1:8081/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    ports:
+      - "127.0.0.1:${META_SERVER_HTTP_PORT:-18082}:8081"
+      - "127.0.0.1:${META_SERVER_LOGIC_PORT:-16968}:6968"
+    networks:
+      - data
+      - edge
+      - monitoring
+
+  admin-web:
+    build:
+      context: ../../..
+      dockerfile: AdminWeb/Dockerfile
+    image: "${ADMIN_WEB_IMAGE:-project-rebound/admin-web:local}"
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /config:size=16m,mode=0750,uid=10001,gid=10001
+      - /data:size=16m,mode=0750,uid=10001,gid=10001
+      - /tmp:size=16m,mode=1777,uid=10001,gid=10001
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    expose:
+      - "8080"
+    mem_limit: 256m
+    cpus: 0.5
+    networks:
+      - edge
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      PUBLIC_API_SITE: "${PUBLIC_API_SITE:-http://:80}"
+      ADMIN_WEB_SITE: "${ADMIN_WEB_SITE:?ADMIN_WEB_SITE is required}"
+      MINIO_S3_SITE: "${MINIO_S3_SITE:?MINIO_S3_SITE is required}"
+      DOWNLOADS_SITE: "${DOWNLOADS_SITE:?DOWNLOADS_SITE is required}"
+      DOWNLOAD_S3_BUCKET: "${DOWNLOAD_S3_BUCKET:-project-rebound-downloads}"
+    ports:
+      - "${PUBLIC_API_BIND_IP:-0.0.0.0}:${PUBLIC_API_HTTP_PORT:-8080}:80"
+      - "${PUBLIC_API_BIND_IP:-0.0.0.0}:${PUBLIC_API_HTTPS_PORT:-443}:443"
+      - "${PUBLIC_API_BIND_IP:-0.0.0.0}:${PUBLIC_API_HTTPS_PORT:-443}:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      control-plane:
+        condition: service_healthy
+      admin-web:
+        condition: service_started
+      minio:
+        condition: service_healthy
+    networks:
+      edge:
+      storage:
+        aliases:
+          - "${MINIO_S3_SITE:?MINIO_S3_SITE is required}"
+          - "${DOWNLOADS_SITE:?DOWNLOADS_SITE is required}"
+
+  blackbox-exporter:
+    profiles: [monitoring]
+    image: prom/blackbox-exporter:v0.26.0
+    restart: unless-stopped
+    command: ["--config.file=/etc/blackbox_exporter/config.yml"]
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 128m
+    cpus: 0.25
+    volumes:
+      - ../monitoring/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    networks:
+      - edge
+      - monitoring
+
+  prometheus:
+    profiles: [monitoring]
+    image: prom/prometheus:v2.55.1
+    restart: unless-stopped
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=15d"]
+    volumes:
+      - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/alerts:/etc/prometheus/alerts:ro
+      - ../monitoring/targets:/etc/prometheus/targets:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:${PROMETHEUS_HOST_PORT:-9091}:9090"
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      control-plane:
+        condition: service_healthy
+      blackbox-exporter:
+        condition: service_started
+    networks:
+      - monitoring
+
+  grafana:
+    profiles: [monitoring]
+    image: grafana/grafana:11.4.0
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:?GRAFANA_ADMIN_USER is required}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:${GRAFANA_HOST_PORT:-3000}:3000"
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
+  caddy-data:
+  caddy-config:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  edge:
+  data:
+    internal: true
+  monitoring:
+    internal: true
+  storage:
+    internal: true

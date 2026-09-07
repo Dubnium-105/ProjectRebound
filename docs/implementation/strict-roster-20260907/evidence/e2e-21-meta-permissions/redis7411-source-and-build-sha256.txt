@@ -1,0 +1,4 @@
+3c266ece0abd54ed3b1c912c6eb86b7508cf382cb690ee6649d3843f018f6357  /tmp/rebound-e2e21-redis7411-20260907/redis-7.4.11.tar.gz
+e9f43e8ec3f58f5f75c28685d0d4d52818ff3fc78e6c733dd1becfb820ed327d  /tmp/rebound-e2e21-redis7411-20260907/upstream-hashes.txt
+8454963ef0232d5b9c7ec619f3a447570a3ae73d957f7e790fadb4cd3f5b3f9b  /tmp/rebound-e2e21-redis7411-20260907/redis-7.4.11/src/redis-server
+2d124bf0c28137952761831600d24a69789fea379ca57d9a9595e795f66d9315  /tmp/rebound-e2e21-redis7411-20260907/redis-7.4.11/src/redis-cli

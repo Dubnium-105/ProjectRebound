@@ -1,0 +1,83 @@
+{
+  "id": "E2E-21",
+  "status": "PARTIAL",
+  "generated_at": "2026-09-07T14:52:46.004084+00:00",
+  "result": {
+    "exit_code": 0,
+    "status": "PARTIAL",
+    "source_commits": {
+      "ProjectRebound": "552fce5cce30c326b2a4b84d4aa9987777bfb183",
+      "Toolbox": "22015fb41fa06fea0b8767049109291c89758fff"
+    },
+    "source_scope": "Backend component executed before commit against the three recorded dirty source file hashes. Toolbox was only a review anchor and was not part of this execution.",
+    "modification_commits": {
+      "ProjectRebound": [
+        "7bd1059cfb655bcbe2b7c3e3631f1f04b3cebb55"
+      ]
+    },
+    "environment": {
+      "postgresql": "14.24 isolated schema 47",
+      "redis": "7.4.11 isolated loopback 56384",
+      "postgres_database": "rebound_e2e21_20260907144749",
+      "role_authentication": "trust; privilege separation actually tested"
+    },
+    "evidence_receipt": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\meta-permissions-receipt.json",
+    "command_or_harness": [
+      "wsl",
+      "-e",
+      "env",
+      "<synthetic-fixture-password>",
+      "TEST_META_REDIS_ADDRESS=127.0.0.1:56384",
+      "TEST_META_REDIS_USERNAME=rebound-meta-e2e21-20260907144749",
+      "<synthetic-fixture-password>",
+      "/tmp/rebound-strict-roster-20260907-go1266/go/bin/go",
+      "-C",
+      "/mnt/c/wksp/ProjectRebound/Backend",
+      "test",
+      "./internal/metaserver",
+      "-run",
+      "^TestRestrictedMetaServicePermissions$",
+      "-count=1",
+      "-v"
+    ],
+    "log_paths": [
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\e2e-21-meta-permissions\\20260907144749\\restricted-product-permissions-test.log",
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\meta-permissions-receipt.json"
+    ],
+    "observed_result": "The actual restricted DB/Redis component passed after three deployment fixes. The full cross-purpose and offline/native matrix was not run."
+  },
+  "title": "身份隔离与在线/离线边界",
+  "steps": [
+    {
+      "status": "PARTIAL",
+      "exit_code": 0,
+      "command": [
+        "wsl",
+        "-e",
+        "env",
+        "<synthetic-fixture-password>",
+        "TEST_META_REDIS_ADDRESS=127.0.0.1:56384",
+        "TEST_META_REDIS_USERNAME=rebound-meta-e2e21-20260907144749",
+        "<synthetic-fixture-password>",
+        "/tmp/rebound-strict-roster-20260907-go1266/go/bin/go",
+        "-C",
+        "/mnt/c/wksp/ProjectRebound/Backend",
+        "test",
+        "./internal/metaserver",
+        "-run",
+        "^TestRestrictedMetaServicePermissions$",
+        "-count=1",
+        "-v"
+      ],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\e2e-21-meta-permissions\\20260907144749\\restricted-product-permissions-test.log",
+      "observed": "Wrong DB privileges and Redis ACL operations were actually denied, while schema verification and one-time ticket consumption succeeded. Native player/node/admin credential cross-purpose combinations remain NOT_RUN."
+    },
+    {
+      "status": "NOT_RUN",
+      "exit_code": null,
+      "command": null,
+      "log_path": null,
+      "observed": "Offline-PvE identity/port misuse against an actual online native Attempt was not run; no empty grant or direct-open substitute was used."
+    }
+  ]
+}

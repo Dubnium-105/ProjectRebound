@@ -1,0 +1,3 @@
+# Evidence SHA-256 values refer to exact recorded bytes, including mixed
+# PowerShell/WSL encodings. Do not normalize them on add or checkout.
+** -text
