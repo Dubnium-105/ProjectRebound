@@ -2835,6 +2835,15 @@ void MainThread()
 
             // Dedicated bootstraps start the status pipe after travel. Listen
             // bootstraps already started it above so this call is idempotent.
+            // A strict Dedicated process never enters runClient below. Its
+            // runtime is ready once the server hooks and managers above are
+            // initialized; no client frontend is required for this role.
+            if (strictAuthorityBootstrap && !runClient)
+            {
+                gStrictAuthorityRuntimeReady.store(
+                    gStrictNativeHooksReady.load(std::memory_order_acquire),
+                    std::memory_order_release);
+            }
             if (!StartServerCommandFramework())
                 return;
 
