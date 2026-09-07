@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -31,9 +30,12 @@ func (r *Repository) SubmitBattleLog(
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
 
+	// The MetaServer role is deliberately read-only on game_servers. Serialize
+	// retries for one authority/report without taking a row lock that would
+	// require lifecycle UPDATE privileges or mutate the authoritative match.
 	if _, err := tx.Exec(ctx, `
-		SELECT id FROM game_servers WHERE id = $1 FOR UPDATE
-	`, principal.ServerID); err != nil {
+		SELECT pg_advisory_xact_lock(hashtextextended($1, 0))
+	`, "strict-roster:battlelog:"+principal.ServerID+":"+reportID); err != nil {
 		return BattleLogSubmission{}, internalError(err)
 	}
 	existing, found, err := loadExistingBattleLog(
@@ -65,7 +67,7 @@ func (r *Repository) SubmitBattleLog(
 		return BattleLogSubmission{}, err
 	}
 	result.finishValidation()
-	official := metaMatchID != "" && result.Status != BattleLogQuarantined
+	official := metaMatchID != "" && result.MatchType == BattleLogPvP && result.Status != BattleLogQuarantined
 	for index := range result.Participants {
 		participant := &result.Participants[index]
 		participant.OfficialEligible = official &&
@@ -131,9 +133,8 @@ func (r *Repository) SubmitBattleLog(
 		return BattleLogSubmission{}, internalError(err)
 	}
 	if metaMatchID != "" {
-		if err := completeBattleLogMetaMatch(
-			ctx, tx, principal.ServerID, metaMatchID, battleLogID,
-			result, participantIDs, now,
+		if err := recordBattleLogMetaMatchResults(
+			ctx, tx, metaMatchID, battleLogID, result, participantIDs,
 		); err != nil {
 			return BattleLogSubmission{}, err
 		}
@@ -207,12 +208,16 @@ func resolveBattleLogMetaMatch(
 	if sourceMatchID != "" {
 		var matchID string
 		err := tx.QueryRow(ctx, `
-			SELECT id
-			FROM meta_matches
-			WHERE id = $1 AND game_server_id = $2
-			  AND state IN ('RESERVED', 'RUNNING')
-			  AND match_attempt_id IS NULL
-			FOR UPDATE
+			SELECT projection.id
+			FROM meta_matches AS projection
+			JOIN match_attempts AS attempt ON attempt.id = projection.match_attempt_id
+			  AND attempt.meta_match_id = projection.id
+			  AND attempt.authority_id = projection.game_server_id
+			  AND attempt.hosting_kind = 'DEDICATED'
+			WHERE projection.id = $1 AND projection.game_server_id = $2
+			  AND ((projection.state = 'RUNNING' AND attempt.state = 'RUNNING')
+			    OR (projection.state = 'COMPLETED' AND attempt.state = 'COMPLETED'))
+			  AND EXISTS (SELECT 1 FROM match_attempt_roster AS roster WHERE roster.attempt_id = attempt.id)
 		`, sourceMatchID, serverID).Scan(&matchID)
 		if err == nil {
 			return matchID, "SNAPSHOT", nil
@@ -229,21 +234,10 @@ func resolveBattleLogMetaMatch(
 		return "", "STANDALONE", nil
 	}
 
-	var matchID string
-	err := tx.QueryRow(ctx, `
-		SELECT id
-		FROM meta_matches
-		WHERE game_server_id = $1 AND state IN ('RESERVED', 'RUNNING')
-		  AND match_attempt_id IS NULL
-		FOR UPDATE
-	`, serverID).Scan(&matchID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return "", "STANDALONE", nil
-	}
-	if err != nil {
-		return "", "", internalError(err)
-	}
-	return matchID, "ACTIVE_ASSIGNMENT", nil
+	// A report without an explicit strict match identity is standalone evidence.
+	// Never infer an assignment from an unrelated MetaServer row: independent
+	// PvE and retired online records must remain non-official.
+	return "", "STANDALONE", nil
 }
 
 type battleLogRosterIdentity struct {
@@ -263,15 +257,11 @@ func resolveBattleLogParticipantIdentities(
 	rosterSeen := make(map[string]bool)
 	if metaMatchID != "" {
 		rows, err := tx.Query(ctx, `
-			SELECT player.id, player.steam_id,
-			       COALESCE(member.auth_level_at_reservation, player.auth_level),
-			       COALESCE(
-			           member.steam_verified_at_reservation,
-			           player.auth_level IN ('verified', 'trusted')
-			       )
-			FROM meta_match_players AS member
-			JOIN players AS player ON player.id = member.player_id
-			WHERE member.match_id = $1
+			SELECT roster.player_id, roster.platform_id,
+			       roster.auth_level_at_freeze, roster.steam_verified_at_freeze
+			FROM meta_matches AS projection
+			JOIN match_attempt_roster AS roster ON roster.attempt_id = projection.match_attempt_id
+			WHERE projection.id = $1
 		`, metaMatchID)
 		if err != nil {
 			return internalError(err)
@@ -514,13 +504,12 @@ func insertBattleLogRounds(
 	return nil
 }
 
-func completeBattleLogMetaMatch(
+func recordBattleLogMetaMatchResults(
 	ctx context.Context,
 	tx pgx.Tx,
-	serverID, metaMatchID, battleLogID string,
+	metaMatchID, battleLogID string,
 	result normalizedBattleLog,
 	participantIDs map[string]string,
-	now time.Time,
 ) error {
 	for _, participant := range result.Participants {
 		if participant.PlayerID == "" || !participant.RosterVerified {
@@ -547,41 +536,6 @@ func completeBattleLogMetaMatch(
 		`, metaMatchID, participant.PlayerID, playerResult); err != nil {
 			return internalError(err)
 		}
-	}
-	tag, err := tx.Exec(ctx, `
-		UPDATE meta_matches
-		SET state = 'COMPLETED', completed_at = $3, updated_at = $3
-		WHERE id = $1 AND game_server_id = $2
-		  AND state IN ('RESERVED', 'RUNNING')
-		  AND match_attempt_id IS NULL
-	`, metaMatchID, serverID, now)
-	if err != nil {
-		return internalError(err)
-	}
-	if tag.RowsAffected() == 0 {
-		return forbidden(
-			"BATTLELOG_MATCH_FORBIDDEN",
-			"The match is not assigned to this Game Server.",
-		)
-	}
-	if _, err := tx.Exec(ctx, `
-		UPDATE game_servers
-		SET state = 'READY', updated_at = $2
-		WHERE id = $1 AND state IN ('RESERVED', 'RUNNING')
-	`, serverID, now); err != nil {
-		return internalError(err)
-	}
-	if _, err := tx.Exec(ctx, `
-		UPDATE meta_parties
-		SET state = 'ACTIVE', revision = revision + 1, updated_at = $2
-		WHERE id IN (
-			SELECT ticket.party_id
-			FROM meta_match_tickets AS ticket
-			JOIN meta_matches AS match ON match.ticket_id = ticket.id
-			WHERE match.id = $1 AND ticket.party_id IS NOT NULL
-		)
-	`, metaMatchID, now); err != nil {
-		return internalError(err)
 	}
 	return nil
 }

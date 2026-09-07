@@ -2,6 +2,8 @@
 
 Online matchmaking exclusively uses MatchLobby/MatchAttempt. Independent Meta tickets, native Start/Query/StopUnityMatchmaking, legacy connected/completed and administrator Meta cancel are retired: HTTP returns 410 and native RPC returns a nonzero error. Meta runs no independent scheduler and cannot change Game Server lifecycle.
 
+BattleLog and loadout authorization read only the required columns of the canonical Attempt and frozen roster. Reports may attach results to an assigned running or completed Attempt; they cannot advance a match or reset a server to READY. A report never substitutes current account identity for frozen Steam identity, and PvE reports are non-official.
+
 English | [简体中文](auth-permission-matrix.zh-CN.md)
 
 `POST /v1/auth/bind` keeps legacy compatibility: omitting `encrypted_ticket` creates an `auth_provider=steam_client_asserted`, `auth_level=unverified` session. A valid Encrypted App Ticket creates an `auth_provider=steam_ticket`, `auth_level=verified`, `steam_verified=true` session. The decrypted ticket SteamID is authoritative. A supplied invalid ticket is rejected and never downgraded.

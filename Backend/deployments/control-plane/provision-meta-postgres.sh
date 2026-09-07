@@ -102,6 +102,8 @@ SELECT format(
 )
 FROM (VALUES
   ('players', 'id, steam_id, auth_level, account_status, is_vip'),
+  ('match_attempts', 'id, meta_match_id, authority_id, hosting_kind, state'),
+  ('match_attempt_roster', 'attempt_id, player_id, platform_id, auth_level_at_freeze, steam_verified_at_freeze'),
   ('relay_nodes', 'id, region, state, load_state, public_endpoints, last_heartbeat_at, lease_expires_at'),
   ('schema_migrations', 'version, name, checksum'),
   ('auth_sessions', 'id, player_id, token_version, auth_provider, auth_level, steam_verified, pem_fingerprint, integrity_trusted, device_id_hash, device_fingerprint_id, expires_at, revoked_at, revoked_reason, last_used_at'),

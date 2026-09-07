@@ -609,10 +609,16 @@ func (r *Repository) GetMatchPlayerLoadout(
 			SELECT 1
 			FROM meta_matches AS match
 			JOIN meta_match_players AS member ON member.match_id = match.id
+			JOIN match_attempts AS attempt ON attempt.id = match.match_attempt_id
+			  AND attempt.meta_match_id = match.id
+			  AND attempt.authority_id = match.game_server_id
+			  AND attempt.hosting_kind = 'DEDICATED'
+			JOIN match_attempt_roster AS frozen ON frozen.attempt_id = attempt.id
+			  AND frozen.player_id = member.player_id
 			WHERE match.id = $1 AND member.player_id = $2
 			  AND match.game_server_id = $3
 			  AND match.state IN ('RESERVED', 'RUNNING')
-              AND match.match_attempt_id IS NOT NULL
+			  AND attempt.state IN ('PROVISIONING', 'CONNECTING', 'RUNNING')
 		)
 	`, matchID, playerID, principal.ServerID).Scan(&allowed)
 	if err != nil {

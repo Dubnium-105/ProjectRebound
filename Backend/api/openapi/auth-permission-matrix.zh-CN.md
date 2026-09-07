@@ -2,6 +2,8 @@
 
 在线匹配只通过 MatchLobby/MatchAttempt。Meta 独立匹配 ticket、原生 Start/Query/StopUnityMatchmaking、旧 connected/completed 和管理员 Meta cancel 已退役；HTTP 返回 410，原生 RPC 返回非零错误。Meta 不再运行独立调度器或修改 Game Server lifecycle。
 
+战绩和配装授权只读取权威 Attempt 与冻结名单所需的列。战绩可绑定本机已分配且运行中或正常结束的 Attempt，但不能推进对局或把服务器重置为 READY。冻结 Steam 身份不由玩家当前资料代替；PvE 战绩不计为正式对局。
+
 [English](auth-permission-matrix.md) | 简体中文
 
 `POST /v1/auth/bind` 保持旧客户端兼容：省略 `encrypted_ticket` 时创建 `auth_provider=steam_client_asserted`、`auth_level=unverified` 会话。有效 Encrypted App Ticket 创建 `auth_provider=steam_ticket`、`auth_level=verified`、`steam_verified=true` 会话，且以解密出的 ticket SteamID 为权威身份。提交无效 ticket 时直接拒绝，绝不降级。
