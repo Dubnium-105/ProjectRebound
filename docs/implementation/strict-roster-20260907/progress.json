@@ -1,0 +1,333 @@
+{
+  "schema_version": "1.0",
+  "target": "strict_authoritative_online_only",
+  "status": "not_started",
+  "issue_statuses": {
+    "BP-001": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-002": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-003": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-004": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-005": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-006": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-007": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-008": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-009": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-010": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-011": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-012": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-013": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-014": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-015": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-016": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-017": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-018": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-019": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-020": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-021": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-022": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-023": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-024": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-025": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-026": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-027": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-028": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-029": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-030": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-031": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-032": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-033": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-034": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-035": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-036": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-037": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-038": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-039": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-040": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-041": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-042": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-043": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-044": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-045": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-046": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-047": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-048": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-049": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-050": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-051": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    },
+    "BP-052": {
+      "review": "pending",
+      "implementation": "not_started",
+      "test_status": "not_run",
+      "evidence": []
+    }
+  },
+  "milestone_statuses": {
+    "M00": "not_started",
+    "M01": "not_started",
+    "M02": "not_started",
+    "M03": "not_started",
+    "M04": "not_started",
+    "M05": "not_started",
+    "M06": "not_started",
+    "M07": "not_started",
+    "M08": "not_started",
+    "M09": "not_started",
+    "M10": "not_started",
+    "M11": "not_started"
+  }
+}

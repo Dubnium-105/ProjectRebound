@@ -1,0 +1,2757 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-09-07",
+  "decision": {
+    "decision_date": "2026-09-07",
+    "user_constraint": "服务尚未正式上线，直接完成权威名单版本。",
+    "online_admission_mode": "strict_roster_v1",
+    "legacy_online_compatibility": false,
+    "legacy_relay_transport_retained": true,
+    "supported_target_modes": [
+      {
+        "hosting_kind": "DEDICATED",
+        "transport_kind": null,
+        "admission_mode": "strict_roster_v1"
+      },
+      {
+        "hosting_kind": "P2P",
+        "transport_kind": "LEGACY_RELAY",
+        "admission_mode": "strict_roster_v1"
+      },
+      {
+        "hosting_kind": "P2P",
+        "transport_kind": "VNT",
+        "admission_mode": "strict_roster_v1"
+      }
+    ],
+    "offline_pve_policy": "已有离线PvE可保留，但必须独立标识，不得成为在线绕过或在线身份/战绩旁路。",
+    "production_changes_authorized": false,
+    "repository_writes_performed_in_this_handoff": false,
+    "codex_task_dispatched": false
+  },
+  "repositories": {
+    "ProjectRebound": {
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "head_rechecked_this_turn": true
+    },
+    "ProjectReboundToolbox": {
+      "revision": "63e5ee598b860b8f5d53dd147d436921ad290098",
+      "head_rechecked_this_turn": true
+    }
+  },
+  "evidence_classes": {
+    "D": "确定缺陷／契约不匹配",
+    "G": "已定位的实现或集成缺口",
+    "R": "条件性风险／需要复现",
+    "C": "既有兼容边界／产品规则，需保留或明确决策",
+    "V": "验收与发布门禁，不能当成已复现故障"
+  },
+  "goals": [
+    {
+      "id": "G01",
+      "name": "唯一在线权威",
+      "target": "所有在线大厅/对局/玩家席位由MatchLobby/Attempt决定；不存在无名单直入、旧Meta独立匹配或旧房间业务旁路。"
+    },
+    {
+      "id": "G02",
+      "name": "冻结名单不变",
+      "target": "冻结后玩家身份、队伍和逻辑席位不可被网络连接、客户端报告或战绩重新定义；开局重试使用新Attempt。"
+    },
+    {
+      "id": "G03",
+      "name": "原生准入真实生效",
+      "target": "完成本机HOST身份、成员Grant注入、权威PreLogin验证和原生队伍/席位应用，不是仅安装签名JSON。"
+    },
+    {
+      "id": "G04",
+      "name": "全流程可判定",
+      "target": "异步operation_id贯穿启动，ProcessStarted/TransportReady/AuthorityReady/Admitted/WorldReady/Playable各有真实证据。"
+    },
+    {
+      "id": "G05",
+      "name": "传输正确",
+      "target": "LEGACY_RELAY的直连/Relay与VNT只处理网络路径；多人数据不串线，迁移不改变名单或降低准入。"
+    },
+    {
+      "id": "G06",
+      "name": "代次与撤销一致",
+      "target": "会话epoch、名单版本、路线代次、授权代次和实际连接代次有独立含义；过期、撤销和旧事件不能复活权限。"
+    },
+    {
+      "id": "G07",
+      "name": "失败可恢复",
+      "target": "部分成功、取消、崩溃、超时和结束均可补偿；未清理的专服不重新分配；新对局不接收旧回执。"
+    },
+    {
+      "id": "G08",
+      "name": "单一在线身份链",
+      "target": "在线使用已验证的Go Meta适配和受管隧道；凭据刷新/持久化/重连统一管理，秘密不进入前端和命令行。"
+    },
+    {
+      "id": "G09",
+      "name": "受支持前端语义一致",
+      "target": "所有继续发布的前端消费同一业务控制器；停用旧入口可以，不允许留下一条无名单在线入口。"
+    },
+    {
+      "id": "G10",
+      "name": "可审计交付",
+      "target": "每个问题、改动、测试与产物有映射；实际三人以上游戏E2E与安全负向测试通过才可称权威名单版完成。"
+    }
+  ],
+  "issues": [
+    {
+      "id": "BP-001",
+      "area": "A 身份、版本与会话",
+      "priority": "P0",
+      "evidence_class": "V",
+      "evidence_label": "验收与发布门禁，不能当成已复现故障",
+      "title": "源码基线与实测 EXE/DLL 版本未闭合",
+      "observed": "已经核对两个仓库 main；未取得用户本次运行的 EXE、Payload、dxgi、游戏与配置指纹。源码缺陷不自动等于实测根因。",
+      "implementation_target": "每次构建与运行有一致指纹；在线仅支持权威名单版的一套已验证产物组合，不为旧客户端保留兼容矩阵。",
+      "work": [
+        "读取两个仓库 AGENTS.md、git status 和实际 HEAD；有新提交就增量复核，不重置用户工作区。",
+        "生成 build-info 与 runtime diagnostics：提交、文件 SHA-256、架构、游戏受支持哈希、非秘密配置摘要、启用功能。",
+        "按 hosting_kind、transport_kind、admission_mode、meta_mode 与前端 flavor 建立支持矩阵；未验证组合显式 unavailable。"
+      ],
+      "acceptance": "给错游戏/Payload/契约版本时在启动前明确拒绝；兼容组合能关联到同一次 run_id；不得仅凭 Cargo version 判兼容。",
+      "owner": "集成负责人＋Toolbox＋Payload",
+      "milestone": "M00",
+      "sources": [
+        "T01",
+        "T18",
+        "T19",
+        "P01",
+        "P19"
+      ],
+      "origin": "首轮：兼容矩阵与原生版本门禁；双仓库 F05/F09",
+      "depends_on": [],
+      "test_ids": [
+        "AC-001"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-002",
+      "area": "A 身份、版本与会话",
+      "priority": "P1",
+      "evidence_class": "R",
+      "evidence_label": "条件性风险／需要复现",
+      "title": "并发刷新、登出和旧结果回写竞争",
+      "observed": "HTTP 401 刷新读改写凭据，无统一 single-flight/session epoch；多个调用可能交错。",
+      "implementation_target": "CredentialsStore 单一所有者，刷新合并与会话代次防旧写。",
+      "work": [
+        "合并同会话同时发生的刷新；刷新后重放原请求最多一次。",
+        "登出/切换账号递增 session_epoch 并取消旧任务；落盘前比较 epoch。",
+        "区分网络失败、401、撤销和账号状态；不无限刷新。"
+      ],
+      "acceptance": "20 个并发 401 仅发起一次有效刷新；刷新中登出/换号后旧结果不能恢复身份或覆盖新凭据。",
+      "owner": "Toolbox Auth",
+      "milestone": "M03",
+      "sources": [
+        "T09",
+        "T10",
+        "T01"
+      ],
+      "origin": "F06；全流程身份断点",
+      "depends_on": [],
+      "test_ids": [
+        "AC-002"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-003",
+      "area": "A 身份、版本与会话",
+      "priority": "P1",
+      "evidence_class": "R",
+      "evidence_label": "条件性风险／需要复现",
+      "title": "DPAPI 配置直接覆盖，缺少原子持久化",
+      "observed": "配置已加密，不是明文漏洞；std::fs::write 整文件和并发读改写仍有断电/覆盖风险。",
+      "implementation_target": "保留 DPAPI，增加序列化写入与原子替换，保证旧或新完整版本可恢复。",
+      "work": [
+        "将偏好设置与凭据更新置于同一受控存储或分离但版本化。",
+        "在同目录写临时文件、flush 后原子替换；失败保留可读旧版并清理临时秘密。",
+        "测试旧 JSON 迁移；不得为修复一致性而取消加密。"
+      ],
+      "acceptance": "写入途中杀进程、并发修改设置时，最终配置完整且可解密；不丢最新凭据、不残留明文临时文件。",
+      "owner": "Toolbox Config",
+      "milestone": "M03",
+      "sources": [
+        "T11",
+        "T09"
+      ],
+      "origin": "F06 持久化子项",
+      "depends_on": [
+        "BP-002"
+      ],
+      "test_ids": [
+        "AC-003"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-004",
+      "area": "A 身份、版本与会话",
+      "priority": "P1",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "fresh/logged_in 的状态保证强于实际结果",
+      "observed": "fresh_access_token 忽略同步错误；auth::sync 可按缓存身份返回 logged_in，不能证明服务器认可当前会话。",
+      "implementation_target": "区分 authenticated、cached/offline、expired、revoked、unknown；在线操作使用真实授权结果。",
+      "work": [
+        "保留离线身份展示但显式标记来源和新鲜度。",
+        "受管在线操作调用结构化 ensure_authenticated，不把非空 token 当作有效。",
+        "所有前端消费同一 AuthView；授权仍由服务器决定。"
+      ],
+      "acceptance": "断网时不假装在线验证通过；过期/撤销账号不能创建在线房间；离线 PvE 不被不必要的在线认证阻塞。",
+      "owner": "Toolbox Auth/UI",
+      "milestone": "M03",
+      "sources": [
+        "T10",
+        "T12"
+      ],
+      "origin": "双仓库报告 §7.2",
+      "depends_on": [],
+      "test_ids": [
+        "AC-004"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-005",
+      "area": "A 身份、版本与会话",
+      "priority": "P1",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "WebSocket 重连使用旧 Token，缺少统一恢复过程",
+      "observed": "RealtimeFeed/Legacy 线程捕获初始 token，重连继续使用；HTTP 刷新不会更新它。",
+      "implementation_target": "重连取最新凭据，恢复权威快照并拒绝旧会话事件。",
+      "work": [
+        "用 CredentialsProvider 或版本化通道替代固定 Token 快照。",
+        "重连成功后先重建 REST 权威状态，再合并有代次的事件；缓冲有界。",
+        "认证失败受控刷新、退避和取消，不声称原连接到 TTL 必定断开。"
+      ],
+      "acceptance": "Token 轮换后断开 WS，新握手使用新 Token；旧 room/attempt/session 的排队事件不能覆盖新状态。",
+      "owner": "Toolbox Realtime",
+      "milestone": "M03",
+      "sources": [
+        "T06",
+        "T09",
+        "T01"
+      ],
+      "origin": "F07",
+      "depends_on": [
+        "BP-002",
+        "BP-004"
+      ],
+      "test_ids": [
+        "AC-005"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-006",
+      "area": "A 身份、版本与会话",
+      "priority": "P1",
+      "evidence_class": "V",
+      "evidence_label": "验收与发布门禁，不能当成已复现故障",
+      "title": "凭据种类缺少统一机器可读生命周期清单",
+      "observed": "玩家、房主、BattleLog、Relay、节点、管理员、专服及 Match Grant 的用途不能互换；需系统性负向验收。",
+      "implementation_target": "credential-registry.json 描述 owner、签发者、用途、TTL、保存形式、轮换、撤销和日志规则。",
+      "work": [
+        "遍历真实现有凭据，不臆造生产密钥或 TTL；不把秘密值放入注册表。",
+        "为跨角色、跨 audience、过期、重放和错误 generation 生成负向测试。",
+        "集中脱敏；签名/加密/鉴权失败必须保持失败关闭。"
+      ],
+      "acceptance": "每类凭据有 owner 和撤销动作；玩家 Token 不能当 Relay/authority 凭据；日志和前端 DTO 不泄漏 token/私钥/带 token URL。",
+      "owner": "Backend Auth＋Toolbox Security",
+      "milestone": "M03",
+      "sources": [
+        "P11",
+        "P20",
+        "T10",
+        "T17",
+        "T19"
+      ],
+      "origin": "首轮：credential registry；F06/F09 安全约束",
+      "depends_on": [],
+      "test_ids": [
+        "AC-006"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-007",
+      "area": "B 房间与传输数据面",
+      "priority": "P0",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "客户端进房/建房部分成功后的补偿与恢复不全",
+      "observed": "VNT join_room 后的部分校验/bootstrap ? 提前返回没有即时 leave；Legacy 加入后配置/连接失败亦须逐出口核对。",
+      "implementation_target": "一次操作要么形成可恢复的完整会话，要么清理本次副作用；清理失败要可重试，不只清空 UI。",
+      "work": [
+        "用操作账本/RAII 记录成员、connection、VNT 子进程、临时文件与房间所有权。",
+        "同一创建意图保留 Idempotency-Key；只清理本次新建资源，不删除预存成员或别人的房间。",
+        "崩溃/重启先 reconcile 权威状态；补偿失败保留 cleanup_pending 和关联错误。"
+      ],
+      "acceptance": "在 join 后每个 await/网络/校验点注入失败；无不可见幽灵成员；重试不新建重复房间，后端与 UI 最终一致。",
+      "owner": "Toolbox Rooms",
+      "milestone": "M04",
+      "sources": [
+        "T04",
+        "T05",
+        "T01"
+      ],
+      "origin": "全流程断点1；后端创建补偿讨论",
+      "depends_on": [
+        "BP-002",
+        "BP-025"
+      ],
+      "test_ids": [
+        "AC-007"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-008",
+      "area": "B 房间与传输数据面",
+      "priority": "P0",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "Host/Member 角色在启动分派中被丢弃",
+      "observed": "prepare_launch 返回 role，但 launch_room 统一 LaunchKind::Join；当前调用链未完成房主权威世界创建。",
+      "implementation_target": "P2P Host 创建并验证权威世界，Member 只加入；Dedicated lobby owner 仍是远程玩家。",
+      "work": [
+        "P2P Host、P2P Member、Dedicated 玩家与Dedicated authority分别拥有不同启动上下文；不把大厅owner等同于authority。",
+        "目标为P2P同进程listen-host＋本机HOST席位准入。测试专服/harness可用于定位，但不能把headless本机专服冒充该产品模式完成。",
+        "M04建立主机世界和监听原语；M07接入严格名单身份与准入；M09以真实严格三人对局验收。"
+      ],
+      "acceptance": "同房间 Host＋2 个 Member 中只有指定权威实例开服；成员不建服；错误角色/无权威监听时不报告可入场。",
+      "owner": "Toolbox Launch＋Payload Server",
+      "milestone": "M04",
+      "sources": [
+        "T01",
+        "T04",
+        "T02",
+        "P01"
+      ],
+      "origin": "F03；全流程断点2",
+      "depends_on": [
+        "BP-016",
+        "BP-019",
+        "BP-031"
+      ],
+      "test_ids": [
+        "AC-008"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-009",
+      "area": "B 房间与传输数据面",
+      "priority": "P0",
+      "evidence_class": "D",
+      "evidence_label": "确定缺陷／契约不匹配",
+      "title": "VNT 裸 IP 与 Payload host:port 校验冲突",
+      "observed": "VNT 用 host_virtual_ip.to_string 作为目标，-match 原样传入；Payload ValidateMatchTarget 要求端口。",
+      "implementation_target": "GameEndpoint 始终来自实际游戏监听地址与端口，不混用 VNT 节点或 Relay 端口。",
+      "work": [
+        "使用 IPv4/IPv6 的有类型 endpoint 序列化；VNT 固定虚拟 IP 与游戏端口分别存储。",
+        "Toolbox 在 spawn 前调用同等校验，并做 Rust→C++ 共享样本。",
+        "不得无条件硬编码 :7777；端口来自实际 authority 配置。",
+        "一并修正authority ACK中的IPv6 host+\":\"+port裸拼接；使用同一个端点编码契约，而不是仅修-match输入。"
+      ],
+      "acceptance": "裸 IP、零端口、非法 IPv6 被明确拒绝；合法 IPv4:port/[IPv6]:port 可传到 Payload；VNT 目标含真实端口。",
+      "owner": "Toolbox Endpoint＋Payload Protocol",
+      "milestone": "M01",
+      "sources": [
+        "T04",
+        "T02",
+        "P04",
+        "P06"
+      ],
+      "origin": "全流程断点3",
+      "depends_on": [],
+      "test_ids": [
+        "AC-009"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-010",
+      "area": "B 房间与传输数据面",
+      "priority": "P0",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "VNT host_ready/探测通与原生游戏监听就绪混用",
+      "observed": "host_ready 在虚拟组网成功后上报；虚拟 IP ping 成功不证明 Unreal 权威实例监听与名单安装。",
+      "implementation_target": "区分 transport_ready、native_listener_ready、admission_ready、player_connected。",
+      "work": [
+        "保留 VNT 网络层接口语义，不擅自把它解释为游戏 Ready。",
+        "启动控制器要求 Payload 握手及实际监听回执，成员等待正确层的端点。",
+        "UI 显示当前阶段及失败原因，不将虚拟网卡可用当作联机成功。"
+      ],
+      "acceptance": "VNT 网络可达但游戏未监听时无法进入 Running/Playable；游戏监听和准入各有可验证回执。",
+      "owner": "Toolbox VNT＋Payload",
+      "milestone": "M04",
+      "sources": [
+        "T05",
+        "T04",
+        "T18",
+        "P01"
+      ],
+      "origin": "F09；全流程就绪语义",
+      "depends_on": [
+        "BP-008",
+        "BP-019"
+      ],
+      "test_ids": [
+        "AC-010"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-011",
+      "area": "B 房间与传输数据面",
+      "priority": "P1",
+      "evidence_class": "C",
+      "evidence_label": "既有兼容边界／产品规则，需保留或明确决策",
+      "title": "新建回退、开局前 rebind 与运行中迁移边界必须固定",
+      "observed": "现有代码允许特定新建失败回退，并限制成员加入后重规划；新名单迁移不得破坏这一隔离。",
+      "implementation_target": "一个 room/attempt 固化 admission_mode 与 transport；变更只能走已定义恢复协议。",
+      "work": [
+        "默认不做自动跨传输回退；新建失败先补偿，再由用户在新大厅创建意图中显式重选VNT或LEGACY_RELAY。",
+        "分开同节点重连、节点 rebind、Relay allocation 迁移，分别更新自己的 generation。",
+        "成员已加入/名单已冻结后禁止静默新建另一种 transport。"
+      ],
+      "acceptance": "新建失败可显式重选并重新创建；成员加入/冻结/运行后不跨传输隐式回退；所有在线路径都保持严格准入。",
+      "owner": "Toolbox Transport＋Backend",
+      "milestone": "M04",
+      "sources": [
+        "T04",
+        "T05",
+        "P08"
+      ],
+      "origin": "初版兼容矩阵；C17",
+      "depends_on": [
+        "BP-007",
+        "BP-031"
+      ],
+      "test_ids": [
+        "AC-011"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-012",
+      "area": "B 房间与传输数据面",
+      "priority": "P0",
+      "evidence_class": "R",
+      "evidence_label": "条件性风险／需要复现",
+      "title": "Legacy 单 game_peer 和全 peers 广播可能合并多人身份",
+      "observed": "路由器只有一个本地 game_peer；上行遍历 peers，下行共用 socket。结构已确认，真实多人后果需验证。",
+      "implementation_target": "逐 connection/peer 的稳定本地端点与双向映射，不无意广播，不混淆游戏连接身份。",
+      "work": [
+        "先用 Host＋2 Member 的可区分 UDP 流复现源地址/响应路由。",
+        "为 Host 每个远端建立独立本机 UDP 端点或显式复用解复用层，验证 Unreal 识别不同连接。",
+        "迁移、退出和新成员接入清理对应映射；不要删除其他成员通道。"
+      ],
+      "acceptance": "三人及以上双向包不串线、不广播单播回应；一个成员退出/重连不影响其余人的端点归属。",
+      "owner": "Toolbox Legacy Transport",
+      "milestone": "M04",
+      "sources": [
+        "T06"
+      ],
+      "origin": "F08 多人子项",
+      "depends_on": [
+        "BP-013",
+        "BP-014"
+      ],
+      "test_ids": [
+        "AC-012"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-013",
+      "area": "B 房间与传输数据面",
+      "priority": "P0",
+      "evidence_class": "D",
+      "evidence_label": "确定缺陷／契约不匹配",
+      "title": "Relay 16 字节截断 HMAC 用了完整长度验证接口",
+      "observed": "UDP V2 tag 长16字节；Hmac<Sha256>::verify_slice 期待完整32字节，合法包无法通过此检查。",
+      "implementation_target": "保持现有线协议，正确常量时间验证左侧16字节标签。",
+      "work": [
+        "使用锁定依赖提供的 verify_truncated_left 或等价受审实现，禁止关闭 MAC。",
+        "以 Go 真实编码/重打标签产生字节向量，再由 Rust 实际解码。",
+        "保留 handle/role/flags/MTU/序号验证；不单端升级标签长度。"
+      ],
+      "acceptance": "HOST/PEER 使用不同 Token，通过真实 Edge 按接收者重打标签后可双向收包；任一 tag/header/payload 篡改拒绝。",
+      "owner": "Toolbox Relay＋Go Edge",
+      "milestone": "M01",
+      "sources": [
+        "T07",
+        "P24",
+        "X01"
+      ],
+      "origin": "F01",
+      "depends_on": [],
+      "test_ids": [
+        "AC-013"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-014",
+      "area": "B 房间与传输数据面",
+      "priority": "P1",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "Relay 数据面错误被吞，重排/MTU/重放缺少可观测验收",
+      "observed": "route_loop 只消费 Ok(Some)，MAC/角色/序号失败没有在该处上报；严格递增收包策略对乱序的取舍需明确。",
+      "implementation_target": "错误可定位但不泄密；合法重排按显式窗口策略处理，重放与大包不能绕过。",
+      "work": [
+        "统计低基数错误原因与关联 trace；避免逐包刷日志或 metric 中放玩家ID。",
+        "明确序号窗口、重放缓存、MTU边界、WouldBlock/backpressure 行为；不把全部丢包当 authentication 失败。",
+        "固定测试边界并用 packet counters 区分握手成功与数据互通。"
+      ],
+      "acceptance": "合法双向数据有计数；篡改、重复、窗口外包、超 MTU 可区分；暂时乱序行为符合文档而非悄悄全丢。",
+      "owner": "Toolbox Relay/Observability",
+      "milestone": "M01",
+      "sources": [
+        "T06",
+        "T07",
+        "P24"
+      ],
+      "origin": "F01/F08；C03–C06",
+      "depends_on": [
+        "BP-013",
+        "BP-025"
+      ],
+      "test_ids": [
+        "AC-014"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-015",
+      "area": "B 房间与传输数据面",
+      "priority": "P1",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "Relay 迁移缺少显式切换状态、代次与收尾",
+      "observed": "Toolbox 处理 relay_allocated，但未处理 migrating/migrated 状态；不能简单断言完全不会拿到新分配，也不能宣称迁移闭环。",
+      "implementation_target": "显式 MigrationPending→NewBound→Committed/Cleaned，旧 allocation 仅在策略允许的窗口保留。",
+      "work": [
+        "消费迁移ID、旧/新 allocation、终态事件及失败原因；切换必须原子更新 peer 映射。",
+        "新 BIND 超时后明确保留旧路或关闭，不允许旧迁移回执覆盖更高代次。",
+        "按源契约测试重复、乱序事件、Drain、旧路径撤销和双方不同时切换。"
+      ],
+      "acceptance": "强制 Relay Drain 后双方可完成受控迁移或给出明确失败；不会半边留在旧 relay、错误恢复或泄漏资源。",
+      "owner": "Toolbox Legacy＋Backend Relay",
+      "milestone": "M04",
+      "sources": [
+        "T06",
+        "P14",
+        "P24"
+      ],
+      "origin": "F08 迁移子项；前序判断精化",
+      "depends_on": [
+        "BP-012",
+        "BP-005"
+      ],
+      "test_ids": [
+        "AC-015"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-016",
+      "area": "C 启动、IPC 与原生游戏反馈",
+      "priority": "P0",
+      "evidence_class": "D",
+      "evidence_label": "确定缺陷／契约不匹配",
+      "title": "launch_join 返回空 PID，与前端完成结果契约冲突",
+      "observed": "start_join 异步入队立即 pids=[]；React 要求非空 PID；后台还能继续启动，且不完整走统一受管状态。",
+      "implementation_target": "所有启动使用一个异步operation_id契约；在线Join只接收Attempt/准入意图，不开放任意host:port直入接口。",
+      "work": [
+        "所有 launch_pve/pvp/join/room 进入同一互斥、取消、PID登记和完成流程。",
+        "新增LaunchOperation契约并一次性更新React/EGUI消费者；在线Join必须使用Attempt/Grant，不再接受任意裸目标。",
+        "任务失败/取消后收回新建子进程；UI 按 operation_id 关联。"
+      ],
+      "acceptance": "点击一次只创建一组进程；API不报无效响应同时后台成功；重复请求、取消、重试不会漏登记或重复启动。",
+      "owner": "Toolbox Runtime/Frontend",
+      "milestone": "M02",
+      "sources": [
+        "T03",
+        "T01",
+        "T13",
+        "T12"
+      ],
+      "origin": "全流程断点4",
+      "depends_on": [
+        "BP-023",
+        "BP-025"
+      ],
+      "test_ids": [
+        "AC-016"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-017",
+      "area": "C 启动、IPC 与原生游戏反馈",
+      "priority": "P0",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "launch_room 在最终提交前发布成功且失败清理不一致",
+      "observed": "complete_launch 先 emit 成功，之后 fresh_token/mark_launch_started 仍可失败。React不直接信此事件，但接口仍有阶段冲突。",
+      "implementation_target": "阶段进度与最终结果分离；全部必要步骤成功后才产生一次最终成功。",
+      "work": [
+        "把进程就绪、线路提交、authority ready、入场确认纳入有界启动事务。",
+        "fresh_token 和 mark 失败均进入统一 rollback，清理范围按资源归属定义。",
+        "使用一次性终态CAS或等效规则，旧回调不能把 Failed 改成 Succeeded。"
+      ],
+      "acceptance": "逐阶段断网/失败不出现先最终成功后悬挂；每个 operation 只有一个最终结果，且可重试/可清理。",
+      "owner": "Toolbox Runtime",
+      "milestone": "M02",
+      "sources": [
+        "T01",
+        "T12",
+        "T04"
+      ],
+      "origin": "F04；全流程成功回执纠正",
+      "depends_on": [
+        "BP-016",
+        "BP-025"
+      ],
+      "test_ids": [
+        "AC-017"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-018",
+      "area": "C 启动、IPC 与原生游戏反馈",
+      "priority": "P0",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "PID/窗口稳定被当成远程入场完成",
+      "observed": "Remote Join 的稳定函数没有远端连接证据；当前前端信 invoke 返回PID，不直接信 launch_complete。",
+      "implementation_target": "ProcessStarted、PayloadReady、LoginReady、TravelIssued、Admitted、WorldReady、Playable 独立可观测。",
+      "work": [
+        "LaunchSucceeded 的用户语义定为当前玩家可操作，另保留 ProcessStarted 供早期诊断。",
+        "由 Payload/authority 上报身份绑定后的入场与角色就绪，不能用 ping、窗口或 token 签发代替。",
+        "明确对局 Running 与单个玩家 Playable 不一一同步；展示真实等待阶段。"
+      ],
+      "acceptance": "远端拒绝/无监听/地图加载失败时 UI 不显示已进入战局；必须观测本地控制器、Pawn及输入状态才标记 Playable。",
+      "owner": "Toolbox UI＋Payload",
+      "milestone": "M02",
+      "sources": [
+        "T02",
+        "T12",
+        "P02",
+        "P07"
+      ],
+      "origin": "F04；全流程断点8",
+      "depends_on": [
+        "BP-019",
+        "BP-021",
+        "BP-025"
+      ],
+      "test_ids": [
+        "AC-018"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-019",
+      "area": "C 启动、IPC 与原生游戏反馈",
+      "priority": "P0",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "房间/远程 Join 缺少统一 PayloadReady 握手与诊断通道",
+      "observed": "远程 Join 分支不传 -pipe，文件日志也非默认启用；游戏进程存活不能证明DLL初始化成功。",
+      "implementation_target": "每次受管启动有独立管道与受支持游戏哈希检查，并有脱敏诊断回执。",
+      "work": [
+        "所有受管路径生成随机高熵pipe，限定本用户/会话，验证对应游戏进程身份。",
+        "握手返回协议/构建版本、已验证游戏哈希、NetMode与功能能力；不信未经验证客户端自报安全能力。",
+        "生产日志脱敏且可开诊断模式；超时定位 DLL加载、哈希拒绝、管道或初始化阶段。"
+      ],
+      "acceptance": "缺DLL、错误哈希、错误pipe owner、错误PID、超时分别有结果；正常启动取得匹配当前 run 的 PayloadReady。",
+      "owner": "Toolbox Launch＋Payload IPC",
+      "milestone": "M02",
+      "sources": [
+        "T02",
+        "T08",
+        "P01",
+        "P06"
+      ],
+      "origin": "全流程断点5",
+      "depends_on": [
+        "BP-001",
+        "BP-023"
+      ],
+      "test_ids": [
+        "AC-019"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-020",
+      "area": "C 启动、IPC 与原生游戏反馈",
+      "priority": "P0",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "Toolbox 登录与游戏登录/游戏线程泵送没有闭环",
+      "observed": "Payload 要 loginCompleted、正确线程、World/GameInstance/LocalPlayer 才泵送；此刻等待本身正确，但启动器缺少阶段诊断。",
+      "implementation_target": "等待正确登录与游戏线程条件，有界超时和明确原因；不删除线程/登录门禁。",
+      "work": [
+        "增加 LoginReady/WaitingForGameLogin/WaitingForWorld 事件或查询。",
+        "跟踪 NotifyClientLoginCompleted 到 PumpPendingClientCommands 的触发条件和当前会话。",
+        "分别验证本地 Node 与远程 Meta 的认证适配；不能把 /auth/bind 成功当游戏登录成功。"
+      ],
+      "acceptance": "刻意阻断游戏登录时队列不乱执行且给出精确超时；正常登录后在游戏线程执行，不在IPC线程直接操作UObject。",
+      "owner": "Payload ClientLogic＋Toolbox",
+      "milestone": "M02",
+      "sources": [
+        "P02",
+        "P01",
+        "T10",
+        "T02"
+      ],
+      "origin": "全流程断点6",
+      "depends_on": [
+        "BP-019",
+        "BP-025"
+      ],
+      "test_ids": [
+        "AC-020"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-021",
+      "area": "C 启动、IPC 与原生游戏反馈",
+      "priority": "P0",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "发出 open 后即清空队列，缺少 Travel 成败闭环",
+      "observed": "ExecuteConsoleCommand 返回后设置 actionSucceeded 并清 pending；不等于连接、世界激活或玩家接纳。",
+      "implementation_target": "区分命令受理与真实 Travel；任务只有在最终成败/取消时结束。",
+      "work": [
+        "为 Travel 挂接安全的成功/失败观测点，按当前 run/attempt/目标关联。",
+        "保持队列互斥、可取消和超时；取消后迟到 callback 不得再次跳转。",
+        "失败恢复菜单/输入/加载状态并释放本轮资源，不用无限重发 open。"
+      ],
+      "acceptance": "连接拒绝、地图错误、重复ACK、迟到成功与取消竞态均有单一终态；正常能得到 WorldReady/Playable。",
+      "owner": "Payload ClientLogic",
+      "milestone": "M02",
+      "sources": [
+        "P02",
+        "P07"
+      ],
+      "origin": "全流程断点8",
+      "depends_on": [
+        "BP-020",
+        "BP-023"
+      ],
+      "test_ids": [
+        "AC-021"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-022",
+      "area": "C 启动、IPC 与原生游戏反馈",
+      "priority": "P0",
+      "evidence_class": "D",
+      "evidence_label": "确定缺陷／契约不匹配",
+      "title": "join_ack.status accepted/ok 不兼容",
+      "observed": "Payload产生 accepted，Rust只接受ok；已读 request_join 主要影响PvE补救，不代表所有Join都经过该路径。",
+      "implementation_target": "统一标准accepted＋request_id；不再维护旧ok ACK兼容分支。",
+      "work": [
+        "标准统一为accepted与request_id；同步更新C++、Rust、文档和测试，不保留旧ok分支。",
+        "在线请求必须包含受控取得的短期Grant；本机HOST采用不同的allocation路径。离线测试命令不进入在线发布入口。",
+        "ACK只表示受理/入队；Playable必须由后续真实游戏事件确认。"
+      ],
+      "acceptance": "C++实际编码 accepted 的帧可由Rust解析；错误ID、busy和wrong command拒绝；不误判为已经入场。",
+      "owner": "Payload IPC＋Toolbox Pipe",
+      "milestone": "M01",
+      "sources": [
+        "T08",
+        "P03"
+      ],
+      "origin": "F02；全流程断点7",
+      "depends_on": [],
+      "test_ids": [
+        "AC-022"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-023",
+      "area": "C 启动、IPC 与原生游戏反馈",
+      "priority": "P1",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "IPC 文档/七命令、分帧、取消和结构化错误未统一",
+      "observed": "文档仍有四命令表和token预留描述；部分读取无deadline，多帧读取按trailing bytes拒绝；bool回调会将不同失败折为busy。",
+      "implementation_target": "单一版本化契约、共享字节fixture、可取消有界IO和逐请求错误原因。",
+      "work": [
+        "覆盖ping/join/debug/server_status及安装/启动/清除allocation三命令，记录token真实语义。",
+        "持久缓冲处理拆包/粘包/CRLF/UTF-8字节64KiB边界；IO超时能被Runtime取消。",
+        "使用结构化结果区分busy、unavailable、native_unverified、invalid_target；保留SID/ACL及远程拒绝。"
+      ],
+      "acceptance": "一次read多帧/部分帧不误判；无响应可有界退出；7个命令可交叉验证；错误码不会掩盖原生路径未实现。",
+      "owner": "契约负责人＋Payload/Toolbox",
+      "milestone": "M01",
+      "sources": [
+        "T08",
+        "P03",
+        "P04",
+        "P25",
+        "P01"
+      ],
+      "origin": "IPC接入审查；全流程严格Join错误折叠",
+      "depends_on": [],
+      "test_ids": [
+        "AC-023"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-024",
+      "area": "C 启动、IPC 与原生游戏反馈",
+      "priority": "P1",
+      "evidence_class": "D",
+      "evidence_label": "确定缺陷／契约不匹配",
+      "title": "游戏 lifecycle 与服务注册 state 枚举未完整适配",
+      "observed": "Payload回调产生TRANSITIONING/VOTING/RESTARTING，框架直接序列化；Rust只接受STARTING/READY/RESERVED/RUNNING/DRAINING。触发这些回调值时解析确定不兼容。",
+      "implementation_target": "分别维护游戏lifecycle与调度lease状态，通过显式映射适配，不能直接扩大发往后端的旧状态枚举。",
+      "work": [
+        "核对server_status从Payload回调、框架编码、Rust解析到HTTP心跳的每一步。",
+        "保留lifecycle_state/match_generation用于UI；READY/RESERVED/RUNNING由对应权威规则决定。",
+        "变更已知和未知枚举时返回可诊断的兼容结果，不触发无意义重新注册。"
+      ],
+      "acceptance": "投票/换图/重启场景不因解析错误断开注册；已分配专服不被映射回可重复分配READY。",
+      "owner": "Toolbox Dedicated＋Payload",
+      "milestone": "M01",
+      "sources": [
+        "P01",
+        "P03",
+        "T08",
+        "T17",
+        "P17"
+      ],
+      "origin": "前序已读 server_status 新旧枚举；需端到端fixture",
+      "depends_on": [],
+      "test_ids": [
+        "AC-024"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-025",
+      "area": "C 启动、IPC 与原生游戏反馈",
+      "priority": "P0",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "错误、trace 与前端房间状态同步不完整",
+      "observed": "API request_id/details被丢弃，fatal依赖字符串前缀；Tauri发room_controller_error而React订阅缺失。",
+      "implementation_target": "统一 DomainError 与关联ID；错误/清理事件同步所有前端并恢复权威快照。",
+      "work": [
+        "错误包含code、stage、http_status、request_id、retryable、cleanup_scope和安全message。",
+        "run_id/operation_id/lobby_id/attempt_id贯穿日志，generation区分不同阶段；不记录凭据。",
+        "React/EGUI处理房间失败、后台清理、账户失效和终态；不让用户可见文案控制逻辑。"
+      ],
+      "acceptance": "后台线路fatal后两个前端清理对应active状态并显示同一错误码；从UI可定位到后端/Payload同一运行，不泄密。",
+      "owner": "Toolbox UI/API＋Backend Observability",
+      "milestone": "M01",
+      "sources": [
+        "T09",
+        "T04",
+        "T01",
+        "T12",
+        "T14"
+      ],
+      "origin": "F11；全流程反馈缺口",
+      "depends_on": [],
+      "test_ids": [
+        "AC-025"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-026",
+      "area": "C 启动、IPC 与原生游戏反馈",
+      "priority": "P1",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "有序资源关闭未覆盖常驻worker与阻塞IO",
+      "observed": "status/room/node线程捕获Arc无限循环；结构没有对应join所有权。进程内重建与优雅退出可能悬挂。",
+      "implementation_target": "Runtime拥有取消、worker句柄和子进程监督；关闭有界且不误杀不属于本轮的进程。",
+      "work": [
+        "先阻止新操作，再取消/排空任务；解除锁后join，避免Arc/锁自等。",
+        "Game→Server→Room→Node顺序保留必要凭据到清理完成，最后释放身份。",
+        "验证PID＋启动时间/路径或Job Object；避免广义taskkill杀用户其他游戏。"
+      ],
+      "acceptance": "同进程启动/关闭/再启动无旧事件、旧Token或重复worker；失联pipe也能有界退出；不误杀非受管进程。",
+      "owner": "Toolbox Runtime/Windows",
+      "milestone": "M02",
+      "sources": [
+        "T01",
+        "T02",
+        "T08",
+        "T22"
+      ],
+      "origin": "F10；MetaTunnel/PID回收建议",
+      "depends_on": [
+        "BP-016",
+        "BP-023"
+      ],
+      "test_ids": [
+        "AC-026"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-027",
+      "area": "C 启动、IPC 与原生游戏反馈",
+      "priority": "P0",
+      "evidence_class": "V",
+      "evidence_label": "验收与发布门禁，不能当成已复现故障",
+      "title": "世界切换后角色、配装、控制器、HUD与多局流程未验收",
+      "observed": "用户实测Payload入战局有断点，但没有本次日志/二进制哈希；不能把全部问题预判为某个Hook偏移。",
+      "implementation_target": "将实际Admitted→WorldReady→PawnReady→Playable及下一局作为原生验收证据。",
+      "work": [
+        "诊断控制器归属、Pawn/PlayerState、team/slot、角色确认、配装与输入/HUD状态。",
+        "对固定版本定位故障，保留已有重生/换图兼容修复，不做盲目偏移替换或大改Hook。",
+        "覆盖死亡重生、迟到玩家、同实例下一局及旧世界callback；依赖实际游戏harness。"
+      ],
+      "acceptance": "至少一场可操作对局、重生、迟到/重连与下一局的轨迹与截图/日志可核对；未运行不得标PASS。",
+      "owner": "Payload Native QA",
+      "milestone": "M09",
+      "sources": [
+        "P02",
+        "P07",
+        "P01"
+      ],
+      "origin": "用户实测反馈；全流程断点8与原生版本风险",
+      "depends_on": [
+        "BP-018",
+        "BP-021",
+        "BP-039",
+        "BP-040",
+        "BP-047"
+      ],
+      "test_ids": [
+        "AC-027"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-028",
+      "area": "D Meta 适配与子进程",
+      "priority": "P1",
+      "evidence_class": "C",
+      "evidence_label": "既有兼容边界／产品规则，需保留或明确决策",
+      "title": "本地 Node Meta 与远程 Go MetaTunnel 是不同模式",
+      "observed": "当前PvE/PvP/Join均先启动本地Node固定8000端口；远程Go桥接存在于另一条链，不能假称已采用。",
+      "implementation_target": "所有在线玩法使用同一个Go Meta身份适配链；本地Node只保留为隔离的离线PvE实现（若项目继续提供该功能），不提供在线旧模式。",
+      "work": [
+        "将在线启动迁移至现有Go MetaTunnel/原生协议适配，按真实配置传递HTTP与Logic端点。",
+        "旧launch_pvp和任意目标launch_join不再作为在线旁路；从大厅/Attempt进入在线游戏。",
+        "本地Node仅限离线功能或开发harness；标记offline，不能获得在线Grant/战绩权限。检测固定端口是否由本轮受管进程拥有。"
+      ],
+      "acceptance": "离线PvE不依赖远程登录；在线模式不会悄悄退回本地伪认证；端口被别的进程占用时明确失败/改分配。",
+      "owner": "Toolbox MetaAdapter＋Backend Meta",
+      "milestone": "M04",
+      "sources": [
+        "T02",
+        "P22"
+      ],
+      "origin": "F05；MetaTunnel历史边界",
+      "depends_on": [
+        "BP-001",
+        "BP-019",
+        "BP-020"
+      ],
+      "test_ids": [
+        "AC-028"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-029",
+      "area": "D Meta 适配与子进程",
+      "priority": "P1",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "MetaTunnel 动态端口、Token更新和EOF/父进程退出未接成工作流",
+      "observed": "Go桥支持stdin更新Token与ready输出；EOF只退出watcher，非自动终止整个隧道。该行为不必然是缺陷，监督策略必须明确。",
+      "implementation_target": "在线会话拥有唯一隧道；解析动态ready、热更新凭据、明确父进程丢失与换号回收。",
+      "work": [
+        "保持stdin更新通道，使用CredentialsStore最新epoch，不经命令行/前端传Token。",
+        "解析http_url/logic_endpoint和本轮PID；local ready与远端认证成功分开。",
+        "采用受管子进程/Job Object等机制；规定EOF、父崩溃、登出、游戏退出时停止或受控续存。"
+      ],
+      "acceptance": "Token刷新后代理请求使用新Token；端口动态传到游戏；父崩溃/换号不遗留旧授权隧道；EOF行为符合明确策略。",
+      "owner": "Toolbox TunnelSupervisor＋Go MetaTunnel",
+      "milestone": "M04",
+      "sources": [
+        "P22",
+        "T01",
+        "T09"
+      ],
+      "origin": "首次接入审查MetaTunnel4项",
+      "depends_on": [
+        "BP-002",
+        "BP-005",
+        "BP-026",
+        "BP-028"
+      ],
+      "test_ids": [
+        "AC-029"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-030",
+      "area": "E 权威大厅、名单与状态所有权",
+      "priority": "P0",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "Toolbox 未接通权威大厅/Attempt 完整控制器",
+      "observed": "已读消费者围绕旧rooms，无选队、Ready、roster_revision和allocation→Grant全流程；feature schema未包含严格名单能力。",
+      "implementation_target": "唯一在线LobbyController/LobbyStore驱动全部受支持前端；直接删除旧在线房间业务适配。",
+      "work": [
+        "实现新API typed client、local.can_*权限快照、队伍/席位/Ready/Presence、Attempt与错误处理。",
+        "将现有RoomController改为内部TransportAdapter；删除旧在线房间业务入口，名单只由新Lobby/Attempt驱动。",
+        "接受OPEN直接观测到PROVISIONING，不等待同事务内不可见FROZEN事件；处理revision冲突先读最新快照。"
+      ],
+      "acceptance": "两套前端在同一业务模块下可创建/加入/选队/准备/开局/重试/退出；旧快照不能覆盖新修订，不靠旧start驱动托管开局。",
+      "owner": "Toolbox Lobby＋Backend API",
+      "milestone": "M06",
+      "sources": [
+        "T01",
+        "T04",
+        "T15",
+        "T16",
+        "T20",
+        "P08",
+        "P09",
+        "P20"
+      ],
+      "origin": "权威名单主要集成缺口；F05",
+      "depends_on": [
+        "BP-016",
+        "BP-025",
+        "BP-031",
+        "BP-032",
+        "BP-033",
+        "BP-035"
+      ],
+      "test_ids": [
+        "AC-030"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-031",
+      "area": "E 权威大厅、名单与状态所有权",
+      "priority": "P0",
+      "evidence_class": "C",
+      "evidence_label": "既有兼容边界／产品规则，需保留或明确决策",
+      "title": "角色、hosting/transport与各类ID/generation不能压成一个字段",
+      "observed": "Dedicated与P2P是hosting；Legacy/VNT是P2P transport；owner/HOST/authority与多个ID有不同含义。",
+      "implementation_target": "版本化契约定义强类型SessionContext；在线admission_mode唯一为strict_roster_v1。",
+      "work": [
+        "区分lobby_id、p2p_room_id、attempt_id、authority_id/session、roster_revision、route_generation、seat connection_generation、run_id/session_epoch。",
+        "分开RelayAllocation、MatchAllocation、JoinGrant、GateTicket；区分VNT generation和对局route generation。",
+        "P2P HOST本地准入；Dedicated owner按普通远程成员；占席、队伍、角色职业不混用。"
+      ],
+      "acceptance": "编译/序列化/契约测试阻止ID互传；host身份不能复用Member Grant；模式组合与后端约束一致。",
+      "owner": "跨仓库契约负责人",
+      "milestone": "M00",
+      "sources": [
+        "P09",
+        "P11",
+        "P21",
+        "P05",
+        "T04"
+      ],
+      "origin": "首轮模型修正；权威名单四层区分",
+      "depends_on": [],
+      "test_ids": [
+        "AC-031"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-032",
+      "area": "E 权威大厅、名单与状态所有权",
+      "priority": "P0",
+      "evidence_class": "C",
+      "evidence_label": "既有兼容边界／产品规则，需保留或明确决策",
+      "title": "退役旧在线房间API与任意地址Join，保留托管隔离",
+      "observed": "旧目录排除managed_lobby；旧join需要权威成员；旧start/leave/close拒绝托管操作。",
+      "implementation_target": "删除旧普通在线房间链；传输原语只由Lobby/Attempt或其强约束内部API驱动。",
+      "work": [
+        "删除旧在线房间列表/创建/加入/启动/退出UI流程，不建设兼容目录或协议降级。",
+        "旧公开写入口删除或返回明确退役错误；内部传输Create/Join/Bootstrap原语可复用，但必须由Lobby/Attempt所有权校验约束。",
+        "搜索launch_join、空token join、direct open、旧Meta匹配/战绩快照等旁路；在线发布构建不能绕过冻结名单。"
+      ],
+      "acceptance": "目标构建不再暴露旧在线目录/启动入口；调用退役路径明确失败，新流程通过Lobby合法操作且不存在降级后门。",
+      "owner": "Backend P2P/Lobby＋Toolbox",
+      "milestone": "M05",
+      "sources": [
+        "P12",
+        "P13",
+        "T16",
+        "T15"
+      ],
+      "origin": "名单审查兼容断点1",
+      "depends_on": [
+        "BP-031"
+      ],
+      "test_ids": [
+        "AC-032"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-033",
+      "area": "E 权威大厅、名单与状态所有权",
+      "priority": "P0",
+      "evidence_class": "D",
+      "evidence_label": "确定缺陷／契约不匹配",
+      "title": "旧连通回调提前推进托管p2p_room为RUNNING",
+      "observed": "直连检查/Relay绑定调用MarkConnectionEstablished；MarkRunning允许LOBBY→RUNNING而不排除托管，后续Join却只收LOBBY。",
+      "implementation_target": "网络连通只改变传输状态；托管业务状态仅由Attempt状态机推进。",
+      "work": [
+        "审计所有写p2p_rooms.state的路径，不仅给一个函数加判断。",
+        "在托管模式阻止旧路径将业务状态提前推进；必要时新增独立transport_state。",
+        "移除普通在线房间LOBBY→RUNNING旧业务路径；底层传输回调幂等且不得成为状态写源。"
+      ],
+      "acceptance": "托管大厅OPEN时前两人先直连/Relay成功，第三人仍能加入并选队；不因ROOM_NOT_JOINABLE被挡；Attempt未提前Running。",
+      "owner": "Backend Connection/P2P/Lobby",
+      "milestone": "M05",
+      "sources": [
+        "P12",
+        "P13",
+        "P14"
+      ],
+      "origin": "权威名单审查最重要新断点",
+      "depends_on": [
+        "BP-031",
+        "BP-032"
+      ],
+      "test_ids": [
+        "AC-033"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-034",
+      "area": "E 权威大厅、名单与状态所有权",
+      "priority": "P0",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "BattleLog Presence等投影入口仍能独立推进托管状态",
+      "observed": "MarkRoomMatchRunning已有match_attempt_id IS NULL隔离；UpdatePresence ACTIVE更新等入口未同等隔离。",
+      "implementation_target": "Attempt为托管生命周期单一写源；报告/Presence不能升格为权威开局证据。",
+      "work": [
+        "审计BattleLog intake、presence、finalizer、Meta scheduler和原生回执所有状态写入口。",
+        "在线战绩只消费新Attempt的冻结投影；历史只读数据可保留，不再从旧房间重新定义名单或推进开局。",
+        "验证收集关闭时仍保留严格投影；无需把报告可信度等同入场授权。",
+        "在线仅允许从match_attempt_roster派生传输/战绩名单；关闭报告采集不能关闭准入，也不能使投影缺失。"
+      ],
+      "acceptance": "伪造/迟到ACTIVE报告不使托管Attempt或投影提前Running；报告关闭也不丢冻结名单；源状态和投影合法一致。",
+      "owner": "Backend BattleLog/Meta",
+      "milestone": "M05",
+      "sources": [
+        "P15",
+        "P16",
+        "P18",
+        "P08"
+      ],
+      "origin": "权威名单审查状态机冲突",
+      "depends_on": [
+        "BP-033"
+      ],
+      "test_ids": [
+        "AC-034"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-035",
+      "area": "E 权威大厅、名单与状态所有权",
+      "priority": "P0",
+      "evidence_class": "R",
+      "evidence_label": "条件性风险／需要复现",
+      "title": "大厅—传输—对局投影的跨事务补偿与崩溃恢复需补证据",
+      "observed": "Create/Join/AuthorityReady有跨事务或提交后副作用；已有部分补偿，不能说完全无回滚，但崩溃点需覆盖。",
+      "implementation_target": "权威名单与传输成员最终收敛；可重试操作不改冻结名单、不生成重复资源。",
+      "work": [
+        "逐提交点建故障注入：lobby已提交/transport未关联、join投影失败、StartManaged后Attempt提交失败。",
+        "采用已有事务＋幂等补偿/操作账本，必要时增加outbox/reconciler，不在网络调用时持有长DB锁。",
+        "冻结复制match_attempt_roster作为唯一名单源；旧BattleLog快照不反向定义严格队伍。"
+      ],
+      "acceptance": "各崩溃点恢复后无重复lobby/room/match、成员集相等；单个active Attempt约束保留；旧idempotency重试得到同一操作结果。",
+      "owner": "Backend Lobby/P2P/DB",
+      "milestone": "M05",
+      "sources": [
+        "P08",
+        "P12",
+        "P16",
+        "P21"
+      ],
+      "origin": "首次接入审查跨事务风险；名单四层",
+      "depends_on": [
+        "BP-031",
+        "BP-032"
+      ],
+      "test_ids": [
+        "AC-035"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-036",
+      "area": "E 权威大厅、名单与状态所有权",
+      "priority": "P0",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "多种Presence/Heartbeat租约与启动/Grant时限尚未统一编排",
+      "observed": "大厅60秒、对局权威约30秒新鲜度、默认准备/连接120秒、Grant60秒，与游戏窗口可等180秒不是同一计时器。",
+      "implementation_target": "每个租约明确owner和服务端权威截止时间；Grant在真正准备发起握手时申请。",
+      "work": [
+        "分别维护lobby presence、transport heartbeat、authority heartbeat；普通节点心跳不能代替Attempt心跳。",
+        "预热/安装慢步骤放入合适阶段；明确bounded extension而非统一无限加长。",
+        "Heartbeat失败不忽略；超时显示缺哪个阶段并触发对应回收。"
+      ],
+      "acceptance": "故意延迟启动/Token刷新时租约按策略续存或明确超时；已过期Grant不能入场；网络活着但authority离线可准确区分。",
+      "owner": "Backend Lobby＋Toolbox Runtime",
+      "milestone": "M05",
+      "sources": [
+        "P08",
+        "P10",
+        "P19",
+        "T02",
+        "T04"
+      ],
+      "origin": "权威名单心跳/超时断点",
+      "depends_on": [
+        "BP-025",
+        "BP-031"
+      ],
+      "test_ids": [
+        "AC-036"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-037",
+      "area": "E 权威大厅、名单与状态所有权",
+      "priority": "P0",
+      "evidence_class": "C",
+      "evidence_label": "既有兼容边界／产品规则，需保留或明确决策",
+      "title": "后端开局人数规则与游戏角色确认门禁未形成同一政策",
+      "observed": "当前连接窗口到期两队各至少一人可Running，不一定全员到齐；原生另有角色确认quorum。",
+      "implementation_target": "将准入、对局状态与原生StartMatch区分，并定义迟到/掉线/未Ready玩家规则。",
+      "work": [
+        "默认保留当前两队非空策略并写ADR；确需全员到齐再作为显式政策变更。",
+        "冻结席位不因迟到重排；晚到允许范围与角色确认集合按活跃席位规则驱动。",
+        "Running不自动意味每位玩家Playable；UI展示等待角色/世界阶段。"
+      ],
+      "acceptance": "全员到齐、单方缺席、两队各一人、迟到/断线/选角晚到均不死等或提前开赛；政策在后端与原生一致。",
+      "owner": "Backend Lobby＋Payload Gameplay",
+      "milestone": "M05",
+      "sources": [
+        "P08",
+        "P10",
+        "P07"
+      ],
+      "origin": "名单审查开局/迟到政策",
+      "depends_on": [
+        "BP-031",
+        "BP-036"
+      ],
+      "test_ids": [
+        "AC-037"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-038",
+      "area": "F 原生严格准入与代次",
+      "priority": "P0",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "客户端携带Join Grant的原生NMT_Login路径尚未实现",
+      "observed": "QueueConnectToMatchAuthorized基本校验后仍明确因注入点未验证而返回false。",
+      "implementation_target": "仅对锁定且验证通过的游戏版本，将短期Grant安全送入真实原生登录握手。",
+      "work": [
+        "先定位并验证合法身份/原生握手扩展点，在测试构建中证明令牌到达服务端。",
+        "Grant仅经受控IPC与内存，不放命令行、前端、日志或持久明文；生命周期结束清除。",
+        "不回退普通open/空token来冒充严格加入；未支持版本保留失败关闭。"
+      ],
+      "acceptance": "有效Grant由真实客户端握手携带；空/错aud/错版本/篡改Grant无法入场；失败返回native_admission_unverified而非笼统busy。",
+      "owner": "Payload Native Client＋Toolbox Admission",
+      "milestone": "M07",
+      "sources": [
+        "P02",
+        "P01",
+        "P03",
+        "T08"
+      ],
+      "origin": "全流程断点9；权威名单原生接入",
+      "depends_on": [
+        "BP-019",
+        "BP-020",
+        "BP-023",
+        "BP-031"
+      ],
+      "test_ids": [
+        "AC-038"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-039",
+      "area": "F 原生严格准入与代次",
+      "priority": "P0",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "权威PreLogin、真实身份、队伍/席位执行与回执未闭环",
+      "observed": "Policy验证器存在但nativeAdmissionPathReady=false；安装成功不是拦截与原生队伍应用成功。",
+      "implementation_target": "在原生准入边界绑定经过验证的平台身份，执行冻结席位，真实PostLogin/离线事件驱动回执。",
+      "work": [
+        "由真实认证连接获得platform_id，不能只信玩家自己提交的ID或显示名。",
+        "接入Policy＋有界后端准入协调；失败时玩家不得进入可操作世界。",
+        "应用team_id/team_slot/logical_slot和连接替换；原生失败需补偿，不只设置布尔connected。"
+      ],
+      "acceptance": "非名单/冒名/换队/占错席位/重复连接/旧代次全拒绝；合法玩家真实入场，服务端席位与游戏角色一致。",
+      "owner": "Payload Native Authority＋Backend Admission",
+      "milestone": "M07",
+      "sources": [
+        "P05",
+        "P01",
+        "P08",
+        "P11",
+        "P07"
+      ],
+      "origin": "严格名单主要硬门禁",
+      "depends_on": [
+        "BP-038",
+        "BP-041",
+        "BP-042"
+      ],
+      "test_ids": [
+        "AC-039"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-040",
+      "area": "F 原生严格准入与代次",
+      "priority": "P0",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "P2P房主StartAuthority传空平台身份且缺原生启动证明",
+      "observed": "OnStartMatchAuthority调用StartAuthority(\"\", now)；Policy需要与HOST平台ID匹配，因此改false为true仍不构成完整实现。",
+      "implementation_target": "房主走本机可信身份＋allocation绑定，真实权威世界/监听成功后再ready。",
+      "work": [
+        "使用已验证本机平台身份，并与HOST席位匹配。",
+        "实际启动/确认listen世界与端口，区分准入开启和游戏主机启动。",
+        "Dedicated的authority没有HOST玩家席位，不复用房主假身份。"
+      ],
+      "acceptance": "空或错误本机平台ID拒绝；合法HOST不用远程Grant；真正监听后才ready，客户端模式不能伪装authority。",
+      "owner": "Payload Host＋Toolbox Launch",
+      "milestone": "M07",
+      "sources": [
+        "P01",
+        "P05",
+        "P08"
+      ],
+      "origin": "权威名单审查原生第3点",
+      "depends_on": [
+        "BP-008",
+        "BP-031",
+        "BP-039"
+      ],
+      "test_ids": [
+        "AC-040"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-041",
+      "area": "F 原生严格准入与代次",
+      "priority": "P0",
+      "evidence_class": "D",
+      "evidence_label": "确定缺陷／契约不匹配",
+      "title": "同route的allocation刷新未应用新席位generation",
+      "observed": "Policy在相同route更新分支检查代次不倒退却只更新key/TTL等，不同步seat generation；可与后端撤销边界分裂。",
+      "implementation_target": "将签名代次下界与当前live connection generation分开管理，单调更新且正确处理旧连接。",
+      "work": [
+        "写独立策略回归：同Attempt/route的新allocation包含更高seat generation。",
+        "原子更新授权下界；不要只覆盖generation并错误保留旧连接为当前连接。",
+        "保留used JTI防重放；同代幂等、倒退拒绝、不可变队伍/席位变化拒绝。"
+      ],
+      "acceptance": "新generation快照安装后旧Grant在策略边界即被拒；旧断线不能断开新连接；刷新不把旧连接冒充新generation。",
+      "owner": "Payload Admission Policy",
+      "milestone": "M07",
+      "sources": [
+        "P05",
+        "P08"
+      ],
+      "origin": "权威名单审查代次缺陷",
+      "depends_on": [
+        "BP-031"
+      ],
+      "test_ids": [
+        "AC-041"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-042",
+      "area": "F 原生严格准入与代次",
+      "priority": "P0",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "Join Grant重复申请/撤销/消费与本地准入缺少一致事务",
+      "observed": "再次申请增加generation并撤销旧Grant；Policy本地usedJTI/connected变更与后端MarkConnected消费不是同一步。",
+      "implementation_target": "同一加入意图幂等；区分准入预留与真实连接确认，有明确授权线性化点和失败释放。",
+      "work": [
+        "为join意图增加operation/idempotency语义；明确重试与用户主动重新连接的区别。",
+        "定义ReserveAdmission→NativeAdmit→ConfirmConnected/Release；不能为了预认证直接提前调用会标CONNECTED/Running的旧接口。",
+        "处理Grant已撤销、过期、失败握手、双连接竞争、后端确认失败；不在游戏线程做无界网络等待。"
+      ],
+      "acceptance": "响应丢失重试不无意义增加generation；过期/撤销Grant不能真正入场；原生失败无永久占席；后端不可达按策略失败关闭。",
+      "owner": "Backend Admission＋Payload＋Toolbox",
+      "milestone": "M07",
+      "sources": [
+        "P08",
+        "P05",
+        "P11",
+        "P21"
+      ],
+      "origin": "权威名单Grant幂等/本地服务端分裂",
+      "depends_on": [
+        "BP-031",
+        "BP-036",
+        "BP-041"
+      ],
+      "test_ids": [
+        "AC-042"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-043",
+      "area": "F 原生严格准入与代次",
+      "priority": "P0",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "权威恢复缺少route/seat刷新与同世界连续性证明",
+      "observed": "后端恢复会增加route和席位generation、撤销Grant、清payload_route_generation；Policy仅允许受限路线连续更新。",
+      "implementation_target": "恢复是同authority session/世界的受控流程；真实进程世界丢失只能终止旧Attempt并重建。",
+      "work": [
+        "Heartbeat恢复后拉新allocation，安装并确认本代次，再允许成员新Grant。",
+        "处理错过多代快照：协议化重同步或中止，禁止简单移除连续性检查。",
+        "验证进程/世界实例ID；VNT同节点重连不能证明原生世界还在。"
+      ],
+      "acceptance": "旧route/旧Grant在恢复后拒绝；未装新allocation不签发可用加入凭据；房主游戏崩溃不冒称延续原对局。",
+      "owner": "Toolbox Recovery＋Backend/Payload",
+      "milestone": "M08",
+      "sources": [
+        "P08",
+        "P10",
+        "P05",
+        "T05"
+      ],
+      "origin": "权威名单恢复规则",
+      "depends_on": [
+        "BP-036",
+        "BP-039",
+        "BP-040",
+        "BP-041",
+        "BP-042"
+      ],
+      "test_ids": [
+        "AC-043"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-044",
+      "area": "F 原生严格准入与代次",
+      "priority": "P0",
+      "evidence_class": "R",
+      "evidence_label": "条件性风险／需要复现",
+      "title": "旧快照/旧Attempt/旧断线回执污染新会话的边界需全链验证",
+      "observed": "后端多处已有generation防护；消费者与原生消息仍须共同遵守，不能把存在字段当成全链已保护。",
+      "implementation_target": "每条回执校验完整会话键；revision/generation单调，生命周期按显式迁移表推进（可按规则回OPEN）。",
+      "work": [
+        "为API、WS、IPC、原生connected/disconnected/complete使用必要的上下文ID。",
+        "错误revision先刷新；幂等重复回执不重复执行，晚到事件按代次丢弃。",
+        "测试失败回到OPEN后的新Attempt与旧callback；不重用旧authority_session。"
+      ],
+      "acceptance": "新连接就绪后旧断线/旧完成/旧快照都不能清掉新连接或推进新Attempt；幂等与拒绝原因可观测。",
+      "owner": "跨仓库状态机负责人",
+      "milestone": "M08",
+      "sources": [
+        "P08",
+        "P09",
+        "P05",
+        "T01",
+        "T12"
+      ],
+      "origin": "多轮ID/代次/旧事件风险",
+      "depends_on": [
+        "BP-030",
+        "BP-031",
+        "BP-042",
+        "BP-043"
+      ],
+      "test_ids": [
+        "AC-044"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-045",
+      "area": "G 专服编排与收尾",
+      "priority": "P0",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "Dedicated严格调度没有充分筛选准入能力",
+      "observed": "选服主要看READY/版本/模式/容量/心跳，未充分筛选strict native能力；旧专服可能接到无法执行的Attempt。",
+      "implementation_target": "按实际受验证的游戏/Payload/契约/准入能力选服，不支持者不接严格任务。",
+      "work": [
+        "注册并验证游戏哈希、Payload构建/契约与native admission能力，新鲜度过期则不可分配。",
+        "在线专服只接受MatchLobby/Attempt任务。退役与之竞争的旧独立Meta匹配调度路径，或者使该入口只转交同一权威服务；不保留两套名单写者。",
+        "保留ActiveMatchAssignment对RESERVED/RUNNING的保护，并增加cleanup_pending/world-instance租约，防止普通READY心跳重新放回池。"
+      ],
+      "acceptance": "旧server或native_unverified不能被选为strict authority；新server分配后普通READY心跳不使其二次入池。",
+      "owner": "Backend Scheduler/Gameserver",
+      "milestone": "M06",
+      "sources": [
+        "P08",
+        "P17",
+        "P18",
+        "P19"
+      ],
+      "origin": "权威名单能力筛选；现有保护不得误删",
+      "depends_on": [
+        "BP-001",
+        "BP-031",
+        "BP-049"
+      ],
+      "test_ids": [
+        "AC-045"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-046",
+      "area": "G 专服编排与收尾",
+      "priority": "P0",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "专服心跳active_match未被Toolbox消费并驱动准入",
+      "observed": "后端Heartbeat返回ActiveMatch assignment；当前Toolbox heartbeat使用send_empty，注册循环未完成assignment→allocation链。",
+      "implementation_target": "每个实例由一个DedicatedCoordinator处理任务分配及所有准入/心跳/完成回执。",
+      "work": [
+        "解析active_match并驱动allocation→IPC安装→PayloadInstalled→真实AuthorityReady→Attempt heartbeat。",
+        "每个实例指定唯一协调者：受管Windows实例由Toolbox拥有；独立部署实例若继续支持则Go agent实现同一契约，二者不得控制同一身份/实例。",
+        "connected/disconnected/complete来自真实Payload事件；409按错误码分类，不能一律删除身份并重新注册。"
+      ],
+      "acceptance": "注册成功后收到任务能真正安装/启动准入；重复assignment不重复开服；无任务/终止任务可清理；旧agent不被静默认为支持。",
+      "owner": "Toolbox Dedicated＋Backend Agent",
+      "milestone": "M06",
+      "sources": [
+        "T17",
+        "T08",
+        "P17",
+        "P26",
+        "P08"
+      ],
+      "origin": "专服真实代码交接；初版agent双重所有权",
+      "depends_on": [
+        "BP-023",
+        "BP-024",
+        "BP-030",
+        "BP-045"
+      ],
+      "test_ids": [
+        "AC-046"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-047",
+      "area": "G 专服编排与收尾",
+      "priority": "P0",
+      "evidence_class": "G",
+      "evidence_label": "已定位的实现或集成缺口",
+      "title": "数据库结束/释放早于Payload清理与游戏资源确认",
+      "observed": "Complete/Sweep等可结束Attempt并使专服READY；不自动证明clear_match_allocation、旧世界/连接和传输都清完。",
+      "implementation_target": "结束意图→撤销/关闭→NativeCleared与必要资源回执→实例可复用；失败保持隔离不可分配。",
+      "work": [
+        "定义cleanup_pending/cleared或等效lease标记；不要求人为同步回滚所有系统，但必须可重试收敛。",
+        "管理Game/Server/Room/Node退出顺序，清除Grant缓存、旧JTI适当代次、映射、临时秘密。",
+        "DB sweeper触发的中止也要到达本地监督；下一局必须是新Attempt和明确世界策略。"
+      ],
+      "acceptance": "每个终态/超时/取消后最终无本轮遗留；未清理实例不能再次分配；连续两局无旧名单或迟到回执串入。",
+      "owner": "Backend Lease＋Toolbox/Payload Cleanup",
+      "milestone": "M08",
+      "sources": [
+        "P08",
+        "P10",
+        "P05",
+        "T01",
+        "T04",
+        "T05"
+      ],
+      "origin": "名单结束对局/失败恢复/下一局风险",
+      "depends_on": [
+        "BP-026",
+        "BP-043",
+        "BP-044",
+        "BP-046"
+      ],
+      "test_ids": [
+        "AC-047"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-048",
+      "area": "H 配置、发布、安全与验收",
+      "priority": "P0",
+      "evidence_class": "D",
+      "evidence_label": "确定缺陷／契约不匹配",
+      "title": "strict开关关闭启动会批量终止共享数据库严格对局",
+      "observed": "FailClosedDisabledAttempts在禁用配置下遍历活动Attempt并ABORT/撤销；混合配置实例或回滚可能伤及其他实例任务。",
+      "implementation_target": "在线准入固定strict_roster_v1；删除本地禁用开关触发的全库终止语义，创建开关/排空/强制撤销彼此独立。",
+      "work": [
+        "移除把strict=false作为另一种在线模式的分支；原生未就绪时关闭在线创建/入场能力并给明确诊断，不降级为无名单。",
+        "普通实例启动只校验集中配置与schema，配置不符拒绝启动，不在共享DB批量ABORT他人的Attempt。",
+        "如仍需停止接纳新任务、drain、强制中止，分别提供显式有授权且有审计的管理操作；强制中止仍经完整清理。"
+      ],
+      "acceptance": "实例A正在strict对局，实例B禁用新建启动不会无故ABORT它；明确强制撤销时则可控终止并完整审计。",
+      "owner": "Backend Config/Operations",
+      "milestone": "M05",
+      "sources": [
+        "P08",
+        "P20",
+        "P19"
+      ],
+      "origin": "权威名单开关回滚风险；本轮重新核对",
+      "depends_on": [],
+      "test_ids": [
+        "AC-048"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-049",
+      "area": "H 配置、发布、安全与验收",
+      "priority": "P0",
+      "evidence_class": "V",
+      "evidence_label": "验收与发布门禁，不能当成已复现故障",
+      "title": "配套schema升级、单版本部署与身份隔离门禁",
+      "observed": "MatchLobby直接写Meta/P2P投影；进程独立不代表schema和发布独立。迁移42已新增相关表/字段。",
+      "implementation_target": "未上线环境按同一发布版本升级；明确schema最低版本并拒绝不匹配服务，保持DB角色/ACL/凭据隔离。",
+      "work": [
+        "以测试库复核现有迁移42；有保留数据就用追加迁移，不重写已应用迁移。",
+        "未上线不代表可删除所有测试数据。只有明确指向一次性本地/测试数据库且另获授权时才可重建；默认不执行DROP/清库。",
+        "服务端、Meta、工具箱和Payload按同一已验收版本组合部署；不做旧客户端支持或长期滚动兼容，错schema/能力版本立即拒绝。",
+        "验证PostgreSQL角色、Redis ACL、对外listener、玩家/节点/管理员凭据隔离；先备份后做测试快照恢复演练。"
+      ],
+      "acceptance": "测试库升级和配套快照恢复演练数据不丢；错schema/错服务组合拒绝启动，隔离负向测试通过；不默认清空任何数据库。",
+      "owner": "Backend DB/Deployment",
+      "milestone": "M05",
+      "sources": [
+        "P21",
+        "P20",
+        "P18",
+        "P08"
+      ],
+      "origin": "初版共享边界；名单schema风险；按未上线前提取消旧版本长期兼容",
+      "depends_on": [
+        "BP-031",
+        "BP-048"
+      ],
+      "test_ids": [
+        "AC-049"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-050",
+      "area": "H 配置、发布、安全与验收",
+      "priority": "P1",
+      "evidence_class": "V",
+      "evidence_label": "验收与发布门禁，不能当成已复现故障",
+      "title": "发布/更新/运行时安全门禁需跟兼容矩阵一起保持",
+      "observed": "已存在签名manifest、哈希、固定签名者、VNT固定运行时；这些是应保留的保护，不是待删除阻碍。",
+      "implementation_target": "只有通过同一兼容矩阵的产物发布；更新失败能回到上一完整版本，秘密不落入前端或安装物。",
+      "work": [
+        "保留Ed25519签名清单、大小/SHA-256、签名者固定、VNT固定运行时及游戏锁定哈希。",
+        "产物区分React/Tauri与EGUI实际支持范围、平台/架构与构建版本；旧前端可停用，但不得继续保留无名单在线入口。",
+        "更新/下载中断、错签名、错哈希、错协议均拒绝；回退对象必须也是同一严格准入体系的已验收组合，不向旧无名单流程回退。"
+      ],
+      "acceptance": "任一信任层不符则拒绝且旧版可运行；无未验证二进制自动开启strict；测试不输出/分享密钥、Token或字体文件。",
+      "owner": "Release/Security＋Toolbox",
+      "milestone": "M10",
+      "sources": [
+        "T18",
+        "T19",
+        "T21",
+        "P01"
+      ],
+      "origin": "F09；C20；原生构建门禁",
+      "depends_on": [
+        "BP-001",
+        "BP-006",
+        "BP-026",
+        "BP-049"
+      ],
+      "test_ids": [
+        "AC-050"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-051",
+      "area": "H 配置、发布、安全与验收",
+      "priority": "P0",
+      "evidence_class": "V",
+      "evidence_label": "验收与发布门禁，不能当成已复现故障",
+      "title": "现有单库/模拟/可视化检查不能证明端到端已通过",
+      "observed": "前序没有运行真实Windows游戏E2E；DB测试可跳过且直接调用ready/connected，不能验证Rust→C++→原生链。",
+      "implementation_target": "建立共享真实编码向量、DB/HTTP/IPC集成、Windows游戏测试、NAT多人长稳与发布回执分层。",
+      "work": [
+        "每个BP均记录实际复核、修改commit、命令、exit code、日志路径；skipped/not_run不能记为PASS。",
+        "共享Go/Rust/C++真实编码字节fixture、PostgreSQL事务集成、Windows管道与真实游戏E2E；可视化检查不是功能测试。",
+        "至少P2P Host＋2 Member覆盖LAN、强制Relay、VNT；Dedicated覆盖三名玩家。严格拒绝、迟到/重连、超时、取消、换局与清理都须验收。",
+        "不得以新名单先关着交付为完成；缺少游戏/Windows资源时实现可自动化部分并保留明确BLOCKED项及可运行harness。"
+      ],
+      "acceptance": "报告能逐BP追到改动commit与对应AC/E2E结果；所有声明支持的组合通过，缺Windows/游戏资源仅标BLOCKED不造PASS。",
+      "owner": "跨仓库QA/CI",
+      "milestone": "M11",
+      "sources": [
+        "P23",
+        "T08",
+        "P03",
+        "P24",
+        "T01"
+      ],
+      "origin": "多轮检查限制与所有测试计划",
+      "depends_on": [
+        "BP-047",
+        "BP-050"
+      ],
+      "test_ids": [
+        "AC-051"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "strict_online_release",
+      "implementation_evidence": [],
+      "test_evidence": []
+    },
+    {
+      "id": "BP-052",
+      "area": "H 配置、发布、安全与验收",
+      "priority": "P2",
+      "evidence_class": "V",
+      "evidence_label": "验收与发布门禁，不能当成已复现故障",
+      "title": "Backend/matchserver二进制来源与消费链待审计",
+      "observed": "首轮仓库树记录源码中有较大二进制；这是供应链/可复现性问题，不是此次入场失败的确定原因。",
+      "implementation_target": "记录来源、输入提交、工具链、SHA与使用者；迁移到受控产物存储或保留可复现证据。",
+      "work": [
+        "先确认脚本/镜像是否消费它；不得无依据删除或指称恶意。",
+        "生成provenance/SBOM和签名/哈希校验；必要时改为Release/OCI/CI artifact。",
+        "统一开发/测试命令入口，文档注明真实工具链与支持环境。"
+      ],
+      "acceptance": "构建不依赖来源不明的手工二进制；消费者更新可验证，迁移前后所需功能一致。",
+      "owner": "Backend Release",
+      "milestone": "M10",
+      "sources": [
+        "P27",
+        "P20"
+      ],
+      "origin": "首轮二进制与工具链风险",
+      "depends_on": [],
+      "test_ids": [
+        "AC-052"
+      ],
+      "status": "not_started",
+      "runtime_reproduced_in_this_handoff": false,
+      "review_status": "pending_codex_revalidation",
+      "execution_status": "not_started",
+      "revalidation_required": true,
+      "release_scope": "non_blocking_hygiene",
+      "implementation_evidence": [],
+      "test_evidence": []
+    }
+  ],
+  "milestones": [
+    {
+      "id": "M00",
+      "title": "基线复核与唯一目标契约",
+      "pr": "00-baseline-and-decisions",
+      "depends_on": [],
+      "deliverables": [
+        "BASELINE.md：HEAD/工作区/产物哈希/环境与源码差异",
+        "决策记录：旧在线流程退役、严格模式唯一、角色与ID模型",
+        "breakpoints.json复核状态与支持的前端/平台清单"
+      ],
+      "gate": "不重置用户改动；确认现有调用链与报告是否仍一致；记录scope，所有风险有复核负责人。"
+    },
+    {
+      "id": "M01",
+      "title": "修复确定契约错误与诊断基础",
+      "pr": "01-wire-contracts-and-errors",
+      "depends_on": [
+        "M00"
+      ],
+      "deliverables": [
+        "版本化HTTP/IPC/Relay合成共享fixture",
+        "HMAC截断、accepted ACK、端点/IPv6及lifecycle枚举修复",
+        "结构化错误＋request_id＋room_controller_error UI处理"
+      ],
+      "gate": "真实Go/Rust/C++编解码红→绿；端点、frame边界和错误码有负向测试；不关闭签名/MAC。"
+    },
+    {
+      "id": "M02",
+      "title": "统一启动任务、进程监督与原生阶段观测",
+      "pr": "02-launch-operations-and-payload-telemetry",
+      "depends_on": [
+        "M01"
+      ],
+      "deliverables": [
+        "LaunchOperation：接受/进度/查询/取消/单一终态",
+        "全路径独立pipe＋PayloadReady/LoginReady/Travel结果",
+        "Runtime取消、worker join、受管PID/World实例归属"
+      ],
+      "gate": "空PID/先成功后失败/孤儿进程问题用harness测试；本阶段只能证明基础组件，不冒称严格游戏E2E完成。"
+    },
+    {
+      "id": "M03",
+      "title": "凭据、会话与持久化统一",
+      "pr": "03-credentials-and-session-epochs",
+      "depends_on": [
+        "M01"
+      ],
+      "deliverables": [
+        "CredentialsStore：single-flight、session_epoch和原子DPAPI写入",
+        "真实在线认证状态与最新Token重连",
+        "非秘密credential-registry及跨用途负向用例"
+      ],
+      "gate": "并发401、登出竞争、写入中断和WS恢复通过；前端/日志/命令行无令牌。"
+    },
+    {
+      "id": "M04",
+      "title": "在线Meta、传输适配和Host启动原语",
+      "pr": "04-online-meta-and-transport-adapters",
+      "depends_on": [
+        "M02",
+        "M03"
+      ],
+      "deliverables": [
+        "在线Go MetaTunnel动态ready/Token热更新/退出监督",
+        "Host/Member启动分派与真实游戏端点",
+        "VNT补偿、逐peer UDP映射、Relay迁移状态机"
+      ],
+      "gate": "组件和本地传输harness证明身份/端点/映射正确；不得开放无名单在线入口做验收替代。"
+    },
+    {
+      "id": "M05",
+      "title": "后端名单单写源、旧入口退役与租约修复",
+      "pr": "05-authoritative-state-and-schema",
+      "depends_on": [
+        "M00",
+        "M01"
+      ],
+      "deliverables": [
+        "退役旧在线业务API/旧匹配名单写者，保留受控传输原语",
+        "Connection/BattleLog/Meta各写入口的托管隔离",
+        "幂等补偿、租约/开局政策、配置开关与追加迁移"
+      ],
+      "gate": "三人成员加入不会被网络提前RUNNING阻断；投影不可反向开局；禁用实例不批量终止他人Attempt。"
+    },
+    {
+      "id": "M06",
+      "title": "唯一Lobby控制器与Dedicated任务消费",
+      "pr": "06-lobby-controller-and-dedicated-assignment",
+      "depends_on": [
+        "M02",
+        "M03",
+        "M04",
+        "M05"
+      ],
+      "deliverables": [
+        "typed新大厅API＋选队/Ready/Presence/Attempt UI",
+        "服务能力筛选、active_match解析与唯一DedicatedCoordinator",
+        "删除任意在线target Join、空token在线入口和旧房间业务UI"
+      ],
+      "gate": "契约mock/HTTP/DB/IPC链可测试；原生门禁未完成时明确阻断，不伪造ready/connected。"
+    },
+    {
+      "id": "M07",
+      "title": "原生严格准入、Grant事务与席位代次",
+      "pr": "07-native-strict-admission",
+      "depends_on": [
+        "M01",
+        "M02",
+        "M05",
+        "M06"
+      ],
+      "deliverables": [
+        "锁定游戏的NMT_Login/PreLogin安全接入与HOST本机身份",
+        "Grant幂等、预留/确认/释放与席位代次下界同步",
+        "真实team/slot/连接替换/拒绝回执"
+      ],
+      "gate": "有效玩家真正入场；冒名、非名单、篡改、过期、撤销、旧代次均在可操作前拒绝；不能靠切bool通过。"
+    },
+    {
+      "id": "M08",
+      "title": "恢复、取消、结束清理与实例复用",
+      "pr": "08-recovery-and-cleanup-leases",
+      "depends_on": [
+        "M07"
+      ],
+      "deliverables": [
+        "同世界恢复＋route/allocation/seat刷新握手",
+        "统一旧事件丢弃与新Attempt代次规则",
+        "cleanup_pending/NativeCleared及DB/游戏/网络最终收敛"
+      ],
+      "gate": "旧断线不影响新连接；旧世界丢失只能结束旧Attempt；未清理专服不可READY/重新分配。"
+    },
+    {
+      "id": "M09",
+      "title": "真实玩家可操作与多局端到端",
+      "pr": "09-playable-and-multimatch-e2e",
+      "depends_on": [
+        "M08"
+      ],
+      "deliverables": [
+        "三人以上P2P LAN/Relay/VNT及Dedicated真实对局证据",
+        "角色/配装/HUD/重生/晚到/下一局回归",
+        "负向入场、超时、掉线、Token轮换与网络扰动测试"
+      ],
+      "gate": "不能以PID、窗口、ping、ACK或DB测试替代；至少完整进入可操作战局、完成一局并进入下一局。"
+    },
+    {
+      "id": "M10",
+      "title": "严格版本构建、签名更新与来源证明",
+      "pr": "10-build-provenance-and-distribution",
+      "depends_on": [
+        "M05",
+        "M08"
+      ],
+      "deliverables": [
+        "strict-only artifact manifest、版本/哈希/协议能力",
+        "现有签名/固定运行时的回归＋更新中断恢复",
+        "Backend/matchserver消费链和provenance处理"
+      ],
+      "gate": "不能发布无原生证据的strict能力；错签名/哈希/契约拒绝；回退不恢复旧无名单在线版本。"
+    },
+    {
+      "id": "M11",
+      "title": "交付门禁与完整问题追踪收口",
+      "pr": "11-acceptance-and-release-readiness",
+      "depends_on": [
+        "M09",
+        "M10"
+      ],
+      "deliverables": [
+        "每项BP的复核/修复commit/AC/E2E结果映射",
+        "release-readiness.md：通过/失败/未运行/阻塞明细",
+        "运维与开发说明更新、旧在线入口搜索证据"
+      ],
+      "gate": "所有必要缺陷与集成缺口已修复；所有规则有实现；R类已修复或有反证与回归；所有声明支持组合真实通过。"
+    }
+  ],
+  "previous_findings_mapping": {
+    "F01": [
+      "BP-013",
+      "BP-014"
+    ],
+    "F02": [
+      "BP-022",
+      "BP-023"
+    ],
+    "F03": [
+      "BP-008",
+      "BP-010",
+      "BP-040"
+    ],
+    "F04": [
+      "BP-017",
+      "BP-018",
+      "BP-021",
+      "BP-025"
+    ],
+    "F05": [
+      "BP-001",
+      "BP-028",
+      "BP-029",
+      "BP-030",
+      "BP-031",
+      "BP-032",
+      "BP-038",
+      "BP-039"
+    ],
+    "F06": [
+      "BP-002",
+      "BP-003",
+      "BP-004",
+      "BP-006"
+    ],
+    "F07": [
+      "BP-005"
+    ],
+    "F08": [
+      "BP-012",
+      "BP-014",
+      "BP-015"
+    ],
+    "F09": [
+      "BP-009",
+      "BP-010",
+      "BP-011",
+      "BP-027",
+      "BP-050",
+      "BP-051"
+    ],
+    "F10": [
+      "BP-026"
+    ],
+    "F11": [
+      "BP-025",
+      "BP-023"
+    ]
+  },
+  "sources": {
+    "T01": {
+      "repository": "Dubnium-105/ProjectReboundToolbox",
+      "revision": "63e5ee598b860b8f5d53dd147d436921ad290098",
+      "path": "src/core/runtime.rs",
+      "url": "https://github.com/Dubnium-105/ProjectReboundToolbox/blob/63e5ee598b860b8f5d53dd147d436921ad290098/src/core/runtime.rs",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "T02": {
+      "repository": "Dubnium-105/ProjectReboundToolbox",
+      "revision": "63e5ee598b860b8f5d53dd147d436921ad290098",
+      "path": "src/launching/launch.rs",
+      "url": "https://github.com/Dubnium-105/ProjectReboundToolbox/blob/63e5ee598b860b8f5d53dd147d436921ad290098/src/launching/launch.rs",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "T03": {
+      "repository": "Dubnium-105/ProjectReboundToolbox",
+      "revision": "63e5ee598b860b8f5d53dd147d436921ad290098",
+      "path": "src/launching/controller.rs",
+      "url": "https://github.com/Dubnium-105/ProjectReboundToolbox/blob/63e5ee598b860b8f5d53dd147d436921ad290098/src/launching/controller.rs",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "T04": {
+      "repository": "Dubnium-105/ProjectReboundToolbox",
+      "revision": "63e5ee598b860b8f5d53dd147d436921ad290098",
+      "path": "src/vnt/rooms.rs",
+      "url": "https://github.com/Dubnium-105/ProjectReboundToolbox/blob/63e5ee598b860b8f5d53dd147d436921ad290098/src/vnt/rooms.rs",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "T05": {
+      "repository": "Dubnium-105/ProjectReboundToolbox",
+      "revision": "63e5ee598b860b8f5d53dd147d436921ad290098",
+      "path": "src/vnt/manager.rs",
+      "url": "https://github.com/Dubnium-105/ProjectReboundToolbox/blob/63e5ee598b860b8f5d53dd147d436921ad290098/src/vnt/manager.rs",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "T06": {
+      "repository": "Dubnium-105/ProjectReboundToolbox",
+      "revision": "63e5ee598b860b8f5d53dd147d436921ad290098",
+      "path": "src/vnt/legacy/controller.rs",
+      "url": "https://github.com/Dubnium-105/ProjectReboundToolbox/blob/63e5ee598b860b8f5d53dd147d436921ad290098/src/vnt/legacy/controller.rs",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "T07": {
+      "repository": "Dubnium-105/ProjectReboundToolbox",
+      "revision": "63e5ee598b860b8f5d53dd147d436921ad290098",
+      "path": "src/vnt/legacy/relay.rs",
+      "url": "https://github.com/Dubnium-105/ProjectReboundToolbox/blob/63e5ee598b860b8f5d53dd147d436921ad290098/src/vnt/legacy/relay.rs",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "T08": {
+      "repository": "Dubnium-105/ProjectReboundToolbox",
+      "revision": "63e5ee598b860b8f5d53dd147d436921ad290098",
+      "path": "src/server/pipe.rs",
+      "url": "https://github.com/Dubnium-105/ProjectReboundToolbox/blob/63e5ee598b860b8f5d53dd147d436921ad290098/src/server/pipe.rs",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "T09": {
+      "repository": "Dubnium-105/ProjectReboundToolbox",
+      "revision": "63e5ee598b860b8f5d53dd147d436921ad290098",
+      "path": "src/api/infrastructure/http.rs",
+      "url": "https://github.com/Dubnium-105/ProjectReboundToolbox/blob/63e5ee598b860b8f5d53dd147d436921ad290098/src/api/infrastructure/http.rs",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "T10": {
+      "repository": "Dubnium-105/ProjectReboundToolbox",
+      "revision": "63e5ee598b860b8f5d53dd147d436921ad290098",
+      "path": "src/security/auth.rs",
+      "url": "https://github.com/Dubnium-105/ProjectReboundToolbox/blob/63e5ee598b860b8f5d53dd147d436921ad290098/src/security/auth.rs",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "T11": {
+      "repository": "Dubnium-105/ProjectReboundToolbox",
+      "revision": "63e5ee598b860b8f5d53dd147d436921ad290098",
+      "path": "src/config/config_types.rs",
+      "url": "https://github.com/Dubnium-105/ProjectReboundToolbox/blob/63e5ee598b860b8f5d53dd147d436921ad290098/src/config/config_types.rs",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "T12": {
+      "repository": "Dubnium-105/ProjectReboundToolbox",
+      "revision": "63e5ee598b860b8f5d53dd147d436921ad290098",
+      "path": "frontend/src/App.jsx",
+      "url": "https://github.com/Dubnium-105/ProjectReboundToolbox/blob/63e5ee598b860b8f5d53dd147d436921ad290098/frontend/src/App.jsx",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "T13": {
+      "repository": "Dubnium-105/ProjectReboundToolbox",
+      "revision": "63e5ee598b860b8f5d53dd147d436921ad290098",
+      "path": "src-tauri/src/commands.rs",
+      "url": "https://github.com/Dubnium-105/ProjectReboundToolbox/blob/63e5ee598b860b8f5d53dd147d436921ad290098/src-tauri/src/commands.rs",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "T14": {
+      "repository": "Dubnium-105/ProjectReboundToolbox",
+      "revision": "63e5ee598b860b8f5d53dd147d436921ad290098",
+      "path": "src-tauri/src/events.rs",
+      "url": "https://github.com/Dubnium-105/ProjectReboundToolbox/blob/63e5ee598b860b8f5d53dd147d436921ad290098/src-tauri/src/events.rs",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "T15": {
+      "repository": "Dubnium-105/ProjectReboundToolbox",
+      "revision": "63e5ee598b860b8f5d53dd147d436921ad290098",
+      "path": "src/api/discovery/client_config.rs",
+      "url": "https://github.com/Dubnium-105/ProjectReboundToolbox/blob/63e5ee598b860b8f5d53dd147d436921ad290098/src/api/discovery/client_config.rs",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "T16": {
+      "repository": "Dubnium-105/ProjectReboundToolbox",
+      "revision": "63e5ee598b860b8f5d53dd147d436921ad290098",
+      "path": "src/api/multiplayer/rooms.rs",
+      "url": "https://github.com/Dubnium-105/ProjectReboundToolbox/blob/63e5ee598b860b8f5d53dd147d436921ad290098/src/api/multiplayer/rooms.rs",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "T17": {
+      "repository": "Dubnium-105/ProjectReboundToolbox",
+      "revision": "63e5ee598b860b8f5d53dd147d436921ad290098",
+      "path": "src/server/registration.rs",
+      "url": "https://github.com/Dubnium-105/ProjectReboundToolbox/blob/63e5ee598b860b8f5d53dd147d436921ad290098/src/server/registration.rs",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "T18": {
+      "repository": "Dubnium-105/ProjectReboundToolbox",
+      "revision": "63e5ee598b860b8f5d53dd147d436921ad290098",
+      "path": "src/vnt/runtime.rs",
+      "url": "https://github.com/Dubnium-105/ProjectReboundToolbox/blob/63e5ee598b860b8f5d53dd147d436921ad290098/src/vnt/runtime.rs",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "T19": {
+      "repository": "Dubnium-105/ProjectReboundToolbox",
+      "revision": "63e5ee598b860b8f5d53dd147d436921ad290098",
+      "path": "src/install/self_update.rs",
+      "url": "https://github.com/Dubnium-105/ProjectReboundToolbox/blob/63e5ee598b860b8f5d53dd147d436921ad290098/src/install/self_update.rs",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "T20": {
+      "repository": "Dubnium-105/ProjectReboundToolbox",
+      "revision": "63e5ee598b860b8f5d53dd147d436921ad290098",
+      "path": "MODULE_MAP.md",
+      "url": "https://github.com/Dubnium-105/ProjectReboundToolbox/blob/63e5ee598b860b8f5d53dd147d436921ad290098/MODULE_MAP.md",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "T21": {
+      "repository": "Dubnium-105/ProjectReboundToolbox",
+      "revision": "63e5ee598b860b8f5d53dd147d436921ad290098",
+      "path": "Cargo.toml",
+      "url": "https://github.com/Dubnium-105/ProjectReboundToolbox/blob/63e5ee598b860b8f5d53dd147d436921ad290098/Cargo.toml",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "T22": {
+      "repository": "Dubnium-105/ProjectReboundToolbox",
+      "revision": "63e5ee598b860b8f5d53dd147d436921ad290098",
+      "path": "src/server",
+      "url": "https://github.com/Dubnium-105/ProjectReboundToolbox/tree/63e5ee598b860b8f5d53dd147d436921ad290098/src/server",
+      "scope": "目录级定位入口；启动/关闭实现应由Codex按实际文件定位，不声称存在manager.rs文件"
+    },
+    "T23": {
+      "repository": "Dubnium-105/ProjectReboundToolbox",
+      "revision": "63e5ee598b860b8f5d53dd147d436921ad290098",
+      "path": "src/vnt/session.rs",
+      "url": "https://github.com/Dubnium-105/ProjectReboundToolbox/blob/63e5ee598b860b8f5d53dd147d436921ad290098/src/vnt/session.rs",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "P01": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Payload/dllmain.cpp",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Payload/dllmain.cpp",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "P02": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Payload/ClientLogic/ClientLogic.cpp",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Payload/ClientLogic/ClientLogic.cpp",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "P03": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Payload/Communication/CommandFramework.cpp",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Payload/Communication/CommandFramework.cpp",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "P04": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Payload/Communication/CommandProtocol.cpp",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Payload/Communication/CommandProtocol.cpp",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "P05": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Payload/Admission/StrictRosterPolicy.h",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Payload/Admission/StrictRosterPolicy.h",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "P06": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Payload/Config/Config.cpp",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Payload/Config/Config.cpp",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "P07": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Payload/Hooks/Hooks.cpp",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Payload/Hooks/Hooks.cpp",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "P08": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Backend/internal/matchlobby/service.go",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Backend/internal/matchlobby/service.go",
+      "scope": "本轮重新读取开头 FailClosedDisabledAttempts；其余生命周期沿用前序固定提交证据"
+    },
+    "P09": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Backend/internal/matchlobby/model.go",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Backend/internal/matchlobby/model.go",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "P10": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Backend/internal/matchlobby/sweeper.go",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Backend/internal/matchlobby/sweeper.go",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "P11": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Backend/internal/matchlobby/token.go",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Backend/internal/matchlobby/token.go",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "P12": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Backend/internal/p2proom/service.go",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Backend/internal/p2proom/service.go",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "P13": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Backend/internal/p2proom/repository.go",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Backend/internal/p2proom/repository.go",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "P14": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Backend/internal/connection/service.go",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Backend/internal/connection/service.go",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "P15": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Backend/internal/p2pbattlelog/service.go",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Backend/internal/p2pbattlelog/service.go",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "P16": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Backend/internal/p2pbattlelog/repository.go",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Backend/internal/p2pbattlelog/repository.go",
+      "scope": "本轮重新读取 1–285 行，确认旧战绩快照与托管投影分支、MarkRoomMatchRunning 隔离条件"
+    },
+    "P17": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Backend/internal/gameserver/service.go",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Backend/internal/gameserver/service.go",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "P18": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Backend/internal/metaserver/scheduler.go",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Backend/internal/metaserver/scheduler.go",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "P19": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Backend/internal/config/config.go",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Backend/internal/config/config.go",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "P20": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Backend/internal/controlplane/server.go",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Backend/internal/controlplane/server.go",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "P21": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Backend/migrations/000042_match_lobbies.sql",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Backend/migrations/000042_match_lobbies.sql",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "P22": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Backend/cmd/meta-tunnel/main.go",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Backend/cmd/meta-tunnel/main.go",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "P23": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Backend/internal/matchlobby/dedicated_integration_test.go",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Backend/internal/matchlobby/dedicated_integration_test.go",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "P24": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Backend/api/relay-protocol.md",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Backend/api/relay-protocol.md",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "P25": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "docs/architecture/command-framework.zh-CN.md",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/docs/architecture/command-framework.zh-CN.md",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "P26": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Backend/cmd/game-server-agent/main.go",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Backend/cmd/game-server-agent/main.go",
+      "scope": "前序 GitHub 固定提交源码审阅；Codex 开始时应重新定位符号与行号"
+    },
+    "P27": {
+      "repository": "Dubnium-105/ProjectRebound",
+      "revision": "90145b2b70428bf54b3704f00784703e1f1eedfa",
+      "path": "Backend/matchserver",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/blob/90145b2b70428bf54b3704f00784703e1f1eedfa/Backend/matchserver",
+      "scope": "前序仓库树记录的二进制；仅作来源审计项，需复核实际构建消费方后决定处理，不预判恶意"
+    },
+    "X01": {
+      "repository": "RustCrypto hmac 0.12.1",
+      "revision": "0.12.1",
+      "path": "Mac trait",
+      "url": "https://docs.rs/hmac/0.12.1/hmac/trait.Mac.html",
+      "scope": "前序核对的固定版本原始库契约；以锁定依赖构建并执行跨语言向量验证"
+    }
+  },
+  "execution_notice": "本包仅生成计划并校验交接文件，不表示任何仓库实现或测试已执行。"
+}

@@ -1,0 +1,2153 @@
+{
+  "schema_version": "1.0",
+  "component_tests": [
+    {
+      "id": "AC-001",
+      "issue_id": "BP-001",
+      "title": "源码基线与实测 EXE/DLL 版本未闭合",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T01",
+        "T18",
+        "T19",
+        "P01",
+        "P19"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "给错游戏/Payload/契约版本时在启动前明确拒绝；兼容组合能关联到同一次 run_id；不得仅凭 Cargo version 判兼容。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-002",
+      "issue_id": "BP-002",
+      "title": "并发刷新、登出和旧结果回写竞争",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T09",
+        "T10",
+        "T01"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "20 个并发 401 仅发起一次有效刷新；刷新中登出/换号后旧结果不能恢复身份或覆盖新凭据。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-003",
+      "issue_id": "BP-003",
+      "title": "DPAPI 配置直接覆盖，缺少原子持久化",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T11",
+        "T09"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "写入途中杀进程、并发修改设置时，最终配置完整且可解密；不丢最新凭据、不残留明文临时文件。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-004",
+      "issue_id": "BP-004",
+      "title": "fresh/logged_in 的状态保证强于实际结果",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T10",
+        "T12"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "断网时不假装在线验证通过；过期/撤销账号不能创建在线房间；离线 PvE 不被不必要的在线认证阻塞。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-005",
+      "issue_id": "BP-005",
+      "title": "WebSocket 重连使用旧 Token，缺少统一恢复过程",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T06",
+        "T09",
+        "T01"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "Token 轮换后断开 WS，新握手使用新 Token；旧 room/attempt/session 的排队事件不能覆盖新状态。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-006",
+      "issue_id": "BP-006",
+      "title": "凭据种类缺少统一机器可读生命周期清单",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "P11",
+        "P20",
+        "T10",
+        "T17",
+        "T19"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "每类凭据有 owner 和撤销动作；玩家 Token 不能当 Relay/authority 凭据；日志和前端 DTO 不泄漏 token/私钥/带 token URL。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-007",
+      "issue_id": "BP-007",
+      "title": "客户端进房/建房部分成功后的补偿与恢复不全",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T04",
+        "T05",
+        "T01"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "在 join 后每个 await/网络/校验点注入失败；无不可见幽灵成员；重试不新建重复房间，后端与 UI 最终一致。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-008",
+      "issue_id": "BP-008",
+      "title": "Host/Member 角色在启动分派中被丢弃",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T01",
+        "T04",
+        "T02",
+        "P01"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "同房间 Host＋2 个 Member 中只有指定权威实例开服；成员不建服；错误角色/无权威监听时不报告可入场。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-009",
+      "issue_id": "BP-009",
+      "title": "VNT 裸 IP 与 Payload host:port 校验冲突",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T04",
+        "T02",
+        "P04",
+        "P06"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "裸 IP、零端口、非法 IPv6 被明确拒绝；合法 IPv4:port/[IPv6]:port 可传到 Payload；VNT 目标含真实端口。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-010",
+      "issue_id": "BP-010",
+      "title": "VNT host_ready/探测通与原生游戏监听就绪混用",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T05",
+        "T04",
+        "T18",
+        "P01"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "VNT 网络可达但游戏未监听时无法进入 Running/Playable；游戏监听和准入各有可验证回执。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-011",
+      "issue_id": "BP-011",
+      "title": "新建回退、开局前 rebind 与运行中迁移边界必须固定",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T04",
+        "T05",
+        "P08"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "新建失败可显式重选并重新创建；成员加入/冻结/运行后不跨传输隐式回退；所有在线路径都保持严格准入。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-012",
+      "issue_id": "BP-012",
+      "title": "Legacy 单 game_peer 和全 peers 广播可能合并多人身份",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T06"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "三人及以上双向包不串线、不广播单播回应；一个成员退出/重连不影响其余人的端点归属。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-013",
+      "issue_id": "BP-013",
+      "title": "Relay 16 字节截断 HMAC 用了完整长度验证接口",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T07",
+        "P24",
+        "X01"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "HOST/PEER 使用不同 Token，通过真实 Edge 按接收者重打标签后可双向收包；任一 tag/header/payload 篡改拒绝。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-014",
+      "issue_id": "BP-014",
+      "title": "Relay 数据面错误被吞，重排/MTU/重放缺少可观测验收",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T06",
+        "T07",
+        "P24"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "合法双向数据有计数；篡改、重复、窗口外包、超 MTU 可区分；暂时乱序行为符合文档而非悄悄全丢。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-015",
+      "issue_id": "BP-015",
+      "title": "Relay 迁移缺少显式切换状态、代次与收尾",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T06",
+        "P14",
+        "P24"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "强制 Relay Drain 后双方可完成受控迁移或给出明确失败；不会半边留在旧 relay、错误恢复或泄漏资源。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-016",
+      "issue_id": "BP-016",
+      "title": "launch_join 返回空 PID，与前端完成结果契约冲突",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T03",
+        "T01",
+        "T13",
+        "T12"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "点击一次只创建一组进程；API不报无效响应同时后台成功；重复请求、取消、重试不会漏登记或重复启动。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-017",
+      "issue_id": "BP-017",
+      "title": "launch_room 在最终提交前发布成功且失败清理不一致",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T01",
+        "T12",
+        "T04"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "逐阶段断网/失败不出现先最终成功后悬挂；每个 operation 只有一个最终结果，且可重试/可清理。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-018",
+      "issue_id": "BP-018",
+      "title": "PID/窗口稳定被当成远程入场完成",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T02",
+        "T12",
+        "P02",
+        "P07"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "远端拒绝/无监听/地图加载失败时 UI 不显示已进入战局；必须观测本地控制器、Pawn及输入状态才标记 Playable。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-019",
+      "issue_id": "BP-019",
+      "title": "房间/远程 Join 缺少统一 PayloadReady 握手与诊断通道",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T02",
+        "T08",
+        "P01",
+        "P06"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "缺DLL、错误哈希、错误pipe owner、错误PID、超时分别有结果；正常启动取得匹配当前 run 的 PayloadReady。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-020",
+      "issue_id": "BP-020",
+      "title": "Toolbox 登录与游戏登录/游戏线程泵送没有闭环",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "P02",
+        "P01",
+        "T10",
+        "T02"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "刻意阻断游戏登录时队列不乱执行且给出精确超时；正常登录后在游戏线程执行，不在IPC线程直接操作UObject。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-021",
+      "issue_id": "BP-021",
+      "title": "发出 open 后即清空队列，缺少 Travel 成败闭环",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "P02",
+        "P07"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "连接拒绝、地图错误、重复ACK、迟到成功与取消竞态均有单一终态；正常能得到 WorldReady/Playable。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-022",
+      "issue_id": "BP-022",
+      "title": "join_ack.status accepted/ok 不兼容",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T08",
+        "P03"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "C++实际编码 accepted 的帧可由Rust解析；错误ID、busy和wrong command拒绝；不误判为已经入场。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-023",
+      "issue_id": "BP-023",
+      "title": "IPC 文档/七命令、分帧、取消和结构化错误未统一",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T08",
+        "P03",
+        "P04",
+        "P25",
+        "P01"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "一次read多帧/部分帧不误判；无响应可有界退出；7个命令可交叉验证；错误码不会掩盖原生路径未实现。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-024",
+      "issue_id": "BP-024",
+      "title": "游戏 lifecycle 与服务注册 state 枚举未完整适配",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "P01",
+        "P03",
+        "T08",
+        "T17",
+        "P17"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "投票/换图/重启场景不因解析错误断开注册；已分配专服不被映射回可重复分配READY。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-025",
+      "issue_id": "BP-025",
+      "title": "错误、trace 与前端房间状态同步不完整",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T09",
+        "T04",
+        "T01",
+        "T12",
+        "T14"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "后台线路fatal后两个前端清理对应active状态并显示同一错误码；从UI可定位到后端/Payload同一运行，不泄密。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-026",
+      "issue_id": "BP-026",
+      "title": "有序资源关闭未覆盖常驻worker与阻塞IO",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T01",
+        "T02",
+        "T08",
+        "T22"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "同进程启动/关闭/再启动无旧事件、旧Token或重复worker；失联pipe也能有界退出；不误杀非受管进程。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-027",
+      "issue_id": "BP-027",
+      "title": "世界切换后角色、配装、控制器、HUD与多局流程未验收",
+      "test_kind": "manual_game_e2e",
+      "sources": [
+        "P02",
+        "P07",
+        "P01"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "至少一场可操作对局、重生、迟到/重连与下一局的轨迹与截图/日志可核对；未运行不得标PASS。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-028",
+      "issue_id": "BP-028",
+      "title": "本地 Node Meta 与远程 Go MetaTunnel 是不同模式",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T02",
+        "P22"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "离线PvE不依赖远程登录；在线模式不会悄悄退回本地伪认证；端口被别的进程占用时明确失败/改分配。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-029",
+      "issue_id": "BP-029",
+      "title": "MetaTunnel 动态端口、Token更新和EOF/父进程退出未接成工作流",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "P22",
+        "T01",
+        "T09"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "Token刷新后代理请求使用新Token；端口动态传到游戏；父崩溃/换号不遗留旧授权隧道；EOF行为符合明确策略。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-030",
+      "issue_id": "BP-030",
+      "title": "Toolbox 未接通权威大厅/Attempt 完整控制器",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T01",
+        "T04",
+        "T15",
+        "T16",
+        "T20",
+        "P08",
+        "P09",
+        "P20"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "两套前端在同一业务模块下可创建/加入/选队/准备/开局/重试/退出；旧快照不能覆盖新修订，不靠旧start驱动托管开局。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-031",
+      "issue_id": "BP-031",
+      "title": "角色、hosting/transport与各类ID/generation不能压成一个字段",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "P09",
+        "P11",
+        "P21",
+        "P05",
+        "T04"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "编译/序列化/契约测试阻止ID互传；host身份不能复用Member Grant；模式组合与后端约束一致。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-032",
+      "issue_id": "BP-032",
+      "title": "退役旧在线房间API与任意地址Join，保留托管隔离",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "P12",
+        "P13",
+        "T16",
+        "T15"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "目标构建不再暴露旧在线目录/启动入口；调用退役路径明确失败，新流程通过Lobby合法操作且不存在降级后门。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-033",
+      "issue_id": "BP-033",
+      "title": "旧连通回调提前推进托管p2p_room为RUNNING",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "P12",
+        "P13",
+        "P14"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "托管大厅OPEN时前两人先直连/Relay成功，第三人仍能加入并选队；不因ROOM_NOT_JOINABLE被挡；Attempt未提前Running。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-034",
+      "issue_id": "BP-034",
+      "title": "BattleLog Presence等投影入口仍能独立推进托管状态",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "P15",
+        "P16",
+        "P18",
+        "P08"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "伪造/迟到ACTIVE报告不使托管Attempt或投影提前Running；报告关闭也不丢冻结名单；源状态和投影合法一致。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-035",
+      "issue_id": "BP-035",
+      "title": "大厅—传输—对局投影的跨事务补偿与崩溃恢复需补证据",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "P08",
+        "P12",
+        "P16",
+        "P21"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "各崩溃点恢复后无重复lobby/room/match、成员集相等；单个active Attempt约束保留；旧idempotency重试得到同一操作结果。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-036",
+      "issue_id": "BP-036",
+      "title": "多种Presence/Heartbeat租约与启动/Grant时限尚未统一编排",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "P08",
+        "P10",
+        "P19",
+        "T02",
+        "T04"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "故意延迟启动/Token刷新时租约按策略续存或明确超时；已过期Grant不能入场；网络活着但authority离线可准确区分。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-037",
+      "issue_id": "BP-037",
+      "title": "后端开局人数规则与游戏角色确认门禁未形成同一政策",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "P08",
+        "P10",
+        "P07"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "全员到齐、单方缺席、两队各一人、迟到/断线/选角晚到均不死等或提前开赛；政策在后端与原生一致。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-038",
+      "issue_id": "BP-038",
+      "title": "客户端携带Join Grant的原生NMT_Login路径尚未实现",
+      "test_kind": "manual_game_e2e",
+      "sources": [
+        "P02",
+        "P01",
+        "P03",
+        "T08"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "有效Grant由真实客户端握手携带；空/错aud/错版本/篡改Grant无法入场；失败返回native_admission_unverified而非笼统busy。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-039",
+      "issue_id": "BP-039",
+      "title": "权威PreLogin、真实身份、队伍/席位执行与回执未闭环",
+      "test_kind": "manual_game_e2e",
+      "sources": [
+        "P05",
+        "P01",
+        "P08",
+        "P11",
+        "P07"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "非名单/冒名/换队/占错席位/重复连接/旧代次全拒绝；合法玩家真实入场，服务端席位与游戏角色一致。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-040",
+      "issue_id": "BP-040",
+      "title": "P2P房主StartAuthority传空平台身份且缺原生启动证明",
+      "test_kind": "manual_game_e2e",
+      "sources": [
+        "P01",
+        "P05",
+        "P08"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "空或错误本机平台ID拒绝；合法HOST不用远程Grant；真正监听后才ready，客户端模式不能伪装authority。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-041",
+      "issue_id": "BP-041",
+      "title": "同route的allocation刷新未应用新席位generation",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "P05",
+        "P08"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "新generation快照安装后旧Grant在策略边界即被拒；旧断线不能断开新连接；刷新不把旧连接冒充新generation。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-042",
+      "issue_id": "BP-042",
+      "title": "Join Grant重复申请/撤销/消费与本地准入缺少一致事务",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "P08",
+        "P05",
+        "P11",
+        "P21"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "响应丢失重试不无意义增加generation；过期/撤销Grant不能真正入场；原生失败无永久占席；后端不可达按策略失败关闭。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-043",
+      "issue_id": "BP-043",
+      "title": "权威恢复缺少route/seat刷新与同世界连续性证明",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "P08",
+        "P10",
+        "P05",
+        "T05"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "旧route/旧Grant在恢复后拒绝；未装新allocation不签发可用加入凭据；房主游戏崩溃不冒称延续原对局。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-044",
+      "issue_id": "BP-044",
+      "title": "旧快照/旧Attempt/旧断线回执污染新会话的边界需全链验证",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "P08",
+        "P09",
+        "P05",
+        "T01",
+        "T12"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "新连接就绪后旧断线/旧完成/旧快照都不能清掉新连接或推进新Attempt；幂等与拒绝原因可观测。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-045",
+      "issue_id": "BP-045",
+      "title": "Dedicated严格调度没有充分筛选准入能力",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "P08",
+        "P17",
+        "P18",
+        "P19"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "旧server或native_unverified不能被选为strict authority；新server分配后普通READY心跳不使其二次入池。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-046",
+      "issue_id": "BP-046",
+      "title": "专服心跳active_match未被Toolbox消费并驱动准入",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T17",
+        "T08",
+        "P17",
+        "P26",
+        "P08"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "注册成功后收到任务能真正安装/启动准入；重复assignment不重复开服；无任务/终止任务可清理；旧agent不被静默认为支持。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-047",
+      "issue_id": "BP-047",
+      "title": "数据库结束/释放早于Payload清理与游戏资源确认",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "P08",
+        "P10",
+        "P05",
+        "T01",
+        "T04",
+        "T05"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "每个终态/超时/取消后最终无本轮遗留；未清理实例不能再次分配；连续两局无旧名单或迟到回执串入。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-048",
+      "issue_id": "BP-048",
+      "title": "strict开关关闭启动会批量终止共享数据库严格对局",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "P08",
+        "P20",
+        "P19"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "实例A正在strict对局，实例B禁用新建启动不会无故ABORT它；明确强制撤销时则可控终止并完整审计。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-049",
+      "issue_id": "BP-049",
+      "title": "配套schema升级、单版本部署与身份隔离门禁",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "P21",
+        "P20",
+        "P18",
+        "P08"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "测试库升级和配套快照恢复演练数据不丢；错schema/错服务组合拒绝启动，隔离负向测试通过；不默认清空任何数据库。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-050",
+      "issue_id": "BP-050",
+      "title": "发布/更新/运行时安全门禁需跟兼容矩阵一起保持",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "T18",
+        "T19",
+        "T21",
+        "P01"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "任一信任层不符则拒绝且旧版可运行；无未验证二进制自动开启strict；测试不输出/分享密钥、Token或字体文件。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-051",
+      "issue_id": "BP-051",
+      "title": "现有单库/模拟/可视化检查不能证明端到端已通过",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "P23",
+        "T08",
+        "P03",
+        "P24",
+        "T01"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "报告能逐BP追到改动commit与对应AC/E2E结果；所有声明支持的组合通过，缺Windows/游戏资源仅标BLOCKED不造PASS。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    },
+    {
+      "id": "AC-052",
+      "issue_id": "BP-052",
+      "title": "Backend/matchserver二进制来源与消费链待审计",
+      "test_kind": "automated_or_integration",
+      "sources": [
+        "P27",
+        "P20"
+      ],
+      "preconditions": [
+        "锁定并记录实际源码/产物版本。",
+        "使用隔离测试库与测试身份；不得使用生产秘密。"
+      ],
+      "steps": [
+        "先按observed行为构造回归或说明反证。",
+        "执行work中覆盖的正向、失败、重复、取消或竞态场景。",
+        "采集命令、返回码、脱敏日志以及适用的数据库/原生证据。"
+      ],
+      "expected": "构建不依赖来源不明的手工二进制；消费者更新可验证，迁移前后所需功能一致。",
+      "status": "not_run",
+      "required_evidence_fields": [
+        "commit_pair",
+        "artifact_hashes",
+        "environment",
+        "command_or_harness",
+        "exit_code",
+        "log_paths",
+        "observed_result"
+      ],
+      "result": null
+    }
+  ],
+  "e2e_tests": [
+    {
+      "id": "E2E-01",
+      "title": "在线旧入口与能力拒绝",
+      "issue_ids": [
+        "BP-001",
+        "BP-030",
+        "BP-031",
+        "BP-032",
+        "BP-038",
+        "BP-039",
+        "BP-045"
+      ],
+      "steps": [
+        "搜索并调用旧房间CRUD/任意地址Join/旧Meta独立匹配；测试空Grant与无原生能力实例。",
+        "尝试通过同一新UI创建在线大厅。"
+      ],
+      "expected": "旧入口不存在或明确退役；新入口必经严格名单；不因后端flag或客户端重试降级。",
+      "status": "not_run",
+      "result": null
+    },
+    {
+      "id": "E2E-02",
+      "title": "P2P LAN严格三人完整对局",
+      "issue_ids": [
+        "BP-008",
+        "BP-010",
+        "BP-012",
+        "BP-018",
+        "BP-027",
+        "BP-030",
+        "BP-033",
+        "BP-037",
+        "BP-038",
+        "BP-039",
+        "BP-040",
+        "BP-047"
+      ],
+      "steps": [
+        "HOST和两个MEMBER分在两队，逐个加入、选队、Ready；在第三人加入前让前两人网络先连通。",
+        "冻结、安装allocation、真实HOST监听、成员Grant入场；验证独立端点、队伍、Pawn和输入。",
+        "完成一局、清理、重新创建Attempt并进入下一局。"
+      ],
+      "expected": "名单/队伍/席位和游戏实际一致；第三人不被提前RUNNING阻断；跨局无旧状态。",
+      "status": "not_run",
+      "result": null
+    },
+    {
+      "id": "E2E-03",
+      "title": "P2P强制Relay严格三人",
+      "issue_ids": [
+        "BP-008",
+        "BP-012",
+        "BP-013",
+        "BP-014",
+        "BP-015",
+        "BP-018",
+        "BP-027",
+        "BP-030",
+        "BP-038",
+        "BP-039",
+        "BP-040"
+      ],
+      "steps": [
+        "受控测试网络阻断直连，要求两个成员均走真实Edge Relay。",
+        "使用分别签发的HOST/PEER令牌，验证Relay按接收方重打标签；逐流检查上下行。",
+        "注入乱序、重复、MTU边界和错误tag。"
+      ],
+      "expected": "合法包互通、不串线；非法包拒绝且错误分类明确；不关闭MAC/原生准入。",
+      "status": "not_run",
+      "result": null
+    },
+    {
+      "id": "E2E-04",
+      "title": "P2P VNT严格三人",
+      "issue_ids": [
+        "BP-007",
+        "BP-008",
+        "BP-009",
+        "BP-010",
+        "BP-011",
+        "BP-018",
+        "BP-027",
+        "BP-030",
+        "BP-038",
+        "BP-039",
+        "BP-040"
+      ],
+      "steps": [
+        "使用固定校验通过的VNT运行时与授权测试节点，三个玩家加入同一权威大厅。",
+        "核对游戏端口不是VNT节点端口，HostReady分别观测网络和原生。",
+        "入场、结算、退房并检查本机网卡/进程和后端成员清理。"
+      ],
+      "expected": "虚拟网可达不提前认定游戏成功；三人可操作，目标端点合法，结束后资源收敛。",
+      "status": "not_run",
+      "result": null
+    },
+    {
+      "id": "E2E-05",
+      "title": "Dedicated严格分配与拒绝重复分配",
+      "issue_ids": [
+        "BP-024",
+        "BP-030",
+        "BP-031",
+        "BP-039",
+        "BP-045",
+        "BP-046",
+        "BP-047"
+      ],
+      "steps": [
+        "注册支持/不支持native admission的两个测试实例，三名玩家创建Dedicated大厅。",
+        "让合法实例心跳报告READY但已有active_match，再尝试第二个分配。",
+        "完成安装/准入/入场/结束；清理确认之前测试重新调度。"
+      ],
+      "expected": "不支持的实例不分配；有租约或cleanup_pending实例不重用；大厅owner按普通远程玩家入场。",
+      "status": "not_run",
+      "result": null
+    },
+    {
+      "id": "E2E-06",
+      "title": "启动假成功与错误回传",
+      "issue_ids": [
+        "BP-016",
+        "BP-017",
+        "BP-018",
+        "BP-019",
+        "BP-020",
+        "BP-021",
+        "BP-022",
+        "BP-025"
+      ],
+      "steps": [
+        "分别阻断DLL加载、pipe、游戏登录、Travel、远端监听和玩家接纳。",
+        "保持窗口可见/PID有效，记录UI状态与最终任务状态。"
+      ],
+      "expected": "只报告已完成阶段；每operation单一终态；前端能定位真正错误，不出现失败后后台无人管启动。",
+      "status": "not_run",
+      "result": null
+    },
+    {
+      "id": "E2E-07",
+      "title": "Grant重试、撤销与两阶段准入",
+      "issue_ids": [
+        "BP-038",
+        "BP-039",
+        "BP-041",
+        "BP-042",
+        "BP-044"
+      ],
+      "steps": [
+        "丢弃首次Grant响应后用同一join意图重试；主动重连另用新意图。",
+        "同route提高授权generation后提交旧Grant；注入native成功/后端确认失败。",
+        "并发两个原生连接争用同席位。"
+      ],
+      "expected": "幂等重试不无意义增代；旧/撤销Grant不可成为可操作玩家；失败释放预留；单席位仅一个有效live连接。",
+      "status": "not_run",
+      "result": null
+    },
+    {
+      "id": "E2E-08",
+      "title": "名单/身份/用途负向准入",
+      "issue_ids": [
+        "BP-006",
+        "BP-031",
+        "BP-038",
+        "BP-039",
+        "BP-040",
+        "BP-041",
+        "BP-042"
+      ],
+      "steps": [
+        "尝试非名单平台身份、错team/slot、错attempt/session、错aud/issuer/kid、篡改/过期Grant。",
+        "P2P HOST尝试成员Grant；Dedicated owner尝试本机HOST路径。"
+      ],
+      "expected": "全部不合法组合安全拒绝，不通过伪造player_id/显示名证明身份；无秘密泄漏。",
+      "status": "not_run",
+      "result": null
+    },
+    {
+      "id": "E2E-09",
+      "title": "房主同世界短断线恢复",
+      "issue_ids": [
+        "BP-005",
+        "BP-015",
+        "BP-036",
+        "BP-043",
+        "BP-044"
+      ],
+      "steps": [
+        "保持原生World不丢失，短暂断开authority heartbeat并在规定恢复窗返回。",
+        "在新allocation未安装时申请Grant，再完成安装确认并重连。"
+      ],
+      "expected": "恢复按route/seat代次推进；旧Grant拒绝；新Grant仅在当前代次准备完成后可用。",
+      "status": "not_run",
+      "result": null
+    },
+    {
+      "id": "E2E-10",
+      "title": "房主真实崩溃与世界丢失",
+      "issue_ids": [
+        "BP-026",
+        "BP-027",
+        "BP-043",
+        "BP-044",
+        "BP-047"
+      ],
+      "steps": [
+        "终止拥有World的受管游戏进程，再恢复Toolbox/网络。",
+        "尝试使用旧authority_session/旧Grant/旧connected回执。"
+      ],
+      "expected": "旧Attempt结束并清理，不伪称同世界恢复；新的游戏世界只能取得新Attempt和身份上下文。",
+      "status": "not_run",
+      "result": null
+    },
+    {
+      "id": "E2E-11",
+      "title": "Token并发轮换、换号与隧道",
+      "issue_ids": [
+        "BP-002",
+        "BP-003",
+        "BP-004",
+        "BP-005",
+        "BP-028",
+        "BP-029"
+      ],
+      "steps": [
+        "20个请求同时401；轮换中登出/切换账号；旧WS断开重连。",
+        "检查HTTP、WS和MetaTunnel使用的session_epoch和Token版本，故障注入写配置中断。"
+      ],
+      "expected": "一个受控刷新，旧结果不回写；旧账号隧道不会继续授权；DPAPI文件完整可恢复。",
+      "status": "not_run",
+      "result": null
+    },
+    {
+      "id": "E2E-12",
+      "title": "Relay Drain迁移",
+      "issue_ids": [
+        "BP-012",
+        "BP-014",
+        "BP-015",
+        "BP-043",
+        "BP-044"
+      ],
+      "steps": [
+        "真实三人Relay对局中排空当前Relay；注入迁移事件重复/乱序和单边新BIND失败。",
+        "观测旧/新allocation及对应游戏端点。"
+      ],
+      "expected": "切换或终止有明确结果；不会半边新路半边旧路悬挂；名单/入场权限不降级。",
+      "status": "not_run",
+      "result": null
+    },
+    {
+      "id": "E2E-13",
+      "title": "大厅/传输跨事务故障注入",
+      "issue_ids": [
+        "BP-007",
+        "BP-033",
+        "BP-034",
+        "BP-035",
+        "BP-036"
+      ],
+      "steps": [
+        "在大厅提交、P2P创建、成员投影、StartManaged与Attempt提交之间逐点失败/杀进程。",
+        "使用相同幂等键恢复并运行reconciler。"
+      ],
+      "expected": "无重复资源或幽灵成员；名单集和投影一致；网络/报告不能反向启动业务。",
+      "status": "not_run",
+      "result": null
+    },
+    {
+      "id": "E2E-14",
+      "title": "租约与开局quorum边界",
+      "issue_ids": [
+        "BP-020",
+        "BP-036",
+        "BP-037",
+        "BP-039",
+        "BP-044"
+      ],
+      "steps": [
+        "模拟慢启动、缺一整队、两队各一人但有迟到席位、角色确认延迟。",
+        "把时钟推进到Grant/连接/权威恢复截止边界。"
+      ],
+      "expected": "按明确政策开局或中止；未到席位不擅自换队/补人；租约新鲜度与游戏Playable分别显示。",
+      "status": "not_run",
+      "result": null
+    },
+    {
+      "id": "E2E-15",
+      "title": "旧事件与新Attempt隔离",
+      "issue_ids": [
+        "BP-017",
+        "BP-030",
+        "BP-041",
+        "BP-042",
+        "BP-043",
+        "BP-044",
+        "BP-047"
+      ],
+      "steps": [
+        "旧Attempt失败回OPEN后启动新Attempt，再投递旧WS快照/IPC ACK/断线/complete。",
+        "先建立新generation连接，再投递旧generation断线。"
+      ],
+      "expected": "新状态不被污染，重复消息幂等，旧回执带原因被丢弃。",
+      "status": "not_run",
+      "result": null
+    },
+    {
+      "id": "E2E-16",
+      "title": "服务状态枚举与专服换图",
+      "issue_ids": [
+        "BP-024",
+        "BP-027",
+        "BP-037",
+        "BP-046",
+        "BP-047"
+      ],
+      "steps": [
+        "触发VOTING、TRANSITIONING、RESTARTING和下一局启动。",
+        "观察Payload→Rust→HTTP心跳的游戏lifecycle与调度lease。"
+      ],
+      "expected": "解析兼容且不重新注册；下一局名单/角色/租约明确，不把换图当READY可重分配。",
+      "status": "not_run",
+      "result": null
+    },
+    {
+      "id": "E2E-17",
+      "title": "取消与同进程重复启动",
+      "issue_ids": [
+        "BP-007",
+        "BP-016",
+        "BP-017",
+        "BP-023",
+        "BP-025",
+        "BP-026",
+        "BP-047"
+      ],
+      "steps": [
+        "在每个启动阶段取消，并重复启动/关闭Runtime至少10轮；模拟无响应pipe。",
+        "同机保留一个不属于本项目的游戏/Node进程以检查误杀。"
+      ],
+      "expected": "有界结束、无旧worker/事件/秘密；仅清理自身资源，不误杀无关进程。",
+      "status": "not_run",
+      "result": null
+    },
+    {
+      "id": "E2E-18",
+      "title": "前端一致性与旧入口消除",
+      "issue_ids": [
+        "BP-004",
+        "BP-016",
+        "BP-018",
+        "BP-025",
+        "BP-030",
+        "BP-031",
+        "BP-032"
+      ],
+      "steps": [
+        "对每个继续发布的React/Tauri、EGUI入口执行相同大厅操作脚本。",
+        "核对operation结果、错误、can_*能力与退役入口。"
+      ],
+      "expected": "业务语义一致，任何前端都不能无名单直入；停止发布的入口有明确构建/文档处理。",
+      "status": "not_run",
+      "result": null
+    },
+    {
+      "id": "E2E-19",
+      "title": "新服务schema与开关安全",
+      "issue_ids": [
+        "BP-034",
+        "BP-035",
+        "BP-048",
+        "BP-049"
+      ],
+      "steps": [
+        "在含迁移42测试数据的库追加升级；用错误schema实例连接测试库。",
+        "一实例有活动Attempt，另一实例accept_new=false启动；另测显式强制中止。"
+      ],
+      "expected": "普通启动不批量终止；错误schema拒绝；显式中止有审计和清理；不默认清库。",
+      "status": "not_run",
+      "result": null
+    },
+    {
+      "id": "E2E-20",
+      "title": "产物签名/更新/版本指纹",
+      "issue_ids": [
+        "BP-001",
+        "BP-006",
+        "BP-019",
+        "BP-050",
+        "BP-052"
+      ],
+      "steps": [
+        "测试错误游戏哈希、错签名者、损坏下载、错前端产物与更新中断。",
+        "核对runtime manifest、构建来源与诊断包脱敏。"
+      ],
+      "expected": "不可信产物拒绝；不能回退无名单在线模式；合法产物有可核查来源。",
+      "status": "not_run",
+      "result": null
+    },
+    {
+      "id": "E2E-21",
+      "title": "身份隔离与在线/离线边界",
+      "issue_ids": [
+        "BP-006",
+        "BP-028",
+        "BP-029",
+        "BP-032",
+        "BP-039",
+        "BP-045",
+        "BP-049"
+      ],
+      "steps": [
+        "测试玩家/节点/管理员凭据跨用途和错误DB角色/Redis ACL。",
+        "保留离线PvE时，尝试将其本地身份/端口用于在线Attempt。"
+      ],
+      "expected": "跨用途拒绝；离线功能不发在线准入与权威战绩，在线不会回退离线认证。",
+      "status": "not_run",
+      "result": null
+    },
+    {
+      "id": "E2E-22",
+      "title": "长稳与反复重连",
+      "issue_ids": [
+        "BP-002",
+        "BP-005",
+        "BP-012",
+        "BP-014",
+        "BP-015",
+        "BP-026",
+        "BP-027",
+        "BP-036",
+        "BP-043",
+        "BP-047",
+        "BP-051"
+      ],
+      "steps": [
+        "在隔离测试环境运行目标支持组合，测试时长作为参数；建议至少覆盖一次凭据轮换和两次完整对局。",
+        "注入短断网、抖动、节点排空和取消；记录句柄、线程、内存与残余资源趋势。"
+      ],
+      "expected": "无无界资源增长、卡死租约、重复入场和状态漂移；报告实际时长/负载，不用估计代替结果。",
+      "status": "not_run",
+      "result": null
+    }
+  ],
+  "execution_status": "not_run"
+}

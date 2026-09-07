@@ -1,0 +1,12 @@
+{
+  "captured_at": "2026-09-07T15:23:39.9589063+08:00",
+  "branch": "codex/authoritative-only-20260907",
+  "ProjectRebound": "213d5f967d0df26e8110842958a52be5d96908d8",
+  "Toolbox": "0aa604eade3662951eeaa94cc6566630cea5a40b",
+  "initial_worktrees": "both clean",
+  "handoff_sha256": "6F8B8DF2B7A2FC00CE302EB72B6B94C4AAF85B6A3D84BACF288CA0A0B94397A2",
+  "os": "Microsoft Windows NT 10.0.26100.0",
+  "arch": "AMD64",
+  "native_e2e": "NOT_RUN",
+  "release_status": "NOT_READY"
+}
