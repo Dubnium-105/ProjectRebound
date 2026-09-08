@@ -2604,8 +2604,11 @@ func (s *Service) AuthorityHeartbeat(ctx context.Context, authorityID, authority
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
 	var reconnecting, hostLiveCurrent, hostLiveUnverified bool
+	var hosting HostingKind
+	var lobbyID, roomID string
 	err = tx.QueryRow(ctx, `
-		SELECT attempt.host_reconnect_deadline IS NOT NULL,
+		SELECT attempt.hosting_kind, attempt.lobby_id, COALESCE(lobby.p2p_room_id, ''),
+		       attempt.host_reconnect_deadline IS NOT NULL,
 		       COALESCE(host.connection_state = 'CONNECTED'
 		                AND host.live_connection_generation = host.connection_generation
 		                AND host.live_route_generation <= attempt.route_generation
@@ -2617,12 +2620,15 @@ func (s *Service) AuthorityHeartbeat(ctx context.Context, authorityID, authority
 		                AND NULLIF(host.live_native_connection_nonce, '') IS NULL,
 		                FALSE)
 		FROM match_attempts AS attempt
+		JOIN match_lobbies AS lobby ON lobby.id = attempt.lobby_id
 		LEFT JOIN match_attempt_roster AS host
 		  ON host.attempt_id = attempt.id AND host.room_role = 'HOST'
 		WHERE attempt.id = $1 AND attempt.authority_id = $2 AND attempt.authority_session_id = $3
 		  AND attempt.state IN ('CONNECTING', 'RUNNING')
 		FOR UPDATE OF attempt
-	`, attemptID, authorityID, authoritySession).Scan(&reconnecting, &hostLiveCurrent, &hostLiveUnverified)
+	`, attemptID, authorityID, authoritySession).Scan(
+		&hosting, &lobbyID, &roomID, &reconnecting, &hostLiveCurrent, &hostLiveUnverified,
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return forbidden("MATCH_AUTHORITY_SCOPE_REQUIRED", "This authority is not assigned to the active match attempt.")
 	}
@@ -2635,6 +2641,27 @@ func (s *Service) AuthorityHeartbeat(ctx context.Context, authorityID, authority
 	// a disconnect or replace the unknown connection with a new scope.
 	if hostLiveUnverified {
 		return conflict("MATCH_HOST_LIVE_SCOPE_UNVERIFIED", "The connected P2P HOST has no persisted native connection nonce; terminate or reconcile the attempt before refreshing its authority route.", nil)
+	}
+	// The authoritative heartbeat is also the lease heartbeat for a managed
+	// P2P room.  Renew it only after the attempt/session scope above has been
+	// locked and only while the room is still live.  A stale or terminal room
+	// must not be revived by a late authority heartbeat.
+	if hosting == HostingP2P {
+		if roomID == "" {
+			return conflict("MATCH_TRANSPORT_LEASE_UNAVAILABLE", "The managed P2P transport room is unavailable for this authority attempt.", nil)
+		}
+		command, err := tx.Exec(ctx, `
+			UPDATE p2p_rooms
+			SET last_heartbeat_at = $2, updated_at = $2
+			WHERE id = $1 AND managed_lobby_id = $3 AND deleted_at IS NULL
+			  AND expires_at > $2 AND state IN ('LOBBY', 'CONNECTING', 'RUNNING')
+		`, roomID, now, lobbyID)
+		if err != nil {
+			return internal(err)
+		}
+		if command.RowsAffected() != 1 {
+			return conflict("MATCH_TRANSPORT_LEASE_UNAVAILABLE", "The managed P2P transport room is no longer active for this authority attempt.", nil)
+		}
 	}
 	// A recovery window is opened by the sweeper or by a real native HOST
 	// DISCONNECTED event.  Only a still-live HOST causes this heartbeat to

@@ -1993,6 +1993,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/match-attempts/{attempt_id}/transport": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Returns the non-secret managed transport projection only when the authenticated player is in the current frozen attempt roster and both supplied scope headers exactly match the attempt. */
+        get: operations["getAuthoritativeMatchTransport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/match-attempts/{attempt_id}/transport/vnt/bootstrap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Issues VNT bootstrap material only inside the current frozen attempt scope. Secret fields are write-only and must remain in the Toolbox core. */
+        post: operations["bootstrapAuthoritativeMatchVNT"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/match-attempts/{attempt_id}/transport/vnt/presence/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Updates the authenticated frozen roster member's VNT presence under the current attempt scope. */
+        put: operations["updateAuthoritativeMatchVNTPresence"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/match-attempts/{attempt_id}/transport/vnt/host-ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Marks the frozen host's VNT transport ready. Node selection cannot be rebound after the attempt is frozen. */
+        put: operations["markAuthoritativeMatchVNTHostReady"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/match-attempts/{attempt_id}/host/allocation": {
         parameters: {
             query?: never;
@@ -5187,6 +5255,18 @@ export interface components {
             data: components["schemas"]["MatchLobbySnapshot"];
             request_id: string;
         };
+        MatchTransportProjection: {
+            attempt_id: string;
+            lobby_id: string;
+            /** Format: int64 */
+            roster_revision: number;
+            route_generation: number;
+            room: components["schemas"]["PublicP2PRoom"];
+        };
+        MatchTransportResponse: {
+            data: components["schemas"]["MatchTransportProjection"];
+            request_id: string;
+        };
         MatchLobbyCreateResponse: {
             data: {
                 lobby: components["schemas"]["MatchLobbySnapshot"];
@@ -6547,6 +6627,10 @@ export interface components {
         GameServerID: string;
         MatchLobbyID: string;
         MatchAttemptID: string;
+        /** @description Frozen lobby roster revision captured with the authoritative attempt allocation. */
+        MatchTransportRosterRevision: number;
+        /** @description Current attempt route generation captured with the authoritative transport allocation. */
+        MatchTransportRouteGeneration: number;
         /** @description Stable key for one join intent. Reuse it only to retry the same lost response; use a new key for an intentional reconnect. */
         MatchJoinIdempotencyKey: string;
         MatchGrantJTI: string;
@@ -9971,9 +10055,9 @@ export interface operations {
     heartbeatMatchLobbyPresence: {
         parameters: {
             query?: never;
-            header?: {
+            header: {
                 /** @description P2P transport host credential retained only by the Toolbox core. Never expose it in UI DTOs or logs. */
-                "X-Match-Transport-Host-Token"?: components["parameters"]["MatchTransportHostToken"];
+                "X-Match-Transport-Host-Token": components["parameters"]["MatchTransportHostToken"];
             };
             path: {
                 lobby_id: components["parameters"]["MatchLobbyID"];
@@ -10000,9 +10084,9 @@ export interface operations {
     leaveMatchLobby: {
         parameters: {
             query?: never;
-            header?: {
+            header: {
                 /** @description P2P transport host credential retained only by the Toolbox core. Never expose it in UI DTOs or logs. */
-                "X-Match-Transport-Host-Token"?: components["parameters"]["MatchTransportHostToken"];
+                "X-Match-Transport-Host-Token": components["parameters"]["MatchTransportHostToken"];
             };
             path: {
                 lobby_id: components["parameters"]["MatchLobbyID"];
@@ -10109,6 +10193,144 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
+    getAuthoritativeMatchTransport: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Frozen lobby roster revision captured with the authoritative attempt allocation. */
+                "X-Match-Roster-Revision": components["parameters"]["MatchTransportRosterRevision"];
+                /** @description Current attempt route generation captured with the authoritative transport allocation. */
+                "X-Match-Route-Generation": components["parameters"]["MatchTransportRouteGeneration"];
+            };
+            path: {
+                attempt_id: components["parameters"]["MatchAttemptID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authoritative transport projection bound to the current attempt scope. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    Pragma?: "no-cache";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchTransportResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    bootstrapAuthoritativeMatchVNT: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Frozen lobby roster revision captured with the authoritative attempt allocation. */
+                "X-Match-Roster-Revision": components["parameters"]["MatchTransportRosterRevision"];
+                /** @description Current attempt route generation captured with the authoritative transport allocation. */
+                "X-Match-Route-Generation": components["parameters"]["MatchTransportRouteGeneration"];
+            };
+            path: {
+                attempt_id: components["parameters"]["MatchAttemptID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Attempt-scoped VNT bootstrap material. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    Pragma?: "no-cache";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VNTBootstrapResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    updateAuthoritativeMatchVNTPresence: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Frozen lobby roster revision captured with the authoritative attempt allocation. */
+                "X-Match-Roster-Revision": components["parameters"]["MatchTransportRosterRevision"];
+                /** @description Current attempt route generation captured with the authoritative transport allocation. */
+                "X-Match-Route-Generation": components["parameters"]["MatchTransportRouteGeneration"];
+            };
+            path: {
+                attempt_id: components["parameters"]["MatchAttemptID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VNTPresenceRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated non-secret managed transport projection. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    Pragma?: "no-cache";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["P2PRoomResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    markAuthoritativeMatchVNTHostReady: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Frozen lobby roster revision captured with the authoritative attempt allocation. */
+                "X-Match-Roster-Revision": components["parameters"]["MatchTransportRosterRevision"];
+                /** @description Current attempt route generation captured with the authoritative transport allocation. */
+                "X-Match-Route-Generation": components["parameters"]["MatchTransportRouteGeneration"];
+                /** @description P2P transport host credential retained only by the Toolbox core. Never expose it in UI DTOs or logs. */
+                "X-Match-Transport-Host-Token": components["parameters"]["MatchTransportHostToken"];
+            };
+            path: {
+                attempt_id: components["parameters"]["MatchAttemptID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VNTHostReadyRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated non-secret managed transport projection. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    Pragma?: "no-cache";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["P2PRoomResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     getP2PMatchAllocation: {
         parameters: {
             query?: never;
@@ -10138,7 +10360,7 @@ export interface operations {
                 /** @description Opaque authority-session binding extracted only inside the Toolbox or server core from the signed allocation. Never expose it through UI DTOs or logs. */
                 "X-Match-Authority-Session": components["parameters"]["MatchAuthoritySession"];
                 /** @description P2P transport host credential retained only by the Toolbox core. Never expose it in UI DTOs or logs. */
-                "X-Match-Transport-Host-Token"?: components["parameters"]["MatchTransportHostToken"];
+                "X-Match-Transport-Host-Token": components["parameters"]["MatchTransportHostToken"];
             };
             path: {
                 attempt_id: components["parameters"]["MatchAttemptID"];

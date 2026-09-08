@@ -886,6 +886,38 @@ func TestStrictRosterP2PLifecycleAgainstPostgreSQL(t *testing.T) {
 	if err := service.P2PAuthorityHeartbeat(ctx, actors[0], authoritySession, attemptID); err != nil {
 		t.Fatal(err)
 	}
+	var renewedRoomHeartbeat time.Time
+	if err := pool.QueryRow(ctx, `
+		SELECT last_heartbeat_at
+		FROM p2p_rooms WHERE id = $1
+	`, connecting.P2PRoomID).Scan(&renewedRoomHeartbeat); err != nil {
+		t.Fatal(err)
+	}
+	if !renewedRoomHeartbeat.Equal(currentTime) {
+		t.Fatalf("P2P authority heartbeat did not renew the managed room lease: got %s want %s", renewedRoomHeartbeat, currentTime)
+	}
+	// A terminal room must not be resurrected by a valid but late authority
+	// heartbeat. Restore the live fixture after asserting the fail-closed edge
+	// so the remainder of this lifecycle test can exercise its later stages.
+	if _, err := pool.Exec(ctx, `UPDATE p2p_rooms SET state = 'CLOSED', closed_at = $2 WHERE id = $1`, connecting.P2PRoomID, currentTime); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.P2PAuthorityHeartbeat(ctx, actors[0], authoritySession, attemptID); errorCode(err) != "MATCH_TRANSPORT_LEASE_UNAVAILABLE" {
+		t.Fatalf("late P2P heartbeat revived a closed managed room: %v", err)
+	}
+	var terminalRoomState string
+	if err := pool.QueryRow(ctx, `SELECT state FROM p2p_rooms WHERE id = $1`, connecting.P2PRoomID).Scan(&terminalRoomState); err != nil {
+		t.Fatal(err)
+	}
+	if terminalRoomState != "CLOSED" {
+		t.Fatalf("closed managed room state changed after rejected heartbeat: %s", terminalRoomState)
+	}
+	if _, err := pool.Exec(ctx, `
+		UPDATE p2p_rooms SET state = 'CONNECTING', closed_at = NULL,
+		       last_heartbeat_at = $2, updated_at = $2 WHERE id = $1
+	`, connecting.P2PRoomID, currentTime); err != nil {
+		t.Fatal(err)
+	}
 	// A second heartbeat before the refreshed Payload route is installed must
 	// not advance the authority route again.
 	if err := service.P2PAuthorityHeartbeat(ctx, actors[0], authoritySession, attemptID); err != nil {
