@@ -38,6 +38,11 @@ func TestConnectionCreateRechecksManagedScopeAgainstPostgreSQL(t *testing.T) {
 	}
 
 	p2pService := p2proom.NewService(p2proom.NewRepository(pool), config.Defaults.P2PRoom)
+	secretBox, _, err := p2proom.NewSecretBox("", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p2pService.SetVNT(nil, secretBox)
 	battleLogService := p2pbattlelog.NewService(p2pbattlelog.NewRepository(pool), config.Defaults.P2PBattleLog)
 	p2pService.SetMatchLifecycle(battleLogService)
 	matchConfig := config.Defaults.MatchLobby

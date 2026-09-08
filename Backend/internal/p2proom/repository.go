@@ -238,7 +238,7 @@ func (r *Repository) ManagedConnectionScope(ctx context.Context, roomID, hostPla
 		  AND lobby.roster_revision = attempt.roster_revision
 		  AND host_roster.room_role = 'HOST'
 		  AND peer_roster.room_role = 'MEMBER'
-	`).Scan(&attemptID, &lobbyID, &rosterRevision, &routeGeneration)
+	`, roomID, hostPlayerID, peerPlayerID).Scan(&attemptID, &lobbyID, &rosterRevision, &routeGeneration)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", "", 0, 0, false, nil
 	}
