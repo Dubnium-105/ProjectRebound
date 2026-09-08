@@ -10,8 +10,158 @@ import (
 
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/database"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/gameserver"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/gameserverregistration"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+func TestStrictRosterDedicatedSelectionRejectsUnverifiedAndPreventsReadyReentryAgainstPostgreSQL(t *testing.T) {
+	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("TEST_DATABASE_URL is not set")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	pool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	if err := database.NewMigrator(pool).Up(ctx); err != nil {
+		t.Fatalf("migrate test database: %v", err)
+	}
+
+	matchConfig := config.Defaults.MatchLobby
+	matchConfig.AcceptNewLobbies = true
+	signer, err := NewAdmissionSigner("integration-dedicated-selection", testAdmissionPrivateKey(), "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := NewService(NewRepository(pool), matchConfig, signer, 45*time.Second)
+	now := time.Now().UTC().Truncate(time.Second)
+	service.now = func() time.Time { return now }
+
+	var serverIDs []string
+	var playerIDs []string
+	t.Cleanup(func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cleanupCancel()
+		for _, serverID := range serverIDs {
+			_, _ = pool.Exec(cleanupCtx, "DELETE FROM meta_matches WHERE game_server_id = $1", serverID)
+			_, _ = pool.Exec(cleanupCtx, "DELETE FROM game_servers WHERE id = $1", serverID)
+		}
+		for _, playerID := range playerIDs {
+			_, _ = pool.Exec(cleanupCtx, "DELETE FROM match_lobbies WHERE owner_player_id = $1", playerID)
+			_, _ = pool.Exec(cleanupCtx, "DELETE FROM meta_match_tickets WHERE player_id = $1", playerID)
+			_, _ = pool.Exec(cleanupCtx, "DELETE FROM players WHERE id = $1", playerID)
+		}
+	})
+
+	candidates := []struct {
+		name     string
+		verified bool
+		version  string
+	}{
+		{name: "legacy", verified: true, version: "strict-roster-v1"},
+		{name: "unverified", verified: false, version: strictNativeAdmissionVersion},
+	}
+	for index, candidate := range candidates {
+		suffix := uint64(time.Now().UnixNano())%10_000_000_000_000 + uint64(index)
+		owner := insertStrictRosterPlayer(t, ctx, pool, fmt.Sprintf("%017d", 63_000_000_000_000_000+suffix))
+		member := insertStrictRosterPlayer(t, ctx, pool, fmt.Sprintf("%017d", 64_000_000_000_000_000+suffix))
+		playerIDs = append(playerIDs, owner.PlayerID, member.PlayerID)
+		serverID := newAdmissionID("ac045_" + candidate.name + "_")
+		serverIDs = append(serverIDs, serverID)
+		insertStrictDedicatedCandidate(t, ctx, pool, serverID, now, candidate.verified, candidate.version, matchConfig.LockedGameSHA256)
+
+		prepared := prepareDedicatedTwoPlayerReadyLobby(t, ctx, service, owner, member, "AC045 "+candidate.name, "ac045-"+candidate.name+"-"+serverID)
+		if _, err := service.Start(ctx, owner, prepared.LobbyID, prepared.RosterRevision); errorCode(err) != "MATCH_LOBBY_NO_DEDICATED_SERVER" {
+			t.Fatalf("%s candidate was selected despite missing strict capability: %v", candidate.name, err)
+		}
+		var state string
+		if err := pool.QueryRow(ctx, `SELECT state FROM game_servers WHERE id = $1`, serverID).Scan(&state); err != nil {
+			t.Fatal(err)
+		}
+		if state != "READY" {
+			t.Fatalf("%s rejected candidate changed state to %s", candidate.name, state)
+		}
+	}
+
+	suffix := uint64(time.Now().UnixNano()) % 10_000_000_000_000
+	owner := insertStrictRosterPlayer(t, ctx, pool, fmt.Sprintf("%017d", 65_000_000_000_000_000+suffix))
+	member := insertStrictRosterPlayer(t, ctx, pool, fmt.Sprintf("%017d", 66_000_000_000_000_000+suffix))
+	playerIDs = append(playerIDs, owner.PlayerID, member.PlayerID)
+	serverID := newAdmissionID("ac045_valid_")
+	serverIDs = append(serverIDs, serverID)
+	token := fmt.Sprintf("gst_%064x", suffix)
+	insertStrictDedicatedCandidateWithToken(t, ctx, pool, serverID, token, now, true, strictNativeAdmissionVersion, matchConfig.LockedGameSHA256)
+
+	first := prepareDedicatedTwoPlayerReadyLobby(t, ctx, service, owner, member, "AC045 valid", "ac045-valid-"+serverID)
+	frozen, err := service.Start(ctx, owner, first.LobbyID, first.RosterRevision)
+	if err != nil || frozen.Attempt == nil {
+		t.Fatalf("strict candidate was not allocated: %+v, %v", frozen, err)
+	}
+	if frozen.Attempt.State != AttemptProvisioning {
+		t.Fatalf("strict candidate attempt state = %s, want PROVISIONING", frozen.Attempt.State)
+	}
+
+	gameServerService := gameserver.NewService(
+		gameserver.NewRepository(pool), gameserverregistration.NewRepository(), config.Defaults.GameServer,
+	)
+	heartbeat, err := gameServerService.Heartbeat(ctx, serverID, token, gameserver.HeartbeatInput{
+		State: gameserver.StateReady, PlayerCount: 0,
+		NativeAdmissionVerified: true, NativeAdmissionVersion: strictNativeAdmissionVersion,
+		NativeAdmissionGameSHA256: matchConfig.LockedGameSHA256,
+	})
+	if err != nil {
+		t.Fatalf("formal READY heartbeat failed: %v", err)
+	}
+	if heartbeat.State != gameserver.StateReserved {
+		t.Fatalf("formal READY heartbeat re-entered allocation pool: state=%s", heartbeat.State)
+	}
+	var state string
+	if err := pool.QueryRow(ctx, `SELECT state FROM game_servers WHERE id = $1`, serverID).Scan(&state); err != nil {
+		t.Fatal(err)
+	}
+	if state != string(gameserver.StateReserved) {
+		t.Fatalf("persisted server state after READY heartbeat = %s, want RESERVED", state)
+	}
+
+	secondOwner := insertStrictRosterPlayer(t, ctx, pool, fmt.Sprintf("%017d", 67_000_000_000_000_000+suffix))
+	secondMember := insertStrictRosterPlayer(t, ctx, pool, fmt.Sprintf("%017d", 68_000_000_000_000_000+suffix))
+	playerIDs = append(playerIDs, secondOwner.PlayerID, secondMember.PlayerID)
+	second := prepareDedicatedTwoPlayerReadyLobby(t, ctx, service, secondOwner, secondMember, "AC045 second", "ac045-second-"+serverID)
+	if _, err := service.Start(ctx, secondOwner, second.LobbyID, second.RosterRevision); errorCode(err) != "MATCH_LOBBY_NO_DEDICATED_SERVER" {
+		t.Fatalf("server with active strict assignment was allocated a second time: %v", err)
+	}
+}
+
+func insertStrictDedicatedCandidate(t *testing.T, ctx context.Context, pool *pgxpool.Pool, serverID string, now time.Time, verified bool, version, gameSHA256 string) {
+	t.Helper()
+	token := fmt.Sprintf("gst_%064x", uint64(time.Now().UnixNano()))
+	insertStrictDedicatedCandidateWithToken(t, ctx, pool, serverID, token, now, verified, version, gameSHA256)
+}
+
+func insertStrictDedicatedCandidateWithToken(t *testing.T, ctx context.Context, pool *pgxpool.Pool, serverID, token string, now time.Time, verified bool, version, gameSHA256 string) {
+	t.Helper()
+	tokenHash := sha256.Sum256([]byte(token))
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO game_servers (
+			id, instance_id, display_name, region, mode, version,
+			public_host, public_port, max_players, player_count, state,
+			server_token_hash, registration_issuer, token_expires_at,
+			last_heartbeat_at, created_at, updated_at,
+			native_admission_verified, native_admission_version,
+			native_admission_game_sha256, native_admission_verified_at
+		) VALUES ($1, $2, 'AC045 candidate', 'hk', 'TDM', '1.0.0',
+		          '127.0.0.1', 7777, 8, 0, 'READY', $3, 'integration',
+		          $4::timestamptz, $5::timestamptz, $5::timestamptz, $5::timestamptz,
+		          $6::boolean, $7::varchar, NULLIF($8::varchar, ''),
+		          CASE WHEN $6::boolean THEN $5::timestamptz ELSE NULL::timestamptz END)
+	`, serverID, serverID, tokenHash[:], now.Add(time.Hour), now, verified, version, gameSHA256); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestStrictRosterDedicatedLifecycleAgainstPostgreSQL(t *testing.T) {
 	databaseURL := os.Getenv("TEST_DATABASE_URL")
@@ -335,6 +485,16 @@ func TestStrictRosterDedicatedLifecycleAgainstPostgreSQL(t *testing.T) {
 	if err != nil || terminal.State != StateCompleted {
 		t.Fatalf("complete Dedicated attempt: %+v, %v", terminal, err)
 	}
+	// Closing an attempt without a BattleLog report must not delete or
+	// regenerate the authoritative frozen roster projection.
+	assertDedicatedProjectionMatchesAttempt(t, ctx, pool, attemptID)
+	var frozenRosterCount int
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM match_attempt_roster WHERE attempt_id = $1`, attemptID).Scan(&frozenRosterCount); err != nil {
+		t.Fatal(err)
+	}
+	if frozenRosterCount != 2 {
+		t.Fatalf("closed Dedicated attempt lost frozen roster: count=%d", frozenRosterCount)
+	}
 	var cleanupState string
 	if err := pool.QueryRow(ctx, `SELECT cleanup_state FROM match_attempts WHERE id = $1`, attemptID).Scan(&cleanupState); err != nil {
 		t.Fatal(err)
@@ -370,7 +530,7 @@ func TestStrictRosterDedicatedLifecycleAgainstPostgreSQL(t *testing.T) {
 	}
 }
 
-func createDedicatedTwoPlayerReadyLobby(
+func prepareDedicatedTwoPlayerReadyLobby(
 	t *testing.T,
 	ctx context.Context,
 	service *Service,
@@ -396,6 +556,18 @@ func createDedicatedTwoPlayerReadyLobby(
 			t.Fatal(err)
 		}
 	}
+	return joined
+}
+
+func createDedicatedTwoPlayerReadyLobby(
+	t *testing.T,
+	ctx context.Context,
+	service *Service,
+	owner, member Actor,
+	name, idempotencyKey string,
+) Snapshot {
+	t.Helper()
+	joined := prepareDedicatedTwoPlayerReadyLobby(t, ctx, service, owner, member, name, idempotencyKey)
 	frozen, err := service.Start(ctx, owner, joined.LobbyID, joined.RosterRevision)
 	if err != nil {
 		t.Fatal(err)

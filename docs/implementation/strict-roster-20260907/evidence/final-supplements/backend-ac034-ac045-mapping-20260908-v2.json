@@ -1,0 +1,104 @@
+{
+  "receipt_kind": "backend_ac_mapping_component_v2",
+  "generated_at_utc": "2026-09-08T00:46:17.7551662Z",
+  "source_head_observed": "345bde0d24a05da284582e79c4ff6d7679a9cbff",
+  "product_commit": "362f9c665648ff02d156efdb4bcda443433c8b97",
+  "changed_source": "Backend/internal/matchlobby/dedicated_integration_test.go (test-only, uncommitted at observation)",
+  "changed_source_sha256": "A569D4A24642CD9B9E68CF56C972119B6DF943BE4630AF466BE75E8B7846A8DF",
+  "prior_mapping": "backend-ac034-ac045-mapping-20260908.json (historical, unchanged)",
+  "evidence_scope": "Backend PostgreSQL component acceptance only; no native/game/registration E2E claim.",
+  "entries": [
+    {
+      "breakpoint": "BP-034",
+      "acceptance_id": "AC-034",
+      "implementation": "implemented",
+      "acceptance": "PASS",
+      "contract": "伪造/迟到ACTIVE报告不使托管Attempt或投影提前Running；报告关闭也不丢冻结名单；源状态和投影合法一致。",
+      "observed": "The real metaserver PostgreSQL cases reject a pre-running report without changing CONNECTING/RESERVED, accept a completed late report without mutating match/server/attempt lifecycle, keep standalone PvE and retired Meta records non-official and unchanged, and preserve frozen roster identity. The new Dedicated component assertion closes the no-report path: completing the attempt leaves the two-seat frozen roster and Meta projection intact. This is a Backend component PASS; it does not claim a game/native BattleLog E2E.",
+      "assertions": [
+        "Backend/internal/metaserver/battlelog_repository_integration_test.go:16-20 runs running, completed_late_report, pve_claim_non_official.",
+        "Backend/internal/metaserver/battlelog_repository_integration_test.go:195-214 rejects premature-report and asserts CONNECTING/RESERVED unchanged.",
+        "Backend/internal/metaserver/battlelog_repository_integration_test.go:280-309 asserts duplicate/lifecycle/security snapshot invariants.",
+        "Backend/internal/metaserver/battlelog_repository_integration_test.go:311-380 asserts standalone PvE does not discover/complete retired Meta and explicit retired report/loadout are forbidden.",
+        "Backend/internal/matchlobby/dedicated_integration_test.go:484-496 completes with no BattleLog report, compares Meta projection to frozen roster, and asserts COUNT(match_attempt_roster)=2."
+      ],
+      "tests": [
+        {
+          "command": "go1.26.6 linux/amd64: go test -race -p 1 ./internal/matchlobby ./internal/metaserver -run ^(TestStrictRosterDedicatedLifecycleAgainstPostgreSQL|TestBattleLogSubmissionAgainstPostgreSQL)$ -count=1 -v",
+          "exit_code": 0,
+          "top_level_pass": 2,
+          "subtest_pass": 3,
+          "log_path": "C:\\\\wksp\\\\ProjectRebound\\\\.tmp\\\\strict-roster-20260907\\\\ac034-close-freeze-battlelog-20260908T004550Z.log",
+          "log_sha256": "EB9FBBB8653710EDD1F5AF2940723AE4AEC2388F5B978A6E97E22C8E310757AD",
+          "database": "rebound_ac034_component_20260908004350",
+          "observations": [
+            "TestStrictRosterDedicatedLifecycleAgainstPostgreSQL PASS",
+            "TestBattleLogSubmissionAgainstPostgreSQL/running PASS",
+            ".../completed_late_report PASS",
+            ".../pve_claim_non_official PASS"
+          ]
+        }
+      ],
+      "source_hashes": [
+        {
+          "path": "Backend/internal/matchlobby/dedicated_integration_test.go",
+          "sha256": "A569D4A24642CD9B9E68CF56C972119B6DF943BE4630AF466BE75E8B7846A8DF"
+        },
+        {
+          "path": "Backend/internal/metaserver/battlelog_repository.go",
+          "sha256": "A32A855671D45E5D90D046815072066DC6A35D055D2AB41266FD9134682C923D"
+        },
+        {
+          "path": "Backend/internal/metaserver/battlelog_repository_integration_test.go",
+          "sha256": "A25B9A3909FEFE30E5385F0FFD04BA005EC47FAFC34F59EB5CC50160D521CDCF"
+        }
+      ]
+    },
+    {
+      "breakpoint": "BP-045",
+      "acceptance_id": "AC-045",
+      "implementation": "implemented",
+      "acceptance": "PASS",
+      "contract": "旧server或native_unverified不能被选为strict authority；新server分配后普通READY心跳不使其二次入池。",
+      "observed": "A real isolated PostgreSQL component test prepared a READY legacy strict-roster-v1 candidate with the correct game hash and a READY strict-roster-v2 candidate with verified=false and the correct game hash; formal MatchLobby.Start rejected both with MATCH_LOBBY_NO_DEDICATED_SERVER and left them READY. A strict verified candidate was allocated through MatchLobby.Start, then gameserver.Service.Heartbeat(READY) returned/persisted RESERVED while its Attempt was PROVISIONING; a second ready lobby could not allocate it. The candidate rows and gst_ fixture are Service-boundary test fixtures, not registration or signed-HTTP E2E evidence.",
+      "assertions": [
+        "Backend/internal/matchlobby/dedicated_integration_test.go:60-87 keeps legacy version and unverified predicate isolated and asserts both remain READY after Start rejection.",
+        "Backend/internal/matchlobby/dedicated_integration_test.go:99-127 allocates verified strict candidate and invokes formal gameserver.Service.Heartbeat(READY), asserting RESERVED in result and DB.",
+        "Backend/internal/matchlobby/dedicated_integration_test.go:130-135 attempts a second real Start and asserts MATCH_LOBBY_NO_DEDICATED_SERVER.",
+        "Backend/internal/matchlobby/service.go:649-665 is the production strict candidate query requiring verified=true, locked game hash, and strict-roster-v2.",
+        "Backend/internal/gameserver/service.go:256-281 is the production assignment/cleanup heartbeat protection."
+      ],
+      "tests": [
+        {
+          "command": "go1.26.6 linux/amd64: go test ./internal/matchlobby -run ^TestStrictRosterDedicatedSelectionRejectsUnverifiedAndPreventsReadyReentryAgainstPostgreSQL$ -count=1 -v",
+          "exit_code": 0,
+          "top_level_pass": 1,
+          "subtest_pass": 0,
+          "log_path": "C:\\\\wksp\\\\ProjectRebound\\\\.tmp\\\\strict-roster-20260907\\\\ac045-dedicated-selection-20260908T004322Z.log",
+          "log_sha256": "22F889F6E48EDAD8442505FBDE10758B69FE6E218662333178E34A5ACFB33B62",
+          "database": "rebound_ac045_component_20260908004322",
+          "observations": [
+            "legacy candidate rejected",
+            "verified=false strict-v2 candidate rejected",
+            "formal READY heartbeat held RESERVED",
+            "second allocation rejected"
+          ]
+        }
+      ],
+      "source_hashes": [
+        {
+          "path": "Backend/internal/matchlobby/service.go",
+          "sha256": "FA5F53BC87B17AC92D3CD94317511B15A02CC7D2B37A0FC7BEB14728ADA28536"
+        },
+        {
+          "path": "Backend/internal/gameserver/service.go",
+          "sha256": "F8C3C84EF0877B3A459732BC8DD0C806E25103BCA928451F09ED98D6BFC56C03"
+        },
+        {
+          "path": "Backend/internal/matchlobby/dedicated_integration_test.go",
+          "sha256": "A569D4A24642CD9B9E68CF56C972119B6DF943BE4630AF466BE75E8B7846A8DF"
+        }
+      ]
+    }
+  ]
+}
