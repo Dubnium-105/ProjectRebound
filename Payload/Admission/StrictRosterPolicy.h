@@ -410,6 +410,14 @@ namespace StrictRoster
 				// route/lease refresh must reject old grants immediately without
 				// renaming an existing socket as the new generation.
 				const bool routeAdvanced = next.routeGeneration > allocation_->routeGeneration;
+				if (routeAdvanced)
+				{
+					// A new signed route invalidates connection evidence from the
+					// previous route.  The old live socket may be preserved for
+					// host recovery, but it cannot prove the new route until a
+					// fresh remote native admission reaches CONNECTED.
+					ClearNativeAuthorityAdmissionEvidenceLocked();
+				}
 				std::fill(allocation_->publicKey.begin(), allocation_->publicKey.end(),
 					static_cast<std::uint8_t>(0));
 				allocation_->keyId = std::move(next.keyId);
@@ -442,7 +450,6 @@ namespace StrictRoster
 					seat.nativeAdmissionNonce.clear();
 				}
 				stagedGrants_.clear();
-				(void)routeAdvanced;
 				return Accept();
 			}
 			ResetLocked();
@@ -598,6 +605,8 @@ namespace StrictRoster
         void SetNativeWorldInstanceId(const std::string_view worldInstanceId)
         {
             std::lock_guard lock(mutex_);
+            if (nativeWorldInstanceId_ != worldInstanceId)
+                ClearNativeAuthorityAdmissionEvidenceLocked();
             nativeWorldInstanceId_ = std::string(worldInstanceId);
         }
 
@@ -1605,6 +1614,12 @@ namespace StrictRoster
             return decision;
         }
 
+        void ClearNativeAuthorityAdmissionEvidenceLocked() noexcept
+        {
+            nativeAuthorityAdmissionEvidence_ = NativeAuthorityAdmissionEvidence{};
+            nativeAuthorityRemoteSeatIds_.clear();
+        }
+
         void AppendConnectionEventLocked(
             const Seat& seat,
             const std::string_view state,
@@ -1699,8 +1714,7 @@ namespace StrictRoster
             activeDecisions_.clear();
             connectionEvents_.clear();
             nextConnectionEventSequence_ = 0;
-            nativeAuthorityAdmissionEvidence_ = NativeAuthorityAdmissionEvidence{};
-            nativeAuthorityRemoteSeatIds_.clear();
+            ClearNativeAuthorityAdmissionEvidenceLocked();
             Detail::SecureClear(nativeWorldInstanceId_);
             authorityStarted_ = false;
         }

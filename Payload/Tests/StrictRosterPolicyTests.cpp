@@ -401,6 +401,9 @@ int main()
         NativeNonce("second")).accepted,
 		"two live connections cannot occupy the same generation and seat");
     policy.SetNativeWorldInstanceId("world_test_b");
+    Expect(!policy.NativeAuthorityAdmissionVerified() &&
+        policy.NativeAuthorityAdmissionEvidenceSnapshot().remoteSeatCount == 0U,
+        "a new native world must invalidate evidence from the prior world");
     Expect(policy.MarkDisconnected(first.playerId, first.connectionGeneration,
         first.nativeConnectionNonce).accepted,
         "authority logout should release the connected generation");
@@ -478,6 +481,12 @@ int main()
 	recovered["roster"][1]["connection_generation"] = 5;
 	Expect(policy.InstallAllocation(Token(recovered), "adm_1", publicKey, 122).accepted,
 		"one-step route recovery should refresh signed seat generations");
+	const auto afterRouteRefreshEvidence =
+		policy.NativeAuthorityAdmissionEvidenceSnapshot();
+	Expect(!afterRouteRefreshEvidence.verified &&
+		afterRouteRefreshEvidence.remoteSeatCount == 0U &&
+		afterRouteRefreshEvidence.confirmedEventSequence == 0U,
+		"a new signed route must require fresh remote native evidence");
 	auto routeTwoGrant = GrantClaims(5, "grant_jti_route_2", "world_test_b");
 	routeTwoGrant["route_generation"] = 2;
 	const auto beforeRecoveryReservationEvents =
