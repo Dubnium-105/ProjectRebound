@@ -249,6 +249,7 @@ func (r *Repository) Snapshot(ctx context.Context, lobbyID, viewerPlayerID strin
 					WHERE attempt_id = $1 AND player_id = $2
 					  AND (connection_state <> 'CONNECTED'
 					       OR COALESCE(live_connection_generation, 0) <> connection_generation
+					       OR COALESCE(live_native_connection_nonce, '') = ''
 					       OR COALESCE(live_route_generation, 0) <> (
 								SELECT route_generation FROM match_attempts WHERE id = $1
 							))

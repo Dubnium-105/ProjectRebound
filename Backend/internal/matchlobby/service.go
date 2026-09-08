@@ -1582,6 +1582,9 @@ func (s *Service) AuthorityAdmissions(ctx context.Context, authorityID, authorit
 		  AND attempt.authority_session_id = $3
 		  AND attempt.state IN ('CONNECTING', 'RUNNING')
 		  AND COALESCE(attempt.world_instance_id, '') <> ''
+		  AND attempt.payload_route_generation = attempt.route_generation
+		  AND admission.route_generation = attempt.route_generation
+		  AND admission.connection_generation = roster.connection_generation
 		  AND admission.delivered_at IS NULL
 		  AND admission.consumed_at IS NULL
 		  AND admission.revoked_at IS NULL
@@ -1644,12 +1647,18 @@ func (s *Service) MarkAdmissionDelivered(ctx context.Context, authorityID, autho
 	err := s.repository.pool.QueryRow(ctx, `
 		UPDATE match_admission_grants AS admission
 		SET delivered_at = COALESCE(admission.delivered_at, $5)
-		FROM match_attempts AS attempt
+		FROM match_attempts AS attempt, match_attempt_roster AS roster
 		WHERE admission.jti = $4 AND admission.attempt_id = $1
 		  AND attempt.id = admission.attempt_id
+		  AND roster.attempt_id = admission.attempt_id
+		  AND roster.player_id = admission.player_id
 		  AND attempt.authority_id = $2
 		  AND attempt.authority_session_id = $3
 		  AND attempt.state IN ('CONNECTING', 'RUNNING')
+		  AND COALESCE(attempt.world_instance_id, '') <> ''
+		  AND attempt.payload_route_generation = attempt.route_generation
+		  AND admission.route_generation = attempt.route_generation
+		  AND admission.connection_generation = roster.connection_generation
 		  AND admission.consumed_at IS NULL
 		  AND admission.revoked_at IS NULL
 		  AND admission.expires_at > $5
@@ -1689,8 +1698,17 @@ func (s *Service) GrantDelivery(ctx context.Context, actor Actor, attemptID, gra
 		SELECT admission.attempt_id, admission.jti, admission.delivered_at,
 		       admission.expires_at, admission.revoked_at, admission.consumed_at
 		FROM match_admission_grants AS admission
+		JOIN match_attempts AS attempt ON attempt.id = admission.attempt_id
+		JOIN match_attempt_roster AS roster
+		  ON roster.attempt_id = admission.attempt_id
+		 AND roster.player_id = admission.player_id
 		WHERE admission.attempt_id = $1 AND admission.jti = $2
 		  AND admission.player_id = $3
+		  AND attempt.state IN ('CONNECTING', 'RUNNING')
+		  AND COALESCE(attempt.world_instance_id, '') <> ''
+		  AND attempt.payload_route_generation = attempt.route_generation
+		  AND admission.route_generation = attempt.route_generation
+		  AND admission.connection_generation = roster.connection_generation
 	`, attemptID, strings.TrimSpace(grantJTI), actor.PlayerID).Scan(
 		&status.AttemptID, &status.GrantJTI, &deliveredAt,
 		&status.ExpiresAt, &revokedAt, &consumedAt,
@@ -2096,6 +2114,7 @@ func (s *Service) ConfirmConnected(ctx context.Context, authorityID, authoritySe
 		WHERE attempt_id = $1
 		  AND (connection_state <> 'CONNECTED'
 		       OR COALESCE(live_connection_generation, 0) <> connection_generation
+		       OR COALESCE(live_native_connection_nonce, '') = ''
 		       OR (room_role = 'MEMBER' AND COALESCE(live_route_generation, 0) <> (
 				SELECT route_generation FROM match_attempts WHERE id = $1
 			)))
@@ -2410,14 +2429,18 @@ func (s *Service) AuthorityHeartbeat(ctx context.Context, authorityID, authority
 		return internal(err)
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
-	var reconnecting, hostLiveCurrent bool
+	var reconnecting, hostLiveCurrent, hostLiveUnverified bool
 	err = tx.QueryRow(ctx, `
 		SELECT attempt.host_reconnect_deadline IS NOT NULL,
 		       COALESCE(host.connection_state = 'CONNECTED'
 		                AND host.live_connection_generation = host.connection_generation
 		                AND host.live_route_generation <= attempt.route_generation
 		                AND host.host_live_scope_preserved
+		                AND NULLIF(host.live_native_connection_nonce, '') IS NOT NULL
 		                AND attempt.payload_route_generation = attempt.route_generation,
+		                FALSE),
+		       COALESCE(host.connection_state = 'CONNECTED'
+		                AND NULLIF(host.live_native_connection_nonce, '') IS NULL,
 		                FALSE)
 		FROM match_attempts AS attempt
 		LEFT JOIN match_attempt_roster AS host
@@ -2425,12 +2448,19 @@ func (s *Service) AuthorityHeartbeat(ctx context.Context, authorityID, authority
 		WHERE attempt.id = $1 AND attempt.authority_id = $2 AND attempt.authority_session_id = $3
 		  AND attempt.state IN ('CONNECTING', 'RUNNING')
 		FOR UPDATE OF attempt
-	`, attemptID, authorityID, authoritySession).Scan(&reconnecting, &hostLiveCurrent)
+	`, attemptID, authorityID, authoritySession).Scan(&reconnecting, &hostLiveCurrent, &hostLiveUnverified)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return forbidden("MATCH_AUTHORITY_SCOPE_REQUIRED", "This authority is not assigned to the active match attempt.")
 	}
 	if err != nil {
 		return internal(err)
+	}
+	// A connected HOST without its persisted native nonce cannot be treated as
+	// live or refreshed.  Keep the attempt fail-closed and require the owner to
+	// terminate/reconcile it through the normal cleanup lease; never synthesize
+	// a disconnect or replace the unknown connection with a new scope.
+	if hostLiveUnverified {
+		return conflict("MATCH_HOST_LIVE_SCOPE_UNVERIFIED", "The connected P2P HOST has no persisted native connection nonce; terminate or reconcile the attempt before refreshing its authority route.", nil)
 	}
 	// A recovery window is opened by the sweeper or by a real native HOST
 	// DISCONNECTED event.  Only a still-live HOST causes this heartbeat to
@@ -2887,6 +2917,9 @@ func (s *Service) nativeCleared(
 		if storedRouteGeneration != routeGeneration {
 			return Snapshot{}, conflict("MATCH_ROUTE_GENERATION_STALE", "The cleanup acknowledgement belongs to a stale authority route.", nil)
 		}
+		if err := verifyNativeCleanupAudit(ctx, tx, lobbyID, attemptID, evidence); err != nil {
+			return Snapshot{}, err
+		}
 		if err := tx.Commit(ctx); err != nil {
 			return Snapshot{}, internal(err)
 		}
@@ -2953,6 +2986,58 @@ func (s *Service) nativeCleared(
 		return Snapshot{}, internal(err)
 	}
 	return s.Get(ctx, lobbyID, "")
+}
+
+// verifyNativeCleanupAudit binds a repeated CLEARED acknowledgement to the
+// first receipt that performed the transition.  The terminal state is
+// idempotent only for the exact same evidence shape; a changed evidence kind,
+// process id, or start fingerprint is a different assertion and must not
+// overwrite the original audit record.
+func verifyNativeCleanupAudit(
+	ctx context.Context,
+	tx pgx.Tx,
+	lobbyID, attemptID string,
+	evidence *OwnedProcessExitEvidence,
+) error {
+	var details []byte
+	err := tx.QueryRow(ctx, `
+		SELECT details
+		FROM vnt_security_audit_logs
+		WHERE event_type = 'MATCH_NATIVE_CLEANUP_CLEARED'
+		  AND request_id = $1
+		  AND details->>'attempt_id' = $1
+		  AND details->>'lobby_id' = $2
+		ORDER BY created_at ASC, id ASC
+		LIMIT 1
+	`, attemptID, lobbyID).Scan(&details)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return conflict("MATCH_CLEANUP_RECEIPT_UNAVAILABLE", "The original native cleanup receipt is not available for idempotent verification.", nil)
+	}
+	if err != nil {
+		return internal(err)
+	}
+	var recorded struct {
+		EvidenceKind            string `json:"evidence_kind"`
+		OwnedProcessID          uint32 `json:"owned_process_id"`
+		ProcessStartFingerprint string `json:"process_start_fingerprint"`
+	}
+	if err := json.Unmarshal(details, &recorded); err != nil {
+		return internal(fmt.Errorf("decode native cleanup audit evidence: %w", err))
+	}
+	expectedKind := ""
+	expectedProcessID := uint32(0)
+	expectedFingerprint := ""
+	if evidence != nil {
+		expectedKind = evidence.EvidenceKind
+		expectedProcessID = evidence.OwnedProcessID
+		expectedFingerprint = evidence.ProcessStartFingerprint
+	}
+	if recorded.EvidenceKind != expectedKind ||
+		recorded.OwnedProcessID != expectedProcessID ||
+		recorded.ProcessStartFingerprint != expectedFingerprint {
+		return conflict("MATCH_CLEANUP_RECEIPT_CONFLICT", "The native cleanup acknowledgement does not match the receipt that cleared this attempt.", nil)
+	}
+	return nil
 }
 
 // insertNativeCleanupAudit persists the first successful cleanup receipt in

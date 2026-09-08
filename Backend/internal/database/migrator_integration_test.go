@@ -132,16 +132,18 @@ func TestLiveGenerationMigrationPreservesHistoricalConnectedRoster(t *testing.T)
 			attempt_id VARCHAR(64) NOT NULL,
 			room_role VARCHAR(16) NOT NULL,
 			connection_state VARCHAR(32) NOT NULL,
-			connection_generation INTEGER NOT NULL
+			connection_generation INTEGER NOT NULL,
+			live_native_connection_nonce VARCHAR(128)
 		) ON COMMIT DROP;
 		INSERT INTO match_attempts (id, route_generation)
 		VALUES ('attempt-schema47-history', 7);
-		INSERT INTO match_attempt_roster (attempt_id, room_role, connection_state, connection_generation)
+		INSERT INTO match_attempt_roster (attempt_id, room_role, connection_state, connection_generation, live_native_connection_nonce)
 		VALUES
-			('attempt-schema47-history', 'HOST', 'CONNECTED', 11),
-			('attempt-schema47-history', 'MEMBER', 'CONNECTED', 12),
-			('attempt-schema47-history', 'MEMBER', 'CONNECTING', 13),
-			('attempt-schema47-history', 'HOST', 'DISCONNECTED', 14)
+			('attempt-schema47-history', 'HOST', 'CONNECTED', 11, 'native-schema47-host-valid'),
+			('attempt-schema47-history', 'HOST', 'CONNECTED', 15, NULL),
+			('attempt-schema47-history', 'MEMBER', 'CONNECTED', 12, NULL),
+			('attempt-schema47-history', 'MEMBER', 'CONNECTING', 13, NULL),
+			('attempt-schema47-history', 'HOST', 'DISCONNECTED', 14, NULL)
 	`); err != nil {
 		t.Fatalf("seed schema-47 historical roster: %v", err)
 	}
@@ -169,7 +171,8 @@ func TestLiveGenerationMigrationPreservesHistoricalConnectedRoster(t *testing.T)
 	rows, err := tx.Query(ctx, `
 		SELECT room_role, connection_state,
 		       live_connection_generation, live_route_generation,
-		       host_live_scope_preserved
+		       host_live_scope_preserved,
+		       COALESCE(live_native_connection_nonce, '')
 		FROM match_attempt_roster
 		WHERE attempt_id = 'attempt-schema47-history'
 		ORDER BY room_role, connection_state, connection_generation
@@ -182,11 +185,12 @@ func TestLiveGenerationMigrationPreservesHistoricalConnectedRoster(t *testing.T)
 		role, state               string
 		liveGeneration, liveRoute *int
 		hostScopePreserved        bool
+		liveNonce                 string
 	}
 	var seats []migratedSeat
 	for rows.Next() {
 		var seat migratedSeat
-		if err := rows.Scan(&seat.role, &seat.state, &seat.liveGeneration, &seat.liveRoute, &seat.hostScopePreserved); err != nil {
+		if err := rows.Scan(&seat.role, &seat.state, &seat.liveGeneration, &seat.liveRoute, &seat.hostScopePreserved, &seat.liveNonce); err != nil {
 			t.Fatalf("scan migrated historical roster: %v", err)
 		}
 		seats = append(seats, seat)
@@ -194,18 +198,23 @@ func TestLiveGenerationMigrationPreservesHistoricalConnectedRoster(t *testing.T)
 	if err := rows.Err(); err != nil {
 		t.Fatalf("iterate migrated historical roster: %v", err)
 	}
-	if len(seats) != 4 {
-		t.Fatalf("migrated historical roster rows = %d, want 4", len(seats))
+	if len(seats) != 5 {
+		t.Fatalf("migrated historical roster rows = %d, want 5", len(seats))
 	}
 	for _, seat := range seats {
 		if seat.state == "CONNECTED" {
 			if seat.liveGeneration == nil || seat.liveRoute == nil || *seat.liveRoute != 7 {
 				t.Fatalf("connected %s seat lost live route/generation: %+v", seat.role, seat)
 			}
-			wantGeneration := 11
-			wantPreserved := seat.role == "HOST"
-			if seat.role == "MEMBER" {
-				wantGeneration = 12
+			wantGeneration := 12
+			wantPreserved := false
+			if seat.role == "HOST" {
+				if seat.liveNonce != "" {
+					wantGeneration = 11
+					wantPreserved = true
+				} else {
+					wantGeneration = 15
+				}
 			}
 			if *seat.liveGeneration != wantGeneration || seat.hostScopePreserved != wantPreserved {
 				t.Fatalf("connected %s seat backfill = %+v, want generation=%d preserved=%t", seat.role, seat, wantGeneration, wantPreserved)

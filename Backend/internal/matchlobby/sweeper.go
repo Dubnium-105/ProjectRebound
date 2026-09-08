@@ -278,6 +278,7 @@ func (s *Service) Sweep(ctx context.Context) error {
 		if err := tx.QueryRow(ctx, `
 		SELECT COUNT(*) FILTER (WHERE roster.team_id = 1 AND roster.connection_state = 'CONNECTED'
 		                              AND COALESCE(roster.live_connection_generation, 0) = roster.connection_generation
+		                              AND COALESCE(roster.live_native_connection_nonce, '') <> ''
 		                              AND (
 			                              (roster.room_role = 'HOST'
 			                               AND COALESCE(roster.host_live_scope_preserved, FALSE)
@@ -286,6 +287,7 @@ func (s *Service) Sweep(ctx context.Context) error {
 		                              )),
 		       COUNT(*) FILTER (WHERE roster.team_id = 2 AND roster.connection_state = 'CONNECTED'
 		                              AND COALESCE(roster.live_connection_generation, 0) = roster.connection_generation
+		                              AND COALESCE(roster.live_native_connection_nonce, '') <> ''
 		                              AND (
 			                              (roster.room_role = 'HOST'
 			                               AND COALESCE(roster.host_live_scope_preserved, FALSE)

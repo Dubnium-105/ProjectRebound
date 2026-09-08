@@ -191,6 +191,28 @@ func TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL(t *testing.
 	); err != nil {
 		t.Fatalf("same-scope cleanup retry failed: %v", err)
 	}
+	for name, mismatched := range map[string]*OwnedProcessExitEvidence{
+		"evidence-kind": nil,
+		"process-id": {
+			EvidenceKind: evidence.EvidenceKind, OwnedProcessID: evidence.OwnedProcessID + 1,
+			ProcessStartFingerprint: evidence.ProcessStartFingerprint,
+		},
+		"start-fingerprint": {
+			EvidenceKind: evidence.EvidenceKind, OwnedProcessID: evidence.OwnedProcessID,
+			ProcessStartFingerprint: "win-filetime:0123456789abcde0",
+		},
+	} {
+		var args []OwnedProcessExitEvidence
+		if mismatched != nil {
+			args = append(args, *mismatched)
+		}
+		if _, err := service.P2PNativeCleared(
+			ctx, owner, authoritySession, attemptID, "world-p2p-owned-exit",
+			connecting.Attempt.RosterRevision, connecting.Attempt.RouteGeneration, args...,
+		); errorCode(err) != "MATCH_CLEANUP_RECEIPT_CONFLICT" {
+			t.Fatalf("same-scope mismatched %s cleanup receipt was not rejected strictly: %v", name, err)
+		}
+	}
 	var auditEvent string
 	var auditDetails []byte
 	if err := pool.QueryRow(ctx, `
@@ -500,6 +522,101 @@ func setupStrictRosterP2PPreflightFixture(
 	return service, matchConfig, owner, member, frozen, authoritySession
 }
 
+func TestStrictRosterHistoricalMemberWithoutNativeNonceCannotCountAsConnectedAgainstPostgreSQL(t *testing.T) {
+	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("TEST_DATABASE_URL is not set")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	pool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	if err := database.NewMigrator(pool).Up(ctx); err != nil {
+		t.Fatalf("migrate test database: %v", err)
+	}
+
+	p2pService := p2proom.NewService(p2proom.NewRepository(pool), config.Defaults.P2PRoom)
+	secretBox, _, err := p2proom.NewSecretBox("", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p2pService.SetVNT(nil, secretBox)
+	battleLogService := p2pbattlelog.NewService(p2pbattlelog.NewRepository(pool), config.Defaults.P2PBattleLog)
+	p2pService.SetMatchLifecycle(battleLogService)
+	matchConfig := config.Defaults.MatchLobby
+	matchConfig.AcceptNewLobbies = true
+	signer, err := NewAdmissionSigner("integration-member-nonce-quarantine", testAdmissionPrivateKey(), "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := NewService(NewRepository(pool), matchConfig, signer, 45*time.Second)
+	service.SetP2PTransport(p2pService)
+	service.SetP2PMatchProjector(battleLogService)
+	currentTime := time.Now().UTC().Truncate(time.Second)
+	service.now = func() time.Time { return currentTime }
+	signer.now = func() time.Time { return currentTime }
+
+	suffix := uint64(time.Now().UnixNano()) % 10_000_000_000_000
+	owner := insertStrictRosterPlayer(t, ctx, pool, fmt.Sprintf("%017d", 73_000_000_000_000_000+suffix))
+	member := insertStrictRosterPlayer(t, ctx, pool, fmt.Sprintf("%017d", 74_000_000_000_000_000+suffix))
+	playerIDs := []string{owner.PlayerID, member.PlayerID}
+	t.Cleanup(func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cleanupCancel()
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM match_lobbies WHERE owner_player_id = ANY($1)", playerIDs)
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM p2p_rooms WHERE host_player_id = ANY($1)", playerIDs)
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM players WHERE id = ANY($1)", playerIDs)
+	})
+
+	frozen, _ := createTwoPlayerReadyLobby(t, ctx, service, owner, member, "Historical Member Nonce", "integration-member-nonce-quarantine")
+	if frozen.Attempt == nil {
+		t.Fatal("historical-member-nonce lobby omitted its attempt")
+	}
+	attemptID := frozen.Attempt.AttemptID
+	routeGeneration := frozen.Attempt.RouteGeneration
+	if _, err := pool.Exec(ctx, `
+		UPDATE match_attempt_roster
+		SET connection_state = 'CONNECTED', disconnected_at = NULL,
+		    live_connection_generation = connection_generation,
+		    live_route_generation = $2,
+		    live_native_connection_nonce = CASE WHEN room_role = 'HOST' THEN 'native-history-host-valid' ELSE NULL END,
+		    host_live_scope_preserved = CASE WHEN room_role = 'HOST' THEN TRUE ELSE FALSE END
+		WHERE attempt_id = $1
+	`, attemptID, routeGeneration); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		UPDATE match_attempts
+		SET state = 'CONNECTING', connection_deadline = $2
+		WHERE id = $1
+	`, attemptID, currentTime.Add(-time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE match_lobbies SET state = 'CONNECTING' WHERE id = $1`, frozen.LobbyID); err != nil {
+		t.Fatal(err)
+	}
+	view, err := service.Get(ctx, frozen.LobbyID, member.PlayerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !view.Local.CanRetry {
+		t.Fatalf("historical member without native nonce did not advertise retry: %+v", view.Local)
+	}
+	if err := service.Sweep(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var state, cleanupState string
+	if err := pool.QueryRow(ctx, `SELECT state, cleanup_state FROM match_attempts WHERE id = $1`, attemptID).Scan(&state, &cleanupState); err != nil {
+		t.Fatal(err)
+	}
+	if state != string(AttemptAborted) || cleanupState != "PENDING" {
+		t.Fatalf("historical member without native nonce was counted as connected: state=%s cleanup=%s", state, cleanupState)
+	}
+}
+
 func TestStrictRosterP2PLifecycleAgainstPostgreSQL(t *testing.T) {
 	databaseURL := os.Getenv("TEST_DATABASE_URL")
 	if databaseURL == "" {
@@ -691,6 +808,43 @@ func TestStrictRosterP2PLifecycleAgainstPostgreSQL(t *testing.T) {
 	}
 	if storedHostNonce != "native-host-p2p-primary" {
 		t.Fatalf("P2P host native nonce was not persisted: %q", storedHostNonce)
+	}
+	// A migrated/partially-written CONNECTED HOST without its native nonce is
+	// not a recoverable live scope.  Heartbeat must fail closed instead of
+	// advancing the authority route or treating an arbitrary replacement nonce
+	// as the old connection.
+	if _, err := pool.Exec(ctx, `
+		UPDATE match_attempt_roster
+		SET live_native_connection_nonce = NULL, host_live_scope_preserved = FALSE
+		WHERE attempt_id = $1 AND player_id = $2
+	`, attemptID, actors[0].PlayerID); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.P2PAuthorityHeartbeat(ctx, actors[0], authoritySession, attemptID); errorCode(err) != "MATCH_HOST_LIVE_SCOPE_UNVERIFIED" {
+		t.Fatalf("P2P heartbeat accepted a connected HOST without a native nonce: %v", err)
+	}
+	var routeAfterMissingNonce int
+	if err := pool.QueryRow(ctx, "SELECT route_generation FROM match_attempts WHERE id = $1", attemptID).Scan(&routeAfterMissingNonce); err != nil {
+		t.Fatal(err)
+	}
+	if routeAfterMissingNonce != frozen.Attempt.RouteGeneration {
+		t.Fatalf("missing HOST nonce changed route generation from %d to %d", frozen.Attempt.RouteGeneration, routeAfterMissingNonce)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE match_attempts SET payload_route_generation = NULL WHERE id = $1`, attemptID); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.P2PAuthorityHeartbeat(ctx, actors[0], authoritySession, attemptID); errorCode(err) != "MATCH_HOST_LIVE_SCOPE_UNVERIFIED" {
+		t.Fatalf("P2P heartbeat renewed a connected HOST without nonce before route installation: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE match_attempts SET payload_route_generation = route_generation WHERE id = $1`, attemptID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		UPDATE match_attempt_roster
+		SET live_native_connection_nonce = $3, host_live_scope_preserved = TRUE
+		WHERE attempt_id = $1 AND player_id = $2
+	`, attemptID, actors[0].PlayerID, "native-host-p2p-primary"); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := service.P2PMarkDisconnected(
 		ctx, actors[0], authoritySession, attemptID, "world-p2p-primary", actors[0].PlayerID,
@@ -982,6 +1136,52 @@ func TestStrictRosterP2PLifecycleAgainstPostgreSQL(t *testing.T) {
 		status, err := service.GrantDelivery(ctx, actor, attemptID, jti)
 		if err != nil || status.Delivered {
 			t.Fatalf("new grant delivery status = %+v, %v", status, err)
+		}
+		var stagingRouteGeneration, stagingRosterGeneration int
+		if err := pool.QueryRow(ctx, "SELECT route_generation FROM match_attempts WHERE id = $1", attemptID).Scan(&stagingRouteGeneration); err != nil {
+			t.Fatal(err)
+		}
+		if err := pool.QueryRow(ctx, `
+			SELECT connection_generation
+			FROM match_attempt_roster WHERE attempt_id = $1 AND player_id = $2
+		`, attemptID, actor.PlayerID).Scan(&stagingRosterGeneration); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx, `UPDATE match_admission_grants SET route_generation = $2 WHERE jti = $1`, jti, stagingRouteGeneration-1); err != nil {
+			t.Fatal(err)
+		}
+		staleRoutePending, err := service.P2PAuthorityAdmissions(ctx, actors[0], authoritySession, attemptID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, candidate := range staleRoutePending.Items {
+			if candidate.GrantJTI == jti {
+				t.Fatalf("authority staged grant with stale route generation: %+v", candidate)
+			}
+		}
+		if _, err := service.P2PMarkAdmissionDelivered(ctx, actors[0], authoritySession, attemptID, jti); errorCode(err) != "MATCH_JOIN_GRANT_NOT_DELIVERABLE" {
+			t.Fatalf("stale-route grant delivery was accepted: %v", err)
+		}
+		if _, err := pool.Exec(ctx, `UPDATE match_admission_grants SET route_generation = $2 WHERE jti = $1`, jti, stagingRouteGeneration); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx, `UPDATE match_attempt_roster SET connection_generation = $3 WHERE attempt_id = $1 AND player_id = $2`, attemptID, actor.PlayerID, stagingRosterGeneration+1); err != nil {
+			t.Fatal(err)
+		}
+		staleGenerationPending, err := service.P2PAuthorityAdmissions(ctx, actors[0], authoritySession, attemptID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, candidate := range staleGenerationPending.Items {
+			if candidate.GrantJTI == jti {
+				t.Fatalf("authority staged grant with stale roster generation: %+v", candidate)
+			}
+		}
+		if _, err := service.P2PMarkAdmissionDelivered(ctx, actors[0], authoritySession, attemptID, jti); errorCode(err) != "MATCH_JOIN_GRANT_NOT_DELIVERABLE" {
+			t.Fatalf("stale-generation grant delivery was accepted: %v", err)
+		}
+		if _, err := pool.Exec(ctx, `UPDATE match_attempt_roster SET connection_generation = $3 WHERE attempt_id = $1 AND player_id = $2`, attemptID, actor.PlayerID, stagingRosterGeneration); err != nil {
+			t.Fatal(err)
 		}
 		pending, err := service.P2PAuthorityAdmissions(
 			ctx, actors[0], authoritySession, attemptID,

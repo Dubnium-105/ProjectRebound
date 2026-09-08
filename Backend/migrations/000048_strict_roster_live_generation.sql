@@ -27,7 +27,14 @@ ALTER TABLE match_attempt_roster
 UPDATE match_attempt_roster
 SET live_connection_generation = connection_generation,
     live_route_generation = attempts.route_generation,
-    host_live_scope_preserved = (match_attempt_roster.room_role = 'HOST')
+    -- A schema-47 HOST row may be CONNECTED without the nonce that binds the
+    -- native connection.  Preserve its historical generation for diagnosis,
+    -- but never mark that scope as proven.  The authority heartbeat rejects
+    -- the row closed until an operator/native cleanup path terminates it.
+    host_live_scope_preserved = (
+        match_attempt_roster.room_role = 'HOST'
+        AND NULLIF(match_attempt_roster.live_native_connection_nonce, '') IS NOT NULL
+    )
 FROM match_attempts AS attempts
 WHERE match_attempt_roster.attempt_id = attempts.id
   AND connection_state = 'CONNECTED';
@@ -46,4 +53,19 @@ ALTER TABLE match_attempt_roster
     ADD CONSTRAINT match_attempt_roster_last_disconnected_nonce_format CHECK (
         last_disconnected_native_connection_nonce IS NULL
         OR last_disconnected_native_connection_nonce ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$'
+    );
+
+-- The preserved HOST marker is only an acknowledgement of a still-live
+-- native connection.  A missing nonce therefore cannot be promoted into a
+-- replacement route or a reusable live scope during/after migration.
+ALTER TABLE match_attempt_roster
+    ADD CONSTRAINT match_attempt_roster_host_live_scope_nonce CHECK (
+        NOT host_live_scope_preserved
+        OR (
+            room_role = 'HOST'
+            AND connection_state = 'CONNECTED'
+            AND NULLIF(live_native_connection_nonce, '') IS NOT NULL
+            AND live_connection_generation = connection_generation
+            AND live_route_generation IS NOT NULL
+        )
     );
