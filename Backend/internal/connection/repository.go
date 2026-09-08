@@ -17,12 +17,27 @@ type Repository struct {
 
 func NewRepository(pool *pgxpool.Pool) *Repository { return &Repository{pool: pool} }
 
-func (r *Repository) CreateOrGet(ctx context.Context, item Connection) (Connection, bool, error) {
+// managedConnectionScope is the scope observed by the authenticated room
+// authorization read.  It is compared again while the connection write
+// transaction owns the authoritative attempt/lobby/room rows.  A nil scope is
+// used by the internal room join path, which still derives and validates the
+// current scope in that write transaction.
+type managedConnectionScope struct {
+	LobbyID         string
+	AttemptID       string
+	RosterRevision  int64
+	RouteGeneration int32
+}
+
+func (r *Repository) CreateOrGet(ctx context.Context, item Connection, expectedScope *managedConnectionScope) (Connection, bool, error) {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return Connection{}, false, fmt.Errorf("begin connection creation: %w", err)
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	if err := r.validateConnectionScope(ctx, tx, item, expectedScope); err != nil {
+		return Connection{}, false, fmt.Errorf("validate connection scope: %w", err)
+	}
 	created, err := scanConnection(tx.QueryRow(ctx, `
 		INSERT INTO connections (
 			id, room_id, host_player_id, peer_player_id, state,
@@ -50,6 +65,163 @@ func (r *Repository) CreateOrGet(ctx context.Context, item Connection) (Connecti
 		return Connection{}, false, fmt.Errorf("commit connection creation: %w", err)
 	}
 	return created, wasCreated, nil
+}
+
+// validateConnectionScope closes the preflight-to-write race for both the
+// public connection endpoint and the internal managed-room join path.  The
+// authoritative rows are locked in the same order used by match-lobby
+// completion: attempt, lobby, then room.  Any abort, route/revision change,
+// room retirement, membership change, or roster change therefore makes this
+// transaction fail before it can insert or reuse a connection.
+func (r *Repository) validateConnectionScope(
+	ctx context.Context,
+	tx pgx.Tx,
+	item Connection,
+	expected *managedConnectionScope,
+) error {
+	var observedManagedLobbyID, observedHostPlayerID string
+	if err := tx.QueryRow(ctx, `
+		SELECT COALESCE(managed_lobby_id, ''), host_player_id
+		FROM p2p_rooms
+		WHERE id = $1 AND deleted_at IS NULL
+	`, item.RoomID).Scan(&observedManagedLobbyID, &observedHostPlayerID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("%w: room is unavailable", errManagedConnectionScope)
+		}
+		return err
+	}
+	if observedHostPlayerID != item.HostPlayerID {
+		return fmt.Errorf("%w: room host changed", errManagedConnectionScope)
+	}
+
+	if observedManagedLobbyID == "" {
+		return fmt.Errorf("%w: managed frozen attempt is required", errManagedConnectionScope)
+	}
+
+	var (
+		hostPlayerID, roomState, lobbyID, lobbyState, currentAttemptID string
+		lobbyRosterRevision, attemptRosterRevision                     int64
+		attemptID, attemptState                                        string
+		routeGeneration                                                int32
+	)
+	err := tx.QueryRow(ctx, `
+		SELECT room.host_player_id, room.state,
+		       lobby.id, lobby.state, COALESCE(lobby.current_attempt_id, ''),
+		       lobby.roster_revision,
+		       attempt.id, attempt.state, attempt.roster_revision,
+		       attempt.route_generation
+		FROM p2p_rooms AS room
+		JOIN match_lobbies AS lobby
+		  ON lobby.id = room.managed_lobby_id
+		JOIN match_attempts AS attempt
+		  ON attempt.id = lobby.current_attempt_id
+		 AND attempt.lobby_id = lobby.id
+		WHERE room.id = $1
+		  AND room.deleted_at IS NULL
+		  AND room.managed_lobby_id = $2
+		  AND attempt.state IN ('PROVISIONING', 'CONNECTING', 'RUNNING')
+		FOR UPDATE OF attempt, lobby, room
+	`, item.RoomID, observedManagedLobbyID).Scan(
+		&hostPlayerID, &roomState, &lobbyID, &lobbyState, &currentAttemptID,
+		&lobbyRosterRevision, &attemptID, &attemptState, &attemptRosterRevision,
+		&routeGeneration,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("%w: no current active attempt", errManagedConnectionScope)
+		}
+		return err
+	}
+	if hostPlayerID != item.HostPlayerID ||
+		currentAttemptID != attemptID ||
+		lobbyID != observedManagedLobbyID ||
+		lobbyRosterRevision != attemptRosterRevision ||
+		!connectionRoomStateActive(roomState) ||
+		!connectionLobbyStateActive(lobbyState) ||
+		(attemptState != "PROVISIONING" && attemptState != "CONNECTING" && attemptState != "RUNNING") ||
+		attemptRosterRevision <= 0 || routeGeneration <= 0 {
+		return fmt.Errorf("%w: managed room state changed", errManagedConnectionScope)
+	}
+	if expected != nil && (expected.LobbyID != lobbyID || expected.AttemptID != attemptID ||
+		expected.RosterRevision != attemptRosterRevision || expected.RouteGeneration != routeGeneration) {
+		return fmt.Errorf("%w: attempt route or roster revision changed", errManagedConnectionScope)
+	}
+	return r.lockConnectionRoomParticipants(ctx, tx, item.RoomID, item.HostPlayerID, item.PeerPlayerID, attemptID)
+}
+
+func connectionRoomStateActive(state string) bool {
+	switch state {
+	case "LOBBY", "CONNECTING", "RUNNING":
+		return true
+	default:
+		return false
+	}
+}
+
+func connectionLobbyStateActive(state string) bool {
+	switch state {
+	case "PROVISIONING", "CONNECTING", "RUNNING":
+		return true
+	default:
+		return false
+	}
+}
+
+func (r *Repository) lockConnectionRoomParticipants(
+	ctx context.Context,
+	tx pgx.Tx,
+	roomID, hostPlayerID, peerPlayerID, attemptID string,
+) error {
+	for _, participant := range []struct {
+		playerID string
+		role     string
+	}{
+		{playerID: hostPlayerID, role: "HOST"},
+		{playerID: peerPlayerID, role: "MEMBER"},
+	} {
+		var role, status string
+		if err := tx.QueryRow(ctx, `
+			SELECT role, status
+			FROM p2p_room_members
+			WHERE room_id = $1 AND player_id = $2
+			FOR UPDATE
+		`, roomID, participant.playerID).Scan(&role, &status); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("%w: room membership is gone", errManagedConnectionScope)
+			}
+			return err
+		}
+		if role != participant.role || status != "ACTIVE" {
+			return fmt.Errorf("%w: room membership is no longer active", errManagedConnectionScope)
+		}
+	}
+	if attemptID == "" {
+		return nil
+	}
+	for _, participant := range []struct {
+		playerID string
+		role     string
+	}{
+		{playerID: hostPlayerID, role: "HOST"},
+		{playerID: peerPlayerID, role: "MEMBER"},
+	} {
+		var role string
+		if err := tx.QueryRow(ctx, `
+			SELECT room_role
+			FROM match_attempt_roster
+			WHERE attempt_id = $1 AND player_id = $2
+			FOR UPDATE
+		`, attemptID, participant.playerID).Scan(&role); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("%w: frozen roster seat is gone", errManagedConnectionScope)
+			}
+			return err
+		}
+		if role != participant.role {
+			return fmt.Errorf("%w: frozen roster role changed", errManagedConnectionScope)
+		}
+	}
+	return nil
 }
 
 func (r *Repository) Get(ctx context.Context, connectionID string) (Connection, error) {

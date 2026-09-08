@@ -3,6 +3,7 @@ package p2proom
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -208,33 +209,51 @@ func (r *Repository) ValidateManagedAttemptScope(ctx context.Context, tx pgx.Tx,
 	return nil
 }
 
-// ManagedAttemptAllowsConnection is the second, frozen-roster gate for direct
+// ManagedConnectionScope is the second, frozen-roster gate for direct
 // connection creation. Lobby membership alone is insufficient once a managed
 // room is used by an authoritative attempt: both endpoints must be present in
 // the current attempt roster with the host/member roles issued at freeze.
+// The returned scope is only a preflight observation; the connection
+// repository repeats it while holding the write transaction's row locks.
+func (r *Repository) ManagedConnectionScope(ctx context.Context, roomID, hostPlayerID, peerPlayerID string) (attemptID, lobbyID string, rosterRevision int64, routeGeneration int32, allowed bool, err error) {
+	err = r.pool.QueryRow(ctx, `
+		SELECT attempt.id, lobby.id, attempt.roster_revision, attempt.route_generation
+		FROM p2p_rooms AS room
+		JOIN match_lobbies AS lobby
+		  ON lobby.id = room.managed_lobby_id
+		JOIN match_attempts AS attempt
+		  ON attempt.id = lobby.current_attempt_id
+		JOIN match_attempt_roster AS host_roster
+		  ON host_roster.attempt_id = attempt.id
+		 AND host_roster.player_id = $2
+		JOIN match_attempt_roster AS peer_roster
+		  ON peer_roster.attempt_id = attempt.id
+		 AND peer_roster.player_id = $3
+		WHERE room.id = $1
+		  AND room.deleted_at IS NULL
+		  AND room.managed_lobby_id = lobby.id
+		  AND room.state IN ('LOBBY', 'CONNECTING', 'RUNNING')
+		  AND lobby.state IN ('PROVISIONING', 'CONNECTING', 'RUNNING')
+		  AND attempt.state IN ('PROVISIONING', 'CONNECTING', 'RUNNING')
+		  AND lobby.roster_revision = attempt.roster_revision
+		  AND host_roster.room_role = 'HOST'
+		  AND peer_roster.room_role = 'MEMBER'
+	`).Scan(&attemptID, &lobbyID, &rosterRevision, &routeGeneration)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", "", 0, 0, false, nil
+	}
+	if err != nil {
+		return "", "", 0, 0, false, err
+	}
+	return attemptID, lobbyID, rosterRevision, routeGeneration, true, nil
+}
+
+// ManagedAttemptAllowsConnection remains a small repository predicate for
+// callers that only need the authorization result. New connection creation
+// uses ManagedConnectionScope so the exact scope can be compared in the
+// write transaction.
 func (r *Repository) ManagedAttemptAllowsConnection(ctx context.Context, roomID, hostPlayerID, peerPlayerID string) (bool, error) {
-	var allowed bool
-	err := r.pool.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1
-			FROM p2p_rooms AS room
-			JOIN match_lobbies AS lobby
-			  ON lobby.id = room.managed_lobby_id
-			JOIN match_attempts AS attempt
-			  ON attempt.id = lobby.current_attempt_id
-			JOIN match_attempt_roster AS host_roster
-			  ON host_roster.attempt_id = attempt.id
-			 AND host_roster.player_id = $2
-			JOIN match_attempt_roster AS peer_roster
-			  ON peer_roster.attempt_id = attempt.id
-			 AND peer_roster.player_id = $3
-			WHERE room.id = $1
-			  AND room.managed_lobby_id = lobby.id
-			  AND attempt.state IN ('PROVISIONING', 'CONNECTING', 'RUNNING')
-			  AND host_roster.room_role = 'HOST'
-			  AND peer_roster.room_role = 'MEMBER'
-		)
-	`, roomID, hostPlayerID, peerPlayerID).Scan(&allowed)
+	_, _, _, _, allowed, err := r.ManagedConnectionScope(ctx, roomID, hostPlayerID, peerPlayerID)
 	return allowed, err
 }
 

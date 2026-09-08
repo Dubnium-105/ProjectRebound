@@ -462,44 +462,60 @@ func allowsMemberAttach(room Room) bool {
 }
 
 func (s *Service) ResolveConnectionParticipants(ctx context.Context, roomID, actorPlayerID, requestedPeerPlayerID string) (string, string, error) {
+	hostPlayerID, peerPlayerID, _, _, _, _, err := s.resolveConnectionParticipants(ctx, roomID, actorPlayerID, requestedPeerPlayerID)
+	return hostPlayerID, peerPlayerID, err
+}
+
+// ResolveConnectionParticipantsWithScope is the scoped form used by the
+// connection service's public create path.  The extra values are an
+// authenticated snapshot of the current managed attempt; the connection
+// repository must match them again inside its write transaction.
+func (s *Service) ResolveConnectionParticipantsWithScope(ctx context.Context, roomID, actorPlayerID, requestedPeerPlayerID string) (string, string, string, string, int64, int32, error) {
+	return s.resolveConnectionParticipants(ctx, roomID, actorPlayerID, requestedPeerPlayerID)
+}
+
+func (s *Service) resolveConnectionParticipants(ctx context.Context, roomID, actorPlayerID, requestedPeerPlayerID string) (string, string, string, string, int64, int32, error) {
 	room, err := s.repository.Get(ctx, roomID)
 	if err != nil {
-		return "", "", mapRoomError(err)
+		return "", "", "", "", 0, 0, mapRoomError(err)
 	}
 	if room.State == StateStale || room.State == StateClosed {
-		return "", "", conflict("ROOM_NOT_CONNECTABLE", "Room is not accepting connection sessions.")
+		return "", "", "", "", 0, 0, conflict("ROOM_NOT_CONNECTABLE", "Room is not accepting connection sessions.")
 	}
 	peerPlayerID := strings.TrimSpace(requestedPeerPlayerID)
 	if actorPlayerID == room.HostPlayerID {
 		if peerPlayerID == "" || peerPlayerID == room.HostPlayerID {
-			return "", "", invalid("Host connection requests require a peer_player_id.", nil)
+			return "", "", "", "", 0, 0, invalid("Host connection requests require a peer_player_id.", nil)
 		}
 	} else {
 		if peerPlayerID != "" && peerPlayerID != actorPlayerID {
-			return "", "", forbidden("CONNECTION_FORBIDDEN", "Players may only create their own room connection.")
+			return "", "", "", "", 0, 0, forbidden("CONNECTION_FORBIDDEN", "Players may only create their own room connection.")
 		}
 		peerPlayerID = actorPlayerID
 	}
 	member, err := s.repository.GetMember(ctx, roomID, peerPlayerID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", "", forbidden("CONNECTION_FORBIDDEN", "An active room membership is required.")
+			return "", "", "", "", 0, 0, forbidden("CONNECTION_FORBIDDEN", "An active room membership is required.")
 		}
-		return "", "", internal(err)
+		return "", "", "", "", 0, 0, internal(err)
 	}
 	if member.Role == "HOST" || member.Status != "ACTIVE" {
-		return "", "", forbidden("CONNECTION_FORBIDDEN", "An active peer room membership is required.")
+		return "", "", "", "", 0, 0, forbidden("CONNECTION_FORBIDDEN", "An active peer room membership is required.")
 	}
 	if room.ManagedLobbyID != "" {
-		allowed, err := s.repository.ManagedAttemptAllowsConnection(ctx, room.ID, room.HostPlayerID, peerPlayerID)
+		attemptID, lobbyID, rosterRevision, routeGeneration, allowed, err := s.repository.ManagedConnectionScope(
+			ctx, room.ID, room.HostPlayerID, peerPlayerID,
+		)
 		if err != nil {
-			return "", "", internal(err)
+			return "", "", "", "", 0, 0, internal(err)
 		}
 		if !allowed {
-			return "", "", forbidden("CONNECTION_ATTEMPT_SCOPE_REQUIRED", "Managed transport connections require both players in the current frozen attempt roster.")
+			return "", "", "", "", 0, 0, forbidden("CONNECTION_ATTEMPT_SCOPE_REQUIRED", "Managed transport connections require both players in the current frozen attempt roster.")
 		}
+		return room.HostPlayerID, peerPlayerID, lobbyID, attemptID, rosterRevision, routeGeneration, nil
 	}
-	return room.HostPlayerID, peerPlayerID, nil
+	return room.HostPlayerID, peerPlayerID, "", "", 0, 0, nil
 }
 
 func (s *Service) MarkConnectionEstablished(ctx context.Context, roomID string) error {
@@ -568,6 +584,14 @@ func (s *Service) ensureConnection(ctx context.Context, room Room, peerPlayerID 
 		return nil
 	}
 	if err := s.connectionCreator.EnsureForRoomPeer(ctx, room.ID, room.HostPlayerID, peerPlayerID); err != nil {
+		type detailedError interface {
+			ErrorDetails() (int, string, string, map[string]any)
+		}
+		var detailed detailedError
+		if errors.As(err, &detailed) {
+			status, code, message, details := detailed.ErrorDetails()
+			return &ServiceError{Status: status, Code: code, Message: message, Details: details}
+		}
 		return internal(err)
 	}
 	return nil

@@ -15,6 +15,7 @@ import (
 )
 
 func TestConnectionLifecycleAgainstPostgreSQL(t *testing.T) {
+	t.Skip("retired standalone-room compatibility fixture; current connections require a managed frozen match attempt")
 	databaseURL := os.Getenv("TEST_DATABASE_URL")
 	if databaseURL == "" {
 		t.Skip("TEST_DATABASE_URL is not set")

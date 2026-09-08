@@ -22,6 +22,18 @@ func (e *ServiceError) Error() string {
 
 func (e *ServiceError) Unwrap() error { return e.Cause }
 
+// ErrorDetails lets the room service preserve a typed connection conflict
+// when a managed-room join creates a connection through its internal
+// ConnectionCreator interface.
+func (e *ServiceError) ErrorDetails() (int, string, string, map[string]any) {
+	return e.Status, e.Code, e.Message, e.Details
+}
+
+// errManagedConnectionScope is deliberately internal.  The HTTP/API layer
+// exposes the stable CONNECTION_ATTEMPT_SCOPE_REQUIRED code, while repository
+// callers cannot accidentally manufacture a valid managed scope.
+var errManagedConnectionScope = errors.New("managed connection scope is no longer current")
+
 func errorDetails(err error) (int, string, string, map[string]any) {
 	var serviceError *ServiceError
 	if errors.As(err, &serviceError) {

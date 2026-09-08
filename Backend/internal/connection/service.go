@@ -25,6 +25,14 @@ type RoomAuthorizer interface {
 	MarkConnectionEstablished(context.Context, string) error
 }
 
+// scopedRoomAuthorizer is implemented by the authoritative P2P room service.
+// It is intentionally a private extension of RoomAuthorizer so existing test
+// doubles keep the base interface while managed connection creation can bind
+// the write to the exact preflight scope.
+type scopedRoomAuthorizer interface {
+	ResolveConnectionParticipantsWithScope(context.Context, string, string, string) (string, string, string, string, int64, int32, error)
+}
+
 type EventPublisher interface {
 	Publish([]string, Event)
 }
@@ -61,19 +69,39 @@ func (s *Service) Create(ctx context.Context, actor Actor, input CreateInput) (C
 	if strings.TrimSpace(input.RoomID) == "" {
 		return Connection{}, invalid("Invalid connection request.", map[string]any{"room_id": "is required"})
 	}
-	hostPlayerID, peerPlayerID, err := s.roomAuthorizer.ResolveConnectionParticipants(
-		ctx, strings.TrimSpace(input.RoomID), actor.PlayerID, strings.TrimSpace(input.PeerPlayerID),
+	var (
+		hostPlayerID, peerPlayerID string
+		expectedScope              *managedConnectionScope
+		err                        error
 	)
+	if scoped, ok := s.roomAuthorizer.(scopedRoomAuthorizer); ok {
+		var lobbyID, attemptID string
+		var rosterRevision int64
+		var routeGeneration int32
+		hostPlayerID, peerPlayerID, lobbyID, attemptID, rosterRevision, routeGeneration, err = scoped.ResolveConnectionParticipantsWithScope(
+			ctx, strings.TrimSpace(input.RoomID), actor.PlayerID, strings.TrimSpace(input.PeerPlayerID),
+		)
+		if err == nil && attemptID != "" {
+			expectedScope = &managedConnectionScope{
+				LobbyID: lobbyID, AttemptID: attemptID,
+				RosterRevision: rosterRevision, RouteGeneration: routeGeneration,
+			}
+		}
+	} else {
+		hostPlayerID, peerPlayerID, err = s.roomAuthorizer.ResolveConnectionParticipants(
+			ctx, strings.TrimSpace(input.RoomID), actor.PlayerID, strings.TrimSpace(input.PeerPlayerID),
+		)
+	}
 	if err != nil {
 		return Connection{}, mapDependencyError(err)
 	}
-	return s.ensure(ctx, input.RoomID, hostPlayerID, peerPlayerID)
+	return s.ensure(ctx, input.RoomID, hostPlayerID, peerPlayerID, expectedScope)
 }
 
 // EnsureForRoomPeer lets the P2P room service create a connection immediately
 // after a successful join without reaching into this module's tables.
 func (s *Service) EnsureForRoomPeer(ctx context.Context, roomID, hostPlayerID, peerPlayerID string) error {
-	_, err := s.ensure(ctx, roomID, hostPlayerID, peerPlayerID)
+	_, err := s.ensure(ctx, roomID, hostPlayerID, peerPlayerID, nil)
 	return err
 }
 
@@ -240,7 +268,7 @@ func (s *Service) RelayMigrationFailed(ctx context.Context, connectionID, migrat
 	return nil
 }
 
-func (s *Service) ensure(ctx context.Context, roomID, hostPlayerID, peerPlayerID string) (Connection, error) {
+func (s *Service) ensure(ctx context.Context, roomID, hostPlayerID, peerPlayerID string, expectedScope *managedConnectionScope) (Connection, error) {
 	if roomID == "" || hostPlayerID == "" || peerPlayerID == "" || hostPlayerID == peerPlayerID {
 		return Connection{}, invalid("Invalid connection participants.", nil)
 	}
@@ -248,8 +276,11 @@ func (s *Service) ensure(ctx context.Context, roomID, hostPlayerID, peerPlayerID
 	item, created, err := s.repository.CreateOrGet(ctx, Connection{
 		ID: newID("conn_"), RoomID: roomID, HostPlayerID: hostPlayerID, PeerPlayerID: peerPlayerID,
 		State: StateCreated, ExpiresAt: now.Add(s.config.SessionTTL()), CreatedAt: now, UpdatedAt: now,
-	})
+	}, expectedScope)
 	if err != nil {
+		if errors.Is(err, errManagedConnectionScope) {
+			return Connection{}, conflict("CONNECTION_ATTEMPT_SCOPE_REQUIRED", "The managed transport attempt changed before the connection was committed.")
+		}
 		return Connection{}, internal(err)
 	}
 	if created {
