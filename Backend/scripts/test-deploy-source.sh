@@ -78,6 +78,21 @@ cat >"$canonical_meta_compose_config" <<'EOF'
 }
 EOF
 
+acl_save_meta_compose_config="$temporary_dir/meta-compose-acl-save.json"
+cat >"$acl_save_meta_compose_config" <<'EOF'
+{
+  "services": {
+    "meta-redis-provision": {
+      "entrypoint": [
+        "/bin/sh",
+        "-ec",
+        "redis-cli -h redis -a \"$${REDIS_PASSWORD}\" --no-auth-warning ACL SETUSER \"$${META_REDIS_USERNAME}\" reset on \">$${META_REDIS_PASSWORD}\" \"~meta:*\" \"+@connection\" \"+get\" \"+set\" \"+del\" \"+unlink\" \"+eval\" \"+evalsha\" \"+expire\" \"+pexpire\" \"+ttl\" \"+pttl\" && redis-cli -h redis -a \"$${REDIS_PASSWORD}\" --no-auth-warning ACL SAVE"
+      ]
+    }
+  }
+}
+EOF
+
 missing_evalsha_meta_compose_config="$temporary_dir/meta-compose-missing-evalsha.json"
 sed 's/ \\\"+evalsha\\\"//' "$canonical_meta_compose_config" >"$missing_evalsha_meta_compose_config"
 missing_eval_meta_compose_config="$temporary_dir/meta-compose-missing-eval.json"
@@ -92,6 +107,15 @@ sed 's/ \\\"+eval\\\" \\\"+evalsha\\\"/ \\\"+getdel\\\"/' \
 unexpected_secret_meta_compose_config="$temporary_dir/meta-compose-unexpected-secret.json"
 sed 's/\\\"+pttl\\\""/\\\"+pttl\\\" \\\" >ci-rendered-password-secret\\\""/' \
   "$canonical_meta_compose_config" >"$unexpected_secret_meta_compose_config"
+false_prefix_meta_compose_config="$temporary_dir/meta-compose-false-prefix.json"
+sed 's/redis-cli -h redis/false redis-cli -h redis/' \
+  "$canonical_meta_compose_config" >"$false_prefix_meta_compose_config"
+echo_prefix_meta_compose_config="$temporary_dir/meta-compose-echo-prefix.json"
+sed 's/redis-cli -h redis/echo redis-cli -h redis/' \
+  "$canonical_meta_compose_config" >"$echo_prefix_meta_compose_config"
+arbitrary_tail_meta_compose_config="$temporary_dir/meta-compose-arbitrary-tail.json"
+sed 's/ACL SAVE"/ACL SAVE \\&\\& echo trailing"/' \
+  "$acl_save_meta_compose_config" >"$arbitrary_tail_meta_compose_config"
 
 if CONTROL_PLANE_ENV_FILE="$control_env" DEPLOY_SOURCE=ci CONTROL_PLANE_IMAGE=invalid \
   bash "$test_backend/scripts/deploy-control-plane.sh" >/dev/null 2>&1; then
@@ -151,10 +175,20 @@ grep -q ' up -d --no-deps meta-server$' "$docker_log"
 ! grep -q ' run --rm meta-postgres-provision$' "$docker_log"
 ! grep -q ' up .*control-plane' "$docker_log"
 
+: >"$docker_log"
+PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" \
+  COMPOSE_CONFIG_JSON_FILE="$acl_save_meta_compose_config" \
+  CONTROL_PLANE_ENV_FILE="$control_env" CONTROL_PLANE_COMPOSE_OVERRIDE_FILE="$control_override" \
+  DEPLOY_SOURCE=ci META_SERVER_IMAGE="$meta_image" \
+  bash "$test_backend/scripts/deploy-meta-server.sh" >/dev/null
+grep -q ' pull meta-server$' "$docker_log"
+
 for invalid_config in "$missing_evalsha_meta_compose_config" \
   "$missing_eval_meta_compose_config" \
   "$wrong_namespace_meta_compose_config" "$broad_grant_meta_compose_config" \
-  "$stale_override_meta_compose_config" "$unexpected_secret_meta_compose_config"; do
+  "$stale_override_meta_compose_config" "$unexpected_secret_meta_compose_config" \
+  "$false_prefix_meta_compose_config" "$echo_prefix_meta_compose_config" \
+  "$arbitrary_tail_meta_compose_config"; do
   : >"$docker_log"
   if PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" \
     COMPOSE_CONFIG_JSON_FILE="$invalid_config" \

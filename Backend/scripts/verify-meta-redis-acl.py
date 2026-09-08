@@ -75,10 +75,23 @@ def validate_command(entrypoint: list[str]) -> None:
         fail("effective Redis provision command must contain one ACL SETUSER")
 
     acl_index = acl_positions[0]
-    try:
-        command_end = tokens.index("&&", acl_index + 2)
-    except ValueError:
-        command_end = len(tokens)
+    auth_prefix = ["redis-cli", "-h", "redis", "-a"]
+    if (
+        acl_index != 6
+        or tokens[:4] != auth_prefix
+        or not tokens[4]
+        or tokens[5] != "--no-auth-warning"
+    ):
+        fail("Redis provision must start with the canonical redis-cli authentication prefix")
+
+    and_positions = [index for index, token in enumerate(tokens) if token == "&&"]
+    if len(and_positions) > 1:
+        fail("Redis provision may have no tail or one exact ACL SAVE command")
+    command_end = and_positions[0] if and_positions else len(tokens)
+    if and_positions:
+        expected_tail = tokens[:6] + ["ACL", "SAVE"]
+        if tokens[command_end + 1 :] != expected_tail:
+            fail("Redis provision tail must be the canonical ACL SAVE command")
     arguments = tokens[acl_index + 2 : command_end]
     # The username and password are intentionally only checked by position.
     # Never echo their rendered values into a deployment log.
