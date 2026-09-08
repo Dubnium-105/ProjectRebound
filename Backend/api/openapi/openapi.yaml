@@ -2740,6 +2740,93 @@ paths:
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "409": {$ref: "#/components/responses/Conflict"}
+  /v1/match-attempts/{attempt_id}/transport:
+    get:
+      operationId: getAuthoritativeMatchTransport
+      tags: [Match Admission]
+      description: Returns the non-secret managed transport projection only when the authenticated player is in the current frozen attempt roster and both supplied scope headers exactly match the attempt.
+      security: [{playerAccessToken: []}]
+      parameters:
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/MatchTransportRosterRevision"}
+        - {$ref: "#/components/parameters/MatchTransportRouteGeneration"}
+      responses:
+        "200":
+          description: Authoritative transport projection bound to the current attempt scope.
+          headers:
+            Cache-Control: {schema: {type: string, const: no-store}}
+            Pragma: {schema: {type: string, const: no-cache}}
+          content: {application/json: {schema: {$ref: "#/components/schemas/MatchTransportResponse"}}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/match-attempts/{attempt_id}/transport/vnt/bootstrap:
+    post:
+      operationId: bootstrapAuthoritativeMatchVNT
+      tags: [Match Admission]
+      description: Issues VNT bootstrap material only inside the current frozen attempt scope. Secret fields are write-only and must remain in the Toolbox core.
+      security: [{playerAccessToken: []}]
+      parameters:
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/MatchTransportRosterRevision"}
+        - {$ref: "#/components/parameters/MatchTransportRouteGeneration"}
+      responses:
+        "200":
+          description: Attempt-scoped VNT bootstrap material.
+          headers:
+            Cache-Control: {schema: {type: string, const: no-store}}
+            Pragma: {schema: {type: string, const: no-cache}}
+          content: {application/json: {schema: {$ref: "#/components/schemas/VNTBootstrapResponse"}}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/match-attempts/{attempt_id}/transport/vnt/presence/me:
+    put:
+      operationId: updateAuthoritativeMatchVNTPresence
+      tags: [Match Admission]
+      description: Updates the authenticated frozen roster member's VNT presence under the current attempt scope.
+      security: [{playerAccessToken: []}]
+      parameters:
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/MatchTransportRosterRevision"}
+        - {$ref: "#/components/parameters/MatchTransportRouteGeneration"}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/VNTPresenceRequest"}}}
+      responses:
+        "200":
+          description: Updated non-secret managed transport projection.
+          headers:
+            Cache-Control: {schema: {type: string, const: no-store}}
+            Pragma: {schema: {type: string, const: no-cache}}
+          content: {application/json: {schema: {$ref: "#/components/schemas/P2PRoomResponse"}}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /v1/match-attempts/{attempt_id}/transport/vnt/host-ready:
+    put:
+      operationId: markAuthoritativeMatchVNTHostReady
+      tags: [Match Admission]
+      description: Marks the frozen host's VNT transport ready. Node selection cannot be rebound after the attempt is frozen.
+      security: [{playerAccessToken: []}]
+      parameters:
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/MatchTransportRosterRevision"}
+        - {$ref: "#/components/parameters/MatchTransportRouteGeneration"}
+        - {$ref: "#/components/parameters/MatchTransportHostToken"}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/VNTHostReadyRequest"}}}
+      responses:
+        "200":
+          description: Updated non-secret managed transport projection.
+          headers:
+            Cache-Control: {schema: {type: string, const: no-store}}
+            Pragma: {schema: {type: string, const: no-cache}}
+          content: {application/json: {schema: {$ref: "#/components/schemas/P2PRoomResponse"}}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409": {$ref: "#/components/responses/Conflict"}
   /v1/match-attempts/{attempt_id}/host/allocation:
     get:
       operationId: getP2PMatchAllocation
@@ -4420,6 +4507,18 @@ components:
       name: attempt_id
       required: true
       schema: {type: string, pattern: "^mat_[A-Za-z0-9_-]+$"}
+    MatchTransportRosterRevision:
+      in: header
+      name: X-Match-Roster-Revision
+      required: true
+      description: Frozen lobby roster revision captured with the authoritative attempt allocation.
+      schema: {type: integer, format: int64, minimum: 1}
+    MatchTransportRouteGeneration:
+      in: header
+      name: X-Match-Route-Generation
+      required: true
+      description: Current attempt route generation captured with the authoritative transport allocation.
+      schema: {type: integer, minimum: 1}
     MatchJoinIdempotencyKey:
       in: header
       name: Idempotency-Key
@@ -4434,7 +4533,7 @@ components:
     MatchTransportHostToken:
       in: header
       name: X-Match-Transport-Host-Token
-      required: false
+      required: true
       description: P2P transport host credential retained only by the Toolbox core. Never expose it in UI DTOs or logs.
       schema: {type: string, minLength: 64, writeOnly: true}
     MatchAuthoritySession:
@@ -7047,6 +7146,23 @@ components:
       required: [data, request_id]
       properties:
         data: {$ref: "#/components/schemas/MatchLobbySnapshot"}
+        request_id: {type: string}
+    MatchTransportProjection:
+      type: object
+      additionalProperties: false
+      required: [attempt_id, lobby_id, roster_revision, route_generation, room]
+      properties:
+        attempt_id: {type: string, pattern: "^mat_[A-Za-z0-9_-]+$"}
+        lobby_id: {type: string, pattern: "^lby_[A-Za-z0-9_-]+$"}
+        roster_revision: {type: integer, format: int64, minimum: 1}
+        route_generation: {type: integer, minimum: 1}
+        room: {$ref: "#/components/schemas/PublicP2PRoom"}
+    MatchTransportResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data: {$ref: "#/components/schemas/MatchTransportProjection"}
         request_id: {type: string}
     MatchLobbyCreateResponse:
       type: object

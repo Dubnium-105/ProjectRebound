@@ -9,11 +9,14 @@ import (
 
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/api"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/auth"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/p2proom"
 	"github.com/go-chi/chi/v5"
 )
 
 const transportHostTokenHeader = "X-Match-Transport-Host-Token"
 const authoritySessionHeader = "X-Match-Authority-Session"
+const transportRosterRevisionHeader = "X-Match-Roster-Revision"
+const transportRouteGenerationHeader = "X-Match-Route-Generation"
 
 type HTTPService interface {
 	Create(context.Context, Actor, CreateInput) (CreateResult, error)
@@ -55,6 +58,16 @@ type HTTPService interface {
 	NativeCleared(context.Context, string, string, string, string, int64, int) (Snapshot, error)
 	DedicatedNativeCleared(context.Context, string, string, string, string, int64, int, OwnedProcessExitEvidence) (Snapshot, error)
 	P2PNativeCleared(context.Context, Actor, string, string, string, int64, int, ...OwnedProcessExitEvidence) (Snapshot, error)
+}
+
+// TransportHTTPService is kept separate from HTTPService so the existing
+// lobby handler test doubles and dedicated adapters cannot accidentally claim
+// the strict managed-transport contract without implementing its scope gate.
+type TransportHTTPService interface {
+	Transport(context.Context, Actor, TransportScopeRequest) (TransportProjection, error)
+	TransportVNTBootstrap(context.Context, Actor, TransportScopeRequest) (p2proom.VNTBootstrap, error)
+	TransportVNTPresence(context.Context, Actor, TransportScopeRequest, p2proom.VNTPresenceInput) (TransportRoomProjection, error)
+	TransportVNTHostReady(context.Context, Actor, TransportScopeRequest, string, int, string) (TransportRoomProjection, error)
 }
 
 type HTTPHandler struct {
@@ -133,6 +146,111 @@ func (h *HTTPHandler) MemberConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	api.WriteData(w, r, http.StatusOK, evidence)
+}
+
+func (h *HTTPHandler) Transport(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
+	service, ok := h.service.(TransportHTTPService)
+	if !ok {
+		h.writeError(w, r, conflict("MATCH_TRANSPORT_UNAVAILABLE", "The authoritative transport is unavailable.", nil))
+		return
+	}
+	scope, err := transportScopeFromRequest(r)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	result, err := service.Transport(r.Context(), actorFromRequest(r), scope)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	api.WriteData(w, r, http.StatusOK, result)
+}
+
+func (h *HTTPHandler) TransportVNTBootstrap(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
+	service, ok := h.service.(TransportHTTPService)
+	if !ok {
+		h.writeError(w, r, conflict("MATCH_TRANSPORT_UNAVAILABLE", "The authoritative transport is unavailable.", nil))
+		return
+	}
+	scope, err := transportScopeFromRequest(r)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	result, err := service.TransportVNTBootstrap(r.Context(), actorFromRequest(r), scope)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	api.WriteData(w, r, http.StatusOK, result)
+}
+
+func (h *HTTPHandler) TransportVNTPresence(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
+	service, ok := h.service.(TransportHTTPService)
+	if !ok {
+		h.writeError(w, r, conflict("MATCH_TRANSPORT_UNAVAILABLE", "The authoritative transport is unavailable.", nil))
+		return
+	}
+	scope, err := transportScopeFromRequest(r)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	var request struct {
+		Generation   int    `json:"generation"`
+		State        string `json:"state"`
+		VirtualIP    string `json:"virtual_ip"`
+		ObservedPath string `json:"observed_path,omitempty"`
+		ReasonCode   string `json:"reason_code,omitempty"`
+	}
+	if !h.decode(w, r, &request) {
+		return
+	}
+	result, err := service.TransportVNTPresence(r.Context(), actorFromRequest(r), scope, p2proom.VNTPresenceInput{
+		Generation: request.Generation, State: request.State, VirtualIP: request.VirtualIP,
+		ObservedPath: request.ObservedPath, ReasonCode: request.ReasonCode,
+	})
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	api.WriteData(w, r, http.StatusOK, result)
+}
+
+func (h *HTTPHandler) TransportVNTHostReady(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
+	service, ok := h.service.(TransportHTTPService)
+	if !ok {
+		h.writeError(w, r, conflict("MATCH_TRANSPORT_UNAVAILABLE", "The authoritative transport is unavailable.", nil))
+		return
+	}
+	scope, err := transportScopeFromRequest(r)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	var request struct {
+		Generation int    `json:"generation"`
+		VirtualIP  string `json:"virtual_ip"`
+	}
+	if !h.decode(w, r, &request) {
+		return
+	}
+	result, err := service.TransportVNTHostReady(r.Context(), actorFromRequest(r), scope,
+		r.Header.Get(transportHostTokenHeader), request.Generation, request.VirtualIP)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	api.WriteData(w, r, http.StatusOK, result)
 }
 
 func (h *HTTPHandler) Active(w http.ResponseWriter, r *http.Request) {
@@ -691,6 +809,22 @@ func (h *HTTPHandler) writeError(w http.ResponseWriter, r *http.Request, err err
 		h.logger.ErrorContext(r.Context(), "match lobby request failed", "code", code, "error", err)
 	}
 	api.WriteError(w, r, status, code, message, details)
+}
+
+func transportScopeFromRequest(r *http.Request) (TransportScopeRequest, error) {
+	rosterRevision, err := strconv.ParseInt(strings.TrimSpace(r.Header.Get(transportRosterRevisionHeader)), 10, 64)
+	if err != nil || rosterRevision < 1 {
+		return TransportScopeRequest{}, invalid("X-Match-Roster-Revision must be a positive integer.", nil)
+	}
+	routeGeneration, err := strconv.Atoi(strings.TrimSpace(r.Header.Get(transportRouteGenerationHeader)))
+	if err != nil || routeGeneration < 1 {
+		return TransportScopeRequest{}, invalid("X-Match-Route-Generation must be a positive integer.", nil)
+	}
+	return TransportScopeRequest{
+		AttemptID:       chi.URLParam(r, "attempt_id"),
+		RosterRevision:  rosterRevision,
+		RouteGeneration: routeGeneration,
+	}, nil
 }
 
 func actorFromRequest(r *http.Request) Actor {

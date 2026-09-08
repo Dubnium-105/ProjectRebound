@@ -465,6 +465,15 @@ func (s *Service) ResolveConnectionParticipants(ctx context.Context, roomID, act
 	if member.Role == "HOST" || member.Status != "ACTIVE" {
 		return "", "", forbidden("CONNECTION_FORBIDDEN", "An active peer room membership is required.")
 	}
+	if room.ManagedLobbyID != "" {
+		allowed, err := s.repository.ManagedAttemptAllowsConnection(ctx, room.ID, room.HostPlayerID, peerPlayerID)
+		if err != nil {
+			return "", "", internal(err)
+		}
+		if !allowed {
+			return "", "", forbidden("CONNECTION_ATTEMPT_SCOPE_REQUIRED", "Managed transport connections require both players in the current frozen attempt roster.")
+		}
+	}
 	return room.HostPlayerID, peerPlayerID, nil
 }
 
@@ -719,6 +728,9 @@ func (s *Service) VNTBootstrap(ctx context.Context, actor Actor, roomID string) 
 		return VNTBootstrap{}, internal(err)
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	if err := s.validateManagedAttemptScope(ctx, tx, roomID, actor.PlayerID); err != nil {
+		return VNTBootstrap{}, err
+	}
 	room, err := s.repository.GetForUpdate(ctx, tx, roomID)
 	if err != nil {
 		return VNTBootstrap{}, mapRoomError(err)
@@ -813,6 +825,9 @@ func (s *Service) UpdateVNTPresence(ctx context.Context, actor Actor, roomID str
 		return Room{}, internal(err)
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	if err := s.validateManagedAttemptScope(ctx, tx, roomID, actor.PlayerID); err != nil {
+		return Room{}, err
+	}
 	room, err := s.repository.GetForUpdate(ctx, tx, roomID)
 	if err != nil {
 		return Room{}, mapRoomError(err)
@@ -1033,6 +1048,23 @@ func roomHostTokenAAD(roomID, playerID, key string) []byte {
 	return []byte("p2p-host-token:" + roomID + ":" + playerID + ":" + key)
 }
 
+func (s *Service) validateManagedAttemptScope(ctx context.Context, tx pgx.Tx, roomID, playerID string) error {
+	scope, ok := managedAttemptScopeFromContext(ctx)
+	if !ok {
+		return nil
+	}
+	if strings.TrimSpace(scope.AttemptID) == "" || scope.RosterRevision < 1 || scope.RouteGeneration < 1 {
+		return conflict("MATCH_TRANSPORT_SCOPE_MISMATCH", "The authoritative transport scope is invalid.")
+	}
+	if err := s.repository.ValidateManagedAttemptScope(ctx, tx, roomID, playerID, scope); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return conflict("MATCH_TRANSPORT_SCOPE_MISMATCH", "The authoritative transport scope no longer matches the frozen attempt.")
+		}
+		return internal(err)
+	}
+	return nil
+}
+
 func (s *Service) hostOperation(
 	ctx context.Context,
 	actor Actor,
@@ -1051,6 +1083,9 @@ func (s *Service) hostOperation(
 		return Room{}, internal(err)
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	if err := s.validateManagedAttemptScope(ctx, tx, roomID, actor.PlayerID); err != nil {
+		return Room{}, err
+	}
 	room, err := s.repository.GetForUpdate(ctx, tx, roomID)
 	if err != nil {
 		return Room{}, mapRoomError(err)

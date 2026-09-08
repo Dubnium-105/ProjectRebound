@@ -172,6 +172,72 @@ func (r *Repository) ManagedLobbyAllowsPlayer(ctx context.Context, tx pgx.Tx, ro
 	return allowed, err
 }
 
+// ValidateManagedAttemptScope locks the current attempt and lobby before a
+// managed VNT operation reads or mutates its room. The lock order is attempt,
+// lobby, then room (the room lock is acquired by the caller), matching the
+// authoritative completion path and preventing a stale scope from racing an
+// abort or route-generation change.
+func (r *Repository) ValidateManagedAttemptScope(ctx context.Context, tx pgx.Tx, roomID, playerID string, scope ManagedAttemptScope) error {
+	var matchedAttemptID string
+	err := tx.QueryRow(ctx, `
+		SELECT attempt.id
+		FROM match_attempts AS attempt
+		JOIN match_lobbies AS lobby
+		  ON lobby.id = attempt.lobby_id
+		 AND lobby.current_attempt_id = attempt.id
+		JOIN p2p_rooms AS room
+		  ON room.id = lobby.p2p_room_id
+		 AND room.managed_lobby_id = lobby.id
+		JOIN match_attempt_roster AS roster
+		  ON roster.attempt_id = attempt.id
+		 AND roster.player_id = $2
+		WHERE room.id = $1
+		  AND attempt.id = $3
+		  AND attempt.state IN ('PROVISIONING', 'CONNECTING', 'RUNNING')
+		  AND attempt.roster_revision = $4
+		  AND attempt.route_generation = $5
+		  AND ($6 = '' OR roster.room_role = $6)
+		FOR UPDATE OF attempt, lobby
+	`, roomID, playerID, scope.AttemptID, scope.RosterRevision, scope.RouteGeneration, scope.RequiredRole).Scan(&matchedAttemptID)
+	if err != nil {
+		return err
+	}
+	if matchedAttemptID != scope.AttemptID {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
+// ManagedAttemptAllowsConnection is the second, frozen-roster gate for direct
+// connection creation. Lobby membership alone is insufficient once a managed
+// room is used by an authoritative attempt: both endpoints must be present in
+// the current attempt roster with the host/member roles issued at freeze.
+func (r *Repository) ManagedAttemptAllowsConnection(ctx context.Context, roomID, hostPlayerID, peerPlayerID string) (bool, error) {
+	var allowed bool
+	err := r.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM p2p_rooms AS room
+			JOIN match_lobbies AS lobby
+			  ON lobby.id = room.managed_lobby_id
+			JOIN match_attempts AS attempt
+			  ON attempt.id = lobby.current_attempt_id
+			JOIN match_attempt_roster AS host_roster
+			  ON host_roster.attempt_id = attempt.id
+			 AND host_roster.player_id = $2
+			JOIN match_attempt_roster AS peer_roster
+			  ON peer_roster.attempt_id = attempt.id
+			 AND peer_roster.player_id = $3
+			WHERE room.id = $1
+			  AND room.managed_lobby_id = lobby.id
+			  AND attempt.state IN ('PROVISIONING', 'CONNECTING', 'RUNNING')
+			  AND host_roster.room_role = 'HOST'
+			  AND peer_roster.room_role = 'MEMBER'
+		)
+	`, roomID, hostPlayerID, peerPlayerID).Scan(&allowed)
+	return allowed, err
+}
+
 func (r *Repository) GetMemberForUpdate(ctx context.Context, tx pgx.Tx, roomID, playerID string) (Member, error) {
 	return scanMember(tx.QueryRow(ctx, `
 		SELECT room_id, player_id, role, status, joined_at, left_at

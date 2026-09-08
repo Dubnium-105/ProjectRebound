@@ -15,7 +15,51 @@ type Repository struct {
 	pool *pgxpool.Pool
 }
 
+type transportScope struct {
+	AttemptID       string
+	LobbyID         string
+	RoomID          string
+	HostingKind     HostingKind
+	TransportKind   TransportKind
+	RosterRevision  int64
+	RouteGeneration int
+	AttemptState    AttemptState
+	RoomRole        string
+}
+
 func NewRepository(pool *pgxpool.Pool) *Repository { return &Repository{pool: pool} }
+
+// TransportScope returns the current frozen roster scope for an authenticated
+// player. The joins intentionally require the lobby's current attempt and the
+// managed room projection, so a late request cannot revive an older attempt or
+// a standalone room.
+func (r *Repository) TransportScope(ctx context.Context, attemptID, playerID string) (transportScope, error) {
+	var scope transportScope
+	err := r.pool.QueryRow(ctx, `
+		SELECT attempt.id, lobby.id, room.id, lobby.hosting_kind,
+		       COALESCE(lobby.transport_kind, ''), attempt.roster_revision,
+		       attempt.route_generation, attempt.state,
+		       COALESCE(roster.room_role, '')
+		FROM match_attempts AS attempt
+		JOIN match_lobbies AS lobby
+		  ON lobby.id = attempt.lobby_id
+		 AND lobby.current_attempt_id = attempt.id
+		JOIN p2p_rooms AS room
+		  ON room.id = lobby.p2p_room_id
+		 AND room.managed_lobby_id = lobby.id
+		 AND room.deleted_at IS NULL
+		LEFT JOIN match_attempt_roster AS roster
+		  ON roster.attempt_id = attempt.id
+		 AND roster.player_id = $2
+		WHERE attempt.id = $1
+		  AND attempt.state IN ('PROVISIONING', 'CONNECTING', 'RUNNING')
+	`, attemptID, playerID).Scan(
+		&scope.AttemptID, &scope.LobbyID, &scope.RoomID, &scope.HostingKind,
+		&scope.TransportKind, &scope.RosterRevision, &scope.RouteGeneration,
+		&scope.AttemptState, &scope.RoomRole,
+	)
+	return scope, err
+}
 
 func (r *Repository) LockIdempotency(ctx context.Context, tx pgx.Tx, ownerID, key string) error {
 	_, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))`, ownerID, key)

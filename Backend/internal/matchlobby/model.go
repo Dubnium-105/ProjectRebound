@@ -6,6 +6,52 @@ import (
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/player"
 )
 
+// TransportScopeRequest is the immutable scope a client must present when it
+// asks to use the managed transport for an authoritative attempt.  The scope
+// is deliberately carried outside the lobby snapshot so a stale room ID or
+// roster cannot be used after a new attempt is frozen.
+type TransportScopeRequest struct {
+	AttemptID       string
+	RosterRevision  int64
+	RouteGeneration int
+}
+
+// TransportRoomProjection is the non-secret room projection used by the
+// authoritative MatchAttempt transport API.  Host credentials, encrypted
+// material and idempotency hashes are intentionally absent.
+type TransportRoomProjection struct {
+	RoomID          string    `json:"room_id"`
+	HostPlayerID    string    `json:"host_player_id"`
+	DisplayName     string    `json:"display_name"`
+	Region          string    `json:"region"`
+	Mode            string    `json:"mode"`
+	Version         string    `json:"version"`
+	MaxPlayers      int       `json:"max_players"`
+	PlayerCount     int       `json:"player_count"`
+	State           string    `json:"state"`
+	LastHeartbeatAt time.Time `json:"last_heartbeat_at"`
+	CreatedAt       time.Time `json:"created_at"`
+	TransportKind   string    `json:"transport_kind"`
+	VNTNodeID       string    `json:"vnt_node_id,omitempty"`
+	VNTHost         string    `json:"vnt_host,omitempty"`
+	VNTPort         int       `json:"vnt_port,omitempty"`
+	VNTRegion       string    `json:"vnt_region,omitempty"`
+	VNTLocation     string    `json:"vnt_location,omitempty"`
+	VNTState        string    `json:"vnt_state,omitempty"`
+	VNTGeneration   int       `json:"generation,omitempty"`
+	ExpiresAt       time.Time `json:"expires_at"`
+}
+
+// TransportProjection binds the room projection to the exact authoritative
+// attempt and frozen roster/route generation used to obtain it.
+type TransportProjection struct {
+	AttemptID       string                  `json:"attempt_id"`
+	LobbyID         string                  `json:"lobby_id"`
+	RosterRevision  int64                   `json:"roster_revision"`
+	RouteGeneration int                     `json:"route_generation"`
+	Room            TransportRoomProjection `json:"room"`
+}
+
 type HostingKind string
 type State string
 type AttemptState string

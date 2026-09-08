@@ -44,6 +44,16 @@ type P2PTransport interface {
 	DeleteManaged(context.Context, p2proom.Actor, string, string) (p2proom.Room, error)
 }
 
+type managedTransportReader interface {
+	Get(context.Context, string) (p2proom.Room, error)
+}
+
+type managedVNTTransport interface {
+	VNTBootstrap(context.Context, p2proom.Actor, string) (p2proom.VNTBootstrap, error)
+	UpdateVNTPresence(context.Context, p2proom.Actor, string, p2proom.VNTPresenceInput) (p2proom.Room, error)
+	VNTHostReady(context.Context, p2proom.Actor, string, string, int, string) (p2proom.Room, error)
+}
+
 type P2PMatchProjector interface {
 	FreezeManagedAttempt(context.Context, pgx.Tx, string, string, string, string, time.Time) error
 	CompleteManagedAttempt(context.Context, pgx.Tx, string, bool, time.Time) error
@@ -230,6 +240,163 @@ func (s *Service) Get(ctx context.Context, lobbyID, viewerPlayerID string) (Snap
 		return Snapshot{}, internal(err)
 	}
 	return snapshot, nil
+}
+
+func (s *Service) Transport(ctx context.Context, actor Actor, scopeRequest TransportScopeRequest) (TransportProjection, error) {
+	scope, room, err := s.authorizeTransport(ctx, actor, scopeRequest)
+	if err != nil {
+		return TransportProjection{}, err
+	}
+	return TransportProjection{
+		AttemptID: scope.AttemptID, LobbyID: scope.LobbyID,
+		RosterRevision: scope.RosterRevision, RouteGeneration: scope.RouteGeneration,
+		Room: projectTransportRoom(room),
+	}, nil
+}
+
+func (s *Service) TransportVNTBootstrap(ctx context.Context, actor Actor, scopeRequest TransportScopeRequest) (p2proom.VNTBootstrap, error) {
+	scope, _, err := s.authorizeTransport(ctx, actor, scopeRequest)
+	if err != nil {
+		return p2proom.VNTBootstrap{}, err
+	}
+	if scope.TransportKind != TransportVNT {
+		return p2proom.VNTBootstrap{}, conflict("MATCH_VNT_TRANSPORT_REQUIRED", "This authoritative attempt does not use VNT transport.", nil)
+	}
+	transport, ok := s.p2p.(managedVNTTransport)
+	if !ok {
+		return p2proom.VNTBootstrap{}, conflict("MATCH_TRANSPORT_UNAVAILABLE", "The authoritative transport is unavailable.", nil)
+	}
+	ctx = p2proom.WithManagedAttemptScope(ctx, p2proom.ManagedAttemptScope{
+		AttemptID: scope.AttemptID, RosterRevision: scope.RosterRevision, RouteGeneration: scope.RouteGeneration,
+	})
+	result, err := transport.VNTBootstrap(ctx, toP2PActor(actor), scope.RoomID)
+	if err != nil {
+		return p2proom.VNTBootstrap{}, mapTransportDependencyError(err)
+	}
+	return result, nil
+}
+
+func (s *Service) TransportVNTPresence(ctx context.Context, actor Actor, scopeRequest TransportScopeRequest, input p2proom.VNTPresenceInput) (TransportRoomProjection, error) {
+	scope, _, err := s.authorizeTransport(ctx, actor, scopeRequest)
+	if err != nil {
+		return TransportRoomProjection{}, err
+	}
+	if scope.TransportKind != TransportVNT {
+		return TransportRoomProjection{}, conflict("MATCH_VNT_TRANSPORT_REQUIRED", "This authoritative attempt does not use VNT transport.", nil)
+	}
+	transport, ok := s.p2p.(managedVNTTransport)
+	if !ok {
+		return TransportRoomProjection{}, conflict("MATCH_TRANSPORT_UNAVAILABLE", "The authoritative transport is unavailable.", nil)
+	}
+	ctx = p2proom.WithManagedAttemptScope(ctx, p2proom.ManagedAttemptScope{
+		AttemptID: scope.AttemptID, RosterRevision: scope.RosterRevision, RouteGeneration: scope.RouteGeneration,
+	})
+	room, err := transport.UpdateVNTPresence(ctx, toP2PActor(actor), scope.RoomID, input)
+	if err != nil {
+		return TransportRoomProjection{}, mapTransportDependencyError(err)
+	}
+	return projectTransportRoom(room), nil
+}
+
+func (s *Service) TransportVNTHostReady(ctx context.Context, actor Actor, scopeRequest TransportScopeRequest, hostToken string, generation int, virtualIP string) (TransportRoomProjection, error) {
+	scope, _, err := s.authorizeTransport(ctx, actor, scopeRequest)
+	if err != nil {
+		return TransportRoomProjection{}, err
+	}
+	if scope.TransportKind != TransportVNT {
+		return TransportRoomProjection{}, conflict("MATCH_VNT_TRANSPORT_REQUIRED", "This authoritative attempt does not use VNT transport.", nil)
+	}
+	if scope.RoomRole != "HOST" {
+		return TransportRoomProjection{}, forbidden("MATCH_TRANSPORT_HOST_REQUIRED", "Only the frozen host may mark the VNT transport ready.")
+	}
+	if strings.TrimSpace(hostToken) == "" {
+		return TransportRoomProjection{}, forbidden("MATCH_TRANSPORT_HOST_TOKEN_REQUIRED", "The transport host token is required.")
+	}
+	transport, ok := s.p2p.(managedVNTTransport)
+	if !ok {
+		return TransportRoomProjection{}, conflict("MATCH_TRANSPORT_UNAVAILABLE", "The authoritative transport is unavailable.", nil)
+	}
+	ctx = p2proom.WithManagedAttemptScope(ctx, p2proom.ManagedAttemptScope{
+		AttemptID: scope.AttemptID, RosterRevision: scope.RosterRevision, RouteGeneration: scope.RouteGeneration,
+		RequiredRole: "HOST",
+	})
+	room, err := transport.VNTHostReady(ctx, toP2PActor(actor), scope.RoomID, hostToken, generation, virtualIP)
+	if err != nil {
+		return TransportRoomProjection{}, mapTransportDependencyError(err)
+	}
+	return projectTransportRoom(room), nil
+}
+
+func (s *Service) authorizeTransport(ctx context.Context, actor Actor, request TransportScopeRequest) (transportScope, p2proom.Room, error) {
+	if err := requireActive(actor); err != nil {
+		return transportScope{}, p2proom.Room{}, err
+	}
+	request.AttemptID = strings.TrimSpace(request.AttemptID)
+	if request.AttemptID == "" || request.RosterRevision < 1 || request.RouteGeneration < 1 {
+		return transportScope{}, p2proom.Room{}, invalid("A positive attempt transport scope is required.", nil)
+	}
+	scope, err := s.repository.TransportScope(ctx, request.AttemptID, actor.PlayerID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return transportScope{}, p2proom.Room{}, notFound("MATCH_ATTEMPT_NOT_FOUND", "The authoritative match attempt was not found.")
+		}
+		return transportScope{}, p2proom.Room{}, internal(err)
+	}
+	if scope.RoomRole == "" {
+		return transportScope{}, p2proom.Room{}, forbidden("MATCH_TRANSPORT_MEMBERSHIP_REQUIRED", "The authenticated player is not in the frozen attempt roster.")
+	}
+	if scope.HostingKind != HostingP2P || scope.RoomID == "" {
+		return transportScope{}, p2proom.Room{}, conflict("MATCH_P2P_TRANSPORT_REQUIRED", "The authoritative attempt has no managed P2P transport.", nil)
+	}
+	if scope.RosterRevision != request.RosterRevision || scope.RouteGeneration != request.RouteGeneration {
+		return transportScope{}, p2proom.Room{}, conflict("MATCH_TRANSPORT_SCOPE_MISMATCH", "The transport scope no longer matches the frozen attempt.", map[string]any{
+			"roster_revision": scope.RosterRevision, "route_generation": scope.RouteGeneration,
+		})
+	}
+	reader, ok := s.p2p.(managedTransportReader)
+	if !ok {
+		return transportScope{}, p2proom.Room{}, conflict("MATCH_TRANSPORT_UNAVAILABLE", "The authoritative transport is unavailable.", nil)
+	}
+	room, err := reader.Get(ctx, scope.RoomID)
+	if err != nil {
+		return transportScope{}, p2proom.Room{}, mapTransportDependencyError(err)
+	}
+	if room.ID != scope.RoomID || room.ManagedLobbyID != scope.LobbyID || room.TransportKind != p2proom.TransportKind(scope.TransportKind) {
+		return transportScope{}, p2proom.Room{}, conflict("MATCH_TRANSPORT_SCOPE_MISMATCH", "The managed transport does not match the authoritative lobby.", nil)
+	}
+	if room.State == p2proom.StateClosed || room.State == p2proom.StateStale {
+		return transportScope{}, p2proom.Room{}, conflict("MATCH_TRANSPORT_NOT_ACTIVE", "The managed transport is no longer active.", nil)
+	}
+	return scope, room, nil
+}
+
+func projectTransportRoom(room p2proom.Room) TransportRoomProjection {
+	return TransportRoomProjection{
+		RoomID: room.ID, HostPlayerID: room.HostPlayerID, DisplayName: room.DisplayName,
+		Region: room.Region, Mode: room.Mode, Version: room.Version,
+		MaxPlayers: room.MaxPlayers, PlayerCount: room.PlayerCount, State: string(room.State),
+		LastHeartbeatAt: room.LastHeartbeatAt, CreatedAt: room.CreatedAt,
+		TransportKind: string(room.TransportKind), VNTNodeID: room.VNTNodeID,
+		VNTHost: room.VNTHost, VNTPort: room.VNTPort, VNTRegion: room.VNTRegion,
+		VNTLocation: room.VNTLocation, VNTState: room.VNTState,
+		VNTGeneration: room.VNTGeneration, ExpiresAt: room.ExpiresAt,
+	}
+}
+
+type transportDependencyError interface {
+	ErrorDetails() (int, string, string, map[string]any)
+}
+
+func mapTransportDependencyError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var dependency transportDependencyError
+	if errors.As(err, &dependency) {
+		status, code, message, details := dependency.ErrorDetails()
+		return &serviceError{status: status, code: code, message: message, details: details}
+	}
+	return internal(err)
 }
 
 // CurrentMemberConnection returns a server-validated connection receipt for
