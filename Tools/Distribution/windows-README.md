@@ -14,6 +14,8 @@ Use Windows 10/11 x64, your own Steam session, and the fixed Boundary version. T
 
 This is a test update for an existing Rebound runtime. The game directory needs its complete loader and data files. The installer checks the required files and stops when one is missing. Use the managed Toolbox installation to fill missing runtime files; do not mix DLLs from another source.
 
+The network must allow the API/Meta HTTPS services above and MetaTunnel's `logic.project-rebound.space:443` endpoint (TLS TCP). Logic is another entry point of the existing service, not a separate test backend. A successful TLS handshake does not establish Steam or game login.
+
 The target needs WebView2 Runtime. If it is missing, install it from the [Microsoft WebView2 page](https://developer.microsoft.com/en-us/microsoft-edge/webview2); the [official distribution guidance](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution) explains runtime checks and installation. It also needs the x64 Microsoft Visual C++ v14 runtime, with a version no earlier than the build-tool version recorded in the package manifest; the download entry is on the [official Microsoft runtime page](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170).
 
 ## Install and start

@@ -14,6 +14,8 @@
 
 本次为现有 Rebound 运行文件的测试更新；游戏目录需要完整的加载器和数据文件。安装脚本会检查必要文件，缺项时停止。请先通过 Toolbox 受管安装补齐运行文件，不要混用其他来源的 DLL。
 
+网络需允许访问上述 API/Meta HTTPS 服务，以及 MetaTunnel 使用的 `logic.project-rebound.space:443`（TLS TCP）。Logic 通道不是另一个测试后端；它与 Meta HTTP 是同一现有服务的不同入口。TLS 握手成功不等于 Steam 或游戏登录完成。
+
 目标机器需要 WebView2 Runtime。缺失时从 [Microsoft 官方 WebView2 页面](https://developer.microsoft.com/en-us/microsoft-edge/webview2) 安装；[官方分发说明](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution) 解释了运行时检查与安装方式。还需 x64 Microsoft Visual C++ v14 运行库，版本不得早于本包清单记录的构建工具版本；下载入口见 [Microsoft 官方运行库页面](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170)。
 
 ## 安装与启动
