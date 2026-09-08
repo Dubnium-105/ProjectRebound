@@ -1,3 +1,5 @@
+[English](windows-README.md) | 简体中文
+
 # Project Rebound 实机测试版本
 
 本包连接现有 `api.project-rebound.space` / `cnapi.project-rebound.space` 与 `meta.project-rebound.space`，无需填写另一个测试后端地址。它用于安装、Toolbox 登录与启动阻塞诊断，保留严格名单、真实 Steam Ticket、原生 Grant 和受管启动检查。

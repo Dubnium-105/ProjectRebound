@@ -1,3 +1,5 @@
+English | [简体中文](README.zh-CN.md)
+
 # Windows native hardware-test checks
 
 These scripts are a read-only preflight and evidence collector for the strict
