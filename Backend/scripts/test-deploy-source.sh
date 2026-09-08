@@ -9,7 +9,8 @@ test_backend="$temporary_dir/Backend"
 mkdir -p "$temporary_dir/bin" "$test_backend/scripts" \
   "$test_backend/deployments/control-plane" "$test_backend/deployments/edge-relay"
 cp "$script_dir/deploy-control-plane.sh" "$script_dir/deploy-meta-server.sh" \
-  "$script_dir/deploy-edge-relay.sh" "$test_backend/scripts/"
+  "$script_dir/deploy-edge-relay.sh" "$script_dir/verify-meta-redis-acl.py" \
+  "$test_backend/scripts/"
 cp "$script_dir/../deployments/control-plane/toolbox-signer.pem" \
   "$test_backend/deployments/control-plane/toolbox-signer.pem"
 touch "$test_backend/deployments/control-plane/docker-compose.yaml"
@@ -23,6 +24,10 @@ printf '%s\n' "$*" >>"${DOCKER_LOG:?}"
 if [[ "$*" == *"--entrypoint /bin/sh control-plane"* &&
       "${FAIL_TICKET_PREFLIGHT:-0}" == "1" ]]; then
   exit 1
+fi
+if [[ "$*" == *" config --format json"* ]]; then
+  cat "${COMPOSE_CONFIG_JSON_FILE:?}"
+  exit 0
 fi
 if [[ "$*" == *"sha256sum \"\$TOOLBOX_PUBKEY_PATH\""* ]]; then
   printf '%s\n' "${FAKE_TOOLBOX_PUBKEY_SHA256:?}"
@@ -55,6 +60,35 @@ printf 'EDGE_RELAY_BOOTSTRAP_TOKEN=\n' >"$edge_env"
 control_image="ghcr.io/example/projectrebound-control-plane:sha-1111111111111111111111111111111111111111"
 edge_image="ghcr.io/example/projectrebound-edge-relay:sha-2222222222222222222222222222222222222222"
 meta_image="ghcr.io/example/projectrebound-meta-server:sha-3333333333333333333333333333333333333333"
+
+canonical_meta_compose_config="$temporary_dir/meta-compose-canonical.json"
+# These fixtures represent the effective JSON returned after Compose merges a
+# production override, including an entrypoint: !override replacement.
+cat >"$canonical_meta_compose_config" <<'EOF'
+{
+  "services": {
+    "meta-redis-provision": {
+      "entrypoint": [
+        "/bin/sh",
+        "-ec",
+        "redis-cli -h redis -a \"$${REDIS_PASSWORD}\" --no-auth-warning ACL SETUSER \"$${META_REDIS_USERNAME}\" reset on \">$${META_REDIS_PASSWORD}\" \"~meta:*\" \"+@connection\" \"+get\" \"+set\" \"+del\" \"+unlink\" \"+eval\" \"+evalsha\" \"+expire\" \"+pexpire\" \"+ttl\" \"+pttl\""
+      ]
+    }
+  }
+}
+EOF
+
+missing_evalsha_meta_compose_config="$temporary_dir/meta-compose-missing-evalsha.json"
+sed 's/ \\\"+evalsha\\\"//' "$canonical_meta_compose_config" >"$missing_evalsha_meta_compose_config"
+missing_eval_meta_compose_config="$temporary_dir/meta-compose-missing-eval.json"
+sed 's/ \\\"+eval\\\"//' "$canonical_meta_compose_config" >"$missing_eval_meta_compose_config"
+wrong_namespace_meta_compose_config="$temporary_dir/meta-compose-wrong-namespace.json"
+sed 's/\\\"~meta:\*\\\"/\\\"~*\\\"/' "$canonical_meta_compose_config" >"$wrong_namespace_meta_compose_config"
+broad_grant_meta_compose_config="$temporary_dir/meta-compose-broad-grant.json"
+sed 's/\\\"+@connection\\\"/\\\"+@all\\\"/' "$canonical_meta_compose_config" >"$broad_grant_meta_compose_config"
+stale_override_meta_compose_config="$temporary_dir/meta-compose-stale-override.json"
+sed 's/ \\\"+eval\\\" \\\"+evalsha\\\"/ \\\"+getdel\\\"/' \
+  "$canonical_meta_compose_config" >"$stale_override_meta_compose_config"
 
 if CONTROL_PLANE_ENV_FILE="$control_env" DEPLOY_SOURCE=ci CONTROL_PLANE_IMAGE=invalid \
   bash "$test_backend/scripts/deploy-control-plane.sh" >/dev/null 2>&1; then
@@ -102,6 +136,7 @@ fi
 
 : >"$docker_log"
 PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" \
+  COMPOSE_CONFIG_JSON_FILE="$canonical_meta_compose_config" \
   CONTROL_PLANE_ENV_FILE="$control_env" CONTROL_PLANE_COMPOSE_OVERRIDE_FILE="$control_override" \
   DEPLOY_SOURCE=ci META_SERVER_IMAGE="$meta_image" \
   bash "$test_backend/scripts/deploy-meta-server.sh" >/dev/null
@@ -113,8 +148,30 @@ grep -q ' up -d --no-deps meta-server$' "$docker_log"
 ! grep -q ' run --rm meta-postgres-provision$' "$docker_log"
 ! grep -q ' up .*control-plane' "$docker_log"
 
+for invalid_config in "$missing_evalsha_meta_compose_config" \
+  "$missing_eval_meta_compose_config" \
+  "$wrong_namespace_meta_compose_config" "$broad_grant_meta_compose_config" \
+  "$stale_override_meta_compose_config"; do
+  : >"$docker_log"
+  if PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" \
+    COMPOSE_CONFIG_JSON_FILE="$invalid_config" \
+    CONTROL_PLANE_ENV_FILE="$control_env" CONTROL_PLANE_COMPOSE_OVERRIDE_FILE="$control_override" \
+    DEPLOY_SOURCE=ci META_SERVER_IMAGE="$meta_image" \
+    bash "$test_backend/scripts/deploy-meta-server.sh" \
+    >"$temporary_dir/invalid-meta.out" 2>&1; then
+    echo "Expected effective MetaServer Redis ACL validation to reject $invalid_config" >&2
+    exit 1
+  fi
+  grep -Fq 'Refusing MetaServer deployment: effective Redis ACL provision is not canonical.' \
+    "$temporary_dir/invalid-meta.out"
+  ! grep -Eq ' pull meta-server$| run --rm --no-deps| up -d --no-deps meta-server$' "$docker_log"
+  ! grep -Eq 'REDIS_PASSWORD|META_REDIS_PASSWORD|CHANGE_ME|redis-cli' \
+    "$temporary_dir/invalid-meta.out"
+done
+
 : >"$docker_log"
 PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" \
+  COMPOSE_CONFIG_JSON_FILE="$canonical_meta_compose_config" \
   CONTROL_PLANE_ENV_FILE="$control_env" DEPLOY_SOURCE=source \
   bash "$test_backend/scripts/deploy-meta-server.sh" >/dev/null
 grep -q ' build --pull meta-server$' "$docker_log"

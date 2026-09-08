@@ -61,6 +61,12 @@ sudo env \
 
 脚本只构建/拉取 MetaServer，等待当前的 40 号迁移，幂等创建受限 PostgreSQL 角色和仅限 `meta:*` 的 Redis ACL 用户，再执行 `up -d --no-deps meta-server`。
 
+在执行 provision 前，脚本会渲染包含可选 `CONTROL_PLANE_COMPOSE_OVERRIDE_FILE`
+在内的合并后 Compose 模型，并拒绝漂移的 `meta-redis-provision` entrypoint。
+最终 ACL 必须只使用规范的 `~meta:*` 键模式和受限命令集合，其中包含原子消费
+Gate Ticket 所需的 `+eval` 与 `+evalsha`。使用 `!override` 的 override 必须重现
+完整 allowlist；检查失败时拒绝部署，且不会输出渲染后的环境变量值。
+
 `META_MATCH_RESERVATION_TTL_SECONDS` 默认为 90。玩家未在此期限内连接到已分配 Dedicated Server 时，调度器会把预留标记为失败，将健康服务器恢复为 `READY`，并释放 Party。生产环境还必须设置 `META_LOGIC_PROXY_PROTOCOL=true`。可信 HAProxy/FRP 链路提供该头部，使每 IP 限制使用真实客户端地址；不得把启用 PROXY 的 Logic listener 暴露给不可信网络。
 
 验证：

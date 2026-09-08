@@ -50,6 +50,27 @@ if [[ -n "$compose_override_file" && "$compose_override_file" != /dev/null ]]; t
   compose+=(-f "$compose_override_file")
 fi
 compose+=(--profile meta)
+
+# Validate the fully merged Compose model before building or provisioning.
+# A production override may use Compose's !override tag and silently replace
+# the canonical Redis ACL entrypoint. Keep the rendered model off the log and
+# fail closed unless the effective command is the exact least-privilege one.
+meta_acl_checker="$script_dir/verify-meta-redis-acl.py"
+[[ -f "$meta_acl_checker" ]] || {
+  echo "Missing MetaServer Redis ACL checker: $meta_acl_checker" >&2
+  exit 1
+}
+python_bin="${PYTHON_BIN:-python3}"
+command -v "$python_bin" >/dev/null 2>&1 || {
+  echo "Python 3 is required to validate the effective MetaServer Redis ACL." >&2
+  exit 1
+}
+if ! "${compose[@]}" config --format json 2>/dev/null |
+  "$python_bin" "$meta_acl_checker"; then
+  echo "Refusing MetaServer deployment: effective Redis ACL provision is not canonical." >&2
+  exit 1
+fi
+
 if [[ "$deploy_source" == "ci" ]]; then
   export META_SERVER_IMAGE="$image"
   "${compose[@]}" pull meta-server
