@@ -8008,7 +8008,7 @@ components:
         admission_mode: {type: string, const: strict_roster_v1}
         frontend: {type: string, const: tauri}
         ipc_protocol: {type: string, const: strict-roster-v2}
-        backend_schema: {type: integer, const: 47}
+        backend_schema: {type: integer, const: 48}
         game_binary_sha256: {type: string, pattern: "^[0-9a-f]{64}$"}
         payload_sha256: {type: string, pattern: "^[0-9a-f]{64}$"}
         backend_commit: {type: string, pattern: "^[0-9a-f]{7,64}$"}

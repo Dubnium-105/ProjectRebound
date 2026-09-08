@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Project Rebound Windows native hardware-test package",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "purpose",
+    "release_ready",
+    "files",
+    "pinned_game",
+    "source_commits"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "purpose": { "const": "hardware-test-only" },
+    "release_ready": { "const": false },
+    "package_id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$" },
+    "package_role": { "type": "string", "minLength": 1 },
+    "msvc_minimum_version": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+){2,3}$" },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["path", "bytes", "sha256"],
+        "properties": {
+          "path": { "type": "string", "pattern": "^[^/\\\\.][^\\\\]*$" },
+          "bytes": { "type": "integer", "minimum": 1 },
+          "sha256": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "pinned_game": {
+      "type": "object",
+      "required": ["sha256", "bytes"],
+      "properties": {
+        "sha256": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" },
+        "bytes": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": true
+    },
+    "source_commits": {
+      "type": "object",
+      "minProperties": 2,
+      "additionalProperties": { "type": "string", "pattern": "^[0-9a-fA-F]{40}$" }
+    }
+  }
+}

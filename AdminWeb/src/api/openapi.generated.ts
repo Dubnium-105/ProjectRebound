@@ -808,6 +808,23 @@ export interface paths {
         patch: operations["adminUpdateSettings"];
         trace?: never;
     };
+    "/v1/admin/match-attempts/{attempt_id}/force-abort": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Abort an active authoritative match attempt. This records an administrator audit event and leaves native/game-server cleanup pending until the scoped cleanup receipt is accepted. */
+        post: operations["adminForceAbortMatchAttempt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/p2p-rooms": {
         parameters: {
             query?: never;
@@ -1960,6 +1977,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/match-attempts/{attempt_id}/members/me/connection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getCurrentMatchMemberConnection"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/match-attempts/{attempt_id}/host/allocation": {
         parameters: {
             query?: never;
@@ -2002,6 +2035,38 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["confirmP2PMatchPayloadInstalled"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/match-attempts/{attempt_id}/host/admissions/{grant_jti}/reserve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reserveP2PMatchAdmission"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/match-attempts/{attempt_id}/host/admissions/{grant_jti}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["releaseP2PMatchAdmission"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2072,6 +2137,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/match-attempts/{attempt_id}/host/native-cleared": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["acknowledgeP2PMatchNativeCleared"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/game-servers/{server_id}/match-attempts/{attempt_id}/allocation": {
         parameters: {
             query?: never;
@@ -2098,6 +2179,38 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["confirmDedicatedMatchPayloadInstalled"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/game-servers/{server_id}/match-attempts/{attempt_id}/admissions/{grant_jti}/reserve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reserveDedicatedMatchAdmission"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/game-servers/{server_id}/match-attempts/{attempt_id}/admissions/{grant_jti}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["releaseDedicatedMatchAdmission"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2184,6 +2297,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/game-servers/{server_id}/match-attempts/{attempt_id}/native-cleared": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["acknowledgeDedicatedMatchNativeCleared"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/p2p-rooms": {
         parameters: {
             query?: never;
@@ -2191,8 +2320,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * @deprecated
+         * @description Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+         */
         get: operations["listP2PRooms"];
         put?: never;
+        /**
+         * @deprecated
+         * @description Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+         */
         post: operations["createP2PRoom"];
         delete?: never;
         options?: never;
@@ -2205,13 +2342,21 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
-                room_id: components["parameters"]["P2PRoomID"];
+                room_id: string;
             };
             cookie?: never;
         };
+        /**
+         * @deprecated
+         * @description Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+         */
         get: operations["getP2PRoom"];
         put?: never;
         post?: never;
+        /**
+         * @deprecated
+         * @description Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+         */
         delete: operations["closeP2PRoom"];
         options?: never;
         head?: never;
@@ -2222,11 +2367,17 @@ export interface paths {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                room_id: string;
+            };
             cookie?: never;
         };
         get?: never;
         put?: never;
+        /**
+         * @deprecated
+         * @description Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+         */
         post: operations["joinP2PRoom"];
         delete?: never;
         options?: never;
@@ -2238,11 +2389,17 @@ export interface paths {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                room_id: string;
+            };
             cookie?: never;
         };
         get?: never;
         put?: never;
+        /**
+         * @deprecated
+         * @description Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+         */
         post: operations["leaveP2PRoom"];
         delete?: never;
         options?: never;
@@ -2254,11 +2411,17 @@ export interface paths {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                room_id: string;
+            };
             cookie?: never;
         };
         get?: never;
         put?: never;
+        /**
+         * @deprecated
+         * @description Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+         */
         post: operations["heartbeatP2PRoom"];
         delete?: never;
         options?: never;
@@ -2270,11 +2433,17 @@ export interface paths {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                room_id: string;
+            };
             cookie?: never;
         };
         get?: never;
         put?: never;
+        /**
+         * @deprecated
+         * @description Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+         */
         post: operations["startP2PRoom"];
         delete?: never;
         options?: never;
@@ -2286,11 +2455,17 @@ export interface paths {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                room_id: string;
+            };
             cookie?: never;
         };
         get?: never;
         put?: never;
+        /**
+         * @deprecated
+         * @description Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+         */
         post: operations["bootstrapP2PVNTSession"];
         delete?: never;
         options?: never;
@@ -2302,10 +2477,16 @@ export interface paths {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                room_id: string;
+            };
             cookie?: never;
         };
         get?: never;
+        /**
+         * @deprecated
+         * @description Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+         */
         put: operations["updateP2PVNTPresence"];
         post?: never;
         delete?: never;
@@ -2318,10 +2499,16 @@ export interface paths {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                room_id: string;
+            };
             cookie?: never;
         };
         get?: never;
+        /**
+         * @deprecated
+         * @description Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+         */
         put: operations["markP2PVNTHostReady"];
         post?: never;
         delete?: never;
@@ -2334,11 +2521,17 @@ export interface paths {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                room_id: string;
+            };
             cookie?: never;
         };
         get?: never;
         put?: never;
+        /**
+         * @deprecated
+         * @description Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+         */
         post: operations["rebindP2PVNTSession"];
         delete?: never;
         options?: never;
@@ -2350,10 +2543,15 @@ export interface paths {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                room_id: string;
+            };
             cookie?: never;
         };
-        /** @description Returns the server-created match identity for a member of the frozen room roster. */
+        /**
+         * @deprecated
+         * @description Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+         */
         get: operations["getActiveP2PMatch"];
         put?: never;
         post?: never;
@@ -2367,12 +2565,17 @@ export interface paths {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                match_id: string;
+            };
             cookie?: never;
         };
         get?: never;
         put?: never;
-        /** @description Rotates and returns a session-family-bound report capability for an eligible frozen-roster member. */
+        /**
+         * @deprecated
+         * @description Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+         */
         post: operations["issueP2PReportCapability"];
         delete?: never;
         options?: never;
@@ -2384,11 +2587,16 @@ export interface paths {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                match_id: string;
+            };
             cookie?: never;
         };
         get?: never;
-        /** @description Records monotonic launcher presence, disconnect, reconnect, result-screen, and exit-intent checkpoints. */
+        /**
+         * @deprecated
+         * @description Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+         */
         put: operations["updateOwnP2PMatchPresence"];
         post?: never;
         delete?: never;
@@ -2401,11 +2609,17 @@ export interface paths {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                match_id: string;
+                report_id: string;
+            };
             cookie?: never;
         };
         get?: never;
-        /** @description Uploads one bounded raw v3 snapshot. Authentication requires both the verified player access token and its session-bound report capability. Idempotency is scoped to match, reporter, and report_id; a FINAL report is immutable per reporter. */
+        /**
+         * @deprecated
+         * @description Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+         */
         put: operations["submitP2PBattleLogV3"];
         post?: never;
         delete?: never;
@@ -2418,10 +2632,15 @@ export interface paths {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                match_id: string;
+            };
             cookie?: never;
         };
-        /** @description Returns collection progress or the immutable deadline/quorum decision to a frozen-roster member. */
+        /**
+         * @deprecated
+         * @description Standalone online admission and lifecycle are retired. Use MatchLobby and MatchAttempt.
+         */
         get: operations["getP2PBattleLogResult"];
         put?: never;
         post?: never;
@@ -2440,7 +2659,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Idempotently creates a host-to-peer session. Joining a P2P room also creates this session automatically. */
+        /** @description Coordinates a host-to-peer transport session within an authoritative attempt. It does not grant native admission or create an independent online room. */
         post: operations["createConnection"];
         delete?: never;
         options?: never;
@@ -2942,6 +3161,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /**
+         * @deprecated
+         * @description Retired. MatchLobby and MatchAttempt exclusively own online admission and lifecycle.
+         */
         post: operations["createMetaMatchTicket"];
         delete?: never;
         options?: never;
@@ -2958,10 +3181,17 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description Ticket ownership is derived from the access token; cross-player access is hidden as not found. */
+        /**
+         * @deprecated
+         * @description Retired. MatchLobby and MatchAttempt exclusively own online admission and lifecycle.
+         */
         get: operations["getMetaMatchTicket"];
         put?: never;
         post?: never;
+        /**
+         * @deprecated
+         * @description Retired. MatchLobby and MatchAttempt exclusively own online admission and lifecycle.
+         */
         delete: operations["cancelMetaMatchTicket"];
         options?: never;
         head?: never;
@@ -2975,7 +3205,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Requires meta.loadouts.read scope and an active match assigned to this Game Server. */
+        /** @description Requires meta.loadouts.read scope and an active MatchAttempt projection assigned to this Game Server; legacy standalone Meta matches are rejected. */
         get: operations["getAssignedMetaPlayerLoadout"];
         put?: never;
         post?: never;
@@ -2994,7 +3224,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Requires meta.matches.connect scope and the assigned active match/player. */
+        /**
+         * @deprecated
+         * @description Retired. MatchLobby and MatchAttempt exclusively own online admission and lifecycle.
+         */
         post: operations["markAssignedMetaPlayerConnected"];
         delete?: never;
         options?: never;
@@ -3011,7 +3244,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Requires meta.matches.complete scope and an active match assigned to this Game Server. */
+        /**
+         * @deprecated
+         * @description Retired. MatchLobby and MatchAttempt exclusively own online admission and lifecycle.
+         */
         post: operations["completeAssignedMetaMatch"];
         delete?: never;
         options?: never;
@@ -3113,6 +3349,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /**
+         * @deprecated
+         * @description Retired. MatchLobby and MatchAttempt exclusively own online admission and lifecycle.
+         */
         post: operations["adminCancelMetaMatch"];
         delete?: never;
         options?: never;
@@ -3444,6 +3684,16 @@ export interface components {
         };
         AdminOperationReason: {
             reason: string;
+        };
+        AdminMatchAttemptForceAbortRequest: {
+            failure_code: string;
+            reason: string;
+        };
+        AdminMatchAttemptForceAbortResponse: {
+            data: {
+                attempt: components["schemas"]["MatchLobbySnapshot"];
+            };
+            request_id: string;
         };
         AdminPlayerResponse: {
             data: components["schemas"]["AdminPlayer"];
@@ -4007,6 +4257,8 @@ export interface components {
             minimum_supported_version: string;
             force_update: boolean;
             files: components["schemas"]["AdminReleaseSourceFile"][];
+            /** @description Signed strict-authoritative-online contract metadata. Required by toolbox releases and rejected for stable/beta releases. */
+            online_compatibility?: components["schemas"]["OnlineCompatibility"];
             reason: string;
         };
         AdminReleaseValidation: {
@@ -4815,9 +5067,15 @@ export interface components {
         MatchLobbyState: "OPEN" | "FROZEN" | "PROVISIONING" | "CONNECTING" | "RUNNING" | "COMPLETED" | "ABORTED";
         /** @enum {string} */
         MatchAttemptState: "FROZEN" | "PROVISIONING" | "CONNECTING" | "RUNNING" | "COMPLETED" | "ABORTED";
+        /** @enum {string} */
+        MatchCleanupState: "CLEARED" | "PENDING";
         DedicatedMatchAssignment: {
             attempt_id: string;
             state: components["schemas"]["MatchAttemptState"];
+            authority_session_id: string;
+            world_instance_id: string;
+            /** Format: int64 */
+            roster_revision: number;
             route_generation: number;
         };
         MatchLobbyCreateRequest: {
@@ -4890,6 +5148,13 @@ export interface components {
             roster_revision: number;
             route_generation: number;
             payload_installed: boolean;
+            cleanup_state: components["schemas"]["MatchCleanupState"];
+            /** Format: date-time */
+            cleanup_requested_at?: string;
+            /** Format: date-time */
+            native_cleared_at?: string;
+            cleanup_error?: string;
+            world_instance_id?: string;
             endpoint_host?: string;
             endpoint_port?: number;
             /** Format: date-time */
@@ -4956,6 +5221,13 @@ export interface components {
         MatchJoinGrantResponse: {
             data: {
                 attempt_id: string;
+                authority_session_id: string;
+                world_instance_id: string;
+                /** Format: int64 */
+                roster_revision: number;
+                route_generation: number;
+                player_id: string;
+                grant_jti: string;
                 endpoint_host: string;
                 endpoint_port: number;
                 join_grant: string;
@@ -4963,6 +5235,27 @@ export interface components {
                 expires_at: string;
                 connection_generation: number;
             };
+            request_id: string;
+        };
+        MatchMemberConnectionEvidence: {
+            attempt_id: string;
+            authority_session_id: string;
+            world_instance_id: string;
+            /** Format: int64 */
+            roster_revision: number;
+            route_generation: number;
+            player_id: string;
+            /** @enum {string} */
+            role: "HOST" | "MEMBER";
+            /** @description Empty for a P2P HOST seat, which has no JoinGrant. */
+            grant_jti: string;
+            connection_generation: number;
+            native_connection_nonce: string;
+            /** @constant */
+            connection_state: "CONNECTED";
+        };
+        MatchMemberConnectionResponse: {
+            data: components["schemas"]["MatchMemberConnectionEvidence"];
             request_id: string;
         };
         MatchAllocationResponse: {
@@ -4981,23 +5274,93 @@ export interface components {
             game_binary_sha256: string;
             route_generation: number;
         };
+        MatchNativeWorldReadyRequest: {
+            world_instance_id: string;
+            native_connection_nonce: string;
+            /** @description P2P-only proof that the route refresh preserves the already-live HOST. The backend verifies this exact old scope and never replaces the HOST nonce or generation on this path. */
+            preserve_host_connection?: {
+                attempt_id: string;
+                authority_session_id: string;
+                world_instance_id: string;
+                roster_revision: number;
+                player_id: string;
+                /** @constant */
+                grant_jti: "";
+                route_generation: number;
+                connection_generation: number;
+                native_connection_nonce: string;
+            };
+        };
+        MatchAdmissionReservationRequest: {
+            player_id: string;
+            world_instance_id: string;
+            native_connection_nonce: string;
+            connection_generation: number;
+        };
+        MatchAdmissionReservationResponse: {
+            data: {
+                attempt_id: string;
+                grant_jti: string;
+                player_id: string;
+                world_instance_id: string;
+                native_connection_nonce: string;
+                connection_generation: number;
+                route_generation: number;
+                /** Format: date-time */
+                reserved_until: string;
+            };
+            request_id: string;
+        };
+        MatchAdmissionReleaseResponse: {
+            data: {
+                /** @constant */
+                released: true;
+            };
+            request_id: string;
+        };
         MatchConnectedReportRequest: {
             player_id: string;
             grant_jti: string;
+            world_instance_id: string;
+            native_connection_nonce: string;
             connection_generation: number;
         };
         MatchDisconnectedReportRequest: {
             player_id: string;
+            world_instance_id: string;
+            native_connection_nonce: string;
             connection_generation: number;
+            route_generation: number;
         };
         MatchCompleteRequest: {
             success: boolean;
             failure_code?: string;
         };
+        /** @description A native-world acknowledgement must match the persisted world, roster revision, and route generation. For an owned process exit, provide all three evidence fields; partial evidence is rejected. A P2P HOST may send an empty world only when no world was persisted before its owned child exited, or may send `evidence_kind=native_process_not_started` with empty process fields before Payload/world publication; a persisted world must be echoed exactly. The process ID and start fingerprint are supervisor evidence metadata and do not replace local proof that the owned child handle signaled. */
+        MatchNativeClearedRequest: {
+            world_instance_id: string;
+            roster_revision: number;
+            route_generation: number;
+            /** @enum {string} */
+            evidence_kind?: "owned_process_exited" | "native_process_not_started";
+            owned_process_id?: number;
+            process_start_fingerprint?: string;
+        };
+        DedicatedMatchNativeClearedRequest: {
+            world_instance_id: string;
+            roster_revision: number;
+            route_generation: number;
+            /** @enum {string} */
+            evidence_kind: "owned_process_exited";
+            owned_process_id: number;
+            process_start_fingerprint: string;
+        };
         P2PMatchAuthorityReadyRequest: {
             endpoint_host: string;
             endpoint_port: number;
             route_generation: number;
+            world_instance_id: string;
+            native_connection_nonce: string;
         };
         /** @enum {string} */
         P2PRoomState: "LOBBY" | "CONNECTING" | "RUNNING" | "STALE" | "CLOSED";
@@ -5568,6 +5931,24 @@ export interface components {
             /** Format: uri */
             download_url: string;
         };
+        /** @description Exact signed compatibility contract for the sole authoritative online release. The field is optional on stable/beta manifests and mandatory on toolbox source releases and manifests. */
+        OnlineCompatibility: {
+            /** @constant */
+            contract_version: "strict-authoritative-online-v1";
+            /** @constant */
+            admission_mode: "strict_roster_v1";
+            /** @constant */
+            frontend: "tauri";
+            /** @constant */
+            ipc_protocol: "strict-roster-v2";
+            /** @constant */
+            backend_schema: 48;
+            game_binary_sha256: string;
+            payload_sha256: string;
+            backend_commit: string;
+            toolbox_commit: string;
+            acceptance_report_sha256: string;
+        };
         VNTRuntimeRelease: {
             /** @description Exact vnts version embedded in this published ToolBox client. */
             vnts_version: string;
@@ -5575,6 +5956,8 @@ export interface components {
             wrapper_version: string;
         };
         SignedUpdateManifest: {
+            /** @description Required when channel is toolbox; omitted for stable and beta manifests. */
+            online_compatibility?: components["schemas"]["OnlineCompatibility"];
             /** @constant */
             schema_version: 1;
             product: string;
@@ -5650,8 +6033,13 @@ export interface components {
                     dedicated_servers: boolean;
                     /** @description Server-authoritative gate for creating or rebinding VNT rooms. */
                     vnt_rooms: boolean;
-                    /** @description Fail-closed gate for the locked-build authoritative roster flow. */
-                    strict_roster_v1: boolean;
+                    /**
+                     * @description The sole authoritative online roster protocol.
+                     * @constant
+                     */
+                    strict_roster_v1: true;
+                    /** @description Operational drain switch for creating new match lobbies; existing attempts remain operable. */
+                    accept_new_lobbies: boolean;
                 };
             };
             request_id: string;
@@ -6159,6 +6547,9 @@ export interface components {
         GameServerID: string;
         MatchLobbyID: string;
         MatchAttemptID: string;
+        /** @description Stable key for one join intent. Reuse it only to retry the same lost response; use a new key for an intentional reconnect. */
+        MatchJoinIdempotencyKey: string;
+        MatchGrantJTI: string;
         /** @description P2P transport host credential retained only by the Toolbox core. Never expose it in UI DTOs or logs. */
         MatchTransportHostToken: string;
         /** @description Opaque authority-session binding extracted only inside the Toolbox or server core from the signed allocation. Never expose it through UI DTOs or logs. */
@@ -7513,6 +7904,35 @@ export interface operations {
                     "application/json": components["schemas"]["AdminSettingListResponse"];
                 };
             };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    adminForceAbortMatchAttempt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attempt_id: components["parameters"]["MatchAttemptID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminMatchAttemptForceAbortRequest"];
+            };
+        };
+        responses: {
+            /** @description Attempt aborted and cleanup retained as pending. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMatchAttemptForceAbortResponse"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
         };
     };
@@ -9637,7 +10057,10 @@ export interface operations {
     issueMatchJoinGrant: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /** @description Stable key for one join intent. Reuse it only to retry the same lost response; use a new key for an intentional reconnect. */
+                "Idempotency-Key": components["parameters"]["MatchJoinIdempotencyKey"];
+            };
             path: {
                 attempt_id: components["parameters"]["MatchAttemptID"];
             };
@@ -9655,6 +10078,33 @@ export interface operations {
                     "application/json": components["schemas"]["MatchJoinGrantResponse"];
                 };
             };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getCurrentMatchMemberConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attempt_id: components["parameters"]["MatchAttemptID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Exact server-validated CONNECTED evidence for the authenticated member's current generation. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    Pragma?: "no-cache";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchMemberConnectionResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
         };
@@ -9738,6 +10188,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MatchLobbyResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    reserveP2PMatchAdmission: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque authority-session binding extracted only inside the Toolbox or server core from the signed allocation. Never expose it through UI DTOs or logs. */
+                "X-Match-Authority-Session": components["parameters"]["MatchAuthoritySession"];
+            };
+            path: {
+                attempt_id: components["parameters"]["MatchAttemptID"];
+                grant_jti: components["parameters"]["MatchGrantJTI"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchAdmissionReservationRequest"];
+            };
+        };
+        responses: {
+            /** @description Native admission reservation established without changing roster connectivity */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchAdmissionReservationResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    releaseP2PMatchAdmission: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque authority-session binding extracted only inside the Toolbox or server core from the signed allocation. Never expose it through UI DTOs or logs. */
+                "X-Match-Authority-Session": components["parameters"]["MatchAuthoritySession"];
+            };
+            path: {
+                attempt_id: components["parameters"]["MatchAttemptID"];
+                grant_jti: components["parameters"]["MatchGrantJTI"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchAdmissionReservationRequest"];
+            };
+        };
+        responses: {
+            /** @description Native admission reservation released */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchAdmissionReleaseResponse"];
                 };
             };
             409: components["responses"]["Conflict"];
@@ -9856,6 +10368,36 @@ export interface operations {
             };
         };
     };
+    acknowledgeP2PMatchNativeCleared: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque authority-session binding extracted only inside the Toolbox or server core from the signed allocation. Never expose it through UI DTOs or logs. */
+                "X-Match-Authority-Session": components["parameters"]["MatchAuthoritySession"];
+            };
+            path: {
+                attempt_id: components["parameters"]["MatchAttemptID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchNativeClearedRequest"];
+            };
+        };
+        responses: {
+            /** @description Native world and transport cleanup acknowledged */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchLobbyResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
     getDedicatedMatchAllocation: {
         parameters: {
             query?: never;
@@ -9919,6 +10461,78 @@ export interface operations {
             };
         };
     };
+    reserveDedicatedMatchAdmission: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque authority-session binding extracted only inside the Toolbox or server core from the signed allocation. Never expose it through UI DTOs or logs. */
+                "X-Match-Authority-Session": components["parameters"]["MatchAuthoritySession"];
+                "X-Game-Server-Certificate": components["parameters"]["GameServerCertificateFingerprint"];
+                "X-Game-Server-Timestamp": components["parameters"]["GameServerRequestTimestamp"];
+                "X-Game-Server-Nonce": components["parameters"]["GameServerRequestNonce"];
+                "X-Game-Server-Generation": components["parameters"]["GameServerCredentialGeneration"];
+            };
+            path: {
+                server_id: components["parameters"]["GameServerID"];
+                attempt_id: components["parameters"]["MatchAttemptID"];
+                grant_jti: components["parameters"]["MatchGrantJTI"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchAdmissionReservationRequest"];
+            };
+        };
+        responses: {
+            /** @description Native admission reservation established without changing roster connectivity */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchAdmissionReservationResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    releaseDedicatedMatchAdmission: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque authority-session binding extracted only inside the Toolbox or server core from the signed allocation. Never expose it through UI DTOs or logs. */
+                "X-Match-Authority-Session": components["parameters"]["MatchAuthoritySession"];
+                "X-Game-Server-Certificate": components["parameters"]["GameServerCertificateFingerprint"];
+                "X-Game-Server-Timestamp": components["parameters"]["GameServerRequestTimestamp"];
+                "X-Game-Server-Nonce": components["parameters"]["GameServerRequestNonce"];
+                "X-Game-Server-Generation": components["parameters"]["GameServerCredentialGeneration"];
+            };
+            path: {
+                server_id: components["parameters"]["GameServerID"];
+                attempt_id: components["parameters"]["MatchAttemptID"];
+                grant_jti: components["parameters"]["MatchGrantJTI"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchAdmissionReservationRequest"];
+            };
+        };
+        responses: {
+            /** @description Native admission reservation released */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchAdmissionReleaseResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
     markDedicatedMatchAuthorityReady: {
         parameters: {
             query?: never;
@@ -9936,7 +10550,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchNativeWorldReadyRequest"];
+            };
+        };
         responses: {
             /** @description Initial connection window opened */
             200: {
@@ -10079,30 +10697,57 @@ export interface operations {
             };
         };
     };
+    acknowledgeDedicatedMatchNativeCleared: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque authority-session binding extracted only inside the Toolbox or server core from the signed allocation. Never expose it through UI DTOs or logs. */
+                "X-Match-Authority-Session": components["parameters"]["MatchAuthoritySession"];
+                "X-Game-Server-Certificate": components["parameters"]["GameServerCertificateFingerprint"];
+                "X-Game-Server-Timestamp": components["parameters"]["GameServerRequestTimestamp"];
+                "X-Game-Server-Nonce": components["parameters"]["GameServerRequestNonce"];
+                "X-Game-Server-Generation": components["parameters"]["GameServerCredentialGeneration"];
+            };
+            path: {
+                server_id: components["parameters"]["GameServerID"];
+                attempt_id: components["parameters"]["MatchAttemptID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DedicatedMatchNativeClearedRequest"];
+            };
+        };
+        responses: {
+            /** @description Native world and transport cleanup acknowledged */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchLobbyResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
     listP2PRooms: {
         parameters: {
-            query?: {
-                region?: string;
-                mode?: string;
-                version?: string;
-                state?: components["schemas"]["P2PRoomState"];
-                has_slots?: boolean;
-                cursor?: string;
-                limit?: number;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Public P2P room directory. */
-            200: {
+            /** @description ONLINE_P2P_ROOM_RETIRED. No room, grant, transport secret, or match state is issued or mutated. */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["P2PRoomListResponse"];
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -10110,33 +10755,16 @@ export interface operations {
     createP2PRoom: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Recommended for all room creation and required by ToolBox for VNT creation; the same key and request return the same room and host token. */
-                "Idempotency-Key"?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["P2PRoomCreateRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description Room created and its one-time host management credential issued. */
-            201: {
-                headers: {
-                    "Cache-Control"?: "no-store";
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["P2PRoomCreateResponse"];
-                };
-            };
-            400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthorized"];
-            /** @description The authenticated account is not active. */
-            403: {
+            403: components["responses"]["Forbidden"];
+            /** @description ONLINE_P2P_ROOM_RETIRED. No room, grant, transport secret, or match state is issued or mutated. */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10144,7 +10772,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            409: components["responses"]["Conflict"];
         };
     };
     getP2PRoom: {
@@ -10152,50 +10779,14 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                room_id: components["parameters"]["P2PRoomID"];
+                room_id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Public room state. Network candidates and credentials are never returned. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["P2PRoomResponse"];
-                };
-            };
-            404: components["responses"]["NotFound"];
-        };
-    };
-    closeP2PRoom: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Independent high-entropy room host credential. It is returned only at room creation. */
-                "X-Room-Host-Token": components["parameters"]["P2PRoomHostToken"];
-            };
-            path: {
-                room_id: components["parameters"]["P2PRoomID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Room closed idempotently. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["P2PRoomResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            /** @description Account or independent host credential rejected. */
-            403: {
+            /** @description ONLINE_P2P_ROOM_RETIRED. No room, grant, transport secret, or match state is issued or mutated. */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10203,7 +10794,30 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            404: components["responses"]["NotFound"];
+        };
+    };
+    closeP2PRoom: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                room_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description ONLINE_P2P_ROOM_RETIRED. No room, grant, transport secret, or match state is issued or mutated. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     joinP2PRoom: {
@@ -10211,27 +10825,16 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                room_id: components["parameters"]["P2PRoomID"];
+                room_id: string;
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["P2PRoomJoinRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description Membership activated; repeated joins are idempotent. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["P2PRoomResponse"];
-                };
-            };
-            /** @description Room full, not joinable, or client version mismatch. */
-            409: {
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description ONLINE_P2P_ROOM_RETIRED. No room, grant, transport secret, or match state is issued or mutated. */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10246,23 +10849,16 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                room_id: components["parameters"]["P2PRoomID"];
+                room_id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Membership deactivated; repeated leaves are idempotent. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["P2PRoomResponse"];
-                };
-            };
-            /** @description Host must close the room instead of leaving it. */
-            409: {
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description ONLINE_P2P_ROOM_RETIRED. No room, grant, transport secret, or match state is issued or mutated. */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10275,28 +10871,18 @@ export interface operations {
     heartbeatP2PRoom: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Independent high-entropy room host credential. It is returned only at room creation. */
-                "X-Room-Host-Token": components["parameters"]["P2PRoomHostToken"];
-            };
+            header?: never;
             path: {
-                room_id: components["parameters"]["P2PRoomID"];
+                room_id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Host heartbeat accepted; a stale room returns to LOBBY and all non-terminal room connection leases are renewed. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["P2PRoomHeartbeatResponse"];
-                };
-            };
-            /** @description Account or independent host credential rejected. */
-            403: {
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description ONLINE_P2P_ROOM_RETIRED. No room, grant, transport secret, or match state is issued or mutated. */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10309,28 +10895,18 @@ export interface operations {
     startP2PRoom: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Independent high-entropy room host credential. It is returned only at room creation. */
-                "X-Room-Host-Token": components["parameters"]["P2PRoomHostToken"];
-            };
+            header?: never;
             path: {
-                room_id: components["parameters"]["P2PRoomID"];
+                room_id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Legacy rooms transition to CONNECTING; an already host-ready VNT room transitions directly to RUNNING. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["P2PRoomResponse"];
-                };
-            };
-            /** @description Room cannot start from its current state. */
-            409: {
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description ONLINE_P2P_ROOM_RETIRED. No room, grant, transport secret, or match state is issued or mutated. */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10345,24 +10921,23 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                room_id: components["parameters"]["P2PRoomID"];
+                room_id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Current-generation VNT runtime configuration for an active member. */
-            200: {
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description ONLINE_P2P_ROOM_RETIRED. No room, grant, transport secret, or match state is issued or mutated. */
+            410: {
                 headers: {
-                    "Cache-Control"?: "no-store";
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["VNTBootstrapResponse"];
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            409: components["responses"]["Conflict"];
-            429: components["responses"]["RateLimited"];
         };
     };
     updateP2PVNTPresence: {
@@ -10370,23 +10945,21 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                room_id: components["parameters"]["P2PRoomID"];
+                room_id: string;
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VNTPresenceRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description Presence accepted */
-            200: {
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description ONLINE_P2P_ROOM_RETIRED. No room, grant, transport secret, or match state is issued or mutated. */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["P2PRoomResponse"];
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -10394,28 +10967,23 @@ export interface operations {
     markP2PVNTHostReady: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Independent high-entropy room host credential. It is returned only at room creation. */
-                "X-Room-Host-Token": components["parameters"]["P2PRoomHostToken"];
-            };
+            header?: never;
             path: {
-                room_id: components["parameters"]["P2PRoomID"];
+                room_id: string;
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VNTHostReadyRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description Host readiness published */
-            200: {
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description ONLINE_P2P_ROOM_RETIRED. No room, grant, transport secret, or match state is issued or mutated. */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["P2PRoomResponse"];
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -10423,33 +10991,25 @@ export interface operations {
     rebindP2PVNTSession: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Independent high-entropy room host credential. It is returned only at room creation. */
-                "X-Room-Host-Token": components["parameters"]["P2PRoomHostToken"];
-            };
+            header?: never;
             path: {
-                room_id: components["parameters"]["P2PRoomID"];
+                room_id: string;
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    vnt_node_id: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description VNT generation and room secrets rotated */
-            200: {
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description ONLINE_P2P_ROOM_RETIRED. No room, grant, transport secret, or match state is issued or mutated. */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["P2PRoomResponse"];
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            409: components["responses"]["Conflict"];
         };
     };
     getActiveP2PMatch: {
@@ -10457,23 +11017,16 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                room_id: components["parameters"]["P2PRoomID"];
+                room_id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Active P2P match collection state. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["P2PActiveMatchResponse"];
-                };
-            };
-            /** @description Verified frozen-roster membership is required. */
-            403: {
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description ONLINE_MATCH_ROUTE_RETIRED. No room, grant, transport secret, or match state is issued or mutated. */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10481,7 +11034,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            404: components["responses"]["NotFound"];
         };
     };
     issueP2PReportCapability: {
@@ -10489,33 +11041,16 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                match_id: components["parameters"]["P2PMatchID"];
+                match_id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Capability issued. The report token is shown only here and must not be passed to the injected payload. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["P2PReportCapabilityResponse"];
-                };
-            };
-            /** @description Verified eligible reporter membership is required. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            404: components["responses"]["NotFound"];
-            /** @description Match is no longer accepting reports. */
-            409: {
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description ONLINE_MATCH_ROUTE_RETIRED. No room, grant, transport secret, or match state is issued or mutated. */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10530,37 +11065,16 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                match_id: components["parameters"]["P2PMatchID"];
+                match_id: string;
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["P2PPresenceRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description Presence checkpoint accepted or identified as an idempotent duplicate. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["P2PPresenceResponse"];
-                };
-            };
-            400: components["responses"]["InvalidRequest"];
-            /** @description Verified frozen-roster membership is required. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description The match is finalized. */
-            409: {
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description ONLINE_MATCH_ROUTE_RETIRED. No room, grant, transport secret, or match state is issued or mutated. */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10573,70 +11087,19 @@ export interface operations {
     submitP2PBattleLogV3: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Session-family-bound opaque capability retained and attached by Launcher; never exposed to the game DLL. */
-                "X-P2P-Report-Token": components["parameters"]["P2PReportToken"];
-            };
+            header?: never;
             path: {
-                match_id: components["parameters"]["P2PMatchID"];
-                report_id: components["parameters"]["P2PReportID"];
+                match_id: string;
+                report_id: string;
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["P2PBattleLogRawV3"];
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description Report stored, quarantined for review, or returned as an idempotent duplicate. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["P2PBattleLogSubmissionResponse"];
-                };
-            };
             401: components["responses"]["Unauthorized"];
-            /** @description Verified reporter identity or report context rejected. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Conflicting report ID/final report, or finalized match. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Snapshot exceeds the configured P2P report limit. */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Content-Type is not application/json. */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Snapshot, roster identity, or timeline chain is invalid. */
-            422: {
+            403: components["responses"]["Forbidden"];
+            /** @description ONLINE_MATCH_ROUTE_RETIRED. No room, grant, transport secret, or match state is issued or mutated. */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10651,23 +11114,16 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                match_id: components["parameters"]["P2PMatchID"];
+                match_id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Current collection or finalized P2P result. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["P2PBattleLogResultResponse"];
-                };
-            };
-            /** @description Verified frozen-roster membership is required. */
-            403: {
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description ONLINE_MATCH_ROUTE_RETIRED. No room, grant, transport secret, or match state is issued or mutated. */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10675,7 +11131,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            404: components["responses"]["NotFound"];
         };
     };
     createConnection: {
@@ -11518,18 +11973,14 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Queued match ticket. No P2P fallback is implied. */
-            202: {
+            401: components["responses"]["Unauthorized"];
+            /** @description META_MATCHMAKING_RETIRED; no database or lifecycle mutation. */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": components["schemas"]["MetaMatchTicketResponse"];
-                };
+                content?: never;
             };
-            400: components["responses"]["InvalidRequest"];
-            401: components["responses"]["Unauthorized"];
-            409: components["responses"]["Conflict"];
         };
     };
     getMetaMatchTicket: {
@@ -11543,17 +11994,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Current ticket state. */
-            200: {
+            401: components["responses"]["Unauthorized"];
+            /** @description META_MATCHMAKING_RETIRED; no database or lifecycle mutation. */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": components["schemas"]["MetaMatchTicketResponse"];
-                };
+                content?: never;
             };
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
         };
     };
     cancelMetaMatchTicket: {
@@ -11567,16 +12015,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Ticket cancelled. */
-            204: {
+            401: components["responses"]["Unauthorized"];
+            /** @description META_MATCHMAKING_RETIRED; no database or lifecycle mutation. */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
         };
     };
     getAssignedMetaPlayerLoadout: {
@@ -11622,16 +12068,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Player connection recorded. */
-            204: {
+            401: components["responses"]["Unauthorized"];
+            /** @description META_MATCHMAKING_RETIRED; no database or lifecycle mutation. */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
         };
     };
     completeAssignedMetaMatch: {
@@ -11652,17 +12096,14 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Match completed and Game Server returned to READY. */
-            204: {
+            401: components["responses"]["Unauthorized"];
+            /** @description META_MATCHMAKING_RETIRED; no database or lifecycle mutation. */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            400: components["responses"]["InvalidRequest"];
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
         };
     };
     submitBattleLogReport: {
@@ -11834,17 +12275,14 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Match cancelled, reservation released, and action audited. */
-            204: {
+            401: components["responses"]["Unauthorized"];
+            /** @description META_MATCHMAKING_RETIRED; no database or lifecycle mutation. */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            400: components["responses"]["InvalidRequest"];
-            401: components["responses"]["AdminUnauthorized"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
         };
     };
     adminUpsertMetaPlaylist: {

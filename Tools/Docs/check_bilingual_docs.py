@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
 from pathlib import Path
 from urllib.parse import unquote
@@ -15,6 +16,24 @@ FENCED_CODE_PATTERN = re.compile(r"^```.*?^```\s*$", re.MULTILINE | re.DOTALL)
 HEADING_PATTERN = re.compile(r"^(#{1,6})\s+", re.MULTILINE)
 LINK_PATTERN = re.compile(r"(?<!!)\[[^\]]+\]\((?P<target>[^)]+)\)")
 CHINESE_ONLY_MARKER = "<!-- bilingual-doc: chinese-only -->"
+GENERATED_PATH_PARTS = {
+    ".git",
+    ".agents",
+    ".tmp",
+    "artifacts",
+    "build",
+    "_deps",
+    "node_modules",
+    "dist",
+    "target",
+}
+# These directories are immutable audit snapshots, not maintained product
+# documentation. Their source bytes and language coverage are part of the
+# historical evidence record and must not be rewritten to satisfy this check.
+AUDIT_SNAPSHOT_ROOTS = (
+    Path("docs/implementation/strict-roster-20260907"),
+    Path("docs/testing/hardware-test-20260908"),
+)
 
 
 def chinese_sibling(english: Path) -> Path:
@@ -33,19 +52,37 @@ def is_chinese_only_handoff(chinese: Path) -> bool:
     return CHINESE_ONLY_MARKER in header
 
 
-def maintained_english_docs() -> list[Path]:
+def is_excluded_document(relative: Path) -> bool:
+    if any(part in GENERATED_PATH_PARTS for part in relative.parts):
+        return True
+    if any(
+        relative == root or root in relative.parents for root in AUDIT_SNAPSHOT_ROOTS
+    ):
+        return True
+    return relative.parts[:2] == ("docs", "archive")
+
+
+def maintained_markdown_docs() -> list[Path]:
+    """Return tracked or non-ignored Markdown under active maintenance.
+
+    Git's index is the source of truth for maintained files. Including
+    non-ignored working-tree files lets the check catch a new document before
+    it is staged, while `--exclude-standard` keeps local package/build output
+    out of the scan.
+    """
+    result = subprocess.run(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
+        cwd=REPOSITORY_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     documents: list[Path] = []
-    for path in REPOSITORY_ROOT.rglob("*.md"):
-        relative = path.relative_to(REPOSITORY_ROOT)
-        if any(
-            part in {".git", ".agents", ".tmp", "build", "_deps", "node_modules", "dist", "target"}
-            for part in relative.parts
-        ):
+    for line in result.stdout.splitlines():
+        relative = Path(line.strip())
+        if relative.suffix.lower() != ".md" or is_excluded_document(relative):
             continue
-        if relative.parts[:2] == ("docs", "archive"):
-            continue
-        if not path.name.endswith(".zh-CN.md"):
-            documents.append(path)
+        documents.append(REPOSITORY_ROOT / relative)
     return sorted(documents)
 
 
@@ -81,7 +118,10 @@ def check_language_preserving_links(markdown: Path, text: str, errors: list[str]
 
 def main() -> int:
     errors: list[str] = []
-    english_documents = maintained_english_docs()
+    documents = maintained_markdown_docs()
+    english_documents = [
+        path for path in documents if not path.name.endswith(".zh-CN.md")
+    ]
     expected_chinese = {chinese_sibling(path) for path in english_documents}
 
     for english in english_documents:
@@ -114,16 +154,9 @@ def main() -> int:
         check_language_preserving_links(english, english_text, errors)
         check_language_preserving_links(chinese, chinese_text, errors)
 
-    localized_documents: set[Path] = set()
-    for path in REPOSITORY_ROOT.rglob("*.zh-CN.md"):
-        relative = path.relative_to(REPOSITORY_ROOT)
-        if any(
-            part in {".git", ".agents", ".tmp", "build", "_deps", "node_modules", "dist", "target"}
-            for part in relative.parts
-        ):
-            continue
-        if relative.parts[:2] != ("docs", "archive"):
-            localized_documents.add(path)
+    localized_documents = {
+        path for path in documents if path.name.endswith(".zh-CN.md")
+    }
     for chinese in sorted(localized_documents - expected_chinese):
         if is_chinese_only_handoff(chinese):
             continue

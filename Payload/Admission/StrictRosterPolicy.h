@@ -1501,7 +1501,7 @@ namespace StrictRoster
 
         static Decision Reject(std::string code, std::string message)
         {
-            return {false, std::move(code), std::move(message)};
+            return {false, std::move(code), std::move(message), {}};
         }
 
         static SeatDecision RejectSeat(std::string code, std::string message)

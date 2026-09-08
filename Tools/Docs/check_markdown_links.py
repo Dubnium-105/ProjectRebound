@@ -34,13 +34,18 @@ def markdown_files() -> list[Path]:
 
 
 def local_target(raw_target: str) -> str | None:
-    target = raw_target.strip().strip("<>")
+    target = unquote(raw_target.strip().strip("<>"))
     if target.startswith(EXTERNAL_PREFIXES):
+        return None
+    # Desktop execution evidence can link to a file on its Windows host.
+    # These are external to the repository, including on Linux CI runners.
+    # Relative repository links still have to exist in the checked-out tree.
+    if re.match(r"^[A-Za-z]:[\\/]", target):
         return None
     target = target.split("#", 1)[0]
     if not target:
         return None
-    return unquote(target)
+    return target
 
 
 def main() -> int:

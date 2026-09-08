@@ -25,4 +25,3 @@ func TestDedicatedNativeClearedRejectsUnscopedOwnedProcessEvidence(t *testing.T)
 		t.Fatal("unscoped owned-process evidence was accepted")
 	}
 }
-
