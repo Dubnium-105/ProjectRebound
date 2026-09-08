@@ -1,0 +1,3 @@
+*.json binary
+evidence/* binary
+evidence/** binary

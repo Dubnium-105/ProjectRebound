@@ -1,0 +1,237 @@
+{
+  "recorded_at_utc": "2026-09-08T16:35:57.582501+00:00",
+  "status": "PASS_REAL_DESKTOP_STARTUP_OWNER_READY_TEAM_LEAVE_ONLY",
+  "source_commit": "43a4c82fe781ed67df6b4f4f82d1ff976ad586be",
+  "executable": {
+    "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\signed\\rebound_toolbox_tauri.exe",
+    "bytes": 49460536,
+    "sha256": "a463ad096351d361ae4b046cb26db84bdf6f1eef6725ff3422085eb1c5735262"
+  },
+  "package_sha256": "c70935f5e671e136b190de6093ab6ef1d1474954e412236dd80382ca7bc63eb2",
+  "surface": "Actual signed production Tauri desktop executable through normal UI; no mock or direct API mutation",
+  "backend_origin": "https://api.project-rebound.space",
+  "backend_source_commit": "8069d5e1126b8a585610b232e721aee45c57ee88",
+  "backend_deploy_run": 34250303094,
+  "backend_deployment_receipt": {
+    "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\r7\\backend\\deployment-receipt.json",
+    "bytes": 16134,
+    "sha256": "c5a3fb6b4a42267a5fd0b1ae46dcb20e1ab00f3ebc6e1a77afc90618218e9e0d"
+  },
+  "startup_preceded_deployment": true,
+  "all_room_mutations_followed_deployment": true,
+  "physical_machines": 1,
+  "steam_accounts": 1,
+  "auth": "Existing real restored Steam session; no fabricated identities or tokens",
+  "test_lobby_id": "lby_bb79025fb72347a8a72080e6de52034f",
+  "times": [
+    {
+      "action": "create-local-test-lobby",
+      "at_utc": "2026-09-08T16:22:53.689Z",
+      "deployment_run": 34250303094
+    },
+    {
+      "action": "owner-unready",
+      "at_utc": "2026-09-08T16:23:47.832Z"
+    },
+    {
+      "action": "owner-ready",
+      "at_utc": "2026-09-08T16:24:17.163Z"
+    },
+    {
+      "action": "switch-team-1-to-2",
+      "at_utc": "2026-09-08T16:24:43.841Z"
+    },
+    {
+      "action": "ready-after-team-change",
+      "at_utc": "2026-09-08T16:31:40.340Z"
+    },
+    {
+      "action": "leave-test-lobby",
+      "at_utc": "2026-09-08T16:32:42.366Z"
+    },
+    {
+      "action": "final-idle-observation",
+      "at_utc": "2026-09-08T16:34:14.906Z"
+    }
+  ],
+  "checks": [
+    {
+      "id": "startup",
+      "status": "PASS",
+      "observed": "Final signed production Tauri window, restored real Steam session, config/catalog/protocol and automatic lobby list loaded without manual refresh or auth-busy rejection. Startup preceded r7 backend deployment."
+    },
+    {
+      "id": "owner-create",
+      "status": "PASS",
+      "observed": "After the deployment completed, the existing API confirmed a fresh lobby; owner ready at team 1, revision 1."
+    },
+    {
+      "id": "owner-unready-and-ready",
+      "status": "PASS",
+      "observed": "Owner explicitly toggled ready=false then ready=true at revision 1; the UI and resolved backend response agreed."
+    },
+    {
+      "id": "switch-team-and-reset-ready",
+      "status": "PASS",
+      "observed": "Team 1 -> team 2 advanced revision 1 -> 2 and cleared readiness; current team button disabled, other team available."
+    },
+    {
+      "id": "ready-after-team-change",
+      "status": "PASS",
+      "observed": "Owner explicitly became ready in team 2 at revision 2."
+    },
+    {
+      "id": "leave-after-terminal-event",
+      "status": "PASS",
+      "observed": "Leave acknowledged after same-scope terminal event, then resolved. Empty lobby list and no obsolete match controls or membership-required error at final observation."
+    },
+    {
+      "id": "one-player-start-gate",
+      "status": "PASS",
+      "observed": "Freeze/start remained disabled with only one occupied team. No freeze or native launch was attempted."
+    },
+    {
+      "id": "update-check-ui",
+      "status": "NOT_PASSED_UNPUBLISHED_UPDATE_CHANNEL",
+      "observed": "Version displayed check failed. The strict Toolbox updater channel has not been published; this is not an update-availability pass."
+    },
+    {
+      "id": "native-game-launch",
+      "status": "NOT_RUN",
+      "observed": "No Boundary game was launched in the r7 desktop acceptance."
+    },
+    {
+      "id": "three-machine-native-admission",
+      "status": "NOT_RUN",
+      "observed": "Only one real local computer and restored Steam account were used."
+    },
+    {
+      "id": "playable-match",
+      "status": "BLOCKED",
+      "observed": "Native authority admission remains unverified; component and UI checks do not promote Playable."
+    }
+  ],
+  "cleanup": "Fresh local test lobby left successfully. Final signed r7 window remains open at an empty lobby list with debug collapsed. No game was launched.",
+  "release_ready": false,
+  "native_authority_admission_verified": false,
+  "private_raw_evidence": [
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\desktop-startup\\01-startup-final-before-backend-deployment.json",
+      "bytes": 7437,
+      "sha256": "7c29d55a18d9bdfd95a7877f5a9eeda14be6327a9f38d9e6a884c0eed0d60e8b"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\desktop-startup\\01-startup-final-before-backend-deployment.png",
+      "bytes": 67646,
+      "sha256": "847fc1b77281a4ba8e023f9427a115a3eccdd264f8a079c4d4ced6dab92208e3"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\desktop-startup\\02-owner-created-ready.json",
+      "bytes": 11675,
+      "sha256": "185eb0de30e9cabbe1a6277d909c55d61185aa938eddbecc9d00508e03449638"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\desktop-startup\\02-owner-created-ready.png",
+      "bytes": 68809,
+      "sha256": "68809ed5975e58fb9e1ac6925ba8de5a81b5c8b50a569cbb6d914d209b30d3de"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\desktop-startup\\03-owner-unready.json",
+      "bytes": 13264,
+      "sha256": "fd9519e2d10d439a146728c89ed17adec51534fe34f625fd09240a2ad0a84b77"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\desktop-startup\\03-owner-unready.png",
+      "bytes": 68938,
+      "sha256": "5be84941d6760cd7e4d73b57ad12a63594705525ec0c2476600a3131019d5ed2"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\desktop-startup\\04-owner-ready-again.json",
+      "bytes": 14793,
+      "sha256": "145236c945ee892b69e720cc8d6380e9702bc404c3f3b2385a04b44e69582de5"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\desktop-startup\\04-owner-ready-again.png",
+      "bytes": 68621,
+      "sha256": "72da29838b697250f5ad9ff05e91b641d8116cbe4b61fa077a044f8065c8d509"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\desktop-startup\\05-team-two-ready-reset.json",
+      "bytes": 18477,
+      "sha256": "1c904f149cd5be7711beef333e5d10ce42e9ef89721fe1d4871ac8427f39928f"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\desktop-startup\\06-team-two-ready.json",
+      "bytes": 20369,
+      "sha256": "0a3d74bc6ad622c95129f6dc3e1891ec7938c140c5b0e6f6ea968ac09f4ed818"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\desktop-startup\\06-team-two-ready.png",
+      "bytes": 68737,
+      "sha256": "ca48e024f07926e728d351cc9252c8cdd024d45bedd1c873c86e51e3c8f05b7f"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\desktop-startup\\07-left-test-room.json",
+      "bytes": 18493,
+      "sha256": "5af81ac5a777d1b855d33ba8f33839f617671ad8e491a3361bf63878e05e2e0f"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\desktop-startup\\07-left-test-room.png",
+      "bytes": 67585,
+      "sha256": "0d60d53b71a8e8bbab252f9825d12e809a878e4ba4b2930c501ae5d1eb71d63a"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\desktop-startup\\08-final-idle.json",
+      "bytes": 5008,
+      "sha256": "5ce19a5ee5002f9558a7a5d6971b9abce2da5b70716cacefc1209c8fcfacca93"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\desktop-startup\\action-times.json",
+      "bytes": 640,
+      "sha256": "54f7280479250fbb707f0121475cdc305c48f35b43a1b74b87fbbff647cafb15"
+    }
+  ],
+  "sanitized_ui_evidence": [
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\desktop-sanitized\\01-startup-final-before-backend-deployment.json",
+      "bytes": 7440,
+      "sha256": "4b48ec10177e7b4c60d97d49f38053b57f2d62b42a139068fe8122717b26137f"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\desktop-sanitized\\02-owner-created-ready.json",
+      "bytes": 11678,
+      "sha256": "be6afb3e5dd412ec05396e4a68c4277c63eb9fc7b46dad0252efff76cafc13eb"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\desktop-sanitized\\03-owner-unready.json",
+      "bytes": 13267,
+      "sha256": "91592d0338535016200cb49ebac39af5ff3823ab28ebf531699768a93c45402d"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\desktop-sanitized\\04-owner-ready-again.json",
+      "bytes": 14796,
+      "sha256": "c1f296ccf2a7234d4f6bf369dc7d43f970ede850ce64d93f80d7b0efa5299b45"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\desktop-sanitized\\05-team-two-ready-reset.json",
+      "bytes": 18480,
+      "sha256": "603e3dbe5ed4c9b0800e6439e0e10313142aee05c319756cabde36a69f2f4753"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\desktop-sanitized\\06-team-two-ready.json",
+      "bytes": 20372,
+      "sha256": "b6f4993fc43127f8206f74e9c63e06faf67be273b744b090ffd4c1ec53483297"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\desktop-sanitized\\07-left-test-room.json",
+      "bytes": 18496,
+      "sha256": "0d74814a496fb5ddb5eb4942c55a11d14b2d9e39c963e4924b99120cc8087b1b"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\desktop-sanitized\\08-final-idle.json",
+      "bytes": 5008,
+      "sha256": "5ce19a5ee5002f9558a7a5d6971b9abce2da5b70716cacefc1209c8fcfacca93"
+    }
+  ],
+  "privacy": "Raw screenshots/accessibility remain outside tracked documents and package; sanitized text redacts Steam64."
+}

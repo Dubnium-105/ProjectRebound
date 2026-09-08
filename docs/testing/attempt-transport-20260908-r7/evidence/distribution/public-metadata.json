@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "purpose": "hardware-test-only",
+  "release_ready": false,
+  "package_id": "rebound-hardware-test-20260908-r7",
+  "supersedes_package": "rebound-hardware-test-20260908-r6",
+  "candidate_change": "Use current-Attempt transport reads and VNT operations, maintain scoped leases during blocking native startup, validate connection writes atomically, stop polling retired lobbies, and retain scoped causal launch diagnostics. Owner/member Ready and team controls remain available. Payload bytes and strict native admission gates are unchanged. Remote multiplayer acceptance is recorded separately.",
+  "source_commits": {
+    "ProjectRebound": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d",
+    "Toolbox": "43a4c82fe781ed67df6b4f4f82d1ff976ad586be"
+  },
+  "source_scope": "ProjectRebound identifies actual Payload source; the independently CI-built deployed Backend source is recorded below.",
+  "backend_candidate_commit": "8069d5e1126b8a585610b232e721aee45c57ee88",
+  "backend_implementation_source_commit": "8069d5e1126b8a585610b232e721aee45c57ee88",
+  "backend_deployment_status": "PASS_EXISTING_BACKEND_DEPLOYMENT_ONLY",
+  "backend_schema_required": 48,
+  "backend_schema_observed": 48,
+  "backend_ci_url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34247644433",
+  "backend_deployment_url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34250303094",
+  "service_origins": [
+    "https://api.project-rebound.space",
+    "https://cnapi.project-rebound.space",
+    "https://meta.project-rebound.space"
+  ],
+  "meta_logic_endpoint": {
+    "address": "logic.project-rebound.space:443",
+    "protocol": "TLS TCP",
+    "tls_server_name": "logic.project-rebound.space"
+  },
+  "deployment_receipt_sha256": "c5a3fb6b4a42267a5fd0b1ae46dcb20e1ab00f3ebc6e1a77afc90618218e9e0d",
+  "ipc_protocol": "strict-roster-v2",
+  "feature_mode": "Tauri custom-protocol, embedded assets, product features, no lab-testing",
+  "pinned_game": {
+    "filename": "ProjectBoundarySteam-Win64-Shipping.exe",
+    "sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+    "bytes": 102362112
+  },
+  "msvc_minimum_version": "14.50.35717",
+  "strict_payload_sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+  "required_artifacts": {
+    "windows-x64": [
+      {
+        "path": "Payload.dll",
+        "bytes": 2098488,
+        "sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183"
+      },
+      {
+        "path": "rebound_toolbox_tauri.exe",
+        "bytes": 49460536,
+        "sha256": "a463ad096351d361ae4b046cb26db84bdf6f1eef6725ff3422085eb1c5735262"
+      }
+    ]
+  },
+  "signatures": {
+    "payload": {
+      "status": "PASS_TEST_SIGNATURE_ONLY",
+      "input_sha256": "9897aaa4b58286c308b07fa05f52c9125000144cce14de247467cf1d7b3509e4",
+      "output_sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+      "output_bytes": 2098488,
+      "signer_subject": "CN=Project Rebound Strict Roster Lab",
+      "signer_thumbprint": "B041917B2322ED509435B72356BA5AD9EA053378",
+      "signer_valid_until": "2027-08-26T14:32:08.0000000Z",
+      "authenticode_status": "UnknownError",
+      "win_verify_trust_hresult": -2146762487,
+      "private_key_exported": false,
+      "trust_store_modified": false,
+      "timestamping": "NOT_RUN"
+    },
+    "toolbox": {
+      "status": "PASS_TEST_SIGNATURE_ONLY",
+      "input_sha256": "adebe2ff2b75ef0a81b88eee31b6499d29e4390649551e9dc650b0a70b008524",
+      "output_sha256": "a463ad096351d361ae4b046cb26db84bdf6f1eef6725ff3422085eb1c5735262",
+      "output_bytes": 49460536,
+      "signer_subject": "CN=Project Rebound Strict Roster Lab",
+      "signer_thumbprint": "B041917B2322ED509435B72356BA5AD9EA053378",
+      "signer_valid_until": "2027-08-26T14:32:08.0000000Z",
+      "authenticode_status": "UnknownError",
+      "win_verify_trust_hresult": -2146762487,
+      "private_key_exported": false,
+      "trust_store_modified": false,
+      "timestamping": "NOT_RUN"
+    }
+  },
+  "native_connection_collection": {
+    "status": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES",
+    "entry_point": "Owner: Collect native proof; all three frozen seats must be real Steam sessions"
+  },
+  "native_online_acceptance": {
+    "status": "BLOCKED",
+    "reason": "Independent native build capability remains unverified; connection collection never promotes Playable."
+  },
+  "permitted_test_scope": [
+    "reversible installation",
+    "package and dependency checks",
+    "Toolbox and native login",
+    "three-machine managed native admission collection",
+    "managed cleanup and second cold-start collection"
+  ],
+  "distribution_kind": "portable test delta over a complete existing Rebound runtime",
+  "publication": {
+    "updater_published": false,
+    "externally_uploaded": false
+  }
+}

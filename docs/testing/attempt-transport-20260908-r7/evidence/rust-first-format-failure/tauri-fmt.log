@@ -1,0 +1,12 @@
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src-tauri\src\dto.rs:418:
+         assert_eq!(SteamInfo::from(view.clone()).player_id, "");
+         let session = SessionInfo::from(view);
+         assert_eq!(session.player_id, None);
+-        assert_eq!(serde_json::to_value(session).unwrap()["player_id"], serde_json::Value::Null);
++        assert_eq!(
++            serde_json::to_value(session).unwrap()["player_id"],
++            serde_json::Value::Null
++        );
+     }
+ }
+ 

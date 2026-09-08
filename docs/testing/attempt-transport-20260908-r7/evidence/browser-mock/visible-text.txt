@@ -1,0 +1,47 @@
+PROJECT REBOUND
+COMMUNITY OPERATIONS TOOLBOX
+01
+启动
+02
+设置
+STEAM LINK
+Mock Operator
+EN
+BUILD
+0.9.12
+
+OPERATIONS / LAUNCH
+
+启动控制台
+
+检查系统链路，选择运行模式并进入社区服务器。
+
+ORB-PR / NODE 6969
+SYSTEM SIGNAL
+03 CHANNELS
+进程
+未运行
+版本
+已是最新
+端口
+全部可用
+进程: 未运行; 版本: 已是最新; 端口: 全部可用
+房间线路
+线路不可用
+权威战局已终止: P2P_AUTHORITY_LAUNCH_FAILED · P2P host transport: API 410 ONLINE_P2P_ROOM_RETIRED [request_id=req_mock_r7]
+MODE 01
+PVE
+启动 PvE
+
+已满足启动条件。
+
+01
+权威对局大厅
+0 个房间
+创建房间
+刷新
+
+当前区域没有开放的 P2P 房间。
+
+Debug Log
+20

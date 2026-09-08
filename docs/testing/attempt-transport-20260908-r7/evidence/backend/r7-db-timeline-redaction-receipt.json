@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "status": "PASS_REDACTED_COPY",
+  "source_path": ".tmp/ready-multiplayer-20260908/r7/backend/r7-db-timeline.out.txt",
+  "source_sha256": "4d470c9bf6ad5dac5592649baf24fbfb50713dda3533da998553cdbe1aabf104",
+  "source_bytes": 1927,
+  "redactions": {
+    "category": "nonce",
+    "count": 2,
+    "replacement": "[REDACTED_NATIVE_ADMISSION_NONCE]"
+  },
+  "output_path": ".tmp/ready-multiplayer-20260908/r7/backend/r7-db-timeline.sanitized.txt",
+  "output_sha256": "f1a2bd37345e10e53ebef8a2ad56b567506d3b9d25a1a5dcb6e5f6a13fcbbd89",
+  "output_bytes": 1891,
+  "generated_at_utc": "2026-09-08T17:15:24.347331+00:00"
+}

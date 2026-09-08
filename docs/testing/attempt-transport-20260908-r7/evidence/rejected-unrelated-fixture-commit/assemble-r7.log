@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "C:\wksp\ProjectRebound\.tmp\ready-multiplayer-20260908\root\assemble_final_package_r7.py", line 32, in <module>
+    subprocess.run(['git','-C',str(root),'diff','--quiet',backend_commit,'--','Backend','AdminWeb'],check=True)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\subprocess.py", line 577, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['git', '-C', 'C:\\wksp\\ProjectRebound', 'diff', '--quiet', '8069d5e1126b8a585610b232e721aee45c57ee88', '--', 'Backend', 'AdminWeb']' returned non-zero exit status 1.

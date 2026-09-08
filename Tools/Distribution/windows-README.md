@@ -2,7 +2,9 @@ English | [简体中文](windows-README.zh-CN.md)
 
 # Project Rebound hardware-test build
 
-This package connects to the existing `api.project-rebound.space` / `cnapi.project-rebound.space` and `meta.project-rebound.space` services. The existing backend was verified at 2026-09-08 06:51 UTC: database schema 48; control plane, MetaServer, administrator web, and primary/gateway edge nodes use CI-tested images from `584e000baf024e381c5bdb3417ad7ac879bebdca`. No separate test backend is needed.
+This package connects to the existing `api.project-rebound.space` / `cnapi.project-rebound.space` and `meta.project-rebound.space` services. Use the package manifest for the exact deployed backend commit, CI/deployment receipts, and required database schema. No separate test backend is needed.
+
+The r7 update moves managed transport reads and VNT operations to the current Match Attempt. It also clears an obsolete lobby after confirmed membership loss and shows the scoped cause of a failed launch. Owner Ready and team switching remain available. Everyone must use the same r7 package for this round.
 
 This round covers installation, login, managed startup, and native admission proof collection on three physical machines. The owner uses the new **Collect native proof** button. It retains real Steam identities, a frozen roster, signed allocation, native Grants, Reserve/Confirm, and managed cleanup.
 

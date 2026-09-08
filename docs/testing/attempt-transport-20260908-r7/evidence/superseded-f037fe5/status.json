@@ -1,0 +1,10 @@
+{
+  "status": "SUPERSEDED_NOT_DISTRIBUTED",
+  "reason": "Actual startup caught owned-node account sync holding auth gate; automatic lobby restore/list returned busy without retry. Manual refresh succeeded. Runtime gate admission will retry within a bounded deadline without replaying an HTTP mutation.",
+  "source_commit": "f037fe5af4a2fa37f2de69144d274760f27ddcc1",
+  "build_exit_code": 0,
+  "unsigned_exe_sha256": "f796122eb001ddb220692ad22ca17b4203d764501b8fc530dac098ddd29ce3af",
+  "signed_exe_sha256": "debffa7649fe02b91d34dc6dfd02c8b183f6962f2d4365ea1903134a31392b1a",
+  "native_game_or_multiplayer": "NOT_RUN",
+  "window_cleanup": "Closed through the normal window close control; sky.list_windows returned no Toolbox windows."
+}

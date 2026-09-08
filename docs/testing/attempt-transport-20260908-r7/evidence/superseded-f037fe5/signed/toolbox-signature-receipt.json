@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "status": "PASS_TEST_SIGNATURE_ONLY",
+  "started_at": "2026-09-08T15:47:03.2533940Z",
+  "finished_at": "2026-09-08T15:47:05.0635505Z",
+  "input_path": "C:\\wksp\\ProjectReboundToolbox\\src-tauri\\target\\release\\rebound_toolbox_tauri.exe",
+  "input_sha256": "f796122eb001ddb220692ad22ca17b4203d764501b8fc530dac098ddd29ce3af",
+  "output_path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\signed\\rebound_toolbox_tauri.exe",
+  "output_sha256": "debffa7649fe02b91d34dc6dfd02c8b183f6962f2d4365ea1903134a31392b1a",
+  "output_bytes": 49459512,
+  "signer_subject": "CN=Project Rebound Strict Roster Lab",
+  "signer_thumbprint": "B041917B2322ED509435B72356BA5AD9EA053378",
+  "signer_valid_until": "2027-08-26T14:32:08.0000000Z",
+  "authenticode_status": "UnknownError",
+  "win_verify_trust_hresult": -2146762487,
+  "private_key_exported": false,
+  "trust_store_modified": false,
+  "timestamping": "NOT_RUN",
+  "release_ready": false,
+  "failure_type": null,
+  "script_sha256": "7a33c2be43467fab835a36c3a3d396d38d5bc5c75b10a80de306761fba26ee85",
+  "scope": "Actual test Authenticode signing and signature verification only; no native gameplay, production signing, updater publication, or full release acceptance."
+}

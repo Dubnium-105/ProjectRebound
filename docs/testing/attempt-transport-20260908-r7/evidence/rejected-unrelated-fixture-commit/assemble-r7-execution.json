@@ -1,0 +1,15 @@
+{
+  "started_at_utc": "2026-09-08T16:25:47.607707+00:00",
+  "finished_at_utc": "2026-09-08T16:25:47.918192+00:00",
+  "command": [
+    "C:\\Python314\\python.exe",
+    "-B",
+    "-X",
+    "utf8",
+    "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\root\\assemble_final_package_r7.py",
+    "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+  ],
+  "exit_code": 1,
+  "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\assemble-r7.log",
+  "log_sha256": "5c02bd3e764e90c6b1fa8c46815229042a2b6cb2ede469bdb45ccc5491d4cd80"
+}

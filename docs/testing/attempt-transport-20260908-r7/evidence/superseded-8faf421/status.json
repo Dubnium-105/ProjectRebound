@@ -1,0 +1,8 @@
+{
+  "status": "SUPERSEDED_NOT_DISTRIBUTED",
+  "reason": "Final review identified terminal notice paths releasing operation ownership before room cleanup succeeded; subsequent source adds the missing cleanup barrier condition.",
+  "source_commit": "8faf421dadd4ba1d36206a8acd3bba782c7b8be2",
+  "build_exit_code": 0,
+  "unsigned_exe_sha256": "1c902e559814384f9caadd2c6e255779f2f9198b29b1b77634382d9eacfdee61",
+  "native_game_or_multiplayer": "NOT_RUN"
+}

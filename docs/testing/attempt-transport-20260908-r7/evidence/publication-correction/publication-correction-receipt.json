@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-09-08T16:45:47.193243+00:00",
+  "status": "BRANCH_WITHDRAWN_REMOTE_OBJECT_STILL_ACCESSIBLE",
+  "affected_commit": "45e825f4e3799da460dfedecc9791b123698dffd",
+  "corrected_branch_tip": "8069d5e1126b8a585610b232e721aee45c57ee88",
+  "repository": "Dubnium-105/ProjectRebound",
+  "branch": "codex/authoritative-only-20260907",
+  "local_preservation": {
+    "database_dump_files": 4,
+    "fixture_go_files": 30,
+    "files_retained": true,
+    "locally_ignored": true,
+    "tracked_at_clean_head": false
+  },
+  "database_review": {
+    "scope": "Custom-format table-of-contents and producing command only; no row values read",
+    "per_dump_toc_entries": 572,
+    "per_dump_table_data_entries": 85,
+    "schema_only": false,
+    "nonempty_table_count": "NOT_ASSESSED",
+    "account_or_credential_values": "NOT_ASSESSED",
+    "credential_exposure_ruled_out": false
+  },
+  "remote_containment": {
+    "branch_withdrawn": true,
+    "exact_old_sha_force_with_lease_used": true,
+    "affected_commit_still_accessible_at_check": true,
+    "associated_pull_requests_returned": 0,
+    "github_cache_purged": false,
+    "third_party_fetch_or_clone": "UNKNOWN"
+  },
+  "support_request": {
+    "status": "DRAFT_NOT_SENT",
+    "authorization": "REQUESTED_PENDING",
+    "draft_path": ".tmp/ready-multiplayer-20260908/root/github-history-removal-request.md",
+    "attachments": []
+  },
+  "artifact_scope": {
+    "deployed_backend_source": "8069d5e1126b8a585610b232e721aee45c57ee88",
+    "toolbox_source": "43a4c82fe781ed67df6b4f4f82d1ff976ad586be",
+    "private_paths_in_deployed_source_or_package": false,
+    "deployment_workflow_ref_was_affected_commit": true,
+    "deployment_input_was_clean_commit": true
+  },
+  "evidence": [
+    {
+      "path": "remote-branch-after.txt",
+      "bytes": 87,
+      "sha256": "dccda1cbd13464f5f190af6fae4a351c4e9f0bf972d7284172a5237d56e5d4d0"
+    },
+    {
+      "path": "old-object-still-accessible.json",
+      "bytes": 52,
+      "sha256": "9b6d11f32ec0ad7e49cf0cb0852b03bb9522f4dc4367d80ad567cdbb35a3ac4e"
+    },
+    {
+      "path": "associated-pull-requests.json",
+      "bytes": 4,
+      "sha256": "a5338d955b09046ec0b16f3a9625b7955c763aae07dc722e474e6078745f932f"
+    }
+  ]
+}

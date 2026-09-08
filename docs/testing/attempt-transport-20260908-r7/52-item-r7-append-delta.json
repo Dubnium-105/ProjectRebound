@@ -1,0 +1,1109 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-09-08T16:45:55.894682+00:00",
+  "kind": "attempt_transport_r7_append_delta_52_item",
+  "release_ready": false,
+  "native_authority_admission_verified": false,
+  "baseline": {
+    "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+    "sha256": "368b6dbbe76a7bdf8002facdafddcebfcadc4315df04f2428b19d537d555d3e5",
+    "original_r4_counts": {
+      "PASS": 10,
+      "PARTIAL": 30,
+      "BLOCKED": 12
+    }
+  },
+  "rules": [
+    "Historical r4/r5/r6 evidence is immutable.",
+    "Only affected r7 scopes are reassessed; no full breakpoint is promoted by a component check.",
+    "Local PostgreSQL skip is not a pass. Actual CI integration/deployment evidence is separate.",
+    "Only the final 57 frontend tests, final Rust/Tauri execution and final 6 browser assertions are counted; prior targeted runs are not added.",
+    "User two-machine failure report is real failure evidence with unverified remote executable hash. No r7 three-machine run is claimed."
+  ],
+  "source": {
+    "Toolbox": "43a4c82fe781ed67df6b4f4f82d1ff976ad586be",
+    "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+    "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+  },
+  "evidence_summary": {
+    "frontend": "57 unique tests; Vite and asset preparation exit 0",
+    "browser_mock": "6 scoped event assertions; no console errors",
+    "rust_and_tauri": {
+      "fmt": [],
+      "tauri-fmt": [],
+      "rust-lib": [
+        [
+          "ok",
+          "342",
+          "0",
+          "0"
+        ]
+      ],
+      "tauri-tests": [
+        [
+          "ok",
+          "9",
+          "0",
+          "0"
+        ]
+      ]
+    },
+    "backend_ci": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34247644433",
+    "existing_backend_deployment": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34250303094",
+    "package": "PASS_PACKAGE_BYTES_ONLY",
+    "desktop": "PASS_REAL_DESKTOP_STARTUP_OWNER_READY_TEAM_LEAVE_ONLY",
+    "native_game_launch": "NOT_RUN_FOR_R7",
+    "three_machine_native_admission": "NOT_RUN_FOR_R7",
+    "playable_match": "BLOCKED_NATIVE_AUTHORITY_ADMISSION_UNVERIFIED"
+  },
+  "items": [
+    {
+      "id": "BP-001",
+      "title": "源码基线与实测 EXE/DLL 版本未闭合",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-001"
+      },
+      "r7_append": {
+        "status": "SOURCE_AND_PACKAGE_BOUND",
+        "summary": "Signed r7 build and exact tested Toolbox source are bound. Remote failure report did not establish the remote executable hash.",
+        "modification_commits": [
+          "8faf421dadd4ba1d36206a8acd3bba782c7b8be2",
+          "f037fe5af4a2fa37f2de69144d274760f27ddcc1",
+          "43a4c82fe781ed67df6b4f4f82d1ff976ad586be",
+          "8069d5e1126b8a585610b232e721aee45c57ee88"
+        ],
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/distribution/public-metadata.json",
+          "evidence/distribution/package-build-receipt.json",
+          "evidence/distribution/desktop-r7-receipt.json",
+          "evidence/rust/execution-receipt.json",
+          "evidence-index.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-002",
+      "title": "并发刷新、登出和旧结果回写竞争",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-002"
+      },
+      "r7_append": {
+        "status": "PARTIAL_SCOPED_REGRESSION",
+        "summary": "Retirement/error scope and cleanup/adoption concurrency regression. Real startup found auth-gate contention from node catalog sync; bounded pre-request admission retries release adoption while waiting and never replay an HTTP mutation. Not every auth race scenario.",
+        "modification_commits": [
+          "8faf421dadd4ba1d36206a8acd3bba782c7b8be2",
+          "f037fe5af4a2fa37f2de69144d274760f27ddcc1",
+          "43a4c82fe781ed67df6b4f4f82d1ff976ad586be"
+        ],
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/frontend/execution-receipt.json",
+          "evidence/browser-mock/execution-receipt.json",
+          "evidence/rust/execution-receipt.json",
+          "evidence-index.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-003",
+      "title": "DPAPI 配置直接覆盖，缺少原子持久化",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-003"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-004",
+      "title": "fresh/logged_in 的状态保证强于实际结果",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-004"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-005",
+      "title": "WebSocket 重连使用旧 Token，缺少统一恢复过程",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-005"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-006",
+      "title": "凭据种类缺少统一机器可读生命周期清单",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-006"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-007",
+      "title": "客户端进房/建房部分成功后的补偿与恢复不全",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-007"
+      },
+      "r7_append": {
+        "status": "PARTIAL_RECOVERY_REGRESSION",
+        "summary": "Exact membership-loss retires old lobby; transport remains retained until managed cleanup completes.",
+        "modification_commits": [
+          "8faf421dadd4ba1d36206a8acd3bba782c7b8be2",
+          "f037fe5af4a2fa37f2de69144d274760f27ddcc1",
+          "43a4c82fe781ed67df6b4f4f82d1ff976ad586be"
+        ],
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/distribution/desktop-r7-receipt.json",
+          "evidence/frontend/execution-receipt.json",
+          "evidence/browser-mock/execution-receipt.json",
+          "evidence/rust/execution-receipt.json",
+          "evidence-index.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-008",
+      "title": "Host/Member 角色在启动分派中被丢弃",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-008"
+      },
+      "r7_append": {
+        "status": "PARTIAL_TRANSPORT_ROLE_REGRESSION",
+        "summary": "HOST/MEMBER transport uses frozen Attempt scopes; physical native role execution unrun.",
+        "modification_commits": [
+          "8faf421dadd4ba1d36206a8acd3bba782c7b8be2",
+          "f037fe5af4a2fa37f2de69144d274760f27ddcc1",
+          "43a4c82fe781ed67df6b4f4f82d1ff976ad586be",
+          "2e214a2366a5e6f02c3a5e3cb15db72af332d73d",
+          "3b1033153545a84d3a51deb94a2de48a3ded1b15"
+        ],
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/rust/execution-receipt.json",
+          "evidence/backend/deployment-receipt.json",
+          "evidence/backend/final-ci/ci-34247644433-status.json",
+          "evidence/backend/final-ci/ci-34247644433-attempt2-status.json",
+          "evidence-index.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-009",
+      "title": "VNT 裸 IP 与 Payload host:port 校验冲突",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-009"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-010",
+      "title": "VNT host_ready/探测通与原生游戏监听就绪混用",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-010"
+      },
+      "r7_append": {
+        "status": "PARTIAL_TRANSPORT_REGRESSION",
+        "summary": "VNT ready remains transport evidence; never promotes native listening or Playable.",
+        "modification_commits": [
+          "8faf421dadd4ba1d36206a8acd3bba782c7b8be2",
+          "f037fe5af4a2fa37f2de69144d274760f27ddcc1",
+          "43a4c82fe781ed67df6b4f4f82d1ff976ad586be",
+          "2e214a2366a5e6f02c3a5e3cb15db72af332d73d",
+          "3b1033153545a84d3a51deb94a2de48a3ded1b15"
+        ],
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/rust/execution-receipt.json",
+          "evidence/backend/deployment-receipt.json",
+          "evidence/backend/final-ci/ci-34247644433-status.json",
+          "evidence/backend/final-ci/ci-34247644433-attempt2-status.json",
+          "evidence-index.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-011",
+      "title": "新建回退、开局前 rebind 与运行中迁移边界必须固定",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-011"
+      },
+      "r7_append": {
+        "status": "PARTIAL_SCOPE_REGRESSION",
+        "summary": "Frozen VNT rebind fails closed; no fallback to independent room writes.",
+        "modification_commits": [
+          "8faf421dadd4ba1d36206a8acd3bba782c7b8be2",
+          "f037fe5af4a2fa37f2de69144d274760f27ddcc1",
+          "43a4c82fe781ed67df6b4f4f82d1ff976ad586be",
+          "2e214a2366a5e6f02c3a5e3cb15db72af332d73d",
+          "3b1033153545a84d3a51deb94a2de48a3ded1b15"
+        ],
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/rust/execution-receipt.json",
+          "evidence/backend/deployment-receipt.json",
+          "evidence/backend/final-ci/ci-34247644433-status.json",
+          "evidence/backend/final-ci/ci-34247644433-attempt2-status.json",
+          "evidence-index.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-012",
+      "title": "Legacy 单 game_peer 和全 peers 广播可能合并多人身份",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-012"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-013",
+      "title": "Relay 16 字节截断 HMAC 用了完整长度验证接口",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-013"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-014",
+      "title": "Relay 数据面错误被吞，重排/MTU/重放缺少可观测验收",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-014"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-015",
+      "title": "Relay 迁移缺少显式切换状态、代次与收尾",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-015"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-016",
+      "title": "launch_join 返回空 PID，与前端完成结果契约冲突",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-016"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-017",
+      "title": "launch_room 在最终提交前发布成功且失败清理不一致",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-017"
+      },
+      "r7_append": {
+        "status": "PARTIAL_FAILURE_REGRESSION",
+        "summary": "Retain causal launch failure and managed cleanup; do not report native startup success.",
+        "modification_commits": [
+          "8faf421dadd4ba1d36206a8acd3bba782c7b8be2",
+          "f037fe5af4a2fa37f2de69144d274760f27ddcc1",
+          "43a4c82fe781ed67df6b4f4f82d1ff976ad586be",
+          "cb355f44969def671ab60ab1d03131d58b6eabc7",
+          "ace82dffc6f5ad91b59c1868010bf73f34488e12",
+          "2761a668927598751f3c2eb9c18baf951dd1f0e5"
+        ],
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/rust/execution-receipt.json",
+          "evidence/backend/deployment-receipt.json",
+          "evidence/backend/final-ci/ci-34247644433-status.json",
+          "evidence/backend/final-ci/ci-34247644433-attempt2-status.json",
+          "evidence-index.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-018",
+      "title": "PID/窗口稳定被当成远程入场完成",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-018"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-019",
+      "title": "房间/远程 Join 缺少统一 PayloadReady 握手与诊断通道",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-019"
+      },
+      "r7_append": {
+        "status": "PARTIAL_DIAGNOSTIC_REGRESSION",
+        "summary": "Full sanitized launch cause is emitted with session/lobby/Attempt/operation/run.",
+        "modification_commits": [
+          "8faf421dadd4ba1d36206a8acd3bba782c7b8be2",
+          "f037fe5af4a2fa37f2de69144d274760f27ddcc1",
+          "43a4c82fe781ed67df6b4f4f82d1ff976ad586be"
+        ],
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/frontend/execution-receipt.json",
+          "evidence/browser-mock/execution-receipt.json",
+          "evidence/rust/execution-receipt.json",
+          "evidence-index.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-020",
+      "title": "Toolbox 登录与游戏登录/游戏线程泵送没有闭环",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-020"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-021",
+      "title": "发出 open 后即清空队列，缺少 Travel 成败闭环",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-021"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-022",
+      "title": "join_ack.status accepted/ok 不兼容",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-022"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-023",
+      "title": "IPC 文档/七命令、分帧、取消和结构化错误未统一",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-023"
+      },
+      "r7_append": {
+        "status": "PARTIAL_ERROR_EVENT_REGRESSION",
+        "summary": "Typed scoped retirement/action errors reach Tauri and React; native IPC command coverage unchanged.",
+        "modification_commits": [
+          "8faf421dadd4ba1d36206a8acd3bba782c7b8be2",
+          "f037fe5af4a2fa37f2de69144d274760f27ddcc1",
+          "43a4c82fe781ed67df6b4f4f82d1ff976ad586be"
+        ],
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/frontend/execution-receipt.json",
+          "evidence/browser-mock/execution-receipt.json",
+          "evidence/rust/execution-receipt.json",
+          "evidence-index.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-024",
+      "title": "游戏 lifecycle 与服务注册 state 枚举未完整适配",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-024"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-025",
+      "title": "错误、trace 与前端房间状态同步不完整",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-025"
+      },
+      "r7_append": {
+        "status": "PARTIAL_SCOPED_UI_REGRESSION",
+        "summary": "Terminal failure retains cause; exact membership-loss clears obsolete controls without fabricated snapshot. Final signed desktop startup and owner controls are recorded separately from the superseded startup busy failure.",
+        "modification_commits": [
+          "8faf421dadd4ba1d36206a8acd3bba782c7b8be2",
+          "f037fe5af4a2fa37f2de69144d274760f27ddcc1",
+          "43a4c82fe781ed67df6b4f4f82d1ff976ad586be"
+        ],
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/distribution/desktop-r7-receipt.json",
+          "evidence/frontend/execution-receipt.json",
+          "evidence/browser-mock/execution-receipt.json",
+          "evidence/rust/execution-receipt.json",
+          "evidence-index.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-026",
+      "title": "有序资源关闭未覆盖常驻worker与阻塞IO",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-026"
+      },
+      "r7_append": {
+        "status": "PARTIAL_CLEANUP_REGRESSION",
+        "summary": "Retirement cleanup and adoption serialization tested; physical shutdown acceptance unrun.",
+        "modification_commits": [
+          "8faf421dadd4ba1d36206a8acd3bba782c7b8be2",
+          "f037fe5af4a2fa37f2de69144d274760f27ddcc1",
+          "43a4c82fe781ed67df6b4f4f82d1ff976ad586be"
+        ],
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/distribution/desktop-r7-receipt.json",
+          "evidence/rust/execution-receipt.json",
+          "evidence-index.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-027",
+      "title": "世界切换后角色、配装、控制器、HUD与多局流程未验收",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-027"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-028",
+      "title": "本地 Node Meta 与远程 Go MetaTunnel 是不同模式",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-028"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-029",
+      "title": "MetaTunnel 动态端口、Token更新和EOF/父进程退出未接成工作流",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-029"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-030",
+      "title": "Toolbox 未接通权威大厅/Attempt 完整控制器",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-030"
+      },
+      "r7_append": {
+        "status": "PARTIAL_CURRENT_ATTEMPT_TRANSPORT",
+        "summary": "Replace retired get-room call and VNT writes with authoritative Attempt transport APIs.",
+        "modification_commits": [
+          "8faf421dadd4ba1d36206a8acd3bba782c7b8be2",
+          "f037fe5af4a2fa37f2de69144d274760f27ddcc1",
+          "43a4c82fe781ed67df6b4f4f82d1ff976ad586be",
+          "2e214a2366a5e6f02c3a5e3cb15db72af332d73d",
+          "3b1033153545a84d3a51deb94a2de48a3ded1b15"
+        ],
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/rust/execution-receipt.json",
+          "evidence/backend/deployment-receipt.json",
+          "evidence/backend/final-ci/ci-34247644433-status.json",
+          "evidence/backend/final-ci/ci-34247644433-attempt2-status.json",
+          "evidence-index.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-031",
+      "title": "角色、hosting/transport与各类ID/generation不能压成一个字段",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-031"
+      },
+      "r7_append": {
+        "status": "PARTIAL_SCOPE_REGRESSION",
+        "summary": "Transport requires positive roster/route and exact lobby/Attempt/room; signed credentials remain separate. Connection scope captured by server preflight is rechecked at write time; client connection requests do not yet bind an explicit route intent.",
+        "modification_commits": [
+          "8faf421dadd4ba1d36206a8acd3bba782c7b8be2",
+          "f037fe5af4a2fa37f2de69144d274760f27ddcc1",
+          "43a4c82fe781ed67df6b4f4f82d1ff976ad586be",
+          "2e214a2366a5e6f02c3a5e3cb15db72af332d73d",
+          "3b1033153545a84d3a51deb94a2de48a3ded1b15",
+          "214969d222ce38db5a2a32070ab022d02b99bd07",
+          "e73a91ed9000ac5aa0a211a3c860cac0cd0ffa45",
+          "af54f587240bb24217cd7c0c05aec3358e506d8f",
+          "8069d5e1126b8a585610b232e721aee45c57ee88"
+        ],
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/rust/execution-receipt.json",
+          "evidence/backend/deployment-receipt.json",
+          "evidence/backend/final-ci/ci-34247644433-status.json",
+          "evidence/backend/final-ci/ci-34247644433-attempt2-status.json",
+          "evidence-index.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-032",
+      "title": "退役旧在线房间API与任意地址Join，保留托管隔离",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-032"
+      },
+      "r7_append": {
+        "status": "PARTIAL_RETIREMENT_REGRESSION",
+        "summary": "Standalone room APIs remain retired; new authenticated scoped transport path is the only client path.",
+        "modification_commits": [
+          "8faf421dadd4ba1d36206a8acd3bba782c7b8be2",
+          "f037fe5af4a2fa37f2de69144d274760f27ddcc1",
+          "43a4c82fe781ed67df6b4f4f82d1ff976ad586be",
+          "2e214a2366a5e6f02c3a5e3cb15db72af332d73d",
+          "3b1033153545a84d3a51deb94a2de48a3ded1b15"
+        ],
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/rust/execution-receipt.json",
+          "evidence/backend/deployment-receipt.json",
+          "evidence/backend/final-ci/ci-34247644433-status.json",
+          "evidence/backend/final-ci/ci-34247644433-attempt2-status.json",
+          "evidence-index.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-033",
+      "title": "旧连通回调提前推进托管p2p_room为RUNNING",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-033"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-034",
+      "title": "BattleLog Presence等投影入口仍能独立推进托管状态",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-034"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-035",
+      "title": "大厅—传输—对局投影的跨事务补偿与崩溃恢复需补证据",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-035"
+      },
+      "r7_append": {
+        "status": "PARTIAL_TRANSACTION_SCOPE",
+        "summary": "Current frozen roster/Attempt is rechecked under database locks in transport transaction; broad crash recovery unrun.",
+        "modification_commits": [
+          "8faf421dadd4ba1d36206a8acd3bba782c7b8be2",
+          "f037fe5af4a2fa37f2de69144d274760f27ddcc1",
+          "43a4c82fe781ed67df6b4f4f82d1ff976ad586be",
+          "2e214a2366a5e6f02c3a5e3cb15db72af332d73d",
+          "3b1033153545a84d3a51deb94a2de48a3ded1b15",
+          "cb355f44969def671ab60ab1d03131d58b6eabc7",
+          "ace82dffc6f5ad91b59c1868010bf73f34488e12",
+          "2761a668927598751f3c2eb9c18baf951dd1f0e5",
+          "214969d222ce38db5a2a32070ab022d02b99bd07",
+          "e73a91ed9000ac5aa0a211a3c860cac0cd0ffa45",
+          "af54f587240bb24217cd7c0c05aec3358e506d8f",
+          "8069d5e1126b8a585610b232e721aee45c57ee88"
+        ],
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/rust/execution-receipt.json",
+          "evidence/backend/deployment-receipt.json",
+          "evidence/backend/final-ci/ci-34247644433-status.json",
+          "evidence/backend/final-ci/ci-34247644433-attempt2-status.json",
+          "evidence-index.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-036",
+      "title": "多种Presence/Heartbeat租约与启动/Grant时限尚未统一编排",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-036"
+      },
+      "r7_append": {
+        "status": "PARTIAL_LEASE_SCOPE",
+        "summary": "Scoped HOST/MEMBER keepalives run during blocking native startup. Authenticated current P2P authority heartbeat renews only its live managed room; provisioning hard deadline is unchanged. Long physical startup acceptance unrun.",
+        "modification_commits": [
+          "8faf421dadd4ba1d36206a8acd3bba782c7b8be2",
+          "f037fe5af4a2fa37f2de69144d274760f27ddcc1",
+          "43a4c82fe781ed67df6b4f4f82d1ff976ad586be",
+          "cb355f44969def671ab60ab1d03131d58b6eabc7",
+          "ace82dffc6f5ad91b59c1868010bf73f34488e12",
+          "2761a668927598751f3c2eb9c18baf951dd1f0e5"
+        ],
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/rust/execution-receipt.json",
+          "evidence/backend/deployment-receipt.json",
+          "evidence/backend/final-ci/ci-34247644433-status.json",
+          "evidence/backend/final-ci/ci-34247644433-attempt2-status.json",
+          "evidence-index.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-037",
+      "title": "后端开局人数规则与游戏角色确认门禁未形成同一政策",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-037"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-038",
+      "title": "客户端携带Join Grant的原生NMT_Login路径尚未实现",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-038"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-039",
+      "title": "权威PreLogin、真实身份、队伍/席位执行与回执未闭环",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-039"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-040",
+      "title": "P2P房主StartAuthority传空平台身份且缺原生启动证明",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-040"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-041",
+      "title": "同route的allocation刷新未应用新席位generation",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-041"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-042",
+      "title": "Join Grant重复申请/撤销/消费与本地准入缺少一致事务",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-042"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-043",
+      "title": "权威恢复缺少route/seat刷新与同世界连续性证明",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-043"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-044",
+      "title": "旧快照/旧Attempt/旧断线回执污染新会话的边界需全链验证",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-044"
+      },
+      "r7_append": {
+        "status": "PARTIAL_STALE_SCOPE_REGRESSION",
+        "summary": "Old epoch/lobby/Attempt/run cannot alter replacement lobby; scoped retirement regression.",
+        "modification_commits": [
+          "8faf421dadd4ba1d36206a8acd3bba782c7b8be2",
+          "f037fe5af4a2fa37f2de69144d274760f27ddcc1",
+          "43a4c82fe781ed67df6b4f4f82d1ff976ad586be"
+        ],
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/distribution/desktop-r7-receipt.json",
+          "evidence/frontend/execution-receipt.json",
+          "evidence/browser-mock/execution-receipt.json",
+          "evidence/rust/execution-receipt.json",
+          "evidence-index.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-045",
+      "title": "Dedicated严格调度没有充分筛选准入能力",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-045"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-046",
+      "title": "专服心跳active_match未被Toolbox消费并驱动准入",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-046"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-047",
+      "title": "数据库结束/释放早于Payload清理与游戏资源确认",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-047"
+      },
+      "r7_append": {
+        "status": "PARTIAL_CLEANUP_REGRESSION",
+        "summary": "Retirement preserves managed cleanup barrier; real Payload/resource cleanup not run for r7.",
+        "modification_commits": [
+          "8faf421dadd4ba1d36206a8acd3bba782c7b8be2",
+          "f037fe5af4a2fa37f2de69144d274760f27ddcc1",
+          "43a4c82fe781ed67df6b4f4f82d1ff976ad586be"
+        ],
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/distribution/desktop-r7-receipt.json",
+          "evidence/rust/execution-receipt.json",
+          "evidence-index.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-048",
+      "title": "strict开关关闭启动会批量终止共享数据库严格对局",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-048"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-049",
+      "title": "配套schema升级、单版本部署与身份隔离门禁",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-049"
+      },
+      "r7_append": {
+        "status": "PARTIAL_EXISTING_BACKEND_DEPLOYMENT",
+        "summary": "Use exact CI/deployed source and existing schema; no additional test backend.",
+        "modification_commits": [
+          "8faf421dadd4ba1d36206a8acd3bba782c7b8be2",
+          "f037fe5af4a2fa37f2de69144d274760f27ddcc1",
+          "43a4c82fe781ed67df6b4f4f82d1ff976ad586be",
+          "214969d222ce38db5a2a32070ab022d02b99bd07",
+          "e73a91ed9000ac5aa0a211a3c860cac0cd0ffa45",
+          "af54f587240bb24217cd7c0c05aec3358e506d8f",
+          "8069d5e1126b8a585610b232e721aee45c57ee88"
+        ],
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/distribution/public-metadata.json",
+          "evidence/distribution/package-build-receipt.json",
+          "evidence/backend/deployment-receipt.json",
+          "evidence/backend/final-ci/ci-34247644433-status.json",
+          "evidence/backend/final-ci/ci-34247644433-attempt2-status.json",
+          "evidence-index.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-050",
+      "title": "发布/更新/运行时安全门禁需跟兼容矩阵一起保持",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-050"
+      },
+      "r7_append": {
+        "status": "PARTIAL_TEST_PACKAGE",
+        "summary": "Lab signed, byte-checked r7 package; no updater publication and release_ready=false.",
+        "modification_commits": [
+          "8faf421dadd4ba1d36206a8acd3bba782c7b8be2",
+          "f037fe5af4a2fa37f2de69144d274760f27ddcc1",
+          "43a4c82fe781ed67df6b4f4f82d1ff976ad586be",
+          "8069d5e1126b8a585610b232e721aee45c57ee88"
+        ],
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/distribution/public-metadata.json",
+          "evidence/distribution/package-build-receipt.json",
+          "evidence/distribution/desktop-r7-receipt.json",
+          "evidence-index.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-051",
+      "title": "现有单库/模拟/可视化检查不能证明端到端已通过",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-051"
+      },
+      "r7_append": {
+        "status": "BLOCKED_PHYSICAL_ACCEPTANCE",
+        "summary": "Component/browser/CI/package/one-machine evidence cannot prove three-machine native admission or Playable.",
+        "modification_commits": [
+          "8faf421dadd4ba1d36206a8acd3bba782c7b8be2",
+          "f037fe5af4a2fa37f2de69144d274760f27ddcc1",
+          "43a4c82fe781ed67df6b4f4f82d1ff976ad586be",
+          "214969d222ce38db5a2a32070ab022d02b99bd07",
+          "e73a91ed9000ac5aa0a211a3c860cac0cd0ffa45",
+          "af54f587240bb24217cd7c0c05aec3358e506d8f",
+          "8069d5e1126b8a585610b232e721aee45c57ee88"
+        ],
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/distribution/public-metadata.json",
+          "evidence/distribution/package-build-receipt.json",
+          "evidence/distribution/desktop-r7-receipt.json",
+          "evidence/rust/execution-receipt.json",
+          "evidence/backend/deployment-receipt.json",
+          "evidence/backend/final-ci/ci-34247644433-status.json",
+          "evidence/backend/final-ci/ci-34247644433-attempt2-status.json",
+          "evidence-index.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    },
+    {
+      "id": "BP-052",
+      "title": "Backend/matchserver二进制来源与消费链待审计",
+      "prior_record": {
+        "path": "../host-ready-20260908/52-item-r6-append-delta.json",
+        "id": "BP-052"
+      },
+      "r7_append": {
+        "status": "NOT_REEVALUATED_R7",
+        "summary": "No r7 reassessment; historical status and evidence are preserved.",
+        "modification_commits": [],
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R7"
+      }
+    }
+  ]
+}

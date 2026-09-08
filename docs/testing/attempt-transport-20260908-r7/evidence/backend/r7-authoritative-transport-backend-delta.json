@@ -1,0 +1,110 @@
+{
+  "schema": "r7-authoritative-transport-backend-delta-v1",
+  "recorded_at_utc": "2026-09-08T15:04:55.4296047Z",
+  "source_commits": [
+    "2e214a2366a5e6f02c3a5e3cb15db72af332d73d",
+    "3b1033153545a84d3a51deb94a2de48a3ded1b15"
+  ],
+  "scope": [
+    "authoritative MatchAttempt transport projection and VNT operations",
+    "managed connection frozen-roster gate",
+    "scope-aware managed room read transaction",
+    "OpenAPI and external API documentation"
+  ],
+  "implementation": {
+    "routes": [
+      "/v1/match-attempts/{attempt_id}/transport",
+      "/v1/match-attempts/{attempt_id}/transport/vnt/bootstrap",
+      "/v1/match-attempts/{attempt_id}/transport/vnt/presence/me",
+      "/v1/match-attempts/{attempt_id}/transport/vnt/host-ready"
+    ],
+    "cache_policy": "all four handlers set Cache-Control no-store and Pragma no-cache",
+    "headers": [
+      "X-Match-Roster-Revision",
+      "X-Match-Route-Generation",
+      "X-Match-Transport-Host-Token for host-ready"
+    ],
+    "retired_legacy_route": "Standalone /v1/p2p-rooms routes remain 410"
+  },
+  "tests": [
+    {
+      "command": "go test ./...",
+      "exit_code": 0,
+      "result": "all Go packages passed; DB integration tests are environment-gated"
+    },
+    {
+      "command": "go test ./internal/matchlobby -run Test(Transport|EveryAuthoritative) -count=1 -v",
+      "exit_code": 0,
+      "result": "scope/header/projection/no-store/dependency-mapping unit tests passed"
+    },
+    {
+      "command": "go test ./internal/matchlobby -run TestAuthoritativeTransportAndConnectionScopeAgainstPostgreSQL -count=1 -v",
+      "exit_code": 0,
+      "result": "SKIPPED: TEST_DATABASE_URL is not set"
+    }
+  ],
+  "environment": {
+    "TEST_DATABASE_URL": "unset",
+    "real_endpoint_acceptance": "not_run",
+    "docker": "unavailable"
+  },
+  "file_hashes": [
+    {
+      "path": "Backend/api/openapi/openapi.yaml",
+      "sha256": "d0b98cafbe14f3705ab31ce8e00436aea6cfa09c4fcc9aa2d956bb13813459f9"
+    },
+    {
+      "path": "Backend/api/openapi/openapi_test.go",
+      "sha256": "b6840e98f5a718af6f325ecaae9531351acf61c64ee36cb997bc8ebad6fd885c"
+    },
+    {
+      "path": "Backend/internal/controlplane/server.go",
+      "sha256": "21a49a152b38a39de6e9157ca6dbf7ca3944fe17bbd448122d0222c915fa6f50"
+    },
+    {
+      "path": "Backend/internal/matchlobby/http.go",
+      "sha256": "c3f6e2ad10f0c348dc0db6ceaafe7775c6614c36d5dafc40048edd56473d4de5"
+    },
+    {
+      "path": "Backend/internal/matchlobby/model.go",
+      "sha256": "d7e803ffd1b33178ef1bfa6d66e44ff168cfd607be2aa178e6aa25b7d0a04efd"
+    },
+    {
+      "path": "Backend/internal/matchlobby/repository.go",
+      "sha256": "8eebf254145c26371a82317a9eb8e756d538b0696172eab860a2be8b8fa7b67e"
+    },
+    {
+      "path": "Backend/internal/matchlobby/service.go",
+      "sha256": "1ab9c0c78405331392f3f5acf763efff978561ec041ef7f08dc9311c9a0e2200"
+    },
+    {
+      "path": "Backend/internal/matchlobby/transport_test.go",
+      "sha256": "18c8f9aa2eb77790b96bdc495dffada71e8e637a12c40fe4ec3d644f182fb47c"
+    },
+    {
+      "path": "Backend/internal/matchlobby/transport_integration_test.go",
+      "sha256": "37bd6cd7fcd31796cf73d0656939f62f3d0fdd726367a9d3416fc7357e76a5ae"
+    },
+    {
+      "path": "Backend/internal/p2proom/managed_scope.go",
+      "sha256": "dd63ac05f78b7f1cab7889178482384558070294956c8905e4f86cccd07d53cc"
+    },
+    {
+      "path": "Backend/internal/p2proom/repository.go",
+      "sha256": "1b54cbafc47d2f638b78978bd8242f10ff249efb876915359bb674381309aaab"
+    },
+    {
+      "path": "Backend/internal/p2proom/service.go",
+      "sha256": "950bb66191afde554cce500583d2224ccbf272db2d0bb2290cb8097a9d0efb0a"
+    },
+    {
+      "path": "docs/api/external.md",
+      "sha256": "5642f388709e3b0f33cfbb6b17659dc4b8bf0c623f499e7ba75b9cdf52f082c9"
+    }
+  ],
+  "constraints": [
+    "No remote deployment or production state was changed by this task.",
+    "No real multiplayer PASS is claimed without PostgreSQL/endpoint execution.",
+    "Private dumps and fixture directories were not staged."
+  ]
+}

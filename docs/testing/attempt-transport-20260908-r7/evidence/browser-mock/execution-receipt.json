@@ -1,0 +1,24 @@
+{
+  "started_at_utc": "2026-09-08T14:59:28.918Z",
+  "finished_at_utc": "2026-09-08T14:59:30.316Z",
+  "scope": "full React App with explicit tauri-mock=1 and test-only event injection into the served bridge module; no repository instrumentation",
+  "assertions": [
+    "old Attempt error rejected",
+    "matching launch error displayed",
+    "terminal snapshot preserves causal detail",
+    "other session error rejected",
+    "old-room membership retirement cannot clear current room",
+    "matching membership loss clears active controls without a fabricated snapshot"
+  ],
+  "source_hashes": {
+    "src/App.jsx": "5c719af0e8116a0730f9b8ada49560c2333fa69dc72ebad9a788eb23ead606fa",
+    "src/lib/authoritativeRooms.js": "f052c2bb8adc4b84c44b81b1dbefc1f2ce6365cc915de3aa7efc293992c71547",
+    "src/lib/tauriBridge.js": "40379c679a8243d4f99500296d4a818fa9a8bb12fe48b94b057b241aa4e37051"
+  },
+  "source_stable": true,
+  "console_errors": [],
+  "status": "PASS",
+  "backend_native_or_multiplayer": "NOT_RUN",
+  "screenshot_sha256": "5dc3ff56c8afaebb7bc8f5926864b1b254836172e599d5ce0b177a6e09c3838b",
+  "visible_text_sha256": "3d9a44f84410ae343b69341c36fcc87d92957e71eebe168aef08107bdc74a2c3"
+}

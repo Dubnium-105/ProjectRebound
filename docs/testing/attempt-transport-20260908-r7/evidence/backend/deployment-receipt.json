@@ -1,0 +1,443 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-09-08T16:24:35.22805Z",
+  "status": "PASS_EXISTING_BACKEND_DEPLOYMENT_ONLY",
+  "scope": "Existing authoritative backend updated from the exact green CI images; native/game/three-machine acceptance remains separate.",
+  "deployed_ci_commit": "8069d5e1126b8a585610b232e721aee45c57ee88",
+  "workflow_ref": {
+    "branch": "codex/authoritative-only-20260907",
+    "sha": "45e825f4e3799da460dfedecc9791b123698dffd",
+    "event": "workflow_dispatch",
+    "target": "all",
+    "environment": "production",
+    "input_commit_sha": "8069d5e1126b8a585610b232e721aee45c57ee88"
+  },
+  "ci": {
+    "run_id": 34247644433,
+    "url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34247644433",
+    "status": "completed",
+    "conclusion": "success",
+    "attempt": "attempt2 rerun of V11 after preserved attempt1 artifact-finalize 403",
+    "jobs": [
+      {
+        "name": "Build and package admin-web image",
+        "id": 102139913153,
+        "status": "completed",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T16:11:04Z",
+        "completedAt": "2026-09-08T16:15:23Z"
+      },
+      {
+        "name": "Build and package control-plane image",
+        "id": 102139913288,
+        "status": "completed",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T16:11:04Z",
+        "completedAt": "2026-09-08T16:13:11Z"
+      },
+      {
+        "name": "Build and package edge-relay image",
+        "id": 102139913219,
+        "status": "completed",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T16:11:04Z",
+        "completedAt": "2026-09-08T16:12:55Z"
+      },
+      {
+        "name": "Build and package load-bot image",
+        "id": 102139913285,
+        "status": "completed",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T16:11:04Z",
+        "completedAt": "2026-09-08T16:12:23Z"
+      },
+      {
+        "name": "Build and package meta-server image",
+        "id": 102139913237,
+        "status": "completed",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T16:11:04Z",
+        "completedAt": "2026-09-08T16:13:18Z"
+      },
+      {
+        "name": "C++ command protocol",
+        "id": 102137728064,
+        "status": "completed",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T15:53:31Z",
+        "completedAt": "2026-09-08T15:54:05Z"
+      },
+      {
+        "name": "Deployment and workflow configuration",
+        "id": 102137780089,
+        "status": "completed",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T15:53:31Z",
+        "completedAt": "2026-09-08T15:54:02Z"
+      },
+      {
+        "name": "Go backend and PostgreSQL",
+        "id": 102137728407,
+        "status": "completed",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T15:53:33Z",
+        "completedAt": "2026-09-08T15:56:53Z"
+      },
+      {
+        "name": "Independent administrator web",
+        "id": 102137727307,
+        "status": "completed",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T15:53:32Z",
+        "completedAt": "2026-09-08T15:54:30Z"
+      },
+      {
+        "name": "V1.1 disposable control plane and two-Relay integration",
+        "id": 102137726165,
+        "status": "completed",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T16:04:51Z",
+        "completedAt": "2026-09-08T16:11:00Z"
+      },
+      {
+        "name": "Windows named-pipe integration",
+        "id": 102137767690,
+        "status": "completed",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T15:53:32Z",
+        "completedAt": "2026-09-08T15:54:59Z"
+      }
+    ],
+    "lifecycle_test": {
+      "name": "TestConnectionLifecycleAgainstPostgreSQL",
+      "package": "Backend/internal/connection",
+      "execution": "PASS in race test package under CI Docker PostgreSQL",
+      "skip_condition": "only TEST_DATABASE_URL unset",
+      "ci_env": "TEST_DATABASE_URL configured to the CI PostgreSQL service",
+      "source_commit": "8069d5e1126b8a585610b232e721aee45c57ee88",
+      "unconditional_skip_removed": true
+    },
+    "v11": {
+      "job_id": 102137726165,
+      "test": "TestV11ControlPlaneAndTwoRelays",
+      "conclusion": "PASS",
+      "native_admission": "NOT_RUN",
+      "cleanup_cleared": 2,
+      "full_success": 41,
+      "full_failed": 0,
+      "large_storm_success": 1148,
+      "large_storm_failed": 0,
+      "large_storm_reconnects": 200,
+      "sigkill_success": 64,
+      "sigkill_failed": 0,
+      "sigkill_migrations": "1/1"
+    },
+    "images": [
+      {
+        "name": "control-plane",
+        "image": "ghcr.io/dubnium-105/projectrebound-control-plane:sha-8069d5e1126b8a585610b232e721aee45c57ee88",
+        "digest": "sha256:bc98ac6d82427ee352237314ff13989fae776fd0f8dfceda18c2658fe55a2bca",
+        "running": true,
+        "health": "healthy"
+      },
+      {
+        "name": "meta-server",
+        "image": "ghcr.io/dubnium-105/projectrebound-meta-server:sha-8069d5e1126b8a585610b232e721aee45c57ee88",
+        "digest": "sha256:6f5e92a55207c0fea3eb9e01f08856d436d80aecd1bfb8b2f2305ce40ca37026",
+        "running": true,
+        "health": "healthy"
+      },
+      {
+        "name": "admin-web",
+        "image": "ghcr.io/dubnium-105/projectrebound-admin-web:sha-8069d5e1126b8a585610b232e721aee45c57ee88",
+        "digest": "sha256:37fc38d939ca9dbddeabd19d555214c10589889007db18336c2f9e33d5ec1851",
+        "running": true,
+        "health": "running-no-container-healthcheck"
+      },
+      {
+        "name": "edge-relay-primary",
+        "image": "ghcr.io/dubnium-105/projectrebound-edge-relay:sha-8069d5e1126b8a585610b232e721aee45c57ee88",
+        "digest": "sha256:b82049df5df6c982f747e1ec409812d6af143b298ca8124299f0ea258524370c",
+        "running": true,
+        "health": "running-no-container-healthcheck"
+      },
+      {
+        "name": "edge-relay-gateway",
+        "image": "ghcr.io/dubnium-105/projectrebound-edge-relay:sha-8069d5e1126b8a585610b232e721aee45c57ee88",
+        "digest": "sha256:b82049df5df6c982f747e1ec409812d6af143b298ca8124299f0ea258524370c",
+        "running": true,
+        "health": "running-no-container-healthcheck"
+      }
+    ]
+  },
+  "deployment": {
+    "run_id": 34250303094,
+    "url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34250303094",
+    "status": "completed",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Deploy control plane",
+        "id": 102142737788,
+        "status": "completed",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T16:19:07Z",
+        "completedAt": "2026-09-08T16:20:05Z"
+      },
+      {
+        "name": "Deploy edge relay (gateway)",
+        "id": 102142738158,
+        "status": "completed",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T16:19:08Z",
+        "completedAt": "2026-09-08T16:19:27Z"
+      },
+      {
+        "name": "Deploy edge relay (primary)",
+        "id": 102142737508,
+        "status": "completed",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T16:19:08Z",
+        "completedAt": "2026-09-08T16:19:29Z"
+      },
+      {
+        "name": "Deploy MetaServer only",
+        "id": 102143095165,
+        "status": "completed",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T16:20:09Z",
+        "completedAt": "2026-09-08T16:20:42Z"
+      }
+    ],
+    "remote_release_prefix": "sha-8069d5e1126b8a585610b232e721aee45c57ee88-34250303094-1",
+    "rollback": "not_used"
+  },
+  "schema_before": 48,
+  "schema_after": 48,
+  "runtime": {
+    "path": "r7/backend/deploy-34250303094/runtime-after-deploy.json",
+    "observed_at": "2026-09-09T00:22:17.616809+08:00",
+    "schema_query_exit_code": 0,
+    "schema_observed": "48",
+    "disk_free_bytes": 3479592960,
+    "accept_new_lobbies": "true",
+    "strict_roster_env_flag_present": false,
+    "env_sha256": "26e48f4c706f59047ba62def8d09cb1404e4f4d3fa0b0ed0a0f8a3e486673414"
+  },
+  "public_health": {
+    "path": "r7/backend/deploy-34250303094/public-check.json",
+    "user_agent": "project-rebound-toolbox/0.9.12",
+    "checks": [
+      {
+        "url": "https://api.project-rebound.space/health/live",
+        "http_status": 200,
+        "status": "live"
+      },
+      {
+        "url": "https://api.project-rebound.space/health/ready",
+        "http_status": 200,
+        "status": "ready"
+      },
+      {
+        "url": "https://api.project-rebound.space/v1/client/config",
+        "http_status": 200,
+        "api_version": "v1",
+        "protocol_version": 2,
+        "features": {
+          "accept_new_lobbies": true,
+          "dedicated_servers": true,
+          "p2p_rooms": true,
+          "relay": true,
+          "strict_roster_v1": true,
+          "vnt_rooms": false
+        }
+      },
+      {
+        "url": "https://api.project-rebound.space/v1/p2p-rooms",
+        "http_status": 410,
+        "error_code": "ONLINE_P2P_ROOM_RETIRED"
+      },
+      {
+        "url": "https://cnapi.project-rebound.space/health/ready",
+        "http_status": 200,
+        "status": "ready"
+      },
+      {
+        "url": "https://cnapi.project-rebound.space/v1/client/config",
+        "http_status": 200,
+        "api_version": "v1",
+        "protocol_version": 2,
+        "features": {
+          "accept_new_lobbies": true,
+          "dedicated_servers": true,
+          "p2p_rooms": true,
+          "relay": true,
+          "strict_roster_v1": true,
+          "vnt_rooms": false
+        }
+      },
+      {
+        "url": "https://meta.project-rebound.space/health/live",
+        "http_status": 200,
+        "status": "live"
+      },
+      {
+        "url": "https://meta.project-rebound.space/health/ready",
+        "http_status": 200,
+        "status": "ready"
+      }
+    ]
+  },
+  "constraints": {
+    "test_backend_created": false,
+    "signature_verification_bypassed": false,
+    "strict_roster_bypassed": false,
+    "native_gameplay": "NOT_RUN_IN_THIS_RECEIPT",
+    "three_physical_machines": "NOT_RUN",
+    "release_ready": false
+  },
+  "evidence_files": [
+    {
+      "path": "r7/backend/final-ci/ci-34245389567-status.json",
+      "bytes": 14252,
+      "sha256": "a9287d7c82ef9af40ed91c78fff9891edae9c86c055b68ae2f28eefe3885f668"
+    },
+    {
+      "path": "r7/backend/final-ci/ci-34245389567-go-failure.log",
+      "bytes": 81625,
+      "sha256": "59a96858bd75a6f45e704940844d0bb456ae55aa8a04f1ae9f54f808be97c060"
+    },
+    {
+      "path": "r7/backend/final-ci/ci-34245389567-v11-failure.log",
+      "bytes": 68852,
+      "sha256": "e8b23f81a4e118e06495b9107faa4005e13b7f8292262cc998aecfecf788bbbc"
+    },
+    {
+      "path": "r7/backend/final-ci/ci-34247644433-status.json",
+      "bytes": 14252,
+      "sha256": "2fa8ba3eff615a712c1ed632074809059d2afce5923de2ae1dabe45f2b51758e"
+    },
+    {
+      "path": "r7/backend/final-ci/ci-34247644433-go-success.log",
+      "bytes": 94377,
+      "sha256": "1fdf1ac7ea21a16ea8afae61eca6c0be1ccde879aec1bc0eafb3aac78b1a427e"
+    },
+    {
+      "path": "r7/backend/final-ci/ci-34247644433-v11-artifact-upload-failure.log",
+      "bytes": 70880,
+      "sha256": "3df84a1e7fff25d587970fbd81525b4c6189813ffe6ebe70bc278a8e7a47fb78"
+    },
+    {
+      "path": "r7/backend/final-ci/ci-34247644433-attempt2-status.json",
+      "bytes": 32000,
+      "sha256": "cccc2b491ff1448bcbcc346defdd503d68216d79cca4f56a9fbb9b7a2babea70"
+    },
+    {
+      "path": "r7/backend/final-ci/ci-34247644433-attempt2-go-success.log",
+      "bytes": 88837,
+      "sha256": "3efa72c5ac25be7af961eb7cf1eb384610e67c93624b38132a237e9b479bff36"
+    },
+    {
+      "path": "r7/backend/final-ci/ci-34247644433-attempt2-v11-success.log",
+      "bytes": 72310,
+      "sha256": "402b99d49cb0569afbcdb02c144105a67ab52db1b1177af70b4ca5627616c744"
+    },
+    {
+      "path": "r7/backend/final-ci/ci-34247644433-attempt2-admin-image-success.log",
+      "bytes": 367048,
+      "sha256": "5880ff1c3cb6a9a63169feb3b2d4b5e2900b4c946c036ac9b54051239593ba8b"
+    },
+    {
+      "path": "r7/backend/final-ci/ci-34247644433-attempt2-controlplane-image-success.log",
+      "bytes": 371451,
+      "sha256": "e4229fd208edc58b97aee9ba79ca55ee891d9fb8a381cac81121091e00a5e5ab"
+    },
+    {
+      "path": "r7/backend/final-ci/ci-34247644433-attempt2-edge-image-success.log",
+      "bytes": 345177,
+      "sha256": "4dce9795425229f61b57c74e683028ca7ad7ac791d79ea4cd1a38b676fa68f21"
+    },
+    {
+      "path": "r7/backend/final-ci/ci-34247644433-attempt2-loadbot-image-success.log",
+      "bytes": 336968,
+      "sha256": "ff449d154342bb551b8fd14d34bffe23cc71e5279d3a21a9aa4df0cf91e79daa"
+    },
+    {
+      "path": "r7/backend/final-ci/ci-34247644433-attempt2-meta-image-success.log",
+      "bytes": 348062,
+      "sha256": "2d36867dfb89a13f6eb71efffb66c2a3c6c862e916600bca8db5fc94d9887a5c"
+    },
+    {
+      "path": "r7/backend/deploy-34250303094/deploy-34250303094-status.json",
+      "bytes": 6802,
+      "sha256": "3cfb898e62f914bb519fb1ac97a8ee8ff49b550d95532253c9b9d1af1f17f055"
+    },
+    {
+      "path": "r7/backend/deploy-34250303094/deploy-control-plane.log",
+      "bytes": 54825,
+      "sha256": "8a59d1af73add148d7dbe94f62d793c7622b3dc2c5a9a486320b20fad45c39ec"
+    },
+    {
+      "path": "r7/backend/deploy-34250303094/deploy-meta-server.log",
+      "bytes": 41104,
+      "sha256": "0192e496280aeb7ad22d92e3b5a88d490144bc9e577947a04953c7b8b681e385"
+    },
+    {
+      "path": "r7/backend/deploy-34250303094/deploy-edge-primary.log",
+      "bytes": 35990,
+      "sha256": "17b9dfec452ff67acbbea2eb06ee8be923cd3e3097c810e04671bd8895530a92"
+    },
+    {
+      "path": "r7/backend/deploy-34250303094/deploy-edge-gateway.log",
+      "bytes": 35050,
+      "sha256": "a2b4338676ebf5045135410758fe27cf5c6f7dbb8a12eca66083e78a7874a4a6"
+    },
+    {
+      "path": "r7/backend/deploy-34250303094/runtime-after-deploy.json",
+      "bytes": 10124,
+      "sha256": "544ba59de0587fd7987540744506875a88ac2878ecac6958a064faca2a52cd08"
+    },
+    {
+      "path": "r7/backend/deploy-34250303094/public-check.json",
+      "bytes": 1595,
+      "sha256": "6df047aeb409514c2973e3788a1f30c62853ef60d3f9dab950bfc5841b1b8b74"
+    }
+  ],
+  "images": [
+    {
+      "name": "control-plane",
+      "image": "ghcr.io/dubnium-105/projectrebound-control-plane:sha-8069d5e1126b8a585610b232e721aee45c57ee88",
+      "digest": "sha256:bc98ac6d82427ee352237314ff13989fae776fd0f8dfceda18c2658fe55a2bca",
+      "running": true,
+      "health": "healthy"
+    },
+    {
+      "name": "meta-server",
+      "image": "ghcr.io/dubnium-105/projectrebound-meta-server:sha-8069d5e1126b8a585610b232e721aee45c57ee88",
+      "digest": "sha256:6f5e92a55207c0fea3eb9e01f08856d436d80aecd1bfb8b2f2305ce40ca37026",
+      "running": true,
+      "health": "healthy"
+    },
+    {
+      "name": "admin-web",
+      "image": "ghcr.io/dubnium-105/projectrebound-admin-web:sha-8069d5e1126b8a585610b232e721aee45c57ee88",
+      "digest": "sha256:37fc38d939ca9dbddeabd19d555214c10589889007db18336c2f9e33d5ec1851",
+      "running": true,
+      "health": "running-no-container-healthcheck"
+    },
+    {
+      "name": "edge-relay-primary",
+      "image": "ghcr.io/dubnium-105/projectrebound-edge-relay:sha-8069d5e1126b8a585610b232e721aee45c57ee88",
+      "digest": "sha256:b82049df5df6c982f747e1ec409812d6af143b298ca8124299f0ea258524370c",
+      "running": true,
+      "health": "running-no-container-healthcheck"
+    },
+    {
+      "name": "edge-relay-gateway",
+      "image": "ghcr.io/dubnium-105/projectrebound-edge-relay:sha-8069d5e1126b8a585610b232e721aee45c57ee88",
+      "digest": "sha256:b82049df5df6c982f747e1ec409812d6af143b298ca8124299f0ea258524370c",
+      "running": true,
+      "health": "running-no-container-healthcheck"
+    }
+  ]
+}

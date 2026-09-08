@@ -1,0 +1,75 @@
+{
+  "schema": "r7-backend-diagnosis-v1",
+  "recorded_at_utc": "2026-09-08T14:58:06.5833888Z",
+  "raw_log_saved": false,
+  "status": "diagnosed",
+  "findings": [
+    {
+      "case": "A",
+      "result": "expected_owner_close_then_late_leave_conflict",
+      "evidence": "Owner leave returned 200 and closed the lobby; a later leave returned 409 MATCH_LOBBY_NOT_MUTABLE; later presence returned 403."
+    },
+    {
+      "case": "B",
+      "result": "client_called_retired_standalone_room_route",
+      "evidence": "Attempt start and host allocation returned 200, then GET /v1/p2p-rooms/{room_id} returned 410 ONLINE_P2P_ROOM_RETIRED before host completion; persisted attempt ended P2P_AUTHORITY_LAUNCH_FAILED with no payload/world/endpoint/connection proof."
+    }
+  ],
+  "source_findings": [
+    {
+      "path": "Backend/internal/matchlobby/service.go",
+      "symbols": [
+        "Leave",
+        "requireOpenRevision"
+      ],
+      "lines": "Leave owner transition and non-open rejection"
+    },
+    {
+      "path": "Backend/internal/controlplane/server.go",
+      "symbols": [
+        "RetiredOnlineRoute registrations"
+      ],
+      "lines": "standalone online P2P routes return 410"
+    },
+    {
+      "path": "Backend/internal/p2proom/http.go",
+      "symbols": [
+        "RetiredOnlineRoute"
+      ],
+      "lines": "ONLINE_P2P_ROOM_RETIRED terminal response"
+    },
+    {
+      "path": "Backend/internal/matchlobby/http.go",
+      "symbols": [
+        "P2PComplete"
+      ],
+      "lines": "failure code is client supplied; no lower-level native error is created by Backend"
+    }
+  ],
+  "evidence": [
+    {
+      "path": ".tmp/ready-multiplayer-20260908/r7/backend/r7-control-plane-log-summary.json",
+      "sha256": "B2AD761CA20C47ADE5F7D9490B84AE40ED7BC2BAC3BDB204C9348A20B800FFA9",
+      "raw_log_saved": false
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/r7/backend/r7-control-plane-log-summary.txt",
+      "sha256": "B2AD761CA20C47ADE5F7D9490B84AE40ED7BC2BAC3BDB204C9348A20B800FFA9",
+      "raw_log_saved": false
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/r7/backend/r7-db-timeline-A.out.txt",
+      "sha256": "2D1B1211C01396119C4D1351CCF3845A6F610B12A8E7F1F5A5DD8E476A1D52E0"
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/r7/backend/r7-db-timeline.out.txt",
+      "sha256": "4D470C9BF6AD5DAC5592649BAF24FBFB50713DDA3533DA998553CDBE1AABF104"
+    }
+  ],
+  "constraints": [
+    "No source or remote state was modified for the diagnosis receipt.",
+    "No raw logs, access tokens, Steam IDs, grant material, or request IDs are included.",
+    "The two ended attempts are negative evidence only and were not revived."
+  ],
+  "implementation_followup": "Authoritative scoped transport endpoints and current frozen-roster connection gate are implemented separately in the working tree; they require focused tests and CI before any real multiplayer PASS claim."
+}

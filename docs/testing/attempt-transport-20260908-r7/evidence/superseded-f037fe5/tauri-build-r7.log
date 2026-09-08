@@ -1,0 +1,48 @@
+        Info Looking up installed tauri packages to check mismatched versions...
+     Running beforeBuildCommand `npm run build`
+
+> frontend@0.9.12 build
+> vite build && node scripts/prepare-sites-build.mjs
+
+vite v6.4.2 building for production...
+transforming...
+✓ 48 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/client/index.html                   0.47 kB │ gzip:   0.31 kB
+dist/client/assets/index-D0BojykK.css   34.95 kB │ gzip:   6.77 kB
+dist/client/assets/index-DFjd8kW1.js   342.73 kB │ gzip: 104.28 kB
+✓ built in 969ms
+Prepared Sites build: dist/server/index.js and dist/.openai/hosting.json
+   Compiling rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+   Compiling rebound_toolbox_tauri v0.9.12 (C:\wksp\ProjectReboundToolbox\src-tauri)
+warning: struct `RoomListResult` is never constructed
+   --> src\dto.rs:108:12
+    |
+108 | pub struct RoomListResult {
+    |            ^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: struct `CreateRoomResult` is never constructed
+   --> src\dto.rs:469:12
+    |
+469 | pub struct CreateRoomResult {
+    |            ^^^^^^^^^^^^^^^^
+
+warning: struct `ServerListResult` is never constructed
+   --> src\dto.rs:534:12
+    |
+534 | pub struct ServerListResult {
+    |            ^^^^^^^^^^^^^^^^
+
+warning: struct `LaunchResult` is never constructed
+   --> src\dto.rs:547:12
+    |
+547 | pub struct LaunchResult {
+    |            ^^^^^^^^^^^^
+
+warning: `rebound_toolbox_tauri` (bin "rebound_toolbox_tauri") generated 4 warnings
+    Finished `release` profile [optimized] target(s) in 1m 35s
+       Built application at: C:\wksp\ProjectReboundToolbox\src-tauri\target\release\rebound_toolbox_tauri.exe
+Candidate manifest: C:\wksp\ProjectReboundToolbox\src-tauri\target\release\strict-candidate.json

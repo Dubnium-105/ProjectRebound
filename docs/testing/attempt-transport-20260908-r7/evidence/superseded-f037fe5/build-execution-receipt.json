@@ -1,0 +1,22 @@
+{
+  "started_at_utc": "2026-09-08T15:42:55.051367+00:00",
+  "finished_at_utc": "2026-09-08T15:44:37.244011+00:00",
+  "exit_code": 0,
+  "command": [
+    "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/powershell/pwsh.exe",
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-File",
+    "C:/wksp/ProjectReboundToolbox/scripts/build-strict-candidate.ps1",
+    "-PayloadPath",
+    "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\signed\\Payload.dll",
+    "-ExpectedPayloadSha256",
+    "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183"
+  ],
+  "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r7\\tauri-build-r7.log",
+  "log_sha256": "2fda627d277d9b45f8b16588e024f18948b993f1133b638c90188de198c6c460",
+  "scope": "Production Tauri build only; no native multiplayer acceptance",
+  "prior_failed_receipts": [],
+  "capture_fix": "Use the current PowerShell 7 runtime with its matching modules; Python captures raw process streams."
+}

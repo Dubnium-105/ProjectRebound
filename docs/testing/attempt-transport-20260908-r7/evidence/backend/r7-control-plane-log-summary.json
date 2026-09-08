@@ -1,0 +1,888 @@
+﻿{
+    "receipt_version":  1,
+    "recorded_at_utc":  "2026-09-08T14:35:26.2547816Z",
+    "requested_window_utc":  {
+                                 "to":  "2026-09-08T14:27:00Z",
+                                 "from":  "2026-09-08T14:20:00Z"
+                             },
+    "source":  {
+                   "remote_line_count":  633,
+                   "sensitive_fields_redacted":  true,
+                   "raw_log_saved":  false,
+                   "container":  "project-rebound-control-plane-control-plane-1",
+                   "kind":  "docker logs"
+               },
+    "lobby_A_events":  [
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:21:42.133664381Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:21:47.402719746Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:21:48.075322152Z",
+                               "method":  "PUT",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/members/me/ready",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:21:54.073084705Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:21:58.603137797Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:22:00.699913135Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:22:06.450752756Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/join",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:22:07.966615475Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:22:08.350626273Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:22:09.265861102Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:22:10.454459989Z",
+                               "method":  "PUT",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/members/me/ready",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:22:11.839269325Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:22:13.466238669Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:22:15.51732607Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:22:17.146813901Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:22:20.611536558Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:22:22.452144652Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:22:23.709333925Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/leave",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:22:25.828653639Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:22:26.619077249Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/leave",
+                               "status":  "409",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:22:31.311083036Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "403",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:22:35.630116897Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "403",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:22:39.616860151Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "403",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:22:43.437216052Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "403",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:22:47.961525846Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "403",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:22:53.97369079Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "403",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:22:57.640457519Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "403",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:23:01.581004452Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "403",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:23:06.141058461Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "403",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:23:09.883745727Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "403",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:23:14.117639929Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "403",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:23:17.784146486Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "403",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "A",
+                               "time_utc":  "2026-09-08T14:23:27.051883102Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "403",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           }
+                       ],
+    "lobby_B_events":  [
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:22:47.36823054Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:23:01.460271127Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:23:02.115338177Z",
+                               "method":  "PUT",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/members/me/ready",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:23:06.693620116Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:23:12.197869319Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:23:13.865052976Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:23:22.413099021Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:23:30.108683301Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/join",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:23:31.722472712Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:23:34.158843753Z",
+                               "method":  "PUT",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/members/me/ready",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:23:38.384615913Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:23:40.889592834Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:23:42.446355027Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:23:42.98772697Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:23:47.304700598Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:23:48.67642972Z",
+                               "method":  "PUT",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/members/me/ready",
+                               "status":  "409",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:23:52.698256408Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:23:55.181868503Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:23:55.906281643Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:23:58.236684322Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:23:58.873401665Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:23:59.522441214Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:00.158096759Z",
+                               "method":  "PUT",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/members/me/ready",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:03.627790093Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:04.822934675Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/start",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:05.065183743Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:08.395448711Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B-attempt-window",
+                               "time_utc":  "2026-09-08T14:24:09.106870223Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-attempts/\u003copaque\u003e/host/allocation",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:09.233252957Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B-attempt-window",
+                               "time_utc":  "2026-09-08T14:24:11.958264094Z",
+                               "method":  "GET",
+                               "route":  "/v1/p2p-rooms/\u003croom\u003e",
+                               "status":  "410",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B-attempt-window",
+                               "time_utc":  "2026-09-08T14:24:14.325360238Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-attempts/\u003copaque\u003e/host/complete",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:14.53444974Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:21.268339583Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:21.420898298Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:22.078673826Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:22.344997427Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:25.356097773Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:28.642328256Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:30.329378083Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:32.332291667Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:33.866838143Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:37.280671298Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:40.035074083Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:43.049870842Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:43.776608067Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:44.91323024Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:47.192033572Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:50.564665635Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:51.835942756Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:53.953450918Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:55.18095229Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:57.302692891Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:24:58.72344659Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:25:01.664089134Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:25:02.25466484Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:25:03.125911039Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:25:05.182741971Z",
+                               "method":  "POST",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e/presence",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:25:06.382932071Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:25:07.78820889Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:25:10.269764578Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:25:14.077698296Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           },
+                           {
+                               "association":  "B",
+                               "time_utc":  "2026-09-08T14:25:17.85947538Z",
+                               "method":  "GET",
+                               "route":  "/v1/match-lobbies/\u003clobby\u003e",
+                               "status":  "200",
+                               "message":  "http request",
+                               "request_id_present":  true
+                           }
+                       ],
+    "request_id_event":  {
+                             "association":  "A-request-redacted",
+                             "time_utc":  "2026-09-08T14:22:26.619077249Z",
+                             "method":  "POST",
+                             "route":  "/v1/match-lobbies/\u003clobby\u003e/leave",
+                             "status":  "409",
+                             "message":  "http request",
+                             "request_id_present":  true
+                         },
+    "matching_counts":  {
+                            "lobby_A":  33,
+                            "lobby_B":  62,
+                            "request_id":  1
+                        }
+}

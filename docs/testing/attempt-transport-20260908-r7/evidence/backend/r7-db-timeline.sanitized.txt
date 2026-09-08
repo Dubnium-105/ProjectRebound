@@ -1,0 +1,10 @@
+Output format is unaligned.
+checked_at|2026-09-08 14:28:25.376256+00
+lobby|B|ABORTED|rev=2|attempt_hash=6efb1854c680aba6120b988163df4729|hosting=P2P|transport=LEGACY_RELAY|capacity=5+5|created=2026-09-08 14:22:46.22486+00|updated=2026-09-08 14:24:14.272517+00|closed=2026-09-08 14:24:14.272517+00
+member|B|player_hash=32ee629e3a17860b096672b25c989fbd|role=OWNER|team=1|slot=0|ready=false|presence=OFFLINE|membership=ACTIVE|joined=2026-09-08 14:22:46.22486+00|last_seen=2026-09-08 14:25:05.174904+00|left=
+member|B|player_hash=b20b8c693461906af52874d94c9315d5|role=MEMBER|team=2|slot=0|ready=false|presence=OFFLINE|membership=ACTIVE|joined=2026-09-08 14:23:30.079509+00|last_seen=2026-09-08 14:25:02.251909+00|left=
+attempt|B|attempt_hash=6efb1854c680aba6120b988163df4729|number=1|state=ABORTED|failure=P2P_AUTHORITY_LAUNCH_FAILED|roster_rev=2|route=1|payload=false|payload_route=|endpoint=false:|authority=true/true|world=false|meta_hash=|p2p_hash=61894ee145e804ba8a488cf214b994f0|cleanup=CLEARED|cleanup_error=|created=2026-09-08 14:24:04.776826+00|updated=2026-09-08 14:24:17.023654+00|started=|completed=2026-09-08 14:24:14.272517+00
+roster|B|attempt_hash=6efb1854c680aba6120b988163df4729|role=HOST|state=RESERVED|gen=1|live_gen=|live_route=|native_nonce=[REDACTED_NATIVE_ADMISSION_NONCE]
+roster|B|attempt_hash=6efb1854c680aba6120b988163df4729|role=MEMBER|state=RESERVED|gen=1|live_gen=|live_route=|native_nonce=[REDACTED_NATIVE_ADMISSION_NONCE]
+p2p_room|B|room_hash=6c9cfe7c60e23469f0d7acd978b778c9|state=CLOSED|count=2|last_heartbeat=2026-09-08 14:23:58.229659+00|created=2026-09-08 14:22:46.239232+00|updated=2026-09-08 14:28:25.312762+00|closed=2026-09-08 14:24:14.272517+00
+p2p_session|B|session_hash=61894ee145e804ba8a488cf214b994f0|state=ABORTED|seq=1|roster_rev=2|created=2026-09-08 14:24:04.776826+00|updated=2026-09-08 14:24:14.272517+00|finalized=2026-09-08 14:24:14.272517+00

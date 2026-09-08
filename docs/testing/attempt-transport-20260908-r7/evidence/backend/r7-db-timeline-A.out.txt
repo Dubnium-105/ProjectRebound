@@ -1,0 +1,6 @@
+Output format is unaligned.
+checked_at|2026-09-08 14:29:06.474122+00
+lobby|A|ABORTED|rev=2|attempt_hash=|hosting=P2P|transport=LEGACY_RELAY|capacity=5+5|created=2026-09-08 14:21:39.734135+00|updated=2026-09-08 14:22:23.689191+00|closed=2026-09-08 14:22:23.689191+00
+member|A|player_hash=32ee629e3a17860b096672b25c989fbd|role=OWNER|team=1|slot=0|ready=false|presence=OFFLINE|membership=LEFT|joined=2026-09-08 14:21:39.734135+00|last_seen=2026-09-08 14:22:08.339904+00|left=2026-09-08 14:22:23.689191+00
+member|A|player_hash=b20b8c693461906af52874d94c9315d5|role=MEMBER|team=2|slot=0|ready=false|presence=OFFLINE|membership=LEFT|joined=2026-09-08 14:22:06.386708+00|last_seen=2026-09-08 14:22:10.447918+00|left=2026-09-08 14:22:23.689191+00
+p2p_room|A|room_hash=ced02ba2cf0ab95ea3dcbd68da1e8df0|state=CLOSED|count=0|last_heartbeat=2026-09-08 14:22:08.343622+00|created=2026-09-08 14:21:39.750188+00|updated=2026-09-08 14:29:05.312696+00|closed=2026-09-08 14:22:23.699177+00

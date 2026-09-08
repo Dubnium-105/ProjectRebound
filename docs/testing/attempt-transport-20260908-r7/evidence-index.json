@@ -1,0 +1,440 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-09-08T16:45:54.961406+00:00",
+  "scope": "Exact reviewed r7 receipts and sanitized observations; no raw session/config/database dumps",
+  "file_count": 72,
+  "files": [
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/committed-source-binding.json",
+      "destination": "evidence/committed-source-binding.json",
+      "bytes": 36262,
+      "sha256": "fd9ba08b9ce0e348c947d8b17d05126e8d9ed528faf99548124fed6b53967e53"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/rust-final-v4/execution-receipt.json",
+      "destination": "evidence/rust/execution-receipt.json",
+      "bytes": 14926,
+      "sha256": "5a92537afad0430be6e161128b1840f50854a9642b8fa9549d51d5f38f60e4e3"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/rust-final-v4/fmt.log",
+      "destination": "evidence/rust/fmt.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/rust-final-v4/tauri-fmt.log",
+      "destination": "evidence/rust/tauri-fmt.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/rust-final-v4/rust-lib.log",
+      "destination": "evidence/rust/rust-lib.log",
+      "bytes": 31411,
+      "sha256": "3717fd187210aad153d9f5afe48dc5fe7c13631bcab16e90f44ca924640285c5"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/rust-final-v4/tauri-tests.log",
+      "destination": "evidence/rust/tauri-tests.log",
+      "bytes": 1910,
+      "sha256": "9a1bd5691584ac6a65c0d3440e8f1ff3d18679d4ec59c1d74f4c5e817f982c38"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/frontend/r7-final/execution-receipt.json",
+      "destination": "evidence/frontend/execution-receipt.json",
+      "bytes": 2774,
+      "sha256": "17e7255342f697bae19d1664965da8479770bf8c439c1c450d965a0526416b55"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/frontend/r7-final/related-tests.log",
+      "destination": "evidence/frontend/related-tests.log",
+      "bytes": 5054,
+      "sha256": "d5dea5dd3f533c8cb891b6af4b0a0948bf5be0503124269a92a4a4f445cf41d9"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/frontend/r7-final/frontend-build.log",
+      "destination": "evidence/frontend/frontend-build.log",
+      "bytes": 352,
+      "sha256": "c8611940c227a70f7b72d5316f3228ee27def36bf1fe3afb01f3069bf96f0e9f"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/frontend/r7-final/prepare-sites.log",
+      "destination": "evidence/frontend/prepare-sites.log",
+      "bytes": 73,
+      "sha256": "b20a681cac5bceaeaf037571701267999bfc75ce61e60510f556c2656fafc5ba"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/browser-final/execution-receipt.json",
+      "destination": "evidence/browser-mock/execution-receipt.json",
+      "bytes": 1190,
+      "sha256": "dd4d49446c706cbaaea0897422726b303378a5bb5974df492336a974e785def1"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/browser-final/terminal-detail.png",
+      "destination": "evidence/browser-mock/terminal-detail.png",
+      "bytes": 236147,
+      "sha256": "5dc3ff56c8afaebb7bc8f5926864b1b254836172e599d5ce0b177a6e09c3838b"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/browser-final/membership-retired.png",
+      "destination": "evidence/browser-mock/membership-retired.png",
+      "bytes": 235648,
+      "sha256": "ed6ab45c232defde92fd0d697ee8e6241ad01f78619be11136dd8d53d81bff41"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/browser-final/visible-text.txt",
+      "destination": "evidence/browser-mock/visible-text.txt",
+      "bytes": 697,
+      "sha256": "3d9a44f84410ae343b69341c36fcc87d92957e71eebe168aef08107bdc74a2c3"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/rust-final/execution-receipt.json",
+      "destination": "evidence/rust-first-format-failure/execution-receipt.json",
+      "bytes": 13500,
+      "sha256": "545a85dce6ed07205d326e2745f91c57a8d9451576b0c1174430825fb71a1264"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/rust-final/fmt.log",
+      "destination": "evidence/rust-first-format-failure/fmt.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/rust-final/tauri-fmt.log",
+      "destination": "evidence/rust-first-format-failure/tauri-fmt.log",
+      "bytes": 475,
+      "sha256": "3a369d53b129a6892bbd72204ebd271937ca0822a275561b00e45dec1e39cc35"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/rust-final-v2/execution-receipt.json",
+      "destination": "evidence/superseded-8faf421/rust-execution-receipt.json",
+      "bytes": 14926,
+      "sha256": "6ca85800fa15f25104d95c3693e1f46630e2b829c279df8eb7242b8cee51bf1c"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/committed-source-binding-8faf421.json",
+      "destination": "evidence/superseded-8faf421/committed-source-binding.json",
+      "bytes": 36262,
+      "sha256": "0b23dbb79a3ed4466bc1089dccf7c29ee7ceedbb34652d4606bd404332b00eec"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/build-history/8faf421/build-execution-receipt.json",
+      "destination": "evidence/superseded-8faf421/build-execution-receipt.json",
+      "bytes": 1073,
+      "sha256": "4292c2698f4233918b567507e3d0a7d76ad248bf44b209d5426e3bebf5e9da62"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/build-history/8faf421/strict-candidate.json",
+      "destination": "evidence/superseded-8faf421/strict-candidate.json",
+      "bytes": 1524,
+      "sha256": "81fb241aa3d100f86e67754efa398183096ef42663884ae486aad8c3ba3baf5b"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/build-history/8faf421/tauri-build-r7.log",
+      "destination": "evidence/superseded-8faf421/tauri-build-r7.log",
+      "bytes": 1837,
+      "sha256": "5a1de7594519648fd5175f99e63ecde20d91a57b2d17c6370d8a71f6b249c8e2"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/build-history/8faf421/status.json",
+      "destination": "evidence/superseded-8faf421/status.json",
+      "bytes": 460,
+      "sha256": "9b78b12ce843630e5e0686ff33612aee0f586e3d41f96fc3fd68c4cf9f18ac65"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/rust-final-v3/execution-receipt.json",
+      "destination": "evidence/superseded-f037fe5/rust-execution-receipt.json",
+      "bytes": 14926,
+      "sha256": "b944bbfe48b4e7891fa6cb44615329994574db99c3ad19f7d035bf57b3cb9ac2"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/committed-source-binding-f037fe5.json",
+      "destination": "evidence/superseded-f037fe5/committed-source-binding.json",
+      "bytes": 36262,
+      "sha256": "57aa67522167d8c1a02e84c53b3ffc646ff2c007bdcd0d3550f64aefa9cdf989"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/build-history/f037fe5/build-execution-receipt.json",
+      "destination": "evidence/superseded-f037fe5/build-execution-receipt.json",
+      "bytes": 1073,
+      "sha256": "17c4fe54aea044aa6c7aa2f383eaaff8acd1b9d6cc03b158f244e618ea447084"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/build-history/f037fe5/strict-candidate.json",
+      "destination": "evidence/superseded-f037fe5/strict-candidate.json",
+      "bytes": 1524,
+      "sha256": "912102d6811ee502521da389f8b0756456a52482ae3a08b79fd0036a50e4c9b1"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/build-history/f037fe5/tauri-build-r7.log",
+      "destination": "evidence/superseded-f037fe5/tauri-build-r7.log",
+      "bytes": 1837,
+      "sha256": "2fda627d277d9b45f8b16588e024f18948b993f1133b638c90188de198c6c460"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/build-history/f037fe5/status.json",
+      "destination": "evidence/superseded-f037fe5/status.json",
+      "bytes": 746,
+      "sha256": "89e7e46c48e897237e3ff1a1486a5d4cce51d81770f80d3ed297845267e948ae"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/build-history/f037fe5/sign-toolbox-r7-execution.json",
+      "destination": "evidence/superseded-f037fe5/sign-toolbox-r7-execution.json",
+      "bytes": 1198,
+      "sha256": "6c00957e827b115ad8d62e98b1fadbb10296d7740c80a178352b55104cd46ca7"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/build-history/f037fe5/signed/toolbox-signature-receipt.json",
+      "destination": "evidence/superseded-f037fe5/signed/toolbox-signature-receipt.json",
+      "bytes": 1292,
+      "sha256": "f184baf9c079ed4094a24de125aa7de44ccd3d51d4771bce5620ff636bf2f396"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/build-history/f037fe5/desktop-sanitized/01-startup-before-backend-deployment.json",
+      "destination": "evidence/superseded-f037fe5/desktop/01-startup-before-backend-deployment.json",
+      "bytes": 7702,
+      "sha256": "638f2d2d9f06d9d2095368c2636efba223626408ac108155149615553e81c324"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/build-history/f037fe5/desktop-sanitized/02-refresh-before-backend-deployment.json",
+      "destination": "evidence/superseded-f037fe5/desktop/02-refresh-before-backend-deployment.json",
+      "bytes": 8096,
+      "sha256": "8ebfcdf73ab748d844731c5fddbeb4ad34a165c2e902d76a036242380eeaac0d"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/backend/r7-control-plane-log-summary.json",
+      "destination": "evidence/backend/r7-control-plane-log-summary.json",
+      "bytes": 48803,
+      "sha256": "b2ad761ca20c47ade5f7d9490b84ae40ed7bc2bac3bdb204c9348a20b800ffa9"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/backend/r7-db-timeline-A.out.txt",
+      "destination": "evidence/backend/r7-db-timeline-A.out.txt",
+      "bytes": 978,
+      "sha256": "2d1b1211c01396119c4d1351ccf3845a6f610b12a8e7f1f5a5dd8e476a1d52e0"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/backend/r7-backend-diagnosis-receipt.json",
+      "destination": "evidence/backend/r7-backend-diagnosis-receipt.json",
+      "bytes": 2993,
+      "sha256": "1cbaa331682b2abfd416fe7c48ed57b3cb718298538957534bc035704cfe9596"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/backend/r7-authoritative-transport-backend-delta.json",
+      "destination": "evidence/backend/r7-authoritative-transport-backend-delta.json",
+      "bytes": 4163,
+      "sha256": "b24b1b1f2200b0a09685fe5f29c4cd7101930b0d1631a9ee1d412b10a0260190"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/backend/deployment-receipt.json",
+      "destination": "evidence/backend/deployment-receipt.json",
+      "bytes": 16134,
+      "sha256": "c5a3fb6b4a42267a5fd0b1ae46dcb20e1ab00f3ebc6e1a77afc90618218e9e0d"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/backend/final-ci/ci-34245389567-status.json",
+      "destination": "evidence/backend/final-ci/ci-34245389567-status.json",
+      "bytes": 14252,
+      "sha256": "a9287d7c82ef9af40ed91c78fff9891edae9c86c055b68ae2f28eefe3885f668"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/backend/final-ci/ci-34247644433-status.json",
+      "destination": "evidence/backend/final-ci/ci-34247644433-status.json",
+      "bytes": 14252,
+      "sha256": "2fa8ba3eff615a712c1ed632074809059d2afce5923de2ae1dabe45f2b51758e"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/backend/final-ci/ci-34247644433-attempt2-status.json",
+      "destination": "evidence/backend/final-ci/ci-34247644433-attempt2-status.json",
+      "bytes": 32000,
+      "sha256": "cccc2b491ff1448bcbcc346defdd503d68216d79cca4f56a9fbb9b7a2babea70"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/backend/deploy-34250303094/deploy-34250303094-status.json",
+      "destination": "evidence/backend/deploy-34250303094/deploy-34250303094-status.json",
+      "bytes": 6802,
+      "sha256": "3cfb898e62f914bb519fb1ac97a8ee8ff49b550d95532253c9b9d1af1f17f055"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/backend/deploy-34250303094/public-check.json",
+      "destination": "evidence/backend/deploy-34250303094/public-check.json",
+      "bytes": 1595,
+      "sha256": "6df047aeb409514c2973e3788a1f30c62853ef60d3f9dab950bfc5841b1b8b74"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/build-execution-receipt.json",
+      "destination": "evidence/distribution/build-execution-receipt.json",
+      "bytes": 1073,
+      "sha256": "60bd298b06092f567c01394157784bd395a825392bced284e6fc517f33c613f9"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/strict-candidate.json",
+      "destination": "evidence/distribution/strict-candidate.json",
+      "bytes": 1524,
+      "sha256": "0a8eb7de8955308eec597af02f821302ddfce8065040196295510199ca238168"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/public-metadata.json",
+      "destination": "evidence/distribution/public-metadata.json",
+      "bytes": 4937,
+      "sha256": "3e4868957621282bb33459c055228ef4477e76389ff85a006cb761143cf92370"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/sign-toolbox-r7-execution.json",
+      "destination": "evidence/distribution/sign-toolbox-r7-execution.json",
+      "bytes": 1198,
+      "sha256": "7ce160f1b6fa332748e39cafa317783fc429740a7955037f55c3a17e4584f409"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/package-r7-execution.json",
+      "destination": "evidence/distribution/package-r7-execution.json",
+      "bytes": 840,
+      "sha256": "e08a93a47de0908ef0d769ad564271728e896407beca6946cce63df3f9c44623"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/preflight-r7-execution.json",
+      "destination": "evidence/distribution/preflight-r7-execution.json",
+      "bytes": 893,
+      "sha256": "e1bd35b79a982e883f4475e16491eeececeea958c518647f2beaeaecb3c45cb4"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/desktop-r7-receipt.json",
+      "destination": "evidence/distribution/desktop-r7-receipt.json",
+      "bytes": 10923,
+      "sha256": "cb902955d47e5b407369cfb914b8944d3d69e6b0166a250f55938249a33ae970"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/signed/payload-signature-receipt.json",
+      "destination": "evidence/distribution/payload-signature-receipt.json",
+      "bytes": 1314,
+      "sha256": "fc8e2763d9dcbc602c485c049bc21573935b28406312b5976e905150ffd72e38"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/signed/toolbox-signature-receipt.json",
+      "destination": "evidence/distribution/toolbox-signature-receipt.json",
+      "bytes": 1292,
+      "sha256": "d4c7d215de550b930f942b63255726d599779f277a8b7466f4b89583effc9176"
+    },
+    {
+      "source": "artifacts/hardware-test-20260908-r7/package-build-receipt.json",
+      "destination": "evidence/distribution/package-build-receipt.json",
+      "bytes": 1000,
+      "sha256": "ab9492114823d93380c119773892341f6914b7d7a72f73abedf83e0c95ddda6f"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/preflight/preflight.json",
+      "destination": "evidence/distribution/preflight.json",
+      "bytes": 39258,
+      "sha256": "5c2b405aea2bf4913a969307035989cb1c4a5eea182441a0f46b28fd5ac2ea0a"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/assembly-history/rejected-unrelated-fixture-commit/assemble-r7.log",
+      "destination": "evidence/rejected-unrelated-fixture-commit/assemble-r7.log",
+      "bytes": 764,
+      "sha256": "5c02bd3e764e90c6b1fa8c46815229042a2b6cb2ede469bdb45ccc5491d4cd80"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/assembly-history/rejected-unrelated-fixture-commit/assemble-r7-execution.json",
+      "destination": "evidence/rejected-unrelated-fixture-commit/assemble-r7-execution.json",
+      "bytes": 577,
+      "sha256": "969725df664d65a760049ff0dbc1e399ce4e250cac40ef13bdfdef3a1250f30e"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/publication-correction/publication-correction-receipt.json",
+      "destination": "evidence/publication-correction/publication-correction-receipt.json",
+      "bytes": 2314,
+      "sha256": "250b24b955bd6340284fb37e9ade0b7bf57df7f164ceccb22ce040c6dfa799ee"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/publication-correction/remote-branch-after.txt",
+      "destination": "evidence/publication-correction/remote-branch-after.txt",
+      "bytes": 87,
+      "sha256": "dccda1cbd13464f5f190af6fae4a351c4e9f0bf972d7284172a5237d56e5d4d0"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/publication-correction/old-object-still-accessible.json",
+      "destination": "evidence/publication-correction/old-object-still-accessible.json",
+      "bytes": 52,
+      "sha256": "9b6d11f32ec0ad7e49cf0cb0852b03bb9522f4dc4367d80ad567cdbb35a3ac4e"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/publication-correction/associated-pull-requests.json",
+      "destination": "evidence/publication-correction/associated-pull-requests.json",
+      "bytes": 4,
+      "sha256": "a5338d955b09046ec0b16f3a9625b7955c763aae07dc722e474e6078745f932f"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/root/github-history-removal-request.md",
+      "destination": "evidence/publication-correction/github-history-removal-request.md",
+      "bytes": 2696,
+      "sha256": "bf8c161f496493ac9c9610abae45bd2efeeeb6bbaf2f45881222ad7352be031a"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/desktop-sanitized/00-process-artifact-binding.json",
+      "destination": "evidence/desktop/00-process-artifact-binding.json",
+      "bytes": 625,
+      "sha256": "647a904ac5057b1710d078f17941747a9783601f4d0a650f1d9419ba0fcc1e50"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/desktop-sanitized/01-startup-final-before-backend-deployment.json",
+      "destination": "evidence/desktop/01-startup-final-before-backend-deployment.json",
+      "bytes": 7440,
+      "sha256": "4b48ec10177e7b4c60d97d49f38053b57f2d62b42a139068fe8122717b26137f"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/desktop-sanitized/02-owner-created-ready.json",
+      "destination": "evidence/desktop/02-owner-created-ready.json",
+      "bytes": 11678,
+      "sha256": "be6afb3e5dd412ec05396e4a68c4277c63eb9fc7b46dad0252efff76cafc13eb"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/desktop-sanitized/03-owner-unready.json",
+      "destination": "evidence/desktop/03-owner-unready.json",
+      "bytes": 13267,
+      "sha256": "91592d0338535016200cb49ebac39af5ff3823ab28ebf531699768a93c45402d"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/desktop-sanitized/04-owner-ready-again.json",
+      "destination": "evidence/desktop/04-owner-ready-again.json",
+      "bytes": 14796,
+      "sha256": "c1f296ccf2a7234d4f6bf369dc7d43f970ede850ce64d93f80d7b0efa5299b45"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/desktop-sanitized/05-team-two-ready-reset.json",
+      "destination": "evidence/desktop/05-team-two-ready-reset.json",
+      "bytes": 18480,
+      "sha256": "603e3dbe5ed4c9b0800e6439e0e10313142aee05c319756cabde36a69f2f4753"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/desktop-sanitized/06-team-two-ready.json",
+      "destination": "evidence/desktop/06-team-two-ready.json",
+      "bytes": 20372,
+      "sha256": "b6f4993fc43127f8206f74e9c63e06faf67be273b744b090ffd4c1ec53483297"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/desktop-sanitized/07-left-test-room.json",
+      "destination": "evidence/desktop/07-left-test-room.json",
+      "bytes": 18496,
+      "sha256": "0d74814a496fb5ddb5eb4942c55a11d14b2d9e39c963e4924b99120cc8087b1b"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/distribution-r7/desktop-sanitized/08-final-idle.json",
+      "destination": "evidence/desktop/08-final-idle.json",
+      "bytes": 5008,
+      "sha256": "5ce19a5ee5002f9558a7a5d6971b9abce2da5b70716cacefc1209c8fcfacca93"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/backend/r7-db-timeline.sanitized.txt",
+      "destination": "evidence/backend/r7-db-timeline.sanitized.txt",
+      "bytes": 1891,
+      "sha256": "f1a2bd37345e10e53ebef8a2ad56b567506d3b9d25a1a5dcb6e5f6a13fcbbd89"
+    },
+    {
+      "source": ".tmp/ready-multiplayer-20260908/r7/backend/r7-db-timeline-redaction-receipt.json",
+      "destination": "evidence/backend/r7-db-timeline-redaction-receipt.json",
+      "bytes": 637,
+      "sha256": "85e49e30cb2f895bb2d7df3c7257183ba11a3cea3ee9a6b5d23ccefe8ea21ad5"
+    }
+  ]
+}

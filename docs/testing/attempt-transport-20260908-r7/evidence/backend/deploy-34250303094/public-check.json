@@ -1,0 +1,63 @@
+{
+  "checks": [
+    {
+      "http_status": 200,
+      "status": "live",
+      "url": "https://api.project-rebound.space/health/live"
+    },
+    {
+      "http_status": 200,
+      "status": "ready",
+      "url": "https://api.project-rebound.space/health/ready"
+    },
+    {
+      "api_version": "v1",
+      "features": {
+        "accept_new_lobbies": true,
+        "dedicated_servers": true,
+        "p2p_rooms": true,
+        "relay": true,
+        "strict_roster_v1": true,
+        "vnt_rooms": false
+      },
+      "http_status": 200,
+      "protocol_version": 2,
+      "url": "https://api.project-rebound.space/v1/client/config"
+    },
+    {
+      "error_code": "ONLINE_P2P_ROOM_RETIRED",
+      "http_status": 410,
+      "url": "https://api.project-rebound.space/v1/p2p-rooms"
+    },
+    {
+      "http_status": 200,
+      "status": "ready",
+      "url": "https://cnapi.project-rebound.space/health/ready"
+    },
+    {
+      "api_version": "v1",
+      "features": {
+        "accept_new_lobbies": true,
+        "dedicated_servers": true,
+        "p2p_rooms": true,
+        "relay": true,
+        "strict_roster_v1": true,
+        "vnt_rooms": false
+      },
+      "http_status": 200,
+      "protocol_version": 2,
+      "url": "https://cnapi.project-rebound.space/v1/client/config"
+    },
+    {
+      "http_status": 200,
+      "status": "live",
+      "url": "https://meta.project-rebound.space/health/live"
+    },
+    {
+      "http_status": 200,
+      "status": "ready",
+      "url": "https://meta.project-rebound.space/health/ready"
+    }
+  ],
+  "user_agent": "project-rebound-toolbox/0.9.12"
+}

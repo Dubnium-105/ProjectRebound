@@ -2,7 +2,9 @@
 
 # Project Rebound 实机测试版本
 
-本包连接现有 `api.project-rebound.space` / `cnapi.project-rebound.space` 与 `meta.project-rebound.space`。现有后端已于 2026-09-08 06:51 UTC 核验更新：数据库 schema 48，控制面、MetaServer、管理网页与 primary/gateway 边缘节点使用通过 CI 的 `584e000baf024e381c5bdb3417ad7ac879bebdca` 镜像。无需另建测试后端。
+本包连接现有 `api.project-rebound.space` / `cnapi.project-rebound.space` 与 `meta.project-rebound.space`。确切的已部署后端提交、CI/部署回执和数据库 schema 要求以包清单为准。无需另建测试后端。
+
+r7 将受管运输读取和 VNT 操作改为当前 Match Attempt 的接口；确认成员资格失效后清除旧大厅，并显示带本轮关联的启动失败原因。房主准备和切换队伍按钮继续保留。本轮所有人统一使用 r7 包。
 
 本轮用于三台实机的安装、登录、受管启动和原生准入证据采集。房主使用新增的“采集原生准入证据”按钮；它仍走真实 Steam 身份、冻结名单、签名 allocation、原生 Grant、Reserve/Confirm 和受管清理。
 

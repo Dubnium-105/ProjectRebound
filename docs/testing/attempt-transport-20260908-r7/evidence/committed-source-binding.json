@@ -1,0 +1,666 @@
+{
+  "recorded_at_utc": "2026-09-08T16:08:50.004222+00:00",
+  "status": "PASS",
+  "source_commit": "43a4c82fe781ed67df6b4f4f82d1ff976ad586be",
+  "source_groups": [
+    {
+      "execution_receipt": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\frontend\\r7-final\\execution-receipt.json",
+      "execution_receipt_sha256": "17e7255342f697bae19d1664965da8479770bf8c439c1c450d965a0526416b55",
+      "files": [
+        {
+          "path": "frontend/src/App.jsx",
+          "tested_bytes_sha256": "5c719af0e8116a0730f9b8ada49560c2333fa69dc72ebad9a788eb23ead606fa",
+          "committed_blob_sha256": "f3a963258f520ea59dedeec5c995fda01703014c28b29c31e7b431182edf5da4"
+        },
+        {
+          "path": "frontend/src/lib/authoritativeRooms.js",
+          "tested_bytes_sha256": "f052c2bb8adc4b84c44b81b1dbefc1f2ce6365cc915de3aa7efc293992c71547",
+          "committed_blob_sha256": "f052c2bb8adc4b84c44b81b1dbefc1f2ce6365cc915de3aa7efc293992c71547"
+        },
+        {
+          "path": "frontend/src/lib/tauriBridge.js",
+          "tested_bytes_sha256": "40379c679a8243d4f99500296d4a818fa9a8bb12fe48b94b057b241aa4e37051",
+          "committed_blob_sha256": "7088645a032c72607399b1ec16165843b946c68d31ab6f70980a1adacb498ec9"
+        },
+        {
+          "path": "frontend/tests/authoritative-rooms.test.mjs",
+          "tested_bytes_sha256": "563fd51671262b5d2bb2126dfd0b07894d41cf44679d9250ba643fa0218113ad",
+          "committed_blob_sha256": "563fd51671262b5d2bb2126dfd0b07894d41cf44679d9250ba643fa0218113ad"
+        },
+        {
+          "path": "frontend/tests/tauri-bridge.test.mjs",
+          "tested_bytes_sha256": "dd0c3c538b5db6c259b8999931b548325875fc3e6120b610b60d954fe9045221",
+          "committed_blob_sha256": "1c1ab6deabc1f793ae414f61d6bf2b2dd5b05579b32c58ae2dcebfdb6ae8ea46"
+        }
+      ]
+    },
+    {
+      "execution_receipt": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\r7\\rust-final-v4\\execution-receipt.json",
+      "execution_receipt_sha256": "5a92537afad0430be6e161128b1840f50854a9642b8fa9549d51d5f38f60e4e3",
+      "files": [
+        {
+          "path": "Cargo.lock",
+          "tested_bytes_sha256": "f6b063c604357f2ffd3164ca7a66731e1adc7a544f447cf4cbcfa216cee41440",
+          "committed_blob_sha256": "f6b063c604357f2ffd3164ca7a66731e1adc7a544f447cf4cbcfa216cee41440"
+        },
+        {
+          "path": "Cargo.toml",
+          "tested_bytes_sha256": "2f5e89b8be4f584dfa45a940b30558c1552a7eb7719313394f841f3490e78176",
+          "committed_blob_sha256": "63a0fe6208ceebd90c51a6f6f6dcb780524a5976f6a10327c3e5eee1fad154f1"
+        },
+        {
+          "path": "helper/auth_http_concurrency.rs",
+          "tested_bytes_sha256": "8d5dce93f470230525184550c93fc61a1ea33dcf5dfdf2efbec3a5516e3d104c",
+          "committed_blob_sha256": "8d5dce93f470230525184550c93fc61a1ea33dcf5dfdf2efbec3a5516e3d104c"
+        },
+        {
+          "path": "helper/challenge_test.rs",
+          "tested_bytes_sha256": "7dbc8d3553b517928e6d5a9c87fe08e3e16e3c43112ceac297358c159e91735b",
+          "committed_blob_sha256": "7dbc8d3553b517928e6d5a9c87fe08e3e16e3c43112ceac297358c159e91735b"
+        },
+        {
+          "path": "helper/relay_interop_driver.rs",
+          "tested_bytes_sha256": "cdcd81b457b7cba07bdc80f37d3e98aed0a4148c5b1e1afa52dac2dfabf32378",
+          "committed_blob_sha256": "cdcd81b457b7cba07bdc80f37d3e98aed0a4148c5b1e1afa52dac2dfabf32378"
+        },
+        {
+          "path": "helper/steam_helper.rs",
+          "tested_bytes_sha256": "3692428fb0acfb967778c088066339d61d172435c47ddcdc1210c62404e6c152",
+          "committed_blob_sha256": "5536579410003b67d045a9181abb8308b397627be5ca5409460c8651dcc13f97"
+        },
+        {
+          "path": "helper/strict_roster_lab.rs",
+          "tested_bytes_sha256": "2d52d8155b2c83bbaa57c589cd5699289bbe8dd3d79398f5b29db466f094ffb3",
+          "committed_blob_sha256": "2d52d8155b2c83bbaa57c589cd5699289bbe8dd3d79398f5b29db466f094ffb3"
+        },
+        {
+          "path": "helper/vnt_supervisor_smoke.rs",
+          "tested_bytes_sha256": "0d28da7c37159a8d48d96312e204d678b062b2771a9248ced6588e0e215f662c",
+          "committed_blob_sha256": "b29335b7d3bc7b54020f8d50322bf0ef77a238bfbee3c13e2e5db66c240e6d55"
+        },
+        {
+          "path": "src-tauri/Cargo.lock",
+          "tested_bytes_sha256": "636715c12e422e2d4bf54d888d4c41dd8ae9f98e2b68994aab63d911cc96e401",
+          "committed_blob_sha256": "636715c12e422e2d4bf54d888d4c41dd8ae9f98e2b68994aab63d911cc96e401"
+        },
+        {
+          "path": "src-tauri/Cargo.toml",
+          "tested_bytes_sha256": "e8e52e2d77bed379298a93fbb697efa49f42cfc6b490c73a283fb206f2b66491",
+          "committed_blob_sha256": "e8e52e2d77bed379298a93fbb697efa49f42cfc6b490c73a283fb206f2b66491"
+        },
+        {
+          "path": "src-tauri/build.rs",
+          "tested_bytes_sha256": "4ae2333b11623039cc115e29b696e7ff5cdfcd5b7d628280ddf48fa733e6418d",
+          "committed_blob_sha256": "487059eaf8a947b80f20a9aacac038a5047b2ad69d2401b827376c67d6fe847f"
+        },
+        {
+          "path": "src-tauri/src/architecture_tests.rs",
+          "tested_bytes_sha256": "16718510af24f0c8714a0161b1cd3615e466f992d60dbd67015c25532ae17dc8",
+          "committed_blob_sha256": "c6783566107ab75772663848658053b23693741b2ee8fc86a283a3903b8e5b5d"
+        },
+        {
+          "path": "src-tauri/src/commands.rs",
+          "tested_bytes_sha256": "4eae4b5188c7c97fd75884adf7590bcc43ea54ad73dc1df4f5448558a86f0140",
+          "committed_blob_sha256": "4eae4b5188c7c97fd75884adf7590bcc43ea54ad73dc1df4f5448558a86f0140"
+        },
+        {
+          "path": "src-tauri/src/dto.rs",
+          "tested_bytes_sha256": "946cd39e792ecb300336b5ed6bd55403be05583c5278ca371b46928bcbcbced4",
+          "committed_blob_sha256": "946cd39e792ecb300336b5ed6bd55403be05583c5278ca371b46928bcbcbced4"
+        },
+        {
+          "path": "src-tauri/src/events.rs",
+          "tested_bytes_sha256": "55020171c7859b1509468745b0450c277bf67e7b427111c58d6b28f9bd45219d",
+          "committed_blob_sha256": "55020171c7859b1509468745b0450c277bf67e7b427111c58d6b28f9bd45219d"
+        },
+        {
+          "path": "src-tauri/src/main.rs",
+          "tested_bytes_sha256": "5f1fc69c2da9d61dd2b8066aba013b12c27d7a66ac5fae50128c8faae815adcc",
+          "committed_blob_sha256": "5f1fc69c2da9d61dd2b8066aba013b12c27d7a66ac5fae50128c8faae815adcc"
+        },
+        {
+          "path": "src/api/account/auth.rs",
+          "tested_bytes_sha256": "d31252991435e3384ad648507382b8de44236336767a83c27d0727d6328c0535",
+          "committed_blob_sha256": "d18221171f8fe6c04eaa254e88fa39b556d0ac735d520b0ac24d9016b8c7771b"
+        },
+        {
+          "path": "src/api/account/mod.rs",
+          "tested_bytes_sha256": "98a63d9d6e3dd667dca80f9a8f360be2d32aca662dc38d8f946ed623736b2a6e",
+          "committed_blob_sha256": "793c36746feea56c64758bc174f503830bfedd48519f4d964311a330ccd44105"
+        },
+        {
+          "path": "src/api/account/users.rs",
+          "tested_bytes_sha256": "cea8757a7300d8c050667f98e2a57b1672f980905deede66e6e7b1d5b96d1205",
+          "committed_blob_sha256": "cea8757a7300d8c050667f98e2a57b1672f980905deede66e6e7b1d5b96d1205"
+        },
+        {
+          "path": "src/api/diagnostic.rs",
+          "tested_bytes_sha256": "509619ecb26204d5214219f6bde511226fe89029e53d9bc40cb8bbcb8b442ac2",
+          "committed_blob_sha256": "8cf0f93bc608dffe307cb650a6e544268b823c43f360cabc574dabccb272d4e6"
+        },
+        {
+          "path": "src/api/discovery/client_config.rs",
+          "tested_bytes_sha256": "a74d99874f8c461dcc98bf07997e914a92766f715daa548e46b301c4c4dbaec6",
+          "committed_blob_sha256": "64c2c4b12b6b54d171aa51e085d2e1c1e896a283a4df4234c199376e9366dd12"
+        },
+        {
+          "path": "src/api/discovery/health.rs",
+          "tested_bytes_sha256": "7069732724ebaf6af9da2286aedce67416769268399f27ae7e8efba5a7f7b3c0",
+          "committed_blob_sha256": "8d696cb96594e170613aaa7c8403e7430e069919db15cb285487c617ee2e84bb"
+        },
+        {
+          "path": "src/api/discovery/meta.rs",
+          "tested_bytes_sha256": "94fcdb6bd556d30e38be979ff8bd7d1065856a6a6d467d316b4a5643ac9cbc0b",
+          "committed_blob_sha256": "bfe4c2152d0ee116304f6548ef31f0caa2d4f393209ce5f844073961aaae8a90"
+        },
+        {
+          "path": "src/api/discovery/mod.rs",
+          "tested_bytes_sha256": "1ff60fb3e1f7fa9ebe3a1d4c1a20a861beffd4c0efc59b66355e5ee9e6b0b9aa",
+          "committed_blob_sha256": "542df51af4630881a14146e26787ddf491bd8ad375e260ac6bdfbf42f3f2641f"
+        },
+        {
+          "path": "src/api/distribution/downloads.rs",
+          "tested_bytes_sha256": "9cb64f0bff964138293cbaeaff41ca0f5441f05e864f9db535e2afca7b702918",
+          "committed_blob_sha256": "61068499d319ba0f0cc54674e162f1affa6e3507a80172b80d8550719aa099b8"
+        },
+        {
+          "path": "src/api/distribution/mod.rs",
+          "tested_bytes_sha256": "8ec5bb402830b2a8340183468341feaef2b8f1f956dee0ab21c18426550fe137",
+          "committed_blob_sha256": "44db51003e832f5384ed61e5cf0d3d8ad3d5d6c47bc1519d217582773458905e"
+        },
+        {
+          "path": "src/api/distribution/updates.rs",
+          "tested_bytes_sha256": "12e749f7ba01282186a6e38ccee891ce51aa0e3fb7d543cb603cf81e0ddc0243",
+          "committed_blob_sha256": "060e43c53ea851de297496e6324694ce20984a59b75f25ee1376929dfabb62c3"
+        },
+        {
+          "path": "src/api/infrastructure/http.rs",
+          "tested_bytes_sha256": "b627b9201f6fa06cb9fdd0fcaa863aa0d6b0fca19c85c31922053a8f00fea52d",
+          "committed_blob_sha256": "b627b9201f6fa06cb9fdd0fcaa863aa0d6b0fca19c85c31922053a8f00fea52d"
+        },
+        {
+          "path": "src/api/infrastructure/mod.rs",
+          "tested_bytes_sha256": "076895c876323434e92a07972bd59b8fa20472d724b4ee962435a6023defc0e7",
+          "committed_blob_sha256": "0745e87260dcc97c5b4aa5c57fb6686e7d8da3824e18f1e3feeecc094f402801"
+        },
+        {
+          "path": "src/api/infrastructure/steam.rs",
+          "tested_bytes_sha256": "7300384ec6af9bfd284f955b9f9c6263d5bc95072674f15dde8a0e47a16adf0f",
+          "committed_blob_sha256": "a1287435f7d7cac7ca024ffc05663019a0f5f707e094ed2ab460f047158cecc3"
+        },
+        {
+          "path": "src/api/infrastructure/steam_runtime.rs",
+          "tested_bytes_sha256": "4d01aaaa7378592e740373e8eb9ff35870b550b4778a9385dae9ddbf52924054",
+          "committed_blob_sha256": "a624f1676da8bf6a5a571477ec8630924fbd48f23247a99bbedf655077e5ad2c"
+        },
+        {
+          "path": "src/api/infrastructure/worker.rs",
+          "tested_bytes_sha256": "1c88810426250a9ce67e3749f73bbe9537dd2731667f135fa1bed89a4258c23f",
+          "committed_blob_sha256": "065512e520e857574b0404148de0dd09046bc2d0d7ce13df21d75c13d267be69"
+        },
+        {
+          "path": "src/api/mod.rs",
+          "tested_bytes_sha256": "eec1ccfd299d2d87348c979d5097a4bfba0d3dded99363a8904bfb16e262d2c4",
+          "committed_blob_sha256": "f9759247cfd73d7121385a35b84d7d255a5b2459c5fd67197945e11bc1637d49"
+        },
+        {
+          "path": "src/api/multiplayer/connections.rs",
+          "tested_bytes_sha256": "4222088e42e03bdbd4d2e8a34abdc92611c62dd73bcf4b864e08b72aefdffe81",
+          "committed_blob_sha256": "c0b1d3b3e127160e8ba3ad4ba3f7159c995648384f46f31a06bf966aeddc6802"
+        },
+        {
+          "path": "src/api/multiplayer/game_server_registration.rs",
+          "tested_bytes_sha256": "fff0c5bfcb5bf2a770b62264631cb0a9c7a6b22a9c19cb29ff3178e26a65e493",
+          "committed_blob_sha256": "f452124ae881782f38dbbc29691a8b34002de2407f2beb52883a38e467ff4388"
+        },
+        {
+          "path": "src/api/multiplayer/lobbies.rs",
+          "tested_bytes_sha256": "e1776cda5404a4292978dc3a35afdd548e24bef9028e3c1b3e69d28b07a3c473",
+          "committed_blob_sha256": "e1776cda5404a4292978dc3a35afdd548e24bef9028e3c1b3e69d28b07a3c473"
+        },
+        {
+          "path": "src/api/multiplayer/mod.rs",
+          "tested_bytes_sha256": "122138a33cc546fa60afccd8de5ac33f20fc59251a02affc8cb1aa08ad320223",
+          "committed_blob_sha256": "70c179a3b069bfe34f978f43f7705e74f4b36e8f008baa35b4e7705a84ed70bf"
+        },
+        {
+          "path": "src/api/multiplayer/rooms.rs",
+          "tested_bytes_sha256": "5e2641887ed6c02003726938903419af2d3f37808a6238ef80513dd9f69b7b72",
+          "committed_blob_sha256": "c236ca67b5f4672794789811e67adfe20749402af154bcbca97f28b945876d80"
+        },
+        {
+          "path": "src/api/multiplayer/servers.rs",
+          "tested_bytes_sha256": "b4c7a11e76a9110b63cfd55858679215a36dbfe3c94e2c04509f711c4d0fec0c",
+          "committed_blob_sha256": "8cbb4e6c6a4c19b31b7eeeed7abbdf93564fc743dec1aed3bcd6319bee44a5ad"
+        },
+        {
+          "path": "src/config/config_types.rs",
+          "tested_bytes_sha256": "edd06423a460916312cc2ebb9674e6cf591d5e3fcc80f137cc1f8fdc301638fb",
+          "committed_blob_sha256": "edd06423a460916312cc2ebb9674e6cf591d5e3fcc80f137cc1f8fdc301638fb"
+        },
+        {
+          "path": "src/config/i18n.rs",
+          "tested_bytes_sha256": "48538e86cbef2a80324025099deb4b63ecc186714ec16d4f60f670e244a86376",
+          "committed_blob_sha256": "6ca86b62e51bfef22b66eaf5aac10515ba270d0269934c8f05b5f7e0a1b348b1"
+        },
+        {
+          "path": "src/config/mod.rs",
+          "tested_bytes_sha256": "b392b5ec1497dc34f76701d524d9859f45e62e63e18a9cdd14ce82e17b987ffa",
+          "committed_blob_sha256": "c8361bcf4944829707a32e8555b38ab82683bf387bf4733e66432854df9d1491"
+        },
+        {
+          "path": "src/config/path.rs",
+          "tested_bytes_sha256": "f7e13314b0cb47c97d24dd9030f22abcdf83abc5ac013f7348f2d6709090cd99",
+          "committed_blob_sha256": "0daf1cf72cbcb46181c56efc40e3a0a88677c743725bbdafa9ae73442903f917"
+        },
+        {
+          "path": "src/config/tauri_config.rs",
+          "tested_bytes_sha256": "ca0ad6141c16930fcca4c2e1165744fc7cc5e7ba8966674309fc83d7ab1ec72d",
+          "committed_blob_sha256": "ca0ad6141c16930fcca4c2e1165744fc7cc5e7ba8966674309fc83d7ab1ec72d"
+        },
+        {
+          "path": "src/core/app.rs",
+          "tested_bytes_sha256": "98ad075aec019276809eb1afa869fb917bfb453d90c47f98c6d7d3cdcc434fe5",
+          "committed_blob_sha256": "98ad075aec019276809eb1afa869fb917bfb453d90c47f98c6d7d3cdcc434fe5"
+        },
+        {
+          "path": "src/core/mod.rs",
+          "tested_bytes_sha256": "10fa43455e9e3ca3ab18a9d398d1eb8dcae536f463e563caf42057fe9cc62137",
+          "committed_blob_sha256": "0759f2851ebfe08821d1da8d23c9b8bef9689b460dba5a5ca9a685908c765840"
+        },
+        {
+          "path": "src/core/runtime.rs",
+          "tested_bytes_sha256": "89e82405a7649d714e3583e416896e4bf5bd41babc3bcc38a5a7526e9c06d9c1",
+          "committed_blob_sha256": "89e82405a7649d714e3583e416896e4bf5bd41babc3bcc38a5a7526e9c06d9c1"
+        },
+        {
+          "path": "src/install/aria2.rs",
+          "tested_bytes_sha256": "2afe78ec51509c46c6e01b9155b3c636696ca1fc61a8c47a4328d2acc89e95ab",
+          "committed_blob_sha256": "a0580b0a58c4e0d94a92393d1b0e89a343ff69721b4d449035cb68ac0dc8a01b"
+        },
+        {
+          "path": "src/install/controller.rs",
+          "tested_bytes_sha256": "df6d51e2ddb1d85277906fc9a14024714256bfee9dfcd5e352a3424c6da9b9f9",
+          "committed_blob_sha256": "17f043f33c969ece31c46080cffc65874ad4f21b16e1061ae3eead9762496b55"
+        },
+        {
+          "path": "src/install/download.rs",
+          "tested_bytes_sha256": "089f92c47f9d70e91c666085d242cfc25919ba213a9bea874bf34df074d28361",
+          "committed_blob_sha256": "089f92c47f9d70e91c666085d242cfc25919ba213a9bea874bf34df074d28361"
+        },
+        {
+          "path": "src/install/files.rs",
+          "tested_bytes_sha256": "4edfaf6e7116931f43de7c990884df6f0915763622215cfe2432334c71a6a71d",
+          "committed_blob_sha256": "4edfaf6e7116931f43de7c990884df6f0915763622215cfe2432334c71a6a71d"
+        },
+        {
+          "path": "src/install/mod.rs",
+          "tested_bytes_sha256": "b1477f9a02453e5f61e87c82bd8753b2c7265eb3ee17b9be6568f1aa6f29f046",
+          "committed_blob_sha256": "ade2c27934f150aa13b2337b33eded7e9bf1ebcbe79715bf529513bc86efa8d1"
+        },
+        {
+          "path": "src/install/rebound.rs",
+          "tested_bytes_sha256": "9cdb79b7d346acf51d9301a675992bd6ac39f86e73498ad0f7c2d93ca02ca38b",
+          "committed_blob_sha256": "0408092a3dd186f42928296b15209b0d2603d57563e4865e69157424e0b6760a"
+        },
+        {
+          "path": "src/install/self_update.rs",
+          "tested_bytes_sha256": "4cf52bb78b295db4dc68ffe8fd96d4789ef31cb7431011b6d492950a76b96130",
+          "committed_blob_sha256": "a5a079ad1d5247778afb2aaa862dcaab7f81c296a9fc7c2dac0df1aa17c9e2aa"
+        },
+        {
+          "path": "src/install/setup.rs",
+          "tested_bytes_sha256": "d67a45ae7a35e218f4c1a5a73923a5168fd23d374c5b755f6945634975a787c0",
+          "committed_blob_sha256": "5f6df57ffd93af41332ab40b6be12a455c9697156cb7154188fe7fad54125d50"
+        },
+        {
+          "path": "src/launching/controller.rs",
+          "tested_bytes_sha256": "b287f4dd86d2e0522a22fae4905188379f7c47a48225b4531acf4d748ba1f033",
+          "committed_blob_sha256": "b287f4dd86d2e0522a22fae4905188379f7c47a48225b4531acf4d748ba1f033"
+        },
+        {
+          "path": "src/launching/launch.rs",
+          "tested_bytes_sha256": "fddcbf63f2fd58b331c75dc1b7b690cded730fa5459553e55eabefbd905baf2e",
+          "committed_blob_sha256": "fddcbf63f2fd58b331c75dc1b7b690cded730fa5459553e55eabefbd905baf2e"
+        },
+        {
+          "path": "src/launching/local_qos.rs",
+          "tested_bytes_sha256": "0eb152c9e798bb9fb42bb619fb45f87b1a2042055539e89e2586c5879c5999ea",
+          "committed_blob_sha256": "0eb152c9e798bb9fb42bb619fb45f87b1a2042055539e89e2586c5879c5999ea"
+        },
+        {
+          "path": "src/launching/metatunnel.rs",
+          "tested_bytes_sha256": "e80ee6a2f2b7d6da1b1c9b4c8ace6cce251988d530b9c2dac5601566df8400dd",
+          "committed_blob_sha256": "e80ee6a2f2b7d6da1b1c9b4c8ace6cce251988d530b9c2dac5601566df8400dd"
+        },
+        {
+          "path": "src/launching/mod.rs",
+          "tested_bytes_sha256": "70c7e55ba1b56a3abefc2e538b0bbdbc4b7b5790e756f2bf90d8b3b37eff7519",
+          "committed_blob_sha256": "01a9e6f030adc2ffb7a12285b239e1c33798d10de6744a85e4ae5bdd22c862e4"
+        },
+        {
+          "path": "src/lib.rs",
+          "tested_bytes_sha256": "b0a74309db87039e54b0e13820958fcea779ba44e3dc8b660b7051c3b727a40e",
+          "committed_blob_sha256": "58ffd39cd2f7089907191dd2bd48d907f7405308c5fc92ffd7ebfbe1be6377a3"
+        },
+        {
+          "path": "src/main.rs",
+          "tested_bytes_sha256": "7922cf90d97fa70e7e90a4d7a23dfcc3e5535bd51333c2ab514fe7a3355ccf49",
+          "committed_blob_sha256": "99bcef985599f4db08ac05570018bf44153f348e44b979df5acf7f3731814976"
+        },
+        {
+          "path": "src/matchmaking/controller.rs",
+          "tested_bytes_sha256": "bcc1ede6cb7368cca86b6429d90772854139fcecd7de69e08d956f19271ab2af",
+          "committed_blob_sha256": "bcc1ede6cb7368cca86b6429d90772854139fcecd7de69e08d956f19271ab2af"
+        },
+        {
+          "path": "src/matchmaking/ids.rs",
+          "tested_bytes_sha256": "8f671ca7f0e3e541c9eeac9003f02af200a062de0c0670f01274e0f0bb3a849e",
+          "committed_blob_sha256": "8f671ca7f0e3e541c9eeac9003f02af200a062de0c0670f01274e0f0bb3a849e"
+        },
+        {
+          "path": "src/matchmaking/keepalive.rs",
+          "tested_bytes_sha256": "863efb74646710f596c53d9b767959155140675c5789b2bd2db272d09f9e76ff",
+          "committed_blob_sha256": "863efb74646710f596c53d9b767959155140675c5789b2bd2db272d09f9e76ff"
+        },
+        {
+          "path": "src/matchmaking/mod.rs",
+          "tested_bytes_sha256": "7da53b407fb8a631a9d18f05a29910b7c60a70a84bfca7952cc71582731a9371",
+          "committed_blob_sha256": "7da53b407fb8a631a9d18f05a29910b7c60a70a84bfca7952cc71582731a9371"
+        },
+        {
+          "path": "src/pages/launch.rs",
+          "tested_bytes_sha256": "18d97e2bb58d817b4c8ae5c6a8b06f6aa1640e7a126c5c10c5a6136f152b1f55",
+          "committed_blob_sha256": "18d97e2bb58d817b4c8ae5c6a8b06f6aa1640e7a126c5c10c5a6136f152b1f55"
+        },
+        {
+          "path": "src/pages/mod.rs",
+          "tested_bytes_sha256": "2c62771801962f7d2438230c208150bfa8e49030393f54c37aab1c1c8a93975c",
+          "committed_blob_sha256": "622b2a01e537b1e69bdd668216aa584e1a56dc5f6bc977ec7bc1210b79498452"
+        },
+        {
+          "path": "src/pages/overlay.rs",
+          "tested_bytes_sha256": "e826a0ea807c7eb4f53dd8f3876af3abb16f3085d9cc776737cfff65aee0dd75",
+          "committed_blob_sha256": "b0d05018c8b91d4299bd3914908c2a0a3ad8e2c670418aac88c9ca4714d5c19d"
+        },
+        {
+          "path": "src/pages/server.rs",
+          "tested_bytes_sha256": "59253e4e35c130e9395cfc184fe1954e147aab2babbf108d428171a4a70d2237",
+          "committed_blob_sha256": "3d75df0eb2fa4ee54359b1cc60ca9d153a331d0f48e2fdca780fcaa07a73699f"
+        },
+        {
+          "path": "src/pages/settings.rs",
+          "tested_bytes_sha256": "d4daf3953eddda6c16aa6a5cbe69b280c6220581bca12d6bc5a7e78a2d41db3c",
+          "committed_blob_sha256": "744f3403a350802f55a21f209c3ab0266b1e3dacf0ef1167b4f56008462ae3a5"
+        },
+        {
+          "path": "src/pages/test_page.rs",
+          "tested_bytes_sha256": "5fdeebc1545202a5bca1ced669ea3c5766583feb64726293c78fa22872ef938d",
+          "committed_blob_sha256": "5fdeebc1545202a5bca1ced669ea3c5766583feb64726293c78fa22872ef938d"
+        },
+        {
+          "path": "src/pages/top_bar.rs",
+          "tested_bytes_sha256": "73661c7228734c342b8c04e98b392de0d023d7643f67ee92f77bdd1614e152a7",
+          "committed_blob_sha256": "c46797c89d858248dd1bf45e9d5f65d89aef0284be955b661d7006cc0eb57c3c"
+        },
+        {
+          "path": "src/pages/vnt.rs",
+          "tested_bytes_sha256": "92e4ea24e984c8ceedd7b731fa1a3c7e2c02874074f70d17c8a6c6eb8c22ea83",
+          "committed_blob_sha256": "657183a97ecfbdfc1b67bcf8ede44e28d90b562feac9280cf70e577bf661568a"
+        },
+        {
+          "path": "src/security/auth.rs",
+          "tested_bytes_sha256": "85e789d1a1a250836676928fb0c9183705b6b97f388a9810a7768a3408b1faf5",
+          "committed_blob_sha256": "85e789d1a1a250836676928fb0c9183705b6b97f388a9810a7768a3408b1faf5"
+        },
+        {
+          "path": "src/security/challenge.rs",
+          "tested_bytes_sha256": "ef363844bf6d5a070770ddd95ea165b11aba1a2fba0f1a198a59bbb0fb6b4973",
+          "committed_blob_sha256": "e7d91ca0e320ed89be5ed91a49b451e75d54da63418a305ee47c4ff4c9492abb"
+        },
+        {
+          "path": "src/security/dpapi.rs",
+          "tested_bytes_sha256": "e44777d2ceb1bb0839d1f6889dc2bde331279e1959c073b3f07101cc4085a401",
+          "committed_blob_sha256": "70481a88ea20b62009ef3a003853e57c89cccf3af249707477d3ee4e4e90320c"
+        },
+        {
+          "path": "src/security/gate.rs",
+          "tested_bytes_sha256": "56516c6204c8c09edcddc5d8c138ed935870e499e284e273af298518cd5a80ea",
+          "committed_blob_sha256": "65c6696ada24a679cf8e75a7ab952d0ff344c3131649880be3e722705208dc30"
+        },
+        {
+          "path": "src/security/integrity.rs",
+          "tested_bytes_sha256": "10b2efe3cb759c886674b3f42186b401b68c908ad4c3cc09cea5fee65e17b2cd",
+          "committed_blob_sha256": "4df2b4335a88184c256281211c4df6f88fe1640c5778cb119d19e8b851abf91d"
+        },
+        {
+          "path": "src/security/mod.rs",
+          "tested_bytes_sha256": "5b71cc72c5ea3c5ef56d3790f2667d5cd5783478b21c13d75724254280b2da73",
+          "committed_blob_sha256": "36c31ddc7184733fc1beb7205711ea66ca1e9a2150e93fb7e599dcfeeca10d49"
+        },
+        {
+          "path": "src/security/strict_build.rs",
+          "tested_bytes_sha256": "f043bbe798e5d96ae907010e71deebee1d54b9ad30971b5007001086c206e670",
+          "committed_blob_sha256": "f043bbe798e5d96ae907010e71deebee1d54b9ad30971b5007001086c206e670"
+        },
+        {
+          "path": "src/server/commands.rs",
+          "tested_bytes_sha256": "c48aa4183bd538fd3031087e0278bd3e0a14d8941363704e6196c77a4bb36395",
+          "committed_blob_sha256": "6e909d5a9cd50c6077f9faf6dc29f8f3c0edaf949ac4a7a59cac6997d82399f1"
+        },
+        {
+          "path": "src/server/config.rs",
+          "tested_bytes_sha256": "31ae36428c072c1b638d9886e7554c5a051e12c936ed5662cbfb0c8aba32c699",
+          "committed_blob_sha256": "31ae36428c072c1b638d9886e7554c5a051e12c936ed5662cbfb0c8aba32c699"
+        },
+        {
+          "path": "src/server/logger.rs",
+          "tested_bytes_sha256": "059b0e38b21adc4a76bd07c16d8763be9eeec015922d319d78433eb3450c718c",
+          "committed_blob_sha256": "2796de53401fea305c5153e2d76a3ce0adc8529fb6f7d86c73c859583caf920a"
+        },
+        {
+          "path": "src/server/manager.rs",
+          "tested_bytes_sha256": "4f086c25d57c0cf1ad431eb6052172ef8c9f5cd6fd1095997eb74db9f93724c4",
+          "committed_blob_sha256": "4f086c25d57c0cf1ad431eb6052172ef8c9f5cd6fd1095997eb74db9f93724c4"
+        },
+        {
+          "path": "src/server/mod.rs",
+          "tested_bytes_sha256": "583783fceb7016c43dba80282976a169a114442895c8ce40c83dacf74a200bf8",
+          "committed_blob_sha256": "673b02bc6e025c7b5e64d539de59292a082b98b8e63adb925e142e74579dd938"
+        },
+        {
+          "path": "src/server/pipe.rs",
+          "tested_bytes_sha256": "2c1279cc122887272251663f20cb13d650b55dee1101f5934cfaac316b65f77e",
+          "committed_blob_sha256": "2c1279cc122887272251663f20cb13d650b55dee1101f5934cfaac316b65f77e"
+        },
+        {
+          "path": "src/server/pipe_cpp_fixture_tests.rs",
+          "tested_bytes_sha256": "d15813a3563723885d5edd0a2e486d5f13371b4fe745c0ce75ded19f7e400771",
+          "committed_blob_sha256": "d15813a3563723885d5edd0a2e486d5f13371b4fe745c0ce75ded19f7e400771"
+        },
+        {
+          "path": "src/server/pipe_windows_tests.rs",
+          "tested_bytes_sha256": "6394faa9c8636941cb6e4ef49f374080faf016e779c271dfac39d1baaa90c1d7",
+          "committed_blob_sha256": "6394faa9c8636941cb6e4ef49f374080faf016e779c271dfac39d1baaa90c1d7"
+        },
+        {
+          "path": "src/server/registration.rs",
+          "tested_bytes_sha256": "190515e434808d4f3c434619b037269cf91949e3e2e2e8669c6377720ac1b30b",
+          "committed_blob_sha256": "190515e434808d4f3c434619b037269cf91949e3e2e2e8669c6377720ac1b30b"
+        },
+        {
+          "path": "src/ui/mod.rs",
+          "tested_bytes_sha256": "cf1232e7c6f5323e76b7b06b391194ddc78463efd2a94bd02d7a4ea7ab282bca",
+          "committed_blob_sha256": "883d6f1c8cffcb932ff77a9477f1aef1e4015f42bb6b6ffdad942ba07c57ad74"
+        },
+        {
+          "path": "src/ui/theme.rs",
+          "tested_bytes_sha256": "cb2b65f0d56802d49f31b9f1bbfa033636004e2ec99299940fc4e9a2a9774927",
+          "committed_blob_sha256": "62ae25c1ee8c4d2c3fecd7505e2e842e5b69abca943df3e1b3efac0984a2f053"
+        },
+        {
+          "path": "src/util/diagnostic.rs",
+          "tested_bytes_sha256": "8275b9e24b4caa36eb2aaa4af4d539c170508c8c80cceb2dd6d4da3e3746767a",
+          "committed_blob_sha256": "f9048a8d31dc803d34403ede29e87bb0cb5405a54b010cd0510b675982e52ea3"
+        },
+        {
+          "path": "src/util/log.rs",
+          "tested_bytes_sha256": "78172464570bb8baa22acd63580167749fd9902637987cea15c96ed4a5b106c9",
+          "committed_blob_sha256": "1db670728d59b6dcfe8310a74933ebdabd54507d97c5568a991d58868bb61c32"
+        },
+        {
+          "path": "src/util/machine_id.rs",
+          "tested_bytes_sha256": "a4e92d396ffa05efe22456ab415c147883ce3ab0f5f22b257504b8f789f9c262",
+          "committed_blob_sha256": "4e85676ec891f94229ca0a8d1ec9229a55da81f6f66d86e2fcf64941a8d3ab17"
+        },
+        {
+          "path": "src/util/mod.rs",
+          "tested_bytes_sha256": "f3c34c09b4e4ef3fc59908a6dbe0ae4befbb9645290ba19986804d7295bfea5b",
+          "committed_blob_sha256": "36b7b9519662a6aee0a98bb349e390bf9b9c2b2a9088ef47507ed19fbbd8fa67"
+        },
+        {
+          "path": "src/util/popup.rs",
+          "tested_bytes_sha256": "348cc51e403fc69528e7830d34006da4ff35f075a784b9d8bce564d10daabb6a",
+          "committed_blob_sha256": "f4de7502c2a5ebc6ee387001557bba30841c26353935f5137918e84d574ad88a"
+        },
+        {
+          "path": "src/util/process.rs",
+          "tested_bytes_sha256": "f002e0bb19378706191a7774a25335e3b295b88af96a73b4726236f0ff34ff9a",
+          "committed_blob_sha256": "25dbc77603b9dda0283c52a4418aef9aa6f1303250d5b9c3c8136baa5a23de9d"
+        },
+        {
+          "path": "src/util/region.rs",
+          "tested_bytes_sha256": "8cb145cbe2f5f7c04abd2708b98c2eb7987f2098f7aa3b5ff09d3de1157f8dee",
+          "committed_blob_sha256": "8cb145cbe2f5f7c04abd2708b98c2eb7987f2098f7aa3b5ff09d3de1157f8dee"
+        },
+        {
+          "path": "src/util/sanitize.rs",
+          "tested_bytes_sha256": "2af040c06aa9bf72cb2d69f01a95647b42791039811fe861a4de72d3441698b1",
+          "committed_blob_sha256": "2af040c06aa9bf72cb2d69f01a95647b42791039811fe861a4de72d3441698b1"
+        },
+        {
+          "path": "src/util/status_helper.rs",
+          "tested_bytes_sha256": "470097b9143cb18d576496b0e3f23a356069a5a450fb3cb19e99ecaf2b65fd0f",
+          "committed_blob_sha256": "470097b9143cb18d576496b0e3f23a356069a5a450fb3cb19e99ecaf2b65fd0f"
+        },
+        {
+          "path": "src/util/status_light.rs",
+          "tested_bytes_sha256": "72b5ae34b84550d8e3a91fcbd57bcd5e8a7e1639f936b0b8f251766eeed40677",
+          "committed_blob_sha256": "d6ab1db85fa68dda90d50a6dcab028316408775c8382171869da1651ef518afd"
+        },
+        {
+          "path": "src/util/steam_game.rs",
+          "tested_bytes_sha256": "6ecdfc22681389065ca27290916644503c40763584d93147cb53954ad8bba14e",
+          "committed_blob_sha256": "6ecdfc22681389065ca27290916644503c40763584d93147cb53954ad8bba14e"
+        },
+        {
+          "path": "src/util/task.rs",
+          "tested_bytes_sha256": "759fe38194a35520bccf6659739b7a861388d7e620e748b24b8f47721d0d3e7f",
+          "committed_blob_sha256": "4015f28b5154ecb814cebc10c429592c43c6b47c29901a073a7e170d80747881"
+        },
+        {
+          "path": "src/vnt/api.rs",
+          "tested_bytes_sha256": "d089a4eaa318bbca71b03eec4f2c3523b437b28b045b0faaa4cbe64cdee38d31",
+          "committed_blob_sha256": "d089a4eaa318bbca71b03eec4f2c3523b437b28b045b0faaa4cbe64cdee38d31"
+        },
+        {
+          "path": "src/vnt/legacy/controller.rs",
+          "tested_bytes_sha256": "1b5c7def976d526cbfeb725f6031689dcfdc1a216b350e28235a50dfffde5777",
+          "committed_blob_sha256": "1b5c7def976d526cbfeb725f6031689dcfdc1a216b350e28235a50dfffde5777"
+        },
+        {
+          "path": "src/vnt/legacy/mod.rs",
+          "tested_bytes_sha256": "88d4543753e9276c1d4b79f2746bee71f35f387d63f904e91b867f83413e5169",
+          "committed_blob_sha256": "435a235c4603db3cde414209416aac6cc260a1014dc985e34661161c10384a3e"
+        },
+        {
+          "path": "src/vnt/legacy/relay.rs",
+          "tested_bytes_sha256": "52b656432551067cfc7b9e453c7cd6a8339d2fb15f1cf71de404588a33b44d1b",
+          "committed_blob_sha256": "52b656432551067cfc7b9e453c7cd6a8339d2fb15f1cf71de404588a33b44d1b"
+        },
+        {
+          "path": "src/vnt/manager.rs",
+          "tested_bytes_sha256": "54c5a55758a9cf283a219c043d363457630835996dafa625f698d3bac42f7e3a",
+          "committed_blob_sha256": "54c5a55758a9cf283a219c043d363457630835996dafa625f698d3bac42f7e3a"
+        },
+        {
+          "path": "src/vnt/mod.rs",
+          "tested_bytes_sha256": "03d90ea85c7f5168b2dd140494c99588a3333a7d5b670675e8b18823a0581e16",
+          "committed_blob_sha256": "00c5467440b82b3e197988cb3c3dd5a15619aa9fb95901cd9b578a17ce957c37"
+        },
+        {
+          "path": "src/vnt/node.rs",
+          "tested_bytes_sha256": "39713ee827da208936748079848eb6751392ef27c2ca6ef4ea00cddf174c1d27",
+          "committed_blob_sha256": "39713ee827da208936748079848eb6751392ef27c2ca6ef4ea00cddf174c1d27"
+        },
+        {
+          "path": "src/vnt/node_service.rs",
+          "tested_bytes_sha256": "d75e31ddc7e1239506c8788a8dcb7a0b8634340889d65f9f7b3677718cd2beb1",
+          "committed_blob_sha256": "93db501eb3af6d78ee6552712cfdaab200ea05d4eff3e190f41a6884264d7c73"
+        },
+        {
+          "path": "src/vnt/nodes.rs",
+          "tested_bytes_sha256": "e2e88a0742ed048ab13ee213dff6d10c790bed05fa7ce17e5e76172504efb771",
+          "committed_blob_sha256": "79260b1d2f7ff3a3b629030df118bb79df23aba293b7e38fd5a13539f36e7de8"
+        },
+        {
+          "path": "src/vnt/rooms.rs",
+          "tested_bytes_sha256": "2c243e880d61ac8ccfb687203e246ebaf597eaeaae03a884ed144ad91e4970e4",
+          "committed_blob_sha256": "2c243e880d61ac8ccfb687203e246ebaf597eaeaae03a884ed144ad91e4970e4"
+        },
+        {
+          "path": "src/vnt/runtime.rs",
+          "tested_bytes_sha256": "0aef497fcadd15620e5768f9f55ec640e53a379e0bcc934d0186391e1f23ac8b",
+          "committed_blob_sha256": "d5d2f4140c9c64eb5ce1191e32a3f9062b5d3d5cf53ec147c803ab10214f694d"
+        },
+        {
+          "path": "src/vnt/session.rs",
+          "tested_bytes_sha256": "1d0ce60af9a34a8c5b4e68c0c08128c889988179babb34dbf863b5eb7a0e680e",
+          "committed_blob_sha256": "1d0ce60af9a34a8c5b4e68c0c08128c889988179babb34dbf863b5eb7a0e680e"
+        },
+        {
+          "path": "src/vnt/supervisor.rs",
+          "tested_bytes_sha256": "839550161634df9308b6780e10789614ced340a57146427a76ac85804a0c1251",
+          "committed_blob_sha256": "effdd6cd10bad04f3f7d697cbf9f38298e596c657658badda3c7576e4be0e7a1"
+        },
+        {
+          "path": "src/vnt/transport/mod.rs",
+          "tested_bytes_sha256": "4965fa3c8ca73bc2c1b57e76a343fe5fe56b1f4f5584a777e8ba457acb115389",
+          "committed_blob_sha256": "0746bea325b0b2aa78d2f69a80068163362f547d6d1d5f41786375567c654ab5"
+        },
+        {
+          "path": "src/vnt/transport/planner.rs",
+          "tested_bytes_sha256": "a39a4bdace83b02472009829f415ac57621e29e2abbc5ec6be467efbfc3fd6fa",
+          "committed_blob_sha256": "a39a4bdace83b02472009829f415ac57621e29e2abbc5ec6be467efbfc3fd6fa"
+        },
+        {
+          "path": "src/vnt/types.rs",
+          "tested_bytes_sha256": "1078dd144754f1a1d84ad8c6ecc18b8f57a3a8825684d4e4d4678e972f088c3a",
+          "committed_blob_sha256": "f35c1fb180ca54eb3cf63f3362e9656f850043e444a04d5ad8a28f78088d7659"
+        }
+      ]
+    },
+    {
+      "execution_receipt": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\r7\\browser-final\\execution-receipt.json",
+      "execution_receipt_sha256": "dd4d49446c706cbaaea0897422726b303378a5bb5974df492336a974e785def1",
+      "files": [
+        {
+          "path": "frontend/src/App.jsx",
+          "tested_bytes_sha256": "5c719af0e8116a0730f9b8ada49560c2333fa69dc72ebad9a788eb23ead606fa",
+          "committed_blob_sha256": "f3a963258f520ea59dedeec5c995fda01703014c28b29c31e7b431182edf5da4"
+        },
+        {
+          "path": "frontend/src/lib/authoritativeRooms.js",
+          "tested_bytes_sha256": "f052c2bb8adc4b84c44b81b1dbefc1f2ce6365cc915de3aa7efc293992c71547",
+          "committed_blob_sha256": "f052c2bb8adc4b84c44b81b1dbefc1f2ce6365cc915de3aa7efc293992c71547"
+        },
+        {
+          "path": "frontend/src/lib/tauriBridge.js",
+          "tested_bytes_sha256": "40379c679a8243d4f99500296d4a818fa9a8bb12fe48b94b057b241aa4e37051",
+          "committed_blob_sha256": "7088645a032c72607399b1ec16165843b946c68d31ab6f70980a1adacb498ec9"
+        }
+      ]
+    }
+  ],
+  "scope": "Actual final frontend, browser mock, Rust and Tauri execution inputs equal committed blobs after line-ending normalization; no native or multiplayer claim."
+}
