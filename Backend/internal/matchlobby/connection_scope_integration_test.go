@@ -104,6 +104,13 @@ func TestConnectionCreateRechecksManagedScopeAgainstPostgreSQL(t *testing.T) {
 			if frozen.Attempt == nil {
 				t.Fatal("frozen lobby omitted current attempt")
 			}
+			t.Cleanup(func() {
+				cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 15*time.Second)
+				defer cleanupCancel()
+				_, _ = pool.Exec(cleanupCtx, "DELETE FROM connections WHERE room_id = $1", frozen.P2PRoomID)
+				_, _ = pool.Exec(cleanupCtx, "DELETE FROM match_lobbies WHERE id = $1", frozen.LobbyID)
+				_, _ = pool.Exec(cleanupCtx, "DELETE FROM p2p_rooms WHERE id = $1", frozen.P2PRoomID)
+			})
 
 			authorizer := &connectionScopeRaceAuthorizer{
 				rooms:  p2pService,
