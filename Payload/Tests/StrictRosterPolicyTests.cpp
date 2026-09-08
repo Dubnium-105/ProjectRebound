@@ -433,6 +433,11 @@ int main()
         replacement.playerId, replacement.connectionGeneration, replacement.grantJti,
         replacement.nativeConnectionNonce).accepted,
         "the reconnected generation should be reportable after native seat application");
+    const auto afterReconnectEvidence =
+        policy.NativeAuthorityAdmissionEvidenceSnapshot();
+    Expect(afterReconnectEvidence.verified &&
+        afterReconnectEvidence.remoteSeatCount == 1U,
+        "a reconnect of the same frozen remote seat must not inflate participant evidence");
     const auto latest = StageValidateAndReserve(policy,
         Token(GrantClaims(4, "grant_jti_4", "world_test_b")), "steam_member", 112,
         NativeNonce("four"));

@@ -94,6 +94,9 @@ namespace StrictRoster
     {
         bool verified = false;
         std::uint64_t confirmedEventSequence = 0;
+        // Unique frozen non-HOST roster seats that reached CONNECTED. This
+        // is deliberately not a raw CONNECTED-event count: reconnects and
+        // route refreshes keep the same player identity.
         std::uint32_t remoteSeatCount = 0;
     };
 
@@ -1248,7 +1251,15 @@ namespace StrictRoster
                 nativeAuthorityAdmissionEvidence_.verified = true;
                 nativeAuthorityAdmissionEvidence_.confirmedEventSequence =
                     nextConnectionEventSequence_;
-                ++nativeAuthorityAdmissionEvidence_.remoteSeatCount;
+                // Count the frozen roster seat, not CONNECTED events.  A
+                // disconnect/reconnect or route refresh for the same player
+                // must not be reported as a second remote participant.
+                if (nativeAuthorityRemoteSeatIds_.insert(seat.playerId).second)
+                {
+                    nativeAuthorityAdmissionEvidence_.remoteSeatCount =
+                        static_cast<std::uint32_t>(
+                            nativeAuthorityRemoteSeatIds_.size());
+                }
             }
             return Accept();
         }
@@ -1689,6 +1700,7 @@ namespace StrictRoster
             connectionEvents_.clear();
             nextConnectionEventSequence_ = 0;
             nativeAuthorityAdmissionEvidence_ = NativeAuthorityAdmissionEvidence{};
+            nativeAuthorityRemoteSeatIds_.clear();
             Detail::SecureClear(nativeWorldInstanceId_);
             authorityStarted_ = false;
         }
@@ -1703,6 +1715,7 @@ namespace StrictRoster
         std::deque<ConnectionEvent> connectionEvents_;
         std::uint64_t nextConnectionEventSequence_ = 0;
         NativeAuthorityAdmissionEvidence nativeAuthorityAdmissionEvidence_;
+        std::unordered_set<std::string> nativeAuthorityRemoteSeatIds_;
         std::string nativeWorldInstanceId_;
         bool authorityStarted_ = false;
     };
