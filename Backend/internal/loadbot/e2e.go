@@ -2,6 +2,8 @@ package loadbot
 
 import (
 	"context"
+	"crypto/ed25519"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math/rand/v2"
@@ -43,11 +45,65 @@ func (c *virtualClient) rotateTokens(
 	return nil
 }
 
-type roomFixture struct {
-	id        string
-	hostToken string
-	host      *virtualClient
-	peer      *virtualClient
+type matchFixture struct {
+	lobbyID          string
+	p2pRoomID        string
+	hostToken        string
+	host             *virtualClient
+	peer             *virtualClient
+	attemptID        string
+	authoritySession string
+	rosterRevision   int64
+	routeGeneration  int
+	started          bool
+}
+
+type matchLobbySnapshot struct {
+	LobbyID        string            `json:"lobby_id"`
+	OwnerPlayerID  string            `json:"owner_player_id"`
+	P2PRoomID      string            `json:"p2p_room_id"`
+	State          string            `json:"state"`
+	RosterRevision int64             `json:"roster_revision"`
+	Attempt        *matchAttemptView `json:"attempt"`
+}
+
+type matchAttemptView struct {
+	AttemptID        string `json:"attempt_id"`
+	State            string `json:"state"`
+	RosterRevision   int64  `json:"roster_revision"`
+	RouteGeneration  int    `json:"route_generation"`
+	PayloadInstalled bool   `json:"payload_installed"`
+	CleanupState     string `json:"cleanup_state"`
+	WorldInstanceID  string `json:"world_instance_id"`
+}
+
+type allocationClaims struct {
+	Issuer             string `json:"iss"`
+	Audience           string `json:"aud"`
+	KeyID              string `json:"kid"`
+	AttemptID          string `json:"attempt_id"`
+	LobbyID            string `json:"lobby_id"`
+	HostingKind        string `json:"hosting_kind"`
+	AuthorityID        string `json:"authority_id"`
+	AuthoritySessionID string `json:"authority_session_id"`
+	RosterRevision     int64  `json:"roster_revision"`
+	RouteGeneration    int    `json:"route_generation"`
+	NotBefore          int64  `json:"nbf"`
+	ExpiresAt          int64  `json:"exp"`
+}
+
+type allocationHeader struct {
+	Algorithm string `json:"alg"`
+	Type      string `json:"typ"`
+	KeyID     string `json:"kid"`
+}
+
+type allocationResult struct {
+	AttemptID          string    `json:"attempt_id"`
+	Allocation         string    `json:"allocation"`
+	AdmissionKeyID     string    `json:"admission_key_id"`
+	AdmissionPublicKey string    `json:"admission_public_key_base64"`
+	ExpiresAt          time.Time `json:"expires_at"`
 }
 
 type relayPair struct {
@@ -81,14 +137,14 @@ func (r *Runner) runEndToEnd(ctx context.Context) {
 		r.recordFailure("insufficient_authenticated_clients")
 		return
 	}
-	rooms := r.createRooms(ctx, clients)
-	if len(rooms) == 0 {
+	matches := r.createMatchLobbies(ctx, clients)
+	if len(matches) == 0 {
 		return
 	}
 	var pairs []*relayPair
-	if r.cfg.Scenario == "relay" || r.cfg.Scenario == "full" || r.cfg.Scenario == "soak" {
-		for index := 0; index < r.cfg.RelayConnections && index < len(rooms); index++ {
-			pair, err := r.createRelayPair(ctx, rooms[index], index)
+	if r.cfg.Scenario == "relay" || r.cfg.Scenario == "websocket" || r.cfg.Scenario == "full" || r.cfg.Scenario == "soak" {
+		for index := 0; index < r.cfg.RelayConnections && index < len(matches); index++ {
+			pair, err := r.createRelayPair(ctx, matches[index], index)
 			if err != nil {
 				r.mu.Lock()
 				r.report.RelayBindFailures++
@@ -102,7 +158,7 @@ func (r *Runner) runEndToEnd(ctx context.Context) {
 
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go func() { defer wg.Done(); r.runRoomHeartbeats(ctx, rooms) }()
+	go func() { defer wg.Done(); r.runMatchLobbyHeartbeats(ctx, matches) }()
 	for _, pair := range pairs {
 		wg.Add(1)
 		go func(pair *relayPair) { defer wg.Done(); r.runRelayTraffic(ctx, pair) }(pair)
@@ -133,12 +189,8 @@ func (r *Runner) runEndToEnd(ctx context.Context) {
 		}
 		pair.close()
 	}
-	for _, room := range rooms {
-		if err := r.requestJSONAs(cleanupCtx, room.host, http.MethodDelete,
-			"/v1/p2p-rooms/"+room.id,
-			map[string]string{"X-Room-Host-Token": room.hostToken}, nil, nil); err != nil {
-			r.recordFailure("room_cleanup")
-		}
+	for _, match := range matches {
+		r.completeMatchAttempt(cleanupCtx, match)
 	}
 }
 
@@ -191,46 +243,122 @@ func (r *Runner) bindClients(ctx context.Context) []*virtualClient {
 	return result
 }
 
-func (r *Runner) createRooms(ctx context.Context, clients []*virtualClient) []roomFixture {
-	rooms := make([]roomFixture, 0, r.cfg.Rooms)
+func (r *Runner) createMatchLobbies(ctx context.Context, clients []*virtualClient) []matchFixture {
+	matches := make([]matchFixture, 0, r.cfg.Rooms)
 	for index := 0; index < r.cfg.Rooms; index++ {
 		host, peer := clients[index*2], clients[index*2+1]
 		var created struct {
 			Data struct {
-				Room struct {
-					RoomID string `json:"room_id"`
-				} `json:"room"`
-				HostToken string `json:"host_token"`
+				Lobby              matchLobbySnapshot `json:"lobby"`
+				TransportHostToken string             `json:"transport_host_token"`
 			} `json:"data"`
 		}
-		err := r.requestJSONAs(ctx, host, http.MethodPost, "/v1/p2p-rooms", nil, map[string]any{
-			"display_name": fmt.Sprintf("loadbot-room-%d", index), "region": r.cfg.Room.Region,
-			"mode": r.cfg.Room.Mode, "version": r.cfg.Room.Version, "max_players": 2,
-		}, &created)
-		if err != nil || created.Data.Room.RoomID == "" {
-			r.recordFailure("room_create")
+		runID := r.runID
+		if runID == "" {
+			runID = fmt.Sprintf("%d", time.Now().UnixNano())
+		}
+		idempotencyKey := fmt.Sprintf("loadbot-%s-%d", runID, index)
+		err := r.requestJSONAsWithHeaders(ctx, host, http.MethodPost, "/v1/match-lobbies",
+			map[string]string{"Idempotency-Key": idempotencyKey}, map[string]any{
+				"display_name":     fmt.Sprintf("loadbot-lobby-%d", index),
+				"hosting_kind":     "P2P",
+				"transport_kind":   "LEGACY_RELAY",
+				"mode":             r.cfg.Room.Mode,
+				"region":           r.cfg.Room.Region,
+				"client_version":   r.cfg.Room.Version,
+				"protocol_version": 1,
+				"team_capacities":  map[string]int{"team_1": 1, "team_2": 1},
+				"team_id":          1,
+			}, &created)
+		if err != nil || created.Data.Lobby.LobbyID == "" || created.Data.Lobby.OwnerPlayerID != host.playerID ||
+			created.Data.Lobby.P2PRoomID == "" || created.Data.TransportHostToken == "" || created.Data.Lobby.RosterRevision < 1 {
+			r.recordFailure("match_lobby_create")
 			continue
+		}
+		match := matchFixture{
+			lobbyID: created.Data.Lobby.LobbyID, p2pRoomID: created.Data.Lobby.P2PRoomID,
+			hostToken: created.Data.TransportHostToken, host: host, peer: peer,
+			rosterRevision: created.Data.Lobby.RosterRevision,
+		}
+		var joined struct {
+			Data matchLobbySnapshot `json:"data"`
 		}
 		if err := r.requestJSONAs(ctx, peer, http.MethodPost,
-			"/v1/p2p-rooms/"+created.Data.Room.RoomID+"/join",
-			nil, map[string]string{"version": r.cfg.Room.Version}, nil); err != nil {
-			r.recordFailure("room_join")
+			"/v1/match-lobbies/"+match.lobbyID+"/join", nil,
+			map[string]any{"team_id": 2, "expected_revision": match.rosterRevision}, &joined); err != nil ||
+			joined.Data.LobbyID != match.lobbyID || joined.Data.RosterRevision <= match.rosterRevision {
+			r.recordFailure("match_lobby_join")
+			r.cleanupOpenMatchLobby(ctx, match)
 			continue
 		}
-		rooms = append(rooms, roomFixture{id: created.Data.Room.RoomID, hostToken: created.Data.HostToken, host: host, peer: peer})
+		match.rosterRevision = joined.Data.RosterRevision
+		readyFailed := false
+		for _, ready := range []struct {
+			client *virtualClient
+			label  string
+		}{
+			{peer, "peer"},
+			{host, "host"},
+		} {
+			var response struct {
+				Data matchLobbySnapshot `json:"data"`
+			}
+			if err := r.requestJSONAs(ctx, ready.client, http.MethodPut,
+				"/v1/match-lobbies/"+match.lobbyID+"/members/me/ready", nil,
+				map[string]any{"ready": true, "expected_revision": match.rosterRevision}, &response); err != nil ||
+				response.Data.LobbyID != match.lobbyID || response.Data.RosterRevision != match.rosterRevision {
+				r.recordFailure("match_lobby_ready_" + ready.label)
+				readyFailed = true
+				break
+			}
+			match.rosterRevision = response.Data.RosterRevision
+		}
+		if readyFailed {
+			r.cleanupOpenMatchLobby(ctx, match)
+			continue
+		}
+		var started struct {
+			Data matchLobbySnapshot `json:"data"`
+		}
+		if err := r.requestJSONAs(ctx, host, http.MethodPost,
+			"/v1/match-lobbies/"+match.lobbyID+"/start", nil,
+			map[string]any{"expected_revision": match.rosterRevision}, &started); err != nil ||
+			started.Data.LobbyID != match.lobbyID || started.Data.P2PRoomID != match.p2pRoomID ||
+			started.Data.Attempt == nil || started.Data.Attempt.AttemptID == "" ||
+			started.Data.Attempt.RosterRevision != match.rosterRevision || started.Data.Attempt.RouteGeneration < 1 {
+			r.recordFailure("match_lobby_start")
+			r.cleanupOpenMatchLobby(ctx, match)
+			continue
+		}
+		match.started = true
+		match.attemptID = started.Data.Attempt.AttemptID
+		match.rosterRevision = started.Data.Attempt.RosterRevision
+		match.routeGeneration = started.Data.Attempt.RouteGeneration
+		match.p2pRoomID = started.Data.P2PRoomID
+		_, claims, err := r.fetchAndVerifyAllocation(ctx, match)
+		if err != nil {
+			r.recordFailure("match_allocation")
+			// Retain the started fixture so cleanup reports the missing verified
+			// authority session rather than claiming that the attempt was cleared.
+		} else {
+			match.authoritySession = claims.AuthoritySessionID
+		}
+		matches = append(matches, match)
 		r.mu.Lock()
+		r.report.MatchLobbiesCreated++
 		r.report.RoomsCreated++
+		r.report.MatchAttemptsStarted++
 		r.mu.Unlock()
 	}
-	return rooms
+	return matches
 }
 
-func (r *Runner) createRelayPair(ctx context.Context, room roomFixture, index int) (*relayPair, error) {
-	hostSocket, err := r.openWebSocket(ctx, room.host)
+func (r *Runner) createRelayPair(ctx context.Context, match matchFixture, index int) (*relayPair, error) {
+	hostSocket, err := r.openWebSocket(ctx, match.host)
 	if err != nil {
 		return nil, err
 	}
-	peerSocket, err := r.openWebSocket(ctx, room.peer)
+	peerSocket, err := r.openWebSocket(ctx, match.peer)
 	if err != nil {
 		_ = hostSocket.CloseNow()
 		return nil, err
@@ -240,8 +368,13 @@ func (r *Runner) createRelayPair(ctx context.Context, room roomFixture, index in
 			ConnectionID string `json:"connection_id"`
 		} `json:"data"`
 	}
-	if err := r.requestJSONAs(ctx, room.host, http.MethodPost, "/v1/connections", nil,
-		map[string]string{"room_id": room.id, "peer_player_id": room.peer.playerID},
+	if match.p2pRoomID == "" {
+		_ = hostSocket.CloseNow()
+		_ = peerSocket.CloseNow()
+		return nil, fmt.Errorf("match lobby omitted managed P2P room")
+	}
+	if err := r.requestJSONAs(ctx, match.host, http.MethodPost, "/v1/connections", nil,
+		map[string]string{"room_id": match.p2pRoomID, "peer_player_id": match.peer.playerID},
 		&connectionResponse); err != nil {
 		_ = hostSocket.CloseNow()
 		_ = peerSocket.CloseNow()
@@ -267,7 +400,7 @@ func (r *Runner) createRelayPair(ctx context.Context, room roomFixture, index in
 				State string `json:"state"`
 			} `json:"data"`
 		}
-		if err := r.requestJSONAs(ctx, room.host, http.MethodGet,
+		if err := r.requestJSONAs(ctx, match.host, http.MethodGet,
 			"/v1/connections/"+connectionID, nil, nil, &current); err == nil &&
 			current.Data.State == "CHECKING_DIRECT" {
 			ready = true
@@ -314,13 +447,206 @@ func (r *Runner) createRelayPair(ctx context.Context, room roomFixture, index in
 		host:         hostRelay,
 		peer:         peerRelay,
 		sockets:      [2]*websocket.Conn{hostSocket, peerSocket},
-		clients:      [2]*virtualClient{room.host, room.peer},
+		clients:      [2]*virtualClient{match.host, match.peer},
 	}
 	r.mu.Lock()
 	r.report.RelayAllocations++
 	r.report.RelayBindSuccess += 2
 	r.mu.Unlock()
 	return pair, nil
+}
+
+func (r *Runner) fetchAndVerifyAllocation(ctx context.Context, match matchFixture) (allocationResult, allocationClaims, error) {
+	if match.attemptID == "" || match.lobbyID == "" {
+		return allocationResult{}, allocationClaims{}, fmt.Errorf("match attempt scope is incomplete")
+	}
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		var response struct {
+			Data allocationResult `json:"data"`
+		}
+		err := r.requestJSONAs(ctx, match.host, http.MethodGet,
+			"/v1/match-attempts/"+match.attemptID+"/host/allocation", nil, nil, &response)
+		if err == nil {
+			claims, verifyErr := verifyAllocation(response.Data, match)
+			if verifyErr == nil {
+				return response.Data, claims, nil
+			}
+			lastErr = verifyErr
+		} else {
+			lastErr = err
+		}
+		if attempt < 2 {
+			select {
+			case <-ctx.Done():
+				return allocationResult{}, allocationClaims{}, ctx.Err()
+			case <-time.After(200 * time.Millisecond):
+			}
+		}
+	}
+	return allocationResult{}, allocationClaims{}, lastErr
+}
+
+func verifyAllocation(allocation allocationResult, match matchFixture) (allocationClaims, error) {
+	parts := strings.Split(allocation.Allocation, ".")
+	if len(parts) != 3 {
+		return allocationClaims{}, fmt.Errorf("allocation is not a compact JWT")
+	}
+	decodeURL := func(value string) ([]byte, error) {
+		return base64.RawURLEncoding.DecodeString(value)
+	}
+	var header allocationHeader
+	headerBytes, err := decodeURL(parts[0])
+	if err != nil {
+		return allocationClaims{}, fmt.Errorf("decode allocation header: %w", err)
+	}
+	if err := json.Unmarshal(headerBytes, &header); err != nil {
+		return allocationClaims{}, fmt.Errorf("decode allocation header JSON: %w", err)
+	}
+	if header.Algorithm != "EdDSA" || header.Type != "match-allocation+jwt" || header.KeyID != allocation.AdmissionKeyID {
+		return allocationClaims{}, fmt.Errorf("allocation header is not the expected strict authority token")
+	}
+	claimsBytes, err := decodeURL(parts[1])
+	if err != nil {
+		return allocationClaims{}, fmt.Errorf("decode allocation claims: %w", err)
+	}
+	var claims allocationClaims
+	if err := json.Unmarshal(claimsBytes, &claims); err != nil {
+		return allocationClaims{}, fmt.Errorf("decode allocation claims JSON: %w", err)
+	}
+	publicKeyBytes, err := base64.StdEncoding.DecodeString(allocation.AdmissionPublicKey)
+	if err != nil {
+		publicKeyBytes, err = base64.RawStdEncoding.DecodeString(allocation.AdmissionPublicKey)
+	}
+	if err != nil || len(publicKeyBytes) != ed25519.PublicKeySize {
+		return allocationClaims{}, fmt.Errorf("allocation admission public key is invalid")
+	}
+	signature, err := decodeURL(parts[2])
+	if err != nil || len(signature) != ed25519.SignatureSize ||
+		!ed25519.Verify(ed25519.PublicKey(publicKeyBytes), []byte(parts[0]+"."+parts[1]), signature) {
+		return allocationClaims{}, fmt.Errorf("allocation signature verification failed")
+	}
+	now := time.Now().Unix()
+	if claims.KeyID != header.KeyID || claims.Issuer != "game-control-plane" || claims.Audience != "project-rebound-match-authority" ||
+		claims.NotBefore > now+5 || claims.ExpiresAt <= now {
+		return allocationClaims{}, fmt.Errorf("allocation temporal or issuer claims are invalid")
+	}
+	if claims.AttemptID != match.attemptID || claims.LobbyID != match.lobbyID ||
+		allocation.AttemptID != match.attemptID ||
+		claims.HostingKind != "P2P" || claims.AuthorityID != match.host.playerID ||
+		claims.RosterRevision != match.rosterRevision || claims.RouteGeneration != match.routeGeneration || claims.RouteGeneration < 1 ||
+		claims.AuthoritySessionID == "" {
+		return allocationClaims{}, fmt.Errorf("allocation claims do not match the frozen MatchLobby attempt")
+	}
+	return claims, nil
+}
+
+func (r *Runner) cleanupOpenMatchLobby(ctx context.Context, match matchFixture) {
+	if match.lobbyID == "" || match.host == nil {
+		return
+	}
+	var current struct {
+		Data matchLobbySnapshot `json:"data"`
+	}
+	if err := r.requestJSONAs(ctx, match.host, http.MethodGet,
+		"/v1/match-lobbies/"+match.lobbyID, nil, nil, &current); err != nil {
+		r.recordFailure("match_lobby_cleanup")
+		return
+	}
+	if current.Data.State != "OPEN" {
+		return
+	}
+	if err := r.requestJSONAsWithHeaders(ctx, match.host, http.MethodPost,
+		"/v1/match-lobbies/"+match.lobbyID+"/leave",
+		map[string]string{"X-Match-Transport-Host-Token": match.hostToken},
+		map[string]any{"expected_revision": current.Data.RosterRevision}, nil); err != nil {
+		r.recordFailure("match_lobby_cleanup")
+	}
+}
+
+func (r *Runner) completeMatchAttempt(ctx context.Context, match matchFixture) {
+	if !match.started {
+		r.cleanupOpenMatchLobby(ctx, match)
+		return
+	}
+	if match.attemptID == "" || match.authoritySession == "" {
+		r.recordFailure("match_cleanup_pending")
+		r.mu.Lock()
+		r.report.MatchCleanupPending++
+		r.mu.Unlock()
+		return
+	}
+	var completed struct {
+		Data matchLobbySnapshot `json:"data"`
+	}
+	err := r.requestJSONAsWithHeaders(ctx, match.host, http.MethodPost,
+		"/v1/match-attempts/"+match.attemptID+"/host/complete",
+		map[string]string{"X-Match-Authority-Session": match.authoritySession},
+		map[string]any{"success": false, "failure_code": "LOADBOT_TRANSPORT_STOPPED"}, &completed)
+	if err != nil {
+		r.recordFailure("match_cleanup")
+		r.mu.Lock()
+		r.report.MatchCleanupPending++
+		r.mu.Unlock()
+		return
+	}
+	r.mu.Lock()
+	r.report.MatchAttemptsAborted++
+	r.mu.Unlock()
+	if err := r.acknowledgeNativeProcessNotStarted(ctx, match, completed.Data); err != nil {
+		r.recordFailure("match_native_cleanup")
+		r.mu.Lock()
+		r.report.MatchCleanupPending++
+		r.mu.Unlock()
+		return
+	}
+	r.mu.Lock()
+	r.report.MatchCleanupCleared++
+	r.mu.Unlock()
+}
+
+func nativeProcessNotStartedCleanupBody(match matchFixture) (map[string]any, error) {
+	if match.attemptID == "" || match.authoritySession == "" || match.rosterRevision < 1 || match.routeGeneration < 1 {
+		return nil, fmt.Errorf("native not-started cleanup scope is incomplete")
+	}
+	return map[string]any{
+		"world_instance_id":         "",
+		"roster_revision":           match.rosterRevision,
+		"route_generation":          match.routeGeneration,
+		"evidence_kind":             "native_process_not_started",
+		"owned_process_id":          uint32(0),
+		"process_start_fingerprint": "",
+	}, nil
+}
+
+func (r *Runner) acknowledgeNativeProcessNotStarted(ctx context.Context, match matchFixture, completed matchLobbySnapshot) error {
+	if completed.LobbyID != match.lobbyID || completed.Attempt == nil ||
+		completed.Attempt.AttemptID != match.attemptID ||
+		completed.Attempt.RosterRevision != match.rosterRevision ||
+		completed.Attempt.RouteGeneration != match.routeGeneration ||
+		completed.Attempt.PayloadInstalled || completed.Attempt.WorldInstanceID != "" {
+		return fmt.Errorf("backend complete response does not prove a pre-native cleanup scope")
+	}
+	body, err := nativeProcessNotStartedCleanupBody(match)
+	if err != nil {
+		return err
+	}
+	var cleared struct {
+		Data matchLobbySnapshot `json:"data"`
+	}
+	if err := r.requestJSONAsWithHeaders(ctx, match.host, http.MethodPost,
+		"/v1/match-attempts/"+match.attemptID+"/host/native-cleared",
+		map[string]string{"X-Match-Authority-Session": match.authoritySession}, body, &cleared); err != nil {
+		return err
+	}
+	if cleared.Data.LobbyID != match.lobbyID || cleared.Data.Attempt == nil ||
+		cleared.Data.Attempt.AttemptID != match.attemptID ||
+		cleared.Data.Attempt.RosterRevision != match.rosterRevision ||
+		cleared.Data.Attempt.RouteGeneration != match.routeGeneration ||
+		cleared.Data.Attempt.WorldInstanceID != "" || cleared.Data.Attempt.CleanupState != "CLEARED" {
+		return fmt.Errorf("native cleanup acknowledgement did not return CLEARED for the exact attempt scope")
+	}
+	return nil
 }
 
 func (r *Runner) openWebSocket(ctx context.Context, client *virtualClient) (*websocket.Conn, error) {
@@ -362,7 +688,7 @@ func waitRelayAllocation(ctx context.Context, socket *websocket.Conn) (relayAllo
 	}
 }
 
-func (r *Runner) runRoomHeartbeats(ctx context.Context, rooms []roomFixture) {
+func (r *Runner) runMatchLobbyHeartbeats(ctx context.Context, matches []matchFixture) {
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
 	for {
@@ -370,12 +696,12 @@ func (r *Runner) runRoomHeartbeats(ctx context.Context, rooms []roomFixture) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			for _, room := range rooms {
-				if err := r.requestJSONAs(ctx, room.host, http.MethodPost,
-					"/v1/p2p-rooms/"+room.id+"/heartbeat",
-					map[string]string{"X-Room-Host-Token": room.hostToken},
-					nil, nil); err != nil && ctx.Err() == nil {
-					r.recordFailure("room_heartbeat")
+			for _, match := range matches {
+				if err := r.requestJSONAsWithHeaders(ctx, match.host, http.MethodPost,
+					"/v1/match-lobbies/"+match.lobbyID+"/presence",
+					map[string]string{"X-Match-Transport-Host-Token": match.hostToken},
+					map[string]bool{"online": true}, nil); err != nil && ctx.Err() == nil {
+					r.recordFailure("match_lobby_presence")
 				}
 			}
 		}
@@ -608,6 +934,18 @@ func (r *Runner) requestJSONAs(
 	return client.withAccessToken(func(accessToken string) error {
 		return r.requestJSON(ctx, method, path, accessToken, headers, body, result)
 	})
+}
+
+func (r *Runner) requestJSONAsWithHeaders(
+	ctx context.Context,
+	client *virtualClient,
+	method string,
+	path string,
+	headers map[string]string,
+	body any,
+	result any,
+) error {
+	return r.requestJSONAs(ctx, client, method, path, headers, body, result)
 }
 
 func (p *relayPair) close() {

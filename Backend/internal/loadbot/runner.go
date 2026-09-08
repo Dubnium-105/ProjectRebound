@@ -19,17 +19,26 @@ import (
 var fixtureTicketSequence atomic.Uint64
 
 type Report struct {
-	Scenario               string            `json:"scenario"`
-	Clients                int               `json:"clients"`
-	StartedAt              time.Time         `json:"started_at"`
-	FinishedAt             time.Time         `json:"finished_at"`
-	SuccessfulRequests     uint64            `json:"successful_requests"`
-	FailedRequests         uint64            `json:"failed_requests"`
-	P50MS                  float64           `json:"p50_ms"`
-	P95MS                  float64           `json:"p95_ms"`
-	P99MS                  float64           `json:"p99_ms"`
-	WebSocketReconnects    uint64            `json:"websocket_reconnects"`
+	Scenario            string    `json:"scenario"`
+	Clients             int       `json:"clients"`
+	StartedAt           time.Time `json:"started_at"`
+	FinishedAt          time.Time `json:"finished_at"`
+	SuccessfulRequests  uint64    `json:"successful_requests"`
+	FailedRequests      uint64    `json:"failed_requests"`
+	P50MS               float64   `json:"p50_ms"`
+	P95MS               float64   `json:"p95_ms"`
+	P99MS               float64   `json:"p99_ms"`
+	WebSocketReconnects uint64    `json:"websocket_reconnects"`
+	MatchLobbiesCreated uint64    `json:"match_lobbies_created"`
+	// RoomsCreated remains a compatibility counter for existing load-report
+	// consumers; it counts authoritative MatchLobby creations, never a retired
+	// retired room endpoint request.
 	RoomsCreated           uint64            `json:"rooms_created"`
+	MatchAttemptsStarted   uint64            `json:"match_attempts_started"`
+	MatchAttemptsAborted   uint64            `json:"match_attempts_aborted"`
+	MatchCleanupPending    uint64            `json:"match_cleanup_pending"`
+	MatchCleanupCleared    uint64            `json:"match_cleanup_cleared"`
+	NativeAdmissionStatus  string            `json:"native_admission_status"`
 	RelayBindSuccess       uint64            `json:"relay_bind_success"`
 	RelayBindFailures      uint64            `json:"relay_bind_failures"`
 	RelayMigrationSuccess  uint64            `json:"relay_migration_success"`
@@ -57,6 +66,7 @@ type Report struct {
 type Runner struct {
 	cfg        Config
 	client     *http.Client
+	runID      string
 	mu         sync.Mutex
 	report     Report
 	latencies  []time.Duration
@@ -74,6 +84,11 @@ func (r Report) WritePrometheus(w io.Writer) {
 	fmt.Fprintf(w, "loadbot_bytes_total{direction=%q} %d\n", "received", r.BytesReceived)
 	fmt.Fprintf(w, "loadbot_relay_allocations %d\n", r.RelayAllocations)
 	fmt.Fprintf(w, "loadbot_relay_allocations_closed_total %d\n", r.RelayAllocationsClosed)
+	fmt.Fprintf(w, "loadbot_match_lobbies_created_total %d\n", r.MatchLobbiesCreated)
+	fmt.Fprintf(w, "loadbot_match_attempts_started_total %d\n", r.MatchAttemptsStarted)
+	fmt.Fprintf(w, "loadbot_match_attempts_aborted_total %d\n", r.MatchAttemptsAborted)
+	fmt.Fprintf(w, "loadbot_match_cleanup_pending_total %d\n", r.MatchCleanupPending)
+	fmt.Fprintf(w, "loadbot_match_cleanup_cleared_total %d\n", r.MatchCleanupCleared)
 	fmt.Fprintf(w, "loadbot_relay_bind_total{result=%q} %d\n", "success", r.RelayBindSuccess)
 	fmt.Fprintf(w, "loadbot_relay_bind_total{result=%q} %d\n", "failed", r.RelayBindFailures)
 	fmt.Fprintf(w, "loadbot_relay_migrations_total{result=%q} %d\n", "attempted", r.RelayMigrationAttempts)
@@ -99,10 +114,12 @@ func (r *Runner) Run(ctx context.Context) Report {
 	var startMemory runtime.MemStats
 	runtime.ReadMemStats(&startMemory)
 	r.report = Report{Scenario: r.cfg.Scenario, Clients: r.cfg.Clients, StartedAt: time.Now().UTC(),
-		StartMemoryBytes: startMemory.Alloc, StartGoroutines: runtime.NumGoroutine(), Failures: make(map[string]uint64)}
+		StartMemoryBytes: startMemory.Alloc, StartGoroutines: runtime.NumGoroutine(),
+		NativeAdmissionStatus: "NOT_RUN", Failures: make(map[string]uint64)}
+	r.runID = fmt.Sprintf("%d", r.report.StartedAt.UnixNano())
 	r.migrations = make(map[string]struct{})
 	r.attempts = make(map[string]struct{})
-	if r.cfg.Scenario == "full" || r.cfg.Scenario == "p2p" || r.cfg.Scenario == "relay" || r.cfg.Scenario == "soak" {
+	if r.cfg.Scenario == "full" || r.cfg.Scenario == "p2p" || r.cfg.Scenario == "relay" || r.cfg.Scenario == "websocket" || r.cfg.Scenario == "soak" {
 		r.runEndToEnd(ctx)
 	} else {
 		r.runRequestScenario(ctx)
@@ -165,7 +182,6 @@ func (r *Runner) step(ctx context.Context, id int) {
 		r.request(ctx, http.MethodPost, "/v1/auth/bind", body)
 	default:
 		r.request(ctx, http.MethodGet, "/health/live", nil)
-		r.request(ctx, http.MethodGet, "/v1/p2p-rooms?state=LOBBY&limit=50", nil)
 		r.request(ctx, http.MethodGet, "/v1/client/config", nil)
 	}
 }
@@ -240,6 +256,7 @@ func (r *Runner) requestJSON(ctx context.Context, method, path, accessToken stri
 }
 
 func requestFailureCategory(method, path string, statusCode int) string {
+	path = strings.SplitN(path, "?", 2)[0]
 	route := "other"
 	switch {
 	case path == "/v1/auth/bind":
@@ -250,14 +267,20 @@ func requestFailureCategory(method, path string, statusCode int) string {
 		route = "connections"
 	case strings.HasPrefix(path, "/v1/connections/"):
 		route = "connection"
-	case path == "/v1/p2p-rooms":
-		route = "rooms"
-	case strings.HasSuffix(path, "/join"):
-		route = "room_join"
-	case strings.HasSuffix(path, "/heartbeat"):
-		route = "room_heartbeat"
-	case strings.HasPrefix(path, "/v1/p2p-rooms/"):
-		route = "room"
+	case path == "/v1/match-lobbies":
+		route = "match_lobbies"
+	case strings.HasSuffix(path, "/join") && strings.HasPrefix(path, "/v1/match-lobbies/"):
+		route = "match_lobby_join"
+	case strings.HasSuffix(path, "/members/me/ready"):
+		route = "match_lobby_ready"
+	case strings.HasSuffix(path, "/presence") && strings.HasPrefix(path, "/v1/match-lobbies/"):
+		route = "match_lobby_presence"
+	case strings.HasSuffix(path, "/start") && strings.HasPrefix(path, "/v1/match-lobbies/"):
+		route = "match_lobby_start"
+	case strings.HasSuffix(path, "/leave") && strings.HasPrefix(path, "/v1/match-lobbies/"):
+		route = "match_lobby_leave"
+	case strings.HasPrefix(path, "/v1/match-attempts/"):
+		route = "match_attempt"
 	}
 	result := "transport"
 	if statusCode > 0 {

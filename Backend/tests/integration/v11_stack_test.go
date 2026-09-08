@@ -47,6 +47,11 @@ type loadReport struct {
 	FailedRequests         uint64            `json:"failed_requests"`
 	SuccessRatePercent     float64           `json:"success_rate_percent"`
 	RoomsCreated           uint64            `json:"rooms_created"`
+	MatchLobbiesCreated    uint64            `json:"match_lobbies_created"`
+	MatchAttemptsStarted   uint64            `json:"match_attempts_started"`
+	MatchAttemptsAborted   uint64            `json:"match_attempts_aborted"`
+	MatchCleanupPending    uint64            `json:"match_cleanup_pending"`
+	NativeAdmissionStatus  string            `json:"native_admission_status"`
 	RelayAllocations       uint64            `json:"relay_allocations"`
 	RelayAllocationsClosed uint64            `json:"relay_allocations_closed"`
 	RelayBindSuccess       uint64            `json:"relay_bind_success"`
@@ -236,6 +241,9 @@ func validateReconnectStormReport(report loadReport, contents []byte, runErr err
 		report.RelayBindFailures != 0 {
 		return fmt.Errorf("reconnect-storm command error %v reported failures: %s", runErr, contents)
 	}
+	if err := validateAuthoritativeMatchReport(report); err != nil {
+		return fmt.Errorf("reconnect-storm command error %v failed authoritative MatchLobby acceptance: %w: %s", runErr, err, contents)
+	}
 	if report.SuccessRatePercent != 100 ||
 		report.RoomsCreated != 50 || report.RelayAllocations != 50 || report.RelayAllocationsClosed != 50 ||
 		report.RelayBindSuccess != 100 || report.WebSocketReconnects < 100 ||
@@ -323,6 +331,9 @@ func runRelayFailureMigration(t *testing.T, ctx context.Context, backendDir, int
 	var report loadReport
 	if err := json.Unmarshal(contents, &report); err != nil {
 		t.Fatal(err)
+	}
+	if err := validateAuthoritativeMatchReport(report); err != nil {
+		t.Fatalf("Relay migration authoritative MatchLobby acceptance failed: %v: %s", err, contents)
 	}
 	for category := range report.Failures {
 		if category != "relay_traffic" {
@@ -461,6 +472,9 @@ func runImpairedLoadBot(t *testing.T, ctx context.Context, backendDir, integrati
 	if err := json.Unmarshal(contents, &report); err != nil {
 		t.Fatal(err)
 	}
+	if err := validateAuthoritativeMatchReport(report); err != nil {
+		t.Fatalf("%s authoritative MatchLobby acceptance failed: %v: %s", profile, err, contents)
+	}
 	for category := range report.Failures {
 		if category != "relay_traffic" {
 			t.Fatalf("unexpected %s failure category %q: %s", profile, category, contents)
@@ -547,6 +561,9 @@ func validateLoadReport(report loadReport, contents []byte, runErr error) error 
 	if report.FailedRequests != 0 || len(report.Failures) != 0 || report.TokenRefreshFailures != 0 || report.RelayBindFailures != 0 {
 		return fmt.Errorf("load-bot command error %v reported failures: %s", runErr, contents)
 	}
+	if err := validateAuthoritativeMatchReport(report); err != nil {
+		return fmt.Errorf("load-bot command error %v failed authoritative MatchLobby acceptance: %w: %s", runErr, err, contents)
+	}
 	if report.SuccessRatePercent != 100 || report.RoomsCreated != 2 || report.RelayAllocations != 2 ||
 		report.RelayAllocationsClosed != 2 || report.RelayBindSuccess < 4 ||
 		report.PacketsSent == 0 || report.PacketsReceived == 0 || report.PacketLossPercent != 0 {
@@ -554,6 +571,25 @@ func validateLoadReport(report loadReport, contents []byte, runErr error) error 
 	}
 	if runErr != nil {
 		return fmt.Errorf("load-bot command failed despite a passing report: %w", runErr)
+	}
+	return nil
+}
+
+func validateAuthoritativeMatchReport(report loadReport) error {
+	if report.NativeAdmissionStatus != "NOT_RUN" {
+		return fmt.Errorf("native_admission_status=%q, want NOT_RUN for the Docker transport gate", report.NativeAdmissionStatus)
+	}
+	if report.MatchLobbiesCreated != report.RoomsCreated {
+		return fmt.Errorf("match_lobbies_created=%d, rooms_created=%d", report.MatchLobbiesCreated, report.RoomsCreated)
+	}
+	if report.MatchAttemptsStarted != report.RoomsCreated {
+		return fmt.Errorf("match_attempts_started=%d, rooms_created=%d", report.MatchAttemptsStarted, report.RoomsCreated)
+	}
+	if report.MatchAttemptsAborted != report.MatchAttemptsStarted {
+		return fmt.Errorf("match_attempts_aborted=%d, attempts_started=%d", report.MatchAttemptsAborted, report.MatchAttemptsStarted)
+	}
+	if report.MatchCleanupPending != 0 {
+		return fmt.Errorf("match_cleanup_pending=%d after scoped native_process_not_started cleanup", report.MatchCleanupPending)
 	}
 	return nil
 }
