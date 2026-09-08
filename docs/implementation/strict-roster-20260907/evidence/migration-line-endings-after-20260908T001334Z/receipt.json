@@ -1,0 +1,23 @@
+{
+  "phase": "after",
+  "recorded_at": "2026-09-08T00:13:39.840196+00:00",
+  "source_input_commit": "705d339e1af30bf170d828fb7fa1f38582a070db",
+  "source_dirty": true,
+  "source_files": {
+    "Backend/internal/database/migrator.go": "def1c4b463624891717a8cfa2f240a89cde97d73e22d3d7e8b67d32bfc03245a",
+    "Backend/internal/database/migrator_test.go": "1b82a302ccdeef80f106da3f9331a48409ad865880c19ff063c111b43d3506f3"
+  },
+  "command": [
+    "C:/Program Files/Go/bin/go.exe",
+    "test",
+    "./internal/database",
+    "-run",
+    "^TestMigration(Check|Format)",
+    "-count=1",
+    "-v"
+  ],
+  "exit_code": 0,
+  "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\migration-line-endings-after-20260908T001334Z\\go-test.log",
+  "log_sha256": "646d65095bc9144739a9ef999e59d56e6d1591da5a0ee9933c8c6ec6e3ef6c67",
+  "scope": "Actual checkout-line-ending regression only; before phase must fail and remains failure evidence. No database restore or game acceptance."
+}

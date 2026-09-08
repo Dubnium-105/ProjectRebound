@@ -1,0 +1,6 @@
+=== RUN   TestMigrationChecksumsAreStableAcrossCheckoutLineEndings
+    migrator_test.go:20: the same committed migration changes checksum or executed SQL across LF/CRLF checkouts
+--- FAIL: TestMigrationChecksumsAreStableAcrossCheckoutLineEndings (0.00s)
+FAIL
+FAIL	github.com/Dubnium-105/ProjectRebound/Backend/internal/database	0.093s
+FAIL

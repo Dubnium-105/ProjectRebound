@@ -1,0 +1,6 @@
+=== RUN   TestMigrationChecksumsAreStableAcrossCheckoutLineEndings
+--- PASS: TestMigrationChecksumsAreStableAcrossCheckoutLineEndings (0.00s)
+=== RUN   TestMigrationFormatChecksumDoesNotAcceptSQLDrift
+--- PASS: TestMigrationFormatChecksumDoesNotAcceptSQLDrift (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/database	0.178s

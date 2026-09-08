@@ -1,0 +1,2 @@
+# Embedded SQL and migration checksums must be stable across checkout hosts.
+*.sql text eol=lf

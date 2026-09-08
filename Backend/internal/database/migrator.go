@@ -25,10 +25,19 @@ const migrationLockID int64 = 727_300_101
 var ErrSchemaNotInitialized = errors.New("schema_migrations table is not initialized")
 
 type migration struct {
-	version  int64
-	name     string
-	sql      string
-	checksum string
+	version      int64
+	name         string
+	sql          string
+	checksum     string
+	crlfChecksum string
+}
+
+// Checkouts must agree on executed SQL and the checksum stored by new
+// migrations. Databases created from an exact CRLF checkout of the same SQL
+// remain verifiable; SQL changes, names, missing versions and future schemas
+// still fail closed. No applied migration is rewritten or executed again.
+func (m migration) matchesChecksum(value string) bool {
+	return value == m.checksum || (m.crlfChecksum != "" && value == m.crlfChecksum)
 }
 
 type Migrator struct {
@@ -88,7 +97,7 @@ func (m *Migrator) Up(ctx context.Context) error {
 	}
 	for _, item := range all {
 		if checksum, ok := applied[item.version]; ok {
-			if checksum != item.checksum {
+			if !item.matchesChecksum(checksum) {
 				return fmt.Errorf("migration %d checksum changed after application", item.version)
 			}
 			continue
@@ -222,7 +231,7 @@ func verifyAppliedMigrationIdentities(ctx context.Context, conn *pgxpool.Conn, a
 		if name != item.name {
 			return fmt.Errorf("schema migration %d name changed after application: database=%s application=%s", version, name, item.name)
 		}
-		if checksum != item.checksum {
+		if !item.matchesChecksum(checksum) {
 			return fmt.Errorf("schema migration %d checksum changed after application: database=%s application=%s", version, checksum, item.checksum)
 		}
 		seen[version] = struct{}{}
@@ -323,12 +332,15 @@ func loadMigrations(source fs.FS) ([]migration, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read migration %q: %w", entry.Name(), err)
 		}
-		hash := sha256.Sum256(contents)
+		sql := strings.ReplaceAll(string(contents), "\r\n", "\n")
+		hash := sha256.Sum256([]byte(sql))
+		crlfHash := sha256.Sum256([]byte(strings.ReplaceAll(sql, "\n", "\r\n")))
 		items = append(items, migration{
-			version:  version,
-			name:     entry.Name(),
-			sql:      string(contents),
-			checksum: hex.EncodeToString(hash[:]),
+			version:      version,
+			name:         entry.Name(),
+			sql:          sql,
+			checksum:     hex.EncodeToString(hash[:]),
+			crlfChecksum: hex.EncodeToString(crlfHash[:]),
 		})
 		seen[version] = entry.Name()
 	}
