@@ -1,0 +1,22 @@
+{
+  "evidence_kind": "source_static_and_adapter_validation",
+  "captured_at": "2026-09-08T06:48:11.5492496Z",
+  "payload_commit": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d",
+  "toolbox_commit": "f295a961ad888348fcf505945d4cd46701c22713",
+  "fixed_game_exe_path": "C:\\Steam\\steamapps\\common\\Boundary\\ProjectBoundary\\Binaries\\Win64\\ProjectBoundarySteam-Win64-Shipping.exe",
+  "fixed_game_exe_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+  "payload_release_dll_sha256": "9897aaa4b58286c308b07fa05f52c9125000144cce14de247467cf1d7b3509e4",
+  "payload_release_build": "MSBuild Release x64 exit 0",
+  "payload_ctest": "24/24 passed",
+  "unique_remote_seat_semantics": "remoteSeatCount is derived from a per-allocation frozen playerId set; reconnects do not increment it",
+  "proof_scope": "native authority proof is cleared on native world identity change and signed route-generation advance; a fresh remote native admission plus backend confirmation is required",
+  "authority_start_review": "pre-start path uses local platform login checkpoint then signed allocation/start authority; final authority proof/playable state is not used as the pre-start gate",
+  "capability_bit": "native_authority_admission_verified remains false until a separate real-game receipt",
+  "real_game_runtime": "NOT_RUN",
+  "two_machine_online": "NOT_RUN",
+  "three_machine_online": "NOT_RUN",
+  "reason": "No real game/backend schema48 validation was run in this worker turn; no runtime receipt is claimed.",
+  "build_log": ".tmp/ready-multiplayer-20260908/native/native-proof-world-route-build.log",
+  "tests_build_log": ".tmp/ready-multiplayer-20260908/native/native-proof-world-route-tests-build.log",
+  "tests_log": ".tmp/ready-multiplayer-20260908/native/native-proof-world-route-tests.log"
+}

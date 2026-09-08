@@ -1,0 +1,286 @@
+{
+  "observed_at": "2026-09-08T07:22:02.969869+00:00",
+  "schema": {
+    "exit_code": 0,
+    "stdout": "48",
+    "stderr": ""
+  },
+  "containers": [
+    {
+      "name": "project-rebound-control-plane-meta-server-1",
+      "image": "ghcr.io/dubnium-105/projectrebound-meta-server:sha-584e000baf024e381c5bdb3417ad7ac879bebdca",
+      "image_id": "sha256:98e43aa31c6e50a04af23ee250055bc2dda7ce94610824a8b5f398381452de87",
+      "digests": [
+        "ghcr.io/dubnium-105/projectrebound-meta-server@sha256:98e43aa31c6e50a04af23ee250055bc2dda7ce94610824a8b5f398381452de87"
+      ],
+      "running": true,
+      "health": "healthy",
+      "restart_count": 0,
+      "started_at": "2026-09-08T06:49:57.57984367Z",
+      "oci_revision": "584e000baf024e381c5bdb3417ad7ac879bebdca"
+    },
+    {
+      "name": "project-rebound-control-plane-grafana-1",
+      "image": "grafana/grafana:11.4.0",
+      "image_id": "sha256:d8ea37798ccc41061a62ab080f2676dda6bf7815558499f901bdb0f533a456fb",
+      "digests": [
+        "grafana/grafana@sha256:d8ea37798ccc41061a62ab080f2676dda6bf7815558499f901bdb0f533a456fb"
+      ],
+      "running": true,
+      "health": null,
+      "restart_count": 0,
+      "started_at": "2026-09-08T06:49:20.561571471Z",
+      "oci_revision": null
+    },
+    {
+      "name": "project-rebound-control-plane-prometheus-1",
+      "image": "prom/prometheus:v2.55.1",
+      "image_id": "sha256:2659f4c2ebb718e7695cb9b25ffa7d6be64db013daba13e05c875451cf51b0d3",
+      "digests": [
+        "prom/prometheus@sha256:2659f4c2ebb718e7695cb9b25ffa7d6be64db013daba13e05c875451cf51b0d3"
+      ],
+      "running": true,
+      "health": null,
+      "restart_count": 0,
+      "started_at": "2026-09-08T06:49:19.770229249Z",
+      "oci_revision": null
+    },
+    {
+      "name": "project-rebound-control-plane-control-plane-1",
+      "image": "ghcr.io/dubnium-105/projectrebound-control-plane:sha-584e000baf024e381c5bdb3417ad7ac879bebdca",
+      "image_id": "sha256:1bcacadf43f14a777304bc06f0acb0c0d86890400a7f34476f67b7a0143707af",
+      "digests": [
+        "ghcr.io/dubnium-105/projectrebound-control-plane@sha256:1bcacadf43f14a777304bc06f0acb0c0d86890400a7f34476f67b7a0143707af"
+      ],
+      "running": true,
+      "health": "healthy",
+      "restart_count": 0,
+      "started_at": "2026-09-08T06:49:13.462363084Z",
+      "oci_revision": "584e000baf024e381c5bdb3417ad7ac879bebdca"
+    },
+    {
+      "name": "project-rebound-control-plane-blackbox-exporter-1",
+      "image": "prom/blackbox-exporter:v0.26.0",
+      "image_id": "sha256:92e05d5fe0df01d3980518dc42f07b778a8997048b57392ebc7f7391ebd7bb06",
+      "digests": [
+        "prom/blackbox-exporter@sha256:92e05d5fe0df01d3980518dc42f07b778a8997048b57392ebc7f7391ebd7bb06"
+      ],
+      "running": true,
+      "health": null,
+      "restart_count": 0,
+      "started_at": "2026-09-08T06:49:09.934747785Z",
+      "oci_revision": null
+    },
+    {
+      "name": "project-rebound-control-plane-admin-web-1",
+      "image": "ghcr.io/dubnium-105/projectrebound-admin-web:sha-584e000baf024e381c5bdb3417ad7ac879bebdca",
+      "image_id": "sha256:438067975ffdcfa40c1cf4ceb38fb30cf83050848941b60426e933d54e043d30",
+      "digests": [
+        "ghcr.io/dubnium-105/projectrebound-admin-web@sha256:438067975ffdcfa40c1cf4ceb38fb30cf83050848941b60426e933d54e043d30"
+      ],
+      "running": true,
+      "health": null,
+      "restart_count": 0,
+      "started_at": "2026-09-08T06:49:09.926050618Z",
+      "oci_revision": "584e000baf024e381c5bdb3417ad7ac879bebdca"
+    },
+    {
+      "name": "project-rebound-edge-relay-edge-relay-1",
+      "image": "ghcr.io/dubnium-105/projectrebound-edge-relay:sha-584e000baf024e381c5bdb3417ad7ac879bebdca",
+      "image_id": "sha256:01ea88a73a4f066451d269bfd8789f6b2fbc475d64666da72df1e742c0de6824",
+      "digests": [
+        "ghcr.io/dubnium-105/projectrebound-edge-relay@sha256:01ea88a73a4f066451d269bfd8789f6b2fbc475d64666da72df1e742c0de6824"
+      ],
+      "running": true,
+      "health": null,
+      "restart_count": 0,
+      "started_at": "2026-09-08T06:48:47.789347914Z",
+      "oci_revision": "584e000baf024e381c5bdb3417ad7ac879bebdca"
+    },
+    {
+      "name": "project-rebound-control-plane-postgres-1",
+      "image": "postgres:17-alpine",
+      "image_id": "sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73",
+      "digests": [
+        "postgres@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73"
+      ],
+      "running": true,
+      "health": "healthy",
+      "restart_count": 0,
+      "started_at": "2026-08-28T07:12:57.642675573Z",
+      "oci_revision": null
+    },
+    {
+      "name": "project-rebound-control-plane-redis-1",
+      "image": "redis:7-alpine",
+      "image_id": "sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf",
+      "digests": [
+        "redis@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf"
+      ],
+      "running": true,
+      "health": "healthy",
+      "restart_count": 0,
+      "started_at": "2026-08-28T07:12:57.644042026Z",
+      "oci_revision": null
+    },
+    {
+      "name": "project-rebound-control-plane-caddy-1",
+      "image": "caddy:2-alpine",
+      "image_id": "sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
+      "digests": [
+        "caddy@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648"
+      ],
+      "running": true,
+      "health": null,
+      "restart_count": 0,
+      "started_at": "2026-08-12T15:38:16.505276506Z",
+      "oci_revision": null
+    },
+    {
+      "name": "project-rebound-control-plane-minio-1",
+      "image": "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z.hotfix.7aa24e772",
+      "image_id": "sha256:cf3dadcfa1fb0324f43958bad1abba986d53c4ecc04d4d50b46c7dcda28bd3cd",
+      "digests": [
+        "quay.io/minio/minio@sha256:cf3dadcfa1fb0324f43958bad1abba986d53c4ecc04d4d50b46c7dcda28bd3cd"
+      ],
+      "running": true,
+      "health": "healthy",
+      "restart_count": 0,
+      "started_at": "2026-08-08T17:26:02.180775019Z",
+      "oci_revision": "5c15584ae6aac083b2177faa6dbc43ad1df00e93"
+    }
+  ],
+  "public_http_checks": [
+    {
+      "url": "https://api.project-rebound.space/health/live",
+      "http_status": 403,
+      "body": "error code: 1010\n"
+    },
+    {
+      "url": "https://api.project-rebound.space/health/ready",
+      "http_status": 403,
+      "body": "error code: 1010\n"
+    },
+    {
+      "url": "https://api.project-rebound.space/v1/client/config",
+      "http_status": 403,
+      "body": "error code: 1010\n"
+    },
+    {
+      "url": "https://api.project-rebound.space/internal/metrics",
+      "http_status": 403,
+      "body": "error code: 1010\n"
+    },
+    {
+      "url": "https://api.project-rebound.space/v1/admin/players",
+      "http_status": 403,
+      "body": "error code: 1010\n"
+    },
+    {
+      "url": "https://api.project-rebound.space/v1/p2p-rooms",
+      "http_status": 403,
+      "body": "error code: 1010\n"
+    },
+    {
+      "url": "https://cnapi.project-rebound.space/health/ready",
+      "http_status": 200,
+      "body": {
+        "data": {
+          "status": "ready"
+        },
+        "request_id": "req_1d8f5b6dc8124258b46799a78fbfab9e"
+      }
+    },
+    {
+      "url": "https://cnapi.project-rebound.space/v1/client/config",
+      "http_status": 200,
+      "body": {
+        "data": {
+          "api_version": "v1",
+          "protocol_version": 2,
+          "minimum_client_version": "1.0.0",
+          "realtime_url": "wss://api.project-rebound.space/v1/realtime/connect",
+          "stun_servers": [
+            "stun:stun.l.google.com:19302"
+          ],
+          "relay": {
+            "available": true,
+            "regions": [
+              {
+                "id": "lax",
+                "available": true
+              }
+            ]
+          },
+          "features": {
+            "p2p_rooms": true,
+            "relay": true,
+            "dedicated_servers": true,
+            "vnt_rooms": false,
+            "strict_roster_v1": true,
+            "accept_new_lobbies": true
+          }
+        },
+        "request_id": "req_acf708f4c08b4d0bb2d7deaf8ef684b4"
+      }
+    },
+    {
+      "url": "https://meta.project-rebound.space/health/live",
+      "http_status": 200,
+      "body": {
+        "data": {
+          "status": "live"
+        },
+        "request_id": "req_a326ac339046419887cf434ed6a35359"
+      }
+    },
+    {
+      "url": "https://meta.project-rebound.space/health/ready",
+      "http_status": 200,
+      "body": {
+        "data": {
+          "status": "ready"
+        },
+        "request_id": "req_ff60870ccbf04fd6b4cb7c477647679c"
+      }
+    },
+    {
+      "url": "http://127.0.0.1:18082/health/ready",
+      "http_status": 200,
+      "body": {
+        "data": {
+          "status": "ready"
+        },
+        "request_id": "req_577e42a11dfe4c6c9449e3fec6e7a5ae"
+      }
+    }
+  ],
+  "backups": [
+    {
+      "path": "/opt/projectrebound-deploy/backups/projectrebound-20260908T030310Z.dump",
+      "bytes": 1692584,
+      "sha256": "25211a35364d0ad6097f562451cfb0e1e5d7247450c20f7c3f0c9e53745feb0a",
+      "pg_restore_list_exit_code": 0,
+      "restore_test": "NOT_RUN"
+    },
+    {
+      "path": "/opt/projectrebound-deploy/backups/projectrebound-20260908T064843Z.dump",
+      "bytes": 1693799,
+      "sha256": "6805fc37363189188d5e920012abdae442a4c2d914a30e6fcedd3caab3e6185c",
+      "pg_restore_list_exit_code": 0,
+      "restore_test": "NOT_RUN"
+    }
+  ],
+  "disk_free_bytes": 3699286016,
+  "current_releases": {
+    "current-control-plane": "/opt/projectrebound-deploy/releases/sha-584e000baf024e381c5bdb3417ad7ac879bebdca-34196303351-1-control",
+    "current-meta-server": "/opt/projectrebound-deploy/releases/sha-584e000baf024e381c5bdb3417ad7ac879bebdca-34196303351-1-meta",
+    "current-edge-relay": "/opt/projectrebound-deploy/releases/sha-584e000baf024e381c5bdb3417ad7ac879bebdca-34196303351-1-edge-primary"
+  },
+  "environment": {
+    "sha256": "26e48f4c706f59047ba62def8d09cb1404e4f4d3fa0b0ed0a0f8a3e486673414",
+    "accept_new_lobbies": "true",
+    "retired_strict_flag_present": false
+  },
+  "native_gameplay": "NOT_RUN"
+}

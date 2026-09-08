@@ -1,0 +1,37 @@
+
+> frontend@0.9.12 test:ui
+> node --test tests/ui-contract.test.mjs
+
+✔ failed credential revocation cannot restore an old authenticated session (0.8627ms)
+✔ cleanup failure restores only the freshly queried authenticated session (0.289ms)
+✔ launch events preserve online role and reject prior account, Attempt and run (0.2797ms)
+✔ late old termination and duplicate events cannot overwrite a new launch (0.8463ms)
+✔ a newer accepted operation replaces the displayed operation without accepting stale acceptance (0.1221ms)
+✔ online success is shown as a room session and requires real nonempty process IDs (0.166ms)
+✔ isolated PvE has no online session or roster scope (0.1021ms)
+✔ a delayed game-exit observation cannot clear a newer operation (0.1143ms)
+✔ match operation events buffer across the snapshot race and replay in order (1.2062ms)
+✔ buffered match events cannot cross account epochs (0.2787ms)
+✔ a terminal event remains admissible after its authoritative snapshot clears live scope (0.1006ms)
+✔ native validation receipts require the complete current operation scope (0.2472ms)
+✔ native validation remains admissible after terminal snapshot scope is cleared (0.1205ms)
+✔ late native validation snapshot responses cannot replace a newer scope (0.1212ms)
+✔ sensitive actions require explicit confirmation payloads and native argument names (0.4176ms)
+✔ catalog loading uses the native JSON command and file downloads remain ordinary links (0.1262ms)
+✔ frontend update and download flows never read file response bodies (0.3597ms)
+✔ the authoritative lobby UI owns roster operations and keeps transport details below the launch page (0.1655ms)
+✔ native proof collection has a visible owner action and cannot become Playable (0.0769ms)
+✔ the player room UI offers Boundary's ten-player room capacity (0.1365ms)
+✔ the room lobby explains host membership and the two-player launch gate (0.0791ms)
+✔ signed-in users can redeem an invitation without logging out (0.0647ms)
+✔ modal dismissal is locked while a confirmed operation is busy (0.0634ms)
+✔ Settings receives update and download state (0.1428ms)
+✔ release version labels derive from package metadata instead of stale literals (0.1142ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 111.4541

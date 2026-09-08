@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-09-08T07:44:23.183949+00:00",
+  "status": "PASS_PACKAGE_BYTES_AND_TEST_SIGNATURES_ONLY",
+  "release_ready": false,
+  "package_id": "rebound-hardware-test-20260908-r3",
+  "artifact": {
+    "path": "artifacts/hardware-test-20260908-r3/rebound-hardware-test-20260908-r3-windows-x64.zip",
+    "sha256": "e9d2c147c451d40234bfbcea746c064f571ee2ad373851110670bf22ab4cb877",
+    "bytes": 23487404
+  },
+  "files": 23,
+  "archive_byte_check": "PASS",
+  "manifest_sha256": "e50db683ef6cfb3ece78439dfbc306dfdba6d05fa16a621a5eec88c4bc5a6469",
+  "source_commits": {
+    "ProjectRebound": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d",
+    "Toolbox": "52d31e830a4b6cad99e6b592380b0c6c47468e78"
+  },
+  "backend_implementation_source_commit": "5e1953b525cc27e8e209abb877c938c4920c16a7",
+  "deployed_backend_ci_commit": "584e000baf024e381c5bdb3417ad7ac879bebdca",
+  "backend_schema_required": 48,
+  "backend_schema_observed": 48,
+  "feature_mode": "Tauri custom-protocol, embedded assets, product features, no lab-testing",
+  "build_command": "npm.cmd --prefix frontend exec -- tauri build --no-bundle --ci",
+  "build_exit_code": 0,
+  "signatures": {
+    "payload": {
+      "schema_version": 1,
+      "status": "PASS_TEST_SIGNATURE_ONLY",
+      "started_at": "2026-09-08T07:03:52.8506747Z",
+      "finished_at": "2026-09-08T07:03:53.2990620Z",
+      "input_path": "C:\\wksp\\ProjectRebound\\Payload\\x64\\Release\\Payload.dll",
+      "input_sha256": "9897aaa4b58286c308b07fa05f52c9125000144cce14de247467cf1d7b3509e4",
+      "output_path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution\\signed\\Payload.dll",
+      "output_sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+      "output_bytes": 2098488,
+      "signer_subject": "CN=Project Rebound Strict Roster Lab",
+      "signer_thumbprint": "B041917B2322ED509435B72356BA5AD9EA053378",
+      "signer_valid_until": "2027-08-26T14:32:08.0000000Z",
+      "authenticode_status": "UnknownError",
+      "win_verify_trust_hresult": -2146762487,
+      "private_key_exported": false,
+      "trust_store_modified": false,
+      "timestamping": "NOT_RUN",
+      "release_ready": false,
+      "failure_type": null,
+      "script_sha256": "7a33c2be43467fab835a36c3a3d396d38d5bc5c75b10a80de306761fba26ee85",
+      "scope": "Actual test Authenticode signing and signature verification only; no native gameplay, production signing, updater publication, or full release acceptance."
+    },
+    "toolbox": {
+      "schema_version": 1,
+      "status": "PASS_TEST_SIGNATURE_ONLY",
+      "started_at": "2026-09-08T07:39:38.0332294Z",
+      "finished_at": "2026-09-08T07:39:39.2331492Z",
+      "input_path": "C:\\wksp\\ProjectReboundToolbox\\src-tauri\\target\\release\\rebound_toolbox_tauri.exe",
+      "input_sha256": "9467a8bf64f850e01a62d5550b3c3e26607c64b64a71a396968775d140723076",
+      "output_path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution\\signed\\rebound_toolbox_tauri.exe",
+      "output_sha256": "1a9cdabe49e0ea8f8d355c90e4fa6683b73adbe0b82a76c5c1337608a8e15f3c",
+      "output_bytes": 49363256,
+      "signer_subject": "CN=Project Rebound Strict Roster Lab",
+      "signer_thumbprint": "B041917B2322ED509435B72356BA5AD9EA053378",
+      "signer_valid_until": "2027-08-26T14:32:08.0000000Z",
+      "authenticode_status": "UnknownError",
+      "win_verify_trust_hresult": -2146762487,
+      "private_key_exported": false,
+      "trust_store_modified": false,
+      "timestamping": "NOT_RUN",
+      "release_ready": false,
+      "failure_type": null,
+      "script_sha256": "7a33c2be43467fab835a36c3a3d396d38d5bc5c75b10a80de306761fba26ee85",
+      "scope": "Actual test Authenticode signing and signature verification only; no native gameplay, production signing, updater publication, or full release acceptance."
+    }
+  },
+  "native_authority_admission_verified": false,
+  "three_machine_native_admission": "NOT_RUN",
+  "two_or_three_machine_playable": "BLOCKED_PENDING_NATIVE_BUILD_CAPABILITY_AND_ACTUAL_PAWN_CONTROL_EVIDENCE",
+  "local_startup": "Recorded separately after actual execution; this receipt provides no startup acceptance.",
+  "distribution": {
+    "kind": "portable test delta over a complete existing Rebound runtime",
+    "updater_published": false,
+    "externally_uploaded": false,
+    "contains_game": false,
+    "contains_private_key": false,
+    "requires_existing_complete_rebound_runtime": true,
+    "three_machine_instructions": "Tools/Distribution/TEST-MATRIX.zh-CN.md",
+    "installer_rollback_included": true
+  },
+  "evidence": [
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-final/strict-candidate.json",
+      "sha256": "0ea2ec11aeaa3f9b4fcb45b19277cf91242d55f3274a7dfc434fdeeb6caedc8a",
+      "bytes": 1824
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-final/toolbox-final-build-20260908T073413Z.log",
+      "sha256": "3b60e2e448a7241e6644114f288829310327f684b304ec985f7045e385e0e7a9",
+      "bytes": 1881
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-final/payload-signature-receipt.json",
+      "sha256": "fc8e2763d9dcbc602c485c049bc21573935b28406312b5976e905150ffd72e38",
+      "bytes": 1314
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-final/toolbox-signature-receipt.json",
+      "sha256": "25bca489858c98c03e65c40c9d3c9012aac1be505cb6dd4a9da422a24342243e",
+      "bytes": 1355
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-final/package-build-receipt.json",
+      "sha256": "3e85a273a9ea9e402cd8962f1cac836b3071722da67a344ccded0639442b7a2b",
+      "bytes": 948
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-final/final-build-source-receipt.json",
+      "sha256": "a843a468d54b1e1d7f1f81570b1181a3232e07b396ad7de677d84fa8a7dd3914",
+      "bytes": 5248
+    }
+  ],
+  "limitations": [
+    "The test certificate is not a Windows trusted root. WinVerifyTrust returns CERT_E_UNTRUSTEDROOT (-2146762487), explicitly recorded; no root certificate was installed.",
+    "No production release signing or timestamping is claimed.",
+    "The final Payload 98f5709 and Toolbox 52d31e8 were tested and built locally. Public CI 584e000 is the independently built deployed Backend candidate.",
+    "Normal three-machine native collection still requires three independent real Steam sessions. One remote player reconnecting twice cannot satisfy the two-member requirement.",
+    "Archived intermediate receipts retain their actual earlier state and are not relabeled as final runtime evidence."
+  ]
+}

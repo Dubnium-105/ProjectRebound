@@ -1,0 +1,53 @@
+Test project C:/wksp/ProjectRebound/Payload/Tests/out
+      Start  1: command_protocol_tests
+ 1/24 Test  #1: command_protocol_tests ..................   Passed    0.01 sec
+      Start  2: strict_roster_policy_tests
+ 2/24 Test  #2: strict_roster_policy_tests ..............   Passed    0.01 sec
+      Start  3: ed25519_verifier_tests
+ 3/24 Test  #3: ed25519_verifier_tests ..................   Passed    0.01 sec
+      Start  4: strict_roster_steam_auth_tests
+ 4/24 Test  #4: strict_roster_steam_auth_tests ..........   Passed    0.01 sec
+      Start  5: command_line_policy_tests
+ 5/24 Test  #5: command_line_policy_tests ...............   Passed    0.01 sec
+      Start  6: strict_authority_start_dispatch_tests
+ 6/24 Test  #6: strict_authority_start_dispatch_tests ...   Passed    0.01 sec
+      Start  7: strict_authority_lease_tests
+ 7/24 Test  #7: strict_authority_lease_tests ............   Passed    0.01 sec
+      Start  8: strict_roster_cleanup_receipt_tests
+ 8/24 Test  #8: strict_roster_cleanup_receipt_tests .....   Passed    0.01 sec
+      Start  9: native_login_grant_policy_tests
+ 9/24 Test  #9: native_login_grant_policy_tests .........   Passed    0.01 sec
+      Start 10: native_match_scope_tests
+10/24 Test #10: native_match_scope_tests ................   Passed    0.01 sec
+      Start 11: server_hook_policy_tests
+11/24 Test #11: server_hook_policy_tests ................   Passed    0.01 sec
+      Start 12: local_qos_discovery_policy_tests
+12/24 Test #12: local_qos_discovery_policy_tests ........   Passed    0.01 sec
+      Start 13: unreal_container_tests
+13/24 Test #13: unreal_container_tests ..................   Passed    0.01 sec
+      Start 14: loadout_state_policy_tests
+14/24 Test #14: loadout_state_policy_tests ..............   Passed    0.01 sec
+      Start 15: respawn_state_policy_tests
+15/24 Test #15: respawn_state_policy_tests ..............   Passed    0.01 sec
+      Start 16: managed_possession_sync_policy_tests
+16/24 Test #16: managed_possession_sync_policy_tests ....   Passed    0.01 sec
+      Start 17: seamless_intro_camera_policy_tests
+17/24 Test #17: seamless_intro_camera_policy_tests ......   Passed    0.01 sec
+      Start 18: dedicated_multi_match_policy_tests
+18/24 Test #18: dedicated_multi_match_policy_tests ......   Passed    0.01 sec
+      Start 19: join_ui_sync_policy_tests
+19/24 Test #19: join_ui_sync_policy_tests ...............   Passed    0.01 sec
+      Start 20: replication_world_gate_policy_tests
+20/24 Test #20: replication_world_gate_policy_tests .....   Passed    0.01 sec
+      Start 21: direct_match_ui_cleanup_policy_tests
+21/24 Test #21: direct_match_ui_cleanup_policy_tests ....   Passed    0.01 sec
+      Start 22: archive_completion_policy_tests
+22/24 Test #22: archive_completion_policy_tests .........   Passed    0.01 sec
+      Start 23: weapon_archive_policy_tests
+23/24 Test #23: weapon_archive_policy_tests .............   Passed    0.01 sec
+      Start 24: command_framework_tests
+24/24 Test #24: command_framework_tests .................   Passed    0.36 sec
+
+100% tests passed, 0 tests failed out of 24
+
+Total Test time (real) =   0.57 sec

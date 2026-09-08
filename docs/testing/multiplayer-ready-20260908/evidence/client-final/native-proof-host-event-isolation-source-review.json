@@ -1,0 +1,41 @@
+{
+  "evidence_kind": "source_static_and_behavior_validation",
+  "captured_at": "2026-09-08T07:33:03.6537345Z",
+  "toolbox_commit": "52d31e830a4b6cad99e6b592380b0c6c47468e78",
+  "payload_parser_commit": "dd60471aa9c9d5770f185f0349f6f06c8921268b",
+  "fixed_game_exe_path": "C:\\Steam\\steamapps\\common\\Boundary\\ProjectBoundary\\Binaries\\Win64\\ProjectBoundarySteam-Win64-Shipping.exe",
+  "fixed_game_exe_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+  "payload_signed_distribution_path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution\\signed\\Payload.dll",
+  "payload_signed_distribution_sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+  "runtime_change": "Toolbox keeps Backend HOST ownership separate from the successful native confirm_client_match_connection ACK; HOST NATIVE_ADMITTED/CONNECTED events advance cursor only after both exact proofs match attempt/session/world/roster/route/player/generation/nonce/operation/run/session; HOST DISCONNECTED calls Backend host/disconnected before release; MEMBER events require non-empty grant.",
+  "bootstrap_behavior": "An empty-grant HOST event arriving before ownership or native confirmation retains the cursor for retry; an empty-grant non-HOST event or HOST RESERVED phase fails closed.",
+  "cleanup_behavior": "Exact disconnect and terminal cleanup clear the independent native confirmation; stale terminal cleanup cannot clear a newer active HOST scope.",
+  "toolbox_fmt": "cargo fmt --check passed",
+  "toolbox_cargo_test": "311 passed, 0 failed",
+  "toolbox_targeted_behavior_tests": [
+    "host_connection_events_require_owned_backend_scope_and_native_ack",
+    "host_connection_event_state_rejects_unexpected_reserved_phase",
+    "host_connection_ownership_keeps_old_nonce_until_exact_backend_disconnect",
+    "native_validation_waits_for_all_frozen_remote_seats",
+    "native_validation_request_cannot_cross_lobbies_with_same_revision"
+  ],
+  "toolbox_tauri_check": "passed with 4 pre-existing dead-code warnings",
+  "parser_scope": "Parser commit dd60471 accepts empty grant only as untrusted event observation; receipt validation remains Member-strict.",
+  "allocation_roster_binding": "expected_remote_seat_count equals frozen signed allocation roster MEMBER count",
+  "expected_remote_seats_2_machine": 1,
+  "expected_remote_seats_3_machine": 2,
+  "proof_scope": "Payload proof remains bound to world/route; Toolbox binds Backend-confirmed HOST scope, operation sequence, nonce, lobby/attempt/revision/session/run/event.",
+  "playable_separation": "Diagnostic completion never publishes Playable or build capability.",
+  "strict_path": "No strict-off, empty token, synthetic grant/reserve/confirm/seat, direct open, or profile-HTTP success substitution.",
+  "real_game_runtime": "NOT_RUN",
+  "two_machine_online": "NOT_RUN",
+  "three_machine_online": "NOT_RUN",
+  "status": "TOOLBOX_HOST_EVENT_FIX_COMMITTED_PENDING_FINAL_EXE_AND_RUNTIME",
+  "supersedes": "native-proof-wait-all-source-review.json",
+  "reason": "52d31e8 fixes HOST event handling and rejects impossible HOST RESERVED ordering. Static and behavior checks pass; no real game process or online session was started in this worker turn.",
+  "evidence_logs": [
+    ".tmp/ready-multiplayer-20260908/native/native-proof-host-event-isolation-toolbox-cargo-test.log",
+    ".tmp/ready-multiplayer-20260908/native/native-proof-host-event-isolation-toolbox-fmt.log",
+    ".tmp/ready-multiplayer-20260908/native/native-proof-host-event-isolation-toolbox-tauri-check.log"
+  ]
+}

@@ -1,0 +1,34 @@
+﻿{
+    "schema_version":  1,
+    "generated_at":  "2026-09-08T07:35:38.0115245Z",
+    "source_commit":  "52d31e830a4b6cad99e6b592380b0c6c47468e78",
+    "source_dirty":  false,
+    "frontend":  "tauri",
+    "contract_version":  "strict-authoritative-online-v1",
+    "ipc_protocol":  "strict-roster-v2",
+    "backend_schema":  48,
+    "game_sha256":  "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+    "payload_path":  "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution\\signed\\Payload.dll",
+    "payload_sha256":  "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+    "toolbox_path":  "C:\\wksp\\ProjectReboundToolbox\\src-tauri\\target\\release\\rebound_toolbox_tauri.exe",
+    "toolbox_sha256":  "9467a8bf64f850e01a62d5550b3c3e26607c64b64a71a396968775d140723076",
+    "build_driver":  "tauri-cli",
+    "build_command":  "npm.cmd --prefix frontend exec -- tauri build --no-bundle --ci",
+    "tauri_cli_version":  "tauri-cli 2.11.4",
+    "tauri_frontend_dist":  "../frontend/dist/client",
+    "frontend_index_sha256":  "bfc83bd498b81f219436e62513e8a5e36dfd5a1fafba01cf6bd3ab4c2fa08924",
+    "product_default_features":  [
+
+                                 ],
+    "product_dependency_features":  {
+                                        "rebound_toolbox":  [
+                                                                "vnt"
+                                                            ]
+                                    },
+    "custom_protocol":  true,
+    "lab_testing":  false,
+    "production_assets_configured":  true,
+    "authenticode_status":  "NotSigned",
+    "release_ready":  false,
+    "note":  "Local candidate only. Build/hash collection does not prove native admission, acceptance, or release signing."
+}

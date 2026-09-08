@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "created_at_utc": "2026-09-08T07:41:40.1915028Z",
+  "status": "BUILT_UNSIGNED_TEST_CANDIDATE",
+  "scope": "Toolbox production custom-protocol build only",
+  "source": {
+    "repository": "C:\\wksp\\ProjectReboundToolbox",
+    "head": "52d31e830a4b6cad99e6b592380b0c6c47468e78",
+    "worktree_clean": true,
+    "payload_parser_commit": "dd60471aa9c9d5770f185f0349f6f06c8921268b",
+    "payload_sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+    "payload_path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution\\signed\\Payload.dll"
+  },
+  "build": {
+    "command": "npm.cmd --prefix frontend exec -- tauri build --no-bundle --ci",
+    "exit_code": 0,
+    "log": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution\\toolbox-final-build-20260908T073413Z.log",
+      "sha256": "3b60e2e448a7241e6644114f288829310327f684b304ec985f7045e385e0e7a9",
+      "bytes": 1881
+    },
+    "strict_candidate": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution\\strict-candidate.json",
+      "sha256": "0ea2ec11aeaa3f9b4fcb45b19277cf91242d55f3274a7dfc434fdeeb6caedc8a",
+      "bytes": 1824
+    },
+    "toolbox_exe": {
+      "path": "C:\\wksp\\ProjectReboundToolbox\\src-tauri\\target\\release\\rebound_toolbox_tauri.exe",
+      "sha256": "9467a8bf64f850e01a62d5550b3c3e26607c64b64a71a396968775d140723076",
+      "bytes": 49361408
+    },
+    "authenticode_status": "NotSigned",
+    "custom_protocol": true,
+    "lab_testing": false,
+    "release_ready": false
+  },
+  "verification": [
+    {
+      "name": "Toolbox Rust host-event scope suite",
+      "source_commit": "52d31e830a4b6cad99e6b592380b0c6c47468e78",
+      "result": "311 passed, 0 failed, 0 ignored",
+      "log": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\native-proof-host-event-isolation-toolbox-cargo-test.log",
+        "sha256": "043b2a0b80a020eaff82124ab6f7832ef223901a67dac8bec0b1a8324c077521",
+        "bytes": 28630
+      },
+      "review": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\native-proof-host-event-isolation-source-review.json",
+        "sha256": "657a325b970513653ceabd45e29392d09d7e1f10780272038c9c4ee4796ab8f1",
+        "bytes": 3626
+      }
+    },
+    {
+      "name": "Frontend UI suite",
+      "source_commit": "d9fc026dd3689da46ad9104a8165a5ab8d940def",
+      "result": "25 passed, 0 failed",
+      "log": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\native-proof-wait-all-frontend-ui.log",
+        "sha256": "c5a04df8664bf704da2d962356d398e5b36de606cce5f256d29016a9394d5788",
+        "bytes": 2403
+      },
+      "review": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\native-proof-wait-all-source-review.json",
+        "sha256": "efd3d719bed6550f3d0f4276e37295c8424ccfefb7ed009a303439715cd23cc7",
+        "bytes": 3426
+      }
+    },
+    {
+      "name": "Frontend bridge suite",
+      "source_commit": "d9fc026dd3689da46ad9104a8165a5ab8d940def",
+      "result": "13 passed, 0 failed",
+      "log": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\native-proof-wait-all-frontend-bridge.log",
+        "sha256": "26e959d4efefb8884db0c04b73942d5ded6554bcb250bde59c74a54b01adc1d7",
+        "bytes": 1305
+      },
+      "review": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\native-proof-wait-all-source-review.json",
+        "sha256": "efd3d719bed6550f3d0f4276e37295c8424ccfefb7ed009a303439715cd23cc7",
+        "bytes": 3426
+      }
+    }
+  ],
+  "host_event_fixes": [
+    {
+      "commit": "dd60471aa9c9d5770f185f0349f6f06c8921268b",
+      "files": [
+        "src/server/pipe.rs"
+      ],
+      "summary": "Preserves HOST connection events with empty grant_jti as untrusted observation while keeping Member admission receipt fields strict."
+    },
+    {
+      "commit": "d9fc026dd3689da46ad9104a8165a5ab8d940def",
+      "files": [
+        "src/core/runtime.rs"
+      ],
+      "summary": "Waits for the complete frozen remote roster and preserves lobby/session scope; predecessor evidence only."
+    },
+    {
+      "commit": "52d31e830a4b6cad99e6b592380b0c6c47468e78",
+      "files": [
+        "src/core/runtime.rs"
+      ],
+      "summary": "Gates HOST event cursor advancement on exact Backend/native confirmation scope and rejects impossible HOST RESERVED ordering."
+    }
+  ],
+  "limitations": [
+    "No real game process, Steam session, two-machine online run, or three-machine online run was executed.",
+    "No native admission or Playable PASS is claimed.",
+    "The 25 UI and 13 bridge frontend logs were run at d9fc026; frontend source was not changed by dd60471 or 52d31e, while the 311 Rust suite is for 52d31e.",
+    "The EXE is unsigned and release_ready remains false; signing and distribution are outside this receipt.",
+    "The signed Payload hash is recorded, but this receipt does not prove runtime compatibility or native acceptance."
+  ]
+}

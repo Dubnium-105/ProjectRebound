@@ -1,0 +1,25 @@
+
+> frontend@0.9.12 test:bridge
+> node --test tests/tauri-bridge.test.mjs
+
+✔ normalizes bare and wrapped collection event payloads (1.4347ms)
+✔ normalizes Rust string rejections and JavaScript errors (0.115ms)
+✔ normalizes nullable update channels and rejects malformed channel state (0.4389ms)
+✔ does not report a native bridge in Node (0.0937ms)
+✔ mock bridge exposes the automatic game path detection contract (1.1645ms)
+✔ mock bridge runs offline launch and authoritative lobby lifecycle with native response shapes (127.8819ms)
+✔ mock bridge failure injection leaves installation state unchanged (0.4977ms)
+✔ mock bridge exposes catalog and only advances ToolBox version after successful update (0.5515ms)
+✔ mock bridge does not advance launch, exit, or config state after rejection (151.8394ms)
+✔ authoritative lobby mutations require an installed mod and explicit P2P capability (0.6216ms)
+✔ action availability gates path, installation, Steam, busy, and running state (0.3536ms)
+✔ pausing new lobbies preserves existing lobby access and joining (0.1122ms)
+✔ invitation redemption updates capabilities without a new login (0.1861ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 389.6362

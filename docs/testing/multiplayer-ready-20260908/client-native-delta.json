@@ -1,0 +1,1063 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-08T07:42:44.898387+00:00",
+  "target": "strict_authoritative_online_only",
+  "release_ready": false,
+  "source_commits": {
+    "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d",
+    "Toolbox": "52d31e830a4b6cad99e6b592380b0c6c47468e78"
+  },
+  "rules": [
+    "Frozen original records remain unchanged.",
+    "Per-group source commits and component evidence do not constitute full breakpoint acceptance.",
+    "Current local startup is recorded separately after execution.",
+    "User can arrange three or more physical machines; only this Windows host is currently accessible.",
+    "No strict-off, empty Token/Grant bypass, synthetic native seats or direct open."
+  ],
+  "native_authority_admission_verified": false,
+  "summary": {
+    "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE": 24,
+    "NO_CHANGE_THIS_CLIENT_ROUND": 28
+  },
+  "change_groups": {
+    "production_build_and_package": {
+      "ids": [
+        1,
+        49,
+        50,
+        51,
+        52
+      ],
+      "repository": "Toolbox",
+      "commits": [
+        {
+          "commit": "47d53c722539e0a495ac9da14ed3863ddecfe473",
+          "modified_paths": [
+            "scripts/build-strict-candidate.ps1"
+          ]
+        },
+        {
+          "commit": "7a763ee03aeb936672a1eed3bc94160fa3487ae7",
+          "modified_paths": [
+            "scripts/build-strict-candidate.ps1"
+          ]
+        }
+      ],
+      "change": "Use the Tauri CLI production build and record embedded custom-protocol assets, no lab-testing, clean source and exact signed Payload pin; sign and package an immutable test pair.",
+      "evidence": [
+        "evidence/client-final/strict-candidate.json",
+        "evidence/client-final/toolbox-final-build-20260908T073413Z.log",
+        "evidence/client-final/payload-signature-receipt.json",
+        "evidence/client-final/toolbox-signature-receipt.json",
+        "evidence/client-final/package-build-receipt.json"
+      ],
+      "limit": "Test signing and package-byte checks do not prove native admission, production release signing or updater publication."
+    },
+    "member_login_gate": {
+      "ids": [
+        8,
+        20,
+        40
+      ],
+      "repository": "Toolbox",
+      "commits": [
+        {
+          "commit": "54b4dcac55e32e17a41ce208d8297c6814ef0e50",
+          "modified_paths": [
+            "src/launching/launch.rs",
+            "src/server/pipe.rs"
+          ]
+        }
+      ],
+      "change": "Separate normal Member login readiness from the independent native authority build capability gate.",
+      "evidence": [
+        "evidence/client-final/native-proof-host-event-isolation-toolbox-cargo-test.log"
+      ],
+      "limit": "311 component tests executed; this evidence does not establish actual game login."
+    },
+    "managed_native_collection": {
+      "ids": [
+        8,
+        16,
+        17,
+        18,
+        19,
+        20,
+        23,
+        26,
+        30,
+        31,
+        37,
+        38,
+        39,
+        40,
+        44,
+        47
+      ],
+      "repository": "Toolbox",
+      "commits": [
+        {
+          "commit": "df5654cd0043df971b9917ec55504df1361fbc69",
+          "modified_paths": [
+            "docs/MATCH_LOBBY_API.md",
+            "docs/TAURI_API.md",
+            "src-tauri/src/commands.rs",
+            "src/core/runtime.rs",
+            "src/launching/launch.rs",
+            "src/server/pipe.rs",
+            "src/server/registration.rs"
+          ]
+        },
+        {
+          "commit": "d8799d9435e393475348ecccbc4b383c864bf94c",
+          "modified_paths": [
+            "docs/MATCH_LOBBY_API.md",
+            "docs/TAURI_API.md",
+            "src/core/runtime.rs",
+            "src/matchmaking/controller.rs"
+          ]
+        },
+        {
+          "commit": "d9fc026dd3689da46ad9104a8165a5ab8d940def",
+          "modified_paths": [
+            "src/core/runtime.rs"
+          ]
+        }
+      ],
+      "change": "Add a normal signed-allocation native proof collection worker. Bind the pending request to its lobby and revision; count all frozen remote MEMBER seats, wait for partial progress, and retain cleanup scope until actual acknowledgement.",
+      "evidence": [
+        "evidence/client-final/native-proof-wait-all-source-review.json",
+        "evidence/client-final/native-proof-host-event-isolation-toolbox-cargo-test.log"
+      ],
+      "limit": "d8799d9 had early-count and lobby-scope defects corrected by d9fc026; final HOST handling is independently corrected by 52d31e8. No current three-machine run is claimed."
+    },
+    "diagnostic_ui_scope": {
+      "ids": [
+        2,
+        16,
+        17,
+        18,
+        25,
+        30,
+        31,
+        44
+      ],
+      "repository": "Toolbox",
+      "commits": [
+        {
+          "commit": "f295a961ad888348fcf505945d4cd46701c22713",
+          "modified_paths": [
+            "docs/MATCH_LOBBY_API.md",
+            "docs/TAURI_API.md",
+            "frontend/src/App.jsx",
+            "frontend/src/lib/launchOperations.js",
+            "frontend/src/lib/tauriBridge.js",
+            "frontend/src/pages/LaunchPage.jsx",
+            "frontend/tests/ui-contract.test.mjs",
+            "src-tauri/src/events.rs",
+            "src/core/runtime.rs",
+            "src/launching/launch.rs",
+            "src/server/pipe.rs"
+          ]
+        },
+        {
+          "commit": "9a7686746942c63022c30a7f7a9e4044a7196b8b",
+          "modified_paths": [
+            "frontend/src/App.jsx",
+            "frontend/src/lib/launchOperations.js",
+            "frontend/tests/ui-contract.test.mjs"
+          ]
+        }
+      ],
+      "change": "Expose Collect native proof to the ready owner; filter completion using full operation/run/session/lobby/attempt/role scope. Diagnostic completion never emits Playable or substitutes for launch completion.",
+      "evidence": [
+        "evidence/client-final/native-proof-wait-all-frontend-ui.log",
+        "evidence/client-final/native-proof-wait-all-frontend-bridge.log",
+        "evidence/client-final/native-proof-wait-all-frontend-build.log"
+      ],
+      "limit": "25 UI and 13 bridge tests and Vite build executed; rendered final EXE and actual Steam login are separate runtime evidence."
+    },
+    "unique_remote_world_route_proof": {
+      "ids": [
+        19,
+        23,
+        37,
+        39,
+        40,
+        43,
+        44
+      ],
+      "repository": "ProjectRebound",
+      "commits": [
+        {
+          "commit": "2568ac18e9f20b32b3e5bd052b19842f5ce7d7bd",
+          "modified_paths": [
+            "Payload/Admission/StrictRosterPolicy.h",
+            "Payload/Tests/StrictRosterPolicyTests.cpp",
+            "Payload/dllmain.cpp"
+          ]
+        },
+        {
+          "commit": "80d4ff45b4e92902779b7b929b1f4b7de32fc930",
+          "modified_paths": [
+            "Payload/Admission/StrictRosterPolicy.h",
+            "Payload/Tests/StrictRosterPolicyTests.cpp"
+          ]
+        },
+        {
+          "commit": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d",
+          "modified_paths": [
+            "Payload/Admission/StrictRosterPolicy.h",
+            "Payload/Tests/StrictRosterPolicyTests.cpp"
+          ]
+        }
+      ],
+      "change": "Keep live connection proof separate from the fixed build capability. Count unique native-connected remote player identities and clear proof on world or route change.",
+      "evidence": [
+        "evidence/client-final/native-proof-world-route-source-review.json",
+        "evidence/client-final/native-proof-world-route-tests.log",
+        "evidence/client-final/native-proof-world-route-tests-build.log",
+        "evidence/client-final/native-proof-world-route-build.log"
+      ],
+      "limit": "24 CTest cases and native build executed. Final Payload source 98f5709 is locally built; it is not relabeled as the older Payload in public CI commit 584e000."
+    },
+    "host_event_isolation": {
+      "ids": [
+        8,
+        19,
+        23,
+        26,
+        31,
+        39,
+        40,
+        43,
+        44,
+        47
+      ],
+      "repository": "Toolbox",
+      "commits": [
+        {
+          "commit": "dd60471aa9c9d5770f185f0349f6f06c8921268b",
+          "modified_paths": [
+            "src/server/pipe.rs"
+          ]
+        },
+        {
+          "commit": "52d31e830a4b6cad99e6b592380b0c6c47468e78",
+          "modified_paths": [
+            "src/core/runtime.rs"
+          ]
+        }
+      ],
+      "change": "Parse HOST observations without fabricating Member grants. Runtime requires exact frozen owner identity, Backend HOST ownership and a separate successful native ACK; Member receipts keep nonempty grants. HOST disconnect requires Backend confirmation, and HOST RESERVED fails closed.",
+      "evidence": [
+        "evidence/client-final/native-proof-host-event-isolation-source-review.json",
+        "evidence/client-final/native-proof-host-event-isolation-toolbox-cargo-test.log",
+        "evidence/client-final/native-proof-host-event-isolation-toolbox-fmt.log",
+        "evidence/client-final/native-proof-host-event-isolation-toolbox-tauri-check.log"
+      ],
+      "limit": "Backend connection evidence has no operation_sequence field; sequence association is the Runtime context plus Payload ACK, not a direct comparison to a Backend operation_sequence."
+    }
+  },
+  "evidence_files": [
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-final/strict-candidate.json",
+      "source": ".tmp/ready-multiplayer-20260908/distribution/strict-candidate.json",
+      "sha256": "0ea2ec11aeaa3f9b4fcb45b19277cf91242d55f3274a7dfc434fdeeb6caedc8a",
+      "bytes": 1824
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-final/toolbox-final-build-20260908T073413Z.log",
+      "source": ".tmp/ready-multiplayer-20260908/distribution/toolbox-final-build-20260908T073413Z.log",
+      "sha256": "3b60e2e448a7241e6644114f288829310327f684b304ec985f7045e385e0e7a9",
+      "bytes": 1881
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-final/payload-signature-receipt.json",
+      "source": ".tmp/ready-multiplayer-20260908/distribution/signed/payload-signature-receipt.json",
+      "sha256": "fc8e2763d9dcbc602c485c049bc21573935b28406312b5976e905150ffd72e38",
+      "bytes": 1314
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-final/toolbox-signature-receipt.json",
+      "source": ".tmp/ready-multiplayer-20260908/distribution/signed/toolbox-signature-receipt.json",
+      "sha256": "25bca489858c98c03e65c40c9d3c9012aac1be505cb6dd4a9da422a24342243e",
+      "bytes": 1355
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-final/package-build-receipt.json",
+      "source": "artifacts/hardware-test-20260908-r3/package-build-receipt.json",
+      "sha256": "3e85a273a9ea9e402cd8962f1cac836b3071722da67a344ccded0639442b7a2b",
+      "bytes": 948
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-final/native-proof-host-event-isolation-source-review.json",
+      "source": ".tmp/ready-multiplayer-20260908/native/native-proof-host-event-isolation-source-review.json",
+      "sha256": "657a325b970513653ceabd45e29392d09d7e1f10780272038c9c4ee4796ab8f1",
+      "bytes": 3626
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-final/native-proof-host-event-isolation-toolbox-cargo-test.log",
+      "source": ".tmp/ready-multiplayer-20260908/native/native-proof-host-event-isolation-toolbox-cargo-test.log",
+      "sha256": "043b2a0b80a020eaff82124ab6f7832ef223901a67dac8bec0b1a8324c077521",
+      "bytes": 28630
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-final/native-proof-host-event-isolation-toolbox-fmt.log",
+      "source": ".tmp/ready-multiplayer-20260908/native/native-proof-host-event-isolation-toolbox-fmt.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-final/native-proof-host-event-isolation-toolbox-tauri-check.log",
+      "source": ".tmp/ready-multiplayer-20260908/native/native-proof-host-event-isolation-toolbox-tauri-check.log",
+      "sha256": "4ebef53d0817a11e5ec90bcc8ebf785bfcf6a7aab669b30f75883bd7cd986f11",
+      "bytes": 1035
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-final/native-proof-world-route-source-review.json",
+      "source": ".tmp/ready-multiplayer-20260908/native/native-proof-world-route-source-review.json",
+      "sha256": "c90051d7e790a26d318be9d5b545c97693d9533753bb15ee028b722e8c24c03e",
+      "bytes": 1833
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-final/native-proof-world-route-tests.log",
+      "source": ".tmp/ready-multiplayer-20260908/native/native-proof-world-route-tests.log",
+      "sha256": "813986a29d606a8d024fac4f376899dcba3aa652feec44bb31d4bc82af6c1505",
+      "bytes": 3184
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-final/native-proof-world-route-tests-build.log",
+      "source": ".tmp/ready-multiplayer-20260908/native/native-proof-world-route-tests-build.log",
+      "sha256": "141e5807255cfbbc617ab84cfb1705dbd0d616890fe1469bf81a666e7e259d12",
+      "bytes": 3115
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-final/native-proof-world-route-build.log",
+      "source": ".tmp/ready-multiplayer-20260908/native/native-proof-world-route-build.log",
+      "sha256": "dd7940894a55339212df9403a45663767a6cc481597f33f1bc02db38b991211d",
+      "bytes": 154
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-final/native-proof-wait-all-source-review.json",
+      "source": ".tmp/ready-multiplayer-20260908/native/native-proof-wait-all-source-review.json",
+      "sha256": "efd3d719bed6550f3d0f4276e37295c8424ccfefb7ed009a303439715cd23cc7",
+      "bytes": 3426
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-final/native-proof-wait-all-frontend-ui.log",
+      "source": ".tmp/ready-multiplayer-20260908/native/native-proof-wait-all-frontend-ui.log",
+      "sha256": "c5a04df8664bf704da2d962356d398e5b36de606cce5f256d29016a9394d5788",
+      "bytes": 2403
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-final/native-proof-wait-all-frontend-bridge.log",
+      "source": ".tmp/ready-multiplayer-20260908/native/native-proof-wait-all-frontend-bridge.log",
+      "sha256": "26e959d4efefb8884db0c04b73942d5ded6554bcb250bde59c74a54b01adc1d7",
+      "bytes": 1305
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-final/native-proof-wait-all-frontend-build.log",
+      "source": ".tmp/ready-multiplayer-20260908/native/native-proof-wait-all-frontend-build.log",
+      "sha256": "6cdc77cbb4f041a5a9c8e7c63bc692c00d9acbbc4cd47af4a8dfef83fbfc2093",
+      "bytes": 515
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-final/existing-runtime-stability-check.json",
+      "source": ".tmp/ready-multiplayer-20260908/root/existing-runtime-stability-check.json",
+      "sha256": "437617c549b419b9d54d086ae80301bd1387d38ed466406205d0aec5758307f4",
+      "bytes": 10126
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-final/logic-tls-after-deploy.json",
+      "source": ".tmp/ready-multiplayer-20260908/root/logic-tls-after-deploy.json",
+      "sha256": "00596f59a6891959b7615b0d4ae7f22cc597aa0279cb06a2d362321552018d5b",
+      "bytes": 485
+    }
+  ],
+  "items": [
+    {
+      "id": "BP-001",
+      "title": "源码基线与实测 EXE/DLL 版本未闭合",
+      "depends_on": [],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "change_group_refs": [
+        "production_build_and_package"
+      ],
+      "full_native_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-002",
+      "title": "并发刷新、登出和旧结果回写竞争",
+      "depends_on": [],
+      "frozen_original_acceptance": "PASS",
+      "this_client_round": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "change_group_refs": [
+        "diagnostic_ui_scope"
+      ],
+      "full_native_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-003",
+      "title": "DPAPI 配置直接覆盖，缺少原子持久化",
+      "depends_on": [
+        "BP-002"
+      ],
+      "frozen_original_acceptance": "PASS",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-004",
+      "title": "fresh/logged_in 的状态保证强于实际结果",
+      "depends_on": [],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-005",
+      "title": "WebSocket 重连使用旧 Token，缺少统一恢复过程",
+      "depends_on": [
+        "BP-002",
+        "BP-004"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-006",
+      "title": "凭据种类缺少统一机器可读生命周期清单",
+      "depends_on": [],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-007",
+      "title": "客户端进房/建房部分成功后的补偿与恢复不全",
+      "depends_on": [
+        "BP-002",
+        "BP-025"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-008",
+      "title": "Host/Member 角色在启动分派中被丢弃",
+      "depends_on": [
+        "BP-016",
+        "BP-019",
+        "BP-031"
+      ],
+      "frozen_original_acceptance": "BLOCKED",
+      "this_client_round": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "change_group_refs": [
+        "member_login_gate",
+        "managed_native_collection",
+        "host_event_isolation"
+      ],
+      "full_native_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-009",
+      "title": "VNT 裸 IP 与 Payload host:port 校验冲突",
+      "depends_on": [],
+      "frozen_original_acceptance": "PASS",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-010",
+      "title": "VNT host_ready/探测通与原生游戏监听就绪混用",
+      "depends_on": [
+        "BP-008",
+        "BP-019"
+      ],
+      "frozen_original_acceptance": "BLOCKED",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-011",
+      "title": "新建回退、开局前 rebind 与运行中迁移边界必须固定",
+      "depends_on": [
+        "BP-007",
+        "BP-031"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-012",
+      "title": "Legacy 单 game_peer 和全 peers 广播可能合并多人身份",
+      "depends_on": [
+        "BP-013",
+        "BP-014"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-013",
+      "title": "Relay 16 字节截断 HMAC 用了完整长度验证接口",
+      "depends_on": [],
+      "frozen_original_acceptance": "PASS",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-014",
+      "title": "Relay 数据面错误被吞，重排/MTU/重放缺少可观测验收",
+      "depends_on": [
+        "BP-013",
+        "BP-025"
+      ],
+      "frozen_original_acceptance": "PASS",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-015",
+      "title": "Relay 迁移缺少显式切换状态、代次与收尾",
+      "depends_on": [
+        "BP-012",
+        "BP-005"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-016",
+      "title": "launch_join 返回空 PID，与前端完成结果契约冲突",
+      "depends_on": [
+        "BP-023",
+        "BP-025"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "change_group_refs": [
+        "managed_native_collection",
+        "diagnostic_ui_scope"
+      ],
+      "full_native_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-017",
+      "title": "launch_room 在最终提交前发布成功且失败清理不一致",
+      "depends_on": [
+        "BP-016",
+        "BP-025"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "change_group_refs": [
+        "managed_native_collection",
+        "diagnostic_ui_scope"
+      ],
+      "full_native_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-018",
+      "title": "PID/窗口稳定被当成远程入场完成",
+      "depends_on": [
+        "BP-019",
+        "BP-021",
+        "BP-025"
+      ],
+      "frozen_original_acceptance": "BLOCKED",
+      "this_client_round": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "change_group_refs": [
+        "managed_native_collection",
+        "diagnostic_ui_scope"
+      ],
+      "full_native_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-019",
+      "title": "房间/远程 Join 缺少统一 PayloadReady 握手与诊断通道",
+      "depends_on": [
+        "BP-001",
+        "BP-023"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "change_group_refs": [
+        "managed_native_collection",
+        "unique_remote_world_route_proof",
+        "host_event_isolation"
+      ],
+      "full_native_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-020",
+      "title": "Toolbox 登录与游戏登录/游戏线程泵送没有闭环",
+      "depends_on": [
+        "BP-019",
+        "BP-025"
+      ],
+      "frozen_original_acceptance": "BLOCKED",
+      "this_client_round": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "change_group_refs": [
+        "member_login_gate",
+        "managed_native_collection"
+      ],
+      "full_native_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-021",
+      "title": "发出 open 后即清空队列，缺少 Travel 成败闭环",
+      "depends_on": [
+        "BP-020",
+        "BP-023"
+      ],
+      "frozen_original_acceptance": "BLOCKED",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-022",
+      "title": "join_ack.status accepted/ok 不兼容",
+      "depends_on": [],
+      "frozen_original_acceptance": "PASS",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-023",
+      "title": "IPC 文档/七命令、分帧、取消和结构化错误未统一",
+      "depends_on": [],
+      "frozen_original_acceptance": "PASS",
+      "this_client_round": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "change_group_refs": [
+        "managed_native_collection",
+        "unique_remote_world_route_proof",
+        "host_event_isolation"
+      ],
+      "full_native_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-024",
+      "title": "游戏 lifecycle 与服务注册 state 枚举未完整适配",
+      "depends_on": [],
+      "frozen_original_acceptance": "BLOCKED",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-025",
+      "title": "错误、trace 与前端房间状态同步不完整",
+      "depends_on": [],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "change_group_refs": [
+        "diagnostic_ui_scope"
+      ],
+      "full_native_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-026",
+      "title": "有序资源关闭未覆盖常驻worker与阻塞IO",
+      "depends_on": [
+        "BP-016",
+        "BP-023"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "change_group_refs": [
+        "managed_native_collection",
+        "host_event_isolation"
+      ],
+      "full_native_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-027",
+      "title": "世界切换后角色、配装、控制器、HUD与多局流程未验收",
+      "depends_on": [
+        "BP-018",
+        "BP-021",
+        "BP-039",
+        "BP-040",
+        "BP-047"
+      ],
+      "frozen_original_acceptance": "BLOCKED",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-028",
+      "title": "本地 Node Meta 与远程 Go MetaTunnel 是不同模式",
+      "depends_on": [
+        "BP-001",
+        "BP-019",
+        "BP-020"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-029",
+      "title": "MetaTunnel 动态端口、Token更新和EOF/父进程退出未接成工作流",
+      "depends_on": [
+        "BP-002",
+        "BP-005",
+        "BP-026",
+        "BP-028"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-030",
+      "title": "Toolbox 未接通权威大厅/Attempt 完整控制器",
+      "depends_on": [
+        "BP-016",
+        "BP-025",
+        "BP-031",
+        "BP-032",
+        "BP-033",
+        "BP-035"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "change_group_refs": [
+        "managed_native_collection",
+        "diagnostic_ui_scope"
+      ],
+      "full_native_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-031",
+      "title": "角色、hosting/transport与各类ID/generation不能压成一个字段",
+      "depends_on": [],
+      "frozen_original_acceptance": "PASS",
+      "this_client_round": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "change_group_refs": [
+        "managed_native_collection",
+        "diagnostic_ui_scope",
+        "host_event_isolation"
+      ],
+      "full_native_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-032",
+      "title": "退役旧在线房间API与任意地址Join，保留托管隔离",
+      "depends_on": [
+        "BP-031"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-033",
+      "title": "旧连通回调提前推进托管p2p_room为RUNNING",
+      "depends_on": [
+        "BP-031",
+        "BP-032"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-034",
+      "title": "BattleLog Presence等投影入口仍能独立推进托管状态",
+      "depends_on": [
+        "BP-033"
+      ],
+      "frozen_original_acceptance": "PASS",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-035",
+      "title": "大厅—传输—对局投影的跨事务补偿与崩溃恢复需补证据",
+      "depends_on": [
+        "BP-031",
+        "BP-032"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-036",
+      "title": "多种Presence/Heartbeat租约与启动/Grant时限尚未统一编排",
+      "depends_on": [
+        "BP-025",
+        "BP-031"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-037",
+      "title": "后端开局人数规则与游戏角色确认门禁未形成同一政策",
+      "depends_on": [
+        "BP-031",
+        "BP-036"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "change_group_refs": [
+        "managed_native_collection",
+        "unique_remote_world_route_proof"
+      ],
+      "full_native_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-038",
+      "title": "客户端携带Join Grant的原生NMT_Login路径尚未实现",
+      "depends_on": [
+        "BP-019",
+        "BP-020",
+        "BP-023",
+        "BP-031"
+      ],
+      "frozen_original_acceptance": "BLOCKED",
+      "this_client_round": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "change_group_refs": [
+        "managed_native_collection"
+      ],
+      "full_native_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-039",
+      "title": "权威PreLogin、真实身份、队伍/席位执行与回执未闭环",
+      "depends_on": [
+        "BP-038",
+        "BP-041",
+        "BP-042"
+      ],
+      "frozen_original_acceptance": "BLOCKED",
+      "this_client_round": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "change_group_refs": [
+        "managed_native_collection",
+        "unique_remote_world_route_proof",
+        "host_event_isolation"
+      ],
+      "full_native_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-040",
+      "title": "P2P房主StartAuthority传空平台身份且缺原生启动证明",
+      "depends_on": [
+        "BP-008",
+        "BP-031",
+        "BP-039"
+      ],
+      "frozen_original_acceptance": "BLOCKED",
+      "this_client_round": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "change_group_refs": [
+        "member_login_gate",
+        "managed_native_collection",
+        "unique_remote_world_route_proof",
+        "host_event_isolation"
+      ],
+      "full_native_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-041",
+      "title": "同route的allocation刷新未应用新席位generation",
+      "depends_on": [
+        "BP-031"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-042",
+      "title": "Join Grant重复申请/撤销/消费与本地准入缺少一致事务",
+      "depends_on": [
+        "BP-031",
+        "BP-036",
+        "BP-041"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-043",
+      "title": "权威恢复缺少route/seat刷新与同世界连续性证明",
+      "depends_on": [
+        "BP-036",
+        "BP-039",
+        "BP-040",
+        "BP-041",
+        "BP-042"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "change_group_refs": [
+        "unique_remote_world_route_proof",
+        "host_event_isolation"
+      ],
+      "full_native_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-044",
+      "title": "旧快照/旧Attempt/旧断线回执污染新会话的边界需全链验证",
+      "depends_on": [
+        "BP-030",
+        "BP-031",
+        "BP-042",
+        "BP-043"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "change_group_refs": [
+        "managed_native_collection",
+        "diagnostic_ui_scope",
+        "unique_remote_world_route_proof",
+        "host_event_isolation"
+      ],
+      "full_native_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-045",
+      "title": "Dedicated严格调度没有充分筛选准入能力",
+      "depends_on": [
+        "BP-001",
+        "BP-031",
+        "BP-049"
+      ],
+      "frozen_original_acceptance": "PASS",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-046",
+      "title": "专服心跳active_match未被Toolbox消费并驱动准入",
+      "depends_on": [
+        "BP-023",
+        "BP-024",
+        "BP-030",
+        "BP-045"
+      ],
+      "frozen_original_acceptance": "BLOCKED",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-047",
+      "title": "数据库结束/释放早于Payload清理与游戏资源确认",
+      "depends_on": [
+        "BP-026",
+        "BP-043",
+        "BP-044",
+        "BP-046"
+      ],
+      "frozen_original_acceptance": "BLOCKED",
+      "this_client_round": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "change_group_refs": [
+        "managed_native_collection",
+        "host_event_isolation"
+      ],
+      "full_native_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-048",
+      "title": "strict开关关闭启动会批量终止共享数据库严格对局",
+      "depends_on": [],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "NO_CHANGE_THIS_CLIENT_ROUND",
+      "change_group_refs": [],
+      "full_native_online_acceptance": "NOT_REEVALUATED_THIS_CLIENT_ROUND"
+    },
+    {
+      "id": "BP-049",
+      "title": "配套schema升级、单版本部署与身份隔离门禁",
+      "depends_on": [
+        "BP-031",
+        "BP-048"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "change_group_refs": [
+        "production_build_and_package"
+      ],
+      "full_native_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-050",
+      "title": "发布/更新/运行时安全门禁需跟兼容矩阵一起保持",
+      "depends_on": [
+        "BP-001",
+        "BP-006",
+        "BP-026",
+        "BP-049"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "change_group_refs": [
+        "production_build_and_package"
+      ],
+      "full_native_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-051",
+      "title": "现有单库/模拟/可视化检查不能证明端到端已通过",
+      "depends_on": [
+        "BP-047",
+        "BP-050"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "change_group_refs": [
+        "production_build_and_package"
+      ],
+      "full_native_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-052",
+      "title": "Backend/matchserver二进制来源与消费链待审计",
+      "depends_on": [],
+      "frozen_original_acceptance": "PARTIAL",
+      "this_client_round": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "change_group_refs": [
+        "production_build_and_package"
+      ],
+      "full_native_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    }
+  ]
+}

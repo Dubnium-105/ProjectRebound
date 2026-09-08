@@ -1,0 +1,15 @@
+{
+  "observed_at": "2026-09-08T07:30:14.418871+00:00",
+  "endpoint": "logic.project-rebound.space:443",
+  "scope": "Verified TLS transport only; no credentials or application frames sent; Steam/native login NOT_RUN.",
+  "status": "PASS_TLS_HANDSHAKE_ONLY",
+  "tls_version": "TLSv1.3",
+  "cipher": "TLS_AES_256_GCM_SHA384",
+  "subject_alt_names": [
+    [
+      "DNS",
+      "logic.project-rebound.space"
+    ]
+  ],
+  "certificate_not_after": "Oct 28 11:48:59 2026 GMT"
+}
