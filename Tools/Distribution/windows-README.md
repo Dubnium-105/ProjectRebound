@@ -2,11 +2,11 @@ English | [简体中文](windows-README.zh-CN.md)
 
 # Project Rebound hardware-test build
 
-This package connects to the existing `api.project-rebound.space` / `cnapi.project-rebound.space` and `meta.project-rebound.space` services; no alternate test-backend address is required. It is for installation, Toolbox login, and managed-startup blockage diagnosis while retaining the strict roster, real Steam Ticket, native Grant, and managed-launch checks.
+This package connects to the existing `api.project-rebound.space` / `cnapi.project-rebound.space` and `meta.project-rebound.space` services. The existing backend was verified at 2026-09-08 06:51 UTC: database schema 48; control plane, MetaServer, administrator web, and primary/gateway edge nodes use CI-tested images from `584e000baf024e381c5bdb3417ad7ac879bebdca`. No separate test backend is needed.
 
-**A normal-path multiplayer match cannot currently complete.** This Payload fixes `native_authority_admission_verified` to `false`, so the strict online gate rejects continuation. Another machine cannot remove that gate. First verify installation, Toolbox, and connection to the existing service, then record where normal startup stops. The multiplayer matrix remains `BLOCKED`; do not change a ready flag or bypass the gate.
+This round covers installation, login, managed startup, and native admission proof collection on three physical machines. The owner uses the new **Collect native proof** button. It retains real Steam identities, a frozen roster, signed allocation, native Grants, Reserve/Confirm, and managed cleanup.
 
-As of 2026-09-08 03:30 UTC, the existing service still runs an older version with database schema 43; this candidate's online contract requires schema 48. The backend update was not completed in that earlier package because of host disk space and CI failures, and temporary configuration was restored. An existing-service login check does not prove that the new strict online interface is available; an interface mismatch must not be blamed on the test machine.
+**A complete playable match remains unverified.** Live connection evidence is separate from build capability: `native_authority_admission_verified=false` remains unchanged, and proof capture does not publish Playable. The ordinary **Freeze roster and start** action remains subject to this gate. Collect actual three-machine evidence first, then use it to fix or verify the remaining playable flow; changing flags, using empty tokens, or console `open` cannot establish a pass.
 
 ## Before use
 
@@ -22,7 +22,7 @@ The target needs WebView2 Runtime. If it is missing, install it from the [Micros
 2. Fully exit Boundary and all Toolbox windows. Open PowerShell and change to the extracted directory.
 3. Run `Install-StrictPayload.ps1` with `-GameWin64` pointing to the actual `ProjectBoundary\Binaries\Win64` directory. The script checks the package, game, and candidate DLL, saves the old DLL and install receipt, then replaces Payload. Record the receipt location.
 4. Double-click `Run-Toolbox.cmd`, select the actual game directory in Toolbox, and use Steam login normally. Each tester uses their own account; do not copy configuration or share credentials.
-5. Use Toolbox to try to create or join a test room normally and record the last reachable step. If the game shows a platform-login prompt, press SPACE; the gate may also stop startup before that prompt. Stop the round after `native_admission_unverified`. See `TEST-MATRIX.md` for the scenario and blockage record.
+5. Follow `TEST-MATRIX.md`: all three players join the same authoritative P2P lobby and become ready. The owner selects **Collect native proof**; members launch and connect through the managed flow. Press SPACE if the game requests platform login. Record the actual result on every machine and verify cleanup after collection.
 
 For a game installed on drive D:
 
@@ -61,6 +61,6 @@ The restore script restores the old DLL only when the backup hash is correct, th
 
 ## Known limitations
 
-The development machine's earlier native diagnostics stopped before login completed for both the current and historical comparison DLL. The candidate's fixed unverified admission gate is a separate limitation. This package contains no new successful native-login evidence; complete multiplayer spawning, admission negatives, cleanup, and next-match reuse have not passed acceptance. Do not count Toolbox startup or map loading as a complete match.
+Native hardware results must come from execution receipts for this exact package. Historical versions stopped before native login; neither those failures nor a window-opening check establish the result of this build. Three-machine admission, character spawn and control, rejection cases, cleanup, and reuse in a new match need separate evidence. Keep missing executions as `NOT_RUN`, or record a concrete `BLOCKED` condition.
 
 The EXE and Payload are signed with the project's existing test certificate. The certificate is not trusted by the default Windows root store, so its signature may display as untrusted; this package does not install a root certificate and contains no private key. Signature and hash results, certificate validity, and source commits for each artifact are recorded in the package manifest; they do not mean that production release has passed.

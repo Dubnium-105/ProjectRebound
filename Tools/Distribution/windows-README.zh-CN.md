@@ -2,11 +2,11 @@
 
 # Project Rebound 实机测试版本
 
-本包连接现有 `api.project-rebound.space` / `cnapi.project-rebound.space` 与 `meta.project-rebound.space`，无需填写另一个测试后端地址。它用于安装、Toolbox 登录与启动阻塞诊断，保留严格名单、真实 Steam Ticket、原生 Grant 和受管启动检查。
+本包连接现有 `api.project-rebound.space` / `cnapi.project-rebound.space` 与 `meta.project-rebound.space`。现有后端已于 2026-09-08 06:51 UTC 核验更新：数据库 schema 48，控制面、MetaServer、管理网页与 primary/gateway 边缘节点使用通过 CI 的 `584e000baf024e381c5bdb3417ad7ac879bebdca` 镜像。无需另建测试后端。
 
-**当前不能完成普通路径的多人对局测试。** 此 Payload 的 `native_authority_admission_verified` 固定为 `false`，严格在线门禁会拒绝继续。换一台机器不会消除此门禁。请先验证安装、工具箱与现有服务连接，记录正常启动停在哪一步；多人矩阵暂记 `BLOCKED`，不得修改 ready 标志或绕过门禁。
+本轮用于三台实机的安装、登录、受管启动和原生准入证据采集。房主使用新增的“采集原生准入证据”按钮；它仍走真实 Steam 身份、冻结名单、签名 allocation、原生 Grant、Reserve/Confirm 和受管清理。
 
-截至 2026-09-08 03:30 UTC，现有服务仍运行旧版本、数据库 schema 43；本候选在线契约要求 schema 48。此次后端更新因主机磁盘不足与 CI 失败未完成，临时配置已恢复。现有服务登录检查不代表新的严格在线接口已可用，接口不匹配也不能归因于测试机。
+**完整可玩对局仍未验收。** 原生连接证据与构建能力分开记录；`native_authority_admission_verified=false` 保持不变，采集成功也不会发布 Playable。普通“冻结清单并启动”仍受这一门禁约束。先按测试矩阵完成真实三机采集，再依据证据修复或验证后续可玩流程；不能通过改标志、空 Token 或控制台 `open` 取得通过。
 
 ## 使用前
 
@@ -22,7 +22,7 @@
 2. 完全退出 Boundary 与所有 Toolbox 窗口。打开 PowerShell，切换到解压目录。
 3. 执行 `Install-StrictPayload.ps1`，参数 `-GameWin64` 指向实际游戏的 `ProjectBoundary\Binaries\Win64` 目录。脚本校验包、游戏和候选 DLL，保存旧 DLL 与安装回执，再替换 Payload。记下回执位置。
 4. 双击 `Run-Toolbox.cmd`，在工具箱选择实际游戏目录并正常使用 Steam 登录。各测试者使用自己的账号，不复制配置或共享凭据。
-5. 通过工具箱尝试正常创建或加入测试房间，记录最后可达步骤。若游戏显示平台登录提示，可按 SPACE；当前门禁也可能在提示前结束启动。看到 `native_admission_unverified` 后停止该轮。具体场景与阻塞记录见 `TEST-MATRIX.zh-CN.md`。
+5. 三人按 `TEST-MATRIX.zh-CN.md` 进入同一权威 P2P 大厅并置为 ready。房主选择“采集原生准入证据”，成员按受管流程自动启动和连接。游戏若提示平台登录，按 SPACE。记录每台机器的实际结果，采集结束后确认清理完成。
 
 例如游戏位于 D 盘时：
 
@@ -61,6 +61,6 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Restore-StrictPayload.
 
 ## 当前已知限制
 
-当前开发机此前的原生诊断流程曾在登录完成前停止，新旧 DLL 对照尚未定位原因。这与当前候选固定返回准入未验证的门禁是两个独立限制。此包没有新的原生登录成功证据；完整多人出生、准入负例、清理与下一局复用尚未验收通过。不要把工具箱启动或地图加载记成完整对局通过。
+原生实机结果以本包对应的实际执行回执为准。历史版本曾在原生登录前停止，不能把旧版本的失败或单次窗口启动结果套用到本包。三机原生准入、角色出生与操作、准入负例、清理和下一局复用必须分别记录；缺少对应执行证据时保留 `NOT_RUN` 或具体 `BLOCKED`。
 
 EXE 与 Payload 使用项目已有测试证书签名。证书不属于 Windows 默认受信根，签名状态可能显示为不受信任；本包不会安装根证书，也不包含私钥。签名和哈希检查结果、证书有效期及各制品源提交保存在包清单中；它们不代表生产发布已通过。

@@ -1,42 +1,60 @@
 English | [简体中文](TEST-MATRIX.zh-CN.md)
 
-# Hardware-test record
+# Three-machine test record
 
-This is a strict-roster diagnostic candidate; a complete online match has not passed acceptance. The current Payload returns `native_authority_admission_verified=false`, so the normal online gate necessarily blocks. First run the version, dependency, and Toolbox login checks, and record the last reachable step of the managed launch. Multiplayer scenarios are later acceptance requirements and are currently `BLOCKED`. Opening Toolbox, starting the game, or entering a map does not replace a playable character acceptance.
+Use the existing schema 48 backend to collect managed native admission evidence. `native_authority_admission_verified=false` remains an independent build gate: collection neither changes it nor publishes Playable. Without an actual three-machine receipt, keep `NOT_RUN`.
 
-Use a package with the same `package_id` for each round. Mark participants A, B, and C, each using their own Steam session; do not share accounts, tokens, or configuration files. For a three-player test, all three players must first enter the pending room, then the roster is frozen and the match starts. Do not fill a seat with a fictional participant.
+## First round
 
-| Scenario | Operation and observation | Pass condition | Initial state |
-|---|---|---|---|
-| Version and dependencies | Run the package preflight; check package hash, game build, and dependencies | Every required check meets its requirement | NOT_RUN |
-| First launch | Use the package entry point to connect to the existing service; log in normally | Login completes and the room list can be read | NOT_RUN |
-| Game login | Start normally through Toolbox and press SPACE when the game prompts for platform login | Native game login completes; a profile HTTP 200 alone is insufficient | NOT_RUN |
-| Complete two-player start | A and B join first and start through the normal flow | Both players select, spawn, and can operate normally | BLOCKED: native admission not verified |
-| Three-player frozen roster | A, B, and C enter the room before starting | All three characters, teams, and seats match and are playable | BLOCKED: native admission not verified |
-| Delayed connection | One player already on the frozen roster connects later through the coordinator flow | The player enters with the frozen identity and seat, with no extra seat | BLOCKED: native admission not verified |
-| Disconnect and reconnect | Disconnect and reconnect normally within the allowed window | The current connection is restored and the old connection is no longer active | BLOCKED: native admission not verified |
-| Host exit or transition | Exit normally from the coordinator-assigned HOST scenario | Room and instance state converge and old permissions no longer work | BLOCKED: native admission not verified |
-| Finish and next match | Finish normally and create a new match | Cleanup completes before instance reuse; old receipts do not affect the new match | BLOCKED: native admission not verified |
-| Second cold start | Fully exit the game and Toolbox, then start normally again | Login and start still succeed | BLOCKED: native admission not verified |
+1. A is the owner; B and C are members. Use three physical Windows machines and separate Steam sessions. Verify the same package ID, ZIP SHA-256, and fixed game version. Install, then run `Check-ThisMachine.ps1` while the game is stopped.
+2. Each player logs into Toolbox. A creates an authoritative P2P lobby; B and C refresh and join distinct seats in that same lobby. Choose only an offered transport. If VNT is unavailable, record `BLOCKED: transport_unavailable` for that scenario.
+3. All three become ready. A waits for three real ready seats and `local.can_start=true`, then selects **Collect native proof**. Do not use ordinary **Freeze roster and start** for this round.
+4. The owner freezes the roster through the normal API, receives a signed allocation, and starts native authority. Members launch and connect through the managed flow. Press SPACE if the game requests platform login. Record native login separately from a successful profile HTTP request.
+5. Record each machine's last reached stage and error. A successful owner receipt must bind to this frozen roster and its connections. Three players require both B and C as unique remote seats; reconnecting one player cannot count as another player.
+6. Managed cleanup ends the Attempt and reclaims game, connections, and transport. Verify completion before a new round. For `cleanup_pending`, retain correlation and the error; do not record a pass or reuse immediately.
+7. Run `Check-ThisMachine.ps1 -Collect` on each machine. Keep evidence outside the package, with separate `round_id/A`, `round_id/B`, and `round_id/C` preflight, collector JSON, and result files.
 
-Use only `PASS`, `FAIL`, `BLOCKED`, and `NOT_RUN`. If only part of a scenario succeeds, mark the whole scenario `BLOCKED` and write the last successful step; leave an unrun scenario as `NOT_RUN`. If the backend, a dependency, or the second or third machine is missing, state the missing condition.
+**Native admission proof captured** describes only this diagnostic receipt. A member subsequently reporting `native_admission_unverified` needs a separate result; do not report three playable players. Record a single remote seat, timeout, or login failure as observed. Do not fabricate seats or edit receipts.
 
-Known issue: diagnostics on the development machine with the current Payload and the historical comparison Payload both stopped before login completed. This package's normal path is also blocked by the fixed unverified flag; `native_admission_unverified` on another machine is an expected gate result and must not be attributed to that machine's hardware or network. Record the code and UTC time, then stop the round; do not repeatedly click Start or change strict state.
+## Scenarios and pass conditions
 
-Native negative cases such as the wrong audience, expired ticket, and replay are run separately by the coordinator in a controlled environment. Testers must not edit tokens, execute console `open`, disable the strict roster, or mark an unmatched rejection case as passed.
+| Scenario | Required evidence | Initial state |
+|---|---|---|
+| Installation, versions, dependencies | Every machine meets all required manifest checks | NOT_RUN |
+| Toolbox login | Independent Steam authentication completed; lobby list readable | NOT_RUN |
+| Native game login | Native login completed in the game process for this package | NOT_RUN |
+| Three-machine admission collection | Actual B and C unique remote connections for this round, with completed cleanup | NOT_RUN |
+| Second cold-start collection | Exit round processes; collect and clean a new round/Attempt | NOT_RUN |
+| Two- and three-player full matches | Every player selects, spawns, controls a character, and has Playable evidence | BLOCKED: native build capability unverified |
+| Delayed frozen member | Same frozen identity, team, and seat admitted without an extra seat | BLOCKED: full-match prerequisites incomplete |
+| Reconnect and route migration | New generation effective, old connection terminal, roster unchanged | BLOCKED: full-match prerequisites incomplete |
+| Owner exit, completion, next match | Old authority revoked; reuse only after cleanup | BLOCKED: full-match prerequisites incomplete |
 
-Return the structured report generated by the package collector and add the following text:
+The coordinator separately organizes native rejection cases such as wrong audience, expiration, and replay. Ordinary testers do not edit credentials. Docker/Relay CI cannot replace physical game acceptance. Do not disable strict rosters, use empty tokens or console `open`, or create retired rooms.
 
-```text
-package_id:
-Tester: A / B / C
-UTC start time:
-Network: wired / Wi-Fi / other; state whether a proxy was used, without IP or account details
-Scenario:
-Result: PASS / FAIL / BLOCKED / NOT_RUN
-Last successful step:
-Observed error code:
-Expected behavior and actual difference:
+## Result per machine
+
+Save `match-result.json` with the actual package ID and UTC times. Opaque correlation may contain lobby, Attempt, route generation, and operation/run markers. Exclude platform IDs, account names, IP addresses, and credentials.
+
+```json
+{
+  "round_id": "round-01",
+  "machine": "A",
+  "package_id": "read from package manifest",
+  "scenario": "native_admission_collection_three_machines",
+  "result": "NOT_RUN",
+  "started_at_utc": null,
+  "finished_at_utc": null,
+  "last_successful_step": null,
+  "observed_error_code": null,
+  "unique_remote_seats_observed": null,
+  "cleanup_result": "NOT_RUN",
+  "playable_result": "NOT_RUN",
+  "correlation": {},
+  "notes": ""
+}
 ```
 
-Do not return the whole game directory, Steam configuration, application configuration, database dump, or raw client log. The structured collector does not upload automatically; give its generated report to the coordinator. If screenshots are needed, hide accounts, personal information, and credentials first.
+Use only `PASS`, `FAIL`, `BLOCKED`, or `NOT_RUN`. Unexecuted work is `NOT_RUN`; missing machines, dependencies, or service conditions are `BLOCKED` with a reason; executed work violating the pass condition is `FAIL`. Success at only some stages cannot make the whole scenario `PASS`.
+
+Return only collector JSON and sanitized observations, excluding raw client logs, Steam data, tokens, Grants, Tickets, configuration, backup DLLs, and databases. Scripts do not upload automatically. Remove local paths from installation receipts before sharing.
