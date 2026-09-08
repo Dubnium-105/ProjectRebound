@@ -1,0 +1,6 @@
+=== RUN   TestLiveGenerationMigrationPreservesHistoricalConnectedRoster
+--- PASS: TestLiveGenerationMigrationPreservesHistoricalConnectedRoster (0.02s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/database	0.022s
+
+EXIT_CODE=0

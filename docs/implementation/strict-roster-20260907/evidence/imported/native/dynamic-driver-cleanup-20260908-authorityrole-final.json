@@ -1,0 +1,22 @@
+{
+  "schema": "strict-roster-dynamic-driver-cleanup-v1",
+  "run_id": "dynamic-live-20260908-0030-authorityrole-22c3",
+  "run_summary": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-live-20260908-0030-authorityrole-22c3\\dedicated-component-20260907-162212-c5a44f11\\summary.json",
+  "checked_at": "2026-09-07T16:42:52.3647118Z",
+  "selection": {
+    "excluded": [
+      "Boundary/Steam",
+      "PostgreSQL",
+      "Redis",
+      "current inspection shell"
+    ],
+    "isolated_database": "rebound_native_dynamic_20260907_231000",
+    "authority_pipe": "ProjectRebound_DedicatedAuthority_99eb...",
+    "process_match": "exact command-line/run path or isolated DB/authority pipe; current inspection shell excluded",
+    "run_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-live-20260908-0030-authorityrole-22c3"
+  },
+  "observed_processes": [],
+  "action": "none",
+  "status": "CLEANED",
+  "note": "No matching non-shell Go/main driver process remained after the blocked run summary; no process was terminated by this check."
+}

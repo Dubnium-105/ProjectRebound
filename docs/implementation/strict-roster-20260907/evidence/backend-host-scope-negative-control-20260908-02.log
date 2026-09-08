@@ -1,0 +1,7 @@
+=== RUN   TestStrictRosterP2PLifecycleAgainstPostgreSQL
+    service_integration_test.go:1203: sweeper aborted preserved HOST route scope: state=ABORTED
+--- FAIL: TestStrictRosterP2PLifecycleAgainstPostgreSQL (3.84s)
+FAIL
+FAIL	github.com/Dubnium-105/ProjectRebound/Backend/internal/matchlobby	3.865s
+FAIL
+EXIT_CODE=1

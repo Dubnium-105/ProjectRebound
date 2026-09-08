@@ -1,0 +1,40 @@
+COMMAND: cargo test --lib server::registration::tests
+   Compiling rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.39s
+     Running unittests src\lib.rs (target\debug\deps\rebound_toolbox-531c06249e821c2c.exe)
+
+running 7 tests
+test server::registration::tests::canonical_request_matches_backend_contract ... ok
+test server::registration::tests::transport_target_brackets_ipv6_and_rejects_ambiguous_hosts ... ok
+test server::registration::tests::backend_and_identity_paths_are_normalized ... ok
+test server::registration::tests::heartbeat_body_matches_backend_contract_and_requires_native_proof ... ok
+test server::registration::tests::dpapi_round_trip_is_current_user_scoped ... ok
+test server::registration::tests::token_cleanup_preserves_newer_config_fields ... ok
+test server::registration::tests::dedicated_assignment_verifies_signed_allocation_scope ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 255 filtered out; finished in 0.02s
+
+EXIT_CODE: 0
+
+COMMAND: cargo test --lib server::pipe::tests::payload_status_requires_correlated_native_lifecycle_state
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.86s
+     Running unittests src\lib.rs (target\debug\deps\rebound_toolbox-531c06249e821c2c.exe)
+
+running 1 test
+test server::pipe::tests::payload_status_requires_correlated_native_lifecycle_state ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 261 filtered out; finished in 0.00s
+
+EXIT_CODE: 0
+
+COMMAND: cargo test --lib server::pipe::cpp_fixture_tests
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.87s
+     Running unittests src\lib.rs (target\debug\deps\rebound_toolbox-531c06249e821c2c.exe)
+
+running 2 tests
+test server::pipe::cpp_fixture_tests::cpp_frames_reject_wrong_request_command_and_replayed_event_cursor ... ok
+test server::pipe::cpp_fixture_tests::actual_cpp_frames_decode_in_rust_without_promoting_queued_or_pending_to_ready ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 260 filtered out; finished in 0.00s
+
+EXIT_CODE: 0

@@ -1,0 +1,54 @@
+{
+  "checks": [
+    {
+      "manifest": "C:\\wksp\\ProjectReboundToolbox\\res\\vnt\\runtime\\vnt-runtime-manifest.json",
+      "entry": "vntCli",
+      "path": "C:\\wksp\\ProjectReboundToolbox\\res\\vnt\\runtime\\vnt-cli.exe",
+      "expected_sha256": "9c1a3c5ee6e71eea70bdf7724f8b8119c9eb72c6977ab83997a22b1bd69c6ddd",
+      "actual_sha256": "9c1a3c5ee6e71eea70bdf7724f8b8119c9eb72c6977ab83997a22b1bd69c6ddd",
+      "size": 3272192,
+      "expected_size": null,
+      "pass": true
+    },
+    {
+      "manifest": "C:\\wksp\\ProjectReboundToolbox\\res\\vnt\\runtime\\vnt-runtime-manifest.json",
+      "entry": "vnts",
+      "path": "C:\\wksp\\ProjectReboundToolbox\\res\\vnt\\runtime\\vnts.exe",
+      "expected_sha256": "8e8c1a89d6814eb532aa322451038785e326007ce3f4c67ece7d60b1313c629c",
+      "actual_sha256": "8e8c1a89d6814eb532aa322451038785e326007ce3f4c67ece7d60b1313c629c",
+      "size": 7167488,
+      "expected_size": null,
+      "pass": true
+    },
+    {
+      "manifest": "C:\\wksp\\ProjectReboundToolbox\\res\\vnt\\runtime\\vnt-runtime-manifest.json",
+      "entry": "wintun",
+      "path": "C:\\wksp\\ProjectReboundToolbox\\res\\vnt\\runtime\\wintun.dll",
+      "expected_sha256": "e5da8447dc2c320edc0fc52fa01885c103de8c118481f683643cacc3220dafce",
+      "actual_sha256": "e5da8447dc2c320edc0fc52fa01885c103de8c118481f683643cacc3220dafce",
+      "size": 427552,
+      "expected_size": null,
+      "pass": true
+    },
+    {
+      "manifest": "C:\\wksp\\ProjectReboundToolbox\\res\\vnt\\runtime\\vnt-runtime-manifest.json",
+      "entry": "thirdPartyNotices",
+      "path": "C:\\wksp\\ProjectReboundToolbox\\res\\vnt\\runtime\\THIRD-PARTY-NOTICES.txt",
+      "expected_sha256": "83b5522a51100f5ec2792b71259e735fa8de72c66886d17058d2eb515fa6f1e5",
+      "actual_sha256": "83b5522a51100f5ec2792b71259e735fa8de72c66886d17058d2eb515fa6f1e5",
+      "size": 353,
+      "expected_size": null,
+      "pass": true
+    },
+    {
+      "manifest": "C:\\wksp\\ProjectReboundToolbox\\res\\metatunnel\\runtime\\meta-tunnel-runtime-manifest.json",
+      "entry": "asset",
+      "path": "C:\\wksp\\ProjectReboundToolbox\\res\\metatunnel\\runtime\\meta-tunnel.exe",
+      "expected_sha256": "6623003757bfbb93abe1a7fc33491b3d1f3697bd909957527634775322728b91",
+      "actual_sha256": "6623003757bfbb93abe1a7fc33491b3d1f3697bd909957527634775322728b91",
+      "size": 9825280,
+      "expected_size": 9825280,
+      "pass": true
+    }
+  ]
+}

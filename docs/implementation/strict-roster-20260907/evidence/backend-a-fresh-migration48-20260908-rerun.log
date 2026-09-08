@@ -1,0 +1,6 @@
+=== RUN   TestMigratorAgainstPostgreSQL
+--- PASS: TestMigratorAgainstPostgreSQL (0.05s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/database	0.067s
+EXIT_CODE=
+EXIT_CODE=0 (outer wsl/go command exit)

@@ -1,0 +1,60 @@
+{
+  "schema": "strict-roster-bp047-wrapper-config-comparison-v1",
+  "generated_utc": "2026-09-07T23:26:40.1203094Z",
+  "comparison": {
+    "successful_one_client_reference": {
+      "run_id": "dynamic-root-20260907T212120784508Z",
+      "authority_launch_spec": {
+        "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/live-run-results/dynamic-root-20260907T212120784508Z/dedicated-component-20260907-212129-02030887/authority.launch-spec.json",
+        "sha256": "44E1CED6BBB718A1560D3FFC0D05E47F55DDC685045C60148B9D8F3F39086069"
+      },
+      "client_launch_spec": {
+        "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/live-run-results/dynamic-root-20260907T212120784508Z/dedicated-component-20260907-212129-02030887/client.launch-spec.json",
+        "sha256": "BE04998C6BBA9A582A096AB4F0EB93E667E278383C033FACDE31482434BDA126"
+      },
+      "observed_contract": "dedicated-authority/dedicated-client; same Boundary executable, map, game mode, strict authority flags, debug flags, startgame.ps1 and MetaTunnel preflight; dynamic ports and pipe names only."
+    },
+    "bp047_cleanup_reference": {
+      "run_id": "bp047-cleanup-run-20260908071000",
+      "authority_launch_spec": {
+        "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/live-run-inputs/bp047-cleanup-20260908T223500Z/bp047-cleanup-run-20260908071000/dedicated-component-20260907-225941-bcbb2f2e/authority.launch-spec.json",
+        "sha256": "293241E4603694E47BC2B2E1F0253584EE8AC5C4C8F0448A76459401B5A6ED73"
+      },
+      "client_launch_spec": {
+        "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/live-run-inputs/bp047-cleanup-20260908T223500Z/bp047-cleanup-run-20260908071000/dedicated-component-20260907-225941-bcbb2f2e/client.launch-spec.json",
+        "sha256": "DFAAB5E7C360B9337D083023552DACF61631268993E443498939E659786F1E43"
+      },
+      "observed_contract": "same auth scopes and game arguments as the successful reference after normalizing ephemeral ports and pipe names; MetaTunnel ports were ephemeral as expected. Client login_ready timed out, but this run did not record an AppID snapshot."
+    },
+    "invalid_grant_reference": {
+      "run_id": "invalid-grant-run-20260908065000",
+      "authority_launch_spec_sha256": "293241E4603694E47BC2B2E1F0253584EE8AC5C4C8F0448A76459401B5A6ED73",
+      "client_launch_spec_sha256": "DFAAB5E7C360B9337D083023552DACF61631268993E443498939E659786F1E43",
+      "observed_contract": "same launch contract as the BP047 cleanup reference; the server classified the supplied grant as invalid_grant_signature, while the transport join_ack was not treated as admission."
+    }
+  },
+  "runtime_inputs": {
+    "bp047_wrapper_path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/live-run-inputs/bp047-cleanup-20260908T223500Z/orchestrate-bp047-cleanup.ps1",
+    "bp047_wrapper_sha256": "4B409296CA748496CF7306B3673E304A84A79E967F047BA594BF8ECE60E1776C",
+    "authority_only_wrapper_path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/live-run-inputs/bp047-cleanup-20260908T223500Z/orchestrate-bp047-authority-only.ps1",
+    "authority_only_wrapper_sha256": "4A3A23406BF3593D214421876190D0A2B051CA8554351F4F7F17FC75113E0612",
+    "startgame_path": "C:/Steam/steamapps/common/Boundary/ProjectBoundary/Binaries/Win64/startgame.ps1",
+    "appid_current_path": "C:/Steam/steamapps/common/Boundary/ProjectBoundary/Binaries/Win64/steam_appid.txt",
+    "appid_current_sha256": "DDFE0E8D462AF661F81DB36589C39882DC0F2330785B5D80CD34F2F520AD618F",
+    "appid_current_value_observed": "480",
+    "appid_successful_reference_receipt": {
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/steam-auth-owned-harness-summary.json",
+      "sha256": "695666C8A87A7E0F764A2C0E31CCFF7119C4E70B3AEC59DF17951FC31EA3D1A2",
+      "temporary_sha256": "D94D5B4E76656EEEBC1AF103632210C3FEEDBDE6C3974DE249E9B9B5713B078E",
+      "restored_sha256": "DDFE0E8D462AF661F81DB36589C39882DC0F2330785B5D80CD34F2F520AD618F",
+      "note": "The successful reference used the controlled temporary AppID; BP047 wrapper source has no AppID mutation or snapshot, so its historical AppID state cannot be reconstructed from the BP047 receipt."
+    }
+  },
+  "conclusion": {
+    "fixture_or_auth_scope_reused": false,
+    "launch_contract_drift_found": "Only ephemeral port/pipe values differ; auth scopes and strict authority/client launch flags match.",
+    "appid_evidence_gap": true,
+    "login_ready_failure_attribution": "UNDETERMINED: BP047 did not capture AppID state. Do not attribute the timeout solely to the DLL or to missing Steam environment.",
+    "cleanup_scope": "Authority-only 74000 was intentionally client-free; its result is a world/owned-exit cleanup observation and does not depend on client login_ready."
+  }
+}

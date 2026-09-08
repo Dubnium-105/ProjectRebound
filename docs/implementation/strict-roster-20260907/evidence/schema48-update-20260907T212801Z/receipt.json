@@ -1,0 +1,38 @@
+{
+  "recorded_at": "2026-09-07T21:28:03.593083+00:00",
+  "command": [
+    "C:/Program Files/Go/bin/go.exe",
+    "test",
+    "./internal/update",
+    "-count=1",
+    "-v"
+  ],
+  "exit_code": 0,
+  "source_input_commit": "c76ef07642b195d6229c7fcb10ca9188d0505be3",
+  "source_dirty": true,
+  "source_files": [
+    {
+      "path": "Backend/internal/update/service.go",
+      "sha256": "8b16634d59c8b3ad5bf32f56b45f33c8224f4f39ee988b094265a24fa25b7cdd"
+    },
+    {
+      "path": "Backend/internal/update/service_test.go",
+      "sha256": "2a45aaeadb47c97d86d5474c00ed03ec3d371c151e06e24ae9b2b6d1f9a4dec3"
+    },
+    {
+      "path": "Backend/internal/update/strict_online_fixture_test.go",
+      "sha256": "1494670fc52835881c74b4c64309cc104b68ce0302e1afc6934759cf0fcdc701"
+    },
+    {
+      "path": "Backend/api/fixtures/strict-online-update-v1.json",
+      "sha256": "88fa3a9e8b6ef5c174f8e1731ce948fda8b74b8a1d9e3fbf5e8688e21d64ba2d"
+    }
+  ],
+  "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\schema48-update-20260907T212801Z\\go-test.log",
+  "log_sha256": "3da780c74c5c1077c43169db249cfe7aedbc454dfa40389545013bf72f390303",
+  "fixture_generation_log": {
+    "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\schema48-update-20260907T212801Z\\schema48-update-fixture-generation.log",
+    "sha256": "738062d32043f11c0090e5d87a399d12bee92e0522f1f2b925544087bb221839"
+  },
+  "scope": "Actual update validation and public-test-key Go manifest signing only. Rejects schema 47; no operational signing or release acceptance."
+}

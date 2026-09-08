@@ -1,0 +1,112 @@
+{
+  "receipt_kind": "backend_ac_mapping",
+  "generated_at_utc": "2026-09-08T00:33:10.7533197Z",
+  "source_head_observed": "345bde0d24a05da284582e79c4ff6d7679a9cbff",
+  "product_commit": "362f9c665648ff02d156efdb4bcda443433c8b97",
+  "evidence_boundary": "Component mapping only; does not upgrade cross-process/native/E2E acceptance.",
+  "entries": [
+    {
+      "breakpoint": "BP-034",
+      "acceptance_id": "AC-034",
+      "contract": "伪造/迟到ACTIVE报告不使托管Attempt或投影提前Running；报告关闭也不丢冻结名单；源状态和投影合法一致。",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "observed": "Strict BattleLog lookup binds explicit reports to the canonical Dedicated Attempt/projection and requires RUNNING/RUNNING or COMPLETED/COMPLETED; reports without strict identity remain standalone and do not infer old Meta rows. Integration coverage rejects a pre-running report without changing CONNECTING/RESERVED, accepts a completed late report without lifecycle mutation, keeps frozen roster identity separate from mutable player identity, and keeps standalone PvE non-official/retired records unchanged. No forged ACTIVE report plus closed-collector end-to-end run was executed, so AC-034 remains PARTIAL.",
+      "source_assertions": [
+        "Backend/internal/metaserver/battlelog_repository.go:203-240 resolveBattleLogMetaMatch requires explicit strict projection/attempt identity and matching RUNNING or COMPLETED states; no implicit old Meta inference.",
+        "Backend/internal/metaserver/battlelog_repository.go:35-75 idempotent report insert and official eligibility derive from bound strict roster/result; no lifecycle promotion.",
+        "Backend/internal/metaserver/battlelog_repository_integration_test.go:16-20 runs running, completed_late_report, and pve_claim_non_official.",
+        "Backend/internal/metaserver/battlelog_repository_integration_test.go:195-214 changes fixture to CONNECTING/RESERVED, rejects premature-report, and asserts both states remain unchanged.",
+        "Backend/internal/metaserver/battlelog_repository_integration_test.go:280-309 checks duplicate/report participant security snapshot and unchanged match/server/attempt lifecycle.",
+        "Backend/internal/metaserver/battlelog_repository_integration_test.go:311-380 verifies standalone PvE does not discover/complete retired Meta and explicit retired report/loadout are forbidden."
+      ],
+      "evidence": [
+        {
+          "path": "C:\\\\wksp\\\\ProjectRebound\\\\.tmp\\\\strict-roster-20260907\\\\backend-final-race-go1266-schema48-20260908t001815z.log",
+          "sha256": "14509BA080FE348810E3D0264FBF0F4A628F0CB2F198BD7B8A69B201DA1BBA6F",
+          "lines": "631-641",
+          "tests": [
+            "TestBattleLogSubmissionAgainstPostgreSQL/running",
+            "TestBattleLogSubmissionAgainstPostgreSQL/completed_late_report",
+            "TestBattleLogSubmissionAgainstPostgreSQL/pve_claim_non_official"
+          ]
+        },
+        {
+          "path": "C:\\\\wksp\\\\ProjectRebound\\\\.tmp\\\\strict-roster-20260907\\\\backend-final-race-go1266-schema48-20260908t001815z.log",
+          "sha256": "14509BA080FE348810E3D0264FBF0F4A628F0CB2F198BD7B8A69B201DA1BBA6F",
+          "tests": [
+            "TestStrictRosterP2PLifecycleAgainstPostgreSQL"
+          ]
+        }
+      ],
+      "source_hashes": [
+        {
+          "path": "Backend/internal/metaserver/battlelog_repository.go",
+          "sha256": "A32A855671D45E5D90D046815072066DC6A35D055D2AB41266FD9134682C923D"
+        },
+        {
+          "path": "Backend/internal/metaserver/battlelog_repository_integration_test.go",
+          "sha256": "A25B9A3909FEFE30E5385F0FFD04BA005EC47FAFC34F59EB5CC50160D521CDCF"
+        }
+      ]
+    },
+    {
+      "breakpoint": "BP-045",
+      "acceptance_id": "AC-045",
+      "contract": "旧server或native_unverified不能被选为strict authority；新server分配后普通READY心跳不使其二次入池。",
+      "implementation": "implemented",
+      "acceptance": "BLOCKED",
+      "observed": "The allocator query requires READY, fresh heartbeat, non-revoked/non-expired credentials, native_admission_verified=true, exact locked game SHA, and strict-roster-v2. Heartbeat clears absent or legacy capability and forces RESERVED/RUNNING/CLEANUP_PENDING while an active assignment or cleanup lease exists. Current isolated tests exercise strict dedicated lifecycle, capability-v1 clearing, active assignment protection, and cleanup state, but do not run a live old/native_unverified registration plus real scheduler assignment; AC-045 therefore remains BLOCKED rather than PASS.",
+      "source_assertions": [
+        "Backend/internal/matchlobby/service.go:649-665 dedicated selection filters READY/fresh/capacity/credential state plus native_admission_verified=true, locked game SHA, and strict-roster-v2 under row lock.",
+        "Backend/internal/gameserver/service.go:215-236 rejects malformed capability and clears legacy/absent capability in the heartbeat transaction.",
+        "Backend/internal/gameserver/service.go:256-281 reads active assignment/pending cleanup and forces RESERVED/RUNNING/CLEANUP_PENDING, preventing READY re-entry.",
+        "Backend/internal/gameserver/repository.go:262-296 ActiveMatchAssignment and HasPendingCleanup read strict attempts/cleanup leases.",
+        "Backend/internal/gameserver/service_integration_test.go:228-237 proves strict-roster-v1 capability is cleared and not retained.",
+        "Backend/internal/matchlobby/dedicated_integration_test.go:118-137 exercises a verified strict allocation and authority readiness; the fixture begins with native_admission_verified=true, so it is not the missing old/unverified negative.",
+        "Backend/internal/matchlobby/dedicated_integration_test.go:72-103 proves provisioning timeout leaves a consistent failed attempt and READY server; it is not a live registered-agent scheduler run."
+      ],
+      "evidence": [
+        {
+          "path": "C:\\\\wksp\\\\ProjectRebound\\\\.tmp\\\\strict-roster-20260907\\\\backend-final-race-go1266-schema48-20260908t001815z.log",
+          "sha256": "14509BA080FE348810E3D0264FBF0F4A628F0CB2F198BD7B8A69B201DA1BBA6F",
+          "lines": "597-598",
+          "tests": [
+            "TestStrictRosterDedicatedLifecycleAgainstPostgreSQL"
+          ]
+        },
+        {
+          "path": "C:\\\\wksp\\\\ProjectRebound\\\\.tmp\\\\strict-roster-20260907\\\\backend-final-race-go1266-schema48-20260908t001815z.log",
+          "sha256": "14509BA080FE348810E3D0264FBF0F4A628F0CB2F198BD7B8A69B201DA1BBA6F",
+          "lines": "228-237",
+          "tests": [
+            "TestGameServerRegistryAgainstPostgreSQL"
+          ]
+        }
+      ],
+      "source_hashes": [
+        {
+          "path": "Backend/internal/matchlobby/service.go",
+          "sha256": "FA5F53BC87B17AC92D3CD94317511B15A02CC7D2B37A0FC7BEB14728ADA28536"
+        },
+        {
+          "path": "Backend/internal/gameserver/service.go",
+          "sha256": "F8C3C84EF0877B3A459732BC8DD0C806E25103BCA928451F09ED98D6BFC56C03"
+        },
+        {
+          "path": "Backend/internal/gameserver/repository.go",
+          "sha256": "CD5EAF9F2CDF2262847BB214678E7BB51B768098804C53A680954EA897E0A4B3"
+        },
+        {
+          "path": "Backend/internal/gameserver/service_integration_test.go",
+          "sha256": "723BECA7F81EEBEAB8F1298227189993FE01C7C0D17AE7E4C5E95BBC62F929FD"
+        },
+        {
+          "path": "Backend/internal/matchlobby/dedicated_integration_test.go",
+          "sha256": "95B0B0625C6DA6C28704A2A59D00B68D973679C63AE17A765FE34D76C58572F1"
+        }
+      ]
+    }
+  ]
+}
+

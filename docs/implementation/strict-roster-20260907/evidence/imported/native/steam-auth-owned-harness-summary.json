@@ -1,0 +1,23 @@
+{
+  "mode": "OFFLINE_STEAM_AUTH_API_ONLY",
+  "harness": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\steam-auth-owned-harness.exe",
+  "working_directory": "C:\\Steam\\steamapps\\common\\Boundary\\ProjectBoundary\\Binaries\\Win64",
+  "appid_before_sha256": "DDFE0E8D462AF661F81DB36589C39882DC0F2330785B5D80CD34F2F520AD618F",
+  "appid_temporary_sha256": "D94D5B4E76656EEEBC1AF103632210C3FEEDBDE6C3974DE249E9B9B5713B078E",
+  "appid_restored_sha256": "DDFE0E8D462AF661F81DB36589C39882DC0F2330785B5D80CD34F2F520AD618F",
+  "harness_exit_code": 0,
+  "harness_error": null,
+  "stdout": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\steam-auth-owned-harness.stdout.log",
+  "stderr": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\steam-auth-owned-harness.stderr.log",
+  "appid_backup": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\steam-auth-owned-harness-appid-backup.raw",
+  "note": "Owned helper only. The client 163 callback matched the requested handle with EResult OK; the server BeginAuthSession returned 0 and callback 143 then reported response code 0 with matching SteamID. This proves the fixed Steamworks API sequence in separate pipes, not integration into the running game Payload or strict online admission.",
+  "validation": {
+    "client_ticket_callback_handle_match": true,
+    "client_ticket_callback_result_ok": true,
+    "server_validate_callback_seen": true,
+    "server_validate_callback_result_code": 0,
+    "server_validate_callback_steamid_match": true,
+    "platform_possession_proven": true,
+    "scope": "OFFLINE_STEAM_AUTH_API_ONLY"
+  }
+}

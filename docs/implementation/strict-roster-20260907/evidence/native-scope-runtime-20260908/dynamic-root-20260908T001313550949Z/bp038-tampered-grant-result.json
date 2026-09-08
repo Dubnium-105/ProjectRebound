@@ -1,0 +1,80 @@
+{
+  "issue": "BP038",
+  "run_id": "dynamic-root-20260908T001313550949Z",
+  "acceptance": "BLOCKED",
+  "status": "blocked_before_tampered_grant_delivery",
+  "tamper_mode": "wrong_audience",
+  "tampered_case": "JWT aud rewritten in private client token while authority staged the original signed grant",
+  "candidate_payload_sha256": "297C6EA8585C8A606B3AB31A9949BCB153D7469B890EF8603521FB8AF2CBFC1B",
+  "candidate_build_run": "root-validation-20260907T223103129065Z",
+  "native_source_commit": "dc49017e488e8b5bf6f6544b4428c46d230c0abd",
+  "backend_driver_sha256": "4ddada1c2516e1a8eb119d22cab509e546d7856b3adf1f389656f4d9dbdb1e84",
+  "backend_driver_main_go_sha256": "251a2a58ebbe7595fd1acfd65bc4388b3bdfa83c9a5d16abd2b1a879c66600cf",
+  "private_orchestrator_sha256": "EF0A98E671534F84242D4A82C677A5339849B35AE137C0510F7642177223F48E",
+  "private_runner_sha256": "21F1AC69457D6F260CFF01931008A29A1DF8B0FC584B63928E1F05CBCD5FEE97",
+  "authority_world_ready": true,
+  "authority_native_path_ready": true,
+  "client_login_ready": false,
+  "client_status_code": "native_admission_unverified",
+  "client_native_client_grant_injection_ready": true,
+  "native_authority_admission_verified": false,
+  "grant_marker_reached": false,
+  "tampered_native_rejection_code": null,
+  "reserve_observed": false,
+  "native_admitted_observed": false,
+  "connected_observed": false,
+  "payload_frame_label_counts": {
+    "client_payload_status": 1,
+    "client_login_ready_poll": 227,
+    "authority_ready": 1,
+    "authority_allocation": 1,
+    "authority_payload_status": 1
+  },
+  "client_login_status_code_counts": {
+    "native_admission_unverified": 227
+  },
+  "reason": "The fixed 297c6 candidate fails closed before the client-ready/grant stage because native_authority_admission_verified is a locked false capability bit. No client join or NMT_Login target guard was reached, so this is not a negative-acceptance PASS and not an external-environment PASS.",
+  "executions": [
+    {
+      "name": "isolated-database-create",
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260908T001313550949Z\\isolated-database-create.log",
+      "sha256": "b280c454d6f559e56eb3f5ed39f3ba084b8d1744a3ff7fe016b21ff86dea1aca"
+    },
+    {
+      "name": "fixture-prepare",
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260908T001313550949Z\\fixture-prepare.log",
+      "sha256": "9786ef20792830a4240549c1774efbf96510d4bed4db4af76cf8535c09866287"
+    },
+    {
+      "name": "native-harness",
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260908T001313550949Z\\native-harness.log",
+      "sha256": "a2e5ef3ea1f47d499e58b5996a49207f4975ad67fbf74940fc68bbb49ba6bc20"
+    },
+    {
+      "name": "backend-finalize",
+      "exit_code": 1,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260908T001313550949Z\\backend-finalize-private.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "safe_log_sha256": {
+    "authority.stdout.log": "9F449A38D581D79B10579D72B57D5613439B01C2BF6BAF32A37073A196F32AB4",
+    "client.stdout.log": "8D4F53BD7DC1DFC02C17F42DED720D3AD984E170A99A2217991D979255545DE3",
+    "summary.json": "5D4EC93551E712F8253445F5251AC4B54C4B599CA64572FF79ED5E59A6FE91FD",
+    "native-harness": "a2e5ef3ea1f47d499e58b5996a49207f4975ad67fbf74940fc68bbb49ba6bc20",
+    "authority.stderr.log": "87C7AD77046A7FC51727BA1F7A88CF7189ACD0AA7DBD198DD85EEAC80F60BD75",
+    "client.stderr.log": "6B7D35205E3A6E6B80D4D821CC31F324DA7C1F0DD919BF6181A73B14493E89E5",
+    "backend-finalize": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "fixture-prepare": "9786ef20792830a4240549c1774efbf96510d4bed4db4af76cf8535c09866287",
+    "isolated-database-create": "b280c454d6f559e56eb3f5ed39f3ba084b8d1744a3ff7fe016b21ff86dea1aca",
+    "payload-frames.jsonl": "D5A82FEE033D7873B31BACEE1F9E0189BFB05A484A56EE0D07F86B2CBD34D20E"
+  },
+  "restore_check_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260908T001313550949Z\\restore-check.json",
+  "restore_check_sha256": "5C87B7C181B0C448F3D9AAB738D93E52E50286E9B2839E1DFE70E3B715B02BC6",
+  "restored_payload_sha256": "6C7B5E05540AC72A6D7A9FA78F867917285FCE00081156EE13D237AA4D6C24A3",
+  "owned_boundary_process_count": 0,
+  "observed_utc": "2026-09-08T00:18:34.6008153+00:00"
+}

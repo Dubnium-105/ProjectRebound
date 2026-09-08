@@ -1,0 +1,26 @@
+=== RUN   TestStrictRosterDedicatedLifecycleAgainstPostgreSQL
+    dedicated_integration_test.go:19: TEST_DATABASE_URL is not set
+--- SKIP: TestStrictRosterDedicatedLifecycleAgainstPostgreSQL (0.00s)
+=== RUN   TestStrictRosterP2PLifecycleAgainstPostgreSQL
+    service_integration_test.go:25: TEST_DATABASE_URL is not set
+--- SKIP: TestStrictRosterP2PLifecycleAgainstPostgreSQL (0.00s)
+=== RUN   TestCreateValidationLocksHostingKindAndTwoTeamCapacity
+--- PASS: TestCreateValidationLocksHostingKindAndTwoTeamCapacity (0.00s)
+=== RUN   TestOpenRevisionFailsClosedAfterFreezeOrConflict
+--- PASS: TestOpenRevisionFailsClosedAfterFreezeOrConflict (0.00s)
+=== RUN   TestAdmissionSignerBindsFrozenRosterAndJoinSeat
+--- PASS: TestAdmissionSignerBindsFrozenRosterAndJoinSeat (0.00s)
+=== RUN   TestAdmissionSignerUsesSeparateTokenTypes
+--- PASS: TestAdmissionSignerUsesSeparateTokenTypes (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/matchlobby	0.089s
+=== RUN   TestDocumentValidatesAgainstOpenAPISchema
+--- PASS: TestDocumentValidatesAgainstOpenAPISchema (0.18s)
+=== RUN   TestReferenceDocsCoverEveryHTTPPath
+--- PASS: TestReferenceDocsCoverEveryHTTPPath (0.03s)
+=== RUN   TestDocumentHasRequiredOpenAPIShape
+--- PASS: TestDocumentHasRequiredOpenAPIShape (0.04s)
+=== RUN   TestDownloadPublishAndArchiveRequireAdminStepUp
+--- PASS: TestDownloadPublishAndArchiveRequireAdminStepUp (0.03s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/api/openapi	0.362s

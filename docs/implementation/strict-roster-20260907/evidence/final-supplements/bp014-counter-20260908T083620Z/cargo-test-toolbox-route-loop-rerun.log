@@ -1,0 +1,11 @@
+   Compiling rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 17.57s
+     Running unittests src\lib.rs (C:\wksp\ProjectRebound\.tmp\strict-roster-20260907\bp014-counter-20260908T083620Z\toolbox-target\debug\deps\rebound_toolbox-95a8a15180729417.exe)
+
+running 1 test
+BP014_TOOLBOX_LEGACY_ROUTE_STATS source=LegacyRouteStatus host_datagrams_sent=1 host_datagrams_received=1 member_datagrams_sent=1 member_datagrams_received=1
+test vnt::legacy::controller::tests::bp014_toolbox_legacy_route_loop_counters ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 311 filtered out; finished in 0.03s
+
+EXIT_CODE=0

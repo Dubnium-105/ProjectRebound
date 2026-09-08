@@ -1,0 +1,23 @@
+{"name": "create-isolated-database", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907214702\\create-isolated-database.log"}
+{"name": "restore-schema47-fixture", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907214702\\restore-schema47-fixture.log"}
+{"name": "restored-schema", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907214702\\restored-schema.log"}
+{"name": "baseline-provision", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907214702\\baseline-provision.log"}
+{"name": "baseline-schema-identities-denied", "exit_code": 1, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907214702\\baseline-schema-identities-denied.log"}
+{"name": "baseline-public-create-allowed", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907214702\\baseline-public-create-allowed.log"}
+{"name": "assert-redis-port-free", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907214702\\assert-redis-port-free.log"}
+{"name": "start-owned-redis7411", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907214702\\start-owned-redis7411.log"}
+{"name": "owned-redis-process-identity", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907214702\\owned-redis-process-identity.log"}
+{"name": "baseline-compose-acl", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907214702\\baseline-compose-acl.log"}
+{"name": "baseline-lua-consumption-denied", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907214702\\baseline-lua-consumption-denied.log"}
+{"name": "fixed-provision", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907214702\\fixed-provision.log"}
+{"name": "fixed-compose-acl", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907214702\\fixed-compose-acl.log"}
+{"name": "restricted-product-permissions-test", "exit_code": 1, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907214702\\restricted-product-permissions-test.log"}
+{"name": "stop-owned-redis", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907214702\\stop-owned-redis.log"}
+{"name": "assert-owned-redis-stopped", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907214702\\assert-owned-redis-stopped.log"}
+{"name": "disable-owned-meta-role", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907214702\\disable-owned-meta-role.log"}
+{"status": "FAIL", "result_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907214702\\result.json"}
+Traceback (most recent call last):
+  File "C:\wksp\ProjectRebound\.tmp\e2e21-acl\run_permissions.py", line 103, in <module>
+    assert record['exit_code']==0 and '--- PASS: TestRestrictedMetaServicePermissions' in text and '--- SKIP:' not in text, 'restricted product test failed'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: restricted product test failed

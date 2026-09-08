@@ -1,0 +1,5 @@
+=== RUN   TestBattleLogSubmissionAgainstPostgreSQL
+--- PASS: TestBattleLogSubmissionAgainstPostgreSQL (0.28s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver	0.387s
+EXIT_CODE=0

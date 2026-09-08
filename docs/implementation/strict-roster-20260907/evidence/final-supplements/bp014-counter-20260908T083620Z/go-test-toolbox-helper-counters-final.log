@@ -1,0 +1,29 @@
+=== RUN   TestBP014ToolboxLegacyRouteCounters
+    bp014_toolbox_counter_supplement_test.go:46: rust_toolbox_observation=   Compiling rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+        warning: unused variable: `host_client`
+            --> src\vnt\legacy\controller.rs:2709:13
+             |
+        2709 |         let host_client = RelayClient::connect(
+             |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_host_client`
+             |
+             = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+        
+        warning: unused variable: `member_client`
+            --> src\vnt\legacy\controller.rs:2716:13
+             |
+        2716 |         let member_client = RelayClient::connect(
+             |             ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_member_client`
+        
+        warning: `rebound_toolbox` (lib test) generated 2 warnings (run `cargo fix --lib -p rebound_toolbox --tests` to apply 2 suggestions)
+            Finished `test` profile [unoptimized + debuginfo] target(s) in 33.01s
+             Running unittests src\lib.rs (C:\wksp\ProjectRebound\.tmp\strict-roster-20260907\bp014-counter-20260908T083620Z\toolbox-target\debug\deps\rebound_toolbox-95a8a15180729417.exe)
+        
+        running 1 test
+        test vnt::legacy::controller::tests::bp014_toolbox_legacy_route_counters ... ok
+        
+        test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 311 filtered out; finished in 5.02s
+        
+--- PASS: TestBP014ToolboxLegacyRouteCounters (38.31s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/relayruntime	38.430s
+EXIT_CODE=0

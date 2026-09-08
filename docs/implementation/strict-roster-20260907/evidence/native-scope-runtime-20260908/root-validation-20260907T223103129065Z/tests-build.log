@@ -1,0 +1,26 @@
+适用于 .NET Framework MSBuild 版本 18.3.0-release-26070-10+3972042b7
+
+  command_framework_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\command_framework_tests.exe
+  command_line_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\command_line_policy_tests.exe
+  command_protocol_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\command_protocol_tests.exe
+  direct_match_ui_cleanup_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\direct_match_ui_cleanup_policy_tests.exe
+  dedicated_multi_match_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\dedicated_multi_match_policy_tests.exe
+  ed25519_verifier_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\ed25519_verifier_tests.exe
+  archive_completion_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\archive_completion_policy_tests.exe
+  join_ui_sync_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\join_ui_sync_policy_tests.exe
+  loadout_state_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\loadout_state_policy_tests.exe
+  local_qos_discovery_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\local_qos_discovery_policy_tests.exe
+  managed_possession_sync_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\managed_possession_sync_policy_tests.exe
+  native_login_grant_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\native_login_grant_policy_tests.exe
+  native_match_scope_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\native_match_scope_tests.exe
+  replication_world_gate_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\replication_world_gate_policy_tests.exe
+  respawn_state_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\respawn_state_policy_tests.exe
+  seamless_intro_camera_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\seamless_intro_camera_policy_tests.exe
+  server_hook_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\server_hook_policy_tests.exe
+  strict_authority_start_dispatch_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\strict_authority_start_dispatch_tests.exe
+  strict_authority_lease_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\strict_authority_lease_tests.exe
+  strict_roster_steam_auth_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\strict_roster_steam_auth_tests.exe
+  strict_roster_cleanup_receipt_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\strict_roster_cleanup_receipt_tests.exe
+  unreal_container_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\unreal_container_tests.exe
+  strict_roster_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\strict_roster_policy_tests.exe
+  weapon_archive_policy_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\weapon_archive_policy_tests.exe

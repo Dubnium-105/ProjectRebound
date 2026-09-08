@@ -1,0 +1,32 @@
+{
+  "id": "backend-a-schema47-to48-live-scope-20260908",
+  "status": "pass",
+  "database": "rebound_a_schema47_restore_20260908_01",
+  "source_dump": "backend-schema47-source-20260907-authority-final.dump",
+  "precheck": {
+    "schema_max": 47,
+    "schema_count": 47,
+    "live_generation_columns": 0,
+    "attempt_rows": 0,
+    "roster_rows": 0
+  },
+  "migration": {
+    "target_schema": 48,
+    "live_generation_columns": 2,
+    "test_command": "go1.26.6 linux/amd64 test -race -p 1 ./internal/matchlobby -run ^TestStrictRosterP2PLifecycleAgainstPostgreSQL$ -count=1 -v",
+    "exit_code": 0,
+    "observed": "P2P lifecycle route 1->2->3 preserves HOST live generation/route/nonce; repeat heartbeat before Payload does not advance; stale preserve after disconnect rejected"
+  },
+  "postcheck": {
+    "schema_max": 48,
+    "schema_count": 48,
+    "live_generation_columns": 2,
+    "attempt_rows": 0
+  },
+  "artifacts": {
+    "docs/implementation/strict-roster-20260907/evidence/backend-a-schema47-precheck-20260908.txt": "F941430BD71C80EC6C637ABB9789F41D7C2F5E42128CBAFBDCF3196B2BDC324A",
+    "docs/implementation/strict-roster-20260907/evidence/backend-a-schema47-postcheck-20260908.txt": "9C5D499FE89182A39ADA53894C96D861B037252C3E9AD5D993A6DFC03713A22C",
+    "docs/implementation/strict-roster-20260907/evidence/backend-a-schema47-to48-live-scope-p2p-20260908.log": "497600AE0594DDBDFED3C0955FB06CB6A3C2E12196198B91C3D4F95493EDB31B",
+    "docs/implementation/strict-roster-20260907/evidence/backend-schema47-source-20260907-authority-final.dump": "2D2290A14481FB380B7E9057FAEA45976C18AE4BA84600AF4A3B19B8B22DDEB3"
+  }
+}

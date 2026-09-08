@@ -1,0 +1,1190 @@
+=== RUN   TestDocumentValidatesAgainstOpenAPISchema
+--- PASS: TestDocumentValidatesAgainstOpenAPISchema (1.25s)
+=== RUN   TestReferenceDocsCoverEveryHTTPPath
+--- PASS: TestReferenceDocsCoverEveryHTTPPath (0.32s)
+=== RUN   TestDocumentHasRequiredOpenAPIShape
+--- PASS: TestDocumentHasRequiredOpenAPIShape (0.33s)
+=== RUN   TestDownloadPublishAndArchiveRequireAdminStepUp
+--- PASS: TestDownloadPublishAndArchiveRequireAdminStepUp (0.28s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/api/openapi	3.236s
+?   	github.com/Dubnium-105/ProjectRebound/Backend/api/proto	[no test files]
+?   	github.com/Dubnium-105/ProjectRebound/Backend/cmd/adminctl	[no test files]
+?   	github.com/Dubnium-105/ProjectRebound/Backend/cmd/control-plane	[no test files]
+=== RUN   TestRunVerifiesTicketThroughNativeLibrary
+--- PASS: TestRunVerifiesTicketThroughNativeLibrary (0.00s)
+=== RUN   TestRunRejectsMalformedInputWithoutLoadingLibrary
+=== RUN   TestRunRejectsMalformedInputWithoutLoadingLibrary/empty
+=== RUN   TestRunRejectsMalformedInputWithoutLoadingLibrary/0
+=== RUN   TestRunRejectsMalformedInputWithoutLoadingLibrary/not-hex
+=== RUN   TestRunRejectsMalformedInputWithoutLoadingLibrary/too_long
+--- PASS: TestRunRejectsMalformedInputWithoutLoadingLibrary (0.00s)
+    --- PASS: TestRunRejectsMalformedInputWithoutLoadingLibrary/empty (0.00s)
+    --- PASS: TestRunRejectsMalformedInputWithoutLoadingLibrary/0 (0.00s)
+    --- PASS: TestRunRejectsMalformedInputWithoutLoadingLibrary/not-hex (0.00s)
+    --- PASS: TestRunRejectsMalformedInputWithoutLoadingLibrary/too_long (0.00s)
+=== RUN   TestRunDoesNotLeakTicketWhenDecryptFails
+--- PASS: TestRunDoesNotLeakTicketWhenDecryptFails (0.00s)
+=== RUN   TestRunRequiresSteamIDButIgnoresOptionalMetadataFailures
+=== RUN   TestRunRequiresSteamIDButIgnoresOptionalMetadataFailures/optional_metadata_unavailable
+=== RUN   TestRunRequiresSteamIDButIgnoresOptionalMetadataFailures/SteamID_unavailable
+=== RUN   TestRunRequiresSteamIDButIgnoresOptionalMetadataFailures/zero_SteamID
+--- PASS: TestRunRequiresSteamIDButIgnoresOptionalMetadataFailures (0.00s)
+    --- PASS: TestRunRequiresSteamIDButIgnoresOptionalMetadataFailures/optional_metadata_unavailable (0.00s)
+    --- PASS: TestRunRequiresSteamIDButIgnoresOptionalMetadataFailures/SteamID_unavailable (0.00s)
+    --- PASS: TestRunRequiresSteamIDButIgnoresOptionalMetadataFailures/zero_SteamID (0.00s)
+=== RUN   TestLoadSymmetricKeyFile
+--- PASS: TestLoadSymmetricKeyFile (0.00s)
+=== RUN   TestLoadSymmetricKeyRequiresExactlyOneSource
+--- PASS: TestLoadSymmetricKeyRequiresExactlyOneSource (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/cmd/decrypt-ticket	1.018s
+?   	github.com/Dubnium-105/ProjectRebound/Backend/cmd/edge-relay	[no test files]
+=== RUN   TestHeartbeatTargets
+=== RUN   TestHeartbeatTargets/primary_only
+=== RUN   TestHeartbeatTargets/fallback
+=== RUN   TestHeartbeatTargets/deduplicate
+--- PASS: TestHeartbeatTargets (0.00s)
+    --- PASS: TestHeartbeatTargets/primary_only (0.00s)
+    --- PASS: TestHeartbeatTargets/fallback (0.00s)
+    --- PASS: TestHeartbeatTargets/deduplicate (0.00s)
+=== RUN   TestSaveAndLoadIdentity
+--- PASS: TestSaveAndLoadIdentity (0.01s)
+=== RUN   TestRotationDue
+--- PASS: TestRotationDue (0.00s)
+=== RUN   TestHeartbeatFallsBackWithFreshSignedRequest
+--- PASS: TestHeartbeatFallsBackWithFreshSignedRequest (0.03s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/cmd/game-server-agent	1.066s
+?   	github.com/Dubnium-105/ProjectRebound/Backend/cmd/load-bot	[no test files]
+?   	github.com/Dubnium-105/ProjectRebound/Backend/cmd/meta-import	[no test files]
+?   	github.com/Dubnium-105/ProjectRebound/Backend/cmd/meta-server	[no test files]
+=== RUN   TestRewriteConnectEndpoint
+--- PASS: TestRewriteConnectEndpoint (0.00s)
+=== RUN   TestAccessTokenRequiresPipeSafeValue
+--- PASS: TestAccessTokenRequiresPipeSafeValue (0.00s)
+=== RUN   TestListenersMustBeLoopback
+--- PASS: TestListenersMustBeLoopback (0.00s)
+=== RUN   TestMetaBaseURLRequiresHTTPSExceptForExplicitPrivateLabOrigin
+--- PASS: TestMetaBaseURLRequiresHTTPSExceptForExplicitPrivateLabOrigin (0.00s)
+=== RUN   TestPlainLogicIsRestrictedToExplicitPrivateLabEndpoint
+--- PASS: TestPlainLogicIsRestrictedToExplicitPrivateLabEndpoint (0.00s)
+=== RUN   TestHTTPProxyForwardsCompleteRequestAndResponse
+--- PASS: TestHTTPProxyForwardsCompleteRequestAndResponse (0.01s)
+=== RUN   TestConnectServerRewritesOnlySuccessfulEndpoint
+--- PASS: TestConnectServerRewritesOnlySuccessfulEndpoint (0.00s)
+=== RUN   TestMetaHealthIsForwardedAndTunnelHealthIsLocal
+--- PASS: TestMetaHealthIsForwardedAndTunnelHealthIsLocal (0.00s)
+=== RUN   TestAccessTokenCanRotateOnPersistentStdin
+--- PASS: TestAccessTokenCanRotateOnPersistentStdin (0.00s)
+=== RUN   TestHTTPProxyUsesRotatedAccessToken
+--- PASS: TestHTTPProxyUsesRotatedAccessToken (0.00s)
+=== RUN   TestHTTPProxyFlushesStreamingResponses
+--- PASS: TestHTTPProxyFlushesStreamingResponses (0.00s)
+=== RUN   TestHTTPProxySupportsUpgradeConnections
+--- PASS: TestHTTPProxySupportsUpgradeConnections (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/cmd/meta-tunnel	1.043s
+?   	github.com/Dubnium-105/ProjectRebound/Backend/cmd/test-ticket-verifier	[no test files]
+=== RUN   TestComposeDefinesIsolatedOptionalEdgeRelay
+--- PASS: TestComposeDefinesIsolatedOptionalEdgeRelay (0.01s)
+=== RUN   TestSeparatedControlPlaneHasSecureNetworkAndPersistentSecrets
+--- PASS: TestSeparatedControlPlaneHasSecureNetworkAndPersistentSecrets (0.03s)
+=== RUN   TestSeparatedAdminWebHasOnlyEdgeNetworkAndNoSecrets
+--- PASS: TestSeparatedAdminWebHasOnlyEdgeNetworkAndNoSecrets (0.02s)
+=== RUN   TestSelfHostedMinIOIsTheDefaultDownloadStorage
+--- PASS: TestSelfHostedMinIOIsTheDefaultDownloadStorage (0.04s)
+=== RUN   TestSeparatedMetaServerIsHardenedAndOptIn
+--- PASS: TestSeparatedMetaServerIsHardenedAndOptIn (0.02s)
+=== RUN   TestAdminWebImageUsesLockedBuildAndUnprivilegedRuntime
+--- PASS: TestAdminWebImageUsesLockedBuildAndUnprivilegedRuntime (0.00s)
+=== RUN   TestSeparatedEdgeRelayHasNoControlPlaneDependencies
+--- PASS: TestSeparatedEdgeRelayHasNoControlPlaneDependencies (0.00s)
+=== RUN   TestMonitoringProfileStaysOptInAndLoopbackOnly
+--- PASS: TestMonitoringProfileStaysOptInAndLoopbackOnly (0.01s)
+=== RUN   TestDevelopmentDatastoresAreLoopbackOnly
+--- PASS: TestDevelopmentDatastoresAreLoopbackOnly (0.01s)
+=== RUN   TestV11ReleaseScriptsEnforceSafetyGates
+--- PASS: TestV11ReleaseScriptsEnforceSafetyGates (0.01s)
+=== RUN   TestLoadBotHasMinimalContainerImage
+--- PASS: TestLoadBotHasMinimalContainerImage (0.00s)
+=== RUN   TestVNTCompatibilityDoesNotUseDeploymentAllowlists
+--- PASS: TestVNTCompatibilityDoesNotUseDeploymentAllowlists (0.02s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/deployments/compose	1.197s
+=== RUN   TestPrometheusScrapesInternalControlPlaneAndMetaMetrics
+--- PASS: TestPrometheusScrapesInternalControlPlaneAndMetaMetrics (0.01s)
+=== RUN   TestV11AlertRulesCoverRequiredFailureModes
+--- PASS: TestV11AlertRulesCoverRequiredFailureModes (0.01s)
+=== RUN   TestV11DashboardSetIsVersionedAndValid
+--- PASS: TestV11DashboardSetIsVersionedAndValid (0.04s)
+=== RUN   TestGrafanaDashboardIsValidJSONAndUsesRequiredMetrics
+--- PASS: TestGrafanaDashboardIsValidJSONAndUsesRequiredMetrics (0.01s)
+=== RUN   TestGrafanaDashboardRepeatsDynamicServiceAndRelayCards
+--- PASS: TestGrafanaDashboardRepeatsDynamicServiceAndRelayCards (0.01s)
+=== RUN   TestPublicProxyBlocksInternalMetrics
+--- PASS: TestPublicProxyBlocksInternalMetrics (0.00s)
+=== RUN   TestPublicMetaGatewayBlocksPrivateRoutes
+--- PASS: TestPublicMetaGatewayBlocksPrivateRoutes (0.00s)
+=== RUN   TestComposeMountsPrometheusAlertRules
+--- PASS: TestComposeMountsPrometheusAlertRules (0.03s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/deployments/monitoring	1.127s
+=== RUN   TestInsertLoginAuditNormalizesNilTurnstileErrorCodes
+--- PASS: TestInsertLoginAuditNormalizesNilTurnstileErrorCodes (0.00s)
+=== RUN   TestAuthenticatorAcceptsOnlyDedicatedAdminToken
+--- PASS: TestAuthenticatorAcceptsOnlyDedicatedAdminToken (0.00s)
+=== RUN   TestNetworkGuardHidesAdminAPIFromPublicAddress
+--- PASS: TestNetworkGuardHidesAdminAPIFromPublicAddress (0.00s)
+=== RUN   TestRequireStepUpRejectsMissingOrInvalidProof
+=== RUN   TestRequireStepUpRejectsMissingOrInvalidProof/missing
+=== RUN   TestRequireStepUpRejectsMissingOrInvalidProof/invalid
+=== RUN   TestRequireStepUpRejectsMissingOrInvalidProof/valid
+--- PASS: TestRequireStepUpRejectsMissingOrInvalidProof (0.00s)
+    --- PASS: TestRequireStepUpRejectsMissingOrInvalidProof/missing (0.00s)
+    --- PASS: TestRequireStepUpRejectsMissingOrInvalidProof/invalid (0.00s)
+    --- PASS: TestRequireStepUpRejectsMissingOrInvalidProof/valid (0.00s)
+=== RUN   TestAdministratorIssuesAndRevokesInstanceBoundGameServerToken
+--- PASS: TestAdministratorIssuesAndRevokesInstanceBoundGameServerToken (4.11s)
+=== RUN   TestGovernanceNormalizersPreservePermissionKeyCase
+--- PASS: TestGovernanceNormalizersPreservePermissionKeyCase (0.00s)
+=== RUN   TestGovernedAdministratorJSONUsesSafePublicFields
+--- PASS: TestGovernedAdministratorJSONUsesSafePublicFields (0.00s)
+=== RUN   TestGovernanceAuditValueDoesNotContainCredentials
+--- PASS: TestGovernanceAuditValueDoesNotContainCredentials (0.00s)
+=== RUN   TestMatchAttemptForceAbortRequiresPermissionAndStepUp
+--- PASS: TestMatchAttemptForceAbortRequiresPermissionAndStepUp (0.00s)
+=== RUN   TestMatchAttemptForceAbortRejectsMissingAuthPermissionAndStepUp
+=== RUN   TestMatchAttemptForceAbortRejectsMissingAuthPermissionAndStepUp/missing_principal
+=== RUN   TestMatchAttemptForceAbortRejectsMissingAuthPermissionAndStepUp/missing_permission
+=== RUN   TestMatchAttemptForceAbortRejectsMissingAuthPermissionAndStepUp/missing_step_up
+=== RUN   TestMatchAttemptForceAbortRejectsMissingAuthPermissionAndStepUp/invalid_step_up
+--- PASS: TestMatchAttemptForceAbortRejectsMissingAuthPermissionAndStepUp (0.00s)
+    --- PASS: TestMatchAttemptForceAbortRejectsMissingAuthPermissionAndStepUp/missing_principal (0.00s)
+    --- PASS: TestMatchAttemptForceAbortRejectsMissingAuthPermissionAndStepUp/missing_permission (0.00s)
+    --- PASS: TestMatchAttemptForceAbortRejectsMissingAuthPermissionAndStepUp/missing_step_up (0.00s)
+    --- PASS: TestMatchAttemptForceAbortRejectsMissingAuthPermissionAndStepUp/invalid_step_up (0.00s)
+=== RUN   TestMatchAttemptForceAbortPreservesServiceHTTPStatus
+=== RUN   TestMatchAttemptForceAbortPreservesServiceHTTPStatus/missing_attempt
+=== RUN   TestMatchAttemptForceAbortPreservesServiceHTTPStatus/wrong_state
+=== RUN   TestMatchAttemptForceAbortPreservesServiceHTTPStatus/missing_reason
+--- PASS: TestMatchAttemptForceAbortPreservesServiceHTTPStatus (0.00s)
+    --- PASS: TestMatchAttemptForceAbortPreservesServiceHTTPStatus/missing_attempt (0.00s)
+    --- PASS: TestMatchAttemptForceAbortPreservesServiceHTTPStatus/wrong_state (0.00s)
+    --- PASS: TestMatchAttemptForceAbortPreservesServiceHTTPStatus/missing_reason (0.00s)
+=== RUN   TestTOTPMatchesRFC6238Vector
+--- PASS: TestTOTPMatchesRFC6238Vector (0.00s)
+=== RUN   TestSecretBoxUsesAdministratorAsAssociatedData
+--- PASS: TestSecretBoxUsesAdministratorAsAssociatedData (0.00s)
+=== RUN   TestRecoveryCodesAreUniqueAndHashed
+--- PASS: TestRecoveryCodesAreUniqueAndHashed (0.00s)
+=== RUN   TestAdministrativeVNTNodeResponseDoesNotExposeCredentials
+--- PASS: TestAdministrativeVNTNodeResponseDoesNotExposeCredentials (0.00s)
+=== RUN   TestAdministrativeGameServerResponseDoesNotExposeTokenHash
+--- PASS: TestAdministrativeGameServerResponseDoesNotExposeTokenHash (0.00s)
+=== RUN   TestCreateGameServerRegistrationReturnsPlaintextOnceAndDisablesCaching
+--- PASS: TestCreateGameServerRegistrationReturnsPlaintextOnceAndDisablesCaching (0.00s)
+=== RUN   TestAdministrativeResourceRetirementAgainstPostgreSQL
+--- PASS: TestAdministrativeResourceRetirementAgainstPostgreSQL (0.13s)
+=== RUN   TestPasswordHashRoundTrip
+--- PASS: TestPasswordHashRoundTrip (1.04s)
+=== RUN   TestPasswordPolicy
+--- PASS: TestPasswordPolicy (0.00s)
+=== RUN   TestMaskIPAddress
+--- PASS: TestMaskIPAddress (0.00s)
+=== RUN   TestListVNTSecurityAuditRejectsInvalidFiltersBeforeRepositoryAccess
+--- PASS: TestListVNTSecurityAuditRejectsInvalidFiltersBeforeRepositoryAccess (0.00s)
+=== RUN   TestRedactSensitiveMapRecurses
+--- PASS: TestRedactSensitiveMapRecurses (0.00s)
+=== RUN   TestDashboardTimeseriesRejectsArbitraryPeriod
+--- PASS: TestDashboardTimeseriesRejectsArbitraryPeriod (0.00s)
+=== RUN   TestAdminPlayerLifecycleAgainstPostgreSQL
+--- PASS: TestAdminPlayerLifecycleAgainstPostgreSQL (0.12s)
+=== RUN   TestAdministratorGovernanceAgainstPostgreSQL
+--- PASS: TestAdministratorGovernanceAgainstPostgreSQL (0.46s)
+=== RUN   TestManagedReleaseLifecycleAgainstPostgreSQL
+--- PASS: TestManagedReleaseLifecycleAgainstPostgreSQL (0.13s)
+=== RUN   TestParseAccountStatusNormalizesAndRejectsUnknown
+--- PASS: TestParseAccountStatusNormalizesAndRejectsUnknown (0.00s)
+=== RUN   TestValidateAuditReasonRejectsMissingAndCredentialLikeText
+--- PASS: TestValidateAuditReasonRejectsMissingAndCredentialLikeText (0.00s)
+=== RUN   TestNormalizeAdminSettingValue
+--- PASS: TestNormalizeAdminSettingValue (0.00s)
+=== RUN   TestTurnstileVerifierValidatesServerResponse
+--- PASS: TestTurnstileVerifierValidatesServerResponse (0.01s)
+=== RUN   TestTurnstileVerifierRejectsHostnameAndActionMismatch
+=== RUN   TestTurnstileVerifierRejectsHostnameAndActionMismatch/hostname
+=== RUN   TestTurnstileVerifierRejectsHostnameAndActionMismatch/action
+--- PASS: TestTurnstileVerifierRejectsHostnameAndActionMismatch (0.00s)
+    --- PASS: TestTurnstileVerifierRejectsHostnameAndActionMismatch/hostname (0.00s)
+    --- PASS: TestTurnstileVerifierRejectsHostnameAndActionMismatch/action (0.00s)
+=== RUN   TestTurnstileVerifierFailsClosedWhenNotConfigured
+--- PASS: TestTurnstileVerifierFailsClosedWhenNotConfigured (0.00s)
+=== RUN   TestTurnstileVerifierRejectsMissingTokenWithoutSiteverifyRequest
+--- PASS: TestTurnstileVerifierRejectsMissingTokenWithoutSiteverifyRequest (0.00s)
+=== RUN   TestTurnstileVerifierPreservesTimeoutOrDuplicateRejection
+--- PASS: TestTurnstileVerifierPreservesTimeoutOrDuplicateRejection (0.00s)
+=== RUN   TestTurnstileVerifierRetriesTransientFailureWithSameIdempotencyKey
+--- PASS: TestTurnstileVerifierRetriesTransientFailureWithSameIdempotencyKey (0.10s)
+=== RUN   TestTurnstileVerifierDoesNotRetryPermanentHTTPFailure
+--- PASS: TestTurnstileVerifierDoesNotRetryPermanentHTTPFailure (0.00s)
+=== RUN   TestAdministratorDrainsAndRevokesVNTNodeAgainstPostgreSQL
+--- PASS: TestAdministratorDrainsAndRevokesVNTNodeAgainstPostgreSQL (0.15s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/admin	7.323s
+=== RUN   TestDecodeJSONRejectsUnknownFieldsAndTrailingObjects
+--- PASS: TestDecodeJSONRejectsUnknownFieldsAndTrailingObjects (0.00s)
+=== RUN   TestWriteDataUsesEnvelope
+--- PASS: TestWriteDataUsesEnvelope (0.00s)
+=== RUN   TestWriteErrorAlwaysIncludesDetails
+--- PASS: TestWriteErrorAlwaysIncludesDetails (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/api	1.024s
+=== RUN   TestRedisBindRateStoreIsAtomicAndExpires
+--- PASS: TestRedisBindRateStoreIsAtomicAndExpires (0.02s)
+=== RUN   TestBindLimiterChecksHashedDimensions
+--- PASS: TestBindLimiterChecksHashedDimensions (0.00s)
+=== RUN   TestBindLimiterUsesConservativeLocalFallback
+--- PASS: TestBindLimiterUsesConservativeLocalFallback (0.00s)
+=== RUN   TestLocalBindRateStoreBoundsCardinality
+--- PASS: TestLocalBindRateStoreBoundsCardinality (0.00s)
+=== RUN   TestDevelopmentTrustedSteamIDRequiresExactAllowlistMatch
+--- PASS: TestDevelopmentTrustedSteamIDRequiresExactAllowlistMatch (0.00s)
+=== RUN   TestNormalizeDeviceID
+--- PASS: TestNormalizeDeviceID (0.00s)
+=== RUN   TestNormalizeStructuredDeviceFingerprint
+--- PASS: TestNormalizeStructuredDeviceFingerprint (0.00s)
+=== RUN   TestNormalizePositionalDeviceFingerprint
+--- PASS: TestNormalizePositionalDeviceFingerprint (0.00s)
+=== RUN   TestStructuredDeviceFingerprintRejectsMalformedValues
+--- PASS: TestStructuredDeviceFingerprintRejectsMalformedValues (0.00s)
+=== RUN   TestDeviceFingerprinterUsesDomainSeparatedStableDigests
+--- PASS: TestDeviceFingerprinterUsesDomainSeparatedStableDigests (0.00s)
+=== RUN   TestDeviceIDStoredRepresentation
+--- PASS: TestDeviceIDStoredRepresentation (0.00s)
+=== RUN   TestBindAcceptsOptionalDeviceAndInviteFields
+--- PASS: TestBindAcceptsOptionalDeviceAndInviteFields (0.00s)
+=== RUN   TestBindRejectsClientSuppliedPrivilegeFields
+--- PASS: TestBindRejectsClientSuppliedPrivilegeFields (0.00s)
+=== RUN   TestRequireActiveRejectsBannedPlayer
+--- PASS: TestRequireActiveRejectsBannedPlayer (0.00s)
+=== RUN   TestRequireVerifiedUsesSessionAuthenticationLevel
+=== RUN   TestRequireVerifiedUsesSessionAuthenticationLevel/verified
+=== RUN   TestRequireVerifiedUsesSessionAuthenticationLevel/unverified_player_with_globally_verified_profile
+--- PASS: TestRequireVerifiedUsesSessionAuthenticationLevel (0.00s)
+    --- PASS: TestRequireVerifiedUsesSessionAuthenticationLevel/verified (0.00s)
+    --- PASS: TestRequireVerifiedUsesSessionAuthenticationLevel/unverified_player_with_globally_verified_profile (0.00s)
+=== RUN   TestAuthenticationLifecycleAgainstPostgreSQL
+=== RUN   TestAuthenticationLifecycleAgainstPostgreSQL/explicit_development_allowlist_creates_a_ticketless_trusted_lab_session
+=== RUN   TestAuthenticationLifecycleAgainstPostgreSQL/encrypted_ticket_establishes_and_preserves_a_verified_session
+=== RUN   TestAuthenticationLifecycleAgainstPostgreSQL/ticket_acceptance_depends_only_on_decryption_and_SteamID
+=== RUN   TestAuthenticationLifecycleAgainstPostgreSQL/ticket_acceptance_depends_only_on_decryption_and_SteamID/decrypt_failure
+=== RUN   TestAuthenticationLifecycleAgainstPostgreSQL/ticket_acceptance_depends_only_on_decryption_and_SteamID/SteamID_mismatch
+=== RUN   TestAuthenticationLifecycleAgainstPostgreSQL/ticket_acceptance_depends_only_on_decryption_and_SteamID/wrong_app
+=== RUN   TestAuthenticationLifecycleAgainstPostgreSQL/ticket_acceptance_depends_only_on_decryption_and_SteamID/expired
+=== RUN   TestAuthenticationLifecycleAgainstPostgreSQL/ticket_acceptance_depends_only_on_decryption_and_SteamID/missing_optional_metadata
+=== RUN   TestAuthenticationLifecycleAgainstPostgreSQL/failed_integrity_proof_immediately_clears_session_trust
+=== RUN   TestAuthenticationLifecycleAgainstPostgreSQL/structured_device_factors_are_normalized_and_linked
+=== RUN   TestAuthenticationLifecycleAgainstPostgreSQL/new_and_existing_bind
+=== RUN   TestAuthenticationLifecycleAgainstPostgreSQL/concurrent_bind_is_idempotent
+=== RUN   TestAuthenticationLifecycleAgainstPostgreSQL/banned_player_may_bind
+=== RUN   TestAuthenticationLifecycleAgainstPostgreSQL/player_manages_only_owned_sessions
+=== RUN   TestAuthenticationLifecycleAgainstPostgreSQL/rotation_reuse_and_logout_revoke_sessions
+--- PASS: TestAuthenticationLifecycleAgainstPostgreSQL (0.69s)
+    --- PASS: TestAuthenticationLifecycleAgainstPostgreSQL/explicit_development_allowlist_creates_a_ticketless_trusted_lab_session (0.01s)
+    --- PASS: TestAuthenticationLifecycleAgainstPostgreSQL/encrypted_ticket_establishes_and_preserves_a_verified_session (0.05s)
+    --- PASS: TestAuthenticationLifecycleAgainstPostgreSQL/ticket_acceptance_depends_only_on_decryption_and_SteamID (0.05s)
+        --- PASS: TestAuthenticationLifecycleAgainstPostgreSQL/ticket_acceptance_depends_only_on_decryption_and_SteamID/decrypt_failure (0.01s)
+        --- PASS: TestAuthenticationLifecycleAgainstPostgreSQL/ticket_acceptance_depends_only_on_decryption_and_SteamID/SteamID_mismatch (0.01s)
+        --- PASS: TestAuthenticationLifecycleAgainstPostgreSQL/ticket_acceptance_depends_only_on_decryption_and_SteamID/wrong_app (0.01s)
+        --- PASS: TestAuthenticationLifecycleAgainstPostgreSQL/ticket_acceptance_depends_only_on_decryption_and_SteamID/expired (0.01s)
+        --- PASS: TestAuthenticationLifecycleAgainstPostgreSQL/ticket_acceptance_depends_only_on_decryption_and_SteamID/missing_optional_metadata (0.01s)
+    --- PASS: TestAuthenticationLifecycleAgainstPostgreSQL/failed_integrity_proof_immediately_clears_session_trust (0.03s)
+    --- PASS: TestAuthenticationLifecycleAgainstPostgreSQL/structured_device_factors_are_normalized_and_linked (0.03s)
+    --- PASS: TestAuthenticationLifecycleAgainstPostgreSQL/new_and_existing_bind (0.04s)
+    --- PASS: TestAuthenticationLifecycleAgainstPostgreSQL/concurrent_bind_is_idempotent (0.07s)
+    --- PASS: TestAuthenticationLifecycleAgainstPostgreSQL/banned_player_may_bind (0.02s)
+    --- PASS: TestAuthenticationLifecycleAgainstPostgreSQL/player_manages_only_owned_sessions (0.06s)
+    --- PASS: TestAuthenticationLifecycleAgainstPostgreSQL/rotation_reuse_and_logout_revoke_sessions (0.05s)
+=== RUN   TestMaskIPAddress
+--- PASS: TestMaskIPAddress (0.00s)
+=== RUN   TestExecTicketVerifierUsesStdinAndParsesBoundedJSON
+--- PASS: TestExecTicketVerifierUsesStdinAndParsesBoundedJSON (1.02s)
+=== RUN   TestExecTicketVerifierHandlesFailureTimeoutAndOutputLimit
+=== RUN   TestExecTicketVerifierHandlesFailureTimeoutAndOutputLimit/nonzero_exit
+=== RUN   TestExecTicketVerifierHandlesFailureTimeoutAndOutputLimit/reported_invalid
+=== RUN   TestExecTicketVerifierHandlesFailureTimeoutAndOutputLimit/timeout
+=== RUN   TestExecTicketVerifierHandlesFailureTimeoutAndOutputLimit/output_limit
+--- PASS: TestExecTicketVerifierHandlesFailureTimeoutAndOutputLimit (3.05s)
+    --- PASS: TestExecTicketVerifierHandlesFailureTimeoutAndOutputLimit/nonzero_exit (0.01s)
+    --- PASS: TestExecTicketVerifierHandlesFailureTimeoutAndOutputLimit/reported_invalid (1.02s)
+    --- PASS: TestExecTicketVerifierHandlesFailureTimeoutAndOutputLimit/timeout (1.00s)
+    --- PASS: TestExecTicketVerifierHandlesFailureTimeoutAndOutputLimit/output_limit (1.02s)
+=== RUN   TestNormalizeEncryptedTicket
+--- PASS: TestNormalizeEncryptedTicket (0.00s)
+=== RUN   TestValidateVerifiedTicket
+=== RUN   TestValidateVerifiedTicket/reported_invalid
+=== RUN   TestValidateVerifiedTicket/bad_SteamID
+=== RUN   TestValidateVerifiedTicket/SteamID_mismatch
+--- PASS: TestValidateVerifiedTicket (0.00s)
+    --- PASS: TestValidateVerifiedTicket/reported_invalid (0.00s)
+    --- PASS: TestValidateVerifiedTicket/bad_SteamID (0.00s)
+    --- PASS: TestValidateVerifiedTicket/SteamID_mismatch (0.00s)
+=== RUN   TestVerifierStderrRedactsTicket
+--- PASS: TestVerifierStderrRedactsTicket (0.00s)
+=== RUN   TestAccessTokenRoundTripAndTamperDetection
+--- PASS: TestAccessTokenRoundTripAndTamperDetection (0.00s)
+=== RUN   TestVerifiedAccessTokenClaims
+--- PASS: TestVerifiedAccessTokenClaims (0.00s)
+=== RUN   TestPublicKeyVerifierCannotSign
+--- PASS: TestPublicKeyVerifierCannotSign (0.00s)
+=== RUN   TestRefreshTokenHasHighEntropyAndStableHash
+--- PASS: TestRefreshTokenHasHighEntropyAndStableHash (0.00s)
+=== RUN   TestValidateSteamID
+--- PASS: TestValidateSteamID (0.00s)
+=== RUN   TestNormalizePersonaName
+--- PASS: TestNormalizePersonaName (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/auth	5.815s
+?   	github.com/Dubnium-105/ProjectRebound/Backend/internal/cache	[no test files]
+=== RUN   TestCanonicalMetaServerPublicDefaults
+--- PASS: TestCanonicalMetaServerPublicDefaults (0.00s)
+=== RUN   TestDefaultDownloadExtensionsIncludeToolboxAttestation
+--- PASS: TestDefaultDownloadExtensionsIncludeToolboxAttestation (0.00s)
+=== RUN   TestLoadMissingFileAppliesEnvironment
+--- PASS: TestLoadMissingFileAppliesEnvironment (0.00s)
+=== RUN   TestDevelopmentTrustedSteamIDsAreFailClosed
+--- PASS: TestDevelopmentTrustedSteamIDsAreFailClosed (0.00s)
+=== RUN   TestValidateControlPlaneRejectsMissingAdmissionKeyInEveryEnvironment
+=== RUN   TestValidateControlPlaneRejectsMissingAdmissionKeyInEveryEnvironment/development
+=== RUN   TestValidateControlPlaneRejectsMissingAdmissionKeyInEveryEnvironment/test
+=== RUN   TestValidateControlPlaneRejectsMissingAdmissionKeyInEveryEnvironment/production
+--- PASS: TestValidateControlPlaneRejectsMissingAdmissionKeyInEveryEnvironment (0.00s)
+    --- PASS: TestValidateControlPlaneRejectsMissingAdmissionKeyInEveryEnvironment/development (0.00s)
+    --- PASS: TestValidateControlPlaneRejectsMissingAdmissionKeyInEveryEnvironment/test (0.00s)
+    --- PASS: TestValidateControlPlaneRejectsMissingAdmissionKeyInEveryEnvironment/production (0.00s)
+=== RUN   TestValidateControlPlaneRejectsInvalidVNTCredentialRotationGrace
+--- PASS: TestValidateControlPlaneRejectsInvalidVNTCredentialRotationGrace (0.00s)
+=== RUN   TestValidateControlPlaneRejectsInvalidVNTRateLimits
+--- PASS: TestValidateControlPlaneRejectsInvalidVNTRateLimits (0.00s)
+=== RUN   TestValidateControlPlaneRejectsInvalidVNTNodeQuota
+--- PASS: TestValidateControlPlaneRejectsInvalidVNTNodeQuota (0.00s)
+=== RUN   TestValidateControlPlaneUsesPublishedReleasesForVNTVersions
+--- PASS: TestValidateControlPlaneUsesPublishedReleasesForVNTVersions (0.00s)
+=== RUN   TestLoadYAMLAndEnvironmentPrecedence
+--- PASS: TestLoadYAMLAndEnvironmentPrecedence (0.00s)
+=== RUN   TestLoadRejectsRetiredStrictRosterConfiguration
+--- PASS: TestLoadRejectsRetiredStrictRosterConfiguration (0.00s)
+=== RUN   TestAcceptNewLobbiesOnlyControlsCreation
+--- PASS: TestAcceptNewLobbiesOnlyControlsCreation (0.00s)
+=== RUN   TestValidateControlPlaneRejectsInvalidConfiguration
+--- PASS: TestValidateControlPlaneRejectsInvalidConfiguration (0.00s)
+=== RUN   TestValidateMetaServerRejectsInvalidNativePlayerLevel
+--- PASS: TestValidateMetaServerRejectsInvalidNativePlayerLevel (0.00s)
+=== RUN   TestValidateMetaServerRejectsInvalidNativeCharacterLevel
+--- PASS: TestValidateMetaServerRejectsInvalidNativeCharacterLevel (0.00s)
+=== RUN   TestValidateMetaServerRejectsInvalidNativeOwnershipMode
+--- PASS: TestValidateMetaServerRejectsInvalidNativeOwnershipMode (0.00s)
+=== RUN   TestValidateControlPlaneAcceptsToolboxDefaultChannel
+--- PASS: TestValidateControlPlaneAcceptsToolboxDefaultChannel (0.00s)
+=== RUN   TestValidateControlPlaneRejectsP2PReportLargerThanHTTPBody
+--- PASS: TestValidateControlPlaneRejectsP2PReportLargerThanHTTPBody (0.00s)
+=== RUN   TestValidateControlPlaneDownloadStorage
+=== RUN   TestValidateControlPlaneDownloadStorage/small_part
+=== RUN   TestValidateControlPlaneDownloadStorage/unsafe_extension
+=== RUN   TestValidateControlPlaneDownloadStorage/invalid_upload_URL
+=== RUN   TestValidateControlPlaneDownloadStorage/invalid_probe_URL
+=== RUN   TestValidateControlPlaneDownloadStorage/missing_credentials
+=== RUN   TestValidateControlPlaneDownloadStorage/oversized_maximum
+--- PASS: TestValidateControlPlaneDownloadStorage (0.00s)
+    --- PASS: TestValidateControlPlaneDownloadStorage/small_part (0.00s)
+    --- PASS: TestValidateControlPlaneDownloadStorage/unsafe_extension (0.00s)
+    --- PASS: TestValidateControlPlaneDownloadStorage/invalid_upload_URL (0.00s)
+    --- PASS: TestValidateControlPlaneDownloadStorage/invalid_probe_URL (0.00s)
+    --- PASS: TestValidateControlPlaneDownloadStorage/missing_credentials (0.00s)
+    --- PASS: TestValidateControlPlaneDownloadStorage/oversized_maximum (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/config	1.032s
+=== RUN   TestHubRoutesEventsOnlyToTargetPlayers
+--- PASS: TestHubRoutesEventsOnlyToTargetPlayers (0.00s)
+=== RUN   TestRealtimeWebSocketAuthenticatesAndExchangesEvents
+--- PASS: TestRealtimeWebSocketAuthenticatesAndExchangesEvents (0.01s)
+=== RUN   TestRealtimeWebSocketRejectsMissingAccessToken
+--- PASS: TestRealtimeWebSocketRejectsMissingAccessToken (0.00s)
+=== RUN   TestConnectionLifecycleAgainstPostgreSQL
+--- PASS: TestConnectionLifecycleAgainstPostgreSQL (0.25s)
+=== RUN   TestValidateCandidateEnforcesAddressClass
+=== RUN   TestValidateCandidateEnforcesAddressClass/private_LAN
+=== RUN   TestValidateCandidateEnforcesAddressClass/public_LAN
+=== RUN   TestValidateCandidateEnforcesAddressClass/public_reflexive
+=== RUN   TestValidateCandidateEnforcesAddressClass/private_reflexive
+=== RUN   TestValidateCandidateEnforcesAddressClass/routable_IPv6
+=== RUN   TestValidateCandidateEnforcesAddressClass/loopback
+--- PASS: TestValidateCandidateEnforcesAddressClass (0.00s)
+    --- PASS: TestValidateCandidateEnforcesAddressClass/private_LAN (0.00s)
+    --- PASS: TestValidateCandidateEnforcesAddressClass/public_LAN (0.00s)
+    --- PASS: TestValidateCandidateEnforcesAddressClass/public_reflexive (0.00s)
+    --- PASS: TestValidateCandidateEnforcesAddressClass/private_reflexive (0.00s)
+    --- PASS: TestValidateCandidateEnforcesAddressClass/routable_IPv6 (0.00s)
+    --- PASS: TestValidateCandidateEnforcesAddressClass/loopback (0.00s)
+=== RUN   TestStableCandidateReplayPolicy
+--- PASS: TestStableCandidateReplayPolicy (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/connection	1.290s
+?   	github.com/Dubnium-105/ProjectRebound/Backend/internal/controlplane	[no test files]
+=== RUN   TestMigratorAgainstPostgreSQL
+--- PASS: TestMigratorAgainstPostgreSQL (0.05s)
+=== RUN   TestLiveGenerationMigrationPreservesHistoricalConnectedRoster
+--- PASS: TestLiveGenerationMigrationPreservesHistoricalConnectedRoster (0.01s)
+=== RUN   TestLoadMigrationsSortsAndChecksums
+--- PASS: TestLoadMigrationsSortsAndChecksums (0.00s)
+=== RUN   TestLoadMigrationsRejectsDuplicateVersion
+--- PASS: TestLoadMigrationsRejectsDuplicateVersion (0.00s)
+=== RUN   TestMigrationStatementsSupportsExplicitBreakpoints
+--- PASS: TestMigrationStatementsSupportsExplicitBreakpoints (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/database	1.086s
+=== RUN   TestSubmitStoresReportWithoutChangingContent
+--- PASS: TestSubmitStoresReportWithoutChangingContent (0.00s)
+=== RUN   TestSubmitRequiresAccessToken
+--- PASS: TestSubmitRequiresAccessToken (0.00s)
+=== RUN   TestSubmitRejectsMissingReportField
+--- PASS: TestSubmitRejectsMissingReportField (0.00s)
+=== RUN   TestSubmitDoesNotValidateReportContent
+--- PASS: TestSubmitDoesNotValidateReportContent (0.00s)
+=== RUN   TestSubmitReportsStorageFailure
+--- PASS: TestSubmitReportsStorageFailure (0.00s)
+=== RUN   TestRepositoryStoresPlayerAndReportVerbatim
+--- PASS: TestRepositoryStoresPlayerAndReportVerbatim (0.00s)
+=== RUN   TestRepositoryWrapsDatabaseError
+--- PASS: TestRepositoryWrapsDatabaseError (0.00s)
+=== RUN   TestDiagnosticReportMigrationKeepsRawReportUnindexed
+--- PASS: TestDiagnosticReportMigrationKeepsRawReportUnindexed (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/diagnostic	1.022s
+=== RUN   TestPublicCatalogETagAndNotModified
+--- PASS: TestPublicCatalogETagAndNotModified (0.00s)
+=== RUN   TestPublicFileRedirectAndHiddenErrors
+--- PASS: TestPublicFileRedirectAndHiddenErrors (0.00s)
+=== RUN   TestDownloadLifecycleAgainstPostgreSQL
+--- PASS: TestDownloadLifecycleAgainstPostgreSQL (0.29s)
+=== RUN   TestReleaseFilesOnlyIncludeVerifiedActiveObjects
+--- PASS: TestReleaseFilesOnlyIncludeVerifiedActiveObjects (0.00s)
+=== RUN   TestUploadValidationAndServerOwnedObjectKey
+=== RUN   TestUploadValidationAndServerOwnedObjectKey/empty
+=== RUN   TestUploadValidationAndServerOwnedObjectKey/too_large
+=== RUN   TestUploadValidationAndServerOwnedObjectKey/extension
+=== RUN   TestUploadValidationAndServerOwnedObjectKey/checksum
+=== RUN   TestUploadValidationAndServerOwnedObjectKey/reason
+--- PASS: TestUploadValidationAndServerOwnedObjectKey (0.00s)
+    --- PASS: TestUploadValidationAndServerOwnedObjectKey/empty (0.00s)
+    --- PASS: TestUploadValidationAndServerOwnedObjectKey/too_large (0.00s)
+    --- PASS: TestUploadValidationAndServerOwnedObjectKey/extension (0.00s)
+    --- PASS: TestUploadValidationAndServerOwnedObjectKey/checksum (0.00s)
+    --- PASS: TestUploadValidationAndServerOwnedObjectKey/reason (0.00s)
+=== RUN   TestMultipartPartValidation
+=== RUN   TestMultipartPartValidation/missing
+=== RUN   TestMultipartPartValidation/noncontig
+=== RUN   TestMultipartPartValidation/wrong_size
+--- PASS: TestMultipartPartValidation (0.00s)
+    --- PASS: TestMultipartPartValidation/missing (0.00s)
+    --- PASS: TestMultipartPartValidation/noncontig (0.00s)
+    --- PASS: TestMultipartPartValidation/wrong_size (0.00s)
+=== RUN   TestDownloadAuditSnapshotIsSecretFree
+--- PASS: TestDownloadAuditSnapshotIsSecretFree (0.00s)
+=== RUN   TestS3ObjectMetadataIsImmutableAttachment
+--- PASS: TestS3ObjectMetadataIsImmutableAttachment (0.00s)
+=== RUN   TestCapabilitiesExposeLimitsWithoutCredentials
+--- PASS: TestCapabilitiesExposeLimitsWithoutCredentials (0.00s)
+=== RUN   TestPresignUsesDedicatedBrowserEndpoint
+--- PASS: TestPresignUsesDedicatedBrowserEndpoint (0.00s)
+=== RUN   TestS3StorageAgainstCompatibleService
+    storage_integration_test.go:55: TEST_DOWNLOAD_S3_ENDPOINT, TEST_DOWNLOAD_S3_BUCKET, and test credentials are not set
+--- SKIP: TestS3StorageAgainstCompatibleService (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/download	1.319s
+=== RUN   TestFromInvitePermissionsKeepsCapabilitiesIndependent
+--- PASS: TestFromInvitePermissionsKeepsCapabilitiesIndependent (0.00s)
+=== RUN   TestLegacyP2PPermissionStillUnlocksRoomRegistration
+--- PASS: TestLegacyP2PPermissionStillUnlocksRoomRegistration (0.00s)
+=== RUN   TestGrantExpiryCanOnlyExtendAndPermanentWins
+--- PASS: TestGrantExpiryCanOnlyExtendAndPermanentWins (0.03s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/entitlement	1.046s
+=== RUN   TestServerTokenHasHighEntropyHash
+--- PASS: TestServerTokenHasHighEntropyHash (0.00s)
+=== RUN   TestAuthorityIssuesNodeOwnedEd25519Identity
+--- PASS: TestAuthorityIssuesNodeOwnedEd25519Identity (0.01s)
+=== RUN   TestSignedRequestCanonicalFormDetectsTampering
+--- PASS: TestSignedRequestCanonicalFormDetectsTampering (0.00s)
+=== RUN   TestPublicGameServerResponseDoesNotLeakCredentials
+--- PASS: TestPublicGameServerResponseDoesNotLeakCredentials (0.00s)
+=== RUN   TestHeartbeatReturnsPrivateStrictRosterAssignment
+--- PASS: TestHeartbeatReturnsPrivateStrictRosterAssignment (0.00s)
+=== RUN   TestGameServerRegistryAgainstPostgreSQL
+--- PASS: TestGameServerRegistryAgainstPostgreSQL (0.32s)
+=== RUN   TestGameServerStateTransitions
+--- PASS: TestGameServerStateTransitions (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/gameserver	1.365s
+=== RUN   TestGeneratedTokenHasExpectedShapeAndHash
+--- PASS: TestGeneratedTokenHasExpectedShapeAndHash (0.00s)
+=== RUN   TestRegistrationTokenShapeRejectsServerAndLegacyTokens
+--- PASS: TestRegistrationTokenShapeRejectsServerAndLegacyTokens (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/gameserverregistration	1.019s
+=== RUN   TestReadyNamesFailedDependencyWithoutLeakingError
+--- PASS: TestReadyNamesFailedDependencyWithoutLeakingError (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/health	1.019s
+=== RUN   TestChallengeAndProofHTTP
+--- PASS: TestChallengeAndProofHTTP (0.00s)
+=== RUN   TestIntegrityProofPromotesTrustedSession
+--- PASS: TestIntegrityProofPromotesTrustedSession (0.00s)
+=== RUN   TestPEMFingerprintUsesExactConfiguredBytes
+--- PASS: TestPEMFingerprintUsesExactConfiguredBytes (0.00s)
+=== RUN   TestIntegrityProofRevokesAfterThreeConsecutiveFailures
+--- PASS: TestIntegrityProofRevokesAfterThreeConsecutiveFailures (0.00s)
+=== RUN   TestIntegrityNonceIsOneTimeAndExpires
+--- PASS: TestIntegrityNonceIsOneTimeAndExpires (0.00s)
+=== RUN   TestIntegritySessionRotatesWithoutRetainingNonce
+--- PASS: TestIntegritySessionRotatesWithoutRetainingNonce (0.00s)
+=== RUN   TestTrustedSessionUsesTicketlessProofAfterStateLoss
+--- PASS: TestTrustedSessionUsesTicketlessProofAfterStateLoss (0.00s)
+=== RUN   TestTrustedSessionRejectsTicketedProof
+--- PASS: TestTrustedSessionRejectsTicketedProof (0.00s)
+=== RUN   TestPEMFingerprintMismatchFailsClosed
+--- PASS: TestPEMFingerprintMismatchFailsClosed (0.00s)
+=== RUN   TestUntrustedSessionWithoutTicketGetsNoChallenge
+--- PASS: TestUntrustedSessionWithoutTicketGetsNoChallenge (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/integrity	1.033s
+=== RUN   TestConcurrentConsumeAllowsOnlyFinalSlotOnce
+--- PASS: TestConcurrentConsumeAllowsOnlyFinalSlotOnce (0.08s)
+=== RUN   TestPlaintextCodeGenerationAndHashing
+--- PASS: TestPlaintextCodeGenerationAndHashing (0.00s)
+=== RUN   TestInvalidCodeErrorCarriesAuthenticationMarker
+--- PASS: TestInvalidCodeErrorCarriesAuthenticationMarker (0.00s)
+=== RUN   TestValidateReasonRejectsCredentials
+--- PASS: TestValidateReasonRejectsCredentials (0.00s)
+=== RUN   TestCreateRejectsOversizedBatchBeforeDatabaseAccess
+--- PASS: TestCreateRejectsOversizedBatchBeforeDatabaseAccess (0.00s)
+=== RUN   TestMaskIPAddressReturnsNetworkSummary
+--- PASS: TestMaskIPAddressReturnsNetworkSummary (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/invite	1.120s
+=== RUN   TestApplyEnvironmentOverridesSetsInviteCode
+--- PASS: TestApplyEnvironmentOverridesSetsInviteCode (0.00s)
+=== RUN   TestFixtureEncryptedTicketCarriesIdentityAndUniqueNonce
+--- PASS: TestFixtureEncryptedTicketCarriesIdentityAndUniqueNonce (0.00s)
+=== RUN   TestV11ScenarioFilesMatchReleaseGates
+--- PASS: TestV11ScenarioFilesMatchReleaseGates (0.04s)
+=== RUN   TestRequestFailureCategoryNormalizesIdentifiers
+--- PASS: TestRequestFailureCategoryNormalizesIdentifiers (0.00s)
+=== RUN   TestRunnerCollectsConcurrentRequestResults
+--- PASS: TestRunnerCollectsConcurrentRequestResults (1.01s)
+=== RUN   TestVirtualClientSerializesTokenRotationWithAuthenticatedRequests
+--- PASS: TestVirtualClientSerializesTokenRotationWithAuthenticatedRequests (0.05s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/loadbot	2.158s
+=== RUN   TestStrictRosterDedicatedLifecycleAgainstPostgreSQL
+--- PASS: TestStrictRosterDedicatedLifecycleAgainstPostgreSQL (0.48s)
+=== RUN   TestJoinGrantHTTPReturnsSignedScopeAlongsideGrant
+--- PASS: TestJoinGrantHTTPReturnsSignedScopeAlongsideGrant (0.00s)
+=== RUN   TestMemberConnectionHTTPReturnsNoStoreValidatedEvidence
+--- PASS: TestMemberConnectionHTTPReturnsNoStoreValidatedEvidence (0.00s)
+=== RUN   TestMemberConnectionHTTPDoesNotExposeMissingEvidence
+--- PASS: TestMemberConnectionHTTPDoesNotExposeMissingEvidence (0.00s)
+=== RUN   TestDedicatedNativeClearedRejectsUnscopedOwnedProcessEvidence
+--- PASS: TestDedicatedNativeClearedRejectsUnscopedOwnedProcessEvidence (0.00s)
+=== RUN   TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL (0.31s)
+=== RUN   TestStrictRosterAdminForceAbortIsAuditedAndDrainKeepsReadsAgainstPostgreSQL
+--- PASS: TestStrictRosterAdminForceAbortIsAuditedAndDrainKeepsReadsAgainstPostgreSQL (0.19s)
+=== RUN   TestStrictRosterP2PPreflightNativeProcessNotStartedCleanupAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PPreflightNativeProcessNotStartedCleanupAgainstPostgreSQL (0.17s)
+=== RUN   TestStrictRosterP2PPreflightNotStartedRejectsInstalledPayloadAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PPreflightNotStartedRejectsInstalledPayloadAgainstPostgreSQL (0.16s)
+=== RUN   TestStrictRosterP2PLifecycleAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PLifecycleAgainstPostgreSQL (0.94s)
+=== RUN   TestCreateValidationLocksHostingKindAndTwoTeamCapacity
+--- PASS: TestCreateValidationLocksHostingKindAndTwoTeamCapacity (0.00s)
+=== RUN   TestOpenRevisionFailsClosedAfterFreezeOrConflict
+--- PASS: TestOpenRevisionFailsClosedAfterFreezeOrConflict (0.00s)
+=== RUN   TestAdmissionSignerBindsFrozenRosterAndJoinSeat
+--- PASS: TestAdmissionSignerBindsFrozenRosterAndJoinSeat (0.00s)
+=== RUN   TestAdmissionSignerRejectsMissingConfiguredKey
+--- PASS: TestAdmissionSignerRejectsMissingConfiguredKey (0.00s)
+=== RUN   TestAdmissionSignerUsesSeparateTokenTypes
+--- PASS: TestAdmissionSignerUsesSeparateTokenTypes (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/matchlobby	3.317s
+=== RUN   TestBattleLogSubmissionAgainstPostgreSQL
+=== RUN   TestBattleLogSubmissionAgainstPostgreSQL/running
+    battlelog_repository_integration_test.go:268: eight concurrent reports produced one stored report and seven duplicate receipts
+=== RUN   TestBattleLogSubmissionAgainstPostgreSQL/completed_late_report
+    battlelog_repository_integration_test.go:268: eight concurrent reports produced one stored report and seven duplicate receipts
+=== RUN   TestBattleLogSubmissionAgainstPostgreSQL/pve_claim_non_official
+    battlelog_repository_integration_test.go:268: eight concurrent reports produced one stored report and seven duplicate receipts
+--- PASS: TestBattleLogSubmissionAgainstPostgreSQL (0.85s)
+    --- PASS: TestBattleLogSubmissionAgainstPostgreSQL/running (0.29s)
+    --- PASS: TestBattleLogSubmissionAgainstPostgreSQL/completed_late_report (0.27s)
+    --- PASS: TestBattleLogSubmissionAgainstPostgreSQL/pve_claim_non_official (0.28s)
+=== RUN   TestNormalizeBattleLogSnapshotPvE
+--- PASS: TestNormalizeBattleLogSnapshotPvE (0.00s)
+=== RUN   TestNormalizeBattleLogSnapshotKeepsPvPSeparate
+--- PASS: TestNormalizeBattleLogSnapshotKeepsPvPSeparate (0.00s)
+=== RUN   TestNormalizeBattleLogSnapshotQuarantinesClassificationConflict
+--- PASS: TestNormalizeBattleLogSnapshotQuarantinesClassificationConflict (0.00s)
+=== RUN   TestNormalizeBattleLogSnapshotRejectsClientSource
+--- PASS: TestNormalizeBattleLogSnapshotRejectsClientSource (0.00s)
+=== RUN   TestNormalizeBattleLogFixtureWhenConfigured
+    battlelog_validate_test.go:99: BATTLELOG_FIXTURE is not set
+--- SKIP: TestNormalizeBattleLogFixtureWhenConfigured (0.00s)
+=== RUN   TestEmbeddedDefinitionsMatchProvenance
+--- PASS: TestEmbeddedDefinitionsMatchProvenance (1.70s)
+=== RUN   TestNativeFNameTextValidation
+--- PASS: TestNativeFNameTextValidation (0.00s)
+=== RUN   TestNativeOwnershipItemIDsExcludeOnlyGeneratedPaintApplications
+--- PASS: TestNativeOwnershipItemIDsExcludeOnlyGeneratedPaintApplications (1.74s)
+=== RUN   TestSafeErrorClassDoesNotExposeDatabaseDetails
+--- PASS: TestSafeErrorClassDoesNotExposeDatabaseDetails (0.00s)
+=== RUN   TestReadFrameHandlesFragmentationAndCoalescing
+--- PASS: TestReadFrameHandlesFragmentationAndCoalescing (0.00s)
+=== RUN   TestReadFrameRejectsInvalidLengths
+=== RUN   TestReadFrameRejectsInvalidLengths/empty
+=== RUN   TestReadFrameRejectsInvalidLengths/large
+--- PASS: TestReadFrameRejectsInvalidLengths (0.00s)
+    --- PASS: TestReadFrameRejectsInvalidLengths/empty (0.00s)
+    --- PASS: TestReadFrameRejectsInvalidLengths/large (0.00s)
+=== RUN   TestReadFrameWithDeadlinesTimesOutIncompletePayload
+--- PASS: TestReadFrameWithDeadlinesTimesOutIncompletePayload (0.04s)
+=== RUN   TestGateTicketIsAtomicallySingleUse
+--- PASS: TestGateTicketIsAtomicallySingleUse (0.01s)
+=== RUN   TestSanitizedGoldenNativePackets
+=== RUN   TestSanitizedGoldenNativePackets/gate.hex
+=== RUN   TestSanitizedGoldenNativePackets/profile.hex
+=== RUN   TestSanitizedGoldenNativePackets/party.hex
+=== RUN   TestSanitizedGoldenNativePackets/matchmaking.hex
+--- PASS: TestSanitizedGoldenNativePackets (0.02s)
+    --- PASS: TestSanitizedGoldenNativePackets/gate.hex (0.01s)
+    --- PASS: TestSanitizedGoldenNativePackets/profile.hex (0.00s)
+    --- PASS: TestSanitizedGoldenNativePackets/party.hex (0.00s)
+    --- PASS: TestSanitizedGoldenNativePackets/matchmaking.hex (0.00s)
+=== RUN   TestSessionRequestNormalize
+=== RUN   TestSessionRequestNormalize/explicit_client_version
+=== RUN   TestSessionRequestNormalize/compatibility_alias
+=== RUN   TestSessionRequestNormalize/shipped_Boundary_client_without_version
+=== RUN   TestSessionRequestNormalize/modern_session_remains_strict
+--- PASS: TestSessionRequestNormalize (0.00s)
+    --- PASS: TestSessionRequestNormalize/explicit_client_version (0.00s)
+    --- PASS: TestSessionRequestNormalize/compatibility_alias (0.00s)
+    --- PASS: TestSessionRequestNormalize/shipped_Boundary_client_without_version (0.00s)
+    --- PASS: TestSessionRequestNormalize/modern_session_remains_strict (0.00s)
+=== RUN   TestCompatibilityBodyIsOpaque
+=== RUN   TestCompatibilityBodyIsOpaque/empty
+=== RUN   TestCompatibilityBodyIsOpaque/legacy_field_names_and_types
+=== RUN   TestCompatibilityBodyIsOpaque/UTF-8_BOM
+=== RUN   TestCompatibilityBodyIsOpaque/UTF-16_little_endian
+=== RUN   TestCompatibilityBodyIsOpaque/UTF-16_big_endian
+=== RUN   TestCompatibilityBodyIsOpaque/non_JSON_legacy_payload
+--- PASS: TestCompatibilityBodyIsOpaque (0.00s)
+    --- PASS: TestCompatibilityBodyIsOpaque/empty (0.00s)
+    --- PASS: TestCompatibilityBodyIsOpaque/legacy_field_names_and_types (0.00s)
+    --- PASS: TestCompatibilityBodyIsOpaque/UTF-8_BOM (0.00s)
+    --- PASS: TestCompatibilityBodyIsOpaque/UTF-16_little_endian (0.00s)
+    --- PASS: TestCompatibilityBodyIsOpaque/UTF-16_big_endian (0.00s)
+    --- PASS: TestCompatibilityBodyIsOpaque/non_JSON_legacy_payload (0.00s)
+=== RUN   TestStrictJSONRejectsUnknownFields
+--- PASS: TestStrictJSONRejectsUnknownFields (0.00s)
+=== RUN   TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess
+=== RUN   TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess/admin-cancel
+=== RUN   TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess/create
+=== RUN   TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess/poll
+=== RUN   TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess/cancel
+=== RUN   TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess/connected
+=== RUN   TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess/completed
+--- PASS: TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess (0.00s)
+    --- PASS: TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess/admin-cancel (0.00s)
+    --- PASS: TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess/create (0.00s)
+    --- PASS: TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess/poll (0.00s)
+    --- PASS: TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess/cancel (0.00s)
+    --- PASS: TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess/connected (0.00s)
+    --- PASS: TestRetiredMetaHTTPPathsCannotUseDatabaseOrDecodeSuccess/completed (0.00s)
+=== RUN   TestRetiredNativeMatchmakingRPCsReturnNonzeroFailure
+--- PASS: TestRetiredNativeMatchmakingRPCsReturnNonzeroFailure (0.00s)
+=== RUN   TestMetaMetricsExposeOperationalSignals
+--- PASS: TestMetaMetricsExposeOperationalSignals (0.00s)
+=== RUN   TestQueryAssetsUsesPinnedDefinitions
+--- PASS: TestQueryAssetsUsesPinnedDefinitions (2.27s)
+=== RUN   TestQueryAssetsCompactDiagnosticMode
+--- PASS: TestQueryAssetsCompactDiagnosticMode (1.66s)
+=== RUN   TestNativeProgressionStatisticsUseExactClientKeys
+--- PASS: TestNativeProgressionStatisticsUseExactClientKeys (0.00s)
+=== RUN   TestNativeIdentityMismatch
+--- PASS: TestNativeIdentityMismatch (0.00s)
+=== RUN   TestNativeWeaponArchiveBundleRoundTripsSelectedArchive
+--- PASS: TestNativeWeaponArchiveBundleRoundTripsSelectedArchive (1.83s)
+=== RUN   TestNativeDefaultWeaponArchiveUsesPinnedScopes
+--- PASS: TestNativeDefaultWeaponArchiveUsesPinnedScopes (1.93s)
+=== RUN   TestNativeWeaponArchiveUpdateValidatesInstantiatedPartsAndRoleScope
+--- PASS: TestNativeWeaponArchiveUpdateValidatesInstantiatedPartsAndRoleScope (1.77s)
+=== RUN   TestNativeWeaponArchiveUpdateAcceptsSkinOnlyPartial
+--- PASS: TestNativeWeaponArchiveUpdateAcceptsSkinOnlyPartial (1.51s)
+=== RUN   TestNativeRoleUpdateRoutesByItemType
+--- PASS: TestNativeRoleUpdateRoutesByItemType (1.46s)
+=== RUN   TestNativeSkinOnlyUpdateDoesNotClearSlot
+--- PASS: TestNativeSkinOnlyUpdateDoesNotClearSlot (1.70s)
+=== RUN   TestNativeSlotMappingAndDefaults
+--- PASS: TestNativeSlotMappingAndDefaults (0.00s)
+=== RUN   TestNativePlayerArchivePreservesNoneItems
+--- PASS: TestNativePlayerArchivePreservesNoneItems (0.00s)
+=== RUN   TestNativePlayerArchivePreservesNestedNoneItems
+--- PASS: TestNativePlayerArchivePreservesNestedNoneItems (0.00s)
+=== RUN   TestNativePlayerArchiveProjectsSlotsWeaponArchivesAndCosmetics
+=== RUN   TestNativePlayerArchiveProjectsSlotsWeaponArchivesAndCosmetics/PEACE
+=== RUN   TestNativePlayerArchiveProjectsSlotsWeaponArchivesAndCosmetics/PROBE
+=== RUN   TestNativePlayerArchiveProjectsSlotsWeaponArchivesAndCosmetics/SNIPER
+=== RUN   TestNativePlayerArchiveProjectsSlotsWeaponArchivesAndCosmetics/FORT
+=== RUN   TestNativePlayerArchiveProjectsSlotsWeaponArchivesAndCosmetics/FIXER
+=== RUN   TestNativePlayerArchiveProjectsSlotsWeaponArchivesAndCosmetics/SPIKE
+--- PASS: TestNativePlayerArchiveProjectsSlotsWeaponArchivesAndCosmetics (2.14s)
+    --- PASS: TestNativePlayerArchiveProjectsSlotsWeaponArchivesAndCosmetics/PEACE (0.00s)
+    --- PASS: TestNativePlayerArchiveProjectsSlotsWeaponArchivesAndCosmetics/PROBE (0.00s)
+    --- PASS: TestNativePlayerArchiveProjectsSlotsWeaponArchivesAndCosmetics/SNIPER (0.00s)
+    --- PASS: TestNativePlayerArchiveProjectsSlotsWeaponArchivesAndCosmetics/FORT (0.00s)
+    --- PASS: TestNativePlayerArchiveProjectsSlotsWeaponArchivesAndCosmetics/FIXER (0.00s)
+    --- PASS: TestNativePlayerArchiveProjectsSlotsWeaponArchivesAndCosmetics/SPIKE (0.00s)
+=== RUN   TestNativeDefaultLoadoutsUsePinnedDefinitions
+--- PASS: TestNativeDefaultLoadoutsUsePinnedDefinitions (1.67s)
+=== RUN   TestLoadoutSnapshotDefinitionValidation
+--- PASS: TestLoadoutSnapshotDefinitionValidation (2.58s)
+=== RUN   TestP2PRoomMemberLoadoutsAuthorizationAndHTTPAgainstPostgreSQL
+--- PASS: TestP2PRoomMemberLoadoutsAuthorizationAndHTTPAgainstPostgreSQL (2.18s)
+=== RUN   TestP2PRoomLoadoutsProjectOnlyReferencedStructuredWeaponConfigs
+--- PASS: TestP2PRoomLoadoutsProjectOnlyReferencedStructuredWeaponConfigs (1.78s)
+=== RUN   TestCurrentUserLoadoutsProjectValidatedWeaponConfigs
+--- PASS: TestCurrentUserLoadoutsProjectValidatedWeaponConfigs (1.65s)
+=== RUN   TestP2PRoomLoadoutsSkipInvalidOrRoleIncompatibleSnapshots
+--- PASS: TestP2PRoomLoadoutsSkipInvalidOrRoleIncompatibleSnapshots (1.39s)
+=== RUN   TestP2PRoomLoadoutsReadStructuredInventorySlots
+--- PASS: TestP2PRoomLoadoutsReadStructuredInventorySlots (1.30s)
+=== RUN   TestP2PRoomLoadoutsSanitizeUnverifiableSnapshotCosmetics
+--- PASS: TestP2PRoomLoadoutsSanitizeUnverifiableSnapshotCosmetics (1.39s)
+=== RUN   TestP2PRoomLoadoutsStripWrongCharacterAppearanceTypes
+--- PASS: TestP2PRoomLoadoutsStripWrongCharacterAppearanceTypes (1.30s)
+=== RUN   TestP2PRoomLoadoutsAcceptPinnedNativeDefaultsForEveryRole
+--- PASS: TestP2PRoomLoadoutsAcceptPinnedNativeDefaultsForEveryRole (1.41s)
+=== RUN   TestP2PWeaponArchiveAcceptsPinnedNativeOriginalSentinels
+--- PASS: TestP2PWeaponArchiveAcceptsPinnedNativeOriginalSentinels (1.24s)
+=== RUN   TestP2PStructuredWeaponConfigFallsBackForInvalidArchives
+=== RUN   TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/empty-parts
+=== RUN   TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/suite-painting-wrong-item-type
+=== RUN   TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/part-painting-wrong-item-type
+=== RUN   TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/suite-wrong-item-type
+=== RUN   TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/part-skin-wrong-item-type
+=== RUN   TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/part-cosmetic-arbitrary-half-pair
+=== RUN   TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/corrupt
+=== RUN   TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/mismatched
+=== RUN   TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/other-weapon-part
+=== RUN   TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/empty-required-part
+=== RUN   TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/nil-part
+=== RUN   TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/suite-half-pair
+=== RUN   TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/weapon-ornament-wrong-item-type
+=== RUN   TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/weapon-ornament-outside-scope
+=== RUN   TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/missing
+=== RUN   TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/invalid-slot
+=== RUN   TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/wrong-slot-part
+=== RUN   TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/disallowed-suite
+=== RUN   TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/duplicate-slot
+--- PASS: TestP2PStructuredWeaponConfigFallsBackForInvalidArchives (1.38s)
+    --- PASS: TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/empty-parts (0.00s)
+    --- PASS: TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/suite-painting-wrong-item-type (0.00s)
+    --- PASS: TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/part-painting-wrong-item-type (0.00s)
+    --- PASS: TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/suite-wrong-item-type (0.00s)
+    --- PASS: TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/part-skin-wrong-item-type (0.00s)
+    --- PASS: TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/part-cosmetic-arbitrary-half-pair (0.00s)
+    --- PASS: TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/corrupt (0.00s)
+    --- PASS: TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/mismatched (0.00s)
+    --- PASS: TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/other-weapon-part (0.00s)
+    --- PASS: TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/empty-required-part (0.00s)
+    --- PASS: TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/nil-part (0.00s)
+    --- PASS: TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/suite-half-pair (0.00s)
+    --- PASS: TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/weapon-ornament-wrong-item-type (0.00s)
+    --- PASS: TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/weapon-ornament-outside-scope (0.00s)
+    --- PASS: TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/missing (0.00s)
+    --- PASS: TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/invalid-slot (0.00s)
+    --- PASS: TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/wrong-slot-part (0.00s)
+    --- PASS: TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/disallowed-suite (0.00s)
+    --- PASS: TestP2PStructuredWeaponConfigFallsBackForInvalidArchives/duplicate-slot (0.00s)
+=== RUN   TestP2PStructuredWeaponConfigCompletesSkinOnlyPartial
+--- PASS: TestP2PStructuredWeaponConfigCompletesSkinOnlyPartial (1.36s)
+=== RUN   TestP2PStructuredWeaponConfigDefaultsArchiveWithNoEffectiveDelta
+--- PASS: TestP2PStructuredWeaponConfigDefaultsArchiveWithNoEffectiveDelta (1.40s)
+=== RUN   TestP2PRoomLoadoutEnvelopeSizeLimit
+--- PASS: TestP2PRoomLoadoutEnvelopeSizeLimit (0.04s)
+=== RUN   TestP2PRoomLoadoutHandlerRequiresAuthenticatedPrincipal
+--- PASS: TestP2PRoomLoadoutHandlerRequiresAuthenticatedPrincipal (0.00s)
+=== RUN   TestRestrictedMetaServicePermissions
+    permissions_integration_test.go:28: restricted TEST_META_DATABASE_URL and TEST_META_REDIS_* fixtures are not set
+--- SKIP: TestRestrictedMetaServicePermissions (0.00s)
+=== RUN   TestDecodeRequestWrapper
+--- PASS: TestDecodeRequestWrapper (0.00s)
+=== RUN   TestEncodeStatusMessagePreservesExplicitZero
+--- PASS: TestEncodeStatusMessagePreservesExplicitZero (0.00s)
+=== RUN   TestEncodeResponseWrapperPreservesExplicitSuccess
+--- PASS: TestEncodeResponseWrapperPreservesExplicitSuccess (0.00s)
+=== RUN   TestSerialFrameWriterBoundsPendingBytes
+--- PASS: TestSerialFrameWriterBoundsPendingBytes (0.00s)
+=== RUN   TestKeepaliveAndUnknownRPCCompatibility
+--- PASS: TestKeepaliveAndUnknownRPCCompatibility (0.00s)
+=== RUN   TestProxyProtocolPreservesBufferedFrameAndClientAddress
+--- PASS: TestProxyProtocolPreservesBufferedFrameAndClientAddress (0.00s)
+=== RUN   TestProxyProtocolRejectsSpoofingFormats
+=== RUN   TestProxyProtocolRejectsSpoofingFormats/GET_/_HTTP/1.1__
+=== RUN   TestProxyProtocolRejectsSpoofingFormats/PROXY_UNKNOWN__
+=== RUN   TestProxyProtocolRejectsSpoofingFormats/PROXY_TCP4_2001:db8::1_203.0.113.10_49152_443__
+=== RUN   TestProxyProtocolRejectsSpoofingFormats/PROXY_TCP4_198.51.100.42_203.0.113.10_0_443__
+--- PASS: TestProxyProtocolRejectsSpoofingFormats (0.00s)
+    --- PASS: TestProxyProtocolRejectsSpoofingFormats/GET_/_HTTP/1.1__ (0.00s)
+    --- PASS: TestProxyProtocolRejectsSpoofingFormats/PROXY_UNKNOWN__ (0.00s)
+    --- PASS: TestProxyProtocolRejectsSpoofingFormats/PROXY_TCP4_2001:db8::1_203.0.113.10_49152_443__ (0.00s)
+    --- PASS: TestProxyProtocolRejectsSpoofingFormats/PROXY_TCP4_198.51.100.42_203.0.113.10_0_443__ (0.00s)
+=== RUN   TestRepositoryIsolationAndRetiredMatchmakingAgainstPostgreSQL
+    repository_integration_test.go:302: retired Meta ticket/connected/completed calls rejected; zero tickets, zero allocations, original server states intact
+--- PASS: TestRepositoryIsolationAndRetiredMatchmakingAgainstPostgreSQL (1.55s)
+=== RUN   TestTCPRateStatePruningRetainsActiveConnections
+--- PASS: TestTCPRateStatePruningRetainsActiveConnections (0.00s)
+=== RUN   TestTCPRateLimitsRemainEnforced
+--- PASS: TestTCPRateLimitsRemainEnforced (0.00s)
+=== RUN   TestNativeTextFilterDoesNotConsumePlayerRPCBudget
+--- PASS: TestNativeTextFilterDoesNotConsumePlayerRPCBudget (0.00s)
+=== RUN   TestOnlyNativeTextFilterIsExemptFromPlayerRPCBudget
+--- PASS: TestOnlyNativeTextFilterIsExemptFromPlayerRPCBudget (0.00s)
+=== RUN   TestUpstreamProtocolMirrorMatchesManifest
+--- PASS: TestUpstreamProtocolMirrorMatchesManifest (0.19s)
+=== RUN   FuzzReadFrame
+=== RUN   FuzzReadFrame/seed#0
+=== RUN   FuzzReadFrame/seed#1
+=== RUN   FuzzReadFrame/seed#2
+--- PASS: FuzzReadFrame (0.00s)
+    --- PASS: FuzzReadFrame/seed#0 (0.00s)
+    --- PASS: FuzzReadFrame/seed#1 (0.00s)
+    --- PASS: FuzzReadFrame/seed#2 (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver	45.566s
+?   	github.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver/protocol	[no test files]
+=== RUN   TestRequestIDReplacesInvalidCallerValue
+--- PASS: TestRequestIDReplacesInvalidCallerValue (0.00s)
+=== RUN   TestIPRateLimiterSeparatesClients
+--- PASS: TestIPRateLimiterSeparatesClients (0.00s)
+=== RUN   TestChainReturnsEnvelopeWhenRateLimited
+--- PASS: TestChainReturnsEnvelopeWhenRateLimited (0.00s)
+=== RUN   TestCORSAllowsCredentialedAdminDevelopmentOrigin
+--- PASS: TestCORSAllowsCredentialedAdminDevelopmentOrigin (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/middleware	1.026s
+=== RUN   TestMetricsExposeRequiredControlPlaneSeries
+--- PASS: TestMetricsExposeRequiredControlPlaneSeries (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/observability	1.034s
+=== RUN   TestAdminRawEvidenceDisablesCaching
+--- PASS: TestAdminRawEvidenceDisablesCaching (0.00s)
+=== RUN   TestAdminRawEvidenceMapsMissingRow
+--- PASS: TestAdminRawEvidenceMapsMissingRow (0.00s)
+=== RUN   TestBuildDecisionPeerConfirmsPVPWithBothTeamObservers
+--- PASS: TestBuildDecisionPeerConfirmsPVPWithBothTeamObservers (0.00s)
+=== RUN   TestBuildDecisionSingleHumanPVESelfReported
+--- PASS: TestBuildDecisionSingleHumanPVESelfReported (0.00s)
+=== RUN   TestBuildDecisionPVEPeerDepartureFallsBackToHighRiskSelfReport
+--- PASS: TestBuildDecisionPVEPeerDepartureFallsBackToHighRiskSelfReport (0.00s)
+=== RUN   TestBuildDecisionKeepsEarlyLeaverMatchIncompleteUntilQuorum
+--- PASS: TestBuildDecisionKeepsEarlyLeaverMatchIncompleteUntilQuorum (0.00s)
+=== RUN   TestBuildDecisionDisputesConflictingOutcomes
+--- PASS: TestBuildDecisionDisputesConflictingOutcomes (0.00s)
+=== RUN   TestSubmitReportRejectsNonJSONBeforeService
+--- PASS: TestSubmitReportRejectsNonJSONBeforeService (0.00s)
+=== RUN   TestSubmitReportRejectsOversizeBodyBeforeService
+--- PASS: TestSubmitReportRejectsOversizeBodyBeforeService (0.00s)
+=== RUN   TestSubmitReportForwardsDirectBodyAndCapabilityHeader
+--- PASS: TestSubmitReportForwardsDirectBodyAndCapabilityHeader (0.00s)
+=== RUN   TestNormalizeSnapshotAcceptsBoundRosterAndHashChainedTimeline
+--- PASS: TestNormalizeSnapshotAcceptsBoundRosterAndHashChainedTimeline (0.00s)
+=== RUN   TestNormalizeSnapshotRejectsTimelinePayloadTampering
+--- PASS: TestNormalizeSnapshotRejectsTimelinePayloadTampering (0.00s)
+=== RUN   TestNormalizeSnapshotQuarantinesUnexpectedHuman
+--- PASS: TestNormalizeSnapshotQuarantinesUnexpectedHuman (0.01s)
+=== RUN   TestNormalizeSnapshotRejectsInvalidElapsedTime
+--- PASS: TestNormalizeSnapshotRejectsInvalidElapsedTime (0.00s)
+=== RUN   TestMigrationKeepsP2PEvidenceSeparateFromDedicatedBattleLog
+--- PASS: TestMigrationKeepsP2PEvidenceSeparateFromDedicatedBattleLog (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/p2pbattlelog	1.064s
+=== RUN   TestPublicRoomResponseDoesNotLeakCredentialsOrNetworkMetadata
+--- PASS: TestPublicRoomResponseDoesNotLeakCredentialsOrNetworkMetadata (0.00s)
+=== RUN   TestListRejectsInvalidHasSlots
+--- PASS: TestListRejectsInvalidHasSlots (0.00s)
+=== RUN   TestVNTBootstrapRateLimitSetsRetryAfter
+--- PASS: TestVNTBootstrapRateLimitSetsRetryAfter (0.00s)
+=== RUN   TestSecretBoxBindsCiphertextToRoomGenerationNodeAndKind
+--- PASS: TestSecretBoxBindsCiphertextToRoomGenerationNodeAndKind (0.00s)
+=== RUN   TestSecretBoxKeyringDecryptsPreviousKeyAndWritesActiveKey
+--- PASS: TestSecretBoxKeyringDecryptsPreviousKeyAndWritesActiveKey (0.00s)
+=== RUN   TestSecretBoxRequiresConfiguredProductionKey
+--- PASS: TestSecretBoxRequiresConfiguredProductionKey (0.00s)
+=== RUN   TestP2PRoomLifecycleAgainstPostgreSQL
+--- PASS: TestP2PRoomLifecycleAgainstPostgreSQL (0.14s)
+=== RUN   TestRequireActiveRejectsBannedActor
+--- PASS: TestRequireActiveRejectsBannedActor (0.00s)
+=== RUN   TestCreateRequiresP2PRoomRegistrationCapability
+--- PASS: TestCreateRequiresP2PRoomRegistrationCapability (0.00s)
+=== RUN   TestCreateManagedRequiresAnAuthoritativeLobbyID
+--- PASS: TestCreateManagedRequiresAnAuthoritativeLobbyID (0.00s)
+=== RUN   TestCreateManagedBypassesStandaloneRegistrationEntitlement
+--- PASS: TestCreateManagedBypassesStandaloneRegistrationEntitlement (0.00s)
+=== RUN   TestPublicCreateCannotRequestAManagedRoom
+--- PASS: TestPublicCreateCannotRequestAManagedRoom (0.00s)
+=== RUN   TestCreateVNTRequiresServerFeatureGate
+--- PASS: TestCreateVNTRequiresServerFeatureGate (0.00s)
+=== RUN   TestVNTBootstrapRateLimitRunsBeforeRepositoryAccess
+--- PASS: TestVNTBootstrapRateLimitRunsBeforeRepositoryAccess (0.00s)
+=== RUN   TestMemberAttachStatePolicyKeepsStrictRosterReconnectNarrow
+=== RUN   TestMemberAttachStatePolicyKeepsStrictRosterReconnectNarrow/standalone_lobby
+=== RUN   TestMemberAttachStatePolicyKeepsStrictRosterReconnectNarrow/standalone_connecting
+=== RUN   TestMemberAttachStatePolicyKeepsStrictRosterReconnectNarrow/standalone_running
+=== RUN   TestMemberAttachStatePolicyKeepsStrictRosterReconnectNarrow/managed_lobby
+=== RUN   TestMemberAttachStatePolicyKeepsStrictRosterReconnectNarrow/managed_connecting
+=== RUN   TestMemberAttachStatePolicyKeepsStrictRosterReconnectNarrow/managed_running
+=== RUN   TestMemberAttachStatePolicyKeepsStrictRosterReconnectNarrow/managed_stale
+=== RUN   TestMemberAttachStatePolicyKeepsStrictRosterReconnectNarrow/managed_closed
+--- PASS: TestMemberAttachStatePolicyKeepsStrictRosterReconnectNarrow (0.00s)
+    --- PASS: TestMemberAttachStatePolicyKeepsStrictRosterReconnectNarrow/standalone_lobby (0.00s)
+    --- PASS: TestMemberAttachStatePolicyKeepsStrictRosterReconnectNarrow/standalone_connecting (0.00s)
+    --- PASS: TestMemberAttachStatePolicyKeepsStrictRosterReconnectNarrow/standalone_running (0.00s)
+    --- PASS: TestMemberAttachStatePolicyKeepsStrictRosterReconnectNarrow/managed_lobby (0.00s)
+    --- PASS: TestMemberAttachStatePolicyKeepsStrictRosterReconnectNarrow/managed_connecting (0.00s)
+    --- PASS: TestMemberAttachStatePolicyKeepsStrictRosterReconnectNarrow/managed_running (0.00s)
+    --- PASS: TestMemberAttachStatePolicyKeepsStrictRosterReconnectNarrow/managed_stale (0.00s)
+    --- PASS: TestMemberAttachStatePolicyKeepsStrictRosterReconnectNarrow/managed_closed (0.00s)
+=== RUN   TestManagedLegacyConnectionWaitsForFrozenTransportAttach
+--- PASS: TestManagedLegacyConnectionWaitsForFrozenTransportAttach (0.00s)
+=== RUN   TestVNTRoomLifecycleAgainstPostgreSQL
+--- PASS: TestVNTRoomLifecycleAgainstPostgreSQL (0.21s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/p2proom	1.379s
+?   	github.com/Dubnium-105/ProjectRebound/Backend/internal/player	[no test files]
+=== RUN   TestDataPacketUsesV2AuthenticatedHeader
+--- PASS: TestDataPacketUsesV2AuthenticatedHeader (0.00s)
+=== RUN   TestClientBindsAndForwardsThroughRuntime
+--- PASS: TestClientBindsAndForwardsThroughRuntime (0.01s)
+=== RUN   TestDialRejectsUnsafeParametersBeforeNetworkAccess
+--- PASS: TestDialRejectsUnsafeParametersBeforeNetworkAccess (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/relayclient	1.043s
+=== RUN   TestAuthorityIssuesNodeBoundEd25519Certificate
+--- PASS: TestAuthorityIssuesNodeBoundEd25519Certificate (0.01s)
+=== RUN   TestAuthorityRejectsMalformedCSR
+--- PASS: TestAuthorityRejectsMalformedCSR (0.00s)
+=== RUN   TestAuthorityRequiresMutuallyAuthenticatedTLS
+--- PASS: TestAuthorityRequiresMutuallyAuthenticatedTLS (3.02s)
+=== RUN   TestAuthorityRotatesConfiguredServerCertificateBeforeExpiry
+--- PASS: TestAuthorityRotatesConfiguredServerCertificateBeforeExpiry (0.01s)
+=== RUN   TestControlHubTargetsNodeAndUnregisters
+--- PASS: TestControlHubTargetsNodeAndUnregisters (0.00s)
+=== RUN   TestTelemetryStoreOrdersReportsAndAcceptsProcessReset
+--- PASS: TestTelemetryStoreOrdersReportsAndAcceptsProcessReset (0.00s)
+=== RUN   TestTelemetryStoreRejectsImpreciseOrMissingCounters
+--- PASS: TestTelemetryStoreRejectsImpreciseOrMissingCounters (0.00s)
+=== RUN   TestTelemetryStoreRejectsInvalidLoadState
+--- PASS: TestTelemetryStoreRejectsInvalidLoadState (0.00s)
+=== RUN   TestParseBootstrapCredentials
+--- PASS: TestParseBootstrapCredentials (0.00s)
+=== RUN   TestParseBootstrapCredentialsRejectsUnsafeSets
+--- PASS: TestParseBootstrapCredentialsRejectsUnsafeSets (0.00s)
+=== RUN   TestPublicNodeResponseDoesNotExposeCredentials
+--- PASS: TestPublicNodeResponseDoesNotExposeCredentials (0.00s)
+=== RUN   TestRelayMigrationLifecycleAgainstPostgreSQL
+--- PASS: TestRelayMigrationLifecycleAgainstPostgreSQL (0.24s)
+=== RUN   TestRelayRegistryLifecycleAgainstPostgreSQL
+--- PASS: TestRelayRegistryLifecycleAgainstPostgreSQL (0.25s)
+=== RUN   TestRelayTokenIsSignedScopedAndExpiring
+--- PASS: TestRelayTokenIsSignedScopedAndExpiring (0.00s)
+=== RUN   TestRelaySigningKeyRotationKeepsPreviousTokensValid
+--- PASS: TestRelaySigningKeyRotationKeepsPreviousTokensValid (0.01s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/relayregistry	4.584s
+=== RUN   TestExampleConfigLoads
+--- PASS: TestExampleConfigLoads (0.01s)
+=== RUN   TestProductionConfigRequiresHTTPSAndLoopbackMetrics
+--- PASS: TestProductionConfigRequiresHTTPSAndLoopbackMetrics (0.00s)
+=== RUN   TestV2CookieIsStatelessAndAcceptsCurrentOrPreviousBucket
+--- PASS: TestV2CookieIsStatelessAndAcceptsCurrentOrPreviousBucket (0.00s)
+=== RUN   TestLoadOrEnrollPersistsNodeIdentityAndConsumesBootstrapLocally
+--- PASS: TestLoadOrEnrollPersistsNodeIdentityAndConsumesBootstrapLocally (0.02s)
+=== RUN   TestMetricsExposeRequiredRelaySeries
+--- PASS: TestMetricsExposeRequiredRelaySeries (0.00s)
+=== RUN   TestQoSResponseCannotAmplifyAndDoesNotAffectRelayProtocol
+--- PASS: TestQoSResponseCannotAmplifyAndDoesNotAffectRelayProtocol (0.00s)
+=== RUN   TestQoSPerIPRateLimit
+--- PASS: TestQoSPerIPRateLimit (0.00s)
+=== RUN   TestRuntimeCookieBindingAndAuthorizedForwarding
+--- PASS: TestRuntimeCookieBindingAndAuthorizedForwarding (0.01s)
+=== RUN   TestRuntimeAllowsShortNATPortRebindButRejectsLateOrCrossIPReplay
+--- PASS: TestRuntimeAllowsShortNATPortRebindButRejectsLateOrCrossIPReplay (0.01s)
+=== RUN   TestRuntimeRejectsWrongNodeExpiredAndInvalidRoleTokens
+--- PASS: TestRuntimeRejectsWrongNodeExpiredAndInvalidRoleTokens (0.00s)
+=== RUN   TestRuntimeV1CompatibilityIsExplicitlyOptIn
+--- PASS: TestRuntimeV1CompatibilityIsExplicitlyOptIn (0.00s)
+=== RUN   TestRuntimeRateLimitsTotalBytesAndExpiresInMemoryAllocations
+--- PASS: TestRuntimeRateLimitsTotalBytesAndExpiresInMemoryAllocations (0.00s)
+=== RUN   TestRuntimeSeparatesUnverifiedLimitsAndBoundsIPState
+--- PASS: TestRuntimeSeparatesUnverifiedLimitsAndBoundsIPState (0.00s)
+=== RUN   TestRuntimeTemporarilyBansInvalidTokenFlood
+--- PASS: TestRuntimeTemporarilyBansInvalidTokenFlood (0.00s)
+=== RUN   TestRuntimeLimitsUniqueAllocationsPerIP
+--- PASS: TestRuntimeLimitsUniqueAllocationsPerIP (0.00s)
+=== RUN   TestRuntimeDrainsExistingAllocationAtDeadline
+--- PASS: TestRuntimeDrainsExistingAllocationAtDeadline (0.00s)
+=== RUN   TestRuntimeOverloadStateRejectsOnlyNewAllocations
+--- PASS: TestRuntimeOverloadStateRejectsOnlyNewAllocations (0.01s)
+=== RUN   TestRuntimeKeysetUpdatesAndControlShutdown
+--- PASS: TestRuntimeKeysetUpdatesAndControlShutdown (0.00s)
+=== RUN   TestStrictRosterRustRelayClients
+    strict_roster_fixture_test.go:20: BLOCKED: set TOOLBOX_RELAY_DRIVER to the built Rust relay_interop_driver executable
+--- SKIP: TestStrictRosterRustRelayClients (0.00s)
+=== RUN   TestStrictRosterRelayCrossLanguageFixture
+--- PASS: TestStrictRosterRelayCrossLanguageFixture (0.00s)
+=== RUN   TestTokenVerifierKeepsCachedKeysDuringControlDisconnect
+--- PASS: TestTokenVerifierKeepsCachedKeysDuringControlDisconnect (0.00s)
+=== RUN   TestTokenVerifierRequiresTrustedKeysetSignature
+--- PASS: TestTokenVerifierRequiresTrustedKeysetSignature (0.00s)
+=== RUN   TestUDPListenerPerformsBindChallenge
+--- PASS: TestUDPListenerPerformsBindChallenge (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/relayruntime	1.109s
+?   	github.com/Dubnium-105/ProjectRebound/Backend/internal/requestctx	[no test files]
+=== RUN   TestHTTPRoutesReturnEnvelopedMetadata
+--- PASS: TestHTTPRoutesReturnEnvelopedMetadata (0.00s)
+=== RUN   TestVerifyReleaseObjectsProbesEveryObject
+--- PASS: TestVerifyReleaseObjectsProbesEveryObject (0.01s)
+=== RUN   TestVerifyReleaseObjectsRejectsUnavailableObject
+--- PASS: TestVerifyReleaseObjectsRejectsUnavailableObject (0.00s)
+=== RUN   TestVerifyReleaseObjectsRejectsCrossOriginRedirect
+--- PASS: TestVerifyReleaseObjectsRejectsCrossOriginRedirect (0.00s)
+=== RUN   TestSignedManifestCatalogAndChannels
+--- PASS: TestSignedManifestCatalogAndChannels (0.01s)
+=== RUN   TestClientConfigUsesEmptyArraysWhenNoRelayRegionsAreAvailable
+--- PASS: TestClientConfigUsesEmptyArraysWhenNoRelayRegionsAreAvailable (0.00s)
+=== RUN   TestResolveVNTRuntimeReadsVerifiedToolboxReleaseSidecar
+--- PASS: TestResolveVNTRuntimeReadsVerifiedToolboxReleaseSidecar (0.01s)
+=== RUN   TestToolboxManifestRequiresCanonicalUncompressedExecutable
+=== RUN   TestToolboxManifestRequiresCanonicalUncompressedExecutable/wrong_path_case
+=== RUN   TestToolboxManifestRequiresCanonicalUncompressedExecutable/compressed
+=== RUN   TestToolboxManifestRequiresCanonicalUncompressedExecutable/extra_payload
+--- PASS: TestToolboxManifestRequiresCanonicalUncompressedExecutable (0.00s)
+    --- PASS: TestToolboxManifestRequiresCanonicalUncompressedExecutable/wrong_path_case (0.00s)
+    --- PASS: TestToolboxManifestRequiresCanonicalUncompressedExecutable/compressed (0.00s)
+    --- PASS: TestToolboxManifestRequiresCanonicalUncompressedExecutable/extra_payload (0.00s)
+=== RUN   TestCanonicalManifestSigningIsDeterministic
+--- PASS: TestCanonicalManifestSigningIsDeterministic (0.00s)
+=== RUN   TestManagedReleaseUsesDownloadStoragePublicBaseURL
+--- PASS: TestManagedReleaseUsesDownloadStoragePublicBaseURL (0.00s)
+=== RUN   TestCatalogRejectsUnsafeObjectKey
+--- PASS: TestCatalogRejectsUnsafeObjectKey (0.00s)
+=== RUN   TestProductionRequiresSigningKeyAndAllowsManagedCatalogBootstrap
+--- PASS: TestProductionRequiresSigningKeyAndAllowsManagedCatalogBootstrap (0.00s)
+=== RUN   TestVersionComparison
+--- PASS: TestVersionComparison (0.00s)
+=== RUN   TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded
+=== RUN   TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/admission_bypass
+=== RUN   TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/wrong_game
+=== RUN   TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/missing_evidence
+=== RUN   TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/old_IPC
+=== RUN   TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/old_frontend
+=== RUN   TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/old_DB
+=== RUN   TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/pre-live-scope_DB
+--- PASS: TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded (0.00s)
+    --- PASS: TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/admission_bypass (0.00s)
+    --- PASS: TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/wrong_game (0.00s)
+    --- PASS: TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/missing_evidence (0.00s)
+    --- PASS: TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/old_IPC (0.00s)
+    --- PASS: TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/old_frontend (0.00s)
+    --- PASS: TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/old_DB (0.00s)
+    --- PASS: TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/pre-live-scope_DB (0.00s)
+=== RUN   TestStrictOnlineManifestWireFixture
+--- PASS: TestStrictOnlineManifestWireFixture (0.01s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/update	1.089s
+=== RUN   TestRequestMetaSanitizesCredentialShapedValuesAndInvalidIP
+--- PASS: TestRequestMetaSanitizesCredentialShapedValuesAndInvalidIP (0.00s)
+=== RUN   TestSecurityAuditDetailsAreRecursivelySanitized
+--- PASS: TestSecurityAuditDetailsAreRecursivelySanitized (0.00s)
+=== RUN   TestRetireAcceptsIntegrityTrustedOwnerAccess
+--- PASS: TestRetireAcceptsIntegrityTrustedOwnerAccess (0.00s)
+=== RUN   TestRetireKeepsNodeCredentialPathSeparate
+--- PASS: TestRetireKeepsNodeCredentialPathSeparate (0.00s)
+=== RUN   TestRecoverReturnsReplacementOnce
+--- PASS: TestRecoverReturnsReplacementOnce (0.00s)
+=== RUN   TestRateLimitedResponseSetsRetryAfter
+--- PASS: TestRateLimitedResponseSetsRetryAfter (0.00s)
+=== RUN   TestListReturnsCursorAndForwardsFilters
+--- PASS: TestListReturnsCursorAndForwardsFilters (0.00s)
+=== RUN   TestListRejectsNonNumericLimit
+--- PASS: TestListRejectsNonNumericLimit (0.00s)
+=== RUN   TestListOwnedReturnsOnlyOwnerView
+--- PASS: TestListOwnedReturnsOnlyOwnerView (0.00s)
+=== RUN   TestRotateCredentialReturnsOverlapDeadlineAndNoStore
+--- PASS: TestRotateCredentialReturnsOverlapDeadlineAndNoStore (0.00s)
+=== RUN   TestRedisVNTLimitStoreIsAtomicAndExpires
+--- PASS: TestRedisVNTLimitStoreIsAtomicAndExpires (0.00s)
+=== RUN   TestLimiterHashesIdentityAndReportsOperation
+--- PASS: TestLimiterHashesIdentityAndReportsOperation (0.00s)
+=== RUN   TestLimiterUsesConservativeLocalFallback
+--- PASS: TestLimiterUsesConservativeLocalFallback (0.00s)
+=== RUN   TestLimiterUsesIndependentDirectoryAndBootstrapPolicies
+--- PASS: TestLimiterUsesIndependentDirectoryAndBootstrapPolicies (0.00s)
+=== RUN   TestEnrollmentRateLimitRunsBeforeRepositoryAccess
+--- PASS: TestEnrollmentRateLimitRunsBeforeRepositoryAccess (0.00s)
+=== RUN   TestDirectoryRateLimitRunsBeforeRepositoryAccess
+--- PASS: TestDirectoryRateLimitRunsBeforeRepositoryAccess (0.00s)
+=== RUN   TestNodeDirectoryPaginationAgainstPostgreSQL
+--- PASS: TestNodeDirectoryPaginationAgainstPostgreSQL (0.05s)
+=== RUN   TestNodeRetirementRevokesCredentialsAgainstPostgreSQL
+--- PASS: TestNodeRetirementRevokesCredentialsAgainstPostgreSQL (0.09s)
+=== RUN   TestCredentialRotationOverlapAgainstPostgreSQL
+--- PASS: TestCredentialRotationOverlapAgainstPostgreSQL (0.10s)
+=== RUN   TestOwnerRecoveryAndRetirementAgainstPostgreSQL
+--- PASS: TestOwnerRecoveryAndRetirementAgainstPostgreSQL (0.13s)
+=== RUN   TestEnrollmentEnforcesOwnerQuotaAgainstPostgreSQL
+--- PASS: TestEnrollmentEnforcesOwnerQuotaAgainstPostgreSQL (0.07s)
+=== RUN   TestValidateRegisterInputNormalizesTransports
+--- PASS: TestValidateRegisterInputNormalizesTransports (0.00s)
+=== RUN   TestValidateRegisterInputRejectsPrivateEndpoint
+--- PASS: TestValidateRegisterInputRejectsPrivateEndpoint (0.00s)
+=== RUN   TestValidateRegisterInputRejectsLinkLocalEndpoint
+--- PASS: TestValidateRegisterInputRejectsLinkLocalEndpoint (0.00s)
+=== RUN   TestValidateRegisterInputRejectsNodeWithoutProbeTransport
+--- PASS: TestValidateRegisterInputRejectsNodeWithoutProbeTransport (0.00s)
+=== RUN   TestPublicNodeCapacityUsesDatabaseAllocationCount
+--- PASS: TestPublicNodeCapacityUsesDatabaseAllocationCount (0.00s)
+=== RUN   TestVersionPolicyRequiresBothExactVersions
+--- PASS: TestVersionPolicyRequiresBothExactVersions (0.00s)
+=== RUN   TestVersionPolicyUsesPublishedClientRuntimePairs
+--- PASS: TestVersionPolicyUsesPublishedClientRuntimePairs (0.00s)
+=== RUN   TestHeartbeatRejectsNegativeUptimeBeforeRepositoryAccess
+--- PASS: TestHeartbeatRejectsNegativeUptimeBeforeRepositoryAccess (0.00s)
+=== RUN   TestEnrollmentRequiresIntegrityTrustedSessionBeforeRepositoryAccess
+--- PASS: TestEnrollmentRequiresIntegrityTrustedSessionBeforeRepositoryAccess (0.00s)
+=== RUN   TestListRejectsInvalidFiltersBeforeRepositoryAccess
+--- PASS: TestListRejectsInvalidFiltersBeforeRepositoryAccess (0.00s)
+=== RUN   TestListOwnedRequiresVerifiedActivePlayerBeforeRepositoryAccess
+--- PASS: TestListOwnedRequiresVerifiedActivePlayerBeforeRepositoryAccess (0.00s)
+=== RUN   TestListOwnedRejectsInvalidFiltersBeforeRepositoryAccess
+--- PASS: TestListOwnedRejectsInvalidFiltersBeforeRepositoryAccess (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/vnt	1.473s
+=== RUN   TestStrictRosterMigrationRejectsPartialSecurityConfirmations
+--- PASS: TestStrictRosterMigrationRejectsPartialSecurityConfirmations (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/migrations	1.015s
+EXIT_CODE=0

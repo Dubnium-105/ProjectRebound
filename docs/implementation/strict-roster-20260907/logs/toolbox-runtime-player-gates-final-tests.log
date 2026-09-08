@@ -1,0 +1,34 @@
+   Compiling rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 22.56s
+     Running unittests src\lib.rs (target\debug\deps\rebound_toolbox-531c06249e821c2c.exe)
+
+running 24 tests
+test core::runtime::tests::p2p_authority_refresh_requires_the_same_world_instance ... ok
+test core::runtime::tests::empty_world_scope_cannot_fall_back_to_native_pipe_cleanup ... ok
+test core::runtime::tests::auth_outcome_view_rejects_a_stale_session_snapshot ... ok
+test core::runtime::tests::account_switch_clears_runtime_steam_ticket_and_uses_config_epoch ... ok
+test core::runtime::tests::active_native_receipt_is_allowed_only_for_same_refresh_scope ... ok
+test core::runtime::tests::launch_failure_keeps_the_complete_error_chain ... ok
+test core::runtime::tests::match_operation_cancel_gate_is_fail_closed ... ok
+test core::runtime::tests::p2p_authority_launch_failure_preserves_the_native_gate_reason ... ok
+test core::runtime::tests::match_operation_scope_binds_lobby_attempt_and_authorized_role ... ok
+test core::runtime::tests::p2p_authority_route_always_reports_an_explicit_port ... ok
+test core::runtime::tests::repeated_cleanup_cannot_clear_a_newer_native_scope ... ok
+test core::runtime::tests::shutdown_confirmation_covers_every_managed_activity ... ok
+test core::runtime::tests::shutdown_order_is_game_server_room_then_community_node ... ok
+test core::runtime::tests::unchanged_identity_config_does_not_reemit_capabilities ... ok
+test core::runtime::tests::logout_operation_barrier_rejects_new_launches_without_stopping_runtime ... ok
+test core::runtime::tests::preflight_failure_binds_empty_world_scope_without_process_evidence ... ok
+test core::runtime::tests::background_worker_stop_flag_is_joined_without_detach ... ok
+test core::runtime::tests::native_retry_success_does_not_clear_failed_room_cleanup ... ok
+test core::runtime::tests::runtime_events_do_not_have_secret_variants ... ok
+test core::runtime::tests::cancellation_reaches_owned_match_worker_after_lobby_snapshot_is_gone ... ok
+test core::runtime::tests::public_player_request_holds_transition_gate_for_full_call ... ok
+test core::runtime::tests::auth_transition_serializes_cleanup_before_login_phase ... ok
+test core::runtime::tests::logout_cleanup_waits_for_inflight_match_action_before_rechecking_scope ... ok
+test core::runtime::tests::logout_cleanup_drains_status_and_room_supervisors_before_scope_check ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 256 filtered out; finished in 0.13s
+
+
+[exit_code] 0

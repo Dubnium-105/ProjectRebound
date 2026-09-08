@@ -1,0 +1,133 @@
+{
+  "id": "BP-014-counter-supplement-20260908",
+  "recorded_at_utc": "2026-09-08T00:46:04.070408Z",
+  "status": "PASS_SUPPLEMENT_WITH_EXPLICIT_SCOPE_LIMIT",
+  "issue": "BP-014",
+  "acceptance": "AC-014",
+  "scope": "Real Windows Rust RelayClient over a real in-process Go Edge UDP relay; direct product Metrics.Snapshot readback for legal bidirectional data only.",
+  "command": "$env:TOOLBOX_RELAY_DRIVER='C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\cargo-target\\debug\\relay_interop_driver.exe'; go test ./internal/relayruntime -run ^TestBP014ProductCountersFromLiveRelay$ -count=1 -v",
+  "working_directory": "C:\\wksp\\ProjectRebound\\Backend",
+  "exit_code": 0,
+  "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\go-test-product-counters-final-with-driver.log",
+  "log_sha256": "6594d45f8dfbfe7f614161810dd1cab86d0c724fb9550133cb764a23de0c2879",
+  "test_source_copy": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\bp014_counter_supplement_test.go",
+  "test_source_sha256": "0fae5086945343f7969b5d1450802d3d283e94937570cf186fa7b569330e7318",
+  "driver": {
+    "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\cargo-target\\debug\\relay_interop_driver.exe",
+    "sha256": "3a4e4d46f9fff1b9899bc09615bb15a5bbc5d12ee20b13ae693345609dd547b9",
+    "build_command": "cargo build --locked --features lab-testing --bin relay_interop_driver --target-dir C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\cargo-target",
+    "build_exit_code": 0,
+    "build_log": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\driver-build.log",
+    "build_log_sha256": "5a6bb72c5a4b51c1b95a375812fb3d84e775156ae6352c0e07b0a00cd98f1270",
+    "source_commit": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482",
+    "source_dirty_relevant_paths": false
+  },
+  "repositories": {
+    "ProjectRebound": {
+      "head": "345bde0d24a05da284582e79c4ff6d7679a9cbff",
+      "relevant_source_dirty": false,
+      "relevant_status_lines": []
+    },
+    "ProjectReboundToolbox": {
+      "head": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482",
+      "relevant_source_dirty": false,
+      "relevant_status_lines": []
+    }
+  },
+  "source_files_observed": {
+    "Backend/internal/relayruntime/runtime.go": {
+      "path": "C:\\wksp\\ProjectRebound\\Backend\\internal\\relayruntime\\runtime.go",
+      "sha256": "1cc1965564e8067ccec5d1a81429138decc714802a609e2259987efe4536aaff"
+    },
+    "Backend/internal/relayruntime/metrics.go": {
+      "path": "C:\\wksp\\ProjectRebound\\Backend\\internal\\relayruntime\\metrics.go",
+      "sha256": "728d5f7bc273339073c1961f2e6a94f4160cad05cace63aa53faa85381ba869c"
+    },
+    "Backend/internal/relayruntime/strict_roster_fixture_test.go": {
+      "path": "C:\\wksp\\ProjectRebound\\Backend\\internal\\relayruntime\\strict_roster_fixture_test.go",
+      "sha256": "518127335464e2b74c74ff369165d9ade5d4ef9576597c618365b1b98643ad60"
+    },
+    "ProjectReboundToolbox/helper/relay_interop_driver.rs": {
+      "path": "C:\\wksp\\ProjectReboundToolbox\\helper\\relay_interop_driver.rs",
+      "sha256": "cdcd81b457b7cba07bdc80f37d3e98aed0a4148c5b1e1afa52dac2dfabf32378"
+    },
+    "ProjectReboundToolbox/src/vnt/legacy/controller.rs": {
+      "path": "C:\\wksp\\ProjectReboundToolbox\\src\\vnt\\legacy\\controller.rs",
+      "sha256": "1b5c7def976d526cbfeb725f6031689dcfdc1a216b350e28235a50dfffde5777"
+    },
+    "ProjectReboundToolbox/src/vnt/legacy/relay.rs": {
+      "path": "C:\\wksp\\ProjectReboundToolbox\\src\\vnt\\legacy\\relay.rs",
+      "sha256": "52b656432551067cfc7b9e453c7cd6a8339d2fb15f1cf71de404588a33b44d1b"
+    }
+  },
+  "environment": {
+    "os": "Windows",
+    "go": "go1.26.2 windows/amd64",
+    "rust_driver": "Windows PE x64",
+    "actual_udp_port": 63132,
+    "requested_lab_ports": [
+      "127.0.0.1:55439",
+      "127.0.0.1:56380"
+    ],
+    "requested_lab_ports_status": "occupied by existing WSL relay process 24180; not touched or stopped; test used an ephemeral UDP listener"
+  },
+  "product_metrics": {
+    "source": "Backend/internal/relayruntime.Metrics.Snapshot",
+    "packets_received_delta": 6,
+    "packets_forwarded_delta": 2,
+    "bytes_forwarded_delta": 24,
+    "bind_success_delta": 2,
+    "driver_observation": "PASS: distinct HOST/PEER bind, recipient re-tagging, bidirectional authenticated UDP",
+    "assertions": [
+      "packets_received_delta >= 2",
+      "packets_forwarded_delta >= 2",
+      "bytes_forwarded_delta > 0",
+      "bind_success_delta >= 2"
+    ]
+  },
+  "toolbox_datagrams_readback": {
+    "status": "NOT_AVAILABLE",
+    "reason": "The existing relay_interop_driver only calls RelayClient connect/send/receive. LegacyRouteStatus.datagrams_sent/datagrams_received are private controller-session fields with no getter or IPC readback.",
+    "paths": [
+      "C:\\wksp\\ProjectReboundToolbox\\helper\\relay_interop_driver.rs",
+      "C:\\wksp\\ProjectReboundToolbox\\src\\vnt\\legacy\\controller.rs:145-152",
+      "C:\\wksp\\ProjectReboundToolbox\\src\\vnt\\legacy\\controller.rs:915-925"
+    ]
+  },
+  "acceptance_conclusion": "This receipt directly proves live Go Edge product counters for the legal two-way data path. It does not upgrade AC-014 to full PASS because Toolbox LegacyRouteStatus datagrams_sent/datagrams_received were not externally observable; corruption, replay, window, and MTU evidence remain separately scoped.",
+  "prior_attempts": [
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\go-test-product-counters.log",
+      "exit_code": 1,
+      "sha256": "0549526719b411132dec4308a74c01b90fc154b3cdba2c6ec9a0b70aa5fd9b31",
+      "classification": "historical_failed_attempt"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\go-test-product-counters-rerun.log",
+      "exit_code": 1,
+      "sha256": "96c7e3c16405e0fff4115e88e4c95915799d26e07224066c01ad6d3141cc5d96",
+      "classification": "historical_failed_attempt"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\go-test-product-counters-rerun2.log",
+      "exit_code": 1,
+      "sha256": "6422e0b87ef11ab8f71cffc6a755d61a05702d926aa90e8d383baee421acb223",
+      "classification": "historical_failed_attempt"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\go-test-product-counters-final.log",
+      "exit_code": 0,
+      "sha256": "ee98abd7f3ca2f209533025a6d4f51b892792c3fc2bb7977b2a9c9e0ae0a1979",
+      "classification": "historical_pass_with_preserved_driver"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\go-test-product-counters-current-driver.log",
+      "exit_code": 0,
+      "sha256": "b131af290c736b6a3fe982a7a205c352b983e41405b363764117ccf935b3c02a",
+      "classification": "historical_pass_current_driver"
+    }
+  ],
+  "product_files_modified": false,
+  "temporary_test_only": true,
+  "commit": false
+}

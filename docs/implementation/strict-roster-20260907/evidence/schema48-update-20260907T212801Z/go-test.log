@@ -1,0 +1,52 @@
+=== RUN   TestHTTPRoutesReturnEnvelopedMetadata
+--- PASS: TestHTTPRoutesReturnEnvelopedMetadata (0.00s)
+=== RUN   TestVerifyReleaseObjectsProbesEveryObject
+--- PASS: TestVerifyReleaseObjectsProbesEveryObject (0.00s)
+=== RUN   TestVerifyReleaseObjectsRejectsUnavailableObject
+--- PASS: TestVerifyReleaseObjectsRejectsUnavailableObject (0.00s)
+=== RUN   TestVerifyReleaseObjectsRejectsCrossOriginRedirect
+--- PASS: TestVerifyReleaseObjectsRejectsCrossOriginRedirect (0.00s)
+=== RUN   TestSignedManifestCatalogAndChannels
+--- PASS: TestSignedManifestCatalogAndChannels (0.01s)
+=== RUN   TestClientConfigUsesEmptyArraysWhenNoRelayRegionsAreAvailable
+--- PASS: TestClientConfigUsesEmptyArraysWhenNoRelayRegionsAreAvailable (0.00s)
+=== RUN   TestResolveVNTRuntimeReadsVerifiedToolboxReleaseSidecar
+--- PASS: TestResolveVNTRuntimeReadsVerifiedToolboxReleaseSidecar (0.01s)
+=== RUN   TestToolboxManifestRequiresCanonicalUncompressedExecutable
+=== RUN   TestToolboxManifestRequiresCanonicalUncompressedExecutable/extra_payload
+=== RUN   TestToolboxManifestRequiresCanonicalUncompressedExecutable/wrong_path_case
+=== RUN   TestToolboxManifestRequiresCanonicalUncompressedExecutable/compressed
+--- PASS: TestToolboxManifestRequiresCanonicalUncompressedExecutable (0.00s)
+    --- PASS: TestToolboxManifestRequiresCanonicalUncompressedExecutable/extra_payload (0.00s)
+    --- PASS: TestToolboxManifestRequiresCanonicalUncompressedExecutable/wrong_path_case (0.00s)
+    --- PASS: TestToolboxManifestRequiresCanonicalUncompressedExecutable/compressed (0.00s)
+=== RUN   TestCanonicalManifestSigningIsDeterministic
+--- PASS: TestCanonicalManifestSigningIsDeterministic (0.00s)
+=== RUN   TestManagedReleaseUsesDownloadStoragePublicBaseURL
+--- PASS: TestManagedReleaseUsesDownloadStoragePublicBaseURL (0.00s)
+=== RUN   TestCatalogRejectsUnsafeObjectKey
+--- PASS: TestCatalogRejectsUnsafeObjectKey (0.00s)
+=== RUN   TestProductionRequiresSigningKeyAndAllowsManagedCatalogBootstrap
+--- PASS: TestProductionRequiresSigningKeyAndAllowsManagedCatalogBootstrap (0.00s)
+=== RUN   TestVersionComparison
+--- PASS: TestVersionComparison (0.00s)
+=== RUN   TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded
+=== RUN   TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/old_DB
+=== RUN   TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/pre-live-scope_DB
+=== RUN   TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/admission_bypass
+=== RUN   TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/wrong_game
+=== RUN   TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/missing_evidence
+=== RUN   TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/old_IPC
+=== RUN   TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/old_frontend
+--- PASS: TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded (0.00s)
+    --- PASS: TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/old_DB (0.00s)
+    --- PASS: TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/pre-live-scope_DB (0.00s)
+    --- PASS: TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/admission_bypass (0.00s)
+    --- PASS: TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/wrong_game (0.00s)
+    --- PASS: TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/missing_evidence (0.00s)
+    --- PASS: TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/old_IPC (0.00s)
+    --- PASS: TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/old_frontend (0.00s)
+=== RUN   TestStrictOnlineManifestWireFixture
+--- PASS: TestStrictOnlineManifestWireFixture (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/update	0.124s

@@ -1,0 +1,7 @@
+=== RUN   TestStrictRosterP2PLifecycleAgainstPostgreSQL
+    service_integration_test.go:1136: sweeper fixture does not isolate preserved HOST count: host_team=1 same_team_current=1 other_team_current=1
+--- FAIL: TestStrictRosterP2PLifecycleAgainstPostgreSQL (3.68s)
+FAIL
+FAIL	github.com/Dubnium-105/ProjectRebound/Backend/internal/matchlobby	3.717s
+FAIL
+EXIT_CODE=

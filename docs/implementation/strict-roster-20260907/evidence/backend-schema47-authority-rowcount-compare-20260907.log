@@ -1,0 +1,10 @@
+source_verify_path=C:\wksp\ProjectRebound\docs\implementation\strict-roster-20260907\evidence\backend-schema47-source-authority-verify-20260907.log
+source_verify_exit_code=0
+restore_verify_path=C:\wksp\ProjectRebound\docs\implementation\strict-roster-20260907\evidence\backend-schema47-restore-authority-verify-20260907.log
+restore_verify_exit_code=0
+archive_path=C:\wksp\ProjectRebound\docs\implementation\strict-roster-20260907\evidence\backend-schema47-source-20260907-authority-final.dump
+archive_bytes=317571
+archive_sha256=2d2290a14481fb380b7e9057faea45976c18ae4ba84600af4a3b19b8b22ddeb3
+normalization=database_identity_and_whitespace
+comparison=IDENTICAL_EXCLUDING_DATABASE_IDENTITY_LINE
+rowcount_and_schema_metrics=IDENTICAL_EXCLUDING_DATABASE_IDENTITY_LINE

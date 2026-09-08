@@ -1,0 +1,4 @@
+CREATE DATABASE
+CREATE_DB_EXIT_CODE=0
+pg_restore: error: connection to server at "127.0.0.1", port 55439 failed: FATAL:  database "rebound_audit_schema47full_20260907T235456Z" does not exist
+RESTORE_EXIT_CODE=1

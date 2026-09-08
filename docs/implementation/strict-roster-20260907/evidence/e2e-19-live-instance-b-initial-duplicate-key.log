@@ -1,0 +1,12 @@
+{"time":"2026-09-07T22:42:06.3852034+08:00","level":"WARN","msg":"using ephemeral development device-fingerprint key; device correlation will not survive a restart"}
+{"time":"2026-09-07T22:42:06.4213011+08:00","level":"WARN","msg":"development Steam ticket bypass is enabled for an explicit lab allowlist","allowlisted_players":1}
+{"time":"2026-09-07T22:42:06.4218206+08:00","level":"WARN","msg":"integrity challenge is disabled because no ToolBox public certificate is configured"}
+{"time":"2026-09-07T22:42:06.4218206+08:00","level":"WARN","msg":"no machine administrator tokens configured; internal operational routes will reject requests"}
+{"time":"2026-09-07T22:42:06.4223789+08:00","level":"WARN","msg":"using ephemeral development administrator MFA key; configure ADMIN_MFA_ENCRYPTION_KEY_BASE64 before creating accounts"}
+{"time":"2026-09-07T22:42:06.4223789+08:00","level":"WARN","msg":"Cloudflare Turnstile is not configured; human administrator login will remain unavailable"}
+{"time":"2026-09-07T22:42:06.6455392+08:00","level":"WARN","msg":"using ephemeral development game server CA; node certificates will not survive a restart"}
+{"time":"2026-09-07T22:42:06.6465463+08:00","level":"WARN","msg":"using ephemeral development VNT room key; rooms will not survive a restart"}
+{"time":"2026-09-07T22:42:06.6480856+08:00","level":"WARN","msg":"no relay bootstrap tokens configured; relay enrollment will be rejected"}
+{"time":"2026-09-07T22:42:06.649002+08:00","level":"WARN","msg":"using ephemeral development relay CA; node certificates will not survive a restart"}
+{"time":"2026-09-07T22:42:06.649002+08:00","level":"WARN","msg":"using ephemeral development relay-token key; allocations will not survive a restart"}
+{"time":"2026-09-07T22:42:06.6702303+08:00","level":"ERROR","msg":"initialize control-plane","error":"synchronize relay bootstrap credentials: ERROR: duplicate key value violates unique constraint \"relay_signing_keys_one_active_idx\" (SQLSTATE 23505)"}

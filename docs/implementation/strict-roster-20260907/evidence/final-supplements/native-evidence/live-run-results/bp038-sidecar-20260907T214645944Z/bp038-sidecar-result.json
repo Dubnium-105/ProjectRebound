@@ -1,0 +1,171 @@
+{
+  "issue": "BP038",
+  "mode": "READ_ONLY_NATIVE_NMT_SERIALIZER_SIDECAR",
+  "run_id": "bp038-sidecar-20260907T214645944Z",
+  "status": "BLOCKED",
+  "acceptance": "BLOCKED",
+  "started_utc": "2026-09-07T21:47:35.0693264Z",
+  "finished_utc": "2026-09-07T21:48:49.6458754Z",
+  "candidate_payload_sha256": "42C72B9F27F51C745E2B8951F9E707C3035DFC22463BFB4D1CF64D21AEE9EE63",
+  "restored_installed_payload_sha256": "6C7B5E05540AC72A6D7A9FA78F867917285FCE00081156EE13D237AA4D6C24A3",
+  "restored_steam_appid_sha256": "DDFE0E8D462AF661F81DB36589C39882DC0F2330785B5D80CD34F2F520AD618F",
+  "fixed_executable_sha256": "181C49FFB522B3EB01014C84FD9D3A2A5C0B66AE80A6A6ADDFF4BDD6F8125843",
+  "candidate_source_artifact": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T211718994451Z\\Payload.dll",
+  "orchestrator_source_sha256": "80F6A17515099BBB6E362EE15FF8297525B8CE36D7370B3C16B5C3A10D14A64C",
+  "backend_source_sha256": "251A2A58EBBE7595FD1ACFD65BC4388B3BDFA83C9A5D16ABD2B1A879C66600CF",
+  "backend_driver_sha256": "4DDADA1C2516E1A8EB119D22CAB509E546D7856B3ADF1F389656F4D9DBDB1E84",
+  "commands": [
+    "go build -o <run-input>\\\\backend-native-driver.exe <frozen-clone>\\\\Backend\\\\.tmp-native-fixture\\\\dynamic-root-20260907T212120784508Z\\\\main.go",
+    "wsl.exe -- createdb --host=127.0.0.1 --port=55439 --username=phanthy <rebound_native_* database>",
+    "<backend-driver.exe> -mode prepare -database-url <local-55439-url> -fixture <private fixture> -authority-port 47777",
+    "<pwsh> -File <frozen run-bp038-sidecar.ps1> -AuthorityPort 47777 -ClientPort 47778 -TimeoutSeconds 210"
+  ],
+  "exit_codes": {
+    "driver_build": 0,
+    "createdb": 0,
+    "prepare": 0,
+    "runner": 0,
+    "orchestrator": 0,
+    "backend_finalize": -1,
+    "backend_finalize_interrupted": true,
+    "sidecar_watcher": -1,
+    "sidecar_watcher_interrupted": true
+  },
+  "coverage": {
+    "owned_roles": [
+      "authority"
+    ],
+    "owned_target_count": 1,
+    "client_target_observed": false,
+    "serializer_enter": 0,
+    "serializer_leave": 0,
+    "allocator_release": 0,
+    "probe_ready": 1,
+    "probe_loaded": 1,
+    "probe_observation_end": 1,
+    "coverage_events": {
+      "target_verified": 1,
+      "probe.ready": 1,
+      "probe_loaded": 1,
+      "observation_end": 1
+    },
+    "post_return_memory_monitor": false,
+    "retain_or_free_proof": false
+  },
+  "failure": {
+    "reason_code": "authority_hooks_not_ready",
+    "orchestrator_outcome": "BLOCKED",
+    "message": "Candidate authority stdout reported pinned PreLogin byte gate failed and refused online authority bootstrap; orchestrator then timed out waiting for payload_status. No client process was observed, so the serializer callsite was not reached.",
+    "native_e2e_positive_not_claimed": true,
+    "playable_not_claimed": true,
+    "second_steam_not_modified": true
+  },
+  "cleanup": {
+    "game_processes_terminated_by_runner": false,
+    "game_process_count_after_run": 0,
+    "payload_restored": true,
+    "appid_restored": true,
+    "private_logs_retained": true
+  },
+  "critical_artifacts": [
+    {
+      "name": "backend_driver",
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp038-sidecar-20260907T214645944Z\\backend-native-driver.exe",
+      "sha256": "4DDADA1C2516E1A8EB119D22CAB509E546D7856B3ADF1F389656F4D9DBDB1E84",
+      "bytes": 15191552
+    },
+    {
+      "name": "candidate",
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp038-sidecar-20260907T214645944Z\\Payload.dll",
+      "sha256": "42C72B9F27F51C745E2B8951F9E707C3035DFC22463BFB4D1CF64D21AEE9EE63",
+      "bytes": 2087936
+    },
+    {
+      "name": "watcher",
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp038-sidecar-20260907T214645944Z\\bp038-sidecar-watcher-20260908.ps1",
+      "sha256": "BD8A3E716C78B93182249E1572B642D1AFB4E0FFE2969EEE7BD4BB201B57452F",
+      "bytes": 6921
+    },
+    {
+      "name": "watcher_summary",
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\bp038-sidecar-20260907T214645944Z\\sidecar\\sidecar-watcher-summary.json",
+      "missing": true
+    },
+    {
+      "name": "input_manifest",
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp038-sidecar-20260907T214645944Z\\input-manifest.json",
+      "sha256": "8282992D2687E7C4F551DCF284BFF6C0DD6EC82907579A7F07750D88572EBFFF",
+      "bytes": 3465
+    },
+    {
+      "name": "runner",
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp038-sidecar-20260907T214645944Z\\run-bp038-sidecar.ps1",
+      "sha256": "5ABC1975F5ECA409A7D267A55ADEA36E956C06CB3480B2C956550ED609F9BD21",
+      "bytes": 7352
+    },
+    {
+      "name": "native_events",
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\bp038-sidecar-20260907T214645944Z\\native-events-private.json",
+      "missing": true
+    },
+    {
+      "name": "controller",
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp038-sidecar-20260907T214645944Z\\offline-nmt-fstring-observer.py",
+      "sha256": "DDD5176C7D03B485C94D7161825A37C2C50535FC668116C3518EB4FD5274D4E0",
+      "bytes": 5101
+    },
+    {
+      "name": "orchestrator",
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp038-sidecar-20260907T214645944Z\\orchestrate.ps1",
+      "sha256": "80F6A17515099BBB6E362EE15FF8297525B8CE36D7370B3C16B5C3A10D14A64C",
+      "bytes": 86700
+    },
+    {
+      "name": "authority_events",
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\bp038-sidecar-20260907T214645944Z\\sidecar\\authority-events.jsonl",
+      "sha256": "3187416F9366790F7C40EE788EF6F04ED9C9E39C6C8A8495045DDC556BED0514",
+      "bytes": 1176
+    },
+    {
+      "name": "owned_targets",
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\bp038-sidecar-20260907T214645944Z\\sidecar\\owned-targets.jsonl",
+      "sha256": "810DDDE067CCDF4B4A7D9172CE40F0A134F44F6F9E0B55F2E4D04B2BD3242929",
+      "bytes": 393
+    },
+    {
+      "name": "authority_stdout",
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\bp038-sidecar-20260907T214645944Z\\dedicated-component-20260907-214737-eb865233\\authority.stdout.log",
+      "sha256": "1B3D2C2B44FA03B5C45101367CF645FCDB0B5A78B40A796D8E60735EE52305D0",
+      "bytes": 1478
+    },
+    {
+      "name": "backend_admission",
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\bp038-sidecar-20260907T214645944Z\\backend-admission-evidence.json",
+      "missing": true
+    },
+    {
+      "name": "backend_source",
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp038-sidecar-20260907T214645944Z\\main.go",
+      "sha256": "251A2A58EBBE7595FD1ACFD65BC4388B3BDFA83C9A5D16ABD2B1A879C66600CF",
+      "bytes": 45346
+    },
+    {
+      "name": "retain_probe",
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp038-sidecar-20260907T214645944Z\\bp038-nmt-retain-observer-20260908.js",
+      "sha256": "521863ECEF63E543CF564D4562AF7C74094A3CEDE5BEC574B42CAE8D541B408D",
+      "bytes": 12917
+    },
+    {
+      "name": "component_summary",
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\bp038-sidecar-20260907T214645944Z\\dedicated-component-20260907-214737-eb865233\\summary.json",
+      "sha256": "1CB38A5C99F2102E6528B7D0EB4672A0E060680CEC31E8FAAB8E0356B59C9E53",
+      "bytes": 3118
+    }
+  ],
+  "prior_attempt": {
+    "run_id": "bp038-sidecar-20260907T214006663Z",
+    "status": "INVALID_FOR_BP038",
+    "reason": "watcher PowerShell $PID read-only variable collision before target discovery",
+    "result_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\bp038-sidecar-20260907T214006663Z"
+  }
+}

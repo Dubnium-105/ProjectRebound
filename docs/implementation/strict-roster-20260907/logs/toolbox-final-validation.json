@@ -1,0 +1,58 @@
+{
+  "scope": "Toolbox final validation",
+  "generated_at": "2026-09-07T09:54:30.2321981Z",
+  "tests": [
+    {
+      "command": "npm run test:bridge",
+      "exit_code": 0,
+      "pass_count": 12,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-final-frontend-test-bridge.log"
+    },
+    {
+      "command": "npm run test:ui",
+      "exit_code": 0,
+      "pass_count": 10,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-final-frontend-test-ui.log"
+    },
+    {
+      "command": "npm run test:status",
+      "exit_code": 0,
+      "pass_count": 11,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-final-frontend-test-status.log"
+    },
+    {
+      "command": "npm run test:sites",
+      "exit_code": 0,
+      "pass_count": 4,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-final-frontend-test-sites.log"
+    },
+    {
+      "command": "npm run test:downloads",
+      "exit_code": 0,
+      "pass_count": 7,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-final-frontend-test-downloads.log"
+    },
+    {
+      "command": "npm run build",
+      "exit_code": 0,
+      "pass_count": 1,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-final-frontend-build.log"
+    },
+    {
+      "command": "cargo check --manifest-path C:\\wksp\\ProjectReboundToolbox\\src-tauri\\Cargo.toml",
+      "exit_code": 0,
+      "pass_count": 0,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-final-src-tauri-cargo-check.log",
+      "note": "Build/check passed with four existing dead-code warnings in retired DTOs."
+    }
+  ],
+  "skips": [],
+  "source_changes": []
+}

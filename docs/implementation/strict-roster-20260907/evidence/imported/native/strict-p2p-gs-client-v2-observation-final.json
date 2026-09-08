@@ -1,0 +1,18 @@
+{
+    "wrapper_pid":  2296,
+    "wrapper_exited":  true,
+    "wrapper_exit":  null,
+    "frames":  [
+                   {
+                       "label":  "payload_status",
+                       "response":  "payload_status_ack\t{\"code\":\"native_admission_unverified\",\"game_binary_sha256\":\"181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843\",\"match\":{\"last_error\":\"\",\"login_completed\":false,\"login_ready\":false,\"native_grant_injected\":false,\"native_grant_staged\":false,\"operation_sequence\":0,\"pending\":false,\"state\":\"idle\"},\"native_authority_admission_verified\":false,\"native_authority_path_ready\":true,\"native_client_grant_injection_ready\":true,\"net_mode\":\"standalone\",\"offline_pve\":false,\"protocol_version\":\"strict-roster-v2\",\"ready\":false,\"request_id\":\"p2p-gs-client-v2-status-1\",\"status\":\"blocked\",\"strict_online_ready\":false,\"world_instance_id\":\"\"}",
+                       "utc":  "2026-09-07T14:53:27.1029564Z"
+                   },
+                   {
+                       "label":  "start_match_authority",
+                       "response":  "error\t{\"code\":\"client_login_pending\",\"message\":\"complete the local platform login before starting listen authority\",\"request_id\":\"p2p-gs-client-v2-start-1\"}",
+                       "utc":  "2026-09-07T14:53:27.1344134Z"
+                   }
+               ],
+    "observed_utc":  "2026-09-07T14:53:30.3035366Z"
+}

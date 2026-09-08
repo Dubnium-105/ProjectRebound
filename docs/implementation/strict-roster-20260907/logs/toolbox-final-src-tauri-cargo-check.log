@@ -1,0 +1,30 @@
+    Checking rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+    Checking rebound_toolbox_tauri v0.9.12 (C:\wksp\ProjectReboundToolbox\src-tauri)
+warning: struct `RoomListResult` is never constructed
+   --> src\dto.rs:103:12
+    |
+103 | pub struct RoomListResult {
+    |            ^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: struct `CreateRoomResult` is never constructed
+   --> src\dto.rs:404:12
+    |
+404 | pub struct CreateRoomResult {
+    |            ^^^^^^^^^^^^^^^^
+
+warning: struct `ServerListResult` is never constructed
+   --> src\dto.rs:469:12
+    |
+469 | pub struct ServerListResult {
+    |            ^^^^^^^^^^^^^^^^
+
+warning: struct `LaunchResult` is never constructed
+   --> src\dto.rs:482:12
+    |
+482 | pub struct LaunchResult {
+    |            ^^^^^^^^^^^^
+
+warning: `rebound_toolbox_tauri` (bin "rebound_toolbox_tauri") generated 4 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 18.52s

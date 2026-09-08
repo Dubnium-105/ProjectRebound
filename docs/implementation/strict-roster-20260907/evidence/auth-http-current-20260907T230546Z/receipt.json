@@ -1,0 +1,49 @@
+{
+  "source_dirty": {
+    "Toolbox": false
+  },
+  "source_scope": "Toolbox HTTP helper built from its clean commit. ProjectRebound is a review anchor only and is not compiled or exercised by this Toolbox-only test.",
+  "execution_repository": "Toolbox",
+  "source_commit": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482",
+  "commands": [
+    {
+      "command": [
+        "cargo",
+        "build",
+        "--locked",
+        "--features",
+        "lab-testing",
+        "--bin",
+        "auth_http_concurrency"
+      ],
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\auth-http-current-20260907T230546Z\\build.log",
+      "log_sha256": "9d42d90f5caec16311e31f98f92ee721b54bc21d313cb34d51b322478b8f375e"
+    },
+    {
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-B",
+        "C:\\wksp\\ProjectReboundToolbox\\tests\\auth_http_concurrency.py",
+        "--driver",
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\frozen\\drivers\\199571c4d8ffd24baa3e729f6e7acd8713984843ede64a4ca3d8202f5ed6686e\\auth_http_concurrency.exe"
+      ],
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\auth-http-current-20260907T230546Z\\http-cases.log",
+      "log_sha256": "9cc48c11635431a37683a7e255ea53791c4b8fe9d6f89f701cbbc6f7d361cec4"
+    }
+  ],
+  "finished_at": "2026-09-07T23:06:38.418789+00:00",
+  "scope": "Actual loopback HTTP and isolated DPAPI temporary configuration; synthetic credentials only. No native gameplay or full E2E-11 acceptance.",
+  "reviewed_source_pair": {
+    "ProjectRebound": "bb3590adf298ddc9fefde63d0c70c2fc08ad7529",
+    "Toolbox": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482"
+  },
+  "execution_source_pair": {
+    "Toolbox": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482"
+  },
+  "driver": {
+    "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\frozen\\drivers\\199571c4d8ffd24baa3e729f6e7acd8713984843ede64a4ca3d8202f5ed6686e\\auth_http_concurrency.exe",
+    "sha256": "199571c4d8ffd24baa3e729f6e7acd8713984843ede64a4ca3d8202f5ed6686e"
+  }
+}

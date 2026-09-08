@@ -1,0 +1,36 @@
+{
+  "id": "e2e-06-17-runtime-local-harness-20260908",
+  "status": "PASS_COMPONENT_SCOPE_ONLY",
+  "source_snapshot": {
+    "repository": "Toolbox",
+    "head": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482",
+    "dirty": false
+  },
+  "command": "cargo test --locked --lib --features vnt,lab-testing core::runtime::tests --no-fail-fast -- --nocapture",
+  "exit_code": 0,
+  "passed": 35,
+  "failed": 0,
+  "ignored": 0,
+  "filtered": 276,
+  "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e-06-17-runtime-current-20260908\\runtime-tests.log",
+  "log_sha256": "1E934C2E156D2AE263BF2B78EE659EB19B57706763250BC2EE6285CD2F4F89B9",
+  "scope": "Toolbox Rust runtime state-machine/component tests only; no DLL, native game, visible UI, live PID, remote service, or full E2E-06/E2E-17 scenario",
+  "e2e_06_coverage": [
+    "launch failure/error chain",
+    "preflight failure",
+    "cancel gate",
+    "owned worker cancellation",
+    "scope and cleanup retry"
+  ],
+  "e2e_17_coverage": [
+    "worker stop/join",
+    "logout operation barrier",
+    "match/status/room drain",
+    "repeated cleanup scope"
+  ],
+  "limitations": [
+    "does not prove UI observation or native game/PID boundary",
+    "does not prove ten repeated application cycles with an unrelated external process",
+    "does not upgrade E2E status"
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "id": "schema48-toolbox-update-fix-20260908",
+  "recorded_at_utc": "2026-09-07T21:29:17.146379+00:00",
+  "status": "IMPLEMENTED_TESTED",
+  "source_head": "7b7f98ee39f4ee800d1d41ee96831432382bd20a",
+  "source_dirty": [
+    "M scripts/build-strict-candidate.ps1",
+    " M src/install/self_update.rs",
+    " M tests/fixtures/strict-online-update-v1.json"
+  ],
+  "changed_files": [
+    {
+      "path": "C:\\wksp\\ProjectReboundToolbox\\scripts\\build-strict-candidate.ps1",
+      "sha256": "1f5629ea2fc9b5111ab8bbca5a61ffd61abb0bd1d219c183d664533e5c9c369c"
+    },
+    {
+      "path": "C:\\wksp\\ProjectReboundToolbox\\src\\install\\self_update.rs",
+      "sha256": "4cf52bb78b295db4dc68ffe8fd96d4789ef31cb7431011b6d492950a76b96130"
+    },
+    {
+      "path": "C:\\wksp\\ProjectReboundToolbox\\tests\\fixtures\\strict-online-update-v1.json",
+      "sha256": "88fa3a9e8b6ef5c174f8e1731ce948fda8b74b8a1d9e3fbf5e8688e21d64ba2d"
+    }
+  ],
+  "fixture_binding": {
+    "backend_fixture_path": "C:\\wksp\\ProjectRebound\\Backend\\api\\fixtures\\strict-online-update-v1.json",
+    "backend_fixture_sha256": "88fa3a9e8b6ef5c174f8e1731ce948fda8b74b8a1d9e3fbf5e8688e21d64ba2d",
+    "toolbox_fixture_path": "C:\\wksp\\ProjectReboundToolbox\\tests\\fixtures\\strict-online-update-v1.json",
+    "toolbox_fixture_sha256": "88fa3a9e8b6ef5c174f8e1731ce948fda8b74b8a1d9e3fbf5e8688e21d64ba2d",
+    "exact_bytes": true,
+    "backend_generation_log": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\schema48-update-fixture-generation.log",
+    "backend_generation_log_sha256": "738062d32043f11c0090e5d87a399d12bee92e0522f1f2b925544087bb221839",
+    "backend_schema": 48
+  },
+  "tests": [
+    {
+      "command": "cargo test --locked --lib install::self_update::tests -- --nocapture",
+      "exit_code": 0,
+      "passed": 14,
+      "failed": 0,
+      "ignored": 0,
+      "log_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\schema48-self-update-tests-20260908.log",
+      "log_sha256": "6553ff09c4ceb3f009a0aa08226d8a814d69f4591447e5c8d7e92e15cf413f3e"
+    },
+    {
+      "command": "cargo fmt --all -- --check",
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\schema48-fmt-20260908.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "negative_coverage": [
+    "strict_release_rejects_old_frontend_protocol_and_unsigned_compatibility sets backend_schema=47 and asserts rejection"
+  ],
+  "scope_note": "Only Toolbox schema gate/build manifest/test fixture changed; Backend schema/OpenAPI/service changes remain root-owned. No commit made."
+}

@@ -1,0 +1,232 @@
+   Compiling rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+error[E0599]: no method named `expose` found for enum `std::option::Option<T>` in the current scope
+    --> src\core\runtime.rs:1254:31
+     |
+1254 |             context.pipe_name.expose(),
+     |                               ^^^^^^ method not found in `std::option::Option<vnt::types::SecretString>`
+     |
+note: the method `expose` exists on the type `vnt::types::SecretString`
+    --> src\vnt\types.rs:26:5
+     |
+  26 |     pub fn expose(&self) -> &str {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: consider using `Option::expect` to unwrap the `vnt::types::SecretString` value, panicking if the value is an `Option::None`
+     |
+1254 |             context.pipe_name.expect("REASON").expose(),
+     |                              +++++++++++++++++
+
+error[E0308]: mismatched types
+    --> src\core\runtime.rs:1258:13
+     |
+1253 |         let mut pipe = server::pipe::connect(
+     |                        --------------------- arguments to this function are incorrect
+...
+1258 |             context.payload_pid,
+     |             ^^^^^^^^^^^^^^^^^^^ expected `u32`, found `Option<u32>`
+     |
+     = note: expected type `u32`
+                found enum `std::option::Option<u32>`
+note: function defined here
+    --> src\server\pipe.rs:188:8
+     |
+ 188 | pub fn connect(
+     |        ^^^^^^^
+...
+ 193 |     expected_server_pid: u32,
+     |     ------------------------
+help: consider using `Option::expect` to unwrap the `std::option::Option<u32>` value, panicking if the value is an `Option::None`
+     |
+1258 |             context.payload_pid.expect("REASON"),
+     |                                +++++++++++++++++
+
+error[E0599]: no method named `expose` found for enum `std::option::Option<T>` in the current scope
+    --> src\core\runtime.rs:4052:30
+     |
+4052 |         && current.pipe_name.expose() == expected.pipe_name.expose()
+     |                              ^^^^^^ method not found in `std::option::Option<vnt::types::SecretString>`
+     |
+note: the method `expose` exists on the type `vnt::types::SecretString`
+    --> src\vnt\types.rs:26:5
+     |
+  26 |     pub fn expose(&self) -> &str {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: consider using `Option::expect` to unwrap the `vnt::types::SecretString` value, panicking if the value is an `Option::None`
+     |
+4052 |         && current.pipe_name.expect("REASON").expose() == expected.pipe_name.expose()
+     |                             +++++++++++++++++
+
+error[E0599]: no method named `expose` found for enum `std::option::Option<T>` in the current scope
+    --> src\core\runtime.rs:4052:61
+     |
+4052 |         && current.pipe_name.expose() == expected.pipe_name.expose()
+     |                                                             ^^^^^^ method not found in `std::option::Option<vnt::types::SecretString>`
+     |
+note: the method `expose` exists on the type `vnt::types::SecretString`
+    --> src\vnt\types.rs:26:5
+     |
+  26 |     pub fn expose(&self) -> &str {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: consider using `Option::expect` to unwrap the `vnt::types::SecretString` value, panicking if the value is an `Option::None`
+     |
+4052 |         && current.pipe_name.expose() == expected.pipe_name.expect("REASON").expose()
+     |                                                            +++++++++++++++++
+
+error[E0599]: no method named `expose` found for enum `std::option::Option<T>` in the current scope
+    --> src\core\runtime.rs:4076:79
+     |
+4076 |             pipe_name: crate::vnt::types::SecretString::new(context.pipe_name.expose().to_owned()),
+     |                                                                               ^^^^^^ method not found in `std::option::Option<vnt::types::SecretString>`
+     |
+note: the method `expose` exists on the type `vnt::types::SecretString`
+    --> src\vnt\types.rs:26:5
+     |
+  26 |     pub fn expose(&self) -> &str {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: consider using `Option::expect` to unwrap the `vnt::types::SecretString` value, panicking if the value is an `Option::None`
+     |
+4076 |             pipe_name: crate::vnt::types::SecretString::new(context.pipe_name.expect("REASON").expose().to_owned()),
+     |                                                                              +++++++++++++++++
+
+error[E0308]: mismatched types
+    --> src\core\runtime.rs:4076:24
+     |
+4076 |             pipe_name: crate::vnt::types::SecretString::new(context.pipe_name.expose().to_owned()),
+     |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Option<SecretString>`, found `SecretString`
+     |
+     = note: expected enum `std::option::Option<vnt::types::SecretString>`
+              found struct `vnt::types::SecretString`
+help: try wrapping the expression in `Some`
+     |
+4076 |             pipe_name: Some(crate::vnt::types::SecretString::new(context.pipe_name.expose().to_owned())),
+     |                        +++++                                                                           +
+
+error[E0063]: missing field `preflight_evidence` in initializer of `core::runtime::MatchNativeCleanupContext`
+    --> src\core\runtime.rs:4068:24
+     |
+4068 |         .map(|context| MatchNativeCleanupContext {
+     |                        ^^^^^^^^^^^^^^^^^^^^^^^^^ missing `preflight_evidence`
+
+error[E0308]: mismatched types
+    --> src\core\runtime.rs:4274:24
+     |
+4274 |             pipe_name: crate::vnt::types::SecretString::new("pipe-name"),
+     |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Option<SecretString>`, found `SecretString`
+     |
+     = note: expected enum `std::option::Option<vnt::types::SecretString>`
+              found struct `vnt::types::SecretString`
+help: try wrapping the expression in `Some`
+     |
+4274 |             pipe_name: Some(crate::vnt::types::SecretString::new("pipe-name")),
+     |                        +++++                                                 +
+
+error[E0308]: mismatched types
+    --> src\core\runtime.rs:4275:26
+     |
+4275 |             payload_pid: 321,
+     |                          ^^^ expected `Option<u32>`, found integer
+     |
+     = note: expected enum `std::option::Option<u32>`
+                found type `{integer}`
+help: try wrapping the expression in `Some`
+     |
+4275 |             payload_pid: Some(321),
+     |                          +++++   +
+
+error[E0063]: missing field `preflight_evidence` in initializer of `core::runtime::MatchNativeCleanupContext`
+    --> src\core\runtime.rs:4268:9
+     |
+4268 |         MatchNativeCleanupContext {
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^ missing `preflight_evidence`
+
+error[E0283]: type annotations needed
+    --> src\launching\launch.rs:1345:76
+     |
+1345 |         let secret = crate::vnt::types::SecretString::new("unused-fixture".into());
+     |                      ------------------------------------                  ^^^^
+     |                      |
+     |                      required by a bound introduced by this call
+     |
+     = note: the type must implement `Into<std::string::String>`
+note: required by a bound in `vnt::types::SecretString::new`
+    --> src\vnt\types.rs:22:28
+     |
+  22 |     pub fn new(value: impl Into<String>) -> Self {
+     |                            ^^^^^^^^^^^^ required by this bound in `SecretString::new`
+help: try using a fully qualified path to specify the expected types
+     |
+1345 -         let secret = crate::vnt::types::SecretString::new("unused-fixture".into());
+1345 +         let secret = crate::vnt::types::SecretString::new(<&str as Into<T>>::into("unused-fixture"));
+     |
+help: consider removing this method call, as the receiver has type `&'static str` and `&'static str: Into<std::string::String>` trivially holds
+     |
+1345 -         let secret = crate::vnt::types::SecretString::new("unused-fixture".into());
+1345 +         let secret = crate::vnt::types::SecretString::new("unused-fixture");
+     |
+
+error[E0283]: type annotations needed
+    --> src\launching\launch.rs:1345:76
+     |
+1345 |         let secret = crate::vnt::types::SecretString::new("unused-fixture".into());
+     |                                                                            ^^^^
+     |
+     = note: multiple `impl`s satisfying `_: From<&str>` found in the following crates: `bytes`, `egui`, `naga`, `reqwest`:
+             - impl From<&'static str> for eframe::wgpu::naga::front::wgsl::error::DiagnosticAttributeNotSupportedPosition;
+             - impl From<&'static str> for egui::Id;
+             - impl From<&'static str> for reqwest::Body;
+             - impl From<&'static str> for reqwest::blocking::Body;
+             - impl From<&'static str> for tungstenite::Bytes;
+     = note: required for `&str` to implement `Into<_>`
+help: try using a fully qualified path to specify the expected types
+     |
+1345 -         let secret = crate::vnt::types::SecretString::new("unused-fixture".into());
+1345 +         let secret = crate::vnt::types::SecretString::new(<&str as Into<T>>::into("unused-fixture"));
+     |
+
+error[E0283]: type annotations needed
+    --> src\launching\launch.rs:1375:89
+     |
+1375 |             pipe_name: crate::vnt::types::SecretString::new("private-pipe-not-for-logs".into()),
+     |                        ------------------------------------                             ^^^^
+     |                        |
+     |                        required by a bound introduced by this call
+     |
+     = note: the type must implement `Into<std::string::String>`
+note: required by a bound in `vnt::types::SecretString::new`
+    --> src\vnt\types.rs:22:28
+     |
+  22 |     pub fn new(value: impl Into<String>) -> Self {
+     |                            ^^^^^^^^^^^^ required by this bound in `SecretString::new`
+help: try using a fully qualified path to specify the expected types
+     |
+1375 -             pipe_name: crate::vnt::types::SecretString::new("private-pipe-not-for-logs".into()),
+1375 +             pipe_name: crate::vnt::types::SecretString::new(<&str as Into<T>>::into("private-pipe-not-for-logs")),
+     |
+help: consider removing this method call, as the receiver has type `&'static str` and `&'static str: Into<std::string::String>` trivially holds
+     |
+1375 -             pipe_name: crate::vnt::types::SecretString::new("private-pipe-not-for-logs".into()),
+1375 +             pipe_name: crate::vnt::types::SecretString::new("private-pipe-not-for-logs"),
+     |
+
+error[E0283]: type annotations needed
+    --> src\launching\launch.rs:1375:89
+     |
+1375 |             pipe_name: crate::vnt::types::SecretString::new("private-pipe-not-for-logs".into()),
+     |                                                                                         ^^^^
+     |
+     = note: multiple `impl`s satisfying `_: From<&str>` found in the following crates: `bytes`, `egui`, `naga`, `reqwest`:
+             - impl From<&'static str> for eframe::wgpu::naga::front::wgsl::error::DiagnosticAttributeNotSupportedPosition;
+             - impl From<&'static str> for egui::Id;
+             - impl From<&'static str> for reqwest::Body;
+             - impl From<&'static str> for reqwest::blocking::Body;
+             - impl From<&'static str> for tungstenite::Bytes;
+     = note: required for `&str` to implement `Into<_>`
+help: try using a fully qualified path to specify the expected types
+     |
+1375 -             pipe_name: crate::vnt::types::SecretString::new("private-pipe-not-for-logs".into()),
+1375 +             pipe_name: crate::vnt::types::SecretString::new(<&str as Into<T>>::into("private-pipe-not-for-logs")),
+     |
+
+Some errors have detailed explanations: E0063, E0283, E0308, E0599.
+For more information about an error, try `rustc --explain E0063`.
+error: could not compile `rebound_toolbox` (lib test) due to 14 previous errors
+exit_code=101

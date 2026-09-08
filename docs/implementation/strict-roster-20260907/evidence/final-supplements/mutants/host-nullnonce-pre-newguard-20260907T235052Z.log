@@ -1,0 +1,8 @@
+=== RUN   TestStrictRosterP2PLifecycleAgainstPostgreSQL
+    service_integration_test.go:729: P2P heartbeat accepted a connected HOST without a native nonce: <nil>
+--- FAIL: TestStrictRosterP2PLifecycleAgainstPostgreSQL (3.22s)
+FAIL
+FAIL	github.com/Dubnium-105/ProjectRebound/Backend/internal/matchlobby	3.226s
+FAIL
+
+EXIT_CODE=1

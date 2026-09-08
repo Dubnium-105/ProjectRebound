@@ -1,0 +1,25 @@
+{
+  "status": "FAIL",
+  "driver_exit_code": 1,
+  "counts": {
+    "old_401": 20,
+    "protected_success": 0,
+    "refresh": 19,
+    "logout": 0,
+    "meta_old": 0,
+    "meta_new": 0,
+    "ws_old": 0,
+    "ws_new": 0,
+    "logic_connections": 0
+  },
+  "markers": [
+    "old401-20",
+    "old401-release",
+    "refresh-started-phase_a",
+    "release-refresh-logout",
+    "release-refresh-phase_a",
+    "release-refresh-switch"
+  ],
+  "driver_stdout": "",
+  "driver_stderr": "Error: Project Rebound login session is invalid; sign out and sign in again\n\nCaused by:\n    0: refresh Project Rebound session\n    1: API 401 REFRESH_REUSED: synthetic refresh already consumed"
+}

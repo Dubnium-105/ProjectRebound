@@ -1,0 +1,9 @@
+started_at=2026-09-07T15:28:54.605241+00:00
+cwd=C:\wksp\ProjectRebound
+command=C:\Python314\python.exe C:\wksp\ProjectRebound\Tools\Release\strict_roster_provenance.py --repo C:\wksp\ProjectRebound --toolbox-repo C:\wksp\ProjectReboundToolbox --artifact C:\wksp\ProjectRebound\.tmp\strict-roster-20260907\artifacts\backend\control-plane --output C:\wksp\ProjectRebound\.tmp\e2e-20\provenance.json
+exit_code=0
+--- stdout ---
+{"output": "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\provenance.json", "artifacts": 1, "release_ready": false, "blocker_count": 5}
+
+--- stderr ---
+

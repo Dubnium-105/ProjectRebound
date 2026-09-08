@@ -1,0 +1,20 @@
+{
+  "scope": "Exact immutable build evidence copies; historical paths remain unchanged.",
+  "files": [
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\toolbox-e360b6f1c0cc-20260907T223142Z\\build-receipt.json",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-artifact-builds\\Toolbox\\ba27cb330e592cdc80daadd51cafac299cbcb7d176321e80268440a126b06c5f\\build-receipt.json",
+      "sha256": "ba27cb330e592cdc80daadd51cafac299cbcb7d176321e80268440a126b06c5f"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\toolbox-e360b6f1c0cc-20260907T223142Z\\build.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-artifact-builds\\Toolbox\\ba27cb330e592cdc80daadd51cafac299cbcb7d176321e80268440a126b06c5f\\build.log",
+      "sha256": "72b5bc65587c3726ee693c9dfe21da9201c2692a1fa18ac71ce4be06b364189f"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\toolbox-e360b6f1c0cc-20260907T223142Z\\strict-candidate.json",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-artifact-builds\\Toolbox\\ba27cb330e592cdc80daadd51cafac299cbcb7d176321e80268440a126b06c5f\\strict-candidate.json",
+      "sha256": "a91b51433fbee8232e670bf042225459528d1f8f99fabf1223aa530cf1129452"
+    }
+  ]
+}

@@ -1,0 +1,106 @@
+{
+  "id": "E2E-11",
+  "title": "Token并发轮换、换号与隧道",
+  "status": "PASS",
+  "source_commit": "32dcee8616cb6b87271a13b5165df335e54311a2",
+  "source_pair": {
+    "toolbox_commit": "32dcee8616cb6b87271a13b5165df335e54311a2",
+    "integrated_driver_sha256": "FDF7347B28028D081E87557D4D27B7F50F18E20577E634FC830FDCC75AA4FBF1",
+    "config_writer_test_binary_sha256": "131484DCF18B08C19EE08B4ECF30FD064A03AC96953AEBC465C0C233B6F01332"
+  },
+  "steps": [
+    {
+      "id": "temporary_driver_build",
+      "status": "PASS",
+      "command": "cargo build --release --manifest-path C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\Cargo.toml --target-dir C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\target",
+      "exit_code": 0,
+      "source_commit": "32dcee8616cb6b87271a13b5165df335e54311a2",
+      "artifact_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\target\\release\\rebound_e2e_11_driver.exe",
+      "artifact_sha256": "FDF7347B28028D081E87557D4D27B7F50F18E20577E634FC830FDCC75AA4FBF1",
+      "log_paths": [
+        "C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\driver-build-6.log"
+      ],
+      "observed_result": "The lab-only integrated driver compiled successfully."
+    },
+    {
+      "id": "integrated_http_ws_metatunnel_config_interrupt_logout_switch",
+      "status": "PASS",
+      "command": "python C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\harness.py --driver C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\target\\release\\rebound_e2e_11_driver.exe --config-writer C:\\wksp\\ProjectReboundToolbox\\target\\debug\\deps\\rebound_toolbox-531c06249e821c2c.exe --result C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\tracking\\e2e-11-result-run-9.json",
+      "exit_code": 0,
+      "log_paths": [
+        "C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\harness-run-9.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\tracking\\e2e-11-result-run-9.json"
+      ],
+      "observed_result": "One continuous isolated session passed. HTTP counts: old_401=22, protected_success=20, refresh=3, logout=1. MetaTunnel counts: meta_old=1, meta_new=1, logic_connections=1. WebSocket counts: ws_old=1, ws_new=1; the driver observed transport resync. The driver also observed config-interruption-recovered, then completed logout and account-switch late-refresh rejection."
+    },
+    {
+      "id": "config_interruption_in_same_session",
+      "status": "PASS",
+      "command": "Spawned the existing cfg(test) killed_config_writer_recovers_complete_previous_version test binary from the integrated driver with REBOUND_TEST_PAUSE_CONFIG_REPLACE pointing at the same isolated app_config.json.",
+      "exit_code": 0,
+      "source_test_binary": "C:\\wksp\\ProjectReboundToolbox\\target\\debug\\deps\\rebound_toolbox-531c06249e821c2c.exe",
+      "source_test_binary_sha256": "131484DCF18B08C19EE08B4ECF30FD064A03AC96953AEBC465C0C233B6F01332",
+      "observed_result": "The writer reached the real ciphertext flush boundary, was killed before persist/replace, and the integrated driver called real config::load_config(). It recovered epoch 7 with the phase-A rotated access token, retained the valid encrypted file, and found no .app_config.pending-* file before continuing to logout and account switch.",
+      "build_evidence": {
+        "command": "cargo test --lib config::config_types::tests::killed_config_writer_recovers_complete_previous_version -- --nocapture",
+        "exit_code": 0,
+        "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\tracking\\e2e-11-config-interruption.log",
+        "source_commit": "32dcee8616cb6b87271a13b5165df335e54311a2"
+      }
+    },
+    {
+      "id": "account_epoch_and_token_assertions",
+      "status": "PASS",
+      "observed_result": "Phase-A HTTP/MetaTunnel/WS used the rotated session; logout advanced the epoch and rejected the late refresh; account switch advanced to the new Steam identity and rejected the old refresh. No token or ticket value was printed."
+    }
+  ],
+  "result": {
+    "environment": "Windows lab-testing loopback: synthetic local HTTP auth, Meta HTTP, WebSocket, and TCP logic services; real Toolbox HTTP/config/RealtimeFeed/MetaTunnel client; isolated LOCALAPPDATA and DPAPI-backed configuration.",
+    "command_or_harness": "C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\harness.py",
+    "exit_code": 0,
+    "log_paths": [
+      "C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\driver-build-6.log",
+      "C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\harness-run-9.log",
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\tracking\\e2e-11-result-run-9.json",
+      "C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\audit-final.log"
+    ],
+    "observed_result": "All E2E-11 requested steps were executed in one isolated driver session and passed: 20 concurrent 401s with one controlled phase-A refresh, token rotation across HTTP/MetaTunnel/WS, old-session resync, interrupted ciphertext replacement recovery, logout during refresh, and account switch during refresh."
+  },
+  "implementation_scope": {
+    "product_source_changed": false,
+    "lab_only_driver_changed": true,
+    "production_release_fault_injection": false,
+    "historical_partial_report_preserved": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\tracking\\e2e-11-result.json"
+  },
+  "evidence_paths_checked": {
+    "all_referenced_paths_exist": true,
+    "checked_at": "2026-09-07T22:30:44.2003961+08:00",
+    "paths": [
+      "C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\driver-build-6.log",
+      "C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\harness-run-9.log",
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\tracking\\e2e-11-result-run-9.json",
+      "C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\target\\release\\rebound_e2e_11_driver.exe",
+      "C:\\wksp\\ProjectReboundToolbox\\target\\debug\\deps\\rebound_toolbox-531c06249e821c2c.exe",
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\tracking\\e2e-11-result.json",
+      "C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\audit-final.log"
+    ],
+    "stable_directory_exists": true,
+    "stable_manifest_exists": true,
+    "stable_file_count": 9
+  },
+  "audit": {
+    "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\audit-final.log",
+    "command": "PowerShell static/source/hash/path audit plus integrated harness-run-9 log inspection",
+    "exit_code": 0,
+    "same_live_path": "driver config::app_data_root()?.join(app_config.json) -> child REBOUND_TEST_PAUSE_CONFIG_REPLACE same PathBuf; child inherits harness LOCALAPPDATA and lab origin",
+    "flush_boundary": "writer sync_all before persist; .ready observed; child kill/wait nonzero",
+    "recovery_assertions": "driver config::load_config() asserts epoch 7 and rotated access token, encrypted file nonempty, and no .app_config.pending-*"
+  },
+  "evidence": {
+    "stable_directory": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\trackingroot\\evidence\\e2e-11",
+    "source_and_log_manifest": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\trackingroot\\evidence\\e2e-11\\evidence-manifest.json",
+    "contains_executables": false,
+    "contains_production_encrypted_config": false,
+    "contains_real_credentials": false
+  }
+}

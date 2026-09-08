@@ -1,0 +1,65 @@
+{
+  "id": "E2E-06",
+  "title": "E2E-06 runtime supplement",
+  "status": "NOT_RUN",
+  "source_commit": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482",
+  "execution_source_pair": {
+    "Toolbox": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482"
+  },
+  "execution_pair_complete": false,
+  "source_dirty_by_repository": {
+    "Toolbox": false
+  },
+  "source_observation": "single-repository execution fact; no reviewed two-repository pair was substituted",
+  "source_scope": "Toolbox Rust runtime state-machine/component tests only; no DLL, native game, visible UI, live PID, remote service, or full E2E-06/E2E-17 scenario",
+  "steps": [
+    {
+      "id": "full_e2e_scenario",
+      "status": "NOT_RUN",
+      "command": null,
+      "exit_code": null,
+      "observed_result": "The full UI/native/process-boundary E2E case was not executed."
+    }
+  ],
+  "result": {
+    "environment": "No full E2E environment was exercised.",
+    "command_or_harness": null,
+    "exit_code": null,
+    "log_paths": [],
+    "observed_result": "NOT_RUN; the component supplement below is retained without upgrading the E2E case."
+  },
+  "component_supplement": {
+    "status": "PASS_COMPONENT_SCOPE_ONLY",
+    "command": "cargo test --locked --lib --features vnt,lab-testing core::runtime::tests --no-fail-fast -- --nocapture",
+    "exit_code": 0,
+    "passed": 35,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 276,
+    "log": {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e-06-17-runtime-current-20260908\\runtime-tests.log",
+      "retained_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\e2e-06-17-runtime-current-20260908\\runtime-tests.log",
+      "sha256": "1E934C2E156D2AE263BF2B78EE659EB19B57706763250BC2EE6285CD2F4F89B9",
+      "retained": true
+    },
+    "coverage": [
+      "launch failure/error chain",
+      "preflight failure",
+      "cancel gate",
+      "owned worker cancellation",
+      "scope and cleanup retry"
+    ],
+    "limitations": [
+      "does not prove UI observation or native game/PID boundary",
+      "does not prove ten repeated application cycles with an unrelated external process",
+      "does not upgrade E2E status"
+    ]
+  },
+  "input_receipt": {
+    "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e-06-17-runtime-current-20260908\\receipt.json",
+    "retained_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\e2e-06-17-runtime-current-20260908\\receipt.json",
+    "sha256": "E6198F7C737B54B2069AB8FB1074085661FB55A91698EB231C8C6DB1C315F6E5",
+    "retained": true
+  },
+  "release_ready": false
+}

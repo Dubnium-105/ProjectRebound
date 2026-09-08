@@ -1,0 +1,302 @@
+{
+  "id": "E2E-20",
+  "title": "产物签名/更新/版本指纹",
+  "status": "PARTIAL",
+  "source_pair": {
+    "toolbox_commit": "22015fb41fa06fea0b8767049109291c89758fff",
+    "project_rebound_commit": "56a085c33d65a5775b6a5cd2177e14545d8b5321",
+    "toolbox_tree_dirty": false,
+    "project_rebound_tree_dirty": true
+  },
+  "steps": [
+    {
+      "id": "source_fingerprint",
+      "status": "PASS",
+      "command": "git rev-parse HEAD + git status --porcelain --untracked-files=no (Toolbox and ProjectRebound)",
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\source-fingerprint.log",
+      "observed_result": "{\n  \"snapshots\": [\n    {\n      \"name\": \"Toolbox\",\n      \"path\": \"C:\\\\wksp\\\\ProjectReboundToolbox\",\n      \"commit\": \"22015fb41fa06fea0b8767049109291c89758fff\",\n      \"head_exit_code\": 0,\n      \"dirty\": false,\n      \"status_exit_code\": 0,\n      \"tracked_change_count\": 0\n    },\n    {\n      \"name\": \"ProjectRebound\",\n      \"path\": \"C:\\\\wksp\\\\ProjectRebound\",\n      \"commit\": \"56a085c33d65a5775b6a5cd2177e14545d8b5321\",\n      \"head_exit_code\": 0,\n      \"dirty\": true,\n      \"status_exit_code\": 0,\n      \"tracked_change_count\": 34\n    }\n  ]\n}",
+      "repositories": [
+        {
+          "name": "Toolbox",
+          "path": "C:\\wksp\\ProjectReboundToolbox",
+          "commit": "22015fb41fa06fea0b8767049109291c89758fff",
+          "head_exit_code": 0,
+          "dirty": false,
+          "status_exit_code": 0,
+          "tracked_change_count": 0
+        },
+        {
+          "name": "ProjectRebound",
+          "path": "C:\\wksp\\ProjectRebound",
+          "commit": "56a085c33d65a5775b6a5cd2177e14545d8b5321",
+          "head_exit_code": 0,
+          "dirty": true,
+          "status_exit_code": 0,
+          "tracked_change_count": 34
+        }
+      ]
+    },
+    {
+      "id": "runtime_manifest_fingerprints",
+      "status": "PASS",
+      "command": "python e2e_20_harness.py (hash every manifest-listed runtime asset)",
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\runtime-manifest-fingerprints.log",
+      "observed_result": "{\n  \"checks\": [\n    {\n      \"manifest\": \"C:\\\\wksp\\\\ProjectReboundToolbox\\\\res\\\\vnt\\\\runtime\\\\vnt-runtime-manifest.json\",\n      \"entry\": \"vntCli\",\n      \"path\": \"C:\\\\wksp\\\\ProjectReboundToolbox\\\\res\\\\vnt\\\\runtime\\\\vnt-cli.exe\",\n      \"expected_sha256\": \"9c1a3c5ee6e71eea70bdf7724f8b8119c9eb72c6977ab83997a22b1bd69c6ddd\",\n      \"actual_sha256\": \"9c1a3c5ee6e71eea70bdf7724f8b8119c9eb72c6977ab83997a22b1bd69c6ddd\",\n      \"size\": 3272192,\n      \"expected_size\": null,\n      \"pass\": true\n    },\n    {\n      \"manifest\": \"C:\\\\wksp\\\\ProjectReboundToolbox\\\\res\\\\vnt\\\\runtime\\\\vnt-runtime-manifest.json\",\n      \"entry\": \"vnts\",\n      \"path\": \"C:\\\\wksp\\\\ProjectReboundToolbox\\\\res\\\\vnt\\\\runtime\\\\vnts.exe\",\n      \"expected_sha256\": \"8e8c1a89d6814eb532aa322451038785e326007ce3f4c67ece7d60b1313c629c\",\n      \"actual_sha256\": \"8e8c1a89d6814eb532aa322451038785e326007ce3f4c67ece7d60b1313c629c\",\n      \"size\": 7167488,\n      \"expected_size\": null,\n      \"pass\": true\n    },\n    {\n      \"manifest\": \"C:\\\\wksp\\\\ProjectReboundToolbox\\\\res\\\\vnt\\\\runtime\\\\vnt-runtime-manifest.json\",\n      \"entry\": \"wintun\",\n      \"path\": \"C:\\\\wksp\\\\ProjectReboundToolbox\\\\res\\\\vnt\\\\runtime\\\\wintun.dll\",\n      \"expected_sha256\": \"e5da8447dc2c320edc0fc52fa01885c103de8c118481f683643cacc3220dafce\",\n      \"actual_sha256\": \"e5da8447dc2c320edc0fc52fa01885c103de8c118481f683643cacc3220dafce\",\n      \"size\": 427552,\n      \"expected_size\": null,\n      \"pass\": true\n    },\n    {\n      \"manifest\": \"C:\\\\wksp\\\\ProjectReboundToolbox\\\\res\\\\vnt\\\\runtime\\\\vnt-runtime-manifest.json\",\n      \"entry\": \"thirdPartyNotices\",\n      \"path\": \"C:\\\\wksp\\\\ProjectReboundToolbox\\\\res\\\\vnt\\\\runtime\\\\THIRD-PARTY-NOTICES.txt\",\n      \"expected_sha256\": \"83b5522a51100f5ec2792b71259e735fa8de72c66886d17058d2eb515fa6f1e5\",\n      \"actual_sha256\": \"83b5522a51100f5ec2792b71259e735fa8de72c66886d17058d2eb515fa6f1e5\",\n      \"size\": 353,\n      \"expected_size\": null,\n      \"pass\": true\n    },\n    {\n      \"manifest\": \"C:\\\\wksp\\\\ProjectReboundToolbox\\\\res\\\\metatunnel\\\\runtime\\\\meta-tunnel-runtime-manifest.json\",\n      \"entry\": \"asset\",\n      \"path\": \"C:\\\\wksp\\\\ProjectReboundToolbox\\\\res\\\\metatunnel\\\\runtime\\\\meta-tunnel.exe\",\n      \"expected_sha256\": \"6623003757bfbb93abe1a7fc33491b3d1f3697bd909957527634775322728b91\",\n      \"actual_sha256\": \"6623003757bfbb93abe1a7fc33491b3d1f3697bd909957527634775322728b91\",\n      \"size\": 9825280,\n      \"expected_size\": 9825280,\n      \"pass\": true\n    }\n  ]\n}",
+      "checks": [
+        {
+          "manifest": "C:\\wksp\\ProjectReboundToolbox\\res\\vnt\\runtime\\vnt-runtime-manifest.json",
+          "entry": "vntCli",
+          "path": "C:\\wksp\\ProjectReboundToolbox\\res\\vnt\\runtime\\vnt-cli.exe",
+          "expected_sha256": "9c1a3c5ee6e71eea70bdf7724f8b8119c9eb72c6977ab83997a22b1bd69c6ddd",
+          "actual_sha256": "9c1a3c5ee6e71eea70bdf7724f8b8119c9eb72c6977ab83997a22b1bd69c6ddd",
+          "size": 3272192,
+          "expected_size": null,
+          "pass": true
+        },
+        {
+          "manifest": "C:\\wksp\\ProjectReboundToolbox\\res\\vnt\\runtime\\vnt-runtime-manifest.json",
+          "entry": "vnts",
+          "path": "C:\\wksp\\ProjectReboundToolbox\\res\\vnt\\runtime\\vnts.exe",
+          "expected_sha256": "8e8c1a89d6814eb532aa322451038785e326007ce3f4c67ece7d60b1313c629c",
+          "actual_sha256": "8e8c1a89d6814eb532aa322451038785e326007ce3f4c67ece7d60b1313c629c",
+          "size": 7167488,
+          "expected_size": null,
+          "pass": true
+        },
+        {
+          "manifest": "C:\\wksp\\ProjectReboundToolbox\\res\\vnt\\runtime\\vnt-runtime-manifest.json",
+          "entry": "wintun",
+          "path": "C:\\wksp\\ProjectReboundToolbox\\res\\vnt\\runtime\\wintun.dll",
+          "expected_sha256": "e5da8447dc2c320edc0fc52fa01885c103de8c118481f683643cacc3220dafce",
+          "actual_sha256": "e5da8447dc2c320edc0fc52fa01885c103de8c118481f683643cacc3220dafce",
+          "size": 427552,
+          "expected_size": null,
+          "pass": true
+        },
+        {
+          "manifest": "C:\\wksp\\ProjectReboundToolbox\\res\\vnt\\runtime\\vnt-runtime-manifest.json",
+          "entry": "thirdPartyNotices",
+          "path": "C:\\wksp\\ProjectReboundToolbox\\res\\vnt\\runtime\\THIRD-PARTY-NOTICES.txt",
+          "expected_sha256": "83b5522a51100f5ec2792b71259e735fa8de72c66886d17058d2eb515fa6f1e5",
+          "actual_sha256": "83b5522a51100f5ec2792b71259e735fa8de72c66886d17058d2eb515fa6f1e5",
+          "size": 353,
+          "expected_size": null,
+          "pass": true
+        },
+        {
+          "manifest": "C:\\wksp\\ProjectReboundToolbox\\res\\metatunnel\\runtime\\meta-tunnel-runtime-manifest.json",
+          "entry": "asset",
+          "path": "C:\\wksp\\ProjectReboundToolbox\\res\\metatunnel\\runtime\\meta-tunnel.exe",
+          "expected_sha256": "6623003757bfbb93abe1a7fc33491b3d1f3697bd909957527634775322728b91",
+          "actual_sha256": "6623003757bfbb93abe1a7fc33491b3d1f3697bd909957527634775322728b91",
+          "size": 9825280,
+          "expected_size": 9825280,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "id": "signed_update_corrupt_download_and_rollback",
+      "status": "PASS",
+      "command": "C:\\Python314\\python.exe C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\source-a049d56\\Tools\\Release\\test_updater_transactions.py --toolbox-repo C:\\wksp\\ProjectReboundToolbox",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\updater-transaction-e2e.log",
+      "observed_result": "Actual current UPDATER_SCRIPT fixture executed tampered_stage and launch_failure_rollback: both returned exit 1 as expected, retained the prior complete target, rejected corrupted download metadata, and emitted UPDATE_ROLLED_BACK for synthetic launch failure; only synthetic non-executable bytes were used."
+    },
+    {
+      "id": "updater_interruption_recovery",
+      "status": "PARTIAL",
+      "command": "PowerShell copied current UPDATER_SCRIPT with a controlled pause; kill updater; rerun original updater for rollback/recovery",
+      "exit_code": 1,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\updater-interruption.log",
+      "observed_result": "Recovery and rollback preserved the old target, but a hard-killed updater left an orphaned .rebound-toolbox-pending-* file; the product updater has no orphan sweep.\n{\n  \"fixture_directory\": \"C:\\\\wksp\\\\ProjectRebound\\\\.tmp\\\\e2e-20\\\\e2e20-updater-interruption-vflrcwmr\",\n  \"interruption_exit_code\": 1,\n  \"marker_observed\": true,\n  \"target_old_after_interrupt\": true,\n  \"pending_after_interrupt\": [\n    \".rebound-toolbox-pending-e022df5b007142f0b5d852171d29cbae.exe\"\n  ],\n  \"recovery_exit_code\": 1,\n  \"target_old_after_recovery\": true,\n  \"rollback_observed\": true,\n  \"pending_after_recovery\": [\n    \".rebound-toolbox-pending-e022df5b007142f0b5d852171d29cbae.exe\"\n  ]\n}\n--- recovery stdout ---\n\n--- recovery stderr ---\n\n--- recovery log ---\n[2026-09-07 22:28:07] UPDATE_FAILED: 由于出现以下错误，无法运行此命令: 指定的可执行文件不是此操作系统平台的有效应用程序。。\n[2026-09-07 22:28:07] UPDATE_ROLLED_BACK: previous complete strict binary restored\n[2026-09-07 22:28:07] UPDATE_RECOVERY_REQUIRED: inspect target and backup; no complete binary was deleted\n",
+      "fixture_directory": "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\e2e20-updater-interruption-vflrcwmr",
+      "interruption_exit_code": 1,
+      "marker_observed": true,
+      "target_old_after_interrupt": true,
+      "pending_after_interrupt": [
+        ".rebound-toolbox-pending-e022df5b007142f0b5d852171d29cbae.exe"
+      ],
+      "recovery_exit_code": 1,
+      "target_old_after_recovery": true,
+      "rollback_observed": true,
+      "pending_after_recovery": [
+        ".rebound-toolbox-pending-e022df5b007142f0b5d852171d29cbae.exe"
+      ]
+    },
+    {
+      "id": "signed_manifest_and_updater_tests",
+      "status": "PASS",
+      "command": "cargo test --lib --target-dir C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\product-target install::self_update::tests -- --nocapture",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\signed_manifest_and_updater_tests.log",
+      "observed_result": "Current source executed 13/13 PASS, including actual Go-signed strict manifest verification, wrong signer/key rejection (missing_or_unknown_public_key_fails_closed), wrong frontend/protocol/unsigned compatibility rejection (strict_release_rejects_old_frontend_protocol_and_unsigned_compatibility), tampered manifest/identity rejection, staged hash binding, and updater rollback assertions."
+    },
+    {
+      "id": "strict_build_gate_tests",
+      "status": "PASS",
+      "command": "cargo test --lib --target-dir C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\product-target security::strict_build::tests -- --nocapture",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\strict_build_gate_tests.log",
+      "observed_result": "Current source targeted test completed; this log is a new E2E-20 execution, separate from historical component logs."
+    },
+    {
+      "id": "diagnostic_redaction_test",
+      "status": "PASS",
+      "command": "cargo test --lib --target-dir C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\product-target util::diagnostic::tests::token_status_discloses_only_presence -- --nocapture",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\diagnostic_redaction_test.log",
+      "observed_result": "Current source targeted test completed; this log is a new E2E-20 execution, separate from historical component logs."
+    },
+    {
+      "id": "vnt_manifest_test",
+      "status": "PASS",
+      "command": "cargo test --lib --target-dir C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\product-target vnt::runtime::tests::embedded_manifest_and_assets_are_pinned -- --nocapture",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\vnt_manifest_test.log",
+      "observed_result": "Current source targeted test completed; this log is a new E2E-20 execution, separate from historical component logs."
+    },
+    {
+      "id": "metatunnel_manifest_test",
+      "status": "PASS",
+      "command": "cargo test --lib --target-dir C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\product-target launching::metatunnel::tests::embedded_runtime_is_pinned_and_x64 -- --nocapture",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\metatunnel_manifest_test.log",
+      "observed_result": "Current source targeted test completed; this log is a new E2E-20 execution, separate from historical component logs."
+    },
+    {
+      "id": "strict_gate_driver_build",
+      "status": "PASS",
+      "command": "cargo build --release --manifest-path C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\strict_gate_driver\\Cargo.toml --target-dir C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\strict-gate-target",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\strict-gate-driver-build.log",
+      "observed_result": "Lab-only driver compiled against current Toolbox strict_build code with a synthetic pinned Payload hash."
+    },
+    {
+      "id": "strict_gate_wrong_game_sha",
+      "status": "PASS",
+      "command": "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\strict-gate-target\\release\\e2e20_strict_gate_driver.exe C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\strict-gate-fixture",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\strict-gate-driver-run.log",
+      "observed_result": "The actual public verify_online_runtime gate rejected synthetic wrong game bytes with strict_runtime_hash_mismatch: game before online credentials or process launch.",
+      "artifact_sha256": "31d9f41485d5c13c9e41493c74d7cecdf3071f357e914d14aaca32cbdbb4ae4d"
+    },
+    {
+      "id": "provenance_collect",
+      "status": "PASS",
+      "command": "C:\\Python314\\python.exe C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\source-a049d56\\Tools\\Release\\strict_roster_provenance.py --repo C:\\wksp\\ProjectRebound --toolbox-repo C:\\wksp\\ProjectReboundToolbox --artifact C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\backend\\control-plane --output C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\provenance.json",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\provenance-collect.log",
+      "observed_result": "Read-only provenance collection completed; release_ready is evaluated from the generated JSON."
+    },
+    {
+      "id": "provenance_release_gate",
+      "status": "PASS",
+      "command": "C:\\Python314\\python.exe C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\source-a049d56\\Tools\\Release\\strict_roster_provenance.py --repo C:\\wksp\\ProjectRebound --toolbox-repo C:\\wksp\\ProjectReboundToolbox --artifact C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\backend\\control-plane --output C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\provenance-release-gate.json --require-release-ready",
+      "exit_code": 3,
+      "expected_exit_code": 3,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\provenance-release-gate.log",
+      "observed_result": "The strict release gate rejected the current input because ProjectRebound has tracked/untracked source changes and the supplied historical Go artifact is not an attested release artifact."
+    },
+    {
+      "id": "diagnostic_and_evidence_redaction",
+      "status": "PASS",
+      "command": "python e2e_20_harness.py (scan generated E2E logs for token/ticket/private-key disclosure)",
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\diagnostic-redaction-scan.log",
+      "observed_result": "{\n  \"scanned\": [\n    \"C:\\\\wksp\\\\ProjectRebound\\\\.tmp\\\\e2e-20\\\\logs\\\\diagnostic_redaction_test.log\",\n    \"C:\\\\wksp\\\\ProjectRebound\\\\.tmp\\\\e2e-20\\\\logs\\\\metatunnel_manifest_test.log\",\n    \"C:\\\\wksp\\\\ProjectRebound\\\\.tmp\\\\e2e-20\\\\logs\\\\provenance-collect.log\",\n    \"C:\\\\wksp\\\\ProjectRebound\\\\.tmp\\\\e2e-20\\\\logs\\\\provenance-release-gate.log\",\n    \"C:\\\\wksp\\\\ProjectRebound\\\\.tmp\\\\e2e-20\\\\logs\\\\runtime-manifest-fingerprints.log\",\n    \"C:\\\\wksp\\\\ProjectRebound\\\\.tmp\\\\e2e-20\\\\logs\\\\signed_manifest_and_updater_tests.log\",\n    \"C:\\\\wksp\\\\ProjectRebound\\\\.tmp\\\\e2e-20\\\\logs\\\\source-fingerprint.log\",\n    \"C:\\\\wksp\\\\ProjectRebound\\\\.tmp\\\\e2e-20\\\\logs\\\\strict-gate-driver-build.log\",\n    \"C:\\\\wksp\\\\ProjectRebound\\\\.tmp\\\\e2e-20\\\\logs\\\\strict-gate-driver-run.log\",\n    \"C:\\\\wksp\\\\ProjectRebound\\\\.tmp\\\\e2e-20\\\\logs\\\\strict_build_gate_tests.log\",\n    \"C:\\\\wksp\\\\ProjectRebound\\\\.tmp\\\\e2e-20\\\\logs\\\\updater-interruption.log\",\n    \"C:\\\\wksp\\\\ProjectRebound\\\\.tmp\\\\e2e-20\\\\logs\\\\updater-transaction-e2e.log\",\n    \"C:\\\\wksp\\\\ProjectRebound\\\\.tmp\\\\e2e-20\\\\logs\\\\vnt_manifest_test.log\"\n  ],\n  \"matches\": [],\n  \"hashes_are_allowed_fingerprints\": true\n}",
+      "matches": []
+    }
+  ],
+  "result": {
+    "environment": "Windows lab-testing; synthetic executable bytes, signed-manifest fixtures, current Rust verification code, and isolated updater transaction directories; no Steam/native/installedPayload state required.",
+    "command_or_harness": "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\e2e_20_harness.py",
+    "exit_code": 0,
+    "log_paths": [
+      "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\diagnostic-redaction-scan.log",
+      "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\diagnostic_redaction_test.log",
+      "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\metatunnel_manifest_test.log",
+      "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\provenance-collect.log",
+      "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\provenance-release-gate.log",
+      "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\runtime-manifest-fingerprints.log",
+      "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\signed_manifest_and_updater_tests.log",
+      "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\source-fingerprint.log",
+      "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\strict-gate-driver-build.log",
+      "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\strict-gate-driver-run.log",
+      "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\strict_build_gate_tests.log",
+      "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\updater-interruption.log",
+      "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\updater-transaction-e2e.log",
+      "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\vnt_manifest_test.log"
+    ],
+    "observed_result": "All runnable negative and fingerprint checks are recorded individually. A PARTIAL result means a real contract gap or release provenance blocker remains; no skipped step is reported as PASS."
+  },
+  "implementation_scope": {
+    "product_source_changed": false,
+    "lab_driver_only": true,
+    "synthetic_credentials_only": true,
+    "source_input_frozen_at_start": "22015fb41fa06fea0b8767049109291c89758fff"
+  },
+  "limitations": [
+    "The supplied ProjectRebound source tree was dirty at execution time; the strict provenance gate rejected release readiness with an expected nonzero result.",
+    "The updater interruption case hard-killed the copied PowerShell script. Current product recovery restores the prior target but leaves the interrupted pending candidate; this is recorded as PARTIAL and was not repaired in a frozen-source E2E run.",
+    "The historical Go control-plane binary was hashed and provenance inspected; it was not promoted as an attested release artifact.",
+    "The manifest signer negative is exercised with an unknown Ed25519 key and strict identity fixtures; a separately signed PE carrying a wrong Authenticode certificate was not available and is not claimed as executed."
+  ],
+  "evidence_paths_checked": {
+    "all_generated_log_paths_exist": true,
+    "checked_at": "2026-09-07T22:29:59.7887786+08:00",
+    "stable_directory_exists": true,
+    "stable_manifest_exists": true,
+    "stable_file_count": 23
+  },
+  "evidence": {
+    "stable_directory": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\trackingroot\\evidence\\e2e-20",
+    "source_and_log_manifest": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\trackingroot\\evidence\\e2e-20\\evidence-manifest.json",
+    "contains_executables": false,
+    "contains_production_encrypted_config": false,
+    "contains_real_credentials": false
+  },
+  "acceptance_coverage": [
+    {
+      "requirement": "wrong game SHA",
+      "evidence": "strict_gate_wrong_game_sha",
+      "result": "PASS before credentials/process launch"
+    },
+    {
+      "requirement": "wrong signer / signed manifest / frontend identity",
+      "evidence": "signed_manifest_and_updater_tests",
+      "result": "13/13 PASS for unknown Ed25519 manifest signer/key, old frontend protocol, unsigned compatibility, tampered manifest and identity; no Authenticode-signed wrong-certificate PE was available in this lab run."
+    },
+    {
+      "requirement": "corrupted download and rollback",
+      "evidence": "signed_update_corrupt_download_and_rollback",
+      "result": "PASS"
+    },
+    {
+      "requirement": "update interruption/recovery",
+      "evidence": "updater_interruption_recovery",
+      "result": "PARTIAL orphan pending remains after hard kill"
+    },
+    {
+      "requirement": "runtime manifest and version fingerprints",
+      "evidence": "runtime_manifest_fingerprints,vnt_manifest_test,metatunnel_manifest_test",
+      "result": "PASS"
+    },
+    {
+      "requirement": "build source provenance and diagnostics redaction",
+      "evidence": "provenance_collect,provenance_release_gate,diagnostic_and_evidence_redaction",
+      "result": "release gate BLOCKED as expected; scan PASS"
+    }
+  ]
+}

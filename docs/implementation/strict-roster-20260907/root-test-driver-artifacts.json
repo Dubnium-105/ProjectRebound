@@ -1,0 +1,21 @@
+{
+  "artifacts": [
+    {
+      "sha256": "2e9e51425b979b4c53eff1dd6c7d1a1733079b988918810351f2bc2e84832f6d",
+      "scope": "Isolated lab-testing driver; not a release binary",
+      "built_at": "2026-09-07T09:10:22.4261138Z",
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\drivers-20260907-0910\\auth_http_concurrency.exe",
+      "bytes": 6304768,
+      "original_build_path": "C:\\wksp\\ProjectReboundToolbox\\target\\debug\\auth_http_concurrency.exe"
+    },
+    {
+      "sha256": "a354f11088d85e1046a2de3472e5fd4f469b744b91f9432ce45bef462fbc5ac6",
+      "scope": "Isolated lab-testing driver; not a release binary",
+      "built_at": "2026-09-07T09:10:22.2489381Z",
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\drivers-20260907-0910\\relay_interop_driver.exe",
+      "bytes": 2129920,
+      "original_build_path": "C:\\wksp\\ProjectReboundToolbox\\target\\debug\\relay_interop_driver.exe"
+    }
+  ],
+  "generated_at": "2026-09-07T09:17:59.7140206Z"
+}

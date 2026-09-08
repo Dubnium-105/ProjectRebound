@@ -1,0 +1,9 @@
+started_at=2026-09-07T14:28:15.739919+00:00
+cwd=C:\wksp\ProjectRebound\.tmp\e2e-20\strict_gate_driver
+command=cargo build --release --manifest-path C:\wksp\ProjectRebound\.tmp\e2e-20\strict_gate_driver\Cargo.toml --target-dir C:\wksp\ProjectRebound\.tmp\e2e-20\strict-gate-target
+exit_code=0
+--- stdout ---
+
+--- stderr ---
+    Finished `release` profile [optimized] target(s) in 1.49s
+

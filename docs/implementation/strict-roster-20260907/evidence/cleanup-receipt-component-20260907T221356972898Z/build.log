@@ -1,0 +1,5 @@
+适用于 .NET Framework MSBuild 版本 18.3.0-release-26070-10+3972042b7
+
+  Building Custom Rule C:/wksp/ProjectRebound/Payload/Tests/CMakeLists.txt
+  StrictRosterCleanupReceiptTests.cpp
+  strict_roster_cleanup_receipt_tests.vcxproj -> C:\wksp\ProjectRebound\build\strict-roster-current\Release\strict_roster_cleanup_receipt_tests.exe

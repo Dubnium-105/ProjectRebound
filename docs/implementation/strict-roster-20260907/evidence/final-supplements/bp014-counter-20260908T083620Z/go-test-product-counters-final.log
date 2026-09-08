@@ -1,0 +1,6 @@
+=== RUN   TestBP014ProductCountersFromLiveRelay
+    bp014_counter_supplement_test.go:34: relay_listener=127.0.0.1:51207
+    bp014_counter_supplement_test.go:54: BP014_PRODUCT_STATS source=relayruntime.Metrics.Snapshot packets_received_delta=6 packets_forwarded_delta=2 bytes_forwarded_delta=24 bind_success_delta=2
+--- PASS: TestBP014ProductCountersFromLiveRelay (0.05s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/relayruntime	0.155s

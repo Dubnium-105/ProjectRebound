@@ -1,0 +1,33 @@
+{
+  "command": [
+    "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\frozen\\drivers\\98db9d5ce85f58592e2ab6fc01cc4e778202436431d8a174172cdad48752839c\\command_protocol_tests.exe",
+    "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\cpp-wire-producer-20260907T223753324387Z\\payload-wire-v2.jsonl",
+    "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\cpp-wire-producer-20260907T223753324387Z\\payload-wire-negative-v2.jsonl"
+  ],
+  "exit_code": 0,
+  "source_input_commit": "dc49017e488e8b5bf6f6544b4428c46d230c0abd",
+  "source_dirty": false,
+  "source_sha256": "4596d7090b2d3f65f2b064f2b0431ba588b39eab830257ae67c071ef94d29fe5",
+  "binary_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\frozen\\drivers\\98db9d5ce85f58592e2ab6fc01cc4e778202436431d8a174172cdad48752839c\\command_protocol_tests.exe",
+  "binary_build_output_path": "C:\\wksp\\ProjectRebound\\build\\strict-roster-current\\Release\\command_protocol_tests.exe",
+  "binary_sha256": "98db9d5ce85f58592e2ab6fc01cc4e778202436431d8a174172cdad48752839c",
+  "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\cpp-wire-producer-20260907T223753324387Z\\generate.log",
+  "log_sha256": "ba7d04f4c928b177245a67ecd0dd077726f7c77812e799f69547754f02e8dbd2",
+  "fixtures": [
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\cpp-wire-producer-20260907T223753324387Z\\payload-wire-v2.jsonl",
+      "sha256": "b6df8c7ff1172e31198f398e9d17e96ad2d722785af2a04baa9cac5404bc9e01",
+      "consumer_path": "C:\\wksp\\ProjectReboundToolbox\\tests\\fixtures\\payload-wire-v2.jsonl",
+      "consumer_sha256": "b6df8c7ff1172e31198f398e9d17e96ad2d722785af2a04baa9cac5404bc9e01",
+      "exact_consumer_bytes": true
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\cpp-wire-producer-20260907T223753324387Z\\payload-wire-negative-v2.jsonl",
+      "sha256": "2ecc55feaa6868c77271ed62642da1a8e68237ddfffd677d167030a61b1d5557",
+      "consumer_path": "C:\\wksp\\ProjectReboundToolbox\\tests\\fixtures\\payload-wire-negative-v2.jsonl",
+      "consumer_sha256": "2ecc55feaa6868c77271ed62642da1a8e68237ddfffd677d167030a61b1d5557",
+      "exact_consumer_bytes": true
+    }
+  ],
+  "scope": "Actual C++ frame producer; synthetic callbacks and fixture consumption only, not game E2E."
+}

@@ -1,0 +1,197 @@
+diff --git a/src/core/runtime.rs b/src/core/runtime.rs
+index 37d86e5..f4d88a9 100644
+--- a/src/core/runtime.rs
++++ b/src/core/runtime.rs
+@@ -1285,7 +1285,11 @@ impl ToolboxRuntime {
+     /// A route refresh can advance only after the previous HOST ownership has
+     /// been observed as disconnected and released by Backend.  This check is
+     /// intentionally strict about the old attempt/session/world/player and
+-    /// permits only a lower route generation than the refreshed material.
++    /// permits an older released route to move to the next route.  Backend can
++    /// also retain the current route after a prior route refresh and increment
++    /// only the HOST connection generation when the old preserved HOST later
++    /// disconnects; that same-route replacement is still a fresh HOST path,
++    /// never the preserved-host path.
+     fn host_connection_ownership_for_refresh(
+         &self,
+         material: &crate::matchmaking::AuthorityRefreshMaterial,
+@@ -1322,10 +1326,17 @@ impl ToolboxRuntime {
+                 && scope.grant_jti.is_empty(),
+             "P2P HOST ownership proof belongs to a different Attempt/world"
+         );
++        let material_route = material.route_generation.value();
+         ensure!(
+-            pending_route_generation.and_then(|route| route.checked_add(1))
+-                == Some(material.route_generation.value()),
+-            "P2P route recovery must advance exactly one generation from the last native authority scope"
++            scope.route_generation < material_route,
++            "P2P HOST released ownership must belong to an older route generation"
++        );
++        let exact_next_route =
++            pending_route_generation.and_then(|route| route.checked_add(1)) == Some(material_route);
++        let same_route_after_disconnect = pending_route_generation == Some(material_route);
++        ensure!(
++            exact_next_route || same_route_after_disconnect,
++            "P2P route recovery requires the exact next route or a same-route HOST generation replacement"
+         );
+         ensure!(
+             ownership.operation_sequence > 0
+@@ -6454,6 +6465,158 @@ mod tests {
+         );
+     }
+ 
++    #[test]
++    fn same_route_host_disconnect_allows_only_fresh_generation_recovery() {
++        let runtime = test_runtime_for_cleanup();
++        let session_epoch = 9;
++        let scope = server::pipe::MatchJoinScope {
++            attempt_id: "attempt-1".into(),
++            authority_session_id: "authority-1".into(),
++            world_instance_id: "world-1".into(),
++            roster_revision: 7,
++            route_generation: 1,
++            player_id: "player-1".into(),
++            grant_jti: String::new(),
++            connection_generation: 1,
++            room_role: Some("HOST".into()),
++        };
++        let proof = server::pipe::ClientMatchConnectionProof {
++            scope: scope.clone(),
++            native_connection_nonce: "host_nonce_route_1".into(),
++        };
++        runtime
++            .remember_host_connection_ownership(&proof, 12, "operation-1", "run-1", session_epoch)
++            .unwrap();
++        runtime.remember_match_native_cleanup_with_evidence(
++            "attempt-1",
++            "authority-1",
++            "world-1",
++            7,
++            3,
++            Some("pipe-name"),
++            Some(321),
++            None,
++            None,
++            false,
++        );
++        let material = crate::matchmaking::AuthorityRefreshMaterial {
++            attempt_id: crate::matchmaking::AttemptId::new("attempt-1").unwrap(),
++            player_id: crate::matchmaking::PlayerId::new("player-1").unwrap(),
++            room_id: crate::matchmaking::P2pRoomId::new("room-1").unwrap(),
++            authority_session: crate::matchmaking::AuthoritySessionId::new("authority-1").unwrap(),
++            roster_revision: crate::matchmaking::RosterRevision::new(7).unwrap(),
++            route_generation: crate::matchmaking::RouteGeneration::new(3).unwrap(),
++            previous_world_instance_id: crate::matchmaking::WorldInstanceId::new("world-1")
++                .unwrap(),
++            allocation: crate::vnt::types::SecretString::new("allocation"),
++            admission_key_id: "key-1".into(),
++            admission_public_key: crate::vnt::types::SecretString::new("public-key"),
++        };
++
++        // A live old HOST cannot be treated as released merely because the
++        // current route is unchanged.
++        assert!(
++            runtime
++                .host_connection_ownership_for_refresh(&material, session_epoch)
++                .is_err()
++        );
++        let disconnected = server::pipe::MatchConnectionEvent {
++            sequence: 8,
++            attempt_id: scope.attempt_id.clone(),
++            authority_session_id: scope.authority_session_id.clone(),
++            roster_revision: scope.roster_revision,
++            world_instance_id: scope.world_instance_id.clone(),
++            route_generation: scope.route_generation,
++            player_id: scope.player_id.clone(),
++            grant_jti: String::new(),
++            connection_generation: scope.connection_generation,
++            native_connection_nonce: proof.native_connection_nonce.clone(),
++            state: "DISCONNECTED".into(),
++        };
++        runtime.clear_host_connection_ownership_if_matches(&disconnected);
++
++        // The exact Backend-confirmed old proof now permits the fresh path at
++        // route 3; its old nonce/generation remain only as a release fence.
++        let released = runtime
++            .host_connection_ownership_for_refresh(&material, session_epoch)
++            .unwrap();
++        assert_eq!(released.scope.route_generation, 1);
++        assert_eq!(released.scope.connection_generation, 1);
++        assert_eq!(released.native_connection_nonce, "host_nonce_route_1");
++
++        // A material snapshot from a route behind the pending cleanup cannot
++        // reuse the released proof, and a proof already on the current route
++        // is not an eligible old-generation fence.
++        let stale_material = crate::matchmaking::AuthorityRefreshMaterial {
++            attempt_id: crate::matchmaking::AttemptId::new("attempt-1").unwrap(),
++            player_id: crate::matchmaking::PlayerId::new("player-1").unwrap(),
++            room_id: crate::matchmaking::P2pRoomId::new("room-1").unwrap(),
++            authority_session: crate::matchmaking::AuthoritySessionId::new("authority-1").unwrap(),
++            roster_revision: crate::matchmaking::RosterRevision::new(7).unwrap(),
++            route_generation: crate::matchmaking::RouteGeneration::new(2).unwrap(),
++            previous_world_instance_id: crate::matchmaking::WorldInstanceId::new("world-1")
++                .unwrap(),
++            allocation: crate::vnt::types::SecretString::new("allocation"),
++            admission_key_id: "key-1".into(),
++            admission_public_key: crate::vnt::types::SecretString::new("public-key"),
++        };
++        assert!(
++            runtime
++                .host_connection_ownership_for_refresh(&stale_material, session_epoch)
++                .is_err()
++        );
++
++        let same_route_runtime = test_runtime_for_cleanup();
++        let same_route_scope = server::pipe::MatchJoinScope {
++            route_generation: 3,
++            ..scope
++        };
++        let same_route_proof = server::pipe::ClientMatchConnectionProof {
++            scope: same_route_scope.clone(),
++            native_connection_nonce: "host_nonce_current_route".into(),
++        };
++        same_route_runtime
++            .remember_host_connection_ownership(
++                &same_route_proof,
++                12,
++                "operation-1",
++                "run-1",
++                session_epoch,
++            )
++            .unwrap();
++        same_route_runtime.remember_match_native_cleanup_with_evidence(
++            "attempt-1",
++            "authority-1",
++            "world-1",
++            7,
++            3,
++            Some("pipe-name"),
++            Some(321),
++            None,
++            None,
++            false,
++        );
++        let same_route_disconnected = server::pipe::MatchConnectionEvent {
++            sequence: 9,
++            attempt_id: same_route_scope.attempt_id.clone(),
++            authority_session_id: same_route_scope.authority_session_id.clone(),
++            roster_revision: same_route_scope.roster_revision,
++            world_instance_id: same_route_scope.world_instance_id.clone(),
++            route_generation: same_route_scope.route_generation,
++            player_id: same_route_scope.player_id.clone(),
++            grant_jti: String::new(),
++            connection_generation: same_route_scope.connection_generation,
++            native_connection_nonce: same_route_proof.native_connection_nonce.clone(),
++            state: "DISCONNECTED".into(),
++        };
++        same_route_runtime.clear_host_connection_ownership_if_matches(&same_route_disconnected);
++        assert!(
++            same_route_runtime
++                .host_connection_ownership_for_refresh(&material, session_epoch)
++                .is_err()
++        );
++    }
++
+     #[test]
+     fn live_host_route_refresh_requires_current_operation_and_exact_next_route() {
+         let runtime = test_runtime_for_cleanup();

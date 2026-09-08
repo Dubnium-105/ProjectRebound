@@ -1,0 +1,70 @@
+{
+  "issue_id": "BP038",
+  "mode": "READ_ONLY_ABI_SIDECAR",
+  "implementation": "blocked",
+  "acceptance": "PARTIAL",
+  "strict_online_acceptance": "NOT_RUN",
+  "run_id": "bp038-sidecar-20260908T063020000Z",
+  "candidate_payload_sha256": "42C72B9F27F51C745E2B8951F9E707C3035DFC22463BFB4D1CF64D21AEE9EE63",
+  "fixed_executable_sha256": "181C49FFB522B3EB01014C84FD9D3A2A5C0B66AE80A6A6ADDFF4BDD6F8125843",
+  "sidecar_source": {
+    "script_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp038-sidecar-20260908T063020000Z\\bp038-nmt-retain-observer-20260908.js",
+    "script_sha256": "13DB8DAC3CF94D935A14199F31814E177CFEBD466DC7A432F9A6C066BCBFCFE0",
+    "watcher_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp038-sidecar-20260908T063020000Z\\bp038-sidecar-watcher-20260908.ps1",
+    "watcher_sha256": "02852F71224DC2B0E740A67779073153A9FA14352CBB3C586735E52650848782",
+    "run_wrapper_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp038-sidecar-20260908T063020000Z\\run-bp038-sidecar.ps1",
+    "run_wrapper_sha256": "51955BF474E2677DD7D11466C4C043F47E7106A63E82D86180B95AD897449F4F",
+    "orchestrator_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp038-sidecar-20260908T063020000Z\\orchestrate.ps1",
+    "orchestrator_sha256": "80F6A17515099BBB6E362EE15FF8297525B8CE36D7370B3C16B5C3A10D14A64C",
+    "backend_driver_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp038-sidecar-20260908T063020000Z\\backend-native-driver.exe",
+    "backend_driver_sha256": "4DDADA1C2516E1A8EB119D22CAB509E546D7856B3ADF1F389656F4D9DBDB1E84",
+    "manifest_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp038-sidecar-20260908T063020000Z\\input-manifest.json",
+    "manifest_sha256": "A576DAB919815596CE79694218BFE1E651491AA3482EB760002CC7F494DDD73B"
+  },
+  "ownership": {
+    "authority_target_count": 1,
+    "client_target_count": 1,
+    "image_hash_verified": true,
+    "client_serializer_attach_ok": true,
+    "authority_observer_deferred_until_pinned_gate": true,
+    "authority_observer_attach_after_pinned_gate": true
+  },
+  "coverage": {
+    "serializer_rva": "0x189d040",
+    "serializer_enter_count": 0,
+    "serializer_leave_count": 0,
+    "allocator_release_count": 0,
+    "probe_error_count": 0,
+    "output_contains_fstring_or_credential_bytes": false,
+    "post_return_memory_monitor": false,
+    "authority_event_count": 0,
+    "client_payload_status_observed": false,
+    "dynamic_no_retain_no_free_proven": false
+  },
+  "outcome": {
+    "orchestrator_exit": 0,
+    "backend_finalize_exit": -1,
+    "sidecar_watcher_exit": 0,
+    "native_summary_outcome": "BLOCKED",
+    "native_summary_failure": "timed out waiting for payload_status on Payload pipe ProjectRebound_DedicatedClient_37038af65dc74b10b6156f5895fd4b89: Exception calling \"Connect\" with \"1\" argument(s): \"The operation has timed out.\"",
+    "log_paths": [
+      "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\bp038-sidecar-20260908T063020000Z\\sidecar\\client-events.jsonl",
+      "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\bp038-sidecar-20260908T063020000Z\\sidecar\\authority-events.jsonl",
+      "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\bp038-sidecar-20260908T063020000Z\\sidecar\\watcher-events.jsonl",
+      "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\bp038-sidecar-20260908T063020000Z\\dedicated-component-20260907-222116-c6149cad\\summary.json"
+    ]
+  },
+  "restoration": {
+    "payload_restored": true,
+    "installed_payload_sha256": "6C7B5E05540AC72A6D7A9FA78F867917285FCE00081156EE13D237AA4D6C24A3",
+    "installed_appid_sha256": "DDFE0E8D462AF661F81DB36589C39882DC0F2330785B5D80CD34F2F520AD618F",
+    "live_game_process_count": 0
+  },
+  "notes": [
+    "Serializer attach and allocator-hook setup completed without probe error after replacing unsupported Frida Module.findExportByName lookup.",
+    "No serializer enter/leave or allocator release occurred before the client payload_status pipe timeout; no ownership conclusion is possible.",
+    "Authority observer was scheduled only after pinned gate markers, but its controller failed QueryFullProcessImageNameW after the target was terminating; authority coverage is zero.",
+    "The run did not alter strict gates, inject a grant, read FString bytes, print credentials, or claim online success.",
+    "Earlier timing-induced pinned-gate failure is superseded by deferred attach evidence; prior TypeError is superseded by this compatible lookup run."
+  ]
+}

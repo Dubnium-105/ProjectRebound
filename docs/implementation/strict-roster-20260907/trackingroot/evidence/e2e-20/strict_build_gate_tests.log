@@ -1,0 +1,17 @@
+started_at=2026-09-07T14:28:09.524816+00:00
+cwd=C:\wksp\ProjectReboundToolbox
+command=cargo test --lib --target-dir C:\wksp\ProjectRebound\.tmp\e2e-20\product-target security::strict_build::tests -- --nocapture
+exit_code=0
+--- stdout ---
+
+running 2 tests
+test security::strict_build::tests::strict_build_requires_an_explicit_lowercase_payload_pin ... ok
+test security::strict_build::tests::actual_artifact_bytes_must_match_and_missing_or_replaced_payload_is_rejected ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 280 filtered out; finished in 0.01s
+
+
+--- stderr ---
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.02s
+     Running unittests src\lib.rs (C:\wksp\ProjectRebound\.tmp\e2e-20\product-target\debug\deps\rebound_toolbox-531c06249e821c2c.exe)
+

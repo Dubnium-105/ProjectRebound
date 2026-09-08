@@ -1,0 +1,10 @@
+=== RUN   TestStrictRosterDedicatedLifecycleAgainstPostgreSQL
+--- PASS: TestStrictRosterDedicatedLifecycleAgainstPostgreSQL (0.35s)
+=== RUN   TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL (0.21s)
+=== RUN   TestStrictRosterP2PLifecycleAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PLifecycleAgainstPostgreSQL (0.77s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/matchlobby	1.340s
+
+EXIT_CODE=0

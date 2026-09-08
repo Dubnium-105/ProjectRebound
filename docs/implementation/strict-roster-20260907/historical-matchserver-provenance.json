@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-07T08:21:23.623192+00:00",
+  "mode": "read_only_provenance",
+  "repositories": {
+    "ProjectRebound": {
+      "path": "C:\\wksp\\ProjectRebound",
+      "commit": "5bb32ba949e7a36d2c76288f46a57c81fc55cadc",
+      "dirty": true,
+      "git_exit_codes": [
+        0,
+        0
+      ]
+    },
+    "Toolbox": {
+      "path": "C:\\wksp\\ProjectReboundToolbox",
+      "commit": "0aa604eade3662951eeaa94cc6566630cea5a40b",
+      "dirty": true,
+      "git_exit_codes": [
+        0,
+        0
+      ]
+    }
+  },
+  "artifacts": [
+    {
+      "path": "C:\\wksp\\ProjectRebound\\Backend\\matchserver",
+      "size": 15454500,
+      "sha256": "9099e21d31f0d11fcd632ecd238cbe4eda522775bb44104058e48b708fc8a6e8",
+      "go_build_info": {
+        "command": [
+          "go",
+          "version",
+          "-m",
+          "C:\\wksp\\ProjectRebound\\Backend\\matchserver"
+        ],
+        "exit_code": 0,
+        "output": "C:\\wksp\\ProjectRebound\\Backend\\matchserver: go1.23.0\n\tpath\tgithub.com/projectrebound/matchserver/cmd\n\tmod\tgithub.com/projectrebound/matchserver\t(devel)\t\n\tdep\tgithub.com/dustin/go-humanize\tv1.0.1\th1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=\n\tdep\tgithub.com/google/uuid\tv1.6.0\th1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=\n\tdep\tgithub.com/klauspost/compress\tv1.17.11\th1:In6xLpyWOi1+C7tXUUWv2ot1QvBjxevKAaI6IXrJmUc=\n\tdep\tgithub.com/remyoudompheng/bigfft\tv0.0.0-20230129092748-24d4a6f8daec\th1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=\n\tdep\tgolang.org/x/exp\tv0.0.0-20231108232855-2478ac86f678\th1:mchzmB1XO2pMaKFRqk/+MV3mgGG96aqaPXaMifQU47w=\n\tdep\tgolang.org/x/sys\tv0.22.0\th1:RI27ohtqKCnwULzJLqkv897zojh5/DwS/ENaMzUOaWI=\n\tdep\tgopkg.in/yaml.v3\tv3.0.1\th1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=\n\tdep\tmodernc.org/libc\tv1.61.4\th1:wVyqEx6tlltte9lPTjq0kDAdtdM9c4JH8rU6M1ZVawA=\n\tdep\tmodernc.org/mathutil\tv1.7.1\th1:GCZVGXdaN8gTqB1Mf/usp1Y/hSqgI2vAGGP4jZMCxOU=\n\tdep\tmodernc.org/memory\tv1.8.0\th1:IqGTL6eFMaDZZhEWwcREgeMXYwmW83LYW8cROZYkg+E=\n\tdep\tmodernc.org/sqlite\tv1.34.4\th1:sjdARozcL5KJBvYQvLlZEmctRgW9xqIZc2ncN7PU0P8=\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\tDefaultGODEBUG=asynctimerchan=1,gotypesalias=0,httpservecontentkeepheaders=1,tls3des=1,tlskyber=0,x509keypairleaf=0,x509negativeserial=1\n\tbuild\tCGO_ENABLED=1\n\tbuild\tCGO_CFLAGS=\n\tbuild\tCGO_CPPFLAGS=\n\tbuild\tCGO_CXXFLAGS=\n\tbuild\tCGO_LDFLAGS=\n\tbuild\tGOARCH=amd64\n\tbuild\tGOOS=linux\n\tbuild\tGOAMD64=v1\n\tbuild\tvcs=git\n\tbuild\tvcs.revision=ee6c631c63e118a2156e879f8993b467ba65e23c\n\tbuild\tvcs.time=2026-05-07T04:11:39Z\n\tbuild\tvcs.modified=true",
+        "error": ""
+      },
+      "release_eligible": false,
+      "reason": "historical tracked binary excluded from all current source-built containers"
+    }
+  ],
+  "acceptance_report": null,
+  "release_ready": false,
+  "blockers": [
+    "ProjectRebound source provenance is not a clean committed tree",
+    "Toolbox source provenance is not a clean committed tree",
+    "historical matchserver artifact cannot be released",
+    "native acceptance report missing"
+  ]
+}

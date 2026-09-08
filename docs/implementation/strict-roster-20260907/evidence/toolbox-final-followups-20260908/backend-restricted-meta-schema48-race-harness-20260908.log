@@ -1,0 +1,18 @@
+{"name": "create-isolated-database", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907215759\\create-isolated-database.log"}
+{"name": "migrate-schema48", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907215759\\migrate-schema48.log"}
+{"name": "migrated-schema", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907215759\\migrated-schema.log"}
+{"name": "baseline-provision", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907215759\\baseline-provision.log"}
+{"name": "baseline-schema-identities-denied", "exit_code": 1, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907215759\\baseline-schema-identities-denied.log"}
+{"name": "baseline-public-create-allowed", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907215759\\baseline-public-create-allowed.log"}
+{"name": "assert-redis-port-free", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907215759\\assert-redis-port-free.log"}
+{"name": "start-owned-redis7411", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907215759\\start-owned-redis7411.log"}
+{"name": "owned-redis-process-identity", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907215759\\owned-redis-process-identity.log"}
+{"name": "baseline-compose-acl", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907215759\\baseline-compose-acl.log"}
+{"name": "baseline-lua-consumption-denied", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907215759\\baseline-lua-consumption-denied.log"}
+{"name": "fixed-provision", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907215759\\fixed-provision.log"}
+{"name": "fixed-compose-acl", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907215759\\fixed-compose-acl.log"}
+{"name": "restricted-product-permissions-test", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907215759\\restricted-product-permissions-test.log"}
+{"name": "stop-owned-redis", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907215759\\stop-owned-redis.log"}
+{"name": "assert-owned-redis-stopped", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907215759\\assert-owned-redis-stopped.log"}
+{"name": "disable-owned-meta-role", "exit_code": 0, "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907215759\\disable-owned-meta-role.log"}
+{"status": "PASS", "result_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907215759\\result.json"}

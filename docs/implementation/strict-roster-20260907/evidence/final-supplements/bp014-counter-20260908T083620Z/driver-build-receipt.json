@@ -1,0 +1,11 @@
+{
+  "directory": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z",
+  "command": "cargo build --locked --features lab-testing --bin relay_interop_driver --target-dir C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\cargo-target",
+  "exit_code": 0,
+  "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\driver-build.log",
+  "source_commit": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482",
+  "source_dirty": "",
+  "executable_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\cargo-target\\debug\\relay_interop_driver.exe",
+  "executable_sha256": "3a4e4d46f9fff1b9899bc09615bb15a5bbc5d12ee20b13ae693345609dd547b9",
+  "executable_bytes": 2129920
+}

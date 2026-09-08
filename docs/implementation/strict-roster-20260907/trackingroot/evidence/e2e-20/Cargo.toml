@@ -1,0 +1,8 @@
+[package]
+name = "e2e20_strict_gate_driver"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rebound_toolbox = { package = "rebound_toolbox", path = "C:/wksp/ProjectReboundToolbox" }
+tempfile = "3"

@@ -1,0 +1,99 @@
+{
+  "started_at": "2026-09-07T22:29:51.843533+00:00",
+  "source_input_commit": "8cacb1cdef006b3fa20d9c817c34e9fe1f59bf89",
+  "source_dirty": true,
+  "source_files": [
+    {
+      "path": "Payload/Admission/StrictRosterCleanupReceipt.h",
+      "sha256": "89c160b27b5d2fa6e76d6209bee8fe116686597a0fc2d1741f7d93314318db50",
+      "snapshot_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T222951486062Z\\source\\Payload\\Admission\\StrictRosterCleanupReceipt.h"
+    },
+    {
+      "path": "Payload/Tests/CMakeLists.txt",
+      "sha256": "c401529691e63955982010b83db29dbb7353d9eabd7621bf56a9d7c895d2e360",
+      "snapshot_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T222951486062Z\\source\\Payload\\Tests\\CMakeLists.txt"
+    },
+    {
+      "path": "Payload/Tests/StrictRosterCleanupReceiptTests.cpp",
+      "sha256": "ae873afc585b978d551938d6745a42a3f62a1978f899910732f36569212b62f1",
+      "snapshot_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T222951486062Z\\source\\Payload\\Tests\\StrictRosterCleanupReceiptTests.cpp"
+    },
+    {
+      "path": "Payload/dllmain.cpp",
+      "sha256": "63fc1566f366221d091e40b032f0e2707ec20f46cbc99787f19b64553e9ac45d",
+      "snapshot_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T222951486062Z\\source\\Payload\\dllmain.cpp"
+    }
+  ],
+  "executions": [
+    {
+      "name": "configure",
+      "command": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "-S",
+        "Payload/Tests",
+        "-B",
+        "build/strict-roster-current"
+      ],
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T222951486062Z\\configure.log",
+      "sha256": "8332897490d732e86975e592c28b1f7e350251f01ca6fc1b925d694167c7ccdd"
+    },
+    {
+      "name": "tests-build",
+      "command": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "--build",
+        "build/strict-roster-current",
+        "--config",
+        "Release",
+        "--parallel",
+        "4"
+      ],
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T222951486062Z\\tests-build.log",
+      "sha256": "b292a7d923876e605b97a7005e2be408f102e68ba0210e0cf964f1938feec9c9"
+    },
+    {
+      "name": "ctest",
+      "command": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\ctest.exe",
+        "--test-dir",
+        "build/strict-roster-current",
+        "-C",
+        "Release",
+        "--output-on-failure"
+      ],
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T222951486062Z\\ctest.log",
+      "sha256": "e24ec498d8ae8ab6c65aa735ce4c22be7cfdc356019ac3137687a8fcba16dd02"
+    },
+    {
+      "name": "payload-build",
+      "command": [
+        "C:/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/amd64/MSBuild.exe",
+        "Payload/Payload.vcxproj",
+        "/m:1",
+        "/nr:false",
+        "/p:Configuration=Release",
+        "/p:Platform=x64",
+        "/v:minimal"
+      ],
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T222951486062Z\\payload-build.log",
+      "sha256": "b998c22857cc3204bea87f480bbe0185a780e11c67e05c9f6d8428aab897044b"
+    }
+  ],
+  "scope": "Actual local C++ compilation and component tests only. Native game admission is a separate execution.",
+  "artifact": {
+    "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T222951486062Z\\Payload.dll",
+    "sha256": "297c6ea8585c8a606b3ab31a9949bcb153d7469b890ef8603521fb8af2cbfc1b",
+    "bytes": 2094592
+  },
+  "symbol_map": {
+    "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T222951486062Z\\Payload.map",
+    "sha256": "08dee266c9fd563e56ae33b56bf96e7d4b8c38cbca59c7bbb4e7e440bdc279e5",
+    "bytes": 6673737
+  },
+  "finished_at": "2026-09-07T22:30:26.694703+00:00",
+  "status": "COMPONENT_VALIDATION_COMPLETED_NATIVE_ACCEPTANCE_NOT_RUN"
+}

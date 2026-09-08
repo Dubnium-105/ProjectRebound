@@ -1,0 +1,5 @@
+command=pg_dump --host=172.23.120.17 --port=55439 --username=phanthy --format=custom --no-owner --no-privileges --file=backend-schema47-source-20260907-authority-final.dump rebound_backend_full_20260907
+pg_dump_exit_code=0
+archive_path=C:\wksp\ProjectRebound\docs\implementation\strict-roster-20260907\evidence\backend-schema47-source-20260907-authority-final.dump
+archive_bytes=317571
+sha256=2d2290a14481fb380b7e9057faea45976c18ae4ba84600af4a3b19b8b22ddeb3

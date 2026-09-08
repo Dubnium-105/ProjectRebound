@@ -1,0 +1,9 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.36s
+     Running unittests src\lib.rs (target\debug\deps\rebound_toolbox-531c06249e821c2c.exe)
+
+running 1 test
+test core::runtime::tests::preflight_failure_binds_empty_world_scope_without_process_evidence ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 276 filtered out; finished in 0.00s
+
+exit_code=0

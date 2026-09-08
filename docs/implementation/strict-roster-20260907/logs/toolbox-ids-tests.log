@@ -1,0 +1,12 @@
+    Blocking waiting for file lock on build directory
+   Compiling rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 28.81s
+     Running unittests src\lib.rs (target\debug\deps\rebound_toolbox-531c06249e821c2c.exe)
+
+running 3 tests
+test matchmaking::ids::tests::identities_are_not_interchangeable_types ... ok
+test matchmaking::ids::tests::authority_session_debug_is_redacted ... ok
+test matchmaking::ids::tests::generations_reject_zero_and_serialize_as_numbers ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 252 filtered out; finished in 0.00s
+

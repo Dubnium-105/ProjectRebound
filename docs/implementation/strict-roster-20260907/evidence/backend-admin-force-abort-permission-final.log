@@ -1,0 +1,4 @@
+=== RUN   TestMatchAttemptForceAbortRequiresPermissionAndStepUp
+--- PASS: TestMatchAttemptForceAbortRequiresPermissionAndStepUp (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/admin	0.010s

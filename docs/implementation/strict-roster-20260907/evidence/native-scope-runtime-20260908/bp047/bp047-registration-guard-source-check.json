@@ -1,0 +1,31 @@
+{
+  "kind": "bp047_strict_scheduling_guard_source_assertion",
+  "classification": "SOURCE_GUARD_ONLY",
+  "acceptance": "PASS_SOURCE_GUARD_ONLY",
+  "not_runtime_scheduler_e2e": true,
+  "command": "PowerShell source assertion: Backend/internal/matchlobby/service.go requires native_admission_verified=TRUE + strict-roster-v2 + locked game SHA; Backend/internal/gameserver/service.go clears capability when heartbeat proof is absent or legacy",
+  "exit_code": 0,
+  "checks": {
+    "dedicated_query_requires_verified": true,
+    "dedicated_query_requires_v2": true,
+    "dedicated_query_requires_locked_sha": true,
+    "heartbeat_false_clears_capability": true,
+    "legacy_v1_clears_capability": true
+  },
+  "source": {
+    "matchlobby_service": {
+      "path": "Backend/internal/matchlobby/service.go",
+      "sha256": "a82148efede90c6c5a4f132a2269a4971da9e1ef33f12a5ee0809ff212c61096"
+    },
+    "gameserver_service": {
+      "path": "Backend/internal/gameserver/service.go",
+      "sha256": "f8c3c84ef0877b3a459732bc8dd0c806e25103bca928451f09ed98d6bfc56c03"
+    }
+  },
+  "log": {
+    "path": ".tmp\\strict-roster-20260907\\native-evidence\\bp047-registration-heartbeat-component-20260908T20260908075437\\strict-scheduling-guard-source-check.log",
+    "sha256": "96b765bcd5f8714cdb5088d560f325c5a77aa4699b7f6bd0856caf4ff8210616",
+    "bytes": 221
+  },
+  "note": "This proves the fail-closed source predicates only; it is not a live dedicated allocation attempt and does not change native_authority_admission_verified."
+}

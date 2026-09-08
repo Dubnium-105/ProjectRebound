@@ -1,0 +1,332 @@
+{
+  "receipt_kind": "backend_audit_safe_evidence_allowlist",
+  "generated_at_utc": "20260908T001448Z",
+  "source_head_observed": "705d339e1af30bf170d828fb7fa1f38582a070db",
+  "source_scope": "exact six Backend files only; no migrator.go/migrator tests or later Root changes",
+  "source_files": [
+    "Backend/internal/matchlobby/service.go",
+    "Backend/internal/matchlobby/repository.go",
+    "Backend/internal/matchlobby/sweeper.go",
+    "Backend/internal/matchlobby/service_integration_test.go",
+    "Backend/internal/database/migrator_integration_test.go",
+    "Backend/migrations/000048_strict_roster_live_generation.sql"
+  ],
+  "evidence_entries": [
+    {
+      "path": ".tmp/strict-roster-20260907/backend-audit-001-003-compile-20260908.log",
+      "bytes": 281,
+      "sha256": "D1B3B00B02C753DB394DB6CD1BD05D189344E9F8F8264F7E64C2762B89004F31",
+      "category": "test_or_failure_log",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/backend-audit-001-003-database-20260908T000813Z.log",
+      "bytes": 517,
+      "sha256": "F1851E8184ACAAF72633F404B122CF494D9B20AD24D3A189AD4A1D3F3FE11368",
+      "category": "test_or_failure_log",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/backend-audit-001-003-matchlobby-20260908T235500Z.log",
+      "bytes": 666,
+      "sha256": "F55FA3EECB9BAA721460DA297673AFA6F30953F75EC7863001B30EB4B57B3913",
+      "category": "test_or_failure_log",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/backend-audit-001-003-matchlobby-20260908T235900Z.log",
+      "bytes": 504,
+      "sha256": "6FD519EF2BB8C89085929FAEE7FC7C55C403D0E9144A2FEB8A301C3D39729F9C",
+      "category": "test_or_failure_log",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/backend-audit-001-003-member-nonce-20260908T000636Z.log",
+      "bytes": 1069,
+      "sha256": "DD3D7158DA41473E3D5B6ED86C288494F5E6DF0EE3D219963190C5CCA4C6B0EE",
+      "category": "test_or_failure_log",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/backend-audit-001-003-member-nonce-20260908T000718Z.log",
+      "bytes": 899,
+      "sha256": "D9A141E82EF65F571F3506B4888553839FF13019C57AE7EECC4D12B15B917F84",
+      "category": "test_or_failure_log",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/backend-audit-001-003-result-20260908T000953Z.json",
+      "bytes": 8148,
+      "sha256": "C7337122EFB01CB83468FC55B7419B75D2192D67130BAFC6436278FF6A7776D4",
+      "category": "machine_receipt",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/backend-audit-migration-20260907T234736Z.log",
+      "bytes": 246,
+      "sha256": "CE431FC78EC6EE48318E0355D78B31EEB1844931C30DD70FED1D14003A30A893",
+      "category": "test_or_failure_log",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/backend-migrator-001-003-20260907T234752Z.log",
+      "bytes": 182,
+      "sha256": "777A3B53C637F0CE8589B2D5E9A7218DC54E628737535DC42E8DCC7CC0A6E16C",
+      "category": "test_or_failure_log",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/mutants/cleanup-evidence-pre-newguard-20260907T235204Z.log",
+      "bytes": 379,
+      "sha256": "B00FB31C829CAD48FE507276A8BC6947D25CFCFD6E1D589AB0FE088CA863B9B0",
+      "category": "sanitized_negative_control",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/mutants/host-nullnonce-pre-newguard-20260907T235052Z.log",
+      "bytes": 328,
+      "sha256": "2CC8C2E9F0E9DF5B576A4BE5ED489E0F5F15ADAA47CFBAAC86F55B0624F4FF30",
+      "category": "sanitized_negative_control",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/mutants/staging-pre-newguard-20260907T234949Z.log",
+      "bytes": 597,
+      "sha256": "4FC55ED8205FA8851A5B1AA59926336A0E2EC318B0FCC22AACC1ABE77A1A4E9B",
+      "category": "sanitized_negative_control",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/schema47-full-final/postcheck-full-20260908T000115Z.log",
+      "bytes": 441,
+      "sha256": "2D0F17B95FA3EFA139AD99FD265A6CA1E8AC48D342EBBD6E3FAF79FC6DB9E564",
+      "category": "schema47_restore_upgrade_postcheck_evidence",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/schema47-full-final/postcheck-full-20260908T000115Z.sql",
+      "bytes": 2417,
+      "sha256": "42D7D75EE7B84506A85F00CC47D4D68B2D958D894AB589ED3EDD0843FB19D9AF",
+      "category": "schema47_restore_upgrade_postcheck_evidence",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/schema47-full-final/postcheck-full-20260908T000219Z.log",
+      "bytes": 1551,
+      "sha256": "10B3432D66B2C69F8762EB2D350457D8D8B257EC94C9699D8E1047A11E61C8CB",
+      "category": "schema47_restore_upgrade_postcheck_evidence",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/schema47-full-final/postcheck-full-20260908T000219Z.sql",
+      "bytes": 2417,
+      "sha256": "42D7D75EE7B84506A85F00CC47D4D68B2D958D894AB589ED3EDD0843FB19D9AF",
+      "category": "schema47_restore_upgrade_postcheck_evidence",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/schema47-full-final/precheck-final.log",
+      "bytes": 203,
+      "sha256": "B51AE7D72C91E3C688733AAB76C0D68B0D117F261EED07FF86E1DAFBBBB0F886",
+      "category": "schema47_restore_upgrade_postcheck_evidence",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/schema47-full-final/precheck.log",
+      "bytes": 195,
+      "sha256": "1179406DD1F67F5A53999FACF8CC7648005BF0EEA44070300F4FADA9AA7E4323",
+      "category": "schema47_restore_upgrade_postcheck_evidence",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/schema47-full-final/precheck.sql",
+      "bytes": 376,
+      "sha256": "8DF35064B178BD71B1213D1583F77CD788CCB78CD2827B98B51053DDF94CFED2",
+      "category": "schema47_restore_upgrade_postcheck_evidence",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/schema47-full-final/restore-20260907T235456Z.log",
+      "bytes": 211,
+      "sha256": "C43F66A297EEDE0781CF035F6B283A576C4E96FCFF8DF55D6BFBBDFC57E484CC",
+      "category": "schema47_restore_upgrade_postcheck_evidence",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/schema47-full-final/restore-20260907t235537z.log",
+      "bytes": 161,
+      "sha256": "4CC3D860B08795DA816D8F441C0FCF0805E2364513784ECEA149679AC59BBE1E",
+      "category": "schema47_restore_upgrade_postcheck_evidence",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/schema47-full-final/run-postcheck-full-20260908T000115Z.sh",
+      "bytes": 278,
+      "sha256": "A8BB245D22F8434407208B7F3E62246CFF7F3E673E557DBFCD33FEA3A24B373D",
+      "category": "schema47_restore_upgrade_postcheck_evidence",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/schema47-full-final/run-postcheck-full-20260908T000219Z.sh",
+      "bytes": 329,
+      "sha256": "8C7AAE3981CA52905CC3FEC628429966CF050DAB32A6C0F9AA48E3FA180E3AF8",
+      "category": "schema47_restore_upgrade_postcheck_evidence",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/schema47-full-final/run-precheck.sh",
+      "bytes": 468,
+      "sha256": "8A2FED85EFD1073A40CAF83A29456C3BF526CD5BA0AF128F2F0E8F9CB7571F10",
+      "category": "schema47_restore_upgrade_postcheck_evidence",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/schema47-full-final/run-restore-20260907T235456Z.sh",
+      "bytes": 1535,
+      "sha256": "A8329FC34AFD6FA71FE0F758DFEA34F70BF12C637244FF771A64F7C35631C5A5",
+      "category": "schema47_restore_upgrade_postcheck_evidence",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/schema47-full-final/run-restore-20260907t235537z.sh",
+      "bytes": 1535,
+      "sha256": "5A12B9ABF2D88D5DD3CFA77D1E16A415252EDC83E443994E0B4AA5F8D7CD4E02",
+      "category": "schema47_restore_upgrade_postcheck_evidence",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/schema47-full-final/run-upgrade-20260907t235658z.sh",
+      "bytes": 614,
+      "sha256": "BE8DD3AD41BD888AD456AAEE610F3A2914C61BDE718A1E99DB5157E8A787F88F",
+      "category": "schema47_restore_upgrade_postcheck_evidence",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/schema47-full-final/run-upgrade-rerun-20260907t235811z.sh",
+      "bytes": 678,
+      "sha256": "B79B8E8D6DFFC4A8C69E8FEA00A9141D7896800D2A97B2921C3614BE0237485E",
+      "category": "schema47_restore_upgrade_postcheck_evidence",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/schema47-full-final/schema47-active-hosts.sql",
+      "bytes": 3674,
+      "sha256": "4075AB8DFCC50220413474BA280418674D407E8A9D0AA52A2D72D7113A6BFE3C",
+      "category": "schema47_restore_upgrade_postcheck_evidence",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/schema47-full-final/upgrade-20260907t235658z.log",
+      "bytes": 520,
+      "sha256": "6ED87C640F1806336F16FAB7AF9119D6A4A810B75C51105CC2172E72F8E07A5D",
+      "category": "schema47_restore_upgrade_postcheck_evidence",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/schema47-full-final/upgrade-rerun-20260907t235811z.log",
+      "bytes": 182,
+      "sha256": "50AF50D1C8C56B9EC652F6EF5E150F15FDC89ACA34BF1D4491D558E3BE93DF13",
+      "category": "schema47_restore_upgrade_postcheck_evidence",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": "Backend/internal/database/migrator_integration_test.go",
+      "bytes": 8199,
+      "sha256": "534D8EE6FA738711CAD901C5EB8715759F33D01C1BD35E4C711F434908FB4BD3",
+      "category": "source_hash_only",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": "Backend/internal/matchlobby/repository.go",
+      "bytes": 18985,
+      "sha256": "F236DD9828F6F33C17E9661FC86D037B99660EBD41BCF6031BF2C195A36AEEDD",
+      "category": "source_hash_only",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": "Backend/internal/matchlobby/service_integration_test.go",
+      "bytes": 79577,
+      "sha256": "D512BD03476E9AF0A572C81D048B5621302AAF156B045D333117BBA89B58F5DF",
+      "category": "source_hash_only",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": "Backend/internal/matchlobby/service.go",
+      "bytes": 149904,
+      "sha256": "FA5F53BC87B17AC92D3CD94317511B15A02CC7D2B37A0FC7BEB14728ADA28536",
+      "category": "source_hash_only",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": "Backend/internal/matchlobby/sweeper.go",
+      "bytes": 16148,
+      "sha256": "91B1B40B6D1F5FB24BDA8F1CFA9985E5974F0A1AE732F5F219AA2F6B598D59AF",
+      "category": "source_hash_only",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    },
+    {
+      "path": "Backend/migrations/000048_strict_roster_live_generation.sql",
+      "bytes": 3427,
+      "sha256": "615A573F11C4640B7111893E5E73F2256A247DB6DBB650E4D0578A7441BCE14F",
+      "category": "source_hash_only",
+      "secret_pattern_counts": {},
+      "sharing_scope": "safe_to_reference_internal"
+    }
+  ],
+  "excluded": {
+    "database_instances": [
+      "rebound_audit001003_20260908_01",
+      "rebound_audit_schema47full_20260907t235537z"
+    ],
+    "database_dumps": "all PostgreSQL dumps and raw data, including backend-schema47-source*.dump, excluded",
+    "credentials": "private fixture credentials, tokens, bearer/session values and private native evidence excluded",
+    "future_changes": "Root migrator checksum normalization files and tests are excluded until separately hashed",
+    "services": "PG/Redis process state is not copied into evidence"
+  },
+  "secret_scan": {
+    "patterns": [
+      "JWT-like eyJ...",
+      "PEM private key header",
+      "password-bearing postgres/redis URL",
+      "Bearer token"
+    ],
+    "result": "no matches in allowlisted textual files",
+    "note": "synthetic Steam IDs/nonces and local isolated DB endpoints may appear in internal evidence; no secret values were copied into this receipt"
+  }
+}

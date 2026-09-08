@@ -1,0 +1,35 @@
+=== RUN   TestStrictRosterDedicatedLifecycleAgainstPostgreSQL
+--- PASS: TestStrictRosterDedicatedLifecycleAgainstPostgreSQL (0.53s)
+=== RUN   TestJoinGrantHTTPReturnsSignedScopeAlongsideGrant
+--- PASS: TestJoinGrantHTTPReturnsSignedScopeAlongsideGrant (0.00s)
+=== RUN   TestMemberConnectionHTTPReturnsNoStoreValidatedEvidence
+--- PASS: TestMemberConnectionHTTPReturnsNoStoreValidatedEvidence (0.00s)
+=== RUN   TestMemberConnectionHTTPDoesNotExposeMissingEvidence
+--- PASS: TestMemberConnectionHTTPDoesNotExposeMissingEvidence (0.00s)
+=== RUN   TestDedicatedNativeClearedRejectsUnscopedOwnedProcessEvidence
+--- PASS: TestDedicatedNativeClearedRejectsUnscopedOwnedProcessEvidence (0.00s)
+=== RUN   TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL (0.27s)
+=== RUN   TestStrictRosterAdminForceAbortIsAuditedAndDrainKeepsReadsAgainstPostgreSQL
+--- PASS: TestStrictRosterAdminForceAbortIsAuditedAndDrainKeepsReadsAgainstPostgreSQL (0.17s)
+=== RUN   TestStrictRosterP2PPreflightNativeProcessNotStartedCleanupAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PPreflightNativeProcessNotStartedCleanupAgainstPostgreSQL (0.18s)
+=== RUN   TestStrictRosterP2PPreflightNotStartedRejectsInstalledPayloadAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PPreflightNotStartedRejectsInstalledPayloadAgainstPostgreSQL (0.22s)
+=== RUN   TestStrictRosterP2PLifecycleAgainstPostgreSQL
+    service_integration_test.go:740: join grant escaped while authority allocation was stale: The P2P authority is inside its continuity recovery window.
+--- FAIL: TestStrictRosterP2PLifecycleAgainstPostgreSQL (0.32s)
+=== RUN   TestCreateValidationLocksHostingKindAndTwoTeamCapacity
+--- PASS: TestCreateValidationLocksHostingKindAndTwoTeamCapacity (0.00s)
+=== RUN   TestOpenRevisionFailsClosedAfterFreezeOrConflict
+--- PASS: TestOpenRevisionFailsClosedAfterFreezeOrConflict (0.00s)
+=== RUN   TestAdmissionSignerBindsFrozenRosterAndJoinSeat
+--- PASS: TestAdmissionSignerBindsFrozenRosterAndJoinSeat (0.00s)
+=== RUN   TestAdmissionSignerRejectsMissingConfiguredKey
+--- PASS: TestAdmissionSignerRejectsMissingConfiguredKey (0.00s)
+=== RUN   TestAdmissionSignerUsesSeparateTokenTypes
+--- PASS: TestAdmissionSignerUsesSeparateTokenTypes (0.00s)
+FAIL
+FAIL	github.com/Dubnium-105/ProjectRebound/Backend/internal/matchlobby	1.790s
+FAIL
+EXIT_CODE=1

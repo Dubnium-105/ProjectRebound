@@ -1,0 +1,8 @@
+=== RUN   TestStrictRosterDedicatedLifecycleAgainstPostgreSQL
+    dedicated_integration_test.go:253: stale Dedicated cleanup route was accepted: Invalid native cleanup acknowledgement.
+--- FAIL: TestStrictRosterDedicatedLifecycleAgainstPostgreSQL (0.34s)
+=== RUN   TestStrictRosterP2PLifecycleAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PLifecycleAgainstPostgreSQL (0.79s)
+FAIL
+FAIL	github.com/Dubnium-105/ProjectRebound/Backend/internal/matchlobby	1.221s
+FAIL

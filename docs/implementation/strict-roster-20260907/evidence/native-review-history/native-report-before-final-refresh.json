@@ -1,0 +1,980 @@
+{
+  "report_version": "strict-roster-native-v5",
+  "generated_at_utc": "2026-09-07T18:23:28.2335023Z",
+  "repository": "C:/wksp/ProjectRebound",
+  "head": "dfef93d12d0c4d6dfae5eba7bfe176e5d15cb37d",
+  "source_state": "Current Payload source is committed and clean at dfef93d12d0c4d6dfae5eba7bfe176e5d15cb37d. Historical component snapshots 041E and 86CFC used source input d764f478b8bb16c648e3f611320e846467cbd81f with source_dirty=true; older 02D1/38F8/0B71 used a1b3969b49cfa98cc9415f1444bf191d939120f7 with source_dirty=true. All snapshot identities remain historical. The private Go driver is separately tested but not a Payload product commit.",
+  "scope": [
+    "Payload/**",
+    "BP-009",
+    "BP-019",
+    "BP-020",
+    "BP-021",
+    "BP-022",
+    "BP-023",
+    "BP-024",
+    "BP-026",
+    "BP-027",
+    "BP-032",
+    "BP-038",
+    "BP-039",
+    "BP-040",
+    "BP-041",
+    "BP-042",
+    "BP-043",
+    "BP-044",
+    "BP-047"
+  ],
+  "commit": "dfef93d12d0c4d6dfae5eba7bfe176e5d15cb37d",
+  "commit_note": "Current Payload product source is committed and clean at dfef93d12d0c4d6dfae5eba7bfe176e5d15cb37d. The 041E and 86CFC component runs were captured from source input d764f478b8bb16c648e3f611320e846467cbd81f with source_dirty=true; they remain historical snapshots and are not relabeled as dfef. The private Go diagnostic driver changes are uncommitted and outside the Payload product commit.",
+  "skills_and_contracts_read": [
+    "C:/wksp/ProjectRebound/.agents/skills/debug-boundary-native/SKILL.md",
+    "C:/wksp/ProjectRebound/.agents/skills/debug-boundary-native/references/current-findings.md",
+    "C:/wksp/ProjectRebound/.agents/skills/debug-boundary-native/references/runtime-playbook.md",
+    "C:/wksp/ProjectRebound/.tmp/handoff-20260907/rebound-codex-handoff/TARGET_CONTRACTS.md",
+    "C:/wksp/ProjectRebound/.tmp/handoff-20260907/rebound-codex-handoff/IMPLEMENTATION_PLAN.md",
+    "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/breakpoints.json"
+  ],
+  "blockers_document": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/native-blockers.md",
+  "protocol": {
+    "payload_version": "strict-roster-v2",
+    "admission_mode": "strict_roster_v1",
+    "native_connection_nonce": "Fresh cryptographically random nonce per native handshake; exact nonce is carried through Grant staging, BeginAuthSession pending state, native admission, confirmation, disconnect, release, and cleanup scopes.",
+    "admission_order": "Backend Reserve -> native Grant and Steam GetAuthSessionTicket carrier -> BeginAuthSession -> ValidateAuthTicketResponse success for the exact pending JTI/nonce -> native Team/Camp readback -> backend Confirm -> Connected/Playable.",
+    "cleanup_order": "Scoped clear -> native return-to-menu/world teardown -> old UWorld and NetDriver disappearance or supervisor-verified Dedicated process exit -> final native_cleared=true ACK.",
+    "ticket_boundary": "Native connection uses Steam GetAuthSessionTicket plus server BeginAuthSession/ValidateAuthTicketResponse. Toolbox Encrypted App Ticket remains a separate account-auth credential and is not reused."
+  },
+  "binary_gate": {
+    "payload_dll": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T181735449253Z/Payload.dll",
+    "payload_sha256": "86cfc337262ec6033b075792cb792046749e35b99da5496dbc6f149851091d15",
+    "payload_bytes": 2001408,
+    "payload_built_at_utc": "2026-09-07T18:18:12.142441Z",
+    "game_binary": "C:/Steam/steamapps/common/Boundary/ProjectBoundary/Binaries/Win64/ProjectBoundarySteam-Win64-Shipping.exe",
+    "game_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+    "game_sha256_matches_expected": true,
+    "installed_payload_sha256": "6c7b5e05540ac72a6d7a9fa78f867917285fce00081156ee13d237aa4d6c24a3",
+    "installed_payload_is_current_candidate": false,
+    "native_authority_admission_verified": false,
+    "native_client_grant_injection_ready": true,
+    "strict_online_positive_acceptance": "NOT_RUN",
+    "final_candidate_status": "COMPONENT_CANDIDATE_NOT_FINAL",
+    "last_stable_component_artifact": {
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T174425506503Z/Payload.dll",
+      "sha256": "02d1fe3d3fec6be556385a7de82940a8b426e7994eea215b1364cd289bfbd7c8",
+      "bytes": 1993216,
+      "status": "COMPONENT_ONLY_NATIVE_ACCEPTANCE_NOT_RUN"
+    },
+    "latest_component_artifact": {
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T181735449253Z/Payload.dll",
+      "sha256": "86cfc337262ec6033b075792cb792046749e35b99da5496dbc6f149851091d15",
+      "bytes": 2001408,
+      "status": "COMPONENT_CANDIDATE_NATIVE_ACCEPTANCE_NOT_RUN",
+      "source_input_commit": "d764f478b8bb16c648e3f611320e846467cbd81f",
+      "source_dirty": true
+    }
+  },
+  "runtime_environment": {
+    "installed_game": "C:/Steam/steamapps/common/Boundary/ProjectBoundary/Binaries/Win64/ProjectBoundarySteam-Win64-Shipping.exe",
+    "steam_manifest": "C:/Steam/steamapps/appmanifest_1364020.acf (name=Boundary, installdir=Boundary)",
+    "steam_api64_sha256": "a44e5537939ae4ee6bc69000589aa9b2437a667813a1657cc779198bae9b815a9",
+    "steam_api64_authenticode": "Valid; Signer Valve Corp.; Steamv157 Win64",
+    "steam_helper": "Standalone owned helper completed with client callback 163 exact handle/result and server callback 143 exact 20-byte ABI, response 0 and SteamID match. This is OFFLINE_STEAM_AUTH_API_ONLY and does not prove game Payload integration.",
+    "managed_negative": "Candidate AE73... Dedicated strict no-allocation probe reached the pipe with ready=false/status=blocked/native_authority_admission_verified=false and start_match_authority returned allocation_unavailable; wrapper cleanup was controlled.",
+    "p2p_negative_latest": "Current candidate EFE72... was deployed only for a bounded P2P probe through startgame.ps1. The pipe reported native_authority_path_ready=true and native_client_grant_injection_ready=true while native_authority_admission_verified=false, ready=false/status=blocked; start_match_authority returned client_login_pending before allocation because local platform login was not complete. This is a negative/diagnostic result, not positive admission.",
+    "offline_abi": "Local PVE server/client runs completed in OFFLINE_ABI_ONLY mode. They observed NMT field shapes, server field2 URL/options pointer flow into PreLogin, and client field2 release timing without logging contents or enabling strict readiness.",
+    "installed_restore": "After the bounded probe, the installed Payload path was restored from the first verified backup and checked at SHA256 6C7B5E05540AC72A6D7A9FA78F867917285FCE00081156EE13D237AA4D6C24A3; no task-owned game process remains.",
+    "one_real_steam_identity": "A real local Steam identity was observed by the approved Steam helper and latest managed probe. The value is retained only in a private evidence file and is not present in this report.",
+    "three_account_matrix": "NOT_RUN; two additional Steam identities/hosts are missing, and the full three-account gameplay/reconnect/next-round matrix was not executed.",
+    "dedicated_component_harness": "Prepared and parser-checked. Historical Execute=true runs were blocked before Payload status/authority-ready; the current 0B71 component candidate has not been run. No component harness result is native online acceptance.",
+    "component_validation": {
+      "status": "COMPONENT_VALIDATION_ONLY_NATIVE_ACCEPTANCE_NOT_RUN",
+      "source_input_commit": "a1b3969b49cfa98cc9415f1444bf191d939120f7",
+      "source_dirty": true,
+      "result_paths": [
+        "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T174250257175Z/result.json",
+        "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T174425506503Z/result.json",
+        "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T175144215383Z/result.json",
+        "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T175646797254Z/result.json"
+      ],
+      "note": "All snapshots are source-dirty component runs. They do not establish game Payload native callback, strict PreLogin, Backend admission, Playable, or teardown."
+    },
+    "dynamic_probe_history": [
+      {
+        "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/dynamic-live-20260907-235827-0c2f0160-harness.log",
+        "sha256": "d04c1d801d36b4f657984703a63a524b0899cdb5ebf49d1a434418c16ba7479b",
+        "status": "BLOCKED_BEFORE_PAYLOAD_PIPE",
+        "note": "Historical Execute=true diagnostic exited before Payload pipe readiness; no world, Grant, native admission, or Backend confirmation."
+      },
+      {
+        "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/dynamic-live-20260908-000457-80b21c92-harness.log",
+        "sha256": "37dee0ef3886a1c608126cab5d41a8d5001708d981b0ae4b61d02b1c0749de3d",
+        "status": "BLOCKED_WAITING_PAYLOAD_STATUS",
+        "note": "Historical Execute=true diagnostic timed out waiting for Payload status; no world, Grant, native admission, or Backend confirmation."
+      },
+      {
+        "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/dynamic-driver-finalize.err.log",
+        "sha256": "f23a0e87b19b7d23d100ff99ca4de35d71ebb9d4a713d9768968394cf63dbba4",
+        "status": "BLOCKED_AUTHORITY_READY_NOT_FOUND",
+        "note": "Historical finalize process reported no authority-ready request before deadline."
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "kind": "historical_payload_candidate_62F8",
+      "path": "C:/wksp/ProjectRebound/Payload/x64/Release/Payload.dll",
+      "sha256": "62f83bec866148f1244a2b0ebd59fd1a49a23d72757d9687c5eb8e81c71d7d5d",
+      "note": "Historical 62F8 candidate; not the current source state and not a final candidate.",
+      "bytes": 1929728,
+      "built_at_utc": "2026-09-07T15:10:01Z",
+      "status": "HISTORICAL_NOT_CURRENT"
+    },
+    {
+      "kind": "game_executable_fixed",
+      "path": "C:/Steam/steamapps/common/Boundary/ProjectBoundary/Binaries/Win64/ProjectBoundarySteam-Win64-Shipping.exe",
+      "sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+      "note": "Fixed RVA/hash gate verified."
+    },
+    {
+      "kind": "installed_payload_restored_original",
+      "path": "C:/Steam/steamapps/common/Boundary/ProjectBoundary/Binaries/Win64/Payload.dll",
+      "sha256": "6c7b5e05540ac72a6d7a9fa78f867917285fce00081156ee13d237aa4d6c24a3",
+      "note": "Exact original artifact restored after the local probe."
+    },
+    {
+      "kind": "payload_probe_candidate_retained",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/artifacts/Payload.dll.client-v2-probe-EFE72DCC4EE7BA4D0EA46DE6A415CE7222534C86809AFEF172507688B84C2C92",
+      "sha256": "efe72dcc4ee7ba4d0ea46de6a415ce7222534c86809afef172507688b84c2c92",
+      "note": "Historical EFE72 diagnostic candidate; retained only as prior probe evidence, not current/final.",
+      "status": "HISTORICAL_PROBE_CANDIDATE_NOT_FINAL"
+    },
+    {
+      "kind": "cmake_build",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/cmake-build-release-final.log",
+      "sha256": "0b1f1e1069e5c279e0997b689069b898ac049c9f5247d0982882a203e0a8659a"
+    },
+    {
+      "kind": "ctest",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/ctest-release-final.log",
+      "sha256": "1244298431ab865ddafb6610b2de06e7fddf008ad25d25af9758b05ee8ff663e"
+    },
+    {
+      "kind": "msbuild",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/payload-vcxproj-release-final.log",
+      "sha256": "a835fced83b5d273b1a7de908a7bc4f503437ca68e0375d5d9be176b90f10792"
+    },
+    {
+      "kind": "payload_restore",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/payload-restore-after-client-v2-probe.json",
+      "sha256": "7d28d4ea10b8b9a3363900da8be7d630467c212bccab82b9faa541e87700d7df"
+    },
+    {
+      "kind": "payload_deploy_probe",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/payload-deploy-steamauth-carrier-gs-client-v2-negative.json",
+      "sha256": "94a0a29c9d9557689db515442c9fdad93d048229ac0eb92097779298d26bfc3c"
+    },
+    {
+      "kind": "p2p_probe_observation",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/strict-p2p-gs-client-v2-observation-final.json",
+      "sha256": "f79a37ea5c538aa8d79bdd98f180d5824a061821de69b014d53e0e0b0a0dd5f8"
+    },
+    {
+      "kind": "p2p_probe_log",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/strict-p2p-gs-client-v2-probe.log",
+      "sha256": "ebb40bc4083a700cff0f668b5f2c6e446b6ca334590ec99ad9596a00e689060d"
+    },
+    {
+      "kind": "p2p_probe_launcher_stdout",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/strict-p2p-gs-client-v2-launcher.stdout.log",
+      "sha256": "2966296f2f91da549e57589fe04fce687e69751798b1a938e5c545b52f1fef08"
+    },
+    {
+      "kind": "p2p_probe_launcher_stderr",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/strict-p2p-gs-client-v2-launcher.stderr.log",
+      "sha256": "f01f4ada71fb3c002b27c835d6521d283177af99eadf338d805c631d0f096b8d",
+      "note": "UTF-16/NUL-containing launcher capture; platform identity is redacted from report and retained only in the private fixture file."
+    },
+    {
+      "kind": "steam_auth_harness_summary",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/steam-auth-owned-harness-summary.json",
+      "sha256": "695666c8a87a7e0f764a2c0e31ccff7119c4e70b3aec59df17951fc31ea3d1a2"
+    },
+    {
+      "kind": "steam_auth_harness_stdout",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/steam-auth-owned-harness.stdout.log",
+      "sha256": "9b6b88850617cc829cc70a28125638a42ac2e336971760cbf7d4378c509bf885"
+    },
+    {
+      "kind": "offline_abi_client",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/offline-abi-client-lifetime-relation-summary.json",
+      "sha256": "823f69928642f0e177af8b554a2636d5d2556afd9ac17b27dc52345a40311185"
+    },
+    {
+      "kind": "offline_abi_server",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/offline-abi-server-options-relation-summary.json",
+      "sha256": "262e737e1fbdd98552158bb650cfdd47737ca759347e9aa59e94396b9c3c99a5"
+    },
+    {
+      "kind": "native_abi_audit",
+      "path": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/native-abi-audit-nmt-login4-20260907.md",
+      "sha256": "7f0d3af361d3d9bb9027bd332ac9536d929a222514000c3bd8e23f85fa944f98"
+    },
+    {
+      "kind": "historical_binary_note",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/historical-binaries-not-retained.json",
+      "historical_binary_not_retained": true,
+      "note": "Historical EDE2/A7FB/31FB/AE73 binaries were overwritten and are not retained under the current build path; the EFE72 probe candidate remains separately retained.",
+      "sha256": "62d8e74ce7cd029e2dc41dd3567bc90521ea4b58d39903376acc37bb58a006ed"
+    },
+    {
+      "kind": "dedicated_component_harness",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/orchestrate-dedicated-one-real-steam-positive.ps1",
+      "sha256": "e2234f123692f72243adeb51b1dbad0d2ddeba96e3af01adc6ad8ebb42bed50b",
+      "note": "Guarded one-real-Steam Dedicated authority/client process harness; parser passed and latest dry-run is NOT_RUN. Initial allocation is separate from live authority/grant markers; process cleanup uses captured handles and no PID re-resolution."
+    },
+    {
+      "kind": "dedicated_component_harness_contract",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/dedicated-component-harness-contract.md",
+      "sha256": "e7e217a3cc1d905a6e832f69384be59f7c17bc3bcdada812fbbcaa463ac371b2",
+      "note": "Private marker/event contract: dynamic authority/grant scope, raw event channel, and scoped receipt commands."
+    },
+    {
+      "kind": "dedicated_component_harness_dryrun_summary",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/dedicated-component-20260907-154055-46b050b9/summary.json",
+      "sha256": "5aed20e4968c30d31b4500593140873b63d67b25f6c53c0a4e29ab24de40b1f2",
+      "note": "Latest dry-run summary; NOT_RUN by design, no deployment or game process."
+    },
+    {
+      "kind": "payload_component_validation_02D1",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T174425506503Z/Payload.dll",
+      "sha256": "02d1fe3d3fec6be556385a7de82940a8b426e7994eea215b1364cd289bfbd7c8",
+      "bytes": 1993216,
+      "status": "COMPONENT_ONLY_NATIVE_ACCEPTANCE_NOT_RUN",
+      "source_result": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T174425506503Z/result.json",
+      "note": "Last stable completed component snapshot before later source changes; no game acceptance."
+    },
+    {
+      "kind": "payload_component_validation_38F8_intermediate",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T175144215383Z/Payload.dll",
+      "sha256": "38f87ab3d3774babb37b2f20364b4353ff368b7aaa91377b24abcfb1f4df7089",
+      "bytes": 1995776,
+      "status": "INTERMEDIATE_NOT_FINAL",
+      "source_result": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T175144215383Z/result.json",
+      "note": "22/22 component snapshot; retained as intermediate history, not a final candidate."
+    },
+    {
+      "kind": "payload_component_candidate_0B71",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T175646797254Z/Payload.dll",
+      "sha256": "0b71c6e1df44bde819ab29b357542abbc29be70a337f248292fa729946c8dedb",
+      "bytes": 2000384,
+      "status": "COMPONENT_CANDIDATE_NATIVE_ACCEPTANCE_NOT_RUN",
+      "source_result": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T175646797254Z/result.json",
+      "note": "Latest completed component candidate with 22/22 CTest and successful MSBuild; Root review/commit and native acceptance are still pending."
+    },
+    {
+      "kind": "root_validation_174250_result",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T174250257175Z/result.json",
+      "sha256": "690374beec6036d6fc4d59ef1388b425967418f08c5ab1e85c75717c1c72c312",
+      "status": "HISTORICAL_21_OF_22_COMPONENT_RUN",
+      "note": "First Root validation: CTest 21/22, strict_roster_policy_tests failed, no DLL artifact, native acceptance not run."
+    },
+    {
+      "kind": "root_validation_174425_result",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T174425506503Z/result.json",
+      "sha256": "650a410987659828885b2e087c4c2406376e2b3c84d1ef1df0588892d7c18424",
+      "status": "COMPONENT_VALIDATION_RESULT",
+      "note": "Root validation: CTest 22/22 and Payload artifact 02D1; native acceptance not run."
+    },
+    {
+      "kind": "root_validation_175144_result",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T175144215383Z/result.json",
+      "sha256": "983883401a7411d7eb7e4eb24761328399434480caa80b648c0460bca2547897",
+      "status": "INTERMEDIATE_COMPONENT_VALIDATION_RESULT",
+      "note": "Root validation: CTest 22/22 and Payload artifact 38F8; intermediate only."
+    },
+    {
+      "kind": "root_validation_175646_result",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T175646797254Z/result.json",
+      "sha256": "cc3f53d09a82cf5d13112454f8f8fa69c040ffb041ec59d912f900ec6a9afa51",
+      "status": "LATEST_COMPONENT_VALIDATION_RESULT",
+      "note": "Latest Root validation: CTest 22/22 and Payload artifact 0B71; native acceptance not run."
+    },
+    {
+      "kind": "historical_payload_candidate_manifest",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/payload-candidate-hook-install-summary.json",
+      "sha256": "57783d715ad7205b42ea72d47629bc8ed8f4cc25fc4fb0bfbfdf0fda2e1f3ca4",
+      "status": "HISTORICAL_OFFLINE_ABI_ONLY",
+      "note": "Historical 31FB local-PVE installation probe manifest; original Payload was restored; no strict allocation or Grant."
+    },
+    {
+      "kind": "native_component_validation_receipt",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/native-component-validation-receipt-20260908.json",
+      "sha256": "fd106a7f6af10a016a7c5f1a5428ee4db1eecb4cf3419a23bb613b8c96b079f6",
+      "bytes": 3622,
+      "status": "LATEST_COMPONENT_VALIDATION_ONLY_NATIVE_ACCEPTANCE_NOT_RUN"
+    },
+    {
+      "kind": "payload_component_validation_041E",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T181547205587Z/Payload.dll",
+      "sha256": "041efede11d27e2dd4b0eb98a30c55e5efe8788d9cfe9f04e8811a47419a4a23",
+      "bytes": 2000896,
+      "status": "INTERMEDIATE_NOT_FINAL",
+      "source_result": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T181547205587Z/result.json",
+      "note": "22/22 CTest and build success; native acceptance not run; source input d764 dirty."
+    },
+    {
+      "kind": "payload_component_candidate_86CFC",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T181735449253Z/Payload.dll",
+      "sha256": "86cfc337262ec6033b075792cb792046749e35b99da5496dbc6f149851091d15",
+      "bytes": 2001408,
+      "status": "COMPONENT_CANDIDATE_NATIVE_ACCEPTANCE_NOT_RUN",
+      "source_result": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T181735449253Z/result.json",
+      "note": "Latest available component candidate; built from d764 dirty input, not current clean dfef, so not final."
+    },
+    {
+      "kind": "go_private_driver_test",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/go-driver-tests-20260908T20260907T182142Z/go-test.log",
+      "sha256": "f3c9ea858ff159ace95bf76df4453bd1f8eeb62afd495ab4cc4176ffea06f4c2",
+      "bytes": 1111,
+      "status": "PASS_UNIT_ONLY",
+      "source_manifest": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/go-driver-tests-20260908T20260907T182142Z/source-test-manifest.json",
+      "note": "9 Go unit tests passed; no database/game run."
+    },
+    {
+      "kind": "go_private_driver_source_manifest",
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/go-driver-tests-20260908T20260907T182142Z/source-test-manifest.json",
+      "sha256": "fcb3115a0a4f5583aa71d46ed4c28ad0518c778e7685b489684bf481e3d1ed0d",
+      "bytes": 675,
+      "status": "SOURCE_HASHED_TEST_INPUT"
+    }
+  ],
+  "tests": [
+    {
+      "command": "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\ctest.exe --test-dir build/strict-roster-current -C Release --output-on-failure",
+      "exit_code": 0,
+      "pass_count": 22,
+      "skip_names": [],
+      "log_path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T174425506503Z/ctest.log",
+      "note": "Root component validation 22/22; native acceptance not run."
+    },
+    {
+      "command": "C:/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/amd64/MSBuild.exe Payload/Payload.vcxproj /m:1 /nr:false /p:Configuration=Release /p:Platform=x64 /v:minimal",
+      "exit_code": 0,
+      "pass_count": null,
+      "skip_names": [],
+      "log_path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T174425506503Z/payload-build.log",
+      "note": "Produced immutable 02D1 component snapshot; native acceptance not run."
+    },
+    {
+      "command": "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\ctest.exe --test-dir build/strict-roster-current -C Release --output-on-failure",
+      "exit_code": 0,
+      "pass_count": 22,
+      "skip_names": [],
+      "log_path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T175144215383Z/ctest.log",
+      "note": "Root component validation 22/22 for the 38F8 intermediate snapshot; not a final candidate."
+    },
+    {
+      "command": "C:/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/amd64/MSBuild.exe Payload/Payload.vcxproj /m:1 /nr:false /p:Configuration=Release /p:Platform=x64 /v:minimal",
+      "exit_code": 0,
+      "pass_count": null,
+      "skip_names": [],
+      "log_path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T175144215383Z/payload-build.log",
+      "note": "Produced 38F8 intermediate snapshot; superseded by later component review."
+    },
+    {
+      "command": "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\ctest.exe --test-dir build/strict-roster-current -C Release --output-on-failure",
+      "exit_code": 0,
+      "pass_count": 22,
+      "skip_names": [],
+      "log_path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T175646797254Z/ctest.log",
+      "note": "Latest Root component validation 22/22; native acceptance not run."
+    },
+    {
+      "command": "C:/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/amd64/MSBuild.exe Payload/Payload.vcxproj /m:1 /nr:false /p:Configuration=Release /p:Platform=x64 /v:minimal",
+      "exit_code": 0,
+      "pass_count": null,
+      "skip_names": [],
+      "log_path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T175646797254Z/payload-build.log",
+      "note": "Produced latest 0B71 component candidate; final source commit and native acceptance are pending."
+    },
+    {
+      "command": "steam-auth-owned-harness.exe (fixed steam_api64.dll; separate client/server pipes; bounded callback pump)",
+      "exit_code": 0,
+      "pass_count": 1,
+      "skip_names": [
+        "game Payload callback integration",
+        "strict online Reserve/NativeAdmit/Confirm/Playable"
+      ],
+      "log_path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/steam-auth-owned-harness-summary.json",
+      "note": "Standalone API proof only; no ticket bytes or identity values are reported."
+    },
+    {
+      "command": "startgame.ps1 -StrictRosterAuthority -port=17788 -external=17788 then named-pipe payload_status/start_match_authority",
+      "exit_code": 0,
+      "pass_count": 1,
+      "skip_names": [
+        "positive allocation/Grant/native ticket/Playable",
+        "full Backend Reserve/Confirm/Release"
+      ],
+      "log_path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/strict-p2p-gs-client-v2-observation-final.json",
+      "note": "Negative diagnostic: ready=false/status=blocked and client_login_pending; wrapper exit=-1 is controlled cleanup, not a natural crash."
+    },
+    {
+      "command": "Tools/PVE/start-local-pve.ps1 plus bounded Frida observers",
+      "exit_code": 0,
+      "pass_count": 3,
+      "skip_names": [
+        "strict online positive acceptance"
+      ],
+      "log_path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/offline-abi-server-options-relation-summary.json",
+      "note": "OFFLINE_ABI_ONLY evidence, not strict online acceptance."
+    },
+    {
+      "command": "PowerShell parser plus orchestrate-dedicated-one-real-steam-positive.ps1 -Execute:$false with backend allocation-only fixture (latest)",
+      "exit_code": 0,
+      "pass_count": 1,
+      "skip_names": [
+        "candidate deployment",
+        "Dedicated authority/client startup",
+        "live backend authority/grant markers",
+        "remote PreLogin",
+        "Reserve/NativeAdmit/Confirm/Playable"
+      ],
+      "log_path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/dedicated-component-20260907-154055-46b050b9/summary.json",
+      "note": "Parser and preflight/dry-run passed; outcome=NOT_RUN. No fixture secrets logged, no Payload deployed, no game process started. Latest summary is retained separately."
+    },
+    {
+      "command": "go test -count=1 -v ./.tmp-native-fixture",
+      "exit_code": 0,
+      "pass_count": 9,
+      "skip_names": [],
+      "log_path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/go-driver-tests-20260908T20260907T182142Z/go-test.log",
+      "log_sha256": "f3c9ea858ff159ace95bf76df4453bd1f8eeb62afd495ab4cc4176ffea06f4c2",
+      "source_manifest": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/go-driver-tests-20260908T20260907T182142Z/source-test-manifest.json",
+      "source_manifest_sha256": "fcb3115a0a4f5583aa71d46ed4c28ad0518c778e7685b489684bf481e3d1ed0d",
+      "note": "Private diagnostic driver unit tests only; no fixture preparation, database mutation, Payload deployment, or game process."
+    }
+  ],
+  "issues": [
+    {
+      "id": "BP-009",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:/wksp/ProjectRebound/Payload/Communication/CommandProtocol.cpp",
+        "C:/wksp/ProjectRebound/Payload/Tests/CommandProtocolTests.cpp",
+        "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/payload-wire-fixtures.jsonl"
+      ],
+      "note": "Source: strict framing/request correlation and C++-encoded fixtures are implemented and covered. Acceptance: PARTIAL because this run did not execute a live Toolbox/native process-boundary exchange."
+    },
+    {
+      "id": "BP-019",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:/wksp/ProjectRebound/Payload/dllmain.cpp:238",
+        "C:/wksp/ProjectRebound/Payload/Admission/StrictRosterAdmissionGate.h:12",
+        "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/strict-p2p-gs-client-v2-observation-final.json"
+      ],
+      "note": "Source: verified-executable, pipe-owner, PID, timeout, and fail-closed readiness checks are implemented. Acceptance: PARTIAL because the guarded Dedicated live run was prepared but not executed."
+    },
+    {
+      "id": "BP-020",
+      "implementation": "implemented",
+      "acceptance": "BLOCKED",
+      "evidence": [
+        "C:/wksp/ProjectRebound/Payload/Hooks/Hooks.cpp:593",
+        "C:/wksp/ProjectRebound/Payload/Hooks/Hooks.cpp:693",
+        "C:/wksp/ProjectRebound/Payload/Hooks/StrictRosterSteamAuth.cpp",
+        "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/steam-auth-owned-harness-summary.json"
+      ],
+      "note": "Source: the online path is fail-closed and has owned Steam GameServer callback pumping, exact ticket/result matching, and bounded native login gating. Acceptance: BLOCKED because the running game PreLogin integration and backend chain were not positively exercised."
+    },
+    {
+      "id": "BP-021",
+      "implementation": "implemented",
+      "acceptance": "BLOCKED",
+      "evidence": [
+        "C:/wksp/ProjectRebound/Payload/ClientLogic/ClientLogic.cpp:1478",
+        "C:/wksp/ProjectRebound/Payload/Hooks/Hooks.cpp:748",
+        "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/offline-abi-client-lifetime-relation-summary.json"
+      ],
+      "note": "Source: client transition/ticket timeout, cancellation, and structured terminal handling are implemented. Acceptance: BLOCKED because no strict online WorldReady/Playable run reached the live travel boundary."
+    },
+    {
+      "id": "BP-022",
+      "implementation": "implemented",
+      "acceptance": "PASS",
+      "evidence": [
+        "C:/wksp/ProjectRebound/Payload/Communication/CommandFramework.cpp",
+        "C:/wksp/ProjectRebound/Payload/Tests/CommandFrameworkTests.cpp",
+        "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/payload-wire-fixtures.jsonl"
+      ],
+      "note": "Join request_id is required and structured accepted/code/message semantics are covered by C++ tests and encoded fixtures; cross-language parser evidence is owned by Toolbox."
+    },
+    {
+      "id": "BP-023",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:/wksp/ProjectRebound/Payload/Communication/CommandFramework.cpp",
+        "C:/wksp/ProjectRebound/Payload/Tests/CommandFrameworkTests.cpp"
+      ],
+      "note": "Source: seven-command framing, request IDs, bounded errors, and structured unverified-vs-busy results are implemented. Acceptance: PARTIAL because the live client/server exchange was not run."
+    },
+    {
+      "id": "BP-024",
+      "implementation": "implemented",
+      "acceptance": "BLOCKED",
+      "evidence": [
+        "C:/wksp/ProjectRebound/Payload/Hooks/Hooks.cpp:1076",
+        "C:/wksp/ProjectRebound/Payload/dllmain.cpp:1126",
+        "C:/wksp/ProjectRebound/Payload/Hooks/StrictRosterSteamAuth.cpp:585"
+      ],
+      "note": "Source: lifecycle/cleanup state is scoped to allocation, world, route, generation, and native teardown. Acceptance: BLOCKED because no strict online lifecycle/restart run was executed."
+    },
+    {
+      "id": "BP-026",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:/wksp/ProjectRebound/Payload/Hooks/Hooks.cpp:1015",
+        "C:/wksp/ProjectRebound/Payload/Admission/StrictRosterPolicy.h",
+        "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/ctest-steamauth-carrier-gs-client-v2.log"
+      ],
+      "note": "Source: owned callback/worker shutdown and scoped cleanup paths are implemented. Acceptance: PARTIAL because no live positive roster application and repeated strict lifecycle run was executed."
+    },
+    {
+      "id": "BP-027",
+      "implementation": "implemented",
+      "acceptance": "BLOCKED",
+      "evidence": [
+        "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/steam-platform-id-private.manifest.json",
+        "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/strict-p2p-gs-client-v2-observation-final.json"
+      ],
+      "note": "Source review is recorded separately from QA acceptance. This evidence_class=V item has no independent modification commit. Acceptance remains BLOCKED: only one real Steam identity was available, two additional identities/hosts are missing, and gameplay/respawn/next-world/reconnect matrix was not executed.",
+      "evidence_class": "V",
+      "modification_commits": [],
+      "no_modification_commit_reason": "QA acceptance gate: no independent source modification was attributable solely to BP-027. The source seat/team/control path is recorded, but the gameplay/respawn/next-world QA scenario was not run.",
+      "source_references": [
+        "C:/wksp/ProjectRebound/Payload/Hooks/Hooks.cpp",
+        "C:/wksp/ProjectRebound/Payload/Admission/StrictRosterPolicy.h",
+        "C:/wksp/ProjectRebound/Payload/Communication/CommandFramework.cpp"
+      ],
+      "acceptance_scope": "QA gameplay/respawn/next-world/reconnect matrix; source references are not acceptance evidence."
+    },
+    {
+      "id": "BP-032",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:/wksp/ProjectRebound/Payload/dllmain.cpp:1483",
+        "C:/wksp/ProjectRebound/Payload/Tests/CommandLinePolicyTests.cpp",
+        "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/strict-p2p-gs-client-v2-observation-final.json"
+      ],
+      "note": "Source: legacy online RoomAuthority/heartbeat fallback is rejected and strict role routing is explicit. Acceptance: PARTIAL because no positive strict service run was performed."
+    },
+    {
+      "id": "BP-038",
+      "implementation": "partial",
+      "acceptance": "BLOCKED",
+      "evidence": [
+        "C:/wksp/ProjectRebound/Payload/Hooks/Hooks.cpp:748",
+        "C:/wksp/ProjectRebound/Payload/ClientLogic/NativeLoginGrantPolicy.h",
+        "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/native-abi-audit-nmt-login4-20260907.md",
+        "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/offline-abi-client-lifetime-relation-summary.json"
+      ],
+      "note": "Source: the fixed-callsite NMT grant carrier and sensitive option stripping are implemented with fixed hash/size gates. Acceptance: BLOCKED because dynamic no-retain/no-free serializer proof and a positive game handshake remain incomplete."
+    },
+    {
+      "id": "BP-039",
+      "implementation": "partial",
+      "acceptance": "BLOCKED",
+      "evidence": [
+        "C:/wksp/ProjectRebound/Payload/Hooks/StrictRosterSteamAuth.cpp",
+        "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/steam-auth-owned-harness-summary.json",
+        "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/strict-p2p-gs-client-v2-observation-final.json"
+      ],
+      "note": "Source: signed Grant, exact nonce/JTI pending state, Steam callback proof, native Team/Camp readback, and backend receipt hooks are implemented. Acceptance: BLOCKED because actual game PreLogin, seat application, and Playable were not positively run."
+    },
+    {
+      "id": "BP-040",
+      "implementation": "implemented",
+      "acceptance": "BLOCKED",
+      "evidence": [
+        "C:/wksp/ProjectRebound/Payload/Hooks/Hooks.cpp:631",
+        "C:/wksp/ProjectRebound/Payload/Hooks/StrictRosterSteamAuth.cpp:478",
+        "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/steam-auth-owned-harness.stdout.log"
+      ],
+      "note": "Source: P2P HOST identity and explicit authority role checks are implemented fail-closed. Acceptance: BLOCKED because the legal positive HOST start was not completed in the fixed game."
+    },
+    {
+      "id": "BP-041",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:/wksp/ProjectRebound/Payload/Admission/StrictRosterPolicy.h",
+        "C:/wksp/ProjectRebound/Payload/Hooks/StrictRosterSteamAuth.cpp:409",
+        "C:/wksp/ProjectRebound/Payload/Hooks/Hooks.cpp:677"
+      ],
+      "note": "Source: per-handshake nonce and route/generation scope checks are implemented. Acceptance: PARTIAL because live backend refresh/reconnect evidence was not run."
+    },
+    {
+      "id": "BP-042",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:/wksp/ProjectRebound/Payload/Hooks/Hooks.cpp:1000",
+        "C:/wksp/ProjectRebound/Payload/Admission/StrictRosterPolicy.h",
+        "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/ctest-steamauth-carrier-gs-client-v2.log"
+      ],
+      "note": "Source: grant staging/consumption, ticket cancellation, revocation, and scoped native failure paths are implemented. Acceptance: PARTIAL because live retry/revocation/lease evidence was not run."
+    },
+    {
+      "id": "BP-043",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:/wksp/ProjectRebound/Payload/dllmain.cpp:1126",
+        "C:/wksp/ProjectRebound/Payload/dllmain.cpp:1304",
+        "C:/wksp/ProjectRebound/Payload/Hooks/StrictRosterSteamAuth.cpp:585"
+      ],
+      "note": "Source: recovery requires new allocation/route/generation and clears old live native state. Acceptance: PARTIAL because a real authority recovery sequence was not run."
+    },
+    {
+      "id": "BP-044",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:/wksp/ProjectRebound/Payload/dllmain.cpp:1126",
+        "C:/wksp/ProjectRebound/Payload/Hooks/Hooks.cpp:1076"
+      ],
+      "note": "Source: clear/release validates attempt/session/world/roster/route and preserves cleanup-pending scope. Acceptance: PARTIAL because delayed stale-clear against a live strict allocation was not exercised."
+    },
+    {
+      "id": "BP-047",
+      "implementation": "partial",
+      "acceptance": "BLOCKED",
+      "evidence": [
+        "C:/wksp/ProjectRebound/Payload/dllmain.cpp:1126",
+        "C:/wksp/ProjectRebound/Payload/dllmain.cpp:1304",
+        "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/strict-gs-v4-managed-negative-observation-final.json"
+      ],
+      "note": "Source: final ACK is held behind observed world/NetDriver teardown and Dedicated process-exit supervision. Acceptance: BLOCKED because trusted teardown/reuse evidence was not executed."
+    }
+  ],
+  "static_native_evidence": {
+    "fixed_exe": "C:/Steam/steamapps/common/Boundary/ProjectBoundary/Binaries/Win64/ProjectBoundarySteam-Win64-Shipping.exe; SHA256 181c49ffb522b3eb01014C84FD9D3A2A5C0B66AE80A6A6ADDFF4BDD6F8125843",
+    "client_serializer": "RVA 0x0189D040; NMT_Login field2 setup/call/return RVAs 0x03484F2A/0x03484F35/0x03484F3A; evidence C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/native-abi-audit-nmt-login4-20260907.md",
+    "server_login": "RVA 0x036CDCE0; field2 URL/options relation reaches PB and Engine PreLogin in OFFLINE_ABI_ONLY trace; no token contents logged.",
+    "ida": "No usable IDA session/IDB was available in the bounded attempt; no RVA was guessed beyond fixed evidence.",
+    "logging_boundary": "StrictRosterPreLogin passes a copy with ReboundGrant and ReboundSteamTicket stripped to the original native PreLogin call. A fixed-exe runtime sensitive-log injection test was not run; Payload logs do not print ticket/grant contents."
+  },
+  "working_tree_follow_up": "Root must retain dfef as the current clean Payload product commit, keep 041E/86CFC tied to their d764 dirty source snapshots, and run a clean component validation plus guarded one-real-Steam strict component path. Native authority proof and strict_online_positive_acceptance remain NOT_RUN.",
+  "status_summary": {
+    "source_input_commit": "d764f478b8bb16c648e3f611320e846467cbd81f",
+    "source_dirty": true,
+    "latest_completed_component_snapshot": "root-validation-20260907T181735449253Z",
+    "latest_completed_component_sha256": "86cfc337262ec6033b075792cb792046749e35b99da5496dbc6f149851091d15",
+    "latest_completed_component_bytes": 2001408,
+    "latest_completed_component_status": "COMPONENT_CANDIDATE_NATIVE_ACCEPTANCE_NOT_RUN",
+    "last_stable_component_snapshot": "root-validation-20260907T174425506503Z",
+    "last_stable_component_sha256": "02d1fe3d3fec6be556385a7de82940a8b426e7994eea215b1364cd289bfbd7c8",
+    "final_payload_candidate": "NOT_AVAILABLE",
+    "native_authority_admission_verified": false,
+    "strict_online_positive_acceptance": "NOT_RUN",
+    "note": "Current product source is dfef clean; latest 86CFC is a d764 dirty-input component candidate. Native positive acceptance and final candidate promotion remain pending.",
+    "current_source_commit": "dfef93d12d0c4d6dfae5eba7bfe176e5d15cb37d",
+    "current_source_dirty": false
+  },
+  "historical_candidates": [
+    {
+      "label": "62F8",
+      "sha256": "62f83bec866148f1244a2b0ebd59fd1a49a23d72757d9687c5eb8e81c71d7d5d",
+      "status": "HISTORICAL_NOT_CURRENT",
+      "note": "Prior candidate referenced by old report and dynamic diagnostics; do not use as current/final."
+    },
+    {
+      "label": "EFE72",
+      "sha256": "efe72dcc4ee7ba4d0ea46de6a415ce7222534c86809afef172507688b84c2c92",
+      "status": "HISTORICAL_PROBE_NOT_FINAL",
+      "note": "Prior bounded P2P negative diagnostic."
+    },
+    {
+      "label": "02D1",
+      "sha256": "02d1fe3d3fec6be556385a7de82940a8b426e7994eea215b1364cd289bfbd7c8",
+      "status": "LAST_STABLE_COMPONENT_ONLY",
+      "note": "22/22 component snapshot; native acceptance not run."
+    },
+    {
+      "label": "38F8",
+      "sha256": "38f87ab3d3774babb37b2f20364b4353ff368b7aaa91377b24abcfb1f4df7089",
+      "status": "INTERMEDIATE_NOT_FINAL",
+      "note": "22/22 component snapshot; later superseded by 0B71 component candidate."
+    },
+    {
+      "label": "0B71",
+      "sha256": "0b71c6e1df44bde819ab29b357542abbc29be70a337f248292fa729946c8dedb",
+      "status": "LATEST_COMPONENT_CANDIDATE_NOT_NATIVE_ACCEPTED",
+      "note": "22/22 component candidate; final source commit and native online acceptance are pending."
+    }
+  ],
+  "historical_tests": [
+    {
+      "command": "cmake --build build/payload-tests --config Release",
+      "exit_code": 0,
+      "pass_count": 20,
+      "skip_names": [],
+      "log_path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/cmake-build-release-final.log",
+      "status": "HISTORICAL_SUPERSEDED",
+      "note": "Historical 62F8-era component build/test evidence; superseded by root-validation snapshots below."
+    },
+    {
+      "command": "ctest --test-dir build/payload-tests -C Release --output-on-failure",
+      "exit_code": 0,
+      "pass_count": 20,
+      "skip_names": [],
+      "log_path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/ctest-release-final.log",
+      "status": "HISTORICAL_SUPERSEDED",
+      "note": "Historical 62F8-era component build/test evidence; superseded by root-validation snapshots below."
+    },
+    {
+      "command": "MSBuild Payload/Payload.vcxproj /m:1 /nr:false /p:Configuration=Release /p:Platform=x64 /v:minimal",
+      "exit_code": 0,
+      "pass_count": null,
+      "skip_names": [],
+      "log_path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/payload-vcxproj-release-final.log",
+      "status": "HISTORICAL_SUPERSEDED",
+      "note": "Historical 62F8-era component build/test evidence; superseded by root-validation snapshots below."
+    }
+  ],
+  "validation_history": [
+    {
+      "run_id": "root-validation-20260907T174250257175Z",
+      "result_path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T174250257175Z/result.json",
+      "result_sha256": "690374beec6036d6fc4d59ef1388b425967418f08c5ab1e85c75717c1c72c312",
+      "source_input_commit": "a1b3969b49cfa98cc9415f1444bf191d939120f7",
+      "source_dirty": true,
+      "ctest_total": 22,
+      "ctest_passed": 21,
+      "ctest_failed": 1,
+      "failed_tests": [
+        "strict_roster_policy_tests"
+      ],
+      "payload_artifact": null,
+      "status": "HISTORICAL_COMPONENT_TEST_FAILURE_NATIVE_ACCEPTANCE_NOT_RUN"
+    },
+    {
+      "run_id": "root-validation-20260907T174425506503Z",
+      "result_path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T174425506503Z/result.json",
+      "result_sha256": "650a410987659828885b2e087c4c2406376e2b3c84d1ef1df0588892d7c18424",
+      "source_input_commit": "a1b3969b49cfa98cc9415f1444bf191d939120f7",
+      "source_dirty": true,
+      "ctest_total": 22,
+      "ctest_passed": 22,
+      "ctest_failed": 0,
+      "failed_tests": [],
+      "payload_artifact": {
+        "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T174425506503Z/Payload.dll",
+        "sha256": "02d1fe3d3fec6be556385a7de82940a8b426e7994eea215b1364cd289bfbd7c8",
+        "bytes": 1993216,
+        "status": "COMPONENT_ONLY_NATIVE_ACCEPTANCE_NOT_RUN"
+      },
+      "status": "COMPLETED_COMPONENT_VALIDATION_NATIVE_ACCEPTANCE_NOT_RUN"
+    },
+    {
+      "run_id": "root-validation-20260907T175144215383Z",
+      "result_path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T175144215383Z/result.json",
+      "result_sha256": "983883401a7411d7eb7e4eb24761328399434480caa80b648c0460bca2547897",
+      "source_input_commit": "a1b3969b49cfa98cc9415f1444bf191d939120f7",
+      "source_dirty": true,
+      "ctest_total": 22,
+      "ctest_passed": 22,
+      "ctest_failed": 0,
+      "failed_tests": [],
+      "payload_artifact": {
+        "kind": "payload_component_validation_38F8_intermediate",
+        "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T175144215383Z/Payload.dll",
+        "sha256": "38f87ab3d3774babb37b2f20364b4353ff368b7aaa91377b24abcfb1f4df7089",
+        "bytes": 1995776,
+        "status": "INTERMEDIATE_NOT_FINAL",
+        "source_result": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T175144215383Z/result.json",
+        "note": "22/22 component snapshot; retained as intermediate history, not a final candidate."
+      },
+      "status": "INTERMEDIATE_COMPONENT_VALIDATION_NOT_FINAL"
+    },
+    {
+      "run_id": "root-validation-20260907T175646797254Z",
+      "result_path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T175646797254Z/result.json",
+      "result_sha256": "cc3f53d09a82cf5d13112454f8f8fa69c040ffb041ec59d912f900ec6a9afa51",
+      "source_input_commit": "a1b3969b49cfa98cc9415f1444bf191d939120f7",
+      "source_dirty": true,
+      "ctest_total": 22,
+      "ctest_passed": 22,
+      "ctest_failed": 0,
+      "failed_tests": [],
+      "payload_artifact": {
+        "kind": "payload_component_candidate_0B71",
+        "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T175646797254Z/Payload.dll",
+        "sha256": "0b71c6e1df44bde819ab29b357542abbc29be70a337f248292fa729946c8dedb",
+        "bytes": 2000384,
+        "status": "COMPONENT_CANDIDATE_NATIVE_ACCEPTANCE_NOT_RUN",
+        "source_result": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T175646797254Z/result.json",
+        "note": "Latest completed component candidate with 22/22 CTest and successful MSBuild; Root review/commit and native acceptance are still pending."
+      },
+      "status": "LATEST_COMPONENT_CANDIDATE_NATIVE_ACCEPTANCE_NOT_RUN"
+    },
+    {
+      "run_id": "root-validation-20260907T181547205587Z",
+      "result_path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T181547205587Z/result.json",
+      "result_sha256": "ac8983cb388336e132a76c764c1a630b477e2f3244614ec7483a5b5db558cbbe",
+      "source_input_commit": "d764f478b8bb16c648e3f611320e846467cbd81f",
+      "source_dirty": true,
+      "ctest_total": 22,
+      "ctest_passed": 22,
+      "ctest_failed": 0,
+      "failed_tests": [],
+      "payload_artifact": {
+        "kind": "payload_component_validation_041E",
+        "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T181547205587Z/Payload.dll",
+        "sha256": "041efede11d27e2dd4b0eb98a30c55e5efe8788d9cfe9f04e8811a47419a4a23",
+        "bytes": 2000896,
+        "status": "INTERMEDIATE_COMPONENT_NATIVE_ACCEPTANCE_NOT_RUN"
+      },
+      "status": "INTERMEDIATE_COMPONENT_VALIDATION_NOT_FINAL"
+    },
+    {
+      "run_id": "root-validation-20260907T181735449253Z",
+      "result_path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T181735449253Z/result.json",
+      "result_sha256": "44eedf0b7d7466408c18a54037b749582a099e359f4db377881be8005846d0d8",
+      "source_input_commit": "d764f478b8bb16c648e3f611320e846467cbd81f",
+      "source_dirty": true,
+      "ctest_total": 22,
+      "ctest_passed": 22,
+      "ctest_failed": 0,
+      "failed_tests": [],
+      "payload_artifact": {
+        "kind": "payload_component_candidate_86CFC",
+        "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/root-validation-20260907T181735449253Z/Payload.dll",
+        "sha256": "86cfc337262ec6033b075792cb792046749e35b99da5496dbc6f149851091d15",
+        "bytes": 2001408,
+        "status": "COMPONENT_CANDIDATE_NATIVE_ACCEPTANCE_NOT_RUN"
+      },
+      "status": "LATEST_COMPONENT_CANDIDATE_NATIVE_ACCEPTANCE_NOT_RUN"
+    }
+  ],
+  "runtime_blockers": [
+    {
+      "classification": "implementation_and_acceptance",
+      "blocker": "Game Payload Steam callback/PreLogin integration is not positively proven for the same native connection.",
+      "impact": "native_authority_admission_verified remains false; standalone Steam API callback proof is not a game Payload proof, so strict online positive acceptance remains NOT_RUN.",
+      "evidence": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/steam-auth-owned-harness-summary.json; C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/strict-p2p-gs-client-v2-observation-final.json"
+    },
+    {
+      "classification": "implementation_proof",
+      "blocker": "Fixed NMT serializer temporary-view ownership and complete Grant/LoginOptions logging boundary remain only partially dynamically proven.",
+      "impact": "The source remains fail-closed; no empty token, strict disable, stale proof, or direct open is accepted.",
+      "evidence": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/native-abi-audit-nmt-login4-20260907.md; C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/offline-abi-client-lifetime-relation-summary.json"
+    },
+    {
+      "classification": "unexecuted_component_acceptance",
+      "blocker": "The live signed allocation/Grant one-real-Steam Dedicated component run was not completed.",
+      "impact": "Backend Reserve -> native Steam possession -> Team/Camp -> ConfirmConnected -> Connected/Playable and scoped Release remain NOT_RUN.",
+      "evidence": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/dynamic-allocation-private.json; C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/dynamic-live-20260907-235827-0c2f0160-harness.log; C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/dynamic-live-20260908-000457-80b21c92-harness.log"
+    },
+    {
+      "classification": "external_environment",
+      "blocker": "Two additional Steam identities/hosts are unavailable for the required three-account matrix.",
+      "impact": "Full three-player gameplay, reconnect, next-round, and multi-host acceptance is BLOCKED by missing external test resources; this is separate from the installed game/Steam availability.",
+      "evidence": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/steam-platform-id-private.manifest.json"
+    },
+    {
+      "classification": "unexecuted_cleanup_acceptance",
+      "blocker": "Trusted Dedicated world/NetDriver teardown or supervisor-verified process exit was not positively exercised.",
+      "impact": "native_cleared=true and allocation reuse cannot be claimed from client notification or Policy.Reset alone.",
+      "evidence": "C:/wksp/ProjectRebound/Payload/dllmain.cpp:1126; C:/wksp/ProjectRebound/Payload/dllmain.cpp:1304"
+    }
+  ],
+  "harness_protocol_audit": {
+    "status": "MIXED_FIXED_PRIVATE_DRIVER_OPEN_PS",
+    "observed_at_utc": "2026-09-07T18:24:25.6030936Z",
+    "go_path": "C:/wksp/ProjectRebound/Backend/.tmp-native-fixture/main.go",
+    "go_sha256": "7F506F0A44545A7274D7CA4A89A932B0C05C35BD8B72A76E93DA191CF92051F0",
+    "ps_path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/orchestrate-dedicated-one-real-steam-positive.ps1",
+    "ps_sha256": "29D3A3ACCAAB1F1CD39D078E0AD1A4301F9A98A467794227BEEA025C70C273C9",
+    "rust_parser_path": "C:/wksp/ProjectReboundToolbox/src/server/pipe.rs",
+    "rust_parser_sha256": "F198D30A0D6DEC02191186713F792AE18064A019ED791EC406BCC492772A5B09",
+    "findings": [
+      {
+        "id": "HARNESS-SEQ-001",
+        "classification": "protocol_contract",
+        "severity": "high",
+        "implementation": "fixed_in_private_driver",
+        "acceptance": "PASS_UNIT_TEST",
+        "finding": "Driver now requires next_sequence and continuous strictly increasing events, rejecting gaps, replays with changed data, and out-of-order batches.",
+        "evidence": "C:/wksp/ProjectRebound/Backend/.tmp-native-fixture/main.go:622-660; C:/wksp/ProjectRebound/Backend/.tmp-native-fixture/main_test.go:88-132; Rust contract C:/wksp/ProjectReboundToolbox/src/server/pipe.rs:1034-1075",
+        "required_follow_up": "PS event envelope must emit next_sequence equal to the last event sequence."
+      },
+      {
+        "id": "HARNESS-CLEANUP-002",
+        "classification": "lifecycle_safety",
+        "severity": "high",
+        "implementation": "fixed_in_private_driver",
+        "acceptance": "PARTIAL_UNIT_ONLY",
+        "finding": "On driver error/timeout, unconfirmed RESERVED state attempts exact ReleaseAdmission; after ConfirmConnected/CONNECTED it records cleanup_pending and uses the isolated-fixture AdminForceAbort only, never synthetic DISCONNECTED.",
+        "evidence": "C:/wksp/ProjectRebound/Backend/.tmp-native-fixture/main.go:510-620,662-760; main_test.go:169-207",
+        "required_follow_up": "Live DB and owned-client disconnect must prove backend cleanup closure; no game/fixture run was made here."
+      },
+      {
+        "id": "HARNESS-RECEIPT-003",
+        "classification": "protocol_contract",
+        "severity": "medium",
+        "implementation": "fixed_in_private_driver",
+        "acceptance": "PASS_UNIT_SCOPE",
+        "finding": "Obsolete 02-confirm-connected.json emission removed; only canonical 02-confirm-connection.json remains.",
+        "evidence": "C:/wksp/ProjectRebound/Backend/.tmp-native-fixture/main.go:574-578",
+        "required_follow_up": "PS consumes canonical receipt only."
+      },
+      {
+        "id": "HARNESS-EVIDENCE-005",
+        "classification": "evidence_binding",
+        "severity": "medium",
+        "implementation": "fixed_in_private_driver_partial_ps",
+        "acceptance": "PARTIAL",
+        "finding": "Go final backend evidence now binds roster/player/JTI/native nonce/connection generation and all stage/final sequences; current PS final check still reads only broad attempt/session/world/route fields.",
+        "evidence": "C:/wksp/ProjectRebound/Backend/.tmp-native-fixture/main.go:449-465; PS snapshot :1098-1112",
+        "required_follow_up": "PS owner must require complete final evidence scope."
+      },
+      {
+        "id": "HARNESS-PLAYABLE-004",
+        "classification": "component_acceptance_cleanup",
+        "severity": "high",
+        "implementation": "open_in_ps",
+        "acceptance": "NOT_RUN",
+        "finding": "Current PS still initiates client teardown only when connected and playable; one real Steam plus synthetic roster may reach CONNECTED without Playable/RoundStart, leaving no native DISCONNECTED/04-release before deadline cleanup.",
+        "evidence": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/orchestrate-dedicated-one-real-steam-positive.ps1:1087-1095",
+        "required_follow_up": "After exact CONNECTED, bounded owned disconnect must run even when Playable is not reached; report PARTIAL/PLAYABLE_NOT_REACHED, never PASS. If CONNECTED never occurs, explicit backend release/cancel is required."
+      },
+      {
+        "id": "HARNESS-PLAYABLE-006",
+        "classification": "evidence_binding",
+        "severity": "medium",
+        "implementation": "open_in_ps",
+        "acceptance": "NOT_RUN",
+        "finding": "PS derives Playable from payload_status.match.state, which has no attempt/world/player/JTI/connection-generation binding.",
+        "evidence": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/orchestrate-dedicated-one-real-steam-positive.ps1:1077-1082; C:/wksp/ProjectReboundToolbox/src/server/pipe.rs:1500-1530",
+        "required_follow_up": "Keep Playable NOT_RUN/PARTIAL until exact admission generation correlation exists."
+      },
+      {
+        "id": "HARNESS-READY-007",
+        "classification": "fixture_isolation",
+        "severity": "high",
+        "implementation": "fixed_in_private_driver",
+        "acceptance": "PASS_UNIT_SCOPE",
+        "finding": "Main now requires current_database name rebound_native_* before migration/prepare can write the private fixture verified flag.",
+        "evidence": "C:/wksp/ProjectRebound/Backend/.tmp-native-fixture/main.go:354-367; main_test.go:150-160",
+        "required_follow_up": "Keep every dynamic run on a newly isolated rebound_native_* database; no external DB was touched here."
+      }
+    ]
+  }
+}

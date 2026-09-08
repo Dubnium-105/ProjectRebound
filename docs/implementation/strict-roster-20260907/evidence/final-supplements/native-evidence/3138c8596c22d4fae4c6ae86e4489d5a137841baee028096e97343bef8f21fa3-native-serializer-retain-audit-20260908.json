@@ -1,0 +1,294 @@
+{
+  "schema": "native-serializer-retain-audit-v1",
+  "generated_at_utc": "2026-09-07T22:28:02.6619286Z",
+  "mode": "READ_ONLY_AUDIT",
+  "status": "PARTIAL_EVIDENCE_NO_DYNAMIC_RETAIN_PROOF",
+  "scope": "BP038 client NMT_Login field2 borrowed-FString serializer ownership/lifetime",
+  "execution": {
+    "game_started_by_this_audit": false,
+    "process_attached_by_this_audit": false,
+    "source_edited": false,
+    "build_started": false,
+    "credentials_or_url_bytes_read": false,
+    "strict_online_acceptance": "NOT_RUN",
+    "offline_observations_are_not_product_acceptance": true
+  },
+  "fixed_image": {
+    "path": "C:\\Steam\\steamapps\\common\\Boundary\\ProjectBoundary\\Binaries\\Win64\\ProjectBoundarySteam-Win64-Shipping.exe",
+    "sha256": "181C49FFB522B3EB01014C84FD9D3A2A5C0B66AE80A6A6ADDFF4BDD6F8125843",
+    "image_base": "0x140000000"
+  },
+  "source_snapshot_observed": [
+    {
+      "path": "Payload\\Hooks\\Hooks.cpp",
+      "sha256": "6CFD4273DBD140A5EC92F44F2AB5B0C06DF351CDC486227B9A75A84C0ED9A592",
+      "locations": [
+        "948-1024"
+      ],
+      "finding": "The fixed field2 return-site hook builds an owned std::wstring, passes only a 16-byte RawNativeFString view to the pinned serializer, then clears the owned string after the synchronous call. The original native field2 is not replaced or released by this hook."
+    },
+    {
+      "path": "Payload\\ClientLogic\\ClientLogic.cpp",
+      "sha256": "C05A0C0FB8CE0735FBB95A5D28BCCEB33ED4E020001AFFBB9DB8B061744EFD75",
+      "locations": [
+        "114-188",
+        "1531-1588",
+        "1658-1711",
+        "2305-2345",
+        "2440-2482"
+      ],
+      "finding": "The signed Grant and encoded Steam ticket stay staged across reliable retransmits and are cleared only at terminal/cancel/failure boundaries; native_grant_injected is a staging/hook completion bit, not a serializer ownership proof."
+    },
+    {
+      "path": "Payload\\ClientLogic\\NativeLoginGrantPolicy.h",
+      "sha256": "42A3B63393FEB1B75BDAC4A7588B7D6F2C38EE63AEE0453A33FD69661C876002",
+      "locations": [
+        "357-480"
+      ],
+      "finding": "BuildUrlWithGrantAndSteamTicket creates an owned terminal-NUL std::wstring and does not adopt or mutate caller-owned FString storage; this is a transport/storage guarantee, not proof that the engine serializer does not retain the borrowed view."
+    },
+    {
+      "path": "Payload\\ClientLogic\\ClientLogic.h",
+      "sha256": "4F5EC9A6A2BA519374BB46C14265B28D8B172F11864FCE6DAD49EF57232094EA",
+      "locations": [
+        "52-59"
+      ],
+      "finding": "The API comment requires synchronous save-only borrowing and retains the Grant until the native transition reaches a terminal state; this contract still requires runtime ownership evidence before treating the fixed callsite as proven."
+    }
+  ],
+  "static_callsite": {
+    "evidence": [
+      {
+        "path": ".tmp\\strict-roster-20260907\\native-evidence\\nmt-serializer-save-branch-capstone-20260907.txt",
+        "sha256": "FA5C316B778336CCD950FD765AEF5EB7D8BB3F5F7DBE55D1B5B762140727FB31",
+        "finding": "At serializer RVA 0x0189D2DE the save branch consumes the source FString shape and calls the archive writer synchronously; the captured branch has no source FString Data/Num/Max write. Its temporary encoding release is at 0x0189D41C and is distinct from caller-owned field2 storage."
+      },
+      {
+        "path": ".tmp\\strict-roster-20260907\\native-evidence\\nmt-serializer-extended.txt",
+        "sha256": "A3D8CA514A608F879BDA61B6E5CD080E59593B188624421E85108AB124F5E9B5",
+        "finding": "The save branch calls a virtual archive operation at [archive-vtable+0x10] and later a writer operation at [archive-vtable+0x150]. The static listing does not establish whether either callee stores a source data pointer or schedules asynchronous work."
+      },
+      {
+        "path": ".tmp\\strict-roster-20260907\\native-evidence\\nmt-login4-callsite-capstone.txt",
+        "sha256": "F28D3A69761D1DD4823FFCA86F39615F3A7677796CD3A03781C0579112994034",
+        "finding": "The fixed client sequence calls the serializer at 0x03484F35 (field2 return site 0x03484F3A), then the identity serializer, then field4 at 0x03484F51 (return site 0x03484F5D), followed by the send/dispatch call at 0x03484F79."
+      },
+      {
+        "path": ".tmp\\strict-roster-20260907\\native-evidence\\nmt-static-disassembly.txt",
+        "sha256": "03880CAEAAC870A69A3008177434D30051255121BF0A10E6EAC7A08DF4325BC6",
+        "finding": "After the send path returns, the locked caller releases field4 through the known allocator call and reaches the field2 release after return site 0x03484FBD; this is the original caller field lifecycle, not proof about the hook-owned temporary buffer."
+      }
+    ],
+    "fixed_rvas": {
+      "serializer": "0x0189D040",
+      "serializer_save_branch": "0x0189D2DE",
+      "serializer_temp_release": "0x0189D41C",
+      "field2_serializer_call": "0x03484F35",
+      "field2_serializer_return": "0x03484F3A",
+      "field4_serializer_return": "0x03484F5D",
+      "native_send_call": "0x03484F79",
+      "archive_cleanup_call": "0x03484F86",
+      "field4_release_return": "0x03484FAF",
+      "field2_release_return": "0x03484FBD"
+    },
+    "static_conclusion": "The callsite is compatible with a synchronous borrowed view, but static control flow alone does not prove that the archive writer never retains the data pointer or that the fixed serializer has no deferred consumer."
+  },
+  "existing_dynamic_evidence": {
+    "client_lifetime": {
+      "summary_path": ".tmp\\strict-roster-20260907\\native-evidence\\offline-abi-client-lifetime-relation-summary.json",
+      "summary_sha256": "823F69928642F0E177AF8B554A2636D5D2556AFD9AC17B27DC52345A40311185",
+      "observer_path": ".tmp\\strict-roster-20260907\\native-evidence\\offline-nmt-client-lifetime-observer.js",
+      "observer_sha256": "86AE594C0D257C18A1ED774D8CCA62D570125E9C3B055CF3B7D0326EF96154F9",
+      "controller_path": ".tmp\\strict-roster-20260907\\native-evidence\\offline-nmt-fstring-observer.py",
+      "controller_sha256": "DDD5176C7D03B485C94D7161825A37C2C50535FC668116C3518EB4FD5274D4E0",
+      "event_log_path": ".tmp\\strict-roster-20260907\\native-evidence\\offline-nmt-client-lifetime-events.jsonl",
+      "event_log_sha256": "246DD52E637B7F3FAAE242F3AD80E55E7FDD81BB11E3766F02D46ED60E4BD751",
+      "observed": {
+        "mode": "OFFLINE_ABI_ONLY",
+        "archive_flag_28": 130,
+        "archive_flag_29": 0,
+        "field2_same_object_shape_before_after": true,
+        "field2_release_return_rva": "0x03484FBD",
+        "field4_release_return_rva": "0x03484FAF",
+        "fstring_data_bytes_read": false,
+        "identity_grant_ticket_bytes_read": false
+      },
+      "proves": [
+        "The historical local-PVE client reached the pinned outbound serializer sequence.",
+        "The observed original field2 object retained the same pointer/Num/Max shape across the serializer call.",
+        "A matching field2 storage release was observed after the known caller send path."
+      ],
+      "does_not_prove": [
+        "The observed field2 was the Payload-created borrowed temporary; the historical run used the unmodified original field.",
+        "The archive writer did not retain or asynchronously read the field2 data pointer.",
+        "No alternate allocator/destructor path released the pointer.",
+        "A strict online Grant reached server PreLogin or passed Backend/Steam admission."
+      ]
+    },
+    "server_relation": {
+      "summary_path": ".tmp\\strict-roster-20260907\\native-evidence\\offline-abi-server-options-relation-summary.json",
+      "summary_sha256": "262E737E1FBDD98552158BB650CFDD47737CA759347E9AA59E94396B9C3C99A5",
+      "observer_path": ".tmp\\strict-roster-20260907\\native-evidence\\offline-nmt-server-options-observer.js",
+      "observer_sha256": "3E2B7C69CD66803E18A9723B267DD1207B560101E3106307ECD016D90A844EA1",
+      "observed": {
+        "mode": "OFFLINE_ABI_ONLY",
+        "archive_flag_28": 129,
+        "archive_flag_29": 0,
+        "field2_data_pointer_equals_url_parser_arg2": true,
+        "helper2_arg1_same_options_object_as_prelogin": true,
+        "pb_and_engine_prelogin_boundaries_observed": true,
+        "field2_final_release_return_rva": "0x036CE795",
+        "fstring_data_bytes_read": false,
+        "identity_grant_ticket_bytes_read": false
+      },
+      "proves": [
+        "Server field2 shape flowed into the fixed URL/options helper chain and then both observed PreLogin boundaries.",
+        "The server-side owned field2 storage was released at the observed final release boundary."
+      ],
+      "does_not_prove": [
+        "Client field2 and server field2 values correspond byte-for-byte.",
+        "The server helper cannot retain a pointer after its call returns.",
+        "Platform possession, signed Grant acceptance, or native connection admission."
+      ]
+    }
+  },
+  "current_component_run_boundary": {
+    "payload_frames_path": ".tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\dedicated-component-20260907-212129-02030887\\payload-frames.jsonl",
+    "payload_frames_sha256": "05EBD1E517780843D9079171496D4EB405A2DF45766014FE3B50DF2923E16192",
+    "observation": "The component run records native_grant_staged/native_grant_injected status but has no co-located nmt serializer or allocator observer artifact. Those status bits show the Payload hook reached its own completion marker; they do not establish serializer enter/leave ownership, absence of deferred reads, or absence of a temporary-buffer free."
+  },
+  "current_component_playable_boundary": {
+    "run_root": ".tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\dedicated-component-20260907-212129-02030887",
+    "authority_stdout_path": ".tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\dedicated-component-20260907-212129-02030887\\authority.stdout.log",
+    "authority_stdout_sha256": "6394CFC973169964E2C44C68EC829EA5C1CA033BB99B781A81DF94361D82FAF4",
+    "client_stdout_path": ".tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\dedicated-component-20260907-212129-02030887\\client.stdout.log",
+    "client_stdout_sha256": "8D23849A9DB5D2BA9D88F81452E93C7DA5E4CACDAC379E4394EDD6F487082548",
+    "source_constraints": [
+      {
+        "path": "Payload\\Config\\Config.cpp",
+        "location": "119",
+        "sha256": "601DD4A5FE1704613728EE70BD0F66FFBC28291C4E56BC5B144F1C4B483AC9DB",
+        "fact": "Config.MinPlayersToStart is 1 only for explicit PvE and 2 for online authority."
+      },
+      {
+        "path": "Payload\\Hooks\\Hooks.cpp",
+        "locations": [
+          "1735",
+          "2549-2581"
+        ],
+        "sha256": "6CFD4273DBD140A5EC92F44F2AB5B0C06DF351CDC486227B9A75A84C0ED9A592",
+        "fact": "The match-start gate counts ConnectedPlayerControllers and opens its role-selection countdown only when NumPlayersJoined reaches Config.MinPlayersToStart; the role-selection flow remains upstream of pawn/playable readiness."
+      }
+    ],
+    "observed_safe_log_facts": {
+      "server_is_listening": true,
+      "native_prelogin_reserved": true,
+      "native_postlogin_seen": true,
+      "backend_confirmed_chain": true,
+      "player_connected_log_count": 1,
+      "latejoin_initial_spawn_queue_log_count": 1,
+      "role_selection_log_count": 0,
+      "playable_log_count": 0,
+      "client_final_state": "world_ready",
+      "client_local_pawn_ready": false,
+      "client_native_net_ready": false,
+      "client_scope_verified": false,
+      "raw_identity_or_ticket_values_logged_here": false
+    },
+    "interpretation": "The one-real-Steam-client plus synthetic-seat component run closed Native/Backend admission through CONNECTED but did not reach the product role-selection/pawn gate. This is consistent with the fixed online minimum of two joined players and the observed single initial late-join queue; it is a separate playable-matrix limitation, not evidence that serializer injection retained or freed a borrowed FString incorrectly. A second real Steam session is required for full playable acceptance; do not lower MinPlayersToStart or use a synthetic seat as strict online PASS."
+  },
+  "minimum_next_observation": {
+    "classification": "OFFLINE_ABI_ONLY when using local-PVE; component-only evidence when attached to the one-real-Steam harness",
+    "source_inputs_to_freeze_before_run": [
+      {
+        "path": ".tmp\\strict-roster-20260907\\native-evidence\\offline-nmt-fstring-observer.py",
+        "sha256": "DDD5176C7D03B485C94D7161825A37C2C50535FC668116C3518EB4FD5274D4E0"
+      },
+      {
+        "path": ".tmp\\strict-roster-20260907\\native-evidence\\offline-nmt-client-lifetime-observer.js",
+        "sha256": "86AE594C0D257C18A1ED774D8CCA62D570125E9C3B055CF3B7D0326EF96154F9"
+      }
+    ],
+    "attach_order": [
+      "Discover the exact owned client PID after the game process is created and verify its image hash before the client sends NMT_Login.",
+      "Load a frozen read-only sidecar before the client-ready/Grant marker is emitted; attach to the exact authority PID separately with the server observer if server-side relation is needed.",
+      "Keep the existing ordinary game dispatcher untouched; this is Frida observation only and must not use ManualDispatch or alter callback ownership.",
+      "End at the owned process exit or a bounded timeout, then record no strict PASS unless the normal Backend/native receipt chain independently closes."
+    ],
+    "required_read_only_events": [
+      "serializer.enter for field2 at return RVA 0x03484F3A: call ordinal, thread id, return RVA, archive shape, FString object/data pointer hashes, Num/Max, readability; never read data bytes.",
+      "serializer.leave: RAX return pointer hash, same object/data pointer/Num/Max shape immediately after return, and same call ordinal.",
+      "archive writer enter/leave: resolve the fixed archive vtable slot used by serializer save control flow ([archive-vtable+0x10] and the later writer slot), record only archive/data pointer hashes, byte count, thread and duration; no buffer reads.",
+      "fixed caller checkpoints at 0x03484F3A, 0x03484F79, 0x03484F86, 0x03484FAF and 0x03484FBD to order serializer return, send, archive cleanup, and original field releases against the per-call record.",
+      "allocator/destructor observations for the hook-owned temporary data pointer through the known FMemory free target plus process allocator free exports (HeapFree/RtlFreeHeap or the actual loaded CRT target); record exact pointer-hash matches and order only.",
+      "bounded post-return pointer-access observation, if available through a read-only MemoryAccessMonitor/watchpoint, to detect a read/write of the temporary data or 16-byte view after the serializer returned; record operation/address hash only, never bytes."
+    ],
+    "minimal_sidecar_changes": [
+      "Do not modify the existing frozen observer in place. Clone it under a run-specific immutable name and record the clone SHA.",
+      "Add a monotonic call_id and per-thread active-call map; the current observer loses correlation at the generic free hook and cannot distinguish field2 calls after pointer reuse.",
+      "Add an archive writer hook resolved from the archive vtable after the first matching field2 enter; filter by archive pointer and active call_id.",
+      "Add fixed caller return-site probes and a bounded pointer-lifetime map covering the hook-owned data pointer separately from the original field2 data pointer.",
+      "Add exact allocator path labels and a release-generation counter; a generic FMemory::Free hit alone is insufficient to claim no alternate C++/CRT free path.",
+      "Hash all pointer values with a per-run salt before writing evidence; keep Num/Max/byte counts and RVAs only."
+    ],
+    "safe_run_constraints": [
+      "No Interceptor return-value replacement, memory write, call to a game function, or ManualDispatch.",
+      "No FString data, URL, Grant, Steam ticket, player ID, JWT, or callback payload bytes in the output.",
+      "Verify fixed image hash and only observe the exact owned PID; do not broad-scan or kill unrelated processes.",
+      "Use a bounded 120-second window, preserve raw sidecar output privately, and publish only a redacted summary plus input/output hashes.",
+      "A negative/inconclusive observation keeps native client grant injection unverified; it cannot be converted to readiness by setting a boolean."
+    ],
+    "acceptance_requirements": [
+      "For at least three matching field2 serializer calls, the injected temporary data pointer is observed at enter and writer enter/leave, with no post-return read/write or retained pointer event during the bounded lifetime window.",
+      "The temporary pointer has one observed allocator release after the synchronous call, while the original caller field2 release remains separately ordered at 0x03484FBD.",
+      "No archive/serializer callback is observed after the temporary release; any unknown target, missing allocator coverage, pointer reuse, or thread handoff is PARTIAL/BLOCKED, not PASS.",
+      "This ABI result remains separate from the strict online proof: signed Grant, native Steam possession, Reserve -> NativeAdmit -> Confirm, local readiness, and release still require their own exact scoped evidence."
+    ]
+  },
+  "final_assessment": {
+    "bp038_implementation": "partial",
+    "bp038_acceptance": "PARTIAL",
+    "native_client_grant_injection_proof": "NOT_PROVEN_BY_CURRENT_ARTIFACTS",
+    "native_authority_admission_proof": "NOT_PROVEN_BY_CURRENT_ARTIFACTS",
+    "next_action": "Keep native client grant injection unverified. The latest sidecar proved exact ownership and serializer/allocator hook installation but captured zero serializer calls; schedule another frozen read-only observation only if a harness reaches NMT_Login before its bounded payload_status timeout."
+  },
+  "dynamic_sidecar_runs": [
+    {
+      "status": "BLOCKED",
+      "acceptance": "BLOCKED",
+      "run_id": "bp038-sidecar-20260907T214645944Z",
+      "receipt_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\bp038-sidecar-20260907T214645944Z\\bp038-sidecar-result.json",
+      "receipt_sha256": "843A52AFF99F2C797FADA55691B0318621B9A722221B5922618B2687050F98F9",
+      "candidate_sha256": "42C72B9F27F51C745E2B8951F9E707C3035DFC22463BFB4D1CF64D21AEE9EE63",
+      "fixed_executable_sha256": "181C49FFB522B3EB01014C84FD9D3A2A5C0B66AE80A6A6ADDFF4BDD6F8125843",
+      "owned_target_roles": [
+        "authority"
+      ],
+      "serializer_capture": "NOT_REACHED",
+      "allocator_capture": "NOT_REACHED",
+      "reason": "Pinned PreLogin byte gate failed; online authority bootstrap was refused before a client could reach NMT_Login. Sidecar loaded on exact-hash authority but observed no serializer or allocator events.",
+      "first_attempt": {
+        "run_id": "bp038-sidecar-20260907T214006663Z",
+        "status": "INVALID_FOR_BP038",
+        "reason": "watcher variable collision before target discovery"
+      }
+    },
+    {
+      "status": "PARTIAL",
+      "acceptance": "PARTIAL",
+      "run_id": "bp038-sidecar-20260908T063020000Z",
+      "receipt_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\bp038-sidecar-20260908T063020000Z\\bp038-sidecar-result.json",
+      "receipt_sha256": "7268EA6E0E10B06C306DFF2597BA600CDDE84D6E068C93ACCE50F10A24F20636",
+      "candidate_sha256": "42C72B9F27F51C745E2B8951F9E707C3035DFC22463BFB4D1CF64D21AEE9EE63",
+      "fixed_executable_sha256": "181C49FFB522B3EB01014C84FD9D3A2A5C0B66AE80A6A6ADDFF4BDD6F8125843",
+      "owned_target_roles": [
+        "authority",
+        "client"
+      ],
+      "serializer_capture": "ATTACHED_NO_CALLS",
+      "allocator_capture": "NO_RELEASE_EVENTS",
+      "reason": "Exact-hash authority/client ownership and deferred post-pinned-gate observer setup succeeded; client serializer attach and allocator hook setup succeeded, but no serializer call occurred before the payload_status pipe timeout and authority observer target terminated before attach. No no-retain/no-free conclusion.",
+      "first_attempt": null
+    }
+  ]
+}

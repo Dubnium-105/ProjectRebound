@@ -1,0 +1,57 @@
+{
+  "source_input_commit": "c76ef07642b195d6229c7fcb10ca9188d0505be3",
+  "source_dirty": true,
+  "source_files": {
+    "Payload/Admission/StrictRosterCleanupReceipt.h": "89c160b27b5d2fa6e76d6209bee8fe116686597a0fc2d1741f7d93314318db50",
+    "Payload/Tests/StrictRosterCleanupReceiptTests.cpp": "ae873afc585b978d551938d6745a42a3f62a1978f899910732f36569212b62f1",
+    "Payload/Tests/CMakeLists.txt": "c401529691e63955982010b83db29dbb7353d9eabd7621bf56a9d7c895d2e360"
+  },
+  "executions": [
+    {
+      "command": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "-S",
+        "Payload/Tests",
+        "-B",
+        "build/strict-roster-current"
+      ],
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\cleanup-receipt-component-20260907T221356972898Z\\configure.log",
+      "sha256": "8332897490d732e86975e592c28b1f7e350251f01ca6fc1b925d694167c7ccdd"
+    },
+    {
+      "command": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+        "--build",
+        "build/strict-roster-current",
+        "--config",
+        "Release",
+        "--target",
+        "strict_roster_cleanup_receipt_tests"
+      ],
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\cleanup-receipt-component-20260907T221356972898Z\\build.log",
+      "sha256": "5cdb6edf6f8efbee5650f8caeec899afd0ca2b2ee96c2e6fee0206cef55813fa"
+    },
+    {
+      "command": [
+        "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\ctest.exe",
+        "--test-dir",
+        "build/strict-roster-current",
+        "-C",
+        "Release",
+        "-R",
+        "^strict_roster_cleanup_receipt_tests$",
+        "--output-on-failure"
+      ],
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\cleanup-receipt-component-20260907T221356972898Z\\test.log",
+      "sha256": "38081edc8601b0d4f30c5009a1a0ee83690bb443477f5048faa10a863c4349b2"
+    }
+  ],
+  "started_at": "20260907T221356972898Z",
+  "scope": "Actual C++ cleanup completion receipt regression only; no game teardown or complete NativeCleared acceptance implied.",
+  "source_unchanged": true,
+  "finished_at": "2026-09-07T22:14:01.313200+00:00",
+  "status": "PASS_COMPONENT_ONLY"
+}

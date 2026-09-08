@@ -1,0 +1,8 @@
+=== RUN   TestStrictRosterP2PLifecycleAgainstPostgreSQL
+    service_integration_test.go:1064: authority staged grant with stale route generation: {AttemptID:mat_067c5f672eab451b977bc98d484366b3 PlayerID:integration_player_e15cfe9465b5450a99fa6417150c1f5c PlatformID:70005024817454101 GrantJTI:mj_1085060715e04a65a0438a5e91584bdf JoinGrant:<redacted> ConnectionGeneration:3 RouteGeneration:2 ExpiresAt:2026-09-08 07:51:24 +0800 HKT}
+--- FAIL: TestStrictRosterP2PLifecycleAgainstPostgreSQL (3.34s)
+FAIL
+FAIL	github.com/Dubnium-105/ProjectRebound/Backend/internal/matchlobby	3.351s
+FAIL
+
+EXIT_CODE=1

@@ -1,0 +1,19 @@
+# Preserved first observed manager-suite failure before heartbeat-fixture timing fix.
+# This transcript was captured from the direct cargo-test run before the final log was rerun.
+command=cargo test --lib server::manager::tests -- --nocapture
+observed_exit_code=101
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.00s
+     Running unittests src\\lib.rs (target\\debug\\deps\\rebound_toolbox-531c06249e821c2c.exe)
+
+running 12 tests
+
+thread 'server::manager::tests::fake_process_heartbeat_starts_and_stops_cleanly' panicked at src\\server\\manager.rs:1281:9:
+assertion failed: lines.iter().any(|line| line.contains("SteamAppId=1364020"))
+test server::manager::tests::fake_process_heartbeat_starts_and_stops_cleanly ... FAILED
+
+failures:
+    server::manager::tests::fake_process_heartbeat_starts_and_stops_cleanly
+
+test result: FAILED. 11 passed; 1 failed; 0 ignored; 0 measured; 250 filtered out; finished in 4.25s
+
+error: test failed, to rerun pass `--lib`

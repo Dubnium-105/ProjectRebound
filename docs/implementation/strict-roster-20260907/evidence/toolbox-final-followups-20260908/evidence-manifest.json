@@ -1,0 +1,346 @@
+{
+  "schema": "toolbox-final-followups-evidence-v1",
+  "generated_at": "2026-09-07T22:22:41.359487+00:00",
+  "source_commits": {
+    "pre_same_route_fix": "70fcd5204f89f7af091e532d554cfaa4e69f039e",
+    "post_same_route_fix": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482",
+    "source_diff": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-runtime-same-route-fix-70fcd-to-e360.diff",
+    "toolbox_worktree_at_capture": "clean"
+  },
+  "artifacts": [
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\backend-component-rerun-receipt-20260908.json",
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-component-rerun-receipt-20260908.json",
+      "bytes": 15278,
+      "sha256": "5921C07D807AF5A2FF89FDAE608A3422E71FBE17CAF35FFB7BB855D6F49C3F42",
+      "safety_scan": {
+        "actual_jwt_count": 0,
+        "credential_assignment_count": 0,
+        "db_url_with_password_count": 0,
+        "steam_ticket_assignment_count": 0,
+        "scan_policy": "No actual JWT, credential assignment, database URL password, or Steam ticket assignment allowed in copied artifacts"
+      }
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\backend-component-availability-probe-20260908.log",
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-component-availability-probe-20260908.log",
+      "bytes": 599,
+      "sha256": "9179F97AF37A98595394CFE9E85736CF0C4188786942A5B4A4FC2E3CF0CA3672",
+      "safety_scan": {
+        "actual_jwt_count": 0,
+        "credential_assignment_count": 0,
+        "db_url_with_password_count": 0,
+        "steam_ticket_assignment_count": 0,
+        "scan_policy": "No actual JWT, credential assignment, database URL password, or Steam ticket assignment allowed in copied artifacts"
+      }
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\backend-restricted-meta-schema48-harness-20260908.log",
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-restricted-meta-schema48-harness-20260908.log",
+      "bytes": 2742,
+      "sha256": "7EAA04C515445A205A4480883EF611F839A3A90231E2EE41E6D5EBCB20D69DC5",
+      "safety_scan": {
+        "actual_jwt_count": 0,
+        "credential_assignment_count": 0,
+        "db_url_with_password_count": 0,
+        "steam_ticket_assignment_count": 0,
+        "scan_policy": "No actual JWT, credential assignment, database URL password, or Steam ticket assignment allowed in copied artifacts"
+      }
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\backend-restricted-meta-schema48-race-harness-20260908.log",
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-restricted-meta-schema48-race-harness-20260908.log",
+      "bytes": 2742,
+      "sha256": "29A95451C8DA9E87559759019ECC29876E6B3DB4D94A9EA53BB6C9E5F13477DE",
+      "safety_scan": {
+        "actual_jwt_count": 0,
+        "credential_assignment_count": 0,
+        "db_url_with_password_count": 0,
+        "steam_ticket_assignment_count": 0,
+        "scan_policy": "No actual JWT, credential assignment, database URL password, or Steam ticket assignment allowed in copied artifacts"
+      }
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\meta-permissions-rerun-20260908-harness.log",
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\meta-permissions-rerun-20260908-harness.log",
+      "bytes": 3214,
+      "sha256": "6F54ACD256229FDDE58C6B5B9604CFAF7815F9DB8EEA8BA754F021D37949E09E",
+      "safety_scan": {
+        "actual_jwt_count": 0,
+        "credential_assignment_count": 0,
+        "db_url_with_password_count": 0,
+        "steam_ticket_assignment_count": 0,
+        "scan_policy": "No actual JWT, credential assignment, database URL password, or Steam ticket assignment allowed in copied artifacts"
+      }
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\meta-schema48-migration-20260907215033.log",
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907215033\\migrate-schema48.log",
+      "bytes": 301,
+      "sha256": "1FA8523CCF5F5A56D141B2CC5DB65AB0048D63D7661B4202B740619E5E3F6B67",
+      "safety_scan": {
+        "actual_jwt_count": 0,
+        "credential_assignment_count": 0,
+        "db_url_with_password_count": 0,
+        "steam_ticket_assignment_count": 0,
+        "scan_policy": "No actual JWT, credential assignment, database URL password, or Steam ticket assignment allowed in copied artifacts"
+      }
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\meta-permissions-schema48-20260907215033.log",
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907215033\\restricted-product-permissions-test.log",
+      "bytes": 2734,
+      "sha256": "CD2273AECA5C4FDA4537D6C1770BE8F547C450ED4927775B034A011298839E7F",
+      "safety_scan": {
+        "actual_jwt_count": 0,
+        "credential_assignment_count": 0,
+        "db_url_with_password_count": 0,
+        "steam_ticket_assignment_count": 0,
+        "scan_policy": "No actual JWT, credential assignment, database URL password, or Steam ticket assignment allowed in copied artifacts"
+      }
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\meta-permissions-schema48-race-20260907215759.log",
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907215759\\restricted-product-permissions-test.log",
+      "bytes": 2734,
+      "sha256": "A58788ECE1C45EA11FC6B74CD3112EE92C58E3B3039B58225FCE71E2B0B26C3D",
+      "safety_scan": {
+        "actual_jwt_count": 0,
+        "credential_assignment_count": 0,
+        "db_url_with_password_count": 0,
+        "steam_ticket_assignment_count": 0,
+        "scan_policy": "No actual JWT, credential assignment, database URL password, or Steam ticket assignment allowed in copied artifacts"
+      }
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\s3-storage-test-20260908.log",
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\local-s3-rerun-20260908\\storage-test.log",
+      "bytes": 1480,
+      "sha256": "2D70BB7E4BC995ABB4B912568155C9AFAA0B35C55F8EC97BEDD6577312C4BFF8",
+      "safety_scan": {
+        "actual_jwt_count": 0,
+        "credential_assignment_count": 0,
+        "db_url_with_password_count": 0,
+        "steam_ticket_assignment_count": 0,
+        "scan_policy": "No actual JWT, credential assignment, database URL password, or Steam ticket assignment allowed in copied artifacts"
+      }
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\s3-storage-test-result-20260908.json",
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\local-s3-rerun-20260908\\storage-test-result.json",
+      "bytes": 1100,
+      "sha256": "94B60645B3BE075B4087CB1E7D6590601141D5A71AA945F4DDB60C4AAE98A45C",
+      "safety_scan": {
+        "actual_jwt_count": 0,
+        "credential_assignment_count": 0,
+        "db_url_with_password_count": 0,
+        "steam_ticket_assignment_count": 0,
+        "scan_policy": "No actual JWT, credential assignment, database URL password, or Steam ticket assignment allowed in copied artifacts"
+      }
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\minio-download-metadata-20260908.json",
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\local-s3-rerun-20260908\\download.json",
+      "bytes": 315,
+      "sha256": "D965AC795F3A60D0D08E9709CBD15D93E0C5B75CBDB63C196F486B95C563A8EE",
+      "safety_scan": {
+        "actual_jwt_count": 0,
+        "credential_assignment_count": 0,
+        "db_url_with_password_count": 0,
+        "steam_ticket_assignment_count": 0,
+        "scan_policy": "No actual JWT, credential assignment, database URL password, or Steam ticket assignment allowed in copied artifacts"
+      }
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\mc-download-metadata-20260908.json",
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\local-s3-rerun-20260908\\mc-download.json",
+      "bytes": 258,
+      "sha256": "D18E9F1716BE177C294CD381337F32585135C9CB2CD51D6804E000C8E4F3B239",
+      "safety_scan": {
+        "actual_jwt_count": 0,
+        "credential_assignment_count": 0,
+        "db_url_with_password_count": 0,
+        "steam_ticket_assignment_count": 0,
+        "scan_policy": "No actual JWT, credential assignment, database URL password, or Steam ticket assignment allowed in copied artifacts"
+      }
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-full-lib-70fcd-20260908.log",
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\toolbox-full-lib-70fcd-20260908.log",
+      "bytes": 28599,
+      "sha256": "828EFD475CE1FE0A0C859D5BD9B4A714ED3A88969B27A991B44F251BC798C9C8",
+      "safety_scan": {
+        "actual_jwt_count": 0,
+        "credential_assignment_count": 0,
+        "db_url_with_password_count": 0,
+        "steam_ticket_assignment_count": 0,
+        "scan_policy": "No actual JWT, credential assignment, database URL password, or Steam ticket assignment allowed in copied artifacts"
+      }
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-full-lib-same-route-20260908.log",
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\toolbox-full-lib-same-route-20260908.log",
+      "bytes": 28628,
+      "sha256": "BF0FABEEA8F5764AC80C1ADCE9DFEEAF742EB4C6098A83C3D38C6CF146C82638",
+      "safety_scan": {
+        "actual_jwt_count": 0,
+        "credential_assignment_count": 0,
+        "db_url_with_password_count": 0,
+        "steam_ticket_assignment_count": 0,
+        "scan_policy": "No actual JWT, credential assignment, database URL password, or Steam ticket assignment allowed in copied artifacts"
+      }
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-same-route-recovery-final-20260908.log",
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\toolbox-same-route-recovery-final-20260908.log",
+      "bytes": 456,
+      "sha256": "45C551A6ECD8A1C68F34222BF05EE69BD12E4B2DEF4A486FD7FD33F8815B67F6",
+      "safety_scan": {
+        "actual_jwt_count": 0,
+        "credential_assignment_count": 0,
+        "db_url_with_password_count": 0,
+        "steam_ticket_assignment_count": 0,
+        "scan_policy": "No actual JWT, credential assignment, database URL password, or Steam ticket assignment allowed in copied artifacts"
+      }
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-all-targets-same-route-20260908.log",
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\toolbox-all-targets-same-route-20260908.log",
+      "bytes": 144,
+      "sha256": "54780A20C34CAC6A3703D66CDD3177B084E16EE0AF143BDDA9E6E412381834B7",
+      "safety_scan": {
+        "actual_jwt_count": 0,
+        "credential_assignment_count": 0,
+        "db_url_with_password_count": 0,
+        "steam_ticket_assignment_count": 0,
+        "scan_policy": "No actual JWT, credential assignment, database URL password, or Steam ticket assignment allowed in copied artifacts"
+      }
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-same-route-fmt-check-20260908.log",
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\toolbox-same-route-fmt-check-20260908.log",
+      "bytes": 4536,
+      "sha256": "04F106646418ABB409397A44093581C517F50191114BCBB87EBE418A61B76AF2",
+      "safety_scan": {
+        "actual_jwt_count": 0,
+        "credential_assignment_count": 0,
+        "db_url_with_password_count": 0,
+        "steam_ticket_assignment_count": 0,
+        "scan_policy": "No actual JWT, credential assignment, database URL password, or Steam ticket assignment allowed in copied artifacts"
+      }
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-tauri-full-e360-20260908.log",
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\toolbox-tauri-full-e360-20260908.log",
+      "bytes": 1792,
+      "sha256": "7E80537EA92DF6133D5FBEC8B98D9A38A03AA945159BF32BFAD91B5FF05CFA97",
+      "safety_scan": {
+        "actual_jwt_count": 0,
+        "credential_assignment_count": 0,
+        "db_url_with_password_count": 0,
+        "steam_ticket_assignment_count": 0,
+        "scan_policy": "No actual JWT, credential assignment, database URL password, or Steam ticket assignment allowed in copied artifacts"
+      }
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\host-route-recovery-audit-20260908.json",
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\host-route-recovery-audit-20260908.json",
+      "bytes": 5322,
+      "sha256": "618BE19E9F00424812E4E47618803548CBB326D0A0A2A4D0D0AF77D1E31E8353",
+      "safety_scan": {
+        "actual_jwt_count": 0,
+        "credential_assignment_count": 0,
+        "db_url_with_password_count": 0,
+        "steam_ticket_assignment_count": 0,
+        "scan_policy": "No actual JWT, credential assignment, database URL password, or Steam ticket assignment allowed in copied artifacts"
+      }
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\host-route-recovery-fix-receipt-20260908.json",
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\host-route-recovery-fix-receipt-20260908.json",
+      "bytes": 3829,
+      "sha256": "8E02BECD25D42C5874BD6436607A6E8A76C70673E667657EE3FE3BB079F3F24E",
+      "safety_scan": {
+        "actual_jwt_count": 0,
+        "credential_assignment_count": 0,
+        "db_url_with_password_count": 0,
+        "steam_ticket_assignment_count": 0,
+        "scan_policy": "No actual JWT, credential assignment, database URL password, or Steam ticket assignment allowed in copied artifacts"
+      }
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-runtime-same-route-fix-70fcd-to-e360.diff",
+      "source": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-runtime-same-route-fix-70fcd-to-e360.diff",
+      "bytes": 9545,
+      "sha256": "BBD790188217FC8FD3D95AE1FD1368F9F6F900D1FF4AFD22477F0225D4E79D77",
+      "safety_scan": {
+        "actual_jwt_count": 0,
+        "credential_assignment_count": 0,
+        "db_url_with_password_count": 0,
+        "steam_ticket_assignment_count": 0,
+        "scan_policy": "No actual JWT, credential assignment, database URL password, or Steam ticket assignment allowed in copied artifacts"
+      }
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\tauri-e360-execution-receipt.json",
+      "source": "Derived from the retained e360 Tauri execution result and log; no command rerun and no log rewrite.",
+      "bytes": 1456,
+      "sha256": "7B7525CE045F5577A729D2DCC248D118153FAE4E8CCFBFD9D1FB8BE716435E85",
+      "safety_scan": {
+        "actual_jwt_count": 0,
+        "credential_assignment_count": 0,
+        "db_url_with_password_count": 0,
+        "steam_ticket_assignment_count": 0,
+        "scan_policy": "No actual JWT, credential assignment, database URL password, or Steam ticket assignment allowed in copied artifacts"
+      }
+    }
+  ],
+  "omitted": [
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-restricted-meta-schema48-result-20260908.json",
+      "sha256": "F3A61F1F6AC7662D850949669DCF6C2A729DFF3D630C0935A9BDBDBC60B97267",
+      "reason": "Not copied: result contains a live temporary PostgreSQL connection URL/authentication scope fields. The safe component receipt and raw test logs retain command/status/exit evidence; no result is upgraded or rewritten."
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-restricted-meta-schema48-race-result-20260908.json",
+      "sha256": "27765166AD4C1626E952D55F3882100600A06C9A3A3E011469506C1416AC5522",
+      "reason": "Not copied for the same temporary database URL/authentication-scope reason; race harness log and component receipt retain the actual exit/pass evidence."
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-restricted-meta-schema48-harness-20260908.py",
+      "sha256": "7D3BA6DCFDE245FB9A9492A6076FE816FFE542DF7570F679EBD22715B4AD5E53",
+      "reason": "Not copied: lab harness source embeds synthetic temporary credentials. Its command, result and source hash remain in the private receipt."
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-restricted-meta-schema48-race-harness-20260908.py",
+      "sha256": "9F02AF7FE7C02574A5BD763151D73D31F226DADF8BC9C97CBF4D91B4E77F13AC",
+      "reason": "Not copied: lab harness source embeds synthetic temporary credentials. Its command, result and source hash remain in the private receipt."
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\local-s3-rerun-20260908\\minio.exe",
+      "sha256": "AF709E6BA68488404E85ACDD22A3030D0F5E56A108D4B27D744F18CEB50861B4",
+      "reason": "Not copied: executable artifact; the storage result records its exact hash and the isolated process/data were cleaned."
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\local-s3-rerun-20260908\\mc.exe",
+      "sha256": "C8DB13EBEDA31497F354C0E950809DB0AE9B2A2A69B8AFEE68C128C37300C157",
+      "reason": "Not copied: executable artifact; download metadata and storage result retain its exact hash."
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\local-s3-rerun-20260908\\minio.stdout.log",
+      "sha256": "F01A374E9C81E3DB89B3A42940C4D6A5447684986A1296E42BF13F196EED6295",
+      "reason": "Not copied: service startup log is redundant with the safe storage test log/result and is not needed for acceptance evidence."
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\local-s3-rerun-20260908\\minio.stderr.log",
+      "sha256": "CA270DFBB17FC4CD21994C8E50316E3CD03E0FE2350B62A6573CB1E95A2B62CE",
+      "reason": "Not copied: service startup log is redundant with the safe storage test log/result and is not needed for acceptance evidence."
+    }
+  ],
+  "limitations": [
+    "S3 current test is PASS against an isolated official MinIO process; no binary is copied.",
+    "Restricted Meta non-race and race logs are retained; the original result JSON and harness Python sources remain private because they carry temporary DB/authentication material.",
+    "BattleLog real-game/native acceptance remains NOT_RUN; no PASS is inferred from historical synthetic evidence.",
+    "Historical 310-test log remains bound to 70fcd; 311-test log remains bound to the pre-commit same-route source. Tauri log is bound to e360 and is a separate current package test."
+  ]
+}

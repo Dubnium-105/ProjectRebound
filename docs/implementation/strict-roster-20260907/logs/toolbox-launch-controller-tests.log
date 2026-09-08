@@ -1,0 +1,9 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.99s
+     Running unittests src\lib.rs (target\debug\deps\rebound_toolbox-531c06249e821c2c.exe)
+
+running 2 tests
+test launching::controller::tests::safe_exit_requires_zero_refused_processes ... ok
+test launching::controller::tests::pid_tracking_commands_are_owned_by_the_launch_controller ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 253 filtered out; finished in 0.00s
+

@@ -1,0 +1,22 @@
+{
+  "snapshots": [
+    {
+      "name": "Toolbox",
+      "path": "C:\\wksp\\ProjectReboundToolbox",
+      "commit": "22015fb41fa06fea0b8767049109291c89758fff",
+      "head_exit_code": 0,
+      "dirty": false,
+      "status_exit_code": 0,
+      "tracked_change_count": 0
+    },
+    {
+      "name": "ProjectRebound",
+      "path": "C:\\wksp\\ProjectRebound",
+      "commit": "56a085c33d65a5775b6a5cd2177e14545d8b5321",
+      "head_exit_code": 0,
+      "dirty": true,
+      "status_exit_code": 0,
+      "tracked_change_count": 34
+    }
+  ]
+}

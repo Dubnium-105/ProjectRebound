@@ -1,0 +1,46 @@
+Test project C:/wksp/ProjectRebound/build/payload-tests
+      Start  1: command_protocol_tests
+ 1/20 Test  #1: command_protocol_tests .................   Passed    0.03 sec
+      Start  2: strict_roster_policy_tests
+ 2/20 Test  #2: strict_roster_policy_tests .............   Passed    0.02 sec
+      Start  3: ed25519_verifier_tests
+ 3/20 Test  #3: ed25519_verifier_tests .................   Passed    0.03 sec
+      Start  4: strict_roster_steam_auth_tests
+ 4/20 Test  #4: strict_roster_steam_auth_tests .........   Passed    0.03 sec
+      Start  5: command_line_policy_tests
+ 5/20 Test  #5: command_line_policy_tests ..............   Passed    0.02 sec
+      Start  6: native_login_grant_policy_tests
+ 6/20 Test  #6: native_login_grant_policy_tests ........   Passed    0.02 sec
+      Start  7: server_hook_policy_tests
+ 7/20 Test  #7: server_hook_policy_tests ...............   Passed    0.02 sec
+      Start  8: local_qos_discovery_policy_tests
+ 8/20 Test  #8: local_qos_discovery_policy_tests .......   Passed    0.02 sec
+      Start  9: unreal_container_tests
+ 9/20 Test  #9: unreal_container_tests .................   Passed    0.02 sec
+      Start 10: loadout_state_policy_tests
+10/20 Test #10: loadout_state_policy_tests .............   Passed    0.02 sec
+      Start 11: respawn_state_policy_tests
+11/20 Test #11: respawn_state_policy_tests .............   Passed    0.02 sec
+      Start 12: managed_possession_sync_policy_tests
+12/20 Test #12: managed_possession_sync_policy_tests ...   Passed    0.02 sec
+      Start 13: seamless_intro_camera_policy_tests
+13/20 Test #13: seamless_intro_camera_policy_tests .....   Passed    0.02 sec
+      Start 14: dedicated_multi_match_policy_tests
+14/20 Test #14: dedicated_multi_match_policy_tests .....   Passed    0.02 sec
+      Start 15: join_ui_sync_policy_tests
+15/20 Test #15: join_ui_sync_policy_tests ..............   Passed    0.02 sec
+      Start 16: replication_world_gate_policy_tests
+16/20 Test #16: replication_world_gate_policy_tests ....   Passed    0.02 sec
+      Start 17: direct_match_ui_cleanup_policy_tests
+17/20 Test #17: direct_match_ui_cleanup_policy_tests ...   Passed    0.02 sec
+      Start 18: archive_completion_policy_tests
+18/20 Test #18: archive_completion_policy_tests ........   Passed    0.02 sec
+      Start 19: weapon_archive_policy_tests
+19/20 Test #19: weapon_archive_policy_tests ............   Passed    0.02 sec
+      Start 20: command_framework_tests
+20/20 Test #20: command_framework_tests ................   Passed    0.31 sec
+
+100% tests passed, 0 tests failed out of 20
+
+Total Test time (real) =   0.77 sec
+EXIT_CODE=0

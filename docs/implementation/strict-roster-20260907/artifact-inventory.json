@@ -1,0 +1,209 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-08T01:05:11.869515+00:00",
+  "generation_id": "35ba335f541d43caa8d6f53fda767523",
+  "source_commits": {
+    "ProjectRebound": "1fbc032665497502252f6245f3f1427d13314566",
+    "Toolbox": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482"
+  },
+  "artifacts": [
+    {
+      "role": "control-plane",
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\frozen\\4d7d96b3c79b1a9ba06fe8bf87cbac2466320d9e1a247947d3bceb099c781b6f\\control-plane",
+      "sha256": "4d7d96b3c79b1a9ba06fe8bf87cbac2466320d9e1a247947d3bceb099c781b6f",
+      "bytes": 51228959,
+      "build_output_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\backend-1fbc03266549-20260908T010111Z\\control-plane",
+      "source_repository": "ProjectRebound",
+      "source_pair_commit": "1fbc032665497502252f6245f3f1427d13314566",
+      "signature_status": "NOT_RUN",
+      "compatibility_status": "BLOCKED",
+      "release_eligible": false,
+      "scope": "local candidate; not a signed or native-accepted release",
+      "embedded_source_provenance": {
+        "-buildmode": "exe",
+        "-compiler": "gc",
+        "-trimpath": "true",
+        "CGO_ENABLED": "0",
+        "GOARCH": "amd64",
+        "GOOS": "linux",
+        "GOAMD64": "v1",
+        "vcs": "git",
+        "vcs.revision": "1fbc032665497502252f6245f3f1427d13314566",
+        "vcs.time": "2026-09-08T00:51:05Z",
+        "vcs.modified": "false"
+      }
+    },
+    {
+      "role": "meta-server",
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\frozen\\1400c83b32daee19dd139ed804d48e452e8c7be616ec3e4ab24cae7abfb933be\\meta-server",
+      "sha256": "1400c83b32daee19dd139ed804d48e452e8c7be616ec3e4ab24cae7abfb933be",
+      "bytes": 38776886,
+      "build_output_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\backend-1fbc03266549-20260908T010111Z\\meta-server",
+      "source_repository": "ProjectRebound",
+      "source_pair_commit": "1fbc032665497502252f6245f3f1427d13314566",
+      "signature_status": "NOT_RUN",
+      "compatibility_status": "BLOCKED",
+      "release_eligible": false,
+      "scope": "local candidate; not a signed or native-accepted release",
+      "embedded_source_provenance": {
+        "-buildmode": "exe",
+        "-compiler": "gc",
+        "-trimpath": "true",
+        "CGO_ENABLED": "0",
+        "GOARCH": "amd64",
+        "GOOS": "linux",
+        "GOAMD64": "v1",
+        "vcs": "git",
+        "vcs.revision": "1fbc032665497502252f6245f3f1427d13314566",
+        "vcs.time": "2026-09-08T00:51:05Z",
+        "vcs.modified": "false"
+      }
+    },
+    {
+      "role": "edge-relay",
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\frozen\\aaf0df748018c89e59e24930d3a527f3f9df2b7b76a6ebf59328a16d429f5606\\edge-relay",
+      "sha256": "aaf0df748018c89e59e24930d3a527f3f9df2b7b76a6ebf59328a16d429f5606",
+      "bytes": 19305636,
+      "build_output_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\backend-1fbc03266549-20260908T010111Z\\edge-relay",
+      "source_repository": "ProjectRebound",
+      "source_pair_commit": "1fbc032665497502252f6245f3f1427d13314566",
+      "signature_status": "NOT_RUN",
+      "compatibility_status": "BLOCKED",
+      "release_eligible": false,
+      "scope": "local candidate; not a signed or native-accepted release",
+      "embedded_source_provenance": {
+        "-buildmode": "exe",
+        "-compiler": "gc",
+        "-trimpath": "true",
+        "CGO_ENABLED": "0",
+        "GOARCH": "amd64",
+        "GOOS": "linux",
+        "GOAMD64": "v1",
+        "vcs": "git",
+        "vcs.revision": "1fbc032665497502252f6245f3f1427d13314566",
+        "vcs.time": "2026-09-08T00:51:05Z",
+        "vcs.modified": "false"
+      }
+    },
+    {
+      "role": "Payload",
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\frozen\\297c6ea8585c8a606b3ab31a9949bcb153d7469b890ef8603521fb8af2cbfc1b\\Payload.dll",
+      "sha256": "297c6ea8585c8a606b3ab31a9949bcb153d7469b890ef8603521fb8af2cbfc1b",
+      "bytes": 2094592,
+      "build_output_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T223103129065Z\\Payload.dll",
+      "source_repository": "ProjectRebound",
+      "source_pair_commit": "1fbc032665497502252f6245f3f1427d13314566",
+      "signature_status": "BLOCKED",
+      "compatibility_status": "BLOCKED",
+      "release_eligible": false,
+      "scope": "local candidate; not a signed or native-accepted release",
+      "authenticode_observed_status": "NotSigned",
+      "signature_note": "Observed Authenticode status only; release manifest signing and compatibility acceptance are separate.",
+      "build_source_commit": "dc49017e488e8b5bf6f6544b4428c46d230c0abd",
+      "build_execution_source_dirty": false,
+      "build_execution_commands": [
+        {
+          "name": "configure",
+          "command": [
+            "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+            "-S",
+            "Payload/Tests",
+            "-B",
+            "build/strict-roster-current"
+          ],
+          "exit_code": 0,
+          "log_path": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/imported/native/configure.log",
+          "sha256": "8332897490d732e86975e592c28b1f7e350251f01ca6fc1b925d694167c7ccdd"
+        },
+        {
+          "name": "tests-build",
+          "command": [
+            "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+            "--build",
+            "build/strict-roster-current",
+            "--config",
+            "Release",
+            "--parallel",
+            "4"
+          ],
+          "exit_code": 0,
+          "log_path": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/imported/native/tests-build.log",
+          "sha256": "502c461844299a9931acc0ee52605c876a3d4c487b1d874c77c76fbd684c84da"
+        },
+        {
+          "name": "ctest",
+          "command": [
+            "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\ctest.exe",
+            "--test-dir",
+            "build/strict-roster-current",
+            "-C",
+            "Release",
+            "--output-on-failure"
+          ],
+          "exit_code": 0,
+          "log_path": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/imported/native/ctest.log",
+          "sha256": "af3214e63729ad0ea3f1785f70db5220fd1918d3efb4a8704df7a6398608aae2"
+        },
+        {
+          "name": "payload-build",
+          "command": [
+            "C:/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/amd64/MSBuild.exe",
+            "Payload/Payload.vcxproj",
+            "/m:1",
+            "/nr:false",
+            "/p:Configuration=Release",
+            "/p:Platform=x64",
+            "/v:minimal"
+          ],
+          "exit_code": 0,
+          "log_path": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/imported/native/payload-build.log",
+          "sha256": "dd7940894a55339212df9403a45663767a6cc481597f33f1bc02db38b991211d"
+        }
+      ],
+      "verified_source_subtree": {
+        "path": "Payload",
+        "git_tree": "615141800029fbf6280f441c1f7627b8d5f72452",
+        "matches_reviewed_source_pair": true
+      }
+    },
+    {
+      "role": "Tauri Toolbox",
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\frozen\\9063474a92eef3d8d7102a0be16d38e5cb30eecc08a134619621cc1c5a1a6687\\rebound_toolbox_tauri.exe",
+      "sha256": "9063474a92eef3d8d7102a0be16d38e5cb30eecc08a134619621cc1c5a1a6687",
+      "bytes": 46372352,
+      "build_output_path": "C:\\wksp\\ProjectReboundToolbox\\src-tauri\\target\\release\\rebound_toolbox_tauri.exe",
+      "source_repository": "Toolbox",
+      "source_pair_commit": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482",
+      "signature_status": "BLOCKED",
+      "compatibility_status": "BLOCKED",
+      "release_eligible": false,
+      "scope": "local candidate; not a signed or native-accepted release",
+      "authenticode_observed_status": "NotSigned",
+      "signature_note": "Observed Authenticode status only; release manifest signing and compatibility acceptance are separate."
+    }
+  ],
+  "pinned_game_reference": {
+    "path": "C:\\Steam\\steamapps\\common\\Boundary\\ProjectBoundary\\Binaries\\Win64\\ProjectBoundarySteam-Win64-Shipping.exe",
+    "sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+    "bytes": 102362112
+  },
+  "candidate_build_manifest": {
+    "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\candidate-build-manifest.json",
+    "sha256": "79883e9c2106593aa058684499338f3e1adffe55a78b0f41b50751db57ec30b1"
+  },
+  "backend_build_receipt": {
+    "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-artifact-builds\\Backend\\31e6085c0627fd5d12613842ff9539dbf1ed9df89b908b3e247fe5b8b6c21a48\\build-receipt.json",
+    "sha256": "31e6085c0627fd5d12613842ff9539dbf1ed9df89b908b3e247fe5b8b6c21a48"
+  },
+  "toolbox_build_receipt": {
+    "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-artifact-builds\\Toolbox\\ba27cb330e592cdc80daadd51cafac299cbcb7d176321e80268440a126b06c5f\\build-receipt.json",
+    "sha256": "ba27cb330e592cdc80daadd51cafac299cbcb7d176321e80268440a126b06c5f"
+  },
+  "freeze_source_observations": {
+    "Toolbox_status_porcelain": "",
+    "Payload_status_porcelain": "",
+    "scope": "Actual source observations during freezing; historical build-time source records are retained separately."
+  },
+  "release_ready": false,
+  "note": "The compiled Payload source subtree matches the reviewed source pair; exact native build/freeze/installed restore records are in native-report.json. None of these artifact hashes establishes native admission acceptance."
+}

@@ -1,0 +1,575 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-09-07T23:37:08.326956+00:00",
+  "purpose": "Original component-expected mapping for AC-009, AC-014, AC-023, and AC-031. This is a read-only audit artifact and does not promote canonical release statuses.",
+  "original_contract": {
+    "acceptance_tests_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\acceptance-tests.json",
+    "acceptance_tests_sha256": "F7D48FB16AF3A251057580CA113B66A25D82D6792F3D3AA1A9D1D23A95A19CCE",
+    "contract_commit": "5bb32ba"
+  },
+  "source_snapshot": {
+    "repository": "ProjectReboundToolbox",
+    "path": "C:\\wksp\\ProjectReboundToolbox",
+    "commit": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482",
+    "git_status": "clean",
+    "full_311_execution": {
+      "command": "cargo test --locked --lib --features vnt,lab-testing --no-fail-fast",
+      "exit_code": 0,
+      "passed": 311,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0,
+      "log": {
+        "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-full-lib-same-route-20260908.log",
+        "sha256": "BF0FABEEA8F5764AC80C1ADCE9DFEEAF742EB4C6098A83C3D38C6CF146C82638",
+        "note": "311-test final log; this mapping did not rerun the command."
+      }
+    }
+  },
+  "items": [
+    {
+      "id": "AC-009",
+      "issue_id": "BP-009",
+      "title": "VNT 裸 IP 与 Payload host:port 校验冲突",
+      "original_expected": "裸 IP、零端口、非法 IPv6 被明确拒绝；合法 IPv4:port/[IPv6]:port 可传到 Payload；VNT 目标含真实端口。",
+      "component_expected_verdict": "PASS_COMPONENT",
+      "uncovered_conditions": [],
+      "conditions": [
+        {
+          "condition": "裸 IP、零端口、非法 IPv6 被明确拒绝。",
+          "status": "PASS_COMPONENT",
+          "tests": [
+            "core::runtime::tests::p2p_authority_route_always_reports_an_explicit_port",
+            "core::runtime::tests::p2p_authority_refresh_requires_the_same_world_instance",
+            "server::registration::tests::transport_target_brackets_ipv6_and_rejects_ambiguous_hosts",
+            "server::manager::tests::occupied_udp_port_is_rejected",
+            "launching::launch::tests::udp_readiness_requires_an_occupied_port"
+          ],
+          "source_assertions": [
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+              "lines": "5880-5946",
+              "sha256": "61535331CA9F9B7EF832CDDF087305749581FD9CCF12A4C85B54D370FBEFEB95",
+              "role": "endpoint_target and p2p_authority_target reject zero/malformed/bare-IP targets"
+            },
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\src\\server\\registration.rs",
+              "lines": "586-612",
+              "sha256": "00F9D9978C8107F93A371332804A2F4F19E9D922794B6C319461A4D4381B90BE",
+              "role": "format_transport_target rejects zero, malformed, URL/ambiguous host and brackets IPv6"
+            },
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\src\\server\\pipe.rs",
+              "lines": "1763-1789",
+              "sha256": "017602E7CF680D29EDB6F2636828A2AB3BCA65C3C9975D207CD06BBAA93D2597",
+              "role": "Payload match-target validation"
+            }
+          ],
+          "evidence": [
+            {
+              "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-full-lib-same-route-20260908.log",
+              "sha256": "BF0FABEEA8F5764AC80C1ADCE9DFEEAF742EB4C6098A83C3D38C6CF146C82638",
+              "note": "311-test final log; this mapping did not rerun the command."
+            }
+          ],
+          "note": "The negative endpoint cases and strict pre-spawn validation are present in the current Toolbox source and 311 log."
+        },
+        {
+          "condition": "合法 IPv4:port/[IPv6]:port 可传到 Payload。",
+          "status": "PASS_COMPONENT",
+          "tests": [
+            "server::registration::tests::transport_target_brackets_ipv6_and_rejects_ambiguous_hosts",
+            "server::pipe::cpp_fixture_tests::actual_cpp_frames_decode_in_rust_without_promoting_queued_or_pending_to_ready"
+          ],
+          "source_assertions": [
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\src\\server\\registration.rs",
+              "lines": "586-612 and 929-935",
+              "sha256": "00F9D9978C8107F93A371332804A2F4F19E9D922794B6C319461A4D4381B90BE",
+              "role": "canonical endpoint formatting and registration transport_target construction"
+            },
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\src\\server\\pipe.rs",
+              "lines": "685-744",
+              "sha256": "017602E7CF680D29EDB6F2636828A2AB3BCA65C3C9975D207CD06BBAA93D2597",
+              "role": "start_match_authority validates and serializes transport_target to Payload"
+            },
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+              "lines": "2260-2387 and 3502-3648",
+              "sha256": "61535331CA9F9B7EF832CDDF087305749581FD9CCF12A4C85B54D370FBEFEB95",
+              "role": "runtime validates endpoint before authority startup/recovery and installs the observed endpoint"
+            }
+          ],
+          "evidence": [
+            {
+              "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-full-lib-same-route-20260908.log",
+              "sha256": "BF0FABEEA8F5764AC80C1ADCE9DFEEAF742EB4C6098A83C3D38C6CF146C82638",
+              "note": "311-test final log; this mapping did not rerun the command."
+            },
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\tests\\fixtures\\payload-wire-v2.jsonl",
+              "sha256": "B6DF8C7FF1172E31198F398E9D17E96AD2D722785AF2A04BAA9CAC5404BC9E01",
+              "note": "Native-produced C++ wire fixture consumed by Rust fixture tests; exact bytes retained."
+            }
+          ],
+          "note": "The component path is covered. The retained evidence does not claim a fresh live game process boundary exchange."
+        },
+        {
+          "condition": "VNT 目标含真实端口。",
+          "status": "PASS_COMPONENT",
+          "tests": [
+            "core::runtime::tests::p2p_authority_route_always_reports_an_explicit_port",
+            "core::runtime::tests::p2p_authority_refresh_requires_the_same_world_instance",
+            "matchmaking::controller::tests::connection_material_freezes_route_without_signing_a_grant",
+            "matchmaking::controller::tests::connection_material_rejects_unpublished_authority_endpoint"
+          ],
+          "source_assertions": [
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\src\\vnt\\rooms.rs",
+              "lines": "427-447",
+              "sha256": "CD8AB6632B48DD652EA596D8651F912C742D63B8009947C58E48AB52276DE3BF",
+              "role": "install_authority_endpoint rejects zero and propagates the observed port to VNT/Legacy"
+            },
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+              "lines": "6189-6201",
+              "sha256": "61535331CA9F9B7EF832CDDF087305749581FD9CCF12A4C85B54D370FBEFEB95",
+              "role": "explicit-port and same-world route tests"
+            }
+          ],
+          "evidence": [
+            {
+              "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-full-lib-same-route-20260908.log",
+              "sha256": "BF0FABEEA8F5764AC80C1ADCE9DFEEAF742EB4C6098A83C3D38C6CF146C82638",
+              "note": "311-test final log; this mapping did not rerun the command."
+            }
+          ],
+          "note": "No unconditional 7777 fallback remains in the Toolbox path; this is a component result, not a release-candidate/native-positive result."
+        }
+      ],
+      "integration_limits_not_in_original_expected": [
+        "No new live game/native process endpoint exchange was run in this mapping; the canonical whole-release acceptance remains separately blocked/partial."
+      ]
+    },
+    {
+      "id": "AC-014",
+      "issue_id": "BP-014",
+      "title": "Relay 数据面错误被吞，重排/MTU/重放缺少可观测验收",
+      "original_expected": "合法双向数据有计数；篡改、重复、窗口外包、超 MTU 可区分；暂时乱序行为符合文档而非悄悄全丢。",
+      "component_expected_verdict": "PASS_COMPONENT",
+      "uncovered_conditions": [],
+      "conditions": [
+        {
+          "condition": "合法双向数据有计数。",
+          "status": "PASS_COMPONENT_SOURCE_INFERRED",
+          "tests": [
+            "vnt::legacy::controller::tests::host_two_members_have_distinct_native_sources_and_unicast_replies",
+            "vnt::legacy::controller::tests::a_slow_relay_bind_does_not_block_other_peer_routing",
+            "TestStrictRosterRustRelayClients (Go↔Windows Rust driver)"
+          ],
+          "source_assertions": [
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\src\\vnt\\legacy\\controller.rs",
+              "lines": "150-151 and 915-925",
+              "sha256": "1B5C7DEF976D526CBFEB725F6031689DCFDC1A216B350E28235A50DFFFDE5777",
+              "role": "datagrams_sent/datagrams_received counters and packet-result accounting"
+            }
+          ],
+          "evidence": [
+            {
+              "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-full-lib-same-route-20260908.log",
+              "sha256": "BF0FABEEA8F5764AC80C1ADCE9DFEEAF742EB4C6098A83C3D38C6CF146C82638",
+              "note": "311-test final log; this mapping did not rerun the command."
+            },
+            {
+              "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\relay-windows-crosslang-20260908\\go-test-rust-driver.log",
+              "sha256": "5679FA6B5A7C470C5758240FEF5D1500230A77C53E89F53984AA54D47DC2F57C",
+              "note": "Windows Go↔Rust relay execution, exit 0; distinct HOST/PEER and bidirectional authenticated UDP observed."
+            },
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\src\\vnt\\legacy\\controller.rs",
+              "sha256": "1B5C7DEF976D526CBFEB725F6031689DCFDC1A216B350E28235A50DFFFDE5777",
+              "note": "Source-only counter assertion; no runtime counter value in the relay log."
+            }
+          ],
+          "note": "The cross-language execution observed bidirectional authenticated UDP but did not print numeric datagrams_sent/datagrams_received values. The count portion is therefore a current-source inference from record_packet_result, not a direct numeric runtime observation.",
+          "observation_mode": "source_assertion_plus_live_bidirectional_transport"
+        },
+        {
+          "condition": "篡改、重复、窗口外包、超 MTU 可区分。",
+          "status": "PASS_COMPONENT",
+          "tests": [
+            "vnt::legacy::relay::tests::relay_rejects_tampering_without_advancing_window",
+            "vnt::legacy::relay::tests::relay_receives_truncated_mac_and_reorders_without_replay",
+            "vnt::legacy::relay::tests::replay_window_has_explicit_boundaries"
+          ],
+          "source_assertions": [
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\src\\vnt\\legacy\\relay.rs",
+              "lines": "23-42, 45-64, 202-232",
+              "sha256": "52B656432551067CFC7B9E453C7CD6A8339D2FB15F1CF71DE404588A33B44D1B",
+              "role": "distinct Header/Authentication/Replay/Mtu/Backpressure errors and bounded replay window"
+            }
+          ],
+          "evidence": [
+            {
+              "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-full-lib-same-route-20260908.log",
+              "sha256": "BF0FABEEA8F5764AC80C1ADCE9DFEEAF742EB4C6098A83C3D38C6CF146C82638",
+              "note": "311-test final log; this mapping did not rerun the command."
+            }
+          ],
+          "note": "The tests distinguish tampering/authentication, duplicate or outside-window replay, and MTU violations; errors are retained as observable diagnostic codes."
+        },
+        {
+          "condition": "暂时乱序行为符合文档而非悄悄全丢。",
+          "status": "PASS_COMPONENT",
+          "tests": [
+            "vnt::legacy::relay::tests::relay_receives_truncated_mac_and_reorders_without_replay",
+            "vnt::legacy::relay::tests::replay_window_has_explicit_boundaries"
+          ],
+          "source_assertions": [
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\src\\vnt\\legacy\\relay.rs",
+              "lines": "45-64 and 202-232",
+              "sha256": "52B656432551067CFC7B9E453C7CD6A8339D2FB15F1CF71DE404588A33B44D1B",
+              "role": "bounded window accepts valid in-window reordering while rejecting duplicates/outside-window packets"
+            }
+          ],
+          "evidence": [
+            {
+              "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-full-lib-same-route-20260908.log",
+              "sha256": "BF0FABEEA8F5764AC80C1ADCE9DFEEAF742EB4C6098A83C3D38C6CF146C82638",
+              "note": "311-test final log; this mapping did not rerun the command."
+            },
+            {
+              "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\relay-windows-crosslang-20260908\\go-test-rust-driver.log",
+              "sha256": "5679FA6B5A7C470C5758240FEF5D1500230A77C53E89F53984AA54D47DC2F57C",
+              "note": "Windows Go↔Rust relay execution, exit 0; distinct HOST/PEER and bidirectional authenticated UDP observed."
+            }
+          ],
+          "note": "The test sends a reordered sequence (3,1,2), accepts it, then rejects a duplicate; this is the documented bounded-window behavior."
+        }
+      ],
+      "integration_limits_not_in_original_expected": [
+        "No long-duration impaired-game traffic run was added; that is outside the literal AC-014 component expected text and remains a separate integration limitation.",
+        "Numeric counter values were not directly printed by the cross-language relay log; this sub-observation remains source-inferred."
+      ],
+      "coverage_qualification": "PASS_COMPONENT_WITH_SOURCE_INFERENCE",
+      "uncovered_observations": [
+        "合法双向数据的数值计数未由当前跨语言relay日志直接打印或断言；datagrams_sent/datagrams_received的计数更新来自当前controller源码，双向传输由该日志观察。"
+      ]
+    },
+    {
+      "id": "AC-023",
+      "issue_id": "BP-023",
+      "title": "IPC 文档/七命令、分帧、取消和结构化错误未统一",
+      "original_expected": "一次read多帧/部分帧不误判；无响应可有界退出；7个命令可交叉验证；错误码不会掩盖原生路径未实现。",
+      "component_expected_verdict": "PASS_COMPONENT",
+      "uncovered_conditions": [],
+      "conditions": [
+        {
+          "condition": "一次read多帧/部分帧不误判。",
+          "status": "PASS_COMPONENT",
+          "tests": [
+            "server::pipe::windows_pipe_tests::actual_windows_message_pipe_preserves_fragmented_and_coalesced_frames"
+          ],
+          "source_assertions": [
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\src\\server\\pipe_windows_tests.rs",
+              "lines": "58-86",
+              "sha256": "6394FAA9C8636941CB6E4EF49F374080FAF016E779C271DFAC39D1BAAA90C1D7",
+              "role": "actual Windows named-pipe fragmented/coalesced frame handling"
+            },
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\src\\server\\pipe.rs",
+              "lines": "1034-1059",
+              "sha256": "017602E7CF680D29EDB6F2636828A2AB3BCA65C3C9975D207CD06BBAA93D2597",
+              "role": "deadline-bounded frame accumulation and one-frame extraction"
+            }
+          ],
+          "evidence": [
+            {
+              "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-full-lib-same-route-20260908.log",
+              "sha256": "BF0FABEEA8F5764AC80C1ADCE9DFEEAF742EB4C6098A83C3D38C6CF146C82638",
+              "note": "311-test final log; this mapping did not rerun the command."
+            }
+          ],
+          "note": "The actual Windows pipe test covers fragmented and coalesced frames; one frame is consumed without treating trailing/coalesced bytes as a malformed single frame."
+        },
+        {
+          "condition": "无响应可有界退出。",
+          "status": "PASS_COMPONENT",
+          "tests": [
+            "server::pipe::windows_pipe_tests::actual_windows_pipe_no_response_has_a_bounded_deadline",
+            "server::pipe::windows_pipe_tests::actual_windows_pipe_limits_each_frame_independently"
+          ],
+          "source_assertions": [
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\src\\server\\pipe.rs",
+              "lines": "400-451 and 1034-1059",
+              "sha256": "017602E7CF680D29EDB6F2636828A2AB3BCA65C3C9975D207CD06BBAA93D2597",
+              "role": "connect/request deadlines and bounded frame read"
+            }
+          ],
+          "evidence": [
+            {
+              "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-full-lib-same-route-20260908.log",
+              "sha256": "BF0FABEEA8F5764AC80C1ADCE9DFEEAF742EB4C6098A83C3D38C6CF146C82638",
+              "note": "311-test final log; this mapping did not rerun the command."
+            }
+          ],
+          "note": "The Windows no-response case exits on a bounded deadline; independent per-frame limits prevent an unbounded read."
+        },
+        {
+          "condition": "7个命令可交叉验证。",
+          "status": "PASS_COMPONENT",
+          "tests": [
+            "server::pipe::cpp_fixture_tests::actual_cpp_frames_decode_in_rust_without_promoting_queued_or_pending_to_ready",
+            "server::pipe::cpp_fixture_tests::cpp_frames_reject_wrong_request_command_and_replayed_event_cursor",
+            "server::pipe::cpp_fixture_tests::actual_cpp_client_confirmation_rejects_wrong_acceptance_scope_or_nonce"
+          ],
+          "source_assertions": [
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\src\\server\\pipe_cpp_fixture_tests.rs",
+              "lines": "15-116, 118-194, 197-254",
+              "sha256": "D15813A3563723885D5EDD0A2E486D5F13371B4FE745C0CE75DED19F7E400771",
+              "role": "Rust consumes the actual fixture and cross-validates 10 distinct command/ack frame types, exceeding the seven-command minimum"
+            },
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\tests\\fixtures\\payload-wire-v2.jsonl",
+              "lines": "whole fixture",
+              "sha256": "B6DF8C7FF1172E31198F398E9D17E96AD2D722785AF2A04BAA9CAC5404BC9E01",
+              "role": "retained actual C++-encoded positive wire bytes"
+            }
+          ],
+          "evidence": [
+            {
+              "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-full-lib-same-route-20260908.log",
+              "sha256": "BF0FABEEA8F5764AC80C1ADCE9DFEEAF742EB4C6098A83C3D38C6CF146C82638",
+              "note": "311-test final log; this mapping did not rerun the command."
+            },
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\tests\\fixtures\\payload-wire-v2.jsonl",
+              "sha256": "B6DF8C7FF1172E31198F398E9D17E96AD2D722785AF2A04BAA9CAC5404BC9E01",
+              "note": "Native-produced C++ wire fixture consumed by Rust fixture tests; exact bytes retained."
+            }
+          ],
+          "note": "The positive fixture contains 10 distinct command/ack names, including payload_status, join, allocation, authority start, client confirmation, events, admission/connection confirmation, and cleanup states."
+        },
+        {
+          "condition": "错误码不会掩盖原生路径未实现。",
+          "status": "PASS_COMPONENT",
+          "tests": [
+            "server::pipe::cpp_fixture_tests::cpp_frames_reject_wrong_request_command_and_replayed_event_cursor",
+            "server::pipe::cpp_fixture_tests::actual_cpp_frames_decode_in_rust_without_promoting_queued_or_pending_to_ready",
+            "server::pipe::tests::payload_status_requires_correlated_native_lifecycle_state",
+            "server::pipe::tests::client_connection_ack_requires_nested_exact_scope_and_nonce"
+          ],
+          "source_assertions": [
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\src\\server\\pipe.rs",
+              "lines": "1115, 1691-1735",
+              "sha256": "017602E7CF680D29EDB6F2636828A2AB3BCA65C3C9975D207CD06BBAA93D2597",
+              "role": "structured native error code/message is preserved and unexpected commands are rejected"
+            },
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\tests\\fixtures\\payload-wire-negative-v2.jsonl",
+              "lines": "whole negative fixture",
+              "sha256": "2ECC55FEAA6868C77271ED62642DA1A8E68237DDFFFD677D167030A61B1D5557",
+              "role": "busy/error/wrong-command and replay-negative frames"
+            }
+          ],
+          "evidence": [
+            {
+              "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-full-lib-same-route-20260908.log",
+              "sha256": "BF0FABEEA8F5764AC80C1ADCE9DFEEAF742EB4C6098A83C3D38C6CF146C82638",
+              "note": "311-test final log; this mapping did not rerun the command."
+            },
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\tests\\fixtures\\payload-wire-negative-v2.jsonl",
+              "sha256": "2ECC55FEAA6868C77271ED62642DA1A8E68237DDFFFD677D167030A61B1D5557",
+              "note": "Negative C++/wire fixture used for wrong command, cursor, scope, and error rejection."
+            }
+          ],
+          "note": "The parser does not convert busy/pending/invalid command frames into readiness; structured errors remain errors and native-unverified states are fail-closed."
+        }
+      ],
+      "integration_limits_not_in_original_expected": [
+        "This mapping does not claim a fresh live seven-command game session; AC-023 literal component expected is satisfied by actual Windows framing plus actual C++ fixture consumption."
+      ]
+    },
+    {
+      "id": "AC-031",
+      "issue_id": "BP-031",
+      "title": "角色、hosting/transport与各类ID/generation不能压成一个字段",
+      "original_expected": "编译/序列化/契约测试阻止ID互传；host身份不能复用Member Grant；模式组合与后端约束一致。",
+      "component_expected_verdict": "PASS_COMPONENT",
+      "uncovered_conditions": [],
+      "conditions": [
+        {
+          "condition": "编译/序列化/契约测试阻止ID互传。",
+          "status": "PASS_COMPONENT",
+          "tests": [
+            "matchmaking::ids::tests::identities_are_not_interchangeable_types",
+            "matchmaking::ids::tests::generations_reject_zero_and_serialize_as_numbers",
+            "Rust compile-fail doctests in src/matchmaking/ids.rs (2 passed, 0 failed)",
+            "core::runtime::tests::match_operation_scope_binds_lobby_attempt_and_authorized_role"
+          ],
+          "source_assertions": [
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\src\\matchmaking\\ids.rs",
+              "lines": "8-16, 84-92, 205-243",
+              "sha256": "8F671CA7F0E3E541C9EEAC9003F02AF200A062DE0C0670F01274E0F0BB3A849E",
+              "role": "compile-fail examples and distinct typed IDs/generations/SessionContext"
+            },
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\src\\matchmaking\\controller.rs",
+              "lines": "89-143",
+              "sha256": "ED40FFA120968D1A78C374B2CD43678C328492464A1F5EDBA77CB9981DC94025",
+              "role": "typed HostProvisioningMaterial, ConnectionMaterial, and MemberJoinGrant fields"
+            }
+          ],
+          "evidence": [
+            {
+              "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-full-lib-same-route-20260908.log",
+              "sha256": "BF0FABEEA8F5764AC80C1ADCE9DFEEAF742EB4C6098A83C3D38C6CF146C82638",
+              "note": "311-test final log; this mapping did not rerun the command."
+            },
+            {
+              "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-strong-id-compile-test.log",
+              "sha256": "8546AF07178D216156072F83D53FC9588C9361CF5E23FBE32FF703CEE21DA565",
+              "note": "Rust compile-fail doctest execution, 2 passed, 0 failed."
+            },
+            {
+              "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-ids-tests.log",
+              "sha256": "EFE5BB02B8CC109E7DA66DA7F6525156AECEEEDCB209D649A8C0940C47E984CA",
+              "note": "Targeted typed-ID unit execution, 3 passed, 0 failed."
+            },
+            {
+              "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\strong-id-current-20260907T234308Z\\compile-fail-tests.log",
+              "sha256": "5D38E0FEE53CB7B4C35596736BC9DFF329B7F59FFCC37058173A4CC2B743E687",
+              "note": "Current e360 compile-fail execution receipt; 2 passed, 0 failed, source dirty=false."
+            },
+            {
+              "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\strong-id-current-20260907T234308Z\\receipt.json",
+              "sha256": "2517ECC2283778227FFB19D63093CCFA06F4513EB396C37A9B69F2DD589ECA2A",
+              "note": "Binds the current compile-fail log to Toolbox e360 with exit 0."
+            }
+          ],
+          "note": "The compile-fail doctests reject LobbyId→AttemptId and VntGeneration→RouteGeneration interchanges; serialization tests reject invalid generation zero and preserve numeric generation encoding."
+        },
+        {
+          "condition": "host身份不能复用Member Grant。",
+          "status": "PASS_COMPONENT",
+          "tests": [
+            "server::pipe::tests::host_playable_evidence_requires_the_native_host_scope",
+            "server::pipe::tests::preserved_host_authority_ack_requires_exact_old_scope_and_operation",
+            "matchmaking::controller::tests::p2p_owner_starts_authority_before_members_connect",
+            "matchmaking::controller::tests::dedicated_owner_connects_as_an_ordinary_roster_member"
+          ],
+          "source_assertions": [
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\src\\server\\pipe.rs",
+              "lines": "1272-1360 and 2055-2100",
+              "sha256": "017602E7CF680D29EDB6F2636828A2AB3BCA65C3C9975D207CD06BBAA93D2597",
+              "role": "role-specific join/playable scope validation and native host scope requirement"
+            },
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\src\\matchmaking\\controller.rs",
+              "lines": "1434-1450",
+              "sha256": "ED40FFA120968D1A78C374B2CD43678C328492464A1F5EDBA77CB9981DC94025",
+              "role": "P2P HOST authority and Dedicated ordinary-member role separation"
+            }
+          ],
+          "evidence": [
+            {
+              "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-full-lib-same-route-20260908.log",
+              "sha256": "BF0FABEEA8F5764AC80C1ADCE9DFEEAF742EB4C6098A83C3D38C6CF146C82638",
+              "note": "311-test final log; this mapping did not rerun the command."
+            },
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\tests\\fixtures\\payload-wire-v2.jsonl",
+              "sha256": "B6DF8C7FF1172E31198F398E9D17E96AD2D722785AF2A04BAA9CAC5404BC9E01",
+              "note": "Native-produced C++ wire fixture consumed by Rust fixture tests; exact bytes retained."
+            }
+          ],
+          "note": "The host path requires host-scoped native evidence; the member grant/material types and role-specific controller paths are separate."
+        },
+        {
+          "condition": "模式组合与后端约束一致。",
+          "status": "PASS_COMPONENT",
+          "tests": [
+            "matchmaking::controller::tests::p2p_owner_starts_authority_before_members_connect",
+            "matchmaking::controller::tests::dedicated_owner_connects_as_an_ordinary_roster_member",
+            "matchmaking::controller::tests::p2p_route_generation_change_refreshes_authority_without_relaunch",
+            "server::registration::tests::canonical_request_matches_backend_contract",
+            "server::registration::tests::dedicated_assignment_verifies_signed_allocation_scope",
+            "vnt::session::tests::role_and_catalog_validation_is_fail_closed"
+          ],
+          "source_assertions": [
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\src\\matchmaking\\controller.rs",
+              "lines": "1434-1450 and 1529-1590",
+              "sha256": "ED40FFA120968D1A78C374B2CD43678C328492464A1F5EDBA77CB9981DC94025",
+              "role": "mode/role/generation/intent combinations and late-grant protection"
+            },
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\src\\server\\registration.rs",
+              "lines": "1899-1998",
+              "sha256": "00F9D9978C8107F93A371332804A2F4F19E9D922794B6C319461A4D4381B90BE",
+              "role": "backend request and signed dedicated allocation contract checks"
+            },
+            {
+              "path": "C:\\wksp\\ProjectReboundToolbox\\src\\vnt\\session.rs",
+              "lines": "1356-1395",
+              "sha256": "1D0CE60AF9A34A8C5B4E68C0C08128C889988179BABB34DBF863B5EB7A0E680E",
+              "role": "role/catalog validation fail-closed"
+            }
+          ],
+          "evidence": [
+            {
+              "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-full-lib-same-route-20260908.log",
+              "sha256": "BF0FABEEA8F5764AC80C1ADCE9DFEEAF742EB4C6098A83C3D38C6CF146C82638",
+              "note": "311-test final log; this mapping did not rerun the command."
+            }
+          ],
+          "note": "The component tests distinguish P2P owner authority from Dedicated ordinary-member flow and bind signed backend allocation scope to the typed role/generation material."
+        }
+      ],
+      "integration_limits_not_in_original_expected": [
+        "A complete external backend/native identity matrix is not claimed here; it is a release/integration gate separate from the literal compile/serialization/contract expected text."
+      ],
+      "current_execution_binding": {
+        "execution_source_pair": {
+          "Toolbox": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482"
+        },
+        "source_dirty": {
+          "Toolbox": false
+        },
+        "command": [
+          "C:/Users/23587/.cargo/bin/cargo.exe",
+          "test",
+          "--locked",
+          "--doc",
+          "--features",
+          "vnt,lab-testing"
+        ],
+        "exit_code": 0,
+        "passed": 2,
+        "failed": 0,
+        "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\strong-id-current-20260907T234308Z\\compile-fail-tests.log",
+        "log_sha256": "5D38E0FEE53CB7B4C35596736BC9DFF329B7F59FFCC37058173A4CC2B743E687",
+        "receipt_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\strong-id-current-20260907T234308Z\\receipt.json",
+        "receipt_sha256": "2517ECC2283778227FFB19D63093CCFA06F4513EB396C37A9B69F2DD589ECA2A"
+      }
+    }
+  ],
+  "overall_interpretation": {
+    "component_expected_result": "AC-009, AC-014, AC-023, and AC-031 each have all literal expected subconditions mapped to current-source assertions and retained executed evidence; no literal subcondition is left uncovered in this component-scope review.",
+    "release_status": "UNCHANGED_NOT_A_RELEASE_PASS",
+    "release_caveat": "PASS_COMPONENT does not promote the 52-item matrix, native positive admission, signed artifacts, or the final release candidate. Existing canonical reports may retain PARTIAL/BLOCKED for broader integration/source-binding scope.",
+    "tests_run_in_this_task": [],
+    "tests_rerun": false
+  }
+}

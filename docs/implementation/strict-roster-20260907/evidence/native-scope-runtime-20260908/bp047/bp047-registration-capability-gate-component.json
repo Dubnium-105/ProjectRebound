@@ -1,0 +1,50 @@
+{
+  "kind": "bp047_registration_capability_gate_component",
+  "classification": "PASS_COMPONENT_ONLY",
+  "acceptance": "PASS_COMPONENT_ONLY",
+  "not_native_e2e": true,
+  "test": "server::registration::tests::heartbeat_body_matches_backend_contract_and_requires_native_proof",
+  "corrected_run": {
+    "command": "cargo test heartbeat_body_matches_backend_contract_and_requires_native_proof --lib -- --nocapture",
+    "exit_code": 0,
+    "tests_run": 1,
+    "passed": 1,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 306
+  },
+  "superseded_run": {
+    "command": "cargo test heartbeat_body_matches_backend_contract_and_requires_native_proof --lib -- --exact --nocapture",
+    "exit_code": 0,
+    "tests_run": 0,
+    "passed": 0,
+    "failed": 0,
+    "filtered": 307,
+    "acceptance": "NOT_RUN",
+    "note": "Exact filter did not match the fully-qualified module test name; its zero-test exit was not counted as a pass."
+  },
+  "assertions": [
+    "Payload status with native_authority_admission_verified=false is not eligible for Dedicated capability",
+    "blocked/strict_online_ready=false remains ineligible even if proof bit is true",
+    "ready authority status with strict-roster-v2 and fixed game hash becomes eligible only when the proof and role gates are all satisfied",
+    "Member/P2P client-grant-required status is rejected for Dedicated capability"
+  ],
+  "source": {
+    "registration_rs": {
+      "path": "ProjectReboundToolbox/src/server/registration.rs",
+      "sha256": "00f9d9978c8107f93a371332804a2f4f19e9d922794b6c319461a4d4381b90be"
+    },
+    "cargo_lock": {
+      "path": "ProjectReboundToolbox/Cargo.lock",
+      "sha256": "f6b063c604357f2ffd3164ca7a66731e1adc7a544f447cf4cbcfa216cee41440"
+    }
+  },
+  "log": {
+    "path": ".tmp\\strict-roster-20260907\\native-evidence\\bp047-registration-heartbeat-component-20260908T20260908075437\\toolbox-registration-capability-gate-test.log",
+    "sha256": "0f8a02ef4eadb98a0aa77fc84a0acffbacf34785672b901862a4889379942bdf",
+    "bytes": 393
+  },
+  "process_level_registration_worker_executed": false,
+  "native_authority_admission_verified": false,
+  "note": "This is the Toolbox capability predicate unit test, not a control-plane registration or owned Payload process run. It supports fail-closed scheduling semantics only."
+}

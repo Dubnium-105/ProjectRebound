@@ -1,0 +1,2 @@
+SELECT 'schema='||COALESCE(MAX(version)::text,'0')||'|'||COUNT(*) FROM schema_migrations;
+SELECT 'roster='||COUNT(*)||'|connected_hosts='||COUNT(*) FILTER (WHERE room_role='HOST' AND connection_state='CONNECTED')||'|nonce_hosts='||COUNT(*) FILTER (WHERE room_role='HOST' AND connection_state='CONNECTED' AND live_native_connection_nonce IS NOT NULL) FROM match_attempt_roster;

@@ -1,0 +1,212 @@
+dll_load=ok
+symbol_SteamAPI_Init=present
+symbol_SteamAPI_Shutdown=present
+symbol_SteamAPI_GetHSteamPipe=present
+symbol_SteamInternal_GameServer_Init=present
+symbol_SteamGameServer_Shutdown=present
+symbol_SteamGameServer_GetHSteamPipe=present
+symbol_SteamAPI_SteamGameServer_v015=present
+symbol_SteamAPI_SteamUser_v023=present
+symbol_SteamAPI_ISteamUser_GetSteamID=present
+symbol_SteamAPI_ISteamUser_GetAuthSessionTicket=present
+symbol_SteamAPI_ISteamUser_CancelAuthTicket=present
+symbol_SteamAPI_ISteamGameServer_BLoggedOn=present
+symbol_SteamAPI_ISteamGameServer_BSecure=present
+symbol_SteamAPI_ISteamGameServer_LogOnAnonymous=present
+symbol_SteamAPI_ISteamGameServer_SetProduct=present
+symbol_SteamAPI_ISteamGameServer_SetGameDescription=present
+symbol_SteamAPI_ISteamGameServer_SetModDir=present
+symbol_SteamAPI_ISteamGameServer_SetServerName=present
+symbol_SteamAPI_ISteamGameServer_SetMapName=present
+symbol_SteamAPI_ISteamGameServer_SetDedicatedServer=present
+symbol_SteamAPI_ISteamGameServer_SetMaxPlayerCount=present
+symbol_SteamAPI_ISteamGameServer_BeginAuthSession=present
+symbol_SteamAPI_ISteamGameServer_EndAuthSession=present
+symbol_SteamAPI_ManualDispatch_Init=present
+symbol_SteamAPI_ManualDispatch_RunFrame=present
+symbol_SteamAPI_ManualDispatch_GetNextCallback=present
+symbol_SteamAPI_ManualDispatch_FreeLastCallback=present
+client_api_init=true
+client_manual_dispatch_initialized=true
+client_user_interface=present
+client_steam_id_present=true
+client_auth_ticket_handle_nonzero=true
+client_auth_ticket_bytes_nonzero=true
+client_hsteam_pipe=1
+client_callback_id=1040044 bytes=784
+client_callback_id=1270006 bytes=16
+client_callback_id=1101 bytes=24
+client_callback_id=1270009 bytes=144
+client_callback_id=1040011 bytes=260
+client_callback_id=1100035 bytes=4
+client_callback_id=1100038 bytes=4
+client_callback_id=163 bytes=8
+client_auth_ticket_handle_matches=true
+client_auth_ticket_result_ok=true
+client_callback_id=336 bytes=12
+client_callback_id=304 bytes=16
+client_callback_id=1040011 bytes=260
+client_callback_id=1100003 bytes=8
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100070 bytes=32
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100070 bytes=32
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100071 bytes=264
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100070 bytes=32
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100070 bytes=32
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100010 bytes=312
+client_callback_id=1100070 bytes=32
+client_callback_id=1100059 bytes=152
+client_callback_id=1100073 bytes=24
+client_callback_count=145
+client_auth_ticket_callback_count=1
+server_api_init=true
+server_interface=present
+server_hsteam_pipe=2
+server_logged_on_before=false
+server_secure_before=false
+server_manual_dispatch_initialized=true
+server_callback_id=1080001 bytes=4
+server_callback_id=1080000 bytes=628
+server_callback_id=1080000 bytes=628
+server_callback_id=1080000 bytes=628
+server_callback_id=1080000 bytes=628
+server_callback_id=1080000 bytes=628
+server_callback_id=1080000 bytes=628
+server_callback_id=1040011 bytes=260
+server_callback_id=101 bytes=1
+server_callback_id=115 bytes=1
+server_callback_count=10
+validate_auth_ticket_callback_count=0
+server_logged_on_after=true
+server_secure_after=false
+begin_auth_result=0
+server_callback_id=143 bytes=20
+validate_auth_response_code=0
+validate_auth_steam_id_matches=true
+server_callback_count=11
+validate_auth_ticket_callback_count=1
+validate_auth_response_seen=true
+platform_possession_proven=true

@@ -1,0 +1,16 @@
+{
+    "kind":  "bp047_authority_only_ready",
+    "accepted":  true,
+    "authority_ready":  true,
+    "allocation_installed":  true,
+    "world_listening":  true,
+    "attempt_id":  "mat_38e937fcf5da456a900093a9ec64f9f1",
+    "authority_id":  "native_fixture_server_940fc4ea4439473f8a39e23f1d7839ef",
+    "authority_session_id":  "mas_2097f51068f346b79ed40143b2957e4f",
+    "world_instance_id":  "world_1_2b88cdf6140",
+    "roster_revision":  2,
+    "route_generation":  1,
+    "endpoint_port":  47779,
+    "native_connection_nonce_present":  true,
+    "observed_utc":  "2026-09-07T23:14:45.5834775+00:00"
+}

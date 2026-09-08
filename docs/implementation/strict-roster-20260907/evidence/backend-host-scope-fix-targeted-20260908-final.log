@@ -1,0 +1,7 @@
+=== RUN   TestStrictRosterP2PLifecycleAgainstPostgreSQL
+    service_integration_test.go:899: fresh HOST Ready bypassed the post-disconnect Payload gate: The P2P authority is already ready at a different endpoint.
+--- FAIL: TestStrictRosterP2PLifecycleAgainstPostgreSQL (4.01s)
+FAIL
+FAIL	github.com/Dubnium-105/ProjectRebound/Backend/internal/matchlobby	4.051s
+FAIL
+EXIT_CODE=1

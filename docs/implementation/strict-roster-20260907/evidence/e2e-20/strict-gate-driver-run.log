@@ -1,0 +1,9 @@
+started_at=2026-09-07T14:28:17.468589+00:00
+cwd=C:\wksp\ProjectReboundToolbox
+command=C:\wksp\ProjectRebound\.tmp\e2e-20\strict-gate-target\release\e2e20_strict_gate_driver.exe C:\wksp\ProjectRebound\.tmp\e2e-20\strict-gate-fixture
+exit_code=0
+--- stdout ---
+PASS: strict online gate rejected wrong game SHA before credentials or process launch (expected pinned game SHA prefix=181c49ffb522)
+
+--- stderr ---
+

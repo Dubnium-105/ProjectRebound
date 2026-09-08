@@ -1,0 +1,46 @@
+=== RUN   TestExampleConfigLoads
+--- PASS: TestExampleConfigLoads (0.00s)
+=== RUN   TestProductionConfigRequiresHTTPSAndLoopbackMetrics
+--- PASS: TestProductionConfigRequiresHTTPSAndLoopbackMetrics (0.00s)
+=== RUN   TestV2CookieIsStatelessAndAcceptsCurrentOrPreviousBucket
+--- PASS: TestV2CookieIsStatelessAndAcceptsCurrentOrPreviousBucket (0.00s)
+=== RUN   TestLoadOrEnrollPersistsNodeIdentityAndConsumesBootstrapLocally
+--- PASS: TestLoadOrEnrollPersistsNodeIdentityAndConsumesBootstrapLocally (0.01s)
+=== RUN   TestMetricsExposeRequiredRelaySeries
+--- PASS: TestMetricsExposeRequiredRelaySeries (0.00s)
+=== RUN   TestQoSResponseCannotAmplifyAndDoesNotAffectRelayProtocol
+--- PASS: TestQoSResponseCannotAmplifyAndDoesNotAffectRelayProtocol (0.00s)
+=== RUN   TestQoSPerIPRateLimit
+--- PASS: TestQoSPerIPRateLimit (0.00s)
+=== RUN   TestRuntimeCookieBindingAndAuthorizedForwarding
+--- PASS: TestRuntimeCookieBindingAndAuthorizedForwarding (0.00s)
+=== RUN   TestRuntimeAllowsShortNATPortRebindButRejectsLateOrCrossIPReplay
+--- PASS: TestRuntimeAllowsShortNATPortRebindButRejectsLateOrCrossIPReplay (0.00s)
+=== RUN   TestRuntimeRejectsWrongNodeExpiredAndInvalidRoleTokens
+--- PASS: TestRuntimeRejectsWrongNodeExpiredAndInvalidRoleTokens (0.00s)
+=== RUN   TestRuntimeV1CompatibilityIsExplicitlyOptIn
+--- PASS: TestRuntimeV1CompatibilityIsExplicitlyOptIn (0.00s)
+=== RUN   TestRuntimeRateLimitsTotalBytesAndExpiresInMemoryAllocations
+--- PASS: TestRuntimeRateLimitsTotalBytesAndExpiresInMemoryAllocations (0.00s)
+=== RUN   TestRuntimeSeparatesUnverifiedLimitsAndBoundsIPState
+--- PASS: TestRuntimeSeparatesUnverifiedLimitsAndBoundsIPState (0.00s)
+=== RUN   TestRuntimeTemporarilyBansInvalidTokenFlood
+--- PASS: TestRuntimeTemporarilyBansInvalidTokenFlood (0.00s)
+=== RUN   TestRuntimeLimitsUniqueAllocationsPerIP
+--- PASS: TestRuntimeLimitsUniqueAllocationsPerIP (0.00s)
+=== RUN   TestRuntimeDrainsExistingAllocationAtDeadline
+--- PASS: TestRuntimeDrainsExistingAllocationAtDeadline (0.00s)
+=== RUN   TestRuntimeOverloadStateRejectsOnlyNewAllocations
+--- PASS: TestRuntimeOverloadStateRejectsOnlyNewAllocations (0.00s)
+=== RUN   TestRuntimeKeysetUpdatesAndControlShutdown
+--- PASS: TestRuntimeKeysetUpdatesAndControlShutdown (0.00s)
+=== RUN   TestStrictRosterRelayCrossLanguageFixture
+--- PASS: TestStrictRosterRelayCrossLanguageFixture (0.00s)
+=== RUN   TestTokenVerifierKeepsCachedKeysDuringControlDisconnect
+--- PASS: TestTokenVerifierKeepsCachedKeysDuringControlDisconnect (0.00s)
+=== RUN   TestTokenVerifierRequiresTrustedKeysetSignature
+--- PASS: TestTokenVerifierRequiresTrustedKeysetSignature (0.00s)
+=== RUN   TestUDPListenerPerformsBindChallenge
+--- PASS: TestUDPListenerPerformsBindChallenge (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/relayruntime	0.091s

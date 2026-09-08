@@ -1,0 +1,12 @@
+   Compiling rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 21.11s
+     Running unittests src\lib.rs (target\debug\deps\rebound_toolbox-95a8a15180729417.exe)
+
+running 4 tests
+test server::pipe::windows_pipe_tests::actual_windows_pipe_rejects_wrong_server_pid_before_sending_credentials ... ok
+test server::pipe::windows_pipe_tests::actual_windows_pipe_limits_each_frame_independently ... ok
+test server::pipe::windows_pipe_tests::actual_windows_message_pipe_preserves_fragmented_and_coalesced_frames ... ok
+test server::pipe::windows_pipe_tests::actual_windows_pipe_no_response_has_a_bounded_deadline ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 250 filtered out; finished in 0.05s
+

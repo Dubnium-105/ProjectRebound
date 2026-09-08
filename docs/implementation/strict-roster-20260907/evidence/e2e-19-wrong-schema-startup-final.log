@@ -1,0 +1,1 @@
+EXPECTED_SCHEMA_REJECTION=true error=verify database schema compatibility: schema version mismatch: database=48 application=47

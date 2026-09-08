@@ -1,0 +1,19 @@
+{
+  "kind": "bp047_process_registration_preflight",
+  "observed_at_utc": "2026-09-08T00:04:48.5675080Z",
+  "owned_processes": {
+    "boundary_game": 0,
+    "toolbox": 0,
+    "game_server_agent": 0
+  },
+  "control_plane_listeners": [],
+  "control_plane_listener_observation": "No isolated control-plane listener was started for this component run; absence of a listener is recorded as a harness state, not as a permanent environment blocker.",
+  "process_level_run": "NOT_RUN",
+  "reason": "The real service test and Toolbox capability predicate test are component-level. They do not produce a persisted HTTP registration credential/identity for a Toolbox worker to attach to a real owned Payload process.",
+  "next_exact_steps": [
+    "Start control-plane from Backend/cmd/control-plane against isolated DB rebound_native_reg_20260908_01 with test/development CA and unique local HTTP port.",
+    "Issue one instance-bound registration credential through the existing API/admin path; do not write game_servers READY or native capability via SQL.",
+    "Launch the real Toolbox ServerManager with offline=false and that registration credential, candidate Payload/game process, exact owned PID/pipe, and record signed heartbeat capability fields.",
+    "Expect native_authority_admission_verified=false to clear native version/SHA and leave dedicated allocation query ineligible; only a real proof may change that bit."
+  ]
+}

@@ -1,0 +1,30 @@
+True
+True
+{
+  "run_id": "dedicated-component-20260907-160501-3610a82c",
+  "outcome": "BLOCKED",
+  "failure": "timed out waiting for payload_status on Payload pipe ProjectRebound_DedicatedAuthority_f95c8cc37a824cfa8ed8b15c7c1cf43a",
+  "execute": true,
+  "fixture_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\dynamic-allocation-private.json",
+  "fixture_sha256": "13A7925922F7BF62DDBBB640BF443206EE2C4D05FDE9524235B2C2EB0C90AB95",
+  "authority_pipe": "ProjectRebound_DedicatedAuthority_f95c8cc37a824cfa8ed8b15c7c1cf43a",
+  "client_pipe": "ProjectRebound_DedicatedClient_4b9f39b335364763838651feef0d7da0",
+  "authority_port": 47777,
+  "client_port": 47778,
+  "authority_world_instance_id": null,
+  "backend_authority_ready_evidence_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\backend-authority-ready.json",
+  "backend_grant_evidence_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\backend-grant-private.json",
+  "backend_grant_evidence_sha256": null,
+  "backend_scoped_event_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\native-events.json",
+  "backend_scoped_event_sha256": null,
+  "backend_receipt_dir": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\backend-receipts",
+  "candidate_payload_sha256": "62F83BEC866148F1244A2B0EBD59FD1A49A23D72757D9687C5EB8E81C71D7D5D",
+  "restored_payload_sha256": "6C7B5E05540AC72A6D7A9FA78F867917285FCE00081156EE13D237AA4D6C24A3",
+  "authority_wrapper_pid": 26084,
+  "client_wrapper_pid": null,
+  "authority_game_pid": 18556,
+  "client_game_pid": null,
+  "evidence_root": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\dedicated-component-20260907-160501-3610a82c",
+  "frames_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\dedicated-component-20260907-160501-3610a82c\\payload-frames.jsonl",
+  "observed_utc": "2026-09-07T16:05:56.5837565+00:00"
+}

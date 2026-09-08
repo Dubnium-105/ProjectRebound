@@ -1,0 +1,191 @@
+=== RUN   TestInsertLoginAuditNormalizesNilTurnstileErrorCodes
+--- PASS: TestInsertLoginAuditNormalizesNilTurnstileErrorCodes (0.00s)
+=== RUN   TestAuthenticatorAcceptsOnlyDedicatedAdminToken
+--- PASS: TestAuthenticatorAcceptsOnlyDedicatedAdminToken (0.00s)
+=== RUN   TestNetworkGuardHidesAdminAPIFromPublicAddress
+--- PASS: TestNetworkGuardHidesAdminAPIFromPublicAddress (0.00s)
+=== RUN   TestRequireStepUpRejectsMissingOrInvalidProof
+=== RUN   TestRequireStepUpRejectsMissingOrInvalidProof/missing
+=== RUN   TestRequireStepUpRejectsMissingOrInvalidProof/invalid
+=== RUN   TestRequireStepUpRejectsMissingOrInvalidProof/valid
+--- PASS: TestRequireStepUpRejectsMissingOrInvalidProof (0.00s)
+    --- PASS: TestRequireStepUpRejectsMissingOrInvalidProof/missing (0.00s)
+    --- PASS: TestRequireStepUpRejectsMissingOrInvalidProof/invalid (0.00s)
+    --- PASS: TestRequireStepUpRejectsMissingOrInvalidProof/valid (0.00s)
+=== RUN   TestAdministratorIssuesAndRevokesInstanceBoundGameServerToken
+    game_server_registration_integration_test.go:23: TEST_DATABASE_URL is not set
+--- SKIP: TestAdministratorIssuesAndRevokesInstanceBoundGameServerToken (0.00s)
+=== RUN   TestGovernanceNormalizersPreservePermissionKeyCase
+--- PASS: TestGovernanceNormalizersPreservePermissionKeyCase (0.00s)
+=== RUN   TestGovernedAdministratorJSONUsesSafePublicFields
+--- PASS: TestGovernedAdministratorJSONUsesSafePublicFields (0.00s)
+=== RUN   TestGovernanceAuditValueDoesNotContainCredentials
+--- PASS: TestGovernanceAuditValueDoesNotContainCredentials (0.00s)
+=== RUN   TestMatchAttemptForceAbortRequiresPermissionAndStepUp
+--- PASS: TestMatchAttemptForceAbortRequiresPermissionAndStepUp (0.00s)
+=== RUN   TestTOTPMatchesRFC6238Vector
+--- PASS: TestTOTPMatchesRFC6238Vector (0.00s)
+=== RUN   TestSecretBoxUsesAdministratorAsAssociatedData
+--- PASS: TestSecretBoxUsesAdministratorAsAssociatedData (0.00s)
+=== RUN   TestRecoveryCodesAreUniqueAndHashed
+--- PASS: TestRecoveryCodesAreUniqueAndHashed (0.00s)
+=== RUN   TestAdministrativeVNTNodeResponseDoesNotExposeCredentials
+--- PASS: TestAdministrativeVNTNodeResponseDoesNotExposeCredentials (0.00s)
+=== RUN   TestAdministrativeGameServerResponseDoesNotExposeTokenHash
+--- PASS: TestAdministrativeGameServerResponseDoesNotExposeTokenHash (0.00s)
+=== RUN   TestCreateGameServerRegistrationReturnsPlaintextOnceAndDisablesCaching
+--- PASS: TestCreateGameServerRegistrationReturnsPlaintextOnceAndDisablesCaching (0.00s)
+=== RUN   TestAdministrativeResourceRetirementAgainstPostgreSQL
+    online_resource_integration_test.go:26: TEST_DATABASE_URL is not set
+--- SKIP: TestAdministrativeResourceRetirementAgainstPostgreSQL (0.00s)
+=== RUN   TestPasswordHashRoundTrip
+--- PASS: TestPasswordHashRoundTrip (0.57s)
+=== RUN   TestPasswordPolicy
+--- PASS: TestPasswordPolicy (0.00s)
+=== RUN   TestMaskIPAddress
+--- PASS: TestMaskIPAddress (0.00s)
+=== RUN   TestListVNTSecurityAuditRejectsInvalidFiltersBeforeRepositoryAccess
+--- PASS: TestListVNTSecurityAuditRejectsInvalidFiltersBeforeRepositoryAccess (0.00s)
+=== RUN   TestRedactSensitiveMapRecurses
+--- PASS: TestRedactSensitiveMapRecurses (0.00s)
+=== RUN   TestDashboardTimeseriesRejectsArbitraryPeriod
+--- PASS: TestDashboardTimeseriesRejectsArbitraryPeriod (0.00s)
+=== RUN   TestAdminPlayerLifecycleAgainstPostgreSQL
+    service_integration_test.go:24: TEST_DATABASE_URL is not set
+--- SKIP: TestAdminPlayerLifecycleAgainstPostgreSQL (0.00s)
+=== RUN   TestAdministratorGovernanceAgainstPostgreSQL
+    service_integration_test.go:136: TEST_DATABASE_URL is not set
+--- SKIP: TestAdministratorGovernanceAgainstPostgreSQL (0.00s)
+=== RUN   TestManagedReleaseLifecycleAgainstPostgreSQL
+    service_integration_test.go:263: TEST_DATABASE_URL is not set
+--- SKIP: TestManagedReleaseLifecycleAgainstPostgreSQL (0.00s)
+=== RUN   TestParseAccountStatusNormalizesAndRejectsUnknown
+--- PASS: TestParseAccountStatusNormalizesAndRejectsUnknown (0.00s)
+=== RUN   TestValidateAuditReasonRejectsMissingAndCredentialLikeText
+--- PASS: TestValidateAuditReasonRejectsMissingAndCredentialLikeText (0.00s)
+=== RUN   TestNormalizeAdminSettingValue
+--- PASS: TestNormalizeAdminSettingValue (0.00s)
+=== RUN   TestTurnstileVerifierValidatesServerResponse
+--- PASS: TestTurnstileVerifierValidatesServerResponse (0.01s)
+=== RUN   TestTurnstileVerifierRejectsHostnameAndActionMismatch
+=== RUN   TestTurnstileVerifierRejectsHostnameAndActionMismatch/hostname
+=== RUN   TestTurnstileVerifierRejectsHostnameAndActionMismatch/action
+--- PASS: TestTurnstileVerifierRejectsHostnameAndActionMismatch (0.00s)
+    --- PASS: TestTurnstileVerifierRejectsHostnameAndActionMismatch/hostname (0.00s)
+    --- PASS: TestTurnstileVerifierRejectsHostnameAndActionMismatch/action (0.00s)
+=== RUN   TestTurnstileVerifierFailsClosedWhenNotConfigured
+--- PASS: TestTurnstileVerifierFailsClosedWhenNotConfigured (0.00s)
+=== RUN   TestTurnstileVerifierRejectsMissingTokenWithoutSiteverifyRequest
+--- PASS: TestTurnstileVerifierRejectsMissingTokenWithoutSiteverifyRequest (0.00s)
+=== RUN   TestTurnstileVerifierPreservesTimeoutOrDuplicateRejection
+--- PASS: TestTurnstileVerifierPreservesTimeoutOrDuplicateRejection (0.00s)
+=== RUN   TestTurnstileVerifierRetriesTransientFailureWithSameIdempotencyKey
+--- PASS: TestTurnstileVerifierRetriesTransientFailureWithSameIdempotencyKey (0.10s)
+=== RUN   TestTurnstileVerifierDoesNotRetryPermanentHTTPFailure
+--- PASS: TestTurnstileVerifierDoesNotRetryPermanentHTTPFailure (0.00s)
+=== RUN   TestAdministratorDrainsAndRevokesVNTNodeAgainstPostgreSQL
+    vnt_node_integration_test.go:22: TEST_DATABASE_URL is not set
+--- SKIP: TestAdministratorDrainsAndRevokesVNTNodeAgainstPostgreSQL (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/admin	0.722s
+?   	github.com/Dubnium-105/ProjectRebound/Backend/internal/controlplane	[no test files]
+=== RUN   TestCanonicalMetaServerPublicDefaults
+--- PASS: TestCanonicalMetaServerPublicDefaults (0.00s)
+=== RUN   TestDefaultDownloadExtensionsIncludeToolboxAttestation
+--- PASS: TestDefaultDownloadExtensionsIncludeToolboxAttestation (0.00s)
+=== RUN   TestLoadMissingFileAppliesEnvironment
+--- PASS: TestLoadMissingFileAppliesEnvironment (0.00s)
+=== RUN   TestDevelopmentTrustedSteamIDsAreFailClosed
+--- PASS: TestDevelopmentTrustedSteamIDsAreFailClosed (0.00s)
+=== RUN   TestValidateControlPlaneRejectsInvalidVNTCredentialRotationGrace
+--- PASS: TestValidateControlPlaneRejectsInvalidVNTCredentialRotationGrace (0.00s)
+=== RUN   TestValidateControlPlaneRejectsInvalidVNTRateLimits
+--- PASS: TestValidateControlPlaneRejectsInvalidVNTRateLimits (0.00s)
+=== RUN   TestValidateControlPlaneRejectsInvalidVNTNodeQuota
+--- PASS: TestValidateControlPlaneRejectsInvalidVNTNodeQuota (0.00s)
+=== RUN   TestValidateControlPlaneUsesPublishedReleasesForVNTVersions
+--- PASS: TestValidateControlPlaneUsesPublishedReleasesForVNTVersions (0.00s)
+=== RUN   TestLoadYAMLAndEnvironmentPrecedence
+--- PASS: TestLoadYAMLAndEnvironmentPrecedence (0.00s)
+=== RUN   TestLoadRejectsRetiredStrictRosterConfiguration
+--- PASS: TestLoadRejectsRetiredStrictRosterConfiguration (0.00s)
+=== RUN   TestAcceptNewLobbiesOnlyControlsCreation
+--- PASS: TestAcceptNewLobbiesOnlyControlsCreation (0.00s)
+=== RUN   TestValidateControlPlaneRejectsInvalidConfiguration
+--- PASS: TestValidateControlPlaneRejectsInvalidConfiguration (0.00s)
+=== RUN   TestValidateMetaServerRejectsInvalidNativePlayerLevel
+--- PASS: TestValidateMetaServerRejectsInvalidNativePlayerLevel (0.00s)
+=== RUN   TestValidateMetaServerRejectsInvalidNativeCharacterLevel
+--- PASS: TestValidateMetaServerRejectsInvalidNativeCharacterLevel (0.00s)
+=== RUN   TestValidateMetaServerRejectsInvalidNativeOwnershipMode
+--- PASS: TestValidateMetaServerRejectsInvalidNativeOwnershipMode (0.00s)
+=== RUN   TestValidateControlPlaneAcceptsToolboxDefaultChannel
+--- PASS: TestValidateControlPlaneAcceptsToolboxDefaultChannel (0.00s)
+=== RUN   TestValidateControlPlaneRejectsP2PReportLargerThanHTTPBody
+--- PASS: TestValidateControlPlaneRejectsP2PReportLargerThanHTTPBody (0.00s)
+=== RUN   TestValidateControlPlaneDownloadStorage
+=== RUN   TestValidateControlPlaneDownloadStorage/missing_credentials
+=== RUN   TestValidateControlPlaneDownloadStorage/oversized_maximum
+=== RUN   TestValidateControlPlaneDownloadStorage/small_part
+=== RUN   TestValidateControlPlaneDownloadStorage/unsafe_extension
+=== RUN   TestValidateControlPlaneDownloadStorage/invalid_upload_URL
+=== RUN   TestValidateControlPlaneDownloadStorage/invalid_probe_URL
+--- PASS: TestValidateControlPlaneDownloadStorage (0.00s)
+    --- PASS: TestValidateControlPlaneDownloadStorage/missing_credentials (0.00s)
+    --- PASS: TestValidateControlPlaneDownloadStorage/oversized_maximum (0.00s)
+    --- PASS: TestValidateControlPlaneDownloadStorage/small_part (0.00s)
+    --- PASS: TestValidateControlPlaneDownloadStorage/unsafe_extension (0.00s)
+    --- PASS: TestValidateControlPlaneDownloadStorage/invalid_upload_URL (0.00s)
+    --- PASS: TestValidateControlPlaneDownloadStorage/invalid_probe_URL (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/config	0.016s
+=== RUN   TestHTTPRoutesReturnEnvelopedMetadata
+--- PASS: TestHTTPRoutesReturnEnvelopedMetadata (0.00s)
+=== RUN   TestVerifyReleaseObjectsProbesEveryObject
+--- PASS: TestVerifyReleaseObjectsProbesEveryObject (0.01s)
+=== RUN   TestVerifyReleaseObjectsRejectsUnavailableObject
+--- PASS: TestVerifyReleaseObjectsRejectsUnavailableObject (0.00s)
+=== RUN   TestVerifyReleaseObjectsRejectsCrossOriginRedirect
+--- PASS: TestVerifyReleaseObjectsRejectsCrossOriginRedirect (0.00s)
+=== RUN   TestSignedManifestCatalogAndChannels
+--- PASS: TestSignedManifestCatalogAndChannels (0.01s)
+=== RUN   TestClientConfigUsesEmptyArraysWhenNoRelayRegionsAreAvailable
+--- PASS: TestClientConfigUsesEmptyArraysWhenNoRelayRegionsAreAvailable (0.00s)
+=== RUN   TestResolveVNTRuntimeReadsVerifiedToolboxReleaseSidecar
+--- PASS: TestResolveVNTRuntimeReadsVerifiedToolboxReleaseSidecar (0.00s)
+=== RUN   TestToolboxManifestRequiresCanonicalUncompressedExecutable
+=== RUN   TestToolboxManifestRequiresCanonicalUncompressedExecutable/extra_payload
+=== RUN   TestToolboxManifestRequiresCanonicalUncompressedExecutable/wrong_path_case
+=== RUN   TestToolboxManifestRequiresCanonicalUncompressedExecutable/compressed
+--- PASS: TestToolboxManifestRequiresCanonicalUncompressedExecutable (0.00s)
+    --- PASS: TestToolboxManifestRequiresCanonicalUncompressedExecutable/extra_payload (0.00s)
+    --- PASS: TestToolboxManifestRequiresCanonicalUncompressedExecutable/wrong_path_case (0.00s)
+    --- PASS: TestToolboxManifestRequiresCanonicalUncompressedExecutable/compressed (0.00s)
+=== RUN   TestCanonicalManifestSigningIsDeterministic
+--- PASS: TestCanonicalManifestSigningIsDeterministic (0.00s)
+=== RUN   TestManagedReleaseUsesDownloadStoragePublicBaseURL
+--- PASS: TestManagedReleaseUsesDownloadStoragePublicBaseURL (0.00s)
+=== RUN   TestCatalogRejectsUnsafeObjectKey
+--- PASS: TestCatalogRejectsUnsafeObjectKey (0.00s)
+=== RUN   TestProductionRequiresSigningKeyAndAllowsManagedCatalogBootstrap
+--- PASS: TestProductionRequiresSigningKeyAndAllowsManagedCatalogBootstrap (0.00s)
+=== RUN   TestVersionComparison
+--- PASS: TestVersionComparison (0.00s)
+=== RUN   TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded
+=== RUN   TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/old_IPC
+=== RUN   TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/old_frontend
+=== RUN   TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/old_DB
+=== RUN   TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/admission_bypass
+=== RUN   TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/wrong_game
+=== RUN   TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/missing_evidence
+--- PASS: TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded (0.00s)
+    --- PASS: TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/old_IPC (0.00s)
+    --- PASS: TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/old_frontend (0.00s)
+    --- PASS: TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/old_DB (0.00s)
+    --- PASS: TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/admission_bypass (0.00s)
+    --- PASS: TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/wrong_game (0.00s)
+    --- PASS: TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded/missing_evidence (0.00s)
+=== RUN   TestStrictOnlineManifestWireFixture
+--- PASS: TestStrictOnlineManifestWireFixture (0.01s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/update	0.049s

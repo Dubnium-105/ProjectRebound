@@ -1,0 +1,5 @@
+=== RUN   TestStrictRosterP2PLifecycleAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PLifecycleAgainstPostgreSQL (0.89s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/matchlobby	1.922s
+EXIT_CODE=0

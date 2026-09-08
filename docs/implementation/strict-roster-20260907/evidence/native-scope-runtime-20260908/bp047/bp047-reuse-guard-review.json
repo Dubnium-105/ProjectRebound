@@ -1,0 +1,58 @@
+{
+  "schema": "strict-roster-bp047-reuse-guard-review-v1",
+  "observed_utc": "2026-09-07T23:30:00Z",
+  "status": "BLOCKED",
+  "acceptance": "PARTIAL",
+  "latest_cleanup_result": {
+    "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/live-run-inputs/bp047-cleanup-20260908T223500Z/bp047-authority-only-20260908074000/dedicated-component-20260907-231800-b6fe2b32/bp047-cleanup-result.json",
+    "sha256": "37933E68997407E5DAF0BF9DFACC3C46EBB2D16E8261B25AF0B3C019D8B0D449",
+    "native_cleanup_state": "CLEARED",
+    "server_state": "UNHEALTHY",
+    "reuse_claimed": false
+  },
+  "source_findings": [
+    {
+      "path": "C:/wksp/ProjectRebound/Backend/internal/matchlobby/service.go",
+      "sha256": "4A803A76D0590C4984090F0CA735ED5FA913419699AA1994EEEFED87DF83460F",
+      "lines": "nativeCleared Dedicated branch around 2942-2950",
+      "finding": "NativeCleared sets a Dedicated server READY only when last_heartbeat_at is newer than the server freshness window, token_revoked_at is NULL, and token_expires_at is future; otherwise it deliberately sets UNHEALTHY."
+    },
+    {
+      "path": "C:/wksp/ProjectRebound/Backend/internal/gameserver/service.go",
+      "sha256": "F8C3C84EF0877B3A459732BC8DD0C806E25103BCA928451F09ED98D6BFC56C03",
+      "lines": "Heartbeat around 211-305",
+      "finding": "A fresh server heartbeat requires a real gst_ credential, valid state transition, and capability fields; matchlobby AuthorityHeartbeat does not update game_servers.last_heartbeat_at."
+    },
+    {
+      "path": "C:/wksp/ProjectRebound/Backend/internal/gameserver/auth.go",
+      "sha256": "333F1BFDCED60EC60B1598A3DE0B4828746881DEC03A1828E35A1EF45C31F825",
+      "lines": "newServerToken/hashServerToken",
+      "finding": "The real server credential is a random gst_ token whose SHA-256 is persisted; a stale or synthetic hash cannot authenticate a heartbeat."
+    },
+    {
+      "path": "C:/wksp/ProjectRebound/Backend/.tmp-native-fixture/main.go",
+      "sha256": "251A2A58EBBE7595FD1ACFD65BC4388B3BDFA83C9A5D16ABD2B1A879C66600CF",
+      "lines": "prepare game_servers insert around 297-309",
+      "finding": "The private fixture inserts a READY row with server_token_hash=SHA256(serverID) and prepare-time last_heartbeat_at; it does not create or retain a valid gst_ registration credential."
+    },
+    {
+      "path": "C:/wksp/ProjectRebound/Backend/.tmp-native-fixture/native-cleanup-fixture/main.go",
+      "sha256": "7D2D6238813B774B74FD71E9A7FC6EAE55958B620C5D2C77E310564D499B8D9A",
+      "lines": "cleanup exact DedicatedNativeCleared call around 316-329",
+      "finding": "The cleanup driver performs service calls and exact supervisor receipt checks; it does not write SQL state directly. Its READY assertion correctly exposed the fixture's missing fresh heartbeat."
+    }
+  ],
+  "conclusion": {
+    "unhealthy_is_expected_safety_state": true,
+    "product_bug_proven": false,
+    "current_fixture_can_prove_reuse": false,
+    "blocking_guard": "No valid game-server registration credential/heartbeat exists for the private inserted server row; the service therefore refuses to return it to READY after NativeCleared.",
+    "old_receipt_reuse_test": "NOT_RUN: a new legal allocation/world cannot be created from this fixture until a real server registration+heartbeat is established.",
+    "required_next_evidence": "Start a fresh owned authority with a server registered through the gameserver registration path, send authenticated heartbeat while the cleanup lease is active, complete exact NativeCleared, then request a new signed allocation/new world and prove the old attempt/world/route receipt is rejected. No SQL READY write or synthetic capability bit is acceptable."
+  },
+  "secrets": {
+    "player_id_logged": false,
+    "steam_id_logged": false,
+    "grant_or_ticket_logged": false
+  }
+}

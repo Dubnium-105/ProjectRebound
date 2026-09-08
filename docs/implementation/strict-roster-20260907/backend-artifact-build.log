@@ -1,0 +1,10 @@
+command=GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -buildvcs=true -trimpath -o artifacts/backend/ ./cmd/control-plane ./cmd/meta-server ./cmd/edge-relay
+source_clone=C:/Users/23587/AppData/Local/Temp/rebound-source-clone-20260907
+d5286902de2f32fef93fbe2521516ef7ca177c07
+go version go1.26.6 windows/amd64
+exit_code=0
+	build	GOAMD64=v1
+	build	vcs=git
+	build	vcs.revision=d5286902de2f32fef93fbe2521516ef7ca177c07
+	build	vcs.time=2026-09-07T10:53:12Z
+	build	vcs.modified=false

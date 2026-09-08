@@ -1,0 +1,8 @@
+=== RUN   TestBP014ProductCountersFromLiveRelay
+    bp014_counter_supplement_test.go:34: relay_listener=127.0.0.1:51205
+    bp014_counter_supplement_test.go:48: failure_product_stats packets_received=2 packets_forwarded=0 bind_init=1 bind_challenge=1 bind_success=0 bind_failed=1 cookie_invalid=0 token_invalid=1
+    bp014_counter_supplement_test.go:49: Rust relay interop: exit status 1; relay interop failed: 由于连接方在一段时间后没有正确答复或连接的主机没有反应，连接尝试失败。 (os error 10060)
+--- FAIL: TestBP014ProductCountersFromLiveRelay (3.05s)
+FAIL
+FAIL	github.com/Dubnium-105/ProjectRebound/Backend/internal/relayruntime	3.155s
+FAIL

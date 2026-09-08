@@ -1,0 +1,60 @@
+{
+  "kind": "bp047_registration_heartbeat_component",
+  "classification": "PASS_COMPONENT_ONLY",
+  "acceptance": "PASS_COMPONENT_ONLY",
+  "not_native_e2e": true,
+  "run_id": "bp047-registration-heartbeat-component-20260908T20260908075437",
+  "database": {
+    "name": "rebound_native_reg_20260908_01",
+    "host": "127.0.0.1:55439",
+    "isolated": true,
+    "cleanup": "test-scoped rows cleaned; isolated database retained for audit"
+  },
+  "command": "wsl -e env TEST_DATABASE_URL=<isolated-db>?sslmode=disable /tmp/rebound-strict-roster-20260907-go1266/go/bin/go -C /mnt/c/wksp/ProjectRebound/Backend test ./internal/gameserver -run ^TestGameServerRegistryAgainstPostgreSQL$ -count=1 -v",
+  "exit_code": 0,
+  "test_name": "TestGameServerRegistryAgainstPostgreSQL",
+  "observed": [
+    "schema migration completed",
+    "instance-bound registration credential was consumed by the registered instance",
+    "real gst_ server credential and node certificate path exercised in the service",
+    "signed heartbeat verification accepted",
+    "legacy strict-roster-v1 capability was cleared instead of retaining verified=true"
+  ],
+  "native_authority_admission_verified": false,
+  "strict_scheduling_process_guard": "not executed in this service-only run; source guard requires native_admission_verified=TRUE, strict-roster-v2, and locked game SHA before dedicated allocation",
+  "process_level_registration": {
+    "executed": false,
+    "reason": "This test invokes the Service directly and does not start the HTTP control-plane, Toolbox registration worker, or an owned Payload/game process; no process-level capability read is claimed",
+    "next_step": "Start an isolated control-plane using this test CA/DB, issue an instance-bound credential through the admin/API path, run the Toolbox registration worker attached to a real owned Payload process, and record the worker heartbeat/capability response. If native_authority_admission_verified remains false, retain the service rejection and do not alter the bit"
+  },
+  "source": {
+    "repository_head": "705d339e1af30bf170d828fb7fa1f38582a070db",
+    "files": [
+      {
+        "path": "Backend/internal/gameserver/service_integration_test.go",
+        "sha256": "723beca7f81eebeab8f1298227189993fe01c7c0d17ae7e4c5e95bbc62f929fd"
+      },
+      {
+        "path": "Backend/internal/gameserver/service.go",
+        "sha256": "f8c3c84ef0877b3a459732bc8dd0c806e25103bca928451f09ed98d6bfc56c03"
+      },
+      {
+        "path": "Backend/internal/gameserver/http.go",
+        "sha256": "44811efb47d4cc8b318a38eda3d6add3270601ade919e129a44b3445f2c43944"
+      }
+    ]
+  },
+  "logs": [
+    {
+      "path": ".tmp\\strict-roster-20260907\\native-evidence\\bp047-registration-heartbeat-component-20260908T20260908075437\\gameserver-registration-heartbeat-component.log",
+      "sha256": "e7e8639efa0ae17f70db5922b9daeb488e4cce3e66110ee748d959a3eb8867e8",
+      "bytes": 348
+    },
+    {
+      "path": ".tmp\\strict-roster-20260907\\native-evidence\\bp047-registration-heartbeat-component-20260908T20260908075437\\gameserver-registration-heartbeat-component.clean.log",
+      "sha256": "df95cac46df5a9e93885ec939582890f992ad3c6976ca7b3b8aa36afe776aadd",
+      "bytes": 195
+    }
+  ],
+  "observed_at_utc": "2026-09-07T23:57:34.4637261Z"
+}

@@ -1,0 +1,27 @@
+{
+  "schema_version": "tauri-execution-receipt-v1",
+  "id": "tauri-e360-execution",
+  "record_type": "historical_execution_record",
+  "execution_observed": true,
+  "reconstructed_from_retained_result": true,
+  "command": "cargo test --locked --manifest-path src-tauri/Cargo.toml",
+  "working_directory": "C:\\wksp\\ProjectReboundToolbox",
+  "source_repository": "C:\\wksp\\ProjectReboundToolbox",
+  "source_commit": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482",
+  "source_dirty": false,
+  "source_status_observed_at_execution": true,
+  "source_status_command": "git -C C:\\wksp\\ProjectReboundToolbox status --porcelain",
+  "source_status_porcelain": "",
+  "exit_code": 0,
+  "tests": {
+    "passed": 7,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 0
+  },
+  "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-tauri-full-e360-20260908.log",
+  "original_log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\toolbox-tauri-full-e360-20260908.log",
+  "log_sha256": "7E80537EA92DF6133D5FBEC8B98D9A38A03AA945159BF32BFAD91B5FF05CFA97",
+  "scope": "Full src-tauri Cargo package tests; no frontend rerun, native gameplay, payload signing, or release-candidate acceptance.",
+  "provenance_note": "Recorded from the already observed e360 execution and retained log; the command was not rerun and the log bytes were not rewritten."
+}

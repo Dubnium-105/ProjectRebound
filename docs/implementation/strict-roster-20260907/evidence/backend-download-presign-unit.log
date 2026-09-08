@@ -1,0 +1,4 @@
+=== RUN   TestPresignUsesDedicatedBrowserEndpoint
+--- PASS: TestPresignUsesDedicatedBrowserEndpoint (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/download	0.178s

@@ -1,0 +1,12 @@
+E2E19_SCHEMA42_UPGRADE_PRECONDITION max_version=47 preupgrade_player_count=1
+E2E19_INSTANCE_READY a=true b=true accept_new_b=false
+E2E19_AUTH_BIND status=200 player_id=e2e19-preupgrade-player token=received_not_logged
+E2E19_DRAIN_FEATURES status=200 strict_roster_v1=true accept_new_lobbies=false
+E2E19_DRAIN_READ status=200 lobby=e2e19-live-active-lobby-1788792287933031400 attempt=e2e19-live-active-attempt-1788792287933031400
+E2E19_DRAIN_HEARTBEAT status=200 accepted=true attempt=e2e19-live-active-attempt-1788792287933031400
+E2E19_DRAIN_CREATE status=409 code=MATCH_LOBBY_CREATION_DISABLED
+E2E19_ADMIN_FORCE_ABORT status=200 attempt=e2e19-live-abort-attempt-1788792287933031400 state=ABORTED cleanup_state=PENDING audit=MATCH_ATTEMPT_FORCE_ABORT
+E2E19_SCHEMA48_CONTROL_PLANE exit=1 rejected=true
+E2E19_SCHEMA48_META_SERVER exit=1 rejected=true
+E2E19_SCHEMA48_ACTIVE_ATTEMPT before=CONNECTING after=CONNECTING authority_seen_changed=false
+E2E19_E2E19_LIVE_RESULT PASS

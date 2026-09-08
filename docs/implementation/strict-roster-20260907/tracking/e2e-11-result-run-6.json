@@ -1,0 +1,25 @@
+{
+  "status": "FAIL",
+  "driver_exit_code": 1,
+  "counts": {
+    "old_401": 20,
+    "protected_success": 20,
+    "refresh": 1,
+    "logout": 0,
+    "meta_old": 0,
+    "meta_new": 0,
+    "ws_old": 0,
+    "ws_new": 0,
+    "logic_connections": 0
+  },
+  "markers": [
+    "old401-20",
+    "old401-release",
+    "refresh-started-phase_a",
+    "release-refresh-logout",
+    "release-refresh-phase_a",
+    "release-refresh-switch"
+  ],
+  "driver_stdout": "",
+  "driver_stderr": "Error: atomically replace MetaTunnel runtime asset\n\nCaused by:\n    系统找不到指定的路径。 (0x80070003)"
+}

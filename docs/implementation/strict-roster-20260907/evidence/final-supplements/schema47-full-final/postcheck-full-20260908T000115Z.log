@@ -1,0 +1,3 @@
+psql: error: connection to server at "127.0.0.1", port 55439 failed: FATAL:  database "=disable" does not exist
+/mnt/c/wksp/ProjectRebound/.tmp/strict-roster-20260907/schema47-full-final/run-postcheck-full-20260908T000115Z.sh: line 5: unexpected EOF while looking for matching `"'
+/mnt/c/wksp/ProjectRebound/.tmp/strict-roster-20260907/schema47-full-final/run-postcheck-full-20260908T000115Z.sh: line 7: syntax error: unexpected end of file

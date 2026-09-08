@@ -1,0 +1,15 @@
+{
+  "scope": "Exact immutable build evidence copies; historical paths remain unchanged.",
+  "files": [
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\backend-1fbc03266549-20260908T010111Z\\build-receipt.json",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-artifact-builds\\Backend\\31e6085c0627fd5d12613842ff9539dbf1ed9df89b908b3e247fe5b8b6c21a48\\build-receipt.json",
+      "sha256": "31e6085c0627fd5d12613842ff9539dbf1ed9df89b908b3e247fe5b8b6c21a48"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\backend-1fbc03266549-20260908T010111Z\\build.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-artifact-builds\\Backend\\31e6085c0627fd5d12613842ff9539dbf1ed9df89b908b3e247fe5b8b6c21a48\\build.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

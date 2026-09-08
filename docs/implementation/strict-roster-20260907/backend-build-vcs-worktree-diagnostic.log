@@ -1,0 +1,4 @@
+observed=worktree .git file is not recognized by this Go toolchain as a VCS root
+source=C:/Users/23587/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/cmd/go/internal/vcs/vcs.go:214-219
+Go vcsGit.RootNames only accepts .git as a directory; nested worktree stamped outer dirty repository, external worktree omitted the stamp.
+action=use a clean local shared clone with a real .git directory; do not force or fabricate VCS metadata

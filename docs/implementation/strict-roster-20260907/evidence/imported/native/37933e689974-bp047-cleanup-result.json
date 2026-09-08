@@ -1,0 +1,63 @@
+{
+  "schema": "strict-roster-bp047-owned-exit-fixture-v1",
+  "run_id": "bp047-cleanup-1788823225322383400",
+  "status": "BLOCKED",
+  "database": "rebound_native_bp047_20260908074000",
+  "fixture_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908074000\\dedicated-component-20260907-231800-b6fe2b32\\dynamic-allocation-bp047-cleanup-authority-only.json",
+  "native_summary_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908074000\\dedicated-component-20260907-231800-b6fe2b32\\summary.json",
+  "owned_exit_receipt_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908074000\\dedicated-component-20260907-231800-b6fe2b32\\owned-exit-receipt.json",
+  "fixture_sha256": "91043f215dfb4e581018b269562655443af38556c7e5110cce513a7484519da6",
+  "native_summary_sha256": "81c58859edecf12813fbcd2d35583e4fa620f94f061cba1a41af730842571ed8",
+  "owned_exit_receipt_sha256": "4450f00a688bc64258072111d6363de8c73039afce8fd6447e44ca4ca13f80a1",
+  "scope": {
+    "attempt_id": "mat_4c433860fb854fa4b8151bc64b488fa8",
+    "authority_id": "native_fixture_server_7afa057752214f60b550d3e1dfd0208e",
+    "authority_session_sha256": "8981018969db8eb307277f081415c0705733db3143c72e923f0364845049aa61",
+    "world_instance_id": "world_1_22d92bcf810",
+    "roster_revision": 2,
+    "route_generation": 1
+  },
+  "exit_proof": {
+    "evidence_kind": "owned_process_exited",
+    "owned_process_id": 30904,
+    "process_start_fingerprint": "win-filetime:01dd3f1f223d3642",
+    "process_exited": true,
+    "handle_verified": true
+  },
+  "steps": [
+    {
+      "name": "validate_supervisor_owned_exit",
+      "status": "PASS"
+    },
+    {
+      "name": "terminal_attempt_cleanup_pending",
+      "status": "PASS",
+      "note": "existing terminal attempt reused; no state was written directly"
+    },
+    {
+      "name": "wrong_world_rejected",
+      "status": "PASS",
+      "code": "MATCH_WORLD_INSTANCE_CONFLICT"
+    },
+    {
+      "name": "wrong_route_rejected",
+      "status": "PASS",
+      "code": "MATCH_ROUTE_GENERATION_STALE"
+    },
+    {
+      "name": "wrong_pid_rejected_at_owned_handle_boundary",
+      "status": "PASS",
+      "note": "Backend receives only the exact supervisor receipt; PID-only remote proof is not claimed"
+    },
+    {
+      "name": "exact_owned_exit_cleared",
+      "status": "PASS"
+    }
+  ],
+  "source": {
+    "driver_path": "C:/wksp/ProjectRebound/Backend/.tmp-native-fixture/native-cleanup-fixture/main.go",
+    "driver_sha256": "7d2d6238813b774b74fd71e9a7fc6eae55958b620c5d2c77e310564d499b8d9a"
+  },
+  "failure": "cleanup transition state=CLEARED server=UNHEALTHY, want CLEARED/READY",
+  "observed_utc": "2026-09-07T23:20:25.3605597Z"
+}

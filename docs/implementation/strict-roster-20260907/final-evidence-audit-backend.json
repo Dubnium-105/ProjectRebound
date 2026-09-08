@@ -1,0 +1,3659 @@
+{
+  "schema_version": "strict-roster-20260907-final-evidence-audit-backend-v1",
+  "generated_at_local": "2026-09-07T19:05:55+08:00",
+  "purpose": "Independent evidence audit; no product source was modified. Backend schema47 follow-up evidence was executed before regeneration and its backend-report entries are included.",
+  "scope": {
+    "repository": "C:\\wksp\\ProjectRebound",
+    "tracking_directory": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907",
+    "restricted_tmp_directory": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907",
+    "owner_reports": [
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json"
+    ],
+    "canonical_inputs": [
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\TARGET_CONTRACTS.md",
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\IMPLEMENTATION_PLAN.md",
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\breakpoints.json",
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\acceptance-tests.json"
+    ],
+    "supplemental_read_only_index": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\implementation-evidence-index.json",
+    "path_audit_rule": "Only issue evidence and test log_path references were resolved; source:line suffixes were normalized. External native artifact paths outside the tracking/.tmp scope were not traversed."
+  },
+  "current_worktree_snapshot": {
+    "heads": {
+      "ProjectRebound": "d5286902de2f32fef93fbe2521516ef7ca177c07",
+      "Toolbox": "78934f271b1f32bd6e54f401e036b8203b87d577"
+    },
+    "dirty_entry_counts": {
+      "ProjectRebound": 23,
+      "Toolbox": 8
+    },
+    "report_heads": {
+      "backend_report_scope_heads": {
+        "ProjectRebound": "bb7b1c191c87e3815cd3e3963b3c965838e46555",
+        "Toolbox": "0aa604eade3662951eeaa94cc6566630cea5a40b"
+      },
+      "native_report_head": "a049d5685e8ac402c8855f3a93b7301c4f35ac78",
+      "root_report_source_pair": {
+        "ProjectRebound": "213d5f967d0df26e8110842958a52be5d96908d8",
+        "Toolbox": "0aa604eade3662951eeaa94cc6566630cea5a40b"
+      }
+    }
+  },
+  "owner_report_summary": {
+    "backend-report.json": {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+      "issue_count": 15,
+      "test_count": 28,
+      "issue_acceptance_counts": {
+        "PARTIAL": 13,
+        "BLOCKED": 2
+      },
+      "issue_implementation_counts": {
+        "implemented": 12,
+        "partial": 3
+      },
+      "test_exit_code_counts": {
+        "0": 24,
+        "1": 3,
+        "101": 1
+      },
+      "tests_with_skip_names": 3,
+      "missing_test_log_count": 0,
+      "reported_evidence_and_test_path_count": 105,
+      "source_line_reference_count": 0,
+      "empty_issue_evidence_count": 0
+    },
+    "native-report.json": {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+      "issue_count": 18,
+      "test_count": 18,
+      "issue_acceptance_counts": {
+        "PARTIAL": 9,
+        "BLOCKED": 8,
+        "PASS": 1
+      },
+      "issue_implementation_counts": {
+        "partial": 9,
+        "implemented": 7,
+        "blocked": 2
+      },
+      "test_exit_code_counts": {
+        "0": 15,
+        "-1": 2,
+        "3": 1
+      },
+      "tests_with_skip_names": 5,
+      "missing_test_log_count": 0,
+      "reported_evidence_and_test_path_count": 116,
+      "source_line_reference_count": 71,
+      "empty_issue_evidence_count": 0
+    },
+    "toolbox-report.json": {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+      "issue_count": 29,
+      "test_count": 19,
+      "issue_acceptance_counts": {
+        "PARTIAL": 19,
+        "BLOCKED": 10
+      },
+      "issue_implementation_counts": {
+        "implemented": 23,
+        "partial": 4,
+        "blocked": 2
+      },
+      "test_exit_code_counts": {
+        "0": 16,
+        "1": 1,
+        "None": 1,
+        "101": 1
+      },
+      "tests_with_skip_names": 2,
+      "missing_test_log_count": 0,
+      "reported_evidence_and_test_path_count": 125,
+      "source_line_reference_count": 0,
+      "empty_issue_evidence_count": 0
+    },
+    "root-report.json": {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+      "issue_count": 25,
+      "test_count": 11,
+      "issue_acceptance_counts": {
+        "PARTIAL": 22,
+        "PASS": 3
+      },
+      "issue_implementation_counts": {
+        "implemented": 20,
+        "partial": 5
+      },
+      "test_exit_code_counts": {
+        "0": 10,
+        "101": 1
+      },
+      "tests_with_skip_names": 0,
+      "missing_test_log_count": 0,
+      "reported_evidence_and_test_path_count": 107,
+      "source_line_reference_count": 0,
+      "empty_issue_evidence_count": 0
+    }
+  },
+  "path_audit": {
+    "reported_evidence_and_test_path_refs": 453,
+    "missing_effective_paths": [],
+    "missing_effective_path_count": 0,
+    "relative_reference_count": 58,
+    "relative_reference_resolution": "Root report relative refs were resolved against the tracking directory and filesystem-checked.",
+    "source_line_reference_count": 71,
+    "source_line_reference_base_missing_count": 0,
+    "empty_issue_evidence_current_reports": [],
+    "source_only_issue_records": [
+      {
+        "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+        "issue_id": "BP-052",
+        "report_line": 236,
+        "acceptance": "PARTIAL",
+        "evidence_ref_count": 3,
+        "source_line_ref_count": 0
+      },
+      {
+        "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+        "issue_id": "BP-021",
+        "report_line": 398,
+        "acceptance": "BLOCKED",
+        "evidence_ref_count": 4,
+        "source_line_ref_count": 3
+      },
+      {
+        "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+        "issue_id": "BP-024",
+        "report_line": 440,
+        "acceptance": "BLOCKED",
+        "evidence_ref_count": 4,
+        "source_line_ref_count": 4
+      },
+      {
+        "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+        "issue_id": "BP-039",
+        "report_line": 512,
+        "acceptance": "BLOCKED",
+        "evidence_ref_count": 4,
+        "source_line_ref_count": 4
+      },
+      {
+        "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+        "issue_id": "BP-040",
+        "report_line": 525,
+        "acceptance": "BLOCKED",
+        "evidence_ref_count": 3,
+        "source_line_ref_count": 3
+      },
+      {
+        "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+        "issue_id": "BP-042",
+        "report_line": 551,
+        "acceptance": "PARTIAL",
+        "evidence_ref_count": 5,
+        "source_line_ref_count": 5
+      },
+      {
+        "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+        "issue_id": "BP-043",
+        "report_line": 565,
+        "acceptance": "PARTIAL",
+        "evidence_ref_count": 4,
+        "source_line_ref_count": 4
+      },
+      {
+        "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+        "issue_id": "BP-010",
+        "report_line": 52,
+        "acceptance": "BLOCKED",
+        "evidence_ref_count": 3,
+        "source_line_ref_count": 0
+      },
+      {
+        "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+        "issue_id": "BP-011",
+        "report_line": 63,
+        "acceptance": "PARTIAL",
+        "evidence_ref_count": 3,
+        "source_line_ref_count": 0
+      },
+      {
+        "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+        "issue_id": "BP-018",
+        "report_line": 103,
+        "acceptance": "BLOCKED",
+        "evidence_ref_count": 3,
+        "source_line_ref_count": 0
+      },
+      {
+        "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+        "issue_id": "BP-020",
+        "report_line": 125,
+        "acceptance": "PARTIAL",
+        "evidence_ref_count": 2,
+        "source_line_ref_count": 0
+      },
+      {
+        "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+        "issue_id": "BP-021",
+        "report_line": 135,
+        "acceptance": "BLOCKED",
+        "evidence_ref_count": 2,
+        "source_line_ref_count": 0
+      },
+      {
+        "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+        "issue_id": "BP-038",
+        "report_line": 251,
+        "acceptance": "BLOCKED",
+        "evidence_ref_count": 3,
+        "source_line_ref_count": 0
+      },
+      {
+        "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+        "issue_id": "BP-039",
+        "report_line": 262,
+        "acceptance": "BLOCKED",
+        "evidence_ref_count": 3,
+        "source_line_ref_count": 0
+      },
+      {
+        "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+        "issue_id": "BP-040",
+        "report_line": 273,
+        "acceptance": "BLOCKED",
+        "evidence_ref_count": 3,
+        "source_line_ref_count": 0
+      },
+      {
+        "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+        "issue_id": "BP-046",
+        "report_line": 321,
+        "acceptance": "BLOCKED",
+        "evidence_ref_count": 3,
+        "source_line_ref_count": 0
+      },
+      {
+        "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+        "issue_id": "BP-047",
+        "report_line": 332,
+        "acceptance": "BLOCKED",
+        "evidence_ref_count": 3,
+        "source_line_ref_count": 0
+      },
+      {
+        "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+        "issue_id": "BP-051",
+        "report_line": 333,
+        "acceptance": "PARTIAL",
+        "evidence_ref_count": 3,
+        "source_line_ref_count": 0
+      },
+      {
+        "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+        "issue_id": "BP-052",
+        "report_line": 346,
+        "acceptance": "PARTIAL",
+        "evidence_ref_count": 4,
+        "source_line_ref_count": 0
+      }
+    ]
+  },
+  "canonical_matrix_audit": {
+    "breakpoint_count": 52,
+    "breakpoint_status_counts": {
+      "not_started": 52
+    },
+    "breakpoint_review_status_counts": {
+      "pending_codex_revalidation": 52
+    },
+    "breakpoint_execution_status_counts": {
+      "not_started": 52
+    },
+    "component_ac_count": 52,
+    "component_status_counts": {
+      "not_run": 52
+    },
+    "component_result_counts": {
+      "null": 52
+    },
+    "e2e_count": 22,
+    "e2e_status_counts": {
+      "not_run": 22
+    },
+    "e2e_result_counts": {
+      "null": 22
+    },
+    "whole_acceptance_fully_proven_ids": [],
+    "component_evidence_complete_candidates": [
+      "AC-002",
+      "AC-003",
+      "AC-013",
+      "AC-022"
+    ],
+    "rule": "No canonical AC is marked PASS by this audit. Candidate means owner PASS plus runtime evidence appears to cover component expected text; canonical status/result remain unchanged.",
+    "records": [
+      {
+        "ac_id": "AC-001",
+        "issue_id": "BP-001",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-01",
+          "E2E-20"
+        ],
+        "owner_reports": [
+          {
+            "report": "root-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+            "issue_line": 10,
+            "acceptance_line": 20,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 2,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-002",
+        "issue_id": "BP-002",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-11",
+          "E2E-22"
+        ],
+        "owner_reports": [
+          {
+            "report": "root-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+            "issue_line": 24,
+            "acceptance_line": 35,
+            "implementation": "implemented",
+            "acceptance": "PASS",
+            "evidence_ref_count": 5,
+            "operational_or_fixture_ref_count": 2,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [
+          "root-report.json"
+        ],
+        "component_evidence_complete_candidate": true,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "Owner PASS plus runtime evidence is a component-level candidate only; canonical state is preserved."
+        ]
+      },
+      {
+        "ac_id": "AC-003",
+        "issue_id": "BP-003",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-11"
+        ],
+        "owner_reports": [
+          {
+            "report": "root-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+            "issue_line": 39,
+            "acceptance_line": 47,
+            "implementation": "implemented",
+            "acceptance": "PASS",
+            "evidence_ref_count": 2,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [
+          "root-report.json"
+        ],
+        "component_evidence_complete_candidate": true,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "Owner PASS plus runtime evidence is a component-level candidate only; canonical state is preserved."
+        ]
+      },
+      {
+        "ac_id": "AC-004",
+        "issue_id": "BP-004",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-11",
+          "E2E-18"
+        ],
+        "owner_reports": [
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 4,
+            "acceptance_line": 6,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "root-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+            "issue_line": 51,
+            "acceptance_line": 60,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-005",
+        "issue_id": "BP-005",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-09",
+          "E2E-11",
+          "E2E-22"
+        ],
+        "owner_reports": [
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 16,
+            "acceptance_line": 18,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "root-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+            "issue_line": 64,
+            "acceptance_line": 73,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 2,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-006",
+        "issue_id": "BP-006",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-08",
+          "E2E-20",
+          "E2E-21"
+        ],
+        "owner_reports": [
+          {
+            "report": "root-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+            "issue_line": 77,
+            "acceptance_line": 89,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 6,
+            "operational_or_fixture_ref_count": 2,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-007",
+        "issue_id": "BP-007",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-04",
+          "E2E-13",
+          "E2E-17"
+        ],
+        "owner_reports": [
+          {
+            "report": "root-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+            "issue_line": 93,
+            "acceptance_line": 101,
+            "implementation": "partial",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 2,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-008",
+        "issue_id": "BP-008",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-02",
+          "E2E-03",
+          "E2E-04"
+        ],
+        "owner_reports": [
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 28,
+            "acceptance_line": 30,
+            "implementation": "implemented",
+            "acceptance": "BLOCKED",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-009",
+        "issue_id": "BP-009",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-04"
+        ],
+        "owner_reports": [
+          {
+            "report": "native-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+            "issue_line": 355,
+            "acceptance_line": 357,
+            "implementation": "partial",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 3,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 40,
+            "acceptance_line": 42,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "root-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+            "issue_line": 105,
+            "acceptance_line": 114,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-010",
+        "issue_id": "BP-010",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-02",
+          "E2E-04"
+        ],
+        "owner_reports": [
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 52,
+            "acceptance_line": 54,
+            "implementation": "implemented",
+            "acceptance": "BLOCKED",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 0,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-011",
+        "issue_id": "BP-011",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-04"
+        ],
+        "owner_reports": [
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 63,
+            "acceptance_line": 65,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 0,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "root-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+            "issue_line": 118,
+            "acceptance_line": 127,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-012",
+        "issue_id": "BP-012",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-02",
+          "E2E-03",
+          "E2E-12",
+          "E2E-22"
+        ],
+        "owner_reports": [
+          {
+            "report": "root-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+            "issue_line": 131,
+            "acceptance_line": 139,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 2,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-013",
+        "issue_id": "BP-013",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-03"
+        ],
+        "owner_reports": [
+          {
+            "report": "root-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+            "issue_line": 143,
+            "acceptance_line": 153,
+            "implementation": "implemented",
+            "acceptance": "PASS",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 2,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [
+          "root-report.json"
+        ],
+        "component_evidence_complete_candidate": true,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "Owner PASS plus runtime evidence is a component-level candidate only; canonical state is preserved."
+        ]
+      },
+      {
+        "ac_id": "AC-014",
+        "issue_id": "BP-014",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-03",
+          "E2E-12",
+          "E2E-22"
+        ],
+        "owner_reports": [
+          {
+            "report": "root-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+            "issue_line": 157,
+            "acceptance_line": 166,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 2,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-015",
+        "issue_id": "BP-015",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-03",
+          "E2E-09",
+          "E2E-12",
+          "E2E-22"
+        ],
+        "owner_reports": [
+          {
+            "report": "root-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+            "issue_line": 170,
+            "acceptance_line": 178,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 2,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-016",
+        "issue_id": "BP-016",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-06",
+          "E2E-17",
+          "E2E-18"
+        ],
+        "owner_reports": [
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 74,
+            "acceptance_line": 76,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 8,
+            "operational_or_fixture_ref_count": 5,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "root-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+            "issue_line": 182,
+            "acceptance_line": 192,
+            "implementation": "partial",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 2,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-017",
+        "issue_id": "BP-017",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-06",
+          "E2E-15",
+          "E2E-17"
+        ],
+        "owner_reports": [
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 90,
+            "acceptance_line": 92,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 5,
+            "operational_or_fixture_ref_count": 3,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "root-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+            "issue_line": 196,
+            "acceptance_line": 206,
+            "implementation": "partial",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 2,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-018",
+        "issue_id": "BP-018",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-02",
+          "E2E-03",
+          "E2E-04",
+          "E2E-06",
+          "E2E-18"
+        ],
+        "owner_reports": [
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 103,
+            "acceptance_line": 105,
+            "implementation": "implemented",
+            "acceptance": "BLOCKED",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 0,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-019",
+        "issue_id": "BP-019",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-06",
+          "E2E-20"
+        ],
+        "owner_reports": [
+          {
+            "report": "native-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+            "issue_line": 368,
+            "acceptance_line": 370,
+            "implementation": "partial",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 8,
+            "operational_or_fixture_ref_count": 3,
+            "source_line_ref_count": 5,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 114,
+            "acceptance_line": 116,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "root-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+            "issue_line": 210,
+            "acceptance_line": 221,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 5,
+            "operational_or_fixture_ref_count": 2,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-020",
+        "issue_id": "BP-020",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-06",
+          "E2E-14"
+        ],
+        "owner_reports": [
+          {
+            "report": "native-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+            "issue_line": 385,
+            "acceptance_line": 387,
+            "implementation": "partial",
+            "acceptance": "BLOCKED",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 3,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 125,
+            "acceptance_line": 127,
+            "implementation": "partial",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 2,
+            "operational_or_fixture_ref_count": 0,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-021",
+        "issue_id": "BP-021",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-06"
+        ],
+        "owner_reports": [
+          {
+            "report": "native-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+            "issue_line": 398,
+            "acceptance_line": 400,
+            "implementation": "partial",
+            "acceptance": "BLOCKED",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 0,
+            "source_line_ref_count": 3,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 135,
+            "acceptance_line": 137,
+            "implementation": "partial",
+            "acceptance": "BLOCKED",
+            "evidence_ref_count": 2,
+            "operational_or_fixture_ref_count": 0,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-022",
+        "issue_id": "BP-022",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-06"
+        ],
+        "owner_reports": [
+          {
+            "report": "native-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+            "issue_line": 411,
+            "acceptance_line": 413,
+            "implementation": "implemented",
+            "acceptance": "PASS",
+            "evidence_ref_count": 5,
+            "operational_or_fixture_ref_count": 2,
+            "source_line_ref_count": 3,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 145,
+            "acceptance_line": 147,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 2,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "root-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+            "issue_line": 225,
+            "acceptance_line": 237,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 6,
+            "operational_or_fixture_ref_count": 4,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [
+          "native-report.json"
+        ],
+        "component_evidence_complete_candidate": true,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "Owner PASS plus runtime evidence is a component-level candidate only; canonical state is preserved."
+        ]
+      },
+      {
+        "ac_id": "AC-023",
+        "issue_id": "BP-023",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-17"
+        ],
+        "owner_reports": [
+          {
+            "report": "native-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+            "issue_line": 425,
+            "acceptance_line": 427,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 6,
+            "operational_or_fixture_ref_count": 4,
+            "source_line_ref_count": 2,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 155,
+            "acceptance_line": 157,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 2,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "root-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+            "issue_line": 241,
+            "acceptance_line": 252,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 5,
+            "operational_or_fixture_ref_count": 3,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-024",
+        "issue_id": "BP-024",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-05",
+          "E2E-16"
+        ],
+        "owner_reports": [
+          {
+            "report": "native-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+            "issue_line": 440,
+            "acceptance_line": 442,
+            "implementation": "partial",
+            "acceptance": "BLOCKED",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 0,
+            "source_line_ref_count": 4,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 165,
+            "acceptance_line": 167,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-025",
+        "issue_id": "BP-025",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-06",
+          "E2E-17",
+          "E2E-18"
+        ],
+        "owner_reports": [
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 176,
+            "acceptance_line": 178,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 5,
+            "operational_or_fixture_ref_count": 2,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-026",
+        "issue_id": "BP-026",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-10",
+          "E2E-17",
+          "E2E-22"
+        ],
+        "owner_reports": [
+          {
+            "report": "native-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+            "issue_line": 453,
+            "acceptance_line": 455,
+            "implementation": "partial",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 3,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 189,
+            "acceptance_line": 191,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 6,
+            "operational_or_fixture_ref_count": 3,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "root-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+            "issue_line": 256,
+            "acceptance_line": 266,
+            "implementation": "partial",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 2,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-027",
+        "issue_id": "BP-027",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-02",
+          "E2E-03",
+          "E2E-04",
+          "E2E-10",
+          "E2E-16",
+          "E2E-22"
+        ],
+        "owner_reports": [
+          {
+            "report": "native-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+            "issue_line": 466,
+            "acceptance_line": 468,
+            "implementation": "blocked",
+            "acceptance": "BLOCKED",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 3,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-028",
+        "issue_id": "BP-028",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-11",
+          "E2E-21"
+        ],
+        "owner_reports": [
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 203,
+            "acceptance_line": 205,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-029",
+        "issue_id": "BP-029",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-11",
+          "E2E-21"
+        ],
+        "owner_reports": [
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 215,
+            "acceptance_line": 217,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "root-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+            "issue_line": 270,
+            "acceptance_line": 280,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 2,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-030",
+        "issue_id": "BP-030",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-01",
+          "E2E-02",
+          "E2E-03",
+          "E2E-04",
+          "E2E-05",
+          "E2E-15",
+          "E2E-18"
+        ],
+        "owner_reports": [
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 226,
+            "acceptance_line": 228,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 5,
+            "operational_or_fixture_ref_count": 2,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-031",
+        "issue_id": "BP-031",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-01",
+          "E2E-05",
+          "E2E-08",
+          "E2E-18"
+        ],
+        "owner_reports": [
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 239,
+            "acceptance_line": 241,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 2,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "root-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+            "issue_line": 284,
+            "acceptance_line": 294,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 2,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-032",
+        "issue_id": "BP-032",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-01",
+          "E2E-18",
+          "E2E-21"
+        ],
+        "owner_reports": [
+          {
+            "report": "backend-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+            "issue_line": 36,
+            "acceptance_line": 39,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "native-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+            "issue_line": 479,
+            "acceptance_line": 481,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 9,
+            "operational_or_fixture_ref_count": 2,
+            "source_line_ref_count": 7,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-033",
+        "issue_id": "BP-033",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-02",
+          "E2E-13"
+        ],
+        "owner_reports": [
+          {
+            "report": "backend-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+            "issue_line": 48,
+            "acceptance_line": 51,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-034",
+        "issue_id": "BP-034",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-13",
+          "E2E-19"
+        ],
+        "owner_reports": [
+          {
+            "report": "backend-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+            "issue_line": 60,
+            "acceptance_line": 63,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-035",
+        "issue_id": "BP-035",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-13",
+          "E2E-19"
+        ],
+        "owner_reports": [
+          {
+            "report": "backend-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+            "issue_line": 72,
+            "acceptance_line": 75,
+            "implementation": "partial",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-036",
+        "issue_id": "BP-036",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-09",
+          "E2E-13",
+          "E2E-14",
+          "E2E-22"
+        ],
+        "owner_reports": [
+          {
+            "report": "backend-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+            "issue_line": 84,
+            "acceptance_line": 87,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-037",
+        "issue_id": "BP-037",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-02",
+          "E2E-14",
+          "E2E-16"
+        ],
+        "owner_reports": [
+          {
+            "report": "backend-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+            "issue_line": 96,
+            "acceptance_line": 99,
+            "implementation": "partial",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-038",
+        "issue_id": "BP-038",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-01",
+          "E2E-02",
+          "E2E-03",
+          "E2E-04",
+          "E2E-07",
+          "E2E-08"
+        ],
+        "owner_reports": [
+          {
+            "report": "native-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+            "issue_line": 497,
+            "acceptance_line": 499,
+            "implementation": "blocked",
+            "acceptance": "BLOCKED",
+            "evidence_ref_count": 6,
+            "operational_or_fixture_ref_count": 3,
+            "source_line_ref_count": 1,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 251,
+            "acceptance_line": 253,
+            "implementation": "blocked",
+            "acceptance": "BLOCKED",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 0,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-039",
+        "issue_id": "BP-039",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-01",
+          "E2E-02",
+          "E2E-03",
+          "E2E-04",
+          "E2E-05",
+          "E2E-07",
+          "E2E-08",
+          "E2E-14",
+          "E2E-21"
+        ],
+        "owner_reports": [
+          {
+            "report": "native-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+            "issue_line": 512,
+            "acceptance_line": 514,
+            "implementation": "partial",
+            "acceptance": "BLOCKED",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 0,
+            "source_line_ref_count": 4,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 262,
+            "acceptance_line": 264,
+            "implementation": "blocked",
+            "acceptance": "BLOCKED",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 0,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-040",
+        "issue_id": "BP-040",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-02",
+          "E2E-03",
+          "E2E-04",
+          "E2E-08"
+        ],
+        "owner_reports": [
+          {
+            "report": "native-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+            "issue_line": 525,
+            "acceptance_line": 527,
+            "implementation": "partial",
+            "acceptance": "BLOCKED",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 0,
+            "source_line_ref_count": 3,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 273,
+            "acceptance_line": 275,
+            "implementation": "partial",
+            "acceptance": "BLOCKED",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 0,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-041",
+        "issue_id": "BP-041",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-07",
+          "E2E-08",
+          "E2E-15"
+        ],
+        "owner_reports": [
+          {
+            "report": "native-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+            "issue_line": 537,
+            "acceptance_line": 539,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 5,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 4,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-042",
+        "issue_id": "BP-042",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-07",
+          "E2E-08",
+          "E2E-15"
+        ],
+        "owner_reports": [
+          {
+            "report": "backend-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+            "issue_line": 108,
+            "acceptance_line": 111,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "native-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+            "issue_line": 551,
+            "acceptance_line": 553,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 5,
+            "operational_or_fixture_ref_count": 0,
+            "source_line_ref_count": 5,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-043",
+        "issue_id": "BP-043",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-09",
+          "E2E-10",
+          "E2E-12",
+          "E2E-15",
+          "E2E-22"
+        ],
+        "owner_reports": [
+          {
+            "report": "backend-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+            "issue_line": 121,
+            "acceptance_line": 124,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "native-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+            "issue_line": 565,
+            "acceptance_line": 567,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 0,
+            "source_line_ref_count": 4,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 284,
+            "acceptance_line": 286,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-044",
+        "issue_id": "BP-044",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-07",
+          "E2E-09",
+          "E2E-10",
+          "E2E-12",
+          "E2E-14",
+          "E2E-15"
+        ],
+        "owner_reports": [
+          {
+            "report": "backend-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+            "issue_line": 134,
+            "acceptance_line": 137,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 5,
+            "operational_or_fixture_ref_count": 3,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "native-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+            "issue_line": 578,
+            "acceptance_line": 580,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 5,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 4,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 296,
+            "acceptance_line": 298,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "root-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+            "issue_line": 298,
+            "acceptance_line": 309,
+            "implementation": "partial",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 5,
+            "operational_or_fixture_ref_count": 2,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-045",
+        "issue_id": "BP-045",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-01",
+          "E2E-05",
+          "E2E-21"
+        ],
+        "owner_reports": [
+          {
+            "report": "backend-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+            "issue_line": 148,
+            "acceptance_line": 151,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 308,
+            "acceptance_line": 310,
+            "implementation": "partial",
+            "acceptance": "BLOCKED",
+            "evidence_ref_count": 5,
+            "operational_or_fixture_ref_count": 2,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-046",
+        "issue_id": "BP-046",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-05",
+          "E2E-16"
+        ],
+        "owner_reports": [
+          {
+            "report": "backend-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+            "issue_line": 161,
+            "acceptance_line": 164,
+            "implementation": "implemented",
+            "acceptance": "BLOCKED",
+            "evidence_ref_count": 7,
+            "operational_or_fixture_ref_count": 4,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 321,
+            "acceptance_line": 323,
+            "implementation": "implemented",
+            "acceptance": "BLOCKED",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 0,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-047",
+        "issue_id": "BP-047",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-02",
+          "E2E-05",
+          "E2E-10",
+          "E2E-15",
+          "E2E-16",
+          "E2E-17",
+          "E2E-22"
+        ],
+        "owner_reports": [
+          {
+            "report": "backend-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+            "issue_line": 177,
+            "acceptance_line": 180,
+            "implementation": "implemented",
+            "acceptance": "BLOCKED",
+            "evidence_ref_count": 13,
+            "operational_or_fixture_ref_count": 10,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "native-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+            "issue_line": 592,
+            "acceptance_line": 594,
+            "implementation": "partial",
+            "acceptance": "BLOCKED",
+            "evidence_ref_count": 14,
+            "operational_or_fixture_ref_count": 4,
+            "source_line_ref_count": 10,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "toolbox-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+            "issue_line": 332,
+            "acceptance_line": 334,
+            "implementation": "implemented",
+            "acceptance": "BLOCKED",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 0,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-048",
+        "issue_id": "BP-048",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-19"
+        ],
+        "owner_reports": [
+          {
+            "report": "backend-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+            "issue_line": 199,
+            "acceptance_line": 202,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 1,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-049",
+        "issue_id": "BP-049",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-19",
+          "E2E-21"
+        ],
+        "owner_reports": [
+          {
+            "report": "backend-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+            "issue_line": 211,
+            "acceptance_line": 214,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 16,
+            "operational_or_fixture_ref_count": 10,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-050",
+        "issue_id": "BP-050",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-20"
+        ],
+        "owner_reports": [
+          {
+            "report": "root-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+            "issue_line": 313,
+            "acceptance_line": 317,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 6,
+            "operational_or_fixture_ref_count": 3,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-051",
+        "issue_id": "BP-051",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-22"
+        ],
+        "owner_reports": [
+          {
+            "report": "root-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+            "issue_line": 333,
+            "acceptance_line": 342,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 0,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      },
+      {
+        "ac_id": "AC-052",
+        "issue_id": "BP-052",
+        "canonical_component_status": "not_run",
+        "canonical_component_result": null,
+        "canonical_e2e_dependencies": [
+          "E2E-20"
+        ],
+        "owner_reports": [
+          {
+            "report": "backend-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+            "issue_line": 236,
+            "acceptance_line": 239,
+            "implementation": "partial",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 3,
+            "operational_or_fixture_ref_count": 0,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          },
+          {
+            "report": "root-report.json",
+            "report_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+            "issue_line": 346,
+            "acceptance_line": 350,
+            "implementation": "implemented",
+            "acceptance": "PARTIAL",
+            "evidence_ref_count": 4,
+            "operational_or_fixture_ref_count": 0,
+            "source_line_ref_count": 0,
+            "evidence_paths_effectively_present": true
+          }
+        ],
+        "owner_pass_reports": [],
+        "component_evidence_complete_candidate": false,
+        "whole_acceptance_status": "NOT_FULLY_PROVEN",
+        "reasons": [
+          "Canonical acceptance-tests.json remains not_run with result=null; no owner evidence is promoted.",
+          "At least one canonical whole-release E2E depends on this BP, and every canonical E2E remains not_run/result=null.",
+          "No owner report records acceptance=PASS."
+        ]
+      }
+    ]
+  },
+  "race_schema47_audit": {
+    "report_reference": {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+      "line": 403,
+      "reported_exit_code": 0,
+      "reported_pass_count": 386,
+      "reported_skip_names": [
+        "TestS3StorageAgainstCompatibleService",
+        "TestNormalizeBattleLogFixtureWhenConfigured",
+        "TestStrictRosterRustRelayClients"
+      ]
+    },
+    "summary_log": {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-go-test-race-go1266-schema47-20260907-summary.log",
+      "lines": {
+        "database": 3,
+        "exit_code": 5,
+        "pass_lines": 6,
+        "fail_lines": 7,
+        "skip_count": 9,
+        "skip_names": 10
+      },
+      "verified_exit_code": 0,
+      "verified_pass_lines": 386,
+      "verified_fail_lines": 0,
+      "verified_skip_count": 3
+    },
+    "raw_log": {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-go-test-race-go1266-schema47-20260907.log",
+      "skip_rows": [
+        {
+          "name": "TestS3StorageAgainstCompatibleService",
+          "line": 474
+        },
+        {
+          "name": "TestNormalizeBattleLogFixtureWhenConfigured",
+          "line": 589
+        },
+        {
+          "name": "TestStrictRosterRustRelayClients",
+          "line": 980
+        }
+      ],
+      "raw_pass_line_count": 386,
+      "raw_fail_line_count": 0
+    },
+    "classification": "EXECUTED_PASS_WITH_EXPLICIT_SKIPS",
+    "skips_are_not_passes": true,
+    "root_independent_relay_reconciliation": {
+      "root_issue": "BP-013",
+      "root_report_line": 153,
+      "root_acceptance": "PASS",
+      "backend_TestStrictRosterRustRelayClients_remains_skip": true
+    }
+  },
+  "dump_restore_schema47_audit": {
+    "source_database": "rebound_backend_full_20260907",
+    "restore_database": "rebound_backend_restore_authority_20260907_final",
+    "dump": {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-schema47-pg-dump-authority-final.log",
+      "log_exit_code_line": 2,
+      "archive_path_line": 3,
+      "archive_bytes_line": 4,
+      "archive_sha256_line": 5,
+      "archive_reported": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-schema47-source-20260907-authority-final.dump",
+      "archive_exists": true,
+      "archive_size_bytes": 317571,
+      "archive_sha256": "2d2290a14481fb380b7e9057faea45976c18ae4ba84600af4a3b19b8b22ddeb3"
+    },
+    "restore": {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-schema47-restore-authority-final.log",
+      "report_line": 473,
+      "first_attempt_exit_line": 8,
+      "final_exit_line": 11,
+      "final_archive_path_line": 1,
+      "final_archive_sha256_line": 3,
+      "restore_log_line_count": 12,
+      "verification_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-schema47-restore-authority-verify-20260907.log"
+    },
+    "source_verification": {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-schema47-source-authority-verify-20260907.log",
+      "database_line": 3,
+      "exit_line": 88,
+      "metrics": {
+        "max_migration_line": 8,
+        "checksum_45_line": 13,
+        "checksum_46_line": 14,
+        "checksum_47_line": 15,
+        "public_columns_line": 75,
+        "public_constraints_line": 80,
+        "public_indexes_line": 85
+      }
+    },
+    "restore_verification": {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-schema47-restore-authority-verify-20260907.log",
+      "database_line": 3,
+      "exit_line": 88,
+      "metrics": {
+        "max_migration_line": 8,
+        "checksum_45_line": 13,
+        "checksum_46_line": 14,
+        "checksum_47_line": 15,
+        "public_columns_line": 75,
+        "public_constraints_line": 80,
+        "public_indexes_line": 85
+      }
+    },
+    "compare": {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-schema47-authority-rowcount-compare-20260907.log",
+      "source_exit_line": 2,
+      "restore_exit_line": 4,
+      "archive_sha256_line": 7,
+      "comparison_line": 9,
+      "metrics_line": 10
+    },
+    "verified_schema_metrics": {
+      "max_migration": 47,
+      "migration_rows": 47,
+      "migration_versions": [
+        45,
+        46,
+        47
+      ],
+      "key_table_rows": {
+        "match_attempts": 0,
+        "match_attempt_roster": 0,
+        "match_admission_grants": 0,
+        "p2p_room_members": 0,
+        "p2p_match_roster": 14,
+        "p2p_match_sessions": 6,
+        "p2p_vnt_member_sessions": 0,
+        "p2p_vnt_sessions": 0,
+        "connections": 0,
+        "connection_candidates": 0,
+        "game_servers": 0
+      },
+      "public_columns": 1038,
+      "public_constraints": 559,
+      "public_indexes": 264
+    },
+    "archive_binding_audit": {
+      "restore_command_report_line": 473,
+      "restore_command_named_archive": "backend-schema47-source-20260907-authority-final.dump",
+      "named_archive_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-schema47-source-20260907-authority-final.dump",
+      "named_archive_exists": true,
+      "named_archive_size_bytes": 317571,
+      "named_archive_sha256": "2d2290a14481fb380b7e9057faea45976c18ae4ba84600af4a3b19b8b22ddeb3",
+      "dump_log_archive_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-schema47-source-20260907-authority-final.dump",
+      "dump_log_archive_sha256": "2d2290a14481fb380b7e9057faea45976c18ae4ba84600af4a3b19b8b22ddeb3",
+      "hashes_equal": true,
+      "exact_archive_path_reused": true,
+      "historical_archives_retained": [
+        {
+          "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-schema47-source-20260907.dump",
+          "sha256": "014a8d57d9a6c9e1d693d5d1aecf69e52b61e0aab25409147c7ca88bd91e65f6"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-schema47-source-20260907-180424.dump",
+          "sha256": "c1b0166b7e014ed7b3584fe3c211dd0596abc444e1942bb3d768bb4fb26894a4"
+        }
+      ]
+    },
+    "historical_capture": {
+      "initial_dump_log": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-schema47-pg-dump-20260907-180424.log",
+      "initial_restore_log": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-schema47-restore-20260907_180044.log",
+      "initial_restore_archive": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-schema47-source-20260907.dump",
+      "initial_dump_archive": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-schema47-source-20260907-180424.dump",
+      "initial_hashes_equal": false,
+      "retained_as_historical": true
+    },
+    "old_schema_reject": {
+      "report_line": 386,
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-release-preflight-old-schema-reject-20260907.log",
+      "log_line": 6,
+      "expected_exit_code": 1,
+      "observed": "expected=46 actual=47"
+    },
+    "limitations_report_line": 233
+  },
+  "secret_scan": {
+    "selected_log_roots": [
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907",
+      "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907"
+    ],
+    "selected_log_count": 176,
+    "method": "Scanned only .log files below the tracking and restricted .tmp directories for bearer/JWT/token/ticket/password/secret/authorization/private-key shaped values. Values are never emitted.",
+    "credential_like_value_count": 0,
+    "secret_values_emitted": false,
+    "findings": [],
+    "keyword_only_hits": [
+      {
+        "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-fmt-check.log",
+        "line": 6,
+        "category": "source-diff-field"
+      },
+      {
+        "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-fmt-check.log",
+        "line": 8,
+        "category": "source-diff-field"
+      },
+      {
+        "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-fmt-check.log",
+        "line": 21,
+        "category": "source-diff-field"
+      },
+      {
+        "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-fmt-check.log",
+        "line": 23,
+        "category": "source-diff-field"
+      },
+      {
+        "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-fmt-check.log",
+        "line": 47,
+        "category": "source-diff-field"
+      },
+      {
+        "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-fmt-check.log",
+        "line": 50,
+        "category": "source-diff-field"
+      },
+      {
+        "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-fmt-check.log",
+        "line": 661,
+        "category": "source-diff-field"
+      },
+      {
+        "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-fmt-check.log",
+        "line": 676,
+        "category": "source-diff-field"
+      },
+      {
+        "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-fmt-check.log",
+        "line": 697,
+        "category": "source-diff-field"
+      },
+      {
+        "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-fmt-check.log",
+        "line": 1661,
+        "category": "source-diff-field"
+      },
+      {
+        "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-fmt-check.log",
+        "line": 1676,
+        "category": "source-diff-field"
+      },
+      {
+        "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-fmt-check.log",
+        "line": 1697,
+        "category": "source-diff-field"
+      }
+    ],
+    "keyword_only_interpretation": "Keyword-only hits are field names/placeholders in toolbox-cargo-fmt-check.log source-diff lines, not credential values."
+  },
+  "findings": [
+    {
+      "id": "E-AUDIT-001",
+      "severity": "high",
+      "kind": "canonical_acceptance_matrix_unrun",
+      "finding": "The canonical 52-component matrix remains not_run/result=null and all 22 canonical E2E targets remain not_run/result=null. Owner PASS values were not promoted.",
+      "evidence": [
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\breakpoints.json",
+          "line": 131,
+          "field": "representative status (52/52)"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\breakpoints.json",
+          "line": 134,
+          "field": "representative execution_status (52/52)"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\acceptance-tests.json",
+          "line": 26,
+          "field": "representative component status (52/52)"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\acceptance-tests.json",
+          "line": 36,
+          "field": "representative component result (52/52)"
+        }
+      ]
+    },
+    {
+      "id": "E-AUDIT-002",
+      "severity": "medium",
+      "kind": "historical_test_count_drift",
+      "finding": "Backend/toolbox owner snapshots still report the 246-pass Toolbox library run, while the later root report records the current all-features run as 267; the 246 logs remain historical evidence only. Current same-log pass counts were checked and have no direct mismatch.",
+      "evidence": [
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+          "line": 171,
+          "field": "246 snapshot"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+          "line": 84,
+          "field": "246 snapshot"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+          "line": 333,
+          "field": "current 267 pass_count"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-final-all-features-test.log",
+          "line": 273,
+          "field": "current 267 passed"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\implementation-evidence-index.json",
+          "line": 249,
+          "field": "historical classification"
+        }
+      ]
+    },
+    {
+      "id": "E-AUDIT-004",
+      "severity": "medium",
+      "kind": "source_line_is_not_runtime_evidence",
+      "finding": "Current owner reports contain 71 explicit source:line references. Six current issue records have only source/static references and no operational log/fixture evidence; none of the four owner PASS records is source-only. Source lines cannot substitute for runtime execution.",
+      "evidence": [
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+          "line": 402,
+          "field": "representative source-only issue"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+          "line": 555,
+          "field": "representative source-only partial issue"
+        }
+      ],
+      "source_only_issue_records": [
+        {
+          "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+          "issue_id": "BP-052",
+          "report_line": 236,
+          "acceptance": "PARTIAL",
+          "evidence_ref_count": 3,
+          "source_line_ref_count": 0
+        },
+        {
+          "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+          "issue_id": "BP-021",
+          "report_line": 398,
+          "acceptance": "BLOCKED",
+          "evidence_ref_count": 4,
+          "source_line_ref_count": 3
+        },
+        {
+          "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+          "issue_id": "BP-024",
+          "report_line": 440,
+          "acceptance": "BLOCKED",
+          "evidence_ref_count": 4,
+          "source_line_ref_count": 4
+        },
+        {
+          "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+          "issue_id": "BP-039",
+          "report_line": 512,
+          "acceptance": "BLOCKED",
+          "evidence_ref_count": 4,
+          "source_line_ref_count": 4
+        },
+        {
+          "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+          "issue_id": "BP-040",
+          "report_line": 525,
+          "acceptance": "BLOCKED",
+          "evidence_ref_count": 3,
+          "source_line_ref_count": 3
+        },
+        {
+          "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+          "issue_id": "BP-042",
+          "report_line": 551,
+          "acceptance": "PARTIAL",
+          "evidence_ref_count": 5,
+          "source_line_ref_count": 5
+        },
+        {
+          "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+          "issue_id": "BP-043",
+          "report_line": 565,
+          "acceptance": "PARTIAL",
+          "evidence_ref_count": 4,
+          "source_line_ref_count": 4
+        },
+        {
+          "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+          "issue_id": "BP-010",
+          "report_line": 52,
+          "acceptance": "BLOCKED",
+          "evidence_ref_count": 3,
+          "source_line_ref_count": 0
+        },
+        {
+          "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+          "issue_id": "BP-011",
+          "report_line": 63,
+          "acceptance": "PARTIAL",
+          "evidence_ref_count": 3,
+          "source_line_ref_count": 0
+        },
+        {
+          "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+          "issue_id": "BP-018",
+          "report_line": 103,
+          "acceptance": "BLOCKED",
+          "evidence_ref_count": 3,
+          "source_line_ref_count": 0
+        },
+        {
+          "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+          "issue_id": "BP-020",
+          "report_line": 125,
+          "acceptance": "PARTIAL",
+          "evidence_ref_count": 2,
+          "source_line_ref_count": 0
+        },
+        {
+          "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+          "issue_id": "BP-021",
+          "report_line": 135,
+          "acceptance": "BLOCKED",
+          "evidence_ref_count": 2,
+          "source_line_ref_count": 0
+        },
+        {
+          "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+          "issue_id": "BP-038",
+          "report_line": 251,
+          "acceptance": "BLOCKED",
+          "evidence_ref_count": 3,
+          "source_line_ref_count": 0
+        },
+        {
+          "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+          "issue_id": "BP-039",
+          "report_line": 262,
+          "acceptance": "BLOCKED",
+          "evidence_ref_count": 3,
+          "source_line_ref_count": 0
+        },
+        {
+          "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+          "issue_id": "BP-040",
+          "report_line": 273,
+          "acceptance": "BLOCKED",
+          "evidence_ref_count": 3,
+          "source_line_ref_count": 0
+        },
+        {
+          "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+          "issue_id": "BP-046",
+          "report_line": 321,
+          "acceptance": "BLOCKED",
+          "evidence_ref_count": 3,
+          "source_line_ref_count": 0
+        },
+        {
+          "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+          "issue_id": "BP-047",
+          "report_line": 332,
+          "acceptance": "BLOCKED",
+          "evidence_ref_count": 3,
+          "source_line_ref_count": 0
+        },
+        {
+          "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+          "issue_id": "BP-051",
+          "report_line": 333,
+          "acceptance": "PARTIAL",
+          "evidence_ref_count": 3,
+          "source_line_ref_count": 0
+        },
+        {
+          "report": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+          "issue_id": "BP-052",
+          "report_line": 346,
+          "acceptance": "PARTIAL",
+          "evidence_ref_count": 4,
+          "source_line_ref_count": 0
+        }
+      ]
+    },
+    {
+      "id": "E-AUDIT-005",
+      "severity": "medium",
+      "kind": "report_revision_drift",
+      "finding": "Owner reports were generated from different source revisions and the current worktrees are dirty; report evidence is snapshot-scoped and is not proof of one integrated final commit.",
+      "evidence": [
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+          "line": 28,
+          "field": "reported Backend/Toolbox heads"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+          "line": 5,
+          "field": "native report head"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+          "line": 3,
+          "field": "root source_pair"
+        }
+      ],
+      "reported_heads": {
+        "backend_report_scope_heads": {
+          "ProjectRebound": "bb7b1c191c87e3815cd3e3963b3c965838e46555",
+          "Toolbox": "0aa604eade3662951eeaa94cc6566630cea5a40b"
+        },
+        "native_report_head": "a049d5685e8ac402c8855f3a93b7301c4f35ac78",
+        "root_report_source_pair": {
+          "ProjectRebound": "213d5f967d0df26e8110842958a52be5d96908d8",
+          "Toolbox": "0aa604eade3662951eeaa94cc6566630cea5a40b"
+        }
+      },
+      "current_heads": {
+        "ProjectRebound": "d5286902de2f32fef93fbe2521516ef7ca177c07",
+        "Toolbox": "78934f271b1f32bd6e54f401e036b8203b87d577"
+      },
+      "current_dirty_entry_counts": {
+        "ProjectRebound": 23,
+        "Toolbox": 8
+      }
+    },
+    {
+      "id": "E-AUDIT-007",
+      "severity": "medium",
+      "kind": "backend_skip_vs_independent_relay_pass",
+      "finding": "The schema47 Go race/full Backend runs retain TestStrictRosterRustRelayClients as an explicit SKIP because the driver is unavailable. Root has an independent Go/Rust relay PASS for BP-013; that result is valid in its own scope and does not turn the Backend skipped test into a pass.",
+      "evidence": [
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+          "line": 403,
+          "field": "race log_path"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-go-test-race-go1266-schema47-20260907-summary.log",
+          "line": 10,
+          "field": "skip names"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-go-test-race-go1266-schema47-20260907.log",
+          "line": 980,
+          "field": "Rust relay skip"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+          "line": 136,
+          "field": "root BP-013 PASS"
+        }
+      ]
+    },
+    {
+      "id": "E-AUDIT-008",
+      "severity": "low",
+      "kind": "stale_index_against_current_report",
+      "finding": "The earlier implementation-evidence-index records BP-007 and BP-011 as empty issue evidence and says filesystem verification was not performed. The current root report now contains evidence paths for both, and this audit resolved all current root evidence paths; the index entry is stale.",
+      "evidence": [
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\implementation-evidence-index.json",
+          "line": 929,
+          "field": "stale BP-007 empty entry"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\implementation-evidence-index.json",
+          "line": 934,
+          "field": "stale BP-011 empty entry"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+          "line": 87,
+          "field": "current BP-007 evidence"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+          "line": 109,
+          "field": "current BP-011 evidence"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\implementation-evidence-index.json",
+          "line": 956,
+          "field": "index did not filesystem-verify"
+        }
+      ]
+    },
+    {
+      "id": "E-AUDIT-009",
+      "severity": "high",
+      "kind": "hard_coded_component_pass_mapping",
+      "finding": "create_acceptance_ledger.py hard-codes BP-002/BP-003/BP-013/BP-022 into whole_component_pass and emits PASS without checking each owner review status or an evidence predicate. The current canonical acceptance matrix is still not_run/result=null. A manual review of the original expected wording and the existing executed evidence finds component-scope coverage for all four, but this is not a whole 52-item matrix, native gameplay E2E, or release PASS. AC-022 is especially a mixed-owner case: native has PASS while root and Toolbox retain PARTIAL, so the hard-coded rule must not hide that provenance.",
+      "evidence": [
+        {
+          "file": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\create_acceptance_ledger.py",
+          "line": 35,
+          "field": "comment describing direct executed evidence"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\create_acceptance_ledger.py",
+          "line": 37,
+          "field": "whole_component_pass hard-coded set"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\create_acceptance_ledger.py",
+          "line": 51,
+          "field": "PASS emitted from issue id before evidence completeness"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\acceptance-tests.json",
+          "line": 39,
+          "field": "AC-002 canonical status not_run and result null"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\acceptance-tests.json",
+          "line": 71,
+          "field": "AC-003 canonical status not_run and result null"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\acceptance-tests.json",
+          "line": 392,
+          "field": "AC-013 canonical status not_run and result null"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\acceptance-tests.json",
+          "line": 683,
+          "field": "AC-022 canonical status not_run and result null"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\breakpoints.json",
+          "line": 154,
+          "field": "BP-002 original acceptance wording"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\breakpoints.json",
+          "line": 190,
+          "field": "BP-003 original acceptance wording"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\breakpoints.json",
+          "line": 573,
+          "field": "BP-013 original acceptance wording"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\breakpoints.json",
+          "line": 925,
+          "field": "BP-022 original acceptance wording"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+          "line": 24,
+          "field": "BP-002 owner review begins"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+          "line": 34,
+          "field": "BP-002 executed result and native scope limitation"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+          "line": 39,
+          "field": "BP-003 owner review begins"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+          "line": 46,
+          "field": "BP-003 executed result"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+          "line": 143,
+          "field": "BP-013 owner review begins"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+          "line": 152,
+          "field": "BP-013 executed result"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+          "line": 225,
+          "field": "BP-022 owner review begins"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+          "line": 227,
+          "field": "BP-022 cross-language evidence summary"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-report.json",
+          "line": 237,
+          "field": "BP-022 owner acceptance remains PARTIAL"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+          "line": 680,
+          "field": "BP-022 native owner PASS begins"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-report.json",
+          "line": 691,
+          "field": "BP-022 native C++ to Rust result"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+          "line": 147,
+          "field": "BP-022 Toolbox owner review begins"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-report.json",
+          "line": 154,
+          "field": "BP-022 Toolbox live codec limitation"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-auth-http-concurrency-test.log",
+          "line": 5,
+          "field": "AC-002 concurrent 20/1/20 case"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-auth-http-concurrency-test.log",
+          "line": 18,
+          "field": "AC-002 logout late response case"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-auth-http-concurrency-test.log",
+          "line": 31,
+          "field": "AC-002 account switch late response case"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-final-all-features-test.log",
+          "line": 207,
+          "field": "AC-003 killed writer recovery"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-final-all-features-test.log",
+          "line": 222,
+          "field": "AC-003 encrypted replacement/no plaintext temporary"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-final-all-features-test.log",
+          "line": 257,
+          "field": "AC-003 concurrent stale preference protection"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\go-rust-live-relay-test.log",
+          "line": 37,
+          "field": "AC-013 real Edge Rust HOST/PEER test"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\go-rust-live-relay-test.log",
+          "line": 41,
+          "field": "AC-013 Go-to-Rust cross-language fixture"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-final-all-features-test.log",
+          "line": 212,
+          "field": "AC-013 recipient-retagged vector decode"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-final-all-features-test.log",
+          "line": 214,
+          "field": "AC-013 truncated MAC receive"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-final-all-features-test.log",
+          "line": 215,
+          "field": "AC-013 tamper rejection"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\cpp-rust-wire-test.log",
+          "line": 38,
+          "field": "AC-022 two C++ fixture parser tests"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\cpp-rust-wire-test.log",
+          "line": 39,
+          "field": "AC-022 wrong request/command/cursor negative test"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\cpp-rust-wire-test.log",
+          "line": 40,
+          "field": "AC-022 actual accepted C++ frames parsed by Rust"
+        }
+      ],
+      "candidate_reviews": [
+        {
+          "id": "AC-002",
+          "bp": "BP-002",
+          "component_disposition": "evidence_sufficient_component_scope_only",
+          "expected": "20 concurrent 401s produce one refresh; logout/account switch rejects stale result.",
+          "evidence": [
+            "toolbox-auth-http-concurrency-test.log:5-41",
+            "root-report.json:34-35"
+          ],
+          "canonical_state": "acceptance-tests.json:39-68 remains not_run/result=null",
+          "limitation": "Loopback HTTP/DPAPI harness; no Steam/native game login claimed."
+        },
+        {
+          "id": "AC-003",
+          "bp": "BP-003",
+          "component_disposition": "evidence_sufficient_component_scope_only",
+          "expected": "Killed write and concurrent settings retain complete decryptable config and no plaintext temporary.",
+          "evidence": [
+            "toolbox-final-all-features-test.log:207,222,257,286",
+            "config_types.rs:407-505"
+          ],
+          "canonical_state": "acceptance-tests.json:71-100 remains not_run/result=null",
+          "limitation": "Component storage harness; no online gameplay claim."
+        },
+        {
+          "id": "AC-013",
+          "bp": "BP-013",
+          "component_disposition": "evidence_sufficient_component_scope_only",
+          "expected": "Different HOST/PEER tokens, real Edge recipient retagging, bidirectional receive, tag/header/payload tamper rejection.",
+          "evidence": [
+            "go-rust-live-relay-test.log:37-42",
+            "toolbox-final-all-features-test.log:212-215",
+            "rust-relay-fixture-test.log:44-47"
+          ],
+          "canonical_state": "acceptance-tests.json:392-421 remains not_run/result=null",
+          "limitation": "Backend race suite still has an explicit Rust-driver skip; independent root relay evidence is not a native/game E2E."
+        },
+        {
+          "id": "AC-022",
+          "bp": "BP-022",
+          "component_disposition": "evidence_sufficient_component_scope_only_with_owner_status_conflict",
+          "expected": "C++ EncodeFrame accepted frame parses in Rust; wrong ID, busy, wrong command reject; accepted is not Playable.",
+          "evidence": [
+            "cpp-rust-wire-test.log:38-42",
+            "native-report.json:680-691",
+            "src/server/pipe_cpp_fixture_tests.rs:13-126"
+          ],
+          "canonical_state": "acceptance-tests.json:683-712 remains not_run/result=null",
+          "limitation": "Native owner says PASS while root/Toolbox reports retain PARTIAL; no live native gameplay admission is claimed."
+        }
+      ],
+      "required_root_action": "Keep canonical 52-component and 22-E2E states unchanged. If the ledger is regenerated, make the four PASS values an explicitly evidence-backed component exception with the mixed AC-022 owner provenance; never infer whole-product, native-game, or release readiness."
+    },
+    {
+      "id": "E-AUDIT-010",
+      "severity": "medium",
+      "kind": "backend_report_status_semantics_review",
+      "finding": "Backend report was checked issue by issue. It has 12 implementation=implemented and 3 implementation=partial, but all 15 acceptance values are PARTIAL or BLOCKED (13 PARTIAL, 2 BLOCKED; no PASS). Each known integration, native, fault-injection, production, or release gap is stated in the issue note. Therefore no Backend acceptance is overclaimed. The word implemented is defensible as code-level implementation; BP-046/BP-047 must remain BLOCKED and must not be read as end-to-end readiness.",
+      "evidence": [
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+          "line": 36,
+          "field": "BP-032"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+          "line": 48,
+          "field": "BP-033"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+          "line": 60,
+          "field": "BP-034"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+          "line": 72,
+          "field": "BP-035"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+          "line": 84,
+          "field": "BP-036"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+          "line": 96,
+          "field": "BP-037"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+          "line": 108,
+          "field": "BP-042"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+          "line": 121,
+          "field": "BP-043"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+          "line": 134,
+          "field": "BP-044"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+          "line": 152,
+          "field": "BP-045"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+          "line": 165,
+          "field": "BP-046 BLOCKED"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+          "line": 181,
+          "field": "BP-047 BLOCKED"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+          "line": 205,
+          "field": "BP-048"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+          "line": 217,
+          "field": "BP-049"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+          "line": 242,
+          "field": "BP-052"
+        }
+      ],
+      "per_issue_review": [
+        {
+          "id": "BP-032",
+          "report_line": 36,
+          "implementation": "implemented",
+          "acceptance": "PARTIAL",
+          "known_gap": "No live UI/locked-game exercise of every retired endpoint; note is explicit.",
+          "disposition": "no_overclaim"
+        },
+        {
+          "id": "BP-033",
+          "report_line": 48,
+          "implementation": "implemented",
+          "acceptance": "PARTIAL",
+          "known_gap": "No native/relay three-client acceptance; note is explicit.",
+          "disposition": "no_overclaim"
+        },
+        {
+          "id": "BP-034",
+          "report_line": 60,
+          "implementation": "implemented",
+          "acceptance": "PARTIAL",
+          "known_gap": "No forged live report/closed-collector E2E; note is explicit.",
+          "disposition": "no_overclaim"
+        },
+        {
+          "id": "BP-035",
+          "report_line": 72,
+          "implementation": "partial",
+          "acceptance": "PARTIAL",
+          "known_gap": "No process-kill/fault-injection at each cross-transaction commit point.",
+          "disposition": "no_overclaim"
+        },
+        {
+          "id": "BP-036",
+          "report_line": 84,
+          "implementation": "implemented",
+          "acceptance": "PARTIAL",
+          "known_gap": "No delayed live process timing run.",
+          "disposition": "no_overclaim"
+        },
+        {
+          "id": "BP-037",
+          "report_line": 96,
+          "implementation": "partial",
+          "acceptance": "PARTIAL",
+          "known_gap": "Locked-game role confirmation and late-role native behavior unavailable.",
+          "disposition": "no_overclaim"
+        },
+        {
+          "id": "BP-042",
+          "report_line": 108,
+          "implementation": "implemented",
+          "acceptance": "PARTIAL",
+          "known_gap": "Native client injection unavailable.",
+          "disposition": "no_overclaim"
+        },
+        {
+          "id": "BP-043",
+          "report_line": 121,
+          "implementation": "implemented",
+          "acceptance": "PARTIAL",
+          "known_gap": "Native process crash/world continuity not run.",
+          "disposition": "no_overclaim"
+        },
+        {
+          "id": "BP-044",
+          "report_line": 134,
+          "implementation": "implemented",
+          "acceptance": "PARTIAL",
+          "known_gap": "Actual OS child-handle/pre-spawn proof remains supervisor responsibility.",
+          "disposition": "no_overclaim"
+        },
+        {
+          "id": "BP-045",
+          "report_line": 152,
+          "implementation": "implemented",
+          "acceptance": "PARTIAL",
+          "known_gap": "No live old/native_unverified registration assignment.",
+          "disposition": "no_overclaim"
+        },
+        {
+          "id": "BP-046",
+          "report_line": 165,
+          "implementation": "implemented",
+          "acceptance": "BLOCKED",
+          "known_gap": "Actual registered agent + Payload IPC + game assignment unavailable.",
+          "disposition": "no_overclaim_keep_blocked"
+        },
+        {
+          "id": "BP-047",
+          "report_line": 181,
+          "implementation": "implemented",
+          "acceptance": "BLOCKED",
+          "known_gap": "Real teardown/final ACK and supervisor pre-spawn marker integration unavailable.",
+          "disposition": "no_overclaim_keep_blocked"
+        },
+        {
+          "id": "BP-048",
+          "report_line": 205,
+          "implementation": "implemented",
+          "acceptance": "PARTIAL",
+          "known_gap": "No two-live-instance operational test.",
+          "disposition": "no_overclaim"
+        },
+        {
+          "id": "BP-049",
+          "report_line": 217,
+          "implementation": "implemented",
+          "acceptance": "PARTIAL",
+          "known_gap": "Production ACL/listener/object storage/Docker/application startup against restored DB not run.",
+          "disposition": "no_overclaim"
+        },
+        {
+          "id": "BP-052",
+          "report_line": 242,
+          "implementation": "partial",
+          "acceptance": "PARTIAL",
+          "known_gap": "Clean integrated source build/consumer chain/final signed release pending parent integration.",
+          "disposition": "no_overclaim"
+        }
+      ],
+      "required_root_action": "No backend PASS promotion. Preserve BP-046/BP-047 BLOCKED and all other PARTIAL acceptance states; if implementation is later redefined as end-to-end readiness, downgrade the two BLOCKED entries to partial rather than changing acceptance."
+    },
+    {
+      "id": "E-AUDIT-011",
+      "severity": "medium",
+      "kind": "typed_preflight_and_owned_exit_cleanup_review",
+      "finding": "F1 pre-spawn cleanup is closed in the current frozen Toolbox worktree: room/route/path/begin_launch failures are converted to the sealed NativeProcessNotStarted marker, bound to exact attempt/session/roster/route with empty world, and sent only to the not-started Backend cleanup endpoint. F2 post-spawn failures are typed AuthorityLaunchFailure; a missing duplicated handle stays Option=None/PID metadata and is quarantined, never converted to native_process_not_started or owned_process_exited. This is safe fail-closed behavior, but final native teardown and supervisor marker integration remain outside the executed acceptance.",
+      "evidence": [
+        {
+          "file": "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+          "line": 2375,
+          "field": "pre-spawn room/route/path/launch failures use preflight_failure_for_material"
+        },
+        {
+          "file": "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+          "line": 2473,
+          "field": "AuthorityPreflightFailure records empty-world sealed evidence"
+        },
+        {
+          "file": "C:\\wksp\\ProjectReboundToolbox\\src\\launching\\launch.rs",
+          "line": 157,
+          "field": "NativeProcessNotStarted private marker"
+        },
+        {
+          "file": "C:\\wksp\\ProjectReboundToolbox\\src\\launching\\launch.rs",
+          "line": 194,
+          "field": "authority_preflight_failure is pre-spawn-only"
+        },
+        {
+          "file": "C:\\wksp\\ProjectReboundToolbox\\src\\launching\\launch.rs",
+          "line": 1242,
+          "field": "only pre-spawn phase manufactures marker"
+        },
+        {
+          "file": "C:\\wksp\\ProjectReboundToolbox\\src\\api\\multiplayer\\lobbies.rs",
+          "line": 782,
+          "field": "exact-scope native_process_not_started request"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\Backend\\internal\\matchlobby\\service.go",
+          "line": 2449,
+          "field": "P2P HOST and pre-Payload/world guard"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\Backend\\internal\\matchlobby\\service.go",
+          "line": 2476,
+          "field": "empty-world cleanup requires evidence"
+        },
+        {
+          "file": "C:\\wksp\\ProjectReboundToolbox\\src\\launching\\launch.rs",
+          "line": 205,
+          "field": "capture failure becomes AuthorityLaunchFailure with no proof"
+        },
+        {
+          "file": "C:\\wksp\\ProjectReboundToolbox\\src\\launching\\launch.rs",
+          "line": 1260,
+          "field": "post-spawn failure typed; no not-started conversion"
+        },
+        {
+          "file": "C:\\wksp\\ProjectReboundToolbox\\src\\launching\\launch.rs",
+          "line": 1277,
+          "field": "owned handle capture after successful spawn"
+        },
+        {
+          "file": "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+          "line": 2487,
+          "field": "AuthorityLaunchFailure stores optional proof/PID and requests quarantine cleanup"
+        },
+        {
+          "file": "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+          "line": 1392,
+          "field": "owned-exit branch requires duplicated handle evidence"
+        },
+        {
+          "file": "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+          "line": 1426,
+          "field": "empty-world pipe clear prohibited"
+        },
+        {
+          "file": "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+          "line": 1463,
+          "field": "scoped native ACK path"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-report.json",
+          "line": 181,
+          "field": "BP-047 acceptance BLOCKED and supervisor/native integration limitation"
+        }
+      ],
+      "disposition": {
+        "F1": "resolved_in_current_worktree; preserve exact scope and no-process endpoint",
+        "F2": "conservative_quarantine; no false proof, final integration acceptance remains blocked"
+      },
+      "required_root_action": "Freeze and commit the current Toolbox typed paths before using them as final evidence; retain BP-047 BLOCKED until real supervisor pre-spawn marker and native teardown/final ACK are executed."
+    }
+  ],
+  "resolved_findings": [
+    {
+      "id": "E-AUDIT-006",
+      "status": "resolved",
+      "kind": "dump_restore_archive_identity_gap",
+      "finding": "The earlier archive identity gap was corrected by a new read-only dump and restore: the exact same authority-final archive path and SHA256 are recorded in dump, restore, and comparison evidence. The earlier two differently hashed archives remain retained and explicitly classified as historical.",
+      "evidence": [
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-schema47-pg-dump-authority-final.log",
+          "line": 5,
+          "field": "authoritative dump SHA256"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-schema47-restore-authority-final.log",
+          "line": 11,
+          "field": "authoritative restore exit"
+        },
+        {
+          "file": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-schema47-authority-rowcount-compare-20260907.log",
+          "line": 9,
+          "field": "authoritative comparison"
+        }
+      ]
+    }
+  ],
+  "recommendations_for_root": [
+    "Keep canonical breakpoint and acceptance-tests states unchanged until acceptance owners record results; do not treat component candidates as release-wide PASS.",
+    "Replace or supersede the 246 Toolbox snapshot in the final evidence catalog with the current 267 run while retaining 246 as historical.",
+    "Preserve the three Backend race skips, including Rust relay, even though root BP-013 has independent cross-language relay evidence.",
+    "Regenerate implementation-evidence-index after current report updates; its BP-007/BP-011 empty-evidence entries and no-filesystem-verification statement are stale."
+  ],
+  "limitations": [
+    "No user profile/game artifact paths were traversed.",
+    "This audit does not rerun tests, start/stop databases, mutate databases, deploy, or change source.",
+    "A component candidate is not a whole strict-online E2E proof; all canonical E2E targets remain not_run."
+  ]
+}

@@ -1,0 +1,36 @@
+=== RUN   TestMatchAttemptForceAbortRequiresPermissionAndStepUp
+--- PASS: TestMatchAttemptForceAbortRequiresPermissionAndStepUp (0.00s)
+=== RUN   TestMatchAttemptForceAbortRejectsMissingAuthPermissionAndStepUp
+=== RUN   TestMatchAttemptForceAbortRejectsMissingAuthPermissionAndStepUp/missing_principal
+=== RUN   TestMatchAttemptForceAbortRejectsMissingAuthPermissionAndStepUp/missing_permission
+=== RUN   TestMatchAttemptForceAbortRejectsMissingAuthPermissionAndStepUp/missing_step_up
+=== RUN   TestMatchAttemptForceAbortRejectsMissingAuthPermissionAndStepUp/invalid_step_up
+--- PASS: TestMatchAttemptForceAbortRejectsMissingAuthPermissionAndStepUp (0.00s)
+    --- PASS: TestMatchAttemptForceAbortRejectsMissingAuthPermissionAndStepUp/missing_principal (0.00s)
+    --- PASS: TestMatchAttemptForceAbortRejectsMissingAuthPermissionAndStepUp/missing_permission (0.00s)
+    --- PASS: TestMatchAttemptForceAbortRejectsMissingAuthPermissionAndStepUp/missing_step_up (0.00s)
+    --- PASS: TestMatchAttemptForceAbortRejectsMissingAuthPermissionAndStepUp/invalid_step_up (0.00s)
+=== RUN   TestMatchAttemptForceAbortPreservesServiceHTTPStatus
+=== RUN   TestMatchAttemptForceAbortPreservesServiceHTTPStatus/missing_attempt
+=== RUN   TestMatchAttemptForceAbortPreservesServiceHTTPStatus/wrong_state
+=== RUN   TestMatchAttemptForceAbortPreservesServiceHTTPStatus/missing_reason
+--- PASS: TestMatchAttemptForceAbortPreservesServiceHTTPStatus (0.00s)
+    --- PASS: TestMatchAttemptForceAbortPreservesServiceHTTPStatus/missing_attempt (0.00s)
+    --- PASS: TestMatchAttemptForceAbortPreservesServiceHTTPStatus/wrong_state (0.00s)
+    --- PASS: TestMatchAttemptForceAbortPreservesServiceHTTPStatus/missing_reason (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/admin	0.015s
+=== RUN   TestLoadRejectsRetiredStrictRosterConfiguration
+--- PASS: TestLoadRejectsRetiredStrictRosterConfiguration (0.00s)
+=== RUN   TestAcceptNewLobbiesOnlyControlsCreation
+--- PASS: TestAcceptNewLobbiesOnlyControlsCreation (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/config	0.014s
+=== RUN   TestAdmissionSignerBindsFrozenRosterAndJoinSeat
+--- PASS: TestAdmissionSignerBindsFrozenRosterAndJoinSeat (0.00s)
+=== RUN   TestAdmissionSignerRejectsMissingConfiguredKey
+--- PASS: TestAdmissionSignerRejectsMissingConfiguredKey (0.00s)
+=== RUN   TestAdmissionSignerUsesSeparateTokenTypes
+--- PASS: TestAdmissionSignerUsesSeparateTokenTypes (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/matchlobby	0.016s

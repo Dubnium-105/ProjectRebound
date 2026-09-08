@@ -1,0 +1,2 @@
+{"output": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\backend-stamp-mismatch-negative.json", "artifacts": 1, "release_ready": false, "blocker_count": 4}
+PASS: deliberately mismatched embedded revision rejected; release gate exit_code=3.

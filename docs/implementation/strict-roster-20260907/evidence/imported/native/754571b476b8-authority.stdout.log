@@ -1,0 +1,57 @@
+[AUTH] Session scope: dedicated-authority
+[AUTH] Restoring the saved Project Rebound session...
+[AUTH] Session restored.
+[READY] MetaTunnel HTTP: http://127.0.0.1:62891
+[READY] MetaTunnel TCP:  127.0.0.1:62890
+[AUTH] MetaTunnel authenticated preflight accepted.
+[START] C:\Steam\steamapps\common\Boundary\ProjectBoundary\Binaries\Win64\ProjectBoundarySteam-Win64-Shipping.exe
+[PARAM] -LogicServerURL=http://127.0.0.1:62891 -server -StrictRosterAuthority -log -nullrhi -nosplash -NoWindow -map=Warehouse -mode=/Game/Online/GameMode/PBGameMode_Rush_BP.PBGameMode_Rush_BP_C -port=47779 -external=47779 -servername=StrictDedicatedComponent -serverregion=local -pipe=ProjectRebound_DedicatedAuthority_68f463cbffa841888523555d27d0b019 -debuglog
+[START] Loopback HTTP proxy bypass enabled for the game process.
+[START] Boundary PID: 30404
+[BOOT] DLL injected, starting...
+[BOOT] Build profile: BattleLog extraction; server loadout bridge enabled when configured.
+[BOOT] Pinned executable SHA-256=181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843
+[BOOT] bootstrap=server initial_net_mode=standalone routed_net_mode=dedicated
+[RESPAWN] explicit_native_forward=enabled switch=-RespawnExplicitNative
+[SERVER] server-only-load-overrides=enabled
+[SERVER] remote-player-viewport-guard=disabled
+[STRICT-ROSTER] Steam ValidateAuthTicketResponse callback registered; online identity proof remains per-connection.
+[STRICT-ROSTER] Pinned PreLogin plus Team/Camp native paths verified at boot; identity hook installed.
+[SERVER] Hooks installed.
+[SERVER] External port: 47779
+[SERVER] Server name: StrictDedicatedComponent
+[SERVER] Server region: local
+[SERVER] Toolbox command pipe configured.
+[MULTIMATCH] Disabled: opt-in switch is absent
+[SERVER] Waiting for UWorld...
+[SERVER] UWorld is ready.
+[SERVER] LibReplicate initialized.
+[SERVER] LateJoinManager initialized.
+[LOADOUT] Missing a valid room bridge or explicit local-PVE bridge; using native defaults.
+[CMDFW] Started on pipe: \\.\pipe\ProjectRebound_DedicatedAuthority_68f463cbffa841888523555d27d0b019
+[CMDFW] Client connected.
+[CMDFW] Client disconnected.
+[CMDFW] Client connected.
+[STRICT-ROSTER] Signed allocation installed; native admission remains gated.
+[CMDFW] Client disconnected.
+[CMDFW] Client connected.
+[SERVER] Starting server...
+[SERVER] External port: 47779
+[SERVER] Server name: StrictDedicatedComponent
+[SERVER] Server region: local
+[SERVER] Toolbox command pipe configured.
+[SERVER] Map loaded: Warehouse
+[SERVER] Mode: /Game/Online/GameMode/PBGameMode_Rush_BP.PBGameMode_Rush_BP_C
+[SERVER] Port: 47779
+[SERVER] Requesting native server map travel.
+[SERVER] Creating NetDriver...
+[SERVER] Bound unowned NetDriver from bootstrap scan.
+[SERVER] NetDriver created successfully.
+[BATTLELOG] Reset match-scoped capture state for a new generation.
+[SERVER] Reset match-scoped state for generation 1.
+[SERVER] Calling Listen()...
+[SERVER] NetDriver exposed via source: world
+[SERVER] Server is now listening.
+[STRICT-ROSTER] Post-travel authority: net_mode=client authority_game_mode=1 net_driver=1 world_matches=1 server_connection=0 listening=1 result=ready
+[STRICT-ROSTER] Authority admission activated.
+[CMDFW] Client disconnected.

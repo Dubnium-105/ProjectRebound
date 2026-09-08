@@ -1,0 +1,41 @@
+    Checking rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+warning: type `OwnedProcessHandle` is more private than the item `supervise`
+   --> src\server\registration.rs:239:1
+    |
+239 | / pub fn supervise(
+240 | |     pipe_name: String,
+241 | |     expected_server_pid: u32,
+242 | |     owned_process: OwnedProcessHandle,
+...   |
+246 | |     gate: Option<std::sync::Arc<std::sync::RwLock<crate::security::gate::SecurityGate>>>,
+247 | | ) -> Result<()> {
+    | |_______________^ function `supervise` is reachable at visibility `pub`
+    |
+note: but type `OwnedProcessHandle` is only usable at visibility `pub(crate)`
+   --> src\server\registration.rs:174:1
+    |
+174 | pub(crate) struct OwnedProcessHandle {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: `#[warn(private_interfaces)]` on by default
+
+warning: method `fail_launch` is never used
+    --> src\core\runtime.rs:2847:8
+     |
+ 226 | impl ToolboxRuntime {
+     | ------------------- method in this implementation
+...
+2847 |     fn fail_launch<T>(
+     |        ^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: associated function `new` is never used
+   --> src\launching\launch.rs:190:8
+    |
+189 | impl LaunchCtx {
+    | -------------- associated function in this implementation
+190 |     fn new(game_path: &str) -> Result<Self> {
+    |        ^^^
+
+warning: `rebound_toolbox` (lib) generated 3 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.46s

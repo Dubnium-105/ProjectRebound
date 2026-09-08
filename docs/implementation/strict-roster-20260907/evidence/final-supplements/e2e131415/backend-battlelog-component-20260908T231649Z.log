@@ -1,0 +1,15 @@
+=== RUN   TestBattleLogSubmissionAgainstPostgreSQL
+=== RUN   TestBattleLogSubmissionAgainstPostgreSQL/running
+    battlelog_repository_integration_test.go:268: eight concurrent reports produced one stored report and seven duplicate receipts
+=== RUN   TestBattleLogSubmissionAgainstPostgreSQL/completed_late_report
+    battlelog_repository_integration_test.go:268: eight concurrent reports produced one stored report and seven duplicate receipts
+=== RUN   TestBattleLogSubmissionAgainstPostgreSQL/pve_claim_non_official
+    battlelog_repository_integration_test.go:268: eight concurrent reports produced one stored report and seven duplicate receipts
+--- PASS: TestBattleLogSubmissionAgainstPostgreSQL (4.14s)
+    --- PASS: TestBattleLogSubmissionAgainstPostgreSQL/running (3.69s)
+    --- PASS: TestBattleLogSubmissionAgainstPostgreSQL/completed_late_report (0.24s)
+    --- PASS: TestBattleLogSubmissionAgainstPostgreSQL/pve_claim_non_official (0.21s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver	4.152s
+
+EXIT_CODE=0

@@ -1,0 +1,11 @@
+toolchain=/tmp/rebound-strict-roster-20260907-go1266/go/bin/go version go1.26.6 linux/amd64
+command=go test -race -p 1 ./... -count=1 -v
+database=rebound_backend_race_20260907_181038
+redis=172.23.120.17:56380
+exit_code=0
+top_level_pass_lines=386
+fail_lines=0
+package_ok_lines=33
+skip_count=3
+skip_names=TestS3StorageAgainstCompatibleService,TestNormalizeBattleLogFixtureWhenConfigured,TestStrictRosterRustRelayClients
+raw_log=backend-go-test-race-go1266-schema47-20260907.log

@@ -1,0 +1,94 @@
+{
+  "schema": "strict-roster-bp047-reuse-guard-review-v1",
+  "observed_utc": "2026-09-07T23:30:00Z",
+  "status": "BLOCKED",
+  "acceptance": "PARTIAL",
+  "latest_cleanup_result": {
+    "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-20260907/native-evidence/live-run-inputs/bp047-cleanup-20260908T223500Z/bp047-authority-only-20260908074000/dedicated-component-20260907-231800-b6fe2b32/bp047-cleanup-result.json",
+    "sha256": "37933E68997407E5DAF0BF9DFACC3C46EBB2D16E8261B25AF0B3C019D8B0D449",
+    "native_cleanup_state": "CLEARED",
+    "server_state": "UNHEALTHY",
+    "reuse_claimed": false
+  },
+  "source_findings": [
+    {
+      "path": "C:/wksp/ProjectRebound/Backend/internal/matchlobby/service.go",
+      "sha256": "4A803A76D0590C4984090F0CA735ED5FA913419699AA1994EEEFED87DF83460F",
+      "lines": "nativeCleared Dedicated branch around 2942-2950",
+      "finding": "NativeCleared sets a Dedicated server READY only when last_heartbeat_at is newer than the server freshness window, token_revoked_at is NULL, and token_expires_at is future; otherwise it deliberately sets UNHEALTHY."
+    },
+    {
+      "path": "C:/wksp/ProjectRebound/Backend/internal/gameserver/service.go",
+      "sha256": "F8C3C84EF0877B3A459732BC8DD0C806E25103BCA928451F09ED98D6BFC56C03",
+      "lines": "Heartbeat around 211-305",
+      "finding": "A fresh server heartbeat requires a real gst_ credential, valid state transition, and capability fields; matchlobby AuthorityHeartbeat does not update game_servers.last_heartbeat_at."
+    },
+    {
+      "path": "C:/wksp/ProjectRebound/Backend/internal/gameserver/auth.go",
+      "sha256": "333F1BFDCED60EC60B1598A3DE0B4828746881DEC03A1828E35A1EF45C31F825",
+      "lines": "newServerToken/hashServerToken",
+      "finding": "The real server credential is a random gst_ token whose SHA-256 is persisted; a stale or synthetic hash cannot authenticate a heartbeat."
+    },
+    {
+      "path": "C:/wksp/ProjectRebound/Backend/.tmp-native-fixture/main.go",
+      "sha256": "251A2A58EBBE7595FD1ACFD65BC4388B3BDFA83C9A5D16ABD2B1A879C66600CF",
+      "lines": "prepare game_servers insert around 297-309",
+      "finding": "The private fixture inserts a READY row with server_token_hash=SHA256(serverID) and prepare-time last_heartbeat_at; it does not create or retain a valid gst_ registration credential."
+    },
+    {
+      "path": "C:/wksp/ProjectRebound/Backend/.tmp-native-fixture/native-cleanup-fixture/main.go",
+      "sha256": "7D2D6238813B774B74FD71E9A7FC6EAE55958B620C5D2C77E310564D499B8D9A",
+      "lines": "cleanup exact DedicatedNativeCleared call around 316-329",
+      "finding": "The cleanup driver performs service calls and exact supervisor receipt checks; it does not write SQL state directly. Its READY assertion correctly exposed the fixture's missing fresh heartbeat."
+    },
+    {
+      "path": "C:/wksp/ProjectRebound/Backend/internal/controlplane/server.go",
+      "sha256": "8EE9A5CEC28C093DB32AC9D0C165649B9A6B9A470D77DD5AFD9B0CADBCEA8282",
+      "lines": "394-404 and 517-540",
+      "finding": "The canonical service routes issue registration credentials through the authenticated player/admin path, register game servers at POST /v1/game-servers, and protect heartbeat plus match-attempt operations with credential proof. AuthorityHeartbeat is a separate match lease signal."
+    },
+    {
+      "path": "C:/wksp/ProjectRebound/Backend/internal/gameserver/http.go",
+      "sha256": "44811EFB47D4CC8B318A38EDA3D6ADD3270601ADE919E129A44B3445F2C43944",
+      "lines": "111-185 and 188-208",
+      "finding": "Registration returns the runtime server token and node certificate only after the registration credential is redeemed; heartbeat requires the bearer runtime token and signed request proof, with native admission fields carried in the heartbeat body."
+    },
+    {
+      "path": "C:/wksp/ProjectRebound/docs/operations/dedicated-server-registration.md",
+      "sha256": "363268F4F01736085831FF9A7CEC352BD0A0496EBB8A33E1E7FA7EA7BBC4FEC8",
+      "lines": "21-31, 78-83, 164-185",
+      "finding": "The documented production flow is a one-time instance-bound registration credential issued through the Control Plane and consumed by the Toolbox registration worker. It forbids putting the credential in Payload, command lines, or logs; the legacy environment-token path is not the canonical wrapper flow."
+    }
+  ],
+  "registration_path_review": {
+    "canonical_flow": [
+      "authenticated verified player or authorized administrator issues an instance-bound registration credential",
+      "Toolbox registration worker redeems it at POST /v1/game-servers",
+      "the worker keeps the returned gst_ runtime token and node certificate private",
+      "the worker sends signed POST /v1/game-servers/{server_id}/heartbeat requests with the exact current capability fields"
+    ],
+    "fixture_run_source": "direct private fixture game_servers row with SHA256(serverID) in server_token_hash and no retained runtime credential; this was not a legal registration run",
+    "credential_available_to_this_run": false,
+    "registration_flow_executed": false,
+    "environment_observation": {
+      "GAME_SERVER_REGISTRATION_TOKEN_present_in_current_process": false,
+      "identity_file_used_by_this_run": false,
+      "secret_values_logged": false
+    },
+    "blocking_classification": "The 74000 reuse attempt is blocked by an unexecuted authorized registration/heartbeat prerequisite, not by a proven backend defect. It must be retried only through the canonical service flow when the isolated test has an authorized verified identity or administrator approval; no handwritten token, SQL READY write, or synthetic capability bit is valid evidence."
+  },
+  "conclusion": {
+    "unhealthy_is_expected_safety_state": true,
+    "product_bug_proven": false,
+    "current_fixture_can_prove_reuse": false,
+    "blocking_guard": "No valid game-server registration credential/heartbeat exists for the private inserted server row; the service therefore refuses to return it to READY after NativeCleared. The guard is expected safety behavior.",
+    "old_receipt_reuse_test": "NOT_RUN: this fixture did not execute the canonical registration path, so it cannot prove a legal new allocation/world or reuse.",
+    "required_next_evidence": "With an authorized isolated registration credential, start a fresh owned authority through the gameserver registration path, send authenticated signed heartbeat while the cleanup lease is active, complete exact NativeCleared, then request a new signed allocation/new world and prove the old attempt/world/route receipt is rejected. No SQL READY write or synthetic capability bit is acceptable.",
+    "external_authorization_needed_if_unavailable": "A verified test identity with game-server registration entitlement or an administrator-approved instance-bound registration credential; the current evidence contains neither and does not claim that this is permanently unavailable."
+  },
+  "secrets": {
+    "player_id_logged": false,
+    "steam_id_logged": false,
+    "grant_or_ticket_logged": false
+  }
+}

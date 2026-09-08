@@ -1,0 +1,101 @@
+{
+  "generated_utc": "2026-09-07T08:57:17.318523+00:00",
+  "binary": {
+    "path": "C:\\wksp\\ProjectRebound\\.tmp\\ida-query-assets\\ProjectBoundarySteam-Win64-Shipping.exe",
+    "sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+    "expected_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+    "file_size": 102362112,
+    "payload_expected_image_size": 105431040,
+    "pe_size_of_image": 105431040,
+    "sha_match": true,
+    "size_gate": "PE_SIZEOFIMAGE_MATCHES_STATIC_CONSTANT_BUT_RUNTIME_NOT_EXECUTED",
+    "on_disk_file_size_diagnostic": "102362112 bytes; this is not the field checked by Payload (Payload checks PE OptionalHeader.SizeOfImage)",
+    "runtime_gate_status": "BLOCKED_UNRUN"
+  },
+  "tooling": {
+    "pefile": true,
+    "capstone": true,
+    "ida_cli": "not found in PATH during this turn",
+    "ida_mcp": "idb_list returned zero sessions; idb_open timed out at 180s for copied binary and existing .i64"
+  },
+  "static_chain": [
+    {
+      "rva": "0x03484770",
+      "observation": "client challenge switch; jump-table index 2 (message type 3) targets 0x0348496c"
+    },
+    {
+      "rva": "0x03484ED2",
+      "observation": "constructs local FOutBunch at [rbp+0x90] via call 0x031CF3D0"
+    },
+    {
+      "rva": "0x03484EDE",
+      "observation": "writes control message byte 5 to [rsp+0x30]"
+    },
+    {
+      "rva": "0x03484F25",
+      "observation": "calls 0x0189D040 with rdx=rbx (archive string serialization)"
+    },
+    {
+      "rva": "0x03484F35",
+      "observation": "calls 0x0189D040 with rdx=[rbp+0x10] (local 16-byte FString-shaped object)"
+    },
+    {
+      "rva": "0x03484F48",
+      "observation": "calls 0x033C3380 with rdx=[r13+0x160] (custom/identity serialization path)"
+    },
+    {
+      "rva": "0x03484F58",
+      "observation": "calls 0x0189D040 with rdx=[rbp+0x20] (second local FString-shaped object)"
+    },
+    {
+      "rva": "0x03484F76",
+      "observation": "sends bunch through connection vtable +0x2c8"
+    },
+    {
+      "rva": "0x03484FA1",
+      "observation": "destructor/free helper 0x018E5490 releases [rbp+0x20]"
+    },
+    {
+      "rva": "0x03484FAF",
+      "observation": "destructor/free helper 0x018E5490 releases [rbp+0x10]"
+    },
+    {
+      "rva": "0x0189D040",
+      "observation": "archive load/save serializer reads signed length, reserves/reallocates via 0x14087BDC0/0x14087B8D0, uses archive vtable +0x150; exact FString allocator/ownership still not proven"
+    },
+    {
+      "rva": "0x033C3380",
+      "observation": "custom serialization reads archive length and nested data; exact identity type ABI not proven"
+    },
+    {
+      "rva": "0x036B4720",
+      "observation": "initializes output at rdx by zeroing two qwords and builds strings from archive; exact return type/ownership not proven"
+    },
+    {
+      "rva": "0x019E09E0",
+      "observation": "formats another local output from a structured input; exact type/ownership not proven"
+    }
+  ],
+  "negative_checks": [
+    {
+      "check": "raw ASCII/UTF-16 symbol scan",
+      "result": "no literal NMT_Login, PreLogin, NotifyControlMessage symbols in stripped copied EXE; not sufficient for locating injection"
+    },
+    {
+      "check": "IDA session",
+      "result": "no usable session; RPC open/analyze timed out; no RVA hash proof from IDA"
+    },
+    {
+      "check": "bounded capstone extension of serializer RVA 0x0189D040",
+      "result": "the function has separate archive-flag branches, consumes a signed length, mutates/reserves the destination FString-shaped object, performs character/terminator work, and frees temporary storage; the callsite archive mode and ownership direction remain runtime-unproven",
+      "evidence_log": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\nmt-serializer-extended.txt"
+    }
+  ],
+  "decision": {
+    "native_client_grant_injection_ready": false,
+    "strict_online_ready_client": false,
+    "reason": "Four login fields and field construction/destruction/allocator ownership are not fully recovered; injecting a grant into URL/commandline/other field would be an ABI guess forbidden by current-findings."
+  },
+  "evidence_log": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\nmt-static-disassembly.txt",
+  "extended_serializer_evidence_log": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\nmt-serializer-extended.txt"
+}

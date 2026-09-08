@@ -1,0 +1,10 @@
+test_complete_synthetic_case_inventory (__main__.AcceptanceCaseGateTests.test_complete_synthetic_case_inventory) ... ok
+test_pass_without_required_evidence_is_rejected (__main__.AcceptanceCaseGateTests.test_pass_without_required_evidence_is_rejected) ... ok
+test_same_count_cannot_hide_duplicate_or_unknown_case (__main__.AcceptanceCaseGateTests.test_same_count_cannot_hide_duplicate_or_unknown_case) ... ok
+test_skip_or_not_run_never_counts_as_pass (__main__.AcceptanceCaseGateTests.test_skip_or_not_run_never_counts_as_pass) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.004s
+
+OK
+exit_code=0

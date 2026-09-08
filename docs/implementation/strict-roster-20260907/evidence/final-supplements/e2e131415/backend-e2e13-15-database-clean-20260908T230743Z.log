@@ -1,0 +1,8 @@
+=== RUN   TestMigratorAgainstPostgreSQL
+--- PASS: TestMigratorAgainstPostgreSQL (3.22s)
+=== RUN   TestLiveGenerationMigrationPreservesHistoricalConnectedRoster
+--- PASS: TestLiveGenerationMigrationPreservesHistoricalConnectedRoster (0.01s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/database	3.244s
+
+EXIT_CODE=0

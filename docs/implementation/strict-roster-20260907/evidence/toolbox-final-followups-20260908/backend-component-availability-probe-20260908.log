@@ -1,0 +1,13 @@
+probe=backend-component-isolated-environment
+timestamp=2026-09-08T05:53:19.2297880+08:00
+tcp_127.0.0.1:56381 reachable=False
+tcp_127.0.0.1:56382 reachable=False
+tcp_127.0.0.1:56384 reachable=False
+tcp_127.0.0.1:55439 reachable=True
+windows_minio_command_present=False
+candidate_exists[C:\wksp\ProjectRebound\.tmp\strict-roster-20260907\local-s3\minio.exe]=False
+candidate_exists[C:\wksp\ProjectRebound\.tmp\strict-roster-20260907\local-s3\minio]=False
+candidate_exists[C:\wksp\ProjectRebound\minio.exe]=False
+wsl_redis7411_binary_exit=0
+wsl_go1266_binary_exit=0
+pg55439_owner_pid=24180

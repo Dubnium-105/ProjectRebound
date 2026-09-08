@@ -1,0 +1,16 @@
+time=2026-09-07T21:20:39.893+08:00 level=WARN msg="using ephemeral development access-token key; tokens will not survive a restart"
+time=2026-09-07T21:20:39.894+08:00 level=WARN msg="using ephemeral development device-fingerprint key; device correlation will not survive a restart"
+time=2026-09-07T21:20:39.894+08:00 level=WARN msg="integrity challenge is disabled because no ToolBox public certificate is configured"
+time=2026-09-07T21:20:39.895+08:00 level=WARN msg="no machine administrator tokens configured; internal operational routes will reject requests"
+time=2026-09-07T21:20:39.896+08:00 level=WARN msg="using ephemeral development administrator access-token key; sessions will not survive a restart"
+time=2026-09-07T21:20:39.897+08:00 level=WARN msg="using ephemeral development administrator MFA key; configure ADMIN_MFA_ENCRYPTION_KEY_BASE64 before creating accounts"
+time=2026-09-07T21:20:39.897+08:00 level=WARN msg="Cloudflare Turnstile is not configured; human administrator login will remain unavailable"
+time=2026-09-07T21:20:40.100+08:00 level=WARN msg="using ephemeral development game server CA; node certificates will not survive a restart"
+time=2026-09-07T21:20:40.101+08:00 level=WARN msg="using ephemeral development VNT room key; rooms will not survive a restart"
+time=2026-09-07T21:20:40.102+08:00 level=WARN msg="no relay bootstrap tokens configured; relay enrollment will be rejected"
+time=2026-09-07T21:20:40.103+08:00 level=WARN msg="using ephemeral development relay CA; node certificates will not survive a restart"
+time=2026-09-07T21:20:40.104+08:00 level=WARN msg="using ephemeral development relay-token key; allocations will not survive a restart"
+time=2026-09-07T21:20:40.117+08:00 level=WARN msg="using ephemeral development update-signing key; manifests will not verify after restart"
+E2E19_DISABLED_START strict_roster_v1=false before_attempt=PROVISIONING before_lobby=PROVISIONING after_attempt=PROVISIONING after_lobby=PROVISIONING run_error=<nil>
+E2E19_DISABLED_START_RESULT=PASS ordinary_disabled_start_preserved_active_attempt
+E2E19_DISABLED_START_EXIT=0

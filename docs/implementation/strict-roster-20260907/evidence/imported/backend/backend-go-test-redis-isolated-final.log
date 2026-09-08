@@ -1,0 +1,12 @@
+=== RUN   TestRedisBindRateStoreIsAtomicAndExpires
+--- PASS: TestRedisBindRateStoreIsAtomicAndExpires (0.01s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/auth	0.113s
+=== RUN   TestRedisVNTLimitStoreIsAtomicAndExpires
+--- PASS: TestRedisVNTLimitStoreIsAtomicAndExpires (0.01s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/vnt	0.115s
+=== RUN   TestGateTicketIsAtomicallySingleUse
+--- PASS: TestGateTicketIsAtomicallySingleUse (0.02s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver	0.072s

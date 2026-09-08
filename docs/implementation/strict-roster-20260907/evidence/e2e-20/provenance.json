@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-07T14:28:18.403053+00:00",
+  "mode": "read_only_provenance",
+  "repositories": {
+    "ProjectRebound": {
+      "path": "C:\\wksp\\ProjectRebound",
+      "commit": "56a085c33d65a5775b6a5cd2177e14545d8b5321",
+      "dirty": true,
+      "git_exit_codes": [
+        0,
+        0
+      ]
+    },
+    "Toolbox": {
+      "path": "C:\\wksp\\ProjectReboundToolbox",
+      "commit": "22015fb41fa06fea0b8767049109291c89758fff",
+      "dirty": false,
+      "git_exit_codes": [
+        0,
+        0
+      ]
+    }
+  },
+  "artifacts": [
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\backend\\control-plane",
+      "size": 51109368,
+      "sha256": "3a06dde284e42158e03caa2778a1833d8478bf82cc4b56d487254b7fbdc4027c",
+      "go_build_info": {
+        "command": [
+          "go",
+          "version",
+          "-m",
+          "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\backend\\control-plane"
+        ],
+        "exit_code": 0,
+        "output": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\backend\\control-plane: go1.26.6\n\tpath\tgithub.com/Dubnium-105/ProjectRebound/Backend/cmd/control-plane\n\tmod\tgithub.com/Dubnium-105/ProjectRebound/Backend\t(devel)\t\n\tdep\tgithub.com/aws/aws-sdk-go-v2\tv1.43.4\th1:b9FTvbRwy+JCsfp2Wp6wV/KbOx3Aj7nkoFb2cRX0IhE=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/aws/protocol/eventstream\tv1.7.16\th1:aiuaKlDweRC5qExJondpWjOgyzMHpofpwspGXUtwn4c=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/config\tv1.32.35\th1:UEzXuET8E42lxBPijuACu/tEK7v5lFPlk0Q+GT5WD9E=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/credentials\tv1.19.34\th1:y6GkSmcv5myd1ngrYbGmiLlwQqB6TQhOuN/tbSSuWDY=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/feature/ec2/imds\tv1.18.35\th1:+S7kbJoLDDQ5tE+lHrUBgMkzC8NLgsaioS2F3dVoFAE=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/internal/configsources\tv1.4.35\th1:kzVuGlatQtYinwBJEEyLAbggepCoavosiaHHX9+fD+c=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/internal/endpoints/v2\tv2.7.35\th1:WK6CjihTuLisCjSKKbildJ79sGZZgbBz3iNa7VsKIhU=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/internal/v4a\tv1.4.36\th1:jbGY4CXLzZElOXgGsexlC3Hi+3YM0rSmk4opFXKqg/k=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/internal/accept-encoding\tv1.13.15\th1:JJLBQxwY+AFwuPAi5ivGc1ChnTdUt4cXMv7e76m2c/Y=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/internal/checksum\tv1.9.28\th1:Q1TF1J9jVD+vFo0LzNnmNdQ9EAt52TS+MQlq9Ir+Yxo=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/internal/presigned-url\tv1.13.35\th1:BBEElKh4a+rKshvjrfpajTe9CbpZvrbb4Jkg2PB7RzA=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/internal/s3shared\tv1.19.36\th1:EUIwBoN+q7UmhAejxgD27APiRjh1vwCFo53gSqdT0BM=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/s3\tv1.107.0\th1:OkYV+1171za+ab9otU1tGxMXhx6uZvwVEtVddjLuYTg=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/signin\tv1.5.4\th1:cOJELVNrq5Q3Udry2GLuHUM7MhwpeaQRdYaoa6GI/yI=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/sso\tv1.33.4\th1:AMW7a7S8iQaHjBYZdU3PCq4GKRPijTPRAc7e6XtEThY=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/ssooidc\tv1.38.4\th1:AsbZcJAQPRmHDJG8K1N0pof/1zPWjVT8TFlTWuGLSvo=\n\tdep\tgithub.com/aws/aws-sdk-go-v2/service/sts\tv1.45.4\th1:w/AryDYMjSUANSQ2uoZxJovUsMTwWJNTv3IMex30Y+4=\n\tdep\tgithub.com/aws/smithy-go\tv1.27.6\th1:0zjT8jgK3jbrTT7JJ3EE6JsMhX8JTrZ+f1sEndYDXrA=\n\tdep\tgithub.com/cespare/xxhash/v2\tv2.3.0\th1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=\n\tdep\tgithub.com/coder/websocket\tv1.8.15\th1:6B2JPeOGlpff2Uz6vOEH1Vzpi0iUz20A+lPVhPHtNUA=\n\tdep\tgithub.com/go-chi/chi/v5\tv5.3.1\th1:3j4HZLGZQ3JpMCrPJF/Jl3mYJfWLKBfNJ6quurUGCf8=\n\tdep\tgithub.com/google/uuid\tv1.6.0\th1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=\n\tdep\tgithub.com/jackc/pgpassfile\tv1.0.0\th1:/6Hmqy13Ss2zCq62VdNG8tM1wchn8zjSGOBJ6icpsIM=\n\tdep\tgithub.com/jackc/pgservicefile\tv0.0.0-20240606120523-5a60cdf6a761\th1:iCEnooe7UlwOQYpKFhBabPMi4aNAfoODPEFNiAnClxo=\n\tdep\tgithub.com/jackc/pgx/v5\tv5.10.0\th1:VhSvgU2jSli8o3AqIEOTJr7rZwAEUVo4E4XhR94Zfr0=\n\tdep\tgithub.com/jackc/puddle/v2\tv2.2.2\th1:PR8nw+E/1w0GLuRFSmiioY6UooMp6KJv0/61nB7icHo=\n\tdep\tgithub.com/redis/go-redis/v9\tv9.21.0\th1:FPBE4hhbAke+TLmcY3WkpbDffJEomdqPn3HYiqAtL9E=\n\tdep\tgo.uber.org/atomic\tv1.11.0\th1:ZvwS0R+56ePWxUNi+Atn9dWONBPp/AUETXlHW0DxSjE=\n\tdep\tgolang.org/x/crypto\tv0.53.0\th1:QZ4Muo8THX6CizN2vPPd5fBGHyogrdK9fG4wLPFUsto=\n\tdep\tgolang.org/x/net\tv0.56.0\th1:Rw8j/hFzGvJUZwNBXnAtf5sVDVt+65SK2C7IxCxZt5o=\n\tdep\tgolang.org/x/sync\tv0.22.0\th1:SZjpbeLmrCk4xhRSZFNZW5gFUeCeFgjekvI/+gfScek=\n\tdep\tgolang.org/x/sys\tv0.47.0\th1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=\n\tdep\tgolang.org/x/text\tv0.40.0\th1:Ub2Z6/xjgF1WrYQz2nuITOEegKFtiIy+rieRJ5lHZKs=\n\tdep\tgoogle.golang.org/genproto/googleapis/rpc\tv0.0.0-20260414002931-afd174a4e478\th1:RmoJA1ujG+/lRGNfUnOMfhCy5EipVMyvUE+KNbPbTlw=\n\tdep\tgoogle.golang.org/grpc\tv1.82.1\th1:NnAxzGRA0677vCa4BUkOAnO5+FfQqVl9iUXeD0IqcGE=\n\tdep\tgoogle.golang.org/protobuf\tv1.36.11\th1:fV6ZwhNocDyBLK0dj+fg8ektcVegBBuEolpbTQyBNVE=\n\tdep\tgopkg.in/yaml.v3\tv3.0.1\th1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\t-trimpath=true\n\tbuild\tCGO_ENABLED=0\n\tbuild\tGOARCH=amd64\n\tbuild\tGOOS=linux\n\tbuild\tGOAMD64=v1\n\tbuild\tvcs=git\n\tbuild\tvcs.revision=d5286902de2f32fef93fbe2521516ef7ca177c07\n\tbuild\tvcs.time=2026-09-07T10:53:12Z\n\tbuild\tvcs.modified=false",
+        "error": ""
+      },
+      "release_eligible": null,
+      "reason": "hash collection alone does not prove signature, compatibility, or native acceptance"
+    }
+  ],
+  "dependency_lockfiles": [
+    {
+      "path": "C:\\wksp\\ProjectReboundToolbox\\Cargo.lock",
+      "sha256": "f6b063c604357f2ffd3164ca7a66731e1adc7a544f447cf4cbcfa216cee41440"
+    },
+    {
+      "path": "C:\\wksp\\ProjectReboundToolbox\\src-tauri\\Cargo.lock",
+      "sha256": "636715c12e422e2d4bf54d888d4c41dd8ae9f98e2b68994aab63d911cc96e401"
+    },
+    {
+      "path": "C:\\wksp\\ProjectReboundToolbox\\frontend\\package-lock.json",
+      "sha256": "971180df3efd2df9cd91db37b4a638e53b462642dfbbc3bd7f5b88847d36c9a4"
+    }
+  ],
+  "sbom_scope": "Go artifact build metadata plus locked Cargo/npm dependencies; no container scan or license attestation",
+  "acceptance_report": null,
+  "release_ready": false,
+  "blockers": [
+    "ProjectRebound source provenance is not a clean committed tree",
+    "native acceptance report missing",
+    "control-plane is not an attested release artifact"
+  ]
+}

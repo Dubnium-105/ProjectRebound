@@ -1,0 +1,14 @@
+=== RUN   TestStrictRosterDedicatedLifecycleAgainstPostgreSQL
+--- PASS: TestStrictRosterDedicatedLifecycleAgainstPostgreSQL (4.07s)
+=== RUN   TestJoinGrantHTTPReturnsSignedScopeAlongsideGrant
+--- PASS: TestJoinGrantHTTPReturnsSignedScopeAlongsideGrant (0.00s)
+=== RUN   TestMemberConnectionHTTPReturnsNoStoreValidatedEvidence
+--- PASS: TestMemberConnectionHTTPReturnsNoStoreValidatedEvidence (0.00s)
+=== RUN   TestMemberConnectionHTTPDoesNotExposeMissingEvidence
+--- PASS: TestMemberConnectionHTTPDoesNotExposeMissingEvidence (0.00s)
+=== RUN   TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL (0.30s)
+=== RUN   TestAdmissionSignerBindsFrozenRosterAndJoinSeat
+--- PASS: TestAdmissionSignerBindsFrozenRosterAndJoinSeat (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/matchlobby	4.483s

@@ -1,0 +1,1 @@
+{"time":"2026-09-07T22:55:37.9605869+08:00","level":"ERROR","msg":"initialize control-plane","error":"apply database migrations: create schema_migrations: ERROR: permission denied for schema public (SQLSTATE 42501)"}

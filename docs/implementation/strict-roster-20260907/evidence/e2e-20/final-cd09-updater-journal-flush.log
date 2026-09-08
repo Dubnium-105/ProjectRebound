@@ -1,0 +1,21 @@
+{
+  "fixture_directory": "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\e2e20-journal-flush-5eqx3x71",
+  "interruption_exit_code": 1,
+  "marker_observed": true,
+  "target_old_after_interrupt": true,
+  "journal_next_after_interrupt": true,
+  "recovery_exit_code": 1,
+  "target_old_after_recovery": true,
+  "rollback_observed": true,
+  "journal_after_recovery": false,
+  "journal_next_after_recovery": false,
+  "journal_swap_backup_after_recovery": false
+}
+--- recovery stdout ---
+
+--- recovery stderr ---
+
+--- recovery log ---
+[2026-09-07 23:28:46] UPDATE_FAILED: 由于出现以下错误，无法运行此命令: 指定的可执行文件不是此操作系统平台的有效应用程序。。
+[2026-09-07 23:28:46] UPDATE_ROLLED_BACK: previous complete strict binary restored
+[2026-09-07 23:28:46] UPDATE_RECOVERY_REQUIRED: previous complete binary restored but restart failed

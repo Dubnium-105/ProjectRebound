@@ -1,0 +1,108 @@
+{
+  "id": "E2E-11",
+  "title": "Token并发轮换、换号与隧道",
+  "status": "PARTIAL",
+  "source_commit": "01a9c68f103f2b681cdfd363827dc1710ef506bc",
+  "source_commit_note": "The integrated driver was built and executed against the clean Toolbox commit 01a9c68 at 2026-09-07 21:34 +0800. Toolbox HEAD moved to 32dcee8 after that run; the new commit separates lobby creation pause from strict online capability and was not used to rebuild this driver.",
+  "steps": [
+    {
+      "id": "temporary_driver_build",
+      "status": "PASS",
+      "command": "cargo build --release --manifest-path C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\Cargo.toml --target-dir C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\target",
+      "exit_code": 0,
+      "source_commit": "01a9c68f103f2b681cdfd363827dc1710ef506bc",
+      "artifact_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\target\\release\\rebound_e2e_11_driver.exe",
+      "artifact_sha256": "CFE6D1C6C82599123BFC797DEABDB10192B00C5C41AA6C6C1B9E4FEEB65D54E5",
+      "log_paths": [
+        "C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\driver-build-5.log"
+      ],
+      "observed_result": "Release driver compiled successfully; only an unused synthetic refresh constant warning was emitted."
+    },
+    {
+      "id": "integrated_loopback_http_ws_metatunnel_logout_switch",
+      "status": "PASS",
+      "command": "python C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\harness.py --driver C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\target\\release\\rebound_e2e_11_driver.exe --result C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\tracking\\e2e-11-result-run-8.json",
+      "exit_code": 0,
+      "log_paths": [
+        "C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\harness-run-8.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\tracking\\e2e-11-result-run-8.json"
+      ],
+      "observed_result": "Integrated local run passed. Counts were old_401=22, protected_success=20, refresh=3, logout=1, meta_old=1, meta_new=1, ws_old=1, ws_new=1, logic_connections=1. The driver reported resync=true and logic_bridge=PASS. Phase A used one refresh for 20 concurrent requests plus one MetaTunnel 401; logout and account-switch late refreshes were rejected and the new session state remained committed."
+    },
+    {
+      "id": "config_write_interruption",
+      "status": "PASS",
+      "command": "cargo test --lib config::config_types::tests::killed_config_writer_recovers_complete_previous_version -- --nocapture",
+      "exit_code": 0,
+      "log_paths": [
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\tracking\\e2e-11-config-interruption.log"
+      ],
+      "observed_result": "1 passed, 0 failed, 279 filtered. The child-writer interruption test recovered a complete encrypted previous configuration. This was run as a separate component test, not inside the same integrated driver process."
+    },
+    {
+      "id": "preserved_http_concurrency_component",
+      "status": "PASS",
+      "command": "python C:\\wksp\\ProjectReboundToolbox\\tests\\auth_http_concurrency.py --driver C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\drivers-20260907-0910\\auth_http_concurrency.exe",
+      "exit_code": 0,
+      "artifact_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\drivers-20260907-0910\\auth_http_concurrency.exe",
+      "artifact_sha256": "2E9E51425B979B4C53EFF1DD6C7D1A1733079B988918810351F2BC2E84832F6D",
+      "log_paths": [
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\tracking\\e2e-11-preserved-http-helper.log"
+      ],
+      "observed_result": "Separate preserved-driver evidence passed concurrent (20 old 401 -> 1 refresh -> 20 success), logout during refresh, account switch during refresh, and wrong-purpose credential rejection."
+    },
+    {
+      "id": "existing_ws_rotation_component",
+      "status": "PASS",
+      "command": "cargo test --lib vnt::legacy::controller::tests::websocket_reconnect_gets_rotated_credentials_and_requests_snapshot_resync -- --nocapture",
+      "exit_code": 0,
+      "log_paths": [
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-ws-rotation-test.log"
+      ],
+      "observed_result": "1 passed, 0 failed, 231 filtered. This is supporting component evidence; the integrated run above is the E2E WS observation."
+    },
+    {
+      "id": "existing_metatunnel_epoch_component",
+      "status": "PASS",
+      "command": "cargo test --lib launching::metatunnel::tests -- --nocapture",
+      "exit_code": 0,
+      "log_paths": [
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-metatunnel-epoch-test.log"
+      ],
+      "observed_result": "7 passed, 0 failed, 241 filtered. This is supporting component evidence; the integrated run above is the E2E MetaTunnel observation."
+    }
+  ],
+  "result": {
+    "environment": "Windows loopback only; the harness used synthetic local HTTP auth, Meta HTTP, WebSocket, and TCP logic services, the real Toolbox HTTP/config/RealtimeFeed/MetaTunnel client, and an isolated LOCALAPPDATA profile.",
+    "command_or_harness": "C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\harness.py",
+    "exit_code": 0,
+    "log_paths": [
+      "C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\harness-run-8.log",
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\tracking\\e2e-11-result-run-8.json",
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\tracking\\e2e-11-config-interruption.log",
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\tracking\\e2e-11-preserved-http-helper.log"
+    ],
+    "observed_result": "The integrated HTTP/WS/MetaTunnel/logout/switch scenario passed. The configuration-write interruption recovery passed separately. Overall E2E-11 remains PARTIAL because the DPAPI interruption is not injected into the same integrated run and no production backend, Steam/native game, signed payload, or multi-machine transport was exercised."
+  },
+  "limitations": [
+    "The integrated driver used synthetic loopback services and does not prove the production HTTP/WS/MetaTunnel service, Steam session, native game, signed payload, PostgreSQL, or multi-machine path.",
+    "Configuration write interruption was a real targeted child-writer test, but it was not interleaved with the integrated token rotation scenario; this prevents an overall PASS claim.",
+    "The driver artifact is tied to source commit 01a9c68. Current HEAD 32dcee8 was committed after the driver build and requires separate revalidation for its lobby capability-gate changes.",
+    "No access token, refresh token, Steam ticket, or other secret was written to the logs or this result."
+  ],
+  "evidence_paths_checked": {
+    "all_referenced_paths_exist": true,
+    "checked_at": "2026-09-07",
+    "paths": [
+      "C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\driver-build-5.log",
+      "C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\harness-run-8.log",
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\tracking\\e2e-11-result-run-8.json",
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\tracking\\e2e-11-config-interruption.log",
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\tracking\\e2e-11-preserved-http-helper.log",
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-ws-rotation-test.log",
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\toolbox-metatunnel-epoch-test.log",
+      "C:\\wksp\\ProjectRebound\\.tmp\\e2e-11\\target\\release\\rebound_e2e_11_driver.exe",
+      "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\drivers-20260907-0910\\auth_http_concurrency.exe"
+    ]
+  }
+}

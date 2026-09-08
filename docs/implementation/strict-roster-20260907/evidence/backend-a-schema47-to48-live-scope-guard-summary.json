@@ -1,0 +1,34 @@
+{
+  "run_id": "backend-a-schema47-to48-live-scope-guard-rerun2-20260908",
+  "status": "PASS",
+  "source_schema": {
+    "database": "rebound_a_schema47_restore_20260908_02",
+    "dump": "backend-schema47-source-20260907-authority-final.dump",
+    "dump_sha256": "2d2290a14481fb380b7e9057faea45976c18ae4ba84600af4a3b19b8b22ddeb3",
+    "precheck": "backend-a-schema47-precheck-20260908-rerun2.txt",
+    "precheck_sha256": "2b1cbd2d0ca1bc11883ba06af2987fa5b7b9dcd600251c69c4e64a8e080da8c4",
+    "schema_max_version": 47,
+    "migration_count": 47,
+    "live_generation_and_guard_columns": 0
+  },
+  "command": "TEST_DATABASE_URL=postgresql://phanthy@127.0.0.1:55439/rebound_a_schema47_restore_20260908_02?sslmode=disable GOCACHE=/tmp/rebound-a-go-race-schema47-route3-guard GOMODCACHE=/mnt/c/Users/23587/go/pkg/mod /tmp/rebound-strict-roster-20260907-go1266/go/bin/go test -race -p 1 ./internal/matchlobby -run ^TestStrictRosterP2PLifecycleAgainstPostgreSQL$ -count=1 -v",
+  "exit_code": 0,
+  "evidence": {
+    "log": "backend-a-schema47-to48-live-scope-p2p-20260908-rerun2.log",
+    "log_sha256": "c17a15a87b9c8d94b6f5a9e32d0e3273820d711fc0905c2ba3378a13d2b29410",
+    "postcheck": "backend-a-schema47-postcheck-20260908-rerun2.txt",
+    "postcheck_sha256": "9e7a96af5dbf7bf109d15413c3c432be053f4803dfbae7bfc54f88003c060758",
+    "footer": "PASS / exit_code=0",
+    "post_schema_max_version": 48,
+    "post_migration_count": 48,
+    "post_live_generation_and_guard_columns": 3,
+    "post_match_attempts": 0
+  },
+  "observations": [
+    "Fresh restore from schema47 dump into unique database; original source database was not dropped or overwritten.",
+    "Migration 000048 applied; route1→route2→route3 preserved HOST live scope while MEMBER authorization advanced.",
+    "Repeated heartbeat before exact Payload preserve did not advance route again.",
+    "Wrong preserve scope and wrong world were rejected.",
+    "No real Steam, S3, or BattleLog fixture is implied by this focused migration/lifecycle result."
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "scanned": [
+    "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\diagnostic-redaction-scan.log",
+    "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\diagnostic_redaction_test.log",
+    "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\metatunnel_manifest_test.log",
+    "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\provenance-collect.log",
+    "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\provenance-release-gate.log",
+    "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\runtime-manifest-fingerprints.log",
+    "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\signed_manifest_and_updater_tests.log",
+    "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\source-fingerprint.log",
+    "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\strict-gate-driver-build.log",
+    "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\strict-gate-driver-run.log",
+    "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\strict_build_gate_tests.log",
+    "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\updater-interruption.log",
+    "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\updater-journal-flush.log",
+    "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\updater-transaction-e2e.log",
+    "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\logs\\vnt_manifest_test.log"
+  ],
+  "matches": [],
+  "hashes_are_allowed_fingerprints": true
+}

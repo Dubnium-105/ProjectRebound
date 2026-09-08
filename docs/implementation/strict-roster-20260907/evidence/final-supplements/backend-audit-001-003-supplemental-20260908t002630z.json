@@ -1,0 +1,100 @@
+{
+  "receipt_kind": "backend_audit_post_execution_supplemental",
+  "generated_at_utc": "20260908t002630z",
+  "source_head_observed": "345bde0d24a05da284582e79c4ff6d7679a9cbff",
+  "source_scope": "six Backend files owned by this task; hashes captured after full race completed; Root migrator normalization source is outside this six-file hash scope",
+  "source_hashes": [
+    {
+      "path": "Backend/internal/matchlobby/service.go",
+      "bytes": 149904,
+      "sha256": "FA5F53BC87B17AC92D3CD94317511B15A02CC7D2B37A0FC7BEB14728ADA28536"
+    },
+    {
+      "path": "Backend/internal/matchlobby/repository.go",
+      "bytes": 18985,
+      "sha256": "F236DD9828F6F33C17E9661FC86D037B99660EBD41BCF6031BF2C195A36AEEDD"
+    },
+    {
+      "path": "Backend/internal/matchlobby/sweeper.go",
+      "bytes": 16148,
+      "sha256": "91B1B40B6D1F5FB24BDA8F1CFA9985E5974F0A1AE732F5F219AA2F6B598D59AF"
+    },
+    {
+      "path": "Backend/internal/matchlobby/service_integration_test.go",
+      "bytes": 79577,
+      "sha256": "D512BD03476E9AF0A572C81D048B5621302AAF156B045D333117BBA89B58F5DF"
+    },
+    {
+      "path": "Backend/internal/database/migrator_integration_test.go",
+      "bytes": 8199,
+      "sha256": "534D8EE6FA738711CAD901C5EB8715759F33D01C1BD35E4C711F434908FB4BD3"
+    },
+    {
+      "path": "Backend/migrations/000048_strict_roster_live_generation.sql",
+      "bytes": 3427,
+      "sha256": "615A573F11C4640B7111893E5E73F2256A247DB6DBB650E4D0578A7441BCE14F"
+    }
+  ],
+  "tracked_backend_source_dirty_at_run_start": false,
+  "untracked_backend_note": "Backend/.tmp-native-fixture exists but is hidden diagnostic material and was not a Go package input",
+  "full_race": {
+    "command": "go1.26.6 linux/amd64: go test -race -p 1 ./... -count=1 -v",
+    "exit_code": 0,
+    "database": "rebound_final_race_schema48_20260908t001637z",
+    "redis_address": "127.0.0.1:56380",
+    "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-final-race-go1266-schema48-20260908t001815z.log",
+    "log_bytes": 79340,
+    "log_sha256": "14509BA080FE348810E3D0264FBF0F4A628F0CB2F198BD7B8A69B201DA1BBA6F",
+    "top_level_pass": 406,
+    "top_level_fail": 0,
+    "top_level_skip": 4,
+    "subtest_pass": 144,
+    "subtest_fail": 0,
+    "subtest_skip": 0,
+    "package_result_lines": 46,
+    "race_warning_count": 0,
+    "skip_names": [
+      "TestS3StorageAgainstCompatibleService",
+      "TestNormalizeBattleLogFixtureWhenConfigured",
+      "TestRestrictedMetaServicePermissions",
+      "TestStrictRosterRustRelayClients"
+    ],
+    "skip_reasons": {
+      "TestS3StorageAgainstCompatibleService": "TEST_DOWNLOAD_S3_ENDPOINT, TEST_DOWNLOAD_S3_BUCKET, and test credentials are not set",
+      "TestNormalizeBattleLogFixtureWhenConfigured": "BATTLELOG_FIXTURE is not set",
+      "TestRestrictedMetaServicePermissions": "restricted TEST_META_DATABASE_URL and TEST_META_REDIS_* fixtures are not set",
+      "TestStrictRosterRustRelayClients": "TOOLBOX_RELAY_DRIVER is not set"
+    }
+  },
+  "normalized_migration": {
+    "command": "go1.26.6 linux/amd64: go test -race ./internal/database -run TestMigrationChecksumsAreStableAcrossCheckoutLineEndings|TestMigrationFormatChecksumDoesNotAcceptSQLDrift|TestLoadMigrationsSortsAndChecksums|TestMigratorAgainstPostgreSQL -count=1 -v",
+    "exit_code": 0,
+    "top_level_pass": 4,
+    "top_level_fail": 0,
+    "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-final-migration-normalization-20260908t001657z.log",
+    "log_bytes": 737,
+    "log_sha256": "14FA6E7A1E38401428C4F63415ACAEF4B37CF264CD3BD9C9621E020F2C1B2C06",
+    "database": "rebound_audit_schema47full_20260907t235537z",
+    "observed": "VerifyCurrent and Up passed after the real schema47 restore to 48 upgrade; CRLF/LF known-history checksum acceptance and SQL drift rejection passed"
+  },
+  "fresh_database": {
+    "database": "rebound_final_race_schema48_20260908t001637z",
+    "createdb_exit_code": 0,
+    "create_log": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-final-race-db-create-20260908t001637z.log",
+    "create_log_sha256": "B1BE153B85B0AC1E22B2010C0889CEC66DB8262272B9D9BD7473B3784FF103EB",
+    "note": "fresh isolated database; not dropped or reused by another run"
+  },
+  "prior_full_restore_reference": {
+    "database": "rebound_audit_schema47full_20260907t235537z",
+    "postcheck_log": ".tmp/strict-roster-20260907/schema47-full-final/postcheck-full-20260908T000219Z.log",
+    "postcheck_sha256": "10B3432D66B2C69F8762EB2D350457D8D8B257EC94C9699D8E1047A11E61C8CB",
+    "observed": "schema=48; nonce-bound HOST preserved; null-nonce HOST unpreserved; MEMBER generation retained but not preserved"
+  },
+  "evidence_boundary": {
+    "no_secrets_in_new_receipt": true,
+    "raw_dump_included": false,
+    "private_credentials_included": false,
+    "old_fullrace_logs_overwritten": false,
+    "historical_skip_status_preserved": true
+  }
+}

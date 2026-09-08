@@ -1,0 +1,5 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Checking rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 54.59s
+exit_code=0

@@ -1,0 +1,62 @@
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:1331:
+             scope.route_generation < material_route,
+             "P2P HOST released ownership must belong to an older route generation"
+         );
+-        let exact_next_route = pending_route_generation.and_then(|route| route.checked_add(1))
+-            == Some(material_route);
++        let exact_next_route =
++            pending_route_generation.and_then(|route| route.checked_add(1)) == Some(material_route);
+         let same_route_after_disconnect = pending_route_generation == Some(material_route);
+         ensure!(
+             exact_next_route || same_route_after_disconnect,
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:6503:
+             attempt_id: crate::matchmaking::AttemptId::new("attempt-1").unwrap(),
+             player_id: crate::matchmaking::PlayerId::new("player-1").unwrap(),
+             room_id: crate::matchmaking::P2pRoomId::new("room-1").unwrap(),
+-            authority_session: crate::matchmaking::AuthoritySessionId::new("authority-1")
+-                .unwrap(),
++            authority_session: crate::matchmaking::AuthoritySessionId::new("authority-1").unwrap(),
+             roster_revision: crate::matchmaking::RosterRevision::new(7).unwrap(),
+             route_generation: crate::matchmaking::RouteGeneration::new(3).unwrap(),
+             previous_world_instance_id: crate::matchmaking::WorldInstanceId::new("world-1")
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:6552:
+             attempt_id: crate::matchmaking::AttemptId::new("attempt-1").unwrap(),
+             player_id: crate::matchmaking::PlayerId::new("player-1").unwrap(),
+             room_id: crate::matchmaking::P2pRoomId::new("room-1").unwrap(),
+-            authority_session: crate::matchmaking::AuthoritySessionId::new("authority-1")
+-                .unwrap(),
++            authority_session: crate::matchmaking::AuthoritySessionId::new("authority-1").unwrap(),
+             roster_revision: crate::matchmaking::RosterRevision::new(7).unwrap(),
+             route_generation: crate::matchmaking::RouteGeneration::new(2).unwrap(),
+             previous_world_instance_id: crate::matchmaking::WorldInstanceId::new("world-1")
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:1331:
+             scope.route_generation < material_route,
+             "P2P HOST released ownership must belong to an older route generation"
+         );
+-        let exact_next_route = pending_route_generation.and_then(|route| route.checked_add(1))
+-            == Some(material_route);
++        let exact_next_route =
++            pending_route_generation.and_then(|route| route.checked_add(1)) == Some(material_route);
+         let same_route_after_disconnect = pending_route_generation == Some(material_route);
+         ensure!(
+             exact_next_route || same_route_after_disconnect,
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:6503:
+             attempt_id: crate::matchmaking::AttemptId::new("attempt-1").unwrap(),
+             player_id: crate::matchmaking::PlayerId::new("player-1").unwrap(),
+             room_id: crate::matchmaking::P2pRoomId::new("room-1").unwrap(),
+-            authority_session: crate::matchmaking::AuthoritySessionId::new("authority-1")
+-                .unwrap(),
++            authority_session: crate::matchmaking::AuthoritySessionId::new("authority-1").unwrap(),
+             roster_revision: crate::matchmaking::RosterRevision::new(7).unwrap(),
+             route_generation: crate::matchmaking::RouteGeneration::new(3).unwrap(),
+             previous_world_instance_id: crate::matchmaking::WorldInstanceId::new("world-1")
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:6552:
+             attempt_id: crate::matchmaking::AttemptId::new("attempt-1").unwrap(),
+             player_id: crate::matchmaking::PlayerId::new("player-1").unwrap(),
+             room_id: crate::matchmaking::P2pRoomId::new("room-1").unwrap(),
+-            authority_session: crate::matchmaking::AuthoritySessionId::new("authority-1")
+-                .unwrap(),
++            authority_session: crate::matchmaking::AuthoritySessionId::new("authority-1").unwrap(),
+             roster_revision: crate::matchmaking::RosterRevision::new(7).unwrap(),
+             route_generation: crate::matchmaking::RouteGeneration::new(2).unwrap(),
+             previous_world_instance_id: crate::matchmaking::WorldInstanceId::new("world-1")

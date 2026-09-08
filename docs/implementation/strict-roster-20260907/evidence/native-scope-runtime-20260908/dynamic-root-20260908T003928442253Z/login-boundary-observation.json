@@ -1,0 +1,90 @@
+{
+  "issue": "BP038",
+  "run_id": "dynamic-root-20260908T003928442253Z",
+  "acceptance": "BLOCKED",
+  "candidate_payload_sha256": "297C6EA8585C8A606B3AB31A9949BCB153D7469B890EF8603521FB8AF2CBFC1B",
+  "source_inputs": {
+    "candidate_build_receipt": "root-validation-20260907T223103129065Z/result.json",
+    "backend_driver_sha256": "4DDADA1C2516E1A8EB119D22CAB509E546D7856B3ADF1F389656F4D9DBDB1E84",
+    "backend_main_go_sha256": "251A2A58EBBE7595FD1ACFD65BC4388B3BDFA83C9A5D16ABD2B1A879C66600CF",
+    "private_wrapper_sha256": "EF0A98E671534F84242D4A82C677A5339849B35AE137C0510F7642177223F48E",
+    "execution_receipt_sha256": "36CA633EB25F08366429C2D6EEFA5DD7515C0D166A9C50B75D11201ABE565085"
+  },
+  "execution": {
+    "native_harness_exit_code": 0,
+    "backend_finalize_exit_code": 1,
+    "outcome": "BLOCKED",
+    "failure": "timed out waiting for the real client pipe to report match.login_completed && login_ready",
+    "authority_world_ready": true,
+    "authority_allocation_accepted": true,
+    "client_login_ready": false,
+    "client_status_code_counts": {
+      "native_admission_unverified": 229
+    },
+    "grant_marker_reached": false,
+    "grant_mutation_executed": false,
+    "wrong_audience_guard_coverage": 0,
+    "tampered_native_rejection_code": null,
+    "reserve_observed": false,
+    "native_admitted_observed": false,
+    "connected_observed": false
+  },
+  "metatunnel_observation": {
+    "authority_preflight_accepted": true,
+    "client_preflight_accepted": true,
+    "authority_safe_http_responses": [
+      {
+        "method": "GET",
+        "path": "/v1/users/me/meta-profile",
+        "status": 200
+      }
+    ],
+    "client_safe_http_responses": [
+      {
+        "method": "GET",
+        "path": "/v1/users/me/meta-profile",
+        "status": 200
+      }
+    ],
+    "client_connect_server_seen": false,
+    "client_loadouts_seen": false,
+    "steam_ticket_request_or_callback_seen_in_safe_launcher_logs": false,
+    "interpretation": "The managed launcher reached local MetaTunnel readiness and profile preflight. The safe client stderr contained no game-side connectServer/loadouts response and no explicit ticket request/callback marker before timeout. This records observation coverage only; it does not prove that an internal Steam call was never attempted."
+  },
+  "client_login_boundary_observation": {
+    "game_log_filename": "clientlog-20260908_084005.txt",
+    "game_log_sha256": "46B72E0D1231700F0247A1C8A0312F8666890E889B2D640C921E9891339321E6",
+    "enter_game_construct_marker_count": 1,
+    "main_menu_construct_marker_count": 0,
+    "login_completed_marker_count": 0,
+    "nmt_login_marker_count": 0,
+    "signed_native_join_marker_count": 0,
+    "safe_client_log_markers": [
+      "Fixed NMT_Login field2 Grant injection hook installed",
+      "CMDFW pipe started and repeatedly polled",
+      "EnterGame Construct forcing SPACE"
+    ],
+    "missing_safe_client_log_markers": [
+      "UMG_MainMenuBase_C.Construct",
+      "POST /connectServer",
+      "GET /v1/users/me/loadouts",
+      "Signed native join queued"
+    ]
+  },
+  "safe_log_sha256": {
+    "authority.stdout.log": "CAE0379333340312A61A5A907A66E3A0166AAA4311D9F08DABFFCB512C5D62F",
+    "authority.stderr.log": "3F4CE5C2F6260C9FB70EE520F4ADD139A91CE035E82D3BE2CABFF390DD308A23",
+    "client.stdout.log": "E7D6AB6CD082F9913AB93DD7EE3AA72397A8C54491638D3553629D6C72BC5457",
+    "client.stderr.log": "8F94311DECDB5410445CA1DAB313FE12CCA93D9F5F80E14E79FFC8C9BA97F048",
+    "payload-frames.jsonl": "6C0EE3B89391AE1FE3CA4784447CCD9A8D6794CB0E16CF5C3819753E1DFFB83F",
+    "summary.json": "5842DA26B5B09E5E68C4903E405E026E5886E066393AD5D2F8BF0D44A9AE7DD7"
+  },
+  "interpretation": "This run reproduced the prior local login-boundary failure with one additional observation layer. It did not reach the wrong-audience mutation or native target guard. The fixed wrapper's authority and client launch inputs were accepted, but the game-side MetaTunnel login/loadout calls and UMG_MainMenuBase_C.Construct were absent. This is a concrete unresolved local startup/auth divergence, not a negative PASS and not evidence to change the strict capability gate.",
+  "restoration": {
+    "restored_payload_sha256": "6C7B5E05540AC72A6D7A9FA78F867917285FCE00081156EE13D237AA4D6C24A3",
+    "steam_appid_file_sha256": "DDFE0E8D462AF661F81DB36589C39882DC0F2330785B5D80CD34F2F520AD618F",
+    "owned_boundary_process_count": 0,
+    "shared_backend_lab_touched": false
+  },
+  "stop_rule": "The same no-coverage boundary was reproduced with the same fixed wrapper inputs and no new target-guard evidence. Further identical runs should stop until the local startup/auth divergence is instrumented or corrected."
+}

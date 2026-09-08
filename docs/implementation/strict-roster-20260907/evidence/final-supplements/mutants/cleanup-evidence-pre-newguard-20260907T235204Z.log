@@ -1,0 +1,8 @@
+=== RUN   TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL
+    service_integration_test.go:213: same-scope mismatched evidence-kind cleanup receipt was not rejected strictly: <nil>
+--- FAIL: TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL (3.07s)
+FAIL
+FAIL	github.com/Dubnium-105/ProjectRebound/Backend/internal/matchlobby	3.085s
+FAIL
+
+EXIT_CODE=1

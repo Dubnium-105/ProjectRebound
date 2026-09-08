@@ -1,0 +1,14 @@
+{"time":"2026-09-07T22:44:48.292399+08:00","level":"WARN","msg":"using ephemeral development device-fingerprint key; device correlation will not survive a restart"}
+{"time":"2026-09-07T22:44:48.3348877+08:00","level":"WARN","msg":"development Steam ticket bypass is enabled for an explicit lab allowlist","allowlisted_players":1}
+{"time":"2026-09-07T22:44:48.3354346+08:00","level":"WARN","msg":"integrity challenge is disabled because no ToolBox public certificate is configured"}
+{"time":"2026-09-07T22:44:48.3354346+08:00","level":"WARN","msg":"no machine administrator tokens configured; internal operational routes will reject requests"}
+{"time":"2026-09-07T22:44:48.3354346+08:00","level":"WARN","msg":"using ephemeral development administrator MFA key; configure ADMIN_MFA_ENCRYPTION_KEY_BASE64 before creating accounts"}
+{"time":"2026-09-07T22:44:48.3359828+08:00","level":"WARN","msg":"Cloudflare Turnstile is not configured; human administrator login will remain unavailable"}
+{"time":"2026-09-07T22:44:48.619209+08:00","level":"WARN","msg":"using ephemeral development game server CA; node certificates will not survive a restart"}
+{"time":"2026-09-07T22:44:48.619209+08:00","level":"WARN","msg":"using ephemeral development VNT room key; rooms will not survive a restart"}
+{"time":"2026-09-07T22:44:48.6207156+08:00","level":"WARN","msg":"no relay bootstrap tokens configured; relay enrollment will be rejected"}
+{"time":"2026-09-07T22:44:48.6207156+08:00","level":"WARN","msg":"using ephemeral development relay CA; node certificates will not survive a restart"}
+{"time":"2026-09-07T22:44:48.636876+08:00","level":"WARN","msg":"using ephemeral development update-signing key; manifests will not verify after restart"}
+{"time":"2026-09-07T22:44:48.6380765+08:00","level":"INFO","msg":"control-plane listening","address":":18080"}
+{"time":"2026-09-07T22:44:48.6412259+08:00","level":"INFO","msg":"relay control listening","address":":19090","mtls":true}
+{"time":"2026-09-07T22:44:48.7370832+08:00","level":"INFO","msg":"http request","request_id":"req_15e55def65204135bb7d267bdce1dd0d","method":"GET","path":"/health/ready","status":200,"response_bytes":80,"duration_ms":1}

@@ -1,0 +1,1 @@
+{"time":"2026-09-07T22:44:49.3219877+08:00","level":"ERROR","msg":"initialize MetaServer","error":"verify database schema: schema version mismatch: database=48 application=47"}

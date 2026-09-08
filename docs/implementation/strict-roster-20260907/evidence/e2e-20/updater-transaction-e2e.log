@@ -1,0 +1,33 @@
+started_at=2026-09-07T14:28:04.465894+00:00
+cwd=C:\wksp\ProjectRebound
+command=C:\Python314\python.exe C:\wksp\ProjectRebound\.tmp\strict-roster-20260907\source-a049d56\Tools\Release\test_updater_transactions.py --toolbox-repo C:\wksp\ProjectReboundToolbox
+exit_code=0
+--- stdout ---
+tampered_stage 1  [2026-09-07 22:28:05] UPDATE_FAILED: staged update no longer matches its signed size/hash
+
+launch_failure_rollback 1  [2026-09-07 22:28:05] UPDATE_FAILED: ���ڳ������´����޷����д�����: ָ���Ŀ�ִ���ļ����Ǵ˲���ϵͳƽ̨����ЧӦ�ó��򡣡�
+[2026-09-07 22:28:05] UPDATE_ROLLED_BACK: previous complete strict binary restored
+[2026-09-07 22:28:05] UPDATE_RECOVERY_REQUIRED: inspect target and backup; no complete binary was deleted
+
+{
+  "command": "python Tools/Release/test_updater_transactions.py --toolbox-repo <repo>",
+  "results": [
+    {
+      "case": "tampered_stage",
+      "status": "PASS",
+      "updater_exit_code": 1,
+      "target_old_complete": true,
+      "test_scope": "actual PowerShell file transaction with synthetic nonexecutable bytes; no production application or signatures"
+    },
+    {
+      "case": "launch_failure_rollback",
+      "status": "PASS",
+      "updater_exit_code": 1,
+      "target_old_complete": true,
+      "test_scope": "actual PowerShell file transaction with synthetic nonexecutable bytes; no production application or signatures"
+    }
+  ]
+}
+
+--- stderr ---
+

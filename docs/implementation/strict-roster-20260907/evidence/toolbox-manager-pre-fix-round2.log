@@ -1,0 +1,20 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.85s
+     Running unittests src\lib.rs (target\debug\deps\rebound_toolbox-531c06249e821c2c.exe)
+
+running 12 tests
+test server::manager::tests::command_arguments_include_optional_settings_without_combining_values ... ok
+test server::manager::tests::local_pve_arguments_are_explicit_and_do_not_affect_production ... ok
+test server::manager::tests::mode_paths_match_wrapper ... ok
+test server::manager::tests::offline_configuration_omits_backend ... ok
+test server::manager::tests::online_configuration_uses_strict_authority_and_omits_legacy_backend_switch ... ok
+test server::manager::tests::occupied_udp_port_is_rejected ... ok
+test server::manager::tests::third_restart_request_exhausts_budget ... ok
+test server::manager::tests::manager_creates_default_config_and_merges_server_id ... ok
+test server::manager::tests::fake_crash_reports_exit_code ... ok
+test server::manager::tests::fake_silent_process_emits_startup_timeout_and_stops ... ok
+test server::manager::tests::fake_process_heartbeat_starts_and_stops_cleanly ... ok
+test server::manager::tests::owned_dedicated_process_evidence_requires_real_child_exit ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 250 filtered out; finished in 2.34s
+
+observed_exit_code=0

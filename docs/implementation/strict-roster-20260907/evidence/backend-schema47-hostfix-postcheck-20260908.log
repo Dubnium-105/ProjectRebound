@@ -1,0 +1,37 @@
+-[ RECORD 1 ]---+---
+max_version     | 48
+migration_count | 48
+
+-[ RECORD 1 ]------------------------------------------
+column_name | host_live_scope_preserved
+-[ RECORD 2 ]------------------------------------------
+column_name | last_disconnected_native_connection_nonce
+-[ RECORD 3 ]------------------------------------------
+column_name | live_connection_generation
+-[ RECORD 4 ]------------------------------------------
+column_name | live_route_generation
+
+-[ RECORD 1 ]-----------------------------+---------------------------
+attempt_id                                | hist-attempt-20260908
+player_id                                 | hist-host-20260908
+room_role                                 | HOST
+connection_state                          | CONNECTED
+connection_generation                     | 11
+live_connection_generation                | 11
+live_route_generation                     | 7
+host_live_scope_preserved                 | t
+live_native_connection_nonce              | native-host-history-0001
+last_disconnected_native_connection_nonce | 
+-[ RECORD 2 ]-----------------------------+---------------------------
+attempt_id                                | hist-attempt-20260908
+player_id                                 | hist-member-20260908
+room_role                                 | MEMBER
+connection_state                          | CONNECTED
+connection_generation                     | 12
+live_connection_generation                | 12
+live_route_generation                     | 7
+host_live_scope_preserved                 | f
+live_native_connection_nonce              | native-member-history-0001
+last_disconnected_native_connection_nonce | 
+
+EXIT_CODE=0

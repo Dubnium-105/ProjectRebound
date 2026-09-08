@@ -1,0 +1,19 @@
+   Compiling rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 33.72s
+     Running unittests src\lib.rs (target\debug\deps\rebound_toolbox-c3f2dfb68b3e9800.exe)
+
+running 11 tests
+test core::runtime::tests::match_operation_cancel_gate_is_fail_closed ... ok
+test core::runtime::tests::p2p_authority_refresh_requires_the_same_world_instance ... ok
+test core::runtime::tests::shutdown_confirmation_covers_every_managed_activity ... ok
+test core::runtime::tests::launch_failure_keeps_the_complete_error_chain ... ok
+test core::runtime::tests::p2p_authority_route_always_reports_an_explicit_port ... ok
+test core::runtime::tests::shutdown_order_is_game_server_room_then_community_node ... ok
+test core::runtime::tests::p2p_authority_launch_failure_preserves_the_native_gate_reason ... ok
+test core::runtime::tests::match_operation_scope_binds_lobby_attempt_and_authorized_role ... ok
+test core::runtime::tests::runtime_events_do_not_have_secret_variants ... ok
+test core::runtime::tests::cancellation_reaches_owned_match_worker_after_lobby_snapshot_is_gone ... ok
+test core::runtime::tests::unchanged_identity_config_does_not_reemit_capabilities ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 256 filtered out; finished in 0.01s
+

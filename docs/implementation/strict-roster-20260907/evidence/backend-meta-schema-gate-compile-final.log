@@ -1,0 +1,6 @@
+testing: warning: no tests to run
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver	0.012s [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/database	0.009s [no tests to run]

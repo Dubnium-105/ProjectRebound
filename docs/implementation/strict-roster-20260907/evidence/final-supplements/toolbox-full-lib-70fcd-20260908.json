@@ -1,0 +1,13 @@
+{
+  "command": "cargo test --locked --lib --features vnt,lab-testing --no-fail-fast",
+  "exit_code": 0,
+  "pass_count": 310,
+  "failed_count": 0,
+  "ignored_count": 0,
+  "filtered_count": 0,
+  "source_commit": "70fcd5204f89f7af091e532d554cfaa4e69f039e",
+  "working_tree": "clean",
+  "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\toolbox-full-lib-70fcd-20260908.log",
+  "log_sha256": "828EFD475CE1FE0A0C859D5BD9B4A714ED3A88969B27A991B44F251BC798C9C8",
+  "observed_at": "2026-09-07T22:09:53.3654058Z"
+}

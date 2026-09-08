@@ -1,0 +1,6 @@
+=== RUN   TestNativeStrictRosterSignedAdmissionFixture
+    native_fixture_component_test.go:185: native strict component fixture issued: attempt=mat_f5de031495fb4557a4ae87b4ffbe7f86 lobby=lby_bed5e4fe96374bfc9e9046c98e5d4f85 output=C:\wksp\ProjectRebound\.tmp\strict-roster-20260907\native-evidence\allocation-grant-private.json
+--- PASS: TestNativeStrictRosterSignedAdmissionFixture (3.75s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/matchlobby	3.893s
+EXIT_CODE=0

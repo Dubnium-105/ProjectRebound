@@ -1,0 +1,258 @@
+{
+  "id": "backend-component-rerun-20260908",
+  "generated_at": "2026-09-08T05:55:28.3438886+08:00",
+  "status": "PARTIAL",
+  "source_snapshot": {
+    "ProjectRebound": {
+      "head": "c76ef07642b195d6229c7fcb10ca9188d0505be3",
+      "dirty": true,
+      "dirty_count": 75,
+      "status_sha256": "ae56503c560b4037c03423a925c705889f3beeb397fc5b5005e923a114a504c2",
+      "relevant_file_sha256": {
+        "C:\\wksp\\ProjectRebound\\Backend\\deployments\\control-plane\\docker-compose.yaml": "C25C62EDE21F7F602DB02F16B13BD06BC64FFE86A8B0DE08795E280082337917",
+        "C:\\wksp\\ProjectRebound\\Backend\\internal\\database\\migrator.go": "C65CC733777BFB7EBEF30EECCA9386347891FDB4A4A596E3AC1F9AA14A222444",
+        "C:\\wksp\\ProjectRebound\\Backend\\internal\\download\\storage.go": "6E93326F7858968F5B9827F914C7B08509F25BE3DBA0EF66AF8E76D82D4E76FB",
+        "C:\\wksp\\ProjectRebound\\Backend\\internal\\metaserver\\permissions_integration_test.go": "1D002337D59A24CF103D38EE2450B5372910EEE965603376472469218BF4C76F",
+        "C:\\wksp\\ProjectRebound\\Backend\\deployments\\control-plane\\provision-meta-postgres.sh": "E9C1A64DA59E511502D0F901478D2BAF0EC6B1E4D730FD9C59B0AB9B32EE6507",
+        "C:\\wksp\\ProjectRebound\\Backend\\internal\\database\\migrator_integration_test.go": "68565072986511872EF3799AE1E6B1059F02728AED38BF41C2BCFFC9873017ED",
+        "C:\\wksp\\ProjectRebound\\Backend\\internal\\download\\storage_integration_test.go": "6F889706CEBC966B2521674D2F9285A0740377926E150B58ADC0926077D516F7",
+        "C:\\wksp\\ProjectRebound\\Backend\\internal\\metaserver\\repository.go": "20944C4D7AAE05AE92603CDAFDCBA929C809D237314A612BB18CC47DAC3C36AC"
+      }
+    },
+    "Toolbox": {
+      "head": "70fcd5204f89f7af091e532d554cfaa4e69f039e",
+      "dirty": false,
+      "dirty_count": 0
+    }
+  },
+  "environment": {
+    "probe_log": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-component-availability-probe-20260908.log",
+    "probe_log_sha256": "9179F97AF37A98595394CFE9E85736CF0C4188786942A5B4A4FC2E3CF0CA3672",
+    "postgres": {
+      "endpoint": "127.0.0.1:55439",
+      "reachable": true,
+      "owner_pid": 24180
+    },
+    "redis": {
+      "endpoint": "127.0.0.1:56384",
+      "used_by_current_meta_harness": true,
+      "stopped_after_test": true,
+      "reachable_after_test": false,
+      "binary": "/tmp/rebound-e2e21-redis7411-20260907/redis-7.4.11/src/redis-server",
+      "binary_available_at_probe": true
+    },
+    "minio": {
+      "endpoint": "http://127.0.0.1:56381",
+      "console": "http://127.0.0.1:56382",
+      "api_reachable": false,
+      "console_reachable": false,
+      "reusable_binary_found": false,
+      "exact_version_probe_log": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-s3-version-probe-20260908.log",
+      "exact_version_probe_sha256": "EFB45E0C73D6415662B7373C6BDFC1C5C7AE38F2AB5FAB6A6D0B7C621F49DD79"
+    }
+  },
+  "tests": [
+    {
+      "id": "schema48-migration-bootstrap",
+      "status": "PASS",
+      "command": "wsl -e env TEST_DATABASE_URL=<unique-isolated-db> /tmp/rebound-strict-roster-20260907-go1266/go/bin/go -C /mnt/c/wksp/ProjectRebound/Backend test ./internal/database -run ^TestMigratorAgainstPostgreSQL$ -count=1 -v",
+      "exit_code": 0,
+      "pass_count": 1,
+      "skip_names": [],
+      "database": "rebound_e2e21_20260907215033",
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907215033\\migrate-schema48.log",
+      "log_sha256": "1FA8523CCF5F5A56D141B2CC5DB65AB0048D63D7661B4202B740619E5E3F6B67",
+      "note": "Current source migrator created schema 48 in a new database; setup evidence only."
+    },
+    {
+      "id": "restricted-meta-permissions-current-schema48",
+      "status": "PASS",
+      "command": "C:/Python314/python.exe -B .tmp/strict-roster-20260907/meta-permissions-schema48-rerun.py",
+      "exit_code": 0,
+      "pass_count": 1,
+      "skip_names": [],
+      "database": "rebound_e2e21_20260907215033",
+      "redis_endpoint": "127.0.0.1:56384",
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-restricted-meta-schema48-harness-20260908.log",
+      "log_sha256": "7EAA04C515445A205A4480883EF611F839A3A90231E2EE41E6D5EBCB20D69DC5",
+      "result_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-restricted-meta-schema48-result-20260908.json",
+      "result_sha256": "F3A61F1F6AC7662D850949669DCF6C2A729DFF3D630C0935A9BDBDBC60B97267",
+      "note": "Current permissions_integration_test.go against schema 48: restricted schema verification, 12 PostgreSQL denies, 16 concurrent Redis consumers with one success/replay denial, and namespace/admin/Lua ACL denies. Synthetic lab credentials were used internally and omitted from this receipt."
+    },
+    {
+      "id": "restricted-meta-old-schema47-harness",
+      "status": "EXECUTED_FAIL",
+      "command": "C:/Python314/python.exe -B .tmp/e2e21-acl/run_permissions.py",
+      "exit_code": 1,
+      "pass_count": 0,
+      "skip_names": [],
+      "database": "rebound_e2e21_20260907214702",
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\meta-permissions-rerun-20260908-harness.log",
+      "log_sha256": "6F54ACD256229FDDE58C6B5B9604CFAF7815F9DB8EEA8BA754F021D37949E09E",
+      "note": "Preserved failure: old harness restored schema 47 while current application required schema 48. It was superseded by the schema-48 rerun; no PASS inferred."
+    },
+    {
+      "id": "s3-compatible-storage-current",
+      "status": "PASS",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .tmp/strict-roster-20260907/run_s3_rerun_20260908.ps1",
+      "exit_code": 0,
+      "pass_count": 1,
+      "skip_names": [],
+      "endpoint": "http://172.23.112.1:56391",
+      "bucket": "rebound-downloads-4a500bcd",
+      "minio_binary": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\local-s3-rerun-20260908\\minio.exe",
+      "minio_sha256": "AF709E6BA68488404E85ACDD22A3030D0F5E56A108D4B27D744F18CEB50861B4",
+      "mc_binary": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\local-s3-rerun-20260908\\mc.exe",
+      "mc_sha256": "C8DB13EBEDA31497F354C0E950809DB0AE9B2A2A69B8AFEE68C128C37300C157",
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\local-s3-rerun-20260908\\storage-test.log",
+      "log_sha256": "2D70BB7E4BC995ABB4B912568155C9AFAA0B35C55F8EC97BEDD6577312C4BFF8",
+      "result_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\local-s3-rerun-20260908\\storage-test-result.json",
+      "result_sha256": "94B60645B3BE075B4087CB1E7D6590601141D5A71AA945F4DDB60C4AAE98A45C",
+      "harness_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\run_s3_rerun_20260908.ps1",
+      "harness_sha256": "278FE54DEB101405BEB7ECC736597F9E80EB8B78D8251A0C5B07C460B1A310E6",
+      "minio_stdout_sha256": "F01A374E9C81E3DB89B3A42940C4D6A5447684986A1296E42BF13F196EED6295",
+      "minio_stderr_sha256": "CA270DFBB17FC4CD21994C8E50316E3CD03E0FE2350B62A6573CB1E95A2B62CE",
+      "note": "Current Backend internal/download storage integration against a newly downloaded official MinIO Windows binary and mc-created isolated bucket. WSL used the Windows vEthernet host address. MinIO and data directory were stopped/owned and cleaned after exit; synthetic lab credentials were omitted. The earlier unavailable-service attempt remains preserved below."
+    },
+    {
+      "id": "battlelog-real-game-authority",
+      "status": "NOT_RUN",
+      "command": "go test -race ./internal/metaserver -run ^TestBattleLogSubmissionAgainstPostgreSQL$ -count=1 -v",
+      "exit_code": null,
+      "pass_count": null,
+      "skip_names": [],
+      "note": "Not executed as current acceptance: no real locked-game/native BattleLog fixture or game process was available. Historical synthetic PostgreSQL BattleLog component runs remain historical."
+    },
+    {
+      "id": "restricted-meta-permissions-current-schema48-race",
+      "status": "PASS",
+      "command": "C:/Python314/python.exe -B .tmp/strict-roster-20260907/meta-permissions-schema48-race-rerun.py",
+      "exit_code": 0,
+      "pass_count": 1,
+      "skip_names": [],
+      "database": "rebound_e2e21_20260907215759",
+      "redis_endpoint": "127.0.0.1:56384",
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-restricted-meta-schema48-race-harness-20260908.log",
+      "log_sha256": "29A95451C8DA9E87559759019ECC29876E6B3DB4D94A9EA53BB6C9E5F13477DE",
+      "result_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-restricted-meta-schema48-race-result-20260908.json",
+      "result_sha256": "27765166AD4C1626E952D55F3882100600A06C9A3A3E011469506C1416AC5522",
+      "note": "Current permissions_integration_test.go under the Go race detector against schema 48; 16 concurrent Redis consumers and all PostgreSQL/Redis denial assertions passed."
+    },
+    {
+      "id": "s3-compatible-storage-initial-attempt-blocked",
+      "status": "BLOCKED",
+      "command": "go test ./internal/download -run ^TestS3StorageAgainstCompatibleService$ -count=1 -v (initial isolated rerun before official MinIO restore)",
+      "exit_code": null,
+      "pass_count": 0,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-component-availability-probe-20260908.log",
+      "log_sha256": "9179F97AF37A98595394CFE9E85736CF0C4188786942A5B4A4FC2E3CF0CA3672",
+      "note": "Initial availability check found the prior owned MinIO process cleaned and no local binary; retained as historical blocked attempt and superseded by the current PASS above."
+    }
+  ],
+  "historical_evidence": [
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-component-availability-probe-20260908.log",
+      "sha256": "9179F97AF37A98595394CFE9E85736CF0C4188786942A5B4A4FC2E3CF0CA3672",
+      "length": 599
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-restricted-meta-schema48-result-20260908.json",
+      "sha256": "F3A61F1F6AC7662D850949669DCF6C2A729DFF3D630C0935A9BDBDBC60B97267",
+      "length": 15324
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-restricted-meta-schema48-harness-20260908.log",
+      "sha256": "7EAA04C515445A205A4480883EF611F839A3A90231E2EE41E6D5EBCB20D69DC5",
+      "length": 2742
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-restricted-meta-schema48-harness-20260908.py",
+      "sha256": "7D3BA6DCFDE245FB9A9492A6076FE816FFE542DF7570F679EBD22715B4AD5E53",
+      "length": 10278
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-s3-not-rerun-20260908.log",
+      "sha256": "69EF3F62E3DA0D7069410AFA8FF06E7F68A8A5B3F492AFBD81A9807C7582F218",
+      "length": 531
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-battlelog-not-run-20260908.log",
+      "sha256": "66248C5E255436916E09CDDA3661875D4A6FD3DD8F1212DB066689D30D6EB7AA",
+      "length": 405
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-s3-storage-compatible-local-minio-fixed.json",
+      "sha256": "4121FB7EE67EA56330728E27DAFCB07C3057B50EDA6187E1EA27E8796332E1ED",
+      "length": 586
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-s3-storage-compatible-local-minio-fixed.log",
+      "sha256": "CF25AD2A717A112CB5D473255569CCAC08F77FCC236CFE13EE60C015431D7D25",
+      "length": 578
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-s3-storage-compatible-local-minio.json",
+      "sha256": "AC2DDAE059C9C0BC004FDA16E929AF71F3A697770309ED7E1EFA91D7E87C5AD6",
+      "length": 586
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-s3-storage-compatible-local-minio.log",
+      "sha256": "BBAB071A0F4588ABE25B23072412E7BEAC6481E5650D7AA95EE11E2062CBFF20",
+      "length": 674
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\meta-permissions-receipt.json",
+      "sha256": "BF69E1048D016780D3266F993EB6CC4EA2C7E4AF08431A0F404A2889D8C0023A",
+      "length": 59606
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\battlelog-authority-receipt.json",
+      "sha256": "D763476B04A0391E4C6A3CA90A517ED2479BB1287A2F3AE47CDF38FCE247E2F7",
+      "length": 49158
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\meta-permissions-rerun-20260908-harness.log",
+      "sha256": "6F54ACD256229FDDE58C6B5B9604CFAF7815F9DB8EEA8BA754F021D37949E09E",
+      "length": 3214
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907214702\\result.json",
+      "sha256": "1DD1B6EAE5E0AE856E8279D282A9A718F543E91C92604BC6C930F1067199B591",
+      "length": 15349
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\e2e21-acl\\20260907214702\\restricted-product-permissions-test.log",
+      "sha256": "4AD433EFAC3FD016CDE5E6668FA93FFDD451E57DF565D0563E2560D4DFAA50F3",
+      "length": 457
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-s3-version-probe-20260908.log",
+      "sha256": "EFB45E0C73D6415662B7373C6BDFC1C5C7AE38F2AB5FAB6A6D0B7C621F49DD79",
+      "length": 302
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-restricted-meta-schema48-race-result-20260908.json",
+      "sha256": "27765166AD4C1626E952D55F3882100600A06C9A3A3E011469506C1416AC5522",
+      "length": 15342
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-restricted-meta-schema48-race-harness-20260908.log",
+      "sha256": "29A95451C8DA9E87559759019ECC29876E6B3DB4D94A9EA53BB6C9E5F13477DE",
+      "length": 2742
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-restricted-meta-schema48-race-harness-20260908.py",
+      "sha256": "9F02AF7FE7C02574A5BD763151D73D31F226DADF8BC9C97CBF4D91B4E77F13AC",
+      "length": 10296
+    }
+  ],
+  "limitations": [
+    "This receipt is a component rerun, not a full Backend race rerun.",
+    "ProjectRebound source was dirty at execution; the receipt binds relevant source file hashes and does not claim release-candidate provenance.",
+    "The schema-48 restricted test used a unique database and an owned Redis instance on the documented isolated port; role was disabled and Redis was stopped after the test.",
+    "No S3 current execution and no native/game BattleLog execution are claimed."
+  ],
+  "updated_at": "2026-09-07T22:06:27Z",
+  "notes": "Current S3 integration was subsequently executed PASS against an isolated official MinIO binary; BattleLog remains NOT_RUN and no overall PASS is inferred."
+}

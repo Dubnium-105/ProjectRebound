@@ -1,0 +1,21 @@
+   Compiling rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 19.38s
+     Running unittests src\lib.rs (target\debug\deps\rebound_toolbox-531c06249e821c2c.exe)
+
+running 13 tests
+test core::runtime::tests::match_operation_cancel_gate_is_fail_closed ... ok
+test core::runtime::tests::active_native_receipt_is_allowed_only_for_same_refresh_scope ... ok
+test core::runtime::tests::p2p_authority_launch_failure_preserves_the_native_gate_reason ... ok
+test core::runtime::tests::repeated_cleanup_cannot_clear_a_newer_native_scope ... ok
+test core::runtime::tests::launch_failure_keeps_the_complete_error_chain ... ok
+test core::runtime::tests::p2p_authority_route_always_reports_an_explicit_port ... ok
+test core::runtime::tests::p2p_authority_refresh_requires_the_same_world_instance ... ok
+test core::runtime::tests::shutdown_confirmation_covers_every_managed_activity ... ok
+test core::runtime::tests::shutdown_order_is_game_server_room_then_community_node ... ok
+test core::runtime::tests::match_operation_scope_binds_lobby_attempt_and_authorized_role ... ok
+test core::runtime::tests::cancellation_reaches_owned_match_worker_after_lobby_snapshot_is_gone ... ok
+test core::runtime::tests::runtime_events_do_not_have_secret_variants ... ok
+test core::runtime::tests::unchanged_identity_config_does_not_reemit_capabilities ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 252 filtered out; finished in 0.01s
+

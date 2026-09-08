@@ -1,0 +1,39 @@
+{
+  "schema": "strict-roster-bp047-owned-exit-fixture-v1",
+  "run_id": "bp047-cleanup-1788822468677077700",
+  "status": "BLOCKED",
+  "database": "rebound_native_bp047_20260908071000",
+  "fixture_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908071500\\dedicated-component-20260907-230539-d0766d4b\\dynamic-allocation-bp047-cleanup-authority-only.json",
+  "native_summary_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908071500\\dedicated-component-20260907-230539-d0766d4b\\summary.json",
+  "owned_exit_receipt_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908071500\\dedicated-component-20260907-230539-d0766d4b\\owned-exit-receipt.json",
+  "fixture_sha256": "b64ac70c588e9e2130853c24d5410845adc16f8f9d5770d87320c3c7250b356d",
+  "native_summary_sha256": "2f0314a928ecc75ce57e8d5970e47130201c364f4aee151cb4a9dc33c7cc3eae",
+  "owned_exit_receipt_sha256": "bac615cf076b9f76c774c4a3538cbb33514ec39d4480225d4a8d838f48ce0906",
+  "scope": {
+    "attempt_id": "mat_fdb5ba11870e47e7acd0b7b9a0fc6b5a",
+    "authority_id": "native_fixture_server_27a107d6297044869f425cd96a1075ac",
+    "authority_session_sha256": "9027319e2ae21c1842072e269db2cd372549e15de49d8618427edf5b8f385c14",
+    "world_instance_id": "world_1_1e9800129b0",
+    "roster_revision": 2,
+    "route_generation": 1
+  },
+  "exit_proof": {
+    "evidence_kind": "owned_process_exited",
+    "owned_process_id": 11480,
+    "process_start_fingerprint": "win-filetime:01dd3f1d6880bb0a",
+    "process_exited": true,
+    "handle_verified": true
+  },
+  "steps": [
+    {
+      "name": "validate_supervisor_owned_exit",
+      "status": "PASS"
+    }
+  ],
+  "source": {
+    "driver_path": "C:/wksp/ProjectRebound/Backend/.tmp-native-fixture/native-cleanup-fixture/main.go",
+    "driver_sha256": "7d2d6238813b774b74fd71e9a7fc6eae55958b620c5d2c77e310564d499b8d9a"
+  },
+  "failure": "database attempt scope differs from native fixture; refusing cleanup",
+  "observed_utc": "2026-09-07T23:07:48.6890713Z"
+}

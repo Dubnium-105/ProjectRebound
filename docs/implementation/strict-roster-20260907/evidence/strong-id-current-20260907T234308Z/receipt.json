@@ -1,0 +1,24 @@
+{
+  "recorded_at": "2026-09-07T23:43:56.039284+00:00",
+  "execution_source_pair": {
+    "Toolbox": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482"
+  },
+  "source_dirty": {
+    "Toolbox": false
+  },
+  "source_files": {
+    "src/matchmaking/ids.rs": "8f671ca7f0e3e541c9eeac9003f02af200a062de0c0670f01274e0f0bb3a849e"
+  },
+  "command": [
+    "C:/Users/23587/.cargo/bin/cargo.exe",
+    "test",
+    "--locked",
+    "--doc",
+    "--features",
+    "vnt,lab-testing"
+  ],
+  "exit_code": 0,
+  "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\strong-id-current-20260907T234308Z\\compile-fail-tests.log",
+  "log_sha256": "5d38e0fee53cb7b4c35596736bc9dff329b7f59ffcc37058173a4cc2b743e687",
+  "scope": "Actual Rust compile-fail doctests for typed ID and generation separation. No game/native or final artifact acceptance."
+}

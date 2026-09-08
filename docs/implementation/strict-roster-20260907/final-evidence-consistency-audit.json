@@ -1,0 +1,31 @@
+{
+  "generated_at": "2026-09-08T01:23:15.171033+00:00",
+  "status": "CONSISTENT_NOT_RELEASE_READY",
+  "generation_id": "35ba335f541d43caa8d6f53fda767523",
+  "source_commits": {
+    "ProjectRebound": "1fbc032665497502252f6245f3f1427d13314566",
+    "Toolbox": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482"
+  },
+  "breakpoints": 52,
+  "component_cases": 52,
+  "e2e_cases": 22,
+  "referenced_evidence_entries_checked": 770,
+  "artifacts_checked": 5,
+  "component_statuses": {
+    "PARTIAL": 30,
+    "PASS": 10,
+    "BLOCKED": 12
+  },
+  "e2e_statuses": {
+    "partial": 9,
+    "not_run": 13
+  },
+  "errors": [],
+  "release_ready": false,
+  "scope": "Ledger/path/hash/source-pair consistency. This audit does not execute gameplay or convert skipped/not-run tests into passes.",
+  "prior_audit_resolution": {
+    "canonical_results": "Final 52/22 records now populated with explicit execution status.",
+    "missing_index_paths": "Index regenerated from existing final evidence paths.",
+    "restore_archive_binding": "A new unique archive was dumped and restored to a new isolated PostgreSQL DB; exact file hash and schema/data comparison are in the backend report. The prior failed socket attempt is retained."
+  }
+}

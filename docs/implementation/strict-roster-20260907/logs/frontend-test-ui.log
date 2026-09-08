@@ -1,0 +1,22 @@
+
+> frontend@0.9.12 test:ui
+> node --test tests/ui-contract.test.mjs
+
+✔ sensitive actions require explicit confirmation payloads and native argument names (1.5915ms)
+✔ catalog loading uses the native JSON command and file downloads remain ordinary links (0.3347ms)
+✔ frontend update and download flows never read file response bodies (0.7584ms)
+✔ the authoritative lobby UI owns roster operations and keeps transport details below the launch page (0.4308ms)
+✔ the player room UI offers Boundary's ten-player room capacity (0.4824ms)
+✔ the room lobby explains host membership and the two-player launch gate (0.2764ms)
+✔ signed-in users can redeem an invitation without logging out (0.2876ms)
+✔ modal dismissal is locked while a confirmed operation is busy (0.2386ms)
+✔ Settings receives update and download state (0.4974ms)
+✔ release version labels derive from package metadata instead of stale literals (1.3959ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 146.4379

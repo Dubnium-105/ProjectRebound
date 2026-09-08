@@ -1,0 +1,141 @@
+{
+  "reviewed_at": "2026-09-08T23:25:00Z",
+  "source_commit": "bb3590adf298ddc9fefde63d0c70c2fc08ad7529",
+  "scope": "Read-only Backend review against TARGET_CONTRACTS.md, IMPLEMENTATION_PLAN.md, breakpoints.json and current product source. No product source changed or committed.",
+  "findings": [
+    {
+      "id": "BACKEND-AUDIT-001",
+      "severity": "P2",
+      "status": "risk-unresolved",
+      "area": "stale grant delivery",
+      "source": [
+        "C:\\wksp\\ProjectRebound\\Backend\\internal\\matchlobby\\service.go:1547-1624",
+        "C:\\wksp\\ProjectRebound\\Backend\\internal\\matchlobby\\service.go:1636-1672"
+      ],
+      "observation": "AuthorityAdmissions and MarkAdmissionDelivered scope the attempt, authority session, active state, expiry, consumed and revoked flags, but do not explicitly require admission.route_generation to equal attempt.route_generation or admission.connection_generation to equal the frozen roster generation, nor do they re-check the current nonempty world against the grant stage.",
+      "impact": "A stale undelivered row that survives outside the normal revoke transaction can be reconstructed and marked delivered before ReserveAdmission rejects it. ReserveAdmission and ConfirmConnected do enforce the current route/generation/world, so this is a stale-delivery exposure rather than a demonstrated final connection bypass.",
+      "minimal_trigger": "Issue a grant, advance the attempt route or roster generation while retaining the grant row, then call AuthorityAdmissions or MarkAdmissionDelivered before ReserveAdmission.",
+      "recommended_fix": "Add explicit current route/generation/world predicates to both staging boundaries, or document and test the transaction invariant that every route/generation/world transition revokes all undelivered grants.",
+      "evidence": [
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e131415\\backend-e2e13-15-matchlobby-clean-20260908T230614Z.log"
+      ],
+      "evidence_limit": "The current integration run proves downstream stale ReserveAdmission rejection; it does not exercise a stale row at the two earlier staging APIs."
+    },
+    {
+      "id": "BACKEND-AUDIT-002",
+      "severity": "P1",
+      "status": "risk-unresolved",
+      "area": "schema-47 historical HOST without native nonce",
+      "source": [
+        "C:\\wksp\\ProjectRebound\\Backend\\migrations\\000047_strict_roster_live_nonce.sql:1-10",
+        "C:\\wksp\\ProjectRebound\\Backend\\migrations\\000048_strict_roster_live_generation.sql:24-33",
+        "C:\\wksp\\ProjectRebound\\Backend\\internal\\matchlobby\\service.go:2414-2421"
+      ],
+      "observation": "Migration 47 allows live_native_connection_nonce to remain NULL. Migration 48 backfills every historical CONNECTED HOST with live_connection_generation, live_route_generation and host_live_scope_preserved=true without requiring a nonempty live nonce. AuthorityHeartbeat hostLiveCurrent checks connected state, generation, route, preserved flag and payload route, but not live_native_connection_nonce.",
+      "impact": "A pre-48 active CONNECTED HOST with no persisted native nonce can satisfy the heartbeat refresh predicate and advance the authority route. P2PAuthorityReady preserve requires the exact nonempty old nonce, so that migrated live scope cannot be preserved and the fresh branch requires DISCONNECTED; the attempt can be stranded rather than safely quarantined. Strict recovery must never infer a live HOST connection without the native nonce proof.",
+      "minimal_trigger": "On a schema-47 style active attempt, leave a CONNECTED HOST live_native_connection_nonce NULL; apply migration 48, mark payload_route_generation=current route, and call AuthorityHeartbeat during the reconnect window.",
+      "recommended_fix": "Make hostLiveCurrent require a nonempty live_native_connection_nonce and choose an explicit fail-closed quarantine/abort path for historical connected rows without nonce; alternatively migration 48 must not mark such HOST rows preserved. Add a real schema-47-to-48 active-attempt fixture with null and non-null nonce cases.",
+      "evidence": [
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e131415\\backend-e2e13-15-database-clean-20260908T230743Z.log"
+      ],
+      "evidence_limit": "The existing migration test uses temporary tables without the live nonce column and therefore proves generation backfill only; it does not cover the active-attempt null-nonce heartbeat path."
+    },
+    {
+      "id": "BACKEND-AUDIT-003",
+      "severity": "P2",
+      "status": "risk-unresolved",
+      "area": "cleanup ACK idempotency metadata",
+      "source": [
+        "C:\\wksp\\ProjectRebound\\Backend\\internal\\matchlobby\\service.go:2876-2894"
+      ],
+      "observation": "After cleanup_state is already CLEARED, the duplicate NativeCleared path verifies stored world (or the empty-world evidence shape), roster revision and route generation, then returns success without comparing the repeated evidence_kind, owned_process_id or process_start_fingerprint with the first audited receipt.",
+      "impact": "A different shape-valid cleanup receipt with the same authority/session/world/roster/route is treated as the same idempotent ACK. The original audit row is not overwritten, so this does not reopen or clear another attempt, but receipt identity is not strict.",
+      "minimal_trigger": "Complete a scoped owned_process_exited cleanup, then repeat NativeCleared with a different positive process ID/fingerprint and the same scope.",
+      "recommended_fix": "Either require exact metadata equality for repeated owned evidence or explicitly define scope-only idempotency and add a test proving changed metadata is intentionally ignored."
+    },
+    {
+      "id": "BACKEND-AUDIT-004",
+      "severity": "P1",
+      "status": "contract-docs-mismatch",
+      "area": "retired online route advertisement",
+      "source": [
+        "C:\\wksp\\ProjectRebound\\Backend\\internal\\controlplane\\server.go:469-489",
+        "C:\\wksp\\ProjectRebound\\Backend\\internal\\p2proom\\http.go:52-60",
+        "C:\\wksp\\ProjectRebound\\Backend\\api\\openapi\\openapi.yaml:3065-3175"
+      ],
+      "observation": "Runtime registers the old P2P room and P2P match paths as RetiredOnlineRoute, while OpenAPI still advertises GET/POST/DELETE room operations as functional 200 directory/create/state endpoints.",
+      "impact": "The runtime is fail-closed with explicit retirement, but generated clients or reviewers using the published contract can still call the old online surface and expect success. This violates the unique online contract's requirement that retired paths are absent or explicitly retired in the authoritative API description.",
+      "recommended_fix": "Remove the retired operations from the public OpenAPI or describe only the explicit 410 retired response; keep internal managed transport primitives behind the MatchLobby/Attempt APIs."
+    }
+  ],
+  "negative_review": {
+    "strict_off_bypass": "No match-admission strict-off, empty signing key, empty-token or direct-open bypass found in the reviewed Backend source. NewAdmissionSigner rejects missing key material; config rejects retired strict_roster_v1_enabled and requires the admission key in every environment; AcceptNewLobbies gates creation only.",
+    "old_online_runtime": "No production old-online P2P room route bypass found; current handlers return explicit retirement errors. Standalone p2proom service methods remain internal primitives and are not public online compatibility routes.",
+    "world_route_replay": "JoinGrantWithIdempotency checks prior route and generation against the current attempt/roster, and world is read from the immutable current attempt. Reserve/Confirm/Disconnect/Cleanup reject old world or route in the current tests. The staging and historical-null-nonce gaps above remain.",
+    "cleanup_scope": "NativeCleared and DedicatedNativeCleared require exact authority session, terminal attempt, world (or the explicitly constrained unpublished-world evidence), roster revision and route; the P2P route additionally requires the frozen HOST actor.",
+    "secret_scan": "This artifact contains no bearer tokens, private keys, grant strings, Steam IDs, database passwords or raw authority sessions."
+  },
+  "current_backend_evidence": {
+    "matchlobby_log": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e131415\\backend-e2e13-15-matchlobby-clean-20260908T230614Z.log",
+      "sha256": "35CBA0D69049589F5DBF5315D2759B7AFD23423AA9A4DC8E180E338778DF94D9",
+      "exit_code": 0,
+      "top_level_pass": 6,
+      "top_level_fail": 0
+    },
+    "database_log": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e131415\\backend-e2e13-15-database-clean-20260908T230743Z.log",
+      "sha256": "34BBDB0F1E7C182AF2AFBE7AA1988965B399C781E057BF74A19EF1ABD9E45737",
+      "exit_code": 0,
+      "top_level_pass": 2,
+      "top_level_fail": 0
+    },
+    "battlelog_component_log": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e131415\\backend-battlelog-component-20260908T231649Z.log",
+      "sha256": "48B44BE34BFFC4B6A125464F82035E7FC49929748CAB2BCDE7060CCBD9BB85C6",
+      "exit_code": 0,
+      "top_level_pass": 1,
+      "subtests_pass": 3,
+      "scope": "synthetic strict projection component only; not a native BattleLog acceptance"
+    },
+    "config_and_token_log": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e131415\\backend-strict-config-unit-20260908T232233Z.log",
+      "sha256": "0DCAB9B2C01B91A5FC5BA056087C569A1D5845F866297A62E252E46D7B8B6899",
+      "exit_code": 0,
+      "top_level_pass": 6,
+      "subtests_pass": 6
+    },
+    "retirement_log": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e131415\\backend-legacy-retirement-unit-20260908T232026Z.log",
+      "sha256": "8B85ACA8DBCCDE4986D7628CA37D7A5619D6571AEBE8FC496D9DE721421D0732",
+      "exit_code": 0,
+      "top_level_pass": 3,
+      "subtests_pass": 14
+    }
+  },
+  "source_hashes": {
+    "Backend/internal/matchlobby/service.go": "4A803A76D0590C4984090F0CA735ED5FA913419699AA1994EEEFED87DF83460F",
+    "Backend/internal/matchlobby/repository.go": "717A819CCB8D469882C3CA140FEBD2F84C60CB44201CBC7D54323227F75CFD45",
+    "Backend/internal/database/migrator.go": "C65CC733777BFB7EBEF30EECCA9386347891FDB4A4A596E3AC1F9AA14A222444",
+    "Backend/migrations/000047_strict_roster_live_nonce.sql": "0F5771BE19F7E0D3E808BAD3615BDB4B6CF2162864E8AE9D0109F7DE7CDE95E5",
+    "Backend/migrations/000048_strict_roster_live_generation.sql": "0F5771BE19F7E0D3E808BAD3615BDB4B6CF2162864E8AE9D0109F7DE7CDE95E5",
+    "Backend/internal/controlplane/server.go": "8EE9A5CEC28C093DB32AC9D0C165649B9A6B9A470D77DD5AFD9B0CADBCEA8282",
+    "Backend/api/openapi/openapi.yaml": "58A7D09698BDED47D1FB7B5A559D9997F577B9F278E114159355D749CE4D055D"
+  },
+  "related_issue_mapping": {
+    "BP-032": "backend-legacy-retirement-unit and backend-e2e13-15-meta-clean prove explicit Meta retirement and managed P2P service constraints; OpenAPI stale advertisement remains a docs finding.",
+    "BP-033": "backend-e2e13-15-matchlobby-clean P2P lifecycle covers managed projection and authority-owned progression; no independent transport callback E2E.",
+    "BP-034": "backend-battlelog-component is synthetic strict projection/lifecycle and idempotency coverage only; real locked-game BattleLog remains NOT_RUN.",
+    "BP-035": "matchlobby clean run proves selected transactional retries and negative scopes, not every injected crash boundary/reconciler.",
+    "BP-036": "matchlobby clean run proves selected service clock, grant expiry and heartbeat/sweep boundaries, not native lease/playable timing.",
+    "BP-037": "matchlobby clean run proves selected two-team/connection policy; no native role confirmation or late-seat full E2E.",
+    "BP-041": "Current Backend route/generation negative cases pass; native policy-side generation acceptance remains outside this source audit.",
+    "BP-042": "Current Backend Reserve/Confirm/Release, idempotent grant/delivery and replay negatives pass; full Native admission transaction remains unrun.",
+    "BP-043": "Current Backend same-world route refresh and stale route/world rejection pass; real native world continuity remains unrun.",
+    "BP-044": "Current Backend old world/route/generation and repeated messages are covered; old WS/IPC cross-process ordering remains unrun.",
+    "BP-047": "Current Backend cleanup scope/preflight/owned evidence negative cases pass; real supervisor handle receipt remains external and not demonstrated here.",
+    "BP-048": "Config unit log proves retired strict flag rejection, stable admission key requirement and AcceptNewLobbies creation-only behavior; no shared live two-instance startup was run here.",
+    "BP-049": "Database log proves migration/verify/future/checksum gates on a fresh isolated DB; restricted role/Redis and snapshot restore are separate evidence, not this E2E run.",
+    "BP-052": "No new provenance claim; current run source is bb3590a and no binary source-chain acceptance was performed here."
+  }
+}

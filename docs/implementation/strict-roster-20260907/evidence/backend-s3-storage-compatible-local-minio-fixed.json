@@ -1,0 +1,15 @@
+﻿{
+    "kind":  "isolated-local-minio",
+    "endpoint":  "http://127.0.0.1:56381",
+    "bucket":  "rebound-integration-bb9fefef906a720b",
+    "api_port":  56381,
+    "console_port":  56382,
+    "minio_binary_sha256":  "af709e6ba68488404e85acdd22a3030d0f5e56a108d4b27d744f18ceb50861b4",
+    "test_command":  "go test ./internal/download -run ^TestS3StorageAgainstCompatibleService$ -count=1 -v",
+    "exit_code":  0,
+    "setup_error":  null,
+    "process_id":  13308,
+    "cleaned_process":  true,
+    "credentials_logged":  false,
+    "minio_stderr_nonempty":  true
+}

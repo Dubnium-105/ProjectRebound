@@ -1,0 +1,13 @@
+   Compiling rebound_e2e_11_driver v0.1.0 (C:\wksp\ProjectRebound\.tmp\e2e-11)
+warning: constant `REFRESH_NEW` is never used
+  --> src\main.rs:24:7
+   |
+24 | const REFRESH_NEW: &str = "synthetic-new-refresh-111111111111111111111";
+   |       ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `rebound_e2e_11_driver` (bin "rebound_e2e_11_driver") generated 1 warning
+    Finished `release` profile [optimized] target(s) in 7.30s
+
+[exit_code] 0

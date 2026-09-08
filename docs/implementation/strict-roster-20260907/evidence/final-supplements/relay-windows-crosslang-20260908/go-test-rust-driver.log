@@ -1,0 +1,6 @@
+=== RUN   TestStrictRosterRustRelayClients
+    strict_roster_fixture_test.go:47: PASS: distinct HOST/PEER bind, recipient re-tagging, bidirectional authenticated UDP
+        
+--- PASS: TestStrictRosterRustRelayClients (0.06s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/relayruntime	0.182s

@@ -1,0 +1,16 @@
+=== RUN   TestStrictRosterDedicatedLifecycleAgainstPostgreSQL
+--- PASS: TestStrictRosterDedicatedLifecycleAgainstPostgreSQL (0.39s)
+=== RUN   TestDedicatedNativeClearedRejectsUnscopedOwnedProcessEvidence
+--- PASS: TestDedicatedNativeClearedRejectsUnscopedOwnedProcessEvidence (0.00s)
+=== RUN   TestStrictRosterP2PLifecycleAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PLifecycleAgainstPostgreSQL (0.83s)
+=== RUN   TestCreateValidationLocksHostingKindAndTwoTeamCapacity
+--- PASS: TestCreateValidationLocksHostingKindAndTwoTeamCapacity (0.00s)
+=== RUN   TestOpenRevisionFailsClosedAfterFreezeOrConflict
+--- PASS: TestOpenRevisionFailsClosedAfterFreezeOrConflict (0.00s)
+=== RUN   TestAdmissionSignerBindsFrozenRosterAndJoinSeat
+--- PASS: TestAdmissionSignerBindsFrozenRosterAndJoinSeat (0.00s)
+=== RUN   TestAdmissionSignerUsesSeparateTokenTypes
+--- PASS: TestAdmissionSignerUsesSeparateTokenTypes (0.00s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/matchlobby	1.333s

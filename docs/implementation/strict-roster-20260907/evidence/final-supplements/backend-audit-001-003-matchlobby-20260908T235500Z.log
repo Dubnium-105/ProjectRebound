@@ -1,0 +1,12 @@
+=== RUN   TestStrictRosterDedicatedLifecycleAgainstPostgreSQL
+--- PASS: TestStrictRosterDedicatedLifecycleAgainstPostgreSQL (3.49s)
+=== RUN   TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL
+    service_integration_test.go:213: same-scope mismatched start-fingerprint cleanup receipt was not rejected strictly: Invalid owned process exit evidence.
+--- FAIL: TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL (0.20s)
+=== RUN   TestStrictRosterP2PLifecycleAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PLifecycleAgainstPostgreSQL (0.85s)
+FAIL
+FAIL	github.com/Dubnium-105/ProjectRebound/Backend/internal/matchlobby	4.554s
+FAIL
+
+EXIT_CODE=1

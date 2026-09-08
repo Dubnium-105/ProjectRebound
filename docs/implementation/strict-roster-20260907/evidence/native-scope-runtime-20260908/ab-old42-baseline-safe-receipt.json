@@ -1,0 +1,108 @@
+{
+  "schema": "native_ab_old42_baseline_comparison_v1",
+  "generated_utc": "2026-09-08T01:07:24.2453951+00:00",
+  "status": "BLOCKED",
+  "acceptance": "NOT_PASS",
+  "purpose": "Single historical 42C72B old-candidate A/B login observation; diagnostic only, not compatibility or release acceptance",
+  "current_run": {
+    "run_id": "ab-old42-20260908T005811393Z",
+    "result_root": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\ab-old42-20260908T005811393Z",
+    "component_root": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\ab-old42-20260908T005811393Z\\dedicated-component-20260908-010046-ec561af4",
+    "wrapper_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\ab-old42-20260908T005811393Z\\orchestrate.ps1",
+    "wrapper_sha256": "80F6A17515099BBB6E362EE15FF8297525B8CE36D7370B3C16B5C3A10D14A64C",
+    "wrapper_exit_code": 0,
+    "driver_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\ab-old42-20260908T005811393Z\\backend-native-driver.exe",
+    "driver_sha256": "4DDADA1C2516E1A8EB119D22CAB509E546D7856B3ADF1F389656F4D9DBDB1E84",
+    "driver_exit_code": 1,
+    "candidate_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\ab-old42-20260908T005811393Z\\Payload.dll",
+    "candidate_sha256": "42C72B9F27F51C745E2B8951F9E707C3035DFC22463BFB4D1CF64D21AEE9EE63",
+    "candidate_bytes": 2087936,
+    "fixture_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\ab-old42-20260908T005811393Z\\fixture-private.json",
+    "fixture_sha256": "B2CB7495526F7C54D85E5DF5E20F7557A88B332DE00C569765AF664E8FCF70F6",
+    "outcome": "BLOCKED",
+    "failure": "timed out waiting for the real client pipe to report match.login_completed && login_ready",
+    "client_status_code": "native_admission_unverified",
+    "client_status_count": 1,
+    "login_poll_count": 227,
+    "login_completed_count": 0,
+    "login_ready_count": 0,
+    "join_count": 0,
+    "authority_connection_event_count": 0,
+    "reserve_receipt_count": 0,
+    "connected_confirmation_count": 0,
+    "client_log": {
+      "path": "C:\\Steam\\steamapps\\common\\Boundary\\ProjectBoundary\\Binaries\\Win64\\clientlogs\\clientlog-20260908_090114.txt",
+      "sha256": "386D6893216C3C80BF7C16DD79E50588A98FA2C8A71661C201AFF1935405DE81",
+      "contains_connectServer": false,
+      "contains_loadouts": false,
+      "contains_direct_match_connect": false,
+      "contains_main_menu_activation": false,
+      "contains_world_ready": false
+    },
+    "authority_ready_observed": true,
+    "grant_marker_observed": false,
+    "safe_logs": {
+      "native_harness": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\ab-old42-20260908T005811393Z\\native-harness.log",
+        "sha256": "A98D1ECE5F019865096E9E57881D646E681104CB07B8264335EDF5A0D35F9A55"
+      },
+      "backend_finalize_stderr": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\ab-old42-20260908T005811393Z\\backend-finalize.stderr.log",
+        "sha256": "58F5086E7FEB87F1206949FBAA06622B952931FFDD8B11760B38FE711DB8F305"
+      },
+      "summary": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\ab-old42-20260908T005811393Z\\dedicated-component-20260908-010046-ec561af4\\summary.json",
+        "sha256": "3B55FCA43DFFB9E9FABD9072864CC534D33DA2388755FA6C0FF0AEAF1FBF4B3C"
+      },
+      "payload_frames": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\ab-old42-20260908T005811393Z\\dedicated-component-20260908-010046-ec561af4\\payload-frames.jsonl",
+        "sha256": "DAB756B43E1FE3450F2298F78235B93DCE122B48981D6DFB46029BE69CA35790"
+      }
+    },
+    "restore": {
+      "installed_payload_path": "C:\\Steam\\steamapps\\common\\Boundary\\ProjectBoundary\\Binaries\\Win64\\Payload.dll",
+      "installed_payload_sha256": "6C7B5E05540AC72A6D7A9FA78F867917285FCE00081156EE13D237AA4D6C24A3",
+      "expected_original_sha256": "6C7B5E05540AC72A6D7A9FA78F867917285FCE00081156EE13D237AA4D6C24A3",
+      "steam_appid_sha256": "DDFE0E8D462AF661F81DB36589C39882DC0F2330785B5D80CD34F2F520AD618F",
+      "owned_boundary_process_count": 0,
+      "ports_47777_47778_listening": false
+    }
+  },
+  "historical_run": {
+    "run_id": "dynamic-root-20260907T212120784508Z",
+    "component_root": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\dedicated-component-20260907-212129-02030887",
+    "candidate_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\dynamic-root-20260907T212120784508Z\\Payload.dll",
+    "candidate_sha256": "42C72B9F27F51C745E2B8951F9E707C3035DFC22463BFB4D1CF64D21AEE9EE63",
+    "source_native_commit": "a7352db16ea1a7729947526e5642bc3738b5123b",
+    "source_native_dirty": true,
+    "wrapper_sha256": "80F6A17515099BBB6E362EE15FF8297525B8CE36D7370B3C16B5C3A10D14A64C",
+    "driver_sha256": "4DDADA1C2516E1A8EB119D22CAB509E546D7856B3ADF1F389656F4D9DBDB1E84",
+    "outcome": "PARTIAL_ADMISSION_CHAIN_PLAYABLE_NOT_REACHED",
+    "client_status_count": 1,
+    "login_completed_count": 59,
+    "login_ready_count": 52,
+    "join_count": 1,
+    "authority_connection_event_count": 52,
+    "reserve_receipt_count": 1,
+    "connected_confirmation_count": 1,
+    "client_log": {
+      "path": "C:\\Steam\\steamapps\\common\\Boundary\\ProjectBoundary\\Binaries\\Win64\\clientlogs\\clientlog-20260908_052156.txt",
+      "sha256": "86071C6B25B45CE1FC3E2C01B10867AB5072537A4C0D40C7A963BFFB4483889C",
+      "contains_connectServer": true,
+      "contains_loadouts": true,
+      "contains_direct_match_connect": true,
+      "contains_main_menu_activation": true,
+      "contains_world_ready": true
+    },
+    "summary_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\dedicated-component-20260907-212129-02030887\\summary.json",
+    "summary_sha256": "E314F412E8A4F6AD792EEB1BEF2D56916C005C243C51F3EED4650811441CFDED"
+  },
+  "comparison": {
+    "same_candidate_bytes": true,
+    "same_wrapper_bytes": true,
+    "same_driver_bytes": true,
+    "classification": "environment_or_startup_boundary_difference",
+    "conclusion": "The same 42C72B candidate that historically reached connectServer/Join now stopped after MetaTunnel preflight and native_admission_unverified polling. This run does not establish a 297c regression and must not be used as release/pass evidence.",
+    "next_action": "Stop repeated login runs; preserve both receipts and investigate current startup/session/UI boundary only if separately authorized."
+  }
+}

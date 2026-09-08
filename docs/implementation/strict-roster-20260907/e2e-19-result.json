@@ -1,0 +1,116 @@
+{
+  "id": "E2E-19",
+  "status": "pass",
+  "source_commit": "552fce5cce30c326b2a4b84d4aa9987777bfb183",
+  "steps": [
+    {
+      "id": "schema-upgrade-and-runtime-rejection",
+      "status": "pass",
+      "actual": "A fresh isolated PostgreSQL database was created, migrations 1-42 were applied with one retained pre-upgrade player, migrations 43-47 were appended, and the actual control-plane and meta-server binaries were started against a temporary schema_migrations version 48.",
+      "subscenarios": [
+        {
+          "id": "append-42-to-47",
+          "status": "pass",
+          "actual": "The upgrade harness recorded applied_count=42/max_version=42 before the append, retained player_count=1, and max_version=47/player_count=1 afterward.",
+          "command": "wsl -d Ubuntu-22.04 -- bash -lc 'bash /mnt/c/wksp/ProjectRebound/.tmp/e2e19-schema-upgrade.sh rebound_e2e19_live_1788791710'",
+          "exit": 0,
+          "log": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-schema-upgrade-rebound_e2e19_live_1788791710.log"
+        },
+        {
+          "id": "control-plane-schema-48-rejection",
+          "status": "pass",
+          "actual": "The live control-plane process rejected startup before serving with database=48/application=47.",
+          "command": "e2e19-live driver: run current control-plane binary with schema_migrations.version=48",
+          "exit": 1,
+          "observed": "exit=1 and log contains 'verify database schema compatibility: schema version mismatch: database=48 application=47'",
+          "log": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-live-schema48-control-plane.log"
+        },
+        {
+          "id": "meta-server-schema-48-rejection",
+          "status": "pass",
+          "actual": "The live MetaServer process rejected startup before serving against the same temporary version 48.",
+          "command": "e2e19-live driver: run current meta-server binary with schema_migrations.version=48",
+          "exit": 1,
+          "observed": "exit=1 and log contains 'verify database schema: schema version mismatch: database=48 application=47'",
+          "log": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-live-schema48-meta-server.log"
+        },
+        {
+          "id": "schema-48-no-active-attempt-mutation",
+          "status": "pass",
+          "actual": "The active P2P attempt was CONNECTING before and after the rejected starts; the temporary version 48 row was removed, returning the isolated database to max_version=47.",
+          "command": "e2e19-live driver post-rejection query",
+          "exit": 0,
+          "observed": "before=CONNECTING after=CONNECTING authority_seen_changed=false; postcheck schema_max=47/schema48_rows=0",
+          "log": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-live-driver-final.log"
+        }
+      ],
+      "observed": "Both services fail closed on a future schema at live startup, and the active attempt remains unchanged."
+    },
+    {
+      "id": "draining-instance-and-admin-abort",
+      "status": "pass",
+      "actual": "Two actual control-plane instances shared the isolated database. Instance A accepted new lobbies; instance B started with accept_new_lobbies=false and authenticated against the existing active attempt. The independent admin force-abort route used a seeded active operator session and step-up token.",
+      "subscenarios": [
+        {
+          "id": "dual-instance-readiness",
+          "status": "pass",
+          "actual": "Instance A and B both returned HTTP readiness 200; B reported strict_roster_v1=true and accept_new_lobbies=false.",
+          "command": "e2e19-live driver: start control-plane A (:18080/:19090) and B (:18081/:19091), then GET /health/ready and /v1/client/config",
+          "exit": 0,
+          "log": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-live-driver-final.log"
+        },
+        {
+          "id": "existing-context-authenticated-use",
+          "status": "pass",
+          "actual": "B authenticated the retained player, read the existing lobby with HTTP 200, and accepted the host heartbeat with HTTP 200/accepted=true for the active CONNECTING attempt.",
+          "command": "e2e19-live driver: POST /v1/auth/bind; GET /v1/match-lobbies/{active_lobby}; POST /v1/match-attempts/{active_attempt}/host/heartbeat",
+          "exit": 0,
+          "log": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-live-instance-b-drain.log"
+        },
+        {
+          "id": "accept-new-disabled-only",
+          "status": "pass",
+          "actual": "B rejected a new lobby request with HTTP 409/MATCH_LOBBY_CREATION_DISABLED while the strict capability and existing read/heartbeat paths remained active.",
+          "command": "e2e19-live driver: POST /v1/match-lobbies on accept_new_lobbies=false instance",
+          "exit": 0,
+          "observed": "status=409 code=MATCH_LOBBY_CREATION_DISABLED",
+          "log": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-live-instance-b-drain.log"
+        },
+        {
+          "id": "admin-step-up-force-abort-and-audit",
+          "status": "pass",
+          "actual": "The authenticated admin force-abort route returned HTTP 200, transitioned only its target attempt to ABORTED, left cleanup_state=PENDING, and wrote exactly one MATCH_ATTEMPT_FORCE_ABORT audit record.",
+          "command": "e2e19-live driver: POST /v1/admin/match-attempts/{abort_attempt}/force-abort with admin bearer and X-Admin-Step-Up",
+          "exit": 0,
+          "observed": "status=200 state=ABORTED cleanup_state=PENDING audit=MATCH_ATTEMPT_FORCE_ABORT",
+          "log": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-live-instance-b-drain.log"
+        },
+        {
+          "id": "owned-fixture-cleanup",
+          "status": "pass",
+          "actual": "The driver stopped both owned instances and removed only its own lobbies/admin rows; no E2E fixture attempts or schema48 row remained.",
+          "command": "e2e19-live driver deferred cleanup plus isolated PostgreSQL postcheck",
+          "exit": 0,
+          "observed": "schema_max=47; schema48_rows=0; e2e19_lobbies_after_driver=0; e2e19_admin_users_after_driver=0; e2e19_admin_sessions_after_driver=0; e2e19_active_attempts_after_driver=0",
+          "log": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-live-postcheck.log"
+        }
+      ],
+      "observed": "The draining instance continued serving existing authoritative context and heartbeat, blocked only new lobby creation, and the live admin route preserved the cleanup lease for asynchronous cleanup."
+    }
+  ],
+  "result": {
+    "environment": "Fresh isolated WSL Ubuntu-22.04 PostgreSQL 14 database rebound_e2e19_live_1788791710 on 127.0.0.1:55439, isolated Redis on 127.0.0.1:56380, Windows Go 1.26.6, and current binaries built from source commit 552fce5cce30c326b2a4b84d4aa9987777bfb183. No production database or credentials were used.",
+    "command_or_harness": "Backend/cmd/e2e19-live temporary driver plus .tmp/e2e19-schema-upgrade.sh; the driver used fixed synthetic test signing material and did not print bearer, refresh, or step-up token values.",
+    "exit_code": 0,
+    "log_paths": [
+      "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-schema-upgrade-rebound_e2e19_live_1788791710.log",
+      "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-live-driver-final.log",
+      "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-live-instance-a.log",
+      "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-live-instance-b-drain.log",
+      "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-live-schema48-control-plane.log",
+      "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-live-schema48-meta-server.log",
+      "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-live-postcheck.log"
+    ],
+    "observed_result": "All requested E2E-19 subscenarios executed with real PostgreSQL, Redis, HTTP services, and live startup rejection. The earlier partial record remains at trackingroot/e2e-19-result-partial-initial.json; the first duplicate relay-key harness failure remains separately at evidence/e2e-19-live-driver-initial-duplicate-key.log and is not counted as a pass."
+  }
+}

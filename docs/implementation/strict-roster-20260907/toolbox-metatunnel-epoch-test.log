@@ -1,0 +1,15 @@
+   Compiling rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 30.32s
+     Running unittests src\lib.rs (target\debug\deps\rebound_toolbox-95a8a15180729417.exe)
+
+running 7 tests
+test launching::metatunnel::tests::cancelled_token_pump_wait_does_not_wait_for_expiry ... ok
+test launching::metatunnel::tests::diagnostics_keep_only_whitelisted_fields_and_are_bounded ... ok
+test launching::metatunnel::tests::readiness_requires_loopback_and_the_real_child_pid ... ok
+test launching::metatunnel::tests::lab_metatunnel_requires_one_private_host_for_all_services ... ok
+test launching::metatunnel::tests::session_rotation_interrupts_a_long_token_refresh_wait ... ok
+test launching::metatunnel::tests::embedded_runtime_is_pinned_and_x64 ... ok
+test launching::metatunnel::tests::extraction_repairs_a_tampered_runtime ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 241 filtered out; finished in 1.29s
+

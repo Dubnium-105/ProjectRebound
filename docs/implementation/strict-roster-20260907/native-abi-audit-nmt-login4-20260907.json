@@ -1,0 +1,85 @@
+{
+  "generated_local": "2026-09-07",
+  "scope": "read-only static ABI audit for NMT_Login four serialized arguments",
+  "method": [
+    "debug-boundary-native SKILL.md and references/current-findings.md fully read",
+    "bounded capstone/PE header inspection of the fixed copied EXE",
+    "no source/native ready flag changes; no IDA retry after documented timeout"
+  ],
+  "binary": {
+    "path": "C:\\wksp\\ProjectRebound\\.tmp\\ida-query-assets\\ProjectBoundarySteam-Win64-Shipping.exe",
+    "file_size": 102362112,
+    "sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+    "expected_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+    "sha_match": true,
+    "pe_size_of_image": 105431040,
+    "expected_pe_size_of_image": 105431040,
+    "pe_size_match": true,
+    "runtime_gate": "BLOCKED_UNRUN"
+  },
+  "evidence": [
+    "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\nmt-static-disassembly.txt",
+    "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\nmt-serializer-extended.txt",
+    "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-static-nmt.json",
+    "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\nmt-login4-callsite-capstone.txt",
+    "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\nmt-server-login-block-capstone.txt",
+    "C:\\wksp\\ProjectRebound\\.agents\\skills\\debug-boundary-native\\references\\current-findings.md"
+  ],
+  "findings": [
+    {
+      "id": "login_options_candidate",
+      "status": "UNPROVEN",
+      "confirmed": [
+        "Client type-5 packet has four serialized arguments: FString-like at client rbx (RVA 0x03484F25), local [rbp+0x10] (0x03484F35), custom identity path [r13+0x160] (0x03484F48), local [rbp+0x20] (0x03484F58).",
+        "Server candidate block deserializes to [r14+0x1A0], [r14+0x1B8], local [rbp-0x70] through the custom path, and local [rsp+0x60] in that order.",
+        "Server code immediately examines field #2 [r14+0x1B8], scans '?' (0x3F) and '#' (0x23), and routes it through URL/structured-string helpers at RVAs 0x0368B200, 0x036B4720, and 0x014086E3E0."
+      ],
+      "candidate": "Field #2 (client [rbp+0x10] / server [r14+0x1B8]) is the strongest URL/options-shaped candidate from delimiter parsing, but LoginOptions identity is not proved. Existing findings label field #1 as RequestURL and leave field #2 unnamed; no field may be selected for grant injection."
+    },
+    {
+      "id": "farchive_direction",
+      "status": "STATIC_DATAFLOW_CONFIRMED_RUNTIME_UNPROVEN",
+      "confirmed": [
+        "Client constructs an FOutBunch at RVA 0x03484ED2 through 0x031CF3D0, writes type 5 at 0x03484EDE, calls serializer with rcx=&[rbp+0x90] at 0x03484F25/35/48/58, then sends through connection vtable +0x2C8 at 0x03484F76; this callsite is outgoing/save by dataflow.",
+        "Serializer RVA 0x0189D040 has a branch on archive byte [rcx+0x28] bit 0. The taken branch consumes a signed length from archive storage and writes bytes into the destination FString-shaped object; the other branch reads source length/data and writes length/bytes through archive vtable +0x150. These are load/save dataflow branches.",
+        "Server login-shaped block at 0x036CE317 uses incoming archive rsi and writes four decoded destinations; this is the corresponding load-side dataflow."
+      ],
+      "unproven": [
+        "The native symbolic name/meaning of the archive flag byte and the runtime branch value at each NMT callsite were not dynamically observed."
+      ]
+    },
+    {
+      "id": "fstring_ownership",
+      "status": "PARTIAL_UNPROVEN",
+      "confirmed": [
+        "Client local [rbp+0x20] is released by 0x018E5490 at 0x03484FA1 and local [rbp+0x10] is released by the same helper at 0x03484FAF after the send.",
+        "Serializer temporary buffers are released through 0x018E5490 at 0x0189D2B1, 0x0189D41C, and 0x0189D5FB on relevant paths.",
+        "Serializer mutates/reserves destination fields and writes terminators; it is not a read-only borrowed-view operation."
+      ],
+      "unproven": [
+        "Exact FString allocator, capacity invariant, ownership transfer, and whether any callsite field is safe to replace with a borrowed view remain unproven. A borrowed injection would risk the observed release path."
+      ]
+    },
+    {
+      "id": "server_field_correspondence",
+      "status": "PARTIAL_UNPROVEN",
+      "confirmed": [
+        "Current findings identify server RVA 0x036CDCE0 case 5 as reading RequestURL, a second FString, Unique ID, and a final FString in that order.",
+        "Bounded server disassembly recovers positional destinations and confirms the second field is the one used by the visible '?'/'#' URL/options parsing sequence."
+      ],
+      "unproven": [
+        "Static evidence does not prove that a particular client local is semantically LoginOptions, nor that an injected field would be accepted by the server before PreLogin/PlayerArray."
+      ]
+    }
+  ],
+  "negative_checks": [
+    "IDA CLI absent; IDA RPC had no usable session and existing/copy IDB opens timed out; no retry performed.",
+    "No runtime native grant injection or fixed-game negative probe was run in this audit.",
+    "No source file or native readiness flag was modified."
+  ],
+  "decision": {
+    "native_client_grant_injection_ready": false,
+    "strict_online_ready_client": false,
+    "reason": "LoginOptions field identity and FString ABI/ownership are not proven; enabling or writing a guessed field would violate fail-closed native admission."
+  }
+}

@@ -1,0 +1,50 @@
+    Checking rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+warning: unused imports: `ConnectionGeneration`, `GrantJti`, and `RunId`
+ --> src\matchmaking\controller.rs:4:49
+  |
+4 |     AttemptId, AuthorityId, AuthoritySessionId, ConnectionGeneration, GrantJti, LobbyId, P2pRoomId,
+  |                                                 ^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^
+5 |     RosterRevision, RouteGeneration, RunId, SessionContext, WorldInstanceId,
+  |                                      ^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+error[E0308]: mismatched types
+    --> src\core\runtime.rs:1256:29
+     |
+1256 |                 attempt_id: context.session.attempt_id.as_str().clone(),
+     |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `String`, found `&str`
+     |
+help: try using a conversion method
+     |
+1256 -                 attempt_id: context.session.attempt_id.as_str().clone(),
+1256 +                 attempt_id: context.session.attempt_id.as_str().to_string(),
+     |
+
+error[E0308]: mismatched types
+    --> src\core\runtime.rs:1258:36
+     |
+1258 |                 world_instance_id: context.session.world_instance_id.as_str().clone(),
+     |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `String`, found `&str`
+     |
+help: try using a conversion method
+     |
+1258 -                 world_instance_id: context.session.world_instance_id.as_str().clone(),
+1258 +                 world_instance_id: context.session.world_instance_id.as_str().to_string(),
+     |
+
+error[E0308]: mismatched types
+    --> src\core\runtime.rs:1396:33
+     |
+1396 |                     attempt_id: context.session.attempt_id.as_str().clone(),
+     |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `String`, found `&str`
+     |
+help: try using a conversion method
+     |
+1396 -                     attempt_id: context.session.attempt_id.as_str().clone(),
+1396 +                     attempt_id: context.session.attempt_id.as_str().to_string(),
+     |
+
+For more information about this error, try `rustc --explain E0308`.
+warning: `rebound_toolbox` (lib) generated 1 warning
+error: could not compile `rebound_toolbox` (lib) due to 3 previous errors; 1 warning emitted

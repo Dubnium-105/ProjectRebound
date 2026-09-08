@@ -1,0 +1,16 @@
+{
+  "recorded_at": "2026-09-08T01:18:25.215066+00:00",
+  "command": "C:/Python314/python.exe -B -X utf8 .tmp/strict-roster-20260907/stage_final_evidence.py",
+  "observed_exit_code": 1,
+  "observed_error": "Index bytes differ from pre-staging evidence: docs/implementation/strict-roster-20260907/baseline.json",
+  "status": "FAILED_BYTE_BINDING",
+  "path": "docs/implementation/strict-roster-20260907/baseline.json",
+  "pre_staging_manifest_sha256": "cd0556d1493aa6dd881244c0d86e320ad85f6c0c0d3504054eca74f20eebeb86",
+  "working_sha256": "52d26a1498d3dc158114a44a6a59590804a41225d920967dd78f726f039ed316",
+  "index_sha256": "330da69c1070ef852af25ed983e9d491b0a149e0425dc31f2a3577bdf3edc01c",
+  "working_bytes": 488,
+  "index_bytes": 476,
+  "same_when_crlf_is_normalized": true,
+  "fix": "Force git add --renormalize under the existing -text rule after adding paths, then repeat the complete scanned-byte/index comparison.",
+  "scope": "Evidence staging failure only. No product/native test or release acceptance claim."
+}

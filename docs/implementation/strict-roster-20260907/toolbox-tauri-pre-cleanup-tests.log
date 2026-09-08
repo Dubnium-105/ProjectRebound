@@ -1,0 +1,43 @@
+   Compiling rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+   Compiling rebound_toolbox_tauri v0.9.12 (C:\wksp\ProjectReboundToolbox\src-tauri)
+warning: struct `RoomListResult` is never constructed
+   --> src\dto.rs:103:12
+    |
+103 | pub struct RoomListResult {
+    |            ^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: struct `CreateRoomResult` is never constructed
+   --> src\dto.rs:404:12
+    |
+404 | pub struct CreateRoomResult {
+    |            ^^^^^^^^^^^^^^^^
+
+warning: struct `ServerListResult` is never constructed
+   --> src\dto.rs:469:12
+    |
+469 | pub struct ServerListResult {
+    |            ^^^^^^^^^^^^^^^^
+
+warning: struct `LaunchResult` is never constructed
+   --> src\dto.rs:482:12
+    |
+482 | pub struct LaunchResult {
+    |            ^^^^^^^^^^^^
+
+warning: `rebound_toolbox_tauri` (bin "rebound_toolbox_tauri" test) generated 4 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 52.06s
+     Running unittests src\main.rs (src-tauri\target\debug\deps\rebound_toolbox_tauri-df4670c7da33bfba.exe)
+
+running 7 tests
+test dto::match_lobby_tests::match_lobby_list_preserves_the_next_cursor ... ok
+test architecture_tests::tauri_source_tree_contains_only_glue_modules ... ok
+test events::tests::event_bridge_has_no_domain_workflows ... ok
+test architecture_tests::every_command_adapter_is_at_most_fifteen_lines ... ok
+test commands::tests::command_frontend_stays_thin ... ok
+test architecture_tests::tauri_dtos_do_not_expose_room_or_node_secrets ... ok
+test architecture_tests::tauri_glue_does_not_reintroduce_domain_operations ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

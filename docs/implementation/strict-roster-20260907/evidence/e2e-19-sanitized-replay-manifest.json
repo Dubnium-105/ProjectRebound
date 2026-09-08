@@ -1,0 +1,53 @@
+{
+  "id": "E2E-19",
+  "artifact_role": "sanitized_replay_sources",
+  "execution_status": "NOT_RUN",
+  "acceptance_status": "unchanged",
+  "source_provenance": {
+    "live_result": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/e2e-19-result.json",
+    "historical_partial": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/tracking/e2e-19-result.json",
+    "original_schema_source": "C:/wksp/ProjectRebound/.tmp/e2e19-schema-upgrade.sh",
+    "original_live_driver": "temporary driver was removed after the recorded run; this Go file is a credential-free replay reconstruction, not a byte-for-byte source copy"
+  },
+  "sanitized_sources": [
+    {
+      "path": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-schema42-to-47-sanitized-replay.sh",
+      "purpose": "Apply migrations 1-42, retain a disposable player fixture, apply migrations 43-47, and verify counts/max version.",
+      "requires_explicit_execution": true,
+      "credential_policy": "All database, fixture identity, and output values are environment inputs; none are embedded.",
+      "sha256": "9B3C6FD40B68231FDAB28D59348758C53B02289FF71C2F90EACB683B02093236",
+      "bytes": 3768
+    },
+    {
+      "path": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-live-driver-sanitized-replay.go",
+      "purpose": "Check future-schema rejection logs and exercise readiness, existing-context heartbeat/read, accept_new_lobbies=false creation rejection, and authorized force-abort against explicitly supplied isolated endpoints.",
+      "requires_explicit_execution": true,
+      "credential_policy": "Bearer and step-up values are read only from operator environment variables and response bodies are discarded.",
+      "sha256": "29B64475C3540B6784FF42FF7EADF18BD0A005B814BBEE963CDE2023D6F8A499",
+      "bytes": 7939
+    }
+  ],
+  "actual_evidence": {
+    "schema_upgrade_log": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-schema-upgrade-rebound_e2e19_live_1788791710.log",
+    "live_driver_log": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-live-driver-final.log",
+    "instance_a_log": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-live-instance-a.log",
+    "instance_b_log": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-live-instance-b-drain.log",
+    "schema48_control_plane_log": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-live-schema48-control-plane.log",
+    "schema48_meta_server_log": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-live-schema48-meta-server.log",
+    "postcheck_log": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-live-postcheck.log",
+    "result_json": {
+      "path": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/e2e-19-result.json",
+      "sha256": "3B7389E7C7FC51D512227A46C0B68333201A3D0B3B446577B63A3330571368D7"
+    }
+  },
+  "scope_note": "The recorded E2E-19 PASS is based only on the actual logs and result JSON above. Running or compiling these sanitized sources is not counted as a new acceptance run.",
+  "source_validation": {
+    "log": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-sanitized-source-check.log",
+    "log_sha256": "AFEF1C00AE99DC6AE74FD6CF2ED695BC5F88AEFE746B4E5E26D03350CA1590EC",
+    "gofmt_exit": 0,
+    "go_test_compile_exit": 0,
+    "bash_n_exit": 0,
+    "default_describe_exit": 0,
+    "acceptance_execution": "NOT_RUN"
+  }
+}

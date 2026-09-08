@@ -1,0 +1,187 @@
+{
+  "audit_id": "backend-a-final-skip-and-migration-audit-20260908",
+  "source_observation": {
+    "full_race_log": "docs/implementation/strict-roster-20260907/evidence/backend-a-go-test-race-go1266-schema48-route3-guard-final.log",
+    "full_race_log_sha256": "b5d18652958ded3a4e03e4445523b5f4c174886254d4a2419bf41565dcd2b5e6",
+    "full_race_counts": {
+      "top_level_pass": 399,
+      "subtest_pass": 143,
+      "fail": 0,
+      "skip": 7
+    },
+    "source_frozen_for_full_race": true,
+    "current_product_hashes": [
+      {
+        "path": "Backend/internal/matchlobby/service.go",
+        "sha256": "afe573de322adfea945164a3e5d47ae4981686d8b4089fb2c17eadd3af4bb335",
+        "bytes": 144030
+      },
+      {
+        "path": "Backend/internal/matchlobby/repository.go",
+        "sha256": "717a819ccb8d469882c3ca140febd2f84c60cb44201cbc7d54323227f75cfd45",
+        "bytes": 18922
+      },
+      {
+        "path": "Backend/internal/matchlobby/model.go",
+        "sha256": "5d9bf728d95c98b8b6310b99e01342651b23031bc2836024d78f04462a3c5eea",
+        "bytes": 12922
+      },
+      {
+        "path": "Backend/internal/matchlobby/http.go",
+        "sha256": "4b0f43f19db2181b4f6fd492d7bc52935bbbac74e5f3e66c686e4add4a63ba2a",
+        "bytes": 28437
+      },
+      {
+        "path": "Backend/internal/matchlobby/sweeper.go",
+        "sha256": "06468c0dadc198656337a52477ec99118414d2c824f214dca2b153720c5c8f54",
+        "bytes": 15306
+      },
+      {
+        "path": "Backend/migrations/000048_strict_roster_live_generation.sql",
+        "sha256": "2d30ba1840125a708d0045bb55c5b1e8dddc200f8cc2741a696fc453c01990ca",
+        "bytes": 1713
+      },
+      {
+        "path": "Backend/internal/matchlobby/service_integration_test.go",
+        "sha256": "ad81d04d2995f827c414175a2e98d7e7bc1182d1042c3aad1b10541ef5b4ef8d",
+        "bytes": 63761
+      },
+      {
+        "path": "Backend/internal/matchlobby/dedicated_integration_test.go",
+        "sha256": "95b0b0625c6da6c28704a2a59d00b68d973679c63ae17a765fe34d76c58572f1",
+        "bytes": 20305
+      },
+      {
+        "path": "Backend/internal/database/migrator_integration_test.go",
+        "sha256": "68565072986511872ef3799ae1e6b1059f02728aed38bf41c2bcffc9873017ed",
+        "bytes": 7821
+      },
+      {
+        "path": "Backend/api/openapi/openapi.yaml",
+        "sha256": "58a7d09698bded47d1fb7b5a559d9997f577b9f278e114159355d749ce4d055d",
+        "bytes": 341518
+      }
+    ]
+  },
+  "skip_audit": [
+    {
+      "name": "TestRedisBindRateStoreIsAtomicAndExpires",
+      "prior_full_race_status": "SKIP",
+      "reason": "TEST_REDIS_ADDRESS was not set in the full-race command",
+      "rerun_status": "PASS",
+      "rerun_log": "docs/implementation/strict-roster-20260907/evidence/backend-a-redis-skips-rerun-20260908.log",
+      "rerun_log_sha256": "71fa21d585f60df48d4040abce86750b455b8fceac76bde02a45515cd88548c0"
+    },
+    {
+      "name": "TestGateTicketIsAtomicallySingleUse",
+      "prior_full_race_status": "SKIP",
+      "reason": "TEST_REDIS_ADDRESS was not set in the full-race command",
+      "rerun_status": "PASS",
+      "rerun_log": "docs/implementation/strict-roster-20260907/evidence/backend-a-redis-skips-rerun-20260908.log",
+      "rerun_log_sha256": "71fa21d585f60df48d4040abce86750b455b8fceac76bde02a45515cd88548c0"
+    },
+    {
+      "name": "TestRedisVNTLimitStoreIsAtomicAndExpires",
+      "prior_full_race_status": "SKIP",
+      "reason": "TEST_REDIS_ADDRESS was not set in the full-race command",
+      "rerun_status": "PASS",
+      "rerun_log": "docs/implementation/strict-roster-20260907/evidence/backend-a-redis-skips-rerun-20260908.log",
+      "rerun_log_sha256": "71fa21d585f60df48d4040abce86750b455b8fceac76bde02a45515cd88548c0"
+    },
+    {
+      "name": "TestS3StorageAgainstCompatibleService",
+      "prior_full_race_status": "SKIP",
+      "reason": "TEST_DOWNLOAD_S3_* fixture variables absent; no local MinIO executable/service found; no production credentials used",
+      "rerun_status": "NOT_RUN",
+      "required_environment": "isolated S3-compatible endpoint and test credentials"
+    },
+    {
+      "name": "TestNormalizeBattleLogFixtureWhenConfigured",
+      "prior_full_race_status": "SKIP",
+      "reason": "BATTLELOG_FIXTURE absent; only synthetic unit fixtures exist and were not promoted",
+      "rerun_status": "NOT_RUN",
+      "required_environment": "real native BattleLog server fixture"
+    },
+    {
+      "name": "TestRestrictedMetaServicePermissions",
+      "prior_full_race_status": "SKIP",
+      "reason": "TEST_META_DATABASE_URL/TEST_META_REDIS_* absent in this run; restricted fixture was not reused without its credentials",
+      "rerun_status": "NOT_RUN",
+      "required_environment": "restricted Meta DB and Redis ACL fixture"
+    },
+    {
+      "name": "TestStrictRosterRustRelayClients",
+      "prior_full_race_status": "SKIP",
+      "reason": "TOOLBOX_RELAY_DRIVER absent; available driver is Windows PE .exe and Linux Go exec returned exec format error",
+      "rerun_status": "BLOCKED",
+      "rerun_log": "docs/implementation/strict-roster-20260907/evidence/backend-a-rust-relay-skip-rerun-20260908.log",
+      "rerun_log_sha256": "55fd86c6182c1d003b584d8ae31c23821f36bfb578dd99829b13016c343029af",
+      "inner_test_exit_code": 1,
+      "wrapper_footer": "EXIT_CODE=1"
+    }
+  ],
+  "migration_history": {
+    "test": "TestLiveGenerationMigrationPreservesHistoricalConnectedRoster",
+    "status": "PASS",
+    "command": "TEST_DATABASE_URL=postgresql://phanthy@127.0.0.1:55439/rebound_a_fullrace_final_20260908_01?sslmode=disable go test -race -p 1 ./internal/database -run ^TestLiveGenerationMigrationPreservesHistoricalConnectedRoster$ -count=1 -v",
+    "exit_code": 0,
+    "log": "docs/implementation/strict-roster-20260907/evidence/backend-a-schema47-history-backfill-20260908.log",
+    "log_sha256": "33608b10a3b5842566423acac221aa44740c40775a74d522f237deb8beda199e",
+    "fixture": "transaction-local temp tables matching schema47 columns with historical CONNECTED HOST gen11 and MEMBER gen12, plus CONNECTING/DISCONNECTED controls; exact embedded migration 000048 SQL applied",
+    "observed": "HOST and MEMBER connected rows received live_generation=connection_generation, live_route_generation=7; HOST preserved=true, MEMBER preserved=false; non-connected rows remained null/false",
+    "no_database_dump_or_credentials": true
+  },
+  "historical_skip_comparison": {
+    "previous_four": [
+      "TestS3StorageAgainstCompatibleService",
+      "TestNormalizeBattleLogFixtureWhenConfigured",
+      "TestRestrictedMetaServicePermissions",
+      "TestStrictRosterRustRelayClients"
+    ],
+    "new_redis_skips": [
+      "TestRedisBindRateStoreIsAtomicAndExpires",
+      "TestGateTicketIsAtomicallySingleUse",
+      "TestRedisVNTLimitStoreIsAtomicAndExpires"
+    ],
+    "explanation": "The final full-race invocation omitted TEST_REDIS_ADDRESS; the isolated Redis was available and the three tests were rerun separately."
+  },
+  "notes": [
+    "The final race invocation omitted TEST_REDIS_ADDRESS; three Redis tests were rerun against the existing isolated Redis and passed.",
+    "The Rust relay interop rerun was attempted with the available Windows PE driver and failed with Linux exec format error; it remains blocked, not PASS.",
+    "A full schema47 restore was seeded with synthetic historical CONNECTED HOST/MEMBER rows and migrated in a unique database; the transaction-local migration test remains as a unit-level guard.",
+    "The full-race log predates the later migrator integration-test addition and Root update compatibility-file edits; its PASS/skip counts are historical for its frozen input, not a claim that those later edits were included."
+  ],
+  "migration_history_actual": {
+    "status": "PASS",
+    "database": "rebound_a_schema47_history_20260908_02",
+    "source_dump": "backend-schema47-source-20260907-authority-final.dump",
+    "source_dump_sha256": "2d2290a14481fb380b7e9057faea45976c18ae4ba84600af4a3b19b8b22ddeb3",
+    "restore_log": "docs/implementation/strict-roster-20260907/evidence/backend-a-schema47-history-restore-20260908-02.log",
+    "restore_log_sha256": "daa0b014d8c4146290d2a990087a4aed9164f978e9883310604d03ba0a2da294",
+    "restore_exit_code": 0,
+    "seed_sql": "docs/implementation/strict-roster-20260907/evidence/backend-schema47-history-seed-20260908.sql",
+    "seed_sql_sha256": "1886cce0cd1aea5efe88c1f40b4627a432b606fcb452ac1a1e8b739e161f228c",
+    "seed_log": "docs/implementation/strict-roster-20260907/evidence/backend-a-schema47-history-seed-20260908.log",
+    "seed_log_sha256": "214d9b71bd437dc377ab5622055cd6e8724d89202cdd278b84bdd5d148273e2b",
+    "seed_exit_code": 0,
+    "pre_upgrade": "schema_migrations=47|47, two actual match_attempt_roster rows CONNECTED (HOST gen11, MEMBER gen12) with live nonce, same full schema47 restore",
+    "upgrade_command": "go test -race -p 1 ./internal/database -run ^TestMigratorAgainstPostgreSQL$ -count=1 -v",
+    "upgrade_log": "docs/implementation/strict-roster-20260907/evidence/backend-a-schema47-history-upgrade-20260908.log",
+    "upgrade_log_sha256": "3c08292d7847445dcbb6a2760846d4217516621d15baebe6bf57b27a64f62801",
+    "upgrade_exit_code": 0,
+    "postcheck_log": "docs/implementation/strict-roster-20260907/evidence/backend-a-schema47-history-postcheck-20260908.log",
+    "postcheck_log_sha256": "9c4561c3069ca985dd8be57bf3b48800ab76a64c2409be412ea31f7a866d15cb",
+    "post_upgrade": "schema_migrations=48|48; HOST CONNECTED auth_gen11/live_gen11/live_route7/preserved=true; MEMBER CONNECTED auth_gen12/live_gen12/live_route7/preserved=false",
+    "no_original_db_overwritten": true,
+    "no_credentials_or_dump_added_to_product": true
+  },
+  "post_run_targeted_update": {
+    "status": "PASS",
+    "command": "go test -race -p 1 ./internal/update -count=1 -v",
+    "exit_code": 0,
+    "log": "docs/implementation/strict-roster-20260907/evidence/backend-a-update-strict48-targeted-20260908.log",
+    "log_sha256": "573089f20a5fbb534cfde88ad6117069ae1c88b4770d1fc40d45aac01779e321",
+    "scope": "Root-frozen strict schema48 release metadata/update service, tests, and wire fixture",
+    "full_race_inclusion": false
+  }
+}

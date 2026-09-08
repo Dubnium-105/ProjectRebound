@@ -1,0 +1,25 @@
+tampered_stage 1  [2026-09-07 16:24:01] UPDATE_FAILED: staged update no longer matches its signed size/hash
+
+launch_failure_rollback 1  [2026-09-07 16:24:02] UPDATE_FAILED: 由于出现以下错误，无法运行此命令: 指定的可执行文件不是此操作系统平台的有效应用程序。。
+[2026-09-07 16:24:02] UPDATE_ROLLED_BACK: previous complete strict binary restored
+[2026-09-07 16:24:02] UPDATE_RECOVERY_REQUIRED: inspect target and backup; no complete binary was deleted
+
+{
+  "command": "python updater_transaction_test.py",
+  "results": [
+    {
+      "case": "tampered_stage",
+      "status": "PASS",
+      "updater_exit_code": 1,
+      "target_old_complete": true,
+      "test_scope": "actual PowerShell file transaction with synthetic nonexecutable bytes; no production application or signatures"
+    },
+    {
+      "case": "launch_failure_rollback",
+      "status": "PASS",
+      "updater_exit_code": 1,
+      "target_old_complete": true,
+      "test_scope": "actual PowerShell file transaction with synthetic nonexecutable bytes; no production application or signatures"
+    }
+  ]
+}

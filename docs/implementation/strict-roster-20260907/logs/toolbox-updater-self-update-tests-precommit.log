@@ -1,0 +1,23 @@
+
+running 14 tests
+test install::self_update::tests::compile_time_public_key_ring_is_valid_when_configured ... ok
+test install::self_update::tests::updater_recovery_is_journal_scoped_and_does_not_sweep_target_directory ... ok
+test install::self_update::tests::matches_production_go_manifest_hash_vector ... ok
+test install::self_update::tests::update_check_rejects_downgrades_and_inconsistent_flags ... ok
+test install::self_update::tests::parses_compile_time_key_ring_format ... ok
+test install::self_update::tests::version_comparison_matches_control_plane_rules ... ok
+test install::self_update::tests::updater_script_waits_and_rolls_back ... ok
+test install::self_update::tests::operation_idle_requires_no_active_game_session ... ok
+test install::self_update::tests::missing_or_unknown_public_key_fails_closed ... ok
+test install::self_update::tests::strict_release_rejects_old_frontend_protocol_and_unsigned_compatibility ... ok
+test install::self_update::tests::staged_file_remains_bound_to_signed_size_and_sha256 ... ok
+test install::self_update::tests::rejects_manifest_tampering_and_wrong_identity ... ok
+test install::self_update::tests::verifies_actual_go_signed_strict_online_manifest_fixture ... ok
+test install::self_update::tests::verifies_go_compatible_manifest_hash_and_signature ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 269 filtered out; finished in 0.02s
+
+
+--- stderr ---
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.25s
+     Running unittests src\lib.rs (target\debug\deps\rebound_toolbox-531c06249e821c2c.exe)

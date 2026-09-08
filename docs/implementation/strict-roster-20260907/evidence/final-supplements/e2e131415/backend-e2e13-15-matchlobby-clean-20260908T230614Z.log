@@ -1,0 +1,16 @@
+=== RUN   TestStrictRosterDedicatedLifecycleAgainstPostgreSQL
+--- PASS: TestStrictRosterDedicatedLifecycleAgainstPostgreSQL (3.48s)
+=== RUN   TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL (0.20s)
+=== RUN   TestStrictRosterAdminForceAbortIsAuditedAndDrainKeepsReadsAgainstPostgreSQL
+--- PASS: TestStrictRosterAdminForceAbortIsAuditedAndDrainKeepsReadsAgainstPostgreSQL (0.12s)
+=== RUN   TestStrictRosterP2PPreflightNativeProcessNotStartedCleanupAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PPreflightNativeProcessNotStartedCleanupAgainstPostgreSQL (0.13s)
+=== RUN   TestStrictRosterP2PPreflightNotStartedRejectsInstalledPayloadAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PPreflightNotStartedRejectsInstalledPayloadAgainstPostgreSQL (0.12s)
+=== RUN   TestStrictRosterP2PLifecycleAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PLifecycleAgainstPostgreSQL (0.73s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/matchlobby	4.788s
+
+EXIT_CODE=0

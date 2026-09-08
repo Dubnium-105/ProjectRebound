@@ -1,0 +1,2 @@
+PREFLIGHT_FAILED check=migration-contract-version expected=46 actual=47
+E2E19_WRONG_SCHEMA_EXIT=1

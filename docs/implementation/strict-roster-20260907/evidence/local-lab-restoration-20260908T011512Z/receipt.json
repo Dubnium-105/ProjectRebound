@@ -1,0 +1,111 @@
+{
+  "recorded_at": "2026-09-08T01:15:13.962661+00:00",
+  "status": "PASS_RESTORATION_ONLY",
+  "game_files": {
+    "Payload.dll": "6c7b5e05540ac72a6d7a9fa78f867917285fce00081156ee13d237aa4d6c24a3",
+    "steam_appid.txt": "ddfe0e8d462af661f81db36589c39882dc0f2330785b5d80cd34f2f520ad618f"
+  },
+  "executions": [
+    {
+      "name": "boundary-process-check",
+      "command": [
+        "powershell",
+        "-NoProfile",
+        "-Command",
+        "@(Get-Process -Name ProjectBoundarySteam-Win64-Shipping -ErrorAction SilentlyContinue).Count"
+      ],
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\local-lab-restoration-20260908T011512Z\\boundary-process-check.log",
+      "log_sha256": "bd88f8a2a059e2a7cf83f715e0d271246508b46fe6272182f74e06fdd87ec7b3"
+    },
+    {
+      "name": "postgres-owned-directory",
+      "command": [
+        "wsl",
+        "-e",
+        "/usr/bin/psql",
+        "-h",
+        "127.0.0.1",
+        "-p",
+        "55439",
+        "-U",
+        "phanthy",
+        "-d",
+        "postgres",
+        "-At",
+        "-c",
+        "SHOW data_directory"
+      ],
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\local-lab-restoration-20260908T011512Z\\postgres-owned-directory.log",
+      "log_sha256": "b1f49f04836cee8e2e63222a139f43aad020af55f5c875072b3bb4a6cbdc2bd6"
+    },
+    {
+      "name": "redis-owned-server",
+      "command": [
+        "wsl",
+        "-e",
+        "/usr/bin/redis-cli",
+        "-h",
+        "127.0.0.1",
+        "-p",
+        "56380",
+        "INFO",
+        "server"
+      ],
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\local-lab-restoration-20260908T011512Z\\redis-owned-server.log",
+      "log_sha256": "446b3b888f6129b28d5481e0ca8cd9997325d898ac91919eb7fa90b6cc95bdc5"
+    },
+    {
+      "name": "stop-owned-postgres",
+      "command": [
+        "wsl",
+        "-e",
+        "/usr/lib/postgresql/14/bin/pg_ctl",
+        "-D",
+        "/tmp/rebound-pg-backend-20260907-a",
+        "-m",
+        "fast",
+        "-w",
+        "-t",
+        "15",
+        "stop"
+      ],
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\local-lab-restoration-20260908T011512Z\\stop-owned-postgres.log",
+      "log_sha256": "79ae05b15f810366475bab4b75abad2b30da4ec0a4eae1dd8a6a00b00a023cc6"
+    },
+    {
+      "name": "stop-owned-redis",
+      "command": [
+        "wsl",
+        "-e",
+        "/usr/bin/redis-cli",
+        "-h",
+        "127.0.0.1",
+        "-p",
+        "56380",
+        "SHUTDOWN",
+        "NOSAVE"
+      ],
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\local-lab-restoration-20260908T011512Z\\stop-owned-redis.log",
+      "log_sha256": "4e3ad9a9458dbe11b1c46174f92c37217a24cecdcfb0c895bad868e821b1b4a3"
+    },
+    {
+      "name": "owned-listener-check",
+      "command": [
+        "wsl",
+        "-e",
+        "/usr/bin/ss",
+        "-ltnH"
+      ],
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\local-lab-restoration-20260908T011512Z\\owned-listener-check.log",
+      "log_sha256": "f3a6b03d5571bc29ebe0b29b042ad55d9b56f01b13c4f525a92b80313119246e"
+    }
+  ],
+  "scope": "Owned local diagnostic resource restoration only; not native cleanup/READY reuse acceptance.",
+  "preserved": "PostgreSQL data directory and private fixtures/dumps retained. No database deleted. Original 5432/6379 and unrelated processes were not stopped."
+}

@@ -1,0 +1,1641 @@
+{
+  "issues": [
+    {
+      "id": "BP-004",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\security\\auth.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\api\\account\\users.rs",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-lib-test-final.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-auth-transition-test.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-auth-transition-final-tests.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-final-auth-gates-lib-test.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-player-gates-final-tests.log",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\vnt\\node_service.rs"
+      ],
+      "note": "Online runtime token acquisition requires auth::ensure_authenticated and session_epoch/profile verification; offline PvE remains separate. Account switch, invitation redemption, and logout serialize through an auth transition gate: owned launch/match cleanup runs while the old credential is valid, including before redeem begin_session; cleanup failure preserves the old identity/resources and returns AUTH_CLEANUP_PENDING, and only successful cleanup reaches session replacement/revocation. A real auth failure reopens the temporary operation block while shutdown remains closed. Public player requests hold the transition gate for their full call and verify epoch; status/room/match supervisors are drained independently. CommunityNode heartbeat remains independent during player transitions, while its owned-account sync runs outside the tick lock only under a non-blocking auth-transition gate with before/after blocked, shutdown, and epoch checks. CommunityNode stop_local is token-free. Long-lived supervisors are retained for relogin and final shutdown joins them. Deterministic Rust tests and the final lib run pass, but real expired/revoked service responses were not run without a live service."
+    },
+    {
+      "id": "BP-005",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\vnt\\legacy\\controller.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\vnt\\legacy\\mod.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\vnt\\legacy\\relay.rs",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-lib-test-final.log"
+      ],
+      "note": "Reconnect obtains the current access lease/epoch, requests resync, and refreshes the authoritative snapshot before events. Live token rotation plus service WebSocket was not run; the corresponding service evidence remains unverified."
+    },
+    {
+      "id": "BP-008",
+      "implementation": "implemented",
+      "acceptance": "BLOCKED",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\launching\\launch.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\matchmaking\\controller.rs",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-lib-test-final.log"
+      ],
+      "note": "Host, member, and Dedicated paths are separate; P2P Host starts authority and member waits for authority endpoint/grant. Real strict three-player game and native role admission were not run; locked game/Payload/service evidence remains unverified."
+    },
+    {
+      "id": "BP-009",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\vnt\\rooms.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\server\\pipe.rs",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-lib-test-final.log"
+      ],
+      "note": "IPv4/IPv6 endpoint and nonzero-port validation is enforced; observed native ACK port is installed into VNT/Legacy routes and no unconditional 7777 fallback remains. Cross-language live endpoint fixture was not run."
+    },
+    {
+      "id": "BP-010",
+      "implementation": "implemented",
+      "acceptance": "BLOCKED",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\server\\pipe.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\launching\\launch.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs"
+      ],
+      "note": "Transport readiness, Payload authority ACK, native connection phases, and Playable telemetry are distinct. Native listener/Pawn/input evidence was not run; the locked Payload/game ABI and runtime evidence remain unverified."
+    },
+    {
+      "id": "BP-011",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\matchmaking\\controller.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\frontend\\src\\App.jsx"
+      ],
+      "note": "No implicit transport fallback is exposed; retry/route refresh is explicit and bound to attempt/route generation. Real node rebind and in-game migration were not exercised."
+    },
+    {
+      "id": "BP-016",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\launching\\controller.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\frontend\\src\\App.jsx",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-lib-test-final.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\frontend\\final-front-npm-run-test-bridge.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\frontend\\final-front-npm-run-test-ui.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-lib-test-worker-final.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-operation-tests.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-final-tests.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-auth-transition-final-tests.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-auth-transition-test.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-final-auth-gates-lib-test.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-player-gates-final-tests.log"
+      ],
+      "note": "PVE and MatchLobby online launches now use the same LaunchOperation store and get/cancel API. Match operations are bound to the current lobby, Attempt, and authorized host/member role; host, member, and route refresh share a cancellation token. Online process tracking records real PIDs, cancellation performs native/backend compensation and local safe cleanup before terminal status, and LaunchComplete/Succeeded is emitted only after strict Payload telemetry reaches the local player's Playable state. Public player operations hold the auth transition gate through controller I/O and epoch validation; live native/service cancellation and retry injection was not run in this agent task."
+    },
+    {
+      "id": "BP-017",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\launching\\controller.rs",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-lib-test-final.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-lib-test-worker-final.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-operation-tests.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-final-tests.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-auth-transition-final-tests.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-final-auth-gates-lib-test.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-player-gates-final-tests.log"
+      ],
+      "note": "Online complete_launch is staged without a success event while processes are merely tracked. The operation remains Running through authority/member reporting and Payload Playable telemetry; only then is the single terminal Succeeded emitted. Failures first enter cleanup_pending and the worker completes native/backend/local cleanup before Failed or Cancelled is recorded. Match action and status/room supervisors now expose drain gates to account cleanup. Runtime behavior tests pass; real process/network failure injection was not run in this agent task."
+    },
+    {
+      "id": "BP-018",
+      "implementation": "implemented",
+      "acceptance": "BLOCKED",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\launching\\launch.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\server\\pipe.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\frontend\\src\\App.jsx"
+      ],
+      "note": "PID/window/ACK are not promoted to Playable; Payload match telemetry must report playable. Native Pawn/input and remote rejection evidence was not run; the fixed game/Payload ABI remains unverified."
+    },
+    {
+      "id": "BP-019",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\server\\pipe.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\launching\\launch.rs",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-lib-test-final.log"
+      ],
+      "note": "Per-launch named-pipe connects now require the expected managed Payload/game PID; strict launch and runtime cleanup/admission/connection paths pass the real spawned PID, and PID identity is retained with cleanup scope. Framing/cross-language native behavior is covered by shared pipe tests; the latest local full run recorded one early-disconnect fixture failure and is not claimed as a pass here."
+    },
+    {
+      "id": "BP-020",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\launching\\launch.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\server\\pipe.rs",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-abi-audit-nmt-login4-20260907.md",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-abi-audit-nmt-login4-20260907.json"
+      ],
+      "note": "Toolbox login polling, bounded Payload status telemetry, and strict protocol/hash/PID parsing are implemented in the cited launch and pipe paths. The fixed-version native ABI has offline disassembly/serializer evidence; the native game-thread callback and remote Meta login positive integration were not executed, so strict online acceptance remains PARTIAL."
+    },
+    {
+      "id": "BP-021",
+      "implementation": "implemented",
+      "acceptance": "BLOCKED",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\launching\\launch.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-abi-audit-nmt-login4-20260907.md",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-abi-audit-nmt-login4-20260907.json"
+      ],
+      "note": "Toolbox operation cancellation, bounded launch waiting, and Playable timeout/phase guards are implemented in the cited launch/runtime paths. The fixed-version native ABI has offline evidence; actual Travel success/failure plus WorldReady/PawnReady native positive and negative callbacks were not executed, so acceptance remains BLOCKED."
+    },
+    {
+      "id": "BP-022",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\server\\pipe.rs",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-lib-test-final.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\native-scope-runtime-20260908\\receipt.json",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\host-route-preservation-20260908\\receipt.json",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\schema48-toolbox-update-20260908\\schema48-toolbox-update-receipt-20260908.json",
+        "C:\\wksp\\ProjectRebound\\Payload\\Tests\\CommandProtocolTests.cpp",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\server\\pipe_cpp_fixture_tests.rs"
+      ],
+      "note": "The actual Windows C++ CommandFramework producer emits preserved HOST full scope/nonce/operation; Rust consumes the exact fixture bytes and rejects missing/tampered fields. This closes wire-fixture consumption only, not real game transport E2E."
+    },
+    {
+      "id": "BP-023",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\server\\pipe.rs",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-lib-test-final.log"
+      ],
+      "note": "Request correlation, bounded framing, UTF-8/size checks, timeout, structured errors, admission phases, cleanup pending, and expected Payload PID gating are implemented. The latest local full run was not a pass because one Windows fixture asserted on an allowed early-disconnect race; no native seven-command live run was performed in this agent task."
+    },
+    {
+      "id": "BP-024",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\server\\pipe.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\server\\registration.rs",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-lib-test-final.log"
+      ],
+      "note": "Lifecycle/match generation fields are parsed and dedicated active-match state is kept distinct from ordinary READY. Actual vote/map/restart Payload lifecycle was not run."
+    },
+    {
+      "id": "BP-025",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\api\\multiplayer\\lobbies.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\frontend\\src\\App.jsx",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\frontend\\final-front-npm-run-test-ui.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-operation-tests.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-final-tests.log"
+      ],
+      "note": "operation_id/run_id now flow through MatchAutoLaunch, connection reports, and the shared query/cancel LaunchOperation record. The record is internally bound to lobby_id, Attempt ID, and role; terminal updates are one-way and cleanup errors remain visible as cleanup_pending. Live backend/Payload correlation was not run in this agent task."
+    },
+    {
+      "id": "BP-026",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\launching\\controller.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\vnt\\rooms.rs",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-lib-test-final.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-lib-test-worker-final.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-operation-tests.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-final-tests.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-auth-transition-final-tests.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-final-auth-gates-lib-test.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-player-gates-final-tests.log"
+      ],
+      "note": "Runtime owns PVE worker handles and online MatchLobby cancellation tokens; account switching temporarily blocks new player work, waits the independent MatchLobby/status/room in-flight gates, and keeps node/status/room supervisors available for relogin. CommunityNode tick heartbeat is not blocked by player logout; only periodic owned-node catalog sync is gated with a non-blocking transition lock and epoch recheck. Final shutdown sets the permanent stop and joins all owned supervisors, then stops the owned status helper. Member/authority failure paths retain tracking until explicit safe-exit evidence. Same-generation cleanup retry reruns the failed game, room, and native steps under the held lease; native success cannot clear an unresolved room failure. Repeated real process/pipe crash cycles were not run in this agent task."
+    },
+    {
+      "id": "BP-028",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\launching\\launch.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\frontend\\src\\App.jsx",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\frontend\\final-front-npm-run-test-ui.log"
+      ],
+      "note": "Offline PvE is isolated; arbitrary online launch/old room entry returns explicit retired errors; online UI enters MatchLobby. Live Go MetaTunnel/online service verification was not run."
+    },
+    {
+      "id": "BP-029",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\launching\\metatunnel.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-lib-test-final.log"
+      ],
+      "note": "Dynamic MetaTunnel endpoints and managed lifecycle are wired to strict launch; live token rotation/EOF/parent crash behavior was not run."
+    },
+    {
+      "id": "BP-030",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\matchmaking\\controller.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\api\\multiplayer\\lobbies.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\frontend\\src\\App.jsx",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\frontend\\final-front-npm-run-test-bridge.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\frontend\\final-front-npm-run-test-ui.log"
+      ],
+      "note": "Typed MatchLobby/Attempt controller and React bridge cover list/create/join/team/ready/start/retry/leave; old room API methods are retired. No live service snapshot/revision conflict run."
+    },
+    {
+      "id": "BP-031",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\matchmaking\\ids.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\matchmaking\\controller.rs",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-ids-tests.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-lib-test-typed-worker-final.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\strong-id-current-20260907T234308Z\\receipt.json",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\strong-id-current-20260907T234308Z\\compile-fail-tests.log"
+      ],
+      "note": "Controller materials and AuthorityAdmissionContext use distinct LobbyId, P2pRoomId, AttemptId, WorldInstanceId, AuthoritySessionId, roster/route/connection generation, grant, operation, and run types; wire conversion is explicit at HTTP/IPC boundaries. Targeted typed identity/serialization tests pass (3), but no compile-fail harness is checked in and the full lib run had one separate Windows named-pipe fixture early-disconnect failure."
+    },
+    {
+      "id": "BP-038",
+      "implementation": "implemented",
+      "acceptance": "BLOCKED",
+      "evidence": [
+        "C:\\wksp\\ProjectRebound\\Payload\\Admission\\StrictRosterPolicy.h",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\launching\\launch.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\server\\pipe.rs",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-abi-audit-nmt-login4-20260907.md",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-abi-audit-nmt-login4-20260907.json"
+      ],
+      "note": "Toolbox fail-closed IPC, PID/protocol checks, and grant staging are implemented; native client Grant injection remains intentionally false/fail-closed and no direct open, empty token, or bool fallback exists. Fixed-version native ABI/disassembly evidence exists offline, but strict positive native Grant injection was not executed, so acceptance remains BLOCKED."
+    },
+    {
+      "id": "BP-039",
+      "implementation": "implemented",
+      "acceptance": "BLOCKED",
+      "evidence": [
+        "C:\\wksp\\ProjectRebound\\Payload\\Admission\\StrictRosterPolicy.h",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\server\\pipe.rs",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-abi-audit-nmt-login4-20260907.md",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-abi-audit-nmt-login4-20260907.json",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\native-scope-runtime-20260908\\receipt.json",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\host-route-preservation-20260908\\receipt.json",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\schema48-toolbox-update-20260908\\schema48-toolbox-update-receipt-20260908.json"
+      ],
+      "note": "Actual fixed-game one-client Steam/PreLogin, native admission/readback, Backend Reserve/Confirm, CONNECTED and DISCONNECTED/release are observed. Online MinPlayersToStart=2 prevents Pawn/Playable with one real player. No fake seat was connected and no native minimum/PvE/Token bypass was used."
+    },
+    {
+      "id": "BP-040",
+      "implementation": "implemented",
+      "acceptance": "BLOCKED",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\server\\pipe.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\matchmaking\\controller.rs",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-abi-audit-nmt-login4-20260907.md",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-abi-audit-nmt-login4-20260907.json"
+      ],
+      "note": "Toolbox P2P host wiring uses the independent native_connection_nonce from StartAuthority ACK and the actual authority endpoint before host_ready. Fixed-version native ABI evidence exists offline; native platform identity proof and a live listener positive run were not executed, so acceptance remains BLOCKED."
+    },
+    {
+      "id": "BP-043",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\matchmaking\\controller.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\server\\pipe.rs",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-lib-test-final.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\native-scope-runtime-20260908\\receipt.json",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\host-route-preservation-20260908\\receipt.json",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\schema48-toolbox-update-20260908\\schema48-toolbox-update-receipt-20260908.json",
+        "C:\\wksp\\ProjectRebound\\Backend\\migrations\\000048_strict_roster_live_generation.sql",
+        "C:\\wksp\\ProjectRebound\\Backend\\internal\\matchlobby\\service.go",
+        "C:\\wksp\\ProjectRebound\\Backend\\internal\\matchlobby\\sweeper.go",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-same-route-recovery-final-20260908.log",
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\host-route-recovery-fix-receipt-20260908.json",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-full-lib-same-route-20260908.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-all-targets-same-route-20260908.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-same-route-fmt-check-20260908.log"
+      ],
+      "note": "Same-world route recovery preserves the exact still-live HOST scope/nonce/operation/cursor across route 1→2→3 while updating authority readiness and MEMBER authorization separately. A later real HOST disconnect advances its authorization generation, invalidates the Payload installation gate and requires the refreshed allocation. Toolbox admits this exact Backend-confirmed old HOST proof into the same-route fresh-HOST branch, which requires a new native nonce and CONNECTED proof. Backend, Payload and Toolbox source are aligned; real multi-client HOST recovery remains unrun."
+    },
+    {
+      "id": "BP-044",
+      "implementation": "implemented",
+      "acceptance": "PARTIAL",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\server\\pipe.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\server\\registration.rs",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-lib-test-final.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-auth-transition-final-tests.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-preflight-final-test.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-final-auth-gates-lib-test.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-player-gates-final-tests.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-same-route-recovery-final-20260908.log",
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\host-route-recovery-fix-receipt-20260908.json",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-full-lib-same-route-20260908.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-all-targets-same-route-20260908.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-same-route-fmt-check-20260908.log"
+      ],
+      "note": "Connection events, cleanup ACKs, backend callbacks, cursor advancement, and cleanup scope require exact attempt/session/world/roster/route context; pending clear is retried. Pre-spawn provisioning failures seal NativeProcessNotStarted with the exact Attempt/session/roster/route scope and no process/pipe/PID evidence. Post-spawn authority failures retain the typed owned process/quarantine evidence and never fall back to PID zero or a fake not-started marker. No multi-attempt live callback injection was run."
+    },
+    {
+      "id": "BP-045",
+      "implementation": "implemented",
+      "acceptance": "BLOCKED",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\server\\registration.rs",
+        "C:\\wksp\\ProjectRebound\\Backend\\internal\\gameserver\\service.go",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-lib-test-final.log",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\server\\pipe.rs",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-registration-capability-tests.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-abi-audit-nmt-login4-20260907.md",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\native-abi-audit-nmt-login4-20260907.json"
+      ],
+      "note": "Toolbox Dedicated registration queries PayloadStatus through the same PID-validated pipe and publishes native_admission_verified only when the independent native proof, authority path, strict-roster-v2, and fixed game hash match; status.ready, strict_online, and active allocation are not circular prerequisites. Fixed-version native ABI evidence exists offline, but the independent native proof remains false and live registered-agent/DB/Payload scheduler execution was not run, so acceptance remains BLOCKED."
+    },
+    {
+      "id": "BP-046",
+      "implementation": "implemented",
+      "acceptance": "BLOCKED",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\server\\registration.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\server\\pipe.rs",
+        "C:\\wksp\\ProjectRebound\\Backend\\internal\\gameserver\\service.go"
+      ],
+      "note": "Dedicated registration consumes active_match, installs allocation, confirms Payload admission phases, reports connection transitions, and uses exact cleanup scope. Real registered agent/DB/Payload assignment execution was not run; scheduler/runtime evidence remains unverified."
+    },
+    {
+      "id": "BP-047",
+      "implementation": "implemented",
+      "acceptance": "BLOCKED",
+      "evidence": [
+        "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\server\\pipe.rs",
+        "C:\\wksp\\ProjectReboundToolbox\\src\\server\\registration.rs",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-auth-transition-final-tests.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-final-auth-gates-lib-test.log",
+        "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-player-gates-final-tests.log",
+        "C:\\wksp\\ProjectRebound\\Payload\\Admission\\StrictRosterCleanupReceipt.h",
+        "C:\\wksp\\ProjectRebound\\Payload\\Tests\\StrictRosterCleanupReceiptTests.cpp",
+        "C:\\wksp\\ProjectRebound\\Payload\\dllmain.cpp"
+      ],
+      "note": "Cleanup pending is retained until final native clear evidence; database native-cleared is sent only after final scope ACK, and next launch is blocked while pending. Full same-generation retry reruns each failed owned-game/room/native resource step and preserves unrelated failures until all steps succeed. Account cleanup remaining also checks the managed barrier and lease count after draining the three player supervisors. Real world teardown, DB lease, and consecutive-game cleanup were not run."
+    }
+  ],
+  "tests": [
+    {
+      "command": "cargo test --lib --no-fail-fast (historical early baseline)",
+      "exit_code": 0,
+      "pass_count": 246,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-lib-test-worker-final.log",
+      "status": "historical",
+      "note": "Historical early baseline only: 246 passed; this is not the final acceptance run."
+    },
+    {
+      "command": "cargo check --lib (historical typed run)",
+      "exit_code": 0,
+      "pass_count": 0,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-check-typed-final.log",
+      "status": "historical",
+      "note": "Historical pre-freeze typed check; current runtime check is recorded separately below."
+    },
+    {
+      "command": "cargo check (src-tauri)",
+      "exit_code": 0,
+      "pass_count": 0,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-src-tauri-check-final.log",
+      "note": "Pass with four dead-code warnings for retired DTOs.",
+      "status": "current"
+    },
+    {
+      "command": "npm run build",
+      "exit_code": 0,
+      "pass_count": 1,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\frontend\\final-front-npm-run-build-2.log",
+      "note": "Final migrated production Vite/Sites build evidence; exit 0.",
+      "status": "current"
+    },
+    {
+      "command": "npm run build (repeat final frontend evidence)",
+      "exit_code": 0,
+      "pass_count": 1,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\frontend\\final-front-npm-run-build.log",
+      "status": "current",
+      "note": "Second recorded final production Vite/Sites build; evidence was migrated without rerunning it in this audit."
+    },
+    {
+      "command": "npm run test:bridge",
+      "exit_code": 0,
+      "pass_count": 12,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\frontend\\final-front-npm-run-test-bridge.log",
+      "status": "current"
+    },
+    {
+      "command": "npm run test:ui",
+      "exit_code": 0,
+      "pass_count": 19,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\frontend\\final-front-npm-run-test-ui.log",
+      "note": "Includes event-before-snapshot replay, terminal-after-scope-clear, epoch isolation, and observed-exit waterline cases.",
+      "status": "current"
+    },
+    {
+      "command": "npm run test:status",
+      "exit_code": 0,
+      "pass_count": 11,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\frontend\\final-front-npm-run-test-status.log",
+      "status": "current"
+    },
+    {
+      "command": "npm run test:sites",
+      "exit_code": 0,
+      "pass_count": 4,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\frontend\\final-front-npm-run-test-sites.log",
+      "status": "current"
+    },
+    {
+      "command": "cargo fmt -- --check",
+      "exit_code": 1,
+      "pass_count": 0,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-fmt-check.log",
+      "note": "Historical pre-freeze result on shared in-progress files; no current rerun is claimed in this report.",
+      "status": "historical"
+    },
+    {
+      "command": "strict native three-player / Dedicated DB / signed multi-machine E2E",
+      "exit_code": null,
+      "pass_count": 0,
+      "skip_names": [
+        "native Grant injection",
+        "locked game/Payload runtime",
+        "live Go service and isolated DB",
+        "three-player LAN/Relay/VNT",
+        "signed multi-machine deployment"
+      ],
+      "log_path": "",
+      "note": "NOT_RUN: native Grant injection, locked game/Payload runtime, live Go service and isolated DB, three-player LAN/Relay/VNT, and signed multi-machine deployment were not executed; their ABI/service/multi-machine evidence remains unverified. No skipped scenario is reported as passed.",
+      "status": "not_run"
+    },
+    {
+      "command": "cargo test --lib --no-fail-fast (typed/cancellation run)",
+      "exit_code": 101,
+      "pass_count": 254,
+      "skip_names": [
+        "server::pipe::windows_pipe_tests::actual_windows_pipe_rejects_wrong_server_pid_before_sending_credentials"
+      ],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-cargo-lib-test-typed-worker-final.log",
+      "note": "Historical pre-final run; exit 101 is retained as a failure record and is not reported as a pass.",
+      "status": "historical"
+    },
+    {
+      "command": "cargo test --lib matchmaking::ids::tests --no-fail-fast",
+      "exit_code": 0,
+      "pass_count": 3,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-ids-tests.log",
+      "status": "current"
+    },
+    {
+      "command": "cargo test --lib launching::controller::tests --no-fail-fast",
+      "exit_code": 0,
+      "pass_count": 2,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-launch-controller-tests.log",
+      "status": "current"
+    },
+    {
+      "command": "cargo test --lib core::runtime::tests -- --nocapture (historical pre-final run)",
+      "exit_code": 0,
+      "pass_count": 10,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-operation-tests.log",
+      "status": "historical",
+      "note": "Historical pre-final targeted run: 10 passed; superseded by the final 15-test runtime evidence below."
+    },
+    {
+      "command": "npm run test:downloads",
+      "exit_code": 0,
+      "pass_count": 7,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\frontend\\final-front-npm-run-test-downloads.log",
+      "status": "current"
+    },
+    {
+      "command": "cargo check --manifest-path C:\\wksp\\ProjectReboundToolbox\\src-tauri\\Cargo.toml",
+      "exit_code": 0,
+      "pass_count": 0,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-final-auth-gates-tauri-check.log",
+      "note": "Current src-tauri cargo check after public player gate, supervisor drain, non-blocking owned-node sync transition gate, and node stop_local wiring; exit 0 with four existing dead-code warnings for retired DTOs.",
+      "status": "current"
+    },
+    {
+      "command": "cargo test --lib server::registration::tests",
+      "exit_code": 0,
+      "pass_count": 7,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-registration-capability-tests.log",
+      "status": "current"
+    },
+    {
+      "command": "cargo test --lib server::pipe::tests::payload_status_requires_correlated_native_lifecycle_state",
+      "exit_code": 0,
+      "pass_count": 1,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-registration-capability-tests.log",
+      "status": "current"
+    },
+    {
+      "command": "cargo test --lib server::pipe::cpp_fixture_tests",
+      "exit_code": 0,
+      "pass_count": 2,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-registration-capability-tests.log",
+      "status": "current"
+    },
+    {
+      "command": "cargo test --lib core::runtime::tests -- --nocapture (final runtime regression)",
+      "exit_code": 0,
+      "pass_count": 15,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-final-tests.log",
+      "status": "historical",
+      "note": "Historical pre-auth-transition targeted runtime run: 15 passed; superseded by the 21-test freeze run below."
+    },
+    {
+      "command": "cargo check --lib (final runtime check)",
+      "exit_code": 0,
+      "pass_count": 0,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-final-check.log",
+      "status": "historical",
+      "note": "Historical pre-auth-transition runtime check; final integrated Rust validation must be rerun after the auth transition gate change."
+    },
+    {
+      "command": "cargo test --lib core::runtime::tests -- --nocapture (player supervisor gates freeze final)",
+      "exit_code": 0,
+      "pass_count": 24,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-player-gates-final-tests.log",
+      "status": "current",
+      "note": "Current final targeted runtime evidence after three supervisor drain gates, public player epoch gate, and non-blocking owned-node sync transition gate: 24 passed, 0 failed, 0 ignored; covers auth transition, match/status/room in-flight drain, F1 preflight scope, full same-generation retry, worker join, and node-local stop wiring. This does not claim native/multi-machine acceptance."
+    },
+    {
+      "command": "cargo test --lib core::runtime::tests::auth_transition_serializes_cleanup_before_login_phase -- --nocapture",
+      "exit_code": 0,
+      "pass_count": 1,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-auth-transition-test.log",
+      "status": "current",
+      "note": "Direct bounded ordering test: login phase cannot enter the auth transition gate while the cleanup phase holds it."
+    },
+    {
+      "command": "cargo test --lib core::runtime::tests::preflight_failure_binds_empty_world_scope_without_process_evidence -- --nocapture",
+      "exit_code": 0,
+      "pass_count": 1,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-runtime-preflight-final-test.log",
+      "status": "current",
+      "note": "F1 sealed pre-spawn failure evidence: exact Attempt/session/roster/route scope, empty world, and no pipe/PID/process evidence."
+    },
+    {
+      "command": "cargo test --lib --no-fail-fast (final player-gate/full-lib run)",
+      "exit_code": 0,
+      "pass_count": 280,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-final-auth-gates-lib-test.log",
+      "status": "historical",
+      "note": "Historical default-feature run: 280 passed, 0 failed, 0 ignored. Superseded for final committed verification by the all-features 287-test run recorded below; retained as historical evidence."
+    },
+    {
+      "command": "cargo test --lib core::runtime::tests::logout_cleanup_waits_for_inflight_match_action_before_rechecking_scope -- --nocapture",
+      "exit_code": 0,
+      "pass_count": 1,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-match-action-gate-test.log",
+      "status": "current",
+      "note": "Bounded regression proving logout cleanup waits for an in-flight MatchLobby action gate."
+    },
+    {
+      "command": "cargo test --lib core::runtime::tests::logout_cleanup_drains_status_and_room_supervisors_before_scope_check -- --nocapture",
+      "exit_code": 0,
+      "pass_count": 1,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-supervisor-drain-test.log",
+      "status": "current",
+      "note": "Bounded regression proving logout cleanup waits for independent status and room supervisor gates before checking scope."
+    },
+    {
+      "command": "cargo test --lib install::self_update::tests -- --nocapture (updater journal/parent identity precommit)",
+      "exit_code": 0,
+      "pass_count": 14,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\logs\\toolbox-updater-self-update-tests-precommit.log",
+      "status": "precommit",
+      "note": "14 updater tests passed on the dirty source before the Root commit; rerun after commit. Covers journal-next durability/static scope checks and the managed parent creation-time guard."
+    },
+    {
+      "command": "python Tools/Release/test_updater_transactions.py --toolbox-repo C:\\wksp\\ProjectReboundToolbox (journal/identity precommit)",
+      "exit_code": 0,
+      "pass_count": 8,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\e2e-20\\updater-transaction-journal-fix-precommit.log",
+      "status": "precommit",
+      "note": "Eight actual PowerShell transaction cases passed on the dirty source: tampered stage, launch rollback, journal scope rejection, wrong parent creation-time, already-exited parent, old journal metadata recovery, update-id artifact mismatch, and lock-holder shared-file preservation. Rerun after Root commit."
+    },
+    {
+      "command": "cargo test --lib --all-features --no-fail-fast --target-dir C:\\wksp\\ProjectRebound\\.tmp\\final-cd09-target",
+      "exit_code": 0,
+      "pass_count": 287,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\e2e-20\\e2e20-final-cd09-full-lib.log",
+      "status": "current",
+      "note": "Final committed Toolbox cd09d7e7 full-features library run: 287 passed, 0 failed, 0 ignored."
+    },
+    {
+      "command": "cargo check --all-targets --all-features --target-dir C:\\wksp\\ProjectRebound\\.tmp\\final-cd09-target",
+      "exit_code": 0,
+      "pass_count": 0,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\e2e-20\\e2e20-final-cd09-all-targets.log",
+      "status": "current",
+      "note": "Final committed Toolbox cd09d7e7 all-targets all-features check completed successfully."
+    },
+    {
+      "command": "cargo test --manifest-path C:\\wksp\\ProjectReboundToolbox\\src-tauri\\Cargo.toml --all-features --no-fail-fast --target-dir C:\\wksp\\ProjectRebound\\.tmp\\final-cd09-tauri-target",
+      "exit_code": 0,
+      "pass_count": 7,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\e2e-20\\e2e20-final-cd09-tauri-tests.log",
+      "status": "current",
+      "note": "Final committed Toolbox cd09d7e7 Tauri all-features tests: 7 passed, 0 failed, 0 ignored."
+    },
+    {
+      "command": "python .tmp\\e2e-20\\e2e_20_harness.py --project-repo C:\\wksp\\ProjectRebound --toolbox-repo C:\\wksp\\ProjectReboundToolbox --root C:\\wksp\\ProjectRebound --output docs\\implementation\\strict-roster-20260907\\e2e-20-result.json",
+      "exit_code": 0,
+      "pass_count": 13,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\e2e-20\\e2e-20-result-final-cd09.json",
+      "status": "current",
+      "note": "Harness exit 0 with 15 recorded steps. Thirteen functional/fingerprint steps passed; provenance collection reported release_ready=false and the expected release gate exit 3, counted as two release blockers. Overall E2E-20 remains PARTIAL; the record count is not presented as pass_count.",
+      "record_count": 15,
+      "step_status_counts": {
+        "passed": 13,
+        "partial": 0,
+        "blocked": 2,
+        "not_run": 0
+      },
+      "acceptance": "PARTIAL"
+    },
+    {
+      "id": "toolbox-schema48-update-1",
+      "owner": "toolbox",
+      "report_targets": [
+        "toolbox",
+        "root"
+      ],
+      "status": "PASS",
+      "source_pair": {
+        "Toolbox": "7b7f98ee39f4ee800d1d41ee96831432382bd20a"
+      },
+      "source_dirty": null,
+      "source_dirty_by_repository": {},
+      "source_pair_complete": false,
+      "source_observation": "copied from execution receipt; not from report reviewed_source_pair",
+      "command": "cargo test --locked --lib install::self_update::tests -- --nocapture",
+      "exit_code": 0,
+      "pass_count": 14,
+      "subtest_pass_count": null,
+      "filtered_count": null,
+      "skip_names": [],
+      "parent_command_exit_code": null,
+      "execution_evidence": {
+        "execution_log_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\schema48-self-update-tests-20260908.log",
+        "retained_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\schema48-toolbox-update-20260908\\schema48-self-update-tests-20260908.log",
+        "retained_log_scope": "docs",
+        "execution_log_sha256": "6553FF09C4CEB3F009A0AA08226D8A814D69F4591447E5C8D7E92E15CF413F3E",
+        "retained_log_sha256": "6553FF09C4CEB3F009A0AA08226D8A814D69F4591447E5C8D7E92E15CF413F3E",
+        "retained_log_digest_observed_at_utc": "2026-09-08T00:26:39.210270+00:00",
+        "retained_digest_is_execution_time_claim": false
+      },
+      "receipt_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\schema48-toolbox-update-20260908\\schema48-toolbox-update-receipt-20260908.json",
+      "receipt_sha256": "3D2DC93105F4F846EA3581991EA9CC87D6C1B5379F223B47F90488CC95DEAB71",
+      "issue_ids": [
+        "BP-050",
+        "BP-051"
+      ],
+      "changed_files": [
+        {
+          "path": "C:\\wksp\\ProjectReboundToolbox\\scripts\\build-strict-candidate.ps1",
+          "sha256": "1f5629ea2fc9b5111ab8bbca5a61ffd61abb0bd1d219c183d664533e5c9c369c"
+        },
+        {
+          "path": "C:\\wksp\\ProjectReboundToolbox\\src\\install\\self_update.rs",
+          "sha256": "4cf52bb78b295db4dc68ffe8fd96d4789ef31cb7431011b6d492950a76b96130"
+        },
+        {
+          "path": "C:\\wksp\\ProjectReboundToolbox\\tests\\fixtures\\strict-online-update-v1.json",
+          "sha256": "88fa3a9e8b6ef5c174f8e1731ce948fda8b74b8a1d9e3fbf5e8688e21d64ba2d"
+        }
+      ],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\schema48-toolbox-update-20260908\\schema48-self-update-tests-20260908.log",
+      "log_sha256": "6553FF09C4CEB3F009A0AA08226D8A814D69F4591447E5C8D7E92E15CF413F3E",
+      "execution_source_pair": {
+        "Toolbox": "7b7f98ee39f4ee800d1d41ee96831432382bd20a"
+      },
+      "note": "Only Toolbox schema gate/build manifest/test fixture changed; Backend schema/OpenAPI/service changes remain root-owned. No commit made.",
+      "manifest_note": "Receipt is outside the 22-artifact Toolbox follow-up manifest; retained separately.",
+      "imported_by": "import_final_followup_tests.py",
+      "import_source_receipt": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\schema48-toolbox-update-20260908\\schema48-toolbox-update-receipt-20260908.json"
+    },
+    {
+      "id": "toolbox-schema48-update-2",
+      "owner": "toolbox",
+      "report_targets": [
+        "toolbox",
+        "root"
+      ],
+      "status": "PASS",
+      "source_pair": {
+        "Toolbox": "7b7f98ee39f4ee800d1d41ee96831432382bd20a"
+      },
+      "source_dirty": null,
+      "source_dirty_by_repository": {},
+      "source_pair_complete": false,
+      "source_observation": "copied from execution receipt; not from report reviewed_source_pair",
+      "command": "cargo fmt --all -- --check",
+      "exit_code": 0,
+      "pass_count": null,
+      "subtest_pass_count": null,
+      "filtered_count": null,
+      "skip_names": [],
+      "parent_command_exit_code": null,
+      "execution_evidence": {
+        "execution_log_path": "C:\\wksp\\ProjectReboundToolbox\\.tmp\\strict-roster-20260907\\schema48-fmt-20260908.log",
+        "retained_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\schema48-toolbox-update-20260908\\schema48-fmt-20260908.log",
+        "retained_log_scope": "docs",
+        "execution_log_sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+        "retained_log_sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+        "retained_log_digest_observed_at_utc": "2026-09-08T00:26:39.211354+00:00",
+        "retained_digest_is_execution_time_claim": false
+      },
+      "receipt_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\schema48-toolbox-update-20260908\\schema48-toolbox-update-receipt-20260908.json",
+      "receipt_sha256": "3D2DC93105F4F846EA3581991EA9CC87D6C1B5379F223B47F90488CC95DEAB71",
+      "issue_ids": [
+        "BP-050",
+        "BP-051"
+      ],
+      "changed_files": [
+        {
+          "path": "C:\\wksp\\ProjectReboundToolbox\\scripts\\build-strict-candidate.ps1",
+          "sha256": "1f5629ea2fc9b5111ab8bbca5a61ffd61abb0bd1d219c183d664533e5c9c369c"
+        },
+        {
+          "path": "C:\\wksp\\ProjectReboundToolbox\\src\\install\\self_update.rs",
+          "sha256": "4cf52bb78b295db4dc68ffe8fd96d4789ef31cb7431011b6d492950a76b96130"
+        },
+        {
+          "path": "C:\\wksp\\ProjectReboundToolbox\\tests\\fixtures\\strict-online-update-v1.json",
+          "sha256": "88fa3a9e8b6ef5c174f8e1731ce948fda8b74b8a1d9e3fbf5e8688e21d64ba2d"
+        }
+      ],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\schema48-toolbox-update-20260908\\schema48-fmt-20260908.log",
+      "log_sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+      "execution_source_pair": {
+        "Toolbox": "7b7f98ee39f4ee800d1d41ee96831432382bd20a"
+      },
+      "note": "Only Toolbox schema gate/build manifest/test fixture changed; Backend schema/OpenAPI/service changes remain root-owned. No commit made.",
+      "manifest_note": "Receipt is outside the 22-artifact Toolbox follow-up manifest; retained separately.",
+      "imported_by": "import_final_followup_tests.py",
+      "import_source_receipt": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\schema48-toolbox-update-20260908\\schema48-toolbox-update-receipt-20260908.json"
+    },
+    {
+      "id": "toolbox-same-route-followup-1",
+      "owner": "toolbox",
+      "report_targets": [
+        "toolbox",
+        "root"
+      ],
+      "status": "PASS",
+      "source_pair": {
+        "Toolbox": "70fcd5204f89f7af091e532d554cfaa4e69f039e"
+      },
+      "source_dirty": null,
+      "source_dirty_by_repository": {},
+      "source_pair_complete": false,
+      "source_observation": "only the pre-change baseline was recorded; reviewed pair is intentionally not substituted",
+      "command": "cargo test --locked --lib --features vnt,lab-testing core::runtime::tests::same_route_host_disconnect_allows_only_fresh_generation_recovery -- --exact --nocapture",
+      "exit_code": 0,
+      "pass_count": 1,
+      "subtest_pass_count": null,
+      "filtered_count": 310,
+      "skip_names": [],
+      "parent_command_exit_code": null,
+      "execution_evidence": {
+        "execution_log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\toolbox-same-route-recovery-final-20260908.log",
+        "retained_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-same-route-recovery-final-20260908.log",
+        "retained_log_scope": "docs",
+        "execution_log_sha256": "45C551A6ECD8A1C68F34222BF05EE69BD12E4B2DEF4A486FD7FD33F8815B67F6",
+        "retained_log_sha256": "45C551A6ECD8A1C68F34222BF05EE69BD12E4B2DEF4A486FD7FD33F8815B67F6",
+        "retained_log_digest_observed_at_utc": "2026-09-08T00:26:39.212734+00:00",
+        "retained_digest_is_execution_time_claim": false
+      },
+      "receipt_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\host-route-recovery-fix-receipt-20260908.json",
+      "receipt_sha256": "8E02BECD25D42C5874BD6436607A6E8A76C70673E667657EE3FE3BB079F3F24E",
+      "issue_ids": [
+        "BP-043",
+        "BP-044"
+      ],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-same-route-recovery-final-20260908.log",
+      "log_sha256": "45C551A6ECD8A1C68F34222BF05EE69BD12E4B2DEF4A486FD7FD33F8815B67F6",
+      "execution_source_pair": {
+        "Toolbox": "70fcd5204f89f7af091e532d554cfaa4e69f039e"
+      },
+      "note": "Execution passed, but the receipt records only source_commit_before_change; the post-change execution commit and dirty state were not captured. This record must remain source-binding incomplete and must not inherit the reviewed pair.",
+      "source_binding_status": "INCOMPLETE",
+      "imported_by": "import_final_followup_tests.py",
+      "import_source_receipt": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\host-route-recovery-fix-receipt-20260908.json"
+    },
+    {
+      "id": "toolbox-same-route-followup-2",
+      "owner": "toolbox",
+      "report_targets": [
+        "toolbox",
+        "root"
+      ],
+      "status": "PASS",
+      "source_pair": {
+        "Toolbox": "70fcd5204f89f7af091e532d554cfaa4e69f039e"
+      },
+      "source_dirty": null,
+      "source_dirty_by_repository": {},
+      "source_pair_complete": false,
+      "source_observation": "only the pre-change baseline was recorded; reviewed pair is intentionally not substituted",
+      "command": "cargo test --locked --lib --features vnt,lab-testing --no-fail-fast",
+      "exit_code": 0,
+      "pass_count": 311,
+      "subtest_pass_count": null,
+      "filtered_count": 0,
+      "skip_names": [],
+      "parent_command_exit_code": null,
+      "execution_evidence": {
+        "execution_log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\toolbox-full-lib-same-route-20260908.log",
+        "retained_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-full-lib-same-route-20260908.log",
+        "retained_log_scope": "docs",
+        "execution_log_sha256": "BF0FABEEA8F5764AC80C1ADCE9DFEEAF742EB4C6098A83C3D38C6CF146C82638",
+        "retained_log_sha256": "BF0FABEEA8F5764AC80C1ADCE9DFEEAF742EB4C6098A83C3D38C6CF146C82638",
+        "retained_log_digest_observed_at_utc": "2026-09-08T00:26:39.213602+00:00",
+        "retained_digest_is_execution_time_claim": false
+      },
+      "receipt_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\host-route-recovery-fix-receipt-20260908.json",
+      "receipt_sha256": "8E02BECD25D42C5874BD6436607A6E8A76C70673E667657EE3FE3BB079F3F24E",
+      "issue_ids": [
+        "BP-043",
+        "BP-044"
+      ],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-full-lib-same-route-20260908.log",
+      "log_sha256": "BF0FABEEA8F5764AC80C1ADCE9DFEEAF742EB4C6098A83C3D38C6CF146C82638",
+      "execution_source_pair": {
+        "Toolbox": "70fcd5204f89f7af091e532d554cfaa4e69f039e"
+      },
+      "note": "Execution passed, but the receipt records only source_commit_before_change; the post-change execution commit and dirty state were not captured. This record must remain source-binding incomplete and must not inherit the reviewed pair.",
+      "source_binding_status": "INCOMPLETE",
+      "imported_by": "import_final_followup_tests.py",
+      "import_source_receipt": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\host-route-recovery-fix-receipt-20260908.json"
+    },
+    {
+      "id": "toolbox-same-route-followup-3",
+      "owner": "toolbox",
+      "report_targets": [
+        "toolbox",
+        "root"
+      ],
+      "status": "PASS",
+      "source_pair": {
+        "Toolbox": "70fcd5204f89f7af091e532d554cfaa4e69f039e"
+      },
+      "source_dirty": null,
+      "source_dirty_by_repository": {},
+      "source_pair_complete": false,
+      "source_observation": "only the pre-change baseline was recorded; reviewed pair is intentionally not substituted",
+      "command": "cargo check --locked --all-targets --features vnt,lab-testing",
+      "exit_code": 0,
+      "pass_count": null,
+      "subtest_pass_count": null,
+      "filtered_count": null,
+      "skip_names": [],
+      "parent_command_exit_code": null,
+      "execution_evidence": {
+        "execution_log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\toolbox-all-targets-same-route-20260908.log",
+        "retained_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-all-targets-same-route-20260908.log",
+        "retained_log_scope": "docs",
+        "execution_log_sha256": "54780A20C34CAC6A3703D66CDD3177B084E16EE0AF143BDDA9E6E412381834B7",
+        "retained_log_sha256": "54780A20C34CAC6A3703D66CDD3177B084E16EE0AF143BDDA9E6E412381834B7",
+        "retained_log_digest_observed_at_utc": "2026-09-08T00:26:39.214319+00:00",
+        "retained_digest_is_execution_time_claim": false
+      },
+      "receipt_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\host-route-recovery-fix-receipt-20260908.json",
+      "receipt_sha256": "8E02BECD25D42C5874BD6436607A6E8A76C70673E667657EE3FE3BB079F3F24E",
+      "issue_ids": [
+        "BP-043",
+        "BP-044"
+      ],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-all-targets-same-route-20260908.log",
+      "log_sha256": "54780A20C34CAC6A3703D66CDD3177B084E16EE0AF143BDDA9E6E412381834B7",
+      "execution_source_pair": {
+        "Toolbox": "70fcd5204f89f7af091e532d554cfaa4e69f039e"
+      },
+      "note": "Execution passed, but the receipt records only source_commit_before_change; the post-change execution commit and dirty state were not captured. This record must remain source-binding incomplete and must not inherit the reviewed pair.",
+      "source_binding_status": "INCOMPLETE",
+      "imported_by": "import_final_followup_tests.py",
+      "import_source_receipt": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\host-route-recovery-fix-receipt-20260908.json"
+    },
+    {
+      "id": "toolbox-same-route-followup-4",
+      "owner": "toolbox",
+      "report_targets": [
+        "toolbox",
+        "root"
+      ],
+      "status": "PASS",
+      "source_pair": {
+        "Toolbox": "70fcd5204f89f7af091e532d554cfaa4e69f039e"
+      },
+      "source_dirty": null,
+      "source_dirty_by_repository": {},
+      "source_pair_complete": false,
+      "source_observation": "only the pre-change baseline was recorded; reviewed pair is intentionally not substituted",
+      "command": "cargo fmt -- --check",
+      "exit_code": 0,
+      "pass_count": null,
+      "subtest_pass_count": null,
+      "filtered_count": null,
+      "skip_names": [],
+      "parent_command_exit_code": null,
+      "execution_evidence": {
+        "execution_log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\toolbox-same-route-fmt-check-20260908.log",
+        "retained_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-same-route-fmt-check-20260908.log",
+        "retained_log_scope": "docs",
+        "execution_log_sha256": "04F106646418ABB409397A44093581C517F50191114BCBB87EBE418A61B76AF2",
+        "retained_log_sha256": "04F106646418ABB409397A44093581C517F50191114BCBB87EBE418A61B76AF2",
+        "retained_log_digest_observed_at_utc": "2026-09-08T00:26:39.215101+00:00",
+        "retained_digest_is_execution_time_claim": false
+      },
+      "receipt_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\host-route-recovery-fix-receipt-20260908.json",
+      "receipt_sha256": "8E02BECD25D42C5874BD6436607A6E8A76C70673E667657EE3FE3BB079F3F24E",
+      "issue_ids": [
+        "BP-043",
+        "BP-044"
+      ],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-same-route-fmt-check-20260908.log",
+      "log_sha256": "04F106646418ABB409397A44093581C517F50191114BCBB87EBE418A61B76AF2",
+      "execution_source_pair": {
+        "Toolbox": "70fcd5204f89f7af091e532d554cfaa4e69f039e"
+      },
+      "note": "Execution passed, but the receipt records only source_commit_before_change; the post-change execution commit and dirty state were not captured. This record must remain source-binding incomplete and must not inherit the reviewed pair.",
+      "source_binding_status": "INCOMPLETE",
+      "imported_by": "import_final_followup_tests.py",
+      "import_source_receipt": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\host-route-recovery-fix-receipt-20260908.json"
+    },
+    {
+      "id": "toolbox-tauri-e360",
+      "owner": "toolbox",
+      "report_targets": [
+        "toolbox",
+        "root"
+      ],
+      "status": "PASS",
+      "source_pair": {
+        "Toolbox": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482"
+      },
+      "source_dirty": null,
+      "source_dirty_by_repository": {
+        "Toolbox": false
+      },
+      "source_pair_complete": false,
+      "source_observation": "copied from execution receipt; not from report reviewed_source_pair",
+      "command": "cargo test --locked --manifest-path src-tauri/Cargo.toml",
+      "exit_code": 0,
+      "pass_count": 7,
+      "subtest_pass_count": null,
+      "filtered_count": null,
+      "skip_names": [],
+      "parent_command_exit_code": null,
+      "execution_evidence": {
+        "execution_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-tauri-full-e360-20260908.log",
+        "retained_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-tauri-full-e360-20260908.log",
+        "retained_log_scope": "docs",
+        "execution_log_sha256": "7E80537EA92DF6133D5FBEC8B98D9A38A03AA945159BF32BFAD91B5FF05CFA97",
+        "retained_log_sha256": "7E80537EA92DF6133D5FBEC8B98D9A38A03AA945159BF32BFAD91B5FF05CFA97",
+        "retained_log_digest_observed_at_utc": "2026-09-08T00:26:39.217132+00:00",
+        "retained_digest_is_execution_time_claim": false
+      },
+      "receipt_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\tauri-e360-execution-receipt.json",
+      "receipt_sha256": "7B7525CE045F5577A729D2DCC248D118153FAE4E8CCFBFD9D1FB8BE716435E85",
+      "issue_ids": [
+        "BP-051"
+      ],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\toolbox-tauri-full-e360-20260908.log",
+      "log_sha256": "7E80537EA92DF6133D5FBEC8B98D9A38A03AA945159BF32BFAD91B5FF05CFA97",
+      "execution_source_pair": {
+        "Toolbox": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482"
+      },
+      "note": "Full src-tauri Cargo package tests; no frontend rerun, native gameplay, payload signing, or release-candidate acceptance.",
+      "imported_by": "import_final_followup_tests.py",
+      "import_source_receipt": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\tauri-e360-execution-receipt.json"
+    },
+    {
+      "id": "toolbox-auth-http-current-build",
+      "owner": "toolbox",
+      "report_targets": [
+        "toolbox",
+        "root"
+      ],
+      "status": "PASS",
+      "source_pair": {
+        "Toolbox": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482"
+      },
+      "source_dirty": null,
+      "source_dirty_by_repository": {
+        "Toolbox": false
+      },
+      "source_pair_complete": false,
+      "source_observation": "copied from execution receipt; not from report reviewed_source_pair",
+      "command": [
+        "cargo",
+        "build",
+        "--locked",
+        "--features",
+        "lab-testing",
+        "--bin",
+        "auth_http_concurrency"
+      ],
+      "exit_code": 0,
+      "pass_count": null,
+      "subtest_pass_count": null,
+      "filtered_count": null,
+      "skip_names": [],
+      "parent_command_exit_code": null,
+      "execution_evidence": {
+        "execution_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\auth-http-current-20260907T230546Z\\build.log",
+        "retained_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\auth-http-current-20260907T230546Z\\build.log",
+        "retained_log_scope": "docs",
+        "execution_log_sha256": "9D42D90F5CAEC16311E31F98F92EE721B54BC21D313CB34D51B322478B8F375E",
+        "retained_log_sha256": "9D42D90F5CAEC16311E31F98F92EE721B54BC21D313CB34D51B322478B8F375E",
+        "retained_log_digest_observed_at_utc": "2026-09-08T00:26:39.221918+00:00",
+        "retained_digest_is_execution_time_claim": false
+      },
+      "receipt_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\auth-http-current-20260907T230546Z\\receipt.json",
+      "receipt_sha256": "675B0979E86BB3C27EFB0D4DB670A619E0B7FF6CD9827FAD67B39C09248802B9",
+      "issue_ids": [
+        "BP-002"
+      ],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\auth-http-current-20260907T230546Z\\build.log",
+      "log_sha256": "9D42D90F5CAEC16311E31F98F92EE721B54BC21D313CB34D51B322478B8F375E",
+      "execution_source_pair": {
+        "Toolbox": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482"
+      },
+      "note": "Current Toolbox-only loopback HTTP/isolated-DPAPI execution with synthetic credentials; the receipt explicitly excludes native gameplay and full E2E-11 acceptance.",
+      "manifest_note": "Receipt is outside the 22-artifact Toolbox follow-up manifest; retained separately.",
+      "imported_by": "import_final_followup_tests.py",
+      "import_source_receipt": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\auth-http-current-20260907T230546Z\\receipt.json"
+    },
+    {
+      "id": "toolbox-auth-http-current-driver",
+      "owner": "toolbox",
+      "report_targets": [
+        "toolbox",
+        "root"
+      ],
+      "status": "PASS",
+      "source_pair": {
+        "Toolbox": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482"
+      },
+      "source_dirty": null,
+      "source_dirty_by_repository": {
+        "Toolbox": false
+      },
+      "source_pair_complete": false,
+      "source_observation": "copied from execution receipt; not from report reviewed_source_pair",
+      "command": [
+        "C:\\Python314\\python.exe",
+        "-B",
+        "C:\\wksp\\ProjectReboundToolbox\\tests\\auth_http_concurrency.py",
+        "--driver",
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\frozen\\drivers\\199571c4d8ffd24baa3e729f6e7acd8713984843ede64a4ca3d8202f5ed6686e\\auth_http_concurrency.exe"
+      ],
+      "exit_code": 0,
+      "pass_count": null,
+      "subtest_pass_count": null,
+      "filtered_count": null,
+      "skip_names": [],
+      "parent_command_exit_code": null,
+      "execution_evidence": {
+        "execution_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\auth-http-current-20260907T230546Z\\http-cases.log",
+        "retained_log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\auth-http-current-20260907T230546Z\\http-cases.log",
+        "retained_log_scope": "docs",
+        "execution_log_sha256": "9CC48C11635431A37683A7E255EA53791C4B8FE9D6F89F701CBBC6F7D361CEC4",
+        "retained_log_sha256": "9CC48C11635431A37683A7E255EA53791C4B8FE9D6F89F701CBBC6F7D361CEC4",
+        "retained_log_digest_observed_at_utc": "2026-09-08T00:26:39.222974+00:00",
+        "retained_digest_is_execution_time_claim": false
+      },
+      "receipt_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\auth-http-current-20260907T230546Z\\receipt.json",
+      "receipt_sha256": "675B0979E86BB3C27EFB0D4DB670A619E0B7FF6CD9827FAD67B39C09248802B9",
+      "issue_ids": [
+        "BP-002"
+      ],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\auth-http-current-20260907T230546Z\\http-cases.log",
+      "log_sha256": "9CC48C11635431A37683A7E255EA53791C4B8FE9D6F89F701CBBC6F7D361CEC4",
+      "execution_source_pair": {
+        "Toolbox": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482"
+      },
+      "note": "Current Toolbox-only loopback HTTP/isolated-DPAPI execution with synthetic credentials; the receipt explicitly excludes native gameplay and full E2E-11 acceptance.",
+      "manifest_note": "Receipt is outside the 22-artifact Toolbox follow-up manifest; retained separately.",
+      "imported_by": "import_final_followup_tests.py",
+      "import_source_receipt": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\auth-http-current-20260907T230546Z\\receipt.json"
+    },
+    {
+      "import_id": "e2e06-17::toolbox-runtime-component",
+      "command": "cargo test --locked --lib --features vnt,lab-testing core::runtime::tests --no-fail-fast -- --nocapture",
+      "exit_code": 0,
+      "pass_count": 35,
+      "filtered_count": 276,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\e2e-06-17-runtime-current-20260908\\runtime-tests.log",
+      "log_sha256": "1E934C2E156D2AE263BF2B78EE659EB19B57706763250BC2EE6285CD2F4F89B9",
+      "status": "PASS_COMPONENT_SCOPE_ONLY",
+      "scope": "Toolbox Rust runtime state-machine/component tests only; no DLL, native game, visible UI, live PID, remote service, or full E2E-06/E2E-17 scenario",
+      "execution_source_pair": {
+        "Toolbox": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482"
+      },
+      "execution_pair_complete": false,
+      "source_dirty_by_repository": {
+        "Toolbox": false
+      },
+      "source_observation": "single-repository execution fact; no reviewed two-repository pair was substituted"
+    },
+    {
+      "recorded_at": "2026-09-07T23:43:56.039284+00:00",
+      "execution_source_pair": {
+        "Toolbox": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482"
+      },
+      "source_dirty": {
+        "Toolbox": false
+      },
+      "source_files": {
+        "src/matchmaking/ids.rs": "8f671ca7f0e3e541c9eeac9003f02af200a062de0c0670f01274e0f0bb3a849e"
+      },
+      "command": [
+        "C:/Users/23587/.cargo/bin/cargo.exe",
+        "test",
+        "--locked",
+        "--doc",
+        "--features",
+        "vnt,lab-testing"
+      ],
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\strong-id-current-20260907T234308Z\\compile-fail-tests.log",
+      "log_sha256": "5d38e0fee53cb7b4c35596736bc9dff329b7f59ffcc37058173a4cc2b743e687",
+      "scope": "Actual Rust compile-fail doctests for typed ID and generation separation. No game/native or final artifact acceptance.",
+      "id": "strong-id-current-20260907T234308Z",
+      "skip_names": [],
+      "receipt_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\strong-id-current-20260907T234308Z\\receipt.json",
+      "receipt_sha256": "2517ecc2283778227ffb19d63093ccfa06f4513eb396c37a9b69f2dd589eca2a",
+      "status": "PASS"
+    },
+    {
+      "id": "BP-014-counter-supplement-20260908",
+      "recorded_at_utc": "2026-09-08T00:46:04.070408Z",
+      "status": "PASS",
+      "issue": "BP-014",
+      "acceptance": "AC-014",
+      "scope": "Real Windows Rust RelayClient over a real in-process Go Edge UDP relay; direct product Metrics.Snapshot readback for legal bidirectional data only.",
+      "command": "$env:TOOLBOX_RELAY_DRIVER='C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\cargo-target\\debug\\relay_interop_driver.exe'; go test ./internal/relayruntime -run ^TestBP014ProductCountersFromLiveRelay$ -count=1 -v",
+      "working_directory": "C:\\wksp\\ProjectRebound\\Backend",
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\go-test-product-counters-final-with-driver.log",
+      "log_sha256": "6594d45f8dfbfe7f614161810dd1cab86d0c724fb9550133cb764a23de0c2879",
+      "test_source_copy": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\bp014_counter_supplement_test.go",
+      "test_source_sha256": "0fae5086945343f7969b5d1450802d3d283e94937570cf186fa7b569330e7318",
+      "driver": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\cargo-target\\debug\\relay_interop_driver.exe",
+        "sha256": "3a4e4d46f9fff1b9899bc09615bb15a5bbc5d12ee20b13ae693345609dd547b9",
+        "build_command": "cargo build --locked --features lab-testing --bin relay_interop_driver --target-dir C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\cargo-target",
+        "build_exit_code": 0,
+        "build_log": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\driver-build.log",
+        "build_log_sha256": "5a6bb72c5a4b51c1b95a375812fb3d84e775156ae6352c0e07b0a00cd98f1270",
+        "source_commit": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482",
+        "source_dirty_relevant_paths": false
+      },
+      "repositories": {
+        "ProjectRebound": {
+          "head": "345bde0d24a05da284582e79c4ff6d7679a9cbff",
+          "relevant_source_dirty": false,
+          "relevant_status_lines": []
+        },
+        "ProjectReboundToolbox": {
+          "head": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482",
+          "relevant_source_dirty": false,
+          "relevant_status_lines": []
+        }
+      },
+      "source_files_observed": {
+        "Backend/internal/relayruntime/runtime.go": {
+          "path": "C:\\wksp\\ProjectRebound\\Backend\\internal\\relayruntime\\runtime.go",
+          "sha256": "1cc1965564e8067ccec5d1a81429138decc714802a609e2259987efe4536aaff"
+        },
+        "Backend/internal/relayruntime/metrics.go": {
+          "path": "C:\\wksp\\ProjectRebound\\Backend\\internal\\relayruntime\\metrics.go",
+          "sha256": "728d5f7bc273339073c1961f2e6a94f4160cad05cace63aa53faa85381ba869c"
+        },
+        "Backend/internal/relayruntime/strict_roster_fixture_test.go": {
+          "path": "C:\\wksp\\ProjectRebound\\Backend\\internal\\relayruntime\\strict_roster_fixture_test.go",
+          "sha256": "518127335464e2b74c74ff369165d9ade5d4ef9576597c618365b1b98643ad60"
+        },
+        "ProjectReboundToolbox/helper/relay_interop_driver.rs": {
+          "path": "C:\\wksp\\ProjectReboundToolbox\\helper\\relay_interop_driver.rs",
+          "sha256": "cdcd81b457b7cba07bdc80f37d3e98aed0a4148c5b1e1afa52dac2dfabf32378"
+        },
+        "ProjectReboundToolbox/src/vnt/legacy/controller.rs": {
+          "path": "C:\\wksp\\ProjectReboundToolbox\\src\\vnt\\legacy\\controller.rs",
+          "sha256": "1b5c7def976d526cbfeb725f6031689dcfdc1a216b350e28235a50dfffde5777"
+        },
+        "ProjectReboundToolbox/src/vnt/legacy/relay.rs": {
+          "path": "C:\\wksp\\ProjectReboundToolbox\\src\\vnt\\legacy\\relay.rs",
+          "sha256": "52b656432551067cfc7b9e453c7cd6a8339d2fb15f1cf71de404588a33b44d1b"
+        }
+      },
+      "environment": {
+        "os": "Windows",
+        "go": "go1.26.2 windows/amd64",
+        "rust_driver": "Windows PE x64",
+        "actual_udp_port": 63132,
+        "requested_lab_ports": [
+          "127.0.0.1:55439",
+          "127.0.0.1:56380"
+        ],
+        "requested_lab_ports_status": "occupied by existing WSL relay process 24180; not touched or stopped; test used an ephemeral UDP listener"
+      },
+      "product_metrics": {
+        "source": "Backend/internal/relayruntime.Metrics.Snapshot",
+        "packets_received_delta": 6,
+        "packets_forwarded_delta": 2,
+        "bytes_forwarded_delta": 24,
+        "bind_success_delta": 2,
+        "driver_observation": "PASS: distinct HOST/PEER bind, recipient re-tagging, bidirectional authenticated UDP",
+        "assertions": [
+          "packets_received_delta >= 2",
+          "packets_forwarded_delta >= 2",
+          "bytes_forwarded_delta > 0",
+          "bind_success_delta >= 2"
+        ]
+      },
+      "toolbox_datagrams_readback": {
+        "status": "NOT_AVAILABLE",
+        "reason": "The existing relay_interop_driver only calls RelayClient connect/send/receive. LegacyRouteStatus.datagrams_sent/datagrams_received are private controller-session fields with no getter or IPC readback.",
+        "paths": [
+          "C:\\wksp\\ProjectReboundToolbox\\helper\\relay_interop_driver.rs",
+          "C:\\wksp\\ProjectReboundToolbox\\src\\vnt\\legacy\\controller.rs:145-152",
+          "C:\\wksp\\ProjectReboundToolbox\\src\\vnt\\legacy\\controller.rs:915-925"
+        ]
+      },
+      "acceptance_conclusion": "This receipt directly proves live Go Edge product counters for the legal two-way data path. It does not upgrade AC-014 to full PASS because Toolbox LegacyRouteStatus datagrams_sent/datagrams_received were not externally observable; corruption, replay, window, and MTU evidence remain separately scoped.",
+      "prior_attempts": [
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\go-test-product-counters.log",
+          "exit_code": 1,
+          "sha256": "0549526719b411132dec4308a74c01b90fc154b3cdba2c6ec9a0b70aa5fd9b31",
+          "classification": "historical_failed_attempt"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\go-test-product-counters-rerun.log",
+          "exit_code": 1,
+          "sha256": "96c7e3c16405e0fff4115e88e4c95915799d26e07224066c01ad6d3141cc5d96",
+          "classification": "historical_failed_attempt"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\go-test-product-counters-rerun2.log",
+          "exit_code": 1,
+          "sha256": "6422e0b87ef11ab8f71cffc6a755d61a05702d926aa90e8d383baee421acb223",
+          "classification": "historical_failed_attempt"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\go-test-product-counters-final.log",
+          "exit_code": 0,
+          "sha256": "ee98abd7f3ca2f209533025a6d4f51b892792c3fc2bb7977b2a9c9e0ae0a1979",
+          "classification": "historical_pass_with_preserved_driver"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\go-test-product-counters-current-driver.log",
+          "exit_code": 0,
+          "sha256": "b131af290c736b6a3fe982a7a205c352b983e41405b363764117ccf935b3c02a",
+          "classification": "historical_pass_current_driver"
+        }
+      ],
+      "product_files_modified": false,
+      "temporary_test_only": true,
+      "commit": false,
+      "skip_names": [],
+      "execution_log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\go-test-product-counters-final-with-driver.log",
+      "receipt_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\bp014-counter-receipt.json",
+      "receipt_sha256": "82cdbdbde52aa6fc7a3eac1d2cf15c2dfa90f2dc375cc44976a58346918c2558",
+      "execution_source_pair": {
+        "ProjectRebound": "345bde0d24a05da284582e79c4ff6d7679a9cbff",
+        "Toolbox": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482"
+      },
+      "source_dirty": {
+        "ProjectRebound": true,
+        "Toolbox": null
+      },
+      "source_scope": "Temporary test code was inserted into the actual product module. Original product bytes were restored; relevant-path cleanliness in the older receipt is not whole-repository execution cleanliness.",
+      "issue_ids": [
+        "BP-014"
+      ]
+    },
+    {
+      "id": "BP-014-counter-supplement-20260908-history-0",
+      "status": "EXECUTED_FAIL",
+      "exit_code": 1,
+      "command": null,
+      "command_note": "Only the actual outcome and log were retained for this historical attempt.",
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\go-test-product-counters.log",
+      "log_sha256": "0549526719b411132dec4308a74c01b90fc154b3cdba2c6ec9a0b70aa5fd9b31",
+      "skip_names": [],
+      "execution_source_pair": null,
+      "source_dirty": true,
+      "scope": "historical_failed_attempt"
+    },
+    {
+      "id": "BP-014-counter-supplement-20260908-history-1",
+      "status": "EXECUTED_FAIL",
+      "exit_code": 1,
+      "command": null,
+      "command_note": "Only the actual outcome and log were retained for this historical attempt.",
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\go-test-product-counters-rerun.log",
+      "log_sha256": "96c7e3c16405e0fff4115e88e4c95915799d26e07224066c01ad6d3141cc5d96",
+      "skip_names": [],
+      "execution_source_pair": null,
+      "source_dirty": true,
+      "scope": "historical_failed_attempt"
+    },
+    {
+      "id": "BP-014-counter-supplement-20260908-history-2",
+      "status": "EXECUTED_FAIL",
+      "exit_code": 1,
+      "command": null,
+      "command_note": "Only the actual outcome and log were retained for this historical attempt.",
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\go-test-product-counters-rerun2.log",
+      "log_sha256": "6422e0b87ef11ab8f71cffc6a755d61a05702d926aa90e8d383baee421acb223",
+      "skip_names": [],
+      "execution_source_pair": null,
+      "source_dirty": true,
+      "scope": "historical_failed_attempt"
+    },
+    {
+      "id": "BP-014-counter-supplement-20260908-history-3",
+      "status": "PASS",
+      "exit_code": 0,
+      "command": null,
+      "command_note": "Only the actual outcome and log were retained for this historical attempt.",
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\go-test-product-counters-final.log",
+      "log_sha256": "ee98abd7f3ca2f209533025a6d4f51b892792c3fc2bb7977b2a9c9e0ae0a1979",
+      "skip_names": [],
+      "execution_source_pair": null,
+      "source_dirty": true,
+      "scope": "historical_pass_with_preserved_driver"
+    },
+    {
+      "id": "BP-014-counter-supplement-20260908-history-4",
+      "status": "PASS",
+      "exit_code": 0,
+      "command": null,
+      "command_note": "Only the actual outcome and log were retained for this historical attempt.",
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\go-test-product-counters-current-driver.log",
+      "log_sha256": "b131af290c736b6a3fe982a7a205c352b983e41405b363764117ccf935b3c02a",
+      "skip_names": [],
+      "execution_source_pair": null,
+      "source_dirty": true,
+      "scope": "historical_pass_current_driver"
+    },
+    {
+      "id": "BP-014-toolbox-route-loop-counter-supplement-20260908",
+      "recorded_at_utc": "2026-09-08T01:00:03.885248Z",
+      "status": "PASS",
+      "issue": "BP-014",
+      "acceptance": "AC-014",
+      "scope": "Temporary cfg(test) module test invoked the production LegacyRoute route_loop with separate real Host and Member threads, initial LAN/UDP connection snapshots, real loopback UDP payloads in both directions, and read each route session's private LegacyRouteStatus after the route loops completed.",
+      "command": "cargo test --locked --features lab-testing --lib bp014_toolbox_legacy_route_loop_counters --target-dir C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\toolbox-target -- --nocapture",
+      "working_directory": "C:\\wksp\\ProjectReboundToolbox",
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\cargo-test-toolbox-route-loop-rerun.log",
+      "log_sha256": "66f2d4233885e0f4fcb39367c52e619f8369a3d008e2db4fc3c523dbc08826c2",
+      "test_source_copy": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\bp014_toolbox_legacy_route_loop_test.rs",
+      "test_source_sha256": "aa220468f05c0693173019e84d832fc8b6cb20f5168e5f8279aaa4b7a09ed00f",
+      "temporary_full_source_copy": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\controller-with-route-loop-test.rs",
+      "temporary_full_source_sha256": "36d423c022db27b96e70301ce2541d8913c190a9132c8b08b572cf6e278b80cb",
+      "baseline_toolbox_commit": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482",
+      "baseline_toolbox_source_dirty_before": false,
+      "execution_toolbox_source_dirty_during_test": true,
+      "execution_toolbox_temp_source_sha256": "36d423c022db27b96e70301ce2541d8913c190a9132c8b08b572cf6e278b80cb",
+      "restored_toolbox_source_sha256": "1b5c7def976d526cbfeb725f6031689dcfdc1a216b350e28235a50dfffde5777",
+      "baseline_controller_sha256": "1b5c7def976d526cbfeb725f6031689dcfdc1a216b350e28235a50dfffde5777",
+      "go_harness_source_copy": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\bp014_toolbox_counter_supplement_test.go",
+      "go_harness_source_sha256": "8d0412d18f613b7709e47c002fbb27cedf04f5070f0aeeadc6a739c0ec0b30ad",
+      "go_harness_removed_after_run": true,
+      "observed_product_stats": {
+        "source": "LegacyRouteStatus in src/vnt/legacy/controller.rs, updated by production route_loop calls to record_packet_result",
+        "host_datagrams_sent": 1,
+        "host_datagrams_received": 1,
+        "member_datagrams_sent": 1,
+        "member_datagrams_received": 1,
+        "valid_bidirectional_payloads": [
+          "member-to-host",
+          "host-to-member"
+        ]
+      },
+      "assertions": [
+        "Host route loop delivered member payload to authority and sent authority reply through its route",
+        "Member route loop sent initial payload and received authority reply through its route",
+        "all four datagram counters equal one"
+      ],
+      "prior_go_edge_receipt": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\bp014-counter-receipt.json",
+      "product_behavior_modified": false,
+      "commit": false,
+      "post_run_relevant_status": {
+        "ProjectRebound": [],
+        "ProjectReboundToolbox": []
+      },
+      "limitations": [
+        "This targeted test covers the valid direct LAN/UDP route-loop counter path; relay-specific Go Edge product Metrics.Snapshot is separately covered by the prior Go/Rust receipt. Error classification, replay/window, and MTU evidence remain separately scoped and are not claimed by this run.",
+        "The temporary source was intentionally dirty during the test; the original controller.rs bytes were restored and no commit was made."
+      ],
+      "skip_names": [],
+      "execution_log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\cargo-test-toolbox-route-loop-rerun.log",
+      "receipt_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\bp014-toolbox-route-loop-receipt.json",
+      "receipt_sha256": "c471b9b028ea42b7c30441bc7ec07f6598dfb32b4b754c8c388a8322c5a891d9",
+      "execution_source_pair": {
+        "Toolbox": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482"
+      },
+      "source_dirty": {
+        "Toolbox": true
+      },
+      "source_scope": "Temporary test code was inserted into the actual product module. Original product bytes were restored; relevant-path cleanliness in the older receipt is not whole-repository execution cleanliness.",
+      "issue_ids": [
+        "BP-014"
+      ],
+      "source_files": {
+        "temporary_controller.rs": "36d423c022db27b96e70301ce2541d8913c190a9132c8b08b572cf6e278b80cb"
+      }
+    },
+    {
+      "id": "bp014-counter-history-cargo-test-toolbox-route-loop.log",
+      "exit_code": 101,
+      "status": "EXECUTED_FAIL",
+      "command": null,
+      "command_note": "Complete historical shell command unavailable; actual outcome retained in the log footer.",
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\cargo-test-toolbox-route-loop.log",
+      "log_sha256": "53d381e4c2fb87e803684ef53ae8d24686c532debf91f840661a00f728b32321",
+      "skip_names": [],
+      "execution_source_pair": null,
+      "source_dirty": true,
+      "scope": "Historical timeout/compile failures or a helper-only test. The helper-only success did not invoke production route_loop and is not used as counter-wiring acceptance."
+    },
+    {
+      "id": "bp014-counter-history-go-test-toolbox-private-counters.log",
+      "exit_code": 1,
+      "status": "EXECUTED_FAIL",
+      "command": null,
+      "command_note": "Complete historical shell command unavailable; actual outcome retained in the log footer.",
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\go-test-toolbox-helper-counters.log",
+      "log_sha256": "d0217413abdcf026731046b0d1f48eb6d380b4db09ef5b96c1a278134b7bfb7e",
+      "skip_names": [],
+      "execution_source_pair": null,
+      "source_dirty": true,
+      "scope": "Historical timeout/compile failures or a helper-only test. The helper-only success did not invoke production route_loop and is not used as counter-wiring acceptance."
+    },
+    {
+      "id": "bp014-counter-history-go-test-toolbox-private-counters-rerun.log",
+      "exit_code": 1,
+      "status": "EXECUTED_FAIL",
+      "command": null,
+      "command_note": "Complete historical shell command unavailable; actual outcome retained in the log footer.",
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\go-test-toolbox-helper-counters-rerun.log",
+      "log_sha256": "ceb33fa0d766b38462e004a6e13e07620767a7d0c0d3cb77a755aa749745cb47",
+      "skip_names": [],
+      "execution_source_pair": null,
+      "source_dirty": true,
+      "scope": "Historical timeout/compile failures or a helper-only test. The helper-only success did not invoke production route_loop and is not used as counter-wiring acceptance."
+    },
+    {
+      "id": "bp014-counter-history-go-test-toolbox-private-counters-final.log",
+      "exit_code": 0,
+      "status": "PASS_HELPER_ONLY",
+      "command": null,
+      "command_note": "Complete historical shell command unavailable; actual outcome retained in the log footer.",
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\go-test-toolbox-helper-counters-final.log",
+      "log_sha256": "30edd33d4aea289edd4a4cb1296b719c39c4746a973e4b45a8c3313fadc52d5c",
+      "skip_names": [],
+      "execution_source_pair": null,
+      "source_dirty": true,
+      "scope": "Historical timeout/compile failures or a helper-only test. The helper-only success did not invoke production route_loop and is not used as counter-wiring acceptance."
+    }
+  ],
+  "reviewed_source_pair": {
+    "ProjectRebound": "1fbc032665497502252f6245f3f1427d13314566",
+    "Toolbox": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482"
+  },
+  "report_updated_at": "2026-09-08T01:21:02.440876+00:00",
+  "release_ready": false,
+  "current_followup_execution_receipts": [
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\schema48-update-20260907T212801Z\\receipt.json",
+      "sha256": "e1dcf2bc91f18bc8b31e13af0b6e1fbdea93bece0ce7a18c3a76d6a3e3cc3308",
+      "scope": "Original execution source/dirty state and outcomes inside this receipt remain authoritative."
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\schema48-toolbox-update-20260908\\schema48-toolbox-update-receipt-20260908.json",
+      "sha256": "3d2dc93105f4f846ea3581991ea9cc87d6c1b5379f223b47f90488cc95deab71",
+      "scope": "Original execution source/dirty state and outcomes inside this receipt remain authoritative."
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\host-route-preservation-20260908\\receipt.json",
+      "sha256": "c3c8235890446d2e6ecc39f09aeb1564020d9b501040c2c4e72122015e148feb",
+      "scope": "Original execution source/dirty state and outcomes inside this receipt remain authoritative."
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\native-scope-runtime-20260908\\receipt.json",
+      "sha256": "7cdcf9afa1c047b20d9a9a088f9b695728644d0299fd2c6e5a1ae522b0acc5bc",
+      "scope": "Original execution source/dirty state and outcomes inside this receipt remain authoritative."
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-a-final-skip-migration-audit-20260908.json",
+      "sha256": "f25bad0b287a9233363e1e9b06c0f8b58e8b0505bcd82aec98e65251f3a29824",
+      "scope": "Original execution source/dirty state and outcomes inside this receipt remain authoritative."
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-host-scope-fix-evidence-20260908.json",
+      "sha256": "7edaf57af6770dd9818fea40f94350b06763e9acb04df2f9d86851113a4aaceb",
+      "scope": "Original execution source/dirty state and outcomes inside this receipt remain authoritative."
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\relay-windows-crosslang-20260908\\relay-windows-crosslang-receipt.json",
+      "sha256": "5e17ff945d136cb563be13ee92f988c8e6dacfcd43773cf7a3783d9f25142837",
+      "scope": "Original execution source/dirty state and outcomes inside this receipt remain authoritative."
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\toolbox-final-followups-20260908\\evidence-manifest.json",
+      "sha256": "c2e354b37959c1afd6453c1cfe224a219f5c2c5ca4dd78cf6ccdd460e41e34a5",
+      "scope": "Original execution source/dirty state and outcomes inside this receipt remain authoritative."
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\cleanup-receipt-component-20260907T221356972898Z\\receipt.json",
+      "sha256": "255098e7f604b4f0dfcc5e12b8aa8cbe6d781dd9ef560af830dd01019d9640e7",
+      "scope": "Original execution source/dirty state and outcomes inside this receipt remain authoritative."
+    }
+  ],
+  "commit_status": "Implementation committed locally where identified in the final ledger; actual Native/full E2E and operational release gates remain separate. No push or deployment.",
+  "reviewed_source_pair_scope": "Latest source review anchors only. Historical execution commits, binaries, timestamps and dirty-state observations are retained as originally recorded; unknown per-run provenance is not inferred.",
+  "supplement_import": {
+    "updated_at": "2026-09-08T00:26:38.994901+00:00",
+    "script": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\import_backend_runtime_supplements.py",
+    "records": [
+      "e2e06-17::toolbox-runtime-component"
+    ],
+    "source_pair_complete": false,
+    "note": "Single-repository execution facts retained; no reviewed pair substituted."
+  }
+}

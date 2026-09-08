@@ -1,0 +1,48 @@
+   Compiling rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+warning: constant `ROOM_AUTHORITY_PIPE_TIMEOUT` is never used
+  --> src\launching\launch.rs:42:7
+   |
+42 | const ROOM_AUTHORITY_PIPE_TIMEOUT: Duration = Duration::from_secs(45);
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `LISTEN_AUTHORITY_READY_TIMEOUT` is never used
+  --> src\launching\launch.rs:45:7
+   |
+45 | const LISTEN_AUTHORITY_READY_TIMEOUT: Duration = Duration::from_secs(45);
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `do_launch_pvp` is never used
+   --> src\launching\launch.rs:959:4
+    |
+959 | fn do_launch_pvp(game_path: &str, progress: &Progress) -> Result<LaunchResult> {
+    |    ^^^^^^^^^^^^^
+
+warning: function `wait_for_listen_authority_ready` is never used
+    --> src\launching\launch.rs:1052:4
+     |
+1052 | fn wait_for_listen_authority_ready(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `do_launch_room_host` is never used
+    --> src\launching\launch.rs:1091:4
+     |
+1091 | fn do_launch_room_host(
+     |    ^^^^^^^^^^^^^^^^^^^
+
+warning: function `do_launch_join` is never used
+    --> src\launching\launch.rs:1157:4
+     |
+1157 | fn do_launch_join(
+     |    ^^^^^^^^^^^^^^
+
+warning: `rebound_toolbox` (lib test) generated 6 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 17.80s
+     Running unittests src\lib.rs (target\debug\deps\rebound_toolbox-5a98c9dd863c84a8.exe)
+
+running 1 test
+test vnt::legacy::relay::tests::decodes_go_edge_recipient_retagged_wire_vectors ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 232 filtered out; finished in 0.00s
+

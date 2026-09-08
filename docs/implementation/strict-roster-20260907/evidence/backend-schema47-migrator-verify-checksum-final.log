@@ -1,0 +1,4 @@
+=== RUN   TestMigratorAgainstPostgreSQL
+--- PASS: TestMigratorAgainstPostgreSQL (0.11s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/database	0.124s

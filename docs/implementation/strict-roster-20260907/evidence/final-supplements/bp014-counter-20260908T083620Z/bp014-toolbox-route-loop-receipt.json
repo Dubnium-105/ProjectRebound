@@ -1,0 +1,53 @@
+{
+  "id": "BP-014-toolbox-route-loop-counter-supplement-20260908",
+  "recorded_at_utc": "2026-09-08T01:00:03.885248Z",
+  "status": "PASS_COMPONENT_SUPPLEMENT",
+  "issue": "BP-014",
+  "acceptance": "AC-014",
+  "scope": "Temporary cfg(test) module test invoked the production LegacyRoute route_loop with separate real Host and Member threads, initial LAN/UDP connection snapshots, real loopback UDP payloads in both directions, and read each route session's private LegacyRouteStatus after the route loops completed.",
+  "command": "cargo test --locked --features lab-testing --lib bp014_toolbox_legacy_route_loop_counters --target-dir C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\toolbox-target -- --nocapture",
+  "working_directory": "C:\\wksp\\ProjectReboundToolbox",
+  "exit_code": 0,
+  "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\cargo-test-toolbox-route-loop-rerun.log",
+  "log_sha256": "66f2d4233885e0f4fcb39367c52e619f8369a3d008e2db4fc3c523dbc08826c2",
+  "test_source_copy": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\bp014_toolbox_legacy_route_loop_test.rs",
+  "test_source_sha256": "aa220468f05c0693173019e84d832fc8b6cb20f5168e5f8279aaa4b7a09ed00f",
+  "temporary_full_source_copy": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\controller.rs.with-bp014-route-loop-test",
+  "temporary_full_source_sha256": "36d423c022db27b96e70301ce2541d8913c190a9132c8b08b572cf6e278b80cb",
+  "baseline_toolbox_commit": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482",
+  "baseline_toolbox_source_dirty_before": false,
+  "execution_toolbox_source_dirty_during_test": true,
+  "execution_toolbox_temp_source_sha256": "36d423c022db27b96e70301ce2541d8913c190a9132c8b08b572cf6e278b80cb",
+  "restored_toolbox_source_sha256": "1b5c7def976d526cbfeb725f6031689dcfdc1a216b350e28235a50dfffde5777",
+  "baseline_controller_sha256": "1b5c7def976d526cbfeb725f6031689dcfdc1a216b350e28235a50dfffde5777",
+  "go_harness_source_copy": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\bp014_toolbox_counter_supplement_test.go",
+  "go_harness_source_sha256": "8d0412d18f613b7709e47c002fbb27cedf04f5070f0aeeadc6a739c0ec0b30ad",
+  "go_harness_removed_after_run": true,
+  "observed_product_stats": {
+    "source": "LegacyRouteStatus in src/vnt/legacy/controller.rs, updated by production route_loop calls to record_packet_result",
+    "host_datagrams_sent": 1,
+    "host_datagrams_received": 1,
+    "member_datagrams_sent": 1,
+    "member_datagrams_received": 1,
+    "valid_bidirectional_payloads": [
+      "member-to-host",
+      "host-to-member"
+    ]
+  },
+  "assertions": [
+    "Host route loop delivered member payload to authority and sent authority reply through its route",
+    "Member route loop sent initial payload and received authority reply through its route",
+    "all four datagram counters equal one"
+  ],
+  "prior_go_edge_receipt": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\bp014-counter-receipt.json",
+  "product_behavior_modified": false,
+  "commit": false,
+  "post_run_relevant_status": {
+    "ProjectRebound": [],
+    "ProjectReboundToolbox": []
+  },
+  "limitations": [
+    "This targeted test covers the valid direct LAN/UDP route-loop counter path; relay-specific Go Edge product Metrics.Snapshot is separately covered by the prior Go/Rust receipt. Error classification, replay/window, and MTU evidence remain separately scoped and are not claimed by this run.",
+    "The temporary source was intentionally dirty during the test; the original controller.rs bytes were restored and no commit was made."
+  ]
+}

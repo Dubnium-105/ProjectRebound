@@ -1,0 +1,104 @@
+{
+  "evidence_id": "backend-host-scope-fix-20260908",
+  "scope": "HOST durable disconnect nonce, same-world generation fencing, preserved-route sweeper admission, and payload reinstallation gate",
+  "schema_version": 48,
+  "source_head_observed": "c76ef07642b195d6229c7fcb10ca9188d0505be3",
+  "source_tree_dirty": true,
+  "source_files": [
+    {
+      "path": "Backend/migrations/000048_strict_roster_live_generation.sql",
+      "sha256": "A98B29F5979F09B4E0FD2A84D6F43537450EA0E262A1429E6BF5901618C3FE6F",
+      "bytes": 2367
+    },
+    {
+      "path": "Backend/internal/matchlobby/service.go",
+      "sha256": "4A803A76D0590C4984090F0CA735ED5FA913419699AA1994EEEFED87DF83460F",
+      "bytes": 145873
+    },
+    {
+      "path": "Backend/internal/matchlobby/sweeper.go",
+      "sha256": "7F243419769E8CE1C71B8690AE30753C9D9D4AC2227B2B6F9E23C95393835490",
+      "bytes": 15964
+    },
+    {
+      "path": "Backend/internal/matchlobby/service_integration_test.go",
+      "sha256": "4B275957583A93C4B5EEDDAAB3524BEF1C5C691E2E7735920E0782449B407036",
+      "bytes": 70351
+    },
+    {
+      "path": "Backend/internal/database/migrator_integration_test.go",
+      "sha256": "68565072986511872EF3799AE1E6B1059F02728AED38BF41C2BCFFC9873017ED",
+      "bytes": 7821
+    }
+  ],
+  "implementation": [
+    "000048 adds last_disconnected_native_connection_nonce with format constraint and retains live generation/route columns.",
+    "MarkDisconnected persists and exact-matches the prior native nonce; preserved HOST disconnect increments authorization generation and invalidates payload_route_generation.",
+    "Fresh same-world HOST Ready requires a new generation-bearing allocation and PayloadInstalled acknowledgement.",
+    "Sweeper counts connected members at current live generation and permits only preserved HOST seats whose live route is <= the authority route."
+  ],
+  "tests": [
+    {
+      "name": "focused-host-scope-positive",
+      "database": "rebound_a_hostscope_fix_20260908_07",
+      "command": "Linux Go1.26.6 go test -race -p 1 ./internal/matchlobby -run ^TestStrictRosterP2PLifecycleAgainstPostgreSQL$ -count=1 -v",
+      "exit_code": 0,
+      "pass_tests": 1,
+      "skip_names": [],
+      "log": "docs/implementation/strict-roster-20260907/evidence/backend-host-scope-fix-targeted-20260908-fresh7.log",
+      "log_sha256": "71D9695AD1B7206D6819DFBAA3032C2164162A51F208844282958297AC8B028D",
+      "observed": "PASS; wrong nonce replay rejected; route1 preserved HOST disconnect fenced generation 2; allocation/Payload reinstallation gate enforced; preserved HOST sweeper case remained RUNNING."
+    },
+    {
+      "name": "focused-host-scope-negative-control",
+      "database": "rebound_a_hostscope_negative_20260908_02",
+      "command": "Isolated copy with sweeper condition requiring live_route_generation=current; same Go test command",
+      "exit_code": 1,
+      "pass_tests": 0,
+      "skip_names": [],
+      "log": "docs/implementation/strict-roster-20260907/evidence/backend-host-scope-negative-control-20260908-02.log",
+      "log_sha256": "6E0192849C574FFF3AC78701F8FA5A0BAA02F710CAF74770ACDAFF8CDECA4DA6",
+      "observed": "EXPECTED FAIL at service_integration_test.go:1203 with state=ABORTED; proves the positive fixture detects the old all-role route condition.",
+      "modified_source": ".tmp/strict-roster-20260907/negative-sweep-control/Backend/internal/matchlobby/sweeper.go",
+      "modified_source_sha256": "9823970A12748D702F0EAF5968CFEB8B380111B45DEB59D7ED7A5B53CDF46E22"
+    },
+    {
+      "name": "schema47-to-48-live-history",
+      "database": "rebound_a_schema47_hostfix_20260908_01",
+      "command": "pg_restore fresh DB, seed historical CONNECTED HOST/MEMBER rows, Linux Go1.26.6 go test -race -p 1 ./internal/database -run ^TestMigratorAgainstPostgreSQL$ -count=1 -v",
+      "exit_code": 0,
+      "pass_tests": 1,
+      "skip_names": [],
+      "log": "docs/implementation/strict-roster-20260907/evidence/backend-schema47-hostfix-upgrade-20260908.log",
+      "log_sha256": "2A31FF5C578194DB0B62DBE9D3256186B19A228A74E32824BD2964F4FA1F0C43",
+      "postcheck": "docs/implementation/strict-roster-20260907/evidence/backend-schema47-hostfix-postcheck-20260908.log",
+      "postcheck_sha256": "9B371087E3D79F7BF9080576D0E13E73DB613B55B4119AF4536189417219B3A5",
+      "observed": "PASS; postcheck max_version=48, migration_count=48, historical HOST/MEMBER live generations preserved and last-disconnected column present."
+    },
+    {
+      "name": "full-backend-race-p1",
+      "database": "rebound_a_fullrace_hostfix_20260908_01",
+      "command": "Linux Go1.26.6 go test -race -p 1 ./... -count=1 -v with TEST_REDIS_ADDRESS/TEST_REDIS_URL=127.0.0.1:56380",
+      "exit_code": 0,
+      "top_pass": 403,
+      "subtest_pass": 144,
+      "top_fail": 0,
+      "skip_names": [
+        "TestS3StorageAgainstCompatibleService",
+        "TestNormalizeBattleLogFixtureWhenConfigured",
+        "TestRestrictedMetaServicePermissions",
+        "TestStrictRosterRustRelayClients"
+      ],
+      "log": "docs/implementation/strict-roster-20260907/evidence/backend-go-test-race-go1266-schema48-hostfix-final-20260908.log",
+      "log_sha256": "149C026CBD6730490E113F1CABA8B92E14FA6163EE8E68FF9C32D4F813FE3C3B",
+      "observed": "PASS; 403 top-level PASS, 139 one-level subtest PASS, 5 deeper subtest PASS (144 indented total), 0 FAIL, 4 top-level SKIP.",
+      "subtest_pass_one_level": 139,
+      "subtest_pass_deeper": 5
+    }
+  ],
+  "historical_notes": [
+    "The original backend-host-scope-fix-targeted-20260908-final.log was overwritten during a rerun and its original bytes are not retained; fresh3/fresh4/fresh5 are separate executions and are not substituted for it.",
+    "No credentials, JWTs, tokens, private keys, or database dumps are included in this receipt.",
+    "Root must commit the dirty product/test files before release; no commit is claimed here."
+  ]
+}

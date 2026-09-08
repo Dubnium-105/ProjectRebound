@@ -1,0 +1,30 @@
+=== RUN   TestStrictRosterDedicatedLifecycleAgainstPostgreSQL
+    dedicated_integration_test.go:120: This authority is not assigned to the match attempt.
+--- FAIL: TestStrictRosterDedicatedLifecycleAgainstPostgreSQL (3.39s)
+=== RUN   TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL (0.21s)
+=== RUN   TestStrictRosterAdminForceAbortIsAuditedAndDrainKeepsReadsAgainstPostgreSQL
+--- PASS: TestStrictRosterAdminForceAbortIsAuditedAndDrainKeepsReadsAgainstPostgreSQL (0.13s)
+=== RUN   TestStrictRosterP2PPreflightNativeProcessNotStartedCleanupAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PPreflightNativeProcessNotStartedCleanupAgainstPostgreSQL (0.13s)
+=== RUN   TestStrictRosterP2PPreflightNotStartedRejectsInstalledPayloadAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PPreflightNotStartedRejectsInstalledPayloadAgainstPostgreSQL (0.13s)
+=== RUN   TestStrictRosterP2PLifecycleAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PLifecycleAgainstPostgreSQL (0.84s)
+FAIL
+FAIL	github.com/Dubnium-105/ProjectRebound/Backend/internal/matchlobby	4.836s
+=== RUN   TestMigratorAgainstPostgreSQL
+    migrator_integration_test.go:58: insert synthetic future schema: ERROR: duplicate key value violates unique constraint "schema_migrations_pkey" (SQLSTATE 23505)
+--- FAIL: TestMigratorAgainstPostgreSQL (0.02s)
+=== RUN   TestLiveGenerationMigrationPreservesHistoricalConnectedRoster
+--- PASS: TestLiveGenerationMigrationPreservesHistoricalConnectedRoster (0.01s)
+FAIL
+FAIL	github.com/Dubnium-105/ProjectRebound/Backend/internal/database	0.045s
+=== RUN   TestRepositoryIsolationAndRetiredMatchmakingAgainstPostgreSQL
+    repository_integration_test.go:302: retired Meta ticket/connected/completed calls rejected; zero tickets, zero allocations, original server states intact
+--- PASS: TestRepositoryIsolationAndRetiredMatchmakingAgainstPostgreSQL (0.37s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/metaserver	0.385s
+FAIL
+
+EXIT_CODE=1

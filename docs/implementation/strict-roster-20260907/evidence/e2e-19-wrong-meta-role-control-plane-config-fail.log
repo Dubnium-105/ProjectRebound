@@ -1,0 +1,2 @@
+STATE=exited EXIT=1 PID=27816
+{"time":"2026-09-07T22:55:04.3705677+08:00","level":"ERROR","msg":"initialize control-plane","error":"invalid control-plane configuration: strict authoritative online mode requires MATCH_ADMISSION_PRIVATE_KEY_BASE64 in every environment"}

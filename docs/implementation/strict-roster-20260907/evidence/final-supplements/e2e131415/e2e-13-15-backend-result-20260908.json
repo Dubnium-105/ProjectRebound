@@ -1,0 +1,153 @@
+{
+  "reviewed_at": "2026-09-08T23:12:00Z",
+  "source_commit": "bb3590adf298ddc9fefde63d0c70c2fc08ad7529",
+  "source_tree": "Backend product source at the reviewed commit; no product edits in this run",
+  "scope": "Backend-only evidence for E2E-13, E2E-14, E2E-15; this file is not a replacement for the full cross-process E2E records.",
+  "environment": {
+    "postgres": "isolated PostgreSQL 14 cluster on 127.0.0.1:55439",
+    "databases": [
+      "rebound_e2e131415_match_2026090801",
+      "rebound_e2e131415_db_2026090801",
+      "rebound_e2e131415_meta_2026090801",
+      "rebound_e2e14ded_2026090801"
+    ],
+    "redis": "not required by these selected tests",
+    "native_game": "not run",
+    "toolbox_ipc": "not run"
+  },
+  "test_runs": [
+    {
+      "name": "matchlobby strict-roster integration",
+      "command": "TEST_DATABASE_URL=postgres://phanthy@127.0.0.1:55439/rebound_e2e131415_match_2026090801 go test -p 1 ./internal/matchlobby -run ^TestStrictRoster -count=1 -v",
+      "exit_code": 0,
+      "top_level_pass": 6,
+      "top_level_fail": 0,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e131415\\backend-e2e13-15-matchlobby-clean-20260908T230614Z.log",
+      "log_sha256": "35CBA0D69049589F5DBF5315D2759B7AFD23423AA9A4DC8E180E338778DF94D9"
+    },
+    {
+      "name": "database migration and schema gate integration",
+      "command": "TEST_DATABASE_URL=postgres://phanthy@127.0.0.1:55439/rebound_e2e131415_db_2026090801 go test -p 1 ./internal/database -run TestMigratorAgainstPostgreSQL|TestLiveGenerationMigrationPreservesHistoricalConnectedRoster -count=1 -v",
+      "exit_code": 0,
+      "top_level_pass": 2,
+      "top_level_fail": 0,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e131415\\backend-e2e13-15-database-clean-20260908T230743Z.log",
+      "log_sha256": "34BBDB0F1E7C182AF2AFBE7AA1988965B399C781E057BF74A19EF1ABD9E45737"
+    },
+    {
+      "name": "Meta retired matchmaking repository integration",
+      "command": "TEST_DATABASE_URL=postgres://phanthy@127.0.0.1:55439/rebound_e2e131415_meta_2026090801 go test -p 1 ./internal/metaserver -run ^TestRepositoryIsolationAndRetiredMatchmakingAgainstPostgreSQL$ -count=1 -v",
+      "exit_code": 0,
+      "top_level_pass": 1,
+      "top_level_fail": 0,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e131415\\backend-e2e13-15-meta-clean-20260908T230859Z.log",
+      "log_sha256": "4BCAF40F5614EF146400F617B26F367FC0B1E2094CCF642A225BE8010F0C5F2B"
+    },
+    {
+      "name": "isolated Dedicated lifecycle rerun",
+      "command": "TEST_DATABASE_URL=postgres://phanthy@127.0.0.1:55439/rebound_e2e14ded_2026090801 go test -p 1 ./internal/matchlobby -run ^TestStrictRosterDedicatedLifecycleAgainstPostgreSQL$ -count=1 -v",
+      "exit_code": 0,
+      "top_level_pass": 1,
+      "top_level_fail": 0,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e131415\\backend-e2e14-dedicated-alone-20260908T230445Z.log",
+      "log_sha256": "F6EFA5517C58BA2E8F11D474497C9D22D9A132CA88AC9B2AA93BD997D851150A"
+    },
+    {
+      "name": "historical combined run retained as failure evidence",
+      "command": "TEST_DATABASE_URL=postgres://phanthy@127.0.0.1:55439/rebound_e2e131415_2026090801 go test -p 1 ./internal/matchlobby ./internal/database ./internal/metaserver -run TestStrictRoster|TestMigratorAgainstPostgreSQL|TestLiveGenerationMigrationPreservesHistoricalConnectedRoster|TestRepositoryIsolationAndRetiredMatchmakingAgainstPostgreSQL -count=1 -v",
+      "exit_code": 1,
+      "top_level_pass": 7,
+      "top_level_fail": 2,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e131415\\backend-e2e13-15-focused-20260908T230116Z.log",
+      "log_sha256": "0ACF158445A5B16063B9F3CC600B6A4ACC713ECA1BCC99EFE63AEC5EF88FA006",
+      "note": "Retained as an actual failed run. The Dedicated failure and migration duplicate-key failure were not used as acceptance evidence; clean isolated reruns above pass."
+    }
+  ],
+  "e2e_cases": [
+    {
+      "id": "E2E-13",
+      "status": "partial",
+      "steps": [
+        {
+          "index": 1,
+          "status": "partial",
+          "observed": "Backend tests exercise managed roster projection, P2P/Dedicated freeze, preflight failure cleanup, and no stale world/route/generation acceptance.",
+          "not_covered": "No process kill or injected failure at every lobby/P2P/StartManaged/attempt boundary; no real Toolbox/native transport worker run."
+        },
+        {
+          "index": 2,
+          "status": "partial",
+          "observed": "Real PG tests cover idempotent Start, authority-ready retry, grant delivery retry, reservation retry, connection retry, completion retry, and cleanup retry.",
+          "not_covered": "No crashed-process restart or production reconciler execution with a previously interrupted transaction."
+        }
+      ],
+      "expected_assessment": "No full E2E pass; cross-process and kill/reconciler portions remain unrun."
+    },
+    {
+      "id": "E2E-14",
+      "status": "partial",
+      "steps": [
+        {
+          "index": 1,
+          "status": "partial",
+          "observed": "Dedicated provisioning timeout and restart, P2P connection quorum, preserved HOST route refresh, and stale seat/role rejection were exercised against PG.",
+          "not_covered": "No complete two-team late-seat/native Playable scenario or native role-confirmation delay."
+        },
+        {
+          "index": 2,
+          "status": "partial",
+          "observed": "Service-controlled clock covers dedicated provisioning timeout, grant expiry/idempotent intent behavior, authority heartbeat route refresh, and connection deadline sweep.",
+          "not_covered": "No real native lease/Playable clock and no cross-process authority recovery deadline run."
+        }
+      ],
+      "expected_assessment": "Backend policy/negative cases are evidenced, but the full lease plus native Playable E2E remains partial."
+    },
+    {
+      "id": "E2E-15",
+      "status": "partial",
+      "steps": [
+        {
+          "index": 1,
+          "status": "partial",
+          "observed": "Backend tests create a new attempt after abort/timeout and reject old world/route cleanup, stale grant confirmation, and superseded connection evidence.",
+          "not_covered": "No old WS snapshot or native IPC ACK delivered by a real worker after a new attempt starts."
+        },
+        {
+          "index": 2,
+          "status": "partial",
+          "observed": "Backend tests establish a new generation and reject old generation/world/route disconnect or grant confirmation; repeated exact messages are idempotent.",
+          "not_covered": "No native event ordering run proving an old disconnect arrives after the new connection across the real IPC boundary."
+        }
+      ],
+      "expected_assessment": "Backend-only isolation is evidenced; full old-event cross-process E2E is not run."
+    }
+  ],
+  "source_hashes": {
+    "Backend/internal/matchlobby/service.go": "4A803A76D0590C4984090F0CA735ED5FA913419699AA1994EEEFED87DF83460F",
+    "Backend/internal/matchlobby/repository.go": "717A819CCB8D469882C3CA140FEBD2F84C60CB44201CBC7D54323227F75CFD45",
+    "Backend/internal/matchlobby/service_integration_test.go": "4B275957583A93C4B5EEDDAAB3524BEF1C5C691E2E7735920E0782449B407036",
+    "Backend/internal/matchlobby/dedicated_integration_test.go": "95B0B0625C6DA6C28704A2A59D00B68D973679C63AE17A765FE34D76C58572F1",
+    "Backend/internal/database/migrator.go": "C65CC733777BFB7EBEF30EECCA9386347891FDB4A4A596E3AC1F9AA14A222444",
+    "Backend/internal/database/migrator_integration_test.go": "68565072986511872EF3799AE1E6B1059F02728AED38BF41C2BCFFC9873017ED",
+    "Backend/internal/metaserver/repository_integration_test.go": "A2B070BA958BB7A5D22712E887940B3C56B6E43C89A3316FEF78F02ACE1F9FCF",
+    "Backend/internal/controlplane/server.go": "8EE9A5CEC28C093DB32AC9D0C165649B9A6B9A470D77DD5AFD9B0CADBCEA8282",
+    "Backend/api/openapi/openapi.yaml": "58A7D09698BDED47D1FB7B5A559D9997F577B9F278E114159355D749CE4D055D"
+  },
+  "component_only_runs": [
+    {
+      "name": "BattleLog strict projection synthetic component",
+      "command": "TEST_DATABASE_URL=postgres://phanthy@127.0.0.1:55439/rebound_e2e131415_battlelog_2026090801 go test -p 1 ./internal/metaserver -run ^TestBattleLogSubmissionAgainstPostgreSQL$ -count=1 -v",
+      "exit_code": 0,
+      "top_level_pass": 1,
+      "subtests_pass": 3,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e131415\\backend-battlelog-component-20260908T231649Z.log",
+      "log_sha256": "48B44BE34BFFC4B6A125464F82035E7FC49929748CAB2BCDE7060CCBD9BB85C6"
+    }
+  ]
+}

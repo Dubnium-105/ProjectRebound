@@ -1,0 +1,12 @@
+   ?column?   
+--------------
+ schema=47|47
+(1 row)
+
+                 ?column?                 
+------------------------------------------
+ roster=3|connected_hosts=2|nonce_hosts=1
+(1 row)
+
+
+EXIT_CODE=0

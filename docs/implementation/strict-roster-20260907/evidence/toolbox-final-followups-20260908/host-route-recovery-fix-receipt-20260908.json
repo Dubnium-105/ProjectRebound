@@ -1,0 +1,63 @@
+{
+  "id": "toolbox-host-route-recovery-fix-20260908",
+  "status": "IMPLEMENTED_PENDING_ROOT_COMMIT",
+  "source_commit_before_change": "70fcd5204f89f7af091e532d554cfaa4e69f039e",
+  "working_tree_scope": ["src/core/runtime.rs"],
+  "source_sha256": "61535331CA9F9B7EF832CDDF087305749581FD9CCF12A4C85B54D370FBEFEB95",
+  "change": {
+    "path": "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs",
+    "lines": "1289-1349, 6465-6629",
+    "summary": "The released HOST recovery gate now accepts either exact next-route recovery or same-route replacement after a real old HOST disconnect. Same-route acceptance requires pending cleanup route equal to current material route and the released proof route strictly older; active ownership, exact scope, epoch, nonce, and operation evidence remain required. The caller still selects the fresh-HOST branch, so it installs the current allocation and obtains a new Native nonce and Backend CONNECTED proof.",
+    "does_not_do": ["does not reuse preserved-host Native operation", "does not reuse old nonce or connection generation", "does not synthesize DISCONNECTED or Backend proof"]
+  },
+  "tests": [
+    {
+      "name": "same_route_host_disconnect_allows_only_fresh_generation_recovery",
+      "command": "cargo test --locked --lib --features vnt,lab-testing core::runtime::tests::same_route_host_disconnect_allows_only_fresh_generation_recovery -- --exact --nocapture",
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "filtered": 310,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\toolbox-same-route-recovery-final-20260908.log",
+      "log_sha256": "45C551A6ECD8A1C68F34222BF05EE69BD12E4B2DEF4A486FD7FD33F8815B67F6"
+    },
+    {
+      "name": "toolbox-full-lib-after-fix",
+      "command": "cargo test --locked --lib --features vnt,lab-testing --no-fail-fast",
+      "exit_code": 0,
+      "passed": 311,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\toolbox-full-lib-same-route-20260908.log",
+      "log_sha256": "BF0FABEEA8F5764AC80C1ADCE9DFEEAF742EB4C6098A83C3D38C6CF146C82638"
+    },
+    {
+      "name": "toolbox-all-targets-check-after-fix",
+      "command": "cargo check --locked --all-targets --features vnt,lab-testing",
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\toolbox-all-targets-same-route-20260908.log",
+      "log_sha256": "54780A20C34CAC6A3703D66CDD3177B084E16EE0AF143BDDA9E6E412381834B7"
+    },
+    {
+      "name": "toolbox-format-check-after-fix",
+      "command": "cargo fmt -- --check",
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\toolbox-same-route-fmt-check-20260908.log",
+      "log_sha256": "04F106646418ABB409397A44093581C517F50191114BCBB87EBE418A61B76AF2"
+    }
+  ],
+  "retained_prior_evidence": {
+    "s3_receipt": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-component-rerun-receipt-20260908.json",
+    "s3_receipt_sha256": "5921C07D807AF5A2FF89FDAE608A3422E71FBE17CAF35FFB7BB855D6F49C3F42",
+    "s3_result": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\local-s3-rerun-20260908\\storage-test-result.json",
+    "s3_result_sha256": "94B60645B3BE075B4087CB1E7D6590601141D5A71AA945F4DDB60C4AAE98A45C",
+    "meta_non_race_result_sha256": "F3A61F1F6AC7662D850949669DCF6C2A729DFF3D630C0935A9BDBDBC60B97267",
+    "meta_race_result_sha256": "27765166AD4C1626E952D55F3882100600A06C9A3A3E011469506C1416AC5522",
+    "prior_toolbox_310_log_sha256": "828EFD475CE1FE0A0C859D5BD9B4A714ED3A88969B27A991B44F251BC798C9C8"
+  },
+  "limitations": [
+    "Tauri tests/build were not run in this child turn; Root owns that validation.",
+    "No native game positive run is claimed by this receipt."
+  ]
+}

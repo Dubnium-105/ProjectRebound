@@ -1,0 +1,258 @@
+{
+  "generated_at": "2026-09-07T15:46:46.305222+00:00",
+  "source_toolbox_commit": "cd09d7e7f769dc73e26ed7f38233b0a0a605e273",
+  "source_project_rebound_commit": "85073009a7865779135fa7a4cc4f86fffa284862",
+  "note": "Preserves historical PARTIAL and precommit evidence; canonical current report is e2e-20-result.json with separately prefixed final-cd09 logs. ProjectRebound was dirty, so provenance remains PARTIAL.",
+  "files": [
+    {
+      "name": "Cargo.toml",
+      "sha256": "289D4B8EADEAA60DF629F356BA5496C17E745A416A4BC1D899BD82AB5186450F",
+      "bytes": 200
+    },
+    {
+      "name": "diagnostic-redaction-scan.log",
+      "sha256": "12EE13023DBC452166940E2DC5F2B6AC5A1002555CE6733A5B46B4379403E335",
+      "bytes": 1152
+    },
+    {
+      "name": "diagnostic_redaction_test.log",
+      "sha256": "6C5B54299DD853C4015B42393CFCE971CBA8E0F6036CA098614966BFE8BBF3A5",
+      "bytes": 698
+    },
+    {
+      "name": "e2e-20-result-final-cd09.json",
+      "sha256": "B275DC4972DC90F563F6457DEC746BC7409188494062B52316DA3C5224ACCBF0",
+      "bytes": 23764
+    },
+    {
+      "name": "e2e-20-result-pre-journal-fix.json",
+      "sha256": "0D410B70964F8797E0CE94467D60E20204CD58554CBF8A743F677066421A86EE",
+      "bytes": 23070
+    },
+    {
+      "name": "e2e-20-result-precommit-candidate-before-parent-commit.json",
+      "sha256": "E9C263BDEBE334CF1F39722C15D03D33800BB7A014D886ADA9C5B41D6FD1C8E7",
+      "bytes": 21541
+    },
+    {
+      "name": "e2e-20-result.json",
+      "sha256": "B275DC4972DC90F563F6457DEC746BC7409188494062B52316DA3C5224ACCBF0",
+      "bytes": 23764
+    },
+    {
+      "name": "e2e20-final-cd09-all-targets.log",
+      "sha256": "2954E99FE78ABE3AD02E2B175819FE2255156204706B7B6EAC182825C2BEB3A5",
+      "bytes": 9880
+    },
+    {
+      "name": "e2e20-final-cd09-full-lib.log",
+      "sha256": "0F96CFAAB92DE99C1BE148C5DB96BD3E63FDC909E5F4C50E46C1CA208BFC3CA5",
+      "bytes": 26185
+    },
+    {
+      "name": "e2e20-final-cd09-tauri-tests.log",
+      "sha256": "460F364A864A8A3DA2C860CA4CB3F4E31D1C890BF1C944163C630BCE6FB9DEAF",
+      "bytes": 16177
+    },
+    {
+      "name": "e2e_20_harness-final-cd09.py",
+      "sha256": "7B45B4B6B0A202582E2D0CD2CBC0DEB7DA4D3D1EE3BD74794DC8E78B3DE2EBD1",
+      "bytes": 36267
+    },
+    {
+      "name": "e2e_20_harness-journal-fix-precommit.py",
+      "sha256": "C356BE053B3B41CBFADF745AC470B12631ABD3C59F296EF3930FC8283A3B0403",
+      "bytes": 36266
+    },
+    {
+      "name": "e2e_20_harness.py",
+      "sha256": "48F4F8261DDC8FFF0BDFE69607D0201DDB247EC93AEF125784F5F4375B804675",
+      "bytes": 25357
+    },
+    {
+      "name": "final-cd09-diagnostic-redaction-scan.log",
+      "sha256": "005BFDAAA338B4EF49FAC1F7C2B9F2601F452A80D601DD5CEB8F146750359EA8",
+      "bytes": 1316
+    },
+    {
+      "name": "final-cd09-diagnostic_redaction_test.log",
+      "sha256": "24055E9A221BFE7A46863E07873446267335312A179C3FFB71F1DFA287D6417F",
+      "bytes": 698
+    },
+    {
+      "name": "final-cd09-metatunnel_manifest_test.log",
+      "sha256": "BC13B5200B812444236BA52298AEC0EAD226E4222EC29EFCBC2CE60AB9A25694",
+      "bytes": 704
+    },
+    {
+      "name": "final-cd09-provenance-collect.log",
+      "sha256": "45F69F248F7B9BB598482711CDF58A14B8FE2EEBB29C61E1A6A29FFF8205166C",
+      "bytes": 580
+    },
+    {
+      "name": "final-cd09-provenance-release-gate.log",
+      "sha256": "33C899EF469687BA987D53DF43723534C9F0AECF492B62F8E0192A0B8E1F0BFF",
+      "bytes": 630
+    },
+    {
+      "name": "final-cd09-runtime-manifest-fingerprints.log",
+      "sha256": "FFCBADDB61BF681092364F48758607B9EED0887FC15A520C05FB31BD7BB9D0B8",
+      "bytes": 2478
+    },
+    {
+      "name": "final-cd09-signed_manifest_and_updater_tests.log",
+      "sha256": "3694B488F57040C08A2EB389722D6ACFF24FA82BB9197FF04B467F549EA04F77",
+      "bytes": 1890
+    },
+    {
+      "name": "final-cd09-source-fingerprint.log",
+      "sha256": "D90232B50157FA74AF7CACE2C43BE29E304921B546ECC8CAB0939EDDC631A134",
+      "bytes": 558
+    },
+    {
+      "name": "final-cd09-strict-gate-driver-build.log",
+      "sha256": "1340B0058B0C925B13970976F66207052634A8C11273D07791A61337C42596B2",
+      "bytes": 395
+    },
+    {
+      "name": "final-cd09-strict-gate-driver-run.log",
+      "sha256": "CB0214ACFCBE1EB4CA9A7B1ADC5D2D6289AF903A2B8A4A351FB0A2755239D2A1",
+      "bytes": 418
+    },
+    {
+      "name": "final-cd09-strict_build_gate_tests.log",
+      "sha256": "E340B30EF8754F342DBD2BD481345A533E47547C336F7F84ECBFD74534F5D862",
+      "bytes": 813
+    },
+    {
+      "name": "final-cd09-updater-interruption.log",
+      "sha256": "A27BFF99C33EF8CED726C317AA3D524FFFC476C2959B45BBB6394AB2F95CAFF9",
+      "bytes": 969
+    },
+    {
+      "name": "final-cd09-updater-journal-flush.log",
+      "sha256": "A41340472D93521012AECA08AC4DAE885084154190FA4020AEC9D4FE6DB6942E",
+      "bytes": 891
+    },
+    {
+      "name": "final-cd09-updater-transaction-e2e.log",
+      "sha256": "DB5DFF541DBBD042729E44781C71272B2DF03176C8B1DFAC01225A8E5C0DCC5E",
+      "bytes": 4457
+    },
+    {
+      "name": "final-cd09-vnt_manifest_test.log",
+      "sha256": "86C9E142D755CECBF0662BBCB57E7FEF6F3E53B04FF30E7CEA3D04CFD48175D8",
+      "bytes": 696
+    },
+    {
+      "name": "main.rs",
+      "sha256": "712AD9E6C633C3A9C1E68DDD9CFFDBAB8799891840E789E55DCA28E8B7CFC8DC",
+      "bytes": 1301
+    },
+    {
+      "name": "metatunnel_manifest_test.log",
+      "sha256": "DE179F3A2B4C21B725FB567C47A2DD236F59940C103D1D03ACD4E054E93E277F",
+      "bytes": 704
+    },
+    {
+      "name": "provenance-collect.log",
+      "sha256": "5C050D3DEDC5455A7CFE6C8F1D26D63E20BB254F2D1E7519FCAAD884211F988C",
+      "bytes": 623
+    },
+    {
+      "name": "provenance-release-gate.json",
+      "sha256": "21CDAF9865870C821F5D8FF8D8AF9600099377C2E2B2E44872FDC495CC7E2572",
+      "bytes": 6517
+    },
+    {
+      "name": "provenance-release-gate.log",
+      "sha256": "AEF8FE54FC154475FCA135EAF0C13AFEFD5D03321AE890D33272014A85FA8EB3",
+      "bytes": 673
+    },
+    {
+      "name": "provenance.json",
+      "sha256": "A61364E9575AE557544E11D9DC8464BE4EC3CD61C5692B72954CC85CEBD1CF90",
+      "bytes": 6517
+    },
+    {
+      "name": "README.md",
+      "sha256": "3EF65D8C9C156EC8A9F4CB41320708635B8FB63D5645F411615BB93A42A1586D",
+      "bytes": 1286
+    },
+    {
+      "name": "runtime-manifest-fingerprints.log",
+      "sha256": "FFCBADDB61BF681092364F48758607B9EED0887FC15A520C05FB31BD7BB9D0B8",
+      "bytes": 2478
+    },
+    {
+      "name": "signed_manifest_and_updater_tests.log",
+      "sha256": "16461F4F8CFF67D18D91C28AD0F39F24967A5C98305B58BE4943C2DEAD6C586A",
+      "bytes": 1777
+    },
+    {
+      "name": "source-fingerprint.log",
+      "sha256": "6C7CAD2B70BE8F2B8DEBC270EBB59B0B0E06EDB2AFC26E78683FFDA2BAEF644C",
+      "bytes": 558
+    },
+    {
+      "name": "strict-gate-driver-build.log",
+      "sha256": "D0BA6DF6526777F1294E1B7BDA94A27DC0621E19B6D9DC7B31182D1015641A70",
+      "bytes": 395
+    },
+    {
+      "name": "strict-gate-driver-run.log",
+      "sha256": "BA3FB7AB71370CE7205E901B206142C7200DE9E3936E09F695C3DA222601F0EB",
+      "bytes": 418
+    },
+    {
+      "name": "strict_build_gate_tests.log",
+      "sha256": "5EAAB49171B852B80CB34C2F526B67EF4A52D948E5F7AEC36A80EC45C64FA1CA",
+      "bytes": 813
+    },
+    {
+      "name": "test_updater_transactions-final-cd09.py",
+      "sha256": "3FB2FA677361ECC8D50F32E322B7B9AB09ABCEED45047DAC248A7B92B2515F5A",
+      "bytes": 9348
+    },
+    {
+      "name": "test_updater_transactions-journal-fix-precommit.py",
+      "sha256": "3FB2FA677361ECC8D50F32E322B7B9AB09ABCEED45047DAC248A7B92B2515F5A",
+      "bytes": 9348
+    },
+    {
+      "name": "test_updater_transactions.py",
+      "sha256": "A7DB20033D8EB82E1FCC4056A35B258B2AECC07D7AE13EC03C197203C5E9D5C7",
+      "bytes": 2632
+    },
+    {
+      "name": "updater-interruption-journal-fix-precommit.log",
+      "sha256": "610A14F592FCD5A21BDDD5DDDBD05C8CF8B2E8F3FDCD2598B9A64E20CD462E46",
+      "bytes": 969
+    },
+    {
+      "name": "updater-interruption.log",
+      "sha256": "FCA3BFFFCBE23C1B8A91BEC12F4675B49ADE880819F1908AB6EA1D430198FB4B",
+      "bytes": 1116
+    },
+    {
+      "name": "updater-journal-flush-precommit.log",
+      "sha256": "69795342BB6CBBE336A3C74FC5B83B31A4F327F37732F7FB9655AAC83AE9BCDD",
+      "bytes": 891
+    },
+    {
+      "name": "updater-transaction-e2e.log",
+      "sha256": "E443FDED13AA1FFAB0AA273323DAF39DF5F22F555684857B3409933E8FE9B215",
+      "bytes": 1523
+    },
+    {
+      "name": "updater-transaction-journal-fix-precommit.log",
+      "sha256": "B79FD876F1B9830718915DDECC53C67D164495177292E822FFB509E777FD8282",
+      "bytes": 4077
+    },
+    {
+      "name": "vnt_manifest_test.log",
+      "sha256": "00855110F9DAFDD62D63E5732FC59D3F143DA9095DD3DF9B039CE98AC5E8AE52",
+      "bytes": 696
+    }
+  ]
+}

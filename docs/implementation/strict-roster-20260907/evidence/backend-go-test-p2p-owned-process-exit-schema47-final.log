@@ -1,0 +1,10 @@
+command=TEST_DATABASE_URL=<redacted-isolated-schema47> go test ./internal/matchlobby -run TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL|TestStrictRosterDedicatedLifecycleAgainstPostgreSQL|TestDedicatedNativeClearedRejectsUnscopedOwnedProcessEvidence -count=1 -v
+=== RUN   TestStrictRosterDedicatedLifecycleAgainstPostgreSQL
+--- PASS: TestStrictRosterDedicatedLifecycleAgainstPostgreSQL (0.53s)
+=== RUN   TestDedicatedNativeClearedRejectsUnscopedOwnedProcessEvidence
+--- PASS: TestDedicatedNativeClearedRejectsUnscopedOwnedProcessEvidence (0.00s)
+=== RUN   TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL
+--- PASS: TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL (0.28s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/matchlobby	0.912s
+exit_code=0

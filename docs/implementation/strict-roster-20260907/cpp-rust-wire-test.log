@@ -1,0 +1,43 @@
+   Compiling rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+warning: field `launch_workers` is never read
+   --> src\core\runtime.rs:171:5
+    |
+162 | struct RuntimeState {
+    |        ------------ field in this struct
+...
+171 |     launch_workers: HashMap<String, thread::JoinHandle<()>>,
+    |     ^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `MAX_LAUNCH_OPERATION_HISTORY` is never used
+   --> src\core\runtime.rs:214:7
+    |
+214 | const MAX_LAUNCH_OPERATION_HISTORY: usize = 64;
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: associated items `reap_finished_launch_workers`, `prune_launch_operation_history`, and `join_launch_workers` are never used
+   --> src\core\runtime.rs:285:8
+    |
+216 | impl ToolboxRuntime {
+    | ------------------- associated items in this implementation
+...
+285 |     fn reap_finished_launch_workers(&self) {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+310 |     fn prune_launch_operation_history(state: &mut RuntimeState) {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+328 |     fn join_launch_workers(&self) -> Result<()> {
+    |        ^^^^^^^^^^^^^^^^^^^
+
+warning: `rebound_toolbox` (lib test) generated 3 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 14.50s
+     Running unittests src\lib.rs (target\debug\deps\rebound_toolbox-95a8a15180729417.exe)
+
+running 2 tests
+test server::pipe::cpp_fixture_tests::cpp_frames_reject_wrong_request_command_and_replayed_event_cursor ... ok
+test server::pipe::cpp_fixture_tests::actual_cpp_frames_decode_in_rust_without_promoting_queued_or_pending_to_ready ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 248 filtered out; finished in 0.00s
+

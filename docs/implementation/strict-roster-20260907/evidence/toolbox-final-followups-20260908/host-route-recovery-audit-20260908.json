@@ -1,0 +1,55 @@
+{
+  "id": "toolbox-host-route-recovery-20260908",
+  "status": "IMPLEMENTATION_GAP",
+  "source_commit": "70fcd5204f89f7af091e532d554cfaa4e69f039e",
+  "product_source_clean_at_review": true,
+  "finding": {
+    "scenario": "P2P HOST was preserved on route 1 while authority refreshes advanced the attempt to route 3; the old native HOST then really DISCONNECTED. Backend keeps the attempt route at 3 and increments the HOST authorization/connection generation from 1 to 2.",
+    "toolbox_behavior": "runtime::refresh_p2p_authority selects the fresh-HOST branch after active_match_host_connection is cleared, but host_connection_ownership_for_refresh requires pending_cleanup.route_generation + 1 == material.route_generation. After the preceding route-3 preservation, pending cleanup is route 3, so the same-route generation-2 recovery is rejected before the current allocation is installed or host_ready is sent.",
+    "not_authority_ready_only": "The normal fresh branch would fetch and verify the current route-3 allocation, install it, start a new native authority nonce, call host_ready, then wait for the Backend HOST CONNECTED proof (including the incremented generation). It is currently unreachable for this same-route post-disconnect shape.",
+    "minimum_fix_boundary": "Allow a released exact old HOST proof when pending cleanup route equals current material route and the released scope route is older, in addition to the existing exact-next-route case. Keep active ownership rejection, exact attempt/session/world/roster/player/role checks, accepted Backend DISCONNECTED prerequisite, and fresh native nonce/Backend proof. Do not use the preserved-host path or old nonce after DISCONNECTED; add a same-route generation regression.",
+    "evidence": [
+      {"path": "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs", "lines": "1289-1344", "sha256": "F9FB31765DCA7AA2D415319174073CB05E4EDBEFEAC2725021D6E5CC8A220696", "detail": "host_connection_ownership_for_refresh rejects unless pending route + 1 equals material route"},
+      {"path": "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs", "lines": "2172-2240", "sha256": "F9FB31765DCA7AA2D415319174073CB05E4EDBEFEAC2725021D6E5CC8A220696", "detail": "refresh chooses fresh branch after active host ownership is absent and calls the strict released-proof gate"},
+      {"path": "C:\\wksp\\ProjectReboundToolbox\\src\\core\\runtime.rs", "lines": "2460-2508", "sha256": "F9FB31765DCA7AA2D415319174073CB05E4EDBEFEAC2725021D6E5CC8A220696", "detail": "fresh branch waits for current Backend HOST proof and would retain the returned connection_generation"},
+      {"path": "C:\\wksp\\ProjectRebound\\Backend\\internal\\matchlobby\\service.go", "lines": "2320-2390", "sha256": "4A803A76D0590C4984090F0CA735ED5FA913419699AA1994EEEFED87DF83460F", "detail": "real HOST disconnect after a prior route refresh clears the old live scope and increments connection_generation while retaining route"},
+      {"path": "C:\\wksp\\ProjectRebound\\Backend\\internal\\matchlobby\\service.go", "lines": "820-1020", "sha256": "4A803A76D0590C4984090F0CA735ED5FA913419699AA1994EEEFED87DF83460F", "detail": "normal P2PAuthorityReady after DISCONNECTED installs a fresh nonce at the current route and current connection_generation"}
+    ]
+  },
+  "validation": {
+    "toolbox_full_lib": {
+      "command": "cargo test --locked --lib --features vnt,lab-testing --no-fail-fast",
+      "exit_code": 0,
+      "passed": 310,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\toolbox-full-lib-70fcd-20260908.log",
+      "log_sha256": "828EFD475CE1FE0A0C859D5BD9B4A714ED3A88969B27A991B44F251BC798C9C8"
+    },
+    "s3_current": {
+      "status": "PASS",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .tmp/strict-roster-20260907/run_s3_rerun_20260908.ps1",
+      "exit_code": 0,
+      "test_log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\local-s3-rerun-20260908\\storage-test.log",
+      "test_log_sha256": "2D70BB7E4BC995ABB4B912568155C9AFAA0B35C55F8EC97BEDD6577312C4BFF8",
+      "result_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\local-s3-rerun-20260908\\storage-test-result.json",
+      "result_sha256": "94B60645B3BE075B4087CB1E7D6590601141D5A71AA945F4DDB60C4AAE98A45C",
+      "minio_sha256": "AF709E6BA68488404E85ACDD22A3030D0F5E56A108D4B27D744F18CEB50861B4",
+      "mc_sha256": "C8DB13EBEDA31497F354C0E950809DB0AE9B2A2A69B8AFEE68C128C37300C157"
+    },
+    "restricted_meta_schema48": {
+      "status": "PASS",
+      "exit_code": 0,
+      "non_race_result_sha256": "F3A61F1F6AC7662D850949669DCF6C2A729DFF3D630C0935A9BDBDBC60B97267",
+      "race_result_sha256": "27765166AD4C1626E952D55F3882100600A06C9A3A3E011469506C1416AC5522"
+    },
+    "battlelog_real_game": {"status": "NOT_RUN", "reason": "No locked-game/native fixture"}
+  },
+  "source_hashes": {
+    "toolbox_runtime": "F9FB31765DCA7AA2D415319174073CB05E4EDBEFEAC2725021D6E5CC8A220696",
+    "toolbox_controller": "ED40FFA120968D1A78C374B2CD43678C328492464A1F5EDBA77CB9981DC94025",
+    "toolbox_lobbies": "49C4B034C5349B3F5FD0584961D12A39AD8DF36E725E6325206E1E55BD4C8124",
+    "backend_service": "4A803A76D0590C4984090F0CA735ED5FA913419699AA1994EEEFED87DF83460F"
+  }
+}

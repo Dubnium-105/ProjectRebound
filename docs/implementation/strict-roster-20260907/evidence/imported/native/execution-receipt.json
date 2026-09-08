@@ -1,0 +1,216 @@
+{
+  "run_id": "dynamic-root-20260907T212120784508Z",
+  "started_at": "2026-09-07T21:21:21.100057+00:00",
+  "source_input_commit": "16f74a4853729f76d9cc103067e3a9c2d8692965",
+  "backend_tree": "1241281b51aaf08912d47baffed259623a8c60cc",
+  "backend_source_checkout": "C:\\Users\\23587\\AppData\\Local\\Temp\\rebound-native-backend-16f74a4",
+  "observed_workspace_head_at_run": "c76ef07642b195d6229c7fcb10ca9188d0505be3",
+  "candidate_build_receipt": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T211718994451Z\\result.json",
+  "candidate_build_receipt_sha256": "1e97c1242e58c8ff8eac0563e594938492ab937bfe8db2616d3672d3c129efd3",
+  "backend_source_dirty": true,
+  "backend_source_files": [
+    {
+      "path": "Backend/api/openapi/openapi.yaml",
+      "sha256": "58a7d09698bded47d1fb7b5a559d9997f577b9f278e114159355d749ce4d055d",
+      "snapshot_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\dynamic-root-20260907T212120784508Z\\backend-source\\Backend\\api\\openapi\\openapi.yaml"
+    },
+    {
+      "path": "Backend/internal/database/migrator_integration_test.go",
+      "sha256": "cb1d52cb99e576cf54c553670c8612ff27d74c8d29b2f53ab73b1b691eeb5d77",
+      "snapshot_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\dynamic-root-20260907T212120784508Z\\backend-source\\Backend\\internal\\database\\migrator_integration_test.go"
+    },
+    {
+      "path": "Backend/internal/matchlobby/dedicated_integration_test.go",
+      "sha256": "95b0b0625c6da6c28704a2a59d00b68d973679c63ae17a765fe34d76c58572f1",
+      "snapshot_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\dynamic-root-20260907T212120784508Z\\backend-source\\Backend\\internal\\matchlobby\\dedicated_integration_test.go"
+    },
+    {
+      "path": "Backend/internal/matchlobby/http.go",
+      "sha256": "4b0f43f19db2181b4f6fd492d7bc52935bbbac74e5f3e66c686e4add4a63ba2a",
+      "snapshot_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\dynamic-root-20260907T212120784508Z\\backend-source\\Backend\\internal\\matchlobby\\http.go"
+    },
+    {
+      "path": "Backend/internal/matchlobby/model.go",
+      "sha256": "5d9bf728d95c98b8b6310b99e01342651b23031bc2836024d78f04462a3c5eea",
+      "snapshot_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\dynamic-root-20260907T212120784508Z\\backend-source\\Backend\\internal\\matchlobby\\model.go"
+    },
+    {
+      "path": "Backend/internal/matchlobby/repository.go",
+      "sha256": "717a819ccb8d469882c3ca140febd2f84c60cb44201cbc7d54323227f75cfd45",
+      "snapshot_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\dynamic-root-20260907T212120784508Z\\backend-source\\Backend\\internal\\matchlobby\\repository.go"
+    },
+    {
+      "path": "Backend/internal/matchlobby/service.go",
+      "sha256": "ea12949e376ec6d0b333362a08053d20daaade6be888bbe6d4f25c4dcc685b9a",
+      "snapshot_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\dynamic-root-20260907T212120784508Z\\backend-source\\Backend\\internal\\matchlobby\\service.go"
+    },
+    {
+      "path": "Backend/internal/matchlobby/service_integration_test.go",
+      "sha256": "f0c9e8ba28e7aa914d5e8e96fbc7d44f42aabbddd06d12234c756f2ee9d388de",
+      "snapshot_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\dynamic-root-20260907T212120784508Z\\backend-source\\Backend\\internal\\matchlobby\\service_integration_test.go"
+    },
+    {
+      "path": "Backend/internal/matchlobby/sweeper.go",
+      "sha256": "06468c0dadc198656337a52477ec99118414d2c824f214dca2b153720c5c8f54",
+      "snapshot_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\dynamic-root-20260907T212120784508Z\\backend-source\\Backend\\internal\\matchlobby\\sweeper.go"
+    },
+    {
+      "path": "Backend/migrations/000048_strict_roster_live_generation.sql",
+      "sha256": "80de3ef5037f7b0a75b516e5d66e75de7d58891a40511eb4f71fc88c6eac52d7",
+      "snapshot_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\dynamic-root-20260907T212120784508Z\\backend-source\\Backend\\migrations\\000048_strict_roster_live_generation.sql"
+    }
+  ],
+  "native_source_input_commit": "a7352db16ea1a7729947526e5642bc3738b5123b",
+  "native_source_dirty": true,
+  "native_source_snapshot_differs_from_current_working_tree": [],
+  "sources": [
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\dynamic-root-20260907T212120784508Z\\main.go",
+      "sha256": "251a2a58ebbe7595fd1acfd65bc4388b3bdfa83c9a5d16abd2b1a879c66600cf"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\dynamic-root-20260907T212120784508Z\\orchestrate.ps1",
+      "sha256": "80f6a17515099bbb6e362ee15ff8297525b8ce36d7370b3c16b5c3a10d14a64c"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\dynamic-root-20260907T212120784508Z\\Payload.dll",
+      "sha256": "42c72b9f27f51c745e2b8951f9e707c3035dfc22463bfb4d1cf64d21aee9ee63"
+    }
+  ],
+  "scope": "One real Steam client and isolated Backend component fixture; synthetic second roster seat. Not three-player or release acceptance.",
+  "executions": [
+    {
+      "name": "driver-build",
+      "command": [
+        "C:/Program Files/Go/bin/go.exe",
+        "build",
+        "-o",
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\dynamic-root-20260907T212120784508Z\\backend-native-driver.exe",
+        "C:\\Users\\23587\\AppData\\Local\\Temp\\rebound-native-backend-16f74a4\\Backend\\.tmp-native-fixture\\dynamic-root-20260907T212120784508Z\\main.go"
+      ],
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\driver-build.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "isolated-database-create",
+      "command": [
+        "wsl.exe",
+        "--",
+        "createdb",
+        "--host=127.0.0.1",
+        "--port=55439",
+        "--username=phanthy",
+        "rebound_native_20260907212121252625"
+      ],
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\isolated-database-create.log",
+      "sha256": "b280c454d6f559e56eb3f5ed39f3ba084b8d1744a3ff7fe016b21ff86dea1aca"
+    },
+    {
+      "name": "fixture-prepare",
+      "command": [
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\dynamic-root-20260907T212120784508Z\\backend-native-driver.exe",
+        "-mode",
+        "prepare",
+        "-database-url",
+        "postgres://phanthy@127.0.0.1:55439/rebound_native_20260907212121252625?sslmode=disable",
+        "-fixture",
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\fixture-private.json",
+        "-authority-port",
+        "47777"
+      ],
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\fixture-prepare.log",
+      "sha256": "a7a59377ea5c93507ac867f71e318f59b02de8ce1338069c469b4ad84a4e31ca"
+    },
+    {
+      "name": "native-harness",
+      "command": [
+        "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/powershell/pwsh.exe",
+        "-NoProfile",
+        "-File",
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\dynamic-root-20260907T212120784508Z\\orchestrate.ps1",
+        "-FixturePath",
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\fixture-private.json",
+        "-EvidenceRoot",
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z",
+        "-CandidatePayload",
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\dynamic-root-20260907T212120784508Z\\Payload.dll",
+        "-BackendAuthorityReadyEvidencePath",
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\backend-authority-ready.json",
+        "-ClientReadyMarkerPath",
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\client-ready-private.json",
+        "-BackendGrantEvidencePath",
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\backend-grant-private.json",
+        "-BackendScopedEventPath",
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\native-events-private.json",
+        "-BackendReceiptDir",
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\backend-receipts",
+        "-BackendAdmissionEvidencePath",
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\backend-admission-evidence.json",
+        "-TimeoutSeconds",
+        "180",
+        "-Execute"
+      ],
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\native-harness.log",
+      "sha256": "73cae190bc19c8091aca80e4feb459131a02a322f60e1856cc7a62b72e5876ed"
+    },
+    {
+      "name": "backend-finalize",
+      "command": [
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\dynamic-root-20260907T212120784508Z\\backend-native-driver.exe",
+        "-mode",
+        "finalize",
+        "-database-url",
+        "postgres://phanthy@127.0.0.1:55439/rebound_native_20260907212121252625?sslmode=disable",
+        "-fixture",
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\fixture-private.json",
+        "-authority-evidence-root",
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z",
+        "-authority-marker",
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\backend-authority-ready.json",
+        "-client-ready-marker",
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\client-ready-private.json",
+        "-grant-marker",
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\backend-grant-private.json",
+        "-native-events",
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\native-events-private.json",
+        "-receipt-dir",
+        "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\backend-receipts",
+        "-authority-port",
+        "47777"
+      ],
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\backend-finalize-private.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "isolated_database": "rebound_native_20260907212121252625",
+  "driver_artifact": {
+    "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\dynamic-root-20260907T212120784508Z\\backend-native-driver.exe",
+    "sha256": "4ddada1c2516e1a8eb119d22cab509e546d7856b3adf1f389656f4d9dbdb1e84"
+  },
+  "fixture": {
+    "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\fixture-private.json",
+    "sha256": "643eb158e136e4a08581fa684714c8c5ba368ed9b889daf4bd41c32f325b7f9c"
+  },
+  "fixture_initial": {
+    "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\dynamic-root-20260907T212120784508Z\\fixture-initial-private.json",
+    "sha256": "643eb158e136e4a08581fa684714c8c5ba368ed9b889daf4bd41c32f325b7f9c"
+  },
+  "backend_owned_pid": 27060,
+  "backend_stop_reason": "exited",
+  "native_summaries": [
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\dedicated-component-20260907-212129-02030887\\summary.json",
+      "sha256": "e314f412e8a4f6ad792eeb1bef2d56916c005c243c51f3eed4650811441cfded"
+    }
+  ],
+  "outcomes": [
+    "PARTIAL_ADMISSION_CHAIN_PLAYABLE_NOT_REACHED"
+  ],
+  "fixture_final_sha256": "ff53642ff0815fbbc523e89dc6effffc15430bf79c335d6b31d80202cfe2a7d6",
+  "finished_at": "2026-09-07T21:23:16.538956+00:00"
+}

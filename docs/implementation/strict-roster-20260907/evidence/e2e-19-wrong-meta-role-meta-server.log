@@ -1,0 +1,3 @@
+STATE=timeout_healthy_or_hung EXIT=124 PID=26184
+{"time":"2026-09-07T22:56:05.6136011+08:00","level":"INFO","msg":"MetaServer logic listening","address":"127.0.0.1:19699"}
+{"time":"2026-09-07T22:56:05.6136011+08:00","level":"INFO","msg":"MetaServer HTTP listening","address":":18085"}

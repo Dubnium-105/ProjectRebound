@@ -1,0 +1,98 @@
+{
+  "mode": "OFFLINE_ABI_ONLY",
+  "status": "OBSERVED_CLIENT_SERIALIZER_LIFETIME_PARTIAL_ABI_EVIDENCE",
+  "strict_online_acceptance": "NOT_RUN",
+  "binary": {
+    "path": "C:\\Steam\\steamapps\\common\\Boundary\\ProjectBoundary\\Binaries\\Win64\\ProjectBoundarySteam-Win64-Shipping.exe",
+    "sha256": "181C49FFB522B3EB01014C84FD9D3A2A5C0B66AE80A6A6ADDFF4BDD6F8125843",
+    "payload_path": "C:\\Steam\\steamapps\\common\\Boundary\\ProjectBoundary\\Binaries\\Win64\\Payload.dll",
+    "payload_sha256": "6C7B5E05540AC72A6D7A9FA78F867917285FCE00081156EE13D237AA4D6C24A3"
+  },
+  "command": "Tools/PVE/start-local-pve.ps1 -Map Warehouse -Difficulty normal -Port 17829 -LaunchClient -ReadyTimeoutSeconds 120 -ServerStartAttempts 1",
+  "server_pid": 21596,
+  "client_pid": 8640,
+  "event_log": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\offline-nmt-client-lifetime-events.jsonl",
+  "observer_script": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\offline-nmt-client-lifetime-observer.js",
+  "observer_script_sha256": "86AE594C0D257C18A1ED774D8CCA62D570125E9C3B055CF3B7D0326EF96154F9",
+  "controller_script": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\offline-nmt-fstring-observer.py",
+  "controller_script_sha256": "DDD5176C7D03B485C94D7161825A37C2C50535FC668116C3518EB4FD5274D4E0",
+  "observed": {
+    "login_control_message_byte_hits": 1,
+    "archive_flag_28": 130,
+    "archive_flag_29": 0,
+    "archive_direction": "0x82 bit0 clear; client outbound/save branch",
+    "serializer_fields": {
+      "field1": {
+        "return_rva": "0x3484f2a",
+        "archive": {
+          "archive": "0x5080b7dfe0",
+          "readable": true,
+          "flag_28": 130,
+          "flag_29": 0
+        },
+        "before": {
+          "length": 2,
+          "capacity": 8
+        },
+        "object": "0x200821de530",
+        "after": {
+          "length": 2,
+          "capacity": 8
+        },
+        "same_object": true
+      },
+      "field2": {
+        "return_rva": "0x3484f3a",
+        "archive": {
+          "archive": "0x5080b7dfe0",
+          "readable": true,
+          "flag_28": 130,
+          "flag_29": 0
+        },
+        "before": {
+          "length": 63,
+          "capacity": 112
+        },
+        "object": "0x5080b7df60",
+        "after": {
+          "length": 63,
+          "capacity": 112
+        },
+        "same_object": true
+      },
+      "field4": {
+        "return_rva": "0x3484f5d",
+        "archive": {
+          "archive": "0x5080b7dfe0",
+          "readable": true,
+          "flag_28": 130,
+          "flag_29": 0
+        },
+        "before": {
+          "length": 4,
+          "capacity": 8
+        },
+        "object": "0x5080b7df70",
+        "after": {
+          "length": 4,
+          "capacity": 8
+        },
+        "same_object": true
+      }
+    },
+    "custom_identity_serializer_hits": 1,
+    "field4_owned_storage_release_return_rva": "0x03484FAF",
+    "field2_owned_storage_release_return_rva": "0x03484FBD",
+    "field2_released_after_serializer": true,
+    "contents_read": "none; FString data, identity, grant, tickets, and tokens were never read or logged"
+  },
+  "conclusion": {
+    "confirmed": "The client field2 FString object keeps the same pointer/shape through the fixed serializer call and its owned storage is released at the known post-send callsite +0x03484FBD; field4 is likewise released at +0x03484FAF. The custom identity serializer is a separate call.",
+    "still_unproven": "The serializer field is not semantically labeled as LoginOptions/Grant, and no test proves that a borrowed temporary FString can be substituted while preserving the owned object and avoiding asynchronous retention. No injection was attempted.",
+    "product_decision": "native_client_grant_injection_ready=false; native_authority_admission_verified=false; no source or readiness change."
+  },
+  "cleanup": {
+    "remaining_exact_game_pids": [],
+    "steam_appid_restored_sha256": "DDFE0E8D462AF661F81DB36589C39882DC0F2330785B5D80CD34F2F520AD618F"
+  }
+}

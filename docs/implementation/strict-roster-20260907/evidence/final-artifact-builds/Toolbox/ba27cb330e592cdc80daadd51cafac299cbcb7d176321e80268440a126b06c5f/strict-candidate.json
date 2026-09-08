@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-07T22:34:17.2360103Z",
+  "source_commit": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482",
+  "source_dirty": false,
+  "frontend": "tauri",
+  "contract_version": "strict-authoritative-online-v1",
+  "ipc_protocol": "strict-roster-v2",
+  "backend_schema": 48,
+  "game_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+  "payload_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T223103129065Z\\Payload.dll",
+  "payload_sha256": "297c6ea8585c8a606b3ab31a9949bcb153d7469b890ef8603521fb8af2cbfc1b",
+  "toolbox_path": "C:\\wksp\\ProjectReboundToolbox\\src-tauri\\target\\release\\rebound_toolbox_tauri.exe",
+  "toolbox_sha256": "9063474a92eef3d8d7102a0be16d38e5cb30eecc08a134619621cc1c5a1a6687",
+  "authenticode_status": "NotSigned",
+  "release_ready": false,
+  "note": "Local candidate only. Build/hash collection does not prove native admission, acceptance, or release signing."
+}

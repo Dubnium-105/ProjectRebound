@@ -1,0 +1,42 @@
+{
+  "source_commit": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482",
+  "source_status_before": "",
+  "source_commit_after": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482",
+  "source_status_after": "",
+  "payload_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T223103129065Z\\Payload.dll",
+  "payload_sha256_before": "297c6ea8585c8a606b3ab31a9949bcb153d7469b890ef8603521fb8af2cbfc1b",
+  "payload_sha256_after": "297c6ea8585c8a606b3ab31a9949bcb153d7469b890ef8603521fb8af2cbfc1b",
+  "command": [
+    "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/powershell/pwsh.exe",
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-File",
+    "C:\\wksp\\ProjectReboundToolbox\\scripts\\build-strict-candidate.ps1",
+    "-PayloadPath",
+    "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T223103129065Z\\Payload.dll",
+    "-ExpectedPayloadSha256",
+    "297c6ea8585c8a606b3ab31a9949bcb153d7469b890ef8603521fb8af2cbfc1b"
+  ],
+  "exit_code": 0,
+  "started_at": "20260907T223142Z",
+  "finished_at": "2026-09-07T22:34:18.052890+00:00",
+  "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\toolbox-e360b6f1c0cc-20260907T223142Z\\build.log",
+  "log_sha256": "72b5bc65587c3726ee693c9dfe21da9201c2692a1fa18ac71ce4be06b364189f",
+  "scope": "Actual local build only; not a native, update-signature or gameplay acceptance run.",
+  "driver_source": {
+    "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\build_final_toolbox.py",
+    "sha256": "f86e10658e629d6282697e0af791cf5242f39009d0724e84b6b2b11058abaad1"
+  },
+  "build_script": {
+    "path": "C:\\wksp\\ProjectReboundToolbox\\scripts\\build-strict-candidate.ps1",
+    "sha256": "1f5629ea2fc9b5111ab8bbca5a61ffd61abb0bd1d219c183d664533e5c9c369c"
+  },
+  "validation_errors": [],
+  "candidate_build_manifest": {
+    "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\toolbox-e360b6f1c0cc-20260907T223142Z\\strict-candidate.json",
+    "sha256": "a91b51433fbee8232e670bf042225459528d1f8f99fabf1223aa530cf1129452",
+    "build_output_path": "C:\\wksp\\ProjectReboundToolbox\\src-tauri\\target\\release\\strict-candidate.json"
+  },
+  "validation_status": "PASS"
+}

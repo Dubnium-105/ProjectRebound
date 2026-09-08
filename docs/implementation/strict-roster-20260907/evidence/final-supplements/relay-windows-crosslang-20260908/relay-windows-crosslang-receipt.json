@@ -1,0 +1,913 @@
+{
+  "id": "relay-windows-go-rust-driver-20260908",
+  "recorded_at_utc": "2026-09-07T21:40:05.996104+00:00",
+  "status": "PASS",
+  "scope": "Windows Go relayruntime executes the preserved Windows Rust relay_interop_driver over actual loopback UDP; no game/Steam ports or mock relay path.",
+  "command": "$env:TOOLBOX_RELAY_DRIVER=C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\drivers-20260907-0910\\relay_interop_driver.exe; go test ./internal/relayruntime -run ^TestStrictRosterRustRelayClients$ -count=1 -v",
+  "exit_code": 0,
+  "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\relay-windows-crosslang-20260908\\go-test-rust-driver.log",
+  "log_sha256": "5679fa6b5a7c470c5758240fef5d1500230a77c53e89f53984aa54d47dc2f57c",
+  "driver": {
+    "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\drivers-20260907-0910\\relay_interop_driver.exe",
+    "sha256": "a354f11088d85e1046a2de3472e5fd4f469b744b91f9432ce45bef462fbc5ac6",
+    "bytes": 2129920,
+    "archived_artifact_record": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\root-test-driver-artifacts.json",
+    "source_commit": "UNAVAILABLE_IN_ARCHIVED_DRIVER_RECORD",
+    "note": "Preserved Windows PE driver; do not bind this historical executable to the final Toolbox commit."
+  },
+  "repositories": {
+    "ProjectRebound": {
+      "head": "c76ef07642b195d6229c7fcb10ca9188d0505be3",
+      "dirty_files": [
+        {
+          "status": "M ",
+          "path": "ackend/api/fixtures/strict-online-update-v1.json",
+          "sha256": null,
+          "exists": false
+        },
+        {
+          "status": " M",
+          "path": "Backend/api/openapi/openapi.yaml",
+          "sha256": "58a7d09698bded47d1fb7b5a559d9997f577b9f278e114159355d749ce4d055d",
+          "bytes": 341518
+        },
+        {
+          "status": " M",
+          "path": "Backend/internal/database/migrator_integration_test.go",
+          "sha256": "68565072986511872ef3799ae1e6b1059f02728aed38bf41c2bcffc9873017ed",
+          "bytes": 7821
+        },
+        {
+          "status": " M",
+          "path": "Backend/internal/matchlobby/dedicated_integration_test.go",
+          "sha256": "95b0b0625c6da6c28704a2a59d00b68d973679c63ae17a765fe34d76c58572f1",
+          "bytes": 20305
+        },
+        {
+          "status": " M",
+          "path": "Backend/internal/matchlobby/http.go",
+          "sha256": "4b0f43f19db2181b4f6fd492d7bc52935bbbac74e5f3e66c686e4add4a63ba2a",
+          "bytes": 28437
+        },
+        {
+          "status": " M",
+          "path": "Backend/internal/matchlobby/model.go",
+          "sha256": "5d9bf728d95c98b8b6310b99e01342651b23031bc2836024d78f04462a3c5eea",
+          "bytes": 12922
+        },
+        {
+          "status": " M",
+          "path": "Backend/internal/matchlobby/repository.go",
+          "sha256": "717a819ccb8d469882c3ca140febd2f84c60cb44201cbc7d54323227f75cfd45",
+          "bytes": 18922
+        },
+        {
+          "status": " M",
+          "path": "Backend/internal/matchlobby/service.go",
+          "sha256": "5533095226db982194e73fb880ee4a0204106471a6d0f6c8f40b56aa1d43ae5c",
+          "bytes": 145695
+        },
+        {
+          "status": " M",
+          "path": "Backend/internal/matchlobby/service_integration_test.go",
+          "sha256": "efb83bf4e516946e76618d1ef13b724ebd7cce07ba81bafb79e0369948eadfa9",
+          "bytes": 66442
+        },
+        {
+          "status": " M",
+          "path": "Backend/internal/matchlobby/sweeper.go",
+          "sha256": "7f243419769e8ce1c71b8690ae30753c9d9d4ac2227b2b6f9e23c95393835490",
+          "bytes": 15964
+        },
+        {
+          "status": " M",
+          "path": "Backend/internal/update/service.go",
+          "sha256": "8b16634d59c8b3ad5bf32f56b45f33c8224f4f39ee988b094265a24fa25b7cdd",
+          "bytes": 26261
+        },
+        {
+          "status": " M",
+          "path": "Backend/internal/update/service_test.go",
+          "sha256": "2a45aaeadb47c97d86d5474c00ed03ec3d371c151e06e24ae9b2b6d1f9a4dec3",
+          "bytes": 16138
+        },
+        {
+          "status": " M",
+          "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/receipt.json",
+          "sha256": "95f8b3c2c490b03d136d69d1b999feb8742223c42e199b37561d0151845049c6",
+          "bytes": 473721
+        },
+        {
+          "status": " M",
+          "path": "docs/implementation/strict-roster-20260907/progress.json",
+          "sha256": "a9240f4b0e3637a1ffa2ebfa907f20b47ecda76237ab5ac8424388ece64f2fea",
+          "bytes": 13536
+        },
+        {
+          "status": "??",
+          "path": "Backend/.tmp-native-fixture/driver-tests-20260907T193909022495Z/main.go",
+          "sha256": "7c46583f0091820a0a5546d6c6fec1ff0bfeb9de87b7e343a4cbc0b4c8d41ee0",
+          "bytes": 42103
+        },
+        {
+          "status": "??",
+          "path": "Backend/.tmp-native-fixture/driver-tests-20260907T193909022495Z/main_test.go",
+          "sha256": "4516d4a8f683f5b59ada5c3bf67255c1e990590907ba9cd4268f918fca4ed4d3",
+          "bytes": 7807
+        },
+        {
+          "status": "??",
+          "path": "Backend/.tmp-native-fixture/driver-tests-20260907T212109902626Z/main.go",
+          "sha256": "251a2a58ebbe7595fd1acfd65bc4388b3bdfa83c9a5d16abd2b1a879c66600cf",
+          "bytes": 45346
+        },
+        {
+          "status": "??",
+          "path": "Backend/.tmp-native-fixture/driver-tests-20260907T212109902626Z/main_test.go",
+          "sha256": "11110e3e5e682468c812ba5c7c4e7e1e7d935decbe2387b7c9f19ff06232b029",
+          "bytes": 9089
+        },
+        {
+          "status": "??",
+          "path": "Backend/.tmp-native-fixture/dynamic-root-20260907T181124275467Z/main.go",
+          "sha256": "4e1a60668c9b2141013067317bfb870c3a2316d37b7887c485614813a06d5f4e",
+          "bytes": 30570
+        },
+        {
+          "status": "??",
+          "path": "Backend/.tmp-native-fixture/dynamic-root-20260907T181216909024Z/main.go",
+          "sha256": "2c4c77677b114bd842c9ed509471d1fbc5f28205150696957c927df3911c7c1e",
+          "bytes": 30886
+        },
+        {
+          "status": "??",
+          "path": "Backend/.tmp-native-fixture/dynamic-root-20260907T183234133437Z/main.go",
+          "sha256": "d0583d71b58f965e27260a0a5e947fdcab33bf9656f151df3ca76527927ae30b",
+          "bytes": 40357
+        },
+        {
+          "status": "??",
+          "path": "Backend/.tmp-native-fixture/dynamic-root-20260907T183510601295Z/main.go",
+          "sha256": "d0583d71b58f965e27260a0a5e947fdcab33bf9656f151df3ca76527927ae30b",
+          "bytes": 40357
+        },
+        {
+          "status": "??",
+          "path": "Backend/.tmp-native-fixture/dynamic-root-20260907T183720673718Z/main.go",
+          "sha256": "d0583d71b58f965e27260a0a5e947fdcab33bf9656f151df3ca76527927ae30b",
+          "bytes": 40357
+        },
+        {
+          "status": "??",
+          "path": "Backend/.tmp-native-fixture/dynamic-root-20260907T184101495935Z/main.go",
+          "sha256": "d0583d71b58f965e27260a0a5e947fdcab33bf9656f151df3ca76527927ae30b",
+          "bytes": 40357
+        },
+        {
+          "status": "??",
+          "path": "Backend/.tmp-native-fixture/dynamic-root-20260907T184308045126Z/main.go",
+          "sha256": "d0583d71b58f965e27260a0a5e947fdcab33bf9656f151df3ca76527927ae30b",
+          "bytes": 40357
+        },
+        {
+          "status": "??",
+          "path": "Backend/.tmp-native-fixture/dynamic-root-20260907T184812536324Z/main.go",
+          "sha256": "d0583d71b58f965e27260a0a5e947fdcab33bf9656f151df3ca76527927ae30b",
+          "bytes": 40357
+        },
+        {
+          "status": "??",
+          "path": "Backend/.tmp-native-fixture/dynamic-root-20260907T191025704743Z/main.go",
+          "sha256": "8c6f80744de31c6ec70287058d2ceecddd9df2b5e3789d5eef3a8a493e8acbeb",
+          "bytes": 40723
+        },
+        {
+          "status": "??",
+          "path": "Backend/.tmp-native-fixture/dynamic-root-20260907T191237095397Z/main.go",
+          "sha256": "8c6f80744de31c6ec70287058d2ceecddd9df2b5e3789d5eef3a8a493e8acbeb",
+          "bytes": 40723
+        },
+        {
+          "status": "??",
+          "path": "Backend/.tmp-native-fixture/dynamic-root-20260907T191804827748Z/main.go",
+          "sha256": "8c6f80744de31c6ec70287058d2ceecddd9df2b5e3789d5eef3a8a493e8acbeb",
+          "bytes": 40723
+        },
+        {
+          "status": "??",
+          "path": "Backend/.tmp-native-fixture/dynamic-root-20260907T192313543853Z/main.go",
+          "sha256": "3372ec0e09f51a07752cfccc079145f4ac65d1efc86a05cf0d1ab7f9d21bbf96",
+          "bytes": 41525
+        },
+        {
+          "status": "??",
+          "path": "Backend/.tmp-native-fixture/dynamic-root-20260907T192832343465Z/main.go",
+          "sha256": "3372ec0e09f51a07752cfccc079145f4ac65d1efc86a05cf0d1ab7f9d21bbf96",
+          "bytes": 41525
+        },
+        {
+          "status": "??",
+          "path": "Backend/.tmp-native-fixture/dynamic-root-20260907T195141266711Z/main.go",
+          "sha256": "7c46583f0091820a0a5546d6c6fec1ff0bfeb9de87b7e343a4cbc0b4c8d41ee0",
+          "bytes": 42103
+        },
+        {
+          "status": "??",
+          "path": "Backend/.tmp-native-fixture/frozen-dynamic-live-20260908-0010-22c3/main.go",
+          "sha256": "126d7f3a3631cf27b9d11346ba784843719050dda18130073b7f103cf13660bb",
+          "bytes": 27770
+        },
+        {
+          "status": "??",
+          "path": "Backend/.tmp-native-fixture/frozen-dynamic-live-20260908-0020-pipefix-22c3/main.go",
+          "sha256": "126d7f3a3631cf27b9d11346ba784843719050dda18130073b7f103cf13660bb",
+          "bytes": 27770
+        },
+        {
+          "status": "??",
+          "path": "Backend/.tmp-native-fixture/frozen-dynamic-live-20260908-0030-authorityrole-22c3/main.go",
+          "sha256": "126d7f3a3631cf27b9d11346ba784843719050dda18130073b7f103cf13660bb",
+          "bytes": 27770
+        },
+        {
+          "status": "??",
+          "path": "Backend/.tmp-native-fixture/frozen-dynamic-live-20260908-0045-gamethread-AFAE/main.go",
+          "sha256": "126d7f3a3631cf27b9d11346ba784843719050dda18130073b7f103cf13660bb",
+          "bytes": 27770
+        },
+        {
+          "status": "??",
+          "path": "Backend/.tmp-native-fixture/main.go",
+          "sha256": "251a2a58ebbe7595fd1acfd65bc4388b3bdfa83c9a5d16abd2b1a879c66600cf",
+          "bytes": 45346
+        },
+        {
+          "status": "??",
+          "path": "Backend/.tmp-native-fixture/main_test.go",
+          "sha256": "11110e3e5e682468c812ba5c7c4e7e1e7d935decbe2387b7c9f19ff06232b029",
+          "bytes": 9089
+        },
+        {
+          "status": "??",
+          "path": "Backend/migrations/000048_strict_roster_live_generation.sql",
+          "sha256": "a98b29f5979f09b4e0fd2a84d6f43537450ea0e262a1429e6bf5901618c3fe6f",
+          "bytes": 2367
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/backend-report.json",
+          "sha256": "3361f102fb55d1e61548ed226af380efa9b3ebed3f2c294ad0d89d5d7a69b473",
+          "bytes": 79781
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/backend-stamp-mismatch-negative.json",
+          "sha256": "3687ae00fbdc813394a641be369b8041bb87a5e6178b291bba616a92d8920b46",
+          "bytes": 7336
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/backend-stamp-mismatch-negative.sbom.json",
+          "sha256": "cbb74b7b46cd9f0cf1339a37a8b120c5c092ace0dcfe876949408ef4562da99c",
+          "bytes": 143804
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/credential-registry.json",
+          "sha256": "7c58e628186492904cd8145629d128a24337e41d6e80cf84780cbea98e8799b2",
+          "bytes": 6570
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/e2e-11-result.json",
+          "sha256": "6c61d76308058ca162404ba18f4410e95a0001f166f59fd509a3e02c7ddd1349",
+          "bytes": 7391
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/e2e-19-result.json",
+          "sha256": "3b7389e7c7fc51d512227a46c0b68333201a3d0b3b446577b63a3330571368d7",
+          "bytes": 8677
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/e2e-20-result.json",
+          "sha256": "b275dc4972dc90f563f6457dec746bc7409188494062b52316da3c5224accbf0",
+          "bytes": 23764
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/backend-a-final-skip-migration-audit-20260908.json",
+          "sha256": "f25bad0b287a9233363e1e9b06c0f8b58e8b0505bcd82aec98e65251f3a29824",
+          "bytes": 10351
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/backend-a-go-race-schema48-route3-guard-summary.json",
+          "sha256": "5e9ce4dfb3d71b00004664eaa9124c4569d85e54ed7cabfd8bedcf521a0c0c00",
+          "bytes": 3863
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/backend-a-go-race-schema48-route3-summary.json",
+          "sha256": "605b350ef458a99bb1373c431393a6cdff7c3e6a95c4c273e37595aa8702fe04",
+          "bytes": 6878
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/backend-a-schema47-postcheck-20260908-rerun2.txt",
+          "sha256": "9e7a96af5dbf7bf109d15413c3c432be053f4803dfbae7bfc54f88003c060758",
+          "bytes": 219
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/backend-a-schema47-postcheck-20260908.txt",
+          "sha256": "9c5d499fe89182a39ada53894c96d861b037252c3e9ad5d993a6dfc03713a22c",
+          "bytes": 205
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/backend-a-schema47-precheck-20260908-rerun2.txt",
+          "sha256": "2b1cbd2d0ca1bc11883ba06af2987fa5b7b9dcd600251c69c4e64a8e080da8c4",
+          "bytes": 210
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/backend-a-schema47-precheck-20260908.txt",
+          "sha256": "f941430bd71c80ec6c637abb9789f41d7c2f5e42128cbafbdcf3196b2bdc324a",
+          "bytes": 253
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/backend-a-schema47-to48-live-scope-guard-summary.json",
+          "sha256": "e5802f6c6104fc5f02d14bdbf800287960ebf725f7c14bab83df1c7dd35ffa41",
+          "bytes": 2053
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/backend-a-schema47-to48-live-scope-summary.json",
+          "sha256": "0ed81d6d6445e0375cc4c40ea4cfa377b8851996a7227cb6d8d17cf72aae7a95",
+          "bytes": 1656
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/backend-native-dynamic-component-20260908.json",
+          "sha256": "0a3d10c294cb1e317fb3773a5a99a4770b4fdc7124cff7a782c46473975fbb74",
+          "bytes": 4073
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/backend-s3-storage-compatible-local-minio-fixed.json",
+          "sha256": "4121fb7ee67ea56330728e27dafcb07c3057b50eda6187e1ea27e8796332e1ed",
+          "bytes": 586
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/backend-s3-storage-compatible-local-minio.json",
+          "sha256": "ac2ddae059c9c0bc004fda16e929af71f3a697770309ed7e1efa91d7e87c5ad6",
+          "bytes": 586
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/backend-schema47-history-seed-20260908.sql",
+          "sha256": "1886cce0cd1aea5efe88c1f40b4627a432b606fcb452ac1a1e8b739e161f228c",
+          "bytes": 2511
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/backend-schema47-restore-metrics.tsv",
+          "sha256": "82d80474f977b25afc9eeaeb6b4cb95a1727dd09da17ccc3cdea979cf7fe04d7",
+          "bytes": 614
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/backend-schema47-source-20260907-180424.dump",
+          "sha256": "c1b0166b7e014ed7b3584fe3c211dd0596abc444e1942bb3d768bb4fb26894a4",
+          "bytes": 317571
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/backend-schema47-source-20260907-authority-185813.dump",
+          "sha256": "2b2c47a39493e80fd097bf40961f8af5e617414acd0862316e132c164b441dd8",
+          "bytes": 317571
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/backend-schema47-source-20260907-authority-final.dump",
+          "sha256": "2d2290a14481fb380b7e9057faea45976c18ae4ba84600af4a3b19b8b22ddeb3",
+          "bytes": 317571
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/backend-schema47-source-20260907.dump",
+          "sha256": "014a8d57d9a6c9e1d693d5d1aecf69e52b61e0aab25409147c7ca88bd91e65f6",
+          "bytes": 317571
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/backend-schema47-source-metrics.tsv",
+          "sha256": "db03790305430b3b2b29d903155730a6eaf09b17734c00df44fe552822ba7630",
+          "bytes": 604
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/backend-schema47-verify.sql",
+          "sha256": "f61efe1ec6e383e898392f623568b09e778a013875f83d88f6b01841d3a333a2",
+          "bytes": 1466
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-11/Cargo.toml",
+          "sha256": "55718eabe8613c4f9ff4670f9eb200cc0967ab80f2399a1eb8b2b9072743f2c1",
+          "bytes": 240
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-11/README.md",
+          "sha256": "6c1b7863b1937654bdb4949c06302dd581f0212d9777e21cbbc08ea5166c8556",
+          "bytes": 957
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-11/e2e-11-result-run-9.json",
+          "sha256": "426f6f2463255ae58eda4ee88e9fba9fb2d690fe69b7bbc2436e5b93b87719b5",
+          "bytes": 821
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-11/e2e-11-result.json",
+          "sha256": "8002e26ed648c8e4a4c4548e76a3177b390760bae77e2d98a99ca01814a586c4",
+          "bytes": 8476
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-11/evidence-manifest.json",
+          "sha256": "25d198a8d5e9e08c663c84542c48d597eb40f5d6a83f232c562d6a5430a5e98e",
+          "bytes": 1838
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-11/harness.py",
+          "sha256": "36fa126265e6531cbb8be47a303d6c4e24bcd1b55b558618bbd3d72f9a1594fd",
+          "bytes": 15155
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-11/main.rs",
+          "sha256": "1988b1a7df8cdcde63b09fff21eaebada79a8db97b61fe8419ba26cb6ec7c1fe",
+          "bytes": 10759
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-19-live-driver-sanitized-replay.go",
+          "sha256": "29b64475c3540b6784ff42ff7eadf18bd0a005b814bbee963cde2023d6f8a499",
+          "bytes": 7939
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-19-live-postcheck.sql",
+          "sha256": "b3f4d426fc2d9c31f79f96d344d9e51f6939c0c823f4b84bf388bfc86342eb94",
+          "bytes": 562
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-19-sanitized-replay-manifest.json",
+          "sha256": "aef025f3637e007c818131e622eb4635dc823528559958b451a6efb4b9fada9c",
+          "bytes": 3732
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-19-schema42-to-47-sanitized-replay.sh",
+          "sha256": "9b3c6fd40b68231fdab28d59348758c53b02289ff71c2f90eacb683b02093236",
+          "bytes": 3768
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-20/Cargo.toml",
+          "sha256": "289d4b8eadeaa60df629f356ba5496c17e745a416a4bc1d899bd82ab5186450f",
+          "bytes": 200
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-20/README.md",
+          "sha256": "3ef65d8c9c156ec8a9f4cb41320708635b8fb63d5645f411615bb93a42a1586d",
+          "bytes": 1286
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-20/e2e-20-result-final-cd09.json",
+          "sha256": "b275dc4972dc90f563f6457dec746bc7409188494062b52316da3c5224accbf0",
+          "bytes": 23764
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-20/e2e-20-result-pre-journal-fix.json",
+          "sha256": "0d410b70964f8797e0ce94467d60e20204cd58554cbf8a743f677066421a86ee",
+          "bytes": 23070
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-20/e2e-20-result-precommit-candidate-before-parent-commit.json",
+          "sha256": "e9c263bdebe334cf1f39722c15d03d33800bb7a014d886ada9c5b41d6fd1c8e7",
+          "bytes": 21541
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-20/e2e-20-result.json",
+          "sha256": "b275dc4972dc90f563f6457dec746bc7409188494062b52316da3c5224accbf0",
+          "bytes": 23764
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-20/e2e_20_harness-final-cd09.py",
+          "sha256": "7b45b4b6b0a202582e2d0cd2cbc0deb7da4d3d1ee3bd74794dc8e78b3de2ebd1",
+          "bytes": 36267
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-20/e2e_20_harness-journal-fix-precommit.py",
+          "sha256": "c356be053b3b41cbfadf745ac470b12631abd3c59f296ef3930fc8283a3b0403",
+          "bytes": 36266
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-20/e2e_20_harness.py",
+          "sha256": "48f4f8261ddc8fff0bdfe69607d0201ddb247ec93aef125784f5f4375b804675",
+          "bytes": 25357
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-20/evidence-manifest.json",
+          "sha256": "24bcc0fda790791c2834a42f7ffda0adaeb635ac64813ce2ce7d721d934cf575",
+          "bytes": 9009
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-20/main.rs",
+          "sha256": "712ad9e6c633c3a9c1e68ddd9cffdbab8799891840e789e55dca28e8b7cfc8dc",
+          "bytes": 1301
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-20/provenance-release-gate.json",
+          "sha256": "21cdaf9865870c821f5d8ff8d8af9600099377c2e2b2e44872fdc495cc7e2572",
+          "bytes": 6517
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-20/provenance.json",
+          "sha256": "a61364e9575ae557544e11d9dc8464be4ec3cd61c5692b72954cc85cebd1cf90",
+          "bytes": 6517
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-20/test_updater_transactions-final-cd09.py",
+          "sha256": "3fb2fa677361ecc8d50f32e322b7b9ab09abceed45047dac248a7b92b2515f5a",
+          "bytes": 9348
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-20/test_updater_transactions-journal-fix-precommit.py",
+          "sha256": "3fb2fa677361ecc8d50f32e322b7b9ab09abceed45047dac248a7b92b2515f5a",
+          "bytes": 9348
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/e2e-20/test_updater_transactions.py",
+          "sha256": "a7db20033d8eb82e1fcc4056a35b258b2aecc07d7ae13ec03c197203c5e9d5c7",
+          "bytes": 2632
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/native-review-history/native-report-before-final-refresh.json",
+          "sha256": "0e90f24eb5c754178a2a936cb81ae32959350db55cf462d52d95678f26a767c2",
+          "bytes": 61801
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/dynamic-root-20260907T211842266237Z/summary.json",
+          "sha256": "0ccae0682386da9ac93891b7ab32b7adb2758e3da1f254f56d13fda5ec58c8f1",
+          "bytes": 3405
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/dynamic-root-20260907T212120784508Z/summary.json",
+          "sha256": "e314f412e8a4f6ad792eeb1bef2d56916c005c243c51f3eed4650811441cfded",
+          "bytes": 3409
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/schema48-toolbox-update-20260908/schema48-toolbox-update-receipt-20260908.json",
+          "sha256": "3d2dc93105f4f846ea3581991ea9cc87d6c1b5379f223b47f90488cc95deab71",
+          "bytes": 2717
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/evidence/schema48-update-20260907T212801Z/receipt.json",
+          "sha256": "e1dcf2bc91f18bc8b31e13af0b6e1fbdea93bece0ce7a18c3a76d6a3e3cc3308",
+          "bytes": 1645
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/final-credential-evidence-scan.json",
+          "sha256": "bb64fc24bded74b0f2a2488d66370db16f73854f549860f69688b6432870d4e8",
+          "bytes": 174010
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/final-evidence-audit-backend.json",
+          "sha256": "3fe8c7153d56797e7fff1dc780695b6ce2e7325bbf20581b4f6247e1654a6da7",
+          "bytes": 153225
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/final-evidence-audit-backend.md",
+          "sha256": "cd62779c3f37fc16bc79bcd307c00ec4e7bf934f6f71f2a8b9b208ad4d2ad1ce",
+          "bytes": 14597
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/historical-matchserver-provenance.json",
+          "sha256": "605109edc2b3394a4f7647c03528608f656c58ac814e1946cb4e2d1ad38a3e2b",
+          "bytes": 3202
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/historical-matchserver-provenance.sbom.json",
+          "sha256": "18774e5f1a4ce85087577926f2b3eaf053560c6ac09d219bf5d15d8e0e699fe8",
+          "bytes": 2050
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/implementation-evidence-index.json",
+          "sha256": "d58bf690b05e6f16a0c0594c85f619813558b578907da407abfc2298c85e63b5",
+          "bytes": 240543
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/native-abi-audit-nmt-login4-20260907.json",
+          "sha256": "42ba0b40a334f8e95132bc2a163d18a0acdc021eca12e3052d6fa9f92399dd03",
+          "bytes": 5729
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/native-abi-audit-nmt-login4-20260907.md",
+          "sha256": "7f0d3af361d3d9bb9027bd332ac9536d929a222514000c3bd8e23f85fa944f98",
+          "bytes": 5350
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/native-blockers.md",
+          "sha256": "2fcffef264b5ec8bf39b39799a05d959c6241cc15ee975a7a7b68ed2deca8e24",
+          "bytes": 1139
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/native-report.json",
+          "sha256": "459bd1dd2b4319bdc9e43b851b9d92bc28f77db6e6e2fbd79bed20be4906f7c8",
+          "bytes": 465529
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/native-static-nmt.json",
+          "sha256": "43e8ef2acde2c4647972110850f195815008119fcaaf2907f26d48dac60361b7",
+          "bytes": 4540
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/payload-wire-fixtures.jsonl",
+          "sha256": "9e500d9130c67c245d0d840df9eb1aa2e21a33560f4d7ddd5a7925c19c523703",
+          "bytes": 2320
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/payload-wire-negative-fixtures.jsonl",
+          "sha256": "2ecc55feaa6868c77271ed62642da1a8e68237ddfffd677d167030a61b1d5557",
+          "bytes": 134
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/release-gate-negative.json",
+          "sha256": "c27a36bc93ddf1b0cdef1862d0266d760ba170f3355eb03c4ba2556aeed5cb74",
+          "bytes": 8525
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/release-gate-negative.sbom.json",
+          "sha256": "18774e5f1a4ce85087577926f2b3eaf053560c6ac09d219bf5d15d8e0e699fe8",
+          "bytes": 2050
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/root-report.json",
+          "sha256": "4d8bb1bc7fd930f044eef766d0377a4a0b5b3af9481cf31292bc5c6c0ebb6232",
+          "bytes": 77174
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/root-test-driver-artifacts.json",
+          "sha256": "ccbcd8ff7b0b03218ecca8f0ed0eedd5b93b581f29b0a39b8bfcd971ca80cded",
+          "bytes": 1047
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/toolbox-report.json",
+          "sha256": "30e7c914ab3573dc03b45352aebf2d9d727a6c25540d49654d760780e32180e3",
+          "bytes": 45800
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/tracking/e2e-11-result-run-2.json",
+          "sha256": "bc810152d5f5a1e7fd3219dadbdb12959d76c4f0a9176a129b0724db22773f0d",
+          "bytes": 696
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/tracking/e2e-11-result-run-3.json",
+          "sha256": "3b30703d4831e9c64ecf2b9adb9a77c3855cf382c02017f94dd2b1e74f7fb83f",
+          "bytes": 696
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/tracking/e2e-11-result-run-4.json",
+          "sha256": "bf677d8e2aca6d36263f612d44378c51c137d7c7d363576c9612bbebfa661f14",
+          "bytes": 3739
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/tracking/e2e-11-result-run-6.json",
+          "sha256": "96668a0e11d6c52c398bc89a0b183e75cc207fe693ae33404c853b12acaef397",
+          "bytes": 616
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/tracking/e2e-11-result-run-7.json",
+          "sha256": "95e8ca1ecf6bf96c8c19ac6ea2721e16fc93babbecf7776204eda593fe4a290a",
+          "bytes": 501
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/tracking/e2e-11-result-run-8.json",
+          "sha256": "85f2f9c7e6bf198e1c90ac70a0bc3276216fccf0c439cec6282a02b4735f252f",
+          "bytes": 783
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/tracking/e2e-11-result-run-9.json",
+          "sha256": "426f6f2463255ae58eda4ee88e9fba9fb2d690fe69b7bbc2436e5b93b87719b5",
+          "bytes": 821
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/tracking/e2e-11-result.json",
+          "sha256": "48c8b6b30a6c20d8b047c34ba07514da7820a28b0ad1ebb57becee14c55fb3dd",
+          "bytes": 7862
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/tracking/e2e-19-result.json",
+          "sha256": "966ea1d193a0f4c574c94edee5177112e2e6a38efcb7494bd5baf3008f1bba61",
+          "bytes": 4886
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/trackingroot/e2e-19-result-partial-initial.json",
+          "sha256": "966ea1d193a0f4c574c94edee5177112e2e6a38efcb7494bd5baf3008f1bba61",
+          "bytes": 4886
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/trackingroot/e2e-19-result.json",
+          "sha256": "3b7389e7c7fc51d512227a46c0b68333201a3d0b3b446577b63a3330571368d7",
+          "bytes": 8677
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/trackingroot/evidence/e2e-11/Cargo.toml",
+          "sha256": "55718eabe8613c4f9ff4670f9eb200cc0967ab80f2399a1eb8b2b9072743f2c1",
+          "bytes": 240
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/trackingroot/evidence/e2e-11/README.md",
+          "sha256": "8c2f5098719724dcab0d26580d94043ff8c67c43536908895e6cb502f78105a1",
+          "bytes": 406
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/trackingroot/evidence/e2e-11/e2e-11-result-run-9.json",
+          "sha256": "426f6f2463255ae58eda4ee88e9fba9fb2d690fe69b7bbc2436e5b93b87719b5",
+          "bytes": 821
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/trackingroot/evidence/e2e-11/e2e-11-result.json",
+          "sha256": "6c61d76308058ca162404ba18f4410e95a0001f166f59fd509a3e02c7ddd1349",
+          "bytes": 7391
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/trackingroot/evidence/e2e-11/evidence-manifest.json",
+          "sha256": "5c82f14302ed0cc45304d55fe47ed5b46506ba7ea03c9f8828eb066192a62b8d",
+          "bytes": 1549
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/trackingroot/evidence/e2e-11/harness.py",
+          "sha256": "36fa126265e6531cbb8be47a303d6c4e24bcd1b55b558618bbd3d72f9a1594fd",
+          "bytes": 15155
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/trackingroot/evidence/e2e-11/main.rs",
+          "sha256": "1988b1a7df8cdcde63b09fff21eaebada79a8db97b61fe8419ba26cb6ec7c1fe",
+          "bytes": 10759
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/trackingroot/evidence/e2e-20/Cargo.toml",
+          "sha256": "289d4b8eadeaa60df629f356ba5496c17e745a416a4bc1d899bd82ab5186450f",
+          "bytes": 200
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/trackingroot/evidence/e2e-20/README.md",
+          "sha256": "120af61a6347b18609500565aa2126b928fa6dc9d4982434a6374928b8bce7d7",
+          "bytes": 774
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/trackingroot/evidence/e2e-20/e2e-20-result.json",
+          "sha256": "0d410b70964f8797e0ce94467d60e20204cd58554cbf8a743f677066421a86ee",
+          "bytes": 23070
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/trackingroot/evidence/e2e-20/e2e_20_harness.py",
+          "sha256": "48f4f8261ddc8fff0bdfe69607d0201ddb247ec93aef125784f5f4375b804675",
+          "bytes": 25357
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/trackingroot/evidence/e2e-20/evidence-manifest.json",
+          "sha256": "9118384fa2e80b1d2cd5169a0b9b976ee06176d920416e1c636543e6139bbf38",
+          "bytes": 3815
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/trackingroot/evidence/e2e-20/main.rs",
+          "sha256": "712ad9e6c633c3a9c1e68ddd9cffdbab8799891840e789e55dca28e8b7cfc8dc",
+          "bytes": 1301
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/trackingroot/evidence/e2e-20/provenance-release-gate.json",
+          "sha256": "21cdaf9865870c821f5d8ff8d8af9600099377c2e2b2e44872fdc495cc7e2572",
+          "bytes": 6517
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/trackingroot/evidence/e2e-20/provenance.json",
+          "sha256": "a61364e9575ae557544e11d9dc8464be4ec3cd61c5692b72954cc85cebd1cf90",
+          "bytes": 6517
+        },
+        {
+          "status": "??",
+          "path": "docs/implementation/strict-roster-20260907/trackingroot/evidence/e2e-20/test_updater_transactions.py",
+          "sha256": "a7db20033d8eb82e1fcc4056a35b258b2aecc07d7ae13ec03c197203c5e9d5c7",
+          "bytes": 2632
+        }
+      ]
+    },
+    "ProjectReboundToolbox": {
+      "head": "70fcd5204f89f7af091e532d554cfaa4e69f039e",
+      "dirty_files": []
+    }
+  },
+  "environment": {
+    "os": "Windows-11-10.0.26100-SP0",
+    "python": "Python 3.14.3",
+    "go": "go version go1.26.2 windows/amd64",
+    "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+    "driver_platform": "Windows PE x64"
+  },
+  "prior_linux_failure": {
+    "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\backend-a-final-skip-migration-audit-20260908.json",
+    "sha256": "f25bad0b287a9233363e1e9b06c0f8b58e8b0505bcd82aec98e65251f3a29824",
+    "note": "Prior Linux Go run reported exec format error for the Windows PE driver and remained SKIP/BLOCKED. This Windows run is the corresponding real-driver execution and does not relabel the historical Linux record."
+  },
+  "tauri_build_context": {
+    "successful_receipt": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\toolbox-70fcd5204f89-20260907T213520Z\\build-receipt.json",
+    "successful_receipt_sha256": "9798d66d8ce45b69a2cc2b7fd1e331cce7215bdc0a548653dddc03eacbf15e9c",
+    "initial_failed_receipts": [
+      "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\toolbox-70fcd5204f89-20260907T213047Z\\build-receipt.json",
+      "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\toolbox-70fcd5204f89-20260907T213404Z\\build-receipt.json"
+    ],
+    "psmodulepath_cause": "Python-launched Windows PowerShell inherited the Codex PowerShell module path, so Get-FileHash was not discoverable; the final build used only a process-local Windows PowerShell module path: C:\\Users\\23587\\Documents\\WindowsPowerShell\\Modules;C:\\Program Files\\WindowsPowerShell\\Modules;C:\\Windows\\system32\\WindowsPowerShell\\v1.0\\Modules.",
+    "source_or_script_changes": "None; final candidate build script and product source remained unchanged."
+  },
+  "limitations": [
+    "No Linux execution of the Windows PE driver was attempted or claimed.",
+    "No Steam, native game, 47777/47778, signing, or release acceptance was performed."
+  ]
+}

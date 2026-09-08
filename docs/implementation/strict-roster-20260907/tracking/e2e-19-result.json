@@ -1,0 +1,50 @@
+{
+  "id": "E2E-19",
+  "status": "partial",
+  "steps": [
+    {
+      "actual": "Created a new isolated PostgreSQL database, applied migrations 1-42, inserted one pre-upgrade player row, then applied migrations 43-47. The pre-upgrade row remained present and schema_migrations reached 47.",
+      "observed": "PASS: count42=42, max42=42, max=47, player=1.",
+      "status": "pass",
+      "command": "wsl -d Ubuntu-22.04 -- bash -lc 'bash /mnt/c/wksp/ProjectRebound/.tmp/e2e19-schema-upgrade.sh rebound_e2e19_20260907_1788786847'",
+      "exit": 0,
+      "log": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-schema-upgrade-rebound_e2e19_20260907_1788786847.log"
+    },
+    {
+      "actual": "Ran the release schema contract gate with an intentionally stale expected schema version of 46 against the repository's version 47 migrations.",
+      "observed": "PASS for the deployment gate: PREFLIGHT_FAILED check=migration-contract-version expected=46 actual=47; target preflight exit was 1. This is a real preflight rejection, not a live control-plane process configured with a mismatched runtime schema expectation.",
+      "status": "pass",
+      "command": "EXPECTED_SCHEMA_VERSION=46 CONTROL_PLANE_IMAGE=ghcr.io/projectrebound/control-plane:1.2.3 bash Backend/scripts/release/preflight.sh",
+      "exit": 1,
+      "log": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-wrong-schema-preflight.log"
+    },
+    {
+      "actual": "Inserted one active dedicated PROVISIONING attempt, then started and stopped the real control-plane against the isolated PostgreSQL/Redis with StrictRosterV1Enabled=false.",
+      "observed": "PASS: before and after states remained attempt=PROVISIONING and lobby=PROVISIONING; no batch abort or cleanup mutation occurred. Control-plane startup and bounded Run returned successfully.",
+      "status": "pass",
+      "command": "E2E19_DATABASE_URL=postgres://phanthy@127.0.0.1:55439/rebound_e2e19_20260907_1788786847?sslmode=disable E2E19_REDIS_ADDRESS=127.0.0.1:56380 go run ./cmd/e2e19-disabled-start",
+      "exit": 0,
+      "log": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-disabled-start-rebound_e2e19_20260907_1788786847.log"
+    },
+    {
+      "actual": "Ran the real PostgreSQL P2P strict-roster integration path for an explicit host-authority abort before native process start, then supplied scoped native_process_not_started cleanup and checked the audit record and terminal cleanup state.",
+      "observed": "PASS: TestStrictRosterP2PPreflightNativeProcessNotStartedCleanupAgainstPostgreSQL passed (exit 0). This covers the authorized P2P host completion/abort route and cleanup audit; no separate administrator force-abort endpoint exists in the current control-plane routes.",
+      "status": "pass",
+      "command": "TEST_DATABASE_URL=postgres://phanthy@127.0.0.1:55439/rebound_e2e19_20260907_1788786847?sslmode=disable go test ./internal/matchlobby -run '^TestStrictRosterP2PPreflightNativeProcessNotStartedCleanupAgainstPostgreSQL$' -count=1 -v",
+      "exit": 0,
+      "log": "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-explicit-force-abort-rebound_e2e19_20260907_1788786847.log"
+    }
+  ],
+  "result": {
+    "environment": "Fresh isolated WSL Ubuntu-22.04 PostgreSQL 14 cluster on 127.0.0.1:55439, isolated nonpersistent Redis on 127.0.0.1:56380, Linux Go 1.26.6; no production database or credentials used.",
+    "command_or_harness": "Four-step E2E-19 harness: migration append/retention shell script, release preflight mismatch gate, temporary control-plane startup driver, and existing strict-roster PostgreSQL abort/cleanup integration test.",
+    "exit_code": 0,
+    "log_paths": [
+      "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-schema-upgrade-rebound_e2e19_20260907_1788786847.log",
+      "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-wrong-schema-preflight.log",
+      "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-disabled-start-rebound_e2e19_20260907_1788786847.log",
+      "C:/wksp/ProjectRebound/docs/implementation/strict-roster-20260907/evidence/e2e-19-explicit-force-abort-rebound_e2e19_20260907_1788786847.log"
+    ],
+    "observed_result": "The isolated append upgrade, stale schema preflight rejection, strict-roster-disabled startup preservation, and authorized P2P abort/cleanup test all executed with the recorded outcomes. Overall status is PARTIAL because the repository exposes the schema mismatch rejection as a release preflight rather than a live process runtime-schema expectation, and the abort evidence exercises the authority endpoint rather than a separate administrator force-revoke surface. No production release readiness is implied."
+  }
+}

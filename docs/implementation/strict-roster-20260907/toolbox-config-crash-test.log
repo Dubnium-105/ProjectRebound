@@ -1,0 +1,21 @@
+   Compiling rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+error[E0063]: missing fields `roster_revision` and `world_instance_id` in initializer of `ActiveDedicatedMatch`
+   --> src\server\registration.rs:781:20
+    |
+781 |     *active = Some(ActiveDedicatedMatch {
+    |                    ^^^^^^^^^^^^^^^^^^^^ missing `roster_revision` and `world_instance_id`
+
+error[E0063]: missing fields `roster_revision` and `world_instance_id` in initializer of `ActiveDedicatedMatch`
+   --> src\server\registration.rs:802:20
+    |
+802 |     *active = Some(ActiveDedicatedMatch {
+    |                    ^^^^^^^^^^^^^^^^^^^^ missing `roster_revision` and `world_instance_id`
+
+error[E0063]: missing fields `authority_session_id`, `roster_revision` and `world_instance_id` in initializer of `registration::DedicatedMatchAssignment`
+    --> src\server\registration.rs:1341:26
+     |
+1341 |         let assignment = DedicatedMatchAssignment {
+     |                          ^^^^^^^^^^^^^^^^^^^^^^^^ missing `authority_session_id`, `roster_revision` and `world_instance_id`
+
+For more information about this error, try `rustc --explain E0063`.
+error: could not compile `rebound_toolbox` (lib test) due to 3 previous errors

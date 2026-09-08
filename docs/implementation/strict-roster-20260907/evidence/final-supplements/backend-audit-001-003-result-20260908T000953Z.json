@@ -1,0 +1,167 @@
+{
+  "receipt_kind": "backend_scoped_audit_001_003",
+  "generated_at_utc": "20260908T000953Z",
+  "source_head_observed": "705d339e1af30bf170d828fb7fa1f38582a070db",
+  "source_head_semantics": "working-tree HEAD observed while producing this receipt; scoped source files below include uncommitted changes and are hashed separately",
+  "commit": "uncommitted; parent agent will commit",
+  "database_environment": {
+    "postgres_host": "127.0.0.1",
+    "postgres_port": 55439,
+    "postgres_user": "phanthy",
+    "database_for_focused_tests": "rebound_audit001003_20260908_01",
+    "schema": "48",
+    "full_migration_database": "rebound_audit_schema47full_20260907t235537z",
+    "note": "isolated WSL PostgreSQL; no 5432/6379 access"
+  },
+  "implementation": {
+    "BACKEND-AUDIT-001": {
+      "status": "implemented",
+      "scope": "AuthorityAdmissions, MarkAdmissionDelivered, GrantDelivery require current payload route, route, roster connection generation, world",
+      "files": [
+        "Backend/internal/matchlobby/service.go"
+      ]
+    },
+    "BACKEND-AUDIT-002": {
+      "status": "implemented",
+      "scope": "schema48 only marks nonce-bound HOST preservation; connected HOST without nonce is heartbeat fail-closed; all nonce-less connected seats cannot count for quorum/sweep or suppress retry",
+      "files": [
+        "Backend/migrations/000048_strict_roster_live_generation.sql",
+        "Backend/internal/matchlobby/service.go",
+        "Backend/internal/matchlobby/sweeper.go",
+        "Backend/internal/matchlobby/repository.go"
+      ]
+    },
+    "BACKEND-AUDIT-003": {
+      "status": "implemented",
+      "scope": "terminal NativeCleared retry matches first audit evidence kind, owned process id, and start fingerprint; changed receipt conflicts and first audit remains",
+      "files": [
+        "Backend/internal/matchlobby/service.go"
+      ]
+    }
+  },
+  "tests": [
+    {
+      "name": "focused_matchlobby_postgres",
+      "command": "TEST_DATABASE_URL=<isolated-55439>/rebound_audit001003_20260908_01 go test ./internal/matchlobby -run TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL|TestStrictRosterHistoricalMemberWithoutNativeNonceCannotCountAsConnectedAgainstPostgreSQL|TestStrictRosterP2PLifecycleAgainstPostgreSQL|TestStrictRosterDedicatedLifecycleAgainstPostgreSQL -count=1 -v",
+      "exit_code": 0,
+      "top_level_pass": 4,
+      "skip_names": [],
+      "log": ".tmp/strict-roster-20260907/backend-audit-001-003-member-nonce-20260908T000718Z.log"
+    },
+    {
+      "name": "focused_database_postgres",
+      "command": "TEST_DATABASE_URL=<isolated-55439>/rebound_audit001003_20260908_01 go test ./internal/database -run TestLiveGenerationMigrationPreservesHistoricalConnectedRoster|TestMigratorAgainstPostgreSQL -count=1 -v",
+      "exit_code": 0,
+      "top_level_pass": 2,
+      "skip_names": [],
+      "log": ".tmp/strict-roster-20260907/backend-audit-001-003-database-20260908T000813Z.log"
+    },
+    {
+      "name": "compile_smoke",
+      "command": "go test ./internal/matchlobby ./internal/database -run ^$ -count=1 -v",
+      "exit_code": 0,
+      "top_level_pass": 0,
+      "skip_names": [
+        "no tests to run"
+      ],
+      "log": ".tmp/strict-roster-20260907/backend-audit-001-003-compile-20260908.log"
+    }
+  ],
+  "full_schema47_to48": {
+    "restore_database": "rebound_audit_schema47full_20260907t235537z",
+    "seed": "synthetic valid connected HOST+MEMBER and connected HOST with NULL nonce in full schema47 restored database",
+    "precheck_exit_code": 0,
+    "upgrade_command": "TEST_DATABASE_URL=<isolated-55439>/rebound_audit_schema47full_20260907t235537z go test ./internal/database -run ^TestMigratorAgainstPostgreSQL$ -count=1 -v",
+    "upgrade_exit_code": 0,
+    "postcheck_exit_code": 0,
+    "postcheck_assertions": "schema=48; valid HOST live generation 11 route 7 preserved=true with nonce; missing-nonce HOST live generation 13 route 7 preserved=false and NULL; MEMBER live generation 12 preserved=false",
+    "restore_log": ".tmp/strict-roster-20260907/schema47-full-final/restore-20260907t235537z.log",
+    "precheck_log": ".tmp/strict-roster-20260907/schema47-full-final/precheck-final.log",
+    "upgrade_log": ".tmp/strict-roster-20260907/schema47-full-final/upgrade-rerun-20260907t235811z.log",
+    "postcheck_log": ".tmp/strict-roster-20260907/schema47-full-final/postcheck-full-20260908T000219Z.log"
+  },
+  "mutant_reproduction": [
+    {
+      "name": "staging_pre_new_guard",
+      "expected_exit_code": 1,
+      "log": ".tmp/strict-roster-20260907/mutants/staging-pre-newguard-20260907T234949Z.log",
+      "finding": "stale route grant was staged under removed route/generation guards"
+    },
+    {
+      "name": "host_null_nonce_pre_new_guard",
+      "expected_exit_code": 1,
+      "log": ".tmp/strict-roster-20260907/mutants/host-nullnonce-pre-newguard-20260907T235052Z.log",
+      "finding": "connected HOST without nonce was accepted by pre-guard heartbeat"
+    },
+    {
+      "name": "cleanup_evidence_pre_new_guard",
+      "expected_exit_code": 1,
+      "log": ".tmp/strict-roster-20260907/mutants/cleanup-evidence-pre-newguard-20260907T235204Z.log",
+      "finding": "same-scope changed cleanup evidence was accepted by pre-audit terminal retry"
+    }
+  ],
+  "historical_failures": [
+    {
+      "log": ".tmp/strict-roster-20260907/backend-audit-001-003-member-nonce-20260908T000636Z.log",
+      "exit_code": 1,
+      "classification": "test fixture setup failure: payload_route_generation write violated existing payload confirmation constraint; corrected fixture and reran under unique log"
+    }
+  ],
+  "log_inventory": [
+    {
+      "path": ".tmp/strict-roster-20260907/backend-audit-001-003-member-nonce-20260908T000718Z.log",
+      "bytes": 899,
+      "sha256": "D9A141E82EF65F571F3506B4888553839FF13019C57AE7EECC4D12B15B917F84"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/backend-audit-001-003-database-20260908T000813Z.log",
+      "bytes": 517,
+      "sha256": "F1851E8184ACAAF72633F404B122CF494D9B20AD24D3A189AD4A1D3F3FE11368"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/backend-audit-001-003-compile-20260908.log",
+      "bytes": 281,
+      "sha256": "D1B3B00B02C753DB394DB6CD1BD05D189344E9F8F8264F7E64C2762B89004F31"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/schema47-full-final/restore-20260907t235537z.log",
+      "bytes": 161,
+      "sha256": "4CC3D860B08795DA816D8F441C0FCF0805E2364513784ECEA149679AC59BBE1E"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/schema47-full-final/precheck-final.log",
+      "bytes": 203,
+      "sha256": "B51AE7D72C91E3C688733AAB76C0D68B0D117F261EED07FF86E1DAFBBBB0F886"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/schema47-full-final/upgrade-rerun-20260907t235811z.log",
+      "bytes": 182,
+      "sha256": "50AF50D1C8C56B9EC652F6EF5E150F15FDC89ACA34BF1D4491D558E3BE93DF13"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/schema47-full-final/postcheck-full-20260908T000219Z.log",
+      "bytes": 1551,
+      "sha256": "10B3432D66B2C69F8762EB2D350457D8D8B257EC94C9699D8E1047A11E61C8CB"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/mutants/staging-pre-newguard-20260907T234949Z.log",
+      "bytes": 597,
+      "sha256": "4FC55ED8205FA8851A5B1AA59926336A0E2EC318B0FCC22AACC1ABE77A1A4E9B"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/mutants/host-nullnonce-pre-newguard-20260907T235052Z.log",
+      "bytes": 328,
+      "sha256": "2CC8C2E9F0E9DF5B576A4BE5ED489E0F5F15ADAA47CFBAAC86F55B0624F4FF30"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/mutants/cleanup-evidence-pre-newguard-20260907T235204Z.log",
+      "bytes": 379,
+      "sha256": "B00FB31C829CAD48FE507276A8BC6947D25CFCFD6E1D589AB0FE088CA863B9B0"
+    },
+    {
+      "path": ".tmp/strict-roster-20260907/backend-audit-001-003-member-nonce-20260908T000636Z.log",
+      "bytes": 1069,
+      "sha256": "DD3D7158DA41473E3D5B6ED86C288494F5E6DF0EE3D219963190C5CCA4C6B0EE"
+    }
+  ]
+}

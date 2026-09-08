@@ -1,0 +1,15 @@
+SANITIZED_E2E19_SOURCE_CHECK_START
+go_source_sha256=29B64475C3540B6784FF42FF7EADF18BD0A005B814BBEE963CDE2023D6F8A499
+schema_source_sha256=9B3C6FD40B68231FDAB28D59348758C53B02289FF71C2F90EACB683B02093236
+gofmt_check_exit=0
+?   	command-line-arguments	[no test files]
+go_test_compile_exit=0
+wsl: hKm0R localhost NtMnFO*g\P0R WSL0NAT !j_Nv WSL 
+N/ec localhost Nt0
+
+
+bash_n_exit=0
+{"artifact":"e2e-19-live-driver-sanitized-replay","execution_status":"NOT_RUN"}
+default_describe_exit=0
+acceptance_execution=NOT_RUN
+SANITIZED_E2E19_SOURCE_CHECK_END

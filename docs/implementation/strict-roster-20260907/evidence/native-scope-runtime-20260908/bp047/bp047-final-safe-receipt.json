@@ -1,0 +1,491 @@
+{
+  "schema": "strict-roster-bp047-safe-receipt-v1",
+  "generated_utc": "2026-09-07T23:22:36.5126179Z",
+  "candidate_payload": {
+    "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T223103129065Z\\Payload.dll",
+    "sha256": "297C6EA8585C8A606B3AB31A9949BCB153D7469B890EF8603521FB8AF2CBFC1B",
+    "bytes": 2094592,
+    "source_commit": "dc49017e488e8b5bf6f6544b4428c46d230c0abd"
+  },
+  "restored_payload": {
+    "path": "C:\\Steam\\steamapps\\common\\Boundary\\ProjectBoundary\\Binaries\\Win64\\Payload.dll",
+    "sha256": "6C7B5E05540AC72A6D7A9FA78F867917285FCE00081156EE13D237AA4D6C24A3",
+    "expected_sha256": "6C7B5E05540AC72A6D7A9FA78F867917285FCE00081156EE13D237AA4D6C24A3"
+  },
+  "product_source_edited_by_this_run": false,
+  "owned_boundary_game_processes_after_run": 0,
+  "executions": [
+    {
+      "run_id": "invalid-grant-run-20260908064600",
+      "status": "BLOCKED",
+      "primary_result": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908064600\\bp047-invalid-grant-run.json",
+        "sha256": "65EB8122E50BB35EA62796E887655195484AABA41E342835FF52646A569E1C74"
+      },
+      "summary": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908064600\\dedicated-component-20260907-224616-d690d5f3\\summary.json",
+        "sha256": "E6EB308FD271E79A4AB3966E17D271B015DBEDFE8BE53DA295742284C9A5067A"
+      },
+      "coverage": "Authority marker did not complete; no invalid-grant admission verdict.",
+      "note": "Initial marker had UTF-8 BOM/authority-ready synchronization failure; no PASS asserted.",
+      "source_version": {
+        "payload_source_commit": "dc49017e488e8b5bf6f6544b4428c46d230c0abd",
+        "run_metadata": "not_retained",
+        "wrapper_current": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\orchestrate-bp047-cleanup.ps1",
+          "sha256": "4B409296CA748496CF7306B3673E304A84A79E967F047BA594BF8ECE60E1776C"
+        },
+        "driver_at_run_sha256": null,
+        "provenance": "Historical run metadata did not retain an independent source snapshot."
+      },
+      "exit_codes": {
+        "driver_build": 0,
+        "orchestrator": null,
+        "backend_driver": null,
+        "native_authority": null,
+        "native_client": null,
+        "cleanup_driver": null
+      },
+      "safe_log_refs": [
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908064600\\bp047-invalid-grant-run.json",
+          "sha256": "65EB8122E50BB35EA62796E887655195484AABA41E342835FF52646A569E1C74"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908064600\\dedicated-component-20260907-224616-d690d5f3\\summary.json",
+          "sha256": "E6EB308FD271E79A4AB3966E17D271B015DBEDFE8BE53DA295742284C9A5067A"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908064600\\harness.log",
+          "sha256": "25177A300B9A8F74CE6EF06551B4D66CFB05DBCAB6BA6BA45950EE5750A5835A"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908064600\\dedicated-component-20260907-224616-d690d5f3\\authority.stdout.log",
+          "sha256": "093FD31EE26F0C5EA41F97EE3402878F5B59BF2D6485255427C8FF5C61723B9C"
+        }
+      ]
+    },
+    {
+      "run_id": "invalid-grant-run-20260908065000",
+      "status": "BLOCKED",
+      "primary_result": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065000\\bp047-invalid-grant-run.json",
+        "sha256": "77771B95EA2E873B15719E13488666C498CAE61C410F6EF757CC4681DFE42A6B"
+      },
+      "summary": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065000\\dedicated-component-20260907-225001-aa4db455\\summary.json",
+        "sha256": "233704D32F1E992E893631F0FF036F906A6CF51C090BA7D6A52C08921E7A839D"
+      },
+      "coverage": "Real authority and client transport reached join_ack, but invalid signature was not converted into a completed native-admission verdict; nullable cleanup also failed.",
+      "note": "Transport join_ack is not admission; server log classified invalid_grant_signature. No PASS asserted.",
+      "source_version": {
+        "payload_source_commit": "dc49017e488e8b5bf6f6544b4428c46d230c0abd",
+        "run_metadata": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065000\\bp047-invalid-grant-run.json",
+        "wrapper_current": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\orchestrate-bp047-cleanup.ps1",
+          "sha256": "4B409296CA748496CF7306B3673E304A84A79E967F047BA594BF8ECE60E1776C"
+        },
+        "driver_at_run_sha256": "1ADAE4D7E1639CFCA99EE57C5C94C6F9825B73C347FAD52C75B4CB58DBD7C",
+        "provenance": "Driver build metadata retained; wrapper/native process exit fields were null."
+      },
+      "exit_codes": {
+        "driver_build": 0,
+        "orchestrator": null,
+        "backend_driver": null,
+        "native_authority": null,
+        "native_client": null,
+        "cleanup_driver": null
+      },
+      "safe_log_refs": [
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065000\\bp047-invalid-grant-run.json",
+          "sha256": "77771B95EA2E873B15719E13488666C498CAE61C410F6EF757CC4681DFE42A6B"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065000\\dedicated-component-20260907-225001-aa4db455\\summary.json",
+          "sha256": "233704D32F1E992E893631F0FF036F906A6CF51C090BA7D6A52C08921E7A839D"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065000\\harness.log",
+          "sha256": "DB9F08EB816FA3F38FFC255C64E8547FC8E2741590163585B4A166EA2A43F085"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065000\\dedicated-component-20260907-225001-aa4db455\\authority.stdout.log",
+          "sha256": "4603622090AF3E9E8C60B844CF59C107FC63B6E9994A2C865E741E438F126456"
+        }
+      ]
+    },
+    {
+      "run_id": "invalid-grant-run-20260908065500",
+      "status": "BLOCKED",
+      "primary_result": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065500\\bp047-invalid-grant-run.json",
+        "sha256": "9B61240DE9ACF4674BF1FC543C0A06E156AB4BFF092127D56C0CDE21F492F24E"
+      },
+      "summary": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065500\\dedicated-component-20260907-225544-c73c0914\\summary.json",
+        "sha256": "B79F11C2C71D30266F36C0D8DF93B056A4226F6F5BB9D99CC6BC685A4BFC308F"
+      },
+      "coverage": "Authority started; client login_ready did not complete; no invalid-grant boundary verdict.",
+      "note": "No PASS asserted.",
+      "source_version": {
+        "payload_source_commit": "dc49017e488e8b5bf6f6544b4428c46d230c0abd",
+        "run_metadata": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065500\\bp047-invalid-grant-run.json",
+        "wrapper_current": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\orchestrate-bp047-cleanup.ps1",
+          "sha256": "4B409296CA748496CF7306B3673E304A84A79E967F047BA594BF8ECE60E1776C"
+        },
+        "driver_at_run_sha256": "1ADAE4D7E1639CFCA99EE57C5C94C6F9825B73C347FAD52C75B4CB58DBD7C",
+        "provenance": "Driver build metadata retained; wrapper/native process exit fields were null."
+      },
+      "exit_codes": {
+        "driver_build": 0,
+        "orchestrator": null,
+        "backend_driver": null,
+        "native_authority": null,
+        "native_client": null,
+        "cleanup_driver": null
+      },
+      "safe_log_refs": [
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065500\\bp047-invalid-grant-run.json",
+          "sha256": "9B61240DE9ACF4674BF1FC543C0A06E156AB4BFF092127D56C0CDE21F492F24E"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065500\\dedicated-component-20260907-225544-c73c0914\\summary.json",
+          "sha256": "B79F11C2C71D30266F36C0D8DF93B056A4226F6F5BB9D99CC6BC685A4BFC308F"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065500\\harness.log",
+          "sha256": "5DFD6EF169B0DAFEE65CBC80994BCD49D738CD55F10DAD949B46A5F44B3E994A"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065500\\dedicated-component-20260907-225544-c73c0914\\authority.stdout.log",
+          "sha256": "DF2F0EF586FBBCEF4B97C1066E09A906061A93EE93543786880D85701F9FA9E3"
+        }
+      ]
+    },
+    {
+      "run_id": "bp047-cleanup-run-20260908071000",
+      "status": "BLOCKED",
+      "primary_result": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-cleanup-run-20260908071000\\bp047-cleanup-run.json",
+        "sha256": "DF1669CD1B8856908B11D1F16DDA6D13253A47E64A4979D0F57496226534F036"
+      },
+      "summary": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-cleanup-run-20260908071000\\dedicated-component-20260907-225941-bcbb2f2e\\summary.json",
+        "sha256": "00B0952436B10FADDE862FA5B87E7F33D74E7A9780B723F70DC3805E6B606035"
+      },
+      "coverage": "Authority allocation/listen evidence present; client login_ready timed out; no owned exit receipt; cleanup child handle was null.",
+      "note": "Historical nullable cleanup failure retained verbatim as failure classification; no process-count shortcut.",
+      "source_version": {
+        "payload_source_commit": "dc49017e488e8b5bf6f6544b4428c46d230c0abd",
+        "run_metadata": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-cleanup-run-20260908071000\\bp047-cleanup-run.json",
+        "wrapper_current": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\orchestrate-bp047-cleanup.ps1",
+          "sha256": "4B409296CA748496CF7306B3673E304A84A79E967F047BA594BF8ECE60E1776C"
+        },
+        "driver_at_run_sha256": "1ADAE4D7E1639CFCA99EE57E67C5C94C6F9825B73C347FAD52C75B4CB58DBD7C",
+        "cleanup_driver_current": {
+          "path": "C:\\wksp\\ProjectRebound\\Backend\\.tmp-native-fixture\\native-cleanup-fixture\\main.go",
+          "sha256": "7D2D6238813B774B74FD71E9A7FC6EAE55958B620C5D2C77E310564D499B8D9A"
+        },
+        "provenance": "Driver build metadata retained; native wrapper/cleanup exit fields were null."
+      },
+      "exit_codes": {
+        "driver_build": 0,
+        "orchestrator": null,
+        "backend_driver": null,
+        "native_authority": null,
+        "native_client": null,
+        "cleanup_driver": null
+      },
+      "safe_log_refs": [
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-cleanup-run-20260908071000\\bp047-cleanup-run.json",
+          "sha256": "DF1669CD1B8856908B11D1F16DDA6D13253A47E64A4979D0F57496226534F036"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-cleanup-run-20260908071000\\dedicated-component-20260907-225941-bcbb2f2e\\summary.json",
+          "sha256": "00B0952436B10FADDE862FA5B87E7F33D74E7A9780B723F70DC3805E6B606035"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-cleanup-run-20260908071000\\harness.log",
+          "sha256": "BF5A134E1EA30049AEAF6B308300E19461C95936D577716C45DCF160F96C0B45"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-cleanup-run-20260908071000\\dedicated-component-20260907-225941-bcbb2f2e\\authority.stdout.log",
+          "sha256": "754571B476B823C95CB2353172BE9418A764B518F3AF22B1BFAD814523654D5E"
+        }
+      ]
+    },
+    {
+      "run_id": "bp047-authority-only-20260908071500",
+      "status": "PARTIAL",
+      "primary_result": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908071500\\dedicated-component-20260907-230539-d0766d4b\\bp047-cleanup-result.json",
+        "sha256": "D444AFB353EFC4C39106CF1B37AF68F0562D407A79BFF49A5C455F99D1CFD765"
+      },
+      "summary": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908071500\\dedicated-component-20260907-230539-d0766d4b\\summary.json",
+        "sha256": "2F0314A928ECC75CE57E8D5970E47130201C364F4AEE151CB4A9DC33C7CC3EAE"
+      },
+      "coverage": "Real authority world and exact owned process exit handle verified; no client, no NativeCleared/reuse.",
+      "note": "Authority-only proof; stale/previous fixture state prevented a valid reuse conclusion.",
+      "source_version": {
+        "payload_source_commit": "dc49017e488e8b5bf6f6544b4428c46d230c0abd",
+        "authority_wrapper_current": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\orchestrate-bp047-authority-only.ps1",
+          "sha256": "4A3A23406BF3593D214421876190D0A2B051CA8554351F4F7F17FC75113E0612"
+        },
+        "cleanup_driver_current": {
+          "path": "C:\\wksp\\ProjectRebound\\Backend\\.tmp-native-fixture\\native-cleanup-fixture\\main.go",
+          "sha256": "7D2D6238813B774B74FD71E9A7FC6EAE55958B620C5D2C77E310564D499B8D9A"
+        },
+        "provenance": "No independent wrapper exit record was retained; unknown exits are null."
+      },
+      "exit_codes": {
+        "orchestrator": null,
+        "authority_bridge": null,
+        "admin_abort": null,
+        "cleanup_driver": null
+      },
+      "safe_log_refs": [
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908071500\\dedicated-component-20260907-230539-d0766d4b\\bp047-cleanup-result.json",
+          "sha256": "D444AFB353EFC4C39106CF1B37AF68F0562D407A79BFF49A5C455F99D1CFD765"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908071500\\dedicated-component-20260907-230539-d0766d4b\\summary.json",
+          "sha256": "2F0314A928ECC75CE57E8D5970E47130201C364F4AEE151CB4A9DC33C7CC3EAE"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908071500\\dedicated-component-20260907-230539-d0766d4b\\cleanup-driver.log",
+          "sha256": "31E08E0346BC9DBDD8A15F87378444FC81C80C3FC4924F6FCE2EFEE539691EB0"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908071500\\dedicated-component-20260907-230539-d0766d4b\\cleanup-driver-2.log",
+          "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908071500\\dedicated-component-20260907-230539-d0766d4b\\authority.stdout.log",
+          "sha256": "06FE8CE29DEBDDAE200BA8389FACB4195662D60894F224207FABC44E08BFF218"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908071500\\dedicated-component-20260907-230539-d0766d4b\\authority-only-ready.json",
+          "sha256": "EBBDF8094D9E96712D26759322A1943827B00BF61B0E708C01DA3191305BD4AB"
+        }
+      ]
+    },
+    {
+      "run_id": "bp047-authority-only-20260908072000",
+      "status": "PARTIAL",
+      "primary_result": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908072000\\dedicated-component-20260907-231039-ce03f342\\bp047-cleanup-result.json",
+        "sha256": "8D6E8A7161636FFD8E05B2DEB2A168FE3F208277604E05EDE841B060947DED03"
+      },
+      "summary": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908072000\\dedicated-component-20260907-231039-ce03f342\\summary.json",
+        "sha256": "3759435461C14584B25931FC1C85F7980485BFB72F65A00CC39376055576D063"
+      },
+      "coverage": "Real authority world and exact owned process exit handle verified; cleanup was not accepted as a fresh reuse proof.",
+      "note": "Fixture state was already CLEARED when the cleanup driver checked it; no reuse PASS asserted.",
+      "source_version": {
+        "payload_source_commit": "dc49017e488e8b5bf6f6544b4428c46d230c0abd",
+        "authority_wrapper_current": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\orchestrate-bp047-authority-only.ps1",
+          "sha256": "4A3A23406BF3593D214421876190D0A2B051CA8554351F4F7F17FC75113E0612"
+        },
+        "cleanup_driver_current": {
+          "path": "C:\\wksp\\ProjectRebound\\Backend\\.tmp-native-fixture\\native-cleanup-fixture\\main.go",
+          "sha256": "7D2D6238813B774B74FD71E9A7FC6EAE55958B620C5D2C77E310564D499B8D9A"
+        },
+        "provenance": "No independent wrapper exit record was retained; unknown exits are null."
+      },
+      "exit_codes": {
+        "orchestrator": null,
+        "authority_bridge": null,
+        "admin_abort": null,
+        "cleanup_driver": null
+      },
+      "safe_log_refs": [
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908072000\\dedicated-component-20260907-231039-ce03f342\\bp047-cleanup-result.json",
+          "sha256": "8D6E8A7161636FFD8E05B2DEB2A168FE3F208277604E05EDE841B060947DED03"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908072000\\dedicated-component-20260907-231039-ce03f342\\summary.json",
+          "sha256": "3759435461C14584B25931FC1C85F7980485BFB72F65A00CC39376055576D063"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908072000\\dedicated-component-20260907-231039-ce03f342\\cleanup-driver-2.log",
+          "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908072000\\dedicated-component-20260907-231039-ce03f342\\authority.stdout.log",
+          "sha256": "992ED872AC93015009A66F8796813E6D066794701C24B4AD4C197F48D9AB0286"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908072000\\dedicated-component-20260907-231039-ce03f342\\authority-only-ready.json",
+          "sha256": "868A55504DC262BD5591A8A4E89AA7B8CACF5672D138E0AE2D84632289D7A703"
+        }
+      ]
+    },
+    {
+      "run_id": "bp047-authority-only-20260908073000",
+      "status": "PARTIAL",
+      "primary_result": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908073000\\dedicated-component-20260907-231433-193d027f\\bp047-cleanup-result.json",
+        "sha256": "A7B0452341467FEA84CC8C329E7E6EDDECBA8AA1778F234B025BD0C9E0EDF1BC"
+      },
+      "summary": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908073000\\dedicated-component-20260907-231433-193d027f\\summary.json",
+        "sha256": "2780E5652B1CFE0BB759D9A588F02AAD19E0D770FAD00E81BD41A292EE08F398"
+      },
+      "coverage": "Authority world/owned handle; AdminAbort PENDING; wrong-world/route/PID and exact owned-exit checks PASS; service ended CLEARED but server UNHEALTHY, so reuse was refused.",
+      "note": "NativeCleared state transition was observed, but server health gate prevented READY pool reuse.",
+      "source_version": {
+        "payload_source_commit": "dc49017e488e8b5bf6f6544b4428c46d230c0abd",
+        "authority_wrapper_current": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\orchestrate-bp047-authority-only.ps1",
+          "sha256": "4A3A23406BF3593D214421876190D0A2B051CA8554351F4F7F17FC75113E0612"
+        },
+        "cleanup_driver_current": {
+          "path": "C:\\wksp\\ProjectRebound\\Backend\\.tmp-native-fixture\\native-cleanup-fixture\\main.go",
+          "sha256": "7D2D6238813B774B74FD71E9A7FC6EAE55958B620C5D2C77E310564D499B8D9A"
+        },
+        "provenance": "No independent wrapper exit record was retained; unknown exits are null."
+      },
+      "exit_codes": {
+        "orchestrator": null,
+        "authority_bridge": null,
+        "admin_abort": null,
+        "cleanup_driver": null
+      },
+      "safe_log_refs": [
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908073000\\dedicated-component-20260907-231433-193d027f\\bp047-cleanup-result.json",
+          "sha256": "A7B0452341467FEA84CC8C329E7E6EDDECBA8AA1778F234B025BD0C9E0EDF1BC"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908073000\\dedicated-component-20260907-231433-193d027f\\summary.json",
+          "sha256": "2780E5652B1CFE0BB759D9A588F02AAD19E0D770FAD00E81BD41A292EE08F398"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908073000\\dedicated-component-20260907-231433-193d027f\\cleanup-driver-2.log",
+          "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908073000\\dedicated-component-20260907-231433-193d027f\\authority.stdout.log",
+          "sha256": "93927A72268B0D3CA15CFFD1576B199347109328D93CD2779209009ACF5ED505"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908073000\\dedicated-component-20260907-231433-193d027f\\authority-only-ready.json",
+          "sha256": "0EBD29285EED2FB3F78BED703530B038C74F75F49A4193EDAE3C5486B2728B72"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908073000\\dedicated-component-20260907-231433-193d027f\\admin-abort-pending.json",
+          "sha256": "CE2C667F6D442011EA4D1FCEB8A44A3B4CF4C6785BB92EE2B39AAFC40D13B869"
+        }
+      ]
+    },
+    {
+      "run_id": "bp047-authority-only-20260908074000",
+      "status": "PARTIAL",
+      "primary_result": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908074000\\dedicated-component-20260907-231800-b6fe2b32\\bp047-cleanup-result.json",
+        "sha256": "37933E68997407E5DAF0BF9DFACC3C46EBB2D16E8261B25AF0B3C019D8B0D449"
+      },
+      "summary": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908074000\\dedicated-component-20260907-231800-b6fe2b32\\summary.json",
+        "sha256": "81C58859EDECF12813FBCD2D35583E4FA620F94F061CBA1A41AF730842571ED8"
+      },
+      "coverage": "Authority world/owned handle; AdminAbort PENDING; wrong-world/route/PID and exact owned-exit checks PASS; service ended CLEARED but server UNHEALTHY, so reuse was refused.",
+      "note": "Latest closure; no fabricated DISCONNECTED or NativeCleared claim beyond the service transition recorded by the cleanup driver.",
+      "source_version": {
+        "payload_source_commit": "dc49017e488e8b5bf6f6544b4428c46d230c0abd",
+        "authority_wrapper_current": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\orchestrate-bp047-authority-only.ps1",
+          "sha256": "4A3A23406BF3593D214421876190D0A2B051CA8554351F4F7F17FC75113E0612"
+        },
+        "cleanup_driver_current": {
+          "path": "C:\\wksp\\ProjectRebound\\Backend\\.tmp-native-fixture\\native-cleanup-fixture\\main.go",
+          "sha256": "7D2D6238813B774B74FD71E9A7FC6EAE55958B620C5D2C77E310564D499B8D9A"
+        },
+        "provenance": "Closure wrapper output retained only as sanitized result; unknown process exit codes are null."
+      },
+      "exit_codes": {
+        "orchestrator": null,
+        "authority_bridge": null,
+        "admin_abort": null,
+        "cleanup_driver": null
+      },
+      "safe_log_refs": [
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908074000\\dedicated-component-20260907-231800-b6fe2b32\\bp047-cleanup-result.json",
+          "sha256": "37933E68997407E5DAF0BF9DFACC3C46EBB2D16E8261B25AF0B3C019D8B0D449"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908074000\\dedicated-component-20260907-231800-b6fe2b32\\summary.json",
+          "sha256": "81C58859EDECF12813FBCD2D35583E4FA620F94F061CBA1A41AF730842571ED8"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908074000\\dedicated-component-20260907-231800-b6fe2b32\\cleanup-driver-2.log",
+          "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908074000\\dedicated-component-20260907-231800-b6fe2b32\\authority.stdout.log",
+          "sha256": "BA5731B5EF7E7EA2332ED39FC2455BE9214DA262D47E433486C1C10B65F5EF1D"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908074000\\dedicated-component-20260907-231800-b6fe2b32\\authority-only-ready.json",
+          "sha256": "F882E857CA935CFA0AC43BE28F9B66AD3FC12461E5641648B1A4BA53508D4103"
+        },
+        {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908074000\\dedicated-component-20260907-231800-b6fe2b32\\admin-abort-pending.json",
+          "sha256": "15760E7B1C6C1C24564CAC5BB8757036948CA98D38854FDC08A841763FD196D4"
+        }
+      ]
+    }
+  ],
+  "targeted_go_test": {
+    "command": "go test . -run TestValidateEventCursor|TestFixtureDatabaseNameGate|TestCanAdminAbortFixtureIsNarrow|TestCleanupEvidenceStatusIsAuditable|TestReadRealPlayerIDRequiresPrivateExactIdentity -count=1",
+    "exit_code": 0,
+    "log": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\backend-fixture-targeted-go-test.log",
+      "sha256": "A85F2183063A006F638FFA944F0B211EBFE31BD60344059E259280CC513D1BC1"
+    },
+    "note": "Targeted private diagnostic tests only; go test ./... was not claimed."
+  },
+  "harness_sources": [
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\orchestrate-bp047-cleanup.ps1",
+      "sha256": "4B409296CA748496CF7306B3673E304A84A79E967F047BA594BF8ECE60E1776C"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\orchestrate-bp047-authority-only.ps1",
+      "sha256": "4A3A23406BF3593D214421876190D0A2B051CA8554351F4F7F17FC75113E0612"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\Backend\\.tmp-native-fixture\\native-cleanup-fixture\\main.go",
+      "sha256": "7D2D6238813B774B74FD71E9A7FC6EAE55958B620C5D2C77E310564D499B8D9A"
+    }
+  ],
+  "notes": [
+    "No invalid-grant run is marked PASS: join_ack/transport acceptance is not native admission.",
+    "No synthetic DISCONNECTED, NativeCleared, READY, or PID-only proof was manufactured.",
+    "Latest 74000 exact-owned-exit path reached service cleanup_state=CLEARED; the backend game-server health condition remained UNHEALTHY because this private fixture had no fresh authenticated game-server heartbeat. READY reuse therefore remains BLOCKED.",
+    "Historical nullable child cleanup failures remain preserved; the authority-only wrapper includes a null-safe handle cleanup patch.",
+    "No owned Boundary game process remained; baseline CrashReportClient processes were not touched."
+  ],
+  "report_scope": "BP047 evidence index only; static serializer proof, authority-only cleanup, and component tests are not complete online E2E acceptance.",
+  "actual_exit_code_policy": "A missing retained exit code is JSON null; orchestration success is never treated as native acceptance.",
+  "reuse_guard_review": {
+    "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\bp047-reuse-guard-review.json",
+    "sha256": "028B35F0258720BA63C1C7C29F0304C5983F18FA3B1C98B8CC63BD3F7D4FE250"
+  },
+  "wrapper_config_review": {
+    "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\bp047-wrapper-config-comparison.json",
+    "sha256": "453A9CDE2918B441D0A9729E0530C43AE4EE99DB1B931A6E93C05DED8FC023AE"
+  }
+}

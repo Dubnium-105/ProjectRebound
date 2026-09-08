@@ -1,0 +1,76 @@
+{
+  "id": "backend-native-dynamic-component-20260908",
+  "status": "BLOCKED",
+  "scope": "one_real_steam_dedicated_component_only",
+  "claim": "No native admission PASS. Both attempts stopped before Backend authority-ready or Reserve/Confirm/Release; neither is evidence of online acceptance.",
+  "source": {
+    "git_head_observed": "57583ae8ddec46838e118e5eef46dc932784b9bf",
+    "backend_driver": {
+      "path": "Backend/.tmp-native-fixture/main.go",
+      "sha256": "126D7F3A3631CF27B9D11346BA784843719050DDA18130073B7F103CF13660BB",
+      "bytes": 27770,
+      "production_source": false
+    },
+    "native_runner": {
+      "path": ".tmp/strict-roster-20260907/native-evidence/orchestrate-dedicated-one-real-steam-positive.ps1",
+      "sha256": "05452173FED5C80F50C66EED44295900722DBFFDFA4BED739F594807D7420AB7",
+      "bytes": 53315
+    },
+    "private_fixture": {
+      "path": ".tmp/strict-roster-20260907/native-evidence/dynamic-allocation-private.json",
+      "sha256": "13A7925922F7BF62DDBBB640BF443206EE2C4D05FDE9524235B2C2EB0C90AB95",
+      "contains_raw_credentials": true,
+      "copied_to_public_evidence": false
+    }
+  },
+  "environment": {
+    "postgres": "127.0.0.1:55439/rebound_native_dynamic_20260907_231000",
+    "postgres_isolated": true,
+    "redis_used": false,
+    "candidate_payload_sha256": "62F83BEC866148F1244A2B0EBD59FD1A49A23D72757D9687C5EB8E81C71D7D5D",
+    "installed_payload_restored_sha256": "6C7B5E05540AC72A6D7A9FA78F867917285FCE00081156EE13D237AA4D6C24A3",
+    "game_executable_sha256": "181C49FFB522B3EB01014C84FD9D3A2A5C0B66AE80A6A6ADDFF4BDD6F8125843"
+  },
+  "attempts": [
+    {
+      "run_id": "dedicated-component-20260907-155430-3d2deb8b",
+      "status": "BLOCKED",
+      "observed_failure": "startgame.ps1 rejected StrictRosterAuthority as an unknown parameter before the Payload pipe was ready",
+      "summary_path": ".tmp/strict-roster-20260907/native-evidence/dedicated-component-20260907-155430-3d2deb8b/summary.json",
+      "summary_sha256": "DBA65F2D26A4AB197DC8E5A691C17E5F88EBB15A53194AD07E4BC1AB343533DB"
+    },
+    {
+      "run_id": "dedicated-component-20260907-160501-3610a82c",
+      "status": "BLOCKED",
+      "observed_failure": "after wrapper fix, Boundary launched and Payload was injected, but the authority Payload pipe never became ready; no authority-ready request or Backend marker was produced",
+      "summary_path": ".tmp/strict-roster-20260907/native-evidence/dedicated-component-20260907-160501-3610a82c/summary.json",
+      "summary_sha256": "E114D3BE9E70C79DDCF61CB732785BAFD9FFE79C4B0814A126192F5AF7C503E8",
+      "harness_log_path": ".tmp/strict-roster-20260907/native-evidence/dynamic-live-20260908-000457-80b21c92-harness.log",
+      "harness_log_sha256": "37DEE0EF3886A1C608126CAB5D41A8D5001708D981B0AE4B61D02B1C0749DE3D",
+      "runner_exit_code": 1
+    }
+  ],
+  "backend_driver_compile": {
+    "command": "go run ./.tmp-native-fixture/main.go -h",
+    "exit_code": 0,
+    "log_path": ".tmp/strict-roster-20260907/native-evidence/dynamic-driver-compile-live-nonce.log"
+  },
+  "cleanup": {
+    "path": ".tmp/strict-roster-20260907/native-evidence/dynamic-driver-cleanup-20260908.json",
+    "sha256": "41A0E06CAA91F894400E5C567AA6A75D9C10C058A272708E09DC88F0E23174E0",
+    "observed_driver_processes": 3,
+    "remaining_driver_processes": 0,
+    "boundary_processes_after_cleanup": 0,
+    "authority_port_47777_listener_after_cleanup": false
+  },
+  "protocol_checks": {
+    "authority_ready_requires_payload_native_connection_nonce": true,
+    "reserve_receipt": "01-reserve.json kind=confirm_match_admission",
+    "native_admitted_receipt": "02-confirm-connection.json kind=confirm_match_connection",
+    "connected_receipt": "03-connected-observed.json kind=connected_observed",
+    "release_receipt": "04-release.json kind=release_match_admission",
+    "all_receipts_include_sequence_and_exact_scope": true,
+    "event_or_open_bypass": false
+  },
+  "remaining_blocker": "Payload authority pipe readiness/crash path must be diagnosed by Native; no Backend admission stage was reached."
+}

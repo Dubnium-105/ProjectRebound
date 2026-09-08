@@ -1,0 +1,10 @@
+command=GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -o artifacts/backend/ ./cmd/control-plane ./cmd/meta-server ./cmd/edge-relay
+source_worktree=C:/Users/23587/AppData/Local/Temp/rebound-source-a049d56-20260907
+a049d5685e8ac402c8855f3a93b7301c4f35ac78
+go version go1.26.6 windows/amd64
+exit_code=0
+	build	-trimpath=true
+	build	CGO_ENABLED=0
+	build	GOARCH=amd64
+	build	GOOS=linux
+	build	GOAMD64=v1

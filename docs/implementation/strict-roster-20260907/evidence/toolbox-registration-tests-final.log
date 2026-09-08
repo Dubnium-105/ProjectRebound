@@ -1,0 +1,15 @@
+    Blocking waiting for file lock on build directory
+   Compiling rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 27.73s
+     Running unittests src\lib.rs (target\debug\deps\rebound_toolbox-531c06249e821c2c.exe)
+
+running 6 tests
+test server::registration::tests::transport_target_brackets_ipv6_and_rejects_ambiguous_hosts ... ok
+test server::registration::tests::canonical_request_matches_backend_contract ... ok
+test server::registration::tests::backend_and_identity_paths_are_normalized ... ok
+test server::registration::tests::dpapi_round_trip_is_current_user_scoped ... ok
+test server::registration::tests::token_cleanup_preserves_newer_config_fields ... ok
+test server::registration::tests::dedicated_assignment_verifies_signed_allocation_scope ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 254 filtered out; finished in 0.03s
+

@@ -1,0 +1,9 @@
+[package]
+name = "rebound_e2e_11_driver"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1"
+serde_json = "1"
+rebound_toolbox = { package = "rebound_toolbox", path = "C:/wksp/ProjectReboundToolbox", features = ["lab-testing"] }

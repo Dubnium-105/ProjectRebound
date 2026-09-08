@@ -1,0 +1,1 @@
+database=rebound_a_schema47_restore_20260908_02 post_schema_max_and_count=48|48 live_generation_and_guard_columns=3 post_match_attempts=0 p2p_log_sha256=C17A15A87B9C8D94B6F5A9E32D0E3273820D711FC0905C2BA3378A13D2B29410

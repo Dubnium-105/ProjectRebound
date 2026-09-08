@@ -1,0 +1,10 @@
+=== RUN   TestMigratorAgainstPostgreSQL
+    migrator_integration_test.go:30: first migration run: acquire migration connection: failed to connect to `user=phanthy database==disable`:
+        	127.0.0.1:55439 (127.0.0.1): tls error: server refused TLS connection
+        	127.0.0.1:55439 (127.0.0.1): server error: FATAL: database "=disable" does not exist (SQLSTATE 3D000)
+--- FAIL: TestMigratorAgainstPostgreSQL (0.01s)
+FAIL
+FAIL	github.com/Dubnium-105/ProjectRebound/Backend/internal/database	0.022s
+FAIL
+
+EXIT_CODE=1

@@ -1,0 +1,10 @@
+   Compiling rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 40.58s
+   Doc-tests rebound_toolbox
+
+running 2 tests
+test src\matchmaking\ids.rs - matchmaking::ids (line 14) - compile fail ... ok
+test src\matchmaking\ids.rs - matchmaking::ids (line 8) - compile fail ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.34s
+

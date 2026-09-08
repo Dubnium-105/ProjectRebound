@@ -1,0 +1,4 @@
+source_verify_exit_code=0
+restore_verify_exit_code=0
+comparison=IDENTICAL_EXCLUDING_DATABASE_IDENTITY_LINE
+rowcount_and_schema_metrics=IDENTICAL

@@ -1,0 +1,34 @@
+
+> frontend@0.9.12 test:ui
+> node --test tests/ui-contract.test.mjs
+
+✔ failed credential revocation cannot restore an old authenticated session (2.7729ms)
+✔ cleanup failure restores only the freshly queried authenticated session (1.0695ms)
+✔ launch events preserve online role and reject prior account, Attempt and run (0.6433ms)
+✔ late old termination and duplicate events cannot overwrite a new launch (0.2599ms)
+✔ a newer accepted operation replaces the displayed operation without accepting stale acceptance (1.7437ms)
+✔ online success is shown as a room session and requires real nonempty process IDs (0.5076ms)
+✔ isolated PvE has no online session or roster scope (0.2949ms)
+✔ a delayed game-exit observation cannot clear a newer operation (0.5738ms)
+✔ match operation events buffer across the snapshot race and replay in order (2.1619ms)
+✔ buffered match events cannot cross account epochs (0.6149ms)
+✔ a terminal event remains admissible after its authoritative snapshot clears live scope (0.3135ms)
+✔ sensitive actions require explicit confirmation payloads and native argument names (1.0636ms)
+✔ catalog loading uses the native JSON command and file downloads remain ordinary links (0.8688ms)
+✔ frontend update and download flows never read file response bodies (1.5453ms)
+✔ the authoritative lobby UI owns roster operations and keeps transport details below the launch page (0.6077ms)
+✔ the player room UI offers Boundary's ten-player room capacity (0.3916ms)
+✔ the room lobby explains host membership and the two-player launch gate (0.1642ms)
+✔ signed-in users can redeem an invitation without logging out (0.1611ms)
+✔ modal dismissal is locked while a confirmed operation is busy (0.2027ms)
+✔ Settings receives update and download state (0.5372ms)
+✔ release version labels derive from package metadata instead of stale literals (0.2912ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 21
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 388.3701
+exit_code=0

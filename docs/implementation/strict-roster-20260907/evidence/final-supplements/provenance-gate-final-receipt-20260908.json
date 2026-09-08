@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "id": "provenance-gate-final-20260908",
+  "source_commit": "dc49017e488e8b5bf6f6544b4428c46d230c0abd",
+  "source_dirty": true,
+  "source_status_porcelain": " M Tools/Release/strict_roster_provenance.py\n M Tools/Release/test_provenance_cases.py\n",
+  "scope": [
+    "Tools/Release/strict_roster_provenance.py",
+    "Tools/Release/test_provenance_cases.py"
+  ],
+  "source_sha256": {
+    "C:\\wksp\\ProjectRebound\\Tools\\Release\\strict_roster_provenance.py": "F73095AFBBE5491876D8E284E2FC83D0720975893AC80205148F595F664667A7",
+    "C:\\wksp\\ProjectRebound\\Tools\\Release\\test_provenance_cases.py": "67116A03A0685918B4DA608DC0D7E0A12EA2FF91467519971700DBA88251068C"
+  },
+  "tests": [
+    {
+      "command": "C:/Python314/python.exe -B C:/wksp/ProjectRebound/Tools/Release/test_provenance_cases.py",
+      "working_directory": "C:\\wksp\\ProjectRebound\\Tools\\Release",
+      "exit_code": 0,
+      "passed": 22,
+      "failed": 0,
+      "ignored": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\provenance-gate-test-20260908-final.log",
+      "log_sha256": "A39ABA25C0B948AA5CFD83A49AC7D43BFDA6E241A09FE0EB385C8BF3C811AD9E"
+    },
+    {
+      "command": "C:/Python314/python.exe -B -m py_compile C:/wksp/ProjectRebound/Tools/Release/strict_roster_provenance.py C:/wksp/ProjectRebound/Tools/Release/test_provenance_cases.py; git diff --check -- Tools/Release/strict_roster_provenance.py Tools/Release/test_provenance_cases.py",
+      "working_directory": "C:\\wksp\\ProjectRebound",
+      "exit_code": 0,
+      "passed": null,
+      "failed": 0,
+      "ignored": 0,
+      "log_path": null,
+      "log_sha256": null
+    }
+  ],
+  "coverage": [
+    "candidate build manifest generation_id must equal artifact inventory generation_id",
+    "acceptance role+SHA must match inventory role+SHA and inventory PASS statuses",
+    "PASS execution steps require complete SHA-256 log evidence and current bytes"
+  ],
+  "provenance_note": "The test command was executed against the current working-tree files; no commit was created."
+}

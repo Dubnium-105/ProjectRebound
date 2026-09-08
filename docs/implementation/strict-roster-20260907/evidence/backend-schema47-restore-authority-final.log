@@ -1,0 +1,12 @@
+archive_path=C:\wksp\ProjectRebound\docs\implementation\strict-roster-20260907\evidence\backend-schema47-source-20260907-authority-final.dump
+archive_bytes=317571
+archive_sha256=2d2290a14481fb380b7e9057faea45976c18ae4ba84600af4a3b19b8b22ddeb3
+restore_database=rebound_backend_restore_authority_20260907_final
+restore_host=172.23.120.17
+restore_port=55439
+first_attempt_command=pg_restore --exit-on-error --no-owner --no-privileges --dbname=rebound_backend_restore_authority_20260907_final backend-schema47-source-20260907-authority-final.dump
+first_attempt_exit_code=1
+first_attempt_result=wrong_default_socket_role_missing; no target host/port was used
+final_command=pg_restore --host=172.23.120.17 --port=55439 --username=phanthy --exit-on-error --no-owner --no-privileges --dbname=rebound_backend_restore_authority_20260907_final backend-schema47-source-20260907-authority-final.dump
+final_pg_restore_exit_code=0
+final_result=restored_from_the_exact_archive_path_and_sha256_above

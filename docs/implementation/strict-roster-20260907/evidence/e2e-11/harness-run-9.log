@@ -1,0 +1,35 @@
+{
+  "status": "PASS",
+  "driver_exit_code": 0,
+  "counts": {
+    "old_401": 22,
+    "protected_success": 20,
+    "refresh": 3,
+    "logout": 1,
+    "meta_old": 1,
+    "meta_new": 1,
+    "ws_old": 1,
+    "ws_new": 1,
+    "logic_connections": 1
+  },
+  "markers": [
+    "config-interruption-recovered",
+    "logic-hit",
+    "meta-new",
+    "meta-old",
+    "old401-20",
+    "old401-release",
+    "refresh-started-logout",
+    "refresh-started-phase_a",
+    "refresh-started-switch",
+    "release-refresh-logout",
+    "release-refresh-phase_a",
+    "release-refresh-switch",
+    "ws-new",
+    "ws-old"
+  ],
+  "driver_stdout": "PASS: integrated HTTP 401/refresh + MetaTunnel token handoff + WS reconnect + logout/switch epoch barriers (resync=true, logic_bridge=PASS)",
+  "driver_stderr": ""
+}
+
+[exit_code] 0

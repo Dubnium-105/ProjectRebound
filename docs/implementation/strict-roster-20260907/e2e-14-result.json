@@ -1,0 +1,203 @@
+{
+  "id": "E2E-14",
+  "title": "E2E-14 Backend supplement",
+  "status": "PARTIAL",
+  "source_commit": "bb3590adf298ddc9fefde63d0c70c2fc08ad7529",
+  "execution_source_pair": {
+    "ProjectRebound": "bb3590adf298ddc9fefde63d0c70c2fc08ad7529"
+  },
+  "execution_pair_complete": false,
+  "source_dirty_by_repository": {
+    "ProjectRebound": null
+  },
+  "source_observation": "single-repository execution fact; no reviewed two-repository pair was substituted",
+  "source_scope": "Backend-only evidence for E2E-13, E2E-14, E2E-15; this file is not a replacement for the full cross-process E2E records.",
+  "steps": [
+    {
+      "index": 1,
+      "status": "partial",
+      "observed": "Dedicated provisioning timeout and restart, P2P connection quorum, preserved HOST route refresh, and stale seat/role rejection were exercised against PG.",
+      "not_covered": "No complete two-team late-seat/native Playable scenario or native role-confirmation delay."
+    },
+    {
+      "index": 2,
+      "status": "partial",
+      "observed": "Service-controlled clock covers dedicated provisioning timeout, grant expiry/idempotent intent behavior, authority heartbeat route refresh, and connection deadline sweep.",
+      "not_covered": "No real native lease/Playable clock and no cross-process authority recovery deadline run."
+    }
+  ],
+  "backend_execution": [
+    {
+      "import_id": "e2e13-15::backend::0",
+      "command": "TEST_DATABASE_URL=postgres://phanthy@127.0.0.1:55439/rebound_e2e131415_match_2026090801 go test -p 1 ./internal/matchlobby -run ^TestStrictRoster -count=1 -v",
+      "exit_code": 0,
+      "pass_count": 6,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\e2e131415\\backend-e2e13-15-matchlobby-clean-20260908T230614Z.log",
+      "log_sha256": "35CBA0D69049589F5DBF5315D2759B7AFD23423AA9A4DC8E180E338778DF94D9",
+      "status": "PASS",
+      "scope": "Backend component supplement; the corresponding full E2E remains PARTIAL.",
+      "execution_source_pair": {
+        "ProjectRebound": "bb3590adf298ddc9fefde63d0c70c2fc08ad7529"
+      },
+      "execution_pair_complete": false,
+      "source_dirty_by_repository": {
+        "ProjectRebound": null
+      },
+      "source_observation": "single-repository execution fact; no reviewed two-repository pair was substituted"
+    },
+    {
+      "import_id": "e2e13-15::backend::1",
+      "command": "TEST_DATABASE_URL=postgres://phanthy@127.0.0.1:55439/rebound_e2e131415_db_2026090801 go test -p 1 ./internal/database -run TestMigratorAgainstPostgreSQL|TestLiveGenerationMigrationPreservesHistoricalConnectedRoster -count=1 -v",
+      "exit_code": 0,
+      "pass_count": 2,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\e2e131415\\backend-e2e13-15-database-clean-20260908T230743Z.log",
+      "log_sha256": "34BBDB0F1E7C182AF2AFBE7AA1988965B399C781E057BF74A19EF1ABD9E45737",
+      "status": "PASS",
+      "scope": "Backend component supplement; the corresponding full E2E remains PARTIAL.",
+      "execution_source_pair": {
+        "ProjectRebound": "bb3590adf298ddc9fefde63d0c70c2fc08ad7529"
+      },
+      "execution_pair_complete": false,
+      "source_dirty_by_repository": {
+        "ProjectRebound": null
+      },
+      "source_observation": "single-repository execution fact; no reviewed two-repository pair was substituted"
+    },
+    {
+      "import_id": "e2e13-15::backend::2",
+      "command": "TEST_DATABASE_URL=postgres://phanthy@127.0.0.1:55439/rebound_e2e131415_meta_2026090801 go test -p 1 ./internal/metaserver -run ^TestRepositoryIsolationAndRetiredMatchmakingAgainstPostgreSQL$ -count=1 -v",
+      "exit_code": 0,
+      "pass_count": 1,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\e2e131415\\backend-e2e13-15-meta-clean-20260908T230859Z.log",
+      "log_sha256": "4BCAF40F5614EF146400F617B26F367FC0B1E2094CCF642A225BE8010F0C5F2B",
+      "status": "PASS",
+      "scope": "Backend component supplement; the corresponding full E2E remains PARTIAL.",
+      "execution_source_pair": {
+        "ProjectRebound": "bb3590adf298ddc9fefde63d0c70c2fc08ad7529"
+      },
+      "execution_pair_complete": false,
+      "source_dirty_by_repository": {
+        "ProjectRebound": null
+      },
+      "source_observation": "single-repository execution fact; no reviewed two-repository pair was substituted"
+    },
+    {
+      "import_id": "e2e13-15::backend::3",
+      "command": "TEST_DATABASE_URL=postgres://phanthy@127.0.0.1:55439/rebound_e2e14ded_2026090801 go test -p 1 ./internal/matchlobby -run ^TestStrictRosterDedicatedLifecycleAgainstPostgreSQL$ -count=1 -v",
+      "exit_code": 0,
+      "pass_count": 1,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\e2e131415\\backend-e2e14-dedicated-alone-20260908T230445Z.log",
+      "log_sha256": "F6EFA5517C58BA2E8F11D474497C9D22D9A132CA88AC9B2AA93BD997D851150A",
+      "status": "PASS",
+      "scope": "Backend component supplement; the corresponding full E2E remains PARTIAL.",
+      "execution_source_pair": {
+        "ProjectRebound": "bb3590adf298ddc9fefde63d0c70c2fc08ad7529"
+      },
+      "execution_pair_complete": false,
+      "source_dirty_by_repository": {
+        "ProjectRebound": null
+      },
+      "source_observation": "single-repository execution fact; no reviewed two-repository pair was substituted"
+    },
+    {
+      "import_id": "e2e13-15::backend::4",
+      "command": "TEST_DATABASE_URL=postgres://phanthy@127.0.0.1:55439/rebound_e2e131415_2026090801 go test -p 1 ./internal/matchlobby ./internal/database ./internal/metaserver -run TestStrictRoster|TestMigratorAgainstPostgreSQL|TestLiveGenerationMigrationPreservesHistoricalConnectedRoster|TestRepositoryIsolationAndRetiredMatchmakingAgainstPostgreSQL -count=1 -v",
+      "exit_code": 1,
+      "pass_count": 7,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\e2e131415\\backend-e2e13-15-focused-20260908T230116Z.log",
+      "log_sha256": "0ACF158445A5B16063B9F3CC600B6A4ACC713ECA1BCC99EFE63AEC5EF88FA006",
+      "status": "FAILED",
+      "scope": "Backend component supplement; the corresponding full E2E remains PARTIAL.",
+      "execution_source_pair": {
+        "ProjectRebound": "bb3590adf298ddc9fefde63d0c70c2fc08ad7529"
+      },
+      "execution_pair_complete": false,
+      "source_dirty_by_repository": {
+        "ProjectRebound": null
+      },
+      "source_observation": "single-repository execution fact; no reviewed two-repository pair was substituted"
+    }
+  ],
+  "component_only_execution": [
+    {
+      "import_id": "e2e13-15::component::0",
+      "command": "TEST_DATABASE_URL=postgres://phanthy@127.0.0.1:55439/rebound_e2e131415_battlelog_2026090801 go test -p 1 ./internal/metaserver -run ^TestBattleLogSubmissionAgainstPostgreSQL$ -count=1 -v",
+      "exit_code": 0,
+      "pass_count": 1,
+      "skip_names": [],
+      "log_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\e2e131415\\backend-battlelog-component-20260908T231649Z.log",
+      "log_sha256": "48B44BE34BFFC4B6A125464F82035E7FC49929748CAB2BCDE7060CCBD9BB85C6",
+      "status": "PASS",
+      "scope": "Backend component supplement; the corresponding full E2E remains PARTIAL.",
+      "execution_source_pair": {
+        "ProjectRebound": "bb3590adf298ddc9fefde63d0c70c2fc08ad7529"
+      },
+      "execution_pair_complete": false,
+      "source_dirty_by_repository": {
+        "ProjectRebound": null
+      },
+      "source_observation": "single-repository execution fact; no reviewed two-repository pair was substituted"
+    }
+  ],
+  "result": {
+    "environment": {
+      "postgres": "isolated PostgreSQL 14 cluster on 127.0.0.1:55439",
+      "databases": [
+        "rebound_e2e131415_match_2026090801",
+        "rebound_e2e131415_db_2026090801",
+        "rebound_e2e131415_meta_2026090801",
+        "rebound_e2e14ded_2026090801"
+      ],
+      "redis": "not required by these selected tests",
+      "native_game": "not run",
+      "toolbox_ipc": "not run"
+    },
+    "command_or_harness": [
+      "TEST_DATABASE_URL=postgres://phanthy@127.0.0.1:55439/rebound_e2e131415_match_2026090801 go test -p 1 ./internal/matchlobby -run ^TestStrictRoster -count=1 -v",
+      "TEST_DATABASE_URL=postgres://phanthy@127.0.0.1:55439/rebound_e2e131415_db_2026090801 go test -p 1 ./internal/database -run TestMigratorAgainstPostgreSQL|TestLiveGenerationMigrationPreservesHistoricalConnectedRoster -count=1 -v",
+      "TEST_DATABASE_URL=postgres://phanthy@127.0.0.1:55439/rebound_e2e131415_meta_2026090801 go test -p 1 ./internal/metaserver -run ^TestRepositoryIsolationAndRetiredMatchmakingAgainstPostgreSQL$ -count=1 -v",
+      "TEST_DATABASE_URL=postgres://phanthy@127.0.0.1:55439/rebound_e2e14ded_2026090801 go test -p 1 ./internal/matchlobby -run ^TestStrictRosterDedicatedLifecycleAgainstPostgreSQL$ -count=1 -v",
+      "TEST_DATABASE_URL=postgres://phanthy@127.0.0.1:55439/rebound_e2e131415_2026090801 go test -p 1 ./internal/matchlobby ./internal/database ./internal/metaserver -run TestStrictRoster|TestMigratorAgainstPostgreSQL|TestLiveGenerationMigrationPreservesHistoricalConnectedRoster|TestRepositoryIsolationAndRetiredMatchmakingAgainstPostgreSQL -count=1 -v"
+    ],
+    "exit_code": null,
+    "exit_code_note": "No single full E2E process was run; each Backend subrun exit_code is preserved in backend_execution.",
+    "log_paths": [
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\e2e131415\\backend-e2e13-15-matchlobby-clean-20260908T230614Z.log",
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\e2e131415\\backend-e2e13-15-database-clean-20260908T230743Z.log",
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\e2e131415\\backend-e2e13-15-meta-clean-20260908T230859Z.log",
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\e2e131415\\backend-e2e14-dedicated-alone-20260908T230445Z.log",
+      "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\e2e131415\\backend-e2e13-15-focused-20260908T230116Z.log"
+    ],
+    "observed_result": "Backend policy/negative cases are evidenced, but the full lease plus native Playable E2E remains partial."
+  },
+  "input_receipt": {
+    "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e131415\\e2e-13-15-backend-result-20260908.json",
+    "retained_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\e2e131415\\e2e-13-15-backend-result-20260908.json",
+    "sha256": "47EE83272D57AC19EA71C883C2248B07585986BE3AE06C65A1F218E4DDAB9DBB",
+    "retained": true
+  },
+  "source_audit": [
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-source-audit-20260908.json",
+      "retained_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\backend-source-audit-20260908.json",
+      "sha256": "3584B95CF854265D43DA5A7A62B5D380F5FABB9471E0635A52F14468AC6C4FC3",
+      "retained": true
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-source-audit-20260908.md",
+      "retained_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\backend-source-audit-20260908.md",
+      "sha256": "A31AB5B41AA6A891CEF462E993A2C7D1543D1A47D67A7946C7F495F7B13A9AFB",
+      "retained": true
+    }
+  ],
+  "release_ready": false,
+  "limitations": [
+    "No native game, Toolbox IPC, process-kill/reconciler, or cross-process old-event ordering was executed by this supplement.",
+    "Component-only PASS records are retained as component evidence and cannot upgrade the full E2E case."
+  ]
+}

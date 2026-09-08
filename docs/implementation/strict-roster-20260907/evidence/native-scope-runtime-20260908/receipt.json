@@ -1,5 +1,5 @@
 {
-  "recorded_at": "2026-09-07T21:19:04.674297+00:00",
+  "recorded_at": "2026-09-08T01:10:50.548784+00:00",
   "builds": [
     {
       "run_id": "root-validation-20260907T190411910390Z",
@@ -1251,6 +1251,306 @@
         "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T211718994451Z\\result.json"
       },
       "scope": "Actual component build/test only; not native admission acceptance."
+    },
+    {
+      "run_id": "root-validation-20260907T214522694160Z",
+      "source_input_commit": "c76ef07642b195d6229c7fcb10ca9188d0505be3",
+      "source_dirty": false,
+      "executions": [
+        {
+          "name": "configure",
+          "command": [
+            "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+            "-S",
+            "Payload/Tests",
+            "-B",
+            "build/strict-roster-current"
+          ],
+          "exit_code": 0,
+          "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T214522694160Z\\configure.log",
+          "sha256": "f867615dac3e868dd9eb5116653011c41a3f1e85e1533cc1311c2367c8dd930f",
+          "retained_log": {
+            "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T214522694160Z/configure.log",
+            "sha256": "f867615dac3e868dd9eb5116653011c41a3f1e85e1533cc1311c2367c8dd930f",
+            "bytes": 141,
+            "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T214522694160Z\\configure.log"
+          }
+        },
+        {
+          "name": "tests-build",
+          "command": [
+            "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+            "--build",
+            "build/strict-roster-current",
+            "--config",
+            "Release",
+            "--parallel",
+            "4"
+          ],
+          "exit_code": 0,
+          "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T214522694160Z\\tests-build.log",
+          "sha256": "e7af002b3c74336961e661eabbd087affbb3fdf4b136cc7fb732eb063ef15f74",
+          "retained_log": {
+            "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T214522694160Z/tests-build.log",
+            "sha256": "e7af002b3c74336961e661eabbd087affbb3fdf4b136cc7fb732eb063ef15f74",
+            "bytes": 3206,
+            "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T214522694160Z\\tests-build.log"
+          }
+        },
+        {
+          "name": "ctest",
+          "command": [
+            "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\ctest.exe",
+            "--test-dir",
+            "build/strict-roster-current",
+            "-C",
+            "Release",
+            "--output-on-failure"
+          ],
+          "exit_code": 0,
+          "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T214522694160Z\\ctest.log",
+          "sha256": "5532ddb70f49185ee578bf09114f5feff805da564dbfaee2b0a6b51f04ec250b",
+          "retained_log": {
+            "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T214522694160Z/ctest.log",
+            "sha256": "5532ddb70f49185ee578bf09114f5feff805da564dbfaee2b0a6b51f04ec250b",
+            "bytes": 3010,
+            "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T214522694160Z\\ctest.log"
+          }
+        },
+        {
+          "name": "payload-build",
+          "command": [
+            "C:/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/amd64/MSBuild.exe",
+            "Payload/Payload.vcxproj",
+            "/m:1",
+            "/nr:false",
+            "/p:Configuration=Release",
+            "/p:Platform=x64",
+            "/v:minimal"
+          ],
+          "exit_code": 0,
+          "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T214522694160Z\\payload-build.log",
+          "sha256": "dd7940894a55339212df9403a45663767a6cc481597f33f1bc02db38b991211d",
+          "retained_log": {
+            "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T214522694160Z/payload-build.log",
+            "sha256": "dd7940894a55339212df9403a45663767a6cc481597f33f1bc02db38b991211d",
+            "bytes": 154,
+            "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T214522694160Z\\payload-build.log"
+          }
+        }
+      ],
+      "artifact": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T214522694160Z\\Payload.dll",
+        "sha256": "42c72b9f27f51c745e2b8951f9e707c3035dfc22463bfb4d1cf64d21aee9ee63",
+        "bytes": 2087936
+      },
+      "receipt": {
+        "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T214522694160Z/result.json",
+        "sha256": "dde3b2c3a0e719a3c87c776b9b779d0c145d9ebdb70893be994977055817fece",
+        "bytes": 3361,
+        "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T214522694160Z\\result.json"
+      },
+      "scope": "Actual component build/test only; not native admission acceptance."
+    },
+    {
+      "run_id": "root-validation-20260907T222951486062Z",
+      "source_input_commit": "8cacb1cdef006b3fa20d9c817c34e9fe1f59bf89",
+      "source_dirty": true,
+      "executions": [
+        {
+          "name": "configure",
+          "command": [
+            "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+            "-S",
+            "Payload/Tests",
+            "-B",
+            "build/strict-roster-current"
+          ],
+          "exit_code": 0,
+          "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T222951486062Z\\configure.log",
+          "sha256": "8332897490d732e86975e592c28b1f7e350251f01ca6fc1b925d694167c7ccdd",
+          "retained_log": {
+            "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T222951486062Z/configure.log",
+            "sha256": "8332897490d732e86975e592c28b1f7e350251f01ca6fc1b925d694167c7ccdd",
+            "bytes": 141,
+            "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T222951486062Z\\configure.log"
+          }
+        },
+        {
+          "name": "tests-build",
+          "command": [
+            "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+            "--build",
+            "build/strict-roster-current",
+            "--config",
+            "Release",
+            "--parallel",
+            "4"
+          ],
+          "exit_code": 0,
+          "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T222951486062Z\\tests-build.log",
+          "sha256": "b292a7d923876e605b97a7005e2be408f102e68ba0210e0cf964f1938feec9c9",
+          "retained_log": {
+            "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T222951486062Z/tests-build.log",
+            "sha256": "b292a7d923876e605b97a7005e2be408f102e68ba0210e0cf964f1938feec9c9",
+            "bytes": 3355,
+            "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T222951486062Z\\tests-build.log"
+          }
+        },
+        {
+          "name": "ctest",
+          "command": [
+            "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\ctest.exe",
+            "--test-dir",
+            "build/strict-roster-current",
+            "-C",
+            "Release",
+            "--output-on-failure"
+          ],
+          "exit_code": 0,
+          "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T222951486062Z\\ctest.log",
+          "sha256": "e24ec498d8ae8ab6c65aa735ce4c22be7cfdc356019ac3137687a8fcba16dd02",
+          "retained_log": {
+            "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T222951486062Z/ctest.log",
+            "sha256": "e24ec498d8ae8ab6c65aa735ce4c22be7cfdc356019ac3137687a8fcba16dd02",
+            "bytes": 3141,
+            "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T222951486062Z\\ctest.log"
+          }
+        },
+        {
+          "name": "payload-build",
+          "command": [
+            "C:/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/amd64/MSBuild.exe",
+            "Payload/Payload.vcxproj",
+            "/m:1",
+            "/nr:false",
+            "/p:Configuration=Release",
+            "/p:Platform=x64",
+            "/v:minimal"
+          ],
+          "exit_code": 0,
+          "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T222951486062Z\\payload-build.log",
+          "sha256": "b998c22857cc3204bea87f480bbe0185a780e11c67e05c9f6d8428aab897044b",
+          "retained_log": {
+            "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T222951486062Z/payload-build.log",
+            "sha256": "b998c22857cc3204bea87f480bbe0185a780e11c67e05c9f6d8428aab897044b",
+            "bytes": 580,
+            "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T222951486062Z\\payload-build.log"
+          }
+        }
+      ],
+      "artifact": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T222951486062Z\\Payload.dll",
+        "sha256": "297c6ea8585c8a606b3ab31a9949bcb153d7469b890ef8603521fb8af2cbfc1b",
+        "bytes": 2094592
+      },
+      "receipt": {
+        "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T222951486062Z/result.json",
+        "sha256": "f4458ae4415782dd6077d24f376b6c63cb4890f775becab43f537dfe92e370a7",
+        "bytes": 4722,
+        "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T222951486062Z\\result.json"
+      },
+      "scope": "Actual component build/test only; not native admission acceptance."
+    },
+    {
+      "run_id": "root-validation-20260907T223103129065Z",
+      "source_input_commit": "dc49017e488e8b5bf6f6544b4428c46d230c0abd",
+      "source_dirty": false,
+      "executions": [
+        {
+          "name": "configure",
+          "command": [
+            "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+            "-S",
+            "Payload/Tests",
+            "-B",
+            "build/strict-roster-current"
+          ],
+          "exit_code": 0,
+          "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T223103129065Z\\configure.log",
+          "sha256": "8332897490d732e86975e592c28b1f7e350251f01ca6fc1b925d694167c7ccdd",
+          "retained_log": {
+            "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T223103129065Z/configure.log",
+            "sha256": "8332897490d732e86975e592c28b1f7e350251f01ca6fc1b925d694167c7ccdd",
+            "bytes": 141,
+            "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T223103129065Z\\configure.log"
+          }
+        },
+        {
+          "name": "tests-build",
+          "command": [
+            "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+            "--build",
+            "build/strict-roster-current",
+            "--config",
+            "Release",
+            "--parallel",
+            "4"
+          ],
+          "exit_code": 0,
+          "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T223103129065Z\\tests-build.log",
+          "sha256": "502c461844299a9931acc0ee52605c876a3d4c487b1d874c77c76fbd684c84da",
+          "retained_log": {
+            "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T223103129065Z/tests-build.log",
+            "sha256": "502c461844299a9931acc0ee52605c876a3d4c487b1d874c77c76fbd684c84da",
+            "bytes": 3355,
+            "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T223103129065Z\\tests-build.log"
+          }
+        },
+        {
+          "name": "ctest",
+          "command": [
+            "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\ctest.exe",
+            "--test-dir",
+            "build/strict-roster-current",
+            "-C",
+            "Release",
+            "--output-on-failure"
+          ],
+          "exit_code": 0,
+          "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T223103129065Z\\ctest.log",
+          "sha256": "af3214e63729ad0ea3f1785f70db5220fd1918d3efb4a8704df7a6398608aae2",
+          "retained_log": {
+            "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T223103129065Z/ctest.log",
+            "sha256": "af3214e63729ad0ea3f1785f70db5220fd1918d3efb4a8704df7a6398608aae2",
+            "bytes": 3141,
+            "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T223103129065Z\\ctest.log"
+          }
+        },
+        {
+          "name": "payload-build",
+          "command": [
+            "C:/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/amd64/MSBuild.exe",
+            "Payload/Payload.vcxproj",
+            "/m:1",
+            "/nr:false",
+            "/p:Configuration=Release",
+            "/p:Platform=x64",
+            "/v:minimal"
+          ],
+          "exit_code": 0,
+          "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T223103129065Z\\payload-build.log",
+          "sha256": "dd7940894a55339212df9403a45663767a6cc481597f33f1bc02db38b991211d",
+          "retained_log": {
+            "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T223103129065Z/payload-build.log",
+            "sha256": "dd7940894a55339212df9403a45663767a6cc481597f33f1bc02db38b991211d",
+            "bytes": 154,
+            "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T223103129065Z\\payload-build.log"
+          }
+        }
+      ],
+      "artifact": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T223103129065Z\\Payload.dll",
+        "sha256": "297c6ea8585c8a606b3ab31a9949bcb153d7469b890ef8603521fb8af2cbfc1b",
+        "bytes": 2094592
+      },
+      "receipt": {
+        "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T223103129065Z/result.json",
+        "sha256": "13c725badb8982f1a5905ebd06fd32b47873f8366f22efd35f99a433d610ba28",
+        "bytes": 3361,
+        "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T223103129065Z\\result.json"
+      },
+      "scope": "Actual component build/test only; not native admission acceptance."
     }
   ],
   "real_native_runs": [
@@ -1271,6 +1571,7 @@
         "bytes": 3172,
         "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T191025704743Z\\dedicated-component-20260907-191036-ff2a5c7d\\summary.json"
       },
+      "bp038_negative_result": null,
       "original_frames_sha256": "7fad7b625c8db4155b2a043461f398251c538ebc2522743669a0824904893b3e",
       "selected_actual_frames": [
         {
@@ -1643,6 +1944,7 @@
         "bytes": 3194,
         "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T191237095397Z\\dedicated-component-20260907-191248-bac153a6\\summary.json"
       },
+      "bp038_negative_result": null,
       "original_frames_sha256": "72b58081fa26a8fa7c8ee01937134c90fe36e7b9740ef6469de2acb8c1f0df99",
       "selected_actual_frames": [
         {
@@ -2209,6 +2511,7 @@
         "bytes": 3091,
         "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T191804827748Z\\dedicated-component-20260907-191816-5173cd3a\\summary.json"
       },
+      "bp038_negative_result": null,
       "original_frames_sha256": "86ed3ce57b1581d1673c0051875e906905be0f55db1ecacca4d2cc288f1cfbc0",
       "selected_actual_frames": [
         {
@@ -2534,6 +2837,7 @@
         "bytes": 3222,
         "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T192313543853Z\\dedicated-component-20260907-192323-b49caab8\\summary.json"
       },
+      "bp038_negative_result": null,
       "original_frames_sha256": "7d14c42acb7d272ad2650c040bcdf1e390394046b6c44bde47b6935d1670dd35",
       "selected_actual_frames": [
         {
@@ -3090,6 +3394,7 @@
         "bytes": 3210,
         "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T192832343465Z\\dedicated-component-20260907-192842-974697e6\\summary.json"
       },
+      "bp038_negative_result": null,
       "original_frames_sha256": "807f7ecb41f2e53a981d8629ca81853dec1eabc7a9bb7d85b74e902c8f3218e5",
       "selected_actual_frames": [
         {
@@ -3725,6 +4030,7 @@
         "bytes": 3218,
         "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T195141266711Z\\dedicated-component-20260907-195150-d7e070b9\\summary.json"
       },
+      "bp038_negative_result": null,
       "original_frames_sha256": "1549931ebb36d4dfaeb4e300ae89e7c8b728dea4f29bf2d7244840fee24b9438",
       "selected_actual_frames": [
         {
@@ -4382,6 +4688,7 @@
         "bytes": 3215,
         "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T203040353291Z\\dedicated-component-20260907-203056-90522e73\\summary.json"
       },
+      "bp038_negative_result": null,
       "original_frames_sha256": "ada0b3162ab83663d247edb376d7e9339b0673c7400ec727088494576636f2fd",
       "selected_actual_frames": [
         {
@@ -5036,6 +5343,7 @@
         "bytes": 3220,
         "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T203615052324Z\\dedicated-component-20260907-203624-c20b1344\\summary.json"
       },
+      "bp038_negative_result": null,
       "original_frames_sha256": "327f5405fe2a93b0d7cb4ee755bef0f74d5c80588730adb2737beccfc1d75df1",
       "selected_actual_frames": [
         {
@@ -5771,6 +6079,7 @@
         "bytes": 3219,
         "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T204535855464Z\\dedicated-component-20260907-204545-bd975172\\summary.json"
       },
+      "bp038_negative_result": null,
       "original_frames_sha256": "d9ae441477ec229c87f1a67f62bf324dedd85a9f32d5584642f30ce8b8b935d4",
       "selected_actual_frames": [
         {
@@ -6508,6 +6817,7 @@
         "bytes": 3220,
         "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T205921324938Z\\dedicated-component-20260907-205929-d2a4713e\\summary.json"
       },
+      "bp038_negative_result": null,
       "original_frames_sha256": "0fa2f0749382772b2a145c88b7a7ed9de7e499d3961dbd0b2fe19826d7fb856f",
       "selected_actual_frames": [
         {
@@ -7245,6 +7555,7 @@
         "bytes": 3219,
         "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T210301150550Z\\dedicated-component-20260907-210311-8159cf66\\summary.json"
       },
+      "bp038_negative_result": null,
       "original_frames_sha256": "e6ac97d756100564997a73f62fe6e0802b29d2cfd37da6b3a8ea244653f53177",
       "selected_actual_frames": [
         {
@@ -7994,8 +8305,3085 @@
       ],
       "native_acceptance_passed": false,
       "scope": "One real Steam client, isolated Backend and a synthetic second roster seat. Not three-player E2E."
+    },
+    {
+      "run_id": "dynamic-root-20260907T211842266237Z",
+      "execution_receipt_sha256": "df353096c6f1f94e1387ba3c2983085e2a60b330bd74bda655af98db03be8893",
+      "source_input_commit": "16f74a4853729f76d9cc103067e3a9c2d8692965",
+      "backend_tree": "1241281b51aaf08912d47baffed259623a8c60cc",
+      "backend_source_dirty": true,
+      "candidate_build_receipt_sha256": "1e97c1242e58c8ff8eac0563e594938492ab937bfe8db2616d3672d3c129efd3",
+      "candidate_payload_sha256": "42C72B9F27F51C745E2B8951F9E707C3035DFC22463BFB4D1CF64D21AEE9EE63",
+      "outcome": "BLOCKED",
+      "failure": "timed out waiting for backend receipt 'C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T211842266237Z\\backend-receipts\\02-confirm-connection.json' after confirm_match_connection",
+      "restored_payload_sha256": "6C7B5E05540AC72A6D7A9FA78F867917285FCE00081156EE13D237AA4D6C24A3",
+      "summary": {
+        "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/dynamic-root-20260907T211842266237Z/summary.json",
+        "sha256": "0ccae0682386da9ac93891b7ab32b7adb2758e3da1f254f56d13fda5ec58c8f1",
+        "bytes": 3405,
+        "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T211842266237Z\\dedicated-component-20260907-211855-f88fa26e\\summary.json"
+      },
+      "bp038_negative_result": null,
+      "original_frames_sha256": "4317e69d2da54fc6d28d55e3fac657c14792a0e28975b90913c5aada3f8a772b",
+      "selected_actual_frames": [
+        {
+          "label": "authority_payload_status",
+          "command": "payload_status_ack",
+          "request_id": "authority-status-96b8dbdd127e4ebfac5347ba43e7b119",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": true,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "idle",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:19:08.8039280+00:00",
+          "match_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "authority_allocation",
+          "command": "install_match_allocation_ack",
+          "request_id": "authority-allocation-4375d00f8ac44de0ab778587b34a3216",
+          "status": "accepted",
+          "code": "",
+          "message": "",
+          "payload_version": "strict-roster-v2",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:19:08.8597838+00:00"
+        },
+        {
+          "label": "authority_ready",
+          "command": "start_match_authority_ack",
+          "request_id": "authority-start-6b0ed9889be0423b9cef1170859eb647",
+          "status": "ready",
+          "code": "",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "",
+          "endpoint_host": "127.0.0.1",
+          "endpoint_port": 47777,
+          "world_instance_id": "world_1_21776d7b890",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:19:09.8359932+00:00"
+        },
+        {
+          "label": "client_payload_status",
+          "command": "payload_status_ack",
+          "request_id": "client-status-d0334a8aa7864990a0231413ca2161fd",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": true,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "idle",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:19:29.1022164+00:00",
+          "match_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "client_login_ready_poll",
+          "command": "payload_status_ack",
+          "request_id": "client-login-ready-72cacb0d1c024a76bce2dc4d37befc3e",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": true,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "idle",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:19:29.1308811+00:00",
+          "match_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "client_login_ready_poll",
+          "command": "payload_status_ack",
+          "request_id": "client-login-ready-882c6b0d152a4ffbb27c35996842f3bb",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": true,
+          "native_authority_admission_verified": false,
+          "match_login_completed": true,
+          "match_login_ready": false,
+          "match_state": "idle",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "client_world_1_1a90a67a8b0",
+          "observed_utc": "2026-09-07T21:19:33.7356144+00:00",
+          "match_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "client_login_ready_poll",
+          "command": "payload_status_ack",
+          "request_id": "client-login-ready-1a32db6872d54dadac066fdfb6d39971",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": true,
+          "native_authority_admission_verified": false,
+          "match_login_completed": true,
+          "match_login_ready": true,
+          "match_state": "idle",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "client_world_1_1a90a67a8b0",
+          "observed_utc": "2026-09-07T21:19:35.5825200+00:00",
+          "match_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "authority_heartbeat_observed",
+          "command": "start_match_authority_ack",
+          "request_id": "authority-heartbeat-4d6329d9c0e3455db628f3230a815518",
+          "status": "ready",
+          "code": "",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "",
+          "endpoint_host": "127.0.0.1",
+          "endpoint_port": 47777,
+          "world_instance_id": "world_1_21776d7b890",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:19:35.5942526+00:00"
+        },
+        {
+          "label": "authority_stage_grant",
+          "command": "install_match_join_grant_ack",
+          "request_id": "authority-stage-grant-83d312c5cd1d49d28e751993ef2ca678",
+          "status": "staged",
+          "code": "",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:19:36.1757571+00:00"
+        },
+        {
+          "label": "client_join",
+          "command": "join_ack",
+          "request_id": "client-join-858545a650bb44d59cd9c79b2f14f7d8",
+          "status": "accepted",
+          "code": "",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 1,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:19:36.1841974+00:00"
+        },
+        {
+          "label": "authority_connection_events",
+          "command": "match_connection_events_ack",
+          "request_id": "authority-events-ab848d356e5e477095775af18c59be5f",
+          "status": "",
+          "code": "",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:19:36.1996285+00:00"
+        },
+        {
+          "label": "client_payload_status_poll",
+          "command": "payload_status_ack",
+          "request_id": "client-status-d2494dbc88eb4b97846f93704911b708",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": true,
+          "native_authority_admission_verified": false,
+          "match_login_completed": true,
+          "match_login_ready": true,
+          "match_state": "queued",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 1,
+          "match_scope_verified": false,
+          "match_native_grant_staged": true,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "client_world_2_1a90a67a8b0",
+          "observed_utc": "2026-09-07T21:19:36.2523438+00:00",
+          "match_scope": {
+            "attempt_id": "mat_9a6d604826be4da2933013e5c865044c",
+            "authority_session_id": "mas_47a319be73c44ecc8e8a338180ef40f4",
+            "world_instance_id": "world_1_21776d7b890",
+            "roster_revision": 2,
+            "route_generation": 1,
+            "connection_generation": 1,
+            "player_id_sha256": "20636dadde45c06cc52c9446a51a2c0fd549306d8c3489525c1289283885a17a",
+            "grant_jti_sha256": "629f839facc636549e9c468ce97c5a2d118c952ad203053c3ae02030da2d1bd5"
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "client_payload_status_poll",
+          "command": "payload_status_ack",
+          "request_id": "client-status-d7f2bdfe5826423d9bad8f26959d8a9e",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": true,
+          "native_authority_admission_verified": false,
+          "match_login_completed": true,
+          "match_login_ready": true,
+          "match_state": "waiting_game_login",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 1,
+          "match_scope_verified": false,
+          "match_native_grant_staged": true,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "client_world_2_1a90a67a8b0",
+          "observed_utc": "2026-09-07T21:19:37.8525688+00:00",
+          "match_scope": {
+            "attempt_id": "mat_9a6d604826be4da2933013e5c865044c",
+            "authority_session_id": "mas_47a319be73c44ecc8e8a338180ef40f4",
+            "world_instance_id": "world_1_21776d7b890",
+            "roster_revision": 2,
+            "route_generation": 1,
+            "connection_generation": 1,
+            "player_id_sha256": "20636dadde45c06cc52c9446a51a2c0fd549306d8c3489525c1289283885a17a",
+            "grant_jti_sha256": "629f839facc636549e9c468ce97c5a2d118c952ad203053c3ae02030da2d1bd5"
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "client_payload_status_poll",
+          "command": "payload_status_ack",
+          "request_id": "client-status-9f924ab493cc416582485127145f000d",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": true,
+          "native_authority_admission_verified": false,
+          "match_login_completed": true,
+          "match_login_ready": true,
+          "match_state": "travel_requested",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 1,
+          "match_scope_verified": false,
+          "match_native_grant_staged": true,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "client_world_2_1a90a67a8b0",
+          "observed_utc": "2026-09-07T21:19:40.1807179+00:00",
+          "match_scope": {
+            "attempt_id": "mat_9a6d604826be4da2933013e5c865044c",
+            "authority_session_id": "mas_47a319be73c44ecc8e8a338180ef40f4",
+            "world_instance_id": "world_1_21776d7b890",
+            "roster_revision": 2,
+            "route_generation": 1,
+            "connection_generation": 1,
+            "player_id_sha256": "20636dadde45c06cc52c9446a51a2c0fd549306d8c3489525c1289283885a17a",
+            "grant_jti_sha256": "629f839facc636549e9c468ce97c5a2d118c952ad203053c3ae02030da2d1bd5"
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "client_payload_status_poll",
+          "command": "payload_status_ack",
+          "request_id": "client-status-d3abae4d681e4e06bad470fcdf9be1cc",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": true,
+          "native_authority_admission_verified": false,
+          "match_login_completed": true,
+          "match_login_ready": true,
+          "match_state": "travel_requested",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 1,
+          "match_scope_verified": false,
+          "match_native_grant_staged": true,
+          "match_native_grant_injected": true,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "client_world_2_1a90a67a8b0",
+          "observed_utc": "2026-09-07T21:19:41.7511161+00:00",
+          "match_scope": {
+            "attempt_id": "mat_9a6d604826be4da2933013e5c865044c",
+            "authority_session_id": "mas_47a319be73c44ecc8e8a338180ef40f4",
+            "world_instance_id": "world_1_21776d7b890",
+            "roster_revision": 2,
+            "route_generation": 1,
+            "connection_generation": 1,
+            "player_id_sha256": "20636dadde45c06cc52c9446a51a2c0fd549306d8c3489525c1289283885a17a",
+            "grant_jti_sha256": "629f839facc636549e9c468ce97c5a2d118c952ad203053c3ae02030da2d1bd5"
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "authority_connection_events",
+          "command": "match_connection_events_ack",
+          "request_id": "authority-events-2eaf6d18f9c94f9395d5b947be9fa5a2",
+          "status": "",
+          "code": "",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:19:43.2941245+00:00",
+          "events": [
+            {
+              "sequence": 1,
+              "state": "RESERVED",
+              "attempt_id": "mat_9a6d604826be4da2933013e5c865044c",
+              "authority_session_id": "mas_47a319be73c44ecc8e8a338180ef40f4",
+              "world_instance_id": "world_1_21776d7b890",
+              "roster_revision": 2,
+              "route_generation": 1,
+              "player_id_sha256": "20636dadde45c06cc52c9446a51a2c0fd549306d8c3489525c1289283885a17a",
+              "grant_jti_sha256": "629f839facc636549e9c468ce97c5a2d118c952ad203053c3ae02030da2d1bd5",
+              "native_connection_nonce_sha256": "c7ae7ecc48f120b5e6e9109cd6c9883271e49e0ea099fcb3a85b6058a966088f"
+            }
+          ],
+          "next_sequence": 1
+        },
+        {
+          "label": "confirm_match_admission",
+          "command": "confirm_match_admission_ack",
+          "request_id": "confirm_match_admission-4d1e8d345b734238bef08e6d8067f72b",
+          "status": "queued",
+          "code": "accepted",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "world_1_21776d7b890",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:19:43.6124978+00:00",
+          "player_id_sha256": "20636dadde45c06cc52c9446a51a2c0fd549306d8c3489525c1289283885a17a",
+          "grant_jti_sha256": "629f839facc636549e9c468ce97c5a2d118c952ad203053c3ae02030da2d1bd5",
+          "native_connection_nonce_sha256": "c7ae7ecc48f120b5e6e9109cd6c9883271e49e0ea099fcb3a85b6058a966088f",
+          "connection_generation": 1
+        },
+        {
+          "label": "authority_connection_events",
+          "command": "match_connection_events_ack",
+          "request_id": "authority-events-68e99f540d47465ea12dab85da66bba6",
+          "status": "",
+          "code": "",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:19:44.3923342+00:00",
+          "events": [
+            {
+              "sequence": 2,
+              "state": "NATIVE_ADMITTED",
+              "attempt_id": "mat_9a6d604826be4da2933013e5c865044c",
+              "authority_session_id": "mas_47a319be73c44ecc8e8a338180ef40f4",
+              "world_instance_id": "world_1_21776d7b890",
+              "roster_revision": 2,
+              "route_generation": 1,
+              "player_id_sha256": "20636dadde45c06cc52c9446a51a2c0fd549306d8c3489525c1289283885a17a",
+              "grant_jti_sha256": "629f839facc636549e9c468ce97c5a2d118c952ad203053c3ae02030da2d1bd5",
+              "native_connection_nonce_sha256": "c7ae7ecc48f120b5e6e9109cd6c9883271e49e0ea099fcb3a85b6058a966088f"
+            }
+          ],
+          "next_sequence": 2
+        }
+      ],
+      "identity_probe_lines": [
+        "[STRICT-ROSTER] PreLogin reserved frozen team=1 slot=0 generation=1 nonce_sha256=c7ae7ecc48f120b5e6e9109cd6c9883271e49e0ea099fcb3a85b6058a966088f; awaiting native PostLogin confirmation."
+      ],
+      "native_acceptance_passed": false,
+      "scope": "One real Steam client, isolated Backend and a synthetic second roster seat. Not three-player E2E."
+    },
+    {
+      "run_id": "dynamic-root-20260907T212120784508Z",
+      "execution_receipt_sha256": "eb5a7c359a5ca2f6eef51e44acfa3cefc3977487a968d2d65661a89dcc16b3ec",
+      "source_input_commit": "16f74a4853729f76d9cc103067e3a9c2d8692965",
+      "backend_tree": "1241281b51aaf08912d47baffed259623a8c60cc",
+      "backend_source_dirty": true,
+      "candidate_build_receipt_sha256": "1e97c1242e58c8ff8eac0563e594938492ab937bfe8db2616d3672d3c129efd3",
+      "candidate_payload_sha256": "42C72B9F27F51C745E2B8951F9E707C3035DFC22463BFB4D1CF64D21AEE9EE63",
+      "outcome": "PARTIAL_ADMISSION_CHAIN_PLAYABLE_NOT_REACHED",
+      "failure": "client did not reach playable within the bounded window; exact DISCONNECTED/04 release closed the chain but matching final admission evidence was not observed",
+      "restored_payload_sha256": "6C7B5E05540AC72A6D7A9FA78F867917285FCE00081156EE13D237AA4D6C24A3",
+      "summary": {
+        "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/dynamic-root-20260907T212120784508Z/summary.json",
+        "sha256": "e314f412e8a4f6ad792eeb1bef2d56916c005c243c51f3eed4650811441cfded",
+        "bytes": 3409,
+        "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\dedicated-component-20260907-212129-02030887\\summary.json"
+      },
+      "bp038_negative_result": null,
+      "original_frames_sha256": "05ebd1e517780843d9079171496d4eb405a2df45766014fe3b50df2923e16192",
+      "selected_actual_frames": [
+        {
+          "label": "authority_payload_status",
+          "command": "payload_status_ack",
+          "request_id": "authority-status-615fbd96d3864148ba643b5f94e44f48",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": true,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "idle",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:21:39.1201639+00:00",
+          "match_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "authority_allocation",
+          "command": "install_match_allocation_ack",
+          "request_id": "authority-allocation-7a925ebd3d7e488e8893a94cd56e7c7f",
+          "status": "accepted",
+          "code": "",
+          "message": "",
+          "payload_version": "strict-roster-v2",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:21:39.1665504+00:00"
+        },
+        {
+          "label": "authority_ready",
+          "command": "start_match_authority_ack",
+          "request_id": "authority-start-a5627aee204d440eb9ca72781b8a63a3",
+          "status": "ready",
+          "code": "",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "",
+          "endpoint_host": "127.0.0.1",
+          "endpoint_port": 47777,
+          "world_instance_id": "world_1_2458fa94970",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:21:39.7648786+00:00"
+        },
+        {
+          "label": "client_payload_status",
+          "command": "payload_status_ack",
+          "request_id": "client-status-0adcf718d20d4392acd3bf464903dd1c",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": true,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "idle",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:21:56.4183603+00:00",
+          "match_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "client_login_ready_poll",
+          "command": "payload_status_ack",
+          "request_id": "client-login-ready-d322c3e23a7d4cea94243da1d70b4e0e",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": true,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "idle",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:21:56.4500708+00:00",
+          "match_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "client_login_ready_poll",
+          "command": "payload_status_ack",
+          "request_id": "client-login-ready-de7654316b424082bb9be7a6fe70970c",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": true,
+          "native_authority_admission_verified": false,
+          "match_login_completed": true,
+          "match_login_ready": false,
+          "match_state": "idle",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "client_world_1_205fda6b890",
+          "observed_utc": "2026-09-07T21:22:01.4092833+00:00",
+          "match_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "client_login_ready_poll",
+          "command": "payload_status_ack",
+          "request_id": "client-login-ready-267eb748c9674441a3854143173e4b26",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": true,
+          "native_authority_admission_verified": false,
+          "match_login_completed": true,
+          "match_login_ready": true,
+          "match_state": "idle",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "client_world_1_205fda6b890",
+          "observed_utc": "2026-09-07T21:22:03.2511051+00:00",
+          "match_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "authority_heartbeat_observed",
+          "command": "start_match_authority_ack",
+          "request_id": "authority-heartbeat-41452daec3ae49d5bc452acdc478cf0a",
+          "status": "ready",
+          "code": "",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "",
+          "endpoint_host": "127.0.0.1",
+          "endpoint_port": 47777,
+          "world_instance_id": "world_1_2458fa94970",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:22:03.2586513+00:00"
+        },
+        {
+          "label": "authority_stage_grant",
+          "command": "install_match_join_grant_ack",
+          "request_id": "authority-stage-grant-7eec4879bc634de8a5d95f1557fa346a",
+          "status": "staged",
+          "code": "",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:22:03.5661036+00:00"
+        },
+        {
+          "label": "client_join",
+          "command": "join_ack",
+          "request_id": "client-join-eb799cbe05b74236a10810fb9f6641dd",
+          "status": "accepted",
+          "code": "",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 1,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:22:03.5727369+00:00"
+        },
+        {
+          "label": "authority_connection_events",
+          "command": "match_connection_events_ack",
+          "request_id": "authority-events-637525afd6b64c8985e7c2f46b4d1aed",
+          "status": "",
+          "code": "",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:22:03.5878388+00:00"
+        },
+        {
+          "label": "client_payload_status_poll",
+          "command": "payload_status_ack",
+          "request_id": "client-status-150538c2b52342f5822f11da3e6d9a86",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": true,
+          "native_authority_admission_verified": false,
+          "match_login_completed": true,
+          "match_login_ready": true,
+          "match_state": "queued",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 1,
+          "match_scope_verified": false,
+          "match_native_grant_staged": true,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:22:03.6336540+00:00",
+          "match_scope": {
+            "attempt_id": "mat_9f09a7dae511431fad1dbc38493072de",
+            "authority_session_id": "mas_f9d0cec7efc149dd9627e6d5b2f920e7",
+            "world_instance_id": "world_1_2458fa94970",
+            "roster_revision": 2,
+            "route_generation": 1,
+            "connection_generation": 1,
+            "player_id_sha256": "20636dadde45c06cc52c9446a51a2c0fd549306d8c3489525c1289283885a17a",
+            "grant_jti_sha256": "0eccab323b4b32d3585864407db5765c987cf83dd0b5742e032fdac3733cdfc6"
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "client_payload_status_poll",
+          "command": "payload_status_ack",
+          "request_id": "client-status-dfe4dc9d7e5c47f7a92134e9954b7093",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": true,
+          "native_authority_admission_verified": false,
+          "match_login_completed": true,
+          "match_login_ready": true,
+          "match_state": "waiting_game_login",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 1,
+          "match_scope_verified": false,
+          "match_native_grant_staged": true,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "client_world_2_205fda6b890",
+          "observed_utc": "2026-09-07T21:22:05.2249424+00:00",
+          "match_scope": {
+            "attempt_id": "mat_9f09a7dae511431fad1dbc38493072de",
+            "authority_session_id": "mas_f9d0cec7efc149dd9627e6d5b2f920e7",
+            "world_instance_id": "world_1_2458fa94970",
+            "roster_revision": 2,
+            "route_generation": 1,
+            "connection_generation": 1,
+            "player_id_sha256": "20636dadde45c06cc52c9446a51a2c0fd549306d8c3489525c1289283885a17a",
+            "grant_jti_sha256": "0eccab323b4b32d3585864407db5765c987cf83dd0b5742e032fdac3733cdfc6"
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "client_payload_status_poll",
+          "command": "payload_status_ack",
+          "request_id": "client-status-48720c0f341a4fd6b5547660e69c0402",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": true,
+          "native_authority_admission_verified": false,
+          "match_login_completed": true,
+          "match_login_ready": true,
+          "match_state": "travel_requested",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 1,
+          "match_scope_verified": false,
+          "match_native_grant_staged": true,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "client_world_2_205fda6b890",
+          "observed_utc": "2026-09-07T21:22:07.5555725+00:00",
+          "match_scope": {
+            "attempt_id": "mat_9f09a7dae511431fad1dbc38493072de",
+            "authority_session_id": "mas_f9d0cec7efc149dd9627e6d5b2f920e7",
+            "world_instance_id": "world_1_2458fa94970",
+            "roster_revision": 2,
+            "route_generation": 1,
+            "connection_generation": 1,
+            "player_id_sha256": "20636dadde45c06cc52c9446a51a2c0fd549306d8c3489525c1289283885a17a",
+            "grant_jti_sha256": "0eccab323b4b32d3585864407db5765c987cf83dd0b5742e032fdac3733cdfc6"
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "client_payload_status_poll",
+          "command": "payload_status_ack",
+          "request_id": "client-status-c28a08e649044e8fbfdb708f2958ad75",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": true,
+          "native_authority_admission_verified": false,
+          "match_login_completed": true,
+          "match_login_ready": true,
+          "match_state": "travel_requested",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 1,
+          "match_scope_verified": false,
+          "match_native_grant_staged": true,
+          "match_native_grant_injected": true,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "client_world_2_205fda6b890",
+          "observed_utc": "2026-09-07T21:22:09.1142916+00:00",
+          "match_scope": {
+            "attempt_id": "mat_9f09a7dae511431fad1dbc38493072de",
+            "authority_session_id": "mas_f9d0cec7efc149dd9627e6d5b2f920e7",
+            "world_instance_id": "world_1_2458fa94970",
+            "roster_revision": 2,
+            "route_generation": 1,
+            "connection_generation": 1,
+            "player_id_sha256": "20636dadde45c06cc52c9446a51a2c0fd549306d8c3489525c1289283885a17a",
+            "grant_jti_sha256": "0eccab323b4b32d3585864407db5765c987cf83dd0b5742e032fdac3733cdfc6"
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "authority_connection_events",
+          "command": "match_connection_events_ack",
+          "request_id": "authority-events-7f8cfff06b9f4b4fbad974e8def77ca8",
+          "status": "",
+          "code": "",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:22:10.6689901+00:00",
+          "events": [
+            {
+              "sequence": 1,
+              "state": "RESERVED",
+              "attempt_id": "mat_9f09a7dae511431fad1dbc38493072de",
+              "authority_session_id": "mas_f9d0cec7efc149dd9627e6d5b2f920e7",
+              "world_instance_id": "world_1_2458fa94970",
+              "roster_revision": 2,
+              "route_generation": 1,
+              "player_id_sha256": "20636dadde45c06cc52c9446a51a2c0fd549306d8c3489525c1289283885a17a",
+              "grant_jti_sha256": "0eccab323b4b32d3585864407db5765c987cf83dd0b5742e032fdac3733cdfc6",
+              "native_connection_nonce_sha256": "704c8854139788df75760b8d318fba153971dade23e6c28d9f6bcaaea77122fc"
+            }
+          ],
+          "next_sequence": 1
+        },
+        {
+          "label": "confirm_match_admission",
+          "command": "confirm_match_admission_ack",
+          "request_id": "confirm_match_admission-7f80ea7aca244c77b35e36d5d0328dad",
+          "status": "queued",
+          "code": "accepted",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "world_1_2458fa94970",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:22:11.0106131+00:00",
+          "player_id_sha256": "20636dadde45c06cc52c9446a51a2c0fd549306d8c3489525c1289283885a17a",
+          "grant_jti_sha256": "0eccab323b4b32d3585864407db5765c987cf83dd0b5742e032fdac3733cdfc6",
+          "native_connection_nonce_sha256": "704c8854139788df75760b8d318fba153971dade23e6c28d9f6bcaaea77122fc",
+          "connection_generation": 1
+        },
+        {
+          "label": "authority_connection_events",
+          "command": "match_connection_events_ack",
+          "request_id": "authority-events-2bd0e4b189d54acfbce5cf1b3cfeb60a",
+          "status": "",
+          "code": "",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:22:11.8108194+00:00",
+          "events": [
+            {
+              "sequence": 2,
+              "state": "NATIVE_ADMITTED",
+              "attempt_id": "mat_9f09a7dae511431fad1dbc38493072de",
+              "authority_session_id": "mas_f9d0cec7efc149dd9627e6d5b2f920e7",
+              "world_instance_id": "world_1_2458fa94970",
+              "roster_revision": 2,
+              "route_generation": 1,
+              "player_id_sha256": "20636dadde45c06cc52c9446a51a2c0fd549306d8c3489525c1289283885a17a",
+              "grant_jti_sha256": "0eccab323b4b32d3585864407db5765c987cf83dd0b5742e032fdac3733cdfc6",
+              "native_connection_nonce_sha256": "704c8854139788df75760b8d318fba153971dade23e6c28d9f6bcaaea77122fc"
+            }
+          ],
+          "next_sequence": 2
+        },
+        {
+          "label": "confirm_match_connection",
+          "command": "confirm_match_connection_ack",
+          "request_id": "confirm_match_connection-c6fb6d74e9094ea4a09204ee284a1840",
+          "status": "queued",
+          "code": "accepted",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "world_1_2458fa94970",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:22:12.0965867+00:00",
+          "player_id_sha256": "20636dadde45c06cc52c9446a51a2c0fd549306d8c3489525c1289283885a17a",
+          "grant_jti_sha256": "0eccab323b4b32d3585864407db5765c987cf83dd0b5742e032fdac3733cdfc6",
+          "native_connection_nonce_sha256": "704c8854139788df75760b8d318fba153971dade23e6c28d9f6bcaaea77122fc",
+          "connection_generation": 1
+        },
+        {
+          "label": "client_payload_status_poll",
+          "command": "payload_status_ack",
+          "request_id": "client-status-80b82d6935db43e8a74432dff21db9e4",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": true,
+          "native_authority_admission_verified": false,
+          "match_login_completed": true,
+          "match_login_ready": true,
+          "match_state": "world_ready",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 1,
+          "match_scope_verified": false,
+          "match_native_grant_staged": true,
+          "match_native_grant_injected": true,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "client_world_3_20611033990",
+          "observed_utc": "2026-09-07T21:22:12.1205986+00:00",
+          "match_scope": {
+            "attempt_id": "mat_9f09a7dae511431fad1dbc38493072de",
+            "authority_session_id": "mas_f9d0cec7efc149dd9627e6d5b2f920e7",
+            "world_instance_id": "world_1_2458fa94970",
+            "roster_revision": 2,
+            "route_generation": 1,
+            "connection_generation": 1,
+            "player_id_sha256": "20636dadde45c06cc52c9446a51a2c0fd549306d8c3489525c1289283885a17a",
+            "grant_jti_sha256": "0eccab323b4b32d3585864407db5765c987cf83dd0b5742e032fdac3733cdfc6"
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "authority_connection_events",
+          "command": "match_connection_events_ack",
+          "request_id": "authority-events-278565f8966249d8b49d95db1b2bf538",
+          "status": "",
+          "code": "",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:22:12.8872415+00:00",
+          "events": [
+            {
+              "sequence": 3,
+              "state": "CONNECTED",
+              "attempt_id": "mat_9f09a7dae511431fad1dbc38493072de",
+              "authority_session_id": "mas_f9d0cec7efc149dd9627e6d5b2f920e7",
+              "world_instance_id": "world_1_2458fa94970",
+              "roster_revision": 2,
+              "route_generation": 1,
+              "player_id_sha256": "20636dadde45c06cc52c9446a51a2c0fd549306d8c3489525c1289283885a17a",
+              "grant_jti_sha256": "0eccab323b4b32d3585864407db5765c987cf83dd0b5742e032fdac3733cdfc6",
+              "native_connection_nonce_sha256": "704c8854139788df75760b8d318fba153971dade23e6c28d9f6bcaaea77122fc"
+            }
+          ],
+          "next_sequence": 3
+        },
+        {
+          "label": "client_connection_confirmed",
+          "command": "confirm_client_match_connection_ack",
+          "request_id": "confirm-client-connection-7583f806924f44749c0809b718b0ff60",
+          "status": "world_ready",
+          "code": "accepted",
+          "message": "native client connection confirmed; awaiting local native readiness",
+          "payload_version": "",
+          "game_binary_sha256": "",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 1,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:22:13.1813533+00:00"
+        },
+        {
+          "label": "authority_connection_events",
+          "command": "match_connection_events_ack",
+          "request_id": "authority-events-452a5a2dbe5d440f9952097fc3155165",
+          "status": "",
+          "code": "",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:22:45.1521176+00:00",
+          "events": [
+            {
+              "sequence": 4,
+              "state": "DISCONNECTED",
+              "attempt_id": "mat_9f09a7dae511431fad1dbc38493072de",
+              "authority_session_id": "mas_f9d0cec7efc149dd9627e6d5b2f920e7",
+              "world_instance_id": "world_1_2458fa94970",
+              "roster_revision": 2,
+              "route_generation": 1,
+              "player_id_sha256": "20636dadde45c06cc52c9446a51a2c0fd549306d8c3489525c1289283885a17a",
+              "grant_jti_sha256": "0eccab323b4b32d3585864407db5765c987cf83dd0b5742e032fdac3733cdfc6",
+              "native_connection_nonce_sha256": "704c8854139788df75760b8d318fba153971dade23e6c28d9f6bcaaea77122fc"
+            }
+          ],
+          "next_sequence": 4
+        },
+        {
+          "label": "release_match_admission",
+          "command": "release_match_admission_ack",
+          "request_id": "release_match_admission-a36e48456dcc4fe9b4f821f646171c1e",
+          "status": "queued",
+          "code": "accepted",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "world_1_2458fa94970",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-07T21:22:45.4292442+00:00",
+          "player_id_sha256": "20636dadde45c06cc52c9446a51a2c0fd549306d8c3489525c1289283885a17a",
+          "grant_jti_sha256": "0eccab323b4b32d3585864407db5765c987cf83dd0b5742e032fdac3733cdfc6",
+          "native_connection_nonce_sha256": "704c8854139788df75760b8d318fba153971dade23e6c28d9f6bcaaea77122fc",
+          "connection_generation": 1
+        }
+      ],
+      "identity_probe_lines": [
+        "[STRICT-ROSTER] PreLogin reserved frozen team=1 slot=0 generation=1 nonce_sha256=704c8854139788df75760b8d318fba153971dade23e6c28d9f6bcaaea77122fc; awaiting native PostLogin confirmation."
+      ],
+      "native_acceptance_passed": false,
+      "scope": "One real Steam client, isolated Backend and a synthetic second roster seat. Not three-player E2E."
+    },
+    {
+      "run_id": "dynamic-root-20260908T001313550949Z",
+      "execution_receipt_sha256": "7e0c1a8b55a4afacbd718a4e92c442eac269e797d57c1db134eec0d27f90b637",
+      "source_input_commit": "705d339e1af30bf170d828fb7fa1f38582a070db",
+      "backend_tree": "d47656e9df030d4cba9d6455ce555f0b6239c9f3",
+      "backend_source_dirty": true,
+      "candidate_build_receipt_sha256": "13c725badb8982f1a5905ebd06fd32b47873f8366f22efd35f99a433d610ba28",
+      "candidate_payload_sha256": "297C6EA8585C8A606B3AB31A9949BCB153D7469B890EF8603521FB8AF2CBFC1B",
+      "outcome": "BLOCKED",
+      "failure": "timed out waiting for the real client pipe to report match.login_completed && login_ready",
+      "restored_payload_sha256": "6C7B5E05540AC72A6D7A9FA78F867917285FCE00081156EE13D237AA4D6C24A3",
+      "summary": {
+        "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/dynamic-root-20260908T001313550949Z/summary.json",
+        "sha256": "5d4ec93551e712f8253445f5251ac4b54c4b599ca64572ff79ed5e59a6fe91fd",
+        "bytes": 3378,
+        "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260908T001313550949Z\\dedicated-component-20260908-001318-1dffe43e\\summary.json"
+      },
+      "bp038_negative_result": {
+        "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/dynamic-root-20260908T001313550949Z/bp038-tampered-grant-result.json",
+        "sha256": "207fdd7c04354fbd3d5fd4a34cebfe2c1d5fe452ecd618ce574302beb50fdca8",
+        "bytes": 4774,
+        "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260908T001313550949Z\\bp038-tampered-grant-result.json"
+      },
+      "original_frames_sha256": "d5a82fee033d7873b31bacee1f9e0189bfb05a484a56ee0d07f86b2cbd34d20e",
+      "selected_actual_frames": [
+        {
+          "label": "authority_payload_status",
+          "command": "payload_status_ack",
+          "request_id": "authority-status-22b7ab0dfdf246b294d9c132d87248cb",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": true,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "idle",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-08T00:13:27.9107296+00:00",
+          "match_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "authority_allocation",
+          "command": "install_match_allocation_ack",
+          "request_id": "authority-allocation-712e8aa9697a4e29beb0cc9e32bf0df3",
+          "status": "accepted",
+          "code": "",
+          "message": "",
+          "payload_version": "strict-roster-v2",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-08T00:13:27.9427408+00:00"
+        },
+        {
+          "label": "authority_ready",
+          "command": "start_match_authority_ack",
+          "request_id": "authority-start-343d2a2cd16647078ff744e09ee0f357",
+          "status": "ready",
+          "code": "",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "",
+          "endpoint_host": "127.0.0.1",
+          "endpoint_port": 47777,
+          "world_instance_id": "world_1_1f790c26140",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-08T00:13:28.6921001+00:00"
+        },
+        {
+          "label": "client_payload_status",
+          "command": "payload_status_ack",
+          "request_id": "client-status-6b0f3458025b47e5ae829bfdd1770bdf",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": true,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "idle",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-08T00:13:45.6709445+00:00",
+          "match_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "client_login_ready_poll",
+          "command": "payload_status_ack",
+          "request_id": "client-login-ready-cc35abb9fe2f48919dc73d58c4ac8310",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": true,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "idle",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-08T00:13:45.6922007+00:00",
+          "match_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "client_login_ready_poll",
+          "command": "payload_status_ack",
+          "request_id": "client-login-ready-d9760f64ec77448581328d94e81a7fba",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": true,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "idle",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-08T00:14:45.6252188+00:00",
+          "match_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        }
+      ],
+      "identity_probe_lines": [],
+      "native_acceptance_passed": false,
+      "scope": "One real Steam client, isolated Backend and a synthetic second roster seat. Not three-player E2E."
+    },
+    {
+      "run_id": "dynamic-root-20260908T003928442253Z",
+      "execution_receipt_sha256": "36ca633eb25f08366429c2d6eefa5dd7515c0d166a9c50b75d11201abe565085",
+      "source_input_commit": "345bde0d24a05da284582e79c4ff6d7679a9cbff",
+      "backend_tree": "5a4721f731f48698cc509b1d91cab9820f143d15",
+      "backend_source_dirty": true,
+      "candidate_build_receipt_sha256": "13c725badb8982f1a5905ebd06fd32b47873f8366f22efd35f99a433d610ba28",
+      "candidate_payload_sha256": "297C6EA8585C8A606B3AB31A9949BCB153D7469B890EF8603521FB8AF2CBFC1B",
+      "outcome": "BLOCKED",
+      "failure": "timed out waiting for the real client pipe to report match.login_completed && login_ready",
+      "restored_payload_sha256": "6C7B5E05540AC72A6D7A9FA78F867917285FCE00081156EE13D237AA4D6C24A3",
+      "summary": {
+        "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/dynamic-root-20260908T003928442253Z/summary.json",
+        "sha256": "5842da26b5b09e5e68c4903e405e026e5886e066393ad5d2f8bf0d44a9ae7dd7",
+        "bytes": 3377,
+        "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260908T003928442253Z\\dedicated-component-20260908-003934-05c4b0be\\summary.json"
+      },
+      "bp038_negative_result": null,
+      "original_frames_sha256": "6c0ee3b89391ae1fe3ca4784447ccd9a8d6794cb0e16cf5c3819753e1dffb83f",
+      "selected_actual_frames": [
+        {
+          "label": "authority_payload_status",
+          "command": "payload_status_ack",
+          "request_id": "authority-status-d1ab80ffb15e4f8dab364abfdf656918",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": true,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "idle",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-08T00:39:47.9032751+00:00",
+          "match_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "authority_allocation",
+          "command": "install_match_allocation_ack",
+          "request_id": "authority-allocation-cd1cbb8cea8a4feb97b376a1dee76c71",
+          "status": "accepted",
+          "code": "",
+          "message": "",
+          "payload_version": "strict-roster-v2",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-08T00:39:47.9465692+00:00"
+        },
+        {
+          "label": "authority_ready",
+          "command": "start_match_authority_ack",
+          "request_id": "authority-start-00d92433ed1e41e5aae1955a0ffbaa77",
+          "status": "ready",
+          "code": "",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "",
+          "endpoint_host": "127.0.0.1",
+          "endpoint_port": 47777,
+          "world_instance_id": "world_1_217933f8100",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": false,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-08T00:39:48.7671652+00:00"
+        },
+        {
+          "label": "client_payload_status",
+          "command": "payload_status_ack",
+          "request_id": "client-status-278065b27eb641688688f7de3fe16768",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": true,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "idle",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-08T00:40:05.7567045+00:00",
+          "match_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "client_login_ready_poll",
+          "command": "payload_status_ack",
+          "request_id": "client-login-ready-1c81149992ae4af9961e805f2483b631",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": true,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "idle",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-08T00:40:05.7938955+00:00",
+          "match_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        },
+        {
+          "label": "client_login_ready_poll",
+          "command": "payload_status_ack",
+          "request_id": "client-login-ready-84b572075fb049a8974445daeaac8f34",
+          "status": "blocked",
+          "code": "native_admission_unverified",
+          "message": "",
+          "payload_version": "",
+          "game_binary_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+          "endpoint_host": "",
+          "endpoint_port": 0,
+          "world_instance_id": "",
+          "strict_online_ready": false,
+          "native_authority_path_ready": false,
+          "native_client_grant_injection_ready": true,
+          "native_authority_admission_verified": false,
+          "match_login_completed": false,
+          "match_login_ready": false,
+          "match_state": "idle",
+          "match_last_error": "",
+          "operation_sequence": 0,
+          "match_operation_sequence": 0,
+          "match_scope_verified": false,
+          "match_native_grant_staged": false,
+          "match_native_grant_injected": false,
+          "match_local_pawn_ready": false,
+          "match_native_net_ready": false,
+          "match_local_world_instance_id": "",
+          "observed_utc": "2026-09-08T00:41:05.7538478+00:00",
+          "match_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_playable_scope": {
+            "attempt_id": null,
+            "authority_session_id": null,
+            "world_instance_id": null,
+            "roster_revision": null,
+            "route_generation": null,
+            "connection_generation": null,
+            "player_id_sha256": "",
+            "grant_jti_sha256": ""
+          },
+          "match_native_connection_nonce_sha256": ""
+        }
+      ],
+      "identity_probe_lines": [],
+      "native_acceptance_passed": false,
+      "scope": "One real Steam client, isolated Backend and a synthetic second roster seat. Not three-player E2E."
     }
   ],
+  "bp038_negative_runs": [
+    {
+      "run_id": "dynamic-root-20260908T001313550949Z",
+      "source_receipt": {
+        "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/dynamic-root-20260908T001313550949Z/bp038-tampered-grant-result.json",
+        "sha256": "207fdd7c04354fbd3d5fd4a34cebfe2c1d5fe452ecd618ce574302beb50fdca8",
+        "bytes": 4774,
+        "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260908T001313550949Z\\bp038-tampered-grant-result.json"
+      },
+      "acceptance": "BLOCKED",
+      "status": "blocked_before_tampered_grant_delivery",
+      "tamper_mode": "wrong_audience",
+      "candidate_payload_sha256": "297C6EA8585C8A606B3AB31A9949BCB153D7469B890EF8603521FB8AF2CBFC1B",
+      "client_status_code": "native_admission_unverified",
+      "client_login_ready": false,
+      "grant_marker_reached": false,
+      "tampered_native_rejection_code": null,
+      "reserve_observed": false,
+      "native_admitted_observed": false,
+      "connected_observed": false,
+      "executions": [
+        {
+          "name": "isolated-database-create",
+          "exit_code": 0,
+          "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260908T001313550949Z\\isolated-database-create.log",
+          "sha256": "b280c454d6f559e56eb3f5ed39f3ba084b8d1744a3ff7fe016b21ff86dea1aca"
+        },
+        {
+          "name": "fixture-prepare",
+          "exit_code": 0,
+          "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260908T001313550949Z\\fixture-prepare.log",
+          "sha256": "9786ef20792830a4240549c1774efbf96510d4bed4db4af76cf8535c09866287"
+        },
+        {
+          "name": "native-harness",
+          "exit_code": 0,
+          "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260908T001313550949Z\\native-harness.log",
+          "sha256": "a2e5ef3ea1f47d499e58b5996a49207f4975ad67fbf74940fc68bbb49ba6bc20"
+        },
+        {
+          "name": "backend-finalize",
+          "exit_code": 1,
+          "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260908T001313550949Z\\backend-finalize-private.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "restore_check_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260908T001313550949Z\\restore-check.json",
+      "restore_check_sha256": "5C87B7C181B0C448F3D9AAB738D93E52E50286E9B2839E1DFE70E3B715B02BC6",
+      "restored_payload_sha256": "6C7B5E05540AC72A6D7A9FA78F867917285FCE00081156EE13D237AA4D6C24A3",
+      "owned_boundary_process_count": 0,
+      "scope": "One real Steam client; wrong-audience Grant was prepared only in the private harness. No negative PASS is claimed when the fixed capability gate blocks before Grant delivery."
+    }
+  ],
+  "ab_comparison": {
+    "status": "BLOCKED",
+    "acceptance": "NOT_PASS",
+    "source_receipt": {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/ab-old42-baseline-safe-receipt.json",
+      "sha256": "179b287d5f1233c5c11de3a162326e06d448ffaa83ad3fc560a3a07a4748e61c",
+      "bytes": 7093,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\ab-old42-baseline-safe-receipt.json"
+    },
+    "source_binding": {
+      "historical_reference_execution_receipt": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\execution-receipt.json",
+        "sha256": "eb5a7c359a5ca2f6eef51e44acfa3cefc3977487a968d2d65661a89dcc16b3ec",
+        "source_input_commit": "a7352db16ea1a7729947526e5642bc3738b5123b",
+        "source_dirty": true,
+        "candidate_build_receipt": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T211718994451Z\\result.json",
+        "candidate_build_receipt_sha256": "1e97c1242e58c8ff8eac0563e594938492ab937bfe8db2616d3672d3c129efd3"
+      },
+      "historical_candidate_sha256": "42C72B9F27F51C745E2B8951F9E707C3035DFC22463BFB4D1CF64D21AEE9EE63",
+      "current_candidate_sha256": "42C72B9F27F51C745E2B8951F9E707C3035DFC22463BFB4D1CF64D21AEE9EE63",
+      "related_297c_runs": [
+        {
+          "run_id": "dynamic-root-20260908T001313550949Z",
+          "execution_receipt_sha256": "7e0c1a8b55a4afacbd718a4e92c442eac269e797d57c1db134eec0d27f90b637",
+          "source_input_commit": "705d339e1af30bf170d828fb7fa1f38582a070db",
+          "candidate_payload_sha256": "297C6EA8585C8A606B3AB31A9949BCB153D7469B890EF8603521FB8AF2CBFC1B",
+          "outcome": "BLOCKED",
+          "failure": "timed out waiting for the real client pipe to report match.login_completed && login_ready"
+        },
+        {
+          "run_id": "dynamic-root-20260908T003928442253Z",
+          "execution_receipt_sha256": "36ca633eb25f08366429c2d6eefa5dd7515c0d166a9c50b75d11201abe565085",
+          "source_input_commit": "345bde0d24a05da284582e79c4ff6d7679a9cbff",
+          "candidate_payload_sha256": "297C6EA8585C8A606B3AB31A9949BCB153D7469B890EF8603521FB8AF2CBFC1B",
+          "outcome": "BLOCKED",
+          "failure": "timed out waiting for the real client pipe to report match.login_completed && login_ready"
+        }
+      ]
+    },
+    "classification": "environment_or_startup_boundary_difference",
+    "canonical_reason": "Current startup/auth boundary is unresolved. The finite A/B did not reproduce a failure unique to 297c; the same 42C72B candidate stopped before connectServer/login-ready in the current environment.",
+    "mutation_executed": false,
+    "guard_coverage": 0,
+    "orchestration_exit_code": 0,
+    "finalize_exit_code": 1,
+    "restored_payload_sha256": "6C7B5E05540AC72A6D7A9FA78F867917285FCE00081156EE13D237AA4D6C24A3",
+    "owned_boundary_process_count": 0,
+    "historical_42_reference": {
+      "run_id": "dynamic-root-20260907T212120784508Z",
+      "candidate_payload_sha256": "42C72B9F27F51C745E2B8951F9E707C3035DFC22463BFB4D1CF64D21AEE9EE63",
+      "source_native_commit": "a7352db16ea1a7729947526e5642bc3738b5123b",
+      "source_dirty": true,
+      "outcome": "PARTIAL_ADMISSION_CHAIN_PLAYABLE_NOT_REACHED",
+      "client_login_completed_count": 59,
+      "client_login_ready_count": 52,
+      "join_count": 1,
+      "connected_confirmation_count": 1
+    },
+    "current_42_observation": {
+      "run_id": "ab-old42-20260908T005811393Z",
+      "candidate_payload_sha256": "42C72B9F27F51C745E2B8951F9E707C3035DFC22463BFB4D1CF64D21AEE9EE63",
+      "outcome": "BLOCKED",
+      "client_login_completed_count": 0,
+      "client_login_ready_count": 0,
+      "join_count": 0,
+      "authority_connection_event_count": 0,
+      "client_log": {
+        "path": "C:\\Steam\\steamapps\\common\\Boundary\\ProjectBoundary\\Binaries\\Win64\\clientlogs\\clientlog-20260908_090114.txt",
+        "sha256": "386D6893216C3C80BF7C16DD79E50588A98FA2C8A71661C201AFF1935405DE81",
+        "contains_connectServer": false,
+        "contains_loadouts": false,
+        "contains_direct_match_connect": false,
+        "contains_main_menu_activation": false,
+        "contains_world_ready": false
+      }
+    }
+  },
+  "bp047_cleanup": {
+    "status": "PARTIAL",
+    "acceptance": "BLOCKED",
+    "scope": "Authority-only native cleanup and owned-process exit evidence. Reuse/READY and full game teardown were not accepted.",
+    "safe_receipt": {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/bp047/bp047-final-safe-receipt.json",
+      "sha256": "f167dcfa3c7f516882f0d8d345fccd3554967bc43bbdc91cf4e48ab9f76feeb5",
+      "bytes": 34097,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\bp047-final-safe-receipt.json"
+    },
+    "reuse_guard_review": {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/bp047/bp047-reuse-guard-review-v2.json",
+      "sha256": "39af192e2fe2f65c435e79fb3869e582eca376bf02ab94052ee37d69906c945d",
+      "bytes": 7083,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\bp047-reuse-guard-review.json"
+    },
+    "wrapper_config_review": {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/bp047/bp047-wrapper-config-comparison.json",
+      "sha256": "453a9cde2918b441d0a9729e0530c43ae4ee99db1b931a6e93c05ded8fc023ae",
+      "bytes": 4904,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\bp047-wrapper-config-comparison.json"
+    },
+    "registration_component": {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/bp047/bp047-registration-heartbeat-component.json",
+      "sha256": "fd2054d04458d1cc8165682fb8345e4e39be81f99d7099289d52b0e5e067d5da",
+      "bytes": 3340,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\bp047-registration-heartbeat-component.json"
+    },
+    "scheduling_guard_source_check": {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/bp047/bp047-registration-guard-source-check.json",
+      "sha256": "09185911a31e54714a87e7684833e67756b1ef840f2e22be2e38a02abdbefe69",
+      "bytes": 1551,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\bp047-registration-guard-source-check.json"
+    },
+    "capability_gate_component": {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/bp047/bp047-registration-capability-gate-component.json",
+      "sha256": "320dd6e7a3de51826aae93fa7baf9e81aed7ff3c2b0b6343572afff4926989d4",
+      "bytes": 2353,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\bp047-registration-capability-gate-component.json"
+    },
+    "process_registration_preflight": {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/bp047/bp047-process-registration-preflight.json",
+      "sha256": "51a0232d96e4a67f4c00c90d56e34778b5af6ad8218ee482ec4a662bb9b09074",
+      "bytes": 1443,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\bp047-process-registration-preflight.json"
+    },
+    "registration_path_review": {
+      "canonical_flow": [
+        "authenticated verified player or authorized administrator issues an instance-bound registration credential",
+        "Toolbox registration worker redeems it at POST /v1/game-servers",
+        "the worker keeps the returned gst_ runtime token and node certificate private",
+        "the worker sends signed POST /v1/game-servers/{server_id}/heartbeat requests with the exact current capability fields"
+      ],
+      "fixture_run_source": "direct private fixture game_servers row with SHA256(serverID) in server_token_hash and no retained runtime credential; this was not a legal registration run",
+      "credential_available_to_this_run": false,
+      "registration_flow_executed": false,
+      "environment_observation": {
+        "GAME_SERVER_REGISTRATION_TOKEN_present_in_current_process": false,
+        "identity_file_used_by_this_run": false,
+        "secret_values_logged": false
+      },
+      "blocking_classification": "The 74000 reuse attempt is blocked by an unexecuted authorized registration/heartbeat prerequisite, not by a proven backend defect. It must be retried only through the canonical service flow when the isolated test has an authorized verified identity or administrator approval; no handwritten token, SQL READY write, or synthetic capability bit is valid evidence."
+    },
+    "executions": [
+      {
+        "run_id": "invalid-grant-run-20260908064600",
+        "status": "BLOCKED",
+        "primary_result": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908064600\\bp047-invalid-grant-run.json",
+          "sha256": "65EB8122E50BB35EA62796E887655195484AABA41E342835FF52646A569E1C74"
+        },
+        "summary": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908064600\\dedicated-component-20260907-224616-d690d5f3\\summary.json",
+          "sha256": "E6EB308FD271E79A4AB3966E17D271B015DBEDFE8BE53DA295742284C9A5067A"
+        },
+        "coverage": "Authority marker did not complete; no invalid-grant admission verdict.",
+        "note": "Initial marker had UTF-8 BOM/authority-ready synchronization failure; no PASS asserted.",
+        "source_version": {
+          "payload_source_commit": "dc49017e488e8b5bf6f6544b4428c46d230c0abd",
+          "run_metadata": "not_retained",
+          "wrapper_current": {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\orchestrate-bp047-cleanup.ps1",
+            "sha256": "4B409296CA748496CF7306B3673E304A84A79E967F047BA594BF8ECE60E1776C"
+          },
+          "driver_at_run_sha256": null,
+          "provenance": "Historical run metadata did not retain an independent source snapshot."
+        },
+        "exit_codes": {
+          "driver_build": 0,
+          "orchestrator": null,
+          "backend_driver": null,
+          "native_authority": null,
+          "native_client": null,
+          "cleanup_driver": null
+        },
+        "safe_log_refs": [
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908064600\\bp047-invalid-grant-run.json",
+            "sha256": "65EB8122E50BB35EA62796E887655195484AABA41E342835FF52646A569E1C74"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908064600\\dedicated-component-20260907-224616-d690d5f3\\summary.json",
+            "sha256": "E6EB308FD271E79A4AB3966E17D271B015DBEDFE8BE53DA295742284C9A5067A"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908064600\\harness.log",
+            "sha256": "25177A300B9A8F74CE6EF06551B4D66CFB05DBCAB6BA6BA45950EE5750A5835A"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908064600\\dedicated-component-20260907-224616-d690d5f3\\authority.stdout.log",
+            "sha256": "093FD31EE26F0C5EA41F97EE3402878F5B59BF2D6485255427C8FF5C61723B9C"
+          }
+        ]
+      },
+      {
+        "run_id": "invalid-grant-run-20260908065000",
+        "status": "BLOCKED",
+        "primary_result": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065000\\bp047-invalid-grant-run.json",
+          "sha256": "77771B95EA2E873B15719E13488666C498CAE61C410F6EF757CC4681DFE42A6B"
+        },
+        "summary": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065000\\dedicated-component-20260907-225001-aa4db455\\summary.json",
+          "sha256": "233704D32F1E992E893631F0FF036F906A6CF51C090BA7D6A52C08921E7A839D"
+        },
+        "coverage": "Real authority and client transport reached join_ack, but invalid signature was not converted into a completed native-admission verdict; nullable cleanup also failed.",
+        "note": "Transport join_ack is not admission; server log classified invalid_grant_signature. No PASS asserted.",
+        "source_version": {
+          "payload_source_commit": "dc49017e488e8b5bf6f6544b4428c46d230c0abd",
+          "run_metadata": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065000\\bp047-invalid-grant-run.json",
+          "wrapper_current": {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\orchestrate-bp047-cleanup.ps1",
+            "sha256": "4B409296CA748496CF7306B3673E304A84A79E967F047BA594BF8ECE60E1776C"
+          },
+          "driver_at_run_sha256": "1ADAE4D7E1639CFCA99EE57C5C94C6F9825B73C347FAD52C75B4CB58DBD7C",
+          "provenance": "Driver build metadata retained; wrapper/native process exit fields were null."
+        },
+        "exit_codes": {
+          "driver_build": 0,
+          "orchestrator": null,
+          "backend_driver": null,
+          "native_authority": null,
+          "native_client": null,
+          "cleanup_driver": null
+        },
+        "safe_log_refs": [
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065000\\bp047-invalid-grant-run.json",
+            "sha256": "77771B95EA2E873B15719E13488666C498CAE61C410F6EF757CC4681DFE42A6B"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065000\\dedicated-component-20260907-225001-aa4db455\\summary.json",
+            "sha256": "233704D32F1E992E893631F0FF036F906A6CF51C090BA7D6A52C08921E7A839D"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065000\\harness.log",
+            "sha256": "DB9F08EB816FA3F38FFC255C64E8547FC8E2741590163585B4A166EA2A43F085"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065000\\dedicated-component-20260907-225001-aa4db455\\authority.stdout.log",
+            "sha256": "4603622090AF3E9E8C60B844CF59C107FC63B6E9994A2C865E741E438F126456"
+          }
+        ]
+      },
+      {
+        "run_id": "invalid-grant-run-20260908065500",
+        "status": "BLOCKED",
+        "primary_result": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065500\\bp047-invalid-grant-run.json",
+          "sha256": "9B61240DE9ACF4674BF1FC543C0A06E156AB4BFF092127D56C0CDE21F492F24E"
+        },
+        "summary": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065500\\dedicated-component-20260907-225544-c73c0914\\summary.json",
+          "sha256": "B79F11C2C71D30266F36C0D8DF93B056A4226F6F5BB9D99CC6BC685A4BFC308F"
+        },
+        "coverage": "Authority started; client login_ready did not complete; no invalid-grant boundary verdict.",
+        "note": "No PASS asserted.",
+        "source_version": {
+          "payload_source_commit": "dc49017e488e8b5bf6f6544b4428c46d230c0abd",
+          "run_metadata": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065500\\bp047-invalid-grant-run.json",
+          "wrapper_current": {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\orchestrate-bp047-cleanup.ps1",
+            "sha256": "4B409296CA748496CF7306B3673E304A84A79E967F047BA594BF8ECE60E1776C"
+          },
+          "driver_at_run_sha256": "1ADAE4D7E1639CFCA99EE57C5C94C6F9825B73C347FAD52C75B4CB58DBD7C",
+          "provenance": "Driver build metadata retained; wrapper/native process exit fields were null."
+        },
+        "exit_codes": {
+          "driver_build": 0,
+          "orchestrator": null,
+          "backend_driver": null,
+          "native_authority": null,
+          "native_client": null,
+          "cleanup_driver": null
+        },
+        "safe_log_refs": [
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065500\\bp047-invalid-grant-run.json",
+            "sha256": "9B61240DE9ACF4674BF1FC543C0A06E156AB4BFF092127D56C0CDE21F492F24E"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065500\\dedicated-component-20260907-225544-c73c0914\\summary.json",
+            "sha256": "B79F11C2C71D30266F36C0D8DF93B056A4226F6F5BB9D99CC6BC685A4BFC308F"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065500\\harness.log",
+            "sha256": "5DFD6EF169B0DAFEE65CBC80994BCD49D738CD55F10DAD949B46A5F44B3E994A"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\invalid-grant-run-20260908065500\\dedicated-component-20260907-225544-c73c0914\\authority.stdout.log",
+            "sha256": "DF2F0EF586FBBCEF4B97C1066E09A906061A93EE93543786880D85701F9FA9E3"
+          }
+        ]
+      },
+      {
+        "run_id": "bp047-cleanup-run-20260908071000",
+        "status": "BLOCKED",
+        "primary_result": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-cleanup-run-20260908071000\\bp047-cleanup-run.json",
+          "sha256": "DF1669CD1B8856908B11D1F16DDA6D13253A47E64A4979D0F57496226534F036"
+        },
+        "summary": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-cleanup-run-20260908071000\\dedicated-component-20260907-225941-bcbb2f2e\\summary.json",
+          "sha256": "00B0952436B10FADDE862FA5B87E7F33D74E7A9780B723F70DC3805E6B606035"
+        },
+        "coverage": "Authority allocation/listen evidence present; client login_ready timed out; no owned exit receipt; cleanup child handle was null.",
+        "note": "Historical nullable cleanup failure retained verbatim as failure classification; no process-count shortcut.",
+        "source_version": {
+          "payload_source_commit": "dc49017e488e8b5bf6f6544b4428c46d230c0abd",
+          "run_metadata": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-cleanup-run-20260908071000\\bp047-cleanup-run.json",
+          "wrapper_current": {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\orchestrate-bp047-cleanup.ps1",
+            "sha256": "4B409296CA748496CF7306B3673E304A84A79E967F047BA594BF8ECE60E1776C"
+          },
+          "driver_at_run_sha256": "1ADAE4D7E1639CFCA99EE57E67C5C94C6F9825B73C347FAD52C75B4CB58DBD7C",
+          "cleanup_driver_current": {
+            "path": "C:\\wksp\\ProjectRebound\\Backend\\.tmp-native-fixture\\native-cleanup-fixture\\main.go",
+            "sha256": "7D2D6238813B774B74FD71E9A7FC6EAE55958B620C5D2C77E310564D499B8D9A"
+          },
+          "provenance": "Driver build metadata retained; native wrapper/cleanup exit fields were null."
+        },
+        "exit_codes": {
+          "driver_build": 0,
+          "orchestrator": null,
+          "backend_driver": null,
+          "native_authority": null,
+          "native_client": null,
+          "cleanup_driver": null
+        },
+        "safe_log_refs": [
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-cleanup-run-20260908071000\\bp047-cleanup-run.json",
+            "sha256": "DF1669CD1B8856908B11D1F16DDA6D13253A47E64A4979D0F57496226534F036"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-cleanup-run-20260908071000\\dedicated-component-20260907-225941-bcbb2f2e\\summary.json",
+            "sha256": "00B0952436B10FADDE862FA5B87E7F33D74E7A9780B723F70DC3805E6B606035"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-cleanup-run-20260908071000\\harness.log",
+            "sha256": "BF5A134E1EA30049AEAF6B308300E19461C95936D577716C45DCF160F96C0B45"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-cleanup-run-20260908071000\\dedicated-component-20260907-225941-bcbb2f2e\\authority.stdout.log",
+            "sha256": "754571B476B823C95CB2353172BE9418A764B518F3AF22B1BFAD814523654D5E"
+          }
+        ]
+      },
+      {
+        "run_id": "bp047-authority-only-20260908071500",
+        "status": "PARTIAL",
+        "primary_result": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908071500\\dedicated-component-20260907-230539-d0766d4b\\bp047-cleanup-result.json",
+          "sha256": "D444AFB353EFC4C39106CF1B37AF68F0562D407A79BFF49A5C455F99D1CFD765"
+        },
+        "summary": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908071500\\dedicated-component-20260907-230539-d0766d4b\\summary.json",
+          "sha256": "2F0314A928ECC75CE57E8D5970E47130201C364F4AEE151CB4A9DC33C7CC3EAE"
+        },
+        "coverage": "Real authority world and exact owned process exit handle verified; no client, no NativeCleared/reuse.",
+        "note": "Authority-only proof; stale/previous fixture state prevented a valid reuse conclusion.",
+        "source_version": {
+          "payload_source_commit": "dc49017e488e8b5bf6f6544b4428c46d230c0abd",
+          "authority_wrapper_current": {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\orchestrate-bp047-authority-only.ps1",
+            "sha256": "4A3A23406BF3593D214421876190D0A2B051CA8554351F4F7F17FC75113E0612"
+          },
+          "cleanup_driver_current": {
+            "path": "C:\\wksp\\ProjectRebound\\Backend\\.tmp-native-fixture\\native-cleanup-fixture\\main.go",
+            "sha256": "7D2D6238813B774B74FD71E9A7FC6EAE55958B620C5D2C77E310564D499B8D9A"
+          },
+          "provenance": "No independent wrapper exit record was retained; unknown exits are null."
+        },
+        "exit_codes": {
+          "orchestrator": null,
+          "authority_bridge": null,
+          "admin_abort": null,
+          "cleanup_driver": null
+        },
+        "safe_log_refs": [
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908071500\\dedicated-component-20260907-230539-d0766d4b\\bp047-cleanup-result.json",
+            "sha256": "D444AFB353EFC4C39106CF1B37AF68F0562D407A79BFF49A5C455F99D1CFD765"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908071500\\dedicated-component-20260907-230539-d0766d4b\\summary.json",
+            "sha256": "2F0314A928ECC75CE57E8D5970E47130201C364F4AEE151CB4A9DC33C7CC3EAE"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908071500\\dedicated-component-20260907-230539-d0766d4b\\cleanup-driver.log",
+            "sha256": "31E08E0346BC9DBDD8A15F87378444FC81C80C3FC4924F6FCE2EFEE539691EB0"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908071500\\dedicated-component-20260907-230539-d0766d4b\\cleanup-driver-2.log",
+            "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908071500\\dedicated-component-20260907-230539-d0766d4b\\authority.stdout.log",
+            "sha256": "06FE8CE29DEBDDAE200BA8389FACB4195662D60894F224207FABC44E08BFF218"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908071500\\dedicated-component-20260907-230539-d0766d4b\\authority-only-ready.json",
+            "sha256": "EBBDF8094D9E96712D26759322A1943827B00BF61B0E708C01DA3191305BD4AB"
+          }
+        ]
+      },
+      {
+        "run_id": "bp047-authority-only-20260908072000",
+        "status": "PARTIAL",
+        "primary_result": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908072000\\dedicated-component-20260907-231039-ce03f342\\bp047-cleanup-result.json",
+          "sha256": "8D6E8A7161636FFD8E05B2DEB2A168FE3F208277604E05EDE841B060947DED03"
+        },
+        "summary": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908072000\\dedicated-component-20260907-231039-ce03f342\\summary.json",
+          "sha256": "3759435461C14584B25931FC1C85F7980485BFB72F65A00CC39376055576D063"
+        },
+        "coverage": "Real authority world and exact owned process exit handle verified; cleanup was not accepted as a fresh reuse proof.",
+        "note": "Fixture state was already CLEARED when the cleanup driver checked it; no reuse PASS asserted.",
+        "source_version": {
+          "payload_source_commit": "dc49017e488e8b5bf6f6544b4428c46d230c0abd",
+          "authority_wrapper_current": {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\orchestrate-bp047-authority-only.ps1",
+            "sha256": "4A3A23406BF3593D214421876190D0A2B051CA8554351F4F7F17FC75113E0612"
+          },
+          "cleanup_driver_current": {
+            "path": "C:\\wksp\\ProjectRebound\\Backend\\.tmp-native-fixture\\native-cleanup-fixture\\main.go",
+            "sha256": "7D2D6238813B774B74FD71E9A7FC6EAE55958B620C5D2C77E310564D499B8D9A"
+          },
+          "provenance": "No independent wrapper exit record was retained; unknown exits are null."
+        },
+        "exit_codes": {
+          "orchestrator": null,
+          "authority_bridge": null,
+          "admin_abort": null,
+          "cleanup_driver": null
+        },
+        "safe_log_refs": [
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908072000\\dedicated-component-20260907-231039-ce03f342\\bp047-cleanup-result.json",
+            "sha256": "8D6E8A7161636FFD8E05B2DEB2A168FE3F208277604E05EDE841B060947DED03"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908072000\\dedicated-component-20260907-231039-ce03f342\\summary.json",
+            "sha256": "3759435461C14584B25931FC1C85F7980485BFB72F65A00CC39376055576D063"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908072000\\dedicated-component-20260907-231039-ce03f342\\cleanup-driver-2.log",
+            "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908072000\\dedicated-component-20260907-231039-ce03f342\\authority.stdout.log",
+            "sha256": "992ED872AC93015009A66F8796813E6D066794701C24B4AD4C197F48D9AB0286"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908072000\\dedicated-component-20260907-231039-ce03f342\\authority-only-ready.json",
+            "sha256": "868A55504DC262BD5591A8A4E89AA7B8CACF5672D138E0AE2D84632289D7A703"
+          }
+        ]
+      },
+      {
+        "run_id": "bp047-authority-only-20260908073000",
+        "status": "PARTIAL",
+        "primary_result": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908073000\\dedicated-component-20260907-231433-193d027f\\bp047-cleanup-result.json",
+          "sha256": "A7B0452341467FEA84CC8C329E7E6EDDECBA8AA1778F234B025BD0C9E0EDF1BC"
+        },
+        "summary": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908073000\\dedicated-component-20260907-231433-193d027f\\summary.json",
+          "sha256": "2780E5652B1CFE0BB759D9A588F02AAD19E0D770FAD00E81BD41A292EE08F398"
+        },
+        "coverage": "Authority world/owned handle; AdminAbort PENDING; wrong-world/route/PID and exact owned-exit checks PASS; service ended CLEARED but server UNHEALTHY, so reuse was refused.",
+        "note": "NativeCleared state transition was observed, but server health gate prevented READY pool reuse.",
+        "source_version": {
+          "payload_source_commit": "dc49017e488e8b5bf6f6544b4428c46d230c0abd",
+          "authority_wrapper_current": {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\orchestrate-bp047-authority-only.ps1",
+            "sha256": "4A3A23406BF3593D214421876190D0A2B051CA8554351F4F7F17FC75113E0612"
+          },
+          "cleanup_driver_current": {
+            "path": "C:\\wksp\\ProjectRebound\\Backend\\.tmp-native-fixture\\native-cleanup-fixture\\main.go",
+            "sha256": "7D2D6238813B774B74FD71E9A7FC6EAE55958B620C5D2C77E310564D499B8D9A"
+          },
+          "provenance": "No independent wrapper exit record was retained; unknown exits are null."
+        },
+        "exit_codes": {
+          "orchestrator": null,
+          "authority_bridge": null,
+          "admin_abort": null,
+          "cleanup_driver": null
+        },
+        "safe_log_refs": [
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908073000\\dedicated-component-20260907-231433-193d027f\\bp047-cleanup-result.json",
+            "sha256": "A7B0452341467FEA84CC8C329E7E6EDDECBA8AA1778F234B025BD0C9E0EDF1BC"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908073000\\dedicated-component-20260907-231433-193d027f\\summary.json",
+            "sha256": "2780E5652B1CFE0BB759D9A588F02AAD19E0D770FAD00E81BD41A292EE08F398"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908073000\\dedicated-component-20260907-231433-193d027f\\cleanup-driver-2.log",
+            "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908073000\\dedicated-component-20260907-231433-193d027f\\authority.stdout.log",
+            "sha256": "93927A72268B0D3CA15CFFD1576B199347109328D93CD2779209009ACF5ED505"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908073000\\dedicated-component-20260907-231433-193d027f\\authority-only-ready.json",
+            "sha256": "0EBD29285EED2FB3F78BED703530B038C74F75F49A4193EDAE3C5486B2728B72"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908073000\\dedicated-component-20260907-231433-193d027f\\admin-abort-pending.json",
+            "sha256": "CE2C667F6D442011EA4D1FCEB8A44A3B4CF4C6785BB92EE2B39AAFC40D13B869"
+          }
+        ]
+      },
+      {
+        "run_id": "bp047-authority-only-20260908074000",
+        "status": "PARTIAL",
+        "primary_result": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908074000\\dedicated-component-20260907-231800-b6fe2b32\\bp047-cleanup-result.json",
+          "sha256": "37933E68997407E5DAF0BF9DFACC3C46EBB2D16E8261B25AF0B3C019D8B0D449"
+        },
+        "summary": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908074000\\dedicated-component-20260907-231800-b6fe2b32\\summary.json",
+          "sha256": "81C58859EDECF12813FBCD2D35583E4FA620F94F061CBA1A41AF730842571ED8"
+        },
+        "coverage": "Authority world/owned handle; AdminAbort PENDING; wrong-world/route/PID and exact owned-exit checks PASS; service ended CLEARED but server UNHEALTHY, so reuse was refused.",
+        "note": "Latest closure; no fabricated DISCONNECTED or NativeCleared claim beyond the service transition recorded by the cleanup driver.",
+        "source_version": {
+          "payload_source_commit": "dc49017e488e8b5bf6f6544b4428c46d230c0abd",
+          "authority_wrapper_current": {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\orchestrate-bp047-authority-only.ps1",
+            "sha256": "4A3A23406BF3593D214421876190D0A2B051CA8554351F4F7F17FC75113E0612"
+          },
+          "cleanup_driver_current": {
+            "path": "C:\\wksp\\ProjectRebound\\Backend\\.tmp-native-fixture\\native-cleanup-fixture\\main.go",
+            "sha256": "7D2D6238813B774B74FD71E9A7FC6EAE55958B620C5D2C77E310564D499B8D9A"
+          },
+          "provenance": "Closure wrapper output retained only as sanitized result; unknown process exit codes are null."
+        },
+        "exit_codes": {
+          "orchestrator": null,
+          "authority_bridge": null,
+          "admin_abort": null,
+          "cleanup_driver": null
+        },
+        "safe_log_refs": [
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908074000\\dedicated-component-20260907-231800-b6fe2b32\\bp047-cleanup-result.json",
+            "sha256": "37933E68997407E5DAF0BF9DFACC3C46EBB2D16E8261B25AF0B3C019D8B0D449"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908074000\\dedicated-component-20260907-231800-b6fe2b32\\summary.json",
+            "sha256": "81C58859EDECF12813FBCD2D35583E4FA620F94F061CBA1A41AF730842571ED8"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908074000\\dedicated-component-20260907-231800-b6fe2b32\\cleanup-driver-2.log",
+            "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908074000\\dedicated-component-20260907-231800-b6fe2b32\\authority.stdout.log",
+            "sha256": "BA5731B5EF7E7EA2332ED39FC2455BE9214DA262D47E433486C1C10B65F5EF1D"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908074000\\dedicated-component-20260907-231800-b6fe2b32\\authority-only-ready.json",
+            "sha256": "F882E857CA935CFA0AC43BE28F9B66AD3FC12461E5641648B1A4BA53508D4103"
+          },
+          {
+            "path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-inputs\\bp047-cleanup-20260908T223500Z\\bp047-authority-only-20260908074000\\dedicated-component-20260907-231800-b6fe2b32\\admin-abort-pending.json",
+            "sha256": "15760E7B1C6C1C24564CAC5BB8757036948CA98D38854FDC08A841763FD196D4"
+          }
+        ]
+      }
+    ],
+    "candidate_payload_sha256": "297c6ea8585c8a606b3ab31a9949bcb153d7469b890ef8603521fb8af2cbfc1b",
+    "restored_payload_sha256": "6c7b5e05540ac72a6d7a9fa78f867917285fce00081156ee13d237aa4d6c24a3",
+    "steam_appid_restored_sha256": "ddfe0e8d462af661f81db36589c39882dc0f2330785b5d80cd34f2f520ad618f",
+    "owned_boundary_process_count": 0,
+    "restoration_checks": {
+      "payload_path": "C:\\Steam\\steamapps\\common\\Boundary\\ProjectBoundary\\Binaries\\Win64\\Payload.dll",
+      "payload_expected_sha256": "6c7b5e05540ac72a6d7a9fa78f867917285fce00081156ee13d237aa4d6c24a3",
+      "payload_observed_sha256": "6c7b5e05540ac72a6d7a9fa78f867917285fce00081156ee13d237aa4d6c24a3",
+      "appid_path": "C:\\Steam\\steamapps\\common\\Boundary\\ProjectBoundary\\Binaries\\Win64\\steam_appid.txt",
+      "appid_expected_sha256": "ddfe0e8d462af661f81db36589c39882dc0f2330785b5d80cd34f2f520ad618f",
+      "appid_observed_sha256": "ddfe0e8d462af661f81db36589c39882dc0f2330785b5d80cd34f2f520ad618f",
+      "owned_process_command_exit_code": 0,
+      "owned_process_count": 0
+    },
+    "notes": [
+      "74000 reached service cleanup_state=CLEARED after exact owned-process exit, but server=UNHEALTHY prevented READY reuse.",
+      "A fresh isolated gameserver service test executed instance-bound registration, real gst_ credentials, node certificate issuance, signed heartbeat, and fail-closed legacy capability clearing (PASS_COMPONENT_ONLY). The 74000 authority-only fixture still did not attach that registration worker to an owned Payload process, so READY reuse remains unaccepted.",
+      "The process-level registration/heartbeat read of a real Payload capability remains unexecuted; this is a concrete harness scope gap, not a claim that the isolated test CA or service path is unavailable.",
+      "Missing retained exit codes remain JSON null; no orchestration zero was promoted to native acceptance.",
+      "No raw private identity, Grant, Ticket, or fixture JSON was copied into this evidence tree."
+    ]
+  },
+  "serializer_static_review": {
+    "commit": "d1431e206097a9aeb3e7fc2c01ae5dedc51383c9",
+    "fixed_executable_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+    "evidence": [
+      {
+        "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/serializer-static-callees-20260908/FINDINGS.md",
+        "sha256": "6f4ebbb006debacfc3b571b33fa6334e832cc4333e073fd5c828e92fd6306d0b",
+        "bytes": 2829,
+        "original_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\serializer-static-callees-20260908\\FINDINGS.md"
+      },
+      {
+        "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/serializer-static-callees-20260908/binary-binding.json",
+        "sha256": "5b21434917ddfa1df116a76b096b93155eb8b9eb05fb277f5790e10b529aaa8a",
+        "bytes": 47400,
+        "original_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\serializer-static-callees-20260908\\binary-binding.json"
+      },
+      {
+        "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/serializer-static-callees-20260908/ida-results.json",
+        "sha256": "8dd04b07bd471cc2e15cbd7da3a24c081ceee68883095ecba12cdd20341722b1",
+        "bytes": 62207,
+        "original_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\serializer-static-callees-20260908\\ida-results.json"
+      }
+    ],
+    "conclusion": "Static fixed-image evidence supports synchronous borrowed FString validity and no retain/free in this field2 archive writer call graph only. It does not prove dynamic serializer execution, full Grant negative coverage, Playable, or release readiness.",
+    "dynamic_acceptance": "NOT_PROVEN"
+  },
   "retained_files": [
     {
       "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T190411910390Z/configure.log",
@@ -8382,6 +11770,96 @@
       "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T211718994451Z\\result.json"
     },
     {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T214522694160Z/configure.log",
+      "sha256": "f867615dac3e868dd9eb5116653011c41a3f1e85e1533cc1311c2367c8dd930f",
+      "bytes": 141,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T214522694160Z\\configure.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T214522694160Z/tests-build.log",
+      "sha256": "e7af002b3c74336961e661eabbd087affbb3fdf4b136cc7fb732eb063ef15f74",
+      "bytes": 3206,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T214522694160Z\\tests-build.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T214522694160Z/ctest.log",
+      "sha256": "5532ddb70f49185ee578bf09114f5feff805da564dbfaee2b0a6b51f04ec250b",
+      "bytes": 3010,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T214522694160Z\\ctest.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T214522694160Z/payload-build.log",
+      "sha256": "dd7940894a55339212df9403a45663767a6cc481597f33f1bc02db38b991211d",
+      "bytes": 154,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T214522694160Z\\payload-build.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T214522694160Z/result.json",
+      "sha256": "dde3b2c3a0e719a3c87c776b9b779d0c145d9ebdb70893be994977055817fece",
+      "bytes": 3361,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T214522694160Z\\result.json"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T222951486062Z/configure.log",
+      "sha256": "8332897490d732e86975e592c28b1f7e350251f01ca6fc1b925d694167c7ccdd",
+      "bytes": 141,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T222951486062Z\\configure.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T222951486062Z/tests-build.log",
+      "sha256": "b292a7d923876e605b97a7005e2be408f102e68ba0210e0cf964f1938feec9c9",
+      "bytes": 3355,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T222951486062Z\\tests-build.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T222951486062Z/ctest.log",
+      "sha256": "e24ec498d8ae8ab6c65aa735ce4c22be7cfdc356019ac3137687a8fcba16dd02",
+      "bytes": 3141,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T222951486062Z\\ctest.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T222951486062Z/payload-build.log",
+      "sha256": "b998c22857cc3204bea87f480bbe0185a780e11c67e05c9f6d8428aab897044b",
+      "bytes": 580,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T222951486062Z\\payload-build.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T222951486062Z/result.json",
+      "sha256": "f4458ae4415782dd6077d24f376b6c63cb4890f775becab43f537dfe92e370a7",
+      "bytes": 4722,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T222951486062Z\\result.json"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T223103129065Z/configure.log",
+      "sha256": "8332897490d732e86975e592c28b1f7e350251f01ca6fc1b925d694167c7ccdd",
+      "bytes": 141,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T223103129065Z\\configure.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T223103129065Z/tests-build.log",
+      "sha256": "502c461844299a9931acc0ee52605c876a3d4c487b1d874c77c76fbd684c84da",
+      "bytes": 3355,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T223103129065Z\\tests-build.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T223103129065Z/ctest.log",
+      "sha256": "af3214e63729ad0ea3f1785f70db5220fd1918d3efb4a8704df7a6398608aae2",
+      "bytes": 3141,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T223103129065Z\\ctest.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T223103129065Z/payload-build.log",
+      "sha256": "dd7940894a55339212df9403a45663767a6cc481597f33f1bc02db38b991211d",
+      "bytes": 154,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T223103129065Z\\payload-build.log"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/root-validation-20260907T223103129065Z/result.json",
+      "sha256": "13c725badb8982f1a5905ebd06fd32b47873f8366f22efd35f99a433d610ba28",
+      "bytes": 3361,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\root-validation-20260907T223103129065Z\\result.json"
+    },
+    {
       "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/dynamic-root-20260907T191025704743Z/summary.json",
       "sha256": "b9b2597be51d24f435d72519c08c3fd7274f321c03e69b895b48b0322eacbd89",
       "bytes": 3172,
@@ -8446,6 +11924,102 @@
       "sha256": "601cfcd661a95692724b5e6e76aafd9c8dad625d0374f6aaaa1ba8612199c7f3",
       "bytes": 3219,
       "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T210301150550Z\\dedicated-component-20260907-210311-8159cf66\\summary.json"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/dynamic-root-20260907T211842266237Z/summary.json",
+      "sha256": "0ccae0682386da9ac93891b7ab32b7adb2758e3da1f254f56d13fda5ec58c8f1",
+      "bytes": 3405,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T211842266237Z\\dedicated-component-20260907-211855-f88fa26e\\summary.json"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/dynamic-root-20260907T212120784508Z/summary.json",
+      "sha256": "e314f412e8a4f6ad792eeb1bef2d56916c005c243c51f3eed4650811441cfded",
+      "bytes": 3409,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260907T212120784508Z\\dedicated-component-20260907-212129-02030887\\summary.json"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/dynamic-root-20260908T001313550949Z/bp038-tampered-grant-result.json",
+      "sha256": "207fdd7c04354fbd3d5fd4a34cebfe2c1d5fe452ecd618ce574302beb50fdca8",
+      "bytes": 4774,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260908T001313550949Z\\bp038-tampered-grant-result.json"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/dynamic-root-20260908T001313550949Z/summary.json",
+      "sha256": "5d4ec93551e712f8253445f5251ac4b54c4b599ca64572ff79ed5e59a6fe91fd",
+      "bytes": 3378,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260908T001313550949Z\\dedicated-component-20260908-001318-1dffe43e\\summary.json"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/dynamic-root-20260908T003928442253Z/summary.json",
+      "sha256": "5842da26b5b09e5e68c4903e405e026e5886e066393ad5d2f8bf0d44a9ae7dd7",
+      "bytes": 3377,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\dynamic-root-20260908T003928442253Z\\dedicated-component-20260908-003934-05c4b0be\\summary.json"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/ab-old42-baseline-safe-receipt.json",
+      "sha256": "179b287d5f1233c5c11de3a162326e06d448ffaa83ad3fc560a3a07a4748e61c",
+      "bytes": 7093,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\ab-old42-baseline-safe-receipt.json"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/serializer-static-callees-20260908/FINDINGS.md",
+      "sha256": "6f4ebbb006debacfc3b571b33fa6334e832cc4333e073fd5c828e92fd6306d0b",
+      "bytes": 2829,
+      "original_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\serializer-static-callees-20260908\\FINDINGS.md"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/serializer-static-callees-20260908/binary-binding.json",
+      "sha256": "5b21434917ddfa1df116a76b096b93155eb8b9eb05fb277f5790e10b529aaa8a",
+      "bytes": 47400,
+      "original_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\serializer-static-callees-20260908\\binary-binding.json"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/serializer-static-callees-20260908/ida-results.json",
+      "sha256": "8dd04b07bd471cc2e15cbd7da3a24c081ceee68883095ecba12cdd20341722b1",
+      "bytes": 62207,
+      "original_path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\serializer-static-callees-20260908\\ida-results.json"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/bp047/bp047-final-safe-receipt.json",
+      "sha256": "f167dcfa3c7f516882f0d8d345fccd3554967bc43bbdc91cf4e48ab9f76feeb5",
+      "bytes": 34097,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\bp047-final-safe-receipt.json"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/bp047/bp047-reuse-guard-review-v2.json",
+      "sha256": "39af192e2fe2f65c435e79fb3869e582eca376bf02ab94052ee37d69906c945d",
+      "bytes": 7083,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\bp047-reuse-guard-review.json"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/bp047/bp047-wrapper-config-comparison.json",
+      "sha256": "453a9cde2918b441d0a9729e0530c43ae4ee99db1b931a6e93c05ded8fc023ae",
+      "bytes": 4904,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\bp047-wrapper-config-comparison.json"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/bp047/bp047-registration-heartbeat-component.json",
+      "sha256": "fd2054d04458d1cc8165682fb8345e4e39be81f99d7099289d52b0e5e067d5da",
+      "bytes": 3340,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\bp047-registration-heartbeat-component.json"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/bp047/bp047-registration-guard-source-check.json",
+      "sha256": "09185911a31e54714a87e7684833e67756b1ef840f2e22be2e38a02abdbefe69",
+      "bytes": 1551,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\bp047-registration-guard-source-check.json"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/bp047/bp047-registration-capability-gate-component.json",
+      "sha256": "320dd6e7a3de51826aae93fa7baf9e81aed7ff3c2b0b6343572afff4926989d4",
+      "bytes": 2353,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\bp047-registration-capability-gate-component.json"
+    },
+    {
+      "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/bp047/bp047-process-registration-preflight.json",
+      "sha256": "51a0232d96e4a67f4c00c90d56e34778b5af6ad8218ee482ec4a662bb9b09074",
+      "bytes": 1443,
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\bp047-process-registration-preflight.json"
     }
   ],
   "release_ready": false,

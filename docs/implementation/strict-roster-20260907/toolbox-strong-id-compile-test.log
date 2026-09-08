@@ -1,0 +1,21 @@
+   Compiling rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox)
+warning: associated function `new` is never used
+   --> src\launching\launch.rs:190:8
+    |
+189 | impl LaunchCtx {
+    | -------------- associated function in this implementation
+190 |     fn new(game_path: &str) -> Result<Self> {
+    |        ^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `rebound_toolbox` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 27.63s
+   Doc-tests rebound_toolbox
+
+running 2 tests
+test src\matchmaking\ids.rs - matchmaking::ids (line 14) - compile fail ... ok
+test src\matchmaking\ids.rs - matchmaking::ids (line 8) - compile fail ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.72s
+

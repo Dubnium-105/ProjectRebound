@@ -1,0 +1,4 @@
+=== RUN   TestStrictOnlineManifestWireFixture
+--- PASS: TestStrictOnlineManifestWireFixture (0.01s)
+PASS
+ok  	github.com/Dubnium-105/ProjectRebound/Backend/internal/update	0.084s

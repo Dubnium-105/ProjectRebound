@@ -1,0 +1,7 @@
+database=rebound_a_schema47_restore_20260908_01
+schema_max_version=47
+schema_migration_count=47
+match_attempts=0
+match_attempt_roster=0
+live_generation_columns=0
+source_dump_sha256=2D2290A14481FB380B7E9057FAEA45976C18AE4BA84600AF4A3B19B8B22DDEB3

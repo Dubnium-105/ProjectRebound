@@ -1,0 +1,16 @@
+started_at=2026-09-07T14:28:10.849947+00:00
+cwd=C:\wksp\ProjectReboundToolbox
+command=cargo test --lib --target-dir C:\wksp\ProjectRebound\.tmp\e2e-20\product-target util::diagnostic::tests::token_status_discloses_only_presence -- --nocapture
+exit_code=0
+--- stdout ---
+
+running 1 test
+test util::diagnostic::tests::token_status_discloses_only_presence ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 281 filtered out; finished in 0.00s
+
+
+--- stderr ---
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.08s
+     Running unittests src\lib.rs (C:\wksp\ProjectRebound\.tmp\e2e-20\product-target\debug\deps\rebound_toolbox-531c06249e821c2c.exe)
+

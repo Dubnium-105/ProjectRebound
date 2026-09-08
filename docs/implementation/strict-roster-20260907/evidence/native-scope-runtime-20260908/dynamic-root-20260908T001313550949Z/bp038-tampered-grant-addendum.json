@@ -1,0 +1,81 @@
+{
+  "issue": "BP038",
+  "run_id": "dynamic-root-20260908T001313550949Z",
+  "source_receipt": {
+    "path": "docs/implementation/strict-roster-20260907/evidence/native-scope-runtime-20260908/dynamic-root-20260908T001313550949Z/bp038-tampered-grant-result.json",
+    "sha256": "207fdd7c04354fbd3d5fd4a34cebfe2c1d5fe452ecd618ce574302beb50fdca8"
+  },
+  "canonical_acceptance": "BLOCKED",
+  "canonical_status": "blocked_before_tampered_grant_delivery",
+  "tamper_mode": "wrong_audience",
+  "mutation_executed": false,
+  "guard_coverage": 0,
+  "authority_world_ready": true,
+  "client_login_ready": false,
+  "grant_marker_reached": false,
+  "tampered_native_rejection_code": null,
+  "reserve_observed": false,
+  "native_admitted_observed": false,
+  "connected_observed": false,
+  "client_status_code": "native_admission_unverified",
+  "safe_poll_count": 227,
+  "safe_log_sha256": {
+    "authority.stdout.log": "9F449A38D581D79B10579D72B57D5613439B01C2BF6BAF32A37073A196F32AB4",
+    "client.stdout.log": "8D4F53BD7DC1DFC02C17F42DED720D3AD984E170A99A2217991D979255545DE3",
+    "clientlog-20260908_081345.txt": "1BCCd7f6d10ab8a029bb5c6f3e06ab058f486b511439a758143801b88317dd86",
+    "summary.json": "5D4EC93551E712F8253445F5251AC4B54C4B599CA64572FF79ED5E59A6FE91FD"
+  },
+  "reference_comparison": {
+    "reference_run": "dynamic-root-20260907T212120784508Z",
+    "reference_candidate_payload_sha256": "42C72B9F27F51C745E2B8951F9E707C3035DFC22463BFB4D1CF64D21AEE9EE63",
+    "reference_clientlog": {
+      "filename": "clientlog-20260908_052156.txt",
+      "sha256": "86071C6B25B45CE1FC3E2C01B10867AB5072537A4C0D40C7A963BFFB4483889C",
+      "observed_safe_markers": [
+        "UMG_MainMenuBase_C.Construct",
+        "POST /connectServer status=200",
+        "GET /v1/users/me/loadouts status=200",
+        "signed native join queued"
+      ]
+    },
+    "current_clientlog": {
+      "filename": "clientlog-20260908_081345.txt",
+      "sha256": "1BCCd7F6D10AB8A029BB5C6F3E06AB058F486B511439A758143801B88317DD86",
+      "observed_safe_markers": [
+        "Fixed NMT_Login field2 Grant injection hook installed",
+        "CMDFW pipe start/connect/disconnect",
+        "EnterGame Construct forcing SPACE"
+      ],
+      "missing_safe_markers": [
+        "UMG_MainMenuBase_C.Construct",
+        "POST /connectServer",
+        "GET /v1/users/me/loadouts",
+        "signed native join queued"
+      ]
+    },
+    "fixed_runtime_inputs": {
+      "game_executable_sha256": "181C49FFB522B3EB01014C84FD9D3A2A5C0B66AE80A6A6ADDFF4BDD6F8125843",
+      "steam_appid_file_sha256": "DDFE0E8D462AF661F81DB36589C39882DC0F2330785B5D80CD34F2F520AD618F",
+      "steam_appid_file_bytes": 3,
+      "launch_script": "C:\\Steam\\steamapps\\common\\Boundary\\ProjectBoundary\\Binaries\\Win64\\startgame.ps1",
+      "authority_map": "Warehouse",
+      "authority_mode": "/Game/Online/GameMode/PBGameMode_Rush_BP.PBGameMode_Rush_BP_C",
+      "authority_flags_same_except_random_pipe": true,
+      "client_flags_same_except_random_pipe": true,
+      "metatunnel_preflight_accepted_both": true,
+      "expected_differences": [
+        "candidate Payload hash",
+        "random pipe names",
+        "ephemeral ports",
+        "private wrong-audience mode was configured but not reached"
+      ]
+    }
+  },
+  "interpretation": "The preserved source receipt called this a capability-gate failure, but the source call-chain review and the retained successful run show that native_authority_admission_verified=false is not consumed by client login completion. The current run reached neither UMG_MainMenuBase_C.Construct nor the game-side MetaTunnel connectServer/loadouts calls. Therefore the wrong-audience mutation did not execute and target-guard coverage is zero. This addendum corrects the causal wording without rewriting the original receipt or its hash.",
+  "next_executable_step": "Reproduce the client login-ready boundary with the same fixed executable, AppID file, startgame flags, MetaTunnel preflight, and owned process checks, or capture the concrete local startup/auth failure. Only after client-ready and actual Grant delivery are observed may the wrong-audience mutation be evaluated. Do not change native_authority_admission_verified, disable strict admission, use an empty token, or direct-open the match.",
+  "restoration": {
+    "restored_payload_sha256": "6C7B5E05540AC72A6D7A9FA78F867917285FCE00081156EE13D237AA4D6C24A3",
+    "owned_boundary_process_count": 0,
+    "shared_backend_lab_touched": false
+  }
+}

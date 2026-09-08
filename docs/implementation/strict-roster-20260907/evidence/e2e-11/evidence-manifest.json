@@ -1,0 +1,57 @@
+{
+  "generated_at": "2026-09-07T15:06:22.702790+00:00",
+  "source_toolbox_commit": "32dcee8616cb6b87271a13b5165df335e54311a2",
+  "note": "Stable copy of the same-path E2E-11 run; no credentials, tickets, executable, or encrypted production config included.",
+  "files": [
+    {
+      "name": "audit-final.log",
+      "sha256": "DFB91376B20BC5FB2A52AEF262421B07C907D3DC5D6813A55B492EE292CF52D4",
+      "bytes": 2039
+    },
+    {
+      "name": "Cargo.toml",
+      "sha256": "55718EABE8613C4F9FF4670F9EB200CC0967AB80F2399A1EB8B2B9072743F2C1",
+      "bytes": 240
+    },
+    {
+      "name": "driver-build-6.log",
+      "sha256": "48A4E1A979CE87D77E8858184C461893DD21C18B50108A29198186FC466B7385",
+      "bytes": 506
+    },
+    {
+      "name": "e2e-11-config-interruption.log",
+      "sha256": "F23FC65754990D199EC17BE6EACBD76644EC9C48C9FF77CE36496C7D42BC98B5",
+      "bytes": 470
+    },
+    {
+      "name": "e2e-11-result-run-9.json",
+      "sha256": "426F6F2463255AE58EDA4EE88E9FBA9FB2D690FE69B7BBC2436E5B93B87719B5",
+      "bytes": 821
+    },
+    {
+      "name": "e2e-11-result.json",
+      "sha256": "8002E26ED648C8E4A4C4548E76A3177B390760BAE77E2D98A99CA01814A586C4",
+      "bytes": 8476
+    },
+    {
+      "name": "harness-run-9.log",
+      "sha256": "6AD56FBF0FB8AE54818B4F1E330F907ADA7E43F76483DBC1435FE90B9E2EF01B",
+      "bytes": 837
+    },
+    {
+      "name": "harness.py",
+      "sha256": "36FA126265E6531CBB8BE47A303D6C4E24BCD1B55B558618BBD3D72F9A1594FD",
+      "bytes": 15155
+    },
+    {
+      "name": "main.rs",
+      "sha256": "1988B1A7DF8CDCDE63B09FFF21EAEBADA79A8DB97B61FE8419BA26CB6EC7C1FE",
+      "bytes": 10759
+    },
+    {
+      "name": "README.md",
+      "sha256": "6C1B7863B1937654BDB4949C06302DD581F0212D9777E21CBBC08EA5166C8556",
+      "bytes": 957
+    }
+  ]
+}

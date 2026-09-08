@@ -1,0 +1,24 @@
+Recovery and rollback preserved the old target, but a hard-killed updater left an orphaned .rebound-toolbox-pending-* file; the product updater has no orphan sweep.
+{
+  "fixture_directory": "C:\\wksp\\ProjectRebound\\.tmp\\e2e-20\\e2e20-updater-interruption-vflrcwmr",
+  "interruption_exit_code": 1,
+  "marker_observed": true,
+  "target_old_after_interrupt": true,
+  "pending_after_interrupt": [
+    ".rebound-toolbox-pending-e022df5b007142f0b5d852171d29cbae.exe"
+  ],
+  "recovery_exit_code": 1,
+  "target_old_after_recovery": true,
+  "rollback_observed": true,
+  "pending_after_recovery": [
+    ".rebound-toolbox-pending-e022df5b007142f0b5d852171d29cbae.exe"
+  ]
+}
+--- recovery stdout ---
+
+--- recovery stderr ---
+
+--- recovery log ---
+[2026-09-07 22:28:07] UPDATE_FAILED: 由于出现以下错误，无法运行此命令: 指定的可执行文件不是此操作系统平台的有效应用程序。。
+[2026-09-07 22:28:07] UPDATE_ROLLED_BACK: previous complete strict binary restored
+[2026-09-07 22:28:07] UPDATE_RECOVERY_REQUIRED: inspect target and backup; no complete binary was deleted

@@ -1,0 +1,12 @@
+toolchain=go1.26.6 linux/amd64
+command=go test -race -p 1 ./... -count=1 -v
+database=isolated schema47 (redacted)
+redis=isolated address 56380 (redacted)
+exit_code=0
+pass_count=387
+fail_count=0
+skip_count=3
+skip_name=TestS3StorageAgainstCompatibleService
+skip_name=TestNormalizeBattleLogFixtureWhenConfigured
+skip_name=TestStrictRosterRustRelayClients
+raw_log=backend-go-test-race-go1266-schema47-p2p-owned-exit-final.log

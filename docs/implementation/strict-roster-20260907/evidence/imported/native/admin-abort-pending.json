@@ -1,0 +1,9 @@
+{
+  "kind": "bp047_admin_abort_pending",
+  "accepted": true,
+  "attempt_id": "mat_38e937fcf5da456a900093a9ec64f9f1",
+  "authority_id": "native_fixture_server_940fc4ea4439473f8a39e23f1d7839ef",
+  "cleanup_state": "PENDING",
+  "note": "service AdminForceAbort only; NativeCleared not claimed",
+  "observed_utc": "2026-09-07T23:15:56.8598219Z"
+}

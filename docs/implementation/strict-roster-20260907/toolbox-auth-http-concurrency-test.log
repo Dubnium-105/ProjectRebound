@@ -1,0 +1,57 @@
+{
+  "scope": "real client HTTP and encrypted storage; synthetic loopback auth service and switched-account commit, no native game",
+  "results": [
+    {
+      "case": "concurrent",
+      "status": "PASS",
+      "driver_exit_code": 0,
+      "actual_http_counts": {
+        "old_401": 20,
+        "refresh": 1,
+        "protected_success": 20,
+        "logout": 0,
+        "wrong_purpose_401": 0
+      },
+      "driver_result": "PASS: 20 concurrent real HTTP 401 requests retried with the rotated credential"
+    },
+    {
+      "case": "logout",
+      "status": "PASS",
+      "driver_exit_code": 0,
+      "actual_http_counts": {
+        "old_401": 1,
+        "refresh": 1,
+        "protected_success": 0,
+        "logout": 1,
+        "wrong_purpose_401": 0
+      },
+      "driver_result": "PASS: logout during actual pending refresh rejects its late response"
+    },
+    {
+      "case": "switch",
+      "status": "PASS",
+      "driver_exit_code": 0,
+      "actual_http_counts": {
+        "old_401": 1,
+        "refresh": 1,
+        "protected_success": 0,
+        "logout": 0,
+        "wrong_purpose_401": 0
+      },
+      "driver_result": "PASS: switch during actual pending refresh rejects its late response"
+    },
+    {
+      "case": "wrong_purpose",
+      "status": "PASS",
+      "driver_exit_code": 0,
+      "actual_http_counts": {
+        "old_401": 0,
+        "refresh": 0,
+        "protected_success": 0,
+        "logout": 0,
+        "wrong_purpose_401": 1
+      },
+      "driver_result": "PASS: rejected non-player credential never refreshes or borrows the player token"
+    }
+  ]
+}

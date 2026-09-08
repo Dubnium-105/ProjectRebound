@@ -1,0 +1,93 @@
+{
+  "run_id": "backend-a-go-race-schema48-route3-guard-final-20260908",
+  "status": "PASS_WITH_EXPLICIT_SKIPS",
+  "command": "TEST_DATABASE_URL=postgresql://phanthy@127.0.0.1:55439/rebound_a_fullrace_final_20260908_01?sslmode=disable GOCACHE=/tmp/rebound-a-go-race-guard-cache GOMODCACHE=/mnt/c/Users/23587/go/pkg/mod /tmp/rebound-strict-roster-20260907-go1266/go/bin/go test -race -p 1 ./... -count=1 -v",
+  "environment": {
+    "go": "go1.26.6 linux/amd64",
+    "database": "isolated PostgreSQL on 127.0.0.1:55439",
+    "database_name": "rebound_a_fullrace_final_20260908_01",
+    "redis": "existing isolated Redis fixture, package tests decide availability",
+    "source_frozen_at_start_head": "be1acfea0bfd2187ae70b81f163f99024891740b",
+    "git_head_observed_after_run": "a7352db16ea1a7729947526e5642bc3738b5123b",
+    "backend_files_changed_between_heads": false
+  },
+  "exit_code": 0,
+  "counts": {
+    "top_level_pass": 399,
+    "subtest_pass": 143,
+    "top_level_fail": 0,
+    "top_level_skip": 7,
+    "subtest_skip": 0,
+    "no_test_packages": 13
+  },
+  "skip_names": [
+    "TestRedisBindRateStoreIsAtomicAndExpires",
+    "TestS3StorageAgainstCompatibleService",
+    "TestNormalizeBattleLogFixtureWhenConfigured",
+    "TestGateTicketIsAtomicallySingleUse",
+    "TestRestrictedMetaServicePermissions",
+    "TestStrictRosterRustRelayClients",
+    "TestRedisVNTLimitStoreIsAtomicAndExpires"
+  ],
+  "evidence": {
+    "log": "docs/implementation/strict-roster-20260907/evidence/backend-a-go-test-race-go1266-schema48-route3-guard-final.log",
+    "log_sha256": "b5d18652958ded3a4e03e4445523b5f4c174886254d4a2419bf41565dcd2b5e6",
+    "footer": "EXIT_CODE=0"
+  },
+  "source_sha256": [
+    {
+      "path": "Backend/internal/matchlobby/service.go",
+      "sha256": "afe573de322adfea945164a3e5d47ae4981686d8b4089fb2c17eadd3af4bb335",
+      "bytes": 144030
+    },
+    {
+      "path": "Backend/internal/matchlobby/repository.go",
+      "sha256": "717a819ccb8d469882c3ca140febd2f84c60cb44201cbc7d54323227f75cfd45",
+      "bytes": 18922
+    },
+    {
+      "path": "Backend/internal/matchlobby/model.go",
+      "sha256": "5d9bf728d95c98b8b6310b99e01342651b23031bc2836024d78f04462a3c5eea",
+      "bytes": 12922
+    },
+    {
+      "path": "Backend/internal/matchlobby/http.go",
+      "sha256": "4b0f43f19db2181b4f6fd492d7bc52935bbbac74e5f3e66c686e4add4a63ba2a",
+      "bytes": 28437
+    },
+    {
+      "path": "Backend/internal/matchlobby/sweeper.go",
+      "sha256": "06468c0dadc198656337a52477ec99118414d2c824f214dca2b153720c5c8f54",
+      "bytes": 15306
+    },
+    {
+      "path": "Backend/migrations/000048_strict_roster_live_generation.sql",
+      "sha256": "2d30ba1840125a708d0045bb55c5b1e8dddc200f8cc2741a696fc453c01990ca",
+      "bytes": 1713
+    },
+    {
+      "path": "Backend/internal/matchlobby/service_integration_test.go",
+      "sha256": "ad81d04d2995f827c414175a2e98d7e7bc1182d1042c3aad1b10541ef5b4ef8d",
+      "bytes": 63761
+    },
+    {
+      "path": "Backend/internal/matchlobby/dedicated_integration_test.go",
+      "sha256": "95b0b0625c6da6c28704a2a59d00b68d973679c63ae17a765fe34d76c58572f1",
+      "bytes": 20305
+    },
+    {
+      "path": "Backend/internal/database/migrator_integration_test.go",
+      "sha256": "cb1d52cb99e576cf54c553670c8612ff27d74c8d29b2f53ab73b1b691eeb5d77",
+      "bytes": 3423
+    },
+    {
+      "path": "Backend/api/openapi/openapi.yaml",
+      "sha256": "58a7d09698bded47d1fb7b5a559d9997f577b9f278e114159355d749ce4d055d",
+      "bytes": 341518
+    }
+  ],
+  "notes": [
+    "The input Backend tree was frozen before the run. Native-only commits landed during the run; git diff between the captured input HEAD and observed post-run HEAD is empty under Backend.",
+    "Skipped tests remain skips and are not counted as PASS."
+  ]
+}

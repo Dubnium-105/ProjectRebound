@@ -1,0 +1,2097 @@
+Diff in \\?\C:\wksp\ProjectReboundToolbox\helper\challenge_test.rs:76:
+     println!("      VNT registration capability present");
+ 
+     rebound_toolbox::config::update_config(|config| {
+-    config.session_epoch = config.session_epoch.checked_add(1).ok_or_else(|| std::io::Error::other("session epoch exhausted"))?;
+-    config.access_token = bind.session.access_token.clone();
+-    config.access_token_expires_at = bind.session.access_token_expires_at.clone();
+-    config.refresh_token = bind.session.refresh_token.clone();
+-    config.refresh_token_expires_at = bind.session.refresh_token_expires_at.clone();
+-    config.player_id = bind.player_id;
+-    config.steam_id = steam_id;
+-    config.persona_name = persona_name;
+-    config.device_id = device_id;
+-    config.capabilities = bind.capabilities;
+-    Ok(())
+-    }).context("save protected session")?;
++        config.session_epoch = config
++            .session_epoch
++            .checked_add(1)
++            .ok_or_else(|| std::io::Error::other("session epoch exhausted"))?;
++        config.access_token = bind.session.access_token.clone();
++        config.access_token_expires_at = bind.session.access_token_expires_at.clone();
++        config.refresh_token = bind.session.refresh_token.clone();
++        config.refresh_token_expires_at = bind.session.refresh_token_expires_at.clone();
++        config.player_id = bind.player_id;
++        config.steam_id = steam_id;
++        config.persona_name = persona_name;
++        config.device_id = device_id;
++        config.capabilities = bind.capabilities;
++        Ok(())
++    })
++    .context("save protected session")?;
+     println!("[5/6] Protected session saved with DPAPI");
+ 
+     let Ok(public_ipv4) = env::var("PROJECT_REBOUND_VNT_TEST_PUBLIC_IPV4") else {
+Diff in \\?\C:\wksp\ProjectReboundToolbox\helper\relay_interop_driver.rs:2:
+ //! Synthetic credentials arrive over stdin and never enter args or logs.
+ use anyhow::{Context, Result, ensure};
+ use rebound_toolbox::vnt::{legacy::relay::RelayClient, types::SecretString};
+-use std::{io::{self, Read}, time::{Duration, Instant}};
++use std::{
++    io::{self, Read},
++    time::{Duration, Instant},
++};
+ 
+ #[derive(serde::Deserialize)]
+-struct Fixture { port: u16, host_token: String, peer_token: String }
++struct Fixture {
++    port: u16,
++    host_token: String,
++    peer_token: String,
++}
+ 
+ fn receive(client: &mut RelayClient, expected: &[u8]) -> Result<()> {
+     let deadline = Instant::now() + Duration::from_secs(3);
+Diff in \\?\C:\wksp\ProjectReboundToolbox\helper\relay_interop_driver.rs:12:
+     let mut buffer = [0u8; 1500];
+     while Instant::now() < deadline {
+         if let Some(count) = client.receive(&mut buffer)? {
+-            ensure!(&buffer[..count] == expected, "recipient received wrong payload");
++            ensure!(
++                &buffer[..count] == expected,
++                "recipient received wrong payload"
++            );
+             return Ok(());
+         }
+         std::thread::sleep(Duration::from_millis(5));
+Diff in \\?\C:\wksp\ProjectReboundToolbox\helper\relay_interop_driver.rs:25:
+     io::stdin().take(65536).read_to_string(&mut input)?;
+     let fixture: Fixture = serde_json::from_str(&input).context("decode synthetic fixture")?;
+     ensure!(fixture.port != 0, "test port is zero");
+-    let mut host = RelayClient::connect("127.0.0.1", fixture.port, SecretString::new(fixture.host_token), None)?;
+-    let mut peer = RelayClient::connect("127.0.0.1", fixture.port, SecretString::new(fixture.peer_token), None)?;
++    let mut host = RelayClient::connect(
++        "127.0.0.1",
++        fixture.port,
++        SecretString::new(fixture.host_token),
++        None,
++    )?;
++    let mut peer = RelayClient::connect(
++        "127.0.0.1",
++        fixture.port,
++        SecretString::new(fixture.peer_token),
++        None,
++    )?;
+     host.send(b"host-to-peer")?;
+     receive(&mut peer, b"host-to-peer")?;
+     peer.send(b"peer-to-host")?;
+Diff in \\?\C:\wksp\ProjectReboundToolbox\helper\relay_interop_driver.rs:33:
+     receive(&mut host, b"peer-to-host")?;
+-    println!("PASS: distinct HOST/PEER bind, recipient re-tagging, bidirectional authenticated UDP");
++    println!(
++        "PASS: distinct HOST/PEER bind, recipient re-tagging, bidirectional authenticated UDP"
++    );
+     Ok(())
+ }
+ 
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\api\account\users.rs:26:
+         .ok_or_else(|| anyhow::anyhow!("player token is not from the current session"))?;
+     let player = get_current(token)?;
+     config::update_config(|cfg| {
+-        if cfg.session_epoch != epoch || (!cfg.steam_id.is_empty() && cfg.steam_id != player.steam_id) {
++        if cfg.session_epoch != epoch
++            || (!cfg.steam_id.is_empty() && cfg.steam_id != player.steam_id)
++        {
+             return Err(std::io::Error::other("stale player profile rejected"));
+         }
+         cfg.player_id = player.player_id.clone();
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\api\infrastructure\http.rs:254:
+     };
+ 
+     let response = send(token)?;
+-    if response.status().as_u16() == 401 && let Some(epoch) = epoch {
++    if response.status().as_u16() == 401
++        && let Some(epoch) = epoch
++    {
+         let new_token = crate::security::auth::refresh_after_rejection_at(token, epoch)?;
+         return parse_response(send(new_token.token())?);
+     }
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\api\infrastructure\http.rs:284:
+     response: reqwest::blocking::Response,
+ ) -> Result<T> {
+     let status = response.status();
+-    let header_request_id = response.headers().get("x-request-id").and_then(|v| v.to_str().ok()).map(str::to_owned);
++    let header_request_id = response
++        .headers()
++        .get("x-request-id")
++        .and_then(|v| v.to_str().ok())
++        .map(str::to_owned);
+     let text = response.text().context("read response body")?;
+     let envelope: Envelope<T> = serde_json::from_str(&text).map_err(|error| {
+         if !status.is_success() {
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\api\infrastructure\http.rs:375:
+         use std::io::{Read, Write};
+         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+         let endpoint = listener.local_addr().unwrap();
+-        let wire = format!("HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
++        let wire = format!(
++            "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
++            body.len()
++        );
+         let server = std::thread::spawn(move || {
+             let (mut socket, _) = listener.accept().unwrap();
+-            socket.set_read_timeout(Some(std::time::Duration::from_secs(2))).unwrap();
++            socket
++                .set_read_timeout(Some(std::time::Duration::from_secs(2)))
++                .unwrap();
+             let mut request = [0; 2048];
+             let _ = socket.read(&mut request).unwrap();
+             socket.write_all(wire.as_bytes()).unwrap();
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\api\infrastructure\http.rs:399:
+ 
+     #[test]
+     fn unsuccessful_http_status_cannot_be_hidden_by_a_data_envelope() {
+-        let error = response_from_server("503 Service Unavailable", r#"{"data":{"ready":true},"request_id":"req_unavailable"}"#).unwrap_err();
++        let error = response_from_server(
++            "503 Service Unavailable",
++            r#"{"data":{"ready":true},"request_id":"req_unavailable"}"#,
++        )
++        .unwrap_err();
+         let api = error.downcast_ref::<HttpApiError>().unwrap();
+         assert_eq!(api.status, 503);
+         assert_eq!(api.request_id.as_deref(), Some("req_unavailable"));
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\api\multiplayer\lobbies.rs:436:
+     )
+ }
+ 
+-pub fn join_grant(
+-    token: &str,
+-    attempt_id: &str,
+-    idempotency_key: &str,
+-) -> Result<JoinGrantData> {
++pub fn join_grant(token: &str, attempt_id: &str, idempotency_key: &str) -> Result<JoinGrantData> {
+     http::post_auth_extra(
+         &format!(
+             "/v1/match-attempts/{}/join-grant",
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\config\tauri_config.rs:92:
+     let mut config = load_config();
+     let original = config.clone();
+     let effect = apply_setting(&mut config, key, value)?;
+-    Ok(PreparedConfig { config, original, effect })
++    Ok(PreparedConfig {
++        config,
++        original,
++        effect,
++    })
+ }
+ 
+ pub fn persist(prepared: PreparedConfig) -> Result<()> {
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\config\tauri_config.rs:99:
+     Ok(update_config(|current| {
+-        if prepared.config.game_path != prepared.original.game_path { current.game_path = prepared.config.game_path; }
+-        if prepared.config.language != prepared.original.language { current.language = prepared.config.language; }
+-        if prepared.config.persistent_log != prepared.original.persistent_log { current.persistent_log = prepared.config.persistent_log; }
++        if prepared.config.game_path != prepared.original.game_path {
++            current.game_path = prepared.config.game_path;
++        }
++        if prepared.config.language != prepared.original.language {
++            current.language = prepared.config.language;
++        }
++        if prepared.config.persistent_log != prepared.original.persistent_log {
++            current.persistent_log = prepared.config.persistent_log;
++        }
+         Ok(())
+     })?)
+ }
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:107:
+ 
+ impl LaunchOperationStatus {
+     fn is_terminal(self) -> bool {
+-        matches!(
+-            self,
+-            Self::Succeeded | Self::Failed | Self::Cancelled
+-        )
++        matches!(self, Self::Succeeded | Self::Failed | Self::Cancelled)
+     }
+ }
+ 
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:323:
+                                     .abort_lost_p2p_authority(&token)
+                             }) {
+                                 Ok(Some(snapshot)) => {
+-                                    if let Err(error) = runtime
+-                                        .fresh_token()
+-                                        .and_then(|token| runtime.try_clear_pending_match_native_cleanup(&token))
+-                                    {
++                                    if let Err(error) = runtime.fresh_token().and_then(|token| {
++                                        runtime.try_clear_pending_match_native_cleanup(&token)
++                                    }) {
+                                         runtime.log(&format!(
+                                             "Strict native cleanup remains pending after process exit: {error:#}"
+                                         ));
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:479:
+                         if let Some(abort_result) = abort_result {
+                             match abort_result {
+                                 Ok(Some(snapshot)) => {
+-                                    if let Err(cleanup_error) = runtime
+-                                        .fresh_token()
+-                                        .and_then(|token| {
++                                    if let Err(cleanup_error) =
++                                        runtime.fresh_token().and_then(|token| {
+                                             runtime.try_clear_pending_match_native_cleanup(&token)
+                                         })
+                                     {
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:707:
+                 operation_id,
+                 run_id,
+                 ..
+-            } => self.auto_start_p2p_authority(
+-                token,
+-                &lobby_id,
+-                &attempt_id,
+-                &operation_id,
+-                &run_id,
+-            ),
++            } => {
++                self.auto_start_p2p_authority(token, &lobby_id, &attempt_id, &operation_id, &run_id)
++            }
+             ControllerAction::ConnectMember {
+                 lobby_id,
+                 attempt_id,
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:733:
+                 operation_id,
+                 run_id,
+                 ..
+-            } => self.refresh_p2p_authority(
+-                token,
+-                &lobby_id,
+-                &attempt_id,
+-                &operation_id,
+-                &run_id,
+-            ),
++            } => self.refresh_p2p_authority(token, &lobby_id, &attempt_id, &operation_id, &run_id),
+         }
+     }
+ 
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:1153:
+                         && reservation.grant_jti == event.grant_jti
+                         && reservation.player_id == event.player_id
+                         && reservation.world_instance_id == context.world_instance_id
+-                        && reservation.native_connection_nonce
+-                            == event.native_connection_nonce
++                        && reservation.native_connection_nonce == event.native_connection_nonce
+                         && reservation.connection_generation == event.connection_generation
+                         && reservation.route_generation == context.route_generation,
+                     "backend returned an admission reservation for a different native connection"
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:1576:
+     fn fresh_token(&self) -> Result<String> {
+         let lease = auth::ensure_authenticated()?;
+         let token = lease.token().to_owned();
+-        ensure!(!token.is_empty(), "authenticated session returned an empty token");
++        ensure!(
++            !token.is_empty(),
++            "authenticated session returned an empty token"
++        );
+         let cfg = config::load_config();
+         let updated = self.state.lock().ok().and_then(|mut state| {
+             state
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:1916:
+     /// player launch must be created by the strict MatchLobby controller with
+     /// an Attempt and one-use admission grant. PvE remains an isolated local
+     /// workflow and uses the same operation/query/cancel lifecycle.
+-    pub fn start_launch_operation(
+-        self: &Arc<Self>,
+-        mode: &str,
+-    ) -> Result<LaunchOperationView> {
++    pub fn start_launch_operation(self: &Arc<Self>, mode: &str) -> Result<LaunchOperationView> {
+         ensure!(mode == "pve", "Direct online launch intents are retired");
+         let operation_id = format!("launch-{:032x}", rand::random::<u128>());
+         let run_id = format!("run-{:032x}", rand::random::<u128>());
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:2729:
+ }
+ 
+ fn validate_same_world_refresh(previous_world: &str, observed_world: &str) -> Result<()> {
+-    ensure!(!previous_world.trim().is_empty(), "previous authority world is empty");
+-    ensure!(!observed_world.trim().is_empty(), "refreshed authority world is empty");
+     ensure!(
++        !previous_world.trim().is_empty(),
++        "previous authority world is empty"
++    );
++    ensure!(
++        !observed_world.trim().is_empty(),
++        "refreshed authority world is empty"
++    );
++    ensure!(
+         observed_world == previous_world,
+         "native authority refresh returned a different world; terminate the old Attempt"
+     );
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:2832:
+             p2p_authority_target("127.0.0.1:49152").unwrap(),
+             "127.0.0.1:49152"
+         );
+-        assert_eq!(
+-            p2p_authority_target("[::1]:49152").unwrap(),
+-            "[::1]:49152"
+-        );
++        assert_eq!(p2p_authority_target("[::1]:49152").unwrap(), "[::1]:49152");
+         assert!(p2p_authority_target("10.26.0.2").is_err());
+         assert!(p2p_authority_target("::1").is_err());
+         assert!(p2p_authority_target("not-an-endpoint").is_err());
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\launching\controller.rs:86:
+     C: Fn(LaunchCompletion) + Send + 'static,
+ {
+     let _ = (std::any::type_name::<P>(), std::any::type_name::<C>());
+-    anyhow::bail!(
+-        "Arbitrary online target joins are retired; use a strict-roster attempt"
+-    )
++    anyhow::bail!("Arbitrary online target joins are retired; use a strict-roster attempt")
+ }
+ 
+ pub fn mark_starting(command_tx: &mpsc::Sender<HelperCommand>, mode: &str) -> Result<()> {
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\launching\launch.rs:771:
+                 .map(|match_status| match_status.last_error.as_str())
+                 .filter(|value| !value.is_empty())
+                 .unwrap_or(status.code.as_str());
+-            anyhow::bail!(
+-                "Payload native admission did not reach Playable: {detail}"
+-            );
++            anyhow::bail!("Payload native admission did not reach Playable: {detail}");
+         }
+-        set_progress(
+-            progress,
+-            3,
+-            3,
+-            &format!("Native match ({native_state})"),
+-        );
++        set_progress(progress, 3, 3, &format!("Native match ({native_state})"));
+         anyhow::ensure!(
+             Instant::now() < deadline,
+             "Payload native match did not reach Playable within {} seconds",
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\launching\metatunnel.rs:563:
+             })
+     };
+     let response = send()?;
+-    ensure!(crate::config::load_config().session_epoch == lease.session_epoch(),
+-        "MetaTunnel authentication session changed during preflight");
++    ensure!(
++        crate::config::load_config().session_epoch == lease.session_epoch(),
++        "MetaTunnel authentication session changed during preflight"
++    );
+     if response.status().as_u16() != 401 {
+         ensure!(
+             response.status().is_success(),
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\launching\metatunnel.rs:573:
+         );
+         return Ok(lease);
+     }
+-    let replacement = crate::security::auth::refresh_after_rejection_at(lease.token(), lease.session_epoch())
+-        .context("refresh rejected MetaTunnel token")?;
+-    write_session_token(stdin, &replacement, lease.session_epoch()).context("rotate MetaTunnel token after rejection")?;
++    let replacement =
++        crate::security::auth::refresh_after_rejection_at(lease.token(), lease.session_epoch())
++            .context("refresh rejected MetaTunnel token")?;
++    write_session_token(stdin, &replacement, lease.session_epoch())
++        .context("rotate MetaTunnel token after rejection")?;
+     thread::sleep(Duration::from_millis(250));
+     let retry = send()?;
+-    ensure!(crate::config::load_config().session_epoch == replacement.session_epoch(),
+-        "MetaTunnel authentication session changed during preflight");
+     ensure!(
++        crate::config::load_config().session_epoch == replacement.session_epoch(),
++        "MetaTunnel authentication session changed during preflight"
++    );
++    ensure!(
+         retry.status().is_success(),
+         "MetaTunnel profile preflight retry returned {}",
+         retry.status()
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\launching\metatunnel.rs:691:
+         .spawn(move || {
+             let epoch = initial.session_epoch();
+             let mut lease = initial;
+-            let result = (|| -> Result<()> { loop {
+-                let wait = crate::security::auth::refresh_wait_duration(
+-                    lease.expires_at(),
+-                    chrono::Utc::now(),
+-                );
+-                if wait_for_session(&cancel, wait, epoch, || crate::config::load_config().session_epoch)? {
+-                    return Ok(());
+-                }
+-                match crate::security::auth::ensure_access_token(TOKEN_MINIMUM_VALIDITY) {
+-                    Ok(replacement) => {
+-                        write_session_token(&stdin, &replacement, epoch)
+-                            .context("write rotated access token")?;
+-                        lease = replacement;
++            let result = (|| -> Result<()> {
++                loop {
++                    let wait = crate::security::auth::refresh_wait_duration(
++                        lease.expires_at(),
++                        chrono::Utc::now(),
++                    );
++                    if wait_for_session(&cancel, wait, epoch, || {
++                        crate::config::load_config().session_epoch
++                    })? {
++                        return Ok(());
+                     }
+-                    Err(error) if crate::api::infrastructure::http::is_transient_error(&error) => {
+-                        if wait_for_session(&cancel, TRANSIENT_REFRESH_RETRY, epoch, || crate::config::load_config().session_epoch)? {
+-                            return Ok(());
++                    match crate::security::auth::ensure_access_token(TOKEN_MINIMUM_VALIDITY) {
++                        Ok(replacement) => {
++                            write_session_token(&stdin, &replacement, epoch)
++                                .context("write rotated access token")?;
++                            lease = replacement;
+                         }
++                        Err(error)
++                            if crate::api::infrastructure::http::is_transient_error(&error) =>
++                        {
++                            if wait_for_session(&cancel, TRANSIENT_REFRESH_RETRY, epoch, || {
++                                crate::config::load_config().session_epoch
++                            })? {
++                                return Ok(());
++                            }
++                        }
++                        Err(error) => {
++                            return Err(error).context("refresh access token");
++                        }
+                     }
+-                    Err(error) => {
+-                        return Err(error).context("refresh access token");
+-                    }
+                 }
+-            } })();
++            })();
+             if let Err(error) = result {
+                 record_failure(&failure, format!("{error:#}"));
+             }
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\launching\metatunnel.rs:721:
+             // EOF immediately terminates the bridge's authenticated listeners,
+             // even before the owning launch controller observes the failure.
+-            if let Ok(mut writer) = stdin.lock() { writer.take(); }
++            if let Ok(mut writer) = stdin.lock() {
++                writer.take();
++            }
+         })
+         .context("start MetaTunnel token rotation worker")
+ }
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\launching\metatunnel.rs:727:
+ 
+-fn wait_for_session(cancel: &AtomicBool, duration: Duration, epoch: u64, current_epoch: impl Fn() -> u64) -> Result<bool> {
++fn wait_for_session(
++    cancel: &AtomicBool,
++    duration: Duration,
++    epoch: u64,
++    current_epoch: impl Fn() -> u64,
++) -> Result<bool> {
+     let deadline = Instant::now() + duration;
+     while !cancel.load(Ordering::Acquire) && Instant::now() < deadline {
+-        ensure!(current_epoch() == epoch, "MetaTunnel authentication session changed");
++        ensure!(
++            current_epoch() == epoch,
++            "MetaTunnel authentication session changed"
++        );
+         thread::sleep(
+             deadline
+                 .saturating_duration_since(Instant::now())
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\launching\metatunnel.rs:735:
+                 .min(Duration::from_millis(250)),
+         );
+     }
+-    ensure!(current_epoch() == epoch, "MetaTunnel authentication session changed");
++    ensure!(
++        current_epoch() == epoch,
++        "MetaTunnel authentication session changed"
++    );
+     Ok(cancel.load(Ordering::Acquire))
+ }
+ 
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\launching\metatunnel.rs:742:
+-fn write_session_token(stdin: &Arc<Mutex<Option<ChildStdin>>>, lease: &crate::security::auth::AccessTokenLease, epoch: u64) -> Result<()> {
+-    ensure!(lease.session_epoch() == epoch && crate::config::load_config().session_epoch == epoch,
+-        "MetaTunnel authentication session changed");
++fn write_session_token(
++    stdin: &Arc<Mutex<Option<ChildStdin>>>,
++    lease: &crate::security::auth::AccessTokenLease,
++    epoch: u64,
++) -> Result<()> {
++    ensure!(
++        lease.session_epoch() == epoch && crate::config::load_config().session_epoch == epoch,
++        "MetaTunnel authentication session changed"
++    );
+     let token = lease.token();
+     ensure!(
+         token.len() >= 32 && token.len() <= 16 * 1024,
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\launching\metatunnel.rs:755:
+     let mut writer = stdin
+         .lock()
+         .map_err(|_| anyhow::anyhow!("MetaTunnel stdin lock is poisoned"))?;
+-    let writer = writer.as_mut().context("MetaTunnel token input is closed")?;
++    let writer = writer
++        .as_mut()
++        .context("MetaTunnel token input is closed")?;
+     writer.write_all(line.as_bytes())?;
+     writer.flush()?;
+     Ok(())
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\launching\metatunnel.rs:878:
+             changed.store(8, Ordering::Release);
+         });
+         let started = Instant::now();
+-        let result = wait_for_session(&AtomicBool::new(false), Duration::from_secs(60), 7,
+-            || current.load(Ordering::Acquire));
++        let result = wait_for_session(&AtomicBool::new(false), Duration::from_secs(60), 7, || {
++            current.load(Ordering::Acquire)
++        });
+         worker.join().unwrap();
+         assert!(result.unwrap_err().to_string().contains("session changed"));
+         assert!(started.elapsed() < Duration::from_secs(2));
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\launching\metatunnel.rs:887:
+ 
+     #[test]
+     fn cancelled_token_pump_wait_does_not_wait_for_expiry() {
+-        assert!(wait_for_session(&AtomicBool::new(true), Duration::from_secs(60), 7, || 7).unwrap());
++        assert!(
++            wait_for_session(&AtomicBool::new(true), Duration::from_secs(60), 7, || 7).unwrap()
++        );
+         assert!(wait_for_session(&AtomicBool::new(false), Duration::ZERO, 7, || 8).is_err());
+     }
+ 
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:269:
+ pub fn ensure_authenticated() -> Result<AccessTokenLease> {
+     let lease = ensure_access_token(Duration::from_secs(30))?;
+     api::account::users::sync_current(lease.token())?;
+-    ensure!(config::load_config().session_epoch == lease.session_epoch, "authentication session changed");
++    ensure!(
++        config::load_config().session_epoch == lease.session_epoch,
++        "authentication session changed"
++    );
+     Ok(lease)
+ }
+ 
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:298:
+ /// Refresh after a concrete token was rejected. If another caller already
+ /// rotated that token while this request was in flight, reuse the newer pair.
+ pub fn refresh_after_rejection(rejected_token: &str) -> Result<AccessTokenLease> {
+-    let epoch = session_epoch_for_token(rejected_token).context("token does not belong to the current player session")?;
++    let epoch = session_epoch_for_token(rejected_token)
++        .context("token does not belong to the current player session")?;
+     refresh_after_rejection_at(rejected_token, epoch)
+ }
+ 
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:305:
+ pub fn refresh_after_rejection_at(rejected_token: &str, epoch: u64) -> Result<AccessTokenLease> {
+-    refresh_rejected_with(rejected_token, epoch, config::load_config, refresh_session_locked)
++    refresh_rejected_with(
++        rejected_token,
++        epoch,
++        config::load_config,
++        refresh_session_locked,
++    )
+ }
+ 
+ fn refresh_rejected_with(
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:310:
+-    rejected_token: &str, epoch: u64,
++    rejected_token: &str,
++    epoch: u64,
+     read: impl FnOnce() -> config::AppConfig,
+     refresh: impl FnOnce(&config::AppConfig) -> Result<AccessTokenLease>,
+ ) -> Result<AccessTokenLease> {
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:372:
+     let updated = config::update_config(|current| {
+         check_epoch(current, cfg.session_epoch)?;
+         if current.refresh_token != cfg.refresh_token {
+-            return Err(std::io::Error::other("authentication session changed during refresh"));
++            return Err(std::io::Error::other(
++                "authentication session changed during refresh",
++            ));
+         }
+         persist_session(current, &refreshed.session, &refreshed.capabilities);
+         Ok(current.clone())
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:379:
+-    }).context("persist refreshed login session")?;
++    })
++    .context("persist refreshed login session")?;
+     lease_from_config(&updated)
+ }
+ 
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:423:
+ 
+ fn check_epoch(cfg: &config::AppConfig, expected: u64) -> std::io::Result<()> {
+     if cfg.session_epoch != expected {
+-        return Err(std::io::Error::other("authentication session changed; stale result rejected"));
++        return Err(std::io::Error::other(
++            "authentication session changed; stale result rejected",
++        ));
+     }
+     Ok(())
+ }
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:430:
+ 
+ fn advance_session(cfg: &mut config::AppConfig) -> std::io::Result<()> {
+-    cfg.session_epoch = cfg.session_epoch.checked_add(1).ok_or_else(|| std::io::Error::other("session epoch exhausted"))?;
++    cfg.session_epoch = cfg
++        .session_epoch
++        .checked_add(1)
++        .ok_or_else(|| std::io::Error::other("session epoch exhausted"))?;
+     cfg.access_token.clear();
+     cfg.access_token_expires_at.clear();
+     cfg.refresh_token.clear();
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:467:
+ 
+     #[test]
+     fn twenty_concurrent_rejections_rotate_once() {
+-        use std::sync::{Arc, Barrier, atomic::{AtomicUsize, Ordering}};
++        use std::sync::{
++            Arc, Barrier,
++            atomic::{AtomicUsize, Ordering},
++        };
+         let store = Arc::new(Mutex::new(synthetic_session()));
+         let barrier = Arc::new(Barrier::new(20));
+         let calls = Arc::new(AtomicUsize::new(0));
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:474:
+-        let workers = (0..20).map(|_| {
+-            let (store, barrier, calls) = (store.clone(), barrier.clone(), calls.clone());
+-            std::thread::spawn(move || {
+-                barrier.wait();
+-                refresh_rejected_with("synthetic-old-access", 7,
+-                    || store.lock().unwrap().clone(),
+-                    |_| {
+-                        calls.fetch_add(1, Ordering::SeqCst);
+-                        let mut cfg = store.lock().unwrap();
+-                        cfg.access_token = "synthetic-new-access".into();
+-                        lease_from_config(&cfg)
+-                    }).unwrap().token().to_string()
++        let workers = (0..20)
++            .map(|_| {
++                let (store, barrier, calls) = (store.clone(), barrier.clone(), calls.clone());
++                std::thread::spawn(move || {
++                    barrier.wait();
++                    refresh_rejected_with(
++                        "synthetic-old-access",
++                        7,
++                        || store.lock().unwrap().clone(),
++                        |_| {
++                            calls.fetch_add(1, Ordering::SeqCst);
++                            let mut cfg = store.lock().unwrap();
++                            cfg.access_token = "synthetic-new-access".into();
++                            lease_from_config(&cfg)
++                        },
++                    )
++                    .unwrap()
++                    .token()
++                    .to_string()
++                })
+             })
+-        }).collect::<Vec<_>>();
+-        for worker in workers { assert_eq!(worker.join().unwrap(), "synthetic-new-access"); }
++            .collect::<Vec<_>>();
++        for worker in workers {
++            assert_eq!(worker.join().unwrap(), "synthetic-new-access");
++        }
+         assert_eq!(calls.load(Ordering::SeqCst), 1);
+     }
+ 
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:497:
+         assert!(cfg.access_token.is_empty());
+         assert!(check_epoch(&cfg, old).is_err());
+         cfg.access_token = "synthetic-other-account".into();
+-        let error = refresh_rejected_with("synthetic-old-access", old, || cfg, |_| {
+-            panic!("an old request must never refresh or replay as a different account")
+-        }).err().unwrap();
++        let error = refresh_rejected_with(
++            "synthetic-old-access",
++            old,
++            || cfg,
++            |_| panic!("an old request must never refresh or replay as a different account"),
++        )
++        .err()
++        .unwrap();
+         assert!(error.to_string().contains("session changed"));
+     }
+ 
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:511:
+         let (resume_tx, resume_rx) = mpsc::channel();
+         let worker_store = store.clone();
+         let worker = std::thread::spawn(move || {
+-            refresh_rejected_with("synthetic-old-access", 7,
++            refresh_rejected_with(
++                "synthetic-old-access",
++                7,
+                 || worker_store.lock().unwrap().clone(),
+                 |snapshot| {
+                     started_tx.send(()).unwrap();
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:519:
+                     let cfg = worker_store.lock().unwrap();
+                     check_epoch(&cfg, snapshot.session_epoch)?;
+                     lease_from_config(&cfg)
+-                })
++                },
++            )
+         });
+         started_rx.recv_timeout(Duration::from_secs(3)).unwrap();
+         advance_session(&mut store.lock().unwrap()).unwrap();
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\pipe.rs:252:
+     timeout: Duration,
+ ) -> Result<PayloadStatus> {
+     validate_request_id(request_id)?;
+-    ensure!(!timeout.is_zero(), "payload status timeout must be positive");
++    ensure!(
++        !timeout.is_zero(),
++        "payload status timeout must be positive"
++    );
+     let frame = format!(
+         "payload_status\t{}\n",
+         serde_json::to_string(&json!({"request_id": request_id}))?
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\pipe.rs:497:
+     timeout: Duration,
+ ) -> Result<()> {
+     validate_request_id(request_id)?;
+-    ensure!(!timeout.is_zero(), "admission receipt timeout must be positive");
++    ensure!(
++        !timeout.is_zero(),
++        "admission receipt timeout must be positive"
++    );
+     validate_match_admission_receipt(receipt)?;
+     let mut arguments = serde_json::to_value(receipt)?;
+     let object = arguments
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\pipe.rs:523:
+ fn validate_match_admission_receipt(receipt: &MatchAdmissionReceipt) -> Result<()> {
+     for (name, value) in [
+         ("attempt_id", receipt.attempt_id.as_str()),
+-        ("authority_session_id", receipt.authority_session_id.as_str()),
++        (
++            "authority_session_id",
++            receipt.authority_session_id.as_str(),
++        ),
+         ("world_instance_id", receipt.world_instance_id.as_str()),
+         ("player_id", receipt.player_id.as_str()),
+         ("grant_jti", receipt.grant_jti.as_str()),
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\pipe.rs:559:
+ fn validate_match_cleanup_receipt(receipt: &MatchCleanupReceipt) -> Result<()> {
+     for (name, value) in [
+         ("attempt_id", receipt.attempt_id.as_str()),
+-        ("authority_session_id", receipt.authority_session_id.as_str()),
++        (
++            "authority_session_id",
++            receipt.authority_session_id.as_str(),
++        ),
+         ("world_instance_id", receipt.world_instance_id.as_str()),
+     ] {
+         ensure!(
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\pipe.rs:883:
+     ensure!(
+         !ack.native_connection_nonce.is_empty()
+             && ack.native_connection_nonce.len() <= 128
+-            && ack.native_connection_nonce.bytes().all(|byte| {
+-                byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b':')
+-            }),
++            && ack
++                .native_connection_nonce
++                .bytes()
++                .all(|byte| { byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b':') }),
+         "Payload did not return a verified native authority nonce"
+     );
+     Ok(ack)
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\pipe.rs:930:
+             event.route_generation > 0 && event.connection_generation > 0,
+             "connection event generation is invalid"
+         );
+-        ensure!(event.roster_revision > 0, "connection event roster revision is invalid");
++        ensure!(
++            event.roster_revision > 0,
++            "connection event roster revision is invalid"
++        );
+         for value in [
+             &event.attempt_id,
+             &event.authority_session_id,
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\pipe.rs:976:
+             serde_json::from_str(payload).context("parse pending allocation clear JSON")?;
+         validate_cleanup_ack_scope(&value, expected_request_id, expected_receipt)?;
+         ensure!(
+-            value.get("status").and_then(serde_json::Value::as_str)
+-                == Some("cleanup_pending"),
++            value.get("status").and_then(serde_json::Value::as_str) == Some("cleanup_pending"),
+             "Payload returned an invalid pending cleanup status"
+         );
+         ensure!(
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\pipe.rs:984:
+-            value.get("code").and_then(serde_json::Value::as_str)
+-                == Some("cleanup_pending"),
++            value.get("code").and_then(serde_json::Value::as_str) == Some("cleanup_pending"),
+             "Payload returned an invalid pending cleanup code"
+         );
+         ensure!(
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\pipe.rs:989:
+-            value.get("native_cleared").and_then(serde_json::Value::as_bool)
++            value
++                .get("native_cleared")
++                .and_then(serde_json::Value::as_bool)
+                 == Some(false)
+                 && value
+                     .get("world_teardown_required")
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\pipe.rs:1034:
+             "authority_session_id",
+             expected_receipt.authority_session_id.as_str(),
+         ),
+-        ("world_instance_id", expected_receipt.world_instance_id.as_str()),
++        (
++            "world_instance_id",
++            expected_receipt.world_instance_id.as_str(),
++        ),
+     ] {
+         let actual = value
+             .get(field)
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\pipe.rs:1069:
+ ) -> Result<()> {
+     let value = response_payload(frame, expected_command)?;
+     ensure!(
+-        value.get("request_id").and_then(serde_json::Value::as_str)
+-            == Some(expected_request_id),
++        value.get("request_id").and_then(serde_json::Value::as_str) == Some(expected_request_id),
+         "scoped admission acknowledgement request ID mismatch"
+     );
+     ensure!(
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\pipe.rs:1127:
+     ensure!(
+         !value.is_empty()
+             && value.len() <= 128
+-            && value.bytes().all(|byte| {
+-                byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b':')
+-            }),
++            && value
++                .bytes()
++                .all(|byte| { byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b':') }),
+         "{label} is invalid"
+     );
+     Ok(())
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\registration.rs:706:
+                 &authority_session,
+                 "DEDICATED_PAYLOAD_REJECTED",
+             );
+-            if let Err(clear_error) = clear_dedicated_allocation_for_assignment(
+-                pipe, assignment, &authority_session,
+-            ) {
++            if let Err(clear_error) =
++                clear_dedicated_allocation_for_assignment(pipe, assignment, &authority_session)
++            {
+                 retain_pending_dedicated_match(active, assignment, &authority_session);
+                 return Err(clear_error.context(format!(
+                     "clear allocation after an ambiguous Payload install: {error:#}"
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\registration.rs:734:
+             &authority_session,
+             "DEDICATED_PAYLOAD_CONFIRMATION_FAILED",
+         );
+-        if let Err(clear_error) = clear_dedicated_allocation_for_assignment(
+-            pipe, assignment, &authority_session,
+-        ) {
++        if let Err(clear_error) =
++            clear_dedicated_allocation_for_assignment(pipe, assignment, &authority_session)
++        {
+             retain_pending_dedicated_match(active, assignment, &authority_session);
+             return Err(clear_error.context(format!(
+                 "clear allocation after Payload confirmation failure: {error:#}"
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\registration.rs:764:
+                 &authority_session,
+                 "DEDICATED_NATIVE_ADMISSION_UNAVAILABLE",
+             );
+-            if let Err(clear_error) = clear_dedicated_allocation_for_assignment(
+-                pipe, assignment, &authority_session,
+-            ) {
++            if let Err(clear_error) =
++                clear_dedicated_allocation_for_assignment(pipe, assignment, &authority_session)
++            {
+                 retain_pending_dedicated_match(active, assignment, &authority_session);
+                 return Err(clear_error.context(format!(
+                     "clear allocation after native authority failure: {error:#}"
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:20:
+ type HmacSha256 = Hmac<Sha256>;
+ 
+ #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+-pub enum RelayPacketError { Header, Authentication, Replay, Mtu, Backpressure }
++pub enum RelayPacketError {
++    Header,
++    Authentication,
++    Replay,
++    Mtu,
++    Backpressure,
++}
+ 
+ impl std::fmt::Display for RelayPacketError {
+     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:36:
+ impl std::error::Error for RelayPacketError {}
+ 
+ #[derive(Default)]
+-struct ReplayWindow { highest: u64, seen: u64 }
++struct ReplayWindow {
++    highest: u64,
++    seen: u64,
++}
+ 
+ impl ReplayWindow {
+     // A bounded 64-packet window tolerates reordering without admitting replay.
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:43:
+     fn accept(&mut self, sequence: u64) -> bool {
+-        if sequence == 0 { return false; }
++        if sequence == 0 {
++            return false;
++        }
+         if sequence > self.highest {
+             let shift = sequence - self.highest;
+-            self.seen = if shift >= 64 { 1 } else { (self.seen << shift) | 1 };
++            self.seen = if shift >= 64 {
++                1
++            } else {
++                (self.seen << shift) | 1
++            };
+             self.highest = sequence;
+             return true;
+         }
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:51:
+         let distance = self.highest - sequence;
+-        if distance >= 64 || self.seen & (1 << distance) != 0 { return false; }
++        if distance >= 64 || self.seen & (1 << distance) != 0 {
++            return false;
++        }
+         self.seen |= 1 << distance;
+         true
+     }
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:154:
+     }
+ 
+     pub fn send(&mut self, payload: &[u8]) -> Result<()> {
+-        if payload.len() > self.mtu { return Err(RelayPacketError::Mtu.into()); }
++        if payload.len() > self.mtu {
++            return Err(RelayPacketError::Mtu.into());
++        }
+         self.send_sequence = self
+             .send_sequence
+             .checked_add(1)
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:173:
+         packet.extend_from_slice(payload);
+         match self.socket.send(&packet) {
+             Ok(_) => Ok(()),
+-            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => Err(RelayPacketError::Backpressure.into()),
++            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
++                Err(RelayPacketError::Backpressure.into())
++            }
+             Err(error) => Err(error.into()),
+         }
+     }
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:205:
+         mac.verify_truncated_left(&packet[24..40])
+             .map_err(|_| RelayPacketError::Authentication)?;
+         // Unauthenticated traffic must never move the replay window.
+-        if !self.receive_window.accept(sequence) { return Err(RelayPacketError::Replay.into()); }
++        if !self.receive_window.accept(sequence) {
++            return Err(RelayPacketError::Replay.into());
++        }
+         buffer[..payload.len()].copy_from_slice(payload);
+         Ok(Some(payload.len()))
+     }
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:265:
+     fn decodes_go_edge_recipient_retagged_wire_vectors() {
+         #[derive(serde::Deserialize)]
+         struct Vector {
+-            receiver_role: u8, synthetic_recipient_token: String,
+-            handle: u64, packet_hex: String, payload_hex: String,
++            receiver_role: u8,
++            synthetic_recipient_token: String,
++            handle: u64,
++            packet_hex: String,
++            payload_hex: String,
+         }
+         fn hex(value: &str) -> Vec<u8> {
+-            value.as_bytes().chunks_exact(2).map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap()).collect()
++            value
++                .as_bytes()
++                .chunks_exact(2)
++                .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
++                .collect()
+         }
+-        let vectors: Vec<Vector> = serde_json::from_str(include_str!("../../../tests/fixtures/relay-v2.json")).unwrap();
++        let vectors: Vec<Vector> =
++            serde_json::from_str(include_str!("../../../tests/fixtures/relay-v2.json")).unwrap();
+         for vector in vectors {
+             let (edge, mut receiver) = receiving_client();
+             receiver.role = vector.receiver_role;
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:281:
+             let expected = hex(&vector.payload_hex);
+             edge.send(&packet).unwrap();
+             let mut payload = [0; 1500];
+-            assert_eq!(receiver.receive(&mut payload).unwrap(), Some(expected.len()));
++            assert_eq!(
++                receiver.receive(&mut payload).unwrap(),
++                Some(expected.len())
++            );
+             assert_eq!(&payload[..expected.len()], &expected);
+         }
+     }
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:291:
+         let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
+         edge.connect(socket.local_addr().unwrap()).unwrap();
+         socket.connect(edge.local_addr().unwrap()).unwrap();
+-        socket.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+-        (edge, RelayClient {
+-            socket, handle: 7, role: 1, mtu: 1200,
+-            key: derive_key(b"synthetic-host-token").unwrap(),
+-            send_sequence: 0, receive_window: ReplayWindow::default(),
+-        })
++        socket
++            .set_read_timeout(Some(Duration::from_secs(1)))
++            .unwrap();
++        (
++            edge,
++            RelayClient {
++                socket,
++                handle: 7,
++                role: 1,
++                mtu: 1200,
++                key: derive_key(b"synthetic-host-token").unwrap(),
++                send_sequence: 0,
++                receive_window: ReplayWindow::default(),
++            },
++        )
+     }
+ 
+     fn incoming(sequence: u64, payload: &[u8]) -> Vec<u8> {
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:306:
+         packet.extend_from_slice(&7u64.to_be_bytes());
+         packet.extend_from_slice(&[2, 0]);
+         packet.extend_from_slice(&sequence.to_be_bytes());
+-        let mut mac = HmacSha256::new_from_slice(&derive_key(b"synthetic-host-token").unwrap()).unwrap();
++        let mut mac =
++            HmacSha256::new_from_slice(&derive_key(b"synthetic-host-token").unwrap()).unwrap();
+         mac.update(&packet);
+         mac.update(payload);
+         packet.extend_from_slice(&mac.finalize().into_bytes()[..16]);
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:324:
+             assert_eq!(&buffer[..10], b"member-one");
+         }
+         edge.send(&incoming(2, b"member-one")).unwrap();
+-        assert_eq!(receiver.receive(&mut buffer).unwrap_err().downcast_ref::<RelayPacketError>(), Some(&RelayPacketError::Replay));
++        assert_eq!(
++            receiver
++                .receive(&mut buffer)
++                .unwrap_err()
++                .downcast_ref::<RelayPacketError>(),
++            Some(&RelayPacketError::Replay)
++        );
+     }
+ 
+     #[test]
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:340:
+         edge.send(&incoming(1, b"valid")).unwrap();
+         assert_eq!(receiver.receive(&mut buffer).unwrap(), Some(5));
+         edge.send(&incoming(2, &[0; 1201])).unwrap();
+-        assert_eq!(receiver.receive(&mut buffer).unwrap_err().downcast_ref::<RelayPacketError>(), Some(&RelayPacketError::Mtu));
++        assert_eq!(
++            receiver
++                .receive(&mut buffer)
++                .unwrap_err()
++                .downcast_ref::<RelayPacketError>(),
++            Some(&RelayPacketError::Mtu)
++        );
+     }
+ 
+     #[test]
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\api\account\users.rs:26:
+         .ok_or_else(|| anyhow::anyhow!("player token is not from the current session"))?;
+     let player = get_current(token)?;
+     config::update_config(|cfg| {
+-        if cfg.session_epoch != epoch || (!cfg.steam_id.is_empty() && cfg.steam_id != player.steam_id) {
++        if cfg.session_epoch != epoch
++            || (!cfg.steam_id.is_empty() && cfg.steam_id != player.steam_id)
++        {
+             return Err(std::io::Error::other("stale player profile rejected"));
+         }
+         cfg.player_id = player.player_id.clone();
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\api\infrastructure\http.rs:254:
+     };
+ 
+     let response = send(token)?;
+-    if response.status().as_u16() == 401 && let Some(epoch) = epoch {
++    if response.status().as_u16() == 401
++        && let Some(epoch) = epoch
++    {
+         let new_token = crate::security::auth::refresh_after_rejection_at(token, epoch)?;
+         return parse_response(send(new_token.token())?);
+     }
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\api\infrastructure\http.rs:284:
+     response: reqwest::blocking::Response,
+ ) -> Result<T> {
+     let status = response.status();
+-    let header_request_id = response.headers().get("x-request-id").and_then(|v| v.to_str().ok()).map(str::to_owned);
++    let header_request_id = response
++        .headers()
++        .get("x-request-id")
++        .and_then(|v| v.to_str().ok())
++        .map(str::to_owned);
+     let text = response.text().context("read response body")?;
+     let envelope: Envelope<T> = serde_json::from_str(&text).map_err(|error| {
+         if !status.is_success() {
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\api\infrastructure\http.rs:375:
+         use std::io::{Read, Write};
+         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+         let endpoint = listener.local_addr().unwrap();
+-        let wire = format!("HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
++        let wire = format!(
++            "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
++            body.len()
++        );
+         let server = std::thread::spawn(move || {
+             let (mut socket, _) = listener.accept().unwrap();
+-            socket.set_read_timeout(Some(std::time::Duration::from_secs(2))).unwrap();
++            socket
++                .set_read_timeout(Some(std::time::Duration::from_secs(2)))
++                .unwrap();
+             let mut request = [0; 2048];
+             let _ = socket.read(&mut request).unwrap();
+             socket.write_all(wire.as_bytes()).unwrap();
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\api\infrastructure\http.rs:399:
+ 
+     #[test]
+     fn unsuccessful_http_status_cannot_be_hidden_by_a_data_envelope() {
+-        let error = response_from_server("503 Service Unavailable", r#"{"data":{"ready":true},"request_id":"req_unavailable"}"#).unwrap_err();
++        let error = response_from_server(
++            "503 Service Unavailable",
++            r#"{"data":{"ready":true},"request_id":"req_unavailable"}"#,
++        )
++        .unwrap_err();
+         let api = error.downcast_ref::<HttpApiError>().unwrap();
+         assert_eq!(api.status, 503);
+         assert_eq!(api.request_id.as_deref(), Some("req_unavailable"));
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\api\multiplayer\lobbies.rs:436:
+     )
+ }
+ 
+-pub fn join_grant(
+-    token: &str,
+-    attempt_id: &str,
+-    idempotency_key: &str,
+-) -> Result<JoinGrantData> {
++pub fn join_grant(token: &str, attempt_id: &str, idempotency_key: &str) -> Result<JoinGrantData> {
+     http::post_auth_extra(
+         &format!(
+             "/v1/match-attempts/{}/join-grant",
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\config\tauri_config.rs:92:
+     let mut config = load_config();
+     let original = config.clone();
+     let effect = apply_setting(&mut config, key, value)?;
+-    Ok(PreparedConfig { config, original, effect })
++    Ok(PreparedConfig {
++        config,
++        original,
++        effect,
++    })
+ }
+ 
+ pub fn persist(prepared: PreparedConfig) -> Result<()> {
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\config\tauri_config.rs:99:
+     Ok(update_config(|current| {
+-        if prepared.config.game_path != prepared.original.game_path { current.game_path = prepared.config.game_path; }
+-        if prepared.config.language != prepared.original.language { current.language = prepared.config.language; }
+-        if prepared.config.persistent_log != prepared.original.persistent_log { current.persistent_log = prepared.config.persistent_log; }
++        if prepared.config.game_path != prepared.original.game_path {
++            current.game_path = prepared.config.game_path;
++        }
++        if prepared.config.language != prepared.original.language {
++            current.language = prepared.config.language;
++        }
++        if prepared.config.persistent_log != prepared.original.persistent_log {
++            current.persistent_log = prepared.config.persistent_log;
++        }
+         Ok(())
+     })?)
+ }
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:107:
+ 
+ impl LaunchOperationStatus {
+     fn is_terminal(self) -> bool {
+-        matches!(
+-            self,
+-            Self::Succeeded | Self::Failed | Self::Cancelled
+-        )
++        matches!(self, Self::Succeeded | Self::Failed | Self::Cancelled)
+     }
+ }
+ 
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:323:
+                                     .abort_lost_p2p_authority(&token)
+                             }) {
+                                 Ok(Some(snapshot)) => {
+-                                    if let Err(error) = runtime
+-                                        .fresh_token()
+-                                        .and_then(|token| runtime.try_clear_pending_match_native_cleanup(&token))
+-                                    {
++                                    if let Err(error) = runtime.fresh_token().and_then(|token| {
++                                        runtime.try_clear_pending_match_native_cleanup(&token)
++                                    }) {
+                                         runtime.log(&format!(
+                                             "Strict native cleanup remains pending after process exit: {error:#}"
+                                         ));
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:479:
+                         if let Some(abort_result) = abort_result {
+                             match abort_result {
+                                 Ok(Some(snapshot)) => {
+-                                    if let Err(cleanup_error) = runtime
+-                                        .fresh_token()
+-                                        .and_then(|token| {
++                                    if let Err(cleanup_error) =
++                                        runtime.fresh_token().and_then(|token| {
+                                             runtime.try_clear_pending_match_native_cleanup(&token)
+                                         })
+                                     {
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:707:
+                 operation_id,
+                 run_id,
+                 ..
+-            } => self.auto_start_p2p_authority(
+-                token,
+-                &lobby_id,
+-                &attempt_id,
+-                &operation_id,
+-                &run_id,
+-            ),
++            } => {
++                self.auto_start_p2p_authority(token, &lobby_id, &attempt_id, &operation_id, &run_id)
++            }
+             ControllerAction::ConnectMember {
+                 lobby_id,
+                 attempt_id,
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:733:
+                 operation_id,
+                 run_id,
+                 ..
+-            } => self.refresh_p2p_authority(
+-                token,
+-                &lobby_id,
+-                &attempt_id,
+-                &operation_id,
+-                &run_id,
+-            ),
++            } => self.refresh_p2p_authority(token, &lobby_id, &attempt_id, &operation_id, &run_id),
+         }
+     }
+ 
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:1153:
+                         && reservation.grant_jti == event.grant_jti
+                         && reservation.player_id == event.player_id
+                         && reservation.world_instance_id == context.world_instance_id
+-                        && reservation.native_connection_nonce
+-                            == event.native_connection_nonce
++                        && reservation.native_connection_nonce == event.native_connection_nonce
+                         && reservation.connection_generation == event.connection_generation
+                         && reservation.route_generation == context.route_generation,
+                     "backend returned an admission reservation for a different native connection"
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:1576:
+     fn fresh_token(&self) -> Result<String> {
+         let lease = auth::ensure_authenticated()?;
+         let token = lease.token().to_owned();
+-        ensure!(!token.is_empty(), "authenticated session returned an empty token");
++        ensure!(
++            !token.is_empty(),
++            "authenticated session returned an empty token"
++        );
+         let cfg = config::load_config();
+         let updated = self.state.lock().ok().and_then(|mut state| {
+             state
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:1916:
+     /// player launch must be created by the strict MatchLobby controller with
+     /// an Attempt and one-use admission grant. PvE remains an isolated local
+     /// workflow and uses the same operation/query/cancel lifecycle.
+-    pub fn start_launch_operation(
+-        self: &Arc<Self>,
+-        mode: &str,
+-    ) -> Result<LaunchOperationView> {
++    pub fn start_launch_operation(self: &Arc<Self>, mode: &str) -> Result<LaunchOperationView> {
+         ensure!(mode == "pve", "Direct online launch intents are retired");
+         let operation_id = format!("launch-{:032x}", rand::random::<u128>());
+         let run_id = format!("run-{:032x}", rand::random::<u128>());
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:2729:
+ }
+ 
+ fn validate_same_world_refresh(previous_world: &str, observed_world: &str) -> Result<()> {
+-    ensure!(!previous_world.trim().is_empty(), "previous authority world is empty");
+-    ensure!(!observed_world.trim().is_empty(), "refreshed authority world is empty");
+     ensure!(
++        !previous_world.trim().is_empty(),
++        "previous authority world is empty"
++    );
++    ensure!(
++        !observed_world.trim().is_empty(),
++        "refreshed authority world is empty"
++    );
++    ensure!(
+         observed_world == previous_world,
+         "native authority refresh returned a different world; terminate the old Attempt"
+     );
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\core\runtime.rs:2832:
+             p2p_authority_target("127.0.0.1:49152").unwrap(),
+             "127.0.0.1:49152"
+         );
+-        assert_eq!(
+-            p2p_authority_target("[::1]:49152").unwrap(),
+-            "[::1]:49152"
+-        );
++        assert_eq!(p2p_authority_target("[::1]:49152").unwrap(), "[::1]:49152");
+         assert!(p2p_authority_target("10.26.0.2").is_err());
+         assert!(p2p_authority_target("::1").is_err());
+         assert!(p2p_authority_target("not-an-endpoint").is_err());
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\launching\controller.rs:86:
+     C: Fn(LaunchCompletion) + Send + 'static,
+ {
+     let _ = (std::any::type_name::<P>(), std::any::type_name::<C>());
+-    anyhow::bail!(
+-        "Arbitrary online target joins are retired; use a strict-roster attempt"
+-    )
++    anyhow::bail!("Arbitrary online target joins are retired; use a strict-roster attempt")
+ }
+ 
+ pub fn mark_starting(command_tx: &mpsc::Sender<HelperCommand>, mode: &str) -> Result<()> {
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\launching\launch.rs:771:
+                 .map(|match_status| match_status.last_error.as_str())
+                 .filter(|value| !value.is_empty())
+                 .unwrap_or(status.code.as_str());
+-            anyhow::bail!(
+-                "Payload native admission did not reach Playable: {detail}"
+-            );
++            anyhow::bail!("Payload native admission did not reach Playable: {detail}");
+         }
+-        set_progress(
+-            progress,
+-            3,
+-            3,
+-            &format!("Native match ({native_state})"),
+-        );
++        set_progress(progress, 3, 3, &format!("Native match ({native_state})"));
+         anyhow::ensure!(
+             Instant::now() < deadline,
+             "Payload native match did not reach Playable within {} seconds",
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\launching\metatunnel.rs:563:
+             })
+     };
+     let response = send()?;
+-    ensure!(crate::config::load_config().session_epoch == lease.session_epoch(),
+-        "MetaTunnel authentication session changed during preflight");
++    ensure!(
++        crate::config::load_config().session_epoch == lease.session_epoch(),
++        "MetaTunnel authentication session changed during preflight"
++    );
+     if response.status().as_u16() != 401 {
+         ensure!(
+             response.status().is_success(),
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\launching\metatunnel.rs:573:
+         );
+         return Ok(lease);
+     }
+-    let replacement = crate::security::auth::refresh_after_rejection_at(lease.token(), lease.session_epoch())
+-        .context("refresh rejected MetaTunnel token")?;
+-    write_session_token(stdin, &replacement, lease.session_epoch()).context("rotate MetaTunnel token after rejection")?;
++    let replacement =
++        crate::security::auth::refresh_after_rejection_at(lease.token(), lease.session_epoch())
++            .context("refresh rejected MetaTunnel token")?;
++    write_session_token(stdin, &replacement, lease.session_epoch())
++        .context("rotate MetaTunnel token after rejection")?;
+     thread::sleep(Duration::from_millis(250));
+     let retry = send()?;
+-    ensure!(crate::config::load_config().session_epoch == replacement.session_epoch(),
+-        "MetaTunnel authentication session changed during preflight");
+     ensure!(
++        crate::config::load_config().session_epoch == replacement.session_epoch(),
++        "MetaTunnel authentication session changed during preflight"
++    );
++    ensure!(
+         retry.status().is_success(),
+         "MetaTunnel profile preflight retry returned {}",
+         retry.status()
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\launching\metatunnel.rs:691:
+         .spawn(move || {
+             let epoch = initial.session_epoch();
+             let mut lease = initial;
+-            let result = (|| -> Result<()> { loop {
+-                let wait = crate::security::auth::refresh_wait_duration(
+-                    lease.expires_at(),
+-                    chrono::Utc::now(),
+-                );
+-                if wait_for_session(&cancel, wait, epoch, || crate::config::load_config().session_epoch)? {
+-                    return Ok(());
+-                }
+-                match crate::security::auth::ensure_access_token(TOKEN_MINIMUM_VALIDITY) {
+-                    Ok(replacement) => {
+-                        write_session_token(&stdin, &replacement, epoch)
+-                            .context("write rotated access token")?;
+-                        lease = replacement;
++            let result = (|| -> Result<()> {
++                loop {
++                    let wait = crate::security::auth::refresh_wait_duration(
++                        lease.expires_at(),
++                        chrono::Utc::now(),
++                    );
++                    if wait_for_session(&cancel, wait, epoch, || {
++                        crate::config::load_config().session_epoch
++                    })? {
++                        return Ok(());
+                     }
+-                    Err(error) if crate::api::infrastructure::http::is_transient_error(&error) => {
+-                        if wait_for_session(&cancel, TRANSIENT_REFRESH_RETRY, epoch, || crate::config::load_config().session_epoch)? {
+-                            return Ok(());
++                    match crate::security::auth::ensure_access_token(TOKEN_MINIMUM_VALIDITY) {
++                        Ok(replacement) => {
++                            write_session_token(&stdin, &replacement, epoch)
++                                .context("write rotated access token")?;
++                            lease = replacement;
+                         }
++                        Err(error)
++                            if crate::api::infrastructure::http::is_transient_error(&error) =>
++                        {
++                            if wait_for_session(&cancel, TRANSIENT_REFRESH_RETRY, epoch, || {
++                                crate::config::load_config().session_epoch
++                            })? {
++                                return Ok(());
++                            }
++                        }
++                        Err(error) => {
++                            return Err(error).context("refresh access token");
++                        }
+                     }
+-                    Err(error) => {
+-                        return Err(error).context("refresh access token");
+-                    }
+                 }
+-            } })();
++            })();
+             if let Err(error) = result {
+                 record_failure(&failure, format!("{error:#}"));
+             }
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\launching\metatunnel.rs:721:
+             // EOF immediately terminates the bridge's authenticated listeners,
+             // even before the owning launch controller observes the failure.
+-            if let Ok(mut writer) = stdin.lock() { writer.take(); }
++            if let Ok(mut writer) = stdin.lock() {
++                writer.take();
++            }
+         })
+         .context("start MetaTunnel token rotation worker")
+ }
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\launching\metatunnel.rs:727:
+ 
+-fn wait_for_session(cancel: &AtomicBool, duration: Duration, epoch: u64, current_epoch: impl Fn() -> u64) -> Result<bool> {
++fn wait_for_session(
++    cancel: &AtomicBool,
++    duration: Duration,
++    epoch: u64,
++    current_epoch: impl Fn() -> u64,
++) -> Result<bool> {
+     let deadline = Instant::now() + duration;
+     while !cancel.load(Ordering::Acquire) && Instant::now() < deadline {
+-        ensure!(current_epoch() == epoch, "MetaTunnel authentication session changed");
++        ensure!(
++            current_epoch() == epoch,
++            "MetaTunnel authentication session changed"
++        );
+         thread::sleep(
+             deadline
+                 .saturating_duration_since(Instant::now())
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\launching\metatunnel.rs:735:
+                 .min(Duration::from_millis(250)),
+         );
+     }
+-    ensure!(current_epoch() == epoch, "MetaTunnel authentication session changed");
++    ensure!(
++        current_epoch() == epoch,
++        "MetaTunnel authentication session changed"
++    );
+     Ok(cancel.load(Ordering::Acquire))
+ }
+ 
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\launching\metatunnel.rs:742:
+-fn write_session_token(stdin: &Arc<Mutex<Option<ChildStdin>>>, lease: &crate::security::auth::AccessTokenLease, epoch: u64) -> Result<()> {
+-    ensure!(lease.session_epoch() == epoch && crate::config::load_config().session_epoch == epoch,
+-        "MetaTunnel authentication session changed");
++fn write_session_token(
++    stdin: &Arc<Mutex<Option<ChildStdin>>>,
++    lease: &crate::security::auth::AccessTokenLease,
++    epoch: u64,
++) -> Result<()> {
++    ensure!(
++        lease.session_epoch() == epoch && crate::config::load_config().session_epoch == epoch,
++        "MetaTunnel authentication session changed"
++    );
+     let token = lease.token();
+     ensure!(
+         token.len() >= 32 && token.len() <= 16 * 1024,
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\launching\metatunnel.rs:755:
+     let mut writer = stdin
+         .lock()
+         .map_err(|_| anyhow::anyhow!("MetaTunnel stdin lock is poisoned"))?;
+-    let writer = writer.as_mut().context("MetaTunnel token input is closed")?;
++    let writer = writer
++        .as_mut()
++        .context("MetaTunnel token input is closed")?;
+     writer.write_all(line.as_bytes())?;
+     writer.flush()?;
+     Ok(())
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\launching\metatunnel.rs:878:
+             changed.store(8, Ordering::Release);
+         });
+         let started = Instant::now();
+-        let result = wait_for_session(&AtomicBool::new(false), Duration::from_secs(60), 7,
+-            || current.load(Ordering::Acquire));
++        let result = wait_for_session(&AtomicBool::new(false), Duration::from_secs(60), 7, || {
++            current.load(Ordering::Acquire)
++        });
+         worker.join().unwrap();
+         assert!(result.unwrap_err().to_string().contains("session changed"));
+         assert!(started.elapsed() < Duration::from_secs(2));
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\launching\metatunnel.rs:887:
+ 
+     #[test]
+     fn cancelled_token_pump_wait_does_not_wait_for_expiry() {
+-        assert!(wait_for_session(&AtomicBool::new(true), Duration::from_secs(60), 7, || 7).unwrap());
++        assert!(
++            wait_for_session(&AtomicBool::new(true), Duration::from_secs(60), 7, || 7).unwrap()
++        );
+         assert!(wait_for_session(&AtomicBool::new(false), Duration::ZERO, 7, || 8).is_err());
+     }
+ 
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:269:
+ pub fn ensure_authenticated() -> Result<AccessTokenLease> {
+     let lease = ensure_access_token(Duration::from_secs(30))?;
+     api::account::users::sync_current(lease.token())?;
+-    ensure!(config::load_config().session_epoch == lease.session_epoch, "authentication session changed");
++    ensure!(
++        config::load_config().session_epoch == lease.session_epoch,
++        "authentication session changed"
++    );
+     Ok(lease)
+ }
+ 
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:298:
+ /// Refresh after a concrete token was rejected. If another caller already
+ /// rotated that token while this request was in flight, reuse the newer pair.
+ pub fn refresh_after_rejection(rejected_token: &str) -> Result<AccessTokenLease> {
+-    let epoch = session_epoch_for_token(rejected_token).context("token does not belong to the current player session")?;
++    let epoch = session_epoch_for_token(rejected_token)
++        .context("token does not belong to the current player session")?;
+     refresh_after_rejection_at(rejected_token, epoch)
+ }
+ 
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:305:
+ pub fn refresh_after_rejection_at(rejected_token: &str, epoch: u64) -> Result<AccessTokenLease> {
+-    refresh_rejected_with(rejected_token, epoch, config::load_config, refresh_session_locked)
++    refresh_rejected_with(
++        rejected_token,
++        epoch,
++        config::load_config,
++        refresh_session_locked,
++    )
+ }
+ 
+ fn refresh_rejected_with(
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:310:
+-    rejected_token: &str, epoch: u64,
++    rejected_token: &str,
++    epoch: u64,
+     read: impl FnOnce() -> config::AppConfig,
+     refresh: impl FnOnce(&config::AppConfig) -> Result<AccessTokenLease>,
+ ) -> Result<AccessTokenLease> {
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:372:
+     let updated = config::update_config(|current| {
+         check_epoch(current, cfg.session_epoch)?;
+         if current.refresh_token != cfg.refresh_token {
+-            return Err(std::io::Error::other("authentication session changed during refresh"));
++            return Err(std::io::Error::other(
++                "authentication session changed during refresh",
++            ));
+         }
+         persist_session(current, &refreshed.session, &refreshed.capabilities);
+         Ok(current.clone())
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:379:
+-    }).context("persist refreshed login session")?;
++    })
++    .context("persist refreshed login session")?;
+     lease_from_config(&updated)
+ }
+ 
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:423:
+ 
+ fn check_epoch(cfg: &config::AppConfig, expected: u64) -> std::io::Result<()> {
+     if cfg.session_epoch != expected {
+-        return Err(std::io::Error::other("authentication session changed; stale result rejected"));
++        return Err(std::io::Error::other(
++            "authentication session changed; stale result rejected",
++        ));
+     }
+     Ok(())
+ }
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:430:
+ 
+ fn advance_session(cfg: &mut config::AppConfig) -> std::io::Result<()> {
+-    cfg.session_epoch = cfg.session_epoch.checked_add(1).ok_or_else(|| std::io::Error::other("session epoch exhausted"))?;
++    cfg.session_epoch = cfg
++        .session_epoch
++        .checked_add(1)
++        .ok_or_else(|| std::io::Error::other("session epoch exhausted"))?;
+     cfg.access_token.clear();
+     cfg.access_token_expires_at.clear();
+     cfg.refresh_token.clear();
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:467:
+ 
+     #[test]
+     fn twenty_concurrent_rejections_rotate_once() {
+-        use std::sync::{Arc, Barrier, atomic::{AtomicUsize, Ordering}};
++        use std::sync::{
++            Arc, Barrier,
++            atomic::{AtomicUsize, Ordering},
++        };
+         let store = Arc::new(Mutex::new(synthetic_session()));
+         let barrier = Arc::new(Barrier::new(20));
+         let calls = Arc::new(AtomicUsize::new(0));
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:474:
+-        let workers = (0..20).map(|_| {
+-            let (store, barrier, calls) = (store.clone(), barrier.clone(), calls.clone());
+-            std::thread::spawn(move || {
+-                barrier.wait();
+-                refresh_rejected_with("synthetic-old-access", 7,
+-                    || store.lock().unwrap().clone(),
+-                    |_| {
+-                        calls.fetch_add(1, Ordering::SeqCst);
+-                        let mut cfg = store.lock().unwrap();
+-                        cfg.access_token = "synthetic-new-access".into();
+-                        lease_from_config(&cfg)
+-                    }).unwrap().token().to_string()
++        let workers = (0..20)
++            .map(|_| {
++                let (store, barrier, calls) = (store.clone(), barrier.clone(), calls.clone());
++                std::thread::spawn(move || {
++                    barrier.wait();
++                    refresh_rejected_with(
++                        "synthetic-old-access",
++                        7,
++                        || store.lock().unwrap().clone(),
++                        |_| {
++                            calls.fetch_add(1, Ordering::SeqCst);
++                            let mut cfg = store.lock().unwrap();
++                            cfg.access_token = "synthetic-new-access".into();
++                            lease_from_config(&cfg)
++                        },
++                    )
++                    .unwrap()
++                    .token()
++                    .to_string()
++                })
+             })
+-        }).collect::<Vec<_>>();
+-        for worker in workers { assert_eq!(worker.join().unwrap(), "synthetic-new-access"); }
++            .collect::<Vec<_>>();
++        for worker in workers {
++            assert_eq!(worker.join().unwrap(), "synthetic-new-access");
++        }
+         assert_eq!(calls.load(Ordering::SeqCst), 1);
+     }
+ 
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:497:
+         assert!(cfg.access_token.is_empty());
+         assert!(check_epoch(&cfg, old).is_err());
+         cfg.access_token = "synthetic-other-account".into();
+-        let error = refresh_rejected_with("synthetic-old-access", old, || cfg, |_| {
+-            panic!("an old request must never refresh or replay as a different account")
+-        }).err().unwrap();
++        let error = refresh_rejected_with(
++            "synthetic-old-access",
++            old,
++            || cfg,
++            |_| panic!("an old request must never refresh or replay as a different account"),
++        )
++        .err()
++        .unwrap();
+         assert!(error.to_string().contains("session changed"));
+     }
+ 
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:511:
+         let (resume_tx, resume_rx) = mpsc::channel();
+         let worker_store = store.clone();
+         let worker = std::thread::spawn(move || {
+-            refresh_rejected_with("synthetic-old-access", 7,
++            refresh_rejected_with(
++                "synthetic-old-access",
++                7,
+                 || worker_store.lock().unwrap().clone(),
+                 |snapshot| {
+                     started_tx.send(()).unwrap();
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\security\auth.rs:519:
+                     let cfg = worker_store.lock().unwrap();
+                     check_epoch(&cfg, snapshot.session_epoch)?;
+                     lease_from_config(&cfg)
+-                })
++                },
++            )
+         });
+         started_rx.recv_timeout(Duration::from_secs(3)).unwrap();
+         advance_session(&mut store.lock().unwrap()).unwrap();
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\pipe.rs:252:
+     timeout: Duration,
+ ) -> Result<PayloadStatus> {
+     validate_request_id(request_id)?;
+-    ensure!(!timeout.is_zero(), "payload status timeout must be positive");
++    ensure!(
++        !timeout.is_zero(),
++        "payload status timeout must be positive"
++    );
+     let frame = format!(
+         "payload_status\t{}\n",
+         serde_json::to_string(&json!({"request_id": request_id}))?
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\pipe.rs:497:
+     timeout: Duration,
+ ) -> Result<()> {
+     validate_request_id(request_id)?;
+-    ensure!(!timeout.is_zero(), "admission receipt timeout must be positive");
++    ensure!(
++        !timeout.is_zero(),
++        "admission receipt timeout must be positive"
++    );
+     validate_match_admission_receipt(receipt)?;
+     let mut arguments = serde_json::to_value(receipt)?;
+     let object = arguments
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\pipe.rs:523:
+ fn validate_match_admission_receipt(receipt: &MatchAdmissionReceipt) -> Result<()> {
+     for (name, value) in [
+         ("attempt_id", receipt.attempt_id.as_str()),
+-        ("authority_session_id", receipt.authority_session_id.as_str()),
++        (
++            "authority_session_id",
++            receipt.authority_session_id.as_str(),
++        ),
+         ("world_instance_id", receipt.world_instance_id.as_str()),
+         ("player_id", receipt.player_id.as_str()),
+         ("grant_jti", receipt.grant_jti.as_str()),
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\pipe.rs:559:
+ fn validate_match_cleanup_receipt(receipt: &MatchCleanupReceipt) -> Result<()> {
+     for (name, value) in [
+         ("attempt_id", receipt.attempt_id.as_str()),
+-        ("authority_session_id", receipt.authority_session_id.as_str()),
++        (
++            "authority_session_id",
++            receipt.authority_session_id.as_str(),
++        ),
+         ("world_instance_id", receipt.world_instance_id.as_str()),
+     ] {
+         ensure!(
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\pipe.rs:883:
+     ensure!(
+         !ack.native_connection_nonce.is_empty()
+             && ack.native_connection_nonce.len() <= 128
+-            && ack.native_connection_nonce.bytes().all(|byte| {
+-                byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b':')
+-            }),
++            && ack
++                .native_connection_nonce
++                .bytes()
++                .all(|byte| { byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b':') }),
+         "Payload did not return a verified native authority nonce"
+     );
+     Ok(ack)
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\pipe.rs:930:
+             event.route_generation > 0 && event.connection_generation > 0,
+             "connection event generation is invalid"
+         );
+-        ensure!(event.roster_revision > 0, "connection event roster revision is invalid");
++        ensure!(
++            event.roster_revision > 0,
++            "connection event roster revision is invalid"
++        );
+         for value in [
+             &event.attempt_id,
+             &event.authority_session_id,
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\pipe.rs:976:
+             serde_json::from_str(payload).context("parse pending allocation clear JSON")?;
+         validate_cleanup_ack_scope(&value, expected_request_id, expected_receipt)?;
+         ensure!(
+-            value.get("status").and_then(serde_json::Value::as_str)
+-                == Some("cleanup_pending"),
++            value.get("status").and_then(serde_json::Value::as_str) == Some("cleanup_pending"),
+             "Payload returned an invalid pending cleanup status"
+         );
+         ensure!(
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\pipe.rs:984:
+-            value.get("code").and_then(serde_json::Value::as_str)
+-                == Some("cleanup_pending"),
++            value.get("code").and_then(serde_json::Value::as_str) == Some("cleanup_pending"),
+             "Payload returned an invalid pending cleanup code"
+         );
+         ensure!(
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\pipe.rs:989:
+-            value.get("native_cleared").and_then(serde_json::Value::as_bool)
++            value
++                .get("native_cleared")
++                .and_then(serde_json::Value::as_bool)
+                 == Some(false)
+                 && value
+                     .get("world_teardown_required")
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\pipe.rs:1034:
+             "authority_session_id",
+             expected_receipt.authority_session_id.as_str(),
+         ),
+-        ("world_instance_id", expected_receipt.world_instance_id.as_str()),
++        (
++            "world_instance_id",
++            expected_receipt.world_instance_id.as_str(),
++        ),
+     ] {
+         let actual = value
+             .get(field)
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\pipe.rs:1069:
+ ) -> Result<()> {
+     let value = response_payload(frame, expected_command)?;
+     ensure!(
+-        value.get("request_id").and_then(serde_json::Value::as_str)
+-            == Some(expected_request_id),
++        value.get("request_id").and_then(serde_json::Value::as_str) == Some(expected_request_id),
+         "scoped admission acknowledgement request ID mismatch"
+     );
+     ensure!(
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\pipe.rs:1127:
+     ensure!(
+         !value.is_empty()
+             && value.len() <= 128
+-            && value.bytes().all(|byte| {
+-                byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b':')
+-            }),
++            && value
++                .bytes()
++                .all(|byte| { byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b':') }),
+         "{label} is invalid"
+     );
+     Ok(())
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\registration.rs:706:
+                 &authority_session,
+                 "DEDICATED_PAYLOAD_REJECTED",
+             );
+-            if let Err(clear_error) = clear_dedicated_allocation_for_assignment(
+-                pipe, assignment, &authority_session,
+-            ) {
++            if let Err(clear_error) =
++                clear_dedicated_allocation_for_assignment(pipe, assignment, &authority_session)
++            {
+                 retain_pending_dedicated_match(active, assignment, &authority_session);
+                 return Err(clear_error.context(format!(
+                     "clear allocation after an ambiguous Payload install: {error:#}"
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\registration.rs:734:
+             &authority_session,
+             "DEDICATED_PAYLOAD_CONFIRMATION_FAILED",
+         );
+-        if let Err(clear_error) = clear_dedicated_allocation_for_assignment(
+-            pipe, assignment, &authority_session,
+-        ) {
++        if let Err(clear_error) =
++            clear_dedicated_allocation_for_assignment(pipe, assignment, &authority_session)
++        {
+             retain_pending_dedicated_match(active, assignment, &authority_session);
+             return Err(clear_error.context(format!(
+                 "clear allocation after Payload confirmation failure: {error:#}"
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\server\registration.rs:764:
+                 &authority_session,
+                 "DEDICATED_NATIVE_ADMISSION_UNAVAILABLE",
+             );
+-            if let Err(clear_error) = clear_dedicated_allocation_for_assignment(
+-                pipe, assignment, &authority_session,
+-            ) {
++            if let Err(clear_error) =
++                clear_dedicated_allocation_for_assignment(pipe, assignment, &authority_session)
++            {
+                 retain_pending_dedicated_match(active, assignment, &authority_session);
+                 return Err(clear_error.context(format!(
+                     "clear allocation after native authority failure: {error:#}"
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:20:
+ type HmacSha256 = Hmac<Sha256>;
+ 
+ #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+-pub enum RelayPacketError { Header, Authentication, Replay, Mtu, Backpressure }
++pub enum RelayPacketError {
++    Header,
++    Authentication,
++    Replay,
++    Mtu,
++    Backpressure,
++}
+ 
+ impl std::fmt::Display for RelayPacketError {
+     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:36:
+ impl std::error::Error for RelayPacketError {}
+ 
+ #[derive(Default)]
+-struct ReplayWindow { highest: u64, seen: u64 }
++struct ReplayWindow {
++    highest: u64,
++    seen: u64,
++}
+ 
+ impl ReplayWindow {
+     // A bounded 64-packet window tolerates reordering without admitting replay.
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:43:
+     fn accept(&mut self, sequence: u64) -> bool {
+-        if sequence == 0 { return false; }
++        if sequence == 0 {
++            return false;
++        }
+         if sequence > self.highest {
+             let shift = sequence - self.highest;
+-            self.seen = if shift >= 64 { 1 } else { (self.seen << shift) | 1 };
++            self.seen = if shift >= 64 {
++                1
++            } else {
++                (self.seen << shift) | 1
++            };
+             self.highest = sequence;
+             return true;
+         }
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:51:
+         let distance = self.highest - sequence;
+-        if distance >= 64 || self.seen & (1 << distance) != 0 { return false; }
++        if distance >= 64 || self.seen & (1 << distance) != 0 {
++            return false;
++        }
+         self.seen |= 1 << distance;
+         true
+     }
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:154:
+     }
+ 
+     pub fn send(&mut self, payload: &[u8]) -> Result<()> {
+-        if payload.len() > self.mtu { return Err(RelayPacketError::Mtu.into()); }
++        if payload.len() > self.mtu {
++            return Err(RelayPacketError::Mtu.into());
++        }
+         self.send_sequence = self
+             .send_sequence
+             .checked_add(1)
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:173:
+         packet.extend_from_slice(payload);
+         match self.socket.send(&packet) {
+             Ok(_) => Ok(()),
+-            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => Err(RelayPacketError::Backpressure.into()),
++            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
++                Err(RelayPacketError::Backpressure.into())
++            }
+             Err(error) => Err(error.into()),
+         }
+     }
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:205:
+         mac.verify_truncated_left(&packet[24..40])
+             .map_err(|_| RelayPacketError::Authentication)?;
+         // Unauthenticated traffic must never move the replay window.
+-        if !self.receive_window.accept(sequence) { return Err(RelayPacketError::Replay.into()); }
++        if !self.receive_window.accept(sequence) {
++            return Err(RelayPacketError::Replay.into());
++        }
+         buffer[..payload.len()].copy_from_slice(payload);
+         Ok(Some(payload.len()))
+     }
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:265:
+     fn decodes_go_edge_recipient_retagged_wire_vectors() {
+         #[derive(serde::Deserialize)]
+         struct Vector {
+-            receiver_role: u8, synthetic_recipient_token: String,
+-            handle: u64, packet_hex: String, payload_hex: String,
++            receiver_role: u8,
++            synthetic_recipient_token: String,
++            handle: u64,
++            packet_hex: String,
++            payload_hex: String,
+         }
+         fn hex(value: &str) -> Vec<u8> {
+-            value.as_bytes().chunks_exact(2).map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap()).collect()
++            value
++                .as_bytes()
++                .chunks_exact(2)
++                .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
++                .collect()
+         }
+-        let vectors: Vec<Vector> = serde_json::from_str(include_str!("../../../tests/fixtures/relay-v2.json")).unwrap();
++        let vectors: Vec<Vector> =
++            serde_json::from_str(include_str!("../../../tests/fixtures/relay-v2.json")).unwrap();
+         for vector in vectors {
+             let (edge, mut receiver) = receiving_client();
+             receiver.role = vector.receiver_role;
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:281:
+             let expected = hex(&vector.payload_hex);
+             edge.send(&packet).unwrap();
+             let mut payload = [0; 1500];
+-            assert_eq!(receiver.receive(&mut payload).unwrap(), Some(expected.len()));
++            assert_eq!(
++                receiver.receive(&mut payload).unwrap(),
++                Some(expected.len())
++            );
+             assert_eq!(&payload[..expected.len()], &expected);
+         }
+     }
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:291:
+         let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
+         edge.connect(socket.local_addr().unwrap()).unwrap();
+         socket.connect(edge.local_addr().unwrap()).unwrap();
+-        socket.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+-        (edge, RelayClient {
+-            socket, handle: 7, role: 1, mtu: 1200,
+-            key: derive_key(b"synthetic-host-token").unwrap(),
+-            send_sequence: 0, receive_window: ReplayWindow::default(),
+-        })
++        socket
++            .set_read_timeout(Some(Duration::from_secs(1)))
++            .unwrap();
++        (
++            edge,
++            RelayClient {
++                socket,
++                handle: 7,
++                role: 1,
++                mtu: 1200,
++                key: derive_key(b"synthetic-host-token").unwrap(),
++                send_sequence: 0,
++                receive_window: ReplayWindow::default(),
++            },
++        )
+     }
+ 
+     fn incoming(sequence: u64, payload: &[u8]) -> Vec<u8> {
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:306:
+         packet.extend_from_slice(&7u64.to_be_bytes());
+         packet.extend_from_slice(&[2, 0]);
+         packet.extend_from_slice(&sequence.to_be_bytes());
+-        let mut mac = HmacSha256::new_from_slice(&derive_key(b"synthetic-host-token").unwrap()).unwrap();
++        let mut mac =
++            HmacSha256::new_from_slice(&derive_key(b"synthetic-host-token").unwrap()).unwrap();
+         mac.update(&packet);
+         mac.update(payload);
+         packet.extend_from_slice(&mac.finalize().into_bytes()[..16]);
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:324:
+             assert_eq!(&buffer[..10], b"member-one");
+         }
+         edge.send(&incoming(2, b"member-one")).unwrap();
+-        assert_eq!(receiver.receive(&mut buffer).unwrap_err().downcast_ref::<RelayPacketError>(), Some(&RelayPacketError::Replay));
++        assert_eq!(
++            receiver
++                .receive(&mut buffer)
++                .unwrap_err()
++                .downcast_ref::<RelayPacketError>(),
++            Some(&RelayPacketError::Replay)
++        );
+     }
+ 
+     #[test]
+Diff in \\?\C:\wksp\ProjectReboundToolbox\src\vnt\legacy\relay.rs:340:
+         edge.send(&incoming(1, b"valid")).unwrap();
+         assert_eq!(receiver.receive(&mut buffer).unwrap(), Some(5));
+         edge.send(&incoming(2, &[0; 1201])).unwrap();
+-        assert_eq!(receiver.receive(&mut buffer).unwrap_err().downcast_ref::<RelayPacketError>(), Some(&RelayPacketError::Mtu));
++        assert_eq!(
++            receiver
++                .receive(&mut buffer)
++                .unwrap_err()
++                .downcast_ref::<RelayPacketError>(),
++            Some(&RelayPacketError::Mtu)
++        );
+     }
+ 
+     #[test]

@@ -1,0 +1,460 @@
+{
+  "files": [
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\relay-windows-crosslang-20260908\\go-test-rust-driver.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\relay-windows-crosslang-20260908\\go-test-rust-driver.log",
+      "sha256": "5679fa6b5a7c470c5758240fef5d1500230a77c53e89f53984aa54d47dc2f57c"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\relay-windows-crosslang-20260908\\relay-windows-crosslang-receipt.json",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\relay-windows-crosslang-20260908\\relay-windows-crosslang-receipt.json",
+      "sha256": "5e17ff945d136cb563be13ee92f988c8e6dacfcd43773cf7a3783d9f25142837"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\bp038-sidecar-20260907T214645944Z\\bp038-sidecar-result.json",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\native-evidence\\live-run-results\\bp038-sidecar-20260907T214645944Z\\bp038-sidecar-result.json",
+      "sha256": "843a52aff99f2c797fada55691b0318621b9a722221b5922618b2687050f98f9"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\native-serializer-retain-audit-20260908.json",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\native-evidence\\native-serializer-retain-audit-20260908.json",
+      "sha256": "693143966f9fdef0d935c59a83965b3e5d4a07985469ca71cba16bbbda4589b0"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\live-run-results\\bp038-sidecar-20260908T063020000Z\\bp038-sidecar-result.json",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\native-evidence\\live-run-results\\bp038-sidecar-20260908T063020000Z\\bp038-sidecar-result.json",
+      "sha256": "7268ea6e0e10b06c306dff2597ba600cdde84d6e068c93acce50f10a24f20636"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\native-evidence\\native-serializer-retain-audit-20260908.json",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\native-evidence\\3138c8596c22d4fae4c6ae86e4489d5a137841baee028096e97343bef8f21fa3-native-serializer-retain-audit-20260908.json",
+      "sha256": "3138c8596c22d4fae4c6ae86e4489d5a137841baee028096e97343bef8f21fa3"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\provenance-gate-final-receipt-20260908.json",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\provenance-gate-final-receipt-20260908.json",
+      "sha256": "b9f1223a904bc050f86b5b749f2fd9836edf048ed861bddb1ca4d72f37f026bd"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\provenance-gate-test-20260908-final.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\provenance-gate-test-20260908-final.log",
+      "sha256": "a39aba25c0b948aa5cfd83a49ac7d43bfda6e241a09fe0eb385c8bf3c811ad9e"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\toolbox-full-lib-70fcd-20260908.json",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\toolbox-full-lib-70fcd-20260908.json",
+      "sha256": "8166a854d34149a4b770e9b413ad131d68a26ba36071ec6648eb01417282632d"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\toolbox-local-ac-mapping.json",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\toolbox-local-ac-mapping.json",
+      "sha256": "118c517bc8e67a9c603dc80a93096a0df7c9426c7bed468dd7d32160b946f045"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e131415\\e2e-13-15-backend-result-20260908.json",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\e2e131415\\e2e-13-15-backend-result-20260908.json",
+      "sha256": "47ee83272d57ac19ea71c883c2248b07585986be3ae06c65a1f218e4ddab9dbb"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e131415\\backend-e2e13-15-matchlobby-clean-20260908T230614Z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\e2e131415\\backend-e2e13-15-matchlobby-clean-20260908T230614Z.log",
+      "sha256": "35cba0d69049589f5dbf5315d2759b7afd23423aa9a4dc8e180e338778df94d9"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e131415\\backend-e2e13-15-database-clean-20260908T230743Z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\e2e131415\\backend-e2e13-15-database-clean-20260908T230743Z.log",
+      "sha256": "34bbdb0f1e7c182af2afbe7aa1988965b399c781e057bf74a19ef1abd9e45737"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e131415\\backend-e2e13-15-meta-clean-20260908T230859Z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\e2e131415\\backend-e2e13-15-meta-clean-20260908T230859Z.log",
+      "sha256": "4bcaf40f5614ef146400f617b26f367fc0b1e2094ccf642a225be8010f0c5f2b"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e131415\\backend-e2e14-dedicated-alone-20260908T230445Z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\e2e131415\\backend-e2e14-dedicated-alone-20260908T230445Z.log",
+      "sha256": "f6efa5517c58ba2e8f11d474497c9d22d9a132ca88ac9b2aa93bd997d851150a"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e131415\\backend-battlelog-component-20260908T231649Z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\e2e131415\\backend-battlelog-component-20260908T231649Z.log",
+      "sha256": "48b44be34bffc4b6a125464f82035e7fc49929748cab2bcde7060ccbd9bb85c6"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e-06-17-runtime-current-20260908\\receipt.json",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\e2e-06-17-runtime-current-20260908\\receipt.json",
+      "sha256": "e6198f7c737b54b2069ab8fb1074085661fb55a91698eb231c8c6db1c315f6e5"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e-06-17-runtime-current-20260908\\runtime-tests.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\e2e-06-17-runtime-current-20260908\\runtime-tests.log",
+      "sha256": "1e934c2e156d2ae263bf2b78ee659eb19b57706763250bc2ee6285cd2f4f89b9"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-source-audit-20260908.json",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\backend-source-audit-20260908.json",
+      "sha256": "3584b95cf854265d43da5a7a62b5d380f5fabb9471e0635a52f14468ac6c4fc3"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-source-audit-20260908.md",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\backend-source-audit-20260908.md",
+      "sha256": "a31ab5b41aa6a891cef462e993a2c7d1543d1a47d67a7946c7f495f7b13a9afb"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\e2e131415\\backend-e2e13-15-focused-20260908T230116Z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\e2e131415\\backend-e2e13-15-focused-20260908T230116Z.log",
+      "sha256": "0acf158445a5b16063b9f3cc600b6a4acc713eca1bcc99efe63aec5ef88fa006"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-audit-001-003-safe-allowlist-20260908T001448Z.json",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\backend-audit-001-003-safe-allowlist-20260908T001448Z.json",
+      "sha256": "49cf20d262ba1e5f51d2fe24f607a2a4b6342f7fb61daf08a26b5c331fbc6863"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-audit-001-003-compile-20260908.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\backend-audit-001-003-compile-20260908.log",
+      "sha256": "d1b3b00b02c753db394db6cd1bd05d189344e9f8f8264f7e64c2762b89004f31"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-audit-001-003-database-20260908T000813Z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\backend-audit-001-003-database-20260908T000813Z.log",
+      "sha256": "f1851e8184acaaf72633f404b122cf494d9b20ad24d3a189ad4a1d3f3fe11368"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-audit-001-003-matchlobby-20260908T235500Z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\backend-audit-001-003-matchlobby-20260908T235500Z.log",
+      "sha256": "f55fa3eecb9baa721460da297673afa6f30953f75ec7863001b30eb4b57b3913"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-audit-001-003-matchlobby-20260908T235900Z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\backend-audit-001-003-matchlobby-20260908T235900Z.log",
+      "sha256": "6fd519ef2bb8c89085929faee7fc7c55c403d0e9144a2feb8a301c3d39729f9c"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-audit-001-003-member-nonce-20260908T000636Z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\backend-audit-001-003-member-nonce-20260908T000636Z.log",
+      "sha256": "dd3d7158da41473e3d5b6ed86c288494f5e6df0ee3d219963190c5cca4c6b0ee"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-audit-001-003-member-nonce-20260908T000718Z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\backend-audit-001-003-member-nonce-20260908T000718Z.log",
+      "sha256": "d9a141e82ef65f571f3506b4888553839ff13019c57ae7eecc4d12b15b917f84"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-audit-001-003-result-20260908T000953Z.json",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\backend-audit-001-003-result-20260908T000953Z.json",
+      "sha256": "c7337122efb01cb83468fc55b7419b75d2192d67130bafc6436278ff6a7776d4"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-audit-migration-20260907T234736Z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\backend-audit-migration-20260907T234736Z.log",
+      "sha256": "ce431fc78ec6ee48318e0355d78b31eeb1844931c30dd70fed1d14003a30a893"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-migrator-001-003-20260907T234752Z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\backend-migrator-001-003-20260907T234752Z.log",
+      "sha256": "777a3b53c637f0ce8589b2d5e9a7218dc54e628737535dc42e8dcc7cc0a6e16c"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\mutants\\cleanup-evidence-pre-newguard-20260907T235204Z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\mutants\\cleanup-evidence-pre-newguard-20260907T235204Z.log",
+      "sha256": "b00fb31c829cad48fe507276a8bc6947d25cfcfd6e1d589ab0fe088ca863b9b0"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\mutants\\host-nullnonce-pre-newguard-20260907T235052Z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\mutants\\host-nullnonce-pre-newguard-20260907T235052Z.log",
+      "sha256": "2cc8c2e9f0e9df5b576a4be5ed489e0f5f15adaa47cfbaac86f55b0624f4ff30"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\mutants\\staging-pre-newguard-20260907T234949Z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\mutants\\staging-pre-newguard-20260907T234949Z.log",
+      "sha256": "4fc55ed8205fa8851a5b1aa59926336a0e2ec318b0fcc22aacc1abe77a1a4e9b"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\schema47-full-final\\postcheck-full-20260908T000115Z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\schema47-full-final\\postcheck-full-20260908T000115Z.log",
+      "sha256": "2d0f17b95fa3efa139ad99fd265a6ca1e8ac48d342ebbd6e3faf79fc6db9e564"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\schema47-full-final\\postcheck-full-20260908T000115Z.sql",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\schema47-full-final\\postcheck-full-20260908T000115Z.sql",
+      "sha256": "42d7d75ee7b84506a85f00cc47d4d68b2d958d894ab589ed3edd0843fb19d9af"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\schema47-full-final\\postcheck-full-20260908T000219Z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\schema47-full-final\\postcheck-full-20260908T000219Z.log",
+      "sha256": "10b3432d66b2c69f8762eb2d350457d8d8b257ec94c9699d8e1047a11e61c8cb"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\schema47-full-final\\postcheck-full-20260908T000219Z.sql",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\schema47-full-final\\postcheck-full-20260908T000219Z.sql",
+      "sha256": "42d7d75ee7b84506a85f00cc47d4d68b2d958d894ab589ed3edd0843fb19d9af"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\schema47-full-final\\precheck-final.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\schema47-full-final\\precheck-final.log",
+      "sha256": "b51ae7d72c91e3c688733aab76c0d68b0d117f261eed07ff86e1dafbbbb0f886"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\schema47-full-final\\precheck.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\schema47-full-final\\precheck.log",
+      "sha256": "1179406dd1f67f5a53999facf8cc7648005bf0eea44070300f4fada9aa7e4323"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\schema47-full-final\\precheck.sql",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\schema47-full-final\\precheck.sql",
+      "sha256": "8df35064b178bd71b1213d1583f77cd788ccb78cd2827b98b51053ddf94cfed2"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\schema47-full-final\\restore-20260907T235456Z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\schema47-full-final\\restore-20260907T235456Z.log",
+      "sha256": "c43f66a297eede0781cf035f6b283a576c4e96fcff8df55d6bfbbdfc57e484cc"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\schema47-full-final\\restore-20260907t235537z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\schema47-full-final\\restore-20260907t235537z.log",
+      "sha256": "4cc3d860b08795da816d8f441c0fcf0805e2364513784ecea149679ac59bbe1e"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\schema47-full-final\\run-postcheck-full-20260908T000115Z.sh",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\schema47-full-final\\run-postcheck-full-20260908T000115Z.sh",
+      "sha256": "a8bb245d22f8434407208b7f3e62246cff7f3e673e557dbfcd33fea3a24b373d"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\schema47-full-final\\run-postcheck-full-20260908T000219Z.sh",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\schema47-full-final\\run-postcheck-full-20260908T000219Z.sh",
+      "sha256": "8c7aae3981ca52905cc3fec628429966cf050dab32a6c0f9aa48e3fa180e3af8"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\schema47-full-final\\run-precheck.sh",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\schema47-full-final\\run-precheck.sh",
+      "sha256": "8a2fed85efd1073a40caf83a29456c3bf526cd5ba0af128f2f0e8f9cb7571f10"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\schema47-full-final\\run-restore-20260907T235456Z.sh",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\schema47-full-final\\run-restore-20260907T235456Z.sh",
+      "sha256": "a8329fc34afd6fa71fe0f758dfea34f70bf12c637244ff771a64f7c35631c5a5"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\schema47-full-final\\run-restore-20260907t235537z.sh",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\schema47-full-final\\run-restore-20260907t235537z.sh",
+      "sha256": "5a12b9abf2d88d5dd3cfa77d1e16a415252edc83e443994e0b4aa5f8d7cd4e02"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\schema47-full-final\\run-upgrade-20260907t235658z.sh",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\schema47-full-final\\run-upgrade-20260907t235658z.sh",
+      "sha256": "be8dd3ad41bd888ad456aaee610f3a2914c61bde718a1e99db5157e8a787f88f"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\schema47-full-final\\run-upgrade-rerun-20260907t235811z.sh",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\schema47-full-final\\run-upgrade-rerun-20260907t235811z.sh",
+      "sha256": "b79b8e8d6dffc4a8c69e8fea00a9141d7896800d2a97b2921c3614be0237485e"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\schema47-full-final\\schema47-active-hosts.sql",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\schema47-full-final\\schema47-active-hosts.sql",
+      "sha256": "4075ab8dfcc50220413474ba280418674d407e8a9d0aa52a2d72d7113a6bfe3c"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\schema47-full-final\\upgrade-20260907t235658z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\schema47-full-final\\upgrade-20260907t235658z.log",
+      "sha256": "6ed87c640f1806336f16fab7af9119d6a4a810b75c51105cc2172e72f8e07a5d"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\schema47-full-final\\upgrade-rerun-20260907t235811z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\schema47-full-final\\upgrade-rerun-20260907t235811z.log",
+      "sha256": "50af50d1c8c56b9ec652f6ef5e150f15fdc89aca34bf1d4491d558e3be93df13"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-audit-001-003-supplemental-20260908t002630z.json",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\backend-audit-001-003-supplemental-20260908t002630z.json",
+      "sha256": "8a2a92111b67f7b717ad5ca82431151c845c52d9b2617b424278e2a6f4707800"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-final-race-go1266-schema48-20260908t001815z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\backend-final-race-go1266-schema48-20260908t001815z.log",
+      "sha256": "14509ba080fe348810e3d0264fbf0f4a628f0cb2f198bd7b8a69b201da1bba6f"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-final-migration-normalization-20260908t001657z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\backend-final-migration-normalization-20260908t001657z.log",
+      "sha256": "14fa6e7a1e38401428c4f63415acaef4b37cf264cd3bd9c9621e020f2c1b2c06"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-final-race-db-create-20260908t001637z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\backend-final-race-db-create-20260908t001637z.log",
+      "sha256": "b1be153b85b0ac1e22b2010c0889cec66db8262272b9d9bd7473b3784ff103eb"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\run-backend-final-race-go1266-schema48-20260908t001815z.sh",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\run-backend-final-race-go1266-schema48-20260908t001815z.sh",
+      "sha256": "e8056ad6d8e16c576de575599ae57dcfd07cc1312685bdaf273ed981373ff2cb"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\run-final-migration-normalization-20260908t001657z.sh",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\run-final-migration-normalization-20260908t001657z.sh",
+      "sha256": "4a5f4add8f1fe5c9be6c9d8f0ba59e89c408072e501bf86dddbf49bf5dfaa363"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\run-final-race-db-create-20260908t001637z.sh",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\run-final-race-db-create-20260908t001637z.sh",
+      "sha256": "c1f4ff168d0888edaeed444f18d5200e841cd1ed20e211805dd741f2d31189c0"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-ac034-ac045-mapping-20260908.json",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\backend-ac034-ac045-mapping-20260908.json",
+      "sha256": "aae34f90a591752852843554b1d23aca8e56116e630d27c3b929dae0655491a1"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\backend-ac034-ac045-mapping-20260908-v2.json",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\backend-ac034-ac045-mapping-20260908-v2.json",
+      "sha256": "756a9384cf858d928314a4fd7d87085a347a9ee9d2f08a6a43c250d8a7a9a032"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\ac045-dedicated-selection-20260908T003910Z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\ac045-dedicated-selection-20260908T003910Z.log",
+      "sha256": "89b3cffd5fa9a678f30bb6dbf8ab118fe85f7d86c0b75e24a9d46ee2f2c87a4c"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\ac045-dedicated-selection-20260908T004021Z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\ac045-dedicated-selection-20260908T004021Z.log",
+      "sha256": "995cc683263de5721654122fa5aa13003a01439fee96929ad2001e81969b2905"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\ac045-dedicated-selection-20260908T004208Z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\ac045-dedicated-selection-20260908T004208Z.log",
+      "sha256": "e8ec00815904735a05fdd8d3d08b26b9ea845dfaeb8f2a4b4792369d8e59de5d"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\ac045-dedicated-selection-20260908T004322Z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\ac045-dedicated-selection-20260908T004322Z.log",
+      "sha256": "22f889f6e48edad8442505fbde10758b69fe6e218662333178e34a5acfb33b62"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\ac034-close-freeze-battlelog-20260908T004350Z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\ac034-close-freeze-battlelog-20260908T004350Z.log",
+      "sha256": "1acb1be367a5b6bfaf382a685162256e21b99579b3dffad12cc4de5c9da8e097"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\ac034-close-freeze-battlelog-20260908T004550Z.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\ac034-close-freeze-battlelog-20260908T004550Z.log",
+      "sha256": "eb9fbbb8653710edd1f5af2940723ae4aec2388f5b978a6e97e22c8e310757ad"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\ac045-create-rebound_ac045_component_20260908003910.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\ac045-create-rebound_ac045_component_20260908003910.log",
+      "sha256": "e816706cd44ce0c6c65a7a7938be8103514f7c899694c8240d844f74319b7f98"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\ac045-create-rebound_ac045_component_20260908004322.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\ac045-create-rebound_ac045_component_20260908004322.log",
+      "sha256": "e816706cd44ce0c6c65a7a7938be8103514f7c899694c8240d844f74319b7f98"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\ac034-create-rebound_ac034_component_20260908004350.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\ac034-create-rebound_ac034_component_20260908004350.log",
+      "sha256": "e816706cd44ce0c6c65a7a7938be8103514f7c899694c8240d844f74319b7f98"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\bp014_counter_supplement_test.go",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\bp014_counter_supplement_test.go",
+      "sha256": "0fae5086945343f7969b5d1450802d3d283e94937570cf186fa7b569330e7318"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\bp014_toolbox_counter_supplement_test.go",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\bp014_toolbox_counter_supplement_test.go",
+      "sha256": "8d0412d18f613b7709e47c002fbb27cedf04f5070f0aeeadc6a739c0ec0b30ad"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\bp014_toolbox_legacy_route_loop_test.rs",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\bp014_toolbox_legacy_route_loop_test.rs",
+      "sha256": "aa220468f05c0693173019e84d832fc8b6cb20f5168e5f8279aaa4b7a09ed00f"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\bp014-counter-receipt.json",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\bp014-counter-receipt.json",
+      "sha256": "82cdbdbde52aa6fc7a3eac1d2cf15c2dfa90f2dc375cc44976a58346918c2558"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\bp014-toolbox-route-loop-receipt.json",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\bp014-toolbox-route-loop-receipt.json",
+      "sha256": "c471b9b028ea42b7c30441bc7ec07f6598dfb32b4b754c8c388a8322c5a891d9"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\cargo-test-toolbox-route-loop-rerun.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\cargo-test-toolbox-route-loop-rerun.log",
+      "sha256": "66f2d4233885e0f4fcb39367c52e619f8369a3d008e2db4fc3c523dbc08826c2"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\cargo-test-toolbox-route-loop.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\cargo-test-toolbox-route-loop.log",
+      "sha256": "53d381e4c2fb87e803684ef53ae8d24686c532debf91f840661a00f728b32321"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\controller.rs.before-toolbox-test",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\controller-baseline.rs",
+      "sha256": "1b5c7def976d526cbfeb725f6031689dcfdc1a216b350e28235a50dfffde5777"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\controller.rs.with-bp014-route-loop-test",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\controller-with-route-loop-test.rs",
+      "sha256": "36d423c022db27b96e70301ce2541d8913c190a9132c8b08b572cf6e278b80cb"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\driver-build-receipt.json",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\driver-build-receipt.json",
+      "sha256": "a7e44052322dec47be20ff252c64c199ea20b3f8821e0470b870a0d4d9456a48"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\driver-build.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\driver-build.log",
+      "sha256": "5a6bb72c5a4b51c1b95a375812fb3d84e775156ae6352c0e07b0a00cd98f1270"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\go-test-product-counters-current-driver.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\go-test-product-counters-current-driver.log",
+      "sha256": "b131af290c736b6a3fe982a7a205c352b983e41405b363764117ccf935b3c02a"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\go-test-product-counters-final-with-driver.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\go-test-product-counters-final-with-driver.log",
+      "sha256": "6594d45f8dfbfe7f614161810dd1cab86d0c724fb9550133cb764a23de0c2879"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\go-test-product-counters-final.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\go-test-product-counters-final.log",
+      "sha256": "ee98abd7f3ca2f209533025a6d4f51b892792c3fc2bb7977b2a9c9e0ae0a1979"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\go-test-product-counters-rerun.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\go-test-product-counters-rerun.log",
+      "sha256": "96c7e3c16405e0fff4115e88e4c95915799d26e07224066c01ad6d3141cc5d96"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\go-test-product-counters-rerun2.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\go-test-product-counters-rerun2.log",
+      "sha256": "6422e0b87ef11ab8f71cffc6a755d61a05702d926aa90e8d383baee421acb223"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\go-test-product-counters.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\go-test-product-counters.log",
+      "sha256": "0549526719b411132dec4308a74c01b90fc154b3cdba2c6ec9a0b70aa5fd9b31"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\go-test-toolbox-private-counters-final.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\go-test-toolbox-helper-counters-final.log",
+      "sha256": "30edd33d4aea289edd4a4cb1296b719c39c4746a973e4b45a8c3313fadc52d5c"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\go-test-toolbox-private-counters-rerun.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\go-test-toolbox-helper-counters-rerun.log",
+      "sha256": "ceb33fa0d766b38462e004a6e13e07620767a7d0c0d3cb77a755aa749745cb47"
+    },
+    {
+      "original_path": "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\bp014-counter-20260908T083620Z\\go-test-toolbox-private-counters.log",
+      "path": "C:\\wksp\\ProjectRebound\\docs\\implementation\\strict-roster-20260907\\evidence\\final-supplements\\bp014-counter-20260908T083620Z\\go-test-toolbox-helper-counters.log",
+      "sha256": "d0217413abdcf026731046b0d1f48eb6d380b4db09ef5b96c1a278134b7bfb7e"
+    }
+  ],
+  "scope": "Immutable actual execution receipts/logs; source snapshots and failures remain original."
+}

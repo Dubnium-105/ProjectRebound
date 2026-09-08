@@ -1,0 +1,88 @@
+                     database                     |  role   
+--------------------------------------------------+---------
+ rebound_backend_restore_authority_20260907_final | phanthy
+(1 row)
+
+ max_migration | migration_rows 
+---------------+----------------
+            47 |             47
+(1 row)
+
+ version |                    name                     |                             checksum                             
+---------+---------------------------------------------+------------------------------------------------------------------
+      45 | 000045_match_admission_reservations.sql     | 0b1b876c883925bae57c6cc52988277e217ae5b484dddf82cc6729c9f750953b
+      46 | 000046_match_admission_connection_nonce.sql | 6b56a1e9db3ba93997acecdc79c7cfe2639efaafdde4780d32b75168614d7093
+      47 | 000047_strict_roster_live_nonce.sql         | 0f5771be19f7e0d3e808bad3615bdb4b6cf2162864e8ae9d0109f7de7cde95e5
+(3 rows)
+
+   table_name   | rows 
+----------------+------
+ match_attempts |    0
+(1 row)
+
+      table_name      | rows 
+----------------------+------
+ match_attempt_roster |    0
+(1 row)
+
+       table_name       | rows 
+------------------------+------
+ match_admission_grants |    0
+(1 row)
+
+    table_name    | rows 
+------------------+------
+ p2p_room_members |    0
+(1 row)
+
+    table_name    | rows 
+------------------+------
+ p2p_match_roster |   14
+(1 row)
+
+     table_name     | rows 
+--------------------+------
+ p2p_match_sessions |    6
+(1 row)
+
+       table_name        | rows 
+-------------------------+------
+ p2p_vnt_member_sessions |    0
+(1 row)
+
+    table_name    | rows 
+------------------+------
+ p2p_vnt_sessions |    0
+(1 row)
+
+ table_name  | rows 
+-------------+------
+ connections |    0
+(1 row)
+
+      table_name       | rows 
+-----------------------+------
+ connection_candidates |    0
+(1 row)
+
+  table_name  | rows 
+--------------+------
+ game_servers |    0
+(1 row)
+
+ public_columns 
+----------------
+           1038
+(1 row)
+
+ public_constraints 
+--------------------
+                559
+(1 row)
+
+ public_indexes 
+----------------
+            264
+(1 row)
+
+psql_exit_code=0
