@@ -381,12 +381,14 @@ nlohmann::json BuildPayloadStatus()
     // that a member's JWT reaches NMT_Login.
     const bool nativeClientGrantInjection =
         IsStrictRosterNativeClientGrantInjectionReady();
-    // This remains a separate locked-build capability bit.  It is deliberately
-    // independent of a current allocation/world so an idle authority can be
-    // checked without a scheduler self-lock. The complete native admission
-    // chain for this fixed image still needs a real-game execution receipt;
-    // component tests for Steam proof and Team/Camp hooks do not establish it.
+    // This build-capability bit remains independent of the current
+    // allocation/world. It is intentionally false until a separately
+    // reviewed, real-game execution receipt is accepted for this exact
+    // Payload/game build. A live connection proof below is diagnostic evidence
+    // for that review; it must not silently promote this capability bit.
     constexpr bool nativeAuthorityAdmissionVerified = false;
+    const StrictRoster::NativeAuthorityAdmissionEvidence nativeAuthorityEvidence =
+        gStrictRosterPolicy.NativeAuthorityAdmissionEvidenceSnapshot();
     // Dedicated authority has no local client archive/NMT grant injector;
     // requiring that client-only capability here would self-block a valid
     // dedicated authority. Listen/P2P roles still require both native sides.
@@ -418,6 +420,12 @@ nlohmann::json BuildPayloadStatus()
         {"native_client_grant_injection_ready", nativeClientGrantInjection},
         {"native_client_grant_injection_required", nativeClientGrantInjectionRequired},
         {"native_authority_admission_verified", nativeAuthorityAdmissionVerified},
+        {"native_authority_connection_proof_verified",
+            nativeAuthorityEvidence.verified},
+        {"native_authority_connection_proof_event_sequence",
+            nativeAuthorityEvidence.confirmedEventSequence},
+        {"native_authority_connection_proof_remote_seat_count",
+            nativeAuthorityEvidence.remoteSeatCount},
         {"strict_online_ready", strictReady},
         {"offline_pve", offlinePve},
         {"world_instance_id", CurrentStrictAuthorityWorldInstanceId()},

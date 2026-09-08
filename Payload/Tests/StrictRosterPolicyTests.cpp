@@ -205,6 +205,13 @@ int main()
         first.playerId, first.connectionGeneration, first.grantJti,
         first.nativeConnectionNonce).accepted,
         "native PostLogin should confirm the connected generation");
+    const auto nativeAuthorityEvidence =
+        policy.NativeAuthorityAdmissionEvidenceSnapshot();
+    Expect(nativeAuthorityEvidence.verified &&
+        nativeAuthorityEvidence.remoteSeatCount == 1U &&
+        nativeAuthorityEvidence.confirmedEventSequence > 0U &&
+        policy.NativeAuthorityAdmissionVerified(),
+        "only a confirmed remote native seat should establish authority evidence");
     Expect(policy.MarkConnected(
         first.playerId, first.connectionGeneration, first.grantJti,
         first.nativeConnectionNonce).accepted,
@@ -517,6 +524,8 @@ int main()
         hostReservation.playerId, hostReservation.connectionGeneration,
         hostReservation.grantJti, hostReservation.nativeConnectionNonce).accepted,
         "host recovery should mark the first native generation live");
+    Expect(!hostRecovery.NativeAuthorityAdmissionVerified(),
+        "a local HOST confirmation must not manufacture remote native authority evidence");
     auto preservedHostAllocation = hostRecoveryAllocation;
     preservedHostAllocation["jti"] = "preserved_host_allocation";
     preservedHostAllocation["route_generation"] = 2;
@@ -567,6 +576,8 @@ int main()
         "host recovery should require a fresh nonce for the new generation");
 
 	policy.Reset();
+	Expect(!policy.NativeAuthorityAdmissionVerified(),
+		"live native evidence must be scoped to the cleared allocation");
 	Expect(!StageValidateAndReserve(policy,
 		Token(routeTwoGrant), "steam_member", 125, NativeNonce("route-two-late")).accepted,
 		"clearing a completed assignment must revoke its in-memory admission state");
