@@ -309,9 +309,34 @@ func (s *Service) create(ctx context.Context, actor Actor, input CreateInput, re
 }
 
 func (s *Service) Get(ctx context.Context, roomID string) (Room, error) {
+	if scope, ok := managedAttemptScopeFromContext(ctx); ok {
+		return s.getManagedAttemptRoom(ctx, roomID, scope)
+	}
 	room, err := s.repository.Get(ctx, roomID)
 	if err != nil {
 		return Room{}, mapRoomError(err)
+	}
+	return room, nil
+}
+
+func (s *Service) getManagedAttemptRoom(ctx context.Context, roomID string, scope ManagedAttemptScope) (Room, error) {
+	if strings.TrimSpace(scope.PlayerID) == "" {
+		return Room{}, conflict("MATCH_TRANSPORT_SCOPE_MISMATCH", "The authoritative transport scope is invalid.")
+	}
+	tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return Room{}, internal(err)
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	if err := s.validateManagedAttemptScope(ctx, tx, roomID, scope.PlayerID); err != nil {
+		return Room{}, err
+	}
+	room, err := s.repository.GetForUpdate(ctx, tx, roomID)
+	if err != nil {
+		return Room{}, mapRoomError(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Room{}, internal(err)
 	}
 	return room, nil
 }

@@ -8,6 +8,7 @@ import "context"
 // mutation after an earlier HTTP read.
 type ManagedAttemptScope struct {
 	AttemptID       string
+	PlayerID        string
 	RosterRevision  int64
 	RouteGeneration int
 	RequiredRole    string

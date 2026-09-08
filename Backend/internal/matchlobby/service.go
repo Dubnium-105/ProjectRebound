@@ -267,7 +267,8 @@ func (s *Service) TransportVNTBootstrap(ctx context.Context, actor Actor, scopeR
 		return p2proom.VNTBootstrap{}, conflict("MATCH_TRANSPORT_UNAVAILABLE", "The authoritative transport is unavailable.", nil)
 	}
 	ctx = p2proom.WithManagedAttemptScope(ctx, p2proom.ManagedAttemptScope{
-		AttemptID: scope.AttemptID, RosterRevision: scope.RosterRevision, RouteGeneration: scope.RouteGeneration,
+		AttemptID: scope.AttemptID, PlayerID: actor.PlayerID,
+		RosterRevision: scope.RosterRevision, RouteGeneration: scope.RouteGeneration,
 	})
 	result, err := transport.VNTBootstrap(ctx, toP2PActor(actor), scope.RoomID)
 	if err != nil {
@@ -289,7 +290,8 @@ func (s *Service) TransportVNTPresence(ctx context.Context, actor Actor, scopeRe
 		return TransportRoomProjection{}, conflict("MATCH_TRANSPORT_UNAVAILABLE", "The authoritative transport is unavailable.", nil)
 	}
 	ctx = p2proom.WithManagedAttemptScope(ctx, p2proom.ManagedAttemptScope{
-		AttemptID: scope.AttemptID, RosterRevision: scope.RosterRevision, RouteGeneration: scope.RouteGeneration,
+		AttemptID: scope.AttemptID, PlayerID: actor.PlayerID,
+		RosterRevision: scope.RosterRevision, RouteGeneration: scope.RouteGeneration,
 	})
 	room, err := transport.UpdateVNTPresence(ctx, toP2PActor(actor), scope.RoomID, input)
 	if err != nil {
@@ -317,7 +319,8 @@ func (s *Service) TransportVNTHostReady(ctx context.Context, actor Actor, scopeR
 		return TransportRoomProjection{}, conflict("MATCH_TRANSPORT_UNAVAILABLE", "The authoritative transport is unavailable.", nil)
 	}
 	ctx = p2proom.WithManagedAttemptScope(ctx, p2proom.ManagedAttemptScope{
-		AttemptID: scope.AttemptID, RosterRevision: scope.RosterRevision, RouteGeneration: scope.RouteGeneration,
+		AttemptID: scope.AttemptID, PlayerID: actor.PlayerID,
+		RosterRevision: scope.RosterRevision, RouteGeneration: scope.RouteGeneration,
 		RequiredRole: "HOST",
 	})
 	room, err := transport.VNTHostReady(ctx, toP2PActor(actor), scope.RoomID, hostToken, generation, virtualIP)
@@ -357,6 +360,10 @@ func (s *Service) authorizeTransport(ctx context.Context, actor Actor, request T
 	if !ok {
 		return transportScope{}, p2proom.Room{}, conflict("MATCH_TRANSPORT_UNAVAILABLE", "The authoritative transport is unavailable.", nil)
 	}
+	ctx = p2proom.WithManagedAttemptScope(ctx, p2proom.ManagedAttemptScope{
+		AttemptID: scope.AttemptID, PlayerID: actor.PlayerID,
+		RosterRevision: scope.RosterRevision, RouteGeneration: scope.RouteGeneration,
+	})
 	room, err := reader.Get(ctx, scope.RoomID)
 	if err != nil {
 		return transportScope{}, p2proom.Room{}, mapTransportDependencyError(err)
