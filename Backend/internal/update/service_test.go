@@ -372,13 +372,13 @@ func testOnlineCompatibility() *OnlineCompatibility {
 
 func TestStrictOnlineReleaseMetadataCannotBeOmittedOrDowngraded(t *testing.T) {
 	for name, mutate := range map[string]func(*OnlineCompatibility){
-		"old IPC":          func(c *OnlineCompatibility) { c.IPCProtocol = "strict-roster-v1" },
-		"old frontend":     func(c *OnlineCompatibility) { c.Frontend = "egui" },
-		"old DB":           func(c *OnlineCompatibility) { c.BackendSchema = 24 },
+		"old IPC":           func(c *OnlineCompatibility) { c.IPCProtocol = "strict-roster-v1" },
+		"old frontend":      func(c *OnlineCompatibility) { c.Frontend = "egui" },
+		"old DB":            func(c *OnlineCompatibility) { c.BackendSchema = 24 },
 		"pre-live-scope DB": func(c *OnlineCompatibility) { c.BackendSchema = 47 },
-		"admission bypass": func(c *OnlineCompatibility) { c.AdmissionMode = "open" },
-		"wrong game":       func(c *OnlineCompatibility) { c.GameBinarySHA256 = strings.Repeat("0", 64) },
-		"missing evidence": func(c *OnlineCompatibility) { c.AcceptanceReportSHA256 = "" },
+		"admission bypass":  func(c *OnlineCompatibility) { c.AdmissionMode = "open" },
+		"wrong game":        func(c *OnlineCompatibility) { c.GameBinarySHA256 = strings.Repeat("0", 64) },
+		"missing evidence":  func(c *OnlineCompatibility) { c.AcceptanceReportSHA256 = "" },
 	} {
 		t.Run(name, func(t *testing.T) {
 			c := testOnlineCompatibility()

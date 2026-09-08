@@ -662,6 +662,10 @@ func integrationSecrets() (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	matchAdmission, err := seed()
+	if err != nil {
+		return nil, err
+	}
 	return map[string]string{
 		"V11_CONTROL_HTTP_PORT":                 "28080",
 		"V11_ADMIN_TOKEN":                       integrationAdminToken,
@@ -670,6 +674,7 @@ func integrationSecrets() (map[string]string, error) {
 		"V11_ACCESS_TOKEN_PRIVATE_KEY_BASE64":   access,
 		"V11_RELAY_TOKEN_PRIVATE_KEY_BASE64":    relay,
 		"V11_UPDATE_SIGNING_PRIVATE_KEY_BASE64": update,
+		"V11_MATCH_ADMISSION_PRIVATE_KEY_BASE64": matchAdmission,
 		"V11_RELAY_CA_CERT_PEM_BASE64":          base64.StdEncoding.EncodeToString(caCert),
 		"V11_RELAY_CA_KEY_PEM_BASE64":           base64.StdEncoding.EncodeToString(caKey),
 		"V11_GOPROXY":                           envOrDefault("GOPROXY", "https://proxy.golang.org,direct"),

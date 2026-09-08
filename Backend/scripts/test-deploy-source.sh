@@ -160,9 +160,12 @@ grep -q 'ca-certificates.crt' "$script_dir/../deployments/relay/Dockerfile"
 provision_script="$script_dir/../deployments/control-plane/provision-meta-postgres.sh"
 meta_server_source="$script_dir/../internal/metaserver/server.go"
 provision_version="$(sed -n 's/.*WHERE version = \([0-9][0-9]*\).*/\1/p' "$provision_script" | head -n 1)"
-server_version="$(sed -n 's/.*WHERE version = \([0-9][0-9]*\).*/\1/p' "$meta_server_source" | head -n 1)"
+latest_migration="$(find "$script_dir/../migrations" -maxdepth 1 -type f -name '[0-9]*_*.sql' -printf '%f\n' | sort -V | tail -n 1)"
+server_version="$(printf '%s\n' "$latest_migration" | sed -n 's/^0*\([0-9][0-9]*\)_.*/\1/p')"
 test -n "$provision_version"
+test -n "$server_version"
 test "$provision_version" = "$server_version"
+grep -Fq 'database.NewMigrator(dbPool.Pool).VerifyCurrent' "$meta_server_source"
 for table in battlelog_matches battlelog_teams battlelog_participants \
   battlelog_participant_stats battlelog_rounds battlelog_score_breakdowns; do
   grep -Fq "('$table')" "$provision_script"
