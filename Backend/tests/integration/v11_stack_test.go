@@ -332,6 +332,9 @@ func runRelayFailureMigration(t *testing.T, ctx context.Context, backendDir, int
 	if err := json.Unmarshal(contents, &report); err != nil {
 		t.Fatal(err)
 	}
+	if err := validateAuthoritativeMatchReport(report); err != nil {
+		t.Fatalf("Relay migration authoritative MatchLobby acceptance failed: %v: %s", err, contents)
+	}
 	for category := range report.Failures {
 		if category != "relay_traffic" {
 			t.Fatalf("unexpected Relay failure category %q: %s", category, contents)
@@ -468,6 +471,9 @@ func runImpairedLoadBot(t *testing.T, ctx context.Context, backendDir, integrati
 	var report loadReport
 	if err := json.Unmarshal(contents, &report); err != nil {
 		t.Fatal(err)
+	}
+	if err := validateAuthoritativeMatchReport(report); err != nil {
+		t.Fatalf("%s authoritative MatchLobby acceptance failed: %v: %s", profile, err, contents)
 	}
 	for category := range report.Failures {
 		if category != "relay_traffic" {
