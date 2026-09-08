@@ -1041,7 +1041,8 @@ func (s *Service) P2PAuthorityReady(ctx context.Context, actor Actor, attemptID,
 		       COALESCE(attempt.payload_installed_at IS NOT NULL
 		         AND attempt.payload_route_generation = attempt.route_generation, FALSE)
 		FROM match_attempts AS attempt
-		JOIN match_lobbies AS lobby ON lobby.id = attempt.lobby_id
+		JOIN match_lobbies AS lobby
+		  ON lobby.id = attempt.lobby_id AND lobby.current_attempt_id = attempt.id
 		WHERE attempt.id = $1 AND attempt.hosting_kind = 'P2P'
 		  AND attempt.authority_session_id = $2
 	`, attemptID, authoritySession).Scan(
