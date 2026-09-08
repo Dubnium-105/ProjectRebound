@@ -1,0 +1,113 @@
+{
+  "receipt_version": 1,
+  "status": "R3_RUNTIME_FAILED_ROOT_CAUSE_CONFIRMED_FOR_DIRECT_OPEN_ONLY",
+  "scope": "single-machine production Toolbox PvE cold-start attempt",
+  "package": {
+    "zip_sha256": "e9d2c147c451d40234bfbcea746c064f571ee2ad373851110670bf22ab4cb877",
+    "zip_bytes": 23487404,
+    "signed_exe_sha256": "1a9cdabe49e0ea8f8d355c90e4fa6683b73adbe0b82a76c5c1337608a8e15f3c",
+    "payload_sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+    "preflight": "PASS",
+    "install": "COMPLETED",
+    "test_certificate_trust": "UNKNOWN_ERROR_NOT_TRUSTED"
+  },
+  "timestamps_utc": {
+    "toolbox_started": "2026-09-08T07:45:17.2015017Z",
+    "pve_button_clicked": "2026-09-08T07:49:43.7224110Z",
+    "game_process_observed": "2026-09-08T07:50:14.3968965Z",
+    "boundary_window": "2026-09-08T07:50:28.2623206Z",
+    "login_wait_window": "2026-09-08T07:51:13.6814422Z",
+    "try_again_clicked": "2026-09-08T07:52:51.9710472Z",
+    "post_retry_process_check": "2026-09-08T07:53:22.6779657Z",
+    "toolbox_timeout_modal": "2026-09-08T07:55:19.5723953Z",
+    "r3_process_cleanup": "2026-09-08T08:01:54.6041114Z"
+  },
+  "observed": {
+    "toolbox_ui": "PASS: production UI rendered",
+    "game_process": "PASS: two real Boundary-related processes observed and Boundary window rendered",
+    "game_login": "FAIL: rendered ErrorCode_502 and did not reach local PvE join",
+    "server": "FAIL: server listened on loopback but PlayerCount stayed 0",
+    "metatunnel": "profile and repeated connectServer diagnostics reported HTTP 200",
+    "managed_cleanup": "PASS: game/server exited after visible Retry; r3 Toolbox process tree then stopped",
+    "steam_native_login": "NOT_PROVEN",
+    "native_join_grant": "NOT_RUN_BLOCKED",
+    "online_playable": "NOT_RUN_BLOCKED",
+    "two_machine": "NOT_RUN",
+    "three_machine": "NOT_RUN"
+  },
+  "root_cause": {
+    "qualification": "CONFIRMED that missing -pve caused direct-open rejection and explains zero local players; an independent native gate-ticket failure remains untested until r4",
+    "toolbox_source": "C:/wksp/ProjectReboundToolbox/src/launching/launch.rs:do_launch_pve",
+    "toolbox_bug": "PvE client argument list omitted exact -pve switch",
+    "payload_source": "C:/wksp/ProjectRebound/Payload/ClientLogic/ClientLogic.cpp:283,1496-1498,1993",
+    "payload_effect": "IsOfflinePveClient returned false, QueueConnectToMatch failed closed, and client logged direct-open refusal plus target-not-queued",
+    "backend_effect": "No HTTP 502 was observed in the MetaTunnel diagnostics captured by the product modal"
+  },
+  "source_fix": {
+    "repository": "C:/wksp/ProjectReboundToolbox",
+    "commit": "4f9bdd291322af4fd0c2f1dd6f7cb1be326621d7",
+    "validation": "cargo test --lib 312 passed; cargo fmt check PASS; cargo check --manifest-path src-tauri/Cargo.toml PASS"
+  },
+  "raw_evidence": [
+    {
+      "file": "raw-server-20260908_154944.log",
+      "sha256": "c68174df3e71dc254080ce0ace2a8618c32f7b9a47818496e05b08dbddda15be",
+      "bytes": 4839
+    },
+    {
+      "file": "raw-client-20260908_155003.log",
+      "sha256": "d5e39bf766443d3de25d83dc3f72c5d1e7dff6995301a3bf8995d7ac7b525bb9",
+      "bytes": 578
+    },
+    {
+      "file": "toolbox-process-launch.log",
+      "sha256": "ca38036f5f45a40cc770ec4134483d224fc168fe5b44a0c86b983d6c9023a825",
+      "bytes": 260
+    },
+    {
+      "file": "toolbox-ui-action-start-pve-final-coordinate.log",
+      "sha256": "4fa7941b49d07a8724a99c8cf42a605c6ebd884f7ec3e99fb3734a5d91b18559",
+      "bytes": 139
+    },
+    {
+      "file": "game-cold-start-process-observation.log",
+      "sha256": "b61bfc0fabe68fdf41f3252152267930a191642bfd84e00a82d6dfd68bfc9c89",
+      "bytes": 284
+    },
+    {
+      "file": "boundary-cold-start-window.log",
+      "sha256": "0b42881dbf488cfd53d779ccdbc3c77c6c5ab75c038ac1f26cfeeff0279c03fe",
+      "bytes": 209
+    },
+    {
+      "file": "boundary-login-wait20-window.log",
+      "sha256": "2f07475d92c0accb1ebef54f748971d7c77128fbba53a03ea02edd01e54d5332",
+      "bytes": 211
+    },
+    {
+      "file": "boundary-ui-action-try-again.log",
+      "sha256": "99917e4c592b6f899ac604a85cc7ec724270c24781518c7a4ad2ed5feffa2314",
+      "bytes": 117
+    },
+    {
+      "file": "post-try-again-process-observation.log",
+      "sha256": "371d771c7142bb341cf38e400abeed1e49ac5f319842cadd11072ab6580e5f25",
+      "bytes": 114
+    },
+    {
+      "file": "toolbox-after-pve-error-foreground.log",
+      "sha256": "2428f36cbe820d3c18ccf465125b7885dd334aaec0f540b708de18b921038c37",
+      "bytes": 233
+    },
+    {
+      "file": "r3-process-cleanup.log",
+      "sha256": "d742ef6f541bdb50ab13c340765cbe4bcb865b0fe0c534b0363138f9439323f3",
+      "bytes": 264
+    }
+  ],
+  "next_step": "Build/sign r4 from the source fix, repeat the normal product PvE path, and separately record Steam/native login, native join/grant status, player joined/scene, and cleanup.",
+  "constraints": [
+    "No fixture, synthetic roster, empty Grant, direct-open bypass, or strict-gate disable was used.",
+    "R3 is not a multiplayer or Playable acceptance result."
+  ]
+}

@@ -1,0 +1,763 @@
+{
+  "schema_version": 1,
+  "release_ready": false,
+  "recorded_at_utc": "2026-09-08T08:10:23.778188+00:00",
+  "rules": [
+    "Append-only scope relative to the frozen original52 and prior Backend/client deltas.",
+    "Adding -pve is confined to the explicit isolated PvE client launch. Online Join Grant checks were not modified.",
+    "The omitted flag proves the r3 direct-open refusal; ErrorCode_502 causality and final native login require the r4 real run.",
+    "Missing physical-machine evidence is never promoted to PASS."
+  ],
+  "items": [
+    {
+      "id": "BP-001",
+      "title": "源码基线与实测 EXE/DLL 版本未闭合",
+      "depends_on": [],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-001",
+      "this_r4_delta": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "new_commits": [
+        "Toolbox:4f9bdd291322af4fd0c2f1dd6f7cb1be326621d7",
+        "Toolbox:30148ad96e08ee4e26cd4972c557a4dee2340c21",
+        "ProjectRebound:1f9542a"
+      ],
+      "evidence_ref": "distribution-r4-receipt.json",
+      "full_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-002",
+      "title": "并发刷新、登出和旧结果回写竞争",
+      "depends_on": [],
+      "frozen_original_acceptance": "PASS",
+      "prior_client_delta_ref": "client-native-delta.json#BP-002",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-003",
+      "title": "DPAPI 配置直接覆盖，缺少原子持久化",
+      "depends_on": [
+        "BP-002"
+      ],
+      "frozen_original_acceptance": "PASS",
+      "prior_client_delta_ref": "client-native-delta.json#BP-003",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-004",
+      "title": "fresh/logged_in 的状态保证强于实际结果",
+      "depends_on": [],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-004",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-005",
+      "title": "WebSocket 重连使用旧 Token，缺少统一恢复过程",
+      "depends_on": [
+        "BP-002",
+        "BP-004"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-005",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-006",
+      "title": "凭据种类缺少统一机器可读生命周期清单",
+      "depends_on": [],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-006",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-007",
+      "title": "客户端进房/建房部分成功后的补偿与恢复不全",
+      "depends_on": [
+        "BP-002",
+        "BP-025"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-007",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-008",
+      "title": "Host/Member 角色在启动分派中被丢弃",
+      "depends_on": [
+        "BP-016",
+        "BP-019",
+        "BP-031"
+      ],
+      "frozen_original_acceptance": "BLOCKED",
+      "prior_client_delta_ref": "client-native-delta.json#BP-008",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-009",
+      "title": "VNT 裸 IP 与 Payload host:port 校验冲突",
+      "depends_on": [],
+      "frozen_original_acceptance": "PASS",
+      "prior_client_delta_ref": "client-native-delta.json#BP-009",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-010",
+      "title": "VNT host_ready/探测通与原生游戏监听就绪混用",
+      "depends_on": [
+        "BP-008",
+        "BP-019"
+      ],
+      "frozen_original_acceptance": "BLOCKED",
+      "prior_client_delta_ref": "client-native-delta.json#BP-010",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-011",
+      "title": "新建回退、开局前 rebind 与运行中迁移边界必须固定",
+      "depends_on": [
+        "BP-007",
+        "BP-031"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-011",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-012",
+      "title": "Legacy 单 game_peer 和全 peers 广播可能合并多人身份",
+      "depends_on": [
+        "BP-013",
+        "BP-014"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-012",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-013",
+      "title": "Relay 16 字节截断 HMAC 用了完整长度验证接口",
+      "depends_on": [],
+      "frozen_original_acceptance": "PASS",
+      "prior_client_delta_ref": "client-native-delta.json#BP-013",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-014",
+      "title": "Relay 数据面错误被吞，重排/MTU/重放缺少可观测验收",
+      "depends_on": [
+        "BP-013",
+        "BP-025"
+      ],
+      "frozen_original_acceptance": "PASS",
+      "prior_client_delta_ref": "client-native-delta.json#BP-014",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-015",
+      "title": "Relay 迁移缺少显式切换状态、代次与收尾",
+      "depends_on": [
+        "BP-012",
+        "BP-005"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-015",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-016",
+      "title": "launch_join 返回空 PID，与前端完成结果契约冲突",
+      "depends_on": [
+        "BP-023",
+        "BP-025"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-016",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-017",
+      "title": "launch_room 在最终提交前发布成功且失败清理不一致",
+      "depends_on": [
+        "BP-016",
+        "BP-025"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-017",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-018",
+      "title": "PID/窗口稳定被当成远程入场完成",
+      "depends_on": [
+        "BP-019",
+        "BP-021",
+        "BP-025"
+      ],
+      "frozen_original_acceptance": "BLOCKED",
+      "prior_client_delta_ref": "client-native-delta.json#BP-018",
+      "this_r4_delta": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "new_commits": [
+        "Toolbox:4f9bdd291322af4fd0c2f1dd6f7cb1be326621d7",
+        "Toolbox:30148ad96e08ee4e26cd4972c557a4dee2340c21",
+        "ProjectRebound:1f9542a"
+      ],
+      "evidence_ref": "distribution-r4-receipt.json",
+      "full_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-019",
+      "title": "房间/远程 Join 缺少统一 PayloadReady 握手与诊断通道",
+      "depends_on": [
+        "BP-001",
+        "BP-023"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-019",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-020",
+      "title": "Toolbox 登录与游戏登录/游戏线程泵送没有闭环",
+      "depends_on": [
+        "BP-019",
+        "BP-025"
+      ],
+      "frozen_original_acceptance": "BLOCKED",
+      "prior_client_delta_ref": "client-native-delta.json#BP-020",
+      "this_r4_delta": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "new_commits": [
+        "Toolbox:4f9bdd291322af4fd0c2f1dd6f7cb1be326621d7",
+        "Toolbox:30148ad96e08ee4e26cd4972c557a4dee2340c21",
+        "ProjectRebound:1f9542a"
+      ],
+      "evidence_ref": "distribution-r4-receipt.json",
+      "full_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-021",
+      "title": "发出 open 后即清空队列，缺少 Travel 成败闭环",
+      "depends_on": [
+        "BP-020",
+        "BP-023"
+      ],
+      "frozen_original_acceptance": "BLOCKED",
+      "prior_client_delta_ref": "client-native-delta.json#BP-021",
+      "this_r4_delta": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "new_commits": [
+        "Toolbox:4f9bdd291322af4fd0c2f1dd6f7cb1be326621d7",
+        "Toolbox:30148ad96e08ee4e26cd4972c557a4dee2340c21",
+        "ProjectRebound:1f9542a"
+      ],
+      "evidence_ref": "distribution-r4-receipt.json",
+      "full_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-022",
+      "title": "join_ack.status accepted/ok 不兼容",
+      "depends_on": [],
+      "frozen_original_acceptance": "PASS",
+      "prior_client_delta_ref": "client-native-delta.json#BP-022",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-023",
+      "title": "IPC 文档/七命令、分帧、取消和结构化错误未统一",
+      "depends_on": [],
+      "frozen_original_acceptance": "PASS",
+      "prior_client_delta_ref": "client-native-delta.json#BP-023",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-024",
+      "title": "游戏 lifecycle 与服务注册 state 枚举未完整适配",
+      "depends_on": [],
+      "frozen_original_acceptance": "BLOCKED",
+      "prior_client_delta_ref": "client-native-delta.json#BP-024",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-025",
+      "title": "错误、trace 与前端房间状态同步不完整",
+      "depends_on": [],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-025",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-026",
+      "title": "有序资源关闭未覆盖常驻worker与阻塞IO",
+      "depends_on": [
+        "BP-016",
+        "BP-023"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-026",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-027",
+      "title": "世界切换后角色、配装、控制器、HUD与多局流程未验收",
+      "depends_on": [
+        "BP-018",
+        "BP-021",
+        "BP-039",
+        "BP-040",
+        "BP-047"
+      ],
+      "frozen_original_acceptance": "BLOCKED",
+      "prior_client_delta_ref": "client-native-delta.json#BP-027",
+      "this_r4_delta": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "new_commits": [
+        "Toolbox:4f9bdd291322af4fd0c2f1dd6f7cb1be326621d7",
+        "Toolbox:30148ad96e08ee4e26cd4972c557a4dee2340c21",
+        "ProjectRebound:1f9542a"
+      ],
+      "evidence_ref": "distribution-r4-receipt.json",
+      "full_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-028",
+      "title": "本地 Node Meta 与远程 Go MetaTunnel 是不同模式",
+      "depends_on": [
+        "BP-001",
+        "BP-019",
+        "BP-020"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-028",
+      "this_r4_delta": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "new_commits": [
+        "Toolbox:4f9bdd291322af4fd0c2f1dd6f7cb1be326621d7",
+        "Toolbox:30148ad96e08ee4e26cd4972c557a4dee2340c21",
+        "ProjectRebound:1f9542a"
+      ],
+      "evidence_ref": "distribution-r4-receipt.json",
+      "full_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-029",
+      "title": "MetaTunnel 动态端口、Token更新和EOF/父进程退出未接成工作流",
+      "depends_on": [
+        "BP-002",
+        "BP-005",
+        "BP-026",
+        "BP-028"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-029",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-030",
+      "title": "Toolbox 未接通权威大厅/Attempt 完整控制器",
+      "depends_on": [
+        "BP-016",
+        "BP-025",
+        "BP-031",
+        "BP-032",
+        "BP-033",
+        "BP-035"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-030",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-031",
+      "title": "角色、hosting/transport与各类ID/generation不能压成一个字段",
+      "depends_on": [],
+      "frozen_original_acceptance": "PASS",
+      "prior_client_delta_ref": "client-native-delta.json#BP-031",
+      "this_r4_delta": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "new_commits": [
+        "Toolbox:4f9bdd291322af4fd0c2f1dd6f7cb1be326621d7",
+        "Toolbox:30148ad96e08ee4e26cd4972c557a4dee2340c21",
+        "ProjectRebound:1f9542a"
+      ],
+      "evidence_ref": "distribution-r4-receipt.json",
+      "full_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-032",
+      "title": "退役旧在线房间API与任意地址Join，保留托管隔离",
+      "depends_on": [
+        "BP-031"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-032",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-033",
+      "title": "旧连通回调提前推进托管p2p_room为RUNNING",
+      "depends_on": [
+        "BP-031",
+        "BP-032"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-033",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-034",
+      "title": "BattleLog Presence等投影入口仍能独立推进托管状态",
+      "depends_on": [
+        "BP-033"
+      ],
+      "frozen_original_acceptance": "PASS",
+      "prior_client_delta_ref": "client-native-delta.json#BP-034",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-035",
+      "title": "大厅—传输—对局投影的跨事务补偿与崩溃恢复需补证据",
+      "depends_on": [
+        "BP-031",
+        "BP-032"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-035",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-036",
+      "title": "多种Presence/Heartbeat租约与启动/Grant时限尚未统一编排",
+      "depends_on": [
+        "BP-025",
+        "BP-031"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-036",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-037",
+      "title": "后端开局人数规则与游戏角色确认门禁未形成同一政策",
+      "depends_on": [
+        "BP-031",
+        "BP-036"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-037",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-038",
+      "title": "客户端携带Join Grant的原生NMT_Login路径尚未实现",
+      "depends_on": [
+        "BP-019",
+        "BP-020",
+        "BP-023",
+        "BP-031"
+      ],
+      "frozen_original_acceptance": "BLOCKED",
+      "prior_client_delta_ref": "client-native-delta.json#BP-038",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-039",
+      "title": "权威PreLogin、真实身份、队伍/席位执行与回执未闭环",
+      "depends_on": [
+        "BP-038",
+        "BP-041",
+        "BP-042"
+      ],
+      "frozen_original_acceptance": "BLOCKED",
+      "prior_client_delta_ref": "client-native-delta.json#BP-039",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-040",
+      "title": "P2P房主StartAuthority传空平台身份且缺原生启动证明",
+      "depends_on": [
+        "BP-008",
+        "BP-031",
+        "BP-039"
+      ],
+      "frozen_original_acceptance": "BLOCKED",
+      "prior_client_delta_ref": "client-native-delta.json#BP-040",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-041",
+      "title": "同route的allocation刷新未应用新席位generation",
+      "depends_on": [
+        "BP-031"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-041",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-042",
+      "title": "Join Grant重复申请/撤销/消费与本地准入缺少一致事务",
+      "depends_on": [
+        "BP-031",
+        "BP-036",
+        "BP-041"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-042",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-043",
+      "title": "权威恢复缺少route/seat刷新与同世界连续性证明",
+      "depends_on": [
+        "BP-036",
+        "BP-039",
+        "BP-040",
+        "BP-041",
+        "BP-042"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-043",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-044",
+      "title": "旧快照/旧Attempt/旧断线回执污染新会话的边界需全链验证",
+      "depends_on": [
+        "BP-030",
+        "BP-031",
+        "BP-042",
+        "BP-043"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-044",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-045",
+      "title": "Dedicated严格调度没有充分筛选准入能力",
+      "depends_on": [
+        "BP-001",
+        "BP-031",
+        "BP-049"
+      ],
+      "frozen_original_acceptance": "PASS",
+      "prior_client_delta_ref": "client-native-delta.json#BP-045",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-046",
+      "title": "专服心跳active_match未被Toolbox消费并驱动准入",
+      "depends_on": [
+        "BP-023",
+        "BP-024",
+        "BP-030",
+        "BP-045"
+      ],
+      "frozen_original_acceptance": "BLOCKED",
+      "prior_client_delta_ref": "client-native-delta.json#BP-046",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-047",
+      "title": "数据库结束/释放早于Payload清理与游戏资源确认",
+      "depends_on": [
+        "BP-026",
+        "BP-043",
+        "BP-044",
+        "BP-046"
+      ],
+      "frozen_original_acceptance": "BLOCKED",
+      "prior_client_delta_ref": "client-native-delta.json#BP-047",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-048",
+      "title": "strict开关关闭启动会批量终止共享数据库严格对局",
+      "depends_on": [],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-048",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-049",
+      "title": "配套schema升级、单版本部署与身份隔离门禁",
+      "depends_on": [
+        "BP-031",
+        "BP-048"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-049",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    },
+    {
+      "id": "BP-050",
+      "title": "发布/更新/运行时安全门禁需跟兼容矩阵一起保持",
+      "depends_on": [
+        "BP-001",
+        "BP-006",
+        "BP-026",
+        "BP-049"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-050",
+      "this_r4_delta": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "new_commits": [
+        "Toolbox:4f9bdd291322af4fd0c2f1dd6f7cb1be326621d7",
+        "Toolbox:30148ad96e08ee4e26cd4972c557a4dee2340c21",
+        "ProjectRebound:1f9542a"
+      ],
+      "evidence_ref": "distribution-r4-receipt.json",
+      "full_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-051",
+      "title": "现有单库/模拟/可视化检查不能证明端到端已通过",
+      "depends_on": [
+        "BP-047",
+        "BP-050"
+      ],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-051",
+      "this_r4_delta": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+      "new_commits": [
+        "Toolbox:4f9bdd291322af4fd0c2f1dd6f7cb1be326621d7",
+        "Toolbox:30148ad96e08ee4e26cd4972c557a4dee2340c21",
+        "ProjectRebound:1f9542a"
+      ],
+      "evidence_ref": "distribution-r4-receipt.json",
+      "full_online_acceptance": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES"
+    },
+    {
+      "id": "BP-052",
+      "title": "Backend/matchserver二进制来源与消费链待审计",
+      "depends_on": [],
+      "frozen_original_acceptance": "PARTIAL",
+      "prior_client_delta_ref": "client-native-delta.json#BP-052",
+      "this_r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+      "new_commits": [],
+      "evidence_ref": "client-native-delta.json",
+      "full_online_acceptance": "NOT_REEVALUATED_THIS_R4_DELTA"
+    }
+  ]
+}

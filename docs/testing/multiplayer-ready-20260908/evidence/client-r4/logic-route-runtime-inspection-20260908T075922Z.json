@@ -1,0 +1,79 @@
+{
+  "observed_at_utc": "2026-09-08T07:59:22.878060+00:00",
+  "scope": "Read-only effective Logic routing and FRPC service state; no certificate/key contents or application credentials read.",
+  "results": {
+    "control_haproxy": {
+      "exit_code": 0,
+      "selected_configuration": [
+        "acl sni_logic req.ssl_sni -i logic.project-rebound.space",
+        "use_backend meta_logic_tls if sni_logic",
+        "backend meta_logic_tls",
+        "mode tcp",
+        "server meta_logic_tls 127.0.0.1:10446 send-proxy check-send-proxy check inter 5s fall 3 rise 2",
+        "backend meta_tls",
+        "mode tcp",
+        "server local_meta 127.0.0.1:10445 check inter 5s fall 3 rise 2",
+        "frontend meta_https",
+        "bind 127.0.0.1:10445 ssl crt /etc/haproxy/certs/meta.project-rebound.space.pem alpn h2,http/1.1",
+        "mode http",
+        "default_backend meta_origin",
+        "frontend meta_logic_tls",
+        "bind 127.0.0.1:10446 accept-proxy ssl crt /etc/haproxy/certs/logic.project-rebound.space.pem",
+        "mode tcp",
+        "default_backend meta_logic_origin",
+        "backend meta_origin",
+        "mode http",
+        "server meta 127.0.0.1:18082 check inter 5s fall 3 rise 2",
+        "backend meta_logic_origin",
+        "mode tcp",
+        "server meta_logic 127.0.0.1:16968 send-proxy check-send-proxy check inter 5s fall 3 rise 2"
+      ],
+      "stderr_present": false
+    },
+    "control_logic_dns": {
+      "exit_code": 0,
+      "selected_configuration": [
+        "107.182.184.53  STREAM logic.project-rebound.space",
+        "107.182.184.53  DGRAM",
+        "107.182.184.53  RAW"
+      ],
+      "stderr_present": false
+    },
+    "gateway_haproxy": {
+      "exit_code": 0,
+      "selected_configuration": [
+        "acl sni_logic req.ssl_sni -i logic.dubnium.top",
+        "use_backend meta_logic_tls if sni_logic",
+        "backend meta_https",
+        "mode tcp",
+        "server meta_https 127.0.0.1:10445 check inter 3s fall 2 rise 2",
+        "backend meta_logic_tls",
+        "mode tcp",
+        "server meta_logic_tls 127.0.0.1:10446 send-proxy check-send-proxy check inter 3s fall 2 rise 2",
+        "frontend meta_https",
+        "bind 127.0.0.1:10445 ssl crt /etc/haproxy/certs/meta.dubnium.top.pem alpn h2,http/1.1",
+        "mode http",
+        "default_backend meta_http_origin",
+        "frontend meta_logic_tls",
+        "bind 127.0.0.1:10446 accept-proxy ssl crt /etc/haproxy/certs/logic.dubnium.top.pem",
+        "mode tcp",
+        "default_backend meta_logic_origin",
+        "backend meta_http_origin",
+        "mode http",
+        "server meta_http 127.0.0.1:18082 check inter 3s fall 3 rise 2",
+        "backend meta_logic_origin",
+        "mode tcp",
+        "server meta_logic 127.0.0.1:16969 send-proxy check-send-proxy check inter 3s fall 3 rise 2"
+      ],
+      "stderr_present": false
+    },
+    "control_meta_frpc": {
+      "exit_code": 0,
+      "selected_configuration": [
+        "ActiveState=inactive",
+        "SubState=dead"
+      ],
+      "stderr_present": false
+    }
+  }
+}

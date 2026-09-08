@@ -1,0 +1,192 @@
+{
+  "schema_version": 1,
+  "reviewed_at_utc": "2026-09-08T07:53:09.700Z",
+  "review_type": "bounded_final_distribution_zip_static_review",
+  "overall_status": "PASS_STATIC_PACKAGE_REVIEW_NO_CONCRETE_DISTRIBUTION_BLOCKER",
+  "scope": "Read-only inspection of the final ZIP, its included user-facing files, and authoritative deployment/package receipts. No package edit, deployment, publication, Windows runtime execution, or native gameplay was performed.",
+  "package": {
+    "path": "artifacts/hardware-test-20260908-r3/rebound-hardware-test-20260908-r3-windows-x64.zip",
+    "bytes": 23487404,
+    "sha256": "e9d2c147c451d40234bfbcea746c064f571ee2ad373851110670bf22ab4cb877",
+    "expected_sha256": "e9d2c147c451d40234bfbcea746c064f571ee2ad373851110670bf22ab4cb877",
+    "sha256_matches": true,
+    "zip_entries": 23,
+    "root_directory": "rebound-hardware-test-20260908-r3-windows-x64"
+  },
+  "checks": [
+    {
+      "id": "zip_sha256_and_size",
+      "status": "PASS",
+      "evidence": {
+        "path": "artifacts/hardware-test-20260908-r3/rebound-hardware-test-20260908-r3-windows-x64.zip",
+        "bytes": 23487404,
+        "sha256": "e9d2c147c451d40234bfbcea746c064f571ee2ad373851110670bf22ab4cb877",
+        "expected_sha256": "e9d2c147c451d40234bfbcea746c064f571ee2ad373851110670bf22ab4cb877"
+      }
+    },
+    {
+      "id": "archive_manifest_file_hashes",
+      "status": "PASS",
+      "evidence": {
+        "zip_entries": 23,
+        "manifest_file_entries": 21,
+        "all_entries_present_and_hash_matched": true
+      }
+    },
+    {
+      "id": "sha256sums_sidecar",
+      "status": "PASS",
+      "evidence": {
+        "rows": 22,
+        "all_rows_match_archive": true,
+        "manifest_row_present": true,
+        "self_row_absent": true
+      }
+    },
+    {
+      "id": "package_build_and_distribution_receipts",
+      "status": "PASS",
+      "evidence": {
+        "package_build_receipt": "artifacts/hardware-test-20260908-r3/package-build-receipt.json",
+        "distribution_receipt": "docs/testing/multiplayer-ready-20260908/distribution-receipt.json",
+        "package_manifest_sha256": "e50db683ef6cfb3ece78439dfbc306dfdba6d05fa16a621a5eec88c4bc5a6469",
+        "deployment_receipt_sha256": "5fae6a65952fbe34d031eef35bcb729efa3fa56779f773590f12df77fe604994",
+        "deployment_receipt_expected_sha256": "5fae6a65952fbe34d031eef35bcb729efa3fa56779f773590f12df77fe604994"
+      }
+    },
+    {
+      "id": "backend_endpoints_and_schema48",
+      "status": "PASS",
+      "evidence": {
+        "manifest_service_origins": [
+          "https://api.project-rebound.space",
+          "https://cnapi.project-rebound.space",
+          "https://meta.project-rebound.space"
+        ],
+        "logic_endpoint": {
+          "address": "logic.project-rebound.space:443",
+          "protocol": "TLS TCP",
+          "tls_server_name": "logic.project-rebound.space"
+        },
+        "manifest_schema_required": 48,
+        "manifest_schema_observed": 48,
+        "deployment_schema_after": 48,
+        "public_probe_statuses": {
+          "https://api.project-rebound.space/health/live": 200,
+          "https://api.project-rebound.space/health/ready": 200,
+          "https://api.project-rebound.space/v1/client/config": 200,
+          "https://api.project-rebound.space/v1/p2p-rooms": 410,
+          "https://cnapi.project-rebound.space/health/ready": 200,
+          "https://cnapi.project-rebound.space/v1/client/config": 200,
+          "https://meta.project-rebound.space/health/live": 200,
+          "https://meta.project-rebound.space/health/ready": 200
+        },
+        "retired_route_message": "Standalone online P2P rooms are retired; create or join an authoritative match lobby."
+      }
+    },
+    {
+      "id": "signed_payload_toolbox_pair_pins",
+      "status": "PASS_STATIC_PIN_MATCH",
+      "evidence": {
+        "payload_sha256_values": [
+          "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183"
+        ],
+        "toolbox_sha256_values": [
+          "1a9cdabe49e0ea8f8d355c90e4fa6683b73adbe0b82a76c5c1337608a8e15f3c"
+        ],
+        "shared_signer_thumbprint": "B041917B2322ED509435B72356BA5AD9EA053378",
+        "payload_status": "PASS_TEST_SIGNATURE_ONLY",
+        "toolbox_status": "PASS_TEST_SIGNATURE_ONLY",
+        "win_verify_trust_hresult": -2146762487,
+        "timestamping": "NOT_RUN",
+        "runtime_signature_verification": "NOT_RUN_IN_THIS_REVIEW"
+      }
+    },
+    {
+      "id": "three_machine_expected_two_remote_flow",
+      "status": "PASS_DOCUMENTED",
+      "evidence": {
+        "matrix_sections": "TEST-MATRIX.md:10-17, 23-31, 45-58",
+        "owner_action": "Collect native proof",
+        "seat_rule": "B and C are unique remote seats; reconnecting one player cannot count as another player",
+        "unexecuted_state": "Three-machine admission collection and second cold-start collection are NOT_RUN; full matches BLOCKED"
+      }
+    },
+    {
+      "id": "release_playable_claim_boundary",
+      "status": "PASS_DOCUMENTED",
+      "evidence": {
+        "package_release_ready": false,
+        "payload_release_ready": false,
+        "distribution_release_ready": false,
+        "native_authority_admission_verified": null,
+        "native_connection_collection": {
+          "status": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES",
+          "entry_point": "Owner: Collect native proof; all three frozen seats must be real Steam sessions"
+        },
+        "native_online_acceptance": {
+          "status": "BLOCKED",
+          "reason": "Independent native build capability remains unverified; connection collection never promotes Playable."
+        },
+        "readme_sections": "README.md:5-9, 27, 36, 66; TEST-MATRIX.md:5, 28, 45-58",
+        "package_manifest_native_authority_admission_verified_field": "not present in package manifest; distribution receipt records false",
+        "distribution_receipt_native_authority_admission_verified": false,
+        "reason": "release_ready=false in package/payload/distribution, native_online_acceptance=BLOCKED, and included README/TEST-MATRIX explicitly say proof capture does not publish Playable; physical/native acceptance remains NOT_RUN/BLOCKED."
+      }
+    },
+    {
+      "id": "launcher_install_and_native_scripts",
+      "status": "PASS",
+      "evidence": {
+        "launcher": "Run-Toolbox.cmd starts only the packaged rebound_toolbox_tauri.exe",
+        "check_machine": "Check-ThisMachine.ps1 pins the manifest Toolbox SHA and delegates Preflight/Collect outside-package evidence",
+        "install_restore": "Install-StrictPayload.ps1 and Restore-StrictPayload.ps1 enforce package/game/Steam/signature pins and rollback hashes",
+        "native_files_present": true,
+        "forbidden_admission_bypass_matches_in_scripts": []
+      }
+    }
+  ],
+  "distribution_blocker": {
+    "found": false,
+    "concrete_mismatches": [],
+    "finding": "No concrete mismatch was found among archive bytes, manifests, endpoint/schema declarations, receipt hashes, signed pair pins, launcher/install/native script contents, or documented three-machine expected-two-remote flow."
+  },
+  "unrun_or_blocked": [
+    {
+      "item": "Windows Authenticode trust and script runtime",
+      "status": "NOT_RUN_IN_THIS_REVIEW",
+      "evidence": "Package receipts record PASS_TEST_SIGNATURE_ONLY with CERT_E_UNTRUSTEDROOT (-2146762487) and timestamping NOT_RUN; this review did not execute Windows scripts."
+    },
+    {
+      "item": "Three physical-machine native admission/gameplay",
+      "status": "NOT_RUN",
+      "evidence": "package-manifest native_connection_collection=NOT_RUN_ON_THREE_PHYSICAL_MACHINES; native_online_acceptance=BLOCKED; release_ready=false; no Playable claim."
+    }
+  ],
+  "reviewed_included_paths": [
+    "README.md",
+    "README.zh-CN.md",
+    "TEST-MATRIX.md",
+    "TEST-MATRIX.zh-CN.md",
+    "Run-Toolbox.cmd",
+    "Check-ThisMachine.ps1",
+    "Install-StrictPayload.ps1",
+    "Restore-StrictPayload.ps1",
+    "native/README.md",
+    "native/README.zh-CN.md",
+    "native/Common-WindowsNative.ps1",
+    "native/Preflight-WindowsNative.ps1",
+    "native/Collect-WindowsNative.ps1",
+    "native/Test-WindowsNative.ps1",
+    "native/package-manifest.schema.json",
+    "package-manifest.json",
+    "payload-manifest.json",
+    "SHA256SUMS"
+  ],
+  "authoritative_receipts": {
+    "deployment_receipt": "docs/testing/multiplayer-ready-20260908/deployment-receipt.json",
+    "deployment_receipt_sha256": "5fae6a65952fbe34d031eef35bcb729efa3fa56779f773590f12df77fe604994",
+    "package_build_receipt": "artifacts/hardware-test-20260908-r3/package-build-receipt.json",
+    "distribution_receipt": "docs/testing/multiplayer-ready-20260908/distribution-receipt.json"
+  }
+}

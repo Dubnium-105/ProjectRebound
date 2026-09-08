@@ -1,0 +1,19 @@
+{
+  "recorded_at": "2026-09-08T08:08:43.662537+00:00",
+  "status": "PASS_PACKAGE_BYTES_ONLY",
+  "release_ready": false,
+  "scope": "Exact package bytes checked by reading every archive; not remote installation or native gameplay acceptance.",
+  "builder_sha256": "c5beeab419725b0c5fc6197a88c62cc40eb03429d3c2f0d55edbfdd3a7b43a6a",
+  "metadata_sha256": "29e93e1ec6cde1c27a447cd38c7ffaba9dd614c06c49b0f834b31cbd0ce39dbf",
+  "packages": [
+    {
+      "path": "artifacts\\hardware-test-20260908-r4\\rebound-hardware-test-20260908-r4-windows-x64.zip",
+      "sha256": "73bff684e19d0644fe310fa833624150e5b7c9105013482198a90a1ce6651689",
+      "bytes": 23487655,
+      "files": 23,
+      "archive_byte_check": "PASS",
+      "manifest_sha256": "8d2894e940d7b32b40b184aa22b1fdf76fdb20a2e356ccb186c82a5f3f51b98e",
+      "staging_directory": "artifacts\\hardware-test-20260908-r4\\rebound-hardware-test-20260908-r4-windows-x64"
+    }
+  ]
+}

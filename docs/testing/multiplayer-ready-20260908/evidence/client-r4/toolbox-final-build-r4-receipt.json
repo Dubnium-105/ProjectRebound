@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-08T08:08:18.8585734Z",
+  "source_commit": "30148ad96e08ee4e26cd4972c557a4dee2340c21",
+  "source_dirty": false,
+  "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\wksp\\ProjectReboundToolbox\\scripts\\build-strict-candidate.ps1 -PayloadPath C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution\\signed\\Payload.dll -ExpectedPayloadSha256 8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+  "exit_code": 0,
+  "build_driver": "tauri-cli",
+  "build_log": {
+    "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r4\\toolbox-final-build-r4-20260908T160619587Z.log",
+    "sha256": "b599873aba0ecf85f3ea82081e144ad33afb86cc1d0b362cf1ac20f95254f029",
+    "bytes": 1881
+  },
+  "candidate_manifest": {
+    "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r4\\strict-candidate.json",
+    "sha256": "da580556af9ecd7fc3b17ceb5df9552df758a85ceb10b39d39fe5a5c93daad86",
+    "bytes": 1824
+  },
+  "toolbox": {
+    "path": "C:\\wksp\\ProjectReboundToolbox\\src-tauri\\target\\release\\rebound_toolbox_tauri.exe",
+    "sha256": "112fce79efe0dd2b24943452f04886a9a779e16a9106dc2d5f0464f18fd9753f",
+    "bytes": 49361408
+  },
+  "payload": {
+    "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution\\signed\\Payload.dll",
+    "sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+    "bytes": 2098488
+  },
+  "manifest_observed": {
+    "source_commit": "30148ad96e08ee4e26cd4972c557a4dee2340c21",
+    "payload_sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+    "toolbox_sha256": "112fce79efe0dd2b24943452f04886a9a779e16a9106dc2d5f0464f18fd9753f",
+    "custom_protocol": true,
+    "lab_testing": false,
+    "production_assets_configured": true,
+    "release_ready": false,
+    "tauri_frontend_dist": "../frontend/dist/client",
+    "tauri_cli_version": "tauri-cli 2.11.4",
+    "backend_schema": 48,
+    "game_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843"
+  },
+  "note": "Unsigned local production candidate; no launch or native real-game acceptance performed."
+}

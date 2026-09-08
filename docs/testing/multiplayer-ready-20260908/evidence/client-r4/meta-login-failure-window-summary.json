@@ -1,0 +1,33 @@
+{
+  "observed_at_utc": "2026-09-08T07:54:45.399141+00:00",
+  "scope": "Read-only existing Go MetaServer logs since 07:48 UTC; aggregates only. Does not establish client identity or native login.",
+  "ssh_exit_code": 0,
+  "raw_bytes": 48474,
+  "raw_sha256": "e2fb09cf20f70a39bca515d4ca8520b13c73cdb50536a5c4cc3874d06dd5c0cb",
+  "lines": 225,
+  "parsed_json_lines": 225,
+  "observed_json_keys": [
+    "duration_ms",
+    "level",
+    "method",
+    "msg",
+    "path",
+    "remote_ip",
+    "request_id",
+    "response_bytes",
+    "status",
+    "time"
+  ],
+  "http_status_counts": {
+    "200": 220
+  },
+  "level_counts": {
+    "info": 220,
+    "warn": 5
+  },
+  "keyword_line_counts": {
+    "error_502": 3
+  },
+  "raw_log_persisted": false,
+  "credentials_or_ids_emitted": false
+}

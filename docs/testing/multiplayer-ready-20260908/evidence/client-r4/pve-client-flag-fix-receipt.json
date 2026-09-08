@@ -1,0 +1,23 @@
+{
+  "status": "SOURCE_FIX_COMMITTED_PENDING_REBUILD",
+  "source_repository": "C:/wksp/ProjectReboundToolbox",
+  "commit": "4f9bdd291322af4fd0c2f1dd6f7cb1be326621d7",
+  "commit_subject": "fix(pve): mark client as offline in managed launch",
+  "changed_file": "src/launching/launch.rs",
+  "change": "do_launch_pve now passes the exact -pve switch to the client, alongside -debuglog and -clientdebuglog.",
+  "regression_test": "launching::launch::tests::pve_client_spawn_carries_offline_mode_flag",
+  "validation": {
+    "cargo_fmt_check": "PASS",
+    "cargo_test_lib": "PASS: 312 passed, 0 failed",
+    "cargo_check_tauri": "PASS: build completed; four pre-existing dead-code warnings",
+    "git_diff_check": "PASS"
+  },
+  "runtime_basis": {
+    "previous_r3_result": "FAIL: real Boundary client rendered ErrorCode_502 and exited after retry; local server PlayerCount remained 0",
+    "client_log": "Payload refused direct-open because -pve was absent from the managed client command line",
+    "metatunnel": "HTTP profile and connectServer responses were 200",
+    "next_step": "Root/C must rebuild and sign a new package from this Toolbox commit before runtime retest"
+  },
+  "online_acceptance": "BLOCKED; no native Join Grant or playable proof claimed",
+  "multi_machine_acceptance": "NOT_RUN"
+}

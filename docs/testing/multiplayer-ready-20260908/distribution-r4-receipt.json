@@ -1,0 +1,183 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-09-08T08:10:23.775894+00:00",
+  "status": "PASS_PACKAGE_BYTES_AND_TEST_SIGNATURES_ONLY",
+  "release_ready": false,
+  "package_id": "rebound-hardware-test-20260908-r4",
+  "artifact": {
+    "path": "artifacts/hardware-test-20260908-r4/rebound-hardware-test-20260908-r4-windows-x64.zip",
+    "sha256": "73bff684e19d0644fe310fa833624150e5b7c9105013482198a90a1ce6651689",
+    "bytes": 23487655
+  },
+  "archive_entries": 23,
+  "archive_byte_check": "PASS",
+  "manifest_sha256": "8d2894e940d7b32b40b184aa22b1fdf76fdb20a2e356ccb186c82a5f3f51b98e",
+  "supersedes_package": "rebound-hardware-test-20260908-r3",
+  "previous_runtime_result": "evidence/client-final/r3-actual-runtime-receipt.json",
+  "source_commits": {
+    "ProjectRebound": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d",
+    "Toolbox": "30148ad96e08ee4e26cd4972c557a4dee2340c21"
+  },
+  "backend_source_commit": "5e1953b525cc27e8e209abb877c938c4920c16a7",
+  "deployed_backend_ci_commit": "584e000baf024e381c5bdb3417ad7ac879bebdca",
+  "backend_schema_required": 48,
+  "backend_schema_observed": 48,
+  "candidate": {
+    "schema_version": 1,
+    "generated_at": "2026-09-08T08:07:47.8245679Z",
+    "source_commit": "30148ad96e08ee4e26cd4972c557a4dee2340c21",
+    "source_dirty": false,
+    "frontend": "tauri",
+    "contract_version": "strict-authoritative-online-v1",
+    "ipc_protocol": "strict-roster-v2",
+    "backend_schema": 48,
+    "game_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+    "payload_path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution\\signed\\Payload.dll",
+    "payload_sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+    "toolbox_path": "C:\\wksp\\ProjectReboundToolbox\\src-tauri\\target\\release\\rebound_toolbox_tauri.exe",
+    "toolbox_sha256": "112fce79efe0dd2b24943452f04886a9a779e16a9106dc2d5f0464f18fd9753f",
+    "build_driver": "tauri-cli",
+    "build_command": "npm.cmd --prefix frontend exec -- tauri build --no-bundle --ci",
+    "tauri_cli_version": "tauri-cli 2.11.4",
+    "tauri_frontend_dist": "../frontend/dist/client",
+    "frontend_index_sha256": "bfc83bd498b81f219436e62513e8a5e36dfd5a1fafba01cf6bd3ab4c2fa08924",
+    "product_default_features": [],
+    "product_dependency_features": {
+      "rebound_toolbox": [
+        "vnt"
+      ]
+    },
+    "custom_protocol": true,
+    "lab_testing": false,
+    "production_assets_configured": true,
+    "authenticode_status": "NotSigned",
+    "release_ready": false,
+    "note": "Local candidate only. Build/hash collection does not prove native admission, acceptance, or release signing."
+  },
+  "signature_receipts": {
+    "payload": {
+      "schema_version": 1,
+      "status": "PASS_TEST_SIGNATURE_ONLY",
+      "started_at": "2026-09-08T07:03:52.8506747Z",
+      "finished_at": "2026-09-08T07:03:53.2990620Z",
+      "input_path": "C:\\wksp\\ProjectRebound\\Payload\\x64\\Release\\Payload.dll",
+      "input_sha256": "9897aaa4b58286c308b07fa05f52c9125000144cce14de247467cf1d7b3509e4",
+      "output_path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution\\signed\\Payload.dll",
+      "output_sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+      "output_bytes": 2098488,
+      "signer_subject": "CN=Project Rebound Strict Roster Lab",
+      "signer_thumbprint": "B041917B2322ED509435B72356BA5AD9EA053378",
+      "signer_valid_until": "2027-08-26T14:32:08.0000000Z",
+      "authenticode_status": "UnknownError",
+      "win_verify_trust_hresult": -2146762487,
+      "private_key_exported": false,
+      "trust_store_modified": false,
+      "timestamping": "NOT_RUN",
+      "release_ready": false,
+      "failure_type": null,
+      "script_sha256": "7a33c2be43467fab835a36c3a3d396d38d5bc5c75b10a80de306761fba26ee85",
+      "scope": "Actual test Authenticode signing and signature verification only; no native gameplay, production signing, updater publication, or full release acceptance."
+    },
+    "toolbox": {
+      "schema_version": 1,
+      "status": "PASS_TEST_SIGNATURE_ONLY",
+      "started_at": "2026-09-08T08:08:39.7421399Z",
+      "finished_at": "2026-09-08T08:08:40.9611908Z",
+      "input_path": "C:\\wksp\\ProjectReboundToolbox\\src-tauri\\target\\release\\rebound_toolbox_tauri.exe",
+      "input_sha256": "112fce79efe0dd2b24943452f04886a9a779e16a9106dc2d5f0464f18fd9753f",
+      "output_path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r4\\signed\\rebound_toolbox_tauri.exe",
+      "output_sha256": "aa7a5d738a66295f1bd5a3c478c8c8cd0234fba90e163a9cb1bc48235a104de0",
+      "output_bytes": 49363256,
+      "signer_subject": "CN=Project Rebound Strict Roster Lab",
+      "signer_thumbprint": "B041917B2322ED509435B72356BA5AD9EA053378",
+      "signer_valid_until": "2027-08-26T14:32:08.0000000Z",
+      "authenticode_status": "UnknownError",
+      "win_verify_trust_hresult": -2146762487,
+      "private_key_exported": false,
+      "trust_store_modified": false,
+      "timestamping": "NOT_RUN",
+      "release_ready": false,
+      "failure_type": null,
+      "script_sha256": "7a33c2be43467fab835a36c3a3d396d38d5bc5c75b10a80de306761fba26ee85",
+      "scope": "Actual test Authenticode signing and signature verification only; no native gameplay, production signing, updater publication, or full release acceptance."
+    }
+  },
+  "local_runtime": "Recorded separately after actual r4 execution; no runtime pass is claimed by this package receipt.",
+  "native_authority_admission_verified": false,
+  "two_machine_online": "NOT_RUN",
+  "three_machine_online": "NOT_RUN",
+  "online_playable": "BLOCKED_PENDING_NATIVE_BUILD_CAPABILITY_AND_ACTUAL_GAME_EVIDENCE",
+  "external_upload": false,
+  "updater_publication": false,
+  "evidence_files": [
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-r4/strict-candidate.json",
+      "sha256": "da580556af9ecd7fc3b17ceb5df9552df758a85ceb10b39d39fe5a5c93daad86",
+      "bytes": 1824
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-r4/toolbox-final-build-r4-receipt.json",
+      "sha256": "1ecd43525ad33aaa3da38c95a7fef647f86ada5ab7c97aadb15733dfc67b2c28",
+      "bytes": 2269
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-r4/toolbox-final-build-r4-20260908T160619587Z.log",
+      "sha256": "b599873aba0ecf85f3ea82081e144ad33afb86cc1d0b362cf1ac20f95254f029",
+      "bytes": 1881
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-r4/payload-signature-receipt.json",
+      "sha256": "fc8e2763d9dcbc602c485c049bc21573935b28406312b5976e905150ffd72e38",
+      "bytes": 1314
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-r4/toolbox-signature-receipt.json",
+      "sha256": "efd88402b6948181bcdccada4d0035e2d237953adb63ad4e2674fb03afa9f115",
+      "bytes": 1358
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-r4/package-build-receipt.json",
+      "sha256": "df4ef20f05b0a3443f85ddf2023ac4110b8bab9609132ac59f5e568ea2840aa4",
+      "bytes": 948
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-r4/pve-direct-flag-cargo-test.log",
+      "sha256": "0f16ce01dd41d6c66f7df0ee8159098827eac971e223c7dcc9e2372577319637",
+      "bytes": 28701
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-r4/pve-client-flag-fix-receipt.json",
+      "sha256": "8fda05fe16b5d1773f7445db9c9ba132e5bcc303a483304290dc85fcaab5ff75",
+      "bytes": 1299
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-r4/toolbox-pve-fix-cargo-test-lib.log",
+      "sha256": "111b9429dcc30b26f51499d98ccb2fc4b20de2b17e302766024e0460bbe9eeb8",
+      "bytes": 28871
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-r4/toolbox-pve-fix-cargo-check-tauri.log",
+      "sha256": "41a94e846131765e84652d7b29eeb89228b4a450a80d3d0bb85ed425c0cb1ab8",
+      "bytes": 1194
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-r4/meta-login-failure-window-summary.json",
+      "sha256": "11f22d6e0b8e9080260165c2ffd7e28c5fa21a3505c34152276ee01c0a10c57d",
+      "bytes": 807
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/client-r4/logic-route-runtime-inspection-20260908T075922Z.json",
+      "sha256": "d55cd2f43d4a53d8bd51a2b2b6f21c0635ab6da9cb5331246e93b6ed4fb02bdf",
+      "bytes": 3133
+    }
+  ],
+  "verification_scope": {
+    "toolbox_unit_tests": "311 passed, 0 failed, 0 ignored on the direct-argument implementation committed as 30148ad.",
+    "pve_predecessor_tests": "312 passed at 4f9bdd2. The constant-helper assertion was removed in 30148ad; actual product retest supplies the regression evidence.",
+    "frontend": "UI25/bridge13 executed at d9fc026; frontend subtree is byte-identical through 30148ad. The final production Tauri CLI also rebuilt the embedded assets.",
+    "payload": "98f5709 unchanged, locally compiled and CTest24; not relabeled as public CI584e Payload.",
+    "diagnostic_script": "1f9542a adds the same explicit offline client flag to Tools/PVE/start-local-pve.ps1; PowerShell parser passed, script execution NOT_RUN.",
+    "signing": "Actual test signing; only CERT_E_UNTRUSTEDROOT (-2146762487) accepted by the test gate. No trust root installation/key export/timestamping."
+  },
+  "timestamp_note": "The r4 build log filename contains local time despite its Z suffix; use strict-candidate.generated_at and signature receipt UTC fields for actual recorded times."
+}
