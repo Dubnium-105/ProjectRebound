@@ -224,11 +224,15 @@ jobs:
       - name: Validate shell syntax and line endings
         shell: bash
         run: |
-          bash -n Backend/scripts/*.sh Backend/scripts/backup/*.sh Backend/scripts/release/*.sh Backend/deploy/deploy.sh Backend/deployments/minio/*.sh Backend/tests/netem/run-relay-matrix.sh Backend/tests/integration/*.sh Backend/tests/load/longrun/*.sh
-          if grep -IUlr $'\r' Backend/scripts Backend/deploy Backend/tests/netem Backend/tests/integration Backend/tests/load/longrun; then
-            echo "CRLF found in Linux shell scripts" >&2
-            exit 1
-          fi
+          while IFS= read -r -d '' script; do
+            bash -n "$script"
+            if LC_ALL=C grep -q $'\r' "$script"; then
+              printf 'CRLF found in Linux shell script: %s\n' "$script" >&2
+              exit 1
+            fi
+          done < <(find Backend/scripts Backend/deployments Backend/tests/netem \
+            Backend/tests/integration Backend/tests/load/longrun \
+            -type f -name '*.sh' -print0)
 
       - name: Validate long stability harness
         env:
@@ -340,7 +344,7 @@ jobs:
 
   container-images:
     name: Build and package ${{ matrix.name }} image
-    needs: [backend, admin-web, deployment-config, v11-integration]
+    needs: [command-protocol, command-pipe-windows, backend, admin-web, deployment-config, v11-integration]
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
