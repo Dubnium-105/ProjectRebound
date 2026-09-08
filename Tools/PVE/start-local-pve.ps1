@@ -330,7 +330,7 @@ $serverArguments = @(
     "-maxplayers=$MaxPlayers",
     '-debuglog'
 )
-$clientArguments = @("-match=127.0.0.1:$Port", '-debuglog')
+$clientArguments = @("-match=127.0.0.1:$Port", '-pve', '-debuglog')
 
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $sessionBaseDirectory = if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
