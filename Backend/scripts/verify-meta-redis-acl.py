@@ -95,12 +95,14 @@ def validate_command(entrypoint: list[str]) -> None:
     if set(grants) != EXPECTED_GRANTS:
         missing = sorted(EXPECTED_GRANTS.difference(grants))
         unexpected = sorted(set(grants).difference(EXPECTED_GRANTS))
-        # Grant names contain no credentials; report only the bounded diff.
+        # Missing names come from the static canonical set. Unexpected values
+        # are untrusted Compose input and may contain a rendered secret, so
+        # report only their count.
         details: list[str] = []
         if missing:
             details.append("missing=" + ",".join(missing))
         if unexpected:
-            details.append("unexpected=" + ",".join(unexpected))
+            details.append(f"unexpected_count={len(unexpected)}")
         fail(
             "Redis ACL grants do not match the canonical least-privilege set ("
             + "; ".join(details)

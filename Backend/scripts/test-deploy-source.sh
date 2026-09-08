@@ -89,6 +89,9 @@ sed 's/\\\"+@connection\\\"/\\\"+@all\\\"/' "$canonical_meta_compose_config" >"$
 stale_override_meta_compose_config="$temporary_dir/meta-compose-stale-override.json"
 sed 's/ \\\"+eval\\\" \\\"+evalsha\\\"/ \\\"+getdel\\\"/' \
   "$canonical_meta_compose_config" >"$stale_override_meta_compose_config"
+unexpected_secret_meta_compose_config="$temporary_dir/meta-compose-unexpected-secret.json"
+sed 's/\\\"+pttl\\\""/\\\"+pttl\\\" \\\" >ci-rendered-password-secret\\\""/' \
+  "$canonical_meta_compose_config" >"$unexpected_secret_meta_compose_config"
 
 if CONTROL_PLANE_ENV_FILE="$control_env" DEPLOY_SOURCE=ci CONTROL_PLANE_IMAGE=invalid \
   bash "$test_backend/scripts/deploy-control-plane.sh" >/dev/null 2>&1; then
@@ -151,7 +154,7 @@ grep -q ' up -d --no-deps meta-server$' "$docker_log"
 for invalid_config in "$missing_evalsha_meta_compose_config" \
   "$missing_eval_meta_compose_config" \
   "$wrong_namespace_meta_compose_config" "$broad_grant_meta_compose_config" \
-  "$stale_override_meta_compose_config"; do
+  "$stale_override_meta_compose_config" "$unexpected_secret_meta_compose_config"; do
   : >"$docker_log"
   if PATH="$temporary_dir/bin:$PATH" DOCKER_LOG="$docker_log" \
     COMPOSE_CONFIG_JSON_FILE="$invalid_config" \
@@ -167,6 +170,7 @@ for invalid_config in "$missing_evalsha_meta_compose_config" \
   ! grep -Eq ' pull meta-server$| run --rm --no-deps| up -d --no-deps meta-server$' "$docker_log"
   ! grep -Eq 'REDIS_PASSWORD|META_REDIS_PASSWORD|CHANGE_ME|redis-cli' \
     "$temporary_dir/invalid-meta.out"
+  ! grep -Fq 'ci-rendered-password-secret' "$temporary_dir/invalid-meta.out"
 done
 
 : >"$docker_log"
