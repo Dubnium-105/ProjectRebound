@@ -1,0 +1,1595 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-09-08T15:00:21.017766+08:00",
+  "kind": "backend_ci_delta_52_item",
+  "target": "strict_authoritative_online_only",
+  "source_contracts": {
+    "breakpoints": "docs/implementation/strict-roster-20260907/breakpoints.json",
+    "progress": "docs/implementation/strict-roster-20260907/progress.json",
+    "frozen_progress_untouched": true,
+    "original_status_rule": "每项 original 字段直接引用冻结 breakpoints/progress；本文件只追加本轮 Backend/CI delta。",
+    "shared_touch_rule": "modified_commits 是 git history 的 source-path touch 映射，不等于逐项验收；只有该 item 的 evidence_refs 支持其本轮 delta。",
+    "native_rule": "Docker/CI transport flow reports NativeAdmissionStatus=NOT_RUN；不把 native 或任何未运行项写成新的 PASS。"
+  },
+  "round": {
+    "workflow": "CI and Images",
+    "run_id": 34195322102,
+    "run_url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34195322102",
+    "head_branch": "codex/multiplayer-ready-20260908",
+    "head_sha": "584e000baf024e381c5bdb3417ad7ac879bebdca",
+    "run_conclusion": "success",
+    "job_count": 11,
+    "successful_job_count": 11,
+    "evidence_root": ".tmp/ready-multiplayer-20260908/backend/final-ci",
+    "ci_jobs": [
+      {
+        "id": 101961651637,
+        "name": "V1.1 disposable control plane and two-Relay integration",
+        "conclusion": "success",
+        "log": ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/v11-integration.log"
+      },
+      {
+        "id": 101961651823,
+        "name": "C++ command protocol",
+        "conclusion": "success",
+        "log": ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/cpp-command-protocol.log"
+      },
+      {
+        "id": 101961651898,
+        "name": "Windows named-pipe integration",
+        "conclusion": "success",
+        "log": ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/windows-named-pipe.log"
+      },
+      {
+        "id": 101961651899,
+        "name": "Go backend and PostgreSQL",
+        "conclusion": "success",
+        "log": ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/go-backend-postgres.log"
+      },
+      {
+        "id": 101961651931,
+        "name": "Deployment and workflow configuration",
+        "conclusion": "success",
+        "log": ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/deployment-workflow.log"
+      },
+      {
+        "id": 101961651965,
+        "name": "Independent administrator web",
+        "conclusion": "success",
+        "log": ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/admin-web.log"
+      },
+      {
+        "id": 101963232187,
+        "name": "Build and package load-bot image",
+        "conclusion": "success",
+        "log": ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/load-bot-image.log"
+      },
+      {
+        "id": 101963232208,
+        "name": "Build and package meta-server image",
+        "conclusion": "success",
+        "log": ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/meta-server-image.log"
+      },
+      {
+        "id": 101963232213,
+        "name": "Build and package edge-relay image",
+        "conclusion": "success",
+        "log": ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/edge-relay-image.log"
+      },
+      {
+        "id": 101963232214,
+        "name": "Build and package admin-web image",
+        "conclusion": "success",
+        "log": ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/admin-web-image.log"
+      },
+      {
+        "id": 101963232217,
+        "name": "Build and package control-plane image",
+        "conclusion": "success",
+        "log": ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/control-plane-image.log"
+      }
+    ],
+    "backend_ci_evidence": {
+      "v11": "real Docker/Testcontainers control plane + two Relay integration; all listed cases executed",
+      "go_backend": "real Linux PostgreSQL/Redis race/fuzz/protobuf/vulnerability/build checks",
+      "windows_cpp": "Windows named-pipe and Linux/Windows C++ policy test jobs completed",
+      "deployment": "real workflow/source deployment/configuration checks completed"
+    },
+    "native_boundary": {
+      "native_admission_status": "NOT_RUN",
+      "native_positive_acceptance": "BLOCKED",
+      "reason": "V11 report explicitly records native_admission=NOT_RUN. C++/Windows policy tests are compile/unit/pipe checks and do not constitute a three-machine native online run."
+    },
+    "v11_metrics_summary": {
+      "base_and_netem": "4 clients; base/mild/severe packet counters and cleanup_cleared=2; moderate packet loss 1.190%, severe 1.961%; test-level assertions succeeded.",
+      "reconnect_storm": "100 clients; success=1150, failed=0, match_lobbies=50, attempts=50, cleanup_cleared=50, reconnects=200, packet loss=0%.",
+      "relay_sigkill_migration": "4 clients; migrations=1/1, relay_allocations=3, relay_closed=2, cleanup_cleared=2, packet loss=0.718%; test-level assertions succeeded.",
+      "fault_recovery": "Redis 2.402s, PostgreSQL 3.261s, control-plane 7.265s; final cleanup_cleared=2."
+    },
+    "image_scans": {
+      "all_five_trivy_steps": "success",
+      "high_critical_vulnerabilities": 0,
+      "retired_cve_hits": 0,
+      "cve_2026_84304_grpc_1_82_1_hits": 0,
+      "images": [
+        {
+          "name": "control-plane",
+          "digest": "sha256:1bcacadf43f14a777304bc06f0acb0c0d86890400a7f34476f67b7a0143707af",
+          "scan_job_id": 101963232217,
+          "release_record": ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/release-records/control-plane.txt"
+        },
+        {
+          "name": "edge-relay",
+          "digest": "sha256:01ea88a73a4f066451d269bfd8789f6b2fbc475d64666da72df1e742c0de6824",
+          "scan_job_id": 101963232213,
+          "release_record": ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/release-records/edge-relay.txt"
+        },
+        {
+          "name": "meta-server",
+          "digest": "sha256:98e43aa31c6e50a04af23ee250055bc2dda7ce94610824a8b5f398381452de87",
+          "scan_job_id": 101963232208,
+          "release_record": ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/release-records/meta-server.txt"
+        },
+        {
+          "name": "load-bot",
+          "digest": "sha256:892935f243d057630cf392a8d6e6b7cbcaa1cbb4f925e95f368484476ef13a9d",
+          "scan_job_id": 101963232187,
+          "release_record": ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/release-records/load-bot.txt"
+        },
+        {
+          "name": "admin-web",
+          "digest": "sha256:438067975ffdcfa40c1cf4ceb38fb30cf83050848941b60426e933d54e043d30",
+          "scan_job_id": 101963232214,
+          "release_record": ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/release-records/admin-web.txt"
+        }
+      ],
+      "evidence": [
+        ".tmp/ready-multiplayer-20260908/backend/final-ci/image-scan-summary.json: all five Trivy steps success; high/critical vulnerability count 0; retired-CVE hits 0.",
+        ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/load-bot-image.log, meta-server-image.log, edge-relay-image.log, admin-web-image.log, control-plane-image.log: each image scan command/report completed successfully."
+      ]
+    },
+    "source_path_mapping": {
+      "e926227cb37c362ea46b7d1ab5d1e7d68a5c9fcc": [
+        "Backend/api/openapi/openapi.yaml",
+        "Backend/deployments/control-plane/provision-meta-postgres.sh",
+        "Backend/internal/matchlobby/owned_process_cleanup_test.go",
+        "Backend/internal/update/service_test.go",
+        "Backend/scripts/test-deploy-source.sh",
+        "Backend/tests/integration/docker-compose.yaml",
+        "Backend/tests/integration/v11_stack_test.go"
+      ],
+      "064c3e1cc8e58677cfa0018bb317448c06b35581": [
+        "Backend/tests/integration/v11_stack_test.go"
+      ],
+      "919ea9c5190c56e63aaf4d47b62ac0153d98e3eb": [
+        "Backend/tests/integration/v11_stack_test.go"
+      ],
+      "90c66040f855df21686cf62fc8ad31ad63087c79": [
+        "Backend/tests/integration/v11_stack_test.go"
+      ],
+      "9722e28901102ed1d50c52d9261ea11b7aab6b94": [
+        "Backend/tests/integration/v11_stack_test.go"
+      ],
+      "86d5ff1105d88bf6f316907cea7337ae213ee3a9": [
+        "Backend/tests/integration/v11_stack_test.go"
+      ],
+      "43adbcfc8a2f971334aab3fc0d2cb21b4fd6df76": [
+        "Backend/tests/integration/v11_stack_test.go"
+      ],
+      "f208a89d0f0311d84ba3591d2b257437c4e0ff60": [
+        "Backend/cmd/load-bot/main.go",
+        "Backend/internal/loadbot/e2e.go",
+        "Backend/internal/loadbot/runner.go",
+        "Backend/internal/loadbot/runner_test.go"
+      ],
+      "abd0596e2aba96a9adabdf2a8d682d7949524ae3": [
+        "Backend/tests/integration/v11_stack_test.go"
+      ],
+      "5e1953b525cc27e8e209abb877c938c4920c16a7": [
+        "AdminWeb/caddy/go.mod",
+        "AdminWeb/caddy/go.sum",
+        "Backend/go.mod",
+        "Backend/go.sum",
+        "Backend/tests/integration/go.mod",
+        "Backend/tests/integration/go.sum"
+      ],
+      "584e000baf024e381c5bdb3417ad7ac879bebdca": [
+        "AdminWeb/caddy/go.mod",
+        "AdminWeb/caddy/go.sum",
+        "Backend/go.mod",
+        "Backend/go.sum",
+        "Backend/internal/loadbot/e2e.go",
+        "Backend/internal/loadbot/runner_test.go",
+        "Backend/tests/integration/go.mod",
+        "Backend/tests/integration/go.sum",
+        "Backend/tests/integration/v11_stack_test.go",
+        "Payload/Admission/StrictRosterPolicy.h",
+        "Payload/Tests/StrictRosterPolicyTests.cpp",
+        "Payload/dllmain.cpp"
+      ],
+      "66af4f059f2b3da0778672cd1ca3982407a79cdf": [
+        "Backend/cmd/load-bot/main.go",
+        "Backend/internal/loadbot/e2e.go",
+        "Backend/internal/loadbot/runner.go",
+        "Backend/internal/loadbot/runner_test.go"
+      ]
+    }
+  },
+  "items": [
+    {
+      "id": "BP-001",
+      "title": "源码基线与实测 EXE/DLL 版本未闭合",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-002",
+      "title": "并发刷新、登出和旧结果回写竞争",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PASS",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-003",
+      "title": "DPAPI 配置直接覆盖，缺少原子持久化",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PASS",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-004",
+      "title": "fresh/logged_in 的状态保证强于实际结果",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-005",
+      "title": "WebSocket 重连使用旧 Token，缺少统一恢复过程",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-006",
+      "title": "凭据种类缺少统一机器可读生命周期清单",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-007",
+      "title": "客户端进房/建房部分成功后的补偿与恢复不全",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-008",
+      "title": "Host/Member 角色在启动分派中被丢弃",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "BLOCKED",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-009",
+      "title": "VNT 裸 IP 与 Payload host:port 校验冲突",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PASS",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-010",
+      "title": "VNT host_ready/探测通与原生游戏监听就绪混用",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "BLOCKED",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-011",
+      "title": "新建回退、开局前 rebind 与运行中迁移边界必须固定",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "PARTIAL_EVIDENCE",
+        "evidence_refs": [
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/v11/integration-gate.log: TestV11ControlPlaneAndTwoRelays completed successfully; base, netem mild/moderate/severe, reconnect storm, relay SIGKILL migration and fault recovery ran.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/v11-metrics.txt: match_lobbies/attempts/cleanup/Relay/packet metrics extracted from the uploaded gate.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/go-backend-postgres.log: go test -race -p 1 ./... with PostgreSQL/Redis, fuzz, protobuf, govulncheck and backend builds completed successfully."
+        ],
+        "modified_commits": [
+          "66af4f059f2b3da0778672cd1ca3982407a79cdf",
+          "f208a89d0f0311d84ba3591d2b257437c4e0ff60",
+          "584e000baf024e381c5bdb3417ad7ac879bebdca"
+        ],
+        "acceptance_boundary": "transport_backend_only",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "The tested flow uses the authoritative lobby and exercises reconnect/migration. This does not prove every cross-transport policy branch."
+      }
+    },
+    {
+      "id": "BP-012",
+      "title": "Legacy 单 game_peer 和全 peers 广播可能合并多人身份",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-013",
+      "title": "Relay 16 字节截断 HMAC 用了完整长度验证接口",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PASS",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "PARTIAL_EVIDENCE",
+        "evidence_refs": [
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/v11/integration-gate.log: TestV11ControlPlaneAndTwoRelays completed successfully; base, netem mild/moderate/severe, reconnect storm, relay SIGKILL migration and fault recovery ran.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/v11-metrics.txt: match_lobbies/attempts/cleanup/Relay/packet metrics extracted from the uploaded gate.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/go-backend-postgres.log: go test -race -p 1 ./... with PostgreSQL/Redis, fuzz, protobuf, govulncheck and backend builds completed successfully."
+        ],
+        "modified_commits": [
+          "584e000baf024e381c5bdb3417ad7ac879bebdca"
+        ],
+        "acceptance_boundary": "transport_backend_only",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "Live Relay packet exchange and relayruntime tests ran; this round does not add a complete tamper-vector acceptance claim."
+      }
+    },
+    {
+      "id": "BP-014",
+      "title": "Relay 数据面错误被吞，重排/MTU/重放缺少可观测验收",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PASS",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "PARTIAL_EVIDENCE",
+        "evidence_refs": [
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/v11/integration-gate.log: TestV11ControlPlaneAndTwoRelays completed successfully; base, netem mild/moderate/severe, reconnect storm, relay SIGKILL migration and fault recovery ran.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/v11-metrics.txt: match_lobbies/attempts/cleanup/Relay/packet metrics extracted from the uploaded gate.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/go-backend-postgres.log: go test -race -p 1 ./... with PostgreSQL/Redis, fuzz, protobuf, govulncheck and backend builds completed successfully."
+        ],
+        "modified_commits": [
+          "86d5ff1105d88bf6f316907cea7337ae213ee3a9",
+          "584e000baf024e381c5bdb3417ad7ac879bebdca"
+        ],
+        "acceptance_boundary": "transport_backend_only",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "Packet counters and netem loss/fault results are recorded; this is transport evidence and not a native-game acceptance."
+      }
+    },
+    {
+      "id": "BP-015",
+      "title": "Relay 迁移缺少显式切换状态、代次与收尾",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "PARTIAL_EVIDENCE",
+        "evidence_refs": [
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/v11/integration-gate.log: TestV11ControlPlaneAndTwoRelays completed successfully; base, netem mild/moderate/severe, reconnect storm, relay SIGKILL migration and fault recovery ran.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/v11-metrics.txt: match_lobbies/attempts/cleanup/Relay/packet metrics extracted from the uploaded gate."
+        ],
+        "modified_commits": [
+          "86d5ff1105d88bf6f316907cea7337ae213ee3a9",
+          "584e000baf024e381c5bdb3417ad7ac879bebdca"
+        ],
+        "acceptance_boundary": "transport_backend_only",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "The SIGKILL migration case recorded migrations=1/1 and Relay allocation/close counters; no native world continuity is claimed."
+      }
+    },
+    {
+      "id": "BP-016",
+      "title": "launch_join 返回空 PID，与前端完成结果契约冲突",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-017",
+      "title": "launch_room 在最终提交前发布成功且失败清理不一致",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-018",
+      "title": "PID/窗口稳定被当成远程入场完成",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "BLOCKED",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-019",
+      "title": "房间/远程 Join 缺少统一 PayloadReady 握手与诊断通道",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-020",
+      "title": "Toolbox 登录与游戏登录/游戏线程泵送没有闭环",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "BLOCKED",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-021",
+      "title": "发出 open 后即清空队列，缺少 Travel 成败闭环",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "BLOCKED",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-022",
+      "title": "join_ack.status accepted/ok 不兼容",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PASS",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-023",
+      "title": "IPC 文档/七命令、分帧、取消和结构化错误未统一",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PASS",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-024",
+      "title": "游戏 lifecycle 与服务注册 state 枚举未完整适配",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "BLOCKED",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-025",
+      "title": "错误、trace 与前端房间状态同步不完整",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-026",
+      "title": "有序资源关闭未覆盖常驻worker与阻塞IO",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-027",
+      "title": "世界切换后角色、配装、控制器、HUD与多局流程未验收",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "blocked",
+        "progress_acceptance": "BLOCKED",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-028",
+      "title": "本地 Node Meta 与远程 Go MetaTunnel 是不同模式",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-029",
+      "title": "MetaTunnel 动态端口、Token更新和EOF/父进程退出未接成工作流",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-030",
+      "title": "Toolbox 未接通权威大厅/Attempt 完整控制器",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "PARTIAL_EVIDENCE",
+        "evidence_refs": [
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/v11/integration-gate.log: TestV11ControlPlaneAndTwoRelays completed successfully; base, netem mild/moderate/severe, reconnect storm, relay SIGKILL migration and fault recovery ran.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/v11-metrics.txt: match_lobbies/attempts/cleanup/Relay/packet metrics extracted from the uploaded gate.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/go-backend-postgres.log: go test -race -p 1 ./... with PostgreSQL/Redis, fuzz, protobuf, govulncheck and backend builds completed successfully."
+        ],
+        "modified_commits": [
+          "919ea9c5190c56e63aaf4d47b62ac0153d98e3eb",
+          "90c66040f855df21686cf62fc8ad31ad63087c79",
+          "66af4f059f2b3da0778672cd1ca3982407a79cdf",
+          "f208a89d0f0311d84ba3591d2b257437c4e0ff60",
+          "584e000baf024e381c5bdb3417ad7ac879bebdca"
+        ],
+        "acceptance_boundary": "transport_backend_only",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "MatchLobby/Attempt counters and the load-bot authoritative path ran. Toolbox/native full controller acceptance is outside this Backend CI round."
+      }
+    },
+    {
+      "id": "BP-031",
+      "title": "角色、hosting/transport与各类ID/generation不能压成一个字段",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PASS",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "PARTIAL_EVIDENCE",
+        "evidence_refs": [
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/v11/integration-gate.log: TestV11ControlPlaneAndTwoRelays completed successfully; base, netem mild/moderate/severe, reconnect storm, relay SIGKILL migration and fault recovery ran.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/v11-metrics.txt: match_lobbies/attempts/cleanup/Relay/packet metrics extracted from the uploaded gate.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/go-backend-postgres.log: go test -race -p 1 ./... with PostgreSQL/Redis, fuzz, protobuf, govulncheck and backend builds completed successfully."
+        ],
+        "modified_commits": [
+          "919ea9c5190c56e63aaf4d47b62ac0153d98e3eb",
+          "9722e28901102ed1d50c52d9261ea11b7aab6b94",
+          "584e000baf024e381c5bdb3417ad7ac879bebdca"
+        ],
+        "acceptance_boundary": "transport_backend_only",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "The integration uses separate lobby/attempt/allocation/Relay observations; this round does not claim every cross-repository ID contract."
+      }
+    },
+    {
+      "id": "BP-032",
+      "title": "退役旧在线房间API与任意地址Join，保留托管隔离",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "PARTIAL_EVIDENCE",
+        "evidence_refs": [
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/v11/integration-gate.log: TestV11ControlPlaneAndTwoRelays completed successfully; base, netem mild/moderate/severe, reconnect storm, relay SIGKILL migration and fault recovery ran.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/v11-metrics.txt: match_lobbies/attempts/cleanup/Relay/packet metrics extracted from the uploaded gate.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/deployment-workflow.log: shell/workflow, source/SSH deploy scripts, Compose, secrets permissions and release safety checks completed successfully."
+        ],
+        "modified_commits": [
+          "e926227cb37c362ea46b7d1ab5d1e7d68a5c9fcc",
+          "66af4f059f2b3da0778672cd1ca3982407a79cdf",
+          "f208a89d0f0311d84ba3591d2b257437c4e0ff60",
+          "584e000baf024e381c5bdb3417ad7ac879bebdca"
+        ],
+        "acceptance_boundary": "transport_backend_only",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "The candidate uses the MatchLobby path and source/deployment checks passed; no separate old-route negative test is relabeled as a full item acceptance."
+      }
+    },
+    {
+      "id": "BP-033",
+      "title": "旧连通回调提前推进托管p2p_room为RUNNING",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "PARTIAL_EVIDENCE",
+        "evidence_refs": [
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/v11/integration-gate.log: TestV11ControlPlaneAndTwoRelays completed successfully; base, netem mild/moderate/severe, reconnect storm, relay SIGKILL migration and fault recovery ran.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/v11-metrics.txt: match_lobbies/attempts/cleanup/Relay/packet metrics extracted from the uploaded gate.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/go-backend-postgres.log: go test -race -p 1 ./... with PostgreSQL/Redis, fuzz, protobuf, govulncheck and backend builds completed successfully."
+        ],
+        "modified_commits": [
+          "919ea9c5190c56e63aaf4d47b62ac0153d98e3eb",
+          "9722e28901102ed1d50c52d9261ea11b7aab6b94",
+          "584e000baf024e381c5bdb3417ad7ac879bebdca"
+        ],
+        "acceptance_boundary": "transport_backend_only",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "Attempt and cleanup assertions ran alongside transport faults; native gameplay state is not asserted."
+      }
+    },
+    {
+      "id": "BP-034",
+      "title": "BattleLog Presence等投影入口仍能独立推进托管状态",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PASS",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "PARTIAL_EVIDENCE",
+        "evidence_refs": [
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/v11/integration-gate.log: TestV11ControlPlaneAndTwoRelays completed successfully; base, netem mild/moderate/severe, reconnect storm, relay SIGKILL migration and fault recovery ran.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/v11-metrics.txt: match_lobbies/attempts/cleanup/Relay/packet metrics extracted from the uploaded gate.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/go-backend-postgres.log: go test -race -p 1 ./... with PostgreSQL/Redis, fuzz, protobuf, govulncheck and backend builds completed successfully."
+        ],
+        "modified_commits": [
+          "9722e28901102ed1d50c52d9261ea11b7aab6b94",
+          "584e000baf024e381c5bdb3417ad7ac879bebdca"
+        ],
+        "acceptance_boundary": "transport_backend_only",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "The report requires authoritative attempt/cleanup observations; BattleLog/Presence cannot be declared fully covered from this run."
+      }
+    },
+    {
+      "id": "BP-035",
+      "title": "大厅—传输—对局投影的跨事务补偿与崩溃恢复需补证据",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "PARTIAL_EVIDENCE",
+        "evidence_refs": [
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/v11/integration-gate.log: TestV11ControlPlaneAndTwoRelays completed successfully; base, netem mild/moderate/severe, reconnect storm, relay SIGKILL migration and fault recovery ran.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/v11-metrics.txt: match_lobbies/attempts/cleanup/Relay/packet metrics extracted from the uploaded gate.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/go-backend-postgres.log: go test -race -p 1 ./... with PostgreSQL/Redis, fuzz, protobuf, govulncheck and backend builds completed successfully."
+        ],
+        "modified_commits": [
+          "43adbcfc8a2f971334aab3fc0d2cb21b4fd6df76",
+          "abd0596e2aba96a9adabdf2a8d682d7949524ae3",
+          "f208a89d0f0311d84ba3591d2b257437c4e0ff60",
+          "584e000baf024e381c5bdb3417ad7ac879bebdca"
+        ],
+        "acceptance_boundary": "transport_backend_only",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "Redis/PostgreSQL/control-plane fault recovery and exact cleanup counters ran; this is bounded integration evidence, not every crash-point proof."
+      }
+    },
+    {
+      "id": "BP-036",
+      "title": "多种Presence/Heartbeat租约与启动/Grant时限尚未统一编排",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "PARTIAL_EVIDENCE",
+        "evidence_refs": [
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/v11/integration-gate.log: TestV11ControlPlaneAndTwoRelays completed successfully; base, netem mild/moderate/severe, reconnect storm, relay SIGKILL migration and fault recovery ran.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/v11-metrics.txt: match_lobbies/attempts/cleanup/Relay/packet metrics extracted from the uploaded gate.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/go-backend-postgres.log: go test -race -p 1 ./... with PostgreSQL/Redis, fuzz, protobuf, govulncheck and backend builds completed successfully."
+        ],
+        "modified_commits": [
+          "66af4f059f2b3da0778672cd1ca3982407a79cdf",
+          "f208a89d0f0311d84ba3591d2b257437c4e0ff60",
+          "584e000baf024e381c5bdb3417ad7ac879bebdca"
+        ],
+        "acceptance_boundary": "transport_backend_only",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "The 100-client reconnect storm and service recovery ran; native heartbeat/Grant timing remains unverified."
+      }
+    },
+    {
+      "id": "BP-037",
+      "title": "后端开局人数规则与游戏角色确认门禁未形成同一政策",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "PARTIAL_EVIDENCE",
+        "evidence_refs": [
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/v11/integration-gate.log: TestV11ControlPlaneAndTwoRelays completed successfully; base, netem mild/moderate/severe, reconnect storm, relay SIGKILL migration and fault recovery ran.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/v11-metrics.txt: match_lobbies/attempts/cleanup/Relay/packet metrics extracted from the uploaded gate."
+        ],
+        "modified_commits": [
+          "919ea9c5190c56e63aaf4d47b62ac0153d98e3eb",
+          "584e000baf024e381c5bdb3417ad7ac879bebdca"
+        ],
+        "acceptance_boundary": "transport_backend_only",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "Client-count scenarios and authoritative Attempt accounting ran; native StartMatch/role confirmation was not run."
+      }
+    },
+    {
+      "id": "BP-038",
+      "title": "客户端携带Join Grant的原生NMT_Login路径尚未实现",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "partial",
+        "progress_acceptance": "BLOCKED",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-039",
+      "title": "权威PreLogin、真实身份、队伍/席位执行与回执未闭环",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "BLOCKED",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-040",
+      "title": "P2P房主StartAuthority传空平台身份且缺原生启动证明",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "BLOCKED",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-041",
+      "title": "同route的allocation刷新未应用新席位generation",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "PARTIAL_EVIDENCE",
+        "evidence_refs": [
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/v11/integration-gate.log: TestV11ControlPlaneAndTwoRelays completed successfully; base, netem mild/moderate/severe, reconnect storm, relay SIGKILL migration and fault recovery ran.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/v11-metrics.txt: match_lobbies/attempts/cleanup/Relay/packet metrics extracted from the uploaded gate."
+        ],
+        "modified_commits": [
+          "86d5ff1105d88bf6f316907cea7337ae213ee3a9",
+          "584e000baf024e381c5bdb3417ad7ac879bebdca"
+        ],
+        "acceptance_boundary": "transport_backend_only",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "Relay migration/allocation generation behavior was exercised; seat-generation native admission was not run."
+      }
+    },
+    {
+      "id": "BP-042",
+      "title": "Join Grant重复申请/撤销/消费与本地准入缺少一致事务",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "PARTIAL_EVIDENCE",
+        "evidence_refs": [
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/v11/integration-gate.log: TestV11ControlPlaneAndTwoRelays completed successfully; base, netem mild/moderate/severe, reconnect storm, relay SIGKILL migration and fault recovery ran.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/v11-metrics.txt: match_lobbies/attempts/cleanup/Relay/packet metrics extracted from the uploaded gate.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/go-backend-postgres.log: go test -race -p 1 ./... with PostgreSQL/Redis, fuzz, protobuf, govulncheck and backend builds completed successfully."
+        ],
+        "modified_commits": [
+          "9722e28901102ed1d50c52d9261ea11b7aab6b94",
+          "f208a89d0f0311d84ba3591d2b257437c4e0ff60",
+          "584e000baf024e381c5bdb3417ad7ac879bebdca"
+        ],
+        "acceptance_boundary": "transport_backend_only",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "Allocation/cleanup and reconnect behavior ran; native Grant consume/revoke/real admission remains unrun."
+      }
+    },
+    {
+      "id": "BP-043",
+      "title": "权威恢复缺少route/seat刷新与同世界连续性证明",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "PARTIAL_EVIDENCE",
+        "evidence_refs": [
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/v11/integration-gate.log: TestV11ControlPlaneAndTwoRelays completed successfully; base, netem mild/moderate/severe, reconnect storm, relay SIGKILL migration and fault recovery ran.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/v11-metrics.txt: match_lobbies/attempts/cleanup/Relay/packet metrics extracted from the uploaded gate."
+        ],
+        "modified_commits": [
+          "86d5ff1105d88bf6f316907cea7337ae213ee3a9",
+          "584e000baf024e381c5bdb3417ad7ac879bebdca"
+        ],
+        "acceptance_boundary": "transport_backend_only",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "Relay SIGKILL/reconnect recovery ran; same-world native continuity is explicitly not claimed."
+      }
+    },
+    {
+      "id": "BP-044",
+      "title": "旧快照/旧Attempt/旧断线回执污染新会话的边界需全链验证",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "PARTIAL_EVIDENCE",
+        "evidence_refs": [
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/v11/integration-gate.log: TestV11ControlPlaneAndTwoRelays completed successfully; base, netem mild/moderate/severe, reconnect storm, relay SIGKILL migration and fault recovery ran.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/v11-metrics.txt: match_lobbies/attempts/cleanup/Relay/packet metrics extracted from the uploaded gate.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/go-backend-postgres.log: go test -race -p 1 ./... with PostgreSQL/Redis, fuzz, protobuf, govulncheck and backend builds completed successfully."
+        ],
+        "modified_commits": [
+          "43adbcfc8a2f971334aab3fc0d2cb21b4fd6df76",
+          "86d5ff1105d88bf6f316907cea7337ae213ee3a9",
+          "584e000baf024e381c5bdb3417ad7ac879bebdca"
+        ],
+        "acceptance_boundary": "transport_backend_only",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "Reconnect/migration/fault cases and backend race tests ran; a full cross-process native stale-callback matrix remains unrun."
+      }
+    },
+    {
+      "id": "BP-045",
+      "title": "Dedicated严格调度没有充分筛选准入能力",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PASS",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-046",
+      "title": "专服心跳active_match未被Toolbox消费并驱动准入",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "BLOCKED",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-047",
+      "title": "数据库结束/释放早于Payload清理与游戏资源确认",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "partial",
+        "progress_acceptance": "BLOCKED",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "PARTIAL_EVIDENCE",
+        "evidence_refs": [
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/v11/integration-gate.log: TestV11ControlPlaneAndTwoRelays completed successfully; base, netem mild/moderate/severe, reconnect storm, relay SIGKILL migration and fault recovery ran.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/v11-metrics.txt: match_lobbies/attempts/cleanup/Relay/packet metrics extracted from the uploaded gate.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/go-backend-postgres.log: go test -race -p 1 ./... with PostgreSQL/Redis, fuzz, protobuf, govulncheck and backend builds completed successfully.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/cpp-command-protocol.log: Linux CTest ran 21/21 protocol/policy tests successfully."
+        ],
+        "modified_commits": [
+          "f208a89d0f0311d84ba3591d2b257437c4e0ff60",
+          "abd0596e2aba96a9adabdf2a8d682d7949524ae3",
+          "584e000baf024e381c5bdb3417ad7ac879bebdca"
+        ],
+        "acceptance_boundary": "transport_backend_only",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "Every reported transport Attempt in the V11 scenarios has cleanup_pending=0 and cleanup_cleared equal to attempts; NativeAdmissionStatus remains NOT_RUN."
+      }
+    },
+    {
+      "id": "BP-048",
+      "title": "strict开关关闭启动会批量终止共享数据库严格对局",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "NO_CHANGE_THIS_ROUND",
+        "evidence_refs": [],
+        "modified_commits": [],
+        "acceptance_boundary": "no_current_round_backend_ci_evidence",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "本轮 Backend/CI 没有可归属该 BP 的真实验收证据；保留冻结记录原状态，不把未运行或其他仓库共享文件 touch 记为通过。"
+      }
+    },
+    {
+      "id": "BP-049",
+      "title": "配套schema升级、单版本部署与身份隔离门禁",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "PARTIAL_EVIDENCE",
+        "evidence_refs": [
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/go-backend-postgres.log: go test -race -p 1 ./... with PostgreSQL/Redis, fuzz, protobuf, govulncheck and backend builds completed successfully.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/deployment-workflow.log: shell/workflow, source/SSH deploy scripts, Compose, secrets permissions and release safety checks completed successfully.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/image-build-records.txt: five BuildKit records mapped to run 34195322102 and source 584e000baf024e381c5bdb3417ad7ac879bebdca.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/release-records/: five release records with schema 48, source commit and image digest.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/sbom/: five SPDX SBOM artifacts.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/dockerbuild/: five downloaded BuildKit OCI build records."
+        ],
+        "modified_commits": [
+          "e926227cb37c362ea46b7d1ab5d1e7d68a5c9fcc",
+          "5e1953b525cc27e8e209abb877c938c4920c16a7",
+          "584e000baf024e381c5bdb3417ad7ac879bebdca"
+        ],
+        "acceptance_boundary": "transport_backend_only",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "Schema 48, Postgres/Redis integration, deployment checks and candidate records ran; no production rollout or restore drill is claimed here."
+      }
+    },
+    {
+      "id": "BP-050",
+      "title": "发布/更新/运行时安全门禁需跟兼容矩阵一起保持",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "PARTIAL_EVIDENCE",
+        "evidence_refs": [
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/go-backend-postgres.log: go test -race -p 1 ./... with PostgreSQL/Redis, fuzz, protobuf, govulncheck and backend builds completed successfully.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/image-scan-summary.json: all five Trivy steps success; high/critical vulnerability count 0; retired-CVE hits 0.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/load-bot-image.log, meta-server-image.log, edge-relay-image.log, admin-web-image.log, control-plane-image.log: each image scan command/report completed successfully.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/image-build-records.txt: five BuildKit records mapped to run 34195322102 and source 584e000baf024e381c5bdb3417ad7ac879bebdca.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/release-records/: five release records with schema 48, source commit and image digest.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/sbom/: five SPDX SBOM artifacts.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/dockerbuild/: five downloaded BuildKit OCI build records."
+        ],
+        "modified_commits": [
+          "5e1953b525cc27e8e209abb877c938c4920c16a7",
+          "584e000baf024e381c5bdb3417ad7ac879bebdca"
+        ],
+        "acceptance_boundary": "transport_backend_only",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "Go vulnerability checks, five image scans, SBOM/build records and dependency upgrade evidence ran; native compatibility and signed release acceptance remain open."
+      }
+    },
+    {
+      "id": "BP-051",
+      "title": "现有单库/模拟/可视化检查不能证明端到端已通过",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "implemented",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "PARTIAL_EVIDENCE",
+        "evidence_refs": [
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/jobs-summary.txt: all 11 jobs and their recorded steps are completed with conclusion success.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/v11/integration-gate.log: TestV11ControlPlaneAndTwoRelays completed successfully; base, netem mild/moderate/severe, reconnect storm, relay SIGKILL migration and fault recovery ran.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/v11-metrics.txt: match_lobbies/attempts/cleanup/Relay/packet metrics extracted from the uploaded gate.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/go-backend-postgres.log: go test -race -p 1 ./... with PostgreSQL/Redis, fuzz, protobuf, govulncheck and backend builds completed successfully.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/cpp-command-protocol.log: Linux CTest ran 21/21 protocol/policy tests successfully.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/windows-named-pipe.log: Windows CTest ran 24/24 command/pipe/policy tests successfully.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/deployment-workflow.log: shell/workflow, source/SSH deploy scripts, Compose, secrets permissions and release safety checks completed successfully."
+        ],
+        "modified_commits": [
+          "064c3e1cc8e58677cfa0018bb317448c06b35581",
+          "919ea9c5190c56e63aaf4d47b62ac0153d98e3eb",
+          "90c66040f855df21686cf62fc8ad31ad63087c79",
+          "9722e28901102ed1d50c52d9261ea11b7aab6b94",
+          "86d5ff1105d88bf6f316907cea7337ae213ee3a9",
+          "43adbcfc8a2f971334aab3fc0d2cb21b4fd6df76",
+          "f208a89d0f0311d84ba3591d2b257437c4e0ff60",
+          "abd0596e2aba96a9adabdf2a8d682d7949524ae3",
+          "584e000baf024e381c5bdb3417ad7ac879bebdca"
+        ],
+        "acceptance_boundary": "transport_backend_only",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "This ledger records real CI evidence and its boundary. The three-machine native online positive gate is not run and is not converted to PASS."
+      }
+    },
+    {
+      "id": "BP-052",
+      "title": "Backend/matchserver二进制来源与消费链待审计",
+      "original": {
+        "breakpoints_status": "not_started",
+        "breakpoints_execution_status": "not_started",
+        "breakpoints_review_status": "pending_codex_revalidation",
+        "progress_implementation": "partial",
+        "progress_acceptance": "PARTIAL",
+        "progress_current_candidate_acceptance": "BLOCKED",
+        "progress_full_native_acceptance": "NOT_RUN"
+      },
+      "round_delta": {
+        "scope": "backend_ci",
+        "delta_status": "PARTIAL_EVIDENCE",
+        "evidence_refs": [
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/jobs-summary.txt: all 11 jobs and their recorded steps are completed with conclusion success.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/image-build-records.txt: five BuildKit records mapped to run 34195322102 and source 584e000baf024e381c5bdb3417ad7ac879bebdca.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/release-records/: five release records with schema 48, source commit and image digest.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/sbom/: five SPDX SBOM artifacts.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/artifacts/dockerbuild/: five downloaded BuildKit OCI build records.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/image-scan-summary.json: all five Trivy steps success; high/critical vulnerability count 0; retired-CVE hits 0.",
+          ".tmp/ready-multiplayer-20260908/backend/final-ci/logs/load-bot-image.log, meta-server-image.log, edge-relay-image.log, admin-web-image.log, control-plane-image.log: each image scan command/report completed successfully."
+        ],
+        "modified_commits": [
+          "584e000baf024e381c5bdb3417ad7ac879bebdca"
+        ],
+        "acceptance_boundary": "transport_backend_only",
+        "native_admission_status": "NOT_RUN",
+        "native_positive_acceptance": "BLOCKED",
+        "note": "Five image build records, release records, SPDX SBOMs and scan logs are archived; final signed release provenance/native compatibility is not claimed."
+      }
+    }
+  ]
+}
