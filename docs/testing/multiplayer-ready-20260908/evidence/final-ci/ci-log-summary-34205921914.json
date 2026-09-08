@@ -1,0 +1,56 @@
+{
+  "status": "PASS",
+  "run_id": 34205921914,
+  "head_sha": "129f1ca97d021861af5025529ece169665a07601",
+  "raw_log_path": ".tmp\\ready-multiplayer-20260908\\root\\ci-run-34205921914.log",
+  "raw_log_bytes": 2130068,
+  "raw_log_sha256": "4c2c8f133f86922fd182357d484a8974e9bc9b0a80fbb50d36b8fc633056ce25",
+  "deploy_source_test_ok": {
+    "marker_present": true,
+    "marker_count": 1
+  },
+  "trivy_scans": [
+    {
+      "job": "Build and package load-bot image",
+      "job_id": 101997104342,
+      "step": "Scan image for high and critical vulnerabilities",
+      "conclusion": "success",
+      "raw_numeric_summary": null,
+      "summary": "STEP_SUCCESS_ONLY"
+    },
+    {
+      "job": "Build and package admin-web image",
+      "job_id": 101997104397,
+      "step": "Scan image for high and critical vulnerabilities",
+      "conclusion": "success",
+      "raw_numeric_summary": null,
+      "summary": "STEP_SUCCESS_ONLY"
+    },
+    {
+      "job": "Build and package edge-relay image",
+      "job_id": 101997104448,
+      "step": "Scan image for high and critical vulnerabilities",
+      "conclusion": "success",
+      "raw_numeric_summary": null,
+      "summary": "STEP_SUCCESS_ONLY"
+    },
+    {
+      "job": "Build and package control-plane image",
+      "job_id": 101997104493,
+      "step": "Scan image for high and critical vulnerabilities",
+      "conclusion": "success",
+      "raw_numeric_summary": null,
+      "summary": "STEP_SUCCESS_ONLY"
+    },
+    {
+      "job": "Build and package meta-server image",
+      "job_id": 101997104572,
+      "step": "Scan image for high and critical vulnerabilities",
+      "conclusion": "success",
+      "raw_numeric_summary": null,
+      "summary": "STEP_SUCCESS_ONLY"
+    }
+  ],
+  "trivy_numeric_summary_note": "The raw GitHub log contains successful Trivy step completion but no parseable Total/HIGH/CRITICAL numeric summary; no zero-vulnerability claim is made.",
+  "failed_raw_logs": []
+}

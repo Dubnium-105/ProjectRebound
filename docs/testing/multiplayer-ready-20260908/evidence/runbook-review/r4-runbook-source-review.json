@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "review_kind": "r4_runbook_source_static_review",
+  "reviewed_at_utc": "2026-09-08T08:54:22.9726116Z",
+  "result": "PASS_STATIC_REVIEW_WITH_EXPLICIT_HARDWARE_BOUNDARY",
+  "scope": {
+    "reviewed_package": "C:/wksp/ProjectRebound/artifacts/hardware-test-20260908-r4/rebound-hardware-test-20260908-r4-windows-x64",
+    "package_id": "rebound-hardware-test-20260908-r4",
+    "toolbox_repository": "C:/wksp/ProjectReboundToolbox",
+    "toolbox_commit": "30148ad96e08ee4e26cd4972c557a4dee2340c21",
+    "project_rebound_source_commit_from_manifest": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d",
+    "static_source_review_only": true,
+    "hardware_execution_performed": false,
+    "backend_runtime_execution_performed": false,
+    "package_modified": false,
+    "source_modified": false
+  },
+  "runbook_sources": [
+    {
+      "path": "artifacts/hardware-test-20260908-r4/rebound-hardware-test-20260908-r4-windows-x64/README.zh-CN.md",
+      "lines": "7-9, 23-27, 47-51, 64-68",
+      "observed_contract": "Three-machine managed native admission collection is diagnostic only; native_authority_admission_verified remains false, Playable is not published, and results must remain PASS/FAIL/BLOCKED/NOT_RUN with cleanup recorded separately."
+    },
+    {
+      "path": "artifacts/hardware-test-20260908-r4/rebound-hardware-test-20260908-r4-windows-x64/TEST-MATRIX.zh-CN.md",
+      "lines": "9-17, 21-33, 37-60",
+      "observed_contract": "A/B/C use separate physical machines and Steam sessions; the three-machine collection row requires B and C's two unique remote seats plus completed cleanup. A partial one-remote result is not a three-machine PASS, and missing execution evidence remains NOT_RUN."
+    }
+  ],
+  "source_evidence": [
+    {
+      "id": "collection_button_gate",
+      "paths": [
+        {
+          "path": "C:/wksp/ProjectReboundToolbox/frontend/src/pages/LaunchPage.jsx",
+          "lines": "182-187, 291-301"
+        },
+        {
+          "path": "C:/wksp/ProjectReboundToolbox/frontend/src/App.jsx",
+          "lines": "1639-1679"
+        },
+        {
+          "path": "C:/wksp/ProjectReboundToolbox/src/core/runtime.rs",
+          "lines": "5051-5115"
+        }
+      ],
+      "finding": "The collection action is exposed only for a ready P2P owner; the Rust command rechecks authenticated owner, OPEN lobby, no active Attempt, and the expected roster revision."
+    },
+    {
+      "id": "ready_and_authoritative_roster",
+      "paths": [
+        {
+          "path": "C:/wksp/ProjectRebound/Backend/internal/matchlobby/repository.go",
+          "lines": "213-242"
+        },
+        {
+          "path": "C:/wksp/ProjectRebound/Backend/internal/matchlobby/service.go",
+          "lines": "626-645, 709-741"
+        },
+        {
+          "path": "C:/wksp/ProjectReboundToolbox/frontend/src/App.jsx",
+          "lines": "1455-1474, 1535-1560"
+        }
+      ],
+      "finding": "Backend can_start requires every active seat to be online and ready and requires both teams to be occupied; the UI reserves the owner's seat and marks joining members ready through the authoritative API."
+    },
+    {
+      "id": "signed_allocation_and_unique_roster",
+      "paths": [
+        {
+          "path": "C:/wksp/ProjectReboundToolbox/src/matchmaking/controller.rs",
+          "lines": "407-462, 1308-1394"
+        },
+        {
+          "path": "C:/wksp/ProjectRebound/Backend/internal/matchlobby/service.go",
+          "lines": "1129-1178"
+        },
+        {
+          "path": "C:/wksp/ProjectRebound/Backend/migrations/000042_match_lobbies.sql",
+          "lines": "134-165"
+        }
+      ],
+      "finding": "The host obtains and verifies the signed allocation's EdDSA signature and frozen scope. The backend signs the frozen roster, whose player and seat uniqueness constraints prevent a reconnecting player from becoming a second roster seat."
+    },
+    {
+      "id": "grant_confirm_and_cleanup",
+      "paths": [
+        {
+          "path": "C:/wksp/ProjectReboundToolbox/src/core/runtime.rs",
+          "lines": "3049-3120, 4303-4364, 2530-2588, 6222-6327"
+        },
+        {
+          "path": "C:/wksp/ProjectReboundToolbox/src/core/runtime.rs",
+          "lines": "2021-2158"
+        }
+      ],
+      "finding": "Members receive a grant only after the native login-ready checkpoint and wait for delivery and Backend CONNECTED proof. The host binds its Backend proof before native confirmation. Diagnostic completion aborts the exact Attempt and clears the scoped native allocation; cleanup failure remains cleanup_pending."
+    },
+    {
+      "id": "capability_false_boundary",
+      "paths": [
+        {
+          "path": "C:/wksp/ProjectReboundToolbox/src/server/pipe.rs",
+          "lines": "1219-1239"
+        },
+        {
+          "path": "C:/wksp/ProjectReboundToolbox/src/core/runtime.rs",
+          "lines": "2257-2281, 2530-2573"
+        }
+      ],
+      "finding": "Normal Playable readiness still requires verified native authority admission. The collection path intentionally returns a diagnostic NativeValidation result without publishing Playable or promoting the build capability."
+    }
+  ],
+  "two_remote_seat_boundary": {
+    "static_finding": "The collection feature supports variable lobby sizes and is not a three-player-only button.",
+    "source_behavior": "The host material derives expected_remote_seat_count from the signed allocation's MEMBER roster; the native worker requires a positive count and then waits for equality with that signed allocation count. Frontend event validation also requires a positive count.",
+    "source_paths": [
+      {
+        "path": "C:/wksp/ProjectReboundToolbox/src/core/runtime.rs",
+        "lines": "4038-4046, 2306-2334, 2387-2395, 2425-2433"
+      },
+      {
+        "path": "C:/wksp/ProjectReboundToolbox/frontend/src/lib/launchOperations.js",
+        "lines": "179-195"
+      }
+    ],
+    "required_three_machine_interpretation": "A two-person HOST+MEMBER collection may be a valid diagnostic for that allocation, but it is not evidence for this runbook's three-machine scenario. A three-machine PASS requires the signed allocation to contain exactly two unique MEMBER seats and the observed proof count to equal two, followed by completed cleanup.",
+    "no_false_pass_claim": "The source review did not treat a one-remote result as a three-machine pass; the matrix requires the operator to record it as partial/FAIL for the three-machine row and retain the actual count."
+  },
+  "verification": {
+    "performed": [
+      "Read the R4 Chinese README and TEST-MATRIX.",
+      "Read the Toolbox source at commit 30148ad and the referenced Backend roster/allocation paths.",
+      "Confirmed Toolbox working tree was clean at review time.",
+      "Confirmed no cargo, rustc, tauri, or msbuild process was running during the read-only review."
+    ],
+    "not_run_and_not_claimed": [
+      "No three-machine Windows run.",
+      "No native Steam login or Payload admission proof.",
+      "No Backend runtime/integration test.",
+      "No cleanup receipt from a live Attempt."
+    ]
+  }
+}

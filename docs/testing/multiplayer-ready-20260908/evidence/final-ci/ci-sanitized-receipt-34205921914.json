@@ -1,0 +1,1671 @@
+{
+  "status": "PASS",
+  "candidate_commit": "129f1ca97d021861af5025529ece169665a07601",
+  "candidate_parent": "584e000baf024e381c5bdb3417ad7ac879bebdca",
+  "source_commit": "7c130f3b872d07ecd55392d36f9f09e24cf116cd",
+  "public_ref": "refs/heads/codex/multiplayer-ready-20260908",
+  "remote_ref_after_push": "129f1ca97d021861af5025529ece169665a07601",
+  "fast_forward_push": true,
+  "allowed_paths": [
+    "Backend/scripts/deploy-meta-server.sh",
+    "Backend/scripts/test-deploy-source.sh",
+    "Backend/scripts/verify-meta-redis-acl.py",
+    "docs/operations/metaserver-deployment.md",
+    "docs/operations/metaserver-deployment.zh-CN.md"
+  ],
+  "candidate_delta_exact": true,
+  "push_command": "git push origin 129f1ca97d021861af5025529ece169665a07601:refs/heads/codex/multiplayer-ready-20260908",
+  "run": {
+    "databaseId": 34205921914,
+    "name": "CI and Images",
+    "event": "push",
+    "headSha": "129f1ca97d021861af5025529ece169665a07601",
+    "status": "completed",
+    "conclusion": "success",
+    "createdAt": "2026-09-08T08:42:03Z",
+    "updatedAt": "2026-09-08T08:51:04Z",
+    "url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34205921914"
+  },
+  "jobs": [
+    {
+      "id": 101995253889,
+      "name": "Independent administrator web",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34205921914/job/101995253889",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-09-08T08:42:07Z",
+      "completedAt": "2026-09-08T08:43:16Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:08Z",
+          "completedAt": "2026-09-08T08:42:09Z"
+        },
+        {
+          "number": 2,
+          "name": "Check out repository",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:09Z",
+          "completedAt": "2026-09-08T08:42:13Z"
+        },
+        {
+          "number": 3,
+          "name": "Set up Node.js",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:13Z",
+          "completedAt": "2026-09-08T08:42:15Z"
+        },
+        {
+          "number": 4,
+          "name": "Install locked dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:15Z",
+          "completedAt": "2026-09-08T08:42:25Z"
+        },
+        {
+          "number": 5,
+          "name": "Audit all administrator web dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:25Z",
+          "completedAt": "2026-09-08T08:42:25Z"
+        },
+        {
+          "number": 6,
+          "name": "Verify generated OpenAPI types",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:25Z",
+          "completedAt": "2026-09-08T08:42:27Z"
+        },
+        {
+          "number": 7,
+          "name": "Run administrator web tests",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:27Z",
+          "completedAt": "2026-09-08T08:42:30Z"
+        },
+        {
+          "number": 8,
+          "name": "Build administrator web",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:30Z",
+          "completedAt": "2026-09-08T08:42:36Z"
+        },
+        {
+          "number": 9,
+          "name": "Install Chromium for administrator E2E",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:36Z",
+          "completedAt": "2026-09-08T08:42:59Z"
+        },
+        {
+          "number": 10,
+          "name": "Run administrator E2E",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:59Z",
+          "completedAt": "2026-09-08T08:43:13Z"
+        },
+        {
+          "number": 19,
+          "name": "Post Set up Node.js",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:43:13Z",
+          "completedAt": "2026-09-08T08:43:13Z"
+        },
+        {
+          "number": 20,
+          "name": "Post Check out repository",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:43:13Z",
+          "completedAt": "2026-09-08T08:43:13Z"
+        },
+        {
+          "number": 21,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:43:13Z",
+          "completedAt": "2026-09-08T08:43:14Z"
+        }
+      ]
+    },
+    {
+      "id": 101995254009,
+      "name": "C++ command protocol",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34205921914/job/101995254009",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-09-08T08:42:07Z",
+      "completedAt": "2026-09-08T08:42:35Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:08Z",
+          "completedAt": "2026-09-08T08:42:09Z"
+        },
+        {
+          "number": 2,
+          "name": "Check out repository",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:09Z",
+          "completedAt": "2026-09-08T08:42:13Z"
+        },
+        {
+          "number": 3,
+          "name": "Configure protocol tests",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:13Z",
+          "completedAt": "2026-09-08T08:42:14Z"
+        },
+        {
+          "number": 4,
+          "name": "Build protocol tests with warnings as errors",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:14Z",
+          "completedAt": "2026-09-08T08:42:32Z"
+        },
+        {
+          "number": 5,
+          "name": "Run protocol tests",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:32Z",
+          "completedAt": "2026-09-08T08:42:33Z"
+        },
+        {
+          "number": 10,
+          "name": "Post Check out repository",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:33Z",
+          "completedAt": "2026-09-08T08:42:33Z"
+        },
+        {
+          "number": 11,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:33Z",
+          "completedAt": "2026-09-08T08:42:33Z"
+        }
+      ]
+    },
+    {
+      "id": 101995254049,
+      "name": "Go backend and PostgreSQL",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34205921914/job/101995254049",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-09-08T08:42:43Z",
+      "completedAt": "2026-09-08T08:45:19Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:43Z",
+          "completedAt": "2026-09-08T08:42:44Z"
+        },
+        {
+          "number": 2,
+          "name": "Initialize containers",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:44Z",
+          "completedAt": "2026-09-08T08:42:55Z"
+        },
+        {
+          "number": 3,
+          "name": "Check out repository",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:55Z",
+          "completedAt": "2026-09-08T08:42:59Z"
+        },
+        {
+          "number": 4,
+          "name": "Set up Go",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:59Z",
+          "completedAt": "2026-09-08T08:43:13Z"
+        },
+        {
+          "number": 5,
+          "name": "Check formatting",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:43:13Z",
+          "completedAt": "2026-09-08T08:43:14Z"
+        },
+        {
+          "number": 6,
+          "name": "Validate Windows launcher syntax",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:43:14Z",
+          "completedAt": "2026-09-08T08:43:16Z"
+        },
+        {
+          "number": 7,
+          "name": "Verify modules",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:43:16Z",
+          "completedAt": "2026-09-08T08:43:16Z"
+        },
+        {
+          "number": 8,
+          "name": "Vet",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:43:16Z",
+          "completedAt": "2026-09-08T08:43:17Z"
+        },
+        {
+          "number": 9,
+          "name": "Test with race detector",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:43:17Z",
+          "completedAt": "2026-09-08T08:44:51Z"
+        },
+        {
+          "number": 10,
+          "name": "Fuzz MetaServer framing",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:44:51Z",
+          "completedAt": "2026-09-08T08:45:05Z"
+        },
+        {
+          "number": 11,
+          "name": "Verify generated MetaServer protobuf",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:45:05Z",
+          "completedAt": "2026-09-08T08:45:07Z"
+        },
+        {
+          "number": 12,
+          "name": "Check known Go vulnerabilities",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:45:07Z",
+          "completedAt": "2026-09-08T08:45:10Z"
+        },
+        {
+          "number": 13,
+          "name": "Build control plane, Steam ticket verifier, MetaServer, MetaTunnel and edge relay",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:45:10Z",
+          "completedAt": "2026-09-08T08:45:15Z"
+        },
+        {
+          "number": 14,
+          "name": "Upload Windows MetaTunnel",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:45:15Z",
+          "completedAt": "2026-09-08T08:45:17Z"
+        },
+        {
+          "number": 26,
+          "name": "Post Set up Go",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:45:17Z",
+          "completedAt": "2026-09-08T08:45:17Z"
+        },
+        {
+          "number": 27,
+          "name": "Post Check out repository",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:45:17Z",
+          "completedAt": "2026-09-08T08:45:17Z"
+        },
+        {
+          "number": 28,
+          "name": "Stop containers",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:45:17Z",
+          "completedAt": "2026-09-08T08:45:18Z"
+        },
+        {
+          "number": 29,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:45:18Z",
+          "completedAt": "2026-09-08T08:45:18Z"
+        }
+      ]
+    },
+    {
+      "id": 101995254079,
+      "name": "Windows named-pipe integration",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34205921914/job/101995254079",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-09-08T08:42:07Z",
+      "completedAt": "2026-09-08T08:43:40Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:08Z",
+          "completedAt": "2026-09-08T08:42:08Z"
+        },
+        {
+          "number": 2,
+          "name": "Check out repository",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:08Z",
+          "completedAt": "2026-09-08T08:42:26Z"
+        },
+        {
+          "number": 3,
+          "name": "Configure named-pipe tests",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:26Z",
+          "completedAt": "2026-09-08T08:42:52Z"
+        },
+        {
+          "number": 4,
+          "name": "Build named-pipe tests with warnings as errors",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:52Z",
+          "completedAt": "2026-09-08T08:43:35Z"
+        },
+        {
+          "number": 5,
+          "name": "Run named-pipe tests",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:43:35Z",
+          "completedAt": "2026-09-08T08:43:37Z"
+        },
+        {
+          "number": 10,
+          "name": "Post Check out repository",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:43:37Z",
+          "completedAt": "2026-09-08T08:43:39Z"
+        },
+        {
+          "number": 11,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:43:39Z",
+          "completedAt": "2026-09-08T08:43:39Z"
+        }
+      ]
+    },
+    {
+      "id": 101995254114,
+      "name": "Deployment and workflow configuration",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34205921914/job/101995254114",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-09-08T08:42:07Z",
+      "completedAt": "2026-09-08T08:42:42Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:08Z",
+          "completedAt": "2026-09-08T08:42:09Z"
+        },
+        {
+          "number": 2,
+          "name": "Check out repository",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:09Z",
+          "completedAt": "2026-09-08T08:42:13Z"
+        },
+        {
+          "number": 3,
+          "name": "Set up Go for actionlint",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:13Z",
+          "completedAt": "2026-09-08T08:42:22Z"
+        },
+        {
+          "number": 4,
+          "name": "Validate GitHub Actions",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:22Z",
+          "completedAt": "2026-09-08T08:42:30Z"
+        },
+        {
+          "number": 5,
+          "name": "Validate shell syntax and line endings",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:30Z",
+          "completedAt": "2026-09-08T08:42:31Z"
+        },
+        {
+          "number": 6,
+          "name": "Validate long stability harness",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:31Z",
+          "completedAt": "2026-09-08T08:42:31Z"
+        },
+        {
+          "number": 7,
+          "name": "Test release activation and automatic rollback",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:31Z",
+          "completedAt": "2026-09-08T08:42:31Z"
+        },
+        {
+          "number": 8,
+          "name": "Test SSH deployment bundle",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:31Z",
+          "completedAt": "2026-09-08T08:42:31Z"
+        },
+        {
+          "number": 9,
+          "name": "Test CI artifact and source deployment modes",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:31Z",
+          "completedAt": "2026-09-08T08:42:32Z"
+        },
+        {
+          "number": 10,
+          "name": "Test download storage environment upgrade",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:32Z",
+          "completedAt": "2026-09-08T08:42:33Z"
+        },
+        {
+          "number": 11,
+          "name": "Test release safety gates",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:33Z",
+          "completedAt": "2026-09-08T08:42:33Z"
+        },
+        {
+          "number": 12,
+          "name": "Validate local Markdown links",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:33Z",
+          "completedAt": "2026-09-08T08:42:33Z"
+        },
+        {
+          "number": 13,
+          "name": "Generate production-shaped secrets",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:33Z",
+          "completedAt": "2026-09-08T08:42:33Z"
+        },
+        {
+          "number": 14,
+          "name": "Validate separated Compose files",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:33Z",
+          "completedAt": "2026-09-08T08:42:33Z"
+        },
+        {
+          "number": 15,
+          "name": "Validate Prometheus configuration and alert expressions",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:33Z",
+          "completedAt": "2026-09-08T08:42:39Z"
+        },
+        {
+          "number": 29,
+          "name": "Post Set up Go for actionlint",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:39Z",
+          "completedAt": "2026-09-08T08:42:39Z"
+        },
+        {
+          "number": 30,
+          "name": "Post Check out repository",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:39Z",
+          "completedAt": "2026-09-08T08:42:39Z"
+        },
+        {
+          "number": 31,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:39Z",
+          "completedAt": "2026-09-08T08:42:39Z"
+        }
+      ]
+    },
+    {
+      "id": 101995254116,
+      "name": "V1.1 disposable control plane and two-Relay integration",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34205921914/job/101995254116",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-09-08T08:42:07Z",
+      "completedAt": "2026-09-08T08:48:22Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:07Z",
+          "completedAt": "2026-09-08T08:42:09Z"
+        },
+        {
+          "number": 2,
+          "name": "Check out repository",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:09Z",
+          "completedAt": "2026-09-08T08:42:12Z"
+        },
+        {
+          "number": 3,
+          "name": "Set up Go",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:12Z",
+          "completedAt": "2026-09-08T08:42:24Z"
+        },
+        {
+          "number": 4,
+          "name": "Install isolated network fault tools",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:24Z",
+          "completedAt": "2026-09-08T08:42:31Z"
+        },
+        {
+          "number": 5,
+          "name": "Run real auth, room, WebSocket and Relay UDP flow",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:42:31Z",
+          "completedAt": "2026-09-08T08:48:18Z"
+        },
+        {
+          "number": 6,
+          "name": "Validate public Caddy policy",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:18Z",
+          "completedAt": "2026-09-08T08:48:19Z"
+        },
+        {
+          "number": 7,
+          "name": "Upload integration diagnostics",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:19Z",
+          "completedAt": "2026-09-08T08:48:20Z"
+        },
+        {
+          "number": 13,
+          "name": "Post Set up Go",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:20Z",
+          "completedAt": "2026-09-08T08:48:20Z"
+        },
+        {
+          "number": 14,
+          "name": "Post Check out repository",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:20Z",
+          "completedAt": "2026-09-08T08:48:20Z"
+        },
+        {
+          "number": 15,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:20Z",
+          "completedAt": "2026-09-08T08:48:20Z"
+        }
+      ]
+    },
+    {
+      "id": 101997104342,
+      "name": "Build and package load-bot image",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34205921914/job/101997104342",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-09-08T08:48:25Z",
+      "completedAt": "2026-09-08T08:49:53Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:26Z",
+          "completedAt": "2026-09-08T08:48:31Z"
+        },
+        {
+          "number": 2,
+          "name": "Check out repository",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:31Z",
+          "completedAt": "2026-09-08T08:48:35Z"
+        },
+        {
+          "number": 3,
+          "name": "Resolve lowercase GHCR image name",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:35Z",
+          "completedAt": "2026-09-08T08:48:35Z"
+        },
+        {
+          "number": 4,
+          "name": "Set up Buildx",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:35Z",
+          "completedAt": "2026-09-08T08:48:44Z"
+        },
+        {
+          "number": 5,
+          "name": "Log in to GHCR",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:44Z",
+          "completedAt": "2026-09-08T08:48:44Z"
+        },
+        {
+          "number": 6,
+          "name": "Generate OCI metadata",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:44Z",
+          "completedAt": "2026-09-08T08:48:45Z"
+        },
+        {
+          "number": 7,
+          "name": "Build image and publish CI artifact",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:45Z",
+          "completedAt": "2026-09-08T08:49:21Z"
+        },
+        {
+          "number": 8,
+          "name": "Attest image provenance",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:21Z",
+          "completedAt": "2026-09-08T08:49:28Z"
+        },
+        {
+          "number": 9,
+          "name": "Generate image SBOM",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:28Z",
+          "completedAt": "2026-09-08T08:49:31Z"
+        },
+        {
+          "number": 10,
+          "name": "Scan image for high and critical vulnerabilities",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:31Z",
+          "completedAt": "2026-09-08T08:49:39Z"
+        },
+        {
+          "number": 11,
+          "name": "Set up Go for release record",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:39Z",
+          "completedAt": "2026-09-08T08:49:46Z"
+        },
+        {
+          "number": 12,
+          "name": "Write immutable build record",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:46Z",
+          "completedAt": "2026-09-08T08:49:46Z"
+        },
+        {
+          "number": 13,
+          "name": "Upload build record",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:46Z",
+          "completedAt": "2026-09-08T08:49:47Z"
+        },
+        {
+          "number": 21,
+          "name": "Post Set up Go for release record",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:47Z",
+          "completedAt": "2026-09-08T08:49:47Z"
+        },
+        {
+          "number": 22,
+          "name": "Post Scan image for high and critical vulnerabilities",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:47Z",
+          "completedAt": "2026-09-08T08:49:48Z"
+        },
+        {
+          "number": 23,
+          "name": "Post Build image and publish CI artifact",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:48Z",
+          "completedAt": "2026-09-08T08:49:49Z"
+        },
+        {
+          "number": 24,
+          "name": "Post Log in to GHCR",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:49Z",
+          "completedAt": "2026-09-08T08:49:49Z"
+        },
+        {
+          "number": 25,
+          "name": "Post Set up Buildx",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:49Z",
+          "completedAt": "2026-09-08T08:49:51Z"
+        },
+        {
+          "number": 26,
+          "name": "Post Check out repository",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:51Z",
+          "completedAt": "2026-09-08T08:49:52Z"
+        },
+        {
+          "number": 27,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:52Z",
+          "completedAt": "2026-09-08T08:49:52Z"
+        }
+      ]
+    },
+    {
+      "id": 101997104397,
+      "name": "Build and package admin-web image",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34205921914/job/101997104397",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-09-08T08:48:26Z",
+      "completedAt": "2026-09-08T08:49:34Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:27Z",
+          "completedAt": "2026-09-08T08:48:32Z"
+        },
+        {
+          "number": 2,
+          "name": "Check out repository",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:32Z",
+          "completedAt": "2026-09-08T08:48:37Z"
+        },
+        {
+          "number": 3,
+          "name": "Resolve lowercase GHCR image name",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:37Z",
+          "completedAt": "2026-09-08T08:48:37Z"
+        },
+        {
+          "number": 4,
+          "name": "Set up Buildx",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:37Z",
+          "completedAt": "2026-09-08T08:48:44Z"
+        },
+        {
+          "number": 5,
+          "name": "Log in to GHCR",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:44Z",
+          "completedAt": "2026-09-08T08:48:45Z"
+        },
+        {
+          "number": 6,
+          "name": "Generate OCI metadata",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:45Z",
+          "completedAt": "2026-09-08T08:48:46Z"
+        },
+        {
+          "number": 7,
+          "name": "Build image and publish CI artifact",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:46Z",
+          "completedAt": "2026-09-08T08:48:52Z"
+        },
+        {
+          "number": 8,
+          "name": "Attest image provenance",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:52Z",
+          "completedAt": "2026-09-08T08:48:59Z"
+        },
+        {
+          "number": 9,
+          "name": "Generate image SBOM",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:59Z",
+          "completedAt": "2026-09-08T08:49:05Z"
+        },
+        {
+          "number": 10,
+          "name": "Scan image for high and critical vulnerabilities",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:05Z",
+          "completedAt": "2026-09-08T08:49:16Z"
+        },
+        {
+          "number": 11,
+          "name": "Set up Go for release record",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:16Z",
+          "completedAt": "2026-09-08T08:49:26Z"
+        },
+        {
+          "number": 12,
+          "name": "Write immutable build record",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:26Z",
+          "completedAt": "2026-09-08T08:49:26Z"
+        },
+        {
+          "number": 13,
+          "name": "Upload build record",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:26Z",
+          "completedAt": "2026-09-08T08:49:27Z"
+        },
+        {
+          "number": 21,
+          "name": "Post Set up Go for release record",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:27Z",
+          "completedAt": "2026-09-08T08:49:27Z"
+        },
+        {
+          "number": 22,
+          "name": "Post Scan image for high and critical vulnerabilities",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:27Z",
+          "completedAt": "2026-09-08T08:49:27Z"
+        },
+        {
+          "number": 23,
+          "name": "Post Build image and publish CI artifact",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:27Z",
+          "completedAt": "2026-09-08T08:49:29Z"
+        },
+        {
+          "number": 24,
+          "name": "Post Log in to GHCR",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:29Z",
+          "completedAt": "2026-09-08T08:49:30Z"
+        },
+        {
+          "number": 25,
+          "name": "Post Set up Buildx",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:30Z",
+          "completedAt": "2026-09-08T08:49:31Z"
+        },
+        {
+          "number": 26,
+          "name": "Post Check out repository",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:31Z",
+          "completedAt": "2026-09-08T08:49:31Z"
+        },
+        {
+          "number": 27,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:31Z",
+          "completedAt": "2026-09-08T08:49:31Z"
+        }
+      ]
+    },
+    {
+      "id": 101997104448,
+      "name": "Build and package edge-relay image",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34205921914/job/101997104448",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-09-08T08:48:25Z",
+      "completedAt": "2026-09-08T08:49:46Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:26Z",
+          "completedAt": "2026-09-08T08:48:29Z"
+        },
+        {
+          "number": 2,
+          "name": "Check out repository",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:29Z",
+          "completedAt": "2026-09-08T08:48:33Z"
+        },
+        {
+          "number": 3,
+          "name": "Resolve lowercase GHCR image name",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:33Z",
+          "completedAt": "2026-09-08T08:48:33Z"
+        },
+        {
+          "number": 4,
+          "name": "Set up Buildx",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:33Z",
+          "completedAt": "2026-09-08T08:48:38Z"
+        },
+        {
+          "number": 5,
+          "name": "Log in to GHCR",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:38Z",
+          "completedAt": "2026-09-08T08:48:38Z"
+        },
+        {
+          "number": 6,
+          "name": "Generate OCI metadata",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:38Z",
+          "completedAt": "2026-09-08T08:48:39Z"
+        },
+        {
+          "number": 7,
+          "name": "Build image and publish CI artifact",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:39Z",
+          "completedAt": "2026-09-08T08:49:18Z"
+        },
+        {
+          "number": 8,
+          "name": "Attest image provenance",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:18Z",
+          "completedAt": "2026-09-08T08:49:22Z"
+        },
+        {
+          "number": 9,
+          "name": "Generate image SBOM",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:22Z",
+          "completedAt": "2026-09-08T08:49:26Z"
+        },
+        {
+          "number": 10,
+          "name": "Scan image for high and critical vulnerabilities",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:26Z",
+          "completedAt": "2026-09-08T08:49:32Z"
+        },
+        {
+          "number": 11,
+          "name": "Set up Go for release record",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:32Z",
+          "completedAt": "2026-09-08T08:49:40Z"
+        },
+        {
+          "number": 12,
+          "name": "Write immutable build record",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:40Z",
+          "completedAt": "2026-09-08T08:49:40Z"
+        },
+        {
+          "number": 13,
+          "name": "Upload build record",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:40Z",
+          "completedAt": "2026-09-08T08:49:41Z"
+        },
+        {
+          "number": 21,
+          "name": "Post Set up Go for release record",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:41Z",
+          "completedAt": "2026-09-08T08:49:41Z"
+        },
+        {
+          "number": 22,
+          "name": "Post Scan image for high and critical vulnerabilities",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:41Z",
+          "completedAt": "2026-09-08T08:49:41Z"
+        },
+        {
+          "number": 23,
+          "name": "Post Build image and publish CI artifact",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:41Z",
+          "completedAt": "2026-09-08T08:49:42Z"
+        },
+        {
+          "number": 24,
+          "name": "Post Log in to GHCR",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:42Z",
+          "completedAt": "2026-09-08T08:49:42Z"
+        },
+        {
+          "number": 25,
+          "name": "Post Set up Buildx",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:42Z",
+          "completedAt": "2026-09-08T08:49:44Z"
+        },
+        {
+          "number": 26,
+          "name": "Post Check out repository",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:44Z",
+          "completedAt": "2026-09-08T08:49:45Z"
+        },
+        {
+          "number": 27,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:49:45Z",
+          "completedAt": "2026-09-08T08:49:45Z"
+        }
+      ]
+    },
+    {
+      "id": 101997104493,
+      "name": "Build and package control-plane image",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34205921914/job/101997104493",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-09-08T08:48:26Z",
+      "completedAt": "2026-09-08T08:51:03Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:26Z",
+          "completedAt": "2026-09-08T08:48:35Z"
+        },
+        {
+          "number": 2,
+          "name": "Check out repository",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:35Z",
+          "completedAt": "2026-09-08T08:48:40Z"
+        },
+        {
+          "number": 3,
+          "name": "Resolve lowercase GHCR image name",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:40Z",
+          "completedAt": "2026-09-08T08:48:40Z"
+        },
+        {
+          "number": 4,
+          "name": "Set up Buildx",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:40Z",
+          "completedAt": "2026-09-08T08:48:47Z"
+        },
+        {
+          "number": 5,
+          "name": "Log in to GHCR",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:47Z",
+          "completedAt": "2026-09-08T08:48:48Z"
+        },
+        {
+          "number": 6,
+          "name": "Generate OCI metadata",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:48Z",
+          "completedAt": "2026-09-08T08:48:49Z"
+        },
+        {
+          "number": 7,
+          "name": "Build image and publish CI artifact",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:49Z",
+          "completedAt": "2026-09-08T08:50:16Z"
+        },
+        {
+          "number": 8,
+          "name": "Attest image provenance",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:50:16Z",
+          "completedAt": "2026-09-08T08:50:23Z"
+        },
+        {
+          "number": 9,
+          "name": "Generate image SBOM",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:50:23Z",
+          "completedAt": "2026-09-08T08:50:33Z"
+        },
+        {
+          "number": 10,
+          "name": "Scan image for high and critical vulnerabilities",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:50:33Z",
+          "completedAt": "2026-09-08T08:50:46Z"
+        },
+        {
+          "number": 11,
+          "name": "Set up Go for release record",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:50:46Z",
+          "completedAt": "2026-09-08T08:50:53Z"
+        },
+        {
+          "number": 12,
+          "name": "Write immutable build record",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:50:53Z",
+          "completedAt": "2026-09-08T08:50:53Z"
+        },
+        {
+          "number": 13,
+          "name": "Upload build record",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:50:53Z",
+          "completedAt": "2026-09-08T08:50:55Z"
+        },
+        {
+          "number": 21,
+          "name": "Post Set up Go for release record",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:50:55Z",
+          "completedAt": "2026-09-08T08:50:55Z"
+        },
+        {
+          "number": 22,
+          "name": "Post Scan image for high and critical vulnerabilities",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:50:55Z",
+          "completedAt": "2026-09-08T08:50:55Z"
+        },
+        {
+          "number": 23,
+          "name": "Post Build image and publish CI artifact",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:50:55Z",
+          "completedAt": "2026-09-08T08:50:57Z"
+        },
+        {
+          "number": 24,
+          "name": "Post Log in to GHCR",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:50:57Z",
+          "completedAt": "2026-09-08T08:50:57Z"
+        },
+        {
+          "number": 25,
+          "name": "Post Set up Buildx",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:50:57Z",
+          "completedAt": "2026-09-08T08:51:00Z"
+        },
+        {
+          "number": 26,
+          "name": "Post Check out repository",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:51:00Z",
+          "completedAt": "2026-09-08T08:51:00Z"
+        },
+        {
+          "number": 27,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:51:00Z",
+          "completedAt": "2026-09-08T08:51:00Z"
+        }
+      ]
+    },
+    {
+      "id": 101997104572,
+      "name": "Build and package meta-server image",
+      "url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34205921914/job/101997104572",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-09-08T08:48:26Z",
+      "completedAt": "2026-09-08T08:50:42Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:27Z",
+          "completedAt": "2026-09-08T08:48:36Z"
+        },
+        {
+          "number": 2,
+          "name": "Check out repository",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:36Z",
+          "completedAt": "2026-09-08T08:48:40Z"
+        },
+        {
+          "number": 3,
+          "name": "Resolve lowercase GHCR image name",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:40Z",
+          "completedAt": "2026-09-08T08:48:40Z"
+        },
+        {
+          "number": 4,
+          "name": "Set up Buildx",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:40Z",
+          "completedAt": "2026-09-08T08:48:50Z"
+        },
+        {
+          "number": 5,
+          "name": "Log in to GHCR",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:50Z",
+          "completedAt": "2026-09-08T08:48:51Z"
+        },
+        {
+          "number": 6,
+          "name": "Generate OCI metadata",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:51Z",
+          "completedAt": "2026-09-08T08:48:52Z"
+        },
+        {
+          "number": 7,
+          "name": "Build image and publish CI artifact",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:48:52Z",
+          "completedAt": "2026-09-08T08:50:04Z"
+        },
+        {
+          "number": 8,
+          "name": "Attest image provenance",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:50:04Z",
+          "completedAt": "2026-09-08T08:50:09Z"
+        },
+        {
+          "number": 9,
+          "name": "Generate image SBOM",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:50:09Z",
+          "completedAt": "2026-09-08T08:50:15Z"
+        },
+        {
+          "number": 10,
+          "name": "Scan image for high and critical vulnerabilities",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:50:15Z",
+          "completedAt": "2026-09-08T08:50:24Z"
+        },
+        {
+          "number": 11,
+          "name": "Set up Go for release record",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:50:24Z",
+          "completedAt": "2026-09-08T08:50:34Z"
+        },
+        {
+          "number": 12,
+          "name": "Write immutable build record",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:50:34Z",
+          "completedAt": "2026-09-08T08:50:34Z"
+        },
+        {
+          "number": 13,
+          "name": "Upload build record",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:50:34Z",
+          "completedAt": "2026-09-08T08:50:35Z"
+        },
+        {
+          "number": 21,
+          "name": "Post Set up Go for release record",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:50:35Z",
+          "completedAt": "2026-09-08T08:50:35Z"
+        },
+        {
+          "number": 22,
+          "name": "Post Scan image for high and critical vulnerabilities",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:50:35Z",
+          "completedAt": "2026-09-08T08:50:35Z"
+        },
+        {
+          "number": 23,
+          "name": "Post Build image and publish CI artifact",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:50:35Z",
+          "completedAt": "2026-09-08T08:50:37Z"
+        },
+        {
+          "number": 24,
+          "name": "Post Log in to GHCR",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:50:37Z",
+          "completedAt": "2026-09-08T08:50:37Z"
+        },
+        {
+          "number": 25,
+          "name": "Post Set up Buildx",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:50:37Z",
+          "completedAt": "2026-09-08T08:50:39Z"
+        },
+        {
+          "number": 26,
+          "name": "Post Check out repository",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:50:39Z",
+          "completedAt": "2026-09-08T08:50:39Z"
+        },
+        {
+          "number": 27,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T08:50:39Z",
+          "completedAt": "2026-09-08T08:50:40Z"
+        }
+      ]
+    }
+  ],
+  "trivy_and_supply_chain_steps": [
+    {
+      "job": "Go backend and PostgreSQL",
+      "job_id": 101995254049,
+      "step": "Check known Go vulnerabilities",
+      "conclusion": "success"
+    },
+    {
+      "job": "Build and package load-bot image",
+      "job_id": 101997104342,
+      "step": "Attest image provenance",
+      "conclusion": "success"
+    },
+    {
+      "job": "Build and package load-bot image",
+      "job_id": 101997104342,
+      "step": "Generate image SBOM",
+      "conclusion": "success"
+    },
+    {
+      "job": "Build and package load-bot image",
+      "job_id": 101997104342,
+      "step": "Scan image for high and critical vulnerabilities",
+      "conclusion": "success"
+    },
+    {
+      "job": "Build and package load-bot image",
+      "job_id": 101997104342,
+      "step": "Post Scan image for high and critical vulnerabilities",
+      "conclusion": "success"
+    },
+    {
+      "job": "Build and package admin-web image",
+      "job_id": 101997104397,
+      "step": "Attest image provenance",
+      "conclusion": "success"
+    },
+    {
+      "job": "Build and package admin-web image",
+      "job_id": 101997104397,
+      "step": "Generate image SBOM",
+      "conclusion": "success"
+    },
+    {
+      "job": "Build and package admin-web image",
+      "job_id": 101997104397,
+      "step": "Scan image for high and critical vulnerabilities",
+      "conclusion": "success"
+    },
+    {
+      "job": "Build and package admin-web image",
+      "job_id": 101997104397,
+      "step": "Post Scan image for high and critical vulnerabilities",
+      "conclusion": "success"
+    },
+    {
+      "job": "Build and package edge-relay image",
+      "job_id": 101997104448,
+      "step": "Attest image provenance",
+      "conclusion": "success"
+    },
+    {
+      "job": "Build and package edge-relay image",
+      "job_id": 101997104448,
+      "step": "Generate image SBOM",
+      "conclusion": "success"
+    },
+    {
+      "job": "Build and package edge-relay image",
+      "job_id": 101997104448,
+      "step": "Scan image for high and critical vulnerabilities",
+      "conclusion": "success"
+    },
+    {
+      "job": "Build and package edge-relay image",
+      "job_id": 101997104448,
+      "step": "Post Scan image for high and critical vulnerabilities",
+      "conclusion": "success"
+    },
+    {
+      "job": "Build and package control-plane image",
+      "job_id": 101997104493,
+      "step": "Attest image provenance",
+      "conclusion": "success"
+    },
+    {
+      "job": "Build and package control-plane image",
+      "job_id": 101997104493,
+      "step": "Generate image SBOM",
+      "conclusion": "success"
+    },
+    {
+      "job": "Build and package control-plane image",
+      "job_id": 101997104493,
+      "step": "Scan image for high and critical vulnerabilities",
+      "conclusion": "success"
+    },
+    {
+      "job": "Build and package control-plane image",
+      "job_id": 101997104493,
+      "step": "Post Scan image for high and critical vulnerabilities",
+      "conclusion": "success"
+    },
+    {
+      "job": "Build and package meta-server image",
+      "job_id": 101997104572,
+      "step": "Attest image provenance",
+      "conclusion": "success"
+    },
+    {
+      "job": "Build and package meta-server image",
+      "job_id": 101997104572,
+      "step": "Generate image SBOM",
+      "conclusion": "success"
+    },
+    {
+      "job": "Build and package meta-server image",
+      "job_id": 101997104572,
+      "step": "Scan image for high and critical vulnerabilities",
+      "conclusion": "success"
+    },
+    {
+      "job": "Build and package meta-server image",
+      "job_id": 101997104572,
+      "step": "Post Scan image for high and critical vulnerabilities",
+      "conclusion": "success"
+    }
+  ],
+  "failed_jobs": [],
+  "failed_raw_logs": [],
+  "log_scope": "GitHub job and step metadata only; no failed log existed because all jobs succeeded.",
+  "metadata_sha256": {
+    "candidate_receipt": "02cb3bc31eac286a053e9d348b522397ca46fed7fb7c0530d2a7f940dbcce253",
+    "ci_run_json": "9a3f28d00468ceedadd2b9b90e5ffc4fe3867205d73e841e2184db9a0c824bd7"
+  }
+}

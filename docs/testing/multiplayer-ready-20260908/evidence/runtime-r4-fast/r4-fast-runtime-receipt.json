@@ -1,0 +1,192 @@
+{
+  "receipt_version": 1,
+  "status": "R4_FAST_PATH_OFFLINE_PVE_PLAYABLE_NO_TIMEOUT",
+  "scope": "single-machine production Toolbox PvE fast role/loadout/deploy path using exact r4 package; offline evidence only",
+  "package": {
+    "zip_path": "C:\\wksp\\ProjectRebound\\artifacts\\hardware-test-20260908-r4\\rebound-hardware-test-20260908-r4-windows-x64.zip",
+    "zip_bytes": 23487655,
+    "zip_sha256": "73bff684e19d0644fe310fa833624150e5b7c9105013482198a90a1ce6651689",
+    "expanded_exe_sha256": "aa7a5d738a66295f1bd5a3c478c8c8cd0234fba90e163a9cb1bc48235a104de0",
+    "payload_sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+    "game_executable_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+    "toolbox_source_commit": "30148ad96e08ee4e26cd4972c557a4dee2340c21",
+    "payload_source_commit": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d",
+    "preflight": "POST_RUN_PREFLIGHT: PASS:45 checks, 0 non-PASS; generated after cleanup at 2026-09-08T08:51:50.1063997Z",
+    "payload_install": "NOT_RUN: read-only preflight verified installed Payload exact hash; no replacement",
+    "authenticode": "UnknownError / WinVerifyTrust -2146762487: test signer exists but local root is untrusted",
+    "release_ready": false
+  },
+  "timestamps_utc": {
+    "toolbox_started": "2026-09-08T08:46:31.9690215Z",
+    "toolbox_ui_rendered": "2026-09-08T08:46:33.7691721Z",
+    "toolbox_bootstrap": "2026-09-08T08:46:46.0175091Z",
+    "start_pve_clicked": "2026-09-08T08:46:57.9133481Z",
+    "server_process_log_start": "2026-09-08T08:46:58.5537958Z",
+    "client_process_log_start": "2026-09-08T08:47:16.7383133Z",
+    "role_selection_capture": "2026-09-08T08:48:03.1201319Z",
+    "role_selected": "2026-09-08T08:48:31.2762071Z",
+    "deploy_clicked": "2026-09-08T08:48:48.5273677Z",
+    "in_game_capture": "2026-09-08T08:49:28.8420202Z",
+    "respawn_capture": "2026-09-08T08:50:08.3751701Z",
+    "game_close": "2026-09-08T08:50:29.1529633Z",
+    "toolbox_close": "2026-09-08T08:50:51.5475463Z",
+    "cleanup_verified": "2026-09-08T08:50:56.7880681Z",
+    "post_run_preflight": "2026-09-08T08:51:50.1063997Z"
+  },
+  "timing": {
+    "start_to_role_capture_seconds": 65.2067,
+    "start_to_deploy_seconds": 110.6146,
+    "deadline_target": "Payload TravelTimeout=90s from direct open, not the Toolbox Start button; the raw client log has no per-line timestamp for direct open, so Start→Deploy=110.6146s is not evidence that open→Playable was under 90s",
+    "direct_open_to_playable": "not timestamped in raw client log; the run has an explicit Playable line and no timeout line, proving success for this operation without providing an elapsed open→Playable bound"
+  },
+  "observed": {
+    "toolbox_ui": "PASS: exact r4 production UI rendered",
+    "steam_session": "AUTHENTICATED_UI_STATE_OBSERVED: existing Steam-linked session visible after normal product bootstrap; no fresh login challenge forced",
+    "client_native": "PASS: raw client log contains Native QueryAssets/GetPlayerArchiveV2, loadout snapshot, Customize completion, WorldReady, ClientInitFieldMod, and Offline PvE travel reached Playable; transition completed",
+    "client_timeout": "PASS: no playable_pawn_timeout or world_ready_timeout lines in raw client log",
+    "server_native": "PASS: raw server log contains native_initial_join pawn, Finalized playable possession, Spawn complete, Native MatchIntro and StartMatch",
+    "server_player_count": "2 during role flow; later bot fill count may increase; not a remote-human count",
+    "scene": "PASS: after-deploy-doc-fast.png shows actual first-person HUD and ROUND1 timer after Deploy; fast-in-game.png and fast-after-respawn.png are later post-death STANDBY FOR REDEPLOY frames and are not used as the primary scene evidence",
+    "control": "PARTIAL: actual gameplay frame and normal F respawn path observed; W input was sent but later capture was after bot death, so no standalone post-W movement claim in this fast receipt",
+    "managed_cleanup": "PASS: game/server and Toolbox exited normally; target process count 0",
+    "online_native_admission": "NOT_RUN",
+    "online_playable": "NOT_RUN",
+    "two_machine": "NOT_RUN",
+    "three_machine": "NOT_RUN"
+  },
+  "acceptance": {
+    "single_machine_pve": "PASS_FAST_PATH_NO_TIMEOUT",
+    "native_online_join": "NOT_RUN",
+    "online_playable": "NOT_RUN",
+    "two_machine": "NOT_RUN",
+    "three_machine": "NOT_RUN"
+  },
+  "causal_boundary": {
+    "proved": "Same r4 fast path reached Payload Offline PvE Playable with no timeout and server native possession/start evidence; the direct-open elapsed time is not measurable from the raw log",
+    "not_proved": "online Steam Join Grant, remote-seat admission, two-machine or three-machine playable flow",
+    "constraints": [
+      "No fixture, synthetic roster, empty Grant, direct-open bypass, UE console open, or strict gate disable was used.",
+      "Offline PvE Join Grant is NOT_APPLICABLE_OFFLINE_PVE; online Join Grant remains NOT_RUN.",
+      "Any later server PlayerCount bot fill is not a human participant count.",
+      "This fast run does not remove the known 90s role/loadout timing risk; direct-open-to-Playable elapsed time was not timestamped."
+    ]
+  },
+  "raw_evidence": [
+    {
+      "file": "preflight.json",
+      "bytes": 39167,
+      "sha256": "17d639808e3808151cf77f950fc0a941abb73a72b8f6c7db4d49de9fd3e09e01"
+    },
+    {
+      "file": "r4-toolbox-process-launch.log",
+      "bytes": 263,
+      "sha256": "3e110e5a8eeff6ee3bf07ad80bc55044f13293b374ce5fa9034dfddd70a326a5"
+    },
+    {
+      "file": "r4-toolbox-ui.log",
+      "bytes": 226,
+      "sha256": "95d64e2460cc1d70ec46c0340bef87c095eed283121e82c0f7b4fd20b5be5e93"
+    },
+    {
+      "file": "r4-toolbox-ui.png",
+      "bytes": 642357,
+      "sha256": "1bb0a4b4e2889d63143612b289ae79781a68d90a0ac52e988b9d1d6c022ecd12"
+    },
+    {
+      "file": "r4-toolbox-after-bootstrap.log",
+      "bytes": 280,
+      "sha256": "b76098e9e0452f9beadbbede8ab37b61fcb57f81222f1c303c08271d3cfabc6a"
+    },
+    {
+      "file": "r4-toolbox-after-bootstrap.png",
+      "bytes": 640727,
+      "sha256": "85fabb9c1b9129d690c01b2ac56c0d19ef3f2cddb7e51ef4a7e2b9dbd7e0ca67"
+    },
+    {
+      "file": "ui-action-start-pve-fast.log",
+      "bytes": 424,
+      "sha256": "61891511f3ce4d415c85d02da5b3726c31bfcaaf974ed456a94159754dd32945"
+    },
+    {
+      "file": "after-start-pve-fast.png",
+      "bytes": 515626,
+      "sha256": "a0c92b8379e518ad57f31a49398bfb3659787532ef8e642e779ae97a8cf21470"
+    },
+    {
+      "file": "fast-game-stage-1.log",
+      "bytes": 255,
+      "sha256": "d07f0519e2897c0b10e3d8c9ac905cec83a974a35dfc052b803a19e447425085"
+    },
+    {
+      "file": "fast-game-stage-1.png",
+      "bytes": 3584888,
+      "sha256": "5561413417fb7a3e4b6ccead41ba4a1c13627dd6229b3419dca248a57045fa47"
+    },
+    {
+      "file": "ui-action-select-doc-fast.log",
+      "bytes": 413,
+      "sha256": "30395b2335bf38992a2fd2abddbdb8b403e9701c99206b783aed2d4fd851045b"
+    },
+    {
+      "file": "after-select-doc-fast.png",
+      "bytes": 2725456,
+      "sha256": "1101a0b82cb823e87396b7fb971b3c5dcffb289bad341bfc60098192066ddabb"
+    },
+    {
+      "file": "ui-action-deploy-doc-fast.log",
+      "bytes": 414,
+      "sha256": "2dc0131c925d478bd56b236c1d5e0893e8aac8816dbde6bb5b5b52da25d896d9"
+    },
+    {
+      "file": "after-deploy-doc-fast.png",
+      "bytes": 5034175,
+      "sha256": "60a41cc90d322875e605a7bad557b698e41ffa8338d7eb0cf7a64c6193a44c1f"
+    },
+    {
+      "file": "fast-in-game.log",
+      "bytes": 250,
+      "sha256": "cb5bee18d82847ef7e5a279b0c765d53cb6376ffd553eb37df549773f4b84927"
+    },
+    {
+      "file": "fast-in-game.png",
+      "bytes": 5510476,
+      "sha256": "2d15023c80c1988f110a2e51c5cdb371e8dc1dba341b5813062d66d8b3da7d7b"
+    },
+    {
+      "file": "fast-control-after-w.log",
+      "bytes": 258,
+      "sha256": "0cf59040ad924fa96361101820e43f32a7fff7741a6d22c837f8f30ffb9547d5"
+    },
+    {
+      "file": "fast-control-after-w.png",
+      "bytes": 5488472,
+      "sha256": "6c79068b4272b9a776f674bb72900f7a20d7f91615d3f2729a6c96deabaaa3dc"
+    },
+    {
+      "file": "fast-after-respawn.log",
+      "bytes": 256,
+      "sha256": "27646bc97ea8cc5efab1a7fd419e0b737cb118c73ebb9a05c0fd235182dfb8c6"
+    },
+    {
+      "file": "fast-after-respawn.png",
+      "bytes": 5389798,
+      "sha256": "efcd140b002061013f1173bdda0d60beb99e976acc3a45b807632368a4edab3d"
+    },
+    {
+      "file": "raw-client-20260908_164716-final.log",
+      "bytes": 2478,
+      "sha256": "f456de4a12b90af1738e6a1b3e07f61f1c05026ba58f279be1f92a2542456ce0"
+    },
+    {
+      "file": "raw-server-20260908_164658-final.log",
+      "bytes": 12270,
+      "sha256": "45a44559e8c64dd85a6134a212e8560caa9c8ebc1652544ae87dfee877a71ff3"
+    },
+    {
+      "file": "r4-final-process-cleanup.log",
+      "bytes": 134,
+      "sha256": "5c8a7ddbde426fbdfe4ccf73054b6165865974c8f0e5015a1fea8ab9067558f7"
+    }
+  ],
+  "next_step": "Use the exact package for multi-machine testing only with independent Steam identities and fresh allocation/Grant evidence; preserve the fast-path timing constraint in tester instructions."
+}

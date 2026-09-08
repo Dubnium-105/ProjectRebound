@@ -1,0 +1,36 @@
+{
+  "status": "PASS_REBUILDABLE_LOCAL_CACHE_REMOVED",
+  "started_at_utc": "2026-09-08T08:52:27.8318700Z",
+  "workspace": "C:\\wksp\\ProjectReboundToolbox",
+  "resolved_target": "C:\\wksp\\ProjectReboundToolbox\\target\\debug\\incremental",
+  "scope": "Rebuildable Rust debug incremental cache only",
+  "build_process_count": 0,
+  "reparse_points": 0,
+  "files": 30699,
+  "logical_bytes": 39288215636,
+  "volume_free_before_bytes": 1924079616,
+  "protected_artifacts": [
+    {
+      "path": "C:\\wksp\\ProjectRebound\\artifacts\\hardware-test-20260908-r4\\rebound-hardware-test-20260908-r4-windows-x64.zip",
+      "sha256": "73bff684e19d0644fe310fa833624150e5b7c9105013482198a90a1ce6651689"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\artifacts\\hardware-test-20260908-r4\\rebound-hardware-test-20260908-r4-windows-x64\\rebound_toolbox_tauri.exe",
+      "sha256": "aa7a5d738a66295f1bd5a3c478c8c8cd0234fba90e163a9cb1bc48235a104de0"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\artifacts\\hardware-test-20260908-r4\\rebound-hardware-test-20260908-r4-windows-x64\\Payload.dll",
+      "sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183"
+    },
+    {
+      "path": "C:\\wksp\\ProjectReboundToolbox\\src-tauri\\target\\release\\rebound_toolbox_tauri.exe",
+      "sha256": "112fce79efe0dd2b24943452f04886a9a779e16a9106dc2d5f0464f18fd9753f"
+    }
+  ],
+  "source_or_evidence_deleted": false,
+  "other_target_directories_deleted": false,
+  "finished_at_utc": "2026-09-08T08:52:39.4739551Z",
+  "volume_free_after_bytes": 34377019392,
+  "observed_volume_free_delta_bytes": 32452939776,
+  "delta_limit": "Observed C volume free-space delta may include concurrent system writes; logical removed file bytes are reported separately."
+}

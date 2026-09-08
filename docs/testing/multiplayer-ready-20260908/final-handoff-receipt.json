@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-09-08T08:58:07.720097+00:00",
+  "status": "TEST_PACKAGE_PREPARED_EXISTING_BACKEND_UPDATED_LOCAL_PVE_CONFIRMED",
+  "release_ready": false,
+  "package": {
+    "zip_path": "C:\\wksp\\ProjectRebound\\artifacts\\hardware-test-20260908-r4\\rebound-hardware-test-20260908-r4-windows-x64.zip",
+    "zip_bytes": 23487655,
+    "zip_sha256": "73bff684e19d0644fe310fa833624150e5b7c9105013482198a90a1ce6651689",
+    "expanded_exe_sha256": "aa7a5d738a66295f1bd5a3c478c8c8cd0234fba90e163a9cb1bc48235a104de0",
+    "payload_sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+    "game_executable_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+    "toolbox_source_commit": "30148ad96e08ee4e26cd4972c557a4dee2340c21",
+    "payload_source_commit": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d",
+    "preflight": "POST_RUN_PREFLIGHT: PASS:45 checks, 0 non-PASS; generated after cleanup at 2026-09-08T08:51:50.1063997Z",
+    "payload_install": "NOT_RUN: read-only preflight verified installed Payload exact hash; no replacement",
+    "authenticode": "UnknownError / WinVerifyTrust -2146762487: test signer exists but local root is untrusted",
+    "release_ready": false
+  },
+  "existing_backend": {
+    "deployed_commit": "584e000baf024e381c5bdb3417ad7ac879bebdca",
+    "schema": 48,
+    "deployment_url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34196303351",
+    "deployment_jobs_success": 4,
+    "live_meta_acl_repaired": true,
+    "separate_backend_created": false
+  },
+  "final_ci": {
+    "commit": "129f1ca97d021861af5025529ece169665a07601",
+    "guard_source_commit": "7c130f3b872d07ecd55392d36f9f09e24cf116cd",
+    "url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34205921914",
+    "jobs_success": 11,
+    "jobs_failed": 0,
+    "deploy_source_test_marker": true,
+    "image_scan_steps_success": 5,
+    "vulnerability_numeric_totals": "NOT_AVAILABLE_IN_LOG; step success only, no inferred zero count",
+    "public_delta_files": [
+      "Backend/scripts/deploy-meta-server.sh",
+      "Backend/scripts/test-deploy-source.sh",
+      "Backend/scripts/verify-meta-redis-acl.py",
+      "docs/operations/metaserver-deployment.md",
+      "docs/operations/metaserver-deployment.zh-CN.md"
+    ],
+    "private_ancestry_pushed": false
+  },
+  "storage": {
+    "server_freed_bytes": 2045927424,
+    "server_removed_unused_images": 77,
+    "local_observed_free_delta_bytes": 32452939776,
+    "local_free_after_bytes": 34377019392,
+    "local_removed_logical_cache_bytes": 39288215636,
+    "current_artifact_hashes_unchanged": true
+  },
+  "local_native": {
+    "actual_pve_first_person_deploy": "PASS",
+    "actual_movement": "PASS_OBSERVED_IN_EARLIER_POST_ACL_RUN",
+    "fast_run_payload_offline_playable": "PASS_ACTUAL_LOG",
+    "fast_run_timeout_count": 0,
+    "fast_run_independent_W_movement": "PARTIAL_POST_DEATH_CAPTURE",
+    "processes_after_normal_cleanup": 0,
+    "fresh_steam_login_challenge": "NOT_RUN_EXISTING_SESSION_OBSERVED",
+    "slow_selection_limitation": "Earlier 215.844s Start-to-Deploy run timed out; shared 90s Payload travel deadline is unchanged. No per-line direct-open timestamp was available to measure the fast native interval."
+  },
+  "multi_machine": {
+    "machines_user_can_arrange": "3_OR_MORE",
+    "currently_accessible_real_machines": 1,
+    "native_authority_admission_verified": false,
+    "online_native_admission": "NOT_RUN",
+    "online_playable": "NOT_RUN",
+    "three_machine_result": "NOT_RUN",
+    "complete_online_match_gate": "BLOCKED_PENDING_REAL_NATIVE_EVIDENCE",
+    "runbook": "TEST-MATRIX.zh-CN.md",
+    "two_remote_members_required_for_three_machine_pass": true
+  },
+  "breakpoint_record": {
+    "base_52_item_delta": "runtime-meta-delta.json",
+    "frozen_original_counts": {
+      "PARTIAL": 30,
+      "PASS": 10,
+      "BLOCKED": 12
+    },
+    "fast_run_followup_ids": [
+      "BP-001",
+      "BP-020",
+      "BP-027",
+      "BP-051"
+    ],
+    "fast_run_followup_scope": "Additional single-machine offline evidence only; no source changes or online promotion.",
+    "all_52_pass_claimed": false
+  },
+  "evidence_files": [
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/deployment-receipt.json",
+      "bytes": 15301,
+      "sha256": "5fae6a65952fbe34d031eef35bcb729efa3fa56779f773590f12df77fe604994"
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/distribution-r4-receipt.json",
+      "bytes": 9842,
+      "sha256": "436da5d6c8664fbab22f4a80915244e5888b9ca202c61cf963022b10b91e7222"
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/meta-acl-repair-receipt.json",
+      "bytes": 6940,
+      "sha256": "9fae7980d35872ecc58fad7b5f94aa41e31774d767ad539d3f5c029cc235fe70"
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/local-cache-cleanup-receipt.json",
+      "bytes": 1799,
+      "sha256": "2a5827e6474bb707a79d660b2c3ab522620ce63a21e83b79124c100e239c3d50"
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/runtime-evidence-validation.json",
+      "bytes": 6773,
+      "sha256": "32d001071819775609b02e97237f55d53c8fefa90ff47b6fda346ffbd042c95a"
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/fast-runtime-evidence-validation.json",
+      "bytes": 6527,
+      "sha256": "13dfcbdc75549f88df236828b4b4a59239da03127284da28ae22def55341abb7"
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/runtime-meta-delta.json",
+      "bytes": 32953,
+      "sha256": "e7a2974e7c798fc259903c68a36556161889a5dde8a1fbfe07f32f3271f14af3"
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/runtime-r4-fast/r4-fast-runtime-receipt.json",
+      "bytes": 9360,
+      "sha256": "d87fa10e7a9afb82813761348e49f090d07c2ebe79f44f267776a03762e762c8"
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/final-ci/ci-sanitized-receipt-34205921914.json",
+      "bytes": 55074,
+      "sha256": "b81a4cea8a41254805d261b5832fd7343f7b916029ea792503074532e24646c9"
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/final-ci/ci-log-summary-34205921914.json",
+      "bytes": 1997,
+      "sha256": "68f8b87c5e6e5f852acf4de1d17847e8324b0e0409f8c3a3172a1c2ec8bb72d1"
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/runbook-review/r4-runbook-source-review.json",
+      "bytes": 7103,
+      "sha256": "0adc4df3e62e96b099a86b82f95b0cdcea3be7dda3164e5b5743cb289103c0a3"
+    }
+  ],
+  "delivery": {
+    "external_zip_upload": false,
+    "updater_publish": false,
+    "test_certificate_root_installed": false,
+    "strict_gate_relaxed": false
+  }
+}

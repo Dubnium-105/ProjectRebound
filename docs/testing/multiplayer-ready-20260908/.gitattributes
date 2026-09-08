@@ -1,0 +1,2 @@
+# These receipts include byte hashes. Preserve their original writer newlines.
+*.json binary
