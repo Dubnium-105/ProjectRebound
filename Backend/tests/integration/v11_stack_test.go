@@ -588,8 +588,8 @@ func validateAuthoritativeMatchReport(report loadReport) error {
 	if report.MatchAttemptsAborted != report.MatchAttemptsStarted {
 		return fmt.Errorf("match_attempts_aborted=%d, attempts_started=%d", report.MatchAttemptsAborted, report.MatchAttemptsStarted)
 	}
-	if report.MatchCleanupPending != report.MatchAttemptsAborted {
-		return fmt.Errorf("match_cleanup_pending=%d, attempts_aborted=%d", report.MatchCleanupPending, report.MatchAttemptsAborted)
+	if report.MatchCleanupPending != 0 {
+		return fmt.Errorf("match_cleanup_pending=%d after scoped native_process_not_started cleanup", report.MatchCleanupPending)
 	}
 	return nil
 }
