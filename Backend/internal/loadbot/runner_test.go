@@ -104,14 +104,15 @@ func TestVerifyAllocationRequiresSignedFrozenScope(t *testing.T) {
 	}
 	now := time.Now().Unix()
 	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"EdDSA","typ":"match-allocation+jwt","kid":"loadbot-test"}`))
-	claims := base64.RawURLEncoding.EncodeToString([]byte(`{"iss":"game-control-plane","aud":"project-rebound-match-authority","kid":"loadbot-test","attempt_id":"mat_1","lobby_id":"lby_1","hosting_kind":"P2P","authority_id":"player_1","authority_session_id":"mas_1","roster_revision":2,"route_generation":1,"nbf":` + fmt.Sprint(now-1) + `,"exp":` + fmt.Sprint(now+60) + `}`))
+	claims := base64.RawURLEncoding.EncodeToString([]byte(`{"iss":"game-control-plane","aud":"project-rebound-match-authority","kid":"loadbot-test","jti":"ma_test","attempt_id":"mat_1","lobby_id":"lby_1","hosting_kind":"P2P","authority_id":"player_1","authority_session_id":"mas_1","roster_revision":2,"route_generation":1,"initial_connection_window_seconds":120,"roster":[{"player_id":"player_1","room_role":"HOST","connection_generation":1},{"player_id":"player_2","room_role":"MEMBER","connection_generation":1}],"nbf":` + fmt.Sprint(now-1) + `,"exp":` + fmt.Sprint(now+60) + `}`))
 	unsigned := header + "." + claims
 	signature := ed25519.Sign(privateKey, []byte(unsigned))
 	allocation := allocationResult{
 		AttemptID: "mat_1", Allocation: unsigned + "." + base64.RawURLEncoding.EncodeToString(signature),
 		AdmissionKeyID: "loadbot-test", AdmissionPublicKey: base64.RawStdEncoding.EncodeToString(publicKey),
+		ExpiresAt: time.Unix(now+60, 0).UTC(),
 	}
-	match := matchFixture{lobbyID: "lby_1", attemptID: "mat_1", host: &virtualClient{playerID: "player_1"}, rosterRevision: 2, routeGeneration: 1}
+	match := matchFixture{lobbyID: "lby_1", attemptID: "mat_1", host: &virtualClient{playerID: "player_1"}, peer: &virtualClient{playerID: "player_2"}, rosterRevision: 2, routeGeneration: 1}
 	verified, err := verifyAllocation(allocation, match)
 	if err != nil || verified.AuthoritySessionID != "mas_1" {
 		t.Fatalf("verifyAllocation() = %#v, %v", verified, err)

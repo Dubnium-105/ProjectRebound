@@ -84,6 +84,19 @@ namespace StrictRoster
         std::string state;
     };
 
+    // This is a build-capability observation, not a startup switch. The
+    // authority can advertise the capability only after the fixed native
+    // PreLogin/Steam proof, Team/Camp readback, scoped backend reservation,
+    // and ConfirmConnected path have all completed for a real non-HOST seat.
+    // Keep the event sequence as evidence instead of treating an unconditional
+    // bool as a substitute for the native chain.
+    struct NativeAuthorityAdmissionEvidence
+    {
+        bool verified = false;
+        std::uint64_t confirmedEventSequence = 0;
+        std::uint32_t remoteSeatCount = 0;
+    };
+
     using SignatureVerifier = std::function<bool(
         std::span<const std::uint8_t> publicKey,
         std::string_view signedData,
@@ -1196,6 +1209,15 @@ namespace StrictRoster
             {
                 return Reject("grant_replayed", "join grant was already consumed");
             }
+            // A listen HOST is already inside the authority process and does
+            // not traverse the remote PreLogin/Steam callback. Only a remote
+            // seat that reached native admission and the scoped backend
+            // reservation can establish capability evidence for this build.
+            const bool remoteNativeAdmission = seat.roomRole != "HOST" &&
+                seat.nativeAdmitted &&
+                seat.nativeAdmissionGeneration == generation &&
+                seat.nativeAdmissionNonce == nativeConnectionNonce &&
+                seat.backendReserved;
             seat.connected = true;
             seat.liveGeneration = generation;
             seat.grantJti = seat.reservedJti;
@@ -1221,6 +1243,13 @@ namespace StrictRoster
             AppendConnectionEventLocked(
                 seat, "CONNECTED", seat.grantJti, generation,
                 seat.liveNativeConnectionNonce);
+            if (remoteNativeAdmission)
+            {
+                nativeAuthorityAdmissionEvidence_.verified = true;
+                nativeAuthorityAdmissionEvidence_.confirmedEventSequence =
+                    nextConnectionEventSequence_;
+                ++nativeAuthorityAdmissionEvidence_.remoteSeatCount;
+            }
             return Accept();
         }
 
@@ -1397,6 +1426,19 @@ namespace StrictRoster
                 [](const auto& entry) {
                     return entry.second.reserved || entry.second.nativeAdmitted;
                 });
+        }
+
+        NativeAuthorityAdmissionEvidence
+        NativeAuthorityAdmissionEvidenceSnapshot() const
+        {
+            std::lock_guard lock(mutex_);
+            return nativeAuthorityAdmissionEvidence_;
+        }
+
+        bool NativeAuthorityAdmissionVerified() const
+        {
+            std::lock_guard lock(mutex_);
+            return nativeAuthorityAdmissionEvidence_.verified;
         }
 
         std::vector<ConnectionEvent> ConnectionEventsAfter(
@@ -1646,6 +1688,7 @@ namespace StrictRoster
             activeDecisions_.clear();
             connectionEvents_.clear();
             nextConnectionEventSequence_ = 0;
+            nativeAuthorityAdmissionEvidence_ = NativeAuthorityAdmissionEvidence{};
             Detail::SecureClear(nativeWorldInstanceId_);
             authorityStarted_ = false;
         }
@@ -1659,6 +1702,7 @@ namespace StrictRoster
         std::unordered_map<std::string, SeatDecision> activeDecisions_;
         std::deque<ConnectionEvent> connectionEvents_;
         std::uint64_t nextConnectionEventSequence_ = 0;
+        NativeAuthorityAdmissionEvidence nativeAuthorityAdmissionEvidence_;
         std::string nativeWorldInstanceId_;
         bool authorityStarted_ = false;
     };
