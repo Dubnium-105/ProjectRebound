@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-09-08T17:47:46.959555+00:00",
+  "status": "SUPPORT_REQUEST_SUBMITTED_AND_CLEAN_TOOLBOX_SOURCE_PUBLISHED",
+  "support": {
+    "ticket_id": "4739985",
+    "ticket_url": "https://support.github.com/ticket/personal/0/4739985",
+    "state_at_submission": "open",
+    "created_at_displayed": "2026-09-09 01:30 GMT+8",
+    "database_values_or_credentials_sent": false,
+    "attachments": [],
+    "github_cache_removal_completed": false,
+    "response_or_removal_confirmation": "PENDING"
+  },
+  "toolbox": {
+    "repository": "STanJK/ProjectReboundToolbox",
+    "branch": "codex/authoritative-only-20260907",
+    "original_tested_local_commit": "43a4c82fe781ed67df6b4f4f82d1ff976ad586be",
+    "public_clean_commit": "f69d56741208263c972309137e462a251b3b0eba",
+    "public_clean_base_commit": "63e5ee598b860b8f5d53dd147d436921ad290098",
+    "published_paths": 109,
+    "excluded_temporary_or_build_paths": 10833,
+    "source_bytes_match_original_commit": true,
+    "original_local_history_retained": true
+  },
+  "main_repository": {
+    "repository": "Dubnium-105/ProjectRebound",
+    "initial_r7_docs_pushed_commit": "f3a291dedb9fca3d56247a06770b87f2ac7aae8d",
+    "deployed_backend_commit": "8069d5e1126b8a585610b232e721aee45c57ee88"
+  },
+  "r7_zip_sha256": "c70935f5e671e136b190de6093ab6ef1d1474954e412236dd80382ca7bc63eb2",
+  "new_build_or_native_test_execution": "NOT_RUN_NO_PRODUCT_SOURCE_BYTES_CHANGED",
+  "native_authority_admission_verified": false,
+  "release_ready": false,
+  "local_source_receipt_sha256": {
+    "support_submission": "0306bc590a66481504f368c51464b462327518bb593d9b846d3c0a2b4332026e",
+    "toolbox_push": "0c0b3594a36556be15fa4dc20d9f2f6f3a42135cf45c860bca7ec2f995f8d766",
+    "candidate_byte_check": "7bf43e2bac8ee1cb1bf12aa2aa2ab53c9685505c0297a2c5fc165e9c90b87dce",
+    "toolbox_content_review": "644e1352529e8184df326e0969cb28df11d37074d2c1e696a9f8bcb9cd396b62"
+  }
+}

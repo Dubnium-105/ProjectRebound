@@ -22,3 +22,5 @@
 [52 项追加台账](52-item-r7-append-delta.json) 保留历史状态，未复核项标为 `NOT_REEVALUATED_R7`；不把跳过、未运行或缺环境写成通过。[证据索引](evidence-index.json) 固定每份回执的原始字节，原始配置、Token、数据库转储和账号资料未纳入。
 
 本轮发生过一次公开误提交：四份含数据段的数据库转储及本地 fixture 源码被加入提交 `45e825f4e3799da460dfedecc9791b123698dffd`。已用精确旧 SHA 租约将公开分支撤回干净提交，原文件保留在本地并忽略。但旧提交对象在核查时仍可访问，未宣称 GitHub 缓存已清除，亦未排除转储内账号或凭据暴露。该提交不是部署源码，也未进入本测试包。详见 [纠正记录](evidence/publication-correction/publication-correction-receipt.json) 与 [尚未发送的清除申请](evidence/publication-correction/github-history-removal-request.md)；GitHub 侧清除按其 [敏感数据移除流程](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/removing-sensitive-data-from-a-repository) 另行处理。
+
+2026-09-09 更新：清除申请已提交，两个仓库的公开提交状态见 [后续记录](publication-followup-20260909.md)。
