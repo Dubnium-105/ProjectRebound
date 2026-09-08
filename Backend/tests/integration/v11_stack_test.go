@@ -47,6 +47,10 @@ type loadReport struct {
 	FailedRequests         uint64            `json:"failed_requests"`
 	SuccessRatePercent     float64           `json:"success_rate_percent"`
 	RoomsCreated           uint64            `json:"rooms_created"`
+	MatchAttemptsStarted   uint64            `json:"match_attempts_started"`
+	MatchAttemptsAborted   uint64            `json:"match_attempts_aborted"`
+	MatchCleanupPending    uint64            `json:"match_cleanup_pending"`
+	NativeAdmissionStatus  string            `json:"native_admission_status"`
 	RelayAllocations       uint64            `json:"relay_allocations"`
 	RelayAllocationsClosed uint64            `json:"relay_allocations_closed"`
 	RelayBindSuccess       uint64            `json:"relay_bind_success"`
@@ -235,6 +239,9 @@ func validateReconnectStormReport(report loadReport, contents []byte, runErr err
 	if report.FailedRequests != 0 || len(report.Failures) != 0 || report.TokenRefreshFailures != 0 ||
 		report.RelayBindFailures != 0 {
 		return fmt.Errorf("reconnect-storm command error %v reported failures: %s", runErr, contents)
+	}
+	if err := validateAuthoritativeMatchReport(report); err != nil {
+		return fmt.Errorf("reconnect-storm command error %v failed authoritative MatchLobby acceptance: %w: %s", runErr, err, contents)
 	}
 	if report.SuccessRatePercent != 100 ||
 		report.RoomsCreated != 50 || report.RelayAllocations != 50 || report.RelayAllocationsClosed != 50 ||
@@ -547,6 +554,9 @@ func validateLoadReport(report loadReport, contents []byte, runErr error) error 
 	if report.FailedRequests != 0 || len(report.Failures) != 0 || report.TokenRefreshFailures != 0 || report.RelayBindFailures != 0 {
 		return fmt.Errorf("load-bot command error %v reported failures: %s", runErr, contents)
 	}
+	if err := validateAuthoritativeMatchReport(report); err != nil {
+		return fmt.Errorf("load-bot command error %v failed authoritative MatchLobby acceptance: %w: %s", runErr, err, contents)
+	}
 	if report.SuccessRatePercent != 100 || report.RoomsCreated != 2 || report.RelayAllocations != 2 ||
 		report.RelayAllocationsClosed != 2 || report.RelayBindSuccess < 4 ||
 		report.PacketsSent == 0 || report.PacketsReceived == 0 || report.PacketLossPercent != 0 {
@@ -554,6 +564,22 @@ func validateLoadReport(report loadReport, contents []byte, runErr error) error 
 	}
 	if runErr != nil {
 		return fmt.Errorf("load-bot command failed despite a passing report: %w", runErr)
+	}
+	return nil
+}
+
+func validateAuthoritativeMatchReport(report loadReport) error {
+	if report.NativeAdmissionStatus != "PASS" {
+		return fmt.Errorf("native_admission_status=%q, want PASS", report.NativeAdmissionStatus)
+	}
+	if report.MatchAttemptsStarted != report.RoomsCreated {
+		return fmt.Errorf("match_attempts_started=%d, rooms_created=%d", report.MatchAttemptsStarted, report.RoomsCreated)
+	}
+	if report.MatchAttemptsAborted != 0 {
+		return fmt.Errorf("match_attempts_aborted=%d", report.MatchAttemptsAborted)
+	}
+	if report.MatchCleanupPending != 0 {
+		return fmt.Errorf("match_cleanup_pending=%d", report.MatchCleanupPending)
 	}
 	return nil
 }
