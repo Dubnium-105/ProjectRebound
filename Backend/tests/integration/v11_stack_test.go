@@ -47,6 +47,7 @@ type loadReport struct {
 	FailedRequests         uint64            `json:"failed_requests"`
 	SuccessRatePercent     float64           `json:"success_rate_percent"`
 	RoomsCreated           uint64            `json:"rooms_created"`
+	MatchLobbiesCreated    uint64            `json:"match_lobbies_created"`
 	MatchAttemptsStarted   uint64            `json:"match_attempts_started"`
 	MatchAttemptsAborted   uint64            `json:"match_attempts_aborted"`
 	MatchCleanupPending    uint64            `json:"match_cleanup_pending"`
@@ -571,6 +572,9 @@ func validateLoadReport(report loadReport, contents []byte, runErr error) error 
 func validateAuthoritativeMatchReport(report loadReport) error {
 	if report.NativeAdmissionStatus != "PASS" {
 		return fmt.Errorf("native_admission_status=%q, want PASS", report.NativeAdmissionStatus)
+	}
+	if report.MatchLobbiesCreated != report.RoomsCreated {
+		return fmt.Errorf("match_lobbies_created=%d, rooms_created=%d", report.MatchLobbiesCreated, report.RoomsCreated)
 	}
 	if report.MatchAttemptsStarted != report.RoomsCreated {
 		return fmt.Errorf("match_attempts_started=%d, rooms_created=%d", report.MatchAttemptsStarted, report.RoomsCreated)
