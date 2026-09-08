@@ -78,18 +78,27 @@ type matchAttemptView struct {
 }
 
 type allocationClaims struct {
-	Issuer             string `json:"iss"`
-	Audience           string `json:"aud"`
-	KeyID              string `json:"kid"`
-	AttemptID          string `json:"attempt_id"`
-	LobbyID            string `json:"lobby_id"`
-	HostingKind        string `json:"hosting_kind"`
-	AuthorityID        string `json:"authority_id"`
-	AuthoritySessionID string `json:"authority_session_id"`
-	RosterRevision     int64  `json:"roster_revision"`
-	RouteGeneration    int    `json:"route_generation"`
-	NotBefore          int64  `json:"nbf"`
-	ExpiresAt          int64  `json:"exp"`
+	Issuer             string                   `json:"iss"`
+	Audience           string                   `json:"aud"`
+	KeyID              string                   `json:"kid"`
+	TokenID            string                   `json:"jti"`
+	AttemptID          string                   `json:"attempt_id"`
+	LobbyID            string                   `json:"lobby_id"`
+	HostingKind        string                   `json:"hosting_kind"`
+	AuthorityID        string                   `json:"authority_id"`
+	AuthoritySessionID string                   `json:"authority_session_id"`
+	RosterRevision     int64                    `json:"roster_revision"`
+	RouteGeneration    int                      `json:"route_generation"`
+	ConnectionWindow   int                      `json:"initial_connection_window_seconds"`
+	Roster             []allocationRosterMember `json:"roster"`
+	NotBefore          int64                    `json:"nbf"`
+	ExpiresAt          int64                    `json:"exp"`
+}
+
+type allocationRosterMember struct {
+	PlayerID             string `json:"player_id"`
+	RoomRole             string `json:"room_role"`
+	ConnectionGeneration int    `json:"connection_generation"`
 }
 
 type allocationHeader struct {
@@ -528,15 +537,31 @@ func verifyAllocation(allocation allocationResult, match matchFixture) (allocati
 	}
 	now := time.Now().Unix()
 	if claims.KeyID != header.KeyID || claims.Issuer != "game-control-plane" || claims.Audience != "project-rebound-match-authority" ||
-		claims.NotBefore > now+5 || claims.ExpiresAt <= now {
+		claims.TokenID == "" || claims.NotBefore > now+5 || claims.ExpiresAt <= now ||
+		allocation.ExpiresAt.IsZero() || claims.ExpiresAt != allocation.ExpiresAt.Unix() || claims.ConnectionWindow <= 0 {
 		return allocationClaims{}, fmt.Errorf("allocation temporal or issuer claims are invalid")
 	}
 	if claims.AttemptID != match.attemptID || claims.LobbyID != match.lobbyID ||
 		allocation.AttemptID != match.attemptID ||
 		claims.HostingKind != "P2P" || claims.AuthorityID != match.host.playerID ||
 		claims.RosterRevision != match.rosterRevision || claims.RouteGeneration != match.routeGeneration || claims.RouteGeneration < 1 ||
-		claims.AuthoritySessionID == "" {
+		claims.AuthoritySessionID == "" || len(claims.Roster) != 2 {
 		return allocationClaims{}, fmt.Errorf("allocation claims do not match the frozen MatchLobby attempt")
+	}
+	hostRoster, peerRoster := false, false
+	for _, member := range claims.Roster {
+		if member.ConnectionGeneration < 1 {
+			return allocationClaims{}, fmt.Errorf("allocation roster contains an invalid connection generation")
+		}
+		switch {
+		case member.PlayerID == match.host.playerID && member.RoomRole == "HOST":
+			hostRoster = true
+		case member.PlayerID == match.peer.playerID && member.RoomRole == "MEMBER":
+			peerRoster = true
+		}
+	}
+	if !hostRoster || !peerRoster {
+		return allocationClaims{}, fmt.Errorf("allocation roster does not contain the frozen P2P HOST and MEMBER seats")
 	}
 	return claims, nil
 }
