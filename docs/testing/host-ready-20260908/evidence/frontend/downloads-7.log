@@ -1,0 +1,19 @@
+
+> frontend@0.9.12 test:downloads
+> node --test tests/download-catalog.test.mjs
+
+✔ fetches only the JSON catalog with the fixed public API request (10.0079ms)
+✔ selects latest_version_id even when it is neither first nor last (1.3208ms)
+✔ resolves every item latest version and preserves catalog ordering rules (1.1884ms)
+✔ rejects duplicate latest ids and a download path for another version (1.5475ms)
+✔ accepts only strict relative stable public file paths (0.7005ms)
+✔ rejects malformed catalog envelopes and invalid latest references (0.4876ms)
+✔ catalog utility contains no binary response reader (2.1006ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 410.7915

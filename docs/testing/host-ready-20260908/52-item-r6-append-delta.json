@@ -1,0 +1,1138 @@
+{
+  "schema_version": 1,
+  "kind": "host_ready_r6_append_delta_52_item",
+  "recorded_at_utc": "2026-09-08T18:55:05.377311+08:00",
+  "release_ready": false,
+  "native_authority_admission_verified": false,
+  "baseline": {
+    "source": "52-item-r5-append-delta.json",
+    "sha256": "4913337047B1810BB02EDBBA035FE327FC68DBA3FBE0CA82F0F9F58D19CA65CB",
+    "item_count": 52,
+    "original_r4_counts": {
+      "PASS": 10,
+      "PARTIAL": 30,
+      "BLOCKED": 12
+    }
+  },
+  "rules": [
+    "R4 baseline and r5 append observations remain immutable; this file appends r6 only.",
+    "Only the r6 leave/scope frontend area and the r6 package/one-machine desktop evidence are re-evaluated; all other IDs remain NOT_REEVALUATED_R6.",
+    "The execution receipt was captured on the stable source parent 995625903685b61770da6e8139731b50a4dfb0eb; commit 3ff5ca2447621cfc018c3c8e65dce28705bd7cb9 was created after the run and is the current source binding. The receipt source hashes are retained.",
+    "The 55-test run is unique: 13 authoritative, 15 bridge and 27 UI. An earlier 55-test intermediate run is excluded from totals.",
+    "Rust 316 and Tauri 9 are r5 evidence only; r6 did not rerun them.",
+    "The r6 package byte check and scoped one-machine desktop Ready/team/leave flow passed. The update check is NOT_PASSED_UNPUBLISHED_UPDATE_CHANNEL; native and three-machine acceptance remain unrun.",
+    "No native authority admission, Playable or three-machine result is promoted."
+  ],
+  "source": {
+    "execution_parent": "995625903685b61770da6e8139731b50a4dfb0eb",
+    "post_test_commit": "3ff5ca2447621cfc018c3c8e65dce28705bd7cb9",
+    "tested_source_hashes": {
+      "frontend/src/App.jsx": "d60175c9f5ce45ba52f31493a1b0bbf0255b0bba50d4c9e4681eb9795d674f60",
+      "frontend/src/lib/authoritativeRooms.js": "85d66178539dee0197e6589fe947bc8cc2fe6c35e163d460783ae74607d16a0d",
+      "frontend/src/lib/tauriBridge.js": "40379c679a8243d4f99500296d4a818fa9a8bb12fe48b94b057b241aa4e37051",
+      "frontend/tests/authoritative-rooms.test.mjs": "10b5e244843446ca2994324baa4cdfdee98cdd922b37bd5d473369eb2a45a965",
+      "frontend/tests/tauri-bridge.test.mjs": "dd0c3c538b5db6c259b8999931b548325875fc3e6120b610b60d954fe9045221"
+    },
+    "rust_source_and_evidence": "r5 same-source receipt; not rerun in r6",
+    "package": "r6 package byte check PASS; signed Toolbox bef5cc75a95f741f70c69ef27281fcb13e44eed6cdbebec2448e5420cfc23058; archive bc6e21d54d35d1408c609c042120ce47109e4e9968c1f4df34c5efc3841e3cd0",
+    "desktop": "r6 scoped one-machine UI PASS for startup/create/Ready/team/leave; update check NOT_PASSED_UNPUBLISHED_UPDATE_CHANNEL; native and three-machine NOT_RUN",
+    "commit_binding_receipt": "evidence/frontend-r6/committed-source-binding.json"
+  },
+  "evidence_summary": {
+    "unique_frontend_tests": 55,
+    "authoritative_tests": 13,
+    "bridge_tests": 15,
+    "ui_tests": 27,
+    "vite_build": "PASS",
+    "prepare_sites": "PASS",
+    "rust_lib": "R5_ONLY_316_PASS_NOT_RERUN",
+    "tauri": "R5_ONLY_9_PASS_NOT_RERUN",
+    "package": "PASS_PACKAGE_BYTES_ONLY",
+    "desktop": "PASS_SCOPED_ONE_MACHINE_UI_VERSION_NOT_PASSED",
+    "native_online": "NOT_RUN",
+    "three_machine": "NOT_RUN"
+  },
+  "items": [
+    {
+      "id": "BP-001",
+      "title": "源码基线与实测 EXE/DLL 版本未闭合",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+        "r4_evidence_ref": "distribution-r4-receipt.json"
+      },
+      "r5_append": {
+        "status": "PARTIAL_SOURCE_AND_PACKAGE_EVIDENCE",
+        "summary": "r5 source-bound package, build, signing, preflight and byte-checked archive receipts retained; release_ready remains false.",
+        "evidence_refs": [
+          "evidence/distribution-r5/strict-candidate.json",
+          "evidence/distribution-r5/build-success-attempt-3.json",
+          "evidence/distribution-r5/package-execution.json",
+          "evidence/distribution-r5/preflight-execution.json"
+        ],
+        "pending": null
+      },
+      "r6_append": {
+        "status": "PARTIAL_R6_PACKAGE_EVIDENCE",
+        "summary": "The r6 package, signed Toolbox hash, strict candidate and package byte receipt are source-bound; release_ready remains false.",
+        "evidence_refs": [
+          "evidence/distribution-r6/package-build-receipt.json",
+          "evidence/distribution-r6/strict-candidate.json",
+          "evidence/distribution-r6/build-execution-receipt.json"
+        ]
+      }
+    },
+    {
+      "id": "BP-002",
+      "title": "并发刷新、登出和旧结果回写竞争",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PASS",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "PARTIAL_COMPONENT_EVIDENCE",
+        "summary": "Frontend session_epoch/lobby scope and stale result rejection were tested; this append does not re-evaluate the full credential lifecycle.",
+        "evidence_refs": [
+          "evidence/frontend/r5-final-scope-receipt.json",
+          "evidence/frontend/authoritative-rooms.log",
+          "evidence/frontend/evidence-byte-validation.json"
+        ],
+        "pending": null
+      },
+      "r6_append": {
+        "status": "PARTIAL_R6_COMPONENT_AND_DESKTOP_SCOPE",
+        "summary": "The r6 frontend fixes superseded session/lobby responses and same-scope terminal ordering; the one-machine desktop run observed the corrected leave acknowledgement. This does not close the full credential lifecycle.",
+        "evidence_refs": [
+          "evidence/frontend-r6/execution-receipt.json",
+          "evidence/frontend-r6/related-tests.log",
+          "evidence/desktop-r6/desktop-r6-receipt.json"
+        ]
+      }
+    },
+    {
+      "id": "BP-003",
+      "title": "DPAPI 配置直接覆盖，缺少原子持久化",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PASS",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-004",
+      "title": "fresh/logged_in 的状态保证强于实际结果",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "PARTIAL_COMPONENT_EVIDENCE",
+        "summary": "Ready/team controls use the authenticated player_id supplied by the runtime; no new full authentication acceptance is claimed.",
+        "evidence_refs": [
+          "evidence/frontend/r5-final-scope-receipt.json",
+          "evidence/browser-mock/receipt-v3.json"
+        ],
+        "pending": null
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-005",
+      "title": "WebSocket 重连使用旧 Token，缺少统一恢复过程",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-006",
+      "title": "凭据种类缺少统一机器可读生命周期清单",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-007",
+      "title": "客户端进房/建房部分成功后的补偿与恢复不全",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "FAIL_CLIENT_ACK_RACE_PENDING_R6",
+        "summary": "Actual one-machine r5 desktop run passed create, ready/unready and team transitions, but leave returned a stale-client acknowledgement after the backend list became empty. Cleanup/leave is not accepted; native is fixing this for r6.",
+        "evidence_refs": [
+          "evidence/desktop-r5/desktop-r5-receipt.json",
+          "evidence/desktop-r5/10-left-test-room.json",
+          "evidence/desktop-r5/11-post-leave-stale-route.json"
+        ],
+        "pending": null
+      },
+      "r6_append": {
+        "status": "PARTIAL_R6_SCOPED_LEAVE_PASS",
+        "summary": "The r6 one-machine desktop run passed create, Ready/team transitions and leave after a same-scope terminal event; native cleanup and multi-machine lifecycle acceptance remain unrun.",
+        "evidence_refs": [
+          "evidence/frontend-r6/execution-receipt.json",
+          "evidence/desktop-r6/desktop-r6-receipt.json",
+          "evidence/desktop-r6/08-left-test-room.json",
+          "evidence/browser-mock-r6/r6-leave-race-browser-receipt-v1.json"
+        ]
+      }
+    },
+    {
+      "id": "BP-008",
+      "title": "Host/Member 角色在启动分派中被丢弃",
+      "r4_baseline": {
+        "frozen_original_acceptance": "BLOCKED",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-009",
+      "title": "VNT 裸 IP 与 Payload host:port 校验冲突",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PASS",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-010",
+      "title": "VNT host_ready/探测通与原生游戏监听就绪混用",
+      "r4_baseline": {
+        "frozen_original_acceptance": "BLOCKED",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-011",
+      "title": "新建回退、开局前 rebind 与运行中迁移边界必须固定",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-012",
+      "title": "Legacy 单 game_peer 和全 peers 广播可能合并多人身份",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-013",
+      "title": "Relay 16 字节截断 HMAC 用了完整长度验证接口",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PASS",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-014",
+      "title": "Relay 数据面错误被吞，重排/MTU/重放缺少可观测验收",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PASS",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-015",
+      "title": "Relay 迁移缺少显式切换状态、代次与收尾",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-016",
+      "title": "launch_join 返回空 PID，与前端完成结果契约冲突",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-017",
+      "title": "launch_room 在最终提交前发布成功且失败清理不一致",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-018",
+      "title": "PID/窗口稳定被当成远程入场完成",
+      "r4_baseline": {
+        "frozen_original_acceptance": "BLOCKED",
+        "r4_delta": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+        "r4_evidence_ref": "distribution-r4-receipt.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-019",
+      "title": "房间/远程 Join 缺少统一 PayloadReady 握手与诊断通道",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-020",
+      "title": "Toolbox 登录与游戏登录/游戏线程泵送没有闭环",
+      "r4_baseline": {
+        "frozen_original_acceptance": "BLOCKED",
+        "r4_delta": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+        "r4_evidence_ref": "distribution-r4-receipt.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-021",
+      "title": "发出 open 后即清空队列，缺少 Travel 成败闭环",
+      "r4_baseline": {
+        "frozen_original_acceptance": "BLOCKED",
+        "r4_delta": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+        "r4_evidence_ref": "distribution-r4-receipt.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-022",
+      "title": "join_ack.status accepted/ok 不兼容",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PASS",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-023",
+      "title": "IPC 文档/七命令、分帧、取消和结构化错误未统一",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PASS",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "PARTIAL_COMPONENT_EVIDENCE",
+        "summary": "Rust/Tauri scoped DTO/event schema and frontend flat snapshot/list/connection envelope tests passed; no native wire or online acceptance is inferred.",
+        "evidence_refs": [
+          "evidence/rust/r5-final-rust-receipt.json",
+          "evidence/frontend/authoritative-rooms.log"
+        ],
+        "pending": null
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-024",
+      "title": "游戏 lifecycle 与服务注册 state 枚举未完整适配",
+      "r4_baseline": {
+        "frozen_original_acceptance": "BLOCKED",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-025",
+      "title": "错误、trace 与前端房间状态同步不完整",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "PARTIAL_COMPONENT_EVIDENCE",
+        "summary": "Frontend route/error/event application is scope- and sequence-gated; live backend error/leave behavior remains open as recorded under BP-007.",
+        "evidence_refs": [
+          "evidence/frontend/r5-final-scope-receipt.json",
+          "evidence/browser-mock/receipt-v3.json"
+        ],
+        "pending": null
+      },
+      "r6_append": {
+        "status": "PARTIAL_R6_COMPONENT_AND_DESKTOP_SCOPE",
+        "summary": "The r6 frontend regressions and the scoped desktop leave flow cover the observed terminal/late-ack path; broader backend error ordering remains outside this run.",
+        "evidence_refs": [
+          "evidence/frontend-r6/related-tests.log",
+          "evidence/desktop-r6/desktop-r6-receipt.json"
+        ]
+      }
+    },
+    {
+      "id": "BP-026",
+      "title": "有序资源关闭未覆盖常驻worker与阻塞IO",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-027",
+      "title": "世界切换后角色、配装、控制器、HUD与多局流程未验收",
+      "r4_baseline": {
+        "frozen_original_acceptance": "BLOCKED",
+        "r4_delta": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+        "r4_evidence_ref": "distribution-r4-receipt.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-028",
+      "title": "本地 Node Meta 与远程 Go MetaTunnel 是不同模式",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+        "r4_evidence_ref": "distribution-r4-receipt.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-029",
+      "title": "MetaTunnel 动态端口、Token更新和EOF/父进程退出未接成工作流",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-030",
+      "title": "Toolbox 未接通权威大厅/Attempt 完整控制器",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "PARTIAL_MOCK_AND_COMPONENT_EVIDENCE",
+        "summary": "Owner/member Ready, Unready and team-switch UI paths are covered in component/mock evidence; real leave and online lobby lifecycle are not closed.",
+        "evidence_refs": [
+          "evidence/frontend/bridge-14.log",
+          "evidence/browser-mock/receipt-v3.json",
+          "evidence/rust/r5-final-rust-receipt.json"
+        ],
+        "pending": null
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-031",
+      "title": "角色、hosting/transport与各类ID/generation不能压成一个字段",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PASS",
+        "r4_delta": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+        "r4_evidence_ref": "distribution-r4-receipt.json"
+      },
+      "r5_append": {
+        "status": "PARTIAL_COMPONENT_EVIDENCE",
+        "summary": "Session epoch, lobby scope and snapshot sequence are carried through DTO/controller/UI gates; this does not replace full role/generation acceptance.",
+        "evidence_refs": [
+          "evidence/frontend/authoritative-rooms.log",
+          "evidence/rust/lib-316.log",
+          "evidence/rust/tauri-9.log"
+        ],
+        "pending": null
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-032",
+      "title": "退役旧在线房间API与任意地址Join，保留托管隔离",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-033",
+      "title": "旧连通回调提前推进托管p2p_room为RUNNING",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-034",
+      "title": "BattleLog Presence等投影入口仍能独立推进托管状态",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PASS",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-035",
+      "title": "大厅—传输—对局投影的跨事务补偿与崩溃恢复需补证据",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-036",
+      "title": "多种Presence/Heartbeat租约与启动/Grant时限尚未统一编排",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-037",
+      "title": "后端开局人数规则与游戏角色确认门禁未形成同一政策",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-038",
+      "title": "客户端携带Join Grant的原生NMT_Login路径尚未实现",
+      "r4_baseline": {
+        "frozen_original_acceptance": "BLOCKED",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-039",
+      "title": "权威PreLogin、真实身份、队伍/席位执行与回执未闭环",
+      "r4_baseline": {
+        "frozen_original_acceptance": "BLOCKED",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-040",
+      "title": "P2P房主StartAuthority传空平台身份且缺原生启动证明",
+      "r4_baseline": {
+        "frozen_original_acceptance": "BLOCKED",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-041",
+      "title": "同route的allocation刷新未应用新席位generation",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-042",
+      "title": "Join Grant重复申请/撤销/消费与本地准入缺少一致事务",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-043",
+      "title": "权威恢复缺少route/seat刷新与同世界连续性证明",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-044",
+      "title": "旧快照/旧Attempt/旧断线回执污染新会话的边界需全链验证",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "PARTIAL_COMPONENT_EVIDENCE",
+        "summary": "Late A/B session and same-lobby snapshot sequence order have explicit regression coverage; physical reconnect/cleanup evidence is not run.",
+        "evidence_refs": [
+          "evidence/frontend/authoritative-rooms.log",
+          "evidence/frontend/evidence-byte-validation.json",
+          "evidence/rust/r5-final-rust-receipt.json"
+        ],
+        "pending": null
+      },
+      "r6_append": {
+        "status": "PARTIAL_R6_SCOPE_AND_DESKTOP_SCOPE",
+        "summary": "The r6 frontend scope tests and one-machine leave run reject stale lobby/session results; native reconnect and physical multi-machine acceptance remain unrun.",
+        "evidence_refs": [
+          "evidence/frontend-r6/related-tests.log",
+          "evidence/desktop-r6/desktop-r6-receipt.json",
+          "evidence/browser-mock-r6/r6-leave-race-browser-receipt-v1.json"
+        ]
+      }
+    },
+    {
+      "id": "BP-045",
+      "title": "Dedicated严格调度没有充分筛选准入能力",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PASS",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-046",
+      "title": "专服心跳active_match未被Toolbox消费并驱动准入",
+      "r4_baseline": {
+        "frozen_original_acceptance": "BLOCKED",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-047",
+      "title": "数据库结束/释放早于Payload清理与游戏资源确认",
+      "r4_baseline": {
+        "frozen_original_acceptance": "BLOCKED",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-048",
+      "title": "strict开关关闭启动会批量终止共享数据库严格对局",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    },
+    {
+      "id": "BP-049",
+      "title": "配套schema升级、单版本部署与身份隔离门禁",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "PARTIAL_PACKAGE_EVIDENCE",
+        "summary": "The r5 package is bound to backend schema 48 and source manifests; deployment/release acceptance is not changed.",
+        "evidence_refs": [
+          "evidence/distribution-r5/public-metadata.json",
+          "evidence/distribution-r5/package-manifest.json",
+          "evidence/distribution-r5/payload-manifest.json"
+        ],
+        "pending": null
+      },
+      "r6_append": {
+        "status": "PARTIAL_R6_PACKAGE_EVIDENCE",
+        "summary": "The r6 package remains bound to backend schema 48 and strict source/manifests; deployment and release acceptance remain unchanged.",
+        "evidence_refs": [
+          "evidence/distribution-r6/public-metadata.json",
+          "evidence/distribution-r6/package-build-receipt.json",
+          "evidence/distribution-r6/strict-candidate.json"
+        ]
+      }
+    },
+    {
+      "id": "BP-050",
+      "title": "发布/更新/运行时安全门禁需跟兼容矩阵一起保持",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+        "r4_evidence_ref": "distribution-r4-receipt.json"
+      },
+      "r5_append": {
+        "status": "PARTIAL_STRICT_PACKAGE_EVIDENCE",
+        "summary": "Production custom-protocol/no-lab candidate and test signatures are recorded; native admission and release signing remain false.",
+        "evidence_refs": [
+          "evidence/distribution-r5/strict-candidate.json",
+          "evidence/distribution-r5/toolbox-signature-receipt.json",
+          "evidence/distribution-r5/package-bytes.log"
+        ],
+        "pending": null
+      },
+      "r6_append": {
+        "status": "PARTIAL_R6_STRICT_PACKAGE_EVIDENCE",
+        "summary": "The r6 production custom-protocol/no-lab package and signed Toolbox hash are recorded; native admission and release_ready remain false.",
+        "evidence_refs": [
+          "evidence/distribution-r6/strict-candidate.json",
+          "evidence/distribution-r6/sign-toolbox-r6-execution.json",
+          "evidence/distribution-r6/preflight-r6-execution.json"
+        ]
+      }
+    },
+    {
+      "id": "BP-051",
+      "title": "现有单库/模拟/可视化检查不能证明端到端已通过",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "PARTIAL_SOURCE_COMPONENT_AND_PACKAGE_EVIDENCE",
+        "r4_evidence_ref": "distribution-r4-receipt.json"
+      },
+      "r5_append": {
+        "status": "PARTIAL_TEST_BOUNDARY_EVIDENCE",
+        "summary": "74 unique frontend tests, 316 Rust tests, 9 Tauri tests and mock browser evidence are retained with explicit non-E2E limits.",
+        "evidence_refs": [
+          "evidence/frontend/evidence-byte-validation.json",
+          "evidence/rust/r5-final-rust-receipt.json",
+          "evidence/browser-mock/receipt-v3.json"
+        ],
+        "pending": null
+      },
+      "r6_append": {
+        "status": "PARTIAL_R6_FRONTEND_EVIDENCE",
+        "summary": "55 unique affected frontend tests, production asset preparation, package byte verification and a scoped one-machine desktop flow passed; Rust/Tauri are r5-only and native/multi-machine acceptance remain unrun.",
+        "evidence_refs": [
+          "evidence/frontend-r6/execution-receipt.json",
+          "evidence/frontend-r6/committed-source-binding.json",
+          "evidence/frontend-r6/frontend-build.log",
+          "evidence/frontend-r6/prepare-sites.log",
+          "evidence/distribution-r6/package-build-receipt.json",
+          "evidence/desktop-r6/desktop-r6-receipt.json"
+        ]
+      }
+    },
+    {
+      "id": "BP-052",
+      "title": "Backend/matchserver二进制来源与消费链待审计",
+      "r4_baseline": {
+        "frozen_original_acceptance": "PARTIAL",
+        "r4_delta": "NO_CHANGE_SINCE_PRIOR_CLIENT_DELTA",
+        "r4_evidence_ref": "client-native-delta.json"
+      },
+      "r5_append": {
+        "status": "NOT_REEVALUATED_R5",
+        "summary": "R4 baseline retained; this r5 append did not re-evaluate this item.",
+        "evidence_refs": []
+      },
+      "r6_append": {
+        "status": "NOT_REEVALUATED_R6",
+        "summary": "R4 baseline and r5 append retained; this r6 append did not re-evaluate this item.",
+        "evidence_refs": []
+      }
+    }
+  ]
+}

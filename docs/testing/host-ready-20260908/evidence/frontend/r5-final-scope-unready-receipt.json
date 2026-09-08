@@ -1,0 +1,25 @@
+{
+  "receipt_version": 1,
+  "purpose": "frontend ready/unready mock completion regression",
+  "source_repo": "C:\\wksp\\ProjectReboundToolbox",
+  "source_commit": "9e661ed5f1c47608650e7af14402a76fb4b689a2",
+  "source_commit_before_test": "a51fb44e29bd175ee351b17d92a8da87988854d5",
+  "source_dirty_paths": [
+    " M src-tauri/src/commands.rs",
+    " M src-tauri/src/dto.rs",
+    " M src-tauri/src/events.rs",
+    " M src/api/multiplayer/lobbies.rs",
+    " M src/core/runtime.rs",
+    " M src/matchmaking/controller.rs"
+  ],
+  "command": "node --test frontend/tests/tauri-bridge.test.mjs",
+  "exit_code": 0,
+  "tests": {
+    "passed": 14,
+    "failed": 0,
+    "skipped": 0
+  },
+  "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\frontend\\r5-final-scope-bridge-unready.log",
+  "log_sha256": "6F7BAB951D8D3D9788A0C8C5435A42A9C94ED94B52FF1677D8D1E035BB6E79AC",
+  "limitation": "This is a Node/mock bridge regression. It does not reproduce or certify the native browser >5s unready wait; that remains a real Tauri/backend/native follow-up."
+}

@@ -1,0 +1,156 @@
+{
+  "schema": 1,
+  "validation_utc": "2026-09-08T10:19:13.1526126Z",
+  "status": "PASS",
+  "receipts": {
+    "final_scope": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\frontend\\r5-final-scope-receipt.json",
+      "exists": true,
+      "source_commit": "a51fb44e29bd175ee351b17d92a8da87988854d5",
+      "source_dirty_paths": [
+        "src-tauri/src/dto.rs",
+        "src-tauri/src/events.rs",
+        "src/api/multiplayer/lobbies.rs",
+        "src/core/runtime.rs",
+        "src/matchmaking/controller.rs"
+      ],
+      "declared_test_count": 74
+    },
+    "unready": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\frontend\\r5-final-scope-unready-receipt.json",
+      "exists": true,
+      "source_commit": "9e661ed5f1c47608650e7af14402a76fb4b689a2",
+      "source_commit_before_test": "a51fb44e29bd175ee351b17d92a8da87988854d5",
+      "declared_passed": 14
+    }
+  },
+  "log_checks": [
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\frontend\\r5-final-scope-authoritative-rooms.log",
+      "exists": true,
+      "expected_sha256": "E20D00B8570CB4D80367BE237FC6948EDF74DBB606807D89B1627BBB30F789E3",
+      "actual_sha256": "E20D00B8570CB4D80367BE237FC6948EDF74DBB606807D89B1627BBB30F789E3",
+      "sha_matches": true,
+      "expected_exit_code": 0,
+      "parsed_tests": 11,
+      "parsed_pass": 11,
+      "parsed_fail": 0,
+      "parsed_skipped": 0,
+      "counts_match": true
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\frontend\\r5-final-scope-bridge.log",
+      "exists": true,
+      "expected_sha256": "784A235F44E0B6C8F8E77197DB6F624AF88F679E4224DCD4A75B525B2E32E7D3",
+      "actual_sha256": "784A235F44E0B6C8F8E77197DB6F624AF88F679E4224DCD4A75B525B2E32E7D3",
+      "sha_matches": true,
+      "expected_exit_code": 0,
+      "parsed_tests": 14,
+      "parsed_pass": 14,
+      "parsed_fail": 0,
+      "parsed_skipped": 0,
+      "counts_match": true
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\frontend\\r5-final-scope-downloads.log",
+      "exists": true,
+      "expected_sha256": "663DDFF16CBF9AAEED513092AB82AE12236F23BAD2CCC7800C752ADF704C01FF",
+      "actual_sha256": "663DDFF16CBF9AAEED513092AB82AE12236F23BAD2CCC7800C752ADF704C01FF",
+      "sha_matches": true,
+      "expected_exit_code": 0,
+      "parsed_tests": 7,
+      "parsed_pass": 7,
+      "parsed_fail": 0,
+      "parsed_skipped": 0,
+      "counts_match": true
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\frontend\\r5-final-scope-ui.log",
+      "exists": true,
+      "expected_sha256": "3AA57B284B3841EADB1640B9D0C2CCB5D9184C6B31DF7544E3016D409AC1FD7A",
+      "actual_sha256": "3AA57B284B3841EADB1640B9D0C2CCB5D9184C6B31DF7544E3016D409AC1FD7A",
+      "sha_matches": true,
+      "expected_exit_code": 0,
+      "parsed_tests": 27,
+      "parsed_pass": 27,
+      "parsed_fail": 0,
+      "parsed_skipped": 0,
+      "counts_match": true
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\frontend\\r5-final-scope-status.log",
+      "exists": true,
+      "expected_sha256": "C298C5C4B147AC8B24500C26806CCB02DA639DBCA6F52EB7351B412C670C6812",
+      "actual_sha256": "C298C5C4B147AC8B24500C26806CCB02DA639DBCA6F52EB7351B412C670C6812",
+      "sha_matches": true,
+      "expected_exit_code": 0,
+      "parsed_tests": 11,
+      "parsed_pass": 11,
+      "parsed_fail": 0,
+      "parsed_skipped": 0,
+      "counts_match": true
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\frontend\\r5-final-scope-sites.log",
+      "exists": true,
+      "expected_sha256": "DF545E82469C368E19FCDEE91B866F57D1601E19A0774364FF2322EFA4C025B0",
+      "actual_sha256": "DF545E82469C368E19FCDEE91B866F57D1601E19A0774364FF2322EFA4C025B0",
+      "sha_matches": true,
+      "expected_exit_code": 0,
+      "parsed_tests": 4,
+      "parsed_pass": 4,
+      "parsed_fail": 0,
+      "parsed_skipped": 0,
+      "counts_match": true
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\frontend\\r5-final-scope-build-2.log",
+      "exists": true,
+      "expected_sha256": "45996FDFAD77BB6BAB3032B8FD38257A7E2C3E8B38285C1C2B4B3DA18596962F",
+      "actual_sha256": "45996FDFAD77BB6BAB3032B8FD38257A7E2C3E8B38285C1C2B4B3DA18596962F",
+      "sha_matches": true,
+      "expected_exit_code": 0,
+      "parsed_tests": null,
+      "parsed_pass": null,
+      "parsed_fail": null,
+      "parsed_skipped": null,
+      "counts_match": true
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\frontend\\r5-final-scope-bridge-unready.log",
+      "exists": true,
+      "expected_sha256": "6F7BAB951D8D3D9788A0C8C5435A42A9C94ED94B52FF1677D8D1E035BB6E79AC",
+      "actual_sha256": "6F7BAB951D8D3D9788A0C8C5435A42A9C94ED94B52FF1677D8D1E035BB6E79AC",
+      "sha_matches": true,
+      "expected_exit_code": 0,
+      "parsed_tests": 14,
+      "parsed_pass": 14,
+      "parsed_fail": 0,
+      "parsed_skipped": 0,
+      "counts_match": true
+    }
+  ],
+  "aggregate": {
+    "unique_frontend_test_pass_count": 74,
+    "unique_frontend_test_groups": 6,
+    "unready_bridge_rerun_pass_count": 14,
+    "unready_bridge_rerun_excluded_from_aggregate": true,
+    "build_receipt_entry_is_not_counted_as_tests": true
+  },
+  "source_diff": {
+    "base": "a51fb44e29bd175ee351b17d92a8da87988854d5",
+    "final": "9e661ed5f1c47608650e7af14402a76fb4b689a2",
+    "final_parent": "a51fb44e29bd175ee351b17d92a8da87988854d5",
+    "parent_matches_base": true,
+    "names": [
+      "M\tfrontend/tests/tauri-bridge.test.mjs"
+    ],
+    "shortstat": "1 file changed, 8 insertions(+)",
+    "only_test_file_changed": true
+  },
+  "limitations": [
+    "This validates retained frontend log bytes and reported exit codes/counts; it does not re-execute the historical six test groups.",
+    "The 14-pass unready bridge rerun is a duplicate verification and is excluded from the unique 74-test total.",
+    "The current Toolbox worktree may still contain parent-owned Rust modifications; this validation did not stage or alter them."
+  ]
+}

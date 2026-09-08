@@ -1,0 +1,24 @@
+{
+  "source_commit": "a51fb44e29bd175ee351b17d92a8da87988854d5",
+  "scope": "frontend stale match snapshot freshness and session/lobby event scope",
+  "source_dirty_at_execution": true,
+  "dirty_paths_outside_this_commit": [
+    "src-tauri/src/dto.rs",
+    "src-tauri/src/events.rs",
+    "src/api/multiplayer/lobbies.rs",
+    "src/core/runtime.rs",
+    "src/matchmaking/controller.rs"
+  ],
+  "tests": [
+    {"command": "node --test frontend/tests/authoritative-rooms.test.mjs", "exit_code": 0, "passed": 11, "failed": 0, "log_path": "C:/wksp/ProjectRebound/.tmp/ready-multiplayer-20260908/frontend/r5-final-scope-authoritative-rooms.log", "log_sha256": "E20D00B8570CB4D80367BE237FC6948EDF74DBB606807D89B1627BBB30F789E3"},
+    {"command": "npm --prefix frontend run test:bridge", "exit_code": 0, "passed": 14, "failed": 0, "log_path": "C:/wksp/ProjectRebound/.tmp/ready-multiplayer-20260908/frontend/r5-final-scope-bridge.log", "log_sha256": "784A235F44E0B6C8F8E77197DB6F624AF88F679E4224DCD4A75B525B2E32E7D3"},
+    {"command": "npm --prefix frontend run test:downloads", "exit_code": 0, "passed": 7, "failed": 0, "log_path": "C:/wksp/ProjectRebound/.tmp/ready-multiplayer-20260908/frontend/r5-final-scope-downloads.log", "log_sha256": "663DDFF16CBF9AAEED513092AB82AE12236F23BAD2CCC7800C752ADF704C01FF"},
+    {"command": "npm --prefix frontend run test:ui", "exit_code": 0, "passed": 27, "failed": 0, "log_path": "C:/wksp/ProjectRebound/.tmp/ready-multiplayer-20260908/frontend/r5-final-scope-ui.log", "log_sha256": "3AA57B284B3841EADB1640B9D0C2CCB5D9184C6B31DF7544E3016D409AC1FD7A"},
+    {"command": "npm --prefix frontend run test:status", "exit_code": 0, "passed": 11, "failed": 0, "log_path": "C:/wksp/ProjectRebound/.tmp/ready-multiplayer-20260908/frontend/r5-final-scope-status.log", "log_sha256": "C298C5C4B147AC8B24500C26806CCB02DA639DBCA6F52EB7351B412C670C6812"},
+    {"command": "npm --prefix frontend run test:sites", "exit_code": 0, "passed": 4, "failed": 0, "log_path": "C:/wksp/ProjectRebound/.tmp/ready-multiplayer-20260908/frontend/r5-final-scope-sites.log", "log_sha256": "DF545E82469C368E19FCDEE91B866F57D1601E19A0774364FF2322EFA4C025B0"},
+    {"command": "npm --prefix frontend run build", "exit_code": 0, "log_path": "C:/wksp/ProjectRebound/.tmp/ready-multiplayer-20260908/frontend/r5-final-scope-build-2.log", "log_sha256": "45996FDFAD77BB6BAB3032B8FD38257A7E2C3E8B38285C1C2B4B3DA18596962F"}
+  ],
+  "limitations": [
+    "No real game, Native Payload, Backend service, or multi-machine Playable acceptance was run by this frontend change."
+  ]
+}

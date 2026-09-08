@@ -1,0 +1,212 @@
+{
+  "schema_version": 1,
+  "purpose": "hardware-test-only",
+  "release_ready": false,
+  "package_id": "rebound-hardware-test-20260908-r5",
+  "supersedes_package": "rebound-hardware-test-20260908-r4",
+  "candidate_change": "Explicit owner/member Ready, Unready and team-switch controls use the authenticated player identity and current authoritative roster revision after membership changes. Backend readiness rules, Payload bytes and strict native admission gates are unchanged. Remote multiplayer acceptance is recorded separately.",
+  "source_commits": {
+    "ProjectRebound": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d",
+    "Toolbox": "995625903685b61770da6e8139731b50a4dfb0eb"
+  },
+  "source_scope": "ProjectRebound identifies actual Payload source; the independently CI-built deployed Backend source is recorded below.",
+  "backend_candidate_commit": "584e000baf024e381c5bdb3417ad7ac879bebdca",
+  "backend_implementation_source_commit": "5e1953b525cc27e8e209abb877c938c4920c16a7",
+  "backend_deployment_status": "PASS_EXISTING_BACKEND_DEPLOYMENT_ONLY",
+  "backend_schema_required": 48,
+  "backend_schema_observed": 48,
+  "backend_ci_url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34195322102",
+  "backend_deployment_url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34196303351",
+  "service_origins": [
+    "https://api.project-rebound.space",
+    "https://cnapi.project-rebound.space",
+    "https://meta.project-rebound.space"
+  ],
+  "meta_logic_endpoint": {
+    "address": "logic.project-rebound.space:443",
+    "protocol": "TLS TCP",
+    "tls_server_name": "logic.project-rebound.space"
+  },
+  "deployment_receipt_sha256": "5fae6a65952fbe34d031eef35bcb729efa3fa56779f773590f12df77fe604994",
+  "ipc_protocol": "strict-roster-v2",
+  "feature_mode": "Tauri custom-protocol, embedded assets, product features, no lab-testing",
+  "pinned_game": {
+    "filename": "ProjectBoundarySteam-Win64-Shipping.exe",
+    "sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+    "bytes": 102362112
+  },
+  "msvc_minimum_version": "14.50.35717",
+  "strict_payload_sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+  "required_artifacts": {
+    "windows-x64": [
+      {
+        "path": "Payload.dll",
+        "bytes": 2098488,
+        "sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183"
+      },
+      {
+        "path": "rebound_toolbox_tauri.exe",
+        "bytes": 49366840,
+        "sha256": "a4f55c7169e893cee91f36d93277e1007a1facea11424e1cf863ddf25f39cbc2"
+      }
+    ]
+  },
+  "signatures": {
+    "payload": {
+      "status": "PASS_TEST_SIGNATURE_ONLY",
+      "input_sha256": "9897aaa4b58286c308b07fa05f52c9125000144cce14de247467cf1d7b3509e4",
+      "output_sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+      "output_bytes": 2098488,
+      "signer_subject": "CN=Project Rebound Strict Roster Lab",
+      "signer_thumbprint": "B041917B2322ED509435B72356BA5AD9EA053378",
+      "signer_valid_until": "2027-08-26T14:32:08.0000000Z",
+      "authenticode_status": "UnknownError",
+      "win_verify_trust_hresult": -2146762487,
+      "private_key_exported": false,
+      "trust_store_modified": false,
+      "timestamping": "NOT_RUN"
+    },
+    "toolbox": {
+      "status": "PASS_TEST_SIGNATURE_ONLY",
+      "input_sha256": "5b4f83ea286d4ae3d293dc9fb71cabed3a8aab440c73671d068f51f16d1fee02",
+      "output_sha256": "a4f55c7169e893cee91f36d93277e1007a1facea11424e1cf863ddf25f39cbc2",
+      "output_bytes": 49366840,
+      "signer_subject": "CN=Project Rebound Strict Roster Lab",
+      "signer_thumbprint": "B041917B2322ED509435B72356BA5AD9EA053378",
+      "signer_valid_until": "2027-08-26T14:32:08.0000000Z",
+      "authenticode_status": "UnknownError",
+      "win_verify_trust_hresult": -2146762487,
+      "private_key_exported": false,
+      "trust_store_modified": false,
+      "timestamping": "NOT_RUN"
+    }
+  },
+  "native_connection_collection": {
+    "status": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES",
+    "entry_point": "Owner: Collect native proof; all three frozen seats must be real Steam sessions"
+  },
+  "native_online_acceptance": {
+    "status": "BLOCKED",
+    "reason": "Independent native build capability remains unverified; connection collection never promotes Playable."
+  },
+  "permitted_test_scope": [
+    "reversible installation",
+    "package and dependency checks",
+    "Toolbox and native login",
+    "three-machine managed native admission collection",
+    "managed cleanup and second cold-start collection"
+  ],
+  "distribution_kind": "portable test delta over a complete existing Rebound runtime",
+  "publication": {
+    "updater_published": false,
+    "externally_uploaded": false
+  },
+  "package_role": "windows-x64",
+  "files": [
+    {
+      "path": "Check-ThisMachine.ps1",
+      "bytes": 1642,
+      "sha256": "7a9d6fdb1d2233c71cdda12e0c5466de5f81426d795ffd58cb80e0b82a6b9519"
+    },
+    {
+      "path": "Install-StrictPayload.ps1",
+      "bytes": 14271,
+      "sha256": "e90a40ad33af0c766be2d1ee05e96c5ad6001459678796ca983d8960d258585f"
+    },
+    {
+      "path": "licenses/Embedded-Rebound-LICENSE.txt",
+      "bytes": 35184,
+      "sha256": "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75"
+    },
+    {
+      "path": "licenses/ProjectRebound-LICENSE.txt",
+      "bytes": 35184,
+      "sha256": "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75"
+    },
+    {
+      "path": "licenses/VNT-THIRD-PARTY-NOTICES.txt",
+      "bytes": 353,
+      "sha256": "83b5522a51100f5ec2792b71259e735fa8de72c66886d17058d2eb515fa6f1e5"
+    },
+    {
+      "path": "native/Collect-WindowsNative.ps1",
+      "bytes": 2869,
+      "sha256": "cacc4e738147caaa86e45466b2a4bd3441510afa3f806687305f46adebcc17e0"
+    },
+    {
+      "path": "native/Common-WindowsNative.ps1",
+      "bytes": 43888,
+      "sha256": "b216fd665da3e918ba8a09947f7c5dc3ba60f525740239a41749d476bf56234b"
+    },
+    {
+      "path": "native/package-manifest.schema.json",
+      "bytes": 1577,
+      "sha256": "13bab1173b09ba31f9223d8d50482b9b869dc3d723cf649a8e7fb8d8734315d2"
+    },
+    {
+      "path": "native/Preflight-WindowsNative.ps1",
+      "bytes": 2153,
+      "sha256": "213a06fdaf404cf47a6a71f4299b6c7161123632079105ed4ce0aa10bc4ec3d0"
+    },
+    {
+      "path": "native/README.md",
+      "bytes": 6119,
+      "sha256": "1baed490a164fe30b3a038197e9213c7effeeb05b66d5468676cda5f3de6844c"
+    },
+    {
+      "path": "native/README.zh-CN.md",
+      "bytes": 5639,
+      "sha256": "acfe0e9e6ec5a86ad3d02c1935979804d2707496b9b9c714b41e83258c608b67"
+    },
+    {
+      "path": "native/Test-WindowsNative.ps1",
+      "bytes": 4075,
+      "sha256": "d609521aed16fef3b953d3aaef693ff508c07b561ed77fe05fe8db2f7e24f550"
+    },
+    {
+      "path": "payload-manifest.json",
+      "bytes": 1347,
+      "sha256": "0f136fb7503c62404c9797236e32dabc2673fc7b70b5a98e01dfed59e023cc9c"
+    },
+    {
+      "path": "Payload.dll",
+      "bytes": 2098488,
+      "sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183"
+    },
+    {
+      "path": "README.md",
+      "bytes": 7083,
+      "sha256": "b449cf2df124706c5f2e19b01f4f8ba023317f7189e107bee5e876fbcf0bbf48"
+    },
+    {
+      "path": "README.zh-CN.md",
+      "bytes": 6146,
+      "sha256": "84b48294751398540b14f3fc0ec80a08d01853701af451f3eb6ce07ce09fdfe3"
+    },
+    {
+      "path": "rebound_toolbox_tauri.exe",
+      "bytes": 49366840,
+      "sha256": "a4f55c7169e893cee91f36d93277e1007a1facea11424e1cf863ddf25f39cbc2"
+    },
+    {
+      "path": "Restore-StrictPayload.ps1",
+      "bytes": 9936,
+      "sha256": "8c936821959b5e259ca099e10fe08748751c0377fa2d6b1c82bdeecf17f46f55"
+    },
+    {
+      "path": "Run-Toolbox.cmd",
+      "bytes": 207,
+      "sha256": "64858c4549341f7899626724966b0ce01aee1a1eb89f09c2067b5f78a71c02d7"
+    },
+    {
+      "path": "TEST-MATRIX.md",
+      "bytes": 5639,
+      "sha256": "a8994b944b4eb2cd2720a79aa6aac8355bdff3c8cf5b3070943cbd74a96349ba"
+    },
+    {
+      "path": "TEST-MATRIX.zh-CN.md",
+      "bytes": 5088,
+      "sha256": "b0e5bd9ff66a318490771805d9e72d500375bfe6eaba58516503ebf3aaabff36"
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "receipt_version": 1,
+  "recorded_at_utc": "2026-09-08T10:50:06.9966564Z",
+  "scope": "Backend public update catalog data remediation",
+  "root_cause": {
+    "server_error": "toolbox release requires signed online_compatibility",
+    "affected_component": "managed admin_releases catalog",
+    "precheck_at_utc": "2026-09-08T10:45:13.274616Z",
+    "invalid_published_toolbox_count": 4,
+    "invalid_published_toolbox_versions": [
+      "0.9.1",
+      "0.9.3",
+      "0.9.9",
+      "0.9.10"
+    ],
+    "signature_verification_bypassed": false,
+    "compatibility_metadata_fabricated": false,
+    "duplicate_file_id_branch_observed": false,
+    "database_query_failure_observed": false
+  },
+  "remediation": {
+    "performed_at_utc": "2026-09-08T10:46:32.993203Z/2026-09-08T10:46:33.049257Z",
+    "lifecycle": "PUBLISHED -> ROLLED_BACK -> ARCHIVED",
+    "affected_count": 4,
+    "source_release_preserved": 4,
+    "signed_manifest_preserved": 4,
+    "validation_preserved": true,
+    "audit_rollback_records": 4,
+    "audit_archive_records": 4,
+    "actor": "existing active administrator with updates.rollback permission (identifier redacted)",
+    "reversible": true,
+    "r6_test_package_published": false,
+    "update_signing_rules_changed": false
+  },
+  "post_state": {
+    "checked_at_utc": "2026-09-08T10:48:33.533371Z",
+    "published_toolbox": 0,
+    "stable_published": 2,
+    "target_rows": "0.9.1:ARCHIVED,0.9.3:ARCHIVED,0.9.9:ARCHIVED,0.9.10:ARCHIVED",
+    "source_and_signed_payloads_retained": true
+  },
+  "public_verification": {
+    "checked_at_utc": "2026-09-08T10:48:53.8029509Z",
+    "hosts": [
+      "api.project-rebound.space",
+      "cnapi.project-rebound.space"
+    ],
+    "ready_http": 200,
+    "stable_check_http": 200,
+    "toolbox_check_http": 404,
+    "toolbox_check_code": "UPDATE_NOT_FOUND",
+    "downloads_http": 200,
+    "interpretation": "No valid strict Toolbox release is published; 404 is an honest not-published state, not a pass for update availability."
+  },
+  "log_verification": {
+    "checked_at_utc": "2026-09-08T10:48:10.2500707Z",
+    "recent_update_request_failed": 0,
+    "recent_internal_error": 0,
+    "raw_log_saved": false
+  },
+  "source_and_ci": {
+    "source_files_changed": [],
+    "source_commit": null,
+    "tracked_backend_worktree_clean": true,
+    "ci_rerun": false,
+    "ci_interpretation": "No source change was made; CI was not rerun and is not claimed as passed by this receipt."
+  },
+  "evidence_files": [
+    {
+      "path": "remote-update-log-summary.json",
+      "bytes": 648,
+      "sha256": "805504299465b5bdc41a8d00ae20d297c193e292b00746918aa83dab214da3a1"
+    },
+    {
+      "path": "retire-precheck.out.txt",
+      "bytes": 846,
+      "sha256": "a41cef6df9a2eacfc83637804bb79ac5ad9ab1c59ebf0453c7836f15756f11eb"
+    },
+    {
+      "path": "retire-legacy-toolbox.out.txt",
+      "bytes": 290,
+      "sha256": "cd56efa98c9c448e121fd8a1ae1fc6264e0f9d1521d22804a1445793e3f20ebe"
+    },
+    {
+      "path": "retire-postcheck.out.txt",
+      "bytes": 223,
+      "sha256": "6393df2b13dcd921b98a5edfcd8b347fe6f4c037f87bf02fe5e1441efc205d9b"
+    },
+    {
+      "path": "retire-transition-time.out.txt",
+      "bytes": 281,
+      "sha256": "a193a5266bd55582b419cba68b5bc180c35379457be3834e63ebfb69278f37b7"
+    },
+    {
+      "path": "public-endpoints-both-hosts.json",
+      "bytes": 1228,
+      "sha256": "c89b688fa1207589591a74dbba352da6cd47d3b216fb68cf1751ac5eda1dbad5"
+    },
+    {
+      "path": "post-remediation-log-summary.json",
+      "bytes": 306,
+      "sha256": "9948fce1c898b6095f88d3172d36531f39045531fd2c33c4363f96a31811e505"
+    }
+  ]
+}

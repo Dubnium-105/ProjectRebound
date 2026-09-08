@@ -1,0 +1,60 @@
+{
+  "started_at_utc": "2026-09-08T10:46:38.385690+00:00",
+  "source_parent": "995625903685b61770da6e8139731b50a4dfb0eb",
+  "source_hashes": {
+    "frontend/src/App.jsx": "d60175c9f5ce45ba52f31493a1b0bbf0255b0bba50d4c9e4681eb9795d674f60",
+    "frontend/src/lib/authoritativeRooms.js": "85d66178539dee0197e6589fe947bc8cc2fe6c35e163d460783ae74607d16a0d",
+    "frontend/src/lib/tauriBridge.js": "40379c679a8243d4f99500296d4a818fa9a8bb12fe48b94b057b241aa4e37051",
+    "frontend/tests/authoritative-rooms.test.mjs": "10b5e244843446ca2994324baa4cdfdee98cdd922b37bd5d473369eb2a45a965",
+    "frontend/tests/tauri-bridge.test.mjs": "dd0c3c538b5db6c259b8999931b548325875fc3e6120b610b60d954fe9045221"
+  },
+  "scope": "Affected frontend tests and production asset build only",
+  "commands": [
+    {
+      "name": "related-tests",
+      "command": [
+        "C:/Program Files/nodejs/node.exe",
+        "--test",
+        "frontend/tests/authoritative-rooms.test.mjs",
+        "frontend/tests/tauri-bridge.test.mjs",
+        "frontend/tests/ui-contract.test.mjs"
+      ],
+      "cwd": "C:\\wksp\\ProjectReboundToolbox",
+      "started_at_utc": "2026-09-08T10:46:38.467025+00:00",
+      "finished_at_utc": "2026-09-08T10:46:39.148528+00:00",
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\frontend\\r6-leave-final\\related-tests.log",
+      "log_sha256": "a906966320bddcfc6085891ab18579ff161cfe6f1813d6a8c86e07b166699c97"
+    },
+    {
+      "name": "frontend-build",
+      "command": [
+        "C:/Program Files/nodejs/node.exe",
+        "node_modules/vite/bin/vite.js",
+        "build"
+      ],
+      "cwd": "C:\\wksp\\ProjectReboundToolbox\\frontend",
+      "started_at_utc": "2026-09-08T10:46:39.149499+00:00",
+      "finished_at_utc": "2026-09-08T10:46:41.251407+00:00",
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\frontend\\r6-leave-final\\frontend-build.log",
+      "log_sha256": "17d0a7ecae71ea27e6ee4ce12d15898ab3fb5f985735d83ef9fdeb2df0b1d594"
+    },
+    {
+      "name": "prepare-sites",
+      "command": [
+        "C:/Program Files/nodejs/node.exe",
+        "scripts/prepare-sites-build.mjs"
+      ],
+      "cwd": "C:\\wksp\\ProjectReboundToolbox\\frontend",
+      "started_at_utc": "2026-09-08T10:46:41.252122+00:00",
+      "finished_at_utc": "2026-09-08T10:46:41.395949+00:00",
+      "exit_code": 0,
+      "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\frontend\\r6-leave-final\\prepare-sites.log",
+      "log_sha256": "b20a681cac5bceaeaf037571701267999bfc75ce61e60510f556c2656fafc5ba"
+    }
+  ],
+  "finished_at_utc": "2026-09-08T10:46:41.396757+00:00",
+  "source_stable": true,
+  "status": "PASS"
+}

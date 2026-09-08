@@ -1,0 +1,630 @@
+{
+  "status": "PASS",
+  "captured_at_utc": "2026-09-08T10:15:20.503Z",
+  "source": {
+    "frontend_head": "9e661ed5f1c47608650e7af14402a76fb4b689a2",
+    "parent_frontend_head": "a51fb44e29bd175ee351b17d92a8da87988854d5"
+  },
+  "steps": [
+    {
+      "label": "01-initial",
+      "observed_at_utc": "2026-09-08T10:15:18.025Z",
+      "json": "01-initial.json",
+      "png": "01-initial.png",
+      "buttons": [
+        {
+          "text": "02VNT NODE",
+          "disabled": false
+        },
+        {
+          "text": "01\n启动",
+          "disabled": false
+        },
+        {
+          "text": "02\n设置",
+          "disabled": false
+        },
+        {
+          "text": "Mock Operator",
+          "disabled": false
+        },
+        {
+          "text": "EN",
+          "disabled": false
+        },
+        {
+          "text": "进程\n未运行",
+          "disabled": false
+        },
+        {
+          "text": "版本\n已是最新",
+          "disabled": false
+        },
+        {
+          "text": "端口\n全部可用",
+          "disabled": false
+        },
+        {
+          "text": "启动 PvE",
+          "disabled": false
+        },
+        {
+          "text": "创建房间",
+          "disabled": false
+        },
+        {
+          "text": "刷新",
+          "disabled": false
+        },
+        {
+          "text": "加入",
+          "disabled": false
+        },
+        {
+          "text": "Debug Log\n14",
+          "disabled": false
+        }
+      ]
+    },
+    {
+      "label": "02-joined",
+      "observed_at_utc": "2026-09-08T10:15:18.554Z",
+      "json": "02-joined.json",
+      "png": "02-joined.png",
+      "buttons": [
+        {
+          "text": "02VNT NODE",
+          "disabled": false
+        },
+        {
+          "text": "01\n启动",
+          "disabled": false
+        },
+        {
+          "text": "02\n设置",
+          "disabled": false
+        },
+        {
+          "text": "Mock Operator",
+          "disabled": true
+        },
+        {
+          "text": "EN",
+          "disabled": false
+        },
+        {
+          "text": "进程\n未运行",
+          "disabled": false
+        },
+        {
+          "text": "版本\n已是最新",
+          "disabled": false
+        },
+        {
+          "text": "端口\n全部可用",
+          "disabled": false
+        },
+        {
+          "text": "取消准备",
+          "disabled": false
+        },
+        {
+          "text": "TEAM 1 1/2",
+          "disabled": false
+        },
+        {
+          "text": "TEAM 2 1/2 （当前）",
+          "disabled": true
+        },
+        {
+          "text": "离开房间",
+          "disabled": false
+        },
+        {
+          "text": "启动 PvE",
+          "disabled": true
+        },
+        {
+          "text": "创建房间",
+          "disabled": true
+        },
+        {
+          "text": "刷新",
+          "disabled": false
+        },
+        {
+          "text": "已加入",
+          "disabled": true
+        },
+        {
+          "text": "Debug Log\n17",
+          "disabled": false
+        },
+        {
+          "text": "关闭",
+          "disabled": false
+        }
+      ]
+    },
+    {
+      "label": "03-ready",
+      "observed_at_utc": "2026-09-08T10:15:19.019Z",
+      "json": "03-ready.json",
+      "png": "03-ready.png",
+      "buttons": [
+        {
+          "text": "02VNT NODE",
+          "disabled": false
+        },
+        {
+          "text": "01\n启动",
+          "disabled": false
+        },
+        {
+          "text": "02\n设置",
+          "disabled": false
+        },
+        {
+          "text": "Mock Operator",
+          "disabled": true
+        },
+        {
+          "text": "EN",
+          "disabled": false
+        },
+        {
+          "text": "进程\n未运行",
+          "disabled": false
+        },
+        {
+          "text": "版本\n已是最新",
+          "disabled": false
+        },
+        {
+          "text": "端口\n全部可用",
+          "disabled": false
+        },
+        {
+          "text": "取消准备",
+          "disabled": false
+        },
+        {
+          "text": "TEAM 1 1/2",
+          "disabled": false
+        },
+        {
+          "text": "TEAM 2 1/2 （当前）",
+          "disabled": true
+        },
+        {
+          "text": "离开房间",
+          "disabled": false
+        },
+        {
+          "text": "启动 PvE",
+          "disabled": true
+        },
+        {
+          "text": "创建房间",
+          "disabled": true
+        },
+        {
+          "text": "刷新",
+          "disabled": false
+        },
+        {
+          "text": "已加入",
+          "disabled": true
+        },
+        {
+          "text": "Debug Log\n17",
+          "disabled": false
+        }
+      ]
+    },
+    {
+      "label": "04-unready",
+      "observed_at_utc": "2026-09-08T10:15:19.502Z",
+      "json": "04-unready.json",
+      "png": "04-unready.png",
+      "buttons": [
+        {
+          "text": "02VNT NODE",
+          "disabled": false
+        },
+        {
+          "text": "01\n启动",
+          "disabled": false
+        },
+        {
+          "text": "02\n设置",
+          "disabled": false
+        },
+        {
+          "text": "Mock Operator",
+          "disabled": true
+        },
+        {
+          "text": "EN",
+          "disabled": false
+        },
+        {
+          "text": "进程\n未运行",
+          "disabled": false
+        },
+        {
+          "text": "版本\n已是最新",
+          "disabled": false
+        },
+        {
+          "text": "端口\n全部可用",
+          "disabled": false
+        },
+        {
+          "text": "准备",
+          "disabled": false
+        },
+        {
+          "text": "TEAM 1 1/2",
+          "disabled": false
+        },
+        {
+          "text": "TEAM 2 1/2 （当前）",
+          "disabled": true
+        },
+        {
+          "text": "离开房间",
+          "disabled": false
+        },
+        {
+          "text": "启动 PvE",
+          "disabled": true
+        },
+        {
+          "text": "创建房间",
+          "disabled": true
+        },
+        {
+          "text": "刷新",
+          "disabled": false
+        },
+        {
+          "text": "已加入",
+          "disabled": true
+        },
+        {
+          "text": "Debug Log\n19",
+          "disabled": false
+        }
+      ]
+    },
+    {
+      "label": "05-ready-again",
+      "observed_at_utc": "2026-09-08T10:15:19.958Z",
+      "json": "05-ready-again.json",
+      "png": "05-ready-again.png",
+      "buttons": [
+        {
+          "text": "02VNT NODE",
+          "disabled": false
+        },
+        {
+          "text": "01\n启动",
+          "disabled": false
+        },
+        {
+          "text": "02\n设置",
+          "disabled": false
+        },
+        {
+          "text": "Mock Operator",
+          "disabled": true
+        },
+        {
+          "text": "EN",
+          "disabled": false
+        },
+        {
+          "text": "进程\n未运行",
+          "disabled": false
+        },
+        {
+          "text": "版本\n已是最新",
+          "disabled": false
+        },
+        {
+          "text": "端口\n全部可用",
+          "disabled": false
+        },
+        {
+          "text": "取消准备",
+          "disabled": false
+        },
+        {
+          "text": "TEAM 1 1/2",
+          "disabled": false
+        },
+        {
+          "text": "TEAM 2 1/2 （当前）",
+          "disabled": true
+        },
+        {
+          "text": "离开房间",
+          "disabled": false
+        },
+        {
+          "text": "启动 PvE",
+          "disabled": true
+        },
+        {
+          "text": "创建房间",
+          "disabled": true
+        },
+        {
+          "text": "刷新",
+          "disabled": false
+        },
+        {
+          "text": "已加入",
+          "disabled": true
+        },
+        {
+          "text": "Debug Log\n21",
+          "disabled": false
+        }
+      ]
+    },
+    {
+      "label": "06-team-switched",
+      "observed_at_utc": "2026-09-08T10:15:20.424Z",
+      "json": "06-team-switched.json",
+      "png": "06-team-switched.png",
+      "buttons": [
+        {
+          "text": "02VNT NODE",
+          "disabled": false
+        },
+        {
+          "text": "01\n启动",
+          "disabled": false
+        },
+        {
+          "text": "02\n设置",
+          "disabled": false
+        },
+        {
+          "text": "Mock Operator",
+          "disabled": true
+        },
+        {
+          "text": "EN",
+          "disabled": false
+        },
+        {
+          "text": "进程\n未运行",
+          "disabled": false
+        },
+        {
+          "text": "版本\n已是最新",
+          "disabled": false
+        },
+        {
+          "text": "端口\n全部可用",
+          "disabled": false
+        },
+        {
+          "text": "准备",
+          "disabled": false
+        },
+        {
+          "text": "TEAM 1 2/2 （当前）",
+          "disabled": true
+        },
+        {
+          "text": "TEAM 2 0/2",
+          "disabled": false
+        },
+        {
+          "text": "离开房间",
+          "disabled": false
+        },
+        {
+          "text": "启动 PvE",
+          "disabled": true
+        },
+        {
+          "text": "创建房间",
+          "disabled": true
+        },
+        {
+          "text": "刷新",
+          "disabled": false
+        },
+        {
+          "text": "已加入",
+          "disabled": true
+        },
+        {
+          "text": "Debug Log\n23",
+          "disabled": false
+        },
+        {
+          "text": "关闭",
+          "disabled": false
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "method": "Runtime.consoleAPICalled",
+      "params": {
+        "type": "debug",
+        "args": [
+          {
+            "type": "string",
+            "value": "[vite] connecting..."
+          }
+        ],
+        "executionContextId": 2,
+        "timestamp": 1788862517480.634,
+        "stackTrace": {
+          "callFrames": [
+            {
+              "functionName": "",
+              "scriptId": "4",
+              "url": "http://127.0.0.1:4173/@vite/client",
+              "lineNumber": 788,
+              "columnNumber": 8
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "Runtime.consoleAPICalled",
+      "params": {
+        "type": "debug",
+        "args": [
+          {
+            "type": "string",
+            "value": "[vite] connected."
+          }
+        ],
+        "executionContextId": 2,
+        "timestamp": 1788862517490.686,
+        "stackTrace": {
+          "callFrames": [
+            {
+              "functionName": "handleMessage",
+              "scriptId": "4",
+              "url": "http://127.0.0.1:4173/@vite/client",
+              "lineNumber": 911,
+              "columnNumber": 14
+            },
+            {
+              "functionName": "",
+              "scriptId": "4",
+              "url": "http://127.0.0.1:4173/@vite/client",
+              "lineNumber": 489,
+              "columnNumber": 42
+            },
+            {
+              "functionName": "dequeue",
+              "scriptId": "4",
+              "url": "http://127.0.0.1:4173/@vite/client",
+              "lineNumber": 515,
+              "columnNumber": 9
+            },
+            {
+              "functionName": "",
+              "scriptId": "4",
+              "url": "http://127.0.0.1:4173/@vite/client",
+              "lineNumber": 503,
+              "columnNumber": 11
+            },
+            {
+              "functionName": "enqueue",
+              "scriptId": "4",
+              "url": "http://127.0.0.1:4173/@vite/client",
+              "lineNumber": 497,
+              "columnNumber": 11
+            },
+            {
+              "functionName": "",
+              "scriptId": "4",
+              "url": "http://127.0.0.1:4173/@vite/client",
+              "lineNumber": 489,
+              "columnNumber": 28
+            },
+            {
+              "functionName": "onMessage",
+              "scriptId": "4",
+              "url": "http://127.0.0.1:4173/@vite/client",
+              "lineNumber": 308,
+              "columnNumber": 10
+            },
+            {
+              "functionName": "",
+              "scriptId": "4",
+              "url": "http://127.0.0.1:4173/@vite/client",
+              "lineNumber": 438,
+              "columnNumber": 8
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "Runtime.consoleAPICalled",
+      "params": {
+        "type": "info",
+        "args": [
+          {
+            "type": "string",
+            "value": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools"
+          },
+          {
+            "type": "string",
+            "value": "font-weight:bold"
+          }
+        ],
+        "executionContextId": 2,
+        "timestamp": 1788862517557.504,
+        "stackTrace": {
+          "callFrames": [
+            {
+              "functionName": "",
+              "scriptId": "20",
+              "url": "http://127.0.0.1:4173/node_modules/.vite/deps/react-dom_client.js?v=6c0f08b3",
+              "lineNumber": 20102,
+              "columnNumber": 53
+            },
+            {
+              "functionName": "node_modules/react-dom/cjs/react-dom-client.development.js",
+              "scriptId": "20",
+              "url": "http://127.0.0.1:4173/node_modules/.vite/deps/react-dom_client.js?v=6c0f08b3",
+              "lineNumber": 20176,
+              "columnNumber": 6
+            },
+            {
+              "functionName": "__require",
+              "scriptId": "14",
+              "url": "http://127.0.0.1:4173/node_modules/.vite/deps/chunk-BUSYA2B4.js?v=6c0f08b3",
+              "lineNumber": 2,
+              "columnNumber": 49
+            },
+            {
+              "functionName": "node_modules/react-dom/client.js",
+              "scriptId": "20",
+              "url": "http://127.0.0.1:4173/node_modules/.vite/deps/react-dom_client.js?v=6c0f08b3",
+              "lineNumber": 20187,
+              "columnNumber": 23
+            },
+            {
+              "functionName": "__require",
+              "scriptId": "14",
+              "url": "http://127.0.0.1:4173/node_modules/.vite/deps/chunk-BUSYA2B4.js?v=6c0f08b3",
+              "lineNumber": 2,
+              "columnNumber": 49
+            },
+            {
+              "functionName": "",
+              "scriptId": "20",
+              "url": "http://127.0.0.1:4173/node_modules/.vite/deps/react-dom_client.js?v=6c0f08b3",
+              "lineNumber": 20191,
+              "columnNumber": 15
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "target_id": "34AF442E88E0CF8890E061E796D638F3",
+  "browser_context_id": "8D17583C7EFD5DE6C0BCB71C69F5D32D",
+  "viewport": {
+    "width": 860,
+    "height": 600,
+    "dpr": 1
+  }
+}

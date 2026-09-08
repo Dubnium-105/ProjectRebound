@@ -1,0 +1,202 @@
+{
+  "schema_version": "r5-frontend-browser-regression-v3",
+  "status": "PASS_COMPLETE_APP_EXPLICIT_MOCK_ONLY",
+  "captured_at_utc": "2026-09-08T10:15:20.503Z",
+  "scope": "Complete Toolbox App UI flow under explicit ?tauri-mock=1 in a fresh isolated Edge CDP browser context. This proves browser rendering and mock bridge state transitions only; it is not backend, Steam, native Payload, or multiplayer acceptance.",
+  "source": {
+    "frontend_head": "9e661ed5f1c47608650e7af14402a76fb4b689a2",
+    "parent_frontend_commit": "a51fb44e29bd175ee351b17d92a8da87988854d5",
+    "frontend_worktree": "clean at capture; unrelated Rust changes remain in shared Toolbox worktree",
+    "current_unrelated_dirty_files": [
+      "src-tauri/src/commands.rs",
+      "src-tauri/src/dto.rs",
+      "src-tauri/src/events.rs",
+      "src/api/multiplayer/lobbies.rs",
+      "src/core/runtime.rs",
+      "src/matchmaking/controller.rs"
+    ]
+  },
+  "environment": {
+    "browser": "Microsoft Edge 152.0.4191.53",
+    "cdp_endpoint": "http://127.0.0.1:9228",
+    "isolation": "new Target.createBrowserContext + Target.createTarget; old HMR page not reused; context disposed after run",
+    "app_url": "http://127.0.0.1:4173/?tauri-mock=1",
+    "viewport": {
+      "width": 860,
+      "height": 600,
+      "dpr": 1
+    },
+    "preview_process": "existing Vite preview on exec session 33606",
+    "user_profile": "temporary CDP context only; no user browser profile or credentials read"
+  },
+  "steps": [
+    {
+      "id": "cold_boot_render",
+      "status": "PASS",
+      "observed_at_utc": "2026-09-08T10:15:18.025Z",
+      "evidence": [
+        "01-initial.json",
+        "01-initial.png"
+      ]
+    },
+    {
+      "id": "join_default_authoritative_mock_lobby",
+      "status": "PASS",
+      "observed_at_utc": "2026-09-08T10:15:18.554Z",
+      "evidence": [
+        "02-joined.json",
+        "02-joined.png"
+      ]
+    },
+    {
+      "id": "joined_member_ready_state",
+      "status": "PASS",
+      "observed_at_utc": "2026-09-08T10:15:19.019Z",
+      "evidence": [
+        "03-ready.json",
+        "03-ready.png"
+      ]
+    },
+    {
+      "id": "cancel_preparation",
+      "status": "PASS",
+      "observed_at_utc": "2026-09-08T10:15:19.502Z",
+      "deadline_seconds": 10,
+      "evidence": [
+        "04-unready.json",
+        "04-unready.png"
+      ]
+    },
+    {
+      "id": "prepare_again",
+      "status": "PASS",
+      "observed_at_utc": "2026-09-08T10:15:19.958Z",
+      "deadline_seconds": 10,
+      "evidence": [
+        "05-ready-again.json",
+        "05-ready-again.png"
+      ]
+    },
+    {
+      "id": "switch_to_team_with_capacity",
+      "status": "PASS",
+      "observed_at_utc": "2026-09-08T10:15:20.424Z",
+      "deadline_seconds": 10,
+      "evidence": [
+        "06-team-switched.json",
+        "06-team-switched.png"
+      ]
+    }
+  ],
+  "console": {
+    "event_count": 3,
+    "runtime_exception_count": 0,
+    "log_entry_count": 0,
+    "console_messages": [
+      "[vite] connecting...",
+      "[vite] connected.",
+      "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools"
+    ]
+  },
+  "prior_v2": {
+    "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\r5-frontend-browser-regression-receipt-v2.json",
+    "full_app_cancel_status": "INTERMEDIATE_TREE_INCONCLUSIVE on pre-a51 dirty frontend tree; superseded by this clean-head PASS"
+  },
+  "backend": "NOT_RUN",
+  "steam": "NOT_RUN",
+  "native_payload": "NOT_RUN",
+  "real_multiplayer": "NOT_RUN",
+  "evidence": [
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-final-app-clean-20260908\\clean-app-run-result.json",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-final-app-clean-20260908/clean-app-run-result.json",
+      "bytes": 14839,
+      "sha256": "84ce055b89e21eae1095090c022f68d65e8aab55a9abe768d5f986ce5f2e0754",
+      "mtime_utc": "2026-09-08T10:15:20.505Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-final-app-clean-20260908\\01-initial.json",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-final-app-clean-20260908/01-initial.json",
+      "bytes": 1703,
+      "sha256": "5305044690b5076977be2b82ba983e3a270ffbc0f79c53d6fd0222c57a72926f",
+      "mtime_utc": "2026-09-08T10:15:18.170Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-final-app-clean-20260908\\01-initial.png",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-final-app-clean-20260908/01-initial.png",
+      "bytes": 212933,
+      "sha256": "ed62033f8b8d4e9cfa000cc98ebb9c93c042461b6a73ae7518f53e5029316b2a",
+      "mtime_utc": "2026-09-08T10:15:18.175Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-final-app-clean-20260908\\02-joined.json",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-final-app-clean-20260908/02-joined.json",
+      "bytes": 2460,
+      "sha256": "83556ae8814a3e2ade61b49316d6825250987fb773261dbabc9f565b3828dd9d",
+      "mtime_utc": "2026-09-08T10:15:18.644Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-final-app-clean-20260908\\02-joined.png",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-final-app-clean-20260908/02-joined.png",
+      "bytes": 76116,
+      "sha256": "9e4df48232c76a75e9d8dd154608ac0f025b37cda68a6e47e3ae879e8a1f62cc",
+      "mtime_utc": "2026-09-08T10:15:18.645Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-final-app-clean-20260908\\03-ready.json",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-final-app-clean-20260908/03-ready.json",
+      "bytes": 2258,
+      "sha256": "2bb6ae71addea7a805d4fff82f582242fc5e25e1cba1f9188ee77571c10e819e",
+      "mtime_utc": "2026-09-08T10:15:19.127Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-final-app-clean-20260908\\03-ready.png",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-final-app-clean-20260908/03-ready.png",
+      "bytes": 214577,
+      "sha256": "3992a6990d0f6070d34bfca92beea1906e7357ec516f877d829e06055628aaf1",
+      "mtime_utc": "2026-09-08T10:15:19.128Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-final-app-clean-20260908\\04-unready.json",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-final-app-clean-20260908/04-unready.json",
+      "bytes": 2252,
+      "sha256": "57d501412791609da3ad303f19c57cc29c747de2673a6d8911af88d53894cec8",
+      "mtime_utc": "2026-09-08T10:15:19.598Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-final-app-clean-20260908\\04-unready.png",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-final-app-clean-20260908/04-unready.png",
+      "bytes": 214576,
+      "sha256": "7cfe67ddca1a80778657736cfbb1f66cc89f74a2f1ccac1ed8a340cd1e3eee50",
+      "mtime_utc": "2026-09-08T10:15:19.599Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-final-app-clean-20260908\\05-ready-again.json",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-final-app-clean-20260908/05-ready-again.json",
+      "bytes": 2258,
+      "sha256": "99286d703cf65a23d439e550a8e2249fd33e472bd9294f615e9b01560af2fd62",
+      "mtime_utc": "2026-09-08T10:15:20.055Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-final-app-clean-20260908\\05-ready-again.png",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-final-app-clean-20260908/05-ready-again.png",
+      "bytes": 214590,
+      "sha256": "84fcce677591f369ad6daaed3d35d55cbd1967e562e2faee96aa691505ae6b45",
+      "mtime_utc": "2026-09-08T10:15:20.056Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-final-app-clean-20260908\\06-team-switched.json",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-final-app-clean-20260908/06-team-switched.json",
+      "bytes": 2425,
+      "sha256": "5035ab5d71d7530e7c40a1a83a2a57fd3de726d71665c9cd78b22ceb52ddb5f4",
+      "mtime_utc": "2026-09-08T10:15:20.502Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-final-app-clean-20260908\\06-team-switched.png",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-final-app-clean-20260908/06-team-switched.png",
+      "bytes": 73712,
+      "sha256": "07ac4cb671f0cd650a245b74ed0da3b65b98eb9cea4cbafb24e4c0c0f5847c1c",
+      "mtime_utc": "2026-09-08T10:15:20.503Z"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+
+> frontend@0.9.12 test:status
+> node --test tests/status-model.test.mjs
+
+✔ unknown and missing values never report a healthy state (5.8814ms)
+✔ semantic states follow familiar neutral blue green yellow red meanings (2.3423ms)
+✔ legacy color payloads remain compatible without preserving the old visual meaning (0.6557ms)
+✔ normalizes nested documented payloads and flat native payloads (0.4498ms)
+✔ parses every Rust port-status serde shape (0.808ms)
+✔ port and process details carry text in addition to color (0.9381ms)
+✔ launch progress temporarily overrides process activity with blue info (0.3525ms)
+✔ launch progress never hides stale or unhealthy process states (0.647ms)
+✔ backend observation time detects replayed and out-of-order snapshots (0.4364ms)
+✔ stale snapshots are rejected after three event intervals (0.4799ms)
+✔ new status copy is complete in both languages (0.9073ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 433.4431

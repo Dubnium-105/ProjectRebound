@@ -1,0 +1,124 @@
+{
+  "schema": "r5-final-rust-receipt/v1",
+  "recorded_at_utc": "2026-09-08T10:22:37.5668380Z",
+  "scope": "Final read-only Rust/DTO execution receipt for Toolbox commit 9956259; no tests rerun and no Toolbox source or HEAD mutation during receipt generation.",
+  "source": {
+    "repository": "C:\\wksp\\ProjectReboundToolbox",
+    "commit": "995625903685b61770da6e8139731b50a4dfb0eb",
+    "expected_commit": "995625903685b61770da6e8139731b50a4dfb0eb",
+    "commit_matches_expected": true,
+    "git_status_short": "",
+    "git_worktree_clean_at_receipt": true
+  },
+  "executions": [
+    {
+      "command": "cargo test --lib --no-fail-fast",
+      "exit_code": 0,
+      "result": "passed",
+      "tests_passed": 316,
+      "tests_failed": 0,
+      "tests_ignored": 0,
+      "raw_log": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\backend\\r5-match-event-scope-cleanup-fact-Main.tmp.log",
+        "bytes": 29207,
+        "sha256": "48719C663CFE1029551BE98B866FE00C42D7B6A17189036ACD21A0324918967F",
+        "last_write_utc": "2026-09-08T10:18:18.7903185Z"
+      },
+      "timing": "Command start/end timestamps were not persisted; only the existing raw log receipt is recorded."
+    },
+    {
+      "command": "cargo test --manifest-path src-tauri/Cargo.toml --no-fail-fast",
+      "exit_code": 0,
+      "result": "passed",
+      "tests_passed": 9,
+      "tests_failed": 0,
+      "tests_ignored": 0,
+      "raw_log": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\backend\\r5-match-event-scope-cleanup-fact-tauri-Main.tmp.log",
+        "bytes": 1965,
+        "sha256": "9BA66D799F17C7C6910F4A65C056910D8679D3EF76AC03432E5B2BAACC8C6DC3",
+        "last_write_utc": "2026-09-08T10:18:48.4181251Z"
+      },
+      "timing": "Command start/end timestamps were not persisted; only the existing raw log receipt is recorded."
+    },
+    {
+      "command": "cargo fmt --all -- --check",
+      "exit_code": 0,
+      "result": "passed",
+      "output_lines": 0,
+      "raw_log": {
+        "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\backend\\r5-match-event-scope-cleanup-fact-fmt-Main.tmp.log",
+        "bytes": 0,
+        "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+        "last_write_utc": "2026-09-08T10:19:39.5684841Z"
+      },
+      "timing": "Command start/end timestamps were not persisted; the checked raw output is empty."
+    }
+  ],
+  "preserved_original_failure": {
+    "raw_log": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\backend\\r5-match-event-scope-tauri-Main.tmp.log",
+      "bytes": 2478,
+      "sha256": "1C2FDC6C232B194E9B8E3EE8FD5B1858DC7BC373EF9ADCFC5B77A546B180EDE7",
+      "last_write_utc": "2026-09-08T10:03:01.1208917Z"
+    },
+    "preserved_unchanged": true,
+    "observed_result": "FAILED: 8 passed, 1 failed",
+    "failing_test": "commands::tests::command_frontend_stays_thin",
+    "observed_assertion": {
+      "left": 50,
+      "right": 49,
+      "meaning": "The source already contained the authorized start_native_authority_validation command; the stale architecture expectation was 49."
+    },
+    "final_run_revalidated_as": "9 passed, 0 failed"
+  },
+  "final_contract_boundaries": {
+    "cleanup_ack": {
+      "source": "src/core/runtime.rs:2200-2228",
+      "behavior": "Cleanup endpoints host_native_cleared, host_native_cleared_without_started_process, and host_native_cleared_after_owned_process_exit are fact acknowledgements only. The returned no-viewer/OPEN snapshot is discarded and never replaces the authenticated controller snapshot or emits MatchLobbyUpdated.",
+      "acceptance_guard": "The pending cleanup context must match the exact lobby_id, attempt and stored cleanup scope before the fact is committed; mismatched/older scopes are retained and return without clearing newer state."
+    },
+    "session_scope": {
+      "controller_binding": "src/matchmaking/controller.rs:233-247",
+      "late_backend_guard": "src/matchmaking/controller.rs:397-427",
+      "behavior": "A session epoch transition invalidates the old active lobby. Backend native/connection snapshots require the initiating session_epoch, active lobby_id, and attempt_id; a late A response cannot replace active B."
+    },
+    "snapshot_sequence": {
+      "backend_model": "src/api/multiplayer/lobbies.rs:65-80",
+      "assignment": "src/matchmaking/controller.rs:1185-1187 and adoption paths",
+      "behavior": "session_epoch and snapshot_sequence are runtime-only on the Backend wire; sequence increments on fresh Backend adoption and is preserved by clones, allowing same-timestamp dynamic updates to be ordered."
+    },
+    "tauri_schema": {
+      "list_event": "match_lobbies_updated: { session_epoch, lobbies }",
+      "connection_event": "match_connection_changed: { lobby_id, session_epoch, phase }",
+      "snapshot_dto": "MatchLobbySnapshot includes session_epoch and snapshot_sequence",
+      "other_scoped_events": "MatchAutoLaunch and MatchRosterConnectionReport include lobby_id and session_epoch."
+    }
+  },
+  "log_receipts": {
+    "lib": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\backend\\r5-match-event-scope-cleanup-fact-Main.tmp.log",
+      "bytes": 29207,
+      "sha256": "48719C663CFE1029551BE98B866FE00C42D7B6A17189036ACD21A0324918967F",
+      "last_write_utc": "2026-09-08T10:18:18.7903185Z"
+    },
+    "tauri": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\backend\\r5-match-event-scope-cleanup-fact-tauri-Main.tmp.log",
+      "bytes": 1965,
+      "sha256": "9BA66D799F17C7C6910F4A65C056910D8679D3EF76AC03432E5B2BAACC8C6DC3",
+      "last_write_utc": "2026-09-08T10:18:48.4181251Z"
+    },
+    "fmt": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\backend\\r5-match-event-scope-cleanup-fact-fmt-Main.tmp.log",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+      "last_write_utc": "2026-09-08T10:19:39.5684841Z"
+    },
+    "original_tauri_failure": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\backend\\r5-match-event-scope-tauri-Main.tmp.log",
+      "bytes": 2478,
+      "sha256": "1C2FDC6C232B194E9B8E3EE8FD5B1858DC7BC373EF9ADCFC5B77A546B180EDE7",
+      "last_write_utc": "2026-09-08T10:03:01.1208917Z"
+    }
+  }
+}

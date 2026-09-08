@@ -1,0 +1,25 @@
+{
+  "started_at_utc": "2026-09-08T10:22:23.865114+00:00",
+  "finished_at_utc": "2026-09-08T10:22:27.265384+00:00",
+  "command": [
+    "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/powershell/pwsh.exe",
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-File",
+    "C:\\wksp\\ProjectRebound\\Tools\\Distribution\\sign_test_artifact.ps1",
+    "-InputPath",
+    "C:\\wksp\\ProjectReboundToolbox\\src-tauri\\target\\release\\rebound_toolbox_tauri.exe",
+    "-OutputPath",
+    "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r5\\signed\\rebound_toolbox_tauri.exe",
+    "-ExpectedInputSha256",
+    "5b4f83ea286d4ae3d293dc9fb71cabed3a8aab440c73671d068f51f16d1fee02",
+    "-CertificateThumbprint",
+    "B041917B2322ED509435B72356BA5AD9EA053378",
+    "-ReceiptPath",
+    "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r5\\signed\\toolbox-signature-receipt.json"
+  ],
+  "exit_code": 0,
+  "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r5\\sign-toolbox-r5.log",
+  "log_sha256": "d7187415055b34420ea236bfc2c276efb6868b7c709c45bbe0ff0bbd87cc4ae4"
+}

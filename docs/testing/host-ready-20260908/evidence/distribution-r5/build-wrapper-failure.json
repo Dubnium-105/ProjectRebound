@@ -1,0 +1,11 @@
+{
+  "recorded_at_utc": "2026-09-08T09:40:37.238782+00:00",
+  "status": "FAILED_WRAPPER",
+  "exit_code": 1,
+  "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .tmp/ready-multiplayer-20260908/root/build_r5.ps1",
+  "observed_error": "NativeCommandError: Tauri Info output on stderr was converted to a terminating PowerShell error by the outer capture wrapper.",
+  "original_log_bytes": 0,
+  "candidate_manifest_after_failure": "Prior r4 source 30148ad; no r5 candidate accepted.",
+  "raw_error_saved": false,
+  "note": "The original tool output was observed; this is a later execution summary, not an original error log."
+}

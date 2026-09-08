@@ -1,0 +1,36 @@
+{
+  "recorded_at_utc": "2026-09-08T10:57:59.144837+00:00",
+  "status": "PASS",
+  "source_commit": "3ff5ca2447621cfc018c3c8e65dce28705bd7cb9",
+  "source_files": [
+    {
+      "path": "frontend/src/App.jsx",
+      "tested_bytes_sha256": "d60175c9f5ce45ba52f31493a1b0bbf0255b0bba50d4c9e4681eb9795d674f60",
+      "committed_blob_sha256": "196ac6bb224f893b6735bbd575d6ee9ac406c25d7978e66d00b197316546a002"
+    },
+    {
+      "path": "frontend/src/lib/authoritativeRooms.js",
+      "tested_bytes_sha256": "85d66178539dee0197e6589fe947bc8cc2fe6c35e163d460783ae74607d16a0d",
+      "committed_blob_sha256": "85d66178539dee0197e6589fe947bc8cc2fe6c35e163d460783ae74607d16a0d"
+    },
+    {
+      "path": "frontend/src/lib/tauriBridge.js",
+      "tested_bytes_sha256": "40379c679a8243d4f99500296d4a818fa9a8bb12fe48b94b057b241aa4e37051",
+      "committed_blob_sha256": "7088645a032c72607399b1ec16165843b946c68d31ab6f70980a1adacb498ec9"
+    },
+    {
+      "path": "frontend/tests/authoritative-rooms.test.mjs",
+      "tested_bytes_sha256": "10b5e244843446ca2994324baa4cdfdee98cdd922b37bd5d473369eb2a45a965",
+      "committed_blob_sha256": "10b5e244843446ca2994324baa4cdfdee98cdd922b37bd5d473369eb2a45a965"
+    },
+    {
+      "path": "frontend/tests/tauri-bridge.test.mjs",
+      "tested_bytes_sha256": "dd0c3c538b5db6c259b8999931b548325875fc3e6120b610b60d954fe9045221",
+      "committed_blob_sha256": "1c1ab6deabc1f793ae414f61d6bf2b2dd5b05579b32c58ae2dcebfdb6ae8ea46"
+    }
+  ],
+  "test_logs_match_receipt": true,
+  "rust_tauri_source_unchanged_from_9956259": true,
+  "rust_tests_rerun_for_r6": false,
+  "scope": "Bind actual frontend test input bytes to committed source; do not count r5 Rust tests as new r6 runs."
+}

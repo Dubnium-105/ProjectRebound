@@ -1,0 +1,19 @@
+✔ Boundary room capacity is split across both authoritative teams (4.184ms)
+✔ automatic admission fills the empty opposing team before balancing (1.5357ms)
+✔ public room adapters retain no admission material (0.8895ms)
+✔ local member lookup and open-directory replacement are deterministic (0.7284ms)
+✔ host and member ready controls use the authenticated member and current revision (0.752ms)
+✔ team controls expose current and available capacity without changing local state (1.0711ms)
+✔ a roster snapshot after a team change clears readiness and advances the revision (0.8241ms)
+✔ same-revision ready snapshots use the controller sequence and reject late content (0.7429ms)
+✔ same timestamp dynamic snapshots require the controller sequence (0.4152ms)
+✔ lobby event envelopes require a positive session and matching lobby (0.9231ms)
+✔ snapshot scope ordering rejects late rooms but permits the same terminal event (0.3289ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 321.5375

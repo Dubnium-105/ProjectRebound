@@ -1,0 +1,19 @@
+{
+  "started_at_utc": "2026-09-08T10:49:26.706116+00:00",
+  "finished_at_utc": "2026-09-08T10:49:31.286979+00:00",
+  "command": [
+    "C:/Users/23587/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/powershell/pwsh.exe",
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-File",
+    "C:\\wksp\\ProjectRebound\\artifacts\\hardware-test-20260908-r6\\rebound-hardware-test-20260908-r6-windows-x64\\Check-ThisMachine.ps1",
+    "-GameWin64",
+    "C:/Steam/steamapps/common/Boundary/ProjectBoundary/Binaries/Win64",
+    "-EvidenceDirectory",
+    "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r6\\preflight"
+  ],
+  "exit_code": 0,
+  "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution-r6\\preflight-r6.log",
+  "log_sha256": "29351acae76b68d5efcee5d5e0363a352a2ffb17707dd7973b1f68733cbdefd1"
+}

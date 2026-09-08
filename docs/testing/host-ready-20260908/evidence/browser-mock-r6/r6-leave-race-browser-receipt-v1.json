@@ -1,0 +1,27 @@
+{
+  "schema": "r6-leave-race-browser-receipt-v1",
+  "captured_at_utc": "2026-09-08T10:49:36.9911697Z",
+  "scope": "component-rendered-mock-only",
+  "preview_url": "http://127.0.0.1:4173/?tauri-mock=1",
+  "cdp_port": 9230,
+  "isolated_profile": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r6-leave-race\\edge-profile-harness",
+  "source_head": "3ff5ca2447621cfc018c3c8e65dce28705bd7cb9",
+  "source_status": null,
+  "mock_event_order": "PASS",
+  "app_leave_race": "PASS",
+  "steps": [
+    "Fresh isolated Edge target loaded the full App with explicit tauri-mock=1.",
+    "Joined mock-lobby-01 and observed join_match_lobby resolved and member ready.",
+    "Clicked Leave room; mock bridge queued match_lobby_updated terminal non-member event before leave promise continuation.",
+    "Observed leave_match_lobby acknowledged after the same-scope terminal event, then leave_match_lobby resolved.",
+    "Postcondition: active room controls disappeared, room list Join button returned, and no stale error was rendered."
+  ],
+  "observed_log_lines": [
+    "18:48:19 leave_match_lobby requested: mock-lobby-01",
+    "18:48:19 leave_match_lobby acknowledged after the same-scope terminal event",
+    "18:48:19 leave_match_lobby resolved"
+  ],
+  "console_error_capture": "Not instrumented in this run; no visible browser error or runtime hang observed",
+  "backend_or_native": "NOT_APPLICABLE_MOCK_ONLY",
+  "online_multiplayer": "NOT_RUN"
+}

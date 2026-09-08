@@ -1,0 +1,330 @@
+{
+  "schema_version": "r5-frontend-browser-regression-v2",
+  "status": "PARTIAL_MOCK_UI_ONLY",
+  "captured_at_utc": "2026-09-08T10:11:16.047Z",
+  "scope": "Local Edge CDP rendering and explicit tauri-mock UI only; no backend, Steam, native Payload, or multiplayer claim.",
+  "browser": {
+    "engine": "Microsoft Edge headless",
+    "cdp_ports": [
+      9228,
+      9230
+    ],
+    "viewport_css": {
+      "width": 860,
+      "height": 600,
+      "device_scale_factor": 1
+    },
+    "playwright_cli": "NOT_AVAILABLE; native Edge CDP used",
+    "profile": "temporary headless profile only; no user profile read"
+  },
+  "preview": {
+    "app_url": "http://127.0.0.1:4173/?tauri-mock=1",
+    "harness_url": "http://127.0.0.1:4174/harness.html",
+    "vite_session_id": 33606,
+    "harness_proxy_session_id": 55432,
+    "explicit_mock": true
+  },
+  "source_binding": {
+    "current_frontend_head_at_receipt": "a51fb44e29bd175ee351b17d92a8da87988854d5",
+    "current_frontend_head_commit_time": "2026-09-08T10:07:48Z",
+    "capture_head_before_a51": "c156a4453e830f91d5c88765a40c2ca20aad66b0",
+    "capture_tree_state": "frontend working tree was dirty with scope changes before a51; a51 was committed after the browser captures. Results touching the dirty tree require clean-head rerun.",
+    "current_worktree_dirty_files": [
+      "src-tauri/src/dto.rs",
+      "src-tauri/src/events.rs",
+      "src/api/multiplayer/lobbies.rs",
+      "src/core/runtime.rs",
+      "src/matchmaking/controller.rs"
+    ]
+  },
+  "scenarios": [
+    {
+      "id": "host_unready_ready_control",
+      "status": "PASS",
+      "scope": "component-rendered-mock-only",
+      "evidence": [
+        "edge-harness/host-unready-final.json"
+      ]
+    },
+    {
+      "id": "host_ready_enables_start",
+      "status": "PASS",
+      "scope": "component-rendered-mock-only",
+      "evidence": [
+        "edge-harness/host-ready-final.json",
+        "edge-harness/host-ready-start-enabled.png"
+      ]
+    },
+    {
+      "id": "host_cancel_disables_start",
+      "status": "PASS",
+      "scope": "component-rendered-mock-only",
+      "evidence": [
+        "edge-harness/host-cancel-final.json",
+        "edge-harness/host-unready-start-disabled.png"
+      ]
+    },
+    {
+      "id": "host_pending_controls_gated",
+      "status": "PASS",
+      "scope": "component-rendered-mock-only",
+      "evidence": [
+        "edge-harness/host-pending-final.json",
+        "edge-harness/host-pending-controls-gated.png"
+      ]
+    },
+    {
+      "id": "host_frozen_controls_gated",
+      "status": "PASS",
+      "scope": "component-rendered-mock-only",
+      "evidence": [
+        "edge-harness/host-frozen-final.json",
+        "edge-harness/host-frozen-controls-gated.png"
+      ]
+    },
+    {
+      "id": "member_ready_and_unready_controls",
+      "status": "PASS",
+      "scope": "component-rendered-mock-only",
+      "evidence": [
+        "edge-harness/member-ready-final.json",
+        "edge-harness/member-unready-final.json",
+        "edge-harness/member-initial.png",
+        "edge-harness/member-unready.png"
+      ]
+    },
+    {
+      "id": "member_team_switch_clears_ready",
+      "status": "PASS",
+      "scope": "component-rendered-mock-only",
+      "evidence": [
+        "edge-harness/member-team-switch-final.json",
+        "edge-harness/member-team-switch-ready-cleared.png"
+      ]
+    },
+    {
+      "id": "full_team_switch_disabled",
+      "status": "PASS",
+      "scope": "component-rendered-mock-only",
+      "evidence": [
+        "edge-harness/member-full-final.json",
+        "edge-harness/member-full-team1.png"
+      ]
+    },
+    {
+      "id": "full_app_join_and_ready",
+      "status": "PASS",
+      "scope": "complete-App-explicit-mock-only",
+      "evidence": [
+        "edge-app-sequence2/sequence2-joined.json",
+        "edge-app-sequence2/sequence2-member-ready.json"
+      ]
+    },
+    {
+      "id": "full_app_cancel_ready",
+      "status": "INTERMEDIATE_TREE_INCONCLUSIVE",
+      "observed_failure": "After clicking cancel, DOM remained 更新中… and ready/team/leave controls disabled beyond the 5s bounded wait.",
+      "observed_at_utc": "2026-09-08T10:06:06.978Z",
+      "evidence": [
+        "edge-app-sequence2/sequence2-after-cancel-timeout.json",
+        "edge-app-console-window.json"
+      ],
+      "next_action": "Rerun on clean final frontend HEAD; do not treat Debug Log resolved entry as UI PASS."
+    },
+    {
+      "id": "full_app_ready_again",
+      "status": "NOT_RUN",
+      "reason": "Previous full-App cancel control did not settle within bounded wait."
+    },
+    {
+      "id": "full_app_team_switch",
+      "status": "NOT_RUN",
+      "reason": "Previous full-App cancel control did not settle within bounded wait."
+    }
+  ],
+  "console_window": {
+    "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\edge-app-console-window.json",
+    "status": "No JavaScript exception observed in bounded console window. Network entries: favicon.ico 404; Vite HMR bfcache WebSocket warning. Product Debug Log recorded set_match_lobby_ready requested and resolved, while the captured DOM remained busy until later tree reload."
+  },
+  "backend": "NOT_RUN",
+  "steam": "NOT_RUN",
+  "native_payload": "NOT_RUN",
+  "real_multiplayer": "NOT_RUN",
+  "evidence": [
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\edge-harness\\host-initial.png",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-harness/host-initial.png",
+      "bytes": 54992,
+      "sha256": "d9bcb58a4c0f08d4bc4e13c61bb5a22e56573716722570cfd75ccf722a47b5f2",
+      "mtime_utc": "2026-09-08T09:58:18.908Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\edge-harness\\host-ready-start-enabled.png",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-harness/host-ready-start-enabled.png",
+      "bytes": 56899,
+      "sha256": "da77df34ecdd36a5aba191797ae2914675cafbe51e5711ee49ec09158d0f20c8",
+      "mtime_utc": "2026-09-08T09:58:28.635Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\edge-harness\\host-unready-start-disabled.png",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-harness/host-unready-start-disabled.png",
+      "bytes": 55104,
+      "sha256": "7e02839cfd71c30b5543e82c67738144d09f7ce504de0de47f83c2b0905a8f86",
+      "mtime_utc": "2026-09-08T09:58:29.891Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\edge-harness\\host-pending-controls-gated.png",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-harness/host-pending-controls-gated.png",
+      "bytes": 49985,
+      "sha256": "a13d6ad43fa0c8db386679edee4e7be22a03bb500bdaef6b63069793e33f82af",
+      "mtime_utc": "2026-09-08T09:58:57.015Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\edge-harness\\host-frozen-controls-gated.png",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-harness/host-frozen-controls-gated.png",
+      "bytes": 50045,
+      "sha256": "fb43bc4ee44a0e8f2859417e93c097de42ad6b9843b4bbeb843675ec6d4904b6",
+      "mtime_utc": "2026-09-08T09:58:58.286Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\edge-harness\\member-initial.png",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-harness/member-initial.png",
+      "bytes": 55543,
+      "sha256": "3f36f477aed643f2cb1845b77418073c111258b773d77a7e8bd66816eb659fd8",
+      "mtime_utc": "2026-09-08T09:59:12.989Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\edge-harness\\member-unready.png",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-harness/member-unready.png",
+      "bytes": 55375,
+      "sha256": "fa603268bb496e2da426d45f1c1c1fa007c363185b035c5dc8bacf299b23daf5",
+      "mtime_utc": "2026-09-08T09:59:14.252Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\edge-harness\\member-ready.png",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-harness/member-ready.png",
+      "bytes": 55817,
+      "sha256": "c7753a05a7d2be5e78207f686a7de1bad7e4725e50e12da52eb68bf1cc5d8341",
+      "mtime_utc": "2026-09-08T09:59:15.484Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\edge-harness\\member-team-switch-ready-cleared.png",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-harness/member-team-switch-ready-cleared.png",
+      "bytes": 55138,
+      "sha256": "42682f07b870b7aefc5a52217f2a52ebbdf5bf361da8574b8f13af2c95239e73",
+      "mtime_utc": "2026-09-08T09:59:24.170Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\edge-harness\\member-full-team1.png",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-harness/member-full-team1.png",
+      "bytes": 56037,
+      "sha256": "a6082d19cbab97999784ebfceac59bb0f77c4cc9e7318fea8d9ed5115b357149",
+      "mtime_utc": "2026-09-08T09:59:36.501Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\edge-harness\\host-unready-final.json",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-harness/host-unready-final.json",
+      "bytes": 3730,
+      "sha256": "36b35d8b73b7524c1d3fa1881e0d7695f6530e633e37aff98d1177b833b087e1",
+      "mtime_utc": "2026-09-08T10:01:45.497Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\edge-harness\\host-ready-final.json",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-harness/host-ready-final.json",
+      "bytes": 3914,
+      "sha256": "7d1b929baf17dec93a04d98887d8278d9618cf9debdda37c6d5e5812a923767e",
+      "mtime_utc": "2026-09-08T10:01:47.059Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\edge-harness\\host-cancel-final.json",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-harness/host-cancel-final.json",
+      "bytes": 3729,
+      "sha256": "f7c0bad0487d49b1ff9464d7997157320ff3cd70b47d6fd0eaece72e6f02dbe9",
+      "mtime_utc": "2026-09-08T10:01:48.629Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\edge-harness\\host-pending-final.json",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-harness/host-pending-final.json",
+      "bytes": 3226,
+      "sha256": "36177ed81006d09f847f92c8dac5ba7f7c831b565f285c7d300dea2a996a62c1",
+      "mtime_utc": "2026-09-08T10:02:04.373Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\edge-harness\\host-frozen-final.json",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-harness/host-frozen-final.json",
+      "bytes": 3224,
+      "sha256": "a56339c32898044abc579da172d182b164400f7fa5ae589afa4056e2432a87e2",
+      "mtime_utc": "2026-09-08T10:02:05.921Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\edge-harness\\member-ready-final.json",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-harness/member-ready-final.json",
+      "bytes": 3585,
+      "sha256": "c6becbf9134eb4cc320adba6443b9177aded774b2f2984fe1ca3e509af7796fb",
+      "mtime_utc": "2026-09-08T10:02:18.893Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\edge-harness\\member-unready-final.json",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-harness/member-unready-final.json",
+      "bytes": 3576,
+      "sha256": "47a54d0d6f505cb7ac4b57d10fc5255edde15a92d313e0db441cca7af17eed52",
+      "mtime_utc": "2026-09-08T10:02:20.463Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\edge-harness\\member-ready-restored-final.json",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-harness/member-ready-restored-final.json",
+      "bytes": 3582,
+      "sha256": "3c8012725606b70d8326622d1d7d01747b9ca37be630b68e0729d2a9ab4a47b4",
+      "mtime_utc": "2026-09-08T10:02:22.002Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\edge-harness\\member-team-switch-final.json",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-harness/member-team-switch-final.json",
+      "bytes": 3591,
+      "sha256": "cfffa0fa9e66cba39fa1c0094db686fef2dc6f0822273ecb09bfacb6fb2c4c52",
+      "mtime_utc": "2026-09-08T10:02:33.694Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\edge-harness\\member-full-final.json",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-harness/member-full-final.json",
+      "bytes": 3610,
+      "sha256": "b49b127b6b3a3e3fa1106c1178a9e0b8464eb65c7b94f64b7c9bde1ffcb4c255",
+      "mtime_utc": "2026-09-08T10:02:35.261Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\edge-app-sequence2\\sequence2-initial.json",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-app-sequence2/sequence2-initial.json",
+      "bytes": 1617,
+      "sha256": "f34c5aa1167cccbdde90d3f8ece9ac6ddcd3fa57d85523daa909b36cffa55d08",
+      "mtime_utc": "2026-09-08T10:05:48.991Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\edge-app-sequence2\\sequence2-joined.json",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-app-sequence2/sequence2-joined.json",
+      "bytes": 2374,
+      "sha256": "23f87732018f8af92545f11d2d203b2f991101a49e58f8924b1f944c5e68568e",
+      "mtime_utc": "2026-09-08T10:05:50.602Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\edge-app-sequence2\\sequence2-member-ready.json",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-app-sequence2/sequence2-member-ready.json",
+      "bytes": 2172,
+      "sha256": "c2bcbe12b94d54edd2de4d74ddf6191a0bc1a9b7d2a53636dd695b88e1cf3290",
+      "mtime_utc": "2026-09-08T10:05:51.292Z"
+    },
+    {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\native\\r5-frontend-ready-regression-20260908\\edge-app-sequence2\\sequence2-after-cancel-timeout.json",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-app-sequence2/sequence2-after-cancel-timeout.json",
+      "bytes": 3927,
+      "sha256": "682f5f41879ea82fb6c416a0d83b2687ba7eb93c3786692c1f7c91ecf10bcff3",
+      "mtime_utc": "2026-09-08T10:06:06.978Z"
+    },
+    {
+      "path": "C:/wksp/ProjectRebound/.tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-app-console-window.json",
+      "relative_to_main": ".tmp/ready-multiplayer-20260908/native/r5-frontend-ready-regression-20260908/edge-app-console-window.json",
+      "bytes": 6082,
+      "sha256": "27a8f11bf73ed9e543d82ceee1f19d2f9370a7ed00e79fb2d80c3a3ad8f2b59d",
+      "mtime_utc": "2026-09-08T10:09:50.859Z"
+    }
+  ]
+}
