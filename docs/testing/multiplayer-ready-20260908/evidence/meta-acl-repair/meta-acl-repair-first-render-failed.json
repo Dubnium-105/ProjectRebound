@@ -1,0 +1,1 @@
+{"status": "FAIL_BEFORE_ACTIVE_OVERRIDE_MUTATION", "cause": "Compose source current symlink absent; actual current-meta-server used for retry", "remote_exit_code": 1, "candidate_path": "/opt/projectrebound-deploy/shared/docker-compose.production.yaml.candidate-meta-eval-20260908T082326Z"}

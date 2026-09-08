@@ -1,0 +1,12 @@
+{
+  "observed_at_utc": "2026-09-08T08:41:42.870307+00:00",
+  "status": "PASS_REJECTED_ACTUAL_STALE_OVERRIDE",
+  "compose_render_exit_code": 0,
+  "guard_exit_code": 1,
+  "guard_output": "META_REDIS_ACL_CHECK_FAILED: Redis ACL grants do not match the canonical least-privilege set (missing=+eval,+evalsha; unexpected_count=1)",
+  "rendered_configuration_persisted": false,
+  "credentials_emitted": false,
+  "remote_service_mutation": false,
+  "guard_sha256": "6c8690fdf58ab9853949db151008f4e728dfeb97dbf43e7d4f0820508d39a2b0",
+  "guard_source_commit": "7c130f3b872d07ecd55392d36f9f09e24cf116cd"
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "status": "EXTERNAL_ENVIRONMENT_ROOT_CAUSE_REPORTED_BY_ROOT",
+  "reported_at_utc": "2026-09-08T08:19:39Z",
+  "scope": "same r3/r4 local PvE login attempts",
+  "cause": "deployed Meta Redis ACL omitted EVAL/EVALSHA permissions",
+  "evidence": "Root reported ACL log with five EVALSHA NOPERM events and Go gate-ticket rejection",
+  "binary_change": "none",
+  "package_action": "keep r4 exact ZIP/EXE/Payload hashes frozen",
+  "retest_action": "after ACL fix, relaunch same r4 package through normal product flow so Meta issues a fresh connectServer/ticket; do not reuse failed ticket",
+  "native_policy": "unchanged",
+  "online_acceptance": "still NOT_RUN"
+}

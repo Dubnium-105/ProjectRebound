@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "observed_at_utc": "2026-09-08T08:43:44.331952+00:00",
+  "status": "PASS_EVIDENCE_BYTES_AND_PACKAGE_IDENTITY_ONLY",
+  "checked_raw_files": [
+    {
+      "path": ".tmp/ready-multiplayer-20260908/native/r4-after-acl-20260908/preflight.json",
+      "bytes": 39258,
+      "sha256": "99484d319eb9aadc790beb79ee179c7d334304d008e77e90c8849154cc3dca35"
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/native/r4-after-acl-20260908/preflight-summary.log",
+      "bytes": 231,
+      "sha256": "ced0b5200dc98ddc320bd4e53f5420cc86a67d52207bb1daaa8e91eb76ea7e97"
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/native/r4-after-acl-20260908/r4-after-acl-install-receipt.json",
+      "bytes": 815,
+      "sha256": "32fb80a8dbadbc972763b1906f11d18789726ef21208e5f8a22fd6a3e6c8921d"
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/native/r4-after-acl-20260908/r4-toolbox-process-launch.log",
+      "bytes": 263,
+      "sha256": "9258907ed46037cba12fd33a7e2274641fca25b6ad06f3dfd98e88e1170b2147"
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/native/r4-after-acl-20260908/r4-toolbox-ui.log",
+      "bytes": 226,
+      "sha256": "95137ed262af1123880603f8806fbb09ff8dde915a410ce1c6abd5c3ce796889"
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/native/r4-after-acl-20260908/r4-toolbox-ui.png",
+      "bytes": 639272,
+      "sha256": "6c1af0ea0c69e4a6aa02e0a6d37eb10226e60ad7ea5f5120d97066256f94891d"
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/native/r4-after-acl-20260908/r4-toolbox-after-bootstrap.log",
+      "bytes": 239,
+      "sha256": "979b5a87a03edd17241f94f87951aa8276c8044d8ec9f651c583163b95f227d7"
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/native/r4-after-acl-20260908/r4-toolbox-after-bootstrap.png",
+      "bytes": 637666,
+      "sha256": "af4d375c5573bb8ae29bd98d11723ca31156f20649e0614f7ecad735bbc37d3a"
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/native/r4-after-acl-20260908/ui-action-start-pve-retry.log",
+      "bytes": 427,
+      "sha256": "2dc1921bc6302cf33c585a6382ea2263161c1ba0ae956db606ecc457b8274f39"
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/native/r4-after-acl-20260908/retry-boundary-role-selection.log",
+      "bytes": 228,
+      "sha256": "5a86ed6f92b7a7af497370f9456d22ac745bb9e3573e68dadaee2d3a76234935"
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/native/r4-after-acl-20260908/retry-boundary-role-selection.png",
+      "bytes": 3755767,
+      "sha256": "d6eb902ec88052f2bece25b91348e254005afbb0c368489791615cb97c69054c"
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/native/r4-after-acl-20260908/ui-action-retry2-select-doc.log",
+      "bytes": 420,
+      "sha256": "ba2a2bdc4542238551b9e7a72597784e77ee2ceb87779ef19a41ed440ff6d674"
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/native/r4-after-acl-20260908/after-retry2-select-doc.png",
+      "bytes": 2797779,
+      "sha256": "ebaf3f1b06d8d3bc9684004d2077266f63ef6885d9bbd815ce33d28581bb9ad5"
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/native/r4-after-acl-20260908/ui-action-retry2-deploy-doc-physical.log",
+      "bytes": 449,
+      "sha256": "04d3f43ba9b71dba33974256bb90d90ef2a97ad70a4e34c8a71be4436e74d3ec"
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/native/r4-after-acl-20260908/before-retry2-deploy-doc-physical.png",
+      "bytes": 2800804,
+      "sha256": "7ffe61a9a452812fadd083d11a42963570284bfb74107078f6910ab4ecba50ed"
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/native/r4-after-acl-20260908/after-retry2-deploy-doc-physical.png",
+      "bytes": 4193075,
+      "sha256": "5fc5c717b94a06bb4a0fae132ae0fcab7d9a8c384b852b1e83baba0946fd4d86"
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/native/r4-after-acl-20260908/retry2-in-game.log",
+      "bytes": 254,
+      "sha256": "4acf89506754f261f534ac6982a18d8669ffc490ce3d02f8771826015afef8e4"
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/native/r4-after-acl-20260908/retry2-in-game.png",
+      "bytes": 6801151,
+      "sha256": "0e0c1400720c19546d449f73906481577d7f44388ebbfc8b8382397b6f3a1f9b"
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/native/r4-after-acl-20260908/retry2-control-after-w.log",
+      "bytes": 262,
+      "sha256": "f2d5c321eae92402c8492d6a65fea518d32db24596d80bd59c96c24190b481f8"
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/native/r4-after-acl-20260908/retry2-control-after-w.png",
+      "bytes": 4549537,
+      "sha256": "9cb86163be5207742c2395584e96efc621cb2cfe1275fe3d0e03fa6f10ef68c0"
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/native/r4-after-acl-20260908/raw-client-20260908_163302-final.log",
+      "bytes": 2562,
+      "sha256": "7fcfefc92cdcffcfdee3b027d7ca5f656a9aec3806ee3468de4eb74284f47b4a"
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/native/r4-after-acl-20260908/raw-server-20260908_163245-final.log",
+      "bytes": 14530,
+      "sha256": "a655692994d1843f675498309b8cdb64b3fd01833b077e821fb0a61bd3feecd1"
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/native/r4-after-acl-20260908/r4-final-process-cleanup.log",
+      "bytes": 127,
+      "sha256": "878381c29aab5ae7c17823f5636bdfc5009e1582a7ac5c9f375562abc69b640e"
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/root/meta-acl-repair-apply-result.json",
+      "bytes": 1251,
+      "sha256": "4c07a453709f8f26886f5a0a5eebcbe92207752b41198013298132a79f6af7a4"
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/root/actual-meta-acl-after-fix.json",
+      "bytes": 694,
+      "sha256": "8124a076e3737a5a7af46e67e766baa0002544f663654784dd4a9d14726657fb"
+    }
+  ],
+  "public_evidence_files": [
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/runtime-r4-after-acl/r4-after-acl-final-runtime-receipt.json",
+      "bytes": 9391,
+      "sha256": "a9fc7d9f1896866bc161e093d4414388e3a36acb2b79d2695591c9aa973d31bd"
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/runtime-r4-after-acl/preflight-summary.log",
+      "bytes": 231,
+      "sha256": "ced0b5200dc98ddc320bd4e53f5420cc86a67d52207bb1daaa8e91eb76ea7e97"
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/runtime-r4-after-acl/r4-final-process-cleanup.log",
+      "bytes": 127,
+      "sha256": "878381c29aab5ae7c17823f5636bdfc5009e1582a7ac5c9f375562abc69b640e"
+    }
+  ],
+  "raw_files_retained_locally": true,
+  "raw_images_or_game_logs_published": false,
+  "online_playable": "NOT_RUN",
+  "release_ready": false
+}

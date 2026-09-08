@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-09-08T08:34:15.645049+00:00",
+  "status": "PASS_EXISTING_ACL_REPAIR_AND_ACTUAL_EFFECTIVE_CONFIG_GUARD",
+  "release_ready": false,
+  "problem": "The existing production !override replaced the current base ACL provision command with an older one lacking EVAL/EVALSHA. HTTP connectServer could issue tickets, but Redis rejected their native TCP consumption.",
+  "actual_failure_evidence": {
+    "redis_acl_command_denial": "evalsha",
+    "r3_and_r4_denial_groups": 2,
+    "each_group_recorded_count": 5,
+    "native_server_warning": "MetaServer gate ticket rejected",
+    "client_error": "ErrorCode_502",
+    "http_502_observed": false
+  },
+  "repair": {
+    "observed_at_utc": "2026-09-08T08:24:47.882193+00:00",
+    "status": "PASS_EXISTING_META_ACL_REPAIR_AND_LUA_PERMISSION_ONLY",
+    "override": "/opt/projectrebound-deploy/shared/docker-compose.production.yaml",
+    "backup": "/opt/projectrebound-deploy/shared/docker-compose.production.yaml.pre-meta-eval-20260908T082443Z.bak",
+    "override_sha256_before": "75fa11b357e78f3b237a667470af978d847183979d892da305ace4e3437899b2",
+    "override_sha256_after": "2ab90818eda00c3e94241d0cb90f4dae1f7759651bd6f2f56c8f8ff07ab94df5",
+    "compose_render_exit_code": 0,
+    "provision_exit_code": 0,
+    "provision_output_sha256": "89864ad14055ac39ec2b3b44c6917665e3e1df1ebb2ca303f839f2a1602eb079",
+    "credentials_emitted": false,
+    "credentials_rotated": false,
+    "namespace": "~meta:*",
+    "added_commands": [
+      "eval",
+      "evalsha"
+    ],
+    "removed_unused_commands": [
+      "getdel"
+    ],
+    "database_changed": false,
+    "redis_restarted": false,
+    "meta_server_restarted": false,
+    "native_login": "NOT_RUN_AFTER_REPAIR",
+    "online_playable": "NOT_RUN",
+    "actual_meta_user_eval": "PASS_RETURNED_1",
+    "actual_meta_user_evalsha": "PASS_RETURNED_1",
+    "probe_scope": "Non-mutating Lua return 1 under the existing Meta user; no ticket, roster, player, or native proof was fabricated.",
+    "finished_at_utc": "2026-09-08T08:24:48.464905+00:00"
+  },
+  "acl_before": "-@all +@connection +get +set +getdel +del +unlink +expire +pexpire +ttl +pttl",
+  "acl_after": "-@all +@connection +get +set +del +unlink +eval +evalsha +expire +pexpire +ttl +pttl",
+  "base_service_images_changed": false,
+  "deployed_backend_ci_commit": "584e000baf024e381c5bdb3417ad7ac879bebdca",
+  "schema": 48,
+  "frontend_binary_changed_for_acl_fix": false,
+  "retest_package_id": "rebound-hardware-test-20260908-r4",
+  "permanent_guard_commits": [
+    "0aec1e7",
+    "b66bc66c86e3e0e242645e2ac7096bbe0011a868",
+    "7c130f3b872d07ecd55392d36f9f09e24cf116cd"
+  ],
+  "permanent_guard_scope": "Validate the final merged Compose model before build/pull/provision/up. Tests cover the stale production-shaped override and bounded diagnostics; actual remote merged old and corrected models were also executed through the guard.",
+  "guard_delivery": "Final source 7c130f3 verified against actual corrected/stale server Compose models; public CI follow-up receipt recorded separately. Existing deployed application images remain 584e000.",
+  "native_runtime_result": "evidence/runtime-r4-after-acl/r4-after-acl-final-runtime-receipt.json: actual offline PvE deployment/control and cleanup observed; client timeout warning retained; online NOT_RUN.",
+  "unchanged_acceptance_limits": {
+    "native_authority_admission_verified": false,
+    "three_machine_online": "NOT_RUN",
+    "online_playable": "BLOCKED_PENDING_ACTUAL_ONLINE_GAME_EVIDENCE"
+  },
+  "evidence_files": [
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/meta-acl-repair/actual-meta-acl-before-fix.json",
+      "sha256": "d8bc8342311fef1e234f634c674a4e4bcf9bbf47a455c6bb75ffa39591ea94ca",
+      "bytes": 687
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/meta-acl-repair/actual-meta-acl-after-fix.json",
+      "sha256": "8124a076e3737a5a7af46e67e766baa0002544f663654784dd4a9d14726657fb",
+      "bytes": 694
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/meta-acl-repair/meta-acl-repair-apply-result.json",
+      "sha256": "4c07a453709f8f26886f5a0a5eebcbe92207752b41198013298132a79f6af7a4",
+      "bytes": 1251
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/meta-acl-repair/actual-effective-compose-guard-receipt.json",
+      "sha256": "13e62e86885ce95169f289af22beb5192b6bb5796791e1661e56b1591575e067",
+      "bytes": 490
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/meta-acl-repair/actual-effective-compose-guard-stale-rejection-receipt.json",
+      "sha256": "a6125867976a69200b096fd7210bfe15965b14e4076a78f3ec7e769fd950705d",
+      "bytes": 607
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/meta-acl-repair/actual-meta-acl-first-probe-failed.json",
+      "sha256": "14c6d5616c3f4011127227e9d7e03b30b6d1b1e512c52ce058dad14e0b9dd465",
+      "bytes": 159
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/meta-acl-repair/meta-acl-repair-first-render-failed.json",
+      "sha256": "e55527008e6a6f60ed89cd88e56af7364228e4099b047ff1ed57b35c75239ae1",
+      "bytes": 291
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/meta-acl-repair/r4-actual-runtime-receipt.json",
+      "sha256": "c9e821d42b8d8216e3b41048c181d120a95e8f447adebd305320b7e37328c2e5",
+      "bytes": 8679
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/meta-acl-repair/r4-environment-root-cause-followup.json",
+      "sha256": "86f72a0cefc17bcd01eb27825091b5316b30a319404633b852a85a690a23e94d",
+      "bytes": 697
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/meta-acl-repair/actual-effective-compose-guard-receipt-7c130f3.json",
+      "bytes": 490,
+      "sha256": "a83de86d1e81561e423812470485dacb1ec8d2409da5059bb095ef71ccc947f0"
+    },
+    {
+      "path": "docs/testing/multiplayer-ready-20260908/evidence/meta-acl-repair/actual-effective-compose-guard-stale-rejection-receipt-7c130f3.json",
+      "bytes": 607,
+      "sha256": "3021dde94d198eec6bdae3fb7991c92f7c4bfca15e1e459080bdbae28916b821"
+    }
+  ],
+  "failed_probe_handling": "The wrong inspected environment-key probe and the first wrong current/ Compose-path render both failed before any active override/ACL change. Their failure records are retained.",
+  "privacy": "No Redis passwords, gate tickets, platform identities, rendered Compose environment, or private screenshots are included.",
+  "historical_repair_probe_scope": "The nested repair.native_login=NOT_RUN_AFTER_REPAIR describes the immediate 08:24 ACL permission probe only. The later 08:25-08:38 game run is recorded separately, not retroactively promoted into that probe."
+}

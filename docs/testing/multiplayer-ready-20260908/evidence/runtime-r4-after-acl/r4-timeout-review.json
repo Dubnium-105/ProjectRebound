@@ -1,0 +1,52 @@
+{
+  "review_version": 1,
+  "reviewed_at_utc": "2026-09-08T08:44:35.1980429Z",
+  "mode": "read_only_no_source_edits_no_rebuild",
+  "runtime_scope": "single_machine_offline_pve_only",
+  "package_source_commit": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d",
+  "source_files": {
+    "payload_client": "Payload/ClientLogic/ClientLogic.cpp",
+    "toolbox_launch": "C:\\wksp\\ProjectReboundToolbox\\src\\launching\\launch.rs"
+  },
+  "runtime_timing": {
+    "start_pve_clicked_utc": "2026-09-08T08:32:44.9422154Z",
+    "role_selection_capture_utc": "2026-09-08T08:33:54.5326058Z",
+    "role_select_clicked_utc": "2026-09-08T08:35:39.3018928Z",
+    "deploy_clicked_utc": "2026-09-08T08:36:20.786215Z",
+    "in_game_capture_utc": "2026-09-08T08:36:51.811612Z",
+    "control_capture_utc": "2026-09-08T08:37:24.9502453Z",
+    "start_to_deploy_seconds": 215.844,
+    "start_to_first_role_capture_seconds": 69.5904
+  },
+  "source_timing": {
+    "payload_travel_timeout": "ClientLogic.cpp:169 TravelTimeout=90s",
+    "payload_deadline_start": "ClientLogic.cpp:2394-2405: direct open is dispatched and travelDeadline is set to steady_clock::now()+TravelTimeout",
+    "payload_timeout_check": "ClientLogic.cpp:2265-2281: if stage is not Playable and now>=travelDeadline, stage becomes Failed and lastConnectError is playable_pawn_timeout when world is ready",
+    "payload_timeout_cleanup": "ClientLogic.cpp:2272-2279: pending target, staged Grant/ticket, match scope and frontend cleanup are cleared; Steam ticket cancellation is requested",
+    "payload_after_timeout": "ClientLogic.cpp:2283-2289 returns after logging failure; subsequent pump exits at ClientLogic.cpp:2293-2296 because no pending target/authority scope",
+    "offline_promotion": "ClientLogic.cpp:2222-2229 promotes only when local pawn and native net are ready and IsOfflinePveClient() is true",
+    "offline_switch": "ClientLogic.cpp:283-287: exact -pve switch",
+    "toolbox_pve_wait": "launch.rs:37-52: PVE server startup 125s, client stability 35s, window readiness 180s",
+    "toolbox_stability_logic": "launch.rs:812-886: waits for visible/responsive client, server heartbeat/UDP, and player_count>0; once stable it returns before role/loadout/deploy and does not observe Payload Playable"
+  },
+  "observed_log_order": {
+    "client": "raw client contains WorldReady, ClientInitFieldMod, then Native travel failed: bounded readiness timeout (playable_pawn_timeout), followed only by respawn HUD cleanup lines; it has no Offline PvE travel reached Playable line",
+    "server": "raw server contains PlayerCount=2, role confirmed/start gate, native_initial_join pawn, Finalized playable possession, Spawn complete, MatchIntro and StartMatch, then later PlayerCount=6 bot fill; periodic TIMESTAMP lines are ordering markers, not per-event timestamps",
+    "screenshots": "role-selection, loadout/Deploy, first-person gameplay, and W-input aftermath are separately timestamped evidence"
+  },
+  "determination": {
+    "primary": "The timeout is most consistent with the 90s Payload travel deadline expiring while the explicit PvE role/loadout flow was still pending; it is not the Toolbox 180s window itself",
+    "not_just_180": "Start to Deploy was 215.844s, but Toolbox 180s is only initial launch stability and had already returned once client/server were healthy; the Payload 90s timer begins at open and is independent",
+    "pawn_predicate": "The predicate itself is strict (same-world GameState/NetDriver, PB pawn, acknowledged/possessed, Alive). The server file has no per-line event timestamps; its 08:36:15 heartbeat marker precedes the role/spawn block, so this is an ordering marker rather than an exact spawn time. The run does not prove the predicate was wrong at the 90s deadline: the server spawn block occurs only after the long role/loadout interaction. After timeout, server eventually spawned and the client rendered/accepted control, demonstrating late recovery at game/network level but not Payload state recovery",
+    "recovery": "No Payload status recovery was observed or implied: timeout clears proof/scope and leaves connectStage Failed; game continued due underlying game/server lifecycle. Do not report client native Playable from the late screenshot alone",
+    "risk": "If testers spend more than 90s between direct open and native pawn readiness, the UI/game can become playable while strict Payload status is Failed, creating false-negative readiness and possibly clearing online proof state. This offline run does not establish an online admission impact, but the shared client state machine is a distribution risk for online launches too"
+  },
+  "recommended_next": "Before any release claim, run a separately authorized fast-path or source fix review: either make the offline role/loadout phase pause/extend the offline deadline, or prove an online-safe deadline policy tied to actual native admission milestones. No change was made in this review.",
+  "evidence": {
+    "client_file": "native/r4-after-acl-20260908/raw-client-20260908_163302-final.log",
+    "client_sha256": "7fcfefc92cdcffcfdee3b027d7ca5f656a9aec3806ee3468de4eb74284f47b4a",
+    "server_file": "native/r4-after-acl-20260908/raw-server-20260908_163245-final.log",
+    "server_sha256": "a655692994d1843f675498309b8cdb64b3fd01833b077e821fb0a61bd3feecd1",
+    "receipt": "native/r4-after-acl-20260908/r4-after-acl-final-runtime-receipt.json"
+  }
+}

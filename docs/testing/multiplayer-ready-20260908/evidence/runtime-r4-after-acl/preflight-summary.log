@@ -1,0 +1,7 @@
+preflight_generated_at_utc=2026-09-08T08:25:28.1855295Z
+status=PASS
+release_ready=False
+checks=45
+non_pass=0
+installed_payload_sha256=8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183
+toolbox_signature=UnknownError

@@ -1,0 +1,203 @@
+{
+  "receipt_version": 1,
+  "status": "R4_RUNTIME_FAIL_LOCAL_PVE_JOIN",
+  "scope": "single-machine production Toolbox PvE cold-start after -pve client fix",
+  "package": {
+    "zip_path": "C:\\wksp\\ProjectRebound\\artifacts\\hardware-test-20260908-r4\\rebound-hardware-test-20260908-r4-windows-x64.zip",
+    "zip_bytes": 23487655,
+    "zip_sha256": "73bff684e19d0644fe310fa833624150e5b7c9105013482198a90a1ce6651689",
+    "expanded_exe_sha256": "aa7a5d738a66295f1bd5a3c478c8c8cd0234fba90e163a9cb1bc48235a104de0",
+    "payload_sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+    "preflight": "PASS:45 checks, 0 non-PASS",
+    "payload_install": "already_installed_verified; no replacement",
+    "release_ready": false,
+    "authenticode": "UnknownError / WinVerifyTrust -2146762487: test signer exists but local root is untrusted"
+  },
+  "timestamps_utc": {
+    "preflight": "2026-09-08T08:09:57.5407500Z",
+    "payload_verify": "2026-09-08T08:10:42.4996344Z",
+    "toolbox_started": "2026-09-08T08:12:13.9088782Z",
+    "toolbox_ui_rendered": "2026-09-08T08:12:15.7136500Z",
+    "steam_button_observed": "2026-09-08T08:12:59.9840952Z",
+    "steam_cancel": "2026-09-08T08:13:20.8848956Z",
+    "authenticated_ui_state": "2026-09-08T08:13:59.1634045Z",
+    "start_pve_clicked": "2026-09-08T08:14:11.2074191Z",
+    "game_login_window": "2026-09-08T08:15:18.9222891Z",
+    "match_queue_window": "2026-09-08T08:16:02.3321262Z",
+    "product_timeout": "2026-09-08T08:17:37.9853917Z",
+    "error_closed": "2026-09-08T08:18:51.4459025Z",
+    "final_cleanup": "2026-09-08T08:19:53.6405753Z"
+  },
+  "observed": {
+    "toolbox_ui": "PASS: rendered production UI from exact r4 EXE",
+    "steam_session": "AUTHENTICATED_UI_STATE_OBSERVED: existing Steam-linked session confirmed by normal product dialog; no fresh login challenge run",
+    "game_process": "PASS: real fixed Boundary window rendered LOGGING IN",
+    "client_argument_fix": "PASS: client log says Match transition queued: 127.0.0.1:7777; r3 direct-open refusal absent",
+    "native_login": "NOT_PROVEN: client log stopped after EnterGame Construct forcing SPACE",
+    "native_join_grant": "NOT_APPLICABLE_OFFLINE_PVE",
+    "server": "FAIL: server listened and heartbeated but PlayerCount stayed 0",
+    "player_joined": "FAIL: no player joined",
+    "scene": "NOT_PROVEN: server loaded Warehouse, client never reached joined scene",
+    "metatunnel": "profile and repeated connectServer diagnostics shown as HTTP 200",
+    "product_result": "FAIL: client reached menu but did not join local PVE server within 180 seconds",
+    "managed_cleanup": "PASS: game/server stopped; exact r4 Toolbox process tree stopped; remaining target process count 0",
+    "online_native_admission": "NOT_RUN",
+    "online_playable": "NOT_RUN",
+    "two_machine": "NOT_RUN",
+    "three_machine": "NOT_RUN"
+  },
+  "raw_client": {
+    "file": "raw-client-20260908_161431.log",
+    "sha256": "70dd6286c82a1eca2ca3e89e1e10dbddd29267e504c8ba4852121a90c39d6a67",
+    "key_observation": "Match transition queued; no direct-open refusal; no native login success or join ACK"
+  },
+  "raw_server": {
+    "file": "raw-server-20260908_161413.log",
+    "sha256": "a801a580ac3c640f5fb8c6e8aaa118f90637317b319005cf1b72949eb16199a4",
+    "key_observation": "server ready/listening; heartbeat PlayerCount=0; stopped normally"
+  },
+  "causal_boundary": {
+    "proven": "-pve omission was fixed: direct-open refusal disappeared and match transition queued",
+    "not_proven": "native gate-ticket/Meta authorization remains unresolved because no client native login/join ACK occurred",
+    "environment_followup": "Root is checking deployed Meta/Redis ACL; no claim made until a retest changes the result"
+  },
+  "acceptance": {
+    "single_machine_pve": "FAIL",
+    "online_playable": "NOT_RUN",
+    "native_online_join": "NOT_RUN",
+    "two_machine": "NOT_RUN",
+    "three_machine": "NOT_RUN"
+  },
+  "next_step": "After Root confirms any environment-only fix, relaunch the same exact r4 package and repeat native login, player join, scene, and cleanup evidence; do not rebuild solely for this runtime failure.",
+  "constraints": [
+    "No fixture, synthetic roster, empty Grant, direct-open bypass, UE console open, or strict gate disable was used.",
+    "Offline PvE Join Grant is NOT_APPLICABLE_OFFLINE_PVE; online Join Grant remains NOT_RUN."
+  ],
+  "raw_evidence": [
+    {
+      "file": "preflight.json",
+      "sha256": "f7001f19ffbb6cc21ae3810a07df375ef4997c2a180dfdf96ff94c45a7c2eaac",
+      "bytes": 39258
+    },
+    {
+      "file": "preflight-summary.log",
+      "sha256": "33942895b68f1cc26eb627df69d3c721550f49f00a0bde5fa019b3fb5f8dc6dc",
+      "bytes": 471
+    },
+    {
+      "file": "r4-install-receipt.json",
+      "sha256": "7a3a26ad49ca13a4c5fca554ac03a9ed2f13f6dfbf04d020c7f232ea234fc50b",
+      "bytes": 1279
+    },
+    {
+      "file": "r4-toolbox-process-launch.log",
+      "sha256": "f300c8f9b5fedb6fa1aecd0d16f4821bb21992de88035de9b14fa7d3dc4936b9",
+      "bytes": 263
+    },
+    {
+      "file": "r4-toolbox-ui.log",
+      "sha256": "bf2effbe7fc30b0cc0fbbc235661f769783c1e3789cadd4ab21b78634ff9beef",
+      "bytes": 225
+    },
+    {
+      "file": "r4-toolbox-ui.png",
+      "sha256": "90a61bfd2506a2cefa4c8f91511e0c1dffcca341b7c2f03d2d1f6dd6f7972e07",
+      "bytes": 642524
+    },
+    {
+      "file": "r4-steam-session-ui-state.log",
+      "sha256": "f6dfb395e9ae20ce9e6572630d4ba8fd720184e530d1e5a49dbcfbc9df772a63",
+      "bytes": 948
+    },
+    {
+      "file": "r4-toolbox-before-cancel.png",
+      "sha256": "9d7f05d15296fde29b19d5e54bb9b95437066f4b10d3fce8532e981246c82adf",
+      "bytes": 208808
+    },
+    {
+      "file": "r4-toolbox-after-cancel.png",
+      "sha256": "eb42a2e70b69ef067657d1fd100e1cd7d354fbda47d01ac40677a73840153953",
+      "bytes": 640552
+    },
+    {
+      "file": "r4-ui-action-login-steam-cancel.log",
+      "sha256": "137e90c745bb3fb0f3f04e44535be840522b8028edb538a47593ece6da48d47f",
+      "bytes": 414
+    },
+    {
+      "file": "r4-ui-action-start-pve.log",
+      "sha256": "8da7557707da2aee0aeb4bc9cf53122311afda5bf48db8017f4d32e27d187211",
+      "bytes": 407
+    },
+    {
+      "file": "r4-toolbox-before-start-pve.png",
+      "sha256": "eb42a2e70b69ef067657d1fd100e1cd7d354fbda47d01ac40677a73840153953",
+      "bytes": 640552
+    },
+    {
+      "file": "r4-toolbox-after-start-pve-click.png",
+      "sha256": "c374c1abad0fbd9428e04eb97df63136846fe521e40ba79a0ee14bd8c9806d7b",
+      "bytes": 627243
+    },
+    {
+      "file": "r4-boundary-window-login.log",
+      "sha256": "a41204a6d10ade2856e1fdabe338f5d4970987e279069705c362de67b25f41bd",
+      "bytes": 219
+    },
+    {
+      "file": "r4-boundary-window-login.png",
+      "sha256": "63af801f7f4478993c1ed6966b4429f7e33ad72b785a34eee54be11871721b90",
+      "bytes": 1560981
+    },
+    {
+      "file": "r4-boundary-login-after-queue.log",
+      "sha256": "9288403ed76d005ec3c404d1dd9d793bcd854ff1cd65cc7aaf013c8ea6b6e024",
+      "bytes": 224
+    },
+    {
+      "file": "r4-boundary-login-after-queue.png",
+      "sha256": "a2483ee5f5690f00c4c1796f9148cd03c4b7240beb99c3b191319d67544d16e8",
+      "bytes": 1607918
+    },
+    {
+      "file": "raw-client-20260908_161431.log",
+      "sha256": "70dd6286c82a1eca2ca3e89e1e10dbddd29267e504c8ba4852121a90c39d6a67",
+      "bytes": 478
+    },
+    {
+      "file": "raw-server-20260908_161413.log",
+      "sha256": "a801a580ac3c640f5fb8c6e8aaa118f90637317b319005cf1b72949eb16199a4",
+      "bytes": 4839
+    },
+    {
+      "file": "r4-toolbox-pve-result.log",
+      "sha256": "b3bc1f8052487655a7a8b08486731f69610c23c2a88583c87fcc7562ce0fed5d",
+      "bytes": 233
+    },
+    {
+      "file": "r4-toolbox-pve-result.png",
+      "sha256": "08d02211715d2088ef4a585712c9a25f3fc9cfd013a545ee5702e42ac2bfd98f",
+      "bytes": 275231
+    },
+    {
+      "file": "r4-pve-modal-summary.log",
+      "sha256": "7594d2357abd7eda9530462e40833a9b72b580fc59e3991bcdd444372d4d5e7d",
+      "bytes": 501
+    },
+    {
+      "file": "r4-post-pve-process-cleanup.log",
+      "sha256": "c0bdc26f8c3e0206a4cebbcf2dc5364d43cde5dbd659701368c8141cf24f5f5e",
+      "bytes": 208
+    },
+    {
+      "file": "r4-ui-action-close-pve-error.log",
+      "sha256": "79e336c15b8b6c4af8b565632463644379d2d44ab62e3e7813adadd3d9930e97",
+      "bytes": 421
+    },
+    {
+      "file": "r4-final-process-cleanup.log",
+      "sha256": "9ba8cfd4d85221c19092f68b7e7442f493b224a9c57a8181ee69a2858cd94c36",
+      "bytes": 157
+    }
+  ]
+}

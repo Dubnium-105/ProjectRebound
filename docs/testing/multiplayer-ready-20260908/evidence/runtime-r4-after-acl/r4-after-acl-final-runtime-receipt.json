@@ -1,0 +1,200 @@
+{
+  "receipt_version": 2,
+  "status": "R4_RUNTIME_SINGLE_MACHINE_PVE_PLAYABLE_OBSERVED_WITH_CLIENT_WARNING",
+  "scope": "single-machine production Toolbox PvE after deployed Meta ACL repair, exact r4 package; this is offline PvE evidence and does not prove online roster admission",
+  "package": {
+    "zip_path": "C:\\wksp\\ProjectRebound\\artifacts\\hardware-test-20260908-r4\\rebound-hardware-test-20260908-r4-windows-x64.zip",
+    "zip_bytes": 23487655,
+    "zip_sha256": "73bff684e19d0644fe310fa833624150e5b7c9105013482198a90a1ce6651689",
+    "expanded_exe_sha256": "aa7a5d738a66295f1bd5a3c478c8c8cd0234fba90e163a9cb1bc48235a104de0",
+    "payload_sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+    "game_executable_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+    "toolbox_source_commit": "30148ad96e08ee4e26cd4972c557a4dee2340c21",
+    "payload_source_commit": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d",
+    "preflight": "PASS:45 checks, 0 non-PASS",
+    "payload_install": "already_installed_verified; no replacement; exact r4 hash unchanged",
+    "authenticode": "UnknownError / WinVerifyTrust -2146762487: test signer exists but local root is untrusted",
+    "release_ready": false
+  },
+  "timestamps_utc": {
+    "preflight": "2026-09-08T08:25:28.1855295Z",
+    "payload_verify": "2026-09-08T08:25:38.7008117Z",
+    "toolbox_started": "2026-09-08T08:25:46.4145459Z",
+    "toolbox_ui_rendered": "2026-09-08T08:25:48.3308692Z",
+    "toolbox_bootstrap": "2026-09-08T08:26:03.2994467Z",
+    "start_pve_clicked": "2026-09-08T08:32:44.9422154Z",
+    "role_selected": "2026-09-08T08:35:39.3018928Z",
+    "deploy_clicked": "2026-09-08T08:36:20.786215Z",
+    "in_game_capture": "2026-09-08T08:36:51.811612Z",
+    "control_input_capture": "2026-09-08T08:37:24.9502453Z",
+    "game_close": "2026-09-08T08:37:55.28395Z",
+    "toolbox_close": "2026-09-08T08:38:19.2179623Z"
+  },
+  "observed": {
+    "toolbox_ui": "PASS: exact r4 production UI rendered",
+    "steam_session": "AUTHENTICATED_UI_STATE_OBSERVED: existing Steam-linked session visible after normal product bootstrap; no fresh login challenge was forced",
+    "game_process": "PASS: fixed Boundary process rendered actual game window",
+    "meta_path": "PASS after Root ACL repair receipt: fresh r4 run proceeded past prior 502/gate-ticket failure; ACL result is external environment evidence",
+    "client_native": "PARTIAL_NATIVE_EVIDENCE: QueryAssets/GetPlayerArchiveV2 ownership, loadout snapshot, Customize completion, ClientInitFieldMod, WorldReady logs",
+    "server_native": "PASS: native_initial_join pawn, Finalized playable possession, Spawn complete, native MatchIntro, StartMatch observed",
+    "server_player_count": "2 at role flow; later 6 after game bot fill; not a remote-human count",
+    "scene": "PASS: Warehouse first-person scene with HUD, weapons and target marker rendered",
+    "control": "PASS: W key sent to focused game; subsequent screenshot changed position/view and showed damage HUD / enemy radar lock",
+    "product_result": "PASS: actual offline PvE first-person gameplay reached and controlled",
+    "managed_cleanup": "PASS: exact game and server closed normally; Toolbox closed; target process count 0",
+    "client_warning": "WARNING: client log also contains bounded readiness timeout (playable_pawn_timeout) before subsequent actual HUD/control and server possession evidence; retained verbatim, not suppressed",
+    "online_native_admission": "NOT_RUN",
+    "online_playable": "NOT_RUN",
+    "two_machine": "NOT_RUN",
+    "three_machine": "NOT_RUN"
+  },
+  "acceptance": {
+    "single_machine_pve": "PASS_OBSERVED_WITH_CLIENT_TIMEOUT_WARNING",
+    "native_online_join": "NOT_RUN",
+    "online_playable": "NOT_RUN",
+    "two_machine": "NOT_RUN",
+    "three_machine": "NOT_RUN"
+  },
+  "causal_boundary": {
+    "proved": "r4 -pve path queued match; after external Meta ACL repair, actual offline PvE reached role selection, loadout, first-person scene, native server possession/start, and controllable HUD",
+    "not_proved": "online Steam Join Grant, remote-seat admission, two-machine or three-machine playable flow",
+    "environment": "Root Meta ACL repair is referenced only by hashed external receipt; package was not rebuilt and no strict gate was relaxed",
+    "constraints": [
+      "No fixture, synthetic roster, empty Grant, direct-open bypass, UE console open, or strict gate disable was used.",
+      "Offline PvE Join Grant is NOT_APPLICABLE_OFFLINE_PVE; online Join Grant remains NOT_RUN.",
+      "The later server PlayerCount=6 includes bot fill and must not be reported as six human participants."
+    ]
+  },
+  "raw_evidence": [
+    {
+      "file": "preflight.json",
+      "bytes": 39258,
+      "sha256": "99484d319eb9aadc790beb79ee179c7d334304d008e77e90c8849154cc3dca35"
+    },
+    {
+      "file": "preflight-summary.log",
+      "bytes": 231,
+      "sha256": "ced0b5200dc98ddc320bd4e53f5420cc86a67d52207bb1daaa8e91eb76ea7e97"
+    },
+    {
+      "file": "r4-after-acl-install-receipt.json",
+      "bytes": 815,
+      "sha256": "32fb80a8dbadbc972763b1906f11d18789726ef21208e5f8a22fd6a3e6c8921d"
+    },
+    {
+      "file": "r4-toolbox-process-launch.log",
+      "bytes": 263,
+      "sha256": "9258907ed46037cba12fd33a7e2274641fca25b6ad06f3dfd98e88e1170b2147"
+    },
+    {
+      "file": "r4-toolbox-ui.log",
+      "bytes": 226,
+      "sha256": "95137ed262af1123880603f8806fbb09ff8dde915a410ce1c6abd5c3ce796889"
+    },
+    {
+      "file": "r4-toolbox-ui.png",
+      "bytes": 639272,
+      "sha256": "6c1af0ea0c69e4a6aa02e0a6d37eb10226e60ad7ea5f5120d97066256f94891d"
+    },
+    {
+      "file": "r4-toolbox-after-bootstrap.log",
+      "bytes": 239,
+      "sha256": "979b5a87a03edd17241f94f87951aa8276c8044d8ec9f651c583163b95f227d7"
+    },
+    {
+      "file": "r4-toolbox-after-bootstrap.png",
+      "bytes": 637666,
+      "sha256": "af4d375c5573bb8ae29bd98d11723ca31156f20649e0614f7ecad735bbc37d3a"
+    },
+    {
+      "file": "ui-action-start-pve-retry.log",
+      "bytes": 427,
+      "sha256": "2dc1921bc6302cf33c585a6382ea2263161c1ba0ae956db606ecc457b8274f39"
+    },
+    {
+      "file": "retry-boundary-role-selection.log",
+      "bytes": 228,
+      "sha256": "5a86ed6f92b7a7af497370f9456d22ac745bb9e3573e68dadaee2d3a76234935"
+    },
+    {
+      "file": "retry-boundary-role-selection.png",
+      "bytes": 3755767,
+      "sha256": "d6eb902ec88052f2bece25b91348e254005afbb0c368489791615cb97c69054c"
+    },
+    {
+      "file": "ui-action-retry2-select-doc.log",
+      "bytes": 420,
+      "sha256": "ba2a2bdc4542238551b9e7a72597784e77ee2ceb87779ef19a41ed440ff6d674"
+    },
+    {
+      "file": "after-retry2-select-doc.png",
+      "bytes": 2797779,
+      "sha256": "ebaf3f1b06d8d3bc9684004d2077266f63ef6885d9bbd815ce33d28581bb9ad5"
+    },
+    {
+      "file": "ui-action-retry2-deploy-doc-physical.log",
+      "bytes": 449,
+      "sha256": "04d3f43ba9b71dba33974256bb90d90ef2a97ad70a4e34c8a71be4436e74d3ec"
+    },
+    {
+      "file": "before-retry2-deploy-doc-physical.png",
+      "bytes": 2800804,
+      "sha256": "7ffe61a9a452812fadd083d11a42963570284bfb74107078f6910ab4ecba50ed"
+    },
+    {
+      "file": "after-retry2-deploy-doc-physical.png",
+      "bytes": 4193075,
+      "sha256": "5fc5c717b94a06bb4a0fae132ae0fcab7d9a8c384b852b1e83baba0946fd4d86"
+    },
+    {
+      "file": "retry2-in-game.log",
+      "bytes": 254,
+      "sha256": "4acf89506754f261f534ac6982a18d8669ffc490ce3d02f8771826015afef8e4"
+    },
+    {
+      "file": "retry2-in-game.png",
+      "bytes": 6801151,
+      "sha256": "0e0c1400720c19546d449f73906481577d7f44388ebbfc8b8382397b6f3a1f9b"
+    },
+    {
+      "file": "retry2-control-after-w.log",
+      "bytes": 262,
+      "sha256": "f2d5c321eae92402c8492d6a65fea518d32db24596d80bd59c96c24190b481f8"
+    },
+    {
+      "file": "retry2-control-after-w.png",
+      "bytes": 4549537,
+      "sha256": "9cb86163be5207742c2395584e96efc621cb2cfe1275fe3d0e03fa6f10ef68c0"
+    },
+    {
+      "file": "raw-client-20260908_163302-final.log",
+      "bytes": 2562,
+      "sha256": "7fcfefc92cdcffcfdee3b027d7ca5f656a9aec3806ee3468de4eb74284f47b4a"
+    },
+    {
+      "file": "raw-server-20260908_163245-final.log",
+      "bytes": 14530,
+      "sha256": "a655692994d1843f675498309b8cdb64b3fd01833b077e821fb0a61bd3feecd1"
+    },
+    {
+      "file": "r4-final-process-cleanup.log",
+      "bytes": 127,
+      "sha256": "878381c29aab5ae7c17823f5636bdfc5009e1582a7ac5c9f375562abc69b640e"
+    },
+    {
+      "file": "root/meta-acl-repair-apply-result.json",
+      "bytes": 1251,
+      "sha256": "4c07a453709f8f26886f5a0a5eebcbe92207752b41198013298132a79f6af7a4"
+    },
+    {
+      "file": "root/actual-meta-acl-after-fix.json",
+      "bytes": 694,
+      "sha256": "8124a076e3737a5a7af46e67e766baa0002544f663654784dd4a9d14726657fb"
+    }
+  ],
+  "external_evidence": {
+    "meta_acl_repair": "root/meta-acl-repair-apply-result.json",
+    "meta_acl_observed": "root/actual-meta-acl-after-fix.json"
+  },
+  "next_step": "Distribute the exact package for multi-machine testing only after independent Steam identities and fresh allocation/Grant evidence are available; this receipt does not mark online multiplayer complete."
+}

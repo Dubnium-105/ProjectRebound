@@ -1,0 +1,1 @@
+{"status": "FAILED_PROBE_NO_MUTATION", "error": "wrong inspected environment key META_REDIS_USERNAME; actual Compose exposes REDIS_USERNAME", "exit_code": 1}
