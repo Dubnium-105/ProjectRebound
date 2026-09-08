@@ -61,6 +61,14 @@ sudo env \
 
 The script builds/pulls only MetaServer, waits for current migration 40, idempotently provisions a restricted PostgreSQL role and `meta:*` Redis ACL user, and executes `up -d --no-deps meta-server`.
 
+Before provisioning, the script renders the merged Compose model, including the
+optional `CONTROL_PLANE_COMPOSE_OVERRIDE_FILE`, and rejects a drifted
+`meta-redis-provision` entrypoint. The effective ACL must use only the
+canonical `~meta:*` key pattern and the required restricted grants, including
+both `+eval` and `+evalsha` for atomic Gate Ticket consumption. An override
+using `!override` must reproduce that complete allowlist; the guard fails
+closed without printing rendered environment values.
+
 `META_MATCH_RESERVATION_TTL_SECONDS` defaults to 90. If no player reaches the assigned Dedicated Server before this deadline, the scheduler fails the reservation, returns a healthy server to `READY`, and releases the Party. Production also requires `META_LOGIC_PROXY_PROTOCOL=true`. The trusted HAProxy/FRP path supplies this header so per-IP limits use the real client address; never expose the PROXY-enabled Logic listener to an untrusted network.
 
 Verify:
