@@ -51,6 +51,7 @@ type loadReport struct {
 	MatchAttemptsStarted   uint64            `json:"match_attempts_started"`
 	MatchAttemptsAborted   uint64            `json:"match_attempts_aborted"`
 	MatchCleanupPending    uint64            `json:"match_cleanup_pending"`
+	MatchCleanupCleared    uint64            `json:"match_cleanup_cleared"`
 	NativeAdmissionStatus  string            `json:"native_admission_status"`
 	RelayAllocations       uint64            `json:"relay_allocations"`
 	RelayAllocationsClosed uint64            `json:"relay_allocations_closed"`
@@ -590,6 +591,9 @@ func validateAuthoritativeMatchReport(report loadReport) error {
 	}
 	if report.MatchCleanupPending != 0 {
 		return fmt.Errorf("match_cleanup_pending=%d after scoped native_process_not_started cleanup", report.MatchCleanupPending)
+	}
+	if report.MatchCleanupCleared != report.MatchAttemptsStarted {
+		return fmt.Errorf("match_cleanup_cleared=%d, attempts_started=%d", report.MatchCleanupCleared, report.MatchAttemptsStarted)
 	}
 	return nil
 }
