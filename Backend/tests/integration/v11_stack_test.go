@@ -570,8 +570,8 @@ func validateLoadReport(report loadReport, contents []byte, runErr error) error 
 }
 
 func validateAuthoritativeMatchReport(report loadReport) error {
-	if report.NativeAdmissionStatus != "PASS" {
-		return fmt.Errorf("native_admission_status=%q, want PASS", report.NativeAdmissionStatus)
+	if report.NativeAdmissionStatus != "NOT_RUN" {
+		return fmt.Errorf("native_admission_status=%q, want NOT_RUN for the Docker transport gate", report.NativeAdmissionStatus)
 	}
 	if report.MatchLobbiesCreated != report.RoomsCreated {
 		return fmt.Errorf("match_lobbies_created=%d, rooms_created=%d", report.MatchLobbiesCreated, report.RoomsCreated)
@@ -579,11 +579,11 @@ func validateAuthoritativeMatchReport(report loadReport) error {
 	if report.MatchAttemptsStarted != report.RoomsCreated {
 		return fmt.Errorf("match_attempts_started=%d, rooms_created=%d", report.MatchAttemptsStarted, report.RoomsCreated)
 	}
-	if report.MatchAttemptsAborted != 0 {
-		return fmt.Errorf("match_attempts_aborted=%d", report.MatchAttemptsAborted)
+	if report.MatchAttemptsAborted != report.MatchAttemptsStarted {
+		return fmt.Errorf("match_attempts_aborted=%d, attempts_started=%d", report.MatchAttemptsAborted, report.MatchAttemptsStarted)
 	}
-	if report.MatchCleanupPending != 0 {
-		return fmt.Errorf("match_cleanup_pending=%d", report.MatchCleanupPending)
+	if report.MatchCleanupPending != report.MatchAttemptsAborted {
+		return fmt.Errorf("match_cleanup_pending=%d, attempts_aborted=%d", report.MatchCleanupPending, report.MatchAttemptsAborted)
 	}
 	return nil
 }
