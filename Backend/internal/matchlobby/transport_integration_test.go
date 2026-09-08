@@ -31,6 +31,11 @@ func TestAuthoritativeTransportAndConnectionScopeAgainstPostgreSQL(t *testing.T)
 	}
 
 	p2pService := p2proom.NewService(p2proom.NewRepository(pool), config.Defaults.P2PRoom)
+	secretBox, _, err := p2proom.NewSecretBox("", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p2pService.SetVNT(nil, secretBox)
 	battleLogService := p2pbattlelog.NewService(p2pbattlelog.NewRepository(pool), config.Defaults.P2PBattleLog)
 	p2pService.SetMatchLifecycle(battleLogService)
 	matchConfig := config.Defaults.MatchLobby
@@ -58,6 +63,28 @@ func TestAuthoritativeTransportAndConnectionScopeAgainstPostgreSQL(t *testing.T)
 	frozen, _ := createTwoPlayerReadyLobby(t, ctx, service, owner, member, "Transport scope", "integration-transport-scope")
 	if frozen.Attempt == nil {
 		t.Fatal("frozen lobby omitted current attempt")
+	}
+	var authoritySession string
+	if err := pool.QueryRow(ctx, `
+		SELECT authority_session_id FROM match_attempts WHERE id = $1
+	`, frozen.Attempt.AttemptID).Scan(&authoritySession); err != nil {
+		t.Fatal(err)
+	}
+	// The host authority is allowed to keep a still-provisioning managed room
+	// alive. This renews only the authenticated attempt/room lease; it does not
+	// mark Payload installed or claim a native connection.
+	if err := service.P2PAuthorityHeartbeat(ctx, owner, authoritySession, frozen.Attempt.AttemptID); err != nil {
+		t.Fatalf("provisioning authority heartbeat: %v", err)
+	}
+	var attemptState, payloadInstalled string
+	if err := pool.QueryRow(ctx, `
+		SELECT state, CASE WHEN payload_installed_at IS NULL THEN 'false' ELSE 'true' END
+		FROM match_attempts WHERE id = $1
+	`, frozen.Attempt.AttemptID).Scan(&attemptState, &payloadInstalled); err != nil {
+		t.Fatal(err)
+	}
+	if attemptState != string(AttemptProvisioning) || payloadInstalled != "false" {
+		t.Fatalf("provisioning heartbeat changed native readiness state: attempt=%s payload_installed=%s", attemptState, payloadInstalled)
 	}
 	scope := TransportScopeRequest{
 		AttemptID: frozen.Attempt.AttemptID, RosterRevision: frozen.Attempt.RosterRevision,

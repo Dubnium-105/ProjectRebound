@@ -2624,7 +2624,8 @@ func (s *Service) AuthorityHeartbeat(ctx context.Context, authorityID, authority
 		LEFT JOIN match_attempt_roster AS host
 		  ON host.attempt_id = attempt.id AND host.room_role = 'HOST'
 		WHERE attempt.id = $1 AND attempt.authority_id = $2 AND attempt.authority_session_id = $3
-		  AND attempt.state IN ('CONNECTING', 'RUNNING')
+		  AND (attempt.state IN ('CONNECTING', 'RUNNING')
+		       OR (attempt.state = 'PROVISIONING' AND attempt.hosting_kind = 'P2P'))
 		FOR UPDATE OF attempt
 	`, attemptID, authorityID, authoritySession).Scan(
 		&hosting, &lobbyID, &roomID, &reconnecting, &hostLiveCurrent, &hostLiveUnverified,
